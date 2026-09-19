@@ -106,13 +106,13 @@ class Picamera2Backend(CameraBackend):
         from picamera2 import Picamera2
 
         self._picam2 = Picamera2()
-        # Pin RGB888 explicitly on both streams. Left unspecified, `lores` negotiates YUV420
-        # (planar Y then subsampled U/V) since nothing here uses picamera2's own hardware
-        # encoder — we PIL-encode arrays ourselves, so there was never a reason for it to pick
-        # an encoder-friendly format. Treating that planar buffer as interleaved RGB produced a
-        # black-and-white image with the chroma planes showing up as a garbled band in the
-        # bottom third (a YUV420 buffer's total height is 1.5x nominal — that extra half is
-        # exactly a third of the whole thing).
+        # Pin an explicit format on both streams rather than trusting the negotiated default
+        # (unspecified, `lores` picked YUV420 planar — see git history for that bug). "RGB888"
+        # is confirmed correct here, checked directly against picamera2 (not assumed): a
+        # channel-swap test (RGB888 vs BGR888 arrays, compared against each other reversed)
+        # showed RGB888 gives genuine R,G,B order, and a known-neutral white reference in the
+        # same frame comes back neutral (no colour-cast bug either). Do not switch this to
+        # "BGR888" without re-running that check — it was tried and measured wrong.
         self._video_config = self._picam2.create_video_configuration(
             main={"size": MAIN_SIZE, "format": "RGB888"},
             lores={"size": LORES_SIZE, "format": "RGB888"},
@@ -177,16 +177,33 @@ def to_grayscale(frame: np.ndarray) -> np.ndarray:
     return frame[..., 0] * 0.299 + frame[..., 1] * 0.587 + frame[..., 2] * 0.114
 
 
-def laplacian_variance(gray: np.ndarray) -> float:
-    """Sharpness score: variance of the discrete Laplacian. Higher is sharper."""
-    laplacian = (
+def _laplacian(gray: np.ndarray) -> np.ndarray:
+    """Discrete Laplacian at each interior pixel (edges excluded, no padding)."""
+    return (
         -4 * gray[1:-1, 1:-1]
         + gray[:-2, 1:-1]
         + gray[2:, 1:-1]
         + gray[1:-1, :-2]
         + gray[1:-1, 2:]
     )
-    return float(laplacian.var())
+
+
+def laplacian_variance(gray: np.ndarray) -> float:
+    """Sharpness score: variance of the discrete Laplacian. Higher is sharper."""
+    return float(_laplacian(gray).var())
+
+
+PEAKING_THRESHOLD = 30.0  # Laplacian magnitude cutoff for "sharp enough to be in focus"
+PEAKING_COLOR = (255, 0, 255)  # magenta — doesn't occur naturally in a plant/paper/table scene
+
+
+def peaking_overlay(crop: np.ndarray, threshold: float = PEAKING_THRESHOLD) -> np.ndarray:
+    """Highlight high-contrast edges in a bright color, as a visual focus check."""
+    gray = to_grayscale(crop)
+    edge_mask = np.abs(_laplacian(gray)) > threshold
+    overlay = crop.copy()
+    overlay[1:-1, 1:-1][edge_mask] = PEAKING_COLOR
+    return overlay
 
 
 def crop_roi(frame: np.ndarray, x: int, y: int, size: int) -> np.ndarray:
@@ -220,6 +237,7 @@ class CameraManager:
         width, height = MAIN_SIZE
         self._roi = {"x": width // 2, "y": height // 2, "size": DEFAULT_ROI_SIZE}
         self._locked_lens_position: float | None = None
+        self._peaking_enabled = False
 
     @classmethod
     def instance(cls) -> CameraManager:
@@ -274,7 +292,16 @@ class CameraManager:
         with self._call_lock:
             frame = self._backend.capture_array()
         crop = crop_roi(frame, self._roi["x"], self._roi["y"], self._roi["size"])
+        if self._peaking_enabled:
+            crop = peaking_overlay(crop)
         return array_to_jpeg(crop)
+
+    def get_peaking(self) -> dict:
+        return {"enabled": self._peaking_enabled}
+
+    def set_peaking(self, enabled: bool) -> dict:
+        self._peaking_enabled = enabled
+        return self.get_peaking()
 
     def lock_focus(self) -> dict:
         lens_position = self.get_lens_position()

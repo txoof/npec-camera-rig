@@ -112,6 +112,20 @@ def focus_status() -> dict:
     return CameraManager.instance().focus_status()
 
 
+class PeakingSetting(BaseModel):
+    enabled: bool
+
+
+@app.get("/focus/peaking")
+def get_peaking() -> dict:
+    return CameraManager.instance().get_peaking()
+
+
+@app.post("/focus/peaking")
+def set_peaking(setting: PeakingSetting) -> dict:
+    return CameraManager.instance().set_peaking(setting.enabled)
+
+
 @app.post("/focus/lock")
 def lock_focus() -> dict:
     return CameraManager.instance().lock_focus()

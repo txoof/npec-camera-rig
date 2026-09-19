@@ -20,6 +20,12 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
 - [?] **Hailo accelerator** — no `hailortcli`, no PCIe device, no package installed on this OS
       build. Needs HailoRT install and physical seating confirmed. Blocks M5 only, and M5 ships
       with a classical fallback regardless.
+- [?] **Chamber lighting spectrum vs. color accuracy** — a known-yellow object photographs blue
+      under the chamber's grow lighting; checked channel order and white balance in code, both
+      correct (see M1 slice 3 notes) — most likely a lighting-spectrum limitation, not fixable
+      in software. Matters for M5: `ExGSegmenter` (excess-green) depends on color being roughly
+      right. Confirm whether this is visible to the naked eye too, and whether it affects green
+      foliage specifically (not just this one object) before M5 starts.
 
 ---
 
@@ -75,6 +81,20 @@ Sliced so each piece ends with something visible in a browser.
       frame is correct color, no artifact; snapshot/capture/focus-score still work.
 - [x] **Demo:** measured 30 frames in 3s against real hardware = steady 10 fps (our configured
       cap), comfortably over 5 fps. Confirmed real frames, correct `Content-Length` framing.
+- [x] **Investigated (2026-09-19):** Aaron reported a known-yellow object rendering blue in the
+      preview. Checked directly against picamera2 rather than guessing — a channel-swap test
+      (capturing the same scene as `RGB888` and `BGR888`, comparing each against the other
+      reversed) confirms `RGB888` genuinely returns R,G,B channel order (not swapped, despite an
+      initial wrong assumption on my part that it was — reverted a `BGR888` change that would
+      have made this worse, not better). A known-neutral white paper sheet in the same frame
+      also reads back neutral, ruling out a global white-balance cast. The object itself
+      measures blue-dominant (B > G > R) in the raw data either way.
+      **Conclusion: not a software bug as far as this checks** — most likely the chamber's
+      grow lighting has a spectrum narrow enough that a genuinely yellow object doesn't reflect
+      the wavelengths a normal camera expects, which auto white-balance can't fully correct.
+      **Needs Aaron:** confirm by looking at the same object under the camera in normal room
+      light vs. the chamber's grow light. If it still looks blue under the chamber light with
+      the naked eye, this isn't a camera problem to fix at all.
 - [x] Pulled a minimal lens-position slider in from slice 4/5 (Aaron asked to see live preview
       with focusing together) — POST/GET `/controls/lens-position`, no persistence yet. Verified
       against real hardware: write then read-back matches after ~0.5 s settle (camera pipeline
@@ -133,6 +153,11 @@ Sliced so each piece ends with something visible in a browser.
 - [ ] Camera selector in the UI for when multiple cameras are detected. Not needed on the
       current single-camera rig; for a future project/rig with additional cameras.
       *(Aaron, 2026-09-19)*
+- [x] Focus peaking: toggle with a description, highlights high-contrast edges in the magnified
+      crop in magenta. Reuses the existing Laplacian machinery (one shared helper function, one
+      boolean flag, no new modules) rather than a separate subsystem. Verified on real hardware
+      at lens=6.3: dense magenta on the AprilTag edges, matching the 1130 sharpness score at the
+      same position. *(Aaron, 2026-09-19)*
 
 ---
 

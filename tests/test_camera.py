@@ -3,12 +3,14 @@ import pytest
 
 from npec_rig.camera import (
     DEFAULT_LENS_POSITION,
+    PEAKING_COLOR,
     SIMULATED_AUTOFOCUS_POSITION,
     CameraManager,
     SyntheticBackend,
     array_to_jpeg,
     crop_roi,
     laplacian_variance,
+    peaking_overlay,
     to_grayscale,
 )
 
@@ -81,6 +83,20 @@ def test_laplacian_variance_is_higher_for_sharper_pattern() -> None:
     assert laplacian_variance(noisy) > laplacian_variance(flat)
 
 
+def test_peaking_overlay_leaves_a_flat_field_untouched() -> None:
+    flat = np.full((50, 50, 3), 128, dtype=np.uint8)
+    overlay = peaking_overlay(flat)
+    assert np.array_equal(overlay, flat)
+
+
+def test_peaking_overlay_marks_a_sharp_edge() -> None:
+    frame = np.zeros((50, 50, 3), dtype=np.uint8)
+    frame[:, 25:] = 255  # a hard edge down the middle
+    overlay = peaking_overlay(frame, threshold=10.0)
+    assert (overlay == PEAKING_COLOR).any()
+    assert not (overlay == PEAKING_COLOR).all()
+
+
 def test_camera_manager_focus_score_and_roi_crop_do_not_touch_hardware() -> None:
     manager = CameraManager(SyntheticBackend(width=64, height=48))
     manager.set_roi(x=32, y=24, size=16)
@@ -102,6 +118,22 @@ def test_camera_manager_lock_and_unlock_focus() -> None:
 
     status = manager.unlock_focus()
     assert status == {"locked": False, "lens_position": None}
+
+
+def test_camera_manager_peaking_toggle() -> None:
+    manager = CameraManager(SyntheticBackend())
+    assert manager.get_peaking() == {"enabled": False}
+
+    assert manager.set_peaking(True) == {"enabled": True}
+    assert manager.get_peaking() == {"enabled": True}
+
+    # Peaking on a flat synthetic frame shouldn't error and should still produce a JPEG —
+    # SyntheticBackend has no real edges, so the overlay is a no-op here, but the plumbing
+    # (roi_crop_jpeg calling peaking_overlay when enabled) is what's under test.
+    jpeg = manager.roi_crop_jpeg()
+    assert jpeg[:2] == b"\xff\xd8"
+
+    assert manager.set_peaking(False) == {"enabled": False}
 
 
 def test_camera_manager_autofocus() -> None:

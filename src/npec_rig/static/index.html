@@ -79,6 +79,21 @@
     }
     .focus-row { margin-top: 0.5rem; }
     .focus-row label { display: flex; justify-content: space-between; }
+    .peaking-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      max-width: 480px;
+      font-size: 0.85rem;
+      color: #ccc;
+    }
+    .peaking-row input[type="checkbox"] {
+      width: 1.2rem;
+      height: 1.2rem;
+      margin-top: 0.15rem;
+      flex-shrink: 0;
+    }
     .score-row {
       display: flex;
       justify-content: flex-start;
@@ -159,6 +174,14 @@
     </div>
     <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
   </div>
+  <label class="peaking-row">
+    <input type="checkbox" id="peaking-toggle">
+    <span>
+      <strong>Focus peaking</strong> — highlights high-contrast edges in the crop above in
+      magenta. Denser highlighting means sharper focus; use it alongside the sharpness number,
+      not instead of it.
+    </span>
+  </label>
   <div class="score-row">
     <span>Sharpness</span>
     <strong id="score-value">-</strong>
@@ -326,6 +349,22 @@
       setTimeout(pollScore, 300);
     }
     pollScore();
+
+    // --- Focus peaking toggle ---
+    const peakingToggle = document.getElementById("peaking-toggle");
+
+    fetch("/focus/peaking")
+      .then((r) => r.json())
+      .then((data) => { peakingToggle.checked = data.enabled; })
+      .catch(() => {});
+
+    peakingToggle.addEventListener("change", () => {
+      fetch("/focus/peaking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: peakingToggle.checked }),
+      });
+    });
 
     // --- Lock / unlock focus ---
     const lockBtn = document.getElementById("lock-btn");

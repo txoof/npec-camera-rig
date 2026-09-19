@@ -89,6 +89,20 @@ def test_roi_get_and_set() -> None:
     assert response.json() == {"x": 100, "y": 80, "size": 50}
 
 
+def test_peaking_get_and_set() -> None:
+    client = TestClient(app)
+    response = client.get("/focus/peaking")
+    assert response.status_code == 200
+    assert response.json() == {"enabled": False}
+
+    response = client.post("/focus/peaking", json={"enabled": True})
+    assert response.status_code == 200
+    assert response.json() == {"enabled": True}
+
+    response = client.get("/focus/peaking")
+    assert response.json() == {"enabled": True}
+
+
 def test_focus_score_endpoint() -> None:
     client = TestClient(app)
     response = client.get("/focus/score")
