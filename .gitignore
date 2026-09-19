@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Captured data — never commit experiment output
+captures/
+data/captures/
+*.dng
+*.db
+*.db-wal
+*.db-shm
+
+# Local config and secrets
+.env
+*.local.yaml
+config.local.*
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Claude Code worktrees (the old repo had three stale copies; don't repeat that)
+.claude/worktrees/
