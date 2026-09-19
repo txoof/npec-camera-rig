@@ -12,10 +12,30 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
 - [?] **Segmentation model** — what form is it in? Blocks M5, nothing before it.
 - [?] **Capture rate vs storage** — 10/hr is ~29 GB/month, 60/hr is ~170 GB. Decide with retention
       policy and whether an external SSD is needed. Blocks M3.
-- [?] **Tag ID allocation** — reserved 36h11 ranges for 12 tray tags, 4 corner tags, and the
-      calibration sheets. Must not overlap. Blocks M2.
-- [?] **Corner tag placement** — confirm NE/NW/SE/SW are mounted and in frame on the rebuilt rig.
-      Blocks M2.
+- [x] **Tag ID allocation — decided 2026-09-19 (Aaron).** One family, 36h11, for everything;
+      ranges kept configurable rather than hardcoded. **These ranges are arbitrary** — chosen to
+      be non-overlapping and roomy, not measured or derived from anything:
+        - **0–24** — calibration sheets
+        - **25–69** — unallocated buffer, for any future fixed rig-level role
+        - **70s** — corner/reference tags (4 mounted, one currently partially obscured; exact IDs
+          to be confirmed by reading them back once detection is built, rather than transcribed
+          by eye)
+        - **100–586** — tray tags, for experimenters to 3D-print their own (per Aaron's
+          supervisor). 36h11 has 587 IDs total (0–586) by spec — confirm against cv2's actual
+          dictionary size once installed rather than trusting this from memory.
+      **Uniqueness only needs to hold within a chamber**, not across the fleet — up to 15
+      experiments of 12 trays each may run across different chambers using IDs from the same
+      pool with no coordination required between them. Not yet built: rejecting a duplicate tray
+      ID within one chamber's active experiment (a validation step, not a range problem).
+      A second tag family for corners (structural, not just numeric, separation) was considered
+      and deferred — see PLAN.md's "Deferred, with evidence gates" table.
+      **New follow-up:** 3D-printed tray tags are a different physical object from the paper
+      calibration/corner sheets — the 29.3106 mm figure in CLAUDE.md was measured on paper and
+      does not carry over. Needs its own calliper measurement, and a check of detectability
+      (embossed relief vs. flat ink, under the chamber's grow lighting) once a printed sample
+      exists.
+- [x] **Corner tag placement — confirmed 2026-09-19 (Aaron).** Four corner tags mounted on the
+      rebuilt rig's table corners and in frame; one is currently partially obscured.
 - [?] **Digest delivery** — email or web UI only. Blocks M6 only.
 - [?] **Hailo accelerator** — no `hailortcli`, no PCIe device, no package installed on this OS
       build. Needs HailoRT install and physical seating confirmed. Blocks M5 only, and M5 ships
@@ -215,11 +235,32 @@ Sliced so each piece ends with something visible in a browser.
 
 The heart of the project. Do not start before M1 slice 5.
 
-- [ ] Hardware-test skip infrastructure in `tests/conftest.py`: detect camera absence and
-      `pytest.skip()` `hardware`/`hailo`-marked tests, rather than letting them hard-fail on
-      import. Add this alongside M2's first hardware-marked test (AprilTag detection needs real
-      frames to be meaningful), not before. *(Aaron, 2026-09-19)*
-- [ ] AprilTag detection: `cv2.aruco`, `DICT_APRILTAG_36h11`, `CORNER_REFINE_SUBPIX`
+- [x] Hardware-test skip infrastructure in `tests/conftest.py`: `pytest_collection_modifyitems`
+      probes for the real camera (`Picamera2.global_camera_info()`, no open/lock) and Hailo
+      (`hailortcli` on `PATH`), skipping `hardware`/`hailo`-marked tests when absent instead of
+      hard-failing. Registered `trylast` so it only probes hardware that a `hardware`/`hailo`-
+      marked test actually survived `-m` filtering to need — a plain `pytest` (unit tier, the
+      default) never touches the camera, so it can't collide with a live server using it.
+      **Real incident (2026-09-19):** an earlier, unconditional version of this probe did touch
+      the camera on every `pytest` run, and collided with Aaron's live session mid-conversation
+      (transient `V4L2 ... Device or resource busy`, plus an unrelated file-write triggering
+      uvicorn's `--reload` to hang on "waiting for connections to close" until he refreshed the
+      stuck browser tab). Fixed; noted so the same mistake isn't repeated.
+- [x] AprilTag detection: `src/npec_rig/tags.py` — `cv2.aruco`, `DICT_APRILTAG_36h11`, tuned
+      `DetectorParameters` (`CORNER_REFINE_SUBPIX`, `minMarkerPerimeterRate=0.005`, adaptive
+      threshold window 11–91 step 10), reused from the previous rig rather than re-derived.
+      `detect_tags()` returns sorted `TagDetection` (id, corners); `draw_overlay()` for a visual
+      check. Unit tests in `tests/test_tags.py` use `cv2.aruco.generateImageMarker` (known IDs,
+      multi-tag, rotation) — synthetic-but-exact, not a photo, so they test our wrapper code
+      rather than the detector's own algorithm — plus one narrow real-photo smoke test (a small
+      crop with one genuine tag) proving real camera/JPEG output decodes.
+      **Note on process:** an earlier version of this work built four tests against a full bench
+      photo Aaron had left on the table as orientation reference, not curated test data —
+      including an `xfail` encoding a tuned-vs-stock count reversal specific to that photo's
+      unusually dense tag sheets (325+ real tags, per Aaron: 9×25 + 2×20 + 6×9 sheets + corners +
+      stray "garbage" tags). Redone at Aaron's correction: don't treat an incidental scene as
+      ground truth, and don't assert things about detector algorithm quality that aren't ours to
+      test. The full photo was removed from the repo; only the minimal crop remains.
 - [ ] Calibration mode: paper sheets on alternating trays, reaching all four frame corners
 - [ ] Scale field and uncertainty field across the measurement plane
 - [ ] **Holdout coverage test** — build the field from half the tags, predict the other half
