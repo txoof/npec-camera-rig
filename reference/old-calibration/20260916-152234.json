@@ -1,0 +1,359 @@
+{
+  "schema": 1,
+  "calibration_id": "arducam_64mp-20260916-152234",
+  "written_at": "2026-09-16T15:22:34+02:00",
+  "camera": {
+    "id": "0",
+    "model": "arducam_64mp",
+    "model_source": "exif",
+    "port": "CAM0",
+    "device_serial": "ae12ae4d29a8cc51",
+    "with_metadata": 33,
+    "images": 33
+  },
+  "focus": {
+    "lens_position": 6.3,
+    "source": "exif"
+  },
+  "inputs": {
+    "board_images": 28,
+    "table_images": 5,
+    "tag_size_mm": 29.31059488002812,
+    "tag_size_source": "measured",
+    "height_mm_stated": 99.89,
+    "oldest_image": "2026-09-15T14:10:37+02:00",
+    "newest_image": "2026-09-15T14:34:48+02:00"
+  },
+  "lens": {
+    "image_size": [
+      9152,
+      6944
+    ],
+    "camera_matrix": [
+      [
+        6740.576470129855,
+        0.0,
+        4710.776724539255
+      ],
+      [
+        0.0,
+        6760.006731218506,
+        3453.925058815386
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "distortion": [
+      0.07268201249340216,
+      -0.0643319511642353,
+      -0.0007755793467521927,
+      0.0015241716593282363,
+      -0.04034677765667642
+    ],
+    "board": "A4_36H11_30MM_SHEET"
+  },
+  "lens_quality": {
+    "reprojection_rms_px": 1.789755077521589,
+    "focal_std_px": [
+      23.325247703047737,
+      21.94165609901157
+    ],
+    "principal_point_std_px": [
+      17.475693524086843,
+      22.275920248584132
+    ],
+    "focal_spread": 0.004739141154776604,
+    "scale_spread": 9.804026468405257e-05,
+    "splits": 12
+  },
+  "pose": {
+    "plane": {
+      "normal": [
+        0.010702555519177427,
+        -0.047029203935321486,
+        0.998836177399762
+      ],
+      "distance_mm": 1526.3961473451109
+    },
+    "frames": 5,
+    "distance_sigma_mm": 1.9297325472141826,
+    "tilt_sigma_deg": 0.47119725987698624,
+    "marker_counts": [
+      14,
+      14,
+      15,
+      15,
+      14
+    ],
+    "scatter_mm": [
+      16.865086015694565,
+      10.895017316469069,
+      16.18142081681538,
+      15.612199861512508,
+      13.035647231211518
+    ],
+    "height_mm_measured": 116.21199099762862,
+    "warnings": []
+  },
+  "known_bias": {
+    "area_fraction": 0.021,
+    "note": "Unattributed differential between the table's markers and the tray rim's (accuracy-map.md 6.3): the table's behave as though 1.07% smaller, which is 2.1% in area and reads as +16 mm of tray height. It is a BIAS, not noise, so it is not in pose.distance_sigma_mm and does not shrink with more frames. Carry it alongside the sigma, never instead of it."
+  },
+  "tag_baselines": [
+    {
+      "tag_id": 25,
+      "side_mm": 29.26367359560486,
+      "spread_mm": 0.02757655698463864,
+      "frames": 5,
+      "centroid_mm": [
+        795.7809978377687,
+        -419.4226816094667,
+        1510.4664419644257
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 26,
+      "side_mm": 29.498902464239677,
+      "spread_mm": 0.053618288949348114,
+      "frames": 5,
+      "centroid_mm": [
+        450.65214275263753,
+        -413.9535385929882,
+        1507.6444732526463
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 27,
+      "side_mm": 29.8836200986606,
+      "spread_mm": 0.08614483867409263,
+      "frames": 5,
+      "centroid_mm": [
+        52.28363121949078,
+        -404.09474802999114,
+        1478.6920524295851
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 28,
+      "side_mm": 29.477187089459317,
+      "spread_mm": 0.015680050467383078,
+      "frames": 3,
+      "centroid_mm": [
+        -422.6514488442271,
+        -404.2451455001057,
+        1514.8707466740186
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 29,
+      "side_mm": 29.36887673674794,
+      "spread_mm": 0.16058877729438523,
+      "frames": 5,
+      "centroid_mm": [
+        -846.0779630511186,
+        -432.79781339916536,
+        1542.8454861084476
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 30,
+      "side_mm": 28.73029057486435,
+      "spread_mm": 0.04254507332538225,
+      "frames": 5,
+      "centroid_mm": [
+        652.1008493841201,
+        -70.02788575818542,
+        1522.4119129738247
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 31,
+      "side_mm": 29.760517545417816,
+      "spread_mm": 0.01951315488486542,
+      "frames": 5,
+      "centroid_mm": [
+        247.2905173665456,
+        -66.38395440586655,
+        1498.693273321541
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 32,
+      "side_mm": 29.447387639576572,
+      "spread_mm": 0.014868187342462072,
+      "frames": 5,
+      "centroid_mm": [
+        -215.47304110458148,
+        -69.55141559316678,
+        1523.6427507925512
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 33,
+      "side_mm": 29.411678150188145,
+      "spread_mm": 0.05892028114038415,
+      "frames": 5,
+      "centroid_mm": [
+        -549.999018154513,
+        -70.60659139226877,
+        1526.2883681290334
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 34,
+      "side_mm": 29.190278863932463,
+      "spread_mm": 0.062007734746363875,
+      "frames": 4,
+      "centroid_mm": [
+        -834.4939023385402,
+        -55.97490860913308,
+        1541.393988938652
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 35,
+      "side_mm": 28.581960125871554,
+      "spread_mm": 0.054634164550265416,
+      "frames": 5,
+      "centroid_mm": [
+        786.1555963764649,
+        295.246752896842,
+        1548.0069434330765
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 36,
+      "side_mm": 29.1915242465887,
+      "spread_mm": 0.052345230026456496,
+      "frames": 5,
+      "centroid_mm": [
+        448.2206065445422,
+        299.8546578839424,
+        1538.443079054722
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 37,
+      "side_mm": 29.326283071547994,
+      "spread_mm": 0.03098758784413797,
+      "frames": 5,
+      "centroid_mm": [
+        -22.76577092856308,
+        277.4858121975192,
+        1538.7662810158517
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 38,
+      "side_mm": 29.390878279577485,
+      "spread_mm": 0.07551763853648308,
+      "frames": 5,
+      "centroid_mm": [
+        -950.8078575996457,
+        280.0872379989977,
+        1539.1261167144999
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    },
+    {
+      "tag_id": 40,
+      "side_mm": 29.807733881990742,
+      "spread_mm": 0.015055116906662397,
+      "frames": 5,
+      "centroid_mm": [
+        149.4174419867017,
+        -205.87853089124602,
+        1394.417132511786
+      ],
+      "surface_index": 1,
+      "against_height_mm": 99.89
+    },
+    {
+      "tag_id": 41,
+      "side_mm": 29.595845097983805,
+      "spread_mm": 0.02985800521549036,
+      "frames": 5,
+      "centroid_mm": [
+        155.6616046314611,
+        103.08317880681236,
+        1416.55948770085
+      ],
+      "surface_index": 1,
+      "against_height_mm": 99.89
+    },
+    {
+      "tag_id": 42,
+      "side_mm": 29.757992654489744,
+      "spread_mm": 0.03887939783081371,
+      "frames": 5,
+      "centroid_mm": [
+        -75.67073696724218,
+        -196.57142169705816,
+        1401.4685103692211
+      ],
+      "surface_index": 1,
+      "against_height_mm": 99.89
+    },
+    {
+      "tag_id": 43,
+      "side_mm": 29.51314130019664,
+      "spread_mm": 0.05609017848198935,
+      "frames": 5,
+      "centroid_mm": [
+        -79.95995027577861,
+        109.11776684467225,
+        1424.4960694014476
+      ],
+      "surface_index": 1,
+      "against_height_mm": 99.89
+    },
+    {
+      "tag_id": 44,
+      "side_mm": 28.894202771386876,
+      "spread_mm": 0.06481292330228432,
+      "frames": 5,
+      "centroid_mm": [
+        -555.7743139995702,
+        297.44124916078607,
+        1560.6731489661481
+      ],
+      "surface_index": 0,
+      "against_height_mm": 0.0
+    }
+  ],
+  "excluded_tags": {
+    "on_no_surface": [],
+    "on_a_third_surface": [],
+    "on_different_surfaces_in_different_frames": []
+  }
+}
