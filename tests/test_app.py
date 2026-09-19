@@ -78,6 +78,44 @@ def test_lens_position_rejects_out_of_range() -> None:
     assert response.status_code == 422
 
 
+def test_list_controls_returns_available_and_current_values() -> None:
+    client = TestClient(app)
+    response = client.get("/controls")
+    assert response.status_code == 200
+    body = response.json()
+    assert "AnalogueGain" in body["available"]
+    assert "AnalogueGain" in body["values"]
+
+
+def test_set_control_updates_value() -> None:
+    client = TestClient(app)
+    response = client.post("/controls/AnalogueGain", json={"value": 4.0})
+    assert response.status_code == 200
+    assert response.json()["AnalogueGain"] == 4.0
+
+    response = client.get("/controls")
+    assert response.json()["values"]["AnalogueGain"] == 4.0
+
+
+def test_set_control_rejects_unknown_name() -> None:
+    client = TestClient(app)
+    response = client.post("/controls/NotARealControl", json={"value": 1})
+    assert response.status_code == 404
+
+
+def test_set_control_rejects_lens_position_by_name() -> None:
+    # LensPosition has its own dedicated endpoint; not reachable through the generic one.
+    client = TestClient(app)
+    response = client.post("/controls/LensPosition", json={"value": 6.3})
+    assert response.status_code == 404
+
+
+def test_set_control_rejects_out_of_range() -> None:
+    client = TestClient(app)
+    response = client.post("/controls/AnalogueGain", json={"value": 999})
+    assert response.status_code == 422
+
+
 def test_roi_get_and_set() -> None:
     client = TestClient(app)
     response = client.post("/focus/roi", json={"x": 100, "y": 80, "size": 50})

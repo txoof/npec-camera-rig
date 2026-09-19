@@ -5,6 +5,7 @@ from npec_rig.camera import (
     DEFAULT_LENS_POSITION,
     PEAKING_COLOR,
     SIMULATED_AUTOFOCUS_POSITION,
+    SYNTHETIC_CONTROL_RANGES,
     CameraManager,
     SyntheticBackend,
     array_to_jpeg,
@@ -13,6 +14,7 @@ from npec_rig.camera import (
     peaking_overlay,
     to_grayscale,
 )
+from npec_rig.settings import load_settings
 
 pytestmark = pytest.mark.unit
 
@@ -141,3 +143,61 @@ def test_camera_manager_autofocus() -> None:
     result = manager.autofocus()
     assert result == {"success": True, "lens_position": SIMULATED_AUTOFOCUS_POSITION}
     assert manager.get_lens_position() == SIMULATED_AUTOFOCUS_POSITION
+
+
+def test_synthetic_backend_controls_round_trip() -> None:
+    backend = SyntheticBackend()
+    assert backend.available_controls() == SYNTHETIC_CONTROL_RANGES
+    assert backend.get_controls()["AnalogueGain"] == SYNTHETIC_CONTROL_RANGES["AnalogueGain"][2]
+
+    backend.set_control("AnalogueGain", 4.0)
+    assert backend.get_controls()["AnalogueGain"] == 4.0
+
+    # LensPosition is tracked the same way through set_lens_position and set_control —
+    # single source of truth, not two copies of the state.
+    backend.set_control("LensPosition", 6.3)
+    assert backend.get_lens_position() == 6.3
+
+
+def test_camera_manager_set_control_persists_and_returns_current_values() -> None:
+    manager = CameraManager(SyntheticBackend())
+    values = manager.set_control("AnalogueGain", 4.0)
+    assert values["AnalogueGain"] == 4.0
+    assert load_settings()["AnalogueGain"] == 4.0
+
+
+def test_camera_manager_loads_persisted_settings_on_construction() -> None:
+    from npec_rig.settings import save_setting
+
+    save_setting("AnalogueGain", 8.0)
+    save_setting("LensPosition", 6.3)
+
+    manager = CameraManager(SyntheticBackend())
+    assert manager.get_controls()["AnalogueGain"] == 8.0
+    assert manager.get_lens_position() == 6.3
+
+
+def test_camera_manager_set_lens_position_persists() -> None:
+    manager = CameraManager(SyntheticBackend())
+    manager.set_lens_position(6.3)
+    assert load_settings()["LensPosition"] == 6.3
+
+
+def test_apply_persisted_settings_applies_ae_enable_before_dependent_controls() -> None:
+    # On real hardware, AnalogueGain/ExposureTime writes are silently overridden by an active
+    # auto-exposure algorithm — confirmed against the camera, not assumed. SyntheticBackend
+    # doesn't model that interaction, so this locks in the *order* controls are applied in,
+    # which is what actually avoids the race, rather than the hardware behavior itself.
+    from npec_rig.settings import save_setting
+
+    save_setting("AnalogueGain", 4.0)
+    save_setting("AeEnable", False)
+
+    calls: list[str] = []
+    backend = SyntheticBackend()
+    original_set_control = backend.set_control
+    backend.set_control = lambda name, value: (calls.append(name), original_set_control(name, value))[1]
+
+    CameraManager(backend)
+
+    assert calls.index("AeEnable") < calls.index("AnalogueGain")

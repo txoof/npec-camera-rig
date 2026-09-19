@@ -111,10 +111,36 @@ Sliced so each piece ends with something visible in a browser.
       as above. *(Aaron, 2026-09-19)*
 
 ### Slice 4 — Controls and persistence
-- [ ] Control list generated from probed `camera_controls`, not hardcoded
-- [ ] Exposure, gain, AWB, AE on/off; manual lens position
-- [ ] Settings persist in SQLite and survive restart *(the old UI's known gap)*
-- [ ] **Demo:** change exposure, restart the service, setting is still there
+- [x] Control list generated from probed `camera_controls`, not hardcoded. Good thing it isn't:
+      probed live, `LensPosition`'s max read 15.0, then 32.0, then 15.0 again across different
+      probes in the same session; `ExposureTime`'s max varied by two orders of magnitude
+      (66666 vs 122582952) and `AnalogueGain`'s max read both 16.0 and 64.0 — these ranges are
+      config/mode-dependent, not fixed hardware facts. A hardcoded range would have been wrong
+      at least once. Frontend renders whatever `/controls` reports, generically — a checkbox
+      for boolean controls, a slider for numeric ones — so a different camera or firmware
+      changes the UI without a code change.
+- [x] Exposure time, analogue gain, AWB on/off (`AwbEnable`), AE on/off (`AeEnable`); manual
+      lens position (already had dedicated coarse/fine/autofocus UI from slice 5 — its range is
+      now also pulled from this same probe instead of a hardcoded 0–15).
+- [x] Settings persist in SQLite (`/var/lib/npec-rig/rig.db`, table `camera_settings`) and load
+      on startup instead of defaults.
+      **Real bug found and fixed:** `AnalogueGain`/`ExposureTime` writes are silently
+      overridden by the auto-exposure algorithm until `AeEnable` is off — confirmed on real
+      hardware, not assumed. Loading persisted settings in dict order occasionally applied
+      `AnalogueGain` before `AeEnable`, so the gain got immediately overwritten by AE before AE
+      was turned off. Fixed by applying `AeEnable`/`AwbEnable` first, always.
+- [x] **Demo:** verified against real hardware. Set gain 3.5, AWB off, AE off, lens 6.3; stopped
+      and restarted the *application* (not the Pi — Aaron doesn't want reboot tests, a failed
+      one is a 3-hour round trip); after restart, `/controls` showed all four correctly
+      restored, not defaults.
+- Note: while testing this, Aaron was independently using the new controls live in his own
+  browser tab — real concurrent usage, which is a better signal than my own curl checks. Took
+  that as confirmation the UI works, not as noise to filter out.
+- [?] One exposure-time value from testing (11.6 seconds) didn't reapply on restart — likely
+      clamped because it exceeds what the *current streaming mode's* frame duration allows,
+      even though the probed range's max is much larger (that max may be a still-mode-only
+      figure). Not chased further; flagging in case exposure control feels unreliable near the
+      top of its reported range. *(2026-09-19)*
 
 ### Slice 5 — Focus aid
 *(Built ahead of slice 4 at Aaron's request, 2026-09-19 — not the plan order.)*

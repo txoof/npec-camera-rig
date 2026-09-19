@@ -2,7 +2,7 @@ import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -61,7 +61,7 @@ def preview() -> StreamingResponse:
 
 
 class LensPosition(BaseModel):
-    value: float = Field(ge=0.0, le=15.0)
+    value: float
 
 
 @app.get("/controls/lens-position")
@@ -71,8 +71,45 @@ def get_lens_position() -> LensPosition:
 
 @app.post("/controls/lens-position")
 def set_lens_position(position: LensPosition) -> LensPosition:
-    CameraManager.instance().set_lens_position(position.value)
+    manager = CameraManager.instance()
+    # Bounds come from the probed range, not a hardcoded constant — LensPosition's own max
+    # has already been observed to change between probes (15.0, then 32.0).
+    min_value, max_value, _ = manager.available_controls()["LensPosition"]
+    if not min_value <= position.value <= max_value:
+        raise HTTPException(422, f"value must be between {min_value} and {max_value}")
+    manager.set_lens_position(position.value)
     return position
+
+
+class ControlUpdate(BaseModel):
+    value: bool | float
+
+
+@app.get("/controls")
+def list_controls() -> dict:
+    manager = CameraManager.instance()
+    return {"available": manager.available_controls(), "values": manager.get_controls()}
+
+
+@app.post("/controls/{name}")
+def set_control(name: str, update: ControlUpdate) -> dict:
+    manager = CameraManager.instance()
+    available = manager.available_controls()
+    # LensPosition has its own dedicated endpoint above (coarse/fine UI, autofocus) — not
+    # reachable through this generic one.
+    if name == "LensPosition" or name not in available:
+        raise HTTPException(404, f"Unknown control: {name}")
+    min_value, max_value, _ = available[name]
+    value: bool | int | float
+    if isinstance(min_value, bool):
+        value = bool(update.value)
+    elif isinstance(min_value, int):
+        value = int(update.value)
+    else:
+        value = float(update.value)
+    if not isinstance(value, bool) and not (min_value <= value <= max_value):
+        raise HTTPException(422, f"value must be between {min_value} and {max_value}")
+    return manager.set_control(name, value)
 
 
 @app.post("/focus/autofocus")
