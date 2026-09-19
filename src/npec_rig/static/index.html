@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NPEC Camera Rig</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0.75rem;
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+    }
+    h1 { font-size: 1.1rem; margin: 0 0 0.75rem; }
+    h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
+    .focus-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .preview-wrap {
+      position: relative;
+      max-width: 480px;
+    }
+    .preview {
+      display: block;
+      width: 100%;
+      background: #000;
+      cursor: crosshair;
+    }
+    .roi-box {
+      position: absolute;
+      border: 2px solid #f55;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      display: none;
+    }
+    .roi-crop {
+      display: block;
+      width: 100%;
+      max-width: 480px;
+      background: #000;
+      image-rendering: pixelated;
+    }
+    /* Side by side once there's room for both at a readable size; stacked below that. */
+    @media (min-width: 800px) {
+      .focus-layout {
+        flex-direction: row;
+        align-items: flex-start;
+        max-width: 1000px;
+      }
+      .focus-layout .preview-wrap,
+      .focus-layout .roi-crop {
+        flex: 1 1 0;
+        max-width: none;
+        min-width: 0;
+      }
+    }
+    .controls, .focus-section, .capture-section {
+      max-width: 480px;
+      margin-top: 0.75rem;
+    }
+    label { display: block; margin-bottom: 0.25rem; }
+    input[type="range"] {
+      width: 100%;
+      height: 2rem;
+    }
+    input[type="number"] {
+      width: 100%;
+      height: 2.25rem;
+      font-size: 1.1rem;
+      padding: 0.25rem 0.5rem;
+      background: #222;
+      border: 1px solid #444;
+      color: #eee;
+      border-radius: 4px;
+    }
+    .focus-row { margin-top: 0.5rem; }
+    .focus-row label { display: flex; justify-content: space-between; }
+    .score-row {
+      display: flex;
+      justify-content: flex-start;
+      align-items: baseline;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .score-row strong { font-size: 1.5rem; }
+    #score-trace {
+      width: 100%;
+      max-width: 480px;
+      height: 60px;
+      background: #000;
+      display: block;
+      margin-top: 0.25rem;
+    }
+    .lock-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    button {
+      padding: 0.6rem 1rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 4px;
+      background: #369;
+      color: #fff;
+    }
+    button:disabled { opacity: 0.5; }
+    .gallery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .gallery-item { width: 120px; }
+    .gallery-item img {
+      width: 100%;
+      display: block;
+      background: #000;
+    }
+    .gallery-item div {
+      font-size: 0.75rem;
+      color: #aaa;
+      word-break: break-all;
+    }
+    a { color: #6cf; }
+  </style>
+</head>
+<body>
+  <h1>NPEC Camera Rig</h1>
+
+  <div class="controls">
+    <button id="autofocus-btn">Autofocus</button>
+
+    <div class="focus-row">
+      <label for="lens-coarse">Coarse lens position (dioptres)</label>
+      <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
+    </div>
+
+    <div class="focus-row">
+      <label for="lens-fine">Fine adjust <span id="lens-fine-value">.00</span></label>
+      <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
+    </div>
+  </div>
+
+  <h2>Focus aid</h2>
+  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+    Click the live preview to place the focus region. Watch the score below peak while adjusting
+    the lens.
+  </p>
+  <div class="focus-layout">
+    <div class="preview-wrap">
+      <img class="preview" id="preview" src="/preview.mjpg" alt="live camera preview. click to place the focus ROI">
+      <div class="roi-box" id="roi-box"></div>
+    </div>
+    <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
+  </div>
+  <div class="score-row">
+    <span>Sharpness</span>
+    <strong id="score-value">-</strong>
+  </div>
+  <canvas id="score-trace" width="480" height="60"></canvas>
+  <div class="lock-row">
+    <button id="lock-btn">Lock focus</button>
+    <span id="lock-status">not locked</span>
+  </div>
+
+  <h2>Capture</h2>
+  <div class="capture-section">
+    <button id="capture-btn">Capture</button>
+  </div>
+
+  <h2>Recent captures</h2>
+  <div class="gallery" id="gallery"></div>
+
+  <script>
+    const MAIN_WIDTH = 1536;
+    const MAIN_HEIGHT = 1152;
+    const DEFAULT_ROI_SIZE = 200;
+
+    // --- Lens position: autofocus + coarse (whole dioptres) + fine (.00-.99 fraction) ---
+    // The fine slider always spans a fixed .00-.99, left to right — no recentering, no
+    // dynamic range. Coarse holds the whole number; fine holds the fraction; the two just
+    // add together. Typing "6.8" into coarse splits into coarse=6, fine=.80 (80% along the
+    // slider) — what you type is where the slider lands, always the same mapping.
+    const LENS_MIN = 0, LENS_MAX = 15;
+
+    const autofocusBtn = document.getElementById("autofocus-btn");
+    const coarseInput = document.getElementById("lens-coarse");
+    const fineSlider = document.getElementById("lens-fine");
+    const fineValueLabel = document.getElementById("lens-fine-value");
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function applyLensPosition(value) {
+      value = clamp(value, LENS_MIN, LENS_MAX);
+      let whole = Math.floor(value);
+      let fraction = Math.round((value - whole) * 100) / 100;
+      if (fraction >= 1) { // rounding pushed .995+ up to 1.00 — carry it into the whole part
+        whole += 1;
+        fraction = 0;
+      }
+      coarseInput.value = whole;
+      fineSlider.value = fraction;
+      fineValueLabel.textContent = fraction.toFixed(2).slice(1); // "0.80" -> ".80"
+    }
+
+    function currentLensPosition() {
+      return clamp(Number(coarseInput.value) + Number(fineSlider.value), LENS_MIN, LENS_MAX);
+    }
+
+    async function sendLensPosition() {
+      await fetch("/controls/lens-position", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: currentLensPosition() }),
+      });
+    }
+
+    fetch("/controls/lens-position")
+      .then((r) => r.json())
+      .then((data) => applyLensPosition(data.value))
+      .catch(() => {});
+
+    coarseInput.addEventListener("change", () => {
+      const typed = Number(coarseInput.value);
+      if (Number.isNaN(typed)) return;
+      applyLensPosition(typed); // splits a typed "6.8" into coarse=6, fine=.80
+      sendLensPosition();
+    });
+
+    let sendingFine = false;
+    fineSlider.addEventListener("input", () => {
+      fineValueLabel.textContent = Number(fineSlider.value).toFixed(2).slice(1);
+      if (sendingFine) return;
+      sendingFine = true;
+      sendLensPosition().finally(() => { sendingFine = false; });
+    });
+
+    autofocusBtn.addEventListener("click", async () => {
+      autofocusBtn.disabled = true;
+      autofocusBtn.textContent = "Focusing...";
+      try {
+        const r = await fetch("/focus/autofocus", { method: "POST" });
+        const data = await r.json();
+        applyLensPosition(data.lens_position);
+        await sendLensPosition();
+        autofocusBtn.textContent = data.success ? "Autofocus" : "Autofocus (failed — adjust manually)";
+      } finally {
+        autofocusBtn.disabled = false;
+      }
+    });
+
+    // --- ROI selection: click the preview to place the focus region ---
+    const previewImg = document.getElementById("preview");
+    const roiBox = document.getElementById("roi-box");
+
+    function placeRoiBox(relX, relY) {
+      roiBox.style.left = (relX * 100) + "%";
+      roiBox.style.top = (relY * 100) + "%";
+      roiBox.style.width = ((DEFAULT_ROI_SIZE / MAIN_WIDTH) * 100) + "%";
+      roiBox.style.height = ((DEFAULT_ROI_SIZE / MAIN_HEIGHT) * 100) + "%";
+      roiBox.style.display = "block";
+    }
+
+    previewImg.addEventListener("click", (event) => {
+      const rect = previewImg.getBoundingClientRect();
+      const relX = (event.clientX - rect.left) / rect.width;
+      const relY = (event.clientY - rect.top) / rect.height;
+      const x = Math.round(relX * MAIN_WIDTH);
+      const y = Math.round(relY * MAIN_HEIGHT);
+      placeRoiBox(relX, relY);
+      fetch("/focus/roi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ x, y, size: DEFAULT_ROI_SIZE }),
+      });
+    });
+
+    fetch("/focus/roi")
+      .then((r) => r.json())
+      .then((roi) => placeRoiBox(roi.x / MAIN_WIDTH, roi.y / MAIN_HEIGHT))
+      .catch(() => {});
+
+    // --- Sharpness score + trace ---
+    const scoreValue = document.getElementById("score-value");
+    const traceCanvas = document.getElementById("score-trace");
+    const traceCtx = traceCanvas.getContext("2d");
+    const scoreHistory = [];
+    const HISTORY_LEN = 60;
+    let pollingScore = true;
+
+    function drawTrace() {
+      traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+      if (scoreHistory.length < 2) return;
+      const max = Math.max(...scoreHistory, 1);
+      traceCtx.beginPath();
+      scoreHistory.forEach((value, i) => {
+        const x = (i / (HISTORY_LEN - 1)) * traceCanvas.width;
+        const y = traceCanvas.height - (value / max) * traceCanvas.height;
+        if (i === 0) traceCtx.moveTo(x, y); else traceCtx.lineTo(x, y);
+      });
+      traceCtx.strokeStyle = "#6cf";
+      traceCtx.lineWidth = 2;
+      traceCtx.stroke();
+    }
+
+    async function pollScore() {
+      if (!pollingScore) return;
+      try {
+        const r = await fetch("/focus/score");
+        const data = await r.json();
+        scoreValue.textContent = data.score.toFixed(1);
+        scoreHistory.push(data.score);
+        if (scoreHistory.length > HISTORY_LEN) scoreHistory.shift();
+        drawTrace();
+      } catch (e) {
+        // transient network hiccup — try again next tick
+      }
+      setTimeout(pollScore, 300);
+    }
+    pollScore();
+
+    // --- Lock / unlock focus ---
+    const lockBtn = document.getElementById("lock-btn");
+    const lockStatus = document.getElementById("lock-status");
+
+    async function refreshFocusStatus() {
+      const r = await fetch("/focus/status");
+      const data = await r.json();
+      lockStatus.textContent = data.locked
+        ? `locked @ ${data.lens_position.toFixed(1)}`
+        : "not locked";
+      lockBtn.textContent = data.locked ? "Unlock" : "Lock focus";
+    }
+
+    lockBtn.addEventListener("click", async () => {
+      const isLocked = lockBtn.textContent === "Unlock";
+      await fetch(isLocked ? "/focus/unlock" : "/focus/lock", { method: "POST" });
+      refreshFocusStatus();
+    });
+    refreshFocusStatus();
+
+    // --- Capture + gallery ---
+    const captureBtn = document.getElementById("capture-btn");
+    const gallery = document.getElementById("gallery");
+
+    function renderGallery(items) {
+      gallery.innerHTML = items.map((item) => `
+        <div class="gallery-item">
+          <img src="${item.url}" alt="capture ${item.filename}">
+          <div>${item.timestamp ? item.timestamp.replace("T", " ").slice(0, 19) : item.filename}</div>
+        </div>
+      `).join("");
+    }
+
+    async function refreshGallery() {
+      const r = await fetch("/api/captures");
+      renderGallery(await r.json());
+    }
+
+    captureBtn.addEventListener("click", async () => {
+      captureBtn.disabled = true;
+      captureBtn.textContent = "Capturing...";
+      try {
+        await fetch("/capture", { method: "POST" });
+        await refreshGallery();
+      } finally {
+        captureBtn.disabled = false;
+        captureBtn.textContent = "Capture";
+      }
+    });
+    refreshGallery();
+  </script>
+</body>
+</html>

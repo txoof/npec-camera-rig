@@ -13,7 +13,28 @@ Arducam 64MP camera and a Hailo AI accelerator, and serves a web interface direc
 
 ## Status
 
-**Planning complete, implementation not started.** See [PLAN.md](PLAN.md).
+**M1 slice 1 (skeleton) done.** See [PLAN.md](PLAN.md) and [TODO.md](TODO.md).
+
+## Setup
+
+Dependencies are managed with [`uv`](https://docs.astral.sh/uv/). The venv must use the system
+Python interpreter, not one `uv` downloads itself — `picamera2` is a system package, and
+`--system-site-packages` only works if the venv's Python version matches the one it was installed
+against.
+
+```bash
+uv venv --system-site-packages --python /usr/bin/python3 .venv
+uv pip install -e ".[dev]"
+```
+
+Use `uv run` for everything after that — no need to activate the venv:
+
+```bash
+uv run pytest
+uv run uvicorn npec_rig.app:app --reload --host 0.0.0.0 --port 8000
+```
+
+Not yet installed as a systemd service — see `deploy/npec-rig.service`.
 
 ## The one thing to read before contributing
 

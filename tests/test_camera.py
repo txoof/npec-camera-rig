@@ -1,0 +1,111 @@
+import numpy as np
+import pytest
+
+from npec_rig.camera import (
+    DEFAULT_LENS_POSITION,
+    SIMULATED_AUTOFOCUS_POSITION,
+    CameraManager,
+    SyntheticBackend,
+    array_to_jpeg,
+    crop_roi,
+    laplacian_variance,
+    to_grayscale,
+)
+
+pytestmark = pytest.mark.unit
+
+
+def test_synthetic_backend_produces_expected_shape() -> None:
+    backend = SyntheticBackend(width=64, height=48)
+    frame = backend.capture_array()
+    assert frame.shape == (48, 64, 3)
+
+
+def test_synthetic_backend_preview_is_smaller_than_main() -> None:
+    backend = SyntheticBackend(width=64, height=48, preview_width=16, preview_height=12)
+    assert backend.capture_array().shape == (48, 64, 3)
+    assert backend.capture_preview_array().shape == (12, 16, 3)
+
+
+def test_synthetic_backend_lens_position_round_trips() -> None:
+    backend = SyntheticBackend()
+    assert backend.get_lens_position() == DEFAULT_LENS_POSITION
+    backend.set_lens_position(6.3)
+    assert backend.get_lens_position() == 6.3
+
+
+def test_synthetic_backend_autofocus_reports_success_and_lens_position() -> None:
+    backend = SyntheticBackend()
+    success, lens_position = backend.autofocus()
+    assert success is True
+    assert lens_position == SIMULATED_AUTOFOCUS_POSITION
+    assert backend.get_lens_position() == SIMULATED_AUTOFOCUS_POSITION
+
+
+def test_synthetic_backend_capture_full_res_returns_array_and_metadata() -> None:
+    backend = SyntheticBackend(width=64, height=48)
+    array, metadata = backend.capture_full_res()
+    assert array.shape == (48, 64, 3)
+    assert isinstance(metadata, dict)
+
+
+def test_array_to_jpeg_produces_jpeg_bytes() -> None:
+    frame = SyntheticBackend(width=16, height=16).capture_array()
+    data = array_to_jpeg(frame)
+    assert data[:2] == b"\xff\xd8"
+
+
+def test_crop_roi_returns_requested_size_centered_on_point() -> None:
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    crop = crop_roi(frame, x=50, y=50, size=20)
+    assert crop.shape == (20, 20, 3)
+
+
+def test_crop_roi_clamps_to_frame_bounds_near_edges() -> None:
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    crop = crop_roi(frame, x=0, y=0, size=20)
+    assert crop.shape == (20, 20, 3)
+    crop = crop_roi(frame, x=99, y=99, size=20)
+    assert crop.shape == (20, 20, 3)
+
+
+def test_laplacian_variance_is_zero_on_flat_field() -> None:
+    flat = np.full((50, 50), 128.0)
+    assert laplacian_variance(flat) == 0.0
+
+
+def test_laplacian_variance_is_higher_for_sharper_pattern() -> None:
+    rng = np.random.default_rng(0)
+    noisy = to_grayscale(rng.integers(0, 256, size=(50, 50, 3)).astype(np.uint8))
+    flat = to_grayscale(np.full((50, 50, 3), 128, dtype=np.uint8))
+    assert laplacian_variance(noisy) > laplacian_variance(flat)
+
+
+def test_camera_manager_focus_score_and_roi_crop_do_not_touch_hardware() -> None:
+    manager = CameraManager(SyntheticBackend(width=64, height=48))
+    manager.set_roi(x=32, y=24, size=16)
+    assert manager.get_roi() == {"x": 32, "y": 24, "size": 16}
+    score = manager.focus_score()
+    assert isinstance(score, float)
+    jpeg = manager.roi_crop_jpeg()
+    assert jpeg[:2] == b"\xff\xd8"
+
+
+def test_camera_manager_lock_and_unlock_focus() -> None:
+    manager = CameraManager(SyntheticBackend())
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+    manager.set_lens_position(6.3)
+    status = manager.lock_focus()
+    assert status == {"locked": True, "lens_position": 6.3}
+    assert manager.focus_status() == status
+
+    status = manager.unlock_focus()
+    assert status == {"locked": False, "lens_position": None}
+
+
+def test_camera_manager_autofocus() -> None:
+    manager = CameraManager(SyntheticBackend())
+    result = manager.autofocus()
+    assert result == {"success": True, "lens_position": SIMULATED_AUTOFOCUS_POSITION}
+    assert manager.get_lens_position() == SIMULATED_AUTOFOCUS_POSITION

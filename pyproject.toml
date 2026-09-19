@@ -1,0 +1,34 @@
+[project]
+name = "npec-rig"
+version = "0.1.0"
+description = "Plant growth monitoring for an environmental chamber"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "numpy",
+    "pillow",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "httpx",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-m unit"
+markers = [
+    "unit: fast, no hardware, no accelerator (default tier, budget <10s)",
+    "hardware: needs the camera",
+    "hailo: needs the Hailo accelerator",
+    "integration: full pipeline against fixture images",
+    "slow: soak / long-running",
+]
