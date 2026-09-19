@@ -54,8 +54,9 @@ costs the experimenter nothing but the focus step.
 
 **Why 30 mm tray tags are sufficient** — and why not to "improve" them:
 
-Numbers below are derived from the **previous rig's own measured calibration** (camera 1526 mm from
-the table, ~4.4 px/mm at 64MP), not from estimates:
+Numbers below are derived from the **previous rig's measured calibration** (camera 1526 mm from the
+table, ~4.4 px/mm at 64MP). **The rig has since been rebuilt, so re-derive the scale at M2** — but
+the *ratios* between these error sources are what matter here, and those hold:
 
 | Error source | Magnitude |
 |---|---|
@@ -468,19 +469,38 @@ settings. The preview and capture are acceptable, but should NOT be taken as fin
 **Decision: code is REFERENCE ONLY.** We read it to learn what worked on this hardware, then write
 fresh. No file is imported. Assets and measured values *are* harvested.
 
-### RESCUE FIRST — before touching anything (M0)
+### The old project is FROZEN
 
-Two irreplaceable things sit outside the repo and a fresh clone will not carry them:
+**`/home/pi/old/npec_OLD/npec-camera` is not to be modified, moved or deleted.** Read it, don't
+touch it.
 
-1. **`/var/lib/npec-camera/calibrations/arducam_64mp/*.json`** — real measured values: tag size
-   **29.3106 mm**, tray height **99.89 mm**, camera distance **1526.4 mm**, lens position **6.3
-   dioptres**, table tilt 2.76°, plus intrinsics. Copy these out now.
-2. **`tests/data/bench-2026-09-15/`** — 33 real Arducam 64MP frames (359 MB; 28 board, 5 chamber
-   table), with known-good outputs recorded in `tests/data/README.md`. These make the new test
-   suite real instead of synthetic on day one.
+**The rig has since been physically rebuilt into an entirely new setup.** This matters more than it
+first appears — it splits the rescued values into two groups:
 
-Per your decision, these become **pre-filled config defaults that the app makes you confirm during
-calibration** — fast setup, no silently inherited stale value.
+| Still valid (properties of objects) | **Stale (properties of the old geometry)** |
+|---|---|
+| AprilTag size **29.3106 mm** — measured with callipers, travels with the tags | Camera distance 1526.4 mm |
+| Tray height **99.89 mm** stated | Table tilt 2.76° |
+| Sensor 9152 × 6944, Arducam behaviour notes | Lens position 6.3 dioptres |
+| | Intrinsics and distortion coefficients |
+
+Only the left column becomes a **pre-filled config default that the app makes you confirm during
+calibration**. Everything in the right column describes a rig that no longer exists and must be
+re-measured. Carrying those forward would be exactly the silently-inherited stale value the
+confirm-at-setup rule exists to prevent.
+
+The calibration records themselves are already rescued to `reference/old-calibration/` and pushed;
+`/var/lib/npec-camera` has been removed.
+
+### Bench frames — available, not rescued
+
+**`/home/pi/old/npec_OLD/npec-camera/tests/data/bench-2026-09-15/`** holds 33 real Arducam 64MP
+frames (362 MB; 28 board, 5 chamber table) with known-good outputs recorded in its `README.md`.
+
+**These are from the previous rig iteration and are deliberately NOT being copied into this
+project.** They are available at that path if a specific need arises — detector tuning, a
+regression fixture, sanity-checking a decoder — but the geometry in them no longer matches the
+chamber. New fixture images get captured from the current rig during M1.
 
 > **The single most valuable number in that pile: the tags measure 29.31 mm, not the nominal
 > 30 mm.** That is a **2.3% linear, ~4.7% area** systematic error, larger than every other
