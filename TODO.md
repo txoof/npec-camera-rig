@@ -64,6 +64,15 @@ Sliced so each piece ends with something visible in a browser.
       per M0, so `/snapshot.jpg` now serves `main` instead. True full-res capture-to-disk is
       slice 5's job, as a deliberate mode switch, not this continuous stream.
 - [x] MJPEG via `multipart/x-mixed-replace` into a plain `<img>`
+- [x] **Bug fix (2026-09-19):** live preview was black-and-white with a garbled band in the
+      bottom third. Root cause: `lores` stream was left format-unspecified and negotiated
+      YUV420 planar (Y rows, then subsampled U/V rows packed below — that packed section is
+      exactly a third of the total buffer height, matching where the artifact showed up); our
+      code treated that buffer as interleaved RGB. Root cause of *that*: `encode="lores"` was
+      left over from assuming we'd use picamera2's own hardware encoder, which we never do (we
+      PIL-encode ourselves) — removed it and pinned `format: "RGB888"` on both `main` and
+      `lores` explicitly instead of trusting the negotiated default. Verified: fresh preview
+      frame is correct color, no artifact; snapshot/capture/focus-score still work.
 - [x] **Demo:** measured 30 frames in 3s against real hardware = steady 10 fps (our configured
       cap), comfortably over 5 fps. Confirmed real frames, correct `Content-Length` framing.
 - [x] Pulled a minimal lens-position slider in from slice 4/5 (Aaron asked to see live preview

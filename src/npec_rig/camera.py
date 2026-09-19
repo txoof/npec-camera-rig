@@ -106,10 +106,16 @@ class Picamera2Backend(CameraBackend):
         from picamera2 import Picamera2
 
         self._picam2 = Picamera2()
+        # Pin RGB888 explicitly on both streams. Left unspecified, `lores` negotiates YUV420
+        # (planar Y then subsampled U/V) since nothing here uses picamera2's own hardware
+        # encoder — we PIL-encode arrays ourselves, so there was never a reason for it to pick
+        # an encoder-friendly format. Treating that planar buffer as interleaved RGB produced a
+        # black-and-white image with the chroma planes showing up as a garbled band in the
+        # bottom third (a YUV420 buffer's total height is 1.5x nominal — that extra half is
+        # exactly a third of the whole thing).
         self._video_config = self._picam2.create_video_configuration(
-            main={"size": MAIN_SIZE},
-            lores={"size": LORES_SIZE},
-            encode="lores",
+            main={"size": MAIN_SIZE, "format": "RGB888"},
+            lores={"size": LORES_SIZE, "format": "RGB888"},
         )
         self._picam2.configure(self._video_config)
         self._picam2.set_controls({"AfMode": 0, "LensPosition": DEFAULT_LENS_POSITION})
@@ -122,7 +128,7 @@ class Picamera2Backend(CameraBackend):
         return self._picam2.capture_array("lores")
 
     def capture_full_res(self) -> tuple[np.ndarray, dict]:
-        still_config = self._picam2.create_still_configuration()
+        still_config = self._picam2.create_still_configuration(main={"format": "RGB888"})
         self._picam2.stop()
         self._picam2.configure(still_config)
         self._picam2.start()
