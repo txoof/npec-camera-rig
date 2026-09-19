@@ -17,7 +17,10 @@ Sensor modes match `rpicam-hello`, with per-mode exposure limits and crop limits
 **`AfMode` and `LensPosition` are both present:**
 
 - `AfMode`: `(0, 2, 0)` — three states (Manual / Auto / Continuous, default 0 = Manual)
-- `LensPosition`: `(0.0, 15.0, 1.0)` — range 0–15 dioptres, default 1.0
+- `LensPosition`: `(0.0, 15.0, 1.0)` — range 0–15 dioptres, default 1.0, **at this probe's sensor
+  mode only**. M1 slice 4 found this range (and `ExposureTime`'s, `AnalogueGain`'s) changes with
+  the active sensor mode — this reading is a snapshot, not a fixed hardware fact. That's exactly
+  why M1's control list is generated from a live probe at startup, not hardcoded from this file.
 - `AfTrigger`, `AfPause`, `AfRange`, `AfSpeed`, `AfMetering`, `AfWindows` also present
 
 Focus is software-controllable. Manual mode is the default state, which matches what we want

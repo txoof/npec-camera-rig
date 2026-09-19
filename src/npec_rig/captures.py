@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -9,12 +10,16 @@ import numpy as np
 
 from npec_rig.camera import array_to_jpeg
 
+logger = logging.getLogger(__name__)
+
 
 def captures_root() -> Path:
+    """Directory captures are written under, one subdirectory per UTC day."""
     return Path(os.environ.get("NPEC_RIG_CAPTURES_DIR", "/var/lib/npec-rig/captures"))
 
 
 def save_capture(image: np.ndarray, metadata: dict) -> dict:
+    """Write a full-res JPEG plus a JSON sidecar of `metadata`, return the combined record."""
     timestamp = datetime.now(timezone.utc)
     day_dir = captures_root() / timestamp.strftime("%Y-%m-%d")
     day_dir.mkdir(parents=True, exist_ok=True)
@@ -36,6 +41,7 @@ def save_capture(image: np.ndarray, metadata: dict) -> dict:
 
 
 def list_recent_captures(limit: int = 12) -> list[dict]:
+    """Most recent captures first, newest day and newest filename within a day sorting first."""
     root = captures_root()
     if not root.exists():
         return []
@@ -44,7 +50,12 @@ def list_recent_captures(limit: int = 12) -> list[dict]:
     for day_dir in sorted((p for p in root.iterdir() if p.is_dir()), reverse=True):
         for jpeg_path in sorted(day_dir.glob("*.jpg"), reverse=True):
             json_path = jpeg_path.with_suffix(".json")
-            record = json.loads(json_path.read_text()) if json_path.exists() else {}
+            record: dict = {}
+            if json_path.exists():
+                try:
+                    record = json.loads(json_path.read_text())
+                except json.JSONDecodeError:
+                    logger.warning("Corrupt sidecar JSON, skipping metadata: %s", json_path)
             entries.append(
                 {
                     "date": day_dir.name,

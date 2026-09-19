@@ -63,6 +63,11 @@ Sliced so each piece ends with something visible in a browser.
 - [x] FastAPI + uvicorn serving one page
 - [x] pytest with marker infrastructure and `addopts = -m unit`
 - [x] systemd unit, restart-on-failure *(unit file written, not installed/enabled — manual start for now)*
+- [ ] Install/enable the systemd unit and run the reboot-survival checks in PLAN.md's M1 "you
+      verify" line and M3's acceptance bullet. **Deferred, low priority.** Aaron has no physical
+      access to the device right now; a failed reboot is an unrecoverable round trip until he
+      does. Pick this up later, at whichever milestone is testing reboot survival anyway (M3),
+      not as a standalone task. *(Aaron, 2026-09-19)*
 - [x] **Demo:** page loads (verified via curl, 200 OK) and `pytest` runs in 0.44s. Unit file written
       to `deploy/npec-rig.service` but not copied to `/etc/systemd/system` or enabled, per this
       slice's manual-start instruction — reboot survival not tested yet.
@@ -196,6 +201,8 @@ Sliced so each piece ends with something visible in a browser.
 - [ ] Camera selector in the UI for when multiple cameras are detected. Not needed on the
       current single-camera rig; for a future project/rig with additional cameras.
       *(Aaron, 2026-09-19)*
+- [ ] Optional suffix/label on a capture (filename and/or sidecar field), so a specific capture
+      can be told apart from the rest without relying on timestamp alone. *(Aaron, 2026-09-19)*
 - [x] Focus peaking: toggle with a description, highlights high-contrast edges in the magnified
       crop in magenta. Reuses the existing Laplacian machinery (one shared helper function, one
       boolean flag, no new modules) rather than a separate subsystem. Verified on real hardware
@@ -208,6 +215,10 @@ Sliced so each piece ends with something visible in a browser.
 
 The heart of the project. Do not start before M1 slice 5.
 
+- [ ] Hardware-test skip infrastructure in `tests/conftest.py`: detect camera absence and
+      `pytest.skip()` `hardware`/`hailo`-marked tests, rather than letting them hard-fail on
+      import. Add this alongside M2's first hardware-marked test (AprilTag detection needs real
+      frames to be meaningful), not before. *(Aaron, 2026-09-19)*
 - [ ] AprilTag detection: `cv2.aruco`, `DICT_APRILTAG_36h11`, `CORNER_REFINE_SUBPIX`
 - [ ] Calibration mode: paper sheets on alternating trays, reaching all four frame corners
 - [ ] Scale field and uncertainty field across the measurement plane

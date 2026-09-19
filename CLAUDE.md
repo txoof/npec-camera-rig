@@ -6,7 +6,7 @@ Plant growth monitoring for an environmental chamber. Raspberry Pi 5, one top-do
 camera, Hailo AI accelerator. Measures canopy area per growth tray, tracks trays by AprilTag, and
 reports how much to trust each number. Web UI served from the Pi.
 
-`PLAN.md` is the reference. Read only the milestone you are working on, not all 548 lines.
+`PLAN.md` is the reference. Read only the milestone you are working on, not all 568 lines.
 
 ## The governing principle
 
@@ -118,7 +118,7 @@ When using AskUserQuestion, always leave room for a free-text answer.
 - **Old code is reference only.** Read it to learn what worked on this hardware, then write fresh.
 - **No Hailo code, no `.hef`, no segmentation exists anywhere.** M5 starts from nothing, behind a
   `Segmenter` interface with a classical excess-green fallback.
-- **362 MB of bench frames** sit at `old/npec_OLD/npec-camera/tests/data/`. From the previous rig,
+- **362 MB of bench frames** sit at `/home/pi/old/npec_OLD/npec-camera/tests/data/`. From the previous rig,
   so the geometry no longer matches. Available if needed, not copied in.
 
 ## Where things live
@@ -129,7 +129,7 @@ When using AskUserQuestion, always leave room for a free-text answer.
 | `TODO.md` | Actionable items, linked to plan milestones |
 | `reference/old-calibration/` | Rescued measured values from the previous rig |
 | `/var/lib/npec-rig/` | Runtime data: captures, masks, `rig.db` |
-| `/etc/npec-rig/config.yaml` | Per-rig configuration |
+| `/etc/npec-rig/config.yaml` | Per-rig configuration. Planned (PLAN.md's Technical decisions table), not yet implemented — current settings live in env vars and SQLite only |
 
 ## Definition of done
 

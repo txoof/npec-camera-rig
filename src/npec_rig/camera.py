@@ -1,3 +1,7 @@
+"""Camera access: the CameraManager singleton, the picamera2 and synthetic backends, and
+focus scoring (Laplacian variance) used by the focus aid.
+"""
+
 from __future__ import annotations
 
 import io
@@ -36,6 +40,10 @@ SYNTHETIC_CONTROL_RANGES = {
     "LensPosition": (0.0, 15.0, DEFAULT_LENS_POSITION),
 }
 
+# capture_full_res's metadata shape, shared so the synthetic backend can't drift from what real
+# hardware reports — code written against one backend must behave the same on the other.
+SENSOR_METADATA_FIELDS = ("SensorTimestamp", "ExposureTime", "AnalogueGain", "ColourGains", "LensPosition")
+
 
 class CameraBackend(ABC):
     """A source of frames and focus control. Real hardware or synthetic, same interface."""
@@ -54,11 +62,11 @@ class CameraBackend(ABC):
 
     @abstractmethod
     def set_lens_position(self, value: float) -> None:
-        ...
+        """Set manual lens position (dioptres)."""
 
     @abstractmethod
     def get_lens_position(self) -> float:
-        ...
+        """Current lens position (dioptres)."""
 
     @abstractmethod
     def autofocus(self) -> tuple[bool, float]:
@@ -74,7 +82,7 @@ class CameraBackend(ABC):
 
     @abstractmethod
     def set_control(self, name: str, value: object) -> None:
-        ...
+        """Set one named control to value."""
 
 
 class SyntheticBackend(CameraBackend):
@@ -105,7 +113,16 @@ class SyntheticBackend(CameraBackend):
         return self._pattern(self._preview_width, self._preview_height)
 
     def capture_full_res(self) -> tuple[np.ndarray, dict]:
-        return self._pattern(self._width, self._height), {"backend": "synthetic"}
+        # Same key set as Picamera2Backend.capture_full_res (SENSOR_METADATA_FIELDS) — no real
+        # optics to report ColourGains/SensorTimestamp from, so those two are fixed placeholders.
+        metadata = {
+            "SensorTimestamp": 0,
+            "ExposureTime": self._controls["ExposureTime"],
+            "AnalogueGain": self._controls["AnalogueGain"],
+            "ColourGains": (1.0, 1.0),
+            "LensPosition": self._lens_position,
+        }
+        return self._pattern(self._width, self._height), metadata
 
     def set_lens_position(self, value: float) -> None:
         self._lens_position = value
@@ -192,16 +209,7 @@ class Picamera2Backend(CameraBackend):
             self._picam2.stop()
             self._picam2.configure(self._video_config)
             self._picam2.start()
-        sensor_metadata = {
-            key: metadata.get(key)
-            for key in (
-                "SensorTimestamp",
-                "ExposureTime",
-                "AnalogueGain",
-                "ColourGains",
-                "LensPosition",
-            )
-        }
+        sensor_metadata = {key: metadata.get(key) for key in SENSOR_METADATA_FIELDS}
         return array, sensor_metadata
 
     def set_lens_position(self, value: float) -> None:
@@ -376,14 +384,16 @@ class CameraManager:
         return values
 
     def get_roi(self) -> dict:
-        return dict(self._roi)
+        with self._call_lock:
+            return dict(self._roi)
 
     def set_roi(self, x: int, y: int, size: int | None = None) -> dict:
-        self._roi["x"] = x
-        self._roi["y"] = y
-        if size is not None:
-            self._roi["size"] = size
-        return dict(self._roi)
+        with self._call_lock:
+            self._roi["x"] = x
+            self._roi["y"] = y
+            if size is not None:
+                self._roi["size"] = size
+            return dict(self._roi)
 
     def focus_score(self) -> float:
         with self._call_lock:

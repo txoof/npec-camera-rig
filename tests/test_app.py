@@ -116,6 +116,18 @@ def test_set_control_rejects_out_of_range() -> None:
     assert response.status_code == 422
 
 
+def test_set_control_updates_a_bool_control() -> None:
+    # AwbEnable/AeEnable take the isinstance(min_value, bool) branch in set_control, distinct
+    # from the float branch every other control test exercises — untested until now.
+    client = TestClient(app)
+    response = client.post("/controls/AwbEnable", json={"value": False})
+    assert response.status_code == 200
+    assert response.json()["AwbEnable"] is False
+
+    response = client.get("/controls")
+    assert response.json()["values"]["AwbEnable"] is False
+
+
 def test_roi_get_and_set() -> None:
     client = TestClient(app)
     response = client.post("/focus/roi", json={"x": 100, "y": 80, "size": 50})
@@ -125,6 +137,18 @@ def test_roi_get_and_set() -> None:
     response = client.get("/focus/roi")
     assert response.status_code == 200
     assert response.json() == {"x": 100, "y": 80, "size": 50}
+
+
+def test_roi_rejects_negative_coordinates() -> None:
+    client = TestClient(app)
+    response = client.post("/focus/roi", json={"x": -1, "y": 0, "size": 50})
+    assert response.status_code == 422
+
+
+def test_roi_rejects_non_positive_size() -> None:
+    client = TestClient(app)
+    response = client.post("/focus/roi", json={"x": 0, "y": 0, "size": 0})
+    assert response.status_code == 422
 
 
 def test_peaking_get_and_set() -> None:
@@ -145,7 +169,9 @@ def test_focus_score_endpoint() -> None:
     client = TestClient(app)
     response = client.get("/focus/score")
     assert response.status_code == 200
-    assert isinstance(response.json()["score"], float)
+    # SyntheticBackend's pattern is flat, so the score is deterministically zero, not just "a
+    # float" — pin the value.
+    assert response.json()["score"] == 0.0
 
 
 def test_focus_lock_and_unlock() -> None:
@@ -179,3 +205,13 @@ def test_capture_saves_jpeg_and_sidecar_and_appears_in_gallery() -> None:
     assert response.status_code == 200
     filenames = [item["filename"] for item in response.json()]
     assert record["filename"] in filenames
+
+
+def test_api_captures_respects_a_non_default_limit() -> None:
+    client = TestClient(app)
+    for _ in range(3):
+        assert client.post("/capture").status_code == 200
+
+    response = client.get("/api/captures", params={"limit": 2})
+    assert response.status_code == 200
+    assert len(response.json()) == 2

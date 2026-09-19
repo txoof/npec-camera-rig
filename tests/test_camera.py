@@ -4,6 +4,7 @@ import pytest
 from npec_rig.camera import (
     DEFAULT_LENS_POSITION,
     PEAKING_COLOR,
+    SENSOR_METADATA_FIELDS,
     SIMULATED_AUTOFOCUS_POSITION,
     SYNTHETIC_CONTROL_RANGES,
     CameraManager,
@@ -50,7 +51,10 @@ def test_synthetic_backend_capture_full_res_returns_array_and_metadata() -> None
     backend = SyntheticBackend(width=64, height=48)
     array, metadata = backend.capture_full_res()
     assert array.shape == (48, 64, 3)
-    assert isinstance(metadata, dict)
+    # Same key set as Picamera2Backend reports, so code written against one behaves the same
+    # against the other — the whole point of a synthetic backend.
+    assert set(metadata) == set(SENSOR_METADATA_FIELDS)
+    assert metadata["LensPosition"] == DEFAULT_LENS_POSITION
 
 
 def test_array_to_jpeg_produces_jpeg_bytes() -> None:
@@ -103,8 +107,9 @@ def test_camera_manager_focus_score_and_roi_crop_do_not_touch_hardware() -> None
     manager = CameraManager(SyntheticBackend(width=64, height=48))
     manager.set_roi(x=32, y=24, size=16)
     assert manager.get_roi() == {"x": 32, "y": 24, "size": 16}
-    score = manager.focus_score()
-    assert isinstance(score, float)
+    # SyntheticBackend's pattern is flat within any crop, so its Laplacian variance is exactly
+    # zero, not just "some float" — deterministic, so pin the value, not just its type.
+    assert manager.focus_score() == 0.0
     jpeg = manager.roi_crop_jpeg()
     assert jpeg[:2] == b"\xff\xd8"
 
