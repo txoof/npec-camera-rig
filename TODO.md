@@ -29,6 +29,14 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
       a regression. **Check the chamber's lighting conditions/schedule directly.** Matters for
       M5: `ExGSegmenter` (excess-green) depends on color being roughly right and roughly
       constant. *(Aaron, 2026-09-19)*
+- [?] **Minimum-gain policy** — Aaron's supervisor requires minimal `AnalogueGain` at all times.
+      Default is already 1.0 (satisfied as-is). Not yet decided: whether to *enforce* this
+      further — e.g. cap the gain slider's usable max, or bias auto-exposure toward longer
+      exposure time over gain (`AeExposureMode`, unverified whether picamera2 exposes a "long
+      exposure preferred" mode — would need checking against real hardware before building
+      anything, same as the format-string lesson from M1 slice 3). Not built; needs a decision
+      on how strict this should be before doing more than the current default. *(Aaron,
+      2026-09-19)*
 
 ---
 
@@ -141,6 +149,12 @@ Sliced so each piece ends with something visible in a browser.
       even though the probed range's max is much larger (that max may be a still-mode-only
       figure). Not chased further; flagging in case exposure control feels unreliable near the
       top of its reported range. *(2026-09-19)*
+- [x] UI polish on Camera settings (2026-09-19, Aaron): moved below Focus aid, collapsed by
+      default (native `<details>`/`<summary>`, no custom widget); AWB and AE checkboxes shown
+      on one line; exposure time displayed as a fraction of a second (`1/147 s`) instead of raw
+      microseconds — the API still speaks microseconds underneath, this is display-only. Reset
+      the live rig to the stated default policy: auto exposure on, auto white balance on,
+      analogue gain 1.0.
 
 ### Slice 5 — Focus aid
 *(Built ahead of slice 4 at Aaron's request, 2026-09-19 — not the plan order.)*
@@ -236,6 +250,12 @@ The heart of the project. Do not start before M1 slice 5.
       request, never automatically. *(Aaron, 2026-09-19)*
 - [ ] Timelapse: scrub, play, mp4 export
 - [ ] CSV export page: `measurements.csv`, `dwell.csv`, `captures.csv`, `calibration.json`
+- [ ] Nice-to-have, not important: a fuller gallery for browsing captured photos (the slice-5
+      "recent captures" strip only shows the latest few — this would be full browsing/paging).
+      *(Aaron, 2026-09-19)*
+- [ ] Nice-to-have, not important: download captures, single or as a batch. *(Aaron, 2026-09-19)*
+- [ ] Nice-to-have, not important: clear/delete previously captured photos.
+      *(Aaron, 2026-09-19)*
 - [ ] **Acceptance:** 24 h unattended at exactly the expected count · reboot mid-run, resumes ·
       download a CSV and open it · headroom matches `df`
 

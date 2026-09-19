@@ -62,6 +62,30 @@
       max-width: 480px;
       margin-top: 0.75rem;
     }
+    .camera-controls-details {
+      max-width: 480px;
+      margin-top: 1rem;
+    }
+    .camera-controls-details summary {
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0.5rem 0;
+    }
+    .control-pair-row {
+      display: flex;
+      gap: 1.5rem;
+      margin-top: 0.5rem;
+    }
+    .control-pair-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+    }
+    .control-pair-item input[type="checkbox"] {
+      width: 1.2rem;
+      height: 1.2rem;
+    }
     label { display: block; margin-bottom: 0.25rem; }
     input[type="range"] {
       width: 100%;
@@ -162,9 +186,6 @@
     </div>
   </div>
 
-  <h2>Camera settings</h2>
-  <div id="camera-controls" class="camera-controls"></div>
-
   <h2>Focus aid</h2>
   <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
     Click the live preview to place the focus region. Watch the score below peak while adjusting
@@ -194,6 +215,11 @@
     <button id="lock-btn">Lock focus</button>
     <span id="lock-status">not locked</span>
   </div>
+
+  <details class="camera-controls-details">
+    <summary>Camera settings</summary>
+    <div id="camera-controls" class="camera-controls"></div>
+  </details>
 
   <h2>Capture</h2>
   <div class="capture-section">
@@ -254,16 +280,28 @@
 
     // --- Camera settings: rendered from whatever /controls reports, not hardcoded ---
     const CONTROL_LABELS = {
-      ExposureTime: "Exposure time (µs)",
+      ExposureTime: "Exposure time",
       AnalogueGain: "Analogue gain",
       AwbEnable: "Auto white balance",
       AeEnable: "Auto exposure",
     };
+    // AWB and AE are both "auto X" toggles — shown on one line together, not stacked.
+    const PAIRED_CHECKBOX_NAMES = ["AwbEnable", "AeEnable"];
     const cameraControlsEl = document.getElementById("camera-controls");
 
     function controlStep(min, max) {
       const span = max - min;
       return span > 100 ? Math.max(1, Math.round(span / 200)) : Math.max(span / 100, 0.01);
+    }
+
+    function formatExposureTime(microseconds) {
+      const seconds = microseconds / 1e6;
+      if (seconds >= 1) return `${seconds.toFixed(2)} s`;
+      return `1/${Math.round(1 / seconds)} s`;
+    }
+
+    function formatControlValue(name, value) {
+      return name === "ExposureTime" ? formatExposureTime(value) : value;
     }
 
     async function postControl(name, value) {
@@ -276,13 +314,38 @@
 
     function renderControls(available, values) {
       cameraControlsEl.innerHTML = "";
+
+      const pairNames = PAIRED_CHECKBOX_NAMES.filter((name) => name in available);
+      if (pairNames.length) {
+        const row = document.createElement("div");
+        row.className = "control-pair-row";
+        row.innerHTML = pairNames
+          .map((name) => {
+            const checked = values[name] ? " checked" : "";
+            return `<label class="control-pair-item">
+              <input type="checkbox" id="control-${name}"${checked}>
+              <span>${CONTROL_LABELS[name] || name}</span>
+            </label>`;
+          })
+          .join("");
+        pairNames.forEach((name) => {
+          row.querySelector(`#control-${name}`).addEventListener("change", (event) => {
+            postControl(name, event.target.checked);
+          });
+        });
+        cameraControlsEl.appendChild(row);
+      }
+
       for (const [name, range] of Object.entries(available)) {
-        if (name === "LensPosition") continue; // has its own dedicated UI above
+        if (name === "LensPosition" || pairNames.includes(name)) continue;
         const [min, max] = range;
         const value = values[name];
         const row = document.createElement("div");
         const label = CONTROL_LABELS[name] || name;
+
         if (typeof min === "boolean") {
+          // Any boolean control not already paired above (e.g. one a future camera exposes) —
+          // still needs a checkbox, not a broken slider with min=false/max=true.
           row.className = "peaking-row";
           row.innerHTML =
             `<input type="checkbox" id="control-${name}"` + (value ? " checked" : "") + `>` +
@@ -290,22 +353,24 @@
           row.querySelector("input").addEventListener("change", (event) => {
             postControl(name, event.target.checked);
           });
-        } else {
-          row.className = "focus-row";
-          const step = controlStep(min, max);
-          row.innerHTML =
-            `<label for="control-${name}">${label} <span id="control-${name}-value">${value}</span></label>` +
-            `<input type="range" id="control-${name}" min="${min}" max="${max}" step="${step}" value="${value}">`;
-          const input = row.querySelector("input");
-          const valueLabel = row.querySelector(`#control-${name}-value`);
-          let sending = false;
-          input.addEventListener("input", () => {
-            valueLabel.textContent = input.value;
-            if (sending) return;
-            sending = true;
-            postControl(name, Number(input.value)).finally(() => { sending = false; });
-          });
+          cameraControlsEl.appendChild(row);
+          continue;
         }
+
+        row.className = "focus-row";
+        const step = controlStep(min, max);
+        row.innerHTML =
+          `<label for="control-${name}">${label} <span id="control-${name}-value">${formatControlValue(name, value)}</span></label>` +
+          `<input type="range" id="control-${name}" min="${min}" max="${max}" step="${step}" value="${value}">`;
+        const input = row.querySelector("input");
+        const valueLabel = row.querySelector(`#control-${name}-value`);
+        let sending = false;
+        input.addEventListener("input", () => {
+          valueLabel.textContent = formatControlValue(name, Number(input.value));
+          if (sending) return;
+          sending = true;
+          postControl(name, Number(input.value)).finally(() => { sending = false; });
+        });
         cameraControlsEl.appendChild(row);
       }
     }
