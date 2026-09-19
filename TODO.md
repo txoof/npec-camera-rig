@@ -23,9 +23,12 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
 - [?] **Chamber lighting spectrum vs. color accuracy** — a known-yellow object photographs blue
       under the chamber's grow lighting; checked channel order and white balance in code, both
       correct (see M1 slice 3 notes) — most likely a lighting-spectrum limitation, not fixable
-      in software. Matters for M5: `ExGSegmenter` (excess-green) depends on color being roughly
-      right. Confirm whether this is visible to the naked eye too, and whether it affects green
-      foliage specifically (not just this one object) before M5 starts.
+      in software. Aaron confirms earlier captures in the same session showed correct color and
+      later ones didn't, with no code change to `array_to_jpeg`/color handling in between —
+      points at the physical lighting changing (schedule, cycle, or spectrum shift) rather than
+      a regression. **Check the chamber's lighting conditions/schedule directly.** Matters for
+      M5: `ExGSegmenter` (excess-green) depends on color being roughly right and roughly
+      constant. *(Aaron, 2026-09-19)*
 
 ---
 
