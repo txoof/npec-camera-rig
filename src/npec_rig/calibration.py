@@ -9,8 +9,9 @@ against a real capture (see project memory, not committed here).
 The fit is a single tilted plane (relative depth linear in image x, y) -- validated on a real
 capture where a plane explained the observed scale ramp to ~1.8% residual against a ~12% signal.
 `residual_std_pct` is a *global* figure: how much scatter is left after removing that plane, as a
-percentage of the mean scale. PLAN.md's "uncertainty field" calls for *local* scatter among
-neighbouring tags, which this doesn't build yet -- this is the plane-fit diagnostic only.
+percentage of the mean scale. `UncertaintyField` is PLAN.md's *local* uncertainty: at a query
+position, the RMS residual of the k nearest tags to it, so two calibrations with the same global
+residual can still report different confidence in different parts of the frame.
 
 `holdout_coverage_test` is PLAN.md's coverage check: fit on half the tags, predict the other
 half, measure the error -- turns "is there enough coverage" into a number instead of a guess.
@@ -132,6 +133,56 @@ def build_scale_field(
             f"need at least 3 tags with a known size to fit a scale field, got {len(x)}"
         )
     return _fit_plane(x, y, ppm)
+
+
+@dataclass(frozen=True)
+class UncertaintyField:
+    """Local scatter among neighbouring tags -- PLAN.md's "uncertainty field", distinct from
+    `ScaleField.residual_std_pct` (a single global plane-fit number). Built from the same
+    detections as a `ScaleField`: at each tag, how far the plane's prediction was off, as a
+    percentage of that tag's actual scale.
+
+    `local_uncertainty_pct` reports RMS-about-zero of the k nearest tags to a query position, not
+    their standard deviation about each other's mean. A region where every tag agrees with its
+    neighbours but all of them sit 5% off the fitted plane has zero *scatter* but a real 5% error
+    -- std would report that as maximum confidence, which is exactly the honesty-plot failure
+    mode M2's acceptance tests exist to catch. RMS-about-zero reports it as 5% uncertainty
+    instead.
+
+    Uses k-nearest-neighbour by image-plane distance, not a fixed grid -- tags are scattered
+    irregularly across a real calibration sheet, not laid out on a regular lattice.
+    """
+
+    _positions: tuple[tuple[float, float], ...]
+    _residual_pct: tuple[float, ...]
+
+    def local_uncertainty_pct(self, x: float, y: float, k: int = 5) -> float:
+        """RMS-about-zero residual of the k tags nearest to (x, y), as a percentage."""
+        positions = np.array(self._positions)
+        distances = np.linalg.norm(positions - np.array([x, y]), axis=1)
+        nearest = np.argsort(distances)[: min(k, len(distances))]
+        residuals = np.array(self._residual_pct)[nearest]
+        return float(np.sqrt(np.mean(residuals**2)))
+
+
+def build_uncertainty_field(
+    field: ScaleField, detections: list[TagDetection], tag_sizes_mm: dict[int, float]
+) -> UncertaintyField:
+    """Build an `UncertaintyField` from `field`'s own per-tag residuals.
+
+    Raises ValueError with fewer than 2 usable tags -- with 1, "neighbour scatter" is undefined.
+    """
+    x, y, ppm = _scale_samples(detections, tag_sizes_mm)
+    if len(x) < 2:
+        raise ValueError(
+            f"need at least 2 tags with a known size to build an uncertainty field, got {len(x)}"
+        )
+    predicted = np.array([field.px_per_mm(xi, yi) for xi, yi in zip(x, y)])
+    residual_pct = 100.0 * (ppm - predicted) / predicted
+    return UncertaintyField(
+        _positions=tuple(zip(x.tolist(), y.tolist())),
+        _residual_pct=tuple(residual_pct.tolist()),
+    )
 
 
 def describe_scale_variation(field: ScaleField, positions: list[tuple[float, float]]) -> str:

@@ -6,6 +6,7 @@ from npec_rig.calibration import (
     QuadrantCoverage,
     build_install_report,
     build_scale_field,
+    build_uncertainty_field,
     describe_coverage,
     describe_regional_coverage,
     describe_scale_variation,
@@ -312,3 +313,48 @@ def test_install_report_includes_regional_coverage_lines_when_given() -> None:
     assert report[0].startswith("Scale varies")
     # Whatever regional lines exist (there may be none, if coverage is even) come after.
     assert len(report) == 1 + len(describe_regional_coverage(regional))
+
+
+def test_uncertainty_is_near_zero_when_the_plane_fits_perfectly() -> None:
+    positions = _grid_positions()
+    detections = [_square_detection(tag_id, x, y, 120) for tag_id, (x, y) in enumerate(positions)]
+    sizes = {i: 30.0 for i in range(len(positions))}
+    field = build_scale_field(detections, sizes)
+
+    uncertainty = build_uncertainty_field(field, detections, sizes)
+    assert uncertainty.local_uncertainty_pct(500, 500, k=5) < 0.01
+    assert uncertainty.local_uncertainty_pct(100, 0, k=3) < 0.01
+
+
+def test_uncertainty_reflects_local_bias_even_when_neighbours_agree_with_each_other() -> None:
+    # A local cluster all sharing the same 5% bias relative to the fitted plane: tight agreement
+    # among themselves (std about their own mean ~= 0), but each one really is off by ~5%.
+    # RMS-about-zero must report that as real uncertainty; std-about-the-neighbours'-mean would
+    # hide it entirely -- the exact honesty-plot failure this field exists to avoid.
+    size_mm = 30.0
+    base_positions = _grid_positions()
+    detections = [
+        _square_detection(tag_id, x, y, 4.0 * size_mm) for tag_id, (x, y) in enumerate(base_positions)
+    ]
+    cluster = [(540, 540), (560, 540), (550, 560)]
+    for i, (x, y) in enumerate(cluster):
+        detections.append(_square_detection(100 + i, x, y, 4.0 * 1.05 * size_mm))
+    sizes = {d.tag_id: size_mm for d in detections}
+
+    field = build_scale_field(detections, sizes)
+    uncertainty = build_uncertainty_field(field, detections, sizes)
+
+    near_cluster = uncertainty.local_uncertainty_pct(550, 550, k=3)
+    far_from_cluster = uncertainty.local_uncertainty_pct(100, 0, k=3)
+    assert near_cluster > 3.0
+    assert far_from_cluster < near_cluster
+
+
+def test_uncertainty_field_raises_with_fewer_than_two_usable_tags() -> None:
+    detections = [_square_detection(0, 100, 100, 120)]
+    field = build_scale_field(
+        [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(_grid_positions())],
+        {i: 30.0 for i in range(len(_grid_positions()))},
+    )
+    with pytest.raises(ValueError, match="at least 2"):
+        build_uncertainty_field(field, detections, {0: 30.0})

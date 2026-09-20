@@ -266,11 +266,19 @@ The heart of the project. Do not start before M1 slice 5.
 - [x] **Scale field** — `src/npec_rig/calibration.py`, `build_scale_field()`: fits a single
       tilted-plane model (relative depth linear in image x, y) from `TagDetection`s plus a
       tag_id -> size_mm lookup. `ScaleField.px_per_mm(x, y)` / `.mm_per_px(x, y)` give local
-      scale anywhere in the frame; `residual_std_pct` is a *global* plane-fit diagnostic, not
-      yet the local/neighbour-based uncertainty field PLAN.md describes — that part is still
-      outstanding. Validated against the real 2026-09-19 capture (reproduces the one-off
-      analysis exactly: 1.82% residual). Unit-tested with synthetic detections, no photos as
-      ground truth. *(2026-09-20)*
+      scale anywhere in the frame; `residual_std_pct` is a *global* plane-fit diagnostic.
+      Validated against the real 2026-09-19 capture (reproduces the one-off analysis exactly:
+      1.82% residual). Unit-tested with synthetic detections, no photos as ground truth.
+      *(2026-09-20)*
+- [x] **Uncertainty field (local scatter)** — `UncertaintyField`/`build_uncertainty_field()` in
+      the same module: at a query position, RMS-about-zero (not std about the neighbours' own
+      mean) of the k image-plane-nearest tags' residuals against the fitted plane. k-nearest by
+      distance, not a fixed grid — a real calibration sheet's tags are scattered irregularly.
+      RMS-about-zero matters: a cluster of tags that all agree with *each other* but are all
+      biased the same way off the plane has ~zero scatter about their own mean but a real
+      systematic error — std would report false maximum confidence there, exactly the
+      honesty-plot failure mode M2's acceptance tests exist to catch. Unit-tested with synthetic
+      detections including a deliberately biased local cluster. *(2026-09-20)*
 - [x] **Holdout coverage test** — `holdout_coverage_test()` in the same module: fits on a random
       half of usable tags, predicts the other half, reports mean/max % error. Real-capture
       sanity check: 1.48% mean, 4.29% max. *(2026-09-20)*
