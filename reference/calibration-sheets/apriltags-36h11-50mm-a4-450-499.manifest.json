@@ -13,350 +13,350 @@
       "id": 450,
       "page": 1,
       "center_x_mm": 42.5,
-      "center_y_mm": 211.75,
+      "center_y_mm": 207.55,
       "size_mm": 50.0
     },
     {
       "id": 451,
       "page": 1,
       "center_x_mm": 105.0,
-      "center_y_mm": 211.75,
+      "center_y_mm": 207.55,
       "size_mm": 50.0
     },
     {
       "id": 452,
       "page": 1,
       "center_x_mm": 167.5,
-      "center_y_mm": 211.75,
+      "center_y_mm": 207.55,
       "size_mm": 50.0
     },
     {
       "id": 453,
       "page": 1,
       "center_x_mm": 42.5,
-      "center_y_mm": 145.65,
+      "center_y_mm": 141.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 454,
       "page": 1,
       "center_x_mm": 105.0,
-      "center_y_mm": 145.65,
+      "center_y_mm": 141.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 455,
       "page": 1,
       "center_x_mm": 167.5,
-      "center_y_mm": 145.65,
+      "center_y_mm": 141.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 456,
       "page": 1,
       "center_x_mm": 42.5,
-      "center_y_mm": 79.55000000000001,
+      "center_y_mm": 75.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 457,
       "page": 1,
       "center_x_mm": 105.0,
-      "center_y_mm": 79.55000000000001,
+      "center_y_mm": 75.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 458,
       "page": 1,
       "center_x_mm": 167.5,
-      "center_y_mm": 79.55000000000001,
+      "center_y_mm": 75.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 459,
       "page": 2,
       "center_x_mm": 42.5,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 460,
       "page": 2,
       "center_x_mm": 105.0,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 461,
       "page": 2,
       "center_x_mm": 167.5,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 462,
       "page": 2,
       "center_x_mm": 42.5,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 463,
       "page": 2,
       "center_x_mm": 105.0,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 464,
       "page": 2,
       "center_x_mm": 167.5,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 465,
       "page": 2,
       "center_x_mm": 42.5,
-      "center_y_mm": 113.55000000000001,
+      "center_y_mm": 109.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 466,
       "page": 2,
       "center_x_mm": 105.0,
-      "center_y_mm": 113.55000000000001,
+      "center_y_mm": 109.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 467,
       "page": 2,
       "center_x_mm": 167.5,
-      "center_y_mm": 113.55000000000001,
+      "center_y_mm": 109.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 468,
       "page": 3,
       "center_x_mm": 42.5,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 469,
       "page": 3,
       "center_x_mm": 105.0,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 470,
       "page": 3,
       "center_x_mm": 167.5,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 471,
       "page": 3,
       "center_x_mm": 42.5,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 472,
       "page": 3,
       "center_x_mm": 105.0,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 473,
       "page": 3,
       "center_x_mm": 167.5,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 474,
       "page": 3,
       "center_x_mm": 42.5,
-      "center_y_mm": 113.55000000000001,
+      "center_y_mm": 109.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 475,
       "page": 3,
       "center_x_mm": 105.0,
-      "center_y_mm": 113.55000000000001,
+      "center_y_mm": 109.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 476,
       "page": 3,
       "center_x_mm": 167.5,
-      "center_y_mm": 113.55000000000001,
+      "center_y_mm": 109.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 477,
       "page": 4,
       "center_x_mm": 42.5,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 478,
       "page": 4,
       "center_x_mm": 105.0,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 479,
       "page": 4,
       "center_x_mm": 167.5,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 480,
       "page": 4,
       "center_x_mm": 42.5,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 481,
       "page": 4,
       "center_x_mm": 105.0,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 482,
       "page": 4,
       "center_x_mm": 167.5,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 483,
       "page": 4,
       "center_x_mm": 42.5,
-      "center_y_mm": 113.55000000000001,
+      "center_y_mm": 109.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 484,
       "page": 4,
       "center_x_mm": 105.0,
-      "center_y_mm": 113.55000000000001,
+      "center_y_mm": 109.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 485,
       "page": 4,
       "center_x_mm": 167.5,
-      "center_y_mm": 113.55000000000001,
+      "center_y_mm": 109.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 486,
       "page": 5,
       "center_x_mm": 42.5,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 487,
       "page": 5,
       "center_x_mm": 105.0,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 488,
       "page": 5,
       "center_x_mm": 167.5,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 489,
       "page": 5,
       "center_x_mm": 42.5,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 490,
       "page": 5,
       "center_x_mm": 105.0,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 491,
       "page": 5,
       "center_x_mm": 167.5,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 492,
       "page": 5,
       "center_x_mm": 42.5,
-      "center_y_mm": 113.55000000000001,
+      "center_y_mm": 109.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 493,
       "page": 5,
       "center_x_mm": 105.0,
-      "center_y_mm": 113.55000000000001,
+      "center_y_mm": 109.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 494,
       "page": 5,
       "center_x_mm": 167.5,
-      "center_y_mm": 113.55000000000001,
+      "center_y_mm": 109.35000000000002,
       "size_mm": 50.0
     },
     {
       "id": 495,
       "page": 6,
       "center_x_mm": 42.5,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 496,
       "page": 6,
       "center_x_mm": 105.0,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 497,
       "page": 6,
       "center_x_mm": 167.5,
-      "center_y_mm": 245.75,
+      "center_y_mm": 241.55,
       "size_mm": 50.0
     },
     {
       "id": 498,
       "page": 6,
       "center_x_mm": 42.5,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     },
     {
       "id": 499,
       "page": 6,
       "center_x_mm": 105.0,
-      "center_y_mm": 179.65,
+      "center_y_mm": 175.45000000000002,
       "size_mm": 50.0
     }
   ]

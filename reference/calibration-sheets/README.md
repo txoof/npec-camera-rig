@@ -1,18 +1,22 @@
 # Calibration and corner tag sheets
 
 Generated with `apriltag-gen` (`~/apriltag-gen`, commit
-`61b237d49656d8a66c8dfc3863788c32d4b27b47`), which is a separate dev-time
+`34d076f864ed7c63d1c45e13e84eb6f428b9a2eb`), which is a separate dev-time
 tool — not a runtime dependency of this project. Sizes confirmed by Aaron on
 2026-09-20 (see `TODO.md`'s tag ID allocation entry for the ranges: 300–449
 calibration, 450–499 corner/reference).
 
+Each PDF carries a `--title` on every page ("Calibration Sheet" /
+"Corner / Reference Sheet") — cosmetic only, filenames are unchanged from
+the previous version.
+
 Reproduce with:
 
 ```
-uv run apriltag-gen --start 300 --end 449 -s 30mm \
+uv run apriltag-gen --start 300 --end 449 -s 30mm --title "Calibration Sheet" \
     -o apriltags-36h11-30mm-a4-300-449.pdf --manifest
 
-uv run apriltag-gen --start 450 --end 499 -s 50mm \
+uv run apriltag-gen --start 450 --end 499 -s 50mm --title "Corner / Reference Sheet" \
     -o apriltags-36h11-50mm-a4-450-499.pdf --manifest
 ```
 
