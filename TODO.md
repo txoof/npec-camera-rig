@@ -273,9 +273,15 @@ The heart of the project. Do not start before M1 slice 5.
       ground truth. *(2026-09-20)*
 - [x] **Holdout coverage test** — `holdout_coverage_test()` in the same module: fits on a random
       half of usable tags, predicts the other half, reports mean/max % error. Real-capture
-      sanity check: 1.48% mean, 4.29% max. Only checks a random split, not PLAN.md's fuller ask
-      of spatial attribution ("coverage sufficient" vs "add coverage in the top-left") — that's
-      still outstanding. *(2026-09-20)*
+      sanity check: 1.48% mean, 4.29% max. *(2026-09-20)*
+- [x] **Regional coverage (spatial attribution)** — `regional_coverage_test()`: fits on three
+      quadrants, predicts the fourth, for each of the frame's four quadrants (split at the
+      *frame's* midpoint, not the tag cloud's own median — a median split can never produce an
+      empty quadrant, which would hide the strongest possible "add coverage here" signal).
+      `describe_regional_coverage()` turns that into "add a sheet in the top-left" /
+      "coverage weak in the bottom-left" lines, wired into `build_install_report()`. This is what
+      turns the coverage check into "add coverage in the top-left" rather than just a percentage.
+      Unit-tested with synthetic detections. *(2026-09-20)*
 - [~] **Install report** — `describe_scale_variation()`, `describe_coverage()`,
       `build_install_report()` in `calibration.py`. Scale variation is evaluated over the
       *observed tag cloud's* bounding box, never the frame -- extrapolating the fitted plane past

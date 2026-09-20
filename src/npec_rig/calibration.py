@@ -14,6 +14,8 @@ neighbouring tags, which this doesn't build yet -- this is the plane-fit diagnos
 
 `holdout_coverage_test` is PLAN.md's coverage check: fit on half the tags, predict the other
 half, measure the error -- turns "is there enough coverage" into a number instead of a guess.
+`regional_coverage_test` answers *where*: fit on three quadrants, predict the fourth, so a report
+can say "add coverage in the top-left" instead of just a single global percentage.
 """
 
 from __future__ import annotations
@@ -62,6 +64,24 @@ class CoverageResult:
     held_out_count: int
     mean_abs_pct_error: float
     max_abs_pct_error: float
+
+
+QUADRANTS = ("top-left", "top-right", "bottom-left", "bottom-right")
+
+
+@dataclass(frozen=True)
+class QuadrantCoverage:
+    """Coverage in one quadrant of the frame, from a fit on every *other* quadrant's tags.
+
+    `mean_abs_pct_error`/`max_abs_pct_error` are None when there's nothing to report: either no
+    tags were observed in this quadrant at all (the strongest possible coverage gap -- "add a
+    sheet here"), or too few tags in the *other three* quadrants to fit a plane to predict with.
+    """
+
+    quadrant: str
+    observed_count: int
+    mean_abs_pct_error: float | None
+    max_abs_pct_error: float | None
 
 
 def _scale_samples(
@@ -159,20 +179,23 @@ def build_install_report(
     field: ScaleField,
     positions: list[tuple[float, float]],
     coverage: CoverageResult | None = None,
+    regional_coverage: tuple[QuadrantCoverage, ...] | None = None,
     *,
     coverage_threshold_pct: float = 2.0,
 ) -> list[str]:
     """Plain-language install report lines, from what's actually been measured so far.
 
-    Deliberately narrow: only scale variation and (when given) coverage sufficiency. Roll, tilt
-    and framing are PLAN.md's other install-report lines, but a roll/tilt angle isn't recoverable
-    from a single photo without a physical standoff-distance measurement Aaron has ruled out (the
-    rig is fragile), and framing needs a real capture's corner-tag/frame-edge check -- neither
-    belongs here yet. No invented figures.
+    Deliberately narrow: scale variation, overall coverage sufficiency, and (when given) which
+    quadrant a coverage gap is in. Roll, tilt and framing are PLAN.md's other install-report
+    lines, but a roll/tilt angle isn't recoverable from a single photo without a physical
+    standoff-distance measurement Aaron has ruled out (the rig is fragile), and framing needs a
+    real capture's corner-tag/frame-edge check -- neither belongs here yet. No invented figures.
     """
     lines = [describe_scale_variation(field, positions)]
     if coverage is not None:
         lines.append(describe_coverage(coverage, threshold_pct=coverage_threshold_pct))
+    if regional_coverage is not None:
+        lines.extend(describe_regional_coverage(regional_coverage, threshold_pct=coverage_threshold_pct))
     return lines
 
 
@@ -210,3 +233,77 @@ def holdout_coverage_test(
         mean_abs_pct_error=float(pct_error.mean()),
         max_abs_pct_error=float(pct_error.max()),
     )
+
+
+def _quadrant_of(x: float, y: float, mid_x: float, mid_y: float) -> str:
+    vertical = "top" if y < mid_y else "bottom"
+    horizontal = "left" if x < mid_x else "right"
+    return f"{vertical}-{horizontal}"
+
+
+def regional_coverage_test(
+    detections: list[TagDetection],
+    tag_sizes_mm: dict[int, float],
+    frame_width: float,
+    frame_height: float,
+) -> tuple[QuadrantCoverage, ...]:
+    """Where coverage is weak, not just how weak overall: fit on every tag *outside* quadrant Q,
+    predict the tags *inside* Q, for each of the frame's four quadrants.
+
+    Quadrants split at the *frame's* midpoint, not the tag cloud's own median -- splitting on the
+    data's own median puts roughly a quarter of the tags in every quadrant by construction, so an
+    empty quadrant (the strongest possible "add coverage here" signal) could never show up. Frame
+    midpoint is a fixed reference the data can actually fail to cover.
+
+    A prediction that lands on a non-physical relative depth (see `ScaleField.px_per_mm`) is
+    itself a coverage failure for that quadrant -- reported as unusable (None), not raised, so one
+    bad quadrant doesn't take down the whole report.
+    """
+    x, y, ppm = _scale_samples(detections, tag_sizes_mm)
+    mid_x, mid_y = frame_width / 2, frame_height / 2
+    quadrant_labels = [_quadrant_of(xi, yi, mid_x, mid_y) for xi, yi in zip(x, y)]
+
+    results = []
+    for label in QUADRANTS:
+        inside = [i for i, q in enumerate(quadrant_labels) if q == label]
+        outside = [i for i, q in enumerate(quadrant_labels) if q != label]
+        if not inside:
+            results.append(QuadrantCoverage(label, 0, None, None))
+            continue
+        if len(outside) < 3:
+            results.append(QuadrantCoverage(label, len(inside), None, None))
+            continue
+        field = _fit_plane(x[outside], y[outside], ppm[outside])
+        try:
+            predicted = np.array([field.px_per_mm(xi, yi) for xi, yi in zip(x[inside], y[inside])])
+        except ValueError:
+            results.append(QuadrantCoverage(label, len(inside), None, None))
+            continue
+        actual = ppm[inside]
+        pct_error = 100.0 * np.abs(predicted - actual) / actual
+        results.append(
+            QuadrantCoverage(label, len(inside), float(pct_error.mean()), float(pct_error.max()))
+        )
+    return tuple(results)
+
+
+def describe_regional_coverage(
+    results: tuple[QuadrantCoverage, ...], *, threshold_pct: float = 2.0
+) -> list[str]:
+    """One line per quadrant that isn't fine -- silent when coverage is even and within target."""
+    lines = []
+    for result in results:
+        if result.observed_count == 0:
+            lines.append(f"No calibration tags in the {result.quadrant} -- add a sheet there.")
+        elif result.mean_abs_pct_error is None:
+            lines.append(
+                f"Can't check coverage in the {result.quadrant} yet -- too little coverage "
+                "elsewhere to predict against."
+            )
+        elif result.mean_abs_pct_error > threshold_pct:
+            lines.append(
+                f"Coverage weak in the {result.quadrant}: holdout error "
+                f"{result.mean_abs_pct_error:.1f}% exceeds the {threshold_pct:.0f}% target -- "
+                "add more coverage there."
+            )
+    return lines

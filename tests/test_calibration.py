@@ -3,11 +3,14 @@ import pytest
 
 from npec_rig.calibration import (
     CoverageResult,
+    QuadrantCoverage,
     build_install_report,
     build_scale_field,
     describe_coverage,
+    describe_regional_coverage,
     describe_scale_variation,
     holdout_coverage_test,
+    regional_coverage_test,
 )
 
 from .helpers import square_detection as _square_detection
@@ -213,3 +216,99 @@ def test_install_report_omits_coverage_line_when_not_given() -> None:
 
     report = build_install_report(field, positions)
     assert len(report) == 1
+
+
+def test_regional_coverage_flags_an_empty_quadrant() -> None:
+    # 3 tags each in top-right, bottom-left, bottom-right; none in top-left.
+    positions = [
+        (700, 100), (1000, 100), (700, 400),  # top-right
+        (100, 700), (100, 1000), (400, 700),  # bottom-left
+        (700, 700), (1000, 1000), (700, 1000),  # bottom-right
+    ]
+    detections = [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(positions)]
+    results = regional_coverage_test(
+        detections, {i: 30.0 for i in range(len(positions))}, frame_width=1100, frame_height=1100
+    )
+
+    by_quadrant = {r.quadrant: r for r in results}
+    assert by_quadrant["top-left"].observed_count == 0
+    assert by_quadrant["top-left"].mean_abs_pct_error is None
+    assert by_quadrant["bottom-right"].observed_count == 3
+
+
+def test_regional_coverage_flags_a_quadrant_the_rest_of_the_field_predicts_badly() -> None:
+    xs = (100, 400, 700, 1000)
+    ys = (0, 333, 667, 1000)
+    positions = [(x, y) for y in ys for x in xs]  # 16 points, matches _grid_positions()
+
+    def ppm(x: float, y: float) -> float:
+        # Flat everywhere except a scale anomaly confined to the bottom-right quadrant.
+        return 4.5 if (x >= 550 and y >= 550) else 4.0
+
+    size_mm = 30.0
+    detections = [
+        _square_detection(tag_id, x, y, ppm(x, y) * size_mm)
+        for tag_id, (x, y) in enumerate(positions)
+    ]
+    results = regional_coverage_test(
+        detections, {i: size_mm for i in range(len(positions))}, frame_width=1100, frame_height=1100
+    )
+
+    by_quadrant = {r.quadrant: r for r in results}
+    bottom_right = by_quadrant["bottom-right"]
+    assert bottom_right.observed_count == 4
+    assert bottom_right.mean_abs_pct_error > 5.0
+
+
+def test_regional_coverage_reports_none_when_too_little_data_to_fit() -> None:
+    positions = [(700, 100), (100, 700), (700, 700)]  # one tag each in 3 quadrants, none top-left
+    detections = [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(positions)]
+    results = regional_coverage_test(
+        detections, {i: 30.0 for i in range(3)}, frame_width=1100, frame_height=1100
+    )
+
+    by_quadrant = {r.quadrant: r for r in results}
+    assert by_quadrant["top-left"].observed_count == 0
+    # top-right has 1 observed tag, but only 2 tags outside it -- not enough to fit a plane.
+    assert by_quadrant["top-right"].observed_count == 1
+    assert by_quadrant["top-right"].mean_abs_pct_error is None
+
+
+def test_describe_regional_coverage_is_silent_when_all_quadrants_are_fine() -> None:
+    results = (
+        QuadrantCoverage("top-left", 4, 0.5, 1.0),
+        QuadrantCoverage("top-right", 4, 0.8, 1.2),
+        QuadrantCoverage("bottom-left", 4, 0.3, 0.9),
+        QuadrantCoverage("bottom-right", 4, 0.6, 1.1),
+    )
+    assert describe_regional_coverage(results, threshold_pct=2.0) == []
+
+
+def test_describe_regional_coverage_names_the_weak_and_empty_quadrants() -> None:
+    results = (
+        QuadrantCoverage("top-left", 0, None, None),
+        QuadrantCoverage("top-right", 4, 0.8, 1.2),
+        QuadrantCoverage("bottom-left", 4, 6.0, 9.0),
+        QuadrantCoverage("bottom-right", 1, None, None),
+    )
+    lines = describe_regional_coverage(results, threshold_pct=2.0)
+    assert any("top-left" in line and "add a sheet" in line for line in lines)
+    assert any("bottom-left" in line and "6.0%" in line for line in lines)
+    assert any("bottom-right" in line and "too little coverage" in line for line in lines)
+    assert not any("top-right" in line for line in lines)
+
+
+def test_install_report_includes_regional_coverage_lines_when_given() -> None:
+    positions = _grid_positions()
+    detections = [
+        _square_detection(tag_id, x, y, 120 + 0.01 * x)
+        for tag_id, (x, y) in enumerate(positions)
+    ]
+    sizes = {i: 30.0 for i in range(len(detections))}
+    field = build_scale_field(detections, sizes)
+    regional = regional_coverage_test(detections, sizes, frame_width=1100, frame_height=1100)
+
+    report = build_install_report(field, positions, None, regional)
+    assert report[0].startswith("Scale varies")
+    # Whatever regional lines exist (there may be none, if coverage is even) come after.
+    assert len(report) == 1 + len(describe_regional_coverage(regional))
