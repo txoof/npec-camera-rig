@@ -344,8 +344,16 @@ The heart of the project. Do not start before M1 slice 5.
       more than that without a concrete reason." `from_dict` rejects an unrecognised version
       rather than guessing at its shape. Round-trip unit-tested, with and without a baseline.
       *(2026-09-20)*
-- [ ] Calibration data lives in its own storage location, separate from experiment captures —
-      it's rig-level state, not per-experiment data. *(Aaron, 2026-09-19)*
+- [x] **Calibration data lives in its own storage location** — new
+      `src/npec_rig/calibration_store.py`: `NPEC_RIG_CALIBRATION_DIR`, defaulting to
+      `/var/lib/npec-rig/calibration/`, separate from `NPEC_RIG_CAPTURES_DIR` — same
+      env-var-with-a-default convention as `settings.py`'s `db_path()` and `captures.py`'s
+      `captures_root()`. Schema-versioned timestamped JSON files plus a `current.json` pointer
+      (both written atomically, write-then-rename), the persistence pattern PLAN.md notes
+      approvingly from the old project (`docs/persistence.md`) — appropriate here since
+      calibration is explicitly "frozen, versioned, exportable," unlike camera settings, which
+      use SQLite instead. Unit-tested (round-trip, current-pointer tracking, listing, isolation
+      from the captures dir). *(2026-09-20)*
 
 ### M2 acceptance — run in the chamber
 - [ ] **Two-baseline test** *(do first)* — two independent calibrations of the same static scene,
