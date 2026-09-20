@@ -13,6 +13,11 @@
   commit-by-commit log.
 - Don't push directly to `main`. Even solo, the branch + PR is what gives the review step
   something to run against.
+- **Push the milestone branch to `origin` after every commit, no batching.** The trigger is the
+  commit, not the size of what's in it — commit at whatever checkpoint already made sense (a
+  TODO item, a bug fix, a slice), then push right away. This is a plain fast-forward push to a
+  private feature branch, never a force-push; it costs nothing and closes the gap where finished
+  work exists only on the Pi's disk.
 
 ## Review before merging
 
