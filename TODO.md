@@ -336,7 +336,14 @@ The heart of the project. Do not start before M1 slice 5.
       untouched, since it describes the *paper-sheet* fit, not this refit). Unit-tested with
       synthetic detections, including a uniform-rescale case and a disagreeing-tags case.
       *(2026-09-20)*
-- [ ] Calibration artifact: versioned, exportable
+- [x] **Calibration artifact: versioned, exportable** — `CalibrationArtifact` +
+      `calibration_artifact_to_dict()`/`_from_dict()` in `calibration.py` (owns `ScaleField`'s
+      private fields, so the codec lives there rather than in a separate module). Plain versioned
+      dict (`version` field, currently 1) bundling the scale field, corner baseline and locked
+      lens position — kept deliberately simple, no schema library, per CLAUDE.md's "don't build
+      more than that without a concrete reason." `from_dict` rejects an unrecognised version
+      rather than guessing at its shape. Round-trip unit-tested, with and without a baseline.
+      *(2026-09-20)*
 - [ ] Calibration data lives in its own storage location, separate from experiment captures —
       it's rig-level state, not per-experiment data. *(Aaron, 2026-09-19)*
 

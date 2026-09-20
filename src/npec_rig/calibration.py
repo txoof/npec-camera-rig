@@ -26,6 +26,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from npec_rig.tags import TagDetection, tag_side_px
+from npec_rig.tripwire import CornerBaseline
 
 
 @dataclass(frozen=True)
@@ -417,3 +418,81 @@ def describe_regional_coverage(
                 "add more coverage there."
             )
     return lines
+
+
+# Calibration artifact: PLAN.md's "calibration is frozen, versioned, exportable." A plain
+# versioned dict is enough -- no need for anything fancier until a concrete need for it shows up.
+CALIBRATION_ARTIFACT_VERSION = 1
+
+
+def scale_field_to_dict(field: ScaleField) -> dict:
+    return {
+        "coeffs": list(field._coeffs),
+        "mean_px_per_mm": field._mean_px_per_mm,
+        "residual_std_pct": field.residual_std_pct,
+    }
+
+
+def scale_field_from_dict(data: dict) -> ScaleField:
+    return ScaleField(
+        _coeffs=tuple(data["coeffs"]),
+        _mean_px_per_mm=data["mean_px_per_mm"],
+        residual_std_pct=data["residual_std_pct"],
+    )
+
+
+@dataclass(frozen=True)
+class CalibrationArtifact:
+    """Everything one setup calibration produces, in one versioned, exportable bundle.
+
+    `corner_baseline` and `lens_position` are optional because a `ScaleField` alone is still a
+    valid, usable artifact (e.g. in tests) -- they're populated by the real calibration workflow
+    once bench access exists to build them.
+    """
+
+    created_at: str  # ISO 8601 timestamp
+    scale_field: ScaleField
+    corner_baseline: CornerBaseline | None = None
+    lens_position: float | None = None
+    version: int = CALIBRATION_ARTIFACT_VERSION
+
+
+def calibration_artifact_to_dict(artifact: CalibrationArtifact) -> dict:
+    data: dict = {
+        "version": artifact.version,
+        "created_at": artifact.created_at,
+        "scale_field": scale_field_to_dict(artifact.scale_field),
+        "lens_position": artifact.lens_position,
+    }
+    if artifact.corner_baseline is not None:
+        data["corner_baseline"] = {
+            str(tag_id): [list(pt) for pt in corners]
+            for tag_id, corners in artifact.corner_baseline.corners_by_id.items()
+        }
+    return data
+
+
+def calibration_artifact_from_dict(data: dict) -> CalibrationArtifact:
+    version = data["version"]
+    if version != CALIBRATION_ARTIFACT_VERSION:
+        raise ValueError(
+            f"unsupported calibration artifact version {version!r}, expected "
+            f"{CALIBRATION_ARTIFACT_VERSION}"
+        )
+
+    corner_baseline = None
+    if "corner_baseline" in data:
+        corner_baseline = CornerBaseline(
+            corners_by_id={
+                int(tag_id): tuple(tuple(pt) for pt in corners)
+                for tag_id, corners in data["corner_baseline"].items()
+            }
+        )
+
+    return CalibrationArtifact(
+        version=version,
+        created_at=data["created_at"],
+        scale_field=scale_field_from_dict(data["scale_field"]),
+        corner_baseline=corner_baseline,
+        lens_position=data.get("lens_position"),
+    )

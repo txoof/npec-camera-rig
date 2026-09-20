@@ -428,3 +428,62 @@ def test_refit_scale_factor_raises_with_no_usable_detections() -> None:
 
     with pytest.raises(ValueError, match="at least 1"):
         refit_scale_factor(frozen, [_square_detection(999, 500, 500, 130)], {90: 30.0})
+
+
+def test_calibration_artifact_round_trips_through_dict() -> None:
+    from npec_rig.calibration import (
+        CalibrationArtifact,
+        calibration_artifact_from_dict,
+        calibration_artifact_to_dict,
+    )
+    from npec_rig.tripwire import CornerBaseline
+
+    field = build_scale_field(
+        [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(_grid_positions())],
+        {i: 30.0 for i in range(len(_grid_positions()))},
+    )
+    baseline = CornerBaseline(
+        corners_by_id={
+            450: ((0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)),
+            451: ((900.0, 0.0), (1000.0, 0.0), (1000.0, 100.0), (900.0, 100.0)),
+        }
+    )
+    artifact = CalibrationArtifact(
+        created_at="2026-09-20T12:00:00+00:00",
+        scale_field=field,
+        corner_baseline=baseline,
+        lens_position=6.3,
+    )
+
+    data = calibration_artifact_to_dict(artifact)
+    assert data["version"] == 1
+    restored = calibration_artifact_from_dict(data)
+
+    assert restored == artifact
+
+
+def test_calibration_artifact_without_a_baseline_round_trips() -> None:
+    from npec_rig.calibration import CalibrationArtifact, calibration_artifact_from_dict, calibration_artifact_to_dict
+
+    field = build_scale_field(
+        [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(_grid_positions())],
+        {i: 30.0 for i in range(len(_grid_positions()))},
+    )
+    artifact = CalibrationArtifact(created_at="2026-09-20T12:00:00+00:00", scale_field=field)
+
+    restored = calibration_artifact_from_dict(calibration_artifact_to_dict(artifact))
+    assert restored == artifact
+    assert restored.corner_baseline is None
+
+
+def test_calibration_artifact_rejects_an_unsupported_version() -> None:
+    from npec_rig.calibration import calibration_artifact_from_dict
+
+    data = {
+        "version": 99,
+        "created_at": "2026-09-20T12:00:00+00:00",
+        "scale_field": {"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 4.0, "residual_std_pct": 0.0},
+        "lens_position": None,
+    }
+    with pytest.raises(ValueError, match="unsupported calibration artifact version"):
+        calibration_artifact_from_dict(data)
