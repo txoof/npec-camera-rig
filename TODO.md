@@ -12,21 +12,22 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
 - [?] **Segmentation model** — what form is it in? Blocks M5, nothing before it.
 - [?] **Capture rate vs storage** — 10/hr is ~29 GB/month, 60/hr is ~170 GB. Decide with retention
       policy and whether an external SSD is needed. Blocks M3.
-- [x] **Tag ID allocation — decided 2026-09-19 (Aaron).** One family, 36h11, for everything;
-      ranges kept configurable rather than hardcoded. **These ranges are arbitrary** — chosen to
-      be non-overlapping and roomy, not measured or derived from anything:
-        - **0–24** — calibration sheets
-        - **25–69** — unallocated buffer, for any future fixed rig-level role
-        - **70s** — corner/reference tags (4 mounted, one currently partially obscured; exact IDs
-          to be confirmed by reading them back once detection is built, rather than transcribed
-          by eye)
-        - **100–586** — tray tags, for experimenters to 3D-print their own (per Aaron's
-          supervisor). 36h11 has 587 IDs total (0–586) by spec — confirm against cv2's actual
-          dictionary size once installed rather than trusting this from memory.
+- [x] **Tag ID allocation — decided 2026-09-20 (Aaron), supersedes the 2026-09-19 allocation.**
+      One family, 36h11, for everything; ranges kept configurable rather than hardcoded. **These
+      ranges are arbitrary** — chosen to be simple for future users, not measured or derived from
+      anything:
+        - **0–299** — tray tags, for experimenters to 3D-print their own (per Aaron's supervisor)
+        - **300–449** — calibration sheets
+        - **450–499** — corner/reference tags (4 mounted, one currently partially obscured; exact
+          IDs to be confirmed by reading them back once detection is built, rather than
+          transcribed by eye)
+        - **500–586** — unallocated buffer, for any future fixed rig-level role. 36h11 has 587
+          IDs total (0–586) — verified against both cv2's dictionary size and moms_apriltag's
+          `TagGenerator2` (see `~/apriltag-gen`), not trusted from memory.
       **Uniqueness only needs to hold within a chamber**, not across the fleet — up to 15
       experiments of 12 trays each may run across different chambers using IDs from the same
-      pool with no coordination required between them. Not yet built: rejecting a duplicate tray
-      ID within one chamber's active experiment (a validation step, not a range problem).
+      pool with no coordination required between them. Duplicate-tray-ID detection within one
+      chamber is its own TODO item, under M4.
       A second tag family for corners (structural, not just numeric, separation) was considered
       and deferred — see PLAN.md's "Deferred, with evidence gates" table.
       **New follow-up:** 3D-printed tray tags are a different physical object from the paper
@@ -262,9 +263,26 @@ The heart of the project. Do not start before M1 slice 5.
       ground truth, and don't assert things about detector algorithm quality that aren't ours to
       test. The full photo was removed from the repo; only the minimal crop remains.
 - [ ] Calibration mode: paper sheets on alternating trays, reaching all four frame corners
-- [ ] Scale field and uncertainty field across the measurement plane
-- [ ] **Holdout coverage test** — build the field from half the tags, predict the other half
+- [x] **Scale field** — `src/npec_rig/calibration.py`, `build_scale_field()`: fits a single
+      tilted-plane model (relative depth linear in image x, y) from `TagDetection`s plus a
+      tag_id -> size_mm lookup. `ScaleField.px_per_mm(x, y)` / `.mm_per_px(x, y)` give local
+      scale anywhere in the frame; `residual_std_pct` is a *global* plane-fit diagnostic, not
+      yet the local/neighbour-based uncertainty field PLAN.md describes — that part is still
+      outstanding. Validated against the real 2026-09-19 capture (reproduces the one-off
+      analysis exactly: 1.82% residual). Unit-tested with synthetic detections, no photos as
+      ground truth. *(2026-09-20)*
+- [x] **Holdout coverage test** — `holdout_coverage_test()` in the same module: fits on a random
+      half of usable tags, predicts the other half, reports mean/max % error. Real-capture
+      sanity check: 1.48% mean, 4.29% max. Only checks a random split, not PLAN.md's fuller ask
+      of spatial attribution ("coverage sufficient" vs "add coverage in the top-left") — that's
+      still outstanding. *(2026-09-20)*
 - [ ] Install report: roll, tilt, framing, scale variation, coverage verdicts in plain language
+- [ ] **Live reorientation guidance** — real-time roll/tilt readout from corner tags on the
+      preview stream (same pattern as M1's focus peaking), for adjusting the rig by hand during
+      physical setup. Directional guidance only — preview resolution is coarser than a full-res
+      capture, so a full-res capture still confirms the final number. Distinct from the install
+      report above: that's a stored one-time artifact, this is an interactive aid, not persisted.
+      *(Aaron, 2026-09-19)*
 - [ ] Health baseline: four corner tags' positions, sizes, homography, locked lens position
 - [ ] Per-capture tripwire: `OK` / `DRIFT` / `FAIL` stamped on every reading
 - [ ] Tray tags re-fit scale **on top of** the frozen field — they do not rebuild it
@@ -316,6 +334,10 @@ The heart of the project. Do not start before M1 slice 5.
 ## M4 — Tray tracking · *PLAN.md § M4*
 
 - [ ] Tray tag → identity, centroid, rotation 0–359°
+- [ ] **Alert on duplicate tray tags within a chamber** — uniqueness only needs to hold within one
+      chamber, not across the fleet (TODO.md's tag ID allocation entry), so nothing stops two
+      trays being 3D-printed with the same ID by mistake. Detect it and tell the experimenter
+      loudly rather than silently merging or misattributing readings. *(Aaron, 2026-09-20)*
 - [ ] Regions: 2 × 6, defined in measurement-plane coordinates, not image pixels
 - [ ] Dwell time per region per tray as a query, not a stored table
 - [ ] Dirty-tag degradation: measure anyway, flag identity unknown, drop from scale solve

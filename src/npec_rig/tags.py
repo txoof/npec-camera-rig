@@ -15,15 +15,16 @@ from npec_rig.camera import to_grayscale
 
 TAG_DICTIONARY = cv2.aruco.DICT_APRILTAG_36h11
 
-# Reserved 36h11 ID ranges (TODO.md, decided 2026-09-19 with Aaron). Arbitrary -- chosen to be
-# non-overlapping and roomy, not measured or derived from anything. Uniqueness only needs to hold
-# within one chamber, not across the fleet: different chambers may reuse the same tray IDs.
-CALIBRATION_ID_RANGE = range(0, 25)
-UNALLOCATED_ID_RANGE = range(25, 70)  # buffer for a future fixed rig-level role
-CORNER_ID_RANGE = range(70, 80)  # 4 tags mounted (one currently partially obscured); exact IDs
+# Reserved 36h11 ID ranges (TODO.md, decided 2026-09-20 with Aaron, superseding the 2026-09-19
+# allocation). Arbitrary -- chosen to be simple for future users, not measured or derived from
+# anything. Uniqueness only needs to hold within one chamber, not across the fleet: different
+# chambers may reuse the same tray IDs.
+TRAY_ID_RANGE = range(0, 300)  # experimenters 3D-print their own
+CALIBRATION_ID_RANGE = range(300, 450)
+CORNER_ID_RANGE = range(450, 500)  # 4 tags mounted (one currently partially obscured); exact IDs
 # confirmed by detection, not by reading them off a photo
-TRAY_ID_RANGE = range(100, 587)  # 587 IDs total in 36h11 (0-586) -- verified against cv2's own
-# dictionary size, not trusted from memory
+RESERVED_ID_RANGE = range(500, 587)  # buffer for a future fixed rig-level role. 587 IDs total in
+# 36h11 (0-586) -- verified against both cv2's dictionary size and moms_apriltag's TagGenerator2
 
 
 def _detector_parameters() -> cv2.aruco.DetectorParameters:
