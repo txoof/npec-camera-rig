@@ -98,7 +98,7 @@ def _scale_samples(
             continue
         xs.append(detection.centre[0])
         ys.append(detection.centre[1])
-        px_per_mm.append(tag_side_px(detection) / size_mm)
+        px_per_mm.append(tag_side_px(detection.corners) / size_mm)
     return np.array(xs), np.array(ys), np.array(px_per_mm)
 
 

@@ -51,10 +51,12 @@ class TagDetection:
     centre: tuple[float, float]
 
 
-def tag_side_px(detection: TagDetection) -> float:
-    """Mean side length of a detected tag's quadrilateral, in pixels."""
-    corners = np.array(detection.corners)
-    return float(np.linalg.norm(corners - np.roll(corners, -1, axis=0), axis=1).mean())
+def tag_side_px(
+    corners: tuple[tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]],
+) -> float:
+    """Mean side length of a tag's quadrilateral corners, in pixels."""
+    array = np.array(corners)
+    return float(np.linalg.norm(array - np.roll(array, -1, axis=0), axis=1).mean())
 
 
 def detect_tags(frame: np.ndarray) -> list[TagDetection]:

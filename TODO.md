@@ -305,8 +305,25 @@ The heart of the project. Do not start before M1 slice 5.
       capture, so a full-res capture still confirms the final number. Distinct from the install
       report above: that's a stored one-time artifact, this is an interactive aid, not persisted.
       *(Aaron, 2026-09-19)*
-- [ ] Health baseline: four corner tags' positions, sizes, homography, locked lens position
-- [ ] Per-capture tripwire: `OK` / `DRIFT` / `FAIL` stamped on every reading
+- [~] **Health baseline** — `CornerBaseline`/`build_corner_baseline()` in the new
+      `src/npec_rig/tripwire.py`: corner tag corners keyed by tag id, built from whatever subset
+      of the (up to 4) mounted corner tags a real calibration actually detects — not assumed to
+      be exactly 4, since one is currently partially obscured (TODO.md). **Not built:** a
+      homography matrix, and locked-lens-position capture/recording as part of this — those need
+      the real calibration workflow (bench access) to wire up meaningfully.
+- [x] **Per-capture tripwire** — `check_tripwire()` in `tripwire.py`: `OK`/`DRIFT`/`FAIL` against
+      a `CornerBaseline`, from Procrustes-fit roll (all 4 corners of each matched corner tag, not
+      just centres) and per-tag size ratio ("near corner tag N is 5% closer"). Missing baseline
+      tag -> `FAIL`, loud; missing a tag the baseline never had -> not a failure (handles the
+      currently-obscured corner tag). Roll here is an in-image rotation between two frames of the
+      *same* rig, not the absolute-tilt angle CLAUDE.md rules out measuring from one photo — no
+      standoff-distance measurement needed, see the module docstring. Thresholds are provisional
+      parameters (default: 1 deg drift / 10 deg fail, 3%/8% scale) set so a deliberate ~5 deg test
+      roll lands as `DRIFT` per PLAN.md's acceptance wording, not tuned to real data yet -- the
+      chamber acceptance tests are the actual measurement. Unit-tested with synthetic baselines
+      and known rotations/scale changes. **Not wired into the real per-capture pipeline** (writing
+      a verdict to the DB on every reading) -- that needs the capture pipeline (M3) and a real
+      baseline (bench access). *(2026-09-20)*
 - [ ] Tray tags re-fit scale **on top of** the frozen field — they do not rebuild it
 - [ ] Calibration artifact: versioned, exportable
 - [ ] Calibration data lives in its own storage location, separate from experiment captures —

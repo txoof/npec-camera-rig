@@ -21,21 +21,22 @@ def square_detection(tag_id: int, cx: float, cy: float, side_px: float) -> TagDe
     return TagDetection(tag_id=tag_id, corners=corners, centre=(cx, cy))
 
 
-def rotated_square_detection(
-    tag_id: int, cx: float, cy: float, side_px: float, angle_deg: float
-) -> TagDetection:
-    """A synthetic tag of known pixel size, centred at (cx, cy), rotated `angle_deg` clockwise in
-    image coordinates (x right, y down) about its own centre.
+def rotate_point(point: tuple[float, float], pivot: tuple[float, float], angle_deg: float) -> tuple[float, float]:
+    """`point` rotated `angle_deg` clockwise in image coordinates (x right, y down) about `pivot`.
+
+    Sign convention verified against a known synthetic rotation in test_tripwire.py, not assumed.
     """
-    half = side_px / 2
-    base = np.array([(-half, -half), (half, -half), (half, half), (-half, half)])
     theta = np.radians(angle_deg)
-    # Clockwise in image coords (y down) is this sign convention -- verified by
-    # test_tripwire.py's known-rotation tests, not assumed.
     rotation = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
-    corners = base @ rotation.T + np.array([cx, cy])
-    return TagDetection(
-        tag_id=tag_id,
-        corners=tuple((float(x), float(y)) for x, y in corners),
-        centre=(cx, cy),
-    )
+    rotated = rotation @ (np.array(point) - np.array(pivot)) + np.array(pivot)
+    return (float(rotated[0]), float(rotated[1]))
+
+
+def rotate_detection(detection: TagDetection, pivot: tuple[float, float], angle_deg: float) -> TagDetection:
+    """`detection` rigidly rotated `angle_deg` about an external `pivot` -- moves both the tag's
+    position and its own orientation, as a whole-scene rotation (e.g. simulated camera roll)
+    would. Use `pivot == detection.centre` to rotate a tag in place instead.
+    """
+    corners = tuple(rotate_point(p, pivot, angle_deg) for p in detection.corners)
+    centre = rotate_point(detection.centre, pivot, angle_deg)
+    return TagDetection(tag_id=detection.tag_id, corners=corners, centre=centre)
