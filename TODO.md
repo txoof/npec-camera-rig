@@ -324,7 +324,18 @@ The heart of the project. Do not start before M1 slice 5.
       and known rotations/scale changes. **Not wired into the real per-capture pipeline** (writing
       a verdict to the DB on every reading) -- that needs the capture pipeline (M3) and a real
       baseline (bench access). *(2026-09-20)*
-- [ ] Tray tags re-fit scale **on top of** the frozen field — they do not rebuild it
+- [x] **Tray tags re-fit scale on top of the frozen field** — `ScaleFactorRefit`/
+      `refit_scale_factor()` in `calibration.py`: keeps the frozen field's shape (plane tilt
+      coefficients) fixed, refits only the multiplicative scale factor from new (e.g. tray-tag)
+      detections. Given a frozen shape, a uniform scale correction is the *only* well-posed
+      degree of freedom left to fit from interior-only points — refitting the tilt too would be
+      degenerate with rescaling, not an independent "perspective correction" (see the docstring
+      for the full argument; re-read PLAN.md's M2 section B paragraph before changing this).
+      Returns `interior_scatter_pct` — how much the new detections disagree with each other —
+      as its own field, distinct from the frozen field's own `residual_std_pct` (which stays
+      untouched, since it describes the *paper-sheet* fit, not this refit). Unit-tested with
+      synthetic detections, including a uniform-rescale case and a disagreeing-tags case.
+      *(2026-09-20)*
 - [ ] Calibration artifact: versioned, exportable
 - [ ] Calibration data lives in its own storage location, separate from experiment captures —
       it's rig-level state, not per-experiment data. *(Aaron, 2026-09-19)*

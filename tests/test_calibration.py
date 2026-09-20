@@ -11,6 +11,7 @@ from npec_rig.calibration import (
     describe_regional_coverage,
     describe_scale_variation,
     holdout_coverage_test,
+    refit_scale_factor,
     regional_coverage_test,
 )
 
@@ -358,3 +359,72 @@ def test_uncertainty_field_raises_with_fewer_than_two_usable_tags() -> None:
     )
     with pytest.raises(ValueError, match="at least 2"):
         build_uncertainty_field(field, detections, {0: 30.0})
+
+
+def test_refit_scale_factor_recovers_a_uniform_change_keeping_shape() -> None:
+    # A frozen field from a genuine tilted plane, built once (the paper calibration).
+    size_mm = 30.0
+    ppm_at_centre = 4.0
+
+    def depth(y: float) -> float:
+        return 1 + 0.1 * (y - 500) / 500
+
+    def ppm(y: float) -> float:
+        return ppm_at_centre / depth(y)
+
+    positions = _grid_positions()
+    detections = [
+        _square_detection(tag_id, x, y, ppm(y) * size_mm) for tag_id, (x, y) in enumerate(positions)
+    ]
+    frozen = build_scale_field(detections, {i: size_mm for i in range(len(positions))})
+
+    # Refocus: everything is now uniformly 10% bigger. Only a few interior tray tags this time.
+    k = 1.10
+    interior_positions = [(400, 400), (700, 400), (400, 667), (700, 667)]
+    tray_detections = [
+        _square_detection(90 + i, x, y, k * ppm(y) * size_mm)
+        for i, (x, y) in enumerate(interior_positions)
+    ]
+    refit = refit_scale_factor(frozen, tray_detections, {90 + i: size_mm for i in range(4)})
+
+    assert refit.interior_scatter_pct == pytest.approx(0.0, abs=1e-6)
+    assert refit.field._coeffs == frozen._coeffs  # shape untouched
+    assert refit.field.residual_std_pct == frozen.residual_std_pct  # global diagnostic untouched
+    # The refit field's scale, anywhere, is exactly k times the frozen field's -- shape preserved.
+    for x, y in [(0, 0), (500, 500), (1000, 1000), (100, 900)]:
+        assert refit.field.px_per_mm(x, y) == pytest.approx(k * frozen.px_per_mm(x, y), rel=1e-6)
+
+
+def test_refit_scale_factor_reports_scatter_when_interior_tags_disagree() -> None:
+    positions = _grid_positions()
+    detections = [_square_detection(tag_id, x, y, 120) for tag_id, (x, y) in enumerate(positions)]
+    frozen = build_scale_field(detections, {i: 30.0 for i in range(len(positions))})
+
+    # Interior tags that don't all imply the same scale factor.
+    noisy = [
+        _square_detection(90, 400, 400, 120),
+        _square_detection(91, 700, 400, 132),  # 10% bigger
+        _square_detection(92, 400, 667, 108),  # 10% smaller
+    ]
+    refit = refit_scale_factor(frozen, noisy, {90: 30.0, 91: 30.0, 92: 30.0})
+
+    assert refit.interior_scatter_pct > 5.0
+    assert refit.field._coeffs == frozen._coeffs
+
+
+def test_refit_scale_factor_with_a_single_tag_has_zero_scatter() -> None:
+    positions = _grid_positions()
+    detections = [_square_detection(tag_id, x, y, 120) for tag_id, (x, y) in enumerate(positions)]
+    frozen = build_scale_field(detections, {i: 30.0 for i in range(len(positions))})
+
+    refit = refit_scale_factor(frozen, [_square_detection(90, 500, 500, 130)], {90: 30.0})
+    assert refit.interior_scatter_pct == 0.0
+
+
+def test_refit_scale_factor_raises_with_no_usable_detections() -> None:
+    positions = _grid_positions()
+    detections = [_square_detection(tag_id, x, y, 120) for tag_id, (x, y) in enumerate(positions)]
+    frozen = build_scale_field(detections, {i: 30.0 for i in range(len(positions))})
+
+    with pytest.raises(ValueError, match="at least 1"):
+        refit_scale_factor(frozen, [_square_detection(999, 500, 500, 130)], {90: 30.0})

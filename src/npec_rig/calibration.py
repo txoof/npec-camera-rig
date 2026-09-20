@@ -136,6 +136,65 @@ def build_scale_field(
 
 
 @dataclass(frozen=True)
+class ScaleFactorRefit:
+    """The result of refitting a frozen field's scale factor from a small set of new detections.
+
+    `interior_scatter_pct` is deliberately its own field, not `field.residual_std_pct` --
+    it means something different (scatter of *these* detections' implied scale factor about
+    their mean), while `field.residual_std_pct` keeps meaning what it means everywhere else in
+    this module: the frozen field's own global plane-fit diagnostic from the paper-sheet
+    calibration it came from, unaffected by this refit.
+    """
+
+    field: ScaleField
+    interior_scatter_pct: float
+
+
+def refit_scale_factor(
+    frozen: ScaleField, detections: list[TagDetection], tag_sizes_mm: dict[int, float]
+) -> ScaleFactorRefit:
+    """Re-fit `frozen`'s scale factor from new detections (e.g. the 12 tray tags each capture),
+    keeping its *shape* (the plane's tilt coefficients) fixed.
+
+    PLAN.md's M2 section B is explicit that the tray tags supply only the current scale factor,
+    not a rebuilt shape: all 12 trays sit in the table's interior, where distortion is smallest,
+    so a fresh plane fit from them alone would silently throw away the edge information the paper
+    calibration exists to provide. Given a frozen shape, a uniform multiplicative scale
+    correction is also the only well-posed degree of freedom left to fit from interior-only
+    points -- refitting the plane's tilt coefficients too would be degenerate with rescaling here,
+    not an independent "perspective correction".
+
+    Each detection's implied mean_px_per_mm is `observed_ppm * frozen_relative_depth`; the new
+    scale factor is their mean, and `interior_scatter_pct` is how much they disagree with each
+    other (0% with a single detection). Raises ValueError with zero usable detections.
+    """
+    x, y, ppm = _scale_samples(detections, tag_sizes_mm)
+    if len(x) == 0:
+        raise ValueError("need at least 1 tag with a known size to refit the scale factor, got 0")
+
+    a, b, c = frozen._coeffs
+    relative_depth = a + b * x + c * y
+    if np.any(relative_depth <= 0):
+        raise ValueError(
+            "frozen field is not physically valid at one or more of these detections' positions "
+            "(relative_depth <= 0) -- can't refit against it"
+        )
+
+    implied_mean_ppm = ppm * relative_depth
+    new_mean_ppm = float(implied_mean_ppm.mean())
+    interior_scatter_pct = (
+        float(100.0 * implied_mean_ppm.std() / new_mean_ppm) if len(x) > 1 else 0.0
+    )
+
+    refit_field = ScaleField(
+        _coeffs=frozen._coeffs,
+        _mean_px_per_mm=new_mean_ppm,
+        residual_std_pct=frozen.residual_std_pct,
+    )
+    return ScaleFactorRefit(field=refit_field, interior_scatter_pct=interior_scatter_pct)
+
+
+@dataclass(frozen=True)
 class UncertaintyField:
     """Local scatter among neighbouring tags -- PLAN.md's "uncertainty field", distinct from
     `ScaleField.residual_std_pct` (a single global plane-fit number). Built from the same
