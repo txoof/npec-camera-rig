@@ -276,7 +276,15 @@ The heart of the project. Do not start before M1 slice 5.
       sanity check: 1.48% mean, 4.29% max. Only checks a random split, not PLAN.md's fuller ask
       of spatial attribution ("coverage sufficient" vs "add coverage in the top-left") — that's
       still outstanding. *(2026-09-20)*
-- [ ] Install report: roll, tilt, framing, scale variation, coverage verdicts in plain language
+- [~] **Install report** — `describe_scale_variation()`, `describe_coverage()`,
+      `build_install_report()` in `calibration.py`. Scale variation is evaluated over the
+      *observed tag cloud's* bounding box, never the frame -- extrapolating the fitted plane past
+      where tags were actually seen would be the report lying about its own coverage.
+      Coverage verdict defaults to PLAN.md's 2% tape-measure acceptance target as the
+      sufficient/insufficient threshold. **Roll, tilt and framing lines are not built** -- a
+      roll/tilt angle isn't recoverable from a single photo without a physical standoff-distance
+      measurement Aaron has ruled out (rig is fragile), and framing needs a real capture's
+      corner-tag/frame-edge check. Unit-tested with synthetic detections. *(2026-09-20)*
 - [ ] **Live reorientation guidance** — real-time roll/tilt readout from corner tags on the
       preview stream (same pattern as M1's focus peaking), for adjusting the rig by hand during
       physical setup. Directional guidance only — preview resolution is coarser than a full-res

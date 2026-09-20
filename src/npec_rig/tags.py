@@ -51,6 +51,12 @@ class TagDetection:
     centre: tuple[float, float]
 
 
+def tag_side_px(detection: TagDetection) -> float:
+    """Mean side length of a detected tag's quadrilateral, in pixels."""
+    corners = np.array(detection.corners)
+    return float(np.linalg.norm(corners - np.roll(corners, -1, axis=0), axis=1).mean())
+
+
 def detect_tags(frame: np.ndarray) -> list[TagDetection]:
     """Every AprilTag 36h11 in `frame`, sorted by tag id.
 

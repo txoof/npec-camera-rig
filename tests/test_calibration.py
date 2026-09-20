@@ -1,22 +1,18 @@
 import numpy as np
 import pytest
 
-from npec_rig.calibration import build_scale_field, holdout_coverage_test
-from npec_rig.tags import TagDetection
+from npec_rig.calibration import (
+    CoverageResult,
+    build_install_report,
+    build_scale_field,
+    describe_coverage,
+    describe_scale_variation,
+    holdout_coverage_test,
+)
+
+from .helpers import square_detection as _square_detection
 
 pytestmark = pytest.mark.unit
-
-
-def _square_detection(tag_id: int, cx: float, cy: float, side_px: float) -> TagDetection:
-    """A synthetic axis-aligned tag of exact known pixel size, centred at (cx, cy)."""
-    half = side_px / 2
-    corners = (
-        (cx - half, cy - half),
-        (cx + half, cy - half),
-        (cx + half, cy + half),
-        (cx - half, cy + half),
-    )
-    return TagDetection(tag_id=tag_id, corners=corners, centre=(cx, cy))
 
 
 def test_uniform_scale_is_recovered_everywhere() -> None:
@@ -143,3 +139,77 @@ def test_raises_with_fewer_than_six_usable_tags() -> None:
     detections = [_square_detection(i, 100 * i, 100, 120) for i in range(5)]
     with pytest.raises(ValueError, match="at least 6"):
         holdout_coverage_test(detections, {i: 30.0 for i in range(5)})
+
+
+def test_scale_variation_is_evaluated_over_the_tag_cloud_not_the_frame() -> None:
+    # Tags only span x in [100, 900], y in [100, 900] -- a much smaller box than a real frame.
+    # Depth (and so scale) varies with y only, over the *tag cloud's* extent.
+    size_mm = 30.0
+    ppm_at_centre = 4.0
+
+    def ppm(y: float) -> float:
+        depth = 1 + 0.2 * (y - 500) / 400
+        return ppm_at_centre / depth
+
+    positions = [(100, 100), (900, 100), (100, 900), (900, 900), (500, 500)]
+    detections = [
+        _square_detection(tag_id, x, y, ppm(y) * size_mm)
+        for tag_id, (x, y) in enumerate(positions)
+    ]
+    field = build_scale_field(detections, {i: size_mm for i in range(len(detections))})
+
+    line = describe_scale_variation(field, [(x, y) for x, y in positions])
+    expected_variation = 100.0 * (ppm(100) - ppm(900)) / ((ppm(100) + ppm(900)) / 2)
+    assert f"{expected_variation:.0f}%" in line
+    assert "top" in line  # y=100 (top, in image coords) is where scale is largest here
+
+
+def test_scale_variation_line_names_the_worst_corner() -> None:
+    detections = [
+        _square_detection(0, 0, 0, 100),
+        _square_detection(1, 1000, 0, 100),
+        _square_detection(2, 0, 1000, 100),
+        _square_detection(3, 1000, 1000, 150),  # bottom-right: clearly the outlier
+        _square_detection(4, 500, 500, 105),
+    ]
+    field = build_scale_field(detections, {i: 30.0 for i in range(5)})
+    line = describe_scale_variation(field, [(0, 0), (1000, 0), (0, 1000), (1000, 1000), (500, 500)])
+    assert "bottom-right" in line
+
+
+def test_describe_coverage_reports_sufficient_under_threshold() -> None:
+    coverage = CoverageResult(fit_count=8, held_out_count=8, mean_abs_pct_error=1.2, max_abs_pct_error=3.0)
+    line = describe_coverage(coverage, threshold_pct=2.0)
+    assert "sufficient" in line
+    assert "insufficient" not in line
+
+
+def test_describe_coverage_reports_insufficient_over_threshold() -> None:
+    coverage = CoverageResult(fit_count=8, held_out_count=8, mean_abs_pct_error=5.0, max_abs_pct_error=9.0)
+    line = describe_coverage(coverage, threshold_pct=2.0)
+    assert "insufficient" in line
+
+
+def test_install_report_includes_scale_line_and_coverage_when_given() -> None:
+    positions = _grid_positions()
+    detections = [
+        _square_detection(tag_id, x, y, 120 + 0.01 * x)
+        for tag_id, (x, y) in enumerate(positions)
+    ]
+    sizes = {i: 30.0 for i in range(len(detections))}
+    field = build_scale_field(detections, sizes)
+    coverage = holdout_coverage_test(detections, sizes)
+
+    report = build_install_report(field, positions, coverage)
+    assert len(report) == 2
+    assert "Scale varies" in report[0]
+    assert "Coverage" in report[1]
+
+
+def test_install_report_omits_coverage_line_when_not_given() -> None:
+    positions = [(0, 0), (1000, 0), (0, 1000), (1000, 1000), (500, 500)]
+    detections = [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(positions)]
+    field = build_scale_field(detections, {i: 30.0 for i in range(5)})
+
+    report = build_install_report(field, positions)
+    assert len(report) == 1

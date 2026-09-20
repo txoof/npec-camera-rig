@@ -22,7 +22,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from npec_rig.tags import TagDetection
+from npec_rig.tags import TagDetection, tag_side_px
 
 
 @dataclass(frozen=True)
@@ -34,9 +34,20 @@ class ScaleField:
     residual_std_pct: float
 
     def px_per_mm(self, x: float, y: float) -> float:
-        """Local scale at image position (x, y), from the fitted field."""
+        """Local scale at image position (x, y), from the fitted field.
+
+        Raises ValueError if the fitted plane predicts a non-physical (zero or negative) relative
+        depth at this position -- extrapolating a tilted-plane fit far enough from where it was
+        measured can reach that, and a silently-returned nonsense scale is worse than an error.
+        """
         a, b, c = self._coeffs
         relative_depth = a + b * x + c * y
+        if relative_depth <= 0:
+            raise ValueError(
+                f"scale field is not physically valid at ({x}, {y}): relative_depth="
+                f"{relative_depth:.3g} <= 0 -- this position is too far outside where the field "
+                "was measured to trust"
+            )
         return self._mean_px_per_mm / relative_depth
 
     def mm_per_px(self, x: float, y: float) -> float:
@@ -64,11 +75,9 @@ def _scale_samples(
         size_mm = tag_sizes_mm.get(detection.tag_id)
         if size_mm is None:
             continue
-        corners = np.array(detection.corners)
-        side_px = np.linalg.norm(corners - np.roll(corners, -1, axis=0), axis=1).mean()
         xs.append(detection.centre[0])
         ys.append(detection.centre[1])
-        px_per_mm.append(side_px / size_mm)
+        px_per_mm.append(tag_side_px(detection) / size_mm)
     return np.array(xs), np.array(ys), np.array(px_per_mm)
 
 
@@ -103,6 +112,68 @@ def build_scale_field(
             f"need at least 3 tags with a known size to fit a scale field, got {len(x)}"
         )
     return _fit_plane(x, y, ppm)
+
+
+def describe_scale_variation(field: ScaleField, positions: list[tuple[float, float]]) -> str:
+    """One line: how much scale varies across the tag cloud used to build `field`, and where.
+
+    Evaluated over the bounding box of the *observed* tag positions, never the full frame --
+    extrapolating the fitted plane beyond where tags were actually seen would be exactly the
+    silent-lie failure mode this report exists to catch (see `ScaleField.px_per_mm`'s guard).
+    `positions` is normally the (x, y) of every detection `field` was fit from.
+    """
+    xs = [p[0] for p in positions]
+    ys = [p[1] for p in positions]
+    corners = {
+        "top-left": (min(xs), min(ys)),
+        "top-right": (max(xs), min(ys)),
+        "bottom-left": (min(xs), max(ys)),
+        "bottom-right": (max(xs), max(ys)),
+    }
+    values = {label: field.px_per_mm(x, y) for label, (x, y) in corners.items()}
+    mean_value = sum(values.values()) / len(values)
+    worst_label = max(values, key=lambda label: abs(values[label] - mean_value))
+    variation_pct = 100.0 * (max(values.values()) - min(values.values())) / mean_value
+    return f"Scale varies {variation_pct:.0f}% across the calibrated area, worst {worst_label}."
+
+
+def describe_coverage(coverage: CoverageResult, *, threshold_pct: float = 2.0) -> str:
+    """One line: whether holdout error is within the tape-measure acceptance target.
+
+    `threshold_pct` defaults to 2.0 -- PLAN.md's M2 acceptance bar ("tape-measure two tags -> app
+    agrees within 2%"). Provisional in the sense that the chamber acceptance tests are the actual
+    measurement; this default just gives the report something to say before that happens.
+    """
+    if coverage.mean_abs_pct_error <= threshold_pct:
+        return (
+            f"Coverage sufficient: holdout error {coverage.mean_abs_pct_error:.1f}% "
+            f"(target {threshold_pct:.0f}%)."
+        )
+    return (
+        f"Coverage insufficient: holdout error {coverage.mean_abs_pct_error:.1f}% exceeds the "
+        f"{threshold_pct:.0f}% target -- add more calibration coverage."
+    )
+
+
+def build_install_report(
+    field: ScaleField,
+    positions: list[tuple[float, float]],
+    coverage: CoverageResult | None = None,
+    *,
+    coverage_threshold_pct: float = 2.0,
+) -> list[str]:
+    """Plain-language install report lines, from what's actually been measured so far.
+
+    Deliberately narrow: only scale variation and (when given) coverage sufficiency. Roll, tilt
+    and framing are PLAN.md's other install-report lines, but a roll/tilt angle isn't recoverable
+    from a single photo without a physical standoff-distance measurement Aaron has ruled out (the
+    rig is fragile), and framing needs a real capture's corner-tag/frame-edge check -- neither
+    belongs here yet. No invented figures.
+    """
+    lines = [describe_scale_variation(field, positions)]
+    if coverage is not None:
+        lines.append(describe_coverage(coverage, threshold_pct=coverage_threshold_pct))
+    return lines
 
 
 def holdout_coverage_test(
