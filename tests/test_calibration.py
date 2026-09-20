@@ -487,3 +487,34 @@ def test_calibration_artifact_rejects_an_unsupported_version() -> None:
     }
     with pytest.raises(ValueError, match="unsupported calibration artifact version"):
         calibration_artifact_from_dict(data)
+
+
+def test_build_calibration_report_assembles_pieces_from_one_set_of_detections() -> None:
+    from npec_rig.calibration import build_calibration_report
+
+    positions = _grid_positions()
+    detections = [
+        _square_detection(tag_id, x, y, 120 + 0.01 * x)
+        for tag_id, (x, y) in enumerate(positions)
+    ]
+    sizes = {i: 30.0 for i in range(len(detections))}
+
+    report = build_calibration_report(detections, sizes, frame_width=1100, frame_height=1100)
+
+    field = build_scale_field(detections, sizes)
+    coverage = holdout_coverage_test(detections, sizes)
+    regional = regional_coverage_test(detections, sizes, 1100, 1100)
+    expected = build_install_report(field, positions, coverage, regional)
+    assert report == expected
+
+
+def test_build_calibration_report_skips_coverage_line_with_too_few_tags_for_a_holdout() -> None:
+    from npec_rig.calibration import build_calibration_report
+
+    positions = [(100, 100), (900, 100), (500, 900), (100, 900), (900, 900)]
+    detections = [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(positions)]
+    sizes = {i: 30.0 for i in range(len(positions))}
+
+    report = build_calibration_report(detections, sizes, frame_width=1000, frame_height=1000)
+    assert report[0].startswith("Scale varies")
+    assert not any("Coverage sufficient" in line or "Coverage insufficient" in line for line in report)

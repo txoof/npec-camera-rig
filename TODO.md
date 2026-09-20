@@ -298,7 +298,12 @@ The heart of the project. Do not start before M1 slice 5.
       sufficient/insufficient threshold. **Roll, tilt and framing lines are not built** -- a
       roll/tilt angle isn't recoverable from a single photo without a physical standoff-distance
       measurement Aaron has ruled out (rig is fragile), and framing needs a real capture's
-      corner-tag/frame-edge check. Unit-tested with synthetic detections. *(2026-09-20)*
+      corner-tag/frame-edge check. `build_calibration_report()` is the entry point a real caller
+      should use — it builds the field, positions, and global/regional coverage from one
+      consistent set of detections before assembling the report lines, so a field from one
+      capture can't get paired with coverage from another (`build_install_report()`'s own
+      parameters aren't cross-checked, by design — useful for testing each line in isolation).
+      Unit-tested with synthetic detections. *(2026-09-20)*
 - [ ] **Live reorientation guidance** — real-time roll/tilt readout from corner tags on the
       preview stream (same pattern as M1's focus peaking), for adjusting the rig by hand during
       physical setup. Directional guidance only — preview resolution is coarser than a full-res
@@ -315,9 +320,12 @@ The heart of the project. Do not start before M1 slice 5.
       a `CornerBaseline`, from Procrustes-fit roll (all 4 corners of each matched corner tag, not
       just centres) and per-tag size ratio ("near corner tag N is 5% closer"). Missing baseline
       tag -> `FAIL`, loud; missing a tag the baseline never had -> not a failure (handles the
-      currently-obscured corner tag). Roll here is an in-image rotation between two frames of the
-      *same* rig, not the absolute-tilt angle CLAUDE.md rules out measuring from one photo — no
-      standoff-distance measurement needed, see the module docstring. Thresholds are provisional
+      currently-obscured corner tag). Refuses (`FAIL`) rather than computing a roll figure from
+      fewer than 2 matched corner tags — one tag's own 4 corners measure that tag's own
+      orientation, not the cross-tag geometry a roll/drift check needs. Roll here is an in-image
+      rotation between two frames of the *same* rig, not the absolute-tilt angle CLAUDE.md rules
+      out measuring from one photo — no standoff-distance measurement needed, see the module
+      docstring. Thresholds are provisional
       parameters (default: 1 deg drift / 10 deg fail, 3%/8% scale) set so a deliberate ~5 deg test
       roll lands as `DRIFT` per PLAN.md's acceptance wording, not tuned to real data yet -- the
       chamber acceptance tests are the actual measurement. Unit-tested with synthetic baselines

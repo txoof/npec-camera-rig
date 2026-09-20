@@ -130,6 +130,19 @@ def test_large_scale_change_fails() -> None:
     assert result.verdict == "FAIL"
 
 
+def test_a_single_matched_tag_refuses_rather_than_guesses_a_roll() -> None:
+    # Only 1 corner tag survived (badly obscured, or the other 3 didn't detect this capture) --
+    # not enough cross-tag geometry to say anything about roll/drift confidently.
+    baseline = build_corner_baseline(_corner_detections(tag_ids=[450]))
+    current = _corner_detections(tag_ids=[450])  # unmoved -- still refuses, not "OK"
+
+    result = check_tripwire(baseline, current)
+    assert result.verdict == "FAIL"
+    assert result.roll_deg is None
+    assert result.scale_delta_pct is None
+    assert "not enough" in result.messages[0]
+
+
 def test_thresholds_are_overridable() -> None:
     detections = _corner_detections()
     baseline = build_corner_baseline(detections)

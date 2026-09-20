@@ -14,9 +14,12 @@ against each other, the same way you'd measure it by overlaying two photos and r
 it lines up. Don't re-litigate this.
 
 TODO.md notes one of the four mounted corner tags is currently partially obscured, so a baseline
-built today would have 3 entries, not 4. The tripwire treats a baseline of any size >= 1 as valid,
-and only FAILs when a tag *present in the baseline* goes missing from the current frame -- never
-for a tag the baseline never had.
+built today would have 3 entries, not 4. `build_corner_baseline` accepts any size >= 1, and
+`check_tripwire` only FAILs on a missing-tag basis for a tag *present in the baseline* going
+missing -- never for a tag the baseline never had. But `check_tripwire` itself refuses to compute
+a roll figure from fewer than 2 *matched* tags (FAILs instead): one tag's own 4 corners measure
+that tag's own orientation, not the cross-tag geometry a roll/drift check needs, per PLAN.md's
+"default to refusing, not guessing."
 """
 
 from __future__ import annotations
@@ -112,6 +115,20 @@ def check_tripwire(
         )
 
     matched_ids = sorted(baseline.corners_by_id)
+    if len(matched_ids) < 2:
+        # Rotation from a single tag's own 4 corners measures that tag's own orientation (e.g.
+        # its mount coming loose), not the cross-tag geometry a roll/drift check needs -- refusing
+        # rather than presenting that as a confident rig-wide roll figure.
+        return TripwireResult(
+            verdict="FAIL",
+            messages=(
+                f"only {len(matched_ids)} corner tag(s) matched -- not enough to check "
+                "roll/drift confidently",
+            ),
+            roll_deg=None,
+            scale_delta_pct=None,
+        )
+
     baseline_pts = np.array([pt for tag_id in matched_ids for pt in baseline.corners_by_id[tag_id]])
     current_pts = np.array([pt for tag_id in matched_ids for pt in current_by_id[tag_id]])
     roll_deg = _procrustes_rotation_deg(baseline_pts, current_pts)
@@ -121,28 +138,29 @@ def check_tripwire(
         * (tag_side_px(current_by_id[tag_id]) / tag_side_px(baseline.corners_by_id[tag_id]) - 1.0)
         for tag_id in matched_ids
     }
-
-    messages: list[str] = []
-    verdict = "OK"
-
-    if abs(roll_deg) >= roll_fail_deg:
-        verdict = "FAIL"
-    elif abs(roll_deg) >= roll_drift_deg:
-        verdict = "DRIFT" if verdict == "OK" else verdict
-    if abs(roll_deg) >= roll_drift_deg:
-        direction = "clockwise" if roll_deg > 0 else "counterclockwise"
-        messages.append(f"rolled {abs(roll_deg):.1f} deg {direction}")
-
     worst_tag_id = max(scale_delta_pct, key=lambda tag_id: abs(scale_delta_pct[tag_id]))
     worst_delta = scale_delta_pct[worst_tag_id]
-    if abs(worst_delta) >= scale_fail_pct:
-        verdict = "FAIL"
-    elif abs(worst_delta) >= scale_drift_pct:
-        verdict = "DRIFT" if verdict == "OK" else verdict
-    if abs(worst_delta) >= scale_drift_pct:
+
+    def _level(magnitude: float, drift_at: float, fail_at: float) -> str:
+        if magnitude >= fail_at:
+            return "FAIL"
+        if magnitude >= drift_at:
+            return "DRIFT"
+        return "OK"
+
+    roll_level = _level(abs(roll_deg), roll_drift_deg, roll_fail_deg)
+    scale_level = _level(abs(worst_delta), scale_drift_pct, scale_fail_pct)
+    verdict = "FAIL" if "FAIL" in (roll_level, scale_level) else (
+        "DRIFT" if "DRIFT" in (roll_level, scale_level) else "OK"
+    )
+
+    messages: list[str] = []
+    if roll_level != "OK":
+        direction = "clockwise" if roll_deg > 0 else "counterclockwise"
+        messages.append(f"rolled {abs(roll_deg):.1f} deg {direction}")
+    if scale_level != "OK":
         direction = "closer" if worst_delta > 0 else "farther"
         messages.append(f"near corner tag {worst_tag_id} is {abs(worst_delta):.0f}% {direction}")
-
     if not messages:
         messages.append("no significant drift detected")
 

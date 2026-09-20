@@ -310,6 +310,42 @@ def build_install_report(
     return lines
 
 
+def build_calibration_report(
+    detections: list[TagDetection],
+    tag_sizes_mm: dict[int, float],
+    frame_width: float,
+    frame_height: float,
+    *,
+    coverage_threshold_pct: float = 2.0,
+) -> list[str]:
+    """The install report a real caller should use: builds the field, positions, and global and
+    regional coverage from one consistent set of detections, then calls `build_install_report`.
+
+    `build_install_report` itself takes those pieces separately and doesn't check they came from
+    the same detections -- useful for testing each line in isolation, but a real caller passing
+    mismatched pieces (a field from one capture, coverage from another) would get a coherent-
+    looking but wrong report. This is the one function that can't produce that mismatch.
+
+    Skips the coverage line (not the whole report) if there aren't enough tags for a holdout
+    split.
+    """
+    field = build_scale_field(detections, tag_sizes_mm)
+    x, y, _ppm = _scale_samples(detections, tag_sizes_mm)
+    positions = list(zip(x.tolist(), y.tolist()))
+
+    coverage = None
+    try:
+        coverage = holdout_coverage_test(detections, tag_sizes_mm)
+    except ValueError:
+        pass
+
+    regional = regional_coverage_test(detections, tag_sizes_mm, frame_width, frame_height)
+
+    return build_install_report(
+        field, positions, coverage, regional, coverage_threshold_pct=coverage_threshold_pct
+    )
+
+
 def holdout_coverage_test(
     detections: list[TagDetection], tag_sizes_mm: dict[int, float], *, seed: int = 0
 ) -> CoverageResult:
