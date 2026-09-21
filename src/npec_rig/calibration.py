@@ -25,7 +25,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from npec_rig.tags import TagDetection, tag_side_px
+from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, TagDetection, tag_side_px
 from npec_rig.tripwire import CornerBaseline
 
 
@@ -458,7 +458,14 @@ def describe_regional_coverage(
 
 # Calibration artifact: PLAN.md's "calibration is frozen, versioned, exportable." A plain
 # versioned dict is enough -- no need for anything fancier until a concrete need for it shows up.
-CALIBRATION_ARTIFACT_VERSION = 1
+#
+# Version 2 adds `calibration_tag_size_mm` -- the actual physical size (calliper-measured, not
+# assumed) used to build this artifact's scale field. A single hardcoded constant was wrong: the
+# calibration sheets are a print run, and a reprint isn't guaranteed to come out at the same size
+# (Aaron's callipers found the 2026-09-20 sheets read ~30.02mm, not the 29.3106mm the old rig's
+# corner tag measured -- see CLAUDE.md). Recording it per-artifact means a re-print doesn't
+# require a source change, and an old artifact stays honest about what it actually assumed.
+CALIBRATION_ARTIFACT_VERSION = 2
 
 
 def scale_field_to_dict(field: ScaleField) -> dict:
@@ -490,6 +497,9 @@ class CalibrationArtifact:
     scale_field: ScaleField
     corner_baseline: CornerBaseline | None = None
     lens_position: float | None = None
+    # Default only serves callers (mostly tests) that don't care what size was assumed -- a real
+    # calibration run always passes the value it actually used, calliper-measured or otherwise.
+    calibration_tag_size_mm: float = ASSUMED_CALIBRATION_TAG_SIZE_MM
     version: int = CALIBRATION_ARTIFACT_VERSION
 
 
@@ -499,6 +509,7 @@ def calibration_artifact_to_dict(artifact: CalibrationArtifact) -> dict:
         "created_at": artifact.created_at,
         "scale_field": scale_field_to_dict(artifact.scale_field),
         "lens_position": artifact.lens_position,
+        "calibration_tag_size_mm": artifact.calibration_tag_size_mm,
     }
     if artifact.corner_baseline is not None:
         data["corner_baseline"] = {
@@ -531,4 +542,5 @@ def calibration_artifact_from_dict(data: dict) -> CalibrationArtifact:
         scale_field=scale_field_from_dict(data["scale_field"]),
         corner_baseline=corner_baseline,
         lens_position=data.get("lens_position"),
+        calibration_tag_size_mm=data["calibration_tag_size_mm"],
     )

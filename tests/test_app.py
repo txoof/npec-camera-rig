@@ -9,6 +9,7 @@ from npec_rig.app import _mjpeg_frames, app, focus_roi_stream, preview
 from npec_rig.calibration import CalibrationArtifact, ScaleField
 from npec_rig.calibration_store import save_calibration
 from npec_rig.camera import SIMULATED_AUTOFOCUS_POSITION, CameraManager, SyntheticBackend
+from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM
 from npec_rig.tripwire import CornerBaseline
 from tests.helpers import rotate_detection, square_detection
 
@@ -293,6 +294,37 @@ def test_run_calibration_builds_field_and_saves_artifact_and_frame(
     assert current["residual_std_pct"] == body["residual_std_pct"]
 
 
+def test_run_calibration_accepts_a_measured_tag_size_override(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # The point of the override: a reprint of the calibration sheets can come out at a different
+    # physical size, and that's the operator's callipers to measure, not a source-code constant.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+
+    client = TestClient(app)
+    response = client.post("/calibration/run", params={"calibration_tag_size_mm": 30.02})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["calibration_tag_size_mm"] == 30.02
+    assert body["calibration_tag_size_mm_is_default"] is False
+
+    current = client.get("/calibration/current").json()
+    assert current["calibration_tag_size_mm"] == 30.02
+
+
+def test_run_calibration_without_override_uses_the_placeholder_default(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+
+    client = TestClient(app)
+    response = client.post("/calibration/run")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["calibration_tag_size_mm"] == ASSUMED_CALIBRATION_TAG_SIZE_MM
+    assert body["calibration_tag_size_mm_is_default"] is True
+
+
 def test_current_calibration_before_any_run(isolated_calibration_dir: None) -> None:
     client = TestClient(app)
     response = client.get("/calibration/current")
@@ -448,7 +480,7 @@ def test_calibration_list_and_files_are_downloadable(monkeypatch: pytest.MonkeyP
 
     artifact_response = client.get(entry["url"])
     assert artifact_response.status_code == 200
-    assert artifact_response.json()["version"] == 1
+    assert artifact_response.json()["version"] == 2
 
     frame_response = client.get(entry["frame_url"])
     assert frame_response.status_code == 200

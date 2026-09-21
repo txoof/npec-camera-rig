@@ -456,7 +456,7 @@ def test_calibration_artifact_round_trips_through_dict() -> None:
     )
 
     data = calibration_artifact_to_dict(artifact)
-    assert data["version"] == 1
+    assert data["version"] == 2
     restored = calibration_artifact_from_dict(data)
 
     assert restored == artifact

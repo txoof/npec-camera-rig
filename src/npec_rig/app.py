@@ -244,7 +244,7 @@ def api_captures(limit: int = 12) -> list[dict]:
 
 
 @app.post("/calibration/run")
-def run_calibration(promote: bool = True) -> dict:
+def run_calibration(promote: bool = True, calibration_tag_size_mm: float | None = None) -> dict:
     """Setup calibration (PLAN.md M2 section A): capture a full-res still, detect tags, build the
     scale field and install report, and save the frame plus the resulting artifact.
 
@@ -255,7 +255,16 @@ def run_calibration(promote: bool = True) -> dict:
     `promote=False` (the "set as current baseline" checkbox, unticked) saves this run without
     replacing the active `current.json` -- for a comparison run (the two-baseline/two-height
     tests) taken while a real baseline is still live for `/calibration/tripwire/check` to read.
+
+    `calibration_tag_size_mm`, if given, is the operator's own calliper measurement of *this*
+    print run's calibration tags, overriding `ASSUMED_CALIBRATION_TAG_SIZE_MM` -- that constant
+    is a placeholder for whoever hasn't measured yet, not a substitute for measuring. A reprint at
+    a different size needs a new measurement typed in here, not a source change.
     """
+    tag_size_mm = calibration_tag_size_mm if calibration_tag_size_mm is not None else (
+        ASSUMED_CALIBRATION_TAG_SIZE_MM
+    )
+
     manager = CameraManager.instance()
     array, _sensor_metadata = manager.capture_full_res()
     frame_height, frame_width = array.shape[0], array.shape[1]
@@ -263,7 +272,7 @@ def run_calibration(promote: bool = True) -> dict:
     detections = detect_tags(array)
     calibration_detections = [d for d in detections if d.tag_id in CALIBRATION_ID_RANGE]
     corner_detections = [d for d in detections if d.tag_id in CORNER_ID_RANGE]
-    tag_sizes_mm = {d.tag_id: ASSUMED_CALIBRATION_TAG_SIZE_MM for d in calibration_detections}
+    tag_sizes_mm = {d.tag_id: tag_size_mm for d in calibration_detections}
 
     stem = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
     frame_path = save_calibration_frame(array, stem=stem)
@@ -271,7 +280,8 @@ def run_calibration(promote: bool = True) -> dict:
     result: dict = {
         "calibration_tags_detected": len(calibration_detections),
         "corner_tags_detected": len(corner_detections),
-        "assumed_calibration_tag_size_mm": ASSUMED_CALIBRATION_TAG_SIZE_MM,
+        "calibration_tag_size_mm": tag_size_mm,
+        "calibration_tag_size_mm_is_default": calibration_tag_size_mm is None,
         "frame_path": str(frame_path),
     }
 
@@ -300,6 +310,7 @@ def run_calibration(promote: bool = True) -> dict:
         scale_field=field,
         corner_baseline=corner_baseline,
         lens_position=lens_position,
+        calibration_tag_size_mm=tag_size_mm,
     )
     result["artifact_path"] = str(save_calibration(artifact, stem=stem, promote=promote))
     result["promoted_to_current"] = promote
@@ -338,6 +349,7 @@ def current_calibration() -> dict:
         "created_at": artifact.created_at,
         "residual_std_pct": artifact.scale_field.residual_std_pct,
         "lens_position": artifact.lens_position,
+        "calibration_tag_size_mm": artifact.calibration_tag_size_mm,
         "corner_baseline_tags": (
             sorted(artifact.corner_baseline.corners_by_id) if artifact.corner_baseline else []
         ),

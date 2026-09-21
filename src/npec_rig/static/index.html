@@ -247,6 +247,15 @@
         replace the baseline a tripwire check further down is still using.
       </span>
     </label>
+    <label class="peaking-row">
+      <span>
+        <strong>Calibration tag size (mm)</strong> — measure this print run's tags with
+        callipers and enter the value here. Leave blank to fall back to the placeholder default,
+        shown after you run a calibration.
+      </span>
+      <input type="number" id="tag-size-input" step="0.0001" min="0"
+             placeholder="e.g. 30.02" style="width: 6rem;">
+    </label>
     <div class="lock-row">
       <button id="calibrate-btn">Run calibration</button>
       <button id="tripwire-btn">Check tripwire now</button>
@@ -611,6 +620,7 @@
     const calibrationResult = document.getElementById("calibration-result");
     const calibrationCurrent = document.getElementById("calibration-current");
     const calibrationList = document.getElementById("calibration-list");
+    const tagSizeInput = document.getElementById("tag-size-input");
 
     async function refreshCalibrationList() {
       const r = await fetch("/calibration/list");
@@ -638,7 +648,12 @@
       const lens = data.lens_position === null ? "?" : data.lens_position.toFixed(2);
       calibrationCurrent.textContent =
         `Current calibration: ${data.created_at.replace("T", " ").slice(0, 19)} — ` +
-        `residual ${data.residual_std_pct.toFixed(2)}%, lens ${lens}, ${baseline}`;
+        `residual ${data.residual_std_pct.toFixed(2)}%, lens ${lens}, tag size ` +
+        `${data.calibration_tag_size_mm}mm, ${baseline}`;
+      // Pre-fill with the size the live baseline was actually built from, so a repeat
+      // calibration on the same print run doesn't need it retyped -- only overwritten by hand
+      // if the operator hasn't already typed something in for *this* run.
+      if (!tagSizeInput.value) tagSizeInput.value = data.calibration_tag_size_mm;
     }
 
     async function refreshCurrentCalibration() {
@@ -652,7 +667,9 @@
       calibrationResult.textContent = "";
       try {
         const promote = promoteToggle.checked;
-        const r = await fetch(`/calibration/run?promote=${promote}`, { method: "POST" });
+        let url = `/calibration/run?promote=${promote}`;
+        if (tagSizeInput.value) url += `&calibration_tag_size_mm=${tagSizeInput.value}`;
+        const r = await fetch(url, { method: "POST" });
         const data = await r.json();
         let lines;
         if (data.error) {
@@ -664,10 +681,14 @@
           const centre = data.px_per_mm_at_centre
             ? `${data.px_per_mm_at_centre.toFixed(3)} px/mm at centre`
             : "scale at centre: n/a";
+          const tagSize = data.calibration_tag_size_mm_is_default
+            ? `tag size: ${data.calibration_tag_size_mm} mm placeholder default — measure with ` +
+              "callipers and enter it above"
+            : `tag size: ${data.calibration_tag_size_mm} mm (calliper-measured, as entered)`;
           lines = [
             `${data.calibration_tags_detected} calibration tags, ` +
               `${data.corner_tags_detected} corner tags detected`,
-            `assumed tag size: ${data.assumed_calibration_tag_size_mm} mm — confirm with callipers`,
+            tagSize,
             `${centre}, plane-fit residual ${data.residual_std_pct.toFixed(2)}%`,
             ...data.report,
           ];
