@@ -15,13 +15,17 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
+
 from npec_rig.calibration import (
     CalibrationArtifact,
     calibration_artifact_from_dict,
     calibration_artifact_to_dict,
 )
+from npec_rig.camera import array_to_jpeg
 
 CURRENT_FILENAME = "current.json"
+FRAMES_DIRNAME = "frames"
 
 
 def calibration_root() -> Path:
@@ -35,20 +39,38 @@ def _write_json_atomically(path: Path, data: dict) -> None:
     tmp_path.replace(path)
 
 
-def save_calibration(artifact: CalibrationArtifact) -> Path:
+def save_calibration(artifact: CalibrationArtifact, *, stem: str | None = None) -> Path:
     """Write `artifact` as a new timestamped file and update the `current.json` pointer.
 
     Returns the timestamped file's path. Both writes are atomic (write-then-rename) so a reader
-    never sees a partially-written file.
+    never sees a partially-written file. `stem` lets a caller line this artifact's filename up
+    with a frame saved by `save_calibration_frame` from the same capture; omitted, one is
+    generated the same way it always was.
     """
     root = calibration_root()
     root.mkdir(parents=True, exist_ok=True)
 
     data = calibration_artifact_to_dict(artifact)
-    stem = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+    stem = stem or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
     path = root / f"{stem}.json"
     _write_json_atomically(path, data)
     _write_json_atomically(root / CURRENT_FILENAME, data)
+    return path
+
+
+def save_calibration_frame(image: np.ndarray, *, stem: str | None = None) -> Path:
+    """Write `image` as a full-res JPEG under the calibration frames directory, timestamped.
+
+    Kept alongside the artifact it produced, not just the numbers derived from it: every M2
+    acceptance test (PLAN.md, "You verify") is a diff between two calibrations, so a bad or
+    disputed field must be re-processable from its original frame without redoing the physical
+    setup.
+    """
+    root = calibration_root() / FRAMES_DIRNAME
+    root.mkdir(parents=True, exist_ok=True)
+    stem = stem or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+    path = root / f"{stem}.jpg"
+    path.write_bytes(array_to_jpeg(image))
     return path
 
 

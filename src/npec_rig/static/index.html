@@ -58,7 +58,7 @@
         min-width: 0;
       }
     }
-    .controls, .focus-section, .capture-section, .camera-controls {
+    .controls, .focus-section, .capture-section, .camera-controls, .calibration-section {
       max-width: 480px;
       margin-top: 0.75rem;
     }
@@ -228,6 +228,21 @@
 
   <h2>Recent captures</h2>
   <div class="gallery" id="gallery"></div>
+
+  <h2>Calibration</h2>
+  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+    Lay the calibration sheets on alternating trays, reaching all four frame corners, then run
+    calibration. "Check tripwire now" compares the four corner tags against the saved baseline
+    right now — use it for the roll/knock acceptance test.
+  </p>
+  <div class="calibration-section">
+    <p id="calibration-current" style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Loading current calibration&hellip;
+    </p>
+    <button id="calibrate-btn">Run calibration</button>
+    <button id="tripwire-btn">Check tripwire now</button>
+    <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+  </div>
 
   <script>
     const MAIN_WIDTH = 1536;
@@ -563,6 +578,84 @@
       }
     });
     refreshGallery();
+
+    // --- Calibration ---
+    const calibrateBtn = document.getElementById("calibrate-btn");
+    const tripwireBtn = document.getElementById("tripwire-btn");
+    const calibrationResult = document.getElementById("calibration-result");
+    const calibrationCurrent = document.getElementById("calibration-current");
+
+    function renderCurrentCalibration(data) {
+      if (!data.exists) {
+        calibrationCurrent.textContent = "No calibration saved yet.";
+        return;
+      }
+      const baseline = data.corner_baseline_tags.length
+        ? `corner baseline: tags ${data.corner_baseline_tags.join(", ")}`
+        : "no corner baseline";
+      const lens = data.lens_position === null ? "?" : data.lens_position.toFixed(2);
+      calibrationCurrent.textContent =
+        `Current calibration: ${data.created_at.replace("T", " ").slice(0, 19)} — ` +
+        `residual ${data.residual_std_pct.toFixed(2)}%, lens ${lens}, ${baseline}`;
+    }
+
+    async function refreshCurrentCalibration() {
+      const r = await fetch("/calibration/current");
+      renderCurrentCalibration(await r.json());
+    }
+
+    calibrateBtn.addEventListener("click", async () => {
+      calibrateBtn.disabled = true;
+      calibrateBtn.textContent = "Calibrating (full-res detect can take a while)...";
+      calibrationResult.textContent = "";
+      try {
+        const r = await fetch("/calibration/run", { method: "POST" });
+        const data = await r.json();
+        let lines;
+        if (data.error) {
+          lines = [
+            `${data.error} (${data.calibration_tags_detected} calibration tags, ` +
+              `${data.corner_tags_detected} corner tags detected)`,
+          ];
+        } else {
+          const centre = data.px_per_mm_at_centre
+            ? `${data.px_per_mm_at_centre.toFixed(3)} px/mm at centre`
+            : "scale at centre: n/a";
+          lines = [
+            `${data.calibration_tags_detected} calibration tags, ` +
+              `${data.corner_tags_detected} corner tags detected`,
+            `assumed tag size: ${data.assumed_calibration_tag_size_mm} mm — confirm with callipers`,
+            `${centre}, plane-fit residual ${data.residual_std_pct.toFixed(2)}%`,
+            ...data.report,
+          ];
+        }
+        calibrationResult.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
+        await refreshCurrentCalibration();
+      } finally {
+        calibrateBtn.disabled = false;
+        calibrateBtn.textContent = "Run calibration";
+      }
+    });
+
+    tripwireBtn.addEventListener("click", async () => {
+      tripwireBtn.disabled = true;
+      tripwireBtn.textContent = "Checking...";
+      try {
+        const r = await fetch("/calibration/tripwire/check", { method: "POST" });
+        const data = await r.json();
+        if (r.status === 409) {
+          calibrationResult.textContent = data.detail;
+          return;
+        }
+        const roll = data.roll_deg === null ? "" : ` (roll ${data.roll_deg.toFixed(2)} deg)`;
+        calibrationResult.innerHTML = `<strong>${data.verdict}</strong>: ${data.messages.join("; ")}${roll}`;
+      } finally {
+        tripwireBtn.disabled = false;
+        tripwireBtn.textContent = "Check tripwire now";
+      }
+    });
+
+    refreshCurrentCalibration();
   </script>
 </body>
 </html>

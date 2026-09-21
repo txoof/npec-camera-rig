@@ -1,5 +1,6 @@
 import time
 from collections.abc import Callable, Iterator
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -7,8 +8,21 @@ from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from npec_rig.calibration import CalibrationArtifact, build_calibration_report, build_scale_field
+from npec_rig.calibration_store import (
+    load_current_calibration,
+    save_calibration,
+    save_calibration_frame,
+)
 from npec_rig.camera import CameraManager
 from npec_rig.captures import captures_root, list_recent_captures, save_capture
+from npec_rig.tags import (
+    ASSUMED_CALIBRATION_TAG_SIZE_MM,
+    CALIBRATION_ID_RANGE,
+    CORNER_ID_RANGE,
+    detect_tags,
+)
+from npec_rig.tripwire import build_corner_baseline, check_tripwire
 
 STATIC_DIR = Path(__file__).parent / "static"
 PREVIEW_BOUNDARY = b"frame"
@@ -220,3 +234,103 @@ def capture() -> dict:
 def api_captures(limit: int = 12) -> list[dict]:
     """Most recent captures for the gallery, newest first."""
     return list_recent_captures(limit=limit)
+
+
+@app.post("/calibration/run")
+def run_calibration() -> dict:
+    """Setup calibration (PLAN.md M2 section A): capture a full-res still, detect tags, build the
+    scale field and install report, and save the frame plus the resulting artifact.
+
+    Saving the frame, not just the numbers derived from it, matters here: every M2 acceptance
+    test (PLAN.md "You verify") is a diff between two calibrations, so a disputed field must be
+    re-processable from its original capture without redoing the physical paper-sheet setup.
+    """
+    manager = CameraManager.instance()
+    array, _sensor_metadata = manager.capture_full_res()
+    frame_height, frame_width = array.shape[0], array.shape[1]
+
+    detections = detect_tags(array)
+    calibration_detections = [d for d in detections if d.tag_id in CALIBRATION_ID_RANGE]
+    corner_detections = [d for d in detections if d.tag_id in CORNER_ID_RANGE]
+    tag_sizes_mm = {d.tag_id: ASSUMED_CALIBRATION_TAG_SIZE_MM for d in calibration_detections}
+
+    stem = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+    frame_path = save_calibration_frame(array, stem=stem)
+
+    result: dict = {
+        "calibration_tags_detected": len(calibration_detections),
+        "corner_tags_detected": len(corner_detections),
+        "assumed_calibration_tag_size_mm": ASSUMED_CALIBRATION_TAG_SIZE_MM,
+        "frame_path": str(frame_path),
+    }
+
+    try:
+        field = build_scale_field(detections, tag_sizes_mm)
+    except ValueError as exc:
+        result["error"] = str(exc)
+        return result
+
+    result["report"] = build_calibration_report(detections, tag_sizes_mm, frame_width, frame_height)
+    result["residual_std_pct"] = field.residual_std_pct
+    try:
+        result["px_per_mm_at_centre"] = field.px_per_mm(frame_width / 2, frame_height / 2)
+    except ValueError:
+        result["px_per_mm_at_centre"] = None
+
+    try:
+        corner_baseline = build_corner_baseline(detections)
+    except ValueError:
+        corner_baseline = None
+    result["corner_baseline_tags"] = sorted(corner_baseline.corners_by_id) if corner_baseline else []
+
+    lens_position = manager.get_lens_position()
+    artifact = CalibrationArtifact(
+        created_at=datetime.now(timezone.utc).isoformat(),
+        scale_field=field,
+        corner_baseline=corner_baseline,
+        lens_position=lens_position,
+    )
+    result["artifact_path"] = str(save_calibration(artifact, stem=stem))
+    result["lens_position"] = lens_position
+    return result
+
+
+@app.get("/calibration/current")
+def current_calibration() -> dict:
+    """Summary of the active saved calibration, so the operator knows which one is live."""
+    artifact = load_current_calibration()
+    if artifact is None:
+        return {"exists": False}
+    return {
+        "exists": True,
+        "created_at": artifact.created_at,
+        "residual_std_pct": artifact.scale_field.residual_std_pct,
+        "lens_position": artifact.lens_position,
+        "corner_baseline_tags": (
+            sorted(artifact.corner_baseline.corners_by_id) if artifact.corner_baseline else []
+        ),
+    }
+
+
+@app.post("/calibration/tripwire/check")
+def tripwire_check() -> dict:
+    """Manual per-capture health check against the saved baseline (PLAN.md M2 section B).
+
+    A "check now" button, not an automatic hook on every capture -- that needs a recurring
+    capture loop, which doesn't exist until M3's scheduler. Built now anyway: without it, the M2
+    roll/knock acceptance test has no way to trigger a tripwire check at all.
+    """
+    artifact = load_current_calibration()
+    if artifact is None or artifact.corner_baseline is None:
+        raise HTTPException(409, "no calibration baseline saved yet -- run a calibration first")
+
+    manager = CameraManager.instance()
+    array, _sensor_metadata = manager.capture_full_res()
+    detections = detect_tags(array)
+    result = check_tripwire(artifact.corner_baseline, detections)
+    return {
+        "verdict": result.verdict,
+        "messages": list(result.messages),
+        "roll_deg": result.roll_deg,
+        "scale_delta_pct": result.scale_delta_pct,
+    }

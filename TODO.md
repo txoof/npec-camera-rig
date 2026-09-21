@@ -262,7 +262,30 @@ The heart of the project. Do not start before M1 slice 5.
       stray "garbage" tags). Redone at Aaron's correction: don't treat an incidental scene as
       ground truth, and don't assert things about detector algorithm quality that aren't ours to
       test. The full photo was removed from the repo; only the minimal crop remains.
-- [ ] Calibration mode: paper sheets on alternating trays, reaching all four frame corners
+- [x] **Calibration mode UI** — `POST /calibration/run` in `app.py` (plus the "Calibration"
+      section in `static/index.html`): captures a full-res still, detects tags, builds the scale
+      field + install report via `build_calibration_report()`, and shows the operator the result
+      in the browser. Also builds the corner baseline (`build_corner_baseline()`) and records the
+      current lens position into the saved `CalibrationArtifact` — this was the "needs bench
+      access" gap noted below in the health-baseline entry; both are now populated from a real
+      capture, not just plumbed as optional fields. Saves the full-res frame alongside the
+      artifact (`calibration_store.save_calibration_frame()`, same timestamp stem) so a bad or
+      disputed field can be re-processed later without redoing the physical paper-sheet setup —
+      every M2 acceptance test below is a diff between two calibrations. Smoke-tested against
+      real hardware 2026-09-21 (no sheets on the table yet, so 0 tags — exercised the "not enough
+      tags" path cleanly, ~8.5s round trip for a 64MP capture + detect at 0 tags; expect longer
+      with real sheets present). **Tag size caveat, unresolved:** `tags.py`'s
+      `ASSUMED_CALIBRATION_TAG_SIZE_MM` (29.3106mm) reuses CLAUDE.md's calliper measurement, but
+      `reference/calibration-sheets/README.md` says the *2026-09-20 print* of IDs 300-449 has not
+      itself been calliper-checked. **Confirm with callipers before trusting a real scale field**
+      — this is the largest error source in the project if wrong, and neither the holdout test
+      nor the two-baseline test can catch a wrong constant applied identically both times. The
+      value is displayed in the UI result specifically so this doesn't go unnoticed. *(2026-09-21)*
+- [x] **Manual tripwire trigger** — `POST /calibration/tripwire/check` plus the "Check tripwire
+      now" button: runs `check_tripwire()` against the saved baseline on demand. Decided this
+      session not to wait for M3's scheduler (see the per-capture tripwire entry below) — without
+      some trigger, the roll/knock acceptance test has no way to invoke a tripwire check at all.
+      Automatic per-capture wiring is still M3 scope. *(2026-09-21)*
 - [x] **Scale field** — `src/npec_rig/calibration.py`, `build_scale_field()`: fits a single
       tilted-plane model (relative depth linear in image x, y) from `TagDetection`s plus a
       tag_id -> size_mm lookup. `ScaleField.px_per_mm(x, y)` / `.mm_per_px(x, y)` give local
@@ -310,12 +333,14 @@ The heart of the project. Do not start before M1 slice 5.
       capture, so a full-res capture still confirms the final number. Distinct from the install
       report above: that's a stored one-time artifact, this is an interactive aid, not persisted.
       *(Aaron, 2026-09-19)*
-- [~] **Health baseline** — `CornerBaseline`/`build_corner_baseline()` in the new
+- [x] **Health baseline** — `CornerBaseline`/`build_corner_baseline()` in
       `src/npec_rig/tripwire.py`: corner tag corners keyed by tag id, built from whatever subset
       of the (up to 4) mounted corner tags a real calibration actually detects — not assumed to
-      be exactly 4, since one is currently partially obscured (TODO.md). **Not built:** a
-      homography matrix, and locked-lens-position capture/recording as part of this — those need
-      the real calibration workflow (bench access) to wire up meaningfully.
+      be exactly 4, since one is currently partially obscured (TODO.md). Lens-position
+      capture/recording is now wired up too, via `POST /calibration/run` (see the calibration
+      mode UI entry above). **Still not built:** a homography matrix — nothing in M2 consumes one
+      yet (the tripwire uses Procrustes rotation + per-tag size ratio instead), so it stays
+      deferred until something needs it.
 - [x] **Per-capture tripwire** — `check_tripwire()` in `tripwire.py`: `OK`/`DRIFT`/`FAIL` against
       a `CornerBaseline`, from Procrustes-fit roll (all 4 corners of each matched corner tag, not
       just centres) and per-tag size ratio ("near corner tag N is 5% closer"). Missing baseline
@@ -329,9 +354,10 @@ The heart of the project. Do not start before M1 slice 5.
       parameters (default: 1 deg drift / 10 deg fail, 3%/8% scale) set so a deliberate ~5 deg test
       roll lands as `DRIFT` per PLAN.md's acceptance wording, not tuned to real data yet -- the
       chamber acceptance tests are the actual measurement. Unit-tested with synthetic baselines
-      and known rotations/scale changes. **Not wired into the real per-capture pipeline** (writing
-      a verdict to the DB on every reading) -- that needs the capture pipeline (M3) and a real
-      baseline (bench access). *(2026-09-20)*
+      and known rotations/scale changes. Wired into a manual trigger, `POST
+      /calibration/tripwire/check` (see the manual tripwire trigger entry above) — **not into an
+      automatic per-capture pipeline** (writing a verdict to the DB on every reading), which still
+      needs the recurring capture loop M3's scheduler builds. *(2026-09-20, updated 2026-09-21)*
 - [x] **Tray tags re-fit scale on top of the frozen field** — `ScaleFactorRefit`/
       `refit_scale_factor()` in `calibration.py`: keeps the frozen field's shape (plane tilt
       coefficients) fixed, refits only the multiplicative scale factor from new (e.g. tray-tag)

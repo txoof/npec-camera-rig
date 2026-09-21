@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from npec_rig.calibration import CalibrationArtifact, ScaleField
@@ -7,6 +8,7 @@ from npec_rig.calibration_store import (
     load_calibration,
     load_current_calibration,
     save_calibration,
+    save_calibration_frame,
 )
 
 pytestmark = pytest.mark.unit
@@ -65,6 +67,23 @@ def test_list_calibrations_excludes_the_current_pointer() -> None:
 
 def test_list_calibrations_empty_before_anything_is_saved() -> None:
     assert list_calibrations() == []
+
+
+def test_save_calibration_frame_writes_a_jpeg_under_the_frames_dir() -> None:
+    image = np.zeros((8, 8, 3), dtype=np.uint8)
+    path = save_calibration_frame(image)
+
+    assert path.exists()
+    assert path.parent == calibration_root() / "frames"
+    assert path.read_bytes()[:2] == b"\xff\xd8"
+
+
+def test_save_calibration_and_frame_share_a_stem_when_given_one() -> None:
+    save_calibration_frame(np.zeros((8, 8, 3), dtype=np.uint8), stem="shared-stem")
+    save_calibration(_artifact(), stem="shared-stem")
+
+    assert (calibration_root() / "frames" / "shared-stem.jpg").exists()
+    assert (calibration_root() / "shared-stem.json").exists()
 
 
 def test_storage_is_separate_from_captures_dir(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:

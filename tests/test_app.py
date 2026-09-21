@@ -2,8 +2,13 @@ import pytest
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 
+import npec_rig.app as app_module
 from npec_rig.app import _mjpeg_frames, app, focus_roi_stream, preview
+from npec_rig.calibration import CalibrationArtifact, ScaleField
+from npec_rig.calibration_store import save_calibration
 from npec_rig.camera import SIMULATED_AUTOFOCUS_POSITION, CameraManager, SyntheticBackend
+from npec_rig.tripwire import CornerBaseline
+from tests.helpers import square_detection
 
 pytestmark = pytest.mark.unit
 
@@ -11,6 +16,11 @@ pytestmark = pytest.mark.unit
 @pytest.fixture(autouse=True)
 def synthetic_camera() -> None:
     CameraManager.set_instance(CameraManager(SyntheticBackend()))
+
+
+@pytest.fixture
+def isolated_calibration_dir(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
 
 
 def test_index_page_loads() -> None:
@@ -215,3 +225,97 @@ def test_api_captures_respects_a_non_default_limit() -> None:
     response = client.get("/api/captures", params={"limit": 2})
     assert response.status_code == 200
     assert len(response.json()) == 2
+
+
+# --- Calibration ---
+# SyntheticBackend's frame has no real tags drawn into it, so `detect_tags` finds nothing on a
+# plain capture -- exercising the "not enough tags" path for free. The happy path monkeypatches
+# `detect_tags` with `square_detection`-built fixtures (same synthetic-geometry convention as
+# test_calibration.py/test_tripwire.py), since drawing a real detectable tag into the frame isn't
+# needed to test this module's own wiring.
+
+_CALIBRATION_TAGS = [
+    square_detection(300 + i, cx, cy, side_px=40.0)
+    for i, (cx, cy) in enumerate(
+        [(200, 200), (1300, 200), (200, 950), (1300, 950), (750, 575), (500, 400)]
+    )
+]
+_CORNER_TAGS = [
+    square_detection(450, 30, 30, side_px=60.0),
+    square_detection(451, 1500, 30, side_px=60.0),
+]
+
+
+def test_run_calibration_reports_insufficient_tags(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.post("/calibration/run")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["calibration_tags_detected"] == 0
+    assert body["corner_tags_detected"] == 0
+    assert "error" in body
+
+
+def test_run_calibration_builds_field_and_saves_artifact_and_frame(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(
+        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS
+    )
+
+    client = TestClient(app)
+    response = client.post("/calibration/run")
+    assert response.status_code == 200
+    body = response.json()
+
+    assert "error" not in body
+    assert body["calibration_tags_detected"] == len(_CALIBRATION_TAGS)
+    assert body["corner_tags_detected"] == len(_CORNER_TAGS)
+    assert body["corner_baseline_tags"] == [450, 451]
+    assert body["report"]
+    assert isinstance(body["residual_std_pct"], float)
+
+    from pathlib import Path
+
+    assert Path(body["frame_path"]).exists()
+    assert Path(body["artifact_path"]).exists()
+
+    current = client.get("/calibration/current").json()
+    assert current["exists"] is True
+    assert current["corner_baseline_tags"] == [450, 451]
+    assert current["residual_std_pct"] == body["residual_std_pct"]
+
+
+def test_current_calibration_before_any_run(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/current")
+    assert response.status_code == 200
+    assert response.json() == {"exists": False}
+
+
+def test_tripwire_check_without_baseline_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.post("/calibration/tripwire/check")
+    assert response.status_code == 409
+
+
+def test_tripwire_check_against_saved_baseline(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    baseline = CornerBaseline(corners_by_id={d.tag_id: d.corners for d in _CORNER_TAGS})
+    artifact = CalibrationArtifact(
+        created_at="2026-09-20T12:00:00+00:00",
+        scale_field=ScaleField(_coeffs=(1.0, 0.0, 0.0), _mean_px_per_mm=4.0, residual_std_pct=1.0),
+        corner_baseline=baseline,
+        lens_position=6.3,
+    )
+    save_calibration(artifact)
+
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CORNER_TAGS)
+
+    client = TestClient(app)
+    response = client.post("/calibration/tripwire/check")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verdict"] == "OK"
+    assert body["roll_deg"] == pytest.approx(0.0)
