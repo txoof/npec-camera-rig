@@ -286,6 +286,18 @@ The heart of the project. Do not start before M1 slice 5.
       session not to wait for M3's scheduler (see the per-capture tripwire entry below) — without
       some trigger, the roll/knock acceptance test has no way to invoke a tripwire check at all.
       Automatic per-capture wiring is still M3 scope. *(2026-09-21)*
+- [x] **`promote` flag so a comparison run can't silently swap the live baseline** —
+      `save_calibration(artifact, promote=...)` in `calibration_store.py`; `POST
+      /calibration/run?promote=false` (UI: "Set as current baseline" checkbox, unchecked) writes
+      the timestamped artifact + frame without touching `current.json`. Without this, the
+      two-baseline test's own second run would silently replace the baseline
+      `/calibration/tripwire/check` reads mid-test — caught before it shipped, not after Aaron
+      hit it in the chamber. *(2026-09-21)*
+- [x] **Calibration export** — `GET /calibration/list` plus a `/calibration/files/` static mount
+      (same pattern as `/captures`) serving every saved artifact JSON and its frame; the
+      "Saved calibrations (download)" panel in the UI. PLAN.md M2 section A says calibration is
+      "frozen, versioned, **exportable**" — this is the export; before this, artifacts only
+      existed on the Pi's filesystem, reachable over SSH. *(2026-09-21)*
 - [x] **Scale field** — `src/npec_rig/calibration.py`, `build_scale_field()`: fits a single
       tilted-plane model (relative depth linear in image x, y) from `TagDetection`s plus a
       tag_id -> size_mm lookup. `ScaleField.px_per_mm(x, y)` / `.mm_per_px(x, y)` give local

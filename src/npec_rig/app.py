@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 
 from npec_rig.calibration import CalibrationArtifact, build_calibration_report, build_scale_field
 from npec_rig.calibration_store import (
+    calibration_root,
+    list_calibrations,
     load_current_calibration,
     save_calibration,
     save_calibration_frame,
@@ -30,9 +32,14 @@ PREVIEW_FPS_LIMIT = 10.0
 ROI_STREAM_FPS_LIMIT = 5.0
 
 captures_root().mkdir(parents=True, exist_ok=True)
+calibration_root().mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="NPEC Camera Rig")
 app.mount("/captures", StaticFiles(directory=str(captures_root())), name="captures")
+# PLAN.md M2 section A: calibration is "frozen, versioned, exportable" -- this is the export.
+# Serves both the timestamped artifact JSON and, under frames/, the full-res still each one
+# came from (calibration_store.save_calibration_frame).
+app.mount("/calibration/files", StaticFiles(directory=str(calibration_root())), name="calibration_files")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -237,13 +244,17 @@ def api_captures(limit: int = 12) -> list[dict]:
 
 
 @app.post("/calibration/run")
-def run_calibration() -> dict:
+def run_calibration(promote: bool = True) -> dict:
     """Setup calibration (PLAN.md M2 section A): capture a full-res still, detect tags, build the
     scale field and install report, and save the frame plus the resulting artifact.
 
     Saving the frame, not just the numbers derived from it, matters here: every M2 acceptance
     test (PLAN.md "You verify") is a diff between two calibrations, so a disputed field must be
     re-processable from its original capture without redoing the physical paper-sheet setup.
+
+    `promote=False` (the "set as current baseline" checkbox, unticked) saves this run without
+    replacing the active `current.json` -- for a comparison run (the two-baseline/two-height
+    tests) taken while a real baseline is still live for `/calibration/tripwire/check` to read.
     """
     manager = CameraManager.instance()
     array, _sensor_metadata = manager.capture_full_res()
@@ -290,9 +301,30 @@ def run_calibration() -> dict:
         corner_baseline=corner_baseline,
         lens_position=lens_position,
     )
-    result["artifact_path"] = str(save_calibration(artifact, stem=stem))
+    result["artifact_path"] = str(save_calibration(artifact, stem=stem, promote=promote))
+    result["promoted_to_current"] = promote
     result["lens_position"] = lens_position
     return result
+
+
+@app.get("/calibration/list")
+def list_calibration_artifacts() -> list[dict]:
+    """Every saved calibration artifact, newest first, with URLs to download it and (if saved)
+    the frame it came from -- the "exportable" half of PLAN.md's "frozen, versioned, exportable."
+    """
+    entries = []
+    for path in reversed(list_calibrations()):
+        frame_url = None
+        if (calibration_root() / "frames" / f"{path.stem}.jpg").exists():
+            frame_url = f"/calibration/files/frames/{path.stem}.jpg"
+        entries.append(
+            {
+                "filename": path.name,
+                "url": f"/calibration/files/{path.name}",
+                "frame_url": frame_url,
+            }
+        )
+    return entries
 
 
 @app.get("/calibration/current")

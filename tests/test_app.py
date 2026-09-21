@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
@@ -8,7 +10,7 @@ from npec_rig.calibration import CalibrationArtifact, ScaleField
 from npec_rig.calibration_store import save_calibration
 from npec_rig.camera import SIMULATED_AUTOFOCUS_POSITION, CameraManager, SyntheticBackend
 from npec_rig.tripwire import CornerBaseline
-from tests.helpers import square_detection
+from tests.helpers import rotate_detection, square_detection
 
 pytestmark = pytest.mark.unit
 
@@ -275,8 +277,6 @@ def test_run_calibration_builds_field_and_saves_artifact_and_frame(
     assert body["report"]
     assert isinstance(body["residual_std_pct"], float)
 
-    from pathlib import Path
-
     assert Path(body["frame_path"]).exists()
     assert Path(body["artifact_path"]).exists()
 
@@ -319,3 +319,74 @@ def test_tripwire_check_against_saved_baseline(
     body = response.json()
     assert body["verdict"] == "OK"
     assert body["roll_deg"] == pytest.approx(0.0)
+
+
+def test_tripwire_check_reports_a_real_roll_through_the_json_round_trip(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # Unlike the zero-motion case above, this proves roll_deg/scale_delta_pct survive the
+    # endpoint's dict-building and JSON encoding with real (non-zero, non-default) values, not
+    # just that the wiring doesn't crash -- what Aaron will actually be reading off the screen
+    # during the roll-camera acceptance test.
+    baseline = CornerBaseline(corners_by_id={d.tag_id: d.corners for d in _CORNER_TAGS})
+    artifact = CalibrationArtifact(
+        created_at="2026-09-20T12:00:00+00:00",
+        scale_field=ScaleField(_coeffs=(1.0, 0.0, 0.0), _mean_px_per_mm=4.0, residual_std_pct=1.0),
+        corner_baseline=baseline,
+        lens_position=6.3,
+    )
+    save_calibration(artifact)
+
+    pivot = (750, 500)
+    rolled = [rotate_detection(d, pivot, 5.0) for d in _CORNER_TAGS]
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: rolled)
+
+    client = TestClient(app)
+    response = client.post("/calibration/tripwire/check")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verdict"] == "DRIFT"
+    assert body["roll_deg"] == pytest.approx(5.0, abs=0.01)
+    assert set(body["scale_delta_pct"].keys()) == {"450", "451"}
+
+
+def test_run_calibration_with_promote_false_does_not_replace_current(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    first = client.post("/calibration/run").json()
+    assert first["promoted_to_current"] is True
+
+    second = client.post("/calibration/run", params={"promote": "false"}).json()
+    assert second["promoted_to_current"] is False
+    assert second["artifact_path"] != first["artifact_path"]
+
+    current = client.get("/calibration/current").json()
+    assert current["created_at"] != second.get("created_at")  # unaffected by the second run
+    # Both runs still landed on disk -- promote=False only skips the current.json pointer.
+    assert Path(first["artifact_path"]).exists()
+    assert Path(second["artifact_path"]).exists()
+
+
+def test_calibration_list_and_files_are_downloadable(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Deliberately not isolated_calibration_dir: /calibration/files is a StaticFiles mount bound
+    # to a fixed directory at app import time (same pattern as /captures), so it serves whatever
+    # NPEC_RIG_CALIBRATION_DIR conftest.py set at import -- a per-test env override wouldn't be
+    # visible to it.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    run = client.post("/calibration/run").json()
+
+    listing = client.get("/calibration/list").json()
+    entry = next(e for e in listing if e["url"] == f"/calibration/files/{Path(run['artifact_path']).name}")
+    assert entry["frame_url"] == f"/calibration/files/frames/{Path(run['frame_path']).name}"
+
+    artifact_response = client.get(entry["url"])
+    assert artifact_response.status_code == 200
+    assert artifact_response.json()["version"] == 1
+
+    frame_response = client.get(entry["frame_url"])
+    assert frame_response.status_code == 200
+    assert frame_response.content[:2] == b"\xff\xd8"

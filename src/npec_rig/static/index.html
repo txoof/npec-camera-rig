@@ -239,9 +239,23 @@
     <p id="calibration-current" style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Loading current calibration&hellip;
     </p>
-    <button id="calibrate-btn">Run calibration</button>
-    <button id="tripwire-btn">Check tripwire now</button>
+    <label class="peaking-row">
+      <input type="checkbox" id="promote-toggle" checked>
+      <span>
+        <strong>Set as current baseline</strong> — leave this checked for a normal setup
+        calibration. Uncheck it for a comparison run (e.g. the two-baseline test) so it doesn't
+        replace the baseline a tripwire check further down is still using.
+      </span>
+    </label>
+    <div class="lock-row">
+      <button id="calibrate-btn">Run calibration</button>
+      <button id="tripwire-btn">Check tripwire now</button>
+    </div>
     <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+    <details style="margin-top: 0.75rem;">
+      <summary>Saved calibrations (download)</summary>
+      <div id="calibration-list" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
+    </details>
   </div>
 
   <script>
@@ -582,8 +596,25 @@
     // --- Calibration ---
     const calibrateBtn = document.getElementById("calibrate-btn");
     const tripwireBtn = document.getElementById("tripwire-btn");
+    const promoteToggle = document.getElementById("promote-toggle");
     const calibrationResult = document.getElementById("calibration-result");
     const calibrationCurrent = document.getElementById("calibration-current");
+    const calibrationList = document.getElementById("calibration-list");
+
+    async function refreshCalibrationList() {
+      const r = await fetch("/calibration/list");
+      const items = await r.json();
+      calibrationList.innerHTML = items.length
+        ? items
+            .map((item) => {
+              const frame = item.frame_url
+                ? ` — <a href="${item.frame_url}" target="_blank">frame</a>`
+                : "";
+              return `<div><a href="${item.url}" target="_blank">${item.filename}</a>${frame}</div>`;
+            })
+            .join("")
+        : "None saved yet.";
+    }
 
     function renderCurrentCalibration(data) {
       if (!data.exists) {
@@ -609,7 +640,8 @@
       calibrateBtn.textContent = "Calibrating (full-res detect can take a while)...";
       calibrationResult.textContent = "";
       try {
-        const r = await fetch("/calibration/run", { method: "POST" });
+        const promote = promoteToggle.checked;
+        const r = await fetch(`/calibration/run?promote=${promote}`, { method: "POST" });
         const data = await r.json();
         let lines;
         if (data.error) {
@@ -631,6 +663,7 @@
         }
         calibrationResult.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
         await refreshCurrentCalibration();
+        await refreshCalibrationList();
       } finally {
         calibrateBtn.disabled = false;
         calibrateBtn.textContent = "Run calibration";
@@ -656,6 +689,7 @@
     });
 
     refreshCurrentCalibration();
+    refreshCalibrationList();
   </script>
 </body>
 </html>

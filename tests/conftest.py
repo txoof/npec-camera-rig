@@ -44,13 +44,18 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         for item in hailo_items:
             item.add_marker(skip_hailo)
 
-# app.py reads NPEC_RIG_CAPTURES_DIR at *import* time (it mounts a StaticFiles directory as a
-# module-level side effect), before any per-test fixture can run — so this has to be set here,
-# at conftest module load, not in a fixture. Unconditional (not setdefault): a real value already
-# in the environment must not cause tests to write into /var/lib/npec-rig/captures.
+# app.py reads NPEC_RIG_CAPTURES_DIR and NPEC_RIG_CALIBRATION_DIR at *import* time (each mounts a
+# StaticFiles directory as a module-level side effect), before any per-test fixture can run — so
+# this has to be set here, at conftest module load, not in a fixture. Unconditional (not
+# setdefault): a real value already in the environment must not cause tests to write into
+# /var/lib/npec-rig/{captures,calibration}.
 _test_captures_dir = tempfile.mkdtemp(prefix="npec-rig-tests-")
 os.environ["NPEC_RIG_CAPTURES_DIR"] = _test_captures_dir
 atexit.register(shutil.rmtree, _test_captures_dir, ignore_errors=True)
+
+_test_calibration_dir = tempfile.mkdtemp(prefix="npec-rig-tests-calibration-")
+os.environ["NPEC_RIG_CALIBRATION_DIR"] = _test_calibration_dir
+atexit.register(shutil.rmtree, _test_calibration_dir, ignore_errors=True)
 
 
 @pytest.fixture(autouse=True)

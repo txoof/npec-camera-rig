@@ -39,13 +39,21 @@ def _write_json_atomically(path: Path, data: dict) -> None:
     tmp_path.replace(path)
 
 
-def save_calibration(artifact: CalibrationArtifact, *, stem: str | None = None) -> Path:
-    """Write `artifact` as a new timestamped file and update the `current.json` pointer.
+def save_calibration(
+    artifact: CalibrationArtifact, *, stem: str | None = None, promote: bool = True
+) -> Path:
+    """Write `artifact` as a new timestamped file, and, if `promote`, update the `current.json`
+    pointer.
 
     Returns the timestamped file's path. Both writes are atomic (write-then-rename) so a reader
     never sees a partially-written file. `stem` lets a caller line this artifact's filename up
     with a frame saved by `save_calibration_frame` from the same capture; omitted, one is
     generated the same way it always was.
+
+    `promote=False` keeps this artifact off `current.json` -- for a calibration run taken to
+    *compare* against the live one (PLAN.md's two-baseline/two-height tests), which must not
+    silently replace the baseline `check_tripwire` is reading mid-acceptance-test. Always
+    written to its own timestamped file regardless, so it's never lost.
     """
     root = calibration_root()
     root.mkdir(parents=True, exist_ok=True)
@@ -54,7 +62,8 @@ def save_calibration(artifact: CalibrationArtifact, *, stem: str | None = None) 
     stem = stem or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
     path = root / f"{stem}.json"
     _write_json_atomically(path, data)
-    _write_json_atomically(root / CURRENT_FILENAME, data)
+    if promote:
+        _write_json_atomically(root / CURRENT_FILENAME, data)
     return path
 
 
