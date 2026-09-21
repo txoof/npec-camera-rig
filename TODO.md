@@ -461,6 +461,22 @@ The heart of the project. Do not start before M1 slice 5.
       enough to want sign-off before attempting, not guessed at. Recovery for now: kill the full
       uvicorn process family (see project memory on why `pkill -f uvicorn` doesn't work) and
       relaunch. *(Aaron, 2026-09-21)*
+- [ ] **Regional coverage weakness: bottom-left explained, bottom-right not yet** — checked
+      against all 7 real calibration frames saved 2026-09-21 (reprocessed offline, no bench time
+      needed -- this is exactly why frames are saved alongside artifacts). Two hypotheses tested
+      and ruled out: (1) refitting `ppm` directly linear in (x,y) instead of the current
+      `relative_depth = mean_ppm/ppm` gives near-identical holdout/regional error in every run
+      (e.g. run 1: 2.18% vs 2.11% bottom-right) -- the reciprocal-vs-direct functional-form
+      difference is real but too small (~0.2-0.4% at this tilt magnitude) to be the cause; (2) the
+      plane coefficients visibly jump between two runs taken 2 minutes apart with unchanged
+      `lens_position` (6.3 both times) -- not a refocus artifact either. What the data does show:
+      bottom-left is the *sparsest* quadrant in all 7 runs (n=4-24 tags, always the frame's lowest
+      count) -- its weakness is plain undersampling, fixed by adding coverage there. Bottom-right
+      is a different story: comparable tag count to the best-performing quadrant (top-right,
+      n=42-86 both) but consistently ~1.5-2x its error regardless -- sparsity doesn't explain it.
+      That's a real, sample-size-independent, consistently-located residual -- the honesty plot
+      (claimed uncertainty vs actual error, PLAN.md M2 acceptance) is the next real measurement,
+      not another guess. *(2026-09-21)*
 
 ### M2 acceptance — run in the chamber
 - [ ] **Two-baseline test** *(do first)* — two independent calibrations of the same static scene,
