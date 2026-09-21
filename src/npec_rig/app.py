@@ -24,7 +24,7 @@ from npec_rig.tags import (
     CORNER_ID_RANGE,
     detect_tags,
 )
-from npec_rig.tripwire import build_corner_baseline, check_tripwire
+from npec_rig.tripwire import CornerBaseline, build_corner_baseline, check_tripwire
 
 STATIC_DIR = Path(__file__).parent / "static"
 PREVIEW_BOUNDARY = b"frame"
@@ -341,6 +341,47 @@ def current_calibration() -> dict:
         "corner_baseline_tags": (
             sorted(artifact.corner_baseline.corners_by_id) if artifact.corner_baseline else []
         ),
+    }
+
+
+_live_orientation_baseline: CornerBaseline | None = None
+
+
+@app.post("/calibration/orientation/zero")
+def zero_live_orientation() -> dict:
+    """Freeze the current preview frame's corner-tag geometry as a temporary zero point for the
+    live reorientation aid (TODO.md's "Live reorientation guidance") -- for adjusting the rig by
+    hand during physical setup, before any real calibration baseline exists. In-memory only, not
+    persisted; distinct from the saved calibration baseline `/calibration/tripwire/check` uses.
+    """
+    global _live_orientation_baseline
+    manager = CameraManager.instance()
+    detections = detect_tags(manager.capture_preview_array())
+    try:
+        _live_orientation_baseline = build_corner_baseline(detections)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return {"corner_tags": sorted(_live_orientation_baseline.corners_by_id)}
+
+
+@app.get("/calibration/orientation/live")
+def live_orientation() -> dict:
+    """Roll/scale reading against the zero point set above, polled continuously while nudging
+    the rig by hand toward level. Reuses `check_tripwire` -- a pure in-image comparison between
+    two frames of this rig, no mount-squareness or equal-tag-size assumption needed (see
+    tripwire.py's docstring). Preview resolution only, coarser than a full-res capture: a real
+    calibration still confirms the final number.
+    """
+    if _live_orientation_baseline is None:
+        raise HTTPException(409, "no zero point set -- press 'Zero here' first")
+    manager = CameraManager.instance()
+    detections = detect_tags(manager.capture_preview_array())
+    result = check_tripwire(_live_orientation_baseline, detections)
+    return {
+        "verdict": result.verdict,
+        "messages": list(result.messages),
+        "roll_deg": result.roll_deg,
+        "scale_delta_pct": result.scale_delta_pct,
     }
 
 

@@ -256,6 +256,17 @@
       <summary>Saved calibrations (download)</summary>
       <div id="calibration-list" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
     </details>
+
+    <h3 style="margin: 1rem 0 0.25rem;">Live reorientation aid</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      While adjusting the rig by hand, press "Zero here" once it looks roughly right, then nudge
+      it until the reading below settles at OK. Preview resolution only, directional guidance —
+      a full calibration still confirms the final number.
+    </p>
+    <div class="lock-row">
+      <button id="orientation-zero-btn">Zero here</button>
+      <span id="orientation-live" style="font-size: 0.85rem; color: #aaa;">not zeroed</span>
+    </div>
   </div>
 
   <script>
@@ -690,6 +701,44 @@
 
     refreshCurrentCalibration();
     refreshCalibrationList();
+
+    // --- Live reorientation aid ---
+    const orientationZeroBtn = document.getElementById("orientation-zero-btn");
+    const orientationLive = document.getElementById("orientation-live");
+    let orientationZeroed = false;
+
+    orientationZeroBtn.addEventListener("click", async () => {
+      orientationZeroBtn.disabled = true;
+      try {
+        const r = await fetch("/calibration/orientation/zero", { method: "POST" });
+        const data = await r.json();
+        if (r.status === 409) {
+          orientationLive.textContent = data.detail;
+          orientationZeroed = false;
+          return;
+        }
+        orientationZeroed = true;
+        orientationLive.textContent = `zeroed on tags ${data.corner_tags.join(", ")}`;
+      } finally {
+        orientationZeroBtn.disabled = false;
+      }
+    });
+
+    async function pollOrientation() {
+      if (orientationZeroed) {
+        try {
+          const r = await fetch("/calibration/orientation/live");
+          const data = await r.json();
+          const roll = data.roll_deg === null ? "roll: n/a" : `roll ${data.roll_deg.toFixed(2)} deg`;
+          orientationLive.innerHTML =
+            `<strong>${data.verdict}</strong> — ${roll}; ${data.messages.join("; ")}`;
+        } catch (e) {
+          // transient network hiccup — try again next tick
+        }
+      }
+      setTimeout(pollOrientation, 500);
+    }
+    pollOrientation();
   </script>
 </body>
 </html>

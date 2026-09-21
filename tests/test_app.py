@@ -25,6 +25,13 @@ def isolated_calibration_dir(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
 
 
+@pytest.fixture(autouse=True)
+def reset_live_orientation_zero() -> None:
+    # Module-level state (TODO.md's "Live reorientation guidance" -- in-memory by design, not
+    # persisted), so it must not leak a zero point set by one test into the next.
+    app_module._live_orientation_baseline = None
+
+
 def test_index_page_loads() -> None:
     client = TestClient(app)
     response = client.get("/")
@@ -348,6 +355,62 @@ def test_tripwire_check_reports_a_real_roll_through_the_json_round_trip(
     assert body["verdict"] == "DRIFT"
     assert body["roll_deg"] == pytest.approx(5.0, abs=0.01)
     assert set(body["scale_delta_pct"].keys()) == {"450", "451"}
+
+
+def test_live_orientation_without_zero_is_refused() -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/orientation/live")
+    assert response.status_code == 409
+
+
+def test_zero_live_orientation_refuses_with_no_corner_tags() -> None:
+    # SyntheticBackend's preview frame has no real tags drawn -- same "nothing detected" path
+    # as /calibration/run's insufficient-tags case.
+    client = TestClient(app)
+    response = client.post("/calibration/orientation/zero")
+    assert response.status_code == 409
+
+
+def test_zero_live_orientation_builds_baseline_from_preview(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CORNER_TAGS)
+
+    client = TestClient(app)
+    response = client.post("/calibration/orientation/zero")
+    assert response.status_code == 200
+    assert response.json() == {"corner_tags": [450, 451]}
+
+
+def test_live_orientation_is_ok_at_the_zero_point(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CORNER_TAGS)
+
+    client = TestClient(app)
+    assert client.post("/calibration/orientation/zero").status_code == 200
+
+    response = client.get("/calibration/orientation/live")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verdict"] == "OK"
+    assert body["roll_deg"] == pytest.approx(0.0)
+
+
+def test_live_orientation_reports_roll_after_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Same convention as test_tripwire_check_reports_a_real_roll_through_the_json_round_trip:
+    # proves roll_deg survives this endpoint's own dict-building and JSON encoding with a real,
+    # non-zero value -- what Aaron reads off the screen while nudging the rig by hand.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CORNER_TAGS)
+
+    client = TestClient(app)
+    assert client.post("/calibration/orientation/zero").status_code == 200
+
+    pivot = (750, 500)
+    rolled = [rotate_detection(d, pivot, 5.0) for d in _CORNER_TAGS]
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: rolled)
+
+    response = client.get("/calibration/orientation/live")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verdict"] == "DRIFT"
+    assert body["roll_deg"] == pytest.approx(5.0, abs=0.01)
 
 
 def test_run_calibration_with_promote_false_does_not_replace_current(

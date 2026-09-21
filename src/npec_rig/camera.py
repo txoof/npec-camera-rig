@@ -383,6 +383,12 @@ class CameraManager:
         with self._call_lock:
             return array_to_jpeg(self._backend.capture_preview_array())
 
+    def capture_preview_array(self) -> np.ndarray:
+        """Raw lores frame, for callers that need pixels rather than a JPEG (e.g. the live
+        reorientation aid's tag detection)."""
+        with self._call_lock:
+            return self._backend.capture_preview_array()
+
     def set_lens_position(self, value: float) -> None:
         with self._call_lock:
             self._backend.set_lens_position(value)
