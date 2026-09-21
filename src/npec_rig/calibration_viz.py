@@ -19,6 +19,11 @@ from npec_rig.calibration import UncertaintyField
 HEATMAP_MIN_PCT = 0.0
 HEATMAP_MAX_PCT = 8.0
 HEATMAP_GRID = (40, 30)  # (columns, rows) -- coarse is fine, it's smoothly upsampled after
+# A confidence heatmap is for a human to glance at in a browser, not a measurement -- there is
+# no reason to carry a real 64MP frame (and its ~190MB-plus of uint8 copies) through a resize,
+# colour-map and blend just to shrink it back down for display. Capped well below the display's
+# own resolution.
+HEATMAP_MAX_WIDTH = 1600
 
 
 def render_uncertainty_heatmap(
@@ -28,19 +33,31 @@ def render_uncertainty_heatmap(
     alpha: float = 0.45,
     vmin: float = HEATMAP_MIN_PCT,
     vmax: float = HEATMAP_MAX_PCT,
+    max_width: int = HEATMAP_MAX_WIDTH,
 ) -> np.ndarray:
     """`frame` (RGB, see camera.py's array_to_jpeg) with a colour heatmap of
     `field.local_uncertainty_pct` blended over it -- cool/blue where confidence is high, hot/red
-    where it's low.
+    where it's low. Downscaled to `max_width` first; see `HEATMAP_MAX_WIDTH`.
 
     Sampled on a coarse grid and upsampled, not once per pixel: `local_uncertainty_pct` is a
     k-nearest-neighbour lookup over every detected tag, and the field varies smoothly, so a
     coarse grid costs far less compute for a visually identical result.
     """
+    full_height, full_width = frame.shape[0], frame.shape[1]
+    if full_width > max_width:
+        scale = max_width / full_width
+        frame = cv2.resize(
+            np.ascontiguousarray(frame[..., :3]),
+            (max_width, int(round(full_height * scale))),
+            interpolation=cv2.INTER_AREA,
+        )
+
     height, width = frame.shape[0], frame.shape[1]
     cols, rows = HEATMAP_GRID
-    xs = np.linspace(0, width - 1, cols)
-    ys = np.linspace(0, height - 1, rows)
+    # Sampled in the *original* frame's coordinates -- `field` was built from full-resolution
+    # detections, so a downscaled grid position has to be scaled back up before querying it.
+    xs = np.linspace(0, full_width - 1, cols)
+    ys = np.linspace(0, full_height - 1, rows)
     grid = np.array(
         [[field.local_uncertainty_pct(float(x), float(y)) for x in xs] for y in ys],
         dtype=np.float32,
@@ -54,11 +71,14 @@ def render_uncertainty_heatmap(
     # RGB throughout (see camera.py's array_to_jpeg docstring), so the swap back is load-bearing,
     # not cosmetic.
     color_bgr = cv2.applyColorMap(upsampled, cv2.COLORMAP_TURBO)
-    color_rgb = cv2.cvtColor(color_bgr, cv2.COLOR_BGR2RGB).astype(np.float32)
+    color_rgb = cv2.cvtColor(color_bgr, cv2.COLOR_BGR2RGB)
 
-    base = frame[..., :3].astype(np.float32)
-    blended = (1 - alpha) * base + alpha * color_rgb
-    return np.clip(blended, 0, 255).astype(np.uint8)
+    # cv2.addWeighted blends in place in uint8, not three full-frame float32 copies (base,
+    # colour, blended) -- at a real 64MP capture that float32 path allocated ~2.3GB of
+    # short-lived temporaries and actually triggered the OOM killer on a second run (confirmed
+    # in dmesg, not guessed), taking the whole camera worker down with it.
+    base = np.ascontiguousarray(frame[..., :3])
+    return cv2.addWeighted(base, 1 - alpha, color_rgb, alpha, 0)
 
 
 HONESTY_PLOT_SIZE = 640
