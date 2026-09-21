@@ -478,6 +478,16 @@ The heart of the project. Do not start before M1 slice 5.
       (claimed uncertainty vs actual error, PLAN.md M2 acceptance) is the next real measurement,
       not another guess. *(2026-09-21)*
 
+### M2 — UI usability, not yet done
+
+- [ ] **Calibration page has grown into one long page — break it into a sequential set of steps**
+      instead. It's accumulated run calibration, tripwire check, live reorientation aid, and the
+      honesty plot all stacked on one page this session; needs restructuring into a guided
+      step-by-step flow rather than one scroll. *(Aaron, 2026-09-21)*
+- [ ] **Move calibration history into a gallery** — the current "Saved calibrations (download)"
+      `<details>` list (filenames + text links) should become a proper gallery: preview
+      thumbnails plus a download action per entry, not a plain link list. *(Aaron, 2026-09-21)*
+
 ### M2 acceptance — run in the chamber
 - [ ] **Two-baseline test** *(do first)* — two independent calibrations of the same static scene,
       diff the fields. That disagreement is the floor on achievable certainty.
