@@ -436,6 +436,32 @@ The heart of the project. Do not start before M1 slice 5.
       use SQLite instead. Unit-tested (round-trip, current-pointer tracking, listing, isolation
       from the captures dir). *(2026-09-20)*
 
+### M2 — known issues, not yet fixed
+
+- [ ] **Live reorientation aid never actually works** — `POST /calibration/orientation/zero`
+      refused twice on real hardware (2026-09-21) with "no corner tags detected." The corner
+      tags are 50mm on `CORNER_ID_RANGE`; the preview stream (`LORES_SIZE`, far below full-res)
+      is apparently too low-resolution for `detect_tags` to pick them up at all, so the feature
+      as built is unusable in practice, not just imprecise. Full-res captures detect all 4 corner
+      tags reliably every time -- this is specific to the preview resolution. Needs either a
+      higher-resolution preview specifically for this check, or a detector-sensitivity change for
+      it; not attempted yet. *(Aaron, 2026-09-21)*
+- [ ] **Calibration capture immediately followed by autofocus wedges the whole camera pipeline**
+      — reproduced on real hardware 2026-09-21: run a calibration, then hit "Autofocus," and
+      every camera-touching endpoint (preview, snapshot, focus score) hangs for an extended
+      period; the non-camera index page stays responsive throughout, which isolates it to
+      `CameraManager._call_lock`/the picamera2 backend, not the web layer. Likely cause, not yet
+      fixed: `Picamera2Backend.autofocus()` calls `autofocus_cycle(wait=True)`, which has **no
+      timeout parameter** in the installed picamera2 version (checked via
+      `inspect.signature`/`inspect.getsource` directly, not assumed) -- it blocks on AF-state
+      metadata that may never arrive if the hardware AF search stalls, holding `_call_lock`
+      indefinitely and starving every other camera call behind it. A real fix (bounded wait via
+      `autofocus_cycle(wait=False)` + `Picamera2.wait(job, timeout=...)`, plus deciding what state
+      to leave the camera/`AfMode` in in that case) is nontrivial and camera-reliability-critical
+      enough to want sign-off before attempting, not guessed at. Recovery for now: kill the full
+      uvicorn process family (see project memory on why `pkill -f uvicorn` doesn't work) and
+      relaunch. *(Aaron, 2026-09-21)*
+
 ### M2 acceptance — run in the chamber
 - [ ] **Two-baseline test** *(do first)* — two independent calibrations of the same static scene,
       diff the fields. That disagreement is the floor on achievable certainty.
