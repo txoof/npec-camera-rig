@@ -287,11 +287,72 @@ def test_run_calibration_builds_field_and_saves_artifact_and_frame(
 
     assert Path(body["frame_path"]).exists()
     assert Path(body["artifact_path"]).exists()
+    assert body["frame_url"] is not None
+    assert body["heatmap_url"] is not None
 
     current = client.get("/calibration/current").json()
     assert current["exists"] is True
     assert current["corner_baseline_tags"] == [450, 451]
     assert current["residual_std_pct"] == body["residual_std_pct"]
+    assert current["frame_url"] == body["frame_url"]
+    assert current["heatmap_url"] == body["heatmap_url"]
+    assert current["has_uncertainty_field"] is True
+
+
+def test_current_uncertainty_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/current/uncertainty", params={"x": 100, "y": 100})
+    assert response.status_code == 409
+
+
+def test_current_uncertainty_reports_a_real_value(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get(
+        "/calibration/current/uncertainty", params={"x": _CALIBRATION_TAGS[0].centre[0], "y": _CALIBRATION_TAGS[0].centre[1]}
+    )
+    assert response.status_code == 200
+    assert response.json()["uncertainty_pct"] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_honesty_plot_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.post("/calibration/honesty-plot", json=[{"x": 1, "y": 1, "actual_error_pct": 1.0}])
+    assert response.status_code == 409
+
+
+def test_honesty_plot_rejects_an_empty_point_list(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.post("/calibration/honesty-plot", json=[])
+    assert response.status_code == 422
+
+
+def test_honesty_plot_returns_a_jpeg(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.post(
+        "/calibration/honesty-plot",
+        json=[
+            {"x": _CALIBRATION_TAGS[0].centre[0], "y": _CALIBRATION_TAGS[0].centre[1], "actual_error_pct": 1.5},
+            {"x": _CALIBRATION_TAGS[1].centre[0], "y": _CALIBRATION_TAGS[1].centre[1], "actual_error_pct": 3.0},
+        ],
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.content[:2] == b"\xff\xd8"
 
 
 def test_run_calibration_accepts_a_measured_tag_size_override(
@@ -477,11 +538,16 @@ def test_calibration_list_and_files_are_downloadable(monkeypatch: pytest.MonkeyP
     listing = client.get("/calibration/list").json()
     entry = next(e for e in listing if e["url"] == f"/calibration/files/{Path(run['artifact_path']).name}")
     assert entry["frame_url"] == f"/calibration/files/frames/{Path(run['frame_path']).name}"
+    assert entry["heatmap_url"] == run["heatmap_url"]
 
     artifact_response = client.get(entry["url"])
     assert artifact_response.status_code == 200
-    assert artifact_response.json()["version"] == 2
+    assert artifact_response.json()["version"] == 3
 
     frame_response = client.get(entry["frame_url"])
     assert frame_response.status_code == 200
     assert frame_response.content[:2] == b"\xff\xd8"
+
+    heatmap_response = client.get(entry["heatmap_url"])
+    assert heatmap_response.status_code == 200
+    assert heatmap_response.content[:2] == b"\xff\xd8"

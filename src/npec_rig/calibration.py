@@ -459,13 +459,21 @@ def describe_regional_coverage(
 # Calibration artifact: PLAN.md's "calibration is frozen, versioned, exportable." A plain
 # versioned dict is enough -- no need for anything fancier until a concrete need for it shows up.
 #
-# Version 2 adds `calibration_tag_size_mm` -- the actual physical size (calliper-measured, not
+# Version 2 added `calibration_tag_size_mm` -- the actual physical size (calliper-measured, not
 # assumed) used to build this artifact's scale field. A single hardcoded constant was wrong: the
 # calibration sheets are a print run, and a reprint isn't guaranteed to come out at the same size
 # (Aaron's callipers found the 2026-09-20 sheets read ~30.02mm, not the 29.3106mm the old rig's
 # corner tag measured -- see CLAUDE.md). Recording it per-artifact means a re-print doesn't
 # require a source change, and an old artifact stays honest about what it actually assumed.
-CALIBRATION_ARTIFACT_VERSION = 2
+#
+# Version 3 adds `uncertainty_field` and `frame_stem`. The uncertainty field's per-tag residuals
+# were being computed and thrown away every run -- to answer "how confident is the *current*
+# calibration at this position" (the honesty plot, the confidence heatmap) later, without
+# re-detecting tags from the saved frame every time, the measurement has to be kept, not
+# re-derived. `frame_stem` records which saved frame this artifact's field was built from --
+# `current.json` otherwise carries no way back to `frames/{stem}.jpg`, since it's a copy of the
+# same dict written under a different filename.
+CALIBRATION_ARTIFACT_VERSION = 3
 
 
 def scale_field_to_dict(field: ScaleField) -> dict:
@@ -481,6 +489,20 @@ def scale_field_from_dict(data: dict) -> ScaleField:
         _coeffs=tuple(data["coeffs"]),
         _mean_px_per_mm=data["mean_px_per_mm"],
         residual_std_pct=data["residual_std_pct"],
+    )
+
+
+def uncertainty_field_to_dict(field: UncertaintyField) -> dict:
+    return {
+        "positions": [list(p) for p in field._positions],
+        "residual_pct": list(field._residual_pct),
+    }
+
+
+def uncertainty_field_from_dict(data: dict) -> UncertaintyField:
+    return UncertaintyField(
+        _positions=tuple(tuple(p) for p in data["positions"]),
+        _residual_pct=tuple(data["residual_pct"]),
     )
 
 
@@ -500,6 +522,8 @@ class CalibrationArtifact:
     # Default only serves callers (mostly tests) that don't care what size was assumed -- a real
     # calibration run always passes the value it actually used, calliper-measured or otherwise.
     calibration_tag_size_mm: float = ASSUMED_CALIBRATION_TAG_SIZE_MM
+    uncertainty_field: UncertaintyField | None = None
+    frame_stem: str | None = None
     version: int = CALIBRATION_ARTIFACT_VERSION
 
 
@@ -510,12 +534,15 @@ def calibration_artifact_to_dict(artifact: CalibrationArtifact) -> dict:
         "scale_field": scale_field_to_dict(artifact.scale_field),
         "lens_position": artifact.lens_position,
         "calibration_tag_size_mm": artifact.calibration_tag_size_mm,
+        "frame_stem": artifact.frame_stem,
     }
     if artifact.corner_baseline is not None:
         data["corner_baseline"] = {
             str(tag_id): [list(pt) for pt in corners]
             for tag_id, corners in artifact.corner_baseline.corners_by_id.items()
         }
+    if artifact.uncertainty_field is not None:
+        data["uncertainty_field"] = uncertainty_field_to_dict(artifact.uncertainty_field)
     return data
 
 
@@ -536,6 +563,10 @@ def calibration_artifact_from_dict(data: dict) -> CalibrationArtifact:
             }
         )
 
+    uncertainty_field = None
+    if "uncertainty_field" in data:
+        uncertainty_field = uncertainty_field_from_dict(data["uncertainty_field"])
+
     return CalibrationArtifact(
         version=version,
         created_at=data["created_at"],
@@ -543,4 +574,6 @@ def calibration_artifact_from_dict(data: dict) -> CalibrationArtifact:
         corner_baseline=corner_baseline,
         lens_position=data.get("lens_position"),
         calibration_tag_size_mm=data["calibration_tag_size_mm"],
+        uncertainty_field=uncertainty_field,
+        frame_stem=data.get("frame_stem"),
     )

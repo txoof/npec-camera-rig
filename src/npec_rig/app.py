@@ -8,15 +8,22 @@ from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from npec_rig.calibration import CalibrationArtifact, build_calibration_report, build_scale_field
+from npec_rig.calibration import (
+    CalibrationArtifact,
+    build_calibration_report,
+    build_scale_field,
+    build_uncertainty_field,
+)
 from npec_rig.calibration_store import (
     calibration_root,
     list_calibrations,
     load_current_calibration,
     save_calibration,
     save_calibration_frame,
+    save_calibration_heatmap,
 )
-from npec_rig.camera import CameraManager
+from npec_rig.calibration_viz import render_honesty_plot, render_uncertainty_heatmap
+from npec_rig.camera import CameraManager, array_to_jpeg
 from npec_rig.captures import captures_root, list_recent_captures, save_capture
 from npec_rig.tags import (
     ASSUMED_CALIBRATION_TAG_SIZE_MM,
@@ -304,6 +311,18 @@ def run_calibration(promote: bool = True, calibration_tag_size_mm: float | None 
         corner_baseline = None
     result["corner_baseline_tags"] = sorted(corner_baseline.corners_by_id) if corner_baseline else []
 
+    try:
+        uncertainty_field = build_uncertainty_field(field, detections, tag_sizes_mm)
+    except ValueError:
+        uncertainty_field = None
+    if uncertainty_field is not None:
+        heatmap = render_uncertainty_heatmap(uncertainty_field, array)
+        save_calibration_heatmap(heatmap, stem=stem)
+        result["heatmap_url"] = f"/calibration/files/heatmaps/{stem}.jpg"
+    else:
+        result["heatmap_url"] = None
+    result["frame_url"] = f"/calibration/files/frames/{stem}.jpg"
+
     lens_position = manager.get_lens_position()
     artifact = CalibrationArtifact(
         created_at=datetime.now(timezone.utc).isoformat(),
@@ -311,6 +330,8 @@ def run_calibration(promote: bool = True, calibration_tag_size_mm: float | None 
         corner_baseline=corner_baseline,
         lens_position=lens_position,
         calibration_tag_size_mm=tag_size_mm,
+        uncertainty_field=uncertainty_field,
+        frame_stem=stem,
     )
     result["artifact_path"] = str(save_calibration(artifact, stem=stem, promote=promote))
     result["promoted_to_current"] = promote
@@ -328,11 +349,15 @@ def list_calibration_artifacts() -> list[dict]:
         frame_url = None
         if (calibration_root() / "frames" / f"{path.stem}.jpg").exists():
             frame_url = f"/calibration/files/frames/{path.stem}.jpg"
+        heatmap_url = None
+        if (calibration_root() / "heatmaps" / f"{path.stem}.jpg").exists():
+            heatmap_url = f"/calibration/files/heatmaps/{path.stem}.jpg"
         entries.append(
             {
                 "filename": path.name,
                 "url": f"/calibration/files/{path.name}",
                 "frame_url": frame_url,
+                "heatmap_url": heatmap_url,
             }
         )
     return entries
@@ -344,6 +369,10 @@ def current_calibration() -> dict:
     artifact = load_current_calibration()
     if artifact is None:
         return {"exists": False}
+    frame_url = f"/calibration/files/frames/{artifact.frame_stem}.jpg" if artifact.frame_stem else None
+    heatmap_url = (
+        f"/calibration/files/heatmaps/{artifact.frame_stem}.jpg" if artifact.frame_stem else None
+    )
     return {
         "exists": True,
         "created_at": artifact.created_at,
@@ -353,7 +382,53 @@ def current_calibration() -> dict:
         "corner_baseline_tags": (
             sorted(artifact.corner_baseline.corners_by_id) if artifact.corner_baseline else []
         ),
+        "frame_url": frame_url,
+        "heatmap_url": heatmap_url,
+        "has_uncertainty_field": artifact.uncertainty_field is not None,
     }
+
+
+@app.get("/calibration/current/uncertainty")
+def current_uncertainty(x: float, y: float) -> dict:
+    """Claimed uncertainty (%) at image position `(x, y)`, from the live calibration's own
+    `UncertaintyField` -- the "claimed" half of PLAN.md's honesty plot. Aaron reads this off for
+    wherever he's placed a known target, then measures the *actual* error with a ruler; the two
+    together are one point on the plot.
+    """
+    artifact = load_current_calibration()
+    if artifact is None or artifact.uncertainty_field is None:
+        raise HTTPException(409, "no calibration with an uncertainty field saved yet")
+    return {"uncertainty_pct": artifact.uncertainty_field.local_uncertainty_pct(x, y)}
+
+
+class HonestyPlotPoint(BaseModel):
+    """One physical target position for the honesty plot: where it is in the frame, and how far
+    off the app's reading was there, measured with a ruler."""
+
+    x: float
+    y: float
+    actual_error_pct: float
+
+
+@app.post("/calibration/honesty-plot")
+def honesty_plot(points: list[HonestyPlotPoint]) -> Response:
+    """Render PLAN.md's M2 honesty plot from `points`: for each, look up the live calibration's
+    claimed uncertainty at that position and pair it with the actual error Aaron measured there.
+
+    Returns the rendered JPEG directly -- this is a one-off diagnostic chart for the chamber
+    acceptance test, not a persisted artifact.
+    """
+    if not points:
+        raise HTTPException(422, "need at least one point")
+    artifact = load_current_calibration()
+    if artifact is None or artifact.uncertainty_field is None:
+        raise HTTPException(409, "no calibration with an uncertainty field saved yet")
+    pairs = [
+        (artifact.uncertainty_field.local_uncertainty_pct(p.x, p.y), p.actual_error_pct)
+        for p in points
+    ]
+    image = render_honesty_plot(pairs)
+    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
 _live_orientation_baseline: CornerBaseline | None = None

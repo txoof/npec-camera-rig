@@ -26,6 +26,7 @@ from npec_rig.camera import array_to_jpeg
 
 CURRENT_FILENAME = "current.json"
 FRAMES_DIRNAME = "frames"
+HEATMAPS_DIRNAME = "heatmaps"
 
 
 def calibration_root() -> Path:
@@ -78,6 +79,18 @@ def save_calibration_frame(image: np.ndarray, *, stem: str | None = None) -> Pat
     root = calibration_root() / FRAMES_DIRNAME
     root.mkdir(parents=True, exist_ok=True)
     stem = stem or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+    path = root / f"{stem}.jpg"
+    path.write_bytes(array_to_jpeg(image))
+    return path
+
+
+def save_calibration_heatmap(image: np.ndarray, *, stem: str) -> Path:
+    """Write `image` (already rendered by `calibration_viz.render_uncertainty_heatmap`) as a
+    JPEG under its own directory, keyed by the same `stem` as the frame and artifact it came
+    from -- a rendering, not a measurement, so it lives separately from both.
+    """
+    root = calibration_root() / HEATMAPS_DIRNAME
+    root.mkdir(parents=True, exist_ok=True)
     path = root / f"{stem}.jpg"
     path.write_bytes(array_to_jpeg(image))
     return path

@@ -456,7 +456,7 @@ def test_calibration_artifact_round_trips_through_dict() -> None:
     )
 
     data = calibration_artifact_to_dict(artifact)
-    assert data["version"] == 2
+    assert data["version"] == 3
     restored = calibration_artifact_from_dict(data)
 
     assert restored == artifact
@@ -474,6 +474,32 @@ def test_calibration_artifact_without_a_baseline_round_trips() -> None:
     restored = calibration_artifact_from_dict(calibration_artifact_to_dict(artifact))
     assert restored == artifact
     assert restored.corner_baseline is None
+
+
+def test_calibration_artifact_with_uncertainty_field_and_frame_stem_round_trips() -> None:
+    from npec_rig.calibration import (
+        CalibrationArtifact,
+        calibration_artifact_from_dict,
+        calibration_artifact_to_dict,
+    )
+
+    detections = [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(_grid_positions())]
+    sizes = {i: 30.0 for i in range(len(_grid_positions()))}
+    field = build_scale_field(detections, sizes)
+    uncertainty = build_uncertainty_field(field, detections, sizes)
+    artifact = CalibrationArtifact(
+        created_at="2026-09-20T12:00:00+00:00",
+        scale_field=field,
+        uncertainty_field=uncertainty,
+        frame_stem="20260920T120000000000",
+    )
+
+    restored = calibration_artifact_from_dict(calibration_artifact_to_dict(artifact))
+    assert restored == artifact
+    assert restored.frame_stem == "20260920T120000000000"
+    assert restored.uncertainty_field.local_uncertainty_pct(500, 500) == pytest.approx(
+        uncertainty.local_uncertainty_pct(500, 500)
+    )
 
 
 def test_calibration_artifact_rejects_an_unsupported_version() -> None:
