@@ -436,6 +436,27 @@ The heart of the project. Do not start before M1 slice 5.
       use SQLite instead. Unit-tested (round-trip, current-pointer tracking, listing, isolation
       from the captures dir). *(2026-09-20)*
 
+### M2 — area-scale shape check, planned but not started
+
+- [ ] **Direct area-scale field from tag shape, not trigonometry.** Aaron asked whether tag
+      squareness + trigonometry could give surface-area error moving out from centre; that
+      version needs lens intrinsics and a camera-to-table distance we can't safely get (same
+      standoff-distance wall as the tilt-angle problem, see `m2_calibration_progress.md`
+      memory). The version that avoids this entirely: every calibration tag's real area is
+      `size_mm²` (already calliper-verified); its *pixel* area is computable right now from its
+      four already-detected corners (shoelace formula on the quadrilateral -- exact, no
+      assumptions). `pixel_area / size_mm²` is a direct, measured area-scale factor at that tag's
+      position -- no new capture, no lens model, no depth, no trigonometry. Compare it to
+      `(ScaleField.px_per_mm at that position)²` (what naively squaring the existing *length*
+      scale would assume) to get a real `area_error_pct` per tag, plottable across the frame the
+      same way scale variation is now. Flat/near-zero everywhere → squaring the linear field is
+      fine for area. Structured, growing toward the corners → real evidence the linear field
+      needs its own area-specific fit before M5 (canopy area) relies on it -- M5 is the actual
+      consumer, not M2. Stays entirely on the "measured, not derived" side of CLAUDE.md's
+      intrinsics evidence gate -- same category of measurement (known size vs. detected pixels)
+      already used everywhere else, just area instead of length. *(Aaron, 2026-09-21, not yet
+      built)*
+
 ### M2 — known issues, not yet fixed
 
 - [ ] **Live reorientation aid never actually works** — `POST /calibration/orientation/zero`
