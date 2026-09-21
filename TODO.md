@@ -486,7 +486,22 @@ The heart of the project. Do not start before M1 slice 5.
 - [ ] Tape-measure two tags → app agrees within 2%
 - [ ] Roll the camera ~5° → reported as ~5°; knock it hard → verdict flips to `FAIL`
 - [ ] **Honesty plot** — claimed uncertainty vs actual error at 6 positions. Check whether residuals
-      are random or structured (structured opens the intrinsics evidence gate)
+      are random or structured (structured opens the intrinsics evidence gate). **Tooling built
+      2026-09-21, physical measurement still outstanding:** `GET
+      /calibration/current/uncertainty?x=&y=` returns the claimed value at a pixel;
+      `POST /calibration/honesty-plot` takes `{x, y, actual_error_pct}` points and renders the
+      scatter with a y=x reference line (a "Honesty plot" panel in the UI feeds it). Also built,
+      same session: a confidence heatmap (`calibration_viz.render_uncertainty_heatmap`) blending
+      `UncertaintyField.local_uncertainty_pct` over the calibration frame, computed and saved on
+      every `/calibration/run`, shown inline in the UI -- answers "where is confidence high/low on
+      the table" visually, which is a different question from the honesty plot's "is the claimed
+      number trustworthy" but was asked for alongside it. Both verified end-to-end on real
+      hardware (85 real tag detections, a real heatmap over the actual bench photo). Persisting
+      `UncertaintyField` needed a `CalibrationArtifact` schema bump (2 -> 3, no legacy shim) so a
+      saved calibration's confidence can be queried/rendered later without re-detecting tags from
+      the frame each time; also added `frame_stem` to the artifact, fixing a real gap --
+      `current.json` previously had no way back to which `frames/{stem}.jpg` it came from.
+      *(2026-09-21)*
 
 ---
 
