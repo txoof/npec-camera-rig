@@ -297,13 +297,19 @@ The heart of the project. Do not start before M1 slice 5.
       every M2 acceptance test below is a diff between two calibrations. Smoke-tested against
       real hardware 2026-09-21 (no sheets on the table yet, so 0 tags — exercised the "not enough
       tags" path cleanly, ~8.5s round trip for a 64MP capture + detect at 0 tags; expect longer
-      with real sheets present). **Tag size caveat, unresolved:** `tags.py`'s
-      `ASSUMED_CALIBRATION_TAG_SIZE_MM` (29.3106mm) reuses CLAUDE.md's calliper measurement, but
-      `reference/calibration-sheets/README.md` says the *2026-09-20 print* of IDs 300-449 has not
-      itself been calliper-checked. **Confirm with callipers before trusting a real scale field**
-      — this is the largest error source in the project if wrong, and neither the holdout test
-      nor the two-baseline test can catch a wrong constant applied identically both times. The
-      value is displayed in the UI result specifically so this doesn't go unnoticed. *(2026-09-21)*
+      with real sheets present). **Tag size caveat, resolved 2026-09-21:** `tags.py`'s
+      `ASSUMED_CALIBRATION_TAG_SIZE_MM` (29.3106mm) was a placeholder for whoever hadn't measured
+      a given print run yet, not a substitute for measuring it -- reusing it as a hardcoded
+      constant was wrong, since a reprint isn't guaranteed to come out the same size. Aaron
+      calliper-measured the *2026-09-20 print* of IDs 300-449 (`reference/calibration-sheets/`)
+      directly: ~30.02mm average across 6 measurements (30.1, 30.11, 29.96mm X; 30.04, 29.96,
+      29.94mm Y), not 29.3106mm. Fixed by making it a per-run input instead of a constant --
+      `calibration_tag_size_mm` on `POST /calibration/run`, UI field pre-filled from the last
+      calibration's own recorded value, stored on `CalibrationArtifact` (schema version 1 -> 2)
+      so a saved artifact records what it actually assumed rather than depending on a global that
+      can drift. This was the largest error source in the project if wrong, and neither the
+      holdout test nor the two-baseline test can catch a wrong constant applied identically both
+      times -- only a real measurement, entered per run, closes it. *(2026-09-21)*
 - [x] **Manual tripwire trigger** — `POST /calibration/tripwire/check` plus the "Check tripwire
       now" button: runs `check_tripwire()` against the saved baseline on demand. Decided this
       session not to wait for M3's scheduler (see the per-capture tripwire entry below) — without
