@@ -25,7 +25,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, TagDetection, tag_side_px
+from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, TagDetection, tag_area_px, tag_side_px
 from npec_rig.tripwire import CornerBaseline
 
 
@@ -245,6 +245,133 @@ def build_uncertainty_field(
     )
 
 
+@dataclass(frozen=True)
+class AreaScaleSample:
+    """TODO.md's area-scale shape check, at one calibration tag: is naively squaring the fitted
+    *length* scale (`ScaleField.px_per_mm(x, y) ** 2`) good enough for *area*, or does the tag's
+    actual pixel shape (shoelace area on its four corners, exact, no lens model) disagree?
+
+    `area_error_pct` is "how wrong M5's canopy area will be here" -- the number the TODO asks
+    for, `100 * (measured_area_scale / naive_area_scale - 1)`. But it is not a clean new
+    measurement: writing `s = tag_side_px(corners)` (what the length field was fit from) and
+    `P = field.px_per_mm(x, y)`, the tag's own length residual is `r = s / (size_mm * P) - 1`
+    (exactly what `UncertaintyField` already reports at this position), and
+
+        area_error_pct ~= 100 * (kappa - 1) + 2 * (100 * r)
+
+    where `kappa = tag_area_px(corners) / s ** 2` is the part that's actually new: a pure shape
+    factor, 1.0 for a true square, that captures a tag whose corners aren't well described by
+    "mean side length squared" regardless of overall scale. `shape_factor_pct = 100 * (kappa - 1)`
+    is kept alongside `area_error_pct` for exactly this reason -- most of `area_error_pct` at any
+    real position is the *already-plotted* length residual, doubled. Reading `area_error_pct`
+    alone and seeing it grow toward the corners would re-discover the coverage gaps
+    `regional_coverage_test` already reports, not new evidence that area needs its own fit.
+    `shape_factor_pct` is the number that actually answers that question.
+
+    `shape_factor_pct` is <= 0 always, not a bidirectional error: a square is the maximum-area
+    quadrilateral for a given mean side length (`kappa <= 1`, equality only for a true square), so
+    0% means a perfect square and more negative means more distorted -- there is no "positive"
+    direction to lose by taking an absolute value here, but one is deliberately not taken, so a
+    small or blurry tag's corner-refinement noise (which can only ever push `kappa` further below
+    1, never above) still reads as a magnitude, not cancelled out by averaging with tags that
+    happen to jitter the other way (they can't). `area_error_pct` does keep its sign either way --
+    it also carries the length residual's own, genuinely bidirectional, sign.
+    """
+
+    x: float
+    y: float
+    tag_id: int
+    area_error_pct: float
+    shape_factor_pct: float
+
+
+def area_scale_samples(
+    field: ScaleField, detections: list[TagDetection], tag_sizes_mm: dict[int, float]
+) -> list[AreaScaleSample]:
+    """One `AreaScaleSample` per detection with a known size, at the position `field` was
+    evaluated at. Skips a detection if `field.px_per_mm` isn't physically valid there (the same
+    extrapolation guard `regional_coverage_test` treats as a coverage failure, not an error).
+    """
+    samples = []
+    for detection in detections:
+        size_mm = tag_sizes_mm.get(detection.tag_id)
+        if size_mm is None:
+            continue
+        x, y = detection.centre
+        try:
+            naive_area_scale = field.px_per_mm(x, y) ** 2
+        except ValueError:
+            continue
+        side_px = tag_side_px(detection.corners)
+        area_px = tag_area_px(detection.corners)
+        measured_area_scale = area_px / (size_mm**2)
+        kappa = area_px / (side_px**2)
+        samples.append(
+            AreaScaleSample(
+                x=x,
+                y=y,
+                tag_id=detection.tag_id,
+                area_error_pct=100.0 * (measured_area_scale / naive_area_scale - 1.0),
+                shape_factor_pct=100.0 * (kappa - 1.0),
+            )
+        )
+    return samples
+
+
+@dataclass(frozen=True)
+class AreaScaleField:
+    """Local smoothing of `AreaScaleSample.shape_factor_pct` for the confidence-heatmap-style
+    visual -- `shape_factor_pct`, not `area_error_pct`: see `AreaScaleSample`'s docstring for why
+    heatmapping `area_error_pct` would mostly recolour the already-shipped uncertainty heatmap.
+    Same k-nearest-neighbour lookup as `UncertaintyField`, for the same reason tags sit
+    irregularly, not on a grid. RMS-about-zero means something simpler here than in
+    `UncertaintyField`, though: since `shape_factor_pct` is one-sided (never positive, see
+    `AreaScaleSample`), it's purely a magnitude summary -- there's no bidirectional-cancellation
+    failure mode to guard against, unlike the length residual `UncertaintyField` smooths.
+    """
+
+    _positions: tuple[tuple[float, float], ...]
+    _shape_factor_pct: tuple[float, ...]
+
+    def local_shape_factor_pct(self, x: float, y: float, k: int = 5) -> float:
+        positions = np.array(self._positions)
+        distances = np.linalg.norm(positions - np.array([x, y]), axis=1)
+        nearest = np.argsort(distances)[: min(k, len(distances))]
+        values = np.array(self._shape_factor_pct)[nearest]
+        return float(np.sqrt(np.mean(values**2)))
+
+
+def build_area_scale_field(samples: list[AreaScaleSample]) -> AreaScaleField:
+    """Raises ValueError with zero samples -- nothing to smooth."""
+    if not samples:
+        raise ValueError("need at least 1 area-scale sample to build a field, got 0")
+    return AreaScaleField(
+        _positions=tuple((s.x, s.y) for s in samples),
+        _shape_factor_pct=tuple(s.shape_factor_pct for s in samples),
+    )
+
+
+def describe_area_scale_shape(samples: list[AreaScaleSample]) -> str:
+    """One line: mean area-scale error (what M5 will actually see), and, as a separate figure,
+    the shape-distortion part that's actually new (see `AreaScaleSample`) -- reported side by
+    side, not as a share of the first, because `area_error_pct` and `shape_factor_pct` can carry
+    different signs and a mean-of-absolutes doesn't decompose that way. Plus which tag has the
+    worst shape distortion (most negative `shape_factor_pct`, since it's never positive).
+    Raises ValueError with zero samples.
+    """
+    if not samples:
+        raise ValueError("need at least one area-scale sample to describe")
+    n = len(samples)
+    mean_abs_area = sum(abs(s.area_error_pct) for s in samples) / n
+    mean_abs_shape = sum(abs(s.shape_factor_pct) for s in samples) / n
+    worst = min(samples, key=lambda s: s.shape_factor_pct)
+    return (
+        f"Area-scale error {mean_abs_area:.1f}% mean over {n} tags; shape distortion "
+        f"{mean_abs_shape:.2f}% mean (a separate figure, not a share of the above) -- worst "
+        f"shape tag {worst.tag_id} at {worst.shape_factor_pct:.2f}% ({worst.x:.0f}, {worst.y:.0f})."
+    )
+
+
 def describe_scale_variation(field: ScaleField, positions: list[tuple[float, float]]) -> str:
     """One line: how much scale varies across the tag cloud used to build `field`, and where.
 
@@ -291,22 +418,26 @@ def build_install_report(
     positions: list[tuple[float, float]],
     coverage: CoverageResult | None = None,
     regional_coverage: tuple[QuadrantCoverage, ...] | None = None,
+    area_samples: list[AreaScaleSample] | None = None,
     *,
     coverage_threshold_pct: float = 2.0,
 ) -> list[str]:
     """Plain-language install report lines, from what's actually been measured so far.
 
-    Deliberately narrow: scale variation, overall coverage sufficiency, and (when given) which
-    quadrant a coverage gap is in. Roll, tilt and framing are PLAN.md's other install-report
-    lines, but a roll/tilt angle isn't recoverable from a single photo without a physical
-    standoff-distance measurement Aaron has ruled out (the rig is fragile), and framing needs a
-    real capture's corner-tag/frame-edge check -- neither belongs here yet. No invented figures.
+    Deliberately narrow: scale variation, overall coverage sufficiency, which quadrant a
+    coverage gap is in, and (when given) the area-scale shape check. Roll, tilt and framing are
+    PLAN.md's other install-report lines, but a roll/tilt angle isn't recoverable from a single
+    photo without a physical standoff-distance measurement Aaron has ruled out (the rig is
+    fragile), and framing needs a real capture's corner-tag/frame-edge check -- neither belongs
+    here yet. No invented figures.
     """
     lines = [describe_scale_variation(field, positions)]
     if coverage is not None:
         lines.append(describe_coverage(coverage, threshold_pct=coverage_threshold_pct))
     if regional_coverage is not None:
         lines.extend(describe_regional_coverage(regional_coverage, threshold_pct=coverage_threshold_pct))
+    if area_samples:
+        lines.append(describe_area_scale_shape(area_samples))
     return lines
 
 
@@ -340,9 +471,10 @@ def build_calibration_report(
         pass
 
     regional = regional_coverage_test(detections, tag_sizes_mm, frame_width, frame_height)
+    area_samples = area_scale_samples(field, detections, tag_sizes_mm)
 
     return build_install_report(
-        field, positions, coverage, regional, coverage_threshold_pct=coverage_threshold_pct
+        field, positions, coverage, regional, area_samples, coverage_threshold_pct=coverage_threshold_pct
     )
 
 

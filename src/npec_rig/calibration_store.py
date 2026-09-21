@@ -96,6 +96,18 @@ def save_calibration_heatmap(image: np.ndarray, *, stem: str) -> Path:
     return path
 
 
+def save_calibration_area_shape_heatmap(image: np.ndarray, *, stem: str) -> Path:
+    """Write `image` (rendered by `calibration_viz.render_area_shape_heatmap`) as a JPEG under
+    the same heatmaps directory as `save_calibration_heatmap`, with a `_area-shape` suffix on
+    the stem so the two renderings from one capture don't collide.
+    """
+    root = calibration_root() / HEATMAPS_DIRNAME
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / f"{stem}_area-shape.jpg"
+    path.write_bytes(array_to_jpeg(image))
+    return path
+
+
 def load_calibration(path: Path) -> CalibrationArtifact:
     """Load a specific calibration artifact file."""
     return calibration_artifact_from_dict(json.loads(Path(path).read_text()))

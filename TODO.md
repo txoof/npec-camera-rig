@@ -436,26 +436,51 @@ The heart of the project. Do not start before M1 slice 5.
       use SQLite instead. Unit-tested (round-trip, current-pointer tracking, listing, isolation
       from the captures dir). *(2026-09-20)*
 
-### M2 — area-scale shape check, planned but not started
+### M2 — area-scale shape check, built 2026-09-21
 
-- [ ] **Direct area-scale field from tag shape, not trigonometry.** Aaron asked whether tag
+- [x] **Direct area-scale field from tag shape, not trigonometry.** Aaron asked whether tag
       squareness + trigonometry could give surface-area error moving out from centre; that
       version needs lens intrinsics and a camera-to-table distance we can't safely get (same
       standoff-distance wall as the tilt-angle problem, see `m2_calibration_progress.md`
       memory). The version that avoids this entirely: every calibration tag's real area is
       `size_mm²` (already calliper-verified); its *pixel* area is computable right now from its
       four already-detected corners (shoelace formula on the quadrilateral -- exact, no
-      assumptions). `pixel_area / size_mm²` is a direct, measured area-scale factor at that tag's
-      position -- no new capture, no lens model, no depth, no trigonometry. Compare it to
-      `(ScaleField.px_per_mm at that position)²` (what naively squaring the existing *length*
-      scale would assume) to get a real `area_error_pct` per tag, plottable across the frame the
-      same way scale variation is now. Flat/near-zero everywhere → squaring the linear field is
-      fine for area. Structured, growing toward the corners → real evidence the linear field
-      needs its own area-specific fit before M5 (canopy area) relies on it -- M5 is the actual
-      consumer, not M2. Stays entirely on the "measured, not derived" side of CLAUDE.md's
-      intrinsics evidence gate -- same category of measurement (known size vs. detected pixels)
-      already used everywhere else, just area instead of length. *(Aaron, 2026-09-21, not yet
-      built)*
+      assumptions, `tags.tag_area_px`). `pixel_area / size_mm²` compared to
+      `(ScaleField.px_per_mm at that position)²` gives `area_error_pct` per tag
+      (`calibration.area_scale_samples`), surfaced as a report line
+      (`describe_area_scale_shape`) and a heatmap (`calibration_viz.render_area_shape_heatmap`),
+      the same way scale variation and coverage are.
+      **Built, but not the number it looks like:** `area_error_pct` decomposes exactly into
+      `100 * (kappa - 1) + 2 * residual_pct` (see `AreaScaleSample`'s docstring for the algebra),
+      where `kappa = pixel_area / tag_side_px² <= 1` (a square is the max-area quad for a given
+      mean side length) is the actually-new shape signal and `residual_pct` is the *already-
+      plotted* length-scale residual, doubled. On this rig's real geometry `residual_pct`
+      dominates by roughly two orders of magnitude (measured, reprocessing all 17 real
+      calibration frames from 2026-09-21 offline: `shape_factor_pct = 100*(kappa-1)` maxed at
+      -0.45% and averaged -0.05% over 2104 tags, versus `area_error_pct` averaging 3.1% and
+      peaking at 14.5%) -- reading `area_error_pct` alone and seeing it grow toward the corners
+      would just re-discover the known bottom-right coverage gap below, not evidence area needs
+      its own fit. `shape_factor_pct` is kept on `AreaScaleSample` and is what the heatmap
+      actually plots (own measured 0-0.5% range, `AREA_SHAPE_HEATMAP_MAX_PCT`), specifically so
+      that question can be answered without the confound. *(Aaron asked 2026-09-21; built and
+      verified against real hardware frames the same day)*
+- [?] **`shape_factor_pct` itself is structured toward the corners on real data -- is that real
+      distortion or a corner-precision artifact?** Before trusting the 0.005%-centre-to-0.12%-
+      corner spread above as real geometry, checked the obvious confound: corner-refinement
+      noise on a tag of side `s` biases `kappa` down by `~1/s²`, and tag size is itself weakly
+      position-dependent, so a pure noise floor could *look* like corner structure without being
+      any. Same 17-frame/2104-tag reprocess, this time regressing `abs(shape_factor_pct)`
+      against `1/tag_side_px²` and against distance from frame centre separately: `1/side²`
+      explains almost nothing (R²=0.03, corr=0.16, and binning by tag size isn't even monotonic),
+      while distance from centre is strongly and monotonically correlated (corr=0.74; mean
+      `abs(shape_factor_pct)` goes 0.005% → 0.012% → 0.073% → 0.119% across distance quartiles
+      whose mean tag size barely moves, 131→132→130→129px) and stays just as correlated
+      (corr=0.71) after regressing out `1/side²`. Reads as real, position-structured shape
+      distortion, not a tag-size artifact -- i.e. exactly the pattern this check's own decision
+      rule calls "real evidence area needs its own fit before M5." Not acted on: that's a real
+      scope decision (an area-specific fit is calibration maths, CLAUDE.md's evidence-gate
+      table), not something to start on the strength of one diagnostic without Aaron's sign-off.
+      *(2026-09-21, offline reprocess, no bench time)*
 
 ### M2 — known issues, not yet fixed
 

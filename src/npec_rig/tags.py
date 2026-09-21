@@ -68,6 +68,19 @@ def tag_side_px(
     return float(np.linalg.norm(array - np.roll(array, -1, axis=0), axis=1).mean())
 
 
+def tag_area_px(
+    corners: tuple[tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]],
+) -> float:
+    """Exact pixel area of a tag's quadrilateral corners (shoelace formula) -- distinct from
+    `tag_side_px(corners) ** 2`, which assumes the quad is a square with that mean side length.
+    The two agree exactly for a true square; a keystoned (non-square) quad is where they diverge,
+    which is the signal `calibration.area_scale_samples` reads.
+    """
+    array = np.array(corners)
+    x, y = array[:, 0], array[:, 1]
+    return float(0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
+
+
 def detect_tags(frame: np.ndarray) -> list[TagDetection]:
     """Every AprilTag 36h11 in `frame`, sorted by tag id.
 

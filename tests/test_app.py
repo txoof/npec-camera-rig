@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 import npec_rig.app as app_module
 from npec_rig.app import _mjpeg_frames, app, focus_roi_stream, preview
 from npec_rig.calibration import CalibrationArtifact, ScaleField
-from npec_rig.calibration_store import save_calibration
+from npec_rig.calibration_store import calibration_root, save_calibration
 from npec_rig.camera import SIMULATED_AUTOFOCUS_POSITION, CameraManager, SyntheticBackend
 from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM
 from npec_rig.tripwire import CornerBaseline
@@ -289,6 +289,8 @@ def test_run_calibration_builds_field_and_saves_artifact_and_frame(
     assert Path(body["artifact_path"]).exists()
     assert body["frame_url"] is not None
     assert body["heatmap_url"] is not None
+    assert body["area_shape_heatmap_url"] is not None
+    assert (calibration_root() / "heatmaps" / Path(body["area_shape_heatmap_url"]).name).exists()
 
     current = client.get("/calibration/current").json()
     assert current["exists"] is True
@@ -296,7 +298,11 @@ def test_run_calibration_builds_field_and_saves_artifact_and_frame(
     assert current["residual_std_pct"] == body["residual_std_pct"]
     assert current["frame_url"] == body["frame_url"]
     assert current["heatmap_url"] == body["heatmap_url"]
+    assert current["area_shape_heatmap_url"] == body["area_shape_heatmap_url"]
     assert current["has_uncertainty_field"] is True
+
+    listing = client.get("/calibration/list").json()
+    assert listing[0]["area_shape_heatmap_url"] == body["area_shape_heatmap_url"]
 
 
 def test_current_uncertainty_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:

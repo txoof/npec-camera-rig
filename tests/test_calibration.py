@@ -2,11 +2,16 @@ import numpy as np
 import pytest
 
 from npec_rig.calibration import (
+    AreaScaleSample,
     CoverageResult,
     QuadrantCoverage,
+    ScaleField,
+    area_scale_samples,
+    build_area_scale_field,
     build_install_report,
     build_scale_field,
     build_uncertainty_field,
+    describe_area_scale_shape,
     describe_coverage,
     describe_regional_coverage,
     describe_scale_variation,
@@ -14,6 +19,7 @@ from npec_rig.calibration import (
     refit_scale_factor,
     regional_coverage_test,
 )
+from npec_rig.tags import TagDetection
 
 from .helpers import square_detection as _square_detection
 
@@ -530,7 +536,8 @@ def test_build_calibration_report_assembles_pieces_from_one_set_of_detections() 
     field = build_scale_field(detections, sizes)
     coverage = holdout_coverage_test(detections, sizes)
     regional = regional_coverage_test(detections, sizes, 1100, 1100)
-    expected = build_install_report(field, positions, coverage, regional)
+    area = area_scale_samples(field, detections, sizes)
+    expected = build_install_report(field, positions, coverage, regional, area)
     assert report == expected
 
 
@@ -544,3 +551,181 @@ def test_build_calibration_report_skips_coverage_line_with_too_few_tags_for_a_ho
     report = build_calibration_report(detections, sizes, frame_width=1000, frame_height=1000)
     assert report[0].startswith("Scale varies")
     assert not any("Coverage sufficient" in line or "Coverage insufficient" in line for line in report)
+
+
+def test_build_calibration_report_includes_area_scale_line() -> None:
+    from npec_rig.calibration import build_calibration_report
+
+    positions = _grid_positions()
+    detections = [_square_detection(tag_id, x, y, 120) for tag_id, (x, y) in enumerate(positions)]
+    sizes = {i: 30.0 for i in range(len(positions))}
+
+    report = build_calibration_report(detections, sizes, frame_width=1100, frame_height=1100)
+    assert any(line.startswith("Area-scale error") for line in report)
+
+
+def test_area_scale_samples_is_near_zero_for_consistent_squares() -> None:
+    # Every detection is an exact square consistent with the plane it was fit from -- both the
+    # length residual and the shape factor (square vs. its own mean side length) are exactly
+    # zero, so area_error_pct and shape_factor_pct should be too.
+    positions = _grid_positions()
+    detections = [_square_detection(tag_id, x, y, 120) for tag_id, (x, y) in enumerate(positions)]
+    sizes = {i: 30.0 for i in range(len(positions))}
+    field = build_scale_field(detections, sizes)
+
+    samples = area_scale_samples(field, detections, sizes)
+    assert len(samples) == len(detections)
+    for sample in samples:
+        assert sample.area_error_pct == pytest.approx(0.0, abs=1e-6)
+        assert sample.shape_factor_pct == pytest.approx(0.0, abs=1e-6)
+
+
+def test_area_error_pct_at_zero_shape_distortion_is_the_squared_length_residual() -> None:
+    # A flat field (ppm == 4.0 everywhere), then one held-out *square* tag (shape_factor == 0)
+    # sitting 10% off that field -- isolates the other term of the area_error_pct identity
+    # documented on AreaScaleSample: with kappa == 1, area_error_pct == 100 * ((1 + r) ** 2 - 1),
+    # not just "2 * r" -- the approximation the docstring uses for the *typical* small-r case.
+    size_mm = 30.0
+    fit_positions = _grid_positions()
+    fit_detections = [
+        _square_detection(tag_id, x, y, 120) for tag_id, (x, y) in enumerate(fit_positions)
+    ]
+    field = build_scale_field(fit_detections, {i: size_mm for i in range(len(fit_positions))})
+
+    off_plane = _square_detection(90, 500, 500, 132)  # ppm implied = 4.4, field predicts 4.0
+    samples = area_scale_samples(field, [off_plane], {90: size_mm})
+
+    assert len(samples) == 1
+    r = 132 / (size_mm * field.px_per_mm(500, 500)) - 1.0
+    expected_area_error_pct = 100.0 * ((1.0 + r) ** 2 - 1.0)
+    assert samples[0].shape_factor_pct == pytest.approx(0.0, abs=1e-6)
+    assert samples[0].area_error_pct == pytest.approx(expected_area_error_pct, rel=1e-6)
+
+
+def test_shape_factor_pct_isolates_distortion_when_length_residual_is_zero() -> None:
+    # A non-square (rectangle) tag whose *mean side length* exactly matches what the field
+    # predicts (zero length residual) but whose true shoelace area doesn't match side**2 --
+    # the case AreaScaleSample exists to catch, and where area_error_pct and shape_factor_pct
+    # must come out identical (the identity's other term is exactly zero).
+    size_mm = 30.0
+    width, height = 180.0, 88.0
+    mean_side = (width + height) / 2  # what tag_side_px reports for a rectangle
+    ppm = mean_side / size_mm
+
+    # A flat field with exactly this scale everywhere, built from ordinary square tags.
+    fit_positions = _grid_positions()
+    fit_detections = [
+        _square_detection(tag_id, x, y, ppm * size_mm)
+        for tag_id, (x, y) in enumerate(fit_positions)
+    ]
+    field = build_scale_field(fit_detections, {i: size_mm for i in range(len(fit_positions))})
+
+    cx, cy = 500.0, 500.0
+    rectangle = TagDetection(
+        tag_id=90,
+        corners=(
+            (cx - width / 2, cy - height / 2),
+            (cx + width / 2, cy - height / 2),
+            (cx + width / 2, cy + height / 2),
+            (cx - width / 2, cy + height / 2),
+        ),
+        centre=(cx, cy),
+    )
+    samples = area_scale_samples(field, [rectangle], {90: size_mm})
+
+    assert len(samples) == 1
+    expected_kappa = (width * height) / (mean_side**2)
+    expected_pct = 100.0 * (expected_kappa - 1.0)
+    assert samples[0].shape_factor_pct == pytest.approx(expected_pct, rel=1e-6)
+    assert samples[0].area_error_pct == pytest.approx(expected_pct, rel=1e-6)
+
+
+def test_area_scale_samples_skips_tags_the_field_cant_evaluate() -> None:
+    # A tilted field constructed directly (not fit) so the non-physical region is known exactly:
+    # relative_depth = 1 - 0.001 * x, which goes to zero at x=1000 and negative beyond it.
+    field = ScaleField(_coeffs=(1.0, -0.001, 0.0), _mean_px_per_mm=4.0, residual_std_pct=0.0)
+
+    in_domain = _square_detection(1, 100, 100, 120)
+    far_away = _square_detection(999, 2000, 100, 120)  # relative_depth = -1, non-physical
+    sizes = {1: 30.0, 999: 30.0}
+
+    samples = area_scale_samples(field, [in_domain, far_away], sizes)
+    assert {s.tag_id for s in samples} == {1}
+
+
+def test_build_area_scale_field_smooths_shape_factor_by_proximity() -> None:
+    # Mirrors test_uncertainty_reflects_local_bias_even_when_neighbours_agree_with_each_other:
+    # a local cluster of tags all sharing the same shape distortion should read as high nearby
+    # and low far away, via k-nearest-neighbour RMS-about-zero.
+    size_mm = 30.0
+    ppm = 4.0
+    fit_positions = _grid_positions()
+    fit_detections = [
+        _square_detection(tag_id, x, y, ppm * size_mm)
+        for tag_id, (x, y) in enumerate(fit_positions)
+    ]
+    field = build_scale_field(fit_detections, {i: size_mm for i in range(len(fit_positions))})
+
+    def _distorted(tag_id: int, cx: float, cy: float) -> TagDetection:
+        # Same mean side length as the field predicts (zero length residual), but a rectangle,
+        # not a square -- pure shape distortion, isolated from scale residual.
+        width, height = ppm * size_mm * 1.4, ppm * size_mm * 0.6
+        return TagDetection(
+            tag_id=tag_id,
+            corners=(
+                (cx - width / 2, cy - height / 2),
+                (cx + width / 2, cy - height / 2),
+                (cx + width / 2, cy + height / 2),
+                (cx - width / 2, cy + height / 2),
+            ),
+            centre=(cx, cy),
+        )
+
+    cluster = [_distorted(100 + i, x, y) for i, (x, y) in enumerate([(540, 540), (560, 540), (550, 560)])]
+    # Background: the same square fit tags, each with zero shape distortion of their own -- so
+    # a query far from the cluster finds *those* as its nearest neighbours instead.
+    detections = fit_detections + cluster
+    sizes = {i: size_mm for i in range(len(fit_positions))} | {d.tag_id: size_mm for d in cluster}
+    samples = area_scale_samples(field, detections, sizes)
+    area_field = build_area_scale_field(samples)
+
+    near_cluster = area_field.local_shape_factor_pct(550, 550, k=3)
+    far_from_cluster = area_field.local_shape_factor_pct(100, 0, k=3)
+    assert near_cluster > 5.0
+    assert far_from_cluster < near_cluster
+
+
+def test_build_area_scale_field_raises_with_zero_samples() -> None:
+    with pytest.raises(ValueError, match="at least 1"):
+        build_area_scale_field([])
+
+
+def test_describe_area_scale_shape_reports_mean_and_worst_tag() -> None:
+    # shape_factor_pct is <= 0 always (see AreaScaleSample) -- both samples respect that.
+    samples = [
+        AreaScaleSample(x=100.0, y=100.0, tag_id=1, area_error_pct=1.0, shape_factor_pct=-0.02),
+        AreaScaleSample(x=900.0, y=900.0, tag_id=2, area_error_pct=-9.0, shape_factor_pct=-0.35),
+    ]
+    line = describe_area_scale_shape(samples)
+    assert line.startswith("Area-scale error")
+    assert "2 tags" in line
+    assert "tag 2" in line
+    assert "-0.35%" in line
+    assert "(900, 900)" in line
+
+
+def test_describe_area_scale_shape_raises_with_zero_samples() -> None:
+    with pytest.raises(ValueError, match="at least one"):
+        describe_area_scale_shape([])
+
+
+def test_install_report_includes_area_scale_line_when_given() -> None:
+    positions = [(0, 0), (1000, 0), (0, 1000), (1000, 1000), (500, 500)]
+    detections = [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(positions)]
+    sizes = {i: 30.0 for i in range(5)}
+    field = build_scale_field(detections, sizes)
+    area = area_scale_samples(field, detections, sizes)
+
+    report = build_install_report(field, positions, None, None, area)
+    assert len(report) == 2
+    assert report[1].startswith("Area-scale error")

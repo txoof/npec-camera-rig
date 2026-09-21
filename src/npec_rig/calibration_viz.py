@@ -6,10 +6,12 @@ measures or derives anything new.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import cv2
 import numpy as np
 
-from npec_rig.calibration import UncertaintyField
+from npec_rig.calibration import AreaScaleField, UncertaintyField
 
 # Fixed color scale, not per-image min/max: a heatmap that always stretches to fill its own
 # range would look equally "hot" whether the worst spot is 2% or 20% uncertain, hiding exactly
@@ -18,6 +20,17 @@ from npec_rig.calibration import UncertaintyField
 # revisit if a real reading exceeds it.
 HEATMAP_MIN_PCT = 0.0
 HEATMAP_MAX_PCT = 8.0
+
+# The area-shape heatmap's own range, on a different scale entirely: `shape_factor_pct` is a
+# pure quadrilateral-shape measure (kappa = shoelace area / mean-side-length**2 <= 1 always, a
+# square is the max-area case for a given mean side), not a scale/coverage residual -- on this
+# rig's actual geometry (top-down, small per-tag perspective) it is tiny. Measured, not guessed:
+# reprocessing all 17 real calibration frames saved 2026-09-21 (2104 calibration tags total, no
+# bench time -- TODO.md) gave |shape_factor_pct| in [0, 0.45], mean 0.05. 0.5 rounds that up;
+# revisit if a real reading exceeds it, same as HEATMAP_MAX_PCT above.
+AREA_SHAPE_HEATMAP_MIN_PCT = 0.0
+AREA_SHAPE_HEATMAP_MAX_PCT = 0.5
+
 HEATMAP_GRID = (40, 30)  # (columns, rows) -- coarse is fine, it's smoothly upsampled after
 # A confidence heatmap is for a human to glance at in a browser, not a measurement -- there is
 # no reason to carry a real 64MP frame (and its ~190MB-plus of uint8 copies) through a resize,
@@ -26,8 +39,8 @@ HEATMAP_GRID = (40, 30)  # (columns, rows) -- coarse is fine, it's smoothly upsa
 HEATMAP_MAX_WIDTH = 1600
 
 
-def render_uncertainty_heatmap(
-    field: UncertaintyField,
+def render_pct_heatmap(
+    sample_at: Callable[[float, float], float],
     frame: np.ndarray,
     *,
     alpha: float = 0.45,
@@ -35,11 +48,13 @@ def render_uncertainty_heatmap(
     vmax: float = HEATMAP_MAX_PCT,
     max_width: int = HEATMAP_MAX_WIDTH,
 ) -> np.ndarray:
-    """`frame` (RGB, see camera.py's array_to_jpeg) with a colour heatmap of
-    `field.local_uncertainty_pct` blended over it -- cool/blue where confidence is high, hot/red
-    where it's low. Downscaled to `max_width` first; see `HEATMAP_MAX_WIDTH`.
+    """`frame` (RGB, see camera.py's array_to_jpeg) with a colour heatmap of `sample_at(x, y)`
+    blended over it -- cool/blue at `vmin`, hot/red at `vmax`. Downscaled to `max_width` first;
+    see `HEATMAP_MAX_WIDTH`. Shared rendering path for every per-position percentage field this
+    module draws (`render_uncertainty_heatmap`, `render_area_shape_heatmap`) -- the OOM-safety
+    comments below apply to all of them, not just the first one written.
 
-    Sampled on a coarse grid and upsampled, not once per pixel: `local_uncertainty_pct` is a
+    Sampled on a coarse grid and upsampled, not once per pixel: `sample_at` is typically a
     k-nearest-neighbour lookup over every detected tag, and the field varies smoothly, so a
     coarse grid costs far less compute for a visually identical result.
     """
@@ -54,12 +69,12 @@ def render_uncertainty_heatmap(
 
     height, width = frame.shape[0], frame.shape[1]
     cols, rows = HEATMAP_GRID
-    # Sampled in the *original* frame's coordinates -- `field` was built from full-resolution
+    # Sampled in the *original* frame's coordinates -- `sample_at` was built from full-resolution
     # detections, so a downscaled grid position has to be scaled back up before querying it.
     xs = np.linspace(0, full_width - 1, cols)
     ys = np.linspace(0, full_height - 1, rows)
     grid = np.array(
-        [[field.local_uncertainty_pct(float(x), float(y)) for x in xs] for y in ys],
+        [[sample_at(float(x), float(y)) for x in xs] for y in ys],
         dtype=np.float32,
     )
 
@@ -79,6 +94,46 @@ def render_uncertainty_heatmap(
     # in dmesg, not guessed), taking the whole camera worker down with it.
     base = np.ascontiguousarray(frame[..., :3])
     return cv2.addWeighted(base, 1 - alpha, color_rgb, alpha, 0)
+
+
+def render_uncertainty_heatmap(
+    field: UncertaintyField,
+    frame: np.ndarray,
+    *,
+    alpha: float = 0.45,
+    vmin: float = HEATMAP_MIN_PCT,
+    vmax: float = HEATMAP_MAX_PCT,
+    max_width: int = HEATMAP_MAX_WIDTH,
+) -> np.ndarray:
+    """`frame` with a colour heatmap of `field.local_uncertainty_pct` blended over it -- cool/blue
+    where confidence is high, hot/red where it's low. See `render_pct_heatmap`.
+    """
+    return render_pct_heatmap(
+        field.local_uncertainty_pct, frame, alpha=alpha, vmin=vmin, vmax=vmax, max_width=max_width
+    )
+
+
+def render_area_shape_heatmap(
+    field: AreaScaleField,
+    frame: np.ndarray,
+    *,
+    alpha: float = 0.45,
+    vmin: float = AREA_SHAPE_HEATMAP_MIN_PCT,
+    vmax: float = AREA_SHAPE_HEATMAP_MAX_PCT,
+    max_width: int = HEATMAP_MAX_WIDTH,
+) -> np.ndarray:
+    """`frame` with a colour heatmap of `field.local_shape_factor_pct` blended over it -- TODO.md's
+    area-scale shape check. Deliberately `shape_factor_pct`, not `area_error_pct`: see
+    `calibration.AreaScaleSample`'s docstring for why heatmapping `area_error_pct` would mostly
+    recolour the already-shipped `render_uncertainty_heatmap` at double magnitude, not show new
+    structure. `vmin`/`vmax` default to `AREA_SHAPE_HEATMAP_MIN_PCT`/`_MAX_PCT` -- a much narrower
+    range than the uncertainty heatmap's, because it's a different quantity on a different scale
+    (see that constant's own comment for the measurement behind it), not a copy-paste. See
+    `render_pct_heatmap`.
+    """
+    return render_pct_heatmap(
+        field.local_shape_factor_pct, frame, alpha=alpha, vmin=vmin, vmax=vmax, max_width=max_width
+    )
 
 
 HONESTY_PLOT_SIZE = 640

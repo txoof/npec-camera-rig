@@ -282,6 +282,28 @@
         red area to bring it down.
       </p>
     </div>
+    <img id="calibration-area-shape-heatmap" alt="Area-scale shape distortion heatmap"
+         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+    <div id="calibration-area-shape-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
+      <div style="height: 14px; border-radius: 3px; background: linear-gradient(to right,
+        rgb(48,18,59) 0%, rgb(70,105,224) 12.5%, rgb(42,185,238) 25%, rgb(47,241,155) 37.5%,
+        rgb(161,253,61) 50%, rgb(236,209,58) 62.5%, rgb(251,129,34) 75%, rgb(210,49,5) 87.5%,
+        rgb(122,4,3) 100%);"></div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #aaa; margin-top: 0.15rem;">
+        <span>0% (square)</span><span>0.13%</span><span>0.25%</span><span>0.38%</span><span>0.5%+ (most distorted)</span>
+      </div>
+      <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
+        Area-scale shape check (TODO.md) — each tag's real pixel area (exact, from its four
+        corners) compared to treating it as a perfect square, isolated from the ordinary scale
+        residual shown above. Note the scale here is 0–0.5%, not 0–8% like the heatmap above —
+        a much narrower range, measured from 17 real calibration runs on this rig (2026-09-21).
+        Flat/near-zero everywhere means squaring the scale field above is fine for area, not just
+        length. Structured, growing toward the corners, is real evidence area needs its own fit
+        before M5 (canopy area) relies on it — as opposed to the confidence heatmap above being
+        hot in the same place, which just means "add coverage there," not "area needs its own
+        fit."
+      </p>
+    </div>
     <details style="margin-top: 0.75rem;">
       <summary>Saved calibrations (download)</summary>
       <div id="calibration-list" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
@@ -672,6 +694,10 @@
     const tagSizeInput = document.getElementById("tag-size-input");
     const calibrationHeatmap = document.getElementById("calibration-heatmap");
     const calibrationHeatmapLegend = document.getElementById("calibration-heatmap-legend");
+    const calibrationAreaShapeHeatmap = document.getElementById("calibration-area-shape-heatmap");
+    const calibrationAreaShapeHeatmapLegend = document.getElementById(
+      "calibration-area-shape-heatmap-legend"
+    );
 
     async function refreshCalibrationList() {
       const r = await fetch("/calibration/list");
@@ -752,6 +778,14 @@
         } else {
           calibrationHeatmap.style.display = "none";
           calibrationHeatmapLegend.style.display = "none";
+        }
+        if (data.area_shape_heatmap_url) {
+          calibrationAreaShapeHeatmap.src = `${data.area_shape_heatmap_url}?t=${Date.now()}`;
+          calibrationAreaShapeHeatmap.style.display = "block";
+          calibrationAreaShapeHeatmapLegend.style.display = "block";
+        } else {
+          calibrationAreaShapeHeatmap.style.display = "none";
+          calibrationAreaShapeHeatmapLegend.style.display = "none";
         }
         await refreshCurrentCalibration();
         await refreshCalibrationList();

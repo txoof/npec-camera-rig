@@ -1,13 +1,22 @@
 import numpy as np
 import pytest
 
-from npec_rig.calibration import build_scale_field, build_uncertainty_field
+from npec_rig.calibration import (
+    area_scale_samples,
+    build_area_scale_field,
+    build_scale_field,
+    build_uncertainty_field,
+)
 from npec_rig.calibration_viz import (
+    AREA_SHAPE_HEATMAP_MAX_PCT,
+    AREA_SHAPE_HEATMAP_MIN_PCT,
     HEATMAP_MAX_PCT,
     HEATMAP_MIN_PCT,
+    render_area_shape_heatmap,
     render_honesty_plot,
     render_uncertainty_heatmap,
 )
+from npec_rig.tags import TagDetection
 
 from .helpers import square_detection as _square_detection
 
@@ -68,6 +77,81 @@ def test_heatmap_downscales_large_frames_and_still_samples_original_coordinates(
     # colour everywhere, not an artifact of the coordinate rescale being wrong.
     unique_colors = np.unique(heatmap.reshape(-1, 3), axis=0)
     assert len(unique_colors) == 1
+
+
+def _uniform_area_field():
+    # Every tag is an exact square, consistent with its own mean side length -- shape_factor_pct
+    # is exactly 0 everywhere, same rationale as _uniform_field() above.
+    field, _ = _uniform_field()
+    detections = [
+        _square_detection(tag_id, cx, cy, 120)
+        for tag_id, (cx, cy) in enumerate([(100, 100), (900, 100), (500, 500), (100, 900), (900, 900)])
+    ]
+    sizes = {i: 30.0 for i in range(len(detections))}
+    return build_area_scale_field(area_scale_samples(field, detections, sizes))
+
+
+def test_area_shape_heatmap_matches_frame_size_and_channels() -> None:
+    area_field = _uniform_area_field()
+    frame = np.zeros((200, 300, 3), dtype=np.uint8)
+    heatmap = render_area_shape_heatmap(area_field, frame)
+    assert heatmap.shape == (200, 300, 3)
+    assert heatmap.dtype == np.uint8
+
+
+def test_area_shape_heatmap_is_uniformly_cool_when_no_distortion_anywhere() -> None:
+    area_field = _uniform_area_field()
+    frame = np.full((100, 100, 3), 128, dtype=np.uint8)
+    heatmap = render_area_shape_heatmap(
+        area_field, frame, vmin=AREA_SHAPE_HEATMAP_MIN_PCT, vmax=AREA_SHAPE_HEATMAP_MAX_PCT
+    )
+    unique_colors = np.unique(heatmap.reshape(-1, 3), axis=0)
+    assert len(unique_colors) == 1
+
+
+def _rectangle_detection(tag_id: int, cx: float, cy: float, width: float, height: float) -> TagDetection:
+    return TagDetection(
+        tag_id=tag_id,
+        corners=(
+            (cx - width / 2, cy - height / 2),
+            (cx + width / 2, cy - height / 2),
+            (cx + width / 2, cy + height / 2),
+            (cx - width / 2, cy + height / 2),
+        ),
+        centre=(cx, cy),
+    )
+
+
+def test_area_shape_heatmap_shows_real_structure_from_genuinely_distorted_tags() -> None:
+    # A background grid of perfect squares (shape_factor_pct == 0) everywhere, plus a tight
+    # local cluster of rectangles with the same mean side length but real shoelace-area
+    # distortion -- with only `_uniform_area_field()`'s 5 points, k=5 always covers all of them
+    # everywhere, so every query gets the same answer; enough background points here that k=5
+    # actually varies by query position, which is what exercises the non-flat rendering path.
+    size_mm, ppm = 30.0, 4.0
+    xs, ys = (100, 400, 700, 1000), (0, 333, 667, 1000)
+    grid_positions = [(x, y) for y in ys for x in xs]
+    squares = [
+        _square_detection(tag_id, x, y, ppm * size_mm) for tag_id, (x, y) in enumerate(grid_positions)
+    ]
+    field = build_scale_field(squares, {i: size_mm for i in range(len(squares))})
+
+    distorted = [
+        # Same mean side length as the field predicts (zero length residual), pure shape
+        # distortion via a rectangle instead of a square.
+        _rectangle_detection(90 + i, cx, cy, ppm * size_mm * 1.4, ppm * size_mm * 0.6)
+        for i, (cx, cy) in enumerate([(540, 540), (560, 540), (550, 560)])
+    ]
+    detections = squares + distorted
+    sizes = {i: size_mm for i in range(len(squares))} | {d.tag_id: size_mm for d in distorted}
+    area_field = build_area_scale_field(area_scale_samples(field, detections, sizes))
+
+    frame = np.full((1000, 1000, 3), 128, dtype=np.uint8)
+    heatmap = render_area_shape_heatmap(
+        area_field, frame, vmin=AREA_SHAPE_HEATMAP_MIN_PCT, vmax=AREA_SHAPE_HEATMAP_MAX_PCT
+    )
+    unique_colors = np.unique(heatmap.reshape(-1, 3), axis=0)
+    assert len(unique_colors) > 1
 
 
 def test_honesty_plot_renders_an_image_of_the_requested_size() -> None:

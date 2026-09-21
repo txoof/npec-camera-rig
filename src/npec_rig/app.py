@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 
 from npec_rig.calibration import (
     CalibrationArtifact,
+    area_scale_samples,
+    build_area_scale_field,
     build_calibration_report,
     build_scale_field,
     build_uncertainty_field,
@@ -19,10 +21,15 @@ from npec_rig.calibration_store import (
     list_calibrations,
     load_current_calibration,
     save_calibration,
+    save_calibration_area_shape_heatmap,
     save_calibration_frame,
     save_calibration_heatmap,
 )
-from npec_rig.calibration_viz import render_honesty_plot, render_uncertainty_heatmap
+from npec_rig.calibration_viz import (
+    render_area_shape_heatmap,
+    render_honesty_plot,
+    render_uncertainty_heatmap,
+)
 from npec_rig.camera import CameraManager, array_to_jpeg
 from npec_rig.captures import captures_root, list_recent_captures, save_capture
 from npec_rig.tags import (
@@ -321,6 +328,18 @@ def run_calibration(promote: bool = True, calibration_tag_size_mm: float | None 
         result["heatmap_url"] = f"/calibration/files/heatmaps/{stem}.jpg"
     else:
         result["heatmap_url"] = None
+
+    try:
+        area_field = build_area_scale_field(area_scale_samples(field, detections, tag_sizes_mm))
+    except ValueError:
+        area_field = None
+    if area_field is not None:
+        area_shape_heatmap = render_area_shape_heatmap(area_field, array)
+        save_calibration_area_shape_heatmap(area_shape_heatmap, stem=stem)
+        result["area_shape_heatmap_url"] = f"/calibration/files/heatmaps/{stem}_area-shape.jpg"
+    else:
+        result["area_shape_heatmap_url"] = None
+
     result["frame_url"] = f"/calibration/files/frames/{stem}.jpg"
 
     lens_position = manager.get_lens_position()
@@ -352,12 +371,16 @@ def list_calibration_artifacts() -> list[dict]:
         heatmap_url = None
         if (calibration_root() / "heatmaps" / f"{path.stem}.jpg").exists():
             heatmap_url = f"/calibration/files/heatmaps/{path.stem}.jpg"
+        area_shape_heatmap_url = None
+        if (calibration_root() / "heatmaps" / f"{path.stem}_area-shape.jpg").exists():
+            area_shape_heatmap_url = f"/calibration/files/heatmaps/{path.stem}_area-shape.jpg"
         entries.append(
             {
                 "filename": path.name,
                 "url": f"/calibration/files/{path.name}",
                 "frame_url": frame_url,
                 "heatmap_url": heatmap_url,
+                "area_shape_heatmap_url": area_shape_heatmap_url,
             }
         )
     return entries
@@ -373,6 +396,12 @@ def current_calibration() -> dict:
     heatmap_url = (
         f"/calibration/files/heatmaps/{artifact.frame_stem}.jpg" if artifact.frame_stem else None
     )
+    area_shape_heatmap_url = (
+        f"/calibration/files/heatmaps/{artifact.frame_stem}_area-shape.jpg"
+        if artifact.frame_stem
+        and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}_area-shape.jpg").exists()
+        else None
+    )
     return {
         "exists": True,
         "created_at": artifact.created_at,
@@ -384,6 +413,7 @@ def current_calibration() -> dict:
         ),
         "frame_url": frame_url,
         "heatmap_url": heatmap_url,
+        "area_shape_heatmap_url": area_shape_heatmap_url,
         "has_uncertainty_field": artifact.uncertainty_field is not None,
     }
 

@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from npec_rig.tags import TAG_DICTIONARY, detect_tags
+from npec_rig.tags import TAG_DICTIONARY, detect_tags, tag_area_px
 
 pytestmark = pytest.mark.unit
 
@@ -64,3 +64,20 @@ def test_detects_a_real_photographed_tag() -> None:
     frame = np.array(Image.open(REAL_TAG_CROP).convert("RGB"))
     detections = detect_tags(frame)
     assert REAL_TAG_CROP_ID in [d.tag_id for d in detections]
+
+
+def test_tag_area_px_of_a_square_is_side_squared() -> None:
+    corners = ((0.0, 0.0), (120.0, 0.0), (120.0, 120.0), (0.0, 120.0))
+    assert tag_area_px(corners) == pytest.approx(120.0**2)
+
+
+def test_tag_area_px_of_a_rectangle_is_width_times_height() -> None:
+    # Deliberately not a square: this is exactly the case tag_side_px (mean side length) squared
+    # would get wrong, which is the whole point of computing area separately (shoelace formula).
+    corners = ((0.0, 0.0), (180.0, 0.0), (180.0, 88.0), (0.0, 88.0))
+    assert tag_area_px(corners) == pytest.approx(180.0 * 88.0)
+
+
+def test_tag_area_px_is_invariant_to_winding_order() -> None:
+    corners = ((0.0, 0.0), (0.0, 120.0), (120.0, 120.0), (120.0, 0.0))  # clockwise, not CCW
+    assert tag_area_px(corners) == pytest.approx(120.0**2)
