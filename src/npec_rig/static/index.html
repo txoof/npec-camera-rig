@@ -263,6 +263,25 @@
     <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
     <img id="calibration-heatmap" alt="Confidence heatmap"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+    <div id="calibration-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
+      <div style="height: 14px; border-radius: 3px; background: linear-gradient(to right,
+        rgb(48,18,59) 0%, rgb(70,105,224) 12.5%, rgb(42,185,238) 25%, rgb(47,241,155) 37.5%,
+        rgb(161,253,61) 50%, rgb(236,209,58) 62.5%, rgb(251,129,34) 75%, rgb(210,49,5) 87.5%,
+        rgb(122,4,3) 100%);"></div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #aaa; margin-top: 0.15rem;">
+        <span>0% (confident)</span><span>2%</span><span>4%</span><span>6%</span><span>8%+ (least confident)</span>
+      </div>
+      <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
+        Colour is the local uncertainty field at that position — how much neighbouring
+        calibration tags disagree with the fitted scale, blended over the actual photo (so the
+        sheets and table are still visible underneath). Blue/dark = tags there agree closely with
+        each other and the model — trust readings from that area. Green through red = growing
+        disagreement — the fixed 0–8% scale is used every time so a hotter run really is worse,
+        not just redrawn to look worse. Red doesn't mean "wrong," it means "least measured" —
+        usually because coverage is thin there (see the coverage lines above); add a sheet in a
+        red area to bring it down.
+      </p>
+    </div>
     <details style="margin-top: 0.75rem;">
       <summary>Saved calibrations (download)</summary>
       <div id="calibration-list" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
@@ -652,6 +671,7 @@
     const calibrationList = document.getElementById("calibration-list");
     const tagSizeInput = document.getElementById("tag-size-input");
     const calibrationHeatmap = document.getElementById("calibration-heatmap");
+    const calibrationHeatmapLegend = document.getElementById("calibration-heatmap-legend");
 
     async function refreshCalibrationList() {
       const r = await fetch("/calibration/list");
@@ -728,8 +748,10 @@
         if (data.heatmap_url) {
           calibrationHeatmap.src = `${data.heatmap_url}?t=${Date.now()}`;
           calibrationHeatmap.style.display = "block";
+          calibrationHeatmapLegend.style.display = "block";
         } else {
           calibrationHeatmap.style.display = "none";
+          calibrationHeatmapLegend.style.display = "none";
         }
         await refreshCurrentCalibration();
         await refreshCalibrationList();
