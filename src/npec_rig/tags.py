@@ -72,6 +72,8 @@ def detect_tags(frame: np.ndarray) -> list[TagDetection]:
     """Every AprilTag 36h11 in `frame`, sorted by tag id.
 
     `frame` is RGB (this project's convention throughout, see camera.py) or already grayscale.
+    Channel order doesn't otherwise matter here -- `to_grayscale` handles it, and the detector
+    only ever sees the grayscale result.
     """
     gray = to_grayscale(frame).astype(np.uint8) if frame.ndim == 3 else frame
     dictionary = cv2.aruco.getPredefinedDictionary(TAG_DICTIONARY)

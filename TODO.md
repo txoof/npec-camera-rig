@@ -41,15 +41,38 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
 - [?] **Hailo accelerator** — no `hailortcli`, no PCIe device, no package installed on this OS
       build. Needs HailoRT install and physical seating confirmed. Blocks M5 only, and M5 ships
       with a classical fallback regardless.
-- [?] **Chamber lighting spectrum vs. color accuracy** — a known-yellow object photographs blue
-      under the chamber's grow lighting; checked channel order and white balance in code, both
-      correct (see M1 slice 3 notes) — most likely a lighting-spectrum limitation, not fixable
-      in software. Aaron confirms earlier captures in the same session showed correct color and
-      later ones didn't, with no code change to `array_to_jpeg`/color handling in between —
-      points at the physical lighting changing (schedule, cycle, or spectrum shift) rather than
-      a regression. **Check the chamber's lighting conditions/schedule directly.** Matters for
-      M5: `ExGSegmenter` (excess-green) depends on color being roughly right and roughly
-      constant. *(Aaron, 2026-09-19)*
+- [x] **Color swap bug, actually fixed 2026-09-21** — the 2026-09-19 "lighting spectrum"
+      conclusion below was wrong; this was a real, reproducible software bug the whole time, in
+      `camera.py`, unrelated to any of: chamber lighting, system packages
+      (`libcamera0.7`/`libcamera-ipa` were briefly and wrongly suspected — real version skew,
+      side-loaded 2026-09-03, but 16 days before either the good or bad capture, so it can't
+      explain the timing), and `python3-opencv` (installed hours after the bug already showed).
+      **Root cause:** explicitly keying `"format"` on a `create_video_configuration`/
+      `create_still_configuration` stream puts this picamera2/libcamera build on a different
+      internal path that delivers the wrong channel order — true for *either* `"RGB888"` or
+      `"BGR888"`, confirmed both ways. Left unconstrained, `main` and the still config negotiate
+      their own default (logged as `"BGR888"`/`"XBGR8888"`) and the array comes back genuinely
+      R,G,B(,padding) — **despite that log name**, which is misleading on this build, not
+      descriptive. `lores` still needs a format pinned (or it negotiates broken YUV420 planar,
+      the original 2026-09-19 bug this pinning existed for) — pinned to `"XBGR8888"`
+      specifically, the one explicit format confirmed to still come out right.
+      **Two false fixes before this one landed, both instructive:**
+      1. 2026-09-19: tried `"BGR888"`, reverted it as "wrong" on the strength of a channel-swap
+         test *without* checking against a real known-color object — the test passed, the real
+         bug (triggered by explicit-format-keying itself, not by which string) was still there.
+      2. 2026-09-21 (this session, first attempt): assumed the `"BGR888"` log name was accurate
+         and added a channel reversal to `array_to_jpeg`/`to_grayscale` — reported as fixed
+         from a single glance at a wide scene shot, without checking the specific known-color
+         object. Aaron caught it with a direct crop comparison against the confirmed-good/bad
+         references; the reversal was backwards and made it worse.
+      **What actually settled it:** numeric + visual comparison of the *same* tote-region crop
+      across the confirmed-good (2026-09-19 11:19) and confirmed-bad (2026-09-19 12:17)
+      references, `rpicam-still` (bypasses picamera2 entirely — ground truth), and every
+      candidate fix, at the same pixel coordinates each time. Verified again afterward through
+      the actual `/capture` and `/snapshot.jpg` endpoints, live. **Lesson for next time:** "the
+      report says colors are correct" is not verification unless the report is about the
+      specific object being checked, at the same crop, compared against a reference taken the
+      same way — a wide scene glance is not that.
 - [?] **Minimum-gain policy** — Aaron's supervisor requires minimal `AnalogueGain` at all times.
       Default is already 1.0 (satisfied as-is). Not yet decided: whether to *enforce* this
       further — e.g. cap the gain slider's usable max, or bias auto-exposure toward longer

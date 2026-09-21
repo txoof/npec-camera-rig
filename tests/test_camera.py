@@ -63,6 +63,59 @@ def test_array_to_jpeg_produces_jpeg_bytes() -> None:
     assert data[:2] == b"\xff\xd8"
 
 
+def test_array_to_jpeg_does_not_reorder_channels() -> None:
+    # `frame`'s first 3 channels are literally R,G,B, verified directly against a known-color
+    # real-world reference on 2026-09-21 -- despite picamera2 logging "BGR888"/"XBGR8888" for
+    # these streams, it does not actually deliver that byte order. A previous fix attempt
+    # assumed the log name was accurate and added a reversal; that was wrong and made colors
+    # worse, not better (TODO.md has the full account). A pure red real-world pixel arrives as
+    # (R=255, G=0, B=0); the saved JPEG must decode back to red, not blue.
+    from io import BytesIO
+
+    from PIL import Image
+
+    frame = np.zeros((4, 4, 3), dtype=np.uint8)
+    frame[..., 0] = 255  # channel 0 is red, as delivered -- no reversal
+    decoded = np.array(Image.open(BytesIO(array_to_jpeg(frame))).convert("RGB"))
+    pixel = decoded[0, 0]
+    assert pixel[0] > pixel[2]  # red channel dominant, not blue
+
+
+def test_to_grayscale_weights_the_rgb_channels_correctly() -> None:
+    # Pure red (channel 0) gets the 0.299 luminance weight; pure blue (channel 2) gets 0.114.
+    red = np.zeros((1, 1, 3), dtype=np.uint8)
+    red[..., 0] = 255
+    blue = np.zeros((1, 1, 3), dtype=np.uint8)
+    blue[..., 2] = 255
+    assert to_grayscale(red)[0, 0] == pytest.approx(255 * 0.299)
+    assert to_grayscale(blue)[0, 0] == pytest.approx(255 * 0.114)
+
+
+def test_array_to_jpeg_handles_a_padding_channel() -> None:
+    # The video config's "main"/"lores" streams deliver a 4th, unused padding channel
+    # (confirmed 2026-09-21) -- array_to_jpeg must drop it, not treat it as a color channel.
+    from io import BytesIO
+
+    from PIL import Image
+
+    frame = np.zeros((4, 4, 4), dtype=np.uint8)
+    frame[..., 0] = 255  # channel 0 is red, as delivered
+    frame[..., 3] = 0  # padding, as real captures report it
+    decoded = np.array(Image.open(BytesIO(array_to_jpeg(frame))).convert("RGB"))
+    pixel = decoded[0, 0]
+    assert pixel[0] > pixel[2]  # red channel dominant, not blue
+
+
+def test_peaking_overlay_handles_a_padding_channel() -> None:
+    # Same 4-channel shape as capture_array() returns from the real video config -- the
+    # padding channel must survive untouched, not raise or get clobbered by the 3-value color.
+    crop = np.zeros((10, 10, 4), dtype=np.uint8)
+    crop[3, 3] = (200, 10, 10, 0)  # one bright, isolated pixel to trip the edge threshold
+    overlay = peaking_overlay(crop, threshold=5.0)
+    assert overlay.shape == crop.shape
+    assert overlay[..., 3].max() == 0  # padding channel untouched
+
+
 def test_crop_roi_returns_requested_size_centered_on_point() -> None:
     frame = np.zeros((100, 100, 3), dtype=np.uint8)
     crop = crop_roi(frame, x=50, y=50, size=20)
