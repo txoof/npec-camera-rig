@@ -362,12 +362,18 @@ The heart of the project. Do not start before M1 slice 5.
       capture can't get paired with coverage from another (`build_install_report()`'s own
       parameters aren't cross-checked, by design — useful for testing each line in isolation).
       Unit-tested with synthetic detections. *(2026-09-20)*
-- [ ] **Live reorientation guidance** — real-time roll/tilt readout from corner tags on the
-      preview stream (same pattern as M1's focus peaking), for adjusting the rig by hand during
-      physical setup. Directional guidance only — preview resolution is coarser than a full-res
-      capture, so a full-res capture still confirms the final number. Distinct from the install
-      report above: that's a stored one-time artifact, this is an interactive aid, not persisted.
-      *(Aaron, 2026-09-19)*
+- [x] **Live reorientation guidance** — `POST /calibration/orientation/zero` (freezes the current
+      preview frame's corner tags as an in-memory zero point) + `GET
+      /calibration/orientation/live` (roll/scale reading against that zero point) in `app.py`,
+      plus the "Live reorientation aid" panel in `static/index.html`, polled every 500ms. Reuses
+      `check_tripwire` rather than deriving roll/tilt from raw single-frame geometry (e.g. "corner
+      tags should form an axis-aligned rectangle," "corner tags are the same physical size") —
+      neither assumption is established anywhere in this repo, and a wrong one would be a derived
+      number presented as measured. Zero point is in-memory only, not persisted, separate from the
+      real calibration baseline. Smoke-tested against real hardware 2026-09-21 (no corner tags on
+      the table yet, so both endpoints 409 cleanly on "no corner tags detected" / "no zero point
+      set") — **not yet exercised end to end with real corner tags in frame**, that needs bench
+      access. *(Aaron, 2026-09-19; built 2026-09-21)*
 - [x] **Health baseline** — `CornerBaseline`/`build_corner_baseline()` in
       `src/npec_rig/tripwire.py`: corner tag corners keyed by tag id, built from whatever subset
       of the (up to 4) mounted corner tags a real calibration actually detects — not assumed to
