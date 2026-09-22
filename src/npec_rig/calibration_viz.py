@@ -571,6 +571,10 @@ def render_table_view(
     `_table_view_canvas_size`) -- a real width/length must be measured *centre-to-centre between
     the same four corner tags* `table_frame` was built from (see `TableFrame`'s own docstring),
     not the table's outer physical edge, or the aspect ratio silently won't match what's rendered.
+    `table_width_mm` is specifically the TL-TR edge (`table_frame`'s own `u` axis, left-to-right
+    in the camera image) and `table_length_mm` the TL-BL edge (`v`, top-to-bottom) -- swapping
+    them renders a transposed rectangle, the exact "plausible-looking but wrong" failure this
+    caveat exists to prevent.
 
     Anywhere outside the convex hull of `covered_positions` (see `_covered_hull_mask`) is rendered
     desaturated grey, not just lower alpha -- a floor-plan view has no visible "table edge" the

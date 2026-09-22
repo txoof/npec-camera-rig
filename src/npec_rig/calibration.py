@@ -139,10 +139,12 @@ class TableFrame:
     position only, see `build_table_frame`.
 
     `(u, v) in [0, 1]^2` span the quadrilateral of the four corner tags' own centres, not the
-    table's physical edge some distance further out. A real-world width/length measurement used
+    table's physical edge some distance further out. `u` runs TL -> TR (left-to-right in the
+    camera image), `v` runs TL -> BL (top-to-bottom). A real-world width/length measurement used
     alongside this (e.g. in `calibration_viz.render_table_view`) must be measured centre-to-centre
     between the same four tags, not the table's outer edge, or the aspect ratio silently won't
-    match what gets rendered.
+    match what gets rendered -- and *which* edge is "width" matters too: it must be the TL-TR
+    edge (`u`), not TL-BL (`v`), or the rendered rectangle comes out transposed.
 
     `corners_px` is the same four points, in TL/TR/BR/BL order, kept for provenance/debugging --
     not consulted by `to_fraction`/`to_pixel`, which go through `_matrix` alone.
@@ -245,6 +247,21 @@ def build_table_frame(baseline: CornerBaseline) -> TableFrame:
 
     unit_square = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]  # TL, TR, BR, BL
     matrix = _dlt_homography([tuple(p) for p in ordered], unit_square)
+
+    # The DLT solves for a null-space vector, which SVD returns up to an arbitrary +/-1 sign --
+    # both signs solve the same linear system equally validly, and `to_fraction`/`to_pixel`'s own
+    # `u/w`, `v/w` divisions are sign-invariant, so this has no effect on any *position* either of
+    # them reports. But their `w <= 0` extrapolation guards are NOT sign-invariant: whichever sign
+    # SVD happens to return could make `w` negative everywhere inside the table, which would make
+    # every real query raise and everywhere read as "never measured" -- a straightened photo that
+    # renders correctly (cv2.warpPerspective's own divide doesn't care about this sign) sitting
+    # under an entirely grey field, with no exception and no None result to notice by. Pinned by
+    # construction: the quad's own centroid must map to a physically valid (w > 0) position, since
+    # it sits inside the quad by definition.
+    centroid = ordered.mean(axis=0)
+    w_at_centroid = matrix[2, 0] * centroid[0] + matrix[2, 1] * centroid[1] + matrix[2, 2]
+    if w_at_centroid < 0:
+        matrix = -matrix
 
     return TableFrame(
         _matrix=tuple(tuple(float(v) for v in row) for row in matrix),

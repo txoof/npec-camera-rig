@@ -841,6 +841,31 @@ def test_build_table_frame_raises_on_self_intersecting_winding() -> None:
         build_table_frame(baseline)
 
 
+def test_build_table_frame_fixes_arbitrary_svd_null_space_sign() -> None:
+    # SVD's null-space vector (the DLT's raw solution, before build_table_frame's own sign fix)
+    # comes back up to an arbitrary +/-1 sign -- both signs solve the same linear system, but only
+    # one gives every real query inside the quad a physically valid (w > 0) result; the other
+    # makes to_fraction/to_pixel raise everywhere inside the table, which would read as "never
+    # measured anywhere" with no exception surfaced (see build_table_frame's own comment on this).
+    # This exact quad was found, searching real (non-degenerate) random quads directly against
+    # `_dlt_homography` with the sign fix *not* applied, to come back with the "wrong" raw sign --
+    # a real regression case, not just an invariant restated as a test.
+    baseline = _corner_baseline(
+        {
+            450: (344.4228640964949, 69.51537853084733),
+            451: (168.14494622242825, 272.9144368186801),
+            452: (109.48862729435938, 624.8020841524763),
+            455: (159.6255246938475, 527.3803990480128),
+        }
+    )
+    frame = build_table_frame(baseline)
+    cx = (344.4228640964949 + 168.14494622242825 + 109.48862729435938 + 159.6255246938475) / 4
+    cy = (69.51537853084733 + 272.9144368186801 + 624.8020841524763 + 527.3803990480128) / 4
+    u, v = frame.to_fraction(cx, cy)
+    assert 0.0 < u < 1.0
+    assert 0.0 < v < 1.0
+
+
 def test_build_table_frame_only_input_is_corner_baseline() -> None:
     # Cheap "never touches mm" check: build_table_frame's only parameter type is CornerBaseline --
     # no ScaleField parameter exists, so mm can't leak into this transform even by accident.
