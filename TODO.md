@@ -533,6 +533,15 @@ The heart of the project. Do not start before M1 slice 5.
 - [ ] **Move calibration history into a gallery** — the current "Saved calibrations (download)"
       `<details>` list (filenames + text links) should become a proper gallery: preview
       thumbnails plus a download action per entry, not a plain link list. *(Aaron, 2026-09-21)*
+- [ ] **Zoomed focus preview (`/focus/roi.mjpg`) is awful quality** — Aaron: looks like a zoom of
+      a reduced-quality image. Should be much higher quality to actually help focus by eye.
+      `CameraManager.roi_crop_jpeg` (`camera.py`) crops from the continuous `main` video stream
+      at `MAIN_SIZE` (1536×1152), not the 320×240 `lores` preview and not a full-res still --
+      so it's not literally re-zooming the low-res preview, but 1536×1152 is still a small
+      fraction of the 64MP sensor, and a small ROI crop of that gets magnified a lot in the
+      browser. Not investigated further -- worth checking whether a dedicated higher-res crop
+      (e.g. a still capture, or a larger/different stream config) is feasible without breaking
+      the continuous preview or `focus_score`'s own use of the same stream. *(Aaron, 2026-09-22)*
 
 ### M2 acceptance — run in the chamber
 - [ ] **Two-baseline test** *(do first)* — two independent calibrations of the same static scene,
