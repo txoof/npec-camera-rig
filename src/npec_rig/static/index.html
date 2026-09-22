@@ -256,6 +256,20 @@
       <input type="number" id="tag-size-input" step="0.0001" min="0"
              placeholder="e.g. 30.02" style="width: 6rem;">
     </label>
+    <label class="peaking-row">
+      <span>
+        <strong>Table width / length (mm)</strong> — measure centre-to-centre between the four
+        corner tags (not the table's outer edge) and enter both to render the table-position
+        view below to real proportions. Leave either blank for a square, NOT-TO-SCALE canvas that
+        still shows relative position correctly. Not saved between runs — re-enter each time.
+      </span>
+      <span>
+        <input type="number" id="table-width-input" step="0.1" min="0"
+               placeholder="width e.g. 1000" style="width: 7rem;">
+        <input type="number" id="table-length-input" step="0.1" min="0"
+               placeholder="length e.g. 800" style="width: 7rem;">
+      </span>
+    </label>
     <div class="lock-row">
       <button id="calibrate-btn">Run calibration</button>
       <button id="tripwire-btn">Check tripwire now</button>
@@ -386,6 +400,28 @@
         </div>
       </details>
     </div>
+    <h3 style="margin: 1rem 0 0.25rem;">Table-position view</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      The same two fields as the heatmaps above, painted instead on a straightened, top-down view
+      of the table — anchored to the four corner tags, which don't move, so "this spot on the
+      picture" is the same real spot on the table across different calibration runs, not tied to
+      one specific photo's own tilt and framing (PLAN.md's own corner-tag homography, M2 section
+      A). Grey means no calibration tag was ever near that spot — not measured, regardless of
+      colour, never a guessed or smoothed-in value.
+    </p>
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Scale residual</h4>
+    <img id="table-view-scale-residual" alt="Scale residual, table-position view"
+         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Area-shape distortion</h4>
+    <img id="table-view-shape-distortion" alt="Area-shape distortion, table-position view"
+         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+    <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
+      NOT TO SCALE (a square canvas) unless both table width and length above were entered —
+      relative position within the table is correct either way, but the rectangle's own
+      proportions only match the real table when both were measured and entered. Both must be
+      measured centre-to-centre between the four corner tags, not the table's outer edge, or the
+      canvas's proportions won't match what's rendered.
+    </p>
     <h3 style="margin: 1rem 0 0.25rem;">Best vs. worst tag</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Every calibration tag's own scale residual and area-shape distortion, sorted best to
@@ -816,6 +852,10 @@
     const calibrationAreaShapeHeatmapLegend = document.getElementById(
       "calibration-area-shape-heatmap-legend"
     );
+    const tableWidthInput = document.getElementById("table-width-input");
+    const tableLengthInput = document.getElementById("table-length-input");
+    const tableViewScaleResidual = document.getElementById("table-view-scale-residual");
+    const tableViewShapeDistortion = document.getElementById("table-view-shape-distortion");
     const rankPlotScaleResidual = document.getElementById("rank-plot-scale-residual");
     const rankPlotShapeDistortion = document.getElementById("rank-plot-shape-distortion");
     const bestWorstPhotoScaleResidual = document.getElementById("best-worst-photo-scale-residual");
@@ -870,6 +910,8 @@
         const promote = promoteToggle.checked;
         let url = `/calibration/run?promote=${promote}`;
         if (tagSizeInput.value) url += `&calibration_tag_size_mm=${tagSizeInput.value}`;
+        if (tableWidthInput.value) url += `&table_width_mm=${tableWidthInput.value}`;
+        if (tableLengthInput.value) url += `&table_length_mm=${tableLengthInput.value}`;
         const r = await fetch(url, { method: "POST" });
         const data = await r.json();
         let lines;
@@ -886,10 +928,15 @@
             ? `tag size: ${data.calibration_tag_size_mm} mm placeholder default — measure with ` +
               "callipers and enter it above"
             : `tag size: ${data.calibration_tag_size_mm} mm (calliper-measured, as entered)`;
+          const tableDims =
+            data.table_width_mm && data.table_length_mm
+              ? `table view: ${data.table_width_mm}mm x ${data.table_length_mm}mm, as entered`
+              : "table view: NOT TO SCALE — enter table width/length above for real proportions";
           lines = [
             `${data.calibration_tags_detected} calibration tags, ` +
               `${data.corner_tags_detected} corner tags detected`,
             tagSize,
+            tableDims,
             `${centre}, plane-fit residual ${data.residual_std_pct.toFixed(2)}%`,
             ...data.report,
           ];
@@ -910,6 +957,18 @@
         } else {
           calibrationAreaShapeHeatmap.style.display = "none";
           calibrationAreaShapeHeatmapLegend.style.display = "none";
+        }
+        if (data.table_view_url) {
+          tableViewScaleResidual.src = `${data.table_view_url}?t=${Date.now()}`;
+          tableViewScaleResidual.style.display = "block";
+        } else {
+          tableViewScaleResidual.style.display = "none";
+        }
+        if (data.table_view_shape_url) {
+          tableViewShapeDistortion.src = `${data.table_view_shape_url}?t=${Date.now()}`;
+          tableViewShapeDistortion.style.display = "block";
+        } else {
+          tableViewShapeDistortion.style.display = "none";
         }
         if (!data.error) {
           // Re-detects tags from the just-saved frame each time (no per-tag persistence),
