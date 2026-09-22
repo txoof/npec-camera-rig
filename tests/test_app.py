@@ -617,3 +617,37 @@ def test_rank_plot_refused_with_too_few_tags_in_the_saved_frame(
     monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS[:1] + _CORNER_TAGS)
     response = client.get("/calibration/current/rank-plot")
     assert response.status_code == 409
+
+
+# --- Best/worst photo overlay ---
+
+
+def test_best_worst_photo_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/current/best-worst-photo")
+    assert response.status_code == 409
+
+
+def test_best_worst_photo_returns_a_jpeg(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    for metric in ("scale_residual", "shape_distortion"):
+        response = client.get("/calibration/current/best-worst-photo", params={"metric": metric})
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/jpeg"
+        assert response.content[:2] == b"\xff\xd8"
+
+
+def test_best_worst_photo_rejects_an_unknown_metric(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get("/calibration/current/best-worst-photo", params={"metric": "bogus"})
+    assert response.status_code == 422

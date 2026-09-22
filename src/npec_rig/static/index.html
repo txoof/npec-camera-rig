@@ -391,15 +391,20 @@
       Every calibration tag's own scale residual and area-shape distortion, sorted best to
       worst, so a specific outlier tag can be found by ID and frame position rather than only
       seeing the two heatmaps' averages. Each plot's vertical axis is that run's own spread, not
-      the heatmaps' fixed 0–8%/0–0.5% scale — read the axis label on each plot, not the colours
-      above.
+      the heatmaps' fixed 0–8%/0–0.5% scale — read the axis label baked into each image, not the
+      colours above. Green marks the best tag, red the worst, on both the sorted plot and the
+      actual photo below it.
     </p>
-    <div class="lock-row">
-      <img id="rank-plot-scale-residual" alt="Scale residual, best to worst"
-           style="display: none; max-width: 48%; border: 1px solid #444;">
-      <img id="rank-plot-shape-distortion" alt="Area-shape distortion, best to worst"
-           style="display: none; max-width: 48%; border: 1px solid #444;">
-    </div>
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Scale residual</h4>
+    <img id="rank-plot-scale-residual" alt="Scale residual, best to worst"
+         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+    <img id="best-worst-photo-scale-residual" alt="Scale residual, best and worst tag on the photo"
+         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Area-shape distortion</h4>
+    <img id="rank-plot-shape-distortion" alt="Area-shape distortion, best to worst"
+         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+    <img id="best-worst-photo-shape-distortion" alt="Area-shape distortion, best and worst tag on the photo"
+         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
     <details style="margin-top: 0.75rem;">
       <summary>Saved calibrations (download)</summary>
       <div id="calibration-list" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
@@ -796,6 +801,8 @@
     );
     const rankPlotScaleResidual = document.getElementById("rank-plot-scale-residual");
     const rankPlotShapeDistortion = document.getElementById("rank-plot-shape-distortion");
+    const bestWorstPhotoScaleResidual = document.getElementById("best-worst-photo-scale-residual");
+    const bestWorstPhotoShapeDistortion = document.getElementById("best-worst-photo-shape-distortion");
 
     async function refreshCalibrationList() {
       const r = await fetch("/calibration/list");
@@ -892,9 +899,17 @@
           rankPlotScaleResidual.style.display = "block";
           rankPlotShapeDistortion.src = `/calibration/current/rank-plot?metric=shape_distortion&t=${Date.now()}`;
           rankPlotShapeDistortion.style.display = "block";
+          bestWorstPhotoScaleResidual.src =
+            `/calibration/current/best-worst-photo?metric=scale_residual&t=${Date.now()}`;
+          bestWorstPhotoScaleResidual.style.display = "block";
+          bestWorstPhotoShapeDistortion.src =
+            `/calibration/current/best-worst-photo?metric=shape_distortion&t=${Date.now()}`;
+          bestWorstPhotoShapeDistortion.style.display = "block";
         } else {
           rankPlotScaleResidual.style.display = "none";
           rankPlotShapeDistortion.style.display = "none";
+          bestWorstPhotoScaleResidual.style.display = "none";
+          bestWorstPhotoShapeDistortion.style.display = "none";
         }
         await refreshCurrentCalibration();
         await refreshCalibrationList();

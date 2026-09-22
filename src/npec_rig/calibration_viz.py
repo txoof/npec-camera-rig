@@ -203,8 +203,12 @@ def render_honesty_plot(
     return img
 
 
-RANK_PLOT_SIZE = 640
-RANK_PLOT_MARGIN = 70
+RANK_PLOT_SIZE = 900
+RANK_PLOT_MARGIN = 90
+RANK_PLOT_TOP_MARGIN = 130  # extra headroom above the plot for the title + key
+
+BEST_COLOUR = (0, 150, 0)  # RGB green, used consistently across the rank plot and the photo
+WORST_COLOUR = (210, 30, 30)  # RGB red
 
 
 def render_rank_plot(
@@ -213,6 +217,7 @@ def render_rank_plot(
     label: str,
     size: int = RANK_PLOT_SIZE,
     margin: int = RANK_PLOT_MARGIN,
+    top_margin: int = RANK_PLOT_TOP_MARGIN,
 ) -> np.ndarray:
     """TODO.md's best-vs-worst-tag rank plot: `points` as `(magnitude_pct, tag_id, x, y)` tuples,
     one per calibration tag, sorted ascending and drawn as a single connected line (rank on x,
@@ -226,7 +231,9 @@ def render_rank_plot(
     can be found and inspected physically. The y-axis auto-scales to this run's own worst value
     (with headroom), not a fixed cross-run scale like the heatmaps use -- this plot's job is
     showing the spread *within* one run, and the axis label says so explicitly to avoid it being
-    mistaken for a heatmap's fixed comparison scale.
+    mistaken for a heatmap's fixed comparison scale. A title and a green/red key are baked into
+    the image itself (not left to the page around it), so a saved or screenshotted copy is still
+    self-explanatory out of context.
 
     Raises ValueError with fewer than 2 points -- "best vs. worst" needs two distinct tags.
     """
@@ -239,13 +246,13 @@ def render_rank_plot(
     axis_max = max(values[-1] * 1.15, 1e-9)
 
     img = np.full((size, size, 3), 255, dtype=np.uint8)
-    plot_size = size - 2 * margin
+    plot_size = size - margin - top_margin
     axis_color = (60, 60, 60)
     cv2.line(img, (margin, size - margin), (size - margin, size - margin), axis_color, 2)
-    cv2.line(img, (margin, size - margin), (margin, margin), axis_color, 2)
+    cv2.line(img, (margin, size - margin), (margin, top_margin), axis_color, 2)
 
     def to_px(rank: int) -> int:
-        return margin + int(round(rank / (n - 1) * plot_size))
+        return margin + int(round(rank / (n - 1) * (size - 2 * margin)))
 
     def to_py(value: float) -> int:
         return size - margin - int(round(value / axis_max * plot_size))
@@ -254,39 +261,104 @@ def render_rank_plot(
     poly_points = np.array(
         [[to_px(i), to_py(v)] for i, v in enumerate(values)], dtype=np.int32
     ).reshape(-1, 1, 2)
-    cv2.polylines(img, [poly_points], isClosed=False, color=line_color, thickness=2, lineType=cv2.LINE_AA)
+    cv2.polylines(img, [poly_points], isClosed=False, color=line_color, thickness=3, lineType=cv2.LINE_AA)
 
     best_value, best_tag_id, best_x, best_y = ordered[0]
     worst_value, worst_tag_id, worst_x, worst_y = ordered[-1]
 
-    best_colour = (0, 130, 0)  # RGB green
-    worst_colour = (200, 30, 30)  # RGB red
-    cv2.circle(img, (to_px(0), to_py(best_value)), 5, best_colour, -1, cv2.LINE_AA)
-    cv2.circle(img, (to_px(n - 1), to_py(worst_value)), 5, worst_colour, -1, cv2.LINE_AA)
+    cv2.circle(img, (to_px(0), to_py(best_value)), 8, BEST_COLOUR, -1, cv2.LINE_AA)
+    cv2.circle(img, (to_px(n - 1), to_py(worst_value)), 8, WORST_COLOUR, -1, cv2.LINE_AA)
 
+    font = cv2.FONT_HERSHEY_SIMPLEX
     best_label = f"best: tag {best_tag_id}, {best_value:.2f}% ({best_x:.0f}, {best_y:.0f})"
-    cv2.putText(
-        img, best_label, (margin, to_py(best_value) - 10),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1, cv2.LINE_AA,
-    )
+    cv2.putText(img, best_label, (margin, to_py(best_value) - 14), font, 0.6, BEST_COLOUR, 2, cv2.LINE_AA)
     worst_label = f"worst: tag {worst_tag_id}, {worst_value:.2f}% ({worst_x:.0f}, {worst_y:.0f})"
-    worst_text_width = cv2.getTextSize(worst_label, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)[0][0]
+    worst_text_width = cv2.getTextSize(worst_label, font, 0.6, 2)[0][0]
     cv2.putText(
-        img, worst_label, (size - margin - worst_text_width, to_py(worst_value) - 10),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1, cv2.LINE_AA,
+        img, worst_label, (size - margin - worst_text_width, to_py(worst_value) - 14),
+        font, 0.6, WORST_COLOUR, 2, cv2.LINE_AA,
     )
+
+    cv2.putText(img, f"{label}: best vs. worst tag", (margin, 40), font, 0.9, (0, 0, 0), 2, cv2.LINE_AA)
+
+    key_y = 75
+    cv2.circle(img, (margin + 8, key_y), 8, BEST_COLOUR, -1, cv2.LINE_AA)
+    cv2.putText(img, "best", (margin + 24, key_y + 6), font, 0.55, (0, 0, 0), 1, cv2.LINE_AA)
+    cv2.circle(img, (margin + 100, key_y), 8, WORST_COLOUR, -1, cv2.LINE_AA)
+    cv2.putText(img, "worst", (margin + 116, key_y + 6), font, 0.55, (0, 0, 0), 1, cv2.LINE_AA)
 
     cv2.putText(
         img, f"{label} (%), sorted best -> worst across {n} tags",
-        (margin, size - margin + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1, cv2.LINE_AA,
+        (margin, size - margin + 40), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA,
     )
     cv2.putText(
         img, "this run's own spread -- not the heatmaps' fixed scale",
-        (margin, size - margin + 58), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1, cv2.LINE_AA,
+        (margin, size - margin + 60), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA,
     )
-    cv2.putText(
-        img, f"0-{axis_max:.2f}%", (10, margin - 15),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA,
-    )
+    cv2.putText(img, f"0-{axis_max:.2f}%", (10, top_margin - 15), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+
+    return img
+
+
+def _put_text_with_halo(
+    img: np.ndarray, text: str, org: tuple[int, int], font_scale: float, colour: tuple[int, int, int],
+    thickness: int,
+) -> None:
+    """`text` drawn twice -- a thick white outline, then the real colour on top -- so it stays
+    legible over a real photo's own unpredictable background, unlike the rank plot's plain white
+    canvas where a single colour is enough.
+    """
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(img, text, org, font, font_scale, (255, 255, 255), thickness + 3, cv2.LINE_AA)
+    cv2.putText(img, text, org, font, font_scale, colour, thickness, cv2.LINE_AA)
+
+
+def render_best_worst_overlay(
+    frame: np.ndarray,
+    best: tuple[int, float, float, float],
+    worst: tuple[int, float, float, float],
+    *,
+    label: str,
+    max_width: int = HEATMAP_MAX_WIDTH,
+) -> np.ndarray:
+    """`frame` (RGB) with the best and worst calibration tags for `label` circled directly on
+    the actual photo -- green for best, red for worst -- each labelled with its tag id and
+    magnitude, so the worst tag can be found and inspected physically, not just read off the
+    abstract rank plot's rank axis. `best`/`worst` are `(tag_id, x, y, magnitude_pct)`, in the
+    frame's own full-resolution coordinates.
+
+    Downscaled first, the same way the heatmaps are (see `HEATMAP_MAX_WIDTH`'s own comment): a
+    full 64MP frame must never be carried through per-pixel drawing at full resolution.
+    """
+    full_height, full_width = frame.shape[0], frame.shape[1]
+    scale = min(1.0, max_width / full_width)
+    if scale < 1.0:
+        img = cv2.resize(
+            np.ascontiguousarray(frame[..., :3]),
+            (int(round(full_width * scale)), int(round(full_height * scale))),
+            interpolation=cv2.INTER_AREA,
+        )
+    else:
+        img = np.ascontiguousarray(frame[..., :3]).copy()
+
+    radius = max(12, int(round(0.012 * img.shape[1])))
+    for (tag_id, x, y, magnitude_pct), colour, tag_name in (
+        (best, BEST_COLOUR, "best"),
+        (worst, WORST_COLOUR, "worst"),
+    ):
+        cx, cy = int(round(x * scale)), int(round(y * scale))
+        cv2.circle(img, (cx, cy), radius, colour, 4, cv2.LINE_AA)
+        _put_text_with_halo(
+            img, f"{tag_name}: tag {tag_id}, {magnitude_pct:.2f}%",
+            (cx + radius + 8, cy + 6), 0.8, colour, 2,
+        )
+
+    _put_text_with_halo(img, f"{label}: best vs. worst tag", (20, 45), 1.1, (0, 0, 0), 2)
+
+    key_y = img.shape[0] - 25
+    cv2.circle(img, (30, key_y), 10, BEST_COLOUR, -1, cv2.LINE_AA)
+    _put_text_with_halo(img, "best", (48, key_y + 6), 0.7, (0, 0, 0), 2)
+    cv2.circle(img, (140, key_y), 10, WORST_COLOUR, -1, cv2.LINE_AA)
+    _put_text_with_halo(img, "worst", (158, key_y + 6), 0.7, (0, 0, 0), 2)
 
     return img

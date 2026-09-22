@@ -13,6 +13,7 @@ from npec_rig.calibration_viz import (
     HEATMAP_MAX_PCT,
     HEATMAP_MIN_PCT,
     render_area_shape_heatmap,
+    render_best_worst_overlay,
     render_honesty_plot,
     render_rank_plot,
     render_uncertainty_heatmap,
@@ -197,3 +198,31 @@ def test_rank_plot_is_flat_white_background_when_all_values_are_equal() -> None:
     points = [(0.0, 1, 0.0, 0.0), (0.0, 2, 100.0, 100.0), (0.0, 3, 200.0, 200.0)]
     image = render_rank_plot(points, label="scale residual", size=300, margin=50)
     assert image.shape == (300, 300, 3)
+
+
+def test_best_worst_overlay_matches_frame_size_and_channels() -> None:
+    frame = np.full((200, 300, 3), 128, dtype=np.uint8)
+    image = render_best_worst_overlay(
+        frame, best=(1, 50.0, 50.0, 0.1), worst=(2, 250.0, 150.0, 4.0), label="scale residual"
+    )
+    assert image.shape == (200, 300, 3)
+    assert image.dtype == np.uint8
+
+
+def test_best_worst_overlay_draws_something_distinct_from_a_blank_frame() -> None:
+    frame = np.full((200, 300, 3), 128, dtype=np.uint8)
+    image = render_best_worst_overlay(
+        frame, best=(1, 50.0, 50.0, 0.1), worst=(2, 250.0, 150.0, 4.0), label="scale residual"
+    )
+    assert not np.all(image == 128)
+
+
+def test_best_worst_overlay_downscales_large_frames() -> None:
+    # Mirrors the heatmap's own OOM-safety test -- a real capture is ~9000px wide, and this
+    # must never carry that through per-pixel drawing at full resolution.
+    frame = np.full((600, 800, 3), 128, dtype=np.uint8)
+    image = render_best_worst_overlay(
+        frame, best=(1, 100.0, 100.0, 0.1), worst=(2, 700.0, 500.0, 4.0),
+        label="scale residual", max_width=200,
+    )
+    assert image.shape == (150, 200, 3)  # aspect ratio preserved

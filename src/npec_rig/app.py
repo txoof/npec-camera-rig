@@ -3,6 +3,7 @@ from collections.abc import Callable, Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -29,6 +30,7 @@ from npec_rig.calibration_store import (
 )
 from npec_rig.calibration_viz import (
     render_area_shape_heatmap,
+    render_best_worst_overlay,
     render_honesty_plot,
     render_rank_plot,
     render_uncertainty_heatmap,
@@ -464,20 +466,18 @@ def honesty_plot(points: list[HonestyPlotPoint]) -> Response:
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
-@app.get("/calibration/current/rank-plot")
-def current_rank_plot(metric: str = "scale_residual") -> Response:
-    """Sorted best-vs-worst-tag plot (TODO.md) for the live calibration's own `metric` --
-    `"scale_residual"` (the confidence heatmap's number) or `"shape_distortion"` (the area-shape
-    heatmap's number). Neither is persisted per-tag in the artifact (only smoothed/aggregated
-    forms are), so this re-detects tags from the live calibration's own saved frame each call --
-    always reflects its actual detections, not a stale snapshot, at the cost of re-running
-    detection on one frame per request.
+def _metric_points(metric: str, artifact: CalibrationArtifact) -> tuple[list[tuple[float, int, float, float]], str, np.ndarray]:
+    """`(points, label, frame)` for `metric` against the live calibration -- shared by the rank
+    plot and the best/worst photo overlay, so both read the same re-detection of the same saved
+    frame rather than two separate (and possibly inconsistent) passes.
+
+    `points` is `(magnitude_pct, tag_id, x, y)` per detected calibration tag. Neither
+    `scale_residual` nor `shape_distortion` is persisted per-tag in the artifact (only
+    smoothed/aggregated forms are), so this always re-detects tags from the saved frame.
     """
     if metric not in ("scale_residual", "shape_distortion"):
         raise HTTPException(422, f"unknown metric {metric!r}, expected scale_residual or shape_distortion")
-
-    artifact = load_current_calibration()
-    if artifact is None or artifact.frame_stem is None:
+    if artifact.frame_stem is None:
         raise HTTPException(409, "no calibration with a saved frame yet")
 
     frame = load_calibration_frame(artifact.frame_stem)
@@ -494,10 +494,52 @@ def current_rank_plot(metric: str = "scale_residual") -> Response:
         points = [(abs(s.shape_factor_pct), s.tag_id, s.x, s.y) for s in samples]
         label = "area-shape distortion"
 
+    return points, label, frame
+
+
+@app.get("/calibration/current/rank-plot")
+def current_rank_plot(metric: str = "scale_residual") -> Response:
+    """Sorted best-vs-worst-tag plot (TODO.md) for the live calibration's own `metric` --
+    `"scale_residual"` (the confidence heatmap's number) or `"shape_distortion"` (the area-shape
+    heatmap's number). See `_metric_points` for why this re-detects tags each call.
+    """
+    artifact = load_current_calibration()
+    if artifact is None:
+        raise HTTPException(409, "no calibration with a saved frame yet")
+    points, label, _frame = _metric_points(metric, artifact)
+
     if len(points) < 2:
         raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
 
     image = render_rank_plot(points, label=label)
+    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+
+
+@app.get("/calibration/current/best-worst-photo")
+def current_best_worst_photo(metric: str = "scale_residual") -> Response:
+    """The live calibration's actual saved photo, with its best and worst tag for `metric`
+    circled directly on it -- green for best, red for worst, each labelled with its magnitude --
+    so the worst tag can be found and inspected physically, not just read off the rank plot's
+    abstract rank axis. See `_metric_points` for why this re-detects tags each call.
+    """
+    artifact = load_current_calibration()
+    if artifact is None:
+        raise HTTPException(409, "no calibration with a saved frame yet")
+    points, label, frame = _metric_points(metric, artifact)
+
+    if len(points) < 2:
+        raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
+
+    ordered = sorted(points, key=lambda p: p[0])
+    best_value, best_tag_id, best_x, best_y = ordered[0]
+    worst_value, worst_tag_id, worst_x, worst_y = ordered[-1]
+
+    image = render_best_worst_overlay(
+        frame,
+        best=(best_tag_id, best_x, best_y, best_value),
+        worst=(worst_tag_id, worst_x, worst_y, worst_value),
+        label=label,
+    )
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
