@@ -33,6 +33,16 @@ def reset_live_orientation_zero() -> None:
     app_module._live_orientation_baseline = None
 
 
+@pytest.fixture(autouse=True)
+def reset_frame_detection_cache() -> None:
+    # Module-level state (the rank-plot/best-worst-photo OOM fix's one-entry cache), keyed by
+    # frame_stem -- collision across tests is astronomically unlikely (microsecond timestamps),
+    # but a test that monkeypatches detect_tags differently between two calls to the same
+    # artifact (see test_rank_plot_refused_with_too_few_tags_in_the_saved_frame) must not read a
+    # stale cache entry left by another test.
+    app_module._cached_frame_detections = None
+
+
 def test_index_page_loads() -> None:
     client = TestClient(app)
     response = client.get("/")
@@ -651,3 +661,30 @@ def test_best_worst_photo_rejects_an_unknown_metric(
 
     response = client.get("/calibration/current/best-worst-photo", params={"metric": "bogus"})
     assert response.status_code == 422
+
+
+def test_rank_plot_and_best_worst_photo_share_one_detection_pass(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # The OOM fix: re-detecting the full saved frame four times (2 metrics x 2 views) per page
+    # load is what got the picamera2 worker killed (dmesg-confirmed, 2026-09-22). Four requests
+    # against the same live calibration must call detect_tags at most once, not four times.
+    call_count = 0
+
+    def counting_detect_tags(frame):
+        nonlocal call_count
+        call_count += 1
+        return _CALIBRATION_TAGS + _CORNER_TAGS
+
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    monkeypatch.setattr(app_module, "detect_tags", counting_detect_tags)
+    for metric in ("scale_residual", "shape_distortion"):
+        assert client.get("/calibration/current/rank-plot", params={"metric": metric}).status_code == 200
+        assert client.get(
+            "/calibration/current/best-worst-photo", params={"metric": metric}
+        ).status_code == 200
+
+    assert call_count == 1

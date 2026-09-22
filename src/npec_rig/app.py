@@ -2,6 +2,7 @@ import time
 from collections.abc import Callable, Iterator
 from datetime import datetime, timezone
 from pathlib import Path
+from threading import Lock
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
@@ -466,6 +467,29 @@ def honesty_plot(points: list[HonestyPlotPoint]) -> Response:
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
+# The rank plot and best/worst photo endpoints each re-detect tags on the *full* saved frame
+# (9152x6944 -- there's no persisted per-tag data to read instead, see `_metric_points`), and the
+# UI fires all 4 of them (2 metrics x 2 views) right after every calibration run. Four concurrent
+# full-resolution detection passes in one process is exactly what pushed the picamera2 worker to
+# 6.6GB RSS and got it OOM-killed (dmesg-confirmed, 2026-09-22, right after this feature shipped)
+# -- detect_tags's multi-window adaptive threshold sweep (tags.py's own DetectorParameters) isn't
+# cheap at 64MP, and doing it four times at once is four times the transient memory, not four
+# times the work. A one-entry cache, guarded by a lock so concurrent requests for the same frame
+# queue instead of racing, turns that into one real detection pass plus three cache hits.
+_frame_detection_lock = Lock()
+_cached_frame_detections: tuple[str, list] | None = None
+
+
+def _detect_tags_cached(frame_stem: str, frame: np.ndarray) -> list:
+    global _cached_frame_detections
+    with _frame_detection_lock:
+        if _cached_frame_detections is not None and _cached_frame_detections[0] == frame_stem:
+            return _cached_frame_detections[1]
+        detections = detect_tags(frame)
+        _cached_frame_detections = (frame_stem, detections)
+        return detections
+
+
 def _metric_points(metric: str, artifact: CalibrationArtifact) -> tuple[list[tuple[float, int, float, float]], str, np.ndarray]:
     """`(points, label, frame)` for `metric` against the live calibration -- shared by the rank
     plot and the best/worst photo overlay, so both read the same re-detection of the same saved
@@ -473,7 +497,8 @@ def _metric_points(metric: str, artifact: CalibrationArtifact) -> tuple[list[tup
 
     `points` is `(magnitude_pct, tag_id, x, y)` per detected calibration tag. Neither
     `scale_residual` nor `shape_distortion` is persisted per-tag in the artifact (only
-    smoothed/aggregated forms are), so this always re-detects tags from the saved frame.
+    smoothed/aggregated forms are), so this always re-detects tags from the saved frame -- via
+    `_detect_tags_cached`, not directly, see its own comment for why.
     """
     if metric not in ("scale_residual", "shape_distortion"):
         raise HTTPException(422, f"unknown metric {metric!r}, expected scale_residual or shape_distortion")
@@ -481,7 +506,7 @@ def _metric_points(metric: str, artifact: CalibrationArtifact) -> tuple[list[tup
         raise HTTPException(409, "no calibration with a saved frame yet")
 
     frame = load_calibration_frame(artifact.frame_stem)
-    detections = detect_tags(frame)
+    detections = _detect_tags_cached(artifact.frame_stem, frame)
     cal_detections = [d for d in detections if d.tag_id in CALIBRATION_ID_RANGE]
     tag_sizes_mm = {d.tag_id: artifact.calibration_tag_size_mm for d in cal_detections}
 
