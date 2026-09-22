@@ -22,11 +22,227 @@ can say "add coverage in the top-left" instead of just a single global percentag
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import combinations
 
 import numpy as np
 
 from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, TagDetection, tag_area_px, tag_side_px
 from npec_rig.tripwire import CornerBaseline
+
+# PLAN.md 339-340's promised-but-unbuilt corner-tag homography (TODO.md's "Health baseline" item
+# flagged this as the gap). Position only, never mm -- see `TableFrame`'s own docstring for why
+# `build_table_frame` takes only a `CornerBaseline` and no `ScaleField`.
+#
+# Verified this session, against real saved calibration frames, not just argued from docs:
+# a single tag's own 4-corner homography does NOT generalize across the frame (size error grew to
+# ~10% by the far side, r=0.72 with distance from the source tag -- no single tag has a wide
+# enough baseline). The four corner tags' homography (wide baseline, spanning near the full frame)
+# DID hold up: shape consistency stayed within ~1-6% end to end, ~uncorrelated with distance from
+# centre (r=-0.05). Wide baseline, not which physical plane the anchor points sit on, is what
+# makes a homography hold up across a whole frame -- that's the basis for using the corner tags,
+# and only the corner tags, here.
+_TABLE_FRAME_DEGENERACY_EPS = 1e-6  # see build_table_frame's docstring for what this guards
+
+
+def _tag_centre(corners: tuple[tuple[float, float], ...]) -> tuple[float, float]:
+    """Mean of a tag's 4 corners -- averages corner-detection noise 4x, and is an unambiguous,
+    rotation-invariant point to anchor a homography on (as opposed to picking one of the tag's
+    own 4 corners, which would be an arbitrary choice of *which* corner of *which* tag).
+    """
+    array = np.array(corners)
+    centre = array.mean(axis=0)
+    return (float(centre[0]), float(centre[1]))
+
+
+def _normalize_points(points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Hartley-normalize `points` (centroid at origin, mean distance sqrt(2)) plus the 3x3
+    transform `T` that performs it -- `points @ T.T` in homogeneous form. Real pixel coordinates
+    on this rig run into the thousands (9152x6944), and unnormalized DLT is numerically unstable
+    at that scale (entries of the linear system span many orders of magnitude); the unit-square
+    destination points don't need this, only the pixel-side source points do.
+    """
+    centroid = points.mean(axis=0)
+    shifted = points - centroid
+    mean_dist = float(np.mean(np.linalg.norm(shifted, axis=1)))
+    if mean_dist == 0:
+        raise ValueError("degenerate point set: all points coincide, can't normalize")
+    scale = np.sqrt(2) / mean_dist
+    transform = np.array(
+        [[scale, 0, -scale * centroid[0]], [0, scale, -scale * centroid[1]], [0, 0, 1]]
+    )
+    normalized = shifted * scale
+    return normalized, transform
+
+
+def _dlt_homography(
+    src_pts: list[tuple[float, float]], dst_pts: list[tuple[float, float]]
+) -> np.ndarray:
+    """3x3 homography mapping each `src_pts[i]` to `dst_pts[i]` (direct linear transform via the
+    null space of the standard DLT constraint matrix, found with SVD) -- exactly 4 correspondences
+    here (a homography has 8 degrees of freedom, each point gives 2 equations), not a least-
+    squares fit over many points. Both point sets are Hartley-normalized first (`_normalize_points`)
+    and the result denormalized back, for numerical stability at real pixel scales.
+    """
+    src = np.array(src_pts, dtype=float)
+    dst = np.array(dst_pts, dtype=float)
+    src_norm, t_src = _normalize_points(src)
+    dst_norm, t_dst = _normalize_points(dst)
+
+    rows = []
+    for (x, y), (u, v) in zip(src_norm, dst_norm):
+        rows.append([-x, -y, -1, 0, 0, 0, x * u, y * u, u])
+        rows.append([0, 0, 0, -x, -y, -1, x * v, y * v, v])
+    _u, _s, vt = np.linalg.svd(np.array(rows))
+    h_norm = vt[-1].reshape(3, 3)
+
+    return np.linalg.inv(t_dst) @ h_norm @ t_src
+
+
+def _shoelace_triangle_area(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> float:
+    return float(abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) / 2)
+
+
+def _assert_not_degenerate(points: np.ndarray, ordered: np.ndarray) -> None:
+    """Raises ValueError if `points` (the 4 corner-tag centres) has any near-collinear triple, or
+    if `ordered` (the same 4 points, arranged TL/TR/BR/BL) winds as a self-intersecting bowtie
+    rather than a simple quad.
+
+    The collinearity epsilon is scale-*relative* (triangle area over the largest pairwise
+    distance, squared) rather than an absolute pixel-area threshold -- an absolute threshold tuned
+    on a small synthetic fixture would mean something completely different at this rig's real
+    9152x6944 frame scale.
+    """
+    pairwise_max = max(
+        float(np.linalg.norm(points[i] - points[j])) for i, j in combinations(range(4), 2)
+    )
+    if pairwise_max == 0:
+        raise ValueError("corner tags are degenerate: all 4 centres coincide")
+    for i, j, k in combinations(range(4), 3):
+        area = _shoelace_triangle_area(points[i], points[j], points[k])
+        if area / (pairwise_max**2) < _TABLE_FRAME_DEGENERACY_EPS:
+            raise ValueError(
+                f"corner tags are degenerate: centres {i}, {j}, {k} are near-collinear "
+                f"(normalized triangle area {area / pairwise_max ** 2:.2e})"
+            )
+
+    edges = [ordered[(i + 1) % 4] - ordered[i] for i in range(4)]
+    cross_signs = [
+        edges[i][0] * edges[(i + 1) % 4][1] - edges[i][1] * edges[(i + 1) % 4][0] for i in range(4)
+    ]
+    if not (all(c > 0 for c in cross_signs) or all(c < 0 for c in cross_signs)):
+        raise ValueError("corner tags wind as a self-intersecting (bowtie) quad, not a simple one")
+
+
+@dataclass(frozen=True)
+class TableFrame:
+    """Pixel <-> table-fraction transform, built from the four corner tags' own centres --
+    position only, see `build_table_frame`.
+
+    `(u, v) in [0, 1]^2` span the quadrilateral of the four corner tags' own centres, not the
+    table's physical edge some distance further out. A real-world width/length measurement used
+    alongside this (e.g. in `calibration_viz.render_table_view`) must be measured centre-to-centre
+    between the same four tags, not the table's outer edge, or the aspect ratio silently won't
+    match what gets rendered.
+
+    `corners_px` is the same four points, in TL/TR/BR/BL order, kept for provenance/debugging --
+    not consulted by `to_fraction`/`to_pixel`, which go through `_matrix` alone.
+    """
+
+    _matrix: tuple[
+        tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]
+    ]
+    corners_px: tuple[
+        tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]
+    ]
+
+    def to_fraction(self, x: float, y: float) -> tuple[float, float]:
+        """Pixel `(x, y)` -> table-fraction `(u, v)`. Raises ValueError if the homography's
+        perspective divide is non-physical (w <= 0) at this position -- the same
+        extrapolation-honesty guard `ScaleField.px_per_mm` uses, for the same reason: a silently
+        returned nonsense position is worse than an error.
+        """
+        matrix = np.array(self._matrix)
+        u, v, w = matrix @ np.array([x, y, 1.0])
+        if w <= 0:
+            raise ValueError(
+                f"table frame is not physically valid at pixel ({x}, {y}): w={w:.3g} <= 0"
+            )
+        return (float(u / w), float(v / w))
+
+    def to_pixel(self, u: float, v: float) -> tuple[float, float]:
+        """Table-fraction `(u, v)` -> pixel `(x, y)` -- the inverse of `to_fraction`. Computed via
+        `np.linalg.inv` on each call rather than cached: a 3x3 inverse is cheap, and this isn't
+        called often enough to be worth the complexity of caching it.
+        """
+        matrix = np.linalg.inv(np.array(self._matrix))
+        x, y, w = matrix @ np.array([u, v, 1.0])
+        if w <= 0:
+            raise ValueError(
+                f"table frame is not physically valid at fraction ({u}, {v}): w={w:.3g} <= 0"
+            )
+        return (float(x / w), float(y / w))
+
+
+def build_table_frame(baseline: CornerBaseline) -> TableFrame:
+    """Build a `TableFrame` from the four corner tags' own centres.
+
+    Takes **only `CornerBaseline`** -- no `ScaleField` parameter exists, by construction, so mm
+    can't leak into this transform even by accident. Position (this) and scale/area (`ScaleField`,
+    fit from the measurement-plane calibration tags) are two coordinate systems that must never
+    mix: the corner tags sit on a different physical plane (the table edge) than the measurement
+    slab (tray height) `ScaleField` is fit to, and using a cross-plane figure to correct anything
+    here would be exactly the invented parallax correction CLAUDE.md's evidence gate blocks.
+
+    Raises ValueError if `len(baseline.corners_by_id) != 4` -- a homography needs exactly 4
+    non-degenerate correspondences, and a reduced-DOF fallback (e.g. an affine fit from 3 points)
+    would be exactly the derived-not-measured shortcut this project exists to avoid. Not currently
+    a practical limitation: all 4 corner tags are detected in every recent real run (verified
+    directly against saved calibration artifacts) -- unlike `CornerBaseline`/`check_tripwire`
+    elsewhere in this codebase, which deliberately tolerate fewer than 4 for the tripwire's own,
+    looser purpose (comparing whichever tags are present against themselves later); a homography
+    has no equivalent looser mode, so this is strict where those are lenient.
+
+    Corner roles (TL/TR/BR/BL) are assigned geometrically from the 4 centres' own layout (the
+    standard sum/difference trick: smallest x+y is TL, largest is BR; of the remaining two,
+    largest x-y is TR, smallest is BL) -- not from a fixed tag-ID-to-corner mapping, since no such
+    mapping exists anywhere in this codebase. This assumption stays correct unless the rig gets
+    rotated by roughly 180 degrees, which would already trip `tripwire.check_tripwire`'s own roll
+    check as a backstop.
+
+    Also raises ValueError on a near-collinear triple of centres, or a self-intersecting (bowtie)
+    winding order -- see `_assert_not_degenerate`.
+    """
+    if len(baseline.corners_by_id) != 4:
+        raise ValueError(
+            f"need exactly 4 corner tags to build a table frame, got "
+            f"{len(baseline.corners_by_id)}"
+        )
+
+    centres = {tag_id: _tag_centre(corners) for tag_id, corners in baseline.corners_by_id.items()}
+    tag_ids = sorted(centres)
+    points = np.array([centres[tag_id] for tag_id in tag_ids])
+
+    sums = points[:, 0] + points[:, 1]
+    diffs = points[:, 0] - points[:, 1]
+    idx_tl = int(np.argmin(sums))
+    idx_br = int(np.argmax(sums))
+    remaining = [i for i in range(4) if i not in (idx_tl, idx_br)]
+    idx_tr, idx_bl = (
+        (remaining[0], remaining[1])
+        if diffs[remaining[0]] > diffs[remaining[1]]
+        else (remaining[1], remaining[0])
+    )
+
+    ordered = np.array([points[idx_tl], points[idx_tr], points[idx_br], points[idx_bl]])
+    _assert_not_degenerate(points, ordered)
+
+    unit_square = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]  # TL, TR, BR, BL
+    matrix = _dlt_homography([tuple(p) for p in ordered], unit_square)
+
+    return TableFrame(
+        _matrix=tuple(tuple(float(v) for v in row) for row in matrix),
+        corners_px=tuple((float(p[0]), float(p[1])) for p in ordered),
+    )
 
 
 @dataclass(frozen=True)

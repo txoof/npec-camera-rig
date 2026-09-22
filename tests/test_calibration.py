@@ -1,3 +1,5 @@
+import inspect
+
 import numpy as np
 import pytest
 
@@ -10,6 +12,7 @@ from npec_rig.calibration import (
     build_area_scale_field,
     build_install_report,
     build_scale_field,
+    build_table_frame,
     build_uncertainty_field,
     describe_area_scale_shape,
     describe_coverage,
@@ -21,6 +24,7 @@ from npec_rig.calibration import (
     scale_residual_samples,
 )
 from npec_rig.tags import TagDetection
+from npec_rig.tripwire import CornerBaseline
 
 from .helpers import square_detection as _square_detection
 
@@ -771,3 +775,74 @@ def test_install_report_includes_area_scale_line_when_given() -> None:
     report = build_install_report(field, positions, None, None, area)
     assert len(report) == 2
     assert report[1].startswith("Area-scale error")
+
+
+def _corner_baseline(points_by_id: dict[int, tuple[float, float]], side_px: float = 20.0) -> CornerBaseline:
+    """A `CornerBaseline` whose tags' centres land exactly at `points_by_id`'s pixel positions --
+    `square_detection`'s corners average back to exactly (cx, cy), so this gives `TableFrame`
+    tests an exact, known geometry to check against, not an approximation.
+    """
+    return CornerBaseline(
+        corners_by_id={
+            tag_id: _square_detection(tag_id, cx, cy, side_px).corners
+            for tag_id, (cx, cy) in points_by_id.items()
+        }
+    )
+
+
+def test_build_table_frame_round_trips_pixel_to_fraction() -> None:
+    baseline = _corner_baseline({450: (0, 0), 451: (1000, 0), 452: (1000, 800), 455: (0, 800)})
+    frame = build_table_frame(baseline)
+    x, y = frame.to_pixel(*frame.to_fraction(300.0, 450.0))
+    assert x == pytest.approx(300.0, abs=1e-6)
+    assert y == pytest.approx(450.0, abs=1e-6)
+
+
+def test_build_table_frame_centre_maps_to_half_half() -> None:
+    baseline = _corner_baseline({450: (0, 0), 451: (1000, 0), 452: (1000, 800), 455: (0, 800)})
+    frame = build_table_frame(baseline)
+    u, v = frame.to_fraction(500.0, 400.0)
+    assert u == pytest.approx(0.5, abs=1e-6)
+    assert v == pytest.approx(0.5, abs=1e-6)
+
+
+def test_build_table_frame_pins_corners_regardless_of_tag_id_order() -> None:
+    # Tag IDs deliberately not laid out in TL/TR/BR/BL id order -- corner-role assignment must be
+    # purely geometric (sum/difference trick on centroid coordinates), never derived from ID order
+    # or ID adjacency (the real rig's own corner tags, 450/451/452/455, aren't contiguous either).
+    baseline = _corner_baseline({452: (0, 0), 455: (1000, 0), 450: (1000, 800), 451: (0, 800)})
+    frame = build_table_frame(baseline)
+    assert frame.to_fraction(0.0, 0.0) == pytest.approx((0.0, 0.0), abs=1e-6)
+    assert frame.to_fraction(1000.0, 0.0) == pytest.approx((1.0, 0.0), abs=1e-6)
+    assert frame.to_fraction(1000.0, 800.0) == pytest.approx((1.0, 1.0), abs=1e-6)
+    assert frame.to_fraction(0.0, 800.0) == pytest.approx((0.0, 1.0), abs=1e-6)
+
+
+def test_build_table_frame_raises_with_wrong_corner_count() -> None:
+    baseline = _corner_baseline({450: (0, 0), 451: (1000, 0), 452: (1000, 800)})
+    with pytest.raises(ValueError, match="exactly 4"):
+        build_table_frame(baseline)
+
+
+def test_build_table_frame_raises_on_near_collinear_triple() -> None:
+    # Today's real condition is 4 well-spread corner tags -- this guard is still real: three of
+    # these four centres sit almost exactly on the same line (y ~= 0).
+    baseline = _corner_baseline({450: (0, 0), 451: (500, 0.001), 452: (1000, 0), 455: (500, 800)})
+    with pytest.raises(ValueError, match="collinear"):
+        build_table_frame(baseline)
+
+
+def test_build_table_frame_raises_on_self_intersecting_winding() -> None:
+    # One centre (455) sits inside the triangle formed by the other three, rather than at a
+    # fourth corner -- the sum/difference role assignment still picks TL/TR/BR/BL from these 4
+    # points, but tracing them in that order self-intersects rather than forming a simple quad.
+    baseline = _corner_baseline({450: (0, 0), 451: (1000, 0), 452: (1000, 1000), 455: (400, 200)})
+    with pytest.raises(ValueError, match="bowtie"):
+        build_table_frame(baseline)
+
+
+def test_build_table_frame_only_input_is_corner_baseline() -> None:
+    # Cheap "never touches mm" check: build_table_frame's only parameter type is CornerBaseline --
+    # no ScaleField parameter exists, so mm can't leak into this transform even by accident.
+    (only_param,) = inspect.signature(build_table_frame).parameters.values()
+    assert only_param.annotation == "CornerBaseline"
