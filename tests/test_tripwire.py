@@ -27,8 +27,9 @@ def test_build_corner_baseline_uses_only_corner_range_tags() -> None:
 
 
 def test_build_corner_baseline_accepts_fewer_than_four() -> None:
-    # One of the four mounted corner tags is currently partially obscured (TODO.md) -- a real
-    # baseline may legitimately have 3 entries, not 4.
+    # All 4 mounted corner tags are detected in every recent real run (verified against saved
+    # calibration artifacts) -- but a corner tag could still be knocked loose or obstructed
+    # later, so this guard (a baseline with fewer than 4 entries) stays real, not dead code.
     detections = _corner_detections(tag_ids=[450, 451, 452])
     baseline = build_corner_baseline(detections)
     assert sorted(baseline.corners_by_id) == [450, 451, 452]
@@ -58,8 +59,8 @@ def test_missing_baseline_tag_fails_loud() -> None:
 
 
 def test_missing_tag_the_baseline_never_had_does_not_fail() -> None:
-    # Baseline only has 3 corners (one obscured at calibration time) -- the tripwire must not
-    # demand a 4th tag it was never given.
+    # Baseline only has 3 corners (e.g. one obstructed at calibration time) -- the tripwire must
+    # not demand a 4th tag it was never given.
     baseline = build_corner_baseline(_corner_detections(tag_ids=[450, 451, 452]))
     current = _corner_detections(tag_ids=[450, 451, 452])  # same 3, unmoved; no 453 either time
     result = check_tripwire(baseline, current)

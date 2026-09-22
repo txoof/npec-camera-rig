@@ -21,8 +21,10 @@ TAG_DICTIONARY = cv2.aruco.DICT_APRILTAG_36h11
 # chambers may reuse the same tray IDs.
 TRAY_ID_RANGE = range(0, 300)  # experimenters 3D-print their own
 CALIBRATION_ID_RANGE = range(300, 450)
-CORNER_ID_RANGE = range(450, 500)  # 4 tags mounted (one currently partially obscured); exact IDs
-# confirmed by detection, not by reading them off a photo
+CORNER_ID_RANGE = range(450, 500)  # 4 tags mounted; exact IDs confirmed by detection, not by
+# reading them off a photo. An earlier note here about one tag being partially obscured was
+# stale -- all 4 are detected in every recent real run (verified against saved calibration
+# artifacts).
 RESERVED_ID_RANGE = range(500, 587)  # buffer for a future fixed rig-level role. 587 IDs total in
 # 36h11 (0-586) -- verified against both cv2's dictionary size and moms_apriltag's TagGenerator2
 

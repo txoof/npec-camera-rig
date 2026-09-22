@@ -13,13 +13,16 @@ frames needs no depth information at all -- it's recovered directly from how the
 against each other, the same way you'd measure it by overlaying two photos and rotating one until
 it lines up. Don't re-litigate this.
 
-TODO.md notes one of the four mounted corner tags is currently partially obscured, so a baseline
-built today would have 3 entries, not 4. `build_corner_baseline` accepts any size >= 1, and
-`check_tripwire` only FAILs on a missing-tag basis for a tag *present in the baseline* going
-missing -- never for a tag the baseline never had. But `check_tripwire` itself refuses to compute
-a roll figure from fewer than 2 *matched* tags (FAILs instead): one tag's own 4 corners measure
-that tag's own orientation, not the cross-tag geometry a roll/drift check needs, per PLAN.md's
-"default to refusing, not guessing."
+All 4 mounted corner tags are detected in every recent real run (verified directly against saved
+calibration artifacts, not assumed) -- an earlier note here about one being partially obscured,
+giving a 3-entry baseline, was stale and has been corrected. `build_corner_baseline` still accepts
+any size >= 1, and `check_tripwire` still only FAILs on a missing-tag basis for a tag *present in
+the baseline* going missing -- never for a tag the baseline never had: a real guard, not dead code
+for a condition that no longer occurs, since a corner tag could still be knocked loose or
+obstructed later. `check_tripwire` itself refuses to compute a roll figure from fewer than 2
+*matched* tags (FAILs instead): one tag's own 4 corners measure that tag's own orientation, not
+the cross-tag geometry a roll/drift check needs, per PLAN.md's "default to refusing, not
+guessing."
 """
 
 from __future__ import annotations

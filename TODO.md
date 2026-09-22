@@ -18,9 +18,11 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
       anything:
         - **0–299** — tray tags, for experimenters to 3D-print their own (per Aaron's supervisor)
         - **300–449** — calibration sheets
-        - **450–499** — corner/reference tags (4 mounted, one currently partially obscured; exact
-          IDs to be confirmed by reading them back once detection is built, rather than
-          transcribed by eye)
+        - **450–499** — corner/reference tags (4 mounted; exact IDs confirmed by reading them back
+          once detection was built, rather than transcribed by eye. **Update, 2026-09-22:** the
+          note below about one tag being partially obscured was stale — all 4 (450/451/452/455)
+          are detected in every recent real run, verified directly against saved calibration
+          artifacts, not assumed)
         - **500–586** — unallocated buffer, for any future fixed rig-level role. 36h11 has 587
           IDs total (0–586) — verified against both cv2's dictionary size and moms_apriltag's
           `TagGenerator2` (see `~/apriltag-gen`), not trusted from memory.
@@ -36,7 +38,9 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
       (embossed relief vs. flat ink, under the chamber's grow lighting) once a printed sample
       exists.
 - [x] **Corner tag placement — confirmed 2026-09-19 (Aaron).** Four corner tags mounted on the
-      rebuilt rig's table corners and in frame; one is currently partially obscured.
+      rebuilt rig's table corners and in frame; one was initially partially obscured. **Update,
+      2026-09-22:** no longer the case (or no longer a detection problem either way) — all 4 are
+      detected in every recent real run, verified directly against saved calibration artifacts.
 - [?] **Digest delivery** — email or web UI only. Blocks M6 only.
 - [?] **Hailo accelerator** — no `hailortcli`, no PCIe device, no package installed on this OS
       build. Needs HailoRT install and physical seating confirmed. Blocks M5 only, and M5 ships
@@ -383,11 +387,26 @@ The heart of the project. Do not start before M1 slice 5.
 - [x] **Health baseline** — `CornerBaseline`/`build_corner_baseline()` in
       `src/npec_rig/tripwire.py`: corner tag corners keyed by tag id, built from whatever subset
       of the (up to 4) mounted corner tags a real calibration actually detects — not assumed to
-      be exactly 4, since one is currently partially obscured (TODO.md). Lens-position
-      capture/recording is now wired up too, via `POST /calibration/run` (see the calibration
-      mode UI entry above). **Still not built:** a homography matrix — nothing in M2 consumes one
-      yet (the tripwire uses Procrustes rotation + per-tag size ratio instead), so it stays
-      deferred until something needs it.
+      be exactly 4 (a corner tag could still be knocked loose or obstructed later; an earlier note
+      here about one currently being partially obscured was stale and is corrected above).
+      Lens-position capture/recording is now wired up too, via `POST /calibration/run` (see the
+      calibration mode UI entry above).
+      **Homography built, 2026-09-22:** `TableFrame`/`build_table_frame()` in `calibration.py` --
+      pixel <-> table-fraction transform from the four corner tags' own centres (a hand-rolled
+      4-point DLT, position-only, no `ScaleField` input so mm can't leak in). Completes this
+      item's own previously-flagged gap ("nothing in M2 consumes a homography yet"). Backed by two
+      homography tests run against real saved calibration frames (not just argued from docs): a
+      single tag's own 4-corner homography does *not* generalize (~10% size error by the far side
+      of the frame, r=0.72 with distance from the source tag); the four corner tags' wide-baseline
+      homography does (~1-6% shape consistency, r=-0.05, essentially uncorrelated with distance
+      from centre). Consumed by `calibration_viz.render_table_view()` -- the same scale-residual
+      and area-shape fields the existing heatmaps draw, painted instead on a straightened,
+      position-indexed table view, wired into `POST /calibration/run` (two new URLs,
+      `table_view_url`/`table_view_shape_url`) and the calibration UI panel. Position only, never
+      mm -- kept strictly separate from `ScaleField` (a different physical plane, tray height vs.
+      table edge), per CLAUDE.md's evidence gate against inventing cross-plane corrections. The
+      tray-height repeat of this same trust-field exercise (the actual measurement plane, per
+      Aaron's supervisor) is real, separate future work, not started here.
 - [x] **Per-capture tripwire** — `check_tripwire()` in `tripwire.py`: `OK`/`DRIFT`/`FAIL` against
       a `CornerBaseline`, from Procrustes-fit roll (all 4 corners of each matched corner tag, not
       just centres) and per-tag size ratio ("near corner tag N is 5% closer"). Missing baseline
