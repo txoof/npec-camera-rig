@@ -33,6 +33,7 @@ from npec_rig.calibration_viz import (
     render_area_shape_heatmap,
     render_best_worst_overlay,
     render_honesty_plot,
+    render_radial_residual_plot,
     render_rank_plot,
     render_uncertainty_heatmap,
 )
@@ -495,7 +496,10 @@ def _metric_points(metric: str, artifact: CalibrationArtifact) -> tuple[list[tup
     plot and the best/worst photo overlay, so both read the same re-detection of the same saved
     frame rather than two separate (and possibly inconsistent) passes.
 
-    `points` is `(magnitude_pct, tag_id, x, y)` per detected calibration tag. Neither
+    `points` is `(signed_pct, tag_id, x, y)` per detected calibration tag -- signed, not
+    magnitude, so a caller that needs a distortion signature's shape (the radial plot) doesn't
+    have to reconstruct sign from an already-folded value; a caller that only wants magnitude
+    (the rank plot, the best/worst photo) takes `abs()` itself at the point of use. Neither
     `scale_residual` nor `shape_distortion` is persisted per-tag in the artifact (only
     smoothed/aggregated forms are), so this always re-detects tags from the saved frame -- via
     `_detect_tags_cached`, not directly, see its own comment for why.
@@ -512,11 +516,11 @@ def _metric_points(metric: str, artifact: CalibrationArtifact) -> tuple[list[tup
 
     if metric == "scale_residual":
         samples = scale_residual_samples(artifact.scale_field, cal_detections, tag_sizes_mm)
-        points = [(abs(s.residual_pct), s.tag_id, s.x, s.y) for s in samples]
+        points = [(s.residual_pct, s.tag_id, s.x, s.y) for s in samples]
         label = "scale residual"
     else:
         samples = area_scale_samples(artifact.scale_field, cal_detections, tag_sizes_mm)
-        points = [(abs(s.shape_factor_pct), s.tag_id, s.x, s.y) for s in samples]
+        points = [(s.shape_factor_pct, s.tag_id, s.x, s.y) for s in samples]
         label = "area-shape distortion"
 
     return points, label, frame
@@ -531,11 +535,12 @@ def current_rank_plot(metric: str = "scale_residual") -> Response:
     artifact = load_current_calibration()
     if artifact is None:
         raise HTTPException(409, "no calibration with a saved frame yet")
-    points, label, _frame = _metric_points(metric, artifact)
+    signed_points, label, _frame = _metric_points(metric, artifact)
 
-    if len(points) < 2:
+    if len(signed_points) < 2:
         raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
 
+    points = [(abs(v), tag_id, x, y) for v, tag_id, x, y in signed_points]
     image = render_rank_plot(points, label=label)
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
@@ -550,11 +555,12 @@ def current_best_worst_photo(metric: str = "scale_residual") -> Response:
     artifact = load_current_calibration()
     if artifact is None:
         raise HTTPException(409, "no calibration with a saved frame yet")
-    points, label, frame = _metric_points(metric, artifact)
+    signed_points, label, frame = _metric_points(metric, artifact)
 
-    if len(points) < 2:
+    if len(signed_points) < 2:
         raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
 
+    points = [(abs(v), tag_id, x, y) for v, tag_id, x, y in signed_points]
     ordered = sorted(points, key=lambda p: p[0])
     best_value, best_tag_id, best_x, best_y = ordered[0]
     worst_value, worst_tag_id, worst_x, worst_y = ordered[-1]
@@ -565,6 +571,30 @@ def current_best_worst_photo(metric: str = "scale_residual") -> Response:
         worst=(worst_tag_id, worst_x, worst_y, worst_value),
         label=label,
     )
+    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+
+
+@app.get("/calibration/current/radial-plot")
+def current_radial_plot(metric: str = "scale_residual") -> Response:
+    """PLAN.md's own evidence-gate measurement (see `calibration_viz.render_radial_residual_plot`):
+    signed `metric` residual against distance from the image centre, one point per tag, with a
+    linear fit and its R^2 -- the specific measurement that decides whether a structured lens/
+    parallax distortion signature is present, as opposed to the coverage-and-outlier-driven
+    pattern the confidence heatmap otherwise shows. See `_metric_points` for why this re-detects
+    tags each call.
+    """
+    artifact = load_current_calibration()
+    if artifact is None:
+        raise HTTPException(409, "no calibration with a saved frame yet")
+    signed_points, label, frame = _metric_points(metric, artifact)
+
+    if len(signed_points) < 2:
+        raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
+
+    cx, cy = frame.shape[1] / 2, frame.shape[0] / 2
+    points = [(float(np.hypot(x - cx, y - cy)), value, tag_id) for value, tag_id, x, y in signed_points]
+
+    image = render_radial_residual_plot(points, label=label)
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 

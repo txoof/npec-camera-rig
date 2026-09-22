@@ -15,6 +15,7 @@ from npec_rig.calibration_viz import (
     render_area_shape_heatmap,
     render_best_worst_overlay,
     render_honesty_plot,
+    render_radial_residual_plot,
     render_rank_plot,
     render_uncertainty_heatmap,
 )
@@ -226,3 +227,28 @@ def test_best_worst_overlay_downscales_large_frames() -> None:
         label="scale residual", max_width=200,
     )
     assert image.shape == (150, 200, 3)  # aspect ratio preserved
+
+
+def test_radial_plot_renders_an_image_of_the_requested_size() -> None:
+    points = [(0.0, 0.1, 1), (100.0, 0.5, 2), (200.0, -0.3, 3), (300.0, 1.2, 4)]
+    image = render_radial_residual_plot(points, label="scale residual", size=400, margin=50, top_margin=80)
+    assert image.shape == (400, 400, 3)
+
+
+def test_radial_plot_requires_at_least_two_points() -> None:
+    with pytest.raises(ValueError, match="at least 2"):
+        render_radial_residual_plot([(0.0, 0.1, 1)], label="scale residual")
+
+
+def test_radial_plot_draws_something_for_a_real_spread() -> None:
+    points = [(0.0, 0.1, 1), (100.0, 0.5, 2), (200.0, -0.3, 3), (300.0, 1.2, 4)]
+    image = render_radial_residual_plot(points, label="scale residual", size=300, margin=50, top_margin=80)
+    assert not np.all(image == 255)
+
+
+def test_radial_plot_handles_zero_variance_without_crashing() -> None:
+    # Every tag has the exact same residual -- ss_tot is zero, which would divide by zero in a
+    # naive R^2 calculation. Exercises the guard rather than the maths.
+    points = [(0.0, 1.0, 1), (100.0, 1.0, 2), (200.0, 1.0, 3)]
+    image = render_radial_residual_plot(points, label="scale residual", size=300, margin=50, top_margin=80)
+    assert image.shape == (300, 300, 3)

@@ -585,6 +585,25 @@ The heart of the project. Do not start before M1 slice 5.
       calibration" -- no new operator input. New calibration.py types
       (`ScaleResidualSample`/`scale_residual_samples`) for the length-residual side, since
       `UncertaintyField` doesn't keep `tag_id`, only positions.
+- [?] **Radial residual plot, built 2026-09-22 -- and its first real reading needs Aaron's/his
+      supervisor's judgement call, not mine.** Aaron's supervisor (a lens/photogrammetry expert)
+      read the confidence heatmap's spikiness as "that doesn't look right" and expected a
+      parallax/lens-distortion signature instead. PLAN.md already defines the exact test for
+      that: residuals *structured* (trending with distance from the image centre, consistently
+      signed) vs. random is the specific measurement that unbans intrinsic camera calibration.
+      That test had never actually been run in that shape -- only as an xy heatmap (position) or
+      a sorted-rank plot (magnitude), never signed-value-vs-radius. Built:
+      `GET /calibration/current/radial-plot?metric=scale_residual|shape_distortion` -- every
+      tag's own **signed** residual (not `abs()` -- a real distortion trend has a sign, folding
+      it to magnitude would hide the shape) plotted against distance from the image centre, with
+      an unweighted linear fit and its R² baked in, no smoothing, no pre-judgement of the result.
+      **First real run (`20260922T085145960485`, 371 tags) came back R²=0.34 (scale residual) and
+      R²=0.41 (area-shape distortion), both with a clear visible downward trend** -- not
+      obviously random scatter. Not acted on: one run's R² isn't a decision by itself (a
+      different run two turns earlier showed only weak position correlation on the same rig), and
+      "is this structured enough to open the gate" is exactly the judgement PLAN.md reserves for
+      a human reading the plot, not a threshold in code. *(Aaron/supervisor to read the plot and
+      decide; if confirmed across a few more runs, this is what unbans `calibrateCamera`.)*
 
 ---
 

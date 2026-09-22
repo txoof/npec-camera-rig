@@ -362,3 +362,95 @@ def render_best_worst_overlay(
     _put_text_with_halo(img, "worst", (158, key_y + 6), 0.7, (0, 0, 0), 2)
 
     return img
+
+
+RADIAL_PLOT_SIZE = 900
+RADIAL_PLOT_MARGIN = 90
+RADIAL_PLOT_TOP_MARGIN = 110
+
+
+def render_radial_residual_plot(
+    points: list[tuple[float, float, int]],
+    *,
+    label: str,
+    size: int = RADIAL_PLOT_SIZE,
+    margin: int = RADIAL_PLOT_MARGIN,
+    top_margin: int = RADIAL_PLOT_TOP_MARGIN,
+) -> np.ndarray:
+    """PLAN.md's own evidence-gate measurement, drawn: signed `label` residual against distance
+    from the image centre, one point per tag, `points` as `(radius_px, signed_value_pct, tag_id)`.
+    A lens/parallax distortion signature is *structured* -- residuals trending with radius, with
+    a consistent sign -- not random scatter; that's the specific test PLAN.md says decides
+    whether intrinsic camera calibration is unbanned (deferred until this measurement, not
+    banned outright). Signed, not `abs()`, on purpose: folding to magnitude would fold a genuine
+    monotonic distortion trend in half and hide the exact shape being tested for.
+
+    Raw scatter plus an unweighted least-squares linear fit and its R**2 -- no smoothing, no
+    interpolation, no pre-judgement in code of whether the fit is "real": R**2 close to 0 means
+    the scatter dominates (flat/random), close to 1 means radius genuinely predicts the residual
+    (structured). That reading is left to whoever looks at the plot. "Distance from the image
+    centre" is deliberately not called "the optical axis" -- the two aren't guaranteed to
+    coincide, and this plot doesn't claim they do.
+
+    Raises ValueError with fewer than 2 points -- a trend line needs at least two.
+    """
+    if len(points) < 2:
+        raise ValueError(f"need at least 2 points for a radial residual plot, got {len(points)}")
+
+    radii = np.array([p[0] for p in points])
+    values = np.array([p[1] for p in points])
+    n = len(points)
+
+    slope, intercept = np.polyfit(radii, values, 1)
+    fitted = slope * radii + intercept
+    ss_res = float(np.sum((values - fitted) ** 2))
+    ss_tot = float(np.sum((values - values.mean()) ** 2))
+    r_squared = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+
+    radius_max = max(float(radii.max()) * 1.05, 1e-9)
+    value_span = max(float(np.abs(values).max()) * 1.15, 1e-9)
+
+    img = np.full((size, size, 3), 255, dtype=np.uint8)
+    plot_size = size - margin - top_margin
+    axis_color = (60, 60, 60)
+    cv2.line(img, (margin, size - margin), (size - margin, size - margin), axis_color, 2)
+    cv2.line(img, (margin, size - margin), (margin, top_margin), axis_color, 2)
+
+    def to_px(radius: float) -> int:
+        return margin + int(round(radius / radius_max * (size - 2 * margin)))
+
+    def to_py(value: float) -> int:
+        # value_span covers +/- the same range either side of zero, zero at the plot's midline.
+        mid = top_margin + plot_size / 2
+        return int(round(mid - value / value_span * (plot_size / 2)))
+
+    # Zero-residual reference line -- "no relationship with radius at all".
+    zero_colour = (170, 170, 170)
+    cv2.line(img, (margin, to_py(0.0)), (size - margin, to_py(0.0)), zero_colour, 1, cv2.LINE_AA)
+
+    point_colour = (30, 90, 200)  # RGB blue, matches the honesty plot's own scatter colour
+    for radius, value in zip(radii, values):
+        cv2.circle(img, (to_px(radius), to_py(value)), 4, point_colour, -1, cv2.LINE_AA)
+
+    fit_colour = (220, 120, 0)  # RGB orange, distinct from the scatter and the zero line
+    fit_start = (to_px(0.0), to_py(intercept))
+    fit_end = (to_px(radius_max), to_py(slope * radius_max + intercept))
+    cv2.line(img, fit_start, fit_end, fit_colour, 3, cv2.LINE_AA)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    title = f"{label}: signed residual vs. distance from image centre"
+    title_scale = 0.8
+    available_width = size - 2 * margin
+    title_width = cv2.getTextSize(title, font, title_scale, 2)[0][0]
+    if title_width > available_width:
+        title_scale *= available_width / title_width
+    cv2.putText(img, title, (margin, 40), font, title_scale, (0, 0, 0), 2, cv2.LINE_AA)
+    cv2.putText(
+        img, f"linear fit: slope {slope:+.4f} %/px, R^2 = {r_squared:.3f}, n = {n} tags",
+        (margin, 70), font, 0.55, fit_colour, 2, cv2.LINE_AA,
+    )
+
+    cv2.putText(img, "distance from image centre (px)", (margin, size - margin + 40), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+    cv2.putText(img, f"{label} (%), signed", (10, top_margin - 15), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+
+    return img

@@ -686,5 +686,52 @@ def test_rank_plot_and_best_worst_photo_share_one_detection_pass(
         assert client.get(
             "/calibration/current/best-worst-photo", params={"metric": metric}
         ).status_code == 200
+        assert client.get("/calibration/current/radial-plot", params={"metric": metric}).status_code == 200
 
     assert call_count == 1
+
+
+# --- Radial residual plot ---
+
+
+def test_radial_plot_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/current/radial-plot")
+    assert response.status_code == 409
+
+
+def test_radial_plot_returns_a_jpeg(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    for metric in ("scale_residual", "shape_distortion"):
+        response = client.get("/calibration/current/radial-plot", params={"metric": metric})
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/jpeg"
+        assert response.content[:2] == b"\xff\xd8"
+
+
+def test_radial_plot_rejects_an_unknown_metric(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get("/calibration/current/radial-plot", params={"metric": "bogus"})
+    assert response.status_code == 422
+
+
+def test_radial_plot_refused_with_too_few_tags_in_the_saved_frame(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS[:1] + _CORNER_TAGS)
+    response = client.get("/calibration/current/radial-plot")
+    assert response.status_code == 409

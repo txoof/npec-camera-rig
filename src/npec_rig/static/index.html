@@ -405,6 +405,23 @@
          style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
     <img id="best-worst-photo-shape-distortion" alt="Area-shape distortion, best and worst tag on the photo"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+
+    <h3 style="margin: 1rem 0 0.25rem;">Is this lens/parallax distortion, or something else?</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      PLAN.md's own rule: a lens/parallax distortion signature is <em>structured</em> — residual
+      trends with distance from the image centre, with a consistent sign — not random scatter.
+      That's the specific measurement that decides whether picking up lens-distortion modelling
+      is justified, so it's plotted directly rather than guessed at: every tag's own signed
+      residual (not folded to a percentage magnitude — a real distortion trend has a sign) against
+      its distance from the image centre, with an unweighted linear fit and its R². No judgement
+      is baked in here about whether a given R² counts as "structured" — read the scatter and the
+      fit yourself.
+    </p>
+    <img id="radial-plot-scale-residual" alt="Scale residual vs. distance from image centre"
+         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+    <img id="radial-plot-shape-distortion" alt="Area-shape distortion vs. distance from image centre"
+         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+
     <details style="margin-top: 0.75rem;">
       <summary>Saved calibrations (download)</summary>
       <div id="calibration-list" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
@@ -803,6 +820,8 @@
     const rankPlotShapeDistortion = document.getElementById("rank-plot-shape-distortion");
     const bestWorstPhotoScaleResidual = document.getElementById("best-worst-photo-scale-residual");
     const bestWorstPhotoShapeDistortion = document.getElementById("best-worst-photo-shape-distortion");
+    const radialPlotScaleResidual = document.getElementById("radial-plot-scale-residual");
+    const radialPlotShapeDistortion = document.getElementById("radial-plot-shape-distortion");
 
     async function refreshCalibrationList() {
       const r = await fetch("/calibration/list");
@@ -905,11 +924,19 @@
           bestWorstPhotoShapeDistortion.src =
             `/calibration/current/best-worst-photo?metric=shape_distortion&t=${Date.now()}`;
           bestWorstPhotoShapeDistortion.style.display = "block";
+          radialPlotScaleResidual.src =
+            `/calibration/current/radial-plot?metric=scale_residual&t=${Date.now()}`;
+          radialPlotScaleResidual.style.display = "block";
+          radialPlotShapeDistortion.src =
+            `/calibration/current/radial-plot?metric=shape_distortion&t=${Date.now()}`;
+          radialPlotShapeDistortion.style.display = "block";
         } else {
           rankPlotScaleResidual.style.display = "none";
           rankPlotShapeDistortion.style.display = "none";
           bestWorstPhotoScaleResidual.style.display = "none";
           bestWorstPhotoShapeDistortion.style.display = "none";
+          radialPlotScaleResidual.style.display = "none";
+          radialPlotShapeDistortion.style.display = "none";
         }
         await refreshCurrentCalibration();
         await refreshCalibrationList();
