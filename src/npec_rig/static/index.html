@@ -258,20 +258,31 @@
     </label>
     <label class="peaking-row">
       <span>
-        <strong>Table width / length (mm)</strong> — measure centre-to-centre between the four
-        corner tags (not the table's outer edge) and enter both to render the table-position
-        view below to real proportions. <strong>Width</strong> is the edge running left-to-right
-        in the camera image (top-left to top-right corner tag); <strong>length</strong> is
-        top-to-bottom (top-left to bottom-left corner tag) — swapping them renders a
-        transposed rectangle. Leave either blank for a square, NOT-TO-SCALE canvas that still
-        shows relative position correctly. Not saved between runs — re-enter each time.
+        <strong>Table width / length (mm)</strong> — lay a tape measure across the <em>outer</em>
+        edges of two corner tags (the corners facing away from the table) and enter the number you
+        read, straight off the tape. No centre to find, no arithmetic — the app subtracts the
+        corner tag size below for you. <strong>Width</strong> is the left-to-right pair in the
+        camera image (top-left to top-right corner tag); <strong>length</strong> is top-to-bottom
+        (top-left to bottom-left corner tag) — swapping them renders a transposed rectangle.
+        Leave either blank for a square, NOT-TO-SCALE canvas that still shows relative position
+        correctly. Not saved between runs — re-enter each time.
       </span>
       <span>
         <input type="number" id="table-width-input" step="0.1" min="0"
-               placeholder="width e.g. 1000" style="width: 7rem;">
+               placeholder="width e.g. 1050" style="width: 7rem;">
         <input type="number" id="table-length-input" step="0.1" min="0"
-               placeholder="length e.g. 800" style="width: 7rem;">
+               placeholder="length e.g. 850" style="width: 7rem;">
       </span>
+    </label>
+    <label class="peaking-row">
+      <span>
+        <strong>Corner tag size (mm)</strong> — the corner tags' own physical size, used only to
+        convert the outer-edge measurement above into the centre-to-centre distance the table view
+        needs. Measure with callipers for accuracy; leave blank to use the placeholder default
+        (shown after you run a calibration).
+      </span>
+      <input type="number" id="corner-tag-size-input" step="0.01" min="0"
+             placeholder="e.g. 49.87" style="width: 6rem;">
     </label>
     <div class="lock-row">
       <button id="calibrate-btn">Run calibration</button>
@@ -421,9 +432,10 @@
     <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
       NOT TO SCALE (a square canvas) unless both table width and length above were entered —
       relative position within the table is correct either way, but the rectangle's own
-      proportions only match the real table when both were measured and entered. Both must be
-      measured centre-to-centre between the four corner tags, not the table's outer edge, or the
-      canvas's proportions won't match what's rendered.
+      proportions only match the real table when both were measured and entered (as the
+      outer-edge-to-outer-edge tape measurement described above, with the corner tag size
+      subtracted automatically) — a measurement smaller than the corner tag size itself falls
+      back to NOT TO SCALE rather than showing a nonsense rectangle.
     </p>
     <h3 style="margin: 1rem 0 0.25rem;">Best vs. worst tag</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
@@ -857,6 +869,7 @@
     );
     const tableWidthInput = document.getElementById("table-width-input");
     const tableLengthInput = document.getElementById("table-length-input");
+    const cornerTagSizeInput = document.getElementById("corner-tag-size-input");
     const tableViewScaleResidual = document.getElementById("table-view-scale-residual");
     const tableViewShapeDistortion = document.getElementById("table-view-shape-distortion");
     const rankPlotScaleResidual = document.getElementById("rank-plot-scale-residual");
@@ -915,6 +928,7 @@
         if (tagSizeInput.value) url += `&calibration_tag_size_mm=${tagSizeInput.value}`;
         if (tableWidthInput.value) url += `&table_width_mm=${tableWidthInput.value}`;
         if (tableLengthInput.value) url += `&table_length_mm=${tableLengthInput.value}`;
+        if (cornerTagSizeInput.value) url += `&corner_tag_size_mm=${cornerTagSizeInput.value}`;
         const r = await fetch(url, { method: "POST" });
         const data = await r.json();
         let lines;
@@ -931,14 +945,29 @@
             ? `tag size: ${data.calibration_tag_size_mm} mm placeholder default — measure with ` +
               "callipers and enter it above"
             : `tag size: ${data.calibration_tag_size_mm} mm (calliper-measured, as entered)`;
-          const tableDims =
-            data.table_width_mm && data.table_length_mm
-              ? `table view: ${data.table_width_mm}mm x ${data.table_length_mm}mm, as entered`
-              : "table view: NOT TO SCALE — enter table width/length above for real proportions";
+          const cornerTagSize = data.corner_tag_size_mm_is_default
+            ? `corner tag size: ${data.corner_tag_size_mm} mm placeholder default — measure with ` +
+              "callipers and enter it above for a precise table view"
+            : `corner tag size: ${data.corner_tag_size_mm} mm (calliper-measured, as entered)`;
+          let tableDims;
+          if (data.table_view_to_scale) {
+            tableDims =
+              `table view: ${data.table_width_mm}mm x ${data.table_length_mm}mm outer-edge span, ` +
+              "as entered";
+          } else if (data.table_width_mm || data.table_length_mm) {
+            tableDims =
+              `table view: NOT TO SCALE — entered width/length (${data.table_width_mm}mm x ` +
+              `${data.table_length_mm}mm) couldn't convert against corner tag size ` +
+              `${data.corner_tag_size_mm}mm (too small, or one of the two left blank) — check ` +
+              "your measurement";
+          } else {
+            tableDims = "table view: NOT TO SCALE — enter table width/length above for real proportions";
+          }
           lines = [
             `${data.calibration_tags_detected} calibration tags, ` +
               `${data.corner_tags_detected} corner tags detected`,
             tagSize,
+            cornerTagSize,
             tableDims,
             `${centre}, plane-fit residual ${data.residual_std_pct.toFixed(2)}%`,
             ...data.report,

@@ -49,6 +49,7 @@ from npec_rig.camera import CameraManager, array_to_jpeg
 from npec_rig.captures import captures_root, list_recent_captures, save_capture
 from npec_rig.tags import (
     ASSUMED_CALIBRATION_TAG_SIZE_MM,
+    ASSUMED_CORNER_TAG_SIZE_MM,
     CALIBRATION_ID_RANGE,
     CORNER_ID_RANGE,
     detect_tags,
@@ -272,12 +273,39 @@ def api_captures(limit: int = 12) -> list[dict]:
     return list_recent_captures(limit=limit)
 
 
+def _outer_edge_span_to_centre_distance_mm(
+    outer_edge_span_mm: float | None, corner_tag_size_mm: float
+) -> float | None:
+    """Convert an operator's outer-edge-to-outer-edge tape measurement between two corner tags
+    into the tag-centre-to-centre distance `render_table_view` actually needs.
+
+    There's no mark at a tag's centre to measure to directly, so the operator lays a tape measure
+    from one tag's outer edge (the corner facing away from the table) straight across to the
+    opposite tag's outer edge and reads the number off -- no arithmetic on their end. Each outer
+    edge sits half a tag width beyond its own tag's centre, so across both ends that's one full
+    tag width to remove here, not on the tape measure. This assumes the tags are mounted
+    axis-aligned with the table (true on this rig -- confirmed against a real saved frame, see
+    TODO.md); a tag mounted at a real angle to the width/length axis would sit more than half its
+    width beyond centre along that axis, and this would under-subtract.
+
+    Returns `None` (falls back to a NOT-TO-SCALE canvas) rather than a non-positive number if
+    `corner_tag_size_mm` comes out implausibly close to or bigger than what was measured -- almost
+    certainly a data-entry mistake (e.g. an inner-edge measurement typed in instead), and a wrong
+    aspect ratio is worse than none.
+    """
+    if outer_edge_span_mm is None:
+        return None
+    centre_to_centre_mm = outer_edge_span_mm - corner_tag_size_mm
+    return centre_to_centre_mm if centre_to_centre_mm > 0 else None
+
+
 @app.post("/calibration/run")
 def run_calibration(
     promote: bool = True,
     calibration_tag_size_mm: float | None = None,
     table_width_mm: float | None = None,
     table_length_mm: float | None = None,
+    corner_tag_size_mm: float | None = None,
 ) -> dict:
     """Setup calibration (PLAN.md M2 section A): capture a full-res still, detect tags, build the
     scale field and install report, and save the frame plus the resulting artifact.
@@ -295,14 +323,21 @@ def run_calibration(
     is a placeholder for whoever hasn't measured yet, not a substitute for measuring. A reprint at
     a different size needs a new measurement typed in here, not a source change.
 
-    `table_width_mm`/`table_length_mm`, if given, must be measured centre-to-centre between the
-    four corner tags (see `calibration.TableFrame`'s docstring) -- not the table's outer physical
-    edge. Neither is persisted anywhere (no `CalibrationArtifact` schema change): both are echoed
-    straight back in the result so the UI can state which mode a given run's table view used,
-    and there's nothing to pre-fill a repeat run from other than what the operator types again.
+    `table_width_mm`/`table_length_mm`, if given, are the operator's **outer-edge-to-outer-edge**
+    tape measurement between corner tags (there's no mark at a tag's centre to measure to) --
+    converted to the centre-to-centre distance `render_table_view` needs via
+    `_outer_edge_span_to_centre_distance_mm`, using `corner_tag_size_mm` (calliper-measured if
+    given, else `ASSUMED_CORNER_TAG_SIZE_MM`'s nominal placeholder, same pattern as
+    `calibration_tag_size_mm`). None of the three is persisted anywhere (no `CalibrationArtifact`
+    schema change): all are echoed straight back in the result so the UI can state which mode a
+    given run's table view used, and there's nothing to pre-fill a repeat run from other than what
+    the operator types again.
     """
     tag_size_mm = calibration_tag_size_mm if calibration_tag_size_mm is not None else (
         ASSUMED_CALIBRATION_TAG_SIZE_MM
+    )
+    corner_size_mm = corner_tag_size_mm if corner_tag_size_mm is not None else (
+        ASSUMED_CORNER_TAG_SIZE_MM
     )
 
     manager = CameraManager.instance()
@@ -325,6 +360,8 @@ def run_calibration(
         "frame_path": str(frame_path),
         "table_width_mm": table_width_mm,
         "table_length_mm": table_length_mm,
+        "corner_tag_size_mm": corner_size_mm,
+        "corner_tag_size_mm_is_default": corner_tag_size_mm is None,
     }
 
     try:
@@ -378,6 +415,13 @@ def run_calibration(
     except ValueError:
         table_frame = None
     covered_positions = [d.centre for d in calibration_detections]
+    render_width_mm = _outer_edge_span_to_centre_distance_mm(table_width_mm, corner_size_mm)
+    render_length_mm = _outer_edge_span_to_centre_distance_mm(table_length_mm, corner_size_mm)
+    # Distinct from "nothing entered": if width/length *were* entered but the conversion rejected
+    # them (too small relative to corner_size_mm -- almost certainly a data-entry mistake), the
+    # rendered view still falls back to NOT-TO-SCALE, but the result must say so plainly rather
+    # than letting the UI echo the entered numbers next to a canvas that silently ignored them.
+    result["table_view_to_scale"] = render_width_mm is not None and render_length_mm is not None
 
     if table_frame is not None and uncertainty_field is not None:
         table_view = render_table_view(
@@ -388,8 +432,8 @@ def run_calibration(
             label="scale residual",
             vmin=HEATMAP_MIN_PCT,
             vmax=HEATMAP_MAX_PCT,
-            table_width_mm=table_width_mm,
-            table_length_mm=table_length_mm,
+            table_width_mm=render_width_mm,
+            table_length_mm=render_length_mm,
         )
         save_calibration_table_view(table_view, stem=stem)
         result["table_view_url"] = f"/calibration/files/heatmaps/{stem}_table-view.jpg"
@@ -405,8 +449,8 @@ def run_calibration(
             label="area-shape distortion",
             vmin=AREA_SHAPE_HEATMAP_MIN_PCT,
             vmax=AREA_SHAPE_HEATMAP_MAX_PCT,
-            table_width_mm=table_width_mm,
-            table_length_mm=table_length_mm,
+            table_width_mm=render_width_mm,
+            table_length_mm=render_length_mm,
         )
         save_calibration_table_view_area_shape(table_view_shape, stem=stem)
         result["table_view_shape_url"] = (

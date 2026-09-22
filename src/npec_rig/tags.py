@@ -32,10 +32,19 @@ RESERVED_ID_RANGE = range(500, 587)  # buffer for a future fixed rig-level role.
 # 30mm, measured 29.3106mm. Reused for the CALIBRATION_ID_RANGE sheet (nominally also 30mm --
 # reference/calibration-sheets/README.md) because that sheet has NOT itself been calliper-checked
 # yet against its 2026-09-20 print run. Confirm with callipers before trusting a scale field built
-# from it -- this is the single largest error source CLAUDE.md documents (~4.7% in area). Corner
-# tags (CORNER_ID_RANGE) don't need an mm size: the tripwire compares their own image-plane
-# geometry between two captures of this rig, never against an absolute mm figure.
+# from it -- this is the single largest error source CLAUDE.md documents (~4.7% in area). The
+# tripwire (tripwire.py) compares the corner tags' own image-plane geometry between two captures
+# of this rig, never against an absolute mm figure, so it doesn't need this constant.
 ASSUMED_CALIBRATION_TAG_SIZE_MM = 29.3106
+
+# The corner tags' nominal printed size -- placeholder, NOT calliper-measured yet (same caution as
+# ASSUMED_CALIBRATION_TAG_SIZE_MM above: the 30mm calibration tag measured 29.3106mm). Used only by
+# the table-position view's outer-edge-to-centre conversion (app.py's run_calibration) -- an
+# operator measures corner-tag-to-corner-tag with a tape measure laid outer-edge to outer-edge (no
+# centre mark exists on a tag to measure to directly), and this constant converts that to the
+# centre-to-centre distance TableFrame's aspect ratio actually needs. Overridable per run with a
+# calliper measurement, same pattern as calibration_tag_size_mm.
+ASSUMED_CORNER_TAG_SIZE_MM = 50.0
 
 
 def _detector_parameters() -> cv2.aruco.DetectorParameters:

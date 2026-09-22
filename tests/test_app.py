@@ -9,7 +9,7 @@ from npec_rig.app import _mjpeg_frames, app, focus_roi_stream, preview
 from npec_rig.calibration import CalibrationArtifact, ScaleField
 from npec_rig.calibration_store import calibration_root, save_calibration
 from npec_rig.camera import SIMULATED_AUTOFOCUS_POSITION, CameraManager, SyntheticBackend
-from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM
+from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, ASSUMED_CORNER_TAG_SIZE_MM
 from npec_rig.tripwire import CornerBaseline
 from tests.helpers import rotate_detection, square_detection
 
@@ -342,6 +342,7 @@ def test_run_calibration_builds_table_view_with_all_four_corner_tags(
     assert body["corner_baseline_tags"] == [450, 451, 452, 455]
     assert body["table_width_mm"] == 1000.0
     assert body["table_length_mm"] == 800.0
+    assert body["table_view_to_scale"] is True
     assert body["table_view_url"] is not None
     assert body["table_view_shape_url"] is not None
     assert (calibration_root() / "heatmaps" / Path(body["table_view_url"]).name).exists()
@@ -354,6 +355,62 @@ def test_run_calibration_builds_table_view_with_all_four_corner_tags(
     listing = client.get("/calibration/list").json()
     assert listing[0]["table_view_url"] == body["table_view_url"]
     assert listing[0]["table_view_shape_url"] == body["table_view_shape_url"]
+
+
+def test_run_calibration_echoes_corner_tag_size_and_default_flag(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(
+        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
+    )
+    client = TestClient(app)
+
+    default_run = client.post("/calibration/run").json()
+    assert default_run["corner_tag_size_mm"] == ASSUMED_CORNER_TAG_SIZE_MM
+    assert default_run["corner_tag_size_mm_is_default"] is True
+
+    measured_run = client.post(
+        "/calibration/run", params={"corner_tag_size_mm": 49.87}
+    ).json()
+    assert measured_run["corner_tag_size_mm"] == 49.87
+    assert measured_run["corner_tag_size_mm_is_default"] is False
+
+
+def test_run_calibration_converts_outer_edge_span_to_table_view(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # table_width_mm/table_length_mm are the operator's outer-edge-to-outer-edge tape measurement
+    # (see app_module._outer_edge_span_to_centre_distance_mm) -- too small relative to the corner
+    # tag size (e.g. an inner-edge measurement typed in by mistake) must fall back to NOT-TO-SCALE
+    # rather than rendering a nonsense aspect ratio, without failing the whole run.
+    monkeypatch.setattr(
+        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
+    )
+    client = TestClient(app)
+    response = client.post(
+        "/calibration/run",
+        params={"table_width_mm": 40.0, "table_length_mm": 800.0, "corner_tag_size_mm": 50.0},
+    )
+    body = response.json()
+    assert body["table_width_mm"] == 40.0  # still echoed as entered, not silently corrected
+    assert body["table_view_to_scale"] is False  # the UI must say so, not just render a square
+    assert body["table_view_url"] is not None  # still built -- just NOT-TO-SCALE for this run
+
+
+def test_outer_edge_span_to_centre_distance_subtracts_one_tag_width() -> None:
+    assert app_module._outer_edge_span_to_centre_distance_mm(1000.0, 50.0) == pytest.approx(950.0)
+
+
+def test_outer_edge_span_to_centre_distance_passes_through_none() -> None:
+    assert app_module._outer_edge_span_to_centre_distance_mm(None, 50.0) is None
+
+
+def test_outer_edge_span_to_centre_distance_guards_against_undersized_span() -> None:
+    # Smaller than (or equal to) the tag size itself -- almost certainly a data-entry mistake
+    # (e.g. an inner-edge measurement) -- falls back to None (NOT-TO-SCALE) rather than a
+    # non-positive or zero "distance".
+    assert app_module._outer_edge_span_to_centre_distance_mm(50.0, 50.0) is None
+    assert app_module._outer_edge_span_to_centre_distance_mm(30.0, 50.0) is None
 
 
 def test_current_uncertainty_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:

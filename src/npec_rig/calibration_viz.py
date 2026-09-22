@@ -568,13 +568,20 @@ def render_table_view(
     `HEATMAP_MAX_WIDTH`'s own comment -- the dmesg-confirmed OOM this guards against is shared
     infrastructure, not re-derived here). The canvas is square with a baked-in "NOT TO SCALE"
     caveat unless both `table_width_mm`/`table_length_mm` are given (see
-    `_table_view_canvas_size`) -- a real width/length must be measured *centre-to-centre between
-    the same four corner tags* `table_frame` was built from (see `TableFrame`'s own docstring),
-    not the table's outer physical edge, or the aspect ratio silently won't match what's rendered.
+    `_table_view_canvas_size`) -- both must already be the real distance *centre-to-centre between
+    the same four corner tags* `table_frame` was built from (see `TableFrame`'s own docstring), not
+    the table's outer physical edge, or the aspect ratio silently won't match what's rendered.
     `table_width_mm` is specifically the TL-TR edge (`table_frame`'s own `u` axis, left-to-right
     in the camera image) and `table_length_mm` the TL-BL edge (`v`, top-to-bottom) -- swapping
     them renders a transposed rectangle, the exact "plausible-looking but wrong" failure this
     caveat exists to prevent.
+
+    Callers do not measure centre-to-centre directly -- there's no mark on a tag's centre to put a
+    tape measure to. `app.py`'s `run_calibration` is the one place that converts an operator's
+    outer-edge-to-outer-edge tape measurement into the centre-to-centre distance this function
+    expects (`_outer_edge_span_to_centre_distance_mm`), using the corner tags' own physical size.
+    This function stays in terms of the clean, already-converted geometric quantity either way --
+    it doesn't need to know how the caller obtained it.
 
     Anywhere outside the convex hull of `covered_positions` (see `_covered_hull_mask`) is rendered
     desaturated grey, not just lower alpha -- a floor-plan view has no visible "table edge" the
