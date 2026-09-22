@@ -14,6 +14,7 @@ from npec_rig.calibration_viz import (
     HEATMAP_MIN_PCT,
     render_area_shape_heatmap,
     render_honesty_plot,
+    render_rank_plot,
     render_uncertainty_heatmap,
 )
 from npec_rig.tags import TagDetection
@@ -170,3 +171,29 @@ def test_honesty_plot_point_on_the_honest_line_lands_on_the_diagonal() -> None:
     # there (the diagonal line and the point coincide).
     image = render_honesty_plot([(5.0, 5.0)], size=300, margin=50, axis_max_pct=10.0)
     assert not np.all(image == 255)
+
+
+def test_rank_plot_renders_an_image_of_the_requested_size() -> None:
+    points = [(0.1, 1, 100.0, 100.0), (0.5, 2, 200.0, 200.0), (2.0, 3, 300.0, 300.0)]
+    image = render_rank_plot(points, label="scale residual", size=400, margin=50)
+    assert image.shape == (400, 400, 3)
+
+
+def test_rank_plot_requires_at_least_two_points() -> None:
+    with pytest.raises(ValueError, match="at least 2"):
+        render_rank_plot([(0.1, 1, 0.0, 0.0)], label="scale residual")
+
+
+def test_rank_plot_draws_something_for_a_real_spread() -> None:
+    points = [(0.1, 1, 100.0, 100.0), (0.5, 2, 200.0, 200.0), (4.0, 3, 300.0, 300.0)]
+    image = render_rank_plot(points, label="scale residual", size=300, margin=50)
+    assert not np.all(image == 255)
+
+
+def test_rank_plot_is_flat_white_background_when_all_values_are_equal() -> None:
+    # Degenerate case (e.g. a perfectly flat field): every tag agrees, so the sorted line is
+    # flat along the bottom of the plot -- exercises the axis_max floor rather than crashing on
+    # a division by (near) zero.
+    points = [(0.0, 1, 0.0, 0.0), (0.0, 2, 100.0, 100.0), (0.0, 3, 200.0, 200.0)]
+    image = render_rank_plot(points, label="scale residual", size=300, margin=50)
+    assert image.shape == (300, 300, 3)

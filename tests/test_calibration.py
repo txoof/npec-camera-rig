@@ -18,6 +18,7 @@ from npec_rig.calibration import (
     holdout_coverage_test,
     refit_scale_factor,
     regional_coverage_test,
+    scale_residual_samples,
 )
 from npec_rig.tags import TagDetection
 
@@ -562,6 +563,47 @@ def test_build_calibration_report_includes_area_scale_line() -> None:
 
     report = build_calibration_report(detections, sizes, frame_width=1100, frame_height=1100)
     assert any(line.startswith("Area-scale error") for line in report)
+
+
+def test_scale_residual_samples_is_near_zero_for_consistent_squares() -> None:
+    positions = _grid_positions()
+    detections = [_square_detection(tag_id, x, y, 120) for tag_id, (x, y) in enumerate(positions)]
+    sizes = {i: 30.0 for i in range(len(positions))}
+    field = build_scale_field(detections, sizes)
+
+    samples = scale_residual_samples(field, detections, sizes)
+    assert len(samples) == len(detections)
+    assert {s.tag_id for s in samples} == set(range(len(positions)))
+    for sample in samples:
+        assert sample.residual_pct == pytest.approx(0.0, abs=1e-6)
+
+
+def test_scale_residual_samples_matches_the_known_residual_for_an_off_plane_tag() -> None:
+    size_mm = 30.0
+    fit_positions = _grid_positions()
+    fit_detections = [
+        _square_detection(tag_id, x, y, 120) for tag_id, (x, y) in enumerate(fit_positions)
+    ]
+    field = build_scale_field(fit_detections, {i: size_mm for i in range(len(fit_positions))})
+
+    off_plane = _square_detection(90, 500, 500, 132)  # observed ppm = 4.4, field predicts 4.0
+    samples = scale_residual_samples(field, [off_plane], {90: size_mm})
+
+    assert len(samples) == 1
+    assert samples[0].tag_id == 90
+    predicted = field.px_per_mm(500, 500)
+    expected_residual_pct = 100.0 * (132 / size_mm - predicted) / predicted
+    assert samples[0].residual_pct == pytest.approx(expected_residual_pct, rel=1e-6)
+
+
+def test_scale_residual_samples_skips_tags_the_field_cant_evaluate() -> None:
+    field = ScaleField(_coeffs=(1.0, -0.001, 0.0), _mean_px_per_mm=4.0, residual_std_pct=0.0)
+    in_domain = _square_detection(1, 100, 100, 120)
+    far_away = _square_detection(999, 2000, 100, 120)  # relative_depth = -1, non-physical
+    sizes = {1: 30.0, 999: 30.0}
+
+    samples = scale_residual_samples(field, [in_domain, far_away], sizes)
+    assert {s.tag_id for s in samples} == {1}
 
 
 def test_area_scale_samples_is_near_zero_for_consistent_squares() -> None:

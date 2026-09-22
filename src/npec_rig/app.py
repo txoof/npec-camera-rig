@@ -15,10 +15,12 @@ from npec_rig.calibration import (
     build_calibration_report,
     build_scale_field,
     build_uncertainty_field,
+    scale_residual_samples,
 )
 from npec_rig.calibration_store import (
     calibration_root,
     list_calibrations,
+    load_calibration_frame,
     load_current_calibration,
     save_calibration,
     save_calibration_area_shape_heatmap,
@@ -28,6 +30,7 @@ from npec_rig.calibration_store import (
 from npec_rig.calibration_viz import (
     render_area_shape_heatmap,
     render_honesty_plot,
+    render_rank_plot,
     render_uncertainty_heatmap,
 )
 from npec_rig.camera import CameraManager, array_to_jpeg
@@ -458,6 +461,43 @@ def honesty_plot(points: list[HonestyPlotPoint]) -> Response:
         for p in points
     ]
     image = render_honesty_plot(pairs)
+    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+
+
+@app.get("/calibration/current/rank-plot")
+def current_rank_plot(metric: str = "scale_residual") -> Response:
+    """Sorted best-vs-worst-tag plot (TODO.md) for the live calibration's own `metric` --
+    `"scale_residual"` (the confidence heatmap's number) or `"shape_distortion"` (the area-shape
+    heatmap's number). Neither is persisted per-tag in the artifact (only smoothed/aggregated
+    forms are), so this re-detects tags from the live calibration's own saved frame each call --
+    always reflects its actual detections, not a stale snapshot, at the cost of re-running
+    detection on one frame per request.
+    """
+    if metric not in ("scale_residual", "shape_distortion"):
+        raise HTTPException(422, f"unknown metric {metric!r}, expected scale_residual or shape_distortion")
+
+    artifact = load_current_calibration()
+    if artifact is None or artifact.frame_stem is None:
+        raise HTTPException(409, "no calibration with a saved frame yet")
+
+    frame = load_calibration_frame(artifact.frame_stem)
+    detections = detect_tags(frame)
+    cal_detections = [d for d in detections if d.tag_id in CALIBRATION_ID_RANGE]
+    tag_sizes_mm = {d.tag_id: artifact.calibration_tag_size_mm for d in cal_detections}
+
+    if metric == "scale_residual":
+        samples = scale_residual_samples(artifact.scale_field, cal_detections, tag_sizes_mm)
+        points = [(abs(s.residual_pct), s.tag_id, s.x, s.y) for s in samples]
+        label = "scale residual"
+    else:
+        samples = area_scale_samples(artifact.scale_field, cal_detections, tag_sizes_mm)
+        points = [(abs(s.shape_factor_pct), s.tag_id, s.x, s.y) for s in samples]
+        label = "area-shape distortion"
+
+    if len(points) < 2:
+        raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
+
+    image = render_rank_plot(points, label=label)
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 

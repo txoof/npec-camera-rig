@@ -246,6 +246,51 @@ def build_uncertainty_field(
 
 
 @dataclass(frozen=True)
+class ScaleResidualSample:
+    """One calibration tag's own length-scale residual against the fitted plane, with its
+    `tag_id` and position -- the same number `UncertaintyField` smooths over each position's k
+    nearest neighbours, but per-tag and labelled. `UncertaintyField` doesn't keep `tag_id` (only
+    positions, since it was built to answer "how confident at this position", not "which tag"),
+    so this exists as its own thing rather than extending that persisted, versioned dataclass
+    for what's a one-off diagnostic plot (TODO.md's best-vs-worst-tag rank plot).
+    """
+
+    x: float
+    y: float
+    tag_id: int
+    residual_pct: float
+
+
+def scale_residual_samples(
+    field: ScaleField, detections: list[TagDetection], tag_sizes_mm: dict[int, float]
+) -> list[ScaleResidualSample]:
+    """One `ScaleResidualSample` per detection with a known size. Skips a detection if
+    `field.px_per_mm` isn't physically valid there (same extrapolation guard as
+    `area_scale_samples`) rather than raising, so one bad position doesn't take down the plot.
+    """
+    samples = []
+    for detection in detections:
+        size_mm = tag_sizes_mm.get(detection.tag_id)
+        if size_mm is None:
+            continue
+        x, y = detection.centre
+        try:
+            predicted = field.px_per_mm(x, y)
+        except ValueError:
+            continue
+        observed = tag_side_px(detection.corners) / size_mm
+        samples.append(
+            ScaleResidualSample(
+                x=x,
+                y=y,
+                tag_id=detection.tag_id,
+                residual_pct=100.0 * (observed - predicted) / predicted,
+            )
+        )
+    return samples
+
+
+@dataclass(frozen=True)
 class AreaScaleSample:
     """TODO.md's area-scale shape check, at one calibration tag: is naively squaring the fitted
     *length* scale (`ScaleField.px_per_mm(x, y) ** 2`) good enough for *area*, or does the tag's

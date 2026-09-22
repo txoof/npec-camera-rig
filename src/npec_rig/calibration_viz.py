@@ -1,7 +1,7 @@
 """Visual renderings of calibration confidence: a heatmap of `UncertaintyField` over a
-calibration frame, and the claimed-vs-actual scatter for PLAN.md's M2 "honesty plot" acceptance
-test. Pure rendering -- every number drawn here already exists in `calibration.py`; nothing here
-measures or derives anything new.
+calibration frame, the claimed-vs-actual scatter for PLAN.md's M2 "honesty plot" acceptance
+test, and a sorted best-vs-worst-tag rank plot. Pure rendering -- every number drawn here already
+exists in `calibration.py`; nothing here measures or derives anything new.
 """
 
 from __future__ import annotations
@@ -197,6 +197,95 @@ def render_honesty_plot(
     )
     cv2.putText(
         img, "actual error (%)", (10, margin - 15),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA,
+    )
+
+    return img
+
+
+RANK_PLOT_SIZE = 640
+RANK_PLOT_MARGIN = 70
+
+
+def render_rank_plot(
+    points: list[tuple[float, int, float, float]],
+    *,
+    label: str,
+    size: int = RANK_PLOT_SIZE,
+    margin: int = RANK_PLOT_MARGIN,
+) -> np.ndarray:
+    """TODO.md's best-vs-worst-tag rank plot: `points` as `(magnitude_pct, tag_id, x, y)` tuples,
+    one per calibration tag, sorted ascending and drawn as a single connected line (rank on x,
+    magnitude on y) -- not one bar or marker per tag. With hundreds of calibration tags per run,
+    individual bars would be unreadable; a monotonic line shows the whole distribution's shape
+    for free (how many tags cluster near "good" vs. how sharply it kicks up at the tail) and
+    stays legible at any tag count.
+
+    Only the two ends are labelled: the best (lowest-magnitude) tag's value, and the worst
+    (highest-magnitude) tag's value plus its `tag_id` and frame position, so that specific tag
+    can be found and inspected physically. The y-axis auto-scales to this run's own worst value
+    (with headroom), not a fixed cross-run scale like the heatmaps use -- this plot's job is
+    showing the spread *within* one run, and the axis label says so explicitly to avoid it being
+    mistaken for a heatmap's fixed comparison scale.
+
+    Raises ValueError with fewer than 2 points -- "best vs. worst" needs two distinct tags.
+    """
+    if len(points) < 2:
+        raise ValueError(f"need at least 2 points for a rank plot, got {len(points)}")
+
+    ordered = sorted(points, key=lambda p: p[0])
+    values = [p[0] for p in ordered]
+    n = len(ordered)
+    axis_max = max(values[-1] * 1.15, 1e-9)
+
+    img = np.full((size, size, 3), 255, dtype=np.uint8)
+    plot_size = size - 2 * margin
+    axis_color = (60, 60, 60)
+    cv2.line(img, (margin, size - margin), (size - margin, size - margin), axis_color, 2)
+    cv2.line(img, (margin, size - margin), (margin, margin), axis_color, 2)
+
+    def to_px(rank: int) -> int:
+        return margin + int(round(rank / (n - 1) * plot_size))
+
+    def to_py(value: float) -> int:
+        return size - margin - int(round(value / axis_max * plot_size))
+
+    line_color = (30, 90, 200)  # RGB blue, matches the honesty plot's point colour
+    poly_points = np.array(
+        [[to_px(i), to_py(v)] for i, v in enumerate(values)], dtype=np.int32
+    ).reshape(-1, 1, 2)
+    cv2.polylines(img, [poly_points], isClosed=False, color=line_color, thickness=2, lineType=cv2.LINE_AA)
+
+    best_value, best_tag_id, best_x, best_y = ordered[0]
+    worst_value, worst_tag_id, worst_x, worst_y = ordered[-1]
+
+    best_colour = (0, 130, 0)  # RGB green
+    worst_colour = (200, 30, 30)  # RGB red
+    cv2.circle(img, (to_px(0), to_py(best_value)), 5, best_colour, -1, cv2.LINE_AA)
+    cv2.circle(img, (to_px(n - 1), to_py(worst_value)), 5, worst_colour, -1, cv2.LINE_AA)
+
+    best_label = f"best: tag {best_tag_id}, {best_value:.2f}% ({best_x:.0f}, {best_y:.0f})"
+    cv2.putText(
+        img, best_label, (margin, to_py(best_value) - 10),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1, cv2.LINE_AA,
+    )
+    worst_label = f"worst: tag {worst_tag_id}, {worst_value:.2f}% ({worst_x:.0f}, {worst_y:.0f})"
+    worst_text_width = cv2.getTextSize(worst_label, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)[0][0]
+    cv2.putText(
+        img, worst_label, (size - margin - worst_text_width, to_py(worst_value) - 10),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1, cv2.LINE_AA,
+    )
+
+    cv2.putText(
+        img, f"{label} (%), sorted best -> worst across {n} tags",
+        (margin, size - margin + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1, cv2.LINE_AA,
+    )
+    cv2.putText(
+        img, "this run's own spread -- not the heatmaps' fixed scale",
+        (margin, size - margin + 58), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1, cv2.LINE_AA,
+    )
+    cv2.putText(
+        img, f"0-{axis_max:.2f}%", (10, margin - 15),
         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA,
     )
 

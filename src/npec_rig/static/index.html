@@ -386,6 +386,20 @@
         </div>
       </details>
     </div>
+    <h3 style="margin: 1rem 0 0.25rem;">Best vs. worst tag</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Every calibration tag's own scale residual and area-shape distortion, sorted best to
+      worst, so a specific outlier tag can be found by ID and frame position rather than only
+      seeing the two heatmaps' averages. Each plot's vertical axis is that run's own spread, not
+      the heatmaps' fixed 0–8%/0–0.5% scale — read the axis label on each plot, not the colours
+      above.
+    </p>
+    <div class="lock-row">
+      <img id="rank-plot-scale-residual" alt="Scale residual, best to worst"
+           style="display: none; max-width: 48%; border: 1px solid #444;">
+      <img id="rank-plot-shape-distortion" alt="Area-shape distortion, best to worst"
+           style="display: none; max-width: 48%; border: 1px solid #444;">
+    </div>
     <details style="margin-top: 0.75rem;">
       <summary>Saved calibrations (download)</summary>
       <div id="calibration-list" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
@@ -780,6 +794,8 @@
     const calibrationAreaShapeHeatmapLegend = document.getElementById(
       "calibration-area-shape-heatmap-legend"
     );
+    const rankPlotScaleResidual = document.getElementById("rank-plot-scale-residual");
+    const rankPlotShapeDistortion = document.getElementById("rank-plot-shape-distortion");
 
     async function refreshCalibrationList() {
       const r = await fetch("/calibration/list");
@@ -868,6 +884,17 @@
         } else {
           calibrationAreaShapeHeatmap.style.display = "none";
           calibrationAreaShapeHeatmapLegend.style.display = "none";
+        }
+        if (!data.error) {
+          // Re-detects tags from the just-saved frame each time (no per-tag persistence),
+          // so these are only worth fetching once a run has actually produced a frame.
+          rankPlotScaleResidual.src = `/calibration/current/rank-plot?metric=scale_residual&t=${Date.now()}`;
+          rankPlotScaleResidual.style.display = "block";
+          rankPlotShapeDistortion.src = `/calibration/current/rank-plot?metric=shape_distortion&t=${Date.now()}`;
+          rankPlotShapeDistortion.style.display = "block";
+        } else {
+          rankPlotScaleResidual.style.display = "none";
+          rankPlotShapeDistortion.style.display = "none";
         }
         await refreshCurrentCalibration();
         await refreshCalibrationList();

@@ -542,6 +542,12 @@ The heart of the project. Do not start before M1 slice 5.
       browser. Not investigated further -- worth checking whether a dedicated higher-res crop
       (e.g. a still capture, or a larger/different stream config) is feasible without breaking
       the continuous preview or `focus_score`'s own use of the same stream. *(Aaron, 2026-09-22)*
+- [ ] **Low priority: let the two heatmaps and the best-vs-worst-tag rank plots be viewed for a
+      past calibration, not just whatever's live.** All four currently only read
+      `load_current_calibration()`; picking an old run means adding a picker to the UI and, for
+      the rank plots and the area-shape heatmap specifically, re-detecting tags from that run's
+      saved frame each time (their per-tag data isn't persisted in the artifact -- see
+      `ScaleResidualSample`/`AreaScaleSample`). *(Aaron, 2026-09-22)*
 
 ### M2 acceptance — run in the chamber
 - [ ] **Two-baseline test** *(do first)* — two independent calibrations of the same static scene,
@@ -567,6 +573,18 @@ The heart of the project. Do not start before M1 slice 5.
       the frame each time; also added `frame_stem` to the artifact, fixing a real gap --
       `current.json` previously had no way back to which `frames/{stem}.jpg` it came from.
       *(2026-09-21)*
+- [x] **Best-vs-worst-tag rank plot, built 2026-09-22.** Aaron wanted a plot of how far the worst
+      calibration tag is from the best one -- the two heatmaps only ever show smoothed/averaged
+      numbers. `GET /calibration/current/rank-plot?metric=scale_residual|shape_distortion`
+      re-detects tags from the live calibration's saved frame (neither per-tag number is
+      persisted in the artifact) and renders every tag's own residual or shape distortion,
+      sorted best to worst, as a single line rather than one bar per tag -- with 400+ tags a bar
+      chart is unreadable, and a sorted line shows the whole distribution's shape for free.
+      Only the two ends are labelled, with the worst tag's ID and frame position so it can be
+      found physically. Two `<img>`s in the UI, loaded automatically right after "Run
+      calibration" -- no new operator input. New calibration.py types
+      (`ScaleResidualSample`/`scale_residual_samples`) for the length-residual side, since
+      `UncertaintyField` doesn't keep `tag_id`, only positions.
 
 ---
 

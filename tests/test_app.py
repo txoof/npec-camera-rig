@@ -557,3 +557,63 @@ def test_calibration_list_and_files_are_downloadable(monkeypatch: pytest.MonkeyP
     heatmap_response = client.get(entry["heatmap_url"])
     assert heatmap_response.status_code == 200
     assert heatmap_response.content[:2] == b"\xff\xd8"
+
+
+# --- Best-vs-worst-tag rank plot ---
+
+
+def test_rank_plot_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/current/rank-plot")
+    assert response.status_code == 409
+
+
+def test_rank_plot_rejects_an_unknown_metric(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get("/calibration/current/rank-plot", params={"metric": "bogus"})
+    assert response.status_code == 422
+
+
+def test_rank_plot_returns_a_jpeg_for_scale_residual(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get("/calibration/current/rank-plot", params={"metric": "scale_residual"})
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.content[:2] == b"\xff\xd8"
+
+
+def test_rank_plot_returns_a_jpeg_for_shape_distortion(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get("/calibration/current/rank-plot", params={"metric": "shape_distortion"})
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.content[:2] == b"\xff\xd8"
+
+
+def test_rank_plot_refused_with_too_few_tags_in_the_saved_frame(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # The calibration that saved the frame had enough tags to build a field; re-detecting the
+    # same saved frame for the rank plot finding fewer than 2 is its own, separate failure mode.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS[:1] + _CORNER_TAGS)
+    response = client.get("/calibration/current/rank-plot")
+    assert response.status_code == 409

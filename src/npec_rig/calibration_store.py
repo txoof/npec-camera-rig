@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+from PIL import Image
 
 from npec_rig.calibration import (
     CalibrationArtifact,
@@ -82,6 +83,15 @@ def save_calibration_frame(image: np.ndarray, *, stem: str | None = None) -> Pat
     path = root / f"{stem}.jpg"
     path.write_bytes(array_to_jpeg(image))
     return path
+
+
+def load_calibration_frame(stem: str) -> np.ndarray:
+    """Read back a frame written by `save_calibration_frame`, as an RGB array -- for
+    reprocessing (re-detecting tags) against a saved calibration without a fresh capture, e.g.
+    the best-vs-worst-tag rank plot, which needs per-tag data no artifact schema persists.
+    """
+    path = calibration_root() / FRAMES_DIRNAME / f"{stem}.jpg"
+    return np.array(Image.open(path).convert("RGB"))
 
 
 def save_calibration_heatmap(image: np.ndarray, *, stem: str) -> Path:
