@@ -424,9 +424,31 @@ def render_radial_residual_plot(
         mid = top_margin + plot_size / 2
         return int(round(mid - value / value_span * (plot_size / 2)))
 
-    # Zero-residual reference line -- "no relationship with radius at all".
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    tick_colour = (60, 60, 60)
+
+    # X-axis ticks: 5 evenly spaced values from 0 to radius_max, in pixels.
+    for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
+        radius_tick = frac * radius_max
+        px = to_px(radius_tick)
+        cv2.line(img, (px, size - margin), (px, size - margin + 6), tick_colour, 1, cv2.LINE_AA)
+        text = f"{radius_tick:.0f}"
+        text_width = cv2.getTextSize(text, font, 0.45, 1)[0][0]
+        cv2.putText(img, text, (px - text_width // 2, size - margin + 22), font, 0.45, (0, 0, 0), 1, cv2.LINE_AA)
+
+    # Y-axis ticks: 5 evenly spaced values from -value_span to +value_span. The zero tick is
+    # labelled explicitly ("0%") rather than left as an unlabelled reference line -- a line with
+    # no number next to it answers "is this a trend" but not "a trend around what value".
     zero_colour = (170, 170, 170)
-    cv2.line(img, (margin, to_py(0.0)), (size - margin, to_py(0.0)), zero_colour, 1, cv2.LINE_AA)
+    for frac in (-1.0, -0.5, 0.0, 0.5, 1.0):
+        value_tick = frac * value_span
+        py = to_py(value_tick)
+        cv2.line(img, (margin - 6, py), (margin, py), tick_colour, 1, cv2.LINE_AA)
+        text = f"{value_tick:+.2f}%" if value_tick != 0 else "0%"
+        text_width = cv2.getTextSize(text, font, 0.45, 1)[0][0]
+        cv2.putText(img, text, (margin - 12 - text_width, py + 5), font, 0.45, (0, 0, 0), 1, cv2.LINE_AA)
+        if value_tick == 0:
+            cv2.line(img, (margin, py), (size - margin, py), zero_colour, 1, cv2.LINE_AA)
 
     point_colour = (30, 90, 200)  # RGB blue, matches the honesty plot's own scatter colour
     for radius, value in zip(radii, values):
@@ -437,7 +459,6 @@ def render_radial_residual_plot(
     fit_end = (to_px(radius_max), to_py(slope * radius_max + intercept))
     cv2.line(img, fit_start, fit_end, fit_colour, 3, cv2.LINE_AA)
 
-    font = cv2.FONT_HERSHEY_SIMPLEX
     title = f"{label}: signed residual vs. distance from image centre"
     title_scale = 0.8
     available_width = size - 2 * margin

@@ -484,6 +484,18 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — known issues, not yet fixed
 
+- [ ] **Auto exposure only fires once per tick, not continuously** — Aaron, 2026-09-22: ticking
+      "Auto exposure" adjusts exposure once, then holds still even as real lighting changes;
+      unticking and re-ticking forces one more adjustment. Checked this app's own code path
+      (`camera.py`'s `Picamera2Backend.set_control`/`CameraManager.set_control`): it makes one
+      `set_controls({"AeEnable": True})` call and never re-writes `ExposureTime`/`AnalogueGain`
+      afterward, and the UI's controls panel (`index.html`) only reads `/controls` once at page
+      load -- no polling loop that could be re-locking it by echoing a stale value back. So
+      nothing in this app is fighting AE after it's enabled; if it's only converging once, that's
+      either a picamera2/libcamera behaviour needing its own investigation, or something with the
+      camera_controls read happening at a moment that freezes it. Not reproduced against real
+      hardware by Claude (no camera access in this environment) -- needs an on-hardware check
+      before guessing further.
 - [ ] **Live reorientation aid never actually works** — `POST /calibration/orientation/zero`
       refused twice on real hardware (2026-09-21) with "no corner tags detected." The corner
       tags are 50mm on `CORNER_ID_RANGE`; the preview stream (`LORES_SIZE`, far below full-res)
@@ -602,8 +614,15 @@ The heart of the project. Do not start before M1 slice 5.
       obviously random scatter. Not acted on: one run's R² isn't a decision by itself (a
       different run two turns earlier showed only weak position correlation on the same rig), and
       "is this structured enough to open the gate" is exactly the judgement PLAN.md reserves for
-      a human reading the plot, not a threshold in code. *(Aaron/supervisor to read the plot and
-      decide; if confirmed across a few more runs, this is what unbans `calibrateCamera`.)*
+      a human reading the plot, not a threshold in code.
+      **Second run, lights on this time (`20260922T104517936034`, 431 tags): R²=0.33 / R²=0.45 --
+      same shape, same rough magnitude, under different lighting.** That rules out "it's an
+      exposure/lighting artifact" as the explanation for the earlier reading; it doesn't yet rule
+      in "it's the lens" over some other repeatable geometric cause. Axis tick labels (actual
+      px/percent numbers, and an explicit "0%" on the zero line) added the same day -- the first
+      version had bare axis lines with no numbers on them, a real gap, not intentional.
+      *(Aaron/supervisor to read the plot and decide; if confirmed across a few more runs, this
+      is what unbans `calibrateCamera`.)*
 
 ---
 
