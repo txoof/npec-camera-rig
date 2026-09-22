@@ -118,6 +118,31 @@ def save_calibration_area_shape_heatmap(image: np.ndarray, *, stem: str) -> Path
     return path
 
 
+def save_calibration_table_view(image: np.ndarray, *, stem: str) -> Path:
+    """Write `image` (rendered by `calibration_viz.render_table_view` for the scale-residual
+    field) as a JPEG under the same heatmaps directory as `save_calibration_heatmap`, with a
+    `_table-view` suffix on the stem so the straightened view doesn't collide with the raw-photo
+    heatmap from the same capture.
+    """
+    root = calibration_root() / HEATMAPS_DIRNAME
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / f"{stem}_table-view.jpg"
+    path.write_bytes(array_to_jpeg(image))
+    return path
+
+
+def save_calibration_table_view_area_shape(image: np.ndarray, *, stem: str) -> Path:
+    """Write `image` (rendered by `calibration_viz.render_table_view` for the area-shape field)
+    as a JPEG under the same heatmaps directory, with a `_table-view-area-shape` suffix -- the
+    table-view analogue of `save_calibration_area_shape_heatmap`.
+    """
+    root = calibration_root() / HEATMAPS_DIRNAME
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / f"{stem}_table-view-area-shape.jpg"
+    path.write_bytes(array_to_jpeg(image))
+    return path
+
+
 def load_calibration(path: Path) -> CalibrationArtifact:
     """Load a specific calibration artifact file."""
     return calibration_artifact_from_dict(json.loads(Path(path).read_text()))

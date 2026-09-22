@@ -16,6 +16,7 @@ from npec_rig.calibration import (
     build_area_scale_field,
     build_calibration_report,
     build_scale_field,
+    build_table_frame,
     build_uncertainty_field,
     scale_residual_samples,
 )
@@ -28,13 +29,20 @@ from npec_rig.calibration_store import (
     save_calibration_area_shape_heatmap,
     save_calibration_frame,
     save_calibration_heatmap,
+    save_calibration_table_view,
+    save_calibration_table_view_area_shape,
 )
 from npec_rig.calibration_viz import (
+    AREA_SHAPE_HEATMAP_MAX_PCT,
+    AREA_SHAPE_HEATMAP_MIN_PCT,
+    HEATMAP_MAX_PCT,
+    HEATMAP_MIN_PCT,
     render_area_shape_heatmap,
     render_best_worst_overlay,
     render_honesty_plot,
     render_radial_residual_plot,
     render_rank_plot,
+    render_table_view,
     render_uncertainty_heatmap,
 )
 from npec_rig.camera import CameraManager, array_to_jpeg
@@ -265,7 +273,12 @@ def api_captures(limit: int = 12) -> list[dict]:
 
 
 @app.post("/calibration/run")
-def run_calibration(promote: bool = True, calibration_tag_size_mm: float | None = None) -> dict:
+def run_calibration(
+    promote: bool = True,
+    calibration_tag_size_mm: float | None = None,
+    table_width_mm: float | None = None,
+    table_length_mm: float | None = None,
+) -> dict:
     """Setup calibration (PLAN.md M2 section A): capture a full-res still, detect tags, build the
     scale field and install report, and save the frame plus the resulting artifact.
 
@@ -281,6 +294,12 @@ def run_calibration(promote: bool = True, calibration_tag_size_mm: float | None 
     print run's calibration tags, overriding `ASSUMED_CALIBRATION_TAG_SIZE_MM` -- that constant
     is a placeholder for whoever hasn't measured yet, not a substitute for measuring. A reprint at
     a different size needs a new measurement typed in here, not a source change.
+
+    `table_width_mm`/`table_length_mm`, if given, must be measured centre-to-centre between the
+    four corner tags (see `calibration.TableFrame`'s docstring) -- not the table's outer physical
+    edge. Neither is persisted anywhere (no `CalibrationArtifact` schema change): both are echoed
+    straight back in the result so the UI can state which mode a given run's table view used,
+    and there's nothing to pre-fill a repeat run from other than what the operator types again.
     """
     tag_size_mm = calibration_tag_size_mm if calibration_tag_size_mm is not None else (
         ASSUMED_CALIBRATION_TAG_SIZE_MM
@@ -304,6 +323,8 @@ def run_calibration(promote: bool = True, calibration_tag_size_mm: float | None 
         "calibration_tag_size_mm": tag_size_mm,
         "calibration_tag_size_mm_is_default": calibration_tag_size_mm is None,
         "frame_path": str(frame_path),
+        "table_width_mm": table_width_mm,
+        "table_length_mm": table_length_mm,
     }
 
     try:
@@ -347,6 +368,53 @@ def run_calibration(promote: bool = True, calibration_tag_size_mm: float | None 
     else:
         result["area_shape_heatmap_url"] = None
 
+    # The table-position trust view (PLAN.md 339-340's promised-but-unbuilt homography, see
+    # calibration.TableFrame): same two fields as the two heatmaps above, painted instead on a
+    # straightened top-down view anchored to the four corner tags, so "this spot" means the same
+    # real position across different calibration runs. `covered_positions` reuses the calibration
+    # tags' own positions already extracted above -- no new detection pass.
+    try:
+        table_frame = build_table_frame(corner_baseline) if corner_baseline is not None else None
+    except ValueError:
+        table_frame = None
+    covered_positions = [d.centre for d in calibration_detections]
+
+    if table_frame is not None and uncertainty_field is not None:
+        table_view = render_table_view(
+            array,
+            table_frame,
+            uncertainty_field.local_uncertainty_pct,
+            covered_positions,
+            label="scale residual",
+            vmin=HEATMAP_MIN_PCT,
+            vmax=HEATMAP_MAX_PCT,
+            table_width_mm=table_width_mm,
+            table_length_mm=table_length_mm,
+        )
+        save_calibration_table_view(table_view, stem=stem)
+        result["table_view_url"] = f"/calibration/files/heatmaps/{stem}_table-view.jpg"
+    else:
+        result["table_view_url"] = None
+
+    if table_frame is not None and area_field is not None:
+        table_view_shape = render_table_view(
+            array,
+            table_frame,
+            area_field.local_shape_factor_pct,
+            covered_positions,
+            label="area-shape distortion",
+            vmin=AREA_SHAPE_HEATMAP_MIN_PCT,
+            vmax=AREA_SHAPE_HEATMAP_MAX_PCT,
+            table_width_mm=table_width_mm,
+            table_length_mm=table_length_mm,
+        )
+        save_calibration_table_view_area_shape(table_view_shape, stem=stem)
+        result["table_view_shape_url"] = (
+            f"/calibration/files/heatmaps/{stem}_table-view-area-shape.jpg"
+        )
+    else:
+        result["table_view_shape_url"] = None
+
     result["frame_url"] = f"/calibration/files/frames/{stem}.jpg"
 
     lens_position = manager.get_lens_position()
@@ -381,6 +449,14 @@ def list_calibration_artifacts() -> list[dict]:
         area_shape_heatmap_url = None
         if (calibration_root() / "heatmaps" / f"{path.stem}_area-shape.jpg").exists():
             area_shape_heatmap_url = f"/calibration/files/heatmaps/{path.stem}_area-shape.jpg"
+        table_view_url = None
+        if (calibration_root() / "heatmaps" / f"{path.stem}_table-view.jpg").exists():
+            table_view_url = f"/calibration/files/heatmaps/{path.stem}_table-view.jpg"
+        table_view_shape_url = None
+        if (calibration_root() / "heatmaps" / f"{path.stem}_table-view-area-shape.jpg").exists():
+            table_view_shape_url = (
+                f"/calibration/files/heatmaps/{path.stem}_table-view-area-shape.jpg"
+            )
         entries.append(
             {
                 "filename": path.name,
@@ -388,6 +464,8 @@ def list_calibration_artifacts() -> list[dict]:
                 "frame_url": frame_url,
                 "heatmap_url": heatmap_url,
                 "area_shape_heatmap_url": area_shape_heatmap_url,
+                "table_view_url": table_view_url,
+                "table_view_shape_url": table_view_shape_url,
             }
         )
     return entries
@@ -409,6 +487,20 @@ def current_calibration() -> dict:
         and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}_area-shape.jpg").exists()
         else None
     )
+    table_view_url = (
+        f"/calibration/files/heatmaps/{artifact.frame_stem}_table-view.jpg"
+        if artifact.frame_stem
+        and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}_table-view.jpg").exists()
+        else None
+    )
+    table_view_shape_url = (
+        f"/calibration/files/heatmaps/{artifact.frame_stem}_table-view-area-shape.jpg"
+        if artifact.frame_stem
+        and (
+            calibration_root() / "heatmaps" / f"{artifact.frame_stem}_table-view-area-shape.jpg"
+        ).exists()
+        else None
+    )
     return {
         "exists": True,
         "created_at": artifact.created_at,
@@ -421,6 +513,8 @@ def current_calibration() -> dict:
         "frame_url": frame_url,
         "heatmap_url": heatmap_url,
         "area_shape_heatmap_url": area_shape_heatmap_url,
+        "table_view_url": table_view_url,
+        "table_view_shape_url": table_view_shape_url,
         "has_uncertainty_field": artifact.uncertainty_field is not None,
     }
 

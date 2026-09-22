@@ -9,6 +9,8 @@ from npec_rig.calibration_store import (
     load_current_calibration,
     save_calibration,
     save_calibration_frame,
+    save_calibration_table_view,
+    save_calibration_table_view_area_shape,
 )
 
 pytestmark = pytest.mark.unit
@@ -84,6 +86,23 @@ def test_save_calibration_and_frame_share_a_stem_when_given_one() -> None:
 
     assert (calibration_root() / "frames" / "shared-stem.jpg").exists()
     assert (calibration_root() / "shared-stem.json").exists()
+
+
+def test_save_calibration_table_view_writes_under_heatmaps_with_suffix() -> None:
+    image = np.zeros((8, 8, 3), dtype=np.uint8)
+    path = save_calibration_table_view(image, stem="shared-stem")
+
+    assert path == calibration_root() / "heatmaps" / "shared-stem_table-view.jpg"
+    assert path.exists()
+    assert path.read_bytes()[:2] == b"\xff\xd8"
+
+
+def test_save_calibration_table_view_area_shape_writes_under_heatmaps_with_suffix() -> None:
+    image = np.zeros((8, 8, 3), dtype=np.uint8)
+    path = save_calibration_table_view_area_shape(image, stem="shared-stem")
+
+    assert path == calibration_root() / "heatmaps" / "shared-stem_table-view-area-shape.jpg"
+    assert path.exists()
 
 
 def test_storage_is_separate_from_captures_dir(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:

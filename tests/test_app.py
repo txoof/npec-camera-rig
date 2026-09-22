@@ -313,6 +313,47 @@ def test_run_calibration_builds_field_and_saves_artifact_and_frame(
 
     listing = client.get("/calibration/list").json()
     assert listing[0]["area_shape_heatmap_url"] == body["area_shape_heatmap_url"]
+    assert body["table_view_url"] is None  # only 2 of 4 corner tags -- no table frame buildable
+    assert body["table_view_shape_url"] is None
+
+
+_FOUR_CORNER_TAGS = [
+    square_detection(450, 30, 30, side_px=60.0),
+    square_detection(451, 1500, 30, side_px=60.0),
+    square_detection(452, 1500, 1100, side_px=60.0),
+    square_detection(455, 30, 1100, side_px=60.0),
+]
+
+
+def test_run_calibration_builds_table_view_with_all_four_corner_tags(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(
+        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/calibration/run", params={"table_width_mm": 1000.0, "table_length_mm": 800.0}
+    )
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["corner_baseline_tags"] == [450, 451, 452, 455]
+    assert body["table_width_mm"] == 1000.0
+    assert body["table_length_mm"] == 800.0
+    assert body["table_view_url"] is not None
+    assert body["table_view_shape_url"] is not None
+    assert (calibration_root() / "heatmaps" / Path(body["table_view_url"]).name).exists()
+    assert (calibration_root() / "heatmaps" / Path(body["table_view_shape_url"]).name).exists()
+
+    current = client.get("/calibration/current").json()
+    assert current["table_view_url"] == body["table_view_url"]
+    assert current["table_view_shape_url"] == body["table_view_shape_url"]
+
+    listing = client.get("/calibration/list").json()
+    assert listing[0]["table_view_url"] == body["table_view_url"]
+    assert listing[0]["table_view_shape_url"] == body["table_view_shape_url"]
 
 
 def test_current_uncertainty_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
