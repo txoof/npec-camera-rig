@@ -5,6 +5,7 @@ from npec_rig.calibration import (
     area_scale_samples,
     build_area_scale_field,
     build_scale_field,
+    build_table_frame,
     build_uncertainty_field,
 )
 from npec_rig.calibration_viz import (
@@ -12,16 +13,36 @@ from npec_rig.calibration_viz import (
     AREA_SHAPE_HEATMAP_MIN_PCT,
     HEATMAP_MAX_PCT,
     HEATMAP_MIN_PCT,
+    TABLE_VIEW_CANVAS_DIM,
     render_area_shape_heatmap,
     render_best_worst_overlay,
     render_honesty_plot,
     render_radial_residual_plot,
     render_rank_plot,
+    render_table_view,
     render_uncertainty_heatmap,
 )
 from npec_rig.tags import TagDetection
+from npec_rig.tripwire import CornerBaseline
 
 from .helpers import square_detection as _square_detection
+
+
+def _axis_aligned_table_frame(size: float = 1000.0):
+    """A `TableFrame` whose 4 corner tags sit exactly at an axis-aligned square's corners, so
+    `to_fraction(x, y) == (x / size, y / size)` exactly -- a known, simple mapping to check
+    rendering geometry against without depending on `build_table_frame`'s own correctness (that's
+    `test_calibration.py`'s job).
+    """
+    baseline = CornerBaseline(
+        corners_by_id={
+            450: _square_detection(450, 0.0, 0.0, 20.0).corners,
+            451: _square_detection(451, size, 0.0, 20.0).corners,
+            452: _square_detection(452, size, size, 20.0).corners,
+            455: _square_detection(455, 0.0, size, 20.0).corners,
+        }
+    )
+    return build_table_frame(baseline)
 
 pytestmark = pytest.mark.unit
 
@@ -252,3 +273,62 @@ def test_radial_plot_handles_zero_variance_without_crashing() -> None:
     points = [(0.0, 1.0, 1), (100.0, 1.0, 2), (200.0, 1.0, 3)]
     image = render_radial_residual_plot(points, label="scale residual", size=300, margin=50, top_margin=80)
     assert image.shape == (300, 300, 3)
+
+
+def test_render_table_view_output_shape_and_dtype() -> None:
+    table_frame = _axis_aligned_table_frame()
+    frame = np.full((1000, 1000, 3), 100, dtype=np.uint8)
+    image = render_table_view(
+        frame, table_frame, lambda x, y: 4.0, [(500.0, 500.0)], label="scale residual", vmin=0.0, vmax=8.0
+    )
+    assert image.dtype == np.uint8
+    assert image.shape == (TABLE_VIEW_CANVAS_DIM, TABLE_VIEW_CANVAS_DIM, 3)
+
+
+def test_render_table_view_masks_uncovered_region_grey() -> None:
+    # A uniform grey source frame -- so an unmasked (covered) pixel, blended with a strongly
+    # non-grey hot-end heatmap colour, has visibly unequal channels, while a masked (uncovered)
+    # pixel is exactly the source's own grayscale value in every channel (R == G == B).
+    table_frame = _axis_aligned_table_frame()
+    frame = np.full((1000, 1000, 3), 100, dtype=np.uint8)
+    # Covers only the fraction-(0.1-0.4) quadrant -- canvas pixels near fraction (0.2, 0.2) are
+    # inside the hull, canvas pixels near fraction (0.8, 0.8) are well outside it.
+    covered_positions = [(100.0, 100.0), (100.0, 400.0), (400.0, 400.0), (400.0, 100.0)]
+    image = render_table_view(
+        frame, table_frame, lambda x, y: 8.0, covered_positions, label="scale residual", vmin=0.0, vmax=8.0
+    )
+
+    covered_px = image[int(0.2 * TABLE_VIEW_CANVAS_DIM), int(0.2 * TABLE_VIEW_CANVAS_DIM)]
+    uncovered_px = image[int(0.8 * TABLE_VIEW_CANVAS_DIM), int(0.8 * TABLE_VIEW_CANVAS_DIM)]
+
+    assert not (int(covered_px[0]) == int(covered_px[1]) == int(covered_px[2]))
+    assert abs(int(uncovered_px[0]) - int(uncovered_px[1])) <= 1
+    assert abs(int(uncovered_px[1]) - int(uncovered_px[2])) <= 1
+
+
+def test_render_table_view_not_to_scale_by_default() -> None:
+    table_frame = _axis_aligned_table_frame()
+    frame = np.full((1000, 1000, 3), 100, dtype=np.uint8)
+    image = render_table_view(
+        frame, table_frame, lambda x, y: 1.0, [(500.0, 500.0)], label="scale residual", vmin=0.0, vmax=8.0
+    )
+    assert image.shape == (TABLE_VIEW_CANVAS_DIM, TABLE_VIEW_CANVAS_DIM, 3)
+
+
+def test_render_table_view_uses_real_aspect_ratio_when_supplied() -> None:
+    table_frame = _axis_aligned_table_frame()
+    frame = np.full((1000, 1000, 3), 100, dtype=np.uint8)
+    image = render_table_view(
+        frame,
+        table_frame,
+        lambda x, y: 1.0,
+        [(500.0, 500.0)],
+        label="scale residual",
+        vmin=0.0,
+        vmax=8.0,
+        table_width_mm=500.0,
+        table_length_mm=1000.0,
+    )
+    height, width = image.shape[0], image.shape[1]
+    assert height == TABLE_VIEW_CANVAS_DIM
+    assert width == pytest.approx(TABLE_VIEW_CANVAS_DIM / 2, abs=1)

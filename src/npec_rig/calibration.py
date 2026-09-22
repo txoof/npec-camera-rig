@@ -182,6 +182,13 @@ class TableFrame:
             )
         return (float(x / w), float(y / w))
 
+    def as_matrix(self) -> np.ndarray:
+        """The pixel -> fraction homography as a plain 3x3 `np.ndarray` -- for a caller (e.g.
+        `calibration_viz.render_table_view`) that needs to compose it with other matrices (a
+        downscale, a canvas scale) rather than call `to_fraction`/`to_pixel` point by point.
+        """
+        return np.array(self._matrix)
+
 
 def build_table_frame(baseline: CornerBaseline) -> TableFrame:
     """Build a `TableFrame` from the four corner tags' own centres.

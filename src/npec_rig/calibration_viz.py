@@ -11,7 +11,7 @@ from collections.abc import Callable
 import cv2
 import numpy as np
 
-from npec_rig.calibration import AreaScaleField, UncertaintyField
+from npec_rig.calibration import AreaScaleField, TableFrame, UncertaintyField
 
 # Fixed color scale, not per-image min/max: a heatmap that always stretches to fill its own
 # range would look equally "hot" whether the worst spot is 2% or 20% uncertain, hiding exactly
@@ -37,6 +37,30 @@ HEATMAP_GRID = (40, 30)  # (columns, rows) -- coarse is fine, it's smoothly upsa
 # colour-map and blend just to shrink it back down for display. Capped well below the display's
 # own resolution.
 HEATMAP_MAX_WIDTH = 1600
+
+# The table view's own canvas scale -- matches the other diagnostic plots' scale in this module
+# (RANK_PLOT_SIZE, RADIAL_PLOT_SIZE), not the frame's own resolution: a straightened floor-plan
+# view is for a human to glance at, same reasoning as HEATMAP_MAX_WIDTH above.
+TABLE_VIEW_CANVAS_DIM = 900
+TABLE_VIEW_GRID = HEATMAP_GRID  # same coarse-then-upsample pattern as every heatmap in this file
+
+
+def _grid_to_colormap(grid: np.ndarray, vmin: float, vmax: float, width: int, height: int) -> np.ndarray:
+    """`grid` (coarse, already in the field's own units) clipped to `[vmin, vmax]`, normalized to
+    0-255, colour-mapped and upsampled to `(height, width)` -- the clip-normalize-colormap step
+    shared by every renderer in this module that turns a coarse percentage grid into a colour
+    field (`render_pct_heatmap`, `render_table_view`), so the OOM-safety/colour-convention
+    reasoning below lives once, not copy-pasted at each call site.
+    """
+    clipped = np.clip(grid, vmin, vmax)
+    normalized = ((clipped - vmin) / (vmax - vmin) * 255.0).astype(np.uint8)
+    upsampled = cv2.resize(normalized, (width, height), interpolation=cv2.INTER_LINEAR)
+
+    # cv2.applyColorMap returns BGR, per OpenCV's own convention -- this project treats arrays as
+    # RGB throughout (see camera.py's array_to_jpeg docstring), so the swap back is load-bearing,
+    # not cosmetic.
+    color_bgr = cv2.applyColorMap(upsampled, cv2.COLORMAP_TURBO)
+    return cv2.cvtColor(color_bgr, cv2.COLOR_BGR2RGB)
 
 
 def render_pct_heatmap(
@@ -77,16 +101,7 @@ def render_pct_heatmap(
         [[sample_at(float(x), float(y)) for x in xs] for y in ys],
         dtype=np.float32,
     )
-
-    clipped = np.clip(grid, vmin, vmax)
-    normalized = ((clipped - vmin) / (vmax - vmin) * 255.0).astype(np.uint8)
-    upsampled = cv2.resize(normalized, (width, height), interpolation=cv2.INTER_LINEAR)
-
-    # cv2.applyColorMap returns BGR, per OpenCV's own convention -- this project treats arrays as
-    # RGB throughout (see camera.py's array_to_jpeg docstring), so the swap back is load-bearing,
-    # not cosmetic.
-    color_bgr = cv2.applyColorMap(upsampled, cv2.COLORMAP_TURBO)
-    color_rgb = cv2.cvtColor(color_bgr, cv2.COLOR_BGR2RGB)
+    color_rgb = _grid_to_colormap(grid, vmin, vmax, width, height)
 
     # cv2.addWeighted blends in place in uint8, not three full-frame float32 copies (base,
     # colour, blended) -- at a real 64MP capture that float32 path allocated ~2.3GB of
@@ -475,3 +490,158 @@ def render_radial_residual_plot(
     cv2.putText(img, f"{label} (%), signed", (10, top_margin - 15), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
 
     return img
+
+
+def _table_view_canvas_size(
+    table_width_mm: float | None, table_length_mm: float | None
+) -> tuple[int, int, bool]:
+    """`(canvas_width_px, canvas_height_px, to_scale)`. Square (`to_scale=False`) unless *both*
+    real dimensions were supplied, in which case the canvas's own aspect ratio matches them --
+    never a plausible-looking but wrong rectangle from only one of the two.
+    """
+    if table_width_mm and table_length_mm:
+        aspect = table_length_mm / table_width_mm  # height / width
+        if aspect >= 1:
+            height = TABLE_VIEW_CANVAS_DIM
+            width = max(1, int(round(TABLE_VIEW_CANVAS_DIM / aspect)))
+        else:
+            width = TABLE_VIEW_CANVAS_DIM
+            height = max(1, int(round(TABLE_VIEW_CANVAS_DIM * aspect)))
+        return width, height, True
+    return TABLE_VIEW_CANVAS_DIM, TABLE_VIEW_CANVAS_DIM, False
+
+
+def _covered_hull_mask(
+    table_frame: TableFrame,
+    covered_positions: list[tuple[float, float]],
+    canvas_width: int,
+    canvas_height: int,
+) -> np.ndarray:
+    """Boolean mask, `True` inside the convex hull of `covered_positions` (original full-res pixel
+    positions -- typically the calibration tags a field was actually built from) mapped into
+    canvas space. A floor-plan view has no visible "table edge" cue the way a photo does, so
+    anywhere never actually measured must read as unmeasured, not as a confident-looking colour
+    borrowed from whichever tag happens to be nearest.
+    """
+    canvas_points = []
+    for x, y in covered_positions:
+        try:
+            u, v = table_frame.to_fraction(x, y)
+        except ValueError:
+            continue
+        canvas_points.append((u * canvas_width, v * canvas_height))
+
+    mask = np.zeros((canvas_height, canvas_width), dtype=np.uint8)
+    if len(canvas_points) < 3:
+        return mask.astype(bool)  # can't form a hull from fewer than 3 points -- nothing covered
+    hull = cv2.convexHull(np.array(canvas_points, dtype=np.float32))
+    cv2.fillConvexPoly(mask, hull.astype(np.int32), 1)
+    return mask.astype(bool)
+
+
+def render_table_view(
+    frame: np.ndarray,
+    table_frame: TableFrame,
+    sample_at: Callable[[float, float], float],
+    covered_positions: list[tuple[float, float]],
+    *,
+    label: str,
+    vmin: float,
+    vmax: float,
+    alpha: float = 0.55,
+    table_width_mm: float | None = None,
+    table_length_mm: float | None = None,
+    max_width: int = HEATMAP_MAX_WIDTH,
+) -> np.ndarray:
+    """A straightened, top-down view of the table (via `table_frame`'s homography), with
+    `sample_at`'s field painted on it the same way `render_pct_heatmap` paints one on the raw
+    photo -- except this picture means the same real position every time, regardless of which
+    calibration run produced it, because it's anchored to the four corner tags rather than to one
+    specific photo's own tilt and framing.
+
+    Two coordinate spaces are kept explicit throughout, not folded together by hand: `sample_at`
+    is always queried in the *original, full-resolution* pixel coordinates it was built from
+    (matching `render_pct_heatmap`'s own convention); only the photo warp itself composes
+    pixel->fraction->canvas-pixel into one matrix, and only for `cv2.warpPerspective`'s sake.
+
+    `frame` is downscaled to `max_width` first, same OOM guard as `render_pct_heatmap` (see
+    `HEATMAP_MAX_WIDTH`'s own comment -- the dmesg-confirmed OOM this guards against is shared
+    infrastructure, not re-derived here). The canvas is square with a baked-in "NOT TO SCALE"
+    caveat unless both `table_width_mm`/`table_length_mm` are given (see
+    `_table_view_canvas_size`) -- a real width/length must be measured *centre-to-centre between
+    the same four corner tags* `table_frame` was built from (see `TableFrame`'s own docstring),
+    not the table's outer physical edge, or the aspect ratio silently won't match what's rendered.
+
+    Anywhere outside the convex hull of `covered_positions` (see `_covered_hull_mask`) is rendered
+    desaturated grey, not just lower alpha -- a floor-plan view has no visible "table edge" the
+    way a photo does, so an unmasked extrapolated region would read as more confident than it is.
+    A title and scale caveat are baked into the pixels, matching the precedent
+    `render_rank_plot`/`render_radial_residual_plot` already set, so a saved/screenshotted copy
+    stays self-explanatory out of context.
+    """
+    full_height, full_width = frame.shape[0], frame.shape[1]
+    downscale = min(1.0, max_width / full_width)
+    if downscale < 1.0:
+        downscaled_frame = cv2.resize(
+            np.ascontiguousarray(frame[..., :3]),
+            (int(round(full_width * downscale)), int(round(full_height * downscale))),
+            interpolation=cv2.INTER_AREA,
+        )
+    else:
+        downscaled_frame = np.ascontiguousarray(frame[..., :3])
+
+    canvas_width, canvas_height, to_scale = _table_view_canvas_size(table_width_mm, table_length_mm)
+
+    # Three explicit matrices composed, not a hand-folded scale factor: `downscaled_to_full` maps
+    # a *downscaled*-frame pixel back to the *full-res* pixel `table_frame`'s homography expects;
+    # `homography` (pixel -> fraction) is `table_frame`'s own matrix; `fraction_to_canvas` maps
+    # (u, v) in [0, 1]^2 onto the canvas's own pixel dimensions. `cv2.warpPerspective` wants the
+    # forward map from its *source* image's pixels (the downscaled frame) to its *destination*
+    # image's pixels (the canvas), which is exactly this product, applied right to left.
+    downscaled_to_full = np.diag([1.0 / downscale, 1.0 / downscale, 1.0])
+    homography = table_frame.as_matrix()
+    fraction_to_canvas = np.diag([float(canvas_width), float(canvas_height), 1.0])
+    warp_matrix = fraction_to_canvas @ homography @ downscaled_to_full
+
+    warped_photo = cv2.warpPerspective(downscaled_frame, warp_matrix, (canvas_width, canvas_height))
+
+    cols, rows = TABLE_VIEW_GRID
+    grid = np.full((rows, cols), vmin, dtype=np.float32)
+    valid = np.zeros((rows, cols), dtype=bool)
+    xs = np.linspace(0, canvas_width - 1, cols)
+    ys = np.linspace(0, canvas_height - 1, rows)
+    for row, canvas_y in enumerate(ys):
+        for col, canvas_x in enumerate(xs):
+            u, v = canvas_x / canvas_width, canvas_y / canvas_height
+            try:
+                x, y = table_frame.to_pixel(u, v)
+            except ValueError:
+                continue  # outside the homography's physically valid domain -- left as invalid
+            grid[row, col] = sample_at(x, y)
+            valid[row, col] = True
+
+    color_rgb = _grid_to_colormap(grid, vmin, vmax, canvas_width, canvas_height)
+    blended = cv2.addWeighted(warped_photo, 1 - alpha, color_rgb, alpha, 0)
+
+    valid_upsampled = (
+        cv2.resize(valid.astype(np.uint8), (canvas_width, canvas_height), interpolation=cv2.INTER_NEAREST) > 0
+    )
+    hull_mask = _covered_hull_mask(table_frame, covered_positions, canvas_width, canvas_height)
+    covered = valid_upsampled & hull_mask
+
+    grey = cv2.cvtColor(cv2.cvtColor(warped_photo, cv2.COLOR_RGB2GRAY), cv2.COLOR_GRAY2RGB)
+    result = np.where(covered[..., None], blended, grey)
+
+    _put_text_with_halo(result, f"{label}: table-position view", (20, 40), 1.0, (0, 0, 0), 2)
+    scale_note = (
+        f"to scale: {table_width_mm:.0f}mm x {table_length_mm:.0f}mm, centre-to-centre "
+        "between corner tags"
+        if to_scale
+        else "NOT TO SCALE -- width/length not entered; shows relative position only"
+    )
+    _put_text_with_halo(result, scale_note, (20, canvas_height - 20), 0.6, (0, 0, 0), 2)
+    _put_text_with_halo(
+        result, "grey = never measured near here", (20, canvas_height - 44), 0.6, (0, 0, 0), 2
+    )
+
+    return result
