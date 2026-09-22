@@ -281,6 +281,42 @@
         usually because coverage is thin there (see the coverage lines above); add a sheet in a
         red area to bring it down.
       </p>
+      <details style="margin-top: 0.4rem;">
+        <summary>How this number is calculated, and what it means</summary>
+        <div style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
+          <p>
+            Every calibration tag's real size is measured with callipers, not taken from the
+            packaging (the single biggest source of error found in this project's history —
+            a "30&nbsp;mm" tag actually measured 29.3106&nbsp;mm, a ~4.7% error in area if
+            trusted). From that measured size and the tag's four detected corners, each tag
+            gives a real, measured scale (pixels per millimetre) at its own spot in the photo.
+          </p>
+          <p>
+            Those measured scales are fitted to a single tilted plane (a camera looking down at
+            an angle sees things nearer the lens as "bigger per millimetre" than things farther
+            away — a plane is the simplest shape that captures that). The percentage shown at
+            any point on the photo is <em>not</em> that fit directly: it is how far off the fit
+            was for the 5 calibration tags physically nearest that point, combined so that tags
+            reading slightly big and slightly small don't cancel each other out to zero — an
+            even split either way still counts as real disagreement.
+          </p>
+          <p>
+            <strong>What it means:</strong> a direct, measured estimate of how far a canopy-area
+            reading at that spot could be off, based on how consistent the real calibration tags
+            near it actually were — not a theoretical lens or camera error estimate. Blue
+            genuinely means "several nearby tags agreed closely." Red usually means thin
+            coverage nearby (see the coverage lines above), not a fault in the camera or the
+            maths.
+          </p>
+          <p>
+            <strong>Caveat:</strong> "5 nearest tags" has no distance limit. A spot with no real
+            coverage anywhere near it still gets a colour, borrowed from whichever tags happen
+            to be closest in the photo, however far that really is. Blue in a completely
+            uncovered area (e.g. off the edge of the table) means "the nearest real
+            measurements happened to agree," not "this spot was actually measured."
+          </p>
+        </div>
+      </details>
     </div>
     <img id="calibration-area-shape-heatmap" alt="Area-scale shape distortion heatmap"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
@@ -303,6 +339,52 @@
         hot in the same place, which just means "add coverage there," not "area needs its own
         fit."
       </p>
+      <details style="margin-top: 0.4rem;">
+        <summary>How this number is calculated, and what it means</summary>
+        <div style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
+          <p>
+            The scale field above only ever measures <em>length</em> (pixels per millimetre in
+            one direction). Turning that into an <em>area</em> conversion — needed to report
+            canopy area in mm², not pixels — means squaring it, which is only exactly right if
+            every tag's photographed shape is a perfect square. Near a tilted table's edges, a
+            real square can photograph as a slightly non-square quadrilateral (a "keystone"
+            shape), and squaring the length scale would silently miss that.
+          </p>
+          <p>
+            Rather than model the lens or the table's tilt angle to predict this — the kind of
+            camera maths this project has failed at three times before, see CLAUDE.md — it's
+            measured directly: each tag's <em>real</em> pixel area, computed exactly from its
+            four detected corners (a standard geometry formula, no lens model, no assumptions),
+            compared to what a perfect square with that tag's own average side length would
+            cover. A square is the largest-area shape possible for a given average side length,
+            so this comparison can only ever come out as zero (a genuine square) or negative
+            (some real distortion) — never positive; that's also why this heatmap's colour scale
+            only runs one direction.
+          </p>
+          <p>
+            <strong>What it means:</strong> answers "is squaring the length scale above good
+            enough for area, or does area need its own correction before the canopy-area feature
+            (M5) relies on it?" Flat/near-zero everywhere means squaring is fine. Measured across
+            17 real calibration runs on this rig (2026-09-21): the worst tag anywhere came out
+            at &minus;0.46%, and the pattern gets worse toward the table's corners in a way that
+            tracks position, not tag size or image noise (checked separately, by comparing
+            against tag size directly across 2104 tags) — so it reads as a real, if very small,
+            geometric effect, not noise. Logged as an open scope decision in TODO.md, not acted
+            on further without sign-off, since an area-specific fit is exactly the calibration
+            maths CLAUDE.md's evidence gates exist to hold off on.
+          </p>
+          <p>
+            <strong>Caveat:</strong> this heatmap uses a much narrower colour scale (0–0.5%) than
+            the confidence heatmap above (0–8%), stretched to fill the same blue-to-red range
+            either way. The two images can look equally "hot" by eye at completely different
+            real magnitudes — only the printed percentages say which is actually bigger. The two
+            numbers also measure different things and aren't copies of each other: on a given
+            run they've come out statistically uncorrelated, even though both tend to look worse
+            toward the table's edges — for unrelated reasons (coverage gaps here vs. real
+            geometry above).
+          </p>
+        </div>
+      </details>
     </div>
     <details style="margin-top: 0.75rem;">
       <summary>Saved calibrations (download)</summary>
