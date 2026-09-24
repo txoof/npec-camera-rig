@@ -660,13 +660,13 @@ def describe_area_scale_shape(samples: list[AreaScaleSample]) -> str:
     )
 
 
-def describe_scale_variation(field: ScaleField, positions: list[tuple[float, float]]) -> str:
-    """One line: how much scale varies across the tag cloud used to build `field`, and where.
+def _bbox_corner_scale(
+    field: ScaleField, positions: list[tuple[float, float]]
+) -> dict[str, float]:
+    """px/mm at each corner of the *observed* tag cloud's bounding box, keyed by corner label.
 
-    Evaluated over the bounding box of the *observed* tag positions, never the full frame --
-    extrapolating the fitted plane beyond where tags were actually seen would be exactly the
-    silent-lie failure mode this report exists to catch (see `ScaleField.px_per_mm`'s guard).
-    `positions` is normally the (x, y) of every detection `field` was fit from.
+    Shared by `describe_scale_variation` and `describe_coplanarity` so both read the same four
+    corners -- never the full frame, for the reason `describe_scale_variation` documents.
     """
     xs = [p[0] for p in positions]
     ys = [p[1] for p in positions]
@@ -676,11 +676,49 @@ def describe_scale_variation(field: ScaleField, positions: list[tuple[float, flo
         "bottom-left": (min(xs), max(ys)),
         "bottom-right": (max(xs), max(ys)),
     }
-    values = {label: field.px_per_mm(x, y) for label, (x, y) in corners.items()}
+    return {label: field.px_per_mm(x, y) for label, (x, y) in corners.items()}
+
+
+def describe_scale_variation(field: ScaleField, positions: list[tuple[float, float]]) -> str:
+    """One line: how much scale varies across the tag cloud used to build `field`, and where.
+
+    Evaluated over the bounding box of the *observed* tag positions, never the full frame --
+    extrapolating the fitted plane beyond where tags were actually seen would be exactly the
+    silent-lie failure mode this report exists to catch (see `ScaleField.px_per_mm`'s guard).
+    `positions` is normally the (x, y) of every detection `field` was fit from.
+    """
+    values = _bbox_corner_scale(field, positions)
     mean_value = sum(values.values()) / len(values)
     worst_label = max(values, key=lambda label: abs(values[label] - mean_value))
     variation_pct = 100.0 * (max(values.values()) - min(values.values())) / mean_value
     return f"Scale varies {variation_pct:.0f}% across the calibrated area, worst {worst_label}."
+
+
+def describe_coplanarity(field: ScaleField, positions: list[tuple[float, float]]) -> str:
+    """One line: which side of the observed tag cloud reads nearer the camera, and by how much.
+
+    A co-planar sensor and table give constant px/mm everywhere; the same fitted plane
+    `describe_scale_variation` reads is the direct evidence of a gradient instead -- higher
+    px/mm means nearer the lens (see `ScaleField`/`_fit_plane`'s relative-depth convention).
+    Reuses `_bbox_corner_scale` so this and the scale-variation line can't disagree about which
+    corners they're describing.
+
+    Deliberately stops at direction and magnitude, not a tilt angle: converting a scale gradient
+    to degrees needs the camera-to-table standoff distance, which Aaron has ruled out measuring
+    on this rig (fragile) -- see CLAUDE.md's evidence-gate table and the module docstring this
+    line's callers already carry. No angle is offered; inventing one from this data would be
+    exactly the derived-not-measured number CLAUDE.md exists to rule out.
+    """
+    values = _bbox_corner_scale(field, positions)
+    mean_value = sum(values.values()) / len(values)
+    near_label = max(values, key=values.get)
+    far_label = min(values, key=values.get)
+    span_pct = 100.0 * (values[near_label] - values[far_label]) / mean_value
+    return (
+        f"Scale reads {span_pct:.1f}% higher at {near_label} than {far_label} -- that side of "
+        "the sensor sits nearer the table. No tilt angle is offered: that needs a standoff-"
+        "distance measurement this rig doesn't take (CLAUDE.md's evidence gate)."
+    )
 
 
 def describe_coverage(coverage: CoverageResult, *, threshold_pct: float = 2.0) -> str:
@@ -712,14 +750,15 @@ def build_install_report(
 ) -> list[str]:
     """Plain-language install report lines, from what's actually been measured so far.
 
-    Deliberately narrow: scale variation, overall coverage sufficiency, which quadrant a
-    coverage gap is in, and (when given) the area-scale shape check. Roll, tilt and framing are
-    PLAN.md's other install-report lines, but a roll/tilt angle isn't recoverable from a single
-    photo without a physical standoff-distance measurement Aaron has ruled out (the rig is
-    fragile), and framing needs a real capture's corner-tag/frame-edge check -- neither belongs
-    here yet. No invented figures.
+    Deliberately narrow: scale variation, co-planarity direction (from the same fitted field,
+    see `describe_coplanarity`), overall coverage sufficiency, which quadrant a coverage gap is
+    in, and (when given) the area-scale shape check. Framing is PLAN.md's other install-report
+    line, but it needs a real capture's corner-tag/frame-edge check and doesn't belong here yet.
+    A roll/tilt *angle* also isn't recoverable from a single photo without a physical standoff-
+    distance measurement Aaron has ruled out (the rig is fragile) -- `describe_coplanarity`
+    reports direction and magnitude instead of guessing one. No invented figures.
     """
-    lines = [describe_scale_variation(field, positions)]
+    lines = [describe_scale_variation(field, positions), describe_coplanarity(field, positions)]
     if coverage is not None:
         lines.append(describe_coverage(coverage, threshold_pct=coverage_threshold_pct))
     if regional_coverage is not None:

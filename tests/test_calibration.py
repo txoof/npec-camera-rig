@@ -15,6 +15,7 @@ from npec_rig.calibration import (
     build_table_frame,
     build_uncertainty_field,
     describe_area_scale_shape,
+    describe_coplanarity,
     describe_coverage,
     describe_regional_coverage,
     describe_scale_variation,
@@ -193,6 +194,32 @@ def test_scale_variation_line_names_the_worst_corner() -> None:
     assert "bottom-right" in line
 
 
+def test_coplanarity_line_names_the_nearer_and_farther_corner() -> None:
+    detections = [
+        _square_detection(0, 0, 0, 100),
+        _square_detection(1, 1000, 0, 100),
+        _square_detection(2, 0, 1000, 100),
+        _square_detection(3, 1000, 1000, 150),  # bottom-right: nearer the camera (bigger px/mm)
+        _square_detection(4, 500, 500, 105),
+    ]
+    field = build_scale_field(detections, {i: 30.0 for i in range(5)})
+    line = describe_coplanarity(
+        field, [(0, 0), (1000, 0), (0, 1000), (1000, 1000), (500, 500)]
+    )
+    assert "bottom-right" in line
+    assert "top-left" in line
+    assert "no tilt angle" in line.lower()
+
+
+def test_coplanarity_line_reports_near_zero_span_when_field_is_flat() -> None:
+    positions = [(0, 0), (1000, 0), (0, 1000), (1000, 1000), (500, 500)]
+    detections = [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(positions)]
+    field = build_scale_field(detections, {i: 30.0 for i in range(5)})
+
+    line = describe_coplanarity(field, positions)
+    assert "0.0%" in line
+
+
 def test_describe_coverage_reports_sufficient_under_threshold() -> None:
     coverage = CoverageResult(fit_count=8, held_out_count=8, mean_abs_pct_error=1.2, max_abs_pct_error=3.0)
     line = describe_coverage(coverage, threshold_pct=2.0)
@@ -217,9 +244,10 @@ def test_install_report_includes_scale_line_and_coverage_when_given() -> None:
     coverage = holdout_coverage_test(detections, sizes)
 
     report = build_install_report(field, positions, coverage)
-    assert len(report) == 2
+    assert len(report) == 3
     assert "Scale varies" in report[0]
-    assert "Coverage" in report[1]
+    assert "nearer the table" in report[1]
+    assert "Coverage" in report[2]
 
 
 def test_install_report_omits_coverage_line_when_not_given() -> None:
@@ -228,7 +256,7 @@ def test_install_report_omits_coverage_line_when_not_given() -> None:
     field = build_scale_field(detections, {i: 30.0 for i in range(5)})
 
     report = build_install_report(field, positions)
-    assert len(report) == 1
+    assert len(report) == 2
 
 
 def test_regional_coverage_flags_an_empty_quadrant() -> None:
@@ -323,8 +351,9 @@ def test_install_report_includes_regional_coverage_lines_when_given() -> None:
 
     report = build_install_report(field, positions, None, regional)
     assert report[0].startswith("Scale varies")
+    assert report[1].startswith("Scale reads")
     # Whatever regional lines exist (there may be none, if coverage is even) come after.
-    assert len(report) == 1 + len(describe_regional_coverage(regional))
+    assert len(report) == 2 + len(describe_regional_coverage(regional))
 
 
 def test_uncertainty_is_near_zero_when_the_plane_fits_perfectly() -> None:
@@ -773,8 +802,8 @@ def test_install_report_includes_area_scale_line_when_given() -> None:
     area = area_scale_samples(field, detections, sizes)
 
     report = build_install_report(field, positions, None, None, area)
-    assert len(report) == 2
-    assert report[1].startswith("Area-scale error")
+    assert len(report) == 3
+    assert report[2].startswith("Area-scale error")
 
 
 def _corner_baseline(points_by_id: dict[int, tuple[float, float]], side_px: float = 20.0) -> CornerBaseline:

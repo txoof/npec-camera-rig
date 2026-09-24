@@ -103,9 +103,20 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
       aid)*
 - [ ] Fix zoom quality — should be the highest quality available, not degraded
       *(likely M1 territory)*
-- [ ] Feedback on whether the sensor is co-planar with the table *(likely M2 territory, alongside
-      the tripwire/roll checks — read CLAUDE.md's evidence-gate table before starting: this is
-      exactly the kind of camera-metrology question that has sunk this project three times before)*
+- [x] **Feedback on whether the sensor is co-planar with the table — built 2026-09-24.** Checked
+      CLAUDE.md's evidence-gate table first, per the note this item carried. Tripwire roll (in-
+      image rotation between two frames) and the radial residual plot (lens-distortion signature)
+      don't answer this question -- neither is a tilt-vs-table-plane measurement. What does: the
+      scale field's own fitted plane already used for `describe_scale_variation()` is direct
+      evidence of a gradient across the table, which co-planarity would make flat. Added
+      `describe_coplanarity()` in `calibration.py` (wired into `build_install_report()`, so it
+      shows up in the install report alongside scale variation): reports which corner of the
+      observed tag cloud reads nearer the camera and by how much, from the same fit, no new
+      measurement. Deliberately stops short of a tilt angle -- converting the gradient to degrees
+      needs the camera-to-table standoff distance, which Aaron has ruled out measuring on this
+      rig (fragile); the line says so explicitly rather than guessing. Unit-tested with synthetic
+      detections (known tilt direction recovered; flat field reports ~0%). See the install-report
+      entry above.
 
 ---
 
@@ -379,20 +390,24 @@ The heart of the project. Do not start before M1 slice 5.
       "coverage weak in the bottom-left" lines, wired into `build_install_report()`. This is what
       turns the coverage check into "add coverage in the top-left" rather than just a percentage.
       Unit-tested with synthetic detections. *(2026-09-20)*
-- [~] **Install report** — `describe_scale_variation()`, `describe_coverage()`,
-      `build_install_report()` in `calibration.py`. Scale variation is evaluated over the
-      *observed tag cloud's* bounding box, never the frame -- extrapolating the fitted plane past
-      where tags were actually seen would be the report lying about its own coverage.
-      Coverage verdict defaults to PLAN.md's 2% tape-measure acceptance target as the
-      sufficient/insufficient threshold. **Roll, tilt and framing lines are not built** -- a
-      roll/tilt angle isn't recoverable from a single photo without a physical standoff-distance
-      measurement Aaron has ruled out (rig is fragile), and framing needs a real capture's
-      corner-tag/frame-edge check. `build_calibration_report()` is the entry point a real caller
-      should use — it builds the field, positions, and global/regional coverage from one
-      consistent set of detections before assembling the report lines, so a field from one
-      capture can't get paired with coverage from another (`build_install_report()`'s own
-      parameters aren't cross-checked, by design — useful for testing each line in isolation).
-      Unit-tested with synthetic detections. *(2026-09-20)*
+- [~] **Install report** — `describe_scale_variation()`, `describe_coplanarity()`,
+      `describe_coverage()`, `build_install_report()` in `calibration.py`. Scale variation is
+      evaluated over the *observed tag cloud's* bounding box, never the frame -- extrapolating
+      the fitted plane past where tags were actually seen would be the report lying about its
+      own coverage. Coverage verdict defaults to PLAN.md's 2% tape-measure acceptance target as
+      the sufficient/insufficient threshold. **Co-planarity feedback, built 2026-09-24** (see the
+      supervisor-feedback section below): `describe_coplanarity()` reads the same fitted
+      `ScaleField` scale-variation already reads and reports which corner of the tag cloud sits
+      nearer the camera (higher px/mm) and by how much -- direction and magnitude only, no angle.
+      **Roll and a tilt *angle* are still not built** -- a tilt angle isn't recoverable from a
+      single photo without a physical standoff-distance measurement Aaron has ruled out (rig is
+      fragile); **framing is also not built** -- it needs a real capture's corner-tag/frame-edge
+      check. `build_calibration_report()` is the entry point a real caller should use — it builds
+      the field, positions, and global/regional coverage from one consistent set of detections
+      before assembling the report lines, so a field from one capture can't get paired with
+      coverage from another (`build_install_report()`'s own parameters aren't cross-checked, by
+      design — useful for testing each line in isolation). Unit-tested with synthetic detections.
+      *(2026-09-20, updated 2026-09-24)*
 - [x] **Live reorientation guidance** — `POST /calibration/orientation/zero` (freezes the current
       preview frame's corner tags as an in-memory zero point) + `GET
       /calibration/orientation/live` (roll/scale reading against that zero point) in `app.py`,
