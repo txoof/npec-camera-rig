@@ -88,6 +88,27 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
 
 ---
 
+## Supervisor feedback, 2026-09-24 — not yet triaged into a milestone
+
+**Future ideas suggested by the supervisor:**
+- [ ] ROI selection — choose which part of the table to segment/measure, rather than always the
+      whole frame *(likely M5 territory, once `Segmenter` exists)*
+- [ ] A fiducial tag that marks a tray as "ignore this one" — a deliberate operator opt-out,
+      distinct from the dirty-tag-degradation case already in M4 (which is a detection *failure*
+      being handled gracefully, not an intentional exclusion) *(likely M4 territory)*
+
+**Important next steps required by the supervisor:**
+- [ ] A way to draw one horizontal and two vertical guide lines over the live preview, for
+      checking squareness by eye *(likely M2 territory, alongside the existing live reorientation
+      aid)*
+- [ ] Fix zoom quality — should be the highest quality available, not degraded
+      *(likely M1 territory)*
+- [ ] Feedback on whether the sensor is co-planar with the table *(likely M2 territory, alongside
+      the tripwire/roll checks — read CLAUDE.md's evidence-gate table before starting: this is
+      exactly the kind of camera-metrology question that has sunk this project three times before)*
+
+---
+
 ## M0 — Probe the hardware · *PLAN.md § M0*
 
 30 minutes. Do this before writing any code; it can change M1's shape.
