@@ -588,6 +588,11 @@ The heart of the project. Do not start before M1 slice 5.
       enough to want sign-off before attempting, not guessed at. Recovery for now: kill the full
       uvicorn process family (see project memory on why `pkill -f uvicorn` doesn't work) and
       relaunch. *(Aaron, 2026-09-21)*
+      **Update, 2026-09-24:** reproduced again on an abandoned experimental branch (a continuous
+      full-res video mode, since dropped for unrelated reasons) via its own `stop`/`configure`/
+      `start` reconfigure followed by autofocus -- confirms this isn't specific to a calibration
+      capture, any pipeline reconfigure followed by autofocus can trigger the same hang. Still not
+      fixed; still the same sign-off-gated change, not two separate bugs to design around.
 - [ ] **Regional coverage weakness: bottom-left explained, bottom-right not yet** — checked
       against all 7 real calibration frames saved 2026-09-21 (reprocessed offline, no bench time
       needed -- this is exactly why frames are saved alongside artifacts). Two hypotheses tested
@@ -604,6 +609,49 @@ The heart of the project. Do not start before M1 slice 5.
       That's a real, sample-size-independent, consistently-located residual -- the honesty plot
       (claimed uncertainty vs actual error, PLAN.md M2 acceptance) is the next real measurement,
       not another guess. *(2026-09-21)*
+- [ ] **`SyntheticBackend` emits 3-channel frames; real hardware now emits 4-channel (`XBGR8888`,
+      per the color-swap fix above -- `f82f12c`).** Found by `/code-review` (2026-09-24), verified
+      directly on real hardware, not trusted from the diff alone: `Picamera2Backend.capture_array()`
+      genuinely returns `(H, W, 4)`, and every consumer (`array_to_jpeg`, `to_grayscale`,
+      `detect_tags` via the calibration endpoints) handles it correctly -- confirmed by capturing a
+      real frame through the actual pipeline and looking at the resulting JPEG, colors correct, not
+      just checking it doesn't crash. So this is a **test-fixture gap, not a live bug**: the entire
+      212-test unit suite exercises a frame shape real hardware hasn't produced since that fix
+      landed, which means a future change to any consumer that only breaks on the 4th (padding)
+      channel would pass every unit test and only surface on real hardware. Not fixed here --
+      changing what `SyntheticBackend` emits changes what all 212 tests exercise, a call for Aaron,
+      not something to slip in as a side effect of a review pass.
+- [ ] **Several UI button handlers have `try`/`finally` but no `catch`** (`index.html`: run
+      calibration, zero orientation, tripwire check, honesty plot) — found by `/code-review`
+      2026-09-24. A `fetch()` rejection (network drop/timeout, plausible over Tailscale) silently
+      re-enables the button via `finally` with no error shown -- indistinguishable from never
+      having clicked. Needs a UX decision on how errors should surface (toast? inline message?),
+      not a one-line fix.
+- [ ] **Tag-size auto-prefill can launder a placeholder into "measured"** (`index.html` ~line 1045)
+      — found by `/code-review` 2026-09-24. `/calibration/current`'s response has no `is_default`
+      flag, so the UI can't tell "this number was calliper-measured" from "this is the unmeasured
+      `ASSUMED_CALIBRATION_TAG_SIZE_MM` placeholder" when it prefills the tag-size input from the
+      last run. If the operator doesn't notice and edit it, running calibration again sends the
+      placeholder back as an explicit, user-entered value -- exactly the derived-not-measured
+      failure CLAUDE.md's evidence gate exists to catch, just laundered through a form field
+      instead of a hardcoded constant. Needs an API change (carry `is_default` through) plus a
+      frontend change (warn or refuse to prefill from a default) -- not done here.
+- [ ] **Honesty-plot form asks for raw pixel coordinates and a hand-computed error percentage**
+      (`index.html` ~line 594) — found by `/code-review` 2026-09-24, and it's a direct hit on
+      CLAUDE.md's "operator inputs must be physical actions" rule: the table headers are literally
+      "x (px)", "y (px)", "actual error (%)", with instructions telling the operator to read a
+      pixel position off the frame and type it in. This is existing, already-shipped M2 UI (the
+      honesty-plot tooling, 2026-09-21), not something new -- flagging it now because a fresh
+      review pass is what caught it, not because it just landed. Needs a product decision on which
+      physical action replaces this (clicking the target on the displayed image? typing a calliper
+      length and letting the app find the nearest detected feature?) before touching it.
+- [ ] **`_outer_edge_span_to_centre_distance_mm` assumes corner tags are mounted axis-aligned with
+      the table** (`app.py` ~line 276), stated as fact with no runtime check or `is_default`-style
+      flag, unlike its sibling tag-size assumptions in the same function — found by `/code-review`
+      2026-09-24. On the physically-rebuilt rig (CLAUDE.md: re-measure everything), if the corner
+      tags are even slightly off-axis this silently under-subtracts the table span, and the UI
+      still prints an unqualified "to scale: WxL mm" caption. A measurement-discipline call for
+      Aaron, not something to guess a tolerance for.
 
 ### M2 — UI usability, not yet done
 

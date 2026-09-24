@@ -11,7 +11,9 @@ unlike camera settings, which went to SQLite instead.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -29,6 +31,8 @@ CURRENT_FILENAME = "current.json"
 FRAMES_DIRNAME = "frames"
 HEATMAPS_DIRNAME = "heatmaps"
 
+logger = logging.getLogger(__name__)
+
 
 def calibration_root() -> Path:
     """Directory calibration artifacts are written under."""
@@ -36,9 +40,23 @@ def calibration_root() -> Path:
 
 
 def _write_json_atomically(path: Path, data: dict) -> None:
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    tmp_path.write_text(json.dumps(data, indent=2))
-    tmp_path.replace(path)
+    """Write-then-rename, with a per-call-unique temp file.
+
+    A fixed tmp name (e.g. `path` + `.tmp`) would be shared by every writer of the same `path` --
+    for `current.json` specifically, two calibration runs overlapping in the request threadpool
+    both write and rename the *same* tmp file, which can interleave their bytes into malformed
+    JSON or have the second `replace` silently promote stale content. `tempfile.mkstemp` in the
+    same directory gives each call its own file, and keeps the rename atomic on one filesystem.
+    """
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=path.stem + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(json.dumps(data, indent=2))
+        os.chmod(tmp_name, 0o644)  # mkstemp defaults to 0600; match write_text's umask-based mode
+        os.replace(tmp_name, path)
+    except BaseException:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise
 
 
 def save_calibration(
@@ -149,11 +167,18 @@ def load_calibration(path: Path) -> CalibrationArtifact:
 
 
 def load_current_calibration() -> CalibrationArtifact | None:
-    """The active calibration, or None if none has ever been saved."""
+    """The active calibration, or None if none has ever been saved, or the saved one can't be
+    read back (an older/newer schema version, or a truncated/corrupt file) -- every caller of
+    this already treats None as "no calibration to show yet", so a stale or unreadable
+    current.json degrades to that instead of a 500 on every calibration route."""
     path = calibration_root() / CURRENT_FILENAME
     if not path.exists():
         return None
-    return load_calibration(path)
+    try:
+        return load_calibration(path)
+    except (ValueError, KeyError) as exc:
+        logger.warning("current calibration at %s is unreadable, treating as none saved: %s", path, exc)
+        return None
 
 
 def list_calibrations() -> list[Path]:

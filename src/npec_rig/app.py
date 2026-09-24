@@ -370,7 +370,10 @@ def run_calibration(
         result["error"] = str(exc)
         return result
 
-    result["report"] = build_calibration_report(detections, tag_sizes_mm, frame_width, frame_height)
+    try:
+        result["report"] = build_calibration_report(detections, tag_sizes_mm, frame_width, frame_height)
+    except ValueError as exc:
+        result["report"] = [f"Install report unavailable: {exc}"]
     result["residual_std_pct"] = field.residual_std_pct
     try:
         result["px_per_mm_at_centre"] = field.px_per_mm(frame_width / 2, frame_height / 2)
@@ -523,7 +526,10 @@ def current_calibration() -> dict:
         return {"exists": False}
     frame_url = f"/calibration/files/frames/{artifact.frame_stem}.jpg" if artifact.frame_stem else None
     heatmap_url = (
-        f"/calibration/files/heatmaps/{artifact.frame_stem}.jpg" if artifact.frame_stem else None
+        f"/calibration/files/heatmaps/{artifact.frame_stem}.jpg"
+        if artifact.frame_stem
+        and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}.jpg").exists()
+        else None
     )
     area_shape_heatmap_url = (
         f"/calibration/files/heatmaps/{artifact.frame_stem}_area-shape.jpg"
@@ -614,19 +620,29 @@ def honesty_plot(points: list[HonestyPlotPoint]) -> Response:
 # -- detect_tags's multi-window adaptive threshold sweep (tags.py's own DetectorParameters) isn't
 # cheap at 64MP, and doing it four times at once is four times the transient memory, not four
 # times the work. A one-entry cache, guarded by a lock so concurrent requests for the same frame
-# queue instead of racing, turns that into one real detection pass plus three cache hits.
+# queue instead of racing, turns that into one real decode-plus-detection pass plus three cache
+# hits -- the cache holds the decoded frame itself (not just its detections), so a cache hit skips
+# the ~180MB JPEG decode too, not only the detection sweep; otherwise all 4 requests would decode
+# their own copy of the frame in parallel before any of them reached the lock, which is the same
+# OOM condition under another name.
 _frame_detection_lock = Lock()
-_cached_frame_detections: tuple[str, list] | None = None
+_cached_frame_detections: tuple[str, np.ndarray, list] | None = None
 
 
-def _detect_tags_cached(frame_stem: str, frame: np.ndarray) -> list:
+def _detect_tags_cached(frame_stem: str) -> tuple[np.ndarray, list]:
+    """Returns the *shared* cached frame array -- callers must not mutate it in place (draw on a
+    copy instead), since every concurrent caller for the same frame_stem gets the same object."""
     global _cached_frame_detections
     with _frame_detection_lock:
         if _cached_frame_detections is not None and _cached_frame_detections[0] == frame_stem:
-            return _cached_frame_detections[1]
+            return _cached_frame_detections[1], _cached_frame_detections[2]
+        try:
+            frame = load_calibration_frame(frame_stem)
+        except FileNotFoundError:
+            raise HTTPException(409, "the saved frame for this calibration is missing on disk")
         detections = detect_tags(frame)
-        _cached_frame_detections = (frame_stem, detections)
-        return detections
+        _cached_frame_detections = (frame_stem, frame, detections)
+        return frame, detections
 
 
 def _metric_points(metric: str, artifact: CalibrationArtifact) -> tuple[list[tuple[float, int, float, float]], str, np.ndarray]:
@@ -647,8 +663,7 @@ def _metric_points(metric: str, artifact: CalibrationArtifact) -> tuple[list[tup
     if artifact.frame_stem is None:
         raise HTTPException(409, "no calibration with a saved frame yet")
 
-    frame = load_calibration_frame(artifact.frame_stem)
-    detections = _detect_tags_cached(artifact.frame_stem, frame)
+    frame, detections = _detect_tags_cached(artifact.frame_stem)
     cal_detections = [d for d in detections if d.tag_id in CALIBRATION_ID_RANGE]
     tag_sizes_mm = {d.tag_id: artifact.calibration_tag_size_mm for d in cal_detections}
 
