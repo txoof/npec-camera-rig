@@ -37,6 +37,80 @@
       pointer-events: none;
       display: none;
     }
+    .squareness-guides {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: none;
+    }
+    .squareness-guides.mode-square {
+      display: block;
+    }
+    .squareness-line {
+      position: absolute;
+      background: rgba(255, 255, 0, 0.75);
+    }
+    .squareness-line-h {
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 2px;
+      margin-top: -1px;
+    }
+    .squareness-line-v {
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      margin-left: -1px;
+    }
+    /* Only draggable in square mode -- in focus mode the lines are hidden entirely (see above),
+       so this only ever matters together with .mode-square. Widens the hit area well past the
+       visible 2px line via ::after, without widening the line itself. */
+    .squareness-guides.mode-square .squareness-line {
+      pointer-events: auto;
+    }
+    .squareness-guides.mode-square .squareness-line-h {
+      cursor: ns-resize;
+    }
+    .squareness-guides.mode-square .squareness-line-v {
+      cursor: ew-resize;
+    }
+    .squareness-line-h::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -6px;
+      bottom: -6px;
+    }
+    .squareness-line-v::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: -6px;
+      right: -6px;
+    }
+    .mode-toggle-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      max-width: 480px;
+    }
+    .mode-toggle-row button {
+      flex: 1;
+      padding: 0.4rem;
+      background: #222;
+      border: 1px solid #444;
+      color: #ccc;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    .mode-toggle-row button.active {
+      background: #456;
+      border-color: #6af;
+      color: #fff;
+    }
     .roi-crop {
       display: block;
       width: 100%;
@@ -58,7 +132,7 @@
         min-width: 0;
       }
     }
-    .controls, .focus-section, .capture-section, .camera-controls {
+    .controls, .focus-section, .capture-section, .camera-controls, .calibration-section {
       max-width: 480px;
       margin-top: 0.75rem;
     }
@@ -195,9 +269,25 @@
     <div class="preview-wrap">
       <img class="preview" id="preview" src="/preview.mjpg" alt="live camera preview. click to place the focus ROI">
       <div class="roi-box" id="roi-box"></div>
+      <div class="squareness-guides" id="squareness-guides">
+        <div class="squareness-line squareness-line-h"></div>
+        <div class="squareness-line squareness-line-v" style="left: 33.33%;"></div>
+        <div class="squareness-line squareness-line-v" style="left: 66.67%;"></div>
+      </div>
     </div>
     <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
   </div>
+  <div class="mode-toggle-row">
+    <button type="button" id="mode-focus-btn">Focus mode</button>
+    <button type="button" id="mode-square-btn">Square mode</button>
+  </div>
+  <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.85rem; max-width: 480px;">
+    <strong>Focus mode:</strong> click the preview to place the focus ROI, as above.
+    <strong>Square mode:</strong> shows one horizontal and two vertical guide lines — drag any of
+    them (mouse or touch) onto a real edge in the frame, to check by eye that the rig sits square.
+    Clicking the preview doesn't move the focus ROI while in this mode. Lines are a straightening
+    aid, not a reading — dragged positions aren't saved anywhere and reset on reload.
+  </p>
   <label class="peaking-row">
     <input type="checkbox" id="peaking-toggle">
     <span>
@@ -228,6 +318,295 @@
 
   <h2>Recent captures</h2>
   <div class="gallery" id="gallery"></div>
+
+  <h2>Calibration</h2>
+  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+    Lay the calibration sheets on alternating trays, reaching all four frame corners, then run
+    calibration. "Check tripwire now" compares the four corner tags against the saved baseline
+    right now — use it for the roll/knock acceptance test.
+  </p>
+  <div class="calibration-section">
+    <p id="calibration-current" style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Loading current calibration&hellip;
+    </p>
+    <label class="peaking-row">
+      <input type="checkbox" id="promote-toggle" checked>
+      <span>
+        <strong>Set as current baseline</strong> — leave this checked for a normal setup
+        calibration. Uncheck it for a comparison run (e.g. the two-baseline test) so it doesn't
+        replace the baseline a tripwire check further down is still using.
+      </span>
+    </label>
+    <label class="peaking-row">
+      <span>
+        <strong>Calibration tag size (mm)</strong> — measure this print run's tags with
+        callipers and enter the value here. Leave blank to fall back to the placeholder default,
+        shown after you run a calibration.
+      </span>
+      <input type="number" id="tag-size-input" step="0.0001" min="0"
+             placeholder="e.g. 30.02" style="width: 6rem;">
+    </label>
+    <label class="peaking-row">
+      <span>
+        <strong>Table width / length (mm)</strong> — lay a tape measure across the <em>outer</em>
+        edges of two corner tags (the corners facing away from the table) and enter the number you
+        read, straight off the tape. No centre to find, no arithmetic — the app subtracts the
+        corner tag size below for you. <strong>Width</strong> is the left-to-right pair in the
+        camera image (top-left to top-right corner tag); <strong>length</strong> is top-to-bottom
+        (top-left to bottom-left corner tag) — swapping them renders a transposed rectangle.
+        Leave either blank for a square, NOT-TO-SCALE canvas that still shows relative position
+        correctly. Not saved between runs — re-enter each time.
+      </span>
+      <span>
+        <input type="number" id="table-width-input" step="0.1" min="0"
+               placeholder="width e.g. 1050" style="width: 7rem;">
+        <input type="number" id="table-length-input" step="0.1" min="0"
+               placeholder="length e.g. 850" style="width: 7rem;">
+      </span>
+    </label>
+    <label class="peaking-row">
+      <span>
+        <strong>Corner tag size (mm)</strong> — the corner tags' own physical size, used only to
+        convert the outer-edge measurement above into the centre-to-centre distance the table view
+        needs. Measure with callipers for accuracy; leave blank to use the placeholder default
+        (shown after you run a calibration).
+      </span>
+      <input type="number" id="corner-tag-size-input" step="0.01" min="0"
+             placeholder="e.g. 49.87" style="width: 6rem;">
+    </label>
+    <div class="lock-row">
+      <button id="calibrate-btn">Run calibration</button>
+      <button id="tripwire-btn">Check tripwire now</button>
+    </div>
+    <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+    <img id="calibration-heatmap" alt="Confidence heatmap"
+         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+    <div id="calibration-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
+      <div style="height: 14px; border-radius: 3px; background: linear-gradient(to right,
+        rgb(48,18,59) 0%, rgb(70,105,224) 12.5%, rgb(42,185,238) 25%, rgb(47,241,155) 37.5%,
+        rgb(161,253,61) 50%, rgb(236,209,58) 62.5%, rgb(251,129,34) 75%, rgb(210,49,5) 87.5%,
+        rgb(122,4,3) 100%);"></div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #aaa; margin-top: 0.15rem;">
+        <span>0% (confident)</span><span>2%</span><span>4%</span><span>6%</span><span>8%+ (least confident)</span>
+      </div>
+      <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
+        Colour is the local uncertainty field at that position — how much neighbouring
+        calibration tags disagree with the fitted scale, blended over the actual photo (so the
+        sheets and table are still visible underneath). Blue/dark = tags there agree closely with
+        each other and the model — trust readings from that area. Green through red = growing
+        disagreement — the fixed 0–8% scale is used every time so a hotter run really is worse,
+        not just redrawn to look worse. Red doesn't mean "wrong," it means "least measured" —
+        usually because coverage is thin there (see the coverage lines above); add a sheet in a
+        red area to bring it down.
+      </p>
+      <details style="margin-top: 0.4rem;">
+        <summary>How this number is calculated, and what it means</summary>
+        <div style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
+          <p>
+            Every calibration tag's real size is measured with callipers, not taken from the
+            packaging (the single biggest source of error found in this project's history —
+            a "30&nbsp;mm" tag actually measured 29.3106&nbsp;mm, a ~4.7% error in area if
+            trusted). From that measured size and the tag's four detected corners, each tag
+            gives a real, measured scale (pixels per millimetre) at its own spot in the photo.
+          </p>
+          <p>
+            Those measured scales are fitted to a single tilted plane (a camera looking down at
+            an angle sees things nearer the lens as "bigger per millimetre" than things farther
+            away — a plane is the simplest shape that captures that). The percentage shown at
+            any point on the photo is <em>not</em> that fit directly: it is how far off the fit
+            was for the 5 calibration tags physically nearest that point, combined so that tags
+            reading slightly big and slightly small don't cancel each other out to zero — an
+            even split either way still counts as real disagreement.
+          </p>
+          <p>
+            <strong>What it means:</strong> a direct, measured estimate of how far a canopy-area
+            reading at that spot could be off, based on how consistent the real calibration tags
+            near it actually were — not a theoretical lens or camera error estimate. Blue
+            genuinely means "several nearby tags agreed closely." Red usually means thin
+            coverage nearby (see the coverage lines above), not a fault in the camera or the
+            maths.
+          </p>
+          <p>
+            <strong>Caveat:</strong> "5 nearest tags" has no distance limit. A spot with no real
+            coverage anywhere near it still gets a colour, borrowed from whichever tags happen
+            to be closest in the photo, however far that really is. Blue in a completely
+            uncovered area (e.g. off the edge of the table) means "the nearest real
+            measurements happened to agree," not "this spot was actually measured."
+          </p>
+        </div>
+      </details>
+    </div>
+    <img id="calibration-area-shape-heatmap" alt="Area-scale shape distortion heatmap"
+         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+    <div id="calibration-area-shape-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
+      <div style="height: 14px; border-radius: 3px; background: linear-gradient(to right,
+        rgb(48,18,59) 0%, rgb(70,105,224) 12.5%, rgb(42,185,238) 25%, rgb(47,241,155) 37.5%,
+        rgb(161,253,61) 50%, rgb(236,209,58) 62.5%, rgb(251,129,34) 75%, rgb(210,49,5) 87.5%,
+        rgb(122,4,3) 100%);"></div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #aaa; margin-top: 0.15rem;">
+        <span>0% (square)</span><span>0.13%</span><span>0.25%</span><span>0.38%</span><span>0.5%+ (most distorted)</span>
+      </div>
+      <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
+        Area-scale shape check (TODO.md) — each tag's real pixel area (exact, from its four
+        corners) compared to treating it as a perfect square, isolated from the ordinary scale
+        residual shown above. Note the scale here is 0–0.5%, not 0–8% like the heatmap above —
+        a much narrower range, measured from 17 real calibration runs on this rig (2026-09-21).
+        Flat/near-zero everywhere means squaring the scale field above is fine for area, not just
+        length. Structured, growing toward the corners, is real evidence area needs its own fit
+        before M5 (canopy area) relies on it — as opposed to the confidence heatmap above being
+        hot in the same place, which just means "add coverage there," not "area needs its own
+        fit."
+      </p>
+      <details style="margin-top: 0.4rem;">
+        <summary>How this number is calculated, and what it means</summary>
+        <div style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
+          <p>
+            The scale field above only ever measures <em>length</em> (pixels per millimetre in
+            one direction). Turning that into an <em>area</em> conversion — needed to report
+            canopy area in mm², not pixels — means squaring it, which is only exactly right if
+            every tag's photographed shape is a perfect square. Near a tilted table's edges, a
+            real square can photograph as a slightly non-square quadrilateral (a "keystone"
+            shape), and squaring the length scale would silently miss that.
+          </p>
+          <p>
+            Rather than model the lens or the table's tilt angle to predict this — the kind of
+            camera maths this project has failed at three times before, see CLAUDE.md — it's
+            measured directly: each tag's <em>real</em> pixel area, computed exactly from its
+            four detected corners (a standard geometry formula, no lens model, no assumptions),
+            compared to what a perfect square with that tag's own average side length would
+            cover. A square is the largest-area shape possible for a given average side length,
+            so this comparison can only ever come out as zero (a genuine square) or negative
+            (some real distortion) — never positive; that's also why this heatmap's colour scale
+            only runs one direction.
+          </p>
+          <p>
+            <strong>What it means:</strong> answers "is squaring the length scale above good
+            enough for area, or does area need its own correction before the canopy-area feature
+            (M5) relies on it?" Flat/near-zero everywhere means squaring is fine. Measured across
+            17 real calibration runs on this rig (2026-09-21): the worst tag anywhere came out
+            at &minus;0.46%, and the pattern gets worse toward the table's corners in a way that
+            tracks position, not tag size or image noise (checked separately, by comparing
+            against tag size directly across 2104 tags) — so it reads as a real, if very small,
+            geometric effect, not noise. Logged as an open scope decision in TODO.md, not acted
+            on further without sign-off, since an area-specific fit is exactly the calibration
+            maths CLAUDE.md's evidence gates exist to hold off on.
+          </p>
+          <p>
+            <strong>Caveat:</strong> this heatmap uses a much narrower colour scale (0–0.5%) than
+            the confidence heatmap above (0–8%), stretched to fill the same blue-to-red range
+            either way. The two images can look equally "hot" by eye at completely different
+            real magnitudes — only the printed percentages say which is actually bigger. The two
+            numbers also measure different things and aren't copies of each other: on a given
+            run they've come out statistically uncorrelated, even though both tend to look worse
+            toward the table's edges — for unrelated reasons (coverage gaps here vs. real
+            geometry above).
+          </p>
+        </div>
+      </details>
+    </div>
+    <h3 style="margin: 1rem 0 0.25rem;">Table-position view</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      The same two fields as the heatmaps above, painted instead on a straightened, top-down view
+      of the table — anchored to the four corner tags, which don't move, so "this spot on the
+      picture" is the same real spot on the table across different calibration runs, not tied to
+      one specific photo's own tilt and framing (PLAN.md's own corner-tag homography, M2 section
+      A). Grey means no calibration tag was ever near that spot — not measured, regardless of
+      colour, never a guessed or smoothed-in value.
+    </p>
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Scale residual</h4>
+    <img id="table-view-scale-residual" alt="Scale residual, table-position view"
+         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Area-shape distortion</h4>
+    <img id="table-view-shape-distortion" alt="Area-shape distortion, table-position view"
+         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+    <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
+      NOT TO SCALE (a square canvas) unless both table width and length above were entered —
+      relative position within the table is correct either way, but the rectangle's own
+      proportions only match the real table when both were measured and entered (as the
+      outer-edge-to-outer-edge tape measurement described above, with the corner tag size
+      subtracted automatically) — a measurement smaller than the corner tag size itself falls
+      back to NOT TO SCALE rather than showing a nonsense rectangle.
+    </p>
+    <h3 style="margin: 1rem 0 0.25rem;">Best vs. worst tag</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Every calibration tag's own scale residual and area-shape distortion, sorted best to
+      worst, so a specific outlier tag can be found by ID and frame position rather than only
+      seeing the two heatmaps' averages. Each plot's vertical axis is that run's own spread, not
+      the heatmaps' fixed 0–8%/0–0.5% scale — read the axis label baked into each image, not the
+      colours above. Green marks the best tag, red the worst, on both the sorted plot and the
+      actual photo below it.
+    </p>
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Scale residual</h4>
+    <img id="rank-plot-scale-residual" alt="Scale residual, best to worst"
+         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+    <img id="best-worst-photo-scale-residual" alt="Scale residual, best and worst tag on the photo"
+         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Area-shape distortion</h4>
+    <img id="rank-plot-shape-distortion" alt="Area-shape distortion, best to worst"
+         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+    <img id="best-worst-photo-shape-distortion" alt="Area-shape distortion, best and worst tag on the photo"
+         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+
+    <h3 style="margin: 1rem 0 0.25rem;">Is this lens/parallax distortion, or something else?</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      PLAN.md's own rule: a lens/parallax distortion signature is <em>structured</em> — residual
+      trends with distance from the image centre, with a consistent sign — not random scatter.
+      That's the specific measurement that decides whether picking up lens-distortion modelling
+      is justified, so it's plotted directly rather than guessed at: every tag's own signed
+      residual (not folded to a percentage magnitude — a real distortion trend has a sign) against
+      its distance from the image centre, with an unweighted linear fit and its R². No judgement
+      is baked in here about whether a given R² counts as "structured" — read the scatter and the
+      fit yourself.
+    </p>
+    <img id="radial-plot-scale-residual" alt="Scale residual vs. distance from image centre"
+         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+    <img id="radial-plot-shape-distortion" alt="Area-shape distortion vs. distance from image centre"
+         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+
+    <details style="margin-top: 0.75rem;">
+      <summary>Saved calibrations (download)</summary>
+      <div id="calibration-list" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
+    </details>
+
+    <h3 style="margin: 1rem 0 0.25rem;">Live reorientation aid</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      While adjusting the rig by hand, press "Zero here" once it looks roughly right, then nudge
+      it until the reading below settles at OK. Preview resolution only, directional guidance —
+      a full calibration still confirms the final number.
+    </p>
+    <div class="lock-row">
+      <button id="orientation-zero-btn">Zero here</button>
+      <span id="orientation-live" style="font-size: 0.85rem; color: #aaa;">not zeroed</span>
+    </div>
+
+    <h3 style="margin: 1rem 0 0.25rem;">Honesty plot</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      PLAN.md's M2 acceptance test: place a known target at each of several positions, read its
+      pixel position off the calibration frame above, measure the actual error with a ruler, and
+      add a row below. "Claimed" is looked up automatically from the live calibration. Points on
+      the diagonal are honest; scattered off it at random is fine; drifting with position is the
+      signal that opens the intrinsics evidence gate (CLAUDE.md) — that judgement is yours to
+      make from where they land.
+    </p>
+    <table id="honesty-table" style="font-size: 0.85rem; border-collapse: collapse; width: 100%;">
+      <thead>
+        <tr>
+          <th style="text-align: left; padding: 0.2rem 0.5rem;">x (px)</th>
+          <th style="text-align: left; padding: 0.2rem 0.5rem;">y (px)</th>
+          <th style="text-align: left; padding: 0.2rem 0.5rem;">actual error (%)</th>
+          <th style="text-align: left; padding: 0.2rem 0.5rem;"></th>
+        </tr>
+      </thead>
+      <tbody id="honesty-rows"></tbody>
+    </table>
+    <div class="lock-row">
+      <button id="honesty-add-row-btn">Add point</button>
+      <button id="honesty-plot-btn">Generate honesty plot</button>
+    </div>
+    <div id="honesty-plot-result" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
+    <img id="honesty-plot-image" alt="Honesty plot"
+         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+  </div>
 
   <script>
     const MAIN_WIDTH = 1536;
@@ -440,6 +819,7 @@
     }
 
     previewImg.addEventListener("click", (event) => {
+      if (interactionMode !== "focus") return; // square mode: dragging guide lines instead
       const rect = previewImg.getBoundingClientRect();
       const relX = (event.clientX - rect.left) / rect.width;
       const relY = (event.clientY - rect.top) / rect.height;
@@ -496,6 +876,47 @@
       setTimeout(pollScore, 300);
     }
     pollScore();
+
+    // --- Focus / Square mode toggle, and draggable squareness guide lines ---
+    // Client-side only, no server state: the lines are a straightening aid, not a measurement.
+    const squarenessGuides = document.getElementById("squareness-guides");
+    const modeFocusBtn = document.getElementById("mode-focus-btn");
+    const modeSquareBtn = document.getElementById("mode-square-btn");
+    let interactionMode = "focus";
+
+    function setMode(mode) {
+      interactionMode = mode;
+      squarenessGuides.classList.toggle("mode-square", mode === "square");
+      modeFocusBtn.classList.toggle("active", mode === "focus");
+      modeSquareBtn.classList.toggle("active", mode === "square");
+    }
+    modeFocusBtn.addEventListener("click", () => setMode("focus"));
+    modeSquareBtn.addEventListener("click", () => setMode("square"));
+    setMode("focus");
+
+    function clampPct(value) {
+      return Math.min(100, Math.max(0, value));
+    }
+
+    // Pointer capture keeps delivering move/up events to `line` even once the pointer leaves it
+    // mid-drag -- no separate document-level listeners (and cleanup) needed.
+    function makeLineDraggable(line, axis) {
+      line.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        line.setPointerCapture(event.pointerId);
+      });
+      line.addEventListener("pointermove", (event) => {
+        if (!line.hasPointerCapture(event.pointerId)) return;
+        const rect = previewImg.getBoundingClientRect();
+        if (axis === "y") {
+          line.style.top = clampPct(((event.clientY - rect.top) / rect.height) * 100) + "%";
+        } else {
+          line.style.left = clampPct(((event.clientX - rect.left) / rect.width) * 100) + "%";
+        }
+      });
+    }
+    squarenessGuides.querySelectorAll(".squareness-line-h").forEach((l) => makeLineDraggable(l, "y"));
+    squarenessGuides.querySelectorAll(".squareness-line-v").forEach((l) => makeLineDraggable(l, "x"));
 
     // --- Focus peaking toggle ---
     const peakingToggle = document.getElementById("peaking-toggle");
@@ -563,6 +984,310 @@
       }
     });
     refreshGallery();
+
+    // --- Calibration ---
+    const calibrateBtn = document.getElementById("calibrate-btn");
+    const tripwireBtn = document.getElementById("tripwire-btn");
+    const promoteToggle = document.getElementById("promote-toggle");
+    const calibrationResult = document.getElementById("calibration-result");
+    const calibrationCurrent = document.getElementById("calibration-current");
+    const calibrationList = document.getElementById("calibration-list");
+    const tagSizeInput = document.getElementById("tag-size-input");
+    const calibrationHeatmap = document.getElementById("calibration-heatmap");
+    const calibrationHeatmapLegend = document.getElementById("calibration-heatmap-legend");
+    const calibrationAreaShapeHeatmap = document.getElementById("calibration-area-shape-heatmap");
+    const calibrationAreaShapeHeatmapLegend = document.getElementById(
+      "calibration-area-shape-heatmap-legend"
+    );
+    const tableWidthInput = document.getElementById("table-width-input");
+    const tableLengthInput = document.getElementById("table-length-input");
+    const cornerTagSizeInput = document.getElementById("corner-tag-size-input");
+    const tableViewScaleResidual = document.getElementById("table-view-scale-residual");
+    const tableViewShapeDistortion = document.getElementById("table-view-shape-distortion");
+    const rankPlotScaleResidual = document.getElementById("rank-plot-scale-residual");
+    const rankPlotShapeDistortion = document.getElementById("rank-plot-shape-distortion");
+    const bestWorstPhotoScaleResidual = document.getElementById("best-worst-photo-scale-residual");
+    const bestWorstPhotoShapeDistortion = document.getElementById("best-worst-photo-shape-distortion");
+    const radialPlotScaleResidual = document.getElementById("radial-plot-scale-residual");
+    const radialPlotShapeDistortion = document.getElementById("radial-plot-shape-distortion");
+
+    async function refreshCalibrationList() {
+      const r = await fetch("/calibration/list");
+      const items = await r.json();
+      calibrationList.innerHTML = items.length
+        ? items
+            .map((item) => {
+              const frame = item.frame_url
+                ? ` — <a href="${item.frame_url}" target="_blank">frame</a>`
+                : "";
+              return `<div><a href="${item.url}" target="_blank">${item.filename}</a>${frame}</div>`;
+            })
+            .join("")
+        : "None saved yet.";
+    }
+
+    function renderCurrentCalibration(data) {
+      if (!data.exists) {
+        calibrationCurrent.textContent = "No calibration saved yet.";
+        return;
+      }
+      const baseline = data.corner_baseline_tags.length
+        ? `corner baseline: tags ${data.corner_baseline_tags.join(", ")}`
+        : "no corner baseline";
+      const lens = data.lens_position === null ? "?" : data.lens_position.toFixed(2);
+      calibrationCurrent.textContent =
+        `Current calibration: ${data.created_at.replace("T", " ").slice(0, 19)} — ` +
+        `residual ${data.residual_std_pct.toFixed(2)}%, lens ${lens}, tag size ` +
+        `${data.calibration_tag_size_mm}mm, ${baseline}`;
+      // Pre-fill with the size the live baseline was actually built from, so a repeat
+      // calibration on the same print run doesn't need it retyped -- only overwritten by hand
+      // if the operator hasn't already typed something in for *this* run.
+      if (!tagSizeInput.value) tagSizeInput.value = data.calibration_tag_size_mm;
+    }
+
+    async function refreshCurrentCalibration() {
+      const r = await fetch("/calibration/current");
+      renderCurrentCalibration(await r.json());
+    }
+
+    calibrateBtn.addEventListener("click", async () => {
+      calibrateBtn.disabled = true;
+      calibrateBtn.textContent = "Calibrating (full-res detect can take a while)...";
+      calibrationResult.textContent = "";
+      try {
+        const promote = promoteToggle.checked;
+        let url = `/calibration/run?promote=${promote}`;
+        if (tagSizeInput.value) url += `&calibration_tag_size_mm=${tagSizeInput.value}`;
+        if (tableWidthInput.value) url += `&table_width_mm=${tableWidthInput.value}`;
+        if (tableLengthInput.value) url += `&table_length_mm=${tableLengthInput.value}`;
+        if (cornerTagSizeInput.value) url += `&corner_tag_size_mm=${cornerTagSizeInput.value}`;
+        const r = await fetch(url, { method: "POST" });
+        const data = await r.json();
+        let lines;
+        if (data.error) {
+          lines = [
+            `${data.error} (${data.calibration_tags_detected} calibration tags, ` +
+              `${data.corner_tags_detected} corner tags detected)`,
+          ];
+        } else {
+          const centre = data.px_per_mm_at_centre
+            ? `${data.px_per_mm_at_centre.toFixed(3)} px/mm at centre`
+            : "scale at centre: n/a";
+          const tagSize = data.calibration_tag_size_mm_is_default
+            ? `tag size: ${data.calibration_tag_size_mm} mm placeholder default — measure with ` +
+              "callipers and enter it above"
+            : `tag size: ${data.calibration_tag_size_mm} mm (calliper-measured, as entered)`;
+          const cornerTagSize = data.corner_tag_size_mm_is_default
+            ? `corner tag size: ${data.corner_tag_size_mm} mm placeholder default — measure with ` +
+              "callipers and enter it above for a precise table view"
+            : `corner tag size: ${data.corner_tag_size_mm} mm (calliper-measured, as entered)`;
+          let tableDims;
+          if (data.table_view_to_scale) {
+            tableDims =
+              `table view: ${data.table_width_mm}mm x ${data.table_length_mm}mm outer-edge span, ` +
+              "as entered";
+          } else if (data.table_width_mm || data.table_length_mm) {
+            tableDims =
+              `table view: NOT TO SCALE — entered width/length (${data.table_width_mm}mm x ` +
+              `${data.table_length_mm}mm) couldn't convert against corner tag size ` +
+              `${data.corner_tag_size_mm}mm (too small, or one of the two left blank) — check ` +
+              "your measurement";
+          } else {
+            tableDims = "table view: NOT TO SCALE — enter table width/length above for real proportions";
+          }
+          lines = [
+            `${data.calibration_tags_detected} calibration tags, ` +
+              `${data.corner_tags_detected} corner tags detected`,
+            tagSize,
+            cornerTagSize,
+            tableDims,
+            `${centre}, plane-fit residual ${data.residual_std_pct.toFixed(2)}%`,
+            ...data.report,
+          ];
+        }
+        calibrationResult.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
+        if (data.heatmap_url) {
+          calibrationHeatmap.src = `${data.heatmap_url}?t=${Date.now()}`;
+          calibrationHeatmap.style.display = "block";
+          calibrationHeatmapLegend.style.display = "block";
+        } else {
+          calibrationHeatmap.style.display = "none";
+          calibrationHeatmapLegend.style.display = "none";
+        }
+        if (data.area_shape_heatmap_url) {
+          calibrationAreaShapeHeatmap.src = `${data.area_shape_heatmap_url}?t=${Date.now()}`;
+          calibrationAreaShapeHeatmap.style.display = "block";
+          calibrationAreaShapeHeatmapLegend.style.display = "block";
+        } else {
+          calibrationAreaShapeHeatmap.style.display = "none";
+          calibrationAreaShapeHeatmapLegend.style.display = "none";
+        }
+        if (data.table_view_url) {
+          tableViewScaleResidual.src = `${data.table_view_url}?t=${Date.now()}`;
+          tableViewScaleResidual.style.display = "block";
+        } else {
+          tableViewScaleResidual.style.display = "none";
+        }
+        if (data.table_view_shape_url) {
+          tableViewShapeDistortion.src = `${data.table_view_shape_url}?t=${Date.now()}`;
+          tableViewShapeDistortion.style.display = "block";
+        } else {
+          tableViewShapeDistortion.style.display = "none";
+        }
+        if (!data.error) {
+          // Re-detects tags from the just-saved frame each time (no per-tag persistence),
+          // so these are only worth fetching once a run has actually produced a frame.
+          rankPlotScaleResidual.src = `/calibration/current/rank-plot?metric=scale_residual&t=${Date.now()}`;
+          rankPlotScaleResidual.style.display = "block";
+          rankPlotShapeDistortion.src = `/calibration/current/rank-plot?metric=shape_distortion&t=${Date.now()}`;
+          rankPlotShapeDistortion.style.display = "block";
+          bestWorstPhotoScaleResidual.src =
+            `/calibration/current/best-worst-photo?metric=scale_residual&t=${Date.now()}`;
+          bestWorstPhotoScaleResidual.style.display = "block";
+          bestWorstPhotoShapeDistortion.src =
+            `/calibration/current/best-worst-photo?metric=shape_distortion&t=${Date.now()}`;
+          bestWorstPhotoShapeDistortion.style.display = "block";
+          radialPlotScaleResidual.src =
+            `/calibration/current/radial-plot?metric=scale_residual&t=${Date.now()}`;
+          radialPlotScaleResidual.style.display = "block";
+          radialPlotShapeDistortion.src =
+            `/calibration/current/radial-plot?metric=shape_distortion&t=${Date.now()}`;
+          radialPlotShapeDistortion.style.display = "block";
+        } else {
+          rankPlotScaleResidual.style.display = "none";
+          rankPlotShapeDistortion.style.display = "none";
+          bestWorstPhotoScaleResidual.style.display = "none";
+          bestWorstPhotoShapeDistortion.style.display = "none";
+          radialPlotScaleResidual.style.display = "none";
+          radialPlotShapeDistortion.style.display = "none";
+        }
+        await refreshCurrentCalibration();
+        await refreshCalibrationList();
+      } finally {
+        calibrateBtn.disabled = false;
+        calibrateBtn.textContent = "Run calibration";
+      }
+    });
+
+    tripwireBtn.addEventListener("click", async () => {
+      tripwireBtn.disabled = true;
+      tripwireBtn.textContent = "Checking...";
+      try {
+        const r = await fetch("/calibration/tripwire/check", { method: "POST" });
+        const data = await r.json();
+        if (r.status === 409) {
+          calibrationResult.textContent = data.detail;
+          return;
+        }
+        const roll = data.roll_deg === null ? "" : ` (roll ${data.roll_deg.toFixed(2)} deg)`;
+        calibrationResult.innerHTML = `<strong>${data.verdict}</strong>: ${data.messages.join("; ")}${roll}`;
+      } finally {
+        tripwireBtn.disabled = false;
+        tripwireBtn.textContent = "Check tripwire now";
+      }
+    });
+
+    refreshCurrentCalibration();
+    refreshCalibrationList();
+
+    // --- Live reorientation aid ---
+    const orientationZeroBtn = document.getElementById("orientation-zero-btn");
+    const orientationLive = document.getElementById("orientation-live");
+    let orientationZeroed = false;
+
+    orientationZeroBtn.addEventListener("click", async () => {
+      orientationZeroBtn.disabled = true;
+      try {
+        const r = await fetch("/calibration/orientation/zero", { method: "POST" });
+        const data = await r.json();
+        if (r.status === 409) {
+          orientationLive.textContent = data.detail;
+          orientationZeroed = false;
+          return;
+        }
+        orientationZeroed = true;
+        orientationLive.textContent = `zeroed on tags ${data.corner_tags.join(", ")}`;
+      } finally {
+        orientationZeroBtn.disabled = false;
+      }
+    });
+
+    async function pollOrientation() {
+      if (orientationZeroed) {
+        try {
+          const r = await fetch("/calibration/orientation/live");
+          const data = await r.json();
+          const roll = data.roll_deg === null ? "roll: n/a" : `roll ${data.roll_deg.toFixed(2)} deg`;
+          orientationLive.innerHTML =
+            `<strong>${data.verdict}</strong> — ${roll}; ${data.messages.join("; ")}`;
+        } catch (e) {
+          // transient network hiccup — try again next tick
+        }
+      }
+      setTimeout(pollOrientation, 500);
+    }
+    pollOrientation();
+
+    // --- Honesty plot ---
+    const honestyRows = document.getElementById("honesty-rows");
+    const honestyAddRowBtn = document.getElementById("honesty-add-row-btn");
+    const honestyPlotBtn = document.getElementById("honesty-plot-btn");
+    const honestyPlotResult = document.getElementById("honesty-plot-result");
+    const honestyPlotImage = document.getElementById("honesty-plot-image");
+
+    function addHonestyRow() {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td><input type="number" class="honesty-x" step="1" style="width: 5rem;"></td>
+        <td><input type="number" class="honesty-y" step="1" style="width: 5rem;"></td>
+        <td><input type="number" class="honesty-actual" step="0.1" style="width: 5rem;"></td>
+        <td><button type="button" class="honesty-remove-btn">Remove</button></td>
+      `;
+      row.querySelector(".honesty-remove-btn").addEventListener("click", () => row.remove());
+      honestyRows.appendChild(row);
+    }
+    honestyAddRowBtn.addEventListener("click", addHonestyRow);
+    addHonestyRow();
+    addHonestyRow();
+
+    honestyPlotBtn.addEventListener("click", async () => {
+      const rows = Array.from(honestyRows.querySelectorAll("tr"));
+      const points = rows
+        .map((row) => ({
+          x: parseFloat(row.querySelector(".honesty-x").value),
+          y: parseFloat(row.querySelector(".honesty-y").value),
+          actual_error_pct: parseFloat(row.querySelector(".honesty-actual").value),
+        }))
+        .filter((p) => !Number.isNaN(p.x) && !Number.isNaN(p.y) && !Number.isNaN(p.actual_error_pct));
+
+      if (!points.length) {
+        honestyPlotResult.textContent = "Fill in at least one row (x, y, actual error) first.";
+        return;
+      }
+
+      honestyPlotBtn.disabled = true;
+      honestyPlotBtn.textContent = "Generating...";
+      try {
+        const r = await fetch("/calibration/honesty-plot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(points),
+        });
+        if (!r.ok) {
+          const data = await r.json();
+          honestyPlotResult.textContent = data.detail || "Could not generate the honesty plot.";
+          honestyPlotImage.style.display = "none";
+          return;
+        }
+        const blob = await r.blob();
+        honestyPlotImage.src = URL.createObjectURL(blob);
+        honestyPlotImage.style.display = "block";
+        honestyPlotResult.textContent = `${points.length} point(s) plotted.`;
+      } finally {
+        honestyPlotBtn.disabled = false;
+        honestyPlotBtn.textContent = "Generate honesty plot";
+      }
+    });
   </script>
 </body>
 </html>

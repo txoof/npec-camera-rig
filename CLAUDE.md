@@ -90,6 +90,10 @@ reflect it unless asked.
 **Minimize tool use.** Act when asked to do work, or after saying what you intend and getting
 agreement.
 
+**No parallel action on a pending question.** When a question is open for Aaron, do nothing else
+in that turn — no installs, no file edits, no other tool calls — until he answers. A question is a
+stop, not one branch of a parallel batch.
+
 **Reply format.** Five headings, in this order. Skip any that are empty.
 
 ```

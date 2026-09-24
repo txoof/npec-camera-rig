@@ -113,6 +113,7 @@ sound techniques that are simply not the current bottleneck.
 | **Second camera / height data** | M1–M6 land with time to spare, *and* the measured in-plane accuracy proves insufficient. |
 | **Per-plant cell tracking** | Could-Have; only after the Must-Haves are verified. |
 | **YOLO tray identification** | Tag-based identity proves insufficient in practice — measured by how often tags go unreadable. |
+| **Second AprilTag family for corner/reference tags** (e.g. `41h12`, separate from trays/sheets on `36h11`) | Single-family ID range collisions — misdetection, or an experimenter mounting the wrong physically-valid sheet — prove to be a real problem in practice. Reserved ID ranges within one family are the current approach; a second family would add a structural (and visually distinct) namespace on top, at the cost of a second detector pass per frame. |
 
 **Hard exclusions for v1** (scope, not merit): no ML training or Hailo model compilation (we
 integrate a supplied `.hef`); no RAW/DNG or colour calibration; no cloud sync, remote hosting or
@@ -278,7 +279,7 @@ harmful here. The old rig recorded a working lens position of **6.3 dioptres** �
 point, not a substitute for the probe.
 
 **Also in M0: rescue the assets from the old repo** (see *Salvaged code*). The calibration JSONs in
-`/var/lib/npec-camera/` and the 359 MB of bench frames are outside version control and one `rm`
+`/var/lib/npec-camera/` and the 362 MB of bench frames are outside version control and one `rm`
 away from gone. Copy them somewhere safe before any other work starts.
 
 **Fallback decided in advance so M0 can't become a driver hunt:** if `LensPosition` is absent, focus

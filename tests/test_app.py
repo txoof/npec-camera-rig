@@ -1,9 +1,17 @@
+from pathlib import Path
+
 import pytest
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 
+import npec_rig.app as app_module
 from npec_rig.app import _mjpeg_frames, app, focus_roi_stream, preview
+from npec_rig.calibration import CalibrationArtifact, ScaleField
+from npec_rig.calibration_store import calibration_root, save_calibration
 from npec_rig.camera import SIMULATED_AUTOFOCUS_POSITION, CameraManager, SyntheticBackend
+from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, ASSUMED_CORNER_TAG_SIZE_MM
+from npec_rig.tripwire import CornerBaseline
+from tests.helpers import rotate_detection, square_detection
 
 pytestmark = pytest.mark.unit
 
@@ -11,6 +19,28 @@ pytestmark = pytest.mark.unit
 @pytest.fixture(autouse=True)
 def synthetic_camera() -> None:
     CameraManager.set_instance(CameraManager(SyntheticBackend()))
+
+
+@pytest.fixture
+def isolated_calibration_dir(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+
+
+@pytest.fixture(autouse=True)
+def reset_live_orientation_zero() -> None:
+    # Module-level state (TODO.md's "Live reorientation guidance" -- in-memory by design, not
+    # persisted), so it must not leak a zero point set by one test into the next.
+    app_module._live_orientation_baseline = None
+
+
+@pytest.fixture(autouse=True)
+def reset_frame_detection_cache() -> None:
+    # Module-level state (the rank-plot/best-worst-photo OOM fix's one-entry cache), keyed by
+    # frame_stem -- collision across tests is astronomically unlikely (microsecond timestamps),
+    # but a test that monkeypatches detect_tags differently between two calls to the same
+    # artifact (see test_rank_plot_refused_with_too_few_tags_in_the_saved_frame) must not read a
+    # stale cache entry left by another test.
+    app_module._cached_frame_detections = None
 
 
 def test_index_page_loads() -> None:
@@ -215,3 +245,591 @@ def test_api_captures_respects_a_non_default_limit() -> None:
     response = client.get("/api/captures", params={"limit": 2})
     assert response.status_code == 200
     assert len(response.json()) == 2
+
+
+# --- Calibration ---
+# SyntheticBackend's frame has no real tags drawn into it, so `detect_tags` finds nothing on a
+# plain capture -- exercising the "not enough tags" path for free. The happy path monkeypatches
+# `detect_tags` with `square_detection`-built fixtures (same synthetic-geometry convention as
+# test_calibration.py/test_tripwire.py), since drawing a real detectable tag into the frame isn't
+# needed to test this module's own wiring.
+
+_CALIBRATION_TAGS = [
+    square_detection(300 + i, cx, cy, side_px=40.0)
+    for i, (cx, cy) in enumerate(
+        [(200, 200), (1300, 200), (200, 950), (1300, 950), (750, 575), (500, 400)]
+    )
+]
+_CORNER_TAGS = [
+    square_detection(450, 30, 30, side_px=60.0),
+    square_detection(451, 1500, 30, side_px=60.0),
+]
+
+
+def test_run_calibration_reports_insufficient_tags(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.post("/calibration/run")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["calibration_tags_detected"] == 0
+    assert body["corner_tags_detected"] == 0
+    assert "error" in body
+
+
+def test_run_calibration_builds_field_and_saves_artifact_and_frame(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(
+        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS
+    )
+
+    client = TestClient(app)
+    response = client.post("/calibration/run")
+    assert response.status_code == 200
+    body = response.json()
+
+    assert "error" not in body
+    assert body["calibration_tags_detected"] == len(_CALIBRATION_TAGS)
+    assert body["corner_tags_detected"] == len(_CORNER_TAGS)
+    assert body["corner_baseline_tags"] == [450, 451]
+    assert body["report"]
+    assert isinstance(body["residual_std_pct"], float)
+
+    assert Path(body["frame_path"]).exists()
+    assert Path(body["artifact_path"]).exists()
+    assert body["frame_url"] is not None
+    assert body["heatmap_url"] is not None
+    assert body["area_shape_heatmap_url"] is not None
+    assert (calibration_root() / "heatmaps" / Path(body["area_shape_heatmap_url"]).name).exists()
+
+    current = client.get("/calibration/current").json()
+    assert current["exists"] is True
+    assert current["corner_baseline_tags"] == [450, 451]
+    assert current["residual_std_pct"] == body["residual_std_pct"]
+    assert current["frame_url"] == body["frame_url"]
+    assert current["heatmap_url"] == body["heatmap_url"]
+    assert current["area_shape_heatmap_url"] == body["area_shape_heatmap_url"]
+    assert current["has_uncertainty_field"] is True
+
+    listing = client.get("/calibration/list").json()
+    assert listing[0]["area_shape_heatmap_url"] == body["area_shape_heatmap_url"]
+    assert body["table_view_url"] is None  # only 2 of 4 corner tags -- no table frame buildable
+    assert body["table_view_shape_url"] is None
+
+
+_FOUR_CORNER_TAGS = [
+    square_detection(450, 30, 30, side_px=60.0),
+    square_detection(451, 1500, 30, side_px=60.0),
+    square_detection(452, 1500, 1100, side_px=60.0),
+    square_detection(455, 30, 1100, side_px=60.0),
+]
+
+
+def test_run_calibration_builds_table_view_with_all_four_corner_tags(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(
+        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/calibration/run", params={"table_width_mm": 1000.0, "table_length_mm": 800.0}
+    )
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["corner_baseline_tags"] == [450, 451, 452, 455]
+    assert body["table_width_mm"] == 1000.0
+    assert body["table_length_mm"] == 800.0
+    assert body["table_view_to_scale"] is True
+    assert body["table_view_url"] is not None
+    assert body["table_view_shape_url"] is not None
+    assert (calibration_root() / "heatmaps" / Path(body["table_view_url"]).name).exists()
+    assert (calibration_root() / "heatmaps" / Path(body["table_view_shape_url"]).name).exists()
+
+    current = client.get("/calibration/current").json()
+    assert current["table_view_url"] == body["table_view_url"]
+    assert current["table_view_shape_url"] == body["table_view_shape_url"]
+
+    listing = client.get("/calibration/list").json()
+    assert listing[0]["table_view_url"] == body["table_view_url"]
+    assert listing[0]["table_view_shape_url"] == body["table_view_shape_url"]
+
+
+def test_run_calibration_echoes_corner_tag_size_and_default_flag(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(
+        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
+    )
+    client = TestClient(app)
+
+    default_run = client.post("/calibration/run").json()
+    assert default_run["corner_tag_size_mm"] == ASSUMED_CORNER_TAG_SIZE_MM
+    assert default_run["corner_tag_size_mm_is_default"] is True
+
+    measured_run = client.post(
+        "/calibration/run", params={"corner_tag_size_mm": 49.87}
+    ).json()
+    assert measured_run["corner_tag_size_mm"] == 49.87
+    assert measured_run["corner_tag_size_mm_is_default"] is False
+
+
+def test_run_calibration_converts_outer_edge_span_to_table_view(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # table_width_mm/table_length_mm are the operator's outer-edge-to-outer-edge tape measurement
+    # (see app_module._outer_edge_span_to_centre_distance_mm) -- too small relative to the corner
+    # tag size (e.g. an inner-edge measurement typed in by mistake) must fall back to NOT-TO-SCALE
+    # rather than rendering a nonsense aspect ratio, without failing the whole run.
+    monkeypatch.setattr(
+        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
+    )
+    client = TestClient(app)
+    response = client.post(
+        "/calibration/run",
+        params={"table_width_mm": 40.0, "table_length_mm": 800.0, "corner_tag_size_mm": 50.0},
+    )
+    body = response.json()
+    assert body["table_width_mm"] == 40.0  # still echoed as entered, not silently corrected
+    assert body["table_view_to_scale"] is False  # the UI must say so, not just render a square
+    assert body["table_view_url"] is not None  # still built -- just NOT-TO-SCALE for this run
+
+
+def test_outer_edge_span_to_centre_distance_subtracts_one_tag_width() -> None:
+    assert app_module._outer_edge_span_to_centre_distance_mm(1000.0, 50.0) == pytest.approx(950.0)
+
+
+def test_outer_edge_span_to_centre_distance_passes_through_none() -> None:
+    assert app_module._outer_edge_span_to_centre_distance_mm(None, 50.0) is None
+
+
+def test_outer_edge_span_to_centre_distance_guards_against_undersized_span() -> None:
+    # Smaller than (or equal to) the tag size itself -- almost certainly a data-entry mistake
+    # (e.g. an inner-edge measurement) -- falls back to None (NOT-TO-SCALE) rather than a
+    # non-positive or zero "distance".
+    assert app_module._outer_edge_span_to_centre_distance_mm(50.0, 50.0) is None
+    assert app_module._outer_edge_span_to_centre_distance_mm(30.0, 50.0) is None
+
+
+def test_current_uncertainty_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/current/uncertainty", params={"x": 100, "y": 100})
+    assert response.status_code == 409
+
+
+def test_current_uncertainty_reports_a_real_value(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get(
+        "/calibration/current/uncertainty", params={"x": _CALIBRATION_TAGS[0].centre[0], "y": _CALIBRATION_TAGS[0].centre[1]}
+    )
+    assert response.status_code == 200
+    assert response.json()["uncertainty_pct"] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_honesty_plot_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.post("/calibration/honesty-plot", json=[{"x": 1, "y": 1, "actual_error_pct": 1.0}])
+    assert response.status_code == 409
+
+
+def test_honesty_plot_rejects_an_empty_point_list(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.post("/calibration/honesty-plot", json=[])
+    assert response.status_code == 422
+
+
+def test_honesty_plot_returns_a_jpeg(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.post(
+        "/calibration/honesty-plot",
+        json=[
+            {"x": _CALIBRATION_TAGS[0].centre[0], "y": _CALIBRATION_TAGS[0].centre[1], "actual_error_pct": 1.5},
+            {"x": _CALIBRATION_TAGS[1].centre[0], "y": _CALIBRATION_TAGS[1].centre[1], "actual_error_pct": 3.0},
+        ],
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.content[:2] == b"\xff\xd8"
+
+
+def test_run_calibration_accepts_a_measured_tag_size_override(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # The point of the override: a reprint of the calibration sheets can come out at a different
+    # physical size, and that's the operator's callipers to measure, not a source-code constant.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+
+    client = TestClient(app)
+    response = client.post("/calibration/run", params={"calibration_tag_size_mm": 30.02})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["calibration_tag_size_mm"] == 30.02
+    assert body["calibration_tag_size_mm_is_default"] is False
+
+    current = client.get("/calibration/current").json()
+    assert current["calibration_tag_size_mm"] == 30.02
+
+
+def test_run_calibration_without_override_uses_the_placeholder_default(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+
+    client = TestClient(app)
+    response = client.post("/calibration/run")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["calibration_tag_size_mm"] == ASSUMED_CALIBRATION_TAG_SIZE_MM
+    assert body["calibration_tag_size_mm_is_default"] is True
+
+
+def test_current_calibration_before_any_run(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/current")
+    assert response.status_code == 200
+    assert response.json() == {"exists": False}
+
+
+def test_tripwire_check_without_baseline_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.post("/calibration/tripwire/check")
+    assert response.status_code == 409
+
+
+def test_tripwire_check_against_saved_baseline(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    baseline = CornerBaseline(corners_by_id={d.tag_id: d.corners for d in _CORNER_TAGS})
+    artifact = CalibrationArtifact(
+        created_at="2026-09-20T12:00:00+00:00",
+        scale_field=ScaleField(_coeffs=(1.0, 0.0, 0.0), _mean_px_per_mm=4.0, residual_std_pct=1.0),
+        corner_baseline=baseline,
+        lens_position=6.3,
+    )
+    save_calibration(artifact)
+
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CORNER_TAGS)
+
+    client = TestClient(app)
+    response = client.post("/calibration/tripwire/check")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verdict"] == "OK"
+    assert body["roll_deg"] == pytest.approx(0.0)
+
+
+def test_tripwire_check_reports_a_real_roll_through_the_json_round_trip(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # Unlike the zero-motion case above, this proves roll_deg/scale_delta_pct survive the
+    # endpoint's dict-building and JSON encoding with real (non-zero, non-default) values, not
+    # just that the wiring doesn't crash -- what Aaron will actually be reading off the screen
+    # during the roll-camera acceptance test.
+    baseline = CornerBaseline(corners_by_id={d.tag_id: d.corners for d in _CORNER_TAGS})
+    artifact = CalibrationArtifact(
+        created_at="2026-09-20T12:00:00+00:00",
+        scale_field=ScaleField(_coeffs=(1.0, 0.0, 0.0), _mean_px_per_mm=4.0, residual_std_pct=1.0),
+        corner_baseline=baseline,
+        lens_position=6.3,
+    )
+    save_calibration(artifact)
+
+    pivot = (750, 500)
+    rolled = [rotate_detection(d, pivot, 5.0) for d in _CORNER_TAGS]
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: rolled)
+
+    client = TestClient(app)
+    response = client.post("/calibration/tripwire/check")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verdict"] == "DRIFT"
+    assert body["roll_deg"] == pytest.approx(5.0, abs=0.01)
+    assert set(body["scale_delta_pct"].keys()) == {"450", "451"}
+
+
+def test_live_orientation_without_zero_is_refused() -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/orientation/live")
+    assert response.status_code == 409
+
+
+def test_zero_live_orientation_refuses_with_no_corner_tags() -> None:
+    # SyntheticBackend's preview frame has no real tags drawn -- same "nothing detected" path
+    # as /calibration/run's insufficient-tags case.
+    client = TestClient(app)
+    response = client.post("/calibration/orientation/zero")
+    assert response.status_code == 409
+
+
+def test_zero_live_orientation_builds_baseline_from_preview(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CORNER_TAGS)
+
+    client = TestClient(app)
+    response = client.post("/calibration/orientation/zero")
+    assert response.status_code == 200
+    assert response.json() == {"corner_tags": [450, 451]}
+
+
+def test_live_orientation_is_ok_at_the_zero_point(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CORNER_TAGS)
+
+    client = TestClient(app)
+    assert client.post("/calibration/orientation/zero").status_code == 200
+
+    response = client.get("/calibration/orientation/live")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verdict"] == "OK"
+    assert body["roll_deg"] == pytest.approx(0.0)
+
+
+def test_live_orientation_reports_roll_after_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Same convention as test_tripwire_check_reports_a_real_roll_through_the_json_round_trip:
+    # proves roll_deg survives this endpoint's own dict-building and JSON encoding with a real,
+    # non-zero value -- what Aaron reads off the screen while nudging the rig by hand.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CORNER_TAGS)
+
+    client = TestClient(app)
+    assert client.post("/calibration/orientation/zero").status_code == 200
+
+    pivot = (750, 500)
+    rolled = [rotate_detection(d, pivot, 5.0) for d in _CORNER_TAGS]
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: rolled)
+
+    response = client.get("/calibration/orientation/live")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verdict"] == "DRIFT"
+    assert body["roll_deg"] == pytest.approx(5.0, abs=0.01)
+
+
+def test_run_calibration_with_promote_false_does_not_replace_current(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    first = client.post("/calibration/run").json()
+    assert first["promoted_to_current"] is True
+
+    second = client.post("/calibration/run", params={"promote": "false"}).json()
+    assert second["promoted_to_current"] is False
+    assert second["artifact_path"] != first["artifact_path"]
+
+    current = client.get("/calibration/current").json()
+    assert current["created_at"] != second.get("created_at")  # unaffected by the second run
+    # Both runs still landed on disk -- promote=False only skips the current.json pointer.
+    assert Path(first["artifact_path"]).exists()
+    assert Path(second["artifact_path"]).exists()
+
+
+def test_calibration_list_and_files_are_downloadable(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Deliberately not isolated_calibration_dir: /calibration/files is a StaticFiles mount bound
+    # to a fixed directory at app import time (same pattern as /captures), so it serves whatever
+    # NPEC_RIG_CALIBRATION_DIR conftest.py set at import -- a per-test env override wouldn't be
+    # visible to it.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    run = client.post("/calibration/run").json()
+
+    listing = client.get("/calibration/list").json()
+    entry = next(e for e in listing if e["url"] == f"/calibration/files/{Path(run['artifact_path']).name}")
+    assert entry["frame_url"] == f"/calibration/files/frames/{Path(run['frame_path']).name}"
+    assert entry["heatmap_url"] == run["heatmap_url"]
+
+    artifact_response = client.get(entry["url"])
+    assert artifact_response.status_code == 200
+    assert artifact_response.json()["version"] == 3
+
+    frame_response = client.get(entry["frame_url"])
+    assert frame_response.status_code == 200
+    assert frame_response.content[:2] == b"\xff\xd8"
+
+    heatmap_response = client.get(entry["heatmap_url"])
+    assert heatmap_response.status_code == 200
+    assert heatmap_response.content[:2] == b"\xff\xd8"
+
+
+# --- Best-vs-worst-tag rank plot ---
+
+
+def test_rank_plot_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/current/rank-plot")
+    assert response.status_code == 409
+
+
+def test_rank_plot_rejects_an_unknown_metric(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get("/calibration/current/rank-plot", params={"metric": "bogus"})
+    assert response.status_code == 422
+
+
+def test_rank_plot_returns_a_jpeg_for_scale_residual(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get("/calibration/current/rank-plot", params={"metric": "scale_residual"})
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.content[:2] == b"\xff\xd8"
+
+
+def test_rank_plot_returns_a_jpeg_for_shape_distortion(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get("/calibration/current/rank-plot", params={"metric": "shape_distortion"})
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.content[:2] == b"\xff\xd8"
+
+
+def test_rank_plot_refused_with_too_few_tags_in_the_saved_frame(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # The calibration that saved the frame had enough tags to build a field; re-detecting the
+    # same saved frame for the rank plot finding fewer than 2 is its own, separate failure mode.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS[:1] + _CORNER_TAGS)
+    response = client.get("/calibration/current/rank-plot")
+    assert response.status_code == 409
+
+
+# --- Best/worst photo overlay ---
+
+
+def test_best_worst_photo_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/current/best-worst-photo")
+    assert response.status_code == 409
+
+
+def test_best_worst_photo_returns_a_jpeg(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    for metric in ("scale_residual", "shape_distortion"):
+        response = client.get("/calibration/current/best-worst-photo", params={"metric": metric})
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/jpeg"
+        assert response.content[:2] == b"\xff\xd8"
+
+
+def test_best_worst_photo_rejects_an_unknown_metric(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get("/calibration/current/best-worst-photo", params={"metric": "bogus"})
+    assert response.status_code == 422
+
+
+def test_rank_plot_and_best_worst_photo_share_one_detection_pass(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # The OOM fix: re-detecting the full saved frame four times (2 metrics x 2 views) per page
+    # load is what got the picamera2 worker killed (dmesg-confirmed, 2026-09-22). Four requests
+    # against the same live calibration must call detect_tags at most once, not four times.
+    call_count = 0
+
+    def counting_detect_tags(frame):
+        nonlocal call_count
+        call_count += 1
+        return _CALIBRATION_TAGS + _CORNER_TAGS
+
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    monkeypatch.setattr(app_module, "detect_tags", counting_detect_tags)
+    for metric in ("scale_residual", "shape_distortion"):
+        assert client.get("/calibration/current/rank-plot", params={"metric": metric}).status_code == 200
+        assert client.get(
+            "/calibration/current/best-worst-photo", params={"metric": metric}
+        ).status_code == 200
+        assert client.get("/calibration/current/radial-plot", params={"metric": metric}).status_code == 200
+
+    assert call_count == 1
+
+
+# --- Radial residual plot ---
+
+
+def test_radial_plot_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/current/radial-plot")
+    assert response.status_code == 409
+
+
+def test_radial_plot_returns_a_jpeg(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    for metric in ("scale_residual", "shape_distortion"):
+        response = client.get("/calibration/current/radial-plot", params={"metric": metric})
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/jpeg"
+        assert response.content[:2] == b"\xff\xd8"
+
+
+def test_radial_plot_rejects_an_unknown_metric(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get("/calibration/current/radial-plot", params={"metric": "bogus"})
+    assert response.status_code == 422
+
+
+def test_radial_plot_refused_with_too_few_tags_in_the_saved_frame(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS[:1] + _CORNER_TAGS)
+    response = client.get("/calibration/current/radial-plot")
+    assert response.status_code == 409

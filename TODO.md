@@ -12,23 +12,71 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
 - [?] **Segmentation model** — what form is it in? Blocks M5, nothing before it.
 - [?] **Capture rate vs storage** — 10/hr is ~29 GB/month, 60/hr is ~170 GB. Decide with retention
       policy and whether an external SSD is needed. Blocks M3.
-- [?] **Tag ID allocation** — reserved 36h11 ranges for 12 tray tags, 4 corner tags, and the
-      calibration sheets. Must not overlap. Blocks M2.
-- [?] **Corner tag placement** — confirm NE/NW/SE/SW are mounted and in frame on the rebuilt rig.
-      Blocks M2.
+- [x] **Tag ID allocation — decided 2026-09-20 (Aaron), supersedes the 2026-09-19 allocation.**
+      One family, 36h11, for everything; ranges kept configurable rather than hardcoded. **These
+      ranges are arbitrary** — chosen to be simple for future users, not measured or derived from
+      anything:
+        - **0–299** — tray tags, for experimenters to 3D-print their own (per Aaron's supervisor)
+        - **300–449** — calibration sheets
+        - **450–499** — corner/reference tags (4 mounted; exact IDs confirmed by reading them back
+          once detection was built, rather than transcribed by eye. **Update, 2026-09-22:** the
+          note below about one tag being partially obscured was stale — all 4 (450/451/452/455)
+          are detected in every recent real run, verified directly against saved calibration
+          artifacts, not assumed)
+        - **500–586** — unallocated buffer, for any future fixed rig-level role. 36h11 has 587
+          IDs total (0–586) — verified against both cv2's dictionary size and moms_apriltag's
+          `TagGenerator2` (see `~/apriltag-gen`), not trusted from memory.
+      **Uniqueness only needs to hold within a chamber**, not across the fleet — up to 15
+      experiments of 12 trays each may run across different chambers using IDs from the same
+      pool with no coordination required between them. Duplicate-tray-ID detection within one
+      chamber is its own TODO item, under M4.
+      A second tag family for corners (structural, not just numeric, separation) was considered
+      and deferred — see PLAN.md's "Deferred, with evidence gates" table.
+      **New follow-up:** 3D-printed tray tags are a different physical object from the paper
+      calibration/corner sheets — the 29.3106 mm figure in CLAUDE.md was measured on paper and
+      does not carry over. Needs its own calliper measurement, and a check of detectability
+      (embossed relief vs. flat ink, under the chamber's grow lighting) once a printed sample
+      exists.
+- [x] **Corner tag placement — confirmed 2026-09-19 (Aaron).** Four corner tags mounted on the
+      rebuilt rig's table corners and in frame; one was initially partially obscured. **Update,
+      2026-09-22:** no longer the case (or no longer a detection problem either way) — all 4 are
+      detected in every recent real run, verified directly against saved calibration artifacts.
 - [?] **Digest delivery** — email or web UI only. Blocks M6 only.
 - [?] **Hailo accelerator** — no `hailortcli`, no PCIe device, no package installed on this OS
       build. Needs HailoRT install and physical seating confirmed. Blocks M5 only, and M5 ships
       with a classical fallback regardless.
-- [?] **Chamber lighting spectrum vs. color accuracy** — a known-yellow object photographs blue
-      under the chamber's grow lighting; checked channel order and white balance in code, both
-      correct (see M1 slice 3 notes) — most likely a lighting-spectrum limitation, not fixable
-      in software. Aaron confirms earlier captures in the same session showed correct color and
-      later ones didn't, with no code change to `array_to_jpeg`/color handling in between —
-      points at the physical lighting changing (schedule, cycle, or spectrum shift) rather than
-      a regression. **Check the chamber's lighting conditions/schedule directly.** Matters for
-      M5: `ExGSegmenter` (excess-green) depends on color being roughly right and roughly
-      constant. *(Aaron, 2026-09-19)*
+- [x] **Color swap bug, actually fixed 2026-09-21** — the 2026-09-19 "lighting spectrum"
+      conclusion below was wrong; this was a real, reproducible software bug the whole time, in
+      `camera.py`, unrelated to any of: chamber lighting, system packages
+      (`libcamera0.7`/`libcamera-ipa` were briefly and wrongly suspected — real version skew,
+      side-loaded 2026-09-03, but 16 days before either the good or bad capture, so it can't
+      explain the timing), and `python3-opencv` (installed hours after the bug already showed).
+      **Root cause:** explicitly keying `"format"` on a `create_video_configuration`/
+      `create_still_configuration` stream puts this picamera2/libcamera build on a different
+      internal path that delivers the wrong channel order — true for *either* `"RGB888"` or
+      `"BGR888"`, confirmed both ways. Left unconstrained, `main` and the still config negotiate
+      their own default (logged as `"BGR888"`/`"XBGR8888"`) and the array comes back genuinely
+      R,G,B(,padding) — **despite that log name**, which is misleading on this build, not
+      descriptive. `lores` still needs a format pinned (or it negotiates broken YUV420 planar,
+      the original 2026-09-19 bug this pinning existed for) — pinned to `"XBGR8888"`
+      specifically, the one explicit format confirmed to still come out right.
+      **Two false fixes before this one landed, both instructive:**
+      1. 2026-09-19: tried `"BGR888"`, reverted it as "wrong" on the strength of a channel-swap
+         test *without* checking against a real known-color object — the test passed, the real
+         bug (triggered by explicit-format-keying itself, not by which string) was still there.
+      2. 2026-09-21 (this session, first attempt): assumed the `"BGR888"` log name was accurate
+         and added a channel reversal to `array_to_jpeg`/`to_grayscale` — reported as fixed
+         from a single glance at a wide scene shot, without checking the specific known-color
+         object. Aaron caught it with a direct crop comparison against the confirmed-good/bad
+         references; the reversal was backwards and made it worse.
+      **What actually settled it:** numeric + visual comparison of the *same* tote-region crop
+      across the confirmed-good (2026-09-19 11:19) and confirmed-bad (2026-09-19 12:17)
+      references, `rpicam-still` (bypasses picamera2 entirely — ground truth), and every
+      candidate fix, at the same pixel coordinates each time. Verified again afterward through
+      the actual `/capture` and `/snapshot.jpg` endpoints, live. **Lesson for next time:** "the
+      report says colors are correct" is not verification unless the report is about the
+      specific object being checked, at the same crop, compared against a reference taken the
+      same way — a wide scene glance is not that.
 - [?] **Minimum-gain policy** — Aaron's supervisor requires minimal `AnalogueGain` at all times.
       Default is already 1.0 (satisfied as-is). Not yet decided: whether to *enforce* this
       further — e.g. cap the gain slider's usable max, or bias auto-exposure toward longer
@@ -37,6 +85,52 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
       anything, same as the format-string lesson from M1 slice 3). Not built; needs a decision
       on how strict this should be before doing more than the current default. *(Aaron,
       2026-09-19)*
+
+---
+
+## Supervisor feedback, 2026-09-24 — not yet triaged into a milestone
+
+**Future ideas suggested by the supervisor:**
+- [ ] ROI selection — choose which part of the table to segment/measure, rather than always the
+      whole frame *(likely M5 territory, once `Segmenter` exists)*
+- [ ] A fiducial tag that marks a tray as "ignore this one" — a deliberate operator opt-out,
+      distinct from the dirty-tag-degradation case already in M4 (which is a detection *failure*
+      being handled gracefully, not an intentional exclusion) *(likely M4 territory)*
+
+**Important next steps required by the supervisor:**
+- [x] **Squareness guide lines — built 2026-09-24, made draggable same day (Aaron).** One fixed
+      horizontal line, two fixed vertical lines (33.33%/66.67% width, all overridable by drag),
+      overlaid on the live preview (`.preview-wrap`, same absolutely-positioned pattern as the
+      existing ROI box). Aaron asked to drag them onto real objects in frame, which needs the
+      preview's existing click-to-place-focus-ROI handler out of the way — added a **Focus /
+      Square mode toggle** (two buttons above the preview) instead of overloading one click
+      target: Focus mode is the preview exactly as before (click places the ROI); Square mode
+      hides that handler, shows the guide lines, and makes each one draggable (Pointer Events API
+      + `setPointerCapture`, so a drag started on the thin line keeps tracking even once the
+      pointer leaves it — no document-level listeners to add/remove by hand). Each line's hit
+      area is widened well past its visible 2px via a `::after` pseudo-element, since the visible
+      line has to stay thin to read as a straightedge. Client-side only, no server round trip;
+      dragged positions aren't persisted (reset to defaults on reload) — a straightening aid, not
+      a measurement, so nothing to unit-test (CLAUDE.md: HTML/CSS/JS-only changes need a browser
+      look, not pytest). **Not yet visually or interactively confirmed in an actual browser** — no
+      browser access from this environment; please eyeball it and try dragging each line before
+      calling this done, same caveat as slice 3's responsive-layout entry.
+- [ ] Fix zoom quality — should be the highest quality available, not degraded
+      *(likely M1 territory)*
+- [x] **Feedback on whether the sensor is co-planar with the table — built 2026-09-24.** Checked
+      CLAUDE.md's evidence-gate table first, per the note this item carried. Tripwire roll (in-
+      image rotation between two frames) and the radial residual plot (lens-distortion signature)
+      don't answer this question -- neither is a tilt-vs-table-plane measurement. What does: the
+      scale field's own fitted plane already used for `describe_scale_variation()` is direct
+      evidence of a gradient across the table, which co-planarity would make flat. Added
+      `describe_coplanarity()` in `calibration.py` (wired into `build_install_report()`, so it
+      shows up in the install report alongside scale variation): reports which corner of the
+      observed tag cloud reads nearer the camera and by how much, from the same fit, no new
+      measurement. Deliberately stops short of a tilt angle -- converting the gradient to degrees
+      needs the camera-to-table standoff distance, which Aaron has ruled out measuring on this
+      rig (fragile); the line says so explicitly rather than guessing. Unit-tested with synthetic
+      detections (known tilt direction recovered; flat field reports ~0%). See the install-report
+      entry above.
 
 ---
 
@@ -215,21 +309,374 @@ Sliced so each piece ends with something visible in a browser.
 
 The heart of the project. Do not start before M1 slice 5.
 
-- [ ] Hardware-test skip infrastructure in `tests/conftest.py`: detect camera absence and
-      `pytest.skip()` `hardware`/`hailo`-marked tests, rather than letting them hard-fail on
-      import. Add this alongside M2's first hardware-marked test (AprilTag detection needs real
-      frames to be meaningful), not before. *(Aaron, 2026-09-19)*
-- [ ] AprilTag detection: `cv2.aruco`, `DICT_APRILTAG_36h11`, `CORNER_REFINE_SUBPIX`
-- [ ] Calibration mode: paper sheets on alternating trays, reaching all four frame corners
-- [ ] Scale field and uncertainty field across the measurement plane
-- [ ] **Holdout coverage test** — build the field from half the tags, predict the other half
-- [ ] Install report: roll, tilt, framing, scale variation, coverage verdicts in plain language
-- [ ] Health baseline: four corner tags' positions, sizes, homography, locked lens position
-- [ ] Per-capture tripwire: `OK` / `DRIFT` / `FAIL` stamped on every reading
-- [ ] Tray tags re-fit scale **on top of** the frozen field — they do not rebuild it
-- [ ] Calibration artifact: versioned, exportable
-- [ ] Calibration data lives in its own storage location, separate from experiment captures —
-      it's rig-level state, not per-experiment data. *(Aaron, 2026-09-19)*
+- [x] Hardware-test skip infrastructure in `tests/conftest.py`: `pytest_collection_modifyitems`
+      probes for the real camera (`Picamera2.global_camera_info()`, no open/lock) and Hailo
+      (`hailortcli` on `PATH`), skipping `hardware`/`hailo`-marked tests when absent instead of
+      hard-failing. Registered `trylast` so it only probes hardware that a `hardware`/`hailo`-
+      marked test actually survived `-m` filtering to need — a plain `pytest` (unit tier, the
+      default) never touches the camera, so it can't collide with a live server using it.
+      **Real incident (2026-09-19):** an earlier, unconditional version of this probe did touch
+      the camera on every `pytest` run, and collided with Aaron's live session mid-conversation
+      (transient `V4L2 ... Device or resource busy`, plus an unrelated file-write triggering
+      uvicorn's `--reload` to hang on "waiting for connections to close" until he refreshed the
+      stuck browser tab). Fixed; noted so the same mistake isn't repeated.
+- [x] AprilTag detection: `src/npec_rig/tags.py` — `cv2.aruco`, `DICT_APRILTAG_36h11`, tuned
+      `DetectorParameters` (`CORNER_REFINE_SUBPIX`, `minMarkerPerimeterRate=0.005`, adaptive
+      threshold window 11–91 step 10), reused from the previous rig rather than re-derived.
+      `detect_tags()` returns sorted `TagDetection` (id, corners); `draw_overlay()` for a visual
+      check. Unit tests in `tests/test_tags.py` use `cv2.aruco.generateImageMarker` (known IDs,
+      multi-tag, rotation) — synthetic-but-exact, not a photo, so they test our wrapper code
+      rather than the detector's own algorithm — plus one narrow real-photo smoke test (a small
+      crop with one genuine tag) proving real camera/JPEG output decodes.
+      **Note on process:** an earlier version of this work built four tests against a full bench
+      photo Aaron had left on the table as orientation reference, not curated test data —
+      including an `xfail` encoding a tuned-vs-stock count reversal specific to that photo's
+      unusually dense tag sheets (325+ real tags, per Aaron: 9×25 + 2×20 + 6×9 sheets + corners +
+      stray "garbage" tags). Redone at Aaron's correction: don't treat an incidental scene as
+      ground truth, and don't assert things about detector algorithm quality that aren't ours to
+      test. The full photo was removed from the repo; only the minimal crop remains.
+- [x] **Calibration mode UI** — `POST /calibration/run` in `app.py` (plus the "Calibration"
+      section in `static/index.html`): captures a full-res still, detects tags, builds the scale
+      field + install report via `build_calibration_report()`, and shows the operator the result
+      in the browser. Also builds the corner baseline (`build_corner_baseline()`) and records the
+      current lens position into the saved `CalibrationArtifact` — this was the "needs bench
+      access" gap noted below in the health-baseline entry; both are now populated from a real
+      capture, not just plumbed as optional fields. Saves the full-res frame alongside the
+      artifact (`calibration_store.save_calibration_frame()`, same timestamp stem) so a bad or
+      disputed field can be re-processed later without redoing the physical paper-sheet setup —
+      every M2 acceptance test below is a diff between two calibrations. Smoke-tested against
+      real hardware 2026-09-21 (no sheets on the table yet, so 0 tags — exercised the "not enough
+      tags" path cleanly, ~8.5s round trip for a 64MP capture + detect at 0 tags; expect longer
+      with real sheets present). **Tag size caveat, resolved 2026-09-21:** `tags.py`'s
+      `ASSUMED_CALIBRATION_TAG_SIZE_MM` (29.3106mm) was a placeholder for whoever hadn't measured
+      a given print run yet, not a substitute for measuring it -- reusing it as a hardcoded
+      constant was wrong, since a reprint isn't guaranteed to come out the same size. Aaron
+      calliper-measured the *2026-09-20 print* of IDs 300-449 (`reference/calibration-sheets/`)
+      directly: ~30.02mm average across 6 measurements (30.1, 30.11, 29.96mm X; 30.04, 29.96,
+      29.94mm Y), not 29.3106mm. Fixed by making it a per-run input instead of a constant --
+      `calibration_tag_size_mm` on `POST /calibration/run`, UI field pre-filled from the last
+      calibration's own recorded value, stored on `CalibrationArtifact` (schema version 1 -> 2)
+      so a saved artifact records what it actually assumed rather than depending on a global that
+      can drift. This was the largest error source in the project if wrong, and neither the
+      holdout test nor the two-baseline test can catch a wrong constant applied identically both
+      times -- only a real measurement, entered per run, closes it. *(2026-09-21)*
+- [x] **Manual tripwire trigger** — `POST /calibration/tripwire/check` plus the "Check tripwire
+      now" button: runs `check_tripwire()` against the saved baseline on demand. Decided this
+      session not to wait for M3's scheduler (see the per-capture tripwire entry below) — without
+      some trigger, the roll/knock acceptance test has no way to invoke a tripwire check at all.
+      Automatic per-capture wiring is still M3 scope. *(2026-09-21)*
+- [x] **`promote` flag so a comparison run can't silently swap the live baseline** —
+      `save_calibration(artifact, promote=...)` in `calibration_store.py`; `POST
+      /calibration/run?promote=false` (UI: "Set as current baseline" checkbox, unchecked) writes
+      the timestamped artifact + frame without touching `current.json`. Without this, the
+      two-baseline test's own second run would silently replace the baseline
+      `/calibration/tripwire/check` reads mid-test — caught before it shipped, not after Aaron
+      hit it in the chamber. *(2026-09-21)*
+- [x] **Calibration export** — `GET /calibration/list` plus a `/calibration/files/` static mount
+      (same pattern as `/captures`) serving every saved artifact JSON and its frame; the
+      "Saved calibrations (download)" panel in the UI. PLAN.md M2 section A says calibration is
+      "frozen, versioned, **exportable**" — this is the export; before this, artifacts only
+      existed on the Pi's filesystem, reachable over SSH. *(2026-09-21)*
+- [x] **Scale field** — `src/npec_rig/calibration.py`, `build_scale_field()`: fits a single
+      tilted-plane model (relative depth linear in image x, y) from `TagDetection`s plus a
+      tag_id -> size_mm lookup. `ScaleField.px_per_mm(x, y)` / `.mm_per_px(x, y)` give local
+      scale anywhere in the frame; `residual_std_pct` is a *global* plane-fit diagnostic.
+      Validated against the real 2026-09-19 capture (reproduces the one-off analysis exactly:
+      1.82% residual). Unit-tested with synthetic detections, no photos as ground truth.
+      *(2026-09-20)*
+- [x] **Uncertainty field (local scatter)** — `UncertaintyField`/`build_uncertainty_field()` in
+      the same module: at a query position, RMS-about-zero (not std about the neighbours' own
+      mean) of the k image-plane-nearest tags' residuals against the fitted plane. k-nearest by
+      distance, not a fixed grid — a real calibration sheet's tags are scattered irregularly.
+      RMS-about-zero matters: a cluster of tags that all agree with *each other* but are all
+      biased the same way off the plane has ~zero scatter about their own mean but a real
+      systematic error — std would report false maximum confidence there, exactly the
+      honesty-plot failure mode M2's acceptance tests exist to catch. Unit-tested with synthetic
+      detections including a deliberately biased local cluster. *(2026-09-20)*
+- [x] **Holdout coverage test** — `holdout_coverage_test()` in the same module: fits on a random
+      half of usable tags, predicts the other half, reports mean/max % error. Real-capture
+      sanity check: 1.48% mean, 4.29% max. *(2026-09-20)*
+- [x] **Regional coverage (spatial attribution)** — `regional_coverage_test()`: fits on three
+      quadrants, predicts the fourth, for each of the frame's four quadrants (split at the
+      *frame's* midpoint, not the tag cloud's own median — a median split can never produce an
+      empty quadrant, which would hide the strongest possible "add coverage here" signal).
+      `describe_regional_coverage()` turns that into "add a sheet in the top-left" /
+      "coverage weak in the bottom-left" lines, wired into `build_install_report()`. This is what
+      turns the coverage check into "add coverage in the top-left" rather than just a percentage.
+      Unit-tested with synthetic detections. *(2026-09-20)*
+- [~] **Install report** — `describe_scale_variation()`, `describe_coplanarity()`,
+      `describe_coverage()`, `build_install_report()` in `calibration.py`. Scale variation is
+      evaluated over the *observed tag cloud's* bounding box, never the frame -- extrapolating
+      the fitted plane past where tags were actually seen would be the report lying about its
+      own coverage. Coverage verdict defaults to PLAN.md's 2% tape-measure acceptance target as
+      the sufficient/insufficient threshold. **Co-planarity feedback, built 2026-09-24** (see the
+      supervisor-feedback section below): `describe_coplanarity()` reads the same fitted
+      `ScaleField` scale-variation already reads and reports which corner of the tag cloud sits
+      nearer the camera (higher px/mm) and by how much -- direction and magnitude only, no angle.
+      **Roll and a tilt *angle* are still not built** -- a tilt angle isn't recoverable from a
+      single photo without a physical standoff-distance measurement Aaron has ruled out (rig is
+      fragile); **framing is also not built** -- it needs a real capture's corner-tag/frame-edge
+      check. `build_calibration_report()` is the entry point a real caller should use — it builds
+      the field, positions, and global/regional coverage from one consistent set of detections
+      before assembling the report lines, so a field from one capture can't get paired with
+      coverage from another (`build_install_report()`'s own parameters aren't cross-checked, by
+      design — useful for testing each line in isolation). Unit-tested with synthetic detections.
+      *(2026-09-20, updated 2026-09-24)*
+- [x] **Live reorientation guidance** — `POST /calibration/orientation/zero` (freezes the current
+      preview frame's corner tags as an in-memory zero point) + `GET
+      /calibration/orientation/live` (roll/scale reading against that zero point) in `app.py`,
+      plus the "Live reorientation aid" panel in `static/index.html`, polled every 500ms. Reuses
+      `check_tripwire` rather than deriving roll/tilt from raw single-frame geometry (e.g. "corner
+      tags should form an axis-aligned rectangle," "corner tags are the same physical size") —
+      neither assumption is established anywhere in this repo, and a wrong one would be a derived
+      number presented as measured. Zero point is in-memory only, not persisted, separate from the
+      real calibration baseline. Smoke-tested against real hardware 2026-09-21 (no corner tags on
+      the table yet, so both endpoints 409 cleanly on "no corner tags detected" / "no zero point
+      set") — **not yet exercised end to end with real corner tags in frame**, that needs bench
+      access. *(Aaron, 2026-09-19; built 2026-09-21)*
+- [x] **Health baseline** — `CornerBaseline`/`build_corner_baseline()` in
+      `src/npec_rig/tripwire.py`: corner tag corners keyed by tag id, built from whatever subset
+      of the (up to 4) mounted corner tags a real calibration actually detects — not assumed to
+      be exactly 4 (a corner tag could still be knocked loose or obstructed later; an earlier note
+      here about one currently being partially obscured was stale and is corrected above).
+      Lens-position capture/recording is now wired up too, via `POST /calibration/run` (see the
+      calibration mode UI entry above).
+      **Homography built, 2026-09-22:** `TableFrame`/`build_table_frame()` in `calibration.py` --
+      pixel <-> table-fraction transform from the four corner tags' own centres (a hand-rolled
+      4-point DLT, position-only, no `ScaleField` input so mm can't leak in). Completes this
+      item's own previously-flagged gap ("nothing in M2 consumes a homography yet"). Backed by two
+      homography tests run against real saved calibration frames (not just argued from docs): a
+      single tag's own 4-corner homography does *not* generalize (~10% size error by the far side
+      of the frame, r=0.72 with distance from the source tag); the four corner tags' wide-baseline
+      homography does (~1-6% shape consistency, r=-0.05, essentially uncorrelated with distance
+      from centre). Consumed by `calibration_viz.render_table_view()` -- the same scale-residual
+      and area-shape fields the existing heatmaps draw, painted instead on a straightened,
+      position-indexed table view, wired into `POST /calibration/run` (two new URLs,
+      `table_view_url`/`table_view_shape_url`) and the calibration UI panel. Position only, never
+      mm -- kept strictly separate from `ScaleField` (a different physical plane, tray height vs.
+      table edge), per CLAUDE.md's evidence gate against inventing cross-plane corrections. The
+      tray-height repeat of this same trust-field exercise (the actual measurement plane, per
+      Aaron's supervisor) is real, separate future work, not started here.
+- [x] **Per-capture tripwire** — `check_tripwire()` in `tripwire.py`: `OK`/`DRIFT`/`FAIL` against
+      a `CornerBaseline`, from Procrustes-fit roll (all 4 corners of each matched corner tag, not
+      just centres) and per-tag size ratio ("near corner tag N is 5% closer"). Missing baseline
+      tag -> `FAIL`, loud; missing a tag the baseline never had -> not a failure (handles the
+      currently-obscured corner tag). Refuses (`FAIL`) rather than computing a roll figure from
+      fewer than 2 matched corner tags — one tag's own 4 corners measure that tag's own
+      orientation, not the cross-tag geometry a roll/drift check needs. Roll here is an in-image
+      rotation between two frames of the *same* rig, not the absolute-tilt angle CLAUDE.md rules
+      out measuring from one photo — no standoff-distance measurement needed, see the module
+      docstring. Thresholds are provisional
+      parameters (default: 1 deg drift / 10 deg fail, 3%/8% scale) set so a deliberate ~5 deg test
+      roll lands as `DRIFT` per PLAN.md's acceptance wording, not tuned to real data yet -- the
+      chamber acceptance tests are the actual measurement. Unit-tested with synthetic baselines
+      and known rotations/scale changes. Wired into a manual trigger, `POST
+      /calibration/tripwire/check` (see the manual tripwire trigger entry above) — **not into an
+      automatic per-capture pipeline** (writing a verdict to the DB on every reading), which still
+      needs the recurring capture loop M3's scheduler builds. *(2026-09-20, updated 2026-09-21)*
+- [x] **Tray tags re-fit scale on top of the frozen field** — `ScaleFactorRefit`/
+      `refit_scale_factor()` in `calibration.py`: keeps the frozen field's shape (plane tilt
+      coefficients) fixed, refits only the multiplicative scale factor from new (e.g. tray-tag)
+      detections. Given a frozen shape, a uniform scale correction is the *only* well-posed
+      degree of freedom left to fit from interior-only points — refitting the tilt too would be
+      degenerate with rescaling, not an independent "perspective correction" (see the docstring
+      for the full argument; re-read PLAN.md's M2 section B paragraph before changing this).
+      Returns `interior_scatter_pct` — how much the new detections disagree with each other —
+      as its own field, distinct from the frozen field's own `residual_std_pct` (which stays
+      untouched, since it describes the *paper-sheet* fit, not this refit). Unit-tested with
+      synthetic detections, including a uniform-rescale case and a disagreeing-tags case.
+      *(2026-09-20)*
+- [x] **Calibration artifact: versioned, exportable** — `CalibrationArtifact` +
+      `calibration_artifact_to_dict()`/`_from_dict()` in `calibration.py` (owns `ScaleField`'s
+      private fields, so the codec lives there rather than in a separate module). Plain versioned
+      dict (`version` field, currently 1) bundling the scale field, corner baseline and locked
+      lens position — kept deliberately simple, no schema library, per CLAUDE.md's "don't build
+      more than that without a concrete reason." `from_dict` rejects an unrecognised version
+      rather than guessing at its shape. Round-trip unit-tested, with and without a baseline.
+      *(2026-09-20)*
+- [x] **Calibration data lives in its own storage location** — new
+      `src/npec_rig/calibration_store.py`: `NPEC_RIG_CALIBRATION_DIR`, defaulting to
+      `/var/lib/npec-rig/calibration/`, separate from `NPEC_RIG_CAPTURES_DIR` — same
+      env-var-with-a-default convention as `settings.py`'s `db_path()` and `captures.py`'s
+      `captures_root()`. Schema-versioned timestamped JSON files plus a `current.json` pointer
+      (both written atomically, write-then-rename), the persistence pattern PLAN.md notes
+      approvingly from the old project (`docs/persistence.md`) — appropriate here since
+      calibration is explicitly "frozen, versioned, exportable," unlike camera settings, which
+      use SQLite instead. Unit-tested (round-trip, current-pointer tracking, listing, isolation
+      from the captures dir). *(2026-09-20)*
+
+### M2 — area-scale shape check, built 2026-09-21
+
+- [x] **Direct area-scale field from tag shape, not trigonometry.** Aaron asked whether tag
+      squareness + trigonometry could give surface-area error moving out from centre; that
+      version needs lens intrinsics and a camera-to-table distance we can't safely get (same
+      standoff-distance wall as the tilt-angle problem, see `m2_calibration_progress.md`
+      memory). The version that avoids this entirely: every calibration tag's real area is
+      `size_mm²` (already calliper-verified); its *pixel* area is computable right now from its
+      four already-detected corners (shoelace formula on the quadrilateral -- exact, no
+      assumptions, `tags.tag_area_px`). `pixel_area / size_mm²` compared to
+      `(ScaleField.px_per_mm at that position)²` gives `area_error_pct` per tag
+      (`calibration.area_scale_samples`), surfaced as a report line
+      (`describe_area_scale_shape`) and a heatmap (`calibration_viz.render_area_shape_heatmap`),
+      the same way scale variation and coverage are.
+      **Built, but not the number it looks like:** `area_error_pct` decomposes exactly into
+      `100 * (kappa - 1) + 2 * residual_pct` (see `AreaScaleSample`'s docstring for the algebra),
+      where `kappa = pixel_area / tag_side_px² <= 1` (a square is the max-area quad for a given
+      mean side length) is the actually-new shape signal and `residual_pct` is the *already-
+      plotted* length-scale residual, doubled. On this rig's real geometry `residual_pct`
+      dominates by roughly two orders of magnitude (measured, reprocessing all 17 real
+      calibration frames from 2026-09-21 offline: `shape_factor_pct = 100*(kappa-1)` maxed at
+      -0.45% and averaged -0.05% over 2104 tags, versus `area_error_pct` averaging 3.1% and
+      peaking at 14.5%) -- reading `area_error_pct` alone and seeing it grow toward the corners
+      would just re-discover the known bottom-right coverage gap below, not evidence area needs
+      its own fit. `shape_factor_pct` is kept on `AreaScaleSample` and is what the heatmap
+      actually plots (own measured 0-0.5% range, `AREA_SHAPE_HEATMAP_MAX_PCT`), specifically so
+      that question can be answered without the confound. *(Aaron asked 2026-09-21; built and
+      verified against real hardware frames the same day)*
+- [?] **`shape_factor_pct` itself is structured toward the corners on real data -- is that real
+      distortion or a corner-precision artifact?** Before trusting the 0.005%-centre-to-0.12%-
+      corner spread above as real geometry, checked the obvious confound: corner-refinement
+      noise on a tag of side `s` biases `kappa` down by `~1/s²`, and tag size is itself weakly
+      position-dependent, so a pure noise floor could *look* like corner structure without being
+      any. Same 17-frame/2104-tag reprocess, this time regressing `abs(shape_factor_pct)`
+      against `1/tag_side_px²` and against distance from frame centre separately: `1/side²`
+      explains almost nothing (R²=0.03, corr=0.16, and binning by tag size isn't even monotonic),
+      while distance from centre is strongly and monotonically correlated (corr=0.74; mean
+      `abs(shape_factor_pct)` goes 0.005% → 0.012% → 0.073% → 0.119% across distance quartiles
+      whose mean tag size barely moves, 131→132→130→129px) and stays just as correlated
+      (corr=0.71) after regressing out `1/side²`. Reads as real, position-structured shape
+      distortion, not a tag-size artifact -- i.e. exactly the pattern this check's own decision
+      rule calls "real evidence area needs its own fit before M5." Not acted on: that's a real
+      scope decision (an area-specific fit is calibration maths, CLAUDE.md's evidence-gate
+      table), not something to start on the strength of one diagnostic without Aaron's sign-off.
+      *(2026-09-21, offline reprocess, no bench time)*
+
+### M2 — known issues, not yet fixed
+
+- [ ] **Auto exposure only fires once per tick, not continuously** — Aaron, 2026-09-22: ticking
+      "Auto exposure" adjusts exposure once, then holds still even as real lighting changes;
+      unticking and re-ticking forces one more adjustment. Checked this app's own code path
+      (`camera.py`'s `Picamera2Backend.set_control`/`CameraManager.set_control`): it makes one
+      `set_controls({"AeEnable": True})` call and never re-writes `ExposureTime`/`AnalogueGain`
+      afterward, and the UI's controls panel (`index.html`) only reads `/controls` once at page
+      load -- no polling loop that could be re-locking it by echoing a stale value back. So
+      nothing in this app is fighting AE after it's enabled; if it's only converging once, that's
+      either a picamera2/libcamera behaviour needing its own investigation, or something with the
+      camera_controls read happening at a moment that freezes it. Not reproduced against real
+      hardware by Claude (no camera access in this environment) -- needs an on-hardware check
+      before guessing further.
+- [ ] **Live reorientation aid never actually works** — `POST /calibration/orientation/zero`
+      refused twice on real hardware (2026-09-21) with "no corner tags detected." The corner
+      tags are 50mm on `CORNER_ID_RANGE`; the preview stream (`LORES_SIZE`, far below full-res)
+      is apparently too low-resolution for `detect_tags` to pick them up at all, so the feature
+      as built is unusable in practice, not just imprecise. Full-res captures detect all 4 corner
+      tags reliably every time -- this is specific to the preview resolution. Needs either a
+      higher-resolution preview specifically for this check, or a detector-sensitivity change for
+      it; not attempted yet. *(Aaron, 2026-09-21)*
+- [ ] **Calibration capture immediately followed by autofocus wedges the whole camera pipeline**
+      — reproduced on real hardware 2026-09-21: run a calibration, then hit "Autofocus," and
+      every camera-touching endpoint (preview, snapshot, focus score) hangs for an extended
+      period; the non-camera index page stays responsive throughout, which isolates it to
+      `CameraManager._call_lock`/the picamera2 backend, not the web layer. Likely cause, not yet
+      fixed: `Picamera2Backend.autofocus()` calls `autofocus_cycle(wait=True)`, which has **no
+      timeout parameter** in the installed picamera2 version (checked via
+      `inspect.signature`/`inspect.getsource` directly, not assumed) -- it blocks on AF-state
+      metadata that may never arrive if the hardware AF search stalls, holding `_call_lock`
+      indefinitely and starving every other camera call behind it. A real fix (bounded wait via
+      `autofocus_cycle(wait=False)` + `Picamera2.wait(job, timeout=...)`, plus deciding what state
+      to leave the camera/`AfMode` in in that case) is nontrivial and camera-reliability-critical
+      enough to want sign-off before attempting, not guessed at. Recovery for now: kill the full
+      uvicorn process family (see project memory on why `pkill -f uvicorn` doesn't work) and
+      relaunch. *(Aaron, 2026-09-21)*
+      **Update, 2026-09-24:** reproduced again on an abandoned experimental branch (a continuous
+      full-res video mode, since dropped for unrelated reasons) via its own `stop`/`configure`/
+      `start` reconfigure followed by autofocus -- confirms this isn't specific to a calibration
+      capture, any pipeline reconfigure followed by autofocus can trigger the same hang. Still not
+      fixed; still the same sign-off-gated change, not two separate bugs to design around.
+- [ ] **Regional coverage weakness: bottom-left explained, bottom-right not yet** — checked
+      against all 7 real calibration frames saved 2026-09-21 (reprocessed offline, no bench time
+      needed -- this is exactly why frames are saved alongside artifacts). Two hypotheses tested
+      and ruled out: (1) refitting `ppm` directly linear in (x,y) instead of the current
+      `relative_depth = mean_ppm/ppm` gives near-identical holdout/regional error in every run
+      (e.g. run 1: 2.18% vs 2.11% bottom-right) -- the reciprocal-vs-direct functional-form
+      difference is real but too small (~0.2-0.4% at this tilt magnitude) to be the cause; (2) the
+      plane coefficients visibly jump between two runs taken 2 minutes apart with unchanged
+      `lens_position` (6.3 both times) -- not a refocus artifact either. What the data does show:
+      bottom-left is the *sparsest* quadrant in all 7 runs (n=4-24 tags, always the frame's lowest
+      count) -- its weakness is plain undersampling, fixed by adding coverage there. Bottom-right
+      is a different story: comparable tag count to the best-performing quadrant (top-right,
+      n=42-86 both) but consistently ~1.5-2x its error regardless -- sparsity doesn't explain it.
+      That's a real, sample-size-independent, consistently-located residual -- the honesty plot
+      (claimed uncertainty vs actual error, PLAN.md M2 acceptance) is the next real measurement,
+      not another guess. *(2026-09-21)*
+- [ ] **`SyntheticBackend` emits 3-channel frames; real hardware now emits 4-channel (`XBGR8888`,
+      per the color-swap fix above -- `f82f12c`).** Found by `/code-review` (2026-09-24), verified
+      directly on real hardware, not trusted from the diff alone: `Picamera2Backend.capture_array()`
+      genuinely returns `(H, W, 4)`, and every consumer (`array_to_jpeg`, `to_grayscale`,
+      `detect_tags` via the calibration endpoints) handles it correctly -- confirmed by capturing a
+      real frame through the actual pipeline and looking at the resulting JPEG, colors correct, not
+      just checking it doesn't crash. So this is a **test-fixture gap, not a live bug**: the entire
+      212-test unit suite exercises a frame shape real hardware hasn't produced since that fix
+      landed, which means a future change to any consumer that only breaks on the 4th (padding)
+      channel would pass every unit test and only surface on real hardware. Not fixed here --
+      changing what `SyntheticBackend` emits changes what all 212 tests exercise, a call for Aaron,
+      not something to slip in as a side effect of a review pass.
+- [ ] **Several UI button handlers have `try`/`finally` but no `catch`** (`index.html`: run
+      calibration, zero orientation, tripwire check, honesty plot) — found by `/code-review`
+      2026-09-24. A `fetch()` rejection (network drop/timeout, plausible over Tailscale) silently
+      re-enables the button via `finally` with no error shown -- indistinguishable from never
+      having clicked. Needs a UX decision on how errors should surface (toast? inline message?),
+      not a one-line fix.
+- [ ] **Tag-size auto-prefill can launder a placeholder into "measured"** (`index.html` ~line 1045)
+      — found by `/code-review` 2026-09-24. `/calibration/current`'s response has no `is_default`
+      flag, so the UI can't tell "this number was calliper-measured" from "this is the unmeasured
+      `ASSUMED_CALIBRATION_TAG_SIZE_MM` placeholder" when it prefills the tag-size input from the
+      last run. If the operator doesn't notice and edit it, running calibration again sends the
+      placeholder back as an explicit, user-entered value -- exactly the derived-not-measured
+      failure CLAUDE.md's evidence gate exists to catch, just laundered through a form field
+      instead of a hardcoded constant. Needs an API change (carry `is_default` through) plus a
+      frontend change (warn or refuse to prefill from a default) -- not done here.
+- [ ] **Honesty-plot form asks for raw pixel coordinates and a hand-computed error percentage**
+      (`index.html` ~line 594) — found by `/code-review` 2026-09-24, and it's a direct hit on
+      CLAUDE.md's "operator inputs must be physical actions" rule: the table headers are literally
+      "x (px)", "y (px)", "actual error (%)", with instructions telling the operator to read a
+      pixel position off the frame and type it in. This is existing, already-shipped M2 UI (the
+      honesty-plot tooling, 2026-09-21), not something new -- flagging it now because a fresh
+      review pass is what caught it, not because it just landed. Needs a product decision on which
+      physical action replaces this (clicking the target on the displayed image? typing a calliper
+      length and letting the app find the nearest detected feature?) before touching it.
+- [ ] **`_outer_edge_span_to_centre_distance_mm` assumes corner tags are mounted axis-aligned with
+      the table** (`app.py` ~line 276), stated as fact with no runtime check or `is_default`-style
+      flag, unlike its sibling tag-size assumptions in the same function — found by `/code-review`
+      2026-09-24. On the physically-rebuilt rig (CLAUDE.md: re-measure everything), if the corner
+      tags are even slightly off-axis this silently under-subtracts the table span, and the UI
+      still prints an unqualified "to scale: WxL mm" caption. A measurement-discipline call for
+      Aaron, not something to guess a tolerance for.
+
+### M2 — UI usability, not yet done
+
+- [ ] **Calibration page has grown into one long page — break it into a sequential set of steps**
+      instead. It's accumulated run calibration, tripwire check, live reorientation aid, and the
+      honesty plot all stacked on one page this session; needs restructuring into a guided
+      step-by-step flow rather than one scroll. *(Aaron, 2026-09-21)*
+- [ ] **Move calibration history into a gallery** — the current "Saved calibrations (download)"
+      `<details>` list (filenames + text links) should become a proper gallery: preview
+      thumbnails plus a download action per entry, not a plain link list. *(Aaron, 2026-09-21)*
+- [ ] **Zoomed focus preview (`/focus/roi.mjpg`) is awful quality** — Aaron: looks like a zoom of
+      a reduced-quality image. Should be much higher quality to actually help focus by eye.
+      `CameraManager.roi_crop_jpeg` (`camera.py`) crops from the continuous `main` video stream
+      at `MAIN_SIZE` (1536×1152), not the 320×240 `lores` preview and not a full-res still --
+      so it's not literally re-zooming the low-res preview, but 1536×1152 is still a small
+      fraction of the 64MP sensor, and a small ROI crop of that gets magnified a lot in the
+      browser. Not investigated further -- worth checking whether a dedicated higher-res crop
+      (e.g. a still capture, or a larger/different stream config) is feasible without breaking
+      the continuous preview or `focus_score`'s own use of the same stream. *(Aaron, 2026-09-22)*
+- [ ] **Low priority: let the two heatmaps and the best-vs-worst-tag rank plots be viewed for a
+      past calibration, not just whatever's live.** All four currently only read
+      `load_current_calibration()`; picking an old run means adding a picker to the UI and, for
+      the rank plots and the area-shape heatmap specifically, re-detecting tags from that run's
+      saved frame each time (their per-tag data isn't persisted in the artifact -- see
+      `ScaleResidualSample`/`AreaScaleSample`). *(Aaron, 2026-09-22)*
 
 ### M2 acceptance — run in the chamber
 - [ ] **Two-baseline test** *(do first)* — two independent calibrations of the same static scene,
@@ -239,7 +686,60 @@ The heart of the project. Do not start before M1 slice 5.
 - [ ] Tape-measure two tags → app agrees within 2%
 - [ ] Roll the camera ~5° → reported as ~5°; knock it hard → verdict flips to `FAIL`
 - [ ] **Honesty plot** — claimed uncertainty vs actual error at 6 positions. Check whether residuals
-      are random or structured (structured opens the intrinsics evidence gate)
+      are random or structured (structured opens the intrinsics evidence gate). **Tooling built
+      2026-09-21, physical measurement still outstanding:** `GET
+      /calibration/current/uncertainty?x=&y=` returns the claimed value at a pixel;
+      `POST /calibration/honesty-plot` takes `{x, y, actual_error_pct}` points and renders the
+      scatter with a y=x reference line (a "Honesty plot" panel in the UI feeds it). Also built,
+      same session: a confidence heatmap (`calibration_viz.render_uncertainty_heatmap`) blending
+      `UncertaintyField.local_uncertainty_pct` over the calibration frame, computed and saved on
+      every `/calibration/run`, shown inline in the UI -- answers "where is confidence high/low on
+      the table" visually, which is a different question from the honesty plot's "is the claimed
+      number trustworthy" but was asked for alongside it. Both verified end-to-end on real
+      hardware (85 real tag detections, a real heatmap over the actual bench photo). Persisting
+      `UncertaintyField` needed a `CalibrationArtifact` schema bump (2 -> 3, no legacy shim) so a
+      saved calibration's confidence can be queried/rendered later without re-detecting tags from
+      the frame each time; also added `frame_stem` to the artifact, fixing a real gap --
+      `current.json` previously had no way back to which `frames/{stem}.jpg` it came from.
+      *(2026-09-21)*
+- [x] **Best-vs-worst-tag rank plot, built 2026-09-22.** Aaron wanted a plot of how far the worst
+      calibration tag is from the best one -- the two heatmaps only ever show smoothed/averaged
+      numbers. `GET /calibration/current/rank-plot?metric=scale_residual|shape_distortion`
+      re-detects tags from the live calibration's saved frame (neither per-tag number is
+      persisted in the artifact) and renders every tag's own residual or shape distortion,
+      sorted best to worst, as a single line rather than one bar per tag -- with 400+ tags a bar
+      chart is unreadable, and a sorted line shows the whole distribution's shape for free.
+      Only the two ends are labelled, with the worst tag's ID and frame position so it can be
+      found physically. Two `<img>`s in the UI, loaded automatically right after "Run
+      calibration" -- no new operator input. New calibration.py types
+      (`ScaleResidualSample`/`scale_residual_samples`) for the length-residual side, since
+      `UncertaintyField` doesn't keep `tag_id`, only positions.
+- [?] **Radial residual plot, built 2026-09-22 -- and its first real reading needs Aaron's/his
+      supervisor's judgement call, not mine.** Aaron's supervisor (a lens/photogrammetry expert)
+      read the confidence heatmap's spikiness as "that doesn't look right" and expected a
+      parallax/lens-distortion signature instead. PLAN.md already defines the exact test for
+      that: residuals *structured* (trending with distance from the image centre, consistently
+      signed) vs. random is the specific measurement that unbans intrinsic camera calibration.
+      That test had never actually been run in that shape -- only as an xy heatmap (position) or
+      a sorted-rank plot (magnitude), never signed-value-vs-radius. Built:
+      `GET /calibration/current/radial-plot?metric=scale_residual|shape_distortion` -- every
+      tag's own **signed** residual (not `abs()` -- a real distortion trend has a sign, folding
+      it to magnitude would hide the shape) plotted against distance from the image centre, with
+      an unweighted linear fit and its R² baked in, no smoothing, no pre-judgement of the result.
+      **First real run (`20260922T085145960485`, 371 tags) came back R²=0.34 (scale residual) and
+      R²=0.41 (area-shape distortion), both with a clear visible downward trend** -- not
+      obviously random scatter. Not acted on: one run's R² isn't a decision by itself (a
+      different run two turns earlier showed only weak position correlation on the same rig), and
+      "is this structured enough to open the gate" is exactly the judgement PLAN.md reserves for
+      a human reading the plot, not a threshold in code.
+      **Second run, lights on this time (`20260922T104517936034`, 431 tags): R²=0.33 / R²=0.45 --
+      same shape, same rough magnitude, under different lighting.** That rules out "it's an
+      exposure/lighting artifact" as the explanation for the earlier reading; it doesn't yet rule
+      in "it's the lens" over some other repeatable geometric cause. Axis tick labels (actual
+      px/percent numbers, and an explicit "0%" on the zero line) added the same day -- the first
+      version had bare axis lines with no numbers on them, a real gap, not intentional.
+      *(Aaron/supervisor to read the plot and decide; if confirmed across a few more runs, this
+      is what unbans `calibrateCamera`.)*
 
 ---
 
@@ -275,6 +775,10 @@ The heart of the project. Do not start before M1 slice 5.
 ## M4 — Tray tracking · *PLAN.md § M4*
 
 - [ ] Tray tag → identity, centroid, rotation 0–359°
+- [ ] **Alert on duplicate tray tags within a chamber** — uniqueness only needs to hold within one
+      chamber, not across the fleet (TODO.md's tag ID allocation entry), so nothing stops two
+      trays being 3D-printed with the same ID by mistake. Detect it and tell the experimenter
+      loudly rather than silently merging or misattributing readings. *(Aaron, 2026-09-20)*
 - [ ] Regions: 2 × 6, defined in measurement-plane coordinates, not image pixels
 - [ ] Dwell time per region per tray as a query, not a stored table
 - [ ] Dirty-tag degradation: measure anyway, flag identity unknown, drop from scale solve

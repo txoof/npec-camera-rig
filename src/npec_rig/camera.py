@@ -167,16 +167,24 @@ class Picamera2Backend(CameraBackend):
         from picamera2 import Picamera2
 
         self._picam2 = Picamera2()
-        # Pin an explicit format on both streams rather than trusting the negotiated default
-        # (unspecified, `lores` picked YUV420 planar — see git history for that bug). "RGB888"
-        # is confirmed correct here, checked directly against picamera2 (not assumed): a
-        # channel-swap test (RGB888 vs BGR888 arrays, compared against each other reversed)
-        # showed RGB888 gives genuine R,G,B order, and a known-neutral white reference in the
-        # same frame comes back neutral (no colour-cast bug either). Do not switch this to
-        # "BGR888" without re-running that check — it was tried and measured wrong.
+        # `main` gets NO explicit format. Confirmed 2026-09-21 against a known-color
+        # real-world reference, twice over (first wrongly, then correctly -- see TODO.md for
+        # the full account): explicitly keying "format" on a stream -- "RGB888" and "BGR888"
+        # were both tried -- puts this picamera2/libcamera build on a different, buggy
+        # internal path that comes out with swapped color, regardless of which string is
+        # named. Left unconstrained, `main` negotiates its own default (logged as "XBGR8888",
+        # 4 channels) and the array it hands back is genuinely R,G,B(,padding) in that channel
+        # order, DESPITE that log name suggesting B,G,R -- verified directly against the
+        # tote, not inferred from the label.
+        # `lores` still needs a format pinned, or it negotiates YUV420 planar and produces
+        # garbage (the original reason this pinning existed at all -- see git history).
+        # "XBGR8888" here too, for the same reason as `main`'s natural default: confirmed
+        # correct, despite the name, with no reordering.
+        # array_to_jpeg()/to_grayscale() below treat the first 3 channels as literal R,G,B and
+        # ignore any 4th (padding) channel -- no reversal, for either stream.
         self._video_config = self._picam2.create_video_configuration(
-            main={"size": MAIN_SIZE, "format": "RGB888"},
-            lores={"size": LORES_SIZE, "format": "RGB888"},
+            main={"size": MAIN_SIZE},
+            lores={"size": LORES_SIZE, "format": "XBGR8888"},
         )
         self._picam2.configure(self._video_config)
         self._picam2.set_controls({"AfMode": 0, "LensPosition": DEFAULT_LENS_POSITION})
@@ -198,7 +206,11 @@ class Picamera2Backend(CameraBackend):
         return self._picam2.capture_array("lores")
 
     def capture_full_res(self) -> tuple[np.ndarray, dict]:
-        still_config = self._picam2.create_still_configuration(main={"format": "RGB888"})
+        # No explicit format here either, for the same reason as `main` above -- unconstrained,
+        # this negotiates plain 3-channel (logged as "BGR888", genuinely R,G,B as delivered)
+        # and comes out correct against a known-color reference; explicitly keying "format"
+        # does not, regardless of which string is named.
+        still_config = self._picam2.create_still_configuration()
         self._picam2.stop()
         self._picam2.configure(still_config)
         self._picam2.start()
@@ -245,12 +257,24 @@ class Picamera2Backend(CameraBackend):
 
 
 def array_to_jpeg(frame: np.ndarray) -> bytes:
+    """`frame`'s first 3 channels are literally R,G,B, in that order, with an optional 4th
+    (unused padding) channel ignored -- verified directly against a known-color real-world
+    reference on 2026-09-21, not inferred from picamera2's own format name (which is
+    misleading here: it logs "BGR888"/"XBGR8888", but does not deliver that byte order --
+    see Picamera2Backend.__init__). `frame[..., :3]` takes the first three channels
+    unreordered; do not add a reversal here without re-running that same direct check --
+    exactly this reversal was tried and measured wrong once already (TODO.md has the account).
+    """
     buffer = io.BytesIO()
-    Image.fromarray(frame).convert("RGB").save(buffer, format="JPEG")
+    Image.fromarray(frame[..., :3]).convert("RGB").save(buffer, format="JPEG")
     return buffer.getvalue()
 
 
 def to_grayscale(frame: np.ndarray) -> np.ndarray:
+    """`frame`'s first 3 channels are R,G,B -- see array_to_jpeg. Standard luminance weights,
+    applied to the matching channel: 0.299 to red (channel 0), 0.114 to blue (channel 2). Any
+    4th (padding) channel is simply never referenced.
+    """
     return frame[..., 0] * 0.299 + frame[..., 1] * 0.587 + frame[..., 2] * 0.114
 
 
@@ -275,11 +299,17 @@ PEAKING_COLOR = (255, 0, 255)  # magenta — doesn't occur naturally in a plant/
 
 
 def peaking_overlay(crop: np.ndarray, threshold: float = PEAKING_THRESHOLD) -> np.ndarray:
-    """Highlight high-contrast edges in a bright color, as a visual focus check."""
+    """Highlight high-contrast edges in a bright color, as a visual focus check.
+
+    PEAKING_COLOR is symmetric (255, 0, 255) -- magenta reads the same whether the first and
+    third values are red/blue or blue/red, so it's correct regardless. Written to only the
+    first 3 channels: `crop` may be 3-channel or have a trailing unused padding channel (from
+    the video config's "XBGR8888") -- see array_to_jpeg.
+    """
     gray = to_grayscale(crop)
     edge_mask = np.abs(_laplacian(gray)) > threshold
     overlay = crop.copy()
-    overlay[1:-1, 1:-1][edge_mask] = PEAKING_COLOR
+    overlay[1:-1, 1:-1][edge_mask, :3] = PEAKING_COLOR
     return overlay
 
 
@@ -352,6 +382,12 @@ class CameraManager:
     def preview_jpeg(self) -> bytes:
         with self._call_lock:
             return array_to_jpeg(self._backend.capture_preview_array())
+
+    def capture_preview_array(self) -> np.ndarray:
+        """Raw lores frame, for callers that need pixels rather than a JPEG (e.g. the live
+        reorientation aid's tag detection)."""
+        with self._call_lock:
+            return self._backend.capture_preview_array()
 
     def set_lens_position(self, value: float) -> None:
         with self._call_lock:
