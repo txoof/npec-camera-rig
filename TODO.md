@@ -166,6 +166,29 @@ Sliced so each piece ends with something visible in a browser.
 - [x] Laplacian-variance sharpness score on a selectable ROI (click the live preview to place it)
 - [x] Magnified 1:1 ROI crop stream (`/focus/roi.mjpg`, 5 fps, no interpolation — genuine pixels,
       not resized, so the score and the display agree)
+- [~] **Zoom quality fix, supervisor feedback 2026-09-24: "should be the highest quality
+      available, not degraded."** Scoped before changing anything, per real code: `roi_crop_jpeg`
+      does a genuine array slice from the `main` stream (1536x1152) with no resize anywhere
+      server-side — the "1:1, no interpolation" claim above holds. The crop then goes through
+      `array_to_jpeg`, which was calling PIL's `.save(format="JPEG")` with no `quality` argument
+      -- PIL's own default (75). That's the one real, cheap-to-fix problem: the crop is displayed
+      magnified ~2-3x in the browser (CSS `max-width: 480px` over a crop as small as
+      `DEFAULT_ROI_SIZE`=200px), so JPEG blockiness at quality 75 is exactly as visible as real
+      detail at that magnification. Fixed: `array_to_jpeg` now takes an explicit `quality`
+      keyword (default unchanged at 75, so `snapshot_jpeg`/preview/`captures.py` are untouched),
+      and `roi_crop_jpeg` passes a new `ROI_CROP_JPEG_QUALITY = 95` constant. Unit-tested: quality
+      argument is honoured (higher quality -> larger output on a textured frame -- a flat
+      synthetic frame compresses to near-nothing at any quality, so needed real texture to tell
+      apart) and `roi_crop_jpeg` requests the higher constant, not the plain default.
+      **Not yet verified on real hardware or in a browser** — no camera/browser access from this
+      environment, and the currently-running live server is on the M2 branch/checkout, using the
+      real camera; testing this needs either a moment to point that server at this branch, or
+      Aaron eyeballing it directly. Considered and deliberately not built: pulling the crop from
+      a full-res still instead of the `main` stream, which would raise genuine detail further but
+      collides with a known unfixed bug (calibration-capture-then-autofocus wedges the camera
+      pipeline, `_call_lock` with no timeout) and would need to give up the continuous 5 fps
+      stream for a one-shot capture — a bigger, separate decision, not attempted without sign-off
+      that the quality-argument fix alone doesn't already solve the complaint. *(2026-09-24)*
 - [x] Lock and record lens position (`/focus/lock`, in-memory only — no persistence yet, that's
       still slice 4)
 - [x] Full-res capture to `/var/lib/npec-rig/captures/YYYY-MM-DD/` with JSON sidecar. Created

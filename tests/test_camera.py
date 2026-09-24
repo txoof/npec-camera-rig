@@ -1,9 +1,11 @@
 import numpy as np
 import pytest
 
+from npec_rig import camera
 from npec_rig.camera import (
     DEFAULT_LENS_POSITION,
     PEAKING_COLOR,
+    ROI_CROP_JPEG_QUALITY,
     SENSOR_METADATA_FIELDS,
     SIMULATED_AUTOFOCUS_POSITION,
     SYNTHETIC_CONTROL_RANGES,
@@ -63,6 +65,16 @@ def test_array_to_jpeg_produces_jpeg_bytes() -> None:
     assert data[:2] == b"\xff\xd8"
 
 
+def test_array_to_jpeg_quality_argument_changes_compression() -> None:
+    # A flat synthetic frame compresses to near-nothing at any quality -- needs real texture to
+    # tell the two settings apart at all.
+    rng = np.random.default_rng(0)
+    frame = rng.integers(0, 256, size=(64, 64, 3), dtype=np.uint8)
+    low_quality = array_to_jpeg(frame, quality=10)
+    high_quality = array_to_jpeg(frame, quality=95)
+    assert len(high_quality) > len(low_quality)
+
+
 def test_crop_roi_returns_requested_size_centered_on_point() -> None:
     frame = np.zeros((100, 100, 3), dtype=np.uint8)
     crop = crop_roi(frame, x=50, y=50, size=20)
@@ -112,6 +124,23 @@ def test_camera_manager_focus_score_and_roi_crop_do_not_touch_hardware() -> None
     assert manager.focus_score() == 0.0
     jpeg = manager.roi_crop_jpeg()
     assert jpeg[:2] == b"\xff\xd8"
+
+
+def test_roi_crop_jpeg_requests_the_higher_roi_quality(monkeypatch) -> None:
+    # The ROI crop is genuine pixels magnified a lot in the browser -- it should ask for more
+    # than array_to_jpeg's plain default, not whatever the preview/snapshot calls use.
+    captured_quality = {}
+    original = camera.array_to_jpeg
+
+    def spy(frame, **kwargs):
+        captured_quality.update(kwargs)
+        return original(frame, **kwargs)
+
+    monkeypatch.setattr(camera, "array_to_jpeg", spy)
+    manager = CameraManager(SyntheticBackend())
+    manager.roi_crop_jpeg()
+
+    assert captured_quality.get("quality") == ROI_CROP_JPEG_QUALITY
 
 
 def test_camera_manager_lock_and_unlock_focus() -> None:

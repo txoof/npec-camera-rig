@@ -22,6 +22,9 @@ DEFAULT_LENS_POSITION = 1.0
 MAIN_SIZE = (1536, 1152)  # (width, height) — must match Picamera2Backend's video config `main`
 LORES_SIZE = (320, 240)
 DEFAULT_ROI_SIZE = 200
+# Genuine, unresized pixels magnified ~2-3x for display (see array_to_jpeg's docstring) -- worth
+# the small extra bytes on a 5 fps stream of a small crop, not on the full preview or captures.
+ROI_CROP_JPEG_QUALITY = 95
 SIMULATED_AUTOFOCUS_POSITION = 6.3  # synthetic backend has no real optics; matches the old rig's
 # known-good position so the UI has something plausible to demo against
 
@@ -244,9 +247,15 @@ class Picamera2Backend(CameraBackend):
             self._control_cache[name] = value
 
 
-def array_to_jpeg(frame: np.ndarray) -> bytes:
+def array_to_jpeg(frame: np.ndarray, *, quality: int = 75) -> bytes:
+    """`quality` defaults to PIL's own JPEG default (75) so existing callers see no change.
+
+    Callers displaying genuine, unresized pixels at a magnified size (the 1:1 focus ROI crop)
+    should pass a higher `quality` explicitly -- at 2-3x display magnification, compression
+    blockiness is exactly as visible as real detail, and this call is cheap either way.
+    """
     buffer = io.BytesIO()
-    Image.fromarray(frame).convert("RGB").save(buffer, format="JPEG")
+    Image.fromarray(frame).convert("RGB").save(buffer, format="JPEG", quality=quality)
     return buffer.getvalue()
 
 
@@ -407,7 +416,7 @@ class CameraManager:
         crop = crop_roi(frame, self._roi["x"], self._roi["y"], self._roi["size"])
         if self._peaking_enabled:
             crop = peaking_overlay(crop)
-        return array_to_jpeg(crop)
+        return array_to_jpeg(crop, quality=ROI_CROP_JPEG_QUALITY)
 
     def get_peaking(self) -> dict:
         return {"enabled": self._peaking_enabled}
