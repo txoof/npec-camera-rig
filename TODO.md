@@ -98,9 +98,15 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
       being handled gracefully, not an intentional exclusion) *(likely M4 territory)*
 
 **Important next steps required by the supervisor:**
-- [ ] A way to draw one horizontal and two vertical guide lines over the live preview, for
-      checking squareness by eye *(likely M2 territory, alongside the existing live reorientation
-      aid)*
+- [x] **Squareness guide lines — built 2026-09-24.** "Squareness guide lines" checkbox next to
+      Focus peaking (`static/index.html`): one fixed horizontal line at 50% height, two fixed
+      vertical lines at 33.33%/66.67% width, overlaid on the live preview (`.preview-wrap`, same
+      absolutely-positioned pattern as the existing ROI box), `pointer-events: none` so it doesn't
+      block the click-to-place-focus-ROI handler. Client-side only, no server round trip, no
+      persistence — a pure visual straightening aid, not a measurement, so nothing to unit-test
+      (CLAUDE.md: HTML/CSS changes need a browser look, not pytest). **Not yet visually confirmed
+      in an actual browser** — no browser access from this environment; please eyeball it against
+      the live preview before calling this done, same caveat as slice 3's responsive-layout entry.
 - [ ] Fix zoom quality — should be the highest quality available, not degraded
       *(likely M1 territory)*
 - [x] **Feedback on whether the sensor is co-planar with the table — built 2026-09-24.** Checked

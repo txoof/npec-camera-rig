@@ -37,6 +37,32 @@
       pointer-events: none;
       display: none;
     }
+    .squareness-guides {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: none;
+    }
+    .squareness-guides.visible {
+      display: block;
+    }
+    .squareness-line {
+      position: absolute;
+      background: rgba(255, 255, 0, 0.75);
+    }
+    .squareness-line-h {
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 2px;
+      margin-top: -1px;
+    }
+    .squareness-line-v {
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      margin-left: -1px;
+    }
     .roi-crop {
       display: block;
       width: 100%;
@@ -195,9 +221,23 @@
     <div class="preview-wrap">
       <img class="preview" id="preview" src="/preview.mjpg" alt="live camera preview. click to place the focus ROI">
       <div class="roi-box" id="roi-box"></div>
+      <div class="squareness-guides" id="squareness-guides">
+        <div class="squareness-line squareness-line-h"></div>
+        <div class="squareness-line squareness-line-v" style="left: 33.33%;"></div>
+        <div class="squareness-line squareness-line-v" style="left: 66.67%;"></div>
+      </div>
     </div>
     <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
   </div>
+  <label class="peaking-row">
+    <input type="checkbox" id="squareness-toggle">
+    <span>
+      <strong>Squareness guide lines</strong> — one fixed horizontal and two fixed vertical lines
+      over the live preview, for checking by eye that the table's edges run parallel/perpendicular
+      to them while adjusting the rig. Fixed frame positions only, not measured from anything in
+      the image — a straightening aid, not a reading.
+    </span>
+  </label>
   <label class="peaking-row">
     <input type="checkbox" id="peaking-toggle">
     <span>
@@ -785,6 +825,13 @@
       setTimeout(pollScore, 300);
     }
     pollScore();
+
+    // --- Squareness guide lines toggle (client-side only, no server state) ---
+    const squarenessToggle = document.getElementById("squareness-toggle");
+    const squarenessGuides = document.getElementById("squareness-guides");
+    squarenessToggle.addEventListener("change", () => {
+      squarenessGuides.classList.toggle("visible", squarenessToggle.checked);
+    });
 
     // --- Focus peaking toggle ---
     const peakingToggle = document.getElementById("peaking-toggle");
