@@ -115,9 +115,12 @@
     <h3 style="margin: 1rem 0 0.25rem;">Step 2 — Level &amp; square</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Colored rings on the corner tags show how co-planar the table is with the camera, live —
-      no zero step needed, works as soon as 2+ corner tags are in frame. Green is within
-      tolerance; amber or red means that corner reads closer/farther than the others. Nudge the
-      rig until every ring is green.
+      no zero step needed, works as soon as 2+ corner tags are in frame. Each ring's percentage
+      is that tag's apparent size compared to the average of the others: <strong>+</strong> means
+      it looks bigger, i.e. <strong>closer</strong> to the camera than the rest; <strong>−</strong>
+      means smaller, i.e. <strong>farther away</strong>. Green is within 3% (co-planar); amber is
+      3–8% (nudge that corner); red is over 8% (that corner needs real adjustment, not a small
+      nudge). Nudge the rig until every ring is green.
     </p>
     <img
       id="level-overlay-image"
@@ -1091,8 +1094,26 @@
     // --- Live leveling aid ---
     const levelOverlayImage = document.getElementById("level-overlay-image");
 
+    // Loads into an off-screen probe first, swapping the visible <img>'s src only once a frame
+    // has fully loaded -- setting the visible img's src directly every 500ms let a slow request
+    // (e.g. right after Step 1's two video streams just stopped, still tearing down) get
+    // cancelled by the next tick's src reassignment before it ever painted, which is the more
+    // likely explanation for "blank until I navigate away and back" than the sizing bug was.
+    // `levelOverlayInFlight` skips starting a new probe while one's still pending, rather than
+    // letting probes pile up if requests are ever consistently slow.
+    let levelOverlayInFlight = false;
     function refreshLevelOverlay() {
-      levelOverlayImage.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
+      if (levelOverlayInFlight) return;
+      levelOverlayInFlight = true;
+      const probe = new Image();
+      probe.onload = () => {
+        levelOverlayImage.src = probe.src;
+        levelOverlayInFlight = false;
+      };
+      probe.onerror = () => {
+        levelOverlayInFlight = false;
+      };
+      probe.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
     }
     function pollLevelOverlay() {
       if (isActiveStep(2)) refreshLevelOverlay();
