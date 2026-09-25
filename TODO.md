@@ -718,6 +718,14 @@ The heart of the project. Do not start before M1 slice 5.
       the rank plots and the area-shape heatmap specifically, re-detecting tags from that run's
       saved frame each time (their per-tag data isn't persisted in the artifact -- see
       `ScaleResidualSample`/`AreaScaleSample`). *(Aaron, 2026-09-22)*
+- [ ] **Checkpoint warnings inside the calibration setup flow** — if the leveling/squareness check
+      looks very off, or a run's residuals come back very high, warn the operator inline at that
+      step instead of only in the final report (e.g. "roll looks unusually large — check the rig
+      before placing sheets"). Needs real threshold values from measured runs, not guessed
+      constants, plus a UX decision (warn vs. block progress) — a design question of its own, not
+      a small addition. *(Aaron, 2026-09-25, raised during the Setup-pages redesign; parked here
+      rather than under M6's alerts item, which is about unattended-operation alerts, not
+      interactive setup feedback.)*
 
 ### M2 acceptance — run in the chamber
 - [x] **Two-baseline test — run remotely 2026-09-25, clear pass.** Two calibrations of the same

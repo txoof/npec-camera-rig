@@ -79,12 +79,23 @@ app.mount("/captures", StaticFiles(directory=str(captures_root())), name="captur
 # Serves both the timestamped artifact JSON and, under frames/, the full-res still each one
 # came from (calibration_store.save_calibration_frame).
 app.mount("/calibration/files", StaticFiles(directory=str(calibration_root())), name="calibration_files")
+# Shared CSS (and any future shared JS) for the plain multi-page static frontend -- no build step,
+# no templating, just files served as-is alongside the page routes below.
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
-    """The camera console page."""
+    """The camera console page: focus/square setup and calibration."""
     return (STATIC_DIR / "index.html").read_text()
+
+
+@app.get("/gallery", response_class=HTMLResponse)
+def gallery_page() -> str:
+    """Capture button + recent-captures gallery, split out of the main page (2026-09-25):
+    unrelated to camera/calibration setup, and cluttered a page that's supposed to be a quick
+    Setup flow."""
+    return (STATIC_DIR / "gallery.html").read_text()
 
 
 @app.get("/snapshot.jpg")
