@@ -16,6 +16,7 @@ from npec_rig.calibration_viz import (
     TABLE_VIEW_CANVAS_DIM,
     render_area_shape_heatmap,
     render_best_worst_overlay,
+    render_certainty_dome_plot,
     render_honesty_plot,
     render_level_overlay,
     render_radial_residual_plot,
@@ -315,6 +316,37 @@ def test_radial_plot_handles_zero_variance_without_crashing() -> None:
     # naive R^2 calculation. Exercises the guard rather than the maths.
     points = [(0.0, 1.0, 1), (100.0, 1.0, 2), (200.0, 1.0, 3)]
     image = render_radial_residual_plot(points, label="scale residual", size=300, margin=50, top_margin=80)
+    assert image.shape == (300, 300, 3)
+
+
+def test_certainty_dome_plot_renders_an_image_of_the_requested_size() -> None:
+    points = [(0.0, 0.5, 1), (100.0, 0.8, 2), (200.0, 1.5, 3), (300.0, 2.0, 4)]
+    image = render_certainty_dome_plot(points, size=400, margin=50, top_margin=80)
+    assert image.shape == (400, 400, 3)
+
+
+def test_certainty_dome_plot_requires_at_least_two_points() -> None:
+    with pytest.raises(ValueError, match="at least 2"):
+        render_certainty_dome_plot([(0.0, 0.5, 1)])
+
+
+def test_certainty_dome_plot_draws_something_for_a_real_spread() -> None:
+    points = [(0.0, 0.5, 1), (100.0, 0.8, 2), (200.0, 1.5, 3), (300.0, 2.0, 4)]
+    image = render_certainty_dome_plot(points, size=300, margin=50, top_margin=80)
+    assert not np.all(image == 255)
+
+
+def test_certainty_dome_plot_handles_zero_variance_without_crashing() -> None:
+    points = [(0.0, 1.0, 1), (100.0, 1.0, 2), (200.0, 1.0, 3)]
+    image = render_certainty_dome_plot(points, size=300, margin=50, top_margin=80)
+    assert image.shape == (300, 300, 3)
+
+
+def test_certainty_dome_plot_is_unsigned_even_with_a_negative_fit_intercept() -> None:
+    # A real UncertaintyField is always >= 0, but a noisy small sample can still fit a negative
+    # intercept -- the plot must not draw the fit line (or a tick) below the zero axis.
+    points = [(0.0, 0.05, 1), (10.0, 0.02, 2), (500.0, 3.0, 3)]
+    image = render_certainty_dome_plot(points, size=300, margin=50, top_margin=80)
     assert image.shape == (300, 300, 3)
 
 

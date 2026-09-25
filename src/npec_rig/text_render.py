@@ -9,6 +9,9 @@ re-deriving.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from typing import Iterator
+
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -35,6 +38,50 @@ def text_width(text: str, scale: float) -> int:
     return int(round(_font(font_size_px(scale)).getlength(text)))
 
 
+class TextLayer:
+    """One PIL round-trip shared across several `.text()` calls against the same image --
+    `draw_text` below does a fresh `Image.fromarray`/`np.array` conversion per call, which is
+    fine for a single label but was measured to roughly 4x the unit test suite's runtime once
+    plots that draw many labels per image (the rank plot, radial/dome plots, table view) switched
+    to it. Use `text_layer()` instead of `draw_text` whenever a render function draws more than
+    one label onto the same image.
+    """
+
+    def __init__(self, img: np.ndarray) -> None:
+        self._img = img
+        self._pil = Image.fromarray(img)
+        self._draw = ImageDraw.Draw(self._pil)
+
+    def text(
+        self,
+        text: str,
+        org: tuple[int, int],
+        scale: float,
+        colour: tuple[int, int, int],
+        *,
+        anchor: str = "ls",
+        stroke_width: int = 0,
+        stroke_fill: tuple[int, int, int] = (255, 255, 255),
+    ) -> None:
+        self._draw.text(
+            org, text, font=_font(font_size_px(scale)), fill=tuple(int(c) for c in colour),
+            anchor=anchor, stroke_width=stroke_width, stroke_fill=stroke_fill,
+        )
+
+    def commit(self) -> None:
+        self._img[:] = np.array(self._pil)
+
+
+@contextmanager
+def text_layer(img: np.ndarray) -> Iterator[TextLayer]:
+    """`with text_layer(img) as t: t.text(...); t.text(...)` -- draws in place on `img` exactly
+    once it's converted back, no matter how many `.text()` calls happen inside the block.
+    """
+    layer = TextLayer(img)
+    yield layer
+    layer.commit()
+
+
 def draw_text(
     img: np.ndarray,
     text: str,
@@ -46,14 +93,11 @@ def draw_text(
     stroke_width: int = 0,
     stroke_fill: tuple[int, int, int] = (255, 255, 255),
 ) -> None:
-    """Draws `text` onto `img` in place, in DejaVu Sans Bold. `stroke_width > 0` adds an outline
-    (for text over a real photo's unpredictable background, e.g. `calibration_viz`'s halo text);
-    0 (the default) matches the plain, unoutlined text most plot labels in this codebase use.
+    """Draws a single `text` onto `img` in place, in DejaVu Sans Bold. `stroke_width > 0` adds an
+    outline (for text over a real photo's unpredictable background, e.g. `calibration_viz`'s halo
+    text); 0 (the default) matches the plain, unoutlined text most plot labels in this codebase
+    use. Prefer `text_layer()` over several `draw_text` calls against the same image -- see
+    `TextLayer`'s docstring for why.
     """
-    pil_img = Image.fromarray(img)
-    draw = ImageDraw.Draw(pil_img)
-    draw.text(
-        org, text, font=_font(font_size_px(scale)), fill=tuple(int(c) for c in colour),
-        anchor=anchor, stroke_width=stroke_width, stroke_fill=stroke_fill,
-    )
-    img[:] = np.array(pil_img)
+    with text_layer(img) as layer:
+        layer.text(text, org, scale, colour, anchor=anchor, stroke_width=stroke_width, stroke_fill=stroke_fill)

@@ -39,6 +39,7 @@ from npec_rig.calibration_viz import (
     HEATMAP_MIN_PCT,
     render_area_shape_heatmap,
     render_best_worst_overlay,
+    render_certainty_dome_plot,
     render_honesty_plot,
     render_level_overlay,
     render_radial_residual_plot,
@@ -754,6 +755,39 @@ def current_radial_plot(metric: str = "scale_residual") -> Response:
     points = [(float(np.hypot(x - cx, y - cy)), value, tag_id) for value, tag_id, x, y in signed_points]
 
     image = render_radial_residual_plot(points, label=label)
+    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+
+
+@app.get("/calibration/current/certainty-dome-plot")
+def current_certainty_dome_plot() -> Response:
+    """Aaron, 2026-09-25: an honest display of modeled area-measurement certainty as a function
+    of distance from the image centre, where certainty *should* be highest -- claimed uncertainty
+    (`UncertaintyField.local_uncertainty_pct`, already computed and persisted on every run, no new
+    measurement) sampled at each detected calibration tag's position. See `_detect_tags_cached`
+    for why this re-detects tags from the saved frame rather than the live camera.
+    """
+    artifact = load_current_calibration()
+    if artifact is None or artifact.uncertainty_field is None:
+        raise HTTPException(409, "no calibration with an uncertainty field saved yet")
+    if artifact.frame_stem is None:
+        raise HTTPException(409, "no calibration with a saved frame yet")
+
+    frame, detections = _detect_tags_cached(artifact.frame_stem)
+    cal_detections = [d for d in detections if d.tag_id in CALIBRATION_ID_RANGE]
+    if len(cal_detections) < 2:
+        raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
+
+    cx, cy = frame.shape[1] / 2, frame.shape[0] / 2
+    points = [
+        (
+            float(np.hypot(d.centre[0] - cx, d.centre[1] - cy)),
+            artifact.uncertainty_field.local_uncertainty_pct(d.centre[0], d.centre[1]),
+            d.tag_id,
+        )
+        for d in cal_detections
+    ]
+
+    image = render_certainty_dome_plot(points)
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
