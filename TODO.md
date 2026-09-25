@@ -696,10 +696,18 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — UI usability, not yet done
 
-- [ ] **Calibration page has grown into one long page — break it into a sequential set of steps**
-      instead. It's accumulated run calibration, tripwire check, live reorientation aid, and the
-      honesty plot all stacked on one page this session; needs restructuring into a guided
-      step-by-step flow rather than one scroll. *(Aaron, 2026-09-21)*
+- [ ] **Calibration wizard: real Next/Back step navigation, one step visible at a time, with a
+      gate at each step.** Multi-page split done 2026-09-25 (Setup menu, Focus & Square,
+      Calibration, Gallery are now separate pages/routes) — still open, and distinct from that:
+      within `/setup/calibration` itself, the 7 steps are still one long scroll of headings, not
+      real paging. Wanted: Next/Back buttons, one step shown at a time, and at each step a gate
+      that checks whether things look reasonable before moving on — e.g. leveling/squareness very
+      off, or a run's residuals very high, caught right there instead of only surfacing in the
+      final report. Needs real threshold values from measured runs, not guessed constants, plus a
+      UX decision (warn vs. block progress) — a design question of its own, not a small addition.
+      Distinct from M6's alerts item, which is about unattended-operation alerts, not interactive
+      setup feedback. *(Aaron, 2026-09-21; multi-page split 2026-09-25; Next/Back + per-step gate
+      explicitly requested 2026-09-25.)*
 - [ ] **Move calibration history into a gallery** — the current "Saved calibrations (download)"
       `<details>` list (filenames + text links) should become a proper gallery: preview
       thumbnails plus a download action per entry, not a plain link list. *(Aaron, 2026-09-21)*
@@ -718,14 +726,6 @@ The heart of the project. Do not start before M1 slice 5.
       the rank plots and the area-shape heatmap specifically, re-detecting tags from that run's
       saved frame each time (their per-tag data isn't persisted in the artifact -- see
       `ScaleResidualSample`/`AreaScaleSample`). *(Aaron, 2026-09-22)*
-- [ ] **Checkpoint warnings inside the calibration setup flow** — if the leveling/squareness check
-      looks very off, or a run's residuals come back very high, warn the operator inline at that
-      step instead of only in the final report (e.g. "roll looks unusually large — check the rig
-      before placing sheets"). Needs real threshold values from measured runs, not guessed
-      constants, plus a UX decision (warn vs. block progress) — a design question of its own, not
-      a small addition. *(Aaron, 2026-09-25, raised during the Setup-pages redesign; parked here
-      rather than under M6's alerts item, which is about unattended-operation alerts, not
-      interactive setup feedback.)*
 
 ### M2 acceptance — run in the chamber
 - [x] **Two-baseline test — run remotely 2026-09-25, clear pass.** Two calibrations of the same
