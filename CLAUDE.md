@@ -94,6 +94,10 @@ agreement.
 in that turn — no installs, no file edits, no other tool calls — until he answers. A question is a
 stop, not one branch of a parallel batch.
 
+**Delegate noisy investigation.** Grep sweeps, log trawls, and broad file searches go through the
+Explore agent or a fork, not inline in the main conversation. Keep only the findings, not the raw
+search output, in context.
+
 **Reply format.** Five headings, in this order. Skip any that are empty.
 
 ```
