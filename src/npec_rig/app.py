@@ -40,6 +40,7 @@ from npec_rig.calibration_viz import (
     render_area_shape_heatmap,
     render_best_worst_overlay,
     render_honesty_plot,
+    render_level_overlay,
     render_radial_residual_plot,
     render_rank_plot,
     render_table_view,
@@ -54,7 +55,12 @@ from npec_rig.tags import (
     CORNER_ID_RANGE,
     detect_tags,
 )
-from npec_rig.tripwire import CornerBaseline, build_corner_baseline, check_tripwire
+from npec_rig.tripwire import (
+    CornerBaseline,
+    build_corner_baseline,
+    check_tripwire,
+    corner_level_readings,
+)
 
 STATIC_DIR = Path(__file__).parent / "static"
 PREVIEW_BOUNDARY = b"frame"
@@ -797,6 +803,23 @@ def live_orientation() -> dict:
         "roll_deg": result.roll_deg,
         "scale_delta_pct": result.scale_delta_pct,
     }
+
+
+@app.get("/calibration/orientation/level.jpg")
+def live_level_overlay() -> Response:
+    """Live co-planarity check for an installer levelling the rig by hand -- colored markers on
+    the real camera image, not a rotation-in-degrees number (TODO.md: `roll_deg` "isn't super
+    useful for an installer standing on a ladder"). No zero/baseline step, unlike the roll check
+    above: `corner_level_readings` (tripwire.py) compares the currently-detected corner tags to
+    each other, which is valid regardless of how each one happens to be mounted -- see that
+    function's docstring for the physical argument. Polled on the same cadence as
+    `/calibration/orientation/live`.
+    """
+    manager = CameraManager.instance()
+    frame = manager.capture_array()
+    readings = corner_level_readings(detect_tags(frame))
+    image = render_level_overlay(frame, readings)
+    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
 @app.post("/calibration/tripwire/check")

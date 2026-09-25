@@ -17,13 +17,14 @@ from npec_rig.calibration_viz import (
     render_area_shape_heatmap,
     render_best_worst_overlay,
     render_honesty_plot,
+    render_level_overlay,
     render_radial_residual_plot,
     render_rank_plot,
     render_table_view,
     render_uncertainty_heatmap,
 )
 from npec_rig.tags import TagDetection
-from npec_rig.tripwire import CornerBaseline
+from npec_rig.tripwire import CornerBaseline, corner_level_readings
 
 from .helpers import square_detection as _square_detection
 
@@ -247,6 +248,48 @@ def test_best_worst_overlay_downscales_large_frames() -> None:
         frame, best=(1, 100.0, 100.0, 0.1), worst=(2, 700.0, 500.0, 4.0),
         label="scale residual", max_width=200,
     )
+    assert image.shape == (150, 200, 3)  # aspect ratio preserved
+
+
+def test_level_overlay_matches_frame_size_and_channels() -> None:
+    frame = np.full((200, 300, 3), 128, dtype=np.uint8)
+    detections = [
+        _square_detection(450, 50.0, 50.0, 40),
+        _square_detection(451, 250.0, 50.0, 40),
+        _square_detection(452, 50.0, 150.0, 40),
+    ]
+    readings = corner_level_readings(detections)
+    image = render_level_overlay(frame, readings)
+    assert image.shape == (200, 300, 3)
+    assert image.dtype == np.uint8
+
+
+def test_level_overlay_draws_something_distinct_from_a_blank_frame() -> None:
+    frame = np.full((200, 300, 3), 128, dtype=np.uint8)
+    detections = [
+        _square_detection(450, 50.0, 50.0, 40),
+        _square_detection(451, 250.0, 50.0, 55),  # notably bigger -- closer
+    ]
+    readings = corner_level_readings(detections)
+    image = render_level_overlay(frame, readings)
+    assert not np.all(image == 128)
+
+
+def test_level_overlay_handles_no_readings_without_crashing() -> None:
+    frame = np.full((200, 300, 3), 128, dtype=np.uint8)
+    image = render_level_overlay(frame, [])
+    assert image.shape == (200, 300, 3)
+    assert not np.all(image == 128)  # the "need more tags" caption still draws
+
+
+def test_level_overlay_downscales_large_frames() -> None:
+    frame = np.full((600, 800, 3), 128, dtype=np.uint8)
+    detections = [
+        _square_detection(450, 100.0, 100.0, 80),
+        _square_detection(451, 700.0, 500.0, 80),
+    ]
+    readings = corner_level_readings(detections)
+    image = render_level_overlay(frame, readings, max_width=200)
     assert image.shape == (150, 200, 3)  # aspect ratio preserved
 
 

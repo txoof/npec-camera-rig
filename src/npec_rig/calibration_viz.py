@@ -12,6 +12,8 @@ import cv2
 import numpy as np
 
 from npec_rig.calibration import AreaScaleField, TableFrame, UncertaintyField
+from npec_rig.text_render import draw_text, text_width
+from npec_rig.tripwire import CornerLevelReading
 
 # Fixed color scale, not per-image min/max: a heatmap that always stretches to fill its own
 # range would look equally "hot" whether the worst spot is 2% or 20% uncertain, hiding exactly
@@ -202,18 +204,10 @@ def render_honesty_plot(
     for i, (c, a) in enumerate(points, start=1):
         cx, cy = to_px(c), to_py(a)
         cv2.circle(img, (cx, cy), 6, point_color, -1, cv2.LINE_AA)
-        cv2.putText(
-            img, str(i), (cx + 8, cy - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA
-        )
+        draw_text(img, str(i), (cx + 8, cy - 8), 0.5, (0, 0, 0))
 
-    cv2.putText(
-        img, "claimed uncertainty (%)", (margin, size - margin + 40),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA,
-    )
-    cv2.putText(
-        img, "actual error (%)", (10, margin - 15),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA,
-    )
+    draw_text(img, "claimed uncertainty (%)", (margin, size - margin + 40), 0.5, (0, 0, 0))
+    draw_text(img, "actual error (%)", (10, margin - 15), 0.5, (0, 0, 0))
 
     return img
 
@@ -284,33 +278,32 @@ def render_rank_plot(
     cv2.circle(img, (to_px(0), to_py(best_value)), 8, BEST_COLOUR, -1, cv2.LINE_AA)
     cv2.circle(img, (to_px(n - 1), to_py(worst_value)), 8, WORST_COLOUR, -1, cv2.LINE_AA)
 
-    font = cv2.FONT_HERSHEY_SIMPLEX
     best_label = f"best: tag {best_tag_id}, {best_value:.2f}% ({best_x:.0f}, {best_y:.0f})"
-    cv2.putText(img, best_label, (margin, to_py(best_value) - 14), font, 0.6, BEST_COLOUR, 2, cv2.LINE_AA)
+    draw_text(img, best_label, (margin, to_py(best_value) - 14), 0.6, BEST_COLOUR)
     worst_label = f"worst: tag {worst_tag_id}, {worst_value:.2f}% ({worst_x:.0f}, {worst_y:.0f})"
-    worst_text_width = cv2.getTextSize(worst_label, font, 0.6, 2)[0][0]
-    cv2.putText(
+    worst_text_width = text_width(worst_label, 0.6)
+    draw_text(
         img, worst_label, (size - margin - worst_text_width, to_py(worst_value) - 14),
-        font, 0.6, WORST_COLOUR, 2, cv2.LINE_AA,
+        0.6, WORST_COLOUR,
     )
 
-    cv2.putText(img, f"{label}: best vs. worst tag", (margin, 40), font, 0.9, (0, 0, 0), 2, cv2.LINE_AA)
+    draw_text(img, f"{label}: best vs. worst tag", (margin, 40), 0.9, (0, 0, 0))
 
     key_y = 75
     cv2.circle(img, (margin + 8, key_y), 8, BEST_COLOUR, -1, cv2.LINE_AA)
-    cv2.putText(img, "best", (margin + 24, key_y + 6), font, 0.55, (0, 0, 0), 1, cv2.LINE_AA)
+    draw_text(img, "best", (margin + 24, key_y + 6), 0.55, (0, 0, 0))
     cv2.circle(img, (margin + 100, key_y), 8, WORST_COLOUR, -1, cv2.LINE_AA)
-    cv2.putText(img, "worst", (margin + 116, key_y + 6), font, 0.55, (0, 0, 0), 1, cv2.LINE_AA)
+    draw_text(img, "worst", (margin + 116, key_y + 6), 0.55, (0, 0, 0))
 
-    cv2.putText(
+    draw_text(
         img, f"{label} (%), sorted best -> worst across {n} tags",
-        (margin, size - margin + 40), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA,
+        (margin, size - margin + 40), 0.5, (0, 0, 0),
     )
-    cv2.putText(
+    draw_text(
         img, "this run's own spread -- not the heatmaps' fixed scale",
-        (margin, size - margin + 60), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA,
+        (margin, size - margin + 60), 0.5, (0, 0, 0),
     )
-    cv2.putText(img, f"0-{axis_max:.2f}%", (10, top_margin - 15), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+    draw_text(img, f"0-{axis_max:.2f}%", (10, top_margin - 15), 0.5, (0, 0, 0))
 
     return img
 
@@ -319,13 +312,11 @@ def _put_text_with_halo(
     img: np.ndarray, text: str, org: tuple[int, int], font_scale: float, colour: tuple[int, int, int],
     thickness: int,
 ) -> None:
-    """`text` drawn twice -- a thick white outline, then the real colour on top -- so it stays
-    legible over a real photo's own unpredictable background, unlike the rank plot's plain white
-    canvas where a single colour is enough.
+    """`text` drawn with a white outline so it stays legible over a real photo's own
+    unpredictable background, unlike the rank plot's plain white canvas where a single colour is
+    enough (`draw_text`'s default `stroke_width=0` covers that case directly).
     """
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(img, text, org, font, font_scale, (255, 255, 255), thickness + 3, cv2.LINE_AA)
-    cv2.putText(img, text, org, font, font_scale, colour, thickness, cv2.LINE_AA)
+    draw_text(img, text, org, font_scale, colour, stroke_width=max(2, thickness))
 
 
 def render_best_worst_overlay(
@@ -375,6 +366,67 @@ def render_best_worst_overlay(
     _put_text_with_halo(img, "best", (48, key_y + 6), 0.7, (0, 0, 0), 2)
     cv2.circle(img, (140, key_y), 10, WORST_COLOUR, -1, cv2.LINE_AA)
     _put_text_with_halo(img, "worst", (158, key_y + 6), 0.7, (0, 0, 0), 2)
+
+    return img
+
+
+# RGB, same convention as BEST_COLOUR/WORST_COLOUR above. Amber (not a pure yellow) reads clearly
+# against both a light table and a dark tray in the "drift" band.
+LEVEL_OK_COLOUR = (0, 150, 0)
+LEVEL_DRIFT_COLOUR = (210, 150, 0)
+LEVEL_FAIL_COLOUR = (210, 30, 30)
+_LEVEL_STATUS_COLOUR = {"ok": LEVEL_OK_COLOUR, "drift": LEVEL_DRIFT_COLOUR, "fail": LEVEL_FAIL_COLOUR}
+
+
+def render_level_overlay(
+    frame: np.ndarray,
+    readings: list[CornerLevelReading],
+    *,
+    max_width: int = HEATMAP_MAX_WIDTH,
+) -> np.ndarray:
+    """`frame` (RGB) with each corner tag ringed green/amber/red by `CornerLevelReading.status`
+    (see `tripwire.corner_level_readings`) -- for an installer levelling the rig by hand, reading
+    the real photo rather than a rotation-in-degrees number. Same downscale-then-draw pattern as
+    `render_best_worst_overlay`.
+
+    `readings` may be empty (fewer than 2 corner tags currently detected) -- drawn as a plain
+    frame with a caption saying so, not an error, since "can't judge yet" is itself useful
+    feedback while an installer is still getting tags into frame.
+    """
+    full_height, full_width = frame.shape[0], frame.shape[1]
+    scale = min(1.0, max_width / full_width)
+    if scale < 1.0:
+        img = cv2.resize(
+            np.ascontiguousarray(frame[..., :3]),
+            (int(round(full_width * scale)), int(round(full_height * scale))),
+            interpolation=cv2.INTER_AREA,
+        )
+    else:
+        img = np.ascontiguousarray(frame[..., :3]).copy()
+
+    radius = max(16, int(round(0.02 * img.shape[1])))
+    if not readings:
+        _put_text_with_halo(
+            img, "need at least 2 corner tags in frame to judge levelling",
+            (20, 45), 1.0, (0, 0, 0), 2,
+        )
+        return img
+
+    for reading in readings:
+        colour = _LEVEL_STATUS_COLOUR[reading.status]
+        cx, cy = int(round(reading.centre[0] * scale)), int(round(reading.centre[1] * scale))
+        cv2.circle(img, (cx, cy), radius, colour, 5, cv2.LINE_AA)
+        _put_text_with_halo(
+            img, f"{reading.deviation_pct:+.1f}%", (cx + radius + 8, cy + 6), 0.8, colour, 2,
+        )
+
+    worst = max(readings, key=lambda r: abs(r.deviation_pct))
+    if worst.status == "ok":
+        caption = "co-planar within tolerance"
+    else:
+        direction = "closer" if worst.deviation_pct > 0 else "farther"
+        caption = f"tag {worst.tag_id} reads {abs(worst.deviation_pct):.0f}% {direction} than the others"
+    _put_text_with_halo(img, caption, (20, 45), 1.0, (0, 0, 0), 2)
 
     return img
 
@@ -439,7 +491,6 @@ def render_radial_residual_plot(
         mid = top_margin + plot_size / 2
         return int(round(mid - value / value_span * (plot_size / 2)))
 
-    font = cv2.FONT_HERSHEY_SIMPLEX
     tick_colour = (60, 60, 60)
 
     # X-axis ticks: 5 evenly spaced values from 0 to radius_max, in pixels.
@@ -448,8 +499,8 @@ def render_radial_residual_plot(
         px = to_px(radius_tick)
         cv2.line(img, (px, size - margin), (px, size - margin + 6), tick_colour, 1, cv2.LINE_AA)
         text = f"{radius_tick:.0f}"
-        text_width = cv2.getTextSize(text, font, 0.45, 1)[0][0]
-        cv2.putText(img, text, (px - text_width // 2, size - margin + 22), font, 0.45, (0, 0, 0), 1, cv2.LINE_AA)
+        tick_text_width = text_width(text, 0.45)
+        draw_text(img, text, (px - tick_text_width // 2, size - margin + 22), 0.45, (0, 0, 0))
 
     # Y-axis ticks: 5 evenly spaced values from -value_span to +value_span. The zero tick is
     # labelled explicitly ("0%") rather than left as an unlabelled reference line -- a line with
@@ -460,8 +511,8 @@ def render_radial_residual_plot(
         py = to_py(value_tick)
         cv2.line(img, (margin - 6, py), (margin, py), tick_colour, 1, cv2.LINE_AA)
         text = f"{value_tick:+.2f}%" if value_tick != 0 else "0%"
-        text_width = cv2.getTextSize(text, font, 0.45, 1)[0][0]
-        cv2.putText(img, text, (margin - 12 - text_width, py + 5), font, 0.45, (0, 0, 0), 1, cv2.LINE_AA)
+        tick_text_width = text_width(text, 0.45)
+        draw_text(img, text, (margin - 12 - tick_text_width, py + 5), 0.45, (0, 0, 0))
         if value_tick == 0:
             cv2.line(img, (margin, py), (size - margin, py), zero_colour, 1, cv2.LINE_AA)
 
@@ -477,17 +528,17 @@ def render_radial_residual_plot(
     title = f"{label}: signed residual vs. distance from image centre"
     title_scale = 0.8
     available_width = size - 2 * margin
-    title_width = cv2.getTextSize(title, font, title_scale, 2)[0][0]
+    title_width = text_width(title, title_scale)
     if title_width > available_width:
         title_scale *= available_width / title_width
-    cv2.putText(img, title, (margin, 40), font, title_scale, (0, 0, 0), 2, cv2.LINE_AA)
-    cv2.putText(
+    draw_text(img, title, (margin, 40), title_scale, (0, 0, 0))
+    draw_text(
         img, f"linear fit: slope {slope:+.4f} %/px, R^2 = {r_squared:.3f}, n = {n} tags",
-        (margin, 70), font, 0.55, fit_colour, 2, cv2.LINE_AA,
+        (margin, 70), 0.55, fit_colour,
     )
 
-    cv2.putText(img, "distance from image centre (px)", (margin, size - margin + 40), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
-    cv2.putText(img, f"{label} (%), signed", (10, top_margin - 15), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+    draw_text(img, "distance from image centre (px)", (margin, size - margin + 40), 0.5, (0, 0, 0))
+    draw_text(img, f"{label} (%), signed", (10, top_margin - 15), 0.5, (0, 0, 0))
 
     return img
 

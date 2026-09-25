@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 
 from npec_rig.camera import to_grayscale
+from npec_rig.text_render import draw_text
 
 TAG_DICTIONARY = cv2.aruco.DICT_APRILTAG_36h11
 
@@ -127,14 +128,11 @@ def draw_overlay(frame: np.ndarray, detections: list[TagDetection]) -> np.ndarra
     for detection in detections:
         points = np.array(detection.corners, dtype=np.int32).reshape(-1, 1, 2)
         cv2.polylines(overlay, [points], isClosed=True, color=color, thickness=4)
-        cv2.putText(
+        draw_text(
             overlay,
             str(detection.tag_id),
             (int(detection.centre[0]), int(detection.centre[1])),
-            cv2.FONT_HERSHEY_SIMPLEX,
             2.0,
             color,
-            4,
-            cv2.LINE_AA,
         )
     return overlay
