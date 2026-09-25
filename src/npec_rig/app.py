@@ -66,6 +66,9 @@ from npec_rig.tripwire import (
 )
 
 STATIC_DIR = Path(__file__).parent / "static"
+# The printable sheets themselves (reference/calibration-sheets/), not app code -- served so the
+# Setup wizard can hand the operator a direct download link at the point they're needed.
+CALIBRATION_SHEETS_DIR = Path(__file__).parent.parent.parent / "reference" / "calibration-sheets"
 PREVIEW_BOUNDARY = b"frame"
 PREVIEW_FPS_LIMIT = 10.0
 ROI_STREAM_FPS_LIMIT = 5.0
@@ -82,6 +85,11 @@ app.mount("/calibration/files", StaticFiles(directory=str(calibration_root())), 
 # Shared CSS (and any future shared JS) for the plain multi-page static frontend -- no build step,
 # no templating, just files served as-is alongside the page routes below.
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.mount(
+    "/reference/calibration-sheets",
+    StaticFiles(directory=str(CALIBRATION_SHEETS_DIR)),
+    name="calibration_sheets",
+)
 
 
 @app.get("/")
