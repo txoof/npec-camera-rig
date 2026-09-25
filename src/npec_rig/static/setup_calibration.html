@@ -27,7 +27,7 @@
     </p>
 
     <div class="wizard-nav">
-      <span id="wizard-progress">Step 1 of 7</span>
+      <span id="wizard-progress">Step 1 of 6</span>
       <div class="wizard-nav-buttons">
         <button type="button" id="wizard-back-btn">&larr; Back</button>
         <button type="button" id="wizard-next-btn">Next &rarr;</button>
@@ -195,20 +195,7 @@
 
     </div>
     <div class="wizard-step" data-step="4">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 4 — Confirm nothing moved</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      While adjusting the rig by hand, press "Zero here" once it looks roughly right, then nudge
-      it until the reading below settles at OK. Main-stream resolution, directional guidance —
-      a full calibration still confirms the final number.
-    </p>
-    <div class="lock-row">
-      <button id="orientation-zero-btn">Zero here</button>
-      <span id="orientation-live" style="font-size: 0.85rem; color: #aaa;">not zeroed</span>
-    </div>
-
-    </div>
-    <div class="wizard-step" data-step="5">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 5 — Run calibration</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Step 4 — Run calibration</h3>
     <label class="peaking-row">
       <input type="checkbox" id="promote-toggle" checked>
       <span>
@@ -237,12 +224,12 @@
     <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
 
     </div>
-    <div class="wizard-step" data-step="6">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 6 — Read the report</h3>
+    <div class="wizard-step" data-step="5">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 5 — Read the report</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       The result above states the scale, coverage, and any coverage gaps found. If it says
       coverage is weak somewhere, open Diagnostics below to see exactly where, add a sheet there,
-      and run calibration again — no need to redo Steps 1–4 unless something actually moved.
+      and run calibration again — no need to redo Steps 1–3 unless something actually moved.
     </p>
 
     <details style="margin-top: 0.75rem;">
@@ -519,8 +506,8 @@
     </details>
 
     </div>
-    <div class="wizard-step" data-step="7">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 7 — Remove sheets</h3>
+    <div class="wizard-step" data-step="6">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 6 — Remove sheets</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Once the report above looks right, remove the calibration and corner sheets from the trays
       before starting a growth run.
@@ -1177,44 +1164,6 @@
     }
     pollLevelOverlay();
 
-    // --- Confirm nothing moved (live reorientation aid) ---
-    const orientationZeroBtn = document.getElementById("orientation-zero-btn");
-    const orientationLive = document.getElementById("orientation-live");
-    let orientationZeroed = false;
-
-    orientationZeroBtn.addEventListener("click", async () => {
-      orientationZeroBtn.disabled = true;
-      try {
-        const r = await fetch("/calibration/orientation/zero", { method: "POST" });
-        const data = await r.json();
-        if (r.status === 409) {
-          orientationLive.textContent = data.detail;
-          orientationZeroed = false;
-          return;
-        }
-        orientationZeroed = true;
-        orientationLive.textContent = `zeroed on tags ${data.corner_tags.join(", ")}`;
-      } finally {
-        orientationZeroBtn.disabled = false;
-      }
-    });
-
-    async function pollOrientation() {
-      if (orientationZeroed && isActiveStep(4)) {
-        try {
-          const r = await fetch("/calibration/orientation/live");
-          const data = await r.json();
-          const roll = data.roll_deg === null ? "roll: n/a" : `roll ${data.roll_deg.toFixed(2)} deg`;
-          orientationLive.innerHTML =
-            `<strong>${data.verdict}</strong> — ${roll}; ${data.messages.join("; ")}`;
-        } catch (e) {
-          // transient network hiccup — try again next tick
-        }
-      }
-      setTimeout(pollOrientation, 500);
-    }
-    pollOrientation();
-
     // --- Honesty plot ---
     const honestyRows = document.getElementById("honesty-rows");
     const honestyAddRowBtn = document.getElementById("honesty-add-row-btn");
@@ -1284,7 +1233,6 @@
       "Confirm focus",
       "Level & square",
       "Place calibration and corner sheets",
-      "Confirm nothing moved",
       "Run calibration",
       "Read the report",
       "Remove sheets",

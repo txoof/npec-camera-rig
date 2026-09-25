@@ -59,7 +59,6 @@ from npec_rig.tags import (
     detect_tags,
 )
 from npec_rig.tripwire import (
-    CornerBaseline,
     build_corner_baseline,
     check_tripwire,
     corner_level_readings,
@@ -854,63 +853,14 @@ def current_certainty_dome_plot() -> Response:
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
-_live_orientation_baseline: CornerBaseline | None = None
-
-
-@app.post("/calibration/orientation/zero")
-def zero_live_orientation() -> dict:
-    """Freeze the current main-stream frame's corner-tag geometry as a temporary zero point for
-    the live reorientation aid (TODO.md's "Live reorientation guidance") -- for adjusting the rig
-    by hand during physical setup, before any real calibration baseline exists. In-memory only,
-    not persisted; distinct from the saved calibration baseline `/calibration/tripwire/check`
-    uses.
-
-    Reads the `main` stream (1536x1152), not `lores` (320x240) -- confirmed on real hardware that
-    the lores stream is too low-resolution for `detect_tags` to find the 50mm corner tags at all
-    (TODO.md's "Live reorientation aid never actually works"), while `main` finds all 4 reliably.
-    Still short of a full-res still: no reconfigure, so no capture-then-autofocus hang risk, and
-    no ~8.5s round trip -- appropriate for a continuously-polled live aid.
-    """
-    global _live_orientation_baseline
-    manager = CameraManager.instance()
-    detections = detect_tags(manager.capture_array())
-    try:
-        _live_orientation_baseline = build_corner_baseline(detections)
-    except ValueError as exc:
-        raise HTTPException(409, str(exc)) from exc
-    return {"corner_tags": sorted(_live_orientation_baseline.corners_by_id)}
-
-
-@app.get("/calibration/orientation/live")
-def live_orientation() -> dict:
-    """Roll/scale reading against the zero point set above, polled continuously while nudging
-    the rig by hand toward level. Reuses `check_tripwire` -- a pure in-image comparison between
-    two frames of this rig, no mount-squareness or equal-tag-size assumption needed (see
-    tripwire.py's docstring). Main-stream resolution (see `zero_live_orientation`), coarser than
-    a full-res capture: a real calibration still confirms the final number.
-    """
-    if _live_orientation_baseline is None:
-        raise HTTPException(409, "no zero point set -- press 'Zero here' first")
-    manager = CameraManager.instance()
-    detections = detect_tags(manager.capture_array())
-    result = check_tripwire(_live_orientation_baseline, detections)
-    return {
-        "verdict": result.verdict,
-        "messages": list(result.messages),
-        "roll_deg": result.roll_deg,
-        "scale_delta_pct": result.scale_delta_pct,
-    }
-
-
 @app.get("/calibration/orientation/level.jpg")
 def live_level_overlay() -> Response:
     """Live co-planarity check for an installer levelling the rig by hand -- colored markers on
     the real camera image, not a rotation-in-degrees number (TODO.md: `roll_deg` "isn't super
-    useful for an installer standing on a ladder"). No zero/baseline step, unlike the roll check
-    above: `corner_level_readings` (tripwire.py) compares the currently-detected corner tags to
-    each other, which is valid regardless of how each one happens to be mounted -- see that
-    function's docstring for the physical argument. Polled on the same cadence as
-    `/calibration/orientation/live`.
+    useful for an installer standing on a ladder"). No zero/baseline step needed:
+    `corner_level_readings` (tripwire.py) compares the currently-detected corner tags to each
+    other, which is valid regardless of how each one happens to be mounted -- see that function's
+    docstring for the physical argument. Polled every 500ms while Step 2 of the wizard is showing.
     """
     manager = CameraManager.instance()
     frame = manager.capture_array()

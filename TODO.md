@@ -708,48 +708,41 @@ The heart of the project. Do not start before M1 slice 5.
       Distinct from M6's alerts item, which is about unattended-operation alerts, not interactive
       setup feedback. *(Aaron, 2026-09-21; multi-page split 2026-09-25; Next/Back + per-step gate
       explicitly requested 2026-09-25.)*
-- [ ] **Step 4 ("Confirm nothing moved"): redesign as colored corner-tag rings, like Step 2's
-      traffic light.** Currently shows a raw `roll_deg` float ("roll -0.01 deg") plus a verdict
-      string and messages -- Aaron: "not meaningful... I can't use this when setting up a rig."
-      Fix: `check_tripwire`'s `scale_delta_pct` (per corner tag) is the same shape Step 2's
-      `corner_level_readings` already renders as colored rings -- reuse that rendering, drop the
-      raw degree number from the main view (keep it in a details aside if wanted for debugging,
-      not as the headline), lead with the plain-language verdict. Also add one line of copy
-      distinguishing this from Step 2, since visually they'll now look similar despite measuring
-      different things: Step 2 checks co-planarity right now (absolute, tag-size based, no
-      history needed); Step 4 checks whether anything moved/twisted **since "Zero here" was
-      pressed** (relative-only by design -- absolute roll would require assuming the corner tags
-      form a known rectangle, which isn't established for this rig's asymmetric mounting; see
-      tripwire.py's docstring). *(Aaron, 2026-09-25.)*
-- [ ] **Step 3 ("Place calibration and corner sheets"): show a diagram of where sheets go** —
-      text-only instructions aren't enough; an operator needs to see which trays get calibration
-      sheets vs. corner sheets and where the four corners sit, not just read a description.
-      *(Aaron, 2026-09-25.)*
-- [ ] **Step 3: link to download the calibration/corner sheet PDFs** — these are the actual sheets
-      to print (`reference/calibration-sheets/`: `apriltags-36h11-30mm-a4-300-449.pdf` and the
-      450-499 corner sheet, per this file's M2 section above); the wizard should hand the operator
-      a direct download link at the point they need it, not assume they already have the sheets.
-      *(Aaron, 2026-09-25.)*
-- [ ] **Possible new Setup page: "Health check"** — a destination for on-demand checks that don't
-      belong in the linear run-a-calibration wizard: candidates are the tripwire check (Step 5,
-      below) and possibly the "confirm nothing moved" tool (Step 4, below). Same thread as the
-      original Setup-pages redesign ask ("make some of the checks available without requiring the
-      user to go through all of the calibration steps") — not decided which tools move here or
-      how Step 4 in particular should be resolved; see those items. *(Aaron, 2026-09-25.)*
-- [ ] **Step 4 ("Confirm nothing moved"): fundamentally confusing, not just badly worded —
-      reconsider whether it belongs in the linear wizard at all.** Aaron, verbatim: "Still really
-      vague instructions. Title means nothing: Confirm that nothing moved between now and when?
-      Why is this even here? Maybe this should be part of step 3? It really doesn't make any
-      sense. I've just spent minutes moving the rig around to get all my lights green and locked
-      it down and now I have to zero here? It is confusing and has no visual feedback the text is
-      bad. Maybe this belongs on a 'health check' screen?" Supersedes/extends the traffic-light
-      redesign item above — that fix doesn't address the deeper problem: right after Step 2 ends
-      with everything green, being asked to press "Zero here" again reads as redundant, and the
-      step's real point (detecting drift since a reference point, for the *later* roll/knock
-      acceptance test — see tripwire.py's docstring) isn't explained anywhere in the wizard.
-      Candidates, not decided: (a) fold into Step 2 as its closing action ("now that it's level,
-      lock this in"), or (b) move out of the linear wizard entirely onto the Health-check page
-      above. *(Aaron, 2026-09-25.)*
+- [x] **Step 4 ("Confirm nothing moved") — removed entirely, 2026-09-25.** Superseded by the
+      "fundamentally confusing" item below: the colored-rings redesign proposed here would have
+      fixed the presentation but not the underlying problem, which turned out to be that the step
+      had no real job. Its "Zero here" baseline was in-memory only (`_live_orientation_baseline`
+      in `app.py`, never persisted) and distinct from the baseline `/calibration/tripwire/check`
+      actually reads (the one `/calibration/run` builds and saves) -- so it could not do the thing
+      Aaron wanted it for ("detect if the camera has been rotated in the future"). Traced through
+      with the advisor: a fixed camera rotation, even a large one, adds no measurement error on
+      its own (area is orientation-independent, and the scale field/homography are rebuilt fresh
+      from wherever the corner tags actually are each calibration) -- what would catch a badly
+      rotated camera during setup is the Step 1/2 squareness guide lines (a framing problem, tags
+      falling out of frame), not a roll number. And a bump between Step 2 and Step 5 (e.g. while
+      placing sheets) still gets calibrated correctly by Step 5, which is also where the real,
+      persisted baseline gets built -- so removing Step 4 loses nothing. Endpoints
+      `/calibration/orientation/zero` and `/calibration/orientation/live`, the module-level
+      `_live_orientation_baseline`, and their 5 unit tests removed along with the wizard step;
+      `/calibration/orientation/level.jpg` (Step 2's traffic light, a different, non-baseline
+      check) is untouched. Wizard is now 6 steps.
+- [x] **Step 3 ("Place calibration and corner sheets"): placement diagram — built 2026-09-25.**
+      Inline SVG: every tray gets a sheet (not an alternating pattern -- see below), four corner
+      dots labelled NW/NE/SW/SE (top = north, right = east, Aaron's stated convention).
+- [x] **Step 3: download links for the calibration/corner sheet PDFs — built 2026-09-25.** New
+      `/reference/calibration-sheets` static mount in `app.py`; linked as a `<ul>` (Aaron asked for
+      a list over the original middot-joined links, for readability).
+      **Real correction during this work:** the diagram's first version used PLAN.md's own
+      "alternating trays" pattern, and the specific alternating (checkerboard) pattern chosen only
+      put sheets on two of the four corner-most trays (NW, SE) -- Aaron caught this by inspection.
+      Root question then: since sheets are already established as reusable, why alternate at all?
+      No good answer -- switched to every tray, which also removes the "does this pattern reach
+      all four corners" class of mistake entirely. Fixed the same stale "alternating trays"
+      wording in PLAN.md (two spots) to match.
+- [ ] **New Setup page: "Health check"** — a destination for on-demand checks that don't belong in
+      the linear run-a-calibration wizard. Only remaining candidate is Step 5's tripwire check,
+      below -- the other candidate, Step 4's "confirm nothing moved" tool, was removed outright
+      rather than relocated (see above). Still not built. *(Aaron, 2026-09-25.)*
 - [ ] **Step 5's "Check tripwire now" button doesn't belong in the wizard** — Aaron: "meaningless;
       should not be part of the wizard, should be moved to a 'health check' screen." It's an
       on-demand manual check against the saved baseline (the roll/knock acceptance test),
