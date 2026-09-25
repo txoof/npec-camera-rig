@@ -133,14 +133,15 @@
     <div class="wizard-step" data-step="3">
     <h3 style="margin: 1rem 0 0.25rem;">Step 3 — Place calibration and corner sheets</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Lay the calibration sheets on alternating trays, reaching all four frame corners, with the
-      corner/reference sheets at all four corners of the table.
+      Lay a calibration sheet on every tray, plus the corner/reference sheets at all four corners
+      of the table.
     </p>
     <svg viewBox="0 0 400 220" style="width: min(80vw, 500px); display: block; margin: 0 0 0.5rem;"
-         role="img" aria-label="Table diagram: calibration sheets on alternating trays, corner sheets at the four table corners">
+         role="img" aria-label="Table diagram: calibration sheets on every tray, corner sheets at the four table corners (N top, E right)">
       <rect x="20" y="20" width="360" height="180" rx="4" fill="none" stroke="#444" stroke-width="2"/>
-      <!-- 2 rows x 6 columns of trays, alternating (checkerboard) placement -- illustrative only,
-           the exact trays don't matter, only that placement reaches all four frame corners. -->
+      <!-- 2 rows x 6 columns of trays, every one carrying a calibration sheet -- sheets are
+           reusable, so there's no reason to leave any tray uncovered, and it sidesteps ever
+           having to reason about whether a given pattern happens to reach all four corners. -->
       <g id="step3-tray-grid"></g>
       <script>
         (() => {
@@ -148,40 +149,43 @@
           const cols = 6, rows = 2, x0 = 55, y0 = 55, cw = 48, ch = 55, gap = 6;
           for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
-              const hasSheet = (r + c) % 2 === 0;
               const x = x0 + c * cw, y = y0 + r * ch;
               const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
               rect.setAttribute("x", x); rect.setAttribute("y", y);
               rect.setAttribute("width", cw - gap); rect.setAttribute("height", ch - gap);
               rect.setAttribute("rx", 3);
-              rect.setAttribute("fill", hasSheet ? "#2b4a5c" : "#1a1a1a");
-              rect.setAttribute("stroke", hasSheet ? "#6cf" : "#333");
+              rect.setAttribute("fill", "#2b4a5c");
+              rect.setAttribute("stroke", "#6cf");
               rect.setAttribute("stroke-width", "1.5");
               grid.appendChild(rect);
-              if (hasSheet) {
-                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                text.setAttribute("x", x + (cw - gap) / 2);
-                text.setAttribute("y", y + (ch - gap) / 2 + 4);
-                text.setAttribute("text-anchor", "middle");
-                text.setAttribute("font-size", "9");
-                text.setAttribute("fill", "#9cf");
-                text.textContent = "sheet";
-                grid.appendChild(text);
-              }
+              const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+              text.setAttribute("x", x + (cw - gap) / 2);
+              text.setAttribute("y", y + (ch - gap) / 2 + 4);
+              text.setAttribute("text-anchor", "middle");
+              text.setAttribute("font-size", "9");
+              text.setAttribute("fill", "#9cf");
+              text.textContent = "sheet";
+              grid.appendChild(text);
             }
           }
         })();
       </script>
-      <!-- Corner/reference sheets: at the table's four corners, outside the tray grid. -->
+      <!-- Corner/reference sheets: at the table's four corners, outside the tray grid.
+           Compass convention (matches the top-down camera view): top = north, right = east. -->
       <circle cx="20" cy="20" r="9" fill="#fc6" stroke="#663" stroke-width="1.5"/>
+      <text x="20" y="12" text-anchor="middle" font-size="10" fill="#ccc">NW</text>
       <circle cx="380" cy="20" r="9" fill="#fc6" stroke="#663" stroke-width="1.5"/>
+      <text x="380" y="12" text-anchor="middle" font-size="10" fill="#ccc">NE</text>
       <circle cx="20" cy="200" r="9" fill="#fc6" stroke="#663" stroke-width="1.5"/>
+      <text x="20" y="215" text-anchor="middle" font-size="10" fill="#ccc">SW</text>
       <circle cx="380" cy="200" r="9" fill="#fc6" stroke="#663" stroke-width="1.5"/>
-      <text x="200" y="212" text-anchor="middle" font-size="10" fill="#ccc">table, top-down</text>
+      <text x="380" y="215" text-anchor="middle" font-size="10" fill="#ccc">SE</text>
+      <text x="200" y="14" text-anchor="middle" font-size="10" fill="#888">N</text>
+      <text x="393" y="114" text-anchor="middle" font-size="10" fill="#888">E</text>
     </svg>
     <p style="margin: 0 0 0.5rem; color: #888; font-size: 0.75rem;">
-      Blue = a calibration sheet on that tray (exact trays don't matter — spread beats count).
-      Amber dots = the four corner/reference sheets, one per table corner.
+      Blue = a calibration sheet on that tray, every tray. Amber dots = the four corner/reference
+      sheets, one per table corner (N/S/E/W, top-down view: top is north, right is east).
     </p>
     <p style="margin: 0 0 0.5rem; font-size: 0.85rem;">
       Sheets to print:
