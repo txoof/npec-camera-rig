@@ -553,10 +553,29 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — known issues, not yet fixed
 
-- [ ] **Auto exposure only fires once per tick, not continuously** — Aaron, 2026-09-22: ticking
-      "Auto exposure" adjusts exposure once, then holds still even as real lighting changes;
-      unticking and re-ticking forces one more adjustment. Checked this app's own code path
-      (`camera.py`'s `Picamera2Backend.set_control`/`CameraManager.set_control`): it makes one
+- [x] **Auto exposure only fires once per tick, not continuously — fixed 2026-09-25.** Aaron,
+      2026-09-22: ticking "Auto exposure" adjusts exposure once, then holds still even as real
+      lighting changes; unticking and re-ticking forces one more adjustment. The 2026-09-22 note
+      below (kept for the record) had ruled out this app fighting AE via any *repeated* write —
+      correct as far as it went, but missed two real, independently confirmed causes: (1)
+      `capture_full_res()`'s stop/reconfigure/start cycle silently dropped `AeEnable`/`AwbEnable`
+      without updating this app's own cache, so a calibration run or "Capture" would leave the
+      camera off AE/AWB while the UI still claimed both were on; (2) a stale persisted manual
+      `ExposureTime`/`AnalogueGain` (found live in `rig.db`) replayed on top of `AeEnable=True` on
+      every server restart, re-arming picamera2's `ExposureTimeMode`/`AnalogueGainMode` manual
+      latch — confirmed directly against the installed picamera2 source
+      (`CompletedRequest.release()`). Fixed by centralizing a single guard in
+      `Picamera2Backend.set_control` (manual `ExposureTime`/`AnalogueGain` writes are ignored
+      while `AeEnable` is on, mirrored in `SyntheticBackend` for testability) so the HTTP
+      endpoint, the persisted-settings replay, and the post-full-res-capture restore are all
+      covered by one rule. Verified live: a restart no longer replays the DB's stale
+      `ExposureTime=3064701`, and Aaron confirmed the live preview looks correct afterward.
+      `m2-auto-exposure-fix`, merged as #3. Deferred, separate gap logged below (manual
+      exposure doesn't survive a full-res capture).
+      **Original note, 2026-09-22:** ticking "Auto exposure" adjusts exposure once, then holds
+      still even as real lighting changes; unticking and re-ticking forces one more adjustment.
+      Checked this app's own code path (`camera.py`'s
+      `Picamera2Backend.set_control`/`CameraManager.set_control`): it makes one
       `set_controls({"AeEnable": True})` call and never re-writes `ExposureTime`/`AnalogueGain`
       afterward, and the UI's controls panel (`index.html`) only reads `/controls` once at page
       load -- no polling loop that could be re-locking it by echoing a stale value back. So
