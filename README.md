@@ -31,8 +31,15 @@ Use `uv run` for everything after that — no need to activate the venv:
 
 ```bash
 uv run pytest
-uv run uvicorn npec_rig.app:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn npec_rig.app:app --reload --reload-dir src --timeout-graceful-shutdown 10 \
+    --host 0.0.0.0 --port 8000
 ```
+
+`--reload-dir src` keeps `WatchFiles` from watching the whole repo tree (it otherwise reloads on
+unrelated activity elsewhere in the checkout). `--timeout-graceful-shutdown 10` bounds the
+"Waiting for connections to close" reload hang — a browser continuously polling an endpoint (the
+live preview, the focus aid) keeps a connection in-flight indefinitely, so the default unbounded
+wait never resolves on its own; this caps it at 10s instead of requiring a manual browser refresh.
 
 Not yet installed as a systemd service — see `deploy/npec-rig.service`.
 
