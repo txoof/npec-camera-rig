@@ -121,6 +121,7 @@
     </p>
     <img
       id="level-overlay-image"
+      class="wide-live-view"
       alt="live leveling overlay"
       style="max-width: 100%; border-radius: 4px; display: block;"
     />
@@ -1090,10 +1091,11 @@
     // --- Live leveling aid ---
     const levelOverlayImage = document.getElementById("level-overlay-image");
 
+    function refreshLevelOverlay() {
+      levelOverlayImage.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
+    }
     function pollLevelOverlay() {
-      if (isActiveStep(2)) {
-        levelOverlayImage.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
-      }
+      if (isActiveStep(2)) refreshLevelOverlay();
       setTimeout(pollLevelOverlay, 500);
     }
     pollLevelOverlay();
@@ -1225,6 +1227,7 @@
       wizardNextBtn.textContent = wizardStep === STEP_TITLES.length ? "Done" : "Next →";
       wizardNextBtn.disabled = wizardStep === STEP_TITLES.length;
       updateLiveResources();
+      if (isActiveStep(2)) refreshLevelOverlay();
     }
 
     wizardBackBtn.addEventListener("click", () => {

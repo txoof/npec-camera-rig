@@ -22,13 +22,17 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
   color: #fff;
   font-weight: bold;
 }
+/* Shared by any live camera view meant to be read at a glance (the focus/square preview, the
+   leveling traffic-light overlay) -- fills most of the screen on a touchscreen rather than a
+   fixed 480px, but not centered, so the empty space this leaves on the right is a scroll gutter
+   a finger can land on without hitting the frame or its drag handles. */
+.wide-live-view {
+  width: min(80vw, 1400px);
+}
 .focus-layout {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  /* Fills most of the screen on a touchscreen rather than a fixed 480px, but not centered --
-     left where the page's other sections sit, so the empty space this leaves on the right is
-     a scroll gutter a finger can land on without hitting the frame or its drag handles. */
   width: min(80vw, 1400px);
 }
 .preview-wrap {
