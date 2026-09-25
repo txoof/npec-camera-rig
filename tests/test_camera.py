@@ -259,3 +259,38 @@ def test_apply_persisted_settings_applies_ae_enable_before_dependent_controls() 
     CameraManager(backend)
 
     assert calls.index("AeEnable") < calls.index("AnalogueGain")
+
+
+def test_apply_persisted_settings_skips_stale_manual_exposure_when_ae_is_on() -> None:
+    # A persisted ExposureTime/AnalogueGain is only meaningful when AE was off when it was
+    # saved. Replaying it on top of AeEnable=True re-arms picamera2's manual-exposure latch on
+    # every restart — confirmed against a real stale value found in this rig's own DB.
+    from npec_rig.settings import save_setting
+
+    save_setting("AeEnable", True)
+    save_setting("ExposureTime", 3064701)
+    save_setting("AnalogueGain", 1.0)
+
+    calls: list[str] = []
+    backend = SyntheticBackend()
+    original_set_control = backend.set_control
+    backend.set_control = lambda name, value: (calls.append(name), original_set_control(name, value))[1]
+
+    CameraManager(backend)
+
+    assert "AeEnable" in calls
+    assert "ExposureTime" not in calls
+    assert "AnalogueGain" not in calls
+
+
+def test_apply_persisted_settings_replays_manual_exposure_when_ae_is_off() -> None:
+    from npec_rig.settings import save_setting
+
+    save_setting("AeEnable", False)
+    save_setting("ExposureTime", 20000)
+    save_setting("AnalogueGain", 4.0)
+
+    manager = CameraManager(SyntheticBackend())
+
+    assert manager.get_controls()["ExposureTime"] == 20000
+    assert manager.get_controls()["AnalogueGain"] == 4.0

@@ -221,6 +221,13 @@ class Picamera2Backend(CameraBackend):
             self._picam2.stop()
             self._picam2.configure(self._video_config)
             self._picam2.start()
+            # configure() replaces picamera2's live Controls with just the new config's own
+            # (near-empty) controls dict — AeEnable/AwbEnable are silently dropped, and nothing
+            # else re-applies them. Confirmed on real hardware: after a full-res capture, the
+            # camera reverts to its config/tuning-file default while this app's own cache still
+            # claims AE/AWB are on, so the image can go stuck/washed-out without the checkbox
+            # ever changing. Restore whatever this app last believed was set.
+            self._picam2.set_controls(dict(self._control_cache))
         sensor_metadata = {key: metadata.get(key) for key in SENSOR_METADATA_FIELDS}
         return array, sensor_metadata
 
@@ -254,6 +261,13 @@ class Picamera2Backend(CameraBackend):
         self._picam2.set_controls({name: value})
         if name in _CACHED_CONTROLS:
             self._control_cache[name] = value
+        if name == "AeEnable" and value:
+            # picamera2 latches ExposureTimeMode/AnalogueGainMode to manual the moment any
+            # nonzero ExposureTime/AnalogueGain is sent (request.py's CompletedRequest.release),
+            # and AeEnable alone does not clear that — confirmed against the installed picamera2
+            # source. 0 is picamera2's own sentinel for "return to auto," not a real exposure
+            # value (no range validation rejects it), so this releases the latch outright.
+            self._picam2.set_controls({"ExposureTime": 0, "AnalogueGain": 0})
 
 
 def array_to_jpeg(frame: np.ndarray) -> bytes:
@@ -359,7 +373,14 @@ class CameraManager:
         persisted = load_settings()
         available = self._backend.available_controls()
         ordered_names = sorted(persisted, key=lambda name: name not in ("AeEnable", "AwbEnable"))
+        # A persisted manual ExposureTime/AnalogueGain is only meaningful when AE was off when
+        # it was saved. Replaying it on top of AeEnable=True re-latches picamera2's manual-mode
+        # controls (see Picamera2Backend.set_control) on every restart — confirmed against a
+        # real stale value sitting in this rig's own DB.
+        skip_manual_exposure = persisted.get("AeEnable") is True
         for name in ordered_names:
+            if skip_manual_exposure and name in ("ExposureTime", "AnalogueGain"):
+                continue
             if name in available:
                 self._backend.set_control(name, persisted[name])
 

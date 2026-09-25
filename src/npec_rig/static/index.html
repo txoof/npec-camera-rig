@@ -223,6 +223,7 @@
       color: #fff;
     }
     button:disabled { opacity: 0.5; }
+    input[type="range"]:disabled { opacity: 0.5; }
     .gallery {
       display: flex;
       flex-wrap: wrap;
@@ -666,6 +667,9 @@
     };
     // AWB and AE are both "auto X" toggles — shown on one line together, not stacked.
     const PAIRED_CHECKBOX_NAMES = ["AwbEnable", "AeEnable"];
+    // Manual writes to these while AE is on re-arm picamera2's manual-exposure latch (see
+    // Picamera2Backend.set_control) — disable them while AeEnable is checked.
+    const AE_DEPENDENT_CONTROL_NAMES = ["ExposureTime", "AnalogueGain"];
     const cameraControlsEl = document.getElementById("camera-controls");
 
     function controlStep(min, max) {
@@ -710,6 +714,12 @@
         pairNames.forEach((name) => {
           row.querySelector(`#control-${name}`).addEventListener("change", (event) => {
             postControl(name, event.target.checked);
+            if (name === "AeEnable") {
+              AE_DEPENDENT_CONTROL_NAMES.forEach((depName) => {
+                const depInput = document.getElementById(`control-${depName}`);
+                if (depInput) depInput.disabled = event.target.checked;
+              });
+            }
           });
         });
         cameraControlsEl.appendChild(row);
@@ -738,9 +748,10 @@
 
         row.className = "focus-row";
         const step = controlStep(min, max);
+        const disabledAttr = AE_DEPENDENT_CONTROL_NAMES.includes(name) && values.AeEnable ? " disabled" : "";
         row.innerHTML =
           `<label for="control-${name}">${label} <span id="control-${name}-value">${formatControlValue(name, value)}</span></label>` +
-          `<input type="range" id="control-${name}" min="${min}" max="${max}" step="${step}" value="${value}">`;
+          `<input type="range" id="control-${name}" min="${min}" max="${max}" step="${step}" value="${value}"${disabledAttr}>`;
         const input = row.querySelector("input");
         const valueLabel = row.querySelector(`#control-${name}-value`);
         let sending = false;
