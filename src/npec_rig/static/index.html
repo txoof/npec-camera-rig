@@ -29,10 +29,11 @@
       width: 100%;
     }
     /* Reserves room for the square-mode handles (see .squareness-handle below), which sit just
-       past the image's own edges and would otherwise collide with the mode-toggle row or a
-       sibling pane. Harmless in focus mode too -- just a small gap next to the crop pane. */
+       past the image's own edges (left, right, and bottom -- there's no top handle) and would
+       otherwise collide with the mode-toggle row, a sibling pane, or get clipped by the body
+       edge. Harmless in focus mode too -- just a small gap next to the crop pane. */
     .focus-layout.mode-square .preview-wrap {
-      margin: 0 20px 20px 0;
+      margin: 0 20px 20px 20px;
     }
     .preview {
       display: block;
@@ -112,7 +113,9 @@
       display: flex;
       gap: 0.5rem;
       margin-top: 0.75rem;
-      max-width: 480px;
+      /* Matches .focus-layout above it -- these buttons control that frame, so they shouldn't
+         stay pinned to the old 480px cap while the frame itself is now much wider. */
+      max-width: min(80vw, 1400px);
     }
     .mode-toggle-row button {
       flex: 1;
@@ -929,9 +932,15 @@
       squarenessGuides.classList.toggle("mode-square", mode === "square");
       modeFocusBtn.classList.toggle("active", mode === "focus");
       modeSquareBtn.classList.toggle("active", mode === "square");
-      // Not helpful in square mode (Aaron, 2026-09-25) -- clearing src actually stops the MJPEG
-      // stream, rather than just hiding a still-running one behind display:none.
-      roiCropImg.src = mode === "square" ? "" : "/focus/roi.mjpg";
+      // Not helpful in square mode (Aaron, 2026-09-25) -- removing src actually stops the MJPEG
+      // stream, rather than just hiding a still-running one behind display:none. Removing the
+      // attribute rather than setting it to "" avoids a long-documented cross-browser footgun
+      // where an empty src can be resolved against the current page URL and re-requested.
+      if (mode === "square") {
+        roiCropImg.removeAttribute("src");
+      } else {
+        roiCropImg.src = "/focus/roi.mjpg";
+      }
     }
     modeFocusBtn.addEventListener("click", () => setMode("focus"));
     modeSquareBtn.addEventListener("click", () => setMode("square"));
@@ -977,11 +986,20 @@
     }
     squarenessGuides.querySelectorAll(".squareness-handle").forEach(makeHandleDraggable);
 
-    // Handles start wherever their line already is (the HTML defaults, 33.33%/66.67%, or CSS's
-    // 50% for the horizontal line) -- read that back rather than hardcoding it a second time.
+    // The horizontal line has no inline style -- its position comes from .squareness-line-h's
+    // `top: 50%` default in the stylesheet above, which parseFloat can't see. Named and commented
+    // here (rather than repeated as a bare literal) so it's obvious this must stay in sync if
+    // that CSS default ever changes -- the two aren't otherwise connected.
+    const DEFAULT_LINE_H_TOP_PCT = 50;
+
+    // Handles start wherever their line already is (the HTML defaults, 33.33%/66.67%, or the
+    // stylesheet default above for the horizontal line).
     squarenessGuides.querySelectorAll(".squareness-line").forEach((line) => {
       const axis = line.classList.contains("squareness-line-h") ? "y" : "x";
-      const pct = parseFloat(axis === "y" ? line.style.top : line.style.left) || 50;
+      const inline = parseFloat(axis === "y" ? line.style.top : line.style.left);
+      // Not `inline || DEFAULT...` -- a legitimate 0% position is falsy and would otherwise be
+      // silently overridden.
+      const pct = Number.isNaN(inline) ? DEFAULT_LINE_H_TOP_PCT : inline;
       syncHandlesForLine(line, axis, pct);
     });
 
