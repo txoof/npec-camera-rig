@@ -376,6 +376,19 @@
       <input type="number" id="tag-size-input" step="0.0001" min="0"
              placeholder="e.g. 30.02" style="width: 6rem;">
     </label>
+    <h3 style="margin: 1rem 0 0.25rem;">Live leveling aid</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Colored rings on the corner tags show how co-planar the table is with the camera, live —
+      no zero step needed, works as soon as 2+ corner tags are in frame. Green is within
+      tolerance; amber or red means that corner reads closer/farther than the others. Nudge the
+      rig until every ring is green.
+    </p>
+    <img
+      id="level-overlay-image"
+      alt="live leveling overlay"
+      style="max-width: 100%; border-radius: 4px; display: block;"
+    />
+
     <h3 style="margin: 1rem 0 0.25rem;">Confirm nothing moved</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       While adjusting the rig by hand, press "Zero here" once it looks roughly right, then nudge
@@ -391,6 +404,9 @@
       <button id="tripwire-btn">Check tripwire now</button>
     </div>
     <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+
+    <details style="margin-top: 0.75rem;">
+      <summary>Diagnostics</summary>
     <img id="calibration-heatmap" alt="Confidence heatmap"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
     <div id="calibration-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
@@ -633,19 +649,6 @@
       <div id="calibration-list" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
     </details>
 
-    <h3 style="margin: 1rem 0 0.25rem;">Live leveling aid</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Colored rings on the corner tags show how co-planar the table is with the camera, live —
-      no zero step needed, works as soon as 2+ corner tags are in frame. Green is within
-      tolerance; amber or red means that corner reads closer/farther than the others. Nudge the
-      rig until every ring is green.
-    </p>
-    <img
-      id="level-overlay-image"
-      alt="live leveling overlay"
-      style="max-width: 100%; border-radius: 4px; display: block;"
-    />
-
     <h3 style="margin: 1rem 0 0.25rem;">Honesty plot</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       PLAN.md's M2 acceptance test: place a known target at each of several positions, read its
@@ -673,6 +676,7 @@
     <div id="honesty-plot-result" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
     <img id="honesty-plot-image" alt="Honesty plot"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+    </details>
   </div>
 
   <script>
