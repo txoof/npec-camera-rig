@@ -756,14 +756,21 @@ _live_orientation_baseline: CornerBaseline | None = None
 
 @app.post("/calibration/orientation/zero")
 def zero_live_orientation() -> dict:
-    """Freeze the current preview frame's corner-tag geometry as a temporary zero point for the
-    live reorientation aid (TODO.md's "Live reorientation guidance") -- for adjusting the rig by
-    hand during physical setup, before any real calibration baseline exists. In-memory only, not
-    persisted; distinct from the saved calibration baseline `/calibration/tripwire/check` uses.
+    """Freeze the current main-stream frame's corner-tag geometry as a temporary zero point for
+    the live reorientation aid (TODO.md's "Live reorientation guidance") -- for adjusting the rig
+    by hand during physical setup, before any real calibration baseline exists. In-memory only,
+    not persisted; distinct from the saved calibration baseline `/calibration/tripwire/check`
+    uses.
+
+    Reads the `main` stream (1536x1152), not `lores` (320x240) -- confirmed on real hardware that
+    the lores stream is too low-resolution for `detect_tags` to find the 50mm corner tags at all
+    (TODO.md's "Live reorientation aid never actually works"), while `main` finds all 4 reliably.
+    Still short of a full-res still: no reconfigure, so no capture-then-autofocus hang risk, and
+    no ~8.5s round trip -- appropriate for a continuously-polled live aid.
     """
     global _live_orientation_baseline
     manager = CameraManager.instance()
-    detections = detect_tags(manager.capture_preview_array())
+    detections = detect_tags(manager.capture_array())
     try:
         _live_orientation_baseline = build_corner_baseline(detections)
     except ValueError as exc:
@@ -776,13 +783,13 @@ def live_orientation() -> dict:
     """Roll/scale reading against the zero point set above, polled continuously while nudging
     the rig by hand toward level. Reuses `check_tripwire` -- a pure in-image comparison between
     two frames of this rig, no mount-squareness or equal-tag-size assumption needed (see
-    tripwire.py's docstring). Preview resolution only, coarser than a full-res capture: a real
-    calibration still confirms the final number.
+    tripwire.py's docstring). Main-stream resolution (see `zero_live_orientation`), coarser than
+    a full-res capture: a real calibration still confirms the final number.
     """
     if _live_orientation_baseline is None:
         raise HTTPException(409, "no zero point set -- press 'Zero here' first")
     manager = CameraManager.instance()
-    detections = detect_tags(manager.capture_preview_array())
+    detections = detect_tags(manager.capture_array())
     result = check_tripwire(_live_orientation_baseline, detections)
     return {
         "verdict": result.verdict,

@@ -423,9 +423,15 @@ class CameraManager:
         with self._call_lock:
             return array_to_jpeg(self._backend.capture_preview_array())
 
+    def capture_array(self) -> np.ndarray:
+        """Raw main-stream frame, for callers that need pixels rather than a JPEG (e.g. the live
+        reorientation aid's tag detection -- the lores stream is too low-resolution for
+        `detect_tags` to find corner tags at all, confirmed on real hardware)."""
+        with self._call_lock:
+            return self._backend.capture_array()
+
     def capture_preview_array(self) -> np.ndarray:
-        """Raw lores frame, for callers that need pixels rather than a JPEG (e.g. the live
-        reorientation aid's tag detection)."""
+        """Raw lores frame, for callers that need pixels rather than a JPEG."""
         with self._call_lock:
             return self._backend.capture_preview_array()
 
