@@ -603,6 +603,17 @@
     <img id="radial-plot-shape-distortion" alt="Area-shape distortion vs. distance from image centre"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
 
+    <h3 style="margin: 1rem 0 0.25rem;">Dome of certainty</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Claimed uncertainty (already computed and saved by every run) sampled at each calibration
+      tag's own position, plotted against distance from the image centre, with an unweighted
+      linear fit and its R². Certainty should be highest at the centre and fall toward the edges
+      — a "dome" shape. This shows whether the claimed number actually behaves that way, or is
+      flat/noisy instead.
+    </p>
+    <img id="certainty-dome-plot" alt="Claimed uncertainty vs. distance from image centre"
+         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+
     <details style="margin-top: 0.75rem;">
       <summary>Saved calibrations (download)</summary>
       <div id="calibration-list" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
@@ -1121,6 +1132,7 @@
     const bestWorstPhotoShapeDistortion = document.getElementById("best-worst-photo-shape-distortion");
     const radialPlotScaleResidual = document.getElementById("radial-plot-scale-residual");
     const radialPlotShapeDistortion = document.getElementById("radial-plot-shape-distortion");
+    const certaintyDomePlot = document.getElementById("certainty-dome-plot");
 
     async function refreshCalibrationList() {
       const r = await fetch("/calibration/list");
@@ -1270,6 +1282,8 @@
           radialPlotShapeDistortion.src =
             `/calibration/current/radial-plot?metric=shape_distortion&t=${Date.now()}`;
           radialPlotShapeDistortion.style.display = "block";
+          certaintyDomePlot.src = `/calibration/current/certainty-dome-plot?t=${Date.now()}`;
+          certaintyDomePlot.style.display = "block";
         } else {
           rankPlotScaleResidual.style.display = "none";
           rankPlotShapeDistortion.style.display = "none";
@@ -1277,6 +1291,7 @@
           bestWorstPhotoShapeDistortion.style.display = "none";
           radialPlotScaleResidual.style.display = "none";
           radialPlotShapeDistortion.style.display = "none";
+          certaintyDomePlot.style.display = "none";
         }
         await refreshCurrentCalibration();
         await refreshCalibrationList();
