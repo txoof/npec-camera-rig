@@ -351,14 +351,52 @@
 
   <h2>Calibration</h2>
   <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    Lay the calibration sheets on alternating trays, reaching all four frame corners, then run
-    calibration. "Check tripwire now" compares the four corner tags against the saved baseline
-    right now — use it for the roll/knock acceptance test.
+    Set up or re-verify this rig, in order. Each step below is a real physical action or a real
+    measurement — none of it can be skipped by guessing.
   </p>
   <div class="calibration-section">
     <p id="calibration-current" style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Loading current calibration&hellip;
     </p>
+
+    <h3 style="margin: 1rem 0 0.25rem;">Step 1 — Confirm focus</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Use "Autofocus" and "Lock focus" in the Focus aid section above. Re-check this any time the
+      lens may have moved — calibration measures the scene through whatever focus is locked in.
+    </p>
+
+    <h3 style="margin: 1rem 0 0.25rem;">Step 2 — Level &amp; square</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Colored rings on the corner tags show how co-planar the table is with the camera, live —
+      no zero step needed, works as soon as 2+ corner tags are in frame. Green is within
+      tolerance; amber or red means that corner reads closer/farther than the others. Nudge the
+      rig until every ring is green. For squareness by eye, use "Square mode" and its guide lines
+      in the Focus aid section above.
+    </p>
+    <img
+      id="level-overlay-image"
+      alt="live leveling overlay"
+      style="max-width: 100%; border-radius: 4px; display: block;"
+    />
+
+    <h3 style="margin: 1rem 0 0.25rem;">Step 3 — Place calibration and corner sheets</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Lay the calibration sheets on alternating trays, reaching all four frame corners, with the
+      corner/reference sheets at all four corners of the table.
+    </p>
+
+    <h3 style="margin: 1rem 0 0.25rem;">Step 4 — Confirm nothing moved</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      While adjusting the rig by hand, press "Zero here" once it looks roughly right, then nudge
+      it until the reading below settles at OK. Main-stream resolution, directional guidance —
+      a full calibration still confirms the final number.
+    </p>
+    <div class="lock-row">
+      <button id="orientation-zero-btn">Zero here</button>
+      <span id="orientation-live" style="font-size: 0.85rem; color: #aaa;">not zeroed</span>
+    </div>
+
+    <h3 style="margin: 1rem 0 0.25rem;">Step 5 — Run calibration</h3>
     <label class="peaking-row">
       <input type="checkbox" id="promote-toggle" checked>
       <span>
@@ -376,34 +414,22 @@
       <input type="number" id="tag-size-input" step="0.0001" min="0"
              placeholder="e.g. 30.02" style="width: 6rem;">
     </label>
-    <h3 style="margin: 1rem 0 0.25rem;">Live leveling aid</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Colored rings on the corner tags show how co-planar the table is with the camera, live —
-      no zero step needed, works as soon as 2+ corner tags are in frame. Green is within
-      tolerance; amber or red means that corner reads closer/farther than the others. Nudge the
-      rig until every ring is green.
-    </p>
-    <img
-      id="level-overlay-image"
-      alt="live leveling overlay"
-      style="max-width: 100%; border-radius: 4px; display: block;"
-    />
-
-    <h3 style="margin: 1rem 0 0.25rem;">Confirm nothing moved</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      While adjusting the rig by hand, press "Zero here" once it looks roughly right, then nudge
-      it until the reading below settles at OK. Main-stream resolution, directional guidance —
-      a full calibration still confirms the final number.
-    </p>
-    <div class="lock-row">
-      <button id="orientation-zero-btn">Zero here</button>
-      <span id="orientation-live" style="font-size: 0.85rem; color: #aaa;">not zeroed</span>
-    </div>
     <div class="lock-row">
       <button id="calibrate-btn">Run calibration</button>
       <button id="tripwire-btn">Check tripwire now</button>
     </div>
+    <p style="margin: 0.3rem 0 0; color: #aaa; font-size: 0.8rem;">
+      "Check tripwire now" compares the four corner tags against the saved baseline right now,
+      without running a full calibration — use it for the roll/knock acceptance test.
+    </p>
     <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+
+    <h3 style="margin: 1rem 0 0.25rem;">Step 6 — Read the report</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      The result above states the scale, coverage, and any coverage gaps found. If it says
+      coverage is weak somewhere, open Diagnostics below to see exactly where, add a sheet there,
+      and run calibration again — no need to redo Steps 1–4 unless something actually moved.
+    </p>
 
     <details style="margin-top: 0.75rem;">
       <summary>Diagnostics</summary>
@@ -677,6 +703,12 @@
     <img id="honesty-plot-image" alt="Honesty plot"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
     </details>
+
+    <h3 style="margin: 1rem 0 0.25rem;">Step 7 — Remove sheets</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Once the report above looks right, remove the calibration and corner sheets from the trays
+      before starting a growth run.
+    </p>
   </div>
 
   <script>
