@@ -399,6 +399,36 @@ def test_run_calibration_echoes_corner_tag_size_and_default_flag(
     assert measured_run["corner_tag_size_mm_is_default"] is False
 
 
+def test_run_calibration_remembers_table_dims_across_runs(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # Aaron, 2026-09-25: "the calibration doesn't remember the settings from previous runs so I
+    # always get the NOT TO SCALE thing." A run that omits all three must reuse whatever was
+    # last actually given, not fall back to NOT-TO-SCALE/the placeholder default.
+    monkeypatch.setattr(
+        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
+    )
+    client = TestClient(app)
+
+    first = client.post(
+        "/calibration/run",
+        params={"table_width_mm": 1000.0, "table_length_mm": 800.0, "corner_tag_size_mm": 49.87},
+    ).json()
+    assert first["table_view_to_scale"] is True
+
+    current = client.get("/calibration/current").json()
+    assert current["table_width_mm"] == 1000.0
+    assert current["table_length_mm"] == 800.0
+    assert current["corner_tag_size_mm"] == 49.87
+
+    second = client.post("/calibration/run").json()
+    assert second["table_width_mm"] == 1000.0
+    assert second["table_length_mm"] == 800.0
+    assert second["corner_tag_size_mm"] == 49.87
+    assert second["corner_tag_size_mm_is_default"] is False
+    assert second["table_view_to_scale"] is True
+
+
 def test_run_calibration_converts_outer_edge_span_to_table_view(
     monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
 ) -> None:
@@ -527,7 +557,12 @@ def test_current_calibration_before_any_run(isolated_calibration_dir: None) -> N
     client = TestClient(app)
     response = client.get("/calibration/current")
     assert response.status_code == 200
-    assert response.json() == {"exists": False}
+    assert response.json() == {
+        "exists": False,
+        "table_width_mm": None,
+        "table_length_mm": None,
+        "corner_tag_size_mm": None,
+    }
 
 
 def test_tripwire_check_without_baseline_is_refused(isolated_calibration_dir: None) -> None:

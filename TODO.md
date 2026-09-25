@@ -753,13 +753,20 @@ The heart of the project. Do not start before M1 slice 5.
       report without re-running calibration. Likely the same underlying picker feature as the
       existing "let the two heatmaps and rank plots be viewed for a past calibration" item below,
       applied to the whole report rather than just those two plots. *(Aaron, 2026-09-25.)*
-- [ ] **Step 6: persist table width/length between runs, and add a labeled diagram of what they
-      mean.** Currently explicitly not saved ("Not saved between runs — re-enter each time") —
-      Aaron wants it saved. Also wants an illustration of the table showing width vs. length,
-      using a fixed compass convention: top of the image is **north**, right side is **east**
-      (matches how the camera looks down at the table) — the current text-only description
-      (top-left to top-right = width, top-left to bottom-left = length) asks the operator to hold
-      that mapping in their head instead of seeing it drawn. *(Aaron, 2026-09-25.)*
+- [x] **Table width/length/corner-tag-size now persist between runs — built 2026-09-25.** Aaron:
+      "the calibration doesn't remember the settings from the previous runs so I always get the
+      NOT TO SCALE thing." All three stored via `settings.py`'s key/value store (the same one
+      camera controls use) -- not the `CalibrationArtifact`, since these are operator-typed
+      display convenience values, not measurements, and don't deserve a version bump that would
+      strand every already-saved artifact on disk. Only a real, explicitly-given value is ever
+      persisted; a blank field falls back to the last real value given, never to a guessed
+      default. `/calibration/current` now echoes all three (even before any calibration exists)
+      so the wizard can pre-fill the inputs, same pattern as the existing tag-size pre-fill.
+- [ ] **Step 6: add a labeled diagram of what table width/length mean.** Using a fixed compass
+      convention: top of the image is **north**, right side is **east** (matches how the camera
+      looks down at the table) — the current text-only description (top-left to top-right =
+      width, top-left to bottom-left = length) asks the operator to hold that mapping in their
+      head instead of seeing it drawn. *(Aaron, 2026-09-25.)*
 - [ ] **Move calibration history into a gallery** — the current "Saved calibrations (download)"
       `<details>` list (filenames + text links) should become a proper gallery: preview
       thumbnails plus a download action per entry, not a plain link list. *(Aaron, 2026-09-21)*

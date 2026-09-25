@@ -378,8 +378,10 @@
         corner tag size below for you. <strong>Width</strong> is the left-to-right pair in the
         camera image (top-left to top-right corner tag); <strong>length</strong> is top-to-bottom
         (top-left to bottom-left corner tag) — swapping them renders a transposed rectangle.
-        Leave either blank for a square, NOT-TO-SCALE canvas that still shows relative position
-        correctly. Not saved between runs — re-enter each time.
+        Leave either blank (before you've ever entered one) for a square, NOT-TO-SCALE canvas
+        that still shows relative position correctly. Remembered between runs once entered —
+        pre-filled here from the last value you actually typed in, so you don't need to retype
+        it every run.
       </span>
       <span>
         <input type="number" id="table-width-input" step="0.1" min="0"
@@ -957,6 +959,18 @@
     }
 
     function renderCurrentCalibration(data) {
+      // Pre-fill with the operator's last real, explicitly-typed values (settings.py, not tied
+      // to a saved calibration existing) so a repeat run doesn't need them retyped -- only
+      // overwritten by hand if the operator has already typed something in for *this* run.
+      if (!tableWidthInput.value && data.table_width_mm != null) {
+        tableWidthInput.value = data.table_width_mm;
+      }
+      if (!tableLengthInput.value && data.table_length_mm != null) {
+        tableLengthInput.value = data.table_length_mm;
+      }
+      if (!cornerTagSizeInput.value && data.corner_tag_size_mm != null) {
+        cornerTagSizeInput.value = data.corner_tag_size_mm;
+      }
       if (!data.exists) {
         calibrationCurrent.textContent = "No calibration saved yet.";
         return;

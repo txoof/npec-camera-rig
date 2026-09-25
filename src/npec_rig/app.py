@@ -51,6 +51,7 @@ from npec_rig.calibration_viz import (
 )
 from npec_rig.camera import CameraManager, array_to_jpeg
 from npec_rig.captures import captures_root, list_recent_captures, save_capture
+from npec_rig.settings import load_settings, save_setting
 from npec_rig.tags import (
     ASSUMED_CALIBRATION_TAG_SIZE_MM,
     ASSUMED_CORNER_TAG_SIZE_MM,
@@ -383,14 +384,33 @@ def run_calibration(
     converted to the centre-to-centre distance `render_table_view` needs via
     `_outer_edge_span_to_centre_distance_mm`, using `corner_tag_size_mm` (calliper-measured if
     given, else `ASSUMED_CORNER_TAG_SIZE_MM`'s nominal placeholder, same pattern as
-    `calibration_tag_size_mm`). None of the three is persisted anywhere (no `CalibrationArtifact`
-    schema change): all are echoed straight back in the result so the UI can state which mode a
-    given run's table view used, and there's nothing to pre-fill a repeat run from other than what
-    the operator types again.
+    `calibration_tag_size_mm`).
+
+    All three are remembered across runs via `settings.py`'s key/value store (the same one
+    camera controls persist through) -- not the `CalibrationArtifact` (that's frozen/versioned
+    measurement data; these are operator-typed display convenience values, unrelated to what a
+    calibration actually measures, and don't deserve a version bump that would strand every
+    already-saved artifact on disk). Only a real, explicitly-given value is ever persisted -- a
+    blank field falls back to whatever was last given, never to a guessed default, so a repeat
+    run doesn't need retyping but the value is always traceable to something the operator
+    actually entered (`/calibration/current` echoes it back for the UI to pre-fill from).
     """
     tag_size_mm = calibration_tag_size_mm if calibration_tag_size_mm is not None else (
         ASSUMED_CALIBRATION_TAG_SIZE_MM
     )
+    persisted = load_settings()
+    if table_width_mm is None:
+        table_width_mm = persisted.get("table_width_mm")
+    else:
+        save_setting("table_width_mm", table_width_mm)
+    if table_length_mm is None:
+        table_length_mm = persisted.get("table_length_mm")
+    else:
+        save_setting("table_length_mm", table_length_mm)
+    if corner_tag_size_mm is None:
+        corner_tag_size_mm = persisted.get("corner_tag_size_mm")
+    else:
+        save_setting("corner_tag_size_mm", corner_tag_size_mm)
     corner_size_mm = corner_tag_size_mm if corner_tag_size_mm is not None else (
         ASSUMED_CORNER_TAG_SIZE_MM
     )
@@ -590,10 +610,22 @@ def list_calibration_artifacts() -> list[dict]:
 
 @app.get("/calibration/current")
 def current_calibration() -> dict:
-    """Summary of the active saved calibration, so the operator knows which one is live."""
+    """Summary of the active saved calibration, so the operator knows which one is live.
+
+    `table_width_mm`/`table_length_mm`/`corner_tag_size_mm` come from `settings.py`, not the
+    artifact -- they're the operator's last real, explicitly-typed values (see `run_calibration`'s
+    docstring), available for the UI to pre-fill from regardless of whether a calibration has
+    ever been saved.
+    """
+    persisted = load_settings()
+    table_dims = {
+        "table_width_mm": persisted.get("table_width_mm"),
+        "table_length_mm": persisted.get("table_length_mm"),
+        "corner_tag_size_mm": persisted.get("corner_tag_size_mm"),
+    }
     artifact = load_current_calibration()
     if artifact is None:
-        return {"exists": False}
+        return {"exists": False, **table_dims}
     frame_url = f"/calibration/files/frames/{artifact.frame_stem}.jpg" if artifact.frame_stem else None
     heatmap_url = (
         f"/calibration/files/heatmaps/{artifact.frame_stem}.jpg"
@@ -643,6 +675,7 @@ def current_calibration() -> dict:
         "table_view_url": table_view_url,
         "table_view_shape_url": table_view_shape_url,
         "has_uncertainty_field": artifact.uncertainty_field is not None,
+        **table_dims,
     }
 
 
