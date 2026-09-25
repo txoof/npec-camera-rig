@@ -100,8 +100,8 @@ def index() -> RedirectResponse:
 
 @app.get("/setup", response_class=HTMLResponse)
 def setup_page() -> str:
-    """Setup menu: links to Focus & Square and Calibration. One-and-done (or occasional) rig
-    setup, kept separate from everyday capture/browsing."""
+    """Setup menu: links to Focus & Square, Calibration, and Health check. One-and-done (or
+    occasional) rig setup, kept separate from everyday capture/browsing."""
     return (STATIC_DIR / "setup_index.html").read_text()
 
 
@@ -113,8 +113,16 @@ def setup_focus_page() -> str:
 
 @app.get("/setup/calibration", response_class=HTMLResponse)
 def setup_calibration_page() -> str:
-    """The calibration wizard (7 steps) and its diagnostics."""
+    """The calibration wizard (6 steps) and its diagnostics."""
     return (STATIC_DIR / "setup_calibration.html").read_text()
+
+
+@app.get("/setup/health-check", response_class=HTMLResponse)
+def setup_health_check_page() -> str:
+    """On-demand checks outside the linear calibration wizard -- currently just the tripwire
+    check, moved here from the wizard (Aaron, 2026-09-25: "should not be part of the wizard,
+    should be moved to a 'health check' screen")."""
+    return (STATIC_DIR / "setup_health_check.html").read_text()
 
 
 @app.get("/gallery", response_class=HTMLResponse)

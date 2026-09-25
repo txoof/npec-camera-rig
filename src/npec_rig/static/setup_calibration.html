@@ -201,7 +201,8 @@
       <span>
         <strong>Set as current baseline</strong> — leave this checked for a normal setup
         calibration. Uncheck it for a comparison run (e.g. the two-baseline test) so it doesn't
-        replace the baseline a tripwire check further down is still using.
+        replace the baseline the <a href="/setup/health-check">Health check</a> page's tripwire
+        check is still using.
       </span>
     </label>
     <label class="peaking-row">
@@ -215,12 +216,7 @@
     </label>
     <div class="lock-row">
       <button id="calibrate-btn">Run calibration</button>
-      <button id="tripwire-btn">Check tripwire now</button>
     </div>
-    <p style="margin: 0.3rem 0 0; color: #aaa; font-size: 0.8rem;">
-      "Check tripwire now" compares the four corner tags against the saved baseline right now,
-      without running a full calibration — use it for the roll/knock acceptance test.
-    </p>
     <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
 
     </div>
@@ -918,7 +914,6 @@
 
     // --- Calibration ---
     const calibrateBtn = document.getElementById("calibrate-btn");
-    const tripwireBtn = document.getElementById("tripwire-btn");
     const promoteToggle = document.getElementById("promote-toggle");
     const calibrationResult = document.getElementById("calibration-result");
     const calibrationCurrent = document.getElementById("calibration-current");
@@ -1110,24 +1105,6 @@
       } finally {
         calibrateBtn.disabled = false;
         calibrateBtn.textContent = "Run calibration";
-      }
-    });
-
-    tripwireBtn.addEventListener("click", async () => {
-      tripwireBtn.disabled = true;
-      tripwireBtn.textContent = "Checking...";
-      try {
-        const r = await fetch("/calibration/tripwire/check", { method: "POST" });
-        const data = await r.json();
-        if (r.status === 409) {
-          calibrationResult.textContent = data.detail;
-          return;
-        }
-        const roll = data.roll_deg === null ? "" : ` (roll ${data.roll_deg.toFixed(2)} deg)`;
-        calibrationResult.innerHTML = `<strong>${data.verdict}</strong>: ${data.messages.join("; ")}${roll}`;
-      } finally {
-        tripwireBtn.disabled = false;
-        tripwireBtn.textContent = "Check tripwire now";
       }
     });
 

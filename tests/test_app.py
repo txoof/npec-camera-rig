@@ -43,7 +43,9 @@ def test_root_redirects_to_gallery() -> None:
     assert response.headers["location"] == "/gallery"
 
 
-@pytest.mark.parametrize("path", ["/setup", "/setup/focus", "/setup/calibration", "/gallery"])
+@pytest.mark.parametrize(
+    "path", ["/setup", "/setup/focus", "/setup/calibration", "/setup/health-check", "/gallery"]
+)
 def test_page_loads(path: str) -> None:
     client = TestClient(app)
     response = client.get(path)

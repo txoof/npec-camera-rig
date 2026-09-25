@@ -739,15 +739,14 @@ The heart of the project. Do not start before M1 slice 5.
       No good answer -- switched to every tray, which also removes the "does this pattern reach
       all four corners" class of mistake entirely. Fixed the same stale "alternating trays"
       wording in PLAN.md (two spots) to match.
-- [ ] **New Setup page: "Health check"** — a destination for on-demand checks that don't belong in
-      the linear run-a-calibration wizard. Only remaining candidate is Step 5's tripwire check,
-      below -- the other candidate, Step 4's "confirm nothing moved" tool, was removed outright
-      rather than relocated (see above). Still not built. *(Aaron, 2026-09-25.)*
-- [ ] **Step 5's "Check tripwire now" button doesn't belong in the wizard** — Aaron: "meaningless;
-      should not be part of the wizard, should be moved to a 'health check' screen." It's an
-      on-demand manual check against the saved baseline (the roll/knock acceptance test),
-      unrelated to the linear run-a-fresh-calibration flow Step 5 is otherwise about. Same
-      destination as the Health-check page above. *(Aaron, 2026-09-25.)*
+- [x] **New Setup page "Health check", and moved "Check tripwire now" onto it — built
+      2026-09-25.** `/setup/health-check` (`setup_health_check.html`), linked from the Setup menu
+      alongside Focus & Square and Calibration. Holds just the tripwire check for now (the other
+      candidate, the wizard's old "confirm nothing moved" step, was removed outright rather than
+      relocated -- see above). Button/JS moved verbatim from the wizard's Step 4 (now "Run
+      calibration"); that step's own result panel and "Run calibration" button are untouched, and
+      its "Set as current baseline" copy now links to the new page instead of saying "further
+      down."
 - [ ] **Step 5/6: let the operator load a previous saved calibration's report instead of always
       requiring a fresh capture** — "Read the report" currently only ever shows the just-run
       calibration; there's no way to browse `/calibration/list`'s saved artifacts and view an old

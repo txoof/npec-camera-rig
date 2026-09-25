@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NPEC Camera Rig — Health check</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h1>NPEC Camera Rig</h1>
+  <nav class="top-nav">
+    <a href="/setup" class="active">Setup</a>
+    <a href="/gallery">Capture &amp; Gallery</a>
+  </nav>
+  <p style="margin: -0.5rem 0 0.75rem; font-size: 0.85rem;">
+    <a href="/setup">Setup</a> / Health check
+  </p>
+
+  <h2>Health check</h2>
+  <p style="margin: 0 0 1rem; color: #aaa; font-size: 0.85rem;">
+    On-demand checks, outside the linear Calibration wizard — for whenever you want to check on
+    the rig without redoing setup from the start.
+  </p>
+
+  <h3 style="margin: 1rem 0 0.25rem;">Tripwire check</h3>
+  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+    Compares the four corner tags right now against the baseline saved by the last calibration
+    that had "Set as current baseline" checked — the roll/knock acceptance test. Needs a saved
+    calibration first (<a href="/setup/calibration">Calibration</a>); running this immediately
+    after that calibration is expected to read no change.
+  </p>
+  <div class="lock-row">
+    <button id="tripwire-btn">Check tripwire now</button>
+  </div>
+  <div id="tripwire-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+
+  <script>
+    const tripwireBtn = document.getElementById("tripwire-btn");
+    const tripwireResult = document.getElementById("tripwire-result");
+
+    tripwireBtn.addEventListener("click", async () => {
+      tripwireBtn.disabled = true;
+      tripwireBtn.textContent = "Checking...";
+      try {
+        const r = await fetch("/calibration/tripwire/check", { method: "POST" });
+        const data = await r.json();
+        if (r.status === 409) {
+          tripwireResult.textContent = data.detail;
+          return;
+        }
+        const roll = data.roll_deg === null ? "" : ` (roll ${data.roll_deg.toFixed(2)} deg)`;
+        tripwireResult.innerHTML = `<strong>${data.verdict}</strong>: ${data.messages.join("; ")}${roll}`;
+      } finally {
+        tripwireBtn.disabled = false;
+        tripwireBtn.textContent = "Check tripwire now";
+      }
+    });
+  </script>
+</body>
+</html>
