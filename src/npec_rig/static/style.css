@@ -1,4 +1,8 @@
 * { box-sizing: border-box; }
+/* Every font-size on these pages is in rem, so bumping the root scales all of them together --
+   raised from the 16px browser default because the small (0.75-0.85rem) copy read too small on
+   the target display. */
+html { font-size: 18px; }
 body {
   margin: 0;
   padding: 0.75rem;
