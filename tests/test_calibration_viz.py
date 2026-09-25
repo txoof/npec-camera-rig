@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from npec_rig.calibration import (
+    UncertaintyField,
     area_scale_samples,
     build_area_scale_field,
     build_scale_field,
@@ -103,6 +104,29 @@ def test_heatmap_downscales_large_frames_and_still_samples_original_coordinates(
     # colour everywhere, not an artifact of the coordinate rescale being wrong.
     unique_colors = np.unique(heatmap.reshape(-1, 3), axis=0)
     assert len(unique_colors) == 1
+
+
+def test_heatmap_k_controls_neighbourhood_size() -> None:
+    # A small, sharply-biased cluster of 5 tags right next to (0, 0), plus 50 well-fit tags
+    # spread far away. At k=5 the query point's nearest neighbours are entirely the biased
+    # cluster; at k=40 most neighbours are the far-away well-fit tags, diluting the same real
+    # bias. Same underlying data either way -- only the neighbourhood size changes.
+    positions = [(10.0, 10.0)] * 5
+    residuals = [5.0] * 5
+    for i in range(50):
+        positions.append((5000.0 + i, 5000.0 + i))
+        residuals.append(0.0)
+    field = UncertaintyField(_positions=tuple(positions), _residual_pct=tuple(residuals))
+
+    small_k = field.local_uncertainty_pct(0.0, 0.0, k=5)
+    large_k = field.local_uncertainty_pct(0.0, 0.0, k=40)
+    assert small_k == pytest.approx(5.0)
+    assert large_k < small_k
+
+    frame = np.full((100, 100, 3), 128, dtype=np.uint8)
+    heatmap_small_k = render_uncertainty_heatmap(field, frame, k=5)
+    heatmap_large_k = render_uncertainty_heatmap(field, frame, k=40)
+    assert not np.array_equal(heatmap_small_k, heatmap_large_k)
 
 
 def _uniform_area_field():

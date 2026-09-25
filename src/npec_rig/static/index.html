@@ -466,6 +466,16 @@
         </div>
       </details>
     </div>
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Accuracy shape (once setup looks roughly right)</h4>
+    <p style="margin: 0 0 0.4rem; color: #aaa; font-size: 0.85rem;">
+      Same real per-tag measurements as the heatmap above, averaged over many more neighbouring
+      tags (40, instead of 5) — trading the "exactly where is coverage thin" detail for the
+      overall accuracy shape across the frame. Round means the falloff toward the edges is even;
+      lopsided toward one side means something physically off that direction. Nothing here is
+      fitted or idealized — it's the same honest measurements, just averaged more widely.
+    </p>
+    <img id="calibration-accuracy-shape-heatmap" alt="Accuracy shape heatmap"
+         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
     <img id="calibration-area-shape-heatmap" alt="Area-scale shape distortion heatmap"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
     <div id="calibration-area-shape-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
@@ -1093,6 +1103,9 @@
     const tagSizeInput = document.getElementById("tag-size-input");
     const calibrationHeatmap = document.getElementById("calibration-heatmap");
     const calibrationHeatmapLegend = document.getElementById("calibration-heatmap-legend");
+    const calibrationAccuracyShapeHeatmap = document.getElementById(
+      "calibration-accuracy-shape-heatmap"
+    );
     const calibrationAreaShapeHeatmap = document.getElementById("calibration-area-shape-heatmap");
     const calibrationAreaShapeHeatmapLegend = document.getElementById(
       "calibration-area-shape-heatmap-legend"
@@ -1211,6 +1224,12 @@
         } else {
           calibrationHeatmap.style.display = "none";
           calibrationHeatmapLegend.style.display = "none";
+        }
+        if (data.accuracy_shape_heatmap_url) {
+          calibrationAccuracyShapeHeatmap.src = `${data.accuracy_shape_heatmap_url}?t=${Date.now()}`;
+          calibrationAccuracyShapeHeatmap.style.display = "block";
+        } else {
+          calibrationAccuracyShapeHeatmap.style.display = "none";
         }
         if (data.area_shape_heatmap_url) {
           calibrationAreaShapeHeatmap.src = `${data.area_shape_heatmap_url}?t=${Date.now()}`;

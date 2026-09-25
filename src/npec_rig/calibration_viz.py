@@ -40,6 +40,14 @@ HEATMAP_GRID = (40, 30)  # (columns, rows) -- coarse is fine, it's smoothly upsa
 # own resolution.
 HEATMAP_MAX_WIDTH = 1600
 
+# `render_uncertainty_heatmap`'s `k` for the accuracy-shape view (Aaron/supervisor, 2026-09-25):
+# how many nearby tags each pixel's estimate averages over. Chosen by comparing k=5/15/40/80/150
+# against a real saved calibration (352 tags) -- 5 is the existing coverage-gap heatmap's own
+# patchy default; 150 washed out a real, confirmed corner effect along with everything else; 40
+# kept that real signal legible without the patch-to-patch noise. Revisit per-rig if tag count or
+# coverage density differs enough that this balance stops holding.
+ACCURACY_SHAPE_HEATMAP_K = 40
+
 # The table view's own canvas scale -- matches the other diagnostic plots' scale in this module
 # (RANK_PLOT_SIZE, RADIAL_PLOT_SIZE), not the frame's own resolution: a straightened floor-plan
 # view is for a human to glance at, same reasoning as HEATMAP_MAX_WIDTH above.
@@ -117,6 +125,7 @@ def render_uncertainty_heatmap(
     field: UncertaintyField,
     frame: np.ndarray,
     *,
+    k: int = 5,
     alpha: float = 0.45,
     vmin: float = HEATMAP_MIN_PCT,
     vmax: float = HEATMAP_MAX_PCT,
@@ -124,9 +133,19 @@ def render_uncertainty_heatmap(
 ) -> np.ndarray:
     """`frame` with a colour heatmap of `field.local_uncertainty_pct` blended over it -- cool/blue
     where confidence is high, hot/red where it's low. See `render_pct_heatmap`.
+
+    `k` (default 5, matching `local_uncertainty_pct`'s own default) is the neighbourhood size.
+    Small `k` is sensitive to exactly where sheet coverage is thin -- the "where do I need
+    another tag" reading. Large `k` averages over many more tags, trading that local detail for
+    the overall accuracy shape across the frame: round if the falloff toward the edges is even,
+    elongated toward whichever side is worse if it isn't. Same real per-tag residuals either way
+    -- no shape is assumed or fit, just a wider honest average (Aaron/supervisor, 2026-09-25; a
+    range of k was compared against real saved calibration frames before picking 40 for the
+    accuracy-shape view, see TODO.md).
     """
     return render_pct_heatmap(
-        field.local_uncertainty_pct, frame, alpha=alpha, vmin=vmin, vmax=vmax, max_width=max_width
+        lambda x, y: field.local_uncertainty_pct(x, y, k=k),
+        frame, alpha=alpha, vmin=vmin, vmax=vmax, max_width=max_width,
     )
 
 

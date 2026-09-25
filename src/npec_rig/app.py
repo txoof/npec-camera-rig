@@ -26,6 +26,7 @@ from npec_rig.calibration_store import (
     load_calibration_frame,
     load_current_calibration,
     save_calibration,
+    save_calibration_accuracy_shape_heatmap,
     save_calibration_area_shape_heatmap,
     save_calibration_frame,
     save_calibration_heatmap,
@@ -33,6 +34,7 @@ from npec_rig.calibration_store import (
     save_calibration_table_view_area_shape,
 )
 from npec_rig.calibration_viz import (
+    ACCURACY_SHAPE_HEATMAP_K,
     AREA_SHAPE_HEATMAP_MAX_PCT,
     AREA_SHAPE_HEATMAP_MIN_PCT,
     HEATMAP_MAX_PCT,
@@ -401,8 +403,19 @@ def run_calibration(
         heatmap = render_uncertainty_heatmap(uncertainty_field, array)
         save_calibration_heatmap(heatmap, stem=stem)
         result["heatmap_url"] = f"/calibration/files/heatmaps/{stem}.jpg"
+
+        # Same real per-tag residuals as the heatmap above, averaged over a much wider
+        # neighbourhood (see ACCURACY_SHAPE_HEATMAP_K's own comment) -- for judging the rig's
+        # overall accuracy shape once basic setup is done, not for finding exactly where
+        # coverage is thin (that's the small-k heatmap's job). Aaron/supervisor, 2026-09-25.
+        accuracy_shape_heatmap = render_uncertainty_heatmap(
+            uncertainty_field, array, k=ACCURACY_SHAPE_HEATMAP_K
+        )
+        save_calibration_accuracy_shape_heatmap(accuracy_shape_heatmap, stem=stem)
+        result["accuracy_shape_heatmap_url"] = f"/calibration/files/heatmaps/{stem}_accuracy-shape.jpg"
     else:
         result["heatmap_url"] = None
+        result["accuracy_shape_heatmap_url"] = None
 
     try:
         area_field = build_area_scale_field(area_scale_samples(field, detections, tag_sizes_mm))
@@ -503,6 +516,9 @@ def list_calibration_artifacts() -> list[dict]:
         area_shape_heatmap_url = None
         if (calibration_root() / "heatmaps" / f"{path.stem}_area-shape.jpg").exists():
             area_shape_heatmap_url = f"/calibration/files/heatmaps/{path.stem}_area-shape.jpg"
+        accuracy_shape_heatmap_url = None
+        if (calibration_root() / "heatmaps" / f"{path.stem}_accuracy-shape.jpg").exists():
+            accuracy_shape_heatmap_url = f"/calibration/files/heatmaps/{path.stem}_accuracy-shape.jpg"
         table_view_url = None
         if (calibration_root() / "heatmaps" / f"{path.stem}_table-view.jpg").exists():
             table_view_url = f"/calibration/files/heatmaps/{path.stem}_table-view.jpg"
@@ -518,6 +534,7 @@ def list_calibration_artifacts() -> list[dict]:
                 "frame_url": frame_url,
                 "heatmap_url": heatmap_url,
                 "area_shape_heatmap_url": area_shape_heatmap_url,
+                "accuracy_shape_heatmap_url": accuracy_shape_heatmap_url,
                 "table_view_url": table_view_url,
                 "table_view_shape_url": table_view_shape_url,
             }
@@ -542,6 +559,12 @@ def current_calibration() -> dict:
         f"/calibration/files/heatmaps/{artifact.frame_stem}_area-shape.jpg"
         if artifact.frame_stem
         and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}_area-shape.jpg").exists()
+        else None
+    )
+    accuracy_shape_heatmap_url = (
+        f"/calibration/files/heatmaps/{artifact.frame_stem}_accuracy-shape.jpg"
+        if artifact.frame_stem
+        and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}_accuracy-shape.jpg").exists()
         else None
     )
     table_view_url = (
@@ -570,6 +593,7 @@ def current_calibration() -> dict:
         "frame_url": frame_url,
         "heatmap_url": heatmap_url,
         "area_shape_heatmap_url": area_shape_heatmap_url,
+        "accuracy_shape_heatmap_url": accuracy_shape_heatmap_url,
         "table_view_url": table_view_url,
         "table_view_shape_url": table_view_shape_url,
         "has_uncertainty_field": artifact.uncertainty_field is not None,

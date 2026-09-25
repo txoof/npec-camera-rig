@@ -136,6 +136,19 @@ def save_calibration_area_shape_heatmap(image: np.ndarray, *, stem: str) -> Path
     return path
 
 
+def save_calibration_accuracy_shape_heatmap(image: np.ndarray, *, stem: str) -> Path:
+    """Write `image` (rendered by `calibration_viz.render_uncertainty_heatmap` with a large `k`)
+    as a JPEG under the same heatmaps directory as `save_calibration_heatmap`, with an
+    `_accuracy-shape` suffix -- the smoothed-neighbourhood accuracy-shape view (Aaron/supervisor,
+    2026-09-25), distinct from the small-`k` coverage-gap heatmap the plain `.jpg` stem holds.
+    """
+    root = calibration_root() / HEATMAPS_DIRNAME
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / f"{stem}_accuracy-shape.jpg"
+    path.write_bytes(array_to_jpeg(image))
+    return path
+
+
 def save_calibration_table_view(image: np.ndarray, *, stem: str) -> Path:
     """Write `image` (rendered by `calibration_viz.render_table_view` for the scale-residual
     field) as a JPEG under the same heatmaps directory as `save_calibration_heatmap`, with a

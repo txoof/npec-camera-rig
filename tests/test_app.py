@@ -317,6 +317,8 @@ def test_run_calibration_builds_field_and_saves_artifact_and_frame(
     assert body["heatmap_url"] is not None
     assert body["area_shape_heatmap_url"] is not None
     assert (calibration_root() / "heatmaps" / Path(body["area_shape_heatmap_url"]).name).exists()
+    assert body["accuracy_shape_heatmap_url"] is not None
+    assert (calibration_root() / "heatmaps" / Path(body["accuracy_shape_heatmap_url"]).name).exists()
 
     current = client.get("/calibration/current").json()
     assert current["exists"] is True
@@ -325,10 +327,12 @@ def test_run_calibration_builds_field_and_saves_artifact_and_frame(
     assert current["frame_url"] == body["frame_url"]
     assert current["heatmap_url"] == body["heatmap_url"]
     assert current["area_shape_heatmap_url"] == body["area_shape_heatmap_url"]
+    assert current["accuracy_shape_heatmap_url"] == body["accuracy_shape_heatmap_url"]
     assert current["has_uncertainty_field"] is True
 
     listing = client.get("/calibration/list").json()
     assert listing[0]["area_shape_heatmap_url"] == body["area_shape_heatmap_url"]
+    assert listing[0]["accuracy_shape_heatmap_url"] == body["accuracy_shape_heatmap_url"]
     assert body["table_view_url"] is None  # only 2 of 4 corner tags -- no table frame buildable
     assert body["table_view_shape_url"] is None
 
