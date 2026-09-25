@@ -49,6 +49,7 @@ module rounded_square(w, r) {
 }
 
 module cold_shoe_stud() {
+color("DimGray") {
     linear_extrude(plate_thk) rounded_square(plate_w, corner_r);
 
     translate([0, 0, plate_thk - eps])
@@ -56,6 +57,7 @@ module cold_shoe_stud() {
 
     translate([0, 0, plate_thk + c38_len - eps])
         cylinder(d = qtr_dia, h = qtr_len + eps);
+    }
 }
 
 cold_shoe_stud();
