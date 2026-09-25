@@ -800,6 +800,27 @@ The heart of the project. Do not start before M1 slice 5.
       the rank plots and the area-shape heatmap specifically, re-detecting tags from that run's
       saved frame each time (their per-tag data isn't persisted in the artifact -- see
       `ScaleResidualSample`/`AreaScaleSample`). *(Aaron, 2026-09-22)*
+- [ ] **Tidy up the calibration result messages -- too much shown at once, agreed plan not yet
+      built.** Aaron, 2026-09-25, on a real 10-line result: "This is waaaaaaaay too much
+      information and not all of it is relevant to someone that has just set this up." Agreed
+      split: stays visible immediately -- tag/corner detection counts; the coverage verdict
+      (the one actionable line); the table-view scale note, but only when NOT TO SCALE; tag
+      size/corner tag size, but only when still a placeholder default (a real measured value is
+      just restating something already known). Moves into the existing "Diagnostics" `<details>`
+      panel -- exact px/mm at centre + plane-fit residual %; scale variation % and direction;
+      area-scale error/shape distortion including the worst-tag callout. Needs
+      `build_calibration_report()` (or its caller in `app.py`) to return two groups instead of one
+      flat list, so the frontend can route lines to two different places.
+- [ ] **Low priority: Step 1 -- move the autofocus and manual focus controls to below the
+      images**, not beside/above them as now. *(Aaron, 2026-09-25.)*
+- [ ] **Low priority: Step 1 -- explain what "Lock focus" actually does.** No copy anywhere says
+      what locking does or why you'd want to. *(Aaron, 2026-09-25.)*
+- [ ] **Low priority: Step 3 -- the Back/Next buttons don't match the button style used
+      everywhere else in the app.** *(Aaron, 2026-09-25.)*
+- [ ] **Low priority, general UI idea: (i) icons that expand or show a pop-over on click**, to
+      move some of the current always-visible explanatory paragraphs out of the main flow and
+      clean up the interface. Not scoped to a specific step -- a general pattern to consider
+      across the Setup pages. *(Aaron, 2026-09-25.)*
 
 ### M2 acceptance — run in the chamber
 - [x] **Two-baseline test — run remotely 2026-09-25, clear pass.** Two calibrations of the same
