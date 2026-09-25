@@ -208,6 +208,8 @@ def test_synthetic_backend_controls_round_trip() -> None:
     assert backend.available_controls() == SYNTHETIC_CONTROL_RANGES
     assert backend.get_controls()["AnalogueGain"] == SYNTHETIC_CONTROL_RANGES["AnalogueGain"][2]
 
+    # AnalogueGain only takes effect while AE is off — see set_control's guard.
+    backend.set_control("AeEnable", False)
     backend.set_control("AnalogueGain", 4.0)
     assert backend.get_controls()["AnalogueGain"] == 4.0
 
@@ -219,6 +221,7 @@ def test_synthetic_backend_controls_round_trip() -> None:
 
 def test_camera_manager_set_control_persists_and_returns_current_values() -> None:
     manager = CameraManager(SyntheticBackend())
+    manager.set_control("AeEnable", False)
     values = manager.set_control("AnalogueGain", 4.0)
     assert values["AnalogueGain"] == 4.0
     assert load_settings()["AnalogueGain"] == 4.0
@@ -227,6 +230,7 @@ def test_camera_manager_set_control_persists_and_returns_current_values() -> Non
 def test_camera_manager_loads_persisted_settings_on_construction() -> None:
     from npec_rig.settings import save_setting
 
+    save_setting("AeEnable", False)
     save_setting("AnalogueGain", 8.0)
     save_setting("LensPosition", 6.3)
 
@@ -261,7 +265,7 @@ def test_apply_persisted_settings_applies_ae_enable_before_dependent_controls() 
     assert calls.index("AeEnable") < calls.index("AnalogueGain")
 
 
-def test_apply_persisted_settings_skips_stale_manual_exposure_when_ae_is_on() -> None:
+def test_apply_persisted_settings_does_not_replay_stale_manual_exposure_when_ae_is_on() -> None:
     # A persisted ExposureTime/AnalogueGain is only meaningful when AE was off when it was
     # saved. Replaying it on top of AeEnable=True re-arms picamera2's manual-exposure latch on
     # every restart — confirmed against a real stale value found in this rig's own DB.
@@ -271,16 +275,38 @@ def test_apply_persisted_settings_skips_stale_manual_exposure_when_ae_is_on() ->
     save_setting("ExposureTime", 3064701)
     save_setting("AnalogueGain", 1.0)
 
-    calls: list[str] = []
+    manager = CameraManager(SyntheticBackend())
+
+    assert manager.get_controls()["AeEnable"] is True
+    assert manager.get_controls()["ExposureTime"] == SYNTHETIC_CONTROL_RANGES["ExposureTime"][2]
+    assert manager.get_controls()["AnalogueGain"] == SYNTHETIC_CONTROL_RANGES["AnalogueGain"][2]
+
+
+def test_apply_persisted_settings_does_not_replay_stale_manual_exposure_when_ae_never_persisted() -> None:
+    # AeEnable defaults on (see _apply_persisted_settings' own comment) when nothing ever wrote
+    # it explicitly — e.g. only the exposure slider was ever touched. A missing persisted key
+    # must not be treated as "AE is off": that was the exact gap a first version of this fix had.
+    from npec_rig.settings import save_setting
+
+    save_setting("ExposureTime", 3064701)
+    save_setting("AnalogueGain", 1.0)
+
+    manager = CameraManager(SyntheticBackend())
+
+    assert manager.get_controls()["AeEnable"] is True
+    assert manager.get_controls()["ExposureTime"] == SYNTHETIC_CONTROL_RANGES["ExposureTime"][2]
+
+
+def test_set_control_ignores_manual_exposure_write_while_ae_is_on() -> None:
+    # Guarded once, in the backend, so every caller (HTTP endpoint, persisted-settings replay,
+    # the post-full-res-capture restore, a stale browser tab with sliders still enabled) is
+    # covered by one rule instead of each needing to independently know it.
     backend = SyntheticBackend()
-    original_set_control = backend.set_control
-    backend.set_control = lambda name, value: (calls.append(name), original_set_control(name, value))[1]
+    backend.set_control("AeEnable", True)
 
-    CameraManager(backend)
+    backend.set_control("ExposureTime", 3064701)
 
-    assert "AeEnable" in calls
-    assert "ExposureTime" not in calls
-    assert "AnalogueGain" not in calls
+    assert backend.get_controls()["ExposureTime"] == SYNTHETIC_CONTROL_RANGES["ExposureTime"][2]
 
 
 def test_apply_persisted_settings_replays_manual_exposure_when_ae_is_off() -> None:
