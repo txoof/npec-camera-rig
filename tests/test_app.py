@@ -429,6 +429,46 @@ def test_run_calibration_remembers_table_dims_across_runs(
     assert second["table_view_to_scale"] is True
 
 
+def test_save_table_dims_persists_without_a_camera_capture(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # Aaron, 2026-09-25: "There's no way to enter the table width and length in mm. There's no
+    # submit button." Before this endpoint, the only way to persist these was as a side effect
+    # of /calibration/run, which needs real tags in frame to succeed at all.
+    def _fail_if_called(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("saving table dims must not touch the camera")
+
+    monkeypatch.setattr(app_module.CameraManager, "instance", staticmethod(_fail_if_called))
+
+    client = TestClient(app)
+    response = client.post(
+        "/calibration/table-dims",
+        params={"table_width_mm": 1496.0, "table_length_mm": 1152.0, "corner_tag_size_mm": 50.0},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "table_width_mm": 1496.0,
+        "table_length_mm": 1152.0,
+        "corner_tag_size_mm": 50.0,
+    }
+
+    current = client.get("/calibration/current").json()
+    assert current["table_width_mm"] == 1496.0
+    assert current["table_length_mm"] == 1152.0
+    assert current["corner_tag_size_mm"] == 50.0
+
+
+def test_save_table_dims_leaves_unset_fields_alone(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    client.post("/calibration/table-dims", params={"table_width_mm": 1496.0})
+    response = client.post("/calibration/table-dims", params={"corner_tag_size_mm": 50.0})
+    assert response.json() == {
+        "table_width_mm": 1496.0,
+        "table_length_mm": None,
+        "corner_tag_size_mm": 50.0,
+    }
+
+
 def test_run_calibration_converts_outer_edge_span_to_table_view(
     monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
 ) -> None:

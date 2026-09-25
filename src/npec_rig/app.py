@@ -679,6 +679,38 @@ def current_calibration() -> dict:
     }
 
 
+@app.post("/calibration/table-dims")
+def save_table_dims(
+    table_width_mm: float | None = None,
+    table_length_mm: float | None = None,
+    corner_tag_size_mm: float | None = None,
+) -> dict:
+    """Save table width/length/corner-tag size on their own, with no camera capture and no tag
+    detection -- these are pure display-convenience values for the table-position view (see
+    `run_calibration`'s docstring), not measurements a calibration produces. Before this endpoint
+    existed, the only way to persist them was as a side effect of "Run calibration", which needs
+    real calibration sheets in frame to succeed -- so once sheets come off the table after setup
+    (Step 6), there was no way to fix a mistyped table dimension without redoing the whole
+    physical setup (Aaron, 2026-09-25: "There's no way to enter the table width and length in mm.
+    There's no submit button.").
+
+    Only given (non-None) values are written -- a field left blank here keeps whatever was
+    persisted before, same "never overwrite with a guess" rule `run_calibration` follows.
+    """
+    if table_width_mm is not None:
+        save_setting("table_width_mm", table_width_mm)
+    if table_length_mm is not None:
+        save_setting("table_length_mm", table_length_mm)
+    if corner_tag_size_mm is not None:
+        save_setting("corner_tag_size_mm", corner_tag_size_mm)
+    persisted = load_settings()
+    return {
+        "table_width_mm": persisted.get("table_width_mm"),
+        "table_length_mm": persisted.get("table_length_mm"),
+        "corner_tag_size_mm": persisted.get("corner_tag_size_mm"),
+    }
+
+
 @app.get("/calibration/current/uncertainty")
 def current_uncertainty(x: float, y: float) -> dict:
     """Claimed uncertainty (%) at image position `(x, y)`, from the live calibration's own

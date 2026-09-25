@@ -762,6 +762,21 @@ The heart of the project. Do not start before M1 slice 5.
       persisted; a blank field falls back to the last real value given, never to a guessed
       default. `/calibration/current` now echoes all three (even before any calibration exists)
       so the wizard can pre-fill the inputs, same pattern as the existing tag-size pre-fill.
+      **Follow-up, same day: that persistence had no way to actually reach it.** Aaron: "There's
+      no way to enter the table width and length in mm. There's no submit button." True -- the
+      only thing that saved these three was clicking "Run calibration", a full physical capture +
+      tag-detection cycle. Once the calibration sheets come off the table (Step 6), there's no way
+      to fix a mistyped table dimension without redoing the whole physical setup. Fixed with a
+      dedicated `POST /calibration/table-dims` (no camera access, no detection -- just
+      `save_setting` on whichever of the three are given) and a "Save" button next to the inputs.
+      **Separately, the "49 vs 50" report was the corner-tag-size input's placeholder text**
+      (`"e.g. 49.87"`), not a functional default (`ASSUMED_CORNER_TAG_SIZE_MM` was already
+      correctly `50.0`) -- and it was showing truncated as "49." because the box was too narrow
+      for the native number-input spinner arrows to leave room for the full placeholder. Fixed
+      the text to `"e.g. 50"` and widened the box (6rem -> 7rem, matching the width/length
+      inputs). Real values from Aaron entered directly via the new endpoint: table width (E-W,
+      the frame's long/X dimension) 1496mm, length (N-S, short/Y dimension) 1152mm, corner tag
+      50mm.
 - [ ] **Step 6: add a labeled diagram of what table width/length mean.** Using a fixed compass
       convention: top of the image is **north**, right side is **east** (matches how the camera
       looks down at the table) — the current text-only description (top-left to top-right =

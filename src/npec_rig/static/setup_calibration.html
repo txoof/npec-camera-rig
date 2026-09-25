@@ -367,8 +367,9 @@
     </div>
     <h3 style="margin: 1rem 0 0.25rem;">Table-position view</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Enter these before clicking "Run calibration" above — they only affect whether the two
-      views below are drawn to scale, nothing else.
+      Click "Save" below any time — no camera capture needed, just these three numbers. They only
+      affect whether the two views below are drawn to scale, nothing else, so there's no need to
+      re-run a calibration just to fix one of them.
     </p>
     <label class="peaking-row">
       <span>
@@ -398,8 +399,12 @@
         (shown after you run a calibration).
       </span>
       <input type="number" id="corner-tag-size-input" step="0.01" min="0"
-             placeholder="e.g. 49.87" style="width: 6rem;">
+             placeholder="e.g. 50" style="width: 7rem;">
     </label>
+    <div class="lock-row">
+      <button id="table-dims-save-btn">Save</button>
+      <span id="table-dims-save-result" style="font-size: 0.85rem; color: #aaa;"></span>
+    </div>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       The same two fields as the heatmaps above, painted instead on a straightened, top-down view
       of the table — anchored to the four corner tags, which don't move, so "this spot on the
@@ -933,6 +938,8 @@
     const tableWidthInput = document.getElementById("table-width-input");
     const tableLengthInput = document.getElementById("table-length-input");
     const cornerTagSizeInput = document.getElementById("corner-tag-size-input");
+    const tableDimsSaveBtn = document.getElementById("table-dims-save-btn");
+    const tableDimsSaveResult = document.getElementById("table-dims-save-result");
     const tableViewScaleResidual = document.getElementById("table-view-scale-residual");
     const tableViewShapeDistortion = document.getElementById("table-view-shape-distortion");
     const rankPlotScaleResidual = document.getElementById("rank-plot-scale-residual");
@@ -1119,6 +1126,26 @@
       } finally {
         calibrateBtn.disabled = false;
         calibrateBtn.textContent = "Run calibration";
+      }
+    });
+
+    tableDimsSaveBtn.addEventListener("click", async () => {
+      tableDimsSaveBtn.disabled = true;
+      tableDimsSaveResult.textContent = "Saving...";
+      try {
+        let url = "/calibration/table-dims";
+        const params = [];
+        if (tableWidthInput.value) params.push(`table_width_mm=${tableWidthInput.value}`);
+        if (tableLengthInput.value) params.push(`table_length_mm=${tableLengthInput.value}`);
+        if (cornerTagSizeInput.value) params.push(`corner_tag_size_mm=${cornerTagSizeInput.value}`);
+        if (params.length) url += `?${params.join("&")}`;
+        const r = await fetch(url, { method: "POST" });
+        const data = await r.json();
+        tableDimsSaveResult.textContent =
+          `Saved: width ${data.table_width_mm ?? "—"}mm, length ${data.table_length_mm ?? "—"}mm, ` +
+          `corner tag ${data.corner_tag_size_mm ?? "—"}mm`;
+      } finally {
+        tableDimsSaveBtn.disabled = false;
       }
     });
 
