@@ -6,7 +6,7 @@ from threading import Lock
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -84,10 +84,30 @@ app.mount("/calibration/files", StaticFiles(directory=str(calibration_root())), 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
-@app.get("/", response_class=HTMLResponse)
-def index() -> str:
-    """The camera console page: focus/square setup and calibration."""
-    return (STATIC_DIR / "index.html").read_text()
+@app.get("/")
+def index() -> RedirectResponse:
+    """Root redirects to the everyday page -- Setup is occasional, not the default landing spot
+    (2026-09-25 Setup-pages redesign)."""
+    return RedirectResponse(url="/gallery")
+
+
+@app.get("/setup", response_class=HTMLResponse)
+def setup_page() -> str:
+    """Setup menu: links to Focus & Square and Calibration. One-and-done (or occasional) rig
+    setup, kept separate from everyday capture/browsing."""
+    return (STATIC_DIR / "setup_index.html").read_text()
+
+
+@app.get("/setup/focus", response_class=HTMLResponse)
+def setup_focus_page() -> str:
+    """Autofocus, manual lens position, and the squareness guide lines."""
+    return (STATIC_DIR / "setup_focus.html").read_text()
+
+
+@app.get("/setup/calibration", response_class=HTMLResponse)
+def setup_calibration_page() -> str:
+    """The calibration wizard (7 steps) and its diagnostics."""
+    return (STATIC_DIR / "setup_calibration.html").read_text()
 
 
 @app.get("/gallery", response_class=HTMLResponse)

@@ -836,6 +836,11 @@ The heart of the project. Do not start before M1 slice 5.
 - [ ] Nice-to-have, not important: download captures, single or as a batch. *(Aaron, 2026-09-19)*
 - [ ] Nice-to-have, not important: clear/delete previously captured photos.
       *(Aaron, 2026-09-19)*
+- [ ] Low priority: a live preview alongside the Capture button on the new `/gallery` page, so
+      you can see what you're about to capture instead of only the result afterward.
+      *(Aaron, 2026-09-25)*
+- [ ] Low priority: click a gallery thumbnail to view it larger. *(Aaron, 2026-09-25 — same request
+      as the download/delete items above, reconfirmed on the new `/gallery` page.)*
 - [ ] **Acceptance:** 24 h unattended at exactly the expected count · reboot mid-run, resumes ·
       download a CSV and open it · headroom matches `df`
 

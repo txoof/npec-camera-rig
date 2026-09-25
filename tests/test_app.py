@@ -43,9 +43,17 @@ def reset_frame_detection_cache() -> None:
     app_module._cached_frame_detections = None
 
 
-def test_index_page_loads() -> None:
-    client = TestClient(app)
+def test_root_redirects_to_gallery() -> None:
+    client = TestClient(app, follow_redirects=False)
     response = client.get("/")
+    assert response.status_code in (302, 307)
+    assert response.headers["location"] == "/gallery"
+
+
+@pytest.mark.parametrize("path", ["/setup", "/setup/focus", "/setup/calibration", "/gallery"])
+def test_page_loads(path: str) -> None:
+    client = TestClient(app)
+    response = client.get(path)
     assert response.status_code == 200
     assert "NPEC Camera Rig" in response.text
 
