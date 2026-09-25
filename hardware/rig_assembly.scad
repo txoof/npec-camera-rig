@@ -40,6 +40,22 @@
    that's where each bolt call lives — see l_bracket_4040.scad,
    l_bracket_4020.scad, m5_slide_pocket.scad).
 
+   Accessory stack — `cold_shoe_stud()`, `mini_ball_head()`, and `mount()`
+   (from `arducam64_mount.scad`) are placed as a stack riding on the camera
+   mount's cold-shoe holder, each in its own small module below. Their
+   translate/rotate figures are hand-placed and not yet derived from the
+   parts' own documented geometry — treat them as provisional until checked
+   against each part's actual dimensions.
+
+   Visibility — every top-level component (main rig, camera mount, and each
+   accessory-stack part) is gated by its own `show_*` boolean under the
+   Visibility Customizer group, so any one of them can be hidden without
+   editing code.
+
+   REV 1.5: accessory stack (cold_shoe_stud/mini_ball_head/arducam mount)
+     moved out of ad-hoc top-of-file statements into named placement
+     modules, called from the bottom alongside the rest of the assembly;
+     added per-component Customizer visibility toggles.
    REV 1.4: camera_mount.scad merged back into this file (was split out
      only to dodge the bracket()/bracket() name collision, which is now
      resolved by renaming each bracket file's own module instead); bolt
@@ -58,6 +74,9 @@ use <t_slot_20x20.scad>
 use <l_bracket_4040.scad>
 use <l_bracket_4020.scad>
 use <m5_slide_pocket.scad>
+use <cold_shoe_stud.scad>
+use <mini_ball_head.scad>
+use <arducam64_mount.scad>
 
 // bracket_4040_bolted()/bracket_4020_bolted()/slide_pocket_bolted() all
 // eventually call BOSL2's screw() (via t_slot_bolt.scad), which needs
@@ -72,6 +91,13 @@ include <BOSL2/std.scad>
 /* [Rig] */
 beam_length = 500; // main beam length along Y, mm
 foot_length = 250;  // each foot's length along X, mm
+
+/* [Visibility] */
+show_main_rig       = true;  // beam + feet + joint brackets (the "I" frame)
+show_camera_mount    = true;  // crossbar + brackets + slide pocket
+show_cold_shoe_stud  = true;  // accessory stack: stud seated in the slide pocket's shoe
+show_mini_ball_head  = true;  // accessory stack: ball head on the cold shoe stud
+show_arducam_mount   = true;  // accessory stack: camera mount on the ball head
 
 /* [Render] */
 $fn = $preview ? 32 : 96;
@@ -128,9 +154,36 @@ module camera_mount() {
             slide_pocket_bolted();
 }
 
-beam();
-for (yc = beam_y_ends) {
-    foot(yc);
-    joint_bracket(yc);
+// Accessory stack riding on the camera mount's slide-pocket cold shoe.
+// Positions below are hand-placed, not yet derived from each part's own
+// geometry — check alignment before trusting them.
+
+module accessory_cold_shoe_stud() {
+    translate([-400 + 100, -17, 35])
+        rotate([90, 0, 0])
+            cold_shoe_stud();
 }
-camera_mount();
+
+module accessory_mini_ball_head() {
+    translate([-400 + 100, -30, 35])
+        rotate([90, 0, 0])
+            mini_ball_head();
+}
+
+module accessory_arducam_mount() {
+    translate([-400 + 100, -57, 45])
+        rotate([0, 180, 180])
+            mount();
+}
+
+if (show_main_rig) {
+    beam();
+    for (yc = beam_y_ends) {
+        foot(yc);
+        joint_bracket(yc);
+    }
+}
+if (show_camera_mount)   camera_mount();
+if (show_cold_shoe_stud)  accessory_cold_shoe_stud();
+if (show_mini_ball_head)  accessory_mini_ball_head();
+if (show_arducam_mount)   accessory_arducam_mount();
