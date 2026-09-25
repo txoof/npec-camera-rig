@@ -708,6 +708,19 @@ The heart of the project. Do not start before M1 slice 5.
       Distinct from M6's alerts item, which is about unattended-operation alerts, not interactive
       setup feedback. *(Aaron, 2026-09-21; multi-page split 2026-09-25; Next/Back + per-step gate
       explicitly requested 2026-09-25.)*
+- [ ] **Step 4 ("Confirm nothing moved"): redesign as colored corner-tag rings, like Step 2's
+      traffic light.** Currently shows a raw `roll_deg` float ("roll -0.01 deg") plus a verdict
+      string and messages -- Aaron: "not meaningful... I can't use this when setting up a rig."
+      Fix: `check_tripwire`'s `scale_delta_pct` (per corner tag) is the same shape Step 2's
+      `corner_level_readings` already renders as colored rings -- reuse that rendering, drop the
+      raw degree number from the main view (keep it in a details aside if wanted for debugging,
+      not as the headline), lead with the plain-language verdict. Also add one line of copy
+      distinguishing this from Step 2, since visually they'll now look similar despite measuring
+      different things: Step 2 checks co-planarity right now (absolute, tag-size based, no
+      history needed); Step 4 checks whether anything moved/twisted **since "Zero here" was
+      pressed** (relative-only by design -- absolute roll would require assuming the corner tags
+      form a known rectangle, which isn't established for this rig's asymmetric mounting; see
+      tripwire.py's docstring). *(Aaron, 2026-09-25.)*
 - [ ] **Move calibration history into a gallery** — the current "Saved calibrations (download)"
       `<details>` list (filenames + text links) should become a proper gallery: preview
       thumbnails plus a download action per entry, not a plain link list. *(Aaron, 2026-09-21)*

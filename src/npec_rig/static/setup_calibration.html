@@ -26,6 +26,15 @@
       Loading current calibration&hellip;
     </p>
 
+    <div class="wizard-nav">
+      <span id="wizard-progress">Step 1 of 7</span>
+      <div class="wizard-nav-buttons">
+        <button type="button" id="wizard-back-btn">&larr; Back</button>
+        <button type="button" id="wizard-next-btn">Next &rarr;</button>
+      </div>
+    </div>
+
+    <div class="wizard-step" data-step="1">
     <h3 style="margin: 1rem 0 0.25rem;">Step 1 — Confirm focus</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Use "Autofocus" and "Lock focus" on the <a href="/setup/focus">Focus &amp; Square</a> page.
@@ -33,6 +42,8 @@
       whatever focus is locked in.
     </p>
 
+    </div>
+    <div class="wizard-step" data-step="2">
     <h3 style="margin: 1rem 0 0.25rem;">Step 2 — Level &amp; square</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Colored rings on the corner tags show how co-planar the table is with the camera, live —
@@ -47,12 +58,16 @@
       style="max-width: 100%; border-radius: 4px; display: block;"
     />
 
+    </div>
+    <div class="wizard-step" data-step="3">
     <h3 style="margin: 1rem 0 0.25rem;">Step 3 — Place calibration and corner sheets</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Lay the calibration sheets on alternating trays, reaching all four frame corners, with the
       corner/reference sheets at all four corners of the table.
     </p>
 
+    </div>
+    <div class="wizard-step" data-step="4">
     <h3 style="margin: 1rem 0 0.25rem;">Step 4 — Confirm nothing moved</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       While adjusting the rig by hand, press "Zero here" once it looks roughly right, then nudge
@@ -64,6 +79,8 @@
       <span id="orientation-live" style="font-size: 0.85rem; color: #aaa;">not zeroed</span>
     </div>
 
+    </div>
+    <div class="wizard-step" data-step="5">
     <h3 style="margin: 1rem 0 0.25rem;">Step 5 — Run calibration</h3>
     <label class="peaking-row">
       <input type="checkbox" id="promote-toggle" checked>
@@ -92,6 +109,8 @@
     </p>
     <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
 
+    </div>
+    <div class="wizard-step" data-step="6">
     <h3 style="margin: 1rem 0 0.25rem;">Step 6 — Read the report</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       The result above states the scale, coverage, and any coverage gaps found. If it says
@@ -372,11 +391,14 @@
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
     </details>
 
+    </div>
+    <div class="wizard-step" data-step="7">
     <h3 style="margin: 1rem 0 0.25rem;">Step 7 — Remove sheets</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Once the report above looks right, remove the calibration and corner sheets from the trays
       before starting a growth run.
     </p>
+    </div>
   </div>
 
   <script>
@@ -705,6 +727,50 @@
         honestyPlotBtn.textContent = "Generate honesty plot";
       }
     });
+
+    // --- Wizard step navigation (Next/Back, one step visible at a time) ---
+    // No gating yet -- Next is always enabled. Per-step checks (e.g. "residuals too high, are
+    // you sure?") are TODO.md's "Calibration wizard ... with a gate at each step" item; they
+    // need real threshold values from measured runs, not guessed constants.
+    const STEP_TITLES = [
+      "Confirm focus",
+      "Level & square",
+      "Place calibration and corner sheets",
+      "Confirm nothing moved",
+      "Run calibration",
+      "Read the report",
+      "Remove sheets",
+    ];
+    const wizardSteps = document.querySelectorAll(".wizard-step");
+    const wizardProgress = document.getElementById("wizard-progress");
+    const wizardBackBtn = document.getElementById("wizard-back-btn");
+    const wizardNextBtn = document.getElementById("wizard-next-btn");
+    let wizardStep = 1;
+
+    function renderWizardStep() {
+      wizardSteps.forEach((el) => {
+        el.classList.toggle("active", Number(el.dataset.step) === wizardStep);
+      });
+      wizardProgress.textContent =
+        `Step ${wizardStep} of ${STEP_TITLES.length} — ${STEP_TITLES[wizardStep - 1]}`;
+      wizardBackBtn.disabled = wizardStep === 1;
+      wizardNextBtn.textContent = wizardStep === STEP_TITLES.length ? "Done" : "Next →";
+      wizardNextBtn.disabled = wizardStep === STEP_TITLES.length;
+    }
+
+    wizardBackBtn.addEventListener("click", () => {
+      if (wizardStep > 1) {
+        wizardStep -= 1;
+        renderWizardStep();
+      }
+    });
+    wizardNextBtn.addEventListener("click", () => {
+      if (wizardStep < STEP_TITLES.length) {
+        wizardStep += 1;
+        renderWizardStep();
+      }
+    });
+    renderWizardStep();
   </script>
 </body>
 </html>
