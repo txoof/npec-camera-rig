@@ -119,12 +119,28 @@ def test_list_controls_returns_available_and_current_values() -> None:
 
 def test_set_control_updates_value() -> None:
     client = TestClient(app)
+    # AnalogueGain only takes effect while AE is off — see Picamera2Backend.set_control's guard.
+    client.post("/controls/AeEnable", json={"value": False})
     response = client.post("/controls/AnalogueGain", json={"value": 4.0})
     assert response.status_code == 200
     assert response.json()["AnalogueGain"] == 4.0
 
     response = client.get("/controls")
     assert response.json()["values"]["AnalogueGain"] == 4.0
+
+
+def test_set_control_ignores_manual_exposure_while_ae_is_on() -> None:
+    # A stale browser tab (or any client) posting a manual value while AE is on must not be
+    # able to re-arm picamera2's manual-exposure latch behind AE's back — found by /code-review
+    # as a gap in the AE-stuck-image fix (m2-auto-exposure-fix): the original fix only disabled
+    # the sliders client-side, with nothing enforcing it server-side.
+    client = TestClient(app)
+    client.post("/controls/AeEnable", json={"value": True})
+
+    response = client.post("/controls/AnalogueGain", json={"value": 4.0})
+
+    assert response.status_code == 200
+    assert response.json()["AnalogueGain"] != 4.0
 
 
 def test_set_control_rejects_unknown_name() -> None:

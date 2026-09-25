@@ -652,6 +652,15 @@ The heart of the project. Do not start before M1 slice 5.
       tags are even slightly off-axis this silently under-subtracts the table span, and the UI
       still prints an unqualified "to scale: WxL mm" caption. A measurement-discipline call for
       Aaron, not something to guess a tolerance for.
+- [ ] **A manually-set ExposureTime/AnalogueGain (AE off) doesn't survive a full-res capture** —
+      found by `/code-review` 2026-09-25, reviewing the auto-exposure stuck-image fix (see
+      `m2-auto-exposure-fix`). `Picamera2Backend`'s `_control_cache` only tracks `AwbEnable`/
+      `AeEnable` (they're write-only — `capture_metadata()` doesn't echo them back), so
+      `capture_full_res()`'s post-capture restore can only reapply those two. If AE is off and
+      the operator has set a specific measured exposure/gain, a full-res capture (calibration or
+      "Capture") silently drops it back to the tuning file's default afterward, with no UI
+      indication anything changed. Deferred, not fixed alongside the AE-stuck bug: would need
+      caching the last explicitly-set manual value too, a small but separate change.
 
 ### M2 — UI usability, not yet done
 
