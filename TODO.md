@@ -297,6 +297,11 @@ Sliced so each piece ends with something visible in a browser.
       *(Aaron, 2026-09-19)*
 - [ ] Optional suffix/label on a capture (filename and/or sidecar field), so a specific capture
       can be told apart from the rest without relying on timestamp alone. *(Aaron, 2026-09-19)*
+- [ ] **Autofocus, manual lens-position controls, focus peaking, and the sharpness readout should
+      all be linked to the Focus/Square mode toggle** (the toggle built 2026-09-24 for the
+      squareness guide lines, see M2's supervisor-feedback section) — only show them in Focus
+      mode, hide them in Square mode, instead of always visible regardless of which mode is
+      active. *(Aaron, 2026-09-25)*
 - [x] Focus peaking: toggle with a description, highlights high-contrast edges in the magnified
       crop in magenta. Reuses the existing Laplacian machinery (one shared helper function, one
       boolean flag, no new modules) rather than a separate subsystem. Verified on real hardware
@@ -584,14 +589,22 @@ The heart of the project. Do not start before M1 slice 5.
       camera_controls read happening at a moment that freezes it. Not reproduced against real
       hardware by Claude (no camera access in this environment) -- needs an on-hardware check
       before guessing further.
-- [ ] **Live reorientation aid never actually works** — `POST /calibration/orientation/zero`
-      refused twice on real hardware (2026-09-21) with "no corner tags detected." The corner
-      tags are 50mm on `CORNER_ID_RANGE`; the preview stream (`LORES_SIZE`, far below full-res)
-      is apparently too low-resolution for `detect_tags` to pick them up at all, so the feature
-      as built is unusable in practice, not just imprecise. Full-res captures detect all 4 corner
-      tags reliably every time -- this is specific to the preview resolution. Needs either a
-      higher-resolution preview specifically for this check, or a detector-sensitivity change for
-      it; not attempted yet. *(Aaron, 2026-09-21)*
+- [x] **Live reorientation aid never actually works — fixed 2026-09-25.** `POST
+      /calibration/orientation/zero` refused twice on real hardware (2026-09-21) with "no corner
+      tags detected." Confirmed root cause directly on real hardware before changing anything:
+      pulled a live frame from each stream and ran `detect_tags` on it -- the `lores` stream
+      (320x240) found 0 corner tags, the `main` stream (1536x1152, the same continuous stream
+      `/snapshot.jpg` and the focus ROI crop already use) found all 4 plus 272 tags total.
+      **Fix:** added `CameraManager.capture_array()` (raw main-stream frame, mirroring the
+      existing `capture_preview_array()`) and switched both orientation endpoints
+      (`/calibration/orientation/zero` and `/calibration/orientation/live`) to it. No
+      reconfigure, so no capture-then-autofocus hang risk and no full-res ~8.5s round trip --
+      appropriate for a continuously-polled live aid. Verified end-to-end on real hardware after
+      the fix: `zero` now returns `{"corner_tags": [450, 451, 452, 455]}` instead of 409, and
+      `live` returns a real `OK` verdict with `roll_deg` ~0.006° against that zero point. 217/217
+      unit tests still pass (all orientation tests monkeypatch `detect_tags` directly, so they
+      didn't depend on which stream fed it -- verified the switch didn't remove real coverage of
+      that method itself).
 - [ ] **Calibration capture immediately followed by autofocus wedges the whole camera pipeline**
       — reproduced on real hardware 2026-09-21: run a calibration, then hit "Autofocus," and
       every camera-touching endpoint (preview, snapshot, focus score) hangs for an extended
@@ -707,8 +720,28 @@ The heart of the project. Do not start before M1 slice 5.
       `ScaleResidualSample`/`AreaScaleSample`). *(Aaron, 2026-09-22)*
 
 ### M2 acceptance — run in the chamber
-- [ ] **Two-baseline test** *(do first)* — two independent calibrations of the same static scene,
-      diff the fields. That disagreement is the floor on achievable certainty.
+- [x] **Two-baseline test — run remotely 2026-09-25, clear pass.** Two calibrations of the same
+      static scene (332 then 340 calibration tags, 4/4 corner tags both times), lens
+      manually defocused to 5.0 and back to 6.33 between them (not a full power-cycle — Aaron was
+      remote with no physical chamber access, and this app avoids autofocus right after a
+      capture per the known pipeline-hang bug below). Both `promote=false`, so the live baseline
+      was untouched.
+      **Scale field disagreement:** 0.02-0.16% across centre + all 4 frame corners (evaluated
+      from each run's own fitted plane coefficients) — an order of magnitude below the claimed
+      uncertainty (`residual_std_pct` 1.68% vs 1.71%, holdout coverage error 1.3% vs 1.4%,
+      area-scale error 2.6% vs 2.7%, all close between runs too).
+      **Tripwire cross-check:** feeding run 2's corner detections against run 1's corner baseline
+      through `check_tripwire()` gives `OK`, roll 0.006°, per-corner-tag scale delta -0.25% to
+      +0.28%.
+      **Reading this against PLAN.md's own bar** ("if two calibrations of the same static scene
+      disagree by more than the uncertainty we claim, the claimed number is fiction"): they don't
+      — actual disagreement is well inside claimed uncertainty on every metric checked. This is
+      the strongest evidence so far that the claimed numbers are conservative, not fiction.
+      **Caveat:** only a lens nudge, not a real power-cycle — worth re-running once with a full
+      app restart between captures when there's bench access, to rule out any state the app
+      itself might be silently carrying between runs that a fresh process wouldn't. Artifacts:
+      `/var/lib/npec-rig/calibration/20260925T101036192864.json` and
+      `.../20260925T101058109190.json`.
 - [ ] **Two-height test** — calibrate at two tray heights, diff the field shapes. Proves whether one
       rare paper calibration covers every experiment.
 - [ ] Tape-measure two tags → app agrees within 2%

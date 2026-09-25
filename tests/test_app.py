@@ -587,7 +587,7 @@ def test_live_orientation_without_zero_is_refused() -> None:
 
 
 def test_zero_live_orientation_refuses_with_no_corner_tags() -> None:
-    # SyntheticBackend's preview frame has no real tags drawn -- same "nothing detected" path
+    # SyntheticBackend's main-stream frame has no real tags drawn -- same "nothing detected" path
     # as /calibration/run's insufficient-tags case.
     client = TestClient(app)
     response = client.post("/calibration/orientation/zero")
