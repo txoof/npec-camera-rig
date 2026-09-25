@@ -721,6 +721,53 @@ The heart of the project. Do not start before M1 slice 5.
       pressed** (relative-only by design -- absolute roll would require assuming the corner tags
       form a known rectangle, which isn't established for this rig's asymmetric mounting; see
       tripwire.py's docstring). *(Aaron, 2026-09-25.)*
+- [ ] **Step 3 ("Place calibration and corner sheets"): show a diagram of where sheets go** —
+      text-only instructions aren't enough; an operator needs to see which trays get calibration
+      sheets vs. corner sheets and where the four corners sit, not just read a description.
+      *(Aaron, 2026-09-25.)*
+- [ ] **Step 3: link to download the calibration/corner sheet PDFs** — these are the actual sheets
+      to print (`reference/calibration-sheets/`: `apriltags-36h11-30mm-a4-300-449.pdf` and the
+      450-499 corner sheet, per this file's M2 section above); the wizard should hand the operator
+      a direct download link at the point they need it, not assume they already have the sheets.
+      *(Aaron, 2026-09-25.)*
+- [ ] **Possible new Setup page: "Health check"** — a destination for on-demand checks that don't
+      belong in the linear run-a-calibration wizard: candidates are the tripwire check (Step 5,
+      below) and possibly the "confirm nothing moved" tool (Step 4, below). Same thread as the
+      original Setup-pages redesign ask ("make some of the checks available without requiring the
+      user to go through all of the calibration steps") — not decided which tools move here or
+      how Step 4 in particular should be resolved; see those items. *(Aaron, 2026-09-25.)*
+- [ ] **Step 4 ("Confirm nothing moved"): fundamentally confusing, not just badly worded —
+      reconsider whether it belongs in the linear wizard at all.** Aaron, verbatim: "Still really
+      vague instructions. Title means nothing: Confirm that nothing moved between now and when?
+      Why is this even here? Maybe this should be part of step 3? It really doesn't make any
+      sense. I've just spent minutes moving the rig around to get all my lights green and locked
+      it down and now I have to zero here? It is confusing and has no visual feedback the text is
+      bad. Maybe this belongs on a 'health check' screen?" Supersedes/extends the traffic-light
+      redesign item above — that fix doesn't address the deeper problem: right after Step 2 ends
+      with everything green, being asked to press "Zero here" again reads as redundant, and the
+      step's real point (detecting drift since a reference point, for the *later* roll/knock
+      acceptance test — see tripwire.py's docstring) isn't explained anywhere in the wizard.
+      Candidates, not decided: (a) fold into Step 2 as its closing action ("now that it's level,
+      lock this in"), or (b) move out of the linear wizard entirely onto the Health-check page
+      above. *(Aaron, 2026-09-25.)*
+- [ ] **Step 5's "Check tripwire now" button doesn't belong in the wizard** — Aaron: "meaningless;
+      should not be part of the wizard, should be moved to a 'health check' screen." It's an
+      on-demand manual check against the saved baseline (the roll/knock acceptance test),
+      unrelated to the linear run-a-fresh-calibration flow Step 5 is otherwise about. Same
+      destination as the Health-check page above. *(Aaron, 2026-09-25.)*
+- [ ] **Step 5/6: let the operator load a previous saved calibration's report instead of always
+      requiring a fresh capture** — "Read the report" currently only ever shows the just-run
+      calibration; there's no way to browse `/calibration/list`'s saved artifacts and view an old
+      report without re-running calibration. Likely the same underlying picker feature as the
+      existing "let the two heatmaps and rank plots be viewed for a past calibration" item below,
+      applied to the whole report rather than just those two plots. *(Aaron, 2026-09-25.)*
+- [ ] **Step 6: persist table width/length between runs, and add a labeled diagram of what they
+      mean.** Currently explicitly not saved ("Not saved between runs — re-enter each time") —
+      Aaron wants it saved. Also wants an illustration of the table showing width vs. length,
+      using a fixed compass convention: top of the image is **north**, right side is **east**
+      (matches how the camera looks down at the table) — the current text-only description
+      (top-left to top-right = width, top-left to bottom-left = length) asks the operator to hold
+      that mapping in their head instead of seeing it drawn. *(Aaron, 2026-09-25.)*
 - [ ] **Move calibration history into a gallery** — the current "Saved calibrations (download)"
       `<details>` list (filenames + text links) should become a proper gallery: preview
       thumbnails plus a download action per entry, not a plain link list. *(Aaron, 2026-09-21)*
