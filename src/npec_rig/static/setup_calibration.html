@@ -35,11 +35,12 @@
     </div>
 
     <div class="wizard-step" data-step="1">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 1 — Confirm focus, level &amp; square</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Step 1 — Confirm focus</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Use "Autofocus" and "Lock focus" below. Re-check this any time the lens may have moved —
       calibration measures the scene through whatever focus is locked in. The same live preview
-      switches to "Square mode" for the squareness guide lines below.
+      switches to "Square mode" for a squareness-by-eye guide, if you want it now — the next
+      step has a numeric co-planarity check either way.
     </p>
 
     <div class="controls">
@@ -109,7 +110,9 @@
       <div id="camera-controls" class="camera-controls"></div>
     </details>
 
-    <h4 style="margin: 1rem 0 0.25rem; color: #ccc;">Level &amp; square: traffic-light check</h4>
+    </div>
+    <div class="wizard-step" data-step="2">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 2 — Level &amp; square</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Colored rings on the corner tags show how co-planar the table is with the camera, live —
       no zero step needed, works as soon as 2+ corner tags are in frame. Green is within
@@ -123,16 +126,16 @@
     />
 
     </div>
-    <div class="wizard-step" data-step="2">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 2 — Place calibration and corner sheets</h3>
+    <div class="wizard-step" data-step="3">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 3 — Place calibration and corner sheets</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Lay the calibration sheets on alternating trays, reaching all four frame corners, with the
       corner/reference sheets at all four corners of the table.
     </p>
 
     </div>
-    <div class="wizard-step" data-step="3">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 3 — Confirm nothing moved</h3>
+    <div class="wizard-step" data-step="4">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 4 — Confirm nothing moved</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       While adjusting the rig by hand, press "Zero here" once it looks roughly right, then nudge
       it until the reading below settles at OK. Main-stream resolution, directional guidance —
@@ -144,8 +147,8 @@
     </div>
 
     </div>
-    <div class="wizard-step" data-step="4">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 4 — Run calibration</h3>
+    <div class="wizard-step" data-step="5">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 5 — Run calibration</h3>
     <label class="peaking-row">
       <input type="checkbox" id="promote-toggle" checked>
       <span>
@@ -174,8 +177,8 @@
     <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
 
     </div>
-    <div class="wizard-step" data-step="5">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 5 — Read the report</h3>
+    <div class="wizard-step" data-step="6">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 6 — Read the report</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       The result above states the scale, coverage, and any coverage gaps found. If it says
       coverage is weak somewhere, open Diagnostics below to see exactly where, add a sheet there,
@@ -456,8 +459,8 @@
     </details>
 
     </div>
-    <div class="wizard-step" data-step="6">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 6 — Remove sheets</h3>
+    <div class="wizard-step" data-step="7">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 7 — Remove sheets</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Once the report above looks right, remove the calibration and corner sheets from the trays
       before starting a growth run.
@@ -467,14 +470,27 @@
 
   <script>
     // ============================================================
-    // Step 1 (Confirm focus, level & square) -- duplicated from setup_focus.html so this step
-    // is self-contained, not a link to another page (Aaron, 2026-09-25: "Each step should have
-    // what it needs, not direct the user off to find some other page"). Keep both copies in
-    // sync if this logic changes.
+    // Step 1 (Confirm focus) -- duplicated from setup_focus.html so this step is self-contained,
+    // not a link to another page (Aaron, 2026-09-25: "Each step should have what it needs, not
+    // direct the user off to find some other page"). Keep both copies in sync if this logic
+    // changes.
     // ============================================================
     const MAIN_WIDTH = 1536;
     const MAIN_HEIGHT = 1152;
     const DEFAULT_ROI_SIZE = 200;
+
+    // Declared up here (not down with the rest of the wizard-nav code) so every live poll/stream
+    // below can check "is my step the one currently showing" without a temporal-dead-zone
+    // ReferenceError -- this script runs top to bottom once, and those checks happen inside
+    // functions called during that same initial run. Aaron, 2026-09-25: "when I'm not on a page
+    // with a video stream, do we need to be trying to load the video stream? ... wasting
+    // resources" -- every live tool below now only captures/streams while its own step is
+    // showing, both for browser connection budget and because a real capture (M3, scheduled)
+    // will need the camera free rather than contending with a live preview.
+    let wizardStep = 1;
+    function isActiveStep(n) {
+      return wizardStep === n;
+    }
 
     // --- Lens position: autofocus + coarse (whole dioptres) + fine (.00-.99 fraction) ---
     let LENS_MIN = 0, LENS_MAX = 15;
@@ -721,15 +737,17 @@
 
     async function pollScore() {
       if (!pollingScore) return;
-      try {
-        const r = await fetch("/focus/score");
-        const data = await r.json();
-        scoreValue.textContent = data.score.toFixed(1);
-        scoreHistory.push(data.score);
-        if (scoreHistory.length > HISTORY_LEN) scoreHistory.shift();
-        drawTrace();
-      } catch (e) {
-        // transient network hiccup — try again next tick
+      if (isActiveStep(1)) {
+        try {
+          const r = await fetch("/focus/score");
+          const data = await r.json();
+          scoreValue.textContent = data.score.toFixed(1);
+          scoreHistory.push(data.score);
+          if (scoreHistory.length > HISTORY_LEN) scoreHistory.shift();
+          drawTrace();
+        } catch (e) {
+          // transient network hiccup — try again next tick
+        }
       }
       setTimeout(pollScore, 300);
     }
@@ -743,17 +761,31 @@
     const roiCropImg = document.getElementById("roi-crop");
     let interactionMode = "focus";
 
+    // Single source of truth for the two Step-1 video streams: only requested while Step 1 is
+    // the visible step, so a hidden step doesn't keep pulling frames from the camera in the
+    // background. Called both when the wizard step changes and when the focus/square mode
+    // toggle changes (the ROI crop is focus-mode-only either way).
+    function updateLiveResources() {
+      if (isActiveStep(1)) {
+        if (!previewImg.getAttribute("src")) previewImg.src = "/preview.mjpg";
+        if (interactionMode === "focus") {
+          roiCropImg.src = "/focus/roi.mjpg";
+        } else {
+          roiCropImg.removeAttribute("src");
+        }
+      } else {
+        previewImg.removeAttribute("src");
+        roiCropImg.removeAttribute("src");
+      }
+    }
+
     function setMode(mode) {
       interactionMode = mode;
       focusLayout.classList.toggle("mode-square", mode === "square");
       squarenessGuides.classList.toggle("mode-square", mode === "square");
       modeFocusBtn.classList.toggle("active", mode === "focus");
       modeSquareBtn.classList.toggle("active", mode === "square");
-      if (mode === "square") {
-        roiCropImg.removeAttribute("src");
-      } else {
-        roiCropImg.src = "/focus/roi.mjpg";
-      }
+      updateLiveResources();
     }
     modeFocusBtn.addEventListener("click", () => setMode("focus"));
     modeSquareBtn.addEventListener("click", () => setMode("square"));
@@ -1059,7 +1091,9 @@
     const levelOverlayImage = document.getElementById("level-overlay-image");
 
     function pollLevelOverlay() {
-      levelOverlayImage.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
+      if (isActiveStep(2)) {
+        levelOverlayImage.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
+      }
       setTimeout(pollLevelOverlay, 500);
     }
     pollLevelOverlay();
@@ -1087,7 +1121,7 @@
     });
 
     async function pollOrientation() {
-      if (orientationZeroed) {
+      if (orientationZeroed && isActiveStep(4)) {
         try {
           const r = await fetch("/calibration/orientation/live");
           const data = await r.json();
@@ -1168,7 +1202,8 @@
     // you sure?") are TODO.md's "Calibration wizard ... with a gate at each step" item; they
     // need real threshold values from measured runs, not guessed constants.
     const STEP_TITLES = [
-      "Confirm focus, level & square",
+      "Confirm focus",
+      "Level & square",
       "Place calibration and corner sheets",
       "Confirm nothing moved",
       "Run calibration",
@@ -1179,7 +1214,6 @@
     const wizardProgress = document.getElementById("wizard-progress");
     const wizardBackBtn = document.getElementById("wizard-back-btn");
     const wizardNextBtn = document.getElementById("wizard-next-btn");
-    let wizardStep = 1;
 
     function renderWizardStep() {
       wizardSteps.forEach((el) => {
@@ -1190,6 +1224,7 @@
       wizardBackBtn.disabled = wizardStep === 1;
       wizardNextBtn.textContent = wizardStep === STEP_TITLES.length ? "Done" : "Next →";
       wizardNextBtn.disabled = wizardStep === STEP_TITLES.length;
+      updateLiveResources();
     }
 
     wizardBackBtn.addEventListener("click", () => {

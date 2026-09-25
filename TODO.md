@@ -834,6 +834,14 @@ The heart of the project. Do not start before M1 slice 5.
       (e.g. one directory per experiment, named/indexed so it's obvious which is which) — not
       commingled with calibration data or other experiments. *(Aaron, 2026-09-19)*
 - [ ] Interval scheduler, 1–6 min, trust verdict per capture
+- [ ] **Scheduled captures must not contend with live preview/setup streams for the camera.**
+      Right now the Setup pages (Focus & Square, live leveling, live reorientation) all poll or
+      stream from the camera whenever their step/page is open — fine while nothing else needs the
+      camera, but once M3's scheduler is real, a scheduled sample and someone reviewing Setup at
+      the same time would compete for the same hardware. Needs a real arbitration decision (lock
+      out live preview during a scheduled capture? queue it? refuse Setup access mid-capture?),
+      not guessed. *(Aaron, 2026-09-25, raised while gating Setup's live streams to only run on
+      their own visible step.)*
 - [ ] Survives reboot; recovers from failures; never silently stops
 - [ ] Disk monitoring with headroom shown prominently
 - [ ] Retention policy
