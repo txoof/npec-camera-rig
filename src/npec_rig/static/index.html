@@ -19,10 +19,21 @@
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
+      /* Fills most of the screen on a touchscreen rather than a fixed 480px, but not centered --
+         left where the page's other sections sit, so the empty space this leaves on the right is
+         a scroll gutter a finger can land on without hitting the frame or its drag handles. */
+      width: min(80vw, 1400px);
     }
     .preview-wrap {
       position: relative;
-      max-width: 480px;
+      width: 100%;
+    }
+    /* Reserves room for the square-mode handles (see .squareness-handle below), which sit just
+       past the image's own edges (left, right, and bottom -- there's no top handle) and would
+       otherwise collide with the mode-toggle row, a sibling pane, or get clipped by the body
+       edge. Harmless in focus mode too -- just a small gap next to the crop pane. */
+    .focus-layout.mode-square .preview-wrap {
+      margin: 0 20px 20px 20px;
     }
     .preview {
       display: block;
@@ -63,39 +74,48 @@
       width: 2px;
       margin-left: -1px;
     }
-    /* Only draggable in square mode -- in focus mode the lines are hidden entirely (see above),
-       so this only ever matters together with .mode-square. Widens the hit area well past the
-       visible 2px line via ::after, without widening the line itself. */
+    /* The lines themselves are purely visual in square mode -- dragging happens on the
+       .squareness-handle tabs just past the frame's edge instead (see below). A hit-target
+       sitting on top of the live image is exactly what made this "nearly impossible" by touch:
+       it fights with the page-scroll gesture and is hard to land on precisely. */
     .squareness-guides.mode-square .squareness-line {
+      pointer-events: none;
+    }
+    /* One handle per line end: two for the horizontal line (just past the left/right edges),
+       one per vertical line (just past the bottom edge). touch-action: none is what the lines
+       never had -- without it, a touch-drag starting on a small element can be interpreted as a
+       page-scroll gesture before the browser recognizes the drag. Nothing else on the page gets
+       this, so scrolling everywhere else (including over the live image itself) is unaffected. */
+    .squareness-handle {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      margin: -14px;
+      border-radius: 50%;
+      background: rgba(255, 255, 0, 0.9);
+      border: 2px solid #221;
       pointer-events: auto;
+      touch-action: none;
     }
-    .squareness-guides.mode-square .squareness-line-h {
+    .squareness-handle-h-left,
+    .squareness-handle-h-right {
       cursor: ns-resize;
+      top: 50%; /* JS keeps this in sync with the horizontal line's own top */
     }
-    .squareness-guides.mode-square .squareness-line-v {
+    .squareness-handle-h-left { left: 0; }
+    .squareness-handle-h-right { left: 100%; }
+    .squareness-handle-v {
       cursor: ew-resize;
-    }
-    .squareness-line-h::after {
-      content: "";
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: -6px;
-      bottom: -6px;
-    }
-    .squareness-line-v::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: -6px;
-      right: -6px;
+      top: 100%;
+      left: 50%; /* JS keeps this in sync with its vertical line's own left */
     }
     .mode-toggle-row {
       display: flex;
       gap: 0.5rem;
       margin-top: 0.75rem;
-      max-width: 480px;
+      /* Matches .focus-layout above it -- these buttons control that frame, so they shouldn't
+         stay pinned to the old 480px cap while the frame itself is now much wider. */
+      max-width: min(80vw, 1400px);
     }
     .mode-toggle-row button {
       flex: 1;
@@ -114,21 +134,24 @@
     .roi-crop {
       display: block;
       width: 100%;
-      max-width: 480px;
       background: #000;
       image-rendering: pixelated;
+    }
+    /* No zoomed focus crop in square mode -- not helpful there, and clearing its src (in JS)
+       actually stops the MJPEG stream rather than just hiding a still-running one. With the crop
+       pane gone, .preview-wrap is flex's only remaining child and fills the row on its own. */
+    .focus-layout.mode-square .roi-crop {
+      display: none;
     }
     /* Side by side once there's room for both at a readable size; stacked below that. */
     @media (min-width: 800px) {
       .focus-layout {
         flex-direction: row;
         align-items: flex-start;
-        max-width: 1000px;
       }
       .focus-layout .preview-wrap,
       .focus-layout .roi-crop {
         flex: 1 1 0;
-        max-width: none;
         min-width: 0;
       }
     }
@@ -271,9 +294,13 @@
       <img class="preview" id="preview" src="/preview.mjpg" alt="live camera preview. click to place the focus ROI">
       <div class="roi-box" id="roi-box"></div>
       <div class="squareness-guides" id="squareness-guides">
-        <div class="squareness-line squareness-line-h"></div>
-        <div class="squareness-line squareness-line-v" style="left: 33.33%;"></div>
-        <div class="squareness-line squareness-line-v" style="left: 66.67%;"></div>
+        <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
+        <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
+        <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
+        <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
+        <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
+        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
+        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
       </div>
     </div>
     <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
@@ -283,11 +310,13 @@
     <button type="button" id="mode-square-btn">Square mode</button>
   </div>
   <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.85rem; max-width: 480px;">
-    <strong>Focus mode:</strong> click the preview to place the focus ROI, as above.
-    <strong>Square mode:</strong> shows one horizontal and two vertical guide lines — drag any of
-    them (mouse or touch) onto a real edge in the frame, to check by eye that the rig sits square.
-    Clicking the preview doesn't move the focus ROI while in this mode. Lines are a straightening
-    aid, not a reading — dragged positions aren't saved anywhere and reset on reload.
+    <strong>Focus mode:</strong> click the preview to place the focus ROI; the magnified crop
+    alongside updates to match.
+    <strong>Square mode:</strong> shows one horizontal and two vertical guide lines — drag the
+    small tabs at the frame's edge (mouse or touch) to line any of them up with a real edge in the
+    frame, to check by eye that the rig sits square. No magnified crop in this mode. Clicking the
+    preview doesn't move the focus ROI while in this mode. Lines are a straightening aid, not a
+    reading — dragged positions aren't saved anywhere and reset on reload.
   </p>
   <label class="peaking-row">
     <input type="checkbox" id="peaking-toggle">
@@ -890,16 +919,28 @@
 
     // --- Focus / Square mode toggle, and draggable squareness guide lines ---
     // Client-side only, no server state: the lines are a straightening aid, not a measurement.
+    const focusLayout = document.querySelector(".focus-layout");
     const squarenessGuides = document.getElementById("squareness-guides");
     const modeFocusBtn = document.getElementById("mode-focus-btn");
     const modeSquareBtn = document.getElementById("mode-square-btn");
+    const roiCropImg = document.getElementById("roi-crop");
     let interactionMode = "focus";
 
     function setMode(mode) {
       interactionMode = mode;
+      focusLayout.classList.toggle("mode-square", mode === "square");
       squarenessGuides.classList.toggle("mode-square", mode === "square");
       modeFocusBtn.classList.toggle("active", mode === "focus");
       modeSquareBtn.classList.toggle("active", mode === "square");
+      // Not helpful in square mode (Aaron, 2026-09-25) -- removing src actually stops the MJPEG
+      // stream, rather than just hiding a still-running one behind display:none. Removing the
+      // attribute rather than setting it to "" avoids a long-documented cross-browser footgun
+      // where an empty src can be resolved against the current page URL and re-requested.
+      if (mode === "square") {
+        roiCropImg.removeAttribute("src");
+      } else {
+        roiCropImg.src = "/focus/roi.mjpg";
+      }
     }
     modeFocusBtn.addEventListener("click", () => setMode("focus"));
     modeSquareBtn.addEventListener("click", () => setMode("square"));
@@ -909,25 +950,58 @@
       return Math.min(100, Math.max(0, value));
     }
 
-    // Pointer capture keeps delivering move/up events to `line` even once the pointer leaves it
-    // mid-drag -- no separate document-level listeners (and cleanup) needed.
-    function makeLineDraggable(line, axis) {
-      line.addEventListener("pointerdown", (event) => {
-        event.preventDefault();
-        line.setPointerCapture(event.pointerId);
-      });
-      line.addEventListener("pointermove", (event) => {
-        if (!line.hasPointerCapture(event.pointerId)) return;
-        const rect = previewImg.getBoundingClientRect();
-        if (axis === "y") {
-          line.style.top = clampPct(((event.clientY - rect.top) / rect.height) * 100) + "%";
-        } else {
-          line.style.left = clampPct(((event.clientX - rect.left) / rect.width) * 100) + "%";
-        }
+    // Dragging happens on the .squareness-handle tabs just past the frame's edge, not on the
+    // line itself (which is pointer-events: none in square mode, see the stylesheet) -- a drag
+    // target sitting on top of the live image is what made this "nearly impossible" by touch,
+    // fighting with the page-scroll gesture. Two handles can share one line (the horizontal
+    // line's left/right tabs), so moving the line re-syncs every handle pointing at it.
+    function syncHandlesForLine(line, axis, pct) {
+      squarenessGuides.querySelectorAll(`.squareness-handle[data-for="${line.id}"]`).forEach((handle) => {
+        handle.style[axis === "y" ? "top" : "left"] = pct + "%";
       });
     }
-    squarenessGuides.querySelectorAll(".squareness-line-h").forEach((l) => makeLineDraggable(l, "y"));
-    squarenessGuides.querySelectorAll(".squareness-line-v").forEach((l) => makeLineDraggable(l, "x"));
+
+    function moveLineTo(line, axis, pct) {
+      line.style[axis === "y" ? "top" : "left"] = pct + "%";
+      syncHandlesForLine(line, axis, pct);
+    }
+
+    // Pointer capture keeps delivering move/up events to `handle` even once the pointer leaves
+    // it mid-drag -- no separate document-level listeners (and cleanup) needed.
+    function makeHandleDraggable(handle) {
+      const line = document.getElementById(handle.dataset.for);
+      const axis = handle.dataset.axis;
+      handle.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        handle.setPointerCapture(event.pointerId);
+      });
+      handle.addEventListener("pointermove", (event) => {
+        if (!handle.hasPointerCapture(event.pointerId)) return;
+        const rect = previewImg.getBoundingClientRect();
+        const pct = axis === "y"
+          ? clampPct(((event.clientY - rect.top) / rect.height) * 100)
+          : clampPct(((event.clientX - rect.left) / rect.width) * 100);
+        moveLineTo(line, axis, pct);
+      });
+    }
+    squarenessGuides.querySelectorAll(".squareness-handle").forEach(makeHandleDraggable);
+
+    // The horizontal line has no inline style -- its position comes from .squareness-line-h's
+    // `top: 50%` default in the stylesheet above, which parseFloat can't see. Named and commented
+    // here (rather than repeated as a bare literal) so it's obvious this must stay in sync if
+    // that CSS default ever changes -- the two aren't otherwise connected.
+    const DEFAULT_LINE_H_TOP_PCT = 50;
+
+    // Handles start wherever their line already is (the HTML defaults, 33.33%/66.67%, or the
+    // stylesheet default above for the horizontal line).
+    squarenessGuides.querySelectorAll(".squareness-line").forEach((line) => {
+      const axis = line.classList.contains("squareness-line-h") ? "y" : "x";
+      const inline = parseFloat(axis === "y" ? line.style.top : line.style.left);
+      // Not `inline || DEFAULT...` -- a legitimate 0% position is falsy and would otherwise be
+      // silently overridden.
+      const pct = Number.isNaN(inline) ? DEFAULT_LINE_H_TOP_PCT : inline;
+      syncHandlesForLine(line, axis, pct);
+    });
 
     // --- Focus peaking toggle ---
     const peakingToggle = document.getElementById("peaking-toggle");
