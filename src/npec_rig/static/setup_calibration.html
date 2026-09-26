@@ -960,6 +960,10 @@
     const radialPlotShapeDistortion = document.getElementById("radial-plot-shape-distortion");
     const certaintyDomePlot = document.getElementById("certainty-dome-plot");
 
+    const CALIBRATION_HISTORY_PAGE_SIZE = 5;
+    let calibrationHistoryItems = [];
+    let calibrationHistoryVisibleCount = CALIBRATION_HISTORY_PAGE_SIZE;
+
     function calibrationHistoryCardHtml(item) {
       const dt = item.created_at
         ? item.created_at.replace("T", " ").slice(0, 19)
@@ -989,23 +993,42 @@
         <div class="calibration-history-card ${item.is_current ? "is-current" : ""}">
           ${img}
           <div class="calibration-history-card-body">
-            <div>${dt}${badge}</div>
-            <div class="calibration-history-card-stats">${stats}</div>
-            <div class="calibration-history-actions">${actions.join("")}</div>
+            <span class="calibration-history-card-date">${dt}</span>
+            ${badge}
+            <span class="calibration-history-card-stats">${stats}</span>
+            <span class="calibration-history-actions">${actions.join("")}</span>
           </div>
         </div>
       `;
     }
 
+    function renderCalibrationHistoryList() {
+      const visible = calibrationHistoryItems.slice(0, calibrationHistoryVisibleCount);
+      const remaining = calibrationHistoryItems.length - visible.length;
+      const rows = visible.length
+        ? visible.map(calibrationHistoryCardHtml).join("")
+        : "None saved yet.";
+      const loadMore = remaining > 0
+        ? `<button id="calibration-history-load-more" class="calibration-history-load-more">` +
+          `Load ${Math.min(remaining, CALIBRATION_HISTORY_PAGE_SIZE)} more (${remaining} older)` +
+          `</button>`
+        : "";
+      calibrationList.innerHTML = rows + loadMore;
+    }
+
     async function refreshCalibrationList() {
       const r = await fetch("/calibration/list");
-      const items = await r.json();
-      calibrationList.innerHTML = items.length
-        ? items.map(calibrationHistoryCardHtml).join("")
-        : "None saved yet.";
+      calibrationHistoryItems = await r.json();
+      calibrationHistoryVisibleCount = CALIBRATION_HISTORY_PAGE_SIZE;
+      renderCalibrationHistoryList();
     }
 
     calibrationList.addEventListener("click", async (e) => {
+      if (e.target.id === "calibration-history-load-more") {
+        calibrationHistoryVisibleCount += CALIBRATION_HISTORY_PAGE_SIZE;
+        renderCalibrationHistoryList();
+        return;
+      }
       const promoteBtn = e.target.closest(".calibration-history-promote");
       const deleteBtn = e.target.closest(".calibration-history-delete");
       if (promoteBtn) {
