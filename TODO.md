@@ -748,6 +748,44 @@ The heart of the project. Do not start before M1 slice 5.
         endpoint at once, real regression risk for a DRY-only change with no behavior bug behind
         it; revisit if a sixth heatmap kind is ever added, which would be the point this
         duplication actually starts costing something.
+- [ ] **`/code-review --level high` findings, 2026-09-26, calibration-history-browser PR -- 5
+      fixed same session (corrupt-file 500s on promote/delete, delete's active-guard silently
+      skipped when `current.json` is unreadable, `list_calibration_artifacts` missing `TypeError`
+      alongside `ValueError`/`KeyError`, "Load diagnostics" firing the rank/best-worst/radial/dome
+      plots without checking a frame exists, the history card missing a frame-view link), 5
+      deferred here with reasons:**
+  - **`is_current` is computed by comparing `created_at` string equality against `current.json`,
+        not by recording which stem `current.json` was promoted from** — two saved artifacts
+        sharing the same `created_at` (a hand-restored backup, a copied fixture) would both read
+        as "Active," and promote/delete's identity checks would be ambiguous between them. Real,
+        but requires an artifact-duplication path that nothing in normal operation produces
+        (every write goes through `save_calibration`'s own timestamp-generated stems). Fixing it
+        properly means `current.json` gaining a record of its own source stem -- a schema
+        question, not a one-line fix; revisit if it's ever seen to actually happen.
+  - **`_saved_calibration_path`'s traversal guard is hand-rolled (`resolve()` + parent comparison)
+        instead of checking the stem against `list_calibrations()`'s own enumeration** — the
+        current guard is correct and already tested (traversal, and the `current` pointer itself,
+        both rejected); routing a stem through a full directory listing for every promote/delete
+        call is a worse trade (an extra directory scan on every request) for the same safety
+        property. Not changing it; if a second endpoint ever needs the same stem-to-path
+        resolution, that's the point to extract a shared helper, not before.
+  - **`delete_calibration`'s heatmap-suffix list is a third hardcoded copy of the same five
+        filenames** already flagged above as duplicated between `calibration_store.py` and two
+        places in `app.py` — same deferred reasoning applies: revisit together if a sixth heatmap
+        kind is ever added.
+  - **`list_calibration_artifacts` re-parses the active entry's JSON twice** (once via
+        `load_current_calibration()`, again via `load_calibration(path)` in the loop) — real, but
+        it's a small on-disk JSON file, not the 64MP re-detection this codebase actually watches
+        the cost of; skipping the redundant parse needs a way to tell "is this loop iteration's
+        stem the one `current.json` came from" without string-comparing `created_at` again, which
+        is the same schema gap as the `is_current` item above. Fix together, not separately.
+  - **`promote_calibration` rewrites the promoted stem's own JSON file** (a full atomic
+        write-then-rename) even though its content is byte-identical to what was just read from
+        that same path — only the `current.json` write actually changes anything. This is
+        `save_calibration` used exactly as the plan doc asked ("a call to this with an
+        already-loaded artifact... not new logic"); giving it a "skip the redundant write" mode
+        would add a branch to a shared, already-tested function for a negligible cost on an
+        infrequent action. Not worth it unless promote turns out to be hot enough to matter.
 
 ### M2 — UI usability, not yet done
 

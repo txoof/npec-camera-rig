@@ -625,7 +625,7 @@ def list_calibration_artifacts() -> list[dict]:
         stem = path.stem
         try:
             artifact = load_calibration(path)
-        except (ValueError, KeyError) as exc:
+        except (ValueError, KeyError, TypeError) as exc:
             logger.warning(
                 "saved calibration %s is unreadable, listing without stats: %s", path, exc
             )
@@ -710,7 +710,10 @@ def promote_calibration(stem: str) -> dict:
     checkbox already uses.
     """
     path = _saved_calibration_path(stem)
-    artifact = load_calibration(path)
+    try:
+        artifact = load_calibration(path)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(422, f"saved calibration {stem!r} could not be read: {exc}") from exc
     save_calibration(artifact, stem=stem, promote=True)
     return {"promoted": stem, "created_at": artifact.created_at}
 
@@ -721,12 +724,37 @@ def delete_calibration(stem: str) -> dict:
     old runs (reference/plans/calibration-history-browser.md). Refuses to delete whichever one
     `current.json` currently points at, which would otherwise leave the rig's active calibration
     with a snapshot/report that no longer exists.
+
+    `current.json` has no record of which stem it was promoted from (compared by `created_at`
+    instead, see `list_calibration_artifacts`), so confirming "not the active one" requires
+    reading both files. If either can't be read, this refuses rather than guessing -- a corrupt
+    `current.json` means we don't know what's active at all, and a corrupt target stem can't be
+    ruled out as the active one either (it could have been promoted before whatever damaged it).
     """
     path = _saved_calibration_path(stem)
-    artifact = load_calibration(path)
-    current = load_current_calibration()
-    if current is not None and artifact.created_at == current.created_at:
-        raise HTTPException(409, "refusing to delete the active calibration")
+
+    current_path = calibration_root() / CURRENT_FILENAME
+    current = load_current_calibration() if current_path.exists() else None
+    if current_path.exists() and current is None:
+        raise HTTPException(
+            409,
+            "the active calibration (current.json) could not be read -- refusing to delete "
+            "anything until that's resolved, since which calibration is active can't be "
+            "confirmed",
+        )
+
+    try:
+        artifact = load_calibration(path)
+    except (ValueError, KeyError, TypeError) as exc:
+        if current is not None:
+            raise HTTPException(
+                409,
+                f"saved calibration {stem!r} could not be read ({exc}) -- refusing to delete it "
+                "since whether it's the active calibration can't be confirmed from its content",
+            ) from exc
+    else:
+        if current is not None and artifact.created_at == current.created_at:
+            raise HTTPException(409, "refusing to delete the active calibration")
 
     path.unlink()
     (calibration_root() / "frames" / f"{stem}.jpg").unlink(missing_ok=True)

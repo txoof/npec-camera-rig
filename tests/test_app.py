@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -881,6 +882,75 @@ def test_saved_calibration_path_rejects_traversal_and_the_current_pointer(
     with pytest.raises(HTTPException) as exc_info:
         _saved_calibration_path("current")
     assert exc_info.value.status_code == 404
+
+
+def _write_corrupt_calibration(stem: str) -> None:
+    """A file that parses as JSON but fails `calibration_artifact_from_dict` with a TypeError,
+    not the ValueError/KeyError the rest of this file's corrupt-artifact tests use -- exercises
+    the same code path a genuinely malformed-but-version-matching artifact would hit."""
+    root = calibration_root()
+    root.mkdir(parents=True, exist_ok=True)
+    (root / f"{stem}.json").write_text(
+        json.dumps({"version": 3, "created_at": "2026-01-01T00:00:00+00:00", "scale_field": None})
+    )
+
+
+def test_calibration_list_survives_a_structurally_malformed_entry(
+    isolated_calibration_dir: None,
+) -> None:
+    _write_corrupt_calibration("20260101T000000000000")
+    listing = TestClient(app).get("/calibration/list").json()
+    assert len(listing) == 1
+    assert listing[0]["stem"] == "20260101T000000000000"
+    assert listing[0]["residual_std_pct"] is None
+    assert listing[0]["is_current"] is False
+
+
+def test_promote_unreadable_calibration_returns_422(isolated_calibration_dir: None) -> None:
+    _write_corrupt_calibration("20260101T000000000000")
+    client = TestClient(app)
+    response = client.post("/calibration/20260101T000000000000/promote")
+    assert response.status_code == 422
+
+
+def test_delete_unreadable_calibration_succeeds_when_no_current_exists(
+    isolated_calibration_dir: None,
+) -> None:
+    _write_corrupt_calibration("20260101T000000000000")
+    client = TestClient(app)
+    response = client.delete("/calibration/20260101T000000000000")
+    assert response.status_code == 200
+    assert not (calibration_root() / "20260101T000000000000.json").exists()
+
+
+def test_delete_unreadable_calibration_is_refused_when_current_exists(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")  # a real, valid, promoted calibration
+
+    _write_corrupt_calibration("20260101T000000000000")
+    response = client.delete("/calibration/20260101T000000000000")
+    assert response.status_code == 409
+    assert (calibration_root() / "20260101T000000000000.json").exists()
+
+
+def test_delete_refuses_everything_when_current_json_itself_is_corrupt(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    run = client.post("/calibration/run").json()
+    stem = Path(run["artifact_path"]).stem
+
+    (calibration_root() / "current.json").write_text(
+        json.dumps({"version": 3, "created_at": "2026-01-01T00:00:00+00:00", "scale_field": None})
+    )
+
+    response = client.delete(f"/calibration/{stem}")
+    assert response.status_code == 409
+    assert Path(run["artifact_path"]).exists()
 
 
 # --- Best-vs-worst-tag rank plot ---

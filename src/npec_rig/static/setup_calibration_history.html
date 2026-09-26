@@ -58,6 +58,9 @@
         ? `<img src="${item.frame_url}" alt="calibration snapshot ${dt}">`
         : `<div class="no-snapshot">no snapshot</div>`;
       const actions = [`<a href="${item.url}" target="_blank">artifact</a>`];
+      if (item.frame_url) {
+        actions.push(`<a href="${item.frame_url}" target="_blank">frame</a>`);
+      }
       if (item.is_current) {
         actions.push(`<a href="/setup/calibration">view diagnostics</a>`);
       } else {

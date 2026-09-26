@@ -1160,7 +1160,16 @@
         }
         diagnosticsDetails.open = true;
         showPrerenderedDiagnosticImages(data);
-        showRankPlots();
+        // The rank/best-worst/radial/dome plots need the saved frame (they re-detect tags from
+        // it); an artifact can exist with no frame_stem (calibration.py: "a ScaleField alone is
+        // still a valid, usable artifact"), and frame_url is the signal for that, same as the
+        // pre-rendered images above. Without this check they'd 409 as broken-image icons with no
+        // explanation.
+        if (data.frame_url) {
+          showRankPlots();
+        } else {
+          hideRankPlots();
+        }
       } finally {
         loadDiagnosticsBtn.disabled = false;
         loadDiagnosticsBtn.textContent = "Load diagnostics for the active calibration";
