@@ -189,7 +189,7 @@ def load_current_calibration() -> CalibrationArtifact | None:
         return None
     try:
         return load_calibration(path)
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, TypeError) as exc:
         logger.warning("current calibration at %s is unreadable, treating as none saved: %s", path, exc)
         return None
 

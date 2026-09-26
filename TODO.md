@@ -704,6 +704,11 @@ The heart of the project. Do not start before M1 slice 5.
         (`reference/plans/calibration-history-browser.md`), which replaces "Saved calibrations"
         entirely. Resolve the nesting depth as part of one of those, not as a standalone fix that
         would just get redone.
+        **Resolved 2026-09-26**: the calibration history browser (below) moved to its own page
+        (`/setup/calibration-history`), so "Saved calibrations" is no longer nested under
+        Diagnostics at all. The Honesty plot is still one level deep under Diagnostics, unchanged
+        by this fix -- the separate "tidy up calibration result messages" rework (above) is where
+        that's addressed, still open.
   - **Step 2's live co-planarity overlay and `check_tripwire`'s baseline-relative drift reuse the
         same 3%/8% bands (`tripwire.py`'s `DEFAULT_SCALE_DRIFT_PCT`/`FAIL_PCT`), and neither has
         actually been measured yet** — both are explicitly marked "Provisional" in `tripwire.py`
@@ -714,9 +719,11 @@ The heart of the project. Do not start before M1 slice 5.
         Whether these two different physical questions (has *this* corner changed since a
         baseline, vs. do different corners currently disagree with each other) should even share
         one threshold is a real question, not just a wording fix — surfacing it for Aaron rather
-        than picking an answer. **Also affects the calibration-history-browser plan doc** — it
-        recommended reusing these same bands for coplanarity color-coding without this caveat;
-        needs updating alongside whichever way this is resolved.
+        than picking an answer. **Plan-doc cross-reference resolved 2026-09-26**: the shipped
+        calibration history browser doesn't show coplanarity at all -- it was deferred (see the
+        item below), so the plan doc's threshold-reuse recommendation was stale and has been
+        corrected there. The underlying Step 2 UI caveat-visibility problem this bullet is
+        actually about is untouched and still open.
   - **The per-tag detection cache (`_cached_frame_detections`/`_frame_detection_lock` in
         `app.py`) is a bandaid, not a fix** — it stops four simultaneous diagnostic requests from
         OOMing at once by caching one frame's detections, but every *new* view of a saved run's
@@ -741,6 +748,44 @@ The heart of the project. Do not start before M1 slice 5.
         endpoint at once, real regression risk for a DRY-only change with no behavior bug behind
         it; revisit if a sixth heatmap kind is ever added, which would be the point this
         duplication actually starts costing something.
+- [ ] **`/code-review --level high` findings, 2026-09-26, calibration-history-browser PR -- 5
+      fixed same session (corrupt-file 500s on promote/delete, delete's active-guard silently
+      skipped when `current.json` is unreadable, `list_calibration_artifacts` missing `TypeError`
+      alongside `ValueError`/`KeyError`, "Load diagnostics" firing the rank/best-worst/radial/dome
+      plots without checking a frame exists, the history card missing a frame-view link), 5
+      deferred here with reasons:**
+  - **`is_current` is computed by comparing `created_at` string equality against `current.json`,
+        not by recording which stem `current.json` was promoted from** — two saved artifacts
+        sharing the same `created_at` (a hand-restored backup, a copied fixture) would both read
+        as "Active," and promote/delete's identity checks would be ambiguous between them. Real,
+        but requires an artifact-duplication path that nothing in normal operation produces
+        (every write goes through `save_calibration`'s own timestamp-generated stems). Fixing it
+        properly means `current.json` gaining a record of its own source stem -- a schema
+        question, not a one-line fix; revisit if it's ever seen to actually happen.
+  - **`_saved_calibration_path`'s traversal guard is hand-rolled (`resolve()` + parent comparison)
+        instead of checking the stem against `list_calibrations()`'s own enumeration** — the
+        current guard is correct and already tested (traversal, and the `current` pointer itself,
+        both rejected); routing a stem through a full directory listing for every promote/delete
+        call is a worse trade (an extra directory scan on every request) for the same safety
+        property. Not changing it; if a second endpoint ever needs the same stem-to-path
+        resolution, that's the point to extract a shared helper, not before.
+  - **`delete_calibration`'s heatmap-suffix list is a third hardcoded copy of the same five
+        filenames** already flagged above as duplicated between `calibration_store.py` and two
+        places in `app.py` — same deferred reasoning applies: revisit together if a sixth heatmap
+        kind is ever added.
+  - **`list_calibration_artifacts` re-parses the active entry's JSON twice** (once via
+        `load_current_calibration()`, again via `load_calibration(path)` in the loop) — real, but
+        it's a small on-disk JSON file, not the 64MP re-detection this codebase actually watches
+        the cost of; skipping the redundant parse needs a way to tell "is this loop iteration's
+        stem the one `current.json` came from" without string-comparing `created_at` again, which
+        is the same schema gap as the `is_current` item above. Fix together, not separately.
+  - **`promote_calibration` rewrites the promoted stem's own JSON file** (a full atomic
+        write-then-rename) even though its content is byte-identical to what was just read from
+        that same path — only the `current.json` write actually changes anything. This is
+        `save_calibration` used exactly as the plan doc asked ("a call to this with an
+        already-loaded artifact... not new logic"); giving it a "skip the redundant write" mode
+        would add a branch to a shared, already-tested function for a negligible cost on an
+        infrequent action. Not worth it unless promote turns out to be hot enough to matter.
 
 ### M2 — UI usability, not yet done
 
@@ -830,17 +875,22 @@ The heart of the project. Do not start before M1 slice 5.
       looks down at the table) — the current text-only description (top-left to top-right =
       width, top-left to bottom-left = length) asks the operator to hold that mapping in their
       head instead of seeing it drawn. *(Aaron, 2026-09-25.)*
-- [ ] **Calibration history browser — major feature, planned 2026-09-26, not started. See the
-      dedicated handoff doc: `reference/plans/calibration-history-browser.md`.** Supersedes the
-      "move calibration history into a gallery" item below (folded into this one) and the
-      "load past reports" idea from earlier the same day. Short version: browse every saved
-      calibration with a snapshot image and color-coded key stats per entry, with a "make this
-      the active baseline" action carrying an explicit "not a substitute for a full calibration"
-      disclaimer, and a delete action. No "undo" button -- rejected as unclear (how many steps
-      back, what state changes). Read the doc before starting; it has the full motivating
-      scenario, the rejected alternative, and the open design questions a fresh agent needs to
-      resolve (which stats are cheap enough to show in a list vs. need re-detection, which
-      metrics already have an established color threshold vs. don't). *(Aaron, 2026-09-26.)*
+- [x] **Calibration history browser — done 2026-09-26.** See the handoff doc:
+      `reference/plans/calibration-history-browser.md` (updated to match what shipped). Supersedes
+      the "move calibration history into a gallery" item and the "load past reports" idea, both
+      folded into this one. Shipped: `/calibration/list` carries per-entry cheap stats (residual,
+      tag size, corner-tag count, which one is active) with no re-detection; `POST
+      /calibration/{stem}/promote` and `DELETE /calibration/{stem}` (guarding path traversal and
+      the active calibration); a compact list-row browser with thumbnail, stats, promote/delete,
+      and load-more paging, at its own page (`/setup/calibration-history`, linked from the Setup
+      menu) rather than nested in the wizard; an opt-in "Load diagnostics for the active
+      calibration" button on `/setup/calibration` Step 5, so diagnostics can be viewed for
+      whatever's active without a fresh run. No "undo" button -- rejected as unclear (how many
+      steps back, what state changes).
+      Deliberately deferred, not a gap: coplanarity/holdout/area-scale error per entry (need
+      re-detecting tags from each saved frame) -- no saved-frame corpus existed yet to time this
+      against, so the list only ever shows cheap stats; viewing those for an arbitrary *past* run
+      (not just the active one) would need that re-detection plus a UI for it. *(Aaron, 2026-09-26.)*
 - [ ] **Zoomed focus preview (`/focus/roi.mjpg`) is awful quality** — Aaron: looks like a zoom of
       a reduced-quality image. Should be much higher quality to actually help focus by eye.
       `CameraManager.roi_crop_jpeg` (`camera.py`) crops from the continuous `main` video stream
@@ -855,7 +905,10 @@ The heart of the project. Do not start before M1 slice 5.
       `load_current_calibration()`; picking an old run means adding a picker to the UI and, for
       the rank plots and the area-shape heatmap specifically, re-detecting tags from that run's
       saved frame each time (their per-tag data isn't persisted in the artifact -- see
-      `ScaleResidualSample`/`AreaScaleSample`). *(Aaron, 2026-09-22)*
+      `ScaleResidualSample`/`AreaScaleSample`). The calibration history browser (above) covers the
+      *active* calibration's diagnostics (an opt-in "Load diagnostics" button on Step 5); this
+      item is the remaining gap -- an *arbitrary past* run, not just whatever's active -- and is
+      the same per-entry drill-down the plan doc calls out as deferred. *(Aaron, 2026-09-22.)*
 - [ ] **Tidy up the calibration result messages -- too much shown at once, agreed plan not yet
       built.** Aaron, 2026-09-25, on a real 10-line result: "This is waaaaaaaay too much
       information and not all of it is relevant to someone that has just set this up." Agreed

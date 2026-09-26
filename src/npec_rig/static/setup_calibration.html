@@ -227,8 +227,16 @@
       coverage is weak somewhere, open Diagnostics below to see exactly where, add a sheet there,
       and run calibration again — no need to redo Steps 1–3 unless something actually moved.
     </p>
+    <div style="margin: 0.5rem 0;">
+      <button id="load-diagnostics-btn">Load diagnostics for the active calibration</button>
+      <span style="color: #aaa; font-size: 0.8rem; margin-left: 0.5rem;">
+        Re-detects tags from the saved frame — can take a few seconds. Use this to see the
+        active calibration's diagnostics without running a new one (e.g. after promoting one
+        from history below).
+      </span>
+    </div>
 
-    <details style="margin-top: 0.75rem;">
+    <details id="diagnostics-details" style="margin-top: 0.75rem;">
       <summary>Diagnostics</summary>
     <img id="calibration-heatmap" alt="Confidence heatmap"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
@@ -474,10 +482,9 @@
     <img id="certainty-dome-plot" alt="Claimed uncertainty vs. distance from image centre"
          style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
 
-    <details style="margin-top: 0.75rem;">
-      <summary>Saved calibrations (download)</summary>
-      <div id="calibration-list" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
-    </details>
+    <p style="margin: 0.75rem 0 0;">
+      <a href="/setup/calibration-history">Browse calibration history →</a>
+    </p>
 
     <h3 style="margin: 1rem 0 0.25rem;">Honesty plot</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
@@ -924,7 +931,6 @@
     const promoteToggle = document.getElementById("promote-toggle");
     const calibrationResult = document.getElementById("calibration-result");
     const calibrationCurrent = document.getElementById("calibration-current");
-    const calibrationList = document.getElementById("calibration-list");
     const tagSizeInput = document.getElementById("tag-size-input");
     const calibrationHeatmap = document.getElementById("calibration-heatmap");
     const calibrationHeatmapLegend = document.getElementById("calibration-heatmap-legend");
@@ -949,21 +955,6 @@
     const radialPlotScaleResidual = document.getElementById("radial-plot-scale-residual");
     const radialPlotShapeDistortion = document.getElementById("radial-plot-shape-distortion");
     const certaintyDomePlot = document.getElementById("certainty-dome-plot");
-
-    async function refreshCalibrationList() {
-      const r = await fetch("/calibration/list");
-      const items = await r.json();
-      calibrationList.innerHTML = items.length
-        ? items
-            .map((item) => {
-              const frame = item.frame_url
-                ? ` — <a href="${item.frame_url}" target="_blank">frame</a>`
-                : "";
-              return `<div><a href="${item.url}" target="_blank">${item.filename}</a>${frame}</div>`;
-            })
-            .join("")
-        : "None saved yet.";
-    }
 
     function renderCurrentCalibration(data) {
       // Pre-fill with the operator's last real, explicitly-typed values (settings.py, not tied
@@ -999,6 +990,81 @@
     async function refreshCurrentCalibration() {
       const r = await fetch("/calibration/current");
       renderCurrentCalibration(await r.json());
+    }
+
+    // The pre-rendered heatmap/table-view images are already on disk (saved at capture time),
+    // so displaying them for any artifact -- a just-finished run or one loaded generically from
+    // /calibration/current -- costs nothing extra.
+    function showPrerenderedDiagnosticImages(data) {
+      if (data.heatmap_url) {
+        calibrationHeatmap.src = `${data.heatmap_url}?t=${Date.now()}`;
+        calibrationHeatmap.style.display = "block";
+        calibrationHeatmapLegend.style.display = "block";
+      } else {
+        calibrationHeatmap.style.display = "none";
+        calibrationHeatmapLegend.style.display = "none";
+      }
+      if (data.accuracy_shape_heatmap_url) {
+        calibrationAccuracyShapeHeatmap.src = `${data.accuracy_shape_heatmap_url}?t=${Date.now()}`;
+        calibrationAccuracyShapeHeatmap.style.display = "block";
+      } else {
+        calibrationAccuracyShapeHeatmap.style.display = "none";
+      }
+      if (data.area_shape_heatmap_url) {
+        calibrationAreaShapeHeatmap.src = `${data.area_shape_heatmap_url}?t=${Date.now()}`;
+        calibrationAreaShapeHeatmap.style.display = "block";
+        calibrationAreaShapeHeatmapLegend.style.display = "block";
+      } else {
+        calibrationAreaShapeHeatmap.style.display = "none";
+        calibrationAreaShapeHeatmapLegend.style.display = "none";
+      }
+      if (data.table_view_url) {
+        tableViewScaleResidual.src = `${data.table_view_url}?t=${Date.now()}`;
+        tableViewScaleResidual.style.display = "block";
+      } else {
+        tableViewScaleResidual.style.display = "none";
+      }
+      if (data.table_view_shape_url) {
+        tableViewShapeDistortion.src = `${data.table_view_shape_url}?t=${Date.now()}`;
+        tableViewShapeDistortion.style.display = "block";
+      } else {
+        tableViewShapeDistortion.style.display = "none";
+      }
+    }
+
+    // Re-detects tags from the current baseline's saved frame each time (no per-tag persistence
+    // in the artifact) -- always targets whatever /calibration/current is, so only call this
+    // once that's actually the run you want plotted (see the promoted_to_current gate below,
+    // and the opt-in "Load diagnostics" button, both of which exist because this isn't free).
+    function showRankPlots() {
+      rankPlotScaleResidual.src = `/calibration/current/rank-plot?metric=scale_residual&t=${Date.now()}`;
+      rankPlotScaleResidual.style.display = "block";
+      rankPlotShapeDistortion.src = `/calibration/current/rank-plot?metric=shape_distortion&t=${Date.now()}`;
+      rankPlotShapeDistortion.style.display = "block";
+      bestWorstPhotoScaleResidual.src =
+        `/calibration/current/best-worst-photo?metric=scale_residual&t=${Date.now()}`;
+      bestWorstPhotoScaleResidual.style.display = "block";
+      bestWorstPhotoShapeDistortion.src =
+        `/calibration/current/best-worst-photo?metric=shape_distortion&t=${Date.now()}`;
+      bestWorstPhotoShapeDistortion.style.display = "block";
+      radialPlotScaleResidual.src =
+        `/calibration/current/radial-plot?metric=scale_residual&t=${Date.now()}`;
+      radialPlotScaleResidual.style.display = "block";
+      radialPlotShapeDistortion.src =
+        `/calibration/current/radial-plot?metric=shape_distortion&t=${Date.now()}`;
+      radialPlotShapeDistortion.style.display = "block";
+      certaintyDomePlot.src = `/calibration/current/certainty-dome-plot?t=${Date.now()}`;
+      certaintyDomePlot.style.display = "block";
+    }
+
+    function hideRankPlots() {
+      rankPlotScaleResidual.style.display = "none";
+      rankPlotShapeDistortion.style.display = "none";
+      bestWorstPhotoScaleResidual.style.display = "none";
+      bestWorstPhotoShapeDistortion.style.display = "none";
+      radialPlotScaleResidual.style.display = "none";
+      radialPlotShapeDistortion.style.display = "none";
+      certaintyDomePlot.style.display = "none";
     }
 
     calibrateBtn.addEventListener("click", async () => {
@@ -1063,78 +1129,50 @@
           }
         }
         calibrationResult.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
-        if (data.heatmap_url) {
-          calibrationHeatmap.src = `${data.heatmap_url}?t=${Date.now()}`;
-          calibrationHeatmap.style.display = "block";
-          calibrationHeatmapLegend.style.display = "block";
-        } else {
-          calibrationHeatmap.style.display = "none";
-          calibrationHeatmapLegend.style.display = "none";
-        }
-        if (data.accuracy_shape_heatmap_url) {
-          calibrationAccuracyShapeHeatmap.src = `${data.accuracy_shape_heatmap_url}?t=${Date.now()}`;
-          calibrationAccuracyShapeHeatmap.style.display = "block";
-        } else {
-          calibrationAccuracyShapeHeatmap.style.display = "none";
-        }
-        if (data.area_shape_heatmap_url) {
-          calibrationAreaShapeHeatmap.src = `${data.area_shape_heatmap_url}?t=${Date.now()}`;
-          calibrationAreaShapeHeatmap.style.display = "block";
-          calibrationAreaShapeHeatmapLegend.style.display = "block";
-        } else {
-          calibrationAreaShapeHeatmap.style.display = "none";
-          calibrationAreaShapeHeatmapLegend.style.display = "none";
-        }
-        if (data.table_view_url) {
-          tableViewScaleResidual.src = `${data.table_view_url}?t=${Date.now()}`;
-          tableViewScaleResidual.style.display = "block";
-        } else {
-          tableViewScaleResidual.style.display = "none";
-        }
-        if (data.table_view_shape_url) {
-          tableViewShapeDistortion.src = `${data.table_view_shape_url}?t=${Date.now()}`;
-          tableViewShapeDistortion.style.display = "block";
-        } else {
-          tableViewShapeDistortion.style.display = "none";
-        }
+        showPrerenderedDiagnosticImages(data);
         if (!data.error && data.promoted_to_current) {
-          // Re-detects tags from the just-saved frame each time (no per-tag persistence),
-          // so these are only worth fetching once a run has actually produced a frame.
-          // Gated on promoted_to_current too (found by code review 2026-09-26): these endpoints
+          // Gated on promoted_to_current (found by code review 2026-09-26): these endpoints
           // only ever read the current baseline, so fetching them after a promote=False
           // comparison run would silently show the *previous* baseline's plots, not this run's.
-          rankPlotScaleResidual.src = `/calibration/current/rank-plot?metric=scale_residual&t=${Date.now()}`;
-          rankPlotScaleResidual.style.display = "block";
-          rankPlotShapeDistortion.src = `/calibration/current/rank-plot?metric=shape_distortion&t=${Date.now()}`;
-          rankPlotShapeDistortion.style.display = "block";
-          bestWorstPhotoScaleResidual.src =
-            `/calibration/current/best-worst-photo?metric=scale_residual&t=${Date.now()}`;
-          bestWorstPhotoScaleResidual.style.display = "block";
-          bestWorstPhotoShapeDistortion.src =
-            `/calibration/current/best-worst-photo?metric=shape_distortion&t=${Date.now()}`;
-          bestWorstPhotoShapeDistortion.style.display = "block";
-          radialPlotScaleResidual.src =
-            `/calibration/current/radial-plot?metric=scale_residual&t=${Date.now()}`;
-          radialPlotScaleResidual.style.display = "block";
-          radialPlotShapeDistortion.src =
-            `/calibration/current/radial-plot?metric=shape_distortion&t=${Date.now()}`;
-          radialPlotShapeDistortion.style.display = "block";
-          certaintyDomePlot.src = `/calibration/current/certainty-dome-plot?t=${Date.now()}`;
-          certaintyDomePlot.style.display = "block";
+          showRankPlots();
         } else {
-          rankPlotScaleResidual.style.display = "none";
-          rankPlotShapeDistortion.style.display = "none";
-          bestWorstPhotoScaleResidual.style.display = "none";
-          bestWorstPhotoShapeDistortion.style.display = "none";
-          radialPlotScaleResidual.style.display = "none";
-          radialPlotShapeDistortion.style.display = "none";
-          certaintyDomePlot.style.display = "none";
+          hideRankPlots();
         }
         await refreshCurrentCalibration();
-        await refreshCalibrationList();
       } finally {
         calibrateBtn.disabled = false;
         calibrateBtn.textContent = "Run calibration";
+      }
+    });
+
+    const loadDiagnosticsBtn = document.getElementById("load-diagnostics-btn");
+    const diagnosticsDetails = document.getElementById("diagnostics-details");
+
+    loadDiagnosticsBtn.addEventListener("click", async () => {
+      loadDiagnosticsBtn.disabled = true;
+      loadDiagnosticsBtn.textContent = "Loading (re-detecting tags)...";
+      try {
+        const r = await fetch("/calibration/current");
+        const data = await r.json();
+        if (!data.exists) {
+          alert("No calibration saved yet.");
+          return;
+        }
+        diagnosticsDetails.open = true;
+        showPrerenderedDiagnosticImages(data);
+        // The rank/best-worst/radial/dome plots need the saved frame (they re-detect tags from
+        // it); an artifact can exist with no frame_stem (calibration.py: "a ScaleField alone is
+        // still a valid, usable artifact"), and frame_url is the signal for that, same as the
+        // pre-rendered images above. Without this check they'd 409 as broken-image icons with no
+        // explanation.
+        if (data.frame_url) {
+          showRankPlots();
+        } else {
+          hideRankPlots();
+        }
+      } finally {
+        loadDiagnosticsBtn.disabled = false;
+        loadDiagnosticsBtn.textContent = "Load diagnostics for the active calibration";
       }
     });
 
@@ -1159,7 +1197,6 @@
     });
 
     refreshCurrentCalibration();
-    refreshCalibrationList();
 
     // --- Live leveling aid ---
     const levelOverlayImage = document.getElementById("level-overlay-image");

@@ -4,6 +4,19 @@ Written 2026-09-26, for a fresh agent to pick up. Read `CLAUDE.md` first (the wh
 short); this doc assumes you have. This is flagged in `TODO.md`'s M2 UI usability section as
 "major feature, not started" — treat it as a real slice of work, plan-first, not a quick add.
 
+## Status: shipped 2026-09-26
+
+Browse, promote, and delete are built and live, at their own page (`/setup/calibration-history`),
+not nested in the wizard. `/calibration/list` carries only the **cheap** per-entry stats
+(`residual_std_pct`, `calibration_tag_size_mm`, corner-tag count, which one is active) — no
+re-detection, so no color-coding, since none of those three have an established threshold either
+(see "Thresholds" below, now corrected to match). Coplanarity/holdout/area-scale error per entry,
+and viewing diagnostics for an arbitrary *past* run, are still open — see `TODO.md`'s low-priority
+"view a past calibration's heatmaps/rank plots" item, the deferred follow-on to this doc. A
+related, separate addition: an opt-in "Load diagnostics for the active calibration" button on
+`/setup/calibration` Step 5, so the *active* run's diagnostics can be viewed without a fresh run
+or a past-run picker.
+
 ## The problem
 
 Aaron, verbatim, describing the actual scenario this needs to solve:
@@ -97,14 +110,24 @@ Required pieces:
   a per-entry "view full report" step, or whether it's fast enough in practice to just do it for
   every entry. Don't guess this without checking timing against a real saved-frame directory with
   more than a couple of entries.
+  **Resolved 2026-09-26**: no saved-frame corpus existed to time the expensive path against, so
+  the decision was made without that measurement — cheap stats only in the list, expensive ones
+  deferred to a per-entry drill-down that hasn't been built (see "Status" above).
 - **No promote-from-history endpoint** — needs a new route, e.g. `POST
   /calibration/{stem}/promote`, that loads that stem's artifact and calls `save_calibration` with
   `promote=True`, no camera capture involved.
+  **Shipped 2026-09-26**, as described.
 - **No delete endpoint** — needs a new route, e.g. `DELETE /calibration/{stem}`, removing the
   artifact JSON plus its frame and heatmap files. Guard against deleting the stem `current.json`
   currently points at.
+  **Shipped 2026-09-26**, as described.
 
 ## Thresholds — reuse, don't invent
+
+**Not applied 2026-09-26**: coplanarity is a re-detection-dependent stat (see "Real gaps to fill"),
+and the cheap stats that did ship (residual, tag size, corner-tag count) have no established
+threshold of their own either (last bullet below already said so) — so no color-coding was built
+at all. The reasoning below stands for whoever picks up the deferred per-entry drill-down.
 
 - Co-planarity / corner-tag scale spread has a three-band scheme already used by Step 2's
   traffic-light overlay: `tripwire.py`'s `DEFAULT_SCALE_DRIFT_PCT = 3.0` (green/amber boundary)

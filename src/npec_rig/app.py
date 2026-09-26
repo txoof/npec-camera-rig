@@ -1,3 +1,4 @@
+import logging
 import time
 from collections.abc import Callable, Iterator
 from datetime import datetime, timezone
@@ -10,6 +11,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response, Streamin
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+logger = logging.getLogger(__name__)
+
 from npec_rig.calibration import (
     CalibrationArtifact,
     area_scale_samples,
@@ -21,8 +24,10 @@ from npec_rig.calibration import (
     scale_residual_samples,
 )
 from npec_rig.calibration_store import (
+    CURRENT_FILENAME,
     calibration_root,
     list_calibrations,
+    load_calibration,
     load_calibration_frame,
     load_current_calibration,
     save_calibration,
@@ -116,6 +121,14 @@ def setup_focus_page() -> str:
 def setup_calibration_page() -> str:
     """The calibration wizard (6 steps) and its diagnostics."""
     return (STATIC_DIR / "setup_calibration.html").read_text()
+
+
+@app.get("/setup/calibration-history", response_class=HTMLResponse)
+def setup_calibration_history_page() -> str:
+    """Browse every saved calibration, promote one to active, or delete old ones -- split out of
+    the wizard (2026-09-26): reachable on its own, not nested three `<details>` deep inside Step
+    5, and usable without walking the linear wizard."""
+    return (STATIC_DIR / "setup_calibration_history.html").read_text()
 
 
 @app.get("/setup/health-check", response_class=HTMLResponse)
@@ -598,9 +611,44 @@ def run_calibration(
 def list_calibration_artifacts() -> list[dict]:
     """Every saved calibration artifact, newest first, with URLs to download it and (if saved)
     the frame it came from -- the "exportable" half of PLAN.md's "frozen, versioned, exportable."
+
+    Also carries the calibration-history browser's per-entry summary stats -- only ones already
+    on the artifact (`residual_std_pct`, `calibration_tag_size_mm`, corner-tag count), no
+    re-detection from the saved frame. Coplanarity/holdout/area-scale error need re-detecting
+    tags from each saved frame and are deliberately left out of this list (reference/plans/
+    calibration-history-browser.md's "real gaps" section) -- a per-entry drill-down view is where
+    those belong, not a list that must stay fast with many saved runs.
     """
+    current = load_current_calibration()
     entries = []
     for path in reversed(list_calibrations()):
+        stem = path.stem
+        try:
+            artifact = load_calibration(path)
+        except (ValueError, KeyError, TypeError) as exc:
+            logger.warning(
+                "saved calibration %s is unreadable, listing without stats: %s", path, exc
+            )
+            artifact = None
+        stats = (
+            {
+                "created_at": artifact.created_at,
+                "residual_std_pct": artifact.scale_field.residual_std_pct,
+                "calibration_tag_size_mm": artifact.calibration_tag_size_mm,
+                "corner_tag_count": (
+                    len(artifact.corner_baseline.corners_by_id) if artifact.corner_baseline else 0
+                ),
+                "is_current": current is not None and artifact.created_at == current.created_at,
+            }
+            if artifact is not None
+            else {
+                "created_at": None,
+                "residual_std_pct": None,
+                "calibration_tag_size_mm": None,
+                "corner_tag_count": None,
+                "is_current": False,
+            }
+        )
         frame_url = None
         if (calibration_root() / "frames" / f"{path.stem}.jpg").exists():
             frame_url = f"/calibration/files/frames/{path.stem}.jpg"
@@ -623,6 +671,7 @@ def list_calibration_artifacts() -> list[dict]:
             )
         entries.append(
             {
+                "stem": stem,
                 "filename": path.name,
                 "url": f"/calibration/files/{path.name}",
                 "frame_url": frame_url,
@@ -631,9 +680,93 @@ def list_calibration_artifacts() -> list[dict]:
                 "accuracy_shape_heatmap_url": accuracy_shape_heatmap_url,
                 "table_view_url": table_view_url,
                 "table_view_shape_url": table_view_shape_url,
+                **stats,
             }
         )
     return entries
+
+
+def _saved_calibration_path(stem: str) -> Path:
+    """Resolve a calibration-history `stem` (a URL path segment) to its artifact JSON file,
+    refusing anything that isn't a plain filename component -- `stem` comes straight from the
+    request path, and building a file path by string interpolation is exactly the shape that
+    needs this before it ever gets used, not after.
+    """
+    root = calibration_root()
+    path = (root / f"{stem}.json").resolve()
+    if path.parent != root.resolve() or path.name in (".json", CURRENT_FILENAME):
+        raise HTTPException(404, f"no saved calibration {stem!r}")
+    if not path.exists():
+        raise HTTPException(404, f"no saved calibration {stem!r}")
+    return path
+
+
+@app.post("/calibration/{stem}/promote")
+def promote_calibration(stem: str) -> dict:
+    """Make a previously saved calibration the active one, no fresh capture -- the
+    calibration-history browser's "reactivate an old, still-valid measurement" action
+    (reference/plans/calibration-history-browser.md). Reuses `save_calibration`'s own
+    promote-to-`current.json` mechanism, the same one a live run's "set as current baseline"
+    checkbox already uses.
+    """
+    path = _saved_calibration_path(stem)
+    try:
+        artifact = load_calibration(path)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(422, f"saved calibration {stem!r} could not be read: {exc}") from exc
+    save_calibration(artifact, stem=stem, promote=True)
+    return {"promoted": stem, "created_at": artifact.created_at}
+
+
+@app.delete("/calibration/{stem}")
+def delete_calibration(stem: str) -> dict:
+    """Delete a saved calibration's artifact JSON, frame, and heatmap files -- disk hygiene for
+    old runs (reference/plans/calibration-history-browser.md). Refuses to delete whichever one
+    `current.json` currently points at, which would otherwise leave the rig's active calibration
+    with a snapshot/report that no longer exists.
+
+    `current.json` has no record of which stem it was promoted from (compared by `created_at`
+    instead, see `list_calibration_artifacts`), so confirming "not the active one" requires
+    reading both files. If either can't be read, this refuses rather than guessing -- a corrupt
+    `current.json` means we don't know what's active at all, and a corrupt target stem can't be
+    ruled out as the active one either (it could have been promoted before whatever damaged it).
+    """
+    path = _saved_calibration_path(stem)
+
+    current_path = calibration_root() / CURRENT_FILENAME
+    current = load_current_calibration() if current_path.exists() else None
+    if current_path.exists() and current is None:
+        raise HTTPException(
+            409,
+            "the active calibration (current.json) could not be read -- refusing to delete "
+            "anything until that's resolved, since which calibration is active can't be "
+            "confirmed",
+        )
+
+    try:
+        artifact = load_calibration(path)
+    except (ValueError, KeyError, TypeError) as exc:
+        if current is not None:
+            raise HTTPException(
+                409,
+                f"saved calibration {stem!r} could not be read ({exc}) -- refusing to delete it "
+                "since whether it's the active calibration can't be confirmed from its content",
+            ) from exc
+    else:
+        if current is not None and artifact.created_at == current.created_at:
+            raise HTTPException(409, "refusing to delete the active calibration")
+
+    path.unlink()
+    (calibration_root() / "frames" / f"{stem}.jpg").unlink(missing_ok=True)
+    for suffix in (
+        "",
+        "_area-shape",
+        "_accuracy-shape",
+        "_table-view",
+        "_table-view-area-shape",
+    ):
+        (calibration_root() / "heatmaps" / f"{stem}{suffix}.jpg").unlink(missing_ok=True)
+    return {"deleted": stem}
 
 
 @app.get("/calibration/current")
