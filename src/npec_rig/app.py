@@ -131,6 +131,17 @@ def setup_calibration_history_page() -> str:
     return (STATIC_DIR / "setup_calibration_history.html").read_text()
 
 
+@app.get("/setup/calibration-history/{stem}", response_class=HTMLResponse)
+def setup_calibration_history_diagnostics_page(stem: str) -> str:
+    """Diagnostics drill-down for one arbitrary saved calibration -- TODO.md's "let the two
+    heatmaps and the best-vs-worst-tag rank plots be viewed for a past calibration, not just
+    whatever's live." One static file serves any `stem`; the page reads it from its own URL and
+    looks itself up in `/calibration/list` client-side, same list the history page already
+    fetches -- no new metadata endpoint needed.
+    """
+    return (STATIC_DIR / "setup_calibration_history_diagnostics.html").read_text()
+
+
 @app.get("/setup/health-check", response_class=HTMLResponse)
 def setup_health_check_page() -> str:
     """On-demand checks outside the linear calibration wizard -- currently just the tripwire

@@ -55,6 +55,15 @@ def test_page_loads(path: str) -> None:
     assert "NPEC Camera Rig" in response.text
 
 
+def test_calibration_history_diagnostics_page_loads() -> None:
+    # One static file serves any stem -- the page looks itself up in /calibration/list
+    # client-side, so this route never 404s on an unknown stem the way the JSON endpoints do.
+    client = TestClient(app)
+    response = client.get("/setup/calibration-history/20260101T000000000000")
+    assert response.status_code == 200
+    assert "NPEC Camera Rig" in response.text
+
+
 def test_snapshot_returns_jpeg() -> None:
     client = TestClient(app)
     response = client.get("/snapshot.jpg")
