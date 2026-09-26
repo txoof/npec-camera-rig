@@ -123,6 +123,14 @@ def setup_calibration_page() -> str:
     return (STATIC_DIR / "setup_calibration.html").read_text()
 
 
+@app.get("/setup/calibration-history", response_class=HTMLResponse)
+def setup_calibration_history_page() -> str:
+    """Browse every saved calibration, promote one to active, or delete old ones -- split out of
+    the wizard (2026-09-26): reachable on its own, not nested three `<details>` deep inside Step
+    5, and usable without walking the linear wizard."""
+    return (STATIC_DIR / "setup_calibration_history.html").read_text()
+
+
 @app.get("/setup/health-check", response_class=HTMLResponse)
 def setup_health_check_page() -> str:
     """On-demand checks outside the linear calibration wizard -- currently just the tripwire

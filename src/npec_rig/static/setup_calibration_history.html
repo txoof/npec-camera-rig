@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NPEC Camera Rig — Calibration history</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h1>NPEC Camera Rig</h1>
+  <nav class="top-nav">
+    <a href="/setup" class="active">Setup</a>
+    <a href="/gallery">Capture &amp; Gallery</a>
+  </nav>
+  <p style="margin: -0.5rem 0 0.75rem; font-size: 0.85rem;">
+    <a href="/setup">Setup</a> / Calibration history
+  </p>
+
+  <h2>Calibration history</h2>
+  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+    Every calibration ever run and saved, most recent first. A calibration's validity depends
+    on the camera/rig's physical state, not when it was captured — if nothing has moved since
+    an older one was taken, it is exactly as valid today as it was then.
+  </p>
+  <div class="calibration-history-disclaimer">
+    <strong>Making one active is not a substitute for running a full calibration.</strong>
+    It reactivates an old measurement; it does not re-verify that the physical setup still
+    matches it.
+  </div>
+  <p style="margin: 0.5rem 0; color: #aaa; font-size: 0.8rem;">
+    To see diagnostics (heatmaps, rank plots) for the active calibration, go to
+    <a href="/setup/calibration">Calibration</a> → Step 5 → "Load diagnostics for the active
+    calibration."
+  </p>
+  <div id="calibration-list" class="calibration-history-list" style="margin-top: 0.5rem;"></div>
+
+  <script>
+    const calibrationList = document.getElementById("calibration-list");
+
+    const CALIBRATION_HISTORY_PAGE_SIZE = 5;
+    let calibrationHistoryItems = [];
+    let calibrationHistoryVisibleCount = CALIBRATION_HISTORY_PAGE_SIZE;
+
+    function calibrationHistoryCardHtml(item) {
+      const dt = item.created_at
+        ? item.created_at.replace("T", " ").slice(0, 19)
+        : item.filename;
+      const badge = item.is_current
+        ? '<span class="calibration-history-badge">Active</span>'
+        : "";
+      const stats =
+        item.residual_std_pct != null
+          ? `residual ${item.residual_std_pct.toFixed(2)}%, tag size ` +
+            `${item.calibration_tag_size_mm}mm, ${item.corner_tag_count} corner tag` +
+            `${item.corner_tag_count === 1 ? "" : "s"}`
+          : "stats unavailable (file could not be read)";
+      const img = item.frame_url
+        ? `<img src="${item.frame_url}" alt="calibration snapshot ${dt}">`
+        : `<div class="no-snapshot">no snapshot</div>`;
+      const actions = [`<a href="${item.url}" target="_blank">artifact</a>`];
+      if (item.is_current) {
+        actions.push(`<a href="/setup/calibration">view diagnostics</a>`);
+      } else {
+        actions.push(
+          `<button class="calibration-history-promote" data-stem="${item.stem}">Make active</button>`
+        );
+        actions.push(
+          `<button class="calibration-history-delete danger" data-stem="${item.stem}">Delete</button>`
+        );
+      }
+      return `
+        <div class="calibration-history-card ${item.is_current ? "is-current" : ""}">
+          ${img}
+          <div class="calibration-history-card-body">
+            <span class="calibration-history-card-date">${dt}</span>
+            ${badge}
+            <span class="calibration-history-card-stats">${stats}</span>
+            <span class="calibration-history-actions">${actions.join("")}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCalibrationHistoryList() {
+      const visible = calibrationHistoryItems.slice(0, calibrationHistoryVisibleCount);
+      const remaining = calibrationHistoryItems.length - visible.length;
+      const rows = visible.length
+        ? visible.map(calibrationHistoryCardHtml).join("")
+        : "None saved yet.";
+      const loadMore = remaining > 0
+        ? `<button id="calibration-history-load-more" class="calibration-history-load-more">` +
+          `Load ${Math.min(remaining, CALIBRATION_HISTORY_PAGE_SIZE)} more (${remaining} older)` +
+          `</button>`
+        : "";
+      calibrationList.innerHTML = rows + loadMore;
+    }
+
+    async function refreshCalibrationList() {
+      const r = await fetch("/calibration/list");
+      calibrationHistoryItems = await r.json();
+      calibrationHistoryVisibleCount = CALIBRATION_HISTORY_PAGE_SIZE;
+      renderCalibrationHistoryList();
+    }
+
+    calibrationList.addEventListener("click", async (e) => {
+      if (e.target.id === "calibration-history-load-more") {
+        calibrationHistoryVisibleCount += CALIBRATION_HISTORY_PAGE_SIZE;
+        renderCalibrationHistoryList();
+        return;
+      }
+      const promoteBtn = e.target.closest(".calibration-history-promote");
+      const deleteBtn = e.target.closest(".calibration-history-delete");
+      if (promoteBtn) {
+        const stem = promoteBtn.dataset.stem;
+        if (
+          !confirm(
+            "Make this the active calibration?\n\n" +
+              "This reactivates an old measurement. It does not re-verify that the physical " +
+              "setup still matches it — only do this if nothing has moved since that " +
+              "calibration was taken."
+          )
+        ) {
+          return;
+        }
+        promoteBtn.disabled = true;
+        try {
+          const resp = await fetch(`/calibration/${stem}/promote`, { method: "POST" });
+          if (!resp.ok) throw new Error(await resp.text());
+          await refreshCalibrationList();
+        } catch (err) {
+          alert(`Could not make this calibration active: ${err.message}`);
+        } finally {
+          promoteBtn.disabled = false;
+        }
+      } else if (deleteBtn) {
+        const stem = deleteBtn.dataset.stem;
+        if (
+          !confirm(
+            "Delete this saved calibration? Its frame and heatmaps are removed permanently. " +
+              "This cannot be undone."
+          )
+        ) {
+          return;
+        }
+        deleteBtn.disabled = true;
+        try {
+          const resp = await fetch(`/calibration/${stem}`, { method: "DELETE" });
+          if (!resp.ok) throw new Error(await resp.text());
+          await refreshCalibrationList();
+        } catch (err) {
+          alert(`Could not delete this calibration: ${err.message}`);
+        } finally {
+          deleteBtn.disabled = false;
+        }
+      }
+    });
+
+    refreshCalibrationList();
+  </script>
+</body>
+</html>
