@@ -1,3 +1,4 @@
+import logging
 import time
 from collections.abc import Callable, Iterator
 from datetime import datetime, timezone
@@ -10,6 +11,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response, Streamin
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+logger = logging.getLogger(__name__)
+
 from npec_rig.calibration import (
     CalibrationArtifact,
     area_scale_samples,
@@ -21,8 +24,10 @@ from npec_rig.calibration import (
     scale_residual_samples,
 )
 from npec_rig.calibration_store import (
+    CURRENT_FILENAME,
     calibration_root,
     list_calibrations,
+    load_calibration,
     load_calibration_frame,
     load_current_calibration,
     save_calibration,
@@ -598,9 +603,44 @@ def run_calibration(
 def list_calibration_artifacts() -> list[dict]:
     """Every saved calibration artifact, newest first, with URLs to download it and (if saved)
     the frame it came from -- the "exportable" half of PLAN.md's "frozen, versioned, exportable."
+
+    Also carries the calibration-history browser's per-entry summary stats -- only ones already
+    on the artifact (`residual_std_pct`, `calibration_tag_size_mm`, corner-tag count), no
+    re-detection from the saved frame. Coplanarity/holdout/area-scale error need re-detecting
+    tags from each saved frame and are deliberately left out of this list (reference/plans/
+    calibration-history-browser.md's "real gaps" section) -- a per-entry drill-down view is where
+    those belong, not a list that must stay fast with many saved runs.
     """
+    current = load_current_calibration()
     entries = []
     for path in reversed(list_calibrations()):
+        stem = path.stem
+        try:
+            artifact = load_calibration(path)
+        except (ValueError, KeyError) as exc:
+            logger.warning(
+                "saved calibration %s is unreadable, listing without stats: %s", path, exc
+            )
+            artifact = None
+        stats = (
+            {
+                "created_at": artifact.created_at,
+                "residual_std_pct": artifact.scale_field.residual_std_pct,
+                "calibration_tag_size_mm": artifact.calibration_tag_size_mm,
+                "corner_tag_count": (
+                    len(artifact.corner_baseline.corners_by_id) if artifact.corner_baseline else 0
+                ),
+                "is_current": current is not None and artifact.created_at == current.created_at,
+            }
+            if artifact is not None
+            else {
+                "created_at": None,
+                "residual_std_pct": None,
+                "calibration_tag_size_mm": None,
+                "corner_tag_count": None,
+                "is_current": False,
+            }
+        )
         frame_url = None
         if (calibration_root() / "frames" / f"{path.stem}.jpg").exists():
             frame_url = f"/calibration/files/frames/{path.stem}.jpg"
@@ -623,6 +663,7 @@ def list_calibration_artifacts() -> list[dict]:
             )
         entries.append(
             {
+                "stem": stem,
                 "filename": path.name,
                 "url": f"/calibration/files/{path.name}",
                 "frame_url": frame_url,
@@ -631,9 +672,65 @@ def list_calibration_artifacts() -> list[dict]:
                 "accuracy_shape_heatmap_url": accuracy_shape_heatmap_url,
                 "table_view_url": table_view_url,
                 "table_view_shape_url": table_view_shape_url,
+                **stats,
             }
         )
     return entries
+
+
+def _saved_calibration_path(stem: str) -> Path:
+    """Resolve a calibration-history `stem` (a URL path segment) to its artifact JSON file,
+    refusing anything that isn't a plain filename component -- `stem` comes straight from the
+    request path, and building a file path by string interpolation is exactly the shape that
+    needs this before it ever gets used, not after.
+    """
+    root = calibration_root()
+    path = (root / f"{stem}.json").resolve()
+    if path.parent != root.resolve() or path.name in (".json", CURRENT_FILENAME):
+        raise HTTPException(404, f"no saved calibration {stem!r}")
+    if not path.exists():
+        raise HTTPException(404, f"no saved calibration {stem!r}")
+    return path
+
+
+@app.post("/calibration/{stem}/promote")
+def promote_calibration(stem: str) -> dict:
+    """Make a previously saved calibration the active one, no fresh capture -- the
+    calibration-history browser's "reactivate an old, still-valid measurement" action
+    (reference/plans/calibration-history-browser.md). Reuses `save_calibration`'s own
+    promote-to-`current.json` mechanism, the same one a live run's "set as current baseline"
+    checkbox already uses.
+    """
+    path = _saved_calibration_path(stem)
+    artifact = load_calibration(path)
+    save_calibration(artifact, stem=stem, promote=True)
+    return {"promoted": stem, "created_at": artifact.created_at}
+
+
+@app.delete("/calibration/{stem}")
+def delete_calibration(stem: str) -> dict:
+    """Delete a saved calibration's artifact JSON, frame, and heatmap files -- disk hygiene for
+    old runs (reference/plans/calibration-history-browser.md). Refuses to delete whichever one
+    `current.json` currently points at, which would otherwise leave the rig's active calibration
+    with a snapshot/report that no longer exists.
+    """
+    path = _saved_calibration_path(stem)
+    artifact = load_calibration(path)
+    current = load_current_calibration()
+    if current is not None and artifact.created_at == current.created_at:
+        raise HTTPException(409, "refusing to delete the active calibration")
+
+    path.unlink()
+    (calibration_root() / "frames" / f"{stem}.jpg").unlink(missing_ok=True)
+    for suffix in (
+        "",
+        "_area-shape",
+        "_accuracy-shape",
+        "_table-view",
+        "_table-view-area-shape",
+    ):
+        (calibration_root() / "heatmaps" / f"{stem}{suffix}.jpg").unlink(missing_ok=True)
+    return {"deleted": stem}
 
 
 @app.get("/calibration/current")

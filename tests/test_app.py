@@ -1,11 +1,12 @@
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 
 import npec_rig.app as app_module
-from npec_rig.app import _mjpeg_frames, app, focus_roi_stream, preview
+from npec_rig.app import _mjpeg_frames, _saved_calibration_path, app, focus_roi_stream, preview
 from npec_rig.calibration import CalibrationArtifact, ScaleField
 from npec_rig.calibration_store import calibration_root, save_calibration
 from npec_rig.camera import SIMULATED_AUTOFOCUS_POSITION, CameraManager, SyntheticBackend
@@ -765,6 +766,121 @@ def test_calibration_list_and_files_are_downloadable(monkeypatch: pytest.MonkeyP
     heatmap_response = client.get(entry["heatmap_url"])
     assert heatmap_response.status_code == 200
     assert heatmap_response.content[:2] == b"\xff\xd8"
+
+
+# --- Calibration-history browser: per-entry stats, promote, delete ---
+
+
+def test_calibration_list_includes_per_entry_stats_and_marks_the_active_one(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    first = client.post("/calibration/run").json()
+    second = client.post("/calibration/run", params={"promote": "false"}).json()
+
+    first_stem = Path(first["artifact_path"]).stem
+    second_stem = Path(second["artifact_path"]).stem
+
+    listing = client.get("/calibration/list").json()
+    by_stem = {e["stem"]: e for e in listing}
+
+    assert by_stem[first_stem]["is_current"] is True
+    assert by_stem[first_stem]["residual_std_pct"] == first["residual_std_pct"]
+    assert by_stem[first_stem]["calibration_tag_size_mm"] == first["calibration_tag_size_mm"]
+    assert by_stem[first_stem]["corner_tag_count"] == len(first["corner_baseline_tags"])
+
+    assert by_stem[second_stem]["is_current"] is False
+    assert by_stem[second_stem]["residual_std_pct"] == second["residual_std_pct"]
+
+
+def test_promote_calibration_makes_it_the_active_one(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    old = client.post("/calibration/run").json()
+    client.post("/calibration/run")  # a second, newer run promotes over it
+
+    old_stem = Path(old["artifact_path"]).stem
+    old_entry = next(
+        e for e in client.get("/calibration/list").json() if e["stem"] == old_stem
+    )
+    assert old_entry["is_current"] is False
+
+    response = client.post(f"/calibration/{old_stem}/promote")
+    assert response.status_code == 200
+    assert response.json()["promoted"] == old_stem
+
+    current_after = client.get("/calibration/current").json()
+    assert current_after["created_at"] == old_entry["created_at"]
+
+    listing_after = client.get("/calibration/list").json()
+    assert next(e for e in listing_after if e["stem"] == old_stem)["is_current"] is True
+
+
+def test_promote_unknown_stem_returns_404(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.post("/calibration/does-not-exist/promote")
+    assert response.status_code == 404
+
+
+def test_delete_calibration_removes_its_files(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    old = client.post("/calibration/run").json()
+    client.post("/calibration/run")  # promotes a second run so `old` is no longer active
+
+    old_stem = Path(old["artifact_path"]).stem
+    assert Path(old["artifact_path"]).exists()
+    assert Path(old["frame_path"]).exists()
+
+    response = client.delete(f"/calibration/{old_stem}")
+    assert response.status_code == 200
+    assert response.json()["deleted"] == old_stem
+
+    assert not Path(old["artifact_path"]).exists()
+    assert not Path(old["frame_path"]).exists()
+    assert not (calibration_root() / "heatmaps" / f"{old_stem}.jpg").exists()
+
+    listing = client.get("/calibration/list").json()
+    assert all(e["stem"] != old_stem for e in listing)
+
+
+def test_delete_refuses_to_remove_the_active_calibration(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    run = client.post("/calibration/run").json()
+    stem = Path(run["artifact_path"]).stem
+
+    response = client.delete(f"/calibration/{stem}")
+    assert response.status_code == 409
+    assert Path(run["artifact_path"]).exists()
+
+
+def test_delete_unknown_stem_returns_404(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.delete("/calibration/does-not-exist")
+    assert response.status_code == 404
+
+
+def test_saved_calibration_path_rejects_traversal_and_the_current_pointer(
+    isolated_calibration_dir: None,
+) -> None:
+    with pytest.raises(HTTPException) as exc_info:
+        _saved_calibration_path("../../../etc/passwd")
+    assert exc_info.value.status_code == 404
+
+    with pytest.raises(HTTPException) as exc_info:
+        _saved_calibration_path("current")
+    assert exc_info.value.status_code == 404
 
 
 # --- Best-vs-worst-tag rank plot ---
