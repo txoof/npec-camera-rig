@@ -789,6 +789,21 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — UI usability, not yet done
 
+- [ ] **Discuss the Honesty plot's purpose: does it serve a function for a user of the platform,
+      or is it just metrology?** Right now it's presented in the wizard the same way as the
+      operator-facing report lines, but it's PLAN.md's M2 acceptance-test tool (place a known
+      target, read pixel position, measure real error, check claimed-vs-actual) — a
+      calibration-quality check, not obviously something a day-to-day operator needs to run.
+      Needs a decision before touching its UI: keep it where it is (if operators genuinely
+      benefit), or move it somewhere metrology-only (e.g. Health check) so the everyday wizard
+      isn't carrying a tool built for a different audience. *(Aaron, 2026-09-26.)*
+- [ ] **"Back"/"Next" buttons don't match the rest of the UI's button style on Step 3 of 6.**
+      *(Aaron, 2026-09-26.)*
+- [ ] **The wizard is too wordy and conversational overall — slim it down.** Long paragraph
+      explanations under most steps; consider expandable/pop-over info boxes instead of a large
+      block of always-visible text, so the default view is short and detail is opt-in. Cuts
+      across every step, not a single-page fix — needs its own pass once scoped.
+      *(Aaron, 2026-09-26.)*
 - [ ] **Calibration wizard: real Next/Back step navigation, one step visible at a time, with a
       gate at each step.** Multi-page split done 2026-09-25 (Setup menu, Focus & Square,
       Calibration, Gallery are now separate pages/routes) — still open, and distinct from that:
