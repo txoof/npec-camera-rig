@@ -1119,3 +1119,70 @@ def test_radial_plot_refused_with_too_few_tags_in_the_saved_frame(
     monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS[:1] + _CORNER_TAGS)
     response = client.get("/calibration/current/radial-plot")
     assert response.status_code == 409
+
+
+# --- Certainty dome plot ---
+
+
+def test_certainty_dome_plot_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.get("/calibration/current/certainty-dome-plot")
+    assert response.status_code == 409
+
+
+def test_certainty_dome_plot_returns_a_jpeg(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+
+    response = client.get("/calibration/current/certainty-dome-plot")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.content[:2] == b"\xff\xd8"
+
+
+# --- Stem-scoped diagnostics (calibration-history drill-down) ---
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["rank-plot", "best-worst-photo", "radial-plot", "certainty-dome-plot"],
+)
+def test_stem_diagnostics_unknown_stem_returns_404(path: str, isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    response = client.get(f"/calibration/does-not-exist/{path}")
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["rank-plot", "best-worst-photo", "radial-plot", "certainty-dome-plot"],
+)
+def test_stem_diagnostics_unreadable_calibration_returns_422(
+    path: str, isolated_calibration_dir: None
+) -> None:
+    _write_corrupt_calibration("20260101T000000000000")
+    client = TestClient(app)
+    response = client.get(f"/calibration/20260101T000000000000/{path}")
+    assert response.status_code == 422
+
+
+def test_stem_diagnostics_serve_an_old_run_not_whatever_is_current(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # The whole point of the drill-down: an old, no-longer-active stem must still be viewable,
+    # and must reflect *its own* saved frame, not whatever `current.json` now points at.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    old = client.post("/calibration/run").json()
+    client.post("/calibration/run")  # a second, newer run promotes over it
+    old_stem = Path(old["artifact_path"]).stem
+
+    for path in ("rank-plot", "best-worst-photo", "radial-plot", "certainty-dome-plot"):
+        response = client.get(f"/calibration/{old_stem}/{path}")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/jpeg"
+        assert response.content[:2] == b"\xff\xd8"
