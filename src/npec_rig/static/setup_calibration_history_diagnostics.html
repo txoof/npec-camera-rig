@@ -33,6 +33,10 @@
       does not change which calibration is active.
     </p>
 
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Confidence heatmap
+      <button class="help-icon" data-help="confidence-heatmap" aria-label="What is this?">ⓘ</button>
+    </h4>
+    <div class="help-popover" data-help-body="confidence-heatmap" style="display: none;"></div>
     <img id="calibration-heatmap" alt="Confidence heatmap"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
     <div id="calibration-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
@@ -43,18 +47,19 @@
       <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #aaa; margin-top: 0.15rem;">
         <span>0% (confident)</span><span>2%</span><span>4%</span><span>6%</span><span>8%+ (least confident)</span>
       </div>
-      <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
-        Colour is the local uncertainty field at that position — how much neighbouring
-        calibration tags disagree with the fitted scale. Blue/dark = trust readings from that
-        area. Green through red = growing disagreement, usually because coverage is thin there.
-      </p>
     </div>
 
-    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Accuracy shape</h4>
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Accuracy shape
+      <button class="help-icon" data-help="accuracy-shape" aria-label="What is this?">ⓘ</button>
+    </h4>
+    <div class="help-popover" data-help-body="accuracy-shape" style="display: none;"></div>
     <img id="calibration-accuracy-shape-heatmap" alt="Accuracy shape heatmap"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
 
-    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Area-scale shape distortion</h4>
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Area-scale shape distortion
+      <button class="help-icon" data-help="area-shape-heatmap" aria-label="What is this?">ⓘ</button>
+    </h4>
+    <div class="help-popover" data-help-body="area-shape-heatmap" style="display: none;"></div>
     <img id="calibration-area-shape-heatmap" alt="Area-scale shape distortion heatmap"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
     <div id="calibration-area-shape-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
@@ -67,7 +72,10 @@
       </div>
     </div>
 
-    <h3 style="margin: 1rem 0 0.25rem;">Table-position view</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Table-position view
+      <button class="help-icon" data-help="table-position-view" aria-label="What is this?">ⓘ</button>
+    </h3>
+    <div class="help-popover" data-help-body="table-position-view" style="display: none;"></div>
     <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Scale residual</h4>
     <img id="table-view-scale-residual" alt="Scale residual, table-position view"
          style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
@@ -83,7 +91,10 @@
     </div>
 
     <div id="rank-plot-section" style="display: none;">
-      <h3 style="margin: 1rem 0 0.25rem;">Best vs. worst tag</h3>
+      <h3 style="margin: 1rem 0 0.25rem;">Best vs. worst tag
+        <button class="help-icon" data-help="best-worst-tag" aria-label="What is this?">ⓘ</button>
+      </h3>
+      <div class="help-popover" data-help-body="best-worst-tag" style="display: none;"></div>
       <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Scale residual</h4>
       <img id="rank-plot-scale-residual" alt="Scale residual, best to worst"
            style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
@@ -95,13 +106,19 @@
       <img id="best-worst-photo-shape-distortion" alt="Area-shape distortion, best and worst tag on the photo"
            style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
 
-      <h3 style="margin: 1rem 0 0.25rem;">Is this lens/parallax distortion, or something else?</h3>
+      <h3 style="margin: 1rem 0 0.25rem;">Is this lens/parallax distortion, or something else?
+        <button class="help-icon" data-help="radial-plot" aria-label="What is this?">ⓘ</button>
+      </h3>
+      <div class="help-popover" data-help-body="radial-plot" style="display: none;"></div>
       <img id="radial-plot-scale-residual" alt="Scale residual vs. distance from image centre"
            style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
       <img id="radial-plot-shape-distortion" alt="Area-shape distortion vs. distance from image centre"
            style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
 
-      <h3 style="margin: 1rem 0 0.25rem;">Dome of certainty</h3>
+      <h3 style="margin: 1rem 0 0.25rem;">Dome of certainty
+        <button class="help-icon" data-help="certainty-dome" aria-label="What is this?">ⓘ</button>
+      </h3>
+      <div class="help-popover" data-help-body="certainty-dome" style="display: none;"></div>
       <img id="certainty-dome-plot" alt="Claimed uncertainty vs. distance from image centre"
            style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
     </div>
@@ -184,6 +201,49 @@
       certaintyDomePlot.src = `/calibration/${stem}/certainty-dome-plot?t=${Date.now()}`;
       certaintyDomePlot.style.display = "block";
     }
+
+    // Help text lives in a plain file Aaron can edit directly (static/help/diagnostics.md), not
+    // in this HTML -- one "## topic-key" section per pop-over, plain paragraphs plus **bold**.
+    // Fetched once and cached; each pop-over's own content is filled in lazily on first open.
+    let helpTopicsPromise = null;
+    function loadHelpTopics() {
+      if (!helpTopicsPromise) {
+        helpTopicsPromise = fetch("/static/help/diagnostics.md")
+          .then((r) => r.text())
+          .then((text) => {
+            const topics = {};
+            for (const block of text.split(/^## /m).slice(1)) {
+              const nl = block.indexOf("\n");
+              const key = block.slice(0, nl).trim();
+              const body = block.slice(nl + 1).trim();
+              topics[key] = body
+                .split(/\n\s*\n/)
+                .map((p) => `<p>${p.trim().replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</p>`)
+                .join("");
+            }
+            return topics;
+          });
+      }
+      return helpTopicsPromise;
+    }
+
+    document.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".help-icon");
+      if (!btn) return;
+      const key = btn.dataset.help;
+      const panel = document.querySelector(`.help-popover[data-help-body="${key}"]`);
+      if (!panel) return;
+      if (panel.style.display === "block") {
+        panel.style.display = "none";
+        return;
+      }
+      if (!panel.dataset.loaded) {
+        const topics = await loadHelpTopics();
+        panel.innerHTML = topics[key] || "<p>No help text found for this topic.</p>";
+        panel.dataset.loaded = "1";
+      }
+      panel.style.display = "block";
+    });
 
     loadDiagnosticsBtn.addEventListener("click", async () => {
       loadDiagnosticsBtn.disabled = true;
