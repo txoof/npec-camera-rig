@@ -693,16 +693,154 @@ The heart of the project. Do not start before M1 slice 5.
       "Capture") silently drops it back to the tuning file's default afterward, with no UI
       indication anything changed. Deferred, not fixed alongside the AE-stuck bug: would need
       caching the last explicitly-set manual value too, a small but separate change.
+- [ ] **`/code-review --level high` findings, 2026-09-26, PR #10 -- 4 fixed same day (see the PR),
+      5 deferred here with reasons:**
+  - **The "Diagnostics" `<details>` panel (Step 5) now also hides the Honesty plot and "Saved
+        calibrations" list** — nested three sections deep behind one collapsed toggle, when the
+        Honesty plot specifically is PLAN.md's own M2 acceptance-test tool and arguably shouldn't
+        be hidden at all. Not fixed now: this exact area is about to be reworked twice over —
+        the already-approved "tidy up the calibration result messages" split (headline vs.
+        Diagnostics) above, and the calibration-history browser
+        (`reference/plans/calibration-history-browser.md`), which replaces "Saved calibrations"
+        entirely. Resolve the nesting depth as part of one of those, not as a standalone fix that
+        would just get redone.
+  - **Step 2's live co-planarity overlay and `check_tripwire`'s baseline-relative drift reuse the
+        same 3%/8% bands (`tripwire.py`'s `DEFAULT_SCALE_DRIFT_PCT`/`FAIL_PCT`), and neither has
+        actually been measured yet** — both are explicitly marked "Provisional" in `tripwire.py`
+        itself, pending the still-open M2 acceptance test below ("Roll the camera ~5° → reported
+        as ~5°; knock it hard → verdict flips to FAIL"). Not a new problem, and not silently
+        presented as measured in the code (the docstring says so) — the gap is that Step 2's UI
+        copy states "green ≤3%, amber 3-8%, red >8%" with no such caveat visible to the operator.
+        Whether these two different physical questions (has *this* corner changed since a
+        baseline, vs. do different corners currently disagree with each other) should even share
+        one threshold is a real question, not just a wording fix — surfacing it for Aaron rather
+        than picking an answer. **Also affects the calibration-history-browser plan doc** — it
+        recommended reusing these same bands for coplanarity color-coding without this caveat;
+        needs updating alongside whichever way this is resolved.
+  - **The per-tag detection cache (`_cached_frame_detections`/`_frame_detection_lock` in
+        `app.py`) is a bandaid, not a fix** — it stops four simultaneous diagnostic requests from
+        OOMing at once by caching one frame's detections, but every *new* view of a saved run's
+        diagnostics still re-decodes the full-res frame and re-runs the whole tag detector from
+        scratch, because `CalibrationArtifact` never persists per-tag scale-residual/
+        shape-distortion data. The real fix is a schema change (persist per-tag data at
+        calibration time, once), which is exactly the performance question flagged as an open
+        decision in the calibration-history-browser plan doc ("re-detecting tags from every saved
+        frame just to render a list could be slow") — resolve there, not as an isolated fix here.
+  - **The whole camera-controls widget (~150-180 lines: labels, exposure-time formatting, control
+        rendering, AE-dependent disabling) is duplicated verbatim between `setup_focus.html` and
+        `setup_calibration.html`** — already a known, deliberate tradeoff from the Setup-pages
+        redesign (no shared-include mechanism exists in this plain static-HTML codebase; see
+        `m2_calibration_progress.md` memory: "the two copies must be kept in sync by hand"), not
+        new. Logging the code-review hit here so it doesn't look unaddressed — no fix planned
+        unless the duplication actually causes a real bug from the two copies drifting apart.
+  - **Five near-identical "write a heatmap JPEG under a `{stem}_{suffix}.jpg` name" functions in
+        `calibration_store.py`, each paired with a matching "does that file exist → build its URL"
+        block repeated in three places in `app.py`** (`run_calibration`, `list_calibration_
+        artifacts`, `current_calibration`) — real duplication, each new heatmap kind requires
+        hand-copying both. Deferred: a refactor here touches every calibration-diagnostics
+        endpoint at once, real regression risk for a DRY-only change with no behavior bug behind
+        it; revisit if a sixth heatmap kind is ever added, which would be the point this
+        duplication actually starts costing something.
 
 ### M2 — UI usability, not yet done
 
-- [ ] **Calibration page has grown into one long page — break it into a sequential set of steps**
-      instead. It's accumulated run calibration, tripwire check, live reorientation aid, and the
-      honesty plot all stacked on one page this session; needs restructuring into a guided
-      step-by-step flow rather than one scroll. *(Aaron, 2026-09-21)*
-- [ ] **Move calibration history into a gallery** — the current "Saved calibrations (download)"
-      `<details>` list (filenames + text links) should become a proper gallery: preview
-      thumbnails plus a download action per entry, not a plain link list. *(Aaron, 2026-09-21)*
+- [ ] **Calibration wizard: real Next/Back step navigation, one step visible at a time, with a
+      gate at each step.** Multi-page split done 2026-09-25 (Setup menu, Focus & Square,
+      Calibration, Gallery are now separate pages/routes) — still open, and distinct from that:
+      within `/setup/calibration` itself, the 7 steps are still one long scroll of headings, not
+      real paging. Wanted: Next/Back buttons, one step shown at a time, and at each step a gate
+      that checks whether things look reasonable before moving on — e.g. leveling/squareness very
+      off, or a run's residuals very high, caught right there instead of only surfacing in the
+      final report. Needs real threshold values from measured runs, not guessed constants, plus a
+      UX decision (warn vs. block progress) — a design question of its own, not a small addition.
+      Distinct from M6's alerts item, which is about unattended-operation alerts, not interactive
+      setup feedback. *(Aaron, 2026-09-21; multi-page split 2026-09-25; Next/Back + per-step gate
+      explicitly requested 2026-09-25.)*
+- [x] **Step 4 ("Confirm nothing moved") — removed entirely, 2026-09-25.** Superseded by the
+      "fundamentally confusing" item below: the colored-rings redesign proposed here would have
+      fixed the presentation but not the underlying problem, which turned out to be that the step
+      had no real job. Its "Zero here" baseline was in-memory only (`_live_orientation_baseline`
+      in `app.py`, never persisted) and distinct from the baseline `/calibration/tripwire/check`
+      actually reads (the one `/calibration/run` builds and saves) -- so it could not do the thing
+      Aaron wanted it for ("detect if the camera has been rotated in the future"). Traced through
+      with the advisor: a fixed camera rotation, even a large one, adds no measurement error on
+      its own (area is orientation-independent, and the scale field/homography are rebuilt fresh
+      from wherever the corner tags actually are each calibration) -- what would catch a badly
+      rotated camera during setup is the Step 1/2 squareness guide lines (a framing problem, tags
+      falling out of frame), not a roll number. And a bump between Step 2 and Step 5 (e.g. while
+      placing sheets) still gets calibrated correctly by Step 5, which is also where the real,
+      persisted baseline gets built -- so removing Step 4 loses nothing. Endpoints
+      `/calibration/orientation/zero` and `/calibration/orientation/live`, the module-level
+      `_live_orientation_baseline`, and their 5 unit tests removed along with the wizard step;
+      `/calibration/orientation/level.jpg` (Step 2's traffic light, a different, non-baseline
+      check) is untouched. Wizard is now 6 steps.
+- [x] **Step 3 ("Place calibration and corner sheets"): placement diagram — built 2026-09-25.**
+      Inline SVG: every tray gets a sheet (not an alternating pattern -- see below), four corner
+      dots labelled NW/NE/SW/SE (top = north, right = east, Aaron's stated convention).
+- [x] **Step 3: download links for the calibration/corner sheet PDFs — built 2026-09-25.** New
+      `/reference/calibration-sheets` static mount in `app.py`; linked as a `<ul>` (Aaron asked for
+      a list over the original middot-joined links, for readability).
+      **Real correction during this work:** the diagram's first version used PLAN.md's own
+      "alternating trays" pattern, and the specific alternating (checkerboard) pattern chosen only
+      put sheets on two of the four corner-most trays (NW, SE) -- Aaron caught this by inspection.
+      Root question then: since sheets are already established as reusable, why alternate at all?
+      No good answer -- switched to every tray, which also removes the "does this pattern reach
+      all four corners" class of mistake entirely. Fixed the same stale "alternating trays"
+      wording in PLAN.md (two spots) to match.
+- [x] **New Setup page "Health check", and moved "Check tripwire now" onto it — built
+      2026-09-25.** `/setup/health-check` (`setup_health_check.html`), linked from the Setup menu
+      alongside Focus & Square and Calibration. Holds just the tripwire check for now (the other
+      candidate, the wizard's old "confirm nothing moved" step, was removed outright rather than
+      relocated -- see above). Button/JS moved verbatim from the wizard's Step 4 (now "Run
+      calibration"); that step's own result panel and "Run calibration" button are untouched, and
+      its "Set as current baseline" copy now links to the new page instead of saying "further
+      down."
+- [ ] **Step 5/6: let the operator load a previous saved calibration's report instead of always
+      requiring a fresh capture** — "Read the report" currently only ever shows the just-run
+      calibration; there's no way to browse `/calibration/list`'s saved artifacts and view an old
+      report without re-running calibration. Likely the same underlying picker feature as the
+      existing "let the two heatmaps and rank plots be viewed for a past calibration" item below,
+      applied to the whole report rather than just those two plots. *(Aaron, 2026-09-25.)*
+- [x] **Table width/length/corner-tag-size now persist between runs — built 2026-09-25.** Aaron:
+      "the calibration doesn't remember the settings from the previous runs so I always get the
+      NOT TO SCALE thing." All three stored via `settings.py`'s key/value store (the same one
+      camera controls use) -- not the `CalibrationArtifact`, since these are operator-typed
+      display convenience values, not measurements, and don't deserve a version bump that would
+      strand every already-saved artifact on disk. Only a real, explicitly-given value is ever
+      persisted; a blank field falls back to the last real value given, never to a guessed
+      default. `/calibration/current` now echoes all three (even before any calibration exists)
+      so the wizard can pre-fill the inputs, same pattern as the existing tag-size pre-fill.
+      **Follow-up, same day: that persistence had no way to actually reach it.** Aaron: "There's
+      no way to enter the table width and length in mm. There's no submit button." True -- the
+      only thing that saved these three was clicking "Run calibration", a full physical capture +
+      tag-detection cycle. Once the calibration sheets come off the table (Step 6), there's no way
+      to fix a mistyped table dimension without redoing the whole physical setup. Fixed with a
+      dedicated `POST /calibration/table-dims` (no camera access, no detection -- just
+      `save_setting` on whichever of the three are given) and a "Save" button next to the inputs.
+      **Separately, the "49 vs 50" report was the corner-tag-size input's placeholder text**
+      (`"e.g. 49.87"`), not a functional default (`ASSUMED_CORNER_TAG_SIZE_MM` was already
+      correctly `50.0`) -- and it was showing truncated as "49." because the box was too narrow
+      for the native number-input spinner arrows to leave room for the full placeholder. Fixed
+      the text to `"e.g. 50"` and widened the box (6rem -> 7rem, matching the width/length
+      inputs). Real values from Aaron entered directly via the new endpoint: table width (E-W,
+      the frame's long/X dimension) 1496mm, length (N-S, short/Y dimension) 1152mm, corner tag
+      50mm.
+- [ ] **Step 6: add a labeled diagram of what table width/length mean.** Using a fixed compass
+      convention: top of the image is **north**, right side is **east** (matches how the camera
+      looks down at the table) — the current text-only description (top-left to top-right =
+      width, top-left to bottom-left = length) asks the operator to hold that mapping in their
+      head instead of seeing it drawn. *(Aaron, 2026-09-25.)*
+- [ ] **Calibration history browser — major feature, planned 2026-09-26, not started. See the
+      dedicated handoff doc: `reference/plans/calibration-history-browser.md`.** Supersedes the
+      "move calibration history into a gallery" item below (folded into this one) and the
+      "load past reports" idea from earlier the same day. Short version: browse every saved
+      calibration with a snapshot image and color-coded key stats per entry, with a "make this
+      the active baseline" action carrying an explicit "not a substitute for a full calibration"
+      disclaimer, and a delete action. No "undo" button -- rejected as unclear (how many steps
+      back, what state changes). Read the doc before starting; it has the full motivating
+      scenario, the rejected alternative, and the open design questions a fresh agent needs to
+      resolve (which stats are cheap enough to show in a list vs. need re-detection, which
+      metrics already have an established color threshold vs. don't). *(Aaron, 2026-09-26.)*
 - [ ] **Zoomed focus preview (`/focus/roi.mjpg`) is awful quality** — Aaron: looks like a zoom of
       a reduced-quality image. Should be much higher quality to actually help focus by eye.
       `CameraManager.roi_crop_jpeg` (`camera.py`) crops from the continuous `main` video stream
@@ -718,6 +856,27 @@ The heart of the project. Do not start before M1 slice 5.
       the rank plots and the area-shape heatmap specifically, re-detecting tags from that run's
       saved frame each time (their per-tag data isn't persisted in the artifact -- see
       `ScaleResidualSample`/`AreaScaleSample`). *(Aaron, 2026-09-22)*
+- [ ] **Tidy up the calibration result messages -- too much shown at once, agreed plan not yet
+      built.** Aaron, 2026-09-25, on a real 10-line result: "This is waaaaaaaay too much
+      information and not all of it is relevant to someone that has just set this up." Agreed
+      split: stays visible immediately -- tag/corner detection counts; the coverage verdict
+      (the one actionable line); the table-view scale note, but only when NOT TO SCALE; tag
+      size/corner tag size, but only when still a placeholder default (a real measured value is
+      just restating something already known). Moves into the existing "Diagnostics" `<details>`
+      panel -- exact px/mm at centre + plane-fit residual %; scale variation % and direction;
+      area-scale error/shape distortion including the worst-tag callout. Needs
+      `build_calibration_report()` (or its caller in `app.py`) to return two groups instead of one
+      flat list, so the frontend can route lines to two different places.
+- [ ] **Low priority: Step 1 -- move the autofocus and manual focus controls to below the
+      images**, not beside/above them as now. *(Aaron, 2026-09-25.)*
+- [ ] **Low priority: Step 1 -- explain what "Lock focus" actually does.** No copy anywhere says
+      what locking does or why you'd want to. *(Aaron, 2026-09-25.)*
+- [ ] **Low priority: Step 3 -- the Back/Next buttons don't match the button style used
+      everywhere else in the app.** *(Aaron, 2026-09-25.)*
+- [ ] **Low priority, general UI idea: (i) icons that expand or show a pop-over on click**, to
+      move some of the current always-visible explanatory paragraphs out of the main flow and
+      clean up the interface. Not scoped to a specific step -- a general pattern to consider
+      across the Setup pages. *(Aaron, 2026-09-25.)*
 
 ### M2 acceptance — run in the chamber
 - [x] **Two-baseline test — run remotely 2026-09-25, clear pass.** Two calibrations of the same
@@ -813,6 +972,14 @@ The heart of the project. Do not start before M1 slice 5.
       (e.g. one directory per experiment, named/indexed so it's obvious which is which) — not
       commingled with calibration data or other experiments. *(Aaron, 2026-09-19)*
 - [ ] Interval scheduler, 1–6 min, trust verdict per capture
+- [ ] **Scheduled captures must not contend with live preview/setup streams for the camera.**
+      Right now the Setup pages (Focus & Square, live leveling, live reorientation) all poll or
+      stream from the camera whenever their step/page is open — fine while nothing else needs the
+      camera, but once M3's scheduler is real, a scheduled sample and someone reviewing Setup at
+      the same time would compete for the same hardware. Needs a real arbitration decision (lock
+      out live preview during a scheduled capture? queue it? refuse Setup access mid-capture?),
+      not guessed. *(Aaron, 2026-09-25, raised while gating Setup's live streams to only run on
+      their own visible step.)*
 - [ ] Survives reboot; recovers from failures; never silently stops
 - [ ] Disk monitoring with headroom shown prominently
 - [ ] Retention policy
@@ -828,6 +995,11 @@ The heart of the project. Do not start before M1 slice 5.
 - [ ] Nice-to-have, not important: download captures, single or as a batch. *(Aaron, 2026-09-19)*
 - [ ] Nice-to-have, not important: clear/delete previously captured photos.
       *(Aaron, 2026-09-19)*
+- [ ] Low priority: a live preview alongside the Capture button on the new `/gallery` page, so
+      you can see what you're about to capture instead of only the result afterward.
+      *(Aaron, 2026-09-25)*
+- [ ] Low priority: click a gallery thumbnail to view it larger. *(Aaron, 2026-09-25 — same request
+      as the download/delete items above, reconfirmed on the new `/gallery` page.)*
 - [ ] **Acceptance:** 24 h unattended at exactly the expected count · reboot mid-run, resumes ·
       download a CSV and open it · headroom matches `df`
 

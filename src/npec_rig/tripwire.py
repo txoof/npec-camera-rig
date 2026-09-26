@@ -173,3 +173,68 @@ def check_tripwire(
         roll_deg=roll_deg,
         scale_delta_pct=scale_delta_pct,
     )
+
+
+@dataclass(frozen=True)
+class CornerLevelReading:
+    """One corner tag's apparent size compared to the *other currently-detected* corner tags --
+    self-referential, no baseline needed. See `corner_level_readings` for the physics."""
+
+    tag_id: int
+    centre: tuple[float, float]
+    deviation_pct: float  # +ve = larger than the mean of the others (closer to the camera)
+    status: str  # "ok" | "drift" | "fail"
+
+
+def corner_level_readings(
+    detections: list[TagDetection],
+    *,
+    drift_pct: float = DEFAULT_SCALE_DRIFT_PCT,
+    fail_pct: float = DEFAULT_SCALE_FAIL_PCT,
+) -> list[CornerLevelReading]:
+    """How co-planar the table is with the camera, read live with no zero/baseline step: under a
+    pinhole projection, a tag's apparent size depends only on its distance from the camera, not on
+    where it sits within a fronto-parallel plane. So if the table is co-planar, every corner tag
+    reads the same size *right now*, regardless of how each one happens to be mounted -- this
+    doesn't assume symmetric placement the way a fixed-ROI approach would.
+
+    Reuses `DEFAULT_SCALE_DRIFT_PCT`/`DEFAULT_SCALE_FAIL_PCT`, the same bands `check_tripwire`
+    already uses for its (baseline-relative) `scale_delta_pct` -- one definition of "how much
+    size difference matters," not two.
+
+    Returns one reading per currently-detected corner tag (`CORNER_ID_RANGE`), or an empty list if
+    fewer than 2 are detected -- "different from the mean of the others" needs at least 2 to
+    compare. Unlike `check_tripwire`, there is no baseline here, so a corner tag that isn't
+    currently detected has no "missing" status to report -- there's nothing to know it's missing
+    *from* before any calibration exists.
+    """
+    corner_detections = [d for d in detections if d.tag_id in CORNER_ID_RANGE]
+    if len(corner_detections) < 2:
+        return []
+
+    sides = {d.tag_id: tag_side_px(d.corners) for d in corner_detections}
+    total_side = sum(sides.values())
+    n = len(sides)
+    centres = {d.tag_id: d.centre for d in corner_detections}
+
+    readings = []
+    for tag_id, side in sides.items():
+        # Mean of the *other* tags, not including this one -- found by code review 2026-09-26:
+        # including self in the mean dilutes the reported deviation by ~1/n, worst at the
+        # minimum-supported n=2 (a 16% real size difference between the only two detected tags
+        # read back as ~7.4% each, landing in "drift" instead of clearly "fail").
+        others_mean = (total_side - side) / (n - 1)
+        deviation_pct = 100.0 * (side / others_mean - 1.0)
+        magnitude = abs(deviation_pct)
+        if magnitude >= fail_pct:
+            status = "fail"
+        elif magnitude >= drift_pct:
+            status = "drift"
+        else:
+            status = "ok"
+        readings.append(
+            CornerLevelReading(
+                tag_id=tag_id, centre=centres[tag_id], deviation_pct=deviation_pct, status=status
+            )
+        )
+    return readings

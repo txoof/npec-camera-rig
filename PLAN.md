@@ -47,8 +47,9 @@ an experimenter can see rather than compute.
 | **Coverage** | Dense, reaches all four frame corners | 12 points, accumulating as trays roam |
 | **Experimenter effort** | ~5 min, rare | **Zero** |
 
-Paper sheets of AprilTags laid on top of alternating trays (`x 0 x 0 x` / `x 0 x 0 x`) — the
-corners are what matter, spread beats count. The 12 fixed tray tags then carry scale forever after,
+Paper sheets of AprilTags laid on top of every tray — sheets are reusable, so there's no reason
+not to cover all 12, and it reaches all four frame corners without having to pick a pattern that
+does. The 12 fixed tray tags then carry scale forever after,
 **including across refocusing for a different tray height**, which is why changing tray height
 costs the experimenter nothing but the focus step.
 
@@ -328,8 +329,8 @@ bake-off from scratch. Only if measured corner jitter proves inadequate do we ev
 `pupil-apriltags`, and then on the bench frames we already have.
 
 **A. Setup calibration (rare — chamber initiation, or when the app asks)**
-- Paper AprilTag sheets laid on alternating trays at the experiment's tray height, reaching all
-  four frame corners.
+- Paper AprilTag sheets laid on every tray at the experiment's tray height, reaching all four
+  frame corners.
 - Produces the **scale field** (mm/px across the measurement plane) and the **uncertainty field**
   (local scatter among neighbouring tags), plus roll, tilt and framing coverage.
 - **Coverage sufficiency is measured, not guessed — a holdout test.** Build the field from half the

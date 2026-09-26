@@ -4,6 +4,7 @@ from npec_rig.tripwire import (
     CornerBaseline,
     build_corner_baseline,
     check_tripwire,
+    corner_level_readings,
 )
 
 from .helpers import rotate_detection, square_detection
@@ -152,3 +153,69 @@ def test_thresholds_are_overridable() -> None:
     # Default drift threshold (1 deg) would flag this; a looser one shouldn't.
     result = check_tripwire(baseline, rotated, roll_drift_deg=5.0, roll_fail_deg=20.0)
     assert result.verdict == "OK"
+
+
+def test_level_readings_all_ok_when_all_corners_are_the_same_size() -> None:
+    readings = corner_level_readings(_corner_detections())
+    assert len(readings) == 4
+    assert all(r.status == "ok" for r in readings)
+    assert all(r.deviation_pct == pytest.approx(0.0, abs=1e-6) for r in readings)
+
+
+def test_level_readings_flag_a_closer_corner_regardless_of_where_it_sits() -> None:
+    # Deliberately asymmetric layout (not centred, not evenly spaced) -- the physics this checks
+    # (apparent size depends on distance from the camera, not position in a fronto-parallel
+    # plane) doesn't care where each tag is mounted, only how far it is from the others' size.
+    detections = [
+        square_detection(450, 0, 0, 100),
+        square_detection(451, 1200, 50, 100),
+        square_detection(452, 30, 1500, 100),
+        square_detection(453, 1400, 1600, 106),  # ~6% bigger -- closer to the camera
+    ]
+    readings = corner_level_readings(detections)
+    by_id = {r.tag_id: r for r in readings}
+    assert by_id[453].status == "drift"
+    assert by_id[453].deviation_pct > 0
+    assert by_id[450].status == "ok"
+
+
+def test_level_readings_fail_band_at_a_large_deviation() -> None:
+    detections = _corner_detections()
+    detections[3] = square_detection(453, 1000, 1000, 130)  # 30% bigger than the other three
+    readings = corner_level_readings(detections)
+    by_id = {r.tag_id: r for r in readings}
+    assert by_id[453].status == "fail"
+
+
+def test_level_readings_mean_excludes_self_at_the_two_tag_minimum() -> None:
+    # Found by code review 2026-09-26: with the minimum supported 2 tags, a mean that includes
+    # each tag itself dilutes a real 16% size difference to ~7.4% each -- under the 8% fail
+    # threshold. Excluding self recovers the true magnitude (per the docstring's own claim).
+    detections = [
+        square_detection(450, 0, 0, 100),
+        square_detection(451, 1000, 1000, 116),  # 16% bigger than the other
+    ]
+    readings = corner_level_readings(detections)
+    by_id = {r.tag_id: r for r in readings}
+    assert by_id[451].deviation_pct == pytest.approx(16.0)
+    assert by_id[451].status == "fail"
+    assert by_id[450].deviation_pct == pytest.approx(100 / 116 * 100 - 100)
+    assert by_id[450].status == "fail"
+
+
+def test_level_readings_empty_with_fewer_than_two_corner_tags() -> None:
+    assert corner_level_readings(_corner_detections(tag_ids=[450])) == []
+    assert corner_level_readings([]) == []
+
+
+def test_level_readings_ignore_non_corner_tags() -> None:
+    detections = _corner_detections() + [square_detection(5, 500, 500, 500)]  # a tray tag
+    readings = corner_level_readings(detections)
+    assert {r.tag_id for r in readings} == {450, 451, 452, 453}
+
+
+def test_level_readings_thresholds_are_overridable() -> None:
+    detections = _corner_detections()
+    detections[3] = square_detection(453, 1000, 1000, 104)  # 4% bigger
+    readings = corner_level_readings(detections, drift_pct=5.0, fail_pct=10.0)
+    assert all(r.status == "ok" for r in readings)

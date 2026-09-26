@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from npec_rig.calibration import (
+    UncertaintyField,
     area_scale_samples,
     build_area_scale_field,
     build_scale_field,
@@ -16,14 +17,16 @@ from npec_rig.calibration_viz import (
     TABLE_VIEW_CANVAS_DIM,
     render_area_shape_heatmap,
     render_best_worst_overlay,
+    render_certainty_dome_plot,
     render_honesty_plot,
+    render_level_overlay,
     render_radial_residual_plot,
     render_rank_plot,
     render_table_view,
     render_uncertainty_heatmap,
 )
 from npec_rig.tags import TagDetection
-from npec_rig.tripwire import CornerBaseline
+from npec_rig.tripwire import CornerBaseline, corner_level_readings
 
 from .helpers import square_detection as _square_detection
 
@@ -101,6 +104,29 @@ def test_heatmap_downscales_large_frames_and_still_samples_original_coordinates(
     # colour everywhere, not an artifact of the coordinate rescale being wrong.
     unique_colors = np.unique(heatmap.reshape(-1, 3), axis=0)
     assert len(unique_colors) == 1
+
+
+def test_heatmap_k_controls_neighbourhood_size() -> None:
+    # A small, sharply-biased cluster of 5 tags right next to (0, 0), plus 50 well-fit tags
+    # spread far away. At k=5 the query point's nearest neighbours are entirely the biased
+    # cluster; at k=40 most neighbours are the far-away well-fit tags, diluting the same real
+    # bias. Same underlying data either way -- only the neighbourhood size changes.
+    positions = [(10.0, 10.0)] * 5
+    residuals = [5.0] * 5
+    for i in range(50):
+        positions.append((5000.0 + i, 5000.0 + i))
+        residuals.append(0.0)
+    field = UncertaintyField(_positions=tuple(positions), _residual_pct=tuple(residuals))
+
+    small_k = field.local_uncertainty_pct(0.0, 0.0, k=5)
+    large_k = field.local_uncertainty_pct(0.0, 0.0, k=40)
+    assert small_k == pytest.approx(5.0)
+    assert large_k < small_k
+
+    frame = np.full((100, 100, 3), 128, dtype=np.uint8)
+    heatmap_small_k = render_uncertainty_heatmap(field, frame, k=5)
+    heatmap_large_k = render_uncertainty_heatmap(field, frame, k=40)
+    assert not np.array_equal(heatmap_small_k, heatmap_large_k)
 
 
 def _uniform_area_field():
@@ -250,6 +276,48 @@ def test_best_worst_overlay_downscales_large_frames() -> None:
     assert image.shape == (150, 200, 3)  # aspect ratio preserved
 
 
+def test_level_overlay_matches_frame_size_and_channels() -> None:
+    frame = np.full((200, 300, 3), 128, dtype=np.uint8)
+    detections = [
+        _square_detection(450, 50.0, 50.0, 40),
+        _square_detection(451, 250.0, 50.0, 40),
+        _square_detection(452, 50.0, 150.0, 40),
+    ]
+    readings = corner_level_readings(detections)
+    image = render_level_overlay(frame, readings)
+    assert image.shape == (200, 300, 3)
+    assert image.dtype == np.uint8
+
+
+def test_level_overlay_draws_something_distinct_from_a_blank_frame() -> None:
+    frame = np.full((200, 300, 3), 128, dtype=np.uint8)
+    detections = [
+        _square_detection(450, 50.0, 50.0, 40),
+        _square_detection(451, 250.0, 50.0, 55),  # notably bigger -- closer
+    ]
+    readings = corner_level_readings(detections)
+    image = render_level_overlay(frame, readings)
+    assert not np.all(image == 128)
+
+
+def test_level_overlay_handles_no_readings_without_crashing() -> None:
+    frame = np.full((200, 300, 3), 128, dtype=np.uint8)
+    image = render_level_overlay(frame, [])
+    assert image.shape == (200, 300, 3)
+    assert not np.all(image == 128)  # the "need more tags" caption still draws
+
+
+def test_level_overlay_downscales_large_frames() -> None:
+    frame = np.full((600, 800, 3), 128, dtype=np.uint8)
+    detections = [
+        _square_detection(450, 100.0, 100.0, 80),
+        _square_detection(451, 700.0, 500.0, 80),
+    ]
+    readings = corner_level_readings(detections)
+    image = render_level_overlay(frame, readings, max_width=200)
+    assert image.shape == (150, 200, 3)  # aspect ratio preserved
+
+
 def test_radial_plot_renders_an_image_of_the_requested_size() -> None:
     points = [(0.0, 0.1, 1), (100.0, 0.5, 2), (200.0, -0.3, 3), (300.0, 1.2, 4)]
     image = render_radial_residual_plot(points, label="scale residual", size=400, margin=50, top_margin=80)
@@ -272,6 +340,37 @@ def test_radial_plot_handles_zero_variance_without_crashing() -> None:
     # naive R^2 calculation. Exercises the guard rather than the maths.
     points = [(0.0, 1.0, 1), (100.0, 1.0, 2), (200.0, 1.0, 3)]
     image = render_radial_residual_plot(points, label="scale residual", size=300, margin=50, top_margin=80)
+    assert image.shape == (300, 300, 3)
+
+
+def test_certainty_dome_plot_renders_an_image_of_the_requested_size() -> None:
+    points = [(0.0, 0.5, 1), (100.0, 0.8, 2), (200.0, 1.5, 3), (300.0, 2.0, 4)]
+    image = render_certainty_dome_plot(points, size=400, margin=50, top_margin=80)
+    assert image.shape == (400, 400, 3)
+
+
+def test_certainty_dome_plot_requires_at_least_two_points() -> None:
+    with pytest.raises(ValueError, match="at least 2"):
+        render_certainty_dome_plot([(0.0, 0.5, 1)])
+
+
+def test_certainty_dome_plot_draws_something_for_a_real_spread() -> None:
+    points = [(0.0, 0.5, 1), (100.0, 0.8, 2), (200.0, 1.5, 3), (300.0, 2.0, 4)]
+    image = render_certainty_dome_plot(points, size=300, margin=50, top_margin=80)
+    assert not np.all(image == 255)
+
+
+def test_certainty_dome_plot_handles_zero_variance_without_crashing() -> None:
+    points = [(0.0, 1.0, 1), (100.0, 1.0, 2), (200.0, 1.0, 3)]
+    image = render_certainty_dome_plot(points, size=300, margin=50, top_margin=80)
+    assert image.shape == (300, 300, 3)
+
+
+def test_certainty_dome_plot_is_unsigned_even_with_a_negative_fit_intercept() -> None:
+    # A real UncertaintyField is always >= 0, but a noisy small sample can still fit a negative
+    # intercept -- the plot must not draw the fit line (or a tick) below the zero axis.
+    points = [(0.0, 0.05, 1), (10.0, 0.02, 2), (500.0, 3.0, 3)]
+    image = render_certainty_dome_plot(points, size=300, margin=50, top_margin=80)
     assert image.shape == (300, 300, 3)
 
 

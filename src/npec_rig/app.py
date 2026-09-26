@@ -6,7 +6,7 @@ from threading import Lock
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -26,6 +26,7 @@ from npec_rig.calibration_store import (
     load_calibration_frame,
     load_current_calibration,
     save_calibration,
+    save_calibration_accuracy_shape_heatmap,
     save_calibration_area_shape_heatmap,
     save_calibration_frame,
     save_calibration_heatmap,
@@ -33,13 +34,16 @@ from npec_rig.calibration_store import (
     save_calibration_table_view_area_shape,
 )
 from npec_rig.calibration_viz import (
+    ACCURACY_SHAPE_HEATMAP_K,
     AREA_SHAPE_HEATMAP_MAX_PCT,
     AREA_SHAPE_HEATMAP_MIN_PCT,
     HEATMAP_MAX_PCT,
     HEATMAP_MIN_PCT,
     render_area_shape_heatmap,
     render_best_worst_overlay,
+    render_certainty_dome_plot,
     render_honesty_plot,
+    render_level_overlay,
     render_radial_residual_plot,
     render_rank_plot,
     render_table_view,
@@ -47,6 +51,7 @@ from npec_rig.calibration_viz import (
 )
 from npec_rig.camera import CameraManager, array_to_jpeg
 from npec_rig.captures import captures_root, list_recent_captures, save_capture
+from npec_rig.settings import load_settings, save_setting
 from npec_rig.tags import (
     ASSUMED_CALIBRATION_TAG_SIZE_MM,
     ASSUMED_CORNER_TAG_SIZE_MM,
@@ -54,9 +59,16 @@ from npec_rig.tags import (
     CORNER_ID_RANGE,
     detect_tags,
 )
-from npec_rig.tripwire import CornerBaseline, build_corner_baseline, check_tripwire
+from npec_rig.tripwire import (
+    build_corner_baseline,
+    check_tripwire,
+    corner_level_readings,
+)
 
 STATIC_DIR = Path(__file__).parent / "static"
+# The printable sheets themselves (reference/calibration-sheets/), not app code -- served so the
+# Setup wizard can hand the operator a direct download link at the point they're needed.
+CALIBRATION_SHEETS_DIR = Path(__file__).parent.parent.parent / "reference" / "calibration-sheets"
 PREVIEW_BOUNDARY = b"frame"
 PREVIEW_FPS_LIMIT = 10.0
 ROI_STREAM_FPS_LIMIT = 5.0
@@ -70,12 +82,56 @@ app.mount("/captures", StaticFiles(directory=str(captures_root())), name="captur
 # Serves both the timestamped artifact JSON and, under frames/, the full-res still each one
 # came from (calibration_store.save_calibration_frame).
 app.mount("/calibration/files", StaticFiles(directory=str(calibration_root())), name="calibration_files")
+# Shared CSS (and any future shared JS) for the plain multi-page static frontend -- no build step,
+# no templating, just files served as-is alongside the page routes below.
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.mount(
+    "/reference/calibration-sheets",
+    StaticFiles(directory=str(CALIBRATION_SHEETS_DIR)),
+    name="calibration_sheets",
+)
 
 
-@app.get("/", response_class=HTMLResponse)
-def index() -> str:
-    """The camera console page."""
-    return (STATIC_DIR / "index.html").read_text()
+@app.get("/")
+def index() -> RedirectResponse:
+    """Root redirects to the everyday page -- Setup is occasional, not the default landing spot
+    (2026-09-25 Setup-pages redesign)."""
+    return RedirectResponse(url="/gallery")
+
+
+@app.get("/setup", response_class=HTMLResponse)
+def setup_page() -> str:
+    """Setup menu: links to Focus & Square, Calibration, and Health check. One-and-done (or
+    occasional) rig setup, kept separate from everyday capture/browsing."""
+    return (STATIC_DIR / "setup_index.html").read_text()
+
+
+@app.get("/setup/focus", response_class=HTMLResponse)
+def setup_focus_page() -> str:
+    """Autofocus, manual lens position, and the squareness guide lines."""
+    return (STATIC_DIR / "setup_focus.html").read_text()
+
+
+@app.get("/setup/calibration", response_class=HTMLResponse)
+def setup_calibration_page() -> str:
+    """The calibration wizard (6 steps) and its diagnostics."""
+    return (STATIC_DIR / "setup_calibration.html").read_text()
+
+
+@app.get("/setup/health-check", response_class=HTMLResponse)
+def setup_health_check_page() -> str:
+    """On-demand checks outside the linear calibration wizard -- currently just the tripwire
+    check, moved here from the wizard (Aaron, 2026-09-25: "should not be part of the wizard,
+    should be moved to a 'health check' screen")."""
+    return (STATIC_DIR / "setup_health_check.html").read_text()
+
+
+@app.get("/gallery", response_class=HTMLResponse)
+def gallery_page() -> str:
+    """Capture button + recent-captures gallery, split out of the main page (2026-09-25):
+    unrelated to camera/calibration setup, and cluttered a page that's supposed to be a quick
+    Setup flow."""
+    return (STATIC_DIR / "gallery.html").read_text()
 
 
 @app.get("/snapshot.jpg")
@@ -299,6 +355,46 @@ def _outer_edge_span_to_centre_distance_mm(
     return centre_to_centre_mm if centre_to_centre_mm > 0 else None
 
 
+def _resolve_table_dims(
+    table_width_mm: float | None,
+    table_length_mm: float | None,
+    corner_tag_size_mm: float | None,
+    *,
+    persist: bool,
+) -> tuple[float | None, float | None, float | None]:
+    """Resolve the three table-position-view display values against what's already persisted
+    (`settings.py`), used by both `run_calibration` and `save_table_dims` -- found duplicated
+    (and already diverging) by code review 2026-09-26.
+
+    A given value only counts as real if it's a positive number. 0 or negative can't be a
+    physical tag size or table span; letting one through used to reach
+    `_outer_edge_span_to_centre_distance_mm` as `corner_tag_size_mm=0`, which doesn't trip that
+    function's own non-positive guard (0 subtracts nothing, rather than producing a non-positive
+    result) -- silently rendering "to scale" with the tag-width correction missing entirely, and
+    persisting the bad 0 as every future run's default. An invalid value here is treated exactly
+    like a blank field: falls back to whatever was last validly persisted, and is never written.
+
+    `persist=False` for a `promote=False` comparison run (PLAN.md's two-baseline/two-height
+    tests): a deliberately different value for that one comparison run must not silently become
+    every future real run's default, the way `promote=False` already keeps `current.json`
+    untouched.
+    """
+    persisted = load_settings()
+    resolved: list[float | None] = []
+    for name, value in (
+        ("table_width_mm", table_width_mm),
+        ("table_length_mm", table_length_mm),
+        ("corner_tag_size_mm", corner_tag_size_mm),
+    ):
+        if value is not None and value > 0:
+            if persist:
+                save_setting(name, value)
+            resolved.append(value)
+        else:
+            resolved.append(persisted.get(name))
+    return tuple(resolved)  # type: ignore[return-value]
+
+
 @app.post("/calibration/run")
 def run_calibration(
     promote: bool = True,
@@ -328,13 +424,20 @@ def run_calibration(
     converted to the centre-to-centre distance `render_table_view` needs via
     `_outer_edge_span_to_centre_distance_mm`, using `corner_tag_size_mm` (calliper-measured if
     given, else `ASSUMED_CORNER_TAG_SIZE_MM`'s nominal placeholder, same pattern as
-    `calibration_tag_size_mm`). None of the three is persisted anywhere (no `CalibrationArtifact`
-    schema change): all are echoed straight back in the result so the UI can state which mode a
-    given run's table view used, and there's nothing to pre-fill a repeat run from other than what
-    the operator types again.
+    `calibration_tag_size_mm`).
+
+    All three go through `_resolve_table_dims` (see its docstring): remembered across runs via
+    `settings.py`'s key/value store, not the `CalibrationArtifact`; only a real (positive),
+    explicitly-given value is ever persisted, and only when `promote` is also true -- a
+    `promote=False` comparison run's own values are used for *this* run's table view but never
+    become the sticky default for every real run after it, the same way `promote=False` already
+    keeps `current.json` untouched.
     """
     tag_size_mm = calibration_tag_size_mm if calibration_tag_size_mm is not None else (
         ASSUMED_CALIBRATION_TAG_SIZE_MM
+    )
+    table_width_mm, table_length_mm, corner_tag_size_mm = _resolve_table_dims(
+        table_width_mm, table_length_mm, corner_tag_size_mm, persist=promote
     )
     corner_size_mm = corner_tag_size_mm if corner_tag_size_mm is not None else (
         ASSUMED_CORNER_TAG_SIZE_MM
@@ -394,8 +497,19 @@ def run_calibration(
         heatmap = render_uncertainty_heatmap(uncertainty_field, array)
         save_calibration_heatmap(heatmap, stem=stem)
         result["heatmap_url"] = f"/calibration/files/heatmaps/{stem}.jpg"
+
+        # Same real per-tag residuals as the heatmap above, averaged over a much wider
+        # neighbourhood (see ACCURACY_SHAPE_HEATMAP_K's own comment) -- for judging the rig's
+        # overall accuracy shape once basic setup is done, not for finding exactly where
+        # coverage is thin (that's the small-k heatmap's job). Aaron/supervisor, 2026-09-25.
+        accuracy_shape_heatmap = render_uncertainty_heatmap(
+            uncertainty_field, array, k=ACCURACY_SHAPE_HEATMAP_K
+        )
+        save_calibration_accuracy_shape_heatmap(accuracy_shape_heatmap, stem=stem)
+        result["accuracy_shape_heatmap_url"] = f"/calibration/files/heatmaps/{stem}_accuracy-shape.jpg"
     else:
         result["heatmap_url"] = None
+        result["accuracy_shape_heatmap_url"] = None
 
     try:
         area_field = build_area_scale_field(area_scale_samples(field, detections, tag_sizes_mm))
@@ -496,6 +610,9 @@ def list_calibration_artifacts() -> list[dict]:
         area_shape_heatmap_url = None
         if (calibration_root() / "heatmaps" / f"{path.stem}_area-shape.jpg").exists():
             area_shape_heatmap_url = f"/calibration/files/heatmaps/{path.stem}_area-shape.jpg"
+        accuracy_shape_heatmap_url = None
+        if (calibration_root() / "heatmaps" / f"{path.stem}_accuracy-shape.jpg").exists():
+            accuracy_shape_heatmap_url = f"/calibration/files/heatmaps/{path.stem}_accuracy-shape.jpg"
         table_view_url = None
         if (calibration_root() / "heatmaps" / f"{path.stem}_table-view.jpg").exists():
             table_view_url = f"/calibration/files/heatmaps/{path.stem}_table-view.jpg"
@@ -511,6 +628,7 @@ def list_calibration_artifacts() -> list[dict]:
                 "frame_url": frame_url,
                 "heatmap_url": heatmap_url,
                 "area_shape_heatmap_url": area_shape_heatmap_url,
+                "accuracy_shape_heatmap_url": accuracy_shape_heatmap_url,
                 "table_view_url": table_view_url,
                 "table_view_shape_url": table_view_shape_url,
             }
@@ -520,10 +638,22 @@ def list_calibration_artifacts() -> list[dict]:
 
 @app.get("/calibration/current")
 def current_calibration() -> dict:
-    """Summary of the active saved calibration, so the operator knows which one is live."""
+    """Summary of the active saved calibration, so the operator knows which one is live.
+
+    `table_width_mm`/`table_length_mm`/`corner_tag_size_mm` come from `settings.py`, not the
+    artifact -- they're the operator's last real, explicitly-typed values (see `run_calibration`'s
+    docstring), available for the UI to pre-fill from regardless of whether a calibration has
+    ever been saved.
+    """
+    persisted = load_settings()
+    table_dims = {
+        "table_width_mm": persisted.get("table_width_mm"),
+        "table_length_mm": persisted.get("table_length_mm"),
+        "corner_tag_size_mm": persisted.get("corner_tag_size_mm"),
+    }
     artifact = load_current_calibration()
     if artifact is None:
-        return {"exists": False}
+        return {"exists": False, **table_dims}
     frame_url = f"/calibration/files/frames/{artifact.frame_stem}.jpg" if artifact.frame_stem else None
     heatmap_url = (
         f"/calibration/files/heatmaps/{artifact.frame_stem}.jpg"
@@ -535,6 +665,12 @@ def current_calibration() -> dict:
         f"/calibration/files/heatmaps/{artifact.frame_stem}_area-shape.jpg"
         if artifact.frame_stem
         and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}_area-shape.jpg").exists()
+        else None
+    )
+    accuracy_shape_heatmap_url = (
+        f"/calibration/files/heatmaps/{artifact.frame_stem}_accuracy-shape.jpg"
+        if artifact.frame_stem
+        and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}_accuracy-shape.jpg").exists()
         else None
     )
     table_view_url = (
@@ -563,9 +699,39 @@ def current_calibration() -> dict:
         "frame_url": frame_url,
         "heatmap_url": heatmap_url,
         "area_shape_heatmap_url": area_shape_heatmap_url,
+        "accuracy_shape_heatmap_url": accuracy_shape_heatmap_url,
         "table_view_url": table_view_url,
         "table_view_shape_url": table_view_shape_url,
         "has_uncertainty_field": artifact.uncertainty_field is not None,
+        **table_dims,
+    }
+
+
+@app.post("/calibration/table-dims")
+def save_table_dims(
+    table_width_mm: float | None = None,
+    table_length_mm: float | None = None,
+    corner_tag_size_mm: float | None = None,
+) -> dict:
+    """Save table width/length/corner-tag size on their own, with no camera capture and no tag
+    detection -- these are pure display-convenience values for the table-position view (see
+    `run_calibration`'s docstring), not measurements a calibration produces. Before this endpoint
+    existed, the only way to persist them was as a side effect of "Run calibration", which needs
+    real calibration sheets in frame to succeed -- so once sheets come off the table after setup
+    (Step 6), there was no way to fix a mistyped table dimension without redoing the whole
+    physical setup (Aaron, 2026-09-25: "There's no way to enter the table width and length in mm.
+    There's no submit button.").
+
+    Uses `_resolve_table_dims` (see its docstring) -- only a given, positive value is written; a
+    blank or non-positive field keeps whatever was persisted before.
+    """
+    table_width_mm, table_length_mm, corner_tag_size_mm = _resolve_table_dims(
+        table_width_mm, table_length_mm, corner_tag_size_mm, persist=True
+    )
+    return {
+        "table_width_mm": table_width_mm,
+        "table_length_mm": table_length_mm,
+        "corner_tag_size_mm": corner_tag_size_mm,
     }
 
 
@@ -751,52 +917,53 @@ def current_radial_plot(metric: str = "scale_residual") -> Response:
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
-_live_orientation_baseline: CornerBaseline | None = None
-
-
-@app.post("/calibration/orientation/zero")
-def zero_live_orientation() -> dict:
-    """Freeze the current main-stream frame's corner-tag geometry as a temporary zero point for
-    the live reorientation aid (TODO.md's "Live reorientation guidance") -- for adjusting the rig
-    by hand during physical setup, before any real calibration baseline exists. In-memory only,
-    not persisted; distinct from the saved calibration baseline `/calibration/tripwire/check`
-    uses.
-
-    Reads the `main` stream (1536x1152), not `lores` (320x240) -- confirmed on real hardware that
-    the lores stream is too low-resolution for `detect_tags` to find the 50mm corner tags at all
-    (TODO.md's "Live reorientation aid never actually works"), while `main` finds all 4 reliably.
-    Still short of a full-res still: no reconfigure, so no capture-then-autofocus hang risk, and
-    no ~8.5s round trip -- appropriate for a continuously-polled live aid.
+@app.get("/calibration/current/certainty-dome-plot")
+def current_certainty_dome_plot() -> Response:
+    """Aaron, 2026-09-25: an honest display of modeled area-measurement certainty as a function
+    of distance from the image centre, where certainty *should* be highest -- claimed uncertainty
+    (`UncertaintyField.local_uncertainty_pct`, already computed and persisted on every run, no new
+    measurement) sampled at each detected calibration tag's position. See `_detect_tags_cached`
+    for why this re-detects tags from the saved frame rather than the live camera.
     """
-    global _live_orientation_baseline
-    manager = CameraManager.instance()
-    detections = detect_tags(manager.capture_array())
-    try:
-        _live_orientation_baseline = build_corner_baseline(detections)
-    except ValueError as exc:
-        raise HTTPException(409, str(exc)) from exc
-    return {"corner_tags": sorted(_live_orientation_baseline.corners_by_id)}
+    artifact = load_current_calibration()
+    if artifact is None or artifact.uncertainty_field is None:
+        raise HTTPException(409, "no calibration with an uncertainty field saved yet")
+    if artifact.frame_stem is None:
+        raise HTTPException(409, "no calibration with a saved frame yet")
+
+    frame, detections = _detect_tags_cached(artifact.frame_stem)
+    cal_detections = [d for d in detections if d.tag_id in CALIBRATION_ID_RANGE]
+    if len(cal_detections) < 2:
+        raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
+
+    cx, cy = frame.shape[1] / 2, frame.shape[0] / 2
+    points = [
+        (
+            float(np.hypot(d.centre[0] - cx, d.centre[1] - cy)),
+            artifact.uncertainty_field.local_uncertainty_pct(d.centre[0], d.centre[1]),
+            d.tag_id,
+        )
+        for d in cal_detections
+    ]
+
+    image = render_certainty_dome_plot(points)
+    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
-@app.get("/calibration/orientation/live")
-def live_orientation() -> dict:
-    """Roll/scale reading against the zero point set above, polled continuously while nudging
-    the rig by hand toward level. Reuses `check_tripwire` -- a pure in-image comparison between
-    two frames of this rig, no mount-squareness or equal-tag-size assumption needed (see
-    tripwire.py's docstring). Main-stream resolution (see `zero_live_orientation`), coarser than
-    a full-res capture: a real calibration still confirms the final number.
+@app.get("/calibration/orientation/level.jpg")
+def live_level_overlay() -> Response:
+    """Live co-planarity check for an installer levelling the rig by hand -- colored markers on
+    the real camera image, not a rotation-in-degrees number (TODO.md: `roll_deg` "isn't super
+    useful for an installer standing on a ladder"). No zero/baseline step needed:
+    `corner_level_readings` (tripwire.py) compares the currently-detected corner tags to each
+    other, which is valid regardless of how each one happens to be mounted -- see that function's
+    docstring for the physical argument. Polled every 500ms while Step 2 of the wizard is showing.
     """
-    if _live_orientation_baseline is None:
-        raise HTTPException(409, "no zero point set -- press 'Zero here' first")
     manager = CameraManager.instance()
-    detections = detect_tags(manager.capture_array())
-    result = check_tripwire(_live_orientation_baseline, detections)
-    return {
-        "verdict": result.verdict,
-        "messages": list(result.messages),
-        "roll_deg": result.roll_deg,
-        "scale_delta_pct": result.scale_delta_pct,
-    }
+    frame = manager.capture_array()
+    readings = corner_level_readings(detect_tags(frame))
+    image = render_level_overlay(frame, readings)
+    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
 @app.post("/calibration/tripwire/check")

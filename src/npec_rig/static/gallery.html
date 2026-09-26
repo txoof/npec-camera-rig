@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NPEC Camera Rig — Capture &amp; Gallery</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h1>NPEC Camera Rig</h1>
+  <nav class="top-nav">
+    <a href="/setup">Setup</a>
+    <a href="/gallery" class="active">Capture &amp; Gallery</a>
+  </nav>
+
+  <h2>Capture</h2>
+  <div class="capture-section">
+    <button id="capture-btn">Capture</button>
+  </div>
+
+  <h2>Recent captures</h2>
+  <div class="gallery" id="gallery"></div>
+
+  <script>
+    const captureBtn = document.getElementById("capture-btn");
+    const gallery = document.getElementById("gallery");
+
+    function renderGallery(items) {
+      gallery.innerHTML = items.map((item) => `
+        <div class="gallery-item">
+          <img src="${item.url}" alt="capture ${item.filename}">
+          <div>${item.timestamp ? item.timestamp.replace("T", " ").slice(0, 19) : item.filename}</div>
+        </div>
+      `).join("");
+    }
+
+    async function refreshGallery() {
+      const r = await fetch("/api/captures");
+      renderGallery(await r.json());
+    }
+
+    captureBtn.addEventListener("click", async () => {
+      captureBtn.disabled = true;
+      captureBtn.textContent = "Capturing...";
+      try {
+        await fetch("/capture", { method: "POST" });
+        await refreshGallery();
+      } finally {
+        captureBtn.disabled = false;
+        captureBtn.textContent = "Capture";
+      }
+    });
+    refreshGallery();
+  </script>
+</body>
+</html>

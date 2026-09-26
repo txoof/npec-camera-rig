@@ -3,368 +3,206 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NPEC Camera Rig</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 0.75rem;
-      font-family: system-ui, sans-serif;
-      background: #111;
-      color: #eee;
-    }
-    h1 { font-size: 1.1rem; margin: 0 0 0.75rem; }
-    h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
-    .focus-layout {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      /* Fills most of the screen on a touchscreen rather than a fixed 480px, but not centered --
-         left where the page's other sections sit, so the empty space this leaves on the right is
-         a scroll gutter a finger can land on without hitting the frame or its drag handles. */
-      width: min(80vw, 1400px);
-    }
-    .preview-wrap {
-      position: relative;
-      width: 100%;
-    }
-    /* Reserves room for the square-mode handles (see .squareness-handle below), which sit just
-       past the image's own edges (left, right, and bottom -- there's no top handle) and would
-       otherwise collide with the mode-toggle row, a sibling pane, or get clipped by the body
-       edge. Harmless in focus mode too -- just a small gap next to the crop pane. */
-    .focus-layout.mode-square .preview-wrap {
-      margin: 0 20px 20px 20px;
-    }
-    .preview {
-      display: block;
-      width: 100%;
-      background: #000;
-      cursor: crosshair;
-    }
-    .roi-box {
-      position: absolute;
-      border: 2px solid #f55;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      display: none;
-    }
-    .squareness-guides {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      display: none;
-    }
-    .squareness-guides.mode-square {
-      display: block;
-    }
-    .squareness-line {
-      position: absolute;
-      background: rgba(255, 255, 0, 0.75);
-    }
-    .squareness-line-h {
-      left: 0;
-      right: 0;
-      top: 50%;
-      height: 2px;
-      margin-top: -1px;
-    }
-    .squareness-line-v {
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      margin-left: -1px;
-    }
-    /* The lines themselves are purely visual in square mode -- dragging happens on the
-       .squareness-handle tabs just past the frame's edge instead (see below). A hit-target
-       sitting on top of the live image is exactly what made this "nearly impossible" by touch:
-       it fights with the page-scroll gesture and is hard to land on precisely. */
-    .squareness-guides.mode-square .squareness-line {
-      pointer-events: none;
-    }
-    /* One handle per line end: two for the horizontal line (just past the left/right edges),
-       one per vertical line (just past the bottom edge). touch-action: none is what the lines
-       never had -- without it, a touch-drag starting on a small element can be interpreted as a
-       page-scroll gesture before the browser recognizes the drag. Nothing else on the page gets
-       this, so scrolling everywhere else (including over the live image itself) is unaffected. */
-    .squareness-handle {
-      position: absolute;
-      width: 28px;
-      height: 28px;
-      margin: -14px;
-      border-radius: 50%;
-      background: rgba(255, 255, 0, 0.9);
-      border: 2px solid #221;
-      pointer-events: auto;
-      touch-action: none;
-    }
-    .squareness-handle-h-left,
-    .squareness-handle-h-right {
-      cursor: ns-resize;
-      top: 50%; /* JS keeps this in sync with the horizontal line's own top */
-    }
-    .squareness-handle-h-left { left: 0; }
-    .squareness-handle-h-right { left: 100%; }
-    .squareness-handle-v {
-      cursor: ew-resize;
-      top: 100%;
-      left: 50%; /* JS keeps this in sync with its vertical line's own left */
-    }
-    .mode-toggle-row {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 0.75rem;
-      /* Matches .focus-layout above it -- these buttons control that frame, so they shouldn't
-         stay pinned to the old 480px cap while the frame itself is now much wider. */
-      max-width: min(80vw, 1400px);
-    }
-    .mode-toggle-row button {
-      flex: 1;
-      padding: 0.4rem;
-      background: #222;
-      border: 1px solid #444;
-      color: #ccc;
-      border-radius: 4px;
-      font-size: 0.85rem;
-    }
-    .mode-toggle-row button.active {
-      background: #456;
-      border-color: #6af;
-      color: #fff;
-    }
-    .roi-crop {
-      display: block;
-      width: 100%;
-      background: #000;
-      image-rendering: pixelated;
-    }
-    /* No zoomed focus crop in square mode -- not helpful there, and clearing its src (in JS)
-       actually stops the MJPEG stream rather than just hiding a still-running one. With the crop
-       pane gone, .preview-wrap is flex's only remaining child and fills the row on its own. */
-    .focus-layout.mode-square .roi-crop {
-      display: none;
-    }
-    /* Side by side once there's room for both at a readable size; stacked below that. */
-    @media (min-width: 800px) {
-      .focus-layout {
-        flex-direction: row;
-        align-items: flex-start;
-      }
-      .focus-layout .preview-wrap,
-      .focus-layout .roi-crop {
-        flex: 1 1 0;
-        min-width: 0;
-      }
-    }
-    .controls, .focus-section, .capture-section, .camera-controls, .calibration-section {
-      max-width: 480px;
-      margin-top: 0.75rem;
-    }
-    .camera-controls-details {
-      max-width: 480px;
-      margin-top: 1rem;
-    }
-    .camera-controls-details summary {
-      cursor: pointer;
-      font-size: 1rem;
-      padding: 0.5rem 0;
-    }
-    .control-pair-row {
-      display: flex;
-      gap: 1.5rem;
-      margin-top: 0.5rem;
-    }
-    .control-pair-item {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.85rem;
-    }
-    .control-pair-item input[type="checkbox"] {
-      width: 1.2rem;
-      height: 1.2rem;
-    }
-    label { display: block; margin-bottom: 0.25rem; }
-    input[type="range"] {
-      width: 100%;
-      height: 2rem;
-    }
-    input[type="number"] {
-      width: 100%;
-      height: 2.25rem;
-      font-size: 1.1rem;
-      padding: 0.25rem 0.5rem;
-      background: #222;
-      border: 1px solid #444;
-      color: #eee;
-      border-radius: 4px;
-    }
-    .focus-row { margin-top: 0.5rem; }
-    .focus-row label { display: flex; justify-content: space-between; }
-    .peaking-row {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.5rem;
-      margin-top: 0.75rem;
-      max-width: 480px;
-      font-size: 0.85rem;
-      color: #ccc;
-    }
-    .peaking-row input[type="checkbox"] {
-      width: 1.2rem;
-      height: 1.2rem;
-      margin-top: 0.15rem;
-      flex-shrink: 0;
-    }
-    .score-row {
-      display: flex;
-      justify-content: flex-start;
-      align-items: baseline;
-      gap: 0.5rem;
-      margin-top: 0.5rem;
-    }
-    .score-row strong { font-size: 1.5rem; }
-    #score-trace {
-      width: 100%;
-      max-width: 480px;
-      height: 60px;
-      background: #000;
-      display: block;
-      margin-top: 0.25rem;
-    }
-    .lock-row {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-top: 0.5rem;
-    }
-    button {
-      padding: 0.6rem 1rem;
-      font-size: 1rem;
-      border: none;
-      border-radius: 4px;
-      background: #369;
-      color: #fff;
-    }
-    button:disabled { opacity: 0.5; }
-    input[type="range"]:disabled { opacity: 0.5; }
-    .gallery {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-top: 0.5rem;
-    }
-    .gallery-item { width: 120px; }
-    .gallery-item img {
-      width: 100%;
-      display: block;
-      background: #000;
-    }
-    .gallery-item div {
-      font-size: 0.75rem;
-      color: #aaa;
-      word-break: break-all;
-    }
-    a { color: #6cf; }
-  </style>
+  <title>NPEC Camera Rig — Calibration</title>
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <h1>NPEC Camera Rig</h1>
-
-  <div class="controls">
-    <button id="autofocus-btn">Autofocus</button>
-
-    <div class="focus-row">
-      <label for="lens-coarse">Coarse lens position (dioptres)</label>
-      <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
-    </div>
-
-    <div class="focus-row">
-      <label for="lens-fine">Fine adjust <span id="lens-fine-value">.00</span></label>
-      <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
-    </div>
-  </div>
-
-  <h2>Focus aid</h2>
-  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    Click the live preview to place the focus region. Watch the score below peak while adjusting
-    the lens.
+  <nav class="top-nav">
+    <a href="/setup" class="active">Setup</a>
+    <a href="/gallery">Capture &amp; Gallery</a>
+  </nav>
+  <p style="margin: -0.5rem 0 0.75rem; font-size: 0.85rem;">
+    <a href="/setup">Setup</a> / Calibration
   </p>
-  <div class="focus-layout">
-    <div class="preview-wrap">
-      <img class="preview" id="preview" src="/preview.mjpg" alt="live camera preview. click to place the focus ROI">
-      <div class="roi-box" id="roi-box"></div>
-      <div class="squareness-guides" id="squareness-guides">
-        <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
-        <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
-        <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
-        <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
-        <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
-        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
-        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
-      </div>
-    </div>
-    <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
-  </div>
-  <div class="mode-toggle-row">
-    <button type="button" id="mode-focus-btn">Focus mode</button>
-    <button type="button" id="mode-square-btn">Square mode</button>
-  </div>
-  <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.85rem; max-width: 480px;">
-    <strong>Focus mode:</strong> click the preview to place the focus ROI; the magnified crop
-    alongside updates to match.
-    <strong>Square mode:</strong> shows one horizontal and two vertical guide lines — drag the
-    small tabs at the frame's edge (mouse or touch) to line any of them up with a real edge in the
-    frame, to check by eye that the rig sits square. No magnified crop in this mode. Clicking the
-    preview doesn't move the focus ROI while in this mode. Lines are a straightening aid, not a
-    reading — dragged positions aren't saved anywhere and reset on reload.
-  </p>
-  <label class="peaking-row">
-    <input type="checkbox" id="peaking-toggle">
-    <span>
-      <strong>Focus peaking</strong> — highlights high-contrast edges in the crop above in
-      magenta. Denser highlighting means sharper focus; use it alongside the sharpness number,
-      not instead of it.
-    </span>
-  </label>
-  <div class="score-row">
-    <span>Sharpness</span>
-    <strong id="score-value">-</strong>
-  </div>
-  <canvas id="score-trace" width="480" height="60"></canvas>
-  <div class="lock-row">
-    <button id="lock-btn">Lock focus</button>
-    <span id="lock-status">not locked</span>
-  </div>
-
-  <details class="camera-controls-details">
-    <summary>Camera settings</summary>
-    <div id="camera-controls" class="camera-controls"></div>
-  </details>
-
-  <h2>Capture</h2>
-  <div class="capture-section">
-    <button id="capture-btn">Capture</button>
-  </div>
-
-  <h2>Recent captures</h2>
-  <div class="gallery" id="gallery"></div>
 
   <h2>Calibration</h2>
   <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    Lay the calibration sheets on alternating trays, reaching all four frame corners, then run
-    calibration. "Check tripwire now" compares the four corner tags against the saved baseline
-    right now — use it for the roll/knock acceptance test.
+    Set up or re-verify this rig, in order. Each step below is a real physical action or a real
+    measurement — none of it can be skipped by guessing.
   </p>
   <div class="calibration-section">
     <p id="calibration-current" style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Loading current calibration&hellip;
     </p>
+
+    <div class="wizard-nav">
+      <span id="wizard-progress">Step 1 of 6</span>
+      <div class="wizard-nav-buttons">
+        <button type="button" id="wizard-back-btn">&larr; Back</button>
+        <button type="button" id="wizard-next-btn">Next &rarr;</button>
+      </div>
+    </div>
+
+    <div class="wizard-step" data-step="1">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 1 — Confirm focus</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Use "Autofocus" and "Lock focus" below. Re-check this any time the lens may have moved —
+      calibration measures the scene through whatever focus is locked in. The same live preview
+      switches to "Square mode" for a squareness-by-eye guide, if you want it now — the next
+      step has a numeric co-planarity check either way.
+    </p>
+
+    <div class="controls">
+      <button id="autofocus-btn">Autofocus</button>
+
+      <div class="focus-row">
+        <label for="lens-coarse">Coarse lens position (dioptres)</label>
+        <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
+      </div>
+
+      <div class="focus-row">
+        <label for="lens-fine">Fine adjust <span id="lens-fine-value">.00</span></label>
+        <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
+      </div>
+    </div>
+
+    <div class="focus-layout">
+      <div class="preview-wrap">
+        <img class="preview" id="preview" src="/preview.mjpg" alt="live camera preview. click to place the focus ROI">
+        <div class="roi-box" id="roi-box"></div>
+        <div class="squareness-guides" id="squareness-guides">
+          <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
+          <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
+          <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
+          <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
+          <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
+          <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
+          <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
+        </div>
+      </div>
+      <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
+    </div>
+    <div class="mode-toggle-row">
+      <button type="button" id="mode-focus-btn">Focus mode</button>
+      <button type="button" id="mode-square-btn">Square mode</button>
+    </div>
+    <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.85rem; max-width: 480px;">
+      <strong>Focus mode:</strong> click the preview to place the focus ROI; the magnified crop
+      alongside updates to match.
+      <strong>Square mode:</strong> shows one horizontal and two vertical guide lines — drag the
+      small tabs at the frame's edge (mouse or touch) to line any of them up with a real edge in
+      the frame, to check by eye that the rig sits square. No magnified crop in this mode.
+      Clicking the preview doesn't move the focus ROI while in this mode. Lines are a
+      straightening aid, not a reading — dragged positions aren't saved anywhere and reset on
+      reload.
+    </p>
+    <label class="peaking-row">
+      <input type="checkbox" id="peaking-toggle">
+      <span>
+        <strong>Focus peaking</strong> — highlights high-contrast edges in the crop above in
+        magenta. Denser highlighting means sharper focus; use it alongside the sharpness number,
+        not instead of it.
+      </span>
+    </label>
+    <div class="score-row">
+      <span>Sharpness</span>
+      <strong id="score-value">-</strong>
+    </div>
+    <canvas id="score-trace" width="480" height="60"></canvas>
+    <div class="lock-row">
+      <button id="lock-btn">Lock focus</button>
+      <span id="lock-status">not locked</span>
+    </div>
+
+    <details class="camera-controls-details">
+      <summary>Camera settings</summary>
+      <div id="camera-controls" class="camera-controls"></div>
+    </details>
+
+    </div>
+    <div class="wizard-step" data-step="2">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 2 — Level &amp; square</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Colored rings on the corner tags show how co-planar the table is with the camera, live —
+      no zero step needed, works as soon as 2+ corner tags are in frame. Each ring's percentage
+      is that tag's apparent size compared to the average of the others: <strong>+</strong> means
+      it looks bigger, i.e. <strong>closer</strong> to the camera than the rest; <strong>−</strong>
+      means smaller, i.e. <strong>farther away</strong>. Green is within 3% (co-planar); amber is
+      3–8% (nudge that corner); red is over 8% (that corner needs real adjustment, not a small
+      nudge). Nudge the rig until every ring is green.
+    </p>
+    <img
+      id="level-overlay-image"
+      class="wide-live-view"
+      alt="live leveling overlay"
+      style="border-radius: 4px; display: block;"
+    />
+
+    </div>
+    <div class="wizard-step" data-step="3">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 3 — Place calibration and corner sheets</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Lay a calibration sheet on every tray, plus the corner/reference sheets at all four corners
+      of the table.
+    </p>
+    <svg viewBox="0 0 400 220" style="width: min(80vw, 500px); display: block; margin: 0 0 0.5rem;"
+         role="img" aria-label="Table diagram: calibration sheets on every tray, corner sheets at the four table corners (N top, E right)">
+      <rect x="20" y="20" width="360" height="180" rx="4" fill="none" stroke="#444" stroke-width="2"/>
+      <!-- 2 rows x 6 columns of trays, every one carrying a calibration sheet -- sheets are
+           reusable, so there's no reason to leave any tray uncovered, and it sidesteps ever
+           having to reason about whether a given pattern happens to reach all four corners. -->
+      <g id="step3-tray-grid"></g>
+      <script>
+        (() => {
+          const grid = document.currentScript.previousElementSibling;
+          const cols = 6, rows = 2, x0 = 55, y0 = 55, cw = 48, ch = 55, gap = 6;
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const x = x0 + c * cw, y = y0 + r * ch;
+              const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+              rect.setAttribute("x", x); rect.setAttribute("y", y);
+              rect.setAttribute("width", cw - gap); rect.setAttribute("height", ch - gap);
+              rect.setAttribute("rx", 3);
+              rect.setAttribute("fill", "#2b4a5c");
+              rect.setAttribute("stroke", "#6cf");
+              rect.setAttribute("stroke-width", "1.5");
+              grid.appendChild(rect);
+              const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+              text.setAttribute("x", x + (cw - gap) / 2);
+              text.setAttribute("y", y + (ch - gap) / 2 + 4);
+              text.setAttribute("text-anchor", "middle");
+              text.setAttribute("font-size", "9");
+              text.setAttribute("fill", "#9cf");
+              text.textContent = "sheet";
+              grid.appendChild(text);
+            }
+          }
+        })();
+      </script>
+      <!-- Corner/reference sheets: at the table's four corners, outside the tray grid.
+           Compass convention (matches the top-down camera view): top = north, right = east. -->
+      <circle cx="20" cy="20" r="9" fill="#fc6" stroke="#663" stroke-width="1.5"/>
+      <text x="20" y="12" text-anchor="middle" font-size="10" fill="#ccc">NW</text>
+      <circle cx="380" cy="20" r="9" fill="#fc6" stroke="#663" stroke-width="1.5"/>
+      <text x="380" y="12" text-anchor="middle" font-size="10" fill="#ccc">NE</text>
+      <circle cx="20" cy="200" r="9" fill="#fc6" stroke="#663" stroke-width="1.5"/>
+      <text x="20" y="215" text-anchor="middle" font-size="10" fill="#ccc">SW</text>
+      <circle cx="380" cy="200" r="9" fill="#fc6" stroke="#663" stroke-width="1.5"/>
+      <text x="380" y="215" text-anchor="middle" font-size="10" fill="#ccc">SE</text>
+      <text x="200" y="14" text-anchor="middle" font-size="10" fill="#888">N</text>
+      <text x="393" y="114" text-anchor="middle" font-size="10" fill="#888">E</text>
+    </svg>
+    <p style="margin: 0 0 0.5rem; color: #888; font-size: 0.75rem;">
+      Blue = a calibration sheet on that tray, every tray. Amber dots = the four corner/reference
+      sheets, one per table corner (N/S/E/W, top-down view: top is north, right is east).
+    </p>
+    <p style="margin: 0 0 0.25rem; font-size: 0.85rem;">Sheets to print:</p>
+    <ul style="margin: 0 0 0.5rem; padding-left: 1.25rem; font-size: 0.85rem;">
+      <li><a href="/reference/calibration-sheets/apriltags-36h11-30mm-a4-300-449.pdf">calibration sheet (30 mm, IDs 300&ndash;449)</a></li>
+      <li><a href="/reference/calibration-sheets/apriltags-36h11-50mm-a4-450-499.pdf">corner/reference sheet (50 mm, IDs 450&ndash;499)</a></li>
+    </ul>
+
+    </div>
+    <div class="wizard-step" data-step="4">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 4 — Run calibration</h3>
     <label class="peaking-row">
       <input type="checkbox" id="promote-toggle" checked>
       <span>
         <strong>Set as current baseline</strong> — leave this checked for a normal setup
         calibration. Uncheck it for a comparison run (e.g. the two-baseline test) so it doesn't
-        replace the baseline a tripwire check further down is still using.
+        replace the baseline the <a href="/setup/health-check">Health check</a> page's tripwire
+        check is still using.
       </span>
     </label>
     <label class="peaking-row">
@@ -376,39 +214,22 @@
       <input type="number" id="tag-size-input" step="0.0001" min="0"
              placeholder="e.g. 30.02" style="width: 6rem;">
     </label>
-    <label class="peaking-row">
-      <span>
-        <strong>Table width / length (mm)</strong> — lay a tape measure across the <em>outer</em>
-        edges of two corner tags (the corners facing away from the table) and enter the number you
-        read, straight off the tape. No centre to find, no arithmetic — the app subtracts the
-        corner tag size below for you. <strong>Width</strong> is the left-to-right pair in the
-        camera image (top-left to top-right corner tag); <strong>length</strong> is top-to-bottom
-        (top-left to bottom-left corner tag) — swapping them renders a transposed rectangle.
-        Leave either blank for a square, NOT-TO-SCALE canvas that still shows relative position
-        correctly. Not saved between runs — re-enter each time.
-      </span>
-      <span>
-        <input type="number" id="table-width-input" step="0.1" min="0"
-               placeholder="width e.g. 1050" style="width: 7rem;">
-        <input type="number" id="table-length-input" step="0.1" min="0"
-               placeholder="length e.g. 850" style="width: 7rem;">
-      </span>
-    </label>
-    <label class="peaking-row">
-      <span>
-        <strong>Corner tag size (mm)</strong> — the corner tags' own physical size, used only to
-        convert the outer-edge measurement above into the centre-to-centre distance the table view
-        needs. Measure with callipers for accuracy; leave blank to use the placeholder default
-        (shown after you run a calibration).
-      </span>
-      <input type="number" id="corner-tag-size-input" step="0.01" min="0"
-             placeholder="e.g. 49.87" style="width: 6rem;">
-    </label>
     <div class="lock-row">
       <button id="calibrate-btn">Run calibration</button>
-      <button id="tripwire-btn">Check tripwire now</button>
     </div>
     <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+
+    </div>
+    <div class="wizard-step" data-step="5">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 5 — Read the report</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      The result above states the scale, coverage, and any coverage gaps found. If it says
+      coverage is weak somewhere, open Diagnostics below to see exactly where, add a sheet there,
+      and run calibration again — no need to redo Steps 1–3 unless something actually moved.
+    </p>
+
+    <details style="margin-top: 0.75rem;">
+      <summary>Diagnostics</summary>
     <img id="calibration-heatmap" alt="Confidence heatmap"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
     <div id="calibration-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
@@ -466,6 +287,16 @@
         </div>
       </details>
     </div>
+    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Accuracy shape (once setup looks roughly right)</h4>
+    <p style="margin: 0 0 0.4rem; color: #aaa; font-size: 0.85rem;">
+      Same real per-tag measurements as the heatmap above, averaged over many more neighbouring
+      tags (40, instead of 5) — trading the "exactly where is coverage thin" detail for the
+      overall accuracy shape across the frame. Round means the falloff toward the edges is even;
+      lopsided toward one side means something physically off that direction. Nothing here is
+      fitted or idealized — it's the same honest measurements, just averaged more widely.
+    </p>
+    <img id="calibration-accuracy-shape-heatmap" alt="Accuracy shape heatmap"
+         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
     <img id="calibration-area-shape-heatmap" alt="Area-scale shape distortion heatmap"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
     <div id="calibration-area-shape-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
@@ -536,6 +367,45 @@
     </div>
     <h3 style="margin: 1rem 0 0.25rem;">Table-position view</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Click "Save" below any time — no camera capture needed, just these three numbers. They only
+      affect whether the two views below are drawn to scale, nothing else, so there's no need to
+      re-run a calibration just to fix one of them.
+    </p>
+    <label class="peaking-row">
+      <span>
+        <strong>Table width / length (mm)</strong> — lay a tape measure across the <em>outer</em>
+        edges of two corner tags (the corners facing away from the table) and enter the number you
+        read, straight off the tape. No centre to find, no arithmetic — the app subtracts the
+        corner tag size below for you. <strong>Width</strong> is the left-to-right pair in the
+        camera image (top-left to top-right corner tag); <strong>length</strong> is top-to-bottom
+        (top-left to bottom-left corner tag) — swapping them renders a transposed rectangle.
+        Leave either blank (before you've ever entered one) for a square, NOT-TO-SCALE canvas
+        that still shows relative position correctly. Remembered between runs once entered —
+        pre-filled here from the last value you actually typed in, so you don't need to retype
+        it every run.
+      </span>
+      <span>
+        <input type="number" id="table-width-input" step="0.1" min="0"
+               placeholder="width e.g. 1050" style="width: 7rem;">
+        <input type="number" id="table-length-input" step="0.1" min="0"
+               placeholder="length e.g. 850" style="width: 7rem;">
+      </span>
+    </label>
+    <label class="peaking-row">
+      <span>
+        <strong>Corner tag size (mm)</strong> — the corner tags' own physical size, used only to
+        convert the outer-edge measurement above into the centre-to-centre distance the table view
+        needs. Measure with callipers for accuracy; leave blank to use the placeholder default
+        (shown after you run a calibration).
+      </span>
+      <input type="number" id="corner-tag-size-input" step="0.01" min="0"
+             placeholder="e.g. 50" style="width: 7rem;">
+    </label>
+    <div class="lock-row">
+      <button id="table-dims-save-btn">Save</button>
+      <span id="table-dims-save-result" style="font-size: 0.85rem; color: #aaa;"></span>
+    </div>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       The same two fields as the heatmaps above, painted instead on a straightened, top-down view
       of the table — anchored to the four corner tags, which don't move, so "this spot on the
       picture" is the same real spot on the table across different calibration runs, not tied to
@@ -593,21 +463,21 @@
     <img id="radial-plot-shape-distortion" alt="Area-shape distortion vs. distance from image centre"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
 
+    <h3 style="margin: 1rem 0 0.25rem;">Dome of certainty</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Claimed uncertainty (already computed and saved by every run) sampled at each calibration
+      tag's own position, plotted against distance from the image centre, with an unweighted
+      linear fit and its R². Certainty should be highest at the centre and fall toward the edges
+      — a "dome" shape. This shows whether the claimed number actually behaves that way, or is
+      flat/noisy instead.
+    </p>
+    <img id="certainty-dome-plot" alt="Claimed uncertainty vs. distance from image centre"
+         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+
     <details style="margin-top: 0.75rem;">
       <summary>Saved calibrations (download)</summary>
       <div id="calibration-list" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
     </details>
-
-    <h3 style="margin: 1rem 0 0.25rem;">Live reorientation aid</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      While adjusting the rig by hand, press "Zero here" once it looks roughly right, then nudge
-      it until the reading below settles at OK. Preview resolution only, directional guidance —
-      a full calibration still confirms the final number.
-    </p>
-    <div class="lock-row">
-      <button id="orientation-zero-btn">Zero here</button>
-      <span id="orientation-live" style="font-size: 0.85rem; color: #aaa;">not zeroed</span>
-    </div>
 
     <h3 style="margin: 1rem 0 0.25rem;">Honesty plot</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
@@ -636,21 +506,43 @@
     <div id="honesty-plot-result" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
     <img id="honesty-plot-image" alt="Honesty plot"
          style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+    </details>
+
+    </div>
+    <div class="wizard-step" data-step="6">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 6 — Remove sheets</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Once the report above looks right, remove the calibration and corner sheets from the trays
+      before starting a growth run.
+    </p>
+    </div>
   </div>
 
   <script>
+    // ============================================================
+    // Step 1 (Confirm focus) -- duplicated from setup_focus.html so this step is self-contained,
+    // not a link to another page (Aaron, 2026-09-25: "Each step should have what it needs, not
+    // direct the user off to find some other page"). Keep both copies in sync if this logic
+    // changes.
+    // ============================================================
     const MAIN_WIDTH = 1536;
     const MAIN_HEIGHT = 1152;
     const DEFAULT_ROI_SIZE = 200;
 
+    // Declared up here (not down with the rest of the wizard-nav code) so every live poll/stream
+    // below can check "is my step the one currently showing" without a temporal-dead-zone
+    // ReferenceError -- this script runs top to bottom once, and those checks happen inside
+    // functions called during that same initial run. Aaron, 2026-09-25: "when I'm not on a page
+    // with a video stream, do we need to be trying to load the video stream? ... wasting
+    // resources" -- every live tool below now only captures/streams while its own step is
+    // showing, both for browser connection budget and because a real capture (M3, scheduled)
+    // will need the camera free rather than contending with a live preview.
+    let wizardStep = 1;
+    function isActiveStep(n) {
+      return wizardStep === n;
+    }
+
     // --- Lens position: autofocus + coarse (whole dioptres) + fine (.00-.99 fraction) ---
-    // The fine slider always spans a fixed .00-.99, left to right — no recentering, no
-    // dynamic range. Coarse holds the whole number; fine holds the fraction; the two just
-    // add together. Typing "6.8" into coarse splits into coarse=6, fine=.80 (80% along the
-    // slider) — what you type is where the slider lands, always the same mapping.
-    // LENS_MIN/LENS_MAX start as reasonable guesses and are corrected from the probed range
-    // in loadControls() below — LensPosition's own max has already been observed to change
-    // between probes (15.0, then 32.0), so this can't be a hardcoded constant.
     let LENS_MIN = 0, LENS_MAX = 15;
 
     const autofocusBtn = document.getElementById("autofocus-btn");
@@ -666,13 +558,13 @@
       value = clamp(value, LENS_MIN, LENS_MAX);
       let whole = Math.floor(value);
       let fraction = Math.round((value - whole) * 100) / 100;
-      if (fraction >= 1) { // rounding pushed .995+ up to 1.00 — carry it into the whole part
+      if (fraction >= 1) {
         whole += 1;
         fraction = 0;
       }
       coarseInput.value = whole;
       fineSlider.value = fraction;
-      fineValueLabel.textContent = fraction.toFixed(2).slice(1); // "0.80" -> ".80"
+      fineValueLabel.textContent = fraction.toFixed(2).slice(1);
     }
 
     function currentLensPosition() {
@@ -694,10 +586,7 @@
       AwbEnable: "Auto white balance",
       AeEnable: "Auto exposure",
     };
-    // AWB and AE are both "auto X" toggles — shown on one line together, not stacked.
     const PAIRED_CHECKBOX_NAMES = ["AwbEnable", "AeEnable"];
-    // Manual writes to these while AE is on re-arm picamera2's manual-exposure latch (see
-    // Picamera2Backend.set_control) — disable them while AeEnable is checked.
     const AE_DEPENDENT_CONTROL_NAMES = ["ExposureTime", "AnalogueGain"];
     const cameraControlsEl = document.getElementById("camera-controls");
 
@@ -762,8 +651,6 @@
         const label = CONTROL_LABELS[name] || name;
 
         if (typeof min === "boolean") {
-          // Any boolean control not already paired above (e.g. one a future camera exposes) —
-          // still needs a checkbox, not a broken slider with min=false/max=true.
           row.className = "peaking-row";
           row.innerHTML =
             `<input type="checkbox" id="control-${name}"` + (value ? " checked" : "") + `>` +
@@ -805,9 +692,6 @@
       }
     }
 
-    // Load the real control ranges (including LensPosition's) before applying any current
-    // value, so a value near the edge of a since-changed range doesn't get silently clamped
-    // by a stale HTML `max` attribute.
     loadControls()
       .catch(() => {})
       .then(() =>
@@ -820,7 +704,7 @@
     coarseInput.addEventListener("change", () => {
       const typed = Number(coarseInput.value);
       if (Number.isNaN(typed)) return;
-      applyLensPosition(typed); // splits a typed "6.8" into coarse=6, fine=.80
+      applyLensPosition(typed);
       sendLensPosition();
     });
 
@@ -859,7 +743,7 @@
     }
 
     previewImg.addEventListener("click", (event) => {
-      if (interactionMode !== "focus") return; // square mode: dragging guide lines instead
+      if (interactionMode !== "focus") return;
       const rect = previewImg.getBoundingClientRect();
       const relX = (event.clientX - rect.left) / rect.width;
       const relY = (event.clientY - rect.top) / rect.height;
@@ -903,22 +787,23 @@
 
     async function pollScore() {
       if (!pollingScore) return;
-      try {
-        const r = await fetch("/focus/score");
-        const data = await r.json();
-        scoreValue.textContent = data.score.toFixed(1);
-        scoreHistory.push(data.score);
-        if (scoreHistory.length > HISTORY_LEN) scoreHistory.shift();
-        drawTrace();
-      } catch (e) {
-        // transient network hiccup — try again next tick
+      if (isActiveStep(1)) {
+        try {
+          const r = await fetch("/focus/score");
+          const data = await r.json();
+          scoreValue.textContent = data.score.toFixed(1);
+          scoreHistory.push(data.score);
+          if (scoreHistory.length > HISTORY_LEN) scoreHistory.shift();
+          drawTrace();
+        } catch (e) {
+          // transient network hiccup — try again next tick
+        }
       }
       setTimeout(pollScore, 300);
     }
     pollScore();
 
     // --- Focus / Square mode toggle, and draggable squareness guide lines ---
-    // Client-side only, no server state: the lines are a straightening aid, not a measurement.
     const focusLayout = document.querySelector(".focus-layout");
     const squarenessGuides = document.getElementById("squareness-guides");
     const modeFocusBtn = document.getElementById("mode-focus-btn");
@@ -926,21 +811,31 @@
     const roiCropImg = document.getElementById("roi-crop");
     let interactionMode = "focus";
 
+    // Single source of truth for the two Step-1 video streams: only requested while Step 1 is
+    // the visible step, so a hidden step doesn't keep pulling frames from the camera in the
+    // background. Called both when the wizard step changes and when the focus/square mode
+    // toggle changes (the ROI crop is focus-mode-only either way).
+    function updateLiveResources() {
+      if (isActiveStep(1)) {
+        if (!previewImg.getAttribute("src")) previewImg.src = "/preview.mjpg";
+        if (interactionMode === "focus") {
+          roiCropImg.src = "/focus/roi.mjpg";
+        } else {
+          roiCropImg.removeAttribute("src");
+        }
+      } else {
+        previewImg.removeAttribute("src");
+        roiCropImg.removeAttribute("src");
+      }
+    }
+
     function setMode(mode) {
       interactionMode = mode;
       focusLayout.classList.toggle("mode-square", mode === "square");
       squarenessGuides.classList.toggle("mode-square", mode === "square");
       modeFocusBtn.classList.toggle("active", mode === "focus");
       modeSquareBtn.classList.toggle("active", mode === "square");
-      // Not helpful in square mode (Aaron, 2026-09-25) -- removing src actually stops the MJPEG
-      // stream, rather than just hiding a still-running one behind display:none. Removing the
-      // attribute rather than setting it to "" avoids a long-documented cross-browser footgun
-      // where an empty src can be resolved against the current page URL and re-requested.
-      if (mode === "square") {
-        roiCropImg.removeAttribute("src");
-      } else {
-        roiCropImg.src = "/focus/roi.mjpg";
-      }
+      updateLiveResources();
     }
     modeFocusBtn.addEventListener("click", () => setMode("focus"));
     modeSquareBtn.addEventListener("click", () => setMode("square"));
@@ -950,11 +845,6 @@
       return Math.min(100, Math.max(0, value));
     }
 
-    // Dragging happens on the .squareness-handle tabs just past the frame's edge, not on the
-    // line itself (which is pointer-events: none in square mode, see the stylesheet) -- a drag
-    // target sitting on top of the live image is what made this "nearly impossible" by touch,
-    // fighting with the page-scroll gesture. Two handles can share one line (the horizontal
-    // line's left/right tabs), so moving the line re-syncs every handle pointing at it.
     function syncHandlesForLine(line, axis, pct) {
       squarenessGuides.querySelectorAll(`.squareness-handle[data-for="${line.id}"]`).forEach((handle) => {
         handle.style[axis === "y" ? "top" : "left"] = pct + "%";
@@ -966,8 +856,6 @@
       syncHandlesForLine(line, axis, pct);
     }
 
-    // Pointer capture keeps delivering move/up events to `handle` even once the pointer leaves
-    // it mid-drag -- no separate document-level listeners (and cleanup) needed.
     function makeHandleDraggable(handle) {
       const line = document.getElementById(handle.dataset.for);
       const axis = handle.dataset.axis;
@@ -986,19 +874,11 @@
     }
     squarenessGuides.querySelectorAll(".squareness-handle").forEach(makeHandleDraggable);
 
-    // The horizontal line has no inline style -- its position comes from .squareness-line-h's
-    // `top: 50%` default in the stylesheet above, which parseFloat can't see. Named and commented
-    // here (rather than repeated as a bare literal) so it's obvious this must stay in sync if
-    // that CSS default ever changes -- the two aren't otherwise connected.
     const DEFAULT_LINE_H_TOP_PCT = 50;
 
-    // Handles start wherever their line already is (the HTML defaults, 33.33%/66.67%, or the
-    // stylesheet default above for the horizontal line).
     squarenessGuides.querySelectorAll(".squareness-line").forEach((line) => {
       const axis = line.classList.contains("squareness-line-h") ? "y" : "x";
       const inline = parseFloat(axis === "y" ? line.style.top : line.style.left);
-      // Not `inline || DEFAULT...` -- a legitimate 0% position is falsy and would otherwise be
-      // silently overridden.
       const pct = Number.isNaN(inline) ? DEFAULT_LINE_H_TOP_PCT : inline;
       syncHandlesForLine(line, axis, pct);
     });
@@ -1039,40 +919,8 @@
     });
     refreshFocusStatus();
 
-    // --- Capture + gallery ---
-    const captureBtn = document.getElementById("capture-btn");
-    const gallery = document.getElementById("gallery");
-
-    function renderGallery(items) {
-      gallery.innerHTML = items.map((item) => `
-        <div class="gallery-item">
-          <img src="${item.url}" alt="capture ${item.filename}">
-          <div>${item.timestamp ? item.timestamp.replace("T", " ").slice(0, 19) : item.filename}</div>
-        </div>
-      `).join("");
-    }
-
-    async function refreshGallery() {
-      const r = await fetch("/api/captures");
-      renderGallery(await r.json());
-    }
-
-    captureBtn.addEventListener("click", async () => {
-      captureBtn.disabled = true;
-      captureBtn.textContent = "Capturing...";
-      try {
-        await fetch("/capture", { method: "POST" });
-        await refreshGallery();
-      } finally {
-        captureBtn.disabled = false;
-        captureBtn.textContent = "Capture";
-      }
-    });
-    refreshGallery();
-
     // --- Calibration ---
     const calibrateBtn = document.getElementById("calibrate-btn");
-    const tripwireBtn = document.getElementById("tripwire-btn");
     const promoteToggle = document.getElementById("promote-toggle");
     const calibrationResult = document.getElementById("calibration-result");
     const calibrationCurrent = document.getElementById("calibration-current");
@@ -1080,6 +928,9 @@
     const tagSizeInput = document.getElementById("tag-size-input");
     const calibrationHeatmap = document.getElementById("calibration-heatmap");
     const calibrationHeatmapLegend = document.getElementById("calibration-heatmap-legend");
+    const calibrationAccuracyShapeHeatmap = document.getElementById(
+      "calibration-accuracy-shape-heatmap"
+    );
     const calibrationAreaShapeHeatmap = document.getElementById("calibration-area-shape-heatmap");
     const calibrationAreaShapeHeatmapLegend = document.getElementById(
       "calibration-area-shape-heatmap-legend"
@@ -1087,6 +938,8 @@
     const tableWidthInput = document.getElementById("table-width-input");
     const tableLengthInput = document.getElementById("table-length-input");
     const cornerTagSizeInput = document.getElementById("corner-tag-size-input");
+    const tableDimsSaveBtn = document.getElementById("table-dims-save-btn");
+    const tableDimsSaveResult = document.getElementById("table-dims-save-result");
     const tableViewScaleResidual = document.getElementById("table-view-scale-residual");
     const tableViewShapeDistortion = document.getElementById("table-view-shape-distortion");
     const rankPlotScaleResidual = document.getElementById("rank-plot-scale-residual");
@@ -1095,6 +948,7 @@
     const bestWorstPhotoShapeDistortion = document.getElementById("best-worst-photo-shape-distortion");
     const radialPlotScaleResidual = document.getElementById("radial-plot-scale-residual");
     const radialPlotShapeDistortion = document.getElementById("radial-plot-shape-distortion");
+    const certaintyDomePlot = document.getElementById("certainty-dome-plot");
 
     async function refreshCalibrationList() {
       const r = await fetch("/calibration/list");
@@ -1112,6 +966,18 @@
     }
 
     function renderCurrentCalibration(data) {
+      // Pre-fill with the operator's last real, explicitly-typed values (settings.py, not tied
+      // to a saved calibration existing) so a repeat run doesn't need them retyped -- only
+      // overwritten by hand if the operator has already typed something in for *this* run.
+      if (!tableWidthInput.value && data.table_width_mm != null) {
+        tableWidthInput.value = data.table_width_mm;
+      }
+      if (!tableLengthInput.value && data.table_length_mm != null) {
+        tableLengthInput.value = data.table_length_mm;
+      }
+      if (!cornerTagSizeInput.value && data.corner_tag_size_mm != null) {
+        cornerTagSizeInput.value = data.corner_tag_size_mm;
+      }
       if (!data.exists) {
         calibrationCurrent.textContent = "No calibration saved yet.";
         return;
@@ -1189,6 +1055,12 @@
             `${centre}, plane-fit residual ${data.residual_std_pct.toFixed(2)}%`,
             ...data.report,
           ];
+          if (!data.promoted_to_current) {
+            lines.push(
+              "Diagnostics below are not shown for this run -- it wasn't set as the current " +
+                "baseline, so they'd otherwise show the previous baseline's plots, not this run's."
+            );
+          }
         }
         calibrationResult.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
         if (data.heatmap_url) {
@@ -1198,6 +1070,12 @@
         } else {
           calibrationHeatmap.style.display = "none";
           calibrationHeatmapLegend.style.display = "none";
+        }
+        if (data.accuracy_shape_heatmap_url) {
+          calibrationAccuracyShapeHeatmap.src = `${data.accuracy_shape_heatmap_url}?t=${Date.now()}`;
+          calibrationAccuracyShapeHeatmap.style.display = "block";
+        } else {
+          calibrationAccuracyShapeHeatmap.style.display = "none";
         }
         if (data.area_shape_heatmap_url) {
           calibrationAreaShapeHeatmap.src = `${data.area_shape_heatmap_url}?t=${Date.now()}`;
@@ -1219,9 +1097,12 @@
         } else {
           tableViewShapeDistortion.style.display = "none";
         }
-        if (!data.error) {
+        if (!data.error && data.promoted_to_current) {
           // Re-detects tags from the just-saved frame each time (no per-tag persistence),
           // so these are only worth fetching once a run has actually produced a frame.
+          // Gated on promoted_to_current too (found by code review 2026-09-26): these endpoints
+          // only ever read the current baseline, so fetching them after a promote=False
+          // comparison run would silently show the *previous* baseline's plots, not this run's.
           rankPlotScaleResidual.src = `/calibration/current/rank-plot?metric=scale_residual&t=${Date.now()}`;
           rankPlotScaleResidual.style.display = "block";
           rankPlotShapeDistortion.src = `/calibration/current/rank-plot?metric=shape_distortion&t=${Date.now()}`;
@@ -1238,6 +1119,8 @@
           radialPlotShapeDistortion.src =
             `/calibration/current/radial-plot?metric=shape_distortion&t=${Date.now()}`;
           radialPlotShapeDistortion.style.display = "block";
+          certaintyDomePlot.src = `/calibration/current/certainty-dome-plot?t=${Date.now()}`;
+          certaintyDomePlot.style.display = "block";
         } else {
           rankPlotScaleResidual.style.display = "none";
           rankPlotShapeDistortion.style.display = "none";
@@ -1245,6 +1128,7 @@
           bestWorstPhotoShapeDistortion.style.display = "none";
           radialPlotScaleResidual.style.display = "none";
           radialPlotShapeDistortion.style.display = "none";
+          certaintyDomePlot.style.display = "none";
         }
         await refreshCurrentCalibration();
         await refreshCalibrationList();
@@ -1254,64 +1138,58 @@
       }
     });
 
-    tripwireBtn.addEventListener("click", async () => {
-      tripwireBtn.disabled = true;
-      tripwireBtn.textContent = "Checking...";
+    tableDimsSaveBtn.addEventListener("click", async () => {
+      tableDimsSaveBtn.disabled = true;
+      tableDimsSaveResult.textContent = "Saving...";
       try {
-        const r = await fetch("/calibration/tripwire/check", { method: "POST" });
+        let url = "/calibration/table-dims";
+        const params = [];
+        if (tableWidthInput.value) params.push(`table_width_mm=${tableWidthInput.value}`);
+        if (tableLengthInput.value) params.push(`table_length_mm=${tableLengthInput.value}`);
+        if (cornerTagSizeInput.value) params.push(`corner_tag_size_mm=${cornerTagSizeInput.value}`);
+        if (params.length) url += `?${params.join("&")}`;
+        const r = await fetch(url, { method: "POST" });
         const data = await r.json();
-        if (r.status === 409) {
-          calibrationResult.textContent = data.detail;
-          return;
-        }
-        const roll = data.roll_deg === null ? "" : ` (roll ${data.roll_deg.toFixed(2)} deg)`;
-        calibrationResult.innerHTML = `<strong>${data.verdict}</strong>: ${data.messages.join("; ")}${roll}`;
+        tableDimsSaveResult.textContent =
+          `Saved: width ${data.table_width_mm ?? "—"}mm, length ${data.table_length_mm ?? "—"}mm, ` +
+          `corner tag ${data.corner_tag_size_mm ?? "—"}mm`;
       } finally {
-        tripwireBtn.disabled = false;
-        tripwireBtn.textContent = "Check tripwire now";
+        tableDimsSaveBtn.disabled = false;
       }
     });
 
     refreshCurrentCalibration();
     refreshCalibrationList();
 
-    // --- Live reorientation aid ---
-    const orientationZeroBtn = document.getElementById("orientation-zero-btn");
-    const orientationLive = document.getElementById("orientation-live");
-    let orientationZeroed = false;
+    // --- Live leveling aid ---
+    const levelOverlayImage = document.getElementById("level-overlay-image");
 
-    orientationZeroBtn.addEventListener("click", async () => {
-      orientationZeroBtn.disabled = true;
-      try {
-        const r = await fetch("/calibration/orientation/zero", { method: "POST" });
-        const data = await r.json();
-        if (r.status === 409) {
-          orientationLive.textContent = data.detail;
-          orientationZeroed = false;
-          return;
-        }
-        orientationZeroed = true;
-        orientationLive.textContent = `zeroed on tags ${data.corner_tags.join(", ")}`;
-      } finally {
-        orientationZeroBtn.disabled = false;
-      }
-    });
-
-    async function pollOrientation() {
-      if (orientationZeroed) {
-        try {
-          const r = await fetch("/calibration/orientation/live");
-          const data = await r.json();
-          const roll = data.roll_deg === null ? "roll: n/a" : `roll ${data.roll_deg.toFixed(2)} deg`;
-          orientationLive.innerHTML =
-            `<strong>${data.verdict}</strong> — ${roll}; ${data.messages.join("; ")}`;
-        } catch (e) {
-          // transient network hiccup — try again next tick
-        }
-      }
-      setTimeout(pollOrientation, 500);
+    // Loads into an off-screen probe first, swapping the visible <img>'s src only once a frame
+    // has fully loaded -- setting the visible img's src directly every 500ms let a slow request
+    // (e.g. right after Step 1's two video streams just stopped, still tearing down) get
+    // cancelled by the next tick's src reassignment before it ever painted, which is the more
+    // likely explanation for "blank until I navigate away and back" than the sizing bug was.
+    // `levelOverlayInFlight` skips starting a new probe while one's still pending, rather than
+    // letting probes pile up if requests are ever consistently slow.
+    let levelOverlayInFlight = false;
+    function refreshLevelOverlay() {
+      if (levelOverlayInFlight) return;
+      levelOverlayInFlight = true;
+      const probe = new Image();
+      probe.onload = () => {
+        levelOverlayImage.src = probe.src;
+        levelOverlayInFlight = false;
+      };
+      probe.onerror = () => {
+        levelOverlayInFlight = false;
+      };
+      probe.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
     }
-    pollOrientation();
+    function pollLevelOverlay() {
+      if (isActiveStep(2)) refreshLevelOverlay();
+      setTimeout(pollLevelOverlay, 500);
+    }
+    pollLevelOverlay();
 
     // --- Honesty plot ---
     const honestyRows = document.getElementById("honesty-rows");
@@ -1373,6 +1251,50 @@
         honestyPlotBtn.textContent = "Generate honesty plot";
       }
     });
+
+    // --- Wizard step navigation (Next/Back, one step visible at a time) ---
+    // No gating yet -- Next is always enabled. Per-step checks (e.g. "residuals too high, are
+    // you sure?") are TODO.md's "Calibration wizard ... with a gate at each step" item; they
+    // need real threshold values from measured runs, not guessed constants.
+    const STEP_TITLES = [
+      "Confirm focus",
+      "Level & square",
+      "Place calibration and corner sheets",
+      "Run calibration",
+      "Read the report",
+      "Remove sheets",
+    ];
+    const wizardSteps = document.querySelectorAll(".wizard-step");
+    const wizardProgress = document.getElementById("wizard-progress");
+    const wizardBackBtn = document.getElementById("wizard-back-btn");
+    const wizardNextBtn = document.getElementById("wizard-next-btn");
+
+    function renderWizardStep() {
+      wizardSteps.forEach((el) => {
+        el.classList.toggle("active", Number(el.dataset.step) === wizardStep);
+      });
+      wizardProgress.textContent =
+        `Step ${wizardStep} of ${STEP_TITLES.length} — ${STEP_TITLES[wizardStep - 1]}`;
+      wizardBackBtn.disabled = wizardStep === 1;
+      wizardNextBtn.textContent = wizardStep === STEP_TITLES.length ? "Done" : "Next →";
+      wizardNextBtn.disabled = wizardStep === STEP_TITLES.length;
+      updateLiveResources();
+      if (isActiveStep(2)) refreshLevelOverlay();
+    }
+
+    wizardBackBtn.addEventListener("click", () => {
+      if (wizardStep > 1) {
+        wizardStep -= 1;
+        renderWizardStep();
+      }
+    });
+    wizardNextBtn.addEventListener("click", () => {
+      if (wizardStep < STEP_TITLES.length) {
+        wizardStep += 1;
+        renderWizardStep();
+      }
+    });
+    renderWizardStep();
   </script>
 </body>
 </html>

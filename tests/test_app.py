@@ -27,13 +27,6 @@ def isolated_calibration_dir(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
 
 
 @pytest.fixture(autouse=True)
-def reset_live_orientation_zero() -> None:
-    # Module-level state (TODO.md's "Live reorientation guidance" -- in-memory by design, not
-    # persisted), so it must not leak a zero point set by one test into the next.
-    app_module._live_orientation_baseline = None
-
-
-@pytest.fixture(autouse=True)
 def reset_frame_detection_cache() -> None:
     # Module-level state (the rank-plot/best-worst-photo OOM fix's one-entry cache), keyed by
     # frame_stem -- collision across tests is astronomically unlikely (microsecond timestamps),
@@ -43,9 +36,19 @@ def reset_frame_detection_cache() -> None:
     app_module._cached_frame_detections = None
 
 
-def test_index_page_loads() -> None:
-    client = TestClient(app)
+def test_root_redirects_to_gallery() -> None:
+    client = TestClient(app, follow_redirects=False)
     response = client.get("/")
+    assert response.status_code in (302, 307)
+    assert response.headers["location"] == "/gallery"
+
+
+@pytest.mark.parametrize(
+    "path", ["/setup", "/setup/focus", "/setup/calibration", "/setup/health-check", "/gallery"]
+)
+def test_page_loads(path: str) -> None:
+    client = TestClient(app)
+    response = client.get(path)
     assert response.status_code == 200
     assert "NPEC Camera Rig" in response.text
 
@@ -317,6 +320,8 @@ def test_run_calibration_builds_field_and_saves_artifact_and_frame(
     assert body["heatmap_url"] is not None
     assert body["area_shape_heatmap_url"] is not None
     assert (calibration_root() / "heatmaps" / Path(body["area_shape_heatmap_url"]).name).exists()
+    assert body["accuracy_shape_heatmap_url"] is not None
+    assert (calibration_root() / "heatmaps" / Path(body["accuracy_shape_heatmap_url"]).name).exists()
 
     current = client.get("/calibration/current").json()
     assert current["exists"] is True
@@ -325,10 +330,12 @@ def test_run_calibration_builds_field_and_saves_artifact_and_frame(
     assert current["frame_url"] == body["frame_url"]
     assert current["heatmap_url"] == body["heatmap_url"]
     assert current["area_shape_heatmap_url"] == body["area_shape_heatmap_url"]
+    assert current["accuracy_shape_heatmap_url"] == body["accuracy_shape_heatmap_url"]
     assert current["has_uncertainty_field"] is True
 
     listing = client.get("/calibration/list").json()
     assert listing[0]["area_shape_heatmap_url"] == body["area_shape_heatmap_url"]
+    assert listing[0]["accuracy_shape_heatmap_url"] == body["accuracy_shape_heatmap_url"]
     assert body["table_view_url"] is None  # only 2 of 4 corner tags -- no table frame buildable
     assert body["table_view_shape_url"] is None
 
@@ -390,6 +397,132 @@ def test_run_calibration_echoes_corner_tag_size_and_default_flag(
     ).json()
     assert measured_run["corner_tag_size_mm"] == 49.87
     assert measured_run["corner_tag_size_mm_is_default"] is False
+
+
+def test_run_calibration_remembers_table_dims_across_runs(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # Aaron, 2026-09-25: "the calibration doesn't remember the settings from previous runs so I
+    # always get the NOT TO SCALE thing." A run that omits all three must reuse whatever was
+    # last actually given, not fall back to NOT-TO-SCALE/the placeholder default.
+    monkeypatch.setattr(
+        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
+    )
+    client = TestClient(app)
+
+    first = client.post(
+        "/calibration/run",
+        params={"table_width_mm": 1000.0, "table_length_mm": 800.0, "corner_tag_size_mm": 49.87},
+    ).json()
+    assert first["table_view_to_scale"] is True
+
+    current = client.get("/calibration/current").json()
+    assert current["table_width_mm"] == 1000.0
+    assert current["table_length_mm"] == 800.0
+    assert current["corner_tag_size_mm"] == 49.87
+
+    second = client.post("/calibration/run").json()
+    assert second["table_width_mm"] == 1000.0
+    assert second["table_length_mm"] == 800.0
+    assert second["corner_tag_size_mm"] == 49.87
+    assert second["corner_tag_size_mm_is_default"] is False
+    assert second["table_view_to_scale"] is True
+
+
+def test_save_table_dims_persists_without_a_camera_capture(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # Aaron, 2026-09-25: "There's no way to enter the table width and length in mm. There's no
+    # submit button." Before this endpoint, the only way to persist these was as a side effect
+    # of /calibration/run, which needs real tags in frame to succeed at all.
+    def _fail_if_called(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("saving table dims must not touch the camera")
+
+    monkeypatch.setattr(app_module.CameraManager, "instance", staticmethod(_fail_if_called))
+
+    client = TestClient(app)
+    response = client.post(
+        "/calibration/table-dims",
+        params={"table_width_mm": 1496.0, "table_length_mm": 1152.0, "corner_tag_size_mm": 50.0},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "table_width_mm": 1496.0,
+        "table_length_mm": 1152.0,
+        "corner_tag_size_mm": 50.0,
+    }
+
+    current = client.get("/calibration/current").json()
+    assert current["table_width_mm"] == 1496.0
+    assert current["table_length_mm"] == 1152.0
+    assert current["corner_tag_size_mm"] == 50.0
+
+
+def test_save_table_dims_leaves_unset_fields_alone(isolated_calibration_dir: None) -> None:
+    client = TestClient(app)
+    client.post("/calibration/table-dims", params={"table_width_mm": 1496.0})
+    response = client.post("/calibration/table-dims", params={"corner_tag_size_mm": 50.0})
+    assert response.json() == {
+        "table_width_mm": 1496.0,
+        "table_length_mm": None,
+        "corner_tag_size_mm": 50.0,
+    }
+
+
+def test_save_table_dims_rejects_non_positive_values(isolated_calibration_dir: None) -> None:
+    # Found by code review 2026-09-26: 0 used to pass straight through
+    # _outer_edge_span_to_centre_distance_mm as "no tag-width correction needed" instead of
+    # "invalid", and would have silently poisoned every future run's persisted default.
+    client = TestClient(app)
+    client.post(
+        "/calibration/table-dims",
+        params={"table_width_mm": 1496.0, "table_length_mm": 1152.0, "corner_tag_size_mm": 50.0},
+    )
+    response = client.post(
+        "/calibration/table-dims",
+        params={"table_width_mm": 0.0, "table_length_mm": -5.0, "corner_tag_size_mm": 0.0},
+    )
+    assert response.json() == {
+        "table_width_mm": 1496.0,
+        "table_length_mm": 1152.0,
+        "corner_tag_size_mm": 50.0,
+    }
+
+
+def test_run_calibration_does_not_persist_table_dims_when_not_promoted(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # Aaron's own "never overwrite with a guess" rule applied to promote=False (found by code
+    # review 2026-09-26): a comparison run's own test values must not become the sticky default
+    # for every real run after it, the same way promote=False already keeps current.json alone.
+    monkeypatch.setattr(
+        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
+    )
+    client = TestClient(app)
+
+    client.post(
+        "/calibration/run",
+        params={"table_width_mm": 1496.0, "table_length_mm": 1152.0, "corner_tag_size_mm": 50.0},
+    )
+    comparison = client.post(
+        "/calibration/run",
+        params={
+            "promote": False,
+            "table_width_mm": 40.0,
+            "table_length_mm": 30.0,
+            "corner_tag_size_mm": 5.0,
+        },
+    ).json()
+    # The comparison run's own table view still uses its own entered values...
+    assert comparison["table_width_mm"] == 40.0
+    assert comparison["table_length_mm"] == 30.0
+    assert comparison["corner_tag_size_mm"] == 5.0
+
+    # ...but the persisted defaults for the *next* run are untouched.
+    current = client.get("/calibration/current").json()
+    assert current["table_width_mm"] == 1496.0
+    assert current["table_length_mm"] == 1152.0
+    assert current["corner_tag_size_mm"] == 50.0
 
 
 def test_run_calibration_converts_outer_edge_span_to_table_view(
@@ -520,7 +653,12 @@ def test_current_calibration_before_any_run(isolated_calibration_dir: None) -> N
     client = TestClient(app)
     response = client.get("/calibration/current")
     assert response.status_code == 200
-    assert response.json() == {"exists": False}
+    assert response.json() == {
+        "exists": False,
+        "table_width_mm": None,
+        "table_length_mm": None,
+        "corner_tag_size_mm": None,
+    }
 
 
 def test_tripwire_check_without_baseline_is_refused(isolated_calibration_dir: None) -> None:
@@ -580,60 +718,6 @@ def test_tripwire_check_reports_a_real_roll_through_the_json_round_trip(
     assert set(body["scale_delta_pct"].keys()) == {"450", "451"}
 
 
-def test_live_orientation_without_zero_is_refused() -> None:
-    client = TestClient(app)
-    response = client.get("/calibration/orientation/live")
-    assert response.status_code == 409
-
-
-def test_zero_live_orientation_refuses_with_no_corner_tags() -> None:
-    # SyntheticBackend's main-stream frame has no real tags drawn -- same "nothing detected" path
-    # as /calibration/run's insufficient-tags case.
-    client = TestClient(app)
-    response = client.post("/calibration/orientation/zero")
-    assert response.status_code == 409
-
-
-def test_zero_live_orientation_builds_baseline_from_preview(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CORNER_TAGS)
-
-    client = TestClient(app)
-    response = client.post("/calibration/orientation/zero")
-    assert response.status_code == 200
-    assert response.json() == {"corner_tags": [450, 451]}
-
-
-def test_live_orientation_is_ok_at_the_zero_point(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CORNER_TAGS)
-
-    client = TestClient(app)
-    assert client.post("/calibration/orientation/zero").status_code == 200
-
-    response = client.get("/calibration/orientation/live")
-    assert response.status_code == 200
-    body = response.json()
-    assert body["verdict"] == "OK"
-    assert body["roll_deg"] == pytest.approx(0.0)
-
-
-def test_live_orientation_reports_roll_after_zero(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Same convention as test_tripwire_check_reports_a_real_roll_through_the_json_round_trip:
-    # proves roll_deg survives this endpoint's own dict-building and JSON encoding with a real,
-    # non-zero value -- what Aaron reads off the screen while nudging the rig by hand.
-    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CORNER_TAGS)
-
-    client = TestClient(app)
-    assert client.post("/calibration/orientation/zero").status_code == 200
-
-    pivot = (750, 500)
-    rolled = [rotate_detection(d, pivot, 5.0) for d in _CORNER_TAGS]
-    monkeypatch.setattr(app_module, "detect_tags", lambda frame: rolled)
-
-    response = client.get("/calibration/orientation/live")
-    assert response.status_code == 200
-    body = response.json()
-    assert body["verdict"] == "DRIFT"
-    assert body["roll_deg"] == pytest.approx(5.0, abs=0.01)
 
 
 def test_run_calibration_with_promote_false_does_not_replace_current(
