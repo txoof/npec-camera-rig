@@ -312,8 +312,8 @@ a { color: #6cf; }
 .calibration-history-card.is-current { background: rgba(102, 204, 153, 0.08); }
 .calibration-history-card img,
 .calibration-history-card .no-snapshot {
-  width: 56px;
-  height: 42px;
+  width: 20%;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
   background: #000;
   flex-shrink: 0;
