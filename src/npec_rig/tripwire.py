@@ -213,12 +213,18 @@ def corner_level_readings(
         return []
 
     sides = {d.tag_id: tag_side_px(d.corners) for d in corner_detections}
-    mean_side = sum(sides.values()) / len(sides)
+    total_side = sum(sides.values())
+    n = len(sides)
     centres = {d.tag_id: d.centre for d in corner_detections}
 
     readings = []
     for tag_id, side in sides.items():
-        deviation_pct = 100.0 * (side / mean_side - 1.0)
+        # Mean of the *other* tags, not including this one -- found by code review 2026-09-26:
+        # including self in the mean dilutes the reported deviation by ~1/n, worst at the
+        # minimum-supported n=2 (a 16% real size difference between the only two detected tags
+        # read back as ~7.4% each, landing in "drift" instead of clearly "fail").
+        others_mean = (total_side - side) / (n - 1)
+        deviation_pct = 100.0 * (side / others_mean - 1.0)
         magnitude = abs(deviation_pct)
         if magnitude >= fail_pct:
             status = "fail"

@@ -1055,6 +1055,12 @@
             `${centre}, plane-fit residual ${data.residual_std_pct.toFixed(2)}%`,
             ...data.report,
           ];
+          if (!data.promoted_to_current) {
+            lines.push(
+              "Diagnostics below are not shown for this run -- it wasn't set as the current " +
+                "baseline, so they'd otherwise show the previous baseline's plots, not this run's."
+            );
+          }
         }
         calibrationResult.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
         if (data.heatmap_url) {
@@ -1091,9 +1097,12 @@
         } else {
           tableViewShapeDistortion.style.display = "none";
         }
-        if (!data.error) {
+        if (!data.error && data.promoted_to_current) {
           // Re-detects tags from the just-saved frame each time (no per-tag persistence),
           // so these are only worth fetching once a run has actually produced a frame.
+          // Gated on promoted_to_current too (found by code review 2026-09-26): these endpoints
+          // only ever read the current baseline, so fetching them after a promote=False
+          // comparison run would silently show the *previous* baseline's plots, not this run's.
           rankPlotScaleResidual.src = `/calibration/current/rank-plot?metric=scale_residual&t=${Date.now()}`;
           rankPlotScaleResidual.style.display = "block";
           rankPlotShapeDistortion.src = `/calibration/current/rank-plot?metric=shape_distortion&t=${Date.now()}`;

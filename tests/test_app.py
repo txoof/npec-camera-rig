@@ -469,6 +469,62 @@ def test_save_table_dims_leaves_unset_fields_alone(isolated_calibration_dir: Non
     }
 
 
+def test_save_table_dims_rejects_non_positive_values(isolated_calibration_dir: None) -> None:
+    # Found by code review 2026-09-26: 0 used to pass straight through
+    # _outer_edge_span_to_centre_distance_mm as "no tag-width correction needed" instead of
+    # "invalid", and would have silently poisoned every future run's persisted default.
+    client = TestClient(app)
+    client.post(
+        "/calibration/table-dims",
+        params={"table_width_mm": 1496.0, "table_length_mm": 1152.0, "corner_tag_size_mm": 50.0},
+    )
+    response = client.post(
+        "/calibration/table-dims",
+        params={"table_width_mm": 0.0, "table_length_mm": -5.0, "corner_tag_size_mm": 0.0},
+    )
+    assert response.json() == {
+        "table_width_mm": 1496.0,
+        "table_length_mm": 1152.0,
+        "corner_tag_size_mm": 50.0,
+    }
+
+
+def test_run_calibration_does_not_persist_table_dims_when_not_promoted(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # Aaron's own "never overwrite with a guess" rule applied to promote=False (found by code
+    # review 2026-09-26): a comparison run's own test values must not become the sticky default
+    # for every real run after it, the same way promote=False already keeps current.json alone.
+    monkeypatch.setattr(
+        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
+    )
+    client = TestClient(app)
+
+    client.post(
+        "/calibration/run",
+        params={"table_width_mm": 1496.0, "table_length_mm": 1152.0, "corner_tag_size_mm": 50.0},
+    )
+    comparison = client.post(
+        "/calibration/run",
+        params={
+            "promote": False,
+            "table_width_mm": 40.0,
+            "table_length_mm": 30.0,
+            "corner_tag_size_mm": 5.0,
+        },
+    ).json()
+    # The comparison run's own table view still uses its own entered values...
+    assert comparison["table_width_mm"] == 40.0
+    assert comparison["table_length_mm"] == 30.0
+    assert comparison["corner_tag_size_mm"] == 5.0
+
+    # ...but the persisted defaults for the *next* run are untouched.
+    current = client.get("/calibration/current").json()
+    assert current["table_width_mm"] == 1496.0
+    assert current["table_length_mm"] == 1152.0
+    assert current["corner_tag_size_mm"] == 50.0
+
+
 def test_run_calibration_converts_outer_edge_span_to_table_view(
     monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
 ) -> None:

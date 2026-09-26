@@ -106,10 +106,16 @@ Required pieces:
 
 ## Thresholds — reuse, don't invent
 
-- Co-planarity / corner-tag scale spread already has an established three-band scheme:
-  `tripwire.py`'s `DEFAULT_SCALE_DRIFT_PCT = 3.0` (green/amber boundary) and
-  `DEFAULT_SCALE_FAIL_PCT = 8.0` (amber/red boundary) — the same numbers Step 2's traffic-light
-  overlay already uses. Reuse these for a coplanarity color, don't pick new numbers.
+- Co-planarity / corner-tag scale spread has a three-band scheme already used by Step 2's
+  traffic-light overlay: `tripwire.py`'s `DEFAULT_SCALE_DRIFT_PCT = 3.0` (green/amber boundary)
+  and `DEFAULT_SCALE_FAIL_PCT = 8.0` (amber/red boundary). **Caveat, found by code review
+  2026-09-26, don't skip this**: `tripwire.py` marks both constants "Provisional... PLAN.md's M2
+  acceptance tests... are the actual measurement that tunes these, not this guess" — that
+  acceptance test (`TODO.md`: "Roll the camera ~5° → reported as ~5°; knock it hard → verdict
+  flips to FAIL") hasn't been run yet. These numbers aren't wrong, but they're not measured
+  either — check whether that acceptance test has landed by the time you build this, and if not,
+  either carry the same "provisional" caveat into this card's copy or ask Aaron whether an
+  unmeasured threshold belongs on a card whose whole point is "how much do you trust this."
 - Coverage/holdout error only has a **single** established bound: PLAN.md's 2% acceptance target
   (`calibration.py`'s `describe_coverage`, `threshold_pct: float = 2.0`) — a binary
   sufficient/insufficient, not a three-band scheme. If a three-color treatment is wanted for this

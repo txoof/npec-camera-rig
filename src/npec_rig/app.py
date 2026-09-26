@@ -355,6 +355,46 @@ def _outer_edge_span_to_centre_distance_mm(
     return centre_to_centre_mm if centre_to_centre_mm > 0 else None
 
 
+def _resolve_table_dims(
+    table_width_mm: float | None,
+    table_length_mm: float | None,
+    corner_tag_size_mm: float | None,
+    *,
+    persist: bool,
+) -> tuple[float | None, float | None, float | None]:
+    """Resolve the three table-position-view display values against what's already persisted
+    (`settings.py`), used by both `run_calibration` and `save_table_dims` -- found duplicated
+    (and already diverging) by code review 2026-09-26.
+
+    A given value only counts as real if it's a positive number. 0 or negative can't be a
+    physical tag size or table span; letting one through used to reach
+    `_outer_edge_span_to_centre_distance_mm` as `corner_tag_size_mm=0`, which doesn't trip that
+    function's own non-positive guard (0 subtracts nothing, rather than producing a non-positive
+    result) -- silently rendering "to scale" with the tag-width correction missing entirely, and
+    persisting the bad 0 as every future run's default. An invalid value here is treated exactly
+    like a blank field: falls back to whatever was last validly persisted, and is never written.
+
+    `persist=False` for a `promote=False` comparison run (PLAN.md's two-baseline/two-height
+    tests): a deliberately different value for that one comparison run must not silently become
+    every future real run's default, the way `promote=False` already keeps `current.json`
+    untouched.
+    """
+    persisted = load_settings()
+    resolved: list[float | None] = []
+    for name, value in (
+        ("table_width_mm", table_width_mm),
+        ("table_length_mm", table_length_mm),
+        ("corner_tag_size_mm", corner_tag_size_mm),
+    ):
+        if value is not None and value > 0:
+            if persist:
+                save_setting(name, value)
+            resolved.append(value)
+        else:
+            resolved.append(persisted.get(name))
+    return tuple(resolved)  # type: ignore[return-value]
+
+
 @app.post("/calibration/run")
 def run_calibration(
     promote: bool = True,
@@ -386,31 +426,19 @@ def run_calibration(
     given, else `ASSUMED_CORNER_TAG_SIZE_MM`'s nominal placeholder, same pattern as
     `calibration_tag_size_mm`).
 
-    All three are remembered across runs via `settings.py`'s key/value store (the same one
-    camera controls persist through) -- not the `CalibrationArtifact` (that's frozen/versioned
-    measurement data; these are operator-typed display convenience values, unrelated to what a
-    calibration actually measures, and don't deserve a version bump that would strand every
-    already-saved artifact on disk). Only a real, explicitly-given value is ever persisted -- a
-    blank field falls back to whatever was last given, never to a guessed default, so a repeat
-    run doesn't need retyping but the value is always traceable to something the operator
-    actually entered (`/calibration/current` echoes it back for the UI to pre-fill from).
+    All three go through `_resolve_table_dims` (see its docstring): remembered across runs via
+    `settings.py`'s key/value store, not the `CalibrationArtifact`; only a real (positive),
+    explicitly-given value is ever persisted, and only when `promote` is also true -- a
+    `promote=False` comparison run's own values are used for *this* run's table view but never
+    become the sticky default for every real run after it, the same way `promote=False` already
+    keeps `current.json` untouched.
     """
     tag_size_mm = calibration_tag_size_mm if calibration_tag_size_mm is not None else (
         ASSUMED_CALIBRATION_TAG_SIZE_MM
     )
-    persisted = load_settings()
-    if table_width_mm is None:
-        table_width_mm = persisted.get("table_width_mm")
-    else:
-        save_setting("table_width_mm", table_width_mm)
-    if table_length_mm is None:
-        table_length_mm = persisted.get("table_length_mm")
-    else:
-        save_setting("table_length_mm", table_length_mm)
-    if corner_tag_size_mm is None:
-        corner_tag_size_mm = persisted.get("corner_tag_size_mm")
-    else:
-        save_setting("corner_tag_size_mm", corner_tag_size_mm)
+    table_width_mm, table_length_mm, corner_tag_size_mm = _resolve_table_dims(
+        table_width_mm, table_length_mm, corner_tag_size_mm, persist=promote
+    )
     corner_size_mm = corner_tag_size_mm if corner_tag_size_mm is not None else (
         ASSUMED_CORNER_TAG_SIZE_MM
     )
@@ -694,20 +722,16 @@ def save_table_dims(
     physical setup (Aaron, 2026-09-25: "There's no way to enter the table width and length in mm.
     There's no submit button.").
 
-    Only given (non-None) values are written -- a field left blank here keeps whatever was
-    persisted before, same "never overwrite with a guess" rule `run_calibration` follows.
+    Uses `_resolve_table_dims` (see its docstring) -- only a given, positive value is written; a
+    blank or non-positive field keeps whatever was persisted before.
     """
-    if table_width_mm is not None:
-        save_setting("table_width_mm", table_width_mm)
-    if table_length_mm is not None:
-        save_setting("table_length_mm", table_length_mm)
-    if corner_tag_size_mm is not None:
-        save_setting("corner_tag_size_mm", corner_tag_size_mm)
-    persisted = load_settings()
+    table_width_mm, table_length_mm, corner_tag_size_mm = _resolve_table_dims(
+        table_width_mm, table_length_mm, corner_tag_size_mm, persist=True
+    )
     return {
-        "table_width_mm": persisted.get("table_width_mm"),
-        "table_length_mm": persisted.get("table_length_mm"),
-        "corner_tag_size_mm": persisted.get("corner_tag_size_mm"),
+        "table_width_mm": table_width_mm,
+        "table_length_mm": table_length_mm,
+        "corner_tag_size_mm": corner_tag_size_mm,
     }
 
 

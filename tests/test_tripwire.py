@@ -187,6 +187,22 @@ def test_level_readings_fail_band_at_a_large_deviation() -> None:
     assert by_id[453].status == "fail"
 
 
+def test_level_readings_mean_excludes_self_at_the_two_tag_minimum() -> None:
+    # Found by code review 2026-09-26: with the minimum supported 2 tags, a mean that includes
+    # each tag itself dilutes a real 16% size difference to ~7.4% each -- under the 8% fail
+    # threshold. Excluding self recovers the true magnitude (per the docstring's own claim).
+    detections = [
+        square_detection(450, 0, 0, 100),
+        square_detection(451, 1000, 1000, 116),  # 16% bigger than the other
+    ]
+    readings = corner_level_readings(detections)
+    by_id = {r.tag_id: r for r in readings}
+    assert by_id[451].deviation_pct == pytest.approx(16.0)
+    assert by_id[451].status == "fail"
+    assert by_id[450].deviation_pct == pytest.approx(100 / 116 * 100 - 100)
+    assert by_id[450].status == "fail"
+
+
 def test_level_readings_empty_with_fewer_than_two_corner_tags() -> None:
     assert corner_level_readings(_corner_detections(tag_ids=[450])) == []
     assert corner_level_readings([]) == []

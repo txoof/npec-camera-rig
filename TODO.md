@@ -693,6 +693,54 @@ The heart of the project. Do not start before M1 slice 5.
       "Capture") silently drops it back to the tuning file's default afterward, with no UI
       indication anything changed. Deferred, not fixed alongside the AE-stuck bug: would need
       caching the last explicitly-set manual value too, a small but separate change.
+- [ ] **`/code-review --level high` findings, 2026-09-26, PR #10 -- 4 fixed same day (see the PR),
+      5 deferred here with reasons:**
+  - **The "Diagnostics" `<details>` panel (Step 5) now also hides the Honesty plot and "Saved
+        calibrations" list** — nested three sections deep behind one collapsed toggle, when the
+        Honesty plot specifically is PLAN.md's own M2 acceptance-test tool and arguably shouldn't
+        be hidden at all. Not fixed now: this exact area is about to be reworked twice over —
+        the already-approved "tidy up the calibration result messages" split (headline vs.
+        Diagnostics) above, and the calibration-history browser
+        (`reference/plans/calibration-history-browser.md`), which replaces "Saved calibrations"
+        entirely. Resolve the nesting depth as part of one of those, not as a standalone fix that
+        would just get redone.
+  - **Step 2's live co-planarity overlay and `check_tripwire`'s baseline-relative drift reuse the
+        same 3%/8% bands (`tripwire.py`'s `DEFAULT_SCALE_DRIFT_PCT`/`FAIL_PCT`), and neither has
+        actually been measured yet** — both are explicitly marked "Provisional" in `tripwire.py`
+        itself, pending the still-open M2 acceptance test below ("Roll the camera ~5° → reported
+        as ~5°; knock it hard → verdict flips to FAIL"). Not a new problem, and not silently
+        presented as measured in the code (the docstring says so) — the gap is that Step 2's UI
+        copy states "green ≤3%, amber 3-8%, red >8%" with no such caveat visible to the operator.
+        Whether these two different physical questions (has *this* corner changed since a
+        baseline, vs. do different corners currently disagree with each other) should even share
+        one threshold is a real question, not just a wording fix — surfacing it for Aaron rather
+        than picking an answer. **Also affects the calibration-history-browser plan doc** — it
+        recommended reusing these same bands for coplanarity color-coding without this caveat;
+        needs updating alongside whichever way this is resolved.
+  - **The per-tag detection cache (`_cached_frame_detections`/`_frame_detection_lock` in
+        `app.py`) is a bandaid, not a fix** — it stops four simultaneous diagnostic requests from
+        OOMing at once by caching one frame's detections, but every *new* view of a saved run's
+        diagnostics still re-decodes the full-res frame and re-runs the whole tag detector from
+        scratch, because `CalibrationArtifact` never persists per-tag scale-residual/
+        shape-distortion data. The real fix is a schema change (persist per-tag data at
+        calibration time, once), which is exactly the performance question flagged as an open
+        decision in the calibration-history-browser plan doc ("re-detecting tags from every saved
+        frame just to render a list could be slow") — resolve there, not as an isolated fix here.
+  - **The whole camera-controls widget (~150-180 lines: labels, exposure-time formatting, control
+        rendering, AE-dependent disabling) is duplicated verbatim between `setup_focus.html` and
+        `setup_calibration.html`** — already a known, deliberate tradeoff from the Setup-pages
+        redesign (no shared-include mechanism exists in this plain static-HTML codebase; see
+        `m2_calibration_progress.md` memory: "the two copies must be kept in sync by hand"), not
+        new. Logging the code-review hit here so it doesn't look unaddressed — no fix planned
+        unless the duplication actually causes a real bug from the two copies drifting apart.
+  - **Five near-identical "write a heatmap JPEG under a `{stem}_{suffix}.jpg` name" functions in
+        `calibration_store.py`, each paired with a matching "does that file exist → build its URL"
+        block repeated in three places in `app.py`** (`run_calibration`, `list_calibration_
+        artifacts`, `current_calibration`) — real duplication, each new heatmap kind requires
+        hand-copying both. Deferred: a refactor here touches every calibration-diagnostics
+        endpoint at once, real regression risk for a DRY-only change with no behavior bug behind
+        it; revisit if a sixth heatmap kind is ever added, which would be the point this
+        duplication actually starts costing something.
 
 ### M2 — UI usability, not yet done
 
