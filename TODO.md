@@ -782,9 +782,17 @@ The heart of the project. Do not start before M1 slice 5.
       looks down at the table) — the current text-only description (top-left to top-right =
       width, top-left to bottom-left = length) asks the operator to hold that mapping in their
       head instead of seeing it drawn. *(Aaron, 2026-09-25.)*
-- [ ] **Move calibration history into a gallery** — the current "Saved calibrations (download)"
-      `<details>` list (filenames + text links) should become a proper gallery: preview
-      thumbnails plus a download action per entry, not a plain link list. *(Aaron, 2026-09-21)*
+- [ ] **Calibration history browser — major feature, planned 2026-09-26, not started. See the
+      dedicated handoff doc: `reference/plans/calibration-history-browser.md`.** Supersedes the
+      "move calibration history into a gallery" item below (folded into this one) and the
+      "load past reports" idea from earlier the same day. Short version: browse every saved
+      calibration with a snapshot image and color-coded key stats per entry, with a "make this
+      the active baseline" action carrying an explicit "not a substitute for a full calibration"
+      disclaimer, and a delete action. No "undo" button -- rejected as unclear (how many steps
+      back, what state changes). Read the doc before starting; it has the full motivating
+      scenario, the rejected alternative, and the open design questions a fresh agent needs to
+      resolve (which stats are cheap enough to show in a list vs. need re-detection, which
+      metrics already have an established color threshold vs. don't). *(Aaron, 2026-09-26.)*
 - [ ] **Zoomed focus preview (`/focus/roi.mjpg`) is awful quality** — Aaron: looks like a zoom of
       a reduced-quality image. Should be much higher quality to actually help focus by eye.
       `CameraManager.roi_crop_jpeg` (`camera.py`) crops from the continuous `main` video stream
