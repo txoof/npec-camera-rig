@@ -232,7 +232,7 @@
     <details id="diagnostics-details" style="margin-top: 0.75rem;">
       <summary>Diagnostics</summary>
     <img id="calibration-heatmap" alt="Confidence heatmap"
-         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+         class="diagnostic-image">
     <div id="calibration-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
       <div style="height: 14px; border-radius: 3px; background: linear-gradient(to right,
         rgb(48,18,59) 0%, rgb(70,105,224) 12.5%, rgb(42,185,238) 25%, rgb(47,241,155) 37.5%,
@@ -297,9 +297,9 @@
       fitted or idealized — it's the same honest measurements, just averaged more widely.
     </p>
     <img id="calibration-accuracy-shape-heatmap" alt="Accuracy shape heatmap"
-         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+         class="diagnostic-image">
     <img id="calibration-area-shape-heatmap" alt="Area-scale shape distortion heatmap"
-         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+         class="diagnostic-image">
     <div id="calibration-area-shape-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
       <div style="height: 14px; border-radius: 3px; background: linear-gradient(to right,
         rgb(48,18,59) 0%, rgb(70,105,224) 12.5%, rgb(42,185,238) 25%, rgb(47,241,155) 37.5%,
@@ -416,10 +416,10 @@
     </p>
     <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Scale residual</h4>
     <img id="table-view-scale-residual" alt="Scale residual, table-position view"
-         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+         class="diagnostic-image">
     <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Area-shape distortion</h4>
     <img id="table-view-shape-distortion" alt="Area-shape distortion, table-position view"
-         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+         class="diagnostic-image">
     <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
       NOT TO SCALE (a square canvas) unless both table width and length above were entered —
       relative position within the table is correct either way, but the rectangle's own
@@ -439,14 +439,14 @@
     </p>
     <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Scale residual</h4>
     <img id="rank-plot-scale-residual" alt="Scale residual, best to worst"
-         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+         class="diagnostic-image">
     <img id="best-worst-photo-scale-residual" alt="Scale residual, best and worst tag on the photo"
-         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+         class="diagnostic-image">
     <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Area-shape distortion</h4>
     <img id="rank-plot-shape-distortion" alt="Area-shape distortion, best to worst"
-         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+         class="diagnostic-image">
     <img id="best-worst-photo-shape-distortion" alt="Area-shape distortion, best and worst tag on the photo"
-         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+         class="diagnostic-image">
 
     <h3 style="margin: 1rem 0 0.25rem;">Is this lens/parallax distortion, or something else?</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
@@ -460,9 +460,9 @@
       fit yourself.
     </p>
     <img id="radial-plot-scale-residual" alt="Scale residual vs. distance from image centre"
-         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+         class="diagnostic-image">
     <img id="radial-plot-shape-distortion" alt="Area-shape distortion vs. distance from image centre"
-         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+         class="diagnostic-image">
 
     <h3 style="margin: 1rem 0 0.25rem;">Dome of certainty</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
@@ -473,7 +473,7 @@
       flat/noisy instead.
     </p>
     <img id="certainty-dome-plot" alt="Claimed uncertainty vs. distance from image centre"
-         style="display: none; max-width: 100%; margin-top: 0.25rem; border: 1px solid #444;">
+         class="diagnostic-image">
 
     <p style="margin: 0.75rem 0 0;">
       <a href="/setup/calibration-history">Browse calibration history →</a>
@@ -505,7 +505,7 @@
     </div>
     <div id="honesty-plot-result" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
     <img id="honesty-plot-image" alt="Honesty plot"
-         style="display: none; max-width: 100%; margin-top: 0.5rem; border: 1px solid #444;">
+         class="diagnostic-image">
     </details>
 
     </div>

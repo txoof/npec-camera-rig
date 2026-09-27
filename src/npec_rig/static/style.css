@@ -1,4 +1,11 @@
 * { box-sizing: border-box; }
+:root {
+  /* 48px clears every touch-target guideline checked against this app (WCAG 2.5.5 AAA,
+     Apple HIG, Material Design) -- the WCAG 2.5.8 AA floor is 24px, but that's a legal
+     minimum, not a usable one on this rig's touchscreen. */
+  --touch-target-min: 48px;
+  --diagnostic-image-max-width: 80%;
+}
 /* Every font-size on these pages is in rem, so bumping the root scales all of them together --
    raised from the 16px browser default because the small (0.75-0.85rem) copy read too small on
    the target display. */
@@ -263,6 +270,7 @@ button {
   border-radius: 4px;
   background: #369;
   color: #fff;
+  min-height: var(--touch-target-min);
 }
 button:disabled { opacity: 0.5; }
 input[type="range"]:disabled { opacity: 0.5; }
@@ -298,10 +306,6 @@ a { color: #6cf; }
   color: #aaa;
 }
 .wizard-nav-buttons { display: flex; gap: 0.5rem; }
-.wizard-nav-buttons button {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.85rem;
-}
 .calibration-history-list {
   display: flex;
   flex-direction: column;
@@ -392,6 +396,12 @@ a { color: #6cf; }
   background: #2a2a2a;
   font-size: 0.8rem;
   color: #ccc;
+}
+.diagnostic-image {
+  display: none;
+  max-width: var(--diagnostic-image-max-width);
+  margin-top: 0.5rem;
+  border: 1px solid #444;
 }
 .help-popover p:first-child { margin-top: 0; }
 .help-popover p:last-child { margin-bottom: 0; }
