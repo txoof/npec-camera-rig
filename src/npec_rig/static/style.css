@@ -183,40 +183,71 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 .focus-layout.mode-square .roi-crop {
   display: none;
 }
-/* Side by side once there's room for both at a readable size; stacked below that. Preview gets
-   more of the row than the side panel (3:2) -- the panel's content (crop, controls, score) is
-   naturally narrow, and the point of the split is keeping the preview large while everything
-   needed to act on it stays in view alongside it, not below the fold. */
+/* Side by side once there's room for both at a readable size; stacked below that. */
 @media (min-width: 800px) {
   .focus-layout {
     flex-direction: row;
     align-items: flex-start;
   }
-  .focus-layout .preview-wrap {
-    flex: 3 1 0;
-    min-width: 0;
-  }
-  .focus-layout .focus-side-panel {
-    flex: 2 1 0;
+  .focus-layout .preview-wrap,
+  .focus-layout .roi-crop {
+    flex: 1 1 0;
     min-width: 0;
   }
 }
-.focus-side-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.controls, .focus-section, .capture-section, .camera-controls, .calibration-section {
+.focus-section, .capture-section, .camera-controls, .calibration-section {
   max-width: 480px;
   margin-top: 0.75rem;
 }
-/* One visual panel for every focus-adjustment control (autofocus, coarse/fine, peaking) --
-   grouped by a border/background, not just DOM proximity. */
-.controls {
+/* Full-width panel below the images: every focus-adjustment control in one place, grouped by a
+   border/background rather than a column split -- co-visible with the images above it instead
+   of competing with them for vertical space. */
+.focus-control-panel {
+  width: min(80vw, 1400px);
+  margin-top: 0.75rem;
   padding: 0.75rem;
   background: #1a1a1a;
   border: 1px solid #333;
   border-radius: 6px;
+}
+.focus-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+.focus-control-row + .focus-control-row {
+  margin-top: 0.75rem;
+}
+.focus-control-row label {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+.focus-control-row input[type="number"] {
+  width: 5rem;
+  flex: 0 0 auto;
+}
+.focus-control-row input[type="range"] {
+  flex: 1 1 160px;
+  width: auto;
+}
+.focus-control-row canvas {
+  flex: 1 1 200px;
+  max-width: 480px;
+  height: 60px;
+  background: #000;
+}
+.focus-control-row strong {
+  font-size: 1.2rem;
+}
+.peaking-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.peaking-inline input[type="checkbox"] {
+  width: 1.2rem;
+  height: 1.2rem;
 }
 /* The fine-focus slider sits below the whole image row, not in the side panel -- it's the one
    control watched continuously against the live image/sharpness score while dragging, so it
@@ -280,22 +311,6 @@ input[type="number"] {
   height: 1.2rem;
   margin-top: 0.15rem;
   flex-shrink: 0;
-}
-.score-row {
-  display: flex;
-  justify-content: flex-start;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-.score-row strong { font-size: 1.5rem; }
-#score-trace {
-  width: 100%;
-  max-width: 480px;
-  height: 60px;
-  background: #000;
-  display: block;
-  margin-top: 0.25rem;
 }
 .lock-row {
   display: flex;
