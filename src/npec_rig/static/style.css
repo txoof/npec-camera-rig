@@ -4,7 +4,10 @@
      Apple HIG, Material Design) -- the WCAG 2.5.8 AA floor is 24px, but that's a legal
      minimum, not a usable one on this rig's touchscreen. */
   --touch-target-min: 48px;
-  --diagnostic-image-max-width: 80%;
+  /* "80% of the frame," not 80% of whatever narrow form-control column an image happens to sit
+     in (a real bug: inside .calibration-section's 480px cap, 80% rendered as ~30% of the actual
+     screen) -- viewport-relative, same clamp .wide-live-view already uses below. */
+  --diagnostic-image-max-width: min(80vw, 1400px);
 }
 /* Every font-size on these pages is in rem, so bumping the root scales all of them together --
    raised from the 16px browser default because the small (0.75-0.85rem) copy read too small on
@@ -271,6 +274,7 @@ button {
   background: #369;
   color: #fff;
   min-height: var(--touch-target-min);
+  white-space: nowrap;
 }
 button:disabled { opacity: 0.5; }
 input[type="range"]:disabled { opacity: 0.5; }
@@ -306,6 +310,10 @@ a { color: #6cf; }
   color: #aaa;
 }
 .wizard-nav-buttons { display: flex; gap: 0.5rem; }
+/* Prevents the wizard-progress label (which can shrink/wrap) from squeezing these below their
+   natural width -- a squeezed button wraps "&larr; Back" onto two lines (arrow over text) and
+   reads as square instead of the usual rectangular shape. */
+.wizard-nav-buttons button { flex-shrink: 0; }
 .calibration-history-list {
   display: flex;
   flex-direction: column;
@@ -402,6 +410,32 @@ a { color: #6cf; }
   max-width: var(--diagnostic-image-max-width);
   margin-top: 0.5rem;
   border: 1px solid #444;
+  cursor: zoom-in;
+}
+.lightbox-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-overlay.open { display: flex; }
+.lightbox-overlay .lightbox-image {
+  max-width: 95vw;
+  max-height: 95vh;
+  object-fit: contain;
+}
+.lightbox-close {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  font-size: 1.5rem;
+  line-height: 1;
+  background: #833;
 }
 .help-popover p:first-child { margin-top: 0; }
 .help-popover p:last-child { margin-bottom: 0; }
