@@ -824,6 +824,24 @@ The heart of the project. Do not start before M1 slice 5.
 - [x] **"Back"/"Next" buttons now match the rest of the UI's button style, 2026-09-27** -- the
       wizard-nav-buttons size override was removed; they inherit the same base button look
       (min 48px touch target) as everywhere else. *(Aaron, 2026-09-26.)*
+- [ ] **Tabled: what should the honesty plot's "actual error" input actually be? Aaron doesn't yet
+      understand what the tool is supposed to do, and needs rig access to work it out.** He has
+      a frame completely covered in AprilTags, each independently measured to ~30mm within
+      0.5mm, and expected the app to compute error from that directly -- but there's a real
+      circularity problem underneath this, not just a missing feature: if those tags are the
+      same ones the live calibration was built from, "predicted size vs. known size" for them is
+      exactly `scale_residual_samples()` in `calibration.py` -- the same number the confidence
+      heatmap and scale-residual rank plot already show, produced by the very least-squares fit
+      those tags built. That's the fit grading its own homework, not independent verification,
+      and the honesty plot exists specifically to catch the app lying to itself -- CLAUDE.md's
+      "certainty is measured, never derived" gate. Two honest paths once this is resolved with
+      rig access: (1) if the tag-covered frame is a separate, held-out capture never used to fit
+      the live calibration, auto-computing predicted-vs-known size per detected tag is legitimate
+      and removes the need for a ruler entirely; (2) if it's the same frame, the real test needs
+      a measurement outside the tag detections altogether -- e.g. a tape measure between two
+      fixed points (the corner tags) compared against what the app reports for that distance.
+      Do not implement either path without confirming which situation actually applies.
+      *(Aaron, 2026-09-27.)*
 - [ ] **The wizard is too wordy and conversational overall — slim it down.** Long paragraph
       explanations under most steps; consider expandable/pop-over info boxes instead of a large
       block of always-visible text, so the default view is short and detail is opt-in. Cuts
