@@ -847,18 +847,21 @@ The heart of the project. Do not start before M1 slice 5.
       block of always-visible text, so the default view is short and detail is opt-in. Cuts
       across every step, not a single-page fix — needs its own pass once scoped.
       *(Aaron, 2026-09-26.)*
-- [ ] **Calibration wizard: real Next/Back step navigation, one step visible at a time, with a
-      gate at each step.** Multi-page split done 2026-09-25 (Setup menu, Focus & Square,
-      Calibration, Gallery are now separate pages/routes) — still open, and distinct from that:
-      within `/setup/calibration` itself, the 7 steps are still one long scroll of headings, not
-      real paging. Wanted: Next/Back buttons, one step shown at a time, and at each step a gate
-      that checks whether things look reasonable before moving on — e.g. leveling/squareness very
-      off, or a run's residuals very high, caught right there instead of only surfacing in the
-      final report. Needs real threshold values from measured runs, not guessed constants, plus a
-      UX decision (warn vs. block progress) — a design question of its own, not a small addition.
-      Distinct from M6's alerts item, which is about unattended-operation alerts, not interactive
-      setup feedback. *(Aaron, 2026-09-21; multi-page split 2026-09-25; Next/Back + per-step gate
-      explicitly requested 2026-09-25.)*
+- [x] **Calibration wizard: real Next/Back step navigation, one step visible at a time — shipped
+      2026-09-25 (#10, `68c01c6`), predates this TODO entry having been updated to say so.**
+      Multi-page split (Setup menu, Focus & Square, Calibration, Gallery as separate
+      pages/routes) also done 2026-09-25. `/setup/calibration` now pages one `.wizard-step` at a
+      time via `wizardStep`/`renderWizardStep()`, grown to 7 steps as of this branch (M2 UI
+      organization pass, 2026-09-27) with Step 2 added for the rotation/squareness check.
+      *(Aaron, 2026-09-21; shipped 2026-09-25.)*
+- [ ] **Calibration wizard: gate at each step, not just paging.** Distinct from the paging item
+      above (done): at each step, check whether things look reasonable before moving on — e.g.
+      leveling/squareness very off, or a run's residuals very high, caught right there instead of
+      only surfacing in the final report. Needs real threshold values from measured runs, not
+      guessed constants, plus a UX decision (warn vs. block progress) — a design question of its
+      own, not a small addition. Distinct from M6's alerts item, which is about
+      unattended-operation alerts, not interactive setup feedback. *(Aaron, 2026-09-21 and
+      2026-09-25.)*
 - [x] **Step 4 ("Confirm nothing moved") — removed entirely, 2026-09-25.** Superseded by the
       "fundamentally confusing" item below: the colored-rings redesign proposed here would have
       fixed the presentation but not the underlying problem, which turned out to be that the step
@@ -980,16 +983,29 @@ The heart of the project. Do not start before M1 slice 5.
       area-scale error/shape distortion including the worst-tag callout. Needs
       `build_calibration_report()` (or its caller in `app.py`) to return two groups instead of one
       flat list, so the frontend can route lines to two different places.
-- [ ] **Low priority: Step 1 -- move the autofocus and manual focus controls to below the
-      images**, not beside/above them as now. *(Aaron, 2026-09-25.)*
-- [ ] **Low priority: Step 1 -- explain what "Lock focus" actually does.** No copy anywhere says
-      what locking does or why you'd want to. *(Aaron, 2026-09-25.)*
-- [ ] **Low priority: Step 3 -- the Back/Next buttons don't match the button style used
-      everywhere else in the app.** *(Aaron, 2026-09-25.)*
-- [ ] **Low priority, general UI idea: (i) icons that expand or show a pop-over on click**, to
-      move some of the current always-visible explanatory paragraphs out of the main flow and
-      clean up the interface. Not scoped to a specific step -- a general pattern to consider
-      across the Setup pages. *(Aaron, 2026-09-25.)*
+- [x] **Step 1 focus controls -- done 2026-09-27 (M2 UI organization pass), by way of several
+      rounds of live feedback, not a single move.** "Below the images" alone (the original ask)
+      turned out not to be the real requirement -- at 1024x768 it just meant scrolling between
+      the image and the controls instead of scrolling between the controls and the image. Landed
+      on: a full-width control panel below the image row (autofocus, lock, peaking, coarse/fine,
+      sharpness, all in one bordered group), applied identically to `/setup/focus` and the
+      wizard's Step 1 via a shared `templates/_focus_controls.html` partial (extracted the same
+      day, so the two pages stop needing hand-sync). *(Aaron, 2026-09-25 raised; 2026-09-27
+      shipped.)*
+- [x] **Step 1 "Lock focus" explainer -- done 2026-09-27.** Checked against
+      `CameraManager.lock_focus()`/`focus_status()` rather than assumed: it only records the
+      lens position for the status display, nothing else in the app gates on it, so the copy
+      says "a record, not a safeguard" rather than overstating what it does. *(Aaron, 2026-09-25
+      raised; 2026-09-27 shipped.)*
+- [x] **Step 3 Back/Next button style -- done 2026-09-27.** Duplicate of the entry above (the
+      wizard-nav-buttons size override removed, same fix). *(Aaron, 2026-09-25/26.)*
+- [ ] **(i) icons / pop-over pattern across the Setup pages -- partially done.** The pattern
+      itself now exists in a reusable form (`<details>`/`<summary>`, no custom JS) and is used
+      for: Step 1 and Step 2's "More about this step"/"What do these controls do?" panels, and
+      the pre-existing Camera settings panel. Not yet applied to: Steps 3-7's always-visible
+      paragraphs, or `static/help/diagnostics.md`/the drill-down page's (i) pop-overs (a
+      different, JS-fetch-based implementation of the same idea) -- that consolidation is
+      `m2-ui-organization-and-text`'s job, paused mid-branch. *(Aaron, 2026-09-25.)*
 
 ### M2 acceptance — run in the chamber
 - [x] **Two-baseline test — run remotely 2026-09-25, clear pass.** Two calibrations of the same
