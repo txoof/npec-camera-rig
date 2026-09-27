@@ -208,7 +208,7 @@
     let helpTopicsPromise = null;
     function loadHelpTopics() {
       if (!helpTopicsPromise) {
-        helpTopicsPromise = fetch("/static/help/diagnostics.md")
+        helpTopicsPromise = fetch("/static/help/diagnostics.md", { cache: "no-store" })
           .then((r) => r.text())
           .then((text) => {
             const topics = {};
