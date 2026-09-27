@@ -809,9 +809,18 @@ The heart of the project. Do not start before M1 slice 5.
       acceptance-test tool (place a known target, measure the actual error, check
       claimed-vs-actual), not something a day-to-day operator needs on the way through the
       wizard. `/setup/health-check` now shows the current calibration's raw frame (via
-      `/calibration/current`'s `frame_url`) alongside the honesty-plot table/form, so pixel
-      coordinates are still readable without cross-referencing another page. Step 6's
-      diagnostics section links to it instead. *(Aaron, 2026-09-26 raised; resolved 2026-09-27.)*
+      `/calibration/current`'s `frame_url`) alongside the honesty-plot table/form. Step 6's
+      diagnostics section links to it instead. **Gap found on first landing (Aaron, 2026-09-27):
+      the frame image displayed but gave no actual way to measure a pixel position from it** --
+      fixed same day: clicking the frame now adds a row pre-filled with that click's position,
+      converted from on-screen percent to the full-res 9152x6944 space every `ScaleField`/
+      `UncertaintyField` position is measured in (same conversion pattern the Focus ROI click
+      already used, just a different frame size), and focuses the "actual error" field so the
+      next step (measure with a ruler, type it in) is immediate. Click precision is only
+      approximate (a scaled-down displayed image, not a full-res pointer), but the honesty
+      plot's claimed-uncertainty lookup averages the 5 nearest tags, so being off by tens of
+      pixels in a 9152px-wide frame shouldn't change which tags that is. *(Aaron, 2026-09-26
+      raised the move; 2026-09-27 raised and fixed the measurement gap.)*
 - [x] **"Back"/"Next" buttons now match the rest of the UI's button style, 2026-09-27** -- the
       wizard-nav-buttons size override was removed; they inherit the same base button look
       (min 48px touch target) as everywhere else. *(Aaron, 2026-09-26.)*

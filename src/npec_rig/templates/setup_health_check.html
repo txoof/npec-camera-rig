@@ -29,14 +29,15 @@
 
   <h3 style="margin: 1.5rem 0 0.25rem;">Honesty plot</h3>
   <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    PLAN.md's M2 acceptance test: place a known target at each of several positions, read its
-    pixel position off the calibration frame below, measure the actual error with a ruler, and
-    add a row below. "Claimed" is looked up automatically from the live calibration. Points on
-    the diagonal are honest; scattered off it at random is fine; drifting with position is the
-    signal that opens the intrinsics evidence gate (CLAUDE.md) — that judgement is yours to
-    make from where they land.
+    PLAN.md's M2 acceptance test: place a known target at each of several positions, click that
+    position on the calibration frame below to add a row with its pixel coordinates, measure the
+    actual error with a ruler, and type it into that row. "Claimed" is looked up automatically
+    from the live calibration. Points on the diagonal are honest; scattered off it at random is
+    fine; drifting with position is the signal that opens the intrinsics evidence gate
+    (CLAUDE.md) — that judgement is yours to make from where they land.
   </p>
-  <img id="honesty-frame-image" alt="Current calibration frame" class="diagnostic-image">
+  <img id="honesty-frame-image" alt="Current calibration frame -- click a position to add a row"
+       class="honesty-frame-image">
   <table id="honesty-table" style="font-size: 0.85rem; border-collapse: collapse; width: 100%;">
     <thead>
       <tr>
@@ -95,20 +96,39 @@
       })
       .catch(() => {});
 
-    function addHonestyRow() {
+    function addHonestyRow(x, y) {
       const row = document.createElement("tr");
       row.innerHTML = `
-        <td><input type="number" class="honesty-x" step="1" style="width: 5rem;"></td>
-        <td><input type="number" class="honesty-y" step="1" style="width: 5rem;"></td>
+        <td><input type="number" class="honesty-x" step="1" style="width: 5rem;" value="${x ?? ""}"></td>
+        <td><input type="number" class="honesty-y" step="1" style="width: 5rem;" value="${y ?? ""}"></td>
         <td><input type="number" class="honesty-actual" step="0.1" style="width: 5rem;"></td>
         <td><button type="button" class="honesty-remove-btn">Remove</button></td>
       `;
       row.querySelector(".honesty-remove-btn").addEventListener("click", () => row.remove());
       honestyRows.appendChild(row);
+      return row;
     }
-    honestyAddRowBtn.addEventListener("click", addHonestyRow);
+    honestyAddRowBtn.addEventListener("click", () => addHonestyRow());
     addHonestyRow();
     addHonestyRow();
+
+    // The calibration frame is captured full-res (CLAUDE.md: 9152x6944), which is also the
+    // pixel space every ScaleField/UncertaintyField position is measured in -- the honesty-plot
+    // endpoint looks up "claimed" uncertainty at exactly the (x, y) typed into each row, so a
+    // click here has to land in that same space, not the on-screen display size.
+    const CALIBRATION_FRAME_WIDTH = 9152;
+    const CALIBRATION_FRAME_HEIGHT = 6944;
+
+    honestyFrameImage.addEventListener("click", (event) => {
+      const rect = honestyFrameImage.getBoundingClientRect();
+      const relX = (event.clientX - rect.left) / rect.width;
+      const relY = (event.clientY - rect.top) / rect.height;
+      const row = addHonestyRow(
+        Math.round(relX * CALIBRATION_FRAME_WIDTH),
+        Math.round(relY * CALIBRATION_FRAME_HEIGHT)
+      );
+      row.querySelector(".honesty-actual").focus();
+    });
 
     honestyPlotBtn.addEventListener("click", async () => {
       const rows = Array.from(honestyRows.querySelectorAll("tr"));

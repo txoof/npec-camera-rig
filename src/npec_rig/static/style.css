@@ -464,6 +464,15 @@ a { color: #6cf; }
   border: 1px solid #444;
   cursor: zoom-in;
 }
+/* Deliberately not .diagnostic-image: clicking this picks a pixel position (see the honesty-plot
+   JS), so it must not also open the click-to-enlarge lightbox every .diagnostic-image gets. */
+.honesty-frame-image {
+  display: none;
+  max-width: var(--diagnostic-image-max-width);
+  margin-top: 0.5rem;
+  border: 1px solid #444;
+  cursor: crosshair;
+}
 .lightbox-overlay {
   display: none;
   position: fixed;
