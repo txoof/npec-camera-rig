@@ -122,7 +122,7 @@ def setup_focus_page(request: Request) -> Response:
 
 @app.get("/setup/calibration")
 def setup_calibration_page(request: Request) -> Response:
-    """The calibration wizard (6 steps) and its diagnostics."""
+    """The calibration wizard (7 steps) and its diagnostics."""
     return templates.TemplateResponse(request, "setup_calibration.html")
 
 

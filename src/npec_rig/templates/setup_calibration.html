@@ -20,7 +20,7 @@
     </p>
 
     <div class="wizard-nav">
-      <span id="wizard-progress">Step 1 of 6</span>
+      <span id="wizard-progress">Step 1 of 7</span>
       <div class="wizard-nav-buttons">
         <button type="button" id="wizard-back-btn">&larr; Back</button>
         <button type="button" id="wizard-next-btn">Next &rarr;</button>
@@ -31,33 +31,17 @@
     <h3 style="margin: 1rem 0 0.25rem;">Step 1 — Confirm focus</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Use "Autofocus" and "Lock focus" below. Re-check this any time the lens may have moved —
-      calibration measures the scene through whatever focus is locked in. The same live preview
-      switches to "Square mode" for a squareness-by-eye guide, if you want it now — the next
-      step has a numeric co-planarity check either way.
+      calibration measures the scene through whatever focus is locked in.
     </p>
 
     <div class="focus-layout">
       <div class="preview-wrap">
         <img class="preview" id="preview" src="/preview.mjpg" alt="live camera preview. click to place the focus ROI">
         <div class="roi-box" id="roi-box"></div>
-        <div class="squareness-guides" id="squareness-guides">
-          <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
-          <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
-          <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
-          <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
-          <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
-          <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
-          <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
-        </div>
       </div>
 
       <div class="focus-side-panel">
         <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
-
-        <div class="mode-toggle-row">
-          <button type="button" id="mode-focus-btn">Focus mode</button>
-          <button type="button" id="mode-square-btn">Square mode</button>
-        </div>
 
         <div class="controls">
           <button id="autofocus-btn">Autofocus</button>
@@ -90,10 +74,7 @@
         <details class="focus-help">
           <summary>What do these controls do?</summary>
           <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-            <strong>Focus mode:</strong> click the preview to place the focus ROI; the magnified
-            crop updates to match. <strong>Square mode:</strong> drag the guide-line tabs at the
-            frame's edge to line them up with a real edge, checking by eye that the rig sits
-            square — a straightening aid, not a saved reading.
+            Click the preview to place the focus ROI; the magnified crop updates to match.
           </p>
           <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
             <strong>Focus peaking</strong> highlights high-contrast edges in the crop above in
@@ -117,7 +98,30 @@
 
     </div>
     <div class="wizard-step" data-step="2">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 2 — Level &amp; square</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Step 2 — Check rotation/squareness</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Physically adjust the camera until the East side of the table — opposite the drain — is
+      in view. Drag the guide-line tabs at the frame's edge onto known perpendicular lines in
+      the scene (e.g. the table's own edges) — if they line up, the camera isn't rotated or
+      badly tilted. A straightening aid only; dragged positions aren't saved and reset on
+      reload. The next step gives the precise numeric co-planarity check.
+    </p>
+    <div class="preview-wrap" style="width: min(80vw, 1400px); margin: 0 20px 20px 20px;">
+      <img class="preview" id="square-preview" alt="live camera preview for the rotation/squareness check" style="cursor: default;">
+      <div class="squareness-guides mode-square" id="squareness-guides">
+        <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
+        <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
+        <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
+        <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
+        <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
+        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
+        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
+      </div>
+    </div>
+
+    </div>
+    <div class="wizard-step" data-step="3">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 3 — Confirm coplanarity</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Colored rings on the corner tags show how co-planar the table is with the camera, live —
       no zero step needed, works as soon as 2+ corner tags are in frame. Each ring's percentage
@@ -135,8 +139,8 @@
     />
 
     </div>
-    <div class="wizard-step" data-step="3">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 3 — Place calibration and corner sheets</h3>
+    <div class="wizard-step" data-step="4">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 4 — Place calibration and corner sheets</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Lay a calibration sheet on every tray, plus the corner/reference sheets at all four corners
       of the table.
@@ -199,8 +203,8 @@
     </ul>
 
     </div>
-    <div class="wizard-step" data-step="4">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 4 — Run calibration</h3>
+    <div class="wizard-step" data-step="5">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 5 — Run calibration</h3>
     <label class="peaking-row">
       <input type="checkbox" id="promote-toggle" checked>
       <span>
@@ -225,8 +229,8 @@
     <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
 
     </div>
-    <div class="wizard-step" data-step="5">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 5 — Read the report</h3>
+    <div class="wizard-step" data-step="6">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 6 — Read the report</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       The result above states the scale, coverage, and any coverage gaps found. If it says
       coverage is weak somewhere, open Diagnostics below to see exactly where, add a sheet there,
@@ -521,8 +525,8 @@
     </details>
 
     </div>
-    <div class="wizard-step" data-step="6">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 6 — Remove sheets</h3>
+    <div class="wizard-step" data-step="7">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 7 — Remove sheets</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Once the report above looks right, remove the calibration and corner sheets from the trays
       before starting a growth run.
@@ -755,7 +759,6 @@
     }
 
     previewImg.addEventListener("click", (event) => {
-      if (interactionMode !== "focus") return;
       const rect = previewImg.getBoundingClientRect();
       const relX = (event.clientX - rect.left) / rect.width;
       const relY = (event.clientY - rect.top) / rect.height;
@@ -815,43 +818,28 @@
     }
     pollScore();
 
-    // --- Focus / Square mode toggle, and draggable squareness guide lines ---
-    const focusLayout = document.querySelector(".focus-layout");
+    // --- Draggable squareness guide lines (Step 2 -- rotation/tilt check) ---
     const squarenessGuides = document.getElementById("squareness-guides");
-    const modeFocusBtn = document.getElementById("mode-focus-btn");
-    const modeSquareBtn = document.getElementById("mode-square-btn");
     const roiCropImg = document.getElementById("roi-crop");
-    let interactionMode = "focus";
+    const squarePreviewImg = document.getElementById("square-preview");
 
-    // Single source of truth for the two Step-1 video streams: only requested while Step 1 is
-    // the visible step, so a hidden step doesn't keep pulling frames from the camera in the
-    // background. Called both when the wizard step changes and when the focus/square mode
-    // toggle changes (the ROI crop is focus-mode-only either way).
+    // Single source of truth for the three live-video steps (Step 1's preview + crop, Step 2's
+    // squareness view): each only requested while its own step is the visible one, so a hidden
+    // step doesn't keep pulling frames from the camera in the background.
     function updateLiveResources() {
       if (isActiveStep(1)) {
         if (!previewImg.getAttribute("src")) previewImg.src = "/preview.mjpg";
-        if (interactionMode === "focus") {
-          roiCropImg.src = "/focus/roi.mjpg";
-        } else {
-          roiCropImg.removeAttribute("src");
-        }
+        roiCropImg.src = "/focus/roi.mjpg";
       } else {
         previewImg.removeAttribute("src");
         roiCropImg.removeAttribute("src");
       }
+      if (isActiveStep(2)) {
+        if (!squarePreviewImg.getAttribute("src")) squarePreviewImg.src = "/preview.mjpg";
+      } else {
+        squarePreviewImg.removeAttribute("src");
+      }
     }
-
-    function setMode(mode) {
-      interactionMode = mode;
-      focusLayout.classList.toggle("mode-square", mode === "square");
-      squarenessGuides.classList.toggle("mode-square", mode === "square");
-      modeFocusBtn.classList.toggle("active", mode === "focus");
-      modeSquareBtn.classList.toggle("active", mode === "square");
-      updateLiveResources();
-    }
-    modeFocusBtn.addEventListener("click", () => setMode("focus"));
-    modeSquareBtn.addEventListener("click", () => setMode("square"));
-    setMode("focus");
 
     function clampPct(value) {
       return Math.min(100, Math.max(0, value));
@@ -877,7 +865,7 @@
       });
       handle.addEventListener("pointermove", (event) => {
         if (!handle.hasPointerCapture(event.pointerId)) return;
-        const rect = previewImg.getBoundingClientRect();
+        const rect = squarePreviewImg.getBoundingClientRect();
         const pct = axis === "y"
           ? clampPct(((event.clientY - rect.top) / rect.height) * 100)
           : clampPct(((event.clientX - rect.left) / rect.width) * 100);
@@ -1228,7 +1216,7 @@
       probe.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
     }
     function pollLevelOverlay() {
-      if (isActiveStep(2)) refreshLevelOverlay();
+      if (isActiveStep(3)) refreshLevelOverlay();
       setTimeout(pollLevelOverlay, 500);
     }
     pollLevelOverlay();
@@ -1300,7 +1288,8 @@
     // need real threshold values from measured runs, not guessed constants.
     const STEP_TITLES = [
       "Confirm focus",
-      "Level & square",
+      "Check rotation/squareness",
+      "Confirm coplanarity",
       "Place calibration and corner sheets",
       "Run calibration",
       "Read the report",
@@ -1321,7 +1310,7 @@
       wizardNextBtn.textContent = wizardStep === STEP_TITLES.length ? "Done" : "Next →";
       wizardNextBtn.disabled = wizardStep === STEP_TITLES.length;
       updateLiveResources();
-      if (isActiveStep(2)) refreshLevelOverlay();
+      if (isActiveStep(3)) refreshLevelOverlay();
     }
 
     wizardBackBtn.addEventListener("click", () => {
