@@ -4,10 +4,12 @@
      Apple HIG, Material Design) -- the WCAG 2.5.8 AA floor is 24px, but that's a legal
      minimum, not a usable one on this rig's touchscreen. */
   --touch-target-min: 48px;
-  /* "80% of the frame," not 80% of whatever narrow form-control column an image happens to sit
+  /* "80% of the frame," not 80% of whatever narrow form-control column an element happens to sit
      in (a real bug: inside .calibration-section's 480px cap, 80% rendered as ~30% of the actual
-     screen) -- viewport-relative, same clamp .wide-live-view already uses below. */
-  --diagnostic-image-max-width: min(80vw, 1400px);
+     screen) -- viewport-relative. The one width rule for every wide element on these pages (live
+     views, diagnostic images, the focus control panel) -- not just images, despite the name
+     history; kept to one variable so a future width change is one edit, not a grep. */
+  --wide-content-width: min(80vw, 1400px);
 }
 /* Every font-size on these pages is in rem, so bumping the root scales all of them together --
    raised from the 16px browser default because the small (0.75-0.85rem) copy read too small on
@@ -56,13 +58,13 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
    fixed 480px, but not centered, so the empty space this leaves on the right is a scroll gutter
    a finger can land on without hitting the frame or its drag handles. */
 .wide-live-view {
-  width: min(80vw, 1400px);
+  width: var(--wide-content-width);
 }
 .focus-layout {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  width: min(80vw, 1400px);
+  width: var(--wide-content-width);
 }
 .preview-wrap {
   position: relative;
@@ -155,7 +157,7 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
   margin-top: 0.75rem;
   /* Matches .focus-layout above it -- these buttons control that frame, so they shouldn't
      stay pinned to the old 480px cap while the frame itself is now much wider. */
-  max-width: min(80vw, 1400px);
+  max-width: var(--wide-content-width);
 }
 .mode-toggle-row button {
   flex: 1;
@@ -203,7 +205,7 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
    border/background rather than a column split -- co-visible with the images above it instead
    of competing with them for vertical space. */
 .focus-control-panel {
-  width: min(80vw, 1400px);
+  width: var(--wide-content-width);
   margin-top: 0.75rem;
   padding: 0.75rem;
   background: #1a1a1a;
@@ -248,13 +250,6 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 .peaking-inline input[type="checkbox"] {
   width: 1.2rem;
   height: 1.2rem;
-}
-/* The fine-focus slider sits below the whole image row, not in the side panel -- it's the one
-   control watched continuously against the live image/sharpness score while dragging, so it
-   reads best directly under what it's adjusting rather than off to the side. */
-.fine-focus-row {
-  width: min(80vw, 1400px);
-  margin-top: 0.75rem;
 }
 .camera-controls-details {
   max-width: 480px;
@@ -459,18 +454,15 @@ a { color: #6cf; }
 }
 .diagnostic-image {
   display: none;
-  max-width: var(--diagnostic-image-max-width);
+  max-width: var(--wide-content-width);
   margin-top: 0.5rem;
   border: 1px solid #444;
   cursor: zoom-in;
 }
-/* Deliberately not .diagnostic-image: clicking this picks a pixel position (see the honesty-plot
-   JS), so it must not also open the click-to-enlarge lightbox every .diagnostic-image gets. */
-.honesty-frame-image {
-  display: none;
-  max-width: var(--diagnostic-image-max-width);
-  margin-top: 0.5rem;
-  border: 1px solid #444;
+/* [data-no-lightbox]: this image's click does something other than open the lightbox (e.g. the
+   honesty-plot frame, which picks a pixel position instead) -- see lightbox.js's guard. Still
+   .diagnostic-image for the shared sizing/border, just a different cursor to signal that. */
+.diagnostic-image[data-no-lightbox] {
   cursor: crosshair;
 }
 .lightbox-overlay {

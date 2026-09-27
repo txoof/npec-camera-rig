@@ -411,53 +411,7 @@
       modeSquareBtn.addEventListener("click", () => setMode("square"));
       setMode("focus");
 
-      function clampPct(value) {
-        return Math.min(100, Math.max(0, value));
-      }
-
-      function syncHandlesForLine(line, axis, pct) {
-        squarenessGuides.querySelectorAll(`.squareness-handle[data-for="${line.id}"]`).forEach((handle) => {
-          handle.style[axis === "y" ? "top" : "left"] = pct + "%";
-        });
-      }
-
-      function moveLineTo(line, axis, pct) {
-        line.style[axis === "y" ? "top" : "left"] = pct + "%";
-        syncHandlesForLine(line, axis, pct);
-      }
-
-      // Pointer capture keeps delivering move/up events to `handle` even once the pointer
-      // leaves it mid-drag -- no separate document-level listeners (and cleanup) needed.
-      function makeHandleDraggable(handle) {
-        const line = document.getElementById(handle.dataset.for);
-        const axis = handle.dataset.axis;
-        handle.addEventListener("pointerdown", (event) => {
-          event.preventDefault();
-          handle.setPointerCapture(event.pointerId);
-        });
-        handle.addEventListener("pointermove", (event) => {
-          if (!handle.hasPointerCapture(event.pointerId)) return;
-          const rect = previewImg.getBoundingClientRect();
-          const pct = axis === "y"
-            ? clampPct(((event.clientY - rect.top) / rect.height) * 100)
-            : clampPct(((event.clientX - rect.left) / rect.width) * 100);
-          moveLineTo(line, axis, pct);
-        });
-      }
-      squarenessGuides.querySelectorAll(".squareness-handle").forEach(makeHandleDraggable);
-
-      const DEFAULT_LINE_H_TOP_PCT = 50;
-
-      // Handles start wherever their line already is (the HTML defaults, 33.33%/66.67%, or the
-      // stylesheet default above for the horizontal line).
-      squarenessGuides.querySelectorAll(".squareness-line").forEach((line) => {
-        const axis = line.classList.contains("squareness-line-h") ? "y" : "x";
-        const inline = parseFloat(axis === "y" ? line.style.top : line.style.left);
-        // Not `inline || DEFAULT...` -- a legitimate 0% position is falsy and would otherwise
-        // be silently overridden.
-        const pct = Number.isNaN(inline) ? DEFAULT_LINE_H_TOP_PCT : inline;
-        syncHandlesForLine(line, axis, pct);
-      });
+      initSquarenessGuides(squarenessGuides, previewImg);
     }
 
     // --- Focus peaking toggle ---

@@ -17,7 +17,7 @@
   }
 
   document.addEventListener("click", (event) => {
-    const image = event.target.closest(".diagnostic-image");
+    const image = event.target.closest(".diagnostic-image:not([data-no-lightbox])");
     if (image && image.hasAttribute("src")) {
       overlayImage.src = image.src;
       overlayImage.alt = image.alt;

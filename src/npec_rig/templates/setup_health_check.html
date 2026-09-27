@@ -27,34 +27,36 @@
   </div>
   <div id="tripwire-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
 
-  <h3 style="margin: 1.5rem 0 0.25rem;">Honesty plot</h3>
-  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    PLAN.md's M2 acceptance test: place a known target at each of several positions, click that
-    position on the calibration frame below to add a row with its pixel coordinates, measure the
-    actual error with a ruler, and type it into that row. "Claimed" is looked up automatically
-    from the live calibration. Points on the diagonal are honest; scattered off it at random is
-    fine; drifting with position is the signal that opens the intrinsics evidence gate
-    (CLAUDE.md) — that judgement is yours to make from where they land.
-  </p>
-  <img id="honesty-frame-image" alt="Current calibration frame -- click a position to add a row"
-       class="honesty-frame-image">
-  <table id="honesty-table" style="font-size: 0.85rem; border-collapse: collapse; width: 100%;">
-    <thead>
-      <tr>
-        <th style="text-align: left; padding: 0.2rem 0.5rem;">x (px)</th>
-        <th style="text-align: left; padding: 0.2rem 0.5rem;">y (px)</th>
-        <th style="text-align: left; padding: 0.2rem 0.5rem;">actual error (%)</th>
-        <th style="text-align: left; padding: 0.2rem 0.5rem;"></th>
-      </tr>
-    </thead>
-    <tbody id="honesty-rows"></tbody>
-  </table>
-  <div class="lock-row">
-    <button id="honesty-add-row-btn">Add point</button>
-    <button id="honesty-plot-btn">Generate honesty plot</button>
-  </div>
-  <div id="honesty-plot-result" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
-  <img id="honesty-plot-image" alt="Honesty plot" class="diagnostic-image">
+  <details id="honesty-plot-details" style="margin-top: 1.5rem;">
+    <summary style="cursor: pointer; font-size: 1rem; padding: 0.5rem 0;">Honesty plot</summary>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      PLAN.md's M2 acceptance test: place a known target at each of several positions, click that
+      position on the calibration frame below to add a row with its pixel coordinates, measure
+      the actual error with a ruler, and type it into that row. "Claimed" is looked up
+      automatically from the live calibration. Points on the diagonal are honest; scattered off
+      it at random is fine; drifting with position is the signal that opens the intrinsics
+      evidence gate (CLAUDE.md) — that judgement is yours to make from where they land.
+    </p>
+    <img id="honesty-frame-image" alt="Current calibration frame -- click a position to add a row"
+         class="diagnostic-image" data-no-lightbox>
+    <table id="honesty-table" style="font-size: 0.85rem; border-collapse: collapse; width: 100%;">
+      <thead>
+        <tr>
+          <th style="text-align: left; padding: 0.2rem 0.5rem;">x (px)</th>
+          <th style="text-align: left; padding: 0.2rem 0.5rem;">y (px)</th>
+          <th style="text-align: left; padding: 0.2rem 0.5rem;">actual error (%)</th>
+          <th style="text-align: left; padding: 0.2rem 0.5rem;"></th>
+        </tr>
+      </thead>
+      <tbody id="honesty-rows"></tbody>
+    </table>
+    <div class="lock-row">
+      <button id="honesty-add-row-btn">Add point</button>
+      <button id="honesty-plot-btn">Generate honesty plot</button>
+    </div>
+    <div id="honesty-plot-result" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
+    <img id="honesty-plot-image" alt="Honesty plot" class="diagnostic-image">
+  </details>
 
   <script>
     const tripwireBtn = document.getElementById("tripwire-btn");
@@ -79,6 +81,7 @@
     });
 
     // --- Honesty plot ---
+    const honestyDetails = document.getElementById("honesty-plot-details");
     const honestyFrameImage = document.getElementById("honesty-frame-image");
     const honestyRows = document.getElementById("honesty-rows");
     const honestyAddRowBtn = document.getElementById("honesty-add-row-btn");
@@ -86,15 +89,23 @@
     const honestyPlotResult = document.getElementById("honesty-plot-result");
     const honestyPlotImage = document.getElementById("honesty-plot-image");
 
-    fetch("/calibration/current")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.exists && data.frame_url) {
-          honestyFrameImage.src = data.frame_url;
-          honestyFrameImage.style.display = "block";
-        }
-      })
-      .catch(() => {});
+    // The frame is a full-res (9152x6944) JPEG -- multi-MB on this rig's own captures -- so it's
+    // not worth fetching until the operator actually opens this section, e.g. someone here just
+    // for the tripwire check above.
+    let honestyFrameLoaded = false;
+    honestyDetails.addEventListener("toggle", () => {
+      if (!honestyDetails.open || honestyFrameLoaded) return;
+      honestyFrameLoaded = true;
+      fetch("/calibration/current")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.exists && data.frame_url) {
+            honestyFrameImage.src = data.frame_url;
+            honestyFrameImage.style.display = "block";
+          }
+        })
+        .catch(() => {});
+    });
 
     function addHonestyRow(x, y) {
       const row = document.createElement("tr");

@@ -55,7 +55,7 @@
         reload. The next step gives the precise numeric co-planarity check.
       </p>
     </details>
-    <div class="preview-wrap" style="width: min(80vw, 1400px); margin: 0 20px 20px 20px;">
+    <div class="preview-wrap" style="width: var(--wide-content-width); margin: 0 20px 20px 20px;">
       <img class="preview" id="square-preview" alt="live camera preview for the rotation/squareness check" style="cursor: default;">
       <div class="squareness-guides mode-square" id="squareness-guides">
         <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
@@ -494,47 +494,7 @@
       }
     }
 
-    function clampPct(value) {
-      return Math.min(100, Math.max(0, value));
-    }
-
-    function syncHandlesForLine(line, axis, pct) {
-      squarenessGuides.querySelectorAll(`.squareness-handle[data-for="${line.id}"]`).forEach((handle) => {
-        handle.style[axis === "y" ? "top" : "left"] = pct + "%";
-      });
-    }
-
-    function moveLineTo(line, axis, pct) {
-      line.style[axis === "y" ? "top" : "left"] = pct + "%";
-      syncHandlesForLine(line, axis, pct);
-    }
-
-    function makeHandleDraggable(handle) {
-      const line = document.getElementById(handle.dataset.for);
-      const axis = handle.dataset.axis;
-      handle.addEventListener("pointerdown", (event) => {
-        event.preventDefault();
-        handle.setPointerCapture(event.pointerId);
-      });
-      handle.addEventListener("pointermove", (event) => {
-        if (!handle.hasPointerCapture(event.pointerId)) return;
-        const rect = squarePreviewImg.getBoundingClientRect();
-        const pct = axis === "y"
-          ? clampPct(((event.clientY - rect.top) / rect.height) * 100)
-          : clampPct(((event.clientX - rect.left) / rect.width) * 100);
-        moveLineTo(line, axis, pct);
-      });
-    }
-    squarenessGuides.querySelectorAll(".squareness-handle").forEach(makeHandleDraggable);
-
-    const DEFAULT_LINE_H_TOP_PCT = 50;
-
-    squarenessGuides.querySelectorAll(".squareness-line").forEach((line) => {
-      const axis = line.classList.contains("squareness-line-h") ? "y" : "x";
-      const inline = parseFloat(axis === "y" ? line.style.top : line.style.left);
-      const pct = Number.isNaN(inline) ? DEFAULT_LINE_H_TOP_PCT : inline;
-      syncHandlesForLine(line, axis, pct);
-    });
+    initSquarenessGuides(squarenessGuides, squarePreviewImg);
 
     // --- Calibration ---
     const calibrateBtn = document.getElementById("calibrate-btn");
