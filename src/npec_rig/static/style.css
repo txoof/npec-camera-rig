@@ -21,6 +21,17 @@ body {
   color: #eee;
 }
 h1 { font-size: 1.1rem; margin: 0 0 0.75rem; }
+/* Sticky header: cancels the body's own padding on three sides and re-applies it, so the bar
+   spans full width flush to the viewport edges once stuck, with its own background so scrolled
+   content doesn't show through underneath it. */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #111;
+  margin: -0.75rem -0.75rem 0;
+  padding: 0.75rem 0.75rem 0;
+}
 h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 .top-nav {
   display: flex;
@@ -207,33 +218,12 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
   border: 1px solid #333;
   border-radius: 6px;
 }
-.vertical-slider-row {
-  display: flex;
-  gap: 1.25rem;
-  align-items: flex-end;
+/* The fine-focus slider sits below the whole image row, not in the side panel -- it's the one
+   control watched continuously against the live image/sharpness score while dragging, so it
+   reads best directly under what it's adjusting rather than off to the side. */
+.fine-focus-row {
+  width: min(80vw, 1400px);
   margin-top: 0.75rem;
-}
-.vertical-slider-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-}
-.vertical-slider-wrap label {
-  margin-bottom: 0;
-  font-size: 0.75rem;
-  color: #ccc;
-  text-align: center;
-}
-/* writing-mode + direction: rtl is the standards-track way to orient a range input vertically
-   (MDN), replacing the older non-standard -webkit-appearance: slider-vertical / Firefox
-   -moz-orient. rtl so higher values land toward the top -- sliding up increases focus distance,
-   matching the physical lens ring it stands in for. */
-input[type="range"].vertical-slider {
-  writing-mode: vertical-lr;
-  direction: rtl;
-  width: 2.5rem;
-  height: 140px;
 }
 .camera-controls-details {
   max-width: 480px;

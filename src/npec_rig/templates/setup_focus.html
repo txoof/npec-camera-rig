@@ -39,15 +39,9 @@
 
       <div class="controls">
         <button id="autofocus-btn">Autofocus</button>
-        <div class="vertical-slider-row">
-          <div class="vertical-slider-wrap">
-            <input type="range" id="lens-coarse" class="vertical-slider" min="0" max="15" step="1" value="1">
-            <label for="lens-coarse">Coarse (dioptres)</label>
-          </div>
-          <div class="vertical-slider-wrap">
-            <input type="range" id="lens-fine" class="vertical-slider" min="0" max="0.99" step="0.01" value="0">
-            <label for="lens-fine">Fine <span id="lens-fine-value">.00</span></label>
-          </div>
+        <div class="focus-row">
+          <label for="lens-coarse">Coarse (dioptres)</label>
+          <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
         </div>
         <label class="peaking-row">
           <input type="checkbox" id="peaking-toggle">
@@ -88,6 +82,11 @@
     </div>
   </div>
 
+  <div class="focus-row fine-focus-row">
+    <label for="lens-fine">Fine adjust <span id="lens-fine-value">.00</span></label>
+    <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
+  </div>
+
   <details class="camera-controls-details">
     <summary>Camera settings</summary>
     <div id="camera-controls" class="camera-controls"></div>
@@ -98,9 +97,10 @@
     const DEFAULT_ROI_SIZE = 200;
 
     // --- Lens position: autofocus + coarse (whole dioptres) + fine (.00-.99 fraction) ---
-    // Coarse and fine are independent vertical sliders that add together -- coarse holds the
-    // whole number, fine holds the fraction. applyLensPosition() below still splits a single
-    // combined value (from autofocus, or the initial load) across both sliders.
+    // The fine slider always spans a fixed .00-.99, left to right — no recentering, no
+    // dynamic range. Coarse holds the whole number; fine holds the fraction; the two just
+    // add together. Typing "6.8" into coarse splits into coarse=6, fine=.80 (80% along the
+    // slider) — what you type is where the slider lands, always the same mapping.
     // LENS_MIN/LENS_MAX start as reasonable guesses and are corrected from the probed range
     // in loadControls() below — LensPosition's own max has already been observed to change
     // between probes (15.0, then 32.0), so this can't be a hardcoded constant.
@@ -270,11 +270,11 @@
       )
       .catch(() => {});
 
-    let sendingCoarse = false;
-    coarseInput.addEventListener("input", () => {
-      if (sendingCoarse) return;
-      sendingCoarse = true;
-      sendLensPosition().finally(() => { sendingCoarse = false; });
+    coarseInput.addEventListener("change", () => {
+      const typed = Number(coarseInput.value);
+      if (Number.isNaN(typed)) return;
+      applyLensPosition(typed); // splits a typed "6.8" into coarse=6, fine=.80
+      sendLensPosition();
     });
 
     let sendingFine = false;

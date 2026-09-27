@@ -15,10 +15,6 @@
     measurement — none of it can be skipped by guessing.
   </p>
   <div class="calibration-section">
-    <p id="calibration-current" style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Loading current calibration&hellip;
-    </p>
-
     <div class="wizard-nav">
       <span id="wizard-progress">Step 1 of 7</span>
       <div class="wizard-nav-buttons">
@@ -30,9 +26,16 @@
     <div class="wizard-step" data-step="1">
     <h3 style="margin: 1rem 0 0.25rem;">Step 1 — Confirm focus</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Use "Autofocus" and "Lock focus" below. Re-check this any time the lens may have moved —
-      calibration measures the scene through whatever focus is locked in.
+      Confirm the lens is in focus.
     </p>
+    <details style="margin: 0 0 0.5rem;">
+      <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
+      <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+        Use "Autofocus" or the manual controls below, then "Lock focus". Re-check this any time
+        the lens may have moved — calibration measures the scene through whatever focus is
+        locked in.
+      </p>
+    </details>
 
     <div class="focus-layout">
       <div class="preview-wrap">
@@ -45,15 +48,9 @@
 
         <div class="controls">
           <button id="autofocus-btn">Autofocus</button>
-          <div class="vertical-slider-row">
-            <div class="vertical-slider-wrap">
-              <input type="range" id="lens-coarse" class="vertical-slider" min="0" max="15" step="1" value="1">
-              <label for="lens-coarse">Coarse (dioptres)</label>
-            </div>
-            <div class="vertical-slider-wrap">
-              <input type="range" id="lens-fine" class="vertical-slider" min="0" max="0.99" step="0.01" value="0">
-              <label for="lens-fine">Fine <span id="lens-fine-value">.00</span></label>
-            </div>
+          <div class="focus-row">
+            <label for="lens-coarse">Coarse (dioptres)</label>
+            <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
           </div>
           <label class="peaking-row">
             <input type="checkbox" id="peaking-toggle">
@@ -91,6 +88,11 @@
       </div>
     </div>
 
+    <div class="focus-row fine-focus-row">
+      <label for="lens-fine">Fine adjust <span id="lens-fine-value">.00</span></label>
+      <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
+    </div>
+
     <details class="camera-controls-details">
       <summary>Camera settings</summary>
       <div id="camera-controls" class="camera-controls"></div>
@@ -100,12 +102,18 @@
     <div class="wizard-step" data-step="2">
     <h3 style="margin: 1rem 0 0.25rem;">Step 2 — Check rotation/squareness</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Physically adjust the camera until the East side of the table — opposite the drain — is
-      in view. Drag the guide-line tabs at the frame's edge onto known perpendicular lines in
-      the scene (e.g. the table's own edges) — if they line up, the camera isn't rotated or
-      badly tilted. A straightening aid only; dragged positions aren't saved and reset on
-      reload. The next step gives the precise numeric co-planarity check.
+      Check that the camera isn't rotated or tilted.
     </p>
+    <details style="margin: 0 0 0.5rem;">
+      <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
+      <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+        Physically adjust the camera until the East side of the table — opposite the drain —
+        is in view. Drag the guide-line tabs at the frame's edge onto known perpendicular lines
+        in the scene (e.g. the table's own edges) — if they line up, the camera isn't rotated
+        or badly tilted. A straightening aid only; dragged positions aren't saved and reset on
+        reload. The next step gives the precise numeric co-planarity check.
+      </p>
+    </details>
     <div class="preview-wrap" style="width: min(80vw, 1400px); margin: 0 20px 20px 20px;">
       <img class="preview" id="square-preview" alt="live camera preview for the rotation/squareness check" style="cursor: default;">
       <div class="squareness-guides mode-square" id="squareness-guides">
@@ -532,6 +540,10 @@
       before starting a growth run.
     </p>
     </div>
+
+    <p id="calibration-current" style="margin: 1rem 0 0; padding-top: 0.75rem; border-top: 1px solid #333; color: #aaa; font-size: 0.85rem;">
+      Loading current calibration&hellip;
+    </p>
   </div>
 
   <script>
@@ -717,11 +729,11 @@
       )
       .catch(() => {});
 
-    let sendingCoarse = false;
-    coarseInput.addEventListener("input", () => {
-      if (sendingCoarse) return;
-      sendingCoarse = true;
-      sendLensPosition().finally(() => { sendingCoarse = false; });
+    coarseInput.addEventListener("change", () => {
+      const typed = Number(coarseInput.value);
+      if (Number.isNaN(typed)) return;
+      applyLensPosition(typed);
+      sendLensPosition();
     });
 
     let sendingFine = false;
