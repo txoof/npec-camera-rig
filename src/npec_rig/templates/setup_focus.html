@@ -9,20 +9,6 @@
 {% endblock %}
 
 {% block content %}
-  <div class="controls">
-    <button id="autofocus-btn">Autofocus</button>
-
-    <div class="focus-row">
-      <label for="lens-coarse">Coarse lens position (dioptres)</label>
-      <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
-    </div>
-
-    <div class="focus-row">
-      <label for="lens-fine">Fine adjust <span id="lens-fine-value">.00</span></label>
-      <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
-    </div>
-  </div>
-
   <h2>Focus aid</h2>
   <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
     Click the live preview to place the focus region. Watch the score below peak while adjusting
@@ -57,6 +43,21 @@
     preview doesn't move the focus ROI while in this mode. Lines are a straightening aid, not a
     reading — dragged positions aren't saved anywhere and reset on reload.
   </p>
+
+  <div class="controls">
+    <button id="autofocus-btn">Autofocus</button>
+
+    <div class="focus-row">
+      <label for="lens-coarse">Coarse lens position (dioptres)</label>
+      <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
+    </div>
+
+    <div class="focus-row">
+      <label for="lens-fine">Fine adjust <span id="lens-fine-value">.00</span></label>
+      <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
+    </div>
+  </div>
+
   <label class="peaking-row">
     <input type="checkbox" id="peaking-toggle">
     <span>
@@ -74,6 +75,11 @@
     <button id="lock-btn">Lock focus</button>
     <span id="lock-status">not locked</span>
   </div>
+  <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.85rem; max-width: 480px;">
+    Locking marks this position as your confirmed focus, shown above as a checkpoint — it's a
+    record, not a safeguard. It doesn't stop the lens from moving; adjusting the controls above
+    afterward still refocuses it, so unlock and relock if you do.
+  </p>
 
   <details class="camera-controls-details">
     <summary>Camera settings</summary>
