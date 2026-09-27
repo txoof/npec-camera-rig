@@ -91,7 +91,7 @@
 <script>
   // Defines initFocusControls only -- does not run until the including page calls it, so it's
   // safe regardless of where this partial lands relative to the caller's own script.
-  function initFocusControls({ isActiveStep, showSquareMode }) {
+  function initFocusControls({ isActiveStep, showSquareMode, step = 1 }) {
     const MAIN_WIDTH = 1536;
     const MAIN_HEIGHT = 1152;
     const DEFAULT_ROI_SIZE = 200;
@@ -359,7 +359,7 @@
 
     async function pollScore() {
       if (!pollingScore) return;
-      if (isActiveStep(1)) {
+      if (isActiveStep(step)) {
         try {
           const r = await fetch("/focus/score");
           const data = await r.json();
@@ -377,7 +377,7 @@
 
     // --- Live preview/crop streams: only requested while this step is the visible one ---
     function updateLiveResources() {
-      if (isActiveStep(1)) {
+      if (isActiveStep(step)) {
         if (!previewImg.getAttribute("src")) previewImg.src = "/preview.mjpg";
         if (interactionMode === "focus") {
           roiCropImg.src = "/focus/roi.mjpg";

@@ -24,72 +24,7 @@
     </div>
 
     <div class="wizard-step" data-step="1">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 1 — Confirm focus</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Confirm the lens is in focus.
-    </p>
-    <details style="margin: 0 0 0.5rem;">
-      <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
-      <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-        Use "Autofocus" or the manual controls below, then "Lock focus". Re-check this any time
-        the lens may have moved — calibration measures the scene through whatever focus is
-        locked in.
-      </p>
-    </details>
-
-    {% include "_focus_controls.html" %}
-
-    </div>
-    <div class="wizard-step" data-step="2">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 2 — Check rotation/squareness</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Check that the camera isn't rotated or tilted.
-    </p>
-    <details style="margin: 0 0 0.5rem;">
-      <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
-      <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-        Physically adjust the camera until the East side of the table — opposite the drain —
-        is in view. Drag the guide-line tabs at the frame's edge onto known perpendicular lines
-        in the scene (e.g. the table's own edges) — if they line up, the camera isn't rotated
-        or badly tilted. A straightening aid only; dragged positions aren't saved and reset on
-        reload. The next step gives the precise numeric co-planarity check.
-      </p>
-    </details>
-    <div class="preview-wrap" style="width: var(--wide-content-width); margin: 0 20px 20px 20px;">
-      <img class="preview" id="square-preview" alt="live camera preview for the rotation/squareness check" style="cursor: default;">
-      <div class="squareness-guides mode-square" id="squareness-guides">
-        <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
-        <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
-        <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
-        <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
-        <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
-        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
-        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
-      </div>
-    </div>
-
-    </div>
-    <div class="wizard-step" data-step="3">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 3 — Confirm coplanarity</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Colored rings on the corner tags show how co-planar the table is with the camera, live —
-      no zero step needed, works as soon as 2+ corner tags are in frame. Each ring's percentage
-      is that tag's apparent size compared to the average of the others: <strong>+</strong> means
-      it looks bigger, i.e. <strong>closer</strong> to the camera than the rest; <strong>−</strong>
-      means smaller, i.e. <strong>farther away</strong>. Green is within 3% (co-planar); amber is
-      3–8% (nudge that corner); red is over 8% (that corner needs real adjustment, not a small
-      nudge). Nudge the rig until every ring is green.
-    </p>
-    <img
-      id="level-overlay-image"
-      class="wide-live-view"
-      alt="live leveling overlay"
-      style="border-radius: 4px; display: block;"
-    />
-
-    </div>
-    <div class="wizard-step" data-step="4">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 4 — Place calibration and corner sheets</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Step 1 — Place calibration and corner sheets</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Lay a calibration sheet on every tray, plus the corner/reference sheets at all four corners
       of the table.
@@ -150,6 +85,71 @@
       <li><a href="/reference/calibration-sheets/apriltags-36h11-30mm-a4-300-449.pdf">calibration sheet (30 mm, IDs 300&ndash;449)</a></li>
       <li><a href="/reference/calibration-sheets/apriltags-36h11-50mm-a4-450-499.pdf">corner/reference sheet (50 mm, IDs 450&ndash;499)</a></li>
     </ul>
+
+    </div>
+    <div class="wizard-step" data-step="2">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 2 — Confirm focus</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Confirm the lens is in focus.
+    </p>
+    <details style="margin: 0 0 0.5rem;">
+      <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
+      <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+        Use "Autofocus" or the manual controls below, then "Lock focus". Re-check this any time
+        the lens may have moved — calibration measures the scene through whatever focus is
+        locked in.
+      </p>
+    </details>
+
+    {% include "_focus_controls.html" %}
+
+    </div>
+    <div class="wizard-step" data-step="3">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 3 — Check rotation/squareness</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Check that the camera isn't rotated or tilted.
+    </p>
+    <details style="margin: 0 0 0.5rem;">
+      <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
+      <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+        Physically adjust the camera until the East side of the table — opposite the drain —
+        is in view. Drag the guide-line tabs at the frame's edge onto known perpendicular lines
+        in the scene (e.g. the table's own edges) — if they line up, the camera isn't rotated
+        or badly tilted. A straightening aid only; dragged positions aren't saved and reset on
+        reload. The next step gives the precise numeric co-planarity check.
+      </p>
+    </details>
+    <div class="preview-wrap" style="width: var(--wide-content-width); margin: 0 20px 20px 20px;">
+      <img class="preview" id="square-preview" alt="live camera preview for the rotation/squareness check" style="cursor: default;">
+      <div class="squareness-guides mode-square" id="squareness-guides">
+        <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
+        <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
+        <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
+        <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
+        <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
+        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
+        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
+      </div>
+    </div>
+
+    </div>
+    <div class="wizard-step" data-step="4">
+    <h3 style="margin: 1rem 0 0.25rem;">Step 4 — Confirm coplanarity</h3>
+    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+      Colored rings on the corner tags show how co-planar the table is with the camera, live —
+      no zero step needed, works as soon as 2+ corner tags are in frame. Each ring's percentage
+      is that tag's apparent size compared to the average of the others: <strong>+</strong> means
+      it looks bigger, i.e. <strong>closer</strong> to the camera than the rest; <strong>−</strong>
+      means smaller, i.e. <strong>farther away</strong>. Green is within 3% (co-planar); amber is
+      3–8% (nudge that corner); red is over 8% (that corner needs real adjustment, not a small
+      nudge). Nudge the rig until every ring is green.
+    </p>
+    <img
+      id="level-overlay-image"
+      class="wide-live-view"
+      alt="live leveling overlay"
+      style="border-radius: 4px; display: block;"
+    />
 
     </div>
     <div class="wizard-step" data-step="5">
@@ -480,14 +480,14 @@
     // camera settings) is templates/_focus_controls.html -- also used standalone by
     // setup_focus.html. showSquareMode is false here: this wizard has its own dedicated Step 2
     // for the squareness/rotation check instead.
-    const focusControls = initFocusControls({ isActiveStep, showSquareMode: false });
+    const focusControls = initFocusControls({ isActiveStep, showSquareMode: false, step: 2 });
 
     // --- Draggable squareness guide lines (Step 2 -- rotation/tilt check) ---
     const squarenessGuides = document.getElementById("squareness-guides");
     const squarePreviewImg = document.getElementById("square-preview");
 
     function updateSquareLiveResources() {
-      if (isActiveStep(2)) {
+      if (isActiveStep(3)) {
         if (!squarePreviewImg.getAttribute("src")) squarePreviewImg.src = "/preview.mjpg";
       } else {
         squarePreviewImg.removeAttribute("src");
@@ -793,7 +793,7 @@
       probe.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
     }
     function pollLevelOverlay() {
-      if (isActiveStep(3)) refreshLevelOverlay();
+      if (isActiveStep(4)) refreshLevelOverlay();
       setTimeout(pollLevelOverlay, 500);
     }
     pollLevelOverlay();
@@ -803,10 +803,10 @@
     // you sure?") are TODO.md's "Calibration wizard ... with a gate at each step" item; they
     // need real threshold values from measured runs, not guessed constants.
     const STEP_TITLES = [
+      "Place calibration and corner sheets",
       "Confirm focus",
       "Check rotation/squareness",
       "Confirm coplanarity",
-      "Place calibration and corner sheets",
       "Run calibration",
       "Read the report",
       "Remove sheets",
@@ -827,7 +827,7 @@
       wizardNextBtn.disabled = wizardStep === STEP_TITLES.length;
       focusControls.updateLiveResources();
       updateSquareLiveResources();
-      if (isActiveStep(3)) refreshLevelOverlay();
+      if (isActiveStep(4)) refreshLevelOverlay();
     }
 
     wizardBackBtn.addEventListener("click", () => {
