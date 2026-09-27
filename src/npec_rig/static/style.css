@@ -1,4 +1,16 @@
 * { box-sizing: border-box; }
+:root {
+  /* 48px clears every touch-target guideline checked against this app (WCAG 2.5.5 AAA,
+     Apple HIG, Material Design) -- the WCAG 2.5.8 AA floor is 24px, but that's a legal
+     minimum, not a usable one on this rig's touchscreen. */
+  --touch-target-min: 48px;
+  /* "80% of the frame," not 80% of whatever narrow form-control column an element happens to sit
+     in (a real bug: inside .calibration-section's 480px cap, 80% rendered as ~30% of the actual
+     screen) -- viewport-relative. The one width rule for every wide element on these pages (live
+     views, diagnostic images, the focus control panel) -- not just images, despite the name
+     history; kept to one variable so a future width change is one edit, not a grep. */
+  --wide-content-width: min(80vw, 1400px);
+}
 /* Every font-size on these pages is in rem, so bumping the root scales all of them together --
    raised from the 16px browser default because the small (0.75-0.85rem) copy read too small on
    the target display. */
@@ -11,6 +23,17 @@ body {
   color: #eee;
 }
 h1 { font-size: 1.1rem; margin: 0 0 0.75rem; }
+/* Sticky header: cancels the body's own padding on three sides and re-applies it, so the bar
+   spans full width flush to the viewport edges once stuck, with its own background so scrolled
+   content doesn't show through underneath it. */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #111;
+  margin: -0.75rem -0.75rem 0;
+  padding: 0.75rem 0.75rem 0;
+}
 h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 .top-nav {
   display: flex;
@@ -26,18 +49,22 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
   color: #fff;
   font-weight: bold;
 }
+.breadcrumb {
+  margin: -0.5rem 0 0.75rem;
+  font-size: 0.85rem;
+}
 /* Shared by any live camera view meant to be read at a glance (the focus/square preview, the
    leveling traffic-light overlay) -- fills most of the screen on a touchscreen rather than a
    fixed 480px, but not centered, so the empty space this leaves on the right is a scroll gutter
    a finger can land on without hitting the frame or its drag handles. */
 .wide-live-view {
-  width: min(80vw, 1400px);
+  width: var(--wide-content-width);
 }
 .focus-layout {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  width: min(80vw, 1400px);
+  width: var(--wide-content-width);
 }
 .preview-wrap {
   position: relative;
@@ -130,7 +157,7 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
   margin-top: 0.75rem;
   /* Matches .focus-layout above it -- these buttons control that frame, so they shouldn't
      stay pinned to the old 480px cap while the frame itself is now much wider. */
-  max-width: min(80vw, 1400px);
+  max-width: var(--wide-content-width);
 }
 .mode-toggle-row button {
   flex: 1;
@@ -170,9 +197,59 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
     min-width: 0;
   }
 }
-.controls, .focus-section, .capture-section, .camera-controls, .calibration-section {
+.focus-section, .capture-section, .camera-controls, .calibration-section {
   max-width: 480px;
   margin-top: 0.75rem;
+}
+/* Full-width panel below the images: every focus-adjustment control in one place, grouped by a
+   border/background rather than a column split -- co-visible with the images above it instead
+   of competing with them for vertical space. */
+.focus-control-panel {
+  width: var(--wide-content-width);
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+}
+.focus-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+.focus-control-row + .focus-control-row {
+  margin-top: 0.75rem;
+}
+.focus-control-row label {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+.focus-control-row input[type="number"] {
+  width: 5rem;
+  flex: 0 0 auto;
+}
+.focus-control-row input[type="range"] {
+  flex: 1 1 160px;
+  width: auto;
+}
+.focus-control-row canvas {
+  flex: 1 1 200px;
+  max-width: 480px;
+  height: 60px;
+  background: #000;
+}
+.focus-control-row strong {
+  font-size: 1.2rem;
+}
+.peaking-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.peaking-inline input[type="checkbox"] {
+  width: 1.2rem;
+  height: 1.2rem;
 }
 .camera-controls-details {
   max-width: 480px;
@@ -230,22 +307,6 @@ input[type="number"] {
   margin-top: 0.15rem;
   flex-shrink: 0;
 }
-.score-row {
-  display: flex;
-  justify-content: flex-start;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-.score-row strong { font-size: 1.5rem; }
-#score-trace {
-  width: 100%;
-  max-width: 480px;
-  height: 60px;
-  background: #000;
-  display: block;
-  margin-top: 0.25rem;
-}
 .lock-row {
   display: flex;
   align-items: center;
@@ -259,6 +320,8 @@ button {
   border-radius: 4px;
   background: #369;
   color: #fff;
+  min-height: var(--touch-target-min);
+  white-space: nowrap;
 }
 button:disabled { opacity: 0.5; }
 input[type="range"]:disabled { opacity: 0.5; }
@@ -294,10 +357,10 @@ a { color: #6cf; }
   color: #aaa;
 }
 .wizard-nav-buttons { display: flex; gap: 0.5rem; }
-.wizard-nav-buttons button {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.85rem;
-}
+/* Prevents the wizard-progress label (which can shrink/wrap) from squeezing these below their
+   natural width -- a squeezed button wraps "&larr; Back" onto two lines (arrow over text) and
+   reads as square instead of the usual rectangular shape. */
+.wizard-nav-buttons button { flex-shrink: 0; }
 .calibration-history-list {
   display: flex;
   flex-direction: column;
@@ -388,6 +451,44 @@ a { color: #6cf; }
   background: #2a2a2a;
   font-size: 0.8rem;
   color: #ccc;
+}
+.diagnostic-image {
+  display: none;
+  max-width: var(--wide-content-width);
+  margin-top: 0.5rem;
+  border: 1px solid #444;
+  cursor: zoom-in;
+}
+/* [data-no-lightbox]: this image's click does something other than open the lightbox (e.g. the
+   honesty-plot frame, which picks a pixel position instead) -- see lightbox.js's guard. Still
+   .diagnostic-image for the shared sizing/border, just a different cursor to signal that. */
+.diagnostic-image[data-no-lightbox] {
+  cursor: crosshair;
+}
+.lightbox-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-overlay.open { display: flex; }
+.lightbox-overlay .lightbox-image {
+  max-width: 95vw;
+  max-height: 95vh;
+  object-fit: contain;
+}
+.lightbox-close {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  font-size: 1.5rem;
+  line-height: 1;
+  background: #833;
 }
 .help-popover p:first-child { margin-top: 0; }
 .help-popover p:last-child { margin-bottom: 0; }

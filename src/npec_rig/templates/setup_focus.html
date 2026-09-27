@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% set nav_active = "setup" %}
+{% block title_suffix %} — Focus &amp; Square{% endblock %}
+
+{% block breadcrumb %}
+  <p class="breadcrumb">
+    <a href="/setup">Setup</a> / Focus &amp; Square
+  </p>
+{% endblock %}
+
+{% block content %}
+  <h2>Focus aid</h2>
+  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+    Click the live preview to place the focus region. Watch the score below peak while adjusting
+    the lens.
+  </p>
+
+  {% set show_square_mode = true %}
+  {% include "_focus_controls.html" %}
+
+  <script>
+    // No wizard steps on this page -- always "active", so the shared focus-controls partial's
+    // stream/score gating (which exists for the calibration wizard's Step 1) is a no-op here.
+    function isActiveStep(n) {
+      return true;
+    }
+    initFocusControls({ isActiveStep, showSquareMode: true });
+  </script>
+{% endblock %}

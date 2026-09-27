@@ -8,6 +8,7 @@ dependencies = [
     "uvicorn[standard]",
     "numpy",
     "pillow",
+    "jinja2",
 ]
 
 [project.optional-dependencies]

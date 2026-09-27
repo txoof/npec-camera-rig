@@ -1,92 +1,97 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NPEC Camera Rig — Focus &amp; Square</title>
-  <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-  <h1>NPEC Camera Rig</h1>
-  <nav class="top-nav">
-    <a href="/setup" class="active">Setup</a>
-    <a href="/gallery">Capture &amp; Gallery</a>
-  </nav>
-  <p style="margin: -0.5rem 0 0.75rem; font-size: 0.85rem;">
-    <a href="/setup">Setup</a> / Focus &amp; Square
-  </p>
+{# Shared by setup_focus.html and the calibration wizard's Step 1 -- one copy of the focus
+   preview/crop images, the control panel (autofocus, coarse/fine, peaking, lock, sharpness),
+   and their JS, instead of two hand-maintained duplicates.
 
-  <div class="controls">
+   Context variable: show_square_mode (bool, default false) -- true only on the standalone
+   Focus & Square page, which still combines focus adjustment with a Focus/Square mode toggle
+   and the draggable squareness guide lines. The wizard's Step 1 has its own dedicated Step 2
+   for that instead, so it renders this partial with show_square_mode unset. #}
+<div class="focus-layout">
+  <div class="preview-wrap">
+    <img class="preview" id="preview" src="/preview.mjpg" alt="live camera preview. click to place the focus ROI">
+    <div class="roi-box" id="roi-box"></div>
+    {% if show_square_mode %}
+    <div class="squareness-guides" id="squareness-guides">
+      <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
+      <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
+      <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
+      <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
+      <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
+      <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
+      <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
+    </div>
+    {% endif %}
+  </div>
+  <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
+</div>
+
+{% if show_square_mode %}
+<div class="mode-toggle-row">
+  <button type="button" id="mode-focus-btn">Focus mode</button>
+  <button type="button" id="mode-square-btn">Square mode</button>
+</div>
+{% endif %}
+
+<div class="focus-control-panel">
+  <div class="focus-control-row">
     <button id="autofocus-btn">Autofocus</button>
-
-    <div class="focus-row">
-      <label for="lens-coarse">Coarse lens position (dioptres)</label>
-      <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
-    </div>
-
-    <div class="focus-row">
-      <label for="lens-fine">Fine adjust <span id="lens-fine-value">.00</span></label>
-      <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
-    </div>
-  </div>
-
-  <h2>Focus aid</h2>
-  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    Click the live preview to place the focus region. Watch the score below peak while adjusting
-    the lens.
-  </p>
-  <div class="focus-layout">
-    <div class="preview-wrap">
-      <img class="preview" id="preview" src="/preview.mjpg" alt="live camera preview. click to place the focus ROI">
-      <div class="roi-box" id="roi-box"></div>
-      <div class="squareness-guides" id="squareness-guides">
-        <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
-        <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
-        <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
-        <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
-        <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
-        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
-        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
-      </div>
-    </div>
-    <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
-  </div>
-  <div class="mode-toggle-row">
-    <button type="button" id="mode-focus-btn">Focus mode</button>
-    <button type="button" id="mode-square-btn">Square mode</button>
-  </div>
-  <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.85rem; max-width: 480px;">
-    <strong>Focus mode:</strong> click the preview to place the focus ROI; the magnified crop
-    alongside updates to match.
-    <strong>Square mode:</strong> shows one horizontal and two vertical guide lines — drag the
-    small tabs at the frame's edge (mouse or touch) to line any of them up with a real edge in the
-    frame, to check by eye that the rig sits square. No magnified crop in this mode. Clicking the
-    preview doesn't move the focus ROI while in this mode. Lines are a straightening aid, not a
-    reading — dragged positions aren't saved anywhere and reset on reload.
-  </p>
-  <label class="peaking-row">
-    <input type="checkbox" id="peaking-toggle">
-    <span>
-      <strong>Focus peaking</strong> — highlights high-contrast edges in the crop above in
-      magenta. Denser highlighting means sharper focus; use it alongside the sharpness number,
-      not instead of it.
-    </span>
-  </label>
-  <div class="score-row">
-    <span>Sharpness</span>
-    <strong id="score-value">-</strong>
-  </div>
-  <canvas id="score-trace" width="480" height="60"></canvas>
-  <div class="lock-row">
     <button id="lock-btn">Lock focus</button>
     <span id="lock-status">not locked</span>
+    <label class="peaking-inline">
+      <input type="checkbox" id="peaking-toggle">
+      <span>Focus peaking</span>
+    </label>
   </div>
+  <div class="focus-control-row">
+    <label for="lens-coarse">Coarse (dioptres)</label>
+    <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
+    <label for="lens-fine">Fine adjust</label>
+    <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
+    <span id="lens-fine-value">.00</span>
+  </div>
+  <div class="focus-control-row">
+    <span>Sharpness</span>
+    <strong id="score-value">-</strong>
+    <canvas id="score-trace" width="480" height="60"></canvas>
+  </div>
+</div>
 
-  <details class="camera-controls-details">
-    <summary>Camera settings</summary>
-    <div id="camera-controls" class="camera-controls"></div>
-  </details>
-  <script>
+<details class="focus-help">
+  <summary>What do these controls do?</summary>
+  {% if show_square_mode %}
+  <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+    <strong>Focus mode:</strong> click the preview to place the focus ROI; the magnified
+    crop updates to match. <strong>Square mode:</strong> drag the guide-line tabs at the
+    frame's edge to line them up with a real edge, checking by eye that the rig sits
+    square — a straightening aid, not a saved reading.
+  </p>
+  {% else %}
+  <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+    Click the preview to place the focus ROI; the magnified crop updates to match.
+  </p>
+  {% endif %}
+  <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+    <strong>Focus peaking</strong> highlights high-contrast edges in the crop above in
+    magenta — denser highlighting means sharper focus; use it alongside the sharpness
+    number, not instead of it.
+  </p>
+  <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+    <strong>Locking</strong> marks the current position as your confirmed focus, shown
+    above as a checkpoint — a record, not a safeguard. It doesn't stop the lens from
+    moving; adjusting the controls above afterward still refocuses it, so unlock and
+    relock if you do.
+  </p>
+</details>
+
+<details class="camera-controls-details">
+  <summary>Camera settings</summary>
+  <div id="camera-controls" class="camera-controls"></div>
+</details>
+
+<script>
+  // Defines initFocusControls only -- does not run until the including page calls it, so it's
+  // safe regardless of where this partial lands relative to the caller's own script.
+  function initFocusControls({ isActiveStep, showSquareMode }) {
     const MAIN_WIDTH = 1536;
     const MAIN_HEIGHT = 1152;
     const DEFAULT_ROI_SIZE = 200;
@@ -297,6 +302,9 @@
     // --- ROI selection: click the preview to place the focus region ---
     const previewImg = document.getElementById("preview");
     const roiBox = document.getElementById("roi-box");
+    const roiCropImg = document.getElementById("roi-crop");
+    // Only ever changes away from "focus" when showSquareMode's mode toggle exists and is used.
+    let interactionMode = "focus";
 
     function placeRoiBox(relX, relY) {
       roiBox.style.left = (relX * 100) + "%";
@@ -351,105 +359,60 @@
 
     async function pollScore() {
       if (!pollingScore) return;
-      try {
-        const r = await fetch("/focus/score");
-        const data = await r.json();
-        scoreValue.textContent = data.score.toFixed(1);
-        scoreHistory.push(data.score);
-        if (scoreHistory.length > HISTORY_LEN) scoreHistory.shift();
-        drawTrace();
-      } catch (e) {
-        // transient network hiccup — try again next tick
+      if (isActiveStep(1)) {
+        try {
+          const r = await fetch("/focus/score");
+          const data = await r.json();
+          scoreValue.textContent = data.score.toFixed(1);
+          scoreHistory.push(data.score);
+          if (scoreHistory.length > HISTORY_LEN) scoreHistory.shift();
+          drawTrace();
+        } catch (e) {
+          // transient network hiccup — try again next tick
+        }
       }
       setTimeout(pollScore, 300);
     }
     pollScore();
 
-    // --- Focus / Square mode toggle, and draggable squareness guide lines ---
-    // Client-side only, no server state: the lines are a straightening aid, not a measurement.
-    const focusLayout = document.querySelector(".focus-layout");
-    const squarenessGuides = document.getElementById("squareness-guides");
-    const modeFocusBtn = document.getElementById("mode-focus-btn");
-    const modeSquareBtn = document.getElementById("mode-square-btn");
-    const roiCropImg = document.getElementById("roi-crop");
-    let interactionMode = "focus";
-
-    function setMode(mode) {
-      interactionMode = mode;
-      focusLayout.classList.toggle("mode-square", mode === "square");
-      squarenessGuides.classList.toggle("mode-square", mode === "square");
-      modeFocusBtn.classList.toggle("active", mode === "focus");
-      modeSquareBtn.classList.toggle("active", mode === "square");
-      // Not helpful in square mode (Aaron, 2026-09-25) -- removing src actually stops the MJPEG
-      // stream, rather than just hiding a still-running one behind display:none. Removing the
-      // attribute rather than setting it to "" avoids a long-documented cross-browser footgun
-      // where an empty src can be resolved against the current page URL and re-requested.
-      if (mode === "square") {
-        roiCropImg.removeAttribute("src");
+    // --- Live preview/crop streams: only requested while this step is the visible one ---
+    function updateLiveResources() {
+      if (isActiveStep(1)) {
+        if (!previewImg.getAttribute("src")) previewImg.src = "/preview.mjpg";
+        if (interactionMode === "focus") {
+          roiCropImg.src = "/focus/roi.mjpg";
+        } else {
+          roiCropImg.removeAttribute("src");
+        }
       } else {
-        roiCropImg.src = "/focus/roi.mjpg";
+        previewImg.removeAttribute("src");
+        roiCropImg.removeAttribute("src");
       }
     }
-    modeFocusBtn.addEventListener("click", () => setMode("focus"));
-    modeSquareBtn.addEventListener("click", () => setMode("square"));
-    setMode("focus");
+    updateLiveResources();
 
-    function clampPct(value) {
-      return Math.min(100, Math.max(0, value));
+    // --- Focus / Square mode toggle, and draggable squareness guide lines ---
+    // Client-side only, no server state: the lines are a straightening aid, not a measurement.
+    if (showSquareMode) {
+      const focusLayout = document.querySelector(".focus-layout");
+      const squarenessGuides = document.getElementById("squareness-guides");
+      const modeFocusBtn = document.getElementById("mode-focus-btn");
+      const modeSquareBtn = document.getElementById("mode-square-btn");
+
+      function setMode(mode) {
+        interactionMode = mode;
+        focusLayout.classList.toggle("mode-square", mode === "square");
+        squarenessGuides.classList.toggle("mode-square", mode === "square");
+        modeFocusBtn.classList.toggle("active", mode === "focus");
+        modeSquareBtn.classList.toggle("active", mode === "square");
+        updateLiveResources();
+      }
+      modeFocusBtn.addEventListener("click", () => setMode("focus"));
+      modeSquareBtn.addEventListener("click", () => setMode("square"));
+      setMode("focus");
+
+      initSquarenessGuides(squarenessGuides, previewImg);
     }
-
-    // Dragging happens on the .squareness-handle tabs just past the frame's edge, not on the
-    // line itself (which is pointer-events: none in square mode, see the stylesheet) -- a drag
-    // target sitting on top of the live image is what made this "nearly impossible" by touch,
-    // fighting with the page-scroll gesture. Two handles can share one line (the horizontal
-    // line's left/right tabs), so moving the line re-syncs every handle pointing at it.
-    function syncHandlesForLine(line, axis, pct) {
-      squarenessGuides.querySelectorAll(`.squareness-handle[data-for="${line.id}"]`).forEach((handle) => {
-        handle.style[axis === "y" ? "top" : "left"] = pct + "%";
-      });
-    }
-
-    function moveLineTo(line, axis, pct) {
-      line.style[axis === "y" ? "top" : "left"] = pct + "%";
-      syncHandlesForLine(line, axis, pct);
-    }
-
-    // Pointer capture keeps delivering move/up events to `handle` even once the pointer leaves
-    // it mid-drag -- no separate document-level listeners (and cleanup) needed.
-    function makeHandleDraggable(handle) {
-      const line = document.getElementById(handle.dataset.for);
-      const axis = handle.dataset.axis;
-      handle.addEventListener("pointerdown", (event) => {
-        event.preventDefault();
-        handle.setPointerCapture(event.pointerId);
-      });
-      handle.addEventListener("pointermove", (event) => {
-        if (!handle.hasPointerCapture(event.pointerId)) return;
-        const rect = previewImg.getBoundingClientRect();
-        const pct = axis === "y"
-          ? clampPct(((event.clientY - rect.top) / rect.height) * 100)
-          : clampPct(((event.clientX - rect.left) / rect.width) * 100);
-        moveLineTo(line, axis, pct);
-      });
-    }
-    squarenessGuides.querySelectorAll(".squareness-handle").forEach(makeHandleDraggable);
-
-    // The horizontal line has no inline style -- its position comes from .squareness-line-h's
-    // `top: 50%` default in the stylesheet above, which parseFloat can't see. Named and commented
-    // here (rather than repeated as a bare literal) so it's obvious this must stay in sync if
-    // that CSS default ever changes -- the two aren't otherwise connected.
-    const DEFAULT_LINE_H_TOP_PCT = 50;
-
-    // Handles start wherever their line already is (the HTML defaults, 33.33%/66.67%, or the
-    // stylesheet default above for the horizontal line).
-    squarenessGuides.querySelectorAll(".squareness-line").forEach((line) => {
-      const axis = line.classList.contains("squareness-line-h") ? "y" : "x";
-      const inline = parseFloat(axis === "y" ? line.style.top : line.style.left);
-      // Not `inline || DEFAULT...` -- a legitimate 0% position is falsy and would otherwise be
-      // silently overridden.
-      const pct = Number.isNaN(inline) ? DEFAULT_LINE_H_TOP_PCT : inline;
-      syncHandlesForLine(line, axis, pct);
-    });
 
     // --- Focus peaking toggle ---
     const peakingToggle = document.getElementById("peaking-toggle");
@@ -487,6 +450,6 @@
     });
     refreshFocusStatus();
 
-  </script>
-</body>
-</html>
+    return { updateLiveResources };
+  }
+</script>

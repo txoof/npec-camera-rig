@@ -1,18 +1,8 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NPEC Camera Rig — Capture &amp; Gallery</title>
-  <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-  <h1>NPEC Camera Rig</h1>
-  <nav class="top-nav">
-    <a href="/setup">Setup</a>
-    <a href="/gallery" class="active">Capture &amp; Gallery</a>
-  </nav>
+{% extends "base.html" %}
+{% set nav_active = "gallery" %}
+{% block title_suffix %} — Capture &amp; Gallery{% endblock %}
 
+{% block content %}
   <h2>Capture</h2>
   <div class="capture-section">
     <button id="capture-btn">Capture</button>
@@ -52,5 +42,4 @@
     });
     refreshGallery();
   </script>
-</body>
-</html>
+{% endblock %}

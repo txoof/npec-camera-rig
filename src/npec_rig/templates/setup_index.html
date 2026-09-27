@@ -1,18 +1,8 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NPEC Camera Rig — Setup</title>
-  <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-  <h1>NPEC Camera Rig</h1>
-  <nav class="top-nav">
-    <a href="/setup" class="active">Setup</a>
-    <a href="/gallery">Capture &amp; Gallery</a>
-  </nav>
+{% extends "base.html" %}
+{% set nav_active = "setup" %}
+{% block title_suffix %} — Setup{% endblock %}
 
+{% block content %}
   <p style="margin: 0 0 0.75rem; color: #aaa; font-size: 0.85rem;">
     One-time (or occasional) rig setup. Everyday capture and browsing live under
     "Capture &amp; Gallery" instead.
@@ -52,5 +42,4 @@
   <p style="margin: 0 0 1.25rem;">
     <a href="/setup/health-check">Go to Health check →</a>
   </p>
-</body>
-</html>
+{% endblock %}

@@ -805,33 +805,63 @@ The heart of the project. Do not start before M1 slice 5.
       fire-and-forget pattern as the existing Step 5 "Load diagnostics" button, so not a new
       regression, but worth fixing both together as part of the UI-organization pass. **Found by
       code review 2026-09-27.**
-- [ ] **Discuss the Honesty plot's purpose: does it serve a function for a user of the platform,
-      or is it just metrology?** Right now it's presented in the wizard the same way as the
-      operator-facing report lines, but it's PLAN.md's M2 acceptance-test tool (place a known
-      target, read pixel position, measure real error, check claimed-vs-actual) — a
-      calibration-quality check, not obviously something a day-to-day operator needs to run.
-      Needs a decision before touching its UI: keep it where it is (if operators genuinely
-      benefit), or move it somewhere metrology-only (e.g. Health check) so the everyday wizard
-      isn't carrying a tool built for a different audience. *(Aaron, 2026-09-26.)*
-- [ ] **"Back"/"Next" buttons don't match the rest of the UI's button style on Step 3 of 6.**
-      *(Aaron, 2026-09-26.)*
+- [x] **Honesty plot moved to Health check, 2026-09-27.** Decided: it's PLAN.md's M2
+      acceptance-test tool (place a known target, measure the actual error, check
+      claimed-vs-actual), not something a day-to-day operator needs on the way through the
+      wizard. `/setup/health-check` now shows the current calibration's raw frame (via
+      `/calibration/current`'s `frame_url`) alongside the honesty-plot table/form. Step 6's
+      diagnostics section links to it instead. **Gap found on first landing (Aaron, 2026-09-27):
+      the frame image displayed but gave no actual way to measure a pixel position from it** --
+      fixed same day: clicking the frame now adds a row pre-filled with that click's position,
+      converted from on-screen percent to the full-res 9152x6944 space every `ScaleField`/
+      `UncertaintyField` position is measured in (same conversion pattern the Focus ROI click
+      already used, just a different frame size), and focuses the "actual error" field so the
+      next step (measure with a ruler, type it in) is immediate. Click precision is only
+      approximate (a scaled-down displayed image, not a full-res pointer), but the honesty
+      plot's claimed-uncertainty lookup averages the 5 nearest tags, so being off by tens of
+      pixels in a 9152px-wide frame shouldn't change which tags that is. *(Aaron, 2026-09-26
+      raised the move; 2026-09-27 raised and fixed the measurement gap.)*
+- [x] **"Back"/"Next" buttons now match the rest of the UI's button style, 2026-09-27** -- the
+      wizard-nav-buttons size override was removed; they inherit the same base button look
+      (min 48px touch target) as everywhere else. *(Aaron, 2026-09-26.)*
+- [ ] **Tabled: what should the honesty plot's "actual error" input actually be? Aaron doesn't yet
+      understand what the tool is supposed to do, and needs rig access to work it out.** He has
+      a frame completely covered in AprilTags, each independently measured to ~30mm within
+      0.5mm, and expected the app to compute error from that directly -- but there's a real
+      circularity problem underneath this, not just a missing feature: if those tags are the
+      same ones the live calibration was built from, "predicted size vs. known size" for them is
+      exactly `scale_residual_samples()` in `calibration.py` -- the same number the confidence
+      heatmap and scale-residual rank plot already show, produced by the very least-squares fit
+      those tags built. That's the fit grading its own homework, not independent verification,
+      and the honesty plot exists specifically to catch the app lying to itself -- CLAUDE.md's
+      "certainty is measured, never derived" gate. Two honest paths once this is resolved with
+      rig access: (1) if the tag-covered frame is a separate, held-out capture never used to fit
+      the live calibration, auto-computing predicted-vs-known size per detected tag is legitimate
+      and removes the need for a ruler entirely; (2) if it's the same frame, the real test needs
+      a measurement outside the tag detections altogether -- e.g. a tape measure between two
+      fixed points (the corner tags) compared against what the app reports for that distance.
+      Do not implement either path without confirming which situation actually applies.
+      *(Aaron, 2026-09-27.)*
 - [ ] **The wizard is too wordy and conversational overall — slim it down.** Long paragraph
       explanations under most steps; consider expandable/pop-over info boxes instead of a large
       block of always-visible text, so the default view is short and detail is opt-in. Cuts
       across every step, not a single-page fix — needs its own pass once scoped.
       *(Aaron, 2026-09-26.)*
-- [ ] **Calibration wizard: real Next/Back step navigation, one step visible at a time, with a
-      gate at each step.** Multi-page split done 2026-09-25 (Setup menu, Focus & Square,
-      Calibration, Gallery are now separate pages/routes) — still open, and distinct from that:
-      within `/setup/calibration` itself, the 7 steps are still one long scroll of headings, not
-      real paging. Wanted: Next/Back buttons, one step shown at a time, and at each step a gate
-      that checks whether things look reasonable before moving on — e.g. leveling/squareness very
-      off, or a run's residuals very high, caught right there instead of only surfacing in the
-      final report. Needs real threshold values from measured runs, not guessed constants, plus a
-      UX decision (warn vs. block progress) — a design question of its own, not a small addition.
-      Distinct from M6's alerts item, which is about unattended-operation alerts, not interactive
-      setup feedback. *(Aaron, 2026-09-21; multi-page split 2026-09-25; Next/Back + per-step gate
-      explicitly requested 2026-09-25.)*
+- [x] **Calibration wizard: real Next/Back step navigation, one step visible at a time — shipped
+      2026-09-25 (#10, `68c01c6`), predates this TODO entry having been updated to say so.**
+      Multi-page split (Setup menu, Focus & Square, Calibration, Gallery as separate
+      pages/routes) also done 2026-09-25. `/setup/calibration` now pages one `.wizard-step` at a
+      time via `wizardStep`/`renderWizardStep()`, grown to 7 steps as of this branch (M2 UI
+      organization pass, 2026-09-27) with Step 2 added for the rotation/squareness check.
+      *(Aaron, 2026-09-21; shipped 2026-09-25.)*
+- [ ] **Calibration wizard: gate at each step, not just paging.** Distinct from the paging item
+      above (done): at each step, check whether things look reasonable before moving on — e.g.
+      leveling/squareness very off, or a run's residuals very high, caught right there instead of
+      only surfacing in the final report. Needs real threshold values from measured runs, not
+      guessed constants, plus a UX decision (warn vs. block progress) — a design question of its
+      own, not a small addition. Distinct from M6's alerts item, which is about
+      unattended-operation alerts, not interactive setup feedback. *(Aaron, 2026-09-21 and
+      2026-09-25.)*
 - [x] **Step 4 ("Confirm nothing moved") — removed entirely, 2026-09-25.** Superseded by the
       "fundamentally confusing" item below: the colored-rings redesign proposed here would have
       fixed the presentation but not the underlying problem, which turned out to be that the step
@@ -953,16 +983,29 @@ The heart of the project. Do not start before M1 slice 5.
       area-scale error/shape distortion including the worst-tag callout. Needs
       `build_calibration_report()` (or its caller in `app.py`) to return two groups instead of one
       flat list, so the frontend can route lines to two different places.
-- [ ] **Low priority: Step 1 -- move the autofocus and manual focus controls to below the
-      images**, not beside/above them as now. *(Aaron, 2026-09-25.)*
-- [ ] **Low priority: Step 1 -- explain what "Lock focus" actually does.** No copy anywhere says
-      what locking does or why you'd want to. *(Aaron, 2026-09-25.)*
-- [ ] **Low priority: Step 3 -- the Back/Next buttons don't match the button style used
-      everywhere else in the app.** *(Aaron, 2026-09-25.)*
-- [ ] **Low priority, general UI idea: (i) icons that expand or show a pop-over on click**, to
-      move some of the current always-visible explanatory paragraphs out of the main flow and
-      clean up the interface. Not scoped to a specific step -- a general pattern to consider
-      across the Setup pages. *(Aaron, 2026-09-25.)*
+- [x] **Step 1 focus controls -- done 2026-09-27 (M2 UI organization pass), by way of several
+      rounds of live feedback, not a single move.** "Below the images" alone (the original ask)
+      turned out not to be the real requirement -- at 1024x768 it just meant scrolling between
+      the image and the controls instead of scrolling between the controls and the image. Landed
+      on: a full-width control panel below the image row (autofocus, lock, peaking, coarse/fine,
+      sharpness, all in one bordered group), applied identically to `/setup/focus` and the
+      wizard's Step 1 via a shared `templates/_focus_controls.html` partial (extracted the same
+      day, so the two pages stop needing hand-sync). *(Aaron, 2026-09-25 raised; 2026-09-27
+      shipped.)*
+- [x] **Step 1 "Lock focus" explainer -- done 2026-09-27.** Checked against
+      `CameraManager.lock_focus()`/`focus_status()` rather than assumed: it only records the
+      lens position for the status display, nothing else in the app gates on it, so the copy
+      says "a record, not a safeguard" rather than overstating what it does. *(Aaron, 2026-09-25
+      raised; 2026-09-27 shipped.)*
+- [x] **Step 3 Back/Next button style -- done 2026-09-27.** Duplicate of the entry above (the
+      wizard-nav-buttons size override removed, same fix). *(Aaron, 2026-09-25/26.)*
+- [ ] **(i) icons / pop-over pattern across the Setup pages -- partially done.** The pattern
+      itself now exists in a reusable form (`<details>`/`<summary>`, no custom JS) and is used
+      for: Step 1 and Step 2's "More about this step"/"What do these controls do?" panels, and
+      the pre-existing Camera settings panel. Not yet applied to: Steps 3-7's always-visible
+      paragraphs, or `static/help/diagnostics.md`/the drill-down page's (i) pop-overs (a
+      different, JS-fetch-based implementation of the same idea) -- that consolidation is
+      `m2-ui-organization-and-text`'s job, paused mid-branch. *(Aaron, 2026-09-25.)*
 
 ### M2 acceptance — run in the chamber
 - [x] **Two-baseline test — run remotely 2026-09-25, clear pass.** Two calibrations of the same
@@ -1054,6 +1097,13 @@ The heart of the project. Do not start before M1 slice 5.
 - [ ] Full SQLite schema (`experiment`, `calibration`, `tray`, `capture`, `detection`,
       `measurement`, `alert`) — created here so every row has provenance from the start
 - [ ] Experiment create/start/stop in the UI
+- [ ] **Design the header/nav menu properly once experiment/report pages exist.** The Jinja
+      base-layout work (M2 UI-organization pass) centralized the header/nav into one
+      `templates/base.html` block, but its content is still just the same two links (Setup,
+      Capture & Gallery) that existed before -- deferred designing the actual menu structure
+      (flat list vs. grouped/dropdown) until M3's experiment list/detail/timelapse/report pages
+      are real routes, since guessing the hierarchy now would be speculative. *(Aaron,
+      2026-09-27.)*
 - [ ] Experiment storage laid out so a whole experiment is easy to identify and remove as a unit
       (e.g. one directory per experiment, named/indexed so it's obvious which is which) — not
       commingled with calibration data or other experiments. *(Aaron, 2026-09-19)*
