@@ -920,15 +920,16 @@ The heart of the project. Do not start before M1 slice 5.
       browser. Not investigated further -- worth checking whether a dedicated higher-res crop
       (e.g. a still capture, or a larger/different stream config) is feasible without breaking
       the continuous preview or `focus_score`'s own use of the same stream. *(Aaron, 2026-09-22)*
-- [ ] **Low priority: let the two heatmaps and the best-vs-worst-tag rank plots be viewed for a
-      past calibration, not just whatever's live.** All four currently only read
-      `load_current_calibration()`; picking an old run means adding a picker to the UI and, for
-      the rank plots and the area-shape heatmap specifically, re-detecting tags from that run's
-      saved frame each time (their per-tag data isn't persisted in the artifact -- see
-      `ScaleResidualSample`/`AreaScaleSample`). The calibration history browser (above) covers the
-      *active* calibration's diagnostics (an opt-in "Load diagnostics" button on Step 5); this
-      item is the remaining gap -- an *arbitrary past* run, not just whatever's active -- and is
-      the same per-entry drill-down the plan doc calls out as deferred. *(Aaron, 2026-09-22.)*
+- [x] **Let the two heatmaps and the best-vs-worst-tag rank plots be viewed for a past
+      calibration, not just whatever's live — shipped 2026-09-27.** New stem-scoped endpoints
+      (`GET /calibration/{stem}/rank-plot`, `best-worst-photo`, `radial-plot`,
+      `certainty-dome-plot`) alongside the existing `/calibration/current/*` ones, plus a new
+      per-stem page (`/setup/calibration-history/<stem>`,
+      `setup_calibration_history_diagnostics.html`) showing the pre-rendered heatmap/table-view
+      images immediately and an opt-in "Load rank plots, radial plot, and dome of certainty"
+      button for the re-detection-dependent ones.
+      Every calibration-history card now links to it, not just the active entry. *(Aaron,
+      2026-09-22; shipped 2026-09-27.)*
 - [ ] **Tidy up the calibration result messages -- too much shown at once, agreed plan not yet
       built.** Aaron, 2026-09-25, on a real 10-line result: "This is waaaaaaaay too much
       information and not all of it is relevant to someone that has just set this up." Agreed
