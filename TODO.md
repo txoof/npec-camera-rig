@@ -793,7 +793,18 @@ The heart of the project. Do not start before M1 slice 5.
       understand. Needs to be concise.** Covers the pop-over help text on the
       calibration-history diagnostics page (`static/help/diagnostics.md`) and the equivalent
       always-visible copy on `/setup/calibration` Step 5 it was drawn from. *(Aaron,
-      2026-09-27.)*
+      2026-09-27.)* **Found by code review 2026-09-27, worth folding into this pass:** the
+      confidence-heatmap and area-shape legend text/gradient markup now exists in three places
+      (Step 5 inline, `diagnostics.md`, and the drill-down page's own copy of the gradient
+      block) -- a wording or colour-scale change to one won't propagate to the others unless
+      this rewrite also picks one source of truth.
+- [ ] **Drill-down page's "Load rank plots..." button re-enables and resets its label before the
+      images actually finish loading** (it only sets `img.src`, with nothing for the button's
+      `finally` to await) -- so the button looks idle again while a multi-second re-detection is
+      still running, and a second click mid-load fires a duplicate batch of requests. Same
+      fire-and-forget pattern as the existing Step 5 "Load diagnostics" button, so not a new
+      regression, but worth fixing both together as part of the UI-organization pass. **Found by
+      code review 2026-09-27.**
 - [ ] **Discuss the Honesty plot's purpose: does it serve a function for a user of the platform,
       or is it just metrology?** Right now it's presented in the wizard the same way as the
       operator-facing report lines, but it's PLAN.md's M2 acceptance-test tool (place a known

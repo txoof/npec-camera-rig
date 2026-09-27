@@ -1195,3 +1195,31 @@ def test_stem_diagnostics_serve_an_old_run_not_whatever_is_current(
         assert response.status_code == 200
         assert response.headers["content-type"] == "image/jpeg"
         assert response.content[:2] == b"\xff\xd8"
+
+
+def test_stem_diagnostics_actually_load_the_requested_stems_own_frame(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # A weaker version of this test (same monkeyed detect_tags for both runs) would still pass
+    # even if the stem route silently read load_current_calibration() instead of the requested
+    # stem -- this spies on the actual frame load to catch exactly that regression.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    old = client.post("/calibration/run").json()
+    current = client.post("/calibration/run").json()
+    old_stem = Path(old["artifact_path"]).stem
+    current_stem = Path(current["artifact_path"]).stem
+    assert old_stem != current_stem
+
+    loaded_stems = []
+    real_load_frame = app_module.load_calibration_frame
+    monkeypatch.setattr(
+        app_module,
+        "load_calibration_frame",
+        lambda frame_stem: (loaded_stems.append(frame_stem), real_load_frame(frame_stem))[1],
+    )
+
+    response = client.get(f"/calibration/{old_stem}/rank-plot")
+    assert response.status_code == 200
+    assert loaded_stems == [old_stem]

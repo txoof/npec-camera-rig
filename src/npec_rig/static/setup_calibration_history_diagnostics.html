@@ -213,13 +213,18 @@
           .then((text) => {
             const topics = {};
             for (const block of text.split(/^## /m).slice(1)) {
+              // A trailing "## topic" section with no body text (or no final newline) has no
+              // "\n" at all -- indexOf returns -1, so treat the whole block as the key with an
+              // empty body rather than truncating the key's last character.
               const nl = block.indexOf("\n");
-              const key = block.slice(0, nl).trim();
-              const body = block.slice(nl + 1).trim();
+              const key = (nl === -1 ? block : block.slice(0, nl)).trim();
+              const body = nl === -1 ? "" : block.slice(nl + 1).trim();
               topics[key] = body
-                .split(/\n\s*\n/)
-                .map((p) => `<p>${p.trim().replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</p>`)
-                .join("");
+                ? body
+                    .split(/\n\s*\n/)
+                    .map((p) => `<p>${p.trim().replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</p>`)
+                    .join("")
+                : "";
             }
             return topics;
           });
@@ -257,29 +262,43 @@
     });
 
     async function init() {
-      const r = await fetch("/calibration/list");
-      const entries = await r.json();
-      const entry = entries.find((e) => e.stem === stem);
-      if (!entry) {
-        summary.style.display = "none";
-        notFound.style.display = "block";
-        return;
+      try {
+        const r = await fetch("/calibration/list");
+        if (!r.ok) throw new Error(`server returned ${r.status}`);
+        const entries = await r.json();
+        const entry = entries.find((e) => e.stem === stem);
+        if (!entry) {
+          summary.style.display = "none";
+          notFound.style.display = "block";
+          return;
+        }
+        const dt = entry.created_at ? entry.created_at.replace("T", " ").slice(0, 19) : entry.filename;
+        const badge = entry.is_current ? " — currently active" : "";
+        const stats =
+          entry.residual_std_pct != null
+            ? `residual ${entry.residual_std_pct.toFixed(2)}%, tag size ` +
+              `${entry.calibration_tag_size_mm}mm, ${entry.corner_tag_count} corner tag` +
+              `${entry.corner_tag_count === 1 ? "" : "s"}`
+            : "stats unavailable (file could not be read)";
+        summary.textContent = `${dt}${badge} — ${stats}`;
+        if (!entry.frame_url) {
+          loadDiagnosticsBtn.disabled = true;
+          loadDiagnosticsBtn.textContent =
+            "No saved frame for this run — rank/radial/dome plots unavailable";
+        } else if (entry.residual_std_pct == null) {
+          // The artifact JSON itself failed to load (same signal /calibration/list uses for
+          // "stats unavailable" above) -- a frame can still be on disk, but re-detecting tags
+          // from it needs the artifact's own calibration_tag_size_mm/scale_field, so these
+          // endpoints would 422. Say so up front instead of a silent broken-image icon.
+          loadDiagnosticsBtn.disabled = true;
+          loadDiagnosticsBtn.textContent =
+            "This calibration's saved file could not be read — rank/radial/dome plots unavailable";
+        }
+        body.style.display = "block";
+        showPrerenderedDiagnosticImages(entry);
+      } catch (err) {
+        summary.textContent = `Could not load this calibration's details: ${err.message}`;
       }
-      const dt = entry.created_at ? entry.created_at.replace("T", " ").slice(0, 19) : entry.filename;
-      const badge = entry.is_current ? " — currently active" : "";
-      const stats =
-        entry.residual_std_pct != null
-          ? `residual ${entry.residual_std_pct.toFixed(2)}%, tag size ` +
-            `${entry.calibration_tag_size_mm}mm, ${entry.corner_tag_count} corner tag` +
-            `${entry.corner_tag_count === 1 ? "" : "s"}`
-          : "stats unavailable (file could not be read)";
-      summary.textContent = `${dt}${badge} — ${stats}`;
-      if (!entry.frame_url) {
-        loadDiagnosticsBtn.disabled = true;
-        loadDiagnosticsBtn.textContent = "No saved frame for this run — rank/radial/dome plots unavailable";
-      }
-      body.style.display = "block";
-      showPrerenderedDiagnosticImages(entry);
     }
 
     init();

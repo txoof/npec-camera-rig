@@ -952,6 +952,13 @@ def _detect_tags_cached(frame_stem: str) -> tuple[np.ndarray, list]:
     with _frame_detection_lock:
         if _cached_frame_detections is not None and _cached_frame_detections[0] == frame_stem:
             return _cached_frame_detections[1], _cached_frame_detections[2]
+        # Drop the outgoing entry before decoding the new frame, not after -- the calibration-
+        # history drill-down makes switching frame_stem (not just growing the same one) a normal
+        # user action, so without this the previous ~180MB frame array stays referenced by this
+        # global while the next one is decoded, holding two full-res frames live at once. Same
+        # OOM condition this cache exists to prevent (see the comment above it), just at 2x
+        # instead of 4x.
+        _cached_frame_detections = None
         try:
             frame = load_calibration_frame(frame_stem)
         except FileNotFoundError:
