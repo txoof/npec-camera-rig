@@ -443,34 +443,11 @@
     <p style="margin: 0.75rem 0 0;">
       <a href="/setup/calibration-history">Browse calibration history →</a>
     </p>
-
-    <h3 style="margin: 1rem 0 0.25rem;">Honesty plot</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      PLAN.md's M2 acceptance test: place a known target at each of several positions, read its
-      pixel position off the calibration frame above, measure the actual error with a ruler, and
-      add a row below. "Claimed" is looked up automatically from the live calibration. Points on
-      the diagonal are honest; scattered off it at random is fine; drifting with position is the
-      signal that opens the intrinsics evidence gate (CLAUDE.md) — that judgement is yours to
-      make from where they land.
+    <p style="margin: 0.25rem 0 0; color: #aaa; font-size: 0.85rem;">
+      PLAN.md's M2 acceptance test (place a known target, measure the actual error, check
+      claimed-vs-actual) has moved to <a href="/setup/health-check">Health check</a> — it's a
+      calibration-quality check, not something you need on the way through this wizard.
     </p>
-    <table id="honesty-table" style="font-size: 0.85rem; border-collapse: collapse; width: 100%;">
-      <thead>
-        <tr>
-          <th style="text-align: left; padding: 0.2rem 0.5rem;">x (px)</th>
-          <th style="text-align: left; padding: 0.2rem 0.5rem;">y (px)</th>
-          <th style="text-align: left; padding: 0.2rem 0.5rem;">actual error (%)</th>
-          <th style="text-align: left; padding: 0.2rem 0.5rem;"></th>
-        </tr>
-      </thead>
-      <tbody id="honesty-rows"></tbody>
-    </table>
-    <div class="lock-row">
-      <button id="honesty-add-row-btn">Add point</button>
-      <button id="honesty-plot-btn">Generate honesty plot</button>
-    </div>
-    <div id="honesty-plot-result" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
-    <img id="honesty-plot-image" alt="Honesty plot"
-         class="diagnostic-image">
     </details>
 
     </div>
@@ -860,67 +837,6 @@
       setTimeout(pollLevelOverlay, 500);
     }
     pollLevelOverlay();
-
-    // --- Honesty plot ---
-    const honestyRows = document.getElementById("honesty-rows");
-    const honestyAddRowBtn = document.getElementById("honesty-add-row-btn");
-    const honestyPlotBtn = document.getElementById("honesty-plot-btn");
-    const honestyPlotResult = document.getElementById("honesty-plot-result");
-    const honestyPlotImage = document.getElementById("honesty-plot-image");
-
-    function addHonestyRow() {
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td><input type="number" class="honesty-x" step="1" style="width: 5rem;"></td>
-        <td><input type="number" class="honesty-y" step="1" style="width: 5rem;"></td>
-        <td><input type="number" class="honesty-actual" step="0.1" style="width: 5rem;"></td>
-        <td><button type="button" class="honesty-remove-btn">Remove</button></td>
-      `;
-      row.querySelector(".honesty-remove-btn").addEventListener("click", () => row.remove());
-      honestyRows.appendChild(row);
-    }
-    honestyAddRowBtn.addEventListener("click", addHonestyRow);
-    addHonestyRow();
-    addHonestyRow();
-
-    honestyPlotBtn.addEventListener("click", async () => {
-      const rows = Array.from(honestyRows.querySelectorAll("tr"));
-      const points = rows
-        .map((row) => ({
-          x: parseFloat(row.querySelector(".honesty-x").value),
-          y: parseFloat(row.querySelector(".honesty-y").value),
-          actual_error_pct: parseFloat(row.querySelector(".honesty-actual").value),
-        }))
-        .filter((p) => !Number.isNaN(p.x) && !Number.isNaN(p.y) && !Number.isNaN(p.actual_error_pct));
-
-      if (!points.length) {
-        honestyPlotResult.textContent = "Fill in at least one row (x, y, actual error) first.";
-        return;
-      }
-
-      honestyPlotBtn.disabled = true;
-      honestyPlotBtn.textContent = "Generating...";
-      try {
-        const r = await fetch("/calibration/honesty-plot", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(points),
-        });
-        if (!r.ok) {
-          const data = await r.json();
-          honestyPlotResult.textContent = data.detail || "Could not generate the honesty plot.";
-          honestyPlotImage.style.display = "none";
-          return;
-        }
-        const blob = await r.blob();
-        honestyPlotImage.src = URL.createObjectURL(blob);
-        honestyPlotImage.style.display = "block";
-        honestyPlotResult.textContent = `${points.length} point(s) plotted.`;
-      } finally {
-        honestyPlotBtn.disabled = false;
-        honestyPlotBtn.textContent = "Generate honesty plot";
-      }
-    });
 
     // --- Wizard step navigation (Next/Back, one step visible at a time) ---
     // No gating yet -- Next is always enabled. Per-step checks (e.g. "residuals too high, are

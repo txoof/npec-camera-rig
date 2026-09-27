@@ -805,16 +805,16 @@ The heart of the project. Do not start before M1 slice 5.
       fire-and-forget pattern as the existing Step 5 "Load diagnostics" button, so not a new
       regression, but worth fixing both together as part of the UI-organization pass. **Found by
       code review 2026-09-27.**
-- [ ] **Discuss the Honesty plot's purpose: does it serve a function for a user of the platform,
-      or is it just metrology?** Right now it's presented in the wizard the same way as the
-      operator-facing report lines, but it's PLAN.md's M2 acceptance-test tool (place a known
-      target, read pixel position, measure real error, check claimed-vs-actual) — a
-      calibration-quality check, not obviously something a day-to-day operator needs to run.
-      Needs a decision before touching its UI: keep it where it is (if operators genuinely
-      benefit), or move it somewhere metrology-only (e.g. Health check) so the everyday wizard
-      isn't carrying a tool built for a different audience. *(Aaron, 2026-09-26.)*
-- [ ] **"Back"/"Next" buttons don't match the rest of the UI's button style on Step 3 of 6.**
-      *(Aaron, 2026-09-26.)*
+- [x] **Honesty plot moved to Health check, 2026-09-27.** Decided: it's PLAN.md's M2
+      acceptance-test tool (place a known target, measure the actual error, check
+      claimed-vs-actual), not something a day-to-day operator needs on the way through the
+      wizard. `/setup/health-check` now shows the current calibration's raw frame (via
+      `/calibration/current`'s `frame_url`) alongside the honesty-plot table/form, so pixel
+      coordinates are still readable without cross-referencing another page. Step 6's
+      diagnostics section links to it instead. *(Aaron, 2026-09-26 raised; resolved 2026-09-27.)*
+- [x] **"Back"/"Next" buttons now match the rest of the UI's button style, 2026-09-27** -- the
+      wizard-nav-buttons size override was removed; they inherit the same base button look
+      (min 48px touch target) as everywhere else. *(Aaron, 2026-09-26.)*
 - [ ] **The wizard is too wordy and conversational overall — slim it down.** Long paragraph
       explanations under most steps; consider expandable/pop-over info boxes instead of a large
       block of always-visible text, so the default view is short and detail is opt-in. Cuts
