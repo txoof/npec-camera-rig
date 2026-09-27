@@ -860,12 +860,13 @@ The heart of the project. Do not start before M1 slice 5.
       calibration"); that step's own result panel and "Run calibration" button are untouched, and
       its "Set as current baseline" copy now links to the new page instead of saying "further
       down."
-- [ ] **Step 5/6: let the operator load a previous saved calibration's report instead of always
-      requiring a fresh capture** — "Read the report" currently only ever shows the just-run
-      calibration; there's no way to browse `/calibration/list`'s saved artifacts and view an old
-      report without re-running calibration. Likely the same underlying picker feature as the
-      existing "let the two heatmaps and rank plots be viewed for a past calibration" item below,
-      applied to the whole report rather than just those two plots. *(Aaron, 2026-09-25.)*
+- [x] **Step 5/6: let the operator load a previous saved calibration's report instead of always
+      requiring a fresh capture — shipped 2026-09-27, confirmed working by Aaron.** The
+      calibration-history page's per-stem drill-down (`/setup/calibration-history/<stem>`) is
+      the picker: browse `/calibration/list`'s saved artifacts and view an old run's stats and
+      diagnostics without re-running calibration. Same underlying feature as the heatmaps/rank
+      plots item below, applied to the whole report. *(Aaron, 2026-09-25; shipped and confirmed
+      2026-09-27.)*
 - [x] **Table width/length/corner-tag-size now persist between runs — built 2026-09-25.** Aaron:
       "the calibration doesn't remember the settings from the previous runs so I always get the
       NOT TO SCALE thing." All three stored via `settings.py`'s key/value store (the same one
