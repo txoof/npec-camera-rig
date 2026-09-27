@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NPEC Camera Rig{% block title_suffix %}{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+  <h1>NPEC Camera Rig</h1>
+  <nav class="top-nav">
+    <a href="/setup" class="{% if nav_active == 'setup' %}active{% endif %}">Setup</a>
+    <a href="/gallery" class="{% if nav_active == 'gallery' %}active{% endif %}">Capture &amp; Gallery</a>
+  </nav>
+  {% block breadcrumb %}{% endblock %}
+  {% block content %}{% endblock %}
+</body>
+</html>

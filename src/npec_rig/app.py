@@ -6,9 +6,10 @@ from pathlib import Path
 from threading import Lock
 
 import numpy as np
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,7 @@ from npec_rig.tripwire import (
 )
 
 STATIC_DIR = Path(__file__).parent / "static"
+TEMPLATES_DIR = Path(__file__).parent / "templates"
 # The printable sheets themselves (reference/calibration-sheets/), not app code -- served so the
 # Setup wizard can hand the operator a direct download link at the point they're needed.
 CALIBRATION_SHEETS_DIR = Path(__file__).parent.parent.parent / "reference" / "calibration-sheets"
@@ -82,6 +84,7 @@ captures_root().mkdir(parents=True, exist_ok=True)
 calibration_root().mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="NPEC Camera Rig")
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 app.mount("/captures", StaticFiles(directory=str(captures_root())), name="captures")
 # PLAN.md M2 section A: calibration is "frozen, versioned, exportable" -- this is the export.
 # Serves both the timestamped artifact JSON and, under frames/, the full-res still each one
@@ -104,58 +107,58 @@ def index() -> RedirectResponse:
     return RedirectResponse(url="/gallery")
 
 
-@app.get("/setup", response_class=HTMLResponse)
-def setup_page() -> str:
+@app.get("/setup")
+def setup_page(request: Request) -> Response:
     """Setup menu: links to Focus & Square, Calibration, and Health check. One-and-done (or
     occasional) rig setup, kept separate from everyday capture/browsing."""
-    return (STATIC_DIR / "setup_index.html").read_text()
+    return templates.TemplateResponse(request, "setup_index.html")
 
 
-@app.get("/setup/focus", response_class=HTMLResponse)
-def setup_focus_page() -> str:
+@app.get("/setup/focus")
+def setup_focus_page(request: Request) -> Response:
     """Autofocus, manual lens position, and the squareness guide lines."""
-    return (STATIC_DIR / "setup_focus.html").read_text()
+    return templates.TemplateResponse(request, "setup_focus.html")
 
 
-@app.get("/setup/calibration", response_class=HTMLResponse)
-def setup_calibration_page() -> str:
+@app.get("/setup/calibration")
+def setup_calibration_page(request: Request) -> Response:
     """The calibration wizard (6 steps) and its diagnostics."""
-    return (STATIC_DIR / "setup_calibration.html").read_text()
+    return templates.TemplateResponse(request, "setup_calibration.html")
 
 
-@app.get("/setup/calibration-history", response_class=HTMLResponse)
-def setup_calibration_history_page() -> str:
+@app.get("/setup/calibration-history")
+def setup_calibration_history_page(request: Request) -> Response:
     """Browse every saved calibration, promote one to active, or delete old ones -- split out of
     the wizard (2026-09-26): reachable on its own, not nested three `<details>` deep inside Step
     5, and usable without walking the linear wizard."""
-    return (STATIC_DIR / "setup_calibration_history.html").read_text()
+    return templates.TemplateResponse(request, "setup_calibration_history.html")
 
 
-@app.get("/setup/calibration-history/{stem}", response_class=HTMLResponse)
-def setup_calibration_history_diagnostics_page(stem: str) -> str:
+@app.get("/setup/calibration-history/{stem}")
+def setup_calibration_history_diagnostics_page(stem: str, request: Request) -> Response:
     """Diagnostics drill-down for one arbitrary saved calibration -- TODO.md's "let the two
     heatmaps and the best-vs-worst-tag rank plots be viewed for a past calibration, not just
-    whatever's live." One static file serves any `stem`; the page reads it from its own URL and
+    whatever's live." One template serves any `stem`; the page reads it from its own URL and
     looks itself up in `/calibration/list` client-side, same list the history page already
     fetches -- no new metadata endpoint needed.
     """
-    return (STATIC_DIR / "setup_calibration_history_diagnostics.html").read_text()
+    return templates.TemplateResponse(request, "setup_calibration_history_diagnostics.html")
 
 
-@app.get("/setup/health-check", response_class=HTMLResponse)
-def setup_health_check_page() -> str:
+@app.get("/setup/health-check")
+def setup_health_check_page(request: Request) -> Response:
     """On-demand checks outside the linear calibration wizard -- currently just the tripwire
     check, moved here from the wizard (Aaron, 2026-09-25: "should not be part of the wizard,
     should be moved to a 'health check' screen")."""
-    return (STATIC_DIR / "setup_health_check.html").read_text()
+    return templates.TemplateResponse(request, "setup_health_check.html")
 
 
-@app.get("/gallery", response_class=HTMLResponse)
-def gallery_page() -> str:
+@app.get("/gallery")
+def gallery_page(request: Request) -> Response:
     """Capture button + recent-captures gallery, split out of the main page (2026-09-25):
     unrelated to camera/calibration setup, and cluttered a page that's supposed to be a quick
     Setup flow."""
-    return (STATIC_DIR / "gallery.html").read_text()
+    return templates.TemplateResponse(request, "gallery.html")
 
 
 @app.get("/snapshot.jpg")

@@ -1,21 +1,14 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NPEC Camera Rig — Health check</title>
-  <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-  <h1>NPEC Camera Rig</h1>
-  <nav class="top-nav">
-    <a href="/setup" class="active">Setup</a>
-    <a href="/gallery">Capture &amp; Gallery</a>
-  </nav>
-  <p style="margin: -0.5rem 0 0.75rem; font-size: 0.85rem;">
+{% extends "base.html" %}
+{% set nav_active = "setup" %}
+{% block title_suffix %} — Health check{% endblock %}
+
+{% block breadcrumb %}
+  <p class="breadcrumb">
     <a href="/setup">Setup</a> / Health check
   </p>
+{% endblock %}
 
+{% block content %}
   <h2>Health check</h2>
   <p style="margin: 0 0 1rem; color: #aaa; font-size: 0.85rem;">
     On-demand checks, outside the linear Calibration wizard — for whenever you want to check on
@@ -56,5 +49,4 @@
       }
     });
   </script>
-</body>
-</html>
+{% endblock %}

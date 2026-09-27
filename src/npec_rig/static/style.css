@@ -26,6 +26,10 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
   color: #fff;
   font-weight: bold;
 }
+.breadcrumb {
+  margin: -0.5rem 0 0.75rem;
+  font-size: 0.85rem;
+}
 /* Shared by any live camera view meant to be read at a glance (the focus/square preview, the
    leveling traffic-light overlay) -- fills most of the screen on a touchscreen rather than a
    fixed 480px, but not centered, so the empty space this leaves on the right is a scroll gutter

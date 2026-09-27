@@ -1,22 +1,15 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NPEC Camera Rig — Calibration diagnostics</title>
-  <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-  <h1>NPEC Camera Rig</h1>
-  <nav class="top-nav">
-    <a href="/setup" class="active">Setup</a>
-    <a href="/gallery">Capture &amp; Gallery</a>
-  </nav>
-  <p style="margin: -0.5rem 0 0.75rem; font-size: 0.85rem;">
+{% extends "base.html" %}
+{% set nav_active = "setup" %}
+{% block title_suffix %} — Calibration diagnostics{% endblock %}
+
+{% block breadcrumb %}
+  <p class="breadcrumb">
     <a href="/setup">Setup</a> / <a href="/setup/calibration-history">Calibration history</a> /
     Diagnostics
   </p>
+{% endblock %}
 
+{% block content %}
   <h2>Calibration diagnostics</h2>
   <p id="calibration-summary" style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
     Loading…
@@ -303,5 +296,4 @@
 
     init();
   </script>
-</body>
-</html>
+{% endblock %}
