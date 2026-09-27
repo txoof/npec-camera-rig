@@ -789,6 +789,22 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — UI usability, not yet done
 
+- [ ] **Rewrite the diagnostics explanatory text: too long, rambling, and difficult to
+      understand. Needs to be concise.** Covers the pop-over help text on the
+      calibration-history diagnostics page (`static/help/diagnostics.md`) and the equivalent
+      always-visible copy on `/setup/calibration` Step 5 it was drawn from. *(Aaron,
+      2026-09-27.)* **Found by code review 2026-09-27, worth folding into this pass:** the
+      confidence-heatmap and area-shape legend text/gradient markup now exists in three places
+      (Step 5 inline, `diagnostics.md`, and the drill-down page's own copy of the gradient
+      block) -- a wording or colour-scale change to one won't propagate to the others unless
+      this rewrite also picks one source of truth.
+- [ ] **Drill-down page's "Load rank plots..." button re-enables and resets its label before the
+      images actually finish loading** (it only sets `img.src`, with nothing for the button's
+      `finally` to await) -- so the button looks idle again while a multi-second re-detection is
+      still running, and a second click mid-load fires a duplicate batch of requests. Same
+      fire-and-forget pattern as the existing Step 5 "Load diagnostics" button, so not a new
+      regression, but worth fixing both together as part of the UI-organization pass. **Found by
+      code review 2026-09-27.**
 - [ ] **Discuss the Honesty plot's purpose: does it serve a function for a user of the platform,
       or is it just metrology?** Right now it's presented in the wizard the same way as the
       operator-facing report lines, but it's PLAN.md's M2 acceptance-test tool (place a known
@@ -855,12 +871,13 @@ The heart of the project. Do not start before M1 slice 5.
       calibration"); that step's own result panel and "Run calibration" button are untouched, and
       its "Set as current baseline" copy now links to the new page instead of saying "further
       down."
-- [ ] **Step 5/6: let the operator load a previous saved calibration's report instead of always
-      requiring a fresh capture** — "Read the report" currently only ever shows the just-run
-      calibration; there's no way to browse `/calibration/list`'s saved artifacts and view an old
-      report without re-running calibration. Likely the same underlying picker feature as the
-      existing "let the two heatmaps and rank plots be viewed for a past calibration" item below,
-      applied to the whole report rather than just those two plots. *(Aaron, 2026-09-25.)*
+- [x] **Step 5/6: let the operator load a previous saved calibration's report instead of always
+      requiring a fresh capture — shipped 2026-09-27, confirmed working by Aaron.** The
+      calibration-history page's per-stem drill-down (`/setup/calibration-history/<stem>`) is
+      the picker: browse `/calibration/list`'s saved artifacts and view an old run's stats and
+      diagnostics without re-running calibration. Same underlying feature as the heatmaps/rank
+      plots item below, applied to the whole report. *(Aaron, 2026-09-25; shipped and confirmed
+      2026-09-27.)*
 - [x] **Table width/length/corner-tag-size now persist between runs — built 2026-09-25.** Aaron:
       "the calibration doesn't remember the settings from the previous runs so I always get the
       NOT TO SCALE thing." All three stored via `settings.py`'s key/value store (the same one
@@ -915,15 +932,16 @@ The heart of the project. Do not start before M1 slice 5.
       browser. Not investigated further -- worth checking whether a dedicated higher-res crop
       (e.g. a still capture, or a larger/different stream config) is feasible without breaking
       the continuous preview or `focus_score`'s own use of the same stream. *(Aaron, 2026-09-22)*
-- [ ] **Low priority: let the two heatmaps and the best-vs-worst-tag rank plots be viewed for a
-      past calibration, not just whatever's live.** All four currently only read
-      `load_current_calibration()`; picking an old run means adding a picker to the UI and, for
-      the rank plots and the area-shape heatmap specifically, re-detecting tags from that run's
-      saved frame each time (their per-tag data isn't persisted in the artifact -- see
-      `ScaleResidualSample`/`AreaScaleSample`). The calibration history browser (above) covers the
-      *active* calibration's diagnostics (an opt-in "Load diagnostics" button on Step 5); this
-      item is the remaining gap -- an *arbitrary past* run, not just whatever's active -- and is
-      the same per-entry drill-down the plan doc calls out as deferred. *(Aaron, 2026-09-22.)*
+- [x] **Let the two heatmaps and the best-vs-worst-tag rank plots be viewed for a past
+      calibration, not just whatever's live — shipped 2026-09-27.** New stem-scoped endpoints
+      (`GET /calibration/{stem}/rank-plot`, `best-worst-photo`, `radial-plot`,
+      `certainty-dome-plot`) alongside the existing `/calibration/current/*` ones, plus a new
+      per-stem page (`/setup/calibration-history/<stem>`,
+      `setup_calibration_history_diagnostics.html`) showing the pre-rendered heatmap/table-view
+      images immediately and an opt-in "Load rank plots, radial plot, and dome of certainty"
+      button for the re-detection-dependent ones.
+      Every calibration-history card now links to it, not just the active entry. *(Aaron,
+      2026-09-22; shipped 2026-09-27.)*
 - [ ] **Tidy up the calibration result messages -- too much shown at once, agreed plan not yet
       built.** Aaron, 2026-09-25, on a real 10-line result: "This is waaaaaaaay too much
       information and not all of it is relevant to someone that has just set this up." Agreed

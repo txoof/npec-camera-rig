@@ -27,11 +27,6 @@
     It reactivates an old measurement; it does not re-verify that the physical setup still
     matches it.
   </div>
-  <p style="margin: 0.5rem 0; color: #aaa; font-size: 0.8rem;">
-    To see diagnostics (heatmaps, rank plots) for the active calibration, go to
-    <a href="/setup/calibration">Calibration</a> → Step 5 → "Load diagnostics for the active
-    calibration."
-  </p>
   <div id="calibration-list" class="calibration-history-list" style="margin-top: 0.5rem;"></div>
 
   <script>
@@ -61,9 +56,10 @@
       if (item.frame_url) {
         actions.push(`<a href="${item.frame_url}" target="_blank">frame</a>`);
       }
-      if (item.is_current) {
-        actions.push(`<a href="/setup/calibration">view diagnostics</a>`);
-      } else {
+      actions.push(
+        `<a href="/setup/calibration-history/${item.stem}">view diagnostics</a>`
+      );
+      if (!item.is_current) {
         actions.push(
           `<button class="calibration-history-promote" data-stem="${item.stem}">Make active</button>`
         );

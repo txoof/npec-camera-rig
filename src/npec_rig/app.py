@@ -131,6 +131,17 @@ def setup_calibration_history_page() -> str:
     return (STATIC_DIR / "setup_calibration_history.html").read_text()
 
 
+@app.get("/setup/calibration-history/{stem}", response_class=HTMLResponse)
+def setup_calibration_history_diagnostics_page(stem: str) -> str:
+    """Diagnostics drill-down for one arbitrary saved calibration -- TODO.md's "let the two
+    heatmaps and the best-vs-worst-tag rank plots be viewed for a past calibration, not just
+    whatever's live." One static file serves any `stem`; the page reads it from its own URL and
+    looks itself up in `/calibration/list` client-side, same list the history page already
+    fetches -- no new metadata endpoint needed.
+    """
+    return (STATIC_DIR / "setup_calibration_history_diagnostics.html").read_text()
+
+
 @app.get("/setup/health-check", response_class=HTMLResponse)
 def setup_health_check_page() -> str:
     """On-demand checks outside the linear calibration wizard -- currently just the tripwire
@@ -701,6 +712,16 @@ def _saved_calibration_path(stem: str) -> Path:
     return path
 
 
+def _load_saved_artifact(stem: str) -> CalibrationArtifact:
+    """Load a saved calibration by history `stem`, for routes that need the full artifact rather
+    than just its list-view stats -- the diagnostics drill-down and promote both want this."""
+    path = _saved_calibration_path(stem)
+    try:
+        return load_calibration(path)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(422, f"saved calibration {stem!r} could not be read: {exc}") from exc
+
+
 @app.post("/calibration/{stem}/promote")
 def promote_calibration(stem: str) -> dict:
     """Make a previously saved calibration the active one, no fresh capture -- the
@@ -709,11 +730,7 @@ def promote_calibration(stem: str) -> dict:
     promote-to-`current.json` mechanism, the same one a live run's "set as current baseline"
     checkbox already uses.
     """
-    path = _saved_calibration_path(stem)
-    try:
-        artifact = load_calibration(path)
-    except (ValueError, KeyError, TypeError) as exc:
-        raise HTTPException(422, f"saved calibration {stem!r} could not be read: {exc}") from exc
+    artifact = _load_saved_artifact(stem)
     save_calibration(artifact, stem=stem, promote=True)
     return {"promoted": stem, "created_at": artifact.created_at}
 
@@ -935,6 +952,13 @@ def _detect_tags_cached(frame_stem: str) -> tuple[np.ndarray, list]:
     with _frame_detection_lock:
         if _cached_frame_detections is not None and _cached_frame_detections[0] == frame_stem:
             return _cached_frame_detections[1], _cached_frame_detections[2]
+        # Drop the outgoing entry before decoding the new frame, not after -- the calibration-
+        # history drill-down makes switching frame_stem (not just growing the same one) a normal
+        # user action, so without this the previous ~180MB frame array stays referenced by this
+        # global while the next one is decoded, holding two full-res frames live at once. Same
+        # OOM condition this cache exists to prevent (see the comment above it), just at 2x
+        # instead of 4x.
+        _cached_frame_detections = None
         try:
             frame = load_calibration_frame(frame_stem)
         except FileNotFoundError:
@@ -978,15 +1002,11 @@ def _metric_points(metric: str, artifact: CalibrationArtifact) -> tuple[list[tup
     return points, label, frame
 
 
-@app.get("/calibration/current/rank-plot")
-def current_rank_plot(metric: str = "scale_residual") -> Response:
-    """Sorted best-vs-worst-tag plot (TODO.md) for the live calibration's own `metric` --
+def _rank_plot_response(artifact: CalibrationArtifact, metric: str) -> Response:
+    """Sorted best-vs-worst-tag plot (TODO.md) for `artifact`'s own `metric` --
     `"scale_residual"` (the confidence heatmap's number) or `"shape_distortion"` (the area-shape
     heatmap's number). See `_metric_points` for why this re-detects tags each call.
     """
-    artifact = load_current_calibration()
-    if artifact is None:
-        raise HTTPException(409, "no calibration with a saved frame yet")
     signed_points, label, _frame = _metric_points(metric, artifact)
 
     if len(signed_points) < 2:
@@ -997,16 +1017,29 @@ def current_rank_plot(metric: str = "scale_residual") -> Response:
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
-@app.get("/calibration/current/best-worst-photo")
-def current_best_worst_photo(metric: str = "scale_residual") -> Response:
-    """The live calibration's actual saved photo, with its best and worst tag for `metric`
-    circled directly on it -- green for best, red for worst, each labelled with its magnitude --
-    so the worst tag can be found and inspected physically, not just read off the rank plot's
-    abstract rank axis. See `_metric_points` for why this re-detects tags each call.
-    """
+@app.get("/calibration/current/rank-plot")
+def current_rank_plot(metric: str = "scale_residual") -> Response:
+    """`_rank_plot_response` for the live calibration."""
     artifact = load_current_calibration()
     if artifact is None:
         raise HTTPException(409, "no calibration with a saved frame yet")
+    return _rank_plot_response(artifact, metric)
+
+
+@app.get("/calibration/{stem}/rank-plot")
+def stem_rank_plot(stem: str, metric: str = "scale_residual") -> Response:
+    """`_rank_plot_response` for an arbitrary saved calibration `stem` -- the calibration-history
+    browser's per-entry diagnostics drill-down (TODO.md, reference/plans/
+    calibration-history-browser.md), not just whatever's currently active."""
+    return _rank_plot_response(_load_saved_artifact(stem), metric)
+
+
+def _best_worst_photo_response(artifact: CalibrationArtifact, metric: str) -> Response:
+    """`artifact`'s actual saved photo, with its best and worst tag for `metric` circled directly
+    on it -- green for best, red for worst, each labelled with its magnitude -- so the worst tag
+    can be found and inspected physically, not just read off the rank plot's abstract rank axis.
+    See `_metric_points` for why this re-detects tags each call.
+    """
     signed_points, label, frame = _metric_points(metric, artifact)
 
     if len(signed_points) < 2:
@@ -1026,8 +1059,23 @@ def current_best_worst_photo(metric: str = "scale_residual") -> Response:
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
-@app.get("/calibration/current/radial-plot")
-def current_radial_plot(metric: str = "scale_residual") -> Response:
+@app.get("/calibration/current/best-worst-photo")
+def current_best_worst_photo(metric: str = "scale_residual") -> Response:
+    """`_best_worst_photo_response` for the live calibration."""
+    artifact = load_current_calibration()
+    if artifact is None:
+        raise HTTPException(409, "no calibration with a saved frame yet")
+    return _best_worst_photo_response(artifact, metric)
+
+
+@app.get("/calibration/{stem}/best-worst-photo")
+def stem_best_worst_photo(stem: str, metric: str = "scale_residual") -> Response:
+    """`_best_worst_photo_response` for an arbitrary saved calibration `stem` -- see
+    `stem_rank_plot`."""
+    return _best_worst_photo_response(_load_saved_artifact(stem), metric)
+
+
+def _radial_plot_response(artifact: CalibrationArtifact, metric: str) -> Response:
     """PLAN.md's own evidence-gate measurement (see `calibration_viz.render_radial_residual_plot`):
     signed `metric` residual against distance from the image centre, one point per tag, with a
     linear fit and its R^2 -- the specific measurement that decides whether a structured lens/
@@ -1035,9 +1083,6 @@ def current_radial_plot(metric: str = "scale_residual") -> Response:
     pattern the confidence heatmap otherwise shows. See `_metric_points` for why this re-detects
     tags each call.
     """
-    artifact = load_current_calibration()
-    if artifact is None:
-        raise HTTPException(409, "no calibration with a saved frame yet")
     signed_points, label, frame = _metric_points(metric, artifact)
 
     if len(signed_points) < 2:
@@ -1050,16 +1095,30 @@ def current_radial_plot(metric: str = "scale_residual") -> Response:
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
-@app.get("/calibration/current/certainty-dome-plot")
-def current_certainty_dome_plot() -> Response:
+@app.get("/calibration/current/radial-plot")
+def current_radial_plot(metric: str = "scale_residual") -> Response:
+    """`_radial_plot_response` for the live calibration."""
+    artifact = load_current_calibration()
+    if artifact is None:
+        raise HTTPException(409, "no calibration with a saved frame yet")
+    return _radial_plot_response(artifact, metric)
+
+
+@app.get("/calibration/{stem}/radial-plot")
+def stem_radial_plot(stem: str, metric: str = "scale_residual") -> Response:
+    """`_radial_plot_response` for an arbitrary saved calibration `stem` -- see
+    `stem_rank_plot`."""
+    return _radial_plot_response(_load_saved_artifact(stem), metric)
+
+
+def _certainty_dome_plot_response(artifact: CalibrationArtifact) -> Response:
     """Aaron, 2026-09-25: an honest display of modeled area-measurement certainty as a function
     of distance from the image centre, where certainty *should* be highest -- claimed uncertainty
     (`UncertaintyField.local_uncertainty_pct`, already computed and persisted on every run, no new
     measurement) sampled at each detected calibration tag's position. See `_detect_tags_cached`
     for why this re-detects tags from the saved frame rather than the live camera.
     """
-    artifact = load_current_calibration()
-    if artifact is None or artifact.uncertainty_field is None:
+    if artifact.uncertainty_field is None:
         raise HTTPException(409, "no calibration with an uncertainty field saved yet")
     if artifact.frame_stem is None:
         raise HTTPException(409, "no calibration with a saved frame yet")
@@ -1081,6 +1140,22 @@ def current_certainty_dome_plot() -> Response:
 
     image = render_certainty_dome_plot(points)
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+
+
+@app.get("/calibration/current/certainty-dome-plot")
+def current_certainty_dome_plot() -> Response:
+    """`_certainty_dome_plot_response` for the live calibration."""
+    artifact = load_current_calibration()
+    if artifact is None:
+        raise HTTPException(409, "no calibration with an uncertainty field saved yet")
+    return _certainty_dome_plot_response(artifact)
+
+
+@app.get("/calibration/{stem}/certainty-dome-plot")
+def stem_certainty_dome_plot(stem: str) -> Response:
+    """`_certainty_dome_plot_response` for an arbitrary saved calibration `stem` -- see
+    `stem_rank_plot`."""
+    return _certainty_dome_plot_response(_load_saved_artifact(stem))
 
 
 @app.get("/calibration/orientation/level.jpg")
