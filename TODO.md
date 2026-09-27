@@ -789,6 +789,11 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — UI usability, not yet done
 
+- [ ] **Rewrite the diagnostics explanatory text: too long, rambling, and difficult to
+      understand. Needs to be concise.** Covers the pop-over help text on the
+      calibration-history diagnostics page (`static/help/diagnostics.md`) and the equivalent
+      always-visible copy on `/setup/calibration` Step 5 it was drawn from. *(Aaron,
+      2026-09-27.)*
 - [ ] **Discuss the Honesty plot's purpose: does it serve a function for a user of the platform,
       or is it just metrology?** Right now it's presented in the wizard the same way as the
       operator-facing report lines, but it's PLAN.md's M2 acceptance-test tool (place a known
