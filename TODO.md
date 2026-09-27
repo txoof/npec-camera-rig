@@ -1054,6 +1054,13 @@ The heart of the project. Do not start before M1 slice 5.
 - [ ] Full SQLite schema (`experiment`, `calibration`, `tray`, `capture`, `detection`,
       `measurement`, `alert`) — created here so every row has provenance from the start
 - [ ] Experiment create/start/stop in the UI
+- [ ] **Design the header/nav menu properly once experiment/report pages exist.** The Jinja
+      base-layout work (M2 UI-organization pass) centralized the header/nav into one
+      `templates/base.html` block, but its content is still just the same two links (Setup,
+      Capture & Gallery) that existed before -- deferred designing the actual menu structure
+      (flat list vs. grouped/dropdown) until M3's experiment list/detail/timelapse/report pages
+      are real routes, since guessing the hierarchy now would be speculative. *(Aaron,
+      2026-09-27.)*
 - [ ] Experiment storage laid out so a whole experiment is easy to identify and remove as a unit
       (e.g. one directory per experiment, named/indexed so it's obvious which is which) — not
       commingled with calibration data or other experiments. *(Aaron, 2026-09-19)*
