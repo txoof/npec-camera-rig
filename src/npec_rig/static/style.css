@@ -172,21 +172,68 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 .focus-layout.mode-square .roi-crop {
   display: none;
 }
-/* Side by side once there's room for both at a readable size; stacked below that. */
+/* Side by side once there's room for both at a readable size; stacked below that. Preview gets
+   more of the row than the side panel (3:2) -- the panel's content (crop, controls, score) is
+   naturally narrow, and the point of the split is keeping the preview large while everything
+   needed to act on it stays in view alongside it, not below the fold. */
 @media (min-width: 800px) {
   .focus-layout {
     flex-direction: row;
     align-items: flex-start;
   }
-  .focus-layout .preview-wrap,
-  .focus-layout .roi-crop {
-    flex: 1 1 0;
+  .focus-layout .preview-wrap {
+    flex: 3 1 0;
     min-width: 0;
   }
+  .focus-layout .focus-side-panel {
+    flex: 2 1 0;
+    min-width: 0;
+  }
+}
+.focus-side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 .controls, .focus-section, .capture-section, .camera-controls, .calibration-section {
   max-width: 480px;
   margin-top: 0.75rem;
+}
+/* One visual panel for every focus-adjustment control (autofocus, coarse/fine, peaking) --
+   grouped by a border/background, not just DOM proximity. */
+.controls {
+  padding: 0.75rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+}
+.vertical-slider-row {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-end;
+  margin-top: 0.75rem;
+}
+.vertical-slider-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+.vertical-slider-wrap label {
+  margin-bottom: 0;
+  font-size: 0.75rem;
+  color: #ccc;
+  text-align: center;
+}
+/* writing-mode + direction: rtl is the standards-track way to orient a range input vertically
+   (MDN), replacing the older non-standard -webkit-appearance: slider-vertical / Firefox
+   -moz-orient. rtl so higher values land toward the top -- sliding up increases focus distance,
+   matching the physical lens ring it stands in for. */
+input[type="range"].vertical-slider {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 2.5rem;
+  height: 140px;
 }
 .camera-controls-details {
   max-width: 480px;

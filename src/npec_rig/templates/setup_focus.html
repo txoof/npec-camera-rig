@@ -28,58 +28,65 @@
         <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
       </div>
     </div>
-    <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
-  </div>
-  <div class="mode-toggle-row">
-    <button type="button" id="mode-focus-btn">Focus mode</button>
-    <button type="button" id="mode-square-btn">Square mode</button>
-  </div>
-  <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.85rem; max-width: 480px;">
-    <strong>Focus mode:</strong> click the preview to place the focus ROI; the magnified crop
-    alongside updates to match.
-    <strong>Square mode:</strong> shows one horizontal and two vertical guide lines — drag the
-    small tabs at the frame's edge (mouse or touch) to line any of them up with a real edge in the
-    frame, to check by eye that the rig sits square. No magnified crop in this mode. Clicking the
-    preview doesn't move the focus ROI while in this mode. Lines are a straightening aid, not a
-    reading — dragged positions aren't saved anywhere and reset on reload.
-  </p>
 
-  <div class="controls">
-    <button id="autofocus-btn">Autofocus</button>
+    <div class="focus-side-panel">
+      <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
 
-    <div class="focus-row">
-      <label for="lens-coarse">Coarse lens position (dioptres)</label>
-      <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
+      <div class="mode-toggle-row">
+        <button type="button" id="mode-focus-btn">Focus mode</button>
+        <button type="button" id="mode-square-btn">Square mode</button>
+      </div>
+
+      <div class="controls">
+        <button id="autofocus-btn">Autofocus</button>
+        <div class="vertical-slider-row">
+          <div class="vertical-slider-wrap">
+            <input type="range" id="lens-coarse" class="vertical-slider" min="0" max="15" step="1" value="1">
+            <label for="lens-coarse">Coarse (dioptres)</label>
+          </div>
+          <div class="vertical-slider-wrap">
+            <input type="range" id="lens-fine" class="vertical-slider" min="0" max="0.99" step="0.01" value="0">
+            <label for="lens-fine">Fine <span id="lens-fine-value">.00</span></label>
+          </div>
+        </div>
+        <label class="peaking-row">
+          <input type="checkbox" id="peaking-toggle">
+          <span>Focus peaking</span>
+        </label>
+      </div>
+
+      <div class="score-row">
+        <span>Sharpness</span>
+        <strong id="score-value">-</strong>
+      </div>
+      <canvas id="score-trace" width="480" height="60"></canvas>
+      <div class="lock-row">
+        <button id="lock-btn">Lock focus</button>
+        <span id="lock-status">not locked</span>
+      </div>
+
+      <details class="focus-help">
+        <summary>What do these controls do?</summary>
+        <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+          <strong>Focus mode:</strong> click the preview to place the focus ROI; the magnified
+          crop updates to match. <strong>Square mode:</strong> drag the guide-line tabs at the
+          frame's edge to line them up with a real edge, checking by eye that the rig sits
+          square — a straightening aid, not a saved reading.
+        </p>
+        <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+          <strong>Focus peaking</strong> highlights high-contrast edges in the crop above in
+          magenta — denser highlighting means sharper focus; use it alongside the sharpness
+          number, not instead of it.
+        </p>
+        <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+          <strong>Locking</strong> marks the current position as your confirmed focus, shown
+          above as a checkpoint — a record, not a safeguard. It doesn't stop the lens from
+          moving; adjusting the sliders above afterward still refocuses it, so unlock and relock
+          if you do.
+        </p>
+      </details>
     </div>
-
-    <div class="focus-row">
-      <label for="lens-fine">Fine adjust <span id="lens-fine-value">.00</span></label>
-      <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
-    </div>
   </div>
-
-  <label class="peaking-row">
-    <input type="checkbox" id="peaking-toggle">
-    <span>
-      <strong>Focus peaking</strong> — highlights high-contrast edges in the crop above in
-      magenta. Denser highlighting means sharper focus; use it alongside the sharpness number,
-      not instead of it.
-    </span>
-  </label>
-  <div class="score-row">
-    <span>Sharpness</span>
-    <strong id="score-value">-</strong>
-  </div>
-  <canvas id="score-trace" width="480" height="60"></canvas>
-  <div class="lock-row">
-    <button id="lock-btn">Lock focus</button>
-    <span id="lock-status">not locked</span>
-  </div>
-  <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.85rem; max-width: 480px;">
-    Locking marks this position as your confirmed focus, shown above as a checkpoint — it's a
-    record, not a safeguard. It doesn't stop the lens from moving; adjusting the controls above
-    afterward still refocuses it, so unlock and relock if you do.
-  </p>
 
   <details class="camera-controls-details">
     <summary>Camera settings</summary>
@@ -91,10 +98,9 @@
     const DEFAULT_ROI_SIZE = 200;
 
     // --- Lens position: autofocus + coarse (whole dioptres) + fine (.00-.99 fraction) ---
-    // The fine slider always spans a fixed .00-.99, left to right — no recentering, no
-    // dynamic range. Coarse holds the whole number; fine holds the fraction; the two just
-    // add together. Typing "6.8" into coarse splits into coarse=6, fine=.80 (80% along the
-    // slider) — what you type is where the slider lands, always the same mapping.
+    // Coarse and fine are independent vertical sliders that add together -- coarse holds the
+    // whole number, fine holds the fraction. applyLensPosition() below still splits a single
+    // combined value (from autofocus, or the initial load) across both sliders.
     // LENS_MIN/LENS_MAX start as reasonable guesses and are corrected from the probed range
     // in loadControls() below — LensPosition's own max has already been observed to change
     // between probes (15.0, then 32.0), so this can't be a hardcoded constant.
@@ -264,11 +270,11 @@
       )
       .catch(() => {});
 
-    coarseInput.addEventListener("change", () => {
-      const typed = Number(coarseInput.value);
-      if (Number.isNaN(typed)) return;
-      applyLensPosition(typed); // splits a typed "6.8" into coarse=6, fine=.80
-      sendLensPosition();
+    let sendingCoarse = false;
+    coarseInput.addEventListener("input", () => {
+      if (sendingCoarse) return;
+      sendingCoarse = true;
+      sendLensPosition().finally(() => { sendingCoarse = false; });
     });
 
     let sendingFine = false;
