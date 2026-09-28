@@ -789,6 +789,51 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — UI usability, not yet done
 
+- [x] **Calibration wizard step order fixed, 2026-09-28.** Focus previously ran before any tray
+      or tag was in frame (`data-step="1"`, before sheet placement at `data-step="4"`). Reordered
+      to: 1 place calibration/corner sheets, 2 confirm focus, 3 check squareness, 4 confirm
+      coplanarity, 5 run calibration, 6 report, 7 remove sheets. Two constraints decided the final
+      order: sheets must be down before focus, since focus needs a real target at tray height,
+      not the bare table; and focus must happen before squareness/coplanarity, since those are
+      visual checks that need a sharp image to judge by eye. `m2-wizard-order-and-focus-gate`
+      branch. Confirmed working end to end in the browser, 2026-09-28.
+      **Note:** the two HIGH PRIORITY entries that originally raised this (wizard order, Lock
+      focus gating) and the zoom-quality entry next to them existed only in
+      `m2-ui-organization-and-text`'s uncommitted, since-stashed working tree -- never actually
+      committed to `main`. This entry and the two below replace them as the real record.
+- [ ] **Give "Lock focus" a real function -- design decided 2026-09-28, not yet built.** Traced
+      the code: the locked state only fed the on-screen label and a manual capture's sidecar
+      JSON; `/calibration/run` read the raw current lens position directly, never the lock.
+      Decided: (1) any manual lens move or autofocus clears the lock (`_locked_lens_position`),
+      no tolerance measurement needed; (2) `/calibration/run` and (3) the wizard both refuse to
+      proceed unless focus is currently locked AND all 4 corner tags are detected in a live
+      main-stream frame (all 4, not `check_tripwire`'s 2-tag minimum -- this gate answers "is the
+      camera ready," `check_tripwire` answers a different question, whether something's changed
+      since a good baseline). All 4, not a sharpness comparison, per Aaron: corner-tag
+      readability is the minimum viable gate; sharpness comparison deferred, no threshold
+      measured yet.
+      **Open again after the step reorder above:** originally this was meant to block moving from
+      Focus straight into Run calibration. Now there are two more steps (squareness, coplanarity)
+      between them, both involving physical camera nudges that can leave the lens position
+      technically "locked" while true focus has drifted. Needs a decision on where the gate
+      actually sits -- right after Focus (step 2), or right before Run calibration (step 4 -> 5)
+      -- not decided yet. *(Aaron, 2026-09-27/28.)*
+- [ ] **Higher quality zoom for focusing (`/focus/roi.mjpg`), if possible.** Aaron: after
+      spending a few minutes squinting at the zoomed focus crop to fine-tune it, a sharper zoom
+      view would genuinely help. Acknowledged as possibly hard -- low priority, after the two
+      items above. *(Aaron, 2026-09-27.)*
+- [ ] **LOW PRIORITY. Step 2 (Confirm focus): move the "Camera settings" sub-panel up next to the
+      other settings controls.** Discuss placement before acting. *(Aaron, 2026-09-28.)*
+- [ ] **LOW PRIORITY. Step 7 (Remove sheets): "Done" button should be active and return to the
+      main Setup menu, once it exists.** *(Aaron, 2026-09-28.)*
+- [ ] **MEDIUM PRIORITY. Combine Step 3 (squareness) and Step 4 (coplanarity) into one display.**
+      Positioning the camera currently means toggling back and forth between the two steps to see
+      both sets of guides. Put both on the same live view. Also reconsider the coplanarity ring
+      colors -- red/amber/green reads as a pass/fail verdict; a neutral color (e.g. blue) for the
+      guides themselves would reduce confusion with that feedback. *(Aaron, 2026-09-28.)*
+- [ ] **MEDIUM PRIORITY. After a calibration run, if a previous calibration exists, show a delta
+      against it** -- how residuals and other metrics changed from the last run to this one.
+      *(Aaron, 2026-09-28.)*
 - [ ] **Rewrite the diagnostics explanatory text: too long, rambling, and difficult to
       understand. Needs to be concise.** Covers the pop-over help text on the
       calibration-history diagnostics page (`static/help/diagnostics.md`) and the equivalent
