@@ -23,6 +23,32 @@ def synthetic_camera() -> None:
     CameraManager.set_instance(CameraManager(SyntheticBackend()))
 
 
+# Captured once, at collection time, before the autouse fixture below ever patches the module
+# attribute -- the small number of dedicated gate tests restore this to exercise the real
+# function instead of the "always ready" default.
+_REAL_CALIBRATION_READINESS = app_module._calibration_readiness
+
+
+@pytest.fixture(autouse=True)
+def calibration_gate_open_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Almost every /calibration/run test in this file is about calibration's own mechanics
+    (tag size defaults, promote, table dims, history...), not the focus-lock/corner-tag
+    readiness gate, and most use only 2 corner tags (`_CORNER_TAGS`) since that's already
+    enough for a corner baseline -- fewer than the gate's own 4-tag minimum. Default the gate
+    open so none of them need a real lock or a 4-tag fixture; the dedicated gate tests below
+    restore the real function to exercise it properly."""
+    monkeypatch.setattr(
+        app_module,
+        "_calibration_readiness",
+        lambda: {
+            "focus_locked": True,
+            "corner_tags_detected": 4,
+            "corner_tags_required": 4,
+            "ready": True,
+        },
+    )
+
+
 @pytest.fixture
 def isolated_calibration_dir(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
@@ -389,6 +415,86 @@ def test_run_calibration_builds_table_view_with_all_four_corner_tags(
     listing = client.get("/calibration/list").json()
     assert listing[0]["table_view_url"] == body["table_view_url"]
     assert listing[0]["table_view_shape_url"] == body["table_view_shape_url"]
+
+
+# --- Calibration readiness gate: focus locked, all 4 corner tags detected ---
+# These tests restore the real `_calibration_readiness` (the other tests in this file default it
+# open, see `calibration_gate_open_by_default`) to exercise the actual gate logic against real
+# lock state and real `detect_tags` results.
+
+
+def test_calibration_readiness_reports_not_ready_with_no_lock_and_no_corner_tags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(app_module, "_calibration_readiness", _REAL_CALIBRATION_READINESS)
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: [])
+
+    client = TestClient(app)
+    body = client.get("/calibration/readiness").json()
+    assert body == {
+        "focus_locked": False,
+        "corner_tags_detected": 0,
+        "corner_tags_required": 4,
+        "ready": False,
+    }
+
+
+def test_calibration_readiness_reports_ready_once_locked_with_four_corner_tags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(app_module, "_calibration_readiness", _REAL_CALIBRATION_READINESS)
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _FOUR_CORNER_TAGS)
+
+    client = TestClient(app)
+    client.post("/controls/lens-position", json={"value": 6.3})
+    client.post("/focus/lock")
+
+    body = client.get("/calibration/readiness").json()
+    assert body == {
+        "focus_locked": True,
+        "corner_tags_detected": 4,
+        "corner_tags_required": 4,
+        "ready": True,
+    }
+
+
+def test_run_calibration_refuses_without_a_lock_and_can_be_overridden(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "_calibration_readiness", _REAL_CALIBRATION_READINESS)
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS)
+
+    client = TestClient(app)
+    refused = client.post("/calibration/run").json()
+    assert refused["gate_failed"] is True
+    assert refused["focus_locked"] is False
+    assert "Focus isn't locked" in refused["error"]
+    assert "artifact_path" not in refused  # no capture happened
+
+    overridden = client.post("/calibration/run", params={"override_focus_gate": "true"}).json()
+    assert "gate_failed" not in overridden
+    assert "error" not in overridden
+
+
+def test_run_calibration_refuses_with_too_few_corner_tags_and_can_be_overridden(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "_calibration_readiness", _REAL_CALIBRATION_READINESS)
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+
+    client = TestClient(app)
+    client.post("/controls/lens-position", json={"value": 6.3})
+    client.post("/focus/lock")
+
+    refused = client.post("/calibration/run").json()
+    assert refused["gate_failed"] is True
+    assert refused["corner_tags_detected"] == len(_CORNER_TAGS)
+    assert "2 of 4 corner tags" in refused["error"]
+    assert "artifact_path" not in refused
+
+    overridden = client.post("/calibration/run", params={"override_focus_gate": "true"}).json()
+    assert "gate_failed" not in overridden
+    assert "error" not in overridden
 
 
 def test_run_calibration_echoes_corner_tag_size_and_default_flag(

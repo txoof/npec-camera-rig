@@ -439,6 +439,9 @@ class CameraManager:
         with self._call_lock:
             self._backend.set_lens_position(value)
         save_setting("LensPosition", value)
+        # A manual move invalidates whatever focus was locked -- the operator has to
+        # re-confirm and re-lock before calibration will trust it again.
+        self._locked_lens_position = None
 
     def get_lens_position(self) -> float:
         with self._call_lock:
@@ -448,6 +451,7 @@ class CameraManager:
         with self._call_lock:
             success, lens_position = self._backend.autofocus()
         save_setting("LensPosition", lens_position)
+        self._locked_lens_position = None
         return {"success": success, "lens_position": lens_position}
 
     def available_controls(self) -> dict[str, tuple]:

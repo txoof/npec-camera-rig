@@ -172,6 +172,9 @@
       <input type="number" id="tag-size-input" step="0.0001" min="0"
              placeholder="e.g. 30.02" style="width: 6rem;">
     </label>
+    <p id="calibration-readiness" style="margin: 0 0 0.5rem; font-size: 0.85rem; color: #aaa;">
+      Checking focus and corner tags&hellip;
+    </p>
     <div class="lock-row">
       <button id="calibrate-btn">Run calibration</button>
     </div>
@@ -496,6 +499,38 @@
 
     initSquarenessGuides(squarenessGuides, squarePreviewImg);
 
+    // --- Calibration readiness (focus locked, all 4 corner tags detected) ---
+    // Polled live while Step 5 is showing -- a data-quality gate, not a safety one, so it's
+    // always overridable (Aaron, 2026-09-28): this just tells the operator where things stand
+    // before they click "Run calibration", the actual override prompt lives in that handler.
+    const calibrationReadiness = document.getElementById("calibration-readiness");
+
+    async function pollCalibrationReadiness() {
+      if (isActiveStep(5)) {
+        try {
+          const r = await fetch("/calibration/readiness");
+          const data = await r.json();
+          if (data.ready) {
+            calibrationReadiness.textContent =
+              `Ready: focus locked, ${data.corner_tags_detected}/${data.corner_tags_required} ` +
+              "corner tags detected.";
+            calibrationReadiness.style.color = "#8c8";
+          } else {
+            const lockPart = data.focus_locked ? "focus locked" : "focus not locked";
+            calibrationReadiness.textContent =
+              `Not ready: ${lockPart}, ${data.corner_tags_detected}/` +
+              `${data.corner_tags_required} corner tags detected. You can still run ` +
+              "calibration, but you'll be asked to confirm.";
+            calibrationReadiness.style.color = "#dc6";
+          }
+        } catch (e) {
+          // transient network hiccup -- try again next tick
+        }
+      }
+      setTimeout(pollCalibrationReadiness, 1000);
+    }
+    pollCalibrationReadiness();
+
     // --- Calibration ---
     const calibrateBtn = document.getElementById("calibrate-btn");
     const promoteToggle = document.getElementById("promote-toggle");
@@ -648,8 +683,19 @@
         if (tableWidthInput.value) url += `&table_width_mm=${tableWidthInput.value}`;
         if (tableLengthInput.value) url += `&table_length_mm=${tableLengthInput.value}`;
         if (cornerTagSizeInput.value) url += `&corner_tag_size_mm=${cornerTagSizeInput.value}`;
-        const r = await fetch(url, { method: "POST" });
-        const data = await r.json();
+        let r = await fetch(url, { method: "POST" });
+        let data = await r.json();
+        if (data.gate_failed) {
+          // A data-quality gate, not a safety one -- always overridable, never a hard stop
+          // (Aaron, 2026-09-28). The confirm dialog is the "explicit action" that counts as
+          // the override, not a silent retry.
+          if (!confirm(`${data.error} Run calibration anyway?`)) {
+            calibrationResult.textContent = `${data.error} (calibration not run)`;
+            return;
+          }
+          r = await fetch(`${url}&override_focus_gate=true`, { method: "POST" });
+          data = await r.json();
+        }
         let lines;
         if (data.error) {
           lines = [

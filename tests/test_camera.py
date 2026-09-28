@@ -180,6 +180,28 @@ def test_camera_manager_lock_and_unlock_focus() -> None:
     assert status == {"locked": False, "lens_position": None}
 
 
+def test_camera_manager_lock_is_cleared_by_a_later_manual_move() -> None:
+    # A lock only means something if a later, unconfirmed move can't hide behind it (TODO.md,
+    # "Give Lock focus a real function") -- invalidate on change, no tolerance comparison needed.
+    manager = CameraManager(SyntheticBackend())
+    manager.set_lens_position(6.3)
+    manager.lock_focus()
+    assert manager.focus_status()["locked"] is True
+
+    manager.set_lens_position(6.4)
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+
+def test_camera_manager_lock_is_cleared_by_autofocus() -> None:
+    manager = CameraManager(SyntheticBackend())
+    manager.set_lens_position(6.3)
+    manager.lock_focus()
+    assert manager.focus_status()["locked"] is True
+
+    manager.autofocus()
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+
 def test_camera_manager_peaking_toggle() -> None:
     manager = CameraManager(SyntheticBackend())
     assert manager.get_peaking() == {"enabled": False}

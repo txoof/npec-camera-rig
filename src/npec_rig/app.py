@@ -422,6 +422,37 @@ def _resolve_table_dims(
     return tuple(resolved)  # type: ignore[return-value]
 
 
+# Calibration's own readiness gate (TODO.md, "Give Lock focus a real function"): all 4 mounted
+# corner tags, not check_tripwire's 2-tag minimum -- that check answers "has something changed
+# since a good baseline", this one answers "is the camera positioned well enough to calibrate at
+# all", which is a stricter bar by design (Aaron, 2026-09-28).
+CORNER_TAGS_REQUIRED_FOR_CALIBRATION = 4
+
+
+def _calibration_readiness() -> dict:
+    """Live check for calibration's own gate: is focus currently locked, and are all 4 corner
+    tags currently detectable. Cheap -- a main-stream frame, not a full-res capture -- so it can
+    be polled from the wizard, and re-checked by `/calibration/run` itself right before the
+    expensive capture (the backend never trusts a frontend-only check).
+    """
+    manager = CameraManager.instance()
+    focus_locked = manager.focus_status()["locked"]
+    frame = manager.capture_array()
+    corner_tags_detected = len([d for d in detect_tags(frame) if d.tag_id in CORNER_ID_RANGE])
+    return {
+        "focus_locked": focus_locked,
+        "corner_tags_detected": corner_tags_detected,
+        "corner_tags_required": CORNER_TAGS_REQUIRED_FOR_CALIBRATION,
+        "ready": focus_locked and corner_tags_detected >= CORNER_TAGS_REQUIRED_FOR_CALIBRATION,
+    }
+
+
+@app.get("/calibration/readiness")
+def calibration_readiness() -> dict:
+    """`_calibration_readiness` as its own endpoint, for the wizard to poll live on Step 5."""
+    return _calibration_readiness()
+
+
 @app.post("/calibration/run")
 def run_calibration(
     promote: bool = True,
@@ -429,9 +460,16 @@ def run_calibration(
     table_width_mm: float | None = None,
     table_length_mm: float | None = None,
     corner_tag_size_mm: float | None = None,
+    override_focus_gate: bool = False,
 ) -> dict:
     """Setup calibration (PLAN.md M2 section A): capture a full-res still, detect tags, build the
     scale field and install report, and save the frame plus the resulting artifact.
+
+    `override_focus_gate=True` skips the readiness gate below (focus locked, all 4 corner tags
+    detected) -- a data-quality check, not a safety one, so it warns rather than refuses outright:
+    the operator always has an explicit way through (Aaron, 2026-09-28, see TODO.md's Lock-focus
+    entry). Without it, a failed gate returns early with `gate_failed: true` and no capture, so a
+    predictably-bad run doesn't cost the ~8.5s full-res round trip.
 
     Saving the frame, not just the numbers derived from it, matters here: every M2 acceptance
     test (PLAN.md "You verify") is a diff between two calibrations, so a disputed field must be
@@ -471,6 +509,19 @@ def run_calibration(
     )
 
     manager = CameraManager.instance()
+
+    if not override_focus_gate:
+        readiness = _calibration_readiness()
+        if not readiness["ready"]:
+            if not readiness["focus_locked"]:
+                message = "Focus isn't locked -- lock focus before running calibration."
+            else:
+                message = (
+                    f"Only {readiness['corner_tags_detected']} of "
+                    f"{readiness['corner_tags_required']} corner tags detected."
+                )
+            return {"error": message, "gate_failed": True, **readiness}
+
     array, _sensor_metadata = manager.capture_full_res()
     frame_height, frame_width = array.shape[0], array.shape[1]
 
