@@ -202,6 +202,79 @@ def test_camera_manager_lock_is_cleared_by_autofocus() -> None:
     assert manager.focus_status() == {"locked": False, "lens_position": None}
 
 
+# --- Focus confirmation persists across a restart (Aaron, 2026-09-28) -- verified for real on
+# hardware: a kill+relaunch restart, sharpness score at the same LensPosition matched within 2%
+# of its pre-restart value, so replaying the same number really does return the same focus.
+
+
+def test_camera_manager_lock_focus_persists() -> None:
+    manager = CameraManager(SyntheticBackend())
+    manager.set_lens_position(6.3)
+    manager.lock_focus()
+    assert load_settings()["FocusConfirmed"] is True
+    assert load_settings()["FocusConfirmedLensPosition"] == 6.3
+
+
+def test_camera_manager_unlock_focus_persists() -> None:
+    manager = CameraManager(SyntheticBackend())
+    manager.set_lens_position(6.3)
+    manager.lock_focus()
+    manager.unlock_focus()
+    assert load_settings()["FocusConfirmed"] is False
+
+
+def test_camera_manager_set_lens_position_clears_persisted_confirmation() -> None:
+    manager = CameraManager(SyntheticBackend())
+    manager.set_lens_position(6.3)
+    manager.lock_focus()
+
+    manager.set_lens_position(6.4)
+    assert load_settings()["FocusConfirmed"] is False
+
+
+def test_camera_manager_autofocus_clears_persisted_confirmation() -> None:
+    manager = CameraManager(SyntheticBackend())
+    manager.set_lens_position(6.3)
+    manager.lock_focus()
+
+    manager.autofocus()
+    assert load_settings()["FocusConfirmed"] is False
+
+
+def test_camera_manager_restores_focus_confirmation_when_position_still_matches() -> None:
+    from npec_rig.settings import save_setting
+
+    save_setting("LensPosition", 6.3)
+    save_setting("FocusConfirmed", True)
+    save_setting("FocusConfirmedLensPosition", 6.3)
+
+    manager = CameraManager(SyntheticBackend())
+    assert manager.focus_status() == {"locked": True, "lens_position": 6.3}
+
+
+def test_camera_manager_does_not_restore_focus_confirmation_when_position_mismatches() -> None:
+    # Something moved the lens since the last confirm (or the two values were never in sync) --
+    # the mismatch is exactly the case a restored confirmation must not be trusted for.
+    from npec_rig.settings import save_setting
+
+    save_setting("LensPosition", 3.0)
+    save_setting("FocusConfirmed", True)
+    save_setting("FocusConfirmedLensPosition", 6.3)
+
+    manager = CameraManager(SyntheticBackend())
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+
+def test_camera_manager_does_not_restore_focus_confirmation_when_never_confirmed() -> None:
+    from npec_rig.settings import save_setting
+
+    save_setting("LensPosition", 6.3)
+    # No FocusConfirmed key at all -- the common case (fresh rig, or focus never locked).
+
+    manager = CameraManager(SyntheticBackend())
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+
 def test_camera_manager_peaking_toggle() -> None:
     manager = CameraManager(SyntheticBackend())
     assert manager.get_peaking() == {"enabled": False}
