@@ -453,6 +453,54 @@ def calibration_readiness() -> dict:
     return _calibration_readiness()
 
 
+def _build_calibration_delta(
+    previous: CalibrationArtifact | None,
+    *,
+    residual_std_pct: float,
+    corner_tag_count: int,
+    calibration_tag_size_mm: float,
+    lens_position: float | None,
+    px_per_mm_at_centre: float | None,
+    frame_width: int,
+    frame_height: int,
+) -> dict | None:
+    """Compare this run's headline numbers against whatever was the active calibration right
+    before this run replaced it (Aaron, 2026-09-28). Cheap, no re-detection: every value here
+    already lives on the saved artifact or was just computed for this run's own result -- the
+    same caution TODO.md already applies to the history browser (re-detecting tags from every
+    saved frame just to show a number is real cost, not a one-line change).
+    """
+    if previous is None:
+        return None
+
+    previous_corner_count = (
+        len(previous.corner_baseline.corners_by_id) if previous.corner_baseline else 0
+    )
+    try:
+        previous_px_per_mm = previous.scale_field.px_per_mm(frame_width / 2, frame_height / 2)
+    except ValueError:
+        previous_px_per_mm = None
+
+    def metric(previous_value: float | None, current_value: float | None) -> dict:
+        delta = (
+            current_value - previous_value
+            if previous_value is not None and current_value is not None
+            else None
+        )
+        return {"previous": previous_value, "current": current_value, "delta": delta}
+
+    return {
+        "previous_created_at": previous.created_at,
+        "residual_std_pct": metric(previous.scale_field.residual_std_pct, residual_std_pct),
+        "corner_tags_detected": metric(previous_corner_count, corner_tag_count),
+        "calibration_tag_size_mm": metric(
+            previous.calibration_tag_size_mm, calibration_tag_size_mm
+        ),
+        "lens_position": metric(previous.lens_position, lens_position),
+        "px_per_mm_at_centre": metric(previous_px_per_mm, px_per_mm_at_centre),
+    }
+
+
 @app.post("/calibration/run")
 def run_calibration(
     promote: bool = True,
@@ -522,6 +570,10 @@ def run_calibration(
                     f"A minimum of {required} is required for a successful calibration."
                 )
             return {"error": message, "gate_failed": True, **readiness}
+
+    # Captured before this run's own save/promote below can overwrite current.json -- the
+    # "previous" half of the post-run delta.
+    previous_artifact = load_current_calibration()
 
     array, _sensor_metadata = manager.capture_full_res()
     frame_height, frame_width = array.shape[0], array.shape[1]
@@ -658,6 +710,16 @@ def run_calibration(
     result["frame_url"] = f"/calibration/files/frames/{stem}.jpg"
 
     lens_position = manager.get_lens_position()
+    result["previous_calibration_comparison"] = _build_calibration_delta(
+        previous_artifact,
+        residual_std_pct=field.residual_std_pct,
+        corner_tag_count=len(corner_baseline.corners_by_id) if corner_baseline else 0,
+        calibration_tag_size_mm=tag_size_mm,
+        lens_position=lens_position,
+        px_per_mm_at_centre=result["px_per_mm_at_centre"],
+        frame_width=frame_width,
+        frame_height=frame_height,
+    )
     artifact = CalibrationArtifact(
         created_at=datetime.now(timezone.utc).isoformat(),
         scale_field=field,

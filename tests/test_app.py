@@ -857,6 +857,58 @@ def test_run_calibration_with_promote_false_does_not_replace_current(
     assert Path(second["artifact_path"]).exists()
 
 
+def test_run_calibration_has_no_delta_on_the_first_run(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    result = client.post("/calibration/run").json()
+    assert result["previous_calibration_comparison"] is None
+
+
+def test_run_calibration_delta_compares_against_the_previous_active_calibration(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    first = client.post("/calibration/run").json()
+    assert first["previous_calibration_comparison"] is None
+
+    second = client.post("/calibration/run", params={"calibration_tag_size_mm": 30.02}).json()
+    cmp = second["previous_calibration_comparison"]
+    assert cmp is not None
+    assert cmp["previous_created_at"]  # a real ISO timestamp string, not asserting its exact value
+    assert cmp["residual_std_pct"]["previous"] == first["residual_std_pct"]
+    assert cmp["residual_std_pct"]["current"] == second["residual_std_pct"]
+    assert cmp["residual_std_pct"]["delta"] == pytest.approx(
+        second["residual_std_pct"] - first["residual_std_pct"]
+    )
+    assert cmp["corner_tags_detected"]["previous"] == len(first["corner_baseline_tags"])
+    assert cmp["corner_tags_detected"]["current"] == len(second["corner_baseline_tags"])
+    assert cmp["calibration_tag_size_mm"]["previous"] == first["calibration_tag_size_mm"]
+    assert cmp["calibration_tag_size_mm"]["current"] == 30.02
+    assert cmp["calibration_tag_size_mm"]["delta"] == pytest.approx(
+        30.02 - first["calibration_tag_size_mm"]
+    )
+    assert cmp["lens_position"]["previous"] == first["lens_position"]
+    assert cmp["lens_position"]["current"] == second["lens_position"]
+
+
+def test_run_calibration_delta_present_even_when_not_promoted(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # promote=False is explicitly a comparison run -- it should still see a delta against
+    # whatever the live baseline currently is, that's the whole point of comparing.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    client.post("/calibration/run")
+    second = client.post("/calibration/run", params={"promote": "false"}).json()
+    assert second["previous_calibration_comparison"] is not None
+
+
 def test_calibration_list_and_files_are_downloadable(monkeypatch: pytest.MonkeyPatch) -> None:
     # Deliberately not isolated_calibration_dir: /calibration/files is a StaticFiles mount bound
     # to a fixed directory at app import time (same pattern as /captures), so it serves whatever
