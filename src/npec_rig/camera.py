@@ -20,6 +20,21 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LENS_POSITION = 1.0
 MAIN_SIZE = (1536, 1152)  # (width, height) — must match Picamera2Backend's video config `main`
+# A second, sharper `main` size for the focus-crop toggle (`/focus/sharp-crop`) -- the sensor's
+# native 2x2-binned full-FOV mode, not an arbitrary resolution. Measured directly on this rig,
+# 2026-09-28: at MAIN_SIZE, picamera2 already reads the sensor at 2312x1736 (its own smallest
+# covering mode) and downscales for `main` -- so simply requesting `main` at 2312x1736 is free
+# (same sensor mode, same 30fps) but only recovers ~1.5x real detail. MAIN_SIZE_SHARP is a
+# genuinely different, larger sensor mode: a side-by-side crop of the same in-focus target showed
+# it dramatically sharper (sheet header text went from unreadable to legible), but it comes at a
+# real, measured cost -- the sensor readout drops from 30fps to 10fps, which lengthens the delay
+# between moving the lens and seeing that move reflected in the crop from roughly 66ms to roughly
+# 166-200ms worst case. That is the exact "hunting while the interface catches up" failure Aaron
+# described from a previous attempt at this (though that attempt reconfigured per frame via
+# still capture, which this does not -- this reconfigures once, on toggle, then streams
+# continuously). Offered as an operator toggle, not a default, so it can be judged live rather
+# than assumed either way.
+MAIN_SIZE_SHARP = (4624, 3472)
 LORES_SIZE = (320, 240)
 DEFAULT_ROI_SIZE = 200
 SIMULATED_AUTOFOCUS_POSITION = 6.3  # synthetic backend has no real optics; matches the old rig's
@@ -94,6 +109,10 @@ class CameraBackend(ABC):
     def set_control(self, name: str, value: object) -> None:
         """Set one named control to value."""
 
+    @abstractmethod
+    def reconfigure_main_size(self, size: tuple[int, int]) -> None:
+        """Switch `main`'s resolution (e.g. for the sharp-crop toggle), `lores` unchanged."""
+
 
 class SyntheticBackend(CameraBackend):
     """Deterministic test pattern. No hardware required."""
@@ -159,6 +178,9 @@ class SyntheticBackend(CameraBackend):
             self._lens_position = value
         else:
             self._controls[name] = value
+
+    def reconfigure_main_size(self, size: tuple[int, int]) -> None:
+        self._width, self._height = size
 
     @staticmethod
     def _pattern(width: int, height: int) -> np.ndarray:
@@ -296,6 +318,25 @@ class Picamera2Backend(CameraBackend):
             # value (no range validation rejects it), so this releases the latch outright.
             self._picam2.set_controls({"ExposureTime": 0, "AnalogueGain": 0})
 
+    def reconfigure_main_size(self, size: tuple[int, int]) -> None:
+        # Same stop/configure/start cycle as capture_full_res, and the same reason to restore
+        # state afterward: configure() replaces picamera2's live Controls with the new config's
+        # own (near-empty) ones. Unlike capture_full_res's one-off still, LensPosition drifting
+        # here would be immediately visible as a focus jump on an interactive toggle, so it's
+        # restored explicitly (not just AwbEnable/AeEnable) rather than relying on whatever
+        # picamera2 defaults to after a reconfigure.
+        lens_position = self.get_lens_position()
+        self._video_config = self._picam2.create_video_configuration(
+            main={"size": size},
+            lores={"size": LORES_SIZE, "format": "XBGR8888"},
+        )
+        self._picam2.stop()
+        self._picam2.configure(self._video_config)
+        self._picam2.start()
+        self._picam2.set_controls({"AfMode": 0, "LensPosition": lens_position})
+        for name, value in dict(self._control_cache).items():
+            self.set_control(name, value)
+
 
 def array_to_jpeg(frame: np.ndarray) -> bytes:
     """`frame`'s first 3 channels are literally R,G,B, in that order, with an optional 4th
@@ -383,9 +424,14 @@ class CameraManager:
         self._backend = backend
         self._call_lock = Lock()
         width, height = MAIN_SIZE
+        # ROI coordinates are always stored in MAIN_SIZE's coordinate space, regardless of which
+        # size `main` is actually running at -- see _scaled_roi. Keeps the /focus/roi API and the
+        # click-to-place JS (which maps against MAIN_SIZE) unaffected by the sharp-crop toggle.
         self._roi = {"x": width // 2, "y": height // 2, "size": DEFAULT_ROI_SIZE}
+        self._main_size = MAIN_SIZE
         self._locked_lens_position: float | None = None
         self._peaking_enabled = False
+        self._sharp_crop_enabled = False
         self._apply_persisted_settings()
 
     def _apply_persisted_settings(self) -> None:
@@ -512,16 +558,33 @@ class CameraManager:
                 self._roi["size"] = size
             return dict(self._roi)
 
+    def _scaled_roi(self) -> dict:
+        """`self._roi` in whatever size `main` is actually running at. A no-op scale (1.0) at
+        MAIN_SIZE; scales up proportionally when the sharp-crop toggle has switched `main` to
+        MAIN_SIZE_SHARP, which is not quite the same aspect ratio as MAIN_SIZE (the sensor's
+        native modes are ~1.3318, MAIN_SIZE is exactly 4:3) -- x and y are scaled separately
+        rather than by one shared factor, though at these two sizes the difference is under
+        0.2%, well below what a manually-placed ROI needs."""
+        x_scale = self._main_size[0] / MAIN_SIZE[0]
+        y_scale = self._main_size[1] / MAIN_SIZE[1]
+        return {
+            "x": round(self._roi["x"] * x_scale),
+            "y": round(self._roi["y"] * y_scale),
+            "size": round(self._roi["size"] * x_scale),
+        }
+
     def focus_score(self) -> float:
         with self._call_lock:
             frame = self._backend.capture_array()
-        crop = crop_roi(frame, self._roi["x"], self._roi["y"], self._roi["size"])
+            roi = self._scaled_roi()
+        crop = crop_roi(frame, roi["x"], roi["y"], roi["size"])
         return laplacian_variance(to_grayscale(crop))
 
     def roi_crop_jpeg(self) -> bytes:
         with self._call_lock:
             frame = self._backend.capture_array()
-        crop = crop_roi(frame, self._roi["x"], self._roi["y"], self._roi["size"])
+            roi = self._scaled_roi()
+        crop = crop_roi(frame, roi["x"], roi["y"], roi["size"])
         if self._peaking_enabled:
             crop = peaking_overlay(crop)
         return array_to_jpeg(crop)
@@ -532,6 +595,20 @@ class CameraManager:
     def set_peaking(self, enabled: bool) -> dict:
         self._peaking_enabled = enabled
         return self.get_peaking()
+
+    def get_sharp_crop(self) -> dict:
+        return {"enabled": self._sharp_crop_enabled}
+
+    def set_sharp_crop(self, enabled: bool) -> dict:
+        """Switch `main` between MAIN_SIZE and MAIN_SIZE_SHARP -- a real reconfigure (stop,
+        configure, start), not instant. See MAIN_SIZE_SHARP's comment for the measured detail-vs-
+        latency tradeoff this trades on."""
+        target_size = MAIN_SIZE_SHARP if enabled else MAIN_SIZE
+        with self._call_lock:
+            self._backend.reconfigure_main_size(target_size)
+            self._main_size = target_size
+            self._sharp_crop_enabled = enabled
+        return self.get_sharp_crop()
 
     def lock_focus(self) -> dict:
         lens_position = self.get_lens_position()

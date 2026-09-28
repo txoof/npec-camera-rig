@@ -3,6 +3,8 @@ import pytest
 
 from npec_rig.camera import (
     DEFAULT_LENS_POSITION,
+    MAIN_SIZE,
+    MAIN_SIZE_SHARP,
     PEAKING_COLOR,
     SENSOR_METADATA_FIELDS,
     SIMULATED_AUTOFOCUS_POSITION,
@@ -289,6 +291,46 @@ def test_camera_manager_peaking_toggle() -> None:
     assert jpeg[:2] == b"\xff\xd8"
 
     assert manager.set_peaking(False) == {"enabled": False}
+
+
+def test_synthetic_backend_reconfigure_main_size_changes_capture_shape() -> None:
+    backend = SyntheticBackend(width=64, height=48)
+    backend.reconfigure_main_size((128, 96))
+    assert backend.capture_array().shape == (96, 128, 3)
+    # lores is untouched by a main-size reconfigure -- the whole point of the sharp-crop toggle
+    # is to leave /preview.mjpg (fed from lores) unaffected.
+    assert backend.capture_preview_array().shape == (240, 320, 3)
+
+
+def test_camera_manager_sharp_crop_toggle() -> None:
+    manager = CameraManager(SyntheticBackend())
+    assert manager.get_sharp_crop() == {"enabled": False}
+
+    assert manager.set_sharp_crop(True) == {"enabled": True}
+    assert manager.get_sharp_crop() == {"enabled": True}
+
+    assert manager.set_sharp_crop(False) == {"enabled": False}
+
+
+def test_camera_manager_sharp_crop_scales_the_roi_crop_size() -> None:
+    # The ROI is stored in MAIN_SIZE's coordinate space regardless of which size `main` is
+    # actually running at (see CameraManager._scaled_roi) -- so enabling sharp crop must scale
+    # both the backend's frame size and the crop taken from it, together, not just one.
+    from io import BytesIO
+
+    from PIL import Image
+
+    manager = CameraManager(SyntheticBackend())
+    manager.set_roi(x=MAIN_SIZE[0] // 2, y=MAIN_SIZE[1] // 2, size=200)
+
+    manager.set_sharp_crop(True)
+    decoded = Image.open(BytesIO(manager.roi_crop_jpeg()))
+    expected_size = round(200 * MAIN_SIZE_SHARP[0] / MAIN_SIZE[0])
+    assert decoded.size == (expected_size, expected_size)
+
+    # focus_score must also use the scaled ROI, not the raw stored one (which would be far
+    # smaller than a sensible crop at the bigger frame size, but must not error either way).
+    assert manager.focus_score() == 0.0  # SyntheticBackend's pattern is flat
 
 
 def test_camera_manager_autofocus() -> None:

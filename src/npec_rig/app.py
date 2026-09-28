@@ -322,6 +322,26 @@ def set_peaking(setting: PeakingSetting) -> dict:
     return CameraManager.instance().set_peaking(setting.enabled)
 
 
+class SharpCropSetting(BaseModel):
+    """Whether the higher-resolution, slower-updating focus crop is on."""
+
+    enabled: bool
+
+
+@app.get("/focus/sharp-crop")
+def get_sharp_crop() -> dict:
+    """Current sharp-crop setting."""
+    return CameraManager.instance().get_sharp_crop()
+
+
+@app.post("/focus/sharp-crop")
+def set_sharp_crop(setting: SharpCropSetting) -> dict:
+    """Turn the higher-resolution focus crop on or off. Reconfigures the camera (a real pause,
+    not instant) and, on real hardware, drops the crop's update rate from 30fps to 10fps --
+    trading crop detail for the delay between moving focus and seeing it reflected."""
+    return CameraManager.instance().set_sharp_crop(setting.enabled)
+
+
 @app.post("/focus/lock")
 def lock_focus() -> dict:
     """Record the current lens position as locked."""

@@ -251,6 +251,24 @@ def test_peaking_get_and_set() -> None:
     assert response.json() == {"enabled": True}
 
 
+def test_sharp_crop_get_and_set() -> None:
+    client = TestClient(app)
+    response = client.get("/focus/sharp-crop")
+    assert response.status_code == 200
+    assert response.json() == {"enabled": False}
+
+    response = client.post("/focus/sharp-crop", json={"enabled": True})
+    assert response.status_code == 200
+    assert response.json() == {"enabled": True}
+
+    response = client.get("/focus/sharp-crop")
+    assert response.json() == {"enabled": True}
+
+    # roi.mjpg's underlying source must keep working, at the new backend size, once toggled.
+    response = client.get("/focus/score")
+    assert response.status_code == 200
+
+
 def test_focus_score_endpoint() -> None:
     client = TestClient(app)
     response = client.get("/focus/score")
