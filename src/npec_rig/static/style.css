@@ -53,13 +53,6 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
   margin: -0.5rem 0 0.75rem;
   font-size: 0.85rem;
 }
-/* Shared by any live camera view meant to be read at a glance (the focus/square preview, the
-   leveling traffic-light overlay) -- fills most of the screen on a touchscreen rather than a
-   fixed 480px, but not centered, so the empty space this leaves on the right is a scroll gutter
-   a finger can land on without hitting the frame or its drag handles. */
-.wide-live-view {
-  width: var(--wide-content-width);
-}
 .focus-layout {
   display: flex;
   flex-direction: column;
@@ -99,9 +92,12 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 .squareness-guides.mode-square {
   display: block;
 }
+/* Magenta, not red/amber/green -- those are the co-planarity rings' own verdict colors on the
+   same live image (Step 3 shows both together), and magenta doesn't occur in either that scale
+   or in a typical scene, so the two can't be read as one signal. */
 .squareness-line {
   position: absolute;
-  background: rgba(255, 255, 0, 0.75);
+  background: rgba(255, 0, 255, 0.85);
 }
 .squareness-line-h {
   left: 0;
@@ -134,7 +130,7 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
   height: 28px;
   margin: -14px;
   border-radius: 50%;
-  background: rgba(255, 255, 0, 0.9);
+  background: rgba(255, 0, 255, 0.9);
   border: 2px solid #221;
   pointer-events: auto;
   touch-action: none;

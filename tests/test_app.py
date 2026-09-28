@@ -468,7 +468,7 @@ def test_run_calibration_refuses_without_a_lock_and_can_be_overridden(
     refused = client.post("/calibration/run").json()
     assert refused["gate_failed"] is True
     assert refused["focus_locked"] is False
-    assert "Focus isn't locked" in refused["error"]
+    assert "Focus isn't confirmed" in refused["error"]
     assert "artifact_path" not in refused  # no capture happened
 
     overridden = client.post("/calibration/run", params={"override_focus_gate": "true"}).json()

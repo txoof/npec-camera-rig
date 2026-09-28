@@ -35,8 +35,8 @@
 <div class="focus-control-panel">
   <div class="focus-control-row">
     <button id="autofocus-btn">Autofocus</button>
-    <button id="lock-btn">Lock focus</button>
-    <span id="lock-status">not locked</span>
+    <button id="lock-btn">Confirm focus</button>
+    <span id="lock-status">not confirmed</span>
     <label class="peaking-inline">
       <input type="checkbox" id="peaking-toggle">
       <span>Focus peaking</span>
@@ -76,10 +76,10 @@
     number, not instead of it.
   </p>
   <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-    <strong>Locking</strong> marks the current position as your confirmed focus, shown
+    <strong>Confirming</strong> marks the current position as your confirmed focus, shown
     above as a checkpoint — a record, not a safeguard. It doesn't stop the lens from
-    moving; adjusting the controls above afterward still refocuses it, so unlock and
-    relock if you do.
+    moving; adjusting the controls above afterward clears the confirmation, so confirm
+    again if you do.
   </p>
 </details>
 
@@ -430,7 +430,8 @@
       });
     });
 
-    // --- Lock / unlock focus ---
+    // --- Confirm / unconfirm focus (server-side: "lock"/"unlock", same concept, see
+    // /focus/lock and /focus/unlock) ---
     const lockBtn = document.getElementById("lock-btn");
     const lockStatus = document.getElementById("lock-status");
 
@@ -438,13 +439,13 @@
       const r = await fetch("/focus/status");
       const data = await r.json();
       lockStatus.textContent = data.locked
-        ? `locked @ ${data.lens_position.toFixed(1)}`
-        : "not locked";
-      lockBtn.textContent = data.locked ? "Unlock" : "Lock focus";
+        ? `confirmed @ ${data.lens_position.toFixed(1)}`
+        : "not confirmed";
+      lockBtn.textContent = data.locked ? "Unconfirm" : "Confirm focus";
     }
 
     lockBtn.addEventListener("click", async () => {
-      const isLocked = lockBtn.textContent === "Unlock";
+      const isLocked = lockBtn.textContent === "Unconfirm";
       await fetch(isLocked ? "/focus/unlock" : "/focus/lock", { method: "POST" });
       refreshFocusStatus();
     });
