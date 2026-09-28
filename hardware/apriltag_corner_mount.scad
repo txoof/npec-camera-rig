@@ -295,22 +295,42 @@ module tag_mount_body() {
     }
 }
 
+module tag_mount_graphic_base(id = tag_id) {
+    translate([0, -pd / 2, -tag_base_thk])
+        april_tag_base(edge = tag_size, thickness = tag_base_thk);
+}
+
+module tag_mount_graphic_pattern(id = tag_id) {
+    translate([0, -pd / 2, -tag_base_thk])
+        april_tag_pattern(id = id, edge = tag_size, thickness = tag_base_thk, raise_h = tag_raise_h);
+}
+
 module tag_mount_graphic(id = tag_id) {
-    // the real tag, flush with the frame -- see file header
-    translate([0, -pd / 2, -tag_base_thk]) {
-        color(tag_base_color)
-            april_tag_base(edge = tag_size, thickness = tag_base_thk);
-        color(tag_pattern_color)
-            april_tag_pattern(id = id, edge = tag_size, thickness = tag_base_thk, raise_h = tag_raise_h);
-    }
+    // convenience preview only -- does NOT keep base/pattern as separate
+    // 3MF objects when called plain like this. Confirmed empirically
+    // 2026-09-28: lazy-union export only treats direct top-level statements
+    // (transparent through if/for) as separate objects. A module called
+    // with no color() at its OWN call site collapses everything inside it
+    // -- even individually pre-colored children -- into one merged object,
+    // no matter how the coloring is structured internally. That is why the
+    // render-select block below calls tag_mount_graphic_base()/_pattern()
+    // directly, each under its own color(), instead of calling this.
+    color(tag_base_color)    tag_mount_graphic_base(id = id);
+    color(tag_pattern_color) tag_mount_graphic_pattern(id = id);
 }
 
 module tag_mount_bolted() {
     // assembly view: body + graphic + this mount's own two M4 bolts, feet
     // seated lip_depth_20+foot_thk_ref_20 under the channel, heads landing
     // flush on the foot's top face (shaft_length = foot_thk + that depth).
+    // Preview/documentation view only -- per tag_mount_graphic()'s note
+    // above, calling this whole module from the root would collapse body +
+    // graphic + bolts into one merged 3MF object regardless of the color()
+    // calls here; for a real multi-object export use part="graphic" (or
+    // the default assembly view) plus the bolt/rail hardware separately.
     color(body_color) tag_mount_body();
-    tag_mount_graphic();
+    color(tag_base_color)    tag_mount_graphic_base();
+    color(tag_pattern_color) tag_mount_graphic_pattern();
 
     for (bx = bolt_x)
         color(bolt_color)
@@ -336,10 +356,16 @@ if (part == "body") {
     if (copies > 1) color(body_color) plate(copies);
     else color(body_color) tag_mount_body();
 } else if (part == "graphic") {
-    tag_mount_graphic();
+    color(tag_base_color)    tag_mount_graphic_base();
+    color(tag_pattern_color) tag_mount_graphic_pattern();
 } else if (part == "bolted") {
     tag_mount_bolted();
 } else {
-    color(body_color) tag_mount_body();
-    tag_mount_graphic();
+    // default/"assembly": each piece is its own direct, individually
+    // color()-wrapped statement here (not routed through tag_mount_graphic())
+    // so a 3MF export keeps three separate objects -- see
+    // tag_mount_graphic()'s comment for why that distinction matters.
+    color(body_color)        tag_mount_body();
+    color(tag_base_color)    tag_mount_graphic_base();
+    color(tag_pattern_color) tag_mount_graphic_pattern();
 }
