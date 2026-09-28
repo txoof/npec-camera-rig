@@ -558,6 +558,28 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — known issues, not yet fixed
 
+- [ ] **`/code-review --level high` findings, 2026-09-28, m2-wizard-order-and-focus-gate PR -- 5
+      fixed same session (table-dims persisted before the readiness gate check, a stale
+      in-flight level.jpg request could overwrite a just-toggled Corner check mode, the delta
+      view silently dropped the tag-size row, /calibration/readiness polled at the old
+      un-throttled rate, a stray em dash in newly authored text), 2 deferred here with reasons:**
+  - **Wizard step identity is scattered as bare integer literals** (`step: 2`,
+        `isActiveStep(3)`, `isActiveStep(4)`, etc. across `setup_calibration.html`) instead of
+        one named mapping. Real -- this branch is itself a step reorder, and a future one (the
+        Lock-focus gate's own step placement is already logged as undecided above) has to find
+        and update every scattered literal by hand, with nothing catching a missed one. Not
+        fixed now: introducing a named-step abstraction on the same PR that just finished
+        stabilizing the step order is real regression risk for a refactor with no behavior bug
+        behind it -- revisit the next time the step order actually changes.
+  - **Three near-identical hand-rolled polling loops** (`pollScore` in `_focus_controls.html`,
+        `pollLevelOverlay`, `pollCalibrationReadiness`) duplicate the same self-rescheduling
+        `setTimeout` pattern with no shared helper, and this PR's own throttle fix (finding
+        above) had to be applied to two of the three separately because they'd already drifted.
+        Not extracted now: the third one's different shape (levelOverlayInFlight's guard, error
+        swallowing) means a shared helper is a real design decision, not a mechanical extraction
+        -- revisit if a fourth poll loop is ever added, which would be the point this
+        duplication starts costing something.
+
 - [x] **Auto exposure only fires once per tick, not continuously — fixed 2026-09-25.** Aaron,
       2026-09-22: ticking "Auto exposure" adjusts exposure once, then holds still even as real
       lighting changes; unticking and re-ticking forces one more adjustment. The 2026-09-22 note

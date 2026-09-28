@@ -546,18 +546,10 @@ def run_calibration(
     become the sticky default for every real run after it, the same way `promote=False` already
     keeps `current.json` untouched.
     """
-    tag_size_mm = calibration_tag_size_mm if calibration_tag_size_mm is not None else (
-        ASSUMED_CALIBRATION_TAG_SIZE_MM
-    )
-    table_width_mm, table_length_mm, corner_tag_size_mm = _resolve_table_dims(
-        table_width_mm, table_length_mm, corner_tag_size_mm, persist=promote
-    )
-    corner_size_mm = corner_tag_size_mm if corner_tag_size_mm is not None else (
-        ASSUMED_CORNER_TAG_SIZE_MM
-    )
-
-    manager = CameraManager.instance()
-
+    # Checked before anything below, including _resolve_table_dims' own persistence -- a
+    # refused run (no capture, gate_failed) must have no lasting side effects. Found by
+    # /code-review 2026-09-28: this used to run after _resolve_table_dims, so a gate-refused
+    # run still silently overwrote the sticky table-dims defaults.
     if not override_focus_gate:
         readiness = _calibration_readiness()
         if not readiness["ready"]:
@@ -570,6 +562,18 @@ def run_calibration(
                     f"A minimum of {required} is required for a successful calibration."
                 )
             return {"error": message, "gate_failed": True, **readiness}
+
+    tag_size_mm = calibration_tag_size_mm if calibration_tag_size_mm is not None else (
+        ASSUMED_CALIBRATION_TAG_SIZE_MM
+    )
+    table_width_mm, table_length_mm, corner_tag_size_mm = _resolve_table_dims(
+        table_width_mm, table_length_mm, corner_tag_size_mm, persist=promote
+    )
+    corner_size_mm = corner_tag_size_mm if corner_tag_size_mm is not None else (
+        ASSUMED_CORNER_TAG_SIZE_MM
+    )
+
+    manager = CameraManager.instance()
 
     # Captured before this run's own save/promote below can overwrite current.json -- the
     # "previous" half of the post-run delta.

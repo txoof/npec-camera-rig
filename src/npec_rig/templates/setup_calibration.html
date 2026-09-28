@@ -24,7 +24,7 @@
     </div>
 
     <div class="wizard-step" data-step="1">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 1 — Place calibration and corner sheets</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Step 1 - Place calibration and corner sheets</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Lay a calibration sheet on every tray, plus the corner/reference sheets at all four corners
       of the table.
@@ -88,7 +88,7 @@
 
     </div>
     <div class="wizard-step" data-step="2">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 2 — Confirm focus</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Step 2 - Confirm focus</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Confirm the lens is in focus.
     </p>
@@ -96,7 +96,7 @@
       <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
       <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
         Use "Autofocus" or the manual controls below, then "Confirm focus". Re-check this any
-        time the lens may have moved — calibration measures the scene through whatever focus is
+        time the lens may have moved. Calibration measures the scene through whatever focus is
         confirmed.
       </p>
     </details>
@@ -105,22 +105,22 @@
 
     </div>
     <div class="wizard-step" data-step="3">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 3 — Check squareness and coplanarity</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Step 3 - Check squareness and coplanarity</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Check that the camera isn't rotated, tilted, or angled unevenly across the table.
     </p>
     <details style="margin: 0 0 0.5rem;">
       <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
       <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-        Physically adjust the camera until the East side of the table — opposite the drain —
-        is in view. Drag the magenta guide-line tabs at the frame's edge onto known perpendicular
-        lines in the scene (e.g. the table's own edges) — if they line up, the camera isn't
+        Physically adjust the camera until the East side of the table (opposite the drain) is
+        in view. Drag the magenta guide-line tabs at the frame's edge onto known perpendicular
+        lines in the scene (e.g. the table's own edges), if they line up, the camera isn't
         rotated or badly tilted. A straightening aid only; dragged positions aren't saved and
         reset on reload.
       </p>
       <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-        Colored rings on the corner tags show how co-planar the table is with the camera, live —
-        no zero step needed, works as soon as 2+ corner tags are in frame. Each ring's percentage
+        Colored rings on the corner tags show how co-planar the table is with the camera, live
+        (no zero step needed, works as soon as 2+ corner tags are in frame). Each ring's percentage
         is that tag's apparent size compared to the average of the others: <strong>+</strong>
         means it looks bigger, i.e. <strong>closer</strong> to the camera than the rest;
         <strong>−</strong> means smaller, i.e. <strong>farther away</strong>. Green is within 3%
@@ -145,7 +145,7 @@
     <label class="peaking-row">
       <input type="checkbox" id="corner-check-toggle" checked>
       <span>
-        <strong>Corner check</strong> — the co-planarity rings, refreshed a few times a second.
+        <strong>Corner check</strong> shows the co-planarity rings, refreshed a few times a second.
         Turn off while dragging the guide lines if squaring feels sluggish; the live view falls
         back to the plain, fluid preview with no detection running, and the rings come right
         back when you turn it on again.
@@ -154,7 +154,7 @@
 
     </div>
     <div class="wizard-step" data-step="4">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 4 — Run calibration</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Step 4 - Run calibration</h3>
     <label class="peaking-row">
       <input type="checkbox" id="promote-toggle" checked>
       <span>
@@ -183,7 +183,7 @@
 
     </div>
     <div class="wizard-step" data-step="5">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 5 — Read the report</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Step 5 - Read the report</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       The result above states the scale, coverage, and any coverage gaps found. If it says
       coverage is weak somewhere, open Diagnostics below to see exactly where, add a sheet there,
@@ -456,7 +456,7 @@
 
     </div>
     <div class="wizard-step" data-step="6">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 6 — Remove sheets</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Step 6 - Remove sheets</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Once the report above looks right, remove the calibration and corner sheets from the trays
       before starting a growth run.
@@ -514,8 +514,15 @@
       levelOverlayInFlight = true;
       const probe = new Image();
       probe.onload = () => {
-        levelOverlayImage.src = probe.src;
         levelOverlayInFlight = false;
+        // Only apply this frame if rings are still what should be showing -- Corner check can
+        // be toggled off, or the wizard can move off Step 3 entirely, while this request was
+        // in flight (tag detection can take a while under load). Found by /code-review
+        // 2026-09-28: without this check, a late-arriving frame silently overwrote whatever
+        // updateCornerCheckMode had already switched to (the plain preview, or nothing).
+        if (cornerCheckShowing === "rings") {
+          levelOverlayImage.src = probe.src;
+        }
       };
       probe.onerror = () => {
         levelOverlayInFlight = false;
@@ -581,7 +588,11 @@
           // transient network hiccup -- try again next tick
         }
       }
-      setTimeout(pollCalibrationReadiness, 1000);
+      // Same real cost, same throttle as Step 3's LEVEL_OVERLAY_POLL_MS -- this also captures a
+      // frame and runs AprilTag detection every tick. Found by /code-review 2026-09-28: this was
+      // still polling at the original 500ms-era-equivalent rate, reintroducing the exact CPU
+      // competition that poll was throttled for, one step later.
+      setTimeout(pollCalibrationReadiness, LEVEL_OVERLAY_POLL_MS);
     }
     pollCalibrationReadiness();
 
@@ -743,6 +754,7 @@
       const rows = [
         metricLine("residual", cmp.residual_std_pct, 2, "%"),
         metricLine("corner tags detected", cmp.corner_tags_detected, 0, ""),
+        metricLine("calibration tag size", cmp.calibration_tag_size_mm, 4, "mm"),
         metricLine("scale at centre", cmp.px_per_mm_at_centre, 3, " px/mm"),
         metricLine("lens position", cmp.lens_position, 2, ""),
       ];

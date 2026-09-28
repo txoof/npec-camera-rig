@@ -642,6 +642,38 @@ def test_run_calibration_does_not_persist_table_dims_when_not_promoted(
     assert current["corner_tag_size_mm"] == 50.0
 
 
+def test_run_calibration_gate_refusal_does_not_persist_table_dims(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # Found by /code-review 2026-09-28: _resolve_table_dims used to persist before the
+    # readiness gate check, so a refused run (no capture at all) still overwrote the sticky
+    # table-dims defaults with whatever was typed in for that attempt.
+    from npec_rig.settings import load_settings
+
+    monkeypatch.setattr(
+        app_module,
+        "_calibration_readiness",
+        lambda: {
+            "focus_locked": False,
+            "corner_tags_detected": 0,
+            "corner_tags_required": 4,
+            "ready": False,
+        },
+    )
+    client = TestClient(app)
+
+    refused = client.post(
+        "/calibration/run",
+        params={"table_width_mm": 999.0, "table_length_mm": 888.0, "corner_tag_size_mm": 77.0},
+    ).json()
+    assert refused["gate_failed"] is True
+
+    persisted = load_settings()
+    assert "table_width_mm" not in persisted
+    assert "table_length_mm" not in persisted
+    assert "corner_tag_size_mm" not in persisted
+
+
 def test_run_calibration_converts_outer_edge_span_to_table_view(
     monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
 ) -> None:
