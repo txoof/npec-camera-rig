@@ -5,23 +5,24 @@
    reference/calibration-sheets/apriltags-36h11-50mm-a4-450-499.pdf for the
    confirmed tag size and family).
 
-   Two pieces, printed separately in contrasting colors and assembled with a
-   light slip fit plus adhesive -- a genuine two-color print that works on
-   any single-extruder printer, not just multi-material setups:
+   One continuous multi-material print, three color regions, no assembly
+   step -- the tag graphic is flush with the frame, not a separate piece
+   slip-fit in afterward (REV 1.3; earlier revisions used a clearance-fit
+   insert, dropped once the actual target printer turned out to be
+   multi-extruder, where a removable insert serves no purpose):
      - `tag_mount_body()` -- the structural bracket: rail foot, keying ridge,
        and the border/quiet-zone frame. One color (`body_color`).
-     - `tag_mount_face()` -- a flush blank insert sized to the tag envelope,
-       slip-fits into the frame's pocket. Contrasting color (`tag_color`).
+     - `tag_mount_graphic()` -- the actual 36h11 tag for `tag_id`, via
+       `apriltag_36h11.scad`'s `april_tag_base()`/`april_tag_pattern()`:
+       the white base flush with the frame (`tag_base_color`) and the
+       raised black layer on top of it (`tag_pattern_color`).
 
-   Scope boundary, deliberate: this file does not emboss the 36h11 bit
-   pattern for any specific tag ID. `tag_mount_face()` is a precisely sized
-   and positioned blank canvas -- the actual black/white module pattern must
-   be added afterward by a separately verified process (engraving, decal,
-   pad print) and checked against a real detector before the tag goes into
-   service. Hand-deriving an AprilTag encoding here, with no vendor drawing
-   or calliper-style ground truth to check it against, is exactly the kind
-   of unmeasured number the project's governing principle rules out -- a
-   silently wrong pattern fails "undetectable", not "loud".
+   The bit data and the row/col-to-XY placement are `apriltag_36h11.scad`'s
+   responsibility, verified there (point-containment check against
+   apriltag_gen.tags.tag_bits(), see that file's header) against the
+   project's governing principle -- a silently wrong pattern fails
+   "undetectable", not "loud". This file only positions that already-verified
+   graphic within the frame; it does not re-derive or re-check the pattern.
 
    Coordinate convention: X runs along the rail's length, parallel to the
    T-slot channel and to the line joining the two M4 bolts. Y runs away from
@@ -29,8 +30,10 @@
    channel, per Aaron's correction 2026-09-28 (the channel must run
    perpendicular to the tag's longest dimension, and the foot's 20mm width
    is measured in Y, not X). Z is vertical; Z=0 is the rail's top face,
-   which is also the plane the tag insert's face sits flush with once
-   bolted down. The foot's mating (underside) face is at Z=0, rising to
+   which is also the plane the tag graphic's white base sits flush with
+   once bolted down (the raised black layer rises a further `tag_raise_h`
+   above that plane by design -- see `tag_mount_graphic()`). The foot's
+   mating (underside) face is at Z=0, rising to
    Z=foot_thk; the tag plate hangs from that same Z=0 plane down to
    Z=-tag_plate_thk, so stepping down from the foot's top face by foot_thk
    lands exactly on the plate's flush top surface.
@@ -48,13 +51,20 @@
    as that file's `ridge20_relief()`/`ridge20_cove()`, ported to a ridge that
    runs along X instead of Z, and widened to two cuts instead of one.
 
-   Open assumption, not yet measured: `tag_border` (quiet-zone margin) and
-   `tag_clearance` (insert slip fit) are informed starting points -- general
-   AprilTag detection guidance for the former, typical FDM clearance for the
-   latter -- not a calliper reading or a live detector result. Revisit both
-   once a printed mount and a real detection pass exist, same as any other
-   unmeasured number in this project.
+   Open assumption, not yet measured: `tag_border` (quiet-zone margin) is an
+   informed starting point -- general AprilTag detection guidance, not a
+   calliper reading or a live detector result. Revisit once a printed mount
+   and a real detection pass exist, same as any other unmeasured number in
+   this project.
 
+   REV 1.3: switched `tag_mount_face()` (a blank, clearance-fit insert) for
+     `tag_mount_graphic()` (the real `tag_id` pattern, flush, no clearance)
+     now that the actual target is a multi-material printer doing one
+     continuous print, not a single-extruder print needing a separately
+     glued-in piece. Removed `tag_clearance` (nothing left to fit) and
+     renamed `insert_thk` to `tag_base_thk` (it is the graphic's own base
+     thickness now, not an insert depth); added `tag_id`, `tag_raise_h`,
+     `tag_pattern_color`; renamed `tag_color` to `tag_base_color`.
    REV 1.2: Aaron replaced `transition_fillet()` with `transition_chamfer()`
      (2026-09-28) -- REV 1.1's concave fillet was a "square minus circle"
      sliver, thin by construction near both tangent points. The chamfer is a
@@ -82,16 +92,18 @@
    --------------------------------------------------------------------------- */
 
 use <t_slot_bolt.scad>
+use <apriltag_36h11.scad>
 include <BOSL2/std.scad> // t_slot_bolt() calls BOSL2's screw(); `use` alone
                           // wouldn't run t_slot_bolt.scad's own top-level
                           // include, so its special variables never init
 
 /* [Tag] */
+tag_id        = 450;   // which 36h11 id this mount instance carries -- corner/reference tags (PLAN.md, IDs 450-499) [1:499]
 tag_size      = 50;    // 36h11 tag width, mm -- corner/reference tags (PLAN.md, IDs 450-499)
 tag_border    = 10;    // quiet-zone margin each side, mm -- informed default, not yet measured [4:1:25]
-tag_clearance = 0.3;   // insert-to-pocket gap, mm total (slip fit + adhesive, not a press fit) [0:0.05:1]
 tag_plate_thk = 3;     // total tag-plate thickness, mm  [2:0.5:6]
-insert_thk    = 2;     // insert/pocket depth, mm -- must be < tag_plate_thk to leave a floor  [1:0.5:5]
+tag_base_thk  = 2;     // graphic's own white-base thickness, mm -- must be < tag_plate_thk to leave a floor  [1:0.5:5]
+tag_raise_h   = 0.6;   // raised black layer height above the flush plane, mm  [0.2:0.1:2]
 
 /* [Rail Foot] */
 foot_width   = 20;    // Y depth -- matches the 20x20 rail's face width, mm
@@ -120,11 +132,12 @@ transition_r = 7;  // chamfer radius at the foot/tag-plate step, mm -- should ma
                     // leftover vertical wall above it; 0 = sharp corner [0:0.5:10]
 
 /* [Colors] */
-body_color = "Gainsboro";
-tag_color  = "White";
+body_color        = "Gainsboro";
+tag_base_color    = "White";
+tag_pattern_color = "Black";
 
 /* [Render Select] */
-part = "assembly"; // what to render  ["assembly","body","face","bolted"]
+part = "assembly"; // what to render  ["assembly","body","graphic","bolted"]
 
 /* [Build Plate] */
 copies     = 1;   // how many bodies to lay out when part="body"  [1:8]
@@ -271,29 +284,33 @@ module tag_mount_body() {
         // relief: clear the ridge either side of each bolt
         for (bx = bolt_x) ridge_relief_at(bx);
 
-        // pocket for the tag-face insert, centred in the tag plate, open to
-        // the flush top face (Z=0)
-        translate([0, -pd / 2, -insert_thk])
-            linear_extrude(insert_thk + eps)
-                square([tag_size + tag_clearance, tag_size + tag_clearance], center = true);
+        // void for the tag graphic, centred in the tag plate, open to the
+        // flush top face (Z=0) -- no clearance, tag_mount_graphic() fills
+        // this exactly, flush, as part of the same multi-material print
+        translate([0, -pd / 2, -tag_base_thk])
+            linear_extrude(tag_base_thk + eps)
+                square([tag_size, tag_size], center = true);
 
         if (revision != "") revision_stamp();
     }
 }
 
-module tag_mount_face() {
-    // blank insert -- see file header for what this is and is not
-    translate([0, -pd / 2, -insert_thk])
-        linear_extrude(insert_thk)
-            square([tag_size, tag_size], center = true);
+module tag_mount_graphic(id = tag_id) {
+    // the real tag, flush with the frame -- see file header
+    translate([0, -pd / 2, -tag_base_thk]) {
+        color(tag_base_color)
+            april_tag_base(edge = tag_size, thickness = tag_base_thk);
+        color(tag_pattern_color)
+            april_tag_pattern(id = id, edge = tag_size, thickness = tag_base_thk, raise_h = tag_raise_h);
+    }
 }
 
 module tag_mount_bolted() {
-    // assembly view: body + face + this mount's own two M4 bolts, feet
+    // assembly view: body + graphic + this mount's own two M4 bolts, feet
     // seated lip_depth_20+foot_thk_ref_20 under the channel, heads landing
     // flush on the foot's top face (shaft_length = foot_thk + that depth).
     color(body_color) tag_mount_body();
-    color(tag_color)  tag_mount_face();
+    tag_mount_graphic();
 
     for (bx = bolt_x)
         color(bolt_color)
@@ -318,11 +335,11 @@ module plate(n) {
 if (part == "body") {
     if (copies > 1) color(body_color) plate(copies);
     else color(body_color) tag_mount_body();
-} else if (part == "face") {
-    color(tag_color) tag_mount_face();
+} else if (part == "graphic") {
+    tag_mount_graphic();
 } else if (part == "bolted") {
     tag_mount_bolted();
 } else {
     color(body_color) tag_mount_body();
-    color(tag_color)  tag_mount_face();
+    tag_mount_graphic();
 }
