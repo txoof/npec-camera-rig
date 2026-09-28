@@ -130,6 +130,15 @@
         green, so they can't be mistaken for the rings' verdict.
       </p>
     </details>
+    <label class="peaking-row">
+      <input type="checkbox" id="corner-check-toggle" checked>
+      <span>
+        <strong>Corner check</strong> — the co-planarity rings, refreshed a few times a second.
+        Turn off while dragging the guide lines if squaring feels sluggish; the live view falls
+        back to the plain, fluid preview with no detection running, and the rings come right
+        back when you turn it on again.
+      </span>
+    </label>
     <div class="preview-wrap" style="width: var(--wide-content-width); margin: 0 20px 20px 20px;">
       <img class="preview" id="level-overlay-image" alt="live squareness and co-planarity overlay" style="cursor: default;">
       <div class="squareness-guides mode-square" id="squareness-guides">
@@ -484,15 +493,21 @@
     // needing to flip between two separate steps to see them together (Aaron, 2026-09-28).
     const squarenessGuides = document.getElementById("squareness-guides");
     const levelOverlayImage = document.getElementById("level-overlay-image");
+    const cornerCheckToggle = document.getElementById("corner-check-toggle");
     initSquarenessGuides(squarenessGuides, levelOverlayImage);
 
     // Loads into an off-screen probe first, swapping the visible <img>'s src only once a frame
-    // has fully loaded -- setting the visible img's src directly every 500ms let a slow request
+    // has fully loaded -- setting the visible img's src directly every tick let a slow request
     // (e.g. right after Step 2's two video streams just stopped, still tearing down) get
     // cancelled by the next tick's src reassignment before it ever painted, which is the more
     // likely explanation for "blank until I navigate away and back" than the sizing bug was.
     // `levelOverlayInFlight` skips starting a new probe while one's still pending, rather than
     // letting probes pile up if requests are ever consistently slow.
+    // LEVEL_OVERLAY_POLL_MS: throttled from an original 500ms (Aaron, 2026-09-28) -- detecting
+    // AprilTags in every frame is real CPU cost on the Pi's own CPU, no acceleration for it, and
+    // it was making dragging the guide lines (a separate, client-side-only interaction) feel
+    // sluggish under the load. 1500ms keeps the rings live without competing as hard.
+    const LEVEL_OVERLAY_POLL_MS = 1500;
     let levelOverlayInFlight = false;
     function refreshLevelOverlay() {
       if (levelOverlayInFlight) return;
@@ -507,9 +522,34 @@
       };
       probe.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
     }
+
+    // Corner check on/off (Aaron, 2026-09-28): squaring needs to be fluid, and the detection
+    // behind the rings is real CPU competition for that. Off falls back to the plain continuous
+    // preview stream (no detection at all, same one Step 2 uses) so there's still a live image
+    // to drag the guide lines against.
+    let cornerCheckShowing = null; // "rings" | "preview" | null -- what's currently on screen
+    function updateCornerCheckMode() {
+      if (!isActiveStep(3)) {
+        if (cornerCheckShowing !== null) {
+          levelOverlayImage.removeAttribute("src");
+          cornerCheckShowing = null;
+        }
+        return;
+      }
+      if (cornerCheckToggle.checked) {
+        if (cornerCheckShowing !== "rings") {
+          cornerCheckShowing = "rings";
+          refreshLevelOverlay();
+        }
+      } else if (cornerCheckShowing !== "preview") {
+        cornerCheckShowing = "preview";
+        levelOverlayImage.src = "/preview.mjpg";
+      }
+    }
+    cornerCheckToggle.addEventListener("change", updateCornerCheckMode);
     function pollLevelOverlay() {
-      if (isActiveStep(3)) refreshLevelOverlay();
-      setTimeout(pollLevelOverlay, 500);
+      if (isActiveStep(3) && cornerCheckToggle.checked) refreshLevelOverlay();
+      setTimeout(pollLevelOverlay, LEVEL_OVERLAY_POLL_MS);
     }
     pollLevelOverlay();
 
@@ -855,7 +895,7 @@
       wizardNextBtn.textContent = wizardStep === STEP_TITLES.length ? "Done" : "Next →";
       wizardNextBtn.disabled = wizardStep === STEP_TITLES.length;
       focusControls.updateLiveResources();
-      if (isActiveStep(3)) refreshLevelOverlay();
+      updateCornerCheckMode();
     }
 
     wizardBackBtn.addEventListener("click", () => {
