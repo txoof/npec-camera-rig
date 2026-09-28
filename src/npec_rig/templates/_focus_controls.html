@@ -41,10 +41,6 @@
       <input type="checkbox" id="peaking-toggle">
       <span>Focus peaking</span>
     </label>
-    <label class="peaking-inline">
-      <input type="checkbox" id="sharp-crop-toggle">
-      <span>Sharp crop (slower to update)</span>
-    </label>
   </div>
   <div class="focus-control-row">
     <label for="lens-coarse">Coarse (dioptres)</label>
@@ -83,12 +79,6 @@
     <strong>Focus peaking</strong> highlights high-contrast edges in the crop above in
     magenta — denser highlighting means sharper focus; use it alongside the sharpness
     number, not instead of it.
-  </p>
-  <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-    <strong>Sharp crop</strong> switches the magnified crop to a higher-resolution camera
-    mode. It looks noticeably sharper, but the image updates more slowly, so there is more
-    delay between moving the lens and seeing the change. Try it and judge by feel; it is
-    off by default because that delay can make fine adjustment harder, not easier.
   </p>
   <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
     <strong>Confirming</strong> marks the current position as your confirmed focus, shown
@@ -438,27 +428,6 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: peakingToggle.checked }),
       });
-    });
-
-    // --- Sharp crop toggle: trades update speed for resolution, see /focus/sharp-crop's
-    // docstring. Disabled for the duration of the request -- the reconfigure it triggers is a
-    // real pause, not instant, and queuing a second toggle mid-reconfigure isn't meaningful. ---
-    const sharpCropToggle = document.getElementById("sharp-crop-toggle");
-
-    fetch("/focus/sharp-crop")
-      .then((r) => r.json())
-      .then((data) => { sharpCropToggle.checked = data.enabled; })
-      .catch(() => {});
-
-    sharpCropToggle.addEventListener("change", () => {
-      sharpCropToggle.disabled = true;
-      scoreHistory.length = 0; // the resolution change shifts the absolute sharpness scale --
-      // don't plot the old and new numbers as one continuous trace
-      fetch("/focus/sharp-crop", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: sharpCropToggle.checked }),
-      }).finally(() => { sharpCropToggle.disabled = false; });
     });
 
     // --- Confirm / unconfirm focus (server-side: "lock"/"unlock", same concept, see
