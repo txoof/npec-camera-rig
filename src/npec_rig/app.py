@@ -516,9 +516,10 @@ def run_calibration(
             if not readiness["focus_locked"]:
                 message = "Focus isn't locked -- lock focus before running calibration."
             else:
+                required = readiness["corner_tags_required"]
                 message = (
-                    f"Only {readiness['corner_tags_detected']} of "
-                    f"{readiness['corner_tags_required']} corner tags detected."
+                    f"{readiness['corner_tags_detected']} of {required} corner tags detected. "
+                    f"A minimum of {required} is required for a successful calibration."
                 )
             return {"error": message, "gate_failed": True, **readiness}
 
