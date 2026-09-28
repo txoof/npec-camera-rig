@@ -23,6 +23,32 @@ def synthetic_camera() -> None:
     CameraManager.set_instance(CameraManager(SyntheticBackend()))
 
 
+# Captured once, at collection time, before the autouse fixture below ever patches the module
+# attribute -- the small number of dedicated gate tests restore this to exercise the real
+# function instead of the "always ready" default.
+_REAL_CALIBRATION_READINESS = app_module._calibration_readiness
+
+
+@pytest.fixture(autouse=True)
+def calibration_gate_open_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Almost every /calibration/run test in this file is about calibration's own mechanics
+    (tag size defaults, promote, table dims, history...), not the focus-lock/corner-tag
+    readiness gate, and most use only 2 corner tags (`_CORNER_TAGS`) since that's already
+    enough for a corner baseline -- fewer than the gate's own 4-tag minimum. Default the gate
+    open so none of them need a real lock or a 4-tag fixture; the dedicated gate tests below
+    restore the real function to exercise it properly."""
+    monkeypatch.setattr(
+        app_module,
+        "_calibration_readiness",
+        lambda: {
+            "focus_locked": True,
+            "corner_tags_detected": 4,
+            "corner_tags_required": 4,
+            "ready": True,
+        },
+    )
+
+
 @pytest.fixture
 def isolated_calibration_dir(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
@@ -391,6 +417,86 @@ def test_run_calibration_builds_table_view_with_all_four_corner_tags(
     assert listing[0]["table_view_shape_url"] == body["table_view_shape_url"]
 
 
+# --- Calibration readiness gate: focus locked, all 4 corner tags detected ---
+# These tests restore the real `_calibration_readiness` (the other tests in this file default it
+# open, see `calibration_gate_open_by_default`) to exercise the actual gate logic against real
+# lock state and real `detect_tags` results.
+
+
+def test_calibration_readiness_reports_not_ready_with_no_lock_and_no_corner_tags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(app_module, "_calibration_readiness", _REAL_CALIBRATION_READINESS)
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: [])
+
+    client = TestClient(app)
+    body = client.get("/calibration/readiness").json()
+    assert body == {
+        "focus_locked": False,
+        "corner_tags_detected": 0,
+        "corner_tags_required": 4,
+        "ready": False,
+    }
+
+
+def test_calibration_readiness_reports_ready_once_locked_with_four_corner_tags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(app_module, "_calibration_readiness", _REAL_CALIBRATION_READINESS)
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _FOUR_CORNER_TAGS)
+
+    client = TestClient(app)
+    client.post("/controls/lens-position", json={"value": 6.3})
+    client.post("/focus/lock")
+
+    body = client.get("/calibration/readiness").json()
+    assert body == {
+        "focus_locked": True,
+        "corner_tags_detected": 4,
+        "corner_tags_required": 4,
+        "ready": True,
+    }
+
+
+def test_run_calibration_refuses_without_a_lock_and_can_be_overridden(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "_calibration_readiness", _REAL_CALIBRATION_READINESS)
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS)
+
+    client = TestClient(app)
+    refused = client.post("/calibration/run").json()
+    assert refused["gate_failed"] is True
+    assert refused["focus_locked"] is False
+    assert "Focus isn't confirmed" in refused["error"]
+    assert "artifact_path" not in refused  # no capture happened
+
+    overridden = client.post("/calibration/run", params={"override_focus_gate": "true"}).json()
+    assert "gate_failed" not in overridden
+    assert "error" not in overridden
+
+
+def test_run_calibration_refuses_with_too_few_corner_tags_and_can_be_overridden(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "_calibration_readiness", _REAL_CALIBRATION_READINESS)
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+
+    client = TestClient(app)
+    client.post("/controls/lens-position", json={"value": 6.3})
+    client.post("/focus/lock")
+
+    refused = client.post("/calibration/run").json()
+    assert refused["gate_failed"] is True
+    assert refused["corner_tags_detected"] == len(_CORNER_TAGS)
+    assert "2 of 4 corner tags" in refused["error"]
+    assert "artifact_path" not in refused
+
+    overridden = client.post("/calibration/run", params={"override_focus_gate": "true"}).json()
+    assert "gate_failed" not in overridden
+    assert "error" not in overridden
+
+
 def test_run_calibration_echoes_corner_tag_size_and_default_flag(
     monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
 ) -> None:
@@ -534,6 +640,38 @@ def test_run_calibration_does_not_persist_table_dims_when_not_promoted(
     assert current["table_width_mm"] == 1496.0
     assert current["table_length_mm"] == 1152.0
     assert current["corner_tag_size_mm"] == 50.0
+
+
+def test_run_calibration_gate_refusal_does_not_persist_table_dims(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # Found by /code-review 2026-09-28: _resolve_table_dims used to persist before the
+    # readiness gate check, so a refused run (no capture at all) still overwrote the sticky
+    # table-dims defaults with whatever was typed in for that attempt.
+    from npec_rig.settings import load_settings
+
+    monkeypatch.setattr(
+        app_module,
+        "_calibration_readiness",
+        lambda: {
+            "focus_locked": False,
+            "corner_tags_detected": 0,
+            "corner_tags_required": 4,
+            "ready": False,
+        },
+    )
+    client = TestClient(app)
+
+    refused = client.post(
+        "/calibration/run",
+        params={"table_width_mm": 999.0, "table_length_mm": 888.0, "corner_tag_size_mm": 77.0},
+    ).json()
+    assert refused["gate_failed"] is True
+
+    persisted = load_settings()
+    assert "table_width_mm" not in persisted
+    assert "table_length_mm" not in persisted
+    assert "corner_tag_size_mm" not in persisted
 
 
 def test_run_calibration_converts_outer_edge_span_to_table_view(
@@ -749,6 +887,58 @@ def test_run_calibration_with_promote_false_does_not_replace_current(
     # Both runs still landed on disk -- promote=False only skips the current.json pointer.
     assert Path(first["artifact_path"]).exists()
     assert Path(second["artifact_path"]).exists()
+
+
+def test_run_calibration_has_no_delta_on_the_first_run(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    result = client.post("/calibration/run").json()
+    assert result["previous_calibration_comparison"] is None
+
+
+def test_run_calibration_delta_compares_against_the_previous_active_calibration(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    first = client.post("/calibration/run").json()
+    assert first["previous_calibration_comparison"] is None
+
+    second = client.post("/calibration/run", params={"calibration_tag_size_mm": 30.02}).json()
+    cmp = second["previous_calibration_comparison"]
+    assert cmp is not None
+    assert cmp["previous_created_at"]  # a real ISO timestamp string, not asserting its exact value
+    assert cmp["residual_std_pct"]["previous"] == first["residual_std_pct"]
+    assert cmp["residual_std_pct"]["current"] == second["residual_std_pct"]
+    assert cmp["residual_std_pct"]["delta"] == pytest.approx(
+        second["residual_std_pct"] - first["residual_std_pct"]
+    )
+    assert cmp["corner_tags_detected"]["previous"] == len(first["corner_baseline_tags"])
+    assert cmp["corner_tags_detected"]["current"] == len(second["corner_baseline_tags"])
+    assert cmp["calibration_tag_size_mm"]["previous"] == first["calibration_tag_size_mm"]
+    assert cmp["calibration_tag_size_mm"]["current"] == 30.02
+    assert cmp["calibration_tag_size_mm"]["delta"] == pytest.approx(
+        30.02 - first["calibration_tag_size_mm"]
+    )
+    assert cmp["lens_position"]["previous"] == first["lens_position"]
+    assert cmp["lens_position"]["current"] == second["lens_position"]
+
+
+def test_run_calibration_delta_present_even_when_not_promoted(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # promote=False is explicitly a comparison run -- it should still see a delta against
+    # whatever the live baseline currently is, that's the whole point of comparing.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+
+    client.post("/calibration/run")
+    second = client.post("/calibration/run", params={"promote": "false"}).json()
+    assert second["previous_calibration_comparison"] is not None
 
 
 def test_calibration_list_and_files_are_downloadable(monkeypatch: pytest.MonkeyPatch) -> None:

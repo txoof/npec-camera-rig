@@ -25,6 +25,14 @@ DEFAULT_ROI_SIZE = 200
 SIMULATED_AUTOFOCUS_POSITION = 6.3  # synthetic backend has no real optics; matches the old rig's
 # known-good position so the UI has something plausible to demo against
 
+# A restart-persisted focus confirmation is only trusted if the restored LensPosition still
+# matches the position it was confirmed at (settings.py values, not a live metadata read -- see
+# _restore_focus_confirmation). This tolerance absorbs float round-tripping through
+# capture_metadata() only (measured 2026-09-28: a value set to 6.2 reads back as
+# 6.199999809265137, consistently) -- it is not a claim that focus is forgiving to within this
+# much drift; 0.01 dioptres is far smaller than a real, operator-meaningful lens move.
+FOCUS_CONFIRM_POSITION_TOLERANCE = 0.01
+
 # Controls exposed generically (slice 4): ranges are probed from picamera2's own
 # `camera_controls` at runtime, not hardcoded — LensPosition's max has already been observed to
 # change between probes (15.0 during M0, 32.0 later), so a hardcoded range would have been
@@ -402,6 +410,26 @@ class CameraManager:
         for name in ordered_names:
             if name in available:
                 self._backend.set_control(name, persisted[name])
+        self._restore_focus_confirmation(persisted)
+
+    def _restore_focus_confirmation(self, persisted: dict) -> None:
+        """Trust a persisted "focus confirmed" flag only if the LensPosition it was confirmed
+        at still matches the persisted current LensPosition -- measured 2026-09-28 (a real
+        kill+relaunch restart, sharpness score at the same LensPosition matched within 2% of
+        its pre-restart value), replaying the same number really does return the same physical
+        focus. A mismatch means something moved the lens since the last confirm and the
+        confirmation must not carry over.
+        """
+        if not persisted.get("FocusConfirmed"):
+            return
+        confirmed_position = persisted.get("FocusConfirmedLensPosition")
+        current_position = persisted.get("LensPosition")
+        if (
+            confirmed_position is not None
+            and current_position is not None
+            and abs(confirmed_position - current_position) < FOCUS_CONFIRM_POSITION_TOLERANCE
+        ):
+            self._locked_lens_position = current_position
 
     @classmethod
     def instance(cls) -> CameraManager:
@@ -439,6 +467,11 @@ class CameraManager:
         with self._call_lock:
             self._backend.set_lens_position(value)
         save_setting("LensPosition", value)
+        # A manual move invalidates whatever focus was locked -- the operator has to
+        # re-confirm and re-lock before calibration will trust it again. Persisted too, not
+        # just in-memory, so a restart right after a move doesn't resurrect the old confirm.
+        self._locked_lens_position = None
+        save_setting("FocusConfirmed", False)
 
     def get_lens_position(self) -> float:
         with self._call_lock:
@@ -448,6 +481,8 @@ class CameraManager:
         with self._call_lock:
             success, lens_position = self._backend.autofocus()
         save_setting("LensPosition", lens_position)
+        self._locked_lens_position = None
+        save_setting("FocusConfirmed", False)
         return {"success": success, "lens_position": lens_position}
 
     def available_controls(self) -> dict[str, tuple]:
@@ -501,10 +536,16 @@ class CameraManager:
     def lock_focus(self) -> dict:
         lens_position = self.get_lens_position()
         self._locked_lens_position = lens_position
+        # Persisted so a restart (dev reload, crash, future systemd restart-on-failure) doesn't
+        # silently drop a real confirmation -- see _restore_focus_confirmation for the safety
+        # check that only trusts this if the lens is verifiably still where it was confirmed.
+        save_setting("FocusConfirmed", True)
+        save_setting("FocusConfirmedLensPosition", lens_position)
         return self.focus_status()
 
     def unlock_focus(self) -> dict:
         self._locked_lens_position = None
+        save_setting("FocusConfirmed", False)
         return self.focus_status()
 
     def focus_status(self) -> dict:
