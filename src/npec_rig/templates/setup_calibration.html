@@ -130,15 +130,6 @@
         green, so they can't be mistaken for the rings' verdict.
       </p>
     </details>
-    <label class="peaking-row">
-      <input type="checkbox" id="corner-check-toggle" checked>
-      <span>
-        <strong>Corner check</strong> — the co-planarity rings, refreshed a few times a second.
-        Turn off while dragging the guide lines if squaring feels sluggish; the live view falls
-        back to the plain, fluid preview with no detection running, and the rings come right
-        back when you turn it on again.
-      </span>
-    </label>
     <div class="preview-wrap" style="width: var(--wide-content-width); margin: 0 20px 20px 20px;">
       <img class="preview" id="level-overlay-image" alt="live squareness and co-planarity overlay" style="cursor: default;">
       <div class="squareness-guides mode-square" id="squareness-guides">
@@ -151,6 +142,15 @@
         <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
       </div>
     </div>
+    <label class="peaking-row">
+      <input type="checkbox" id="corner-check-toggle" checked>
+      <span>
+        <strong>Corner check</strong> — the co-planarity rings, refreshed a few times a second.
+        Turn off while dragging the guide lines if squaring feels sluggish; the live view falls
+        back to the plain, fluid preview with no detection running, and the rings come right
+        back when you turn it on again.
+      </span>
+    </label>
 
     </div>
     <div class="wizard-step" data-step="4">
