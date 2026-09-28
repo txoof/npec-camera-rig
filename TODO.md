@@ -647,6 +647,34 @@ The heart of the project. Do not start before M1 slice 5.
       `start` reconfigure followed by autofocus -- confirms this isn't specific to a calibration
       capture, any pipeline reconfigure followed by autofocus can trigger the same hang. Still not
       fixed; still the same sign-off-gated change, not two separate bugs to design around.
+- [ ] **Focus/preview MJPEG streams never notice a disconnected client -- reproduced on real
+      hardware 2026-09-28, took down the whole server.** `/preview.mjpg` and `/focus/roi.mjpg`
+      (`_mjpeg_frames` in `app.py`) are `while True` loops with no check for whether the browser
+      is still listening -- every page reload or closed tab leaves the old loop running forever,
+      each iteration re-acquiring `CameraManager._call_lock` (the same lock the autofocus-hang
+      bug above blocks on). Surfaced while building and testing a "sharp crop" focus-quality
+      toggle (`m2-sharp-focus-toggle` branch, reverted same day, see the zoom-quality item above)
+      -- that toggle made each stream iteration ~90ms instead of ~1-8ms by switching `main` to a
+      slower sensor mode, and a handful of reloads and on/off toggles was enough to accumulate 53
+      threads and hang the server so completely that even a plain page load timed out. Confirmed:
+      thread count via `/proc/<pid>/task`, full unresponsiveness via a plain `curl` timing out on
+      `GET /`, no exception anywhere in `uvicorn.log` (rules out a crash, points at exhaustion of
+      the default thread pool instead). Not confirmed: the exact mechanism (that Starlette really
+      never terminates a sync streaming generator after the client disconnects) -- that's the
+      explanation that fits the evidence, not something traced through Starlette's source.
+      Likely a pre-existing bug, not something the toggle introduced -- at normal capture speed a
+      leaked thread is cheap enough (a few ms every 100-200ms) that it would take far more
+      reloads to matter, but ordinary calibration work revisits the focus step often enough across
+      a session that the leak would still accumulate, just slowly. An old, unrelated-looking
+      "Camera frontend has timed out" crash already sitting in `uvicorn.log` from a prior session
+      is consistent with the same class of problem, not confirmed as the same cause.
+      Fix, not yet attempted: make the stream loop notice a disconnected client and stop, which
+      likely means converting `_mjpeg_frames` to an async generator so it can check
+      `Request.is_disconnected()` periodically, rather than the current sync generator run in a
+      threadpool. Needs a stress test (both streams open, rapid reload/toggle) before trusting any
+      fix, and before the sharp-crop toggle is worth re-attempting. Recovery for now: same as the
+      autofocus-hang bug above -- kill the full uvicorn process family and relaunch.
+      *(Aaron, 2026-09-28.)*
 - [ ] **Regional coverage weakness: bottom-left explained, bottom-right not yet** — checked
       against all 7 real calibration frames saved 2026-09-21 (reprocessed offline, no bench time
       needed -- this is exactly why frames are saved alongside artifacts). Two hypotheses tested
@@ -844,6 +872,18 @@ The heart of the project. Do not start before M1 slice 5.
       spending a few minutes squinting at the zoomed focus crop to fine-tune it, a sharper zoom
       view would genuinely help. Acknowledged as possibly hard -- low priority, after the two
       items above. *(Aaron, 2026-09-27.)*
+      **Attempted 2026-09-28, reverted the same day.** Measured on real hardware, at the rig's
+      actual confirmed focus position: the current crop already sits at the sensor's smallest
+      covering mode (2312x1736, 30fps); the sensor's native 2x2-binned full-FOV mode (4624x3472)
+      is dramatically sharper in a direct side-by-side comparison, but its readout is only 10fps,
+      adding real per-move latency. Built as an operator toggle (`/focus/sharp-crop`) so Aaron
+      could judge the latency tradeoff live rather than have it assumed -- see `m2-sharp-focus-
+      toggle` branch, commit `9d87039` (the revert is `b07302e` on the same branch, still on
+      the branch, never merged to `main`). Toggling it under real use (rapid on/off, page
+      reloads) hung the entire server -- not a resolution-quality problem but a pre-existing
+      concurrency bug this exposed, see the new entry below ("Focus/preview MJPEG streams never
+      notice a disconnected client"). Blocked on that being fixed and stress-tested first --
+      revisit this item only after it is.
 - [ ] **LOW PRIORITY. Step 2 (Confirm focus): move the "Camera settings" sub-panel up next to the
       other settings controls.** Discuss placement before acting. *(Aaron, 2026-09-28.)*
 - [ ] **LOW PRIORITY. Step 7 (Remove sheets): "Done" button should be active and return to the
@@ -1029,6 +1069,8 @@ The heart of the project. Do not start before M1 slice 5.
       browser. Not investigated further -- worth checking whether a dedicated higher-res crop
       (e.g. a still capture, or a larger/different stream config) is feasible without breaking
       the continuous preview or `focus_score`'s own use of the same stream. *(Aaron, 2026-09-22)*
+      **Superseded by the 2026-09-27 entry above ("Higher quality zoom for focusing"), which has
+      the live-hardware findings and the 2026-09-28 attempt/revert.**
 - [x] **Let the two heatmaps and the best-vs-worst-tag rank plots be viewed for a past
       calibration, not just whatever's live — shipped 2026-09-27.** New stem-scoped endpoints
       (`GET /calibration/{stem}/rank-plot`, `best-worst-photo`, `radial-plot`,
