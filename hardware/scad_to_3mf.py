@@ -131,8 +131,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Export a multi-color .scad as an Orca-ready 3MF.")
     parser.add_argument("scad", type=Path, help="OpenSCAD source file")
-    parser.add_argument("-o", "--output-dir", type=Path, default=Path("export"),
-                        help="where to write <name>.3mf (default: ./export/)")
+    parser.add_argument("-o", "--output-dir", type=Path, default=Path("exports"),
+                        help="where to write <name>.3mf (default: ./exports/)")
     parser.add_argument("-D", dest="defines", action="append", default=[],
                         metavar="VAR=VALUE",
                         help="override a Customizer variable, as OpenSCAD's -D; repeatable")
