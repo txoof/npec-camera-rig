@@ -43,6 +43,13 @@ wait never resolves on its own; this caps it at 10s instead of requiring a manua
 
 Not yet installed as a systemd service — see `deploy/npec-rig.service`.
 
+## Hardware
+
+The rig's printed mounts and OpenSCAD models live in [`hardware/`](hardware/). See
+[hardware/README.md](hardware/README.md) for the AprilTag corner mounts and how to export
+multi-color prints, and [hardware/Installation.md](hardware/Installation.md) for installing the
+rig in the chamber.
+
 ## The one thing to read before contributing
 
 This project has been attempted three times and collapsed into camera metrology each time — lens
