@@ -9,7 +9,7 @@
      - `tag_mount_body()` -- the structural bracket: rail foot, keying ridge,
        and a flat tag plate whose top face is the tag's white background
        and quiet zone. One color (`body_color`).
-     - `tag_mount_graphic()` -- the dark 36h11 layer for `tag_id`, via
+     - `tag_mount_graphic(id)` -- the dark 36h11 layer for one id, via
        `apriltag_36h11.scad`'s `april_tag_pattern()`, standing `tag_raise_h`
        proud of the plate and sunk `tag_embed` into it so the two parts
        overlap rather than merely touch. One color (`tag_pattern_color`).
@@ -54,7 +54,7 @@
    as that file's `ridge20_relief()`/`ridge20_cove()`, ported to a ridge that
    runs along X instead of Z.
 
-   ID label: `tag_id` printed in the tag color on an extra `id_band` strip
+   ID label: each mount's id printed in the tag color on an extra `id_band` strip
    added to the plate's far edge, below the tag. It sits beyond the
    `tag_border` quiet zone rather than in it, so the white margin the
    detector needs around the tag stays clear.
@@ -66,6 +66,17 @@
    this project. `tag_embed` is likewise a starting value for part overlap
    in the slicer, not a measured one.
 
+   REV 1.6: batch layout. `tag_ids` (a list) replaces `tag_id` and
+     `copies`: one mount per id, laid out in list order, left to right then
+     top to bottom, `plate_gap` apart (default leaves room for the supports
+     under the foot). Columns default to the count whose block fits the
+     smallest enclosing square, allowing for the mount's 70 x 98 mm
+     footprint (4 ids -> 2 x 2, 6 -> 3 x 2). The
+     layout loop sits directly in the render block rather than in
+     `plate()`: a top-level for() keeps every colored statement a separate
+     lazy-union 3MF object (checked 2026-09-29, 3 iterations x 2 statements
+     exported as 6 objects), while a module wrapper would merge them.
+     `plate()` is removed.
    REV 1.5: one centred M4 bolt instead of two (removed `bolt_spacing`);
      revision stamp moved off-centre to clear it (`rev_x`, derived). Added
      the tag-color ID label on a new `id_band` strip beyond the quiet zone
@@ -118,7 +129,7 @@ include <BOSL2/std.scad> // t_slot_bolt() calls BOSL2's screw(); `use` alone
                           // include, so its special variables never init
 
 /* [Tag] */
-tag_id        = 450;   // which 36h11 id this mount instance carries -- corner/reference tags (PLAN.md, IDs 450-499) [1:499]
+tag_ids       = [450, 451, 452, 453]; // 36h11 ids, one mount each, laid out in this order -- corner/reference tags are 450-499 (PLAN.md); any of 1-499 works
 tag_size      = 50;    // 36h11 tag width, mm -- corner/reference tags (PLAN.md, IDs 450-499)
 tag_border    = 10;    // quiet-zone margin each side, mm -- informed default, not yet measured [4:1:25]
 tag_plate_thk = 3;     // total tag-plate thickness, mm  [2:0.5:6]
@@ -126,7 +137,7 @@ tag_raise_h   = 0.6;   // dark tag layer height above the plate's top face, mm  
 tag_embed     = 0.2;   // how far the dark layer sinks into the plate so the parts overlap, mm  [0:0.05:1]
 
 /* [ID Label] */
-id_label = true;                       // print tag_id below the tag
+id_label = true;                       // print each mount's id below its tag
 id_band  = 8;                          // extra plate depth beyond the quiet zone for the label, mm  [4:0.5:20]
 id_size  = 5;                          // label text cap height, mm  [2:0.5:12]
 id_font  = "Liberation Sans:style=Bold";
@@ -164,12 +175,11 @@ tag_pattern_color = "DarkGreen"; // the tag's dark modules
 part = "assembly"; // what to render  ["assembly","body","graphic","bolted"]
 
 /* [Build Plate] */
-copies     = 1;   // how many bodies to lay out when part="body"  [1:8]
-plate_gap  = 10;  // clear space between neighbours, mm
-plate_cols = 0;   // columns across X; 0 = auto (near-square grid)
+plate_gap  = 10;  // clear space between neighbouring mounts, mm -- leave room for supports under the foot  [0:1:50]
+plate_cols = 0;   // mounts per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.5"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
+revision  = "RV1.6"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
 rev_size  = 4;        // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;      // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -189,12 +199,29 @@ bolt_x = [0];
 rev_x = (pw / 2 + bolt_dia / 2 + hole_cham) / 2;
 tr = min(transition_r, foot_thk); // clamp: a chamfer taller than the foot has nothing to blend into
 
+assert(len(tag_ids) > 0, "tag_ids must list at least one id");
+assert(min(tag_ids) >= 1 && max(tag_ids) <= 499,
+       "tag_ids must be within 1-499, the range apriltags-36h11-1-499.scad covers");
+
+n_mounts  = len(tag_ids);
 part_dx   = pw;
 part_dy   = foot_width + pd;
-grid_cols = plate_cols > 0 ? plate_cols : ceil(sqrt(copies));
-grid_rows = ceil(copies / grid_cols);
 pitch_x   = part_dx + plate_gap;
 pitch_y   = part_dy + plate_gap;
+// auto columns: the count whose block fits the smallest enclosing square,
+// accounting for the non-square footprint (fewest columns wins a tie)
+block_side = [for (c = [1 : n_mounts]) max(c * pitch_x, ceil(n_mounts / c) * pitch_y)];
+grid_cols = plate_cols > 0 ? min(plate_cols, n_mounts)
+                           : search(min(block_side), block_side)[0] + 1;
+grid_rows = ceil(n_mounts / grid_cols);
+
+// centre of mount i's footprint lands on the block's grid cell, block centred
+// on the origin; row 0 at +Y so the list reads left to right, top to bottom
+function slot(i) = [
+    ((i % grid_cols) - (grid_cols - 1) / 2) * pitch_x,
+    ((grid_rows - 1) / 2 - floor(i / grid_cols)) * pitch_y - (foot_width - pd) / 2,
+    0
+];
 
 // ---------------------------------------------------------------------------
 
@@ -324,7 +351,7 @@ module id_label_text(id) {
         text(str(id), size = id_size, font = id_font, halign = "center", valign = "center");
 }
 
-module tag_mount_graphic(id = tag_id) {
+module tag_mount_graphic(id = tag_ids[0]) {
     // dark tag layer plus ID label, both Z from -tag_embed to tag_raise_h.
     // Uncolored: the caller applies color(), which is what keeps it a
     // separate 3MF object under lazy union -- a module that colors its own
@@ -342,8 +369,8 @@ module tag_mount_bolted() {
     // assembly view: body + graphic + this mount's M4 bolt, foot
     // seated lip_depth_20+foot_thk_ref_20 under the channel, heads landing
     // flush on the foot's top face (shaft_length = foot_thk + that depth).
-    // Preview only: called plain from the root, this whole module becomes
-    // one 3MF object. Export the default assembly view instead.
+    // Preview only, first id in tag_ids: called plain from the root, this
+    // whole module becomes one 3MF object. Export the assembly view instead.
     color(body_color)        tag_mount_body();
     color(tag_pattern_color) tag_mount_graphic();
 
@@ -354,29 +381,18 @@ module tag_mount_bolted() {
                             shaft_length = foot_thk + lip_depth_20 + foot_thk_ref_20);
 }
 
-module plate(n) {
-    // grid is centred on the origin; index 0 is the -X/-Y corner
-    x0 = -(grid_cols * pitch_x - plate_gap) / 2 + part_dx / 2;
-    y0 = -(grid_rows * pitch_y - plate_gap) / 2 + part_dy / 2 - pd;
-    for (i = [0 : n - 1])
-        translate([x0 + (i % grid_cols)     * pitch_x,
-                   y0 + floor(i / grid_cols) * pitch_y,
-                   0])
-            tag_mount_body();
-}
-
 // ---------------------------------------------------------------------------
 
-if (part == "body") {
-    if (copies > 1) color(body_color) plate(copies);
-    else color(body_color) tag_mount_body();
-} else if (part == "graphic") {
-    color(tag_pattern_color) tag_mount_graphic();
-} else if (part == "bolted") {
+// Layout loops stay here at the top level, not in a module: every colored
+// statement inside a top-level for() is its own lazy-union 3MF object, which
+// scad_to_3mf.py then pairs back up into one Orca object per mount.
+if (part == "bolted") {
     tag_mount_bolted();
 } else {
-    // default/"assembly": two direct top-level colored statements, so a
-    // lazy-union 3MF export keeps them as two objects
-    color(body_color)        tag_mount_body();
-    color(tag_pattern_color) tag_mount_graphic();
+    for (i = [0 : n_mounts - 1]) {
+        if (part != "graphic")
+            translate(slot(i)) color(body_color) tag_mount_body();
+        if (part != "body")
+            translate(slot(i)) color(tag_pattern_color) tag_mount_graphic(tag_ids[i]);
+    }
 }
