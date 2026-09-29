@@ -647,7 +647,7 @@ The heart of the project. Do not start before M1 slice 5.
       `start` reconfigure followed by autofocus -- confirms this isn't specific to a calibration
       capture, any pipeline reconfigure followed by autofocus can trigger the same hang. Still not
       fixed; still the same sign-off-gated change, not two separate bugs to design around.
-- [ ] **`/preview.mjpg` and `/focus/roi.mjpg` never noticed a disconnected client, and a stuck
+- [x] **`/preview.mjpg` and `/focus/roi.mjpg` never noticed a disconnected client, and a stuck
       `_call_lock` (e.g. the wedge above) turned that into a full server hang, not just a leaked
       stream.** Found by Aaron, 2026-09-28, while testing a since-reverted focus-crop toggle on
       `m2-sharp-focus-toggle` (53 threads, most in `futex_do_wait`, full unresponsiveness
@@ -685,11 +685,27 @@ The heart of the project. Do not start before M1 slice 5.
       is still an unbounded wait. None of those are long-running loops the way the streams are,
       so they don't self-reinforce into thread-pool exhaustion the same way, but a slow one could
       still make a request hang. Revisit if that's ever observed.
-      **Still needed before calling this done:** a real stress test against the live server
-      (both streams open, rapid reload/toggle, watch `/proc/<pid>/task` thread count and the new
-      per-stream log lines for start/end counts matching) -- a baseline thread count from the
-      same script run against the pre-fix code would make the comparison meaningful, not just
-      "didn't crash once."
+      **Stress-tested against the live server, 2026-09-29 (Aaron confirmed nobody else was using
+      the rig first):** 80 rapid, overlapping, short-lived (curl `-m 0.25`, a clean TCP close --
+      the same disconnect signal a closed browser tab produces) opens of both `/preview.mjpg` and
+      `/focus/roi.mjpg` against the live worker (pid 86063). Thread count rose 14 -> 53 during the
+      burst (anyio spinning up worker threads to service it, capped near its 40-token default
+      limiter plus other process threads -- not itself a leak), then returned to the exact
+      baseline of 14 once anyio's 10s idle-worker prune window had passed and a few follow-up
+      requests triggered it, confirmed via `/proc/86063/task` counts before, during, and after.
+      `curl -m 5 GET /` succeeded in under 10ms at every point in the storm and after -- the
+      server was never unresponsive, unlike the original reproduction where a plain `GET /`
+      timed out. `wchan` alone (`futex_do_wait`) could not distinguish a stuck lock wait from an
+      idle anyio worker parked in `queue.get()` -- both are futex-based -- so the settle-back to
+      baseline, not the wchan reading, is what confirms these were the benign kind. Not confirmed
+      as a leak-proof guarantee for every possible contention pattern, only that this specific
+      reproduction (the one that hung the server on 2026-09-28) no longer does.
+      **Known gap found while testing, not fixed here:** the per-stream start/end log lines added
+      for this test never appeared in `uvicorn.log` -- `logger = logging.getLogger(__name__)` in
+      `app.py` has no configured handler/level (default root logger level is `WARNING`), so
+      `logger.info(...)` calls are silently dropped; only uvicorn's own loggers are configured.
+      The lines are harmless as written and will work once app-level logging is configured, but
+      were not the evidence used above -- thread counts and response times were.
 - [ ] **Regional coverage weakness: bottom-left explained, bottom-right not yet** — checked
       against all 7 real calibration frames saved 2026-09-21 (reprocessed offline, no bench time
       needed -- this is exactly why frames are saved alongside artifacts). Two hypotheses tested
