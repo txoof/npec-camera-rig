@@ -23,7 +23,8 @@ uv run apriltag-gen --start 450 --end 499 -s 50mm --title "Corner / Reference Sh
 Each `.manifest.json` gives every tag's page, black-square centre (mm, page
 bottom-left origin, y up), and nominal design size — see apriltag-gen's
 README for the format. Sizes are nominal, not measured; printed tags still
-need a calliper check, same as the 29.3106 mm finding in `CLAUDE.md`.
+need a calliper check (the previous rig's "30 mm" tags measured 29.3106 mm; on
+2026-09-29 a sheet printed at 96% was found mixed in, reading ~8% small in area).
 
 Print at 100% / actual size and verify against the ruler on page 1 of each
 PDF before using either sheet.

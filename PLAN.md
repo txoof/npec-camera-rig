@@ -63,7 +63,7 @@ the *ratios* between these error sources are what matter here, and those hold:
 |---|---|
 | 30 mm tag, scale precision (~130 px across at 4.4 px/mm) | **~0.15%** |
 | 1.5 mm tag height offset from tray top, at 1526 mm | **~0.1%** in area |
-| **Using nominal 30 mm when the tags actually measure 29.31 mm** | **~4.7%** in area |
+| **Using nominal 30 mm when the old rig's tags actually measured 29.31 mm** | **~4.7%** in area |
 | **Deciding where a leaf edge stops in the mask** | **several %** |
 
 Two things fall out of this table. First, the tags are ~20× more precise than the thing they feed —
@@ -481,7 +481,7 @@ first appears — it splits the rescued values into two groups:
 
 | Still valid (properties of objects) | **Stale (properties of the old geometry)** |
 |---|---|
-| AprilTag size **29.3106 mm** — measured with callipers, travels with the tags | Camera distance 1526.4 mm |
+| AprilTag size: a property of each print, so measure every new print with callipers (current sheets **30.0 mm**; the old rig's 29.3106 mm does not apply) | Camera distance 1526.4 mm |
 | Tray height **99.89 mm** stated | Table tilt 2.76° |
 | Sensor 9152 × 6944, Arducam behaviour notes | Lens position 6.3 dioptres |
 | | Intrinsics and distortion coefficients |
@@ -504,10 +504,11 @@ project.** They are available at that path if a specific need arises — detecto
 regression fixture, sanity-checking a decoder — but the geometry in them no longer matches the
 chamber. New fixture images get captured from the current rig during M1.
 
-> **The single most valuable number in that pile: the tags measure 29.31 mm, not the nominal
-> 30 mm.** That is a **2.3% linear, ~4.7% area** systematic error, larger than every other
+> **The single most valuable number in that pile: the old rig's tags measured 29.31 mm, not the
+> nominal 30 mm.** That is a **2.3% linear, ~4.7% area** systematic error, larger than every other
 > geometric term in this plan combined. It is also the entire argument for "measured, never
-> nominal," already proven on your own hardware.
+> nominal," already proven on your own hardware. The current sheets measure 30.0 mm: the number
+> does not carry over, the habit of measuring every print does.
 
 ### What the survey found
 
@@ -566,5 +567,5 @@ worth knowing rather than discovering in week three.
 - **Capture rate vs storage** — 10/hour is ~29 GB/month, 60/hour is ~170 GB. Decide alongside
   retention policy and whether an external SSD is needed.
 - **Calibration sheet layout** — the old repo has an A4 sheet of 25 tags (ids 0–24) at 29.31 mm
-  measured; tray tags were ids 40–43. Confirm the ID allocation for 12 trays plus 4 corner tags.
+  measured (that print only); tray tags were ids 40–43. Confirm the ID allocation for 12 trays plus 4 corner tags.
 - **Digest delivery** — email, or render in the web UI only.
