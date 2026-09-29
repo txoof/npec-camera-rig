@@ -33,6 +33,23 @@ SIMULATED_AUTOFOCUS_POSITION = 6.3  # synthetic backend has no real optics; matc
 # much drift; 0.01 dioptres is far smaller than a real, operator-meaningful lens move.
 FOCUS_CONFIRM_POSITION_TOLERANCE = 0.01
 
+# preview.mjpg and focus/roi.mjpg grab one frame per loop iteration, under _call_lock, forever
+# (see CameraBusyError). A one-shot control (autofocus, capture) is allowed to block on this
+# lock indefinitely -- that's correct, the operator is waiting on that specific call. A stream
+# iteration is not a one-shot call: if it blocks forever, so does the thread anyio lent it, for
+# good, because that thread is behind a cancellation-shielded call the client disconnecting
+# cannot interrupt (confirmed against the installed anyio/Starlette source, 2026-09-29). Bounding
+# the wait means a stuck lock degrades one stream to occasional skipped frames instead of
+# quietly eating one more worker thread per attempt until the shared pool -- used by every other
+# route too -- is exhausted and the whole server stops responding.
+STREAM_LOCK_TIMEOUT = 2.0
+
+
+class CameraBusyError(RuntimeError):
+    """Raised by a streaming frame grab (preview_jpeg, roi_crop_jpeg) that could not acquire
+    _call_lock within STREAM_LOCK_TIMEOUT. Callers should skip the frame, not block on it."""
+
+
 # Controls exposed generically (slice 4): ranges are probed from picamera2's own
 # `camera_controls` at runtime, not hardcoded — LensPosition's max has already been observed to
 # change between probes (15.0 during M0, 32.0 later), so a hardcoded range would have been
@@ -448,8 +465,12 @@ class CameraManager:
             return array_to_jpeg(self._backend.capture_array())
 
     def preview_jpeg(self) -> bytes:
-        with self._call_lock:
+        if not self._call_lock.acquire(timeout=STREAM_LOCK_TIMEOUT):
+            raise CameraBusyError("preview_jpeg")
+        try:
             return array_to_jpeg(self._backend.capture_preview_array())
+        finally:
+            self._call_lock.release()
 
     def capture_array(self) -> np.ndarray:
         """Raw main-stream frame, for callers that need pixels rather than a JPEG (e.g. the live
@@ -519,8 +540,12 @@ class CameraManager:
         return laplacian_variance(to_grayscale(crop))
 
     def roi_crop_jpeg(self) -> bytes:
-        with self._call_lock:
+        if not self._call_lock.acquire(timeout=STREAM_LOCK_TIMEOUT):
+            raise CameraBusyError("roi_crop_jpeg")
+        try:
             frame = self._backend.capture_array()
+        finally:
+            self._call_lock.release()
         crop = crop_roi(frame, self._roi["x"], self._roi["y"], self._roi["size"])
         if self._peaking_enabled:
             crop = peaking_overlay(crop)

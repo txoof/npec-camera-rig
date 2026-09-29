@@ -1,12 +1,14 @@
 import numpy as np
 import pytest
 
+import npec_rig.camera as camera_module
 from npec_rig.camera import (
     DEFAULT_LENS_POSITION,
     PEAKING_COLOR,
     SENSOR_METADATA_FIELDS,
     SIMULATED_AUTOFOCUS_POSITION,
     SYNTHETIC_CONTROL_RANGES,
+    CameraBusyError,
     CameraManager,
     SyntheticBackend,
     array_to_jpeg,
@@ -164,6 +166,39 @@ def test_camera_manager_focus_score_and_roi_crop_do_not_touch_hardware() -> None
     # zero, not just "some float" — deterministic, so pin the value, not just its type.
     assert manager.focus_score() == 0.0
     jpeg = manager.roi_crop_jpeg()
+    assert jpeg[:2] == b"\xff\xd8"
+
+
+def test_preview_jpeg_raises_camera_busy_when_lock_is_held(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(camera_module, "STREAM_LOCK_TIMEOUT", 0.05)
+    manager = CameraManager(SyntheticBackend())
+    manager._call_lock.acquire()  # simulate another in-progress camera call
+    try:
+        with pytest.raises(CameraBusyError):
+            manager.preview_jpeg()
+    finally:
+        manager._call_lock.release()
+
+
+def test_roi_crop_jpeg_raises_camera_busy_when_lock_is_held(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(camera_module, "STREAM_LOCK_TIMEOUT", 0.05)
+    manager = CameraManager(SyntheticBackend())
+    manager._call_lock.acquire()
+    try:
+        with pytest.raises(CameraBusyError):
+            manager.roi_crop_jpeg()
+    finally:
+        manager._call_lock.release()
+
+
+def test_preview_jpeg_succeeds_once_lock_is_available_again() -> None:
+    # Not busy by default -- the timeout only bites when the lock is actually contended.
+    manager = CameraManager(SyntheticBackend())
+    jpeg = manager.preview_jpeg()
     assert jpeg[:2] == b"\xff\xd8"
 
 

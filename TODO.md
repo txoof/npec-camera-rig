@@ -647,6 +647,49 @@ The heart of the project. Do not start before M1 slice 5.
       `start` reconfigure followed by autofocus -- confirms this isn't specific to a calibration
       capture, any pipeline reconfigure followed by autofocus can trigger the same hang. Still not
       fixed; still the same sign-off-gated change, not two separate bugs to design around.
+- [ ] **`/preview.mjpg` and `/focus/roi.mjpg` never noticed a disconnected client, and a stuck
+      `_call_lock` (e.g. the wedge above) turned that into a full server hang, not just a leaked
+      stream.** Found by Aaron, 2026-09-28, while testing a since-reverted focus-crop toggle on
+      `m2-sharp-focus-toggle` (53 threads, most in `futex_do_wait`, full unresponsiveness
+      including a plain `GET /`). Root cause confirmed 2026-09-29 by reading the installed
+      Starlette/anyio source directly, not assumed: `_mjpeg_frames` was a sync generator, so
+      Starlette ran each `next()` through `anyio.to_thread.run_sync` with
+      `abandon_on_cancel=False` -- implemented as `CancelScope(shield=True)` -- meaning a client
+      disconnect cannot interrupt a call already in flight, only stop the loop at the boundary
+      before the *next* call starts. The old code's `time.sleep` FPS throttle ran inside that
+      same shielded call (after the yield, before the next iteration's frame grab), so a live
+      stream held its worker thread almost continuously, not briefly. Uvicorn here declares ASGI
+      spec_version 2.3, so Starlette's disconnect signal is real (a task-group race against
+      `receive()`, not silently dropped) and does cancel the outer task on a genuine disconnect --
+      but every frame grab goes through the single `CameraManager._call_lock`, also used by
+      `autofocus()`/reconfigure. If that lock is held a long time (the wedge bug above being the
+      known way that happens), the shielded call blocks past the point where cancellation could
+      ever reach it, pinning one of anyio's 40 pooled worker threads permanently; each reload
+      opened a new stream whose first frame grab also blocked on the same lock, consuming another.
+      Once the pool was exhausted, every other sync route -- including a plain page load --
+      blocked waiting for a thread too. Whether the wedge bug specifically was the trigger during
+      that session's toggling is not confirmed (no hardware access to reproduce this session),
+      only that it is the mechanism that fits all the observed evidence and matches how the two
+      bugs interact.
+      **Fixed on `m2-mjpeg-stream-lifecycle`, not yet stress-tested on hardware:** (1)
+      `_mjpeg_frames` is now an async generator that awaits `Request.is_disconnected()` before
+      each frame and uses `asyncio.sleep` for the FPS throttle -- an ordinary, cancellable await,
+      not a shielded one; only the actual blocking camera call goes through the threadpool now.
+      (2) `CameraManager.preview_jpeg`/`roi_crop_jpeg` bound their `_call_lock` wait to
+      `STREAM_LOCK_TIMEOUT` (2s) and raise `CameraBusyError`, which the generator treats as "skip
+      this frame," so a contended lock now degrades one stream to occasional skipped frames
+      instead of leaking a thread forever. Start/end/frame-count logging added per stream
+      (`logger.info("mjpeg stream %s#%d: ...")`) as the observable for the stress test below.
+      **Deliberately not fixed here (narrower scope, approved by Aaron):** every other
+      `_call_lock` use (`focus_score`, `capture_array`, the controls routes, autofocus itself)
+      is still an unbounded wait. None of those are long-running loops the way the streams are,
+      so they don't self-reinforce into thread-pool exhaustion the same way, but a slow one could
+      still make a request hang. Revisit if that's ever observed.
+      **Still needed before calling this done:** a real stress test against the live server
+      (both streams open, rapid reload/toggle, watch `/proc/<pid>/task` thread count and the new
+      per-stream log lines for start/end counts matching) -- a baseline thread count from the
+      same script run against the pre-fix code would make the comparison meaningful, not just
+      "didn't crash once."
 - [ ] **Regional coverage weakness: bottom-left explained, bottom-right not yet** — checked
       against all 7 real calibration frames saved 2026-09-21 (reprocessed offline, no bench time
       needed -- this is exactly why frames are saved alongside artifacts). Two hypotheses tested
