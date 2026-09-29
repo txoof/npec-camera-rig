@@ -1,12 +1,15 @@
+import asyncio
+import itertools
 import logging
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -55,7 +58,7 @@ from npec_rig.calibration_viz import (
     render_table_view,
     render_uncertainty_heatmap,
 )
-from npec_rig.camera import CameraManager, array_to_jpeg
+from npec_rig.camera import CameraBusyError, CameraManager, array_to_jpeg
 from npec_rig.captures import captures_root, list_recent_captures, save_capture
 from npec_rig.settings import load_settings, save_setting
 from npec_rig.tags import (
@@ -168,35 +171,71 @@ def snapshot() -> Response:
     return Response(content=jpeg, media_type="image/jpeg")
 
 
-def _mjpeg_frames(jpeg_source: Callable[[], bytes], fps_limit: float) -> Iterator[bytes]:
-    """Yield `multipart/x-mixed-replace` chunks from `jpeg_source`, capped at `fps_limit`."""
+_mjpeg_stream_ids = itertools.count(1)
+
+
+async def _mjpeg_frames(
+    request: Request, jpeg_source: Callable[[], bytes], fps_limit: float, name: str
+) -> AsyncIterator[bytes]:
+    """Yield `multipart/x-mixed-replace` chunks from `jpeg_source`, capped at `fps_limit`.
+
+    An async generator, not a sync one: Starlette runs a sync generator's `next()` through
+    anyio's threadpool with cancellation shielded for the duration of each call, so a client
+    disconnect cannot stop it mid-call, only between calls -- and if `jpeg_source` blocks (its
+    own lock contended), it never gets to "between calls" at all, pinning that worker thread
+    forever. An async generator's own `await`s are ordinary cancellable ones; only the actual
+    blocking camera call goes through the threadpool, and CameraManager bounds that wait
+    (STREAM_LOCK_TIMEOUT) so it always returns control here. Checking `is_disconnected()`
+    explicitly, rather than relying only on Starlette's own disconnect handling, means a closed
+    tab stops this loop before the next frame grab even starts, not up to one frame later.
+    Confirmed against the installed Starlette/anyio source, 2026-09-29 (see TODO.md).
+    """
+    stream_id = next(_mjpeg_stream_ids)
     min_interval = 1.0 / fps_limit
-    while True:
-        start = time.monotonic()
-        jpeg = jpeg_source()
-        yield (
-            b"--" + PREVIEW_BOUNDARY + b"\r\n"
-            b"Content-Type: image/jpeg\r\n"
-            b"Content-Length: " + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n"
-        )
-        elapsed = time.monotonic() - start
-        if elapsed < min_interval:
-            time.sleep(min_interval - elapsed)
+    frame_count = 0
+    logger.info("mjpeg stream %s#%d: start", name, stream_id)
+    try:
+        while True:
+            if await request.is_disconnected():
+                break
+            start = time.monotonic()
+            try:
+                jpeg = await run_in_threadpool(jpeg_source)
+            except CameraBusyError:
+                # Already spent up to STREAM_LOCK_TIMEOUT blocked in the failed acquire --
+                # only sleep whatever's left of min_interval, not the whole thing again.
+                elapsed = time.monotonic() - start
+                if elapsed < min_interval:
+                    await asyncio.sleep(min_interval - elapsed)
+                continue
+            yield (
+                b"--" + PREVIEW_BOUNDARY + b"\r\n"
+                b"Content-Type: image/jpeg\r\n"
+                b"Content-Length: " + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n"
+            )
+            frame_count += 1
+            elapsed = time.monotonic() - start
+            if elapsed < min_interval:
+                await asyncio.sleep(min_interval - elapsed)
+    finally:
+        logger.info("mjpeg stream %s#%d: end, %d frames", name, stream_id, frame_count)
 
 
-def _mjpeg_response(jpeg_source: Callable[[], bytes], fps_limit: float) -> StreamingResponse:
+def _mjpeg_response(
+    request: Request, jpeg_source: Callable[[], bytes], fps_limit: float, name: str
+) -> StreamingResponse:
     """Wrap `_mjpeg_frames` in the streaming response FastAPI needs to serve it."""
     return StreamingResponse(
-        _mjpeg_frames(jpeg_source, fps_limit),
+        _mjpeg_frames(request, jpeg_source, fps_limit, name),
         media_type=f"multipart/x-mixed-replace; boundary={PREVIEW_BOUNDARY.decode()}",
     )
 
 
 @app.get("/preview.mjpg")
-def preview() -> StreamingResponse:
+def preview(request: Request) -> StreamingResponse:
     """Live MJPEG preview from the lores stream."""
     manager = CameraManager.instance()
-    return _mjpeg_response(manager.preview_jpeg, PREVIEW_FPS_LIMIT)
+    return _mjpeg_response(request, manager.preview_jpeg, PREVIEW_FPS_LIMIT, "preview")
 
 
 class LensPosition(BaseModel):
@@ -292,10 +331,10 @@ def focus_score() -> dict:
 
 
 @app.get("/focus/roi.mjpg")
-def focus_roi_stream() -> StreamingResponse:
+def focus_roi_stream(request: Request) -> StreamingResponse:
     """Magnified 1:1 MJPEG stream of the focus ROI, for the focus aid."""
     manager = CameraManager.instance()
-    return _mjpeg_response(manager.roi_crop_jpeg, ROI_STREAM_FPS_LIMIT)
+    return _mjpeg_response(request, manager.roi_crop_jpeg, ROI_STREAM_FPS_LIMIT, "focus_roi")
 
 
 @app.get("/focus/status")

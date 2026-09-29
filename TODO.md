@@ -647,6 +647,91 @@ The heart of the project. Do not start before M1 slice 5.
       `start` reconfigure followed by autofocus -- confirms this isn't specific to a calibration
       capture, any pipeline reconfigure followed by autofocus can trigger the same hang. Still not
       fixed; still the same sign-off-gated change, not two separate bugs to design around.
+- [x] **`/preview.mjpg` and `/focus/roi.mjpg` never noticed a disconnected client, and a stuck
+      `_call_lock` (e.g. the wedge above) turned that into a full server hang, not just a leaked
+      stream.** Found by Aaron, 2026-09-28, while testing a since-reverted focus-crop toggle on
+      `m2-sharp-focus-toggle` (53 threads, most in `futex_do_wait`, full unresponsiveness
+      including a plain `GET /`). Root cause confirmed 2026-09-29 by reading the installed
+      Starlette/anyio source directly, not assumed: `_mjpeg_frames` was a sync generator, so
+      Starlette ran each `next()` through `anyio.to_thread.run_sync` with
+      `abandon_on_cancel=False` -- implemented as `CancelScope(shield=True)` -- meaning a client
+      disconnect cannot interrupt a call already in flight, only stop the loop at the boundary
+      before the *next* call starts. The old code's `time.sleep` FPS throttle ran inside that
+      same shielded call (after the yield, before the next iteration's frame grab), so a live
+      stream held its worker thread almost continuously, not briefly. Uvicorn here declares ASGI
+      spec_version 2.3, so Starlette's disconnect signal is real (a task-group race against
+      `receive()`, not silently dropped) and does cancel the outer task on a genuine disconnect --
+      but every frame grab goes through the single `CameraManager._call_lock`, also used by
+      `autofocus()`/reconfigure. If that lock is held a long time (the wedge bug above being the
+      known way that happens), the shielded call blocks past the point where cancellation could
+      ever reach it, pinning one of anyio's 40 pooled worker threads permanently; each reload
+      opened a new stream whose first frame grab also blocked on the same lock, consuming another.
+      Once the pool was exhausted, every other sync route -- including a plain page load --
+      blocked waiting for a thread too. Whether the wedge bug specifically was the trigger during
+      that session's toggling is not confirmed (no hardware access to reproduce this session),
+      only that it is the mechanism that fits all the observed evidence and matches how the two
+      bugs interact.
+      **Fixed on `m2-mjpeg-stream-lifecycle`, not yet stress-tested on hardware:** (1)
+      `_mjpeg_frames` is now an async generator that awaits `Request.is_disconnected()` before
+      each frame and uses `asyncio.sleep` for the FPS throttle -- an ordinary, cancellable await,
+      not a shielded one; only the actual blocking camera call goes through the threadpool now.
+      (2) `CameraManager.preview_jpeg`/`roi_crop_jpeg` bound their `_call_lock` wait to
+      `STREAM_LOCK_TIMEOUT` (2s) and raise `CameraBusyError`, which the generator treats as "skip
+      this frame," so a contended lock now degrades one stream to occasional skipped frames
+      instead of leaking a thread forever. Start/end/frame-count logging added per stream
+      (`logger.info("mjpeg stream %s#%d: ...")`) as the observable for the stress test below.
+      **Deliberately not fixed here (narrower scope, approved by Aaron):** every other
+      `_call_lock` use (`focus_score`, `capture_array`, the controls routes, autofocus itself)
+      is still an unbounded wait. None of those are long-running loops the way the streams are,
+      so they don't self-reinforce into thread-pool exhaustion the same way, but a slow one could
+      still make a request hang. Revisit if that's ever observed.
+      **Stress-tested against the live server, 2026-09-29 (Aaron confirmed nobody else was using
+      the rig first):** 80 rapid, overlapping, short-lived (curl `-m 0.25`, a clean TCP close --
+      the same disconnect signal a closed browser tab produces) opens of both `/preview.mjpg` and
+      `/focus/roi.mjpg` against the live worker (pid 86063). Thread count rose 14 -> 53 during the
+      burst (anyio spinning up worker threads to service it, capped near its 40-token default
+      limiter plus other process threads -- not itself a leak), then returned to the exact
+      baseline of 14 once anyio's 10s idle-worker prune window had passed and a few follow-up
+      requests triggered it, confirmed via `/proc/86063/task` counts before, during, and after.
+      `curl -m 5 GET /` succeeded in under 10ms at every point in the storm and after -- the
+      server was never unresponsive, unlike the original reproduction where a plain `GET /`
+      timed out. `wchan` alone (`futex_do_wait`) could not distinguish a stuck lock wait from an
+      idle anyio worker parked in `queue.get()` -- both are futex-based -- so the settle-back to
+      baseline, not the wchan reading, is what confirms these were the benign kind. Not confirmed
+      as a leak-proof guarantee for every possible contention pattern, only that this specific
+      reproduction (the one that hung the server on 2026-09-28) no longer does.
+      **Known gap found while testing, not fixed here:** the per-stream start/end log lines added
+      for this test never appeared in `uvicorn.log` -- `logger = logging.getLogger(__name__)` in
+      `app.py` has no configured handler/level (default root logger level is `WARNING`), so
+      `logger.info(...)` calls are silently dropped; only uvicorn's own loggers are configured.
+      The lines are harmless as written and will work once app-level logging is configured, but
+      were not the evidence used above -- thread counts and response times were.
+      **`/code-review --level high`, PR #15, 2026-09-29 -- 4 fixed same session (duplicated
+      lock-acquire/release block between `preview_jpeg`/`roi_crop_jpeg` extracted into
+      `CameraManager._stream_call_lock`; both now document that they can raise `CameraBusyError`;
+      the busy-skip path in `_mjpeg_frames` no longer sleeps a full extra `min_interval` on top of
+      the time already spent blocked in a failed acquire; the "succeeds once available again"
+      test now actually contends the lock from another thread instead of calling into an
+      uncontended manager), 2 deferred here with reasons:**
+  - **`STREAM_LOCK_TIMEOUT` bounds only the wait to *acquire* `_call_lock`, not how long the
+        backend capture call can hold it once acquired.** If `capture_preview_array()`/
+        `capture_array()` itself hangs (the same class of driver-level hang already documented
+        for autofocus+reconfigure above), the stream's `run_in_threadpool` call never returns and
+        pins a worker thread exactly as the pre-fix bug did -- this fix guards the queue for the
+        lock, not a hang while holding it. Not fixed now: bounding a call already in progress
+        needs either abandoning the thread (anyio's `abandon_on_cancel=True`, which stops blocking
+        the async side but leaves the thread, and whatever it's doing to the hardware, running
+        unsupervised) or a lower-level timeout into the backend call itself -- the same
+        design-needs-sign-off situation as the autofocus+reconfigure wedge bug, not a mechanical
+        fix to slip into a review-response commit. Revisit together with that bug.
+  - **No test exercises real `Request.is_disconnected()`/ASGI disconnect semantics** -- every
+        `_mjpeg_frames` test drives it through a hand-written `_FakeRequest` returning a fixed
+        bool, so a future Starlette/anyio behavior change here wouldn't be caught by `pytest`.
+        Not fixed now: a real mid-stream disconnect needs an actual ASGI transport, which is
+        exactly why the existing `_mjpeg_frames` test comment already excludes a full HTTP round
+        trip from the unit tier. The live-server stress test above (a real TCP close via curl) is
+        the actual verification for this mechanism, deliberately at the hardware tier, not
+        pytest's.
 - [ ] **Regional coverage weakness: bottom-left explained, bottom-right not yet** — checked
       against all 7 real calibration frames saved 2026-09-21 (reprocessed offline, no bench time
       needed -- this is exactly why frames are saved alongside artifacts). Two hypotheses tested

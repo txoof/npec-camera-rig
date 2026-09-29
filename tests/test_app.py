@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 
@@ -10,12 +11,29 @@ import npec_rig.app as app_module
 from npec_rig.app import _mjpeg_frames, _saved_calibration_path, app, focus_roi_stream, preview
 from npec_rig.calibration import CalibrationArtifact, ScaleField
 from npec_rig.calibration_store import calibration_root, save_calibration
-from npec_rig.camera import SIMULATED_AUTOFOCUS_POSITION, CameraManager, SyntheticBackend
+from npec_rig.camera import (
+    SIMULATED_AUTOFOCUS_POSITION,
+    CameraBusyError,
+    CameraManager,
+    SyntheticBackend,
+)
 from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, ASSUMED_CORNER_TAG_SIZE_MM
 from npec_rig.tripwire import CornerBaseline
 from tests.helpers import rotate_detection, square_detection
 
 pytestmark = pytest.mark.unit
+
+
+class _FakeRequest:
+    """Minimal stand-in for fastapi.Request for tests driving _mjpeg_frames directly -- a real
+    Request's is_disconnected() needs a live ASGI receive channel, which these tests aren't
+    exercising. Only the one method _mjpeg_frames actually calls."""
+
+    def __init__(self, disconnected: bool = False) -> None:
+        self._disconnected = disconnected
+
+    async def is_disconnected(self) -> bool:
+        return self._disconnected
 
 
 @pytest.fixture(autouse=True)
@@ -103,23 +121,63 @@ def test_mjpeg_frames_yields_a_jpeg_chunk() -> None:
     # rather than through a real HTTP round trip — an infinite response body has no place
     # in the unit tier.
     manager = CameraManager(SyntheticBackend())
-    frames = _mjpeg_frames(manager.preview_jpeg, fps_limit=1000.0)
-    try:
-        chunk = next(frames)
-    finally:
-        frames.close()
+    frames = _mjpeg_frames(_FakeRequest(), manager.preview_jpeg, fps_limit=1000.0, name="test")
+
+    async def _first_chunk() -> bytes:
+        try:
+            return await anext(frames)
+        finally:
+            await frames.aclose()
+
+    chunk = asyncio.run(_first_chunk())
     assert b"Content-Type: image/jpeg" in chunk
     assert b"\xff\xd8" in chunk
 
 
+def test_mjpeg_frames_stops_immediately_on_disconnected_client() -> None:
+    manager = CameraManager(SyntheticBackend())
+    frames = _mjpeg_frames(
+        _FakeRequest(disconnected=True), manager.preview_jpeg, fps_limit=1000.0, name="test"
+    )
+
+    async def _collect() -> list[bytes]:
+        return [chunk async for chunk in frames]
+
+    assert asyncio.run(_collect()) == []
+
+
+def test_mjpeg_frames_skips_a_busy_frame_without_raising() -> None:
+    # A CameraBusyError (the lock-timeout path -- see camera.py) must not kill the stream; it
+    # should be treated like "no frame yet" and retried next tick.
+    calls = {"n": 0}
+
+    def flaky_jpeg_source() -> bytes:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise CameraBusyError("test")
+        return b"\xff\xd8fake-jpeg-bytes"
+
+    frames = _mjpeg_frames(_FakeRequest(), flaky_jpeg_source, fps_limit=1000.0, name="test")
+
+    async def _first_chunk() -> bytes:
+        try:
+            return await anext(frames)
+        finally:
+            await frames.aclose()
+
+    chunk = asyncio.run(_first_chunk())
+    assert b"fake-jpeg-bytes" in chunk
+    assert calls["n"] == 2
+
+
 def test_preview_route_returns_mjpeg_streaming_response() -> None:
-    response = preview()
+    response = preview(_FakeRequest())
     assert isinstance(response, StreamingResponse)
     assert "multipart/x-mixed-replace" in response.media_type
 
 
 def test_focus_roi_stream_route_returns_mjpeg_streaming_response() -> None:
-    response = focus_roi_stream()
+    response = focus_roi_stream(_FakeRequest())
     assert isinstance(response, StreamingResponse)
     assert "multipart/x-mixed-replace" in response.media_type
 
