@@ -54,10 +54,11 @@
    as that file's `ridge20_relief()`/`ridge20_cove()`, ported to a ridge that
    runs along X instead of Z.
 
-   ID label: each mount's id printed in the tag color on an extra `id_band` strip
-   added to the plate's far edge, below the tag. It sits beyond the
-   `tag_border` quiet zone rather than in it, so the white margin the
-   detector needs around the tag stays clear.
+   ID label: each mount's id embossed `id_height` proud of the foot's top
+   face, in the body color (part of `tag_mount_body(id)`, so no extra
+   filament), on the -X side of the bolt -- mirroring the engraved revision
+   stamp on the +X side. Off the tag plate entirely, so the quiet zone is
+   untouched.
 
    Open assumption, not yet measured: `tag_border` (quiet-zone margin) is an
    informed starting point -- general AprilTag detection guidance, not a
@@ -66,6 +67,12 @@
    this project. `tag_embed` is likewise a starting value for part overlap
    in the slicer, not a measured one.
 
+   REV 1.7: ID label moved from the plate's far edge to the foot's top
+     face, opposite the revision stamp, embossed in the body color rather
+     than printed in the tag color. Removed `id_band` (the plate is back to
+     70 x 70 mm, the mount footprint to 70 x 90 mm); added `id_height`.
+     `tag_mount_body()` now takes the id; `tag_mount_graphic()` is the tag
+     pattern only.
    REV 1.6: batch layout. `tag_ids` (a list) replaces `tag_id` and
      `copies`: one mount per id, laid out in list order, left to right then
      top to bottom, `plate_gap` apart (default leaves room for the supports
@@ -137,10 +144,10 @@ tag_raise_h   = 0.6;   // dark tag layer height above the plate's top face, mm  
 tag_embed     = 0.2;   // how far the dark layer sinks into the plate so the parts overlap, mm  [0:0.05:1]
 
 /* [ID Label] */
-id_label = true;                       // print each mount's id below its tag
-id_band  = 8;                          // extra plate depth beyond the quiet zone for the label, mm  [4:0.5:20]
-id_size  = 5;                          // label text cap height, mm  [2:0.5:12]
-id_font  = "Liberation Sans:style=Bold";
+id_label  = true;                      // emboss each mount's id on the foot, opposite the revision stamp
+id_size   = 5;                         // label text cap height, mm  [2:0.5:10]
+id_height = 0.6;                       // how far the label stands proud of the foot's top face, mm  [0.2:0.1:2]
+id_font   = "Liberation Sans:style=Bold";
 
 /* [Rail Foot] */
 foot_width   = 20;    // Y depth -- matches the 20x20 rail's face width, mm
@@ -179,7 +186,7 @@ plate_gap  = 10;  // clear space between neighbouring mounts, mm -- leave room f
 plate_cols = 0;   // mounts per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.6"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
+revision  = "RV1.7"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
 rev_size  = 4;        // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;      // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -190,12 +197,12 @@ eps = 0.01;
 /* [Hidden] */
 // plate footprint: X shared by foot and tag plate, Y split at the Y=0 joint
 // (foot spans [0,foot_width], tag plate spans [-pd,0])
-label_band = id_label ? id_band : 0;
-pw = tag_size + 2 * tag_border;              // plate width, X
-pd = tag_size + 2 * tag_border + label_band; // tag plate depth, Y
-tag_cy = -(tag_border + tag_size / 2);       // tag centre, Y -- fixed by the quiet zone, not by pd
+pw = tag_size + 2 * tag_border;         // plate width, X
+pd = tag_size + 2 * tag_border;         // tag plate depth, Y
+tag_cy = -(tag_border + tag_size / 2);  // tag centre, Y
 bolt_x = [0];
-// revision stamp centre: midway between the bolt's chamfer edge and the foot's end
+// revision stamp centre (+X) and ID label centre (-X): midway between the
+// bolt's chamfer edge and the foot's end
 rev_x = (pw / 2 + bolt_dia / 2 + hole_cham) / 2;
 tr = min(transition_r, foot_thk); // clamp: a chamfer taller than the foot has nothing to blend into
 
@@ -322,7 +329,15 @@ module revision_stamp() {
             text(revision, size = rev_size, halign = "center", valign = "center");
 }
 
-module tag_mount_body() {
+module id_emboss(id) {
+    // raised on the foot's top face, reading along +X, on the -X side of the
+    // bolt opposite the revision stamp; sunk eps into the face so it fuses
+    translate([-rev_x, foot_width / 2, foot_thk - eps])
+        linear_extrude(id_height + eps)
+            text(str(id), size = id_size, font = id_font, halign = "center", valign = "center");
+}
+
+module tag_mount_body(id = tag_ids[0]) {
     difference() {
         union() {
             linear_extrude(foot_thk) foot_profile();
@@ -330,6 +345,7 @@ module tag_mount_body() {
                 linear_extrude(tag_plate_thk) tag_plate_profile();
             ridge_along_x();
             if (tr > 0) transition_chamfer();
+            if (id_label) id_emboss(id);
         }
 
         // M4 through the foot and ridge, chamfer on the top (bolt head) face
@@ -344,25 +360,15 @@ module tag_mount_body() {
     }
 }
 
-module id_label_text(id) {
-    // centred in the label strip, reading along +X, upright when the tag is
-    // viewed with the rail at the top
-    translate([0, -pd + label_band / 2])
-        text(str(id), size = id_size, font = id_font, halign = "center", valign = "center");
-}
-
 module tag_mount_graphic(id = tag_ids[0]) {
-    // dark tag layer plus ID label, both Z from -tag_embed to tag_raise_h.
-    // Uncolored: the caller applies color(), which is what keeps it a
-    // separate 3MF object under lazy union -- a module that colors its own
-    // children internally collapses into one object when called plain
-    // (confirmed empirically 2026-09-28). One color, so one object is right.
+    // dark tag layer, Z from -tag_embed to tag_raise_h. Uncolored: the
+    // caller applies color(), which is what keeps it a separate 3MF object
+    // under lazy union -- a module that colors its own children internally
+    // collapses into one object when called plain (confirmed empirically
+    // 2026-09-28).
     translate([0, tag_cy, -tag_embed])
         april_tag_pattern(id = id, edge = tag_size, thickness = 0,
                           raise_h = tag_raise_h + tag_embed);
-    if (id_label)
-        translate([0, 0, -tag_embed])
-            linear_extrude(tag_raise_h + tag_embed) id_label_text(id);
 }
 
 module tag_mount_bolted() {
@@ -391,7 +397,7 @@ if (part == "bolted") {
 } else {
     for (i = [0 : n_mounts - 1]) {
         if (part != "graphic")
-            translate(slot(i)) color(body_color) tag_mount_body();
+            translate(slot(i)) color(body_color) tag_mount_body(tag_ids[i]);
         if (part != "body")
             translate(slot(i)) color(tag_pattern_color) tag_mount_graphic(tag_ids[i]);
     }
