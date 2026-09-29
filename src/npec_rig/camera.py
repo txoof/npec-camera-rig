@@ -8,6 +8,8 @@ import io
 import logging
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from contextlib import contextmanager
 from threading import Lock
 from typing import ClassVar
 
@@ -464,13 +466,22 @@ class CameraManager:
         with self._call_lock:
             return array_to_jpeg(self._backend.capture_array())
 
-    def preview_jpeg(self) -> bytes:
+    @contextmanager
+    def _stream_call_lock(self, name: str) -> Iterator[None]:
+        """Hold _call_lock for a streaming frame grab, bounded by STREAM_LOCK_TIMEOUT --
+        raises CameraBusyError instead of blocking indefinitely. Only for preview_jpeg and
+        roi_crop_jpeg; every other caller is a one-shot action that should keep waiting."""
         if not self._call_lock.acquire(timeout=STREAM_LOCK_TIMEOUT):
-            raise CameraBusyError("preview_jpeg")
+            raise CameraBusyError(name)
         try:
-            return array_to_jpeg(self._backend.capture_preview_array())
+            yield
         finally:
             self._call_lock.release()
+
+    def preview_jpeg(self) -> bytes:
+        """Raises CameraBusyError if _call_lock isn't free within STREAM_LOCK_TIMEOUT."""
+        with self._stream_call_lock("preview_jpeg"):
+            return array_to_jpeg(self._backend.capture_preview_array())
 
     def capture_array(self) -> np.ndarray:
         """Raw main-stream frame, for callers that need pixels rather than a JPEG (e.g. the live
@@ -540,12 +551,9 @@ class CameraManager:
         return laplacian_variance(to_grayscale(crop))
 
     def roi_crop_jpeg(self) -> bytes:
-        if not self._call_lock.acquire(timeout=STREAM_LOCK_TIMEOUT):
-            raise CameraBusyError("roi_crop_jpeg")
-        try:
+        """Raises CameraBusyError if _call_lock isn't free within STREAM_LOCK_TIMEOUT."""
+        with self._stream_call_lock("roi_crop_jpeg"):
             frame = self._backend.capture_array()
-        finally:
-            self._call_lock.release()
         crop = crop_roi(frame, self._roi["x"], self._roi["y"], self._roi["size"])
         if self._peaking_enabled:
             crop = peaking_overlay(crop)

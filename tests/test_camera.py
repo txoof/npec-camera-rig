@@ -1,3 +1,5 @@
+import threading
+
 import numpy as np
 import pytest
 
@@ -195,10 +197,17 @@ def test_roi_crop_jpeg_raises_camera_busy_when_lock_is_held(
         manager._call_lock.release()
 
 
-def test_preview_jpeg_succeeds_once_lock_is_available_again() -> None:
-    # Not busy by default -- the timeout only bites when the lock is actually contended.
+def test_preview_jpeg_succeeds_once_a_held_lock_is_released() -> None:
+    # Contends the lock from another thread, released well before STREAM_LOCK_TIMEOUT --
+    # preview_jpeg should block until it's free, then succeed, not raise.
     manager = CameraManager(SyntheticBackend())
-    jpeg = manager.preview_jpeg()
+    manager._call_lock.acquire()
+    releaser = threading.Timer(0.05, manager._call_lock.release)
+    releaser.start()
+    try:
+        jpeg = manager.preview_jpeg()
+    finally:
+        releaser.cancel()
     assert jpeg[:2] == b"\xff\xd8"
 
 

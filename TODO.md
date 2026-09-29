@@ -706,6 +706,32 @@ The heart of the project. Do not start before M1 slice 5.
       `logger.info(...)` calls are silently dropped; only uvicorn's own loggers are configured.
       The lines are harmless as written and will work once app-level logging is configured, but
       were not the evidence used above -- thread counts and response times were.
+      **`/code-review --level high`, PR #15, 2026-09-29 -- 4 fixed same session (duplicated
+      lock-acquire/release block between `preview_jpeg`/`roi_crop_jpeg` extracted into
+      `CameraManager._stream_call_lock`; both now document that they can raise `CameraBusyError`;
+      the busy-skip path in `_mjpeg_frames` no longer sleeps a full extra `min_interval` on top of
+      the time already spent blocked in a failed acquire; the "succeeds once available again"
+      test now actually contends the lock from another thread instead of calling into an
+      uncontended manager), 2 deferred here with reasons:**
+  - **`STREAM_LOCK_TIMEOUT` bounds only the wait to *acquire* `_call_lock`, not how long the
+        backend capture call can hold it once acquired.** If `capture_preview_array()`/
+        `capture_array()` itself hangs (the same class of driver-level hang already documented
+        for autofocus+reconfigure above), the stream's `run_in_threadpool` call never returns and
+        pins a worker thread exactly as the pre-fix bug did -- this fix guards the queue for the
+        lock, not a hang while holding it. Not fixed now: bounding a call already in progress
+        needs either abandoning the thread (anyio's `abandon_on_cancel=True`, which stops blocking
+        the async side but leaves the thread, and whatever it's doing to the hardware, running
+        unsupervised) or a lower-level timeout into the backend call itself -- the same
+        design-needs-sign-off situation as the autofocus+reconfigure wedge bug, not a mechanical
+        fix to slip into a review-response commit. Revisit together with that bug.
+  - **No test exercises real `Request.is_disconnected()`/ASGI disconnect semantics** -- every
+        `_mjpeg_frames` test drives it through a hand-written `_FakeRequest` returning a fixed
+        bool, so a future Starlette/anyio behavior change here wouldn't be caught by `pytest`.
+        Not fixed now: a real mid-stream disconnect needs an actual ASGI transport, which is
+        exactly why the existing `_mjpeg_frames` test comment already excludes a full HTTP round
+        trip from the unit tier. The live-server stress test above (a real TCP close via curl) is
+        the actual verification for this mechanism, deliberately at the hardware tier, not
+        pytest's.
 - [ ] **Regional coverage weakness: bottom-left explained, bottom-right not yet** — checked
       against all 7 real calibration frames saved 2026-09-21 (reprocessed offline, no bench time
       needed -- this is exactly why frames are saved alongside artifacts). Two hypotheses tested

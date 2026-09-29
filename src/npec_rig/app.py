@@ -202,7 +202,11 @@ async def _mjpeg_frames(
             try:
                 jpeg = await run_in_threadpool(jpeg_source)
             except CameraBusyError:
-                await asyncio.sleep(min_interval)
+                # Already spent up to STREAM_LOCK_TIMEOUT blocked in the failed acquire --
+                # only sleep whatever's left of min_interval, not the whole thing again.
+                elapsed = time.monotonic() - start
+                if elapsed < min_interval:
+                    await asyncio.sleep(min_interval - elapsed)
                 continue
             yield (
                 b"--" + PREVIEW_BOUNDARY + b"\r\n"
