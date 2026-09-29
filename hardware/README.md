@@ -19,7 +19,7 @@ one 50 mm tag flat and level with the rail's top face.
 |---|---|
 | Tag | 50 mm 36h11, dark layer standing 0.6 mm proud of a white plate |
 | Quiet zone | 10 mm of plain white plate on every side of the tag |
-| Plate | 70 x 70 mm, 3 mm thick, flush with the rail's top face |
+| Plate | 70 x 70 mm, 4 mm thick, flush with the rail's top face |
 | Foot | 70 x 20 mm, 7 mm thick, sits on the rail |
 | Fastening | one M4 bolt, centered, into a type-6 (spring-loaded ball) T-nut |
 | Alignment | keying ridge under the foot runs in the rail's slot and stops the mount rotating |

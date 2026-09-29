@@ -66,6 +66,8 @@
    this project. `tag_embed` is likewise a starting value for part overlap
    in the slicer, not a measured one.
 
+   REV 1.9: Aaron's tuning (2026-09-29): `tag_plate_thk` 3 -> 4 mm and
+     `ridge_relief` 8 -> 14 mm (wider clearance in the ridge at the bolt).
    REV 1.8: ID label engraved (recessed) instead of embossed, matching the
      revision stamp; `id_height` replaced by `id_depth`.
    REV 1.7: ID label moved from the plate's far edge to the foot's top
@@ -140,7 +142,7 @@ include <BOSL2/std.scad> // t_slot_bolt() calls BOSL2's screw(); `use` alone
 tag_ids       = [450, 451, 452, 453]; // 36h11 ids, one mount each, laid out in this order -- corner/reference tags are 450-499 (PLAN.md); any of 1-499 works
 tag_size      = 50;    // 36h11 tag width, mm -- corner/reference tags (PLAN.md, IDs 450-499)
 tag_border    = 10;    // quiet-zone margin each side, mm -- informed default, not yet measured [4:1:25]
-tag_plate_thk = 3;     // total tag-plate thickness, mm  [2:0.5:6]
+tag_plate_thk = 4;     // total tag-plate thickness, mm  [2:0.5:6]
 tag_raise_h   = 0.6;   // dark tag layer height above the plate's top face, mm  [0.2:0.1:2]
 tag_embed     = 0.2;   // how far the dark layer sinks into the plate so the parts overlap, mm  [0:0.05:1]
 
@@ -167,7 +169,7 @@ foot_thk_ref_20 = 1.5; // must match t_slot_bolt.scad's foot_thk_20
 ridge_w        = 6.0;  // slot-mouth width, mm -- see t_slot_20x20.scad header
 ridge_h        = 3;    // drop depth into the channel, mm
 ridge_draft    = 0.4;  // per-side taper at the tip, mm
-ridge_relief   = 8;    // relief width at the bolt, along X, mm
+ridge_relief   = 14;    // relief width at the bolt, along X, mm
 ridge_relief_r = 1.5;  // transition curve at each relief end, mm (0 = square step)
 
 /* [Transition] */
@@ -187,7 +189,7 @@ plate_gap  = 10;  // clear space between neighbouring mounts, mm -- leave room f
 plate_cols = 0;   // mounts per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.8"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
+revision  = "RV1.9"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
 rev_size  = 4;        // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;      // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
