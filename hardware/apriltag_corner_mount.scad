@@ -54,11 +54,10 @@
    as that file's `ridge20_relief()`/`ridge20_cove()`, ported to a ridge that
    runs along X instead of Z.
 
-   ID label: each mount's id embossed `id_height` proud of the foot's top
-   face, in the body color (part of `tag_mount_body(id)`, so no extra
-   filament), on the -X side of the bolt -- mirroring the engraved revision
-   stamp on the +X side. Off the tag plate entirely, so the quiet zone is
-   untouched.
+   ID label: each mount's id engraved `id_depth` into the foot's top face
+   (cut from `tag_mount_body(id)`, so no extra filament), on the -X side of
+   the bolt -- mirroring the engraved revision stamp on the +X side. Off the
+   tag plate entirely, so the quiet zone is untouched.
 
    Open assumption, not yet measured: `tag_border` (quiet-zone margin) is an
    informed starting point -- general AprilTag detection guidance, not a
@@ -67,6 +66,8 @@
    this project. `tag_embed` is likewise a starting value for part overlap
    in the slicer, not a measured one.
 
+   REV 1.8: ID label engraved (recessed) instead of embossed, matching the
+     revision stamp; `id_height` replaced by `id_depth`.
    REV 1.7: ID label moved from the plate's far edge to the foot's top
      face, opposite the revision stamp, embossed in the body color rather
      than printed in the tag color. Removed `id_band` (the plate is back to
@@ -144,9 +145,9 @@ tag_raise_h   = 0.6;   // dark tag layer height above the plate's top face, mm  
 tag_embed     = 0.2;   // how far the dark layer sinks into the plate so the parts overlap, mm  [0:0.05:1]
 
 /* [ID Label] */
-id_label  = true;                      // emboss each mount's id on the foot, opposite the revision stamp
+id_label  = true;                      // engrave each mount's id on the foot, opposite the revision stamp
 id_size   = 5;                         // label text cap height, mm  [2:0.5:10]
-id_height = 0.6;                       // how far the label stands proud of the foot's top face, mm  [0.2:0.1:2]
+id_depth  = 1.0;                       // how far the label is inset below the foot's top face, mm  [0.4:0.1:2]
 id_font   = "Liberation Sans:style=Bold";
 
 /* [Rail Foot] */
@@ -186,7 +187,7 @@ plate_gap  = 10;  // clear space between neighbouring mounts, mm -- leave room f
 plate_cols = 0;   // mounts per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.7"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
+revision  = "RV1.8"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
 rev_size  = 4;        // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;      // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -329,11 +330,11 @@ module revision_stamp() {
             text(revision, size = rev_size, halign = "center", valign = "center");
 }
 
-module id_emboss(id) {
-    // raised on the foot's top face, reading along +X, on the -X side of the
-    // bolt opposite the revision stamp; sunk eps into the face so it fuses
-    translate([-rev_x, foot_width / 2, foot_thk - eps])
-        linear_extrude(id_height + eps)
+module id_engrave(id) {
+    // engraved into the foot's top face, reading along +X, on the -X side of
+    // the bolt opposite the revision stamp
+    translate([-rev_x, foot_width / 2, foot_thk - id_depth])
+        linear_extrude(id_depth + eps)
             text(str(id), size = id_size, font = id_font, halign = "center", valign = "center");
 }
 
@@ -345,7 +346,6 @@ module tag_mount_body(id = tag_ids[0]) {
                 linear_extrude(tag_plate_thk) tag_plate_profile();
             ridge_along_x();
             if (tr > 0) transition_chamfer();
-            if (id_label) id_emboss(id);
         }
 
         // M4 through the foot and ridge, chamfer on the top (bolt head) face
@@ -357,6 +357,7 @@ module tag_mount_body(id = tag_ids[0]) {
         for (bx = bolt_x) ridge_relief_at(bx);
 
         if (revision != "") revision_stamp();
+        if (id_label) id_engrave(id);
     }
 }
 
