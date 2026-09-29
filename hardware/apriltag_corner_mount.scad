@@ -27,7 +27,7 @@
    graphic within the frame; it does not re-derive or re-check the pattern.
 
    Coordinate convention: X runs along the rail's length, parallel to the
-   T-slot channel and to the line joining the two M4 bolts. Y runs away from
+   T-slot channel; the single M4 bolt sits at X=0. Y runs away from
    the rail, across the tag plate's long axis -- perpendicular to the
    channel, per Aaron's correction 2026-09-28 (the channel must run
    perpendicular to the tag's longest dimension, and the foot's 20mm width
@@ -39,18 +39,25 @@
    Z=-tag_plate_thk, so stepping down from the foot's top face by foot_thk
    lands exactly on the plate's flush top surface.
 
-   Fastening: two M4 bolts into type-6 (spring-loaded ball) T-nuts dropped
-   into the rail's channel -- the same channel `t_slot_bolt.scad` models
-   with `profile=20`. This file doesn't model the T-nut itself; see
-   `tag_mount_bolted()` for an assembly-view standin.
+   Fastening: one M4 bolt, centred on the foot, into a type-6
+   (spring-loaded ball) T-nut dropped into the rail's channel -- the same
+   channel `t_slot_bolt.scad` models with `profile=20`. The keying ridge in
+   the channel stops the mount rotating about that single bolt. This file
+   doesn't model the T-nut itself; see `tag_mount_bolted()` for an
+   assembly-view standin.
 
    Alignment lip: a keying ridge under the foot, sized to the 20x20
    profile's slot mouth (6.1 mm, per `t_slot_20x20.scad`'s header) -- the
    same figure `l_bracket_4020.scad`'s `ridge20_w` reuses for its own 20-leg
-   ridge. Runs along X (the channel direction), with a relief cut at each
+   ridge. Runs along X (the channel direction), with a relief cut at the
    bolt so the ridge doesn't block the T-nut/bolt shaft -- same construction
    as that file's `ridge20_relief()`/`ridge20_cove()`, ported to a ridge that
-   runs along X instead of Z, and widened to two cuts instead of one.
+   runs along X instead of Z.
+
+   ID label: `tag_id` printed in the tag color on an extra `id_band` strip
+   added to the plate's far edge, below the tag. It sits beyond the
+   `tag_border` quiet zone rather than in it, so the white margin the
+   detector needs around the tag stays clear.
 
    Open assumption, not yet measured: `tag_border` (quiet-zone margin) is an
    informed starting point -- general AprilTag detection guidance, not a
@@ -59,6 +66,11 @@
    this project. `tag_embed` is likewise a starting value for part overlap
    in the slicer, not a measured one.
 
+   REV 1.5: one centred M4 bolt instead of two (removed `bolt_spacing`);
+     revision stamp moved off-centre to clear it (`rev_x`, derived). Added
+     the tag-color ID label on a new `id_band` strip beyond the quiet zone
+     (`id_label`, `id_band`, `id_size`, `id_font`), which lengthens the tag
+     plate by `id_band`.
    REV 1.4: two colors instead of three (2026-09-29). The body is now the
      tag's white background, so the separate white base plate and the pocket
      it sat in are gone; the dark layer sits on the flat plate, sunk
@@ -113,14 +125,19 @@ tag_plate_thk = 3;     // total tag-plate thickness, mm  [2:0.5:6]
 tag_raise_h   = 0.6;   // dark tag layer height above the plate's top face, mm  [0.2:0.1:2]
 tag_embed     = 0.2;   // how far the dark layer sinks into the plate so the parts overlap, mm  [0:0.05:1]
 
+/* [ID Label] */
+id_label = true;                       // print tag_id below the tag
+id_band  = 8;                          // extra plate depth beyond the quiet zone for the label, mm  [4:0.5:20]
+id_size  = 5;                          // label text cap height, mm  [2:0.5:12]
+id_font  = "Liberation Sans:style=Bold";
+
 /* [Rail Foot] */
 foot_width   = 20;    // Y depth -- matches the 20x20 rail's face width, mm
 foot_thk     = 7;     // Z thickness, mm
 corner_r     = 3;     // rounding on the two free (outer) corners of the foot and tag plate, mm
 
 /* [Fasteners] */
-bolt_dia     = 4.5;   // M4 clearance hole, mm
-bolt_spacing = 40;    // X distance between the two bolts, mm  [20:5:60]
+bolt_dia     = 4.5;   // M4 clearance hole, centred on the foot, mm
 hole_cham    = 1.0;   // 45-deg relief at the bolt entry face, mm (0 = none)
 bolt_color   = "DarkSlateGray"; // color for the assembly-view bolt standins
 
@@ -131,7 +148,7 @@ foot_thk_ref_20 = 1.5; // must match t_slot_bolt.scad's foot_thk_20
 ridge_w        = 6.0;  // slot-mouth width, mm -- see t_slot_20x20.scad header
 ridge_h        = 3;    // drop depth into the channel, mm
 ridge_draft    = 0.4;  // per-side taper at the tip, mm
-ridge_relief   = 8;    // relief width at each bolt, along X, mm
+ridge_relief   = 8;    // relief width at the bolt, along X, mm
 ridge_relief_r = 1.5;  // transition curve at each relief end, mm (0 = square step)
 
 /* [Transition] */
@@ -152,7 +169,7 @@ plate_gap  = 10;  // clear space between neighbours, mm
 plate_cols = 0;   // columns across X; 0 = auto (near-square grid)
 
 /* [Revision] */
-revision  = "RV1.0"; // revision stamp, engraved in the foot's top face ("" = none)
+revision  = "RV1.5"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
 rev_size  = 4;        // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;      // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -163,9 +180,13 @@ eps = 0.01;
 /* [Hidden] */
 // plate footprint: X shared by foot and tag plate, Y split at the Y=0 joint
 // (foot spans [0,foot_width], tag plate spans [-pd,0])
-pw = tag_size + 2 * tag_border; // plate width, X
-pd = tag_size + 2 * tag_border; // tag plate depth, Y
-bolt_x = [-bolt_spacing / 2, bolt_spacing / 2];
+label_band = id_label ? id_band : 0;
+pw = tag_size + 2 * tag_border;              // plate width, X
+pd = tag_size + 2 * tag_border + label_band; // tag plate depth, Y
+tag_cy = -(tag_border + tag_size / 2);       // tag centre, Y -- fixed by the quiet zone, not by pd
+bolt_x = [0];
+// revision stamp centre: midway between the bolt's chamfer edge and the foot's end
+rev_x = (pw / 2 + bolt_dia / 2 + hole_cham) / 2;
 tr = min(transition_r, foot_thk); // clamp: a chamfer taller than the foot has nothing to blend into
 
 part_dx   = pw;
@@ -267,8 +288,9 @@ module ridge_relief_at(xc) {
 }
 
 module revision_stamp() {
-    // engraved into the foot's top face, reading along +X
-    translate([0, foot_width / 2, foot_thk - rev_depth])
+    // engraved into the foot's top face, reading along +X, off to the +X
+    // side of the centred bolt
+    translate([rev_x, foot_width / 2, foot_thk - rev_depth])
         linear_extrude(rev_depth + eps)
             text(revision, size = rev_size, halign = "center", valign = "center");
 }
@@ -288,26 +310,36 @@ module tag_mount_body() {
             translate([bx, foot_width / 2, foot_thk]) mirror([0, 0, 1])
                 chamfered_hole(bolt_dia, foot_thk + ridge_h + 1, hole_cham);
 
-        // relief: clear the ridge either side of each bolt
+        // relief: clear the ridge either side of the bolt
         for (bx = bolt_x) ridge_relief_at(bx);
 
         if (revision != "") revision_stamp();
     }
 }
 
+module id_label_text(id) {
+    // centred in the label strip, reading along +X, upright when the tag is
+    // viewed with the rail at the top
+    translate([0, -pd + label_band / 2])
+        text(str(id), size = id_size, font = id_font, halign = "center", valign = "center");
+}
+
 module tag_mount_graphic(id = tag_id) {
-    // dark tag layer, centred in the tag plate, Z from -tag_embed to
-    // tag_raise_h. Uncolored: the caller applies color(), which is what
-    // keeps it a separate 3MF object under lazy union -- a module that
-    // colors its own children internally collapses into one object when
-    // called plain (confirmed empirically 2026-09-28).
-    translate([0, -pd / 2, -tag_embed])
+    // dark tag layer plus ID label, both Z from -tag_embed to tag_raise_h.
+    // Uncolored: the caller applies color(), which is what keeps it a
+    // separate 3MF object under lazy union -- a module that colors its own
+    // children internally collapses into one object when called plain
+    // (confirmed empirically 2026-09-28). One color, so one object is right.
+    translate([0, tag_cy, -tag_embed])
         april_tag_pattern(id = id, edge = tag_size, thickness = 0,
                           raise_h = tag_raise_h + tag_embed);
+    if (id_label)
+        translate([0, 0, -tag_embed])
+            linear_extrude(tag_raise_h + tag_embed) id_label_text(id);
 }
 
 module tag_mount_bolted() {
-    // assembly view: body + graphic + this mount's own two M4 bolts, feet
+    // assembly view: body + graphic + this mount's M4 bolt, foot
     // seated lip_depth_20+foot_thk_ref_20 under the channel, heads landing
     // flush on the foot's top face (shaft_length = foot_thk + that depth).
     // Preview only: called plain from the root, this whole module becomes
