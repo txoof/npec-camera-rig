@@ -37,13 +37,17 @@
        0.35 mm clearance across flats, lead-in chamfer at the mouth, and a
        ramp gusset onto the plate top.
      - build-plate grid spacing accounts for the handle's reach
+   REV 1.2:
+     - handle top engraved "HANDLE" / "4mm HEX" (the key size follows hex_af)
+     - plate_w 40 -> 46 so the handle ramp ends 5.5 mm outside the PCB edge
+       instead of 2.5; new handle_pcb_gap check warns if it gets closer
    --------------------------------------------------------------------------- */
 
 /* [Revision] */
 // Lies flat in the XY plane on the +Z face, reading along the Y axis (bottom to
 // top in plan view).  On the underside it is mirrored so it reads the right way
 // round with the part turned over.  revision = "" leaves the part unmarked.
-revision      = "RV1.1";
+revision      = "RV1.2";
 rev_face      = "top";   // [top, bottom]
 rev_size      = 4;       // cap height, mm - across X, since the text runs along Y  [2:0.5:12]
 rev_depth     = 1.2;     // how deep it is cut in, mm  [0.4:0.1:2.5]
@@ -78,7 +82,7 @@ face_y        = 9;       // face mode only: bore centre along Y
 
 /* [Plate] */
 plate_len     = 70;      // overall length along Y
-plate_w       = 40;      // overall width across X
+plate_w       = 46;      // overall width across X; wide enough to keep the handle ramp off the PCB
 plate_t       = 5;       // plate thickness
 plate_r       = 3;       // plan-view corner rounding
 
@@ -137,6 +141,14 @@ handle_w_min  = 10;      // floor on the block width in Y; handle_wall widens it
 handle_back   = 2;       // solid between the socket bottom and the plate edge, mm  [0:0.5:10]
 handle_ramp   = 5;       // gusset from the block top down onto the plate top, inboard, mm  [0:0.5:7]
 handle_r      = 1;       // plan-view rounding on the block's outer corners  [0:0.1:3]
+// Minimum flat plate left between the ramp's inboard end and the PCB edge, so
+// the ramp never gets in the way of seating the board or its screws
+handle_pcb_gap = 3;      // [0:0.5:10]
+// Engraved on the handle top in two lines, reading outward along X.  The second
+// line is built from hex_af, so it always names the key the socket is cut for.
+handle_label  = "HANDLE";   // first line, "" for none
+handle_label_size  = 2.6;   // cap height, mm  [1.5:0.1:5]
+handle_label_depth = 0.6;   // how deep it is cut in, mm  [0.2:0.1:1.5]
 
 /* [Build Plate] */
 copies      = 1;       // how many mounts to lay out  [1:200]
@@ -212,6 +224,13 @@ post_clear = min([ for (x = [-1, 1], y = [-1, 1])
 handle_y      = lens_cy;
 handle_ramp_x = plate_w / 2 - handle_ramp;         // inboard end of the ramp, |X|
 handle_post_clear = handle_ramp_x - (hole_dx / 2 + post_od / 2 + post_cham);
+handle_pcb_clear  = handle_ramp_x - pcb_x / 2;
+// handle label: two lines centred on the block top, baseline along X
+handle_key_label = str(hex_af, "mm HEX");
+handle_lines   = handle_label == "" ? [handle_key_label] : [handle_label, handle_key_label];
+handle_lbl_gap = handle_label_size * 0.5;          // between the two lines
+handle_lbl_len = max([ for (s = handle_lines) len(s) ]) * handle_label_size * 0.72;
+handle_lbl_tall = len(handle_lines) * handle_label_size + (len(handle_lines) - 1) * handle_lbl_gap;
 
 // revision text band.  On the top face the clear strip runs from the far side of
 // the cable slot up to whichever comes first, the plumb hole or the near posts;
@@ -292,13 +311,22 @@ if (handle_on) {
     echo(str("wall  handle      : ", (handle_w - hex_w) / 2, " sides, ", handle_wall,
              " top/bottom, ", handle_back, " behind   <- handle_wall, handle_back"));
     echo(str("handle ramp   : to |X|=", handle_ramp_x, ", clear of the posts by ",
-             handle_post_clear, " mm"));
+             handle_post_clear, " mm, of the PCB edge by ", handle_pcb_clear, " mm"));
+    echo(str("handle label  : \"", handle_lines[0],
+             len(handle_lines) > 1 ? str("\" / \"", handle_lines[1]) : "", "\"  ",
+             handle_label_size, " mm cap, ~", handle_lbl_len, " x ", handle_lbl_tall,
+             " on a ", handle_reach, " x ", handle_w, " top, cut ", handle_label_depth, " deep"));
     if (hex_depth < 15)
         echo("WARNING: less than 15 mm of the key goes into the handle socket");
     if (handle_post_clear < 0)
         echo("WARNING: the handle ramp runs into a mounting post - shorten handle_ramp");
-    if (handle_ramp_x < pcb_x / 2)
-        echo("WARNING: the handle ramp reaches under the PCB footprint - shorten handle_ramp");
+    if (handle_pcb_clear < handle_pcb_gap)
+        echo(str("WARNING: the handle ramp ends ", handle_pcb_clear, " mm from the PCB edge (want ",
+                 handle_pcb_gap, ") - widen plate_w or shorten handle_ramp"));
+    if (handle_lbl_len > handle_reach - 2 * handle_r || handle_lbl_tall > handle_w - 1)
+        echo("WARNING: the handle label does not fit the block top - reduce handle_label_size");
+    if (handle_label_depth > handle_wall - 1)
+        echo(str("WARNING: at ", handle_label_depth, " deep the label leaves under 1 mm over the socket"));
     if (handle_h > plate_t + post_h)
         echo(str("note          : the handle top (Z", handle_h, ") is above the PCB underside (Z",
                  plate_t + post_h, "); it stays outside the board in X, so no clash"));
@@ -502,6 +530,20 @@ module hex_socket() {
         }
 }
 
+module handle_mark() {
+    // cut into the block top, centred on it.  Placed in plate coordinates rather
+    // than through handle_frame(), so a -X handle is not mirrored.
+    n = len(handle_lines);
+    pitch = handle_label_size + handle_lbl_gap;
+    translate([handle_sgn * (plate_w / 2 + handle_reach / 2), handle_y,
+               handle_h - handle_label_depth])
+        linear_extrude(handle_label_depth + eps)
+            for (i = [0 : n - 1])
+                translate([0, ((n - 1) / 2 - i) * pitch])
+                    text(handle_lines[i], size = handle_label_size,
+                         halign = "center", valign = "center");
+}
+
 module insert_bore() {
     if (tripod_axis == "edge") {
         translate([0, -eps, bore_z]) {
@@ -535,6 +577,7 @@ module mount() {
         cable_slot();
         insert_bore();
         if (handle_on) hex_socket();
+        if (handle_on) handle_mark();
         if (plumb_hole) plumb_bore();
         if (revision != "") rev_mark();
     }
