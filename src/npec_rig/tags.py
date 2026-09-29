@@ -29,17 +29,17 @@ CORNER_ID_RANGE = range(450, 500)  # 4 tags mounted; exact IDs confirmed by dete
 RESERVED_ID_RANGE = range(500, 587)  # buffer for a future fixed rig-level role. 587 IDs total in
 # 36h11 (0-586) -- verified against both cv2's dictionary size and moms_apriltag's TagGenerator2
 
-# CLAUDE.md's calliper measurement of the tag that survived the rig rebuild: printed nominally
-# 30mm, measured 29.3106mm. Reused for the CALIBRATION_ID_RANGE sheet (nominally also 30mm --
-# reference/calibration-sheets/README.md) because that sheet has NOT itself been calliper-checked
-# yet against its 2026-09-20 print run. Confirm with callipers before trusting a scale field built
-# from it -- this is the single largest error source CLAUDE.md documents (~4.7% in area). The
+# Default size of the CALIBRATION_ID_RANGE sheets when a run gives no calliper reading. Callipers,
+# 2026-09-29: the current 30mm sheets measure 30.0 +/- 0.1mm (see CLAUDE.md). The 29.3106mm figure
+# older notes mention belonged to the previous rig's printed tags and does not apply. Tag size is a
+# property of each print run, so every run should still pass its own calliper measurement
+# (calibration_tag_size_mm); a wrong size here is the largest error source CLAUDE.md documents. The
 # tripwire (tripwire.py) compares the corner tags' own image-plane geometry between two captures
 # of this rig, never against an absolute mm figure, so it doesn't need this constant.
-ASSUMED_CALIBRATION_TAG_SIZE_MM = 29.3106
+ASSUMED_CALIBRATION_TAG_SIZE_MM = 30.0
 
-# The corner tags' nominal printed size -- placeholder, NOT calliper-measured yet (same caution as
-# ASSUMED_CALIBRATION_TAG_SIZE_MM above: the 30mm calibration tag measured 29.3106mm). Used only by
+# The corner tags' nominal printed size (callipers, 2026-09-29: the 50mm tag measured 50.02mm, same
+# caution as ASSUMED_CALIBRATION_TAG_SIZE_MM above: measure each print). Used only by
 # the table-position view's outer-edge-to-centre conversion (app.py's run_calibration) -- an
 # operator measures corner-tag-to-corner-tag with a tape measure laid outer-edge to outer-edge (no
 # centre mark exists on a tag to measure to directly), and this constant converts that to the

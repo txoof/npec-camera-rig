@@ -69,11 +69,12 @@ A worked example of why this matters, from the previous attempt's own calibratio
 
 | Error source | Magnitude in area |
 |---|---|
-| Believing the tags are the 30 mm printed on the box (they measure 29.31 mm) | **~4.7%** |
+| Believing the old rig's tags were the 30 mm printed on the box (they measured 29.31 mm) | **~4.7%** |
 | Tag corner-finding precision | ~0.15% |
 | Segmentation edge ambiguity | several % |
 
-The largest geometric error in the system was solved with a pair of callipers.
+The largest geometric error in the system was solved with a pair of callipers. The lesson is
+"measure each printed sheet", not "tags are 29.31 mm": the current sheets measure 30.0 mm.
 
 ## Testing
 

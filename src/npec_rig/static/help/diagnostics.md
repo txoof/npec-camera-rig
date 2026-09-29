@@ -9,8 +9,9 @@ every time so a hotter run really is worse, not just redrawn to look worse. Red 
 area to bring it down.
 
 Every calibration tag's real size is measured with callipers, not taken from the packaging (the
-single biggest source of error found in this project's history — a "30 mm" tag actually measured
-29.3106 mm, a ~4.7% error in area if trusted). From that measured size and the tag's four detected
+single biggest source of error found in this project's history — a "30 mm" tag on an earlier rig's
+print actually measured 29.3106 mm, a ~4.7% error in area if trusted; each new print is measured
+again). From that measured size and the tag's four detected
 corners, each tag gives a real, measured scale (pixels per millimetre) at its own spot in the
 photo.
 
