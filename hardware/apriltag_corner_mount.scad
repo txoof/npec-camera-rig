@@ -5,17 +5,19 @@
    reference/calibration-sheets/apriltags-36h11-50mm-a4-450-499.pdf for the
    confirmed tag size and family).
 
-   One continuous multi-material print, three color regions, no assembly
-   step -- the tag graphic is flush with the frame, not a separate piece
-   slip-fit in afterward (REV 1.3; earlier revisions used a clearance-fit
-   insert, dropped once the actual target printer turned out to be
-   multi-extruder, where a removable insert serves no purpose):
+   One continuous multi-material print, two colors, no assembly step:
      - `tag_mount_body()` -- the structural bracket: rail foot, keying ridge,
-       and the border/quiet-zone frame. One color (`body_color`).
-     - `tag_mount_graphic()` -- the actual 36h11 tag for `tag_id`, via
-       `apriltag_36h11.scad`'s `april_tag_base()`/`april_tag_pattern()`:
-       the white base flush with the frame (`tag_base_color`) and the
-       raised black layer on top of it (`tag_pattern_color`).
+       and a flat tag plate whose top face is the tag's white background
+       and quiet zone. One color (`body_color`).
+     - `tag_mount_graphic()` -- the dark 36h11 layer for `tag_id`, via
+       `apriltag_36h11.scad`'s `april_tag_pattern()`, standing `tag_raise_h`
+       proud of the plate and sunk `tag_embed` into it so the two parts
+       overlap rather than merely touch. One color (`tag_pattern_color`).
+   `apriltag_36h11.scad`'s `april_tag_base()` is not used here: the body
+   already supplies the background.
+
+   Export with `scad_to_3mf.py` so Orca loads both as parts of one object
+   with a filament each; see that script and `3mf_test.scad`.
 
    The bit data and the row/col-to-XY placement are `apriltag_36h11.scad`'s
    responsibility, verified there (point-containment check against
@@ -30,11 +32,10 @@
    channel, per Aaron's correction 2026-09-28 (the channel must run
    perpendicular to the tag's longest dimension, and the foot's 20mm width
    is measured in Y, not X). Z is vertical; Z=0 is the rail's top face,
-   which is also the plane the tag graphic's white base sits flush with
-   once bolted down (the raised black layer rises a further `tag_raise_h`
-   above that plane by design -- see `tag_mount_graphic()`). The foot's
-   mating (underside) face is at Z=0, rising to
-   Z=foot_thk; the tag plate hangs from that same Z=0 plane down to
+   which is also the tag plate's flat top face once bolted down (the dark
+   tag layer spans Z=-tag_embed to Z=tag_raise_h -- see
+   `tag_mount_graphic()`). The foot's mating (underside) face is at Z=0,
+   rising to Z=foot_thk; the tag plate hangs from that same Z=0 plane down to
    Z=-tag_plate_thk, so stepping down from the foot's top face by foot_thk
    lands exactly on the plate's flush top surface.
 
@@ -55,8 +56,15 @@
    informed starting point -- general AprilTag detection guidance, not a
    calliper reading or a live detector result. Revisit once a printed mount
    and a real detection pass exist, same as any other unmeasured number in
-   this project.
+   this project. `tag_embed` is likewise a starting value for part overlap
+   in the slicer, not a measured one.
 
+   REV 1.4: two colors instead of three (2026-09-29). The body is now the
+     tag's white background, so the separate white base plate and the pocket
+     it sat in are gone; the dark layer sits on the flat plate, sunk
+     `tag_embed` into it. Removed `tag_base_thk`, `tag_base_color`,
+     `tag_mount_graphic_base()`/`_pattern()`; added `tag_embed`. Defaults
+     changed to a White body and DarkGreen tag.
    REV 1.3: switched `tag_mount_face()` (a blank, clearance-fit insert) for
      `tag_mount_graphic()` (the real `tag_id` pattern, flush, no clearance)
      now that the actual target is a multi-material printer doing one
@@ -102,8 +110,8 @@ tag_id        = 450;   // which 36h11 id this mount instance carries -- corner/r
 tag_size      = 50;    // 36h11 tag width, mm -- corner/reference tags (PLAN.md, IDs 450-499)
 tag_border    = 10;    // quiet-zone margin each side, mm -- informed default, not yet measured [4:1:25]
 tag_plate_thk = 3;     // total tag-plate thickness, mm  [2:0.5:6]
-tag_base_thk  = 2;     // graphic's own white-base thickness, mm -- must be < tag_plate_thk to leave a floor  [1:0.5:5]
-tag_raise_h   = 0.6;   // raised black layer height above the flush plane, mm  [0.2:0.1:2]
+tag_raise_h   = 0.6;   // dark tag layer height above the plate's top face, mm  [0.2:0.1:2]
+tag_embed     = 0.2;   // how far the dark layer sinks into the plate so the parts overlap, mm  [0:0.05:1]
 
 /* [Rail Foot] */
 foot_width   = 20;    // Y depth -- matches the 20x20 rail's face width, mm
@@ -132,9 +140,8 @@ transition_r = 7;  // chamfer radius at the foot/tag-plate step, mm -- should ma
                     // leftover vertical wall above it; 0 = sharp corner [0:0.5:10]
 
 /* [Colors] */
-body_color        = "Gainsboro";
-tag_base_color    = "White";
-tag_pattern_color = "Black";
+body_color        = "White";     // also the tag's background and quiet zone
+tag_pattern_color = "DarkGreen"; // the tag's dark modules
 
 /* [Render Select] */
 part = "assembly"; // what to render  ["assembly","body","graphic","bolted"]
@@ -284,53 +291,29 @@ module tag_mount_body() {
         // relief: clear the ridge either side of each bolt
         for (bx = bolt_x) ridge_relief_at(bx);
 
-        // void for the tag graphic, centred in the tag plate, open to the
-        // flush top face (Z=0) -- no clearance, tag_mount_graphic() fills
-        // this exactly, flush, as part of the same multi-material print
-        translate([0, -pd / 2, -tag_base_thk])
-            linear_extrude(tag_base_thk + eps)
-                square([tag_size, tag_size], center = true);
-
         if (revision != "") revision_stamp();
     }
 }
 
-module tag_mount_graphic_base(id = tag_id) {
-    translate([0, -pd / 2, -tag_base_thk])
-        april_tag_base(edge = tag_size, thickness = tag_base_thk);
-}
-
-module tag_mount_graphic_pattern(id = tag_id) {
-    translate([0, -pd / 2, -tag_base_thk])
-        april_tag_pattern(id = id, edge = tag_size, thickness = tag_base_thk, raise_h = tag_raise_h);
-}
-
 module tag_mount_graphic(id = tag_id) {
-    // convenience preview only -- does NOT keep base/pattern as separate
-    // 3MF objects when called plain like this. Confirmed empirically
-    // 2026-09-28: lazy-union export only treats direct top-level statements
-    // (transparent through if/for) as separate objects. A module called
-    // with no color() at its OWN call site collapses everything inside it
-    // -- even individually pre-colored children -- into one merged object,
-    // no matter how the coloring is structured internally. That is why the
-    // render-select block below calls tag_mount_graphic_base()/_pattern()
-    // directly, each under its own color(), instead of calling this.
-    color(tag_base_color)    tag_mount_graphic_base(id = id);
-    color(tag_pattern_color) tag_mount_graphic_pattern(id = id);
+    // dark tag layer, centred in the tag plate, Z from -tag_embed to
+    // tag_raise_h. Uncolored: the caller applies color(), which is what
+    // keeps it a separate 3MF object under lazy union -- a module that
+    // colors its own children internally collapses into one object when
+    // called plain (confirmed empirically 2026-09-28).
+    translate([0, -pd / 2, -tag_embed])
+        april_tag_pattern(id = id, edge = tag_size, thickness = 0,
+                          raise_h = tag_raise_h + tag_embed);
 }
 
 module tag_mount_bolted() {
     // assembly view: body + graphic + this mount's own two M4 bolts, feet
     // seated lip_depth_20+foot_thk_ref_20 under the channel, heads landing
     // flush on the foot's top face (shaft_length = foot_thk + that depth).
-    // Preview/documentation view only -- per tag_mount_graphic()'s note
-    // above, calling this whole module from the root would collapse body +
-    // graphic + bolts into one merged 3MF object regardless of the color()
-    // calls here; for a real multi-object export use part="graphic" (or
-    // the default assembly view) plus the bolt/rail hardware separately.
-    color(body_color) tag_mount_body();
-    color(tag_base_color)    tag_mount_graphic_base();
-    color(tag_pattern_color) tag_mount_graphic_pattern();
+    // Preview only: called plain from the root, this whole module becomes
+    // one 3MF object. Export the default assembly view instead.
+    color(body_color)        tag_mount_body();
+    color(tag_pattern_color) tag_mount_graphic();
 
     for (bx = bolt_x)
         color(bolt_color)
@@ -356,16 +339,12 @@ if (part == "body") {
     if (copies > 1) color(body_color) plate(copies);
     else color(body_color) tag_mount_body();
 } else if (part == "graphic") {
-    color(tag_base_color)    tag_mount_graphic_base();
-    color(tag_pattern_color) tag_mount_graphic_pattern();
+    color(tag_pattern_color) tag_mount_graphic();
 } else if (part == "bolted") {
     tag_mount_bolted();
 } else {
-    // default/"assembly": each piece is its own direct, individually
-    // color()-wrapped statement here (not routed through tag_mount_graphic())
-    // so a 3MF export keeps three separate objects -- see
-    // tag_mount_graphic()'s comment for why that distinction matters.
+    // default/"assembly": two direct top-level colored statements, so a
+    // lazy-union 3MF export keeps them as two objects
     color(body_color)        tag_mount_body();
-    color(tag_base_color)    tag_mount_graphic_base();
-    color(tag_pattern_color) tag_mount_graphic_pattern();
+    color(tag_pattern_color) tag_mount_graphic();
 }
