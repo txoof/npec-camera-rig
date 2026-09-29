@@ -20,18 +20,30 @@
    Set `copies` under [Build Plate] to lay out that many mounts in a grid,
    centred on the origin.  copies = 1 renders the single part at the origin.
 
+   A wrench handle sticks out of one long edge, level with the plumb hole in Y.
+   It is a block with a blind hexagonal socket running along X, so the long arm
+   of a hex key slides in and becomes a lever: the camera can be aimed from
+   outside the frame, and the extra length makes small moves easier.  The
+   socket is printed with a vertex up, so every face is 30 deg off vertical and
+   it needs no support or bridging.
+
    Geometry: plate bottom on Z0, long axis along +Y, tripod end at Y0.
 
    REV 1:
      - move plumb bob hole to align with lens
-     -
+   REV 1.1:
+     - wrench handle on the +X edge, on the plumb hole's Y (replaces the
+       boss-copy mockup).  Blind hex socket for a 4 mm key, 16 mm deep,
+       0.35 mm clearance across flats, lead-in chamfer at the mouth, and a
+       ramp gusset onto the plate top.
+     - build-plate grid spacing accounts for the handle's reach
    --------------------------------------------------------------------------- */
 
 /* [Revision] */
 // Lies flat in the XY plane on the +Z face, reading along the Y axis (bottom to
 // top in plan view).  On the underside it is mirrored so it reads the right way
 // round with the part turned over.  revision = "" leaves the part unmarked.
-revision      = "RV1.0";
+revision      = "RV1.1";
 rev_face      = "top";   // [top, bottom]
 rev_size      = 4;       // cap height, mm - across X, since the text runs along Y  [2:0.5:12]
 rev_depth     = 1.2;     // how deep it is cut in, mm  [0.4:0.1:2.5]
@@ -111,8 +123,23 @@ cable_slot_l  = 9;       // along Y
 cable_slot_r  = 2;       // corner rounding
 cable_slot_gap = 7.5;    // flat left between the slot and the nearest post's base chamfer
 
+/* [Wrench handle] */
+handle_side   = "+X";    // which long edge it sticks out of, or none  [+X, -X, none]
+hex_af        = 4;       // hex key size, across flats, mm  [1.5:0.5:10]
+// Added to hex_af for the socket.  FDM holes print a little small; 0.35 slides
+// on and off a 4 mm key without a fight and without much rattle.  Raise it if
+// the key sticks, drop it if the camera wanders when you let go.
+hex_clear     = 0.35;    // [0:0.05:1]
+hex_depth     = 16;      // how far the key goes in (at least 15), mm  [8:0.5:40]
+hex_lead      = 0.6;     // 45-deg lead-in at the socket mouth, 0 to disable  [0:0.1:1.5]
+handle_wall   = 2.4;     // minimum material around the socket, mm  [1.2:0.2:5]
+handle_w_min  = 10;      // floor on the block width in Y; handle_wall widens it past this
+handle_back   = 2;       // solid between the socket bottom and the plate edge, mm  [0:0.5:10]
+handle_ramp   = 5;       // gusset from the block top down onto the plate top, inboard, mm  [0:0.5:7]
+handle_r      = 1;       // plan-view rounding on the block's outer corners  [0:0.1:3]
+
 /* [Build Plate] */
-copies        = 1;       // how many mounts to lay out  [1:200]
+copies      = 1;       // how many mounts to lay out  [1:200]
 plate_gap     = 5;       // clear space between neighbours, mm
 plate_cols    = 0;       // columns across X; 0 = auto (near-square grid)
 
@@ -124,8 +151,22 @@ $fn = $preview ? 32 : 96;
 eps = 0.01;
 
 /* [Hidden] */
-// build-plate grid: the part spans X -plate_w/2..+plate_w/2 and Y 0..plate_len
-part_dx   = plate_w;
+// wrench handle.  The socket is a hexagon with a vertex straight up and down, so
+// it is taller (across corners) than it is wide (across flats).
+hex_w        = hex_af + hex_clear;                 // socket across flats, in Y
+hex_rc       = hex_w / 2 / cos(30);                // socket circumradius, in Z
+handle_sgn   = handle_side == "-X" ? -1 : 1;
+handle_on    = handle_side != "none";
+handle_reach = hex_depth + handle_back;            // how far it stands off the plate edge
+handle_h     = 2 * (handle_wall + hex_rc);
+handle_w     = max(handle_w_min, hex_w + 2 * handle_wall);
+hex_z        = handle_h / 2;                       // socket axis height
+
+// build-plate grid: the part spans X part_x0..part_x1 (the plate, plus the
+// handle on whichever side it is) and Y 0..plate_len
+part_x0   = -plate_w / 2 - (handle_on && handle_sgn < 0 ? handle_reach : 0);
+part_x1   =  plate_w / 2 + (handle_on && handle_sgn > 0 ? handle_reach : 0);
+part_dx   = part_x1 - part_x0;
 part_dy   = plate_len;
 grid_cols = plate_cols > 0 ? plate_cols : ceil(sqrt(copies));
 grid_rows = ceil(copies / grid_cols);
@@ -166,6 +207,11 @@ post_clear = min([ for (x = [-1, 1], y = [-1, 1])
                    sqrt(pow(lens_off_x - x * hole_dx / 2, 2) +
                         pow(lens_off_y - y * hole_dy / 2, 2)) ])
              - plumb_r - post_skirt;
+// the handle sits on the optical axis's Y; its ramp is the only part inboard of
+// the plate edge, so that is what has to clear the posts and the PCB
+handle_y      = lens_cy;
+handle_ramp_x = plate_w / 2 - handle_ramp;         // inboard end of the ramp, |X|
+handle_post_clear = handle_ramp_x - (hole_dx / 2 + post_od / 2 + post_cham);
 
 // revision text band.  On the top face the clear strip runs from the far side of
 // the cable slot up to whichever comes first, the plumb hole or the near posts;
@@ -237,6 +283,25 @@ if (plumb_hole) {
         echo("WARNING: the plumb hole runs into the cable slot");
     if (abs(lens_cx) + plumb_r > plate_w / 2 || lens_cy + plumb_r > plate_len)
         echo("WARNING: the plumb hole runs off the edge of the plate");
+}
+if (handle_on) {
+    echo(str("handle        : ", handle_side, " edge at Y=", handle_y, ", sticks out ",
+             handle_reach, ", ", handle_w, " wide x ", handle_h, " tall"));
+    echo(str("hex socket    : ", hex_w, " across flats (", hex_af, " key + ", hex_clear,
+             "), ", 2 * hex_rc, " across corners, ", hex_depth, " deep, axis at Z=", hex_z));
+    echo(str("wall  handle      : ", (handle_w - hex_w) / 2, " sides, ", handle_wall,
+             " top/bottom, ", handle_back, " behind   <- handle_wall, handle_back"));
+    echo(str("handle ramp   : to |X|=", handle_ramp_x, ", clear of the posts by ",
+             handle_post_clear, " mm"));
+    if (hex_depth < 15)
+        echo("WARNING: less than 15 mm of the key goes into the handle socket");
+    if (handle_post_clear < 0)
+        echo("WARNING: the handle ramp runs into a mounting post - shorten handle_ramp");
+    if (handle_ramp_x < pcb_x / 2)
+        echo("WARNING: the handle ramp reaches under the PCB footprint - shorten handle_ramp");
+    if (handle_h > plate_t + post_h)
+        echo(str("note          : the handle top (Z", handle_h, ") is above the PCB underside (Z",
+                 plate_t + post_h, "); it stays outside the board in X, so no clash"));
 }
 if (revision != "") {
     echo(str("revision      : \"", revision, "\"  ", rev_size, " mm cap, ", rev_len,
@@ -328,6 +393,41 @@ module boss() {
     }
 }
 
+module handle_plan() {
+    // plan view in the handle's own frame: X runs outward from the plate edge
+    // (X0), Y centred.  Outer corners rounded; the inner end runs eps into the
+    // plate so the two fuse.
+    r = min(handle_r, handle_w / 2 - eps);
+    hull() {
+        translate([-eps, -handle_w / 2]) square([eps, handle_w]);
+        if (r > 0) {
+            translate([handle_reach - r, -handle_w / 2 + r]) circle(r);
+            translate([handle_reach - r,  handle_w / 2 - r]) circle(r);
+        } else
+            translate([handle_reach - eps, -handle_w / 2]) square([eps, handle_w]);
+    }
+}
+
+module handle_frame() {
+    // handle frame -> plate frame: origin on the chosen long edge at handle_y,
+    // X pointing away from the plate
+    translate([handle_sgn * plate_w / 2, handle_y, 0])
+        mirror([handle_sgn < 0 ? 1 : 0, 0, 0]) children();
+}
+
+module handle() {
+    handle_frame() {
+        linear_extrude(handle_h) handle_plan();
+        // gusset down onto the plate top: ~44 deg on the defaults, and it slopes
+        // up out of the bed, so it prints unsupported
+        if (handle_ramp > 0)
+            hull() {
+                translate([0, -handle_w / 2, 0]) cube([eps, handle_w, handle_h]);
+                translate([-handle_ramp, -handle_w / 2, 0]) cube([eps, handle_w, plate_t]);
+            }
+    }
+}
+
 module post() {
     translate([0, 0, plate_t]) {
         cylinder(d = post_od, h = post_h);
@@ -390,6 +490,18 @@ module plumb_bore() {
     }
 }
 
+module hex_socket() {
+    // blind hex along X, entering from the handle's outer face.  $fn = 6 with
+    // the rotate puts a vertex straight up and one straight down.
+    handle_frame()
+        translate([handle_reach + eps, 0, hex_z]) rotate([0, -90, 0]) {
+            cylinder(r = hex_rc, h = hex_depth + eps, $fn = 6);
+            if (hex_lead > 0)
+                cylinder(r1 = hex_rc + hex_lead / cos(30), r2 = hex_rc,
+                         h = hex_lead + eps, $fn = 6);
+        }
+}
+
 module insert_bore() {
     if (tripod_axis == "edge") {
         translate([0, -eps, bore_z]) {
@@ -417,10 +529,12 @@ module mount() {
             base_plate();
             boss();
             posts();
+            if (handle_on) handle();
         }
         pilot_holes();
         cable_slot();
         insert_bore();
+        if (handle_on) hex_socket();
         if (plumb_hole) plumb_bore();
         if (revision != "") rev_mark();
     }
@@ -447,7 +561,7 @@ module one() {
 
 module plate(n) {
     // grid is centred on the origin; index 0 is the -X/-Y corner
-    x0 = -(grid_cols * pitch_x - plate_gap) / 2 + part_dx / 2;
+    x0 = -(grid_cols * pitch_x - plate_gap) / 2 - part_x0;
     y0 = -(grid_rows * pitch_y - plate_gap) / 2;
     for (i = [0 : n - 1])
         translate([x0 + (i % grid_cols)      * pitch_x,
