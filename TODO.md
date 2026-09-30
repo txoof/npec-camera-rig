@@ -558,6 +558,18 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — known issues, not yet fixed
 
+- [ ] **Locked focus is lost on every server restart (Aaron, 2026-09-30).** After a restart the
+      lens returns to its default position, the picture is out of focus, and tag detection finds
+      nothing: every validation round then fails with "found 0 calibration sheets, expected 12".
+      Fix: save the locked lens position (settings, like the other persisted controls) and
+      restore it, locked, when the camera starts. Until then, re-lock focus at the calibration's
+      lens position after every restart.
+- [ ] **Validation round should check focus before sheets (Aaron, 2026-09-30).** A round with
+      the wrong focus usually also finds 0 sheets, and the sheet-placement check runs first and
+      stops there, so the message blames the sheets and never mentions focus. Fix: in
+      `capture_validation_round` (app.py), check focus lock and lens position against the
+      calibration first and report that reason even when no sheets are found.
+
 - [ ] **`/code-review --level high` findings, 2026-09-28, m2-wizard-order-and-focus-gate PR -- 5
       fixed same session (table-dims persisted before the readiness gate check, a stale
       in-flight level.jpg request could overwrite a just-toggled Corner check mode, the delta
