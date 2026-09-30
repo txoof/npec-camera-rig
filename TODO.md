@@ -569,6 +569,12 @@ The heart of the project. Do not start before M1 slice 5.
       stops there, so the message blames the sheets and never mentions focus. Fix: in
       `capture_validation_round` (app.py), check focus lock and lens position against the
       calibration first and report that reason even when no sheets are found.
+- [ ] **Focus lock wording and a visible status (Aaron, 2026-09-30).** Buttons read "Lock
+      focus" and "Unlock focus". Next to them, a status line always shows the current state:
+      "Focus status: UNLOCKED" or "Focus status: Locked 6.38" (the locked lens position). Found
+      when a restart left focus locked at 6.50 while the calibration was taken at 6.18, and
+      nothing on screen made the difference visible. Consider showing the active calibration's
+      lens position next to it so a mismatch is obvious.
 
 - [ ] **`/code-review --level high` findings, 2026-09-28, m2-wizard-order-and-focus-gate PR -- 5
       fixed same session (table-dims persisted before the readiness gate check, a stale
