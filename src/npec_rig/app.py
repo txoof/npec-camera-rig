@@ -1714,11 +1714,13 @@ def validation_session_map(session_id: str) -> Response:
     required = validation_store.ROUNDS_REQUIRED
     inconsistent = validation_store.inconsistent_slots(session)
     if inconsistent:
-        status = f"Not consistent: {', '.join(inconsistent)}"
+        slots = "all slots" if len(inconsistent) == len(session["slots"]) else ", ".join(inconsistent)
+        status = f"Not consistent: {slots}"
     elif session["completed_at"]:
         status = f"Validated {session['completed_at'][:10]}"
     else:
-        status = f"Provisional: {len(counted)} of {required} rounds"
+        state = "Ended before completion" if session.get("ended_at") else "Provisional"
+        status = f"{state}: {len(counted)} of {required} rounds"
     caption = (
         f"{status}. Calibration {session['calibration_stem']}, {len(counted)} round(s) pooled. "
         "95% of tags within the stated band, at tray-top height."
