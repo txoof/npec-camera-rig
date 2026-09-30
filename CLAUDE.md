@@ -22,12 +22,13 @@ Worked example, from the previous attempt's own data:
 
 | Error source | Magnitude in area |
 |---|---|
-| Believing tags are the 30 mm printed on the box (they measure 29.3106 mm) | ~4.7% |
+| Believing the old rig's tags were the 30 mm printed on the box (they measured 29.3106 mm) | ~4.7% |
 | Tag corner-finding precision | ~0.15% |
 | Segmentation edge ambiguity | several % |
 
 The largest geometric error in the system was fixed with callipers. Work on the biggest error
-source, not the most interesting one.
+source, not the most interesting one. The lesson is "measure each printed sheet", not "tags are
+29.3106 mm": the current sheets measure 30.0 mm (see Facts below).
 
 ## Evidence gates
 
@@ -115,10 +116,13 @@ When using AskUserQuestion, always leave room for a free-text answer.
 
 ## Facts not to rediscover
 
-- **AprilTags measure 29.3106 mm**, not the nominal 30 mm. Measured with callipers. 36h11 family.
+- **Current 30 mm AprilTags measure 30.0 ± 0.1 mm.** Callipers, 2026-09-29: 30 mm tag X 30.10 /
+  30.11 / 29.96, Y 30.04 / 29.96 / 29.94 (mean 30.018); 50 mm tag mean 50.02; 180 mm sheet scale
+  bars 179.93 and 180.03. Callipers are not trusted beyond 0.1 mm. 36h11 family. The 29.3106 mm
+  figure in older docs and code belongs to the previous rig's printed tags and does not apply.
 - **The rig has been physically rebuilt.** Every geometry value from the old calibration is dead:
-  camera distance, table tilt, lens position, intrinsics. Re-measure them. Tag size and tray height
-  survive, because they are properties of objects and not of the setup.
+  camera distance, table tilt, lens position, intrinsics. Re-measure them. Tray height survives.
+  Tag size is a property of each printed sheet: measure every new print with callipers.
 - **`/home/pi/old/npec_OLD/npec-camera` is frozen.** Read it, do not modify, move or delete it.
   Its `metrology/` package is a clean leaf with no inbound dependencies from the camera or web
   layers. Its `sweep.py` / `characterisation.py` (~2650 lines) is the same failure under another
