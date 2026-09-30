@@ -4,15 +4,27 @@
 
 {% block head_extra %}
   <style>
-    .validation-table { border-collapse: collapse; font-size: 0.8rem; margin-top: 0.5rem; }
+    /* Laid out for a 1024x768 screen: one round (read status, press Capture round, see what
+       changed) must work without scrolling. */
+    .validation-controls { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+    .validation-controls button { font-size: 0.8rem; padding: 0.25rem 0.8rem; }
+    .validation-meta { margin: 0.35rem 0 0.3rem; font-size: 0.75rem; }
+    .validation-meta strong { font-size: 0.8rem; }
+    .validation-panes { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 0.75rem; align-items: start; }
+    .validation-panes .diagnostic-image { width: 100%; max-width: 100%; margin-top: 0; }
+    .validation-table-wrap { overflow-x: auto; }
+    .validation-table { border-collapse: collapse; font-size: 0.66rem; }
     .validation-table th, .validation-table td {
-      border: 1px solid #444; padding: 0.2rem 0.45rem; text-align: right; white-space: nowrap;
+      border: 1px solid #444; padding: 0.1rem 0.3rem; text-align: right; white-space: nowrap;
     }
+    .validation-table th { font-weight: normal; color: #aaa; }
     .validation-table th:first-child, .validation-table td:first-child { text-align: left; }
-    .validation-table th small, .validation-table td small { display: block; color: #aaa; font-weight: normal; }
     .validation-table td.pooled { font-weight: bold; }
-    .validation-table tr.disagrees td { background: rgba(230, 170, 60, 0.18); }
-    .validation-held { margin-top: 0.5rem; font-size: 0.85rem; }
+    .validation-table tr.disagrees td { background: rgba(230, 170, 60, 0.22); }
+    .validation-note { margin: 0.3rem 0 0; font-size: 0.66rem; color: #aaa; }
+    .validation-held { margin-top: 0.4rem; font-size: 0.75rem; }
+    .validation-help { font-size: 0.75rem; color: #aaa; margin: 0.25rem 0 0.5rem; }
+    .validation-help summary { cursor: pointer; }
   </style>
 {% endblock %}
 
@@ -23,38 +35,37 @@
 {% endblock %}
 
 {% block content %}
-  <h2>Validation</h2>
-  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    Checks how far a measured area can be trusted in each tray slot, and that the answer stays the
-    same when the sheets are shuffled. The calibration photo can't answer that on its own: the
-    calibration was fitted to those very tags. Each round, the sheets move to other trays and new
-    spots; the trays stay where they are. 3 counted rounds complete a validation.
-  </p>
-  <p id="validation-calibration" style="margin: 0 0 0.75rem; font-size: 0.85rem;">Loading...</p>
+  <p id="validation-calibration" style="margin: 0 0 0.4rem; font-size: 0.8rem;">Loading...</p>
 
-  <section class="calibration-section" id="validation-session" style="display: none;">
-    <p id="validation-status" style="margin: 0 0 0.5rem; font-weight: bold;"></p>
-    <img id="validation-map" class="diagnostic-image" alt="certainty map, all counted rounds pooled">
+  <div class="validation-controls">
+    <button id="validation-toggle" disabled>Start validation</button>
+    <div>
+      <button id="validation-capture" disabled>Capture round</button>
+      <span id="validation-busy" style="margin-left: 0.5rem; color: #aaa; display: none;">
+        Capturing and measuring, about 20 seconds...
+      </span>
+    </div>
+  </div>
+  <details class="validation-help">
+    <summary>How to do a round</summary>
+    Leave the trays where they are. Put each sheet on a different tray, 2 to 5 cm from where a
+    sheet lay before, flat and fully on the tray, one sheet per tray. Step out of view, then
+    press Capture round. 3 counted rounds complete a validation; more rounds only add tags. The
+    calibration photo can't answer how far an area can be trusted: the calibration was fitted to
+    those very tags. Validation measures every tag again after the sheets have moved.
+  </details>
 
-    <div id="validation-readout"></div>
-
-    <p style="margin: 0.75rem 0 0.5rem; font-size: 0.85rem;">
-      Before each round: leave the trays where they are. Put each sheet on a different tray, 2 to
-      5 cm from where a sheet lay before, flat and fully on the tray. One sheet per tray.
-    </p>
-    <button id="validation-capture">Capture round</button>
-    <span id="validation-busy" style="margin-left: 0.5rem; color: #aaa; display: none;">
-      Capturing and measuring, about 20 seconds...
-    </span>
+  <section id="validation-session" style="display: none;">
+    <p id="validation-meta" class="validation-meta"></p>
+    <div class="validation-panes">
+      <img id="validation-map" class="diagnostic-image" alt="certainty map, all counted rounds pooled">
+      <div id="validation-readout"></div>
+    </div>
     <div id="validation-held" class="validation-held"></div>
   </section>
 
-  <p style="margin: 0.75rem 0;">
-    <button id="validation-start">Start a new validation</button>
-  </p>
-
-  <h2>Validation history</h2>
-  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+  <h2 style="margin-top: 1rem;">Validation history</h2>
+  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.8rem;">
     Every validation, most recent first. Deleting one removes it from history; its photos stay in
     the gallery.
   </p>
@@ -66,7 +77,8 @@
       node.style.display = visible ? display : "none";
     };
     let currentStem = null;
-    let session = null;
+    let session = null;      // the session shown
+    let openSession = null;  // the one validation that can still take rounds, if any
     let capturing = false;
 
     function when(iso) {
@@ -74,10 +86,9 @@
     }
 
     function statusText(s) {
-      if (s.completed_at) {
-        return `Validated ${when(s.completed_at)}, ${s.rounds_counted} rounds`;
-      }
-      return `Provisional: ${s.rounds_counted} of ${s.rounds_required} rounds counted`;
+      if (s.completed_at) return `Validated ${when(s.completed_at)}, ${s.rounds_counted} rounds`;
+      const state = s.ended_at ? "Ended before completion" : "Provisional";
+      return `${state}: ${s.rounds_counted} of ${s.rounds_required} rounds counted`;
     }
 
     function rangeText(s) {
@@ -86,50 +97,45 @@
       return `, slots within ±${lo.toFixed(1)}% to ±${hi.toFixed(1)}%`;
     }
 
-    function pct(value, signed) {
-      if (value == null) return "not measured";
-      return (signed && value >= 0 ? "+" : "") + value.toFixed(1) + "%";
+    function num(value, signed) {
+      if (value == null) return "n/a";
+      return (signed && value >= 0 ? "+" : "") + value.toFixed(1);
     }
 
     function readoutHtml(s) {
       const counted = s.rounds
         .map((r, i) => ({ ...r, number: i + 1 }))
         .filter((r) => r.counted);
-      if (!counted.length) return "";
+      if (!counted.length) return '<p class="validation-note">No counted rounds yet.</p>';
       const head = counted
-        .map((r) => `<th>Round ${r.number}<small>${when(r.captured_at).slice(11)}, ${r.moved_pct}% moved</small></th>`)
+        .map((r) => `<th title="${when(r.captured_at)}, ${r.moved_pct}% of tags moved">R${r.number}</th>`)
         .join("");
       const limit = s.median_disagreement_pct;
       const rows = s.results.map((pooled) => {
         const cells = counted
           .map((r) => {
             const slot = r.slots[pooled.name];
-            if (slot.p95_abs_pct == null) return `<td>not measured<small>N = ${slot.n}</small></td>`;
-            return `<td>±${pct(slot.p95_abs_pct)}<small>median ${pct(slot.median_pct, true)}</small></td>`;
+            return `<td>${num(slot.p95_abs_pct)} / ${num(slot.median_pct, true)}</td>`;
           })
           .join("");
         const range = s.median_range_pct[pooled.name];
         const disagrees = range != null && range > limit;
-        const pooledCell = pooled.p95_abs_pct == null
-          ? `not measured<small>N = ${pooled.n}</small>`
-          : `±${pct(pooled.p95_abs_pct)}<small>N = ${pooled.n}</small>`;
-        const rangeCell = range == null ? "" : `${range.toFixed(1)} points`;
         return `<tr class="${disagrees ? "disagrees" : ""}"><td>${pooled.name}</td>${cells}` +
-          `<td class="pooled">${pooledCell}</td><td>${rangeCell}</td></tr>`;
+          `<td class="pooled">±${num(pooled.p95_abs_pct)}</td><td>${num(range)}</td></tr>`;
       });
       return `
-        <p style="margin: 0.75rem 0 0; font-size: 0.85rem;">
-          Each round column is one shuffle, with different sheets in every slot. A slot is
-          consistent when its numbers stay similar along its row. "±" is the band 95% of that
-          round's tags fall in; with about 30 tags per round it can swing by a point on its own.
-          The median shows whether the slot reads high or low. Rows are highlighted when the
-          median moved by more than ${limit} points between rounds: that slot's reading depends
-          on which sheet sat there.
-        </p>
-        <table class="validation-table">
-          <tr><th>Slot</th>${head}<th>All rounds</th><th>Median moved by</th></tr>
-          ${rows.join("")}
-        </table>`;
+        <div class="validation-table-wrap">
+          <table class="validation-table">
+            <tr><th>Slot</th>${head}<th>All</th><th>Median moved</th></tr>
+            ${rows.join("")}
+          </table>
+        </div>
+        <p class="validation-note">
+          Each round: ±% / median %. ±% is the band 95% of that round's tags fall in (with about
+          30 tags it can swing a point on its own); the median shows whether the slot reads high
+          or low. A slot is consistent when its row stays similar. Highlighted: median moved more
+          than ${limit} points between rounds.
+        </p>`;
     }
 
     function heldHtml(s) {
@@ -137,7 +143,7 @@
         .map((r, i) => ({ ...r, number: i + 1 }))
         .filter((r) => !r.counted)
         .map((r) => {
-          const override = r.overridable && s.is_current_calibration
+          const override = r.overridable && s.is_open
             ? ` <button class="validation-count" data-index="${r.number - 1}">Count it anyway</button>`
             : "";
           return `<div>Round ${r.number} (${when(r.captured_at)}) not counted: ${r.reason}${override}</div>`;
@@ -145,10 +151,25 @@
         .join("");
     }
 
+    function renderControls() {
+      const toggle = el("validation-toggle");
+      toggle.textContent = openSession ? "End validation" : "Start validation";
+      toggle.disabled = capturing || (!openSession && !currentStem);
+      const capture = el("validation-capture");
+      capture.disabled = capturing || !(session && session.is_open);
+      capture.title = session && !session.is_open
+        ? "This validation has ended or its calibration is no longer active."
+        : "";
+    }
+
     function renderSession() {
       show(el("validation-session"), !!session);
+      renderControls();
       if (!session) return;
-      el("validation-status").textContent = statusText(session) + rangeText(session);
+      const dates = [`Started ${when(session.started_at)}`];
+      if (session.ended_at) dates.push(`ended ${when(session.ended_at)}`);
+      el("validation-meta").innerHTML =
+        `<strong>${statusText(session)}${rangeText(session)}.</strong> ${dates.join(", ")}.`;
       const map = el("validation-map");
       if (session.map_url) {
         map.src = `${session.map_url}?t=${session.rounds_counted}-${session.rounds.length}`;
@@ -159,18 +180,13 @@
       }
       el("validation-readout").innerHTML = readoutHtml(session);
       el("validation-held").innerHTML = heldHtml(session);
-      const canCapture = session.is_current_calibration;
-      el("validation-capture").disabled = !canCapture || capturing;
-      el("validation-capture").title = canCapture
-        ? ""
-        : "This session's calibration is no longer active. Start a new validation.";
     }
 
     function historyCard(s) {
       const shown = session && session.id === s.id;
       const badges = [
         shown ? '<span class="calibration-history-badge">Showing above</span>' : "",
-        s.is_current_calibration ? '<span class="calibration-history-badge">Active calibration</span>' : "",
+        s.is_open ? '<span class="calibration-history-badge">Open</span>' : "",
       ].join(" ");
       const img = s.map_url
         ? `<img src="${s.map_url}?t=${s.rounds_counted}-${s.rounds.length}" alt="certainty map ${when(s.started_at)}">`
@@ -201,14 +217,16 @@
       const cal = calResp.ok ? await calResp.json() : null;
       currentStem = cal && cal.frame_stem ? cal.frame_stem : null;
       el("validation-calibration").textContent = currentStem
-        ? `Active calibration: ${currentStem}`
+        ? `Active calibration: ${currentStem}` +
+          (cal.lens_position == null ? "" : `, lens position ${cal.lens_position.toFixed(2)}`)
         : "No active calibration. Run one first (Setup / Calibration).";
-      el("validation-start").disabled = !currentStem;
       if (!listResp.ok) throw new Error(`validation list: ${listResp.statusText}`);
       const sessions = await listResp.json();
+      openSession = sessions.find((s) => s.is_open) || null;
       const wanted = selectId || (session && session.id);
       session =
         sessions.find((s) => s.id === wanted) ||
+        openSession ||
         sessions.find((s) => s.is_current_calibration) ||
         null;
       renderSession();
@@ -233,21 +251,28 @@
       return resp.json();
     }
 
-    el("validation-start").addEventListener("click", async () => {
-      el("validation-start").disabled = true;
+    el("validation-toggle").addEventListener("click", async () => {
+      el("validation-toggle").disabled = true;
+      let selectId;
       try {
-        const s = await post("/validation/sessions");
-        await refresh(s.id);
+        if (openSession) {
+          if (!confirm("End this validation? It keeps its rounds but takes no more.")) {
+            renderControls();
+            return;
+          }
+          selectId = (await post(`/validation/sessions/${openSession.id}/end`)).id;
+        } else {
+          selectId = (await post("/validation/sessions")).id;
+        }
       } catch (err) {
-        alert(`Could not start a validation: ${err.message}`);
-      } finally {
-        el("validation-start").disabled = !currentStem;
+        alert(`Could not ${openSession ? "end" : "start"} the validation: ${err.message}`);
       }
+      await refreshOrWarn(selectId);
     });
 
     el("validation-capture").addEventListener("click", async () => {
       capturing = true;
-      el("validation-capture").disabled = true;
+      renderControls();
       show(el("validation-busy"), true, "inline");
       let s = null;
       try {
@@ -267,7 +292,7 @@
       btn.disabled = true;
       try {
         const s = await post(`/validation/sessions/${session.id}/rounds/${btn.dataset.index}/count`);
-        await refresh(s.id);
+        await refreshOrWarn(s.id);
       } catch (err) {
         alert(`Could not count this round: ${err.message}`);
         btn.disabled = false;
@@ -279,7 +304,7 @@
       const del = e.target.closest(".validation-delete");
       if (view) {
         await refreshOrWarn(view.dataset.id);
-        el("validation-session").scrollIntoView({ behavior: "smooth" });
+        window.scrollTo({ top: 0, behavior: "smooth" });
       } else if (del) {
         if (!confirm("Delete this validation from history? This cannot be undone.")) return;
         del.disabled = true;
@@ -290,7 +315,7 @@
             throw new Error(body.detail || resp.statusText);
           }
           if (session && session.id === del.dataset.id) session = null;
-          await refresh();
+          await refreshOrWarn();
         } catch (err) {
           alert(`Could not delete this validation: ${err.message}`);
           del.disabled = false;

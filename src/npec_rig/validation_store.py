@@ -57,6 +57,7 @@ def new_session(calibration_stem: str, slots: list[dict], calibration_centres: l
         "calibration_stem": calibration_stem,
         "started_at": now.isoformat(),
         "completed_at": None,
+        "ended_at": None,
         "slots": slots,
         "calibration_centres": [list(c) for c in calibration_centres],
         "rounds": [],
@@ -109,6 +110,24 @@ def delete_sessions_for_calibration(calibration_stem: str) -> int:
             _session_path(session["id"]).unlink(missing_ok=True)
             removed += 1
     return removed
+
+
+def is_ended(session: dict) -> bool:
+    """Ended sessions take no more rounds. Sessions saved before ending existed have no key."""
+    return session.get("ended_at") is not None
+
+
+def end_session(session: dict) -> None:
+    if not is_ended(session):
+        session["ended_at"] = datetime.now(timezone.utc).isoformat()
+
+
+def end_open_sessions(calibration_stem: str) -> None:
+    """End every still-open session of `calibration_stem`: one validation runs at a time."""
+    for session in list_sessions():
+        if session.get("calibration_stem") == calibration_stem and not is_ended(session):
+            end_session(session)
+            save_session(session)
 
 
 def counted_rounds(session: dict) -> list[dict]:

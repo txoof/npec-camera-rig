@@ -558,6 +558,24 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — known issues, not yet fixed
 
+- [ ] **Locked focus is lost on every server restart (Aaron, 2026-09-30).** After a restart the
+      lens returns to its default position, the picture is out of focus, and tag detection finds
+      nothing: every validation round then fails with "found 0 calibration sheets, expected 12".
+      Fix: save the locked lens position (settings, like the other persisted controls) and
+      restore it, locked, when the camera starts. Until then, re-lock focus at the calibration's
+      lens position after every restart.
+- [ ] **Validation round should check focus before sheets (Aaron, 2026-09-30).** A round with
+      the wrong focus usually also finds 0 sheets, and the sheet-placement check runs first and
+      stops there, so the message blames the sheets and never mentions focus. Fix: in
+      `capture_validation_round` (app.py), check focus lock and lens position against the
+      calibration first and report that reason even when no sheets are found.
+- [ ] **Focus lock wording and a visible status (Aaron, 2026-09-30).** Buttons read "Lock
+      focus" and "Unlock focus". Next to them, a status line always shows the current state:
+      "Focus status: UNLOCKED" or "Focus status: Locked 6.38" (the locked lens position). Found
+      when a restart left focus locked at 6.50 while the calibration was taken at 6.18, and
+      nothing on screen made the difference visible. Consider showing the active calibration's
+      lens position next to it so a mismatch is obvious.
+
 - [ ] **`/code-review --level high` findings, 2026-09-28, m2-wizard-order-and-focus-gate PR -- 5
       fixed same session (table-dims persisted before the readiness gate check, a stale
       in-flight level.jpg request could overwrite a just-toggled Corner check mode, the delta
@@ -895,6 +913,19 @@ The heart of the project. Do not start before M1 slice 5.
         infrequent action. Not worth it unless promote turns out to be hot enough to matter.
 
 ### M2 — UI usability, not yet done
+
+- [~] **Validation page needs too much scrolling on the target 1024x768 monitor (Aaron,
+      2026-09-30).** Each round the operator has to scroll from the status line, past the
+      full-width map and the 12-row per-round table, down to the Capture round button, then back
+      up to read the result. Fix so that one round (read status, press Capture round, see what
+      changed) works without scrolling at 1024x768: for example a smaller map with the table
+      beside it, a more compact table, and the history list collapsed or moved below. Keep
+      controls below the image they affect (see the controls-below-images rule). Check in a real
+      browser at 1024x768 before calling it done.
+      **Built 2026-09-30, awaiting Aaron's browser check:** Start/End validation and Capture
+      round at the top, map and per-round table side by side, date above the map, help text
+      collapsed. Headless Chromium at 1024x670 (768 minus browser toolbar) shows map, table and
+      note without scrolling.
 
 - [x] **Calibration wizard step order fixed, 2026-09-28.** Focus previously ran before any tray
       or tag was in frame (`data-step="1"`, before sheet placement at `data-step="4"`). Reordered

@@ -1706,3 +1706,21 @@ def test_no_override_once_the_calibration_is_replaced(tray_scene: dict) -> None:
     client.post(f"/validation/sessions/{session['id']}/rounds")  # unmoved: held back, overridable
     client.post("/calibration/run")
     assert client.post(f"/validation/sessions/{session['id']}/rounds/0/count").status_code == 409
+
+
+def test_ending_a_validation_stops_rounds(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    assert session["is_open"] and session["ended_at"] is None
+    ended = client.post(f"/validation/sessions/{session['id']}/end").json()
+    assert not ended["is_open"] and ended["ended_at"] is not None
+    tray_scene["shift"] = (200, -150)
+    assert client.post(f"/validation/sessions/{session['id']}/rounds").status_code == 409
+
+
+def test_starting_a_validation_ends_the_open_one(tray_scene: dict) -> None:
+    client = TestClient(app)
+    first = _calibrate_and_start(client)
+    second = client.post("/validation/sessions").json()
+    assert client.get(f"/validation/sessions/{first['id']}").json()["ended_at"] is not None
+    assert client.get(f"/validation/sessions/{second['id']}").json()["is_open"]
