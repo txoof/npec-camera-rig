@@ -66,6 +66,14 @@
    this project. `tag_embed` is likewise a starting value for part overlap
    in the slicer, not a measured one.
 
+   REV 1.10: the quiet zone now clears the transition chamfer. The chamfer
+     rises off the plate's top face over Y in [-tr,0], so with the tag at
+     Y=-tag_border the flat margin on the foot side was tag_border - tr (and
+     negative when tr > tag_border: the chamfer overlapped the tag). The
+     tag plate is now `tr` deeper (pd = tag_size + 2*tag_border + tr) and the
+     tag sits `tr` further out, so every side has `tag_border` of flat
+     surface. Aaron's tuning in the same revision: `tag_border` 10 -> 6.3,
+     `bolt_dia` 4.5 -> 5.5, `ridge_w` 6.0 -> 5.1, `ridge_relief` 14 -> 22.
    REV 1.9: Aaron's tuning (2026-09-29): `tag_plate_thk` 3 -> 4 mm and
      `ridge_relief` 8 -> 14 mm (wider clearance in the ridge at the bolt).
    REV 1.8: ID label engraved (recessed) instead of embossed, matching the
@@ -141,7 +149,7 @@ include <BOSL2/std.scad> // t_slot_bolt() calls BOSL2's screw(); `use` alone
 /* [Tag] */
 tag_ids       = [450, 451, 452, 453]; // 36h11 ids, one mount each, laid out in this order -- corner/reference tags are 450-499 (PLAN.md); any of 1-499 works
 tag_size      = 50;    // 36h11 tag width, mm -- corner/reference tags (PLAN.md, IDs 450-499)
-tag_border    = 10;    // quiet-zone margin each side, mm -- informed default, not yet measured [4:1:25]
+tag_border    = 6.3;   // quiet-zone margin each side, flat surface only (measured from the chamfer's foot on the rail side), mm -- informed default, not yet measured [4:1:25]
 tag_plate_thk = 4;     // total tag-plate thickness, mm  [2:0.5:6]
 tag_raise_h   = 0.6;   // dark tag layer height above the plate's top face, mm  [0.2:0.1:2]
 tag_embed     = 0.2;   // how far the dark layer sinks into the plate so the parts overlap, mm  [0:0.05:1]
@@ -158,7 +166,7 @@ foot_thk     = 7;     // Z thickness, mm
 corner_r     = 3;     // rounding on the two free (outer) corners of the foot and tag plate, mm
 
 /* [Fasteners] */
-bolt_dia     = 4.5;   // M4 clearance hole, centred on the foot, mm
+bolt_dia     = 5.5;   // M4 clearance hole, centred on the foot, mm
 hole_cham    = 1.0;   // 45-deg relief at the bolt entry face, mm (0 = none)
 bolt_color   = "DarkSlateGray"; // color for the assembly-view bolt standins
 
@@ -166,10 +174,10 @@ lip_depth_20    = 1.8; // 20x20 T-slot lip depth -- must match t_slot_20x20.scad
 foot_thk_ref_20 = 1.5; // must match t_slot_bolt.scad's foot_thk_20
 
 /* [Ridge] */
-ridge_w        = 6.0;  // slot-mouth width, mm -- see t_slot_20x20.scad header
+ridge_w        = 5.1;  // slot-mouth width, mm -- see t_slot_20x20.scad header
 ridge_h        = 3;    // drop depth into the channel, mm
 ridge_draft    = 0.4;  // per-side taper at the tip, mm
-ridge_relief   = 14;    // relief width at the bolt, along X, mm
+ridge_relief   = 22;    // relief width at the bolt, along X, mm
 ridge_relief_r = 1.5;  // transition curve at each relief end, mm (0 = square step)
 
 /* [Transition] */
@@ -189,7 +197,7 @@ plate_gap  = 10;  // clear space between neighbouring mounts, mm -- leave room f
 plate_cols = 0;   // mounts per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.9"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
+revision  = "RV1.10"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
 rev_size  = 4;        // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;      // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -200,14 +208,16 @@ eps = 0.01;
 /* [Hidden] */
 // plate footprint: X shared by foot and tag plate, Y split at the Y=0 joint
 // (foot spans [0,foot_width], tag plate spans [-pd,0])
+tr = min(transition_r, foot_thk); // clamp: a chamfer taller than the foot has nothing to blend into
+// the chamfer covers Y in [-tr,0] of the plate's top face, so the flat face
+// (and the quiet zone measured on it) only starts at Y=-tr
 pw = tag_size + 2 * tag_border;         // plate width, X
-pd = tag_size + 2 * tag_border;         // tag plate depth, Y
-tag_cy = -(tag_border + tag_size / 2);  // tag centre, Y
+pd = tag_size + 2 * tag_border + tr;    // tag plate depth, Y
+tag_cy = -(tr + tag_border + tag_size / 2); // tag centre, Y
 bolt_x = [0];
 // revision stamp centre (+X) and ID label centre (-X): midway between the
 // bolt's chamfer edge and the foot's end
 rev_x = (pw / 2 + bolt_dia / 2 + hole_cham) / 2;
-tr = min(transition_r, foot_thk); // clamp: a chamfer taller than the foot has nothing to blend into
 
 assert(len(tag_ids) > 0, "tag_ids must list at least one id");
 assert(min(tag_ids) >= 1 && max(tag_ids) <= 499,
