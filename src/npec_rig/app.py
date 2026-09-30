@@ -1324,11 +1324,12 @@ def stem_certainty_dome_plot(stem: str) -> Response:
 # Validation captures for the certainty map. `_detect_tags_cached` keeps one full frame for the
 # calibration diagnostics; a map pools several captures, and a full 64MP frame is ~180MB, so
 # holding several would be the OOM condition that cache exists to prevent. Only each capture's
-# detections and a downscaled copy to draw on are kept.
+# detections and a downscaled copy to draw on are kept, and decoding shares that cache's lock, so
+# at most two full frames (the cached calibration frame plus one capture) are ever live at once.
 _CAPTURE_REF = re.compile(r"^\d{4}-\d{2}-\d{2}/\d{6}_\d{6}$")
 _CAPTURE_PREVIEW_WIDTH = 2000
 _MAX_CACHED_CAPTURES = 16
-_capture_detection_lock = Lock()
+_MAX_CAPTURES_PER_MAP = 12
 _cached_capture_detections: dict[str, tuple[list, np.ndarray, float]] = {}
 
 
@@ -1336,8 +1337,9 @@ def _capture_detections(ref: str) -> tuple[list, np.ndarray, float]:
     """`(detections, preview, preview_scale)` for capture `ref` ("YYYY-MM-DD/HHMMSS_ffffff")."""
     if not _CAPTURE_REF.match(ref):
         raise HTTPException(422, f"not a capture reference: {ref!r} (expected YYYY-MM-DD/HHMMSS_ffffff)")
-    with _capture_detection_lock:
+    with _frame_detection_lock:
         if ref in _cached_capture_detections:
+            _cached_capture_detections[ref] = _cached_capture_detections.pop(ref)  # most recent last
             return _cached_capture_detections[ref]
         path = captures_root() / f"{ref}.jpg"
         if not path.exists():
@@ -1350,7 +1352,7 @@ def _capture_detections(ref: str) -> tuple[list, np.ndarray, float]:
         preview = np.array(Image.fromarray(frame).resize(size, Image.Resampling.LANCZOS))
         del frame
         if len(_cached_capture_detections) >= _MAX_CACHED_CAPTURES:
-            _cached_capture_detections.pop(next(iter(_cached_capture_detections)))
+            _cached_capture_detections.pop(next(iter(_cached_capture_detections)))  # least recent
         _cached_capture_detections[ref] = (detections, preview, scale)
         return _cached_capture_detections[ref]
 
@@ -1363,6 +1365,8 @@ def _certainty_map_response(artifact: CalibrationArtifact, captures: list[str]) 
         raise HTTPException(
             422, "pass at least one validation capture: captures=YYYY-MM-DD/HHMMSS_ffffff"
         )
+    if len(captures) > _MAX_CAPTURES_PER_MAP:
+        raise HTTPException(422, f"at most {_MAX_CAPTURES_PER_MAP} validation captures per map")
     if artifact.frame_stem is None:
         raise HTTPException(409, "this calibration has no saved frame to take tray slots from")
     _frame, calibration_detections = _detect_tags_cached(artifact.frame_stem)

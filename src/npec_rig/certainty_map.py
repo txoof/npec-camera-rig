@@ -160,12 +160,27 @@ def build_slot_layout(sheets: list[Sheet], columns: int = DEFAULT_COLUMNS) -> tu
 
 
 def assign_to_slots(sheets: list[Sheet], layout: tuple[Slot, ...]) -> dict[str, list[TagError]]:
-    """Each sheet's tags, whole, under the name of the slot whose centre is nearest the sheet's."""
-    assigned: dict[str, list[TagError]] = {slot.name: [] for slot in layout}
+    """Each sheet's tags, whole, under the name of the slot whose centre is nearest the sheet's.
+
+    Refused rather than guessed: a sheet more than half the closest slot spacing from every slot
+    centre (it isn't on a tray slot), or two sheets on one slot in the same capture (one tray
+    holds one sheet). Either would silently pool a sheet's tags into the wrong slot."""
     centres = np.array([slot.centre for slot in layout])
+    spacing = np.hypot(*(centres[:, None, :] - centres[None, :, :]).transpose(2, 0, 1))
+    max_offset = np.min(spacing[spacing > 0]) / 2
+    assigned: dict[str, list[TagError]] = {slot.name: [] for slot in layout}
     for sheet in sheets:
-        nearest = int(np.argmin(np.hypot(*(centres - sheet.centre).T)))
-        assigned[layout[nearest].name].extend(sheet.tags)
+        distances = np.hypot(*(centres - sheet.centre).T)
+        nearest = int(np.argmin(distances))
+        name = layout[nearest].name
+        if distances[nearest] > max_offset:
+            x, y = sheet.centre
+            raise SlotLayoutError(
+                f"a sheet near pixel ({x:.0f}, {y:.0f}) is not on any tray slot: put it back on a tray"
+            )
+        if assigned[name]:
+            raise SlotLayoutError(f"two sheets are on slot {name}: one sheet per tray")
+        assigned[name].extend(sheet.tags)
     return assigned
 
 

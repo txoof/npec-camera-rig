@@ -111,3 +111,17 @@ def test_render_is_one_fixed_width_rgb_image() -> None:
     assert image.shape[1] == MAP_WIDTH_PX
     assert image.shape[2] == 3
     assert image.shape[0] > 694 * MAP_WIDTH_PX / 915  # caption band below the frame
+
+
+def test_a_sheet_off_every_tray_slot_is_refused() -> None:
+    # Halfway between the rows, on the table between the trays.
+    capture = tray_layout_detections() + sheet_detections(300, 800.0 + 650.0, 2250.0)
+    with pytest.raises(SlotLayoutError, match="not on any tray slot"):
+        certainty_by_slot(tray_layout_detections(), [capture], FIELD, TAG_MM)
+
+
+def test_two_sheets_on_one_slot_are_refused() -> None:
+    # A second, separate sheet on North 1's tray, clear of the first (gap > the 65 mm link).
+    extra = sheet_detections(300, 800.0 + 4 * 160.0 + 300.0, 1000.0, columns=1, rows=6)
+    with pytest.raises(SlotLayoutError, match="two sheets are on slot North 1"):
+        certainty_by_slot(tray_layout_detections(), [tray_layout_detections() + extra], FIELD, TAG_MM)

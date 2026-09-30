@@ -1557,3 +1557,14 @@ def test_certainty_map_refuses_a_calibration_without_12_tray_sheets(
     )
     assert response.status_code == 409
     assert "expected 12" in response.json()["detail"]
+
+
+def test_certainty_map_caps_the_number_of_captures(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: tray_layout_detections() + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+    refs = [f"2026-09-29/1436{i:02d}_000000" for i in range(13)]
+    response = client.get("/calibration/current/certainty-map", params={"captures": refs})
+    assert response.status_code == 422
