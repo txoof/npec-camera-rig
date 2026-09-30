@@ -6,7 +6,7 @@
   <style>
     /* Laid out for a 1024x768 screen: one round (read status, press Capture round, see what
        changed) must work without scrolling. */
-    .validation-controls { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+    .validation-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
     .validation-controls button { font-size: 0.8rem; padding: 0.25rem 0.8rem; }
     .validation-meta { margin: 0.35rem 0 0.3rem; font-size: 0.75rem; }
     .validation-meta strong { font-size: 0.8rem; }
@@ -39,12 +39,10 @@
 
   <div class="validation-controls">
     <button id="validation-toggle" disabled>Start validation</button>
-    <div>
-      <button id="validation-capture" disabled>Capture round</button>
-      <span id="validation-busy" style="margin-left: 0.5rem; color: #aaa; display: none;">
-        Capturing and measuring, about 20 seconds...
-      </span>
-    </div>
+    <button id="validation-capture" disabled>Capture round</button>
+    <span id="validation-busy" style="color: #aaa; display: none;">
+      Capturing and measuring, about 20 seconds...
+    </span>
   </div>
   <details class="validation-help">
     <summary>How to do a round</summary>
@@ -156,10 +154,8 @@
       toggle.textContent = openSession ? "End validation" : "Start validation";
       toggle.disabled = capturing || (!openSession && !currentStem);
       const capture = el("validation-capture");
-      capture.disabled = capturing || !(session && session.is_open);
-      capture.title = session && !session.is_open
-        ? "This validation has ended or its calibration is no longer active."
-        : "";
+      capture.disabled = capturing || !openSession;
+      capture.title = openSession ? "" : "Start a validation first.";
     }
 
     function renderSession() {
@@ -276,7 +272,7 @@
       show(el("validation-busy"), true, "inline");
       let s = null;
       try {
-        s = await post(`/validation/sessions/${session.id}/rounds`);
+        s = await post(`/validation/sessions/${openSession.id}/rounds`);
       } catch (err) {
         alert(`Round not captured: ${err.message}`);
       }

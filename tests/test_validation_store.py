@@ -84,3 +84,10 @@ def test_median_range_needs_two_counted_rounds() -> None:
         {"counted": False, "slot_errors": {"North 1": [9.0] * 10}, "centres": []},
     ]
     assert store.median_ranges(session)["North 1"] == pytest.approx(2.0)
+
+
+def test_a_session_saved_before_end_validation_existed_reads_as_ended() -> None:
+    session = store.new_session("a", SLOTS, [])
+    assert not store.is_ended(session)
+    legacy = {k: v for k, v in session.items() if k != "ended_at"}
+    assert store.is_ended(legacy)
