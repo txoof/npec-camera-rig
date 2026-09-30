@@ -17,7 +17,7 @@
    already supplies the background.
 
    Export with `scad_to_3mf.py` so Orca loads both as parts of one object
-   with a filament each; see that script and `3mf_test.scad`.
+   with a filament each; see that script.
 
    The bit data and the row/col-to-XY placement are `apriltag_36h11.scad`'s
    responsibility, verified there (point-containment check against
