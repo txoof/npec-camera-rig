@@ -192,7 +192,7 @@ transition_r = 7;  // chamfer radius at the foot/tag-plate step, mm -- should ma
 
 /* [Colors] */
 body_color        = "White";     // also the tag's background and quiet zone
-tag_pattern_color = "DarkGreen"; // the tag's dark modules
+tag_pattern_color = "Black"; // the tag's dark modules
 
 /* [Render Select] */
 part = "assembly"; // what to render  ["assembly","body","graphic","bolted"]
