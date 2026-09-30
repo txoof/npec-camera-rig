@@ -914,6 +914,15 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — UI usability, not yet done
 
+- [ ] **Validation page needs too much scrolling on the target 1024x768 monitor (Aaron,
+      2026-09-30).** Each round the operator has to scroll from the status line, past the
+      full-width map and the 12-row per-round table, down to the Capture round button, then back
+      up to read the result. Fix so that one round (read status, press Capture round, see what
+      changed) works without scrolling at 1024x768: for example a smaller map with the table
+      beside it, a more compact table, and the history list collapsed or moved below. Keep
+      controls below the image they affect (see the controls-below-images rule). Check in a real
+      browser at 1024x768 before calling it done.
+
 - [x] **Calibration wizard step order fixed, 2026-09-28.** Focus previously ran before any tray
       or tag was in frame (`data-step="1"`, before sheet placement at `data-step="4"`). Reordered
       to: 1 place calibration/corner sheets, 2 confirm focus, 3 check squareness, 4 confirm
