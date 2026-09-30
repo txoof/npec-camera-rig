@@ -74,6 +74,10 @@
      tag sits `tr` further out, so every side has `tag_border` of flat
      surface. Aaron's tuning in the same revision: `tag_border` 10 -> 6.3,
      `bolt_dia` 4.5 -> 5.5, `ridge_w` 6.0 -> 5.1, `ridge_relief` 14 -> 22.
+     Added `ridge_clearance` (0.15 mm per side): `ridge_w` is now the
+     measured slot mouth (5.10 mm) and the ridge root is ridge_w -
+     2*ridge_clearance = 4.8 mm, tip 4.0 mm. Previously the root equalled
+     the mouth, zero clearance.
    REV 1.9: Aaron's tuning (2026-09-29): `tag_plate_thk` 3 -> 4 mm and
      `ridge_relief` 8 -> 14 mm (wider clearance in the ridge at the bolt).
    REV 1.8: ID label engraved (recessed) instead of embossed, matching the
@@ -174,7 +178,8 @@ lip_depth_20    = 1.8; // 20x20 T-slot lip depth -- must match t_slot_20x20.scad
 foot_thk_ref_20 = 1.5; // must match t_slot_bolt.scad's foot_thk_20
 
 /* [Ridge] */
-ridge_w        = 5.1;  // slot-mouth width, mm -- see t_slot_20x20.scad header
+ridge_w        = 5.1;  // slot-mouth width, mm -- measured 5.10 on the rail; the ridge itself is ridge_w - 2*ridge_clearance
+ridge_clearance = 0.15; // gap per side between the ridge root and the slot mouth, mm -- starting value, not yet test-printed  [0:0.05:0.5]
 ridge_h        = 3;    // drop depth into the channel, mm
 ridge_draft    = 0.4;  // per-side taper at the tip, mm
 ridge_relief   = 22;    // relief width at the bolt, along X, mm
@@ -208,6 +213,7 @@ eps = 0.01;
 /* [Hidden] */
 // plate footprint: X shared by foot and tag plate, Y split at the Y=0 joint
 // (foot spans [0,foot_width], tag plate spans [-pd,0])
+rw = ridge_w - 2 * ridge_clearance; // ridge width at its root (Z=0, level with the slot mouth)
 tr = min(transition_r, foot_thk); // clamp: a chamfer taller than the foot has nothing to blend into
 // the chamfer covers Y in [-tr,0] of the plate's top face, so the flat face
 // (and the quiet zone measured on it) only starts at Y=-tr
@@ -296,10 +302,10 @@ module ridge_along_x() {
     // centred on the rail's channel (Y = foot_width/2), dropping ridge_h
     // below the foot's mating face (Z=0). Tapered per ridge_draft, same
     // trapezoidal-keel construction as l_bracket_4020.scad's ridge_along_*.
-    wt = ridge_w - 2 * ridge_draft;
+    wt = rw - 2 * ridge_draft;
     hull() {
-        translate([-pw / 2, foot_width / 2 - ridge_w / 2, -eps])
-            cube([pw, ridge_w, eps]);
+        translate([-pw / 2, foot_width / 2 - rw / 2, -eps])
+            cube([pw, rw, eps]);
         translate([-pw / 2, foot_width / 2 - wt / 2, -ridge_h])
             cube([pw, wt, eps]);
     }
