@@ -914,6 +914,12 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — UI usability, not yet done
 
+- [ ] **No contractions on any web page (Aaron, 2026-09-30).** Write "cannot", "is not", "do not"
+      in all page text, JS strings, and server messages the pages show. The validation page and
+      its messages are done; still to do (count on 2026-09-30): setup_calibration.html 35,
+      _focus_controls.html 4, setup_calibration_history_diagnostics.html 1,
+      setup_health_check.html 1, plus server messages in app.py outside validation.
+
 - [~] **Validation page needs too much scrolling on the target 1024x768 monitor (Aaron,
       2026-09-30).** Each round the operator has to scroll from the status line, past the
       full-width map and the 12-row per-round table, down to the Capture round button, then back
