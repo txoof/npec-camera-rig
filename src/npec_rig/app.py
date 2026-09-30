@@ -940,7 +940,7 @@ def delete_calibration(stem: str) -> dict:
         raise HTTPException(
             409,
             "the active calibration (current.json) could not be read -- refusing to delete "
-            "anything until that's resolved, since which calibration is active can't be "
+            "anything until that is resolved, since which calibration is active cannot be "
             "confirmed",
         )
 
@@ -951,7 +951,7 @@ def delete_calibration(stem: str) -> dict:
             raise HTTPException(
                 409,
                 f"saved calibration {stem!r} could not be read ({exc}) -- refusing to delete it "
-                "since whether it's the active calibration can't be confirmed from its content",
+                "since whether it is the active calibration cannot be confirmed from its content",
             ) from exc
     else:
         if current is not None and artifact.created_at == current.created_at:
@@ -1538,7 +1538,7 @@ def start_validation_session() -> dict:
             group_sheets(detections, artifact.scale_field, artifact.calibration_tag_size_mm)
         )
     except SlotLayoutError as exc:
-        raise HTTPException(409, f"this calibration can't be validated: {exc}") from exc
+        raise HTTPException(409, f"this calibration cannot be validated: {exc}") from exc
     with _validation_lock:
         validation_store.end_open_sessions(artifact.frame_stem)
         session = validation_store.new_session(
@@ -1672,7 +1672,7 @@ def count_validation_round(session_id: str, index: int) -> dict:
         if round_["counted"]:
             raise HTTPException(409, "this round already counts")
         if not round_["overridable"]:
-            raise HTTPException(409, f"this round can't be counted: {round_['reason']}")
+            raise HTTPException(409, f"this round cannot be counted: {round_['reason']}")
         if session["calibration_stem"] != _current_calibration_stem():
             raise HTTPException(
                 409, "this session's calibration is no longer the active one: start a new session"

@@ -914,6 +914,38 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — UI usability, not yet done
 
+- [ ] **Next slice: validation drift and suspect-sheet flags, with a fault test (planned
+      2026-09-30, replaces the old slice 3 order).** The validation page should show when a
+      slot's readings are not consistent between rounds, and name the sheet responsible.
+  - **Status:** "Validated" only when no slot's median moved more than
+        `MEDIAN_DISAGREEMENT_PCT` (1.5 points) across counted rounds; otherwise "Not
+        consistent: North 2, South 5, ..." (a status, not a block).
+  - **Suspect sheet, per round:** a sheet whose median differs from the same slot's median in
+        the other rounds by more than the threshold is named: full-frame image with a red
+        border around that slot and "the sheet on South 5 reads 7.8% small compared with other
+        rounds: check it with callipers" (Aaron: full frame, not a crop).
+  - **Fault test, in the chamber:** use a 30 mm sheet printed at the wrong scale (a 96% print
+        reads about 7.8% small in area). (1) Control: 3 normal rounds, expect no flags (the
+        2026-09-30 sessions moved at most 1.5 points). (2) Moving fault: the 96% sheet on a
+        different slot each round (North 2, South 5, North 5), expect those slots flagged and
+        the sheet named each round. (3) Stationary fault: the 96% sheet on North 2 all 3
+        rounds, expect no drift flag, only a steady -7.8% there: documents the limit that a
+        bad sheet which never moves looks like a bad slot, which is why sheets must change
+        trays every round.
+  - **Automated tests:** cases (2) and (3) with synthetic detections (`tests/helpers.py`
+        tray builders, a scaled sheet as in `test_a_small_sheet_shows_in_its_own_slot_only`).
+  - **Not usable as the fault:** the 50 mm sheets use IDs 450-499 (the corner range), which
+        the validation map ignores; swapping one in for a 30 mm sheet only gives "found 11
+        sheets". Its IDs 450-455 could also confuse the corner-tag checks. Confirm the IDs on
+        the sheet at hand before using it.
+  - Then the old slice 3: validation status on the Setup and calibration pages, the wizard's
+        push to validate, and status in the site menu once a consistent menu exists.
+- [ ] **No contractions on any web page (Aaron, 2026-09-30).** Write "cannot", "is not", "do not"
+      in all page text, JS strings, and server messages the pages show. The validation page and
+      its messages are done; still to do (count on 2026-09-30): setup_calibration.html 35,
+      _focus_controls.html 4, setup_calibration_history_diagnostics.html 1,
+      setup_health_check.html 1, plus server messages in app.py outside validation.
+
 - [~] **Validation page needs too much scrolling on the target 1024x768 monitor (Aaron,
       2026-09-30).** Each round the operator has to scroll from the status line, past the
       full-width map and the 12-row per-round table, down to the Capture round button, then back
