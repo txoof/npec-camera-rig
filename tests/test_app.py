@@ -1568,3 +1568,121 @@ def test_certainty_map_caps_the_number_of_captures(
     refs = [f"2026-09-29/1436{i:02d}_000000" for i in range(13)]
     response = client.get("/calibration/current/certainty-map", params={"captures": refs})
     assert response.status_code == 422
+
+
+# --- Validation sessions ---
+# `detect_tags` returns whatever layout the test last set: the calibration frame, then each
+# round's shuffled sheets. The synthetic camera's frames have no real tags in them.
+
+
+@pytest.fixture
+def tray_scene(monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None) -> dict:
+    scene = {"shift": (0.0, 0.0), "drop_sheets": 0}
+
+    def detect(frame):
+        tags = tray_layout_detections(shift=scene["shift"])
+        return tags[30 * scene["drop_sheets"] :] + _CORNER_TAGS
+
+    monkeypatch.setattr(app_module, "detect_tags", detect)
+    return scene
+
+
+def _calibrate_and_start(client: TestClient, lock_focus: bool = True) -> dict:
+    client.post("/calibration/run")
+    if lock_focus:
+        client.post("/focus/lock")
+    response = client.post("/validation/sessions")
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_validation_page_loads() -> None:
+    response = TestClient(app).get("/setup/validation")
+    assert response.status_code == 200
+    assert "Capture round" in response.text
+
+
+def test_validation_needs_an_active_calibration(isolated_calibration_dir: None) -> None:
+    assert TestClient(app).post("/validation/sessions").status_code == 409
+
+
+def test_three_shuffled_rounds_complete_a_validation(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    assert session["rounds_counted"] == 0 and session["map_url"] is None
+    assert client.get(f"/validation/sessions/{session['id']}/map").status_code == 409
+
+    for shift in ((200, -150), (-250, 100), (100, 230)):
+        tray_scene["shift"] = shift
+        response = client.post(f"/validation/sessions/{session['id']}/rounds")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["rounds"][-1]["counted"], body["rounds"][-1]["reason"]
+
+    assert body["rounds_counted"] == 3
+    assert body["completed_at"] is not None
+    assert [r["n"] for r in body["results"]] == [90] * 12
+    assert body["certainty_range_pct"] == pytest.approx([0.0, 0.0])
+    response = client.get(body["map_url"])
+    assert response.status_code == 200
+    assert response.content[:2] == b"\xff\xd8"
+    listed = client.get("/validation/sessions").json()
+    assert [s["id"] for s in listed] == [session["id"]]
+    assert listed[0]["is_current_calibration"]
+
+
+def test_an_unmoved_round_is_held_back_until_overridden(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    body = client.post(f"/validation/sessions/{session['id']}/rounds").json()
+    held = body["rounds"][0]
+    assert not held["counted"] and held["overridable"]
+    assert held["moved_pct"] == 0.0
+    assert "moved" in held["reason"]
+
+    body = client.post(f"/validation/sessions/{session['id']}/rounds/0/count").json()
+    assert body["rounds"][0]["counted"] and body["rounds"][0]["overridden"]
+    assert body["rounds_counted"] == 1
+    again = client.post(f"/validation/sessions/{session['id']}/rounds/0/count")
+    assert again.status_code == 409
+
+
+def test_a_round_without_focus_locked_is_held_back(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client, lock_focus=False)
+    tray_scene["shift"] = (200, -150)
+    held = client.post(f"/validation/sessions/{session['id']}/rounds").json()["rounds"][0]
+    assert not held["counted"] and held["overridable"]
+    assert "focus is not locked" in held["reason"]
+
+
+def test_a_round_missing_a_sheet_cannot_be_overridden(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    tray_scene["shift"], tray_scene["drop_sheets"] = (200, -150), 1
+    held = client.post(f"/validation/sessions/{session['id']}/rounds").json()["rounds"][0]
+    assert not held["counted"] and not held["overridable"]
+    assert "found 11 calibration sheets, expected 12" in held["reason"]
+    assert client.post(f"/validation/sessions/{session['id']}/rounds/0/count").status_code == 409
+
+
+def test_rounds_refused_once_the_calibration_is_replaced(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    client.post("/calibration/run")
+    response = client.post(f"/validation/sessions/{session['id']}/rounds")
+    assert response.status_code == 409
+    assert not client.get(f"/validation/sessions/{session['id']}").json()["is_current_calibration"]
+
+
+def test_deleting_a_session_and_its_calibration(tray_scene: dict) -> None:
+    client = TestClient(app)
+    first = _calibrate_and_start(client)
+    kept = client.post("/validation/sessions").json()
+    assert client.delete(f"/validation/sessions/{kept['id']}").status_code == 200
+    assert client.get(f"/validation/sessions/{kept['id']}").status_code == 404
+    assert client.get("/validation/sessions/not-an-id").status_code == 404
+
+    client.post("/calibration/run")  # a newer calibration becomes active
+    assert client.delete(f"/calibration/{first['calibration_stem']}").status_code == 200
+    assert client.get(f"/validation/sessions/{first['id']}").status_code == 404

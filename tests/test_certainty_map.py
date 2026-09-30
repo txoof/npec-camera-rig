@@ -7,9 +7,14 @@ from npec_rig.certainty_map import (
     MAP_WIDTH_PX,
     SlotLayoutError,
     build_slot_layout,
+    calibration_centres,
     certainty_by_slot,
     group_sheets,
+    moved_fraction,
     render_certainty_map,
+    round_errors_by_slot,
+    slot_layout_from_dict,
+    slot_layout_to_dict,
     tag_errors,
 )
 
@@ -125,3 +130,44 @@ def test_two_sheets_on_one_slot_are_refused() -> None:
     extra = sheet_detections(300, 800.0 + 4 * 160.0 + 300.0, 1000.0, columns=1, rows=6)
     with pytest.raises(SlotLayoutError, match="two sheets are on slot North 1"):
         certainty_by_slot(tray_layout_detections(), [tray_layout_detections() + extra], FIELD, TAG_MM)
+
+
+def test_an_untouched_layout_has_not_moved() -> None:
+    centres = calibration_centres(tray_layout_detections())
+    assert moved_fraction(centres, [centres], FIELD) == 0.0
+
+
+def test_a_shuffled_layout_has_moved() -> None:
+    before = calibration_centres(tray_layout_detections())
+    after = calibration_centres(tray_layout_detections(shift=(200, -150)))
+    assert moved_fraction(after, [before], FIELD) == 1.0
+
+
+def test_movement_is_judged_against_every_earlier_layout() -> None:
+    calibration = calibration_centres(tray_layout_detections())
+    round_1 = calibration_centres(tray_layout_detections(shift=(200, -150)))
+    # Moved from the calibration, but a repeat of round 1.
+    assert moved_fraction(round_1, [calibration, round_1], FIELD) == 0.0
+
+
+def test_a_round_needs_every_sheet() -> None:
+    layout = build_slot_layout(group_sheets(tray_layout_detections(), FIELD, TAG_MM))
+    with pytest.raises(SlotLayoutError, match="found 0 calibration sheets, expected 12"):
+        round_errors_by_slot([], layout, FIELD, TAG_MM)
+    errors = round_errors_by_slot(tray_layout_detections(shift=(100, 0)), layout, FIELD, TAG_MM)
+    assert sorted(errors) == sorted(s.name for s in layout)
+    assert all(len(v) == 30 for v in errors.values())
+
+
+def test_slot_layout_round_trips_through_json() -> None:
+    layout = build_slot_layout(group_sheets(tray_layout_detections(), FIELD, TAG_MM))
+    assert slot_layout_from_dict(slot_layout_to_dict(layout)) == layout
+
+
+def test_a_round_mixing_earlier_positions_has_not_moved() -> None:
+    calibration = calibration_centres(tray_layout_detections())
+    round_1 = calibration_centres(tray_layout_detections(shift=(200, -150)))
+    # Half the tags back where the calibration had them, half back where round 1 had them.
+    half = len(calibration) // 2
+    mixed = calibration[:half] + round_1[half:]
+    assert moved_fraction(mixed, [calibration, round_1], FIELD) == 0.0

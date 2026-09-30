@@ -35,6 +35,12 @@ DEFAULT_COLUMNS = 6
 # Below this many tags a slot's 95th percentile is little more than its single worst tag.
 MIN_TAGS_PER_SLOT = 10
 ROW_NAMES = ("North", "South")
+# A validation round counts only if most of its tags sit somewhere new: more than MOVED_MM from
+# every tag of the calibration frame and of each earlier counted round, for at least
+# MIN_MOVED_FRACTION of them. On 2026-09-29 a real shuffle moved 83-90% of tags; a repeat
+# capture of an untouched layout moved none (sub-mm scene shift only).
+MOVED_MM = 5.0
+MIN_MOVED_FRACTION = 0.5
 
 _FONT_PATH = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
 MAP_WIDTH_PX = 2000
@@ -185,9 +191,15 @@ def assign_to_slots(sheets: list[Sheet], layout: tuple[Slot, ...]) -> dict[str, 
 
 
 def slot_results(assigned: dict[str, list[TagError]]) -> list[SlotResult]:
+    return slot_results_from_errors({name: [t.error_pct for t in tags] for name, tags in assigned.items()})
+
+
+def slot_results_from_errors(errors_by_slot: dict[str, list[float]]) -> list[SlotResult]:
+    """`slot_results` from plain signed % errors per slot, e.g. pooled from a saved validation
+    session rather than from live detections."""
     results = []
-    for name, tags in assigned.items():
-        errs = np.array([t.error_pct for t in tags])
+    for name, values in errors_by_slot.items():
+        errs = np.array(values, dtype=float)
         if len(errs) < MIN_TAGS_PER_SLOT:
             results.append(SlotResult(name, len(errs), None, None))
         else:
@@ -217,6 +229,63 @@ def certainty_by_slot(
         for name, tags in assign_to_slots(group_sheets(detections, scale_field, tag_size_mm), layout).items():
             pooled[name].extend(tags)
     return layout, slot_results(pooled)
+
+
+def calibration_centres(detections: list[TagDetection]) -> list[tuple[float, float]]:
+    """Centres of the calibration tags in `detections` -- all a later round needs to tell whether
+    the sheets have moved since."""
+    return [d.centre for d in detections if d.tag_id in CALIBRATION_ID_RANGE]
+
+
+def moved_fraction(
+    centres: list[tuple[float, float]],
+    references: list[list[tuple[float, float]]],
+    scale_field: ScaleField,
+) -> float:
+    """Fraction of `centres` that moved more than `MOVED_MM` from every earlier position: a tag
+    counts as moved only if it is far from all tags of every reference layout (the calibration
+    frame and each earlier counted round). Judged per tag, not per reference, so a round that puts
+    some sheets back where the calibration had them and others back where round 1 had them does
+    not count as new."""
+    if not centres:
+        return 0.0
+    xy = np.array(centres, dtype=float)
+    limit = np.array([MOVED_MM * scale_field.px_per_mm(x, y) for x, y in xy])
+    moved = np.ones(len(xy), dtype=bool)
+    for reference in references:
+        if not reference:
+            continue
+        ref = np.array(reference, dtype=float)
+        nearest = np.min(np.hypot(*(xy[:, None, :] - ref[None, :, :]).transpose(2, 0, 1)), axis=1)
+        moved &= nearest > limit
+    return float(np.mean(moved))
+
+
+def round_errors_by_slot(
+    detections: list[TagDetection],
+    layout: tuple[Slot, ...],
+    scale_field: ScaleField,
+    tag_size_mm: float,
+) -> dict[str, list[float]]:
+    """One validation round's signed % errors per slot. Every slot must hold exactly one sheet:
+    a round with a sheet missing (or the camera seeing no tags at all) is refused, not pooled."""
+    sheets = group_sheets(detections, scale_field, tag_size_mm)
+    if len(sheets) != len(layout):
+        raise SlotLayoutError(
+            f"found {len(sheets)} calibration sheets, expected {len(layout)} (one per tray)"
+        )
+    return {
+        name: [t.error_pct for t in tags]
+        for name, tags in assign_to_slots(sheets, layout).items()
+    }
+
+
+def slot_layout_to_dict(layout: tuple[Slot, ...]) -> list[dict]:
+    return [{"name": s.name, "centre": list(s.centre), "box": list(s.box)} for s in layout]
+
+
+def slot_layout_from_dict(data: list[dict]) -> tuple[Slot, ...]:
+    return tuple(Slot(d["name"], tuple(d["centre"]), tuple(d["box"])) for d in data)
 
 
 def _font(size: int) -> ImageFont.ImageFont:
