@@ -113,8 +113,10 @@ def delete_sessions_for_calibration(calibration_stem: str) -> int:
 
 
 def is_ended(session: dict) -> bool:
-    """Ended sessions take no more rounds. Sessions saved before ending existed have no key."""
-    return session.get("ended_at") is not None
+    """Ended sessions take no more rounds. A session saved before End validation existed has no
+    `ended_at` key at all and counts as ended: otherwise every old session would read as open,
+    and the page would offer "End validation" on load (Aaron, 2026-09-30)."""
+    return "ended_at" not in session or session["ended_at"] is not None
 
 
 def end_session(session: dict) -> None:
