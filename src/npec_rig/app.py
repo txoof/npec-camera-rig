@@ -1,6 +1,7 @@
 import asyncio
 import itertools
 import logging
+import re
 import time
 from collections.abc import AsyncIterator, Callable
 from datetime import datetime, timezone
@@ -8,11 +9,12 @@ from pathlib import Path
 from threading import Lock
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from PIL import Image
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -59,6 +61,7 @@ from npec_rig.calibration_viz import (
     render_uncertainty_heatmap,
 )
 from npec_rig.camera import CameraBusyError, CameraManager, array_to_jpeg
+from npec_rig.certainty_map import SlotLayoutError, certainty_by_slot, render_certainty_map
 from npec_rig.captures import captures_root, list_recent_captures, save_capture
 from npec_rig.settings import load_settings, save_setting
 from npec_rig.tags import (
@@ -1316,6 +1319,85 @@ def stem_certainty_dome_plot(stem: str) -> Response:
     """`_certainty_dome_plot_response` for an arbitrary saved calibration `stem` -- see
     `stem_rank_plot`."""
     return _certainty_dome_plot_response(_load_saved_artifact(stem))
+
+
+# Validation captures for the certainty map. `_detect_tags_cached` keeps one full frame for the
+# calibration diagnostics; a map pools several captures, and a full 64MP frame is ~180MB, so
+# holding several would be the OOM condition that cache exists to prevent. Only each capture's
+# detections and a downscaled copy to draw on are kept.
+_CAPTURE_REF = re.compile(r"^\d{4}-\d{2}-\d{2}/\d{6}_\d{6}$")
+_CAPTURE_PREVIEW_WIDTH = 2000
+_MAX_CACHED_CAPTURES = 16
+_capture_detection_lock = Lock()
+_cached_capture_detections: dict[str, tuple[list, np.ndarray, float]] = {}
+
+
+def _capture_detections(ref: str) -> tuple[list, np.ndarray, float]:
+    """`(detections, preview, preview_scale)` for capture `ref` ("YYYY-MM-DD/HHMMSS_ffffff")."""
+    if not _CAPTURE_REF.match(ref):
+        raise HTTPException(422, f"not a capture reference: {ref!r} (expected YYYY-MM-DD/HHMMSS_ffffff)")
+    with _capture_detection_lock:
+        if ref in _cached_capture_detections:
+            return _cached_capture_detections[ref]
+        path = captures_root() / f"{ref}.jpg"
+        if not path.exists():
+            raise HTTPException(404, f"capture {ref} not found")
+        with Image.open(path) as image:
+            frame = np.array(image.convert("RGB"))
+        detections = detect_tags(frame)
+        scale = min(1.0, _CAPTURE_PREVIEW_WIDTH / frame.shape[1])
+        size = (round(frame.shape[1] * scale), round(frame.shape[0] * scale))
+        preview = np.array(Image.fromarray(frame).resize(size, Image.Resampling.LANCZOS))
+        del frame
+        if len(_cached_capture_detections) >= _MAX_CACHED_CAPTURES:
+            _cached_capture_detections.pop(next(iter(_cached_capture_detections)))
+        _cached_capture_detections[ref] = (detections, preview, scale)
+        return _cached_capture_detections[ref]
+
+
+def _certainty_map_response(artifact: CalibrationArtifact, captures: list[str]) -> Response:
+    """Per-tray-slot area certainty (certainty_map.py) for `artifact`, pooled over validation
+    `captures` taken after the sheets and trays were moved. Slots come from the calibration's own
+    saved frame; the map is drawn on the last capture."""
+    if not captures:
+        raise HTTPException(
+            422, "pass at least one validation capture: captures=YYYY-MM-DD/HHMMSS_ffffff"
+        )
+    if artifact.frame_stem is None:
+        raise HTTPException(409, "this calibration has no saved frame to take tray slots from")
+    _frame, calibration_detections = _detect_tags_cached(artifact.frame_stem)
+    per_capture = [_capture_detections(ref) for ref in captures]
+    try:
+        layout, results = certainty_by_slot(
+            calibration_detections,
+            [detections for detections, _preview, _scale in per_capture],
+            artifact.scale_field,
+            artifact.calibration_tag_size_mm,
+        )
+    except SlotLayoutError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    _detections, preview, scale = per_capture[-1]
+    caption = (
+        f"Calibration {artifact.frame_stem}, {len(captures)} validation capture(s) pooled. "
+        "95% of tags within the stated band, at tray-top height."
+    )
+    image = render_certainty_map(preview, layout, results, caption, frame_scale=scale)
+    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+
+
+@app.get("/calibration/current/certainty-map")
+def current_certainty_map(captures: list[str] = Query(default=[])) -> Response:
+    """`_certainty_map_response` for the live calibration."""
+    artifact = load_current_calibration()
+    if artifact is None:
+        raise HTTPException(409, "no calibration with a saved frame yet")
+    return _certainty_map_response(artifact, captures)
+
+
+@app.get("/calibration/{stem}/certainty-map")
+def stem_certainty_map(stem: str, captures: list[str] = Query(default=[])) -> Response:
+    """`_certainty_map_response` for an arbitrary saved calibration `stem`."""
+    return _certainty_map_response(_load_saved_artifact(stem), captures)
 
 
 @app.get("/calibration/orientation/level.jpg")

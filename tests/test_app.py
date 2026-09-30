@@ -2,6 +2,7 @@ import asyncio
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
@@ -16,10 +17,12 @@ from npec_rig.camera import (
     CameraBusyError,
     CameraManager,
     SyntheticBackend,
+    array_to_jpeg,
 )
+from npec_rig.captures import captures_root
 from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, ASSUMED_CORNER_TAG_SIZE_MM
 from npec_rig.tripwire import CornerBaseline
-from tests.helpers import rotate_detection, square_detection
+from tests.helpers import rotate_detection, square_detection, tray_layout_detections
 
 pytestmark = pytest.mark.unit
 
@@ -80,6 +83,7 @@ def reset_frame_detection_cache() -> None:
     # artifact (see test_rank_plot_refused_with_too_few_tags_in_the_saved_frame) must not read a
     # stale cache entry left by another test.
     app_module._cached_frame_detections = None
+    app_module._cached_capture_detections.clear()
 
 
 def test_root_redirects_to_gallery() -> None:
@@ -1471,3 +1475,85 @@ def test_stem_diagnostics_actually_load_the_requested_stems_own_frame(
     response = client.get(f"/calibration/{old_stem}/rank-plot")
     assert response.status_code == 200
     assert loaded_stems == [old_stem]
+
+
+# --- Certainty map ---
+
+
+def _write_capture(ref: str) -> None:
+    """A capture JPEG on disk at `ref` ("YYYY-MM-DD/HHMMSS_ffffff"); its content is irrelevant
+    because the tests monkeypatch `detect_tags`."""
+    path = captures_root() / f"{ref}.jpg"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(array_to_jpeg(np.zeros((120, 160, 3), dtype=np.uint8)))
+
+
+def test_certainty_map_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
+    response = TestClient(app).get(
+        "/calibration/current/certainty-map", params={"captures": "2026-09-29/143629_456239"}
+    )
+    assert response.status_code == 409
+
+
+def test_certainty_map_needs_at_least_one_capture(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: tray_layout_detections() + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+    assert client.get("/calibration/current/certainty-map").status_code == 422
+
+
+@pytest.mark.parametrize("ref", ["../../etc/passwd", "2026-09-29/143629", "143629_456239"])
+def test_certainty_map_rejects_anything_but_a_capture_reference(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None, ref: str
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: tray_layout_detections() + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+    response = client.get("/calibration/current/certainty-map", params={"captures": ref})
+    assert response.status_code == 422
+
+
+def test_certainty_map_missing_capture_is_not_found(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: tray_layout_detections() + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+    response = client.get(
+        "/calibration/current/certainty-map", params={"captures": "2000-01-01/000000_000000"}
+    )
+    assert response.status_code == 404
+
+
+def test_certainty_map_returns_a_jpeg_for_current_and_by_stem(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: tray_layout_detections() + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+    stem = client.get("/calibration/list").json()[0]["stem"]
+    refs = ["2026-09-29/143629_456239", "2026-09-29/143756_789335"]
+    for ref in refs:
+        _write_capture(ref)
+
+    for url in ("/calibration/current/certainty-map", f"/calibration/{stem}/certainty-map"):
+        response = client.get(url, params={"captures": refs})
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/jpeg"
+        assert response.content[:2] == b"\xff\xd8"
+
+
+def test_certainty_map_refuses_a_calibration_without_12_tray_sheets(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+    _write_capture("2026-09-29/143629_456239")
+    response = client.get(
+        "/calibration/current/certainty-map", params={"captures": "2026-09-29/143629_456239"}
+    )
+    assert response.status_code == 409
+    assert "expected 12" in response.json()["detail"]

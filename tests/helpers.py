@@ -40,3 +40,30 @@ def rotate_detection(detection: TagDetection, pivot: tuple[float, float], angle_
     corners = tuple(rotate_point(p, pivot, angle_deg) for p in detection.corners)
     centre = rotate_point(detection.centre, pivot, angle_deg)
     return TagDetection(tag_id=detection.tag_id, corners=corners, centre=centre)
+
+
+def sheet_detections(
+    first_id: int, x0: float, y0: float, *, side_px: float = 120.0, pitch_px: float = 160.0,
+    columns: int = 5, rows: int = 6,
+) -> list[TagDetection]:
+    """One printed calibration sheet: a `columns` x `rows` grid of square tags with consecutive
+    IDs from `first_id`, top-left tag centred at (x0, y0)."""
+    return [
+        square_detection(first_id + r * columns + c, x0 + c * pitch_px, y0 + r * pitch_px, side_px)
+        for r in range(rows)
+        for c in range(columns)
+    ]
+
+
+def tray_layout_detections(
+    *, shift: tuple[float, float] = (0.0, 0.0), side_px: float = 120.0
+) -> list[TagDetection]:
+    """12 sheets on 12 trays, 2 rows of 6 -- the tray-calibration layout. Sheets reuse the same 30
+    IDs, as real reprinted sheets do; `shift` moves every sheet, as a validation round does."""
+    dx, dy = shift
+    return [
+        d
+        for row_y in (1000.0, 3500.0)
+        for col in range(6)
+        for d in sheet_detections(300, 800.0 + col * 1300.0 + dx, row_y + dy, side_px=side_px)
+    ]
