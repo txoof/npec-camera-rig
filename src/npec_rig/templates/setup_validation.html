@@ -201,7 +201,10 @@
         del.disabled = true;
         try {
           const resp = await fetch(`/validation/sessions/${del.dataset.id}`, { method: "DELETE" });
-          if (!resp.ok) throw new Error(await resp.text());
+          if (!resp.ok) {
+            const body = await resp.json().catch(() => ({}));
+            throw new Error(body.detail || resp.statusText);
+          }
           if (session && session.id === del.dataset.id) session = null;
           await refresh();
         } catch (err) {

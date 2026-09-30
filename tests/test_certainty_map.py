@@ -162,3 +162,12 @@ def test_a_round_needs_every_sheet() -> None:
 def test_slot_layout_round_trips_through_json() -> None:
     layout = build_slot_layout(group_sheets(tray_layout_detections(), FIELD, TAG_MM))
     assert slot_layout_from_dict(slot_layout_to_dict(layout)) == layout
+
+
+def test_a_round_mixing_earlier_positions_has_not_moved() -> None:
+    calibration = calibration_centres(tray_layout_detections())
+    round_1 = calibration_centres(tray_layout_detections(shift=(200, -150)))
+    # Half the tags back where the calibration had them, half back where round 1 had them.
+    half = len(calibration) // 2
+    mixed = calibration[:half] + round_1[half:]
+    assert moved_fraction(mixed, [calibration, round_1], FIELD) == 0.0

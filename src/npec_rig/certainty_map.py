@@ -242,22 +242,23 @@ def moved_fraction(
     references: list[list[tuple[float, float]]],
     scale_field: ScaleField,
 ) -> float:
-    """Fraction of `centres` that moved more than `MOVED_MM` from every tag in a reference layout,
-    worst case over `references` (the calibration frame and each earlier counted round): a round
-    only adds information if its sheets sit somewhere new compared with all of them."""
+    """Fraction of `centres` that moved more than `MOVED_MM` from every earlier position: a tag
+    counts as moved only if it is far from all tags of every reference layout (the calibration
+    frame and each earlier counted round). Judged per tag, not per reference, so a round that puts
+    some sheets back where the calibration had them and others back where round 1 had them does
+    not count as new."""
     if not centres:
         return 0.0
     xy = np.array(centres, dtype=float)
     limit = np.array([MOVED_MM * scale_field.px_per_mm(x, y) for x, y in xy])
-    fractions = []
+    moved = np.ones(len(xy), dtype=bool)
     for reference in references:
         if not reference:
-            fractions.append(1.0)
             continue
         ref = np.array(reference, dtype=float)
         nearest = np.min(np.hypot(*(xy[:, None, :] - ref[None, :, :]).transpose(2, 0, 1)), axis=1)
-        fractions.append(float(np.mean(nearest > limit)))
-    return min(fractions, default=1.0)
+        moved &= nearest > limit
+    return float(np.mean(moved))
 
 
 def round_errors_by_slot(
