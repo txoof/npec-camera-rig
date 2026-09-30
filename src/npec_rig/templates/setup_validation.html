@@ -67,6 +67,7 @@
     };
     let currentStem = null;
     let session = null;
+    let capturing = false;
 
     function when(iso) {
       return iso ? iso.replace("T", " ").slice(0, 16) + " UTC" : "";
@@ -136,7 +137,7 @@
         .map((r, i) => ({ ...r, number: i + 1 }))
         .filter((r) => !r.counted)
         .map((r) => {
-          const override = r.overridable
+          const override = r.overridable && s.is_current_calibration
             ? ` <button class="validation-count" data-index="${r.number - 1}">Count it anyway</button>`
             : "";
           return `<div>Round ${r.number} (${when(r.captured_at)}) not counted: ${r.reason}${override}</div>`;
@@ -159,7 +160,7 @@
       el("validation-readout").innerHTML = readoutHtml(session);
       el("validation-held").innerHTML = heldHtml(session);
       const canCapture = session.is_current_calibration;
-      el("validation-capture").disabled = !canCapture;
+      el("validation-capture").disabled = !canCapture || capturing;
       el("validation-capture").title = canCapture
         ? ""
         : "This session's calibration is no longer active. Start a new validation.";
@@ -203,6 +204,7 @@
         ? `Active calibration: ${currentStem}`
         : "No active calibration. Run one first (Setup / Calibration).";
       el("validation-start").disabled = !currentStem;
+      if (!listResp.ok) throw new Error(`validation list: ${listResp.statusText}`);
       const sessions = await listResp.json();
       const wanted = selectId || (session && session.id);
       session =
@@ -211,6 +213,15 @@
         null;
       renderSession();
       el("validation-history").innerHTML = sessions.map(historyCard).join("") || "None yet.";
+    }
+
+    async function refreshOrWarn(selectId) {
+      try {
+        await refresh(selectId);
+      } catch (err) {
+        el("validation-calibration").textContent =
+          `Could not load validations (${err.message}). Reload the page to try again.`;
+      }
     }
 
     async function post(url) {
@@ -235,17 +246,18 @@
     });
 
     el("validation-capture").addEventListener("click", async () => {
+      capturing = true;
       el("validation-capture").disabled = true;
       show(el("validation-busy"), true, "inline");
+      let s = null;
       try {
-        const s = await post(`/validation/sessions/${session.id}/rounds`);
-        await refresh(s.id);
+        s = await post(`/validation/sessions/${session.id}/rounds`);
       } catch (err) {
         alert(`Round not captured: ${err.message}`);
-        el("validation-capture").disabled = false;
-      } finally {
-        show(el("validation-busy"), false);
       }
+      capturing = false;
+      show(el("validation-busy"), false);
+      await refreshOrWarn(s ? s.id : undefined);
     });
 
     el("validation-held").addEventListener("click", async (e) => {
@@ -266,7 +278,7 @@
       const view = e.target.closest(".validation-view");
       const del = e.target.closest(".validation-delete");
       if (view) {
-        await refresh(view.dataset.id);
+        await refreshOrWarn(view.dataset.id);
         el("validation-session").scrollIntoView({ behavior: "smooth" });
       } else if (del) {
         if (!confirm("Delete this validation from history? This cannot be undone.")) return;
@@ -286,6 +298,6 @@
       }
     });
 
-    refresh();
+    refreshOrWarn();
   </script>
 {% endblock %}

@@ -1698,3 +1698,11 @@ def test_a_session_reports_each_rounds_figures_and_how_far_medians_moved(tray_sc
     assert body["rounds"][0]["slots"]["North 1"]["n"] == 30
     assert body["median_range_pct"]["North 1"] == pytest.approx(0.0)
     assert body["median_disagreement_pct"] > 0
+
+
+def test_no_override_once_the_calibration_is_replaced(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    client.post(f"/validation/sessions/{session['id']}/rounds")  # unmoved: held back, overridable
+    client.post("/calibration/run")
+    assert client.post(f"/validation/sessions/{session['id']}/rounds/0/count").status_code == 409

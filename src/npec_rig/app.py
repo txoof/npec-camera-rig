@@ -1667,6 +1667,10 @@ def count_validation_round(session_id: str, index: int) -> dict:
             raise HTTPException(409, "this round already counts")
         if not round_["overridable"]:
             raise HTTPException(409, f"this round can't be counted: {round_['reason']}")
+        if session["calibration_stem"] != _current_calibration_stem():
+            raise HTTPException(
+                409, "this session's calibration is no longer the active one: start a new session"
+            )
         round_["counted"] = True
         round_["overridden"] = True
         validation_store.refresh_results(session)
