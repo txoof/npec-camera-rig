@@ -22,6 +22,13 @@
     .validation-table td.pooled { font-weight: bold; }
     .validation-table tr.disagrees td { background: rgba(230, 170, 60, 0.22); }
     .validation-problem { color: #ff6b6b; font-weight: bold; }
+    .validation-table tr td.problem, .validation-table tr th.problem {
+      background: #b3261e; color: #fff; font-weight: bold;
+    }
+    .validation-problems { margin: 0.35rem 0 0; padding: 0.3rem 0.45rem; border: 2px solid #b3261e;
+      font-size: 0.72rem; }
+    .validation-problems p { margin: 0.1rem 0; }
+    .validation-problems strong { color: #ff6b6b; }
     .validation-note { margin: 0.3rem 0 0; font-size: 0.66rem; color: #aaa; }
     .validation-held { margin-top: 0.4rem; font-size: 0.75rem; }
     .validation-help { font-size: 0.75rem; color: #aaa; margin: 0.25rem 0 0.5rem; }
@@ -116,20 +123,42 @@
       return (signed && value >= 0 ? "+" : "") + value.toFixed(1);
     }
 
+    function problemsHtml(s) {
+      if (!s.problems.length) return "";
+      const lines = s.problems.map((p) => {
+        const size = `${Math.abs(p.offset_pct).toFixed(1)}% ${p.offset_pct < 0 ? "small" : "large"}`;
+        if (p.slot == null) {
+          return `<p><strong>Problem, round ${p.round}:</strong> every slot reads about ${size} ` +
+            "compared with other rounds. Check whether the camera or the table moved.</p>";
+        }
+        return `<p><strong>Problem, round ${p.round}, ${p.slot}:</strong> the sheet or tray ` +
+          `there reads ${size} compared with other rounds. Check the sheet with callipers and ` +
+          "the tray height.</p>";
+      });
+      return `<div class="validation-problems">${lines.join("")}</div>`;
+    }
+
     function readoutHtml(s) {
       const counted = s.rounds
         .map((r, i) => ({ ...r, number: i + 1 }))
         .filter((r) => r.counted);
       if (!counted.length) return '<p class="validation-note">No counted rounds yet.</p>';
       const head = counted
-        .map((r) => `<th title="${when(r.captured_at)}, ${r.moved_pct}% of tags moved">R${r.number}</th>`)
+        .map((r) => {
+          const whole = s.problems.some((p) => p.round === r.number && p.slot == null);
+          return `<th class="${whole ? "problem" : ""}" title="${when(r.captured_at)}, ${r.moved_pct}% of tags moved">R${r.number}</th>`;
+        })
         .join("");
       const limit = s.median_disagreement_pct;
+      const problemAt = (number, name) =>
+        s.problems.some((p) => p.round === number && (p.slot === name || p.slot == null));
       const rows = s.results.map((pooled) => {
         const cells = counted
           .map((r) => {
             const slot = r.slots[pooled.name];
-            return `<td>${num(slot.p95_abs_pct)} / ${num(slot.median_pct, true)}</td>`;
+            const problem = problemAt(r.number, pooled.name);
+            return `<td class="${problem ? "problem" : ""}" ${problem ? 'title="Problem: see below"' : ""}>` +
+              `${num(slot.p95_abs_pct)} / ${num(slot.median_pct, true)}</td>`;
           })
           .join("");
         const range = s.median_range_pct[pooled.name];
@@ -144,11 +173,12 @@
             ${rows.join("")}
           </table>
         </div>
+        ${problemsHtml(s)}
         <p class="validation-note">
           Each round: ±% / median %. ±% is the band 95% of that round's tags fall in (with about
           30 tags it can swing a point on its own); the median shows whether the slot reads high
           or low. A slot is consistent when its row stays similar. Highlighted: median moved more
-          than ${limit} points between rounds.
+          than ${limit} points between rounds. Red: the round that moved it.
         </p>`;
     }
 

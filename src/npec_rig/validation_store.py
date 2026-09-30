@@ -21,6 +21,8 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
+
 from npec_rig.calibration_store import _write_json_atomically, calibration_root
 from npec_rig.certainty_map import slot_results_from_errors
 
@@ -32,6 +34,10 @@ ROUNDS_REQUIRED = 3
 # of 2026-09-30 with no known fault moved slot medians by at most 0.71, 1.48 and 1.96 points; a
 # 96%-scale sheet reads about 7.8 points small, so 2.5 separates the two (Aaron, 2026-09-30).
 MEDIAN_DISAGREEMENT_PCT = 2.5
+# A round in which at least this fraction of measured slots read off the same way, by more than
+# MEDIAN_DISAGREEMENT_PCT, is reported as the whole round shifting (camera or table moved), not as
+# one bad sheet per slot.
+WHOLE_ROUND_FRACTION = 0.5
 SESSION_VERSION = 1
 _SESSION_ID = re.compile(r"^\d{8}T\d{12}$")
 
@@ -173,6 +179,63 @@ def is_validated(session: dict) -> bool:
     """Complete and consistent. Judged from the rounds every time, not from `completed_at`: a
     later round that moves a slot's median takes the status away again. A status, not a block."""
     return session["completed_at"] is not None and not inconsistent_slots(session)
+
+
+def round_problems(session: dict) -> list[dict]:
+    """Which round made a slot inconsistent, and whether it was one sheet or the whole round.
+
+    Each slot's reference is the median of its per-round medians over all counted rounds; a round
+    whose median sits more than `MEDIAN_DISAGREEMENT_PCT` from it is a problem there. The median of
+    all rounds, not of the other rounds: with 3 rounds and one bad, the other two's midpoint would
+    sit halfway to the bad one and flag the good rounds too. Needs 3 counted rounds: with 2, both
+    sit equally far from any reference, so the odd one out cannot be told.
+
+    A round in which at least `WHOLE_ROUND_FRACTION` of measured slots are off the same way is
+    reported once as a whole-round shift (the camera or table moved), not as one sheet per slot.
+
+    What this cannot see: a bad sheet (or tray) that stays on one slot every round reads the same
+    each time, so it looks like a bad slot, not a problem. Sheets must change trays every round.
+
+    Returns dicts in round order: {"round": number as the page counts rounds (1-based, all
+    rounds), "slot": name or None for a whole-round shift, "offset_pct": signed points}.
+    """
+    counted = [(i + 1, r) for i, r in enumerate(session["rounds"]) if r["counted"]]
+    if len(counted) < 3:
+        return []
+    medians = {
+        number: {
+            name: result["median_pct"]
+            for name, result in (round_slot_results(round_) or {}).items()
+            if result["median_pct"] is not None
+        }
+        for number, round_ in counted
+    }
+    reference = {}
+    for slot in session["slots"]:
+        values = [m[slot["name"]] for m in medians.values() if slot["name"] in m]
+        if len(values) >= 3:
+            reference[slot["name"]] = float(np.median(values))
+
+    problems = []
+    for number, _round in counted:
+        offsets = {
+            name: medians[number][name] - ref
+            for name, ref in reference.items()
+            if name in medians[number]
+        }
+        off = {name: d for name, d in offsets.items() if abs(d) > MEDIAN_DISAGREEMENT_PCT}
+        signs = {d > 0 for d in off.values()}
+        if offsets and len(off) >= WHOLE_ROUND_FRACTION * len(offsets) and len(signs) == 1:
+            problems.append(
+                {"round": number, "slot": None, "offset_pct": float(np.median(list(offsets.values())))}
+            )
+            continue
+        problems += [
+            {"round": number, "slot": slot["name"], "offset_pct": off[slot["name"]]}
+            for slot in session["slots"]
+            if slot["name"] in off
+        ]
+    return problems
 
 
 def refresh_results(session: dict) -> None:

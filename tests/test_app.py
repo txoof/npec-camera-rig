@@ -1698,6 +1698,9 @@ def test_a_session_reports_each_rounds_figures_and_how_far_medians_moved(tray_sc
     assert body["rounds"][0]["slots"]["North 1"]["n"] == 30
     assert body["median_range_pct"]["North 1"] == pytest.approx(0.0)
     assert body["median_disagreement_pct"] > 0
+    assert body["inconsistent_slots"] == []
+    assert body["problems"] == []
+    assert not body["validated"]  # 2 of 3 rounds: consistent so far, not yet validated
 
 
 def test_no_override_once_the_calibration_is_replaced(tray_scene: dict) -> None:

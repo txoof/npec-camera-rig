@@ -1515,6 +1515,7 @@ def _session_summary(session: dict, current_stem: str | None) -> dict:
         "median_disagreement_pct": validation_store.MEDIAN_DISAGREEMENT_PCT,
         "inconsistent_slots": validation_store.inconsistent_slots(session),
         "validated": validation_store.is_validated(session),
+        "problems": validation_store.round_problems(session),
         "certainty_range_pct": [min(measured), max(measured)] if measured else None,
         "map_url": f"/validation/sessions/{session['id']}/map" if counted else None,
     }
