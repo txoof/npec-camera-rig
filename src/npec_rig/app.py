@@ -1499,6 +1499,8 @@ def _session_summary(session: dict, current_stem: str | None) -> dict:
         "is_current_calibration": session["calibration_stem"] == current_stem,
         "started_at": session["started_at"],
         "completed_at": session["completed_at"],
+        "ended_at": session.get("ended_at"),
+        "is_open": session["calibration_stem"] == current_stem and not validation_store.is_ended(session),
         "rounds_counted": len(counted),
         "rounds_required": validation_store.ROUNDS_REQUIRED,
         "rounds": [
@@ -1537,9 +1539,11 @@ def start_validation_session() -> dict:
         )
     except SlotLayoutError as exc:
         raise HTTPException(409, f"this calibration can't be validated: {exc}") from exc
-    session = validation_store.new_session(
-        artifact.frame_stem, slot_layout_to_dict(layout), calibration_centres(detections)
-    )
+    with _validation_lock:
+        validation_store.end_open_sessions(artifact.frame_stem)
+        session = validation_store.new_session(
+            artifact.frame_stem, slot_layout_to_dict(layout), calibration_centres(detections)
+        )
     return _session_summary(session, artifact.frame_stem)
 
 
@@ -1577,6 +1581,8 @@ def capture_validation_round(session_id: str) -> dict:
             raise HTTPException(
                 409, "this session's calibration is no longer the active one: start a new session"
             )
+        if validation_store.is_ended(session):
+            raise HTTPException(409, "this validation has ended: start a new one")
         artifact = _load_saved_artifact(session["calibration_stem"])
 
         manager = CameraManager.instance()
@@ -1671,9 +1677,22 @@ def count_validation_round(session_id: str, index: int) -> dict:
             raise HTTPException(
                 409, "this session's calibration is no longer the active one: start a new session"
             )
+        if validation_store.is_ended(session):
+            raise HTTPException(409, "this validation has ended: start a new one")
         round_["counted"] = True
         round_["overridden"] = True
         validation_store.refresh_results(session)
+        validation_store.save_session(session)
+        return _session_summary(session, _current_calibration_stem())
+
+
+@app.post("/validation/sessions/{session_id}/end")
+def end_validation_session(session_id: str) -> dict:
+    """End a validation: it keeps its rounds and results but takes no more. A validation with
+    fewer than the required rounds stays provisional."""
+    with _validation_lock:
+        session = _session_or_404(session_id)
+        validation_store.end_session(session)
         validation_store.save_session(session)
         return _session_summary(session, _current_calibration_stem())
 

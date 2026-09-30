@@ -914,7 +914,7 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — UI usability, not yet done
 
-- [ ] **Validation page needs too much scrolling on the target 1024x768 monitor (Aaron,
+- [~] **Validation page needs too much scrolling on the target 1024x768 monitor (Aaron,
       2026-09-30).** Each round the operator has to scroll from the status line, past the
       full-width map and the 12-row per-round table, down to the Capture round button, then back
       up to read the result. Fix so that one round (read status, press Capture round, see what
@@ -922,6 +922,10 @@ The heart of the project. Do not start before M1 slice 5.
       beside it, a more compact table, and the history list collapsed or moved below. Keep
       controls below the image they affect (see the controls-below-images rule). Check in a real
       browser at 1024x768 before calling it done.
+      **Built 2026-09-30, awaiting Aaron's browser check:** Start/End validation and Capture
+      round at the top, map and per-round table side by side, date above the map, help text
+      collapsed. Headless Chromium at 1024x670 (768 minus browser toolbar) shows map, table and
+      note without scrolling.
 
 - [x] **Calibration wizard step order fixed, 2026-09-28.** Focus previously ran before any tray
       or tag was in frame (`data-step="1"`, before sheet placement at `data-step="4"`). Reordered
