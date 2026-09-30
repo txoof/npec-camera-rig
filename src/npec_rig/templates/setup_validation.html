@@ -21,6 +21,7 @@
     .validation-table th:first-child, .validation-table td:first-child { text-align: left; }
     .validation-table td.pooled { font-weight: bold; }
     .validation-table tr.disagrees td { background: rgba(230, 170, 60, 0.22); }
+    .validation-problem { color: #ff6b6b; font-weight: bold; }
     .validation-note { margin: 0.3rem 0 0; font-size: 0.66rem; color: #aaa; }
     .validation-held { margin-top: 0.4rem; font-size: 0.75rem; }
     .validation-help { font-size: 0.75rem; color: #aaa; margin: 0.25rem 0 0.5rem; }
@@ -93,9 +94,15 @@
     }
 
     function statusText(s) {
-      if (s.completed_at) return `Validated ${when(s.completed_at)}, ${s.rounds_counted} rounds`;
+      const counted = `${s.rounds_counted} of ${s.rounds_required} rounds counted`;
+      if (s.inconsistent_slots.length) {
+        const slots = s.inconsistent_slots.length === s.results.length
+          ? "all slots" : s.inconsistent_slots.join(", ");
+        return `<span class="validation-problem">Not consistent: ${slots}</span>, ${counted}`;
+      }
+      if (s.validated) return `Validated ${when(s.completed_at)}, ${s.rounds_counted} rounds`;
       const state = s.ended_at ? "Ended before completion" : "Provisional";
-      return `${state}: ${s.rounds_counted} of ${s.rounds_required} rounds counted`;
+      return `${state}: ${counted}`;
     }
 
     function rangeText(s) {

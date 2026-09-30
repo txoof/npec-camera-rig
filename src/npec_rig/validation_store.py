@@ -27,10 +27,11 @@ from npec_rig.certainty_map import slot_results_from_errors
 VALIDATIONS_DIRNAME = "validations"
 ROUNDS_REQUIRED = 3
 # A slot whose median error moves by more than this across counted rounds is flagged as
-# inconsistent: its reading depends on which sheet sat there, not only on where the slot is.
-# From the first real tray validation (2026-09-30, 4 rounds): slot medians moved by 0.3 to 1.4
-# points between rounds.
-MEDIAN_DISAGREEMENT_PCT = 1.5
+# inconsistent: something changed between rounds (a mis-printed sheet, a tray at the wrong
+# height, the camera or table moving), not only where the slot is. The three real validations
+# of 2026-09-30 with no known fault moved slot medians by at most 0.71, 1.48 and 1.96 points; a
+# 96%-scale sheet reads about 7.8 points small, so 2.5 separates the two (Aaron, 2026-09-30).
+MEDIAN_DISAGREEMENT_PCT = 2.5
 SESSION_VERSION = 1
 _SESSION_ID = re.compile(r"^\d{8}T\d{12}$")
 
@@ -155,6 +156,23 @@ def median_ranges(session: dict) -> dict[str, float | None]:
             if result["median_pct"] is not None:
                 medians[name].append(result["median_pct"])
     return {name: (max(v) - min(v) if len(v) >= 2 else None) for name, v in medians.items()}
+
+
+def inconsistent_slots(session: dict) -> list[str]:
+    """Slots, in layout order, whose median moved more than `MEDIAN_DISAGREEMENT_PCT` across
+    counted rounds."""
+    ranges = median_ranges(session)
+    return [
+        slot["name"]
+        for slot in session["slots"]
+        if ranges[slot["name"]] is not None and ranges[slot["name"]] > MEDIAN_DISAGREEMENT_PCT
+    ]
+
+
+def is_validated(session: dict) -> bool:
+    """Complete and consistent. Judged from the rounds every time, not from `completed_at`: a
+    later round that moves a slot's median takes the status away again. A status, not a block."""
+    return session["completed_at"] is not None and not inconsistent_slots(session)
 
 
 def refresh_results(session: dict) -> None:

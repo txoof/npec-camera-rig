@@ -1513,6 +1513,8 @@ def _session_summary(session: dict, current_stem: str | None) -> dict:
         "results": session["results"],
         "median_range_pct": validation_store.median_ranges(session),
         "median_disagreement_pct": validation_store.MEDIAN_DISAGREEMENT_PCT,
+        "inconsistent_slots": validation_store.inconsistent_slots(session),
+        "validated": validation_store.is_validated(session),
         "certainty_range_pct": [min(measured), max(measured)] if measured else None,
         "map_url": f"/validation/sessions/{session['id']}/map" if counted else None,
     }
@@ -1710,7 +1712,10 @@ def validation_session_map(session_id: str) -> Response:
         SlotResult(r["name"], r["n"], r["p95_abs_pct"], r["median_pct"]) for r in session["results"]
     ]
     required = validation_store.ROUNDS_REQUIRED
-    if session["completed_at"]:
+    inconsistent = validation_store.inconsistent_slots(session)
+    if inconsistent:
+        status = f"Not consistent: {', '.join(inconsistent)}"
+    elif session["completed_at"]:
         status = f"Validated {session['completed_at'][:10]}"
     else:
         status = f"Provisional: {len(counted)} of {required} rounds"
