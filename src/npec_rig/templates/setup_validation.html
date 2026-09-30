@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% set nav_active = "setup" %}
+{% block title_suffix %}: Validation{% endblock %}
+
+{% block breadcrumb %}
+  <p class="breadcrumb">
+    <a href="/setup">Setup</a> / Validation
+  </p>
+{% endblock %}
+
+{% block content %}
+  <h2>Validation</h2>
+  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+    Checks how far a measured area can be trusted in each tray slot. The calibration photo can't
+    answer that on its own: the calibration was fitted to those very tags. So each round moves
+    every sheet on its tray and shuffles the trays, then measures every tag again. A round needs
+    all 12 sheets on trays and focus locked where the calibration took it.
+    3 counted rounds complete a validation; more rounds only add tags.
+  </p>
+  <p id="validation-calibration" style="margin: 0 0 0.75rem; font-size: 0.85rem;">Loading...</p>
+
+  <section class="calibration-section" id="validation-session" hidden>
+    <p id="validation-status" style="margin: 0 0 0.5rem; font-weight: bold;"></p>
+    <img id="validation-map" class="diagnostic-image" alt="certainty map" hidden>
+    <p style="margin: 0.75rem 0 0.5rem; font-size: 0.85rem;">
+      Before each round: move each sheet somewhere new on its tray, and swap trays between slots.
+      Keep one sheet per tray.
+    </p>
+    <button id="validation-capture">Capture round</button>
+    <span id="validation-busy" style="margin-left: 0.5rem; color: #aaa;" hidden>
+      Capturing and measuring, about 20 seconds...
+    </span>
+    <div id="validation-rounds" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+  </section>
+
+  <p style="margin: 0.75rem 0;">
+    <button id="validation-start">Start a new validation</button>
+  </p>
+
+  <h2>Validation history</h2>
+  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+    Every validation, most recent first. Deleting one removes it from history; its photos stay in
+    the gallery.
+  </p>
+  <div id="validation-history" class="calibration-history-list"></div>
+
+  <script>
+    const el = (id) => document.getElementById(id);
+    let currentStem = null;
+    let session = null;
+
+    function when(iso) {
+      return iso ? iso.replace("T", " ").slice(0, 16) + " UTC" : "";
+    }
+
+    function statusText(s) {
+      if (s.completed_at) {
+        return `Validated ${when(s.completed_at)}, ${s.rounds_counted} rounds`;
+      }
+      return `Provisional: ${s.rounds_counted} of ${s.rounds_required} rounds counted`;
+    }
+
+    function rangeText(s) {
+      if (!s.certainty_range_pct) return "";
+      const [lo, hi] = s.certainty_range_pct;
+      return `, slots within ±${lo.toFixed(1)}% to ±${hi.toFixed(1)}%`;
+    }
+
+    function renderSession() {
+      el("validation-session").hidden = !session;
+      if (!session) return;
+      el("validation-status").textContent = statusText(session) + rangeText(session);
+      const map = el("validation-map");
+      if (session.map_url) {
+        map.src = `${session.map_url}?t=${session.rounds_counted}-${session.rounds.length}`;
+        map.hidden = false;
+      } else {
+        map.hidden = true;
+      }
+      const canCapture = session.is_current_calibration;
+      el("validation-capture").disabled = !canCapture;
+      el("validation-capture").title = canCapture
+        ? ""
+        : "This session's calibration is no longer active. Start a new validation.";
+      const rows = session.rounds.map((r, i) => {
+        const state = r.counted
+          ? (r.overridden ? "counted (by override)" : "counted")
+          : "not counted";
+        const moved = r.moved_pct == null ? "" : `, ${r.moved_pct}% of tags moved`;
+        const reason = r.reason ? `: ${r.reason}` : "";
+        const override = !r.counted && r.overridable
+          ? ` <button class="validation-count" data-index="${i}">Count it anyway</button>`
+          : "";
+        return `<div>Round ${i + 1} (${when(r.captured_at)}): ${state}${moved}${reason}${override}</div>`;
+      });
+      el("validation-rounds").innerHTML = rows.join("") || "No rounds yet.";
+    }
+
+    function historyCard(s) {
+      const badge = s.is_current_calibration
+        ? '<span class="calibration-history-badge">Active calibration</span>'
+        : "";
+      const img = s.map_url
+        ? `<img src="${s.map_url}" alt="certainty map ${when(s.started_at)}">`
+        : `<div class="no-snapshot">no rounds</div>`;
+      return `
+        <div class="calibration-history-card">
+          ${img}
+          <div class="calibration-history-card-body">
+            <span class="calibration-history-card-date">Started ${when(s.started_at)}</span>
+            ${badge}
+            <span class="calibration-history-card-stats">
+              ${statusText(s)}${rangeText(s)}. Calibration ${s.calibration_stem}.
+            </span>
+            <span class="calibration-history-actions">
+              <button class="validation-view" data-id="${s.id}">View</button>
+              <button class="validation-delete danger" data-id="${s.id}">Delete</button>
+            </span>
+          </div>
+        </div>`;
+    }
+
+    async function refresh(selectId) {
+      const [calResp, listResp] = await Promise.all([
+        fetch("/calibration/current"),
+        fetch("/validation/sessions"),
+      ]);
+      const cal = calResp.ok ? await calResp.json() : null;
+      currentStem = cal && cal.frame_stem ? cal.frame_stem : null;
+      el("validation-calibration").textContent = currentStem
+        ? `Active calibration: ${currentStem}`
+        : "No active calibration. Run one first (Setup / Calibration).";
+      el("validation-start").disabled = !currentStem;
+      const sessions = await listResp.json();
+      el("validation-history").innerHTML = sessions.map(historyCard).join("") || "None yet.";
+      const wanted = selectId || (session && session.id);
+      session =
+        sessions.find((s) => s.id === wanted) ||
+        sessions.find((s) => s.is_current_calibration) ||
+        null;
+      renderSession();
+    }
+
+    async function post(url) {
+      const resp = await fetch(url, { method: "POST" });
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body.detail || resp.statusText);
+      }
+      return resp.json();
+    }
+
+    el("validation-start").addEventListener("click", async () => {
+      el("validation-start").disabled = true;
+      try {
+        const s = await post("/validation/sessions");
+        await refresh(s.id);
+      } catch (err) {
+        alert(`Could not start a validation: ${err.message}`);
+      } finally {
+        el("validation-start").disabled = !currentStem;
+      }
+    });
+
+    el("validation-capture").addEventListener("click", async () => {
+      el("validation-capture").disabled = true;
+      el("validation-busy").hidden = false;
+      try {
+        const s = await post(`/validation/sessions/${session.id}/rounds`);
+        await refresh(s.id);
+      } catch (err) {
+        alert(`Round not captured: ${err.message}`);
+        el("validation-capture").disabled = false;
+      } finally {
+        el("validation-busy").hidden = true;
+      }
+    });
+
+    el("validation-rounds").addEventListener("click", async (e) => {
+      const btn = e.target.closest(".validation-count");
+      if (!btn) return;
+      if (!confirm("Count this round even though it did not pass the check above?")) return;
+      btn.disabled = true;
+      try {
+        const s = await post(`/validation/sessions/${session.id}/rounds/${btn.dataset.index}/count`);
+        await refresh(s.id);
+      } catch (err) {
+        alert(`Could not count this round: ${err.message}`);
+        btn.disabled = false;
+      }
+    });
+
+    el("validation-history").addEventListener("click", async (e) => {
+      const view = e.target.closest(".validation-view");
+      const del = e.target.closest(".validation-delete");
+      if (view) {
+        await refresh(view.dataset.id);
+        el("validation-session").scrollIntoView({ behavior: "smooth" });
+      } else if (del) {
+        if (!confirm("Delete this validation from history? This cannot be undone.")) return;
+        del.disabled = true;
+        try {
+          const resp = await fetch(`/validation/sessions/${del.dataset.id}`, { method: "DELETE" });
+          if (!resp.ok) throw new Error(await resp.text());
+          if (session && session.id === del.dataset.id) session = null;
+          await refresh();
+        } catch (err) {
+          alert(`Could not delete this validation: ${err.message}`);
+          del.disabled = false;
+        }
+      }
+    });
+
+    refresh();
+  </script>
+{% endblock %}

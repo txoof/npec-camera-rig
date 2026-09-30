@@ -61,7 +61,20 @@ from npec_rig.calibration_viz import (
     render_uncertainty_heatmap,
 )
 from npec_rig.camera import CameraBusyError, CameraManager, array_to_jpeg
-from npec_rig.certainty_map import SlotLayoutError, certainty_by_slot, render_certainty_map
+from npec_rig.certainty_map import (
+    MIN_MOVED_FRACTION,
+    SlotLayoutError,
+    SlotResult,
+    build_slot_layout,
+    calibration_centres,
+    certainty_by_slot,
+    group_sheets,
+    moved_fraction,
+    render_certainty_map,
+    round_errors_by_slot,
+    slot_layout_from_dict,
+    slot_layout_to_dict,
+)
 from npec_rig.captures import captures_root, list_recent_captures, save_capture
 from npec_rig.settings import load_settings, save_setting
 from npec_rig.tags import (
@@ -71,6 +84,7 @@ from npec_rig.tags import (
     CORNER_ID_RANGE,
     detect_tags,
 )
+from npec_rig import validation_store
 from npec_rig.tripwire import (
     build_corner_baseline,
     check_tripwire,
@@ -149,6 +163,13 @@ def setup_calibration_history_diagnostics_page(stem: str, request: Request) -> R
     fetches -- no new metadata endpoint needed.
     """
     return templates.TemplateResponse(request, "setup_calibration_history_diagnostics.html")
+
+
+@app.get("/setup/validation")
+def setup_validation_page(request: Request) -> Response:
+    """Validate the active calibration: move the sheets and trays, capture a round, repeat. Runs
+    on demand, independent of the calibration wizard."""
+    return templates.TemplateResponse(request, "setup_validation.html")
 
 
 @app.get("/setup/health-check")
@@ -938,6 +959,8 @@ def delete_calibration(stem: str) -> dict:
 
     path.unlink()
     (calibration_root() / "frames" / f"{stem}.jpg").unlink(missing_ok=True)
+    # A validation session only means anything against its own calibration.
+    validation_store.delete_sessions_for_calibration(stem)
     for suffix in (
         "",
         "_area-shape",
@@ -1002,6 +1025,7 @@ def current_calibration() -> dict:
     )
     return {
         "exists": True,
+        "frame_stem": artifact.frame_stem,
         "created_at": artifact.created_at,
         "residual_std_pct": artifact.scale_field.residual_std_pct,
         "lens_position": artifact.lens_position,
@@ -1442,3 +1466,231 @@ def tripwire_check() -> dict:
         "roll_deg": result.roll_deg,
         "scale_delta_pct": result.scale_delta_pct,
     }
+
+
+# --- Validation sessions ---
+# One round at a time across the whole app: a round is a full-res capture plus a detection pass,
+# and a double-clicked Capture button must not append two rounds from one layout.
+_validation_lock = Lock()
+# Focus-lock position must match the calibration's to this many dioptres (the lens reports
+# positions to 0.01; a real refocus moves it by far more).
+_LENS_POSITION_TOLERANCE = 0.005
+
+
+def _current_calibration_stem() -> str | None:
+    artifact = load_current_calibration()
+    return artifact.frame_stem if artifact is not None else None
+
+
+def _session_or_404(session_id: str) -> dict:
+    try:
+        return validation_store.load_session(session_id)
+    except validation_store.SessionNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+def _session_summary(session: dict, current_stem: str | None) -> dict:
+    """A session for the UI: everything except the stored per-tag data."""
+    counted = validation_store.counted_rounds(session)
+    measured = [r["p95_abs_pct"] for r in session["results"] if r["p95_abs_pct"] is not None]
+    return {
+        "id": session["id"],
+        "calibration_stem": session["calibration_stem"],
+        "is_current_calibration": session["calibration_stem"] == current_stem,
+        "started_at": session["started_at"],
+        "completed_at": session["completed_at"],
+        "rounds_counted": len(counted),
+        "rounds_required": validation_store.ROUNDS_REQUIRED,
+        "rounds": [
+            {k: r[k] for k in ("capture", "captured_at", "moved_pct", "counted", "overridden", "reason", "overridable")}
+            for r in session["rounds"]
+        ],
+        "results": session["results"],
+        "certainty_range_pct": [min(measured), max(measured)] if measured else None,
+        "map_url": f"/validation/sessions/{session['id']}/map" if counted else None,
+    }
+
+
+@app.get("/validation/sessions")
+def list_validation_sessions() -> list[dict]:
+    """Every validation session, newest first."""
+    current_stem = _current_calibration_stem()
+    return [_session_summary(s, current_stem) for s in validation_store.list_sessions()]
+
+
+@app.post("/validation/sessions")
+def start_validation_session() -> dict:
+    """A new, empty session against the active calibration. Its tray slots come from the
+    calibration frame, and are refused the same way the certainty map refuses them."""
+    artifact = load_current_calibration()
+    if artifact is None or artifact.frame_stem is None:
+        raise HTTPException(409, "no active calibration with a saved frame to validate")
+    _frame, detections = _detect_tags_cached(artifact.frame_stem)
+    try:
+        layout = build_slot_layout(
+            group_sheets(detections, artifact.scale_field, artifact.calibration_tag_size_mm)
+        )
+    except SlotLayoutError as exc:
+        raise HTTPException(409, f"this calibration can't be validated: {exc}") from exc
+    session = validation_store.new_session(
+        artifact.frame_stem, slot_layout_to_dict(layout), calibration_centres(detections)
+    )
+    return _session_summary(session, artifact.frame_stem)
+
+
+@app.get("/validation/sessions/{session_id}")
+def get_validation_session(session_id: str) -> dict:
+    return _session_summary(_session_or_404(session_id), _current_calibration_stem())
+
+
+@app.delete("/validation/sessions/{session_id}")
+def delete_validation_session(session_id: str) -> dict:
+    """Remove one session from history. Its captures stay in the gallery."""
+    with _validation_lock:
+        try:
+            validation_store.delete_session(session_id)
+        except validation_store.SessionNotFoundError as exc:
+            raise HTTPException(404, str(exc)) from exc
+    return {"deleted": session_id}
+
+
+@app.post("/validation/sessions/{session_id}/rounds")
+def capture_validation_round(session_id: str) -> dict:
+    """Capture one round and decide whether it counts.
+
+    Not counted, with the reason, when: focus isn't locked at the calibration's lens position
+    (overridable), fewer than MIN_MOVED_FRACTION of tags moved since the calibration frame and
+    every earlier counted round (overridable), or the sheets can't be placed one per tray slot
+    (not overridable: the map would pool a sheet into the wrong slot). The capture is saved to
+    the gallery either way.
+    """
+    if not _validation_lock.acquire(blocking=False):
+        raise HTTPException(409, "a validation round is already being captured")
+    try:
+        session = _session_or_404(session_id)
+        if session["calibration_stem"] != _current_calibration_stem():
+            raise HTTPException(
+                409, "this session's calibration is no longer the active one: start a new session"
+            )
+        artifact = _load_saved_artifact(session["calibration_stem"])
+
+        manager = CameraManager.instance()
+        focus = manager.focus_status()
+        try:
+            array, sensor_metadata = manager.capture_full_res()
+        except CameraBusyError as exc:
+            raise HTTPException(409, f"camera busy: {exc}") from exc
+        record = save_capture(
+            array,
+            {
+                "lens_position": manager.get_lens_position(),
+                "roi": manager.get_roi(),
+                "focus": focus,
+                "sensor_metadata": sensor_metadata,
+                "validation_session": session_id,
+            },
+        )
+        del array
+        ref = f"{record['date']}/{Path(record['filename']).stem}"
+        detections, _preview, _scale = _capture_detections(ref)
+
+        round_ = {
+            "capture": ref,
+            "captured_at": record["timestamp"],
+            "moved_pct": None,
+            "counted": False,
+            "overridden": False,
+            "reason": None,
+            "overridable": False,
+            "slot_errors": None,
+            "centres": [list(c) for c in calibration_centres(detections)],
+        }
+        try:
+            round_["slot_errors"] = round_errors_by_slot(
+                detections,
+                slot_layout_from_dict(session["slots"]),
+                artifact.scale_field,
+                artifact.calibration_tag_size_mm,
+            )
+        except SlotLayoutError as exc:
+            round_["reason"] = str(exc)
+        else:
+            references = [session["calibration_centres"]] + [
+                r["centres"] for r in validation_store.counted_rounds(session)
+            ]
+            moved = moved_fraction(round_["centres"], references, artifact.scale_field)
+            round_["moved_pct"] = round(100 * moved, 1)
+            reasons = []
+            locked_at = focus.get("lens_position")
+            if not focus.get("locked"):
+                reasons.append("focus is not locked")
+            elif (
+                artifact.lens_position is not None
+                and abs(locked_at - artifact.lens_position) > _LENS_POSITION_TOLERANCE
+            ):
+                reasons.append(
+                    f"focus is locked at {locked_at:.2f}, the calibration was taken at "
+                    f"{artifact.lens_position:.2f}"
+                )
+            if moved < MIN_MOVED_FRACTION:
+                reasons.append(
+                    f"only {100 * moved:.0f}% of tags moved since the calibration or an earlier "
+                    "round: move each sheet on its tray and shuffle the trays"
+                )
+            round_["reason"] = "; ".join(reasons) or None
+            round_["overridable"] = bool(reasons)
+            round_["counted"] = not reasons
+
+        session["rounds"].append(round_)
+        validation_store.refresh_results(session)
+        validation_store.save_session(session)
+        return _session_summary(session, session["calibration_stem"])
+    finally:
+        _validation_lock.release()
+
+
+@app.post("/validation/sessions/{session_id}/rounds/{index}/count")
+def count_validation_round(session_id: str, index: int) -> dict:
+    """Count a round the checks held back, on the operator's say-so (gates need an override).
+    Only for reasons the map can still handle: focus and movement, never slot placement."""
+    with _validation_lock:
+        session = _session_or_404(session_id)
+        if not 0 <= index < len(session["rounds"]):
+            raise HTTPException(404, f"round {index} not found")
+        round_ = session["rounds"][index]
+        if round_["counted"]:
+            raise HTTPException(409, "this round already counts")
+        if not round_["overridable"]:
+            raise HTTPException(409, f"this round can't be counted: {round_['reason']}")
+        round_["counted"] = True
+        round_["overridden"] = True
+        validation_store.refresh_results(session)
+        validation_store.save_session(session)
+        return _session_summary(session, _current_calibration_stem())
+
+
+@app.get("/validation/sessions/{session_id}/map")
+def validation_session_map(session_id: str) -> Response:
+    """The session's certainty map: pooled per-slot results from the stored rounds, drawn on the
+    latest counted capture. Only that one capture is decoded."""
+    session = _session_or_404(session_id)
+    counted = validation_store.counted_rounds(session)
+    if not counted:
+        raise HTTPException(409, "no rounds count yet")
+    _detections, preview, scale = _capture_detections(counted[-1]["capture"])
+    results = [
+        SlotResult(r["name"], r["n"], r["p95_abs_pct"], r["median_pct"]) for r in session["results"]
+    ]
+    required = validation_store.ROUNDS_REQUIRED
+    if session["completed_at"]:
+        status = f"Validated {session['completed_at'][:10]}"
+    else:
+        status = f"Provisional: {len(counted)} of {required} rounds"
+    caption = (
+        f"{status}. Calibration {session['calibration_stem']}, {len(counted)} round(s) pooled. "
+        "95% of tags within the stated band, at tray-top height."
+    )
+    image = render_certainty_map(
+        preview, slot_layout_from_dict(session["slots"]), results, caption, frame_scale=scale
+    )
+    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
