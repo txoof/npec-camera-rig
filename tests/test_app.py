@@ -1686,3 +1686,23 @@ def test_deleting_a_session_and_its_calibration(tray_scene: dict) -> None:
     client.post("/calibration/run")  # a newer calibration becomes active
     assert client.delete(f"/calibration/{first['calibration_stem']}").status_code == 200
     assert client.get(f"/validation/sessions/{first['id']}").status_code == 404
+
+
+def test_a_session_reports_each_rounds_figures_and_how_far_medians_moved(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    for shift in ((200, -150), (-250, 100)):
+        tray_scene["shift"] = shift
+        body = client.post(f"/validation/sessions/{session['id']}/rounds").json()
+    assert [sorted(r["slots"]) for r in body["rounds"]] == [sorted(r["name"] for r in body["results"])] * 2
+    assert body["rounds"][0]["slots"]["North 1"]["n"] == 30
+    assert body["median_range_pct"]["North 1"] == pytest.approx(0.0)
+    assert body["median_disagreement_pct"] > 0
+
+
+def test_no_override_once_the_calibration_is_replaced(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    client.post(f"/validation/sessions/{session['id']}/rounds")  # unmoved: held back, overridable
+    client.post("/calibration/run")
+    assert client.post(f"/validation/sessions/{session['id']}/rounds/0/count").status_code == 409

@@ -26,6 +26,11 @@ from npec_rig.certainty_map import slot_results_from_errors
 
 VALIDATIONS_DIRNAME = "validations"
 ROUNDS_REQUIRED = 3
+# A slot whose median error moves by more than this across counted rounds is flagged as
+# inconsistent: its reading depends on which sheet sat there, not only on where the slot is.
+# From the first real tray validation (2026-09-30, 4 rounds): slot medians moved by 0.3 to 1.4
+# points between rounds.
+MEDIAN_DISAGREEMENT_PCT = 1.5
 SESSION_VERSION = 1
 _SESSION_ID = re.compile(r"^\d{8}T\d{12}$")
 
@@ -108,6 +113,27 @@ def delete_sessions_for_calibration(calibration_stem: str) -> int:
 
 def counted_rounds(session: dict) -> list[dict]:
     return [r for r in session["rounds"] if r["counted"]]
+
+
+def round_slot_results(round_: dict) -> dict[str, dict] | None:
+    """One round's own per-slot figures, as `refresh_results` reports the pooled ones."""
+    if round_["slot_errors"] is None:
+        return None
+    return {
+        r.name: {"n": r.n, "p95_abs_pct": r.p95_abs_pct, "median_pct": r.median_pct}
+        for r in slot_results_from_errors(round_["slot_errors"])
+    }
+
+
+def median_ranges(session: dict) -> dict[str, float | None]:
+    """How far each slot's median error moved across counted rounds (max minus min), or None
+    before two counted rounds have measured it."""
+    medians: dict[str, list[float]] = {slot["name"]: [] for slot in session["slots"]}
+    for round_ in counted_rounds(session):
+        for name, result in (round_slot_results(round_) or {}).items():
+            if result["median_pct"] is not None:
+                medians[name].append(result["median_pct"])
+    return {name: (max(v) - min(v) if len(v) >= 2 else None) for name, v in medians.items()}
 
 
 def refresh_results(session: dict) -> None:

@@ -1502,10 +1502,15 @@ def _session_summary(session: dict, current_stem: str | None) -> dict:
         "rounds_counted": len(counted),
         "rounds_required": validation_store.ROUNDS_REQUIRED,
         "rounds": [
-            {k: r[k] for k in ("capture", "captured_at", "moved_pct", "counted", "overridden", "reason", "overridable")}
+            {
+                **{k: r[k] for k in ("capture", "captured_at", "moved_pct", "counted", "overridden", "reason", "overridable")},
+                "slots": validation_store.round_slot_results(r),
+            }
             for r in session["rounds"]
         ],
         "results": session["results"],
+        "median_range_pct": validation_store.median_ranges(session),
+        "median_disagreement_pct": validation_store.MEDIAN_DISAGREEMENT_PCT,
         "certainty_range_pct": [min(measured), max(measured)] if measured else None,
         "map_url": f"/validation/sessions/{session['id']}/map" if counted else None,
     }
@@ -1662,6 +1667,10 @@ def count_validation_round(session_id: str, index: int) -> dict:
             raise HTTPException(409, "this round already counts")
         if not round_["overridable"]:
             raise HTTPException(409, f"this round can't be counted: {round_['reason']}")
+        if session["calibration_stem"] != _current_calibration_stem():
+            raise HTTPException(
+                409, "this session's calibration is no longer the active one: start a new session"
+            )
         round_["counted"] = True
         round_["overridden"] = True
         validation_store.refresh_results(session)

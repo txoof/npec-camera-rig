@@ -65,3 +65,22 @@ def test_results_pool_counted_rounds_only_and_complete_at_three() -> None:
     session["rounds"].append(_counted_round([0.5] * 10))
     store.refresh_results(session)
     assert session["completed_at"] == completed  # the date it was first completed, kept
+
+
+def test_each_round_keeps_its_own_figures() -> None:
+    round_ = _counted_round([1.0] * 5 + [-3.0] * 5)
+    result = store.round_slot_results(round_)["North 1"]
+    assert result["n"] == 10
+    assert result["median_pct"] == pytest.approx(-1.0)
+    assert store.round_slot_results({"counted": False, "slot_errors": None}) is None
+
+
+def test_median_range_needs_two_counted_rounds() -> None:
+    session = store.new_session("a", SLOTS, [])
+    session["rounds"] = [_counted_round([0.5] * 10)]
+    assert store.median_ranges(session) == {"North 1": None}
+    session["rounds"] += [
+        _counted_round([-1.5] * 10),
+        {"counted": False, "slot_errors": {"North 1": [9.0] * 10}, "centres": []},
+    ]
+    assert store.median_ranges(session)["North 1"] == pytest.approx(2.0)
