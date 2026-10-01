@@ -7,6 +7,7 @@ from __future__ import annotations
 import io
 import logging
 import os
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -34,6 +35,17 @@ SIMULATED_AUTOFOCUS_POSITION = 6.3  # synthetic backend has no real optics; matc
 # 6.199999809265137, consistently) -- it is not a claim that focus is forgiving to within this
 # much drift; 0.01 dioptres is far smaller than a real, operator-meaningful lens move.
 FOCUS_CONFIRM_POSITION_TOLERANCE = 0.01
+# Every lens move that matters for measurement (locking focus, restoring it at startup) takes one
+# path, `CameraManager.drive_lens_to`: step to LENS_APPROACH_OFFSET below the target, pause, set the
+# target, then wait until the camera reports it. Measured 2026-10-01: the size of the central low
+# reading depends on the lens position (about 1.2 points of area per 0.1) and on how the lens got
+# there, and after a full-res capture the camera reports a move up to about 45 s late. One way of
+# getting there, confirmed, keeps that error the same every time, so validation can measure it.
+LENS_APPROACH_OFFSET = 0.3
+LENS_APPROACH_PAUSE_S = 1.0
+LENS_SETTLE_TIMEOUT_S = 60.0
+LENS_POLL_INTERVAL_S = 0.25
+LENS_REPORT_TOLERANCE = 0.005
 
 # preview.mjpg and focus/roi.mjpg grab one frame per loop iteration, under _call_lock, forever
 # (see CameraBusyError). A one-shot control (autofocus, capture) is allowed to block on this
@@ -309,6 +321,12 @@ class Picamera2Backend(CameraBackend):
         }
 
     def set_control(self, name: str, value: object) -> None:
+        if name == "LensPosition":
+            # Through set_lens_position, so the position re-applied after every full-res capture
+            # is this one: the startup replay of persisted settings comes in here, and before
+            # 2026-10-01 left the remembered position at the 1.0 default.
+            self.set_lens_position(float(value))
+            return
         if name in _AE_DEPENDENT_CONTROLS and self._control_cache.get("AeEnable"):
             # Manual ExposureTime/AnalogueGain only makes sense while AE is off — writing
             # either while AE is on would silently re-arm picamera2's ExposureTimeMode/
@@ -405,6 +423,18 @@ def _default_backend() -> CameraBackend:
         return SyntheticBackend()
 
 
+class LensNotSettledError(RuntimeError):
+    """The camera did not report the lens at its target within LENS_SETTLE_TIMEOUT_S."""
+
+    def __init__(self, target: float, reported: float) -> None:
+        super().__init__(
+            f"the lens did not reach {target:.2f} within {LENS_SETTLE_TIMEOUT_S:.0f} s "
+            f"(it reports {reported:.2f})"
+        )
+        self.target = target
+        self.reported = reported
+
+
 class CameraManager:
     """Singleton owning the active camera backend. Serializes hardware access."""
 
@@ -417,6 +447,9 @@ class CameraManager:
         width, height = MAIN_SIZE
         self._roi = {"x": width // 2, "y": height // 2, "size": DEFAULT_ROI_SIZE}
         self._locked_lens_position: float | None = None
+        # The last position this app set: what the lens is driven back to when focus is locked.
+        # Not the camera's report, which can lag a move by about 45 s after a full-res capture.
+        self._commanded_lens_position: float | None = None
         self._peaking_enabled = False
         self._apply_persisted_settings()
 
@@ -440,8 +473,16 @@ class CameraManager:
         available = self._backend.available_controls()
         ordered_names = sorted(persisted, key=lambda name: name not in ("AeEnable", "AwbEnable"))
         for name in ordered_names:
-            if name in available:
+            if name in available and name != "LensPosition":
                 self._backend.set_control(name, persisted[name])
+        # The lens goes back through the one drive path, confirmed, rather than a raw write: a
+        # restored lock is only trusted once the camera reports the lens where it was locked.
+        if "LensPosition" in persisted and "LensPosition" in available:
+            try:
+                self._drive_lens(float(persisted["LensPosition"]))
+            except LensNotSettledError as exc:
+                logger.warning("Lens not restored at startup: %s", exc)
+                return
         self._restore_focus_confirmation(persisted)
 
     def _restore_focus_confirmation(self, persisted: dict) -> None:
@@ -508,9 +549,32 @@ class CameraManager:
         with self._call_lock:
             return self._backend.capture_preview_array()
 
+    def _drive_lens(self, value: float) -> float:
+        """Move the lens to `value` the one consistent way (see LENS_APPROACH_OFFSET) and wait
+        until the camera reports it there. Returns the reported position; raises
+        LensNotSettledError if it does not get there within LENS_SETTLE_TIMEOUT_S. Does not touch
+        the focus lock: callers decide what a confirmed move means."""
+        low = self._backend.available_controls().get("LensPosition", (0.0,))[0]
+        with self._call_lock:
+            self._backend.set_lens_position(max(low, value - LENS_APPROACH_OFFSET))
+        time.sleep(LENS_APPROACH_PAUSE_S)
+        with self._call_lock:
+            self._backend.set_lens_position(value)
+        self._commanded_lens_position = value
+        save_setting("LensPosition", value)
+        deadline = time.monotonic() + LENS_SETTLE_TIMEOUT_S
+        while True:
+            reported = self.get_lens_position()
+            if abs(reported - value) <= LENS_REPORT_TOLERANCE:
+                return reported
+            if time.monotonic() >= deadline:
+                raise LensNotSettledError(value, reported)
+            time.sleep(LENS_POLL_INTERVAL_S)
+
     def set_lens_position(self, value: float) -> None:
         with self._call_lock:
             self._backend.set_lens_position(value)
+        self._commanded_lens_position = value
         save_setting("LensPosition", value)
         # A manual move invalidates whatever focus was locked -- the operator has to
         # re-confirm and re-lock before calibration will trust it again. Persisted too, not
@@ -526,6 +590,7 @@ class CameraManager:
         with self._call_lock:
             success, lens_position = self._backend.autofocus()
         save_setting("LensPosition", lens_position)
+        self._commanded_lens_position = lens_position
         self._locked_lens_position = None
         save_setting("FocusConfirmed", False)
         return {"success": success, "lens_position": lens_position}
@@ -580,7 +645,14 @@ class CameraManager:
         return self.get_peaking()
 
     def lock_focus(self) -> dict:
-        lens_position = self.get_lens_position()
+        """Drive the lens to the position last set (the one consistent way, confirmed) and lock
+        it there. Raises LensNotSettledError, leaving focus unlocked, if the camera never reports
+        it there."""
+        target = self._commanded_lens_position
+        if target is None:
+            target = self.get_lens_position()
+        self._drive_lens(target)
+        lens_position = target
         self._locked_lens_position = lens_position
         # Persisted so a restart (dev reload, crash, future systemd restart-on-failure) doesn't
         # silently drop a real confirmation -- see _restore_focus_confirmation for the safety

@@ -566,18 +566,23 @@ The heart of the project. Do not start before M1 slice 5.
       `AfMode: 0` and the last set LensPosition, both are re-applied after switching back, and
       `set_lens_position` always sends manual AfMode. Verified on the rig: a capture after a
       move records the new position.
-- [ ] **After a full-res capture, the preview reports a new lens position about 45 s late
-      (measured 2026-10-01, 44.8 s; later moves 0.5 s).** Captures are not affected (the still
-      configuration commands the lens itself), but "Lock focus" records what the preview reports,
-      so a lock taken within about a minute of a capture can store the old position, and
-      validation would then compare against the wrong value. Cause not found. Until it is: after
-      moving the lens following a capture, wait about a minute before locking.
-- [ ] **Locked focus is lost on every server restart (Aaron, 2026-09-30).** After a restart the
-      lens returns to its default position, the picture is out of focus, and tag detection finds
-      nothing: every validation round then fails with "found 0 calibration sheets, expected 12".
-      Fix: save the locked lens position (settings, like the other persisted controls) and
-      restore it, locked, when the camera starts. Until then, re-lock focus at the calibration's
-      lens position after every restart.
+- [x] **One consistent lens drive, built 2026-10-01 (Aaron: drive the lens to the set distance in
+      a sane way, then manage the error).** The central low reading depends on lens position and
+      on how the lens got there (North 4 report, `~/scratch/north4-hotspot-report.md`). Locking
+      focus and the startup restore now both go through `CameraManager._drive_lens`: step to 0.3
+      below the target, pause 1 s, set the target, wait until the camera reports it (up to 60 s,
+      else "focus is not locked"). The lock records the position set, not the preview's report.
+      Verified on the rig: lock survives a restart (lens back at 6.18, locked); the first capture
+      after a restart records 6.18 (it would have been 1.0: the startup replay bypassed the
+      remembered position); a lock right after a capture waited 24 s for the camera and locked
+      at the set 6.26. The page shows "waiting for the camera to confirm" meanwhile.
+- [~] **After a full-res capture, the preview reports a new lens position about 45 s late
+      (measured 2026-10-01, 44.8 s; later moves 0.5 s).** Captures are not affected, and Lock
+      focus now waits for the camera instead of recording a stale value (above). Cause not found;
+      only the live preview and its sharpness reading lag.
+- [x] **Locked focus is lost on every server restart (Aaron, 2026-09-30).** Fixed 2026-10-01 by
+      the consistent lens drive above: the saved lens position is driven back at startup and the
+      lock restored once the camera confirms it.
 - [ ] **Validation round should check focus before sheets (Aaron, 2026-09-30).** A round with
       the wrong focus usually also finds 0 sheets, and the sheet-placement check runs first and
       stops there, so the message blames the sheets and never mentions focus. Fix: in

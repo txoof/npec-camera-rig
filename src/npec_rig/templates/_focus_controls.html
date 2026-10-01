@@ -446,7 +446,27 @@
 
     lockBtn.addEventListener("click", async () => {
       const isLocked = lockBtn.textContent === "Unconfirm";
-      await fetch(isLocked ? "/focus/unlock" : "/focus/lock", { method: "POST" });
+      if (isLocked) {
+        await fetch("/focus/unlock", { method: "POST" });
+        refreshFocusStatus();
+        return;
+      }
+      // Locking drives the lens the one consistent way and waits for the camera to report it
+      // there, which can take up to a minute after a full-resolution capture.
+      lockBtn.disabled = true;
+      lockStatus.textContent = "moving the lens and waiting for the camera to confirm (up to 60 s)";
+      try {
+        const resp = await fetch("/focus/lock", { method: "POST" });
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          lockBtn.disabled = false;
+          lockStatus.textContent = body.detail || "focus is not locked";
+          lockBtn.textContent = "Confirm focus";
+          return;
+        }
+      } finally {
+        lockBtn.disabled = false;
+      }
       refreshFocusStatus();
     });
     refreshFocusStatus();
