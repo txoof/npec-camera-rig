@@ -242,7 +242,7 @@
       const img = s.map_url
         ? `<img src="${s.map_url}?t=${s.rounds_counted}-${s.rounds.length}" alt="certainty map ${when(s.started_at)}">`
         : `<div class="no-snapshot">no rounds</div>`;
-      const view = shown ? "" : `<button class="validation-view" data-id="${s.id}">Show above</button>`;
+      const view = shown ? "" : `<button class="validation-view" data-id="${s.id}">Load validation</button>`;
       return `
         <div class="calibration-history-card ${shown ? "is-current" : ""}">
           ${img}
