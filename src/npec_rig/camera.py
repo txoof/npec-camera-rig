@@ -221,6 +221,9 @@ class Picamera2Backend(CameraBackend):
         )
         self._picam2.configure(self._video_config)
         self._picam2.set_controls({"AfMode": 0, "LensPosition": DEFAULT_LENS_POSITION})
+        # The last lens position this app set, re-applied after every configure() (see
+        # capture_full_res): configure() drops it along with manual AfMode.
+        self._lens_position = DEFAULT_LENS_POSITION
         self._picam2.start()
         # AwbEnable/AeEnable are write-only in practice: checked directly (not assumed) —
         # capture_metadata() reports None for both, unlike ExposureTime/AnalogueGain/
@@ -243,7 +246,14 @@ class Picamera2Backend(CameraBackend):
         # this negotiates plain 3-channel (logged as "BGR888", genuinely R,G,B as delivered)
         # and comes out correct against a known-color reference; explicitly keying "format"
         # does not, regardless of which string is named.
-        still_config = self._picam2.create_still_configuration()
+        # Manual focus at the app's lens position goes into the still configuration itself, and
+        # is re-applied after switching back below: configure() otherwise drops AfMode and
+        # LensPosition too, and from then on the camera ignores every LensPosition write until
+        # the server restarts. Measured on the rig 2026-10-01: after one full-res capture, a
+        # write of 6.18 read back 6.44, and an autofocus cycle never returned (holding the
+        # camera lock), so a whole lens sweep was silently captured at one position.
+        focus = {"AfMode": 0, "LensPosition": self._lens_position}
+        still_config = self._picam2.create_still_configuration(controls=dict(focus))
         self._picam2.stop()
         self._picam2.configure(still_config)
         self._picam2.start()
@@ -254,6 +264,7 @@ class Picamera2Backend(CameraBackend):
             self._picam2.stop()
             self._picam2.configure(self._video_config)
             self._picam2.start()
+            self._picam2.set_controls(dict(focus))
             # configure() replaces picamera2's live Controls with just the new config's own
             # (near-empty) controls dict — AeEnable/AwbEnable are silently dropped, and nothing
             # else re-applies them. Confirmed on real hardware: after a full-res capture, the
@@ -270,7 +281,8 @@ class Picamera2Backend(CameraBackend):
         return array, sensor_metadata
 
     def set_lens_position(self, value: float) -> None:
-        self._picam2.set_controls({"LensPosition": value})
+        self._picam2.set_controls({"AfMode": 0, "LensPosition": value})
+        self._lens_position = value
 
     def get_lens_position(self) -> float:
         metadata = self._picam2.capture_metadata()
@@ -282,6 +294,7 @@ class Picamera2Backend(CameraBackend):
         # autofocus_cycle leaves AfMode in Auto; the rig always runs manual so a fixed
         # focus can't drift or hunt mid-experiment (see PLAN.md M1/M2).
         self._picam2.set_controls({"AfMode": 0})
+        self._lens_position = lens_position
         return bool(success), lens_position
 
     def available_controls(self) -> dict[str, tuple]:

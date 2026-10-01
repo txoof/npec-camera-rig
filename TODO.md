@@ -558,6 +558,20 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — known issues, not yet fixed
 
+- [x] **Lens position ignored after any full-res capture, fixed 2026-10-01.** `capture_full_res`
+      reconfigures to a still configuration and back; `configure()` dropped manual AfMode and
+      LensPosition, and from then on every LensPosition write was ignored until a server restart
+      (measured: set 6.18, read 6.44; a lens sweep of 7 captures all came out at 6.10; autofocus
+      never returned and held the camera lock). Fix: the still configuration carries
+      `AfMode: 0` and the last set LensPosition, both are re-applied after switching back, and
+      `set_lens_position` always sends manual AfMode. Verified on the rig: a capture after a
+      move records the new position.
+- [ ] **After a full-res capture, the preview reports a new lens position about 45 s late
+      (measured 2026-10-01, 44.8 s; later moves 0.5 s).** Captures are not affected (the still
+      configuration commands the lens itself), but "Lock focus" records what the preview reports,
+      so a lock taken within about a minute of a capture can store the old position, and
+      validation would then compare against the wrong value. Cause not found. Until it is: after
+      moving the lens following a capture, wait about a minute before locking.
 - [ ] **Locked focus is lost on every server restart (Aaron, 2026-09-30).** After a restart the
       lens returns to its default position, the picture is out of focus, and tag detection finds
       nothing: every validation round then fails with "found 0 calibration sheets, expected 12".

@@ -24,6 +24,59 @@ from npec_rig.settings import load_settings
 pytestmark = pytest.mark.unit
 
 
+class _RecordingPicamera2:
+    """Stands in for picamera2.Picamera2: records configurations and control writes, so the real
+    backend's capture sequence can be checked without a camera."""
+
+    camera_controls: dict = {}
+
+    def __init__(self) -> None:
+        self.configured: list[dict] = []
+        self.control_writes: list[dict] = []
+
+    def create_still_configuration(self, controls=None):
+        return {"kind": "still", "controls": dict(controls or {})}
+
+    def configure(self, config) -> None:
+        self.configured.append(config)
+
+    def start(self) -> None:
+        pass
+
+    def stop(self) -> None:
+        pass
+
+    def set_controls(self, controls: dict) -> None:
+        self.control_writes.append(dict(controls))
+
+    def capture_array(self, _stream):
+        return np.zeros((4, 4, 3), dtype=np.uint8)
+
+    def capture_metadata(self) -> dict:
+        return {"LensPosition": 0.0}
+
+
+def test_a_full_res_capture_keeps_manual_focus_and_the_lens_position() -> None:
+    # 2026-10-01: configure() dropped manual AfMode and LensPosition, so after one full-res
+    # capture every later lens write was ignored and a whole lens sweep came out at one position.
+    backend = object.__new__(camera_module.Picamera2Backend)
+    backend._picam2 = _RecordingPicamera2()
+    backend._video_config = {"kind": "video"}
+    backend._control_cache = {}
+    backend._lens_position = DEFAULT_LENS_POSITION
+
+    backend.set_lens_position(6.44)
+    backend.capture_full_res()
+    still, video = backend._picam2.configured
+    assert still["controls"] == {"AfMode": 0, "LensPosition": 6.44}
+    assert video == {"kind": "video"}
+    assert backend._picam2.control_writes[-1] == {"AfMode": 0, "LensPosition": 6.44}
+
+    backend.set_lens_position(6.18)  # a later move is what the next capture uses
+    backend.capture_full_res()
+    assert backend._picam2.configured[-2]["controls"] == {"AfMode": 0, "LensPosition": 6.18}
+
+
 def test_synthetic_backend_produces_expected_shape() -> None:
     backend = SyntheticBackend(width=64, height=48)
     frame = backend.capture_array()
