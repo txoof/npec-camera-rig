@@ -1518,6 +1518,8 @@ def _session_summary(session: dict, current_stem: str | None) -> dict:
         "inconsistent_slots": validation_store.inconsistent_slots(session),
         "validated": validation_store.is_validated(session),
         "problems": validation_store.round_problems(session),
+        "offset_problems": validation_store.offset_problems(session),
+        "flagged_slots": validation_store.flagged_slots(session),
         "certainty_range_pct": [min(measured), max(measured)] if measured else None,
         "map_url": f"/validation/sessions/{session['id']}/map" if counted else None,
     }
@@ -1715,9 +1717,13 @@ def validation_session_map(session_id: str) -> Response:
         SlotResult(r["name"], r["n"], r["p95_abs_pct"], r["median_pct"]) for r in session["results"]
     ]
     required = validation_store.ROUNDS_REQUIRED
-    inconsistent = validation_store.inconsistent_slots(session)
-    if inconsistent:
-        slots = "all slots" if len(inconsistent) == len(session["slots"]) else ", ".join(inconsistent)
+    flagged = validation_store.flagged_slots(session)
+    table_off = any(p["slot"] is None for p in validation_store.offset_problems(session))
+    if flagged or table_off:
+        if table_off or len(flagged) == len(session["slots"]):
+            slots = "all slots"
+        else:
+            slots = ", ".join(flagged)
         status = f"Not consistent: {slots}"
     elif session["completed_at"]:
         status = f"Validated {session['completed_at'][:10]}"
@@ -1747,16 +1753,6 @@ def validation_round_problems_image(session_id: str, number: int) -> Response:
     problems = [p for p in validation_store.round_problems(session) if p["round"] == number]
     if not problems:
         raise HTTPException(404, f"round {number} has no problems")
-    round_ = session["rounds"][number - 1]
-    artifact = _load_saved_artifact(session["calibration_stem"])
-    detections, preview, scale = _capture_detections(round_["capture"])
-    placed = sheets_by_slot(
-        group_sheets(detections, artifact.scale_field, artifact.calibration_tag_size_mm),
-        slot_layout_from_dict(session["slots"]),
-    )
-    named = [p for p in problems if p["slot"] is not None]
-    boxes = {p["slot"]: placed[p["slot"]].box for p in named}
-    labels = {p["slot"]: f"{p['slot']}: reads {_size_text(p['offset_pct'])}" for p in named}
     whole = [p for p in problems if p["slot"] is None]
     if whole:
         caption = (
@@ -1768,7 +1764,44 @@ def validation_round_problems_image(session_id: str, number: int) -> Response:
             f"Round {number}. Red: the sheet or tray that reads differently from other rounds. "
             "Check the sheet with callipers and the tray height."
         )
-    image = render_problem_frame(
-        preview, boxes, labels, caption, whole_frame=bool(whole), frame_scale=scale
+    return _problem_frame_response(session, session["rounds"][number - 1], problems, caption)
+
+
+@app.get("/validation/sessions/{session_id}/offsets")
+def validation_offsets_image(session_id: str) -> Response:
+    """The latest counted round's full frame with a red border around each slot that reads
+    steadily off the others (`validation_store.offset_problems`), or around the whole frame when
+    every slot reads off since the calibration."""
+    session = _session_or_404(session_id)
+    problems = validation_store.offset_problems(session)
+    if not problems:
+        raise HTTPException(404, "no slot reads steadily off")
+    whole = [p for p in problems if p["slot"] is None]
+    if whole:
+        caption = (
+            f"Every slot reads about {_size_text(whole[0]['offset_pct'])} in every round compared "
+            "with the calibration. Check whether the camera or the table moved, then recalibrate."
+        )
+    else:
+        caption = (
+            "Red: reads differently from the other slots in every round. Check the sheet with "
+            "callipers, the tray height, and the slot."
+        )
+    return _problem_frame_response(session, validation_store.counted_rounds(session)[-1], problems, caption)
+
+
+def _problem_frame_response(session: dict, round_: dict, problems: list[dict], caption: str) -> Response:
+    """`round_`'s full frame, a red border around each named slot's sheet where it sat in that
+    round, or around the whole frame for a problem with no slot."""
+    artifact = _load_saved_artifact(session["calibration_stem"])
+    detections, preview, scale = _capture_detections(round_["capture"])
+    placed = sheets_by_slot(
+        group_sheets(detections, artifact.scale_field, artifact.calibration_tag_size_mm),
+        slot_layout_from_dict(session["slots"]),
     )
+    named = [p for p in problems if p["slot"] is not None]
+    boxes = {p["slot"]: placed[p["slot"]].box for p in named}
+    labels = {p["slot"]: f"{p['slot']}: reads {_size_text(p['offset_pct'])}" for p in named}
+    whole = any(p["slot"] is None for p in problems)
+    image = render_problem_frame(preview, boxes, labels, caption, whole_frame=whole, frame_scale=scale)
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")

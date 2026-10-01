@@ -159,14 +159,38 @@ def test_a_mis_scaled_sheet_moving_between_slots_is_named_each_round() -> None:
     assert not store.is_validated(session)
 
 
-def test_a_mis_scaled_sheet_that_never_moves_is_not_flagged() -> None:
-    # The limit of this check: a bad sheet (or tray) that stays on one slot reads the same every
-    # round, so it looks like a bad slot. Sheets must change trays every round.
+def test_a_mis_scaled_sheet_that_never_moves_is_flagged_against_the_other_slots() -> None:
+    # Nothing moves between rounds, so the round-to-round check sees nothing; the steady reading
+    # sits 7.84 points off the other slots, which is what flags it (case (c), 2026-10-01).
     session = _tray_session(["North 2", "North 2", "North 2"])
     assert store.inconsistent_slots(session) == []
     assert store.round_problems(session) == []
-    north_2 = next(r for r in session["results"] if r["name"] == "North 2")
-    assert north_2["median_pct"] == pytest.approx(-7.84)  # steady, low, unflagged
+    problems = store.offset_problems(session)
+    assert [p["slot"] for p in problems] == ["North 2"]
+    assert problems[0]["offset_pct"] == pytest.approx(-7.84)
+    assert store.flagged_slots(session) == ["North 2"]
+    assert not store.is_validated(session)
+
+
+def test_a_sheet_that_moves_through_one_round_is_not_also_a_steady_offset() -> None:
+    session = _tray_session(["North 2", "South 5", "North 5"])
+    assert store.offset_problems(session) == []
+
+
+def test_every_slot_reading_off_since_the_calibration_is_one_table_problem() -> None:
+    # Every round 3.96% small in area (0.98 linear): the camera or table moved after calibrating.
+    session = _tray_session([None, None, None], round_scale=[0.98, 0.98, 0.98])
+    assert store.inconsistent_slots(session) == []
+    problems = store.offset_problems(session)
+    assert [p["slot"] for p in problems] == [None]  # not 12 slot problems as well
+    assert problems[0]["offset_pct"] == pytest.approx(-3.96)
+    assert not store.is_validated(session)
+
+
+def test_a_clean_session_has_no_offsets_and_is_validated() -> None:
+    session = _tray_session([None, None, None])
+    assert store.offset_problems(session) == []
+    assert store.is_validated(session)
 
 
 def test_two_rounds_are_not_consistent_but_name_no_sheet() -> None:

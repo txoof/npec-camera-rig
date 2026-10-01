@@ -937,6 +937,20 @@ The heart of the project. Do not start before M1 slice 5.
         the rebuilt rig; at about 1.5 m: 10 mm reads about 1.3% large, below the 2.5-point
         limit; 30 mm about 4%, flagged). Run at about 10 mm and about 30 mm to see where
         detection starts.
+  - **Run 2026-10-01, all as expected** (89% sheet, callipered, reads about 21% small):
+        (a) 20261001T081146 Validated, largest median move 1.02. (b) 081427 named R1 North 2
+        -20.9, R2 South 5 -20.9, R3 North 5 -21.3, no good round named. (c) 082037 North 2
+        steady -20.4 to -20.5, no round flag; this led to the steady-offset check below.
+        (d) 082459, tray 175 mm against the normal 100 mm, camera 1482 mm above the table:
+        predicted (1382/1307)^2 = 11.8% large, measured 11.2 to 12.0 at North 2, North 4,
+        South 6. So about 0.145% of area per mm of tray height: 2.5 points is about 17 mm.
+        Not explained: (c) round 1 "found 11 calibration sheets".
+  - **Steady-offset check, built 2026-10-01 (Aaron: a consistently high or low slot is
+        worth flagging).** A slot whose median of per-round medians sits more than 3.0 points
+        from the all-slot median is "Not consistent"; the all-slot median more than 2.5 from 0
+        is one "every slot reads off since the calibration" problem. In 8 real sessions normal
+        slots sat at most 2.15 from the all-slot median (always North 4, steady -1.6 to -2.2,
+        a real offset at that slot worth a look) and the table at most 0.66 from 0.
   - **Automated tests:** cases (2) and (3) with synthetic detections (`tests/helpers.py`
         tray builders, a scaled sheet as in `test_a_small_sheet_shows_in_its_own_slot_only`).
   - **Not usable as the fault:** the 50 mm sheets use IDs 450-499 (the corner range), which

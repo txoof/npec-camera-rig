@@ -38,6 +38,15 @@ MEDIAN_DISAGREEMENT_PCT = 2.5
 # MEDIAN_DISAGREEMENT_PCT, is reported as the whole round shifting (camera or table moved), not as
 # one bad sheet per slot.
 WHOLE_ROUND_FRACTION = 0.5
+# A slot whose steady reading (the median of its per-round medians) sits more than this from the
+# median of all slots' steady readings is flagged, though it never moved: a bad sheet or tray that
+# stayed on one slot, or the slot itself. In 8 real sessions (2026-09-30 and 10-01) normal slots
+# sat at most 2.15 points from the all-slot median (always North 4, steady at -1.6 to -2.2); an
+# 89% sheet left on North 2 for every round sat 20.5 away (Aaron, 2026-10-01).
+SLOT_OFFSET_PCT = 3.0
+# The all-slot median more than this from 0: every slot reads off since the calibration, so the
+# camera or table moved. In the same 8 sessions it was at most 0.66 points.
+TABLE_OFFSET_PCT = 2.5
 SESSION_VERSION = 1
 _SESSION_ID = re.compile(r"^\d{8}T\d{12}$")
 
@@ -175,10 +184,57 @@ def inconsistent_slots(session: dict) -> list[str]:
     ]
 
 
+def _steady_readings(session: dict) -> dict[str, float]:
+    """Each slot's median over counted rounds of its per-round medians: one odd round (a sheet
+    that moved through) does not move it. Only slots measured in at least 3 counted rounds."""
+    medians: dict[str, list[float]] = {}
+    for round_ in counted_rounds(session):
+        for name, result in (round_slot_results(round_) or {}).items():
+            if result["median_pct"] is not None:
+                medians.setdefault(name, []).append(result["median_pct"])
+    return {name: float(np.median(v)) for name, v in medians.items() if len(v) >= 3}
+
+
+def offset_problems(session: dict) -> list[dict]:
+    """Steady offsets, which `round_problems` cannot see because nothing changed between rounds.
+
+    {"slot": None, ...} when the all-slot median is more than `TABLE_OFFSET_PCT` from 0 (every
+    slot reads off since the calibration); then one {"slot": name, ...} per slot, in layout order,
+    whose steady reading is more than `SLOT_OFFSET_PCT` from the all-slot median. Measured against
+    the other slots, not 0, so a whole-table offset does not also flag every slot."""
+    steady = _steady_readings(session)
+    if not steady:
+        return []
+    table = float(np.median(list(steady.values())))
+    problems = []
+    if abs(table) > TABLE_OFFSET_PCT:
+        problems.append({"slot": None, "offset_pct": table})
+    problems += [
+        {"slot": slot["name"], "offset_pct": steady[slot["name"]] - table}
+        for slot in session["slots"]
+        if slot["name"] in steady and abs(steady[slot["name"]] - table) > SLOT_OFFSET_PCT
+    ]
+    return problems
+
+
+def flagged_slots(session: dict) -> list[str]:
+    """Slots, in layout order, that moved between rounds or read steadily off the others."""
+    flagged = set(inconsistent_slots(session)) | {
+        p["slot"] for p in offset_problems(session) if p["slot"] is not None
+    }
+    return [slot["name"] for slot in session["slots"] if slot["name"] in flagged]
+
+
 def is_validated(session: dict) -> bool:
-    """Complete and consistent. Judged from the rounds every time, not from `completed_at`: a
-    later round that moves a slot's median takes the status away again. A status, not a block."""
-    return session["completed_at"] is not None and not inconsistent_slots(session)
+    """Complete and consistent: no slot moved between rounds, none reads steadily off the others,
+    and the table as a whole does not read off since the calibration. Judged from the rounds every
+    time, not from `completed_at`: a later round can take the status away again. A status, not a
+    block."""
+    return (
+        session["completed_at"] is not None
+        and not inconsistent_slots(session)
+        and not offset_problems(session)
+    )
 
 
 def round_problems(session: dict) -> list[dict]:
@@ -194,7 +250,8 @@ def round_problems(session: dict) -> list[dict]:
     reported once as a whole-round shift (the camera or table moved), not as one sheet per slot.
 
     What this cannot see: a bad sheet (or tray) that stays on one slot every round reads the same
-    each time, so it looks like a bad slot, not a problem. Sheets must change trays every round.
+    each time. `offset_problems` catches that one, against the other slots, but cannot tell the
+    sheet from the slot; moving sheets between trays every round is what tells them apart.
 
     Returns dicts in round order: {"round": number as the page counts rounds (1-based, all
     rounds), "slot": name or None for a whole-round shift, "offset_pct": signed points}.

@@ -1620,6 +1620,23 @@ def test_a_moving_bad_sheet_is_named_with_a_full_frame_image_per_round(tray_scen
     with Image.open(io.BytesIO(image.content)) as frame:
         assert frame.width == 2000  # the full frame, not a crop
     assert client.get(f"/validation/sessions/{session['id']}/rounds/9/problems").status_code == 404
+    assert client.get(f"/validation/sessions/{session['id']}/offsets").status_code == 404
+
+
+def test_a_bad_sheet_that_never_moves_is_flagged_with_an_image(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    tray_scene["bad_sheet"] = 1  # North 2, every round
+    for shift in ((200, -150), (-250, 100), (100, 230)):
+        tray_scene["shift"] = shift
+        body = client.post(f"/validation/sessions/{session['id']}/rounds").json()
+    assert body["problems"] == []
+    assert [p["slot"] for p in body["offset_problems"]] == ["North 2"]
+    assert body["flagged_slots"] == ["North 2"]
+    assert not body["validated"]
+    image = client.get(f"/validation/sessions/{session['id']}/offsets")
+    assert image.status_code == 200
+    assert image.headers["content-type"] == "image/jpeg"
 
 
 def test_validation_page_loads() -> None:

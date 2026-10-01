@@ -109,9 +109,10 @@
 
     function statusText(s) {
       const counted = `${s.rounds_counted} of ${s.rounds_required} rounds counted`;
-      if (s.inconsistent_slots.length) {
-        const slots = s.inconsistent_slots.length === s.results.length
-          ? "all slots" : s.inconsistent_slots.join(", ");
+      const tableOff = s.offset_problems.some((p) => p.slot == null);
+      if (s.flagged_slots.length || tableOff) {
+        const slots = tableOff || s.flagged_slots.length === s.results.length
+          ? "all slots" : s.flagged_slots.join(", ");
         return `<span class="validation-problem">Not consistent: ${slots}</span>, ${counted}`;
       }
       if (s.validated) return `Validated ${when(s.completed_at)}, ${s.rounds_counted} rounds`;
@@ -131,9 +132,22 @@
     }
 
     function problemsHtml(s) {
-      if (!s.problems.length) return "";
-      const lines = s.problems.map((p) => {
-        const size = `${Math.abs(p.offset_pct).toFixed(1)}% ${p.offset_pct < 0 ? "small" : "large"}`;
+      if (!s.problems.length && !s.offset_problems.length) return "";
+      const sizeOf = (p) => `${Math.abs(p.offset_pct).toFixed(1)}% ${p.offset_pct < 0 ? "small" : "large"}`;
+      const offsetImage = `<img class="diagnostic-image" src="/validation/sessions/${s.id}/offsets" ` +
+        'alt="Latest round, full frame, problem marked in red" title="Click to enlarge">';
+      const steady = s.offset_problems.map((p) => {
+        if (p.slot == null) {
+          return `<p>${offsetImage}<strong>Problem, every round:</strong> every slot reads about ` +
+            `${sizeOf(p)} compared with the calibration. Check whether the camera or the table ` +
+            "moved, then recalibrate.</p>";
+        }
+        return `<p>${offsetImage}<strong>Problem, every round, ${p.slot}:</strong> reads ` +
+          `${sizeOf(p)} compared with the other slots. Check the sheet with callipers, the tray ` +
+          "height, and the slot.</p>";
+      });
+      const lines = steady.concat(s.problems.map((p) => {
+        const size = sizeOf(p);
         const image = `<img class="diagnostic-image" src="/validation/sessions/${s.id}/rounds/${p.round}/problems" ` +
           `alt="Round ${p.round}, full frame, problem marked in red" title="Click to enlarge">`;
         if (p.slot == null) {
@@ -143,7 +157,7 @@
         return `<p>${image}<strong>Problem, round ${p.round}, ${p.slot}:</strong> the sheet or tray ` +
           `there reads ${size} compared with other rounds. Check the sheet with callipers and ` +
           "the tray height.</p>";
-      });
+      }));
       return `<div class="validation-problems">${lines.join("")}</div>`;
     }
 
@@ -172,7 +186,9 @@
           .join("");
         const range = s.median_range_pct[pooled.name];
         const disagrees = range != null && range > limit;
-        return `<tr class="${disagrees ? "disagrees" : ""}"><td>${pooled.name}</td>${cells}` +
+        const steadyOff = s.offset_problems.some((p) => p.slot === pooled.name);
+        return `<tr class="${disagrees || steadyOff ? "disagrees" : ""}">` +
+          `<td class="${steadyOff ? "problem" : ""}">${pooled.name}</td>${cells}` +
           `<td class="pooled">±${num(pooled.p95_abs_pct)}</td><td>${num(range)}</td></tr>`;
       });
       return `
@@ -187,7 +203,7 @@
           Each round: ±% / median %. ±% is the band 95% of that round's tags fall in (with about
           30 tags it can swing a point on its own); the median shows whether the slot reads high
           or low. A slot is consistent when its row stays similar. Highlighted: median moved more
-          than ${limit} points between rounds. Red: the round that moved it.
+          than ${limit} points between rounds. Red: the round that moved it, or a slot name that reads off the others in every round.
         </p>`;
     }
 
