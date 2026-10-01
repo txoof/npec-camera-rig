@@ -6,9 +6,9 @@
 OpenSCAD's lazy-union 3MF export writes each colored top-level solid as a
 separate build item. Orca drops each of those to the bed independently and
 ignores OpenSCAD's colors. This script runs the export, then rewrites the 3MF
-so solids whose XY footprints overlap become parts of one object (keeping
-their authored positions) -- one object per printed item on a laid-out
-plate -- and adds Orca's Metadata/model_settings.config assigning one
+so each printed item's solids become parts of one object (keeping their
+authored positions) -- one object per printed item on a laid-out plate, see
+group_parts() -- and adds Orca's Metadata/model_settings.config assigning one
 filament per distinct color, numbered in the order the colors first appear.
 
 Usage:
@@ -73,29 +73,42 @@ def mesh_objects(xml):
 
 
 def group_parts(parts):
-    """Group parts whose XY footprints overlap: one group per printed item.
+    """Group parts into printed items: one anchor part each plus its attachments.
 
-    Parts of one mount (body plus its tag layer) overlap in plan view; separate
-    mounts on a laid-out plate are `plate_gap` apart and do not.
+    The anchor color is the one whose parts cover the most XY bounding-box
+    area (a mount's body, not its tag layer). Each anchor-color part starts
+    its own group; parts of the same color are never merged, so nested items
+    whose bounding boxes overlap (e.g. apriltag_tray_tag.scad on its side)
+    stay separate objects. Every other part joins the anchor whose bounding
+    box overlaps its own and that sits nearest to it in build order, the
+    earlier one on a tie -- so a .scad that emits each item's statements
+    together (body, then its tag layer) pairs them correctly even when a tag
+    layer's box also overlaps a neighbour's body. A part that overlaps no
+    anchor is its own group.
     """
-    root = list(range(len(parts)))
+    def area(b):
+        return (b[1] - b[0]) * (b[3] - b[2])
 
-    def find(i):
-        while root[i] != i:
-            root[i] = root[root[i]]
-            i = root[i]
-        return i
+    def overlaps(a, b):
+        return a[0] < b[1] and b[0] < a[1] and a[2] < b[3] and b[2] < a[3]
 
-    for i, (_, _, a) in enumerate(parts):
-        for j in range(i + 1, len(parts)):
-            b = parts[j][2]
-            if a[0] < b[1] and b[0] < a[1] and a[2] < b[3] and b[2] < a[3]:
-                root[find(j)] = find(i)
+    totals = {}
+    for _, color, box in parts:
+        totals[color] = totals.get(color, 0.0) + area(box)
+    anchor_color = max(totals, key=totals.get)
 
-    groups = {}
-    for i in range(len(parts)):
-        groups.setdefault(find(i), []).append(parts[i])
-    return list(groups.values())
+    anchors = [i for i, (_, color, _) in enumerate(parts) if color == anchor_color]
+    groups = {i: [parts[i]] for i in anchors}
+    loose = []
+    for i, (_, color, box) in enumerate(parts):
+        if color == anchor_color:
+            continue
+        hits = [a for a in anchors if overlaps(box, parts[a][2])]
+        if hits:
+            groups[min(hits, key=lambda a: (abs(a - i), a > i))].append(parts[i])
+        else:
+            loose.append([parts[i]])
+    return list(groups.values()) + loose
 
 
 def wrap_as_objects(xml, groups):

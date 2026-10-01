@@ -30,3 +30,6 @@ config.local.*
 
 # Claude Code worktrees (the old repo had three stale copies; don't repeat that)
 .claude/worktrees/
+
+# OpenSCAD Customizer presets (saved next to each .scad)
+hardware/*.json
