@@ -1312,6 +1312,13 @@ The heart of the project. Do not start before M1 slice 5.
 - [ ] Full SQLite schema (`experiment`, `calibration`, `tray`, `capture`, `detection`,
       `measurement`, `alert`) — created here so every row has provenance from the start
 - [ ] Experiment create/start/stop in the UI
+- [ ] **Gallery thumbnails are slow and cannot be clicked (Aaron, 2026-10-01).** The gallery
+      loads every capture's full-resolution 64MP JPEG and lets the browser shrink it
+      (`gallery.html`, `<img src="${item.url}">`), so the page is very slow. Serve real
+      thumbnails instead (made once per capture, for example at save time, and cached on disk).
+      Clicking a thumbnail does nothing: the images have no click handler and are not
+      `.diagnostic-image`, so the shared lightbox ignores them. Click should open the capture
+      large (a screen-sized version, not the full 64MP file).
 - [ ] **Design the header/nav menu properly once experiment/report pages exist.** The Jinja
       base-layout work (M2 UI-organization pass) centralized the header/nav into one
       `templates/base.html` block, but its content is still just the same two links (Setup,
