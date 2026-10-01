@@ -27,7 +27,11 @@
     }
     .validation-problems { margin: 0.35rem 0 0; padding: 0.3rem 0.45rem; border: 2px solid #b3261e;
       font-size: 0.72rem; }
-    .validation-problems p { margin: 0.1rem 0; }
+    .validation-problems p { margin: 0.1rem 0; display: flow-root; }
+    .validation-problems img.diagnostic-image {
+      display: block; float: left; width: 64px; margin: 0 0.45rem 0 0; cursor: zoom-in;
+      border: 2px solid #b3261e;
+    }
     .validation-problems strong { color: #ff6b6b; }
     .validation-note { margin: 0.3rem 0 0; font-size: 0.66rem; color: #aaa; }
     .validation-held { margin-top: 0.4rem; font-size: 0.75rem; }
@@ -127,11 +131,13 @@
       if (!s.problems.length) return "";
       const lines = s.problems.map((p) => {
         const size = `${Math.abs(p.offset_pct).toFixed(1)}% ${p.offset_pct < 0 ? "small" : "large"}`;
+        const image = `<img class="diagnostic-image" src="/validation/sessions/${s.id}/rounds/${p.round}/problems" ` +
+          `alt="Round ${p.round}, full frame, problem marked in red" title="Click to enlarge">`;
         if (p.slot == null) {
-          return `<p><strong>Problem, round ${p.round}:</strong> every slot reads about ${size} ` +
+          return `<p>${image}<strong>Problem, round ${p.round}:</strong> every slot reads about ${size} ` +
             "compared with other rounds. Check whether the camera or the table moved.</p>";
         }
-        return `<p><strong>Problem, round ${p.round}, ${p.slot}:</strong> the sheet or tray ` +
+        return `<p>${image}<strong>Problem, round ${p.round}, ${p.slot}:</strong> the sheet or tray ` +
           `there reads ${size} compared with other rounds. Check the sheet with callipers and ` +
           "the tray height.</p>";
       });

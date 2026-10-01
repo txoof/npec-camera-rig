@@ -71,7 +71,9 @@ from npec_rig.certainty_map import (
     group_sheets,
     moved_fraction,
     render_certainty_map,
+    render_problem_frame,
     round_errors_by_slot,
+    sheets_by_slot,
     slot_layout_from_dict,
     slot_layout_to_dict,
 )
@@ -1728,5 +1730,45 @@ def validation_session_map(session_id: str) -> Response:
     )
     image = render_certainty_map(
         preview, slot_layout_from_dict(session["slots"]), results, caption, frame_scale=scale
+    )
+    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+
+
+def _size_text(offset_pct: float) -> str:
+    return f"{abs(offset_pct):.1f}% {'small' if offset_pct < 0 else 'large'}"
+
+
+@app.get("/validation/sessions/{session_id}/rounds/{number}/problems")
+def validation_round_problems_image(session_id: str, number: int) -> Response:
+    """Round `number`'s full frame (1-based, as the page counts rounds) with a red border around
+    each sheet `validation_store.round_problems` names in it, where that sheet sat in that round,
+    or around the whole frame for a whole-round shift."""
+    session = _session_or_404(session_id)
+    problems = [p for p in validation_store.round_problems(session) if p["round"] == number]
+    if not problems:
+        raise HTTPException(404, f"round {number} has no problems")
+    round_ = session["rounds"][number - 1]
+    artifact = _load_saved_artifact(session["calibration_stem"])
+    detections, preview, scale = _capture_detections(round_["capture"])
+    placed = sheets_by_slot(
+        group_sheets(detections, artifact.scale_field, artifact.calibration_tag_size_mm),
+        slot_layout_from_dict(session["slots"]),
+    )
+    named = [p for p in problems if p["slot"] is not None]
+    boxes = {p["slot"]: placed[p["slot"]].box for p in named}
+    labels = {p["slot"]: f"{p['slot']}: reads {_size_text(p['offset_pct'])}" for p in named}
+    whole = [p for p in problems if p["slot"] is None]
+    if whole:
+        caption = (
+            f"Round {number}: every slot reads about {_size_text(whole[0]['offset_pct'])} compared "
+            "with other rounds. Check whether the camera or the table moved."
+        )
+    else:
+        caption = (
+            f"Round {number}. Red: the sheet or tray that reads differently from other rounds. "
+            "Check the sheet with callipers and the tray height."
+        )
+    image = render_problem_frame(
+        preview, boxes, labels, caption, whole_frame=bool(whole), frame_scale=scale
     )
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")

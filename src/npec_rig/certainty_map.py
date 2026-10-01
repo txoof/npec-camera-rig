@@ -165,8 +165,8 @@ def build_slot_layout(sheets: list[Sheet], columns: int = DEFAULT_COLUMNS) -> tu
     return tuple(slots)
 
 
-def assign_to_slots(sheets: list[Sheet], layout: tuple[Slot, ...]) -> dict[str, list[TagError]]:
-    """Each sheet's tags, whole, under the name of the slot whose centre is nearest the sheet's.
+def sheets_by_slot(sheets: list[Sheet], layout: tuple[Slot, ...]) -> dict[str, Sheet]:
+    """Each sheet under the name of the slot whose centre is nearest the sheet's.
 
     Refused rather than guessed: a sheet more than half the closest slot spacing from every slot
     centre (it isn't on a tray slot), or two sheets on one slot in the same capture (one tray
@@ -174,7 +174,7 @@ def assign_to_slots(sheets: list[Sheet], layout: tuple[Slot, ...]) -> dict[str, 
     centres = np.array([slot.centre for slot in layout])
     spacing = np.hypot(*(centres[:, None, :] - centres[None, :, :]).transpose(2, 0, 1))
     max_offset = np.min(spacing[spacing > 0]) / 2
-    assigned: dict[str, list[TagError]] = {slot.name: [] for slot in layout}
+    placed: dict[str, Sheet] = {}
     for sheet in sheets:
         distances = np.hypot(*(centres - sheet.centre).T)
         nearest = int(np.argmin(distances))
@@ -184,10 +184,16 @@ def assign_to_slots(sheets: list[Sheet], layout: tuple[Slot, ...]) -> dict[str, 
             raise SlotLayoutError(
                 f"a sheet near pixel ({x:.0f}, {y:.0f}) is not on any tray slot: put it back on a tray"
             )
-        if assigned[name]:
+        if name in placed:
             raise SlotLayoutError(f"two sheets are on slot {name}: one sheet per tray")
-        assigned[name].extend(sheet.tags)
-    return assigned
+        placed[name] = sheet
+    return placed
+
+
+def assign_to_slots(sheets: list[Sheet], layout: tuple[Slot, ...]) -> dict[str, list[TagError]]:
+    """Each sheet's tags, whole, under its slot's name (see `sheets_by_slot`); [] for an empty slot."""
+    placed = sheets_by_slot(sheets, layout)
+    return {slot.name: list(placed[slot.name].tags) if slot.name in placed else [] for slot in layout}
 
 
 def slot_results(assigned: dict[str, list[TagError]]) -> list[SlotResult]:
@@ -347,4 +353,40 @@ def render_certainty_map(
     canvas = Image.new("RGB", (image.width, image.height + 90), "white")
     canvas.paste(image, (0, 0))
     ImageDraw.Draw(canvas).text((20, image.height + 45), caption, font=_font(24), fill="black", anchor="lm")
+    return np.asarray(canvas)
+
+
+PROBLEM_RED = (220, 30, 30)
+
+
+def render_problem_frame(
+    frame: np.ndarray,
+    boxes: dict[str, tuple[float, float, float, float]],
+    labels: dict[str, str],
+    caption: str,
+    whole_frame: bool = False,
+    frame_scale: float = 1.0,
+) -> np.ndarray:
+    """The full camera frame (never a crop, Aaron 2026-09-30), with a thick red border and label
+    around each problem sheet in `boxes` (full-resolution pixel boxes, keyed like `labels`), or
+    around the whole frame when `whole_frame`, and `caption` underneath. `MAP_WIDTH_PX` wide."""
+    s = MAP_WIDTH_PX / frame.shape[1]
+    image = Image.fromarray(frame).resize(
+        (MAP_WIDTH_PX, round(frame.shape[0] * s)), Image.Resampling.LANCZOS
+    ).convert("RGB")
+    s *= frame_scale
+    draw = ImageDraw.Draw(image)
+    font = _font(40)
+    for name, (x0, y0, x1, y1) in boxes.items():
+        box = (x0 * s - 20, y0 * s - 20, x1 * s + 20, y1 * s + 20)
+        draw.rectangle(box, outline=PROBLEM_RED, width=12)
+        draw.text(
+            ((box[0] + box[2]) / 2, box[1] - 12), labels[name], font=font, fill="white",
+            anchor="md", stroke_width=6, stroke_fill=PROBLEM_RED,
+        )
+    if whole_frame:
+        draw.rectangle((0, 0, image.width - 1, image.height - 1), outline=PROBLEM_RED, width=24)
+    canvas = Image.new("RGB", (image.width, image.height + 90), "white")
+    canvas.paste(image, (0, 0))
+    ImageDraw.Draw(canvas).text((20, image.height + 45), caption, font=_font(28), fill=PROBLEM_RED, anchor="lm")
     return np.asarray(canvas)

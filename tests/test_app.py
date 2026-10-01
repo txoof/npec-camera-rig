@@ -1,9 +1,11 @@
 import asyncio
+import io
 import json
 from pathlib import Path
 
 import numpy as np
 import pytest
+from PIL import Image
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
@@ -22,7 +24,7 @@ from npec_rig.camera import (
 from npec_rig.captures import captures_root
 from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, ASSUMED_CORNER_TAG_SIZE_MM
 from npec_rig.tripwire import CornerBaseline
-from tests.helpers import rotate_detection, square_detection, tray_layout_detections
+from tests.helpers import rotate_detection, sheet_detections, square_detection, tray_layout_detections
 
 pytestmark = pytest.mark.unit
 
@@ -1577,10 +1579,16 @@ def test_certainty_map_caps_the_number_of_captures(
 
 @pytest.fixture
 def tray_scene(monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None) -> dict:
-    scene = {"shift": (0.0, 0.0), "drop_sheets": 0}
+    # bad_sheet: index (0-11, North 1..6 then South 1..6) of a sheet printed at 96%, or None.
+    scene = {"shift": (0.0, 0.0), "drop_sheets": 0, "bad_sheet": None}
 
     def detect(frame):
         tags = tray_layout_detections(shift=scene["shift"])
+        k = scene["bad_sheet"]
+        if k is not None:
+            dx, dy = scene["shift"]
+            x0, y0 = 800.0 + (k % 6) * 1300.0 + dx, (1000.0, 3500.0)[k // 6] + dy
+            tags[k * 30 : (k + 1) * 30] = sheet_detections(300, x0, y0, side_px=120.0 * 0.96)
         return tags[30 * scene["drop_sheets"] :] + _CORNER_TAGS
 
     monkeypatch.setattr(app_module, "detect_tags", detect)
@@ -1594,6 +1602,24 @@ def _calibrate_and_start(client: TestClient, lock_focus: bool = True) -> dict:
     response = client.post("/validation/sessions")
     assert response.status_code == 200
     return response.json()
+
+
+def test_a_moving_bad_sheet_is_named_with_a_full_frame_image_per_round(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    # North 2 (index 1), South 5 (10), North 5 (4): the chamber fault test's moving case.
+    for shift, bad in (((200, -150), 1), ((-250, 100), 10), ((100, 230), 4)):
+        tray_scene["shift"], tray_scene["bad_sheet"] = shift, bad
+        body = client.post(f"/validation/sessions/{session['id']}/rounds").json()
+    assert body["inconsistent_slots"] == ["North 2", "North 5", "South 5"]
+    assert [(p["round"], p["slot"]) for p in body["problems"]] == [(1, "North 2"), (2, "South 5"), (3, "North 5")]
+
+    image = client.get(f"/validation/sessions/{session['id']}/rounds/2/problems")
+    assert image.status_code == 200
+    assert image.headers["content-type"] == "image/jpeg"
+    with Image.open(io.BytesIO(image.content)) as frame:
+        assert frame.width == 2000  # the full frame, not a crop
+    assert client.get(f"/validation/sessions/{session['id']}/rounds/9/problems").status_code == 404
 
 
 def test_validation_page_loads() -> None:
