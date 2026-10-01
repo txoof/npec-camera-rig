@@ -931,7 +931,12 @@ The heart of the project. Do not start before M1 slice 5.
         the sheet named each round. (3) Stationary fault: the 96% sheet on North 2 all 3
         rounds, expect no drift flag, only a steady -7.8% there: documents the limit that a
         bad sheet which never moves looks like a bad slot, which is why sheets must change
-        trays every round.
+        trays every round. (4) Wrong-height tray (Aaron, 2026-10-01): a normal sheet on one tray
+        raised by a callipered spacer, the raised tray on North 2, South 5, North 5 in rounds
+        1-3. Expect it to read large by about 2h/D (D, the camera height, not yet measured on
+        the rebuilt rig; at about 1.5 m: 10 mm reads about 1.3% large, below the 2.5-point
+        limit; 30 mm about 4%, flagged). Run at about 10 mm and about 30 mm to see where
+        detection starts.
   - **Automated tests:** cases (2) and (3) with synthetic detections (`tests/helpers.py`
         tray builders, a scaled sheet as in `test_a_small_sheet_shows_in_its_own_slot_only`).
   - **Not usable as the fault:** the 50 mm sheets use IDs 450-499 (the corner range), which
