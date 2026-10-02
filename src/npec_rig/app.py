@@ -92,7 +92,7 @@ from npec_rig.tags import (
     CORNER_ID_RANGE,
     detect_tags,
 )
-from npec_rig import validation_store
+from npec_rig import images, validation_store
 from npec_rig.tripwire import (
     build_corner_baseline,
     check_tripwire,
@@ -1369,24 +1369,36 @@ _MAX_CAPTURES_PER_MAP = 12
 _cached_capture_detections: dict[str, tuple[list, np.ndarray, float]] = {}
 
 
-def _capture_detections(ref: str) -> tuple[list, np.ndarray, float]:
-    """`(detections, preview, preview_scale)` for capture `ref` ("YYYY-MM-DD/HHMMSS_ffffff")."""
+def _capture_path(ref: str) -> Path:
     if not _CAPTURE_REF.match(ref):
         raise HTTPException(422, f"not a capture reference: {ref!r} (expected YYYY-MM-DD/HHMMSS_ffffff)")
+    path = captures_root() / f"{ref}.jpg"
+    if not path.exists():
+        raise HTTPException(404, f"capture {ref} not found")
+    return path
+
+
+def _capture_tags(ref: str) -> list:
+    """Capture `ref`'s tag detections, worked out once per photograph and then read from the
+    analysis store (images.py), so even after a restart nothing decodes it at full size again."""
+    return images.tag_detections(ref, _capture_path(ref), detect=lambda frame: detect_tags(frame))
+
+
+def _capture_preview(ref: str) -> tuple[np.ndarray, float]:
+    """`(preview, preview_scale)`: capture `ref` decoded straight to about _CAPTURE_PREVIEW_WIDTH,
+    with its scale relative to full-resolution pixel coordinates."""
+    return images.reduced_frame(_capture_path(ref), _CAPTURE_PREVIEW_WIDTH)
+
+
+def _capture_detections(ref: str) -> tuple[list, np.ndarray, float]:
+    """`(detections, preview, preview_scale)` for capture `ref` ("YYYY-MM-DD/HHMMSS_ffffff")."""
     with _frame_detection_lock:
         if ref in _cached_capture_detections:
             _cached_capture_detections[ref] = _cached_capture_detections.pop(ref)  # most recent last
             return _cached_capture_detections[ref]
-        path = captures_root() / f"{ref}.jpg"
-        if not path.exists():
-            raise HTTPException(404, f"capture {ref} not found")
-        with Image.open(path) as image:
-            frame = np.array(image.convert("RGB"))
-        detections = detect_tags(frame)
-        scale = min(1.0, _CAPTURE_PREVIEW_WIDTH / frame.shape[1])
-        size = (round(frame.shape[1] * scale), round(frame.shape[0] * scale))
-        preview = np.array(Image.fromarray(frame).resize(size, Image.Resampling.LANCZOS))
-        del frame
+    detections = _capture_tags(ref)
+    preview, scale = _capture_preview(ref)
+    with _frame_detection_lock:
         if len(_cached_capture_detections) >= _MAX_CACHED_CAPTURES:
             _cached_capture_detections.pop(next(iter(_cached_capture_detections)))  # least recent
         _cached_capture_detections[ref] = (detections, preview, scale)
@@ -1590,6 +1602,7 @@ def delete_validation_session(session_id: str) -> dict:
             validation_store.delete_session(session_id)
         except validation_store.SessionNotFoundError as exc:
             raise HTTPException(404, str(exc)) from exc
+    images.forget_source(f"validation:{session_id}")
     return {"deleted": session_id}
 
 
@@ -1733,15 +1746,12 @@ def end_validation_session(session_id: str) -> dict:
 @app.get("/validation/sessions/{session_id}/map")
 def validation_session_map(session_id: str) -> Response:
     """The session's certainty map: pooled per-slot results from the stored rounds, drawn on the
-    latest counted capture. Only that one capture is decoded."""
+    latest counted capture. Made once per distinct content and kept (images.py), so it is served
+    from disk afterwards, also after a restart."""
     session = _session_or_404(session_id)
     counted = validation_store.counted_rounds(session)
     if not counted:
         raise HTTPException(409, "no rounds count yet")
-    _detections, preview, scale = _capture_detections(counted[-1]["capture"])
-    results = [
-        SlotResult(r["name"], r["n"], r["p95_abs_pct"], r["median_pct"]) for r in session["results"]
-    ]
     required = validation_store.ROUNDS_REQUIRED
     flagged = validation_store.flagged_slots(session)
     table_off = any(p["slot"] is None for p in validation_store.offset_problems(session))
@@ -1760,10 +1770,31 @@ def validation_session_map(session_id: str) -> Response:
         f"{status}. Calibration {session['calibration_stem']}, {len(counted)} round(s) pooled. "
         "95% of tags within the stated band, at tray-top height."
     )
+    inputs = {
+        "capture": counted[-1]["capture"],
+        "slots": session["slots"],
+        "results": session["results"],
+        "caption": caption,
+    }
+    return _derived_response("validation_map", f"validation:{session_id}", inputs)
+
+
+def _render_validation_map(inputs: dict) -> bytes:
+    preview, scale = _capture_preview(inputs["capture"])
+    results = [
+        SlotResult(r["name"], r["n"], r["p95_abs_pct"], r["median_pct"]) for r in inputs["results"]
+    ]
     image = render_certainty_map(
-        preview, slot_layout_from_dict(session["slots"]), results, caption, frame_scale=scale
+        preview, slot_layout_from_dict(inputs["slots"]), results, inputs["caption"], frame_scale=scale
     )
-    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+    return array_to_jpeg(image)
+
+
+def _derived_response(recipe: str, source: str, inputs: dict) -> Response:
+    """A derived image from the store. `no-cache`: the browser asks again every time (the URL
+    stays the same while the session changes), and the store answers from disk."""
+    content, media_type = images.get(recipe, source, inputs)
+    return Response(content=content, media_type=media_type, headers={"Cache-Control": "no-cache"})
 
 
 def _size_text(offset_pct: float) -> str:
@@ -1820,14 +1851,32 @@ def _problem_frame_response(session: dict, round_: dict, problems: list[dict], c
     """`round_`'s full frame, a red border around each named slot's sheet where it sat in that
     round, or around the whole frame for a problem with no slot."""
     artifact = _load_saved_artifact(session["calibration_stem"])
-    detections, preview, scale = _capture_detections(round_["capture"])
+    detections = _capture_tags(round_["capture"])  # for the sheet boxes; the image is reduced
     placed = sheets_by_slot(
         group_sheets(detections, artifact.scale_field, artifact.calibration_tag_size_mm),
         slot_layout_from_dict(session["slots"]),
     )
     named = [p for p in problems if p["slot"] is not None]
-    boxes = {p["slot"]: placed[p["slot"]].box for p in named}
-    labels = {p["slot"]: f"{p['slot']}: reads {_size_text(p['offset_pct'])}" for p in named}
-    whole = any(p["slot"] is None for p in problems)
-    image = render_problem_frame(preview, boxes, labels, caption, whole_frame=whole, frame_scale=scale)
-    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+    inputs = {
+        "capture": round_["capture"],
+        "boxes": {p["slot"]: list(placed[p["slot"]].box) for p in named},
+        "labels": {p["slot"]: f"{p['slot']}: reads {_size_text(p['offset_pct'])}" for p in named},
+        "caption": caption,
+        "whole_frame": any(p["slot"] is None for p in problems),
+    }
+    return _derived_response("problem_frame", f"validation:{session['id']}", inputs)
+
+
+def _render_problem_frame(inputs: dict) -> bytes:
+    preview, scale = _capture_preview(inputs["capture"])
+    boxes = {name: tuple(box) for name, box in inputs["boxes"].items()}
+    image = render_problem_frame(
+        preview, boxes, inputs["labels"], inputs["caption"], whole_frame=inputs["whole_frame"],
+        frame_scale=scale,
+    )
+    return array_to_jpeg(image)
+
+
+# Bump a recipe's version whenever its renderer would draw the same inputs differently.
+images.register(images.Recipe("validation_map", 1, _render_validation_map))
+images.register(images.Recipe("problem_frame", 1, _render_problem_frame))

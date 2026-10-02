@@ -1623,6 +1623,40 @@ def test_a_moving_bad_sheet_is_named_with_a_full_frame_image_per_round(tray_scen
     assert client.get(f"/validation/sessions/{session['id']}/offsets").status_code == 404
 
 
+def test_validation_images_are_made_once_and_need_no_tag_search_after_a_restart(
+    tray_scene: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 2026-10-02: after a restart the validation page asked for 10 images, each decoding a 64MP
+    # capture again (about 7 s each, one after another).
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    for shift, bad in (((200, -150), 1), ((-250, 100), 10), ((100, 230), 4)):
+        tray_scene["shift"], tray_scene["bad_sheet"] = shift, bad
+        client.post(f"/validation/sessions/{session['id']}/rounds")
+    urls = [f"/validation/sessions/{session['id']}/rounds/2/problems", f"/validation/sessions/{session['id']}/map"]
+    first = [client.get(url) for url in urls]
+    assert [r.status_code for r in first] == [200, 200]
+    assert first[0].headers["cache-control"] == "no-cache"
+
+    def must_not_run(*_args, **_kwargs):
+        raise AssertionError("drawn again")
+
+    drawers = {name: getattr(app_module, name) for name in ("render_problem_frame", "render_certainty_map")}
+    for name in drawers:
+        monkeypatch.setattr(app_module, name, must_not_run)
+    assert [client.get(url).content for url in urls] == [r.content for r in first]  # from disk
+
+    # A restart: memory empty, derived images gone. Tags come from the analysis store. (Only the
+    # two drawers are restored: monkeypatch.undo() would also drop the per-test DB and folders.)
+    for name, drawer in drawers.items():
+        monkeypatch.setattr(app_module, name, drawer)
+    app_module._cached_capture_detections.clear()
+    monkeypatch.setattr(app_module, "detect_tags", must_not_run)
+    for path in app_module.images.derived_root().rglob("*.bin"):
+        path.unlink()
+    assert [client.get(url).status_code for url in urls] == [200, 200]
+
+
 def test_a_bad_sheet_that_never_moves_is_flagged_with_an_image(tray_scene: dict) -> None:
     client = TestClient(app)
     session = _calibrate_and_start(client)

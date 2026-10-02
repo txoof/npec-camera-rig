@@ -1357,6 +1357,9 @@ The heart of the project. Do not start before M1 slice 5.
       Clicking a thumbnail does nothing: the images have no click handler and are not
       `.diagnostic-image`, so the shared lightbox ignores them. Click should open the capture
       large (a screen-sized version, not the full 64MP file).
+      **Use the image system built 2026-10-02 (`images.py`, PLAN.md *Images*):** add `thumb` and
+      `screen` recipes on `images.reduced_frame` (0.11 s and 0.24 s per 64MP capture, measured),
+      served through `images.get`. Do not build a separate thumbnail path.
 - [ ] **Design the header/nav menu properly once experiment/report pages exist.** The Jinja
       base-layout work (M2 UI-organization pass) centralized the header/nav into one
       `templates/base.html` block, but its content is still just the same two links (Setup,

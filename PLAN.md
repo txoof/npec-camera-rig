@@ -198,6 +198,39 @@ experiment and date range.
 | `captures.csv` | Capture log with camera settings, sharpness and trust verdict |
 | `calibration.json` | The full calibration artifact, for archiving or transferring between rigs |
 
+### Images: originals, analysis, derived (decided 2026-10-02)
+
+One system for every large image in the app, so no page invents its own (`src/npec_rig/images.py`).
+Measured on the Pi: a 64MP capture takes 0.6 s to decode in full and 0.24 s straight to 2000 px
+wide, but finding its tags takes about 6 s; before this, the validation page re-did that for every
+image after each restart (15 images, 44 s), and now loads them in 1.4 s.
+
+| Layer | Holds | Stored as | Status |
+|---|---|---|---|
+| 1. Originals | Every full-resolution photograph, never changed | Files under `captures/`; a `capture` table row each (time, kind, experiment, calibration, lens position, focus lock, path) | Files: built. `capture` table: **M3** |
+| 2. Analysis per photograph | Results that need the full image, worked out once: tag detections (raw, never anything that depends on a calibration), keyed by capture and detector version | `capture_analysis` table | Built (tags) |
+| 3. Derived images | Anything drawn from originals: made once by a named, versioned **recipe**, keyed by a hash of the recipe, its version and exactly the inputs it is drawn from, so a changed input is a new image | Files under `derived/`, `derived_image` table (key, recipe, version, source, size, last used); size-capped, least recently used removed; disposable | Built |
+
+Rules for anything that shows a large image:
+
+- **Go through `images.get(recipe, source, inputs)`**, never decode and draw in a route. Register a
+  recipe (`images.Recipe(name, version, render)`), pass every input the image depends on and nothing
+  else, and bump the version when the drawing changes.
+- **Never decode a 64MP frame at full size for display.** `images.reduced_frame` decodes straight
+  to the needed width (JPEG draft mode). Full decodes are for analysis only and run one at a time.
+- **Tags come from `images.tag_detections`**, not from a fresh `detect_tags` call on a capture.
+- Responses whose URL stays the same while the content changes are served `no-cache`; the store
+  answers from disk.
+
+Built for the validation page (maps, problem frames, offsets images). Planned on the same system:
+
+- **Gallery** (TODO): recipes `thumb` (320 px) and `screen` (about 2000 px, the lightbox), from
+  `reduced_frame`; the original stays a download.
+- **M3, experiment browser**: the `capture` table, queried by experiment, date, tray or slot, a page
+  at a time; `thumb` in the grid, `screen` in the lightbox, original for download. The gallery
+  becomes this browser with no filter. Each new capture queues its `thumb` and `screen` so browsing
+  is instant on first view.
+
 ### Per-slot area uncertainty (from validation)
 
 Decided 2026-10-02; the evidence is in `reference/arducam-central-error-2026-10.md` (section 10 has

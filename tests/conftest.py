@@ -73,3 +73,5 @@ def isolated_settings_db(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     # A fresh DB per test — CameraManager loads persisted settings on construction, so sharing
     # one DB across tests would leak state between them.
     monkeypatch.setenv("NPEC_RIG_DB_PATH", str(tmp_path / "rig.db"))
+    # Derived images (images.py) go with the per-test DB that indexes them.
+    monkeypatch.setenv("NPEC_RIG_DERIVED_DIR", str(tmp_path / "derived"))
