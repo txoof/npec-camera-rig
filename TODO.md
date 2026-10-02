@@ -1389,6 +1389,12 @@ The heart of the project. Do not start before M1 slice 5.
       a restart or when switching calibrations); store them through `images.tag_detections`
       instead, and make each plot a recipe. Not the live level overlay (`level.jpg`): it draws a
       live preview frame, so there is nothing to keep.
+- [ ] **Calibration history page is slow to load photos (Aaron, 2026-10-02).** It does not use
+      the image system (`images.py`), and its photos take a long time to appear. Likely the same
+      routes as the item above (`/calibration/<stem>/...` plots, decoded and drawn per request),
+      plus whatever the history list and diagnostics pages load; time each request before
+      choosing the fix. Done when the history and diagnostics pages show their images through
+      `images.get` and Aaron confirms in a browser that they load quickly.
 - [ ] **Design the header/nav menu properly once experiment/report pages exist.** The Jinja
       base-layout work (M2 UI-organization pass) centralized the header/nav into one
       `templates/base.html` block, but its content is still just the same two links (Setup,
