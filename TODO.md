@@ -588,6 +588,11 @@ The heart of the project. Do not start before M1 slice 5.
       stops there, so the message blames the sheets and never mentions focus. Fix: in
       `capture_validation_round` (app.py), check focus lock and lens position against the
       calibration first and report that reason even when no sheets are found.
+      **Built in PR #29 (8a2b2fa), found still open 2026-10-02.** `_focus_problem` runs before
+      the slot check and its reason is joined to the sheet message ("focus is not locked; found
+      0 calibration sheets ..."), unit test
+      `test_a_round_at_the_wrong_focus_says_so_even_when_no_sheets_are_found`. Awaiting Aaron's
+      check on a real round with focus unlocked.
 - [ ] **Focus lock wording and a visible status (Aaron, 2026-09-30).** Buttons read "Lock
       focus" and "Unlock focus". Next to them, a status line always shows the current state:
       "Focus status: UNLOCKED" or "Focus status: Locked 6.38" (the locked lens position). Found
