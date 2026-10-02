@@ -993,8 +993,9 @@ The heart of the project. Do not start before M1 slice 5.
       message ("Focus isn't confirmed"). All fixed, code comments in the templates included,
       except one verbatim quote of Aaron in a setup_calibration.html comment. Not touched:
       app.py docstrings and comments (never shown on a page), and one comment in
-      static/squareness-guides.js. These four templates still hold 83 em or en dashes
-      (setup_calibration.html 63, the other three 8, 8, 4), not part of this slice.
+      static/squareness-guides.js (Aaron: ignore it). Same branch, at Aaron's request: all 85
+      em and en dashes in these four templates replaced (83 characters plus 2 `&ndash;`), title
+      suffixes now ": Calibration" like the validation page.
 
 - [~] **Validation page needs too much scrolling on the target 1024x768 monitor (Aaron,
       2026-09-30).** Each round the operator has to scroll from the status line, past the
