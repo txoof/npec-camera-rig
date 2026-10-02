@@ -200,10 +200,9 @@
         </div>
         ${problemsHtml(s)}
         <p class="validation-note">
-          Each round: ±% / median %. ±% is the band 95% of that round's tags fall in (with about
-          30 tags it can swing a point on its own); the median shows whether the slot reads high
-          or low. A slot is consistent when its row stays similar. Highlighted: median moved more
-          than ${limit} points between rounds. Red: the round that moved it, or a slot name that reads off the others in every round.
+          Each round: ±% (95% of its tags within) / median %. Orange row: median moved more than
+          ${limit} points between rounds. Red: the round that moved it, or a slot that reads off
+          the others in every round.
         </p>`;
     }
 
@@ -276,16 +275,34 @@
         </div>`;
     }
 
+    // Focus has to be locked at the calibration's lens position for a round to count; show it
+    // here so a mismatch is visible before a round is captured (Aaron, 2026-09-30).
+    function focusText(focus, calibrationLens) {
+      if (!focus) return "";
+      if (!focus.locked) {
+        return '<span class="validation-problem">Focus: not locked.</span> Lock it on Setup / Focus &amp; Square.';
+      }
+      const at = focus.lens_position.toFixed(2);
+      if (calibrationLens != null && Math.abs(focus.lens_position - calibrationLens) > 0.005) {
+        return `<span class="validation-problem">Focus: locked ${at}, not the calibration's ` +
+          `${calibrationLens.toFixed(2)}.</span>`;
+      }
+      return `Focus: locked ${at}.`;
+    }
+
     async function refresh(selectId) {
-      const [calResp, listResp] = await Promise.all([
+      const [calResp, listResp, focusResp] = await Promise.all([
         fetch("/calibration/current"),
         fetch("/validation/sessions"),
+        fetch("/focus/status"),
       ]);
       const cal = calResp.ok ? await calResp.json() : null;
+      const focus = focusResp.ok ? await focusResp.json() : null;
       currentStem = cal && cal.frame_stem ? cal.frame_stem : null;
-      el("validation-calibration").textContent = currentStem
+      el("validation-calibration").innerHTML = currentStem
         ? `Active calibration: ${currentStem}` +
-          (cal.lens_position == null ? "" : `, lens position ${cal.lens_position.toFixed(2)}`)
+          (cal.lens_position == null ? "" : `, lens position ${cal.lens_position.toFixed(2)}`) +
+          `. ${focusText(focus, cal.lens_position)}`
         : "No active calibration. Run one first (Setup / Calibration).";
       if (!listResp.ok) throw new Error(`validation list: ${listResp.statusText}`);
       const sessions = await listResp.json();
@@ -329,18 +346,30 @@
           }
           selectId = (await post(`/validation/sessions/${openSession.id}/end`)).id;
         } else {
+          // The first validation of a calibration reads its full-resolution photograph to find
+          // the tray slots (about 15 seconds); later ones start at once.
+          busyText("Preparing the validation. The first one for a calibration takes about 15 seconds...");
+          el("validation-capture").disabled = true;
           selectId = (await post("/validation/sessions")).id;
         }
       } catch (err) {
         alert(`Could not ${openSession ? "end" : "start"} the validation: ${err.message}`);
+      } finally {
+        busyText(null);
       }
       await refreshOrWarn(selectId);
     });
 
+    function busyText(text) {
+      const busy = el("validation-busy");
+      if (text) busy.textContent = text;
+      show(busy, !!text, "inline");
+    }
+
     el("validation-capture").addEventListener("click", async () => {
       capturing = true;
       renderControls();
-      show(el("validation-busy"), true, "inline");
+      busyText("Capturing and measuring, about 20 seconds...");
       let s = null;
       try {
         s = await post(`/validation/sessions/${openSession.id}/rounds`);
@@ -348,7 +377,7 @@
         alert(`Round not captured: ${err.message}`);
       }
       capturing = false;
-      show(el("validation-busy"), false);
+      busyText(null);
       await refreshOrWarn(s ? s.id : undefined);
     });
 

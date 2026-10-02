@@ -35,8 +35,8 @@
 <div class="focus-control-panel">
   <div class="focus-control-row">
     <button id="autofocus-btn">Autofocus</button>
-    <button id="lock-btn">Confirm focus</button>
-    <span id="lock-status">not confirmed</span>
+    <button id="lock-btn">Lock focus</button>
+    <span id="lock-status">Focus status: UNLOCKED</span>
     <label class="peaking-inline">
       <input type="checkbox" id="peaking-toggle">
       <span>Focus peaking</span>
@@ -81,10 +81,9 @@
     number, not instead of it.
   </p>
   <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-    <strong>Confirming</strong> marks the current position as your confirmed focus, shown
-    above as a checkpoint — a record, not a safeguard. It doesn't stop the lens from
-    moving; adjusting the controls above afterward clears the confirmation, so confirm
-    again if you do.
+    <strong>Lock focus</strong> moves the lens to the position you set, always the same way, and
+    waits until the camera reports it there; calibration and validation then hold to that
+    position. Adjusting the controls above afterward unlocks it, so lock again if you do.
   </p>
 </details>
 
@@ -430,8 +429,8 @@
       });
     });
 
-    // --- Confirm / unconfirm focus (server-side: "lock"/"unlock", same concept, see
-    // /focus/lock and /focus/unlock) ---
+    // --- Lock / unlock focus (/focus/lock and /focus/unlock). Wording and status line as
+    // Aaron set them, 2026-09-30 ---
     const lockBtn = document.getElementById("lock-btn");
     const lockStatus = document.getElementById("lock-status");
 
@@ -439,13 +438,13 @@
       const r = await fetch("/focus/status");
       const data = await r.json();
       lockStatus.textContent = data.locked
-        ? `confirmed @ ${data.lens_position.toFixed(1)}`
-        : "not confirmed";
-      lockBtn.textContent = data.locked ? "Unconfirm" : "Confirm focus";
+        ? `Focus status: Locked ${data.lens_position.toFixed(2)}`
+        : "Focus status: UNLOCKED";
+      lockBtn.textContent = data.locked ? "Unlock focus" : "Lock focus";
     }
 
     lockBtn.addEventListener("click", async () => {
-      const isLocked = lockBtn.textContent === "Unconfirm";
+      const isLocked = lockBtn.textContent === "Unlock focus";
       if (isLocked) {
         await fetch("/focus/unlock", { method: "POST" });
         refreshFocusStatus();
@@ -454,14 +453,14 @@
       // Locking drives the lens the one consistent way and waits for the camera to report it
       // there, which can take up to a minute after a full-resolution capture.
       lockBtn.disabled = true;
-      lockStatus.textContent = "moving the lens and waiting for the camera to confirm (up to 60 s)";
+      lockStatus.textContent = "Focus status: locking, waiting for the camera (up to 60 s)";
       try {
         const resp = await fetch("/focus/lock", { method: "POST" });
         if (!resp.ok) {
           const body = await resp.json().catch(() => ({}));
           lockBtn.disabled = false;
-          lockStatus.textContent = body.detail || "focus is not locked";
-          lockBtn.textContent = "Confirm focus";
+          lockStatus.textContent = `Focus status: UNLOCKED (${body.detail || "focus is not locked"})`;
+          lockBtn.textContent = "Lock focus";
           return;
         }
       } finally {

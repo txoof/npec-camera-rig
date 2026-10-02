@@ -966,6 +966,7 @@ def delete_calibration(stem: str) -> dict:
     (calibration_root() / "frames" / f"{stem}.jpg").unlink(missing_ok=True)
     # A validation session only means anything against its own calibration.
     validation_store.delete_sessions_for_calibration(stem)
+    validation_store.delete_slot_layout(stem)
     for suffix in (
         "",
         "_area-shape",
@@ -1542,6 +1543,22 @@ def start_validation_session() -> dict:
     artifact = load_current_calibration()
     if artifact is None or artifact.frame_stem is None:
         raise HTTPException(409, "no active calibration with a saved frame to validate")
+    layout = _calibration_slot_layout(artifact)
+    with _validation_lock:
+        validation_store.end_open_sessions(artifact.frame_stem)
+        session = validation_store.new_session(
+            artifact.frame_stem, layout["slots"], layout["calibration_centres"]
+        )
+    return _session_summary(session, artifact.frame_stem)
+
+
+def _calibration_slot_layout(artifact: CalibrationArtifact) -> dict:
+    """The calibration's tray slots and tag centres, from disk when already worked out. Working
+    them out decodes the 64MP calibration frame (about 15 s, the "Start validation" freeze of
+    2026-10-02 after a restart emptied the in-memory cache), so the result is saved once."""
+    saved = validation_store.load_slot_layout(artifact.frame_stem)
+    if saved is not None:
+        return saved
     _frame, detections = _detect_tags_cached(artifact.frame_stem)
     try:
         layout = build_slot_layout(
@@ -1549,12 +1566,9 @@ def start_validation_session() -> dict:
         )
     except SlotLayoutError as exc:
         raise HTTPException(409, f"this calibration cannot be validated: {exc}") from exc
-    with _validation_lock:
-        validation_store.end_open_sessions(artifact.frame_stem)
-        session = validation_store.new_session(
-            artifact.frame_stem, slot_layout_to_dict(layout), calibration_centres(detections)
-        )
-    return _session_summary(session, artifact.frame_stem)
+    slots, centres = slot_layout_to_dict(layout), calibration_centres(detections)
+    validation_store.save_slot_layout(artifact.frame_stem, slots, centres)
+    return {"slots": slots, "calibration_centres": [list(c) for c in centres]}
 
 
 @app.get("/validation/sessions/{session_id}")
@@ -1626,6 +1640,21 @@ def capture_validation_round(session_id: str) -> dict:
             "slot_errors": None,
             "centres": [list(c) for c in calibration_centres(detections)],
         }
+        # Focus is judged first and reported even when the sheets cannot be read: a round at the
+        # wrong focus usually finds no sheets at all, and "found 0 calibration sheets" alone sent
+        # the operator to the sheets instead of the focus (Aaron, 2026-09-30).
+        reasons = []
+        locked_at = focus.get("lens_position")
+        if not focus.get("locked"):
+            reasons.append("focus is not locked")
+        elif (
+            artifact.lens_position is not None
+            and abs(locked_at - artifact.lens_position) > _LENS_POSITION_TOLERANCE
+        ):
+            reasons.append(
+                f"focus is locked at {locked_at:.2f}, the calibration was taken at "
+                f"{artifact.lens_position:.2f}"
+            )
         try:
             round_["slot_errors"] = round_errors_by_slot(
                 detections,
@@ -1634,25 +1663,13 @@ def capture_validation_round(session_id: str) -> dict:
                 artifact.calibration_tag_size_mm,
             )
         except SlotLayoutError as exc:
-            round_["reason"] = str(exc)
+            round_["reason"] = "; ".join(reasons + [str(exc)])
         else:
             references = [session["calibration_centres"]] + [
                 r["centres"] for r in validation_store.counted_rounds(session)
             ]
             moved = moved_fraction(round_["centres"], references, artifact.scale_field)
             round_["moved_pct"] = round(100 * moved, 1)
-            reasons = []
-            locked_at = focus.get("lens_position")
-            if not focus.get("locked"):
-                reasons.append("focus is not locked")
-            elif (
-                artifact.lens_position is not None
-                and abs(locked_at - artifact.lens_position) > _LENS_POSITION_TOLERANCE
-            ):
-                reasons.append(
-                    f"focus is locked at {locked_at:.2f}, the calibration was taken at "
-                    f"{artifact.lens_position:.2f}"
-                )
             if moved < MIN_MOVED_FRACTION:
                 reasons.append(
                     f"only {100 * moved:.0f}% of tags moved since the calibration or an earlier "

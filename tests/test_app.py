@@ -1709,6 +1709,36 @@ def test_a_round_missing_a_sheet_cannot_be_overridden(tray_scene: dict) -> None:
     assert client.post(f"/validation/sessions/{session['id']}/rounds/0/count").status_code == 409
 
 
+def test_a_round_at_the_wrong_focus_says_so_even_when_no_sheets_are_found(tray_scene: dict) -> None:
+    # Aaron, 2026-09-30: an out-of-focus round finds no sheets, and the message blamed only the
+    # sheets. Focus is now named first.
+    client = TestClient(app)
+    session = _calibrate_and_start(client, lock_focus=False)
+    tray_scene["drop_sheets"] = 12
+    held = client.post(f"/validation/sessions/{session['id']}/rounds").json()["rounds"][0]
+    assert not held["counted"]
+    assert held["reason"].startswith("focus is not locked; found 0 calibration sheets")
+
+
+def test_a_calibrations_slot_layout_is_worked_out_once_and_kept(
+    tray_scene: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 2026-10-02: "Start validation" froze for about 15 s after a restart, decoding the 64MP
+    # calibration frame again. The layout is now saved, so a later start does not decode.
+    client = TestClient(app)
+    first = _calibrate_and_start(client)
+    monkeypatch.setattr(app_module, "_detect_tags_cached", lambda stem: pytest.fail("decoded again"))
+    second = client.post("/validation/sessions")
+    assert second.status_code == 200
+    assert second.json()["results"] == [
+        {**r, "n": 0, "p95_abs_pct": None, "median_pct": None} for r in first["results"]
+    ]
+    stem = first["calibration_stem"]
+    client.post("/calibration/run")  # a newer calibration, so the first can be deleted
+    assert client.delete(f"/calibration/{stem}").status_code == 200
+    assert app_module.validation_store.load_slot_layout(stem) is None
+
+
 def test_rounds_refused_once_the_calibration_is_replaced(tray_scene: dict) -> None:
     client = TestClient(app)
     session = _calibrate_and_start(client)

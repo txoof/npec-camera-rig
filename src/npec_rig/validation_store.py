@@ -128,6 +128,43 @@ def delete_sessions_for_calibration(calibration_stem: str) -> int:
     return removed
 
 
+SLOT_LAYOUTS_DIRNAME = "slot-layouts"
+
+
+def _slot_layout_path(calibration_stem: str) -> Path:
+    if not _SESSION_ID.match(calibration_stem):
+        raise SessionNotFoundError(f"not a calibration stem: {calibration_stem!r}")
+    return validations_root() / SLOT_LAYOUTS_DIRNAME / f"{calibration_stem}.json"
+
+
+def save_slot_layout(calibration_stem: str, slots: list[dict], calibration_centres: list) -> None:
+    """A calibration's tray slots and tag centres, worked out once from its 64MP frame (about 15 s
+    to decode and detect) and kept on disk, so starting a validation after a restart does not
+    have to do it again."""
+    path = _slot_layout_path(calibration_stem)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_json_atomically(
+        path, {"slots": slots, "calibration_centres": [list(c) for c in calibration_centres]}
+    )
+
+
+def load_slot_layout(calibration_stem: str) -> dict | None:
+    """{"slots", "calibration_centres"} saved by `save_slot_layout`, or None if not saved yet or
+    unreadable (it is then simply worked out again)."""
+    path = _slot_layout_path(calibration_stem)
+    if not path.exists():
+        return None
+    try:
+        layout = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return None
+    return layout if {"slots", "calibration_centres"} <= layout.keys() else None
+
+
+def delete_slot_layout(calibration_stem: str) -> None:
+    _slot_layout_path(calibration_stem).unlink(missing_ok=True)
+
+
 def is_ended(session: dict) -> bool:
     """Ended sessions take no more rounds. A session saved before End validation existed has no
     `ended_at` key at all and counts as ended: otherwise every old session would read as open,

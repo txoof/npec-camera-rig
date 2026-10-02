@@ -9,15 +9,17 @@ uncertainty column in the exported data means.
 
 ## The three steps
 
-1. **Focus, then confirm focus.** On *Setup / Focus & Square*, set the focus for your setup with the
+1. **Focus, then lock focus.** On *Setup / Focus & Square*, set the focus for your setup with the
    targets on the trays, until the picture is sharp at tray height. The focus point is your
-   choice: pick what suits your plants and trays. Then press **Confirm focus**. The rig moves the
+   choice: pick what suits your plants and trays. Then press **Lock focus**. The rig moves the
    lens to that position in one fixed way and waits until the camera confirms it, which can take up
-   to a minute. The status then reads "confirmed".
+   to a minute. The status then reads "Focus status: Locked" with the lens position.
 2. **Calibrate.** Run the calibration wizard on *Setup / Calibration* with the calibration sheets
    on the trays. It works out how many pixels make a millimetre across the table, at this focus.
-3. **Validate.** On *Setup / Validation*, press **Start validation**. For each of 3 rounds: move
-   every sheet on its tray, shuffle the trays between positions, then press **Capture round**. When
+3. **Validate.** On *Setup / Validation*, check that the page shows "Focus: locked" at the
+   calibration's lens position, then press **Start validation**. For each of 3 rounds: leave the
+   trays where they are, put each sheet on a different tray, 2 to 5 cm from where a sheet lay
+   before, flat and fully on the tray, step out of view, then press **Capture round**. When
    3 rounds have counted, the status reads **Validated**, or **Not consistent** with the slots
    that disagreed between rounds and a red "Problem" note naming the sheet, tray or round to check.
 
@@ -34,8 +36,9 @@ Repeat all three steps after any of these:
 - **Moving or knocking the camera**, or changing the table or tray heights.
 - **A validation that reads "Not consistent"** after you have fixed what it named.
 
-If focus is no longer confirmed (for example the status reads "not confirmed" after someone moved
-the lens), measurements are not covered by the validation until all three steps are done again.
+If focus is no longer locked (for example the status reads "Focus status: UNLOCKED" after someone
+moved the lens), measurements are not covered by the validation until all three steps are done
+again.
 
 ## What the uncertainty column means
 
