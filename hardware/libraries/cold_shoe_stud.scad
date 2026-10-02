@@ -1,18 +1,15 @@
 /* ---------------------------------------------------------------------------
    Cold shoe stud -- purchased-hardware standin for the square-flange, two-
-   step threaded stud that slides into `cold_shoe.scad`'s shoe channel: a
+   step threaded stud that slides into a cold shoe channel: a
    thin square plate with a 3/8" post rising from it, and a 1/4" post rising
    further from the top of that post (the common flash-stud / umbrella-screw
    shape -- see reference photo). Thread geometry is skipped by request:
    both posts are plain cylinders standing in for the 3/8"-16 and 1/4"-20
    threaded sections, not modeled threads.
 
-   The flange is sized to slide under `cold_shoe.scad`'s lips and be caught
-   by them: narrower than that file's channel_w (15mm clear width between
-   the side walls) but wider than its gap_w (channel_w - 2*lip_overhang =
-   9mm, the open gap between the lip tips) -- read those figures off that
-   file rather than `use`-ing it, same as `t_slot_bolt.scad` does for the
-   T-slot profile files.
+   Dimensions are approximate, chosen to read as the right size in the
+   rig_assembly.scad mockup. They are not measured from the purchased stud
+   and not sized against any modelled shoe.
 
    Coordinate convention: origin centred on the flange in X/Y. Z0 = the
    underside of the flange (the face that rests on the shoe's channel
@@ -23,10 +20,11 @@
    [Build Plate] or [Revision] group, same reasoning as `t_slot_bolt.scad`.
 
    REV 1.0: initial.
+   REV 1.1: comments only; dropped references to the removed cold_shoe.scad.
    --------------------------------------------------------------------------- */
 
 /* [Plate] */
-plate_w   = 18;   // square flange width, mm -- fits inside cold_shoe.scad's channel_w (15) and outside its gap_w (9)  [8:0.5:14]
+plate_w   = 18;   // square flange width, mm  [8:0.5:14]
 plate_thk = 2;    // flange thickness, mm  [1:0.25:4]
 corner_r  = 1;    // corner rounding on the flange, mm (0 = square corners)  [0:0.25:3]
 
