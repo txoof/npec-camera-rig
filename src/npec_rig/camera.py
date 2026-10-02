@@ -424,15 +424,28 @@ def _default_backend() -> CameraBackend:
 
 
 class LensNotSettledError(RuntimeError):
-    """The camera did not report the lens at its target within LENS_SETTLE_TIMEOUT_S."""
+    """The camera did not report the lens at its target in time."""
 
-    def __init__(self, target: float, reported: float) -> None:
+    def __init__(self, target: float, reported: float, timeout_s: float) -> None:
         super().__init__(
-            f"the lens did not reach {target:.2f} within {LENS_SETTLE_TIMEOUT_S:.0f} s "
+            f"the lens did not reach {target:.2f} within {timeout_s:.0f} s "
             f"(it reports {reported:.2f})"
         )
         self.target = target
         self.reported = reported
+
+
+class LensMovedDuringLockError(RuntimeError):
+    """The lens was moved by something else while Lock focus was waiting for it."""
+
+    def __init__(self, target: float, moved_to: float | None) -> None:
+        where = f" to {moved_to:.2f}" if moved_to is not None else ""
+        super().__init__(f"the lens was moved{where} while focus was being locked at {target:.2f}")
+
+
+# The startup restore waits less than an operator's Lock focus: it runs while the camera is first
+# opened, and every camera request waits for it.
+LENS_STARTUP_TIMEOUT_S = 10.0
 
 
 class CameraManager:
@@ -450,6 +463,7 @@ class CameraManager:
         # The last position this app set: what the lens is driven back to when focus is locked.
         # Not the camera's report, which can lag a move by about 45 s after a full-res capture.
         self._commanded_lens_position: float | None = None
+        self._drive_lock = Lock()
         self._peaking_enabled = False
         self._apply_persisted_settings()
 
@@ -479,7 +493,7 @@ class CameraManager:
         # restored lock is only trusted once the camera reports the lens where it was locked.
         if "LensPosition" in persisted and "LensPosition" in available:
             try:
-                self._drive_lens(float(persisted["LensPosition"]))
+                self._drive_lens(float(persisted["LensPosition"]), LENS_STARTUP_TIMEOUT_S)
             except LensNotSettledError as exc:
                 logger.warning("Lens not restored at startup: %s", exc)
                 return
@@ -549,27 +563,30 @@ class CameraManager:
         with self._call_lock:
             return self._backend.capture_preview_array()
 
-    def _drive_lens(self, value: float) -> float:
+    def _drive_lens(self, value: float, timeout_s: float | None = None) -> float:
         """Move the lens to `value` the one consistent way (see LENS_APPROACH_OFFSET) and wait
         until the camera reports it there. Returns the reported position; raises
-        LensNotSettledError if it does not get there within LENS_SETTLE_TIMEOUT_S. Does not touch
-        the focus lock: callers decide what a confirmed move means."""
-        low = self._backend.available_controls().get("LensPosition", (0.0,))[0]
-        with self._call_lock:
-            self._backend.set_lens_position(max(low, value - LENS_APPROACH_OFFSET))
-        time.sleep(LENS_APPROACH_PAUSE_S)
-        with self._call_lock:
-            self._backend.set_lens_position(value)
-        self._commanded_lens_position = value
-        save_setting("LensPosition", value)
-        deadline = time.monotonic() + LENS_SETTLE_TIMEOUT_S
-        while True:
-            reported = self.get_lens_position()
-            if abs(reported - value) <= LENS_REPORT_TOLERANCE:
-                return reported
-            if time.monotonic() >= deadline:
-                raise LensNotSettledError(value, reported)
-            time.sleep(LENS_POLL_INTERVAL_S)
+        LensNotSettledError if it does not get there within `timeout_s` (default
+        LENS_SETTLE_TIMEOUT_S). One drive at a time: a second one (Lock focus pressed twice) waits
+        for the first. Does not touch the focus lock: callers decide what a confirmed move means."""
+        timeout_s = LENS_SETTLE_TIMEOUT_S if timeout_s is None else timeout_s
+        with self._drive_lock:
+            low = self._backend.available_controls().get("LensPosition", (0.0,))[0]
+            with self._call_lock:
+                self._backend.set_lens_position(max(low, value - LENS_APPROACH_OFFSET))
+            time.sleep(LENS_APPROACH_PAUSE_S)
+            with self._call_lock:
+                self._backend.set_lens_position(value)
+            self._commanded_lens_position = value
+            save_setting("LensPosition", value)
+            deadline = time.monotonic() + timeout_s
+            while True:
+                reported = self.get_lens_position()
+                if abs(reported - value) <= LENS_REPORT_TOLERANCE:
+                    return reported
+                if time.monotonic() >= deadline:
+                    raise LensNotSettledError(value, reported, timeout_s)
+                time.sleep(LENS_POLL_INTERVAL_S)
 
     def set_lens_position(self, value: float) -> None:
         with self._call_lock:
@@ -648,10 +665,16 @@ class CameraManager:
         """Drive the lens to the position last set (the one consistent way, confirmed) and lock
         it there. Raises LensNotSettledError, leaving focus unlocked, if the camera never reports
         it there."""
+        # Unlocked first: the lens is about to move, so an older lock must not survive a failure.
+        self._locked_lens_position = None
+        save_setting("FocusConfirmed", False)
         target = self._commanded_lens_position
         if target is None:
             target = self.get_lens_position()
         self._drive_lens(target)
+        if self._commanded_lens_position != target:
+            # The lens was moved (slider, autofocus) during the wait: lock nothing.
+            raise LensMovedDuringLockError(target, self._commanded_lens_position)
         lens_position = target
         self._locked_lens_position = lens_position
         # Persisted so a restart (dev reload, crash, future systemd restart-on-failure) doesn't

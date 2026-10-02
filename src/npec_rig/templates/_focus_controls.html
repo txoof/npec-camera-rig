@@ -68,7 +68,7 @@
     <strong>Focus mode:</strong> click the preview to place the focus ROI; the magnified
     crop updates to match. <strong>Square mode:</strong> drag the guide-line tabs at the
     frame's edge to line them up with a real edge, checking by eye that the rig sits
-    square — a straightening aid, not a saved reading.
+    square: a straightening aid, not a saved reading.
   </p>
   {% else %}
   <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
@@ -77,7 +77,7 @@
   {% endif %}
   <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
     <strong>Focus peaking</strong> highlights high-contrast edges in the crop above in
-    magenta — denser highlighting means sharper focus; use it alongside the sharpness
+    magenta. Denser highlighting means sharper focus; use it alongside the sharpness
     number, not instead of it.
   </p>
   <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
@@ -292,7 +292,7 @@
         const data = await r.json();
         applyLensPosition(data.lens_position);
         await sendLensPosition();
-        autofocusBtn.textContent = data.success ? "Autofocus" : "Autofocus (failed — adjust manually)";
+        autofocusBtn.textContent = data.success ? "Autofocus" : "Autofocus (failed, adjust manually)";
       } finally {
         autofocusBtn.disabled = false;
       }

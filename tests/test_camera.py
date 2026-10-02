@@ -138,6 +138,44 @@ def test_focus_stays_unlocked_when_the_camera_never_reports_the_lens_there(
     assert manager.focus_status() == {"locked": False, "lens_position": None}
 
 
+def test_a_failed_lock_does_not_leave_an_older_lock_in_place(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Code review 2026-10-02: the lens moves during a lock, so an older lock must not survive
+    # the new one failing.
+    backend = _RecordingSyntheticBackend()
+    manager = CameraManager(backend)
+    manager.set_lens_position(6.18)
+    manager.lock_focus()
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    backend.stale_reads = 10**6
+
+    with pytest.raises(camera_module.LensNotSettledError):
+        manager.lock_focus()
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+    assert load_settings()["FocusConfirmed"] is False
+
+
+def test_moving_the_lens_while_lock_focus_waits_locks_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Code review 2026-10-02: the slider moved during the up-to-60 s wait must not end in a lock
+    # at the old position.
+    manager = CameraManager(_RecordingSyntheticBackend())
+    manager.set_lens_position(6.18)
+    reads = []
+
+    def report_while_the_operator_moves_the_slider() -> float:
+        reads.append(True)
+        if len(reads) == 1:
+            manager.set_lens_position(6.40)  # another request, while the lock waits
+            return 1.0  # the camera has not caught up yet
+        return 6.18  # then reports the lock's target
+
+    monkeypatch.setattr(manager, "get_lens_position", report_while_the_operator_moves_the_slider)
+    with pytest.raises(camera_module.LensMovedDuringLockError):
+        manager.lock_focus()
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+
 def test_a_restart_drives_the_lens_back_the_same_way_and_keeps_the_lock() -> None:
     from npec_rig.settings import save_setting
 

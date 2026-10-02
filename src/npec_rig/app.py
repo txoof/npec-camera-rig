@@ -60,7 +60,13 @@ from npec_rig.calibration_viz import (
     render_table_view,
     render_uncertainty_heatmap,
 )
-from npec_rig.camera import CameraBusyError, CameraManager, LensNotSettledError, array_to_jpeg
+from npec_rig.camera import (
+    CameraBusyError,
+    CameraManager,
+    LensMovedDuringLockError,
+    LensNotSettledError,
+    array_to_jpeg,
+)
 from npec_rig.certainty_map import (
     MIN_MOVED_FRACTION,
     SlotLayoutError,
@@ -392,7 +398,7 @@ def lock_focus() -> dict:
     """Drive the lens to the position last set, the one consistent way, and lock it there."""
     try:
         return CameraManager.instance().lock_focus()
-    except LensNotSettledError as exc:
+    except (LensNotSettledError, LensMovedDuringLockError) as exc:
         raise HTTPException(409, f"{exc}: focus is not locked, press Lock focus again") from exc
 
 
