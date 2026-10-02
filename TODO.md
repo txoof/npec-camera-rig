@@ -987,6 +987,15 @@ The heart of the project. Do not start before M1 slice 5.
       its messages are done; still to do (count on 2026-09-30): setup_calibration.html 35,
       _focus_controls.html 4, setup_calibration_history_diagnostics.html 1,
       setup_health_check.html 1, plus server messages in app.py outside validation.
+      **Built 2026-10-02 on m2-no-contractions, awaiting Aaron's browser check.** Recount before
+      the change: setup_calibration.html 35, _focus_controls.html 3,
+      setup_calibration_history_diagnostics.html 1, setup_health_check.html 1, app.py 1 page
+      message ("Focus isn't confirmed"). All fixed, code comments in the templates included,
+      except one verbatim quote of Aaron in a setup_calibration.html comment. Not touched:
+      app.py docstrings and comments (never shown on a page), and one comment in
+      static/squareness-guides.js (Aaron: ignore it). Same branch, at Aaron's request: all 85
+      em and en dashes in these four templates replaced (83 characters plus 2 `&ndash;`), title
+      suffixes now ": Calibration" like the validation page.
 
 - [~] **Validation page needs too much scrolling on the target 1024x768 monitor (Aaron,
       2026-09-30).** Each round the operator has to scroll from the status line, past the
@@ -1036,6 +1045,15 @@ The heart of the project. Do not start before M1 slice 5.
       items above. *(Aaron, 2026-09-27.)*
 - [ ] **LOW PRIORITY. Step 2 (Confirm focus): move the "Camera settings" sub-panel up next to the
       other settings controls.** Discuss placement before acting. *(Aaron, 2026-09-28.)*
+- [ ] **LOW PRIORITY. Investigate: Step 2 live preview took 30 to 45 s to load (Aaron,
+      2026-10-02).** Not measured yet; the access log has no timestamps. Leads from the code and
+      log, 2026-10-02: (1) it followed two validation rounds (full-res captures), so it is likely
+      the same post-capture lag as the 45 s lens-position item under M2 known issues; (2) one
+      wizard page load opens `/preview.mjpg` and `/focus/roi.mjpg` twice each (the `src` in
+      `_focus_controls.html:11,25`, then again from `updateLiveResources()`), 4 long-lived
+      streams against the browser's 6 connections per host. First step: log time to first frame
+      and frame age in `_mjpeg_frames` (app.py), then one capture followed by Step 2. Do not
+      touch camera settings or the lens.
 - [ ] **LOW PRIORITY. Step 7 (Remove sheets): "Done" button should be active and return to the
       main Setup menu, once it exists.** *(Aaron, 2026-09-28.)*
 - [ ] **MEDIUM PRIORITY. Combine Step 3 (squareness) and Step 4 (coplanarity) into one display.**
@@ -1371,6 +1389,12 @@ The heart of the project. Do not start before M1 slice 5.
       a restart or when switching calibrations); store them through `images.tag_detections`
       instead, and make each plot a recipe. Not the live level overlay (`level.jpg`): it draws a
       live preview frame, so there is nothing to keep.
+- [ ] **Calibration history page is slow to load photos (Aaron, 2026-10-02).** It does not use
+      the image system (`images.py`), and its photos take a long time to appear. Likely the same
+      routes as the item above (`/calibration/<stem>/...` plots, decoded and drawn per request),
+      plus whatever the history list and diagnostics pages load; time each request before
+      choosing the fix. Done when the history and diagnostics pages show their images through
+      `images.get` and Aaron confirms in a browser that they load quickly.
 - [ ] **Design the header/nav menu properly once experiment/report pages exist.** The Jinja
       base-layout work (M2 UI-organization pass) centralized the header/nav into one
       `templates/base.html` block, but its content is still just the same two links (Setup,

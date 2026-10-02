@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set nav_active = "setup" %}
-{% block title_suffix %} — Health check{% endblock %}
+{% block title_suffix %}: Health check{% endblock %}
 
 {% block breadcrumb %}
   <p class="breadcrumb">
@@ -11,14 +11,14 @@
 {% block content %}
   <h2>Health check</h2>
   <p style="margin: 0 0 1rem; color: #aaa; font-size: 0.85rem;">
-    On-demand checks, outside the linear Calibration wizard — for whenever you want to check on
+    On-demand checks, outside the linear Calibration wizard, for whenever you want to check on
     the rig without redoing setup from the start.
   </p>
 
   <h3 style="margin: 1rem 0 0.25rem;">Tripwire check</h3>
   <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
     Compares the four corner tags right now against the baseline saved by the last calibration
-    that had "Set as current baseline" checked — the roll/knock acceptance test. Needs a saved
+    that had "Set as current baseline" checked. This is the roll/knock acceptance test. Needs a saved
     calibration first (<a href="/setup/calibration">Calibration</a>); running this immediately
     after that calibration is expected to read no change.
   </p>
@@ -35,7 +35,7 @@
       the actual error with a ruler, and type it into that row. "Claimed" is looked up
       automatically from the live calibration. Points on the diagonal are honest; scattered off
       it at random is fine; drifting with position is the signal that opens the intrinsics
-      evidence gate (CLAUDE.md) — that judgement is yours to make from where they land.
+      evidence gate (CLAUDE.md). That judgement is yours to make from where they land.
     </p>
     <img id="honesty-frame-image" alt="Current calibration frame -- click a position to add a row"
          class="diagnostic-image" data-no-lightbox>
@@ -89,7 +89,7 @@
     const honestyPlotResult = document.getElementById("honesty-plot-result");
     const honestyPlotImage = document.getElementById("honesty-plot-image");
 
-    // The frame is a full-res (9152x6944) JPEG -- multi-MB on this rig's own captures -- so it's
+    // The frame is a full-res (9152x6944) JPEG -- multi-MB on this rig's own captures -- so it is
     // not worth fetching until the operator actually opens this section, e.g. someone here just
     // for the tripwire check above.
     let honestyFrameLoaded = false;

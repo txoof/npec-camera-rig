@@ -88,7 +88,7 @@
 </details>
 
 <script>
-  // Defines initFocusControls only -- does not run until the including page calls it, so it's
+  // Defines initFocusControls only -- does not run until the including page calls it, so it is
   // safe regardless of where this partial lands relative to the caller's own script.
   function initFocusControls({ isActiveStep, showSquareMode, step = 1 }) {
     const MAIN_WIDTH = 1536;
@@ -96,13 +96,13 @@
     const DEFAULT_ROI_SIZE = 200;
 
     // --- Lens position: autofocus + coarse (whole dioptres) + fine (.00-.99 fraction) ---
-    // The fine slider always spans a fixed .00-.99, left to right — no recentering, no
+    // The fine slider always spans a fixed .00-.99, left to right: no recentering, no
     // dynamic range. Coarse holds the whole number; fine holds the fraction; the two just
     // add together. Typing "6.8" into coarse splits into coarse=6, fine=.80 (80% along the
-    // slider) — what you type is where the slider lands, always the same mapping.
+    // slider): what you type is where the slider lands, always the same mapping.
     // LENS_MIN/LENS_MAX start as reasonable guesses and are corrected from the probed range
-    // in loadControls() below — LensPosition's own max has already been observed to change
-    // between probes (15.0, then 32.0), so this can't be a hardcoded constant.
+    // in loadControls() below; LensPosition's own max has already been observed to change
+    // between probes (15.0, then 32.0), so this cannot be a hardcoded constant.
     let LENS_MIN = 0, LENS_MAX = 15;
 
     const autofocusBtn = document.getElementById("autofocus-btn");
@@ -118,7 +118,7 @@
       value = clamp(value, LENS_MIN, LENS_MAX);
       let whole = Math.floor(value);
       let fraction = Math.round((value - whole) * 100) / 100;
-      if (fraction >= 1) { // rounding pushed .995+ up to 1.00 — carry it into the whole part
+      if (fraction >= 1) { // rounding pushed .995+ up to 1.00, carry it into the whole part
         whole += 1;
         fraction = 0;
       }
@@ -146,10 +146,10 @@
       AwbEnable: "Auto white balance",
       AeEnable: "Auto exposure",
     };
-    // AWB and AE are both "auto X" toggles — shown on one line together, not stacked.
+    // AWB and AE are both "auto X" toggles, shown on one line together, not stacked.
     const PAIRED_CHECKBOX_NAMES = ["AwbEnable", "AeEnable"];
     // Manual writes to these while AE is on re-arm picamera2's manual-exposure latch (see
-    // Picamera2Backend.set_control) — disable them while AeEnable is checked.
+    // Picamera2Backend.set_control); disable them while AeEnable is checked.
     const AE_DEPENDENT_CONTROL_NAMES = ["ExposureTime", "AnalogueGain"];
     const cameraControlsEl = document.getElementById("camera-controls");
 
@@ -214,7 +214,7 @@
         const label = CONTROL_LABELS[name] || name;
 
         if (typeof min === "boolean") {
-          // Any boolean control not already paired above (e.g. one a future camera exposes) —
+          // Any boolean control not already paired above (e.g. one a future camera exposes):
           // still needs a checkbox, not a broken slider with min=false/max=true.
           row.className = "peaking-row";
           row.innerHTML =
@@ -258,7 +258,7 @@
     }
 
     // Load the real control ranges (including LensPosition's) before applying any current
-    // value, so a value near the edge of a since-changed range doesn't get silently clamped
+    // value, so a value near the edge of a since-changed range does not get silently clamped
     // by a stale HTML `max` attribute.
     loadControls()
       .catch(() => {})
@@ -367,7 +367,7 @@
           if (scoreHistory.length > HISTORY_LEN) scoreHistory.shift();
           drawTrace();
         } catch (e) {
-          // transient network hiccup — try again next tick
+          // transient network hiccup, try again next tick
         }
       }
       setTimeout(pollScore, 300);

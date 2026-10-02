@@ -628,7 +628,7 @@ def run_calibration(
         readiness = _calibration_readiness()
         if not readiness["ready"]:
             if not readiness["focus_locked"]:
-                message = "Focus isn't confirmed -- confirm focus before running calibration."
+                message = "Focus is not confirmed -- confirm focus before running calibration."
             else:
                 required = readiness["corner_tags_required"]
                 message = (

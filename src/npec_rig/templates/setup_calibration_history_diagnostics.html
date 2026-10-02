@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set nav_active = "setup" %}
-{% block title_suffix %} — Calibration diagnostics{% endblock %}
+{% block title_suffix %}: Calibration diagnostics{% endblock %}
 
 {% block breadcrumb %}
   <p class="breadcrumb">
@@ -15,14 +15,14 @@
     Loading…
   </p>
   <div id="calibration-not-found" style="display: none;">
-    <p>No saved calibration matches this page's URL — it may have been deleted.</p>
+    <p>No saved calibration matches this page's URL. It may have been deleted.</p>
     <p><a href="/setup/calibration-history">← Back to calibration history</a></p>
   </div>
 
   <div id="calibration-diagnostics-body" style="display: none;">
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      These are that run's own diagnostics, not a live check — they show what the calibration
-      looked like when it was captured, regardless of whether it's active now. Viewing this page
+      These are that run's own diagnostics, not a live check. They show what the calibration
+      looked like when it was captured, regardless of whether it is active now. Viewing this page
       does not change which calibration is active.
     </p>
 
@@ -79,7 +79,7 @@
     <div style="margin: 1rem 0 0.5rem;">
       <button id="load-diagnostics-btn">Load rank plots, radial plot, and dome of certainty</button>
       <span style="color: #aaa; font-size: 0.8rem; margin-left: 0.5rem;">
-        Re-detects tags from this run's saved frame — can take a few seconds.
+        Re-detects tags from this run's saved frame, which can take a few seconds.
       </span>
     </div>
 
@@ -266,18 +266,18 @@
           return;
         }
         const dt = entry.created_at ? entry.created_at.replace("T", " ").slice(0, 19) : entry.filename;
-        const badge = entry.is_current ? " — currently active" : "";
+        const badge = entry.is_current ? " (currently active)" : "";
         const stats =
           entry.residual_std_pct != null
             ? `residual ${entry.residual_std_pct.toFixed(2)}%, tag size ` +
               `${entry.calibration_tag_size_mm}mm, ${entry.corner_tag_count} corner tag` +
               `${entry.corner_tag_count === 1 ? "" : "s"}`
             : "stats unavailable (file could not be read)";
-        summary.textContent = `${dt}${badge} — ${stats}`;
+        summary.textContent = `${dt}${badge}, ${stats}`;
         if (!entry.frame_url) {
           loadDiagnosticsBtn.disabled = true;
           loadDiagnosticsBtn.textContent =
-            "No saved frame for this run — rank/radial/dome plots unavailable";
+            "No saved frame for this run: rank/radial/dome plots unavailable";
         } else if (entry.residual_std_pct == null) {
           // The artifact JSON itself failed to load (same signal /calibration/list uses for
           // "stats unavailable" above) -- a frame can still be on disk, but re-detecting tags
@@ -285,7 +285,7 @@
           // endpoints would 422. Say so up front instead of a silent broken-image icon.
           loadDiagnosticsBtn.disabled = true;
           loadDiagnosticsBtn.textContent =
-            "This calibration's saved file could not be read — rank/radial/dome plots unavailable";
+            "This calibration's saved file could not be read: rank/radial/dome plots unavailable";
         }
         body.style.display = "block";
         showPrerenderedDiagnosticImages(entry);

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set nav_active = "setup" %}
-{% block title_suffix %} — Calibration{% endblock %}
+{% block title_suffix %}: Calibration{% endblock %}
 
 {% block head_extra %}<script src="/static/validation-status.js"></script>{% endblock %}
 
@@ -14,7 +14,7 @@
   <h2>Calibration</h2>
   <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
     Set up or re-verify this rig, in order. Each step below is a real physical action or a real
-    measurement — none of it can be skipped by guessing.
+    measurement. None of it can be skipped by guessing.
   </p>
   <p class="validation-status" data-validation-status>
     <span class="validation-status-text">Reading validation status&hellip;</span>
@@ -39,7 +39,7 @@
          role="img" aria-label="Table diagram: calibration sheets on every tray, corner sheets at the four table corners (N top, E right)">
       <rect x="20" y="20" width="360" height="180" rx="4" fill="none" stroke="#444" stroke-width="2"/>
       <!-- 2 rows x 6 columns of trays, every one carrying a calibration sheet -- sheets are
-           reusable, so there's no reason to leave any tray uncovered, and it sidesteps ever
+           reusable, so there is no reason to leave any tray uncovered, and it sidesteps ever
            having to reason about whether a given pattern happens to reach all four corners. -->
       <g id="step3-tray-grid"></g>
       <script>
@@ -88,8 +88,8 @@
     </p>
     <p style="margin: 0 0 0.25rem; font-size: 0.85rem;">Sheets to print:</p>
     <ul style="margin: 0 0 0.5rem; padding-left: 1.25rem; font-size: 0.85rem;">
-      <li><a href="/reference/calibration-sheets/apriltags-36h11-30mm-a4-300-449.pdf">calibration sheet (30 mm, IDs 300&ndash;449)</a></li>
-      <li><a href="/reference/calibration-sheets/apriltags-36h11-50mm-a4-450-499.pdf">corner/reference sheet (50 mm, IDs 450&ndash;499)</a></li>
+      <li><a href="/reference/calibration-sheets/apriltags-36h11-30mm-a4-300-449.pdf">calibration sheet (30 mm, IDs 300 to 449)</a></li>
+      <li><a href="/reference/calibration-sheets/apriltags-36h11-50mm-a4-450-499.pdf">corner/reference sheet (50 mm, IDs 450 to 499)</a></li>
     </ul>
 
     </div>
@@ -113,15 +113,15 @@
     <div class="wizard-step" data-step="3">
     <h3 style="margin: 1rem 0 0.25rem;">Step 3 - Check squareness and coplanarity</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Check that the camera isn't rotated, tilted, or angled unevenly across the table.
+      Check that the camera is not rotated, tilted, or angled unevenly across the table.
     </p>
     <details style="margin: 0 0 0.5rem;">
       <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
       <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
         Physically adjust the camera until the East side of the table (opposite the drain) is
         in view. Drag the magenta guide-line tabs at the frame's edge onto known perpendicular
-        lines in the scene (e.g. the table's own edges), if they line up, the camera isn't
-        rotated or badly tilted. A straightening aid only; dragged positions aren't saved and
+        lines in the scene (e.g. the table's own edges), if they line up, the camera is not
+        rotated or badly tilted. A straightening aid only; dragged positions are not saved and
         reset on reload.
       </p>
       <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
@@ -130,10 +130,10 @@
         is that tag's apparent size compared to the average of the others: <strong>+</strong>
         means it looks bigger, i.e. <strong>closer</strong> to the camera than the rest;
         <strong>−</strong> means smaller, i.e. <strong>farther away</strong>. Green is within 3%
-        (co-planar); amber is 3–8% (nudge that corner); red is over 8% (that corner needs real
+        (co-planar); amber is 3 to 8% (nudge that corner); red is over 8% (that corner needs real
         adjustment, not a small nudge). Nudge the rig until every ring is green. The magenta
         guide lines are a separate, unrelated straightening aid -- they never turn red, amber, or
-        green, so they can't be mistaken for the rings' verdict.
+        green, so they cannot be mistaken for the rings' verdict.
       </p>
     </details>
     <div class="preview-wrap" style="width: var(--wide-content-width); margin: 0 20px 20px 20px;">
@@ -164,15 +164,15 @@
     <label class="peaking-row">
       <input type="checkbox" id="promote-toggle" checked>
       <span>
-        <strong>Set as current baseline</strong> — leave this checked for a normal setup
-        calibration. Uncheck it for a comparison run (e.g. the two-baseline test) so it doesn't
+        <strong>Set as current baseline</strong>: leave this checked for a normal setup
+        calibration. Uncheck it for a comparison run (e.g. the two-baseline test) so it does not
         replace the baseline the <a href="/setup/health-check">Health check</a> page's tripwire
         check is still using.
       </span>
     </label>
     <label class="peaking-row">
       <span>
-        <strong>Calibration tag size (mm)</strong> — measure this print run's tags with
+        <strong>Calibration tag size (mm)</strong>: measure this print run's tags with
         callipers and enter the value here. Leave blank to fall back to the placeholder default,
         shown after you run a calibration.
       </span>
@@ -193,12 +193,12 @@
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       The result above states the scale, coverage, and any coverage gaps found. If it says
       coverage is weak somewhere, open Diagnostics below to see exactly where, add a sheet there,
-      and run calibration again — no need to redo Steps 1–3 unless something actually moved.
+      and run calibration again. There is no need to redo Steps 1 to 3 unless something actually moved.
     </p>
     <div style="margin: 0.5rem 0;">
       <button id="load-diagnostics-btn">Load diagnostics for the active calibration</button>
       <span style="color: #aaa; font-size: 0.8rem; margin-left: 0.5rem;">
-        Re-detects tags from the saved frame — can take a few seconds. Use this to see the
+        Re-detects tags from the saved frame, which can take a few seconds. Use this to see the
         active calibration's diagnostics without running a new one (e.g. after promoting one
         from history below).
       </span>
@@ -217,12 +217,12 @@
         <span>0% (confident)</span><span>2%</span><span>4%</span><span>6%</span><span>8%+ (least confident)</span>
       </div>
       <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
-        Colour is the local uncertainty field at that position — how much neighbouring
+        Colour is the local uncertainty field at that position: how much neighbouring
         calibration tags disagree with the fitted scale, blended over the actual photo (so the
         sheets and table are still visible underneath). Blue/dark = tags there agree closely with
-        each other and the model — trust readings from that area. Green through red = growing
-        disagreement — the fixed 0–8% scale is used every time so a hotter run really is worse,
-        not just redrawn to look worse. Red doesn't mean "wrong," it means "least measured" —
+        each other and the model. Trust readings from that area. Green through red = growing
+        disagreement. The fixed 0 to 8% scale is used every time so a hotter run really is worse,
+        not just redrawn to look worse. Red does not mean "wrong," it means "least measured",
         usually because coverage is thin there (see the coverage lines above); add a sheet in a
         red area to bring it down.
       </p>
@@ -231,7 +231,7 @@
         <div style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
           <p>
             Every calibration tag's real size is measured with callipers, not taken from the
-            packaging (the single biggest source of error found in this project's history —
+            packaging (the single biggest source of error found in this project's history:
             a "30&nbsp;mm" tag on an earlier rig's print actually measured 29.3106&nbsp;mm, a ~4.7%
             error in area if trusted; each new print is measured again). From that measured size and the tag's four detected corners, each tag
             gives a real, measured scale (pixels per millimetre) at its own spot in the photo.
@@ -239,16 +239,16 @@
           <p>
             Those measured scales are fitted to a single tilted plane (a camera looking down at
             an angle sees things nearer the lens as "bigger per millimetre" than things farther
-            away — a plane is the simplest shape that captures that). The percentage shown at
+            away; a plane is the simplest shape that captures that). The percentage shown at
             any point on the photo is <em>not</em> that fit directly: it is how far off the fit
             was for the 5 calibration tags physically nearest that point, combined so that tags
-            reading slightly big and slightly small don't cancel each other out to zero — an
+            reading slightly big and slightly small do not cancel each other out to zero. An
             even split either way still counts as real disagreement.
           </p>
           <p>
             <strong>What it means:</strong> a direct, measured estimate of how far a canopy-area
             reading at that spot could be off, based on how consistent the real calibration tags
-            near it actually were — not a theoretical lens or camera error estimate. Blue
+            near it actually were, not a theoretical lens or camera error estimate. Blue
             genuinely means "several nearby tags agreed closely." Red usually means thin
             coverage nearby (see the coverage lines above), not a fault in the camera or the
             maths.
@@ -266,10 +266,10 @@
     <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Accuracy shape (once setup looks roughly right)</h4>
     <p style="margin: 0 0 0.4rem; color: #aaa; font-size: 0.85rem;">
       Same real per-tag measurements as the heatmap above, averaged over many more neighbouring
-      tags (40, instead of 5) — trading the "exactly where is coverage thin" detail for the
+      tags (40, instead of 5), trading the "exactly where is coverage thin" detail for the
       overall accuracy shape across the frame. Round means the falloff toward the edges is even;
       lopsided toward one side means something physically off that direction. Nothing here is
-      fitted or idealized — it's the same honest measurements, just averaged more widely.
+      fitted or idealized. It is the same honest measurements, just averaged more widely.
     </p>
     <img id="calibration-accuracy-shape-heatmap" alt="Accuracy shape heatmap"
          class="diagnostic-image">
@@ -284,13 +284,13 @@
         <span>0% (square)</span><span>0.13%</span><span>0.25%</span><span>0.38%</span><span>0.5%+ (most distorted)</span>
       </div>
       <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
-        Area-scale shape check (TODO.md) — each tag's real pixel area (exact, from its four
+        Area-scale shape check (TODO.md): each tag's real pixel area (exact, from its four
         corners) compared to treating it as a perfect square, isolated from the ordinary scale
-        residual shown above. Note the scale here is 0–0.5%, not 0–8% like the heatmap above —
+        residual shown above. Note the scale here is 0 to 0.5%, not 0 to 8% like the heatmap above,
         a much narrower range, measured from 17 real calibration runs on this rig (2026-09-21).
         Flat/near-zero everywhere means squaring the scale field above is fine for area, not just
         length. Structured, growing toward the corners, is real evidence area needs its own fit
-        before M5 (canopy area) relies on it — as opposed to the confidence heatmap above being
+        before M5 (canopy area) relies on it, as opposed to the confidence heatmap above being
         hot in the same place, which just means "add coverage there," not "area needs its own
         fit."
       </p>
@@ -299,21 +299,21 @@
         <div style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
           <p>
             The scale field above only ever measures <em>length</em> (pixels per millimetre in
-            one direction). Turning that into an <em>area</em> conversion — needed to report
-            canopy area in mm², not pixels — means squaring it, which is only exactly right if
+            one direction). Turning that into an <em>area</em> conversion (needed to report
+            canopy area in mm², not pixels) means squaring it, which is only exactly right if
             every tag's photographed shape is a perfect square. Near a tilted table's edges, a
             real square can photograph as a slightly non-square quadrilateral (a "keystone"
             shape), and squaring the length scale would silently miss that.
           </p>
           <p>
-            Rather than model the lens or the table's tilt angle to predict this — the kind of
-            camera maths this project has failed at three times before, see CLAUDE.md — it's
+            Rather than model the lens or the table's tilt angle to predict this (the kind of
+            camera maths this project has failed at three times before, see CLAUDE.md), it is
             measured directly: each tag's <em>real</em> pixel area, computed exactly from its
             four detected corners (a standard geometry formula, no lens model, no assumptions),
             compared to what a perfect square with that tag's own average side length would
             cover. A square is the largest-area shape possible for a given average side length,
             so this comparison can only ever come out as zero (a genuine square) or negative
-            (some real distortion) — never positive; that's also why this heatmap's colour scale
+            (some real distortion), never positive; that is also why this heatmap's colour scale
             only runs one direction.
           </p>
           <p>
@@ -323,19 +323,19 @@
             17 real calibration runs on this rig (2026-09-21): the worst tag anywhere came out
             at &minus;0.46%, and the pattern gets worse toward the table's corners in a way that
             tracks position, not tag size or image noise (checked separately, by comparing
-            against tag size directly across 2104 tags) — so it reads as a real, if very small,
+            against tag size directly across 2104 tags), so it reads as a real, if very small,
             geometric effect, not noise. Logged as an open scope decision in TODO.md, not acted
             on further without sign-off, since an area-specific fit is exactly the calibration
             maths CLAUDE.md's evidence gates exist to hold off on.
           </p>
           <p>
-            <strong>Caveat:</strong> this heatmap uses a much narrower colour scale (0–0.5%) than
-            the confidence heatmap above (0–8%), stretched to fill the same blue-to-red range
+            <strong>Caveat:</strong> this heatmap uses a much narrower colour scale (0 to 0.5%) than
+            the confidence heatmap above (0 to 8%), stretched to fill the same blue-to-red range
             either way. The two images can look equally "hot" by eye at completely different
-            real magnitudes — only the printed percentages say which is actually bigger. The two
-            numbers also measure different things and aren't copies of each other: on a given
-            run they've come out statistically uncorrelated, even though both tend to look worse
-            toward the table's edges — for unrelated reasons (coverage gaps here vs. real
+            real magnitudes. Only the printed percentages say which is actually bigger. The two
+            numbers also measure different things and are not copies of each other: on a given
+            run they have come out statistically uncorrelated, even though both tend to look worse
+            toward the table's edges, for unrelated reasons (coverage gaps here vs. real
             geometry above).
           </p>
         </div>
@@ -343,21 +343,21 @@
     </div>
     <h3 style="margin: 1rem 0 0.25rem;">Table-position view</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Click "Save" below any time — no camera capture needed, just these three numbers. They only
-      affect whether the two views below are drawn to scale, nothing else, so there's no need to
+      Click "Save" below any time. No camera capture is needed, just these three numbers. They only
+      affect whether the two views below are drawn to scale, nothing else, so there is no need to
       re-run a calibration just to fix one of them.
     </p>
     <label class="peaking-row">
       <span>
-        <strong>Table width / length (mm)</strong> — lay a tape measure across the <em>outer</em>
+        <strong>Table width / length (mm)</strong>: lay a tape measure across the <em>outer</em>
         edges of two corner tags (the corners facing away from the table) and enter the number you
-        read, straight off the tape. No centre to find, no arithmetic — the app subtracts the
+        read, straight off the tape. No centre to find, no arithmetic: the app subtracts the
         corner tag size below for you. <strong>Width</strong> is the left-to-right pair in the
         camera image (top-left to top-right corner tag); <strong>length</strong> is top-to-bottom
-        (top-left to bottom-left corner tag) — swapping them renders a transposed rectangle.
-        Leave either blank (before you've ever entered one) for a square, NOT-TO-SCALE canvas
-        that still shows relative position correctly. Remembered between runs once entered —
-        pre-filled here from the last value you actually typed in, so you don't need to retype
+        (top-left to bottom-left corner tag). Swapping them renders a transposed rectangle.
+        Leave either blank (before you have ever entered one) for a square, NOT-TO-SCALE canvas
+        that still shows relative position correctly. Remembered between runs once entered,
+        pre-filled here from the last value you actually typed in, so you do not need to retype
         it every run.
       </span>
       <span>
@@ -369,7 +369,7 @@
     </label>
     <label class="peaking-row">
       <span>
-        <strong>Corner tag size (mm)</strong> — the corner tags' own physical size, used only to
+        <strong>Corner tag size (mm)</strong>: the corner tags' own physical size, used only to
         convert the outer-edge measurement above into the centre-to-centre distance the table view
         needs. Measure with callipers for accuracy; leave blank to use the placeholder default
         (shown after you run a calibration).
@@ -383,10 +383,10 @@
     </div>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       The same two fields as the heatmaps above, painted instead on a straightened, top-down view
-      of the table — anchored to the four corner tags, which don't move, so "this spot on the
+      of the table, anchored to the four corner tags, which do not move, so "this spot on the
       picture" is the same real spot on the table across different calibration runs, not tied to
       one specific photo's own tilt and framing (PLAN.md's own corner-tag homography, M2 section
-      A). Grey means no calibration tag was ever near that spot — not measured, regardless of
+      A). Grey means no calibration tag was ever near that spot: not measured, regardless of
       colour, never a guessed or smoothed-in value.
     </p>
     <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Scale residual</h4>
@@ -396,11 +396,11 @@
     <img id="table-view-shape-distortion" alt="Area-shape distortion, table-position view"
          class="diagnostic-image">
     <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
-      NOT TO SCALE (a square canvas) unless both table width and length above were entered —
-      relative position within the table is correct either way, but the rectangle's own
+      NOT TO SCALE (a square canvas) unless both table width and length above were entered.
+      Relative position within the table is correct either way, but the rectangle's own
       proportions only match the real table when both were measured and entered (as the
       outer-edge-to-outer-edge tape measurement described above, with the corner tag size
-      subtracted automatically) — a measurement smaller than the corner tag size itself falls
+      subtracted automatically). A measurement smaller than the corner tag size itself falls
       back to NOT TO SCALE rather than showing a nonsense rectangle.
     </p>
     <h3 style="margin: 1rem 0 0.25rem;">Best vs. worst tag</h3>
@@ -408,7 +408,7 @@
       Every calibration tag's own scale residual and area-shape distortion, sorted best to
       worst, so a specific outlier tag can be found by ID and frame position rather than only
       seeing the two heatmaps' averages. Each plot's vertical axis is that run's own spread, not
-      the heatmaps' fixed 0–8%/0–0.5% scale — read the axis label baked into each image, not the
+      the heatmaps' fixed 0 to 8% or 0 to 0.5% scale. Read the axis label baked into each image, not the
       colours above. Green marks the best tag, red the worst, on both the sorted plot and the
       actual photo below it.
     </p>
@@ -425,13 +425,13 @@
 
     <h3 style="margin: 1rem 0 0.25rem;">Is this lens/parallax distortion, or something else?</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      PLAN.md's own rule: a lens/parallax distortion signature is <em>structured</em> — residual
-      trends with distance from the image centre, with a consistent sign — not random scatter.
-      That's the specific measurement that decides whether picking up lens-distortion modelling
-      is justified, so it's plotted directly rather than guessed at: every tag's own signed
-      residual (not folded to a percentage magnitude — a real distortion trend has a sign) against
+      PLAN.md's own rule: a lens/parallax distortion signature is <em>structured</em>: residual
+      trends with distance from the image centre, with a consistent sign, not random scatter.
+      That is the specific measurement that decides whether picking up lens-distortion modelling
+      is justified, so it is plotted directly rather than guessed at: every tag's own signed
+      residual (not folded to a percentage magnitude, because a real distortion trend has a sign) against
       its distance from the image centre, with an unweighted linear fit and its R². No judgement
-      is baked in here about whether a given R² counts as "structured" — read the scatter and the
+      is baked in here about whether a given R² counts as "structured". Read the scatter and the
       fit yourself.
     </p>
     <img id="radial-plot-scale-residual" alt="Scale residual vs. distance from image centre"
@@ -444,7 +444,7 @@
       Claimed uncertainty (already computed and saved by every run) sampled at each calibration
       tag's own position, plotted against distance from the image centre, with an unweighted
       linear fit and its R². Certainty should be highest at the centre and fall toward the edges
-      — a "dome" shape. This shows whether the claimed number actually behaves that way, or is
+      (a "dome" shape). This shows whether the claimed number actually behaves that way, or is
       flat/noisy instead.
     </p>
     <img id="certainty-dome-plot" alt="Claimed uncertainty vs. distance from image centre"
@@ -455,7 +455,7 @@
     </p>
     <p style="margin: 0.25rem 0 0; color: #aaa; font-size: 0.85rem;">
       PLAN.md's M2 acceptance test (place a known target, measure the actual error, check
-      claimed-vs-actual) has moved to <a href="/setup/health-check">Health check</a> — it's a
+      claimed-vs-actual) has moved to <a href="/setup/health-check">Health check</a>. It is a
       calibration-quality check, not something you need on the way through this wizard.
     </p>
     </details>
@@ -544,9 +544,9 @@
 
     // Corner check on/off (Aaron, 2026-09-28): squaring needs to be fluid, and the detection
     // behind the rings is real CPU competition for that. Off falls back to the plain continuous
-    // preview stream (no detection at all, same one Step 2 uses) so there's still a live image
+    // preview stream (no detection at all, same one Step 2 uses) so there is still a live image
     // to drag the guide lines against.
-    let cornerCheckShowing = null; // "rings" | "preview" | null -- what's currently on screen
+    let cornerCheckShowing = null; // "rings" | "preview" | null -- what is currently on screen
     function updateCornerCheckMode() {
       if (!isActiveStep(3)) {
         if (cornerCheckShowing !== null) {
@@ -573,7 +573,7 @@
     pollLevelOverlay();
 
     // --- Calibration readiness (focus confirmed, all 4 corner tags detected) ---
-    // Polled live while Step 4 is showing -- a data-quality gate, not a safety one, so it's
+    // Polled live while Step 4 is showing -- a data-quality gate, not a safety one, so it is
     // always overridable (Aaron, 2026-09-28): this just tells the operator where things stand
     // before they click "Run calibration", the actual override prompt lives in that handler.
     const calibrationReadiness = document.getElementById("calibration-readiness");
@@ -593,7 +593,7 @@
             calibrationReadiness.textContent =
               `Not ready: ${lockPart}, ${data.corner_tags_detected}/` +
               `${data.corner_tags_required} corner tags detected. You can still run ` +
-              "calibration, but you'll be asked to confirm.";
+              "calibration, but you will be asked to confirm.";
             calibrationReadiness.style.color = "#dc6";
           }
         } catch (e) {
@@ -640,7 +640,7 @@
 
     function renderCurrentCalibration(data) {
       // Pre-fill with the operator's last real, explicitly-typed values (settings.py, not tied
-      // to a saved calibration existing) so a repeat run doesn't need them retyped -- only
+      // to a saved calibration existing) so a repeat run does not need them retyped -- only
       // overwritten by hand if the operator has already typed something in for *this* run.
       if (!tableWidthInput.value && data.table_width_mm != null) {
         tableWidthInput.value = data.table_width_mm;
@@ -660,12 +660,12 @@
         : "no corner baseline";
       const lens = data.lens_position === null ? "?" : data.lens_position.toFixed(2);
       calibrationCurrent.textContent =
-        `Current calibration: ${data.created_at.replace("T", " ").slice(0, 19)} — ` +
+        `Current calibration: ${data.created_at.replace("T", " ").slice(0, 19)}, ` +
         `residual ${data.residual_std_pct.toFixed(2)}%, lens ${lens}, tag size ` +
         `${data.calibration_tag_size_mm}mm, ${baseline}`;
       // Pre-fill with the size the live baseline was actually built from, so a repeat
-      // calibration on the same print run doesn't need it retyped -- only overwritten by hand
-      // if the operator hasn't already typed something in for *this* run.
+      // calibration on the same print run does not need it retyped -- only overwritten by hand
+      // if the operator has not already typed something in for *this* run.
       if (!tagSizeInput.value) tagSizeInput.value = data.calibration_tag_size_mm;
     }
 
@@ -717,8 +717,8 @@
 
     // Re-detects tags from the current baseline's saved frame each time (no per-tag persistence
     // in the artifact) -- always targets whatever /calibration/current is, so only call this
-    // once that's actually the run you want plotted (see the promoted_to_current gate below,
-    // and the opt-in "Load diagnostics" button, both of which exist because this isn't free).
+    // once that is actually the run you want plotted (see the promoted_to_current gate below,
+    // and the opt-in "Load diagnostics" button, both of which exist because this is not free).
     function showRankPlots() {
       rankPlotScaleResidual.src = `/calibration/current/rank-plot?metric=scale_residual&t=${Date.now()}`;
       rankPlotScaleResidual.style.display = "block";
@@ -751,7 +751,7 @@
     }
 
     // vs. the calibration that was active right before this run replaced it (Aaron, 2026-09-28)
-    // -- backend already skips this entirely when there's no previous calibration to compare
+    // -- backend already skips this entirely when there is no previous calibration to compare
     // against, so `cmp` here is only ever present with real numbers on both sides.
     function formatCalibrationDelta(cmp) {
       function metricLine(label, metric, decimals, suffix) {
@@ -812,11 +812,11 @@
             ? `${data.px_per_mm_at_centre.toFixed(3)} px/mm at centre`
             : "scale at centre: n/a";
           const tagSize = data.calibration_tag_size_mm_is_default
-            ? `tag size: ${data.calibration_tag_size_mm} mm placeholder default — measure with ` +
+            ? `tag size: ${data.calibration_tag_size_mm} mm placeholder default, measure with ` +
               "callipers and enter it above"
             : `tag size: ${data.calibration_tag_size_mm} mm (calliper-measured, as entered)`;
           const cornerTagSize = data.corner_tag_size_mm_is_default
-            ? `corner tag size: ${data.corner_tag_size_mm} mm placeholder default — measure with ` +
+            ? `corner tag size: ${data.corner_tag_size_mm} mm placeholder default, measure with ` +
               "callipers and enter it above for a precise table view"
             : `corner tag size: ${data.corner_tag_size_mm} mm (calliper-measured, as entered)`;
           let tableDims;
@@ -826,12 +826,12 @@
               "as entered";
           } else if (data.table_width_mm || data.table_length_mm) {
             tableDims =
-              `table view: NOT TO SCALE — entered width/length (${data.table_width_mm}mm x ` +
-              `${data.table_length_mm}mm) couldn't convert against corner tag size ` +
-              `${data.corner_tag_size_mm}mm (too small, or one of the two left blank) — check ` +
+              `table view: NOT TO SCALE: entered width/length (${data.table_width_mm}mm x ` +
+              `${data.table_length_mm}mm) could not convert against corner tag size ` +
+              `${data.corner_tag_size_mm}mm (too small, or one of the two left blank), check ` +
               "your measurement";
           } else {
-            tableDims = "table view: NOT TO SCALE — enter table width/length above for real proportions";
+            tableDims = "table view: NOT TO SCALE: enter table width/length above for real proportions";
           }
           lines = [
             `${data.calibration_tags_detected} calibration tags, ` +
@@ -847,8 +847,8 @@
           }
           if (!data.promoted_to_current) {
             lines.push(
-              "Diagnostics below are not shown for this run -- it wasn't set as the current " +
-                "baseline, so they'd otherwise show the previous baseline's plots, not this run's."
+              "Diagnostics below are not shown for this run -- it was not set as the current " +
+                "baseline, so they would otherwise show the previous baseline's plots, not this run's."
             );
           }
         }
@@ -887,7 +887,7 @@
         // The rank/best-worst/radial/dome plots need the saved frame (they re-detect tags from
         // it); an artifact can exist with no frame_stem (calibration.py: "a ScaleField alone is
         // still a valid, usable artifact"), and frame_url is the signal for that, same as the
-        // pre-rendered images above. Without this check they'd 409 as broken-image icons with no
+        // pre-rendered images above. Without this check they would 409 as broken-image icons with no
         // explanation.
         if (data.frame_url) {
           showRankPlots();
@@ -913,8 +913,8 @@
         const r = await fetch(url, { method: "POST" });
         const data = await r.json();
         tableDimsSaveResult.textContent =
-          `Saved: width ${data.table_width_mm ?? "—"}mm, length ${data.table_length_mm ?? "—"}mm, ` +
-          `corner tag ${data.corner_tag_size_mm ?? "—"}mm`;
+          `Saved: width ${data.table_width_mm ?? "?"}mm, length ${data.table_length_mm ?? "?"}mm, ` +
+          `corner tag ${data.corner_tag_size_mm ?? "?"}mm`;
       } finally {
         tableDimsSaveBtn.disabled = false;
       }
@@ -944,7 +944,7 @@
         el.classList.toggle("active", Number(el.dataset.step) === wizardStep);
       });
       wizardProgress.textContent =
-        `Step ${wizardStep} of ${STEP_TITLES.length} — ${STEP_TITLES[wizardStep - 1]}`;
+        `Step ${wizardStep} of ${STEP_TITLES.length}: ${STEP_TITLES[wizardStep - 1]}`;
       wizardBackBtn.disabled = wizardStep === 1;
       wizardNextBtn.textContent = wizardStep === STEP_TITLES.length ? "Go to Validation" : "Next →";
       // The last step stays active -- it navigates on to validation instead of advancing. The
