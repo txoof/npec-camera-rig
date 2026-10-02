@@ -12,9 +12,11 @@ group_parts() -- and adds Orca's Metadata/model_settings.config assigning one
 filament per distinct color, numbered in the order the colors first appear.
 
 Usage:
-    uv run scad_to_3mf.py part.scad
-    uv run scad_to_3mf.py part.scad -o ~/prints -D 'tag_ids=[350,351,352]'
-    uv run scad_to_3mf.py part.scad -n tags_12-24 -D 'tag_ids=[for (i = [12:24]) i]'
+    uv run scad_to_3mf.py camera_rig/part.scad
+    uv run scad_to_3mf.py camera_rig/part.scad -o ~/prints -D 'tag_ids=[350,351,352]'
+    uv run scad_to_3mf.py camera_rig/part.scad -n tags_12-24 -D 'tag_ids=[for (i = [12:24]) i]'
+Without -o, writes to exports/ mirroring the source folder, e.g.
+``camera_rig/part.scad`` -> ``exports/camera_rig/part.3mf``.
 """
 
 import argparse
@@ -27,6 +29,8 @@ import uuid
 import zipfile
 from pathlib import Path
 
+HERE = Path(__file__).resolve().parent
+EXPORTS = HERE / "exports"
 DEFAULT_OPENSCAD = "/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD"
 MODEL = "3D/3dmodel.model"
 CONFIG = "Metadata/model_settings.config"
@@ -179,12 +183,27 @@ def convert(raw, dst, name):
     return groups, filaments
 
 
+def default_output_dir(scad):
+    """Return the exports/ folder that mirrors scad's source folder.
+
+    Args:
+        scad: Path to the .scad file.
+
+    Returns:
+        ``exports/<folder>`` for a file under this directory, else ``exports``.
+    """
+    try:
+        return EXPORTS / scad.resolve().parent.relative_to(HERE)
+    except ValueError:
+        return EXPORTS
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Export a multi-color .scad as an Orca-ready 3MF.")
     parser.add_argument("scad", type=Path, help="OpenSCAD source file")
-    parser.add_argument("-o", "--output-dir", type=Path, default=Path("exports"),
-                        help="where to write <name>.3mf (default: ./exports/)")
+    parser.add_argument("-o", "--output-dir", type=Path,
+                        help="where to write <name>.3mf (default: exports/<source folder>/)")
     parser.add_argument("-n", "--name",
                         help="output file stem and Orca object name "
                              "(default: the .scad file's stem)")
@@ -198,9 +217,10 @@ def main(argv=None):
 
     if not args.scad.is_file():
         sys.exit(f"scad_to_3mf: no such file: {args.scad}")
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = args.output_dir or default_output_dir(args.scad)
+    out_dir.mkdir(parents=True, exist_ok=True)
     name = args.name or args.scad.stem
-    dst = args.output_dir / f"{name}.3mf"
+    dst = out_dir / f"{name}.3mf"
 
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "raw.3mf"

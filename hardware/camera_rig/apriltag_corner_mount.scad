@@ -147,9 +147,9 @@
    REV 1.0: initial.
    --------------------------------------------------------------------------- */
 
-use <t_slot_bolt.scad>
-use <apriltag_36h11.scad>
-include <BOSL2/std.scad> // t_slot_bolt() calls BOSL2's screw(); `use` alone
+use <../libraries/t_slot_bolt.scad>
+use <../libraries/apriltag_36h11.scad>
+include <../libraries/BOSL2/std.scad> // t_slot_bolt() calls BOSL2's screw(); `use` alone
                           // wouldn't run t_slot_bolt.scad's own top-level
                           // include, so its special variables never init
 

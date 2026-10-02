@@ -11,7 +11,7 @@ Usage:
     uv run corner_tags.py 450-453 454-457
     uv run corner_tags.py 460 -o ~/prints -D plate_gap=15
 
-Writes e.g. ``exports/corner_tags/apriltag_corner_mount_450-453.3mf``.
+Writes e.g. ``exports/camera_rig/corner_tags/apriltag_corner_mount_450-453.3mf``.
 """
 
 import argparse
@@ -21,7 +21,8 @@ from pathlib import Path
 import scad_to_3mf
 from tray_tags import parse_ids
 
-SCAD = Path(__file__).with_name("apriltag_corner_mount.scad")
+SCAD = scad_to_3mf.HERE / "camera_rig" / "apriltag_corner_mount.scad"
+OUTPUT = scad_to_3mf.EXPORTS / "camera_rig" / "corner_tags"
 
 # Must match the tag_ids assert in apriltag_corner_mount.scad (PLAN.md's
 # corner/reference range).
@@ -64,7 +65,7 @@ group format:
 examples:
   corner_tags.py 450-453
       ids 450 to 453, one rig's four corners
-      -> exports/corner_tags/{SCAD.stem}_450-453.3mf
+      -> exports/camera_rig/corner_tags/{SCAD.stem}_450-453.3mf
   corner_tags.py 450-453 454-457
       two files: 450-453 and 454-457
   corner_tags.py 460
@@ -96,8 +97,9 @@ def main(argv=None):
                         help="tag ids for one file: 450-453 or 460. "
                              "See group format below")
     parser.add_argument("-o", "--output-dir", type=Path,
-                        default=Path("exports/corner_tags"),
-                        help="where to write the 3MFs (default: ./exports/corner_tags/)")
+                        default=OUTPUT,
+                        help="where to write the 3MFs "
+                             "(default: exports/camera_rig/corner_tags/)")
     parser.add_argument("-D", dest="defines", action="append", default=[],
                         metavar="VAR=VALUE",
                         help="extra Customizer override, passed to OpenSCAD; repeatable")

@@ -13,7 +13,7 @@
 
    Dimensions are approximate, hand-picked to read as the right size and
    shape in a render -- no manufacturer drawing exists for this generic
-   part, same situation as `cold_shoe.scad`. Do not treat any figure here as
+   part. Do not treat any figure here as
    measured.
 
    Coordinate convention: origin centred on the housing in X/Y. Z0 = the
@@ -28,6 +28,7 @@
    and `t_slot_bolt.scad`.
 
    REV 1.0: initial.
+   REV 1.1: comments only; dropped a reference to the removed cold_shoe.scad.
    --------------------------------------------------------------------------- */
 
 /* [Housing] */
