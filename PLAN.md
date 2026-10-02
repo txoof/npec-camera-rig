@@ -211,7 +211,8 @@ image after each restart (15 images, 44 s), and now loads them in 1.4 s.
 | 2. Analysis per photograph | Results that need the full image, worked out once: tag detections (raw, never anything that depends on a calibration), keyed by capture and detector version | `capture_analysis` table | Built (tags) |
 | 3. Derived images | Anything drawn from originals: made once by a named, versioned **recipe**, keyed by a hash of the recipe, its version and exactly the inputs it is drawn from, so a changed input is a new image | Files under `derived/`, `derived_image` table (key, recipe, version, source, size, last used); size-capped, least recently used removed; disposable | Built |
 
-Rules for anything that shows a large image:
+Rules for new code that shows a large image (older routes still decode and draw directly, listed
+in TODO.md to migrate):
 
 - **Go through `images.get(recipe, source, inputs)`**, never decode and draw in a route. Register a
   recipe (`images.Recipe(name, version, render)`), pass every input the image depends on and nothing

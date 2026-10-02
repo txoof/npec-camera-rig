@@ -1360,6 +1360,13 @@ The heart of the project. Do not start before M1 slice 5.
       **Use the image system built 2026-10-02 (`images.py`, PLAN.md *Images*):** add `thumb` and
       `screen` recipes on `images.reduced_frame` (0.11 s and 0.24 s per 64MP capture, measured),
       served through `images.get`. Do not build a separate thumbnail path.
+- [ ] **Move the older image routes onto `images.py` (2026-10-02).** These still decode and draw
+      in the route on every request: `/calibration/{current,<stem>}/rank-plot`, `best-worst-photo`,
+      `radial-plot`, `certainty-dome-plot`, `certainty-map`, and the honesty plot. They take the
+      calibration frame's tags from `_detect_tags_cached` (one frame in memory, decoded again after
+      a restart or when switching calibrations); store them through `images.tag_detections`
+      instead, and make each plot a recipe. Not the live level overlay (`level.jpg`): it draws a
+      live preview frame, so there is nothing to keep.
 - [ ] **Design the header/nav menu properly once experiment/report pages exist.** The Jinja
       base-layout work (M2 UI-organization pass) centralized the header/nav into one
       `templates/base.html` block, but its content is still just the same two links (Setup,

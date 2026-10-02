@@ -217,6 +217,8 @@ def get(recipe_name: str, source: str, inputs: dict) -> tuple[bytes, str]:
                 (key, recipe.name, recipe.version, source, str(path), recipe.media_type,
                  len(content), _now(), _now()),
             )
+    with _key_locks_guard:
+        _key_locks.pop(key, None)  # made and stored: later requests find it on disk
     prune()
     return content, recipe.media_type
 
@@ -256,6 +258,9 @@ def prune(max_bytes: int | None = None) -> None:
     (default DERIVED_MAX_BYTES)."""
     limit = DERIVED_MAX_BYTES if max_bytes is None else max_bytes
     with _connect() as conn:
+        # One sum first: the common case (within the cap) costs no scan of the whole table.
+        if conn.execute("SELECT COALESCE(SUM(bytes), 0) FROM derived_image").fetchone()[0] <= limit:
+            return
         rows = conn.execute(
             "SELECT key, path, bytes FROM derived_image ORDER BY last_used DESC, created_at DESC"
         ).fetchall()

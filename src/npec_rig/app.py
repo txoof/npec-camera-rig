@@ -1358,10 +1358,12 @@ def stem_certainty_dome_plot(stem: str) -> Response:
 
 
 # Validation captures for the certainty map. `_detect_tags_cached` keeps one full frame for the
-# calibration diagnostics; a map pools several captures, and a full 64MP frame is ~180MB, so
-# holding several would be the OOM condition that cache exists to prevent. Only each capture's
-# detections and a downscaled copy to draw on are kept, and decoding shares that cache's lock, so
-# at most two full frames (the cached calibration frame plus one capture) are ever live at once.
+# calibration diagnostics; a full 64MP frame is ~180MB, so holding several would be the OOM
+# condition that cache exists to prevent. Captures never stay in memory at full size: their tags
+# come from the analysis store (images.py) and the copy to draw on is decoded straight to
+# _CAPTURE_PREVIEW_WIDTH. Full-size frames live at once, at most: the cached calibration frame, a
+# second calibration frame while that cache switches stems (under _frame_detection_lock), and one
+# capture being analysed for the first time (under images._full_decode, a separate lock).
 _CAPTURE_REF = re.compile(r"^\d{4}-\d{2}-\d{2}/\d{6}_\d{6}$")
 _CAPTURE_PREVIEW_WIDTH = 2000
 _MAX_CACHED_CAPTURES = 16
