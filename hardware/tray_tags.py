@@ -14,7 +14,8 @@ Usage:
     uv run tray_tags.py 1-12:bolt 101-112:tab -o ~/prints
     uv run tray_tags.py 226-231 -D on_side=false
 
-Writes e.g. ``exports/apriltag_tray_tag_4x5_1-12_tab.3mf``.
+Writes e.g. ``exports/tray_tags/4x5/apriltag_tray_tag_4x5_1-12_tab.3mf``;
+with -o, every file goes straight into that folder.
 """
 
 import argparse
@@ -23,7 +24,8 @@ from pathlib import Path
 
 import scad_to_3mf
 
-SCAD = Path(__file__).with_name("apriltag_tray_tag.scad")
+SCAD = scad_to_3mf.HERE / "tray_tags" / "apriltag_tray_tag.scad"
+OUTPUT = scad_to_3mf.EXPORTS / "tray_tags"  # one subfolder per tray type
 
 # Must match tray_type() in apriltag_tray_tag.scad, which engraves the label.
 # Must stay inside TRAY_ID_RANGE in src/npec_rig/tags.py: 300-449 are the
@@ -136,12 +138,12 @@ group format:
 examples:
   tray_tags.py 1-12
       ids 1 to 12, 4x5, tab (the default for 4x5)
-      -> exports/{SCAD.stem}_4x5_1-12_tab.3mf
+      -> exports/tray_tags/4x5/{SCAD.stem}_4x5_1-12_tab.3mf
   tray_tags.py 1-12 13-24 101-112
       three files: 4x5 1-12 tab, 4x5 13-24 tab, 4x4 101-112 bolt
   tray_tags.py 1-12:bolt
       ids 1 to 12, 4x5, bolt instead of the default tab
-      -> exports/{SCAD.stem}_4x5_1-12_bolt.3mf
+      -> exports/tray_tags/4x5/{SCAD.stem}_4x5_1-12_bolt.3mf
   tray_tags.py 1-6 7-12:bolt 101-106:tab 107-112
       four files, styles mixed: 4x5 tab, 4x5 bolt, 4x4 tab, 4x4 bolt
   tray_tags.py 7:bolt
@@ -173,8 +175,9 @@ def main(argv=None):
     parser.add_argument("groups", nargs="+", metavar="GROUP",
                         help="tag ids for one file, with an optional style: "
                              "1-12, 7, 1-12:bolt, 7:tab. See group format below")
-    parser.add_argument("-o", "--output-dir", type=Path, default=Path("exports"),
-                        help="where to write the 3MFs (default: ./exports/)")
+    parser.add_argument("-o", "--output-dir", type=Path,
+                        help="where to write the 3MFs "
+                             "(default: exports/tray_tags/<tray type>/)")
     parser.add_argument("-D", dest="defines", action="append", default=[],
                         metavar="VAR=VALUE",
                         help="extra Customizer override, passed to OpenSCAD; repeatable")
@@ -194,7 +197,8 @@ def main(argv=None):
         name = f"{SCAD.stem}_{kind}_{ids}_{style}"
         defines = [f"tag_ids=[for (i = [{lo}:{hi}]) i]",
                    f'tag_style="{style}"'] + args.defines
-        argv = [str(SCAD), "-o", str(args.output_dir), "-n", name]
+        out_dir = args.output_dir or OUTPUT / kind
+        argv = [str(SCAD), "-o", str(out_dir), "-n", name]
         for d in defines:
             argv += ["-D", d]
         scad_to_3mf.main(argv)

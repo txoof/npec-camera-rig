@@ -135,7 +135,7 @@
      plate thickness for it).
    --------------------------------------------------------------------------- */
 
-use <apriltag_36h11.scad>
+use <../libraries/apriltag_36h11.scad>
 
 /* [Style] */
 tag_style = "tab"; // ["tab", "bolt"]

@@ -10,18 +10,27 @@ a BUAS course CAD mockup. Lives at `hardware/` inside the `npec-camera-rig` repo
 that repo's git history and covered by its top-level `CONTRIBUTING.md` (branching, PR, push
 discipline). This file only covers conventions specific to the CAD files in this directory.
 
+Layout: printable rig parts (and the `rig_assembly.scad` mockup) in `camera_rig/`, tray tags in
+`tray_tags/`, everything that is only `use`d or `include`d in `libraries/` (BOSL2, T-slot stock,
+bolt and purchased-part stand-ins, AprilTag geometry and bit data), exports in `exports/` mirroring
+the source folders, preview renders in `images/`. Scripts stay at the top level and resolve paths
+from their own location. Docs and `reference/` stay at the top level.
+
 The [BOSL2](https://github.com/BelfrySCAD/BOSL2) library is vendored (source only, no `.git`) at
-`BOSL2/` for realistic screw/bolt geometry. `t_slot_bolt.scad` uses it via
+`libraries/BOSL2/` for realistic screw/bolt geometry. `libraries/t_slot_bolt.scad` uses it via
 `include <BOSL2/std.scad>` + `include <BOSL2/screws.scad>`; note `std.scad` does *not* pull in
-`screws.scad` on its own. Any `.scad` file using BOSL2 must live alongside (not below) the
-`BOSL2/` folder for that relative include to resolve.
+`screws.scad` on its own. OpenSCAD resolves `use`/`include` paths relative to the file that
+contains them, including nested includes, so files in `camera_rig/` or `tray_tags/` write
+`include <../libraries/BOSL2/std.scad>` and `use <../libraries/t_slot_bolt.scad>`. A broken
+`use <>` path only prints a WARNING and still renders with the module missing, so treat any
+WARNING in the render log as a failure.
 
 ## Commands
 
 Render a part to check it compiles and is manifold before calling it done:
 
 ```
-/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD --render=cgal -o /tmp/check.stl <part>.scad
+/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD --render=cgal -o /tmp/check.stl <folder>/<part>.scad
 ```
 
 Look for `Status: NoError` and a nonzero `Facets` count in the output. A bare `-o out.stl`
@@ -31,8 +40,8 @@ Look for `Status: NoError` and a nonzero `Facets` count in the output. A bare `-
 **Only export a `.stl` when the user actually asks for one** (e.g. to print or hand off). Most
 iteration happens by regenerating/editing the `.scad` and re-rendering to verify; don't leave
 throwaway STLs around from routine checks — render to `/tmp` or delete them after confirming. A
-`.stl` the user does want to keep (for printing or handoff) goes in `exports/` rather than the
-repo root.
+`.stl` the user does want to keep (for printing or handoff) goes in the `exports/` subfolder
+matching its source folder (e.g. `exports/camera_rig/`).
 
 ## Workflow
 
@@ -45,7 +54,7 @@ a trailing `/* [Hidden] */` group.
 
 ## House style
 
-Established by `l_bracket_4020.scad`; new parts should match it:
+Established by `camera_rig/l_bracket_4020.scad`; new parts should match it:
 
 - A `/* ... */` block comment header (never `//` line comments) explaining the part, its
   coordinate convention, and a `REV n:` changelog.

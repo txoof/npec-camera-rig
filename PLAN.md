@@ -153,7 +153,7 @@ tray / calibration sheets never overlap); calibration output is a **versioned, e
 so a rig's state can be archived, compared or restored.
 
 **Tag ID allocation (36h11), decided 2026-10-02.** The id sets the tray type, which is engraved on
-each tray tag (`hardware/apriltag_tray_tag.scad`, `tray_type()`):
+each tray tag (`hardware/tray_tags/apriltag_tray_tag.scad`, `tray_type()`):
 
 | IDs | Use |
 |---|---|
@@ -162,7 +162,7 @@ each tray tag (`hardware/apriltag_tray_tag.scad`, `tray_type()`):
 | 151-225 | Tray tags, 1x1 trays |
 | 226-299 | Tray tags, other trays |
 | 300-449 | Calibration sheets (`reference/calibration-sheets/`), in use, do not change |
-| 450-499 | Corner/reference tags (`hardware/apriltag_corner_mount.scad`) |
+| 450-499 | Corner/reference tags (`hardware/camera_rig/apriltag_corner_mount.scad`) |
 
 The tray split refines `TODO.md`'s 2026-09-20 allocation (0-299 trays) and matches
 `src/npec_rig/tags.py`. Id 0 is unused: `apriltags-36h11-1-499.scad` has no data for it.

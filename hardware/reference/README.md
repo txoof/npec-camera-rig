@@ -8,7 +8,7 @@ PDFs are generally not retained once their useful content has either been captur
 file (DXF/DWG) or already encoded into the corresponding `.scad` model — they're large and
 duplicate what the vector data or the model's own header comments already say.
 
-## 40x40_profile/ — 40x40 T-slot extrusion (`t_slot_40x40.scad`)
+## 40x40_profile/ — 40x40 T-slot extrusion (`libraries/t_slot_40x40.scad`)
 
 Part number `54.01.0100(00-00-0)(000)`, sourced from CADENAS/3dfindit (downloaded 2026-09-24).
 Kept:
@@ -26,7 +26,7 @@ Kept:
 Dropped: `54.01.0100(00-00-0)(000).pdf`, the 1.6MB datasheet — everything usable from it is
 either in the DXF/DWG above or already encoded in `t_slot_40x40.scad`.
 
-## 20x20 T-slot extrusion (`t_slot_20x20.scad`)
+## 20x20 T-slot extrusion (`libraries/t_slot_20x20.scad`)
 
 No vector source was ever available for this part — only a raster drawing inside a PDF
 datasheet (`20x20_profile.pdf`). That PDF has been discarded; `t_slot_20x20.scad`'s header

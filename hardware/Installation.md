@@ -74,8 +74,8 @@ See the [Bill of Materials](./Bill-of-Materials.md) document for complete parts 
 | 4   | M5 t-nut guided I-type slot 6 (20x20 compatible)                                                                    |       |
 | 4   | M6 t-nut guided I-type slot 8 (40x40 compatible)                                                                    |       |
 | 2   | 40x40 compatible 90 degree brackets                                                                                 |       |
-| 2   | 20x20 compatible 90 degree brackets or [3D printed bracket](./exports/l_bracket_4020.stl)                           |       |
-| 1   | [3D printed Cold Shoe Holder](./exports/m5_slide_pocket.stl)                                                        |       |
+| 2   | 20x20 compatible 90 degree brackets or [3D printed bracket](./exports/camera_rig/l_bracket_4020.stl)                           |       |
+| 1   | [3D printed Cold Shoe Holder](./exports/camera_rig/m5_slide_pocket.stl)                                                        |       |
 | 4   | [50mm Fiducial Tags](../reference/calibration-sheets/apriltags-36h11-50mm-a4-450-499.pdf) mounted on table brackets |       |
 | 1   | Cold Shoe Adapter 3/8" to 1/4"                                                                                      |       |
 | 1   | 1/4" compatible Ball Joint                                                                                          |       |
@@ -94,7 +94,7 @@ See the [Bill of Materials](./Bill-of-Materials.md) document for complete parts 
 |                                               |                                                         |                                                        |                                                  |
 | :-------------------------------------------: | :-----------------------------------------------------: | :----------------------------------------------------: | :----------------------------------------------: |
 |        ![](images/arducam64_mount.png)        |             ![](images/l_bracket_4020.png)              |             ![](images/l_bracket_4040.png)             |         ![](images/m5_slide_pocket.png)          |
-| [Camera Mount](./exports/arducam64_mount.stl) | [40x20 90 Degree Bracket](./exports/l_bracket_4020.stl) | [40x40 90 Degree Bracket](./images/l_bracket_4040.png) | [Cold Shoe Holder](./images/m5_slide_pocket.png) |
+| [Camera Mount](./exports/camera_rig/arducam64_mount.stl) | [40x20 90 Degree Bracket](./exports/camera_rig/l_bracket_4020.stl) | [40x40 90 Degree Bracket](./images/l_bracket_4040.png) | [Cold Shoe Holder](./images/m5_slide_pocket.png) |
 
 
 ### Physical Installation Steps

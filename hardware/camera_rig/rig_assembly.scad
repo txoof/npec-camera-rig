@@ -69,13 +69,13 @@
    REV 1.0: initial.
    --------------------------------------------------------------------------- */
 
-use <t_slot_40x40.scad>
-use <t_slot_20x20.scad>
+use <../libraries/t_slot_40x40.scad>
+use <../libraries/t_slot_20x20.scad>
 use <l_bracket_4040.scad>
 use <l_bracket_4020.scad>
 use <m5_slide_pocket.scad>
-use <cold_shoe_stud.scad>
-use <mini_ball_head.scad>
+use <../libraries/cold_shoe_stud.scad>
+use <../libraries/mini_ball_head.scad>
 use <arducam64_mount.scad>
 
 // bracket_4040_bolted()/bracket_4020_bolted()/slide_pocket_bolted() all
@@ -86,7 +86,7 @@ use <arducam64_mount.scad>
 // `include <BOSL2/std.scad>` — so the file that's actually rendered (this
 // one) has to include it directly, no matter how many `use` layers sit
 // between here and screw().
-include <BOSL2/std.scad>
+include <../libraries/BOSL2/std.scad>
 
 /* [Rig] */
 beam_length = 500; // main beam length along Y, mm
