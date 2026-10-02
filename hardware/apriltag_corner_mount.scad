@@ -66,6 +66,9 @@
    this project. `tag_embed` is likewise a starting value for part overlap
    in the slicer, not a measured one.
 
+   REV 1.11: `tag_ids` limited to 450-499, the corner/reference range
+     (Aaron), so corner ids can't overlap tray ids (1-399, see
+     apriltag_tray_tag.scad). Geometry unchanged.
    REV 1.10: the quiet zone now clears the transition chamfer. The chamfer
      rises off the plate's top face over Y in [-tr,0], so with the tag at
      Y=-tag_border the flat margin on the foot side was tag_border - tr (and
@@ -151,7 +154,7 @@ include <BOSL2/std.scad> // t_slot_bolt() calls BOSL2's screw(); `use` alone
                           // include, so its special variables never init
 
 /* [Tag] */
-tag_ids       = [450, 451, 452, 453]; // 36h11 ids, one mount each, laid out in this order -- corner/reference tags are 450-499 (PLAN.md); any of 1-499 works
+tag_ids       = [450, 451, 452, 453]; // 36h11 ids, one mount each, laid out in this order -- corner/reference tags, 450-499 (PLAN.md)
 tag_size      = 50;    // 36h11 tag width, mm -- corner/reference tags (PLAN.md, IDs 450-499)
 tag_border    = 6.3;   // quiet-zone margin each side, flat surface only (measured from the chamfer's foot on the rail side), mm -- informed default, not yet measured [4:1:25]
 tag_plate_thk = 4;     // total tag-plate thickness, mm  [2:0.5:6]
@@ -202,7 +205,7 @@ plate_gap  = 10;  // clear space between neighbouring mounts, mm -- leave room f
 plate_cols = 0;   // mounts per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.10"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
+revision  = "RV1.11"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
 rev_size  = 4;        // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;      // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -226,8 +229,8 @@ bolt_x = [0];
 rev_x = (pw / 2 + bolt_dia / 2 + hole_cham) / 2;
 
 assert(len(tag_ids) > 0, "tag_ids must list at least one id");
-assert(min(tag_ids) >= 1 && max(tag_ids) <= 499,
-       "tag_ids must be within 1-499, the range apriltags-36h11-1-499.scad covers");
+assert(min(tag_ids) >= 450 && max(tag_ids) <= 499,
+       "tag_ids must be within 450-499, the corner/reference range (PLAN.md)");
 
 n_mounts  = len(tag_ids);
 part_dx   = pw;

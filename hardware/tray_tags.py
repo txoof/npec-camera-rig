@@ -55,6 +55,28 @@ def tray_type(tag_id):
     return None
 
 
+def parse_ids(ids, spec):
+    """Parse an id range or single id.
+
+    Args:
+        ids: ``"lo-hi"`` or ``"n"``.
+        spec: The whole group spec, for error messages.
+
+    Returns:
+        (lo, hi).
+
+    Raises:
+        ValueError: ``ids`` is malformed or the range runs backwards.
+    """
+    parts = ids.split("-")
+    if len(parts) not in (1, 2) or not all(p.strip().isdigit() for p in parts):
+        raise ValueError(f"{spec!r}: expected an id (7) or a range (FIRST-LAST)")
+    lo, hi = int(parts[0]), int(parts[-1])
+    if lo > hi:
+        raise ValueError(f"{spec!r}: range runs backwards")
+    return lo, hi
+
+
 def parse_group(spec):
     """Parse a group spec and check it against the tray type ranges.
 
@@ -72,12 +94,7 @@ def parse_group(spec):
     ids, _, style = spec.partition(":")
     if style and style not in STYLES:
         raise ValueError(f"{spec!r}: style must be one of {', '.join(STYLES)}")
-    parts = ids.split("-")
-    if len(parts) not in (1, 2) or not all(p.strip().isdigit() for p in parts):
-        raise ValueError(f"{spec!r}: expected an id or a range like 1-12")
-    lo, hi = int(parts[0]), int(parts[-1])
-    if lo > hi:
-        raise ValueError(f"{spec!r}: range runs backwards")
+    lo, hi = parse_ids(ids, spec)
     first, last = tray_type(lo), tray_type(hi)
     if first is None or last is None:
         raise ValueError(f"{spec!r}: ids must be within "
