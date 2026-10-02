@@ -39,7 +39,7 @@
          role="img" aria-label="Table diagram: calibration sheets on every tray, corner sheets at the four table corners (N top, E right)">
       <rect x="20" y="20" width="360" height="180" rx="4" fill="none" stroke="#444" stroke-width="2"/>
       <!-- 2 rows x 6 columns of trays, every one carrying a calibration sheet -- sheets are
-           reusable, so there's no reason to leave any tray uncovered, and it sidesteps ever
+           reusable, so there is no reason to leave any tray uncovered, and it sidesteps ever
            having to reason about whether a given pattern happens to reach all four corners. -->
       <g id="step3-tray-grid"></g>
       <script>
@@ -113,15 +113,15 @@
     <div class="wizard-step" data-step="3">
     <h3 style="margin: 1rem 0 0.25rem;">Step 3 - Check squareness and coplanarity</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Check that the camera isn't rotated, tilted, or angled unevenly across the table.
+      Check that the camera is not rotated, tilted, or angled unevenly across the table.
     </p>
     <details style="margin: 0 0 0.5rem;">
       <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
       <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
         Physically adjust the camera until the East side of the table (opposite the drain) is
         in view. Drag the magenta guide-line tabs at the frame's edge onto known perpendicular
-        lines in the scene (e.g. the table's own edges), if they line up, the camera isn't
-        rotated or badly tilted. A straightening aid only; dragged positions aren't saved and
+        lines in the scene (e.g. the table's own edges), if they line up, the camera is not
+        rotated or badly tilted. A straightening aid only; dragged positions are not saved and
         reset on reload.
       </p>
       <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
@@ -133,7 +133,7 @@
         (co-planar); amber is 3–8% (nudge that corner); red is over 8% (that corner needs real
         adjustment, not a small nudge). Nudge the rig until every ring is green. The magenta
         guide lines are a separate, unrelated straightening aid -- they never turn red, amber, or
-        green, so they can't be mistaken for the rings' verdict.
+        green, so they cannot be mistaken for the rings' verdict.
       </p>
     </details>
     <div class="preview-wrap" style="width: var(--wide-content-width); margin: 0 20px 20px 20px;">
@@ -165,7 +165,7 @@
       <input type="checkbox" id="promote-toggle" checked>
       <span>
         <strong>Set as current baseline</strong> — leave this checked for a normal setup
-        calibration. Uncheck it for a comparison run (e.g. the two-baseline test) so it doesn't
+        calibration. Uncheck it for a comparison run (e.g. the two-baseline test) so it does not
         replace the baseline the <a href="/setup/health-check">Health check</a> page's tripwire
         check is still using.
       </span>
@@ -222,7 +222,7 @@
         sheets and table are still visible underneath). Blue/dark = tags there agree closely with
         each other and the model — trust readings from that area. Green through red = growing
         disagreement — the fixed 0–8% scale is used every time so a hotter run really is worse,
-        not just redrawn to look worse. Red doesn't mean "wrong," it means "least measured" —
+        not just redrawn to look worse. Red does not mean "wrong," it means "least measured" —
         usually because coverage is thin there (see the coverage lines above); add a sheet in a
         red area to bring it down.
       </p>
@@ -242,7 +242,7 @@
             away — a plane is the simplest shape that captures that). The percentage shown at
             any point on the photo is <em>not</em> that fit directly: it is how far off the fit
             was for the 5 calibration tags physically nearest that point, combined so that tags
-            reading slightly big and slightly small don't cancel each other out to zero — an
+            reading slightly big and slightly small do not cancel each other out to zero — an
             even split either way still counts as real disagreement.
           </p>
           <p>
@@ -269,7 +269,7 @@
       tags (40, instead of 5) — trading the "exactly where is coverage thin" detail for the
       overall accuracy shape across the frame. Round means the falloff toward the edges is even;
       lopsided toward one side means something physically off that direction. Nothing here is
-      fitted or idealized — it's the same honest measurements, just averaged more widely.
+      fitted or idealized — it is the same honest measurements, just averaged more widely.
     </p>
     <img id="calibration-accuracy-shape-heatmap" alt="Accuracy shape heatmap"
          class="diagnostic-image">
@@ -307,13 +307,13 @@
           </p>
           <p>
             Rather than model the lens or the table's tilt angle to predict this — the kind of
-            camera maths this project has failed at three times before, see CLAUDE.md — it's
+            camera maths this project has failed at three times before, see CLAUDE.md — it is
             measured directly: each tag's <em>real</em> pixel area, computed exactly from its
             four detected corners (a standard geometry formula, no lens model, no assumptions),
             compared to what a perfect square with that tag's own average side length would
             cover. A square is the largest-area shape possible for a given average side length,
             so this comparison can only ever come out as zero (a genuine square) or negative
-            (some real distortion) — never positive; that's also why this heatmap's colour scale
+            (some real distortion) — never positive; that is also why this heatmap's colour scale
             only runs one direction.
           </p>
           <p>
@@ -333,8 +333,8 @@
             the confidence heatmap above (0–8%), stretched to fill the same blue-to-red range
             either way. The two images can look equally "hot" by eye at completely different
             real magnitudes — only the printed percentages say which is actually bigger. The two
-            numbers also measure different things and aren't copies of each other: on a given
-            run they've come out statistically uncorrelated, even though both tend to look worse
+            numbers also measure different things and are not copies of each other: on a given
+            run they have come out statistically uncorrelated, even though both tend to look worse
             toward the table's edges — for unrelated reasons (coverage gaps here vs. real
             geometry above).
           </p>
@@ -344,7 +344,7 @@
     <h3 style="margin: 1rem 0 0.25rem;">Table-position view</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       Click "Save" below any time — no camera capture needed, just these three numbers. They only
-      affect whether the two views below are drawn to scale, nothing else, so there's no need to
+      affect whether the two views below are drawn to scale, nothing else, so there is no need to
       re-run a calibration just to fix one of them.
     </p>
     <label class="peaking-row">
@@ -355,9 +355,9 @@
         corner tag size below for you. <strong>Width</strong> is the left-to-right pair in the
         camera image (top-left to top-right corner tag); <strong>length</strong> is top-to-bottom
         (top-left to bottom-left corner tag) — swapping them renders a transposed rectangle.
-        Leave either blank (before you've ever entered one) for a square, NOT-TO-SCALE canvas
+        Leave either blank (before you have ever entered one) for a square, NOT-TO-SCALE canvas
         that still shows relative position correctly. Remembered between runs once entered —
-        pre-filled here from the last value you actually typed in, so you don't need to retype
+        pre-filled here from the last value you actually typed in, so you do not need to retype
         it every run.
       </span>
       <span>
@@ -383,7 +383,7 @@
     </div>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       The same two fields as the heatmaps above, painted instead on a straightened, top-down view
-      of the table — anchored to the four corner tags, which don't move, so "this spot on the
+      of the table — anchored to the four corner tags, which do not move, so "this spot on the
       picture" is the same real spot on the table across different calibration runs, not tied to
       one specific photo's own tilt and framing (PLAN.md's own corner-tag homography, M2 section
       A). Grey means no calibration tag was ever near that spot — not measured, regardless of
@@ -427,8 +427,8 @@
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       PLAN.md's own rule: a lens/parallax distortion signature is <em>structured</em> — residual
       trends with distance from the image centre, with a consistent sign — not random scatter.
-      That's the specific measurement that decides whether picking up lens-distortion modelling
-      is justified, so it's plotted directly rather than guessed at: every tag's own signed
+      That is the specific measurement that decides whether picking up lens-distortion modelling
+      is justified, so it is plotted directly rather than guessed at: every tag's own signed
       residual (not folded to a percentage magnitude — a real distortion trend has a sign) against
       its distance from the image centre, with an unweighted linear fit and its R². No judgement
       is baked in here about whether a given R² counts as "structured" — read the scatter and the
@@ -455,7 +455,7 @@
     </p>
     <p style="margin: 0.25rem 0 0; color: #aaa; font-size: 0.85rem;">
       PLAN.md's M2 acceptance test (place a known target, measure the actual error, check
-      claimed-vs-actual) has moved to <a href="/setup/health-check">Health check</a> — it's a
+      claimed-vs-actual) has moved to <a href="/setup/health-check">Health check</a> — it is a
       calibration-quality check, not something you need on the way through this wizard.
     </p>
     </details>
@@ -544,9 +544,9 @@
 
     // Corner check on/off (Aaron, 2026-09-28): squaring needs to be fluid, and the detection
     // behind the rings is real CPU competition for that. Off falls back to the plain continuous
-    // preview stream (no detection at all, same one Step 2 uses) so there's still a live image
+    // preview stream (no detection at all, same one Step 2 uses) so there is still a live image
     // to drag the guide lines against.
-    let cornerCheckShowing = null; // "rings" | "preview" | null -- what's currently on screen
+    let cornerCheckShowing = null; // "rings" | "preview" | null -- what is currently on screen
     function updateCornerCheckMode() {
       if (!isActiveStep(3)) {
         if (cornerCheckShowing !== null) {
@@ -573,7 +573,7 @@
     pollLevelOverlay();
 
     // --- Calibration readiness (focus confirmed, all 4 corner tags detected) ---
-    // Polled live while Step 4 is showing -- a data-quality gate, not a safety one, so it's
+    // Polled live while Step 4 is showing -- a data-quality gate, not a safety one, so it is
     // always overridable (Aaron, 2026-09-28): this just tells the operator where things stand
     // before they click "Run calibration", the actual override prompt lives in that handler.
     const calibrationReadiness = document.getElementById("calibration-readiness");
@@ -593,7 +593,7 @@
             calibrationReadiness.textContent =
               `Not ready: ${lockPart}, ${data.corner_tags_detected}/` +
               `${data.corner_tags_required} corner tags detected. You can still run ` +
-              "calibration, but you'll be asked to confirm.";
+              "calibration, but you will be asked to confirm.";
             calibrationReadiness.style.color = "#dc6";
           }
         } catch (e) {
@@ -640,7 +640,7 @@
 
     function renderCurrentCalibration(data) {
       // Pre-fill with the operator's last real, explicitly-typed values (settings.py, not tied
-      // to a saved calibration existing) so a repeat run doesn't need them retyped -- only
+      // to a saved calibration existing) so a repeat run does not need them retyped -- only
       // overwritten by hand if the operator has already typed something in for *this* run.
       if (!tableWidthInput.value && data.table_width_mm != null) {
         tableWidthInput.value = data.table_width_mm;
@@ -664,8 +664,8 @@
         `residual ${data.residual_std_pct.toFixed(2)}%, lens ${lens}, tag size ` +
         `${data.calibration_tag_size_mm}mm, ${baseline}`;
       // Pre-fill with the size the live baseline was actually built from, so a repeat
-      // calibration on the same print run doesn't need it retyped -- only overwritten by hand
-      // if the operator hasn't already typed something in for *this* run.
+      // calibration on the same print run does not need it retyped -- only overwritten by hand
+      // if the operator has not already typed something in for *this* run.
       if (!tagSizeInput.value) tagSizeInput.value = data.calibration_tag_size_mm;
     }
 
@@ -717,8 +717,8 @@
 
     // Re-detects tags from the current baseline's saved frame each time (no per-tag persistence
     // in the artifact) -- always targets whatever /calibration/current is, so only call this
-    // once that's actually the run you want plotted (see the promoted_to_current gate below,
-    // and the opt-in "Load diagnostics" button, both of which exist because this isn't free).
+    // once that is actually the run you want plotted (see the promoted_to_current gate below,
+    // and the opt-in "Load diagnostics" button, both of which exist because this is not free).
     function showRankPlots() {
       rankPlotScaleResidual.src = `/calibration/current/rank-plot?metric=scale_residual&t=${Date.now()}`;
       rankPlotScaleResidual.style.display = "block";
@@ -751,7 +751,7 @@
     }
 
     // vs. the calibration that was active right before this run replaced it (Aaron, 2026-09-28)
-    // -- backend already skips this entirely when there's no previous calibration to compare
+    // -- backend already skips this entirely when there is no previous calibration to compare
     // against, so `cmp` here is only ever present with real numbers on both sides.
     function formatCalibrationDelta(cmp) {
       function metricLine(label, metric, decimals, suffix) {
@@ -827,7 +827,7 @@
           } else if (data.table_width_mm || data.table_length_mm) {
             tableDims =
               `table view: NOT TO SCALE — entered width/length (${data.table_width_mm}mm x ` +
-              `${data.table_length_mm}mm) couldn't convert against corner tag size ` +
+              `${data.table_length_mm}mm) could not convert against corner tag size ` +
               `${data.corner_tag_size_mm}mm (too small, or one of the two left blank) — check ` +
               "your measurement";
           } else {
@@ -847,8 +847,8 @@
           }
           if (!data.promoted_to_current) {
             lines.push(
-              "Diagnostics below are not shown for this run -- it wasn't set as the current " +
-                "baseline, so they'd otherwise show the previous baseline's plots, not this run's."
+              "Diagnostics below are not shown for this run -- it was not set as the current " +
+                "baseline, so they would otherwise show the previous baseline's plots, not this run's."
             );
           }
         }
@@ -887,7 +887,7 @@
         // The rank/best-worst/radial/dome plots need the saved frame (they re-detect tags from
         // it); an artifact can exist with no frame_stem (calibration.py: "a ScaleField alone is
         // still a valid, usable artifact"), and frame_url is the signal for that, same as the
-        // pre-rendered images above. Without this check they'd 409 as broken-image icons with no
+        // pre-rendered images above. Without this check they would 409 as broken-image icons with no
         // explanation.
         if (data.frame_url) {
           showRankPlots();

@@ -88,7 +88,7 @@
 </details>
 
 <script>
-  // Defines initFocusControls only -- does not run until the including page calls it, so it's
+  // Defines initFocusControls only -- does not run until the including page calls it, so it is
   // safe regardless of where this partial lands relative to the caller's own script.
   function initFocusControls({ isActiveStep, showSquareMode, step = 1 }) {
     const MAIN_WIDTH = 1536;
@@ -102,7 +102,7 @@
     // slider) — what you type is where the slider lands, always the same mapping.
     // LENS_MIN/LENS_MAX start as reasonable guesses and are corrected from the probed range
     // in loadControls() below — LensPosition's own max has already been observed to change
-    // between probes (15.0, then 32.0), so this can't be a hardcoded constant.
+    // between probes (15.0, then 32.0), so this cannot be a hardcoded constant.
     let LENS_MIN = 0, LENS_MAX = 15;
 
     const autofocusBtn = document.getElementById("autofocus-btn");
@@ -258,7 +258,7 @@
     }
 
     // Load the real control ranges (including LensPosition's) before applying any current
-    // value, so a value near the edge of a since-changed range doesn't get silently clamped
+    // value, so a value near the edge of a since-changed range does not get silently clamped
     // by a stale HTML `max` attribute.
     loadControls()
       .catch(() => {})
