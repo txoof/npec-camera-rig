@@ -13,7 +13,8 @@ filament per distinct color, numbered in the order the colors first appear.
 
 Usage:
     uv run scad_to_3mf.py part.scad
-    uv run scad_to_3mf.py part.scad -o ~/prints -D 'tag_ids=[450,451,452]'
+    uv run scad_to_3mf.py part.scad -o ~/prints -D 'tag_ids=[350,351,352]'
+    uv run scad_to_3mf.py part.scad -n tags_12-24 -D 'tag_ids=[for (i = [12:24]) i]'
 """
 
 import argparse
@@ -184,6 +185,9 @@ def main(argv=None):
     parser.add_argument("scad", type=Path, help="OpenSCAD source file")
     parser.add_argument("-o", "--output-dir", type=Path, default=Path("exports"),
                         help="where to write <name>.3mf (default: ./exports/)")
+    parser.add_argument("-n", "--name",
+                        help="output file stem and Orca object name "
+                             "(default: the .scad file's stem)")
     parser.add_argument("-D", dest="defines", action="append", default=[],
                         metavar="VAR=VALUE",
                         help="override a Customizer variable, as OpenSCAD's -D; repeatable")
@@ -195,12 +199,13 @@ def main(argv=None):
     if not args.scad.is_file():
         sys.exit(f"scad_to_3mf: no such file: {args.scad}")
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    dst = args.output_dir / f"{args.scad.stem}.3mf"
+    name = args.name or args.scad.stem
+    dst = args.output_dir / f"{name}.3mf"
 
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "raw.3mf"
         run_openscad(args.openscad, args.scad, raw, args.defines)
-        groups, filaments = convert(raw, dst, args.scad.stem)
+        groups, filaments = convert(raw, dst, name)
 
     n_parts = sum(len(g) for g in groups)
     print(f"{dst}: {len(groups)} object(s), {n_parts} parts")
