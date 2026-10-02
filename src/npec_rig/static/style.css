@@ -488,3 +488,18 @@ a { color: #6cf; }
 }
 .help-popover p:first-child { margin-top: 0; }
 .help-popover p:last-child { margin-bottom: 0; }
+
+/* Validation status line (validation-status.js), on the Setup and Calibration pages. */
+.validation-status { margin: 0 0 0.75rem; padding: 0.35rem 0.6rem; border-left: 4px solid #888;
+  font-size: 0.9rem; }
+.validation-status .validation-status-text { font-weight: bold; }
+.validation-status[data-validation-state="validated"] { border-left-color: #3fb950; }
+.validation-status[data-validation-state="validated"] .validation-status-text { color: #3fb950; }
+.validation-status[data-validation-state="not_consistent"],
+.validation-status[data-validation-state="focus_mismatch"],
+.validation-status[data-validation-state="error"] { border-left-color: #ff6b6b; }
+.validation-status[data-validation-state="not_consistent"] .validation-status-text,
+.validation-status[data-validation-state="focus_mismatch"] .validation-status-text,
+.validation-status[data-validation-state="error"] .validation-status-text { color: #ff6b6b; }
+.validation-status[data-validation-state="not_validated"] { border-left-color: #e3b341; }
+.validation-status[data-validation-state="not_validated"] .validation-status-text { color: #e3b341; }

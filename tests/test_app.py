@@ -1832,3 +1832,51 @@ def test_starting_a_validation_ends_the_open_one(tray_scene: dict) -> None:
     second = client.post("/validation/sessions").json()
     assert client.get(f"/validation/sessions/{first['id']}").json()["ended_at"] is not None
     assert client.get(f"/validation/sessions/{second['id']}").json()["is_open"]
+
+
+def test_validation_status_follows_the_newest_session_of_the_active_calibration(tray_scene: dict) -> None:
+    client = TestClient(app)
+    assert client.get("/validation/status").json()["state"] == "no_calibration"
+    client.post("/calibration/run")
+    client.post("/focus/lock")
+    status = client.get("/validation/status").json()
+    assert status == {
+        "state": "not_validated",
+        "text": "Not validated: no validation of this calibration yet",
+        "session_id": None,
+    }
+
+    session = client.post("/validation/sessions").json()
+    for shift in ((200, -150), (-250, 100), (100, 230)):
+        tray_scene["shift"] = shift
+        client.post(f"/validation/sessions/{session['id']}/rounds")
+        status = client.get("/validation/status").json()
+        if shift != (100, 230):
+            assert status["state"] == "not_validated" and "so far" in status["text"]
+    assert status["state"] == "validated" and status["session_id"] == session["id"]
+    assert status["text"].startswith("Validated ")
+
+    # A new session replaces the old one's status until it completes.
+    newer = client.post("/validation/sessions").json()
+    status = client.get("/validation/status").json()
+    assert (status["state"], status["session_id"]) == ("not_validated", newer["id"])
+
+
+def test_validation_status_names_a_slot_that_is_not_consistent(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    for shift, bad in (((200, -150), 1), ((-250, 100), 10)):
+        tray_scene["shift"], tray_scene["bad_sheet"] = shift, bad
+        client.post(f"/validation/sessions/{session['id']}/rounds")
+    status = client.get("/validation/status").json()
+    assert status["state"] == "not_consistent"
+    assert status["text"] == "Not consistent: North 2, South 5"
+
+
+def test_validation_status_does_not_apply_at_another_focus(tray_scene: dict) -> None:
+    client = TestClient(app)
+    _calibrate_and_start(client)
+    client.post("/focus/unlock")
+    status = client.get("/validation/status").json()
+    assert status["state"] == "focus_mismatch"
+    assert status["text"] == "Not validated at this focus: focus is not locked"

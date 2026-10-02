@@ -978,6 +978,10 @@ The heart of the project. Do not start before M1 slice 5.
         the sheet at hand before using it.
   - Then the old slice 3: validation status on the Setup and calibration pages, the wizard's
         push to validate, and status in the site menu once a consistent menu exists.
+        **Built 2026-10-02, Aaron checked in the browser:** status line on Setup and Calibration
+        (`GET /validation/status`: Validated, Not consistent, Not validated, or not valid at
+        this focus), wizard Step 6 is now Validate with a link to skip. Still open: status in
+        the site menu.
 - [ ] **No contractions on any web page (Aaron, 2026-09-30).** Write "cannot", "is not", "do not"
       in all page text, JS strings, and server messages the pages show. The validation page and
       its messages are done; still to do (count on 2026-09-30): setup_calibration.html 35,

@@ -2,6 +2,8 @@
 {% set nav_active = "setup" %}
 {% block title_suffix %} — Calibration{% endblock %}
 
+{% block head_extra %}<script src="/static/validation-status.js"></script>{% endblock %}
+
 {% block breadcrumb %}
   <p class="breadcrumb">
     <a href="/setup">Setup</a> / Calibration
@@ -13,6 +15,10 @@
   <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
     Set up or re-verify this rig, in order. Each step below is a real physical action or a real
     measurement — none of it can be skipped by guessing.
+  </p>
+  <p class="validation-status" data-validation-status>
+    <span class="validation-status-text">Reading validation status&hellip;</span>
+    <a href="/setup/validation">Go to Validation</a>
   </p>
   <div class="calibration-section">
     <div class="wizard-nav">
@@ -456,10 +462,16 @@
 
     </div>
     <div class="wizard-step" data-step="6">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 6 - Remove sheets</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Step 6 - Validate</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Once the report above looks right, remove the calibration and corner sheets from the trays
-      before starting a growth run.
+      Leave the calibration and corner sheets where they are. Validation moves each sheet to a
+      different tray and measures again, 3 rounds, to show how far an area can be trusted in each
+      tray slot. Remove the sheets after validation, before starting a growth run.
+    </p>
+    <p style="margin: 0 0 0.5rem;">
+      <a href="/setup/validation">Go to Validation</a>
+      &nbsp;&middot;&nbsp;
+      <a href="/setup">Skip validation for now, back to Setup</a>
     </p>
     </div>
 
@@ -660,6 +672,7 @@
     async function refreshCurrentCalibration() {
       const r = await fetch("/calibration/current");
       renderCurrentCalibration(await r.json());
+      window.refreshValidationStatus();
     }
 
     // The pre-rendered heatmap/table-view images are already on disk (saved at capture time),
@@ -919,7 +932,7 @@
       "Check squareness and coplanarity",
       "Run calibration",
       "Read the report",
-      "Remove sheets",
+      "Validate",
     ];
     const wizardSteps = document.querySelectorAll(".wizard-step");
     const wizardProgress = document.getElementById("wizard-progress");
@@ -933,9 +946,9 @@
       wizardProgress.textContent =
         `Step ${wizardStep} of ${STEP_TITLES.length} — ${STEP_TITLES[wizardStep - 1]}`;
       wizardBackBtn.disabled = wizardStep === 1;
-      wizardNextBtn.textContent = wizardStep === STEP_TITLES.length ? "Done" : "Next →";
-      // "Done" stays active -- it navigates to the Setup menu instead of advancing (Aaron,
-      // 2026-09-28), unlike every earlier step where there's nowhere further to go.
+      wizardNextBtn.textContent = wizardStep === STEP_TITLES.length ? "Go to Validation" : "Next →";
+      // The last step stays active -- it navigates on to validation instead of advancing. The
+      // Step 6 text offers the way back to Setup: a lead, not a block.
       wizardNextBtn.disabled = false;
       focusControls.updateLiveResources();
       updateCornerCheckMode();
@@ -952,7 +965,7 @@
         wizardStep += 1;
         renderWizardStep();
       } else {
-        window.location.href = "/setup";
+        window.location.href = "/setup/validation";
       }
     });
     renderWizardStep();

@@ -441,6 +441,8 @@
         ? `Focus status: Locked ${data.lens_position.toFixed(2)}`
         : "Focus status: UNLOCKED";
       lockBtn.textContent = data.locked ? "Unlock focus" : "Lock focus";
+      // Validation only holds at the calibration's focus (validation-status.js, where loaded).
+      if (window.refreshValidationStatus) window.refreshValidationStatus();
     }
 
     lockBtn.addEventListener("click", async () => {

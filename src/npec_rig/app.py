@@ -1497,6 +1497,23 @@ def _current_calibration_stem() -> str | None:
     return artifact.frame_stem if artifact is not None else None
 
 
+def _focus_problem(focus: dict, artifact: CalibrationArtifact) -> str | None:
+    """Why the current focus does not match the calibration's, or None when it does. A
+    calibration saved without a lens position is not checked."""
+    if not focus.get("locked"):
+        return "focus is not locked"
+    locked_at = focus.get("lens_position")
+    if (
+        artifact.lens_position is not None
+        and abs(locked_at - artifact.lens_position) > _LENS_POSITION_TOLERANCE
+    ):
+        return (
+            f"focus is locked at {locked_at:.2f}, the calibration was taken at "
+            f"{artifact.lens_position:.2f}"
+        )
+    return None
+
+
 def _session_or_404(session_id: str) -> dict:
     try:
         return validation_store.load_session(session_id)
@@ -1580,6 +1597,39 @@ def _calibration_slot_layout(artifact: CalibrationArtifact) -> dict:
     return {"slots": slots, "calibration_centres": [list(c) for c in centres]}
 
 
+@app.get("/validation/status")
+def validation_status() -> dict:
+    """Whether the active calibration is validated at the current focus lock, for the Setup and
+    Calibration pages. A status, not a block: nothing is refused because of it. Reads the
+    session files only, never a capture."""
+    artifact = load_current_calibration()
+    if artifact is None:
+        return {"state": "no_calibration", "text": "No calibration yet", "session_id": None}
+    focus_problem = _focus_problem(CameraManager.instance().focus_status(), artifact)
+    sessions = [
+        s for s in validation_store.list_sessions() if s.get("calibration_stem") == artifact.frame_stem
+    ]
+    if not sessions:
+        state, text, session_id = "not_validated", "Not validated: no validation of this calibration yet", None
+    else:
+        session = sessions[0]
+        status, session_id = validation_store.status(session), session["id"]
+        state = status["state"]
+        if state == "not_validated":
+            counted = len(validation_store.counted_rounds(session))
+            required = validation_store.ROUNDS_REQUIRED
+            if validation_store.is_ended(session):
+                text = f"Not validated: the last validation ended after {counted} of {required} rounds"
+            else:
+                text = f"Not validated: {counted} of {required} rounds counted so far"
+        else:
+            text = status["label"]
+    if focus_problem:
+        # The validation measured the error at the calibration's lens position, not this one.
+        state, text = "focus_mismatch", f"Not validated at this focus: {focus_problem}"
+    return {"state": state, "text": text, "session_id": session_id}
+
+
 @app.get("/validation/sessions/{session_id}")
 def get_validation_session(session_id: str) -> dict:
     return _session_summary(_session_or_404(session_id), _current_calibration_stem())
@@ -1653,18 +1703,8 @@ def capture_validation_round(session_id: str) -> dict:
         # Focus is judged first and reported even when the sheets cannot be read: a round at the
         # wrong focus usually finds no sheets at all, and "found 0 calibration sheets" alone sent
         # the operator to the sheets instead of the focus (Aaron, 2026-09-30).
-        reasons = []
-        locked_at = focus.get("lens_position")
-        if not focus.get("locked"):
-            reasons.append("focus is not locked")
-        elif (
-            artifact.lens_position is not None
-            and abs(locked_at - artifact.lens_position) > _LENS_POSITION_TOLERANCE
-        ):
-            reasons.append(
-                f"focus is locked at {locked_at:.2f}, the calibration was taken at "
-                f"{artifact.lens_position:.2f}"
-            )
+        focus_problem = _focus_problem(focus, artifact)
+        reasons = [focus_problem] if focus_problem else []
         try:
             round_["slot_errors"] = round_errors_by_slot(
                 detections,
@@ -1683,7 +1723,7 @@ def capture_validation_round(session_id: str) -> dict:
             if moved < MIN_MOVED_FRACTION:
                 reasons.append(
                     f"only {100 * moved:.0f}% of tags moved since the calibration or an earlier "
-                    "round: move each sheet on its tray and shuffle the trays"
+                    "round: leave the trays where they are and put each sheet on a different tray"
                 )
             round_["reason"] = "; ".join(reasons) or None
             round_["overridable"] = bool(reasons)
@@ -1743,20 +1783,7 @@ def validation_session_map(session_id: str) -> Response:
     counted = validation_store.counted_rounds(session)
     if not counted:
         raise HTTPException(409, "no rounds count yet")
-    required = validation_store.ROUNDS_REQUIRED
-    flagged = validation_store.flagged_slots(session)
-    table_off = any(p["slot"] is None for p in validation_store.offset_problems(session))
-    if flagged or table_off:
-        if table_off or len(flagged) == len(session["slots"]):
-            slots = "all slots"
-        else:
-            slots = ", ".join(flagged)
-        status = f"Not consistent: {slots}"
-    elif session["completed_at"]:
-        status = f"Validated {session['completed_at'][:10]}"
-    else:
-        state = "Ended before completion" if session.get("ended_at") else "Provisional"
-        status = f"{state}: {len(counted)} of {required} rounds"
+    status = validation_store.status(session)["label"]
     caption = (
         f"{status}. Calibration {session['calibration_stem']}, {len(counted)} round(s) pooled. "
         "95% of tags within the stated band, at tray-top height."

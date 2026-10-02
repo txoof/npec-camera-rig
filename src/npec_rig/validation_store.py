@@ -1,7 +1,8 @@
 """Validation sessions: the measured check of a calibration (certainty_map.py).
 
 A session belongs to one calibration. Each round is one capture taken after the operator moved
-every sheet on its tray and shuffled the trays; the calibration frame itself is never a round,
+each sheet to a different tray, leaving the trays where they were; the calibration frame itself
+is never a round,
 because its scale field was fitted to those very tags. A session is complete once
 `ROUNDS_REQUIRED` rounds have counted, and it records when.
 
@@ -272,6 +273,25 @@ def is_validated(session: dict) -> bool:
         and not inconsistent_slots(session)
         and not offset_problems(session)
     )
+
+
+def status(session: dict) -> dict:
+    """The session's status, one of "validated", "not_consistent" or "not_validated", and the
+    label the pages and the map caption show for it. Not consistent wins over everything else:
+    it can show from the second round on, before the session is complete."""
+    counted = len(counted_rounds(session))
+    flagged = flagged_slots(session)
+    table_off = any(p["slot"] is None for p in offset_problems(session))
+    if flagged or table_off:
+        if table_off or len(flagged) == len(session["slots"]):
+            slots = "all slots"
+        else:
+            slots = ", ".join(flagged)
+        return {"state": "not_consistent", "label": f"Not consistent: {slots}"}
+    if is_validated(session):
+        return {"state": "validated", "label": f"Validated {session['completed_at'][:10]}"}
+    state = "Ended before completion" if session.get("ended_at") else "Provisional"
+    return {"state": "not_validated", "label": f"{state}: {counted} of {ROUNDS_REQUIRED} rounds"}
 
 
 def round_problems(session: dict) -> list[dict]:
