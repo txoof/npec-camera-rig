@@ -157,13 +157,15 @@ each tray tag (`hardware/apriltag_tray_tag.scad`, `tray_type()`):
 
 | IDs | Use |
 |---|---|
-| 1-100 | Tray tags, 4x5 trays |
-| 101-200 | Tray tags, 4x4 trays |
-| 201-300 | Tray tags, 1x1 trays |
-| 301-399 | Tray tags, other trays |
+| 1-75 | Tray tags, 4x5 trays |
+| 76-150 | Tray tags, 4x4 trays |
+| 151-225 | Tray tags, 1x1 trays |
+| 226-299 | Tray tags, other trays |
+| 300-449 | Calibration sheets (`reference/calibration-sheets/`), in use, do not change |
 | 450-499 | Corner/reference tags (`hardware/apriltag_corner_mount.scad`) |
 
-Calibration sheet ids are not yet allocated; 0 and 400-449 are free.
+The tray split refines `TODO.md`'s 2026-09-20 allocation (0-299 trays) and matches
+`src/npec_rig/tags.py`. Id 0 is unused: `apriltags-36h11-1-499.scad` has no data for it.
 
 ---
 
@@ -580,6 +582,6 @@ worth knowing rather than discovering in week three.
 - **Capture rate vs storage** — 10/hour is ~29 GB/month, 60/hour is ~170 GB. Decide alongside
   retention policy and whether an external SSD is needed.
 - **Calibration sheet layout** — the old repo has an A4 sheet of 25 tags (ids 0–24) at 29.31 mm
-  measured (that print only). Tray and corner ids are now allocated (see Tag ID allocation);
-  sheet ids are not, and ids 1-24 now belong to 4x5 trays. Only 0 and 400-449 are free.
+  measured (that print only). The current sheet is ids 300-449 in `reference/calibration-sheets/`
+  (see Tag ID allocation).
 - **Digest delivery** — email, or render in the web UI only.

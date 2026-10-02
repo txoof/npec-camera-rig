@@ -54,7 +54,7 @@ def help_epilog():
     """
     return f"""\
 ids:
-  {FIRST_ID}-{LAST_ID}  corner/reference tags (PLAN.md). Tray tags are 1-399, see tray_tags.py
+  {FIRST_ID}-{LAST_ID}  corner/reference tags (PLAN.md). Tray tags are 1-299 (tray_tags.py), calibration sheets 300-449
 
 group format:
   FIRST-LAST   a range of ids   450-453

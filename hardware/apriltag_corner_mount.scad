@@ -67,7 +67,7 @@
    in the slicer, not a measured one.
 
    REV 1.11: `tag_ids` limited to 450-499, the corner/reference range
-     (Aaron), so corner ids can't overlap tray ids (1-399, see
+     (Aaron), so corner ids can't overlap tray ids (1-299, see
      apriltag_tray_tag.scad). Geometry unchanged.
    REV 1.10: the quiet zone now clears the transition chamfer. The chamfer
      rises off the plate's top face over Y in [-tr,0], so with the tag at

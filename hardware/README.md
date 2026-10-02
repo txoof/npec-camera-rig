@@ -118,24 +118,26 @@ ID:
 
 | IDs | Tray type | Default style |
 |---|---|---|
-| 1-100 | `4x5` | `tab` |
-| 101-200 | `4x4` | `bolt` |
-| 201-300 | `1x1` | `bolt` |
-| 301-399 | `OTHER` | `tab` |
+| 1-75 | `4x5` | `tab` |
+| 76-150 | `4x4` | `bolt` |
+| 151-225 | `1x1` | `bolt` |
+| 226-299 | `OTHER` | `tab` |
+
+IDs 300-449 are the calibration sheets and 450-499 the corner mounts, so tray tags stop at 299.
 
 `tray_tags.py` exports a list of ID groups, one 3MF per group, through `scad_to_3mf.py`:
 
 ```sh
-# writes apriltag_tray_tag_4x5_1-12_tab.3mf, ..._4x5_13-24_tab.3mf, ..._4x4_101-113_bolt.3mf
-uv run tray_tags.py 1-12 13-24 101-113
+# writes apriltag_tray_tag_4x5_1-12_tab.3mf, ..._4x5_13-24_tab.3mf, ..._4x4_101-112_bolt.3mf
+uv run tray_tags.py 1-12 13-24 101-112
 
 # override the default style per group, another folder, extra Customizer overrides
-uv run tray_tags.py 1-12:bolt 301-306 -o ~/prints -D on_side=false
+uv run tray_tags.py 1-12:bolt 226-231 -o ~/prints -D on_side=false
 ```
 
 A group is a range (`1-12`) or a single ID (`7`), optionally followed by `:tab` or `:bolt`
 (`1-12:bolt`); without one it gets its type's default style. `uv run tray_tags.py --help` lists
-the types, defaults and examples. A group must stay within one tray type: `95-105`
+the types, defaults and examples. A group must stay within one tray type: `70-80`
 is refused, so split it at the boundary. Every group is checked before anything is exported.
 The ID table is in both `tray_type()` in the `.scad` (which engraves the label) and
 `TRAY_TYPES` in `tray_tags.py` (which names the file). Change them together. The default

@@ -10,9 +10,9 @@ so each file holds one type and its name says which. All groups are checked
 before anything is exported.
 
 Usage:
-    uv run tray_tags.py 1-12 13-24 101-113
-    uv run tray_tags.py 1-12:bolt 101-113:tab -o ~/prints
-    uv run tray_tags.py 301-306 -D on_side=false
+    uv run tray_tags.py 1-12 13-24 101-112
+    uv run tray_tags.py 1-12:bolt 101-112:tab -o ~/prints
+    uv run tray_tags.py 226-231 -D on_side=false
 
 Writes e.g. ``exports/apriltag_tray_tag_4x5_1-12_tab.3mf``.
 """
@@ -26,12 +26,14 @@ import scad_to_3mf
 SCAD = Path(__file__).with_name("apriltag_tray_tag.scad")
 
 # Must match tray_type() in apriltag_tray_tag.scad, which engraves the label.
+# Must stay inside TRAY_ID_RANGE in src/npec_rig/tags.py: 300-449 are the
+# calibration sheets, 450-499 the corner tags.
 # (first id, last id, tray type)
 TRAY_TYPES = [
-    (1, 100, "4x5"),
-    (101, 200, "4x4"),
-    (201, 300, "1x1"),
-    (301, 399, "OTHER"),
+    (1, 75, "4x5"),
+    (76, 150, "4x4"),
+    (151, 225, "1x1"),
+    (226, 299, "OTHER"),
 ]
 
 STYLES = ("tab", "bolt")  # tag_style values in apriltag_tray_tag.scad
@@ -135,8 +137,8 @@ examples:
   tray_tags.py 1-12
       ids 1 to 12, 4x5, tab (the default for 4x5)
       -> exports/{SCAD.stem}_4x5_1-12_tab.3mf
-  tray_tags.py 1-12 13-24 101-113
-      three files: 4x5 1-12 tab, 4x5 13-24 tab, 4x4 101-113 bolt
+  tray_tags.py 1-12 13-24 101-112
+      three files: 4x5 1-12 tab, 4x5 13-24 tab, 4x4 101-112 bolt
   tray_tags.py 1-12:bolt
       ids 1 to 12, 4x5, bolt instead of the default tab
       -> exports/{SCAD.stem}_4x5_1-12_bolt.3mf
@@ -144,13 +146,13 @@ examples:
       four files, styles mixed: 4x5 tab, 4x5 bolt, 4x4 tab, 4x4 bolt
   tray_tags.py 7:bolt
       a single tag, id 7, bolt
-  tray_tags.py 301-306 -D on_side=false -o ~/prints
+  tray_tags.py 226-231 -D on_side=false -o ~/prints
       lay the tags flat instead of on their side, write to ~/prints
 
 refused, nothing exported:
-  tray_tags.py 95-105     crosses 4x5 and 4x4; use 95-100 101-105
+  tray_tags.py 70-80      crosses 4x5 and 4x4; use 70-75 76-80
   tray_tags.py 0-10       ids start at 1
-  tray_tags.py 390-400    ids end at 399
+  tray_tags.py 295-305    ids end at 299 (300-449 are calibration sheets)
   tray_tags.py 1-12:clip  style must be tab or bolt
 """
 
