@@ -2,7 +2,7 @@
    AprilTag tray tag -- 30 mm 36h11 tag on a square plate for each growth
    tray (PLAN.md's fixed 30 mm tag on each tray). Two styles, chosen once
    for the whole layout with `tag_style`:
-     - "clip": the plate sits on the tray's rim, with a tab hanging 90 deg
+     - "tab": the plate sits on the tray's rim, with a tab hanging 90 deg
        over the tray's edge to locate it.
      - "bolt": a tab in the plate's own plane, `bolt_tab_len` past the
        plate's -Y edge, with a round end and an M8 clearance hole
@@ -30,7 +30,7 @@
 
    Coordinate convention: the plate is centred on X = Y = 0. Z = 0 is the
    plate's flat top face; the plate spans Z = -tag_plate_thk to 0 and the
-   dark tag layer spans Z = -tag_embed to Z = tag_raise_h. Clip style: the
+   dark tag layer spans Z = -tag_embed to Z = tag_raise_h. Tab style: the
    tab runs along X on the plate's -Y edge and hangs `tab_h` below the
    plate's underside. The plate's -Y edge and the tab's outer face form one
    continuous flat face: no rounding in XY on that edge, no engraving.
@@ -59,7 +59,7 @@
    ID label: small, engraved into the top face in the quiet zone's top-left
    corner (-X, +Y, viewed from above), `id_inset` in from both plate edges.
    It sits inside the quiet zone by choice (Aaron, REV 1.2): small enough
-   to accept for this application. Revision stamp: clip style, engraved
+   to accept for this application. Revision stamp: tab style, engraved
    into the tab's inner (+Y) face, under the plate, so the flat outer face
    is untouched; bolt style, engraved into the tab's top face between the
    plate edge and the hole.
@@ -74,6 +74,8 @@
    `tag_embed` are starting values, same status as in
    `apriltag_corner_mount.scad`.
 
+   REV 1.12: style "clip" renamed "tab" (Aaron); `tag_style` must be "tab"
+     or "bolt". Geometry unchanged.
    REV 1.11: tray type label in the quiet zone's top-right corner, from the
      id (Aaron). Ids limited to 1-399. Geometry otherwise unchanged.
    REV 1.10: fix -- on the side in clip style, a tag's flip followed its
@@ -132,8 +134,8 @@
 use <apriltag_36h11.scad>
 
 /* [Style] */
-tag_style = "clip"; // ["clip", "bolt"]
-// clip: 90 deg tab over the tray edge; bolt: in-plane tab with an M8 hole  ["clip","bolt"]
+tag_style = "tab"; // ["tab", "bolt"]
+// tab: 90 deg tab over the tray edge; bolt: in-plane tab with an M8 hole  ["tab","bolt"]
 
 /* [Tag] */
 tag_ids       = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // 36h11 ids, one tray tag each, laid out in this order -- tray id allocation not yet confirmed (PLAN.md open questions)
@@ -142,9 +144,9 @@ tag_border    = 6;     // quiet-zone margin each side, mm -- informed default, n
 tag_plate_thk = 3;     // total plate thickness, mm  [2:0.5:6]
 tag_raise_h   = 0.6;   // dark tag layer height above the plate's top face, mm  [0.2:0.1:2]
 tag_embed     = 0.2;   // how far the dark layer sinks into the plate so the parts overlap, mm  [0:0.05:1]
-corner_r      = 3;     // rounding on the plate's vertical corners (clip style: +Y corners only, the -Y edge stays square), mm  [0:0.5:10]
+corner_r      = 3;     // rounding on the plate's vertical corners (tab style: +Y corners only, the -Y edge stays square), mm  [0:0.5:10]
 
-/* [Clip Tab] */
+/* [Tab] */
 tab_h   = 8;   // how far the tab hangs below the plate's underside, mm  [2:0.5:30]
 tab_thk = 3;   // tab thickness, Y, mm  [1:0.5:6]
 tab_r   = 3;   // rounding on the tab's two bottom corners, XZ plane, mm  [0:0.5:10]
@@ -179,7 +181,7 @@ side_plate_gap = 5; // space between the two plates of a nested pair, side layou
 plate_cols = 0;   // tags per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.11"; // revision stamp, engraved on the tab: clip style inner face, bolt style top face ("" = none)
+revision  = "RV1.12"; // revision stamp, engraved on the tab: tab style inner face, bolt style top face ("" = none)
 rev_size  = 3;       // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;     // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -191,11 +193,11 @@ eps = 0.01;
 pw = tag_size + 2 * tag_border; // plate width, X and Y
 cr = min(corner_r, pw / 2);     // clamp: rounding can't exceed half the plate
 tr = min(tab_r, tab_h, pw / 2); // clamp: rounding can't exceed the tab's height or half its width
-clip = tag_style == "clip";
+tabbed = tag_style == "tab"; // false: bolt
 bolt_tab_x = bolt_tab_flush ? pw / 2 - bolt_tab_w / 2 : 0; // tab centre line, X
 bolt_y   = -pw / 2 - bolt_tab_len + bolt_tab_w / 2; // hole and round-end centre, Y
 bolt_rev_y = (-pw / 2 + bolt_y + bolt_dia / 2) / 2; // revision centre: midway between plate edge and hole edge
-tab_ext  = clip ? 0 : bolt_tab_len; // how far the part reaches past the plate's -Y edge
+tab_ext  = tabbed ? 0 : bolt_tab_len; // how far the part reaches past the plate's -Y edge
 label_z = -(tag_plate_thk + tab_h / 2); // text centre height, middle of the tab's exposed inner face
 rev_x = pw / 4;                         // revision stamp, X centre on the tab's inner face
 
@@ -205,27 +207,28 @@ function tray_type(id) = id <= 100 ? "4x5"
                        : id <= 300 ? "1x1"
                        : "OTHER";
 
+assert(tag_style == "tab" || tag_style == "bolt", "tag_style must be \"tab\" or \"bolt\"");
 assert(len(tag_ids) > 0, "tag_ids must list at least one id");
 assert(min(tag_ids) >= 1 && max(tag_ids) <= 399,
        "tag_ids must be within 1-399, the ids allocated to tray types (tray_type())");
 assert(tab_thk < pw / 2, "tab too thick for the plate");
-assert(!clip || rev_depth < tab_thk, "revision engraving deeper than the tab");
-assert(clip || rev_depth < tag_plate_thk, "revision engraving deeper than the bolt tab");
-assert(clip || bolt_tab_len >= bolt_tab_w / 2, "bolt tab shorter than its round end");
-assert(clip || bolt_dia < bolt_tab_w - 2, "M8 hole leaves under 1 mm of wall in the bolt tab");
-assert(clip || bolt_tab_w <= pw, "bolt tab wider than the plate");
+assert(!tabbed || rev_depth < tab_thk, "revision engraving deeper than the tab");
+assert(tabbed || rev_depth < tag_plate_thk, "revision engraving deeper than the bolt tab");
+assert(tabbed || bolt_tab_len >= bolt_tab_w / 2, "bolt tab shorter than its round end");
+assert(tabbed || bolt_dia < bolt_tab_w - 2, "M8 hole leaves under 1 mm of wall in the bolt tab");
+assert(tabbed || bolt_tab_w <= pw, "bolt tab wider than the plate");
 assert(id_depth < tag_plate_thk, "id engraving deeper than the plate");
 
-// full Z extent of the unrotated part: bottom (clip: tab, bolt: plate) to
+// full Z extent of the unrotated part: bottom (tab style: tab, bolt: plate) to
 // the tag layer's top
-z_lo = clip ? -(tag_plate_thk + tab_h) : -tag_plate_thk;
+z_lo = tabbed ? -(tag_plate_thk + tab_h) : -tag_plate_thk;
 z_hi = tag_raise_h;
 
 n_tags  = len(tag_ids);
 gap     = on_side ? side_gap : plate_gap;
 part_dx = on_side ? z_hi - z_lo : pw; // footprint in X; rotating about Y turns the part's height into X
 tp      = tag_plate_thk + tag_raise_h; // plate plus tag layer, the part's X thickness on the side
-nest    = on_side && clip; // flip-and-raise pairs: clip style on the side only
+nest    = on_side && tabbed; // flip-and-raise pairs: tab style on the side only
 pitch_x = part_dx + (on_side ? side_plate_gap : gap); // bolt style on the side: plates side by side
 pitch_y = pw + tab_ext + gap;
 
@@ -357,7 +360,7 @@ module type_engrave(id) {
 
 module tray_tag_body(id = tag_ids[0]) {
     difference() {
-        if (clip)
+        if (tabbed)
             union() {
                 translate([0, 0, -tag_plate_thk])
                     linear_extrude(tag_plate_thk) plate_profile();
@@ -367,11 +370,11 @@ module tray_tag_body(id = tag_ids[0]) {
             translate([0, 0, -tag_plate_thk])
                 linear_extrude(tag_plate_thk) bolt_profile();
 
-        if (!clip)
+        if (!tabbed)
             translate([bolt_tab_x, bolt_y, -tag_plate_thk - eps])
                 cylinder(d = bolt_dia, h = tag_plate_thk + 2 * eps);
         if (revision != "") {
-            if (clip) tab_text(revision, rev_x, rev_size, rev_depth, "Liberation Sans");
+            if (tabbed) tab_text(revision, rev_x, rev_size, rev_depth, "Liberation Sans");
             else      bolt_rev_stamp();
         }
         if (id_label)

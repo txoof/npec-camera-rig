@@ -3,16 +3,18 @@
 # ///
 """Export groups of AprilTag tray tags, one Orca-ready 3MF per group.
 
-Each group is an id range (``1-12``) or a single id (``7``). Every group must
-fall inside one tray type, so each file holds one type and its name says
-which. All groups are checked before anything is exported.
+Each group is an id range (``1-12``) or a single id (``7``), optionally
+followed by a style (``1-12:bolt``). Without a style, a group gets its tray
+type's default (DEFAULT_STYLE). Every group must fall inside one tray type,
+so each file holds one type and its name says which. All groups are checked
+before anything is exported.
 
 Usage:
     uv run tray_tags.py 1-12 13-24 101-113
-    uv run tray_tags.py 1-12 --style bolt -o ~/prints
+    uv run tray_tags.py 1-12:bolt 101-113:tab -o ~/prints
     uv run tray_tags.py 301-306 -D on_side=false
 
-Writes e.g. ``exports/apriltag_tray_tag_4x5_1-12_clip.3mf``.
+Writes e.g. ``exports/apriltag_tray_tag_4x5_1-12_tab.3mf``.
 """
 
 import argparse
@@ -31,6 +33,11 @@ TRAY_TYPES = [
     (201, 300, "1x1"),
     (301, 399, "OTHER"),
 ]
+
+STYLES = ("tab", "bolt")  # tag_style values in apriltag_tray_tag.scad
+
+# style used when a group does not name one
+DEFAULT_STYLE = {"4x5": "tab", "4x4": "bolt", "1x1": "bolt", "OTHER": "tab"}
 
 
 def tray_type(tag_id):
@@ -52,16 +59,20 @@ def parse_group(spec):
     """Parse a group spec and check it against the tray type ranges.
 
     Args:
-        spec: ``"lo-hi"`` or a single id ``"n"``.
+        spec: ``"lo-hi"`` or a single id ``"n"``, optionally followed by
+            ``":style"``.
 
     Returns:
-        (lo, hi, tray type).
+        (lo, hi, tray type, style).
 
     Raises:
         ValueError: The spec is malformed, reversed, outside the allocated
-            ids, or crosses a tray type boundary.
+            ids, crosses a tray type boundary, or names an unknown style.
     """
-    parts = spec.split("-")
+    ids, _, style = spec.partition(":")
+    if style and style not in STYLES:
+        raise ValueError(f"{spec!r}: style must be one of {', '.join(STYLES)}")
+    parts = ids.split("-")
     if len(parts) not in (1, 2) or not all(p.strip().isdigit() for p in parts):
         raise ValueError(f"{spec!r}: expected an id or a range like 1-12")
     lo, hi = int(parts[0]), int(parts[-1])
@@ -74,7 +85,57 @@ def parse_group(spec):
     if first != last:
         raise ValueError(f"{spec!r}: crosses tray types ({first} and {last}); "
                          "split it at the boundary")
-    return lo, hi, first
+    return lo, hi, first, style or DEFAULT_STYLE[first]
+
+
+def help_epilog():
+    """Return the --help text listing tray types, default styles and examples.
+
+    Built from TRAY_TYPES and DEFAULT_STYLE so it cannot drift from them.
+
+    Returns:
+        Preformatted epilog text.
+    """
+    rows = "\n".join(f"  {lo:>3}-{hi:<3}  {name:<6}  {DEFAULT_STYLE[name]}"
+                     for lo, hi, name in TRAY_TYPES)
+    return f"""\
+tray types (a group must stay inside one):
+  ids      type    default style
+{rows}
+
+styles:
+  tab   90 deg tab that hangs over the tray edge
+  bolt  flat tab with an M8 clearance hole
+
+group format:
+  FIRST-LAST         a range of ids, default style for its type   1-12
+  ID                 a single id, default style for its type      7
+  FIRST-LAST:STYLE   a range of ids, in STYLE (tab or bolt)       1-12:bolt
+  ID:STYLE           a single id, in STYLE                        7:bolt
+  Each group writes one file. No spaces inside a group.
+
+examples:
+  tray_tags.py 1-12
+      ids 1 to 12, 4x5, tab (the default for 4x5)
+      -> exports/{SCAD.stem}_4x5_1-12_tab.3mf
+  tray_tags.py 1-12 13-24 101-113
+      three files: 4x5 1-12 tab, 4x5 13-24 tab, 4x4 101-113 bolt
+  tray_tags.py 1-12:bolt
+      ids 1 to 12, 4x5, bolt instead of the default tab
+      -> exports/{SCAD.stem}_4x5_1-12_bolt.3mf
+  tray_tags.py 1-6 7-12:bolt 101-106:tab 107-112
+      four files, styles mixed: 4x5 tab, 4x5 bolt, 4x4 tab, 4x4 bolt
+  tray_tags.py 7:bolt
+      a single tag, id 7, bolt
+  tray_tags.py 301-306 -D on_side=false -o ~/prints
+      lay the tags flat instead of on their side, write to ~/prints
+
+refused, nothing exported:
+  tray_tags.py 95-105     crosses 4x5 and 4x4; use 95-100 101-105
+  tray_tags.py 0-10       ids start at 1
+  tray_tags.py 390-400    ids end at 399
+  tray_tags.py 1-12:clip  style must be tab or bolt
+"""
 
 
 def main(argv=None):
@@ -87,11 +148,12 @@ def main(argv=None):
         Process exit code.
     """
     parser = argparse.ArgumentParser(
-        description="Export groups of tray tags, one 3MF per group.")
+        description="Export groups of AprilTag tray tags, one 3MF per group.",
+        epilog=help_epilog(),
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("groups", nargs="+", metavar="GROUP",
-                        help="id range like 1-12, or a single id")
-    parser.add_argument("--style", choices=["clip", "bolt"], default="clip",
-                        help="tag_style for every group (default: clip)")
+                        help="tag ids for one file, with an optional style: "
+                             "1-12, 7, 1-12:bolt, 7:tab. See group format below")
     parser.add_argument("-o", "--output-dir", type=Path, default=Path("exports"),
                         help="where to write the 3MFs (default: ./exports/)")
     parser.add_argument("-D", dest="defines", action="append", default=[],
@@ -108,11 +170,11 @@ def main(argv=None):
     if errors:
         sys.exit("tray_tags: nothing exported\n  " + "\n  ".join(errors))
 
-    for lo, hi, kind in groups:
+    for lo, hi, kind, style in groups:
         ids = str(lo) if lo == hi else f"{lo}-{hi}"
-        name = f"{SCAD.stem}_{kind}_{ids}_{args.style}"
+        name = f"{SCAD.stem}_{kind}_{ids}_{style}"
         defines = [f"tag_ids=[for (i = [{lo}:{hi}]) i]",
-                   f'tag_style="{args.style}"'] + args.defines
+                   f'tag_style="{style}"'] + args.defines
         argv = [str(SCAD), "-o", str(args.output_dir), "-n", name]
         for d in defines:
             argv += ["-D", d]
