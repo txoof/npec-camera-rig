@@ -60,7 +60,13 @@ from npec_rig.calibration_viz import (
     render_table_view,
     render_uncertainty_heatmap,
 )
-from npec_rig.camera import CameraBusyError, CameraManager, array_to_jpeg
+from npec_rig.camera import (
+    CameraBusyError,
+    CameraManager,
+    LensMovedDuringLockError,
+    LensNotSettledError,
+    array_to_jpeg,
+)
 from npec_rig.certainty_map import (
     MIN_MOVED_FRACTION,
     SlotLayoutError,
@@ -71,7 +77,9 @@ from npec_rig.certainty_map import (
     group_sheets,
     moved_fraction,
     render_certainty_map,
+    render_problem_frame,
     round_errors_by_slot,
+    sheets_by_slot,
     slot_layout_from_dict,
     slot_layout_to_dict,
 )
@@ -84,7 +92,7 @@ from npec_rig.tags import (
     CORNER_ID_RANGE,
     detect_tags,
 )
-from npec_rig import validation_store
+from npec_rig import images, validation_store
 from npec_rig.tripwire import (
     build_corner_baseline,
     check_tripwire,
@@ -387,8 +395,11 @@ def set_peaking(setting: PeakingSetting) -> dict:
 
 @app.post("/focus/lock")
 def lock_focus() -> dict:
-    """Record the current lens position as locked."""
-    return CameraManager.instance().lock_focus()
+    """Drive the lens to the position last set, the one consistent way, and lock it there."""
+    try:
+        return CameraManager.instance().lock_focus()
+    except (LensNotSettledError, LensMovedDuringLockError) as exc:
+        raise HTTPException(409, f"{exc}: focus is not locked, press Lock focus again") from exc
 
 
 @app.post("/focus/unlock")
@@ -961,6 +972,7 @@ def delete_calibration(stem: str) -> dict:
     (calibration_root() / "frames" / f"{stem}.jpg").unlink(missing_ok=True)
     # A validation session only means anything against its own calibration.
     validation_store.delete_sessions_for_calibration(stem)
+    validation_store.delete_slot_layout(stem)
     for suffix in (
         "",
         "_area-shape",
@@ -1346,39 +1358,42 @@ def stem_certainty_dome_plot(stem: str) -> Response:
 
 
 # Validation captures for the certainty map. `_detect_tags_cached` keeps one full frame for the
-# calibration diagnostics; a map pools several captures, and a full 64MP frame is ~180MB, so
-# holding several would be the OOM condition that cache exists to prevent. Only each capture's
-# detections and a downscaled copy to draw on are kept, and decoding shares that cache's lock, so
-# at most two full frames (the cached calibration frame plus one capture) are ever live at once.
+# calibration diagnostics; a full 64MP frame is ~180MB, so holding several would be the OOM
+# condition that cache exists to prevent. Captures never stay in memory at full size: their tags
+# come from the analysis store (images.py) and the copy to draw on is decoded straight to
+# _CAPTURE_PREVIEW_WIDTH. Full-size frames live at once, at most: the cached calibration frame, a
+# second calibration frame while that cache switches stems (under _frame_detection_lock), and one
+# capture being analysed for the first time (under images._full_decode, a separate lock).
 _CAPTURE_REF = re.compile(r"^\d{4}-\d{2}-\d{2}/\d{6}_\d{6}$")
 _CAPTURE_PREVIEW_WIDTH = 2000
-_MAX_CACHED_CAPTURES = 16
 _MAX_CAPTURES_PER_MAP = 12
-_cached_capture_detections: dict[str, tuple[list, np.ndarray, float]] = {}
 
 
-def _capture_detections(ref: str) -> tuple[list, np.ndarray, float]:
-    """`(detections, preview, preview_scale)` for capture `ref` ("YYYY-MM-DD/HHMMSS_ffffff")."""
+def _capture_path(ref: str) -> Path:
     if not _CAPTURE_REF.match(ref):
         raise HTTPException(422, f"not a capture reference: {ref!r} (expected YYYY-MM-DD/HHMMSS_ffffff)")
-    with _frame_detection_lock:
-        if ref in _cached_capture_detections:
-            _cached_capture_detections[ref] = _cached_capture_detections.pop(ref)  # most recent last
-            return _cached_capture_detections[ref]
-        path = captures_root() / f"{ref}.jpg"
-        if not path.exists():
-            raise HTTPException(404, f"capture {ref} not found")
-        with Image.open(path) as image:
-            frame = np.array(image.convert("RGB"))
-        detections = detect_tags(frame)
-        scale = min(1.0, _CAPTURE_PREVIEW_WIDTH / frame.shape[1])
-        size = (round(frame.shape[1] * scale), round(frame.shape[0] * scale))
-        preview = np.array(Image.fromarray(frame).resize(size, Image.Resampling.LANCZOS))
-        del frame
-        if len(_cached_capture_detections) >= _MAX_CACHED_CAPTURES:
-            _cached_capture_detections.pop(next(iter(_cached_capture_detections)))  # least recent
-        _cached_capture_detections[ref] = (detections, preview, scale)
-        return _cached_capture_detections[ref]
+    path = captures_root() / f"{ref}.jpg"
+    if not path.exists():
+        raise HTTPException(404, f"capture {ref} not found")
+    return path
+
+
+def _capture_tags(ref: str) -> list:
+    """Capture `ref`'s tag detections, worked out once per photograph and then read from the
+    analysis store (images.py), so even after a restart nothing decodes it at full size again.
+    Stored tags are used even if the photograph itself has since been deleted."""
+    if not _CAPTURE_REF.match(ref):
+        raise HTTPException(422, f"not a capture reference: {ref!r} (expected YYYY-MM-DD/HHMMSS_ffffff)")
+    stored = images.stored_tag_detections(ref)
+    if stored is not None:
+        return stored
+    return images.tag_detections(ref, _capture_path(ref), detect=lambda frame: detect_tags(frame))
+
+
+def _capture_preview(ref: str) -> tuple[np.ndarray, float]:
+    """`(preview, preview_scale)`: capture `ref` decoded straight to about _CAPTURE_PREVIEW_WIDTH,
+    with its scale relative to full-resolution pixel coordinates."""
+    return images.reduced_frame(_capture_path(ref), _CAPTURE_PREVIEW_WIDTH)
 
 
 def _certainty_map_response(artifact: CalibrationArtifact, captures: list[str]) -> Response:
@@ -1394,17 +1409,17 @@ def _certainty_map_response(artifact: CalibrationArtifact, captures: list[str]) 
     if artifact.frame_stem is None:
         raise HTTPException(409, "this calibration has no saved frame to take tray slots from")
     _frame, calibration_detections = _detect_tags_cached(artifact.frame_stem)
-    per_capture = [_capture_detections(ref) for ref in captures]
+    per_capture = [_capture_tags(ref) for ref in captures]  # only the last is drawn on
     try:
         layout, results = certainty_by_slot(
             calibration_detections,
-            [detections for detections, _preview, _scale in per_capture],
+            per_capture,
             artifact.scale_field,
             artifact.calibration_tag_size_mm,
         )
     except SlotLayoutError as exc:
         raise HTTPException(409, str(exc)) from exc
-    _detections, preview, scale = per_capture[-1]
+    preview, scale = _capture_preview(captures[-1])
     caption = (
         f"Calibration {artifact.frame_stem}, {len(captures)} validation capture(s) pooled. "
         "95% of tags within the stated band, at tray-top height."
@@ -1513,6 +1528,11 @@ def _session_summary(session: dict, current_stem: str | None) -> dict:
         "results": session["results"],
         "median_range_pct": validation_store.median_ranges(session),
         "median_disagreement_pct": validation_store.MEDIAN_DISAGREEMENT_PCT,
+        "inconsistent_slots": validation_store.inconsistent_slots(session),
+        "validated": validation_store.is_validated(session),
+        "problems": validation_store.round_problems(session),
+        "offset_problems": validation_store.offset_problems(session),
+        "flagged_slots": validation_store.flagged_slots(session),
         "certainty_range_pct": [min(measured), max(measured)] if measured else None,
         "map_url": f"/validation/sessions/{session['id']}/map" if counted else None,
     }
@@ -1532,6 +1552,22 @@ def start_validation_session() -> dict:
     artifact = load_current_calibration()
     if artifact is None or artifact.frame_stem is None:
         raise HTTPException(409, "no active calibration with a saved frame to validate")
+    layout = _calibration_slot_layout(artifact)
+    with _validation_lock:
+        validation_store.end_open_sessions(artifact.frame_stem)
+        session = validation_store.new_session(
+            artifact.frame_stem, layout["slots"], layout["calibration_centres"]
+        )
+    return _session_summary(session, artifact.frame_stem)
+
+
+def _calibration_slot_layout(artifact: CalibrationArtifact) -> dict:
+    """The calibration's tray slots and tag centres, from disk when already worked out. Working
+    them out decodes the 64MP calibration frame (about 15 s, the "Start validation" freeze of
+    2026-10-02 after a restart emptied the in-memory cache), so the result is saved once."""
+    saved = validation_store.load_slot_layout(artifact.frame_stem)
+    if saved is not None:
+        return saved
     _frame, detections = _detect_tags_cached(artifact.frame_stem)
     try:
         layout = build_slot_layout(
@@ -1539,12 +1575,9 @@ def start_validation_session() -> dict:
         )
     except SlotLayoutError as exc:
         raise HTTPException(409, f"this calibration cannot be validated: {exc}") from exc
-    with _validation_lock:
-        validation_store.end_open_sessions(artifact.frame_stem)
-        session = validation_store.new_session(
-            artifact.frame_stem, slot_layout_to_dict(layout), calibration_centres(detections)
-        )
-    return _session_summary(session, artifact.frame_stem)
+    slots, centres = slot_layout_to_dict(layout), calibration_centres(detections)
+    validation_store.save_slot_layout(artifact.frame_stem, slots, centres)
+    return {"slots": slots, "calibration_centres": [list(c) for c in centres]}
 
 
 @app.get("/validation/sessions/{session_id}")
@@ -1560,6 +1593,7 @@ def delete_validation_session(session_id: str) -> dict:
             validation_store.delete_session(session_id)
         except validation_store.SessionNotFoundError as exc:
             raise HTTPException(404, str(exc)) from exc
+    images.forget_source(f"validation:{session_id}")
     return {"deleted": session_id}
 
 
@@ -1603,7 +1637,7 @@ def capture_validation_round(session_id: str) -> dict:
         )
         del array
         ref = f"{record['date']}/{Path(record['filename']).stem}"
-        detections, _preview, _scale = _capture_detections(ref)
+        detections = _capture_tags(ref)
 
         round_ = {
             "capture": ref,
@@ -1616,6 +1650,21 @@ def capture_validation_round(session_id: str) -> dict:
             "slot_errors": None,
             "centres": [list(c) for c in calibration_centres(detections)],
         }
+        # Focus is judged first and reported even when the sheets cannot be read: a round at the
+        # wrong focus usually finds no sheets at all, and "found 0 calibration sheets" alone sent
+        # the operator to the sheets instead of the focus (Aaron, 2026-09-30).
+        reasons = []
+        locked_at = focus.get("lens_position")
+        if not focus.get("locked"):
+            reasons.append("focus is not locked")
+        elif (
+            artifact.lens_position is not None
+            and abs(locked_at - artifact.lens_position) > _LENS_POSITION_TOLERANCE
+        ):
+            reasons.append(
+                f"focus is locked at {locked_at:.2f}, the calibration was taken at "
+                f"{artifact.lens_position:.2f}"
+            )
         try:
             round_["slot_errors"] = round_errors_by_slot(
                 detections,
@@ -1624,25 +1673,13 @@ def capture_validation_round(session_id: str) -> dict:
                 artifact.calibration_tag_size_mm,
             )
         except SlotLayoutError as exc:
-            round_["reason"] = str(exc)
+            round_["reason"] = "; ".join(reasons + [str(exc)])
         else:
             references = [session["calibration_centres"]] + [
                 r["centres"] for r in validation_store.counted_rounds(session)
             ]
             moved = moved_fraction(round_["centres"], references, artifact.scale_field)
             round_["moved_pct"] = round(100 * moved, 1)
-            reasons = []
-            locked_at = focus.get("lens_position")
-            if not focus.get("locked"):
-                reasons.append("focus is not locked")
-            elif (
-                artifact.lens_position is not None
-                and abs(locked_at - artifact.lens_position) > _LENS_POSITION_TOLERANCE
-            ):
-                reasons.append(
-                    f"focus is locked at {locked_at:.2f}, the calibration was taken at "
-                    f"{artifact.lens_position:.2f}"
-                )
             if moved < MIN_MOVED_FRACTION:
                 reasons.append(
                     f"only {100 * moved:.0f}% of tags moved since the calibration or an earlier "
@@ -1700,25 +1737,139 @@ def end_validation_session(session_id: str) -> dict:
 @app.get("/validation/sessions/{session_id}/map")
 def validation_session_map(session_id: str) -> Response:
     """The session's certainty map: pooled per-slot results from the stored rounds, drawn on the
-    latest counted capture. Only that one capture is decoded."""
+    latest counted capture. Made once per distinct content and kept (images.py), so it is served
+    from disk afterwards, also after a restart."""
     session = _session_or_404(session_id)
     counted = validation_store.counted_rounds(session)
     if not counted:
         raise HTTPException(409, "no rounds count yet")
-    _detections, preview, scale = _capture_detections(counted[-1]["capture"])
-    results = [
-        SlotResult(r["name"], r["n"], r["p95_abs_pct"], r["median_pct"]) for r in session["results"]
-    ]
     required = validation_store.ROUNDS_REQUIRED
-    if session["completed_at"]:
+    flagged = validation_store.flagged_slots(session)
+    table_off = any(p["slot"] is None for p in validation_store.offset_problems(session))
+    if flagged or table_off:
+        if table_off or len(flagged) == len(session["slots"]):
+            slots = "all slots"
+        else:
+            slots = ", ".join(flagged)
+        status = f"Not consistent: {slots}"
+    elif session["completed_at"]:
         status = f"Validated {session['completed_at'][:10]}"
     else:
-        status = f"Provisional: {len(counted)} of {required} rounds"
+        state = "Ended before completion" if session.get("ended_at") else "Provisional"
+        status = f"{state}: {len(counted)} of {required} rounds"
     caption = (
         f"{status}. Calibration {session['calibration_stem']}, {len(counted)} round(s) pooled. "
         "95% of tags within the stated band, at tray-top height."
     )
+    inputs = {
+        "capture": counted[-1]["capture"],
+        "preview_width": _CAPTURE_PREVIEW_WIDTH,
+        "slots": session["slots"],
+        "results": session["results"],
+        "caption": caption,
+    }
+    return _derived_response("validation_map", f"validation:{session_id}", inputs)
+
+
+def _render_validation_map(inputs: dict) -> bytes:
+    preview, scale = images.reduced_frame(_capture_path(inputs["capture"]), inputs["preview_width"])
+    results = [
+        SlotResult(r["name"], r["n"], r["p95_abs_pct"], r["median_pct"]) for r in inputs["results"]
+    ]
     image = render_certainty_map(
-        preview, slot_layout_from_dict(session["slots"]), results, caption, frame_scale=scale
+        preview, slot_layout_from_dict(inputs["slots"]), results, inputs["caption"], frame_scale=scale
     )
-    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+    return array_to_jpeg(image)
+
+
+def _derived_response(recipe: str, source: str, inputs: dict) -> Response:
+    """A derived image from the store. `no-cache`: the browser asks again every time (the URL
+    stays the same while the session changes), and the store answers from disk."""
+    content, media_type = images.get(recipe, source, inputs)
+    return Response(content=content, media_type=media_type, headers={"Cache-Control": "no-cache"})
+
+
+def _size_text(offset_pct: float) -> str:
+    return f"{abs(offset_pct):.1f}% {'small' if offset_pct < 0 else 'large'}"
+
+
+@app.get("/validation/sessions/{session_id}/rounds/{number}/problems")
+def validation_round_problems_image(session_id: str, number: int) -> Response:
+    """Round `number`'s full frame (1-based, as the page counts rounds) with a red border around
+    each sheet `validation_store.round_problems` names in it, where that sheet sat in that round,
+    or around the whole frame for a whole-round shift."""
+    session = _session_or_404(session_id)
+    problems = [p for p in validation_store.round_problems(session) if p["round"] == number]
+    if not problems:
+        raise HTTPException(404, f"round {number} has no problems")
+    whole = [p for p in problems if p["slot"] is None]
+    if whole:
+        caption = (
+            f"Round {number}: every slot reads about {_size_text(whole[0]['offset_pct'])} compared "
+            "with other rounds. Check whether the camera or the table moved."
+        )
+    else:
+        caption = (
+            f"Round {number}. Red: the sheet or tray that reads differently from other rounds. "
+            "Check the sheet with callipers and the tray height."
+        )
+    return _problem_frame_response(session, session["rounds"][number - 1], problems, caption)
+
+
+@app.get("/validation/sessions/{session_id}/offsets")
+def validation_offsets_image(session_id: str) -> Response:
+    """The latest counted round's full frame with a red border around each slot that reads
+    steadily off the others (`validation_store.offset_problems`), or around the whole frame when
+    every slot reads off since the calibration."""
+    session = _session_or_404(session_id)
+    problems = validation_store.offset_problems(session)
+    if not problems:
+        raise HTTPException(404, "no slot reads steadily off")
+    whole = [p for p in problems if p["slot"] is None]
+    if whole:
+        caption = (
+            f"Every slot reads about {_size_text(whole[0]['offset_pct'])} in every round compared "
+            "with the calibration. Check whether the camera or the table moved, then recalibrate."
+        )
+    else:
+        caption = (
+            "Red: reads differently from the other slots in every round. Check the sheet with "
+            "callipers, the tray height, and the slot."
+        )
+    return _problem_frame_response(session, validation_store.counted_rounds(session)[-1], problems, caption)
+
+
+def _problem_frame_response(session: dict, round_: dict, problems: list[dict], caption: str) -> Response:
+    """`round_`'s full frame, a red border around each named slot's sheet where it sat in that
+    round, or around the whole frame for a problem with no slot."""
+    artifact = _load_saved_artifact(session["calibration_stem"])
+    detections = _capture_tags(round_["capture"])  # for the sheet boxes; the image is reduced
+    placed = sheets_by_slot(
+        group_sheets(detections, artifact.scale_field, artifact.calibration_tag_size_mm),
+        slot_layout_from_dict(session["slots"]),
+    )
+    named = [p for p in problems if p["slot"] is not None]
+    inputs = {
+        "capture": round_["capture"],
+        "preview_width": _CAPTURE_PREVIEW_WIDTH,
+        "boxes": {p["slot"]: list(placed[p["slot"]].box) for p in named},
+        "labels": {p["slot"]: f"{p['slot']}: reads {_size_text(p['offset_pct'])}" for p in named},
+        "caption": caption,
+        "whole_frame": any(p["slot"] is None for p in problems),
+    }
+    return _derived_response("problem_frame", f"validation:{session['id']}", inputs)
+
+
+def _render_problem_frame(inputs: dict) -> bytes:
+    preview, scale = images.reduced_frame(_capture_path(inputs["capture"]), inputs["preview_width"])
+    boxes = {name: tuple(box) for name, box in inputs["boxes"].items()}
+    image = render_problem_frame(
+        preview, boxes, inputs["labels"], inputs["caption"], whole_frame=inputs["whole_frame"],
+        frame_scale=scale,
+    )
+    return array_to_jpeg(image)
+
+
+# Bump a recipe's version whenever its renderer would draw the same inputs differently.
+images.register(images.Recipe("validation_map", 1, _render_validation_map))
+images.register(images.Recipe("problem_frame", 1, _render_problem_frame))

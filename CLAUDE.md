@@ -132,6 +132,21 @@ When using AskUserQuestion, always leave room for a free-text answer.
   `Segmenter` interface with a classical excess-green fallback.
 - **362 MB of bench frames** sit at `/home/pi/old/npec_OLD/npec-camera/tests/data/`. From the previous rig,
   so the geometry no longer matches. Available if needed, not copied in.
+- **The central low reading (the "North 4 hot spot") is the Arducam's own, and it is closed.**
+  Investigated 2026-09-30 to 10-02, record in `reference/arducam-central-error-2026-10.md`. Targets
+  within about 1500 px of the image centre read up to about 4% small in area. A Canon photographing
+  the same table does not see it, so it is not the table, sheets, trays, lighting or detector. Its
+  size follows the focus lens position (about 1.2 points of area per 0.1) and shifts after the lens
+  is moved. Do not reopen it; validation measures it per slot. Reopen only if validation flags a
+  slot as not consistent while nothing was moved.
+- **The focus position is the experimenter's choice, never ours.** The rig drives the lens there one
+  consistent way and confirms it (`CameraManager._drive_lens`), then calibration and validation
+  measure the error at that position. Never recommend or tune a lens position for accuracy.
+- **Height above the tray top changes area by about 0.145% per mm** (measured: a 75 mm taller tray
+  read 11.2% to 12.0% large, predicted 11.8%). Validation bands cover flat objects at tray-top height
+  only; plant height and segmentation add to them (PLAN.md, *Per-slot area uncertainty*).
+- **Rig timestamps (capture names, session IDs) are UTC; the chamber's local time is UTC+2.**
+  Convert before matching them against anything a person reports.
 
 ## Where things live
 
@@ -140,7 +155,10 @@ When using AskUserQuestion, always leave room for a free-text answer.
 | `PLAN.md` | Full plan. Read the relevant milestone only |
 | `TODO.md` | Actionable items, linked to plan milestones |
 | `reference/old-calibration/` | Rescued measured values from the previous rig |
+| `reference/arducam-central-error-2026-10.md` | The central-error investigation: evidence, what was ruled out, how the error is managed |
+| `docs/operator-guide.md` | For the scientists running experiments: focus, lock, calibrate, validate, and what the uncertainty column means |
 | `/var/lib/npec-rig/` | Runtime data: captures, masks, `rig.db` |
+| `/var/lib/npec-rig/derived/` | Derived images (validation maps, problem frames; later thumbnails), made once by `images.py`, disposable. Every large image goes through `images.py` (PLAN.md, *Images*) |
 | `/etc/npec-rig/config.yaml` | Per-rig configuration. Planned (PLAN.md's Technical decisions table), not yet implemented — current settings live in env vars and SQLite only |
 
 ## Definition of done

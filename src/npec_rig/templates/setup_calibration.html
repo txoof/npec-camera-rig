@@ -88,16 +88,16 @@
 
     </div>
     <div class="wizard-step" data-step="2">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 2 - Confirm focus</h3>
+    <h3 style="margin: 1rem 0 0.25rem;">Step 2 - Lock focus</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Confirm the lens is in focus.
+      Set the focus for your setup, then lock it.
     </p>
     <details style="margin: 0 0 0.5rem;">
       <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
       <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-        Use "Autofocus" or the manual controls below, then "Confirm focus". Re-check this any
+        Use "Autofocus" or the manual controls below, then "Lock focus". Re-check this any
         time the lens may have moved. Calibration measures the scene through whatever focus is
-        confirmed.
+        locked.
       </p>
     </details>
 
@@ -573,11 +573,11 @@
           const data = await r.json();
           if (data.ready) {
             calibrationReadiness.textContent =
-              `Ready: focus confirmed, ${data.corner_tags_detected}/` +
+              `Ready: focus locked, ${data.corner_tags_detected}/` +
               `${data.corner_tags_required} corner tags detected.`;
             calibrationReadiness.style.color = "#8c8";
           } else {
-            const lockPart = data.focus_locked ? "focus confirmed" : "focus not confirmed";
+            const lockPart = data.focus_locked ? "focus locked" : "focus not locked";
             calibrationReadiness.textContent =
               `Not ready: ${lockPart}, ${data.corner_tags_detected}/` +
               `${data.corner_tags_required} corner tags detected. You can still run ` +
@@ -915,7 +915,7 @@
     // need real threshold values from measured runs, not guessed constants.
     const STEP_TITLES = [
       "Place calibration and corner sheets",
-      "Confirm focus",
+      "Lock focus",
       "Check squareness and coplanarity",
       "Run calibration",
       "Read the report",

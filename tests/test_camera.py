@@ -24,6 +24,171 @@ from npec_rig.settings import load_settings
 pytestmark = pytest.mark.unit
 
 
+class _RecordingPicamera2:
+    """Stands in for picamera2.Picamera2: records configurations and control writes, so the real
+    backend's capture sequence can be checked without a camera."""
+
+    camera_controls: dict = {}
+
+    def __init__(self) -> None:
+        self.configured: list[dict] = []
+        self.control_writes: list[dict] = []
+
+    def create_still_configuration(self, controls=None):
+        return {"kind": "still", "controls": dict(controls or {})}
+
+    def configure(self, config) -> None:
+        self.configured.append(config)
+
+    def start(self) -> None:
+        pass
+
+    def stop(self) -> None:
+        pass
+
+    def set_controls(self, controls: dict) -> None:
+        self.control_writes.append(dict(controls))
+
+    def capture_array(self, _stream):
+        return np.zeros((4, 4, 3), dtype=np.uint8)
+
+    def capture_metadata(self) -> dict:
+        return {"LensPosition": 0.0}
+
+
+def test_a_full_res_capture_keeps_manual_focus_and_the_lens_position() -> None:
+    # 2026-10-01: configure() dropped manual AfMode and LensPosition, so after one full-res
+    # capture every later lens write was ignored and a whole lens sweep came out at one position.
+    backend = object.__new__(camera_module.Picamera2Backend)
+    backend._picam2 = _RecordingPicamera2()
+    backend._video_config = {"kind": "video"}
+    backend._control_cache = {}
+    backend._lens_position = DEFAULT_LENS_POSITION
+
+    backend.set_lens_position(6.44)
+    backend.capture_full_res()
+    still, video = backend._picam2.configured
+    assert still["controls"] == {"AfMode": 0, "LensPosition": 6.44}
+    assert video == {"kind": "video"}
+    assert backend._picam2.control_writes[-1] == {"AfMode": 0, "LensPosition": 6.44}
+
+    backend.set_lens_position(6.18)  # a later move is what the next capture uses
+    backend.capture_full_res()
+    assert backend._picam2.configured[-2]["controls"] == {"AfMode": 0, "LensPosition": 6.18}
+
+
+def test_the_startup_replay_of_a_persisted_lens_position_is_what_a_capture_re_applies() -> None:
+    # Before 2026-10-01 the startup replay went through set_control, which left the remembered
+    # position at the 1.0 default: the first capture after a restart would have commanded 1.0.
+    backend = object.__new__(camera_module.Picamera2Backend)
+    backend._picam2 = _RecordingPicamera2()
+    backend._video_config = {"kind": "video"}
+    backend._control_cache = {}
+    backend._lens_position = DEFAULT_LENS_POSITION
+
+    backend.set_control("LensPosition", 6.18)
+    backend.capture_full_res()
+    assert backend._picam2.configured[0]["controls"] == {"AfMode": 0, "LensPosition": 6.18}
+
+
+class _RecordingSyntheticBackend(SyntheticBackend):
+    """Synthetic camera that records lens writes, and can report a stale position for a while
+    (as the real one does for up to about 45 s after a full-res capture)."""
+
+    def __init__(self, stale_reads: int = 0) -> None:
+        super().__init__()
+        self.lens_writes: list[float] = []
+        self.stale_reads = stale_reads
+
+    def set_lens_position(self, value: float) -> None:
+        self.lens_writes.append(value)
+        super().set_lens_position(value)
+
+    def get_lens_position(self) -> float:
+        if self.stale_reads > 0:
+            self.stale_reads -= 1
+            return 1.0
+        return super().get_lens_position()
+
+
+def test_locking_focus_drives_the_lens_from_below_and_waits_for_the_camera() -> None:
+    backend = _RecordingSyntheticBackend()
+    manager = CameraManager(backend)
+    manager.set_lens_position(6.18)
+    backend.lens_writes.clear()
+    backend.stale_reads = 3  # the camera reports the old position for three reads
+
+    status = manager.lock_focus()
+    assert backend.lens_writes == [pytest.approx(5.88), 6.18]  # one way in: from 0.3 below
+    assert status == {"locked": True, "lens_position": 6.18}  # what was set, confirmed
+    assert backend.stale_reads == 0  # it waited until the camera agreed
+
+
+def test_focus_stays_unlocked_when_the_camera_never_reports_the_lens_there(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    backend = _RecordingSyntheticBackend()
+    manager = CameraManager(backend)
+    manager.set_lens_position(6.18)
+    backend.stale_reads = 10**6
+
+    with pytest.raises(camera_module.LensNotSettledError):
+        manager.lock_focus()
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+
+def test_a_failed_lock_does_not_leave_an_older_lock_in_place(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Code review 2026-10-02: the lens moves during a lock, so an older lock must not survive
+    # the new one failing.
+    backend = _RecordingSyntheticBackend()
+    manager = CameraManager(backend)
+    manager.set_lens_position(6.18)
+    manager.lock_focus()
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    backend.stale_reads = 10**6
+
+    with pytest.raises(camera_module.LensNotSettledError):
+        manager.lock_focus()
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+    assert load_settings()["FocusConfirmed"] is False
+
+
+def test_moving_the_lens_while_lock_focus_waits_locks_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Code review 2026-10-02: the slider moved during the up-to-60 s wait must not end in a lock
+    # at the old position.
+    manager = CameraManager(_RecordingSyntheticBackend())
+    manager.set_lens_position(6.18)
+    reads = []
+
+    def report_while_the_operator_moves_the_slider() -> float:
+        reads.append(True)
+        if len(reads) == 1:
+            manager.set_lens_position(6.40)  # another request, while the lock waits
+            return 1.0  # the camera has not caught up yet
+        return 6.18  # then reports the lock's target
+
+    monkeypatch.setattr(manager, "get_lens_position", report_while_the_operator_moves_the_slider)
+    with pytest.raises(camera_module.LensMovedDuringLockError):
+        manager.lock_focus()
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+
+def test_a_restart_drives_the_lens_back_the_same_way_and_keeps_the_lock() -> None:
+    from npec_rig.settings import save_setting
+
+    save_setting("LensPosition", 6.18)
+    save_setting("FocusConfirmed", True)
+    save_setting("FocusConfirmedLensPosition", 6.18)
+
+    backend = _RecordingSyntheticBackend()
+    manager = CameraManager(backend)
+    assert backend.lens_writes == [pytest.approx(5.88), 6.18]
+    assert manager.focus_status() == {"locked": True, "lens_position": 6.18}
+
+
 def test_synthetic_backend_produces_expected_shape() -> None:
     backend = SyntheticBackend(width=64, height=48)
     frame = backend.capture_array()

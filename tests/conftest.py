@@ -18,6 +18,16 @@ def _camera_hardware_present() -> bool:
         return False
 
 
+@pytest.fixture(autouse=True)
+def _no_lens_drive_waits(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The lens drive path pauses and polls for a real camera; the synthetic one answers at
+    once, so tests run it without the waits (see camera.LENS_APPROACH_OFFSET)."""
+    import npec_rig.camera as camera_module
+
+    monkeypatch.setattr(camera_module, "LENS_APPROACH_PAUSE_S", 0.0)
+    monkeypatch.setattr(camera_module, "LENS_POLL_INTERVAL_S", 0.0)
+
+
 def _hailo_present() -> bool:
     return shutil.which("hailortcli") is not None
 
@@ -63,3 +73,5 @@ def isolated_settings_db(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     # A fresh DB per test — CameraManager loads persisted settings on construction, so sharing
     # one DB across tests would leak state between them.
     monkeypatch.setenv("NPEC_RIG_DB_PATH", str(tmp_path / "rig.db"))
+    # Derived images (images.py) go with the per-test DB that indexes them.
+    monkeypatch.setenv("NPEC_RIG_DERIVED_DIR", str(tmp_path / "derived"))

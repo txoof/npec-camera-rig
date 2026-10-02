@@ -21,8 +21,23 @@
     .validation-table th:first-child, .validation-table td:first-child { text-align: left; }
     .validation-table td.pooled { font-weight: bold; }
     .validation-table tr.disagrees td { background: rgba(230, 170, 60, 0.22); }
+    .validation-problem { color: #ff6b6b; font-weight: bold; }
+    .validation-table tr td.problem, .validation-table tr th.problem {
+      background: #b3261e; color: #fff; font-weight: bold;
+    }
+    .validation-problems { margin: 0.35rem 0 0; padding: 0.3rem 0.45rem; border: 2px solid #b3261e;
+      font-size: 0.72rem; }
+    .validation-problems p { margin: 0.1rem 0; display: flow-root; }
+    .validation-problems img.diagnostic-image {
+      display: block; float: left; width: 64px; margin: 0 0.45rem 0 0; cursor: zoom-in;
+      border: 2px solid #b3261e;
+    }
+    .validation-problems strong { color: #ff6b6b; }
     .validation-note { margin: 0.3rem 0 0; font-size: 0.66rem; color: #aaa; }
     .validation-held { margin-top: 0.4rem; font-size: 0.75rem; }
+    /* Buttons on their own line at the left of each card: the right edge stays free for
+       scrolling on a touch screen (Aaron, 2026-10-01). */
+    .calibration-history-card .calibration-history-actions { margin-left: 0; flex-basis: 100%; }
     .validation-help { font-size: 0.75rem; color: #aaa; margin: 0.25rem 0 0.5rem; }
     .validation-help summary { cursor: pointer; }
   </style>
@@ -93,9 +108,16 @@
     }
 
     function statusText(s) {
-      if (s.completed_at) return `Validated ${when(s.completed_at)}, ${s.rounds_counted} rounds`;
+      const counted = `${s.rounds_counted} of ${s.rounds_required} rounds counted`;
+      const tableOff = s.offset_problems.some((p) => p.slot == null);
+      if (s.flagged_slots.length || tableOff) {
+        const slots = tableOff || s.flagged_slots.length === s.results.length
+          ? "all slots" : s.flagged_slots.join(", ");
+        return `<span class="validation-problem">Not consistent: ${slots}</span>, ${counted}`;
+      }
+      if (s.validated) return `Validated ${when(s.completed_at)}, ${s.rounds_counted} rounds`;
       const state = s.ended_at ? "Ended before completion" : "Provisional";
-      return `${state}: ${s.rounds_counted} of ${s.rounds_required} rounds counted`;
+      return `${state}: ${counted}`;
     }
 
     function rangeText(s) {
@@ -109,25 +131,64 @@
       return (signed && value >= 0 ? "+" : "") + value.toFixed(1);
     }
 
+    function problemsHtml(s) {
+      if (!s.problems.length && !s.offset_problems.length) return "";
+      const sizeOf = (p) => `${Math.abs(p.offset_pct).toFixed(1)}% ${p.offset_pct < 0 ? "small" : "large"}`;
+      const offsetImage = `<img class="diagnostic-image" src="/validation/sessions/${s.id}/offsets" ` +
+        'alt="Latest round, full frame, problem marked in red" title="Click to enlarge">';
+      const steady = s.offset_problems.map((p) => {
+        if (p.slot == null) {
+          return `<p>${offsetImage}<strong>Problem, every round:</strong> every slot reads about ` +
+            `${sizeOf(p)} compared with the calibration. Check whether the camera or the table ` +
+            "moved, then recalibrate.</p>";
+        }
+        return `<p>${offsetImage}<strong>Problem, every round, ${p.slot}:</strong> reads ` +
+          `${sizeOf(p)} compared with the other slots. Check the sheet with callipers, the tray ` +
+          "height, and the slot.</p>";
+      });
+      const lines = steady.concat(s.problems.map((p) => {
+        const size = sizeOf(p);
+        const image = `<img class="diagnostic-image" src="/validation/sessions/${s.id}/rounds/${p.round}/problems" ` +
+          `alt="Round ${p.round}, full frame, problem marked in red" title="Click to enlarge">`;
+        if (p.slot == null) {
+          return `<p>${image}<strong>Problem, round ${p.round}:</strong> every slot reads about ${size} ` +
+            "compared with other rounds. Check whether the camera or the table moved.</p>";
+        }
+        return `<p>${image}<strong>Problem, round ${p.round}, ${p.slot}:</strong> the sheet or tray ` +
+          `there reads ${size} compared with other rounds. Check the sheet with callipers and ` +
+          "the tray height.</p>";
+      }));
+      return `<div class="validation-problems">${lines.join("")}</div>`;
+    }
+
     function readoutHtml(s) {
       const counted = s.rounds
         .map((r, i) => ({ ...r, number: i + 1 }))
         .filter((r) => r.counted);
       if (!counted.length) return '<p class="validation-note">No counted rounds yet.</p>';
       const head = counted
-        .map((r) => `<th title="${when(r.captured_at)}, ${r.moved_pct}% of tags moved">R${r.number}</th>`)
+        .map((r) => {
+          const whole = s.problems.some((p) => p.round === r.number && p.slot == null);
+          return `<th class="${whole ? "problem" : ""}" title="${when(r.captured_at)}, ${r.moved_pct}% of tags moved">R${r.number}</th>`;
+        })
         .join("");
       const limit = s.median_disagreement_pct;
+      const problemAt = (number, name) =>
+        s.problems.some((p) => p.round === number && (p.slot === name || p.slot == null));
       const rows = s.results.map((pooled) => {
         const cells = counted
           .map((r) => {
             const slot = r.slots[pooled.name];
-            return `<td>${num(slot.p95_abs_pct)} / ${num(slot.median_pct, true)}</td>`;
+            const problem = problemAt(r.number, pooled.name);
+            return `<td class="${problem ? "problem" : ""}" ${problem ? 'title="Problem: see below"' : ""}>` +
+              `${num(slot.p95_abs_pct)} / ${num(slot.median_pct, true)}</td>`;
           })
           .join("");
         const range = s.median_range_pct[pooled.name];
         const disagrees = range != null && range > limit;
-        return `<tr class="${disagrees ? "disagrees" : ""}"><td>${pooled.name}</td>${cells}` +
+        const steadyOff = s.offset_problems.some((p) => p.slot === pooled.name);
+        return `<tr class="${disagrees || steadyOff ? "disagrees" : ""}">` +
+          `<td class="${steadyOff ? "problem" : ""}">${pooled.name}</td>${cells}` +
           `<td class="pooled">±${num(pooled.p95_abs_pct)}</td><td>${num(range)}</td></tr>`;
       });
       return `
@@ -137,11 +198,11 @@
             ${rows.join("")}
           </table>
         </div>
+        ${problemsHtml(s)}
         <p class="validation-note">
-          Each round: ±% / median %. ±% is the band 95% of that round's tags fall in (with about
-          30 tags it can swing a point on its own); the median shows whether the slot reads high
-          or low. A slot is consistent when its row stays similar. Highlighted: median moved more
-          than ${limit} points between rounds.
+          Each round: ±% (95% of its tags within) / median %. Orange row: median moved more than
+          ${limit} points between rounds. Red: the round that moved it, or a slot that reads off
+          the others in every round.
         </p>`;
     }
 
@@ -196,7 +257,7 @@
       const img = s.map_url
         ? `<img src="${s.map_url}?t=${s.rounds_counted}-${s.rounds.length}" alt="certainty map ${when(s.started_at)}">`
         : `<div class="no-snapshot">no rounds</div>`;
-      const view = shown ? "" : `<button class="validation-view" data-id="${s.id}">Show above</button>`;
+      const view = shown ? "" : `<button class="validation-view" data-id="${s.id}">Load validation</button>`;
       return `
         <div class="calibration-history-card ${shown ? "is-current" : ""}">
           ${img}
@@ -214,16 +275,34 @@
         </div>`;
     }
 
+    // Focus has to be locked at the calibration's lens position for a round to count; show it
+    // here so a mismatch is visible before a round is captured (Aaron, 2026-09-30).
+    function focusText(focus, calibrationLens) {
+      if (!focus) return "";
+      if (!focus.locked) {
+        return '<span class="validation-problem">Focus: not locked.</span> Lock it on Setup / Focus &amp; Square.';
+      }
+      const at = focus.lens_position.toFixed(2);
+      if (calibrationLens != null && Math.abs(focus.lens_position - calibrationLens) > 0.005) {
+        return `<span class="validation-problem">Focus: locked ${at}, not the calibration's ` +
+          `${calibrationLens.toFixed(2)}.</span>`;
+      }
+      return `Focus: locked ${at}.`;
+    }
+
     async function refresh(selectId) {
-      const [calResp, listResp] = await Promise.all([
+      const [calResp, listResp, focusResp] = await Promise.all([
         fetch("/calibration/current"),
         fetch("/validation/sessions"),
+        fetch("/focus/status"),
       ]);
       const cal = calResp.ok ? await calResp.json() : null;
+      const focus = focusResp.ok ? await focusResp.json() : null;
       currentStem = cal && cal.frame_stem ? cal.frame_stem : null;
-      el("validation-calibration").textContent = currentStem
+      el("validation-calibration").innerHTML = currentStem
         ? `Active calibration: ${currentStem}` +
-          (cal.lens_position == null ? "" : `, lens position ${cal.lens_position.toFixed(2)}`)
+          (cal.lens_position == null ? "" : `, lens position ${cal.lens_position.toFixed(2)}`) +
+          `. ${focusText(focus, cal.lens_position)}`
         : "No active calibration. Run one first (Setup / Calibration).";
       if (!listResp.ok) throw new Error(`validation list: ${listResp.statusText}`);
       const sessions = await listResp.json();
@@ -267,18 +346,30 @@
           }
           selectId = (await post(`/validation/sessions/${openSession.id}/end`)).id;
         } else {
+          // The first validation of a calibration reads its full-resolution photograph to find
+          // the tray slots (about 15 seconds); later ones start at once.
+          busyText("Preparing the validation. The first one for a calibration takes about 15 seconds...");
+          el("validation-capture").disabled = true;
           selectId = (await post("/validation/sessions")).id;
         }
       } catch (err) {
         alert(`Could not ${openSession ? "end" : "start"} the validation: ${err.message}`);
+      } finally {
+        busyText(null);
       }
       await refreshOrWarn(selectId);
     });
 
+    function busyText(text) {
+      const busy = el("validation-busy");
+      if (text) busy.textContent = text;
+      show(busy, !!text, "inline");
+    }
+
     el("validation-capture").addEventListener("click", async () => {
       capturing = true;
       renderControls();
-      show(el("validation-busy"), true, "inline");
+      busyText("Capturing and measuring, about 20 seconds...");
       let s = null;
       try {
         s = await post(`/validation/sessions/${openSession.id}/rounds`);
@@ -286,7 +377,7 @@
         alert(`Round not captured: ${err.message}`);
       }
       capturing = false;
-      show(el("validation-busy"), false);
+      busyText(null);
       await refreshOrWarn(s ? s.id : undefined);
     });
 

@@ -1,9 +1,11 @@
 import asyncio
+import io
 import json
 from pathlib import Path
 
 import numpy as np
 import pytest
+from PIL import Image
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
@@ -22,7 +24,7 @@ from npec_rig.camera import (
 from npec_rig.captures import captures_root
 from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, ASSUMED_CORNER_TAG_SIZE_MM
 from npec_rig.tripwire import CornerBaseline
-from tests.helpers import rotate_detection, square_detection, tray_layout_detections
+from tests.helpers import rotate_detection, sheet_detections, square_detection, tray_layout_detections
 
 pytestmark = pytest.mark.unit
 
@@ -83,7 +85,6 @@ def reset_frame_detection_cache() -> None:
     # artifact (see test_rank_plot_refused_with_too_few_tags_in_the_saved_frame) must not read a
     # stale cache entry left by another test.
     app_module._cached_frame_detections = None
-    app_module._cached_capture_detections.clear()
 
 
 def test_root_redirects_to_gallery() -> None:
@@ -1577,10 +1578,16 @@ def test_certainty_map_caps_the_number_of_captures(
 
 @pytest.fixture
 def tray_scene(monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None) -> dict:
-    scene = {"shift": (0.0, 0.0), "drop_sheets": 0}
+    # bad_sheet: index (0-11, North 1..6 then South 1..6) of a sheet printed at 96%, or None.
+    scene = {"shift": (0.0, 0.0), "drop_sheets": 0, "bad_sheet": None}
 
     def detect(frame):
         tags = tray_layout_detections(shift=scene["shift"])
+        k = scene["bad_sheet"]
+        if k is not None:
+            dx, dy = scene["shift"]
+            x0, y0 = 800.0 + (k % 6) * 1300.0 + dx, (1000.0, 3500.0)[k // 6] + dy
+            tags[k * 30 : (k + 1) * 30] = sheet_detections(300, x0, y0, side_px=120.0 * 0.96)
         return tags[30 * scene["drop_sheets"] :] + _CORNER_TAGS
 
     monkeypatch.setattr(app_module, "detect_tags", detect)
@@ -1594,6 +1601,74 @@ def _calibrate_and_start(client: TestClient, lock_focus: bool = True) -> dict:
     response = client.post("/validation/sessions")
     assert response.status_code == 200
     return response.json()
+
+
+def test_a_moving_bad_sheet_is_named_with_a_full_frame_image_per_round(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    # North 2 (index 1), South 5 (10), North 5 (4): the chamber fault test's moving case.
+    for shift, bad in (((200, -150), 1), ((-250, 100), 10), ((100, 230), 4)):
+        tray_scene["shift"], tray_scene["bad_sheet"] = shift, bad
+        body = client.post(f"/validation/sessions/{session['id']}/rounds").json()
+    assert body["inconsistent_slots"] == ["North 2", "North 5", "South 5"]
+    assert [(p["round"], p["slot"]) for p in body["problems"]] == [(1, "North 2"), (2, "South 5"), (3, "North 5")]
+
+    image = client.get(f"/validation/sessions/{session['id']}/rounds/2/problems")
+    assert image.status_code == 200
+    assert image.headers["content-type"] == "image/jpeg"
+    with Image.open(io.BytesIO(image.content)) as frame:
+        assert frame.width == 2000  # the full frame, not a crop
+    assert client.get(f"/validation/sessions/{session['id']}/rounds/9/problems").status_code == 404
+    assert client.get(f"/validation/sessions/{session['id']}/offsets").status_code == 404
+
+
+def test_validation_images_are_made_once_and_need_no_tag_search_after_a_restart(
+    tray_scene: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 2026-10-02: after a restart the validation page asked for 10 images, each decoding a 64MP
+    # capture again (about 7 s each, one after another).
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    for shift, bad in (((200, -150), 1), ((-250, 100), 10), ((100, 230), 4)):
+        tray_scene["shift"], tray_scene["bad_sheet"] = shift, bad
+        client.post(f"/validation/sessions/{session['id']}/rounds")
+    urls = [f"/validation/sessions/{session['id']}/rounds/2/problems", f"/validation/sessions/{session['id']}/map"]
+    first = [client.get(url) for url in urls]
+    assert [r.status_code for r in first] == [200, 200]
+    assert first[0].headers["cache-control"] == "no-cache"
+
+    def must_not_run(*_args, **_kwargs):
+        raise AssertionError("drawn again")
+
+    drawers = {name: getattr(app_module, name) for name in ("render_problem_frame", "render_certainty_map")}
+    for name in drawers:
+        monkeypatch.setattr(app_module, name, must_not_run)
+    assert [client.get(url).content for url in urls] == [r.content for r in first]  # from disk
+
+    # A restart: derived images gone. Tags come from the analysis store. (Only the two drawers are
+    # restored: monkeypatch.undo() would also drop the per-test DB and folders.)
+    for name, drawer in drawers.items():
+        monkeypatch.setattr(app_module, name, drawer)
+    monkeypatch.setattr(app_module, "detect_tags", must_not_run)
+    for path in app_module.images.derived_root().rglob("*.bin"):
+        path.unlink()
+    assert [client.get(url).status_code for url in urls] == [200, 200]
+
+
+def test_a_bad_sheet_that_never_moves_is_flagged_with_an_image(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    tray_scene["bad_sheet"] = 1  # North 2, every round
+    for shift in ((200, -150), (-250, 100), (100, 230)):
+        tray_scene["shift"] = shift
+        body = client.post(f"/validation/sessions/{session['id']}/rounds").json()
+    assert body["problems"] == []
+    assert [p["slot"] for p in body["offset_problems"]] == ["North 2"]
+    assert body["flagged_slots"] == ["North 2"]
+    assert not body["validated"]
+    image = client.get(f"/validation/sessions/{session['id']}/offsets")
+    assert image.status_code == 200
+    assert image.headers["content-type"] == "image/jpeg"
 
 
 def test_validation_page_loads() -> None:
@@ -1666,6 +1741,36 @@ def test_a_round_missing_a_sheet_cannot_be_overridden(tray_scene: dict) -> None:
     assert client.post(f"/validation/sessions/{session['id']}/rounds/0/count").status_code == 409
 
 
+def test_a_round_at_the_wrong_focus_says_so_even_when_no_sheets_are_found(tray_scene: dict) -> None:
+    # Aaron, 2026-09-30: an out-of-focus round finds no sheets, and the message blamed only the
+    # sheets. Focus is now named first.
+    client = TestClient(app)
+    session = _calibrate_and_start(client, lock_focus=False)
+    tray_scene["drop_sheets"] = 12
+    held = client.post(f"/validation/sessions/{session['id']}/rounds").json()["rounds"][0]
+    assert not held["counted"]
+    assert held["reason"].startswith("focus is not locked; found 0 calibration sheets")
+
+
+def test_a_calibrations_slot_layout_is_worked_out_once_and_kept(
+    tray_scene: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 2026-10-02: "Start validation" froze for about 15 s after a restart, decoding the 64MP
+    # calibration frame again. The layout is now saved, so a later start does not decode.
+    client = TestClient(app)
+    first = _calibrate_and_start(client)
+    monkeypatch.setattr(app_module, "_detect_tags_cached", lambda stem: pytest.fail("decoded again"))
+    second = client.post("/validation/sessions")
+    assert second.status_code == 200
+    assert second.json()["results"] == [
+        {**r, "n": 0, "p95_abs_pct": None, "median_pct": None} for r in first["results"]
+    ]
+    stem = first["calibration_stem"]
+    client.post("/calibration/run")  # a newer calibration, so the first can be deleted
+    assert client.delete(f"/calibration/{stem}").status_code == 200
+    assert app_module.validation_store.load_slot_layout(stem) is None
+
+
 def test_rounds_refused_once_the_calibration_is_replaced(tray_scene: dict) -> None:
     client = TestClient(app)
     session = _calibrate_and_start(client)
@@ -1698,6 +1803,9 @@ def test_a_session_reports_each_rounds_figures_and_how_far_medians_moved(tray_sc
     assert body["rounds"][0]["slots"]["North 1"]["n"] == 30
     assert body["median_range_pct"]["North 1"] == pytest.approx(0.0)
     assert body["median_disagreement_pct"] > 0
+    assert body["inconsistent_slots"] == []
+    assert body["problems"] == []
+    assert not body["validated"]  # 2 of 3 rounds: consistent so far, not yet validated
 
 
 def test_no_override_once_the_calibration_is_replaced(tray_scene: dict) -> None:

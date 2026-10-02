@@ -558,12 +558,31 @@ The heart of the project. Do not start before M1 slice 5.
 
 ### M2 — known issues, not yet fixed
 
-- [ ] **Locked focus is lost on every server restart (Aaron, 2026-09-30).** After a restart the
-      lens returns to its default position, the picture is out of focus, and tag detection finds
-      nothing: every validation round then fails with "found 0 calibration sheets, expected 12".
-      Fix: save the locked lens position (settings, like the other persisted controls) and
-      restore it, locked, when the camera starts. Until then, re-lock focus at the calibration's
-      lens position after every restart.
+- [x] **Lens position ignored after any full-res capture, fixed 2026-10-01.** `capture_full_res`
+      reconfigures to a still configuration and back; `configure()` dropped manual AfMode and
+      LensPosition, and from then on every LensPosition write was ignored until a server restart
+      (measured: set 6.18, read 6.44; a lens sweep of 7 captures all came out at 6.10; autofocus
+      never returned and held the camera lock). Fix: the still configuration carries
+      `AfMode: 0` and the last set LensPosition, both are re-applied after switching back, and
+      `set_lens_position` always sends manual AfMode. Verified on the rig: a capture after a
+      move records the new position.
+- [x] **One consistent lens drive, built 2026-10-01 (Aaron: drive the lens to the set distance in
+      a sane way, then manage the error).** The central low reading depends on lens position and
+      on how the lens got there (North 4 report, `~/scratch/north4-hotspot-report.md`). Locking
+      focus and the startup restore now both go through `CameraManager._drive_lens`: step to 0.3
+      below the target, pause 1 s, set the target, wait until the camera reports it (up to 60 s,
+      else "focus is not locked"). The lock records the position set, not the preview's report.
+      Verified on the rig: lock survives a restart (lens back at 6.18, locked); the first capture
+      after a restart records 6.18 (it would have been 1.0: the startup replay bypassed the
+      remembered position); a lock right after a capture waited 24 s for the camera and locked
+      at the set 6.26. The page shows "waiting for the camera to confirm" meanwhile.
+- [~] **After a full-res capture, the preview reports a new lens position about 45 s late
+      (measured 2026-10-01, 44.8 s; later moves 0.5 s).** Captures are not affected, and Lock
+      focus now waits for the camera instead of recording a stale value (above). Cause not found;
+      only the live preview and its sharpness reading lag.
+- [x] **Locked focus is lost on every server restart (Aaron, 2026-09-30).** Fixed 2026-10-01 by
+      the consistent lens drive above: the saved lens position is driven back at startup and the
+      lock restored once the camera confirms it.
 - [ ] **Validation round should check focus before sheets (Aaron, 2026-09-30).** A round with
       the wrong focus usually also finds 0 sheets, and the sheet-placement check runs first and
       stops there, so the message blames the sheets and never mentions focus. Fix: in
@@ -931,7 +950,26 @@ The heart of the project. Do not start before M1 slice 5.
         the sheet named each round. (3) Stationary fault: the 96% sheet on North 2 all 3
         rounds, expect no drift flag, only a steady -7.8% there: documents the limit that a
         bad sheet which never moves looks like a bad slot, which is why sheets must change
-        trays every round.
+        trays every round. (4) Wrong-height tray (Aaron, 2026-10-01): a normal sheet on one tray
+        raised by a callipered spacer, the raised tray on North 2, South 5, North 5 in rounds
+        1-3. Expect it to read large by about 2h/D (D, the camera height, not yet measured on
+        the rebuilt rig; at about 1.5 m: 10 mm reads about 1.3% large, below the 2.5-point
+        limit; 30 mm about 4%, flagged). Run at about 10 mm and about 30 mm to see where
+        detection starts.
+  - **Run 2026-10-01, all as expected** (89% sheet, callipered, reads about 21% small):
+        (a) 20261001T081146 Validated, largest median move 1.02. (b) 081427 named R1 North 2
+        -20.9, R2 South 5 -20.9, R3 North 5 -21.3, no good round named. (c) 082037 North 2
+        steady -20.4 to -20.5, no round flag; this led to the steady-offset check below.
+        (d) 082459, tray 175 mm against the normal 100 mm, camera 1482 mm above the table:
+        predicted (1382/1307)^2 = 11.8% large, measured 11.2 to 12.0 at North 2, North 4,
+        South 6. So about 0.145% of area per mm of tray height: 2.5 points is about 17 mm.
+        Not explained: (c) round 1 "found 11 calibration sheets".
+  - **Steady-offset check, built 2026-10-01 (Aaron: a consistently high or low slot is
+        worth flagging).** A slot whose median of per-round medians sits more than 3.0 points
+        from the all-slot median is "Not consistent"; the all-slot median more than 2.5 from 0
+        is one "every slot reads off since the calibration" problem. In 8 real sessions normal
+        slots sat at most 2.15 from the all-slot median (always North 4, steady -1.6 to -2.2,
+        a real offset at that slot worth a look) and the table at most 0.66 from 0.
   - **Automated tests:** cases (2) and (3) with synthetic detections (`tests/helpers.py`
         tray builders, a scaled sheet as in `test_a_small_sheet_shows_in_its_own_slot_only`).
   - **Not usable as the fault:** the 50 mm sheets use IDs 450-499 (the corner range), which
@@ -1312,6 +1350,23 @@ The heart of the project. Do not start before M1 slice 5.
 - [ ] Full SQLite schema (`experiment`, `calibration`, `tray`, `capture`, `detection`,
       `measurement`, `alert`) — created here so every row has provenance from the start
 - [ ] Experiment create/start/stop in the UI
+- [ ] **Gallery thumbnails are slow and cannot be clicked (Aaron, 2026-10-01).** The gallery
+      loads every capture's full-resolution 64MP JPEG and lets the browser shrink it
+      (`gallery.html`, `<img src="${item.url}">`), so the page is very slow. Serve real
+      thumbnails instead (made once per capture, for example at save time, and cached on disk).
+      Clicking a thumbnail does nothing: the images have no click handler and are not
+      `.diagnostic-image`, so the shared lightbox ignores them. Click should open the capture
+      large (a screen-sized version, not the full 64MP file).
+      **Use the image system built 2026-10-02 (`images.py`, PLAN.md *Images*):** add `thumb` and
+      `screen` recipes on `images.reduced_frame` (0.11 s and 0.24 s per 64MP capture, measured),
+      served through `images.get`. Do not build a separate thumbnail path.
+- [ ] **Move the older image routes onto `images.py` (2026-10-02).** These still decode and draw
+      in the route on every request: `/calibration/{current,<stem>}/rank-plot`, `best-worst-photo`,
+      `radial-plot`, `certainty-dome-plot`, `certainty-map`, and the honesty plot. They take the
+      calibration frame's tags from `_detect_tags_cached` (one frame in memory, decoded again after
+      a restart or when switching calibrations); store them through `images.tag_detections`
+      instead, and make each plot a recipe. Not the live level overlay (`level.jpg`): it draws a
+      live preview frame, so there is nothing to keep.
 - [ ] **Design the header/nav menu properly once experiment/report pages exist.** The Jinja
       base-layout work (M2 UI-organization pass) centralized the header/nav into one
       `templates/base.html` block, but its content is still just the same two links (Setup,

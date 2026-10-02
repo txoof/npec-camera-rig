@@ -21,16 +21,32 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
+
 from npec_rig.calibration_store import _write_json_atomically, calibration_root
 from npec_rig.certainty_map import slot_results_from_errors
 
 VALIDATIONS_DIRNAME = "validations"
 ROUNDS_REQUIRED = 3
 # A slot whose median error moves by more than this across counted rounds is flagged as
-# inconsistent: its reading depends on which sheet sat there, not only on where the slot is.
-# From the first real tray validation (2026-09-30, 4 rounds): slot medians moved by 0.3 to 1.4
-# points between rounds.
-MEDIAN_DISAGREEMENT_PCT = 1.5
+# inconsistent: something changed between rounds (a mis-printed sheet, a tray at the wrong
+# height, the camera or table moving), not only where the slot is. The three real validations
+# of 2026-09-30 with no known fault moved slot medians by at most 0.71, 1.48 and 1.96 points; a
+# 96%-scale sheet reads about 7.8 points small, so 2.5 separates the two (Aaron, 2026-09-30).
+MEDIAN_DISAGREEMENT_PCT = 2.5
+# A round in which at least this fraction of measured slots read off the same way, by more than
+# MEDIAN_DISAGREEMENT_PCT, is reported as the whole round shifting (camera or table moved), not as
+# one bad sheet per slot.
+WHOLE_ROUND_FRACTION = 0.5
+# A slot whose steady reading (the median of its per-round medians) sits more than this from the
+# median of all slots' steady readings is flagged, though it never moved: a bad sheet or tray that
+# stayed on one slot, or the slot itself. In 8 real sessions (2026-09-30 and 10-01) normal slots
+# sat at most 2.15 points from the all-slot median (always North 4, steady at -1.6 to -2.2); an
+# 89% sheet left on North 2 for every round sat 20.5 away (Aaron, 2026-10-01).
+SLOT_OFFSET_PCT = 3.0
+# The all-slot median more than this from 0: every slot reads off since the calibration, so the
+# camera or table moved. In the same 8 sessions it was at most 0.66 points.
+TABLE_OFFSET_PCT = 2.5
 SESSION_VERSION = 1
 _SESSION_ID = re.compile(r"^\d{8}T\d{12}$")
 
@@ -112,6 +128,43 @@ def delete_sessions_for_calibration(calibration_stem: str) -> int:
     return removed
 
 
+SLOT_LAYOUTS_DIRNAME = "slot-layouts"
+
+
+def _slot_layout_path(calibration_stem: str) -> Path:
+    if not _SESSION_ID.match(calibration_stem):
+        raise SessionNotFoundError(f"not a calibration stem: {calibration_stem!r}")
+    return validations_root() / SLOT_LAYOUTS_DIRNAME / f"{calibration_stem}.json"
+
+
+def save_slot_layout(calibration_stem: str, slots: list[dict], calibration_centres: list) -> None:
+    """A calibration's tray slots and tag centres, worked out once from its 64MP frame (about 15 s
+    to decode and detect) and kept on disk, so starting a validation after a restart does not
+    have to do it again."""
+    path = _slot_layout_path(calibration_stem)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_json_atomically(
+        path, {"slots": slots, "calibration_centres": [list(c) for c in calibration_centres]}
+    )
+
+
+def load_slot_layout(calibration_stem: str) -> dict | None:
+    """{"slots", "calibration_centres"} saved by `save_slot_layout`, or None if not saved yet or
+    unreadable (it is then simply worked out again)."""
+    path = _slot_layout_path(calibration_stem)
+    if not path.exists():
+        return None
+    try:
+        layout = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return None
+    return layout if {"slots", "calibration_centres"} <= layout.keys() else None
+
+
+def delete_slot_layout(calibration_stem: str) -> None:
+    _slot_layout_path(calibration_stem).unlink(missing_ok=True)
+
+
 def is_ended(session: dict) -> bool:
     """Ended sessions take no more rounds. A session saved before End validation existed has no
     `ended_at` key at all and counts as ended: otherwise every old session would read as open,
@@ -155,6 +208,128 @@ def median_ranges(session: dict) -> dict[str, float | None]:
             if result["median_pct"] is not None:
                 medians[name].append(result["median_pct"])
     return {name: (max(v) - min(v) if len(v) >= 2 else None) for name, v in medians.items()}
+
+
+def inconsistent_slots(session: dict) -> list[str]:
+    """Slots, in layout order, whose median moved more than `MEDIAN_DISAGREEMENT_PCT` across
+    counted rounds."""
+    ranges = median_ranges(session)
+    return [
+        slot["name"]
+        for slot in session["slots"]
+        if ranges[slot["name"]] is not None and ranges[slot["name"]] > MEDIAN_DISAGREEMENT_PCT
+    ]
+
+
+def _steady_readings(session: dict) -> dict[str, float]:
+    """Each slot's median over counted rounds of its per-round medians: one odd round (a sheet
+    that moved through) does not move it. Only slots measured in at least 3 counted rounds."""
+    medians: dict[str, list[float]] = {}
+    for round_ in counted_rounds(session):
+        for name, result in (round_slot_results(round_) or {}).items():
+            if result["median_pct"] is not None:
+                medians.setdefault(name, []).append(result["median_pct"])
+    return {name: float(np.median(v)) for name, v in medians.items() if len(v) >= 3}
+
+
+def offset_problems(session: dict) -> list[dict]:
+    """Steady offsets, which `round_problems` cannot see because nothing changed between rounds.
+
+    {"slot": None, ...} when the all-slot median is more than `TABLE_OFFSET_PCT` from 0 (every
+    slot reads off since the calibration); then one {"slot": name, ...} per slot, in layout order,
+    whose steady reading is more than `SLOT_OFFSET_PCT` from the all-slot median. Measured against
+    the other slots, not 0, so a whole-table offset does not also flag every slot."""
+    steady = _steady_readings(session)
+    if not steady:
+        return []
+    table = float(np.median(list(steady.values())))
+    problems = []
+    if abs(table) > TABLE_OFFSET_PCT:
+        problems.append({"slot": None, "offset_pct": table})
+    problems += [
+        {"slot": slot["name"], "offset_pct": steady[slot["name"]] - table}
+        for slot in session["slots"]
+        if slot["name"] in steady and abs(steady[slot["name"]] - table) > SLOT_OFFSET_PCT
+    ]
+    return problems
+
+
+def flagged_slots(session: dict) -> list[str]:
+    """Slots, in layout order, that moved between rounds or read steadily off the others."""
+    flagged = set(inconsistent_slots(session)) | {
+        p["slot"] for p in offset_problems(session) if p["slot"] is not None
+    }
+    return [slot["name"] for slot in session["slots"] if slot["name"] in flagged]
+
+
+def is_validated(session: dict) -> bool:
+    """Complete and consistent: no slot moved between rounds, none reads steadily off the others,
+    and the table as a whole does not read off since the calibration. Judged from the rounds every
+    time, not from `completed_at`: a later round can take the status away again. A status, not a
+    block."""
+    return (
+        session["completed_at"] is not None
+        and not inconsistent_slots(session)
+        and not offset_problems(session)
+    )
+
+
+def round_problems(session: dict) -> list[dict]:
+    """Which round made a slot inconsistent, and whether it was one sheet or the whole round.
+
+    Each slot's reference is the median of its per-round medians over all counted rounds; a round
+    whose median sits more than `MEDIAN_DISAGREEMENT_PCT` from it is a problem there. The median of
+    all rounds, not of the other rounds: with 3 rounds and one bad, the other two's midpoint would
+    sit halfway to the bad one and flag the good rounds too. Needs 3 counted rounds: with 2, both
+    sit equally far from any reference, so the odd one out cannot be told.
+
+    A round in which at least `WHOLE_ROUND_FRACTION` of measured slots are off the same way is
+    reported once as a whole-round shift (the camera or table moved), not as one sheet per slot.
+
+    What this cannot see: a bad sheet (or tray) that stays on one slot every round reads the same
+    each time. `offset_problems` catches that one, against the other slots, but cannot tell the
+    sheet from the slot; moving sheets between trays every round is what tells them apart.
+
+    Returns dicts in round order: {"round": number as the page counts rounds (1-based, all
+    rounds), "slot": name or None for a whole-round shift, "offset_pct": signed points}.
+    """
+    counted = [(i + 1, r) for i, r in enumerate(session["rounds"]) if r["counted"]]
+    if len(counted) < 3:
+        return []
+    medians = {
+        number: {
+            name: result["median_pct"]
+            for name, result in (round_slot_results(round_) or {}).items()
+            if result["median_pct"] is not None
+        }
+        for number, round_ in counted
+    }
+    reference = {}
+    for slot in session["slots"]:
+        values = [m[slot["name"]] for m in medians.values() if slot["name"] in m]
+        if len(values) >= 3:
+            reference[slot["name"]] = float(np.median(values))
+
+    problems = []
+    for number, _round in counted:
+        offsets = {
+            name: medians[number][name] - ref
+            for name, ref in reference.items()
+            if name in medians[number]
+        }
+        off = {name: d for name, d in offsets.items() if abs(d) > MEDIAN_DISAGREEMENT_PCT}
+        signs = {d > 0 for d in off.values()}
+        if offsets and len(off) >= WHOLE_ROUND_FRACTION * len(offsets) and len(signs) == 1:
+            problems.append(
+                {"round": number, "slot": None, "offset_pct": float(np.median(list(offsets.values())))}
+            )
+            continue
+        problems += [
+            {"round": number, "slot": slot["name"], "offset_pct": off[slot["name"]]}
+            for slot in session["slots"]
+            if slot["name"] in off
+        ]
+    return problems
 
 
 def refresh_results(session: dict) -> None:

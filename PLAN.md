@@ -179,9 +179,10 @@ everything else.
 | `experiment` | experiment run | name, started_at, ended_at, tray_height_mm, notes |
 | `calibration` | calibration event | created_at, lens_position, scale_field, uncertainty_field, corner_baseline, coverage_report, method (`sheets`/`tray_tags`) |
 | `tray` | physical tray | tag_id, label, tray_type, height_mm |
-| `capture` | photograph | experiment_id, calibration_id, timestamp, file_path, mask_dir, exposure, gain, awb, lens_position, sharpness, **trust_verdict**, drift_delta |
+| `validation` | validation session (built in M2, stored as JSON today) | calibration_id, started_at, ended_at, per-slot 95% band and median, consistent or not |
+| `capture` | photograph | experiment_id, calibration_id, **validation_id**, timestamp, file_path, mask_dir, exposure, gain, awb, lens_position, **focus_locked**, sharpness, **trust_verdict**, drift_delta |
 | `detection` | tray seen in a capture | capture_id, tray_id, tag_id, centroid_x_mm, centroid_y_mm, rotation_deg, **region**, scale_residual, identity_confidence |
-| `measurement` | tray's canopy in a capture | capture_id, tray_id, **area_mm2**, mask_area_px, confidence, edge_fraction, segmenter_name, segmenter_version, flags |
+| `measurement` | tray's canopy in a capture | capture_id, tray_id, **slot**, **area_mm2**, **area_uncertainty_95_pct** (the slot's validation band, see below), mask_area_px, confidence, edge_fraction, segmenter_name, segmenter_version, flags |
 | `alert` | alert raised | timestamp, kind, severity, message, capture_id, acknowledged_at |
 
 Dwell time isn't stored — it's a `GROUP BY` over `detection` joined to `capture` timestamps, so it
@@ -207,10 +208,64 @@ experiment and date range.
 
 | File | Contents |
 |---|---|
-| `measurements.csv` | **The main one.** One row per tray per capture: timestamp, tray label, region, `area_mm2`, confidence, trust verdict, segmenter version, flags |
+| `measurements.csv` | **The main one.** One row per tray per capture: timestamp, tray label, region (slot), `area_mm2`, `area_uncertainty_95_pct`, calibration, lens position, validation, confidence, trust verdict, segmenter version, flags |
 | `dwell.csv` | Tray × region × minutes, for the whole experiment |
 | `captures.csv` | Capture log with camera settings, sharpness and trust verdict |
 | `calibration.json` | The full calibration artifact, for archiving or transferring between rigs |
+
+### Images: originals, analysis, derived (decided 2026-10-02)
+
+One system for every large image in the app, so no page invents its own (`src/npec_rig/images.py`).
+Measured on the Pi: a 64MP capture takes 0.6 s to decode in full and 0.24 s straight to 2000 px
+wide, but finding its tags takes about 6 s; before this, the validation page re-did that for every
+image after each restart (15 images, 44 s), and now loads them in 1.4 s.
+
+| Layer | Holds | Stored as | Status |
+|---|---|---|---|
+| 1. Originals | Every full-resolution photograph, never changed | Files under `captures/`; a `capture` table row each (time, kind, experiment, calibration, lens position, focus lock, path) | Files: built. `capture` table: **M3** |
+| 2. Analysis per photograph | Results that need the full image, worked out once: tag detections (raw, never anything that depends on a calibration), keyed by capture and detector version | `capture_analysis` table | Built (tags) |
+| 3. Derived images | Anything drawn from originals: made once by a named, versioned **recipe**, keyed by a hash of the recipe, its version and exactly the inputs it is drawn from, so a changed input is a new image | Files under `derived/`, `derived_image` table (key, recipe, version, source, size, last used); size-capped, least recently used removed; disposable | Built |
+
+Rules for new code that shows a large image (older routes still decode and draw directly, listed
+in TODO.md to migrate):
+
+- **Go through `images.get(recipe, source, inputs)`**, never decode and draw in a route. Register a
+  recipe (`images.Recipe(name, version, render)`), pass every input the image depends on and nothing
+  else, and bump the version when the drawing changes.
+- **Never decode a 64MP frame at full size for display.** `images.reduced_frame` decodes straight
+  to the needed width (JPEG draft mode). Full decodes are for analysis only and run one at a time.
+- **Tags come from `images.tag_detections`**, not from a fresh `detect_tags` call on a capture.
+- Responses whose URL stays the same while the content changes are served `no-cache`; the store
+  answers from disk.
+
+Built for the validation page (maps, problem frames, offsets images). Planned on the same system:
+
+- **Gallery** (TODO): recipes `thumb` (320 px) and `screen` (about 2000 px, the lightbox), from
+  `reduced_frame`; the original stays a download.
+- **M3, experiment browser**: the `capture` table, queried by experiment, date, tray or slot, a page
+  at a time; `thumb` in the grid, `screen` in the lightbox, original for download. The gallery
+  becomes this browser with no filter. Each new capture queues its `thumb` and `screen` so browsing
+  is instant on first view.
+
+### Per-slot area uncertainty (from validation)
+
+Decided 2026-10-02; the evidence is in `reference/arducam-central-error-2026-10.md` (section 10 has
+the full explanation and an example row). Every area measurement carries the 95% band its slot
+had in the validation of the calibration and focus lock it was taken under.
+
+- **Per slot, not per tray.** The band belongs to the table position. A tray gets the band of the
+  slot it sat on when photographed. A refocus or recalibration means a new validation and new bands.
+- **A 95% band, not a standard deviation.** 95% of the reference targets on that slot read within
+  that percentage of their true area. Column names and exports say "95%".
+- **Flat objects at tray-top height only.** It is the camera and calibration part of the
+  uncertainty. Plant height (about 0.145% of area per mm above the tray top) and segmentation add
+  to it, so it is a lower limit for a plant's area, and exports say what it covers.
+- **Recorded, not corrected.** Each band mixes a steady per-slot offset (measured, so correcting it
+  would be allowed) and scatter (not correctable). For now the band is recorded and no offset is
+  subtracted. If that changes, corrected values and their narrower bands are stored as such.
+- **The focus position is the experimenter's input.** The central slots carry wider bands with this
+  camera, by an amount that depends on the focus position chosen for the setup. Validation measures
+  it; nothing in the rig chooses or tunes the position.
 
 ### A sizing warning worth knowing now
 
@@ -407,7 +462,10 @@ bake-off from scratch. Only if measured corner jitter proves inadequate do we ev
 - Survives reboot; logs and recovers from failures; never silently stops.
 - **Full schema created here** (see *Data model and export*), plus experiment create/start/stop in
   the UI — every capture must belong to an experiment and a calibration from the outset, because
-  retro-fitting provenance onto existing rows is miserable.
+  retro-fitting provenance onto existing rows is miserable. Each capture also records the locked
+  lens position and the validation it falls under; a capture taken with focus unlocked, or at a
+  lens position other than the calibration's, is marked "not covered by a validation" (a flag, not
+  a block). See *Per-slot area uncertainty*.
 - **Export page with CSV download**, covering whatever tables exist at each stage.
 - Disk monitoring + retention policy, with **headroom shown prominently** — at 60/hour a month is
   ~170 GB, and the card must not fill mid-experiment.
@@ -451,6 +509,9 @@ dwell table reflects the move · smear a tag with soil → degrades gracefully, 
   tags, and the mask fraction touching a frame edge or tray boundary.
 - **Expect segmentation edge ambiguity to dominate** — several percent, against ~0.1% from the
   tags. Quantify it, and let that ratio govern where effort goes next.
+- **Each measurement carries its slot's validation band** (`area_uncertainty_95_pct`), the measured
+  camera and calibration part for a flat object at tray-top height. Height and segmentation are
+  stated on top of it, never folded into it silently. See *Per-slot area uncertainty*.
 
 - Writes `measurement` rows and **stores each mask to disk**, so areas can be recomputed against a
   corrected calibration later without re-running inference.
