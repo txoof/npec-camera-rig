@@ -2,7 +2,13 @@
 {% set nav_active = "setup" %}
 {% block title_suffix %} — Setup{% endblock %}
 
+{% block head_extra %}<script src="/static/validation-status.js"></script>{% endblock %}
+
 {% block content %}
+  <p class="validation-status" data-validation-status>
+    <span class="validation-status-text">Reading validation status&hellip;</span>
+    <a href="/setup/validation">Go to Validation</a>
+  </p>
   <p style="margin: 0 0 0.75rem; color: #aaa; font-size: 0.85rem;">
     One-time (or occasional) rig setup. Everyday capture and browsing live under
     "Capture &amp; Gallery" instead.

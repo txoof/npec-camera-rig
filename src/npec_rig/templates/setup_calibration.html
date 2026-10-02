@@ -2,6 +2,8 @@
 {% set nav_active = "setup" %}
 {% block title_suffix %} — Calibration{% endblock %}
 
+{% block head_extra %}<script src="/static/validation-status.js"></script>{% endblock %}
+
 {% block breadcrumb %}
   <p class="breadcrumb">
     <a href="/setup">Setup</a> / Calibration
@@ -13,6 +15,10 @@
   <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
     Set up or re-verify this rig, in order. Each step below is a real physical action or a real
     measurement — none of it can be skipped by guessing.
+  </p>
+  <p class="validation-status" data-validation-status>
+    <span class="validation-status-text">Reading validation status&hellip;</span>
+    <a href="/setup/validation">Go to Validation</a>
   </p>
   <div class="calibration-section">
     <div class="wizard-nav">
@@ -660,6 +666,7 @@
     async function refreshCurrentCalibration() {
       const r = await fetch("/calibration/current");
       renderCurrentCalibration(await r.json());
+      window.refreshValidationStatus();
     }
 
     // The pre-rendered heatmap/table-view images are already on disk (saved at capture time),
