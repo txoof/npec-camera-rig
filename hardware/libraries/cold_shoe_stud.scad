@@ -7,9 +7,10 @@
    both posts are plain cylinders standing in for the 3/8"-16 and 1/4"-20
    threaded sections, not modeled threads.
 
-   Dimensions are approximate, chosen to read as the right size in the
-   rig_assembly.scad mockup. They are not measured from the purchased stud
-   and not sized against any modelled shoe.
+   The flange is fixed (not a Customizer setting) to fit a standard ISO 518
+   accessory shoe; see the [Hidden] group. The post dimensions are
+   approximate, chosen to read as the right size in the rig_assembly.scad
+   mockup, not measured from the purchased stud.
 
    Coordinate convention: origin centred on the flange in X/Y. Z0 = the
    underside of the flange (the face that rests on the shoe's channel
@@ -21,11 +22,11 @@
 
    REV 1.0: initial.
    REV 1.1: comments only; dropped references to the removed cold_shoe.scad.
+   REV 1.2: flange width and thickness fixed to ISO 518 shoe limits, moved
+            to [Hidden].
    --------------------------------------------------------------------------- */
 
 /* [Plate] */
-plate_w   = 18;   // square flange width, mm  [8:0.5:14]
-plate_thk = 2;    // flange thickness, mm  [1:0.25:4]
 corner_r  = 1;    // corner rounding on the flange, mm (0 = square corners)  [0:0.25:3]
 
 /* [Stud] */
@@ -37,6 +38,13 @@ qtr_len = 8;     // 1/4" post height above the 3/8" post, mm  [3:0.5:16]
 /* [Render] */
 $fn = $preview ? 32 : 96;
 eps = 0.01;
+
+/* [Hidden] */
+// Flange fixed to fit an ISO 518 shoe: inside width 18.6 mm (+0.2/-0), gap
+// between the lips 12.5 mm (+0.4/-0), slot height 2 mm (+0.15/-0). ISO 518
+// does not give foot dimensions; these fit those shoe limits.
+plate_w   = 18;   // square flange width, mm: under 18.6, over 12.5
+plate_thk = 2;    // flange thickness, mm: the slot's minimum height
 
 // ---------------------------------------------------------------------------
 
