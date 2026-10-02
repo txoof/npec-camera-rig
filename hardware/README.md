@@ -94,6 +94,8 @@ uv run scad_to_3mf.py apriltag_corner_mount.scad -D 'tag_ids=[460,461]' -D plate
 ```
 
 - `-o DIR` sets the output folder (default `./exports/`). The file is named after the `.scad`.
+- `-n NAME` names the file `NAME.3mf` instead, so exports of different ID sets don't
+  overwrite each other.
 - `-D VAR=VALUE` overrides any Customizer setting, exactly like OpenSCAD's own `-D`. Repeat it
   for several. Quote list values as shown.
 
@@ -107,6 +109,33 @@ exports/apriltag_corner_mount.3mf: 4 object(s), 8 parts
 
 For the corner mount, expect one object per ID and two parts per object. A warning means some
 solid came out with more than one color, or nothing was split into parts; see the rules below.
+
+### Tray tags in batches
+
+`apriltag_tray_tag.scad` engraves each tag's tray type in the top-right corner, chosen from its
+ID:
+
+| IDs | Tray type |
+|---|---|
+| 1-100 | `4x5` |
+| 101-200 | `4x4` |
+| 201-300 | `1x1` |
+| 301-399 | `OTHER` |
+
+`tray_tags.py` exports a list of ID groups, one 3MF per group, through `scad_to_3mf.py`:
+
+```sh
+# writes apriltag_tray_tag_4x5_1-12_clip.3mf, ..._4x5_13-24_clip.3mf, ..._4x4_101-113_clip.3mf
+uv run tray_tags.py 1-12 13-24 101-113
+
+# bolt style, another folder, extra Customizer overrides
+uv run tray_tags.py 301-306 --style bolt -o ~/prints -D on_side=false
+```
+
+A group is a range (`1-12`) or a single ID (`7`). It must stay within one tray type: `95-105`
+is refused, so split it at the boundary. Every group is checked before anything is exported.
+The ID table is in both `tray_type()` in the `.scad` (which engraves the label) and
+`TRAY_TYPES` in `tray_tags.py` (which names the file). Change them together.
 
 ### Loading in Orca
 

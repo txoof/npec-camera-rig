@@ -64,10 +64,18 @@
    is untouched; bolt style, engraved into the tab's top face between the
    plate edge and the hole.
 
+   Tray type label: the tray type for the id (`tray_type()`), engraved in
+   the quiet zone's top-right corner (+X, +Y), mirroring the ID label and
+   in the same font, size and depth. Id ranges (Aaron, REV 1.11): 1-100
+   "4x5", 101-200 "4x4", 201-300 "1x1", 301-399 "OTHER". Ids above 399
+   are not allocated and fail the id assert.
+
    Open assumption, not yet measured: `tag_border` (quiet-zone margin) and
    `tag_embed` are starting values, same status as in
    `apriltag_corner_mount.scad`.
 
+   REV 1.11: tray type label in the quiet zone's top-right corner, from the
+     id (Aaron). Ids limited to 1-399. Geometry otherwise unchanged.
    REV 1.10: fix -- on the side in clip style, a tag's flip followed its
      list index but its raise followed its column. With an odd column
      count, every other row started on an odd index, so its column-0 tag
@@ -154,6 +162,7 @@ id_size   = 2.5;                       // label text cap height, mm  [1.5:0.5:6]
 id_inset  = 2;                         // label's distance in from the plate's -X and +Y edges, mm  [0.5:0.25:5]
 id_depth  = 0.6;                       // how far the label is inset into the top face, mm  [0.2:0.1:2]
 id_font   = "Liberation Sans:style=Bold";
+type_label = true;                     // engrave each tag's tray type (4x5, 4x4, 1x1, OTHER) in the quiet zone's top-right corner, same size, inset and depth as the id
 
 /* [Colors] */
 body_color        = "White"; // also the tag's background and quiet zone
@@ -170,7 +179,7 @@ side_plate_gap = 5; // space between the two plates of a nested pair, side layou
 plate_cols = 0;   // tags per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.10"; // revision stamp, engraved on the tab: clip style inner face, bolt style top face ("" = none)
+revision  = "RV1.11"; // revision stamp, engraved on the tab: clip style inner face, bolt style top face ("" = none)
 rev_size  = 3;       // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;     // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -190,9 +199,15 @@ tab_ext  = clip ? 0 : bolt_tab_len; // how far the part reaches past the plate's
 label_z = -(tag_plate_thk + tab_h / 2); // text centre height, middle of the tab's exposed inner face
 rev_x = pw / 4;                         // revision stamp, X centre on the tab's inner face
 
+// tray type for a tag id; the id ranges are the allocation (header)
+function tray_type(id) = id <= 100 ? "4x5"
+                       : id <= 200 ? "4x4"
+                       : id <= 300 ? "1x1"
+                       : "OTHER";
+
 assert(len(tag_ids) > 0, "tag_ids must list at least one id");
-assert(min(tag_ids) >= 1 && max(tag_ids) <= 499,
-       "tag_ids must be within 1-499, the range apriltags-36h11-1-499.scad covers");
+assert(min(tag_ids) >= 1 && max(tag_ids) <= 399,
+       "tag_ids must be within 1-399, the ids allocated to tray types (tray_type())");
 assert(tab_thk < pw / 2, "tab too thick for the plate");
 assert(!clip || rev_depth < tab_thk, "revision engraving deeper than the tab");
 assert(clip || rev_depth < tag_plate_thk, "revision engraving deeper than the bolt tab");
@@ -331,6 +346,15 @@ module id_engrave(id) {
             text(str(id), size = id_size, font = id_font, halign = "left", valign = "top");
 }
 
+module type_engrave(id) {
+    // engraved into the top face in the quiet zone's top-right corner viewed
+    // from above, mirroring id_engrave(): its top-right corner `id_inset` in
+    // from the plate's +X and +Y edges
+    translate([pw / 2 - id_inset, pw / 2 - id_inset, -id_depth])
+        linear_extrude(id_depth + eps)
+            text(tray_type(id), size = id_size, font = id_font, halign = "right", valign = "top");
+}
+
 module tray_tag_body(id = tag_ids[0]) {
     difference() {
         if (clip)
@@ -352,6 +376,8 @@ module tray_tag_body(id = tag_ids[0]) {
         }
         if (id_label)
             id_engrave(id);
+        if (type_label)
+            type_engrave(id);
     }
 }
 
