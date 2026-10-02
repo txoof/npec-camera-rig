@@ -152,6 +152,19 @@ responses, both cheap:
 tray / calibration sheets never overlap); calibration output is a **versioned, exportable artifact**
 so a rig's state can be archived, compared or restored.
 
+**Tag ID allocation (36h11), decided 2026-10-02.** The id sets the tray type, which is engraved on
+each tray tag (`hardware/apriltag_tray_tag.scad`, `tray_type()`):
+
+| IDs | Use |
+|---|---|
+| 1-100 | Tray tags, 4x5 trays |
+| 101-200 | Tray tags, 4x4 trays |
+| 201-300 | Tray tags, 1x1 trays |
+| 301-399 | Tray tags, other trays |
+| 450-499 | Corner/reference tags (`hardware/apriltag_corner_mount.scad`) |
+
+Calibration sheet ids are not yet allocated; 0 and 400-449 are free.
+
 ---
 
 ## Data model and export
@@ -567,5 +580,6 @@ worth knowing rather than discovering in week three.
 - **Capture rate vs storage** — 10/hour is ~29 GB/month, 60/hour is ~170 GB. Decide alongside
   retention policy and whether an external SSD is needed.
 - **Calibration sheet layout** — the old repo has an A4 sheet of 25 tags (ids 0–24) at 29.31 mm
-  measured (that print only); tray tags were ids 40–43. Confirm the ID allocation for 12 trays plus 4 corner tags.
+  measured (that print only). Tray and corner ids are now allocated (see Tag ID allocation);
+  sheet ids are not, and ids 1-24 now belong to 4x5 trays. Only 0 and 400-449 are free.
 - **Digest delivery** — email, or render in the web UI only.

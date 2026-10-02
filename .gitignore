@@ -32,4 +32,4 @@ config.local.*
 .claude/worktrees/
 
 # OpenSCAD Customizer presets (saved next to each .scad)
-hardware/*.json
+hardware/**/*.json
