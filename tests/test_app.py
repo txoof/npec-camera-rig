@@ -85,7 +85,6 @@ def reset_frame_detection_cache() -> None:
     # artifact (see test_rank_plot_refused_with_too_few_tags_in_the_saved_frame) must not read a
     # stale cache entry left by another test.
     app_module._cached_frame_detections = None
-    app_module._cached_capture_detections.clear()
 
 
 def test_root_redirects_to_gallery() -> None:
@@ -1646,11 +1645,10 @@ def test_validation_images_are_made_once_and_need_no_tag_search_after_a_restart(
         monkeypatch.setattr(app_module, name, must_not_run)
     assert [client.get(url).content for url in urls] == [r.content for r in first]  # from disk
 
-    # A restart: memory empty, derived images gone. Tags come from the analysis store. (Only the
-    # two drawers are restored: monkeypatch.undo() would also drop the per-test DB and folders.)
+    # A restart: derived images gone. Tags come from the analysis store. (Only the two drawers are
+    # restored: monkeypatch.undo() would also drop the per-test DB and folders.)
     for name, drawer in drawers.items():
         monkeypatch.setattr(app_module, name, drawer)
-    app_module._cached_capture_detections.clear()
     monkeypatch.setattr(app_module, "detect_tags", must_not_run)
     for path in app_module.images.derived_root().rglob("*.bin"):
         path.unlink()

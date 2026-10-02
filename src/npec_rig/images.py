@@ -102,6 +102,19 @@ def _now() -> str:
 # --- Layer 2: analysis per photograph ------------------------------------------------------------
 
 
+def stored_tag_detections(source: str) -> list[TagDetection] | None:
+    """The tags stored for `source` by the current detector, or None if not worked out yet. Needs
+    no photograph: a derived image can be made again even if its capture was deleted."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT version, value FROM capture_analysis WHERE source = ? AND kind = 'tags'",
+            (source,),
+        ).fetchone()
+    if row is not None and row[0] == TAG_DETECTOR_VERSION:
+        return [_detection_from_json(d) for d in json.loads(row[1])]
+    return None
+
+
 def tag_detections(
     source: str,
     image_path: Path,
@@ -111,19 +124,28 @@ def tag_detections(
     version and then read from `capture_analysis`. `source` names the original (a capture
     reference such as "2026-10-01/091930_507614"). Raw detections only: anything that depends on
     a calibration is computed from them by the caller. `detect` is the detector to run when they
-    are not stored yet."""
-    with _connect() as conn:
-        row = conn.execute(
-            "SELECT version, value FROM capture_analysis WHERE source = ? AND kind = 'tags'",
-            (source,),
-        ).fetchone()
-    if row is not None and row[0] == TAG_DETECTOR_VERSION:
-        return [_detection_from_json(d) for d in json.loads(row[1])]
-    with _full_decode:
-        with Image.open(image_path) as image:
-            frame = np.array(image.convert("RGB"))
-        detections = detect(frame)
-        del frame
+    are not stored yet. Two requests for the same photograph search it once."""
+    stored = stored_tag_detections(source)
+    if stored is not None:
+        return stored
+    with _key_lock(f"tags:{source}"):
+        stored = stored_tag_detections(source)  # the other request may have just stored them
+        if stored is not None:
+            return stored
+        with _full_decode:
+            with Image.open(image_path) as image:
+                image.load()
+                # One full-size copy, not three: convert() and np.array() each copy ~190MB.
+                frame = np.asarray(image if image.mode == "RGB" else image.convert("RGB"))
+                detections = detect(frame)
+                del frame
+        _store_tags(source, detections)
+    with _key_locks_guard:
+        _key_locks.pop(f"tags:{source}", None)
+    return detections
+
+
+def _store_tags(source: str, detections: list[TagDetection]) -> None:
     value = json.dumps([_detection_to_json(d) for d in detections])
     with _connect() as conn:
         conn.execute(
@@ -132,7 +154,6 @@ def tag_detections(
             " version = excluded.version, value = excluded.value, created_at = excluded.created_at",
             (source, TAG_DETECTOR_VERSION, value, _now()),
         )
-    return detections
 
 
 def _detection_to_json(d: TagDetection) -> dict:
@@ -196,31 +217,54 @@ def get(recipe_name: str, source: str, inputs: dict) -> tuple[bytes, str]:
     a capture), so it can be forgotten with it. Two requests for the same image make it once."""
     recipe = _recipes[recipe_name]
     key = key_for(recipe_name, inputs)
+    _sweep_orphans_once()
     cached = _read(key)
     if cached is not None:
         return cached, recipe.media_type
-    with _key_lock(key):
-        cached = _read(key)
-        if cached is not None:
-            return cached, recipe.media_type
-        content = recipe.render(inputs)
-        path = derived_root() / recipe.name / f"{key}.bin"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_bytes(content)
-        tmp.replace(path)
-        with _connect() as conn:
-            conn.execute(
-                "INSERT OR REPLACE INTO derived_image"
-                " (key, recipe, version, source, path, media_type, bytes, created_at, last_used)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (key, recipe.name, recipe.version, source, str(path), recipe.media_type,
-                 len(content), _now(), _now()),
-            )
-    with _key_locks_guard:
-        _key_locks.pop(key, None)  # made and stored: later requests find it on disk
+    try:
+        with _key_lock(key):
+            cached = _read(key)
+            if cached is not None:
+                return cached, recipe.media_type
+            content = recipe.render(inputs)
+            path = derived_root() / recipe.name / f"{key}.bin"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_bytes(content)
+            tmp.replace(path)
+            with _connect() as conn:
+                conn.execute(
+                    "INSERT OR REPLACE INTO derived_image"
+                    " (key, recipe, version, source, path, media_type, bytes, created_at, last_used)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (key, recipe.name, recipe.version, source, str(path), recipe.media_type,
+                     len(content), _now(), _now()),
+                )
+    finally:
+        with _key_locks_guard:
+            _key_locks.pop(key, None)  # stored (or failed): later requests start afresh
     prune()
     return content, recipe.media_type
+
+
+_swept_roots: set[Path] = set()
+
+
+def _sweep_orphans_once() -> None:
+    """Once per process and folder: remove files the index does not know (a crash between writing
+    a file and recording it, a half-written .tmp), which the size cap would never count."""
+    root = derived_root()
+    with _prepare_guard:
+        if root in _swept_roots:
+            return
+        _swept_roots.add(root)
+    if not root.exists():
+        return
+    with _connect() as conn:
+        known = {row[0] for row in conn.execute("SELECT path FROM derived_image")}
+    for path in root.rglob("*"):
+        if path.is_file() and str(path) not in known:
+            path.unlink(missing_ok=True)
 
 
 def _key_lock(key: str) -> threading.Lock:

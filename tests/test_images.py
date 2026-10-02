@@ -99,6 +99,39 @@ def test_tag_detections_are_found_once_per_photograph(tmp_path, monkeypatch: pyt
     assert len(runs) == 2
 
 
+def test_two_requests_for_the_same_photographs_tags_search_it_once(tmp_path) -> None:
+    path = tmp_path / "capture.jpg"
+    Image.new("RGB", (64, 48), "white").save(path)
+    runs: list = []
+
+    def slow_detect(frame):
+        runs.append(1)
+        time.sleep(0.2)
+        return []
+
+    threads = [
+        threading.Thread(target=images.tag_detections, args=("2026-10-01/000001_000000", path, slow_detect))
+        for _ in range(3)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(runs) == 1
+
+
+def test_files_the_index_does_not_know_are_swept_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A crash between writing a file and recording it would otherwise leave it outside the cap.
+    _counting_recipe("t_sweep")
+    stray = images.derived_root() / "t_sweep" / "left-by-a-crash.bin"
+    stray.parent.mkdir(parents=True, exist_ok=True)
+    stray.write_bytes(b"x")
+    monkeypatch.setattr(images, "_swept_roots", set())
+    images.get("t_sweep", "s", {"x": 1})
+    assert not stray.exists()
+    assert len(list(stray.parent.iterdir())) == 1  # the image just made
+
+
 def test_a_reduced_frame_comes_straight_out_at_the_asked_width(tmp_path) -> None:
     path = tmp_path / "big.jpg"
     Image.fromarray(np.full((3000, 4000, 3), 128, dtype=np.uint8)).save(path)

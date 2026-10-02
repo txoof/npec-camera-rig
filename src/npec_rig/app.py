@@ -1366,9 +1366,7 @@ def stem_certainty_dome_plot(stem: str) -> Response:
 # capture being analysed for the first time (under images._full_decode, a separate lock).
 _CAPTURE_REF = re.compile(r"^\d{4}-\d{2}-\d{2}/\d{6}_\d{6}$")
 _CAPTURE_PREVIEW_WIDTH = 2000
-_MAX_CACHED_CAPTURES = 16
 _MAX_CAPTURES_PER_MAP = 12
-_cached_capture_detections: dict[str, tuple[list, np.ndarray, float]] = {}
 
 
 def _capture_path(ref: str) -> Path:
@@ -1382,7 +1380,13 @@ def _capture_path(ref: str) -> Path:
 
 def _capture_tags(ref: str) -> list:
     """Capture `ref`'s tag detections, worked out once per photograph and then read from the
-    analysis store (images.py), so even after a restart nothing decodes it at full size again."""
+    analysis store (images.py), so even after a restart nothing decodes it at full size again.
+    Stored tags are used even if the photograph itself has since been deleted."""
+    if not _CAPTURE_REF.match(ref):
+        raise HTTPException(422, f"not a capture reference: {ref!r} (expected YYYY-MM-DD/HHMMSS_ffffff)")
+    stored = images.stored_tag_detections(ref)
+    if stored is not None:
+        return stored
     return images.tag_detections(ref, _capture_path(ref), detect=lambda frame: detect_tags(frame))
 
 
@@ -1390,21 +1394,6 @@ def _capture_preview(ref: str) -> tuple[np.ndarray, float]:
     """`(preview, preview_scale)`: capture `ref` decoded straight to about _CAPTURE_PREVIEW_WIDTH,
     with its scale relative to full-resolution pixel coordinates."""
     return images.reduced_frame(_capture_path(ref), _CAPTURE_PREVIEW_WIDTH)
-
-
-def _capture_detections(ref: str) -> tuple[list, np.ndarray, float]:
-    """`(detections, preview, preview_scale)` for capture `ref` ("YYYY-MM-DD/HHMMSS_ffffff")."""
-    with _frame_detection_lock:
-        if ref in _cached_capture_detections:
-            _cached_capture_detections[ref] = _cached_capture_detections.pop(ref)  # most recent last
-            return _cached_capture_detections[ref]
-    detections = _capture_tags(ref)
-    preview, scale = _capture_preview(ref)
-    with _frame_detection_lock:
-        if len(_cached_capture_detections) >= _MAX_CACHED_CAPTURES:
-            _cached_capture_detections.pop(next(iter(_cached_capture_detections)))  # least recent
-        _cached_capture_detections[ref] = (detections, preview, scale)
-        return _cached_capture_detections[ref]
 
 
 def _certainty_map_response(artifact: CalibrationArtifact, captures: list[str]) -> Response:
@@ -1420,17 +1409,17 @@ def _certainty_map_response(artifact: CalibrationArtifact, captures: list[str]) 
     if artifact.frame_stem is None:
         raise HTTPException(409, "this calibration has no saved frame to take tray slots from")
     _frame, calibration_detections = _detect_tags_cached(artifact.frame_stem)
-    per_capture = [_capture_detections(ref) for ref in captures]
+    per_capture = [_capture_tags(ref) for ref in captures]  # only the last is drawn on
     try:
         layout, results = certainty_by_slot(
             calibration_detections,
-            [detections for detections, _preview, _scale in per_capture],
+            per_capture,
             artifact.scale_field,
             artifact.calibration_tag_size_mm,
         )
     except SlotLayoutError as exc:
         raise HTTPException(409, str(exc)) from exc
-    _detections, preview, scale = per_capture[-1]
+    preview, scale = _capture_preview(captures[-1])
     caption = (
         f"Calibration {artifact.frame_stem}, {len(captures)} validation capture(s) pooled. "
         "95% of tags within the stated band, at tray-top height."
@@ -1648,7 +1637,7 @@ def capture_validation_round(session_id: str) -> dict:
         )
         del array
         ref = f"{record['date']}/{Path(record['filename']).stem}"
-        detections, _preview, _scale = _capture_detections(ref)
+        detections = _capture_tags(ref)
 
         round_ = {
             "capture": ref,
@@ -1774,6 +1763,7 @@ def validation_session_map(session_id: str) -> Response:
     )
     inputs = {
         "capture": counted[-1]["capture"],
+        "preview_width": _CAPTURE_PREVIEW_WIDTH,
         "slots": session["slots"],
         "results": session["results"],
         "caption": caption,
@@ -1782,7 +1772,7 @@ def validation_session_map(session_id: str) -> Response:
 
 
 def _render_validation_map(inputs: dict) -> bytes:
-    preview, scale = _capture_preview(inputs["capture"])
+    preview, scale = images.reduced_frame(_capture_path(inputs["capture"]), inputs["preview_width"])
     results = [
         SlotResult(r["name"], r["n"], r["p95_abs_pct"], r["median_pct"]) for r in inputs["results"]
     ]
@@ -1861,6 +1851,7 @@ def _problem_frame_response(session: dict, round_: dict, problems: list[dict], c
     named = [p for p in problems if p["slot"] is not None]
     inputs = {
         "capture": round_["capture"],
+        "preview_width": _CAPTURE_PREVIEW_WIDTH,
         "boxes": {p["slot"]: list(placed[p["slot"]].box) for p in named},
         "labels": {p["slot"]: f"{p['slot']}: reads {_size_text(p['offset_pct'])}" for p in named},
         "caption": caption,
@@ -1870,7 +1861,7 @@ def _problem_frame_response(session: dict, round_: dict, problems: list[dict], c
 
 
 def _render_problem_frame(inputs: dict) -> bytes:
-    preview, scale = _capture_preview(inputs["capture"])
+    preview, scale = images.reduced_frame(_capture_path(inputs["capture"]), inputs["preview_width"])
     boxes = {name: tuple(box) for name, box in inputs["boxes"].items()}
     image = render_problem_frame(
         preview, boxes, inputs["labels"], inputs["caption"], whole_frame=inputs["whole_frame"],
