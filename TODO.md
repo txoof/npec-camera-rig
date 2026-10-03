@@ -599,6 +599,12 @@ The heart of the project. Do not start before M1 slice 5.
       when a restart left focus locked at 6.50 while the calibration was taken at 6.18, and
       nothing on screen made the difference visible. Consider showing the active calibration's
       lens position next to it so a mismatch is obvious.
+      **Wording and status line built in PR #29 (8a2b2fa). Calibration position added
+      2026-10-03 on m2-focus-lock-status, awaiting Aaron's browser check:** the status now reads
+      "Focus status: Locked 6.37. Calibration: 6.37", or in red "Focus status: Locked 6.50, not
+      the calibration's 6.18" (0.005 tolerance, as on the Validation page). Shown wherever the
+      focus controls are (Focus & Square, Calibration Step 2). Refreshes on page load and on
+      lock/unlock, not after a new calibration until the page reloads.
 
 - [ ] **`/code-review --level high` findings, 2026-09-28, m2-wizard-order-and-focus-gate PR -- 5
       fixed same session (table-dims persisted before the readiness gate check, a stale

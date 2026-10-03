@@ -434,12 +434,30 @@
     const lockBtn = document.getElementById("lock-btn");
     const lockStatus = document.getElementById("lock-status");
 
+    // The active calibration's lens position sits beside the status, so a lock at a different
+    // position is visible here and not only on the Validation page (Aaron, 2026-09-30: a restart
+    // left focus locked at 6.50 while the calibration was taken at 6.18). Same 0.005 tolerance
+    // and wording as the Validation page.
     async function refreshFocusStatus() {
-      const r = await fetch("/focus/status");
+      const [r, cal] = await Promise.all([
+        fetch("/focus/status"),
+        fetch("/calibration/current").then((c) => (c.ok ? c.json() : null)).catch(() => null),
+      ]);
       const data = await r.json();
-      lockStatus.textContent = data.locked
+      const calLens = cal && cal.exists && cal.lens_position != null ? cal.lens_position : null;
+      const mismatch = data.locked && calLens != null &&
+        Math.abs(data.lens_position - calLens) > 0.005;
+      let text = data.locked
         ? `Focus status: Locked ${data.lens_position.toFixed(2)}`
         : "Focus status: UNLOCKED";
+      if (mismatch) {
+        text += `, not the calibration's ${calLens.toFixed(2)}`;
+      } else if (calLens != null) {
+        text += `. Calibration: ${calLens.toFixed(2)}`;
+      }
+      lockStatus.textContent = text;
+      lockStatus.style.color = mismatch ? "#ff6b6b" : "";
+      lockStatus.style.fontWeight = mismatch ? "bold" : "";
       lockBtn.textContent = data.locked ? "Unlock focus" : "Lock focus";
       // Validation only holds at the calibration's focus (validation-status.js, where loaded).
       if (window.refreshValidationStatus) window.refreshValidationStatus();
@@ -455,6 +473,8 @@
       // Locking drives the lens the one consistent way and waits for the camera to report it
       // there, which can take up to a minute after a full-resolution capture.
       lockBtn.disabled = true;
+      lockStatus.style.color = "";
+      lockStatus.style.fontWeight = "";
       lockStatus.textContent = "Focus status: locking, waiting for the camera (up to 60 s)";
       try {
         const resp = await fetch("/focus/lock", { method: "POST" });
