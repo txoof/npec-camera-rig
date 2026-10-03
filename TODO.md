@@ -1033,7 +1033,7 @@ The heart of the project. Do not start before M1 slice 5.
       focus gating) and the zoom-quality entry next to them existed only in
       `m2-ui-organization-and-text`'s uncommitted, since-stashed working tree -- never actually
       committed to `main`. This entry and the two below replace them as the real record.
-- [ ] **Give "Lock focus" a real function -- design decided 2026-09-28, not yet built.** Traced
+- [x] **Give "Lock focus" a real function -- design decided 2026-09-28, built.** Traced
       the code: the locked state only fed the on-screen label and a manual capture's sidecar
       JSON; `/calibration/run` read the raw current lens position directly, never the lock.
       Decided: (1) any manual lens move or autofocus clears the lock (`_locked_lens_position`),
@@ -1050,6 +1050,14 @@ The heart of the project. Do not start before M1 slice 5.
       technically "locked" while true focus has drifted. Needs a decision on where the gate
       actually sits -- right after Focus (step 2), or right before Run calibration (step 4 -> 5)
       -- not decided yet. *(Aaron, 2026-09-27/28.)*
+      **Checked 2026-10-03: all three parts are built and tested.** (1) `set_lens_position` and
+      `autofocus` clear the lock (camera.py; tests in test_camera.py). (2) `/calibration/run`
+      re-checks lock and 4/4 corner tags in a live frame via `_calibration_readiness`, refuses
+      with `gate_failed`, overridable (test_app.py). (3) The wizard polls `/calibration/readiness`
+      on Step 4 "Run calibration", after Step 3 (squareness and coplanarity), and asks to
+      confirm before running anyway. So the gate sits right before Run calibration, the place
+      that catches focus shifted by the Step 3 nudges. There is no gate after Step 2; add one only
+      if Aaron asks.
 - [ ] **Higher quality zoom for focusing (`/focus/roi.mjpg`), if possible.** Aaron: after
       spending a few minutes squinting at the zoomed focus crop to fine-tune it, a sharper zoom
       view would genuinely help. Acknowledged as possibly hard -- low priority, after the two
