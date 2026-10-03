@@ -604,7 +604,7 @@ The heart of the project. Do not start before M1 slice 5.
       "Focus status: Locked 6.37. Calibration: 6.37", or in red "Focus status: Locked 6.50, not
       the calibration's 6.18" (0.005 tolerance, as on the Validation page). Shown wherever the
       focus controls are (Focus & Square, Calibration Step 2). Refreshes on page load and on
-      lock/unlock, not after a new calibration until the page reloads.
+      lock/unlock, and on the Calibration page after a calibration run completes.
 
 - [ ] **`/code-review --level high` findings, 2026-09-28, m2-wizard-order-and-focus-gate PR -- 5
       fixed same session (table-dims persisted before the readiness gate check, a stale
