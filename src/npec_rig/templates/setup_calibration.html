@@ -863,6 +863,8 @@
           hideRankPlots();
         }
         await refreshCurrentCalibration();
+        // Step 2's focus status names the calibration's lens position; show the new one.
+        focusControls.refreshFocusStatus();
       } finally {
         calibrateBtn.disabled = false;
         calibrateBtn.textContent = "Run calibration";
