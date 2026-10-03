@@ -593,14 +593,14 @@ The heart of the project. Do not start before M1 slice 5.
       0 calibration sheets ..."), unit test
       `test_a_round_at_the_wrong_focus_says_so_even_when_no_sheets_are_found`. Awaiting Aaron's
       check on a real round with focus unlocked.
-- [ ] **Focus lock wording and a visible status (Aaron, 2026-09-30).** Buttons read "Lock
+- [x] **Focus lock wording and a visible status (Aaron, 2026-09-30).** Buttons read "Lock
       focus" and "Unlock focus". Next to them, a status line always shows the current state:
       "Focus status: UNLOCKED" or "Focus status: Locked 6.38" (the locked lens position). Found
       when a restart left focus locked at 6.50 while the calibration was taken at 6.18, and
       nothing on screen made the difference visible. Consider showing the active calibration's
       lens position next to it so a mismatch is obvious.
       **Wording and status line built in PR #29 (8a2b2fa). Calibration position added
-      2026-10-03 on m2-focus-lock-status, awaiting Aaron's browser check:** the status now reads
+      2026-10-03 on m2-focus-lock-status, merged in #35, checked by Aaron:** the status now reads
       "Focus status: Locked 6.37. Calibration: 6.37", or in red "Focus status: Locked 6.50, not
       the calibration's 6.18" (0.005 tolerance, as on the Validation page). Shown wherever the
       focus controls are (Focus & Square, Calibration Step 2). Refreshes on page load and on
@@ -993,12 +993,12 @@ The heart of the project. Do not start before M1 slice 5.
         (`GET /validation/status`: Validated, Not consistent, Not validated, or not valid at
         this focus), wizard Step 6 is now Validate with a link to skip. Still open: status in
         the site menu.
-- [ ] **No contractions on any web page (Aaron, 2026-09-30).** Write "cannot", "is not", "do not"
+- [x] **No contractions on any web page (Aaron, 2026-09-30).** Write "cannot", "is not", "do not"
       in all page text, JS strings, and server messages the pages show. The validation page and
       its messages are done; still to do (count on 2026-09-30): setup_calibration.html 35,
       _focus_controls.html 4, setup_calibration_history_diagnostics.html 1,
       setup_health_check.html 1, plus server messages in app.py outside validation.
-      **Built 2026-10-02 on m2-no-contractions, awaiting Aaron's browser check.** Recount before
+      **Built 2026-10-02 on m2-no-contractions, merged in #34, checked by Aaron.** Recount before
       the change: setup_calibration.html 35, _focus_controls.html 3,
       setup_calibration_history_diagnostics.html 1, setup_health_check.html 1, app.py 1 page
       message ("Focus isn't confirmed"). All fixed, code comments in the templates included,
