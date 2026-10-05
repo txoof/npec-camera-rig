@@ -171,7 +171,8 @@ Detailed investigations go in `reference/` and are linked from it. A number that
 a placeholder, not a measurement, says so. Written for a scientist without a metrology
 background, formal enough to cite in a paper about the rig (Aaron, 2026-10-05).
 
-A measurement that is not written up is not finished.
+A test's method is written into `docs/metrology.md` before the test is run, and its result is added
+when it is done. A measurement that is not written up is not finished.
 
 ## Definition of done
 

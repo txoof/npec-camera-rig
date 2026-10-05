@@ -141,14 +141,55 @@ several percent. Measured at milestone M5.
 | Lens moved and driven back to the same position | median change -0.03 points, spread 0.28, 355 of 355 tags; over 60 min largest slot change +0.35 points (about 1/6 of that slot's band) | Autofocus moved the lens, re-locked at 6.15, photographs at +0, +15, +30, +60 min, each tag compared with itself | 2026-10-05, `reference/lens-return-2026-10.md` |
 | Drift at a fixed lens position after moves | central ring changed 1.3 points in 35 min | Lens sweep then return to 6.18 | 2026-10-01 |
 | Change over time with nothing moved (control) | over 45 to 60 min: median within ±0.17 points, central ring within ±0.26, single slots up to 0.52 (about 1/4 of that slot's band); goes up and down, not a steady drift | Same method, lens untouched, two series (one partly disturbed by people in the chamber) | 2026-10-05, `reference/lens-return-2026-10.md` |
-| App restart | not yet measured (the lens is driven back and confirmed; whether area returns is untested) | | |
-| Power cut | not yet measured | | |
+| App restart | in progress (run 2, section 8.1) | | 2026-10-05 |
+| Power cut | planned (run 3, section 8.1) | | |
 | Two calibrations in a row | scale fields agreed within 0.02% to 0.16% | 332 and 340 tags, lens moved away and back, 2026-09-25 | Before the current lens-drive method |
 
 On 2026-10-05, the change after moving the lens and driving it back was inside the ordinary change
 over time measured by the control, so the return itself added nothing detectable. The 2026-10-01
 drift (1.3 points) was about 5 times larger than anything seen on 2026-10-05. The reason is not
 known.
+
+### 8.1 The repeat-photograph stability test
+
+This is the test behind the lens-return, control, restart and power-cut results. It asks whether
+the rig reads the same area for the same object after a disturbance, compared with how much the
+reading changes when nothing is disturbed.
+
+**Procedure**
+
+1. Calibration and validation are done, focus is locked, and the calibration sheets lie on the
+   trays. Nothing on the table is touched for the rest of the test; the chamber stays closed.
+2. **Reference photograph:** one validation-round photograph taken through the app, right before
+   the disturbance (or at the start, for a control).
+3. **Disturbance:** the event being tested (or none, for a control). The time is recorded in UTC.
+4. **Follow-up photographs:** validation-round photographs at +0, +15, +30 and +60 minutes after
+   the disturbance, taken by a script calling the app's own round endpoint. The app holds them
+   back as "not moved", so they never count towards a validation; their measurements are stored.
+   Focus status (locked, lens position) is recorded with each photograph.
+5. **Comparison:** each calibration tag is matched to itself in the reference photograph (same
+   tag ID, within 20 px; IDs repeat across sheets, so position is needed). For each photograph:
+   the median and standard deviation of the change in area error over all matched tags, the
+   median for the ring 1000 to 1500 px from the image centre (where the lens-dependent central
+   error is largest), and the median per tray slot. Tags that do not match (moved or hidden) are
+   left out and counted.
+6. **Judgement:** the disturbance added nothing detectable if its changes fall within the
+   control's range. Every slot change is also compared with that slot's own validation band.
+
+Script and analysis: `reference/lens-return-2026-10-analyse.py` (reads stored tag detections,
+changes nothing).
+
+**Runs**
+
+| Run | Disturbance | Date (UTC) | Status | Result |
+|---|---|---|---|---|
+| 1 | Autofocus moved the lens 4 times (distance not recorded), then re-locked at 6.15 | 2026-10-05, 07:34 | Done | Inside the control range (section 8 table) |
+| Control A | None; people working in the chamber, door opened, one sheet moved, 23 tags hidden | 2026-10-05, 09:02 to 10:02 | Done, disturbed | 332 tags compared |
+| Control B | None; undisturbed | 2026-10-05, 10:02 to 10:47 | Done | Median within ±0.10, slots up to 0.52 |
+| 2 | App restart: the server process is killed and started again. At start-up the app drives the lens to the locked position the same way as Lock focus (0.3 below, pause, target) and waits until the camera reports it there | 2026-10-05 | In progress | |
+| 3 | Power cut at the rig: the Pi is switched off long enough to cool (for example 30 minutes), then on | | Planned | |
+
+Detailed results: `reference/lens-return-2026-10.md`.
 
 ## 9. Techniques deliberately not used, and what would justify them
 
