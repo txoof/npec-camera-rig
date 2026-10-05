@@ -698,6 +698,19 @@ The heart of the project. Do not start before M1 slice 5.
       unit tests still pass (all orientation tests monkeypatch `detect_tags` directly, so they
       didn't depend on which stream fed it -- verified the switch didn't remove real coverage of
       that method itself).
+- [ ] **Lens stops responding after a full-res capture, until an app restart.** Seen twice on
+      2026-10-05 (about 15:50 and 16:05 chamber time). After a calibration, capture or tripwire
+      check, lens commands (manual and Autofocus) return `200 OK` but the lens does not move; the
+      second time the live view stopped too. No knock or Autofocus is needed to trigger it: one
+      calibration run was enough. An app restart fixed it both times. Likely the same fault as the
+      item below. Make it fixable: (1) reproduce with N = 1, 3, 9 full-res captures then one lens
+      change, checking `LensPosition` in the next sidecar; (2) log requested and reported lens
+      position on every lens command; (3) after a lens command, compare reported with requested
+      and show "lens not responding, restart the app" instead of a silent 200. Risk: the lens
+      position recorded with a capture may not be the actual one. Workaround: move the lens only
+      in a freshly restarted app, before any capture. Full report kept outside the repo at
+      `/home/pi/scratch/bug-lens-unresponsive-2026-10-05.md`; the log lines are in
+      `uvicorn.log` around lines 390560 to 392545 and the following restart.
 - [ ] **Calibration capture immediately followed by autofocus wedges the whole camera pipeline**
       — reproduced on real hardware 2026-09-21: run a calibration, then hit "Autofocus," and
       every camera-touching endpoint (preview, snapshot, focus score) hangs for an extended
@@ -1162,7 +1175,9 @@ The heart of the project. Do not start before M1 slice 5.
 - [x] **"Back"/"Next" buttons now match the rest of the UI's button style, 2026-09-27** -- the
       wizard-nav-buttons size override was removed; they inherit the same base button look
       (min 48px touch target) as everywhere else. *(Aaron, 2026-09-26.)*
-- [ ] **Tabled: what should the honesty plot's "actual error" input actually be? Aaron doesn't yet
+- [x] **Closed 2026-10-05: the honesty plot was run from validation rounds (moved tags, path 1
+      below), and the panel is being removed (M2 decisions, 2026-10-05).** Was: **Tabled: what
+      should the honesty plot's "actual error" input actually be? Aaron doesn't yet
       understand what the tool is supposed to do, and needs rig access to work it out.** He has
       a frame completely covered in AprilTags, each independently measured to ~30mm within
       0.5mm, and expected the app to compute error from that directly -- but there's a real
@@ -1345,6 +1360,38 @@ The heart of the project. Do not start before M1 slice 5.
       different, JS-fetch-based implementation of the same idea) -- that consolidation is
       `m2-ui-organization-and-text`'s job, paused mid-branch. *(Aaron, 2026-09-25.)*
 
+### M2 decisions, 2026-10-05 (from the acceptance tests)
+
+Calibration answers "is the rig set up properly?" for the operator. Validation answers "how far can
+I trust a number from this slot?" for the scientist. Basis: `docs/metrology-log.md` section 9.4.
+
+- [ ] **Remove the calibration's claimed uncertainty from what the operator sees:** the confidence
+      heatmap, the Honesty plot panel on Health check, and `GET /calibration/current/uncertainty`
+      as a user-facing number. The claim was too small in 7 of 12 slots.
+- [ ] **Stage 1, calibration report as 7 checks**, each OK or a plain fix, each with an override:
+      1. corner tags 4 of 4;
+      2. coverage (existing holdout test);
+      3. level: scale difference across the table;
+      4. roll in degrees;
+      5. focus locked, lens position recorded;
+      6. sheet check: plane-fit residual reworded as "sheets look consistent" or "one sheet reads
+         Y% off, re-measure it", not shown as an uncertainty;
+      7. squareness and coplanarity (wizard Step 3): the picture and the numbers from checks 3 and
+         4 shown together.
+      OK limits for checks 3 and 6 come from the past calibrations on disk, not guesses.
+- [ ] **Tilt shown as a bubble level** in Step 3. The bubble moves toward the side nearest the
+      camera, further for more tilt. A ring marks the OK zone, sized from past calibrations.
+      Labelled "relative to the camera, not gravity". Percent only, no height in mm (no height
+      measurement in the plan).
+- [ ] **Stage 2, validation band as the scientist's uncertainty.** Per slot: "flat objects read
+      within ±X% of true area, 95 times in 100", with a note that plant height adds about 0.145%
+      per mm above the tray top and the calliper floor is about 0.7% in area. This band feeds the
+      uncertainty column of every reading.
+- [ ] **Not decided:** whether the best-vs-worst-tag rank plot stays.
+- [ ] **Open from the tape check:** tag-to-tag (+1.6 to +1.7%) and tape-in-photo (about +0.7%)
+      differ by about 1% over 1700 mm. Not explained. Only the left-right direction of the South
+      row was checked.
+
 ### M2 acceptance — run in the chamber
 - [x] **Two-baseline test — run remotely 2026-09-25, clear pass.** Two calibrations of the same
       static scene (332 then 340 calibration tags, 4/4 corner tags both times), lens
@@ -1368,11 +1415,22 @@ The heart of the project. Do not start before M1 slice 5.
       itself might be silently carrying between runs that a fresh process wouldn't. Artifacts:
       `/var/lib/npec-rig/calibration/20260925T101036192864.json` and
       `.../20260925T101058109190.json`.
-- [ ] **Two-height test** — calibrate at two tray heights, diff the field shapes. Proves whether one
-      rare paper calibration covers every experiment.
-- [ ] Tape-measure two tags → app agrees within 2%
-- [ ] Roll the camera ~5° → reported as ~5°; knock it hard → verdict flips to `FAIL`
-- [ ] **Honesty plot** — claimed uncertainty vs actual error at 6 positions. Check whether residuals
+- [x] **Two-height test, 2026-10-05, pass.** Sheets on the table (`20261005T140433441775`, lens
+      6.07, residual 1.10%) and on trays (`20261005T141101923639`, lens 6.27, residual 0.52%), same
+      camera position. Scale relative to the image centre agrees at all 4 corners within 0.16
+      points. One paper calibration covers every tray height. `docs/metrology-log.md` section 9.1.
+- [x] **Tape-measure check, 2026-10-05, pass with an open point.** About 1700 mm along the South
+      row: tag to tag +1.6% and +1.7%; tape photographed in frame +2.16%, about +0.7% after
+      correcting for the tape lying 10 mm above the sheets. The two methods differ by about 1%,
+      not explained (see the new item below). Section 9.2.
+- [x] **Roll and knock, 2026-10-05, pass.** Knock gave FAIL (corner tag 452 pushed out of frame).
+      Hand re-framing read DRIFT, roll -3.01 deg; the fixed rails gave about -3.0 to -3.1 deg.
+      Roll and scale FAIL limits (10 deg, 8%) were not reached and stay provisional. Section 9.3.
+- [x] **Honesty plot, run 2026-10-05 from validation data, all 12 slots.** The calibration's
+      claimed uncertainty is lower than the measured error in 7 of 12 slots (median 1.25 times,
+      worst 1.9). No corner pattern: the intrinsics gate stays closed. Decision: remove the claim
+      (see "M2 decisions, 2026-10-05" below). Section 9.4. Original tooling note follows.
+      **Was:** claimed uncertainty vs actual error at 6 positions. Check whether residuals
       are random or structured (structured opens the intrinsics evidence gate). **Tooling built
       2026-09-21, physical measurement still outstanding:** `GET
       /calibration/current/uncertainty?x=&y=` returns the claimed value at a pixel;
