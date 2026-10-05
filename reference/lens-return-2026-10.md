@@ -77,6 +77,9 @@ enough. No new calibration or validation would have been needed.
 ## Limits of run 1
 
 - One disturbance type (autofocus, then re-lock), one lens position (6.15), one hour, one day.
+- How far autofocus moved the lens is not recorded (the log has the button presses, not the
+  positions). The disturbance may have been small. A restart drives the lens through the same
+  full route every time, so run 2 has a known disturbance.
 - No control run without a lens move, so the small +0.09 shift over the hour cannot be split
   between the lens move and ordinary change over time (for example, temperature).
 - An app restart and a power cut have not been tested. A restart uses the same lens drive, but a
