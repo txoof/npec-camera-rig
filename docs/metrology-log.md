@@ -60,7 +60,7 @@ measure every printed sheet.
 |---|---|---|---|---|
 | Image size | 9152 × 6944 px | Camera configuration | | Arducam 64MP |
 | Scale at tray height | 4.85 px/mm (at the image centre) | Calibration fit, 355 tags, 14:11 UTC calibration | 2026-10-05 | About 0.21 mm per pixel; earlier calibrations 4.5 to 4.8 |
-| Scale on the table surface | 4.52 px/mm (at the image centre), 6.79% below tray height | Calibration fit, 355 tags on the table, same camera position | 2026-10-05 | At 0.145% per mm this corresponds to about 47 mm of height (derived, not taped) |
+| Scale on the table surface | 4.52 px/mm (at the image centre), 6.79% below tray height in length, 15.1% in area | Calibration fit, 355 tags on the table, same camera position | 2026-10-05 | At 0.145% of area per mm this corresponds to about 100 mm of height (derived, not taped) |
 | Height above tray top | about +0.145% area per mm | A 75 mm taller tray in 3 slots read 11.2% to 12.0% large; predicted 11.8% | 2026-10-01 | Bands cover flat objects at tray-top height only. Plant height adds to the uncertainty (section 7) |
 | Perspective across the table | corrected by the scale field; positions mapped with a four-corner homography | Saved calibration frames | 2026-09-22 | Perspective within the table plane is modelled; lens distortion is not (section 10) |
 
@@ -227,7 +227,7 @@ UTC+2). The two-baseline test was run earlier (2026-09-25, section 8 table).
 | Test | Pass criterion | Result |
 |---|---|---|
 | 9.1 Two heights | Scale field shapes at two heights agree within the residual | **Pass**: largest difference 0.16%, residuals 0.52% and 1.10% |
-| 9.2 Tape measure | App agrees with a tape within 2% | **Pass, with an open point**: +1.6% to +1.7% (tag to tag), about +0.7% (tape in the photo, after height correction) |
+| 9.2 Tape measure | App agrees with a tape within 2% | **Pass**: +1.6% to +1.7% (tag to tag), about +1.4% (tape in the photo, after height correction); both read long |
 | 9.3 Roll and knock | Roll read correctly; a hard knock gives FAIL | **Pass**: -3.01 deg read against about -3.0 to -3.1 deg measured; knock gave FAIL |
 | 9.4 Claimed against actual error | The calibration's claimed uncertainty matches the measured error | **Fail for the claim, which is removed**; no corner pattern |
 
@@ -259,8 +259,8 @@ covers every tray height: a new tray height needs no new paper calibration for i
 residual on the table (1.10%) is twice that on the trays, possibly because sheets lie less flat on
 the table surface; it makes this test less strict, not more.
 
-**Covers.** Table surface to tray top (about 47 mm, derived from the centre scale change and
-0.145% per mm, not taped). Lens moved between runs (6.07 and 6.27), as in a real change of height.
+**Covers.** Table surface to tray top (about 100 mm, derived from the centre scale change, 15.1% in
+area, and 0.145% of area per mm, not taped). Lens moved between runs (6.07 and 6.27), as in a real change of height.
 
 ### 9.2 Tape-measure check
 
@@ -297,14 +297,20 @@ Near the frame centre, Aaron measured 4.8504 px/mm along the tape in ImageJ; the
 gives 4.844 px/mm there (0.1%). Toward both ends of the row the app reads the tape about 3% long
 (10 to 50 cm: 2.99%; 140 to 180 cm: 2.92%).
 
-**Height correction.** The tape lay on the tray lips, about 10 mm above the sheets. At 0.145% per mm
-that is +1.45%, so the full 1700 mm span corrected is about +0.7% (about ±0.3% for "about 10 mm").
-Method A needs no correction: the tags lie on the sheets.
+**Height correction.** The tape lay on the tray lips, about 10 mm above the sheets. The measured
+height effect, 0.145% per mm, is for area; for a length it is half, about 0.072% per mm. 10 mm is
+therefore about +0.72% in length, so the full 1700 mm span corrected is about +1.4% (about ±0.15%
+for "about 10 mm"; 20 to 170 cm about +1.4%, 30 to 160 cm about +1.2%). Method A needs no
+correction: the tags lie on the sheets.
 
-**Result.** Pass against 2% by both methods. **Open point:** the two methods differ by about 1%
-(+1.6% to +1.7% against about +0.7%) and the reason is not known. In the same photos the tags
-themselves read 29.4 to 30.1 mm. The pattern along the tape (centre about -1.35% after correction,
-ends about +1.5%) fits the known central error (section 7).
+**Result.** Pass against 2% by both methods, which agree within about 0.3 points: over about
+1700 mm the app reads distances 1.4% to 1.7% long. The pattern along the tape (centre about -0.6%
+after correction, ends about +2.2%) fits the known central error (section 7). **Open point:** in
+the same photos the tags at the ends of the row read 29.4 to 30.1 mm, slightly small or correct,
+while distances spanning the row read long. The reason is not known.
+
+*Correction, 2026-10-05:* a first version of this section applied the area figure (0.145% per mm)
+to lengths, which gave +0.7% and a false 1% disagreement between the two methods. Found in review.
 
 **Covers.** Left to right along the South row only, about 1700 mm, at tray-top height. Not front to
 back. Not the North row.
@@ -395,8 +401,8 @@ done (section 9).
 
 **Open points from the acceptance tests:**
 
-1. Tape check: tag-to-tag and tape-in-photo results differ by about 1% (section 9.2). Not
-   explained.
+1. Tape check: distances across the South row read 1.4% to 1.7% long by both methods, while the
+   tags at its ends read 29.4 to 30.1 mm (section 9.2). Not explained.
 2. Tripwire: a knock gave FAIL only through a lost corner tag; the roll (10 deg) and scale (8%)
    FAIL limits are still provisional (section 9.3).
 3. Lens control stops responding after a full-res capture (calibration, capture or tripwire
@@ -411,8 +417,8 @@ done (section 9).
    date 2026-09-29 and 2026-09-21.
 3. Camera height: "not yet measured" and 1482 mm in different TODO.md notes; no method recorded.
 4. Tray height: about 100 mm in some notes, a survey of 50 to 56 mm in another (the reference
-   point of the survey is not stated). The 2026-10-05 two-height test implies about 47 mm from
-   table surface to tray top (derived from scale, not taped), closer to the survey.
+   point of the survey is not stated). The 2026-10-05 two-height test implies about 100 mm from
+   table surface to tray top (derived from scale, not taped), matching the 100 mm notes.
 5. Central error size: "up to about 4%" (CLAUDE.md) against ring values down to -5.27 at 6.10 in
    the investigation.
 6. Image width: 9152 px (configuration) and 9248 px (hardware probe, sensor size).

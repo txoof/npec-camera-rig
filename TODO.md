@@ -1388,8 +1388,8 @@ I trust a number from this slot?" for the scientist. Basis: `docs/metrology-log.
       per mm above the tray top and the calliper floor is about 0.7% in area. This band feeds the
       uncertainty column of every reading.
 - [ ] **Not decided:** whether the best-vs-worst-tag rank plot stays.
-- [ ] **Open from the tape check:** tag-to-tag (+1.6 to +1.7%) and tape-in-photo (about +0.7%)
-      differ by about 1% over 1700 mm. Not explained. Only the left-right direction of the South
+- [ ] **Open from the tape check:** both methods agree that distances over about 1700 mm read
+      1.4% to 1.7% long, while the tags at the row ends read 29.4 to 30.1 mm. Not explained. Only the left-right direction of the South
       row was checked.
 
 ### M2 acceptance — run in the chamber
@@ -1419,10 +1419,10 @@ I trust a number from this slot?" for the scientist. Basis: `docs/metrology-log.
       6.07, residual 1.10%) and on trays (`20261005T141101923639`, lens 6.27, residual 0.52%), same
       camera position. Scale relative to the image centre agrees at all 4 corners within 0.16
       points. One paper calibration covers every tray height. `docs/metrology-log.md` section 9.1.
-- [x] **Tape-measure check, 2026-10-05, pass with an open point.** About 1700 mm along the South
-      row: tag to tag +1.6% and +1.7%; tape photographed in frame +2.16%, about +0.7% after
-      correcting for the tape lying 10 mm above the sheets. The two methods differ by about 1%,
-      not explained (see the new item below). Section 9.2.
+- [x] **Tape-measure check, 2026-10-05, pass.** About 1700 mm along the South
+      row: tag to tag +1.6% and +1.7%; tape photographed in frame +2.16%, about +1.4% after
+      correcting for the tape lying 10 mm above the sheets (0.072% per mm in length, half the area
+      figure). The two methods agree within about 0.3 points; open point in the new item below. Section 9.2.
 - [x] **Roll and knock, 2026-10-05, pass.** Knock gave FAIL (corner tag 452 pushed out of frame).
       Hand re-framing read DRIFT, roll -3.01 deg; the fixed rails gave about -3.0 to -3.1 deg.
       Roll and scale FAIL limits (10 deg, 8%) were not reached and stay provisional. Section 9.3.

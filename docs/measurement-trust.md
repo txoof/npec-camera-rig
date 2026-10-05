@@ -1,7 +1,8 @@
 # Why the rig's area measurements can be trusted
 
-**Status:** 2026-10-05. The M2 physical acceptance tests were run in the chamber on 2026-10-05
-and passed (see *Independent checks of the whole chain*). The evidence for every number here, with
+**Status:** 2026-10-05. The M2 physical acceptance tests were run in the chamber on 2026-10-05.
+The two-height, tape and roll tests passed. The check of the calibration's own uncertainty claim
+failed, so that claim is no longer used (see *An independent check, which sets the band*). The evidence for every number here, with
 its source, is in `docs/metrology-log.md`.
 
 ## The claim
@@ -64,7 +65,7 @@ deviation). Calibration refuses to run without a lock and all 4 corner tags, unl
 overrides it.
 
 **One calibration covers every tray height.** Calibrations with the sheets on the table surface
-and on the trays (about 47 mm higher) gave the same shape of scale field within 0.16 points, below
+and on the trays (about 100 mm higher) gave the same shape of scale field within 0.16 points, below
 either calibration's own residual. A change of tray height changes the overall scale (about
 0.145% of area per mm), but not the shape.
 
@@ -85,7 +86,8 @@ of real measurements of known targets, in that slot, at that focus.
 
 **Why the calibration's own estimate is not used.** The calibration can also estimate its
 uncertainty from how closely the tags fit the scale field. Checked against validation, that
-estimate was too small in 7 of 12 slots (typically 1.25 times, at worst 1.9 times), because it is
+estimate was too small in 7 of 12 slots (in those 7, typically 1.5 times, at worst 1.9 times;
+1.25 times at the median over all 12), because it is
 judged against the same tags it was fitted to. It has been dropped from what the operator sees;
 only the validation band is reported.
 
@@ -129,8 +131,8 @@ corner-tag tripwire, which compares every photo's 4 corner tags with the calibra
 
 - **Tape measure, about 1700 mm along the South row.** Tag to tag, the app read 1.6% and 1.7%
   long in two runs. With the tape itself photographed (lying 10 mm above the sheets, which by
-  itself makes it read about 1.45% long), the app read about 0.7% long. Both are inside the 2%
-  required. The two methods differ by about 1%, which is not explained.
+  itself makes a length read about 0.72% long), the app read about 1.4% long. Both are inside the
+  2% required, and they agree within about 0.3 points.
 - **Camera roll.** The camera was rolled by hand. The app read -3.01°; the table's fixed rails,
   measured in the same photos, gave about -3.0° to -3.1°.
 - **Knock.** A firm knock on the camera mount gave FAIL (a corner tag pushed out of view). After
@@ -181,8 +183,8 @@ have height, so a plant's area carries this on top of the band.
 
 **Lens distortion.** Not modelled. The rule for adopting a distortion model is evidence that the
 errors are structured (growing toward the image corners), not random. A radial trend has been
-seen (R² 0.33 to 0.45 on repeat runs), but on 2026-10-05 the validation errors in the 4 corner
-slots (0.52% in length) were no larger than in the 4 central slots (0.69%). The trays do not reach
+seen (R² 0.33 to 0.45 on repeat runs), but in the 2026-10-05 validation of the earlier setup
+(lens 6.15) the errors in the 4 corner slots (0.52% in length) were no larger than in the 4 central slots (0.69%). The trays do not reach
 the extreme frame corners, and plants only sit on trays. No model is adopted.
 
 ## What the trust does not cover yet
@@ -192,8 +194,9 @@ the extreme frame corners, and plants only sit on trays. No model is adopted.
   canopy-area milestone (M5) and is expected to add several percent.
 - **Other focus positions.** Each focus position needs its own calibration and validation.
 - **A power cut.** Not yet tested (planned, same method).
-- **Long distances across several trays.** The tape check passed, but its two methods differ by
-  about 1%, unexplained, and only the left-right direction of one row was checked. A plant is
+- **Long distances across several trays.** The tape check passed, but distances across the South
+  row read 1.4% to 1.7% long while the tags at its ends read about right, which is not explained.
+  Only the left-right direction of one row was checked. A plant is
   measured with the scale at its own slot, which validation checks directly; a distance spanning
   trays is not.
 - **A software fault with focus.** After a full-res photo (a calibration, capture or tripwire
