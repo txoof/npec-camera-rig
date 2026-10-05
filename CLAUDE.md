@@ -156,10 +156,22 @@ When using AskUserQuestion, always leave room for a free-text answer.
 | `TODO.md` | Actionable items, linked to plan milestones |
 | `reference/old-calibration/` | Rescued measured values from the previous rig |
 | `reference/arducam-central-error-2026-10.md` | The central-error investigation: evidence, what was ruled out, how the error is managed |
+| `docs/metrology.md` | Formal write-up of every measurement and confidence number, for reports and a possible paper. Kept current: see *Write up every measurement* |
 | `docs/operator-guide.md` | For the scientists running experiments: focus, lock, calibrate, validate, and what the uncertainty column means |
 | `/var/lib/npec-rig/` | Runtime data: captures, masks, `rig.db` |
 | `/var/lib/npec-rig/derived/` | Derived images (validation maps, problem frames; later thumbnails), made once by `images.py`, disposable. Every large image goes through `images.py` (PLAN.md, *Images*) |
 | `/etc/npec-rig/config.yaml` | Per-rig configuration. Planned (PLAN.md's Technical decisions table), not yet implemented — current settings live in env vars and SQLite only |
+
+## Write up every measurement
+
+Every metrology finding and every validation result is written up in `docs/metrology.md`, in the
+same change that produces it: what was measured, how, with what instrument, how many times, the
+result with its spread, the date, where the raw data is, and what it does and does not cover.
+Detailed investigations go in `reference/` and are linked from it. A number that is a decision or
+a placeholder, not a measurement, says so. Written for a scientist without a metrology
+background, formal enough to cite in a paper about the rig (Aaron, 2026-10-05).
+
+A measurement that is not written up is not finished.
 
 ## Definition of done
 
@@ -167,4 +179,4 @@ A slice is done when you can **see it working in a browser**, not when its tests
 cannot be demonstrated, it is not a slice — split it differently.
 
 Milestones are done when the physical acceptance tests in `PLAN.md` pass, run in the chamber with a
-tape measure and printed targets.
+tape measure and printed targets, and their results are written up in `docs/metrology.md`.
