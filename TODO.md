@@ -521,6 +521,18 @@ The heart of the project. Do not start before M1 slice 5.
       use SQLite instead. Unit-tested (round-trip, current-pointer tracking, listing, isolation
       from the captures dir). *(2026-09-20)*
 
+- [ ] **Focus-drift check and "recalibration needed" message (PLAN.md § M2, not yet tracked
+      until 2026-10-05).** PLAN.md: a focus-drift check from the sharpness score against the
+      locked value, and the app tells the experimenter when recalibration is needed. Not built.
+      **Explore first (Aaron, 2026-10-05):** the sharpness score changes with the background,
+      so a whole-frame or crop score taken at lock time cannot be compared with a later one
+      once trays, plants or sheets change. One idea to test, not decided: score only the 4
+      corner tags, which are fixed printed targets and do not move between experiments.
+      Before any threshold: measure how much that score varies at a fixed focus (repeat
+      captures, different table contents) and how far it falls when focus is slightly off.
+      Reports a change only, never a lens position (the focus position is the experimenter's
+      choice).
+
 ### M2 — area-scale shape check, built 2026-09-21
 
 - [x] **Direct area-scale field from tag shape, not trigonometry.** Aaron asked whether tag
@@ -706,6 +718,27 @@ The heart of the project. Do not start before M1 slice 5.
       `start` reconfigure followed by autofocus -- confirms this isn't specific to a calibration
       capture, any pipeline reconfigure followed by autofocus can trigger the same hang. Still not
       fixed; still the same sign-off-gated change, not two separate bugs to design around.
+      **Built 2026-10-05 on m2-autofocus-timeout (Aaron's go-ahead), awaiting his hardware
+      check.** `Picamera2Backend.autofocus` now waits at most `AUTOFOCUS_TIMEOUT_S` (60 s, the
+      same bound as a focus lock, not a measured autofocus time) for the cycle and the metadata
+      read. On a timeout it cancels the stuck job (`cancel_all_and_flush`, else it blocks every
+      later camera call), puts the camera back in manual at the lens position before the cycle,
+      reads no metadata, and the manager clears the lock and returns `timed_out`. The button
+      then reads "Autofocus (did not finish, lens left at 6.37)". Each cycle's duration is
+      logged ("autofocus cycle took N s") so a real bound can be measured later. The
+      2026-10-01 `capture_full_res` fix (re-applying AfMode and LensPosition after configure)
+      may already have removed the trigger; a hang-free hardware run shows nothing regressed,
+      the unit tests are what show the bound works.
+      Code review (high) changes, same branch: scan and lens read share the 60 s (5 s for the
+      read), a timeout also sends AfTrigger Cancel, the message names which step stalled and says
+      "lens set back to X, lock focus again" (the restore is a plain write, not confirmed), the
+      button's 60 s comes from the constant. **Known limits, not fixed here:** (1) only autofocus
+      is bounded; if the pipeline itself is wedged, the next unbounded camera call
+      (`capture_metadata`, `capture_array`, `capture_full_res`) can still hang holding
+      `_call_lock`, which needs bounds on every camera call, a larger change; (2) an autofocus
+      pressed in another tab while Lock focus is waiting can time out and set the lens straight
+      back to the lock target, so `LensMovedDuringLockError` does not fire. Both need a real
+      occurrence before work.
 - [x] **`/preview.mjpg` and `/focus/roi.mjpg` never noticed a disconnected client, and a stuck
       `_call_lock` (e.g. the wedge above) turned that into a full server hang, not just a leaked
       stream.** Found by Aaron, 2026-09-28, while testing a since-reverted focus-crop toggle on
