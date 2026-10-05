@@ -61,6 +61,7 @@ from npec_rig.calibration_viz import (
     render_uncertainty_heatmap,
 )
 from npec_rig.camera import (
+    AUTOFOCUS_TIMEOUT_S,
     CameraBusyError,
     CameraManager,
     LensMovedDuringLockError,
@@ -113,6 +114,8 @@ calibration_root().mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="NPEC Camera Rig")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+# The focus controls tell the operator how long an autofocus may take (camera.py).
+templates.env.globals["AUTOFOCUS_TIMEOUT_S"] = int(AUTOFOCUS_TIMEOUT_S)
 app.mount("/captures", StaticFiles(directory=str(captures_root())), name="captures")
 # PLAN.md M2 section A: calibration is "frozen, versioned, exportable" -- this is the export.
 # Serves both the timestamped artifact JSON and, under frames/, the full-res still each one

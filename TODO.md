@@ -718,6 +718,16 @@ The heart of the project. Do not start before M1 slice 5.
       2026-10-01 `capture_full_res` fix (re-applying AfMode and LensPosition after configure)
       may already have removed the trigger; a hang-free hardware run shows nothing regressed,
       the unit tests are what show the bound works.
+      Code review (high) changes, same branch: scan and lens read share the 60 s (5 s for the
+      read), a timeout also sends AfTrigger Cancel, the message names which step stalled and says
+      "lens set back to X, lock focus again" (the restore is a plain write, not confirmed), the
+      button's 60 s comes from the constant. **Known limits, not fixed here:** (1) only autofocus
+      is bounded; if the pipeline itself is wedged, the next unbounded camera call
+      (`capture_metadata`, `capture_array`, `capture_full_res`) can still hang holding
+      `_call_lock`, which needs bounds on every camera call, a larger change; (2) an autofocus
+      pressed in another tab while Lock focus is waiting can time out and set the lens straight
+      back to the lock target, so `LensMovedDuringLockError` does not fire. Both need a real
+      occurrence before work.
 - [x] **`/preview.mjpg` and `/focus/roi.mjpg` never noticed a disconnected client, and a stuck
       `_call_lock` (e.g. the wedge above) turned that into a full server hang, not just a leaked
       stream.** Found by Aaron, 2026-09-28, while testing a since-reverted focus-crop toggle on

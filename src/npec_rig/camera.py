@@ -51,6 +51,9 @@ LENS_SETTLE_TIMEOUT_S = 60.0
 # which can also take up to a minute after a full-res capture; not a measured autofocus time
 # (each cycle's duration is logged so one can be measured).
 AUTOFOCUS_TIMEOUT_S = 60.0
+# The share of that bound for reading the lens position once the cycle is done: one frame's
+# metadata, so a few seconds is generous, and scan plus read together stay within the bound.
+AUTOFOCUS_METADATA_TIMEOUT_S = 5.0
 LENS_POLL_INTERVAL_S = 0.25
 LENS_REPORT_TOLERANCE = 0.005
 
@@ -309,19 +312,27 @@ class Picamera2Backend(CameraBackend):
 
     def autofocus(self) -> tuple[bool, float]:
         started = time.monotonic()
+        step = "did not finish"
         try:
-            success = self._picam2.autofocus_cycle(wait=AUTOFOCUS_TIMEOUT_S)
-            metadata = self._picam2.capture_metadata(wait=AUTOFOCUS_TIMEOUT_S)
+            success = self._picam2.autofocus_cycle(
+                wait=AUTOFOCUS_TIMEOUT_S - AUTOFOCUS_METADATA_TIMEOUT_S
+            )
+            logger.info("autofocus cycle took %.1f s", time.monotonic() - started)
+            step = "finished but the camera did not report the lens position"
+            metadata = self._picam2.capture_metadata(wait=AUTOFOCUS_METADATA_TIMEOUT_S)
         except FutureTimeoutError:
             # The stuck job stays at the head of picamera2's queue and would block every later
             # call, so cancel it. Nothing else is queued: the caller holds _call_lock. No
-            # metadata read here, it could wait just as long; back to manual at the last
-            # position the rig set.
+            # metadata read here, it could wait just as long. Cancel the latched AF trigger
+            # (AfTrigger 1 = Cancel) and go back to manual at the last position the rig set;
+            # that write is not confirmed, so the manager clears the lock and the operator locks
+            # again, which drives the lens the one consistent way.
             self._picam2.cancel_all_and_flush()
-            self._picam2.set_controls({"AfMode": 0, "LensPosition": self._lens_position})
-            logger.warning("autofocus timed out after %.1f s", time.monotonic() - started)
-            raise AutofocusTimeoutError(self._lens_position, AUTOFOCUS_TIMEOUT_S) from None
-        logger.info("autofocus cycle took %.1f s", time.monotonic() - started)
+            self._picam2.set_controls(
+                {"AfTrigger": 1, "AfMode": 0, "LensPosition": self._lens_position}
+            )
+            logger.warning("autofocus %s after %.1f s", step, time.monotonic() - started)
+            raise AutofocusTimeoutError(self._lens_position, step) from None
         lens_position = float(metadata.get("LensPosition", DEFAULT_LENS_POSITION))
         # autofocus_cycle leaves AfMode in Auto; the rig always runs manual so a fixed
         # focus can't drift or hunt mid-experiment (see PLAN.md M1/M2).
@@ -447,9 +458,10 @@ class AutofocusTimeoutError(RuntimeError):
     """An autofocus cycle did not finish in time. The backend has already cancelled it and put the
     camera back in manual focus at `lens_position`, the position before the cycle."""
 
-    def __init__(self, lens_position: float, timeout_s: float) -> None:
+    def __init__(self, lens_position: float, step: str) -> None:
         super().__init__(
-            f"autofocus did not finish within {timeout_s:.0f} s, lens left at {lens_position:.2f}"
+            f"autofocus {step} within {AUTOFOCUS_TIMEOUT_S:.0f} s; lens set back to "
+            f"{lens_position:.2f}, lock focus again"
         )
         self.lens_position = lens_position
 
