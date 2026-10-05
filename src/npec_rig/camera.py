@@ -331,8 +331,9 @@ class Picamera2Backend(CameraBackend):
             self._picam2.set_controls(
                 {"AfTrigger": 1, "AfMode": 0, "LensPosition": self._lens_position}
             )
-            logger.warning("autofocus %s after %.1f s", step, time.monotonic() - started)
-            raise AutofocusTimeoutError(self._lens_position, step) from None
+            elapsed = time.monotonic() - started
+            logger.warning("autofocus %s after %.1f s", step, elapsed)
+            raise AutofocusTimeoutError(self._lens_position, step, elapsed) from None
         lens_position = float(metadata.get("LensPosition", DEFAULT_LENS_POSITION))
         # autofocus_cycle leaves AfMode in Auto; the rig always runs manual so a fixed
         # focus can't drift or hunt mid-experiment (see PLAN.md M1/M2).
@@ -458,9 +459,9 @@ class AutofocusTimeoutError(RuntimeError):
     """An autofocus cycle did not finish in time. The backend has already cancelled it and put the
     camera back in manual focus at `lens_position`, the position before the cycle."""
 
-    def __init__(self, lens_position: float, step: str) -> None:
+    def __init__(self, lens_position: float, step: str, elapsed_s: float) -> None:
         super().__init__(
-            f"autofocus {step} within {AUTOFOCUS_TIMEOUT_S:.0f} s; lens set back to "
+            f"autofocus {step} after {elapsed_s:.0f} s; lens set back to "
             f"{lens_position:.2f}, lock focus again"
         )
         self.lens_position = lens_position

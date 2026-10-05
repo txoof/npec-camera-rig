@@ -146,7 +146,7 @@ def test_a_finished_cycle_whose_lens_read_times_out_says_which_step_stalled() ->
 
 class _TimingOutAutofocusBackend(SyntheticBackend):
     def autofocus(self) -> tuple[bool, float]:
-        raise camera_module.AutofocusTimeoutError(self._lens_position, "did not finish")
+        raise camera_module.AutofocusTimeoutError(self._lens_position, "did not finish", 55.2)
 
 
 def test_a_timed_out_autofocus_clears_the_lock_says_so_and_frees_the_camera() -> None:
@@ -159,7 +159,7 @@ def test_a_timed_out_autofocus_clears_the_lock_says_so_and_frees_the_camera() ->
     assert result["success"] is False
     assert result["lens_position"] == pytest.approx(6.3)
     assert result["timed_out"] == (
-        "autofocus did not finish within 60 s; lens set back to 6.30, lock focus again"
+        "autofocus did not finish after 55 s; lens set back to 6.30, lock focus again"
     )
     assert manager.focus_status()["locked"] is False
     assert manager._call_lock.acquire(blocking=False)  # the next camera call is not stuck
