@@ -1,6 +1,6 @@
 # Returning to the same lens position: does the measurement come back?
 
-**Status:** run 1 done (2026-10-05). Runs 2 (app restart) and 3 (power cut) not yet done.
+**Status:** run 1 and the control done (2026-10-05). Runs 2 (app restart) and 3 (power cut) not yet done.
 
 ## Why this matters
 
@@ -77,14 +77,49 @@ about 1.2 points.
 In plain terms: for this disturbance, at this lens position, returning to the locked number was
 enough. No new calibration or validation would have been needed.
 
-## Limits of run 1
+## Control: nothing moved, lens untouched
+
+The same method with no lens move, to measure how much the readings change over time on their
+own. Focus stayed locked at 6.15 throughout (last lens move 07:34 UTC). Two series:
+
+**Control A, 09:02 to 10:02 UTC (disturbed).** A colleague worked in the chamber. Between 08:35
+and 09:02 one sheet's worth of tags (31) moved, and 23 tags were hidden until some time between
+09:32 and 10:02; the door was opened before 10:00 UTC. The camera and table were not moved: all
+332 visible tags kept their positions. Only those 332 are compared, against the 09:02 photograph.
+
+| Round | Time (UTC) | Tags matched | Median change | Spread (SD) | Ring 1000 to 1500 px | Largest slot median |
+|---|---|---|---|---|---|---|
+| +15 min | 09:17:28 | 332 | +0.17 | 0.36 | -0.19 (31 tags) | +0.31 (South 2) |
+| +30 min | 09:32:33 | 332 | -0.01 | 0.39 | +0.01 (31 tags) | +0.55 (South 3) |
+| +60 min | 10:02:32 | 332 | +0.17 | 0.31 | -0.05 (31 tags) | +0.38 (North 1, North 6) |
+
+**Control B, 10:02 to 10:47 UTC (undisturbed, Aaron).** Against the 10:02 photograph:
+
+| Round | Time (UTC) | Tags matched | Median change | Spread (SD) | Ring 1000 to 1500 px | Largest slot median |
+|---|---|---|---|---|---|---|
+| +15 min | 10:17:48 | 355 of 355 | -0.06 | 0.34 | +0.21 (40 tags) | -0.28 (North 6) |
+| +30 min | 10:32:47 | 355 of 355 | -0.03 | 0.30 | +0.04 (40 tags) | -0.12 (South 3) |
+| +45 min | 10:47:51 | 355 of 355 | -0.10 | 0.43 | +0.26 (41 tags) | -0.52 (North 1) |
+
+**What the control shows**
+
+- With nothing moved at all, the readings still change over time: median up to ±0.17 points,
+  central ring up to ±0.26 points, single slots up to 0.52 points (North 1, about a quarter of
+  its ±2.12% band). The changes go up and down; they do not grow steadily.
+- Run 1's changes after the lens move (median +0.09, ring -0.21, largest slot +0.35) are inside
+  this range. So the lens move and return added nothing this method can detect beyond ordinary
+  change over time.
+- North 1, at the west edge of the image, changed most in run 1 and in both control series.
+  Why is not known.
+- The cause of the change over time is not known (for example temperature, light, or the
+  camera's automatic exposure).
+
 
 - One disturbance type (autofocus, then re-lock), one lens position (6.15), one hour, one day.
 - How far autofocus moved the lens is not recorded (the log has the button presses, not the
   positions). The disturbance may have been small. A restart drives the lens through the same
   full route every time, so run 2 has a known disturbance.
-- No control run without a lens move, so the small +0.09 shift over the hour cannot be split
-  between the lens move and ordinary change over time (for example, temperature).
+- The control (above) was run once, partly disturbed, on the same day.
 - An app restart and a power cut have not been tested. A restart uses the same lens drive, but a
   power cut also cools the camera and the focus mechanism, which may matter if the drift is
   thermal.
@@ -95,12 +130,10 @@ enough. No new calibration or validation would have been needed.
 1. **Run 2, app restart:** same method, the restart replacing the autofocus moves.
 2. **Run 3, power cut:** same method, with the Pi powered off at the rig for long enough to
    cool (for example, 30 minutes), then on again.
-3. **Control:** the same 60-minute series with nothing moved at all, to measure change over time
-   alone.
 
 If runs 2 and 3 match run 1, a restart during an experiment needs no new calibration, and the
-measured shift (here up to 0.35 points, about one sixth of the slot's band) can be stated
-alongside the validation bands.
+ordinary change over time (here up to 0.52 points in one slot, about a quarter of its band) can be
+stated alongside the validation bands.
 
 Correction, 2026-10-05: the first version of this report compared the shifts with bands of
 ±2.0% to ±4.3%. Those are the bands of the 2026-10-01 validation at lens 6.18, not this setup's.
@@ -108,6 +141,7 @@ Correction, 2026-10-05: the first version of this report compared the shifts wit
 ## Raw data
 
 - Validation session `20261005T071549445423`, rounds 4 onward (`/var/lib/npec-rig/calibration/validations/`).
-- Round responses and log: `/home/pi/scratch/lens-return-2026-10-05/`.
+- Round responses and logs: `/home/pi/scratch/lens-return-2026-10-05/` (run 1) and
+  `/home/pi/scratch/lens-control-2026-10-05/` (control).
 - Analysis script: `reference/lens-return-2026-10-analyse.py` (reads stored tag detections, changes
   nothing). Run from the repo with `PYTHONPATH=src .venv/bin/python <script>`.

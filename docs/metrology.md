@@ -140,12 +140,14 @@ several percent. Measured at milestone M5.
 | Photograph-to-photograph noise | per-tag standard deviation 0.27 to 0.46 points | Repeated photographs, nothing changed (3 light levels, auto-exposure compensating) | 2026-10-01 |
 | Lens moved and driven back to the same position | median change -0.03 points, spread 0.28, 355 of 355 tags; over 60 min largest slot change +0.35 points (about 1/6 of that slot's band) | Autofocus moved the lens, re-locked at 6.15, photographs at +0, +15, +30, +60 min, each tag compared with itself | 2026-10-05, `reference/lens-return-2026-10.md` |
 | Drift at a fixed lens position after moves | central ring changed 1.3 points in 35 min | Lens sweep then return to 6.18 | 2026-10-01 |
-| Change over time with nothing moved (control) | in progress | Same method as the lens-return test, no lens move | 2026-10-05 |
+| Change over time with nothing moved (control) | over 45 to 60 min: median within ±0.17 points, central ring within ±0.26, single slots up to 0.52 (about 1/4 of that slot's band); goes up and down, not a steady drift | Same method, lens untouched, two series (one partly disturbed by people in the chamber) | 2026-10-05, `reference/lens-return-2026-10.md` |
 | App restart | not yet measured (the lens is driven back and confirmed; whether area returns is untested) | | |
 | Power cut | not yet measured | | |
 | Two calibrations in a row | scale fields agreed within 0.02% to 0.16% | 332 and 340 tags, lens moved away and back, 2026-09-25 | Before the current lens-drive method |
 
-The 2026-10-01 drift and the 2026-10-05 result differ by about 6 times in size. The reason is not
+On 2026-10-05, the change after moving the lens and driving it back was inside the ordinary change
+over time measured by the control, so the return itself added nothing detectable. The 2026-10-01
+drift (1.3 points) was about 5 times larger than anything seen on 2026-10-05. The reason is not
 known.
 
 ## 9. Techniques deliberately not used, and what would justify them
