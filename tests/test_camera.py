@@ -1,4 +1,5 @@
 import threading
+from concurrent.futures import TimeoutError as FutureTimeoutError
 
 import numpy as np
 import pytest
@@ -33,6 +34,10 @@ class _RecordingPicamera2:
     def __init__(self) -> None:
         self.configured: list[dict] = []
         self.control_writes: list[dict] = []
+        self.metadata_waits: list = []
+        self.autofocus_waits: list = []
+        self.autofocus_never_finishes = False
+        self.cancelled = 0
 
     def create_still_configuration(self, controls=None):
         return {"kind": "still", "controls": dict(controls or {})}
@@ -52,8 +57,18 @@ class _RecordingPicamera2:
     def capture_array(self, _stream):
         return np.zeros((4, 4, 3), dtype=np.uint8)
 
-    def capture_metadata(self) -> dict:
+    def capture_metadata(self, wait=None) -> dict:
+        self.metadata_waits.append(wait)
         return {"LensPosition": 0.0}
+
+    def autofocus_cycle(self, wait=None):
+        self.autofocus_waits.append(wait)
+        if self.autofocus_never_finishes:
+            raise FutureTimeoutError()
+        return True
+
+    def cancel_all_and_flush(self) -> None:
+        self.cancelled += 1
 
 
 def test_a_full_res_capture_keeps_manual_focus_and_the_lens_position() -> None:
@@ -75,6 +90,61 @@ def test_a_full_res_capture_keeps_manual_focus_and_the_lens_position() -> None:
     backend.set_lens_position(6.18)  # a later move is what the next capture uses
     backend.capture_full_res()
     assert backend._picam2.configured[-2]["controls"] == {"AfMode": 0, "LensPosition": 6.18}
+
+
+def _recording_backend() -> "camera_module.Picamera2Backend":
+    backend = object.__new__(camera_module.Picamera2Backend)
+    backend._picam2 = _RecordingPicamera2()
+    backend._video_config = {"kind": "video"}
+    backend._control_cache = {}
+    backend._lens_position = DEFAULT_LENS_POSITION
+    return backend
+
+
+def test_an_autofocus_cycle_that_never_finishes_is_cancelled_and_leaves_the_lens_in_manual() -> None:
+    # TODO.md "wedges the whole camera pipeline": picamera2 waited for the scan with no limit,
+    # holding the camera lock, so every camera call hung until a restart.
+    backend = _recording_backend()
+    backend.set_lens_position(6.37)
+    backend._picam2.autofocus_never_finishes = True
+
+    with pytest.raises(camera_module.AutofocusTimeoutError) as exc:
+        backend.autofocus()
+
+    assert exc.value.lens_position == 6.37
+    assert backend._picam2.autofocus_waits == [camera_module.AUTOFOCUS_TIMEOUT_S]
+    assert backend._picam2.cancelled == 1
+    assert backend._picam2.control_writes[-1] == {"AfMode": 0, "LensPosition": 6.37}
+    assert backend._picam2.metadata_waits == []  # a metadata read could hang as well
+
+
+def test_a_finished_autofocus_cycle_waits_a_bounded_time_for_everything() -> None:
+    backend = _recording_backend()
+    assert backend.autofocus() == (True, 0.0)
+    assert backend._picam2.autofocus_waits == [camera_module.AUTOFOCUS_TIMEOUT_S]
+    assert backend._picam2.metadata_waits == [camera_module.AUTOFOCUS_TIMEOUT_S]
+    assert backend._picam2.cancelled == 0
+    assert backend._picam2.control_writes[-1] == {"AfMode": 0}
+
+
+class _TimingOutAutofocusBackend(SyntheticBackend):
+    def autofocus(self) -> tuple[bool, float]:
+        raise camera_module.AutofocusTimeoutError(self._lens_position, 60.0)
+
+
+def test_a_timed_out_autofocus_clears_the_lock_says_so_and_frees_the_camera() -> None:
+    manager = CameraManager(_TimingOutAutofocusBackend())
+    manager.set_lens_position(6.3)
+    manager.lock_focus()
+
+    result = manager.autofocus()
+
+    assert result["success"] is False
+    assert result["lens_position"] == pytest.approx(6.3)
+    assert result["timed_out"] == "autofocus did not finish within 60 s, lens left at 6.30"
+    assert manager.focus_status()["locked"] is False
+    assert manager._call_lock.acquire(blocking=False)  # the next camera call is not stuck
+    manager._call_lock.release()
 
 
 def test_the_startup_replay_of_a_persisted_lens_position_is_what_a_capture_re_applies() -> None:
@@ -503,7 +573,9 @@ def test_camera_manager_peaking_toggle() -> None:
 def test_camera_manager_autofocus() -> None:
     manager = CameraManager(SyntheticBackend())
     result = manager.autofocus()
-    assert result == {"success": True, "lens_position": SIMULATED_AUTOFOCUS_POSITION}
+    assert result == {
+        "success": True, "lens_position": SIMULATED_AUTOFOCUS_POSITION, "timed_out": None
+    }
     assert manager.get_lens_position() == SIMULATED_AUTOFOCUS_POSITION
 
 

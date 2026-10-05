@@ -8,6 +8,7 @@ import io
 import logging
 import os
 import time
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -44,6 +45,12 @@ FOCUS_CONFIRM_POSITION_TOLERANCE = 0.01
 LENS_APPROACH_OFFSET = 0.3
 LENS_APPROACH_PAUSE_S = 1.0
 LENS_SETTLE_TIMEOUT_S = 60.0
+# How long one hardware autofocus cycle may hold the camera. picamera2's own wait has no limit:
+# if the scan never starts (seen after a pipeline reconfigure, TODO.md "wedges the whole camera
+# pipeline"), every camera call queues behind it until a restart. Same bound as a focus lock,
+# which can also take up to a minute after a full-res capture; not a measured autofocus time
+# (each cycle's duration is logged so one can be measured).
+AUTOFOCUS_TIMEOUT_S = 60.0
 LENS_POLL_INTERVAL_S = 0.25
 LENS_REPORT_TOLERANCE = 0.005
 
@@ -301,8 +308,21 @@ class Picamera2Backend(CameraBackend):
         return float(metadata.get("LensPosition", DEFAULT_LENS_POSITION))
 
     def autofocus(self) -> tuple[bool, float]:
-        success = self._picam2.autofocus_cycle(wait=True)
-        lens_position = self.get_lens_position()
+        started = time.monotonic()
+        try:
+            success = self._picam2.autofocus_cycle(wait=AUTOFOCUS_TIMEOUT_S)
+            metadata = self._picam2.capture_metadata(wait=AUTOFOCUS_TIMEOUT_S)
+        except FutureTimeoutError:
+            # The stuck job stays at the head of picamera2's queue and would block every later
+            # call, so cancel it. Nothing else is queued: the caller holds _call_lock. No
+            # metadata read here, it could wait just as long; back to manual at the last
+            # position the rig set.
+            self._picam2.cancel_all_and_flush()
+            self._picam2.set_controls({"AfMode": 0, "LensPosition": self._lens_position})
+            logger.warning("autofocus timed out after %.1f s", time.monotonic() - started)
+            raise AutofocusTimeoutError(self._lens_position, AUTOFOCUS_TIMEOUT_S) from None
+        logger.info("autofocus cycle took %.1f s", time.monotonic() - started)
+        lens_position = float(metadata.get("LensPosition", DEFAULT_LENS_POSITION))
         # autofocus_cycle leaves AfMode in Auto; the rig always runs manual so a fixed
         # focus can't drift or hunt mid-experiment (see PLAN.md M1/M2).
         self._picam2.set_controls({"AfMode": 0})
@@ -421,6 +441,17 @@ def _default_backend() -> CameraBackend:
     except (ImportError, RuntimeError) as exc:
         logger.warning("No camera hardware available (%s); using synthetic backend", exc)
         return SyntheticBackend()
+
+
+class AutofocusTimeoutError(RuntimeError):
+    """An autofocus cycle did not finish in time. The backend has already cancelled it and put the
+    camera back in manual focus at `lens_position`, the position before the cycle."""
+
+    def __init__(self, lens_position: float, timeout_s: float) -> None:
+        super().__init__(
+            f"autofocus did not finish within {timeout_s:.0f} s, lens left at {lens_position:.2f}"
+        )
+        self.lens_position = lens_position
 
 
 class LensNotSettledError(RuntimeError):
@@ -604,13 +635,18 @@ class CameraManager:
             return self._backend.get_lens_position()
 
     def autofocus(self) -> dict:
+        """One autofocus cycle. Clears the lock either way: the lens moved, or may have."""
+        timed_out = None
         with self._call_lock:
-            success, lens_position = self._backend.autofocus()
+            try:
+                success, lens_position = self._backend.autofocus()
+            except AutofocusTimeoutError as exc:
+                success, lens_position, timed_out = False, exc.lens_position, str(exc)
         save_setting("LensPosition", lens_position)
         self._commanded_lens_position = lens_position
         self._locked_lens_position = None
         save_setting("FocusConfirmed", False)
-        return {"success": success, "lens_position": lens_position}
+        return {"success": success, "lens_position": lens_position, "timed_out": timed_out}
 
     def available_controls(self) -> dict[str, tuple]:
         with self._call_lock:

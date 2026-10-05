@@ -707,6 +707,17 @@ The heart of the project. Do not start before M1 slice 5.
       `start` reconfigure followed by autofocus -- confirms this isn't specific to a calibration
       capture, any pipeline reconfigure followed by autofocus can trigger the same hang. Still not
       fixed; still the same sign-off-gated change, not two separate bugs to design around.
+      **Built 2026-10-05 on m2-autofocus-timeout (Aaron's go-ahead), awaiting his hardware
+      check.** `Picamera2Backend.autofocus` now waits at most `AUTOFOCUS_TIMEOUT_S` (60 s, the
+      same bound as a focus lock, not a measured autofocus time) for the cycle and the metadata
+      read. On a timeout it cancels the stuck job (`cancel_all_and_flush`, else it blocks every
+      later camera call), puts the camera back in manual at the lens position before the cycle,
+      reads no metadata, and the manager clears the lock and returns `timed_out`. The button
+      then reads "Autofocus (did not finish, lens left at 6.37)". Each cycle's duration is
+      logged ("autofocus cycle took N s") so a real bound can be measured later. The
+      2026-10-01 `capture_full_res` fix (re-applying AfMode and LensPosition after configure)
+      may already have removed the trigger; a hang-free hardware run shows nothing regressed,
+      the unit tests are what show the bound works.
 - [x] **`/preview.mjpg` and `/focus/roi.mjpg` never noticed a disconnected client, and a stuck
       `_call_lock` (e.g. the wedge above) turned that into a full server hang, not just a leaked
       stream.** Found by Aaron, 2026-09-28, while testing a since-reverted focus-crop toggle on

@@ -286,13 +286,19 @@
 
     autofocusBtn.addEventListener("click", async () => {
       autofocusBtn.disabled = true;
-      autofocusBtn.textContent = "Focusing...";
+      autofocusBtn.textContent = "Focusing (up to 60 s)";
       try {
         const r = await fetch("/focus/autofocus", { method: "POST" });
         const data = await r.json();
         applyLensPosition(data.lens_position);
         await sendLensPosition();
-        autofocusBtn.textContent = data.success ? "Autofocus" : "Autofocus (failed, adjust manually)";
+        // timed_out: the camera never finished the cycle; the backend cancelled it and left the
+        // lens where it was before (camera.py AUTOFOCUS_TIMEOUT_S).
+        autofocusBtn.textContent = data.success
+          ? "Autofocus"
+          : data.timed_out
+            ? `Autofocus (did not finish, lens left at ${data.lens_position.toFixed(2)})`
+            : "Autofocus (failed, adjust manually)";
       } finally {
         autofocusBtn.disabled = false;
       }

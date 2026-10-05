@@ -202,7 +202,9 @@ def test_autofocus_endpoint() -> None:
     client = TestClient(app)
     response = client.post("/focus/autofocus")
     assert response.status_code == 200
-    assert response.json() == {"success": True, "lens_position": SIMULATED_AUTOFOCUS_POSITION}
+    assert response.json() == {
+        "success": True, "lens_position": SIMULATED_AUTOFOCUS_POSITION, "timed_out": None
+    }
 
 
 def test_lens_position_rejects_out_of_range() -> None:
