@@ -1,9 +1,9 @@
 # Why the rig's area measurements can be trusted
 
-**Status:** first version, 2026-10-05. M2 physical acceptance tests are still to run (section 9).
+**Status:** first version, 2026-10-05. M2 physical acceptance tests are still to run (see *What the trust does not cover yet*).
 The evidence for every number here, with its source, is in `docs/metrology-log.md`.
 
-## 1. The claim
+## The claim
 
 The rig photographs plant trays from above and reports, for each tray slot, an area in mm² and a
 band: the range within which that area can be trusted.
@@ -15,7 +15,7 @@ setup (2026-10-05, lens position 6.15) the bands run from ±1.43% (North 5) to �
 This document explains why that claim holds, and the steps taken to make it hold. Each step says
 what could go wrong, what the rig does about it, and the evidence.
 
-## 2. The approach: measure, do not assume
+## The approach: measure, do not assume
 
 The rig's accuracy is never worked out from a model of the camera or lens. It is measured, by
 photographing printed targets of known size and checking how far the rig's readings of them are
@@ -26,7 +26,7 @@ distortion, uncertainty propagation) and never produced a working application. T
 then: if a number cannot be shown with a ruler, a printed target or a repeated photograph, it is
 not used.
 
-## 3. Step 1: a known reference
+## A known reference
 
 **What could go wrong.** The whole measurement rests on knowing the true size of the targets. A
 target that is not the size it is believed to be shifts every area by the same proportion, and
@@ -44,7 +44,7 @@ size, not the printed label, is used.
   caused about 4.7% area error, the largest single error that rig had. On 2026-09-29 a sheet
   printed at 96% scale was found mixed in with good sheets. Both were caught only by measuring.
 
-## 4. Step 2: calibration at the experiment's own focus
+## Calibration at the experiment's own focus
 
 **What could go wrong.** The camera sees things nearer the lens as larger, and the focus setting
 changes how large things look, especially near the image centre. A scale taken from one place
@@ -59,7 +59,7 @@ across the image. Area is then pixels divided by the square of the local scale.
 pixel), and the tags sit within 0.52% of the fitted field (standard deviation). Calibration
 refuses to run without a lock and all 4 corner tags, unless the operator overrides it.
 
-## 5. Step 3: an independent check, which sets the band
+## An independent check, which sets the band
 
 **What could go wrong.** A calibration always fits the targets it was made from. That says nothing
 about how well it measures something else, somewhere else.
@@ -74,7 +74,7 @@ distance from the true area that 95% of the tags fall within, over all rounds.
 band is therefore not an estimate: it is the observed spread of real measurements of known
 targets, in that slot, at that focus.
 
-## 6. Step 4: faults are caught, not averaged in
+## Faults are caught, not averaged in
 
 **What could go wrong.** A bad sheet, a tray at the wrong height, or a knocked camera would make
 some readings wrong. Pooled into a band, a fault would quietly widen it or shift it.
@@ -101,7 +101,7 @@ most 1.96 points and sat at most 2.15 points from the rest.
   camera height. The rig measures what is actually there; a wrong-height tray shows as a wrong
   area, which is why bands are stated for tray-top height only.
 
-## 7. Step 5: the band stays valid over time and after disturbance
+## The band stays valid over time and after disturbance
 
 **What could go wrong.** The band is measured at one moment. If the camera's readings shifted
 later (with time, after a restart, or after a power cut), the band would no longer describe the
@@ -130,7 +130,7 @@ calibration or validation.
 drifted by 1.3 points in 35 minutes. That was not repeated on 2026-10-05, and the reason for the
 difference is not known.
 
-## 8. Step 6: known error sources are found and stated
+## Known error sources are found and stated
 
 **The Arducam's central error.** Targets within about 1500 px of the image centre read up to a few
 percent smaller in area than targets further out. It was investigated over several days: a
@@ -148,7 +148,7 @@ errors are structured (growing toward the image corners), not random. A radial t
 seen (R² 0.33 to 0.45 on repeat runs); whether it is large enough to justify a model is an open
 decision.
 
-## 9. What the trust does not cover yet
+## What the trust does not cover yet
 
 - **Plant height and segmentation.** The bands are for flat targets at tray-top height. Telling
   plant from background (segmentation) has not been measured on this rig; it is planned for the
@@ -161,7 +161,7 @@ decision.
 - **One rig, two weeks of data.** The evidence above comes from this rig between 2026-09-21 and
   2026-10-05.
 
-## 10. Where the evidence is
+## Where the evidence is
 
 - `docs/metrology-log.md`: every number, how it was measured, its date and source.
 - `reference/arducam-central-error-2026-10.md`: the central-error investigation.
