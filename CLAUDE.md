@@ -156,7 +156,8 @@ When using AskUserQuestion, always leave room for a free-text answer.
 | `TODO.md` | Actionable items, linked to plan milestones |
 | `reference/old-calibration/` | Rescued measured values from the previous rig |
 | `reference/arducam-central-error-2026-10.md` | The central-error investigation: evidence, what was ruled out, how the error is managed |
-| `docs/metrology.md` | Formal write-up of every measurement and confidence number, for reports and a possible paper. Kept current: see *Write up every measurement* |
+| `docs/measurement-trust.md` | Why the rig's area measurements can be trusted, and the steps taken to build that trust. The case, for reports and a possible paper |
+| `docs/metrology-log.md` | Log of every measurement, test method and result, with sources: the evidence behind `measurement-trust.md`. See *Write up every measurement* |
 | `docs/operator-guide.md` | For the scientists running experiments: focus, lock, calibrate, validate, and what the uncertainty column means |
 | `/var/lib/npec-rig/` | Runtime data: captures, masks, `rig.db` |
 | `/var/lib/npec-rig/derived/` | Derived images (validation maps, problem frames; later thumbnails), made once by `images.py`, disposable. Every large image goes through `images.py` (PLAN.md, *Images*) |
@@ -164,15 +165,17 @@ When using AskUserQuestion, always leave room for a free-text answer.
 
 ## Write up every measurement
 
-Every metrology finding and every validation result is written up in `docs/metrology.md`, in the
+Every metrology finding and every validation result is written up in `docs/metrology-log.md`, in the
 same change that produces it: what was measured, how, with what instrument, how many times, the
 result with its spread, the date, where the raw data is, and what it does and does not cover.
 Detailed investigations go in `reference/` and are linked from it. A number that is a decision or
 a placeholder, not a measurement, says so. Written for a scientist without a metrology
 background, formal enough to cite in a paper about the rig (Aaron, 2026-10-05).
 
-A test's method is written into `docs/metrology.md` before the test is run, and its result is added
-when it is done. A measurement that is not written up is not finished.
+A test's method is written into `docs/metrology-log.md` before the test is run, and its result is
+added when it is done. When a finding adds to, strengthens or weakens a step of the case in
+`docs/measurement-trust.md`, that document is updated in the same change. A measurement that is
+not written up is not finished.
 
 ## Definition of done
 
@@ -180,4 +183,5 @@ A slice is done when you can **see it working in a browser**, not when its tests
 cannot be demonstrated, it is not a slice — split it differently.
 
 Milestones are done when the physical acceptance tests in `PLAN.md` pass, run in the chamber with a
-tape measure and printed targets, and their results are written up in `docs/metrology.md`.
+tape measure and printed targets, and their results are written up in `docs/metrology-log.md` and
+reflected in `docs/measurement-trust.md`.

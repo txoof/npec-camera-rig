@@ -1,4 +1,7 @@
-# Measurement accuracy of the NPEC camera rig
+# Metrology log of the NPEC camera rig
+
+This is the log: every measurement, test method and result, with its source. For the case that
+these measurements can be trusted, read `docs/measurement-trust.md` first.
 
 **Status:** first draft, 2026-10-05. Kept current as findings come in (CLAUDE.md, *Write up every
 measurement*). Numbers marked **decision** are settings chosen by the project, not measurements.
