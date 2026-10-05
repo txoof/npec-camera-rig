@@ -86,10 +86,12 @@ of real measurements of known targets, in that slot, at that focus.
 
 **Why the calibration's own estimate is not used.** The calibration can also estimate its
 uncertainty from how closely the tags fit the scale field. Checked against validation, that
-estimate was too small in 7 of 12 slots (in those 7, typically 1.5 times, at worst 1.9 times;
-1.25 times at the median over all 12), because it is
-judged against the same tags it was fitted to. It has been dropped from what the operator sees;
-only the validation band is reported.
+estimate was slightly too small in 7 of 12 slots: typically 0.50% predicted against 0.54%
+measured, in length, and at worst 0.32% against 0.61% (North 6). On a 36 mm leaf that is about
+0.12 mm predicted against 0.22 mm measured. Both are small; the estimate was simply not a
+reliable guide, because it is judged against the same tags it was fitted to. It has been
+dropped from what the operator sees; only the validation band, which is measured directly, is
+reported.
 
 ## Faults are caught, not averaged in
 
