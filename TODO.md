@@ -701,8 +701,11 @@ The heart of the project. Do not start before M1 slice 5.
 - [ ] **Lens stops responding after a full-res capture, until an app restart.** Seen twice on
       2026-10-05 (about 15:50 and 16:05 chamber time). After a calibration, capture or tripwire
       check, lens commands (manual and Autofocus) return `200 OK` but the lens does not move; the
-      second time the live view stopped too. No knock or Autofocus is needed to trigger it: one
-      calibration run was enough. An app restart fixed it both times. Likely the same fault as the
+      second time the live view stopped too, while `/focus/score` kept returning frames. Seen after
+      13 full-res captures (first time) and after 1 calibration run (second time, no knock);
+      whether one capture is always enough is not known. A 200 does not show the lens moved, so
+      the logs cannot settle it: diagnosis script `reference/lens-unresponsive-2026-10-diagnose.py`
+      (needs the server stopped and the chamber lit). An app restart fixed it both times. Likely the same fault as the
       item below. Make it fixable: (1) reproduce with N = 1, 3, 9 full-res captures then one lens
       change, checking `LensPosition` in the next sidecar; (2) log requested and reported lens
       position on every lens command; (3) after a lens command, compare reported with requested
