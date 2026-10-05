@@ -53,19 +53,22 @@ Change in area error against the reference round, in points of area (%):
 | +30 min | 08:05:04 | 354 of 355 | +0.09 | 0.34 | -0.21 (41 tags) | +0.33 (North 1) |
 | +60 min | 08:35:04 | 354 of 355 | +0.09 | 0.30 | -0.09 (41 tags) | +0.35 (North 1) |
 
-For scale: the validation bands for this setup are about ±2.0% to ±4.3% per slot, and a 0.1
-change in lens position moves the central slots by about 1.2 points.
+For scale: this setup's validation (session `20261005T071549445423`, lens 6.15, 3 rounds, 85 to
+90 tags per slot) gives bands from ±1.43% (North 5) to ±3.36% (North 4); a band is the range
+that 95% of a slot's tags fall within. A 0.1 change in lens position moves the central slots by
+about 1.2 points.
 
 ## What run 1 shows
 
 - **The measurement came back.** After autofocus had moved the lens 4 times, driving it back to
   6.15 gave the same tag areas as before, within photograph-to-photograph noise: median change
   -0.03 points, spread 0.28 points (noise measured before: 0.27 to 0.46).
-- **It stayed within a fraction of the validation band for an hour.** Over 60 minutes the median
-  moved by +0.09 points and the largest slot median by +0.35 points (North 1; South 1 +0.31,
-  both on the same table edge). The narrowest validation band for this setup is ±2.0%, so the
-  largest change was under a fifth of it. The change was not still growing: +30 and +60 read
-  the same (+0.09 median).
+- **It stayed within a small fraction of each slot's band for an hour.** Over 60 minutes the
+  median moved by +0.09 points and the largest slot median by +0.35 points (North 1, band
+  ±2.12%; South 1 +0.31, band ±1.89%; both on the same table edge). Measured against each slot's
+  own band, the largest change was about one sixth of it (North 1 0.35 / 2.12, South 1
+  0.31 / 1.89). The slot with the tightest band, North 5 (±1.43%), moved +0.11. The change was
+  not still growing: +30 and +60 read the same (+0.09 median).
 - **The 2026-10-01 drift was not repeated at this size.** That day the central ring moved 1.3
   points in 35 minutes after a lens move; here the same ring (1000 to 1500 px) stayed within
   0.21 points. Why the two days differ is not known; the lens position was 6.18 then and 6.15
@@ -96,7 +99,11 @@ enough. No new calibration or validation would have been needed.
    alone.
 
 If runs 2 and 3 match run 1, a restart during an experiment needs no new calibration, and the
-measured shift (here up to 0.35 points) can be stated alongside the validation bands.
+measured shift (here up to 0.35 points, about one sixth of the slot's band) can be stated
+alongside the validation bands.
+
+Correction, 2026-10-05: the first version of this report compared the shifts with bands of
+±2.0% to ±4.3%. Those are the bands of the 2026-10-01 validation at lens 6.18, not this setup's.
 
 ## Raw data
 
