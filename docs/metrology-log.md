@@ -5,7 +5,8 @@ these measurements can be trusted, read `docs/measurement-trust.md` first.
 
 **Status:** first draft, 2026-10-05. Kept current as findings come in (CLAUDE.md, *Write up every
 measurement*). Numbers marked **decision** are settings chosen by the project, not measurements.
-Section 10 lists inconsistencies between project files that still need checking.
+Section 11 lists inconsistencies between project files that still need checking. Section 9
+holds the M2 physical acceptance tests, run 2026-10-05.
 
 This document states every number the rig relies on to report plant canopy area and how far that
 area can be trusted: what was measured, how, how often, the result, and what it does and does
@@ -58,19 +59,24 @@ measure every printed sheet.
 | Quantity | Value | How measured | Date | Notes |
 |---|---|---|---|---|
 | Image size | 9152 × 6944 px | Camera configuration | | Arducam 64MP |
-| Scale at tray height | 4.85 px/mm (mean over the image) | Today's calibration fit, 355 tags | 2026-10-05 | About 0.21 mm per pixel; earlier calibrations 4.5 to 4.8 |
+| Scale at tray height | 4.85 px/mm (at the image centre) | Calibration fit, 355 tags, 14:11 UTC calibration | 2026-10-05 | About 0.21 mm per pixel; earlier calibrations 4.5 to 4.8 |
+| Scale on the table surface | 4.52 px/mm (at the image centre), 6.79% below tray height in length, 15.1% in area | Calibration fit, 355 tags on the table, same camera position | 2026-10-05 | At 0.145% of area per mm this corresponds to about 100 mm of height (derived, not taped) |
 | Height above tray top | about +0.145% area per mm | A 75 mm taller tray in 3 slots read 11.2% to 12.0% large; predicted 11.8% | 2026-10-01 | Bands cover flat objects at tray-top height only. Plant height adds to the uncertainty (section 7) |
-| Perspective across the table | corrected by the scale field; positions mapped with a four-corner homography | Saved calibration frames | 2026-09-22 | Perspective within the table plane is modelled; lens distortion is not (section 9) |
+| Perspective across the table | corrected by the scale field; positions mapped with a four-corner homography | Saved calibration frames | 2026-09-22 | Perspective within the table plane is modelled; lens distortion is not (section 10) |
 
 ## 5. Calibration
 
-Today's calibration (2026-10-05 07:11:57 UTC, lens position 6.15, 30.0 mm tags): scale field
-residual 0.52% (standard deviation of the tags' scale about the fitted field).
+Current calibration (`20261005T141101923639`, 2026-10-05 14:11 UTC, lens position 6.27, 30.0 mm
+tags, 355 tags, 4 corner tags): scale field residual 0.52% (standard deviation of the tags' scale
+about the fitted field), holdout coverage error 0.4%.
+
+It replaced the 07:11 UTC calibration (lens 6.15, also 0.52%), which no longer fitted after the
+camera was knocked and re-framed in the roll test (section 9.3).
 
 | Quantity | Value | Basis |
 |---|---|---|
 | Fitted scale field | a tilted plane over the image | **Decision**, simplest shape for a camera looking down at a slight angle |
-| Local uncertainty | spread of the 5 nearest tags' residuals | **Decision** (k = 5); heatmap uses k = 40, chosen by comparing 5, 15, 40, 80, 150 on 352 tags |
+| Local uncertainty claimed by the calibration | spread of the 5 nearest tags' residuals | **Decision** (k = 5); heatmap uses k = 40. Found too small in 7 of 12 slots (section 9.4). **Decision 2026-10-05:** removed from what the operator sees; the validation band (section 6) is the uncertainty |
 | Area-shape check | worst tag -0.45%, mean -0.05% | 17 calibration frames, 2104 tags, 2026-09-21. Squaring a length scale is adequate for area at this level |
 | Calibration needs focus locked and all 4 corner tags visible | | **Decision**, overridable |
 
@@ -87,7 +93,22 @@ those same tags.
 all tags in that slot over all counted rounds: 95% of the tags read within that distance of
 their true area. Fewer than 10 tags in a slot gives "not measured" (**decision**).
 
-**Today's bands** (session `20261005T071549445423`, lens 6.15, 3 rounds, 85 to 90 tags per slot):
+**Current bands** (session `20261005T141310628479`, calibration `20261005T141101923639`, lens
+6.27, 3 rounds at 14:13, 14:14 and 14:15 UTC, 92% to 96% of tags moved, 85 to 90 tags per slot):
+
+| Slot | Band | Median error | Slot | Band | Median error |
+|---|---|---|---|---|---|
+| North 1 | ±1.77% | -0.30 | South 1 | ±2.22% | -0.69 |
+| North 2 | ±1.86% | +0.51 | South 2 | ±1.58% | +0.38 |
+| North 3 | ±2.64% | -0.39 | South 3 | ±2.44% | +0.16 |
+| North 4 | ±2.93% | -0.62 | South 4 | ±1.97% | +0.35 |
+| North 5 | ±1.73% | +0.21 | South 5 | ±2.16% | -0.21 |
+| North 6 | ±2.22% | +0.03 | South 6 | ±2.11% | -0.72 |
+
+Slot medians moved at most 0.9 points between rounds (limit 2.5).
+
+**Earlier bands, same day** (session `20261005T071549445423`, calibration of 07:11 UTC, lens 6.15,
+3 counted rounds, 85 to 90 tags per slot; superseded when the camera moved):
 
 | Slot | Band | Median error | Slot | Band | Median error |
 |---|---|---|---|---|---|
@@ -97,6 +118,9 @@ their true area. Fewer than 10 tags in a slot gives "not measured" (**decision**
 | North 4 | ±3.36% | -0.48 | South 4 | ±2.38% | +0.38 |
 | North 5 | ±1.43% | +0.00 | South 5 | ±1.51% | +0.09 |
 | North 6 | ±2.98% | -0.53 | South 6 | ±1.78% | +0.04 |
+
+Two calibrations and validations on the same day, at different camera positions and lens
+positions, gave bands of ±1.43% to ±3.36% and ±1.58% to ±2.93%.
 
 The bands belong to one calibration at one locked lens position. A new focus position means a new
 calibration and validation.
@@ -195,20 +219,196 @@ changes nothing).
 
 Detailed results: `reference/lens-return-2026-10.md`.
 
-## 9. Techniques deliberately not used, and what would justify them
+## 9. M2 physical acceptance tests (2026-10-05)
+
+The four tests PLAN.md lists for M2, run in the chamber on 2026-10-05 (times UTC; the chamber is
+UTC+2). The two-baseline test was run earlier (2026-09-25, section 8 table).
+
+| Test | Pass criterion | Result |
+|---|---|---|
+| 9.1 Two heights | Scale field shapes at two heights agree within the residual | **Pass**: largest difference 0.16%, residuals 0.52% and 1.10% |
+| 9.2 Tape measure | App agrees with a tape within 2% | **Pass**: +1.6% to +1.7% (tag to tag), about +1.4% (tape in the photo, after height correction); both read long |
+| 9.3 Roll and knock | Roll read correctly; a hard knock gives FAIL | **Pass**: -3.01 deg read against about -3.0 to -3.1 deg measured; knock gave FAIL |
+| 9.4 Claimed against actual error | The calibration's claimed uncertainty matches the measured error | **Fail for the claim, which is removed**; no corner pattern |
+
+### 9.1 Two-height test
+
+**Question.** Does the shape of the scale field (how scale changes across the image) stay the same
+at a different height, so one paper calibration covers every tray height?
+
+**Method.** Two calibrations, same camera position, 30.0 mm tags, 355 tags and 4 corner tags each:
+
+| Run | Sheets on | File | Lens | Centre scale | Residual |
+|---|---|---|---|---|---|
+| A | the table surface | `20261005T140433441775` (14:04), not made current | 6.07 | 4.522 px/mm | 1.10% |
+| B | trays at experiment height | `20261005T141101923639` (14:11), current | 6.27 | 4.852 px/mm | 0.52% |
+
+For each run, the scale at each corner of the calibrated area (pixels (1000, 1000), (8150, 1000),
+(1000, 5950), (8150, 5950)) is divided by the same run's scale at the image centre (4576, 3472).
+This removes the overall change of scale with height and leaves the shape.
+
+| Position | Table | Trays | Difference (points) |
+|---|---|---|---|
+| Top-left | -1.15% | -1.16% | +0.01 |
+| Top-right | -0.82% | -0.66% | -0.15 |
+| Bottom-left | +0.83% | +0.67% | +0.16 |
+| Bottom-right | +1.18% | +1.19% | -0.01 |
+
+**Result.** The shapes agree within 0.16 points, below both runs' residuals. One paper calibration
+covers every tray height: a new tray height needs no new paper calibration for its shape. The
+residual on the table (1.10%) is twice that on the trays, possibly because sheets lie less flat on
+the table surface; it makes this test less strict, not more.
+
+**Covers.** Table surface to tray top (about 100 mm, derived from the centre scale change, 15.1% in
+area, and 0.145% of area per mm, not taped). Lens moved between runs (6.07 and 6.27), as in a real change of height.
+
+### 9.2 Tape-measure check
+
+**Question.** The scale rests on the tag size typed in (30.0 mm). If that were wrong, every reading
+would be wrong by the same proportion, and validation would not notice, because it checks against
+the same number. A tape measure is an independent instrument.
+
+**Instrument.** Steel tape, 1 mm divisions. It reads 180 mm on a sheet's 180 mm scale bar
+(callipers 179.93 and 180.03 mm), so it shows no fixed offset and no 1.6% scale error over that
+length.
+
+**Method A, tag to tag.** Tape from the western (outer) edge of a tag on the South 1 sheet to the
+eastern (outer) edge of a tag on the South 6 sheet, on the tray tops. The app's distance is
+computed from the tags' detected corners and the current scale field, integrated along the line.
+Tag numbers repeat across sheets, so the tag is identified by position as well as number.
+
+| Tags | Photo | Tape | App | App reads long by |
+|---|---|---|---|---|
+| 355 (S1) to 329 (S6) | 12:59:40 | 1720 to 1721 mm | 1750.1 mm | 1.7% |
+| 380 (S1) to 354 (S6) | 13:07:52 | 1713 mm | 1741.0 mm | 1.6% |
+
+**Method B, tape in the photo** (13:12:53). The tape lay along the north edge of the South trays,
+zero at the edge of South 1, and was photographed. The app's distance between the centres of the
+red 10 cm boxes printed on the tape (found by colour, about 5 px per mm) was computed with the
+scale field:
+
+| Span | Tape | App | App reads long by |
+|---|---|---|---|
+| 10 to 180 cm | 1700 mm | 1736.7 mm | 2.16% |
+| 20 to 170 cm | 1500 mm | 1531.3 mm | 2.09% |
+| 30 to 160 cm | 1300 mm | 1325.0 mm | 1.92% |
+
+Near the frame centre, Aaron measured 4.8504 px/mm along the tape in ImageJ; the app's field
+gives 4.844 px/mm there (0.1%). Toward both ends of the row the app reads the tape about 3% long
+(10 to 50 cm: 2.99%; 140 to 180 cm: 2.92%).
+
+**Height correction.** The tape lay on the tray lips, about 10 mm above the sheets. The measured
+height effect, 0.145% per mm, is for area; for a length it is half, about 0.072% per mm. 10 mm is
+therefore about +0.72% in length, so the full 1700 mm span corrected is about +1.4% (about ±0.15%
+for "about 10 mm"; 20 to 170 cm about +1.4%, 30 to 160 cm about +1.2%). Method A needs no
+correction: the tags lie on the sheets.
+
+**Result.** Pass against 2% by both methods, which agree within about 0.3 points: over about
+1700 mm the app reads distances 1.4% to 1.7% long. The pattern along the tape (centre about -0.6%
+after correction, ends about +2.2%) fits the known central error (section 7). **Open point:** in
+the same photos the tags at the ends of the row read 29.4 to 30.1 mm, slightly small or correct,
+while distances spanning the row read long. The reason is not known.
+
+*Correction, 2026-10-05:* a first version of this section applied the area figure (0.145% per mm)
+to lengths, which gave +0.7% and a false 1% disagreement between the two methods. Found in review.
+
+**Covers.** Left to right along the South row only, about 1700 mm, at tray-top height. Not front to
+back. Not the North row.
+
+### 9.3 Roll and knock (tripwire)
+
+**Question.** After calibration, the app compares the 4 corner tags in each photo with the
+calibration's (the tripwire). Does it read a camera roll correctly, and does a knock give FAIL?
+
+**Limits** (code, marked provisional): roll DRIFT at 1 deg, FAIL at 10 deg; corner scale DRIFT at
+3%, FAIL at 8%; any corner tag missing gives FAIL.
+
+**Independent reference.** The table's aluminium rails, fixed to the chamber. The angle of a rail
+edge is fitted with a straight line over x = 1500 to 7600 px (RANSAC, about 1000 edge points),
+standard error 0.003 to 0.004 deg per photo. A camera that tips as well as rolls makes lines
+above and below the image centre lean in opposite directions, so the top and bottom rails are
+both measured and their change interpolated to the image centre.
+
+| Step | App (Check tripwire now) | Photo |
+|---|---|---|
+| Baseline | OK, roll 0.00 deg | 13:31:08 |
+| Knock on the camera mount | FAIL: corner tag 452 missing (pushed to the bottom edge of the frame) | 13:32:54 |
+| Camera re-framed by hand | DRIFT: rolled 3.0 deg counterclockwise, near corner tag 455 7% closer (roll -3.01 deg) | 13:35:04 |
+
+| Rail | Before | After | Change |
+|---|---|---|---|
+| Top (image y about 1100 to 1330) | +0.27 deg | -4.02 deg | -4.28 deg |
+| Bottom (image y about 5940 to 6160) | -0.37 deg | -2.05 deg | -1.68 deg |
+| Interpolated to the image centre | | | about -3.0 to -3.1 deg |
+
+**Result.** Pass. The app's roll (-3.01 deg) agrees with the rails within 0.06 deg (criterion
+0.2 deg, set for this test). The knock gave FAIL, through the lost corner tag; the roll and scale
+FAIL limits were not reached by this knock.
+
+**Observation, not acted on.** Each rail edge bends about 0.5 deg between its left and right halves,
+in both photos: straight lines near the top and bottom of the frame are slightly curved.
+
+**Covers.** One roll of about 3 deg, not 5 deg. The camera can only be nudged by hand, with no
+measure of its own, which is why the rails are the reference.
+
+### 9.4 Claimed uncertainty against actual error (honesty plot)
+
+**Question.** The calibration claims an uncertainty at each position: the spread of the 5 nearest
+tags about the fitted field. Is that claim honest, that is, does it match the error actually
+found on targets it was not fitted to? And is the error worse toward the corners (the evidence
+gate for a lens distortion model, section 10)?
+
+**Method.** Instead of 6 positions, all 12 slots, using validation session `20261005T071549445423`
+(calibration of 07:11 UTC; 3 counted rounds of moved tags, 85 to 90 tags per slot). Three further
+photographs in that session (07:35, 07:49, 08:05) were a lens-drift check with nothing moved and
+were not counted. Claimed: the calibration's local uncertainty at the slot centre, a length
+percentage. Actual: root mean square of the slot's area errors, halved to give a length
+percentage (area error is about twice length error).
+
+| Slot | Claimed | Actual | Slot | Claimed | Actual |
+|---|---|---|---|---|---|
+| North 1 | 0.36% | 0.52% | South 1 | 0.49% | 0.49% |
+| North 2 | 0.56% | 0.55% | South 2 | 0.58% | 0.43% |
+| North 3 | 0.52% | 0.66% | South 3 | 0.42% | 0.63% |
+| North 4 | 0.50% | 0.84% | South 4 | 0.78% | 0.64% |
+| North 5 | 0.31% | 0.38% | South 5 | 0.28% | 0.41% |
+| North 6 | 0.32% | 0.61% | South 6 | 0.50% | 0.46% |
+
+**Result.** The claim is lower than the actual error in 7 of 12 slots, about equal in 1, higher in
+4; the median slot's actual error is 1.25 times its claim, the worst 1.9 times (North 6). The
+claim is overconfident because it is judged against the same tags it was fitted to. **Decision
+(Aaron, 2026-10-05):** remove the claimed uncertainty, the confidence heatmap and the honesty-plot
+panel from what the operator sees. The validation band is the uncertainty.
+
+**Corners.** The 4 outer corner slots average 0.52% actual error, the 4 central slots 0.69%. The
+error is not worse toward the corners; the central excess is the known central error (section 7).
+The lens distortion gate stays closed. The trays do not reach the extreme frame corners; plants
+only sit on trays.
+
+## 10. Techniques deliberately not used, and what would justify them
 
 | Technique | Adopt when | Evidence so far |
 |---|---|---|
-| Lens distortion model (intrinsic calibration) | Errors are structured, worse toward the corners, not random | Radial fit R² 0.33 to 0.45 on repeat runs (2026-09-22); undecided |
+| Lens distortion model (intrinsic calibration) | Errors are structured, worse toward the corners, not random | Radial fit R² 0.33 to 0.45 on repeat runs (2026-09-22). 2026-10-05: validation errors are not worse at the corner slots (section 9.4), so the gate stays closed. Rail edges near the frame top and bottom bend about 0.5 deg (section 9.3), noted only |
 | Correction for height above the plane | A measured depth source exists | None |
 | Orthophoto, second camera | A second viewpoint exists, and in-plane accuracy proves insufficient | Canon used once, as a check only |
 | Learned tray identification | Tag identity measurably fails often enough to matter | Not measured |
 
-## 10. Not yet measured, and open inconsistencies
+## 11. Not yet measured, and open inconsistencies
 
-**Acceptance tests not yet run** (PLAN.md M2): two-height test, tape-measure check within 2%, roll
-of about 5° read as about 5°, honesty plot at 6 positions. Restart and power-cut repeatability
-(section 8).
+**Not yet measured:** power-cut repeatability (section 8.1, run 3). The M2 acceptance tests are
+done (section 9).
+
+**Open points from the acceptance tests:**
+
+1. Tape check: distances across the South row read 1.4% to 1.7% long by both methods, while the
+   tags at its ends read 29.4 to 30.1 mm (section 9.2). Not explained.
+2. Tripwire: a knock gave FAIL only through a lost corner tag; the roll (10 deg) and scale (8%)
+   FAIL limits are still provisional (section 9.3).
+3. Lens control stops responding after a full-res capture (calibration, capture or tripwire
+   check) until the app is restarted. Seen twice on 2026-10-05. Lens commands return success while
+   the lens does not move. A measurement-relevant risk: the lens position recorded with a capture
+   may not be the actual one. Tracked as a bug, not a measurement.
 
 **Inconsistencies found between project files, to be checked and resolved:**
 
@@ -217,12 +417,13 @@ of about 5° read as about 5°, honesty plot at 6 positions. Restart and power-c
    date 2026-09-29 and 2026-09-21.
 3. Camera height: "not yet measured" and 1482 mm in different TODO.md notes; no method recorded.
 4. Tray height: about 100 mm in some notes, a survey of 50 to 56 mm in another (the reference
-   point of the survey is not stated).
+   point of the survey is not stated). The 2026-10-05 two-height test implies about 100 mm from
+   table surface to tray top (derived from scale, not taped), matching the 100 mm notes.
 5. Central error size: "up to about 4%" (CLAUDE.md) against ring values down to -5.27 at 6.10 in
    the investigation.
 6. Image width: 9152 px (configuration) and 9248 px (hardware probe, sensor size).
 
-## 11. Terms
+## 12. Terms
 
 - **Area error:** (area read − true area) / true area, in percent.
 - **Point:** a difference between two percentages (1.00% to 1.03% is 0.03 points).
@@ -231,3 +432,7 @@ of about 5° read as about 5°, honesty plot at 6 positions. Restart and power-c
   lie within one SD, about 19 in 20 within two.
 - **95th percentile, band:** the distance from the true value that 95% of tags fall within.
 - **Lens position:** the focus setting reported by the camera (dioptres).
+- **Root mean square (RMS):** the square root of the average squared error; a typical size of the
+  error, sign ignored. About 2 in 3 values lie within it.
+- **Roll:** rotation of the camera about its viewing direction, seen as the whole image turning.
+- **Tripwire:** the check of the 4 corner tags against the calibration, giving OK, DRIFT or FAIL.

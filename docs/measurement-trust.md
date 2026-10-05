@@ -1,7 +1,9 @@
 # Why the rig's area measurements can be trusted
 
-**Status:** first version, 2026-10-05. M2 physical acceptance tests are still to run (see *What the trust does not cover yet*).
-The evidence for every number here, with its source, is in `docs/metrology-log.md`.
+**Status:** 2026-10-05. The M2 physical acceptance tests were run in the chamber on 2026-10-05.
+The two-height, tape and roll tests passed. The check of the calibration's own uncertainty claim
+failed, so that claim is no longer used (see *An independent check, which sets the band*). The evidence for every number here, with
+its source, is in `docs/metrology-log.md`.
 
 ## The claim
 
@@ -9,8 +11,10 @@ The rig photographs plant trays from above and reports, for each tray slot, an a
 band: the range within which that area can be trusted.
 
 The band has a precise meaning. **For flat objects at tray-top height, at the rig's locked focus,
-95% of measured test targets in that slot read within the band of their true area.** In today's
-setup (2026-10-05, lens position 6.15) the bands run from ±1.43% (North 5) to ±3.36% (North 4).
+95% of measured test targets in that slot read within the band of their true area.** In the
+current setup (2026-10-05, lens position 6.27) the bands run from ±1.58% (South 2) to ±2.93%
+(North 4). An earlier setup the same day (lens 6.15, camera before it was moved) gave ±1.43% to
+±3.36%.
 
 This document explains why that claim holds, and the steps taken to make it hold. Each step says
 what could go wrong, what the rig does about it, and the evidence.
@@ -55,9 +59,15 @@ or one focus setting does not hold everywhere.
 gives the scale (pixels per millimetre) at its own position, and a smooth scale field is fitted
 across the image. Area is then pixels divided by the square of the local scale.
 
-**Evidence.** Today's calibration (lens 6.15, 355 tags): mean scale 4.85 px/mm (about 0.21 mm per
-pixel), and the tags sit within 0.52% of the fitted field (standard deviation). Calibration
-refuses to run without a lock and all 4 corner tags, unless the operator overrides it.
+**Evidence.** The current calibration (lens 6.27, 355 tags): scale 4.85 px/mm at the image centre
+(about 0.21 mm per pixel), and the tags sit within 0.52% of the fitted field (standard
+deviation). Calibration refuses to run without a lock and all 4 corner tags, unless the operator
+overrides it.
+
+**One calibration covers every tray height.** Calibrations with the sheets on the table surface
+and on the trays (about 100 mm higher) gave the same shape of scale field within 0.16 points, below
+either calibration's own residual. A change of tray height changes the overall scale (about
+0.145% of area per mm), but not the shape.
 
 ## An independent check, which sets the band
 
@@ -70,9 +80,18 @@ times. A round counts only if at least half the tags actually moved, so the same
 counted twice. The calibration photograph itself is never used. In each slot, the band is the
 distance from the true area that 95% of the tags fall within, over all rounds.
 
-**Evidence.** Today's validation: 3 rounds, 85 to 90 tags per slot, bands ±1.43% to ±3.36%. The
-band is therefore not an estimate: it is the observed spread of real measurements of known
-targets, in that slot, at that focus.
+**Evidence.** The current validation: 3 rounds, 92% to 96% of tags moved each round, 85 to 90 tags
+per slot, bands ±1.58% to ±2.93%. The band is therefore not an estimate: it is the observed spread
+of real measurements of known targets, in that slot, at that focus.
+
+**Why the calibration's own estimate is not used.** The calibration can also estimate its
+uncertainty from how closely the tags fit the scale field. Checked against validation, that
+estimate was slightly too small in 7 of 12 slots: typically 0.50% predicted against 0.54%
+measured, in length, and at worst 0.32% against 0.61% (North 6). On a 36 mm leaf that is about
+0.12 mm predicted against 0.22 mm measured. Both are small; the estimate was simply not a
+reliable guide, because it is judged against the same tags it was fitted to. It has been
+dropped from what the operator sees; only the validation band, which is measured directly, is
+reported.
 
 ## Faults are caught, not averaged in
 
@@ -100,6 +119,26 @@ most 1.96 points and sat at most 2.15 points from the rest.
 - A tray 75 mm taller than normal read 11.2% to 12.0% large, against 11.8% predicted from the
   camera height. The rig measures what is actually there; a wrong-height tray shows as a wrong
   area, which is why bands are stated for tray-top height only.
+
+## Independent checks of the whole chain
+
+**What could go wrong.** Calibration and validation both rest on the same typed-in tag size. If
+that number were wrong, every area would be wrong by the same proportion and validation would
+still pass. And a camera that moves after calibration would make the calibration silently stale.
+
+**What the rig does.** Two checks that do not depend on the tag size: a tape measure, and the
+corner-tag tripwire, which compares every photo's 4 corner tags with the calibration's.
+
+**Evidence (2026-10-05, in the chamber).**
+
+- **Tape measure, about 1700 mm along the South row.** Tag to tag, the app read 1.6% and 1.7%
+  long in two runs. With the tape itself photographed (lying 10 mm above the sheets, which by
+  itself makes a length read about 0.72% long), the app read about 1.4% long. Both are inside the
+  2% required, and they agree within about 0.3 points.
+- **Camera roll.** The camera was rolled by hand. The app read -3.01°; the table's fixed rails,
+  measured in the same photos, gave about -3.0° to -3.1°.
+- **Knock.** A firm knock on the camera mount gave FAIL (a corner tag pushed out of view). After
+  re-framing, the app reported DRIFT with the roll and the tilt.
 
 ## The band stays valid over time and after disturbance
 
@@ -137,7 +176,8 @@ percent smaller in area than targets further out. It was investigated over sever
 second camera (Canon) photographing the same table does not see it, so it belongs to the Arducam,
 not to the table, sheets, trays, lighting or detection. Its size follows the focus position (about
 1.2 points per 0.1 of lens position). The rig does not correct it with a model. Validation
-measures it in each slot, which is why the central slots have the widest bands (North 4 ±3.36%).
+measures it in each slot, which is why the central slots have the widest bands (North 4 ±2.93%
+now, ±3.36% in the earlier setup).
 The focus position is the experimenter's choice; the rig never tunes it for accuracy.
 
 **Height above the tray.** Measured at about +0.145% of area per mm above the tray top. Plants
@@ -145,8 +185,9 @@ have height, so a plant's area carries this on top of the band.
 
 **Lens distortion.** Not modelled. The rule for adopting a distortion model is evidence that the
 errors are structured (growing toward the image corners), not random. A radial trend has been
-seen (R² 0.33 to 0.45 on repeat runs); whether it is large enough to justify a model is an open
-decision.
+seen (R² 0.33 to 0.45 on repeat runs), but in the 2026-10-05 validation of the earlier setup
+(lens 6.15) the errors in the 4 corner slots (0.52% in length) were no larger than in the 4 central slots (0.69%). The trays do not reach
+the extreme frame corners, and plants only sit on trays. No model is adopted.
 
 ## What the trust does not cover yet
 
@@ -155,9 +196,17 @@ decision.
   canopy-area milestone (M5) and is expected to add several percent.
 - **Other focus positions.** Each focus position needs its own calibration and validation.
 - **A power cut.** Not yet tested (planned, same method).
-- **M2 physical acceptance tests,** not yet run: a tape-measure check of tag distances within 2%,
-  the two-height test, a roll of about 5° read as about 5°, and the claimed-against-actual
-  ("honesty") plot at 6 positions.
+- **Long distances across several trays.** The tape check passed, but distances across the South
+  row read 1.4% to 1.7% long while the tags at its ends read about right, which is not explained.
+  Only the left-right direction of one row was checked. A plant is
+  measured with the scale at its own slot, which validation checks directly; a distance spanning
+  trays is not.
+- **A software fault with focus.** After a full-res photo (a calibration, capture or tripwire
+  check), the lens can stop obeying focus commands until the app is restarted, while the app
+  reports success. Seen twice on 2026-10-05. Measurements made without touching focus are not
+  known to be affected; refocusing must be done in a freshly restarted app until this is fixed.
+- **Tripwire limits.** The FAIL limits for roll (10°) and scale (8%) are provisional; the knock
+  test reached FAIL through a lost corner tag, not through those limits.
 - **One rig, two weeks of data.** The evidence above comes from this rig between 2026-09-21 and
   2026-10-05.
 
