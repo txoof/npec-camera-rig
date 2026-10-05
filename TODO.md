@@ -314,6 +314,17 @@ Sliced so each piece ends with something visible in a browser.
 
 The heart of the project. Do not start before M1 slice 5.
 
+- [ ] **HIGH PRIORITY. Formal write-up of every measurement and confidence number (Aaron,
+      2026-10-05).** Document all of the rig's metrology formally, so it can become a paper that
+      describes the rig and shows how useful and valid its measurements are. Gather what is now
+      spread over `reference/` and TODO.md: tag sizes and calliper limits (30.0 ± 0.1 mm), the
+      calibration residual, the per-slot validation bands and how they are measured, the
+      central error and its link to lens position (`reference/arducam-central-error-2026-10.md`),
+      the height effect (0.145% per mm), photograph-to-photograph noise (0.27 to 0.46 points), and
+      the lens-return results (`reference/lens-return-2026-10.md`). For each number: what was
+      measured, how, with what, how often, and what it does and does not cover. Written for a
+      reader without a metrology background.
+
 - [x] Hardware-test skip infrastructure in `tests/conftest.py`: `pytest_collection_modifyitems`
       probes for the real camera (`Picamera2.global_camera_info()`, no open/lock) and Hailo
       (`hailortcli` on `PATH`), skipping `hardware`/`hailo`-marked tests when absent instead of
