@@ -1,0 +1,169 @@
+# Why the rig's area measurements can be trusted
+
+**Status:** first version, 2026-10-05. M2 physical acceptance tests are still to run (see *What the trust does not cover yet*).
+The evidence for every number here, with its source, is in `docs/metrology-log.md`.
+
+## The claim
+
+The rig photographs plant trays from above and reports, for each tray slot, an area in mm² and a
+band: the range within which that area can be trusted.
+
+The band has a precise meaning. **For flat objects at tray-top height, at the rig's locked focus,
+95% of measured test targets in that slot read within the band of their true area.** In today's
+setup (2026-10-05, lens position 6.15) the bands run from ±1.43% (North 5) to ±3.36% (North 4).
+
+This document explains why that claim holds, and the steps taken to make it hold. Each step says
+what could go wrong, what the rig does about it, and the evidence.
+
+## The approach: measure, do not assume
+
+The rig's accuracy is never worked out from a model of the camera or lens. It is measured, by
+photographing printed targets of known size and checking how far the rig's readings of them are
+off.
+
+This was a deliberate choice. Three earlier attempts at this project modelled the camera (lens
+distortion, uncertainty propagation) and never produced a working application. The rule since
+then: if a number cannot be shown with a ruler, a printed target or a repeated photograph, it is
+not used.
+
+## A known reference
+
+**What could go wrong.** The whole measurement rests on knowing the true size of the targets. A
+target that is not the size it is believed to be shifts every area by the same proportion, and
+nothing else in the system would notice.
+
+**What the rig does.** Every printed batch of targets is measured with callipers, and the measured
+size, not the printed label, is used.
+
+**Evidence.**
+
+- The current 30 mm tags measure 30.0 ± 0.1 mm (6 calliper readings, mean 30.018 mm). The sheets'
+  180 mm scale bars measure 179.93 and 180.03 mm, confirming they printed at full scale.
+- ±0.1 mm on a 30 mm side is about ±0.67% in area, the limit of what the callipers can confirm.
+- On the previous rig, the tags labelled 30 mm actually measured 29.3106 mm. Trusting the label
+  caused about 4.7% area error, the largest single error that rig had. On 2026-09-29 a sheet
+  printed at 96% scale was found mixed in with good sheets. Both were caught only by measuring.
+
+## Calibration at the experiment's own focus
+
+**What could go wrong.** The camera sees things nearer the lens as larger, and the focus setting
+changes how large things look, especially near the image centre. A scale taken from one place
+or one focus setting does not hold everywhere.
+
+**What the rig does.** The experimenter chooses the focus and locks it. With focus locked and all
+4 corner tags visible, the rig photographs calibration sheets spread across every tray. Each tag
+gives the scale (pixels per millimetre) at its own position, and a smooth scale field is fitted
+across the image. Area is then pixels divided by the square of the local scale.
+
+**Evidence.** Today's calibration (lens 6.15, 355 tags): mean scale 4.85 px/mm (about 0.21 mm per
+pixel), and the tags sit within 0.52% of the fitted field (standard deviation). Calibration
+refuses to run without a lock and all 4 corner tags, unless the operator overrides it.
+
+## An independent check, which sets the band
+
+**What could go wrong.** A calibration always fits the targets it was made from. That says nothing
+about how well it measures something else, somewhere else.
+
+**What the rig does.** Validation tests the calibration on placements it was not made from. The
+operator moves each sheet to a different tray, and the rig photographs again; this is repeated 3
+times. A round counts only if at least half the tags actually moved, so the same layout is never
+counted twice. The calibration photograph itself is never used. In each slot, the band is the
+distance from the true area that 95% of the tags fall within, over all rounds.
+
+**Evidence.** Today's validation: 3 rounds, 85 to 90 tags per slot, bands ±1.43% to ±3.36%. The
+band is therefore not an estimate: it is the observed spread of real measurements of known
+targets, in that slot, at that focus.
+
+## Faults are caught, not averaged in
+
+**What could go wrong.** A bad sheet, a tray at the wrong height, or a knocked camera would make
+some readings wrong. Pooled into a band, a fault would quietly widen it or shift it.
+
+**What the rig does.** Each validation is checked for:
+
+- a slot whose reading moves between rounds by more than 2.5 points (a sheet that does not match
+  the others);
+- a slot that reads off from all the others by more than 3.0 points, every round (a fault that
+  stays in one place);
+- the whole table reading off by more than 2.5 points (camera or table moved).
+
+Each limit was set from real sessions: in validations with no known fault, slots moved by at
+most 1.96 points and sat at most 2.15 points from the rest.
+
+**Evidence (2026-10-01, in the chamber).**
+
+- A sheet printed at 89% scale (measured with callipers, reading about 21% small) was moved
+  through three slots. The rig named it in each round (-20.9, -20.9, -21.3 points) and flagged
+  no good round.
+- Left on one slot for all rounds, it was not flagged by the round-to-round check. That run is
+  why the steady-offset check (the second check above) was added.
+- A tray 75 mm taller than normal read 11.2% to 12.0% large, against 11.8% predicted from the
+  camera height. The rig measures what is actually there; a wrong-height tray shows as a wrong
+  area, which is why bands are stated for tray-top height only.
+
+## The band stays valid over time and after disturbance
+
+**What could go wrong.** The band is measured at one moment. If the camera's readings shifted
+later (with time, after a restart, or after a power cut), the band would no longer describe the
+measurements.
+
+**What the rig does.** After a restart or power cut, the app drives the lens back to the locked
+position by one fixed route and waits until the camera reports it there; the lock is restored
+only if that succeeds. Captures never move the lens.
+
+**Evidence (2026-10-05, the repeat-photograph test).** The table was left untouched and each tag
+was compared with its own earlier reading:
+
+| Event | Change right after (median) | Largest slot change within an hour |
+|---|---|---|
+| Nothing done (control) | | up to 0.52 points (North 1) |
+| Lens moved by autofocus, driven back to 6.15 | -0.03 points | +0.35 points |
+| App restart | +0.08 and +0.09 points (two attempts) | -0.29 points |
+| Power cut | not yet tested | |
+
+Photographs of an unchanged scene differ by a spread of 0.27 to 0.46 points anyway. Both
+disturbances stayed inside the change seen with nothing done, and the largest change in any slot
+was about a sixth of that slot's band. On this evidence, a restart does not require a new
+calibration or validation.
+
+**One open point.** On 2026-10-01, after a different series of lens moves, the central readings
+drifted by 1.3 points in 35 minutes. That was not repeated on 2026-10-05, and the reason for the
+difference is not known.
+
+## Known error sources are found and stated
+
+**The Arducam's central error.** Targets within about 1500 px of the image centre read up to a few
+percent smaller in area than targets further out. It was investigated over several days: a
+second camera (Canon) photographing the same table does not see it, so it belongs to the Arducam,
+not to the table, sheets, trays, lighting or detection. Its size follows the focus position (about
+1.2 points per 0.1 of lens position). The rig does not correct it with a model. Validation
+measures it in each slot, which is why the central slots have the widest bands (North 4 ±3.36%).
+The focus position is the experimenter's choice; the rig never tunes it for accuracy.
+
+**Height above the tray.** Measured at about +0.145% of area per mm above the tray top. Plants
+have height, so a plant's area carries this on top of the band.
+
+**Lens distortion.** Not modelled. The rule for adopting a distortion model is evidence that the
+errors are structured (growing toward the image corners), not random. A radial trend has been
+seen (R² 0.33 to 0.45 on repeat runs); whether it is large enough to justify a model is an open
+decision.
+
+## What the trust does not cover yet
+
+- **Plant height and segmentation.** The bands are for flat targets at tray-top height. Telling
+  plant from background (segmentation) has not been measured on this rig; it is planned for the
+  canopy-area milestone (M5) and is expected to add several percent.
+- **Other focus positions.** Each focus position needs its own calibration and validation.
+- **A power cut.** Not yet tested (planned, same method).
+- **M2 physical acceptance tests,** not yet run: a tape-measure check of tag distances within 2%,
+  the two-height test, a roll of about 5° read as about 5°, and the claimed-against-actual
+  ("honesty") plot at 6 positions.
+- **One rig, two weeks of data.** The evidence above comes from this rig between 2026-09-21 and
+  2026-10-05.
+
+## Where the evidence is
+
+- `docs/metrology-log.md`: every number, how it was measured, its date and source.
+- `reference/arducam-central-error-2026-10.md`: the central-error investigation.
+- `reference/lens-return-2026-10.md`: the lens-return, control and restart tests.
+- Validation sessions and captures on the rig: `/var/lib/npec-rig/`.

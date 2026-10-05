@@ -331,7 +331,7 @@ stays real rather than mock-heavy.
 
 Each ends with **acceptance tests you run in the chamber**. Nothing is done on a passing unit test
 alone. Each acceptance result, and every metrology finding on the way, is written up in
-`docs/metrology.md` (see item 5 of *Verification strategy*).
+`docs/metrology-log.md` (see item 5 of *Verification strategy*).
 
 ### M0 — Probe the hardware (30 min, before any code)
 
@@ -636,9 +636,10 @@ worth knowing rather than discovering in week three.
    error*. If the app says ±3% and is routinely off by 10%, that's the most important kind of bug,
    and this is how we catch it. Its residual *structure* is also what opens or keeps shut the
    intrinsic-calibration gate.
-5. **The metrology write-up**: `docs/metrology.md` states every measurement and confidence number
+5. **The metrology write-up**: `docs/measurement-trust.md` makes the case for trusting the rig's
+   measurements, step by step; `docs/metrology-log.md` states every measurement and confidence number
    the rig relies on: what was measured, how, how often, the result and its spread, and what it
-   covers. It is updated in the same change as the finding, and is the basis for reporting and a
+   covers. Both are updated in the same change as the finding, and are the basis for reporting and a
    possible paper on the rig and the validity of its measurements (Aaron, 2026-10-05).
 
 ## Remaining open questions

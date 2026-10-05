@@ -1,6 +1,6 @@
 # Returning to the same lens position: does the measurement come back?
 
-**Status:** run 1 and the control done (2026-10-05). Runs 2 (app restart) and 3 (power cut) not yet done.
+**Status:** run 1, the control and run 2 (app restart) done (2026-10-05). Run 3 (power cut) not yet done.
 
 ## Why this matters
 
@@ -114,24 +114,57 @@ and 09:02 one sheet's worth of tags (31) moved, and 23 tags were hidden until so
 - The cause of the change over time is not known (for example temperature, light, or the
   camera's automatic exposure).
 
+## Run 2: app restart
 
-- One disturbance type (autofocus, then re-lock), one lens position (6.15), one hour, one day.
+The server process was killed and started again. At start-up the app drives the lens to the
+locked position the same way as Lock focus (0.3 below, a pause, then the target), waits until
+the camera reports it there, and only then restores the lock. Focus was locked at 6.15 and nothing
+on the table was moved. Each attempt is compared with a reference photograph taken just before
+the restart. The live server ran the code merged in #37.
+
+**First attempt (disturbed).** Reference 10:53:45 UTC, restart 10:53:52, server back and locked at
+6.15 at 10:53:56, +0 photograph 10:53:58: 355 of 355 tags, median +0.09 points, spread 0.32,
+ring 1000 to 1500 px +0.04, every slot within 0.20. Between +0 and +15 the validation session was
+ended and the lens was moved by hand, so no later rounds were taken.
+
+**Second attempt (undisturbed).** Lens set to 6.15 and locked at 11:15:14 UTC, new validation
+session `20261005T111520006719` on the same calibration. Reference 11:15:31, restart 11:15:38,
+server back and locked at 6.15 at 11:15:42. No focus, lens or session requests during the run.
+
+| Round | Time (UTC) | Tags matched | Median change | Spread (SD) | Ring 1000 to 1500 px | Largest slot median |
+|---|---|---|---|---|---|---|
+| +0 min | 11:15:44 | 355 of 355 | +0.08 | 0.34 | +0.11 (40 tags) | +0.21 (South 4) |
+| +15 min | 11:30:44 | 355 of 355 | -0.13 | 0.32 | +0.25 (40 tags) | -0.29 (South 1) |
+| +30 min | 11:45:48 | 355 of 355 | -0.09 | 0.26 | +0.19 (40 tags) | -0.21 (South 1) |
+| +60 min | 12:15:48 | 355 of 355 | -0.05 | 0.24 | +0.13 (40 tags) | -0.21 (South 5) |
+
+**What run 2 shows**
+
+- Right after a restart the reading is the same as before it, within noise, in both attempts
+  (median +0.09 and +0.08 points).
+- Over the following hour every value stayed inside the control's range (median within ±0.17,
+  ring within ±0.26, slots up to 0.52). The largest slot change, South 1 -0.29 points, is about a
+  sixth of its ±1.89% band.
+- So an app restart, which drives the lens back to the locked position, added nothing this method
+  can detect.
+
+## Limits
+
+- Run 1 and 2 are each one disturbance, at one lens position (6.15), over one hour, on one day.
 - How far autofocus moved the lens is not recorded (the log has the button presses, not the
   positions). The disturbance may have been small. A restart drives the lens through the same
   full route every time, so run 2 has a known disturbance.
 - The control (above) was run once, partly disturbed, on the same day.
-- An app restart and a power cut have not been tested. A restart uses the same lens drive, but a
-  power cut also cools the camera and the focus mechanism, which may matter if the drift is
-  thermal.
+- A power cut has not been tested. It uses the same lens drive as a restart, but also cools the
+  camera and the focus mechanism, which may matter if the change over time is thermal.
 - Area only at tray-top height; plant height and segmentation add their own uncertainty.
 
 ## Next runs
 
-1. **Run 2, app restart:** same method, the restart replacing the autofocus moves.
-2. **Run 3, power cut:** same method, with the Pi powered off at the rig for long enough to
+1. **Run 3, power cut:** same method, with the Pi powered off at the rig for long enough to
    cool (for example, 30 minutes), then on again.
 
-If runs 2 and 3 match run 1, a restart during an experiment needs no new calibration, and the
+If run 3 matches runs 1 and 2, a power cut during an experiment needs no new calibration, and the
 ordinary change over time (here up to 0.52 points in one slot, about a quarter of its band) can be
 stated alongside the validation bands.
 
@@ -141,7 +174,9 @@ Correction, 2026-10-05: the first version of this report compared the shifts wit
 ## Raw data
 
 - Validation session `20261005T071549445423`, rounds 4 onward (`/var/lib/npec-rig/calibration/validations/`).
-- Round responses and logs: `/home/pi/scratch/lens-return-2026-10-05/` (run 1) and
-  `/home/pi/scratch/lens-control-2026-10-05/` (control).
+- Round responses and logs: `/home/pi/scratch/lens-return-2026-10-05/` (run 1),
+  `/home/pi/scratch/lens-control-2026-10-05/` (control), `/home/pi/scratch/lens-restart-2026-10-05/`
+  and `/home/pi/scratch/lens-restart-2026-10-05b/` (run 2, first and second attempt).
+- Run 2 second attempt: validation session `20261005T111520006719`.
 - Analysis script: `reference/lens-return-2026-10-analyse.py` (reads stored tag detections, changes
   nothing). Run from the repo with `PYTHONPATH=src .venv/bin/python <script>`.
