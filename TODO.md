@@ -510,6 +510,18 @@ The heart of the project. Do not start before M1 slice 5.
       use SQLite instead. Unit-tested (round-trip, current-pointer tracking, listing, isolation
       from the captures dir). *(2026-09-20)*
 
+- [ ] **Focus-drift check and "recalibration needed" message (PLAN.md § M2, not yet tracked
+      until 2026-10-05).** PLAN.md: a focus-drift check from the sharpness score against the
+      locked value, and the app tells the experimenter when recalibration is needed. Not built.
+      **Explore first (Aaron, 2026-10-05):** the sharpness score changes with the background,
+      so a whole-frame or crop score taken at lock time cannot be compared with a later one
+      once trays, plants or sheets change. One idea to test, not decided: score only the 4
+      corner tags, which are fixed printed targets and do not move between experiments.
+      Before any threshold: measure how much that score varies at a fixed focus (repeat
+      captures, different table contents) and how far it falls when focus is slightly off.
+      Reports a change only, never a lens position (the focus position is the experimenter's
+      choice).
+
 ### M2 — area-scale shape check, built 2026-09-21
 
 - [x] **Direct area-scale field from tag shape, not trigonometry.** Aaron asked whether tag
