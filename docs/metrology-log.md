@@ -427,6 +427,17 @@ the camera's 0 to 15 scale; it is not a calibrated distance, so no camera-to-tag
 from it. One sweep; repeatability not measured. Raw data:
 `/home/pi/scratch/lens-fix-check-2026-10-06/tag500-sweep.txt`.
 
+**Run 3h method, written before it runs (2026-10-06, about 14:10 UTC): can the tray tags correct
+a lens-landing change?** Every tray now carries an identity tag (IDs 1 to 12, nominal 30 mm,
+east-west calliper readings of a sample 30.00, 29.96, 30.27, 29.99, 29.84, 30.01, 29.92, 30.01 mm,
+mean 30.00, SD 0.12; a few mm above the tray surface; 9 of 12 found in a photograph at 14:07).
+Lens locked at 6.27, 6.37, 6.17 and 6.27 again (test settings), 2 captures each. For each capture
+and each tray with a found tray tag: the tray tag's side length in pixels against the first 6.27
+capture gives a correction factor (old side / new side)², and the calibration tags in that tray
+are compared with the first capture before and after multiplying their area by it. Question: does
+the correction bring the calibration tags back to their 6.27 readings? Raw data:
+`/home/pi/scratch/lens-fix-check-2026-10-06/traytag-test/`.
+
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
