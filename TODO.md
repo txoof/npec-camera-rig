@@ -711,7 +711,23 @@ The heart of the project. Do not start before M1 slice 5.
       15.0: every command 200, 100 of 100 reported readings stayed 6.27, focus score unchanged
       (374 to 380), so neither the report nor the lens moved. Lock focus then "confirmed" 6.27
       because the stale report matched. So plain captures are enough (no calibration, knock or
-      Autofocus), and comparing reported with requested position would catch it. Likely the same fault as the
+      Autofocus), and comparing reported with requested position would catch it.
+      **Diagnosed 2026-10-06** (`reference/lens-unresponsive-2026-10-diagnose.py`, data in
+      `/home/pi/scratch/lens-diagnose-20261006T094229Z/`, chamber lit, server stopped, each case a
+      fresh process, lens 6.27 and a defocus 1.5 below, 90 s per step):
+      | Case | Lens follows? |
+      |---|---|
+      | No capture | yes, reported in 0.6 s, sharpness 1128 to 15 |
+      | 1 full-res capture, then a write | no, 90 s, report and sharpness unchanged |
+      | Lock drive, capture, write | no |
+      | 13 captures, write | no |
+      | Capture, 10 quick writes, write | only after about 92 s |
+      | Capture, Autofocus | timed out at 55 s, lens unchanged |
+      | Capture, close and reopen Picamera2 in the same process, write | **yes, 0.6 s** |
+      | Manual focus also in the video configuration's controls | no |
+      So one capture is enough; the existing re-apply after switching back does not work; an
+      in-process close and reopen clears it (the capture plus reopen took 3.7 s against 2.7 s
+      for the capture alone). Frames kept flowing in every case. Likely the same fault as the
       item below. Make it fixable: (1) reproduce with N = 1, 3, 9 full-res captures then one lens
       change, checking `LensPosition` in the next sidecar; (2) log requested and reported lens
       position on every lens command; (3) after a lens command, compare reported with requested
