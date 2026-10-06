@@ -294,7 +294,10 @@ def set_lens_position(position: LensPosition) -> LensPosition:
     min_value, max_value, _ = manager.available_controls()["LensPosition"]
     if not min_value <= position.value <= max_value:
         raise HTTPException(422, f"value must be between {min_value} and {max_value}")
-    manager.set_lens_position(position.value)
+    try:
+        manager.set_lens_position(position.value)
+    except LensNotSettledError as exc:
+        raise HTTPException(503, str(exc)) from exc
     return position
 
 
@@ -401,7 +404,9 @@ def lock_focus() -> dict:
     """Drive the lens to the position last set, the one consistent way, and lock it there."""
     try:
         return CameraManager.instance().lock_focus()
-    except (LensNotSettledError, LensMovedDuringLockError) as exc:
+    except LensNotSettledError as exc:
+        raise HTTPException(503, f"{exc}; focus is not locked") from exc
+    except LensMovedDuringLockError as exc:
         raise HTTPException(409, f"{exc}: focus is not locked, press Lock focus again") from exc
 
 

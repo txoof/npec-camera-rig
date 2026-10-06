@@ -1,4 +1,5 @@
 import threading
+import time
 from concurrent.futures import TimeoutError as FutureTimeoutError
 
 import numpy as np
@@ -173,7 +174,7 @@ def test_a_timed_out_autofocus_clears_the_lock_says_so_and_frees_the_camera() ->
     assert result["success"] is False
     assert result["lens_position"] == pytest.approx(6.3)
     assert result["timed_out"] == (
-        "autofocus did not finish after 55 s; lens set back to 6.30, lock focus again"
+        "Lens not responding: restart the app (autofocus did not finish after 55 s)"
     )
     assert manager.focus_status()["locked"] is False
     assert manager._call_lock.acquire(blocking=False)  # the next camera call is not stuck
@@ -315,12 +316,97 @@ def test_moving_the_lens_while_lock_focus_waits_locks_nothing(
         if len(reads) == 1:
             manager.set_lens_position(6.40)  # another request, while the lock waits
             return 1.0  # the camera has not caught up yet
+        if len(reads) == 2:
+            return 6.40  # the slider move's own check sees it
         return 6.18  # then reports the lock's target
 
     monkeypatch.setattr(manager, "get_lens_position", report_while_the_operator_moves_the_slider)
     with pytest.raises(camera_module.LensMovedDuringLockError):
         manager.lock_focus()
     assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+
+class _StuckLensBackend(_RecordingSyntheticBackend):
+    """Synthetic camera whose lens accepts every write and reports the same position forever,
+    as the real one did after a full-res capture (TODO.md, "Lens stops responding")."""
+
+    def __init__(self, stuck_at: float) -> None:
+        super().__init__()
+        self.stuck_at = stuck_at
+
+    def get_lens_position(self) -> float:
+        return self.stuck_at
+
+
+def test_a_manual_move_the_lens_does_not_follow_says_restart_the_app(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    manager = CameraManager(_StuckLensBackend(stuck_at=6.27))
+
+    with pytest.raises(camera_module.LensNotSettledError) as error:
+        manager.set_lens_position(4.77)
+    assert str(error.value).startswith("Lens not responding: restart the app")
+
+
+def test_a_manual_move_waits_until_the_camera_reports_it() -> None:
+    backend = _RecordingSyntheticBackend()
+    manager = CameraManager(backend)
+    backend.stale_reads = 3
+
+    manager.set_lens_position(4.77)
+    assert backend.stale_reads == 0
+
+
+def test_a_newer_slider_move_ends_the_wait_of_an_older_one_without_an_error() -> None:
+    manager = CameraManager(_RecordingSyntheticBackend())
+    reads = []
+
+    def report_while_the_slider_moves_on(*_: object) -> float:
+        reads.append(True)
+        if len(reads) == 1:
+            manager._commanded_lens_position = 5.00  # the next slider request arrived
+        return 1.0
+
+    manager._backend.get_lens_position = report_while_the_slider_moves_on
+    manager.set_lens_position(4.77)  # no error: the newer move does its own check
+
+
+def test_lock_focus_does_not_confirm_a_stuck_lens_that_already_reports_the_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Measured 2026-10-06 (run 3b): a stuck lens reporting 6.27 made Lock focus "confirm" 6.27.
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    backend = _StuckLensBackend(stuck_at=6.27)
+    manager = CameraManager(backend)
+    manager.set_lens_position(6.27)  # passes: the camera reports the lens where it was asked
+    backend.lens_writes.clear()
+
+    with pytest.raises(camera_module.LensNotSettledError):
+        manager.lock_focus()
+    assert backend.lens_writes == [pytest.approx(5.97)]  # never reported there: no target write
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+
+def test_the_drive_keeps_its_fixed_pause_when_the_camera_reports_at_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The validation bands were measured with this sequence: waiting for the approach report must
+    # not make the target write come any sooner.
+    monkeypatch.setattr(camera_module, "LENS_APPROACH_PAUSE_S", 0.05)
+    write_times = []
+
+    class _TimedBackend(_RecordingSyntheticBackend):
+        def set_lens_position(self, value: float) -> None:
+            write_times.append(time.monotonic())
+            super().set_lens_position(value)
+
+    manager = CameraManager(_TimedBackend())
+    manager.set_lens_position(6.18)
+    write_times.clear()
+
+    manager.lock_focus()
+    assert write_times[1] - write_times[0] >= 0.05
 
 
 def test_a_restart_drives_the_lens_back_the_same_way_and_keeps_the_lock() -> None:

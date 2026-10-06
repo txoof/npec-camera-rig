@@ -198,6 +198,31 @@ def test_lens_position_get_and_set() -> None:
     assert response.json() == {"value": 6.3}
 
 
+class _StuckLensBackend(SyntheticBackend):
+    """Accepts every lens write and keeps reporting the same position."""
+
+    def get_lens_position(self) -> float:
+        return 6.27
+
+
+def test_a_lens_that_does_not_follow_a_move_or_a_lock_returns_lens_not_responding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import npec_rig.camera as camera_module
+
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    CameraManager.set_instance(CameraManager(_StuckLensBackend()))
+    client = TestClient(app)
+
+    response = client.post("/controls/lens-position", json={"value": 4.77})
+    assert response.status_code == 503
+    assert response.json()["detail"].startswith("Lens not responding: restart the app")
+
+    response = client.post("/focus/lock")
+    assert response.status_code == 503
+    assert response.json()["detail"].startswith("Lens not responding: restart the app")
+
+
 def test_autofocus_endpoint() -> None:
     client = TestClient(app)
     response = client.post("/focus/autofocus")

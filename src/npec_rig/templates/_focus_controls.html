@@ -48,6 +48,7 @@
     <label for="lens-fine">Fine adjust</label>
     <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
     <span id="lens-fine-value">.00</span>
+    <span id="lens-error" style="color: #f66; font-weight: bold;"></span>
   </div>
   <div class="focus-control-row">
     <span>Sharpness</span>
@@ -109,6 +110,7 @@
     const coarseInput = document.getElementById("lens-coarse");
     const fineSlider = document.getElementById("lens-fine");
     const fineValueLabel = document.getElementById("lens-fine-value");
+    const lensError = document.getElementById("lens-error");
 
     function clamp(value, min, max) {
       return Math.min(max, Math.max(min, value));
@@ -131,12 +133,27 @@
       return clamp(Number(coarseInput.value) + Number(fineSlider.value), LENS_MIN, LENS_MAX);
     }
 
+    // Every lens command waits for the camera to report the new position; a lens that does not
+    // follow comes back as an error ("Lens not responding: restart the app"), shown next to the
+    // controls until a later command succeeds.
+    async function showLensError(r) {
+      const body = await r.json().catch(() => ({}));
+      lensError.textContent = typeof body.detail === "string"
+        ? body.detail
+        : `Lens command failed (${r.status})`;
+    }
+
     async function sendLensPosition() {
-      await fetch("/controls/lens-position", {
+      const r = await fetch("/controls/lens-position", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ value: currentLensPosition() }),
       });
+      if (r.ok) {
+        lensError.textContent = "";
+      } else {
+        await showLensError(r);
+      }
     }
 
     // --- Camera settings: rendered from whatever /controls reports, not hardcoded ---
@@ -289,16 +306,22 @@
       autofocusBtn.textContent = "Focusing (up to {{ AUTOFOCUS_TIMEOUT_S }} s)";
       try {
         const r = await fetch("/focus/autofocus", { method: "POST" });
+        if (!r.ok) {
+          autofocusBtn.textContent = "Autofocus";
+          await showLensError(r);
+          return;
+        }
         const data = await r.json();
+        // timed_out: the camera did not finish in time, the lens is not following commands
+        // (camera.py AUTOFOCUS_TIMEOUT_S). The message says what to do next.
+        if (data.timed_out) {
+          autofocusBtn.textContent = "Autofocus";
+          lensError.textContent = data.timed_out;
+          return;
+        }
         applyLensPosition(data.lens_position);
         await sendLensPosition();
-        // timed_out: the camera did not finish in time; the backend cancelled the cycle and set
-        // the lens back (camera.py AUTOFOCUS_TIMEOUT_S). The message says what to do next.
-        autofocusBtn.textContent = data.success
-          ? "Autofocus"
-          : data.timed_out
-            ? data.timed_out.charAt(0).toUpperCase() + data.timed_out.slice(1)
-            : "Autofocus (failed, adjust manually)";
+        autofocusBtn.textContent = data.success ? "Autofocus" : "Autofocus (failed, adjust manually)";
       } finally {
         autofocusBtn.disabled = false;
       }
@@ -477,11 +500,11 @@
         return;
       }
       // Locking drives the lens the one consistent way and waits for the camera to report it
-      // there, which can take up to a minute after a full-resolution capture.
+      // there, a few seconds at most (camera.py LENS_SETTLE_TIMEOUT_S).
       lockBtn.disabled = true;
       lockStatus.style.color = "";
       lockStatus.style.fontWeight = "";
-      lockStatus.textContent = "Focus status: locking, waiting for the camera (up to 60 s)";
+      lockStatus.textContent = "Focus status: locking, waiting for the camera";
       try {
         const resp = await fetch("/focus/lock", { method: "POST" });
         if (!resp.ok) {
@@ -494,6 +517,7 @@
       } finally {
         lockBtn.disabled = false;
       }
+      lensError.textContent = "";
       refreshFocusStatus();
     });
     refreshFocusStatus();

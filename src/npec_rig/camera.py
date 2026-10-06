@@ -37,14 +37,20 @@ SIMULATED_AUTOFOCUS_POSITION = 6.3  # synthetic backend has no real optics; matc
 # much drift; 0.01 dioptres is far smaller than a real, operator-meaningful lens move.
 FOCUS_CONFIRM_POSITION_TOLERANCE = 0.01
 # Every lens move that matters for measurement (locking focus, restoring it at startup) takes one
-# path, `CameraManager.drive_lens_to`: step to LENS_APPROACH_OFFSET below the target, pause, set the
+# path, `CameraManager._drive_lens`: step to LENS_APPROACH_OFFSET below the target, pause, set the
 # target, then wait until the camera reports it. Measured 2026-10-01: the size of the central low
 # reading depends on the lens position (about 1.2 points of area per 0.1) and on how the lens got
 # there, and after a full-res capture the camera reports a move up to about 45 s late. One way of
 # getting there, confirmed, keeps that error the same every time, so validation can measure it.
 LENS_APPROACH_OFFSET = 0.3
 LENS_APPROACH_PAUSE_S = 1.0
-LENS_SETTLE_TIMEOUT_S = 60.0
+# How long every lens command waits for the camera to report the new position before the app says
+# the lens is not responding. A decision, not a measurement: measured 2026-10-06 (TODO.md, "Lens
+# stops responding after a full-res capture"), a working lens reports a new position within 0.6 s,
+# and a stuck one never does (90 s); 5 s leaves room for a large move without a long silent wait.
+# It was 60 s while the camera could report a move up to about 45 s late after a full-res capture;
+# since the camera is reopened after every capture (slice 1) that lag is the fault this detects.
+LENS_SETTLE_TIMEOUT_S = 5.0
 # How long one hardware autofocus cycle may hold the camera. picamera2's own wait has no limit:
 # if the scan never starts (seen after a pipeline reconfigure, TODO.md "wedges the whole camera
 # pipeline"), every camera call queues behind it until a restart. Same bound as a focus lock,
@@ -473,20 +479,24 @@ class AutofocusTimeoutError(RuntimeError):
     camera back in manual focus at `lens_position`, the position before the cycle."""
 
     def __init__(self, lens_position: float, step: str, elapsed_s: float) -> None:
-        super().__init__(
-            f"autofocus {step} after {elapsed_s:.0f} s; lens set back to "
-            f"{lens_position:.2f}, lock focus again"
-        )
+        # Measured 2026-10-06: after a full-res capture left the lens not following commands,
+        # autofocus timed out with the lens unchanged (TODO.md, "Lens stops responding").
+        super().__init__(f"{LENS_NOT_RESPONDING} (autofocus {step} after {elapsed_s:.0f} s)")
         self.lens_position = lens_position
 
 
+LENS_NOT_RESPONDING = "Lens not responding: restart the app"
+
+
 class LensNotSettledError(RuntimeError):
-    """The camera did not report the lens at its target in time."""
+    """The camera did not report the lens at its target in time: the lens is not following
+    commands. Seen 2026-10-05 and 10-06 after a full-res capture: every write is accepted and none
+    moves the lens, until the app restarts (TODO.md, "Lens stops responding")."""
 
     def __init__(self, target: float, reported: float, timeout_s: float) -> None:
         super().__init__(
-            f"the lens did not reach {target:.2f} within {timeout_s:.0f} s "
-            f"(it reports {reported:.2f})"
+            f"{LENS_NOT_RESPONDING} (set to {target:.2f}, the camera still reports "
+            f"{reported:.2f} after {timeout_s:.0f} s)"
         )
         self.target = target
         self.reported = reported
@@ -624,28 +634,52 @@ class CameraManager:
         """Move the lens to `value` the one consistent way (see LENS_APPROACH_OFFSET) and wait
         until the camera reports it there. Returns the reported position; raises
         LensNotSettledError if it does not get there within `timeout_s` (default
-        LENS_SETTLE_TIMEOUT_S). One drive at a time: a second one (Lock focus pressed twice) waits
-        for the first. Does not touch the focus lock: callers decide what a confirmed move means."""
+        LENS_SETTLE_TIMEOUT_S), and LensMovedDuringLockError if another lens command takes over
+        while it waits. One drive at a time: a second one (Lock focus pressed twice) waits for the
+        first. Does not touch the focus lock: callers decide what a confirmed move means."""
         timeout_s = LENS_SETTLE_TIMEOUT_S if timeout_s is None else timeout_s
         with self._drive_lock:
             low = self._backend.available_controls().get("LensPosition", (0.0,))[0]
-            with self._call_lock:
-                self._backend.set_lens_position(max(low, value - LENS_APPROACH_OFFSET))
-            time.sleep(LENS_APPROACH_PAUSE_S)
-            with self._call_lock:
-                self._backend.set_lens_position(value)
+            approach = max(low, value - LENS_APPROACH_OFFSET)
             self._commanded_lens_position = value
             save_setting("LensPosition", value)
-            deadline = time.monotonic() + timeout_s
-            while True:
-                reported = self.get_lens_position()
-                if abs(reported - value) <= LENS_REPORT_TOLERANCE:
-                    return reported
-                if time.monotonic() >= deadline:
-                    raise LensNotSettledError(value, reported, timeout_s)
-                time.sleep(LENS_POLL_INTERVAL_S)
+            started = time.monotonic()
+            with self._call_lock:
+                self._backend.set_lens_position(approach)
+            # The camera must report the approach position before the target counts: a stuck
+            # lens keeps reporting where it was, which can be the target itself (measured
+            # 2026-10-06: Lock focus "confirmed" 6.27 that way). Only a target at the bottom of
+            # the range, where the approach is the target, cannot be checked like this.
+            self._wait_for_report(approach, value, started + timeout_s, timeout_s)
+            # The fixed pause stays as it was, whatever the report does: the sequence the lens
+            # moves through is what the validation bands were measured with.
+            time.sleep(max(0.0, started + LENS_APPROACH_PAUSE_S - time.monotonic()))
+            if self._commanded_lens_position != value:
+                raise LensMovedDuringLockError(value, self._commanded_lens_position)
+            with self._call_lock:
+                self._backend.set_lens_position(value)
+            return self._wait_for_report(value, value, time.monotonic() + timeout_s, timeout_s)
+
+    def _wait_for_report(
+        self, position: float, commanded: float, deadline: float, timeout_s: float
+    ) -> float:
+        """Poll until the camera reports `position`. Raises LensNotSettledError at `deadline`, and
+        LensMovedDuringLockError if a newer lens command replaces `commanded` meanwhile."""
+        while True:
+            reported = self.get_lens_position()
+            if self._commanded_lens_position != commanded:
+                raise LensMovedDuringLockError(commanded, self._commanded_lens_position)
+            if abs(reported - position) <= LENS_REPORT_TOLERANCE:
+                return reported
+            if time.monotonic() >= deadline:
+                raise LensNotSettledError(position, reported, timeout_s)
+            time.sleep(LENS_POLL_INTERVAL_S)
 
     def set_lens_position(self, value: float) -> None:
+        """Move the lens directly (the slider), then wait until the camera reports it there.
+        Raises LensNotSettledError if it does not within LENS_SETTLE_TIMEOUT_S. A newer move
+        arriving meanwhile (the slider still being dragged) ends the wait without an error: that
+        move does its own check."""
         with self._call_lock:
             self._backend.set_lens_position(value)
         self._commanded_lens_position = value
@@ -655,6 +689,14 @@ class CameraManager:
         # just in-memory, so a restart right after a move doesn't resurrect the old confirm.
         self._locked_lens_position = None
         save_setting("FocusConfirmed", False)
+        # A move to where the camera already reports the lens passes at once, stuck or not: the
+        # lens is then where it was asked to be.
+        try:
+            self._wait_for_report(
+                value, value, time.monotonic() + LENS_SETTLE_TIMEOUT_S, LENS_SETTLE_TIMEOUT_S
+            )
+        except LensMovedDuringLockError:
+            pass
 
     def get_lens_position(self) -> float:
         with self._call_lock:
@@ -775,7 +817,7 @@ class CameraManager:
             return
         try:
             self._drive_lens(target)
-        except LensNotSettledError as exc:
+        except (LensNotSettledError, LensMovedDuringLockError) as exc:
             logger.warning("after a full-res capture: %s", exc)
             if self._locked_lens_position is not None:
                 self._locked_lens_position = None

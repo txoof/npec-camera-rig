@@ -736,9 +736,19 @@ The heart of the project. Do not start before M1 slice 5.
       right after a capture the lens followed a write to 4.77 within 0.5 s (focus score 370 to
       10) and came back to 6.27; three captures in a row (each with reopen and drive back) read
       the same, median change -0.01 and -0.09 points, every slot within ±0.32; a capture now takes
-      4.3 s. Still open: slice 2, detection (a lens write the camera does not confirm within a few
-      seconds shows "lens not responding, restart the app"; Lock focus must not confirm a stale
-      report).
+      4.3 s.
+      **Slice 2 built 2026-10-06 (same branch):** every lens command (manual move, Lock focus,
+      the drive back after a capture) now waits for the camera to report the new position, at most
+      `LENS_SETTLE_TIMEOUT_S` = 5 s (a decision, not a measurement: a working lens reports in 0.6 s,
+      a stuck one never). If it does not, the page shows "Lens not responding: restart the app"
+      next to the lens controls (manual move, Autofocus timeout) or in the focus status (Lock
+      focus). Lock focus must see the report reach the approach position (target - 0.3) before it
+      accepts the target, so a stale report at the target no longer confirms it; the fixed 1.0 s
+      pause is unchanged. Only a target at the bottom of the range cannot be checked this way.
+      Checked on the rig (no fault present, so this shows only that a working lens raises no false
+      alarm): moves to 4.77 and back confirmed in 0.53 s each, Lock focus 1.52 s, capture 4.28 s
+      with the lock kept, the same after a capture; lens left locked at 6.27. The "not responding"
+      path itself is covered by unit tests only, since slice 1 removed the way to cause it.
 - [ ] **Next steps from the 2026-10-06 lens and focus tests** (metrology-log section 8.1, runs 3 to
       3i). Measured: an app restart with a warm camera does not move readings (5 restarts, median
       within ±0.05 points); a cold start does (-1.73, recovering over about an hour); after a
@@ -748,13 +758,15 @@ The heart of the project. Do not start before M1 slice 5.
       1. Reopen the camera only before a lens command (lens move, Lock focus, Autofocus), not after
          every capture: during an experiment the lens is never moved, and each capture then saves
          1.6 s (4.3 s now, 2.7 s before slice 1). Keep the drive back and lock rule for that case.
-      2. Remove the tag 500 focus check (WIP commit 2ad230d): Aaron 2026-10-06, not helpful; the
-         corner tags already watch the camera and a sweep cannot run every photo.
+      2. ~~Remove the tag 500 focus check (WIP commit 2ad230d)~~: done 2026-10-06 (`e2a20fd`),
+         Aaron: not helpful; the corner tags already watch the camera and a sweep cannot run every
+         photo. Its "FocusReference" setting was deleted from `rig.db`.
       3. Flag readings taken after a cold start (first hour, decision to confirm) and after a
          camera fault (frontend timeout in the log) as not covered by the bands.
       4. Tray tags: tag 6 (South 6) sits at the frame edge and is not found. Aaron is considering
          larger tray tags; a single 30 mm tag's size was too noisy to correct a tray (run 3h).
-      5. Slice 2: detect a lens that does not follow a command.
+      5. ~~Slice 2: detect a lens that does not follow a command.~~ Built 2026-10-06, see the item
+         above.
       6. Per-sample budget (one sample a minute): capture 4.3 s, full-frame tag detection 5.3 s,
          a 500 px sharpness square 4 ms, JPEG save 0.56 s, JPEG reopen 0.54 s (measured
          2026-10-06 on saved photos). Likely the same fault as the
