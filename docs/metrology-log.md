@@ -47,7 +47,7 @@ two area errors (for example +1.00% to +1.03%) is given in *points* (+0.03 point
 | Calibration tag side | 30.0 ± 0.1 mm (readings X 30.10, 30.11, 29.96; Y 30.04, 29.96, 29.94; mean 30.018) | Callipers, 6 readings, one print run | 2026-09-29 | That print run only. Every new print is measured again. ±0.1 mm on 30 mm is about ±0.67% in area |
 | Corner tag side | 50.02 mm (mean) | Callipers | 2026-09-29 | Corner tags are used for the rig health check (tripwire) and table view, not for area |
 | Sheet scale bars | 179.93 and 180.03 mm (nominal 180) | Callipers, 2 bars | 2026-09-29 | Confirms the sheets printed at 100% scale |
-| Reference tag 500 side (60 mm, 36h11 ID 500, fixed at the north table edge) | 59.94 mm mean (readings 59.58, 59.96, 59.91, 59.97, 60.26, 59.97; median 59.96, SD 0.22) | Callipers, 6 readings along X and Y | 2026-10-06 | Wider spread than the 30 mm tags (0.17 mm range); two readings 0.3 to 0.4 mm off the other four. ±0.22 mm is about ±0.7% in area. Placed 2026-10-06 at the supervisor's suggestion as a static target |
+| Reference tag 500 side (60 mm, 36h11 ID 500, fixed at the north table edge) | 60.06 mm mean, SD 0.04 (Y 60.07, 60.05, 60.10, 60.05; X 60.01, 60.05, 60.00, 60.13) | Callipers, 8 readings, remeasured with care | 2026-10-06 | Supersedes a first set the same day (59.58 to 60.26, mean 59.94). Placed 2026-10-06 at the supervisor's suggestion as a static target |
 | Calliper resolution trusted | 0.1 mm | **Decision** | | Readings are not used beyond 0.1 mm |
 | Sheet-to-sheet difference | up to about 0.7% in area between sheets that both measure 30.0 mm | Fit residuals, 6 pages, 3 sessions | 2026-09-30 to 10-01 | `reference/arducam-central-error-2026-10.md` |
 
@@ -354,6 +354,13 @@ show a change of this size. Its sharpness rose 19% (30.8 to 36.6) while the tags
 which may track the change but is not shown by 8 photographs. Not answered: whether tag 500 shows
 a larger change. That needs a condition that is known to move the readings by about a point or
 more.
+
+**Run 3f method, written before it runs (2026-10-06, about 12:10 UTC).** A change of known size:
+lens set to 6.17 and Lock focus, 2 captures; set to 6.37 and Lock focus, 2 captures; set to 6.27
+and Lock focus, 2 captures. From the central-error investigation, 0.1 of lens position moves the
+central readings by about 1.2 points. These are test settings, not recommended positions; the
+experimenter's 6.27 is restored at the end. Same quantities as run 3e, as changes against the
+first 6.27 capture. Raw data: `/home/pi/scratch/lens-fix-check-2026-10-06/tag500-test-3f/`.
 
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
