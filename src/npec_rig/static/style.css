@@ -202,8 +202,11 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 /* Full-width panel below the images: every focus-adjustment control in one place, grouped by a
    border/background rather than a column split -- co-visible with the images above it instead
    of competing with them for vertical space. */
+/* Full page width, wider than the images above, so lens controls, status, sharpness trace and
+   focus peaking each fit on one line at 1024x768 (Aaron, 2026-10-06). */
 .focus-control-panel {
-  width: var(--wide-content-width);
+  max-width: 1400px;
+  box-sizing: border-box;
   margin-top: 0.5rem;
   padding: 0.6rem 0.75rem;
   background: #1a1a1a;
@@ -216,7 +219,7 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 /* Lens controls left, sharpness right, once there is room for both (as .focus-layout). */
 @media (min-width: 800px) {
   .focus-control-panel {
-    grid-template-columns: minmax(0, 1fr) 220px;
+    grid-template-columns: minmax(0, 1fr) 340px;
     gap: 0.6rem 1.25rem;
   }
 }
@@ -237,10 +240,22 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 .focus-sharpness strong {
   font-size: 1.6rem;
 }
-.focus-sharpness canvas {
-  width: 100%;
+.sharpness-trace-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sharpness-trace-row canvas {
+  flex: 1 1 0;
+  min-width: 0;
   height: 60px;
   background: #000;
+}
+.sharpness-trace-row .peaking-inline {
+  flex: 0 0 auto;
+}
+.peaking-inline input[type="checkbox"] {
+  flex: 0 0 auto;
 }
 .focus-control-row {
   display: flex;
