@@ -461,6 +461,17 @@ One table-wide factor changed little, because a lens change does not move all tr
 tray-tag factor moved -0.66% and -0.95% at 6.17 (repeat noise ±0.16%), but only +0.13% and
 +0.41% at 6.37, while the calibration tags moved -0.6 to -0.8 points. One run.
 
+**Run 3i method, written before it runs (2026-10-06, about 14:20 UTC): how far does an app
+restart move the readings?** The remaining risk during an experiment is a restart or power cut,
+after which the lens is driven back to the stored position but may land differently. Steps,
+chamber closed and untouched, lens locked at 6.27: 2 reference captures; then 5 times: app
+restart (server process killed and started again; at start-up it drives the lens to 6.27 the one
+consistent way and restores the lock), 2 captures. For each capture, against the first reference
+capture: median change of the calibration tags' area error (all, central slots North 3, North 4,
+South 3, South 4, and the largest slot), tags found, and the median tray-tag area factor (11 tray
+tags; tag 6 at the frame edge is not found). Raw data:
+`/home/pi/scratch/lens-fix-check-2026-10-06/restart-test/`.
+
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
