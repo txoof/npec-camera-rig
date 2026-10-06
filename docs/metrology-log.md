@@ -566,7 +566,9 @@ wander away; they returned to the same low point every cycle, and the lens did n
 sharpness. But readings at a fixed lens position swing by about 0.35 points in the median and up
 to about 0.6 points in a slot, with a period of about 19 minutes, more than the control range used
 as the limit. The control (Control B, photos every 15 minutes) would not have shown a 19-minute
-cycle as one. One run; whether the cycle is also there with the camera reopened per photo, at
+cycle as one. This is the same photo path the 2026-10-05 validation, the controls and the bands
+were measured with: the camera was reopened per photo only from commit `a58e720` (2026-10-06,
+11:20 UTC) until `5f068bf`, and that path was never run at one photo a minute. One run; whether the cycle is also there with the camera reopened per photo, at
 other times of day, or with the chamber lights off was not measured.
 
 Raw data for runs 3 to 3c:
