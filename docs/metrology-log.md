@@ -286,7 +286,18 @@ reference, but the readings moved by about +0.4 points from just before (-0.11 t
 than the control's median change (within ±0.17). One run, 7 minutes after +60, with a restart in
 between (a restart alone moved readings +0.08 and +0.09 on 2026-10-05), so the sweep's own effect
 is not separated from warming up and the restart. It does show the lens lands slightly
-differently after a different route to the same reported position. Raw data:
+differently after a different route to the same reported position.
+
+**Run 3d method, written before it runs (2026-10-06, about 11:40 UTC).** Photographs at 11:18 to
+11:19 UTC (after the lens diagnosis, several app restarts and the slice 1 fix) found 318 tags
+against 359 at 09:38, with the central slots about half as sharp (North 3 / South 3 / South 4
+0.51 / 0.46 / 0.51), lens reported 6.27 both times and no tag moved (318 of 318 within 20 px,
+median 2.2 px). Question: does driving the lens to both ends of its range, then to 6.27 and Lock
+focus, restore the sharpness? With the slice 1 fix the lens follows commands after a capture.
+Steps, nothing else changed, door closed: one capture; lens to 0.0, 15.0, 6.27 (15 s each, reported
+position and focus score read twice a second); Lock focus; two captures. Compared: tags found,
+sharpness per slot against the 2026-10-05 reference, and per-tag area change against the first
+capture. Raw data: `/home/pi/scratch/lens-fix-check-2026-10-06/`. Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
 Detailed results: `reference/lens-return-2026-10.md`.
