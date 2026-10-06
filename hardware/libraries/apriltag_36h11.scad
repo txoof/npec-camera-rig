@@ -49,7 +49,7 @@
      no separate frame primitive needed.
    --------------------------------------------------------------------------- */
 
-include <apriltags-36h11-1-499.scad>
+include <apriltags-36h11-0-586.scad>
 
 /* [Tag] */
 tag_id   = 1;    // which 36h11 id to preview  [1:499]
