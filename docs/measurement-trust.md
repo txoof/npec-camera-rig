@@ -174,9 +174,9 @@ roughly the first 15 minutes after the app opens a cold camera are not covered b
 A camera fault is different too. On 2026-10-06 the camera once stopped delivering frames and the
 app had to be restarted; afterwards, at the same reported lens position, the central trays were
 about half as sharp and fewer tags were found. Neither a reference tag at the frame edge nor the
-tray tags could reliably show or correct such a change in tests the same day. Readings after a
-camera fault or a cold start are therefore marked as not covered by the bands, rather than
-corrected.
+tray tags could reliably show or correct such a change in tests the same day. The plan is to
+mark readings after a camera fault or a cold start as not covered by the bands, rather than to
+correct them; this is not built yet.
 
 **One open point.** On 2026-10-01, after a different series of lens moves, the central readings
 drifted by 1.3 points in 35 minutes. That was not repeated on 2026-10-05, and the reason for the

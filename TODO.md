@@ -738,7 +738,26 @@ The heart of the project. Do not start before M1 slice 5.
       the same, median change -0.01 and -0.09 points, every slot within ±0.32; a capture now takes
       4.3 s. Still open: slice 2, detection (a lens write the camera does not confirm within a few
       seconds shows "lens not responding, restart the app"; Lock focus must not confirm a stale
-      report). Likely the same fault as the
+      report).
+- [ ] **Next steps from the 2026-10-06 lens and focus tests** (metrology-log section 8.1, runs 3 to
+      3i). Measured: an app restart with a warm camera does not move readings (5 restarts, median
+      within ±0.05 points); a cold start does (-1.73, recovering over about an hour); after a
+      camera frontend timeout plus restart the central trays were about half as sharp; a lens
+      change of 0.1 moves readings about 1 point. Neither tag 500 at the frame edge nor the tray
+      tags (IDs 1 to 12, 30 mm) could reliably detect or correct a lens-landing change.
+      1. Reopen the camera only before a lens command (lens move, Lock focus, Autofocus), not after
+         every capture: during an experiment the lens is never moved, and each capture then saves
+         1.6 s (4.3 s now, 2.7 s before slice 1). Keep the drive back and lock rule for that case.
+      2. Remove the tag 500 focus check (WIP commit 2ad230d): Aaron 2026-10-06, not helpful; the
+         corner tags already watch the camera and a sweep cannot run every photo.
+      3. Flag readings taken after a cold start (first hour, decision to confirm) and after a
+         camera fault (frontend timeout in the log) as not covered by the bands.
+      4. Tray tags: tag 6 (South 6) sits at the frame edge and is not found. Aaron is considering
+         larger tray tags; a single 30 mm tag's size was too noisy to correct a tray (run 3h).
+      5. Slice 2: detect a lens that does not follow a command.
+      6. Per-sample budget (one sample a minute): capture 4.3 s, full-frame tag detection 5.3 s,
+         a 500 px sharpness square 4 ms, JPEG save 0.56 s, JPEG reopen 0.54 s (measured
+         2026-10-06 on saved photos). Likely the same fault as the
       item below. Make it fixable: (1) reproduce with N = 1, 3, 9 full-res captures then one lens
       change, checking `LensPosition` in the next sidecar; (2) log requested and reported lens
       position on every lens command; (3) after a lens command, compare reported with requested
