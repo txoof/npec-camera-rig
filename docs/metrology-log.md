@@ -333,6 +333,28 @@ for all tags, the North row and the central slots (North 3, North 4, South 3, So
 as changes against the first capture of condition 1. Raw data:
 `/home/pi/scratch/lens-fix-check-2026-10-06/tag500-test/`.
 
+**Run 3e result** (11:53 to 11:55 UTC; the lens followed every command, Lock focus confirmed 6.27
+each time). Changes against the first capture; calibration tags in points of area error:
+
+| Capture | Tag 500 area | Tag 500 sharpness | Tags | All tags | North row | Central slots |
+|---|---|---|---|---|---|---|
+| 1 nothing changed, a | 0.00% | 30.8 | 350 | 0.00 | 0.00 | 0.00 |
+| 1 nothing changed, b | -0.26% | 30.8 | 345 | -0.03 | -0.16 | +0.02 |
+| 2 sweep and lock, a | -0.27% | 30.1 | 349 | +0.03 | -0.02 | +0.06 |
+| 2 sweep and lock, b | -0.12% | 32.4 | 350 | +0.18 | +0.03 | +0.13 |
+| 3 app restart, a | -0.13% | 34.2 | 351 | +0.40 | +0.19 | +0.25 |
+| 3 app restart, b | +0.13% | 35.9 | 352 | +0.29 | +0.15 | +0.16 |
+| 4 sweep again, a | +0.14% | 34.2 | 352 | +0.33 | +0.20 | +0.30 |
+| 4 sweep again, b | +0.07% | 36.6 | 351 | +0.40 | +0.22 | +0.32 |
+
+Reading: none of the four conditions moved the calibration tags by more than 0.40 points this
+time, much less than the cold start (-1.73) or the 11:18 photographs. Tag 500's area varied
+-0.27% to +0.14% with no pattern; two photographs 5 s apart differed by 0.26%, so its area cannot
+show a change of this size. Its sharpness rose 19% (30.8 to 36.6) while the tags rose 0.40 points,
+which may track the change but is not shown by 8 photographs. Not answered: whether tag 500 shows
+a larger change. That needs a condition that is known to move the readings by about a point or
+more.
+
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
