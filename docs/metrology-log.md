@@ -381,8 +381,8 @@ Reading: a lens change that moves the calibration tags by +0.6 to -1.0 points ch
 returning to 6.27 brought it back to within 1% (28.1 to 28.6). Tag 500's **area** changed by
 only +0.2% and -0.4%, about as much as its repeat noise (0.25%), so its area is not a usable
 signal. Tag 500's sharpness is a usable detector of a change in the lens landing. Not measured:
-its relation to the readings is not a straight line (tag 500 sits at table height, below the
-trays), so it can say "changed", not by how many points; the sharpness score also depends on
+its relation to the readings is not a straight line, so it can say "changed", not by how many
+points; the sharpness score also depends on
 light, so a change of chamber lighting would show too.
 
 **Run 3g (2026-10-06, 12:46 UTC): a case tag 500 does not show.** At 12:37 UTC the camera stopped
@@ -404,8 +404,28 @@ Reading: after that restart the central slots were about half as sharp as at 12:
 reported 6.27, and a lens change that moved the readings by -1.0 points did not change tag 500's
 sharpness by more than 4%. So tag 500 at the north table edge does not reliably show a change in
 the central trays; in run 3f it did. The reference set at 12:46 was taken in the blurred state and
-is not a valid reference. Where a reference target sits matters: one at table height at the edge
-does not stand for the trays in the middle.
+is not a valid reference. Where a reference target sits matters: tag 500 is at tray height but at
+the north edge of the frame, and its sharpness did not stand for the trays in the middle.
+(Corrected 2026-10-06: an earlier version of this section said tag 500 sits at table height; it
+sits at tray height.)
+
+**Tag 500 focus sweep (2026-10-06, 13:38 to 13:39 UTC).** Can tag 500 serve as a focus target?
+The app's focus-aid square was put on tag 500 (preview coordinates 719, 181; 64 px, about the
+tag and a margin) and the lens stepped upward from 5.50 to 7.00 in steps of 0.05, approached from
+5.2, 0.8 s after each step, focus score read 3 times per step (repeat readings within about 2%).
+Afterwards the focus-aid square was put back and the lens locked at the experimenter's 6.27.
+
+| Lens | 5.50 | 5.75 | 5.90 | 6.00 | 6.05 | 6.10 | 6.15 | 6.20 | 6.25 | 6.30 | 6.35 | 6.45 | 6.60 | 6.80 | 7.00 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Score (mean of 3) | 73 | 196 | 333 | 538 | 451 | 544 | 576 | 497 | 563 | 653 | 522 | 371 | 244 | 114 | 66 |
+
+Result: tag 500's sharpness rises 10 times from the ends of the sweep to the top, so it is a
+usable focus target. The top is broad and uneven: above half the highest score from 5.90 to 6.45,
+the highest single step at 6.30, and lower steps at 6.05 and 6.20 inside the peak. A parabola fit
+over 5.75 to 6.65 puts the peak at 6.20 (6.19 over 5.90 to 6.50). The lens position is reported on
+the camera's 0 to 15 scale; it is not a calibrated distance, so no camera-to-tag distance follows
+from it. One sweep; repeatability not measured. Raw data:
+`/home/pi/scratch/lens-fix-check-2026-10-06/tag500-sweep.txt`.
 
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).

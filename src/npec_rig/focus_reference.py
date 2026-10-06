@@ -1,4 +1,5 @@
-"""Focus check against a static reference tag (tag 500, 60 mm, fixed at the north table edge).
+"""Focus check against a static reference tag (tag 500, 60 mm, fixed at tray height at the north
+edge of the frame).
 
 During an experiment nobody re-validates, so a change in where the lens physically lands (after a
 restart, a power cut, or the drive back after a capture) has to show in the photographs
