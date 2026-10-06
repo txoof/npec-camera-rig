@@ -28,6 +28,8 @@ CORNER_ID_RANGE = range(450, 500)  # 4 tags mounted; exact IDs confirmed by dete
 # artifacts).
 RESERVED_ID_RANGE = range(500, 587)  # buffer for a future fixed rig-level role. 587 IDs total in
 # 36h11 (0-586) -- verified against both cv2's dictionary size and moms_apriltag's TagGenerator2
+# Id 500 is provisionally the auto-focus target (PLAN.md, Tag ID allocation): the auto-focus target
+# plan is not fully implemented, so no code treats it specially yet.
 
 # Default size of the CALIBRATION_ID_RANGE sheets when a run gives no calliper reading. Callipers,
 # 2026-09-29: the current 30mm sheets measure 30.0 +/- 0.1mm (see CLAUDE.md). The 29.3106mm figure
