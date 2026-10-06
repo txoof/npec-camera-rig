@@ -272,7 +272,21 @@ already reported. The after-sweep photograph (09:32:52) matches +60 (median -0.1
 **Run 3c method, written before it runs (2026-10-06):** the run 3b sequence repeated in a freshly
 restarted app (server killed and started again, start-up drive to 6.27 and lock), before any
 full-res capture in that process, so the lens follows commands. Compared with the +60 and
-after-sweep photographs and the reference, as in run 3b. Raw data:
+after-sweep photographs and the reference, as in run 3b.
+
+**Run 3c result** (restart 09:36:16 UTC, locked 6.27 at 09:36:20). The lens followed every
+command: focus score 375 before, 3.1 at 0.0, 2.3 at 15.0, 336 to 340 back at 6.27 (the focus-aid
+square is at table height, below the trays). Photograph 09:38:07 against the reference: 354 of
+354 tags matched, median change +0.30 points (spread 0.48), ring 1000 to 1500 px +0.04, slots
+-0.06 (North 4) to +0.59 (North 1). Sharpness, median of 12 slots, 1.03 (0.96 just before the
+sweep); North 3 / South 3 / South 4 1.02 / 1.08 / 1.05; North 4 fell from 1.13 to 0.84.
+
+Reading: after the sweep every tag was found again and most slots were as sharp as in the
+reference, but the readings moved by about +0.4 points from just before (-0.11 to +0.30), more
+than the control's median change (within ±0.17). One run, 7 minutes after +60, with a restart in
+between (a restart alone moved readings +0.08 and +0.09 on 2026-10-05), so the sweep's own effect
+is not separated from warming up and the restart. It does show the lens lands slightly
+differently after a different route to the same reported position. Raw data:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
 Detailed results: `reference/lens-return-2026-10.md`.
