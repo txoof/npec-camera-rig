@@ -27,6 +27,20 @@
   </div>
   <div id="tripwire-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
 
+  <h3 style="margin: 1.5rem 0 0.25rem;">Focus reference (tag 500)</h3>
+  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+    Every photograph measures how sharp tag 500 at the north table edge looks, and compares it with
+    the reference. A change of more than {{ limit_pct|round|int }}% means the lens now sits
+    differently than when the reference was set, and readings may be off, even though the lens
+    position shown has not changed. Set the reference right after validation, with focus locked and
+    the chamber lights at the level used for the experiment.
+  </p>
+  <div id="focus-reference-status" style="font-size: 0.85rem;"></div>
+  <div class="lock-row">
+    <button id="focus-reference-btn">Set focus reference now</button>
+  </div>
+  <div id="focus-reference-result" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
+
   <details id="honesty-plot-details" style="margin-top: 1.5rem;">
     <summary style="cursor: pointer; font-size: 1rem; padding: 0.5rem 0;">Honesty plot</summary>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
@@ -59,6 +73,54 @@
   </details>
 
   <script>
+    const focusRefStatus = document.getElementById("focus-reference-status");
+    const focusRefBtn = document.getElementById("focus-reference-btn");
+    const focusRefResult = document.getElementById("focus-reference-result");
+    const localTime = (iso) => new Date(iso).toLocaleString();
+
+    function showFocusReference(data) {
+      const ref = data.reference;
+      const check = data.last_check;
+      const refText = ref
+        ? `Reference: sharpness ${ref.sharpness.toFixed(1)}, set ${localTime(ref.set_at)}.`
+        : "No reference set yet.";
+      let checkText = "No photograph checked since the app started.";
+      if (check && check.verdict === "NO REFERENCE") {
+        checkText = "Latest photograph: not checked, there is no reference.";
+      } else if (check) {
+        const sign = check.change_pct >= 0 ? "+" : "";
+        checkText = `Latest photograph (${localTime(check.checked_at)}): <strong>${check.verdict}</strong>, ` +
+          `sharpness ${check.sharpness.toFixed(1)} (${sign}${check.change_pct.toFixed(1)}%).`;
+      }
+      focusRefStatus.innerHTML = `${refText}<br>${checkText}`;
+    }
+
+    async function loadFocusReference() {
+      const r = await fetch("/focus/reference");
+      if (r.ok) showFocusReference(await r.json());
+    }
+
+    focusRefBtn.addEventListener("click", async () => {
+      focusRefBtn.disabled = true;
+      focusRefBtn.textContent = "Taking a photograph and finding tag 500...";
+      focusRefResult.textContent = "";
+      try {
+        const r = await fetch("/focus/reference", { method: "POST" });
+        const data = await r.json();
+        if (!r.ok) {
+          focusRefResult.textContent = data.detail;
+          return;
+        }
+        showFocusReference(data);
+        focusRefResult.textContent = `Reference set from tag 500 at (${data.reference.x}, ${data.reference.y}).`;
+      } finally {
+        focusRefBtn.disabled = false;
+        focusRefBtn.textContent = "Set focus reference now";
+      }
+    });
+
+    loadFocusReference();
+
     const tripwireBtn = document.getElementById("tripwire-btn");
     const tripwireResult = document.getElementById("tripwire-result");
 
@@ -74,6 +136,7 @@
         }
         const roll = data.roll_deg === null ? "" : ` (roll ${data.roll_deg.toFixed(2)} deg)`;
         tripwireResult.innerHTML = `<strong>${data.verdict}</strong>: ${data.messages.join("; ")}${roll}`;
+        loadFocusReference();
       } finally {
         tripwireBtn.disabled = false;
         tripwireBtn.textContent = "Check tripwire now";

@@ -385,6 +385,28 @@ its relation to the readings is not a straight line (tag 500 sits at table heigh
 trays), so it can say "changed", not by how many points; the sharpness score also depends on
 light, so a change of chamber lighting would show too.
 
+**Run 3g (2026-10-06, 12:46 UTC): a case tag 500 does not show.** At 12:37 UTC the camera stopped
+delivering frames ("Camera frontend has timed out") just after three app reloads in about a
+minute (code edits) while the preview was being read; the app was restarted at 12:44. Then, with
+nothing else changed, lights as before (exposure 3.4 ms, same mean brightness), the tag 500
+reference was set (12:46:32) and the lens locked at 6.37 and back at 6.27, one capture each.
+Sharpness per slot against the 2026-10-05 reference, and changes against the reference capture:
+
+| Capture | North 3 / South 3 / South 4 | Tags found | Calibration tags, all / central | Tag 500 sharpness (app's check) |
+|---|---|---|---|---|
+| 12:07 (run 3f, 6.27, before the timeout) | 0.67 / 0.61 / 0.74 | 341 | | |
+| 12:46:32, 6.27 (reference set) | 0.36 / 0.31 / 0.39 | 257 | 0.00 / 0.00 | 33.5 (reference) |
+| 12:46:37, 6.27 | | 257 | -0.03 / +0.07 | +2.9%, OK |
+| 12:46:44, 6.37 | 0.27 / 0.26 / 0.33 | 155 | -0.99 / -1.13 | +3.7%, OK |
+| 12:46:50, 6.27 | | 264 | +0.05 / +0.21 | +1.1%, OK |
+
+Reading: after that restart the central slots were about half as sharp as at 12:07, at the same
+reported 6.27, and a lens change that moved the readings by -1.0 points did not change tag 500's
+sharpness by more than 4%. So tag 500 at the north table edge does not reliably show a change in
+the central trays; in run 3f it did. The reference set at 12:46 was taken in the blurred state and
+is not a valid reference. Where a reference target sits matters: one at table height at the edge
+does not stand for the trays in the middle.
+
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
