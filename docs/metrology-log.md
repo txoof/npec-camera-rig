@@ -362,6 +362,29 @@ central readings by about 1.2 points. These are test settings, not recommended p
 experimenter's 6.27 is restored at the end. Same quantities as run 3e, as changes against the
 first 6.27 capture. Raw data: `/home/pi/scratch/lens-fix-check-2026-10-06/tag500-test-3f/`.
 
+**Run 3f result** (12:07 to 12:08 UTC; every lock confirmed). Changes against the first 6.27
+capture; calibration tags in points of area error:
+
+| Capture | Tag 500 area | Tag 500 sharpness | Tags | All tags | North row | Central slots |
+|---|---|---|---|---|---|---|
+| 6.27, a | 0.00% | 28.5 | 341 | 0.00 | 0.00 | 0.00 |
+| 6.27, b | -0.25% | 28.7 | 346 | -0.01 | -0.07 | -0.06 |
+| 6.17, a | +0.27% | 49.2 | 355 | +0.58 | +0.67 | -0.09 |
+| 6.17, b | +0.16% | 48.8 | 355 | +0.69 | +0.71 | +0.14 |
+| 6.37, a | -0.41% | 22.5 | 274 | -0.97 | -1.03 | -0.90 |
+| 6.37, b | -0.35% | 22.6 | 279 | -1.01 | -1.18 | -1.00 |
+| 6.27 again, a | -0.26% | 28.6 | 346 | -0.00 | -0.04 | -0.12 |
+| 6.27 again, b | -0.44% | 28.1 | 342 | -0.05 | -0.03 | -0.08 |
+
+Reading: a lens change that moves the calibration tags by +0.6 to -1.0 points changes tag 500's
+**sharpness** by +72% and -21%, against about 2% between repeated photographs at one position;
+returning to 6.27 brought it back to within 1% (28.1 to 28.6). Tag 500's **area** changed by
+only +0.2% and -0.4%, about as much as its repeat noise (0.25%), so its area is not a usable
+signal. Tag 500's sharpness is a usable detector of a change in the lens landing. Not measured:
+its relation to the readings is not a straight line (tag 500 sits at table height, below the
+trays), so it can say "changed", not by how many points; the sharpness score also depends on
+light, so a change of chamber lighting would show too.
+
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
