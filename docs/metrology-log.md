@@ -230,6 +230,16 @@ The app is started by hand; at start-up it drives the lens to the persisted 6.27
 lock. Photographs at +0, +15, +30 and +60 minutes after the lock is restored. Analysis as above,
 each tag compared with itself in the reference.
 
+**Run 3b method, written before it runs (2026-10-06), added after the +0 photograph** showed the
+central slots blurrier than in the reference. Question: does driving the lens to both ends of its
+range before driving it to the focus position restore the sharpness? Right after the +60
+photograph, nothing else changed: the lens is set to the minimum, then the maximum of the
+camera's probed range, then to 6.27, each held 30 s, with the reported position and the focus
+score read every second (which also shows whether the lens follows commands after a full-res
+capture, the open lens bug). Then Lock focus (the app's usual 0.3-below approach), then one
+capture. Compared with the +60 photograph: sharpness on the tag sheets at each slot centre, tags
+detected, and the per-tag area change against the reference.
+
 Detailed results: `reference/lens-return-2026-10.md`.
 
 ## 9. M2 physical acceptance tests (2026-10-05)
