@@ -89,30 +89,47 @@ def _recording_backend() -> "camera_module.Picamera2Backend":
     backend._video_config = {"kind": "video"}
     backend._control_cache = {}
     backend._lens_position = DEFAULT_LENS_POSITION
+    backend._lens_ignores_writes = False
     return backend
 
 
-def test_a_full_res_capture_reopens_the_camera_in_manual_focus_at_the_lens_position() -> None:
-    # 2026-10-06: after switching back to the video configuration the camera accepted every lens
-    # write and moved on none (Autofocus timed out too), even with manual focus re-applied.
-    # Reopening the camera cleared it.
+def test_a_full_res_capture_switches_back_on_the_same_camera_and_leaves_the_lens_alone() -> None:
+    # 2026-10-06: during an experiment nothing moves the lens, so a photo no longer reopens the
+    # camera; the camera then ignores lens writes, and the lens stays where it was.
     backend = _recording_backend()
     backend._control_cache = {"AeEnable": True}
     backend.set_lens_position(6.44)
-    before = backend._picam2
+    camera = backend._picam2
 
     backend.capture_full_res()
-    assert before.configured == [{"kind": "still", "controls": {"AfMode": 0, "LensPosition": 6.44}}]
-    assert before.closed
-    after = backend._picam2
-    assert after is not before and not after.closed
-    assert after.configured == [{"kind": "video"}]
-    assert after.control_writes[0] == {"AfMode": 0, "LensPosition": 6.44}
-    assert {"AeEnable": True} in after.control_writes  # cached AE/AWB restored on the new one
+    assert backend._picam2 is camera and not camera.closed
+    assert camera.configured == [
+        {"kind": "still", "controls": {"AfMode": 0, "LensPosition": 6.44}},
+        {"kind": "video"},
+    ]
+    after = camera.control_writes[camera.control_writes.index({"AfMode": 0, "LensPosition": 6.44}):]
+    assert {"AeEnable": True} in after  # cached AE/AWB restored after the switch
 
-    backend.set_lens_position(6.18)  # a later move is what the next capture uses
+
+def test_the_first_lens_command_after_a_capture_reopens_the_camera_once() -> None:
+    # Measured 2026-10-06: reopening the camera makes the lens follow writes again.
+    backend = _recording_backend()
+    backend._control_cache = {"AeEnable": True}
+    backend.set_lens_position(6.44)
+    backend.prepare_lens()  # no capture yet: nothing to do
+    camera = backend._picam2
+    assert not camera.closed
+
     backend.capture_full_res()
-    assert after.configured[-1]["controls"] == {"AfMode": 0, "LensPosition": 6.18}
+    backend.prepare_lens()
+    assert camera.closed
+    reopened = backend._picam2
+    assert reopened is not camera
+    assert reopened.control_writes[0] == {"AfMode": 0, "LensPosition": 6.44}
+    assert {"AeEnable": True} in reopened.control_writes
+
+    backend.prepare_lens()  # already reopened
+    assert backend._picam2 is reopened and not reopened.closed
 
 
 def test_an_autofocus_cycle_that_never_finishes_is_cancelled_and_leaves_the_lens_in_manual() -> None:
@@ -211,44 +228,52 @@ class _RecordingSyntheticBackend(SyntheticBackend):
         return super().get_lens_position()
 
 
-class _ReopeningSyntheticBackend(_RecordingSyntheticBackend):
-    """Synthetic camera that, like the real one, reopens on a full-res capture."""
+class _PreparingSyntheticBackend(_RecordingSyntheticBackend):
+    """Synthetic camera that records when it is asked to make the lens follow again."""
 
-    reopens_after_full_res = True
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls: list[str] = []
+
+    def prepare_lens(self) -> None:
+        self.calls.append("prepare")
+
+    def set_lens_position(self, value: float) -> None:
+        self.calls.append("write")
+        super().set_lens_position(value)
+
+    def autofocus(self) -> tuple[bool, float]:
+        self.calls.append("autofocus")
+        return super().autofocus()
 
 
-def test_after_a_full_res_capture_the_lens_is_driven_back_and_the_lock_kept(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(camera_module, "LENS_APPROACH_PAUSE_S", 0.0)
-    backend = _ReopeningSyntheticBackend()
+def test_every_lens_command_prepares_the_lens_before_it_writes() -> None:
+    backend = _PreparingSyntheticBackend()
+    manager = CameraManager(backend)
+
+    manager.set_lens_position(6.18)
+    assert backend.calls == ["prepare", "write"]
+    backend.calls.clear()
+    manager.autofocus()
+    assert backend.calls == ["prepare", "autofocus"]
+    backend.calls.clear()
+    manager.lock_focus()
+    assert backend.calls[:2] == ["prepare", "write"]
+
+
+def test_a_locked_capture_moves_nothing_and_keeps_the_lock() -> None:
+    backend = _PreparingSyntheticBackend()
     manager = CameraManager(backend)
     manager.set_lens_position(6.18)
     manager.lock_focus()
-    backend.lens_writes.clear()
+    backend.calls.clear()
 
     manager.capture_full_res()
-    assert backend.lens_writes == [pytest.approx(5.88), 6.18]  # the one consistent way
+    assert backend.calls == []
     assert manager.focus_status() == {"locked": True, "lens_position": 6.18}
 
 
-def test_a_lens_that_does_not_come_back_after_a_capture_clears_the_lock(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(camera_module, "LENS_APPROACH_PAUSE_S", 0.0)
-    backend = _ReopeningSyntheticBackend()
-    manager = CameraManager(backend)
-    manager.set_lens_position(6.18)
-    manager.lock_focus()
-    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
-    backend.stale_reads = 10**6
-
-    manager.capture_full_res()  # the photo itself is still returned
-    assert manager.focus_status() == {"locked": False, "lens_position": None}
-    assert load_settings()["FocusConfirmed"] is False
-
-
-def test_a_camera_that_does_not_reopen_gets_no_lens_moves_from_a_capture() -> None:
+def test_a_capture_gets_no_lens_moves() -> None:
     backend = _RecordingSyntheticBackend()
     manager = CameraManager(backend)
     manager.set_lens_position(6.18)

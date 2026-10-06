@@ -749,6 +749,11 @@ The heart of the project. Do not start before M1 slice 5.
       alarm): moves to 4.77 and back confirmed in 0.53 s each, Lock focus 1.52 s, capture 4.28 s
       with the lock kept, the same after a capture; lens left locked at 6.27. The "not responding"
       path itself is covered by unit tests only, since slice 1 removed the way to cause it.
+      **Changed 2026-10-06, same day:** photos no longer reopen the camera or drive the lens back
+      (plan item "Nothing moves the lens during an experiment", slice 1); the camera is reopened
+      only before a lens command that follows a photo. The slice 1 reopen after every capture and
+      the slice 2 check on the drive back after a capture no longer exist; the check on every lens
+      command stays.
 - [ ] **Next steps from the 2026-10-06 lens and focus tests** (metrology-log section 8.1, runs 3 to
       3i). Measured: an app restart with a warm camera does not move readings (5 restarts, median
       within ±0.05 points); a cold start does (-1.73, recovering over about an hour); after a
@@ -798,6 +803,11 @@ The heart of the project. Do not start before M1 slice 5.
          video configuration as before slice 1 (each photo 1.6 s faster). Before any lens command
          (lens move, Lock focus, Autofocus, Unlock then move), the app reopens the camera if a
          photo has been taken since it was last opened, so the lens follows (TODO next-step 1).
+         **Built 2026-10-06** (`Picamera2Backend.prepare_lens`). Checked on the rig: photos took
+         2.74 to 2.79 s (4.3 s before), lock kept, sharpness 438 to 439; the first move after two
+         photos (to 4.77, focus unlocked) was confirmed in 1.29 s including the reopen, sharpness
+         439 to 9; back to 6.27 in 0.57 s, Lock focus 1.52 s, a photo 2.76 s, sharpness 437, live
+         preview still streaming. Unattended run: metrology-log section 8.1, run 3j.
       2. Every photo records, in its sidecar, the lens position the camera reports and whether it
          matches the lock (within 0.005). A mismatch, or no lock, flags the photo. Limit: a stuck
          camera reports the old position, so this catches a lens the camera reports elsewhere

@@ -49,7 +49,8 @@ LENS_APPROACH_PAUSE_S = 1.0
 # stops responding after a full-res capture"), a working lens reports a new position within 0.6 s,
 # and a stuck one never does (90 s); 5 s leaves room for a large move without a long silent wait.
 # It was 60 s while the camera could report a move up to about 45 s late after a full-res capture;
-# since the camera is reopened after every capture (slice 1) that lag is the fault this detects.
+# since the camera is reopened before any lens command that follows a capture (prepare_lens), that
+# lag is the fault this detects.
 LENS_SETTLE_TIMEOUT_S = 5.0
 # How long one hardware autofocus cycle may hold the camera. picamera2's own wait has no limit:
 # if the scan never starts (seen after a pipeline reconfigure, TODO.md "wedges the whole camera
@@ -105,9 +106,9 @@ SENSOR_METADATA_FIELDS = ("SensorTimestamp", "ExposureTime", "AnalogueGain", "Co
 class CameraBackend(ABC):
     """A source of frames and focus control. Real hardware or synthetic, same interface."""
 
-    # True when a full-res capture leaves the lens where the camera puts it on opening, so the
-    # manager drives it back afterwards (see Picamera2Backend.capture_full_res).
-    reopens_after_full_res = False
+    def prepare_lens(self) -> None:
+        """Make sure the next lens write is followed. Called right before every lens command
+        (CameraManager); nothing to do unless a backend needs it (Picamera2Backend)."""
 
     @abstractmethod
     def capture_array(self) -> np.ndarray:
@@ -228,16 +229,15 @@ class Picamera2Backend(CameraBackend):
     continuous preview stream.
     """
 
-    # A full-res capture reopens the camera, so its lens has to be driven back to the locked
-    # position afterwards (CameraManager.capture_full_res).
-    reopens_after_full_res = True
-
     def __init__(self) -> None:
         from picamera2 import Picamera2
 
         self._new_picamera2 = Picamera2
         # The last lens position this app set, applied whenever the camera is opened.
         self._lens_position = DEFAULT_LENS_POSITION
+        # Set by a full-res capture: the camera now ignores lens writes until it is reopened
+        # (prepare_lens).
+        self._lens_ignores_writes = False
         self._open()
         # AwbEnable/AeEnable are write-only in practice: checked directly (not assumed):
         # capture_metadata() reports None for both, unlike ExposureTime/AnalogueGain/
@@ -298,28 +298,45 @@ class Picamera2Backend(CameraBackend):
             array = self._picam2.capture_array("main")
             metadata = self._picam2.capture_metadata()
         finally:
-            # Reopened, not switched back to the video configuration. Measured on the rig
-            # 2026-10-06 (TODO.md, "Lens stops responding after a full-res capture"): after one
-            # switch back, the camera accepts every lens write and moves on none of them, even
-            # with manual focus re-applied or put in the video configuration; Autofocus times
-            # out. Closing and reopening the camera in the same process clears it (lens reported
-            # at a new position in 0.6 s), for about 1 s per capture. The lens is then driven
-            # back to the locked position by CameraManager.capture_full_res.
+            # Switched back to the video configuration, not reopened, and the lens is not moved.
+            # Measured on the rig 2026-10-06 (TODO.md, "Lens stops responding after a full-res
+            # capture"): after this switch the camera accepts every lens write and moves on none,
+            # but the lens stays where it was (reported position and sharpness unchanged). During
+            # an experiment nothing moves the lens (TODO.md, "Plan: nothing moves the lens during
+            # an experiment"), so a photo leaves it alone; a later lens command reopens the
+            # camera first (prepare_lens), which clears it.
             self._picam2.stop()
-            self._picam2.close()
-            self._open()
-            # A fresh camera starts from its tuning-file defaults, while this app's own cache
-            # still claims what AwbEnable/AeEnable were set to, so the image could go
-            # stuck/washed-out without the checkbox ever changing. Restore whatever this app last
-            # believed they were, via set_control, not a raw set_controls call, so re-enabling AE
-            # here also releases the ExposureTimeMode/AnalogueGainMode manual latch the same way
-            # a live checkbox toggle does (see set_control below). A manually-set
-            # ExposureTime/AnalogueGain while AE was off is NOT restored here: those are not
-            # cached (see TODO.md).
-            for name, value in dict(self._control_cache).items():
-                self.set_control(name, value)
+            self._picam2.configure(self._video_config)
+            self._picam2.start()
+            self._picam2.set_controls(dict(focus))
+            self._lens_ignores_writes = True
+            self._restore_cached_controls()
         sensor_metadata = {key: metadata.get(key) for key in SENSOR_METADATA_FIELDS}
         return array, sensor_metadata
+
+    def prepare_lens(self) -> None:
+        """Reopen the camera if a full-res capture has left it ignoring lens writes. Measured
+        2026-10-06: closing and reopening in the same process makes the lens follow again (a new
+        position reported in 0.6 s); it opens at the last position this app set."""
+        if not self._lens_ignores_writes:
+            return
+        self._picam2.stop()
+        self._picam2.close()
+        self._open()
+        self._lens_ignores_writes = False
+        self._restore_cached_controls()
+
+    def _restore_cached_controls(self) -> None:
+        # configure() and a fresh camera both drop AeEnable/AwbEnable back to the tuning-file
+        # defaults, while this app's own cache still claims what they were set to, so the image
+        # could go stuck/washed-out without the checkbox ever changing. Restore whatever this app
+        # last believed they were, via set_control, not a raw set_controls call, so re-enabling AE
+        # here also releases the ExposureTimeMode/AnalogueGainMode manual latch the same way a
+        # live checkbox toggle does (see set_control below). A manually-set
+        # ExposureTime/AnalogueGain while AE was off is NOT restored here: those are not cached
+        # (see TODO.md).
+        for name, value in dict(self._control_cache).items():
+            self.set_control(name, value)
 
     def set_lens_position(self, value: float) -> None:
         self._picam2.set_controls({"AfMode": 0, "LensPosition": value})
@@ -653,6 +670,7 @@ class CameraManager:
             save_setting("LensPosition", value)
             started = time.monotonic()
             with self._call_lock:
+                self._backend.prepare_lens()
                 self._backend.set_lens_position(approach)
             approach_sent = time.monotonic()
             # The camera must report the approach position before the target counts: a stuck
@@ -692,6 +710,7 @@ class CameraManager:
         if self._locked_lens_position is not None:
             raise FocusLockedError()
         with self._call_lock:
+            self._backend.prepare_lens()
             self._backend.set_lens_position(value)
         self._commanded_lens_position = value
         save_setting("LensPosition", value)
@@ -714,6 +733,7 @@ class CameraManager:
             raise FocusLockedError()
         timed_out = None
         with self._call_lock:
+            self._backend.prepare_lens()
             try:
                 success, lens_position = self._backend.autofocus()
             except AutofocusTimeoutError as exc:
@@ -806,25 +826,7 @@ class CameraManager:
         }
 
     def capture_full_res(self) -> tuple[np.ndarray, dict]:
+        """A full-res photo. Does not move the lens: during an experiment nothing does (TODO.md,
+        "Plan: nothing moves the lens during an experiment")."""
         with self._call_lock:
-            result = self._backend.capture_full_res()
-        if self._backend.reopens_after_full_res:
-            self._drive_back_after_capture()
-        return result
-
-    def _drive_back_after_capture(self) -> None:
-        """The capture reopened the camera: drive the lens back to where the app last put it,
-        the one consistent way, so the next capture sees it where this one did. The lock stays
-        if the camera confirms the position, and is cleared if it does not."""
-        target = self._locked_lens_position
-        if target is None:
-            target = self._commanded_lens_position
-        if target is None:
-            return
-        try:
-            self._drive_lens(target)
-        except (LensNotSettledError, LensMovedDuringLockError) as exc:
-            logger.warning("after a full-res capture: %s", exc)
-            if self._locked_lens_position is not None:
-                self._locked_lens_position = None
-                save_setting("FocusConfirmed", False)
+            return self._backend.capture_full_res()
