@@ -233,7 +233,7 @@ class Picamera2Backend(CameraBackend):
         # The last lens position this app set, applied whenever the camera is opened.
         self._lens_position = DEFAULT_LENS_POSITION
         self._open()
-        # AwbEnable/AeEnable are write-only in practice: checked directly (not assumed) —
+        # AwbEnable/AeEnable are write-only in practice: checked directly (not assumed):
         # capture_metadata() reports None for both, unlike ExposureTime/AnalogueGain/
         # LensPosition, which it reports correctly. Cache the last value we set instead.
         probed = self._picam2.camera_controls
