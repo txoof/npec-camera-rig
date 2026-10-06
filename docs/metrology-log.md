@@ -47,6 +47,7 @@ two area errors (for example +1.00% to +1.03%) is given in *points* (+0.03 point
 | Calibration tag side | 30.0 ± 0.1 mm (readings X 30.10, 30.11, 29.96; Y 30.04, 29.96, 29.94; mean 30.018) | Callipers, 6 readings, one print run | 2026-09-29 | That print run only. Every new print is measured again. ±0.1 mm on 30 mm is about ±0.67% in area |
 | Corner tag side | 50.02 mm (mean) | Callipers | 2026-09-29 | Corner tags are used for the rig health check (tripwire) and table view, not for area |
 | Sheet scale bars | 179.93 and 180.03 mm (nominal 180) | Callipers, 2 bars | 2026-09-29 | Confirms the sheets printed at 100% scale |
+| Reference tag 500 side (60 mm, 36h11 ID 500, fixed at the north table edge) | 59.94 mm mean (readings 59.58, 59.96, 59.91, 59.97, 60.26, 59.97; median 59.96, SD 0.22) | Callipers, 6 readings along X and Y | 2026-10-06 | Wider spread than the 30 mm tags (0.17 mm range); two readings 0.3 to 0.4 mm off the other four. ±0.22 mm is about ±0.7% in area. Placed 2026-10-06 at the supervisor's suggestion as a static target |
 | Calliper resolution trusted | 0.1 mm | **Decision** | | Readings are not used beyond 0.1 mm |
 | Sheet-to-sheet difference | up to about 0.7% in area between sheets that both measure 30.0 mm | Fit residuals, 6 pages, 3 sessions | 2026-09-30 to 10-01 | `reference/arducam-central-error-2026-10.md` |
 
@@ -316,8 +317,23 @@ from about half to fully that of the reference over the day, depending on the le
 The sweep raised it, but not to the 09:38 level. Readings moved with it: +0.39 points after the
 sweep, and P3 moved a further +0.11 from P2 with no command between them except the drive back
 after P2's capture. This does not reopen the closed central-error investigation, but it measures
-that the error at one reported lens position is not fixed from one lens history to the next. Raw
-data for runs 3 to 3c:
+that the error at one reported lens position is not fixed from one lens history to the next.
+
+**Run 3e method, written before it runs (2026-10-06, about 11:55 UTC): does the static tag 500
+show it?** During an experiment no one will re-validate, so a change in the lens landing has to
+be seen in the photographs themselves. Tag 500 (section 3) never moves, so a change in its
+apparent area or sharpness between photographs comes from the camera side. Question: when the
+calibration tags' readings change with the lens history, does tag 500 change too, and by more
+than its photograph-to-photograph noise (0.15% in area between two photographs at 11:45)? Four
+conditions, 2 captures each, nothing on the table touched, door closed: (1) nothing changed;
+(2) lens to 0.0, 15.0, 6.27 (10 s each), Lock focus; (3) app restart (start-up drive to 6.27);
+(4) the sweep of (2) again. For each capture: tag 500's area in pixels and the sharpness of a
+500 px square around it; the calibration tags' median area error with the current calibration,
+for all tags, the North row and the central slots (North 3, North 4, South 3, South 4). Compared
+as changes against the first capture of condition 1. Raw data:
+`/home/pi/scratch/lens-fix-check-2026-10-06/tag500-test/`.
+
+Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
 Detailed results: `reference/lens-return-2026-10.md`.
