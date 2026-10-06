@@ -32,28 +32,34 @@
 </div>
 {% endif %}
 
+{# Two columns, so the whole panel fits under the images on a 1024x768 screen (Aaron,
+   2026-10-06): the lens controls and focus status on the left, the sharpness readout and focus
+   peaking (both for judging sharpness) on the right, where they can be watched while adjusting. #}
 <div class="focus-control-panel">
-  <div class="focus-control-row">
-    <button id="autofocus-btn">Autofocus</button>
-    <button id="lock-btn">Lock focus</button>
-    <span id="lock-status">Focus is unlocked</span>
+  <div class="focus-lens-controls">
+    <div class="focus-control-row">
+      <button id="autofocus-btn">Autofocus</button>
+      <button id="lock-btn">Lock focus</button>
+      <div class="focus-status">
+        <span id="lock-status">Focus is unlocked</span>
+        <span id="lens-error" style="color: #f66; font-weight: bold;"></span>
+      </div>
+    </div>
+    <div class="focus-control-row lens-row">
+      <label for="lens-coarse">Coarse (dioptres)</label>
+      <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
+      <label for="lens-fine">Fine adjust</label>
+      <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
+      <span id="lens-fine-value">.00</span>
+    </div>
+  </div>
+  <div class="focus-sharpness">
+    <div><span>Sharpness</span> <strong id="score-value">-</strong></div>
+    <canvas id="score-trace" width="480" height="60"></canvas>
     <label class="peaking-inline">
       <input type="checkbox" id="peaking-toggle">
       <span>Focus peaking</span>
     </label>
-  </div>
-  <div class="focus-control-row">
-    <label for="lens-coarse">Coarse (dioptres)</label>
-    <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
-    <label for="lens-fine">Fine adjust</label>
-    <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
-    <span id="lens-fine-value">.00</span>
-    <span id="lens-error" style="color: #f66; font-weight: bold;"></span>
-  </div>
-  <div class="focus-control-row">
-    <span>Sharpness</span>
-    <strong id="score-value">-</strong>
-    <canvas id="score-trace" width="480" height="60"></canvas>
   </div>
 </div>
 
@@ -84,7 +90,8 @@
   <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
     <strong>Lock focus</strong> moves the lens to the position you set, always the same way, and
     waits until the camera reports it there; calibration and validation then hold to that
-    position. Adjusting the controls above afterward unlocks it, so lock again if you do.
+    position. While focus is locked the lens controls and Autofocus are greyed out; press Unlock
+    focus to change it.
   </p>
 </details>
 
