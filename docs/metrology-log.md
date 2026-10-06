@@ -297,7 +297,27 @@ focus, restore the sharpness? With the slice 1 fix the lens follows commands aft
 Steps, nothing else changed, door closed: one capture; lens to 0.0, 15.0, 6.27 (15 s each, reported
 position and focus score read twice a second); Lock focus; two captures. Compared: tags found,
 sharpness per slot against the 2026-10-05 reference, and per-tag area change against the first
-capture. Raw data: `/home/pi/scratch/lens-fix-check-2026-10-06/`. Raw data for runs 3 to 3c:
+capture. Raw data: `/home/pi/scratch/lens-fix-check-2026-10-06/`.
+
+**Run 3d result.** Before the run Aaron had moved the lens and locked it again at 6.27 (after a
+capture, through the app). The lens followed every command (focus score 3.1 at 0.0, 2.3 at 15.0,
+375 back at 6.27).
+
+| Photo | Time (UTC) | Tags found | Sharpness, median of 12 slots | North 3 / South 3 / South 4 | Median change against P1 |
+|---|---|---|---|---|---|
+| (11:18, before Aaron's lock) | 11:18:32 | 318 | 0.90 | 0.51 / 0.46 / 0.51 | |
+| P1, before the sweep | 11:30:03 | 341 | 0.93 | 0.66 / 0.63 / 0.69 | |
+| P2, after sweep and lock | 11:31:01 | 339 matched | 0.93 | 0.82 / 0.81 / 0.86 | +0.39 (spread 0.43) |
+| P3, 5 s later | 11:31:06 | 338 matched | 0.95 | 0.85 / 0.87 / 0.90 | +0.50 (spread 0.50) |
+| (09:38, after run 3c's sweep) | 09:38:07 | 359 | 1.03 | 1.02 / 1.08 / 1.05 | |
+
+Reading: with the lens reported at 6.27 every time, the sharpness of the central slots ranged
+from about half to fully that of the reference over the day, depending on the lens's history.
+The sweep raised it, but not to the 09:38 level. Readings moved with it: +0.39 points after the
+sweep, and P3 moved a further +0.11 from P2 with no command between them except the drive back
+after P2's capture. This does not reopen the closed central-error investigation, but it measures
+that the error at one reported lens position is not fixed from one lens history to the next. Raw
+data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
 Detailed results: `reference/lens-return-2026-10.md`.
