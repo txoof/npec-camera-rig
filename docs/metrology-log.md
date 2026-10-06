@@ -267,7 +267,12 @@ lens was set to 0.0 and to 15.0 and held 30 s at each: every command returned 20
 per-second readings of the reported position were 6.27 and the focus score stayed between 374 and
 380, so the lens did not move. Lock focus then reported success at 6.27, the position the lens
 already reported. The after-sweep photograph (09:32:52) matches +60 (median -0.11, sharpness
-0.96). So whether a sweep to both ends improves sharpness is still not known. Raw data:
+0.96). So whether a sweep to both ends improves sharpness is still not known.
+
+**Run 3c method, written before it runs (2026-10-06):** the run 3b sequence repeated in a freshly
+restarted app (server killed and started again, start-up drive to 6.27 and lock), before any
+full-res capture in that process, so the lens follows commands. Compared with the +60 and
+after-sweep photographs and the reference, as in run 3b. Raw data:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
 Detailed results: `reference/lens-return-2026-10.md`.
