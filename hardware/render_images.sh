@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGES_DIR="$SCRIPT_DIR/images"
 IMGSIZE="1000,1000"
 CAMERA="0,0,0,55,0,25,0"
-SKIP="apriltag_36h11.scad apriltags-36h11-1-499.scad"
+SKIP="apriltag_36h11.scad apriltags-36h11-0-586.scad"
 
 mkdir -p "$IMAGES_DIR"
 cd "$SCRIPT_DIR"
