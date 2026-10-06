@@ -215,7 +215,20 @@ changes nothing).
 | Control A | None; people working in the chamber, door opened, one sheet moved, 23 tags hidden | 2026-10-05, 09:02 to 10:02 | Done, disturbed | 332 tags compared |
 | Control B | None; undisturbed | 2026-10-05, 10:02 to 10:47 | Done | Median within ±0.10, slots up to 0.52 |
 | 2 | App restart: the server process is killed and started again. At start-up the app drives the lens to the locked position the same way as Lock focus (0.3 below, pause, target) and waits until the camera reports it there | 2026-10-05, 10:53 and 11:15 | Done (first attempt disturbed after +0) | Inside the control range |
-| 3 | Power cut at the rig: the Pi is switched off long enough to cool (for example 30 minutes), then on | | Planned | |
+| 3 | Power cut at the rig: the Pi is switched off long enough to cool (for example 30 minutes), then on | 2026-10-06 | Running | |
+
+**Run 3 method, written before the run (2026-10-06).** The Pi was shut down on the evening of
+2026-10-05 and left off for about 30 minutes, then booted; the app was not started and the camera
+not opened until the run, so the camera did not warm up and the focus motor had been without
+power. Lights at full, door closed, nothing on the table touched since the last validation round.
+Two differences from steps 2 and 4 above: (1) the reference is the last validation round before
+the shutdown, `2026-10-05/141511_466090` (session `20261005T141310628479`, round 3, 14:15:11 UTC),
+because a fresh reference would have opened the camera; (2) the follow-up photographs are plain
+captures through the app (`POST /capture`, the same full-res capture path as a round), because
+that session is closed and a new session would count the first photograph as a validation round.
+The app is started by hand; at start-up it drives the lens to the persisted 6.27 and restores the
+lock. Photographs at +0, +15, +30 and +60 minutes after the lock is restored. Analysis as above,
+each tag compared with itself in the reference.
 
 Detailed results: `reference/lens-return-2026-10.md`.
 
