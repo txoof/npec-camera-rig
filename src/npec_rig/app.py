@@ -93,7 +93,7 @@ from npec_rig.tags import (
     CORNER_ID_RANGE,
     detect_tags,
 )
-from npec_rig import focus_reference, images, validation_store
+from npec_rig import images, validation_store
 from npec_rig.tripwire import (
     build_corner_baseline,
     check_tripwire,
@@ -188,9 +188,7 @@ def setup_health_check_page(request: Request) -> Response:
     """On-demand checks outside the linear calibration wizard -- currently just the tripwire
     check, moved here from the wizard (Aaron, 2026-09-25: "should not be part of the wizard,
     should be moved to a 'health check' screen")."""
-    return templates.TemplateResponse(
-        request, "setup_health_check.html", {"limit_pct": focus_reference.CHANGE_LIMIT_PCT}
-    )
+    return templates.TemplateResponse(request, "setup_health_check.html")
 
 
 @app.get("/gallery")
@@ -425,7 +423,6 @@ def capture() -> dict:
             "roi": manager.get_roi(),
             "focus": manager.focus_status(),
             "sensor_metadata": sensor_metadata,
-            "focus_reference": focus_reference.record(array),
         },
     )
 
@@ -660,7 +657,6 @@ def run_calibration(
     previous_artifact = load_current_calibration()
 
     array, _sensor_metadata = manager.capture_full_res()
-    focus_reference.record(array)
     frame_height, frame_width = array.shape[0], array.shape[1]
 
     detections = detect_tags(array)
@@ -1480,7 +1476,6 @@ def tripwire_check() -> dict:
 
     manager = CameraManager.instance()
     array, _sensor_metadata = manager.capture_full_res()
-    focus = focus_reference.record(array)
     detections = detect_tags(array)
     result = check_tripwire(artifact.corner_baseline, detections)
     return {
@@ -1488,50 +1483,7 @@ def tripwire_check() -> dict:
         "messages": list(result.messages),
         "roll_deg": result.roll_deg,
         "scale_delta_pct": result.scale_delta_pct,
-        "focus_reference": focus,
     }
-
-
-@app.get("/focus/reference")
-def get_focus_reference() -> dict:
-    """The stored tag 500 focus reference and the latest check against it."""
-    return {
-        "reference": focus_reference.load_reference(),
-        "last_check": focus_reference.last_check(),
-        "limit_pct": focus_reference.CHANGE_LIMIT_PCT,
-    }
-
-
-@app.post("/focus/reference")
-def set_focus_reference() -> dict:
-    """Take a photograph, find tag 500 in it, and store its position and sharpness as the
-    reference every later photograph is compared with."""
-    manager = CameraManager.instance()
-    array, sensor_metadata = manager.capture_full_res()
-    detections = detect_tags(array)
-    record = save_capture(
-        array,
-        {
-            "lens_position": manager.get_lens_position(),
-            "roi": manager.get_roi(),
-            "focus": manager.focus_status(),
-            "sensor_metadata": sensor_metadata,
-            "purpose": "focus reference",
-        },
-    )
-    ref = f"{record['date']}/{Path(record['filename']).stem}"
-    try:
-        reference = focus_reference.set_reference(array, detections, ref)
-    except LookupError as exc:
-        raise HTTPException(
-            409,
-            f"tag {focus_reference.REFERENCE_TAG_ID} was not found in the photograph: check that "
-            "it is in view and lit, then try again",
-        ) from exc
-    except ValueError as exc:
-        raise HTTPException(409, f"tag {focus_reference.REFERENCE_TAG_ID}: {exc}") from exc
-    focus_reference.record(array)
-    return get_focus_reference() | {"reference": reference}
 
 
 # --- Validation sessions ---
@@ -1733,7 +1685,6 @@ def capture_validation_round(session_id: str) -> dict:
                 "roi": manager.get_roi(),
                 "focus": focus,
                 "sensor_metadata": sensor_metadata,
-                "focus_reference": focus_reference.record(array),
                 "validation_session": session_id,
             },
         )
