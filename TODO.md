@@ -727,7 +727,18 @@ The heart of the project. Do not start before M1 slice 5.
       | Manual focus also in the video configuration's controls | no |
       So one capture is enough; the existing re-apply after switching back does not work; an
       in-process close and reopen clears it (the capture plus reopen took 3.7 s against 2.7 s
-      for the capture alone). Frames kept flowing in every case. Likely the same fault as the
+      for the capture alone). Frames kept flowing in every case.
+      **Slice 1 built 2026-10-06 (branch `m2-lens-unresponsive`):** `Picamera2Backend` now closes
+      and reopens the camera after every full-res capture instead of switching back to the video
+      configuration, and `CameraManager.capture_full_res` then drives the lens back to the locked
+      (or last set) position the one consistent way; the lock is kept if the camera confirms it
+      and cleared if it does not. Checked on the rig (`/home/pi/scratch/lens-fix-check-2026-10-06/`):
+      right after a capture the lens followed a write to 4.77 within 0.5 s (focus score 370 to
+      10) and came back to 6.27; three captures in a row (each with reopen and drive back) read
+      the same, median change -0.01 and -0.09 points, every slot within ±0.32; a capture now takes
+      4.3 s. Still open: slice 2, detection (a lens write the camera does not confirm within a few
+      seconds shows "lens not responding, restart the app"; Lock focus must not confirm a stale
+      report). Likely the same fault as the
       item below. Make it fixable: (1) reproduce with N = 1, 3, 9 full-res captures then one lens
       change, checking `LensPosition` in the next sidecar; (2) log requested and reported lens
       position on every lens command; (3) after a lens command, compare reported with requested
