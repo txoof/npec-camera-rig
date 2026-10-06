@@ -169,7 +169,7 @@ several percent. Measured at milestone M5.
 | Drift at a fixed lens position after moves | central ring changed 1.3 points in 35 min | Lens sweep then return to 6.18 | 2026-10-01 |
 | Change over time with nothing moved (control) | over 45 to 60 min: median within ±0.17 points, central ring within ±0.26, single slots up to 0.52 (about 1/4 of that slot's band); goes up and down, not a steady drift | Same method, lens untouched, two series (one partly disturbed by people in the chamber) | 2026-10-05, `reference/lens-return-2026-10.md` |
 | App restart | right after: median +0.08 and +0.09 points (two attempts), 355 of 355 tags; over 60 min median within ±0.13, largest slot -0.29 (about 1/6 of its band); inside the control range | Server killed and restarted, lens driven back to 6.15 at start-up; repeat-photograph test (section 8.1) | 2026-10-05, `reference/lens-return-2026-10.md` |
-| Power cut | planned (run 3, section 8.1) | | |
+| Power cut (cold start) | right after: median -1.73 points, 291 of 354 tags found, central slots blurrier; +15 min -0.41, +30 -0.38, +60 -0.14 (largest slot -0.62); recovers with no lens move | Pi off about 30 min, camera not opened until the run; repeat-photograph test (run 3) | 2026-10-06 |
 | Two calibrations in a row | scale fields agreed within 0.02% to 0.16% | 332 and 340 tags, lens moved away and back, 2026-09-25 | Before the current lens-drive method |
 
 On 2026-10-05, the changes after moving the lens and driving it back (run 1) and after an app
@@ -215,7 +215,7 @@ changes nothing).
 | Control A | None; people working in the chamber, door opened, one sheet moved, 23 tags hidden | 2026-10-05, 09:02 to 10:02 | Done, disturbed | 332 tags compared |
 | Control B | None; undisturbed | 2026-10-05, 10:02 to 10:47 | Done | Median within ±0.10, slots up to 0.52 |
 | 2 | App restart: the server process is killed and started again. At start-up the app drives the lens to the locked position the same way as Lock focus (0.3 below, pause, target) and waits until the camera reports it there | 2026-10-05, 10:53 and 11:15 | Done (first attempt disturbed after +0) | Inside the control range |
-| 3 | Power cut at the rig: the Pi is switched off long enough to cool (for example 30 minutes), then on | 2026-10-06 | Running | |
+| 3 | Power cut at the rig: the Pi is switched off long enough to cool (for example 30 minutes), then on | 2026-10-06, 08:30 to 09:31 | Done | Large change right after, recovering within an hour (below) |
 
 **Run 3 method, written before the run (2026-10-06).** The Pi was shut down on the evening of
 2026-10-05 and left off for about 30 minutes, then booted; the app was not started and the camera
@@ -239,6 +239,36 @@ score read every second (which also shows whether the lens follows commands afte
 capture, the open lens bug). Then Lock focus (the app's usual 0.3-below approach), then one
 capture. Compared with the +60 photograph: sharpness on the tag sheets at each slot centre, tags
 detected, and the per-tag area change against the reference.
+
+**Run 3 results** (app started 08:30:54 UTC; lens reported 6.27 and locked at 08:31:01; reference
+`2026-10-05/141511_466090`, 354 tags). Sharpness is the Laplacian variance of a 600 px square at
+each slot centre on the tag sheets, as a ratio to the reference (1.00 unchanged).
+
+| Photo | Time (UTC) | Tags matched | Median change | Spread (SD) | Ring 1000 to 1500 px | Largest slot median | Sharpness, median of 12 slots | Sharpness, North 3 / South 3 / South 4 |
+|---|---|---|---|---|---|---|---|---|
+| +0 | 08:31:03 | 291 | -1.73 | 1.03 | -1.07 | -2.81 (North 2) | 0.82 | 0.43 / 0.38 / 0.43 |
+| +15 | 08:46:06 | 348 | -0.41 | 0.57 | -0.02 | -0.88 (South 1) | 0.94 | 0.79 / 0.78 / 0.82 |
+| +30 | 09:01:04 | 346 | -0.38 | 0.66 | -0.08 | -1.00 (South 1) | 0.95 | 0.80 / 0.79 / 0.83 |
+| +60 | 09:31:03 | 352 | -0.14 | 0.50 | +0.02 | -0.62 (South 1) | 0.97 | 0.90 / 0.91 / 0.92 |
+
+The image did not move (tags within about 3.5 px of the reference, scale change 0.02%) and the
+reported lens position was 6.27 throughout. Right after a cold start the central trays are
+blurrier, fewer tags are found, and areas read about 1.7 points low; North 2 (-2.81) is outside
+its band (±1.86%). Without any lens move the picture sharpens and the readings return: by +15
+min most of the change is gone, by +60 the median is -0.14 and the largest slot -0.62, close to
+the control's 0.52. The likely cause is the camera warming up after being cold; it was not
+measured directly. **Practical consequence:** after a power cut, readings in roughly the first
+15 minutes after the app opens the camera are not covered by the bands; by 60 minutes they are
+close to the ordinary change over time.
+
+**Run 3b result: the sweep did not happen; the lens bug reproduced instead.** After the 4
+full-res captures of run 3 (plain `POST /capture`, no calibration, no knock, no Autofocus), the
+lens was set to 0.0 and to 15.0 and held 30 s at each: every command returned 200, but all 100
+per-second readings of the reported position were 6.27 and the focus score stayed between 374 and
+380, so the lens did not move. Lock focus then reported success at 6.27, the position the lens
+already reported. The after-sweep photograph (09:32:52) matches +60 (median -0.11, sharpness
+0.96). So whether a sweep to both ends improves sharpness is still not known. Raw data:
+`/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
 Detailed results: `reference/lens-return-2026-10.md`.
 
@@ -419,7 +449,8 @@ only sit on trays.
 
 ## 11. Not yet measured, and open inconsistencies
 
-**Not yet measured:** power-cut repeatability (section 8.1, run 3). The M2 acceptance tests are
+**Not yet measured:** whether driving the lens to both ends of its range before focusing changes
+sharpness (run 3b could not test it, section 8.1). The M2 acceptance tests are
 done (section 9).
 
 **Open points from the acceptance tests:**

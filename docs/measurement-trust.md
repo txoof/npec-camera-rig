@@ -158,12 +158,18 @@ was compared with its own earlier reading:
 | Nothing done (control) | | up to 0.52 points (North 1) |
 | Lens moved by autofocus, driven back to 6.15 | -0.03 points | +0.35 points |
 | App restart | +0.08 and +0.09 points (two attempts) | -0.29 points |
-| Power cut | not yet tested | |
+| Power cut (cold start) | -1.73 points right after; -0.41 at +15 min; -0.14 at +60 min | -0.62 points at +60 min (South 1) |
 
 Photographs of an unchanged scene differ by a spread of 0.27 to 0.46 points anyway. Both
 disturbances stayed inside the change seen with nothing done, and the largest change in any slot
 was about a sixth of that slot's band. On this evidence, a restart does not require a new
 calibration or validation.
+
+A cold start is different. Right after a power cut, with the camera cold, the central trays
+were blurrier and areas read about 1.7 points low, more than some slots' bands. Without any
+lens move the readings returned over the next hour: most of the change was gone after 15
+minutes, and after 60 minutes it was close to the change seen with nothing done. Readings taken in
+roughly the first 15 minutes after the app opens a cold camera are not covered by the bands.
 
 **One open point.** On 2026-10-01, after a different series of lens moves, the central readings
 drifted by 1.3 points in 35 minutes. That was not repeated on 2026-10-05, and the reason for the
@@ -195,7 +201,9 @@ the extreme frame corners, and plants only sit on trays. No model is adopted.
   plant from background (segmentation) has not been measured on this rig; it is planned for the
   canopy-area milestone (M5) and is expected to add several percent.
 - **Other focus positions.** Each focus position needs its own calibration and validation.
-- **A power cut.** Not yet tested (planned, same method).
+- **The first minutes after a power cut.** Readings in roughly the first 15 minutes after a cold
+  start are not covered by the bands (2026-10-06, one run). How long the warm-up takes in other
+  conditions is not measured.
 - **Long distances across several trays.** The tape check passed, but distances across the South
   row read 1.4% to 1.7% long while the tags at its ends read about right, which is not explained.
   Only the left-right direction of one row was checked. A plant is

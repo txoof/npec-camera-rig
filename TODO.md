@@ -705,7 +705,13 @@ The heart of the project. Do not start before M1 slice 5.
       13 full-res captures (first time) and after 1 calibration run (second time, no knock);
       whether one capture is always enough is not known. A 200 does not show the lens moved, so
       the logs cannot settle it: diagnosis script `reference/lens-unresponsive-2026-10-diagnose.py`
-      (needs the server stopped and the chamber lit). An app restart fixed it both times. Likely the same fault as the
+      (needs the server stopped and the chamber lit). An app restart fixed it both times.
+      **Reproduced 2026-10-06** (metrology-log section 8.1, run 3b): fresh process, the start-up
+      lens drive worked, then 4 plain `POST /capture` full-res photos, then lens set to 0.0 and
+      15.0: every command 200, 100 of 100 reported readings stayed 6.27, focus score unchanged
+      (374 to 380), so neither the report nor the lens moved. Lock focus then "confirmed" 6.27
+      because the stale report matched. So plain captures are enough (no calibration, knock or
+      Autofocus), and comparing reported with requested position would catch it. Likely the same fault as the
       item below. Make it fixable: (1) reproduce with N = 1, 3, 9 full-res captures then one lens
       change, checking `LensPosition` in the next sidecar; (2) log requested and reported lens
       position on every lens command; (3) after a lens command, compare reported with requested
