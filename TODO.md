@@ -757,7 +757,8 @@ The heart of the project. Do not start before M1 slice 5.
       tags (IDs 1 to 12, 30 mm) could reliably detect or correct a lens-landing change.
       1. Reopen the camera only before a lens command (lens move, Lock focus, Autofocus), not after
          every capture: during an experiment the lens is never moved, and each capture then saves
-         1.6 s (4.3 s now, 2.7 s before slice 1). Keep the drive back and lock rule for that case.
+         1.6 s (4.3 s now, 2.7 s before slice 1). Now part of the plan in the next item, "Nothing
+         moves the lens during an experiment".
       2. ~~Remove the tag 500 focus check (WIP commit 2ad230d)~~: done 2026-10-06 (`e2a20fd`),
          Aaron: not helpful; the corner tags already watch the camera and a sweep cannot run every
          photo. Its "FocusReference" setting was deleted from `rig.db`.
@@ -778,6 +779,45 @@ The heart of the project. Do not start before M1 slice 5.
       in a freshly restarted app, before any capture. Full report kept outside the repo at
       `/home/pi/scratch/bug-lens-unresponsive-2026-10-05.md`; the log lines are in
       `uvicorn.log` around lines 390560 to 392545 and the following restart.
+- [ ] **Plan: nothing moves the lens during an experiment** (Aaron agreed the direction
+      2026-10-06; not built). The rig takes a photo every minute for many hours a day with no one
+      watching, so no step that runs per photo may depend on a person reacting to a message.
+      **Why.** Since slice 1 every photo closes and reopens the camera and then drives the lens
+      back to the locked position: three steps per photo that can fail, about 900 times a day. If
+      the drive back is not confirmed, the photo is still saved and reported as a success, the
+      lock is cleared and only the server log says so. That failure has not been seen since
+      slice 1, but nothing would show it. Measured 2026-10-06 (runs 3b and the diagnosis in the
+      item "Lens stops responding"): before slice 1 a photo left the lens not following commands,
+      but it stayed where it was (reported position and sharpness unchanged), so a stuck lens only
+      matters when something tries to move it. Validation runs before slice 1 were taken this way.
+      **Rule.** While focus is locked (the experiment state), nothing moves the lens: lens moves
+      and Autofocus are already refused while locked (`66f18e6`), and photos stop moving it too.
+      Lens moves happen only during setup, with a person at the rig.
+      **Slices, in order, each with a checkpoint:**
+      1. Photos stop reopening the camera and stop driving the lens back; they switch back to the
+         video configuration as before slice 1 (each photo 1.6 s faster). Before any lens command
+         (lens move, Lock focus, Autofocus, Unlock then move), the app reopens the camera if a
+         photo has been taken since it was last opened, so the lens follows (TODO next-step 1).
+      2. Every photo records, in its sidecar, the lens position the camera reports and whether it
+         matches the lock (within 0.005). A mismatch, or no lock, flags the photo. Limit: a stuck
+         camera reports the old position, so this catches a lens the camera reports elsewhere
+         (for example after a reopen or restart), not a lens that moved while the report did not.
+      3. During setup, a lens command the camera does not confirm makes the app reopen the camera
+         and try once more by itself; only if that also fails does the page show "Lens not
+         responding: restart the app".
+      4. Photos taken in the first hour after a cold start, or after a camera fault (frontend
+         timeout in the log), are flagged as not covered by the validation bands (TODO next-step 3;
+         the one-hour figure is a decision to confirm, from the cold start that recovered over about an
+         hour, item above).
+      **Measurement needed first (method into `docs/metrology-log.md` before the run):** with the
+      lens locked and no reopen per photo, take one photo a minute for at least 2 hours and check
+      that the reported lens position, sharpness at fixed spots and the per-slot readings stay
+      within the restart spread measured in run 3i. That is what shows slice 1 of this plan is
+      safe for unattended runs.
+      **What stays open:** a camera fault in the middle of a run can still shift readings (run 3g:
+      central trays about half as sharp after a frontend timeout and restart), and no tag at the
+      rig could detect it reliably (tag 500, tray tags; runs 3f to 3h). The flags make such photos
+      visible; they do not correct them.
 - [ ] **Calibration capture immediately followed by autofocus wedges the whole camera pipeline**
       — reproduced on real hardware 2026-09-21: run a calibration, then hit "Autofocus," and
       every camera-touching endpoint (preview, snapshot, focus score) hangs for an extended
