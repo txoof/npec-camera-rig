@@ -59,10 +59,14 @@
    ID label: small, engraved into the top face in the quiet zone's top-left
    corner (-X, +Y, viewed from above), `id_inset` in from both plate edges.
    It sits inside the quiet zone by choice (Aaron, REV 1.2): small enough
-   to accept for this application. Revision stamp: tab style, engraved
-   into the tab's inner (+Y) face, under the plate, so the flat outer face
-   is untouched; bolt style, engraved into the tab's top face between the
-   plate edge and the hole.
+   to accept for this application.
+
+   Part name and revision: engraved into the plate's underside, the face
+   opposite the tag, as two lines (name above revision, viewed from below),
+   mirrored so they read correctly from below. Centred in X; in Y, centred
+   on the underside's flat area (tab style: from the tab's inner face to
+   the +Y edge; bolt style: the whole plate). Same placement in both
+   styles, so the flat -Y outer face and the bolt tab stay unmarked.
 
    Tray type label: the tray type for the id (`tray_type()`), engraved in
    the quiet zone's top-right corner (+X, +Y), mirroring the ID label and
@@ -75,6 +79,11 @@
    `tag_embed` are starting values, same status as in
    `apriltag_corner_mount.scad`.
 
+   REV 1.14: part name (`part_name`, the file name without .scad) and
+     revision engraved into the plate's underside, mirrored, two lines
+     ([Label] group). The revision moves there from the tab's inner face
+     (tab style) and the bolt tab's top face (bolt style); `tab_text()`,
+     `bolt_rev_stamp()`, `label_z`, `rev_x` and `bolt_rev_y` removed.
    REV 1.13: tray ids moved into 1-299 (Aaron): 1-75 4x5, 76-150 4x4,
      151-225 1x1, 226-299 OTHER. REV 1.11's 1-399 overlapped the
      calibration sheets (300-449). Geometry unchanged.
@@ -170,6 +179,12 @@ id_depth  = 0.6;                       // how far the label is inset into the to
 id_font   = "Liberation Sans:style=Bold";
 type_label = true;                     // engrave each tag's tray type (4x5, 4x4, 1x1, OTHER) in the quiet zone's top-right corner, same size, inset and depth as the id
 
+/* [Label] */
+part_name  = "apriltag_tray_tag"; // file name without .scad, engraved in the plate underside above the revision ("" = none)
+name_size  = 2.5; // text cap height, mm  [1.5:0.5:4]
+name_depth = 0.6; // how far the text is inset into the underside, mm  [0.2:0.1:1.5]
+label_gap  = 1.5; // space between the name and the revision lines, mm  [0.5:0.25:4]
+
 /* [Colors] */
 body_color        = "White"; // also the tag's background and quiet zone
 tag_pattern_color = "Black"; // the tag's dark modules
@@ -185,7 +200,7 @@ side_plate_gap = 5; // space between the two plates of a nested pair, side layou
 plate_cols = 0;   // tags per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.13"; // revision stamp, engraved on the tab: tab style inner face, bolt style top face ("" = none)
+revision  = "RV1.14"; // revision stamp, engraved in the plate underside below the part name ("" = none)
 rev_size  = 3;       // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;     // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -200,10 +215,14 @@ tr = min(tab_r, tab_h, pw / 2); // clamp: rounding can't exceed the tab's height
 tabbed = tag_style == "tab"; // false: bolt
 bolt_tab_x = bolt_tab_flush ? pw / 2 - bolt_tab_w / 2 : 0; // tab centre line, X
 bolt_y   = -pw / 2 - bolt_tab_len + bolt_tab_w / 2; // hole and round-end centre, Y
-bolt_rev_y = (-pw / 2 + bolt_y + bolt_dia / 2) / 2; // revision centre: midway between plate edge and hole edge
 tab_ext  = tabbed ? 0 : bolt_tab_len; // how far the part reaches past the plate's -Y edge
-label_z = -(tag_plate_thk + tab_h / 2); // text centre height, middle of the tab's exposed inner face
-rev_x = pw / 4;                         // revision stamp, X centre on the tab's inner face
+// underside labels: the block (name, gap, revision) is centred in Y on the
+// underside's flat area -- tab style from the tab's inner face to the +Y
+// edge, bolt style the whole plate. name_size * 1.3 allows for descenders.
+lbl_cy  = tabbed ? tab_thk / 2 : 0;
+lbl_h   = (part_name == "" ? 0 : 1.3 * name_size + label_gap) + (revision == "" ? 0 : rev_size);
+name_ly = lbl_cy + lbl_h / 2;                 // name line top, Y
+rev_ly  = lbl_cy - lbl_h / 2;                 // revision line bottom, Y
 
 // tray type for a tag id; the id ranges are the allocation (header)
 function tray_type(id) = id <= 75  ? "4x5"
@@ -216,8 +235,9 @@ assert(len(tag_ids) > 0, "tag_ids must list at least one id");
 assert(min(tag_ids) >= 1 && max(tag_ids) <= 299,
        "tag_ids must be within 1-299, the tray tag ids (tray_type()); 300-449 are calibration sheets");
 assert(tab_thk < pw / 2, "tab too thick for the plate");
-assert(!tabbed || rev_depth < tab_thk, "revision engraving deeper than the tab");
-assert(tabbed || rev_depth < tag_plate_thk, "revision engraving deeper than the bolt tab");
+assert(rev_depth + tag_embed < tag_plate_thk, "revision engraving reaches the tag layer");
+assert(name_depth + tag_embed < tag_plate_thk, "name engraving reaches the tag layer");
+assert(lbl_h < pw - 2 * (tabbed ? tab_thk : 0), "name and revision do not fit the underside");
 assert(tabbed || bolt_tab_len >= bolt_tab_w / 2, "bolt tab shorter than its round end");
 assert(tabbed || bolt_dia < bolt_tab_w - 2, "M8 hole leaves under 1 mm of wall in the bolt tab");
 assert(tabbed || bolt_tab_w <= pw, "bolt tab wider than the plate");
@@ -306,14 +326,6 @@ module bolt_profile() {
         }
 }
 
-module bolt_rev_stamp() {
-    // engraved into the bolt tab's top face, reading along +X, between the
-    // plate edge and the hole
-    translate([bolt_tab_x, bolt_rev_y, -rev_depth])
-        linear_extrude(rev_depth + eps)
-            text(revision, size = rev_size, halign = "center", valign = "center");
-}
-
 module plate_profile() {
     // XY plan view: pw square, rounded at the two +Y corners only. The -Y
     // edge stays square so it is flush with the tab's flat outer face.
@@ -336,13 +348,13 @@ module tab() {
         }
 }
 
-module tab_text(s, x, size, depth, font) {
-    // engraved into the tab's inner (+Y) face, reading correctly when viewed
-    // from +Y (from under the plate). rotate([90, 0, 180]) maps text X to
-    // world -X, text Y to world +Z, and the extrusion to +Y.
-    translate([x, -pw / 2 + tab_thk - depth, label_z]) rotate([90, 0, 180])
+module underside_text(t, y, valign, size, depth) {
+    // engraved up into the plate's underside, mirrored in X so it reads
+    // correctly viewed from below, centred on X
+    translate([0, y, -tag_plate_thk - eps])
         linear_extrude(depth + eps)
-            text(s, size = size, font = font, halign = "center", valign = "center");
+            mirror([1, 0, 0])
+                text(t, size = size, halign = "center", valign = valign);
 }
 
 module id_engrave(id) {
@@ -377,10 +389,8 @@ module tray_tag_body(id = tag_ids[0]) {
         if (!tabbed)
             translate([bolt_tab_x, bolt_y, -tag_plate_thk - eps])
                 cylinder(d = bolt_dia, h = tag_plate_thk + 2 * eps);
-        if (revision != "") {
-            if (tabbed) tab_text(revision, rev_x, rev_size, rev_depth, "Liberation Sans");
-            else      bolt_rev_stamp();
-        }
+        if (part_name != "") underside_text(part_name, name_ly, "top", name_size, name_depth);
+        if (revision != "")  underside_text(revision, rev_ly, "bottom", rev_size, rev_depth);
         if (id_label)
             id_engrave(id);
         if (type_label)

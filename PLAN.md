@@ -163,9 +163,11 @@ each tray tag (`hardware/tray_tags/apriltag_tray_tag.scad`, `tray_type()`):
 | 226-299 | Tray tags, other trays |
 | 300-449 | Calibration sheets (`reference/calibration-sheets/`), in use, do not change |
 | 450-499 | Corner/reference tags (`hardware/camera_rig/apriltag_corner_mount.scad`) |
+| 500 | Auto-focus target (`hardware/camera_rig/auto-focus_bracket_2020.scad`). **Provisional**: the auto-focus target plan is not fully implemented, so this allocation may change |
 
 The tray split refines `TODO.md`'s 2026-09-20 allocation (0-299 trays) and matches
-`src/npec_rig/tags.py`. Id 0 is unused: `apriltags-36h11-1-499.scad` has no data for it.
+`src/npec_rig/tags.py`. Id 0 is unallocated. Tag bit data covers the full family, ids 0-586
+(`hardware/libraries/apriltags-36h11-0-586.scad`).
 
 ---
 

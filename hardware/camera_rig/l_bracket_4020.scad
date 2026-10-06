@@ -12,8 +12,9 @@
    Set `copies` under [Build Plate] to lay out that many brackets in a grid,
    centred on the origin.  copies = 1 renders the single part at the origin.
 
-   The [Revision] stamp is engraved into the 40-leg top face, clear of the M8
-   hole; that face points up in the print orientation.
+   The part name and [Revision] stamp are engraved into the 40-leg top
+   face, one each side of the M8 hole (name +Y, revision -Y), both reading
+   along +X; that face points up in the print orientation.
 
    `bracket_4020_bolted()` adds this bracket's own two joining bolts (from
    `t_slot_bolt.scad`): M6 through the 40-leg (note the hole is still sized
@@ -25,6 +26,10 @@
    same file/namespace as `l_bracket_4040.scad`'s own bracket module
    without colliding.
 
+   REV 1.3: part name (`part_name`, the file name without .scad) engraved
+     into the 40-leg top face beside the M8 hole, +Y side ([Label] group).
+     Revision stamp moved to the matching -Y side, reading along +X like
+     the name; `rev_x` replaced by the derived `label_x`/`label_y`.
    REV 1.2: bracket()/bracket_bolted() renamed to bracket_4020()/
      bracket_4020_bolted() so this file can be `use`d alongside
      l_bracket_4040.scad from one assembly file; bolt color now the shared
@@ -43,10 +48,14 @@ include <../libraries/BOSL2/std.scad> // t_slot_bolt() calls BOSL2's screw(); `u
                           // include, so its special variables never init
 
 /* [Revision] */
-revision  = "RV0.1"; // revision stamp, engraved in the 40-leg top face ("" = none)
+revision  = "RV0.2"; // revision stamp, engraved in the 40-leg top face ("" = none)
 rev_size  = 5;       // text cap height, mm  [2:0.5:12]
 rev_depth = 1.2;     // how far the text is inset below the surface, mm  [0.4:0.1:2]
-rev_x     = 37;      // stamp centre, from the corner along X
+
+/* [Label] */
+part_name  = "l_bracket_4020"; // file name without .scad, engraved in the 40-leg top face, +Y of the M8 hole ("" = none)
+name_size  = 3.5; // text cap height, mm  [2:0.5:6]
+name_depth = 0.6; // how far the text is inset below the surface, mm  [0.4:0.1:1.5]
 
 /* [Plates] */
 w40    = 40;   // 40-leg width  (matches 40x40 face)
@@ -94,6 +103,11 @@ $fn = $preview ? 32 : 96;
 eps = 0.01;
 
 /* [Hidden] */
+// name and revision centres on the 40-leg top face: X midway along its flat
+// run (corner to the free-end rounding), Y midway between the M8 hole's
+// chamfer edge and the leg's side edge (+Y name, -Y revision)
+label_x = (len40 - corner_r) / 2;
+label_y = (m8_dia / 2 + hole_cham + w40 / 2) / 2;
 // bracket footprint: X runs -ridge20_h .. len40, Y is centred on the 40-leg width
 part_dx   = len40 + ridge20_h;
 part_dy   = w40;
@@ -158,13 +172,19 @@ module chamfered_hole(dia, len, cham) {
 }
 
 module revision_stamp() {
-    // engraved into the 40-leg top face, reading along +Y so the full leg
-    // width is available; overshoots the face by eps for a clean difference
-    translate([rev_x, 0, thk40 - rev_depth])
+    // engraved into the 40-leg top face, -Y of the M8 hole, reading along +X
+    // opposite the part name; overshoots the face by eps for a clean difference
+    translate([label_x, -label_y, thk40 - rev_depth])
         linear_extrude(rev_depth + eps)
-            rotate(90)
-                text(revision, size = rev_size,
-                     halign = "center", valign = "center");
+            text(revision, size = rev_size,
+                 halign = "center", valign = "center");
+}
+
+module name_label() {
+    // engraved into the 40-leg top face, +Y of the M8 hole, reading along +X
+    translate([label_x, label_y, thk40 - name_depth])
+        linear_extrude(name_depth + eps)
+            text(part_name, size = name_size, halign = "center", valign = "center");
 }
 
 module ridge20_cove(zc, run) {
@@ -221,6 +241,7 @@ module bracket_4020() {
 
         // revision stamp
         if (revision != "") revision_stamp();
+        if (part_name != "") name_label();
     }
 }
 

@@ -15,7 +15,9 @@
    picks which PCB edge that measurement was taken from.
 
    The revision string under [Revision] is cut into the plate's +Z face, lying
-   flat in XY with the baseline running along Y.
+   flat in XY with the baseline running along Y.  The part name under [Label]
+   is cut into the +Z face on the other side of the boss (-X), in the mirror
+   of the revision's zone, always on the top face whatever rev_face says.
 
    Set `copies` under [Build Plate] to lay out that many mounts in a grid,
    centred on the origin.  copies = 1 renders the single part at the origin.
@@ -41,13 +43,17 @@
      - handle top engraved "HANDLE" / "4mm HEX" (the key size follows hex_af)
      - plate_w 40 -> 46 so the handle ramp ends 5.5 mm outside the PCB edge
        instead of 2.5; new handle_pcb_gap check warns if it gets closer
+   REV 1.3:
+     - part name (`part_name`, the file name without .scad) engraved in the
+       top face on the -X side of the boss, mirroring the revision's zone,
+       reading along Y ([Label] group).  Same fit checks as the revision.
    --------------------------------------------------------------------------- */
 
 /* [Revision] */
 // Lies flat in the XY plane on the +Z face, reading along the Y axis (bottom to
 // top in plan view).  On the underside it is mirrored so it reads the right way
 // round with the part turned over.  revision = "" leaves the part unmarked.
-revision      = "RV1.2";
+revision      = "RV1.3";
 rev_face      = "top";   // [top, bottom]
 rev_size      = 4;       // cap height, mm - across X, since the text runs along Y  [2:0.5:12]
 rev_depth     = 1.2;     // how deep it is cut in, mm  [0.4:0.1:2.5]
@@ -57,6 +63,13 @@ rev_depth     = 1.2;     // how deep it is cut in, mm  [0.4:0.1:2.5]
 rev_auto      = true;
 rev_x         = 14.5;    // across X, used when rev_auto = false  [-20:0.1:20]
 rev_y         = 14.9;    // along Y,  used when rev_auto = false  [0:0.1:80]
+
+/* [Label] */
+// Top face, -X side of the boss: the mirror of the revision's zone, centred in
+// it, reading along Y like the revision.  part_name = "" leaves it off.
+part_name     = "arducam64_mount"; // file name without .scad
+name_size     = 2.5;     // cap height, mm  [1.5:0.5:5]
+name_depth    = 0.6;     // how deep it is cut in, mm  [0.2:0.1:1.5]
 
 /* [Tripod mount] */
 // Which way the 1/4"-20 axis runs: through the end face (in the plane of the
@@ -252,6 +265,17 @@ rev_xx = rev_auto ? rev_x_auto : rev_x;
 rev_yy = rev_auto ? rev_y_auto : rev_y;
 rev_x0 = rev_xx - rev_size / 2;   rev_x1 = rev_xx + rev_size / 2;
 rev_y0 = rev_yy - rev_len  / 2;   rev_y1 = rev_yy + rev_len  / 2;
+// name: centred in the mirror of the revision zone (-X of the boss), ~1.3 x
+// cap height across X with the descenders; same rough glyph advance
+name_w   = 1.3 * name_size;
+name_len = len(part_name) * name_size * 0.72;
+name_xx  = -(rev_zone_x0 + rev_zone_x1) / 2;
+name_yy  = rev_zone_y1 / 2;
+name_x0  = name_xx - name_w / 2;   name_x1 = name_xx + name_w / 2;
+name_y0  = name_yy - name_len / 2; name_y1 = name_yy + name_len / 2;
+name_hit_slot = name_x1 > -cable_slot_w / 2 && name_x0 < cable_slot_w / 2 &&
+                name_y1 > slot_y0 && name_y0 < slot_y0 + cable_slot_l;
+name_hit_ramp = name_x1 > -boss_w / 2 && name_x0 < boss_w / 2 && name_y0 < ramp_end;
 
 // footprint clashes, as plain rectangle overlaps
 rev_hit_slot  = rev_x1 > -cable_slot_w / 2 && rev_x0 < cable_slot_w / 2 &&
@@ -353,6 +377,15 @@ if (revision != "") {
     if (rev_x1 > plate_w / 2 || rev_x0 < -plate_w / 2 || rev_y1 > plate_len || rev_y0 < 0)
         echo(str("WARNING: the revision text runs off the plate (X +/-", plate_w / 2,
                  ", Y 0..", plate_len, ") - reduce rev_size or move it"));
+}
+if (part_name != "") {
+    echo(str("part name     : \"", part_name, "\"  ", name_size, " mm cap, ~", name_len,
+             " mm long along Y, X ", name_x0, " .. ", name_x1, ", Y ", name_y0, " .. ", name_y1));
+    if (name_hit_slot) echo("WARNING: the part name runs into the cable slot");
+    if (name_hit_ramp)
+        echo("WARNING: the part name crosses the boss ramp - shrink name_size");
+    if (name_y1 > rev_zone_y1 || name_y0 < 0 || name_x0 < -plate_w / 2)
+        echo("WARNING: the part name runs out of the revision zone - reduce name_size");
 }
 if (copies > 1)
     echo(str("build plate   : ", copies, " copies in ", grid_cols, " x ", grid_rows,
@@ -490,6 +523,13 @@ module rev_glyphs() {
     text(revision, size = rev_size, halign = "center", valign = "center");
 }
 
+module name_mark() {
+    // top face, -X of the boss, reading along Y like rev_mark()
+    translate([name_xx, name_yy, plate_t - name_depth]) rotate([0, 0, 90])
+        linear_extrude(name_depth + eps)
+            text(part_name, size = name_size, halign = "center", valign = "center");
+}
+
 module rev_mark() {
     // rotate([0,0,90]) turns the baseline from +X onto +Y, so the text reads
     // bottom-to-top in plan view
@@ -580,6 +620,7 @@ module mount() {
         if (handle_on) handle_mark();
         if (plumb_hole) plumb_bore();
         if (revision != "") rev_mark();
+        if (part_name != "") name_mark();
     }
 }
 

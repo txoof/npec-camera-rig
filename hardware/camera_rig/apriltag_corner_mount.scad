@@ -59,6 +59,11 @@
    the bolt -- mirroring the engraved revision stamp on the +X side. Off the
    tag plate entirely, so the quiet zone is untouched.
 
+   Part name: the file name without .scad (`part_name`), engraved
+   `name_depth` into the foot's top face as one line reading along +X,
+   centred on the bolt in X, midway in Y between the bolt's chamfer edge and
+   the foot's free (+Y) edge -- beyond the ID and revision, off the tag.
+
    Open assumption, not yet measured: `tag_border` (quiet-zone margin) is an
    informed starting point -- general AprilTag detection guidance, not a
    calliper reading or a live detector result. Revisit once a printed mount
@@ -66,6 +71,8 @@
    this project. `tag_embed` is likewise a starting value for part overlap
    in the slicer, not a measured one.
 
+   REV 1.12: part name engraved on the foot's top face, +Y of the bolt,
+     above the ID and revision ([Label] group).
    REV 1.11: `tag_ids` limited to 450-499, the corner/reference range
      (Aaron), so corner ids can't overlap tray ids (1-299, see
      apriltag_tray_tag.scad). Geometry unchanged.
@@ -167,6 +174,11 @@ id_size   = 5;                         // label text cap height, mm  [2:0.5:10]
 id_depth  = 1.0;                       // how far the label is inset below the foot's top face, mm  [0.4:0.1:2]
 id_font   = "Liberation Sans:style=Bold";
 
+/* [Label] */
+part_name  = "apriltag_corner_mount"; // file name without .scad, engraved on the foot's top face, +Y of the bolt ("" = none)
+name_size  = 2.5; // text cap height, mm  [1.5:0.5:4]
+name_depth = 0.6; // how far the text is inset below the foot's top face, mm  [0.2:0.1:2]
+
 /* [Rail Foot] */
 foot_width   = 20;    // Y depth -- matches the 20x20 rail's face width, mm
 foot_thk     = 7;     // Z thickness, mm
@@ -205,7 +217,7 @@ plate_gap  = 10;  // clear space between neighbouring mounts, mm -- leave room f
 plate_cols = 0;   // mounts per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.11"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
+revision  = "RV1.12"; // revision stamp, engraved in the foot's top face beside the bolt ("" = none)
 rev_size  = 4;        // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;      // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -227,6 +239,9 @@ bolt_x = [0];
 // revision stamp centre (+X) and ID label centre (-X): midway between the
 // bolt's chamfer edge and the foot's end
 rev_x = (pw / 2 + bolt_dia / 2 + hole_cham) / 2;
+// part name centre, Y: midway between the bolt's chamfer edge and the foot's
+// free (+Y) edge
+name_y = (foot_width / 2 + bolt_dia / 2 + hole_cham + foot_width) / 2;
 
 assert(len(tag_ids) > 0, "tag_ids must list at least one id");
 assert(min(tag_ids) >= 450 && max(tag_ids) <= 499,
@@ -359,6 +374,13 @@ module id_engrave(id) {
             text(str(id), size = id_size, font = id_font, halign = "center", valign = "center");
 }
 
+module name_engrave() {
+    // engraved into the foot's top face, +Y of the bolt, reading along +X
+    translate([0, name_y, foot_thk - name_depth])
+        linear_extrude(name_depth + eps)
+            text(part_name, size = name_size, halign = "center", valign = "center");
+}
+
 module tag_mount_body(id = tag_ids[0]) {
     difference() {
         union() {
@@ -379,6 +401,7 @@ module tag_mount_body(id = tag_ids[0]) {
 
         if (revision != "") revision_stamp();
         if (id_label) id_engrave(id);
+        if (part_name != "") name_engrave();
     }
 }
 

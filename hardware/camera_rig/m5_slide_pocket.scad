@@ -22,8 +22,11 @@
    the head size, the wall thickness or the pocket size moves the holes to
    suit.
 
-   The revision is engraved into the top face of the -X ear, clear of the bolt
-   hole and clear of the pocket block.
+   The part name and revision are engraved into the top face of the -X ear,
+   around its bolt hole: the revision just +Y of the bolt head, reading
+   along +X; the name on the ear's outer strip, between the bolt head and
+   the ear's free end, reading along +Y.  The ear is too short for the name
+   to read along X.
 
    Origin = pocket axis (the captured bolt).  Z0 = the underside of the base
    plate (mating face), which is also the print bed: all material grows in +Z.
@@ -37,6 +40,11 @@
    top face (shaft_length = base_thk + that profile's T-slot lip depth, no
    extra margin).
 
+   Rev 3: part name (`part_name`, the file name without .scad) engraved
+     into the -X ear's top face, outboard of the bolt hole, reading along
+     +Y ([Label] group).  Revision stays +Y of the bolt head; `rev_size`
+     4 -> 3 so it clears the name and the block wall.  `rev_gap`/`rev_cy`
+     replaced by `label_gap`, `name_x`, `rev_y`.
    Rev 2: added slide_pocket_bolted() — the two mounting bolts now live
      here instead of being re-derived (with a hand-duplicated `bolt_x`) in
      every assembly file that places this part.
@@ -51,9 +59,15 @@ include <../libraries/BOSL2/std.scad> // t_slot_bolt() calls BOSL2's screw(); `u
                           // include, so its special variables never init
 
 /* [Revision] */
-revision  = "RV1.0"; // revision stamp, engraved in the -X ear top face ("" = none)
-rev_size  = 4;       // cap height of the text, mm; past ~6 it crowds the block  [2:0.5:6]
+revision  = "RV1.1"; // revision stamp, engraved in the -X ear top face, +Y of the bolt head ("" = none)
+rev_size  = 3;       // cap height of the text, mm  [2:0.5:4]
 rev_depth = 1.2;     // how far the text is inset below the surface, mm  [1:0.1:1.5]
+
+/* [Label] */
+part_name  = "m5_slide_pocket"; // file name without .scad, engraved in the -X ear top face, outboard of the bolt hole ("" = none)
+name_size  = 2;   // text cap height, mm -- the name runs along the ear's 26.4 mm width  [1.5:0.5:2.5]
+name_depth = 0.6; // how far the text is inset below the surface, mm  [0.4:0.1:1.5]
+label_gap  = 0.8; // space between the bolt head and each text, mm  [0.4:0.1:2]
 
 /* [Base Plate] */
 base_thk = 7;    // plate thickness under the pocket floor
@@ -108,10 +122,14 @@ mount_min = block_w / 2 + head_r * (1 + head_clear);
 bolt_x    = mount_x > 0 ? max(mount_x, mount_min) : mount_min;
 chan_w    = max(channel_w, m5_dia);       // the shaft has to fit regardless
 
-rev_gap    = 1.5;                         // clear space between the bolt head and the text
-// text centre clears the head rim, not just the bore, so a seated bolt or
-// washer never sits over the engraving
-rev_cy     = head_r + rev_gap + rev_size / 2;
+// -X ear labels.  Revision: centred on the bolt in X, its centre label_gap
+// plus half a cap height clear of the head rim in +Y.  Name: reads along +Y,
+// centred on the bolt in Y, midway in X between the head rim (plus
+// label_gap) and the ear's free end.
+rev_y   = head_r + label_gap + rev_size / 2;
+name_x  = -((bolt_x + head_r + label_gap) + (bolt_x + ear_size / 2)) / 2;
+assert(-name_x - 0.65 * name_size > bolt_x + head_r + label_gap,
+       "the name strip is too narrow for name_size");
 
 part_dx   = 2 * bolt_x + ear_size;
 part_dy   = max(block_w, ear_size);
@@ -188,10 +206,19 @@ module m5_bore() {
 module revision_stamp() {
     // engraved into the -X ear top face: centred on the bolt hole in X, sitting
     // clear of the bolt head in +Y; overshoots the face by eps for a clean cut
-    translate([-bolt_x, rev_cy, base_thk - rev_depth])
+    translate([-bolt_x, rev_y, base_thk - rev_depth])
         linear_extrude(rev_depth + eps)
             text(revision, size = rev_size,
                  halign = "center", valign = "center");
+}
+
+module name_label() {
+    // engraved into the -X ear top face, outboard of the bolt hole, reading
+    // along +Y
+    translate([name_x, 0, base_thk - name_depth])
+        linear_extrude(name_depth + eps)
+            rotate(90)
+                text(part_name, size = name_size, halign = "center", valign = "center");
 }
 
 module slide_pocket() {
@@ -205,6 +232,7 @@ module slide_pocket() {
         for (sx = [-1, 1]) translate([sx * bolt_x, 0, 0]) m5_bore();
         if (center_bore) m5_bore();
         if (revision != "") revision_stamp();
+        if (part_name != "") name_label();
     }
 }
 
