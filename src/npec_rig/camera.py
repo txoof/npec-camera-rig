@@ -502,6 +502,14 @@ class LensNotSettledError(RuntimeError):
         self.reported = reported
 
 
+class FocusLockedError(RuntimeError):
+    """A lens move or autofocus was asked for while focus is locked. Aaron, 2026-10-06: a locked
+    focus must not be changeable by anyone at the rig until it is unlocked."""
+
+    def __init__(self) -> None:
+        super().__init__("Focus is locked: press Unlock focus to change it")
+
+
 class LensMovedDuringLockError(RuntimeError):
     """The lens was moved by something else while Lock focus was waiting for it."""
 
@@ -680,16 +688,13 @@ class CameraManager:
         """Move the lens directly (the slider), then wait until the camera reports it there.
         Raises LensNotSettledError if it does not within LENS_SETTLE_TIMEOUT_S. A newer move
         arriving meanwhile (the slider still being dragged) ends the wait without an error: that
-        move does its own check."""
+        move does its own check. Raises FocusLockedError, moving nothing, while focus is locked."""
+        if self._locked_lens_position is not None:
+            raise FocusLockedError()
         with self._call_lock:
             self._backend.set_lens_position(value)
         self._commanded_lens_position = value
         save_setting("LensPosition", value)
-        # A manual move invalidates whatever focus was locked -- the operator has to
-        # re-confirm and re-lock before calibration will trust it again. Persisted too, not
-        # just in-memory, so a restart right after a move doesn't resurrect the old confirm.
-        self._locked_lens_position = None
-        save_setting("FocusConfirmed", False)
         # A move to where the camera already reports the lens passes at once, stuck or not: the
         # lens is then where it was asked to be.
         try:
@@ -704,7 +709,9 @@ class CameraManager:
             return self._backend.get_lens_position()
 
     def autofocus(self) -> dict:
-        """One autofocus cycle. Clears the lock either way: the lens moved, or may have."""
+        """One autofocus cycle. Raises FocusLockedError, moving nothing, while focus is locked."""
+        if self._locked_lens_position is not None:
+            raise FocusLockedError()
         timed_out = None
         with self._call_lock:
             try:
@@ -713,8 +720,6 @@ class CameraManager:
                 success, lens_position, timed_out = False, exc.lens_position, str(exc)
         save_setting("LensPosition", lens_position)
         self._commanded_lens_position = lens_position
-        self._locked_lens_position = None
-        save_setting("FocusConfirmed", False)
         return {"success": success, "lens_position": lens_position, "timed_out": timed_out}
 
     def available_controls(self) -> dict[str, tuple]:

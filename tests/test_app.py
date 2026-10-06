@@ -223,6 +223,19 @@ def test_a_lens_that_does_not_follow_a_move_or_a_lock_returns_lens_not_respondin
     assert response.json()["detail"].startswith("Lens not responding: restart the app")
 
 
+def test_a_locked_focus_refuses_lens_moves_and_autofocus_with_a_clear_message() -> None:
+    client = TestClient(app)
+    client.post("/controls/lens-position", json={"value": 6.3})
+    client.post("/focus/lock")
+
+    move = client.post("/controls/lens-position", json={"value": 4.77})
+    autofocus = client.post("/focus/autofocus")
+    for response in (move, autofocus):
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Focus is locked: press Unlock focus to change it"
+    assert client.get("/controls/lens-position").json() == {"value": 6.3}
+
+
 def test_autofocus_endpoint() -> None:
     client = TestClient(app)
     response = client.post("/focus/autofocus")

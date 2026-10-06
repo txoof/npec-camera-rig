@@ -64,6 +64,7 @@ from npec_rig.camera import (
     AUTOFOCUS_TIMEOUT_S,
     CameraBusyError,
     CameraManager,
+    FocusLockedError,
     LensMovedDuringLockError,
     LensNotSettledError,
     array_to_jpeg,
@@ -296,6 +297,8 @@ def set_lens_position(position: LensPosition) -> LensPosition:
         raise HTTPException(422, f"value must be between {min_value} and {max_value}")
     try:
         manager.set_lens_position(position.value)
+    except FocusLockedError as exc:
+        raise HTTPException(409, str(exc)) from exc
     except LensNotSettledError as exc:
         raise HTTPException(503, str(exc)) from exc
     return position
@@ -338,8 +341,11 @@ def set_control(name: str, update: ControlUpdate) -> dict:
 
 @app.post("/focus/autofocus")
 def autofocus() -> dict:
-    """Run one hardware autofocus cycle, then return to manual."""
-    return CameraManager.instance().autofocus()
+    """Run one hardware autofocus cycle, then return to manual. Refused while focus is locked."""
+    try:
+        return CameraManager.instance().autofocus()
+    except FocusLockedError as exc:
+        raise HTTPException(409, str(exc)) from exc
 
 
 class RoiUpdate(BaseModel):

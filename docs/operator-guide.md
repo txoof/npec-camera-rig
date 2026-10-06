@@ -36,9 +36,10 @@ Repeat all three steps after any of these:
 - **Moving or knocking the camera**, or changing the table or tray heights.
 - **A validation that reads "Not consistent"** after you have fixed what it named.
 
-If focus is no longer locked (for example the status reads "Focus status: UNLOCKED" after someone
-moved the lens), measurements are not covered by the validation until all three steps are done
-again.
+While focus is locked the page reads "Focus is locked at" the lens position, and the lens controls
+and Autofocus are greyed out: no one can change the focus without pressing Unlock focus first. If
+focus is no longer locked (the status reads "Focus is unlocked"), measurements are not covered by
+the validation until all three steps are done again.
 
 ## What the uncertainty column means
 

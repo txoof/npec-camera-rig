@@ -36,7 +36,7 @@
   <div class="focus-control-row">
     <button id="autofocus-btn">Autofocus</button>
     <button id="lock-btn">Lock focus</button>
-    <span id="lock-status">Focus status: UNLOCKED</span>
+    <span id="lock-status">Focus is unlocked</span>
     <label class="peaking-inline">
       <input type="checkbox" id="peaking-toggle">
       <span>Focus peaking</span>
@@ -476,9 +476,14 @@
       const calLens = cal && cal.exists && cal.lens_position != null ? cal.lens_position : null;
       const mismatch = data.locked && calLens != null &&
         Math.abs(data.lens_position - calLens) > 0.005;
+      // While locked, nothing on the page can move the lens (Aaron, 2026-10-06: no one at the
+      // rig changes a locked focus); the server refuses those commands too (FocusLockedError).
+      coarseInput.disabled = data.locked;
+      fineSlider.disabled = data.locked;
+      autofocusBtn.disabled = data.locked;
       let text = data.locked
-        ? `Focus status: Locked ${data.lens_position.toFixed(2)}`
-        : "Focus status: UNLOCKED";
+        ? `Focus is locked at ${data.lens_position.toFixed(2)}`
+        : "Focus is unlocked";
       if (mismatch) {
         text += `, not the calibration's ${calLens.toFixed(2)}`;
       } else if (calLens != null) {
@@ -486,7 +491,7 @@
       }
       lockStatus.textContent = text;
       lockStatus.style.color = mismatch ? "#ff6b6b" : "";
-      lockStatus.style.fontWeight = mismatch ? "bold" : "";
+      lockStatus.style.fontWeight = data.locked || mismatch ? "bold" : "";
       lockBtn.textContent = data.locked ? "Unlock focus" : "Lock focus";
       // Validation only holds at the calibration's focus (validation-status.js, where loaded).
       if (window.refreshValidationStatus) window.refreshValidationStatus();
@@ -504,13 +509,13 @@
       lockBtn.disabled = true;
       lockStatus.style.color = "";
       lockStatus.style.fontWeight = "";
-      lockStatus.textContent = "Focus status: locking, waiting for the camera";
+      lockStatus.textContent = "Locking focus, waiting for the camera";
       try {
         const resp = await fetch("/focus/lock", { method: "POST" });
         if (!resp.ok) {
           const body = await resp.json().catch(() => ({}));
           lockBtn.disabled = false;
-          lockStatus.textContent = `Focus status: UNLOCKED (${body.detail || "focus is not locked"})`;
+          lockStatus.textContent = `Focus is unlocked (${body.detail || "focus is not locked"})`;
           lockBtn.textContent = "Lock focus";
           return;
         }

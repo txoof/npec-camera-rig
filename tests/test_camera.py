@@ -164,10 +164,9 @@ class _TimingOutAutofocusBackend(SyntheticBackend):
         raise camera_module.AutofocusTimeoutError(self._lens_position, "did not finish", 55.2)
 
 
-def test_a_timed_out_autofocus_clears_the_lock_says_so_and_frees_the_camera() -> None:
+def test_a_timed_out_autofocus_says_so_and_frees_the_camera() -> None:
     manager = CameraManager(_TimingOutAutofocusBackend())
     manager.set_lens_position(6.3)
-    manager.lock_focus()
 
     result = manager.autofocus()
 
@@ -622,26 +621,31 @@ def test_camera_manager_lock_and_unlock_focus() -> None:
     assert status == {"locked": False, "lens_position": None}
 
 
-def test_camera_manager_lock_is_cleared_by_a_later_manual_move() -> None:
-    # A lock only means something if a later, unconfirmed move can't hide behind it (TODO.md,
-    # "Give Lock focus a real function") -- invalidate on change, no tolerance comparison needed.
+def test_a_locked_focus_refuses_a_manual_move_and_autofocus() -> None:
+    # Aaron, 2026-10-06: while focus is locked no one at the rig can change it; Unlock focus first.
+    backend = _RecordingSyntheticBackend()
+    manager = CameraManager(backend)
+    manager.set_lens_position(6.3)
+    manager.lock_focus()
+    backend.lens_writes.clear()
+
+    with pytest.raises(camera_module.FocusLockedError):
+        manager.set_lens_position(6.4)
+    with pytest.raises(camera_module.FocusLockedError):
+        manager.autofocus()
+    assert backend.lens_writes == []
+    assert manager.focus_status() == {"locked": True, "lens_position": 6.3}
+    assert load_settings()["FocusConfirmed"] is True
+
+
+def test_after_unlocking_the_lens_moves_again() -> None:
     manager = CameraManager(SyntheticBackend())
     manager.set_lens_position(6.3)
     manager.lock_focus()
-    assert manager.focus_status()["locked"] is True
+    manager.unlock_focus()
 
     manager.set_lens_position(6.4)
-    assert manager.focus_status() == {"locked": False, "lens_position": None}
-
-
-def test_camera_manager_lock_is_cleared_by_autofocus() -> None:
-    manager = CameraManager(SyntheticBackend())
-    manager.set_lens_position(6.3)
-    manager.lock_focus()
-    assert manager.focus_status()["locked"] is True
-
-    manager.autofocus()
-    assert manager.focus_status() == {"locked": False, "lens_position": None}
+    assert manager.get_lens_position() == pytest.approx(6.4)
 
 
 # --- Focus confirmation persists across a restart (Aaron, 2026-09-28) -- verified for real on
@@ -662,24 +666,6 @@ def test_camera_manager_unlock_focus_persists() -> None:
     manager.set_lens_position(6.3)
     manager.lock_focus()
     manager.unlock_focus()
-    assert load_settings()["FocusConfirmed"] is False
-
-
-def test_camera_manager_set_lens_position_clears_persisted_confirmation() -> None:
-    manager = CameraManager(SyntheticBackend())
-    manager.set_lens_position(6.3)
-    manager.lock_focus()
-
-    manager.set_lens_position(6.4)
-    assert load_settings()["FocusConfirmed"] is False
-
-
-def test_camera_manager_autofocus_clears_persisted_confirmation() -> None:
-    manager = CameraManager(SyntheticBackend())
-    manager.set_lens_position(6.3)
-    manager.lock_focus()
-
-    manager.autofocus()
     assert load_settings()["FocusConfirmed"] is False
 
 
