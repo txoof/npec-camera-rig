@@ -646,6 +646,7 @@ class CameraManager:
             started = time.monotonic()
             with self._call_lock:
                 self._backend.set_lens_position(approach)
+            approach_sent = time.monotonic()
             # The camera must report the approach position before the target counts: a stuck
             # lens keeps reporting where it was, which can be the target itself (measured
             # 2026-10-06: Lock focus "confirmed" 6.27 that way). Only a target at the bottom of
@@ -653,7 +654,7 @@ class CameraManager:
             self._wait_for_report(approach, value, started + timeout_s, timeout_s)
             # The fixed pause stays as it was, whatever the report does: the sequence the lens
             # moves through is what the validation bands were measured with.
-            time.sleep(max(0.0, started + LENS_APPROACH_PAUSE_S - time.monotonic()))
+            time.sleep(max(0.0, approach_sent + LENS_APPROACH_PAUSE_S - time.monotonic()))
             if self._commanded_lens_position != value:
                 raise LensMovedDuringLockError(value, self._commanded_lens_position)
             with self._call_lock:
