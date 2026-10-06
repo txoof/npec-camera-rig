@@ -821,8 +821,11 @@ The heart of the project. Do not start before M1 slice 5.
          hour, item above).
       **Measurement needed first (method into `docs/metrology-log.md` before the run):** with the
       lens locked and no reopen per photo, take one photo a minute for at least 2 hours and check
-      that the reported lens position, sharpness at fixed spots and the per-slot readings stay
-      within the restart spread measured in run 3i. That is what shows slice 1 of this plan is
+      that sharpness at fixed spots and the per-slot readings stay within the range of Control B
+      (45 minutes, nothing done; run 3i covered only a minute). The reported lens position is
+      recorded, not judged: a camera ignoring lens writes reports the old position whatever
+      happens.
+      Method fixed in metrology-log section 8.1, run 3j. That is what shows slice 1 of this plan is
       safe for unattended runs.
       **What stays open:** a camera fault in the middle of a run can still shift readings (run 3g:
       central trays about half as sharp after a frontend timeout and restart), and no tag at the

@@ -494,6 +494,35 @@ sweeps (11:18). Which of those features (a cold camera, a stalled camera, many l
 the shift is not separated; these tests show what is safe (restarts) and what is not (a cold
 start, and a camera fault).
 
+**Run 3j method, written before it runs (2026-10-06, about 19:10 UTC): do readings stay steady
+over 2 hours of one photo a minute, when photos no longer reopen the camera or move the lens?**
+Since commit `5f068bf` a photo switches the camera back to its preview setting and leaves the lens
+alone; the camera is reopened only before a lens command (TODO.md, "Plan: nothing moves the lens
+during an experiment", slice 1). This is the path every photo will take during an experiment,
+unattended. Steps: chamber closed and untouched, calibration sheets on the trays as in run 3i,
+lens locked at 6.27, server running `5f068bf` (restarted warm at 19:07 UTC). A script calls the
+app's own `POST /capture` once a minute for 120 photos (2 hours) and records for each: UTC time,
+capture duration, the lens position, exposure time and gain from the photo's record, and the focus
+status. Comparison against the first photo, as in run 3i (`analyse.py` adapted): calibration tags
+matched by ID and position (within 20 px), median change in area error for all tags, for the
+central slots (North 3, North 4, South 3, South 4) and per slot; tags matched. Sharpness
+(Laplacian variance, as the focus score) of a 500 px square at the centre of each slot box of the
+2026-10-05 validation (`20261005T141310628479`), as a percentage of the first photo.
+Judgement, fixed before any data: the photo path adds nothing detectable if every photo's all-tag
+median stays within ±0.10 points and every slot within ±0.52 points of the first photo, the range
+of Control B (45 minutes, nothing done), and no sharpness square falls by more than 20% (a decision,
+not a measurement: the camera fault in run 3g halved the central sharpness). The reported lens
+position is recorded but not judged: on this path a camera that ignores lens writes reports the
+old position whatever happens, so it cannot show a change. Photos taken while focus is not locked
+at 6.27 (someone unlocks it) are left out; a photo whose exposure time differs from the first by
+more than a factor 2 (chamber lights changing) is flagged, and if the lights go off the run ends
+there and is reported as shorter. Limits: there is no 2-hour control without photos, so a slow
+drift could come from time and temperature, not from the photo path; this run can show the path
+is safe, and a drift would not by itself show it is unsafe. One run, one lens position, chamber
+lights on, warm camera; it does not cover a cold start or a camera fault. At the end the live
+preview is checked for frames (on 2026-10-05 it stopped once after a calibration on this path).
+Raw data: `/home/pi/scratch/lens-noreopen-2026-10-06/`.
+
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
