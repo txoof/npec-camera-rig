@@ -178,6 +178,14 @@ tray tags could reliably show or correct such a change in tests the same day. Th
 mark readings after a camera fault or a cold start as not covered by the bands, rather than to
 correct them; this is not built yet.
 
+**Readings swing on a cycle of about 19 minutes.** On 2026-10-06 the rig took one photo a minute
+for 2 hours with nothing touched (lens locked, lights on). The readings did not wander away, but
+they rose and fell on a repeating cycle of about 19 minutes: about 0.35 points in the median and up
+to about 0.6 points in a single slot, a little more than the 0.52 seen with nothing done in the
+earlier, sparser test. Sharpness rose and fell with it. The cause is not known. For comparison, the
+0.52-point slot change seen with nothing done was about a quarter of that slot's band; a single
+photograph can sit anywhere in the cycle.
+
 **One open point.** On 2026-10-01, after a different series of lens moves, the central readings
 drifted by 1.3 points in 35 minutes. That was not repeated on 2026-10-05, and the reason for the
 difference is not known.

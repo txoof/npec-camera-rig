@@ -169,6 +169,7 @@ several percent. Measured at milestone M5.
 | Lens moved and driven back to the same position | median change -0.03 points, spread 0.28, 355 of 355 tags; over 60 min largest slot change +0.35 points (about 1/6 of that slot's band) | Autofocus moved the lens, re-locked at 6.15, photographs at +0, +15, +30, +60 min, each tag compared with itself | 2026-10-05, `reference/lens-return-2026-10.md` |
 | Drift at a fixed lens position after moves | central ring changed 1.3 points in 35 min | Lens sweep then return to 6.18 | 2026-10-01 |
 | Change over time with nothing moved (control) | over 45 to 60 min: median within ±0.17 points, central ring within ±0.26, single slots up to 0.52 (about 1/4 of that slot's band); goes up and down, not a steady drift | Same method, lens untouched, two series (one partly disturbed by people in the chamber) | 2026-10-05, `reference/lens-return-2026-10.md` |
+| One photo a minute for 2 hours, no reopen, lens locked (run 3j) | a repeating cycle of about 19 minutes: median swings by about 0.35 points (-0.08 to +0.33 against the first photo), largest slot 0.62; no drift (each cycle returns to the same low point); sharpness rises and falls with it | Plain photos through the app, section 8.1 run 3j | 2026-10-06 |
 | App restart | right after: median +0.08 and +0.09 points (two attempts), 355 of 355 tags; over 60 min median within ±0.13, largest slot -0.29 (about 1/6 of its band); inside the control range | Server killed and restarted, lens driven back to 6.15 at start-up; repeat-photograph test (section 8.1) | 2026-10-05, `reference/lens-return-2026-10.md` |
 | Power cut (cold start) | right after: median -1.73 points, 291 of 354 tags found, central slots blurrier; +15 min -0.41, +30 -0.38, +60 -0.14 (largest slot -0.62); recovers with no lens move | Pi off about 30 min, camera not opened until the run; repeat-photograph test (run 3) | 2026-10-06 |
 | Two calibrations in a row | scale fields agreed within 0.02% to 0.16% | 332 and 340 tags, lens moved away and back, 2026-09-25 | Before the current lens-drive method |
@@ -522,6 +523,51 @@ is safe, and a drift would not by itself show it is unsafe. One run, one lens po
 lights on, warm camera; it does not cover a cold start or a camera fault. At the end the live
 preview is checked for frames (on 2026-10-05 it stopped once after a calibration on this path).
 Raw data: `/home/pi/scratch/lens-noreopen-2026-10-06/`.
+
+**Run 3j result** (19:10:46 to 21:09:46 UTC; 120 of 120 photos, no errors, focus locked at 6.27 in
+every photo, capture 2.66 to 2.94 s, live preview still streaming at the end). One change to the
+method after the run started and before any result was looked at: auto exposure was off
+(exposure time 3429 in every photo), so exposure time could not show the lights going out; the
+mean brightness of each photo was used instead (below half the first photo's counts as dark).
+Brightness stayed between 104.5 and 105.1, so the lights stayed on and no photo was left out.
+Tags matched 328 to 337. Against the first photo, in points:
+
+| Photos (10 a block) | Start (UTC) | All tags, median of block | All tags, range | Central slots, median | Largest slot | North 3 sharpness, median |
+|---|---|---|---|---|---|---|
+| 0 to 9 | 19:10 | +0.12 | -0.06 to +0.29 | +0.07 | 0.62 | +11% |
+| 10 to 19 | 19:20 | +0.09 | -0.05 to +0.14 | +0.04 | 0.44 | +6% |
+| 20 to 29 | 19:30 | +0.12 | -0.05 to +0.28 | +0.09 | 0.55 | +10% |
+| 30 to 39 | 19:40 | +0.05 | -0.06 to +0.10 | +0.02 | 0.31 | +3% |
+| 40 to 49 | 19:50 | +0.13 | -0.06 to +0.27 | +0.07 | 0.53 | +11% |
+| 50 to 59 | 20:00 | +0.03 | -0.03 to +0.10 | +0.01 | 0.30 | +5% |
+| 60 to 69 | 20:10 | +0.12 | +0.05 to +0.31 | +0.07 | 0.57 | +11% |
+| 70 to 79 | 20:20 | +0.04 | -0.07 to +0.11 | +0.02 | 0.41 | +4% |
+| 80 to 89 | 20:30 | +0.15 | +0.04 to +0.30 | +0.06 | 0.55 | +12% |
+| 90 to 99 | 20:40 | +0.02 | -0.04 to +0.21 | +0.00 | 0.44 | +2% |
+| 100 to 109 | 20:50 | +0.11 | +0.02 to +0.33 | +0.06 | 0.53 | +10% |
+| 110 to 119 | 21:00 | +0.01 | -0.08 to +0.27 | +0.01 | 0.59 | +3% |
+
+Judged against the limits fixed before the run: **not passed.** The all-tag median reached +0.33
+(limit ±0.10) and the largest slot +0.62 (North 5; limit ±0.52). Sharpness passed: no square fell
+by more than 5.2% (limit 20%).
+
+What the excess is: **a repeating cycle of about 19 minutes**, not a drift. Six times in the 2
+hours the all-tag median rose within 2 or 3 photos to about +0.25 to +0.33, then fell slowly over
+about 16 minutes to about -0.05 (time shift with the highest correlation: 19 photos, 0.75). The
+sharpness of the slot squares rose and fell with it (correlation 0.87 with the all-tag median;
+North 3 up to +23%, South 3 up to +21%). The cycle did not grow: the peaks were +0.29 in the first
+cycle and +0.27 in the last, the low points about -0.05 throughout, and the last 10 photos read
++0.01. The photo path does the same thing every minute, so it does not by itself explain a
+19-minute cycle; the cause was not investigated. The first photo fell near a low point of the
+cycle, which is why the medians are mostly positive.
+
+Reading: over 2 hours of unattended photos without reopening the camera, the readings did not
+wander away; they returned to the same low point every cycle, and the lens did not lose
+sharpness. But readings at a fixed lens position swing by about 0.35 points in the median and up
+to about 0.6 points in a slot, with a period of about 19 minutes, more than the control range used
+as the limit. The control (Control B, photos every 15 minutes) would not have shown a 19-minute
+cycle as one. One run; whether the cycle is also there with the camera reopened per photo, at
+other times of day, or with the chamber lights off was not measured.
 
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).

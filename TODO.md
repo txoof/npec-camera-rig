@@ -808,6 +808,12 @@ The heart of the project. Do not start before M1 slice 5.
          photos (to 4.77, focus unlocked) was confirmed in 1.29 s including the reopen, sharpness
          439 to 9; back to 6.27 in 0.57 s, Lock focus 1.52 s, a photo 2.76 s, sharpness 437, live
          preview still streaming. Unattended run: metrology-log section 8.1, run 3j.
+         **Run 3j result (2026-10-06, 2 hours, 120 photos):** not passed against the limits fixed
+         beforehand (median +0.33 against ±0.10, largest slot 0.62 against 0.52), but the excess
+         is a repeating cycle of about 19 minutes, the same in every cycle, with no drift and no
+         loss of sharpness. Decision for Aaron: whether that is enough to keep this slice. Open:
+         the cause of the 19-minute cycle (the chamber's own cycle?), and whether it is there with
+         the camera reopened per photo.
       2. Every photo records, in its sidecar, the lens position the camera reports and whether it
          matches the lock (within 0.005). A mismatch, or no lock, flags the photo. Limit: a stuck
          camera reports the old position, so this catches a lens the camera reports elsewhere
