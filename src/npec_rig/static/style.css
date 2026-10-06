@@ -202,26 +202,14 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 /* Full-width panel below the images: every focus-adjustment control in one place, grouped by a
    border/background rather than a column split -- co-visible with the images above it instead
    of competing with them for vertical space. */
-/* Full page width, wider than the images above, so lens controls, status, sharpness trace and
-   focus peaking each fit on one line at 1024x768 (Aaron, 2026-10-06). */
 .focus-control-panel {
-  max-width: 1400px;
+  width: var(--wide-content-width);
   box-sizing: border-box;
   margin-top: 0.5rem;
   padding: 0.6rem 0.75rem;
   background: #1a1a1a;
   border: 1px solid #333;
   border-radius: 6px;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.75rem;
-}
-/* Lens controls left, sharpness right, once there is room for both (as .focus-layout). */
-@media (min-width: 800px) {
-  .focus-control-panel {
-    grid-template-columns: minmax(0, 1fr) 340px;
-    gap: 0.6rem 1.25rem;
-  }
 }
 .focus-status {
   display: flex;
@@ -232,26 +220,18 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 .focus-control-row.lens-row {
   gap: 0.6rem;
 }
-.focus-sharpness {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-.focus-sharpness strong {
+.focus-control-row.sharpness-row strong {
   font-size: 1.6rem;
+  min-width: 4.5rem;
 }
-.sharpness-trace-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.sharpness-trace-row canvas {
+/* Shorter than its 60 px drawing height, so the three rows fit under the images at 1024x768. */
+.sharpness-row canvas {
   flex: 1 1 0;
   min-width: 0;
-  height: 60px;
+  height: 40px;
   background: #000;
 }
-.sharpness-trace-row .peaking-inline {
+.sharpness-row .peaking-inline {
   flex: 0 0 auto;
 }
 .peaking-inline input[type="checkbox"] {
@@ -264,7 +244,7 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
   gap: 1rem;
 }
 .focus-control-row + .focus-control-row {
-  margin-top: 0.6rem;
+  margin-top: 0.5rem;
 }
 .focus-control-row label {
   margin-bottom: 0;
