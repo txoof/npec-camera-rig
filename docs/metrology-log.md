@@ -438,6 +438,29 @@ are compared with the first capture before and after multiplying their area by i
 the correction bring the calibration tags back to their 6.27 readings? Raw data:
 `/home/pi/scratch/lens-fix-check-2026-10-06/traytag-test/`.
 
+**Run 3h result** (14:08 UTC; the lens was locked at 6.17 before 6.37, the reverse of the order
+written above, which does not change the comparison). 9 tray tags found in every capture (1, 2,
+4, 5, 7, 8, 9, 10, 11; about 144 to 148 px across), each in its own slot. Mean absolute change of
+the slot medians against the first capture, in points:
+
+| Capture | Uncorrected | Each tray corrected by its own tag | All corrected by the median tray-tag factor | Median tray-tag area factor |
+|---|---|---|---|---|
+| 6.27, repeat | 0.18 | 0.46 | 0.23 | +0.16% |
+| 6.17, a | 0.61 | 0.53 | 0.56 | -0.66% |
+| 6.17, b | 0.67 | 0.72 | 0.69 | -0.95% |
+| 6.37, a | 0.69 | 0.78 | 0.59 | +0.13% |
+| 6.37, b | 0.56 | 0.66 | 0.27 | +0.41% |
+| 6.27 again, a | 0.14 | 0.55 | 0.19 | -0.12% |
+| 6.27 again, b | 0.12 | 0.65 | 0.13 | +0.07% |
+
+Reading: **correction does not work with these tags.** Correcting each tray by its own tag made
+the slots worse (0.18 to 0.46 even with nothing changed; South 3 was pushed off by about 1 to 2
+points in every capture after the first), because a single 30 mm tag's size is too noisy for it.
+One table-wide factor changed little, because a lens change does not move all trays the same way
+(at 6.17 North 2 rose 1.0 point while North 4 fell 0.9). **Detection is one-sided:** the median
+tray-tag factor moved -0.66% and -0.95% at 6.17 (repeat noise ±0.16%), but only +0.13% and
++0.41% at 6.37, while the calibration tags moved -0.6 to -0.8 points. One run.
+
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
