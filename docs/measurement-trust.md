@@ -157,7 +157,7 @@ was compared with its own earlier reading:
 |---|---|---|
 | Nothing done (control) | | up to 0.52 points (North 1) |
 | Lens moved by autofocus, driven back to 6.15 | -0.03 points | +0.35 points |
-| App restart | +0.08 and +0.09 points (two attempts) | -0.29 points |
+| App restart | +0.08 and +0.09 points (two attempts, 2026-10-05); within ±0.05 over 5 restarts (2026-10-06) | -0.29 points; every slot within ±0.39 over the 5 restarts |
 | Power cut (cold start) | -1.73 points right after; -0.41 at +15 min; -0.14 at +60 min | -0.62 points at +60 min (South 1) |
 
 Photographs of an unchanged scene differ by a spread of 0.27 to 0.46 points anyway. Both
@@ -170,6 +170,13 @@ were blurrier and areas read about 1.7 points low, more than some slots' bands. 
 lens move the readings returned over the next hour: most of the change was gone after 15
 minutes, and after 60 minutes it was close to the change seen with nothing done. Readings taken in
 roughly the first 15 minutes after the app opens a cold camera are not covered by the bands.
+
+A camera fault is different too. On 2026-10-06 the camera once stopped delivering frames and the
+app had to be restarted; afterwards, at the same reported lens position, the central trays were
+about half as sharp and fewer tags were found. Neither a reference tag at the frame edge nor the
+tray tags could reliably show or correct such a change in tests the same day. Readings after a
+camera fault or a cold start are therefore marked as not covered by the bands, rather than
+corrected.
 
 **One open point.** On 2026-10-01, after a different series of lens moves, the central readings
 drifted by 1.3 points in 35 minutes. That was not repeated on 2026-10-05, and the reason for the
@@ -209,10 +216,13 @@ the extreme frame corners, and plants only sit on trays. No model is adopted.
   Only the left-right direction of one row was checked. A plant is
   measured with the scale at its own slot, which validation checks directly; a distance spanning
   trays is not.
-- **A software fault with focus.** After a full-res photo (a calibration, capture or tripwire
-  check), the lens can stop obeying focus commands until the app is restarted, while the app
-  reports success. Seen twice on 2026-10-05. Measurements made without touching focus are not
-  known to be affected; refocusing must be done in a freshly restarted app until this is fixed.
+- **A software fault with focus, now fixed in code not yet merged.** After a full-res photo the
+  lens ignored focus commands while the app reported success (diagnosed 2026-10-06). The fix
+  reopens the camera so the lens obeys again; measurements made without touching focus were not
+  affected.
+- **After a camera fault.** A stalled camera followed by a restart left the central trays
+  blurrier at the same reported focus (one case, 2026-10-06); no reliable automatic check for this
+  exists yet.
 - **Tripwire limits.** The FAIL limits for roll (10°) and scale (8%) are provisional; the knock
   test reached FAIL through a lost corner tag, not through those limits.
 - **One rig, two weeks of data.** The evidence above comes from this rig between 2026-09-21 and

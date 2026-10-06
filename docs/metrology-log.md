@@ -472,6 +472,28 @@ South 3, South 4, and the largest slot), tags found, and the median tray-tag are
 tags; tag 6 at the frame edge is not found). Raw data:
 `/home/pi/scratch/lens-fix-check-2026-10-06/restart-test/`.
 
+**Run 3i result** (14:20 to 14:21 UTC; 5 fresh server processes, each locked at 6.27 within about
+3 s, no camera errors). Against the first reference capture, in points:
+
+| Capture | Tags matched | All tags | Central slots | Largest slot | Tray-tag area factor |
+|---|---|---|---|---|---|
+| reference b | 337 | +0.00 | +0.01 | -0.15 (South 2) | -0.01% |
+| restart 1 a / b | 339 / 339 | +0.05 / -0.02 | +0.09 / -0.01 | +0.18 / -0.23 | -0.08% / -0.38% |
+| restart 2 a / b | 338 / 337 | -0.01 / +0.02 | +0.08 / +0.02 | -0.32 / -0.24 | -0.30% / -0.16% |
+| restart 3 a / b | 340 / 340 | +0.02 / -0.03 | +0.08 / +0.05 | -0.38 / -0.22 | -0.12% / -0.40% |
+| restart 4 a / b | 338 / 340 | +0.01 / +0.03 | +0.06 / +0.04 | +0.17 / -0.39 | -0.06% / -0.17% |
+| restart 5 a / b | 337 / 338 | +0.01 / -0.02 | +0.02 / +0.04 | -0.30 / -0.21 | -0.08% / -0.14% |
+
+Reading: **an app restart, with the camera warm, does not move the readings.** Across 5 restarts
+the median stayed within ±0.05 points, the central slots within +0.09, and every slot within
+±0.39, inside the change over time seen with nothing done (slots up to 0.52). This agrees with
+the 2026-10-05 restart runs (+0.08, +0.09). The large changes of 2026-10-06 came with other
+events: the cold start (-1.73, recovering over an hour), the camera frontend timeout at 12:37 UTC
+followed by a restart (central slots about half as sharp), and the lens diagnosis with many full
+sweeps (11:18). Which of those features (a cold camera, a stalled camera, many lens moves) causes
+the shift is not separated; these tests show what is safe (restarts) and what is not (a cold
+start, and a camera fault).
+
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
