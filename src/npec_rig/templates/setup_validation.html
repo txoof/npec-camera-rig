@@ -84,12 +84,11 @@
       3 counted rounds complete a validation; more rounds only add tags.
     </p>
     <p style="margin: 0.3rem 0;">
-      Close the door before every round: an open door changes the air and light in the chamber,
-      and readings taken with people working and the door open changed more than with the
-      chamber closed. Spread the rounds over at least 20 minutes, first to last, at least 6 minutes
-      apart; the countdown next to Capture round shows when the next round is due. Readings rise
-      and fall on a cycle of about 19 minutes, and rounds taken close together all see one point
-      of it. A validation with rounds closer together still counts, but says so.
+      Rounds spread over a longer time give more certainty, because conditions in the chamber
+      vary: readings rise and fall on a cycle of about 19 minutes, and an open door changes the air
+      and light. So close the door before every round, take the rounds at least 6 minutes apart and
+      at least 20 minutes from first to last; the countdown next to Capture round shows when the
+      next round is due. A rushed validation still counts, but says so.
     </p>
   </details>
 
@@ -132,9 +131,15 @@
         return `<span class="validation-problem">Not consistent: ${slots}</span>, ${counted}`;
       }
       if (s.validated) {
-        const spread = s.short_span
-          ? `, <span class="validation-short">rounds spread over ${spanText(s.round_span_minutes)} min, under the recommended ${s.min_span_minutes}</span>`
-          : "";
+        const notes = [];
+        if (s.short_span) {
+          notes.push(`rounds spread over ${spanText(s.round_span_minutes)} min, under the recommended ${s.min_span_minutes}`);
+        }
+        if (s.short_gap) {
+          notes.push(`rounds ${spanText(s.shortest_gap_minutes)} min apart, under the recommended ${s.min_round_gap_minutes}`);
+        }
+        const spread = notes.length
+          ? `, <span class="validation-short">${notes.join(", ")}</span>` : "";
         return `Validated ${when(s.completed_at)}, ${s.rounds_counted} rounds${spread}`;
       }
       const state = s.ended_at ? "Ended before completion" : "Provisional";

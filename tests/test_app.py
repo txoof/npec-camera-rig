@@ -1925,6 +1925,8 @@ def test_validation_status_follows_the_newest_session_of_the_active_calibration(
     summary = client.get(f"/validation/sessions/{session['id']}").json()
     assert summary["short_span"] is True and summary["min_span_minutes"] == 20
     assert summary["min_round_gap_minutes"] == 6
+    assert summary["short_gap"] is True and summary["shortest_gap_minutes"] < 1
+    assert "apart, under the recommended 6" in status["text"]
     assert summary["first_counted_at"] <= summary["last_counted_at"]
     assert summary["round_span_minutes"] < 1
 

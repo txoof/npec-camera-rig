@@ -1592,6 +1592,8 @@ def _session_summary(session: dict, current_stem: str | None) -> dict:
             (r["captured_at"] for r in counted if r.get("captured_at")), default=None
         ),
         "min_round_gap_minutes": validation_store.MIN_ROUND_GAP_MINUTES,
+        "shortest_gap_minutes": validation_store.shortest_gap_minutes(session),
+        "short_gap": validation_store.short_gap(session),
     }
 
 

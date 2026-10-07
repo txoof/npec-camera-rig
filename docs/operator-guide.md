@@ -73,7 +73,8 @@ closed. Closing the door before every round keeps each round to the conditions o
 What this does to the numbers: they become more trustworthy, not necessarily smaller. A
 validation taken over time may show slightly wider ranges than a rushed one, because it includes
 the swing a rushed one hides. A rushed validation still counts, but its status says "rounds
-spread over N min, under the recommended 20", so anyone using its numbers can see it.
+spread over N min, under the recommended 20" or "rounds N min apart, under the recommended 6", so
+anyone using its numbers can see it.
 
 ## What the uncertainty column means
 

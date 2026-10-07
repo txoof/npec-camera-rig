@@ -54,9 +54,10 @@ TABLE_OFFSET_PCT = 2.5
 # points in the median, up to 0.6 in a slot), so rounds taken within a few minutes all see one
 # point of that cycle and the bands miss it. Shorter sessions are not blocked: the result says so.
 MIN_SPAN_MINUTES = 20.0
-# The page counts down to the next round and asks before a round taken sooner than this after the
-# last counted one: a decision, not a measurement (Aaron, 2026-10-07: encourage the operator not to
-# rush). Not a block.
+# Counted rounds should be at least this far apart: the page counts down to the next round, asks
+# before a sooner one, and a completed session with a shorter gap says so (rounds close together see
+# about the same point of the cycle above). A decision, not a measurement (Aaron, 2026-10-07:
+# encourage the operator not to rush). Not a block.
 MIN_ROUND_GAP_MINUTES = 6.0
 SESSION_VERSION = 1
 _SESSION_ID = re.compile(r"^\d{8}T\d{12}$")
@@ -211,6 +212,31 @@ def round_span_minutes(session: dict) -> float | None:
     return (max(times) - min(times)).total_seconds() / 60
 
 
+def _counted_times(session: dict) -> list[datetime]:
+    return sorted(
+        datetime.fromisoformat(r["captured_at"]) for r in counted_rounds(session) if r.get("captured_at")
+    )
+
+
+def shortest_gap_minutes(session: dict) -> float | None:
+    """The shortest time between two consecutive counted rounds, in minutes. None with fewer than 2
+    counted rounds that have a capture time."""
+    times = _counted_times(session)
+    if len(times) < 2:
+        return None
+    return min((b - a).total_seconds() for a, b in zip(times, times[1:])) / 60
+
+
+def short_gap(session: dict) -> bool:
+    """Complete, but two counted rounds are closer together than MIN_ROUND_GAP_MINUTES."""
+    gap = shortest_gap_minutes(session)
+    return (
+        len(counted_rounds(session)) >= ROUNDS_REQUIRED
+        and gap is not None
+        and gap < MIN_ROUND_GAP_MINUTES
+    )
+
+
 def short_span(session: dict) -> bool:
     """Complete, but the counted rounds span less than MIN_SPAN_MINUTES."""
     span = round_span_minutes(session)
@@ -330,6 +356,11 @@ def status(session: dict) -> dict:
                 f", rounds spread over {span_text(round_span_minutes(session))} min, under the "
                 f"recommended {MIN_SPAN_MINUTES:.0f}"
             )
+        if short_gap(session):
+            label += (
+                f", rounds {span_text(shortest_gap_minutes(session))} min apart, under the "
+                f"recommended {MIN_ROUND_GAP_MINUTES:.0f}"
+            )
         return {"state": "validated", "label": label}
     state = "Ended before completion" if session.get("ended_at") else "Provisional"
     return {"state": "not_validated", "label": f"{state}: {counted} of {ROUNDS_REQUIRED} rounds"}
@@ -409,3 +440,5 @@ def refresh_results(session: dict) -> None:
     # Recorded with the result, so the session file itself says how spread out the rounds were.
     session["round_span_minutes"] = round_span_minutes(session)
     session["short_span"] = short_span(session)
+    session["shortest_gap_minutes"] = shortest_gap_minutes(session)
+    session["short_gap"] = short_gap(session)
