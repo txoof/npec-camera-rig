@@ -38,10 +38,10 @@
   <div class="focus-control-row">
     <button id="autofocus-btn">Autofocus</button>
     <button id="lock-btn">Lock focus</button>
+    <button id="camera-reset-btn" type="button" style="display: none;">Reset camera</button>
     <div class="focus-status">
       <span id="lock-status">Focus is unlocked</span>
       <span id="lens-error" style="color: #f66; font-weight: bold;"></span>
-      <button id="camera-reset-btn" type="button" style="display: none; align-self: flex-start;">Reset camera</button>
     </div>
   </div>
   <div class="focus-control-row lens-row">
@@ -119,9 +119,12 @@
     const lensError = document.getElementById("lens-error");
     const cameraResetBtn = document.getElementById("camera-reset-btn");
 
-    // The red error text, with the Reset camera button shown whenever there is one.
+    // The red error text, with the Reset camera button shown whenever there is one. Only the
+    // message before the details in brackets is shown, so the row keeps its height on a 1024x768
+    // screen; the full text is in the tooltip.
     function setLensError(text) {
-      lensError.textContent = text;
+      lensError.textContent = text.split(" (")[0];
+      lensError.title = text;
       cameraResetBtn.style.display = text ? "" : "none";
     }
 
