@@ -774,6 +774,30 @@ number of photos or how the standard deviation was summarised. Today's photos ha
 So the difference may come partly from the conditions, not only from the camera. The limit was
 applied as written, not changed.
 
+**Step 4 result (2026-10-07): does not follow, as the old camera.** Server stopped 13:02 UTC,
+`reference/lens-unresponsive-2026-10-diagnose.py` run with the camera-swap branch's code, one case
+per process (a fresh camera each time), chamber door closed, lights on. Lens positions used: the
+persisted 6.16 and 4.66 (1.5 below, chosen only for a large sharpness change). Each write watched
+for 90 s: the position the camera reports, frames flowing, and the sharpness of the central third.
+Raw data: `/home/pi/scratch/camera-swap-2026-10/step4/` (one `.csv` and `.json` per case).
+
+| Case (UTC start) | Lens write | Reported position | Sharpness | Followed |
+|---|---|---|---|---|
+| No photo (13:03) | 6.16 to 4.66 | 4.66 in 0.58 s | 1067 to 19 | yes |
+| | 4.66 to 6.16 | 6.16 in 0.57 s | 19 to 1103 | yes |
+| After 1 full-res photo (13:07) | 6.16 to 4.66 | stayed 6.16 for 90 s | 1105 to 1104 | **no** |
+| After 1 photo, camera closed and reopened (13:12) | 6.16 to 4.66 | 4.66 in 0.57 s | 1087 to 19 | yes |
+| | 4.66 to 6.16 | 6.16 in 0.58 s | 19 to 1098 | yes |
+
+Frames kept flowing in every case. The write after a photo was accepted without an error and not
+followed, and the camera kept reporting the old position, exactly as the old camera did (section
+8.1, run 3b and the diagnosis). A close and reopen cures it on both cameras. So the fault is not
+peculiar to the old camera: it comes with this camera model or with the software shared by both
+setups; this step does not separate those two. The app already works around it (photos do not move
+the lens; the camera is reopened before any lens command, TODO "Plan: nothing moves the lens during
+an experiment", slice 1). Every case ended with the lens driven back to 6.16. The server was
+restarted at 13:18 UTC and reported focus locked at 6.16.
+
 ## 9. M2 physical acceptance tests (2026-10-05)
 
 The four tests PLAN.md lists for M2, run in the chamber on 2026-10-05 (times UTC; the chamber is
