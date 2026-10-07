@@ -820,6 +820,41 @@ calibration tag compared with itself in the first reference photo (matched by ID
 ±0.24 (limit ±0.52): not different. The old camera gave a median within ±0.05 and every slot within
 ±0.39 (run 3i). A warm restart does not change the new camera's readings either.
 
+**Extra check, asked for by Aaron (2026-10-07): is the central low reading there on the new
+camera?** Not one of the steps above; no limit set, compared only. *Method (written before it
+ran):* the same analysis as `reference/arducam-central-error-2026-10.md` section 4.1, on each
+camera's 2026-10-07 validation. Every calibration tag in the 3 validation rounds, its area error
+under that camera's own calibration (old: rounds `070505_471367`, `071439_917590`,
+`072601_309111` with calibration `20261005T141101923639`; new: `122619_085413`, `123805_311325`,
+`125109_812791` with `20261007T122200583188`), grouped by distance from the image centre (4576,
+3472 px): median error per band, and the dip (median within 1500 px minus median beyond 2500 px,
+as in that record's section 4.3, where the old camera gave about -2.6 points on 2026-10-01).
+Saved data only; no photos. Raw data: `/home/pi/scratch/camera-swap-2026-10/centre-check/`.
+
+*Result (run 13:35 UTC):*
+
+| Distance from image centre (px) | Old camera SN000: tags, median error | New camera SN001: tags, median error |
+|---|---|---|
+| 0 to 1000 | 24, -2.42% | 10, -2.80% |
+| 1000 to 1500 | 119, -0.88% | 123, -1.15% |
+| 1500 to 2000 | 158, +0.17% | 173, -0.08% |
+| 2000 to 2500 | 164, -0.07% | 138, +0.10% |
+| 2500 to 3500 | 256, -1.11% | 271, +0.06% |
+| 3500 to 4500 | 287, -0.77% | 332, +0.50% |
+| 4500 and beyond | 29, -1.44% | 18, -0.55% |
+| Dip (within 1500 minus beyond 2500) | -0.27 points | -1.50 points |
+
+The central low reading is present on the new camera: tags within 1000 px of the image centre read
+about 2.8% small and the reading returns to about zero beyond 1500 px, the same shape as on the old
+camera. So it is not peculiar to the old camera, in line with its record (it belongs to the
+Arducam). The old camera's dip on this day is only -0.27 because its outer bands also read low
+(-0.77 to -1.44%), the whole-table shift of about -0.85 points noted in section 6; its innermost
+band (-2.42%) is close to the new camera's. Cautions: the innermost band holds only 10 and 24
+tags; the two cameras were at different lens positions (6.16 and 6.27), and the size of this
+error follows the lens position. The North 4 slot median does not stand out on either camera
+because only the slot's inner corner lies within 1500 px of the image centre; the per-slot band
+from validation includes it.
+
 ## 9. M2 physical acceptance tests (2026-10-05)
 
 The four tests PLAN.md lists for M2, run in the chamber on 2026-10-05 (times UTC; the chamber is
