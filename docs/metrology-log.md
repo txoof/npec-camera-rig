@@ -855,6 +855,42 @@ error follows the lens position. The North 4 slot median does not stand out on e
 because only the slot's inner corner lies within 1500 px of the image centre; the per-slot band
 from validation includes it.
 
+**Packing foam found on the new camera (2026-10-07, during step 6).** Aaron found packing foam
+left on the camera body over the lens, present for every photo since the swap (calibration,
+validation, steps 2 to 5 and step 6 photos 0 to 12). He removed it with the door open 13:41 to
+13:42 UTC (15:41 to 15:42 local), without touching the lens. Step 6 photos compared with photo 11
+(13:40 UTC, the last before the door opened); raw data and script:
+`/home/pi/scratch/camera-swap-2026-10/foam-check/` (`analyse.py`, `results.json`).
+
+| Photo (UTC) | Exposure (µs) | Tags | Tag shift, median / largest (px) | Area change, median | Largest slot | North 4 sharpness |
+|---|---|---|---|---|---|---|
+| 0 (13:29) | 3793 | 355 | 0.97 / 1.64 | +0.19 | North 5 +0.46 | |
+| 10 (13:39) | 3793 | 355 | 0.16 / 0.69 | +0.04 | North 5 +0.13 | |
+| 13 (13:42, Aaron at the rig) | 3897 | 314 | 0.22 / 3.75 | -0.04 | | |
+| 14 (13:43) | 3533 | 355 | 0.89 / 3.07 | -0.53 | North 5 -0.83 | -21.4% |
+| 15 (13:44) | 3533 | 355 | 0.94 / 3.72 | -0.52 | North 5 -0.77 | -20.2% |
+| 16 (13:45) | 3533 | 355 | 0.86 / 3.36 | -0.47 | North 1 -0.60 | -16.6% |
+| 17 (13:46) | 3533 | 355 | 0.78 / 3.55 | -0.43 | North 3 -0.54 | -15.5% |
+
+After the foam was removed, the camera's view moved by under 4 px, the exposure dropped by 7% (more
+light reaching the sensor), the readings dropped by about 0.5 points (beyond the step 5 limits of
+0.10 for the median and 0.52 for a slot) and the centre lost about a fifth of its sharpness; the
+change was getting smaller each minute. Whether the readings return to their earlier level is not
+known yet. Until that is known, the step 2 validation is not relied on. Steps 1 to 5 and the
+centre check were all taken with the foam in place; they compare the cameras as they were set up,
+foam included. Step 6 is affected from photo 13: its photos 0 to 12 are 13 minutes only, and from
+photo 14 on it includes the recovery, so it is reported with that noted.
+
+**Overnight run (method written 2026-10-07 13:50 UTC, before it starts; agreed by Aaron).** Not
+one of the steps above; recorded only, no limit. Purpose: does the reading return to its level
+before the foam was removed, and does it drift over about 15 hours with nobody at the chamber.
+Same script as run 3j (`/home/pi/scratch/camera-swap-2026-10/overnight/overnight.py`), started
+automatically when step 6 ends (about 15:29 UTC), 916 photos, one a minute, to about 06:45 UTC on
+2026-10-08 (08:45 local). Door closed, lights on (Aaron), lens 6.16 locked. Analysed as step 6:
+each tag against itself in a reference photo, median and per-slot change, sharpness per slot;
+reported against both step 6 photo 11 (before the foam came off) and the first overnight photo.
+Raw data: `/home/pi/scratch/camera-swap-2026-10/overnight/`.
+
 ## 9. M2 physical acceptance tests (2026-10-05)
 
 The four tests PLAN.md lists for M2, run in the chamber on 2026-10-05 (times UTC; the chamber is
