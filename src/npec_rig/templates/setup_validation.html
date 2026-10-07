@@ -34,6 +34,9 @@
     }
     .validation-problems strong { color: #ff6b6b; }
     .validation-note { margin: 0.3rem 0 0; font-size: 0.66rem; color: #aaa; }
+    .validation-short { color: #e6aa3c; font-weight: bold; }
+    .door-check { display: flex; align-items: center; gap: 0.4rem; font-weight: bold; }
+    .door-check input { width: 1.2rem; height: 1.2rem; }
     .validation-held { margin-top: 0.4rem; font-size: 0.75rem; }
     /* Buttons on their own line at the left of each card: the right edge stays free for
        scrolling on a touch screen (Aaron, 2026-10-01). */
@@ -54,6 +57,10 @@
 
   <div class="validation-controls">
     <button id="validation-toggle" disabled>Start validation</button>
+    <label class="door-check">
+      <input type="checkbox" id="door-closed">
+      <span>The chamber door is closed</span>
+    </label>
     <button id="validation-capture" disabled>Capture round</button>
     <span id="validation-busy" style="color: #aaa; display: none;">
       Capturing and measuring, about 20 seconds...
@@ -72,8 +79,15 @@
     <p style="margin: 0.3rem 0;">
       Each round: leave the trays where they are. Put each sheet on a different tray, 2 to 5 cm
       from where a sheet lay before, flat and fully on the tray, one sheet per tray. Step out of
-      view, then press Capture round. 3 counted rounds complete a validation; more rounds only
-      add tags.
+      view, close the chamber door, tick "The chamber door is closed", then press Capture round.
+      3 counted rounds complete a validation; more rounds only add tags.
+    </p>
+    <p style="margin: 0.3rem 0;">
+      Close the door before every round: an open door changes the air and light in the chamber,
+      and readings taken with people working and the door open changed more than with the
+      chamber closed. Spread the rounds over at least 20 minutes, first to last: readings rise and
+      fall on a cycle of about 19 minutes, and rounds taken close together all see one point of
+      it. A validation with rounds closer together still counts, but says so.
     </p>
   </details>
 
@@ -115,9 +129,26 @@
           ? "all slots" : s.flagged_slots.join(", ");
         return `<span class="validation-problem">Not consistent: ${slots}</span>, ${counted}`;
       }
-      if (s.validated) return `Validated ${when(s.completed_at)}, ${s.rounds_counted} rounds`;
+      if (s.validated) {
+        const spread = s.short_span
+          ? `, <span class="validation-short">rounds spread over ${spanText(s.round_span_minutes)} min, under the recommended ${s.min_span_minutes}</span>`
+          : "";
+        return `Validated ${when(s.completed_at)}, ${s.rounds_counted} rounds${spread}`;
+      }
       const state = s.ended_at ? "Ended before completion" : "Provisional";
       return `${state}: ${counted}`;
+    }
+
+    function spanText(minutes) {
+      return minutes < 10 ? minutes.toFixed(1) : minutes.toFixed(0);
+    }
+
+    // While a validation is open and short of its rounds, the earliest time for the last round
+    // that keeps the recommended spread.
+    function spreadHint(s) {
+      if (!s.is_open || !s.first_counted_at || s.rounds_counted >= s.rounds_required) return "";
+      const due = new Date(Date.parse(s.first_counted_at) + s.min_span_minutes * 60000);
+      return ` Spread the rounds over at least ${s.min_span_minutes} minutes: take the last round after ${when(due.toISOString())}.`;
     }
 
     function rangeText(s) {
@@ -224,8 +255,10 @@
       toggle.textContent = openSession ? "End validation" : "Start validation";
       toggle.disabled = capturing || (!openSession && !currentStem);
       const capture = el("validation-capture");
-      capture.disabled = capturing || !openSession;
-      capture.title = openSession ? "" : "Start a validation first.";
+      const doorClosed = el("door-closed").checked;
+      capture.disabled = capturing || !openSession || !doorClosed;
+      capture.title = !openSession ? "Start a validation first."
+        : !doorClosed ? "Close the chamber door and tick the box first." : "";
     }
 
     function renderSession() {
@@ -235,7 +268,7 @@
       const dates = [`Started ${when(session.started_at)}`];
       if (session.ended_at) dates.push(`ended ${when(session.ended_at)}`);
       el("validation-meta").innerHTML =
-        `<strong>${statusText(session)}${rangeText(session)}.</strong> ${dates.join(", ")}.`;
+        `<strong>${statusText(session)}${rangeText(session)}.</strong> ${dates.join(", ")}.${spreadHint(session)}`;
       const map = el("validation-map");
       if (session.map_url) {
         map.src = `${session.map_url}?t=${session.rounds_counted}-${session.rounds.length}`;
@@ -378,8 +411,12 @@
       }
       capturing = false;
       busyText(null);
+      // The door is opened again to move the sheets, so it is confirmed again for every round.
+      if (s) el("door-closed").checked = false;
       await refreshOrWarn(s ? s.id : undefined);
     });
+
+    el("door-closed").addEventListener("change", renderControls);
 
     el("validation-held").addEventListener("click", async (e) => {
       const btn = e.target.closest(".validation-count");

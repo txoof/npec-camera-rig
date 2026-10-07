@@ -1582,6 +1582,12 @@ def _session_summary(session: dict, current_stem: str | None) -> dict:
         "flagged_slots": validation_store.flagged_slots(session),
         "certainty_range_pct": [min(measured), max(measured)] if measured else None,
         "map_url": f"/validation/sessions/{session['id']}/map" if counted else None,
+        "round_span_minutes": validation_store.round_span_minutes(session),
+        "short_span": validation_store.short_span(session),
+        "min_span_minutes": validation_store.MIN_SPAN_MINUTES,
+        "first_counted_at": min(
+            (r["captured_at"] for r in counted if r.get("captured_at")), default=None
+        ),
     }
 
 

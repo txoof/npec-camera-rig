@@ -200,7 +200,10 @@ What it means: depending on when in the cycle a photograph is taken, its reading
 0.35 points higher for the whole table and about 0.6 points higher in one slot. The cause is not
 known; the chamber's air handler runs outside the operator's control and its cycle depends on the
 experiment. The 2026-10-05 validation was taken with the same photo method, so the cycle was
-already present then. For comparison, the 0.52-point slot change seen with nothing done was about a
+already present then. Its 3 rounds were taken within 93 seconds, all at one point of the cycle, so
+its bands do not include the cycle. From 2026-10-07 the validation rounds are to be spread over at
+least 20 minutes, with the chamber door closed for every round; a validation with rounds closer
+together still counts, but its status says so. For comparison, the 0.52-point slot change seen with nothing done was about a
 quarter of that slot's band.
 
 **One open point.** On 2026-10-01, after a different series of lens moves, the central readings

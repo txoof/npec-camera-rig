@@ -19,7 +19,11 @@ uncertainty column in the exported data means.
 3. **Validate.** On *Setup / Validation*, check that the page shows "Focus: locked" at the
    calibration's lens position, then press **Start validation**. For each of 3 rounds: leave the
    trays where they are, put each sheet on a different tray, 2 to 5 cm from where a sheet lay
-   before, flat and fully on the tray, step out of view, then press **Capture round**. When
+   before, flat and fully on the tray, step out of view, **close the chamber door**, tick "The
+   chamber door is closed", then press **Capture round**. Spread the 3 rounds over at least 20
+   minutes, first to last; the page shows the earliest time for the last round. Readings rise and
+   fall on a cycle of about 19 minutes, so rounds taken close together miss part of the real
+   spread; a validation with rounds closer together still counts, but its status says so. When
    3 rounds have counted, the status reads **Validated**, or **Not consistent** with the slots
    that disagreed between rounds and a red "Problem" note naming the sheet, tray or round to check.
 

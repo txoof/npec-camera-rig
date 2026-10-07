@@ -1920,6 +1920,11 @@ def test_validation_status_follows_the_newest_session_of_the_active_calibration(
             assert status["state"] == "not_validated" and "so far" in status["text"]
     assert status["state"] == "validated" and status["session_id"] == session["id"]
     assert status["text"].startswith("Validated ")
+    # The three rounds here are seconds apart: the status says they were spread too little.
+    assert "under the recommended 20" in status["text"]
+    summary = client.get(f"/validation/sessions/{session['id']}").json()
+    assert summary["short_span"] is True and summary["min_span_minutes"] == 20
+    assert summary["round_span_minutes"] < 1
 
     # A new session replaces the old one's status until it completes.
     newer = client.post("/validation/sessions").json()

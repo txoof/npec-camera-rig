@@ -88,14 +88,21 @@ in place, and the rig photographs the table. This is one round. 3 rounds are req
 (**decision**). A round counts only if at least 50% of tags moved more than 5 mm, so the same
 layout is not counted twice (basis: a real shuffle moved 83% to 90% of tags; an untouched table
 moved 0%). The calibration photograph is never a round, because the scale field was fitted to
-those same tags.
+those same tags. From 2026-10-07 the counted rounds should span at least 20 minutes, first to
+last, with the chamber door closed for every round (**decision**, Aaron 2026-10-07; basis: run 3j
+in section 8.1 found readings rising and falling on a cycle of about 19 minutes, and an open door
+disturbed Control A). A shorter spread is not blocked: the session records its span
+(`round_span_minutes`, `short_span`) and its status says "rounds spread over N min, under the
+recommended 20". The door cannot be detected by the rig; the operator confirms it for every round.
 
 **The band.** For each tray slot, the band is the 95th percentile of the absolute area error of
 all tags in that slot over all counted rounds: 95% of the tags read within that distance of
 their true area. Fewer than 10 tags in a slot gives "not measured" (**decision**).
 
 **Current bands** (session `20261005T141310628479`, calibration `20261005T141101923639`, lens
-6.27, 3 rounds at 14:13, 14:14 and 14:15 UTC, 92% to 96% of tags moved, 85 to 90 tags per slot):
+6.27, 3 rounds at 14:13, 14:14 and 14:15 UTC, 92% to 96% of tags moved, 85 to 90 tags per slot;
+spread over 1.5 minutes, under the recommended 20, so these bands do not include the 19-minute
+cycle of run 3j):
 
 | Slot | Band | Median error | Slot | Band | Median error |
 |---|---|---|---|---|---|
