@@ -204,7 +204,7 @@ several percent. Measured at milestone M5.
 | Lens moved and driven back to the same position | median change -0.03 points, spread 0.28, 355 of 355 tags; over 60 min largest slot change +0.35 points (about 1/6 of that slot's band) | Autofocus moved the lens, re-locked at 6.15, photographs at +0, +15, +30, +60 min, each tag compared with itself | 2026-10-05, `reference/lens-return-2026-10.md` |
 | Drift at a fixed lens position after moves | central ring changed 1.3 points in 35 min | Lens sweep then return to 6.18 | 2026-10-01 |
 | Change over time with nothing moved (control) | over 45 to 60 min: median within ±0.17 points, central ring within ±0.26, single slots up to 0.52 (about 1/4 of that slot's band); goes up and down, not a steady drift | Same method, lens untouched, two series (one partly disturbed by people in the chamber) | 2026-10-05, `reference/lens-return-2026-10.md` |
-| One photo a minute for 2 hours, no reopen, lens locked (run 3j) | a repeating cycle of about 19 minutes: median swings by about 0.35 points (-0.08 to +0.33 against the first photo), largest slot 0.62; no drift (each cycle returns to the same low point); sharpness rises and falls with it | Plain photos through the app, section 8.1 run 3j | 2026-10-06 |
+| One photo a minute for 2 hours, no reopen, lens locked (run 3j) | a repeating cycle of about 19 minutes: median swings by about 0.35 points (-0.08 to +0.33 against the first photo), largest slot 0.62; no drift (each cycle returns to the same low point); sharpness rises and falls with it; follows the chamber's air temperature (19.8 to 20.3 °C, every 19 min, correlation 0.84) and humidity cycle | Plain photos through the app, section 8.1 run 3j, compared with the chamber's 1-minute log | 2026-10-06 |
 | App restart | right after: median +0.08 and +0.09 points (two attempts), 355 of 355 tags; over 60 min median within ±0.13, largest slot -0.29 (about 1/6 of its band); inside the control range | Server killed and restarted, lens driven back to 6.15 at start-up; repeat-photograph test (section 8.1) | 2026-10-05, `reference/lens-return-2026-10.md` |
 | Power cut (cold start) | right after: median -1.73 points, 291 of 354 tags found, central slots blurrier; +15 min -0.41, +30 -0.38, +60 -0.14 (largest slot -0.62); recovers with no lens move | Pi off about 30 min, camera not opened until the run; repeat-photograph test (run 3) | 2026-10-06 |
 | Two calibrations in a row | scale fields agreed within 0.02% to 0.16% | 332 and 340 tags, lens moved away and back, 2026-09-25 | Before the current lens-drive method |
@@ -593,7 +593,8 @@ sharpness of the slot squares rose and fell with it (correlation 0.87 with the a
 North 3 up to +23%, South 3 up to +21%). The cycle did not grow: the peaks were +0.29 in the first
 cycle and +0.27 in the last, the low points about -0.05 throughout, and the last 10 photos read
 +0.01. The photo path does the same thing every minute, so it does not by itself explain a
-19-minute cycle; the cause was not investigated. The first photo fell near a low point of the
+19-minute cycle; the chamber's own log shows it goes with the chamber's temperature and humidity
+cycle (see "Run 3j against the chamber's own record" below). The first photo fell near a low point of the
 cycle, which is why the medians are mostly positive.
 
 Reading: over 2 hours of unattended photos without reopening the camera, the readings did not

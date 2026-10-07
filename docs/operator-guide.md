@@ -59,8 +59,10 @@ numbers are only as good as the photographs it is built from, so how the rounds 
 
 **Take your time.** With nothing touched, the rig's readings rise and fall on a repeating cycle of
 about 19 minutes, by up to about 0.35 percentage points across the table and about 0.6 in a single
-tray position (measured 2026-10-06). The cause is not known; the chamber's air handling is one
-possibility. During an experiment, photographs are taken at every point of that cycle. If the 3
+tray position (measured 2026-10-06). The cycle goes with the chamber's own climate control: in the
+same 2 hours the air temperature rose and fell between 19.8 and 20.3 °C every 19 minutes, and the
+readings followed it. What exactly causes the change is not known, and the chamber's cycle depends
+on the experiment, so the swing can differ from one experiment to the next. During an experiment, photographs are taken at every point of that cycle. If the 3
 rounds are taken within a few minutes, they all see one point of it, and the validation misses
 part of the real spread. Spreading the rounds over at least 20 minutes, at least 10 minutes apart,
 lets the validation see the cycle, so its numbers describe the photographs an experiment will
