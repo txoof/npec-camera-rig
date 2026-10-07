@@ -606,6 +606,19 @@ were measured with: the camera was reopened per photo only from commit `a58e720`
 11:20 UTC) until `5f068bf`, and that path was never run at one photo a minute. One run; whether the cycle is also there with the camera reopened per photo, at
 other times of day, or with the chamber lights off was not measured.
 
+**Run 3j against the chamber's own record, method written 2026-10-07 before the comparison.**
+Does any chamber reading follow the 19-minute cycle? The chamber controller logs once a minute in
+local time (Amsterdam, UTC+2): temperature, humidity and CO2 (set and actual), 9 light channels
+and `Bath_H1` (export `/home/pi/scratch/D6_2026.09.07-2026.10.07.csv`, made 2026-10-07 about
+10:00 local). The rows for run 3j's window (2026-10-06 21:10 to 23:10 local, 19:10 to 21:10 UTC)
+are matched to each photo by the nearest minute after converting to UTC. For each chamber column:
+its range in the window, the time shift (5 to 40 minutes) at which it best matches itself (its own
+period), and its correlation with run 3j's all-tag median at shifts of -10 to +10 minutes (the
+chamber may lead or lag the photos). A column is said to follow the cycle if its own period is 15
+to 25 minutes and its best correlation with the all-tag median is above 0.5 in size (**decision**).
+A column that does not change in the window is reported as constant. This only shows whether a
+chamber reading moves with the cycle; it does not show that it causes it.
+
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
