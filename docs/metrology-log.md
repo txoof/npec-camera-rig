@@ -714,6 +714,40 @@ top-left, 0.6% higher top-left than bottom-right; area-scale error 0.8% mean ove
 distortion 0.01% mean, worst tag 395 at -0.06%. The 11:45 cold-start calibration at lens 6.23 gave
 4.864 px/mm and 0.50%, close to this one.
 
+**Step 2 result (2026-10-07).** Validation session `20261007T122525038952` of calibration
+`20261007T122200583188`, lens 6.16 locked, chamber door closed. Rounds at 12:26, 12:38 and
+12:51 UTC (24.8 minutes first to last, shortest gap 11.8 minutes); 93%, 93% and 86% of tags
+moved; 85 to 90 tags per slot. The rig's checks: validated, no problems, no flagged or
+inconsistent slots; the largest move of a slot median between rounds 0.60 points (old camera
+1.31). Raw data: `/home/pi/scratch/camera-swap-2026-10/step2/` (`validation_sessions.json`, all
+sessions as the server reported them at 12:51 UTC, and `compare.py`, which makes the table below).
+
+| Slot | Band, old | Band, new | Median, old | Median, new | Change |
+|---|---|---|---|---|---|
+| North 1 | ±3.3% | ±2.7% | -0.90 | +0.88 | +1.78 |
+| North 2 | ±2.5% | ±1.7% | -0.80 | +0.51 | +1.31 |
+| North 3 | ±2.9% | ±1.7% | -1.36 | -0.22 | +1.14 |
+| North 4 | ±2.3% | ±2.1% | -0.25 | -0.38 | -0.13 |
+| North 5 | ±2.4% | ±1.8% | -0.71 | -0.50 | +0.21 |
+| North 6 | ±3.0% | ±1.9% | -0.91 | +0.33 | +1.24 |
+| South 1 | ±2.8% | ±1.9% | -1.33 | -0.05 | +1.28 |
+| South 2 | ±2.2% | ±1.3% | -0.76 | +0.22 | +0.98 |
+| South 3 | ±1.5% | ±2.0% | -0.16 | -0.05 | +0.11 |
+| South 4 | ±1.6% | ±2.5% | +0.11 | -0.58 | -0.69 |
+| South 5 | ±3.1% | ±1.7% | -1.20 | -0.34 | +0.86 |
+| South 6 | ±2.2% | ±1.9% | -0.37 | +0.64 | +1.01 |
+
+*Against the limit fixed above.* The lens position (6.16) does not match the old camera's (6.27)
+within 0.01; it differs by 0.11. So, as fixed beforehand, the 0.62-point limit is not applied and
+no slot is called the same or different; the comparison is reported with the lens difference
+noted (about 1.3 points of central error at 1.2 points per 0.1). For the record, 9 of 12 slot
+medians changed by more than 0.62 points (from -0.69 to +1.78).
+
+*What the comparison does show.* Bands: ±1.3% to ±2.7% on the new camera against ±1.5% to ±3.3%
+on the old; 10 of 12 slots narrower, 2 wider (South 3, South 4). Median of the slot medians: -0.05
+points against -0.78 (the old camera read +0.07 on 2026-10-05). This compares two cameras at two
+lens positions; it does not say which of the two, if either, caused the change.
+
 ## 9. M2 physical acceptance tests (2026-10-05)
 
 The four tests PLAN.md lists for M2, run in the chamber on 2026-10-05 (times UTC; the chamber is
