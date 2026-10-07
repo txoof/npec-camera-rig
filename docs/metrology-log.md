@@ -798,6 +798,28 @@ the lens; the camera is reopened before any lens command, TODO "Plan: nothing mo
 an experiment", slice 1). Every case ended with the lens driven back to 6.16. The server was
 restarted at 13:18 UTC and reported focus locked at 6.16.
 
+**Step 5 result (2026-10-07): same as the old camera.** As run 3i: 2 reference photos, then 5
+times (warm app restart by killing the whole server process family, relaunch from the camera-swap
+branch, wait until focus reports locked; 2 photos). 13:21:56 to 13:22:47 UTC, about 3.4 s per
+restart (as in run 3i), lens 6.16 and locked after every restart and in every photo, chamber door
+closed, calibration `20261007T122200583188`, slots from validation `20261007T122525038952`. Each
+calibration tag compared with itself in the first reference photo (matched by ID and within
+20 px). Raw data: `/home/pi/scratch/camera-swap-2026-10/step5/` (`step5.sh`, `log.txt`,
+`photos.txt`, `analyse.py`, `results.json`).
+
+| Photo | Tags | Median change | Central slots | Largest slot change |
+|---|---|---|---|---|
+| Reference b | 355 | -0.03 | -0.04 | North 5 -0.15 |
+| Restart 1 a / b | 355 / 355 | +0.01 / -0.04 | +0.01 / -0.03 | South 4 -0.11 / North 5 -0.16 |
+| Restart 2 a / b | 355 / 355 | +0.02 / -0.01 | +0.05 / +0.02 | North 3 +0.11 / North 6 -0.24 |
+| Restart 3 a / b | 355 / 355 | +0.05 / -0.02 | +0.06 / +0.01 | North 3 +0.11 / North 5 -0.16 |
+| Restart 4 a / b | 355 / 355 | +0.06 / +0.02 | +0.10 / +0.05 | South 5 +0.18 / North 3 +0.15 |
+| Restart 5 a / b | 355 / 355 | +0.05 / -0.00 | +0.09 / +0.06 | North 3 +0.19 / South 5 +0.19 |
+
+*Against the limits fixed above.* Median within -0.04 to +0.06 (limit ±0.10), every slot within
+±0.24 (limit ±0.52): not different. The old camera gave a median within ±0.05 and every slot within
+±0.39 (run 3i). A warm restart does not change the new camera's readings either.
+
 ## 9. M2 physical acceptance tests (2026-10-05)
 
 The four tests PLAN.md lists for M2, run in the chamber on 2026-10-05 (times UTC; the chamber is

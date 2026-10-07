@@ -159,13 +159,14 @@ was compared with its own earlier reading:
 | Nothing done, one photo a minute for 2 hours (2026-10-06) | | a repeating 19-minute cycle: whole-table median up to +0.33 points, up to 0.62 points in one slot (North 5) |
 | Lens moved by autofocus, driven back to 6.15 | -0.03 points | +0.35 points |
 | App restart | +0.08 and +0.09 points (two attempts, 2026-10-05); within ±0.05 over 5 restarts (2026-10-06) | -0.29 points; every slot within ±0.39 over the 5 restarts |
+| App restart, replacement camera (2026-10-07) | within -0.04 to +0.06 over 5 restarts | every slot within ±0.24 over the 5 restarts (metrology-log 8.2, step 5) |
 | Power cut (cold start) | -1.73 points right after; -0.41 at +15 min; -0.14 at +60 min | -0.62 points at +60 min (South 1) |
 
 Photographs of an unchanged scene differ by a spread of 0.27 to 0.46 points anyway (old camera;
 the replacement camera fitted 2026-10-07 shows 0.15, metrology-log section 8.2, step 3). Both
 disturbances stayed inside the change seen with nothing done, and the largest change in any slot
 was about a sixth of that slot's band. On this evidence, a restart does not require a new
-calibration or validation.
+calibration or validation. The replacement camera fitted on 2026-10-07 gave the same result.
 
 A cold start is different. Right after a power cut, with the camera cold, the central trays
 were blurrier and areas read about 1.7 points low, more than some slots' bands. Without any
