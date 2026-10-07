@@ -1585,12 +1585,10 @@ def _session_summary(session: dict, current_stem: str | None) -> dict:
         "round_span_minutes": validation_store.round_span_minutes(session),
         "short_span": validation_store.short_span(session),
         "min_span_minutes": validation_store.MIN_SPAN_MINUTES,
-        "first_counted_at": min(
-            (r["captured_at"] for r in counted if r.get("captured_at")), default=None
-        ),
-        "last_counted_at": max(
-            (r["captured_at"] for r in counted if r.get("captured_at")), default=None
-        ),
+        "first_counted_at": validation_store.first_last_counted(session)[0],
+        "last_counted_at": validation_store.first_last_counted(session)[1],
+        # The countdown runs on the Pi's clock, not the browser's (code review).
+        "server_time": datetime.now(timezone.utc).isoformat(),
         "min_round_gap_minutes": validation_store.MIN_ROUND_GAP_MINUTES,
         "shortest_gap_minutes": validation_store.shortest_gap_minutes(session),
         "short_gap": validation_store.short_gap(session),

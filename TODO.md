@@ -784,6 +784,14 @@ The heart of the project. Do not start before M1 slice 5.
       in a freshly restarted app, before any capture. Full report kept outside the repo at
       `/home/pi/scratch/bug-lens-unresponsive-2026-10-05.md`; the log lines are in
       `uvicorn.log` around lines 390560 to 392545 and the following restart.
+- [ ] **A camera reopen that fails leaves a closed camera and a bare error** (code review of
+      PR #43, 2026-10-07, deferred). If `Picamera2()`, configure or start raises inside
+      `Picamera2Backend.reset` (camera busy, libcamera error), `self._picam2` is still the closed
+      instance (or a half-opened new one that is never closed), and `/camera/reset` and the lens
+      endpoints return a bare 500 instead of "restart the app". Deferred because it is rare (not
+      seen on the rig) and the outcome, an app restart, is the same; fix by catching the failure
+      in `reset`, closing any half-opened camera, and raising an error the routes turn into the
+      restart message.
 - [ ] **Plan: nothing moves the lens during an experiment** (Aaron agreed the direction
       2026-10-06; not built). The rig takes a photo every minute for many hours a day with no one
       watching, so no step that runs per photo may depend on a person reacting to a message.

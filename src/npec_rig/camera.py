@@ -252,6 +252,8 @@ class Picamera2Backend(CameraBackend):
             for name in _CACHED_CONTROLS
             if name in probed
         }
+        # The last manual ExposureTime/AnalogueGain set (see set_control).
+        self._manual_cache: dict[str, object] = {}
 
     def _open(self) -> None:
         """Open the camera in the video configuration, in manual focus at the app's lens
@@ -343,9 +345,11 @@ class Picamera2Backend(CameraBackend):
         # last believed they were, via set_control, not a raw set_controls call, so re-enabling AE
         # here also releases the ExposureTimeMode/AnalogueGainMode manual latch the same way a
         # live checkbox toggle does (see set_control below). A manually-set
-        # ExposureTime/AnalogueGain while AE was off is NOT restored here: those are not cached
-        # (see TODO.md).
+        # ExposureTime/AnalogueGain while AE was off is restored after them, from _manual_cache.
         for name, value in dict(self._control_cache).items():
+            self.set_control(name, value)
+        # Then the manual values, which set_control applies only while AE is off.
+        for name, value in dict(self._manual_cache).items():
             self.set_control(name, value)
 
     def set_lens_position(self, value: float) -> None:
@@ -416,6 +420,11 @@ class Picamera2Backend(CameraBackend):
         self._picam2.set_controls({name: value})
         if name in _CACHED_CONTROLS:
             self._control_cache[name] = value
+        if name in _AE_DEPENDENT_CONTROLS:
+            # Kept so a reopen (prepare_lens, reset) or a full-res capture restores it too: since
+            # 2026-10-06 the camera is reopened before lens commands, and a manual exposure falling
+            # back to the camera default would change the photos unnoticed (code review).
+            self._manual_cache[name] = value
         if name == "AeEnable" and value:
             # picamera2 latches ExposureTimeMode/AnalogueGainMode to manual the moment any
             # nonzero ExposureTime/AnalogueGain is sent (request.py's CompletedRequest.release),
@@ -696,16 +705,17 @@ class CameraManager:
             approach = max(low, value - LENS_APPROACH_OFFSET)
             self._commanded_lens_position = value
             save_setting("LensPosition", value)
-            started = time.monotonic()
             with self._call_lock:
                 self._backend.prepare_lens()
                 self._backend.set_lens_position(approach)
+            # Timed from here: waiting for the camera lock (a full-res capture) and the reopen in
+            # prepare_lens are not the lens being slow.
             approach_sent = time.monotonic()
             # The camera must report the approach position before the target counts: a stuck
             # lens keeps reporting where it was, which can be the target itself (measured
             # 2026-10-06: Lock focus "confirmed" 6.27 that way). Only a target at the bottom of
             # the range, where the approach is the target, cannot be checked like this.
-            self._wait_for_report(approach, value, started + timeout_s, timeout_s)
+            self._wait_for_report(approach, value, approach_sent + timeout_s, timeout_s)
             # The fixed pause stays as it was, whatever the report does: the sequence the lens
             # moves through is what the validation bands were measured with.
             time.sleep(max(0.0, approach_sent + LENS_APPROACH_PAUSE_S - time.monotonic()))
@@ -738,14 +748,19 @@ class CameraManager:
         its own check. Raises FocusLockedError, moving nothing, while focus is locked."""
         if self._locked_lens_position is not None:
             raise FocusLockedError()
-        self._commanded_lens_position = value
-        save_setting("LensPosition", value)
         for attempt in (1, 2):
             if attempt == 2:
+                if self._commanded_lens_position != value:
+                    return  # a newer move took over; it does its own check
                 self._reset_camera_connection()
             with self._call_lock:
                 self._backend.prepare_lens()
+                self._commanded_lens_position = value
                 self._backend.set_lens_position(value)
+            if attempt == 1:
+                save_setting("LensPosition", value)
+                # The lens moved: a lock set in the moment since the check above is void.
+                self._void_lock()
             # A move to where the camera already reports the lens passes at once, stuck or not:
             # the lens is then where it was asked to be.
             try:
@@ -777,7 +792,14 @@ class CameraManager:
                 success, lens_position, timed_out = False, exc.lens_position, str(exc)
         save_setting("LensPosition", lens_position)
         self._commanded_lens_position = lens_position
+        # The lens moved, or may have: a lock set in the moment since the check above is void.
+        self._void_lock()
         return {"success": success, "lens_position": lens_position, "timed_out": timed_out}
+
+    def _void_lock(self) -> None:
+        if self._locked_lens_position is not None:
+            self._locked_lens_position = None
+            save_setting("FocusConfirmed", False)
 
     def available_controls(self) -> dict[str, tuple]:
         with self._call_lock:

@@ -90,6 +90,7 @@ def _recording_backend() -> "camera_module.Picamera2Backend":
     backend._control_cache = {}
     backend._lens_position = DEFAULT_LENS_POSITION
     backend._lens_ignores_writes = False
+    backend._manual_cache = {}
     return backend
 
 
@@ -520,6 +521,49 @@ def test_a_reset_that_does_not_help_clears_the_lock_and_does_not_retry(
     assert backend.resets == 1
     assert manager.focus_status() == {"locked": False, "lens_position": None}
     assert load_settings()["FocusConfirmed"] is False
+
+
+def test_a_reset_restores_a_manual_exposure_set_while_auto_exposure_is_off() -> None:
+    # Code review 2026-10-07: a reopen restored AeEnable/AwbEnable only, so a manual exposure fell
+    # back to the camera default without anyone noticing.
+    backend = _recording_backend()
+    backend._control_cache = {"AeEnable": True}
+    backend.set_control("AeEnable", False)
+    backend.set_control("ExposureTime", 20000)
+
+    backend.reset()
+    writes = backend._picam2.control_writes
+    assert writes.index({"AeEnable": False}) < writes.index({"ExposureTime": 20000})
+
+
+def test_waiting_for_the_camera_before_the_approach_does_not_count_against_the_lens(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Code review 2026-10-07: the 5 s started before the camera lock and the reopen.
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.05)
+
+    class _SlowToPrepare(_RecordingSyntheticBackend):
+        def prepare_lens(self) -> None:
+            time.sleep(0.1)  # longer than the whole timeout
+
+    backend = _SlowToPrepare()
+    manager = CameraManager(backend)
+    manager._commanded_lens_position = 6.18
+    assert manager.lock_focus() == {"locked": True, "lens_position": 6.18}
+
+
+def test_a_lock_that_lands_while_a_manual_move_is_under_way_is_voided() -> None:
+    # Code review 2026-10-07: the move passed the lock check, then a lock completed, then the lens
+    # moved; the lock must not survive at the old position.
+    backend = _RecordingSyntheticBackend()
+    manager = CameraManager(backend)
+
+    def lock_lands_now() -> None:
+        manager._locked_lens_position = 6.20
+
+    backend.prepare_lens = lock_lands_now
+    manager.set_lens_position(6.45)
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
 
 
 def test_the_real_backend_reset_reopens_the_camera_even_without_a_capture() -> None:

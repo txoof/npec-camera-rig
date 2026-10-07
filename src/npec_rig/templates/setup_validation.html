@@ -117,6 +117,8 @@
     let session = null;      // the session shown
     let openSession = null;  // the one validation that can still take rounds, if any
     let capturing = false;
+    let clockOffset = 0;     // the Pi's clock minus this browser's, so the countdown runs on the Pi's
+    const serverNow = () => Date.now() + clockOffset;
 
     function when(iso) {
       return iso ? iso.replace("T", " ").slice(0, 16) + " UTC" : "";
@@ -146,8 +148,11 @@
       return `${state}: ${counted}`;
     }
 
+    // Rounded down, as validation_store.span_text: a value under a limit never reads as the limit.
     function spanText(minutes) {
-      return minutes < 10 ? minutes.toFixed(1) : minutes.toFixed(0);
+      return minutes < 10
+        ? (Math.floor(minutes * 10) / 10).toFixed(1)
+        : String(Math.floor(minutes));
     }
 
     // While a validation is open and short of its rounds, the earliest time for the last round
@@ -170,7 +175,7 @@
         node.textContent = "";
         return;
       }
-      const left = Math.ceil((due - Date.now()) / 1000);
+      const left = Math.ceil((due - serverNow()) / 1000);
       if (left <= 0) {
         node.style.color = "#6c6";
         node.textContent = "Ready for the next round";
@@ -377,6 +382,9 @@
         : "No active calibration. Run one first (Setup / Calibration).";
       if (!listResp.ok) throw new Error(`validation list: ${listResp.statusText}`);
       const sessions = await listResp.json();
+      if (sessions.length && sessions[0].server_time) {
+        clockOffset = Date.parse(sessions[0].server_time) - Date.now();
+      }
       openSession = sessions.find((s) => s.is_open) || null;
       const wanted = selectId || (session && session.id);
       session =
@@ -443,8 +451,8 @@
 
     el("validation-capture").addEventListener("click", async () => {
       const due = nextRoundDue(openSession);
-      if (due !== null && Date.now() < due) {
-        const sinceLast = (Date.now() - Date.parse(openSession.last_counted_at)) / 60000;
+      if (due !== null && serverNow() < due) {
+        const sinceLast = (serverNow() - Date.parse(openSession.last_counted_at)) / 60000;
         const ok = confirm(
           `Only ${sinceLast.toFixed(1)} minutes since the last round. Rounds should be at least ` +
           `${openSession.min_round_gap_minutes} minutes apart, and ${openSession.min_span_minutes} ` +

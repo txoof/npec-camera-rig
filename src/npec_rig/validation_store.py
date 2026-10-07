@@ -18,6 +18,7 @@ request (or with the calibration they belong to).
 from __future__ import annotations
 
 import json
+import math
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -205,12 +206,18 @@ def counted_rounds(session: dict) -> list[dict]:
 def round_span_minutes(session: dict) -> float | None:
     """Minutes from the first to the last counted round, by capture time. None with fewer than 2
     counted rounds that have a capture time (store-level test rounds have none)."""
-    times = [
-        datetime.fromisoformat(r["captured_at"]) for r in counted_rounds(session) if r.get("captured_at")
-    ]
+    times = _counted_times(session)
     if len(times) < 2:
         return None
-    return (max(times) - min(times)).total_seconds() / 60
+    return (times[-1] - times[0]).total_seconds() / 60
+
+
+def first_last_counted(session: dict) -> tuple[str | None, str | None]:
+    """Capture times of the first and the last counted round (ISO, UTC)."""
+    times = _counted_times(session)
+    if not times:
+        return None, None
+    return times[0].isoformat(), times[-1].isoformat()
 
 
 def _counted_times(session: dict) -> list[datetime]:
@@ -249,7 +256,10 @@ def short_span(session: dict) -> bool:
 
 
 def span_text(minutes: float) -> str:
-    return f"{minutes:.1f}" if minutes < 10 else f"{minutes:.0f}"
+    """Rounded down, so a value under a limit never reads as the limit (9.96 is "9.9")."""
+    if minutes < 10:
+        return f"{math.floor(minutes * 10) / 10:.1f}"
+    return f"{math.floor(minutes):.0f}"
 
 
 def round_slot_results(round_: dict) -> dict[str, dict] | None:
@@ -443,3 +453,9 @@ def refresh_results(session: dict) -> None:
     session["short_span"] = short_span(session)
     session["shortest_gap_minutes"] = shortest_gap_minutes(session)
     session["short_gap"] = short_gap(session)
+    # The limits the two flags above were judged with: the page always judges with the current
+    # ones, so a stored flag can differ from the page after a limit changes.
+    session["judged_with"] = {
+        "min_span_minutes": MIN_SPAN_MINUTES,
+        "min_round_gap_minutes": MIN_ROUND_GAP_MINUTES,
+    }

@@ -53,6 +53,7 @@ def test_two_rounds_closer_than_6_minutes_are_flagged_even_over_20_minutes() -> 
     store.refresh_results(session)
     assert session["shortest_gap_minutes"] == pytest.approx(1)
     assert session["short_gap"] is True and session["short_span"] is False
+    assert session["judged_with"] == {"min_span_minutes": 20.0, "min_round_gap_minutes": 10.0}
     assert store.status(session)["label"].endswith(", rounds 1.0 min apart, under the recommended 10")
 
 
@@ -63,6 +64,13 @@ def test_rounds_10_minutes_apart_or_more_carry_no_gap_note() -> None:
     assert session["shortest_gap_minutes"] == pytest.approx(10)
     assert session["short_gap"] is False
     assert "apart" not in store.status(session)["label"]
+
+
+def test_times_just_under_a_limit_never_read_as_the_limit() -> None:
+    # Code review 2026-10-07: 9.96 printed as "10.0 min apart, under the recommended 10".
+    assert store.span_text(9.96) == "9.9"
+    assert store.span_text(19.6) == "19"
+    assert store.span_text(1.5) == "1.5"
 
 
 def test_the_span_counts_only_counted_rounds_and_tolerates_missing_times() -> None:

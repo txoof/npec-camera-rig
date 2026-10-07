@@ -125,7 +125,8 @@
     function setLensError(text) {
       lensError.textContent = text.split(" (")[0];
       lensError.title = text;
-      cameraResetBtn.style.display = text ? "" : "none";
+      // Only a lens that does not follow is helped by a reset, not "Focus is locked" and the like.
+      cameraResetBtn.style.display = text.startsWith("Lens not responding") ? "" : "none";
     }
 
     cameraResetBtn.addEventListener("click", async () => {
@@ -329,12 +330,25 @@
       sendLensPosition();
     });
 
+    // One move at a time (each waits for the camera to confirm it); a position dragged to while
+    // one is in flight is sent when it finishes, so the lens ends where the slider ends.
     let sendingFine = false;
+    let fineMovedMeanwhile = false;
+    function sendFine() {
+      sendingFine = true;
+      fineMovedMeanwhile = false;
+      sendLensPosition().finally(() => {
+        sendingFine = false;
+        if (fineMovedMeanwhile) sendFine();
+      });
+    }
     fineSlider.addEventListener("input", () => {
       fineValueLabel.textContent = Number(fineSlider.value).toFixed(2).slice(1);
-      if (sendingFine) return;
-      sendingFine = true;
-      sendLensPosition().finally(() => { sendingFine = false; });
+      if (sendingFine) {
+        fineMovedMeanwhile = true;
+        return;
+      }
+      sendFine();
     });
 
     autofocusBtn.addEventListener("click", async () => {
