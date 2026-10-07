@@ -406,7 +406,11 @@
       let selectId;
       try {
         if (openSession) {
-          if (!confirm("End this validation? It keeps its rounds but takes no more.")) {
+          if (!confirm(
+            "End this validation? No more rounds can be added. With 3 counted rounds, its " +
+            "results apply to measurements from now on. A validation with fewer than 3 counted " +
+            "rounds will not be used."
+          )) {
             renderControls();
             return;
           }
