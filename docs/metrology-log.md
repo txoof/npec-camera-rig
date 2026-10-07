@@ -679,18 +679,40 @@ Each step's result is added here when it is done, with its date, times (UTC), se
 IDs and the raw data path.
 
 **Step 0 result (2026-10-07, recorded only).** Old camera serial SN000 (kept untouched), new
-camera serial SN001 (serials as given by Aaron). The new camera was fitted, squared, focused and
-locked at lens position **6.23** by Aaron (the operator's choice; the old camera was at 6.27, a
-difference of 0.04; at about 1.2 points per 0.1 (step 2 above) that is about 0.5 points of
-central error). The Pi was
-switched on with the new camera at 11:20 UTC, so the cold start ends at 12:20 UTC. The server ran
-from the m2-camera-swap branch.
+camera serial SN001 (serials as given by Aaron). The Pi was switched on with the new camera at
+11:20 UTC, so the cold start ended at 12:20 UTC. The server ran from the m2-camera-swap branch.
+Aaron fitted, squared and focused the new camera and first locked it at 6.23. After the cold-start
+data below, he unlocked, refocused and locked at **6.16** (between 11:59 and 12:22 UTC, server
+log), and confirmed 6.16 as his chosen position for every remaining step. The old camera was at
+6.27: a difference of 0.11, which at about 1.2 points of central error per 0.1 (step 2 above) is
+about 1.3 points.
 
 *Cold-start data, not used to judge any step:* a calibration made 25 minutes after power-on
-(`20261007T114505498348`, 11:45 UTC, residual spread 0.50%, 30.0 mm tags, lens 6.23) and a
-validation of it (session `20261007T114611264170`, rounds at 11:46 and 11:58 UTC). Both started
-inside the first hour after power-on, so under the rule above they do not count; step 1 is
-repeated after 12:20 UTC.
+(`20261007T114505498348`, 11:45 UTC, residual 0.50%, 30.0 mm tags, lens 6.23) and a validation
+of it (session `20261007T114611264170`, rounds at 11:46 and 11:58 UTC). Both started inside the
+first hour after power-on, so under the rule above they do not count; step 1 was repeated after
+12:20 UTC.
+
+**Step 1 result (2026-10-07, recorded and compared, no pass or fail).** Calibration
+`20261007T122200583188`, 12:22 UTC (62 minutes after power-on), lens 6.16, focus locked, 30.0 mm
+tags, 50 mm corner tags, table span 1494 x 1171 mm as entered. Calibration files:
+`/var/lib/npec-rig/calibration/20261007T122200583188.json` and its `frames/` and `heatmaps/`.
+
+| | Old camera SN000 (`20261005T141101923639`) | New camera SN001 (`20261007T122200583188`) |
+|---|---|---|
+| Calibration tags found | 355 | 355 |
+| Corner tags found | 4 | 4 |
+| Scale field residual | 0.52% | 0.49% |
+| Holdout coverage error | 0.4% | 0.4% |
+| Mean scale | 4.856 px/mm | 4.865 px/mm (+0.17%) |
+| Lens position | 6.27 | 6.16 |
+
+The new camera finds the same tags and the plane fits them as well as for the old camera. The
+mean scale differs by 0.17%, which is expected when a camera is refitted and squared again; no
+limit was set for it. The wizard also reported: scale varies 1% across the calibrated area, worst
+top-left, 0.6% higher top-left than bottom-right; area-scale error 0.8% mean over 355 tags; shape
+distortion 0.01% mean, worst tag 395 at -0.06%. The 11:45 cold-start calibration at lens 6.23 gave
+4.864 px/mm and 0.50%, close to this one.
 
 ## 9. M2 physical acceptance tests (2026-10-05)
 
