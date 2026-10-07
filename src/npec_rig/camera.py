@@ -110,6 +110,10 @@ class CameraBackend(ABC):
         """Make sure the next lens write is followed. Called right before every lens command
         (CameraManager); nothing to do unless a backend needs it (Picamera2Backend)."""
 
+    def reset(self) -> None:
+        """Close and reopen the camera connection, which is also what controls the lens. Nothing
+        to do for a camera without one."""
+
     @abstractmethod
     def capture_array(self) -> np.ndarray:
         """A full frame from the main stream, for on-demand snapshots and the focus aid."""
@@ -318,8 +322,14 @@ class Picamera2Backend(CameraBackend):
         """Reopen the camera if a full-res capture has left it ignoring lens writes. Measured
         2026-10-06: closing and reopening in the same process makes the lens follow again (a new
         position reported in 0.6 s); it opens at the last position this app set."""
-        if not self._lens_ignores_writes:
-            return
+        if self._lens_ignores_writes:
+            self.reset()
+
+    def reset(self) -> None:
+        """Close and reopen the camera in the same process: the lens control restarts with it, and
+        the camera opens at the last lens position this app set. About 1 s; the app, its settings
+        and the focus lock are untouched (Aaron, 2026-10-06: no one at the rig should need to
+        restart the app)."""
         self._picam2.stop()
         self._picam2.close()
         self._open()
@@ -502,7 +512,7 @@ class AutofocusTimeoutError(RuntimeError):
         self.lens_position = lens_position
 
 
-LENS_NOT_RESPONDING = "Lens not responding: restart the app"
+LENS_NOT_RESPONDING = "Lens not responding: press Reset camera"
 
 
 class LensNotSettledError(RuntimeError):
@@ -655,13 +665,31 @@ class CameraManager:
         with self._call_lock:
             return self._backend.capture_preview_array()
 
-    def _drive_lens(self, value: float, timeout_s: float | None = None) -> float:
+    def _reset_camera_connection(self) -> None:
+        with self._call_lock:
+            self._backend.reset()
+
+    def _drive_lens(
+        self, value: float, timeout_s: float | None = None, retry: bool = True
+    ) -> float:
         """Move the lens to `value` the one consistent way (see LENS_APPROACH_OFFSET) and wait
-        until the camera reports it there. Returns the reported position; raises
-        LensNotSettledError if it does not get there within `timeout_s` (default
-        LENS_SETTLE_TIMEOUT_S), and LensMovedDuringLockError if another lens command takes over
-        while it waits. One drive at a time: a second one (Lock focus pressed twice) waits for the
-        first. Does not touch the focus lock: callers decide what a confirmed move means."""
+        until the camera reports it there. Returns the reported position. If the camera does not
+        report it, the camera is reset (closed and reopened) and the drive tried once more, unless
+        `retry` is False; raises LensNotSettledError if that fails too, and
+        LensMovedDuringLockError if another lens command takes over while it waits. Does not touch
+        the focus lock: callers decide what a confirmed move means."""
+        try:
+            return self._drive_lens_once(value, timeout_s)
+        except LensNotSettledError as exc:
+            if not retry:
+                raise
+            logger.warning("%s; resetting the camera and trying once more", exc)
+        self._reset_camera_connection()
+        return self._drive_lens_once(value, timeout_s)
+
+    def _drive_lens_once(self, value: float, timeout_s: float | None = None) -> float:
+        """One drive, as `_drive_lens` describes, without the retry. One drive at a time: a second
+        one (Lock focus pressed twice) waits for the first."""
         timeout_s = LENS_SETTLE_TIMEOUT_S if timeout_s is None else timeout_s
         with self._drive_lock:
             low = self._backend.available_controls().get("LensPosition", (0.0,))[0]
@@ -703,25 +731,34 @@ class CameraManager:
             time.sleep(LENS_POLL_INTERVAL_S)
 
     def set_lens_position(self, value: float) -> None:
-        """Move the lens directly (the slider), then wait until the camera reports it there.
-        Raises LensNotSettledError if it does not within LENS_SETTLE_TIMEOUT_S. A newer move
-        arriving meanwhile (the slider still being dragged) ends the wait without an error: that
-        move does its own check. Raises FocusLockedError, moving nothing, while focus is locked."""
+        """Move the lens directly (the slider), then wait until the camera reports it there. If it
+        does not within LENS_SETTLE_TIMEOUT_S, the camera is reset (closed and reopened) and the
+        move tried once more; raises LensNotSettledError if that fails too. A newer move arriving
+        meanwhile (the slider still being dragged) ends the wait without an error: that move does
+        its own check. Raises FocusLockedError, moving nothing, while focus is locked."""
         if self._locked_lens_position is not None:
             raise FocusLockedError()
-        with self._call_lock:
-            self._backend.prepare_lens()
-            self._backend.set_lens_position(value)
         self._commanded_lens_position = value
         save_setting("LensPosition", value)
-        # A move to where the camera already reports the lens passes at once, stuck or not: the
-        # lens is then where it was asked to be.
-        try:
-            self._wait_for_report(
-                value, value, time.monotonic() + LENS_SETTLE_TIMEOUT_S, LENS_SETTLE_TIMEOUT_S
-            )
-        except LensMovedDuringLockError:
-            pass
+        for attempt in (1, 2):
+            if attempt == 2:
+                self._reset_camera_connection()
+            with self._call_lock:
+                self._backend.prepare_lens()
+                self._backend.set_lens_position(value)
+            # A move to where the camera already reports the lens passes at once, stuck or not:
+            # the lens is then where it was asked to be.
+            try:
+                self._wait_for_report(
+                    value, value, time.monotonic() + LENS_SETTLE_TIMEOUT_S, LENS_SETTLE_TIMEOUT_S
+                )
+                return
+            except LensMovedDuringLockError:
+                return
+            except LensNotSettledError as exc:
+                if attempt == 2:
+                    raise
+                logger.warning("%s; resetting the camera and trying once more", exc)
 
     def get_lens_position(self) -> float:
         with self._call_lock:
@@ -813,6 +850,25 @@ class CameraManager:
         save_setting("FocusConfirmed", True)
         save_setting("FocusConfirmedLensPosition", lens_position)
         return self.focus_status()
+
+    def reset_camera(self) -> dict:
+        """The Reset camera button: close and reopen the camera, then drive the lens back to the
+        locked position (or the last one set) the one consistent way. The lock stays if the camera
+        confirms the position and is cleared if it does not (LensNotSettledError raised). Returns
+        the focus status and the position the lens was driven to."""
+        self._reset_camera_connection()
+        target = self._locked_lens_position
+        if target is None:
+            target = self._commanded_lens_position
+        if target is not None:
+            try:
+                self._drive_lens(target, retry=False)
+            except LensNotSettledError:
+                if self._locked_lens_position is not None:
+                    self._locked_lens_position = None
+                    save_setting("FocusConfirmed", False)
+                raise
+        return self.focus_status() | {"lens_position_set": target}
 
     def unlock_focus(self) -> dict:
         self._locked_lens_position = None

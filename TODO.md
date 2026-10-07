@@ -821,6 +821,18 @@ The heart of the project. Do not start before M1 slice 5.
       3. During setup, a lens command the camera does not confirm makes the app reopen the camera
          and try once more by itself; only if that also fails does the page show "Lens not
          responding: restart the app".
+         **Built 2026-10-07, with a Reset camera button** (Aaron, 2026-10-06: an average user
+         cannot restart the app on a Pi). A manual move or Lock focus that is not confirmed resets
+         the camera (close and reopen in the same process, `Picamera2Backend.reset`) and tries
+         once more; if that also fails the page shows "Lens not responding: press Reset camera"
+         with the button. The button (`POST /camera/reset`) resets the camera and drives the lens
+         back to the locked (or last set) position, keeping the lock only if confirmed; if that
+         fails the page says to restart the app. Autofocus has no automatic retry (a timeout
+         already took 55 s) and asks for Reset camera. Checked on the rig, chamber lights off:
+         Reset camera took 2.31 s, and 2.50 s after a photo, lock kept at 6.27, photos after it
+         2.86 and 2.91 s, live preview streaming. The retry when a lens does not follow is covered
+         by unit tests only (the fault cannot be caused on the rig since slice 1), and the reset is
+         measured to clear only the stuck state after a photo, not other camera faults.
       4. Photos taken in the first hour after a cold start, or after a camera fault (frontend
          timeout in the log), are flagged as not covered by the validation bands (TODO next-step 3;
          the one-hour figure is a decision to confirm, from the cold start that recovered over about an

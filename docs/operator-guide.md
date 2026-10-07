@@ -12,8 +12,8 @@ uncertainty column in the exported data means.
 1. **Focus, then lock focus.** On *Setup / Focus & Square*, set the focus for your setup with the
    targets on the trays, until the picture is sharp at tray height. The focus point is your
    choice: pick what suits your plants and trays. Then press **Lock focus**. The rig moves the
-   lens to that position in one fixed way and waits until the camera confirms it, which can take up
-   to a minute. The status then reads "Focus status: Locked" with the lens position.
+   lens to that position in one fixed way and waits until the camera confirms it, which takes a
+   few seconds. The status then reads "Focus is locked at" the lens position.
 2. **Calibrate.** Run the calibration wizard on *Setup / Calibration* with the calibration sheets
    on the trays. It works out how many pixels make a millimetre across the table, at this focus.
 3. **Validate.** On *Setup / Validation*, check that the page shows "Focus: locked" at the
@@ -40,6 +40,12 @@ While focus is locked the page reads "Focus is locked at" the lens position, and
 and Autofocus are greyed out: no one can change the focus without pressing Unlock focus first. If
 focus is no longer locked (the status reads "Focus is unlocked"), measurements are not covered by
 the validation until all three steps are done again.
+
+If the page shows "Lens not responding: press Reset camera" in red, press the **Reset camera**
+button next to it. It restarts the camera connection (about 2 seconds) and moves the lens back to
+where it was; the focus stays locked if the camera confirms the position. The app has already
+tried this once by itself before showing the message. If the reset does not help, the page says so,
+and the app itself has to be restarted.
 
 ## What the uncertainty column means
 

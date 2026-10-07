@@ -416,6 +416,22 @@ def lock_focus() -> dict:
         raise HTTPException(409, f"{exc}: focus is not locked, press Lock focus again") from exc
 
 
+@app.post("/camera/reset")
+def reset_camera() -> dict:
+    """The Reset camera button: close and reopen the camera, which restarts the lens control, then
+    drive the lens back to the locked (or last set) position and confirm it."""
+    try:
+        return CameraManager.instance().reset_camera()
+    except LensNotSettledError as exc:
+        raise HTTPException(
+            503,
+            f"The camera reset did not help, the lens still does not follow: restart the app "
+            f"(set to {exc.target:.2f}, the camera reports {exc.reported:.2f})",
+        ) from exc
+    except LensMovedDuringLockError as exc:
+        raise HTTPException(409, f"{exc}: press Reset camera again") from exc
+
+
 @app.post("/focus/unlock")
 def unlock_focus() -> dict:
     """Clear the locked lens position."""

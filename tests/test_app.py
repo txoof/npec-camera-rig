@@ -216,11 +216,11 @@ def test_a_lens_that_does_not_follow_a_move_or_a_lock_returns_lens_not_respondin
 
     response = client.post("/controls/lens-position", json={"value": 4.77})
     assert response.status_code == 503
-    assert response.json()["detail"].startswith("Lens not responding: restart the app")
+    assert response.json()["detail"].startswith("Lens not responding: press Reset camera")
 
     response = client.post("/focus/lock")
     assert response.status_code == 503
-    assert response.json()["detail"].startswith("Lens not responding: restart the app")
+    assert response.json()["detail"].startswith("Lens not responding: press Reset camera")
 
 
 def test_a_locked_focus_refuses_lens_moves_and_autofocus_with_a_clear_message() -> None:
@@ -234,6 +234,31 @@ def test_a_locked_focus_refuses_lens_moves_and_autofocus_with_a_clear_message() 
         assert response.status_code == 409
         assert response.json()["detail"] == "Focus is locked: press Unlock focus to change it"
     assert client.get("/controls/lens-position").json() == {"value": 6.3}
+
+
+def test_reset_camera_keeps_the_lock_and_says_where_the_lens_was_driven() -> None:
+    client = TestClient(app)
+    client.post("/controls/lens-position", json={"value": 6.3})
+    client.post("/focus/lock")
+
+    response = client.post("/camera/reset")
+    assert response.status_code == 200
+    assert response.json() == {"locked": True, "lens_position": 6.3, "lens_position_set": 6.3}
+
+
+def test_a_reset_that_does_not_help_says_restart_the_app(monkeypatch: pytest.MonkeyPatch) -> None:
+    import npec_rig.camera as camera_module
+
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    manager = CameraManager(_StuckLensBackend())
+    manager._commanded_lens_position = 4.77
+    CameraManager.set_instance(manager)
+
+    response = TestClient(app).post("/camera/reset")
+    assert response.status_code == 503
+    assert response.json()["detail"].startswith(
+        "The camera reset did not help, the lens still does not follow: restart the app"
+    )
 
 
 def test_autofocus_endpoint() -> None:

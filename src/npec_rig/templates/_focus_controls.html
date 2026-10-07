@@ -41,6 +41,7 @@
     <div class="focus-status">
       <span id="lock-status">Focus is unlocked</span>
       <span id="lens-error" style="color: #f66; font-weight: bold;"></span>
+      <button id="camera-reset-btn" type="button" style="display: none; align-self: flex-start;">Reset camera</button>
     </div>
   </div>
   <div class="focus-control-row lens-row">
@@ -116,6 +117,32 @@
     const fineSlider = document.getElementById("lens-fine");
     const fineValueLabel = document.getElementById("lens-fine-value");
     const lensError = document.getElementById("lens-error");
+    const cameraResetBtn = document.getElementById("camera-reset-btn");
+
+    // The red error text, with the Reset camera button shown whenever there is one.
+    function setLensError(text) {
+      lensError.textContent = text;
+      cameraResetBtn.style.display = text ? "" : "none";
+    }
+
+    cameraResetBtn.addEventListener("click", async () => {
+      cameraResetBtn.disabled = true;
+      cameraResetBtn.textContent = "Resetting the camera";
+      try {
+        const r = await fetch("/camera/reset", { method: "POST" });
+        if (!r.ok) {
+          await showLensError(r);
+          return;
+        }
+        const data = await r.json();
+        setLensError("");
+        if (data.lens_position_set != null) applyLensPosition(data.lens_position_set);
+        refreshFocusStatus();
+      } finally {
+        cameraResetBtn.disabled = false;
+        cameraResetBtn.textContent = "Reset camera";
+      }
+    });
 
     function clamp(value, min, max) {
       return Math.min(max, Math.max(min, value));
@@ -139,13 +166,14 @@
     }
 
     // Every lens command waits for the camera to report the new position; a lens that does not
-    // follow comes back as an error ("Lens not responding: restart the app"), shown next to the
-    // controls until a later command succeeds.
+    // follow (even after the app reset the camera once by itself) comes back as an error ("Lens
+    // not responding: press Reset camera"), shown with the Reset camera button until a later
+    // command succeeds.
     async function showLensError(r) {
       const body = await r.json().catch(() => ({}));
-      lensError.textContent = typeof body.detail === "string"
+      setLensError(typeof body.detail === "string"
         ? body.detail
-        : `Lens command failed (${r.status})`;
+        : `Lens command failed (${r.status})`);
     }
 
     async function sendLensPosition() {
@@ -155,7 +183,7 @@
         body: JSON.stringify({ value: currentLensPosition() }),
       });
       if (r.ok) {
-        lensError.textContent = "";
+        setLensError("");
       } else {
         await showLensError(r);
       }
@@ -321,7 +349,7 @@
         // (camera.py AUTOFOCUS_TIMEOUT_S). The message says what to do next.
         if (data.timed_out) {
           autofocusBtn.textContent = "Autofocus";
-          lensError.textContent = data.timed_out;
+          setLensError(data.timed_out);
           return;
         }
         applyLensPosition(data.lens_position);
@@ -520,14 +548,20 @@
         if (!resp.ok) {
           const body = await resp.json().catch(() => ({}));
           lockBtn.disabled = false;
-          lockStatus.textContent = `Focus is unlocked (${body.detail || "focus is not locked"})`;
+          if (resp.status === 503) {
+            // The lens did not follow: the message and the Reset camera button go next to it.
+            lockStatus.textContent = "Focus is unlocked";
+            setLensError(body.detail || "Lens not responding: press Reset camera");
+          } else {
+            lockStatus.textContent = `Focus is unlocked (${body.detail || "focus is not locked"})`;
+          }
           lockBtn.textContent = "Lock focus";
           return;
         }
       } finally {
         lockBtn.disabled = false;
       }
-      lensError.textContent = "";
+      setLensError("");
       refreshFocusStatus();
     });
     refreshFocusStatus();
