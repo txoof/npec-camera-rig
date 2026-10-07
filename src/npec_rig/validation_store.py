@@ -54,6 +54,10 @@ TABLE_OFFSET_PCT = 2.5
 # points in the median, up to 0.6 in a slot), so rounds taken within a few minutes all see one
 # point of that cycle and the bands miss it. Shorter sessions are not blocked: the result says so.
 MIN_SPAN_MINUTES = 20.0
+# The page counts down to the next round and asks before a round taken sooner than this after the
+# last counted one: a decision, not a measurement (Aaron, 2026-10-07: encourage the operator not to
+# rush). Not a block.
+MIN_ROUND_GAP_MINUTES = 6.0
 SESSION_VERSION = 1
 _SESSION_ID = re.compile(r"^\d{8}T\d{12}$")
 

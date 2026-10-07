@@ -62,6 +62,7 @@
       <span>The chamber door is closed</span>
     </label>
     <button id="validation-capture" disabled>Capture round</button>
+    <span id="validation-countdown" style="font-weight: bold;"></span>
     <span id="validation-busy" style="color: #aaa; display: none;">
       Capturing and measuring, about 20 seconds...
     </span>
@@ -85,9 +86,10 @@
     <p style="margin: 0.3rem 0;">
       Close the door before every round: an open door changes the air and light in the chamber,
       and readings taken with people working and the door open changed more than with the
-      chamber closed. Spread the rounds over at least 20 minutes, first to last: readings rise and
-      fall on a cycle of about 19 minutes, and rounds taken close together all see one point of
-      it. A validation with rounds closer together still counts, but says so.
+      chamber closed. Spread the rounds over at least 20 minutes, first to last, at least 6 minutes
+      apart; the countdown next to Capture round shows when the next round is due. Readings rise
+      and fall on a cycle of about 19 minutes, and rounds taken close together all see one point
+      of it. A validation with rounds closer together still counts, but says so.
     </p>
   </details>
 
@@ -145,6 +147,36 @@
 
     // While a validation is open and short of its rounds, the earliest time for the last round
     // that keeps the recommended spread.
+    // When the next round is due: MIN_ROUND_GAP after the last counted round, and the last round
+    // also not before MIN_SPAN after the first (validation_store). Null when no round is due.
+    function nextRoundDue(s) {
+      if (!s || !s.is_open || !s.last_counted_at || s.rounds_counted >= s.rounds_required) return null;
+      let due = Date.parse(s.last_counted_at) + s.min_round_gap_minutes * 60000;
+      if (s.rounds_counted === s.rounds_required - 1) {
+        due = Math.max(due, Date.parse(s.first_counted_at) + s.min_span_minutes * 60000);
+      }
+      return due;
+    }
+
+    function renderCountdown() {
+      const due = nextRoundDue(openSession);
+      const node = el("validation-countdown");
+      if (due === null) {
+        node.textContent = "";
+        return;
+      }
+      const left = Math.ceil((due - Date.now()) / 1000);
+      if (left <= 0) {
+        node.style.color = "#6c6";
+        node.textContent = "Ready for the next round";
+      } else {
+        node.style.color = "#e6aa3c";
+        const m = Math.floor(left / 60), sec = String(left % 60).padStart(2, "0");
+        node.textContent = `Next round in ${m}:${sec}`;
+      }
+    }
+    setInterval(renderCountdown, 1000);
+
     function spreadHint(s) {
       if (!s.is_open || !s.first_counted_at || s.rounds_counted >= s.rounds_required) return "";
       const due = new Date(Date.parse(s.first_counted_at) + s.min_span_minutes * 60000);
@@ -259,6 +291,7 @@
       capture.disabled = capturing || !openSession || !doorClosed;
       capture.title = !openSession ? "Start a validation first."
         : !doorClosed ? "Close the chamber door and tick the box first." : "";
+      renderCountdown();
     }
 
     function renderSession() {
@@ -400,6 +433,17 @@
     }
 
     el("validation-capture").addEventListener("click", async () => {
+      const due = nextRoundDue(openSession);
+      if (due !== null && Date.now() < due) {
+        const sinceLast = (Date.now() - Date.parse(openSession.last_counted_at)) / 60000;
+        const ok = confirm(
+          `Only ${sinceLast.toFixed(1)} minutes since the last round. Rounds should be at least ` +
+          `${openSession.min_round_gap_minutes} minutes apart, and ${openSession.min_span_minutes} ` +
+          `minutes from first to last, so the readings cover the chamber's cycle. A rushed ` +
+          `validation still counts, but says so. Capture this round now anyway?`
+        );
+        if (!ok) return;
+      }
       capturing = true;
       renderControls();
       busyText("Capturing and measuring, about 20 seconds...");
