@@ -831,7 +831,7 @@ under that camera's own calibration (old: rounds `070505_471367`, `071439_917590
 as in that record's section 4.3, where the old camera gave about -2.6 points on 2026-10-01).
 Saved data only; no photos. Raw data: `/home/pi/scratch/camera-swap-2026-10/centre-check/`.
 
-*Result (run 13:35 UTC):*
+*Result (run 13:27 UTC):*
 
 | Distance from image centre (px) | Old camera SN000: tags, median error | New camera SN001: tags, median error |
 |---|---|---|
