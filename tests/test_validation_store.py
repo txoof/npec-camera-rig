@@ -53,10 +53,10 @@ def test_two_rounds_closer_than_6_minutes_are_flagged_even_over_20_minutes() -> 
     store.refresh_results(session)
     assert session["shortest_gap_minutes"] == pytest.approx(1)
     assert session["short_gap"] is True and session["short_span"] is False
-    assert store.status(session)["label"].endswith(", rounds 1.0 min apart, under the recommended 6")
+    assert store.status(session)["label"].endswith(", rounds 1.0 min apart, under the recommended 10")
 
 
-def test_rounds_6_minutes_apart_or_more_carry_no_gap_note() -> None:
+def test_rounds_10_minutes_apart_or_more_carry_no_gap_note() -> None:
     session = store.new_session("a", SLOTS, [])
     session["rounds"] = [_timed_round(0), _timed_round(10), _timed_round(20)]
     store.refresh_results(session)

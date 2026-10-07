@@ -57,8 +57,9 @@ MIN_SPAN_MINUTES = 20.0
 # Counted rounds should be at least this far apart: the page counts down to the next round, asks
 # before a sooner one, and a completed session with a shorter gap says so (rounds close together see
 # about the same point of the cycle above). A decision, not a measurement (Aaron, 2026-10-07:
-# encourage the operator not to rush). Not a block.
-MIN_ROUND_GAP_MINUTES = 6.0
+# encourage the operator not to rush; 10 so that 3 rounds at the countdown fall at 0, 10 and 20
+# minutes, evenly spread). Not a block.
+MIN_ROUND_GAP_MINUTES = 10.0
 SESSION_VERSION = 1
 _SESSION_ID = re.compile(r"^\d{8}T\d{12}$")
 

@@ -93,10 +93,13 @@ last, with the chamber door closed for every round (**decision**, Aaron 2026-10-
 in section 8.1 found readings rising and falling on a cycle of about 19 minutes, and an open door
 disturbed Control A). A shorter spread is not blocked: the session records its span
 (`round_span_minutes`, `short_span`) and its status says "rounds spread over N min, under the
-recommended 20". Counted rounds should also be at least 6 minutes apart (**decision**, Aaron
-2026-10-07): the page counts down to the next round and asks before a sooner one, and a session
+recommended 20". Counted rounds should also be at least 10 minutes apart (**decision**, Aaron
+2026-10-07, first set at 6 and changed to 10 the same day so the rounds fall at 0, 10 and 20
+minutes; with a cycle of about 19 minutes the first and last round then see nearly the same point
+of it, so 3 rounds sample about 2 points of the cycle, and the cycle length varies with the
+experiment): the page counts down to the next round and asks before a sooner one, and a session
 with a shorter gap records it (`shortest_gap_minutes`, `short_gap`) and says "rounds N min apart,
-under the recommended 6". The door cannot be detected by the rig; the operator confirms it for every round.
+under the recommended 10". The door cannot be detected by the rig; the operator confirms it for every round.
 
 **The band.** For each tray slot, the band is the 95th percentile of the absolute area error of
 all tags in that slot over all counted rounds: 95% of the tags read within that distance of
