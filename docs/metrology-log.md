@@ -876,7 +876,26 @@ After the foam was removed, the camera's view moved by under 4 px, the exposure 
 light reaching the sensor), the readings dropped by about 0.5 points (beyond the step 5 limits of
 0.10 for the median and 0.52 for a slot) and the centre lost about a fifth of its sharpness; the
 change was getting smaller each minute. Whether the readings return to their earlier level is not
-known yet. Until that is known, the step 2 validation is not relied on. Steps 1 to 5 and the
+known yet. Until that is known, the step 2 validation is not relied on.
+
+*Later step 6 photos, same comparison (checked 16:30 UTC):*
+
+| Photo (UTC) | Tag shift, median / largest (px) | Area change, median | Largest slot | Least sharp slot |
+|---|---|---|---|---|
+| 25 (13:54) | 0.94 / 3.19 | -0.62 | North 4 -0.81 | North 4 -25.6% |
+| 35 (14:04) | 1.21 / 4.24 | -0.51 | North 4 -0.65 | North 4 -21.5% |
+| 50 (14:19) | 1.05 / 3.63 | -0.85 | North 5 -1.17 | South 3 -39.2% |
+| 70 (14:39) | 1.07 / 3.42 | -0.93 | North 4 -1.37 | South 3 -41.9% |
+| 90 (14:59) | 0.96 / 3.51 | -0.85 | North 5 -1.13 | South 3 -40.0% |
+| 105 (15:14) | 0.92 / 3.10 | -0.85 | North 4 -1.14 | South 3 -39.4% |
+| 119 (15:28) | 0.91 / 2.86 | -0.69 | North 5 -0.92 | South 3 -31.3% |
+
+The readings did not return within 1 hour 46 minutes. From about 14:19 UTC they settled about 0.7
+to 0.9 points below their level before the foam was removed, with single slots up to 1.37 points
+below, and the central slots about a third to two fifths less sharp. This is larger than every
+change measured with nothing done on either camera (section 8, table). The calibration and the
+step 2 validation therefore describe the camera as it was with the foam on, not as it is now. The
+overnight run shows whether this changes further. Steps 1 to 5 and the
 centre check were all taken with the foam in place; they compare the cameras as they were set up,
 foam included. Step 6 is affected from photo 13: its photos 0 to 12 are 13 minutes only, and from
 photo 14 on it includes the recovery, so it is reported with that noted.
