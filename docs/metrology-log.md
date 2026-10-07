@@ -748,6 +748,32 @@ on the old; 10 of 12 slots narrower, 2 wider (South 3, South 4). Median of the s
 points against -0.78 (the old camera read +0.07 on 2026-10-05). This compares two cameras at two
 lens positions; it does not say which of the two, if either, caused the change.
 
+**Step 3 result (2026-10-07): different, lower.** 10 photos in a row through the app's
+`POST /capture`, 12:57:31 to 12:57:58 UTC (2.7 to 2.8 s each), captures `2026-10-07/125733_446195`
+to `2026-10-07/125758_010168`, nothing touched, chamber door closed, lens 6.16 locked in every
+photo, exposure 3793 µs and gain 1.0 in every photo, calibration `20261007T122200583188`. Method:
+each calibration tag matched by ID and position (within 20 px of the first photo); the standard
+deviation (n-1) of its area error over the 10 photos; the median over tags. Raw data and scripts:
+`/home/pi/scratch/camera-swap-2026-10/step3/` (`step3.py` took the photos, `analyse.py` makes
+`results.json`).
+
+| | Old camera SN000 | New camera SN001 |
+|---|---|---|
+| Median per-tag standard deviation | 0.27 to 0.46 points (2026-10-01) | **0.15 points** |
+| Tags followed through every photo | | 355 of 355 |
+| Per-tag spread, middle half of tags | | 0.12 to 0.19 points |
+| Largest tag | | 0.37 points |
+| Per-slot medians | | 0.12 to 0.17 points |
+| Whole-photo median error, photo to photo | | -0.09 to +0.00 points |
+
+*Against the limit fixed above.* 0.15 is outside 0.27 to 0.46, so the new camera is different: its
+photo-to-photo noise is about half the old camera's. One caution about the comparison itself: the
+old figure came from the light-level test of 2026-10-01 (`reference/arducam-central-error-2026-10.md`,
+test 6), with automatic exposure compensating three light levels, and its record does not give the
+number of photos or how the standard deviation was summarised. Today's photos had fixed exposure.
+So the difference may come partly from the conditions, not only from the camera. The limit was
+applied as written, not changed.
+
 ## 9. M2 physical acceptance tests (2026-10-05)
 
 The four tests PLAN.md lists for M2, run in the chamber on 2026-10-05 (times UTC; the chamber is

@@ -161,7 +161,8 @@ was compared with its own earlier reading:
 | App restart | +0.08 and +0.09 points (two attempts, 2026-10-05); within ±0.05 over 5 restarts (2026-10-06) | -0.29 points; every slot within ±0.39 over the 5 restarts |
 | Power cut (cold start) | -1.73 points right after; -0.41 at +15 min; -0.14 at +60 min | -0.62 points at +60 min (South 1) |
 
-Photographs of an unchanged scene differ by a spread of 0.27 to 0.46 points anyway. Both
+Photographs of an unchanged scene differ by a spread of 0.27 to 0.46 points anyway (old camera;
+the replacement camera fitted 2026-10-07 shows 0.15, metrology-log section 8.2, step 3). Both
 disturbances stayed inside the change seen with nothing done, and the largest change in any slot
 was about a sixth of that slot's band. On this evidence, a restart does not require a new
 calibration or validation.
