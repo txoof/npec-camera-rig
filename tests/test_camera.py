@@ -1,4 +1,5 @@
 import threading
+import time
 from concurrent.futures import TimeoutError as FutureTimeoutError
 
 import numpy as np
@@ -39,6 +40,10 @@ class _RecordingPicamera2:
         self.autofocus_never_finishes = False
         self.metadata_never_arrives = False
         self.cancelled = 0
+        self.closed = False
+
+    def create_video_configuration(self, main=None, lores=None):
+        return {"kind": "video"}
 
     def create_still_configuration(self, controls=None):
         return {"kind": "still", "controls": dict(controls or {})}
@@ -73,31 +78,59 @@ class _RecordingPicamera2:
     def cancel_all_and_flush(self) -> None:
         self.cancelled += 1
 
+    def close(self) -> None:
+        self.closed = True
+
 
 def _recording_backend() -> "camera_module.Picamera2Backend":
     backend = object.__new__(camera_module.Picamera2Backend)
+    backend._new_picamera2 = _RecordingPicamera2
     backend._picam2 = _RecordingPicamera2()
     backend._video_config = {"kind": "video"}
     backend._control_cache = {}
     backend._lens_position = DEFAULT_LENS_POSITION
+    backend._lens_ignores_writes = False
+    backend._manual_cache = {}
     return backend
 
 
-def test_a_full_res_capture_keeps_manual_focus_and_the_lens_position() -> None:
-    # 2026-10-01: configure() dropped manual AfMode and LensPosition, so after one full-res
-    # capture every later lens write was ignored and a whole lens sweep came out at one position.
+def test_a_full_res_capture_switches_back_on_the_same_camera_and_leaves_the_lens_alone() -> None:
+    # 2026-10-06: during an experiment nothing moves the lens, so a photo no longer reopens the
+    # camera; the camera then ignores lens writes, and the lens stays where it was.
     backend = _recording_backend()
-
+    backend._control_cache = {"AeEnable": True}
     backend.set_lens_position(6.44)
-    backend.capture_full_res()
-    still, video = backend._picam2.configured
-    assert still["controls"] == {"AfMode": 0, "LensPosition": 6.44}
-    assert video == {"kind": "video"}
-    assert backend._picam2.control_writes[-1] == {"AfMode": 0, "LensPosition": 6.44}
+    camera = backend._picam2
 
-    backend.set_lens_position(6.18)  # a later move is what the next capture uses
     backend.capture_full_res()
-    assert backend._picam2.configured[-2]["controls"] == {"AfMode": 0, "LensPosition": 6.18}
+    assert backend._picam2 is camera and not camera.closed
+    assert camera.configured == [
+        {"kind": "still", "controls": {"AfMode": 0, "LensPosition": 6.44}},
+        {"kind": "video"},
+    ]
+    after = camera.control_writes[camera.control_writes.index({"AfMode": 0, "LensPosition": 6.44}):]
+    assert {"AeEnable": True} in after  # cached AE/AWB restored after the switch
+
+
+def test_the_first_lens_command_after_a_capture_reopens_the_camera_once() -> None:
+    # Measured 2026-10-06: reopening the camera makes the lens follow writes again.
+    backend = _recording_backend()
+    backend._control_cache = {"AeEnable": True}
+    backend.set_lens_position(6.44)
+    backend.prepare_lens()  # no capture yet: nothing to do
+    camera = backend._picam2
+    assert not camera.closed
+
+    backend.capture_full_res()
+    backend.prepare_lens()
+    assert camera.closed
+    reopened = backend._picam2
+    assert reopened is not camera
+    assert reopened.control_writes[0] == {"AfMode": 0, "LensPosition": 6.44}
+    assert {"AeEnable": True} in reopened.control_writes
+
+    backend.prepare_lens()  # already reopened
+    assert backend._picam2 is reopened and not reopened.closed
 
 
 def test_an_autofocus_cycle_that_never_finishes_is_cancelled_and_leaves_the_lens_in_manual() -> None:
@@ -149,17 +182,16 @@ class _TimingOutAutofocusBackend(SyntheticBackend):
         raise camera_module.AutofocusTimeoutError(self._lens_position, "did not finish", 55.2)
 
 
-def test_a_timed_out_autofocus_clears_the_lock_says_so_and_frees_the_camera() -> None:
+def test_a_timed_out_autofocus_says_so_and_frees_the_camera() -> None:
     manager = CameraManager(_TimingOutAutofocusBackend())
     manager.set_lens_position(6.3)
-    manager.lock_focus()
 
     result = manager.autofocus()
 
     assert result["success"] is False
     assert result["lens_position"] == pytest.approx(6.3)
     assert result["timed_out"] == (
-        "autofocus did not finish after 55 s; lens set back to 6.30, lock focus again"
+        "Lens not responding: press Reset camera (autofocus did not finish after 55 s)"
     )
     assert manager.focus_status()["locked"] is False
     assert manager._call_lock.acquire(blocking=False)  # the next camera call is not stuck
@@ -169,15 +201,12 @@ def test_a_timed_out_autofocus_clears_the_lock_says_so_and_frees_the_camera() ->
 def test_the_startup_replay_of_a_persisted_lens_position_is_what_a_capture_re_applies() -> None:
     # Before 2026-10-01 the startup replay went through set_control, which left the remembered
     # position at the 1.0 default: the first capture after a restart would have commanded 1.0.
-    backend = object.__new__(camera_module.Picamera2Backend)
-    backend._picam2 = _RecordingPicamera2()
-    backend._video_config = {"kind": "video"}
-    backend._control_cache = {}
-    backend._lens_position = DEFAULT_LENS_POSITION
+    backend = _recording_backend()
+    first = backend._picam2
 
     backend.set_control("LensPosition", 6.18)
     backend.capture_full_res()
-    assert backend._picam2.configured[0]["controls"] == {"AfMode": 0, "LensPosition": 6.18}
+    assert first.configured[0]["controls"] == {"AfMode": 0, "LensPosition": 6.18}
 
 
 class _RecordingSyntheticBackend(SyntheticBackend):
@@ -198,6 +227,61 @@ class _RecordingSyntheticBackend(SyntheticBackend):
             self.stale_reads -= 1
             return 1.0
         return super().get_lens_position()
+
+
+class _PreparingSyntheticBackend(_RecordingSyntheticBackend):
+    """Synthetic camera that records when it is asked to make the lens follow again."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls: list[str] = []
+
+    def prepare_lens(self) -> None:
+        self.calls.append("prepare")
+
+    def set_lens_position(self, value: float) -> None:
+        self.calls.append("write")
+        super().set_lens_position(value)
+
+    def autofocus(self) -> tuple[bool, float]:
+        self.calls.append("autofocus")
+        return super().autofocus()
+
+
+def test_every_lens_command_prepares_the_lens_before_it_writes() -> None:
+    backend = _PreparingSyntheticBackend()
+    manager = CameraManager(backend)
+
+    manager.set_lens_position(6.18)
+    assert backend.calls == ["prepare", "write"]
+    backend.calls.clear()
+    manager.autofocus()
+    assert backend.calls == ["prepare", "autofocus"]
+    backend.calls.clear()
+    manager.lock_focus()
+    assert backend.calls[:2] == ["prepare", "write"]
+
+
+def test_a_locked_capture_moves_nothing_and_keeps_the_lock() -> None:
+    backend = _PreparingSyntheticBackend()
+    manager = CameraManager(backend)
+    manager.set_lens_position(6.18)
+    manager.lock_focus()
+    backend.calls.clear()
+
+    manager.capture_full_res()
+    assert backend.calls == []
+    assert manager.focus_status() == {"locked": True, "lens_position": 6.18}
+
+
+def test_a_capture_gets_no_lens_moves() -> None:
+    backend = _RecordingSyntheticBackend()
+    manager = CameraManager(backend)
+    manager.set_lens_position(6.18)
+    backend.lens_writes.clear()
+
+    manager.capture_full_res()
+    assert backend.lens_writes == []
 
 
 def test_locking_focus_drives_the_lens_from_below_and_waits_for_the_camera() -> None:
@@ -257,12 +341,240 @@ def test_moving_the_lens_while_lock_focus_waits_locks_nothing(
         if len(reads) == 1:
             manager.set_lens_position(6.40)  # another request, while the lock waits
             return 1.0  # the camera has not caught up yet
+        if len(reads) == 2:
+            return 6.40  # the slider move's own check sees it
         return 6.18  # then reports the lock's target
 
     monkeypatch.setattr(manager, "get_lens_position", report_while_the_operator_moves_the_slider)
     with pytest.raises(camera_module.LensMovedDuringLockError):
         manager.lock_focus()
     assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+
+class _StuckLensBackend(_RecordingSyntheticBackend):
+    """Synthetic camera whose lens accepts every write and reports the same position forever,
+    as the real one did after a full-res capture (TODO.md, "Lens stops responding")."""
+
+    def __init__(self, stuck_at: float) -> None:
+        super().__init__()
+        self.stuck_at = stuck_at
+
+    def get_lens_position(self) -> float:
+        return self.stuck_at
+
+
+def test_a_manual_move_the_lens_does_not_follow_says_restart_the_app(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    manager = CameraManager(_StuckLensBackend(stuck_at=6.27))
+
+    with pytest.raises(camera_module.LensNotSettledError) as error:
+        manager.set_lens_position(4.77)
+    assert str(error.value).startswith("Lens not responding: press Reset camera")
+
+
+def test_a_manual_move_waits_until_the_camera_reports_it() -> None:
+    backend = _RecordingSyntheticBackend()
+    manager = CameraManager(backend)
+    backend.stale_reads = 3
+
+    manager.set_lens_position(4.77)
+    assert backend.stale_reads == 0
+
+
+def test_a_newer_slider_move_ends_the_wait_of_an_older_one_without_an_error() -> None:
+    manager = CameraManager(_RecordingSyntheticBackend())
+    reads = []
+
+    def report_while_the_slider_moves_on(*_: object) -> float:
+        reads.append(True)
+        if len(reads) == 1:
+            manager._commanded_lens_position = 5.00  # the next slider request arrived
+        return 1.0
+
+    manager._backend.get_lens_position = report_while_the_slider_moves_on
+    manager.set_lens_position(4.77)  # no error: the newer move does its own check
+
+
+def test_lock_focus_does_not_confirm_a_stuck_lens_that_already_reports_the_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Measured 2026-10-06 (run 3b): a stuck lens reporting 6.27 made Lock focus "confirm" 6.27.
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    backend = _StuckLensBackend(stuck_at=6.27)
+    manager = CameraManager(backend)
+    manager.set_lens_position(6.27)  # passes: the camera reports the lens where it was asked
+    backend.lens_writes.clear()
+
+    with pytest.raises(camera_module.LensNotSettledError):
+        manager.lock_focus()
+    # Never reported at the approach, before or after the automatic reset: no target write.
+    assert backend.lens_writes == [pytest.approx(5.97), pytest.approx(5.97)]
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+
+def test_the_drive_keeps_its_fixed_pause_when_the_camera_reports_at_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The validation bands were measured with this sequence: waiting for the approach report must
+    # not make the target write come any sooner.
+    monkeypatch.setattr(camera_module, "LENS_APPROACH_PAUSE_S", 0.05)
+    write_times = []
+
+    class _TimedBackend(_RecordingSyntheticBackend):
+        def set_lens_position(self, value: float) -> None:
+            write_times.append(time.monotonic())
+            super().set_lens_position(value)
+
+    manager = CameraManager(_TimedBackend())
+    manager.set_lens_position(6.18)
+    write_times.clear()
+
+    manager.lock_focus()
+    assert write_times[1] - write_times[0] >= 0.05
+
+
+class _StuckUntilResetBackend(_RecordingSyntheticBackend):
+    """Synthetic camera whose lens ignores writes (reporting `stuck_at`) until it is reset, as the
+    real one did after a full-res capture until it was closed and reopened."""
+
+    def __init__(self, stuck_at: float, cleared_by_reset: bool = True) -> None:
+        super().__init__()
+        self.stuck_at = stuck_at
+        self.stuck = True
+        self.cleared_by_reset = cleared_by_reset
+        self.resets = 0
+
+    def reset(self) -> None:
+        self.resets += 1
+        if self.cleared_by_reset:
+            self.stuck = False
+
+    def get_lens_position(self) -> float:
+        return self.stuck_at if self.stuck else super().get_lens_position()
+
+
+def test_a_manual_move_the_lens_ignores_is_retried_once_after_a_camera_reset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    backend = _StuckUntilResetBackend(stuck_at=6.27)
+    manager = CameraManager(backend)
+
+    manager.set_lens_position(4.77)  # no error: the reset made the lens follow
+    assert backend.resets == 1
+    assert manager.get_lens_position() == pytest.approx(4.77)
+
+
+def test_lock_focus_resets_the_camera_once_when_the_lens_does_not_follow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    backend = _StuckUntilResetBackend(stuck_at=6.27)
+    manager = CameraManager(backend)
+    manager._commanded_lens_position = 6.27
+
+    assert manager.lock_focus() == {"locked": True, "lens_position": 6.27}
+    assert backend.resets == 1
+
+
+def test_a_lens_still_stuck_after_the_reset_says_press_reset_camera(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    backend = _StuckUntilResetBackend(stuck_at=6.27, cleared_by_reset=False)
+    manager = CameraManager(backend)
+
+    with pytest.raises(camera_module.LensNotSettledError, match="press Reset camera"):
+        manager.set_lens_position(4.77)
+    assert backend.resets == 1  # one automatic reset, not a loop
+
+
+def test_reset_camera_reopens_and_drives_back_to_the_lock_keeping_it() -> None:
+    backend = _StuckUntilResetBackend(stuck_at=6.27)
+    backend.stuck = False
+    manager = CameraManager(backend)
+    manager.set_lens_position(6.27)
+    manager.lock_focus()
+    backend.lens_writes.clear()
+
+    result = manager.reset_camera()
+    assert backend.resets == 1
+    assert backend.lens_writes == [pytest.approx(5.97), 6.27]  # the one consistent way
+    assert result == {"locked": True, "lens_position": 6.27, "lens_position_set": 6.27}
+
+
+def test_a_reset_that_does_not_help_clears_the_lock_and_does_not_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = _StuckUntilResetBackend(stuck_at=6.27)
+    backend.stuck = False
+    manager = CameraManager(backend)
+    manager.set_lens_position(6.27)
+    manager.lock_focus()
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    backend.stuck, backend.cleared_by_reset = True, False
+
+    with pytest.raises(camera_module.LensNotSettledError):
+        manager.reset_camera()
+    assert backend.resets == 1
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+    assert load_settings()["FocusConfirmed"] is False
+
+
+def test_a_reset_restores_a_manual_exposure_set_while_auto_exposure_is_off() -> None:
+    # Code review 2026-10-07: a reopen restored AeEnable/AwbEnable only, so a manual exposure fell
+    # back to the camera default without anyone noticing.
+    backend = _recording_backend()
+    backend._control_cache = {"AeEnable": True}
+    backend.set_control("AeEnable", False)
+    backend.set_control("ExposureTime", 20000)
+
+    backend.reset()
+    writes = backend._picam2.control_writes
+    assert writes.index({"AeEnable": False}) < writes.index({"ExposureTime": 20000})
+
+
+def test_waiting_for_the_camera_before_the_approach_does_not_count_against_the_lens(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Code review 2026-10-07: the 5 s started before the camera lock and the reopen.
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.05)
+
+    class _SlowToPrepare(_RecordingSyntheticBackend):
+        def prepare_lens(self) -> None:
+            time.sleep(0.1)  # longer than the whole timeout
+
+    backend = _SlowToPrepare()
+    manager = CameraManager(backend)
+    manager._commanded_lens_position = 6.18
+    assert manager.lock_focus() == {"locked": True, "lens_position": 6.18}
+
+
+def test_a_lock_that_lands_while_a_manual_move_is_under_way_is_voided() -> None:
+    # Code review 2026-10-07: the move passed the lock check, then a lock completed, then the lens
+    # moved; the lock must not survive at the old position.
+    backend = _RecordingSyntheticBackend()
+    manager = CameraManager(backend)
+
+    def lock_lands_now() -> None:
+        manager._locked_lens_position = 6.20
+
+    backend.prepare_lens = lock_lands_now
+    manager.set_lens_position(6.45)
+    assert manager.focus_status() == {"locked": False, "lens_position": None}
+
+
+def test_the_real_backend_reset_reopens_the_camera_even_without_a_capture() -> None:
+    backend = _recording_backend()
+    backend.set_lens_position(6.27)
+    camera = backend._picam2
+
+    backend.reset()
+    assert camera.closed
+    assert backend._picam2 is not camera
+    assert backend._picam2.control_writes[0] == {"AfMode": 0, "LensPosition": 6.27}
 
 
 def test_a_restart_drives_the_lens_back_the_same_way_and_keeps_the_lock() -> None:
@@ -478,26 +790,31 @@ def test_camera_manager_lock_and_unlock_focus() -> None:
     assert status == {"locked": False, "lens_position": None}
 
 
-def test_camera_manager_lock_is_cleared_by_a_later_manual_move() -> None:
-    # A lock only means something if a later, unconfirmed move can't hide behind it (TODO.md,
-    # "Give Lock focus a real function") -- invalidate on change, no tolerance comparison needed.
+def test_a_locked_focus_refuses_a_manual_move_and_autofocus() -> None:
+    # Aaron, 2026-10-06: while focus is locked no one at the rig can change it; Unlock focus first.
+    backend = _RecordingSyntheticBackend()
+    manager = CameraManager(backend)
+    manager.set_lens_position(6.3)
+    manager.lock_focus()
+    backend.lens_writes.clear()
+
+    with pytest.raises(camera_module.FocusLockedError):
+        manager.set_lens_position(6.4)
+    with pytest.raises(camera_module.FocusLockedError):
+        manager.autofocus()
+    assert backend.lens_writes == []
+    assert manager.focus_status() == {"locked": True, "lens_position": 6.3}
+    assert load_settings()["FocusConfirmed"] is True
+
+
+def test_after_unlocking_the_lens_moves_again() -> None:
     manager = CameraManager(SyntheticBackend())
     manager.set_lens_position(6.3)
     manager.lock_focus()
-    assert manager.focus_status()["locked"] is True
+    manager.unlock_focus()
 
     manager.set_lens_position(6.4)
-    assert manager.focus_status() == {"locked": False, "lens_position": None}
-
-
-def test_camera_manager_lock_is_cleared_by_autofocus() -> None:
-    manager = CameraManager(SyntheticBackend())
-    manager.set_lens_position(6.3)
-    manager.lock_focus()
-    assert manager.focus_status()["locked"] is True
-
-    manager.autofocus()
-    assert manager.focus_status() == {"locked": False, "lens_position": None}
+    assert manager.get_lens_position() == pytest.approx(6.4)
 
 
 # --- Focus confirmation persists across a restart (Aaron, 2026-09-28) -- verified for real on
@@ -518,24 +835,6 @@ def test_camera_manager_unlock_focus_persists() -> None:
     manager.set_lens_position(6.3)
     manager.lock_focus()
     manager.unlock_focus()
-    assert load_settings()["FocusConfirmed"] is False
-
-
-def test_camera_manager_set_lens_position_clears_persisted_confirmation() -> None:
-    manager = CameraManager(SyntheticBackend())
-    manager.set_lens_position(6.3)
-    manager.lock_focus()
-
-    manager.set_lens_position(6.4)
-    assert load_settings()["FocusConfirmed"] is False
-
-
-def test_camera_manager_autofocus_clears_persisted_confirmation() -> None:
-    manager = CameraManager(SyntheticBackend())
-    manager.set_lens_position(6.3)
-    manager.lock_focus()
-
-    manager.autofocus()
     assert load_settings()["FocusConfirmed"] is False
 
 

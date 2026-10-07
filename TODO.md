@@ -701,8 +701,81 @@ The heart of the project. Do not start before M1 slice 5.
 - [ ] **Lens stops responding after a full-res capture, until an app restart.** Seen twice on
       2026-10-05 (about 15:50 and 16:05 chamber time). After a calibration, capture or tripwire
       check, lens commands (manual and Autofocus) return `200 OK` but the lens does not move; the
-      second time the live view stopped too. No knock or Autofocus is needed to trigger it: one
-      calibration run was enough. An app restart fixed it both times. Likely the same fault as the
+      second time the live view stopped too, while `/focus/score` kept returning frames. Seen after
+      13 full-res captures (first time) and after 1 calibration run (second time, no knock);
+      whether one capture is always enough is not known. A 200 does not show the lens moved, so
+      the logs cannot settle it: diagnosis script `reference/lens-unresponsive-2026-10-diagnose.py`
+      (needs the server stopped and the chamber lit). An app restart fixed it both times.
+      **Reproduced 2026-10-06** (metrology-log section 8.1, run 3b): fresh process, the start-up
+      lens drive worked, then 4 plain `POST /capture` full-res photos, then lens set to 0.0 and
+      15.0: every command 200, 100 of 100 reported readings stayed 6.27, focus score unchanged
+      (374 to 380), so neither the report nor the lens moved. Lock focus then "confirmed" 6.27
+      because the stale report matched. So plain captures are enough (no calibration, knock or
+      Autofocus), and comparing reported with requested position would catch it.
+      **Diagnosed 2026-10-06** (`reference/lens-unresponsive-2026-10-diagnose.py`, data in
+      `/home/pi/scratch/lens-diagnose-20261006T094229Z/`, chamber lit, server stopped, each case a
+      fresh process, lens 6.27 and a defocus 1.5 below, 90 s per step):
+      | Case | Lens follows? |
+      |---|---|
+      | No capture | yes, reported in 0.6 s, sharpness 1128 to 15 |
+      | 1 full-res capture, then a write | no, 90 s, report and sharpness unchanged |
+      | Lock drive, capture, write | no |
+      | 13 captures, write | no |
+      | Capture, 10 quick writes, write | only after about 92 s |
+      | Capture, Autofocus | timed out at 55 s, lens unchanged |
+      | Capture, close and reopen Picamera2 in the same process, write | **yes, 0.6 s** |
+      | Manual focus also in the video configuration's controls | no |
+      So one capture is enough; the existing re-apply after switching back does not work; an
+      in-process close and reopen clears it (the capture plus reopen took 3.7 s against 2.7 s
+      for the capture alone). Frames kept flowing in every case.
+      **Slice 1 built 2026-10-06 (branch `m2-lens-unresponsive`):** `Picamera2Backend` now closes
+      and reopens the camera after every full-res capture instead of switching back to the video
+      configuration, and `CameraManager.capture_full_res` then drives the lens back to the locked
+      (or last set) position the one consistent way; the lock is kept if the camera confirms it
+      and cleared if it does not. Checked on the rig (`/home/pi/scratch/lens-fix-check-2026-10-06/`):
+      right after a capture the lens followed a write to 4.77 within 0.5 s (focus score 370 to
+      10) and came back to 6.27; three captures in a row (each with reopen and drive back) read
+      the same, median change -0.01 and -0.09 points, every slot within ±0.32; a capture now takes
+      4.3 s.
+      **Slice 2 built 2026-10-06 (same branch):** every lens command (manual move, Lock focus,
+      the drive back after a capture) now waits for the camera to report the new position, at most
+      `LENS_SETTLE_TIMEOUT_S` = 5 s (a decision, not a measurement: a working lens reports in 0.6 s,
+      a stuck one never). If it does not, the page shows "Lens not responding: restart the app"
+      next to the lens controls (manual move, Autofocus timeout) or in the focus status (Lock
+      focus). Lock focus must see the report reach the approach position (target - 0.3) before it
+      accepts the target, so a stale report at the target no longer confirms it; the fixed 1.0 s
+      pause is unchanged. Only a target at the bottom of the range cannot be checked this way.
+      Checked on the rig (no fault present, so this shows only that a working lens raises no false
+      alarm): moves to 4.77 and back confirmed in 0.53 s each, Lock focus 1.52 s, capture 4.28 s
+      with the lock kept, the same after a capture; lens left locked at 6.27. The "not responding"
+      path itself is covered by unit tests only, since slice 1 removed the way to cause it.
+      **Changed 2026-10-06, same day:** photos no longer reopen the camera or drive the lens back
+      (plan item "Nothing moves the lens during an experiment", slice 1); the camera is reopened
+      only before a lens command that follows a photo. The slice 1 reopen after every capture and
+      the slice 2 check on the drive back after a capture no longer exist; the check on every lens
+      command stays.
+- [ ] **Next steps from the 2026-10-06 lens and focus tests** (metrology-log section 8.1, runs 3 to
+      3i). Measured: an app restart with a warm camera does not move readings (5 restarts, median
+      within ±0.05 points); a cold start does (-1.73, recovering over about an hour); after a
+      camera frontend timeout plus restart the central trays were about half as sharp; a lens
+      change of 0.1 moves readings about 1 point. Neither tag 500 at the frame edge nor the tray
+      tags (IDs 1 to 12, 30 mm) could reliably detect or correct a lens-landing change.
+      1. Reopen the camera only before a lens command (lens move, Lock focus, Autofocus), not after
+         every capture: during an experiment the lens is never moved, and each capture then saves
+         1.6 s (4.3 s now, 2.7 s before slice 1). Now part of the plan in the next item, "Nothing
+         moves the lens during an experiment".
+      2. ~~Remove the tag 500 focus check (WIP commit 2ad230d)~~: done 2026-10-06 (`e2a20fd`),
+         Aaron: not helpful; the corner tags already watch the camera and a sweep cannot run every
+         photo. Its "FocusReference" setting was deleted from `rig.db`.
+      3. Flag readings taken after a cold start (first hour, decision to confirm) and after a
+         camera fault (frontend timeout in the log) as not covered by the bands.
+      4. Tray tags: tag 6 (South 6) sits at the frame edge and is not found. Aaron is considering
+         larger tray tags; a single 30 mm tag's size was too noisy to correct a tray (run 3h).
+      5. ~~Slice 2: detect a lens that does not follow a command.~~ Built 2026-10-06, see the item
+         above.
+      6. Per-sample budget (one sample a minute): capture 4.3 s, full-frame tag detection 5.3 s,
+         a 500 px sharpness square 4 ms, JPEG save 0.56 s, JPEG reopen 0.54 s (measured
+         2026-10-06 on saved photos). Likely the same fault as the
       item below. Make it fixable: (1) reproduce with N = 1, 3, 9 full-res captures then one lens
       change, checking `LensPosition` in the next sidecar; (2) log requested and reported lens
       position on every lens command; (3) after a lens command, compare reported with requested
@@ -711,6 +784,79 @@ The heart of the project. Do not start before M1 slice 5.
       in a freshly restarted app, before any capture. Full report kept outside the repo at
       `/home/pi/scratch/bug-lens-unresponsive-2026-10-05.md`; the log lines are in
       `uvicorn.log` around lines 390560 to 392545 and the following restart.
+- [ ] **A camera reopen that fails leaves a closed camera and a bare error** (code review of
+      PR #43, 2026-10-07, deferred). If `Picamera2()`, configure or start raises inside
+      `Picamera2Backend.reset` (camera busy, libcamera error), `self._picam2` is still the closed
+      instance (or a half-opened new one that is never closed), and `/camera/reset` and the lens
+      endpoints return a bare 500 instead of "restart the app". Deferred because it is rare (not
+      seen on the rig) and the outcome, an app restart, is the same; fix by catching the failure
+      in `reset`, closing any half-opened camera, and raising an error the routes turn into the
+      restart message.
+- [ ] **Plan: nothing moves the lens during an experiment** (Aaron agreed the direction
+      2026-10-06; not built). The rig takes a photo every minute for many hours a day with no one
+      watching, so no step that runs per photo may depend on a person reacting to a message.
+      **Why.** Since slice 1 every photo closes and reopens the camera and then drives the lens
+      back to the locked position: three steps per photo that can fail, about 900 times a day. If
+      the drive back is not confirmed, the photo is still saved and reported as a success, the
+      lock is cleared and only the server log says so. That failure has not been seen since
+      slice 1, but nothing would show it. Measured 2026-10-06 (runs 3b and the diagnosis in the
+      item "Lens stops responding"): before slice 1 a photo left the lens not following commands,
+      but it stayed where it was (reported position and sharpness unchanged), so a stuck lens only
+      matters when something tries to move it. Validation runs before slice 1 were taken this way.
+      **Rule.** While focus is locked (the experiment state), nothing moves the lens: lens moves
+      and Autofocus are already refused while locked (`66f18e6`), and photos stop moving it too.
+      Lens moves happen only during setup, with a person at the rig.
+      **Slices, in order, each with a checkpoint:**
+      1. Photos stop reopening the camera and stop driving the lens back; they switch back to the
+         video configuration as before slice 1 (each photo 1.6 s faster). Before any lens command
+         (lens move, Lock focus, Autofocus, Unlock then move), the app reopens the camera if a
+         photo has been taken since it was last opened, so the lens follows (TODO next-step 1).
+         **Built 2026-10-06** (`Picamera2Backend.prepare_lens`). Checked on the rig: photos took
+         2.74 to 2.79 s (4.3 s before), lock kept, sharpness 438 to 439; the first move after two
+         photos (to 4.77, focus unlocked) was confirmed in 1.29 s including the reopen, sharpness
+         439 to 9; back to 6.27 in 0.57 s, Lock focus 1.52 s, a photo 2.76 s, sharpness 437, live
+         preview still streaming. Unattended run: metrology-log section 8.1, run 3j.
+         **Run 3j result (2026-10-06, 2 hours, 120 photos):** not passed against the limits fixed
+         beforehand (median +0.33 against ±0.10, largest slot 0.62 against 0.52), but the excess
+         is a repeating cycle of about 19 minutes, the same in every cycle, with no drift and no
+         loss of sharpness. Decision for Aaron: whether that is enough to keep this slice. Open:
+         the cause of the 19-minute cycle (the chamber's own cycle?), and whether it is there with
+         the camera reopened per photo.
+      2. Every photo records, in its sidecar, the lens position the camera reports and whether it
+         matches the lock (within 0.005). A mismatch, or no lock, flags the photo. Limit: a stuck
+         camera reports the old position, so this catches a lens the camera reports elsewhere
+         (for example after a reopen or restart), not a lens that moved while the report did not.
+      3. During setup, a lens command the camera does not confirm makes the app reopen the camera
+         and try once more by itself; only if that also fails does the page show "Lens not
+         responding: restart the app".
+         **Built 2026-10-07, with a Reset camera button** (Aaron, 2026-10-06: an average user
+         cannot restart the app on a Pi). A manual move or Lock focus that is not confirmed resets
+         the camera (close and reopen in the same process, `Picamera2Backend.reset`) and tries
+         once more; if that also fails the page shows "Lens not responding: press Reset camera"
+         with the button. The button (`POST /camera/reset`) resets the camera and drives the lens
+         back to the locked (or last set) position, keeping the lock only if confirmed; if that
+         fails the page says to restart the app. Autofocus has no automatic retry (a timeout
+         already took 55 s) and asks for Reset camera. Checked on the rig, chamber lights off:
+         Reset camera took 2.31 s, and 2.50 s after a photo, lock kept at 6.27, photos after it
+         2.86 and 2.91 s, live preview streaming. The retry when a lens does not follow is covered
+         by unit tests only (the fault cannot be caused on the rig since slice 1), and the reset is
+         measured to clear only the stuck state after a photo, not other camera faults.
+      4. Photos taken in the first hour after a cold start, or after a camera fault (frontend
+         timeout in the log), are flagged as not covered by the validation bands (TODO next-step 3;
+         the one-hour figure is a decision to confirm, from the cold start that recovered over about an
+         hour, item above).
+      **Measurement needed first (method into `docs/metrology-log.md` before the run):** with the
+      lens locked and no reopen per photo, take one photo a minute for at least 2 hours and check
+      that sharpness at fixed spots and the per-slot readings stay within the range of Control B
+      (45 minutes, nothing done; run 3i covered only a minute). The reported lens position is
+      recorded, not judged: a camera ignoring lens writes reports the old position whatever
+      happens.
+      Method fixed in metrology-log section 8.1, run 3j. That is what shows slice 1 of this plan is
+      safe for unattended runs.
+      **What stays open:** a camera fault in the middle of a run can still shift readings (run 3g:
+      central trays about half as sharp after a frontend timeout and restart), and no tag at the
+      rig could detect it reliably (tag 500, tray tags; runs 3f to 3h). The flags make such photos
+      visible; they do not correct them.
 - [ ] **Calibration capture immediately followed by autofocus wedges the whole camera pipeline**
       — reproduced on real hardware 2026-09-21: run a calibration, then hit "Autofocus," and
       every camera-touching endpoint (preview, snapshot, focus score) hangs for an extended

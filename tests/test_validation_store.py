@@ -19,6 +19,70 @@ def _counted_round(errors: list[float]) -> dict:
     return {"counted": True, "slot_errors": {"North 1": errors}, "centres": []}
 
 
+def _timed_round(minute: float) -> dict:
+    return _counted_round([1.0] * 10) | {"captured_at": f"2026-10-07T10:{int(minute):02d}:{int(minute % 1 * 60):02d}+00:00"}
+
+
+def test_rounds_spread_over_less_than_20_minutes_are_validated_but_say_so() -> None:
+    # Aaron, 2026-10-07: a 19-minute cycle in the readings (run 3j); shorter spreads are not
+    # blocked, the result records and shows it.
+    session = store.new_session("a", SLOTS, [])
+    session["rounds"] = [_timed_round(0), _timed_round(1), _timed_round(1.5)]
+    store.refresh_results(session)
+    assert session["round_span_minutes"] == pytest.approx(1.5)
+    assert session["short_span"] is True
+    status = store.status(session)
+    assert status["state"] == "validated"
+    assert ", rounds spread over 1.5 min, under the recommended 20" in status["label"]
+
+
+def test_rounds_spread_over_20_minutes_or_more_carry_no_note() -> None:
+    session = store.new_session("a", SLOTS, [])
+    session["rounds"] = [_timed_round(0), _timed_round(30), _timed_round(21)]  # first to last: 30 min
+    store.refresh_results(session)
+    assert session["round_span_minutes"] == pytest.approx(30)
+    assert session["short_span"] is False
+    assert "spread" not in store.status(session)["label"]
+
+
+def test_two_rounds_closer_than_6_minutes_are_flagged_even_over_20_minutes() -> None:
+    # Aaron, 2026-10-07: rounds at 0, 19 and 20 minutes span 20 but sample about 2 points of the
+    # cycle.
+    session = store.new_session("a", SLOTS, [])
+    session["rounds"] = [_timed_round(0), _timed_round(19), _timed_round(20)]
+    store.refresh_results(session)
+    assert session["shortest_gap_minutes"] == pytest.approx(1)
+    assert session["short_gap"] is True and session["short_span"] is False
+    assert session["judged_with"] == {"min_span_minutes": 20.0, "min_round_gap_minutes": 10.0}
+    assert store.status(session)["label"].endswith(", rounds 1.0 min apart, under the recommended 10")
+
+
+def test_rounds_10_minutes_apart_or_more_carry_no_gap_note() -> None:
+    session = store.new_session("a", SLOTS, [])
+    session["rounds"] = [_timed_round(0), _timed_round(10), _timed_round(20)]
+    store.refresh_results(session)
+    assert session["shortest_gap_minutes"] == pytest.approx(10)
+    assert session["short_gap"] is False
+    assert "apart" not in store.status(session)["label"]
+
+
+def test_times_just_under_a_limit_never_read_as_the_limit() -> None:
+    # Code review 2026-10-07: 9.96 printed as "10.0 min apart, under the recommended 10".
+    assert store.span_text(9.96) == "9.9"
+    assert store.span_text(19.6) == "19"
+    assert store.span_text(1.5) == "1.5"
+
+
+def test_the_span_counts_only_counted_rounds_and_tolerates_missing_times() -> None:
+    session = store.new_session("a", SLOTS, [])
+    held = _timed_round(40) | {"counted": False}
+    session["rounds"] = [_timed_round(0), held, _timed_round(5), _counted_round([1.0] * 10)]
+    assert store.round_span_minutes(session) == pytest.approx(5)
+    session["rounds"] = [_counted_round([1.0] * 10)] * 3  # no capture times at all
+    assert store.round_span_minutes(session) is None
+    assert store.short_span(session) is False
+
+
 def test_a_new_session_round_trips_through_disk() -> None:
     session = store.new_session("20260929T143405685796", SLOTS, [(1.0, 2.0)])
     loaded = store.load_session(session["id"])

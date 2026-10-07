@@ -64,6 +64,7 @@ from npec_rig.camera import (
     AUTOFOCUS_TIMEOUT_S,
     CameraBusyError,
     CameraManager,
+    FocusLockedError,
     LensMovedDuringLockError,
     LensNotSettledError,
     array_to_jpeg,
@@ -294,7 +295,12 @@ def set_lens_position(position: LensPosition) -> LensPosition:
     min_value, max_value, _ = manager.available_controls()["LensPosition"]
     if not min_value <= position.value <= max_value:
         raise HTTPException(422, f"value must be between {min_value} and {max_value}")
-    manager.set_lens_position(position.value)
+    try:
+        manager.set_lens_position(position.value)
+    except FocusLockedError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except LensNotSettledError as exc:
+        raise HTTPException(503, str(exc)) from exc
     return position
 
 
@@ -335,8 +341,11 @@ def set_control(name: str, update: ControlUpdate) -> dict:
 
 @app.post("/focus/autofocus")
 def autofocus() -> dict:
-    """Run one hardware autofocus cycle, then return to manual."""
-    return CameraManager.instance().autofocus()
+    """Run one hardware autofocus cycle, then return to manual. Refused while focus is locked."""
+    try:
+        return CameraManager.instance().autofocus()
+    except FocusLockedError as exc:
+        raise HTTPException(409, str(exc)) from exc
 
 
 class RoiUpdate(BaseModel):
@@ -401,8 +410,26 @@ def lock_focus() -> dict:
     """Drive the lens to the position last set, the one consistent way, and lock it there."""
     try:
         return CameraManager.instance().lock_focus()
-    except (LensNotSettledError, LensMovedDuringLockError) as exc:
+    except LensNotSettledError as exc:
+        raise HTTPException(503, f"{exc}; focus is not locked") from exc
+    except LensMovedDuringLockError as exc:
         raise HTTPException(409, f"{exc}: focus is not locked, press Lock focus again") from exc
+
+
+@app.post("/camera/reset")
+def reset_camera() -> dict:
+    """The Reset camera button: close and reopen the camera, which restarts the lens control, then
+    drive the lens back to the locked (or last set) position and confirm it."""
+    try:
+        return CameraManager.instance().reset_camera()
+    except LensNotSettledError as exc:
+        raise HTTPException(
+            503,
+            f"The camera reset did not help, the lens still does not follow: restart the app "
+            f"(set to {exc.target:.2f}, the camera reports {exc.reported:.2f})",
+        ) from exc
+    except LensMovedDuringLockError as exc:
+        raise HTTPException(409, f"{exc}: press Reset camera again") from exc
 
 
 @app.post("/focus/unlock")
@@ -1555,6 +1582,16 @@ def _session_summary(session: dict, current_stem: str | None) -> dict:
         "flagged_slots": validation_store.flagged_slots(session),
         "certainty_range_pct": [min(measured), max(measured)] if measured else None,
         "map_url": f"/validation/sessions/{session['id']}/map" if counted else None,
+        "round_span_minutes": validation_store.round_span_minutes(session),
+        "short_span": validation_store.short_span(session),
+        "min_span_minutes": validation_store.MIN_SPAN_MINUTES,
+        "first_counted_at": validation_store.first_last_counted(session)[0],
+        "last_counted_at": validation_store.first_last_counted(session)[1],
+        # The countdown runs on the Pi's clock, not the browser's (code review).
+        "server_time": datetime.now(timezone.utc).isoformat(),
+        "min_round_gap_minutes": validation_store.MIN_ROUND_GAP_MINUTES,
+        "shortest_gap_minutes": validation_store.shortest_gap_minutes(session),
+        "short_gap": validation_store.short_gap(session),
     }
 
 

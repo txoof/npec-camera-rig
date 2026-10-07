@@ -156,14 +156,55 @@ was compared with its own earlier reading:
 | Event | Change right after (median) | Largest slot change within an hour |
 |---|---|---|
 | Nothing done (control) | | up to 0.52 points (North 1) |
+| Nothing done, one photo a minute for 2 hours (2026-10-06) | | a repeating 19-minute cycle: whole-table median up to +0.33 points, up to 0.62 points in one slot (North 5) |
 | Lens moved by autofocus, driven back to 6.15 | -0.03 points | +0.35 points |
-| App restart | +0.08 and +0.09 points (two attempts) | -0.29 points |
-| Power cut | not yet tested | |
+| App restart | +0.08 and +0.09 points (two attempts, 2026-10-05); within ±0.05 over 5 restarts (2026-10-06) | -0.29 points; every slot within ±0.39 over the 5 restarts |
+| Power cut (cold start) | -1.73 points right after; -0.41 at +15 min; -0.14 at +60 min | -0.62 points at +60 min (South 1) |
 
 Photographs of an unchanged scene differ by a spread of 0.27 to 0.46 points anyway. Both
 disturbances stayed inside the change seen with nothing done, and the largest change in any slot
 was about a sixth of that slot's band. On this evidence, a restart does not require a new
 calibration or validation.
+
+A cold start is different. Right after a power cut, with the camera cold, the central trays
+were blurrier and areas read about 1.7 points low, more than some slots' bands. Without any
+lens move the readings returned over the next hour: most of the change was gone after 15
+minutes, and after 60 minutes it was close to the change seen with nothing done. Readings taken in
+roughly the first 15 minutes after the app opens a cold camera are not covered by the bands.
+
+A camera fault is different too. On 2026-10-06 the camera once stopped delivering frames and the
+app had to be restarted; afterwards, at the same reported lens position, the central trays were
+about half as sharp and fewer tags were found. Neither a reference tag at the frame edge nor the
+tray tags could reliably show or correct such a change in tests the same day. The plan is to
+mark readings after a camera fault or a cold start as not covered by the bands, rather than to
+correct them; this is not built yet.
+
+**Readings swing on a cycle of about 19 minutes.** On 2026-10-06 the rig took one photo a minute
+for 2 hours with nothing touched (lens locked, lights on), to check that photos taken the way an
+experiment takes them stay steady. Each tag's area reading was compared with the same tag in the
+first photo. The limits were fixed before the run, from the earlier test with nothing done: the
+whole-table median within ±0.10 points, and every slot within ±0.52 points.
+
+The run **did not pass** those limits. The whole-table median reached +0.33 points, about three
+times the limit, and one slot (North 5) reached +0.62 points.
+
+The reason is a repeating cycle, not a drift. Every 19 minutes the readings rose by about 0.3
+points within 2 or 3 minutes, then fell back over about 16 minutes. This happened 6 times, the
+same size each time, and the readings returned to the same low point every cycle. Sharpness rose
+and fell with them. The earlier test took a photo only every 15 minutes, too rarely to show a
+19-minute cycle, so its limits were too tight for a test taken every minute. The first photo of
+this run also fell at a low point of the cycle, so the run measured the full swing from bottom to
+top.
+
+What it means: depending on when in the cycle a photograph is taken, its reading can be up to about
+0.35 points higher for the whole table and about 0.6 points higher in one slot. The cause is not
+known; the chamber's air handler runs outside the operator's control and its cycle depends on the
+experiment. The 2026-10-05 validation was taken with the same photo method, so the cycle was
+already present then. Its 3 rounds were taken within 93 seconds, all at one point of the cycle, so
+its bands do not include the cycle. From 2026-10-07 the validation rounds are to be spread over at
+least 20 minutes, with the chamber door closed for every round; a validation with rounds closer
+together still counts, but its status says so. For comparison, the 0.52-point slot change seen with nothing done was about a
+quarter of that slot's band.
 
 **One open point.** On 2026-10-01, after a different series of lens moves, the central readings
 drifted by 1.3 points in 35 minutes. That was not repeated on 2026-10-05, and the reason for the
@@ -195,16 +236,21 @@ the extreme frame corners, and plants only sit on trays. No model is adopted.
   plant from background (segmentation) has not been measured on this rig; it is planned for the
   canopy-area milestone (M5) and is expected to add several percent.
 - **Other focus positions.** Each focus position needs its own calibration and validation.
-- **A power cut.** Not yet tested (planned, same method).
+- **The first minutes after a power cut.** Readings in roughly the first 15 minutes after a cold
+  start are not covered by the bands (2026-10-06, one run). How long the warm-up takes in other
+  conditions is not measured.
 - **Long distances across several trays.** The tape check passed, but distances across the South
   row read 1.4% to 1.7% long while the tags at its ends read about right, which is not explained.
   Only the left-right direction of one row was checked. A plant is
   measured with the scale at its own slot, which validation checks directly; a distance spanning
   trays is not.
-- **A software fault with focus.** After a full-res photo (a calibration, capture or tripwire
-  check), the lens can stop obeying focus commands until the app is restarted, while the app
-  reports success. Seen twice on 2026-10-05. Measurements made without touching focus are not
-  known to be affected; refocusing must be done in a freshly restarted app until this is fixed.
+- **A software fault with focus, now fixed in code not yet merged.** After a full-res photo the
+  lens ignored focus commands while the app reported success (diagnosed 2026-10-06). The fix
+  reopens the camera so the lens obeys again; measurements made without touching focus were not
+  affected.
+- **After a camera fault.** A stalled camera followed by a restart left the central trays
+  blurrier at the same reported focus (one case, 2026-10-06); no reliable automatic check for this
+  exists yet.
 - **Tripwire limits.** The FAIL limits for roll (10°) and scale (8%) are provisional; the knock
   test reached FAIL through a lost corner tag, not through those limits.
 - **One rig, two weeks of data.** The evidence above comes from this rig between 2026-09-21 and

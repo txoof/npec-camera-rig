@@ -37,14 +37,21 @@ SIMULATED_AUTOFOCUS_POSITION = 6.3  # synthetic backend has no real optics; matc
 # much drift; 0.01 dioptres is far smaller than a real, operator-meaningful lens move.
 FOCUS_CONFIRM_POSITION_TOLERANCE = 0.01
 # Every lens move that matters for measurement (locking focus, restoring it at startup) takes one
-# path, `CameraManager.drive_lens_to`: step to LENS_APPROACH_OFFSET below the target, pause, set the
+# path, `CameraManager._drive_lens`: step to LENS_APPROACH_OFFSET below the target, pause, set the
 # target, then wait until the camera reports it. Measured 2026-10-01: the size of the central low
 # reading depends on the lens position (about 1.2 points of area per 0.1) and on how the lens got
 # there, and after a full-res capture the camera reports a move up to about 45 s late. One way of
 # getting there, confirmed, keeps that error the same every time, so validation can measure it.
 LENS_APPROACH_OFFSET = 0.3
 LENS_APPROACH_PAUSE_S = 1.0
-LENS_SETTLE_TIMEOUT_S = 60.0
+# How long every lens command waits for the camera to report the new position before the app says
+# the lens is not responding. A decision, not a measurement: measured 2026-10-06 (TODO.md, "Lens
+# stops responding after a full-res capture"), a working lens reports a new position within 0.6 s,
+# and a stuck one never does (90 s); 5 s leaves room for a large move without a long silent wait.
+# It was 60 s while the camera could report a move up to about 45 s late after a full-res capture;
+# since the camera is reopened before any lens command that follows a capture (prepare_lens), that
+# lag is the fault this detects.
+LENS_SETTLE_TIMEOUT_S = 5.0
 # How long one hardware autofocus cycle may hold the camera. picamera2's own wait has no limit:
 # if the scan never starts (seen after a pipeline reconfigure, TODO.md "wedges the whole camera
 # pipeline"), every camera call queues behind it until a restart. Same bound as a focus lock,
@@ -98,6 +105,14 @@ SENSOR_METADATA_FIELDS = ("SensorTimestamp", "ExposureTime", "AnalogueGain", "Co
 
 class CameraBackend(ABC):
     """A source of frames and focus control. Real hardware or synthetic, same interface."""
+
+    def prepare_lens(self) -> None:
+        """Make sure the next lens write is followed. Called right before every lens command
+        (CameraManager); nothing to do unless a backend needs it (Picamera2Backend)."""
+
+    def reset(self) -> None:
+        """Close and reopen the camera connection, which is also what controls the lens. Nothing
+        to do for a camera without one."""
 
     @abstractmethod
     def capture_array(self) -> np.ndarray:
@@ -221,7 +236,29 @@ class Picamera2Backend(CameraBackend):
     def __init__(self) -> None:
         from picamera2 import Picamera2
 
-        self._picam2 = Picamera2()
+        self._new_picamera2 = Picamera2
+        # The last lens position this app set, applied whenever the camera is opened.
+        self._lens_position = DEFAULT_LENS_POSITION
+        # Set by a full-res capture: the camera now ignores lens writes until it is reopened
+        # (prepare_lens).
+        self._lens_ignores_writes = False
+        self._open()
+        # AwbEnable/AeEnable are write-only in practice: checked directly (not assumed):
+        # capture_metadata() reports None for both, unlike ExposureTime/AnalogueGain/
+        # LensPosition, which it reports correctly. Cache the last value we set instead.
+        probed = self._picam2.camera_controls
+        self._control_cache = {
+            name: (True if probed[name][2] is None else probed[name][2])
+            for name in _CACHED_CONTROLS
+            if name in probed
+        }
+        # The last manual ExposureTime/AnalogueGain set (see set_control).
+        self._manual_cache: dict[str, object] = {}
+
+    def _open(self) -> None:
+        """Open the camera in the video configuration, in manual focus at the app's lens
+        position, and start it."""
+        self._picam2 = self._new_picamera2()
         # `main` gets NO explicit format. Confirmed 2026-09-21 against a known-color
         # real-world reference, twice over (first wrongly, then correctly -- see TODO.md for
         # the full account): explicitly keying "format" on a stream -- "RGB888" and "BGR888"
@@ -242,20 +279,8 @@ class Picamera2Backend(CameraBackend):
             lores={"size": LORES_SIZE, "format": "XBGR8888"},
         )
         self._picam2.configure(self._video_config)
-        self._picam2.set_controls({"AfMode": 0, "LensPosition": DEFAULT_LENS_POSITION})
-        # The last lens position this app set, re-applied after every configure() (see
-        # capture_full_res): configure() drops it along with manual AfMode.
-        self._lens_position = DEFAULT_LENS_POSITION
+        self._picam2.set_controls({"AfMode": 0, "LensPosition": self._lens_position})
         self._picam2.start()
-        # AwbEnable/AeEnable are write-only in practice: checked directly (not assumed) —
-        # capture_metadata() reports None for both, unlike ExposureTime/AnalogueGain/
-        # LensPosition, which it reports correctly. Cache the last value we set instead.
-        probed = self._picam2.camera_controls
-        self._control_cache = {
-            name: (True if probed[name][2] is None else probed[name][2])
-            for name in _CACHED_CONTROLS
-            if name in probed
-        }
 
     def capture_array(self) -> np.ndarray:
         return self._picam2.capture_array("main")
@@ -268,12 +293,8 @@ class Picamera2Backend(CameraBackend):
         # this negotiates plain 3-channel (logged as "BGR888", genuinely R,G,B as delivered)
         # and comes out correct against a known-color reference; explicitly keying "format"
         # does not, regardless of which string is named.
-        # Manual focus at the app's lens position goes into the still configuration itself, and
-        # is re-applied after switching back below: configure() otherwise drops AfMode and
-        # LensPosition too, and from then on the camera ignores every LensPosition write until
-        # the server restarts. Measured on the rig 2026-10-01: after one full-res capture, a
-        # write of 6.18 read back 6.44, and an autofocus cycle never returned (holding the
-        # camera lock), so a whole lens sweep was silently captured at one position.
+        # Manual focus at the app's lens position goes into the still configuration itself:
+        # configure() otherwise drops AfMode and LensPosition.
         focus = {"AfMode": 0, "LensPosition": self._lens_position}
         still_config = self._picam2.create_still_configuration(controls=dict(focus))
         self._picam2.stop()
@@ -283,24 +304,53 @@ class Picamera2Backend(CameraBackend):
             array = self._picam2.capture_array("main")
             metadata = self._picam2.capture_metadata()
         finally:
+            # Switched back to the video configuration, not reopened, and the lens is not moved.
+            # Measured on the rig 2026-10-06 (TODO.md, "Lens stops responding after a full-res
+            # capture"): after this switch the camera accepts every lens write and moves on none,
+            # but the lens stays where it was (reported position and sharpness unchanged). During
+            # an experiment nothing moves the lens (TODO.md, "Plan: nothing moves the lens during
+            # an experiment"), so a photo leaves it alone; a later lens command reopens the
+            # camera first (prepare_lens), which clears it.
             self._picam2.stop()
             self._picam2.configure(self._video_config)
             self._picam2.start()
             self._picam2.set_controls(dict(focus))
-            # configure() replaces picamera2's live Controls with just the new config's own
-            # (near-empty) controls dict — AeEnable/AwbEnable are silently dropped, and nothing
-            # else re-applies them. Confirmed on real hardware: after a full-res capture, the
-            # camera reverts to its config/tuning-file default while this app's own cache still
-            # claims AE/AWB are on, so the image can go stuck/washed-out without the checkbox
-            # ever changing. Restore whatever this app last believed AwbEnable/AeEnable were —
-            # via set_control, not a raw set_controls call, so re-enabling AE here also releases
-            # the ExposureTimeMode/AnalogueGainMode manual latch the same way a live checkbox
-            # toggle does (see set_control below). A manually-set ExposureTime/AnalogueGain
-            # while AE was off is NOT restored here — those aren't cached (see TODO.md).
-            for name, value in dict(self._control_cache).items():
-                self.set_control(name, value)
+            self._lens_ignores_writes = True
+            self._restore_cached_controls()
         sensor_metadata = {key: metadata.get(key) for key in SENSOR_METADATA_FIELDS}
         return array, sensor_metadata
+
+    def prepare_lens(self) -> None:
+        """Reopen the camera if a full-res capture has left it ignoring lens writes. Measured
+        2026-10-06: closing and reopening in the same process makes the lens follow again (a new
+        position reported in 0.6 s); it opens at the last position this app set."""
+        if self._lens_ignores_writes:
+            self.reset()
+
+    def reset(self) -> None:
+        """Close and reopen the camera in the same process: the lens control restarts with it, and
+        the camera opens at the last lens position this app set. About 1 s; the app, its settings
+        and the focus lock are untouched (Aaron, 2026-10-06: no one at the rig should need to
+        restart the app)."""
+        self._picam2.stop()
+        self._picam2.close()
+        self._open()
+        self._lens_ignores_writes = False
+        self._restore_cached_controls()
+
+    def _restore_cached_controls(self) -> None:
+        # configure() and a fresh camera both drop AeEnable/AwbEnable back to the tuning-file
+        # defaults, while this app's own cache still claims what they were set to, so the image
+        # could go stuck/washed-out without the checkbox ever changing. Restore whatever this app
+        # last believed they were, via set_control, not a raw set_controls call, so re-enabling AE
+        # here also releases the ExposureTimeMode/AnalogueGainMode manual latch the same way a
+        # live checkbox toggle does (see set_control below). A manually-set
+        # ExposureTime/AnalogueGain while AE was off is restored after them, from _manual_cache.
+        for name, value in dict(self._control_cache).items():
+            self.set_control(name, value)
+        # Then the manual values, which set_control applies only while AE is off.
+        for name, value in dict(self._manual_cache).items():
+            self.set_control(name, value)
 
     def set_lens_position(self, value: float) -> None:
         self._picam2.set_controls({"AfMode": 0, "LensPosition": value})
@@ -370,6 +420,11 @@ class Picamera2Backend(CameraBackend):
         self._picam2.set_controls({name: value})
         if name in _CACHED_CONTROLS:
             self._control_cache[name] = value
+        if name in _AE_DEPENDENT_CONTROLS:
+            # Kept so a reopen (prepare_lens, reset) or a full-res capture restores it too: since
+            # 2026-10-06 the camera is reopened before lens commands, and a manual exposure falling
+            # back to the camera default would change the photos unnoticed (code review).
+            self._manual_cache[name] = value
         if name == "AeEnable" and value:
             # picamera2 latches ExposureTimeMode/AnalogueGainMode to manual the moment any
             # nonzero ExposureTime/AnalogueGain is sent (request.py's CompletedRequest.release),
@@ -460,23 +515,35 @@ class AutofocusTimeoutError(RuntimeError):
     camera back in manual focus at `lens_position`, the position before the cycle."""
 
     def __init__(self, lens_position: float, step: str, elapsed_s: float) -> None:
-        super().__init__(
-            f"autofocus {step} after {elapsed_s:.0f} s; lens set back to "
-            f"{lens_position:.2f}, lock focus again"
-        )
+        # Measured 2026-10-06: after a full-res capture left the lens not following commands,
+        # autofocus timed out with the lens unchanged (TODO.md, "Lens stops responding").
+        super().__init__(f"{LENS_NOT_RESPONDING} (autofocus {step} after {elapsed_s:.0f} s)")
         self.lens_position = lens_position
 
 
+LENS_NOT_RESPONDING = "Lens not responding: press Reset camera"
+
+
 class LensNotSettledError(RuntimeError):
-    """The camera did not report the lens at its target in time."""
+    """The camera did not report the lens at its target in time: the lens is not following
+    commands. Seen 2026-10-05 and 10-06 after a full-res capture: every write is accepted and none
+    moves the lens, until the app restarts (TODO.md, "Lens stops responding")."""
 
     def __init__(self, target: float, reported: float, timeout_s: float) -> None:
         super().__init__(
-            f"the lens did not reach {target:.2f} within {timeout_s:.0f} s "
-            f"(it reports {reported:.2f})"
+            f"{LENS_NOT_RESPONDING} (set to {target:.2f}, the camera still reports "
+            f"{reported:.2f} after {timeout_s:.0f} s)"
         )
         self.target = target
         self.reported = reported
+
+
+class FocusLockedError(RuntimeError):
+    """A lens move or autofocus was asked for while focus is locked. Aaron, 2026-10-06: a locked
+    focus must not be changeable by anyone at the rig until it is unlocked."""
+
+    def __init__(self) -> None:
+        super().__init__("Focus is locked: press Unlock focus to change it")
 
 
 class LensMovedDuringLockError(RuntimeError):
@@ -607,59 +674,132 @@ class CameraManager:
         with self._call_lock:
             return self._backend.capture_preview_array()
 
-    def _drive_lens(self, value: float, timeout_s: float | None = None) -> float:
+    def _reset_camera_connection(self) -> None:
+        with self._call_lock:
+            self._backend.reset()
+
+    def _drive_lens(
+        self, value: float, timeout_s: float | None = None, retry: bool = True
+    ) -> float:
         """Move the lens to `value` the one consistent way (see LENS_APPROACH_OFFSET) and wait
-        until the camera reports it there. Returns the reported position; raises
-        LensNotSettledError if it does not get there within `timeout_s` (default
-        LENS_SETTLE_TIMEOUT_S). One drive at a time: a second one (Lock focus pressed twice) waits
-        for the first. Does not touch the focus lock: callers decide what a confirmed move means."""
+        until the camera reports it there. Returns the reported position. If the camera does not
+        report it, the camera is reset (closed and reopened) and the drive tried once more, unless
+        `retry` is False; raises LensNotSettledError if that fails too, and
+        LensMovedDuringLockError if another lens command takes over while it waits. Does not touch
+        the focus lock: callers decide what a confirmed move means."""
+        try:
+            return self._drive_lens_once(value, timeout_s)
+        except LensNotSettledError as exc:
+            if not retry:
+                raise
+            logger.warning("%s; resetting the camera and trying once more", exc)
+        self._reset_camera_connection()
+        return self._drive_lens_once(value, timeout_s)
+
+    def _drive_lens_once(self, value: float, timeout_s: float | None = None) -> float:
+        """One drive, as `_drive_lens` describes, without the retry. One drive at a time: a second
+        one (Lock focus pressed twice) waits for the first."""
         timeout_s = LENS_SETTLE_TIMEOUT_S if timeout_s is None else timeout_s
         with self._drive_lock:
             low = self._backend.available_controls().get("LensPosition", (0.0,))[0]
-            with self._call_lock:
-                self._backend.set_lens_position(max(low, value - LENS_APPROACH_OFFSET))
-            time.sleep(LENS_APPROACH_PAUSE_S)
-            with self._call_lock:
-                self._backend.set_lens_position(value)
+            approach = max(low, value - LENS_APPROACH_OFFSET)
             self._commanded_lens_position = value
             save_setting("LensPosition", value)
-            deadline = time.monotonic() + timeout_s
-            while True:
-                reported = self.get_lens_position()
-                if abs(reported - value) <= LENS_REPORT_TOLERANCE:
-                    return reported
-                if time.monotonic() >= deadline:
-                    raise LensNotSettledError(value, reported, timeout_s)
-                time.sleep(LENS_POLL_INTERVAL_S)
+            with self._call_lock:
+                self._backend.prepare_lens()
+                self._backend.set_lens_position(approach)
+            # Timed from here: waiting for the camera lock (a full-res capture) and the reopen in
+            # prepare_lens are not the lens being slow.
+            approach_sent = time.monotonic()
+            # The camera must report the approach position before the target counts: a stuck
+            # lens keeps reporting where it was, which can be the target itself (measured
+            # 2026-10-06: Lock focus "confirmed" 6.27 that way). Only a target at the bottom of
+            # the range, where the approach is the target, cannot be checked like this.
+            self._wait_for_report(approach, value, approach_sent + timeout_s, timeout_s)
+            # The fixed pause stays as it was, whatever the report does: the sequence the lens
+            # moves through is what the validation bands were measured with.
+            time.sleep(max(0.0, approach_sent + LENS_APPROACH_PAUSE_S - time.monotonic()))
+            if self._commanded_lens_position != value:
+                raise LensMovedDuringLockError(value, self._commanded_lens_position)
+            with self._call_lock:
+                self._backend.set_lens_position(value)
+            return self._wait_for_report(value, value, time.monotonic() + timeout_s, timeout_s)
+
+    def _wait_for_report(
+        self, position: float, commanded: float, deadline: float, timeout_s: float
+    ) -> float:
+        """Poll until the camera reports `position`. Raises LensNotSettledError at `deadline`, and
+        LensMovedDuringLockError if a newer lens command replaces `commanded` meanwhile."""
+        while True:
+            reported = self.get_lens_position()
+            if self._commanded_lens_position != commanded:
+                raise LensMovedDuringLockError(commanded, self._commanded_lens_position)
+            if abs(reported - position) <= LENS_REPORT_TOLERANCE:
+                return reported
+            if time.monotonic() >= deadline:
+                raise LensNotSettledError(position, reported, timeout_s)
+            time.sleep(LENS_POLL_INTERVAL_S)
 
     def set_lens_position(self, value: float) -> None:
-        with self._call_lock:
-            self._backend.set_lens_position(value)
-        self._commanded_lens_position = value
-        save_setting("LensPosition", value)
-        # A manual move invalidates whatever focus was locked -- the operator has to
-        # re-confirm and re-lock before calibration will trust it again. Persisted too, not
-        # just in-memory, so a restart right after a move doesn't resurrect the old confirm.
-        self._locked_lens_position = None
-        save_setting("FocusConfirmed", False)
+        """Move the lens directly (the slider), then wait until the camera reports it there. If it
+        does not within LENS_SETTLE_TIMEOUT_S, the camera is reset (closed and reopened) and the
+        move tried once more; raises LensNotSettledError if that fails too. A newer move arriving
+        meanwhile (the slider still being dragged) ends the wait without an error: that move does
+        its own check. Raises FocusLockedError, moving nothing, while focus is locked."""
+        if self._locked_lens_position is not None:
+            raise FocusLockedError()
+        for attempt in (1, 2):
+            if attempt == 2:
+                if self._commanded_lens_position != value:
+                    return  # a newer move took over; it does its own check
+                self._reset_camera_connection()
+            with self._call_lock:
+                self._backend.prepare_lens()
+                self._commanded_lens_position = value
+                self._backend.set_lens_position(value)
+            if attempt == 1:
+                save_setting("LensPosition", value)
+                # The lens moved: a lock set in the moment since the check above is void.
+                self._void_lock()
+            # A move to where the camera already reports the lens passes at once, stuck or not:
+            # the lens is then where it was asked to be.
+            try:
+                self._wait_for_report(
+                    value, value, time.monotonic() + LENS_SETTLE_TIMEOUT_S, LENS_SETTLE_TIMEOUT_S
+                )
+                return
+            except LensMovedDuringLockError:
+                return
+            except LensNotSettledError as exc:
+                if attempt == 2:
+                    raise
+                logger.warning("%s; resetting the camera and trying once more", exc)
 
     def get_lens_position(self) -> float:
         with self._call_lock:
             return self._backend.get_lens_position()
 
     def autofocus(self) -> dict:
-        """One autofocus cycle. Clears the lock either way: the lens moved, or may have."""
+        """One autofocus cycle. Raises FocusLockedError, moving nothing, while focus is locked."""
+        if self._locked_lens_position is not None:
+            raise FocusLockedError()
         timed_out = None
         with self._call_lock:
+            self._backend.prepare_lens()
             try:
                 success, lens_position = self._backend.autofocus()
             except AutofocusTimeoutError as exc:
                 success, lens_position, timed_out = False, exc.lens_position, str(exc)
         save_setting("LensPosition", lens_position)
         self._commanded_lens_position = lens_position
-        self._locked_lens_position = None
-        save_setting("FocusConfirmed", False)
+        # The lens moved, or may have: a lock set in the moment since the check above is void.
+        self._void_lock()
         return {"success": success, "lens_position": lens_position, "timed_out": timed_out}
+
+    def _void_lock(self) -> None:
+        if self._locked_lens_position is not None:
+            self._locked_lens_position = None
+            save_setting("FocusConfirmed", False)
 
     def available_controls(self) -> dict[str, tuple]:
         with self._call_lock:
@@ -733,6 +873,25 @@ class CameraManager:
         save_setting("FocusConfirmedLensPosition", lens_position)
         return self.focus_status()
 
+    def reset_camera(self) -> dict:
+        """The Reset camera button: close and reopen the camera, then drive the lens back to the
+        locked position (or the last one set) the one consistent way. The lock stays if the camera
+        confirms the position and is cleared if it does not (LensNotSettledError raised). Returns
+        the focus status and the position the lens was driven to."""
+        self._reset_camera_connection()
+        target = self._locked_lens_position
+        if target is None:
+            target = self._commanded_lens_position
+        if target is not None:
+            try:
+                self._drive_lens(target, retry=False)
+            except LensNotSettledError:
+                if self._locked_lens_position is not None:
+                    self._locked_lens_position = None
+                    save_setting("FocusConfirmed", False)
+                raise
+        return self.focus_status() | {"lens_position_set": target}
+
     def unlock_focus(self) -> dict:
         self._locked_lens_position = None
         save_setting("FocusConfirmed", False)
@@ -745,5 +904,7 @@ class CameraManager:
         }
 
     def capture_full_res(self) -> tuple[np.ndarray, dict]:
+        """A full-res photo. Does not move the lens: during an experiment nothing does (TODO.md,
+        "Plan: nothing moves the lens during an experiment")."""
         with self._call_lock:
             return self._backend.capture_full_res()

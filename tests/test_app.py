@@ -198,6 +198,69 @@ def test_lens_position_get_and_set() -> None:
     assert response.json() == {"value": 6.3}
 
 
+class _StuckLensBackend(SyntheticBackend):
+    """Accepts every lens write and keeps reporting the same position."""
+
+    def get_lens_position(self) -> float:
+        return 6.27
+
+
+def test_a_lens_that_does_not_follow_a_move_or_a_lock_returns_lens_not_responding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import npec_rig.camera as camera_module
+
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    CameraManager.set_instance(CameraManager(_StuckLensBackend()))
+    client = TestClient(app)
+
+    response = client.post("/controls/lens-position", json={"value": 4.77})
+    assert response.status_code == 503
+    assert response.json()["detail"].startswith("Lens not responding: press Reset camera")
+
+    response = client.post("/focus/lock")
+    assert response.status_code == 503
+    assert response.json()["detail"].startswith("Lens not responding: press Reset camera")
+
+
+def test_a_locked_focus_refuses_lens_moves_and_autofocus_with_a_clear_message() -> None:
+    client = TestClient(app)
+    client.post("/controls/lens-position", json={"value": 6.3})
+    client.post("/focus/lock")
+
+    move = client.post("/controls/lens-position", json={"value": 4.77})
+    autofocus = client.post("/focus/autofocus")
+    for response in (move, autofocus):
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Focus is locked: press Unlock focus to change it"
+    assert client.get("/controls/lens-position").json() == {"value": 6.3}
+
+
+def test_reset_camera_keeps_the_lock_and_says_where_the_lens_was_driven() -> None:
+    client = TestClient(app)
+    client.post("/controls/lens-position", json={"value": 6.3})
+    client.post("/focus/lock")
+
+    response = client.post("/camera/reset")
+    assert response.status_code == 200
+    assert response.json() == {"locked": True, "lens_position": 6.3, "lens_position_set": 6.3}
+
+
+def test_a_reset_that_does_not_help_says_restart_the_app(monkeypatch: pytest.MonkeyPatch) -> None:
+    import npec_rig.camera as camera_module
+
+    monkeypatch.setattr(camera_module, "LENS_SETTLE_TIMEOUT_S", 0.0)
+    manager = CameraManager(_StuckLensBackend())
+    manager._commanded_lens_position = 4.77
+    CameraManager.set_instance(manager)
+
+    response = TestClient(app).post("/camera/reset")
+    assert response.status_code == 503
+    assert response.json()["detail"].startswith(
+        "The camera reset did not help, the lens still does not follow: restart the app"
+    )
+
+
 def test_autofocus_endpoint() -> None:
     client = TestClient(app)
     response = client.post("/focus/autofocus")
@@ -1857,6 +1920,15 @@ def test_validation_status_follows_the_newest_session_of_the_active_calibration(
             assert status["state"] == "not_validated" and "so far" in status["text"]
     assert status["state"] == "validated" and status["session_id"] == session["id"]
     assert status["text"].startswith("Validated ")
+    # The three rounds here are seconds apart: the status says they were spread too little.
+    assert "under the recommended 20" in status["text"]
+    summary = client.get(f"/validation/sessions/{session['id']}").json()
+    assert summary["short_span"] is True and summary["min_span_minutes"] == 20
+    assert summary["min_round_gap_minutes"] == 10
+    assert summary["short_gap"] is True and summary["shortest_gap_minutes"] < 1
+    assert "apart, under the recommended 10" in status["text"]
+    assert summary["first_counted_at"] <= summary["last_counted_at"]
+    assert summary["round_span_minutes"] < 1
 
     # A new session replaces the old one's status until it completes.
     newer = client.post("/validation/sessions").json()

@@ -18,6 +18,7 @@ request (or with the calibration they belong to).
 from __future__ import annotations
 
 import json
+import math
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,6 +49,18 @@ SLOT_OFFSET_PCT = 3.0
 # The all-slot median more than this from 0: every slot reads off since the calibration, so the
 # camera or table moved. In the same 8 sessions it was at most 0.66 points.
 TABLE_OFFSET_PCT = 2.5
+# The counted rounds should be spread over at least this long, first to last. A decision, not a
+# measurement (Aaron, 2026-10-07): with one photo a minute and nothing touched, readings rose and
+# fell on a repeating cycle of about 19 minutes (metrology-log section 8.1, run 3j: about 0.35
+# points in the median, up to 0.6 in a slot), so rounds taken within a few minutes all see one
+# point of that cycle and the bands miss it. Shorter sessions are not blocked: the result says so.
+MIN_SPAN_MINUTES = 20.0
+# Counted rounds should be at least this far apart: the page counts down to the next round, asks
+# before a sooner one, and a completed session with a shorter gap says so (rounds close together see
+# about the same point of the cycle above). A decision, not a measurement (Aaron, 2026-10-07:
+# encourage the operator not to rush; 10 so that 3 rounds at the countdown fall at 0, 10 and 20
+# minutes, evenly spread). Not a block.
+MIN_ROUND_GAP_MINUTES = 10.0
 SESSION_VERSION = 1
 _SESSION_ID = re.compile(r"^\d{8}T\d{12}$")
 
@@ -190,6 +203,65 @@ def counted_rounds(session: dict) -> list[dict]:
     return [r for r in session["rounds"] if r["counted"]]
 
 
+def round_span_minutes(session: dict) -> float | None:
+    """Minutes from the first to the last counted round, by capture time. None with fewer than 2
+    counted rounds that have a capture time (store-level test rounds have none)."""
+    times = _counted_times(session)
+    if len(times) < 2:
+        return None
+    return (times[-1] - times[0]).total_seconds() / 60
+
+
+def first_last_counted(session: dict) -> tuple[str | None, str | None]:
+    """Capture times of the first and the last counted round (ISO, UTC)."""
+    times = _counted_times(session)
+    if not times:
+        return None, None
+    return times[0].isoformat(), times[-1].isoformat()
+
+
+def _counted_times(session: dict) -> list[datetime]:
+    return sorted(
+        datetime.fromisoformat(r["captured_at"]) for r in counted_rounds(session) if r.get("captured_at")
+    )
+
+
+def shortest_gap_minutes(session: dict) -> float | None:
+    """The shortest time between two consecutive counted rounds, in minutes. None with fewer than 2
+    counted rounds that have a capture time."""
+    times = _counted_times(session)
+    if len(times) < 2:
+        return None
+    return min((b - a).total_seconds() for a, b in zip(times, times[1:])) / 60
+
+
+def short_gap(session: dict) -> bool:
+    """Complete, but two counted rounds are closer together than MIN_ROUND_GAP_MINUTES."""
+    gap = shortest_gap_minutes(session)
+    return (
+        len(counted_rounds(session)) >= ROUNDS_REQUIRED
+        and gap is not None
+        and gap < MIN_ROUND_GAP_MINUTES
+    )
+
+
+def short_span(session: dict) -> bool:
+    """Complete, but the counted rounds span less than MIN_SPAN_MINUTES."""
+    span = round_span_minutes(session)
+    return (
+        len(counted_rounds(session)) >= ROUNDS_REQUIRED
+        and span is not None
+        and span < MIN_SPAN_MINUTES
+    )
+
+
+def span_text(minutes: float) -> str:
+    """Rounded down, so a value under a limit never reads as the limit (9.96 is "9.9")."""
+    if minutes < 10:
+        return f"{math.floor(minutes * 10) / 10:.1f}"
+    return f"{math.floor(minutes):.0f}"
+
+
 def round_slot_results(round_: dict) -> dict[str, dict] | None:
     """One round's own per-slot figures, as `refresh_results` reports the pooled ones."""
     if round_["slot_errors"] is None:
@@ -289,7 +361,18 @@ def status(session: dict) -> dict:
             slots = ", ".join(flagged)
         return {"state": "not_consistent", "label": f"Not consistent: {slots}"}
     if is_validated(session):
-        return {"state": "validated", "label": f"Validated {session['completed_at'][:10]}"}
+        label = f"Validated {session['completed_at'][:10]}"
+        if short_span(session):
+            label += (
+                f", rounds spread over {span_text(round_span_minutes(session))} min, under the "
+                f"recommended {MIN_SPAN_MINUTES:.0f}"
+            )
+        if short_gap(session):
+            label += (
+                f", rounds {span_text(shortest_gap_minutes(session))} min apart, under the "
+                f"recommended {MIN_ROUND_GAP_MINUTES:.0f}"
+            )
+        return {"state": "validated", "label": label}
     state = "Ended before completion" if session.get("ended_at") else "Provisional"
     return {"state": "not_validated", "label": f"{state}: {counted} of {ROUNDS_REQUIRED} rounds"}
 
@@ -365,3 +448,14 @@ def refresh_results(session: dict) -> None:
     ]
     if session["completed_at"] is None and len(counted_rounds(session)) >= ROUNDS_REQUIRED:
         session["completed_at"] = datetime.now(timezone.utc).isoformat()
+    # Recorded with the result, so the session file itself says how spread out the rounds were.
+    session["round_span_minutes"] = round_span_minutes(session)
+    session["short_span"] = short_span(session)
+    session["shortest_gap_minutes"] = shortest_gap_minutes(session)
+    session["short_gap"] = short_gap(session)
+    # The limits the two flags above were judged with: the page always judges with the current
+    # ones, so a stored flag can differ from the page after a limit changes.
+    session["judged_with"] = {
+        "min_span_minutes": MIN_SPAN_MINUTES,
+        "min_round_gap_minutes": MIN_ROUND_GAP_MINUTES,
+    }

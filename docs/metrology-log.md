@@ -47,6 +47,7 @@ two area errors (for example +1.00% to +1.03%) is given in *points* (+0.03 point
 | Calibration tag side | 30.0 ± 0.1 mm (readings X 30.10, 30.11, 29.96; Y 30.04, 29.96, 29.94; mean 30.018) | Callipers, 6 readings, one print run | 2026-09-29 | That print run only. Every new print is measured again. ±0.1 mm on 30 mm is about ±0.67% in area |
 | Corner tag side | 50.02 mm (mean) | Callipers | 2026-09-29 | Corner tags are used for the rig health check (tripwire) and table view, not for area |
 | Sheet scale bars | 179.93 and 180.03 mm (nominal 180) | Callipers, 2 bars | 2026-09-29 | Confirms the sheets printed at 100% scale |
+| Reference tag 500 side (60 mm, 36h11 ID 500, fixed at the north table edge) | 60.06 mm mean, SD 0.04 (Y 60.07, 60.05, 60.10, 60.05; X 60.01, 60.05, 60.00, 60.13) | Callipers, 8 readings, remeasured with care | 2026-10-06 | Supersedes a first set the same day (59.58 to 60.26, mean 59.94). Placed 2026-10-06 at the supervisor's suggestion as a static target |
 | Calliper resolution trusted | 0.1 mm | **Decision** | | Readings are not used beyond 0.1 mm |
 | Sheet-to-sheet difference | up to about 0.7% in area between sheets that both measure 30.0 mm | Fit residuals, 6 pages, 3 sessions | 2026-09-30 to 10-01 | `reference/arducam-central-error-2026-10.md` |
 
@@ -87,14 +88,27 @@ in place, and the rig photographs the table. This is one round. 3 rounds are req
 (**decision**). A round counts only if at least 50% of tags moved more than 5 mm, so the same
 layout is not counted twice (basis: a real shuffle moved 83% to 90% of tags; an untouched table
 moved 0%). The calibration photograph is never a round, because the scale field was fitted to
-those same tags.
+those same tags. From 2026-10-07 the counted rounds should span at least 20 minutes, first to
+last, with the chamber door closed for every round (**decision**, Aaron 2026-10-07; basis: run 3j
+in section 8.1 found readings rising and falling on a cycle of about 19 minutes, and an open door
+disturbed Control A). A shorter spread is not blocked: the session records its span
+(`round_span_minutes`, `short_span`) and its status says "rounds spread over N min, under the
+recommended 20". Counted rounds should also be at least 10 minutes apart (**decision**, Aaron
+2026-10-07, first set at 6 and changed to 10 the same day so the rounds fall at 0, 10 and 20
+minutes; with a cycle of about 19 minutes the first and last round then see nearly the same point
+of it, so 3 rounds sample about 2 points of the cycle, and the cycle length varies with the
+experiment): the page counts down to the next round and asks before a sooner one, and a session
+with a shorter gap records it (`shortest_gap_minutes`, `short_gap`) and says "rounds N min apart,
+under the recommended 10". The door cannot be detected by the rig; the operator confirms it for every round.
 
 **The band.** For each tray slot, the band is the 95th percentile of the absolute area error of
 all tags in that slot over all counted rounds: 95% of the tags read within that distance of
 their true area. Fewer than 10 tags in a slot gives "not measured" (**decision**).
 
 **Current bands** (session `20261005T141310628479`, calibration `20261005T141101923639`, lens
-6.27, 3 rounds at 14:13, 14:14 and 14:15 UTC, 92% to 96% of tags moved, 85 to 90 tags per slot):
+6.27, 3 rounds at 14:13, 14:14 and 14:15 UTC, 92% to 96% of tags moved, 85 to 90 tags per slot;
+spread over 1.5 minutes, under the recommended 20, so these bands do not include the 19-minute
+cycle of run 3j):
 
 | Slot | Band | Median error | Slot | Band | Median error |
 |---|---|---|---|---|---|
@@ -168,8 +182,9 @@ several percent. Measured at milestone M5.
 | Lens moved and driven back to the same position | median change -0.03 points, spread 0.28, 355 of 355 tags; over 60 min largest slot change +0.35 points (about 1/6 of that slot's band) | Autofocus moved the lens, re-locked at 6.15, photographs at +0, +15, +30, +60 min, each tag compared with itself | 2026-10-05, `reference/lens-return-2026-10.md` |
 | Drift at a fixed lens position after moves | central ring changed 1.3 points in 35 min | Lens sweep then return to 6.18 | 2026-10-01 |
 | Change over time with nothing moved (control) | over 45 to 60 min: median within ±0.17 points, central ring within ±0.26, single slots up to 0.52 (about 1/4 of that slot's band); goes up and down, not a steady drift | Same method, lens untouched, two series (one partly disturbed by people in the chamber) | 2026-10-05, `reference/lens-return-2026-10.md` |
+| One photo a minute for 2 hours, no reopen, lens locked (run 3j) | a repeating cycle of about 19 minutes: median swings by about 0.35 points (-0.08 to +0.33 against the first photo), largest slot 0.62; no drift (each cycle returns to the same low point); sharpness rises and falls with it | Plain photos through the app, section 8.1 run 3j | 2026-10-06 |
 | App restart | right after: median +0.08 and +0.09 points (two attempts), 355 of 355 tags; over 60 min median within ±0.13, largest slot -0.29 (about 1/6 of its band); inside the control range | Server killed and restarted, lens driven back to 6.15 at start-up; repeat-photograph test (section 8.1) | 2026-10-05, `reference/lens-return-2026-10.md` |
-| Power cut | planned (run 3, section 8.1) | | |
+| Power cut (cold start) | right after: median -1.73 points, 291 of 354 tags found, central slots blurrier; +15 min -0.41, +30 -0.38, +60 -0.14 (largest slot -0.62); recovers with no lens move | Pi off about 30 min, camera not opened until the run; repeat-photograph test (run 3) | 2026-10-06 |
 | Two calibrations in a row | scale fields agreed within 0.02% to 0.16% | 332 and 340 tags, lens moved away and back, 2026-09-25 | Before the current lens-drive method |
 
 On 2026-10-05, the changes after moving the lens and driving it back (run 1) and after an app
@@ -215,7 +230,362 @@ changes nothing).
 | Control A | None; people working in the chamber, door opened, one sheet moved, 23 tags hidden | 2026-10-05, 09:02 to 10:02 | Done, disturbed | 332 tags compared |
 | Control B | None; undisturbed | 2026-10-05, 10:02 to 10:47 | Done | Median within ±0.10, slots up to 0.52 |
 | 2 | App restart: the server process is killed and started again. At start-up the app drives the lens to the locked position the same way as Lock focus (0.3 below, pause, target) and waits until the camera reports it there | 2026-10-05, 10:53 and 11:15 | Done (first attempt disturbed after +0) | Inside the control range |
-| 3 | Power cut at the rig: the Pi is switched off long enough to cool (for example 30 minutes), then on | | Planned | |
+| 3 | Power cut at the rig: the Pi is switched off long enough to cool (for example 30 minutes), then on | 2026-10-06, 08:30 to 09:31 | Done | Large change right after, recovering within an hour (below) |
+
+**Run 3 method, written before the run (2026-10-06).** The Pi was shut down on the evening of
+2026-10-05 and left off for about 30 minutes, then booted; the app was not started and the camera
+not opened until the run, so the camera did not warm up and the focus motor had been without
+power. Lights at full, door closed, nothing on the table touched since the last validation round.
+Two differences from steps 2 and 4 above: (1) the reference is the last validation round before
+the shutdown, `2026-10-05/141511_466090` (session `20261005T141310628479`, round 3, 14:15:11 UTC),
+because a fresh reference would have opened the camera; (2) the follow-up photographs are plain
+captures through the app (`POST /capture`, the same full-res capture path as a round), because
+that session is closed and a new session would count the first photograph as a validation round.
+The app is started by hand; at start-up it drives the lens to the persisted 6.27 and restores the
+lock. Photographs at +0, +15, +30 and +60 minutes after the lock is restored. Analysis as above,
+each tag compared with itself in the reference.
+
+**Run 3b method, written before it runs (2026-10-06), added after the +0 photograph** showed the
+central slots blurrier than in the reference. Question: does driving the lens to both ends of its
+range before driving it to the focus position restore the sharpness? Right after the +60
+photograph, nothing else changed: the lens is set to the minimum, then the maximum of the
+camera's probed range, then to 6.27, each held 30 s, with the reported position and the focus
+score read every second (which also shows whether the lens follows commands after a full-res
+capture, the open lens bug). Then Lock focus (the app's usual 0.3-below approach), then one
+capture. Compared with the +60 photograph: sharpness on the tag sheets at each slot centre, tags
+detected, and the per-tag area change against the reference.
+
+**Run 3 results** (app started 08:30:54 UTC; lens reported 6.27 and locked at 08:31:01; reference
+`2026-10-05/141511_466090`, 354 tags). Sharpness is the Laplacian variance of a 600 px square at
+each slot centre on the tag sheets, as a ratio to the reference (1.00 unchanged).
+
+| Photo | Time (UTC) | Tags matched | Median change | Spread (SD) | Ring 1000 to 1500 px | Largest slot median | Sharpness, median of 12 slots | Sharpness, North 3 / South 3 / South 4 |
+|---|---|---|---|---|---|---|---|---|
+| +0 | 08:31:03 | 291 | -1.73 | 1.03 | -1.07 | -2.81 (North 2) | 0.82 | 0.43 / 0.38 / 0.43 |
+| +15 | 08:46:06 | 348 | -0.41 | 0.57 | -0.02 | -0.88 (South 1) | 0.94 | 0.79 / 0.78 / 0.82 |
+| +30 | 09:01:04 | 346 | -0.38 | 0.66 | -0.08 | -1.00 (South 1) | 0.95 | 0.80 / 0.79 / 0.83 |
+| +60 | 09:31:03 | 352 | -0.14 | 0.50 | +0.02 | -0.62 (South 1) | 0.97 | 0.90 / 0.91 / 0.92 |
+
+The image did not move (tags within about 3.5 px of the reference, scale change 0.02%) and the
+reported lens position was 6.27 throughout. Right after a cold start the central trays are
+blurrier, fewer tags are found, and areas read about 1.7 points low; North 2 (-2.81) is outside
+its band (±1.86%). Without any lens move the picture sharpens and the readings return: by +15
+min most of the change is gone, by +60 the median is -0.14 and the largest slot -0.62, close to
+the control's 0.52. The likely cause is the camera warming up after being cold; it was not
+measured directly. **Practical consequence:** after a power cut, readings in roughly the first
+15 minutes after the app opens the camera are not covered by the bands; by 60 minutes they are
+close to the ordinary change over time.
+
+**Run 3b result: the sweep did not happen; the lens bug reproduced instead.** After the 4
+full-res captures of run 3 (plain `POST /capture`, no calibration, no knock, no Autofocus), the
+lens was set to 0.0 and to 15.0 and held 30 s at each: every command returned 200, but all 100
+per-second readings of the reported position were 6.27 and the focus score stayed between 374 and
+380, so the lens did not move. Lock focus then reported success at 6.27, the position the lens
+already reported. The after-sweep photograph (09:32:52) matches +60 (median -0.11, sharpness
+0.96). So whether a sweep to both ends improves sharpness is still not known.
+
+**Run 3c method, written before it runs (2026-10-06):** the run 3b sequence repeated in a freshly
+restarted app (server killed and started again, start-up drive to 6.27 and lock), before any
+full-res capture in that process, so the lens follows commands. Compared with the +60 and
+after-sweep photographs and the reference, as in run 3b.
+
+**Run 3c result** (restart 09:36:16 UTC, locked 6.27 at 09:36:20). The lens followed every
+command: focus score 375 before, 3.1 at 0.0, 2.3 at 15.0, 336 to 340 back at 6.27 (the focus-aid
+square is at table height, below the trays). Photograph 09:38:07 against the reference: 354 of
+354 tags matched, median change +0.30 points (spread 0.48), ring 1000 to 1500 px +0.04, slots
+-0.06 (North 4) to +0.59 (North 1). Sharpness, median of 12 slots, 1.03 (0.96 just before the
+sweep); North 3 / South 3 / South 4 1.02 / 1.08 / 1.05; North 4 fell from 1.13 to 0.84.
+
+Reading: after the sweep every tag was found again and most slots were as sharp as in the
+reference, but the readings moved by about +0.4 points from just before (-0.11 to +0.30), more
+than the control's median change (within ±0.17). One run, 7 minutes after +60, with a restart in
+between (a restart alone moved readings +0.08 and +0.09 on 2026-10-05), so the sweep's own effect
+is not separated from warming up and the restart. It does show the lens lands slightly
+differently after a different route to the same reported position.
+
+**Run 3d method, written before it runs (2026-10-06, about 11:40 UTC).** Photographs at 11:18 to
+11:19 UTC (after the lens diagnosis, several app restarts and the slice 1 fix) found 318 tags
+against 359 at 09:38, with the central slots about half as sharp (North 3 / South 3 / South 4
+0.51 / 0.46 / 0.51), lens reported 6.27 both times and no tag moved (318 of 318 within 20 px,
+median 2.2 px). Question: does driving the lens to both ends of its range, then to 6.27 and Lock
+focus, restore the sharpness? With the slice 1 fix the lens follows commands after a capture.
+Steps, nothing else changed, door closed: one capture; lens to 0.0, 15.0, 6.27 (15 s each, reported
+position and focus score read twice a second); Lock focus; two captures. Compared: tags found,
+sharpness per slot against the 2026-10-05 reference, and per-tag area change against the first
+capture. Raw data: `/home/pi/scratch/lens-fix-check-2026-10-06/`.
+
+**Run 3d result.** Before the run Aaron had moved the lens and locked it again at 6.27 (after a
+capture, through the app). The lens followed every command (focus score 3.1 at 0.0, 2.3 at 15.0,
+375 back at 6.27).
+
+| Photo | Time (UTC) | Tags found | Sharpness, median of 12 slots | North 3 / South 3 / South 4 | Median change against P1 |
+|---|---|---|---|---|---|
+| (11:18, before Aaron's lock) | 11:18:32 | 318 | 0.90 | 0.51 / 0.46 / 0.51 | |
+| P1, before the sweep | 11:30:03 | 341 | 0.93 | 0.66 / 0.63 / 0.69 | |
+| P2, after sweep and lock | 11:31:01 | 339 matched | 0.93 | 0.82 / 0.81 / 0.86 | +0.39 (spread 0.43) |
+| P3, 5 s later | 11:31:06 | 338 matched | 0.95 | 0.85 / 0.87 / 0.90 | +0.50 (spread 0.50) |
+| (09:38, after run 3c's sweep) | 09:38:07 | 359 | 1.03 | 1.02 / 1.08 / 1.05 | |
+
+Reading: with the lens reported at 6.27 every time, the sharpness of the central slots ranged
+from about half to fully that of the reference over the day, depending on the lens's history.
+The sweep raised it, but not to the 09:38 level. Readings moved with it: +0.39 points after the
+sweep, and P3 moved a further +0.11 from P2 with no command between them except the drive back
+after P2's capture. This does not reopen the closed central-error investigation, but it measures
+that the error at one reported lens position is not fixed from one lens history to the next.
+
+**Run 3e method, written before it runs (2026-10-06, about 11:55 UTC): does the static tag 500
+show it?** During an experiment no one will re-validate, so a change in the lens landing has to
+be seen in the photographs themselves. Tag 500 (section 3) never moves, so a change in its
+apparent area or sharpness between photographs comes from the camera side. Question: when the
+calibration tags' readings change with the lens history, does tag 500 change too, and by more
+than its photograph-to-photograph noise (0.15% in area between two photographs at 11:45)? Four
+conditions, 2 captures each, nothing on the table touched, door closed: (1) nothing changed;
+(2) lens to 0.0, 15.0, 6.27 (10 s each), Lock focus; (3) app restart (start-up drive to 6.27);
+(4) the sweep of (2) again. For each capture: tag 500's area in pixels and the sharpness of a
+500 px square around it; the calibration tags' median area error with the current calibration,
+for all tags, the North row and the central slots (North 3, North 4, South 3, South 4). Compared
+as changes against the first capture of condition 1. Raw data:
+`/home/pi/scratch/lens-fix-check-2026-10-06/tag500-test/`.
+
+**Run 3e result** (11:53 to 11:55 UTC; the lens followed every command, Lock focus confirmed 6.27
+each time). Changes against the first capture; calibration tags in points of area error:
+
+| Capture | Tag 500 area | Tag 500 sharpness | Tags | All tags | North row | Central slots |
+|---|---|---|---|---|---|---|
+| 1 nothing changed, a | 0.00% | 30.8 | 350 | 0.00 | 0.00 | 0.00 |
+| 1 nothing changed, b | -0.26% | 30.8 | 345 | -0.03 | -0.16 | +0.02 |
+| 2 sweep and lock, a | -0.27% | 30.1 | 349 | +0.03 | -0.02 | +0.06 |
+| 2 sweep and lock, b | -0.12% | 32.4 | 350 | +0.18 | +0.03 | +0.13 |
+| 3 app restart, a | -0.13% | 34.2 | 351 | +0.40 | +0.19 | +0.25 |
+| 3 app restart, b | +0.13% | 35.9 | 352 | +0.29 | +0.15 | +0.16 |
+| 4 sweep again, a | +0.14% | 34.2 | 352 | +0.33 | +0.20 | +0.30 |
+| 4 sweep again, b | +0.07% | 36.6 | 351 | +0.40 | +0.22 | +0.32 |
+
+Reading: none of the four conditions moved the calibration tags by more than 0.40 points this
+time, much less than the cold start (-1.73) or the 11:18 photographs. Tag 500's area varied
+-0.27% to +0.14% with no pattern; two photographs 5 s apart differed by 0.26%, so its area cannot
+show a change of this size. Its sharpness rose 19% (30.8 to 36.6) while the tags rose 0.40 points,
+which may track the change but is not shown by 8 photographs. Not answered: whether tag 500 shows
+a larger change. That needs a condition that is known to move the readings by about a point or
+more.
+
+**Run 3f method, written before it runs (2026-10-06, about 12:10 UTC).** A change of known size:
+lens set to 6.17 and Lock focus, 2 captures; set to 6.37 and Lock focus, 2 captures; set to 6.27
+and Lock focus, 2 captures. From the central-error investigation, 0.1 of lens position moves the
+central readings by about 1.2 points. These are test settings, not recommended positions; the
+experimenter's 6.27 is restored at the end. Same quantities as run 3e, as changes against the
+first 6.27 capture. Raw data: `/home/pi/scratch/lens-fix-check-2026-10-06/tag500-test-3f/`.
+
+**Run 3f result** (12:07 to 12:08 UTC; every lock confirmed). Changes against the first 6.27
+capture; calibration tags in points of area error:
+
+| Capture | Tag 500 area | Tag 500 sharpness | Tags | All tags | North row | Central slots |
+|---|---|---|---|---|---|---|
+| 6.27, a | 0.00% | 28.5 | 341 | 0.00 | 0.00 | 0.00 |
+| 6.27, b | -0.25% | 28.7 | 346 | -0.01 | -0.07 | -0.06 |
+| 6.17, a | +0.27% | 49.2 | 355 | +0.58 | +0.67 | -0.09 |
+| 6.17, b | +0.16% | 48.8 | 355 | +0.69 | +0.71 | +0.14 |
+| 6.37, a | -0.41% | 22.5 | 274 | -0.97 | -1.03 | -0.90 |
+| 6.37, b | -0.35% | 22.6 | 279 | -1.01 | -1.18 | -1.00 |
+| 6.27 again, a | -0.26% | 28.6 | 346 | -0.00 | -0.04 | -0.12 |
+| 6.27 again, b | -0.44% | 28.1 | 342 | -0.05 | -0.03 | -0.08 |
+
+Reading: a lens change that moves the calibration tags by +0.6 to -1.0 points changes tag 500's
+**sharpness** by +72% and -21%, against about 2% between repeated photographs at one position;
+returning to 6.27 brought it back to within 1% (28.1 to 28.6). Tag 500's **area** changed by
+only +0.2% and -0.4%, about as much as its repeat noise (0.25%), so its area is not a usable
+signal. Tag 500's sharpness is a usable detector of a change in the lens landing. Not measured:
+its relation to the readings is not a straight line, so it can say "changed", not by how many
+points; the sharpness score also depends on
+light, so a change of chamber lighting would show too.
+
+**Run 3g (2026-10-06, 12:46 UTC): a case tag 500 does not show.** At 12:37 UTC the camera stopped
+delivering frames ("Camera frontend has timed out") just after three app reloads in about a
+minute (code edits) while the preview was being read; the app was restarted at 12:44. Then, with
+nothing else changed, lights as before (exposure 3.4 ms, same mean brightness), the tag 500
+reference was set (12:46:32) and the lens locked at 6.37 and back at 6.27, one capture each.
+Sharpness per slot against the 2026-10-05 reference, and changes against the reference capture:
+
+| Capture | North 3 / South 3 / South 4 | Tags found | Calibration tags, all / central | Tag 500 sharpness (app's check) |
+|---|---|---|---|---|
+| 12:07 (run 3f, 6.27, before the timeout) | 0.67 / 0.61 / 0.74 | 341 | | |
+| 12:46:32, 6.27 (reference set) | 0.36 / 0.31 / 0.39 | 257 | 0.00 / 0.00 | 33.5 (reference) |
+| 12:46:37, 6.27 | | 257 | -0.03 / +0.07 | +2.9%, OK |
+| 12:46:44, 6.37 | 0.27 / 0.26 / 0.33 | 155 | -0.99 / -1.13 | +3.7%, OK |
+| 12:46:50, 6.27 | | 264 | +0.05 / +0.21 | +1.1%, OK |
+
+Reading: after that restart the central slots were about half as sharp as at 12:07, at the same
+reported 6.27, and a lens change that moved the readings by -1.0 points did not change tag 500's
+sharpness by more than 4%. So tag 500 at the north table edge does not reliably show a change in
+the central trays; in run 3f it did. The reference set at 12:46 was taken in the blurred state and
+is not a valid reference. Where a reference target sits matters: tag 500 is at tray height but at
+the north edge of the frame, and its sharpness did not stand for the trays in the middle.
+(Corrected 2026-10-06: an earlier version of this section said tag 500 sits at table height; it
+sits at tray height.)
+
+**Tag 500 focus sweep (2026-10-06, 13:38 to 13:39 UTC).** Can tag 500 serve as a focus target?
+The app's focus-aid square was put on tag 500 (preview coordinates 719, 181; 64 px, about the
+tag and a margin) and the lens stepped upward from 5.50 to 7.00 in steps of 0.05, approached from
+5.2, 0.8 s after each step, focus score read 3 times per step (repeat readings within about 2%).
+Afterwards the focus-aid square was put back and the lens locked at the experimenter's 6.27.
+
+| Lens | 5.50 | 5.75 | 5.90 | 6.00 | 6.05 | 6.10 | 6.15 | 6.20 | 6.25 | 6.30 | 6.35 | 6.45 | 6.60 | 6.80 | 7.00 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Score (mean of 3) | 73 | 196 | 333 | 538 | 451 | 544 | 576 | 497 | 563 | 653 | 522 | 371 | 244 | 114 | 66 |
+
+Result: tag 500's sharpness rises 10 times from the ends of the sweep to the top, so it is a
+usable focus target. The top is broad and uneven: above half the highest score from 5.90 to 6.45,
+the highest single step at 6.30, and lower steps at 6.05 and 6.20 inside the peak. A parabola fit
+over 5.75 to 6.65 puts the peak at 6.20 (6.19 over 5.90 to 6.50). The lens position is reported on
+the camera's 0 to 15 scale; it is not a calibrated distance, so no camera-to-tag distance follows
+from it. One sweep; repeatability not measured. Raw data:
+`/home/pi/scratch/lens-fix-check-2026-10-06/tag500-sweep.txt`.
+
+**Run 3h method, written before it runs (2026-10-06, about 14:10 UTC): can the tray tags correct
+a lens-landing change?** Every tray now carries an identity tag (IDs 1 to 12, nominal 30 mm,
+east-west calliper readings of a sample 30.00, 29.96, 30.27, 29.99, 29.84, 30.01, 29.92, 30.01 mm,
+mean 30.00, SD 0.12; a few mm above the tray surface; 9 of 12 found in a photograph at 14:07).
+Lens locked at 6.27, 6.37, 6.17 and 6.27 again (test settings), 2 captures each. For each capture
+and each tray with a found tray tag: the tray tag's side length in pixels against the first 6.27
+capture gives a correction factor (old side / new side)², and the calibration tags in that tray
+are compared with the first capture before and after multiplying their area by it. Question: does
+the correction bring the calibration tags back to their 6.27 readings? Raw data:
+`/home/pi/scratch/lens-fix-check-2026-10-06/traytag-test/`.
+
+**Run 3h result** (14:08 UTC; the lens was locked at 6.17 before 6.37, the reverse of the order
+written above, which does not change the comparison). 9 tray tags found in every capture (1, 2,
+4, 5, 7, 8, 9, 10, 11; about 144 to 148 px across), each in its own slot. Mean absolute change of
+the slot medians against the first capture, in points:
+
+| Capture | Uncorrected | Each tray corrected by its own tag | All corrected by the median tray-tag factor | Median tray-tag area factor |
+|---|---|---|---|---|
+| 6.27, repeat | 0.18 | 0.46 | 0.23 | +0.16% |
+| 6.17, a | 0.61 | 0.53 | 0.56 | -0.66% |
+| 6.17, b | 0.67 | 0.72 | 0.69 | -0.95% |
+| 6.37, a | 0.69 | 0.78 | 0.59 | +0.13% |
+| 6.37, b | 0.56 | 0.66 | 0.27 | +0.41% |
+| 6.27 again, a | 0.14 | 0.55 | 0.19 | -0.12% |
+| 6.27 again, b | 0.12 | 0.65 | 0.13 | +0.07% |
+
+Reading: **correction does not work with these tags.** Correcting each tray by its own tag made
+the slots worse (0.18 to 0.46 even with nothing changed; South 3 was pushed off by about 1 to 2
+points in every capture after the first), because a single 30 mm tag's size is too noisy for it.
+One table-wide factor changed little, because a lens change does not move all trays the same way
+(at 6.17 North 2 rose 1.0 point while North 4 fell 0.9). **Detection is one-sided:** the median
+tray-tag factor moved -0.66% and -0.95% at 6.17 (repeat noise ±0.16%), but only +0.13% and
++0.41% at 6.37, while the calibration tags moved -0.6 to -0.8 points. One run.
+
+**Run 3i method, written before it runs (2026-10-06, about 14:20 UTC): how far does an app
+restart move the readings?** The remaining risk during an experiment is a restart or power cut,
+after which the lens is driven back to the stored position but may land differently. Steps,
+chamber closed and untouched, lens locked at 6.27: 2 reference captures; then 5 times: app
+restart (server process killed and started again; at start-up it drives the lens to 6.27 the one
+consistent way and restores the lock), 2 captures. For each capture, against the first reference
+capture: median change of the calibration tags' area error (all, central slots North 3, North 4,
+South 3, South 4, and the largest slot), tags found, and the median tray-tag area factor (11 tray
+tags; tag 6 at the frame edge is not found). Raw data:
+`/home/pi/scratch/lens-fix-check-2026-10-06/restart-test/`.
+
+**Run 3i result** (14:20 to 14:21 UTC; 5 fresh server processes, each locked at 6.27 within about
+3 s, no camera errors). Against the first reference capture, in points:
+
+| Capture | Tags matched | All tags | Central slots | Largest slot | Tray-tag area factor |
+|---|---|---|---|---|---|
+| reference b | 337 | +0.00 | +0.01 | -0.15 (South 2) | -0.01% |
+| restart 1 a / b | 339 / 339 | +0.05 / -0.02 | +0.09 / -0.01 | +0.18 / -0.23 | -0.08% / -0.38% |
+| restart 2 a / b | 338 / 337 | -0.01 / +0.02 | +0.08 / +0.02 | -0.32 / -0.24 | -0.30% / -0.16% |
+| restart 3 a / b | 340 / 340 | +0.02 / -0.03 | +0.08 / +0.05 | -0.38 / -0.22 | -0.12% / -0.40% |
+| restart 4 a / b | 338 / 340 | +0.01 / +0.03 | +0.06 / +0.04 | +0.17 / -0.39 | -0.06% / -0.17% |
+| restart 5 a / b | 337 / 338 | +0.01 / -0.02 | +0.02 / +0.04 | -0.30 / -0.21 | -0.08% / -0.14% |
+
+Reading: **an app restart, with the camera warm, does not move the readings.** Across 5 restarts
+the median stayed within ±0.05 points, the central slots within +0.09, and every slot within
+±0.39, inside the change over time seen with nothing done (slots up to 0.52). This agrees with
+the 2026-10-05 restart runs (+0.08, +0.09). The large changes of 2026-10-06 came with other
+events: the cold start (-1.73, recovering over an hour), the camera frontend timeout at 12:37 UTC
+followed by a restart (central slots about half as sharp), and the lens diagnosis with many full
+sweeps (11:18). Which of those features (a cold camera, a stalled camera, many lens moves) causes
+the shift is not separated; these tests show what is safe (restarts) and what is not (a cold
+start, and a camera fault).
+
+**Run 3j method, written before it runs (2026-10-06, about 19:10 UTC): do readings stay steady
+over 2 hours of one photo a minute, when photos no longer reopen the camera or move the lens?**
+Since commit `5f068bf` a photo switches the camera back to its preview setting and leaves the lens
+alone; the camera is reopened only before a lens command (TODO.md, "Plan: nothing moves the lens
+during an experiment", slice 1). This is the path every photo will take during an experiment,
+unattended. Steps: chamber closed and untouched, calibration sheets on the trays as in run 3i,
+lens locked at 6.27, server running `5f068bf` (restarted warm at 19:07 UTC). A script calls the
+app's own `POST /capture` once a minute for 120 photos (2 hours) and records for each: UTC time,
+capture duration, the lens position, exposure time and gain from the photo's record, and the focus
+status. Comparison against the first photo, as in run 3i (`analyse.py` adapted): calibration tags
+matched by ID and position (within 20 px), median change in area error for all tags, for the
+central slots (North 3, North 4, South 3, South 4) and per slot; tags matched. Sharpness
+(Laplacian variance, as the focus score) of a 500 px square at the centre of each slot box of the
+2026-10-05 validation (`20261005T141310628479`), as a percentage of the first photo.
+Judgement, fixed before any data: the photo path adds nothing detectable if every photo's all-tag
+median stays within ±0.10 points and every slot within ±0.52 points of the first photo, the range
+of Control B (45 minutes, nothing done), and no sharpness square falls by more than 20% (a decision,
+not a measurement: the camera fault in run 3g halved the central sharpness). The reported lens
+position is recorded but not judged: on this path a camera that ignores lens writes reports the
+old position whatever happens, so it cannot show a change. Photos taken while focus is not locked
+at 6.27 (someone unlocks it) are left out; a photo whose exposure time differs from the first by
+more than a factor 2 (chamber lights changing) is flagged, and if the lights go off the run ends
+there and is reported as shorter. Limits: there is no 2-hour control without photos, so a slow
+drift could come from time and temperature, not from the photo path; this run can show the path
+is safe, and a drift would not by itself show it is unsafe. One run, one lens position, chamber
+lights on, warm camera; it does not cover a cold start or a camera fault. At the end the live
+preview is checked for frames (on 2026-10-05 it stopped once after a calibration on this path).
+Raw data: `/home/pi/scratch/lens-noreopen-2026-10-06/`.
+
+**Run 3j result** (19:10:46 to 21:09:46 UTC; 120 of 120 photos, no errors, focus locked at 6.27 in
+every photo, capture 2.66 to 2.94 s, live preview still streaming at the end). One change to the
+method after the run started and before any result was looked at: auto exposure was off
+(exposure time 3429 in every photo), so exposure time could not show the lights going out; the
+mean brightness of each photo was used instead (below half the first photo's counts as dark).
+Brightness stayed between 104.5 and 105.1, so the lights stayed on and no photo was left out.
+Tags matched 328 to 337. Against the first photo, in points:
+
+| Photos (10 a block) | Start (UTC) | All tags, median of block | All tags, range | Central slots, median | Largest slot | North 3 sharpness, median |
+|---|---|---|---|---|---|---|
+| 0 to 9 | 19:10 | +0.12 | -0.06 to +0.29 | +0.07 | 0.62 | +11% |
+| 10 to 19 | 19:20 | +0.09 | -0.05 to +0.14 | +0.04 | 0.44 | +6% |
+| 20 to 29 | 19:30 | +0.12 | -0.05 to +0.28 | +0.09 | 0.55 | +10% |
+| 30 to 39 | 19:40 | +0.05 | -0.06 to +0.10 | +0.02 | 0.31 | +3% |
+| 40 to 49 | 19:50 | +0.13 | -0.06 to +0.27 | +0.07 | 0.53 | +11% |
+| 50 to 59 | 20:00 | +0.03 | -0.03 to +0.10 | +0.01 | 0.30 | +5% |
+| 60 to 69 | 20:10 | +0.12 | +0.05 to +0.31 | +0.07 | 0.57 | +11% |
+| 70 to 79 | 20:20 | +0.04 | -0.07 to +0.11 | +0.02 | 0.41 | +4% |
+| 80 to 89 | 20:30 | +0.15 | +0.04 to +0.30 | +0.06 | 0.55 | +12% |
+| 90 to 99 | 20:40 | +0.02 | -0.04 to +0.21 | +0.00 | 0.44 | +2% |
+| 100 to 109 | 20:50 | +0.11 | +0.02 to +0.33 | +0.06 | 0.53 | +10% |
+| 110 to 119 | 21:00 | +0.01 | -0.08 to +0.27 | +0.01 | 0.59 | +3% |
+
+Judged against the limits fixed before the run: **not passed.** The all-tag median reached +0.33
+(limit ±0.10) and the largest slot +0.62 (North 5; limit ±0.52). Sharpness passed: no square fell
+by more than 5.2% (limit 20%).
+
+What the excess is: **a repeating cycle of about 19 minutes**, not a drift. Six times in the 2
+hours the all-tag median rose within 2 or 3 photos to about +0.25 to +0.33, then fell slowly over
+about 16 minutes to about -0.05 (time shift with the highest correlation: 19 photos, 0.75). The
+sharpness of the slot squares rose and fell with it (correlation 0.87 with the all-tag median;
+North 3 up to +23%, South 3 up to +21%). The cycle did not grow: the peaks were +0.29 in the first
+cycle and +0.27 in the last, the low points about -0.05 throughout, and the last 10 photos read
++0.01. The photo path does the same thing every minute, so it does not by itself explain a
+19-minute cycle; the cause was not investigated. The first photo fell near a low point of the
+cycle, which is why the medians are mostly positive.
+
+Reading: over 2 hours of unattended photos without reopening the camera, the readings did not
+wander away; they returned to the same low point every cycle, and the lens did not lose
+sharpness. But readings at a fixed lens position swing by about 0.35 points in the median and up
+to about 0.6 points in a slot, with a period of about 19 minutes, more than the control range used
+as the limit. The control (Control B, photos every 15 minutes) would not have shown a 19-minute
+cycle as one. This is the same photo path the 2026-10-05 validation, the controls and the bands
+were measured with: the camera was reopened per photo only from commit `a58e720` (2026-10-06,
+11:20 UTC) until `5f068bf`, and that path was never run at one photo a minute. One run; whether the cycle is also there with the camera reopened per photo, at
+other times of day, or with the chamber lights off was not measured.
+
+Raw data for runs 3 to 3c:
+`/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
 Detailed results: `reference/lens-return-2026-10.md`.
 
@@ -396,7 +766,8 @@ only sit on trays.
 
 ## 11. Not yet measured, and open inconsistencies
 
-**Not yet measured:** power-cut repeatability (section 8.1, run 3). The M2 acceptance tests are
+**Not yet measured:** whether driving the lens to both ends of its range before focusing changes
+sharpness (run 3b could not test it, section 8.1). The M2 acceptance tests are
 done (section 9).
 
 **Open points from the acceptance tests:**

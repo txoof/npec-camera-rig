@@ -150,14 +150,16 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 .mode-toggle-row {
   display: flex;
   gap: 0.5rem;
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
   /* Matches .focus-layout above it -- these buttons control that frame, so they shouldn't
      stay pinned to the old 480px cap while the frame itself is now much wider. */
   max-width: var(--wide-content-width);
 }
 .mode-toggle-row button {
   flex: 1;
-  padding: 0.4rem;
+  padding: 0.2rem;
+  /* Thinner than other buttons, so the control panel below still fits on a 1024x768 screen. */
+  min-height: 34px;
   background: #222;
   border: 1px solid #444;
   color: #ccc;
@@ -202,11 +204,38 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
    of competing with them for vertical space. */
 .focus-control-panel {
   width: var(--wide-content-width);
-  margin-top: 0.75rem;
-  padding: 0.75rem;
+  box-sizing: border-box;
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.75rem;
   background: #1a1a1a;
   border: 1px solid #333;
   border-radius: 6px;
+}
+.focus-status {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 180px;
+  font-size: 0.9rem;
+}
+.focus-control-row.lens-row {
+  gap: 0.6rem;
+}
+.focus-control-row.sharpness-row strong {
+  font-size: 1.6rem;
+  min-width: 4.5rem;
+}
+/* Shorter than its 60 px drawing height, so the three rows fit under the images at 1024x768. */
+.sharpness-row canvas {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 40px;
+  background: #000;
+}
+.sharpness-row .peaking-inline {
+  flex: 0 0 auto;
+}
+.peaking-inline input[type="checkbox"] {
+  flex: 0 0 auto;
 }
 .focus-control-row {
   display: flex;
@@ -215,7 +244,7 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
   gap: 1rem;
 }
 .focus-control-row + .focus-control-row {
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
 }
 .focus-control-row label {
   margin-bottom: 0;
@@ -226,14 +255,9 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
   flex: 0 0 auto;
 }
 .focus-control-row input[type="range"] {
-  flex: 1 1 160px;
+  flex: 1 1 60px;
+  min-width: 60px;
   width: auto;
-}
-.focus-control-row canvas {
-  flex: 1 1 200px;
-  max-width: 480px;
-  height: 60px;
-  background: #000;
 }
 .focus-control-row strong {
   font-size: 1.2rem;
