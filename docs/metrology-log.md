@@ -678,6 +678,20 @@ minutes, photos at +0, +15, +30, +60 minutes), and the two-height test (section 
 Each step's result is added here when it is done, with its date, times (UTC), session or capture
 IDs and the raw data path.
 
+**Step 0 result (2026-10-07, recorded only).** Old camera serial SN000 (kept untouched), new
+camera serial SN001 (serials as given by Aaron). The new camera was fitted, squared, focused and
+locked at lens position **6.23** by Aaron (the operator's choice; the old camera was at 6.27, a
+difference of 0.04; at about 1.2 points per 0.1 (step 2 above) that is about 0.5 points of
+central error). The Pi was
+switched on with the new camera at 11:20 UTC, so the cold start ends at 12:20 UTC. The server ran
+from the m2-camera-swap branch.
+
+*Cold-start data, not used to judge any step:* a calibration made 25 minutes after power-on
+(`20261007T114505498348`, 11:45 UTC, residual spread 0.50%, 30.0 mm tags, lens 6.23) and a
+validation of it (session `20261007T114611264170`, rounds at 11:46 and 11:58 UTC). Both started
+inside the first hour after power-on, so under the rule above they do not count; step 1 is
+repeated after 12:20 UTC.
+
 ## 9. M2 physical acceptance tests (2026-10-05)
 
 The four tests PLAN.md lists for M2, run in the chamber on 2026-10-05 (times UTC; the chamber is
