@@ -156,6 +156,7 @@ was compared with its own earlier reading:
 | Event | Change right after (median) | Largest slot change within an hour |
 |---|---|---|
 | Nothing done (control) | | up to 0.52 points (North 1) |
+| Nothing done, one photo a minute for 2 hours (2026-10-06) | | a repeating 19-minute cycle: whole-table median up to +0.33 points, up to 0.62 points in one slot (North 5) |
 | Lens moved by autofocus, driven back to 6.15 | -0.03 points | +0.35 points |
 | App restart | +0.08 and +0.09 points (two attempts, 2026-10-05); within ±0.05 over 5 restarts (2026-10-06) | -0.29 points; every slot within ±0.39 over the 5 restarts |
 | Power cut (cold start) | -1.73 points right after; -0.41 at +15 min; -0.14 at +60 min | -0.62 points at +60 min (South 1) |
@@ -179,12 +180,28 @@ mark readings after a camera fault or a cold start as not covered by the bands, 
 correct them; this is not built yet.
 
 **Readings swing on a cycle of about 19 minutes.** On 2026-10-06 the rig took one photo a minute
-for 2 hours with nothing touched (lens locked, lights on). The readings did not wander away, but
-they rose and fell on a repeating cycle of about 19 minutes: about 0.35 points in the median and up
-to about 0.6 points in a single slot, a little more than the 0.52 seen with nothing done in the
-earlier, sparser test. Sharpness rose and fell with it. The cause is not known. For comparison, the
-0.52-point slot change seen with nothing done was about a quarter of that slot's band; a single
-photograph can sit anywhere in the cycle.
+for 2 hours with nothing touched (lens locked, lights on), to check that photos taken the way an
+experiment takes them stay steady. Each tag's area reading was compared with the same tag in the
+first photo. The limits were fixed before the run, from the earlier test with nothing done: the
+whole-table median within ±0.10 points, and every slot within ±0.52 points.
+
+The run **did not pass** those limits. The whole-table median reached +0.33 points, about three
+times the limit, and one slot (North 5) reached +0.62 points.
+
+The reason is a repeating cycle, not a drift. Every 19 minutes the readings rose by about 0.3
+points within 2 or 3 minutes, then fell back over about 16 minutes. This happened 6 times, the
+same size each time, and the readings returned to the same low point every cycle. Sharpness rose
+and fell with them. The earlier test took a photo only every 15 minutes, too rarely to show a
+19-minute cycle, so its limits were too tight for a test taken every minute. The first photo of
+this run also fell at a low point of the cycle, so the run measured the full swing from bottom to
+top.
+
+What it means: depending on when in the cycle a photograph is taken, its reading can be up to about
+0.35 points higher for the whole table and about 0.6 points higher in one slot. The cause is not
+known; the chamber's air handler runs outside the operator's control and its cycle depends on the
+experiment. The 2026-10-05 validation was taken with the same photo method, so the cycle was
+already present then. For comparison, the 0.52-point slot change seen with nothing done was about a
+quarter of that slot's band.
 
 **One open point.** On 2026-10-01, after a different series of lens moves, the central readings
 drifted by 1.3 points in 35 minutes. That was not repeated on 2026-10-05, and the reason for the
