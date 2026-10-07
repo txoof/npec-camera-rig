@@ -139,6 +139,28 @@ positions, gave bands of ±1.43% to ±3.36% and ±1.58% to ±2.93%.
 The bands belong to one calibration at one locked lens position. A new focus position means a new
 calibration and validation.
 
+**Validation of 2026-10-07, the first with rounds spread over time** (session
+`20261007T070451149884`, same calibration `20261005T141101923639`, lens 6.27, chamber door closed;
+rounds at 07:05, 07:14 and 07:26 UTC, 20.9 minutes first to last, shortest gap 9.6 minutes (the
+10-minute gap was set while this session ran; the countdown then showed 6, so its status reads
+"rounds 9.6 min apart, under the recommended 10"); 94%, 97% and 80% of tags moved; 80 to 90 tags
+per slot). This is the old camera's last validation and the baseline for section 8.2.
+
+| Slot | Band | Median error | Slot | Band | Median error |
+|---|---|---|---|---|---|
+| North 1 | ±3.3% | -0.90 | South 1 | ±2.8% | -1.33 |
+| North 2 | ±2.5% | -0.80 | South 2 | ±2.2% | -0.76 |
+| North 3 | ±2.9% | -1.36 | South 3 | ±1.5% | -0.16 |
+| North 4 | ±2.3% | -0.25 | South 4 | ±1.6% | +0.11 |
+| North 5 | ±2.4% | -0.71 | South 5 | ±3.1% | -1.20 |
+| North 6 | ±3.0% | -0.91 | South 6 | ±2.2% | -0.37 |
+
+Against the 2026-10-05 validation of the same calibration: bands ±1.5% to ±3.3% (then ±1.43% to
+±3.36%); the median of the slot medians -0.78 points (then +0.07), a change of about -0.85 points,
+inside the 2.5-point whole-table check. Between the two lay the cold start, the camera fault and
+the lens tests of 2026-10-06 (section 8.1, runs 3 to 3j). Which of these, if any, caused the change
+is not known.
+
 **Checks on a validation**, each with the data it was set from:
 
 | Check | Limit | Basis |
@@ -588,6 +610,41 @@ Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
 Detailed results: `reference/lens-return-2026-10.md`.
+
+### 8.2 Camera swap comparison (method written 2026-10-07, before any step runs)
+
+**Why.** The Arducam used since the rebuild may have been damaged (Aaron, 2026-10-07): after a
+full-res photo its lens stops following commands (section 8.1, run 3b and the diagnosis), a camera
+fault on 2026-10-06 left the central trays about half as sharp, and the 2026-10-07 validation read
+about 0.85 points lower than the 2026-10-05 one. A new camera of the same model is fitted and the
+key tests are repeated, so each result can be compared with the old camera's. This compares the
+two cameras; it does not look for causes.
+
+**Before starting.** Record both cameras' serial numbers and the lens position the new camera is
+locked at (the operator's choice). The old camera is kept untouched. Swapping means switching the
+Pi off, so the first hour after power-on is a cold start (section 8, table): no step starts until
+60 minutes after the Pi is switched on with the new camera. Same printed sheets (30.0 mm tags),
+same trays and table, chamber door closed for every photograph, lights on. Raw data:
+`/home/pi/scratch/camera-swap-2026-10/`.
+
+**Steps and how each is judged** (limits fixed now; "different" means larger than the old camera
+showed with nothing done):
+
+| Step | What | Old camera | Judged |
+|---|---|---|---|
+| 0 | Swap, square, focus and lock (operator) | lens 6.27 | Recorded only |
+| 1 | Calibrate with the wizard | tags found and fit as in section 5 | Recorded and compared; no pass or fail |
+| 2 | Validate: 3 rounds, 10 minutes apart, door closed | 2026-10-07 validation above | Per slot: the band and median compared. A slot median differing by more than 0.62 points (the largest slot change with nothing done, run 3j) counts as different, but only if the lens position matches 6.27 within 0.01; otherwise the comparison is reported with the lens difference noted (the central error changes about 1.2 points per 0.1) |
+| 3 | Photo-to-photo noise: 10 photos in a row, nothing touched | per-tag standard deviation 0.27 to 0.46 points | Different if the median per-tag standard deviation is outside 0.27 to 0.46 |
+| 4 | Stuck lens: `reference/lens-unresponsive-2026-10-diagnose.py`, server stopped | after one photo, lens writes accepted and not followed; follows after a close and reopen | Follows or does not follow (yes or no); tells whether the fault belongs to the old camera or to the model |
+| 5 | Restarts: 5 warm restarts, 2 photos each (as run 3i) | median within ±0.05 points, every slot within ±0.39 | Different if a median exceeds ±0.10 or a slot ±0.52 (Control B) |
+| 6 | 2 hours unattended: one photo a minute (as run 3j) | a cycle of about 19 minutes, median swing about 0.35 points, largest slot 0.62 | Cycle present if the median's correlation with itself 15 to 25 photos later peaks above 0.5; swing and largest slot compared. Present again means it comes from the chamber, not the camera |
+
+**Optional, only if Aaron asks for them:** a planned cold start (as run 3: Pi off about 30
+minutes, photos at +0, +15, +30, +60 minutes), and the two-height test (section 9.1).
+
+Each step's result is added here when it is done, with its date, times (UTC), session or capture
+IDs and the raw data path.
 
 ## 9. M2 physical acceptance tests (2026-10-05)
 
