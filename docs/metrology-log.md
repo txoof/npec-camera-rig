@@ -890,6 +890,10 @@ automatically when step 6 ends (about 15:29 UTC), 916 photos, one a minute, to a
 each tag against itself in a reference photo, median and per-slot change, sharpness per slot;
 reported against both step 6 photo 11 (before the foam came off) and the first overnight photo.
 Raw data: `/home/pi/scratch/camera-swap-2026-10/overnight/`.
+*Start as run:* the automatic start failed (the launcher waited for step 6 by looking for its name
+among running processes, and a second waiter of Claude's own carried the same name, so it never
+saw step 6 end). Started by hand at 16:26 UTC on Aaron's request, 858 photos to about 06:44 UTC.
+No photos were taken from 15:28 to 16:26 UTC (58 minutes).
 
 ## 9. M2 physical acceptance tests (2026-10-05)
 
