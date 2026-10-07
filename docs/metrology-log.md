@@ -619,6 +619,24 @@ to 25 minutes and its best correlation with the all-tag median is above 0.5 in s
 A column that does not change in the window is reported as constant. This only shows whether a
 chamber reading moves with the cycle; it does not show that it causes it.
 
+**Result** (149 chamber rows, 18:56 to 21:24 UTC; script and output
+`/home/pi/scratch/lens-noreopen-2026-10-06/chamber_compare.py`, `chamber_compare.json`):
+
+| Column | Range in the window | Own period | Best correlation with the all-tag median | Shift | Follows the cycle |
+|---|---|---|---|---|---|
+| T_Actual (air temperature) | 19.8 to 20.3 °C | 19 min (r 0.81) | +0.84 | chamber 1 min ahead | **yes** |
+| RH_Actual (humidity) | 57 to 62% | 19 min (r 0.78) | -0.76 | chamber 1 min behind | **yes** |
+| CO2_Actual | 430 to 460 ppm | 5 min | +0.29 | 0 | no |
+| Bath_H1 | 0 to 100 | 37 min (r 0.20) | -0.22 | +4 min | no |
+| T_Set, RH_Set, CO2_Set, all 9 light channels | constant (20 °C, 60%, 300 ppm; CoolWhite 25.02, others 0) | | | | constant |
+
+Reading: **the 19-minute cycle in the readings goes with the chamber's own temperature and
+humidity cycle.** When the air was warmer (by up to 0.5 °C) the areas read larger and the photos
+were sharper; humidity moved the opposite way, as it does when air warms. The lights did not change.
+This shows that the readings move with the chamber's climate cycle, not which part of it, or what
+in the camera, causes the change. Since the chamber's cycle depends on the experiment and the air
+handler (Aaron, 2026-10-07), the size and period of this swing may differ between experiments.
+
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 

@@ -197,9 +197,13 @@ this run also fell at a low point of the cycle, so the run measured the full swi
 top.
 
 What it means: depending on when in the cycle a photograph is taken, its reading can be up to about
-0.35 points higher for the whole table and about 0.6 points higher in one slot. The cause is not
-known; the chamber's air handler runs outside the operator's control and its cycle depends on the
-experiment. The 2026-10-05 validation was taken with the same photo method, so the cycle was
+0.35 points higher for the whole table and about 0.6 points higher in one slot. The chamber's own
+log shows the cycle goes with its climate control: in the same 2 hours the air temperature rose and
+fell between 19.8 and 20.3 °C every 19 minutes, and the readings followed it (correlation 0.84;
+warmer air, larger and sharper readings), while the lights did not change. Which part of the
+climate cycle, or what in the camera, causes the change is not known. The air handler runs outside
+the operator's control and its cycle depends on the experiment, so the swing may differ between
+experiments. The 2026-10-05 validation was taken with the same photo method, so the cycle was
 already present then. Its 3 rounds were taken within 93 seconds, all at one point of the cycle, so
 its bands do not include the cycle. From 2026-10-07 the validation rounds are to be spread over at
 least 20 minutes, with the chamber door closed for every round; a validation with rounds closer
