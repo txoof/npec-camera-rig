@@ -3,7 +3,7 @@
 This is the log: every measurement, test method and result, with its source. For the case that
 these measurements can be trusted, read `docs/measurement-trust.md` first.
 
-**Status:** first draft, 2026-10-05. Kept current as findings come in (CLAUDE.md, *Write up every
+**Status:** first draft, 2026-10-05. The camera was replaced on 2026-10-07 (old SN000, new SN001; section 8.2); current calibration and bands are the new camera's from 2026-10-08. Kept current as findings come in (CLAUDE.md, *Write up every
 measurement*). Numbers marked **decision** are settings chosen by the project, not measurements.
 Section 11 lists inconsistencies between project files that still need checking. Section 9
 holds the M2 physical acceptance tests, run 2026-10-05.
@@ -59,17 +59,24 @@ measure every printed sheet.
 
 | Quantity | Value | How measured | Date | Notes |
 |---|---|---|---|---|
+| Camera | Arducam 64MP, serial SN001 from 2026-10-07 (SN000 before) | Serial as given by Aaron | 2026-10-07 | Replaced; comparison in section 8.2 |
 | Image size | 9152 × 6944 px | Camera configuration | | Arducam 64MP |
-| Scale at tray height | 4.85 px/mm (at the image centre) | Calibration fit, 355 tags, 14:11 UTC calibration | 2026-10-05 | About 0.21 mm per pixel; earlier calibrations 4.5 to 4.8 |
+| Scale at tray height | 4.858 px/mm mean (replacement camera, lens 6.04); old camera 4.85 px/mm at the image centre (2026-10-05) | Calibration fit, 355 tags, 08:18 UTC calibration | 2026-10-08 | About 0.21 mm per pixel; earlier calibrations 4.5 to 4.8 |
 | Scale on the table surface | 4.52 px/mm (at the image centre), 6.79% below tray height in length, 15.1% in area | Calibration fit, 355 tags on the table, same camera position | 2026-10-05 | At 0.145% of area per mm this corresponds to about 100 mm of height (derived, not taped) |
 | Height above tray top | about +0.145% area per mm | A 75 mm taller tray in 3 slots read 11.2% to 12.0% large; predicted 11.8% | 2026-10-01 | Bands cover flat objects at tray-top height only. Plant height adds to the uncertainty (section 7) |
 | Perspective across the table | corrected by the scale field; positions mapped with a four-corner homography | Saved calibration frames | 2026-09-22 | Perspective within the table plane is modelled; lens distortion is not (section 10) |
 
 ## 5. Calibration
 
-Current calibration (`20261005T141101923639`, 2026-10-05 14:11 UTC, lens position 6.27, 30.0 mm
-tags, 355 tags, 4 corner tags): scale field residual 0.52% (standard deviation of the tags' scale
-about the fitted field), holdout coverage error 0.4%.
+Current calibration (`20261008T081832283098`, 2026-10-08 08:18 UTC, replacement camera SN001,
+lens position 6.04, 30.0 mm tags, 355 tags, 4 corner tags): scale field residual 0.50% (standard
+deviation of the tags' scale about the fitted field). Made after the camera swap and the removal of
+packing foam from the new camera (section 8.2). Its validation: section 8.2, "Recalibration after
+the foam came off".
+
+Before the camera swap: calibration `20261005T141101923639`, 2026-10-05 14:11 UTC, lens position
+6.27, 30.0 mm tags, 355 tags, 4 corner tags: scale field residual 0.52%, holdout coverage error
+0.4%.
 
 It replaced the 07:11 UTC calibration (lens 6.15, also 0.52%), which no longer fitted after the
 camera was knocked and re-framed in the roll test (section 9.3).
@@ -105,8 +112,13 @@ under the recommended 10". The door cannot be detected by the rig; the operator 
 all tags in that slot over all counted rounds: 95% of the tags read within that distance of
 their true area. Fewer than 10 tags in a slot gives "not measured" (**decision**).
 
-**Current bands** (session `20261005T141310628479`, calibration `20261005T141101923639`, lens
-6.27, 3 rounds at 14:13, 14:14 and 14:15 UTC, 92% to 96% of tags moved, 85 to 90 tags per slot;
+**Current bands, replacement camera SN001** (session `20261008T081846523784`, calibration
+`20261008T081832283098`, lens 6.04, rounds at 08:20, 08:32 and 08:43 UTC, 23.6 minutes first to
+last, door closed): ±1.3% (South 5) to ±2.7% (South 4); median of the slot medians -0.14 points;
+per-slot table in section 8.2, "Recalibration after the foam came off".
+
+**Bands of the old camera SN000 on 2026-10-05** (session `20261005T141310628479`, calibration
+`20261005T141101923639`, lens 6.27, 3 rounds at 14:13, 14:14 and 14:15 UTC, 92% to 96% of tags moved, 85 to 90 tags per slot;
 spread over 1.5 minutes, under the recommended 20, so these bands do not include the 19-minute
 cycle of run 3j):
 
@@ -138,6 +150,28 @@ positions, gave bands of ±1.43% to ±3.36% and ±1.58% to ±2.93%.
 
 The bands belong to one calibration at one locked lens position. A new focus position means a new
 calibration and validation.
+
+**Validation of 2026-10-07, the first with rounds spread over time** (session
+`20261007T070451149884`, same calibration `20261005T141101923639`, lens 6.27, chamber door closed;
+rounds at 07:05, 07:14 and 07:26 UTC, 20.9 minutes first to last, shortest gap 9.6 minutes (the
+10-minute gap was set while this session ran; the countdown then showed 6, so its status reads
+"rounds 9.6 min apart, under the recommended 10"); 94%, 97% and 80% of tags moved; 80 to 90 tags
+per slot). This is the old camera's last validation and the baseline for section 8.2.
+
+| Slot | Band | Median error | Slot | Band | Median error |
+|---|---|---|---|---|---|
+| North 1 | ±3.3% | -0.90 | South 1 | ±2.8% | -1.33 |
+| North 2 | ±2.5% | -0.80 | South 2 | ±2.2% | -0.76 |
+| North 3 | ±2.9% | -1.36 | South 3 | ±1.5% | -0.16 |
+| North 4 | ±2.3% | -0.25 | South 4 | ±1.6% | +0.11 |
+| North 5 | ±2.4% | -0.71 | South 5 | ±3.1% | -1.20 |
+| North 6 | ±3.0% | -0.91 | South 6 | ±2.2% | -0.37 |
+
+Against the 2026-10-05 validation of the same calibration: bands ±1.5% to ±3.3% (then ±1.43% to
+±3.36%); the median of the slot medians -0.78 points (then +0.07), a change of about -0.85 points,
+inside the 2.5-point whole-table check. Between the two lay the cold start, the camera fault and
+the lens tests of 2026-10-06 (section 8.1, runs 3 to 3j). Which of these, if any, caused the change
+is not known.
 
 **Checks on a validation**, each with the data it was set from:
 
@@ -179,10 +213,14 @@ several percent. Measured at milestone M5.
 | Quantity | Result | How measured | Date |
 |---|---|---|---|
 | Photograph-to-photograph noise | per-tag standard deviation 0.27 to 0.46 points | Repeated photographs, nothing changed (3 light levels, auto-exposure compensating) | 2026-10-01 |
+| Photograph-to-photograph noise, replacement camera | median per-tag standard deviation 0.15 points (middle half of tags 0.12 to 0.19) | 10 photos in a row, nothing changed, fixed exposure, packing foam still on (section 8.2, step 3) | 2026-10-07 |
+| App restart, replacement camera | 5 warm restarts: median -0.04 to +0.06, every slot within ±0.24 | As run 3i, foam still on (section 8.2, step 5) | 2026-10-07 |
+| One photo a minute for 6.8 hours, replacement camera | no drift (each hour's median within 0.06 points of the others); the 20-minute cycle present, swing about 0.5 to 0.6 points, following the chamber's humidity (r -0.86) and temperature (r +0.61) | Overnight run after the foam came off, chamber's own record (section 8.2) | 2026-10-07 |
+| Removing packing foam from the camera body | readings about 0.8 points lower and slots about 15% less sharp, lasting at least 6.8 hours; a new calibration was needed | Step 6 and overnight photos against the last photo before removal (section 8.2) | 2026-10-07 |
 | Lens moved and driven back to the same position | median change -0.03 points, spread 0.28, 355 of 355 tags; over 60 min largest slot change +0.35 points (about 1/6 of that slot's band) | Autofocus moved the lens, re-locked at 6.15, photographs at +0, +15, +30, +60 min, each tag compared with itself | 2026-10-05, `reference/lens-return-2026-10.md` |
 | Drift at a fixed lens position after moves | central ring changed 1.3 points in 35 min | Lens sweep then return to 6.18 | 2026-10-01 |
 | Change over time with nothing moved (control) | over 45 to 60 min: median within ±0.17 points, central ring within ±0.26, single slots up to 0.52 (about 1/4 of that slot's band); goes up and down, not a steady drift | Same method, lens untouched, two series (one partly disturbed by people in the chamber) | 2026-10-05, `reference/lens-return-2026-10.md` |
-| One photo a minute for 2 hours, no reopen, lens locked (run 3j) | a repeating cycle of about 19 minutes: median swings by about 0.35 points (-0.08 to +0.33 against the first photo), largest slot 0.62; no drift (each cycle returns to the same low point); sharpness rises and falls with it | Plain photos through the app, section 8.1 run 3j | 2026-10-06 |
+| One photo a minute for 2 hours, no reopen, lens locked (run 3j) | a repeating cycle of about 19 minutes: median swings by about 0.35 points (-0.08 to +0.33 against the first photo), largest slot 0.62; no drift (each cycle returns to the same low point); sharpness rises and falls with it; follows the chamber's air temperature (19.8 to 20.3 °C, every 19 min, correlation 0.84) and humidity cycle | Plain photos through the app, section 8.1 run 3j, compared with the chamber's 1-minute log | 2026-10-06 |
 | App restart | right after: median +0.08 and +0.09 points (two attempts), 355 of 355 tags; over 60 min median within ±0.13, largest slot -0.29 (about 1/6 of its band); inside the control range | Server killed and restarted, lens driven back to 6.15 at start-up; repeat-photograph test (section 8.1) | 2026-10-05, `reference/lens-return-2026-10.md` |
 | Power cut (cold start) | right after: median -1.73 points, 291 of 354 tags found, central slots blurrier; +15 min -0.41, +30 -0.38, +60 -0.14 (largest slot -0.62); recovers with no lens move | Pi off about 30 min, camera not opened until the run; repeat-photograph test (run 3) | 2026-10-06 |
 | Two calibrations in a row | scale fields agreed within 0.02% to 0.16% | 332 and 340 tags, lens moved away and back, 2026-09-25 | Before the current lens-drive method |
@@ -571,7 +609,8 @@ sharpness of the slot squares rose and fell with it (correlation 0.87 with the a
 North 3 up to +23%, South 3 up to +21%). The cycle did not grow: the peaks were +0.29 in the first
 cycle and +0.27 in the last, the low points about -0.05 throughout, and the last 10 photos read
 +0.01. The photo path does the same thing every minute, so it does not by itself explain a
-19-minute cycle; the cause was not investigated. The first photo fell near a low point of the
+19-minute cycle; the chamber's own log shows it goes with the chamber's temperature and humidity
+cycle (see "Run 3j against the chamber's own record" below). The first photo fell near a low point of the
 cycle, which is why the medians are mostly positive.
 
 Reading: over 2 hours of unattended photos without reopening the camera, the readings did not
@@ -584,10 +623,423 @@ were measured with: the camera was reopened per photo only from commit `a58e720`
 11:20 UTC) until `5f068bf`, and that path was never run at one photo a minute. One run; whether the cycle is also there with the camera reopened per photo, at
 other times of day, or with the chamber lights off was not measured.
 
+**Run 3j against the chamber's own record, method written 2026-10-07 before the comparison.**
+Does any chamber reading follow the 19-minute cycle? The chamber controller logs once a minute in
+local time (Amsterdam, UTC+2): temperature, humidity and CO2 (set and actual), 9 light channels
+and `Bath_H1` (export `/home/pi/scratch/D6_2026.09.07-2026.10.07.csv`, made 2026-10-07 about
+10:00 local). The rows for run 3j's window (2026-10-06 21:10 to 23:10 local, 19:10 to 21:10 UTC)
+are matched to each photo by the nearest minute after converting to UTC. For each chamber column:
+its range in the window, the time shift (5 to 40 minutes) at which it best matches itself (its own
+period), and its correlation with run 3j's all-tag median at shifts of -10 to +10 minutes (the
+chamber may lead or lag the photos). A column is said to follow the cycle if its own period is 15
+to 25 minutes and its best correlation with the all-tag median is above 0.5 in size (**decision**).
+A column that does not change in the window is reported as constant. This only shows whether a
+chamber reading moves with the cycle; it does not show that it causes it.
+
+**Result** (149 chamber rows, 18:56 to 21:24 UTC; script and output
+`/home/pi/scratch/lens-noreopen-2026-10-06/chamber_compare.py`, `chamber_compare.json`):
+
+| Column | Range in the window | Own period | Best correlation with the all-tag median | Shift | Follows the cycle |
+|---|---|---|---|---|---|
+| T_Actual (air temperature) | 19.8 to 20.3 °C | 19 min (r 0.81) | +0.84 | chamber 1 min ahead | **yes** |
+| RH_Actual (humidity) | 57 to 62% | 19 min (r 0.78) | -0.76 | chamber 1 min behind | **yes** |
+| CO2_Actual | 430 to 460 ppm | 5 min | +0.29 | 0 | no |
+| Bath_H1 | 0 to 100 | 37 min (r 0.20) | -0.22 | +4 min | no |
+| T_Set, RH_Set, CO2_Set, all 9 light channels | constant (20 °C, 60%, 300 ppm; CoolWhite 25.02, others 0) | | | | constant |
+
+Reading: **the 19-minute cycle in the readings goes with the chamber's own temperature and
+humidity cycle.** When the air was warmer (by up to 0.5 °C) the areas read larger and the photos
+were sharper; humidity moved the opposite way, as it does when air warms. The lights did not change.
+This shows that the readings move with the chamber's climate cycle, not which part of it, or what
+in the camera, causes the change. Since the chamber's cycle depends on the experiment and the air
+handler (Aaron, 2026-10-07), the size and period of this swing may differ between experiments.
+
 Raw data for runs 3 to 3c:
 `/home/pi/scratch/lens-coldstart-2026-10-06/` (`log.txt`, `log3b.txt`, `watch3b.txt`, scripts).
 
 Detailed results: `reference/lens-return-2026-10.md`.
+
+### 8.2 Camera swap comparison (method written 2026-10-07, before any step runs)
+
+**Why.** The Arducam used since the rebuild may have been damaged (Aaron, 2026-10-07): after a
+full-res photo its lens stops following commands (section 8.1, run 3b and the diagnosis), a camera
+fault on 2026-10-06 left the central trays about half as sharp, and the 2026-10-07 validation read
+about 0.85 points lower than the 2026-10-05 one. A new camera of the same model is fitted and the
+key tests are repeated, so each result can be compared with the old camera's. This compares the
+two cameras; it does not look for causes.
+
+**Before starting.** Record both cameras' serial numbers and the lens position the new camera is
+locked at (the operator's choice). The old camera is kept untouched. Swapping means switching the
+Pi off, so the first hour after power-on is a cold start (section 8, table): no step starts until
+60 minutes after the Pi is switched on with the new camera. Same printed sheets (30.0 mm tags),
+same trays and table, chamber door closed for every photograph, lights on. Raw data:
+`/home/pi/scratch/camera-swap-2026-10/`.
+
+**Steps and how each is judged** (limits fixed now; "different" means larger than the old camera
+showed with nothing done):
+
+| Step | What | Old camera | Judged |
+|---|---|---|---|
+| 0 | Swap, square, focus and lock (operator) | lens 6.27 | Recorded only |
+| 1 | Calibrate with the wizard | tags found and fit as in section 5 | Recorded and compared; no pass or fail |
+| 2 | Validate: 3 rounds, 10 minutes apart, door closed | 2026-10-07 validation above | Per slot: the band and median compared. A slot median differing by more than 0.62 points (the largest slot change with nothing done, run 3j) counts as different, but only if the lens position matches 6.27 within 0.01; otherwise the comparison is reported with the lens difference noted (the central error changes about 1.2 points per 0.1) |
+| 3 | Photo-to-photo noise: 10 photos in a row, nothing touched | per-tag standard deviation 0.27 to 0.46 points | Different if the median per-tag standard deviation is outside 0.27 to 0.46 |
+| 4 | Stuck lens: `reference/lens-unresponsive-2026-10-diagnose.py`, server stopped | after one photo, lens writes accepted and not followed; follows after a close and reopen | Follows or does not follow (yes or no); tells whether the fault belongs to the old camera or to the model |
+| 5 | Restarts: 5 warm restarts, 2 photos each (as run 3i) | median within ±0.05 points, every slot within ±0.39 | Different if a median exceeds ±0.10 or a slot ±0.52 (Control B) |
+| 6 | 2 hours unattended: one photo a minute (as run 3j) | a cycle of about 19 minutes, median swing about 0.35 points, largest slot 0.62 | Cycle present if the median's correlation with itself 15 to 25 photos later peaks above 0.5; swing and largest slot compared. Present again means it comes from the chamber, not the camera |
+
+**Optional, only if Aaron asks for them:** a planned cold start (as run 3: Pi off about 30
+minutes, photos at +0, +15, +30, +60 minutes), and the two-height test (section 9.1).
+
+Each step's result is added here when it is done, with its date, times (UTC), session or capture
+IDs and the raw data path.
+
+**Step 0 result (2026-10-07, recorded only).** Old camera serial SN000 (kept untouched), new
+camera serial SN001 (serials as given by Aaron). The Pi was switched on with the new camera at
+11:20 UTC, so the cold start ended at 12:20 UTC. The server ran from the m2-camera-swap branch.
+Aaron fitted, squared and focused the new camera and first locked it at 6.23. After the cold-start
+data below, he unlocked, refocused and locked at **6.16** (between 11:59 and 12:22 UTC, server
+log), and confirmed 6.16 as his chosen position for every remaining step. The old camera was at
+6.27: a difference of 0.11, which at about 1.2 points of central error per 0.1 (step 2 above) is
+about 1.3 points.
+
+*Cold-start data, not used to judge any step:* a calibration made 25 minutes after power-on
+(`20261007T114505498348`, 11:45 UTC, residual 0.50%, 30.0 mm tags, lens 6.23) and a validation
+of it (session `20261007T114611264170`, rounds at 11:46 and 11:58 UTC). Both started inside the
+first hour after power-on, so under the rule above they do not count; step 1 was repeated after
+12:20 UTC.
+
+**Step 1 result (2026-10-07, recorded and compared, no pass or fail).** Calibration
+`20261007T122200583188`, 12:22 UTC (62 minutes after power-on), lens 6.16, focus locked, 30.0 mm
+tags, 50 mm corner tags, table span 1494 x 1171 mm as entered. Calibration files:
+`/var/lib/npec-rig/calibration/20261007T122200583188.json` and its `frames/` and `heatmaps/`.
+
+| | Old camera SN000 (`20261005T141101923639`) | New camera SN001 (`20261007T122200583188`) |
+|---|---|---|
+| Calibration tags found | 355 | 355 |
+| Corner tags found | 4 | 4 |
+| Scale field residual | 0.52% | 0.49% |
+| Holdout coverage error | 0.4% | 0.4% |
+| Mean scale | 4.856 px/mm | 4.865 px/mm (+0.17%) |
+| Lens position | 6.27 | 6.16 |
+
+The new camera finds the same tags and the plane fits them as well as for the old camera. The
+mean scale differs by 0.17%, which is expected when a camera is refitted and squared again; no
+limit was set for it. The wizard also reported: scale varies 1% across the calibrated area, worst
+top-left, 0.6% higher top-left than bottom-right; area-scale error 0.8% mean over 355 tags; shape
+distortion 0.01% mean, worst tag 395 at -0.06%. The 11:45 cold-start calibration at lens 6.23 gave
+4.864 px/mm and 0.50%, close to this one.
+
+**Step 2 result (2026-10-07).** Validation session `20261007T122525038952` of calibration
+`20261007T122200583188`, lens 6.16 locked, chamber door closed. Rounds at 12:26, 12:38 and
+12:51 UTC (24.8 minutes first to last, shortest gap 11.8 minutes); 93%, 93% and 86% of tags
+moved; 85 to 90 tags per slot. The rig's checks: validated, no problems, no flagged or
+inconsistent slots; the largest move of a slot median between rounds 0.60 points (old camera
+1.31). Raw data: `/home/pi/scratch/camera-swap-2026-10/step2/` (`validation_sessions.json`, all
+sessions as the server reported them at 12:51 UTC, and `compare.py`, which makes the table below).
+
+| Slot | Band, old | Band, new | Median, old | Median, new | Change |
+|---|---|---|---|---|---|
+| North 1 | ±3.3% | ±2.7% | -0.90 | +0.88 | +1.78 |
+| North 2 | ±2.5% | ±1.7% | -0.80 | +0.51 | +1.31 |
+| North 3 | ±2.9% | ±1.7% | -1.36 | -0.22 | +1.14 |
+| North 4 | ±2.3% | ±2.1% | -0.25 | -0.38 | -0.13 |
+| North 5 | ±2.4% | ±1.8% | -0.71 | -0.50 | +0.21 |
+| North 6 | ±3.0% | ±1.9% | -0.91 | +0.33 | +1.24 |
+| South 1 | ±2.8% | ±1.9% | -1.33 | -0.05 | +1.28 |
+| South 2 | ±2.2% | ±1.3% | -0.76 | +0.22 | +0.98 |
+| South 3 | ±1.5% | ±2.0% | -0.16 | -0.05 | +0.11 |
+| South 4 | ±1.6% | ±2.5% | +0.11 | -0.58 | -0.69 |
+| South 5 | ±3.1% | ±1.7% | -1.20 | -0.34 | +0.86 |
+| South 6 | ±2.2% | ±1.9% | -0.37 | +0.64 | +1.01 |
+
+*Against the limit fixed above.* The lens position (6.16) does not match the old camera's (6.27)
+within 0.01; it differs by 0.11. So, as fixed beforehand, the 0.62-point limit is not applied and
+no slot is called the same or different; the comparison is reported with the lens difference
+noted (about 1.3 points of central error at 1.2 points per 0.1). For the record, 9 of 12 slot
+medians changed by more than 0.62 points (from -0.69 to +1.78).
+
+*What the comparison does show.* Bands: ±1.3% to ±2.7% on the new camera against ±1.5% to ±3.3%
+on the old; 10 of 12 slots narrower, 2 wider (South 3, South 4). Median of the slot medians: -0.05
+points against -0.78 (the old camera read +0.07 on 2026-10-05). This compares two cameras at two
+lens positions; it does not say which of the two, if either, caused the change.
+
+**Step 3 result (2026-10-07): different, lower.** 10 photos in a row through the app's
+`POST /capture`, 12:57:31 to 12:57:58 UTC (2.7 to 2.8 s each), captures `2026-10-07/125733_446195`
+to `2026-10-07/125758_010168`, nothing touched, chamber door closed, lens 6.16 locked in every
+photo, exposure 3793 µs and gain 1.0 in every photo, calibration `20261007T122200583188`. Method:
+each calibration tag matched by ID and position (within 20 px of the first photo); the standard
+deviation (n-1) of its area error over the 10 photos; the median over tags. Raw data and scripts:
+`/home/pi/scratch/camera-swap-2026-10/step3/` (`step3.py` took the photos, `analyse.py` makes
+`results.json`).
+
+| | Old camera SN000 | New camera SN001 |
+|---|---|---|
+| Median per-tag standard deviation | 0.27 to 0.46 points (2026-10-01) | **0.15 points** |
+| Tags followed through every photo | | 355 of 355 |
+| Per-tag spread, middle half of tags | | 0.12 to 0.19 points |
+| Largest tag | | 0.37 points |
+| Per-slot medians | | 0.12 to 0.17 points |
+| Whole-photo median error, photo to photo | | -0.09 to +0.00 points |
+
+*Against the limit fixed above.* 0.15 is outside 0.27 to 0.46, so the new camera is different: its
+photo-to-photo noise is about half the old camera's. One caution about the comparison itself: the
+old figure came from the light-level test of 2026-10-01 (`reference/arducam-central-error-2026-10.md`,
+test 6), with automatic exposure compensating three light levels, and its record does not give the
+number of photos or how the standard deviation was summarised. Today's photos had fixed exposure.
+So the difference may come partly from the conditions, not only from the camera. The limit was
+applied as written, not changed.
+
+**Step 4 result (2026-10-07): does not follow, as the old camera.** Server stopped 13:02 UTC,
+`reference/lens-unresponsive-2026-10-diagnose.py` run with the camera-swap branch's code, one case
+per process (a fresh camera each time), chamber door closed, lights on. Lens positions used: the
+persisted 6.16 and 4.66 (1.5 below, chosen only for a large sharpness change). Each write watched
+for 90 s: the position the camera reports, frames flowing, and the sharpness of the central third.
+Raw data: `/home/pi/scratch/camera-swap-2026-10/step4/` (one `.csv` and `.json` per case).
+
+| Case (UTC start) | Lens write | Reported position | Sharpness | Followed |
+|---|---|---|---|---|
+| No photo (13:03) | 6.16 to 4.66 | 4.66 in 0.58 s | 1067 to 19 | yes |
+| | 4.66 to 6.16 | 6.16 in 0.57 s | 19 to 1103 | yes |
+| After 1 full-res photo (13:07) | 6.16 to 4.66 | stayed 6.16 for 90 s | 1105 to 1104 | **no** |
+| After 1 photo, camera closed and reopened (13:12) | 6.16 to 4.66 | 4.66 in 0.57 s | 1087 to 19 | yes |
+| | 4.66 to 6.16 | 6.16 in 0.58 s | 19 to 1098 | yes |
+
+Frames kept flowing in every case. The write after a photo was accepted without an error and not
+followed, and the camera kept reporting the old position, exactly as the old camera did (section
+8.1, run 3b and the diagnosis). A close and reopen cures it on both cameras. So the fault is not
+peculiar to the old camera: it comes with this camera model or with the software shared by both
+setups; this step does not separate those two. The app already works around it (photos do not move
+the lens; the camera is reopened before any lens command, TODO "Plan: nothing moves the lens during
+an experiment", slice 1). Every case ended with the lens driven back to 6.16. The server was
+restarted at 13:18 UTC and reported focus locked at 6.16.
+
+**Step 5 result (2026-10-07): same as the old camera.** As run 3i: 2 reference photos, then 5
+times (warm app restart by killing the whole server process family, relaunch from the camera-swap
+branch, wait until focus reports locked; 2 photos). 13:21:56 to 13:22:47 UTC, about 3.4 s per
+restart (as in run 3i), lens 6.16 and locked after every restart and in every photo, chamber door
+closed, calibration `20261007T122200583188`, slots from validation `20261007T122525038952`. Each
+calibration tag compared with itself in the first reference photo (matched by ID and within
+20 px). Raw data: `/home/pi/scratch/camera-swap-2026-10/step5/` (`step5.sh`, `log.txt`,
+`photos.txt`, `analyse.py`, `results.json`).
+
+| Photo | Tags | Median change | Central slots | Largest slot change |
+|---|---|---|---|---|
+| Reference b | 355 | -0.03 | -0.04 | North 5 -0.15 |
+| Restart 1 a / b | 355 / 355 | +0.01 / -0.04 | +0.01 / -0.03 | South 4 -0.11 / North 5 -0.16 |
+| Restart 2 a / b | 355 / 355 | +0.02 / -0.01 | +0.05 / +0.02 | North 3 +0.11 / North 6 -0.24 |
+| Restart 3 a / b | 355 / 355 | +0.05 / -0.02 | +0.06 / +0.01 | North 3 +0.11 / North 5 -0.16 |
+| Restart 4 a / b | 355 / 355 | +0.06 / +0.02 | +0.10 / +0.05 | South 5 +0.18 / North 3 +0.15 |
+| Restart 5 a / b | 355 / 355 | +0.05 / -0.00 | +0.09 / +0.06 | North 3 +0.19 / South 5 +0.19 |
+
+*Against the limits fixed above.* Median within -0.04 to +0.06 (limit ±0.10), every slot within
+±0.24 (limit ±0.52): not different. The old camera gave a median within ±0.05 and every slot within
+±0.39 (run 3i). A warm restart does not change the new camera's readings either.
+
+**Extra check, asked for by Aaron (2026-10-07): is the central low reading there on the new
+camera?** Not one of the steps above; no limit set, compared only. *Method (written before it
+ran):* the same analysis as `reference/arducam-central-error-2026-10.md` section 4.1, on each
+camera's 2026-10-07 validation. Every calibration tag in the 3 validation rounds, its area error
+under that camera's own calibration (old: rounds `070505_471367`, `071439_917590`,
+`072601_309111` with calibration `20261005T141101923639`; new: `122619_085413`, `123805_311325`,
+`125109_812791` with `20261007T122200583188`), grouped by distance from the image centre (4576,
+3472 px): median error per band, and the dip (median within 1500 px minus median beyond 2500 px,
+as in that record's section 4.3, where the old camera gave about -2.6 points on 2026-10-01).
+Saved data only; no photos. Raw data: `/home/pi/scratch/camera-swap-2026-10/centre-check/`.
+
+*Result (run 13:27 UTC):*
+
+| Distance from image centre (px) | Old camera SN000: tags, median error | New camera SN001: tags, median error |
+|---|---|---|
+| 0 to 1000 | 24, -2.42% | 10, -2.80% |
+| 1000 to 1500 | 119, -0.88% | 123, -1.15% |
+| 1500 to 2000 | 158, +0.17% | 173, -0.08% |
+| 2000 to 2500 | 164, -0.07% | 138, +0.10% |
+| 2500 to 3500 | 256, -1.11% | 271, +0.06% |
+| 3500 to 4500 | 287, -0.77% | 332, +0.50% |
+| 4500 and beyond | 29, -1.44% | 18, -0.55% |
+| Dip (within 1500 minus beyond 2500) | -0.27 points | -1.50 points |
+
+The central low reading is present on the new camera: tags within 1000 px of the image centre read
+about 2.8% small and the reading returns to about zero beyond 1500 px, the same shape as on the old
+camera. So it is not peculiar to the old camera, in line with its record (it belongs to the
+Arducam). The old camera's dip on this day is only -0.27 because its outer bands also read low
+(-0.77 to -1.44%), the whole-table shift of about -0.85 points noted in section 6; its innermost
+band (-2.42%) is close to the new camera's. Cautions: the innermost band holds only 10 and 24
+tags; the two cameras were at different lens positions (6.16 and 6.27), and the size of this
+error follows the lens position. The North 4 slot median does not stand out on either camera
+because only the slot's inner corner lies within 1500 px of the image centre; the per-slot band
+from validation includes it.
+
+**Packing foam found on the new camera (2026-10-07, during step 6).** Aaron found packing foam
+left on the camera body over the lens, present for every photo since the swap (calibration,
+validation, steps 2 to 5 and step 6 photos 0 to 12). He removed it with the door open 13:41 to
+13:42 UTC (15:41 to 15:42 local), without touching the lens. Step 6 photos compared with photo 11
+(13:40 UTC, the last before the door opened); raw data and script:
+`/home/pi/scratch/camera-swap-2026-10/foam-check/` (`analyse.py`, `results.json`).
+
+| Photo (UTC) | Exposure (µs) | Tags | Tag shift, median / largest (px) | Area change, median | Largest slot | North 4 sharpness |
+|---|---|---|---|---|---|---|
+| 0 (13:29) | 3793 | 355 | 0.97 / 1.64 | +0.19 | North 5 +0.46 | |
+| 10 (13:39) | 3793 | 355 | 0.16 / 0.69 | +0.04 | North 5 +0.13 | |
+| 13 (13:42, Aaron at the rig) | 3897 | 314 | 0.22 / 3.75 | -0.04 | | |
+| 14 (13:43) | 3533 | 355 | 0.89 / 3.07 | -0.53 | North 5 -0.83 | -21.4% |
+| 15 (13:44) | 3533 | 355 | 0.94 / 3.72 | -0.52 | North 5 -0.77 | -20.2% |
+| 16 (13:45) | 3533 | 355 | 0.86 / 3.36 | -0.47 | North 1 -0.60 | -16.6% |
+| 17 (13:46) | 3533 | 355 | 0.78 / 3.55 | -0.43 | North 3 -0.54 | -15.5% |
+
+After the foam was removed, the camera's view moved by under 4 px, the exposure dropped by 7% (more
+light reaching the sensor), the readings dropped by about 0.5 points (beyond the step 5 limits of
+0.10 for the median and 0.52 for a slot) and the centre lost about a fifth of its sharpness; the
+change was getting smaller each minute. Whether the readings return to their earlier level is not
+known yet. Until that is known, the step 2 validation is not relied on.
+
+*Later step 6 photos, same comparison (checked 16:30 UTC):*
+
+| Photo (UTC) | Tag shift, median / largest (px) | Area change, median | Largest slot | Least sharp slot |
+|---|---|---|---|---|
+| 25 (13:54) | 0.94 / 3.19 | -0.62 | North 4 -0.81 | North 4 -25.6% |
+| 35 (14:04) | 1.21 / 4.24 | -0.51 | North 4 -0.65 | North 4 -21.5% |
+| 50 (14:19) | 1.05 / 3.63 | -0.85 | North 5 -1.17 | South 3 -39.2% |
+| 70 (14:39) | 1.07 / 3.42 | -0.93 | North 4 -1.37 | South 3 -41.9% |
+| 90 (14:59) | 0.96 / 3.51 | -0.85 | North 5 -1.13 | South 3 -40.0% |
+| 105 (15:14) | 0.92 / 3.10 | -0.85 | North 4 -1.14 | South 3 -39.4% |
+| 119 (15:28) | 0.91 / 2.86 | -0.69 | North 5 -0.92 | South 3 -31.3% |
+
+The readings did not return within 1 hour 46 minutes. From about 14:19 UTC they settled about 0.7
+to 0.9 points below their level before the foam was removed, with single slots up to 1.37 points
+below, and the central slots about a third to two fifths less sharp. This is larger than every
+change measured with nothing done on either camera (section 8, table). The calibration and the
+step 2 validation therefore describe the camera as it was with the foam on, not as it is now. The
+overnight run shows whether this changes further. Steps 1 to 5 and the
+centre check were all taken with the foam in place; they compare the cameras as they were set up,
+foam included. Step 6 is affected from photo 13: its photos 0 to 12 are 13 minutes only, and from
+photo 14 on it includes the recovery, so it is reported with that noted.
+
+**Overnight run (method written 2026-10-07 13:50 UTC, before it starts; agreed by Aaron).** Not
+one of the steps above; recorded only, no limit. Purpose: does the reading return to its level
+before the foam was removed, and does it drift over about 15 hours with nobody at the chamber.
+Same script as run 3j (`/home/pi/scratch/camera-swap-2026-10/overnight/overnight.py`), started
+automatically when step 6 ends (about 15:29 UTC), 916 photos, one a minute, to about 06:45 UTC on
+2026-10-08 (08:45 local). Door closed, lights on (Aaron), lens 6.16 locked. Analysed as step 6:
+each tag against itself in a reference photo, median and per-slot change, sharpness per slot;
+reported against both step 6 photo 11 (before the foam came off) and the first overnight photo.
+Raw data: `/home/pi/scratch/camera-swap-2026-10/overnight/`.
+*Start as run:* the automatic start failed (the launcher waited for step 6 by looking for its name
+among running processes, and a second waiter of Claude's own carried the same name, so it never
+saw step 6 end). Started by hand at 16:26 UTC on Aaron's request, 858 photos to about 06:44 UTC.
+No photos were taken from 15:28 to 16:26 UTC (58 minutes).
+
+**Step 6, extra analysis of photos 14 to 119 (method written 2026-10-08 before it ran; agreed by
+Aaron; information only, the as-written result stands).** The same analysis and chamber comparison
+as step 6, on photos 14 to 119 only (after the foam came off), each tag against itself in photo 14
+(`2026-10-07/134311_803312`). Reason: the foam step at photo 13 dominates the as-written series and
+could hide a cycle of the old camera's size (0.35 points).
+
+**Step 6 result (2026-10-07, 13:29 to 15:28 UTC, analysed 2026-10-08).** 120 photos, one a minute,
+through `POST /capture` (`step6.py`, a copy of run 3j's script), no errors, lens 6.16 locked in
+every photo, chamber door closed except 13:41 to 13:42 UTC (foam removal, above). Calibration
+`20261007T122200583188`. Chamber record: Aaron's export
+`/home/pi/scratch/Aaron-D6-2026.09.08-2026.10.08.csv` (1-minute rows, local time). Raw data and
+scripts: `/home/pi/scratch/camera-swap-2026-10/step6/` and the shared `series_analyse.py` and
+`chamber_compare.py` in `/home/pi/scratch/camera-swap-2026-10/` (adapted from run 3j's
+`analyse.py` and `chamber_compare.py`).
+
+| | Old camera, run 3j | New camera, as written (photos 0 to 119, against photo 0) | New camera, extra (photos 14 to 119, against photo 14) |
+|---|---|---|---|
+| Median's correlation with itself 15 to 25 photos later, peak | above 0.5, period about 19 | **0.20** (17 photos) | **0.67** (19 to 20 photos) |
+| Median swing | about 0.35 points | 1.15 points | 0.57 points |
+| Largest slot change | 0.62 | 1.85 (North 5) | 0.74 (North 5) |
+| Least sharp slot | no loss | -53% | -31% |
+| Chamber air temperature | 19.8 to 20.3 °C, period 19 min, r +0.84 | 19.7 to 20.3 °C, period 19 min, r -0.26 | 19.7 to 20.3 °C, period 19 min, r -0.59 (chamber 5 min ahead) |
+| Chamber humidity | 57 to 62%, period 19 min, r -0.76 | 57 to 62%, period 19 min, r +0.33 | 57 to 62%, period 19 min, r -0.73 |
+
+*Against the rule fixed above, as written:* the peak correlation is 0.20, under 0.5, so the cycle
+counts as **not present**. This is the official step 6 result. The swing and the largest slot are
+dominated by the foam removal and the settling after it, so they do not compare the cameras.
+
+*Extra analysis (information only):* without the foam step, the cycle is there on the new camera:
+peak correlation 0.67 at 19 to 20 photos, and the readings follow the chamber's 19-minute
+humidity cycle (r -0.73, the same as the old camera's -0.76) and its temperature cycle (r -0.59;
+the old camera's was +0.84, opposite in sign). The swing (0.57) still includes some settling after
+the foam came off. In the terms of 8.2, a cycle present on both cameras comes from the chamber, not
+the camera; this rests on the extra analysis, not on the as-written result. The opposite sign
+against temperature is recorded, not explained. The chamber ran the same climate cycle on both
+days (19.7 to 20.3 °C, 57 to 62%).
+
+**Overnight run result (2026-10-07 16:26 to 23:14 UTC, analysed 2026-10-08).** 858 photos taken to
+06:43 UTC, no errors, lens 6.16 locked in every photo. The chamber lights went off at photo 409
+(23:15 UTC; exposure jumped from 3533 to about 66000 µs), so the run is analysed to photo 408:
+409 photos, 6.8 hours. Every tag compared with itself in step 6 photo 11 (13:40 UTC, the last
+photo before the foam came off). Same scripts as step 6; raw data:
+`/home/pi/scratch/camera-swap-2026-10/overnight/` (`analysis_vs_before_foam.json`,
+`chamber_compare.json`).
+
+| Hour from (UTC) | Median change, hour median | Lowest / highest photo | Sharpness, median slot |
+|---|---|---|---|
+| 16:26 | -0.84 | -1.04 / -0.58 | -15.8% |
+| 17:26 | -0.78 | -1.01 / -0.55 | -15.0% |
+| 18:26 | -0.80 | -1.04 / -0.49 | -15.2% |
+| 19:26 | -0.80 | -1.08 / -0.48 | -15.4% |
+| 20:26 | -0.78 | -1.04 / -0.54 | -15.2% |
+| 21:26 | -0.78 | -1.02 / -0.46 | -15.4% |
+| 22:26 | -0.80 | -1.04 / -0.60 | -16.2% |
+
+Largest slot change -1.57 points (North 5); largest swing of one slot 1.06 points. The median's
+correlation with itself peaks at 0.83 at 20 photos. Against the chamber record over the same
+window: air temperature 19.7 to 20.4 °C, period 20 min, r +0.61 (chamber 2 min behind); humidity
+56 to 62%, period 20 min, r -0.86. Light level (CoolWhite) changed from 25.02 to 13 within the
+window with no effect on the readings (r +0.04).
+
+What it shows: (1) the readings did not return to their level before the foam came off: they sat
+about 0.8 points lower, and the slots about 15% less sharp, for the whole 6.8 hours; so the foam's
+removal changed the camera's readings lastingly, and the calibration of 2026-10-07 12:22 UTC and
+its validation no longer describe the camera. (2) With nothing done for 6.8 hours, there was no
+drift: each hour's median lay within 0.06 points of the others. (3) The 20-minute cycle is present,
+swinging about 0.5 to 0.6 points, and follows the chamber's humidity and temperature cycle with the
+same signs as the old camera's (humidity negative, temperature positive); the opposite temperature
+sign in step 6's extra analysis came during the settling after the foam came off. Present on both
+cameras, the cycle comes from the chamber, not the camera.
+
+**Recalibration after the foam came off (2026-10-08).** Before it, Aaron moved the trays slightly,
+moved the tray tags to inside each tray's boundary, and refocused: the lens was locked at **6.04**
+(the operator's choice) when the calibration ran. Calibration `20261008T081832283098`, 08:18 UTC,
+30.0 mm tags, 50 mm corner tags. Validation session `20261008T081846523784`, rounds at 08:20, 08:32
+and 08:43 UTC (23.6 minutes first to last, shortest gap 11.8 minutes), 87%, 77% and 74% of tags
+moved, 85 to 90 tags per slot, chamber door closed. Raw data: `/home/pi/scratch/camera-swap-2026-10/recal/`
+(`validation_sessions.json` as the server reported it, `compare.py`).
+
+| | With foam (step 1 and 2, lens 6.16) | Foam removed (lens 6.04) |
+|---|---|---|
+| Calibration tags | 355 | 355 |
+| Scale field residual | 0.49% | 0.50% |
+| Mean scale | 4.865 px/mm | 4.858 px/mm (-0.14%) |
+| Validation | validated, no flags | validated, no flags |
+| Largest move of a slot median between rounds | 0.60 | 0.76 |
+| Bands | ±1.3% to ±2.7% | ±1.3% to ±2.7% |
+| Median of the slot medians | -0.05 | -0.14 |
+
+| Slot | Band, foam | Band, no foam | Median, foam | Median, no foam | Change |
+|---|---|---|---|---|---|
+| North 1 | ±2.7% | ±2.3% | +0.88 | +0.83 | -0.06 |
+| North 2 | ±1.7% | ±2.5% | +0.51 | +0.26 | -0.25 |
+| North 3 | ±1.7% | ±2.0% | -0.22 | -0.45 | -0.24 |
+| North 4 | ±2.1% | ±2.5% | -0.38 | -0.43 | -0.04 |
+| North 5 | ±1.8% | ±1.5% | -0.50 | -0.68 | -0.18 |
+| North 6 | ±1.9% | ±1.6% | +0.33 | +0.17 | -0.15 |
+| South 1 | ±1.9% | ±1.4% | -0.05 | -0.36 | -0.31 |
+| South 2 | ±1.3% | ±1.4% | +0.22 | +0.34 | +0.12 |
+| South 3 | ±2.0% | ±2.1% | -0.05 | -0.13 | -0.07 |
+| South 4 | ±2.5% | ±2.7% | -0.58 | -0.86 | -0.28 |
+| South 5 | ±1.7% | ±1.3% | -0.34 | -0.16 | +0.18 |
+| South 6 | ±1.9% | ±2.4% | +0.64 | +0.77 | +0.13 |
+
+The lens differs (6.04 against 6.16) and the trays and tray tags were moved, so by the step 2 rule
+no slot is called the same or different. For the record, every slot median changed by less than
+0.62 points (from -0.31 to +0.18). Compared with the 2026-10-07 calibration as it read after the
+foam came off (about 0.8 points low, overnight run), a fresh calibration brings the camera back to
+a validation as close to zero as before. This calibration and validation are the current ones for
+the new camera and replace those of 2026-10-07.
 
 ## 9. M2 physical acceptance tests (2026-10-05)
 
@@ -779,7 +1231,9 @@ done (section 9).
 3. Lens control stops responding after a full-res capture (calibration, capture or tripwire
    check) until the app is restarted. Seen twice on 2026-10-05. Lens commands return success while
    the lens does not move. A measurement-relevant risk: the lens position recorded with a capture
-   may not be the actual one. Tracked as a bug, not a measurement.
+   may not be the actual one. Tracked as a bug, not a measurement. Since 2026-10-06 photos do not
+   move the lens and the camera is reopened before any lens command. The replacement camera shows
+   the same fault (2026-10-07, section 8.2, step 4), so it is not peculiar to one unit.
 
 **Inconsistencies found between project files, to be checked and resolved:**
 

@@ -12,9 +12,9 @@ band: the range within which that area can be trusted.
 
 The band has a precise meaning. **For flat objects at tray-top height, at the rig's locked focus,
 95% of measured test targets in that slot read within the band of their true area.** In the
-current setup (2026-10-05, lens position 6.27) the bands run from ±1.58% (South 2) to ±2.93%
-(North 4). An earlier setup the same day (lens 6.15, camera before it was moved) gave ±1.43% to
-±3.36%.
+current setup (replacement camera, 2026-10-08, lens position 6.04) the bands run from ±1.3%
+(South 5) to ±2.7% (South 4). The camera used before it (2026-10-05, lens 6.27) gave ±1.58% to
+±2.93%, and an earlier setup that day (lens 6.15) ±1.43% to ±3.36%.
 
 This document explains why that claim holds, and the steps taken to make it hold. Each step says
 what could go wrong, what the rig does about it, and the evidence.
@@ -59,9 +59,9 @@ or one focus setting does not hold everywhere.
 gives the scale (pixels per millimetre) at its own position, and a smooth scale field is fitted
 across the image. Area is then pixels divided by the square of the local scale.
 
-**Evidence.** The current calibration (lens 6.27, 355 tags): scale 4.85 px/mm at the image centre
-(about 0.21 mm per pixel), and the tags sit within 0.52% of the fitted field (standard
-deviation). Calibration refuses to run without a lock and all 4 corner tags, unless the operator
+**Evidence.** The current calibration (replacement camera, 2026-10-08, lens 6.04, 355 tags):
+scale 4.86 px/mm on average (about 0.21 mm per pixel), and the tags sit within 0.50% of the fitted
+field (standard deviation). The old camera's last calibration (lens 6.27) gave 0.52%. Calibration refuses to run without a lock and all 4 corner tags, unless the operator
 overrides it.
 
 **One calibration covers every tray height.** Calibrations with the sheets on the table surface
@@ -157,14 +157,17 @@ was compared with its own earlier reading:
 |---|---|---|
 | Nothing done (control) | | up to 0.52 points (North 1) |
 | Nothing done, one photo a minute for 2 hours (2026-10-06) | | a repeating 19-minute cycle: whole-table median up to +0.33 points, up to 0.62 points in one slot (North 5) |
+| Nothing done, one photo a minute for 6.8 hours (replacement camera, 2026-10-07) | | the same 20-minute cycle, following the chamber's humidity and temperature, swinging about 0.5 to 0.6 points; no drift (each hour's median within 0.06 points of the others); metrology-log 8.2, overnight run |
 | Lens moved by autofocus, driven back to 6.15 | -0.03 points | +0.35 points |
 | App restart | +0.08 and +0.09 points (two attempts, 2026-10-05); within ±0.05 over 5 restarts (2026-10-06) | -0.29 points; every slot within ±0.39 over the 5 restarts |
+| App restart, replacement camera (2026-10-07) | within -0.04 to +0.06 over 5 restarts | every slot within ±0.24 over the 5 restarts (metrology-log 8.2, step 5) |
 | Power cut (cold start) | -1.73 points right after; -0.41 at +15 min; -0.14 at +60 min | -0.62 points at +60 min (South 1) |
 
-Photographs of an unchanged scene differ by a spread of 0.27 to 0.46 points anyway. Both
+Photographs of an unchanged scene differ by a spread of 0.27 to 0.46 points anyway (old camera;
+the replacement camera fitted 2026-10-07 shows 0.15, metrology-log section 8.2, step 3). Both
 disturbances stayed inside the change seen with nothing done, and the largest change in any slot
 was about a sixth of that slot's band. On this evidence, a restart does not require a new
-calibration or validation.
+calibration or validation. The replacement camera fitted on 2026-10-07 gave the same result.
 
 A cold start is different. Right after a power cut, with the camera cold, the central trays
 were blurrier and areas read about 1.7 points low, more than some slots' bands. Without any
@@ -197,14 +200,30 @@ this run also fell at a low point of the cycle, so the run measured the full swi
 top.
 
 What it means: depending on when in the cycle a photograph is taken, its reading can be up to about
-0.35 points higher for the whole table and about 0.6 points higher in one slot. The cause is not
-known; the chamber's air handler runs outside the operator's control and its cycle depends on the
-experiment. The 2026-10-05 validation was taken with the same photo method, so the cycle was
+0.35 points higher for the whole table and about 0.6 points higher in one slot. The chamber's own
+log shows the cycle goes with its climate control: in the same 2 hours the air temperature rose and
+fell between 19.8 and 20.3 °C every 19 minutes, and the readings followed it (correlation 0.84;
+warmer air, larger and sharper readings), while the lights did not change. Which part of the
+climate cycle, or what in the camera, causes the change is not known. The air handler runs outside
+the operator's control and its cycle depends on the experiment, so the swing may differ between
+experiments. The 2026-10-05 validation was taken with the same photo method, so the cycle was
 already present then. Its 3 rounds were taken within 93 seconds, all at one point of the cycle, so
 its bands do not include the cycle. From 2026-10-07 the validation rounds are to be spread over at
 least 20 minutes, with the chamber door closed for every round; a validation with rounds closer
 together still counts, but its status says so. For comparison, the 0.52-point slot change seen with nothing done was about a
 quarter of that slot's band.
+
+**Replacing the camera (2026-10-07).** The camera was replaced by a new one of the same model and
+the key tests were repeated (metrology-log section 8.2). The new camera calibrated the same way
+(355 tags, 0.49% against 0.52%), was less noisy from photo to photo (0.15 points against 0.27 to
+0.46), behaved the same after restarts, showed the same lens fault after a full-resolution photo
+and the same central low reading. The 19-minute cycle appeared on the new camera too and followed
+the chamber's humidity and temperature, so it comes from the chamber, not from one camera. Over
+6.8 hours with nothing done the readings did not drift (each hour within 0.06 points of the
+others). One lesson from the swap: packing foam left on the camera body was removed during the
+tests, and that lastingly changed the readings by about 0.8 points, more than anything else seen
+with nothing moved. So any physical change to the camera, however small, is followed by a new
+calibration and validation; the 2026-10-08 calibration was made for that reason.
 
 **One open point.** On 2026-10-01, after a different series of lens moves, the central readings
 drifted by 1.3 points in 35 minutes. That was not repeated on 2026-10-05, and the reason for the
