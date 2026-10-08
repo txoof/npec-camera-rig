@@ -69,7 +69,8 @@
     <summary>How to use the camera settings</summary>
     <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
       <strong>Auto exposure</strong> lets the camera choose the exposure time and gain. Untick it
-      to set them yourself; while it is ticked the exposure time and gain controls are greyed out.
+      to set them yourself. While it is ticked, the exposure time and gain controls are greyed out
+      and show the values the camera is using, marked (auto), updated every 2 seconds.
     </p>
     <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
       <strong>Exposure time</strong> is how long the sensor collects light for one photo. The
@@ -264,6 +265,27 @@
       },
     };
 
+    const steppedDisplays = {};
+    const AUTO_REFRESH_MS = 2000;
+
+    // While AE is ticked, re-read what the camera is really using, so the greyed-out controls
+    // never show a stale manual value (Aaron, 2026-10-08).
+    async function refreshAutoValues() {
+      const ae = document.getElementById("control-AeEnable");
+      const panel = cameraControlsEl.closest("details");
+      if (!ae || !ae.checked || (panel && !panel.open)) return;
+      try {
+        const data = await (await fetch("/controls")).json();
+        if (!document.getElementById("control-AeEnable").checked) return;
+        AE_DEPENDENT_CONTROL_NAMES.forEach((name) => {
+          if (steppedDisplays[name]) steppedDisplays[name](data.values[name]);
+        });
+      } catch (err) {
+        // The next refresh tries again.
+      }
+    }
+    setInterval(refreshAutoValues, AUTO_REFRESH_MS);
+
     function nearestStopIndex(stops, value) {
       // Nearest on a ratio scale, since the stops are equal ratios apart.
       let best = 0;
@@ -309,6 +331,13 @@
         valueLabel.textContent = formatControlValue(name, cameraValue);
         box.value = spec.toBox(cameraValue);
       }
+      // While auto exposure is on the camera chooses the value: show what it reports.
+      steppedDisplays[name] = (cameraValue) => {
+        if (cameraValue === null || cameraValue === undefined) return;
+        slider.value = nearestStopIndex(stops, cameraValue);
+        show(cameraValue);
+        valueLabel.textContent += " (auto)";
+      };
       slider.addEventListener("input", () => {
         const cameraValue = stops[Number(slider.value)];
         show(cameraValue);
@@ -368,7 +397,10 @@
           .join("");
         pairNames.forEach((name) => {
           row.querySelector(`#control-${name}`).addEventListener("change", (event) => {
-            postControl(name, event.target.checked);
+            const posted = postControl(name, event.target.checked);
+            if (name === "AeEnable" && event.target.checked) {
+              posted.then(() => setTimeout(refreshAutoValues, 500));
+            }
             if (name === "AeEnable") {
               AE_DEPENDENT_CONTROL_NAMES.forEach((depName) => {
                 for (const id of [`control-${depName}`, `control-${depName}-box`]) {
@@ -406,6 +438,7 @@
         if (name in STEPPED_CONTROLS) {
           const disabled = AE_DEPENDENT_CONTROL_NAMES.includes(name) && values.AeEnable;
           cameraControlsEl.appendChild(renderSteppedControl(name, min, max, value, disabled));
+          if (disabled) steppedDisplays[name](value);
           continue;
         }
 
