@@ -1,0 +1,34 @@
+name: Task
+description: One piece of work an agent can claim. Several small related items may share one issue.
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What Aaron will be able to see working in the browser when this is done.
+    validations:
+      required: true
+  - type: input
+    id: area
+    attributes:
+      label: Area
+      description: Areas from the area map in CLAUDE.md, plus any shared files this task changes.
+      placeholder: "web, calibration; shared: docs/metrology-log.md"
+    validations:
+      required: true
+  - type: input
+    id: plan
+    attributes:
+      label: PLAN.md section
+      description: The section to read before starting. Leave empty if none.
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What is known, what is decided, and anything still open.
+  - type: checkboxes
+    id: camera
+    attributes:
+      label: Camera
+      options:
+        - label: Needs the camera or the port 8000 server (take the hardware label before using them)

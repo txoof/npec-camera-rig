@@ -1,41 +1,36 @@
 # Contributing
 
-> M1 (the camera console) was built and merged to `main` directly, before this policy existed.
-> Starting with M2, every milestone follows the process below.
+> M1 was merged to `main` directly, and M2 began as one PR per milestone. From 2026-10-08 the
+> work is split into tasks so several agents can work at once. The rules for claiming issues,
+> worktrees, the board and the camera are in `CLAUDE.md`, *Parallel work*.
 
-## Branching and PRs
+## Branches and PRs
 
-- **One pull request per milestone** (M1, M2, M3, ... — see `PLAN.md`). Slices within a
-  milestone are commits on that milestone's branch, not separate PRs.
-- Branch names: `m<N>-<short-description>`, e.g. `m2-calibration-rig-health`.
-- **Squash merge into `main`.** The PR description is what becomes the commit message — write it
-  as a summary of the milestone (what shipped, what was verified, what's deferred), not a
-  commit-by-commit log.
-- Don't push directly to `main`. Even solo, the branch + PR is what gives the review step
-  something to run against.
-- **Push the milestone branch to `origin` after every commit, no batching.** The trigger is the
-  commit, not the size of what's in it — commit at whatever checkpoint already made sense (a
-  TODO item, a bug fix, a slice), then push right away. This is a plain fast-forward push to a
-  private feature branch, never a force-push; it costs nothing and closes the gap where finished
-  work exists only on the Pi's disk.
+- **One PR per task.** A task is one thing Aaron can try in the browser in one sitting. It may
+  cover several small related issues in the same milestone and area. Keep a PR to about 500
+  changed lines, not counting tests. Split a bigger task into PRs that each work on their own.
+- Branch name: `<issue-number>-<short-name>`, e.g. `52-validation-wording`. A task that covers
+  several issues uses the number of its main one.
+- The PR body says `Closes #<n>` for each issue it finishes, or `Part of #<n>` for one part of a
+  split task. Open it as a draft while it is unfinished.
+- **Push after every commit.** A plain push to the task branch, never a force push. Use
+  `git merge origin/main` to bring a branch up to date, not a rebase.
+- Never push to `main`. Branch protection requires one approval from Aaron (`CODEOWNERS`).
 
 ## Review before merging
 
-Every milestone PR goes through Claude Code review before merging — this is what "several
-Claude agents" means in practice, not a manual ritual:
+1. Run the `code-review` skill (`/code-review`) on the PR's diff.
+2. Deal with every finding: fix it, or record it in an issue with the reason it is deferred. Post
+   what was done as one combined PR comment. Do not let a finding disappear silently.
+3. Run `pytest` (unit tier) again after any fixes.
 
-1. Run the `code-review` skill (`/code-review`) against the full diff, at `high` or `xhigh`
-   effort for a milestone-sized PR (higher effort broadens coverage across more review
-   dimensions and runs more verification passes).
-2. Triage every finding: fix it, or record it explicitly in `TODO.md` with a reason it's
-   deferred. Don't let a finding disappear silently.
-3. Re-run `pytest` (unit tier) after any fixes from the review.
+## Merging
 
-For a milestone with distinct, separable concerns (e.g. M2's detection code vs. its calibration
-math vs. its health-check tripwire), it's fine to run `/code-review` more than once against
-different parts of the diff rather than one pass over everything.
+**Only Aaron approves and merges.** Agents stop at "ready for you to merge". He squash merges, so
+the PR title becomes the commit on `main` and the PR description becomes its message: write it as
+a summary of what shipped, what was verified and what is deferred, not a log of commits.
 
 ## Everything else
 
-Test discipline, the governing anti-metrology principle, and how to work day-to-day are in
-`CLAUDE.md` — this file only covers the PR/branching workflow, not repeated here.
+Test discipline, the governing anti-metrology principle and day-to-day working rules are in
+`CLAUDE.md`. They are not repeated here.

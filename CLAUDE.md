@@ -114,6 +114,107 @@ by default. Longer only in answer to a direct question that needs it.
 
 When using AskUserQuestion, always leave room for a free-text answer.
 
+## Parallel work
+
+Several agent sessions may work at once, each on its own task. The PR workflow is in
+`CONTRIBUTING.md`. These are the rules for not getting in each other's way.
+
+**Identity.** Agents act as `txoof-bot`. `.claude/settings.local.json` in `~/npec_camera_rig`
+(not tracked) sets `GH_CONFIG_DIR`, `GIT_SSH_COMMAND` and the git author for every session started
+there. Do not unset or override them. Check at the start: `gh auth status` says `txoof-bot`.
+Start agent sessions in `~/npec_camera_rig`; a session started anywhere else acts as Aaron.
+
+**A task** is one thing Aaron can try in the browser in one sitting. It may cover several small
+related issues in the same milestone and area. It is one PR of about 500 changed lines or less,
+not counting tests. A bigger task is split into PRs that each work on their own.
+
+**Issues are the to-do list.** Every change starts from an issue made with the Task template,
+in a milestone (M2 to M6). Repo `txoof/npec-camera-rig`, board
+https://github.com/users/txoof/projects/5.
+
+**Claiming.** Before starting, list what is taken:
+
+```bash
+gh issue list --label in-progress
+```
+
+Do not start an issue labelled `in-progress`, or one whose Area overlaps a claimed issue's Area.
+Claim every issue the task covers, and release when the PR is merged or when stopping early:
+
+```bash
+gh issue edit <n> --add-label in-progress
+gh issue comment <n> --body "claimed by <branch>"
+gh issue edit <n> --remove-label in-progress
+gh issue comment <n> --body "released: <reason>"
+```
+
+Other labels: `needs-decision` (waiting for Aaron), `blocked` (waiting for another issue or an
+outside thing), `area:*` (filter by area).
+
+**The camera and port 8000: the `hardware` label.** There is one camera and one live server. The
+`hardware` label is a lock: at most one open issue has it. Only that task may use the camera,
+restart the port 8000 server, or ask Aaron to try its work. Take it only when
+`gh issue list --label hardware` is empty. In the claim comment, write the command line the
+server was running with (`ps -eo args | grep uvicorn`). When Aaron has tried the work, put the
+server back as it was and remove the label. Everyone else writes code and runs unit tests with the
+synthetic camera, then waits for the label.
+
+**Area map.** Which files a task may change. A test file goes with its module.
+
+| Area | Files |
+|---|---|
+| camera | `camera.py`, `captures.py`, `settings.py` |
+| calibration | `tags.py`, `calibration*.py`, `validation_store.py`, `tripwire.py`, `certainty_map.py` |
+| web | `app.py`, `templates/`, `static/` |
+| images | `images.py`, `text_render.py` |
+| docs | `docs/` (except the shared files below), `reference/`, `README.md` |
+| cad | `hardware/` |
+| deploy | `deploy/` |
+| ci | `.github/`, `pyproject.toml`, `uv.lock` |
+
+Module files are in `src/npec_rig/`. A new module or folder is added to this map in the PR that
+creates it.
+
+**Shared files** may be changed by any task that needs to, after checking that no other open PR
+changes them: `CLAUDE.md`, `PLAN.md`, `CONTRIBUTING.md`, `docs/metrology-log.md`,
+`docs/measurement-trust.md`, `docs/operator-guide.md`, `pyproject.toml`, `uv.lock`,
+`tests/conftest.py`, `tests/helpers.py`.
+
+```bash
+f=docs/metrology-log.md
+for n in $(gh pr list --json number --jq '.[].number'); do
+  gh pr diff "$n" --name-only | grep -qx "$f" && echo "#$n changes $f"
+done
+```
+
+**Worktrees.** One per task, outside the repo, so the live server never sees the files change.
+Do not use the EnterWorktree tool: it puts worktrees inside the repo.
+
+```bash
+git -C ~/npec_camera_rig fetch origin
+git -C ~/npec_camera_rig worktree add -b <n>-<short-name> ~/wt/npec-<n>-<short-name> origin/main
+```
+
+The branch, the folder and the claim comment use the same name. Run tests there with
+`PYTHONPATH="$(pwd)/src"`. Never work on `main`. Do not touch another session's worktree or PR.
+After the merge, remove the worktree and the local branch.
+
+**The board.** Columns Todo, In Progress, In Review, Done. Move the cards for the issue and its PR:
+In Progress when claimed, In Review when the PR is opened, back to Todo when a claim is released
+unfinished. Closing and merging move cards to Done by themselves. `item-add` on a card that is
+already on the board returns its id, so always run both commands:
+
+```bash
+item=$(gh project item-add 5 --owner txoof --url <issue-or-PR-URL> --format json --jq .id)
+gh project item-edit --project-id PVT_kwHOANmg6c4BmGmA --id "$item" \
+  --field-id PVTSSF_lAHOANmg6c4BmGmAzhkw6FQ --single-select-option-id <column-id>
+```
+
+Column ids: Todo `2ddd622b`, In Progress `3d30af1f`, In Review `822c51c8`, Done `d284367f`.
+
+**Email.** Every GitHub action emails Aaron. Push in batches, post one combined comment, and do not
+switch labels, draft state or reviews back and forth.
+
 ## Facts not to rediscover
 
 - **Current 30 mm AprilTags measure 30.0 ± 0.1 mm.** Callipers, 2026-09-29: 30 mm tag X 30.10 /
@@ -153,7 +254,8 @@ When using AskUserQuestion, always leave room for a free-text answer.
 | Path | What |
 |---|---|
 | `PLAN.md` | Full plan. Read the relevant milestone only |
-| `TODO.md` | Actionable items, linked to plan milestones |
+| `TODO.md` | Actionable items, linked to plan milestones. Being moved to GitHub issues (see *Parallel work*) |
+| `CONTRIBUTING.md` | Branches, PRs, review and merging |
 | `reference/old-calibration/` | Rescued measured values from the previous rig |
 | `reference/arducam-central-error-2026-10.md` | The central-error investigation: evidence, what was ruled out, how the error is managed |
 | `docs/measurement-trust.md` | Why the rig's area measurements can be trusted, and the steps taken to build that trust. The case, for reports and a possible paper |
