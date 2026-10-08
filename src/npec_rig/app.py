@@ -91,6 +91,7 @@ from npec_rig.captures import (
     captures_root,
     list_recent_captures,
     record_app_start,
+    record_app_stop,
     save_capture,
     uptime_record,
 )
@@ -126,6 +127,7 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # The gap since the last tick is measured at start, before any photo (captures.py).
     record_app_start()
     yield
+    record_app_stop()
 
 
 app = FastAPI(title="NPEC Camera Rig", lifespan=_lifespan)

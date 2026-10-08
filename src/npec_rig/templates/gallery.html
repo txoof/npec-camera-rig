@@ -24,11 +24,19 @@
 
     function uptimeText(uptime) {
       const start = uptime.app_start || {};
-      const gap = start.gap_s === null || start.gap_s === undefined
-        ? "no earlier record"
-        : `${duration(start.gap_s)}${start.same_boot ? "" : " (Pi restarted, by wall clock)"}`;
+      let gap;
+      if (start.gap_source === null || start.gap_source === undefined) {
+        gap = "no earlier record";
+      } else if (start.gap_s === null || start.gap_s === undefined) {
+        gap = "unknown";
+      } else {
+        gap = duration(start.gap_s);
+        if (start.gap_source === "wall clock") {
+          gap += start.same_boot === false ? " (Pi restarted, by wall clock)" : " (by wall clock)";
+        }
+      }
       return `Pi up ${duration(uptime.pi_up_s)}, app up ${duration(uptime.app_up_s)}, `
-        + `gap before app start ${gap}`;
+        + `time since last record at app start ${gap}`;
     }
 
     function renderGallery(items) {

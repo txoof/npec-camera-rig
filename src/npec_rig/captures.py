@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sqlite3
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,8 +34,25 @@ def read_boot_id() -> str | None:
 def read_uptime_s() -> float | None:
     """Seconds since the Pi booted, from the kernel. Does not depend on the wall clock."""
     try:
-        return float(Path("/proc/uptime").read_text().split()[0])
-    except (OSError, ValueError, IndexError):
+        return round(time.clock_gettime(time.CLOCK_BOOTTIME), 2)
+    except OSError:
+        return None
+
+
+def _save_tick(now: dict) -> None:
+    """Store the last tick. A failure is logged, never raised: a photo already taken is still
+    saved, and the app still starts."""
+    try:
+        save_setting("LastTick", now)
+    except sqlite3.Error:
+        logger.exception("Could not store the last tick")
+
+
+def _load_tick() -> dict | None:
+    try:
+        return load_settings().get("LastTick")
+    except sqlite3.Error:
+        logger.exception("Could not read the last tick")
         return None
 
 
@@ -46,9 +65,12 @@ def _clock_now() -> dict:
 
 
 def _gap_since(last: dict | None, now: dict) -> dict:
-    """How long nothing was recorded before `now`. In the same boot this comes from the kernel's
-    uptime and is exact. After a reboot only the wall clock is left, which can be wrong after a
-    power cut until the network sets it, so it is recorded for information and flags nothing."""
+    """Time since the last tick before `now`. Ticks are written at app start, at each photo and
+    at a clean app stop, so after a crash or power cut this is time since the last photo or
+    start, not how long the app was down (a regular tick is #62, M3). In the same boot this
+    comes from the kernel's uptime and is exact. After a reboot only the wall clock is left,
+    which can be wrong after a power cut until the network sets it, so it is recorded for
+    information and flags nothing; a negative wall-clock gap is recorded as unknown."""
     if not last:
         return {"same_boot": None, "gap_s": None, "gap_source": None}
     same_boot = last.get("boot_id") is not None and last.get("boot_id") == now["boot_id"]
@@ -61,6 +83,10 @@ def _gap_since(last: dict | None, now: dict) -> dict:
         ).total_seconds()
     except (KeyError, TypeError, ValueError):
         gap_s = None
+    if gap_s is not None:
+        gap_s = round(gap_s, 2) if gap_s >= 0 else None
+    if last.get("boot_id") is None or now["boot_id"] is None:
+        same_boot = None
     return {"same_boot": same_boot, "gap_s": gap_s, "gap_source": "wall clock"}
 
 
@@ -68,9 +94,14 @@ def record_app_start() -> dict:
     """Called once when the app starts: the gap since the last tick, then a new tick."""
     global _app_start
     now = _clock_now()
-    _app_start = {**now, **_gap_since(load_settings().get("LastTick"), now)}
-    save_setting("LastTick", now)
+    _app_start = {**now, **_gap_since(_load_tick(), now)}
+    _save_tick(now)
     return _app_start
+
+
+def record_app_stop() -> None:
+    """Called when the app stops cleanly, so the next start measures the time it was down."""
+    _save_tick(_clock_now())
 
 
 def uptime_record() -> dict:
@@ -94,7 +125,7 @@ def uptime_record() -> dict:
         )
     else:
         reason = None
-    save_setting("LastTick", now)
+    _save_tick(now)
     return {
         "boot_id": now["boot_id"],
         "pi_up_s": pi_up_s,

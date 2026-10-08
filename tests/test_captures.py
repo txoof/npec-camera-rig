@@ -141,3 +141,38 @@ def test_unreadable_uptime_is_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
     record = captures.uptime_record()
     assert record["flagged"] is True
     assert record["reason"] == "the Pi uptime could not be read"
+
+
+def test_clean_stop_writes_a_tick_so_the_next_start_measures_downtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = _FakeClock(monkeypatch, "boot-a", 5000.0)
+    captures.record_app_start()
+    clock.uptime_s = 9000.0
+    captures.record_app_stop()
+    clock.uptime_s = 9012.0
+    assert captures.record_app_start()["gap_s"] == 12.0
+
+
+def test_a_wall_clock_gap_that_goes_backwards_is_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = _FakeClock(monkeypatch, "boot-b", 20.0)
+    future = {"boot_id": "boot-a", "uptime_s": 9.0, "wall": "2099-01-01T00:00:00+00:00"}
+    captures.save_setting("LastTick", future)
+    start = captures.record_app_start()
+    assert start["gap_s"] is None
+    assert start["same_boot"] is False
+    assert clock.boot_id == "boot-b"
+
+
+def test_tick_storage_failure_does_not_stop_a_photo(monkeypatch: pytest.MonkeyPatch) -> None:
+    import sqlite3
+
+    _FakeClock(monkeypatch, "boot-a", 5000.0)
+
+    def fail(*_args: object) -> None:
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(captures, "save_setting", fail)
+    monkeypatch.setattr(captures, "load_settings", fail)
+    record = captures.uptime_record()
+    assert record["pi_up_s"] == 5000.0
