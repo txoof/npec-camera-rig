@@ -130,10 +130,11 @@ not counting tests. A bigger task is split into PRs that each work on their own.
 
 **Issues are the to-do list.** Every change starts from an issue made with the Task template,
 in a milestone (M2 to M6). Repo `txoof/npec-camera-rig`, board
-https://github.com/users/txoof/projects/5. Work only on issues in the milestone Aaron names. An issue
+https://github.com/users/txoof/projects/5. Work only on issues in the milestone Aaron names. If he
+names none, use the lowest-numbered open milestone (M2 until it is closed, then M3). An issue
 with no milestone is started only when Aaron asks for it.
 
-**Picking an issue.** When Aaron names a milestone but no issue, read the milestone's description
+**Picking an issue.** When Aaron names no issue ("pick the next task"), read the milestone's description
 first: it holds the triage and the order he decided.
 
 ```bash
