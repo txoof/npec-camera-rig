@@ -53,7 +53,7 @@ def _gap_since(last: dict | None, now: dict) -> dict:
         return {"same_boot": None, "gap_s": None, "gap_source": None}
     same_boot = last.get("boot_id") is not None and last.get("boot_id") == now["boot_id"]
     if same_boot and last.get("uptime_s") is not None and now["uptime_s"] is not None:
-        gap_s = now["uptime_s"] - last["uptime_s"]
+        gap_s = round(now["uptime_s"] - last["uptime_s"], 2)
         return {"same_boot": True, "gap_s": gap_s, "gap_source": "uptime"}
     try:
         gap_s = (
@@ -84,7 +84,7 @@ def uptime_record() -> dict:
     pi_up_s = now["uptime_s"]
     app_up_s = None
     if pi_up_s is not None and start["uptime_s"] is not None and now["boot_id"] == start["boot_id"]:
-        app_up_s = pi_up_s - start["uptime_s"]
+        app_up_s = round(pi_up_s - start["uptime_s"], 2)
     if pi_up_s is None:
         reason = "the Pi uptime could not be read"
     elif pi_up_s < COLD_START_WINDOW_S:
