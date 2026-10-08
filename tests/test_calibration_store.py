@@ -2,13 +2,17 @@ import numpy as np
 import pytest
 
 from npec_rig.calibration import CalibrationArtifact, ScaleField
+from npec_rig.captures import photos_root
 from npec_rig.calibration_store import (
     calibration_root,
     list_calibrations,
     load_calibration,
     load_current_calibration,
     save_calibration,
-    save_calibration_frame,
+    calibration_frame_path,
+    calibration_frame_url,
+    load_calibration_frame,
+    stem_for_photo,
     save_calibration_table_view,
     save_calibration_table_view_area_shape,
 )
@@ -71,21 +75,24 @@ def test_list_calibrations_empty_before_anything_is_saved() -> None:
     assert list_calibrations() == []
 
 
-def test_save_calibration_frame_writes_a_jpeg_under_the_frames_dir() -> None:
-    image = np.zeros((8, 8, 3), dtype=np.uint8)
-    path = save_calibration_frame(image)
+def test_a_calibration_stem_finds_its_photo() -> None:
+    photo = {"date": "2026-10-08", "filename": "203512_123456.jpg"}
+    stem = stem_for_photo(photo)
 
-    assert path.exists()
-    assert path.parent == calibration_root() / "frames"
-    assert path.read_bytes()[:2] == b"\xff\xd8"
+    assert stem == "20261008T203512123456"
+    assert calibration_frame_path(stem) == photos_root() / "2026-10-08" / "203512_123456.jpg"
 
 
-def test_save_calibration_and_frame_share_a_stem_when_given_one() -> None:
-    save_calibration_frame(np.zeros((8, 8, 3), dtype=np.uint8), stem="shared-stem")
-    save_calibration(_artifact(), stem="shared-stem")
+def test_a_stem_from_elsewhere_has_no_photo() -> None:
+    assert calibration_frame_path("shared-stem") is None
+    assert calibration_frame_url("shared-stem") is None
+    assert calibration_frame_url(None) is None
+    with pytest.raises(FileNotFoundError):
+        load_calibration_frame("shared-stem")
 
-    assert (calibration_root() / "frames" / "shared-stem.jpg").exists()
-    assert (calibration_root() / "shared-stem.json").exists()
+
+def test_a_missing_photo_has_no_url() -> None:
+    assert calibration_frame_url("20261008T203512123456") is None
 
 
 def test_save_calibration_table_view_writes_under_heatmaps_with_suffix() -> None:

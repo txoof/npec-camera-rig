@@ -853,6 +853,10 @@
             );
           }
         }
+        if (data.photo_flags && data.photo_flags.length) {
+          // Recorded only (Aaron, 2026-10-08): the run is saved and promoted as normal.
+          lines.unshift(`Photo flagged: ${data.photo_flags.join("; ")}. Recorded with the photo.`);
+        }
         calibrationResult.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
         showPrerenderedDiagnosticImages(data);
         if (!data.error && data.promoted_to_current) {

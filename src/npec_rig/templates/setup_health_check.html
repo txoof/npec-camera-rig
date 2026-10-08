@@ -73,7 +73,9 @@
           return;
         }
         const roll = data.roll_deg === null ? "" : ` (roll ${data.roll_deg.toFixed(2)} deg)`;
-        tripwireResult.innerHTML = `<strong>${data.verdict}</strong>: ${data.messages.join("; ")}${roll}`;
+        const flags = data.photo_flags.length ? `<br>Photo flagged: ${data.photo_flags.join("; ")}` : "";
+        tripwireResult.innerHTML =
+          `<strong>${data.verdict}</strong>: ${data.messages.join("; ")}${roll}${flags}`;
       } finally {
         tripwireBtn.disabled = false;
         tripwireBtn.textContent = "Check tripwire now";

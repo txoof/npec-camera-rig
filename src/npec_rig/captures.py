@@ -166,7 +166,7 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
     # Read before the capture, so the lens check compares the photo against the lock it was
     # taken under.
     focus = manager.focus_status()
-    array, sensor_metadata = manager.capture_full_res()
+    array, sensor_metadata = manager._capture_full_res()
     checks = {
         "lens_check": lens_check(sensor_metadata.get("LensPosition"), focus["lens_position"]),
         "uptime": uptime_record(),

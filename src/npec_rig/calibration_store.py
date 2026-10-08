@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,12 +27,15 @@ from npec_rig.calibration import (
     calibration_artifact_to_dict,
 )
 from npec_rig.camera import array_to_jpeg
+from npec_rig.captures import photos_root
 
 CURRENT_FILENAME = "current.json"
-FRAMES_DIRNAME = "frames"
 HEATMAPS_DIRNAME = "heatmaps"
 
 logger = logging.getLogger(__name__)
+
+# A calibration stem: the UTC instant of its photo, YYYYMMDDTHHMMSSffffff.
+_STEM = re.compile(r"^\d{8}T\d{12}$")
 
 
 def calibration_root() -> Path:
@@ -67,8 +71,7 @@ def save_calibration(
 
     Returns the timestamped file's path. Both writes are atomic (write-then-rename) so a reader
     never sees a partially-written file. `stem` lets a caller line this artifact's filename up
-    with a frame saved by `save_calibration_frame` from the same capture; omitted, one is
-    generated the same way it always was.
+    with its photo (`stem_for_photo`); omitted, one is generated the same way it always was.
 
     `promote=False` keeps this artifact off `current.json` -- for a calibration run taken to
     *compare* against the live one (PLAN.md's two-baseline/two-height tests), which must not
@@ -87,28 +90,43 @@ def save_calibration(
     return path
 
 
-def save_calibration_frame(image: np.ndarray, *, stem: str | None = None) -> Path:
-    """Write `image` as a full-res JPEG under the calibration frames directory, timestamped.
+def stem_for_photo(photo: dict) -> str:
+    """The calibration stem for a photo saved by `captures.take_photo`: the same instant as the
+    photo's own name, so a calibration and its photo can always be found from each other."""
+    return photo["date"].replace("-", "") + "T" + Path(photo["filename"]).stem.replace("_", "")
 
-    Kept alongside the artifact it produced, not just the numbers derived from it: every M2
-    acceptance test (PLAN.md, "You verify") is a diff between two calibrations, so a bad or
-    disputed field must be re-processable from its original frame without redoing the physical
-    setup.
+
+def calibration_frame_path(stem: str) -> Path | None:
+    """Where calibration `stem`'s photo is, among the rig photos (`captures.photos_root()`).
+
+    Kept with every other photo, not just the numbers derived from it: every M2 acceptance test
+    (PLAN.md, "You verify") is a diff between two calibrations, so a disputed field must be
+    re-processable from its original photo without redoing the physical setup. None when the
+    stem is not one `stem_for_photo` makes. Calibrations from before #103 kept their frame under
+    calibration/frames/, which is no longer read, so their path does not exist.
     """
-    root = calibration_root() / FRAMES_DIRNAME
-    root.mkdir(parents=True, exist_ok=True)
-    stem = stem or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
-    path = root / f"{stem}.jpg"
-    path.write_bytes(array_to_jpeg(image))
-    return path
+    if not _STEM.match(stem):
+        return None
+    ref = f"{stem[0:4]}-{stem[4:6]}-{stem[6:8]}/{stem[9:15]}_{stem[15:21]}"
+    return photos_root() / f"{ref}.jpg"
+
+
+def calibration_frame_url(stem: str | None) -> str | None:
+    """The page URL of calibration `stem`'s photo, or None when it is not on disk."""
+    path = calibration_frame_path(stem) if stem else None
+    if path is None or not path.exists():
+        return None
+    return f"/photos/{path.parent.name}/{path.name}"
 
 
 def load_calibration_frame(stem: str) -> np.ndarray:
-    """Read back a frame written by `save_calibration_frame`, as an RGB array -- for
-    reprocessing (re-detecting tags) against a saved calibration without a fresh capture, e.g.
-    the best-vs-worst-tag rank plot, which needs per-tag data no artifact schema persists.
+    """Read back calibration `stem`'s photo, as an RGB array -- for reprocessing (re-detecting
+    tags) against a saved calibration without a fresh capture, e.g. the best-vs-worst-tag rank
+    plot, which needs per-tag data no artifact schema persists. FileNotFoundError when missing.
     """
-    path = calibration_root() / FRAMES_DIRNAME / f"{stem}.jpg"
+    path = calibration_frame_path(stem)
+    if path is None:
+        raise FileNotFoundError(f"no photo for calibration {stem!r}")
     return np.array(Image.open(path).convert("RGB"))
 
 
