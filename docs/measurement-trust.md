@@ -1,9 +1,12 @@
 # Why the rig's area measurements can be trusted
 
-**Status:** 2026-10-05. The M2 physical acceptance tests were run in the chamber on 2026-10-05.
-The two-height, tape and roll tests passed. The check of the calibration's own uncertainty claim
-failed, so that claim is no longer used (see *An independent check, which sets the band*). The evidence for every number here, with
-its source, is in `docs/metrology-log.md`.
+**Status:** 2026-10-08. The camera was replaced on 2026-10-07 (old SN000, new SN001); the current
+calibration and bands are SN001's, made 2026-10-08. The M2 physical acceptance tests were run in
+the chamber on 2026-10-05, on SN000. The two-height, tape and roll tests passed. The check of the
+calibration's own uncertainty claim failed, so that claim is no longer used (see *An independent
+check, which sets the band*). Which results were repeated on SN001 is listed in
+`docs/metrology-log.md`, section 13. The evidence for every number here, with its source, is in
+`docs/metrology-log.md`.
 
 ## The claim
 
@@ -41,8 +44,9 @@ size, not the printed label, is used.
 
 **Evidence.**
 
-- The current 30 mm tags measure 30.0 ± 0.1 mm (6 calliper readings, mean 30.018 mm). The sheets'
-  180 mm scale bars measure 179.93 and 180.03 mm, confirming they printed at full scale.
+- The current 30 mm tags measure 30.0 ± 0.1 mm (NEIKO callipers, 3 tags measured across and down,
+  6 readings, mean 30.018 mm, 2026-09-21). The sheets' 180 mm scale bars measure 179.93 and
+  180.03 mm (mean of 3 readings on each of 2 sheets), confirming they printed at full scale.
 - ±0.1 mm on a 30 mm side is about ±0.67% in area, the limit of what the callipers can confirm.
 - On the previous rig, the tags labelled 30 mm actually measured 29.3106 mm. Trusting the label
   caused about 4.7% area error, the largest single error that rig had. On 2026-09-29 a sheet
@@ -80,9 +84,14 @@ times. A round counts only if at least half the tags actually moved, so the same
 counted twice. The calibration photograph itself is never used. In each slot, the band is the
 distance from the true area that 95% of the tags fall within, over all rounds.
 
-**Evidence.** The current validation: 3 rounds, 92% to 96% of tags moved each round, 85 to 90 tags
-per slot, bands ±1.58% to ±2.93%. The band is therefore not an estimate: it is the observed spread
-of real measurements of known targets, in that slot, at that focus.
+**Evidence.** The current validation (SN001, 2026-10-08, lens 6.04): 3 rounds spread over 23.6
+minutes, 74% to 87% of tags moved each round, 85 to 90 tags per slot, bands ±1.3% to ±2.7%. The
+old camera's validation of 2026-10-05 (lens 6.27, rounds within 1.5 minutes) gave ±1.58% to
+±2.93%. The band is therefore not an estimate: it is the observed spread of real measurements of
+known targets, in that slot, at that focus. Each band comes from one validation session; how much
+a band changes from one validation to the next is shown by the sessions of 2026-10-05 and
+2026-10-07 on the same calibration (metrology-log section 6): single slots differed by up to 1.5
+points (North 1, ±1.77% then ±3.3%), with a cold start, a camera fault and lens tests in between.
 
 **Why the calibration's own estimate is not used.** The calibration can also estimate its
 uncertainty from how closely the tags fit the scale field. Checked against validation, that
@@ -163,8 +172,10 @@ was compared with its own earlier reading:
 | App restart, replacement camera (2026-10-07) | within -0.04 to +0.06 over 5 restarts | every slot within ±0.24 over the 5 restarts (metrology-log 8.2, step 5) |
 | Power cut (cold start) | -1.73 points right after; -0.41 at +15 min; -0.14 at +60 min | -0.62 points at +60 min (South 1) |
 
-Photographs of an unchanged scene differ by a spread of 0.27 to 0.46 points anyway (old camera;
-the replacement camera fitted 2026-10-07 shows 0.15, metrology-log section 8.2, step 3). Both
+Photographs of an unchanged scene differ anyway: on the old camera, two photos at different light
+levels differed by 0.27 to 0.46 points (standard deviation over tags), about 0.2 to 0.3 points for
+one photo; on the replacement camera fitted 2026-10-07, 10 photos at fixed exposure varied by
+0.15 points per tag (metrology-log section 8, and 8.2, step 3). Both
 disturbances stayed inside the change seen with nothing done, and the largest change in any slot
 was about a sixth of that slot's band. On this evidence, a restart does not require a new
 calibration or validation. The replacement camera fitted on 2026-10-07 gave the same result.
@@ -215,8 +226,8 @@ quarter of that slot's band.
 
 **Replacing the camera (2026-10-07).** The camera was replaced by a new one of the same model and
 the key tests were repeated (metrology-log section 8.2). The new camera calibrated the same way
-(355 tags, 0.49% against 0.52%), was less noisy from photo to photo (0.15 points against 0.27 to
-0.46), behaved the same after restarts, showed the same lens fault after a full-resolution photo
+(355 tags, 0.49% against 0.52%), was less noisy from photo to photo (0.15 points against about 0.2 to
+0.3, from tests run differently), behaved the same after restarts, showed the same lens fault after a full-resolution photo
 and the same central low reading. The 19-minute cycle appeared on the new camera too and followed
 the chamber's humidity and temperature, so it comes from the chamber, not from one camera. Over
 6.8 hours with nothing done the readings did not drift (each hour within 0.06 points of the
@@ -235,13 +246,20 @@ difference is not known.
 percent smaller in area than targets further out. It was investigated over several days: a
 second camera (Canon) photographing the same table does not see it, so it belongs to the Arducam,
 not to the table, sheets, trays, lighting or detection. Its size follows the focus position (about
-1.2 points per 0.1 of lens position). The rig does not correct it with a model. Validation
-measures it in each slot, which is why the central slots have the widest bands (North 4 ±2.93%
-now, ±3.36% in the earlier setup).
+1.2 points per 0.1 of lens position, measured on the old camera, one photograph per position). The
+rig does not correct it with a model. Validation measures it in each slot. On the old camera the
+central slot North 4 had the widest band (±2.93% at lens 6.27, ±3.36% at lens 6.15). On SN001
+(lens 6.04) the widest band is the central slot South 4 (±2.7%), with North 4 and North 2 next
+(±2.5%); the 4 central slots average ±2.3% and the 4 corner slots ±1.9%. SN001 shows the same
+central low reading (metrology-log section 8.2), but its size against lens position has not been
+measured on SN001.
 The focus position is the experimenter's choice; the rig never tunes it for accuracy.
 
-**Height above the tray.** Measured at about +0.145% of area per mm above the tray top. Plants
-have height, so a plant's area carries this on top of the band.
+**Height above the tray.** About +0.145% of area per mm above the tray top. That figure comes from
+the camera's height (about 1482 mm, as stated, not measured with a recorded method); one test, a
+tray 75 mm taller in 3 slots on the old camera, read 11.2% to 12.0% large against 11.8% predicted,
+that is 0.149% to 0.160% per mm. Plants have height, so a plant's area carries this on top of the
+band.
 
 **Lens distortion.** Not modelled. The rule for adopting a distortion model is evidence that the
 errors are structured (growing toward the image corners), not random. A radial trend has been
@@ -272,8 +290,9 @@ the extreme frame corners, and plants only sit on trays. No model is adopted.
   exists yet.
 - **Tripwire limits.** The FAIL limits for roll (10°) and scale (8%) are provisional; the knock
   test reached FAIL through a lost corner tag, not through those limits.
-- **One rig, two weeks of data.** The evidence above comes from this rig between 2026-09-21 and
-  2026-10-05.
+- **One rig, two cameras, under three weeks of data.** The evidence above comes from this rig
+  between 2026-09-21 and 2026-10-08, on camera SN000 until 2026-10-07 and SN001 after. Most of the
+  acceptance tests (tape, roll, two heights, honesty plot) were run on SN000 only.
 
 ## Where the evidence is
 
