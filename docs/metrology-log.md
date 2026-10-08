@@ -75,18 +75,18 @@ measure every printed sheet.
 | Image size | 9152 × 6944 px | Camera configuration | | Arducam 64MP |
 | Scale at tray height | 4.858 px/mm mean (replacement camera, lens 6.04); old camera 4.85 px/mm at the image centre (2026-10-05) | Calibration fit, 355 tags, 08:18 UTC calibration | 2026-10-08 | About 0.21 mm per pixel; earlier calibrations 4.5 to 4.8 |
 | Scale on the table surface | 4.52 px/mm (at the image centre), 6.79% below tray height in length, 15.1% in area | Calibration fit, 355 tags on the table, same camera position | 2026-10-05 | At 0.145% of area per mm this corresponds to about 100 mm of height (derived, not taped) |
-| Camera height above the table surface | about 1482 mm | Stated by Aaron ("around 148.2 cm"), 2026-10-01 08:38 UTC; instrument and method not recorded | 2026-10-01 | Old camera SN000, before the swap. Not re-measured since. The table-to-tray scale change (row above) is consistent with it |
+| Camera height above the table surface | about 1482 mm, a best estimate, not a precise value | Tape measure, by Aaron, without touching the camera (stated as "around 148.2 cm", 2026-10-01 08:38 UTC). A good-faith estimate: the point on the camera measured to and the uncertainty were not recorded | 2026-10-01 | Old camera SN000, before the swap. Not re-measured since. The table-to-tray scale change (row above) is consistent with it |
 | Height above tray top | about +0.145% area per mm for small heights (model); over a 75 mm step the model gives 11.8% and the one test 11.2% to 12.0% | See *The height test* below | 2026-10-01 | Bands cover flat objects at tray-top height only. Plant height adds to the uncertainty (section 7) |
 | Perspective across the table | corrected by the scale field; positions mapped with a four-corner homography | Saved calibration frames | 2026-09-22 | Perspective within the table plane is modelled; lens distortion is not (section 10) |
 
 **The height test (2026-10-01, old camera SN000).** One tray 75 mm taller than the others (Aaron:
-the tall tray is 175 mm, the normal trays 100 mm; instrument not recorded) was put in 3 slots in
+the tall tray is 175 mm, the normal trays 100 mm, both measured with callipers) was put in 3 slots in
 turn, one validation round each: North 2, North 4, South 6. Lens 6.18, locked. Validation session
 `20261001T082459271029`, calibration `20260930T094710139674` (the one current at that time,
 identified by time). The sheets on the tall tray read 11.2% to 12.0% large.
 
 *Prediction.* A camera at height H sees an object at distance D below it at a scale proportional
-to 1/D, so area goes as 1/D². With H = 1482 mm, the normal tray top is 1382 mm from the camera and
+to 1/D, so area goes as 1/D². With H = 1482 mm (the tape-measure estimate, not a precise value), the normal tray top is 1382 mm from the camera and
 the tall one 1307 mm: (1382 / 1307)² = 1.118, so 11.8% large. The figure **0.145% per mm** used in
 this log is the slope of this model at tray-top height (2 / 1382 mm), the figure for small
 heights; it is derived from Aaron's heights, not measured on its own. The effect grows as an object
@@ -1320,9 +1320,10 @@ done (section 9).
 2. *Resolved 2026-10-08.* Calliper tolerance: "within 0.5 mm" (TODO.md, 2026-09-27) described a
    frame covered with tags, not a calliper tolerance; ±0.1 mm stands. Calliper date: the readings
    were made on or before 2026-09-21; 2026-09-29 is when they were given again (section 3).
-3. Camera height: about 1482 mm, as stated by Aaron on 2026-10-01 (section 4); the "not yet
-   measured" note was written earlier the same morning. *Still open:* no instrument or method was
-   recorded, and it has not been re-measured since the camera swap.
+3. Camera height: about 1482 mm, measured by Aaron with a tape measure on 2026-10-01 without
+   touching the camera (section 4); the "not yet measured" note was written earlier the same
+   morning. *Still open:* it is a best estimate, not a precise value, with no stated uncertainty,
+   and it has not been re-measured since the camera swap.
 4. Tray height: about 100 mm in some notes, a survey of 50 to 56 mm in another (the reference
    point of the survey is not stated). The 2026-10-05 two-height test implies about 100 mm from
    table surface to tray top (derived from scale, not taped), matching the 100 mm notes.
@@ -1353,7 +1354,7 @@ This table says, for each result, whether it has been repeated on SN001.
 | Result | Section | SN000 | SN001 |
 |---|---|---|---|
 | Tag and sheet sizes | 3 | | Property of the printed sheets, not of the camera; applies |
-| Camera height, about 1482 mm | 4 | Stated, not measured with a recorded method | Not re-measured |
+| Camera height, about 1482 mm | 4 | Tape-measure best estimate, not precise | Not re-measured |
 | Height effect, 0.145% per mm | 4 | One test, 3 slots | Not repeated. Depends on camera height, not on the camera unit |
 | Calibration residual | 5 | 8 calibrations, 0.516% to 0.700% | 3 calibrations, 0.491% to 0.503% |
 | Validation bands | 6 | 3 sessions | 2 sessions: lens 6.16 with foam (step 2) and lens 6.04 after (current) |
