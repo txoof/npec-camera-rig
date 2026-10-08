@@ -312,6 +312,15 @@ input[type="number"] {
 }
 .focus-row { margin-top: 0.5rem; }
 .focus-row label { display: flex; justify-content: space-between; }
+.focus-row label.stepped-control-box {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #ccc;
+}
+.stepped-control-box input { width: 7rem; min-height: var(--touch-target-min); }
 .peaking-row {
   display: flex;
   align-items: flex-start;

@@ -65,6 +65,30 @@
 <details class="camera-controls-details">
   <summary>Camera settings</summary>
   <div id="camera-controls" class="camera-controls"></div>
+  <details class="focus-help">
+    <summary>How to use the camera settings</summary>
+    <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+      <strong>Auto exposure</strong> lets the camera choose the exposure time and gain. Untick it
+      to set them yourself. While it is ticked, the exposure time and gain controls are greyed out
+      and show the values the camera is using, marked (auto), updated every 2 seconds.
+    </p>
+    <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+      <strong>Exposure time</strong> is how long the sensor collects light for one photo. The
+      slider moves in the same steps as a DSLR's shutter speed (1/3 stop: each step lets in about
+      1.26 times the light of the one before), from 1/6400 s to 1 s, or as far as this camera allows. To set any other value, type
+      it in milliseconds (ms) in the box: 1 ms is 1/1000 s, so 4 ms is 1/250 s.
+    </p>
+    <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+      <strong>Analogue gain</strong> brightens the image in the sensor, like a DSLR's ISO; 1 is
+      the sensor's own sensitivity and 2 is twice as bright. Higher gain also makes the image
+      noisier, so prefer a longer exposure over more gain. The slider moves in the same 1/3-stop
+      steps (1, 1.25, 1.6, 2 ...); the box takes any value as a multiplier (x).
+    </p>
+    <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
+      <strong>Auto white balance</strong> lets the camera correct the colour of the light. The
+      value next to each control is the one the camera is set to.
+    </p>
+  </details>
 </details>
 
 <details class="focus-help">
@@ -207,19 +231,184 @@
     const AE_DEPENDENT_CONTROL_NAMES = ["ExposureTime", "AnalogueGain"];
     const cameraControlsEl = document.getElementById("camera-controls");
 
+    // DSLR 1/3-stop series, as the camera shows them (Aaron, 2026-10-08). Each step sends the
+    // labelled value exactly (1/125 is 8000 us); the camera then reports the nearest value its
+    // sensor can make (for example 7998 us), shown in ms next to the label.
+    const EXPOSURE_STOP_LABELS = [
+      "1/6400", "1/5000", "1/4000", "1/3200", "1/2500", "1/2000", "1/1600", "1/1250", "1/1000",
+      "1/800", "1/640", "1/500", "1/400", "1/320", "1/250", "1/200", "1/160", "1/125", "1/100",
+      "1/80", "1/60", "1/50", "1/40", "1/30", "1/25", "1/20", "1/15", "1/13", "1/10", "1/8",
+      "1/6", "1/5", "1/4", "0.3", "0.4", "0.5", "0.6", "0.8", "1",
+    ];
+    const EXPOSURE_STOPS_US = EXPOSURE_STOP_LABELS.map((label) => {
+      const [num, den] = label.includes("/") ? label.split("/").map(Number) : [Number(label), 1];
+      return Math.round((num / den) * 1e6);
+    });
+    const GAIN_STOPS = [
+      1, 1.25, 1.6, 2, 2.5, 3.2, 4, 5, 6.4, 8, 10, 12.5, 16, 20, 25, 32, 40, 50, 64,
+    ];
+    // The slider steps and the typed box for each stepped control. `toBox`/`fromBox` convert
+    // between the camera's unit and the box's.
+    const STEPPED_CONTROLS = {
+      ExposureTime: {
+        stops: EXPOSURE_STOPS_US,
+        unit: "ms",
+        toBox: (us) => Number((us / 1000).toFixed(3)),
+        fromBox: (ms) => Math.round(ms * 1000),
+        boxStep: 0.001,
+      },
+      AnalogueGain: {
+        stops: GAIN_STOPS,
+        unit: "x",
+        toBox: (gain) => Number(Number(gain).toFixed(2)),
+        fromBox: (gain) => gain,
+        boxStep: 0.01,
+      },
+    };
+
+    const steppedDisplays = {};
+    const AUTO_REFRESH_MS = 2000;
+    let autoRefreshInFlight = false;
+
+    // While AE is ticked, re-read what the camera is really using, so the greyed-out controls
+    // never show a stale manual value (Aaron, 2026-10-08).
+    async function refreshAutoValues() {
+      const ae = document.getElementById("control-AeEnable");
+      const panel = cameraControlsEl.closest("details");
+      // One request at a time, and none from a hidden tab: each one waits for a camera frame.
+      if (!ae || !ae.checked || (panel && !panel.open) || document.hidden) return;
+      if (autoRefreshInFlight) return;
+      autoRefreshInFlight = true;
+      try {
+        const data = await (await fetch("/controls")).json();
+        if (!document.getElementById("control-AeEnable").checked) return;
+        AE_DEPENDENT_CONTROL_NAMES.forEach((name) => {
+          if (steppedDisplays[name]) steppedDisplays[name](data.values[name], true);
+        });
+      } catch (err) {
+        // The next refresh tries again.
+      } finally {
+        autoRefreshInFlight = false;
+      }
+    }
+    setInterval(refreshAutoValues, AUTO_REFRESH_MS);
+
+    function nearestStopIndex(stops, value) {
+      // Nearest on a ratio scale, since the stops are equal ratios apart.
+      if (!(value > 0)) return 0;
+      let best = 0;
+      stops.forEach((stop, i) => {
+        if (Math.abs(Math.log(stop / value)) < Math.abs(Math.log(stops[best] / value))) best = i;
+      });
+      return best;
+    }
+
+    // Sends the latest value only: a value that arrives while one is in flight replaces any
+    // waiting one and is sent when that finishes, so the last position is never dropped, also
+    // after a failed request. A refused or failed value reloads the panel, so it never shows a
+    // setting the camera is not using.
+    function latestOnlySender(name) {
+      let sending = false;
+      let waiting = null;
+      async function send(value) {
+        if (sending) { waiting = value; return; }
+        sending = true;
+        let refused = false;
+        try {
+          const response = await postControl(name, value);
+          if (!response.ok) {
+            refused = true;
+          } else {
+            // The camera ignores exposure and gain while auto exposure is on (another tab may
+            // have ticked it): show the panel as the camera has it.
+            const values = await response.json();
+            refused = AE_DEPENDENT_CONTROL_NAMES.includes(name) && values.AeEnable === true;
+          }
+        } catch (err) {
+          refused = true;
+        } finally {
+          sending = false;
+        }
+        if (waiting !== null) {
+          const next = waiting;
+          waiting = null;
+          send(next);
+        } else if (refused) {
+          loadControls().catch(() => {});
+        }
+      }
+      return send;
+    }
+
+    function renderSteppedControl(name, min, max, value, disabled) {
+      const spec = STEPPED_CONTROLS[name];
+      const stops = spec.stops.filter((stop) => stop >= min && stop <= max);
+      if (stops.length < 2) return null; // the caller falls back to the plain slider
+      const label = CONTROL_LABELS[name] || name;
+      const row = document.createElement("div");
+      row.className = "focus-row stepped-control";
+      const disabledAttr = disabled ? " disabled" : "";
+      row.innerHTML =
+        `<label for="control-${name}">${label} <span id="control-${name}-value">${formatControlValue(name, value)}</span></label>` +
+        `<input type="range" id="control-${name}" min="0" max="${stops.length - 1}" step="1" ` +
+        `value="${nearestStopIndex(stops, value)}"${disabledAttr}>` +
+        `<label class="stepped-control-box">or type <input type="number" id="control-${name}-box" ` +
+        `min="${spec.toBox(min)}" max="${spec.toBox(max)}" step="${spec.boxStep}" ` +
+        `value="${spec.toBox(value)}"${disabledAttr}> ${spec.unit}</label>`;
+      const slider = row.querySelector(`#control-${name}`);
+      const box = row.querySelector(`#control-${name}-box`);
+      const valueLabel = row.querySelector(`#control-${name}-value`);
+      const send = latestOnlySender(name);
+      function show(cameraValue) {
+        valueLabel.textContent = formatControlValue(name, cameraValue);
+        box.value = spec.toBox(cameraValue);
+      }
+      // While auto exposure is on the camera chooses the value: show what it reports.
+      steppedDisplays[name] = (cameraValue, auto) => {
+        if (cameraValue === null || cameraValue === undefined) return;
+        slider.value = nearestStopIndex(stops, cameraValue);
+        show(cameraValue);
+        if (auto) valueLabel.textContent += " (auto)";
+      };
+      slider.addEventListener("input", () => {
+        const cameraValue = stops[Number(slider.value)];
+        show(cameraValue);
+        send(cameraValue);
+      });
+      box.addEventListener("change", () => {
+        const typed = Number(box.value);
+        if (box.value === "" || Number.isNaN(typed)) return;
+        const cameraValue = Math.min(max, Math.max(min, spec.fromBox(typed)));
+        slider.value = nearestStopIndex(stops, cameraValue);
+        show(cameraValue);
+        send(cameraValue);
+      });
+      return row;
+    }
+
     function controlStep(min, max) {
       const span = max - min;
       return span > 100 ? Math.max(1, Math.round(span / 200)) : Math.max(span / 100, 0.01);
     }
 
+    // A value read back from the camera within this share of a step is shown with that step's
+    // label: the sensor rounds to its own line time (8000 us comes back as 7998).
+    const STOP_LABEL_TOLERANCE = 0.02;
+
     function formatExposureTime(microseconds) {
-      const seconds = microseconds / 1e6;
-      if (seconds >= 1) return `${seconds.toFixed(2)} s`;
-      return `1/${Math.round(1 / seconds)} s`;
+      if (microseconds === null || microseconds === undefined) return "unknown";
+      const ms = `${Number((microseconds / 1000).toFixed(3))} ms`;
+      const stop = nearestStopIndex(EXPOSURE_STOPS_US, microseconds);
+      const off = Math.abs(microseconds / EXPOSURE_STOPS_US[stop] - 1);
+      return off <= STOP_LABEL_TOLERANCE ? `${EXPOSURE_STOP_LABELS[stop]} s (${ms})` : ms;
     }
 
     function formatControlValue(name, value) {
-      return name === "ExposureTime" ? formatExposureTime(value) : value;
+      if (name === "ExposureTime") return formatExposureTime(value);
+      if (name === "AnalogueGain") {
+        return value === null || value === undefined ? "unknown" : `${Number(Number(value).toFixed(2))}x`;
+      }
+      return value;
     }
 
     async function postControl(name, value) {
@@ -248,11 +437,29 @@
           .join("");
         pairNames.forEach((name) => {
           row.querySelector(`#control-${name}`).addEventListener("change", (event) => {
-            postControl(name, event.target.checked);
+            const posted = postControl(name, event.target.checked);
+            if (name === "AeEnable" && !event.target.checked) {
+              // Auto exposure off: keep the values the camera was just using, sent as the manual
+              // values, so the panel, the camera and the values restored after a photo agree.
+              posted
+                .then((response) => (response.ok ? response.json() : null))
+                .then((data) => {
+                  if (!data) return loadControls();
+                  AE_DEPENDENT_CONTROL_NAMES.forEach((depName) => {
+                    const v = data.values[depName];
+                    if (v === null || v === undefined) return;
+                    if (steppedDisplays[depName]) steppedDisplays[depName](v, false);
+                    postControl(depName, v);
+                  });
+                })
+                .catch(() => loadControls().catch(() => {}));
+            }
             if (name === "AeEnable") {
               AE_DEPENDENT_CONTROL_NAMES.forEach((depName) => {
-                const depInput = document.getElementById(`control-${depName}`);
-                if (depInput) depInput.disabled = event.target.checked;
+                for (const id of [`control-${depName}`, `control-${depName}-box`]) {
+                  const depInput = document.getElementById(id);
+                  if (depInput) depInput.disabled = event.target.checked;
+                }
               });
             }
           });
@@ -281,6 +488,16 @@
           continue;
         }
 
+        if (name in STEPPED_CONTROLS) {
+          const disabled = AE_DEPENDENT_CONTROL_NAMES.includes(name) && values.AeEnable;
+          const stepped = renderSteppedControl(name, min, max, value, disabled);
+          if (stepped) {
+            cameraControlsEl.appendChild(stepped);
+            if (disabled) steppedDisplays[name](value, true);
+            continue;
+          }
+        }
+
         row.className = "focus-row";
         const step = controlStep(min, max);
         const disabledAttr = AE_DEPENDENT_CONTROL_NAMES.includes(name) && values.AeEnable ? " disabled" : "";
@@ -289,12 +506,10 @@
           `<input type="range" id="control-${name}" min="${min}" max="${max}" step="${step}" value="${value}"${disabledAttr}>`;
         const input = row.querySelector("input");
         const valueLabel = row.querySelector(`#control-${name}-value`);
-        let sending = false;
+        const send = latestOnlySender(name);
         input.addEventListener("input", () => {
           valueLabel.textContent = formatControlValue(name, Number(input.value));
-          if (sending) return;
-          sending = true;
-          postControl(name, Number(input.value)).finally(() => { sending = false; });
+          send(Number(input.value));
         });
         cameraControlsEl.appendChild(row);
       }
