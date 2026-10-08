@@ -428,10 +428,12 @@ def test_capture_sidecar_lens_check_follows_the_lock() -> None:
     assert unlocked["reason"] == "focus not locked"
 
     client.post("/focus/lock")
-    locked = client.post("/capture").json()["lens_check"]
+    record = client.post("/capture").json()
     client.post("/focus/unlock")
-    assert locked["flagged"] is False
-    assert locked["reported"] == locked["locked"]
+    assert record["lens_check"]["flagged"] is False
+    assert record["lens_check"]["reported"] == record["lens_check"]["locked"]
+    assert "focus not locked" not in record["flags"]
+    assert set(record["uptime"]) >= {"boot_id", "pi_up_s", "app_up_s", "app_start", "flagged"}
 
 
 def test_api_captures_respects_a_non_default_limit() -> None:
