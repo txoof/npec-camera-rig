@@ -456,8 +456,9 @@ closed or moved to a later milestone on 2026-10-08; each item says where and why
       lens-return runs; repeat counts and spread for the calibration residual (one SN001 run), the
       central error (one photo per lens position) and the noise figure; the calliper model and the
       instrument for the 75 mm height step; what each number covers on SN001 (several are old
-      camera only). `docs/measurement-trust.md` still gives the old camera's validation (92 to 96%
-      moved, bands 1.58 to 2.93%) and says North 4 is widest, while SN001's widest slot is South 4.
+      camera only). `docs/measurement-trust.md` has SN001's bands in its summary, but its status line
+      (2026-10-05), the evidence paragraph near line 84 (bands 1.58 to 2.93%) and the central-error
+      section near line 239 ("North 4 ±2.93%") still give the old camera's values.
       Open points already in metrology-log section 11 (tag tolerance 0.1 vs 0.5 mm, central error
       up to 4% vs -5.27, camera height never measured) are part of this.
 
@@ -898,19 +899,11 @@ closed or moved to a later milestone on 2026-10-08; each item says where and why
          above.
       6. Per-sample budget (one sample a minute): capture 4.3 s, full-frame tag detection 5.3 s,
          a 500 px sharpness square 4 ms, JPEG save 0.56 s, JPEG reopen 0.54 s (measured
-         2026-10-06 on saved photos). Likely the same fault as the
-      item below. Make it fixable: (1) reproduce with N = 1, 3, 9 full-res captures then one lens
-      change, checking `LensPosition` in the next sidecar; (2) log requested and reported lens
-      position on every lens command; (3) after a lens command, compare reported with requested
-      and show "lens not responding, restart the app" instead of a silent 200. Risk: the lens
-      position recorded with a capture may not be the actual one. Workaround: move the lens only
-      in a freshly restarted app, before any capture. Full report kept outside the repo at
-      `/home/pi/scratch/bug-lens-unresponsive-2026-10-05.md`; the log lines are in
-      `uvicorn.log` around lines 390560 to 392545 and the following restart.
+         2026-10-06 on saved photos).
       **Triage 2026-10-08:** closed. Parts 1, 2 and 5 done (#43, `e2a20fd`). Part 3 is slice 4 of
       the plan below. Part 4 (tray tag 6 at the frame edge, larger tray tags) moved to M4; part 6
-      (time per sample) moved to M3. The text run into part 6 ("Likely the same fault..." to the
-      scratch report) is an older report of the stuck-lens fault, fixed in #43.
+      (time per sample) moved to M3. An older report of the stuck-lens fault, run into part 6, was
+      removed (fixed in #43; report kept at `/home/pi/scratch/bug-lens-unresponsive-2026-10-05.md`).
 - [x] **Calibration capture immediately followed by autofocus wedges the whole camera pipeline**
       — reproduced on real hardware 2026-09-21: run a calibration, then hit "Autofocus," and
       every camera-touching endpoint (preview, snapshot, focus score) hangs for an extended
