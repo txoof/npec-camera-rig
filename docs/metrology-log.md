@@ -67,9 +67,15 @@ measure every printed sheet.
 
 ## 5. Calibration
 
-Current calibration (`20261005T141101923639`, 2026-10-05 14:11 UTC, lens position 6.27, 30.0 mm
-tags, 355 tags, 4 corner tags): scale field residual 0.52% (standard deviation of the tags' scale
-about the fitted field), holdout coverage error 0.4%.
+Current calibration (`20261008T081832283098`, 2026-10-08 08:18 UTC, replacement camera SN001,
+lens position 6.04, 30.0 mm tags, 355 tags, 4 corner tags): scale field residual 0.50% (standard
+deviation of the tags' scale about the fitted field). Made after the camera swap and the removal of
+packing foam from the new camera (section 8.2). Its validation: section 8.2, "Recalibration after
+the foam came off".
+
+Before the camera swap: calibration `20261005T141101923639`, 2026-10-05 14:11 UTC, lens position
+6.27, 30.0 mm tags, 355 tags, 4 corner tags: scale field residual 0.52%, holdout coverage error
+0.4%.
 
 It replaced the 07:11 UTC calibration (lens 6.15, also 0.52%), which no longer fitted after the
 camera was knocked and re-framed in the roll test (section 9.3).
@@ -984,6 +990,46 @@ swinging about 0.5 to 0.6 points, and follows the chamber's humidity and tempera
 same signs as the old camera's (humidity negative, temperature positive); the opposite temperature
 sign in step 6's extra analysis came during the settling after the foam came off. Present on both
 cameras, the cycle comes from the chamber, not the camera.
+
+**Recalibration after the foam came off (2026-10-08).** Before it, Aaron moved the trays slightly,
+moved the tray tags to inside each tray's boundary, and refocused: the lens was locked at **6.04**
+(the operator's choice) when the calibration ran. Calibration `20261008T081832283098`, 08:18 UTC,
+30.0 mm tags, 50 mm corner tags. Validation session `20261008T081846523784`, rounds at 08:20, 08:32
+and 08:43 UTC (23.6 minutes first to last, shortest gap 11.8 minutes), 87%, 77% and 74% of tags
+moved, 85 to 90 tags per slot, chamber door closed. Raw data: `/home/pi/scratch/camera-swap-2026-10/recal/`
+(`validation_sessions.json` as the server reported it, `compare.py`).
+
+| | With foam (step 1 and 2, lens 6.16) | Foam removed (lens 6.04) |
+|---|---|---|
+| Calibration tags | 355 | 355 |
+| Scale field residual | 0.49% | 0.50% |
+| Mean scale | 4.865 px/mm | 4.858 px/mm (-0.14%) |
+| Validation | validated, no flags | validated, no flags |
+| Largest move of a slot median between rounds | 0.60 | 0.76 |
+| Bands | ±1.3% to ±2.7% | ±1.3% to ±2.7% |
+| Median of the slot medians | -0.05 | -0.14 |
+
+| Slot | Band, foam | Band, no foam | Median, foam | Median, no foam | Change |
+|---|---|---|---|---|---|
+| North 1 | ±2.7% | ±2.3% | +0.88 | +0.83 | -0.06 |
+| North 2 | ±1.7% | ±2.5% | +0.51 | +0.26 | -0.25 |
+| North 3 | ±1.7% | ±2.0% | -0.22 | -0.45 | -0.24 |
+| North 4 | ±2.1% | ±2.5% | -0.38 | -0.43 | -0.04 |
+| North 5 | ±1.8% | ±1.5% | -0.50 | -0.68 | -0.18 |
+| North 6 | ±1.9% | ±1.6% | +0.33 | +0.17 | -0.15 |
+| South 1 | ±1.9% | ±1.4% | -0.05 | -0.36 | -0.31 |
+| South 2 | ±1.3% | ±1.4% | +0.22 | +0.34 | +0.12 |
+| South 3 | ±2.0% | ±2.1% | -0.05 | -0.13 | -0.07 |
+| South 4 | ±2.5% | ±2.7% | -0.58 | -0.86 | -0.28 |
+| South 5 | ±1.7% | ±1.3% | -0.34 | -0.16 | +0.18 |
+| South 6 | ±1.9% | ±2.4% | +0.64 | +0.77 | +0.13 |
+
+The lens differs (6.04 against 6.16) and the trays and tray tags were moved, so by the step 2 rule
+no slot is called the same or different. For the record, every slot median changed by less than
+0.62 points (from -0.31 to +0.18). Compared with the 2026-10-07 calibration as it read after the
+foam came off (about 0.8 points low, overnight run), a fresh calibration brings the camera back to
+a validation as close to zero as before. This calibration and validation are the current ones for
+the new camera and replace those of 2026-10-07.
 
 ## 9. M2 physical acceptance tests (2026-10-05)
 

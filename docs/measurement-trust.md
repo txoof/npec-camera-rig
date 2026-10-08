@@ -59,9 +59,9 @@ or one focus setting does not hold everywhere.
 gives the scale (pixels per millimetre) at its own position, and a smooth scale field is fitted
 across the image. Area is then pixels divided by the square of the local scale.
 
-**Evidence.** The current calibration (lens 6.27, 355 tags): scale 4.85 px/mm at the image centre
-(about 0.21 mm per pixel), and the tags sit within 0.52% of the fitted field (standard
-deviation). Calibration refuses to run without a lock and all 4 corner tags, unless the operator
+**Evidence.** The current calibration (replacement camera, 2026-10-08, lens 6.04, 355 tags):
+scale 4.86 px/mm on average (about 0.21 mm per pixel), and the tags sit within 0.50% of the fitted
+field (standard deviation). The old camera's last calibration (lens 6.27) gave 0.52%. Calibration refuses to run without a lock and all 4 corner tags, unless the operator
 overrides it.
 
 **One calibration covers every tray height.** Calibrations with the sheets on the table surface
