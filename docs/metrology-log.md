@@ -303,6 +303,30 @@ added anything detectable. The 2026-10-01
 drift (1.3 points) was about 5 times larger than anything seen on 2026-10-05. The reason is not
 known.
 
+**Photos flagged as not covered by the validation bands (built 2026-10-08, #49).** Two
+conditions measured above (a lens away from its locked position, and the hour after a cold start)
+are not covered by the bands, so every photo record now says whether it was taken under one of
+them. This is a record of conditions, not a correction: a flagged photo is kept, not changed.
+
+- *Lens check.* The lens position the camera reports in the photo's own data is compared with the
+  focus lock. The photo is flagged when focus is not locked, when no position is reported, or when
+  the two differ by more than 0.005. The 0.005 is the tolerance the app already uses to confirm a
+  lens move, a decision, not a measurement. Limit: a camera that ignores lens commands reports the
+  old position (section 11, open point 3), so this catches a lens reported elsewhere, not a lens
+  that moved while the report did not.
+- *Cold-start window.* Each photo records the Linux boot ID, the seconds since the Pi booted (the
+  kernel's own count, which does not depend on the clock), the seconds since the app started, and
+  the gap before the app started. A photo is flagged when the Pi has been up less than 60 minutes.
+  **The 60 minutes is a decision, not a measurement.** It comes from one cold start on the old
+  camera (Pi off about 30 min, recovered over about an hour, table above), and stays a placeholder
+  until a cold-start run on SN001 measures it. A reboot without a power cut is flagged too, because
+  it is not known whether the camera stays warm through one. Checked on the rig, 2026-10-08: a
+  photo with focus locked at 6.04 reported 6.04 and was not flagged; one with focus unlocked was
+  flagged. The cold-start flag itself is checked by unit tests only, because the Pi was not
+  rebooted to test it.
+- *Not covered.* A camera fault in the middle of a run (frontend timeout, run 3g) is not detected
+  yet: it happens inside the camera software and the app does not see it.
+
 ### 8.1 The repeat-photograph stability test
 
 This is the test behind the lens-return, control, restart and power-cut results. It asks whether

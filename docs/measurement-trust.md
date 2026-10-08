@@ -129,6 +129,11 @@ most 1.96 points and sat at most 2.15 points from the rest.
   camera height. The rig measures what is actually there; a wrong-height tray shows as a wrong
   area, which is why bands are stated for tray-top height only.
 
+Conditions the bands do not cover are marked on each photo rather than averaged in. Since
+2026-10-08 a photo is flagged when its lens position differs from the focus lock, or when it was
+taken within 60 minutes of the Pi starting (a cold start; the 60 minutes is a decision until it is
+measured). A camera fault during a run is not detected yet (`docs/metrology-log.md`, section 8).
+
 ## Independent checks of the whole chain
 
 **What could go wrong.** Calibration and validation both rest on the same typed-in tag size. If
