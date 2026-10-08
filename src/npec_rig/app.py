@@ -1770,6 +1770,10 @@ def capture_validation_round(session_id: str) -> dict:
         # the operator to the sheets instead of the focus (Aaron, 2026-09-30).
         focus_problem = _focus_problem(focus, artifact)
         reasons = [focus_problem] if focus_problem else []
+        # A photo flagged as not covered by the bands is not counted into them either (Aaron,
+        # 2026-10-08); the Count anyway override still applies. An unlocked focus is already
+        # reported by _focus_problem.
+        reasons += [flag for flag in record["flags"] if flag != "focus not locked"]
         try:
             round_["slot_errors"] = round_errors_by_slot(
                 detections,
@@ -1805,7 +1809,8 @@ def capture_validation_round(session_id: str) -> dict:
 @app.post("/validation/sessions/{session_id}/rounds/{index}/count")
 def count_validation_round(session_id: str, index: int) -> dict:
     """Count a round the checks held back, on the operator's say-so (gates need an override).
-    Only for reasons the map can still handle: focus and movement, never slot placement."""
+    Only for reasons the map can still handle: focus, movement and photo flags (lens check,
+    cold-start window), never slot placement."""
     with _validation_lock:
         session = _session_or_404(session_id)
         if not 0 <= index < len(session["rounds"]):

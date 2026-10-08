@@ -324,6 +324,8 @@ them. This is a record of conditions, not a correction: a flagged photo is kept,
   photo with focus locked at 6.04 reported 6.04 and was not flagged; one with focus unlocked was
   flagged. The cold-start flag itself is checked by unit tests only, because the Pi was not
   rebooted to test it.
+- *Validation.* A validation round whose photo is flagged is held back from the bands, with the
+  reason shown; the operator can still count it (Aaron, 2026-10-08).
 - *Not covered.* A camera fault in the middle of a run (frontend timeout, run 3g) is not detected
   yet: it happens inside the camera software and the app does not see it.
 
