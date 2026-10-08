@@ -237,9 +237,10 @@ switch labels, draft state or reviews back and forth.
 
 ## Facts not to rediscover
 
-- **Current 30 mm AprilTags measure 30.0 ± 0.1 mm.** Callipers, 2026-09-29: 30 mm tag X 30.10 /
-  30.11 / 29.96, Y 30.04 / 29.96 / 29.94 (mean 30.018); 50 mm tag mean 50.02; 180 mm sheet scale
-  bars 179.93 and 180.03. Callipers are not trusted beyond 0.1 mm. 36h11 family. The 29.3106 mm
+- **Current 30 mm AprilTags measure 30.0 ± 0.1 mm.** NEIKO callipers, on or before 2026-09-21: 30 mm tag
+  X 30.10 / 30.11 / 29.96, Y 30.04 / 29.96 / 29.94 (mean 30.018); 50 mm tag mean 50.02; 180 mm
+  sheet scale bars 179.93 and 180.03 (each a mean of 3 readings). Source and method:
+  `docs/metrology-log.md` section 3. Callipers are not trusted beyond 0.1 mm. 36h11 family. The 29.3106 mm
   figure in older docs and code belongs to the previous rig's printed tags and does not apply.
 - **The rig has been physically rebuilt.** Every geometry value from the old calibration is dead:
   camera distance, table tilt, lens position, intrinsics. Re-measure them. Tray height survives.
@@ -263,8 +264,9 @@ switch labels, draft state or reviews back and forth.
 - **The focus position is the experimenter's choice, never ours.** The rig drives the lens there one
   consistent way and confirms it (`CameraManager._drive_lens`), then calibration and validation
   measure the error at that position. Never recommend or tune a lens position for accuracy.
-- **Height above the tray top changes area by about 0.145% per mm** (measured: a 75 mm taller tray
-  read 11.2% to 12.0% large, predicted 11.8%). Validation bands cover flat objects at tray-top height
+- **Height above the tray top changes area by about 0.145% per mm** for small heights
+  (model slope from the stated 1482 mm camera height; one test: a 75 mm taller tray read 11.2% to
+  12.0% large, predicted 11.8%, about 0.157% per mm on average over that step). Validation bands cover flat objects at tray-top height
   only; plant height and segmentation add to them (PLAN.md, *Per-slot area uncertainty*).
 - **Rig timestamps (capture names, session IDs) are UTC; the chamber's local time is UTC+2.**
   Convert before matching them against anything a person reports.

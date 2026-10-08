@@ -3,7 +3,10 @@
 This is the log: every measurement, test method and result, with its source. For the case that
 these measurements can be trusted, read `docs/measurement-trust.md` first.
 
-**Status:** first draft, 2026-10-05. The camera was replaced on 2026-10-07 (old SN000, new SN001; section 8.2); current calibration and bands are the new camera's from 2026-10-08. Kept current as findings come in (CLAUDE.md, *Write up every
+**Status:** first draft 2026-10-05; raw-data sources, repeat counts and camera coverage added
+2026-10-08. The camera was replaced on 2026-10-07 (old SN000, new SN001; section 8.2); current
+calibration and bands are the new camera's from 2026-10-08. Section 13 says which results have
+been repeated on SN001. Kept current as findings come in (CLAUDE.md, *Write up every
 measurement*). Numbers marked **decision** are settings chosen by the project, not measurements.
 Section 11 lists inconsistencies between project files that still need checking. Section 9
 holds the M2 physical acceptance tests, run 2026-10-05.
@@ -44,12 +47,21 @@ two area errors (for example +1.00% to +1.03%) is given in *points* (+0.03 point
 
 | Quantity | Value | How measured | Date | Covers / does not cover |
 |---|---|---|---|---|
-| Calibration tag side | 30.0 ± 0.1 mm (readings X 30.10, 30.11, 29.96; Y 30.04, 29.96, 29.94; mean 30.018) | Callipers, 6 readings, one print run | 2026-09-29 | That print run only. Every new print is measured again. ±0.1 mm on 30 mm is about ±0.67% in area |
-| Corner tag side | 50.02 mm (mean) | Callipers | 2026-09-29 | Corner tags are used for the rig health check (tripwire) and table view, not for area |
-| Sheet scale bars | 179.93 and 180.03 mm (nominal 180) | Callipers, 2 bars | 2026-09-29 | Confirms the sheets printed at 100% scale |
-| Reference tag 500 side (60 mm, 36h11 ID 500, fixed at the north table edge) | 60.06 mm mean, SD 0.04 (Y 60.07, 60.05, 60.10, 60.05; X 60.01, 60.05, 60.00, 60.13) | Callipers, 8 readings, remeasured with care | 2026-10-06 | Supersedes a first set the same day (59.58 to 60.26, mean 59.94). Placed 2026-10-06 at the supervisor's suggestion as a static target |
+| Calibration tag side | 30.0 ± 0.1 mm (readings X 30.10, 30.11, 29.96; Y 30.04, 29.96, 29.94; mean 30.018, SD 0.075, range 29.94 to 30.11) | Callipers, 3 tags (left, middle and right of one sheet), X and Y once each, outer edge to outer edge of the black border | 2026-09-21 (print of 2026-09-20, IDs 300 to 449) | That print run only. Every new print is measured again. ±0.1 mm on 30 mm is about ±0.67% in area |
+| Corner tag side | 50.018 mm mean, SD 0.11 (X 50.09, 50.07, 49.92; Y 50.17, 49.87, 49.99) | Callipers, 3 tags, X and Y once each, as above | 2026-09-21 | Corner tags are used for the rig health check (tripwire) and table view, not for area |
+| Sheet scale bars, nominal 180 mm | 30 mm sheet: 180.13, 179.91, 179.74 (mean 179.93, SD 0.20). 50 mm sheet: 180.10, 179.93, 180.06 (mean 180.03, SD 0.09) | Callipers, 3 readings of the bar on each of 2 sheets | 2026-09-21 | Confirms the sheets printed at 100% scale (both means within 0.04% of 180). The repeat readings of one bar spread over up to 0.39 mm, wider than the 0.1 mm resolution trusted (below) |
+| Reference tag 500 side (60 mm, 36h11 ID 500, fixed at the north table edge) | 60.06 mm mean, SD 0.04 (Y 60.07, 60.05, 60.10, 60.05; X 60.01, 60.05, 60.00, 60.13) | Callipers, 8 readings, remeasured with care | 2026-10-06 | Supersedes a first set the same day (59.58 to 60.26, mean 59.94, SD 0.22; commit `8f77e8d`). Placed 2026-10-06 at the supervisor's suggestion as a static target |
+| Callipers used for every reading in this table | NEIKO callipers; no model or serial number available | Stated by Aaron | 2026-10-08 | Not checked against a reference standard. The only independent check: the steel tape and the callipers agree on the sheets' 180 mm scale bars (section 9.2) |
 | Calliper resolution trusted | 0.1 mm | **Decision** | | Readings are not used beyond 0.1 mm |
 | Sheet-to-sheet difference | up to about 0.7% in area between sheets that both measure 30.0 mm | Fit residuals, 6 pages, 3 sessions | 2026-09-30 to 10-01 | `reference/arducam-central-error-2026-10.md` |
+
+**Where the calliper readings are.** The 2026-09-21 readings were typed by Aaron into a table and
+given to a Claude Code session (2026-09-21 07:36 UTC), and given again on 2026-09-29 with the
+mean rounded to 30.0 mm. The 2026-09-29 date in earlier versions of this log and in CLAUDE.md is
+that second date; the measurement was made on or before 2026-09-21 (calibrations from 2026-09-21
+12:12 UTC already used 30.02 mm). No other copy exists; this table is the record. The tag 500
+readings were given the same way on 2026-10-06. The table does not record which 3 tags were
+measured, only that they were at the left, middle and right of the sheet.
 
 Why tag size matters most: on the previous rig, trusting the 30 mm printed on the box (the tags
 measured 29.3106 mm) caused about 4.7% area error, larger than any other source. The lesson is to
@@ -63,8 +75,34 @@ measure every printed sheet.
 | Image size | 9152 × 6944 px | Camera configuration | | Arducam 64MP |
 | Scale at tray height | 4.858 px/mm mean (replacement camera, lens 6.04); old camera 4.85 px/mm at the image centre (2026-10-05) | Calibration fit, 355 tags, 08:18 UTC calibration | 2026-10-08 | About 0.21 mm per pixel; earlier calibrations 4.5 to 4.8 |
 | Scale on the table surface | 4.52 px/mm (at the image centre), 6.79% below tray height in length, 15.1% in area | Calibration fit, 355 tags on the table, same camera position | 2026-10-05 | At 0.145% of area per mm this corresponds to about 100 mm of height (derived, not taped) |
-| Height above tray top | about +0.145% area per mm | A 75 mm taller tray in 3 slots read 11.2% to 12.0% large; predicted 11.8% | 2026-10-01 | Bands cover flat objects at tray-top height only. Plant height adds to the uncertainty (section 7) |
+| Camera height above the table surface | about 1482 mm | Stated by Aaron ("around 148.2 cm"), 2026-10-01 08:38 UTC; instrument and method not recorded | 2026-10-01 | Old camera SN000, before the swap. Not re-measured since. The table-to-tray scale change (row above) is consistent with it |
+| Height above tray top | about +0.145% area per mm for small heights (model); over a 75 mm step the model gives 11.8% and the one test 11.2% to 12.0% | See *The height test* below | 2026-10-01 | Bands cover flat objects at tray-top height only. Plant height adds to the uncertainty (section 7) |
 | Perspective across the table | corrected by the scale field; positions mapped with a four-corner homography | Saved calibration frames | 2026-09-22 | Perspective within the table plane is modelled; lens distortion is not (section 10) |
+
+**The height test (2026-10-01, old camera SN000).** One tray 75 mm taller than the others (Aaron:
+the tall tray is 175 mm, the normal trays 100 mm; instrument not recorded) was put in 3 slots in
+turn, one validation round each: North 2, North 4, South 6. Lens 6.18, locked. Validation session
+`20261001T082459271029`, calibration `20260930T094710139674` (the one current at that time,
+identified by time). The sheets on the tall tray read 11.2% to 12.0% large.
+
+*Prediction.* A camera at height H sees an object at distance D below it at a scale proportional
+to 1/D, so area goes as 1/D². With H = 1482 mm, the normal tray top is 1382 mm from the camera and
+the tall one 1307 mm: (1382 / 1307)² = 1.118, so 11.8% large. The figure **0.145% per mm** used in
+this log is the slope of this model at tray-top height (2 / 1382 mm), the figure for small
+heights; it is derived from Aaron's heights, not measured on its own. The effect grows as an object
+comes nearer the camera, so over a larger height the average per mm is higher: over 75 mm the
+model's 11.8% is 0.157% per mm. The test read 11.2% to 12.0% (0.149% to 0.160% per mm on
+average), so it agrees with the model's prediction. For a plant tens of millimetres tall, the
+larger average applies.
+
+*What is stored.* The session's summary file is not in `/var/lib/npec-rig/calibration/validations/`;
+the per-slot results are not stored anywhere. The 3 photos remain:
+`/var/lib/npec-rig/captures/2026-10-01/082504_362942`, `082555_100396`, `082647_630918`. The
+11.2% to 12.0% range comes from the session's report at the time (the chat record of that session
+gives the low end as 11.3%).
+
+*Covers.* One test, one camera (SN000), one height step (75 mm), 3 slots, one round each. The model
+depends on the camera's height above the table, not on which camera unit is fitted.
 
 ## 5. Calibration
 
@@ -80,6 +118,20 @@ Before the camera swap: calibration `20261005T141101923639`, 2026-10-05 14:11 UT
 
 It replaced the 07:11 UTC calibration (lens 6.15, also 0.52%), which no longer fitted after the
 camera was knocked and re-framed in the roll test (section 9.3).
+
+**How repeatable the residual is.** Each calibration is stored as
+`/var/lib/npec-rig/calibration/<id>.json` (residual in `scale_field.residual_std_pct`). The file
+does not record which camera made it, so the camera is assigned by date. Counting only calibrations
+with the sheets on the trays and the current 30 mm sheets:
+
+| Camera | Calibrations | Dates | Residual |
+|---|---|---|---|
+| SN000 | 8 | 2026-09-29 14:34 to 2026-10-05 14:11 UTC | 0.516% to 0.700% |
+| SN001 | 3 (`20261007T114505498348`, `20261007T122200583188`, `20261008T081832283098`) | 2026-10-07 to 2026-10-08 | 0.491% to 0.503% |
+
+Earlier calibrations (58 between 2026-09-21 and 09-28, sheets on the table, some with the old
+rig's 29.3106 mm tag size) gave 1.48% to 2.01% and are not comparable. The holdout coverage error
+(0.4%) quoted for `20261005T141101923639` is not stored in its file; its source was not found.
 
 | Quantity | Value | Basis |
 |---|---|---|
@@ -112,10 +164,16 @@ under the recommended 10". The door cannot be detected by the rig; the operator 
 all tags in that slot over all counted rounds: 95% of the tags read within that distance of
 their true area. Fewer than 10 tags in a slot gives "not measured" (**decision**).
 
+Every validation session is stored as `/var/lib/npec-rig/calibration/validations/<session>.json`,
+with each round's tag errors.
+
 **Current bands, replacement camera SN001** (session `20261008T081846523784`, calibration
 `20261008T081832283098`, lens 6.04, rounds at 08:20, 08:32 and 08:43 UTC, 23.6 minutes first to
-last, door closed): ±1.3% (South 5) to ±2.7% (South 4); median of the slot medians -0.14 points;
-per-slot table in section 8.2, "Recalibration after the foam came off".
+last, door closed; 86.5%, 76.9% and 73.5% of tags moved; 30 tags per slot per round except one
+slot of 25 in each round, so 85 to 90 per slot): ±1.3% (South 5) to ±2.7% (South 4); median of the
+slot medians -0.14 points; per-slot table in section 8.2, "Recalibration after the foam came off".
+This is one validation session; how much a slot's band changes between sessions is shown by the
+two SN000 sessions of 2026-10-05 and 2026-10-07 below (up to 1.5 points, North 1).
 
 **Bands of the old camera SN000 on 2026-10-05** (session `20261005T141310628479`, calibration
 `20261005T141101923639`, lens 6.27, 3 rounds at 14:13, 14:14 and 14:15 UTC, 92% to 96% of tags moved, 85 to 90 tags per slot;
@@ -197,8 +255,22 @@ sheets, trays, lighting or detector. Its size depends on the focus lens position
 | 6.36 | -0.05 |
 | 6.44 | +0.49 (59 of 355 targets no longer readable) |
 
-One photograph per position, 2026-10-01, nothing else changed. On average about 1.2 points per 0.1
-of lens position. The focus position is the experimenter's choice; the rig does not tune it for
+One photograph per position, 2026-10-01, old camera SN000, nothing else changed. On average about
+1.2 points per 0.1 of lens position. With one photograph per position there is no repeat at any
+one position; the photo-to-photo noise (section 8, at most about 0.2 to 0.3 points for one photo) is small
+against the 4-point change across the sweep. Each value comes from one least-squares fit per
+photo: every tag's area error is fitted with a tilted plane across the image plus one offset for
+each ring of distance from the image centre; the value is the ring's offset against the ring 2500
+to 3500 px from centre. Calibration `20261001T091727374749`. The photos record the focus lock as
+off. Raw data: 12 photos,
+`/var/lib/npec-rig/captures/2026-10-01/142831_730852` to `150403_404929`, listed in
+`/home/pi/scratch/sweep_log.txt` (times there are chamber local time, UTC+2); script
+`/home/pi/scratch/sweep_check.py`. The ring 0 to 1000 px holds only 5 tags; it reads further low
+(down to -5.27 points at 6.10), which is the "-5.27" in the investigation's record.
+
+On SN001 the central error has been checked once, at lens 6.16 with the packing foam still on
+(section 8.2: ring 0 to 1000 px -2.80%); it has not been measured against lens position, and not
+after the foam came off. The focus position is the experimenter's choice; the rig does not tune it for
 accuracy. Validation measures the resulting error per slot, which is why central slots have wider
 bands.
 
@@ -212,16 +284,16 @@ several percent. Measured at milestone M5.
 
 | Quantity | Result | How measured | Date |
 |---|---|---|---|
-| Photograph-to-photograph noise | per-tag standard deviation 0.27 to 0.46 points | Repeated photographs, nothing changed (3 light levels, auto-exposure compensating) | 2026-10-01 |
+| Photograph-to-photograph noise, old camera SN000 | 0.27 and 0.46 points: the standard deviation over 348 tags of the difference between two photos (12.5% light against 25%, and 50% against 25%). A difference of two photos carries about 1.4 (√2) times one photo's noise, and here also any effect of the light change, so one photo's noise is at most about 0.19 to 0.33 points (derived) | 3 photos, one per light level, auto-exposure compensating (3377, 7119 and 1714 µs), nothing else changed, calibration `20261001T091727374749`. Photos `captures/2026-10-01/113019_175501` (25%), `113116_696924` (12.5%), `113126_805785` (50%); script `/home/pi/scratch/intensity_test.py`; the output exists only in that session's chat record | 2026-10-01 |
 | Photograph-to-photograph noise, replacement camera | median per-tag standard deviation 0.15 points (middle half of tags 0.12 to 0.19) | 10 photos in a row, nothing changed, fixed exposure, packing foam still on (section 8.2, step 3) | 2026-10-07 |
 | App restart, replacement camera | 5 warm restarts: median -0.04 to +0.06, every slot within ±0.24 | As run 3i, foam still on (section 8.2, step 5) | 2026-10-07 |
 | One photo a minute for 6.8 hours, replacement camera | no drift (each hour's median within 0.06 points of the others); the 20-minute cycle present, swing about 0.5 to 0.6 points, following the chamber's humidity (r -0.86) and temperature (r +0.61) | Overnight run after the foam came off, chamber's own record (section 8.2) | 2026-10-07 |
 | Removing packing foam from the camera body | readings about 0.8 points lower and slots about 15% less sharp, lasting at least 6.8 hours; a new calibration was needed | Step 6 and overnight photos against the last photo before removal (section 8.2) | 2026-10-07 |
-| Lens moved and driven back to the same position | median change -0.03 points, spread 0.28, 355 of 355 tags; over 60 min largest slot change +0.35 points (about 1/6 of that slot's band) | Autofocus moved the lens, re-locked at 6.15, photographs at +0, +15, +30, +60 min, each tag compared with itself | 2026-10-05, `reference/lens-return-2026-10.md` |
+| Lens moved and driven back to the same position | median change -0.03 points, spread 0.28, 355 of 355 tags; over 60 min largest slot change +0.35 points (about 1/6 of that slot's band) | Autofocus moved the lens, re-locked at 6.15, photographs at +0, +15, +30, +60 min, each tag compared with itself. One run. Raw data `/home/pi/scratch/lens-return-2026-10-05/` and validation session `20261005T071549445423`, rounds 4 onward | 2026-10-05, `reference/lens-return-2026-10.md` |
 | Drift at a fixed lens position after moves | central ring changed 1.3 points in 35 min | Lens sweep then return to 6.18 | 2026-10-01 |
-| Change over time with nothing moved (control) | over 45 to 60 min: median within ±0.17 points, central ring within ±0.26, single slots up to 0.52 (about 1/4 of that slot's band); goes up and down, not a steady drift | Same method, lens untouched, two series (one partly disturbed by people in the chamber) | 2026-10-05, `reference/lens-return-2026-10.md` |
+| Change over time with nothing moved (control) | over 45 to 60 min: median within ±0.17 points, central ring within ±0.26, single slots up to 0.52 (about 1/4 of that slot's band); goes up and down, not a steady drift | Same method, lens untouched, two series (one partly disturbed by people in the chamber). Raw data `/home/pi/scratch/lens-control-2026-10-05/` | 2026-10-05, `reference/lens-return-2026-10.md` |
 | One photo a minute for 2 hours, no reopen, lens locked (run 3j) | a repeating cycle of about 19 minutes: median swings by about 0.35 points (-0.08 to +0.33 against the first photo), largest slot 0.62; no drift (each cycle returns to the same low point); sharpness rises and falls with it; follows the chamber's air temperature (19.8 to 20.3 °C, every 19 min, correlation 0.84) and humidity cycle | Plain photos through the app, section 8.1 run 3j, compared with the chamber's 1-minute log | 2026-10-06 |
-| App restart | right after: median +0.08 and +0.09 points (two attempts), 355 of 355 tags; over 60 min median within ±0.13, largest slot -0.29 (about 1/6 of its band); inside the control range | Server killed and restarted, lens driven back to 6.15 at start-up; repeat-photograph test (section 8.1) | 2026-10-05, `reference/lens-return-2026-10.md` |
+| App restart | right after: median +0.08 and +0.09 points (two attempts), 355 of 355 tags; over 60 min median within ±0.13, largest slot -0.29 (about 1/6 of its band); inside the control range | Server killed and restarted, lens driven back to 6.15 at start-up; repeat-photograph test (section 8.1). Two attempts. Raw data `/home/pi/scratch/lens-restart-2026-10-05/` and `lens-restart-2026-10-05b/`, validation session `20261005T111520006719` | 2026-10-05, `reference/lens-return-2026-10.md` |
 | Power cut (cold start) | right after: median -1.73 points, 291 of 354 tags found, central slots blurrier; +15 min -0.41, +30 -0.38, +60 -0.14 (largest slot -0.62); recovers with no lens move | Pi off about 30 min, camera not opened until the run; repeat-photograph test (run 3) | 2026-10-06 |
 | Two calibrations in a row | scale fields agreed within 0.02% to 0.16% | 332 and 340 tags, lens moved away and back, 2026-09-25 | Before the current lens-drive method |
 
@@ -775,7 +847,7 @@ deviation (n-1) of its area error over the 10 photos; the median over tags. Raw 
 
 | | Old camera SN000 | New camera SN001 |
 |---|---|---|
-| Median per-tag standard deviation | 0.27 to 0.46 points (2026-10-01) | **0.15 points** |
+| Median per-tag standard deviation | 0.27 to 0.46 points (2026-10-01; a different statistic, see the note below) | **0.15 points** |
 | Tags followed through every photo | | 355 of 355 |
 | Per-tag spread, middle half of tags | | 0.12 to 0.19 points |
 | Largest tag | | 0.37 points |
@@ -787,6 +859,12 @@ photo-to-photo noise is about half the old camera's. One caution about the compa
 old figure came from the light-level test of 2026-10-01 (`reference/arducam-central-error-2026-10.md`,
 test 6), with automatic exposure compensating three light levels, and its record does not give the
 number of photos or how the standard deviation was summarised. Today's photos had fixed exposure.
+
+*Note added 2026-10-08.* The old figure's method has since been found (section 8, first row): one
+photo per light level, and 0.27 and 0.46 are standard deviations of the difference between two
+photos, not of one photo, and each pair also differed in light level. For one photo that is at
+most about 0.19 to 0.33 points. The new camera's 0.15 is still lower, but by less than half, and the two tests differ in exposure (automatic over three
+light levels against fixed), so the size of the difference is not established.
 So the difference may come partly from the conditions, not only from the camera. The limit was
 applied as written, not changed.
 
@@ -1119,8 +1197,9 @@ Near the frame centre, Aaron measured 4.8504 px/mm along the tape in ImageJ; the
 gives 4.844 px/mm there (0.1%). Toward both ends of the row the app reads the tape about 3% long
 (10 to 50 cm: 2.99%; 140 to 180 cm: 2.92%).
 
-**Height correction.** The tape lay on the tray lips, about 10 mm above the sheets. The measured
-height effect, 0.145% per mm, is for area; for a length it is half, about 0.072% per mm. 10 mm is
+**Height correction.** The tape lay on the tray lips, about 10 mm above the sheets. The height
+effect, 0.145% per mm (section 4, derived from the camera height and checked by one test), is for
+area; for a length it is half, about 0.072% per mm. 10 mm is
 therefore about +0.72% in length, so the full 1700 mm span corrected is about +1.4% (about ±0.15%
 for "about 10 mm"; 20 to 170 cm about +1.4%, 30 to 160 cm about +1.2%). Method A needs no
 correction: the tags lie on the sheets.
@@ -1238,14 +1317,18 @@ done (section 9).
 **Inconsistencies found between project files, to be checked and resolved:**
 
 1. Median-movement limit: 1.5 points in TODO.md, 2.5 in the code.
-2. Calliper tolerance: ±0.1 mm (CLAUDE.md) and "within 0.5 mm" (an older TODO.md note); calliper
-   date 2026-09-29 and 2026-09-21.
-3. Camera height: "not yet measured" and 1482 mm in different TODO.md notes; no method recorded.
+2. *Resolved 2026-10-08.* Calliper tolerance: "within 0.5 mm" (TODO.md, 2026-09-27) described a
+   frame covered with tags, not a calliper tolerance; ±0.1 mm stands. Calliper date: the readings
+   were made on or before 2026-09-21; 2026-09-29 is when they were given again (section 3).
+3. Camera height: about 1482 mm, as stated by Aaron on 2026-10-01 (section 4); the "not yet
+   measured" note was written earlier the same morning. *Still open:* no instrument or method was
+   recorded, and it has not been re-measured since the camera swap.
 4. Tray height: about 100 mm in some notes, a survey of 50 to 56 mm in another (the reference
    point of the survey is not stated). The 2026-10-05 two-height test implies about 100 mm from
    table surface to tray top (derived from scale, not taped), matching the 100 mm notes.
-5. Central error size: "up to about 4%" (CLAUDE.md) against ring values down to -5.27 at 6.10 in
-   the investigation.
+5. *Resolved 2026-10-08.* Central error size: "up to about 4%" (CLAUDE.md) is the ring 1000 to
+   1500 px (-3.63 points at 6.10, the lowest lens position tested); -5.27 is the ring 0 to 1000 px,
+   which holds only 5 tags (section 7).
 6. Image width: 9152 px (configuration) and 9248 px (hardware probe, sensor size).
 
 ## 12. Terms
@@ -1261,3 +1344,33 @@ done (section 9).
   error, sign ignored. About 2 in 3 values lie within it.
 - **Roll:** rotation of the camera about its viewing direction, seen as the whole image turning.
 - **Tripwire:** the check of the 4 corner tags against the calibration, giving OK, DRIFT or FAIL.
+
+## 13. Which results cover the current camera (SN001)
+
+The camera was replaced on 2026-10-07 (section 8.2). Most tests were run on the old camera SN000.
+This table says, for each result, whether it has been repeated on SN001.
+
+| Result | Section | SN000 | SN001 |
+|---|---|---|---|
+| Tag and sheet sizes | 3 | | Property of the printed sheets, not of the camera; applies |
+| Camera height, about 1482 mm | 4 | Stated, not measured with a recorded method | Not re-measured |
+| Height effect, 0.145% per mm | 4 | One test, 3 slots | Not repeated. Depends on camera height, not on the camera unit |
+| Calibration residual | 5 | 8 calibrations, 0.516% to 0.700% | 3 calibrations, 0.491% to 0.503% |
+| Validation bands | 6 | 3 sessions | 2 sessions: lens 6.16 with foam (step 2) and lens 6.04 after (current) |
+| Validation checks and their limits | 6 | Limits set from SN000 sessions | Both SN001 validations passed with no flags; limits not re-derived |
+| Central error against lens position | 7 | Sweep, 5 positions, one photo each | Checked once at lens 6.16 with foam on; not against lens position |
+| Photo-to-photo noise | 8, 8.2 step 3 | 3 photos at 3 light levels | 10 photos, fixed exposure, foam on |
+| Lens moved and driven back | 8 | One run | Not repeated |
+| Control (nothing done, 45 to 60 min) | 8 | Two series | Covered by the 6.8 hour overnight run |
+| App restart | 8, 8.2 step 5 | 2 attempts, then 5 restarts | 5 restarts, foam on |
+| Power cut, cold start | 8 | One run | Not repeated |
+| One photo a minute, the chamber cycle | 8.1 run 3j, 8.2 | 2 hours | 2 hours (step 6) and 6.8 hours (overnight) |
+| Lens ignores commands after a full-resolution photo | 11 | Seen twice | Seen (step 4) |
+| Two-height test | 9.1 | Pass | Not repeated |
+| Tape-measure check | 9.2 | Pass | Not repeated |
+| Roll and knock | 9.3 | Pass | Not repeated |
+| Claimed uncertainty against actual error | 9.4 | Fail; the claim was removed | Not repeated (the claim is no longer shown) |
+
+Removing packing foam from SN001 changed its readings by about 0.8 points (section 8.2), so the
+SN001 results taken with the foam on (noise, restarts, the step 2 validation) describe the camera
+before that change. The current calibration and bands were made after it.
