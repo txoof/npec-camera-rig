@@ -256,7 +256,7 @@ measured on SN001.
 The focus position is the experimenter's choice; the rig never tunes it for accuracy.
 
 **Height above the tray.** About +0.145% of area per mm above the tray top. That figure comes from
-the camera's height (about 1482 mm, as stated, not measured with a recorded method); one test, a
+the camera's height (about 1482 mm, a best estimate with a tape measure, not a precise value); one test, a
 tray 75 mm taller in 3 slots on the old camera, read 11.2% to 12.0% large against 11.8% predicted,
 in line with that prediction. 0.145% per mm holds for small heights; the effect grows nearer the
 camera, so over 75 mm it averages about 0.157% per mm. Plants have height, so a plant's area

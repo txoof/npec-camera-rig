@@ -265,7 +265,7 @@ switch labels, draft state or reviews back and forth.
   consistent way and confirms it (`CameraManager._drive_lens`), then calibration and validation
   measure the error at that position. Never recommend or tune a lens position for accuracy.
 - **Height above the tray top changes area by about 0.145% per mm** for small heights
-  (model slope from the stated 1482 mm camera height; one test: a 75 mm taller tray read 11.2% to
+  (model slope from a tape-measured best estimate of 1482 mm camera height; one test: a 75 mm taller tray read 11.2% to
   12.0% large, predicted 11.8%, about 0.157% per mm on average over that step). Validation bands cover flat objects at tray-top height
   only; plant height and segmentation add to them (PLAN.md, *Per-slot area uncertainty*).
 - **Rig timestamps (capture names, session IDs) are UTC; the chamber's local time is UTC+2.**
