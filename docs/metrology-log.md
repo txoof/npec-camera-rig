@@ -951,6 +951,40 @@ the camera; this rests on the extra analysis, not on the as-written result. The 
 against temperature is recorded, not explained. The chamber ran the same climate cycle on both
 days (19.7 to 20.3 °C, 57 to 62%).
 
+**Overnight run result (2026-10-07 16:26 to 23:14 UTC, analysed 2026-10-08).** 858 photos taken to
+06:43 UTC, no errors, lens 6.16 locked in every photo. The chamber lights went off at photo 409
+(23:15 UTC; exposure jumped from 3533 to about 66000 µs), so the run is analysed to photo 408:
+409 photos, 6.8 hours. Every tag compared with itself in step 6 photo 11 (13:40 UTC, the last
+photo before the foam came off). Same scripts as step 6; raw data:
+`/home/pi/scratch/camera-swap-2026-10/overnight/` (`analysis_vs_before_foam.json`,
+`chamber_compare.json`).
+
+| Hour from (UTC) | Median change, hour median | Lowest / highest photo | Sharpness, median slot |
+|---|---|---|---|
+| 16:26 | -0.84 | -1.04 / -0.58 | -15.8% |
+| 17:26 | -0.78 | -1.01 / -0.55 | -15.0% |
+| 18:26 | -0.80 | -1.04 / -0.49 | -15.2% |
+| 19:26 | -0.80 | -1.08 / -0.48 | -15.4% |
+| 20:26 | -0.78 | -1.04 / -0.54 | -15.2% |
+| 21:26 | -0.78 | -1.02 / -0.46 | -15.4% |
+| 22:26 | -0.80 | -1.04 / -0.60 | -16.2% |
+
+Largest slot change -1.57 points (North 5); largest swing of one slot 1.06 points. The median's
+correlation with itself peaks at 0.83 at 20 photos. Against the chamber record over the same
+window: air temperature 19.7 to 20.4 °C, period 20 min, r +0.61 (chamber 2 min behind); humidity
+56 to 62%, period 20 min, r -0.86. Light level (CoolWhite) changed from 25.02 to 13 within the
+window with no effect on the readings (r +0.04).
+
+What it shows: (1) the readings did not return to their level before the foam came off: they sat
+about 0.8 points lower, and the slots about 15% less sharp, for the whole 6.8 hours; so the foam's
+removal changed the camera's readings lastingly, and the calibration of 2026-10-07 12:22 UTC and
+its validation no longer describe the camera. (2) With nothing done for 6.8 hours, there was no
+drift: each hour's median lay within 0.06 points of the others. (3) The 20-minute cycle is present,
+swinging about 0.5 to 0.6 points, and follows the chamber's humidity and temperature cycle with the
+same signs as the old camera's (humidity negative, temperature positive); the opposite temperature
+sign in step 6's extra analysis came during the settling after the foam came off. Present on both
+cameras, the cycle comes from the chamber, not the camera.
+
 ## 9. M2 physical acceptance tests (2026-10-05)
 
 The four tests PLAN.md lists for M2, run in the chamber on 2026-10-05 (times UTC; the chamber is

@@ -157,6 +157,7 @@ was compared with its own earlier reading:
 |---|---|---|
 | Nothing done (control) | | up to 0.52 points (North 1) |
 | Nothing done, one photo a minute for 2 hours (2026-10-06) | | a repeating 19-minute cycle: whole-table median up to +0.33 points, up to 0.62 points in one slot (North 5) |
+| Nothing done, one photo a minute for 6.8 hours (replacement camera, 2026-10-07) | | the same 20-minute cycle, following the chamber's humidity and temperature, swinging about 0.5 to 0.6 points; no drift (each hour's median within 0.06 points of the others); metrology-log 8.2, overnight run |
 | Lens moved by autofocus, driven back to 6.15 | -0.03 points | +0.35 points |
 | App restart | +0.08 and +0.09 points (two attempts, 2026-10-05); within ±0.05 over 5 restarts (2026-10-06) | -0.29 points; every slot within ±0.39 over the 5 restarts |
 | App restart, replacement camera (2026-10-07) | within -0.04 to +0.06 over 5 restarts | every slot within ±0.24 over the 5 restarts (metrology-log 8.2, step 5) |
