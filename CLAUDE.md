@@ -130,7 +130,9 @@ not counting tests. A bigger task is split into PRs that each work on their own.
 
 **Issues are the to-do list.** Every change starts from an issue made with the Task template,
 in a milestone (M2 to M6). Repo `txoof/npec-camera-rig`, board
-https://github.com/users/txoof/projects/5.
+https://github.com/users/txoof/projects/5. Work only on issues in the milestone Aaron names. An issue
+with no milestone is started only when Aaron asks for it. `TODO.md` is a frozen record: read it for
+the history of done items, never add to it.
 
 **Claiming.** Before starting, list what is taken:
 
@@ -254,7 +256,7 @@ switch labels, draft state or reviews back and forth.
 | Path | What |
 |---|---|
 | `PLAN.md` | Full plan. Read the relevant milestone only |
-| `TODO.md` | Actionable items, linked to plan milestones. Being moved to GitHub issues (see *Parallel work*) |
+| `TODO.md` | Frozen record, 2026-10-08. Done items and the decisions in them. Open work is in GitHub issues (see *Parallel work*). Do not add items |
 | `CONTRIBUTING.md` | Branches, PRs, review and merging |
 | `reference/old-calibration/` | Rescued measured values from the previous rig |
 | `reference/arducam-central-error-2026-10.md` | The central-error investigation: evidence, what was ruled out, how the error is managed |
