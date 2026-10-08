@@ -18,6 +18,7 @@ from npec_rig.camera import (
     array_to_jpeg,
     crop_roi,
     laplacian_variance,
+    lens_check,
     peaking_overlay,
     to_grayscale,
 )
@@ -1016,3 +1017,20 @@ def test_apply_persisted_settings_replays_manual_exposure_when_ae_is_off() -> No
 
     assert manager.get_controls()["ExposureTime"] == 20000
     assert manager.get_controls()["AnalogueGain"] == 4.0
+
+
+def test_lens_check_passes_within_tolerance_of_the_lock() -> None:
+    result = lens_check(6.274, 6.27)
+    assert result["flagged"] is False
+    assert result["reason"] is None
+
+
+def test_lens_check_flags_a_lens_reported_away_from_the_lock() -> None:
+    result = lens_check(6.12, 6.27)
+    assert result["flagged"] is True
+    assert result["reason"] == "lens reported at 6.120, locked at 6.270"
+
+
+def test_lens_check_flags_no_lock_and_no_report() -> None:
+    assert lens_check(6.27, None)["reason"] == "focus not locked"
+    assert lens_check(None, 6.27)["reason"] == "the camera reported no lens position"

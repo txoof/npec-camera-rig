@@ -20,6 +20,8 @@
         <div class="gallery-item">
           <img src="${item.url}" alt="capture ${item.filename}">
           <div>${item.timestamp ? item.timestamp.replace("T", " ").slice(0, 19) : item.filename}</div>
+          ${item.lens_check && item.lens_check.flagged
+            ? `<div class="gallery-flag">Flagged: ${item.lens_check.reason}</div>` : ""}
         </div>
       `).join("");
     }

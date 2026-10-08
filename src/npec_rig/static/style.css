@@ -362,6 +362,7 @@ input[type="range"]:disabled { opacity: 0.5; }
   color: #aaa;
   word-break: break-all;
 }
+.gallery-item .gallery-flag { color: #e3b341; word-break: normal; }
 a { color: #6cf; }
 .wizard-step { display: none; }
 .wizard-step.active { display: block; }

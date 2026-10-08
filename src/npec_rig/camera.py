@@ -441,6 +441,26 @@ class Picamera2Backend(CameraBackend):
             self._picam2.set_controls({"ExposureTime": 0, "AnalogueGain": 0})
 
 
+def lens_check(reported: float | None, locked: float | None) -> dict:
+    """Whether a photo was taken at the locked lens position, for its sidecar.
+
+    `reported` is the LensPosition in the photo's own metadata, `locked` the focus lock (None when
+    not locked). The photo is flagged when focus is not locked, when the camera reported no
+    position, or when the two differ by more than LENS_REPORT_TOLERANCE. Limit: a camera that
+    ignores lens writes reports the old position, so this catches a lens the camera reports
+    elsewhere (after a reopen or restart), not a lens that moved while the report did not.
+    """
+    if locked is None:
+        reason = "focus not locked"
+    elif reported is None:
+        reason = "the camera reported no lens position"
+    elif abs(reported - locked) > LENS_REPORT_TOLERANCE:
+        reason = f"lens reported at {reported:.3f}, locked at {locked:.3f}"
+    else:
+        reason = None
+    return {"reported": reported, "locked": locked, "flagged": reason is not None, "reason": reason}
+
+
 def array_to_jpeg(frame: np.ndarray) -> bytes:
     """`frame`'s first 3 channels are literally R,G,B, in that order, with an optional 4th
     (unused padding) channel ignored -- verified directly against a known-color real-world

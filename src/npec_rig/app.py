@@ -68,6 +68,7 @@ from npec_rig.camera import (
     LensMovedDuringLockError,
     LensNotSettledError,
     array_to_jpeg,
+    lens_check,
 )
 from npec_rig.certainty_map import (
     MIN_MOVED_FRACTION,
@@ -442,16 +443,21 @@ def unlock_focus() -> dict:
 def capture() -> dict:
     """Full-res JPEG to disk plus a JSON sidecar of the current control values."""
     manager = CameraManager.instance()
+    focus = manager.focus_status()
     array, sensor_metadata = manager.capture_full_res()
-    return save_capture(
-        array,
-        {
-            "lens_position": manager.get_lens_position(),
-            "roi": manager.get_roi(),
-            "focus": manager.focus_status(),
-            "sensor_metadata": sensor_metadata,
-        },
-    )
+    return save_capture(array, _capture_sidecar(manager, focus, sensor_metadata))
+
+
+def _capture_sidecar(manager: CameraManager, focus: dict, sensor_metadata: dict) -> dict:
+    """The sidecar fields every photo shares. `focus` is read before the capture, so the lens
+    check compares the photo against the lock it was taken under."""
+    return {
+        "lens_position": manager.get_lens_position(),
+        "roi": manager.get_roi(),
+        "focus": focus,
+        "sensor_metadata": sensor_metadata,
+        "lens_check": lens_check(sensor_metadata.get("LensPosition"), focus["lens_position"]),
+    }
 
 
 @app.get("/api/captures")
@@ -1718,10 +1724,7 @@ def capture_validation_round(session_id: str) -> dict:
         record = save_capture(
             array,
             {
-                "lens_position": manager.get_lens_position(),
-                "roi": manager.get_roi(),
-                "focus": focus,
-                "sensor_metadata": sensor_metadata,
+                **_capture_sidecar(manager, focus, sensor_metadata),
                 "validation_session": session_id,
             },
         )

@@ -421,6 +421,19 @@ def test_capture_saves_jpeg_and_sidecar_and_appears_in_gallery() -> None:
     assert record["filename"] in filenames
 
 
+def test_capture_sidecar_lens_check_follows_the_lock() -> None:
+    client = TestClient(app)
+    unlocked = client.post("/capture").json()["lens_check"]
+    assert unlocked["flagged"] is True
+    assert unlocked["reason"] == "focus not locked"
+
+    client.post("/focus/lock")
+    locked = client.post("/capture").json()["lens_check"]
+    client.post("/focus/unlock")
+    assert locked["flagged"] is False
+    assert locked["reported"] == locked["locked"]
+
+
 def test_api_captures_respects_a_non_default_limit() -> None:
     client = TestClient(app)
     for _ in range(3):
