@@ -76,7 +76,7 @@ measure every printed sheet.
 | Scale at tray height | 4.858 px/mm mean (replacement camera, lens 6.04); old camera 4.85 px/mm at the image centre (2026-10-05) | Calibration fit, 355 tags, 08:18 UTC calibration | 2026-10-08 | About 0.21 mm per pixel; earlier calibrations 4.5 to 4.8 |
 | Scale on the table surface | 4.52 px/mm (at the image centre), 6.79% below tray height in length, 15.1% in area | Calibration fit, 355 tags on the table, same camera position | 2026-10-05 | At 0.145% of area per mm this corresponds to about 100 mm of height (derived, not taped) |
 | Camera height above the table surface | about 1482 mm | Stated by Aaron ("around 148.2 cm"), 2026-10-01 08:38 UTC; instrument and method not recorded | 2026-10-01 | Old camera SN000, before the swap. Not re-measured since. The table-to-tray scale change (row above) is consistent with it |
-| Height above tray top | about +0.145% area per mm (model); 0.149% to 0.160% per mm (the one test) | See *The height test* below | 2026-10-01 | Bands cover flat objects at tray-top height only. Plant height adds to the uncertainty (section 7) |
+| Height above tray top | about +0.145% area per mm for small heights (model); over a 75 mm step the model gives 11.8% and the one test 11.2% to 12.0% | See *The height test* below | 2026-10-01 | Bands cover flat objects at tray-top height only. Plant height adds to the uncertainty (section 7) |
 | Perspective across the table | corrected by the scale field; positions mapped with a four-corner homography | Saved calibration frames | 2026-09-22 | Perspective within the table plane is modelled; lens distortion is not (section 10) |
 
 **The height test (2026-10-01, old camera SN000).** One tray 75 mm taller than the others (Aaron:
@@ -88,9 +88,12 @@ identified by time). The sheets on the tall tray read 11.2% to 12.0% large.
 *Prediction.* A camera at height H sees an object at distance D below it at a scale proportional
 to 1/D, so area goes as 1/D². With H = 1482 mm, the normal tray top is 1382 mm from the camera and
 the tall one 1307 mm: (1382 / 1307)² = 1.118, so 11.8% large. The figure **0.145% per mm** used in
-this log is the slope of this model at tray-top height (2 / 1382 mm); it is derived from Aaron's
-heights, not measured on its own. The test itself gives 11.2% to 12.0% over 75 mm, that is 0.149%
-to 0.160% per mm. Model and test agree within about 10% of the effect.
+this log is the slope of this model at tray-top height (2 / 1382 mm), the figure for small
+heights; it is derived from Aaron's heights, not measured on its own. The effect grows as an object
+comes nearer the camera, so over a larger height the average per mm is higher: over 75 mm the
+model's 11.8% is 0.157% per mm. The test read 11.2% to 12.0% (0.149% to 0.160% per mm on
+average), so it agrees with the model's prediction. For a plant tens of millimetres tall, the
+larger average applies.
 
 *What is stored.* The session's summary file is not in `/var/lib/npec-rig/calibration/validations/`;
 the per-slot results are not stored anywhere. The 3 photos remain:
@@ -254,7 +257,7 @@ sheets, trays, lighting or detector. Its size depends on the focus lens position
 
 One photograph per position, 2026-10-01, old camera SN000, nothing else changed. On average about
 1.2 points per 0.1 of lens position. With one photograph per position there is no repeat at any
-one position; the photo-to-photo noise (section 8, about 0.2 to 0.3 points for one photo) is small
+one position; the photo-to-photo noise (section 8, at most about 0.2 to 0.3 points for one photo) is small
 against the 4-point change across the sweep. Each value comes from one least-squares fit per
 photo: every tag's area error is fitted with a tilted plane across the image plus one offset for
 each ring of distance from the image centre; the value is the ring's offset against the ring 2500
@@ -281,7 +284,7 @@ several percent. Measured at milestone M5.
 
 | Quantity | Result | How measured | Date |
 |---|---|---|---|
-| Photograph-to-photograph noise, old camera SN000 | 0.27 and 0.46 points: the standard deviation over 348 tags of the difference between two photos (12.5% light against 25%, and 50% against 25%). A difference of two photos carries about 1.4 (√2) times one photo's noise, so one photo's noise is about 0.19 to 0.33 points (derived) | 3 photos, one per light level, auto-exposure compensating (3377, 7119 and 1714 µs), nothing else changed, calibration `20261001T091727374749`. Photos `captures/2026-10-01/113019_175501` (25%), `113116_696924` (12.5%), `113126_805785` (50%); script `/home/pi/scratch/intensity_test.py`; the output exists only in that session's chat record | 2026-10-01 |
+| Photograph-to-photograph noise, old camera SN000 | 0.27 and 0.46 points: the standard deviation over 348 tags of the difference between two photos (12.5% light against 25%, and 50% against 25%). A difference of two photos carries about 1.4 (√2) times one photo's noise, and here also any effect of the light change, so one photo's noise is at most about 0.19 to 0.33 points (derived) | 3 photos, one per light level, auto-exposure compensating (3377, 7119 and 1714 µs), nothing else changed, calibration `20261001T091727374749`. Photos `captures/2026-10-01/113019_175501` (25%), `113116_696924` (12.5%), `113126_805785` (50%); script `/home/pi/scratch/intensity_test.py`; the output exists only in that session's chat record | 2026-10-01 |
 | Photograph-to-photograph noise, replacement camera | median per-tag standard deviation 0.15 points (middle half of tags 0.12 to 0.19) | 10 photos in a row, nothing changed, fixed exposure, packing foam still on (section 8.2, step 3) | 2026-10-07 |
 | App restart, replacement camera | 5 warm restarts: median -0.04 to +0.06, every slot within ±0.24 | As run 3i, foam still on (section 8.2, step 5) | 2026-10-07 |
 | One photo a minute for 6.8 hours, replacement camera | no drift (each hour's median within 0.06 points of the others); the 20-minute cycle present, swing about 0.5 to 0.6 points, following the chamber's humidity (r -0.86) and temperature (r +0.61) | Overnight run after the foam came off, chamber's own record (section 8.2) | 2026-10-07 |
@@ -859,8 +862,8 @@ number of photos or how the standard deviation was summarised. Today's photos ha
 
 *Note added 2026-10-08.* The old figure's method has since been found (section 8, first row): one
 photo per light level, and 0.27 and 0.46 are standard deviations of the difference between two
-photos, not of one photo. For one photo that is about 0.19 to 0.33 points. The new camera's 0.15
-is still lower, but by less than half, and the two tests differ in exposure (automatic over three
+photos, not of one photo, and each pair also differed in light level. For one photo that is at
+most about 0.19 to 0.33 points. The new camera's 0.15 is still lower, but by less than half, and the two tests differ in exposure (automatic over three
 light levels against fixed), so the size of the difference is not established.
 So the difference may come partly from the conditions, not only from the camera. The limit was
 applied as written, not changed.

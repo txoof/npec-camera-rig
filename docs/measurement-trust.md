@@ -173,8 +173,8 @@ was compared with its own earlier reading:
 | Power cut (cold start) | -1.73 points right after; -0.41 at +15 min; -0.14 at +60 min | -0.62 points at +60 min (South 1) |
 
 Photographs of an unchanged scene differ anyway: on the old camera, two photos at different light
-levels differed by 0.27 to 0.46 points (standard deviation over tags), about 0.2 to 0.3 points for
-one photo; on the replacement camera fitted 2026-10-07, 10 photos at fixed exposure varied by
+levels differed by 0.27 to 0.46 points (standard deviation over tags), at most about 0.2 to 0.3
+points for one photo; on the replacement camera fitted 2026-10-07, 10 photos at fixed exposure varied by
 0.15 points per tag (metrology-log section 8, and 8.2, step 3). Both
 disturbances stayed inside the change seen with nothing done, and the largest change in any slot
 was about a sixth of that slot's band. On this evidence, a restart does not require a new
@@ -226,8 +226,8 @@ quarter of that slot's band.
 
 **Replacing the camera (2026-10-07).** The camera was replaced by a new one of the same model and
 the key tests were repeated (metrology-log section 8.2). The new camera calibrated the same way
-(355 tags, 0.49% against 0.52%), was less noisy from photo to photo (0.15 points against about 0.2 to
-0.3, from tests run differently), behaved the same after restarts, showed the same lens fault after a full-resolution photo
+(355 tags, 0.49% against 0.52%), was less noisy from photo to photo (0.15 points against at most about
+0.2 to 0.3, from tests run differently), behaved the same after restarts, showed the same lens fault after a full-resolution photo
 and the same central low reading. The 19-minute cycle appeared on the new camera too and followed
 the chamber's humidity and temperature, so it comes from the chamber, not from one camera. Over
 6.8 hours with nothing done the readings did not drift (each hour within 0.06 points of the
@@ -258,8 +258,9 @@ The focus position is the experimenter's choice; the rig never tunes it for accu
 **Height above the tray.** About +0.145% of area per mm above the tray top. That figure comes from
 the camera's height (about 1482 mm, as stated, not measured with a recorded method); one test, a
 tray 75 mm taller in 3 slots on the old camera, read 11.2% to 12.0% large against 11.8% predicted,
-that is 0.149% to 0.160% per mm. Plants have height, so a plant's area carries this on top of the
-band.
+in line with that prediction. 0.145% per mm holds for small heights; the effect grows nearer the
+camera, so over 75 mm it averages about 0.157% per mm. Plants have height, so a plant's area
+carries this on top of the band.
 
 **Lens distortion.** Not modelled. The rule for adopting a distortion model is evidence that the
 errors are structured (growing toward the image corners), not random. A radial trend has been
