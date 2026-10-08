@@ -1,17 +1,17 @@
-# TODO
+# TODO (frozen 2026-10-08)
 
-Actionable items. Each block names its section in [PLAN.md](PLAN.md) — read that section before
-starting, not the whole document.
-
-Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaron
+**This file is a frozen record. Do not add items here.** Open work is in GitHub issues, on board
+https://github.com/users/txoof/projects/5 (see CLAUDE.md, *Parallel work*). On 2026-10-08 every
+open item was moved to an issue (#47 to #97) and replaced below by its first line and the issue
+number. Done items are kept as they were, because code comments and documents point to them for
+the account of a decision or a measurement.
 
 ---
 
 ## Needs Aaron — blocking nothing yet, will block later
 
-- [?] **Segmentation model** — what form is it in? Blocks M5, nothing before it.
-- [?] **Capture rate vs storage** — 10/hr is ~29 GB/month, 60/hr is ~170 GB. Decide with retention
-      policy and whether an external SSD is needed. Blocks M3.
+- Moved to #73: **Segmentation model** — what form is it in? Blocks M5, nothing before it.
+- Moved to #63: **Capture rate vs storage** — 10/hr is ~29 GB/month, 60/hr is ~170 GB. Decide with retention
 - [x] **Tag ID allocation — decided 2026-09-20 (Aaron), supersedes the 2026-09-19 allocation.**
       One family, 36h11, for everything; ranges kept configurable rather than hardcoded. **These
       ranges are arbitrary** — chosen to be simple for future users, not measured or derived from
@@ -33,6 +33,7 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
       A second tag family for corners (structural, not just numeric, separation) was considered
       and deferred — see PLAN.md's "Deferred, with evidence gates" table.
       **New follow-up:** 3D-printed tray tags are a different physical object from the paper
+            **Open follow-up moved to #70** (2026-10-08).
       calibration/corner sheets — the 29.3106 mm figure in CLAUDE.md was measured on paper and
       does not carry over. Needs its own calliper measurement, and a check of detectability
       (embossed relief vs. flat ink, under the chamber's grow lighting) once a printed sample
@@ -41,10 +42,8 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
       rebuilt rig's table corners and in frame; one was initially partially obscured. **Update,
       2026-09-22:** no longer the case (or no longer a detection problem either way) — all 4 are
       detected in every recent real run, verified directly against saved calibration artifacts.
-- [?] **Digest delivery** — email or web UI only. Blocks M6 only.
-- [?] **Hailo accelerator** — no `hailortcli`, no PCIe device, no package installed on this OS
-      build. Needs HailoRT install and physical seating confirmed. Blocks M5 only, and M5 ships
-      with a classical fallback regardless.
+- Moved to #79: **Digest delivery** — email or web UI only. Blocks M6 only.
+- Moved to #73: **Hailo accelerator** — no `hailortcli`, no PCIe device, no package installed on this OS
 - [x] **Color swap bug, actually fixed 2026-09-21** — the 2026-09-19 "lighting spectrum"
       conclusion below was wrong; this was a real, reproducible software bug the whole time, in
       `camera.py`, unrelated to any of: chamber lighting, system packages
@@ -77,25 +76,15 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
       report says colors are correct" is not verification unless the report is about the
       specific object being checked, at the same crop, compared against a reference taken the
       same way — a wide scene glance is not that.
-- [?] **Minimum-gain policy** — Aaron's supervisor requires minimal `AnalogueGain` at all times.
-      Default is already 1.0 (satisfied as-is). Not yet decided: whether to *enforce* this
-      further — e.g. cap the gain slider's usable max, or bias auto-exposure toward longer
-      exposure time over gain (`AeExposureMode`, unverified whether picamera2 exposes a "long
-      exposure preferred" mode — would need checking against real hardware before building
-      anything, same as the format-string lesson from M1 slice 3). Not built; needs a decision
-      on how strict this should be before doing more than the current default. *(Aaron,
-      2026-09-19)*
+- Moved to #94: **Minimum-gain policy** — Aaron's supervisor requires minimal `AnalogueGain` at all times.
 
 ---
 
 ## Supervisor feedback, 2026-09-24 — not yet triaged into a milestone
 
 **Future ideas suggested by the supervisor:**
-- [ ] ROI selection — choose which part of the table to segment/measure, rather than always the
-      whole frame *(likely M5 territory, once `Segmenter` exists)*
-- [ ] A fiducial tag that marks a tray as "ignore this one" — a deliberate operator opt-out,
-      distinct from the dirty-tag-degradation case already in M4 (which is a detection *failure*
-      being handled gracefully, not an intentional exclusion) *(likely M4 territory)*
+- Moved to #77: ROI selection — choose which part of the table to segment/measure, rather than always the
+- Moved to #71: A fiducial tag that marks a tray as "ignore this one" — a deliberate operator opt-out,
 
 **Important next steps required by the supervisor:**
 - [x] **Squareness guide lines — built 2026-09-24, made draggable same day (Aaron).** One fixed
@@ -115,8 +104,7 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[?]` needs Aaro
       look, not pytest). **Not yet visually or interactively confirmed in an actual browser** — no
       browser access from this environment; please eyeball it and try dragging each line before
       calling this done, same caveat as slice 3's responsive-layout entry.
-- [ ] Fix zoom quality — should be the highest quality available, not degraded
-      *(likely M1 territory)*
+- Moved to #95: Fix zoom quality — should be the highest quality available, not degraded
 - [x] **Feedback on whether the sensor is co-planar with the table — built 2026-09-24.** Checked
       CLAUDE.md's evidence-gate table first, per the note this item carried. Tripwire roll (in-
       image rotation between two frames) and the radial residual plot (lens-distortion signature)
@@ -157,11 +145,7 @@ Sliced so each piece ends with something visible in a browser.
 - [x] FastAPI + uvicorn serving one page
 - [x] pytest with marker infrastructure and `addopts = -m unit`
 - [x] systemd unit, restart-on-failure *(unit file written, not installed/enabled — manual start for now)*
-- [ ] Install/enable the systemd unit and run the reboot-survival checks in PLAN.md's M1 "you
-      verify" line and M3's acceptance bullet. **Deferred, low priority.** Aaron has no physical
-      access to the device right now; a failed reboot is an unrecoverable round trip until he
-      does. Pick this up later, at whichever milestone is testing reboot survival anyway (M3),
-      not as a standalone task. *(Aaron, 2026-09-19)*
+- Moved to #62: Install/enable the systemd unit and run the reboot-survival checks in PLAN.md's M1 "you
 - [x] **Demo:** page loads (verified via curl, 200 OK) and `pytest` runs in 0.44s. Unit file written
       to `deploy/npec-rig.service` but not copied to `/etc/systemd/system` or enabled, per this
       slice's manual-start instruction — reboot survival not tested yet.
@@ -243,11 +227,7 @@ Sliced so each piece ends with something visible in a browser.
 - Note: while testing this, Aaron was independently using the new controls live in his own
   browser tab — real concurrent usage, which is a better signal than my own curl checks. Took
   that as confirmation the UI works, not as noise to filter out.
-- [?] One exposure-time value from testing (11.6 seconds) didn't reapply on restart — likely
-      clamped because it exceeds what the *current streaming mode's* frame duration allows,
-      even though the probed range's max is much larger (that max may be a still-mode-only
-      figure). Not chased further; flagging in case exposure control feels unreliable near the
-      top of its reported range. *(2026-09-19)*
+- Moved to #94: One exposure-time value from testing (11.6 seconds) didn't reapply on restart — likely
 - [x] UI polish on Camera settings (2026-09-19, Aaron): moved below Focus aid, collapsed by
       default (native `<details>`/`<summary>`, no custom widget); AWB and AE checkboxes shown
       on one line; exposure time displayed as a fraction of a second (`1/147 s`) instead of raw
@@ -289,19 +269,10 @@ Sliced so each piece ends with something visible in a browser.
       ±1.0-dioptre-recentering design after Aaron pointed out unpredictable slider position was
       the actual problem — this version has *less* logic than that one (no dynamic range to
       recompute), not more. *(Aaron, 2026-09-19)*
-- [ ] When the attached lens has no autofocus (some lenses are manual-only), gray out the
-      Autofocus button with a note explaining why, instead of letting it fail silently or throw.
-      Deferred until a manual-only lens is actually in use. *(Aaron, 2026-09-19)*
-- [ ] Camera selector in the UI for when multiple cameras are detected. Not needed on the
-      current single-camera rig; for a future project/rig with additional cameras.
-      *(Aaron, 2026-09-19)*
-- [ ] Optional suffix/label on a capture (filename and/or sidecar field), so a specific capture
-      can be told apart from the rest without relying on timestamp alone. *(Aaron, 2026-09-19)*
-- [ ] **Autofocus, manual lens-position controls, focus peaking, and the sharpness readout should
-      all be linked to the Focus/Square mode toggle** (the toggle built 2026-09-24 for the
-      squareness guide lines, see M2's supervisor-feedback section) — only show them in Focus
-      mode, hide them in Square mode, instead of always visible regardless of which mode is
-      active. *(Aaron, 2026-09-25)*
+- Moved to #96: When the attached lens has no autofocus (some lenses are manual-only), gray out the
+- Moved to #96: Camera selector in the UI for when multiple cameras are detected. Not needed on the
+- Moved to #66: Optional suffix/label on a capture (filename and/or sidecar field), so a specific capture
+- Moved to #89: **Autofocus, manual lens-position controls, focus peaking, and the sharpness readout should**
 - [x] Focus peaking: toggle with a description, highlights high-contrast edges in the magnified
       crop in magenta. Reuses the existing Laplacian machinery (one shared helper function, one
       boolean flag, no new modules) rather than a separate subsystem. Verified on real hardware
@@ -321,146 +292,14 @@ for all of these, one checkpointed slice per item, test camera frames first. The
 gaps are documents only and can go in the same PR or their own. Everything else open in M2 was
 closed or moved to a later milestone on 2026-10-08; each item says where and why.
 
-- [ ] **`SyntheticBackend` emits 3-channel frames; real hardware now emits 4-channel (`XBGR8888`,
-      per the color-swap fix above -- `f82f12c`).** Found by `/code-review` (2026-09-24), verified
-      directly on real hardware, not trusted from the diff alone: `Picamera2Backend.capture_array()`
-      genuinely returns `(H, W, 4)`, and every consumer (`array_to_jpeg`, `to_grayscale`,
-      `detect_tags` via the calibration endpoints) handles it correctly -- confirmed by capturing a
-      real frame through the actual pipeline and looking at the resulting JPEG, colors correct, not
-      just checking it doesn't crash. So this is a **test-fixture gap, not a live bug**: the entire
-      212-test unit suite exercises a frame shape real hardware hasn't produced since that fix
-      landed, which means a future change to any consumer that only breaks on the 4th (padding)
-      channel would pass every unit test and only surface on real hardware. Not fixed here --
-      changing what `SyntheticBackend` emits changes what all 212 tests exercise, a call for Aaron,
-      not something to slip in as a side effect of a review pass.
-      **Triage 2026-10-08:** must-fix before M3, done first in the close-out PR, so the camera
-      changes there are tested against the 4-channel frames the rig really produces.
-- [ ] **Plan: nothing moves the lens during an experiment** (Aaron agreed the direction
-      2026-10-06; not built). The rig takes a photo every minute for many hours a day with no one
-      watching, so no step that runs per photo may depend on a person reacting to a message.
-      **Why.** Since slice 1 every photo closes and reopens the camera and then drives the lens
-      back to the locked position: three steps per photo that can fail, about 900 times a day. If
-      the drive back is not confirmed, the photo is still saved and reported as a success, the
-      lock is cleared and only the server log says so. That failure has not been seen since
-      slice 1, but nothing would show it. Measured 2026-10-06 (runs 3b and the diagnosis in the
-      item "Lens stops responding"): before slice 1 a photo left the lens not following commands,
-      but it stayed where it was (reported position and sharpness unchanged), so a stuck lens only
-      matters when something tries to move it. Validation runs before slice 1 were taken this way.
-      **Rule.** While focus is locked (the experiment state), nothing moves the lens: lens moves
-      and Autofocus are already refused while locked (`66f18e6`), and photos stop moving it too.
-      Lens moves happen only during setup, with a person at the rig.
-      **Slices, in order, each with a checkpoint:**
-      1. Photos stop reopening the camera and stop driving the lens back; they switch back to the
-         video configuration as before slice 1 (each photo 1.6 s faster). Before any lens command
-         (lens move, Lock focus, Autofocus, Unlock then move), the app reopens the camera if a
-         photo has been taken since it was last opened, so the lens follows (TODO next-step 1).
-         **Built 2026-10-06** (`Picamera2Backend.prepare_lens`). Checked on the rig: photos took
-         2.74 to 2.79 s (4.3 s before), lock kept, sharpness 438 to 439; the first move after two
-         photos (to 4.77, focus unlocked) was confirmed in 1.29 s including the reopen, sharpness
-         439 to 9; back to 6.27 in 0.57 s, Lock focus 1.52 s, a photo 2.76 s, sharpness 437, live
-         preview still streaming. Unattended run: metrology-log section 8.1, run 3j.
-         **Run 3j result (2026-10-06, 2 hours, 120 photos):** not passed against the limits fixed
-         beforehand (median +0.33 against ±0.10, largest slot 0.62 against 0.52), but the excess
-         is a repeating cycle of about 19 minutes, the same in every cycle, with no drift and no
-         loss of sharpness. Decision for Aaron: whether that is enough to keep this slice. Open:
-         the cause of the 19-minute cycle (the chamber's own cycle?), and whether it is there with
-         the camera reopened per photo.
-      2. Every photo records, in its sidecar, the lens position the camera reports and whether it
-         matches the lock (within 0.005). A mismatch, or no lock, flags the photo. Limit: a stuck
-         camera reports the old position, so this catches a lens the camera reports elsewhere
-         (for example after a reopen or restart), not a lens that moved while the report did not.
-      3. During setup, a lens command the camera does not confirm makes the app reopen the camera
-         and try once more by itself; only if that also fails does the page show "Lens not
-         responding: restart the app".
-         **Built 2026-10-07, with a Reset camera button** (Aaron, 2026-10-06: an average user
-         cannot restart the app on a Pi). A manual move or Lock focus that is not confirmed resets
-         the camera (close and reopen in the same process, `Picamera2Backend.reset`) and tries
-         once more; if that also fails the page shows "Lens not responding: press Reset camera"
-         with the button. The button (`POST /camera/reset`) resets the camera and drives the lens
-         back to the locked (or last set) position, keeping the lock only if confirmed; if that
-         fails the page says to restart the app. Autofocus has no automatic retry (a timeout
-         already took 55 s) and asks for Reset camera. Checked on the rig, chamber lights off:
-         Reset camera took 2.31 s, and 2.50 s after a photo, lock kept at 6.27, photos after it
-         2.86 and 2.91 s, live preview streaming. The retry when a lens does not follow is covered
-         by unit tests only (the fault cannot be caused on the rig since slice 1), and the reset is
-         measured to clear only the stuck state after a photo, not other camera faults.
-      4. Photos taken in the first hour after a cold start, or after a camera fault (frontend
-         timeout in the log), are flagged as not covered by the validation bands (TODO next-step 3;
-         the one-hour figure is a decision to confirm, from the cold start that recovered over about an
-         hour, item above).
-      **Measurement needed first (method into `docs/metrology-log.md` before the run):** with the
-      lens locked and no reopen per photo, take one photo a minute for at least 2 hours and check
-      that sharpness at fixed spots and the per-slot readings stay within the range of Control B
-      (45 minutes, nothing done; run 3i covered only a minute). The reported lens position is
-      recorded, not judged: a camera ignoring lens writes reports the old position whatever
-      happens.
-      Method fixed in metrology-log section 8.1, run 3j. That is what shows slice 1 of this plan is
-      safe for unattended runs.
-      **What stays open:** a camera fault in the middle of a run can still shift readings (run 3g:
-      central trays about half as sharp after a frontend timeout and restart), and no tag at the
-      rig could detect it reliably (tag 500, tray tags; runs 3f to 3h). The flags make such photos
-      visible; they do not correct them.
-      **Triage 2026-10-08:** slices 1 and 3 are built (#43). Slices 2 and 4 are must-fix before M3
-      (close-out PR). Slice 4's one-hour cold-start window is a decision until it is measured on
-      SN001 (a cold-start run: power off, cool, one photo a minute for 2 hours); how the app tells
-      a cold start from a warm restart is still to be worked out (for example time since boot). The
-      19-minute cycle is closed: Aaron kept this photo path (#43), validation rounds span 20
-      minutes so the bands include it, and it is present on SN001 too (metrology-log 8.2). The
-      Reset camera check with the chamber lit moved to M6.
-- [ ] **A manually-set ExposureTime/AnalogueGain (AE off) doesn't survive a full-res capture** —
-      found by `/code-review` 2026-09-25, reviewing the auto-exposure stuck-image fix (see
-      `m2-auto-exposure-fix`). `Picamera2Backend`'s `_control_cache` only tracks `AwbEnable`/
-      `AeEnable` (they're write-only — `capture_metadata()` doesn't echo them back), so
-      `capture_full_res()`'s post-capture restore can only reapply those two. If AE is off and
-      the operator has set a specific measured exposure/gain, a full-res capture (calibration or
-      "Capture") silently drops it back to the tuning file's default afterward, with no UI
-      indication anything changed. Deferred, not fixed alongside the AE-stuck bug: would need
-      caching the last explicitly-set manual value too, a small but separate change.
-      **Triage 2026-10-08:** must-fix before M3 (close-out PR). Still true: only AeEnable and
-      AwbEnable are restored (`camera.py:89`); not re-tested on the rig since #43.
-- [ ] **Camera calls with no time limit hold the camera lock (decided 2026-10-08).** Known limit
-      (1) of the closed autofocus-wedge item, plus the stream review's "hang while holding the
-      lock" deferral. A stuck photo would stop scheduled capture with no error (M3 acceptance:
-      never silently stops). Before writing code, compare and bring to Aaron: (a) a watchdog in the
-      app that detects and reports a stuck call (small; the stuck thread stays, recovery is an app
-      restart); (b) the camera in its own process, killed and restarted when a call is stuck
-      (large; recovers without taking the app down, and also covers the failed-reopen item in M6).
-      Reverses the earlier "wait for a real occurrence" decision.
-- [ ] **The exposure slider is hard to use (Aaron, 2026-10-08).** Its steps are uneven and too
-      close together to set a useful value in the browser. Likely cause, not checked: exposure time
-      on a linear scale from microseconds to seconds. Options: equal-ratio steps (1/250, 1/125,
-      1/60 s ...), preset values, or a typed value; each sets a real exposure time. Done with the
-      exposure restore item.
-- [ ] **One copy of the camera settings panel (Aaron, 2026-10-08).** It is hand-copied in
-      `setup_focus.html` and `setup_calibration.html`. Move it into one shared partial (as
-      `templates/_focus_controls.html` was) before the exposure items change it. At the start of
-      the close-out PR, list any other copied panels or tools (search only).
-- [ ] **Remove the calibration's claimed uncertainty from what the operator sees:** the confidence
-      heatmap, the Honesty plot panel on Health check, and `GET /calibration/current/uncertainty`
-      as a user-facing number. The claim was too small in 7 of 12 slots.
-      **Triage 2026-10-08:** must-fix before M3 (close-out PR), so the claim never reaches capture
-      records or the `calibration.json` export. Saved calibration files and their old heatmaps
-      stay; the scale field is unchanged.
-- [ ] **HIGH PRIORITY. Formal write-up of every measurement and confidence number (Aaron,
-      2026-10-05).** Document all of the rig's metrology formally, so it can become a paper that
-      describes the rig and shows how useful and valid its measurements are. Gather what is now
-      spread over `reference/` and TODO.md: tag sizes and calliper limits (30.0 ± 0.1 mm), the
-      calibration residual, the per-slot validation bands and how they are measured, the
-      central error and its link to lens position (`reference/arducam-central-error-2026-10.md`),
-      the height effect (0.145% per mm), photograph-to-photograph noise (0.27 to 0.46 points), and
-      the lens-return results (`reference/lens-return-2026-10.md`). For each number: what was
-      measured, how, with what, how often, and what it does and does not cover. Written for a
-      reader without a metrology background.
-      **Triage 2026-10-08:** stays open, limited to the gaps an independent read of both documents
-      found: raw-data paths for the tag readings, the height effect, photo-to-photo noise and the
-      lens-return runs; repeat counts and spread for the calibration residual (one SN001 run), the
-      central error (one photo per lens position) and the noise figure; the calliper model and the
-      instrument for the 75 mm height step; what each number covers on SN001 (several are old
-      camera only). `docs/measurement-trust.md` has SN001's bands in its summary, but its status line
-      (2026-10-05), the evidence paragraph near line 84 (bands 1.58 to 2.93%) and the central-error
-      section near line 239 ("North 4 ±2.93%") still give the old camera's values.
-      Open points already in metrology-log section 11 (tag tolerance 0.1 vs 0.5 mm, central error
-      up to 4% vs -5.27, camera height never measured) are part of this.
+- Moved to #48: **`SyntheticBackend` emits 3-channel frames; real hardware now emits 4-channel (`XBGR8888`,**
+- Moved to #49: **Plan: nothing moves the lens during an experiment** (Aaron agreed the direction
+- Moved to #50: **A manually-set ExposureTime/AnalogueGain (AE off) doesn't survive a full-res capture** —
+- Moved to #51: **Camera calls with no time limit hold the camera lock (decided 2026-10-08).** Known limit
+- Moved to #50: **The exposure slider is hard to use (Aaron, 2026-10-08).** Its steps are uneven and too
+- Moved to #50: **One copy of the camera settings panel (Aaron, 2026-10-08).** It is hand-copied in
+- Moved to #52: **Remove the calibration's claimed uncertainty from what the operator sees:** the confidence
+- Moved to #47: **HIGH PRIORITY. Formal write-up of every measurement and confidence number (Aaron,**
 
 
 - [x] Hardware-test skip infrastructure in `tests/conftest.py`: `pytest_collection_modifyitems`
@@ -1590,352 +1429,95 @@ I trust a number from this slot?" for the scientist. Basis: `docs/metrology-log.
 
 ## M3 — Capture, storage, export · *PLAN.md § M3*
 
-- [ ] **First: review every calibration plot: keep, move to validation, or remove (triage
-      2026-10-08).** Decisions only, no code, one plot at a time, before the `images.py` item so
-      only kept plots get moved. Plots: scale-residual heatmap, area-shape heatmap, table view,
-      best-vs-worst-tag rank plot, best-and-worst tag photo, radial plot, certainty dome (the
-      confidence heatmap is removed in M2). For each: does it help the operator set up, help a
-      scientist trust a slot, or neither?
-- [ ] **Not decided:** whether the best-vs-worst-tag rank plot stays.
-      **Triage 2026-10-08:** moved to M3, merged into the calibration plot review at the start of
-      M3.
-- [ ] Full SQLite schema (`experiment`, `calibration`, `tray`, `capture`, `detection`,
-      `measurement`, `alert`) — created here so every row has provenance from the start
-      **Triage 2026-10-08:** record the active calibration directly (from the calibration-history
-      review, parts 1 and 4: `is_current` is found by matching `created_at`).
-- [ ] Experiment create/start/stop in the UI
-- [ ] **Gallery thumbnails are slow and cannot be clicked (Aaron, 2026-10-01).** The gallery
-      loads every capture's full-resolution 64MP JPEG and lets the browser shrink it
-      (`gallery.html`, `<img src="${item.url}">`), so the page is very slow. Serve real
-      thumbnails instead (made once per capture, for example at save time, and cached on disk).
-      Clicking a thumbnail does nothing: the images have no click handler and are not
-      `.diagnostic-image`, so the shared lightbox ignores them. Click should open the capture
-      large (a screen-sized version, not the full 64MP file).
-      **Use the image system built 2026-10-02 (`images.py`, PLAN.md *Images*):** add `thumb` and
-      `screen` recipes on `images.reduced_frame` (0.11 s and 0.24 s per 64MP capture, measured),
-      served through `images.get`. Do not build a separate thumbnail path.
-- [ ] **Move the older image routes onto `images.py` (2026-10-02).** These still decode and draw
-      in the route on every request: `/calibration/{current,<stem>}/rank-plot`, `best-worst-photo`,
-      `radial-plot`, `certainty-dome-plot`, `certainty-map`, and the honesty plot. They take the
-      calibration frame's tags from `_detect_tags_cached` (one frame in memory, decoded again after
-      a restart or when switching calibrations); store them through `images.tag_detections`
-      instead, and make each plot a recipe. Not the live level overlay (`level.jpg`): it draws a
-      live preview frame, so there is nothing to keep.
-      **Triage 2026-10-08:** also merge the five near-identical heatmap-saving functions, their
-      URL-building blocks in `app.py`, and `delete_calibration`'s copy of the file names into one
-      list (PR #10 and history-browser reviews; one-copy rule). Do the plot review at the top of M3
-      first.
-- [ ] **Calibration history page is slow to load photos (Aaron, 2026-10-02).** It does not use
-      the image system (`images.py`), and its photos take a long time to appear. Likely the same
-      routes as the item above (`/calibration/<stem>/...` plots, decoded and drawn per request),
-      plus whatever the history list and diagnostics pages load; time each request before
-      choosing the fix. Done when the history and diagnostics pages show their images through
-      `images.get` and Aaron confirms in a browser that they load quickly.
-- [ ] **Design the header/nav menu properly once experiment/report pages exist.** The Jinja
-      base-layout work (M2 UI-organization pass) centralized the header/nav into one
-      `templates/base.html` block, but its content is still just the same two links (Setup,
-      Capture & Gallery) that existed before -- deferred designing the actual menu structure
-      (flat list vs. grouped/dropdown) until M3's experiment list/detail/timelapse/report pages
-      are real routes, since guessing the hierarchy now would be speculative. *(Aaron,
-      2026-09-27.)*
-      **Triage 2026-10-08:** also show validation status in the site menu (left over from the M2
-      validation drift slice), and make the calibration wizard's last-step Done button return to
-      the menu.
-- [ ] Experiment storage laid out so a whole experiment is easy to identify and remove as a unit
-      (e.g. one directory per experiment, named/indexed so it's obvious which is which) — not
-      commingled with calibration data or other experiments. *(Aaron, 2026-09-19)*
-- [ ] Interval scheduler, 1–6 min, trust verdict per capture
-- [ ] **Scheduled captures must not contend with live preview/setup streams for the camera.**
-      Right now the Setup pages (Focus & Square, live leveling, live reorientation) all poll or
-      stream from the camera whenever their step/page is open — fine while nothing else needs the
-      camera, but once M3's scheduler is real, a scheduled sample and someone reviewing Setup at
-      the same time would compete for the same hardware. Needs a real arbitration decision (lock
-      out live preview during a scheduled capture? queue it? refuse Setup access mid-capture?),
-      not guessed. *(Aaron, 2026-09-25, raised while gating Setup's live streams to only run on
-      their own visible step.)*
-- [ ] Survives reboot; recovers from failures; never silently stops
-- [ ] Disk monitoring with headroom shown prominently
-- [ ] Retention policy
-- [ ] Storage tier: keep a significantly reduced/compressed version of each capture for long-term
-      storage; full-resolution data is for the processing pipeline (segmentation, calibration,
-      calculations — see M5), not for archival. RAW is captured only on explicit on-demand
-      request, never automatically. *(Aaron, 2026-09-19)*
-- [ ] Timelapse: scrub, play, mp4 export
-- [ ] CSV export page: `measurements.csv`, `dwell.csv`, `captures.csv`, `calibration.json`
-- [ ] Nice-to-have, not important: a fuller gallery for browsing captured photos (the slice-5
-      "recent captures" strip only shows the latest few — this would be full browsing/paging).
-      *(Aaron, 2026-09-19)*
-- [ ] Nice-to-have, not important: download captures, single or as a batch. *(Aaron, 2026-09-19)*
-- [ ] Nice-to-have, not important: clear/delete previously captured photos.
-      *(Aaron, 2026-09-19)*
-- [ ] Low priority: a live preview alongside the Capture button on the new `/gallery` page, so
-      you can see what you're about to capture instead of only the result afterward.
-      *(Aaron, 2026-09-25)*
-- [ ] Low priority: click a gallery thumbnail to view it larger. *(Aaron, 2026-09-25 — same request
-      as the download/delete items above, reconfirmed on the new `/gallery` page.)*
-- [ ] **Acceptance:** 24 h unattended at exactly the expected count · reboot mid-run, resumes ·
-      download a CSV and open it · headroom matches `df`
-- [ ] **Time per sample, for the scheduler** (from the M2 2026-10-06 next steps, part 6, measured
-      on saved photos): full-frame tag detection 5.3 s, a 500 px sharpness square 4 ms, JPEG save
-      0.56 s, JPEG reopen 0.54 s. A full-res capture now takes about 2.7 s (#43), not the 4.3 s
-      measured then.
-- [ ] **Record which validation session applies to each photo** (triage 2026-10-08), so M5 can
-      attach that slot's band to each reading without working it out again.
-- [ ] **LOW PRIORITY. Investigate: Step 2 live preview took 30 to 45 s to load (Aaron,
-      2026-10-02).** Not measured yet; the access log has no timestamps. Leads from the code and
-      log, 2026-10-02: (1) it followed two validation rounds (full-res captures), so it is likely
-      the same post-capture lag as the 45 s lens-position item under M2 known issues; (2) one
-      wizard page load opens `/preview.mjpg` and `/focus/roi.mjpg` twice each (the `src` in
-      `_focus_controls.html:11,25`, then again from `updateLiveResources()`), 4 long-lived
-      streams against the browser's 6 connections per host. First step: log time to first frame
-      and frame age in `_mjpeg_frames` (app.py), then one capture followed by Step 2. Do not
-      touch camera settings or the lens.
-      **Triage 2026-10-08:** deferred from M2 to M3, together with the camera-contention item. Not
-      seen since #43.
-- [ ] **LOW PRIORITY. Step 7 (Remove sheets): "Done" button should be active and return to the
-      main Setup menu, once it exists.** *(Aaron, 2026-09-28.)*
-      **Triage 2026-10-08:** deferred from M2 to M3, with the nav menu item.
-- [ ] **Drill-down page's "Load rank plots..." button re-enables and resets its label before the
-      images actually finish loading** (it only sets `img.src`, with nothing for the button's
-      `finally` to await) -- so the button looks idle again while a multi-second re-detection is
-      still running, and a second click mid-load fires a duplicate batch of requests. Same
-      fire-and-forget pattern as the existing Step 5 "Load diagnostics" button, so not a new
-      regression, but worth fixing both together as part of the UI-organization pass. **Found by
-      code review 2026-09-27.**
-      **Triage 2026-10-08:** deferred from M2 to M3, fixed within the `images.py` item after the
-      plot review; both buttons use one shared load-and-wait helper.
+- Moved to #53: **First: review every calibration plot: keep, move to validation, or remove (triage**
+- Moved to #53: **Not decided:** whether the best-vs-worst-tag rank plot stays.
+- Moved to #54: Full SQLite schema (`experiment`, `calibration`, `tray`, `capture`, `detection`,
+- Moved to #55: Experiment create/start/stop in the UI
+- Moved to #56: **Gallery thumbnails are slow and cannot be clicked (Aaron, 2026-10-01).** The gallery
+- Moved to #57: **Move the older image routes onto `images.py` (2026-10-02).** These still decode and draw
+- Moved to #58: **Calibration history page is slow to load photos (Aaron, 2026-10-02).** It does not use
+- Moved to #59: **Design the header/nav menu properly once experiment/report pages exist.** The Jinja
+- Moved to #55: Experiment storage laid out so a whole experiment is easy to identify and remove as a unit
+- Moved to #60: Interval scheduler, 1–6 min, trust verdict per capture
+- Moved to #61: **Scheduled captures must not contend with live preview/setup streams for the camera.**
+- Moved to #62: Survives reboot; recovers from failures; never silently stops
+- Moved to #63: Disk monitoring with headroom shown prominently
+- Moved to #63: Retention policy
+- Moved to #63: Storage tier: keep a significantly reduced/compressed version of each capture for long-term
+- Moved to #64: Timelapse: scrub, play, mp4 export
+- Moved to #65: CSV export page: `measurements.csv`, `dwell.csv`, `captures.csv`, `calibration.json`
+- Moved to #66: Nice-to-have, not important: a fuller gallery for browsing captured photos (the slice-5
+- Moved to #66: Nice-to-have, not important: download captures, single or as a batch. *(Aaron, 2026-09-19)*
+- Moved to #66: Nice-to-have, not important: clear/delete previously captured photos.
+- Moved to #66: Low priority: a live preview alongside the Capture button on the new `/gallery` page, so
+- Moved to #56: Low priority: click a gallery thumbnail to view it larger. *(Aaron, 2026-09-25 — same request
+- Moved to #67: **Acceptance:** 24 h unattended at exactly the expected count · reboot mid-run, resumes ·
+- Moved to #60: **Time per sample, for the scheduler** (from the M2 2026-10-06 next steps, part 6, measured
+- Moved to #54: **Record which validation session applies to each photo** (triage 2026-10-08), so M5 can
+- Moved to #61: **LOW PRIORITY. Investigate: Step 2 live preview took 30 to 45 s to load (Aaron,**
+- Moved to #59: **LOW PRIORITY. Step 7 (Remove sheets): "Done" button should be active and return to the**
+- Moved to #57: **Drill-down page's "Load rank plots..." button re-enables and resets its label before the**
 
 ---
 
 ## M4 — Tray tracking · *PLAN.md § M4*
 
-- [ ] Tray tag → identity, centroid, rotation 0–359°
-- [ ] **Alert on duplicate tray tags within a chamber** — uniqueness only needs to hold within one
-      chamber, not across the fleet (TODO.md's tag ID allocation entry), so nothing stops two
-      trays being 3D-printed with the same ID by mistake. Detect it and tell the experimenter
-      loudly rather than silently merging or misattributing readings. *(Aaron, 2026-09-20)*
-- [ ] Regions: 2 × 6, defined in measurement-plane coordinates, not image pixels
-- [ ] Dwell time per region per tray as a query, not a stored table
-- [ ] Dirty-tag degradation: measure anyway, flag identity unknown, drop from scale solve
-- [ ] **Acceptance:** 12 trays at random positions and rotations all identified · move one, dwell
-      table reflects it · smear a tag with soil, degrades without crashing or lying
-- [ ] **Tray tag 6 (South 6) at the frame edge is not found** (from the M2 2026-10-06 next steps,
-      part 4). Aaron is considering larger tray tags; a single 30 mm tag's size was too noisy to
-      correct a tray (metrology-log 8.1, run 3h).
+- Moved to #68: Tray tag → identity, centroid, rotation 0–359°
+- Moved to #68: **Alert on duplicate tray tags within a chamber** — uniqueness only needs to hold within one
+- Moved to #69: Regions: 2 × 6, defined in measurement-plane coordinates, not image pixels
+- Moved to #69: Dwell time per region per tray as a query, not a stored table
+- Moved to #68: Dirty-tag degradation: measure anyway, flag identity unknown, drop from scale solve
+- Moved to #72: **Acceptance:** 12 trays at random positions and rotations all identified · move one, dwell
+- Moved to #70: **Tray tag 6 (South 6) at the frame edge is not found** (from the M2 2026-10-06 next steps,
 
 ---
 
 ## M5 — Canopy area · *PLAN.md § M5*
 
-- [ ] `Segmenter` interface defined first
-- [ ] `ExGSegmenter` — classical excess-green, no ML, ships now, permanent baseline
-- [ ] `HailoSegmenter` — stub with identical signature
-- [ ] Mask → pixel area → mm² via the per-pixel scale field
-- [ ] Segmentation runs against full-resolution captures, not the reduced storage copy
-      (see M3 storage tier note) — resolution loss here is a measurement error, not a
-      storage decision. *(Aaron, 2026-09-19)*
-- [ ] Store masks to disk so areas can be recomputed without re-inference
-- [ ] **Reprocess** action in the UI
-- [ ] Per-measurement confidence from measured quantities only
-- [ ] **Acceptance:** known-area target at 6 positions — report error *and* whether the confidence
-      band contains the truth · change calibration, hit Reprocess, areas update without re-inference
-- [ ] **Stage 2, validation band as the scientist's uncertainty.** Per slot: "flat objects read
-      within ±X% of true area, 95 times in 100", with a note that plant height adds about 0.145%
-      per mm above the tray top and the calliper floor is about 0.7% in area. This band feeds the
-      uncertainty column of every reading.
-      **Triage 2026-10-08:** deferred from M2 to M5, where area readings start. Includes a measured
-      band map for Aaron's supervisor: the 12 slots coloured and labelled with their bands,
-      optionally the central-error rings. M3 stores which validation session applies to each photo
-      (see M3).
+- Moved to #74: `Segmenter` interface defined first
+- Moved to #74: `ExGSegmenter` — classical excess-green, no ML, ships now, permanent baseline
+- Moved to #74: `HailoSegmenter` — stub with identical signature
+- Moved to #75: Mask → pixel area → mm² via the per-pixel scale field
+- Moved to #75: Segmentation runs against full-resolution captures, not the reduced storage copy
+- Moved to #75: Store masks to disk so areas can be recomputed without re-inference
+- Moved to #75: **Reprocess** action in the UI
+- Moved to #76: Per-measurement confidence from measured quantities only
+- Moved to #78: **Acceptance:** known-area target at 6 positions — report error *and* whether the confidence
+- Moved to #76: **Stage 2, validation band as the scientist's uncertainty.** Per slot: "flat objects read
 
 ---
 
 ## M6 — Alerts and hardening · *PLAN.md § M6*
 
-- [ ] Alerts: area jumps, `DRIFT`/`FAIL`, tag detection dropping, focus drift, scheduler stalls
-- [ ] Daily/weekly digest *(Could-Have)*
-- [ ] Soak test
-- [ ] Deployment runbook for rigs 2–15
-- [ ] Each rig has an addressable name, shown in the interface *(added 2026-09-19, fleet mgmt)*
-- [ ] Rig health status over an API (out of focus, experiment running, idle, etc.) for fleet
-      monitoring *(added 2026-09-19, fleet mgmt)*
-- [ ] **Focus-drift check and "recalibration needed" message (PLAN.md § M2, not yet tracked
-      until 2026-10-05).** PLAN.md: a focus-drift check from the sharpness score against the
-      locked value, and the app tells the experimenter when recalibration is needed. Not built.
-      **Explore first (Aaron, 2026-10-05):** the sharpness score changes with the background,
-      so a whole-frame or crop score taken at lock time cannot be compared with a later one
-      once trays, plants or sheets change. One idea to test, not decided: score only the 4
-      corner tags, which are fixed printed targets and do not move between experiments.
-      Before any threshold: measure how much that score varies at a fixed focus (repeat
-      captures, different table contents) and how far it falls when focus is slightly off.
-      Reports a change only, never a lens position (the focus position is the experimenter's
-      choice).
-      **Triage 2026-10-08:** deferred from M2 to M6 (Aaron's explicit yes, a PLAN.md M2 deliverable
-      moved out of M2). While locked nothing can move the lens (#43); the 6.8 h overnight run on
-      SN001 showed no drift (metrology-log 8.2). M6 already lists focus-drift alerts.
-- [ ] **Stage 1, calibration report as 7 checks**, each OK or a plain fix, each with an override:
-      1. corner tags 4 of 4;
-      2. coverage (existing holdout test);
-      3. level: scale difference across the table;
-      4. roll in degrees;
-      5. focus locked, lens position recorded;
-      6. sheet check: plane-fit residual reworded as "sheets look consistent" or "one sheet reads
-         Y% off, re-measure it", not shown as an uncertainty;
-      7. squareness and coplanarity (wizard Step 3): the picture and the numbers from checks 3 and
-         4 shown together.
-      OK limits for checks 3 and 6 come from the past calibrations on disk, not guesses.
-      **Triage 2026-10-08:** deferred from M2 to M6 (setup report, does not change readings).
-      Carried in: neutral guide colours for the coplanarity rings (from the closed Step 3/4 item),
-      and the unmeasured 3%/8% colour limits shown as fact in Step 2 (PR #10 review).
-- [ ] **Tilt shown as a bubble level** in Step 3. The bubble moves toward the side nearest the
-      camera, further for more tilt. A ring marks the OK zone, sized from past calibrations.
-      Labelled "relative to the camera, not gravity". Percent only, no height in mm (no height
-      measurement in the plan).
-      **Triage 2026-10-08:** deferred from M2 to M6 with Stage 1. Size the OK ring from SN001
-      calibrations, or mark it as a decision until enough exist.
-- [ ] **The wizard is too wordy and conversational overall — slim it down.** Long paragraph
-      explanations under most steps; consider expandable/pop-over info boxes instead of a large
-      block of always-visible text, so the default view is short and detail is opt-in. Cuts
-      across every step, not a single-page fix — needs its own pass once scoped.
-      *(Aaron, 2026-09-26.)*
-      **Triage 2026-10-08:** deferred from M2 to M6 with Stage 1. The (i) pop-over item below is
-      merged into this one.
-- [ ] **(i) icons / pop-over pattern across the Setup pages -- partially done.** The pattern
-      itself now exists in a reusable form (`<details>`/`<summary>`, no custom JS) and is used
-      for: Step 1 and Step 2's "More about this step"/"What do these controls do?" panels, and
-      the pre-existing Camera settings panel. Not yet applied to: Steps 3-7's always-visible
-      paragraphs, or `static/help/diagnostics.md`/the drill-down page's (i) pop-overs (a
-      different, JS-fetch-based implementation of the same idea) -- that consolidation is
-      `m2-ui-organization-and-text`'s job, paused mid-branch. *(Aaron, 2026-09-25.)*
-      **Triage 2026-10-08:** deferred from M2 to M6, merged into the "wizard is too wordy" item.
-- [ ] **Rewrite the diagnostics explanatory text: too long, rambling, and difficult to
-      understand. Needs to be concise.** Covers the pop-over help text on the
-      calibration-history diagnostics page (`static/help/diagnostics.md`) and the equivalent
-      always-visible copy on `/setup/calibration` Step 5 it was drawn from. *(Aaron,
-      2026-09-27.)* **Found by code review 2026-09-27, worth folding into this pass:** the
-      confidence-heatmap and area-shape legend text/gradient markup now exists in three places
-      (Step 5 inline, `diagnostics.md`, and the drill-down page's own copy of the gradient
-      block) -- a wording or colour-scale change to one won't propagate to the others unless
-      this rewrite also picks one source of truth.
-      **Triage 2026-10-08:** deferred from M2 to M6, after the plot review at the start of M3, so
-      only kept plots get help text. One source for the legend and colour scale is now a
-      requirement (one-copy rule).
-- [ ] **MEDIUM PRIORITY. After a calibration run, if a previous calibration exists, show a delta
-      against it** -- how residuals and other metrics changed from the last run to this one.
-      *(Aaron, 2026-09-28.)*
-      **Triage 2026-10-08:** deferred from M2 to M6 with Stage 1; the delta should compare the 7
-      checks. First check what the existing "delta view" (code review 2026-09-28) already shows.
-- [ ] **Step 6: add a labeled diagram of what table width/length mean.** Using a fixed compass
-      convention: top of the image is **north**, right side is **east** (matches how the camera
-      looks down at the table) — the current text-only description (top-left to top-right =
-      width, top-left to bottom-left = length) asks the operator to hold that mapping in their
-      head instead of seeing it drawn. *(Aaron, 2026-09-25.)*
-      **Triage 2026-10-08:** deferred from M2 to M6 with Stage 1 (and the rigs 2 to 15 runbook).
-      Step numbers have changed since this was written.
-- [ ] **LOW PRIORITY. Step 2 (Confirm focus): move the "Camera settings" sub-panel up next to the
-      other settings controls.** Discuss placement before acting. *(Aaron, 2026-09-28.)*
-      **Triage 2026-10-08:** deferred from M2 to M6 with Stage 1. The exposure rework in the
-      close-out PR changes this panel first; decide placement after that.
-- [ ] **`/code-review --level high` findings, 2026-09-28, m2-wizard-order-and-focus-gate PR -- 5
-      fixed same session (table-dims persisted before the readiness gate check, a stale
-      in-flight level.jpg request could overwrite a just-toggled Corner check mode, the delta
-      view silently dropped the tag-size row, /calibration/readiness polled at the old
-      un-throttled rate, a stray em dash in newly authored text), 2 deferred here with reasons:**
-  - **Wizard step identity is scattered as bare integer literals** (`step: 2`,
-        `isActiveStep(3)`, `isActiveStep(4)`, etc. across `setup_calibration.html`) instead of
-        one named mapping. Real -- this branch is itself a step reorder, and a future one (the
-        Lock-focus gate's own step placement is already logged as undecided above) has to find
-        and update every scattered literal by hand, with nothing catching a missed one. Not
-        fixed now: introducing a named-step abstraction on the same PR that just finished
-        stabilizing the step order is real regression risk for a refactor with no behavior bug
-        behind it -- revisit the next time the step order actually changes.
-  - **Three near-identical hand-rolled polling loops** (`pollScore` in `_focus_controls.html`,
-        `pollLevelOverlay`, `pollCalibrationReadiness`) duplicate the same self-rescheduling
-        `setTimeout` pattern with no shared helper, and this PR's own throttle fix (finding
-        above) had to be applied to two of the three separately because they'd already drifted.
-        Not extracted now: the third one's different shape (levelOverlayInFlight's guard, error
-        swallowing) means a shared helper is a real design decision, not a mechanical extraction
-        -- revisit if a fourth poll loop is ever added, which would be the point this
-        duplication starts costing something.
-      **Triage 2026-10-08:** deferred from M2 to M6. Point 1 (step numbers) is done together with
-      Stage 1, which reorders steps. Point 2: merge the three polling loops into one shared helper
-      in M6, not when a fourth appears (one-copy rule, Aaron 2026-10-08).
-- [ ] **Several UI button handlers have `try`/`finally` but no `catch`** (`index.html`: run
-      calibration, zero orientation, tripwire check, honesty plot) — found by `/code-review`
-      2026-09-24. A `fetch()` rejection (network drop/timeout, plausible over Tailscale) silently
-      re-enables the button via `finally` with no error shown -- indistinguishable from never
-      having clicked. Needs a UX decision on how errors should surface (toast? inline message?),
-      not a one-line fix.
-      **Triage 2026-10-08:** deferred from M2 to M6. First recheck which buttons still lack error
-      handling: the zero-orientation button is gone, the honesty plot goes with the uncertainty
-      removal, and the pages have moved out of `index.html`.
-- [ ] **Tag-size auto-prefill can launder a placeholder into "measured"** (`index.html` ~line 1045)
-      — found by `/code-review` 2026-09-24. `/calibration/current`'s response has no `is_default`
-      flag, so the UI can't tell "this number was calliper-measured" from "this is the unmeasured
-      `ASSUMED_CALIBRATION_TAG_SIZE_MM` placeholder" when it prefills the tag-size input from the
-      last run. If the operator doesn't notice and edit it, running calibration again sends the
-      placeholder back as an explicit, user-entered value -- exactly the derived-not-measured
-      failure CLAUDE.md's evidence gate exists to catch, just laundered through a form field
-      instead of a hardcoded constant. Needs an API change (carry `is_default` through) plus a
-      frontend change (warn or refuse to prefill from a default) -- not done here.
-      **Triage 2026-10-08:** deferred from M2 to M6, aim changed. The placeholder is now 30.0 mm,
-      the measured size of the current sheets (`tags.py:41`). The remaining risk is a reprint of a
-      different size: show when the tag size was last measured, put "measure each new print" in the
-      rigs 2 to 15 runbook, and point out the tag size only while it is still the placeholder
-      (carried over from the closed result-messages item).
-- [ ] **`_outer_edge_span_to_centre_distance_mm` assumes corner tags are mounted axis-aligned with
-      the table** (`app.py` ~line 276), stated as fact with no runtime check or `is_default`-style
-      flag, unlike its sibling tag-size assumptions in the same function — found by `/code-review`
-      2026-09-24. On the physically-rebuilt rig (CLAUDE.md: re-measure everything), if the corner
-      tags are even slightly off-axis this silently under-subtracts the table span, and the UI
-      still prints an unqualified "to scale: WxL mm" caption. A measurement-discipline call for
-      Aaron, not something to guess a tolerance for.
-      **Triage 2026-10-08:** deferred from M2 to M6. Affects only the table view's "to scale"
-      caption; no reading uses it, and the plot review at the start of M3 may remove the table
-      view. Aaron's notes: the usable table area extends beyond the corner tags, and the
-      edge-to-edge distances do not account for that; the corner tags sit about 20 mm inside the
-      edge of the usable area so they are always in view during setup.
-- [ ] **A camera reopen that fails leaves a closed camera and a bare error** (code review of
-      PR #43, 2026-10-07, deferred). If `Picamera2()`, configure or start raises inside
-      `Picamera2Backend.reset` (camera busy, libcamera error), `self._picam2` is still the closed
-      instance (or a half-opened new one that is never closed), and `/camera/reset` and the lens
-      endpoints return a bare 500 instead of "restart the app". Deferred because it is rare (not
-      seen on the rig) and the outcome, an app restart, is the same; fix by catching the failure
-      in `reset`, closing any half-opened camera, and raising an error the routes turn into the
-      restart message.
-      **Triage 2026-10-08:** deferred from M2 to M6. A reopen runs only before a lens command or
-      Reset camera, during setup with a person present, never during a locked run. Aaron: look for
-      a recovery that keeps the app running, for example the camera in its own process that can be
-      killed and restarted (see the camera-call time-limit item, which may solve both).
-- [ ] **Reset camera with the chamber lit** (from the M2 lens plan): take a photo, press Reset
-      camera, take another, compare sharpness and per-slot readings. Shows whether a reset leaves
-      the lens where it physically was. Setup only; needs Aaron's go-ahead and an idle rig.
-- [ ] **Note, Autofocus in a second tab during Lock focus** (known limit 2 of the closed
-      autofocus-wedge item): it can time out and set the lens back to the lock target, so the lock
-      is confirmed when it should not be. Setup only, never seen.
+- Moved to #79: Alerts: area jumps, `DRIFT`/`FAIL`, tag detection dropping, focus drift, scheduler stalls
+- Moved to #79: Daily/weekly digest *(Could-Have)*
+- Moved to #80: Soak test
+- Moved to #81: Deployment runbook for rigs 2–15
+- Moved to #82: Each rig has an addressable name, shown in the interface *(added 2026-09-19, fleet mgmt)*
+- Moved to #82: Rig health status over an API (out of focus, experiment running, idle, etc.) for fleet
+- Moved to #83: **Focus-drift check and "recalibration needed" message (PLAN.md § M2, not yet tracked**
+- Moved to #84: **Stage 1, calibration report as 7 checks**, each OK or a plain fix, each with an override:
+- Moved to #85: **Tilt shown as a bubble level** in Step 3. The bubble moves toward the side nearest the
+- Moved to #86: **The wizard is too wordy and conversational overall — slim it down.** Long paragraph
+- Moved to #86: **(i) icons / pop-over pattern across the Setup pages -- partially done.** The pattern
+- Moved to #87: **Rewrite the diagnostics explanatory text: too long, rambling, and difficult to**
+- Moved to #88: **MEDIUM PRIORITY. After a calibration run, if a previous calibration exists, show a delta**
+- Moved to #85: **Step 6: add a labeled diagram of what table width/length mean.** Using a fixed compass
+- Moved to #89: **LOW PRIORITY. Step 2 (Confirm focus): move the "Camera settings" sub-panel up next to the**
+- Moved to #90: **`/code-review --level high` findings, 2026-09-28, m2-wizard-order-and-focus-gate PR -- 5**
+- Moved to #90: **Several UI button handlers have `try`/`finally` but no `catch`** (`index.html`: run
+- Moved to #91: **Tag-size auto-prefill can launder a placeholder into "measured"** (`index.html` ~line 1045)
+- Moved to #91: **`_outer_edge_span_to_centre_distance_mm` assumes corner tags are mounted axis-aligned with**
+- Moved to #92: **A camera reopen that fails leaves a closed camera and a bare error** (code review of
+- Moved to #93: **Reset camera with the chamber lit** (from the M2 lens plan): take a photo, press Reset
+- Moved to #92: **Note, Autofocus in a second tab during Lock focus** (known limit 2 of the closed
 
 ---
 
 ## Could-Have — only if M1–M6 land early
 
-- [ ] Per-plant tracking within tray cells
-- [ ] YOLO tray identification *(needs the evidence gate to open)*
-- [ ] Height data / second camera *(needs the evidence gate to open)*
-- [ ] **Higher quality zoom for focusing (`/focus/roi.mjpg`), if possible.** Aaron: after
-      spending a few minutes squinting at the zoomed focus crop to fine-tune it, a sharper zoom
-      view would genuinely help. Acknowledged as possibly hard -- low priority, after the two
-      items above. *(Aaron, 2026-09-27.)*
-      **Triage 2026-10-08:** deferred from M2 to Could-Have, merged with the "Zoomed focus preview
-      is awful quality" item below. Branch `m1-roi-crop-jpeg-quality` has one unmerged commit
-      (`f303f17`, higher JPEG quality on the crop stream); it cannot add detail the 1536x1152
-      stream does not have, and whether it was ever tried is not known.
-- [ ] **Zoomed focus preview (`/focus/roi.mjpg`) is awful quality** — Aaron: looks like a zoom of
-      a reduced-quality image. Should be much higher quality to actually help focus by eye.
-      `CameraManager.roi_crop_jpeg` (`camera.py`) crops from the continuous `main` video stream
-      at `MAIN_SIZE` (1536×1152), not the 320×240 `lores` preview and not a full-res still --
-      so it's not literally re-zooming the low-res preview, but 1536×1152 is still a small
-      fraction of the 64MP sensor, and a small ROI crop of that gets magnified a lot in the
-      browser. Not investigated further -- worth checking whether a dedicated higher-res crop
-      (e.g. a still capture, or a larger/different stream config) is feasible without breaking
-      the continuous preview or `focus_score`'s own use of the same stream. *(Aaron, 2026-09-22)*
-      **Triage 2026-10-08:** deferred from M2 to Could-Have, merged with the item above.
+- Moved to #97: Per-plant tracking within tray cells
+- Moved to #97: YOLO tray identification *(needs the evidence gate to open)*
+- Moved to #97: Height data / second camera *(needs the evidence gate to open)*
+- Moved to #95: **Higher quality zoom for focusing (`/focus/roi.mjpg`), if possible.** Aaron: after
+- Moved to #95: **Zoomed focus preview (`/focus/roi.mjpg`) is awful quality** — Aaron: looks like a zoom of
