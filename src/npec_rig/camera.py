@@ -173,10 +173,10 @@ class SyntheticBackend(CameraBackend):
         }
 
     def capture_array(self) -> np.ndarray:
-        return self._pattern(self._width, self._height)
+        return self._pattern(self._width, self._height, channels=4)
 
     def capture_preview_array(self) -> np.ndarray:
-        return self._pattern(self._preview_width, self._preview_height)
+        return self._pattern(self._preview_width, self._preview_height, channels=4)
 
     def capture_full_res(self) -> tuple[np.ndarray, dict]:
         # Same key set as Picamera2Backend.capture_full_res (SENSOR_METADATA_FIELDS) — no real
@@ -188,7 +188,7 @@ class SyntheticBackend(CameraBackend):
             "ColourGains": (1.0, 1.0),
             "LensPosition": self._lens_position,
         }
-        return self._pattern(self._width, self._height), metadata
+        return self._pattern(self._width, self._height, channels=3), metadata
 
     def set_lens_position(self, value: float) -> None:
         self._lens_position = value
@@ -217,9 +217,16 @@ class SyntheticBackend(CameraBackend):
             self._controls[name] = value
 
     @staticmethod
-    def _pattern(width: int, height: int) -> np.ndarray:
-        frame = np.zeros((height, width, 3), dtype=np.uint8)
+    def _pattern(width: int, height: int, channels: int) -> np.ndarray:
+        """Same channel count as Picamera2Backend: the video streams (`main`, `lores`) are
+        "XBGR8888", 4 channels with R,G,B first, and the full-resolution still is 3 channels
+        (see Picamera2Backend._open and capture_full_res). The padding channel is set to 255,
+        not 0, so a consumer that reads it by mistake gets a visibly wrong result in tests.
+        """
+        frame = np.zeros((height, width, channels), dtype=np.uint8)
         frame[:, :, 1] = 180
+        if channels == 4:
+            frame[:, :, 3] = 255
         return frame
 
 

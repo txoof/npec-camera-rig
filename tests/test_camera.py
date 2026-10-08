@@ -591,15 +591,17 @@ def test_a_restart_drives_the_lens_back_the_same_way_and_keeps_the_lock() -> Non
 
 
 def test_synthetic_backend_produces_expected_shape() -> None:
+    # Video streams are 4-channel XBGR8888 and the still is 3-channel, as on the real camera.
     backend = SyntheticBackend(width=64, height=48)
-    frame = backend.capture_array()
-    assert frame.shape == (48, 64, 3)
+    assert backend.capture_array().shape == (48, 64, 4)
+    still, _metadata = backend.capture_full_res()
+    assert still.shape == (48, 64, 3)
 
 
 def test_synthetic_backend_preview_is_smaller_than_main() -> None:
     backend = SyntheticBackend(width=64, height=48, preview_width=16, preview_height=12)
-    assert backend.capture_array().shape == (48, 64, 3)
-    assert backend.capture_preview_array().shape == (12, 16, 3)
+    assert backend.capture_array().shape == (48, 64, 4)
+    assert backend.capture_preview_array().shape == (12, 16, 4)
 
 
 def test_synthetic_backend_lens_position_round_trips() -> None:
