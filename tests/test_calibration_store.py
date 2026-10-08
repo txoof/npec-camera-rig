@@ -106,10 +106,10 @@ def test_save_calibration_table_view_area_shape_writes_under_heatmaps_with_suffi
 
 
 def test_storage_is_separate_from_captures_dir(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
-    monkeypatch.setenv("NPEC_RIG_CAPTURES_DIR", str(tmp_path / "captures"))
+    monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "captures"))
     save_calibration(_artifact())
 
-    from npec_rig.captures import captures_root
+    from npec_rig.captures import photos_root
 
-    assert calibration_root() != captures_root()
-    assert not (captures_root()).exists() or list(captures_root().iterdir()) == []
+    assert calibration_root() != photos_root()
+    assert not (photos_root()).exists() or list(photos_root().iterdir()) == []

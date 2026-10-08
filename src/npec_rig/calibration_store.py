@@ -1,6 +1,6 @@
 """Where calibration artifacts live on disk -- rig-level state, separate from experiment captures
 (TODO.md, Aaron 2026-09-19). Same env-var-override-with-a-default convention as `settings.py`'s
-`db_path()` and `captures.py`'s `captures_root()`.
+`db_path()` and `captures.py`'s `photos_root()`.
 
 Follows the schema-versioned-timestamped-JSON-plus-`current.json`-pointer pattern PLAN.md notes
 approvingly from the old project's settings persistence (`docs/persistence.md`) -- appropriate
