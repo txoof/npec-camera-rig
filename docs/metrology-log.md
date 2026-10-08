@@ -914,6 +914,43 @@ among running processes, and a second waiter of Claude's own carried the same na
 saw step 6 end). Started by hand at 16:26 UTC on Aaron's request, 858 photos to about 06:44 UTC.
 No photos were taken from 15:28 to 16:26 UTC (58 minutes).
 
+**Step 6, extra analysis of photos 14 to 119 (method written 2026-10-08 before it ran; agreed by
+Aaron; information only, the as-written result stands).** The same analysis and chamber comparison
+as step 6, on photos 14 to 119 only (after the foam came off), each tag against itself in photo 14
+(`2026-10-07/134311_803312`). Reason: the foam step at photo 13 dominates the as-written series and
+could hide a cycle of the old camera's size (0.35 points).
+
+**Step 6 result (2026-10-07, 13:29 to 15:28 UTC, analysed 2026-10-08).** 120 photos, one a minute,
+through `POST /capture` (`step6.py`, a copy of run 3j's script), no errors, lens 6.16 locked in
+every photo, chamber door closed except 13:41 to 13:42 UTC (foam removal, above). Calibration
+`20261007T122200583188`. Chamber record: Aaron's export
+`/home/pi/scratch/Aaron-D6-2026.09.08-2026.10.08.csv` (1-minute rows, local time). Raw data and
+scripts: `/home/pi/scratch/camera-swap-2026-10/step6/` and the shared `series_analyse.py` and
+`chamber_compare.py` in `/home/pi/scratch/camera-swap-2026-10/` (adapted from run 3j's
+`analyse.py` and `chamber_compare.py`).
+
+| | Old camera, run 3j | New camera, as written (photos 0 to 119, against photo 0) | New camera, extra (photos 14 to 119, against photo 14) |
+|---|---|---|---|
+| Median's correlation with itself 15 to 25 photos later, peak | above 0.5, period about 19 | **0.20** (17 photos) | **0.67** (19 to 20 photos) |
+| Median swing | about 0.35 points | 1.15 points | 0.57 points |
+| Largest slot change | 0.62 | 1.85 (North 5) | 0.74 (North 5) |
+| Least sharp slot | no loss | -53% | -31% |
+| Chamber air temperature | 19.8 to 20.3 °C, period 19 min, r +0.84 | 19.7 to 20.3 °C, period 19 min, r -0.26 | 19.7 to 20.3 °C, period 19 min, r -0.59 (chamber 5 min ahead) |
+| Chamber humidity | 57 to 62%, period 19 min, r -0.76 | 57 to 62%, period 19 min, r +0.33 | 57 to 62%, period 19 min, r -0.73 |
+
+*Against the rule fixed above, as written:* the peak correlation is 0.20, under 0.5, so the cycle
+counts as **not present**. This is the official step 6 result. The swing and the largest slot are
+dominated by the foam removal and the settling after it, so they do not compare the cameras.
+
+*Extra analysis (information only):* without the foam step, the cycle is there on the new camera:
+peak correlation 0.67 at 19 to 20 photos, and the readings follow the chamber's 19-minute
+humidity cycle (r -0.73, the same as the old camera's -0.76) and its temperature cycle (r -0.59;
+the old camera's was +0.84, opposite in sign). The swing (0.57) still includes some settling after
+the foam came off. In the terms of 8.2, a cycle present on both cameras comes from the chamber, not
+the camera; this rests on the extra analysis, not on the as-written result. The opposite sign
+against temperature is recorded, not explained. The chamber ran the same climate cycle on both
+days (19.7 to 20.3 °C, 57 to 62%).
+
 ## 9. M2 physical acceptance tests (2026-10-05)
 
 The four tests PLAN.md lists for M2, run in the chamber on 2026-10-05 (times UTC; the chamber is
