@@ -15,11 +15,40 @@
     const captureBtn = document.getElementById("capture-btn");
     const gallery = document.getElementById("gallery");
 
+    function duration(seconds) {
+      if (seconds === null || seconds === undefined) return "unknown";
+      if (seconds < 120) return `${Math.round(seconds)} s`;
+      if (seconds < 7200) return `${Math.round(seconds / 60)} min`;
+      return `${(seconds / 3600).toFixed(1)} h`;
+    }
+
+    function uptimeText(uptime) {
+      const start = uptime.app_start || {};
+      let gap;
+      if (start.gap_source === null || start.gap_source === undefined) {
+        gap = "no earlier record";
+      } else if (start.gap_s === null || start.gap_s === undefined) {
+        gap = "unknown";
+      } else {
+        gap = duration(start.gap_s);
+        if (start.gap_source === "wall clock") {
+          gap += start.same_boot === false ? " (Pi restarted, by wall clock)" : " (by wall clock)";
+        }
+      }
+      return `Pi up ${duration(uptime.pi_up_s)}, app up ${duration(uptime.app_up_s)}, `
+        + `time since last record at app start ${gap}`;
+    }
+
     function renderGallery(items) {
       gallery.innerHTML = items.map((item) => `
         <div class="gallery-item">
           <img src="${item.url}" alt="capture ${item.filename}">
           <div>${item.timestamp ? item.timestamp.replace("T", " ").slice(0, 19) : item.filename}</div>
+          ${item.uptime ? `<div>${uptimeText(item.uptime)}</div>` : ""}
+          ${item.flags && item.flags.length
+            ? `<div class="gallery-flag">Not covered by the validation bands:
+                ${item.flags.join("; ")}</div>`
+            : ""}
         </div>
       `).join("");
     }

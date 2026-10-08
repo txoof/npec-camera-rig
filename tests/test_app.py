@@ -21,6 +21,7 @@ from npec_rig.camera import (
     SyntheticBackend,
     array_to_jpeg,
 )
+from npec_rig import captures
 from npec_rig.captures import captures_root
 from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, ASSUMED_CORNER_TAG_SIZE_MM
 from npec_rig.tripwire import CornerBaseline
@@ -39,6 +40,14 @@ class _FakeRequest:
 
     async def is_disconnected(self) -> bool:
         return self._disconnected
+
+
+@pytest.fixture(autouse=True)
+def pi_up_past_the_cold_start_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Photos taken inside the cold-start window are flagged and validation rounds held back, so
+    # the tests must not depend on how long the machine running them has been up.
+    monkeypatch.setattr(captures, "read_uptime_s", lambda: captures.COLD_START_WINDOW_S + 1000)
+    monkeypatch.setattr(captures, "_app_start", None)
 
 
 @pytest.fixture(autouse=True)
@@ -419,6 +428,21 @@ def test_capture_saves_jpeg_and_sidecar_and_appears_in_gallery() -> None:
     assert response.status_code == 200
     filenames = [item["filename"] for item in response.json()]
     assert record["filename"] in filenames
+
+
+def test_capture_sidecar_lens_check_follows_the_lock() -> None:
+    client = TestClient(app)
+    unlocked = client.post("/capture").json()["lens_check"]
+    assert unlocked["flagged"] is True
+    assert unlocked["reason"] == "focus not locked"
+
+    client.post("/focus/lock")
+    record = client.post("/capture").json()
+    client.post("/focus/unlock")
+    assert record["lens_check"]["flagged"] is False
+    assert record["lens_check"]["reported"] == record["lens_check"]["locked"]
+    assert "focus not locked" not in record["flags"]
+    assert set(record["uptime"]) >= {"boot_id", "pi_up_s", "app_up_s", "app_start", "flagged"}
 
 
 def test_api_captures_respects_a_non_default_limit() -> None:
@@ -1794,6 +1818,20 @@ def test_a_round_without_focus_locked_is_held_back(tray_scene: dict) -> None:
     held = client.post(f"/validation/sessions/{session['id']}/rounds").json()["rounds"][0]
     assert not held["counted"] and held["overridable"]
     assert "focus is not locked" in held["reason"]
+
+
+def test_a_round_inside_the_cold_start_window_is_held_back_until_overridden(
+    tray_scene: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    tray_scene["shift"] = (200, -150)
+    monkeypatch.setattr(captures, "read_uptime_s", lambda: 1200.0)
+    held = client.post(f"/validation/sessions/{session['id']}/rounds").json()["rounds"][0]
+    assert not held["counted"] and held["overridable"]
+    assert "cold-start window" in held["reason"]
+    body = client.post(f"/validation/sessions/{session['id']}/rounds/0/count").json()
+    assert body["rounds"][0]["counted"]
 
 
 def test_a_round_missing_a_sheet_cannot_be_overridden(tray_scene: dict) -> None:

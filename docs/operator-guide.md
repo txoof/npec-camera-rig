@@ -27,6 +27,8 @@ uncertainty column in the exported data means.
    spread; a validation with rounds closer together still counts, but its status says so. When
    3 rounds have counted, the status reads **Validated**, or **Not consistent** with the slots
    that disagreed between rounds and a red "Problem" note naming the sheet, tray or round to check.
+   A round taken within 60 minutes of the Pi starting is held back, not counted: a cold camera reads
+   low for up to about an hour. Wait, or press **Count it anyway** next to the round.
 
 The validation result is a map with one number per tray position (slot), for example "North 2:
 ±2.1%". That number is the uncertainty attached to every area measured at that position.

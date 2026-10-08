@@ -173,10 +173,10 @@ class SyntheticBackend(CameraBackend):
         }
 
     def capture_array(self) -> np.ndarray:
-        return self._pattern(self._width, self._height)
+        return self._pattern(self._width, self._height, channels=4)
 
     def capture_preview_array(self) -> np.ndarray:
-        return self._pattern(self._preview_width, self._preview_height)
+        return self._pattern(self._preview_width, self._preview_height, channels=4)
 
     def capture_full_res(self) -> tuple[np.ndarray, dict]:
         # Same key set as Picamera2Backend.capture_full_res (SENSOR_METADATA_FIELDS) — no real
@@ -188,7 +188,7 @@ class SyntheticBackend(CameraBackend):
             "ColourGains": (1.0, 1.0),
             "LensPosition": self._lens_position,
         }
-        return self._pattern(self._width, self._height), metadata
+        return self._pattern(self._width, self._height, channels=3), metadata
 
     def set_lens_position(self, value: float) -> None:
         self._lens_position = value
@@ -217,9 +217,16 @@ class SyntheticBackend(CameraBackend):
             self._controls[name] = value
 
     @staticmethod
-    def _pattern(width: int, height: int) -> np.ndarray:
-        frame = np.zeros((height, width, 3), dtype=np.uint8)
+    def _pattern(width: int, height: int, channels: int) -> np.ndarray:
+        """Same channel count as Picamera2Backend: the video streams (`main`, `lores`) are
+        "XBGR8888", 4 channels with R,G,B first, and the full-resolution still is 3 channels
+        (see Picamera2Backend._open and capture_full_res). The padding channel is set to 255,
+        not 0, so a consumer that reads it by mistake gets a visibly wrong result in tests.
+        """
+        frame = np.zeros((height, width, channels), dtype=np.uint8)
         frame[:, :, 1] = 180
+        if channels == 4:
+            frame[:, :, 3] = 255
         return frame
 
 
@@ -432,6 +439,26 @@ class Picamera2Backend(CameraBackend):
             # source. 0 is picamera2's own sentinel for "return to auto," not a real exposure
             # value (no range validation rejects it), so this releases the latch outright.
             self._picam2.set_controls({"ExposureTime": 0, "AnalogueGain": 0})
+
+
+def lens_check(reported: float | None, locked: float | None) -> dict:
+    """Whether a photo was taken at the locked lens position, for its sidecar.
+
+    `reported` is the LensPosition in the photo's own metadata, `locked` the focus lock (None when
+    not locked). The photo is flagged when focus is not locked, when the camera reported no
+    position, or when the two differ by more than LENS_REPORT_TOLERANCE. Limit: a camera that
+    ignores lens writes reports the old position, so this catches a lens the camera reports
+    elsewhere (after a reopen or restart), not a lens that moved while the report did not.
+    """
+    if locked is None:
+        reason = "focus not locked"
+    elif reported is None:
+        reason = "the camera reported no lens position"
+    elif abs(reported - locked) > LENS_REPORT_TOLERANCE:
+        reason = f"lens reported at {reported:.3f}, locked at {locked:.3f}"
+    else:
+        reason = None
+    return {"reported": reported, "locked": locked, "flagged": reason is not None, "reason": reason}
 
 
 def array_to_jpeg(frame: np.ndarray) -> bytes:

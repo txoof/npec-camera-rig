@@ -129,6 +129,11 @@ most 1.96 points and sat at most 2.15 points from the rest.
   camera height. The rig measures what is actually there; a wrong-height tray shows as a wrong
   area, which is why bands are stated for tray-top height only.
 
+Conditions the bands do not cover are marked on each photo rather than averaged in. Since
+2026-10-08 a photo is flagged when its lens position differs from the focus lock, or when it was
+taken within 60 minutes of the Pi starting (a cold start; the 60 minutes is a decision until it is
+measured). A camera fault during a run is not detected yet (`docs/metrology-log.md`, section 8).
+
 ## Independent checks of the whole chain
 
 **What could go wrong.** Calibration and validation both rest on the same typed-in tag size. If
@@ -191,7 +196,9 @@ app had to be restarted; afterwards, at the same reported lens position, the cen
 about half as sharp and fewer tags were found. Neither a reference tag at the frame edge nor the
 tray tags could reliably show or correct such a change in tests the same day. The plan is to
 mark readings after a camera fault or a cold start as not covered by the bands, rather than to
-correct them; this is not built yet.
+correct them. The cold-start half is built (2026-10-08): photos taken within 60 minutes of the Pi
+starting are flagged, a wider window than the 15 minutes above, chosen as a decision until a
+cold-start run on the replacement camera measures it. The camera-fault half is not built yet.
 
 **Readings swing on a cycle of about 19 minutes.** On 2026-10-06 the rig took one photo a minute
 for 2 hours with nothing touched (lens locked, lights on), to check that photos taken the way an

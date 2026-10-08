@@ -4,6 +4,7 @@ import logging
 import re
 import time
 from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
@@ -68,6 +69,7 @@ from npec_rig.camera import (
     LensMovedDuringLockError,
     LensNotSettledError,
     array_to_jpeg,
+    lens_check,
 )
 from npec_rig.certainty_map import (
     MIN_MOVED_FRACTION,
@@ -85,7 +87,14 @@ from npec_rig.certainty_map import (
     slot_layout_from_dict,
     slot_layout_to_dict,
 )
-from npec_rig.captures import captures_root, list_recent_captures, save_capture
+from npec_rig.captures import (
+    captures_root,
+    list_recent_captures,
+    record_app_start,
+    record_app_stop,
+    save_capture,
+    uptime_record,
+)
 from npec_rig.settings import load_settings, save_setting
 from npec_rig.tags import (
     ASSUMED_CALIBRATION_TAG_SIZE_MM,
@@ -113,7 +122,15 @@ ROI_STREAM_FPS_LIMIT = 5.0
 captures_root().mkdir(parents=True, exist_ok=True)
 calibration_root().mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="NPEC Camera Rig")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # The gap since the last tick is measured at start, before any photo (captures.py).
+    record_app_start()
+    yield
+    record_app_stop()
+
+
+app = FastAPI(title="NPEC Camera Rig", lifespan=_lifespan)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # The focus controls tell the operator how long an autofocus may take (camera.py).
 templates.env.globals["AUTOFOCUS_TIMEOUT_S"] = int(AUTOFOCUS_TIMEOUT_S)
@@ -442,16 +459,27 @@ def unlock_focus() -> dict:
 def capture() -> dict:
     """Full-res JPEG to disk plus a JSON sidecar of the current control values."""
     manager = CameraManager.instance()
+    focus = manager.focus_status()
     array, sensor_metadata = manager.capture_full_res()
-    return save_capture(
-        array,
-        {
-            "lens_position": manager.get_lens_position(),
-            "roi": manager.get_roi(),
-            "focus": manager.focus_status(),
-            "sensor_metadata": sensor_metadata,
-        },
-    )
+    return save_capture(array, _capture_sidecar(manager, focus, sensor_metadata))
+
+
+def _capture_sidecar(manager: CameraManager, focus: dict, sensor_metadata: dict) -> dict:
+    """The sidecar fields every photo shares. `focus` is read before the capture, so the lens
+    check compares the photo against the lock it was taken under."""
+    checks = {
+        "lens_check": lens_check(sensor_metadata.get("LensPosition"), focus["lens_position"]),
+        "uptime": uptime_record(),
+    }
+    return {
+        "lens_position": manager.get_lens_position(),
+        "roi": manager.get_roi(),
+        "focus": focus,
+        "sensor_metadata": sensor_metadata,
+        **checks,
+        # Every reason this photo is not covered by the validation bands, one list for the pages.
+        "flags": [check["reason"] for check in checks.values() if check["flagged"]],
+    }
 
 
 @app.get("/api/captures")
@@ -1718,10 +1746,7 @@ def capture_validation_round(session_id: str) -> dict:
         record = save_capture(
             array,
             {
-                "lens_position": manager.get_lens_position(),
-                "roi": manager.get_roi(),
-                "focus": focus,
-                "sensor_metadata": sensor_metadata,
+                **_capture_sidecar(manager, focus, sensor_metadata),
                 "validation_session": session_id,
             },
         )
@@ -1745,6 +1770,10 @@ def capture_validation_round(session_id: str) -> dict:
         # the operator to the sheets instead of the focus (Aaron, 2026-09-30).
         focus_problem = _focus_problem(focus, artifact)
         reasons = [focus_problem] if focus_problem else []
+        # A photo flagged as not covered by the bands is not counted into them either (Aaron,
+        # 2026-10-08); the Count anyway override still applies. An unlocked focus is already
+        # reported by _focus_problem.
+        reasons += [flag for flag in record["flags"] if flag != "focus not locked"]
         try:
             round_["slot_errors"] = round_errors_by_slot(
                 detections,
@@ -1780,7 +1809,8 @@ def capture_validation_round(session_id: str) -> dict:
 @app.post("/validation/sessions/{session_id}/rounds/{index}/count")
 def count_validation_round(session_id: str, index: int) -> dict:
     """Count a round the checks held back, on the operator's say-so (gates need an override).
-    Only for reasons the map can still handle: focus and movement, never slot placement."""
+    Only for reasons the map can still handle: focus, movement and photo flags (lens check,
+    cold-start window), never slot placement."""
     with _validation_lock:
         session = _session_or_404(session_id)
         if not 0 <= index < len(session["rounds"]):
