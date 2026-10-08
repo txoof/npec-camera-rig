@@ -131,7 +131,21 @@ not counting tests. A bigger task is split into PRs that each work on their own.
 **Issues are the to-do list.** Every change starts from an issue made with the Task template,
 in a milestone (M2 to M6). Repo `txoof/npec-camera-rig`, board
 https://github.com/users/txoof/projects/5. Work only on issues in the milestone Aaron names. An issue
-with no milestone is started only when Aaron asks for it. `TODO.md` is a frozen record: read it for
+with no milestone is started only when Aaron asks for it.
+
+**Picking an issue.** When Aaron names a milestone but no issue, read the milestone's description
+first: it holds the triage and the order he decided.
+
+```bash
+gh api repos/txoof/npec-camera-rig/milestones --jq '.[] | "\(.title)\n\(.description)\n"'
+gh project item-list 5 --owner txoof --limit 200 --format json \
+  --jq '.items[] | select(.status=="Todo") | [.priority, .content.number, .title] | @tsv'
+```
+
+Take the unclaimed issue with the highest board Priority (High, Medium, Low) whose Area does not
+overlap a claimed issue. Within one priority, follow the order in the milestone description, then
+the lowest issue number. A new issue gets a Priority when it is put on the board; ask Aaron if it
+is not clear which. `TODO.md` is a frozen record: read it for
 the history of done items, never add to it.
 
 **Claiming.** Before starting, list what is taken:
@@ -213,6 +227,9 @@ gh project item-edit --project-id PVT_kwHOANmg6c4BmGmA --id "$item" \
 ```
 
 Column ids: Todo `2ddd622b`, In Progress `3d30af1f`, In Review `822c51c8`, Done `d284367f`.
+
+Priority: field id `PVTSSF_lAHOANmg6c4BmGmAzhk3jzA`, option ids High `dc5dda64`, Medium `80dc29a9`,
+Low `feb93a98`. Set it with the same `item-edit` command.
 
 **Email.** Every GitHub action emails Aaron. Push in batches, post one combined comment, and do not
 switch labels, draft state or reviews back and forth.
