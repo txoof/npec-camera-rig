@@ -12,9 +12,9 @@ band: the range within which that area can be trusted.
 
 The band has a precise meaning. **For flat objects at tray-top height, at the rig's locked focus,
 95% of measured test targets in that slot read within the band of their true area.** In the
-current setup (2026-10-05, lens position 6.27) the bands run from ±1.58% (South 2) to ±2.93%
-(North 4). An earlier setup the same day (lens 6.15, camera before it was moved) gave ±1.43% to
-±3.36%.
+current setup (replacement camera, 2026-10-08, lens position 6.04) the bands run from ±1.3%
+(South 5) to ±2.7% (South 4). The camera used before it (2026-10-05, lens 6.27) gave ±1.58% to
+±2.93%, and an earlier setup that day (lens 6.15) ±1.43% to ±3.36%.
 
 This document explains why that claim holds, and the steps taken to make it hold. Each step says
 what could go wrong, what the rig does about it, and the evidence.
@@ -212,6 +212,18 @@ its bands do not include the cycle. From 2026-10-07 the validation rounds are to
 least 20 minutes, with the chamber door closed for every round; a validation with rounds closer
 together still counts, but its status says so. For comparison, the 0.52-point slot change seen with nothing done was about a
 quarter of that slot's band.
+
+**Replacing the camera (2026-10-07).** The camera was replaced by a new one of the same model and
+the key tests were repeated (metrology-log section 8.2). The new camera calibrated the same way
+(355 tags, 0.49% against 0.52%), was less noisy from photo to photo (0.15 points against 0.27 to
+0.46), behaved the same after restarts, showed the same lens fault after a full-resolution photo
+and the same central low reading. The 19-minute cycle appeared on the new camera too and followed
+the chamber's humidity and temperature, so it comes from the chamber, not from one camera. Over
+6.8 hours with nothing done the readings did not drift (each hour within 0.06 points of the
+others). One lesson from the swap: packing foam left on the camera body was removed during the
+tests, and that lastingly changed the readings by about 0.8 points, more than anything else seen
+with nothing moved. So any physical change to the camera, however small, is followed by a new
+calibration and validation; the 2026-10-08 calibration was made for that reason.
 
 **One open point.** On 2026-10-01, after a different series of lens moves, the central readings
 drifted by 1.3 points in 35 minutes. That was not repeated on 2026-10-05, and the reason for the

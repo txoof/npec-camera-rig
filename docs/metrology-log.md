@@ -3,7 +3,7 @@
 This is the log: every measurement, test method and result, with its source. For the case that
 these measurements can be trusted, read `docs/measurement-trust.md` first.
 
-**Status:** first draft, 2026-10-05. Kept current as findings come in (CLAUDE.md, *Write up every
+**Status:** first draft, 2026-10-05. The camera was replaced on 2026-10-07 (old SN000, new SN001; section 8.2); current calibration and bands are the new camera's from 2026-10-08. Kept current as findings come in (CLAUDE.md, *Write up every
 measurement*). Numbers marked **decision** are settings chosen by the project, not measurements.
 Section 11 lists inconsistencies between project files that still need checking. Section 9
 holds the M2 physical acceptance tests, run 2026-10-05.
@@ -59,8 +59,9 @@ measure every printed sheet.
 
 | Quantity | Value | How measured | Date | Notes |
 |---|---|---|---|---|
+| Camera | Arducam 64MP, serial SN001 from 2026-10-07 (SN000 before) | Serial as given by Aaron | 2026-10-07 | Replaced; comparison in section 8.2 |
 | Image size | 9152 × 6944 px | Camera configuration | | Arducam 64MP |
-| Scale at tray height | 4.85 px/mm (at the image centre) | Calibration fit, 355 tags, 14:11 UTC calibration | 2026-10-05 | About 0.21 mm per pixel; earlier calibrations 4.5 to 4.8 |
+| Scale at tray height | 4.858 px/mm mean (replacement camera, lens 6.04); old camera 4.85 px/mm at the image centre (2026-10-05) | Calibration fit, 355 tags, 08:18 UTC calibration | 2026-10-08 | About 0.21 mm per pixel; earlier calibrations 4.5 to 4.8 |
 | Scale on the table surface | 4.52 px/mm (at the image centre), 6.79% below tray height in length, 15.1% in area | Calibration fit, 355 tags on the table, same camera position | 2026-10-05 | At 0.145% of area per mm this corresponds to about 100 mm of height (derived, not taped) |
 | Height above tray top | about +0.145% area per mm | A 75 mm taller tray in 3 slots read 11.2% to 12.0% large; predicted 11.8% | 2026-10-01 | Bands cover flat objects at tray-top height only. Plant height adds to the uncertainty (section 7) |
 | Perspective across the table | corrected by the scale field; positions mapped with a four-corner homography | Saved calibration frames | 2026-09-22 | Perspective within the table plane is modelled; lens distortion is not (section 10) |
@@ -111,8 +112,13 @@ under the recommended 10". The door cannot be detected by the rig; the operator 
 all tags in that slot over all counted rounds: 95% of the tags read within that distance of
 their true area. Fewer than 10 tags in a slot gives "not measured" (**decision**).
 
-**Current bands** (session `20261005T141310628479`, calibration `20261005T141101923639`, lens
-6.27, 3 rounds at 14:13, 14:14 and 14:15 UTC, 92% to 96% of tags moved, 85 to 90 tags per slot;
+**Current bands, replacement camera SN001** (session `20261008T081846523784`, calibration
+`20261008T081832283098`, lens 6.04, rounds at 08:20, 08:32 and 08:43 UTC, 23.6 minutes first to
+last, door closed): ±1.3% (South 5) to ±2.7% (South 4); median of the slot medians -0.14 points;
+per-slot table in section 8.2, "Recalibration after the foam came off".
+
+**Bands of the old camera SN000 on 2026-10-05** (session `20261005T141310628479`, calibration
+`20261005T141101923639`, lens 6.27, 3 rounds at 14:13, 14:14 and 14:15 UTC, 92% to 96% of tags moved, 85 to 90 tags per slot;
 spread over 1.5 minutes, under the recommended 20, so these bands do not include the 19-minute
 cycle of run 3j):
 
@@ -207,6 +213,10 @@ several percent. Measured at milestone M5.
 | Quantity | Result | How measured | Date |
 |---|---|---|---|
 | Photograph-to-photograph noise | per-tag standard deviation 0.27 to 0.46 points | Repeated photographs, nothing changed (3 light levels, auto-exposure compensating) | 2026-10-01 |
+| Photograph-to-photograph noise, replacement camera | median per-tag standard deviation 0.15 points (middle half of tags 0.12 to 0.19) | 10 photos in a row, nothing changed, fixed exposure, packing foam still on (section 8.2, step 3) | 2026-10-07 |
+| App restart, replacement camera | 5 warm restarts: median -0.04 to +0.06, every slot within ±0.24 | As run 3i, foam still on (section 8.2, step 5) | 2026-10-07 |
+| One photo a minute for 6.8 hours, replacement camera | no drift (each hour's median within 0.06 points of the others); the 20-minute cycle present, swing about 0.5 to 0.6 points, following the chamber's humidity (r -0.86) and temperature (r +0.61) | Overnight run after the foam came off, chamber's own record (section 8.2) | 2026-10-07 |
+| Removing packing foam from the camera body | readings about 0.8 points lower and slots about 15% less sharp, lasting at least 6.8 hours; a new calibration was needed | Step 6 and overnight photos against the last photo before removal (section 8.2) | 2026-10-07 |
 | Lens moved and driven back to the same position | median change -0.03 points, spread 0.28, 355 of 355 tags; over 60 min largest slot change +0.35 points (about 1/6 of that slot's band) | Autofocus moved the lens, re-locked at 6.15, photographs at +0, +15, +30, +60 min, each tag compared with itself | 2026-10-05, `reference/lens-return-2026-10.md` |
 | Drift at a fixed lens position after moves | central ring changed 1.3 points in 35 min | Lens sweep then return to 6.18 | 2026-10-01 |
 | Change over time with nothing moved (control) | over 45 to 60 min: median within ±0.17 points, central ring within ±0.26, single slots up to 0.52 (about 1/4 of that slot's band); goes up and down, not a steady drift | Same method, lens untouched, two series (one partly disturbed by people in the chamber) | 2026-10-05, `reference/lens-return-2026-10.md` |
@@ -1221,7 +1231,9 @@ done (section 9).
 3. Lens control stops responding after a full-res capture (calibration, capture or tripwire
    check) until the app is restarted. Seen twice on 2026-10-05. Lens commands return success while
    the lens does not move. A measurement-relevant risk: the lens position recorded with a capture
-   may not be the actual one. Tracked as a bug, not a measurement.
+   may not be the actual one. Tracked as a bug, not a measurement. Since 2026-10-06 photos do not
+   move the lens and the camera is reopened before any lens command. The replacement camera shows
+   the same fault (2026-10-07, section 8.2, step 4), so it is not peculiar to one unit.
 
 **Inconsistencies found between project files, to be checked and resolved:**
 
