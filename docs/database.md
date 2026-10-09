@@ -5,11 +5,19 @@ the `NPEC_RIG_DB_PATH` environment variable). Photographs are not in it. They ar
 JSON record beside each one, under `/var/lib/npec-rig/rig/<day>/`. The database holds settings,
 camera events and indexes of work done on photographs.
 
-Open it read-only to look around, so a running rig is never disturbed:
+Open it read-only to look around, so a running rig is never disturbed. The `sqlite3` command-line
+tool is not installed on the rig; Python's own module works:
 
 ```
-sqlite3 -readonly /var/lib/npec-rig/rig.db
+python3 - <<'PY'
+import sqlite3
+db = sqlite3.connect("file:/var/lib/npec-rig/rig.db?mode=ro", uri=True)
+for row in db.execute("SELECT time_utc, kind, call, detail FROM camera_events ORDER BY id"):
+    print(row)
+PY
 ```
+
+The queries below can be pasted into the `db.execute(...)` line.
 
 ## Times are UTC
 
