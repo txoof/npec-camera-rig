@@ -930,8 +930,9 @@ class CameraManager:
             "lens_position": self._locked_lens_position,
         }
 
-    def capture_full_res(self) -> tuple[np.ndarray, dict]:
+    def _capture_full_res(self) -> tuple[np.ndarray, dict]:
         """A full-res photo. Does not move the lens: during an experiment nothing does (TODO.md,
-        "Plan: nothing moves the lens during an experiment")."""
+        "Plan: nothing moves the lens during an experiment"). Private: every still is taken by
+        `captures.take_photo`, which also saves it with its sidecar (#103)."""
         with self._call_lock:
             return self._backend.capture_full_res()

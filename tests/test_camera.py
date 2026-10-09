@@ -270,7 +270,7 @@ def test_a_locked_capture_moves_nothing_and_keeps_the_lock() -> None:
     manager.lock_focus()
     backend.calls.clear()
 
-    manager.capture_full_res()
+    manager._capture_full_res()
     assert backend.calls == []
     assert manager.focus_status() == {"locked": True, "lens_position": 6.18}
 
@@ -281,7 +281,7 @@ def test_a_capture_gets_no_lens_moves() -> None:
     manager.set_lens_position(6.18)
     backend.lens_writes.clear()
 
-    manager.capture_full_res()
+    manager._capture_full_res()
     assert backend.lens_writes == []
 
 

@@ -32,6 +32,8 @@ from npec_rig.calibration import (
 )
 from npec_rig.calibration_store import (
     CURRENT_FILENAME,
+    calibration_frame_path,
+    calibration_frame_url,
     calibration_root,
     list_calibrations,
     load_calibration,
@@ -40,10 +42,10 @@ from npec_rig.calibration_store import (
     save_calibration,
     save_calibration_accuracy_shape_heatmap,
     save_calibration_area_shape_heatmap,
-    save_calibration_frame,
     save_calibration_heatmap,
     save_calibration_table_view,
     save_calibration_table_view_area_shape,
+    stem_for_photo,
 )
 from npec_rig.calibration_viz import (
     ACCURACY_SHAPE_HEATMAP_K,
@@ -134,8 +136,8 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.globals["AUTOFOCUS_TIMEOUT_S"] = int(AUTOFOCUS_TIMEOUT_S)
 app.mount("/photos", StaticFiles(directory=str(photos_root())), name="photos")
 # PLAN.md M2 section A: calibration is "frozen, versioned, exportable" -- this is the export.
-# Serves both the timestamped artifact JSON and, under frames/, the full-res still each one
-# came from (calibration_store.save_calibration_frame).
+# Serves the timestamped artifact JSON and its plots. Its photo is a rig photo, under /photos
+# (calibration_store.calibration_frame_url).
 app.mount("/calibration/files", StaticFiles(directory=str(calibration_root())), name="calibration_files")
 # Shared CSS (and any future shared JS) for the plain multi-page static frontend -- no build step,
 # no templating, just files served as-is alongside the page routes below.
@@ -689,7 +691,7 @@ def run_calibration(
     # "previous" half of the post-run delta.
     previous_artifact = load_current_calibration()
 
-    array, _sensor_metadata = manager.capture_full_res()
+    array, photo = take_photo("calibration")
     frame_height, frame_width = array.shape[0], array.shape[1]
 
     detections = detect_tags(array)
@@ -697,15 +699,16 @@ def run_calibration(
     corner_detections = [d for d in detections if d.tag_id in CORNER_ID_RANGE]
     tag_sizes_mm = {d.tag_id: tag_size_mm for d in calibration_detections}
 
-    stem = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
-    frame_path = save_calibration_frame(array, stem=stem)
+    stem = stem_for_photo(photo)
 
     result: dict = {
         "calibration_tags_detected": len(calibration_detections),
         "corner_tags_detected": len(corner_detections),
         "calibration_tag_size_mm": tag_size_mm,
         "calibration_tag_size_mm_is_default": calibration_tag_size_mm is None,
-        "frame_path": str(frame_path),
+        "frame_path": str(calibration_frame_path(stem)),
+        # Recorded, not a gate (Aaron, 2026-10-08): the run is promoted as before.
+        "photo_flags": photo["flags"],
         "table_width_mm": table_width_mm,
         "table_length_mm": table_length_mm,
         "corner_tag_size_mm": corner_size_mm,
@@ -821,7 +824,7 @@ def run_calibration(
     else:
         result["table_view_shape_url"] = None
 
-    result["frame_url"] = f"/calibration/files/frames/{stem}.jpg"
+    result["frame_url"] = calibration_frame_url(stem)
 
     lens_position = manager.get_lens_position()
     result["previous_calibration_comparison"] = _build_calibration_delta(
@@ -891,9 +894,7 @@ def list_calibration_artifacts() -> list[dict]:
                 "is_current": False,
             }
         )
-        frame_url = None
-        if (calibration_root() / "frames" / f"{path.stem}.jpg").exists():
-            frame_url = f"/calibration/files/frames/{path.stem}.jpg"
+        frame_url = calibration_frame_url(path.stem)
         heatmap_url = None
         if (calibration_root() / "heatmaps" / f"{path.stem}.jpg").exists():
             heatmap_url = f"/calibration/files/heatmaps/{path.stem}.jpg"
@@ -1005,7 +1006,7 @@ def delete_calibration(stem: str) -> dict:
             raise HTTPException(409, "refusing to delete the active calibration")
 
     path.unlink()
-    (calibration_root() / "frames" / f"{stem}.jpg").unlink(missing_ok=True)
+    # The photo stays with the other rig photos: originals are never changed (PLAN.md).
     # A validation session only means anything against its own calibration.
     validation_store.delete_sessions_for_calibration(stem)
     validation_store.delete_slot_layout(stem)
@@ -1038,7 +1039,7 @@ def current_calibration() -> dict:
     artifact = load_current_calibration()
     if artifact is None:
         return {"exists": False, **table_dims}
-    frame_url = f"/calibration/files/frames/{artifact.frame_stem}.jpg" if artifact.frame_stem else None
+    frame_url = calibration_frame_url(artifact.frame_stem)
     heatmap_url = (
         f"/calibration/files/heatmaps/{artifact.frame_stem}.jpg"
         if artifact.frame_stem
@@ -1507,11 +1508,13 @@ def tripwire_check() -> dict:
     if artifact is None or artifact.corner_baseline is None:
         raise HTTPException(409, "no calibration baseline saved yet -- run a calibration first")
 
-    manager = CameraManager.instance()
-    array, _sensor_metadata = manager.capture_full_res()
+    array, photo = take_photo("tripwire")
     detections = detect_tags(array)
+    del array
     result = check_tripwire(artifact.corner_baseline, detections)
     return {
+        "photo_url": photo["url"],
+        "photo_flags": photo["flags"],
         "verdict": result.verdict,
         "messages": list(result.messages),
         "roll_deg": result.roll_deg,

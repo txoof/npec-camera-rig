@@ -505,6 +505,9 @@ def test_run_calibration_builds_field_and_saves_artifact_and_frame(
 
     assert Path(body["frame_path"]).exists()
     assert Path(body["artifact_path"]).exists()
+    assert "focus not locked" in body["photo_flags"]
+    sidecar = json.loads(Path(body["frame_path"]).with_suffix(".json").read_text())
+    assert sidecar["purpose"] == "calibration"
     assert body["frame_url"] is not None
     assert body["heatmap_url"] is not None
     assert body["area_shape_heatmap_url"] is not None
@@ -988,6 +991,30 @@ def test_tripwire_check_against_saved_baseline(
     body = response.json()
     assert body["verdict"] == "OK"
     assert body["roll_deg"] == pytest.approx(0.0)
+    assert body["photo_url"].startswith("/photos/")
+    sidecar_path = photos_root() / body["photo_url"].removeprefix("/photos/")
+    assert json.loads(sidecar_path.with_suffix(".json").read_text())["purpose"] == "tripwire"
+
+
+def test_a_calibration_whose_photo_is_gone_still_loads(isolated_calibration_dir: None) -> None:
+    # Calibrations from before #103 kept their frame in calibration/frames/, which is no longer
+    # read. The pages must still load, so a new calibration can be run to replace it.
+    artifact = CalibrationArtifact(
+        created_at="2026-09-20T12:00:00+00:00",
+        scale_field=ScaleField(_coeffs=(1.0, 0.0, 0.0), _mean_px_per_mm=4.0, residual_std_pct=1.0),
+        frame_stem="20260920T120000000000",
+    )
+    save_calibration(artifact, stem="20260920T120000000000")
+    client = TestClient(app)
+
+    current = client.get("/calibration/current")
+    assert current.status_code == 200
+    assert current.json()["frame_url"] is None
+    listing = client.get("/calibration/list")
+    assert listing.status_code == 200
+    assert listing.json()[0]["frame_url"] is None
+    for page in ("/setup/calibration", "/setup/calibration-history", "/setup/health-check"):
+        assert client.get(page).status_code == 200
 
 
 def test_tripwire_check_reports_a_real_roll_through_the_json_round_trip(
@@ -1095,7 +1122,7 @@ def test_run_calibration_delta_present_even_when_not_promoted(
 
 def test_calibration_list_and_files_are_downloadable(monkeypatch: pytest.MonkeyPatch) -> None:
     # Deliberately not isolated_calibration_dir: /calibration/files is a StaticFiles mount bound
-    # to a fixed directory at app import time (same pattern as /captures), so it serves whatever
+    # to a fixed directory at app import time (same pattern as /photos), so it serves whatever
     # NPEC_RIG_CALIBRATION_DIR conftest.py set at import -- a per-test env override wouldn't be
     # visible to it.
     monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
@@ -1104,7 +1131,8 @@ def test_calibration_list_and_files_are_downloadable(monkeypatch: pytest.MonkeyP
 
     listing = client.get("/calibration/list").json()
     entry = next(e for e in listing if e["url"] == f"/calibration/files/{Path(run['artifact_path']).name}")
-    assert entry["frame_url"] == f"/calibration/files/frames/{Path(run['frame_path']).name}"
+    assert entry["frame_url"] == run["frame_url"]
+    assert entry["frame_url"].startswith("/photos/")
     assert entry["heatmap_url"] == run["heatmap_url"]
 
     artifact_response = client.get(entry["url"])
@@ -1197,7 +1225,8 @@ def test_delete_calibration_removes_its_files(
     assert response.json()["deleted"] == old_stem
 
     assert not Path(old["artifact_path"]).exists()
-    assert not Path(old["frame_path"]).exists()
+    # The photo stays with the other rig photos: originals are never changed.
+    assert Path(old["frame_path"]).exists()
     assert not (calibration_root() / "heatmaps" / f"{old_stem}.jpg").exists()
 
     listing = client.get("/calibration/list").json()
