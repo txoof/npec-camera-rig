@@ -338,6 +338,13 @@ them. This is a record of conditions, not a correction: a flagged photo is kept,
   the measured calls because a false alarm costs more (the lens is moved and an hour of photos is
   flagged) than a late one (one photo). Limit: only a call that does not finish counts. A camera
   fault that libcamera recovers from by itself, without a call hanging, is not seen.
+  Checked on the rig, 2026-10-09 (SN001, focus locked at 6.04): the camera program was frozen
+  (`kill -STOP`) and a photo asked for. The app answered after 30.1 s that the camera stopped
+  responding; the new camera program was ready 1.1 s later, with focus locked again at 6.04, and the
+  next photo was flagged as taken after a camera fault (lens reported 6.040, not flagged). Killing
+  the app with SIGKILL also ended the camera program. A full-res photo took 2.70 to 2.81 s (3
+  photos), against 2.67 to 2.71 s before this change; the live preview and focus zoom kept 10 and 5
+  frames per second; free memory stayed above 12.8 GB of 16 GB during photos.
 - *Validation.* A validation round whose photo is flagged is held back from the bands, with the
   reason shown; the operator can still count it (Aaron, 2026-10-08).
 - *Not covered.* A camera fault in the middle of a run (frontend timeout, run 3g) is not detected
