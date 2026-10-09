@@ -224,7 +224,7 @@ image after each restart (15 images, 44 s), and now loads them in 1.4 s.
 
 | Layer | Holds | Stored as | Status |
 |---|---|---|---|
-| 1. Originals | Every full-resolution photograph, never changed | Files under `captures/`; a `capture` table row each (time, kind, experiment, calibration, lens position, focus lock, path) | Files: built. `capture` table: **M3** |
+| 1. Originals | Every full-resolution photograph, never changed | Files under `rig/YYYY-MM-DD/` (experiment stills under `experiments/<id>/stills/`, #55), written by `captures.take_photo`; a `capture` table row each (time, kind, experiment, calibration, lens position, focus lock, path) | Files: built. `capture` table: **M3** |
 | 2. Analysis per photograph | Results that need the full image, worked out once: tag detections (raw, never anything that depends on a calibration), keyed by capture and detector version | `capture_analysis` table | Built (tags) |
 | 3. Derived images | Anything drawn from originals: made once by a named, versioned **recipe**, keyed by a hash of the recipe, its version and exactly the inputs it is drawn from, so a changed input is a new image | Files under `derived/`, `derived_image` table (key, recipe, version, source, size, last used); size-capped, least recently used removed; disposable | Built |
 
@@ -376,7 +376,7 @@ We do not go hunting for out-of-tree Arducam drivers.
 - **Synthetic camera backend**, so the suite and the UI both run with no hardware attached. This is
   load-bearing for the fast test tier, not a nicety.
 - **Capture** → full-res JPEG + sidecar JSON (all control values, timestamp, sensor mode) into
-  `/var/lib/npec-rig/captures/YYYY-MM-DD/`.
+  `/var/lib/npec-rig/captures/YYYY-MM-DD/` (since #103, `/var/lib/npec-rig/rig/YYYY-MM-DD/`).
 - **Settings persistence** — the old UI's known gap. Camera settings live in the database and
   survive restart; the console loads the last-used values rather than defaults.
 - Recent-captures gallery; systemd unit; logging; pytest marker infrastructure.

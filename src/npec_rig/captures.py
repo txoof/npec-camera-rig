@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-from npec_rig.camera import array_to_jpeg
+from npec_rig.camera import CameraManager, array_to_jpeg, lens_check
 from npec_rig.settings import load_settings, save_setting
 
 logger = logging.getLogger(__name__)
@@ -137,36 +137,86 @@ def uptime_record() -> dict:
     }
 
 
-def captures_root() -> Path:
-    """Directory captures are written under, one subdirectory per UTC day."""
-    return Path(os.environ.get("NPEC_RIG_CAPTURES_DIR", "/var/lib/npec-rig/captures"))
+# Every full-resolution still has one of these purposes, recorded in its sidecar.
+PURPOSES = ("capture", "validation", "calibration", "tripwire")
 
 
-def save_capture(image: np.ndarray, metadata: dict) -> dict:
-    """Write a full-res JPEG plus a JSON sidecar of `metadata`, return the combined record."""
+def photos_root() -> Path:
+    """Directory rig photos are written under, one subdirectory per UTC day. Photos are stored
+    by owner, not by purpose (#55): until experiments exist, every photo is a rig photo."""
+    return Path(os.environ.get("NPEC_RIG_PHOTOS_DIR", "/var/lib/npec-rig/rig"))
+
+
+def _photo_dir(timestamp: datetime) -> Path:
+    """The one place a photo's folder is picked. An experiment's own folder is added here (#55)."""
+    return photos_root() / timestamp.strftime("%Y-%m-%d")
+
+
+def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dict]:
+    """The one way to take a full-resolution still: take it, build its sidecar, save both.
+
+    Every still (Capture, validation round, calibration, tripwire check) comes through here, so
+    a check added to the sidecar reaches every photo. `extra` adds caller fields to the sidecar
+    (e.g. the validation session). Returns the frame and the saved record; the caller drops the
+    frame as soon as it can (a 64MP frame is about 250 MB). CameraBusyError is not caught.
+    """
+    if purpose not in PURPOSES:
+        raise ValueError(f"unknown photo purpose {purpose!r}, expected one of {PURPOSES}")
+    manager = CameraManager.instance()
+    # Read before the capture, so the lens check compares the photo against the lock it was
+    # taken under.
+    focus = manager.focus_status()
+    array, sensor_metadata = manager.capture_full_res()
+    checks = {
+        "lens_check": lens_check(sensor_metadata.get("LensPosition"), focus["lens_position"]),
+        "uptime": uptime_record(),
+    }
+    sidecar = {
+        "purpose": purpose,
+        "lens_position": manager.get_lens_position(),
+        "roi": manager.get_roi(),
+        "focus": focus,
+        "sensor_metadata": sensor_metadata,
+        **checks,
+        # Every reason this photo is not covered by the validation bands, one list for the pages.
+        "flags": [check["reason"] for check in checks.values() if check["flagged"]],
+        **(extra or {}),
+    }
+    return array, _save_photo(array, sidecar)
+
+
+def _save_photo(image: np.ndarray, metadata: dict) -> dict:
+    """Write a full-res JPEG plus a JSON sidecar of `metadata`, return the combined record.
+
+    Both are written under temporary names and renamed, sidecar first, so a crash never leaves
+    half a file and a JPEG the gallery can see always has its sidecar."""
     timestamp = datetime.now(timezone.utc)
-    day_dir = captures_root() / timestamp.strftime("%Y-%m-%d")
+    day_dir = _photo_dir(timestamp)
     day_dir.mkdir(parents=True, exist_ok=True)
 
     stem = timestamp.strftime("%H%M%S_%f")
     jpeg_path = day_dir / f"{stem}.jpg"
     json_path = day_dir / f"{stem}.json"
-
-    jpeg_path.write_bytes(array_to_jpeg(image))
     record = {"timestamp": timestamp.isoformat(), **metadata}
-    json_path.write_text(json.dumps(record, indent=2, default=str))
+
+    jpeg_tmp = day_dir / f".{stem}.jpg.tmp"
+    json_tmp = day_dir / f".{stem}.json.tmp"
+    jpeg_tmp.write_bytes(array_to_jpeg(image))
+    json_tmp.write_text(json.dumps(record, indent=2, default=str))
+    json_tmp.replace(json_path)
+    jpeg_tmp.replace(jpeg_path)
 
     return {
         "date": timestamp.strftime("%Y-%m-%d"),
         "filename": jpeg_path.name,
-        "url": f"/captures/{timestamp.strftime('%Y-%m-%d')}/{jpeg_path.name}",
+        "url": f"/photos/{timestamp.strftime('%Y-%m-%d')}/{jpeg_path.name}",
         **record,
     }
 
 
 def list_recent_captures(limit: int = 12) -> list[dict]:
     """Most recent captures first, newest day and newest filename within a day sorting first."""
-    root = captures_root()
+    root = photos_root()
     if not root.exists():
         return []
 
@@ -184,7 +234,7 @@ def list_recent_captures(limit: int = 12) -> list[dict]:
                 {
                     "date": day_dir.name,
                     "filename": jpeg_path.name,
-                    "url": f"/captures/{day_dir.name}/{jpeg_path.name}",
+                    "url": f"/photos/{day_dir.name}/{jpeg_path.name}",
                     **record,
                 }
             )

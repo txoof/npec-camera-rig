@@ -22,7 +22,7 @@ from npec_rig.camera import (
     array_to_jpeg,
 )
 from npec_rig import captures
-from npec_rig.captures import captures_root
+from npec_rig.captures import photos_root
 from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, ASSUMED_CORNER_TAG_SIZE_MM
 from npec_rig.tripwire import CornerBaseline
 from tests.helpers import rotate_detection, sheet_detections, square_detection, tray_layout_detections
@@ -1573,7 +1573,7 @@ def test_stem_diagnostics_actually_load_the_requested_stems_own_frame(
 def _write_capture(ref: str) -> None:
     """A capture JPEG on disk at `ref` ("YYYY-MM-DD/HHMMSS_ffffff"); its content is irrelevant
     because the tests monkeypatch `detect_tags`."""
-    path = captures_root() / f"{ref}.jpg"
+    path = photos_root() / f"{ref}.jpg"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(array_to_jpeg(np.zeros((120, 160, 3), dtype=np.uint8)))
 

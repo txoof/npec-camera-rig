@@ -69,7 +69,6 @@ from npec_rig.camera import (
     LensMovedDuringLockError,
     LensNotSettledError,
     array_to_jpeg,
-    lens_check,
 )
 from npec_rig.certainty_map import (
     MIN_MOVED_FRACTION,
@@ -88,12 +87,11 @@ from npec_rig.certainty_map import (
     slot_layout_to_dict,
 )
 from npec_rig.captures import (
-    captures_root,
     list_recent_captures,
+    photos_root,
     record_app_start,
     record_app_stop,
-    save_capture,
-    uptime_record,
+    take_photo,
 )
 from npec_rig.settings import load_settings, save_setting
 from npec_rig.tags import (
@@ -119,7 +117,7 @@ PREVIEW_BOUNDARY = b"frame"
 PREVIEW_FPS_LIMIT = 10.0
 ROI_STREAM_FPS_LIMIT = 5.0
 
-captures_root().mkdir(parents=True, exist_ok=True)
+photos_root().mkdir(parents=True, exist_ok=True)
 calibration_root().mkdir(parents=True, exist_ok=True)
 
 @asynccontextmanager
@@ -134,7 +132,7 @@ app = FastAPI(title="NPEC Camera Rig", lifespan=_lifespan)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # The focus controls tell the operator how long an autofocus may take (camera.py).
 templates.env.globals["AUTOFOCUS_TIMEOUT_S"] = int(AUTOFOCUS_TIMEOUT_S)
-app.mount("/captures", StaticFiles(directory=str(captures_root())), name="captures")
+app.mount("/photos", StaticFiles(directory=str(photos_root())), name="photos")
 # PLAN.md M2 section A: calibration is "frozen, versioned, exportable" -- this is the export.
 # Serves both the timestamped artifact JSON and, under frames/, the full-res still each one
 # came from (calibration_store.save_calibration_frame).
@@ -457,29 +455,9 @@ def unlock_focus() -> dict:
 
 @app.post("/capture")
 def capture() -> dict:
-    """Full-res JPEG to disk plus a JSON sidecar of the current control values."""
-    manager = CameraManager.instance()
-    focus = manager.focus_status()
-    array, sensor_metadata = manager.capture_full_res()
-    return save_capture(array, _capture_sidecar(manager, focus, sensor_metadata))
-
-
-def _capture_sidecar(manager: CameraManager, focus: dict, sensor_metadata: dict) -> dict:
-    """The sidecar fields every photo shares. `focus` is read before the capture, so the lens
-    check compares the photo against the lock it was taken under."""
-    checks = {
-        "lens_check": lens_check(sensor_metadata.get("LensPosition"), focus["lens_position"]),
-        "uptime": uptime_record(),
-    }
-    return {
-        "lens_position": manager.get_lens_position(),
-        "roi": manager.get_roi(),
-        "focus": focus,
-        "sensor_metadata": sensor_metadata,
-        **checks,
-        # Every reason this photo is not covered by the validation bands, one list for the pages.
-        "flags": [check["reason"] for check in checks.values() if check["flagged"]],
-    }
+    """Full-res JPEG to disk plus its JSON sidecar (captures.take_photo)."""
+    _array, record = take_photo("capture")
+    return record
 
 
 @app.get("/api/captures")
@@ -1430,7 +1408,7 @@ _MAX_CAPTURES_PER_MAP = 12
 def _capture_path(ref: str) -> Path:
     if not _CAPTURE_REF.match(ref):
         raise HTTPException(422, f"not a capture reference: {ref!r} (expected YYYY-MM-DD/HHMMSS_ffffff)")
-    path = captures_root() / f"{ref}.jpg"
+    path = photos_root() / f"{ref}.jpg"
     if not path.exists():
         raise HTTPException(404, f"capture {ref} not found")
     return path
@@ -1737,20 +1715,12 @@ def capture_validation_round(session_id: str) -> dict:
             raise HTTPException(409, "this validation has ended: start a new one")
         artifact = _load_saved_artifact(session["calibration_stem"])
 
-        manager = CameraManager.instance()
-        focus = manager.focus_status()
         try:
-            array, sensor_metadata = manager.capture_full_res()
+            array, record = take_photo("validation", {"validation_session": session_id})
         except CameraBusyError as exc:
             raise HTTPException(409, f"camera busy: {exc}") from exc
-        record = save_capture(
-            array,
-            {
-                **_capture_sidecar(manager, focus, sensor_metadata),
-                "validation_session": session_id,
-            },
-        )
         del array
+        focus = record["focus"]
         ref = f"{record['date']}/{Path(record['filename']).stem}"
         detections = _capture_tags(ref)
 
