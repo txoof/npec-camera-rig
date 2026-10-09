@@ -11,7 +11,8 @@
       time it started.</p>
     <label>Experiment name <input type="text" id="f-name" maxlength="200"></label>
     <label>Researcher <input type="text" id="f-researcher" maxlength="200"></label>
-    <label>Tray height
+    <label for="f-tray-choice">Tray height</label>
+    <div class="experiment-tray-row">
       <select id="f-tray-choice">
         <option value="">Not recorded</option>
         {% for label, mm in known_trays %}
@@ -19,10 +20,10 @@
         {% endfor %}
         <option value="other">Other, type the height</option>
       </select>
-    </label>
-    <label id="f-tray-other" hidden>Tray height (mm)
-      <input type="number" id="f-tray-height" min="0" step="0.1">
-    </label>
+      <span id="f-tray-other" class="experiment-tray-other" hidden>
+        <input type="number" id="f-tray-height" min="0" step="0.1" aria-label="Tray height in mm"> mm
+      </span>
+    </div>
     <label>Notes <textarea id="f-notes" rows="2"></textarea></label>
     <div class="experiment-form-buttons">
       <button type="submit" id="f-submit">Set up</button>

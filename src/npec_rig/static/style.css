@@ -591,3 +591,8 @@ button.stop { background: #8a3b2f; }
   color: #eee;
   border-radius: 4px;
 }
+.experiment-tray-row { display: flex; gap: 0.5rem; align-items: center; }
+.experiment-tray-row select { flex: 1; }
+.experiment-tray-other { display: flex; gap: 0.3rem; align-items: center; }
+.experiment-tray-other[hidden] { display: none; }
+.experiment-tray-other input { width: 6rem; }
