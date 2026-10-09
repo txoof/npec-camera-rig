@@ -108,7 +108,7 @@ sound techniques that are simply not the current bottleneck.
 
 | Deferred | Unbanned when |
 |---|---|
-| **Intrinsic camera calibration** (`calibrateCamera`, distortion coefficients) | The honesty plot shows **structured** residuals — systematically worse toward frame corners — rather than random scatter. Random residuals mean distortion isn't the problem and calibration buys nothing. |
+| **Intrinsic camera calibration** (`calibrateCamera`, distortion coefficients) | The radial plot (calibration step 5: each tag's signed error against its distance from the image centre) shows error growing steadily toward the frame corners, beyond the known central low reading (`reference/arducam-central-error-2026-10.md`). Whether that counts as structured is Aaron's judgement; there is no numeric threshold yet. Random residuals mean distortion isn't the problem and calibration buys nothing. |
 | **Out-of-plane parallax correction** | A measured depth source exists. With one camera there is no per-point height, and an invented height produces a confident wrong number. (Perspective modelling *within* the plane is **not** deferred — the homography is exactly that, and we use it throughout.) |
 | **True orthophoto / photogrammetry** | A second viewpoint exists. Orthorectification needs a surface model, which needs multiple views. Same decision as the second camera, not a separate one. |
 | **Second camera / height data** | M1–M6 land with time to spare, *and* the measured in-plane accuracy proves insufficient. |
@@ -439,16 +439,20 @@ bake-off from scratch. Only if measured corner jitter proves inadequate do we ev
 **You verify:**
 - Tape-measure two tags → app agrees within 2%.
 - Roll the camera ~5° → reported as ~5°; knock it hard → verdict flips to `FAIL`.
-- Known target at 6 positions → plot **claimed uncertainty vs actual error**. Is the indicator
-  *honest*? Are the residuals random (fine) or structured toward the corners (→ the intrinsics
-  evidence gate just opened)?
+- **Validation:** known tags (calliper-measured) in every slot, each slot's error band reported.
+  Then a **repeat validation on another day**, with nothing moved: check each slot's new errors
+  against the first session's band. The pass rule is written into `docs/metrology-log.md` before
+  the run. This replaces the honesty plot (claimed uncertainty against actual error), which the
+  calibration's claim failed in 7 of 12 slots on 2026-10-05 (`docs/metrology-log.md` section 9.4);
+  the claim was removed and the band is itself measured (Aaron, 2026-10-09). Corner structure is
+  read from the radial plot (the intrinsics evidence gate).
 - **The two-baseline test — do this first; it's the one that says whether M2 works.** The
-  6-position plot can pass while the certainty map is meaningless, because every position is
-  measured against the *same* calibration; a systematically wrong one yields low scatter, high
-  claimed confidence, and a plot that still looks fine. So run the **sheet calibration twice
+  per-slot checks can pass while the certainty map is meaningless, because every position is
+  measured against the *same* calibration; a systematically wrong one yields low scatter and
+  checks that still look fine. So run the **sheet calibration twice
   independently** (power-cycle and re-focus between), build a field from each, and diff them. **That
   disagreement is the floor on achievable certainty.** If two calibrations of the same static scene
-  disagree by more than the uncertainty we claim, the claimed number is fiction. Twenty minutes, and
+  disagree by more than the validation band, the band is too narrow. Twenty minutes, and
   the single most informative test in the project.
 - **The two-height test — this one proves the architecture's central claim.** Run the sheet
   calibration at two different tray heights (refocusing between) and diff the resulting fields. If
@@ -519,8 +523,10 @@ dwell table reflects the move · smear a tag with soil → degrades gracefully, 
 - Writes `measurement` rows and **stores each mask to disk**, so areas can be recomputed against a
   corrected calibration later without re-running inference.
 
-**You verify:** printed known-area target at 6 positions → report the error *and* whether the stated
-confidence band actually contains the truth · when the real model lands, run the identical suite
+**You verify:** printed targets of known area (not tags), one in each of the 12 slots, measured
+through the canopy-area pipeline, run 2 or 3 times → report each error *and* whether the slot's
+validation band contains the truth. A run passes if at least 11 of 12 readings fall inside their
+band, and no slot falls outside in 2 runs (Aaron, 2026-10-09) · when the real model lands, run the identical suite
 against the ExG baseline · download `measurements.csv` and plot a growth curve in Excel · change
 the calibration, hit **Reprocess**, confirm historical areas update without re-inference.
 
@@ -634,10 +640,12 @@ worth knowing rather than discovering in week three.
    without hardware.
 3. **Physical acceptance tests per milestone** — run in the chamber with a tape measure and printed
    targets. A milestone isn't done until these pass.
-4. **The honesty plot** — at M2 and again at M5, plot *claimed confidence* against *actual measured
-   error*. If the app says ±3% and is routinely off by 10%, that's the most important kind of bug,
-   and this is how we catch it. Its residual *structure* is also what opens or keeps shut the
-   intrinsic-calibration gate.
+4. **The known-target check**: at M2, validation and a repeat validation on another day; at M5,
+   known-area targets in all 12 slots through the canopy-area pipeline (both in their milestones'
+   *You verify*). If the app says ±3% and is routinely off by 10%, that's the most important kind
+   of bug, and this is how we catch it. This replaced the honesty plot (claimed confidence against
+   actual error) when the claim was removed (Aaron, 2026-10-09). Corner *structure*, which opens or
+   keeps shut the intrinsic-calibration gate, is read from the radial plot.
 5. **The metrology write-up**: `docs/measurement-trust.md` makes the case for trusting the rig's
    measurements, step by step; `docs/metrology-log.md` states every measurement and confidence number
    the rig relies on: what was measured, how, how often, the result and its spread, and what it
