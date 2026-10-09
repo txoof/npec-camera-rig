@@ -15,7 +15,9 @@ import csv
 import hashlib
 import io
 import logging
+import re
 import threading
+import unicodedata
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -82,7 +84,8 @@ def _write_zip(export_id: int, experiment_id: int) -> None:
     folder = experiments_root() / experiment["folder"]
     captures = database.captures_for_experiment(experiment_id)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    name = f"{experiment['folder']}_export_{stamp}"
+    slug = slugify(experiment["name"])
+    name = f"{slug + '_' if slug else ''}{experiment['folder']}_export_{stamp}"
     out_dir = folder / "exports"
     out_dir.mkdir(exist_ok=True)
     tmp = out_dir / f".{name}.zip.tmp"
@@ -114,6 +117,14 @@ def _write_zip(export_id: int, experiment_id: int) -> None:
         files=len(z.sums),
         manifest_sha256=hashlib.sha256(manifest.encode()).hexdigest(),
     )
+
+
+def slugify(text: str | None, limit: int = 40) -> str:
+    """`A. thaliana Flash Drought!` -> `a-thaliana-flash-drought`: lower case, ASCII letters and
+    digits joined by hyphens, at most `limit` characters. Empty for no name."""
+    ascii_text = unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode()
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
+    return slug[:limit].rstrip("-")
 
 
 def _stills_relative(path: str, folder: str) -> str:

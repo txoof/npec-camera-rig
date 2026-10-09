@@ -150,3 +150,27 @@ def test_export_and_download_through_the_page_routes() -> None:
     assert download.headers["content-type"] == "application/zip"
     assert zipfile.ZipFile(io.BytesIO(download.content)).testzip() is None
     assert client.get("/api/exports/999/download").status_code == 404
+
+
+def test_the_export_name_starts_with_the_experiment_name() -> None:
+    assert exports.slugify("A. thaliana Flash Drought!") == "a-thaliana-flash-drought"
+    assert exports.slugify("Trockenstress Pflanzen über Nacht") == "trockenstress-pflanzen-uber-nacht"
+    assert exports.slugify(None) == ""
+    assert exports.slugify("x" * 60) == "x" * 40
+
+    experiment = _stopped_experiment_with_photos(0)
+    export = database.create_export(experiment["id"], now="t")
+    exports._build(export["id"], experiment["id"])
+    assert exports.zip_path(database.get_export(export["id"])).name.startswith(
+        f"drought_{experiment['folder']}_export_"
+    )
+
+
+def test_an_unnamed_experiment_exports_under_its_folder_name() -> None:
+    experiment = captures.start_experiment(captures.create_experiment()["id"])
+    experiment = captures.stop_experiment(experiment["id"])
+    export = database.create_export(experiment["id"], now="t")
+    exports._build(export["id"], experiment["id"])
+    assert exports.zip_path(database.get_export(export["id"])).name.startswith(
+        f"{experiment['folder']}_export_"
+    )
