@@ -18,7 +18,6 @@ from npec_rig.camera import (
 )
 from npec_rig.camera_process import FRAME_DIR, FRAME_PREFIX, ProcessBackend
 from npec_rig.captures import take_photo
-from npec_rig.settings import save_setting
 
 pytestmark = pytest.mark.unit
 
@@ -173,6 +172,8 @@ def test_the_lock_is_restored_after_a_restart(switches):
             take_photo("capture")
         assert recovered.wait(15.0), "the manager did not recover"
         assert manager.focus_status() == {"locked": True, "lens_position": 6.04}
+        fault = next(e for e in health.camera_events() if e["kind"] == "fault")
+        assert fault["purpose"] == "capture" and fault["lens_locked"] == 6.04
         _array, record = take_photo("capture")
         assert record["camera_fault"]["flagged"]
         assert any("camera fault" in reason for reason in record["flags"])
@@ -187,9 +188,52 @@ def test_no_fault_no_flag():
     assert check["flagged"] is False
 
 
-def test_a_fault_before_this_boot_is_not_counted():
-    save_setting(
-        "LastCameraFault",
-        {"boot_id": "an-earlier-boot", "uptime_s": 1.0, "wall": "2026-10-01T00:00:00+00:00"},
-    )
+def test_a_fault_before_this_boot_is_not_counted(monkeypatch):
+    monkeypatch.setattr(health, "_boot_id", lambda: "an-earlier-boot")
+    health.record_camera_event(health.EVENT_FAULT, call="capture_full_res", limit_s=30.0)
+    monkeypatch.setattr(health, "_boot_id", lambda: "this-boot")
     assert health.camera_fault_check()["flagged"] is False
+
+
+def test_times_are_stored_in_one_utc_format():
+    from datetime import datetime, timedelta, timezone
+
+    winter = datetime(2026, 12, 1, 9, 0, 0, tzinfo=timezone(timedelta(hours=1)))
+    assert health.utc_now(winter) == "2026-12-01T08:00:00.000000+00:00"
+    health.record_camera_event(health.EVENT_FAULT, call="get_controls")
+    (row,) = health.camera_events()
+    assert row["time_utc"].endswith("+00:00") and len(row["time_utc"]) == 32
+
+
+def test_a_restart_writes_a_fault_row_and_a_restarted_row(backend, switches):
+    restored = threading.Event()
+    backend.set_restart_listener(restored.set)
+    old_pid = backend.pid
+    with open(switches["hang_file"], "w") as f:
+        f.write("get_controls")
+    with pytest.raises(CameraStuckError):
+        backend.get_controls()
+    assert restored.wait(15.0)
+    restarted, fault = health.camera_events()[:2]
+    assert fault["kind"] == "fault"
+    assert fault["call"] == "get_controls" and fault["limit_s"] == 1.0
+    assert fault["program_pid"] == old_pid
+    assert fault["camera"] == "synthetic" and fault["rig"]
+    assert restarted["kind"] == "restarted"
+    assert restarted["program_pid"] == backend.pid
+    assert 0 < restarted["recovery_s"] < 15
+    assert restarted["reboot_needed"] == 0
+
+
+def test_failed_opens_are_rows_and_say_when_a_reboot_is_needed(switches):
+    with open(switches["fail_open_file"], "w") as f:
+        f.write("fail")
+    b = ProcessBackend("synthetic", switches, **FAST)
+    try:
+        assert _wait_until(lambda: health.camera_health()["reboot_needed"])
+        failed = [e for e in health.camera_events() if e["kind"] == "open_failed"]
+        assert len(failed) >= camera_process.FAILED_OPENS_BEFORE_REBOOT
+        assert failed[0]["reboot_needed"] == 1 and failed[-1]["reboot_needed"] == 0
+        assert "could not be opened" in failed[0]["detail"]
+    finally:
+        b.close()

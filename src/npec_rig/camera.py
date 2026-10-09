@@ -667,6 +667,10 @@ class CameraManager:
         self._commanded_lens_position: float | None = None
         self._drive_lock = Lock()
         self._peaking_enabled = False
+        # A camera event row (health.py) records the focus lock at the time.
+        from npec_rig import health
+
+        health.set_lens_lock_provider(lambda: self._locked_lens_position)
         # The camera program (camera_process.py) calls this back after it restarted the camera.
         set_listener = getattr(backend, "set_restart_listener", None)
         if set_listener is not None:

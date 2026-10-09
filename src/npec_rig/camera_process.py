@@ -24,6 +24,7 @@ import pickle
 import queue
 import signal
 import threading
+import time
 from collections.abc import Callable
 from concurrent.futures import Future
 from pathlib import Path
@@ -108,6 +109,19 @@ def _start_time(pid: int) -> str | None:
     return stat.rsplit(")", 1)[1].split()[19]
 
 
+def _camera_info(name: str) -> str:
+    """The camera's model and libcamera ID, for the camera_events table (health.py)."""
+    if name != "picamera2":
+        return name
+    try:
+        from picamera2 import Picamera2
+
+        info = Picamera2.global_camera_info()[0]
+        return f"{info.get('Model')} {info.get('Id')}"
+    except Exception as exc:
+        return f"unknown ({type(exc).__name__})"
+
+
 def _make_backend(name: str, kwargs: dict) -> CameraBackend:
     from npec_rig.camera import Picamera2Backend, SyntheticBackend
 
@@ -152,7 +166,7 @@ def _child_main(conn, parent_pid: int, name: str, kwargs: dict, pid_file: str | 
     except BaseException as exc:
         conn.send(("open_failed", f"{type(exc).__name__}: {exc}"))
         return
-    conn.send(("ready", None))
+    conn.send(("ready", _camera_info(name)))
     while True:
         try:
             req_id, method, args = conn.recv()
@@ -281,6 +295,8 @@ class ProcessBackend(CameraBackend):
         self._closed = False
         self._restart_listener: Callable[[], None] | None = None
         self._retry_timer: threading.Timer | None = None
+        self._camera: str | None = None  # model and ID, reported by the camera program
+        self._down_since: float | None = None  # monotonic time of the fault or first failed open
         self._launcher = _Launcher()
         sweep_frame_files()
         end_leftover_program(self._pid_file)
@@ -325,6 +341,15 @@ class ProcessBackend(CameraBackend):
             with self._state_lock:
                 self._proc, self._conn, self._ready = proc, parent_conn, True
             self._failed_opens = 0
+            self._camera = detail
+            if self._down_since is not None:
+                health.record_camera_event(
+                    health.EVENT_RESTARTED,
+                    camera=self._camera,
+                    program_pid=proc.pid,
+                    recovery_s=round(time.monotonic() - self._down_since, 2),
+                )
+                self._down_since = None
             health.record_camera_state(health.CAMERA_OK)
             logger.info("camera program %d ready", proc.pid)
             if self._constructed and self._restart_listener is not None:
@@ -334,20 +359,28 @@ class ProcessBackend(CameraBackend):
             return "ready"
         parent_conn.close()
         if not self._end(proc):
-            self._report_unkillable()
+            self._report_unkillable(proc.pid)
             return "failed"
         if kind == "missing" and not self._constructed:
             self._unavailable = f"No camera software installed: {detail}"
             return "missing"
         self._failed_opens += 1
+        if self._down_since is None:
+            self._down_since = time.monotonic()
         self._unavailable = (
             f"The camera could not be opened ({detail}). The rig tries again every "
             f"{self._retry_s:.0f} s. If this stays, the Pi needs a restart."
         )
+        reboot_needed = self._failed_opens >= FAILED_OPENS_BEFORE_REBOOT
+        health.record_camera_event(
+            health.EVENT_OPEN_FAILED,
+            detail=detail,
+            camera=self._camera,
+            program_pid=proc.pid,
+            reboot_needed=reboot_needed,
+        )
         health.record_camera_state(
-            health.CAMERA_FAILED_TO_REOPEN,
-            self._unavailable,
-            reboot_needed=self._failed_opens >= FAILED_OPENS_BEFORE_REBOOT,
+            health.CAMERA_FAILED_TO_REOPEN, self._unavailable, reboot_needed=reboot_needed
         )
         self._schedule(self._start)
         return "failed"
@@ -364,15 +397,22 @@ class ProcessBackend(CameraBackend):
         if conn is not None:
             conn.close()
         if proc is not None and not self._end(proc):
-            self._report_unkillable()
+            self._report_unkillable(proc.pid)
             self._schedule(lambda: self._end_and_restart(proc, None))
             return "failed"
         return self._start()
 
-    def _report_unkillable(self) -> None:
+    def _report_unkillable(self, pid: int) -> None:
         self._unavailable = (
             "The camera stopped responding and its program could not be ended, so the camera "
             "cannot be reopened. The Pi needs a restart."
+        )
+        health.record_camera_event(
+            health.EVENT_CANNOT_END,
+            detail=self._unavailable,
+            camera=self._camera,
+            program_pid=pid,
+            reboot_needed=True,
         )
         health.record_camera_state(
             health.CAMERA_FAILED_TO_REOPEN, self._unavailable, reboot_needed=True
@@ -388,14 +428,22 @@ class ProcessBackend(CameraBackend):
 
     # Runs on the caller's thread.
 
-    def _fault(self, reason: str) -> CameraStuckError:
+    def _fault(self, reason: str, call: str, limit_s: float | None = None) -> CameraStuckError:
         with self._state_lock:
             proc, conn = self._proc, self._conn
             self._proc, self._conn, self._ready = None, None, False
+        self._down_since = time.monotonic()
         self._unavailable = (
             "The camera is restarting after it stopped responding. Try again in a minute."
         )
-        health.record_camera_fault(reason)
+        health.record_camera_event(
+            health.EVENT_FAULT,
+            call=call,
+            limit_s=limit_s,
+            detail=reason,
+            camera=self._camera,
+            program_pid=proc.pid if proc is not None else None,
+        )
         health.record_camera_state(
             health.CAMERA_RESTARTING, f"The camera stopped responding ({reason}); restarting it."
         )
@@ -416,12 +464,12 @@ class ProcessBackend(CameraBackend):
             try:
                 conn.send((req_id, method, args))
                 if not conn.poll(limit):
-                    raise self._fault(f"{method} did not finish within {limit:.0f} s")
+                    raise self._fault(f"{method} did not finish within {limit:.0f} s", method, limit)
                 got_id, kind, payload = conn.recv()
             except (EOFError, OSError) as exc:
-                raise self._fault(f"the camera program ended during {method}") from exc
+                raise self._fault(f"the camera program ended during {method}", method) from exc
             if got_id != req_id:
-                raise self._fault(f"{method} got the answer to another call")
+                raise self._fault(f"{method} got the answer to another call", method)
         if kind == "err":
             raise payload
         return _decode(payload)

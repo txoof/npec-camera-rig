@@ -1869,7 +1869,9 @@ def test_a_round_after_a_camera_fault_is_held_back_until_overridden(tray_scene: 
     client = TestClient(app)
     session = _calibrate_and_start(client)
     tray_scene["shift"] = (200, -150)
-    health.record_camera_fault("capture_full_res did not finish within 30 s")
+    health.record_camera_event(
+        health.EVENT_FAULT, call="capture_full_res", limit_s=30.0, detail="test fault"
+    )
     held = client.post(f"/validation/sessions/{session['id']}/rounds").json()["rounds"][0]
     assert not held["counted"] and held["overridable"]
     assert "camera-fault window" in held["reason"]

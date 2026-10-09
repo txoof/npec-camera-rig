@@ -1,0 +1,148 @@
+# The rig's database
+
+The rig keeps one SQLite database, `/var/lib/npec-rig/rig.db` (a different path can be set with
+the `NPEC_RIG_DB_PATH` environment variable). Photographs are not in it. They are JPEG files with a
+JSON record beside each one, under `/var/lib/npec-rig/rig/<day>/`. The database holds settings,
+camera events and indexes of work done on photographs.
+
+Open it read-only to look around, so a running rig is never disturbed:
+
+```
+sqlite3 -readonly /var/lib/npec-rig/rig.db
+```
+
+## Times are UTC
+
+Every time in the database is UTC, with its offset written out (`+00:00`). The chamber's local
+time is UTC+2: 10:04 in the chamber is `08:04` in the database. Convert only for display, never
+before storing.
+
+In `camera_events`, times are written in one fixed format, always with microseconds:
+`2026-10-09T08:04:44.736204+00:00`. Text in this format sorts in time order, so
+`ORDER BY time_utc` and `time_utc >= '...'` work directly. The older tables use Python's
+`isoformat()`, which leaves out the microseconds when they are zero; those are UTC too but
+should be compared as times, not as text.
+
+## Tables
+
+| Table | What it holds | Written by |
+|---|---|---|
+| `camera_events` | One row per camera fault, restart, failed open, or program that cannot be ended | `health.py` |
+| `camera_settings` | The last value of each camera setting, the focus lock, and a few small records | `settings.py` |
+| `derived_image` | Index of images made from photographs (validation maps, problem frames) | `images.py` |
+| `capture_analysis` | Results worked out once per photograph, for example its detected tags | `images.py` |
+
+### `camera_events`
+
+The history of the camera's health (#51). The camera runs in its own program, and every camera call
+has a time limit. When a call does not finish in time, the program is ended and a new one started.
+Each step is a row. Rows are never changed or deleted by the rig.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | integer | Row number, increasing. Newest row has the highest `id` |
+| `time_utc` | text | When it happened, UTC, fixed format (see above) |
+| `boot_id` | text | Linux's ID for this boot of the Pi. A new value means the Pi rebooted in between |
+| `uptime_s` | real | Seconds since the Pi booted, from the kernel's own clock (correct even if the wall clock is wrong after a power cut) |
+| `kind` | text | `fault`, `restarted`, `open_failed` or `cannot_end` (below) |
+| `call` | text | The camera call that did not finish, for example `capture_full_res`. `fault` rows only |
+| `limit_s` | real | The time limit, in seconds, that ran out. Empty if the camera program ended by itself during the call |
+| `detail` | text | What happened, in words |
+| `rig` | text | The Pi's hostname |
+| `camera` | text | Camera model and libcamera ID, as the camera reported them, for example `arducam_64mp /base/axi/...`. Shows a camera swap in the data. The serial number (SN001) is not reported by the camera |
+| `app_version` | text | Git commit of the app that was running |
+| `program_pid` | integer | Process ID of the camera program the row is about, to match against the server log |
+| `lens_locked` | real | Focus lock at the time (lens position in dioptres). Empty if focus was not locked |
+| `recovery_s` | real | `restarted` rows: seconds from the fault, or the first failed open, until the new camera was ready |
+| `reboot_needed` | integer | 1 if the rig reported at that moment that the Pi needs a restart, else 0. The rig never restarts the Pi itself |
+| `experiment_id` | text | The experiment running at the time. Empty until experiments exist (#55) |
+| `purpose` | text | The photo that was being taken when the fault happened: `capture`, `validation`, `calibration` or `tripwire`. Empty if the fault was not during a photo (for example a live preview frame) |
+
+Kinds of row:
+
+- **`fault`**: a camera call did not finish within its time limit, or the camera program ended
+  during a call. The program is ended and a new one started. Photos taken in the next 60 minutes
+  (the camera-fault window, a decision, see `docs/metrology-log.md`) are flagged as not covered
+  by the validation bands.
+- **`restarted`**: a new camera program is ready after a fault or a failed open, with
+  `recovery_s` saying how long that took.
+- **`open_failed`**: a camera program could not open the camera. The rig tries again every
+  60 seconds. From the third failure in a row, `reboot_needed` is 1.
+- **`cannot_end`**: a stuck camera program would not end, which happens when it is stuck inside the
+  camera driver. The camera cannot be reopened until the Pi restarts; `reboot_needed` is 1.
+
+Time limits (decisions, see `docs/metrology-log.md`): 30 s for a full-resolution photo, 20 s to
+reopen the camera, 90 s for autofocus, 10 s for every other call, 30 s to open the camera.
+
+What the table does not see: a camera fault the camera software recovers from by itself, without a
+call hanging.
+
+Example questions:
+
+```sql
+-- Every fault in the last 7 days, newest first
+SELECT time_utc, call, limit_s, purpose, detail FROM camera_events
+WHERE kind = 'fault' AND time_utc >= strftime('%Y-%m-%dT%H:%M:%f+00:00', 'now', '-7 days')
+ORDER BY time_utc DESC;
+
+-- Which camera calls hang most
+SELECT call, COUNT(*) AS faults FROM camera_events WHERE kind = 'fault'
+GROUP BY call ORDER BY faults DESC;
+
+-- How long recovery takes
+SELECT MIN(recovery_s), AVG(recovery_s), MAX(recovery_s) FROM camera_events
+WHERE kind = 'restarted';
+
+-- Photos lost to faults, by purpose
+SELECT purpose, COUNT(*) FROM camera_events
+WHERE kind = 'fault' AND purpose IS NOT NULL GROUP BY purpose;
+```
+
+### `camera_settings`
+
+| Column | Type | Meaning |
+|---|---|---|
+| `name` | text, primary key | The setting's name |
+| `value` | text | Its value, as JSON |
+
+Holds the last value of each camera control (`ExposureTime`, `AnalogueGain`, `AeEnable`,
+`AwbEnable`, `LensPosition`), the focus lock (`FocusConfirmed`, `FocusConfirmedLensPosition`), and
+`LastTick` (the last time the app was known to be running, for the cold-start check). One row per
+name; a new value replaces the old one, so there is no history here. Times inside values are UTC.
+
+### `derived_image`
+
+Index of images made once from photographs and kept in `/var/lib/npec-rig/derived/` (PLAN.md,
+*Images*). Disposable: a missing image is made again.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `key` | text, primary key | Identifies one derived image |
+| `recipe` | text | How it was made (which kind of image) |
+| `version` | integer | Recipe version; a new version makes the image again |
+| `source` | text | The photograph it was made from |
+| `path` | text | File on disk |
+| `media_type` | text | For example `image/jpeg` |
+| `bytes` | integer | File size |
+| `created_at` | text | When it was made, UTC (`isoformat()`) |
+| `last_used` | text | When it was last shown, UTC (`isoformat()`) |
+
+### `capture_analysis`
+
+Results worked out once per photograph, so they are not worked out again on every page view.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `source` | text | The photograph |
+| `kind` | text | What was worked out, for example `tags` |
+| `version` | integer | Version of the method; a new version works it out again |
+| `value` | text | The result, as JSON |
+| `created_at` | text | When, UTC (`isoformat()`) |
+
+Primary key: `source` and `kind` together.
+
+## Planned
+
+The database schema for photographs, their provenance, calibration and validation is #54 (M3).
+Until then, a photograph's checks and flags (lens check, cold start, camera fault) are in its JSON
+record beside the JPEG, not in the database.

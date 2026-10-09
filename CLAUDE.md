@@ -284,6 +284,7 @@ switch labels, draft state or reviews back and forth.
 | `docs/metrology-log.md` | Log of every measurement, test method and result, with sources: the evidence behind `measurement-trust.md`. See *Write up every measurement* |
 | `docs/operator-guide.md` | For the scientists running experiments: focus, lock, calibrate, validate, and what the uncertainty column means |
 | `/var/lib/npec-rig/` | Runtime data: `rig/` photos (every still, written by `captures.take_photo`), masks, `rig.db`. The old `captures/` and `calibration/frames/` folders are no longer read |
+| `docs/database.md` | Every table in `rig.db`, its columns, and the rule that all times are UTC |
 | `/var/lib/npec-rig/derived/` | Derived images (validation maps, problem frames; later thumbnails), made once by `images.py`, disposable. Every large image goes through `images.py` (PLAN.md, *Images*) |
 | `/etc/npec-rig/config.yaml` | Per-rig configuration. Planned (PLAN.md's Technical decisions table), not yet implemented — current settings live in env vars and SQLite only |
 
