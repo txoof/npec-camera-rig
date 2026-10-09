@@ -96,6 +96,17 @@ def test_a_database_failure_does_not_lose_the_photo(monkeypatch: pytest.MonkeyPa
 
 
 def test_a_photo_records_the_calibration_active_when_it_was_taken() -> None:
+    _calibrate()
+    _array, record = captures.take_photo("capture")
+    del _array
+    path = f"{record['date']}/{record['filename'].removesuffix('.jpg')}"
+    assert database.captures_by_path([path])[path]["calibration"] == _STEM
+
+
+_STEM = "20261009T073108292325"
+
+
+def _calibrate(lens_position: float = 6.04) -> None:
     from npec_rig.calibration import CalibrationArtifact, ScaleField
     from npec_rig.calibration_store import save_calibration
 
@@ -103,10 +114,73 @@ def test_a_photo_records_the_calibration_active_when_it_was_taken() -> None:
         CalibrationArtifact(
             created_at="2026-10-09T07:31:08+00:00",
             scale_field=ScaleField(_coeffs=(1.0, 0.0, 0.0), _mean_px_per_mm=4.0, residual_std_pct=1.0),
-            frame_stem="20261009T073108292325",
+            frame_stem=_STEM,
+            lens_position=lens_position,
         )
     )
-    _array, record = captures.take_photo("capture")
+
+
+def _session(session_id: str, completed_at: str | None, calibration_stem: str = _STEM) -> None:
+    from npec_rig import validation_store
+
+    validation_store.save_session(
+        {"id": session_id, "calibration_stem": calibration_stem, "completed_at": completed_at}
+    )
+
+
+def _locked(at: float | None) -> dict:
+    return {"locked": at is not None, "lens_position": at}
+
+
+def test_no_calibration_is_not_covered() -> None:
+    check = captures.validation_check(_locked(6.04))
+    assert check == {"session": None, "flagged": True, "reason": "no calibration"}
+
+
+def test_unlocked_focus_is_left_to_the_lens_check() -> None:
+    _calibrate()
+    check = captures.validation_check(_locked(None))
+    assert check == {"session": None, "flagged": False, "reason": None}
+
+
+def test_a_lock_away_from_the_calibration_is_not_covered() -> None:
+    _calibrate(6.04)
+    _session("20261009T080000000000", "2026-10-09T09:00:00+00:00")
+    check = captures.validation_check(_locked(6.50))
+    assert check["session"] is None
+    assert check["reason"].startswith("focus is locked at 6.50, the calibration was taken at 6.04")
+
+
+def test_only_a_finished_validation_of_this_calibration_applies() -> None:
+    _calibrate()
+    _session("20261009T080000000000", None)  # still running
+    _session("20261008T080000000000", "2026-10-08T09:00:00+00:00", calibration_stem="older")
+    check = captures.validation_check(_locked(6.04))
+    assert check["session"] is None
+    assert check["flagged"] is True
+
+
+def test_the_latest_finished_validation_applies() -> None:
+    _calibrate()
+    _session("20261009T080000000000", "2026-10-09T09:00:00+00:00")
+    _session("20261009T100000000000", "2026-10-09T11:00:00+00:00")
+    check = captures.validation_check(_locked(6.04))
+    assert check == {"session": "20261009T100000000000", "flagged": False, "reason": None}
+
+
+def test_the_validation_is_stored_for_a_capture_but_not_judged_for_a_validation_round(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _calibrate()
+    _session("20261009T100000000000", "2026-10-09T11:00:00+00:00")
+    monkeypatch.setattr(captures.CameraManager.instance(), "focus_status", lambda: _locked(6.04))
+    _array, capture = captures.take_photo("capture")
+    _array, round_ = captures.take_photo("validation", {"validation_session": "s1"})
     del _array
-    path = f"{record['date']}/{record['filename'].removesuffix('.jpg')}"
-    assert database.captures_by_path([path])[path]["calibration"] == "20261009T073108292325"
+
+    assert capture["validation"]["session"] == "20261009T100000000000"
+    assert "validation" not in round_
+    paths = [f"{r['date']}/{r['filename'].removesuffix('.jpg')}" for r in (capture, round_)]
+    rows = database.captures_by_path(paths)
+    assert rows[paths[0]]["validation"] == "20261009T100000000000"
+    assert rows[paths[1]]["validation"] is None

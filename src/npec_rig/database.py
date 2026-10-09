@@ -36,7 +36,7 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
                 purpose TEXT NOT NULL,           -- capture, validation, calibration, tripwire
                 experiment_id INTEGER,           -- NULL until experiments exist (#55)
                 calibration TEXT,                -- stem of the calibration active when it was taken
-                validation TEXT,                 -- session whose bands apply; NULL until decided
+                validation TEXT,                 -- session whose bands apply (captures.validation_check)
                 lens_position REAL,              -- as the camera reported it
                 focus_locked_at REAL,            -- the focus lock, NULL when not locked
                 exposure_us INTEGER,
@@ -112,6 +112,7 @@ def record_capture(
     path: str,
     purpose: str,
     calibration: str | None,
+    validation: str | None,
     lens_position: float | None,
     focus_locked_at: float | None,
     exposure_us: int | None,
@@ -121,14 +122,15 @@ def record_capture(
     """Add one photo's row, return its id."""
     with _connect() as conn:
         cursor = conn.execute(
-            "INSERT INTO capture (taken_at, path, purpose, calibration, lens_position,"
-            " focus_locked_at, exposure_us, analogue_gain, flags)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO capture (taken_at, path, purpose, calibration, validation,"
+            " lens_position, focus_locked_at, exposure_us, analogue_gain, flags)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 taken_at,
                 path,
                 purpose,
                 calibration,
+                validation,
                 lens_position,
                 focus_locked_at,
                 exposure_us,

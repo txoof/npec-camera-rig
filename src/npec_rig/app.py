@@ -80,6 +80,7 @@ from npec_rig.certainty_map import (
     slot_layout_to_dict,
 )
 from npec_rig.captures import (
+    CALIBRATION_LENS_TOLERANCE,
     list_recent_captures,
     photos_root,
     record_app_start,
@@ -1386,9 +1387,6 @@ def tripwire_check() -> dict:
 # One round at a time across the whole app: a round is a full-res capture plus a detection pass,
 # and a double-clicked Capture button must not append two rounds from one layout.
 _validation_lock = Lock()
-# Focus-lock position must match the calibration's to this many dioptres (the lens reports
-# positions to 0.01; a real refocus moves it by far more).
-_LENS_POSITION_TOLERANCE = 0.005
 
 
 def _current_calibration_stem() -> str | None:
@@ -1404,7 +1402,7 @@ def _focus_problem(focus: dict, artifact: CalibrationArtifact) -> str | None:
     locked_at = focus.get("lens_position")
     if (
         artifact.lens_position is not None
-        and abs(locked_at - artifact.lens_position) > _LENS_POSITION_TOLERANCE
+        and abs(locked_at - artifact.lens_position) > CALIBRATION_LENS_TOLERANCE
     ):
         return (
             f"focus is locked at {locked_at:.2f}, the calibration was taken at "
