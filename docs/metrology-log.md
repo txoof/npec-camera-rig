@@ -9,7 +9,8 @@ calibration and bands are the new camera's from 2026-10-08. Section 13 says whic
 been repeated on SN001. Kept current as findings come in (CLAUDE.md, *Write up every
 measurement*). Numbers marked **decision** are settings chosen by the project, not measurements.
 Section 11 lists inconsistencies between project files that still need checking. Section 9
-holds the M2 physical acceptance tests, run 2026-10-05.
+holds the M2 physical acceptance tests, run 2026-10-05. Section 14 holds their repeat on SN001
+(method written 2026-10-09, not yet run).
 
 This document states every number the rig relies on to report plant canopy area and how far that
 area can be trusted: what was measured, how, how often, the result, and what it does and does
@@ -1425,3 +1426,122 @@ This table says, for each result, whether it has been repeated on SN001.
 Removing packing foam from SN001 changed its readings by about 0.8 points (section 8.2), so the
 SN001 results taken with the foam on (noise, restarts, the step 2 validation) describe the camera
 before that change. The current calibration and bands were made after it.
+
+## 14. M2 acceptance tests on the current camera SN001 (method written 2026-10-09, before any test runs)
+
+**Status:** method agreed with Aaron, 2026-10-09. No test in this section has run yet.
+
+**Why.** The section 9 tests ran on the old camera SN000. Section 13 lists them as not repeated on
+SN001, so M2 cannot close on them. PLAN.md's M2 *You verify* also asks for a repeat validation on
+another day (added 2026-10-09). This section repeats each section 9 method unchanged, so each
+result compares directly with the old camera's.
+
+**Order.** Each test is run before the tests that disturb what it measures:
+
+| Step | Test | Disturbs |
+|---|---|---|
+| 1 | 14.1 Repeat validation | Nothing |
+| 2 | 14.2 Tape measure | Nothing |
+| 3 | 14.3 Two calibrations with a cold start between | The whole rig (switched off and on) |
+| 4 | 14.4 Two heights | The lens, the sheets |
+| 5 | 14.5 Roll and knock | The camera |
+| 6 | 14.6 Closing calibration and validation | Leaves the rig with current bands |
+
+**Common conditions.** Camera SN001. Lens wherever Aaron focuses it; the value is recorded, never
+chosen by the rig. Same printed sheets (30.0 mm tags), trays and table; chamber door closed for
+every photograph; lights on. No step starts within 60 minutes of the Pi being switched on (cold
+start, section 8). Camera faults are listed from `camera_events` in `rig.db` for the whole test
+period. Raw data and scripts: `/home/pi/scratch/m2-acceptance-2026-10/`.
+
+### 14.1 Repeat validation
+
+**Question.** A slot's band is measured in one validation session. Does it still describe the
+same calibration on another day?
+
+**Method.** Two complete validation sessions (section 6 rules: 3 counted rounds, at least 20
+minutes first to last, at least 10 minutes apart) of the same calibration, on different days.
+Between them: no recalibration, no lens move, no cold start, no camera fault. The trays stay in
+their slots; the small nudges from moving the sheets are part of every validation and so part of
+this test. The first session's bands are the reference; the second session's tag errors are
+checked against them.
+
+**Which first session (decision, Aaron 2026-10-09).** A fresh validation on a day with no camera
+fault, repeated on a later day. Not the newest complete session, `20261009T073553378279`
+(calibration `20261009T073108292325`, lens 6.04, rounds at 07:37, 07:48 and 07:58 UTC, 21.2
+minutes, 78% to 83% of tags moved, 85 to 90 tags per slot): that calibration and validation were
+run to check interface changes, with nothing physical changed (Aaron), and two camera faults
+followed the same day (`capture_full_res` did not finish within 30 s, 08:29 and 09:25 UTC, each
+followed by an automatic restart, lens 6.04).
+
+**Pass rule (decision, Aaron 2026-10-09).** At least 90% of all the second session's tags fall
+inside their slot's first-session band, and no slot below 75%. Reported in full whatever the
+outcome: each slot's fraction inside, and each slot's change in band and median. If it fails, the
+bands drift between days by more than they show, and how to include that drift becomes its own
+task. Weak point: the basis below is from the old camera, and the conditions between some of its
+sessions were not recorded. Why 90% and not 95%: each band is itself estimated from about 90 tags,
+so a new session is expected to fall somewhat short of 95% even when the band is right. Basis, measured on the old camera SN000 (pairs of
+consecutive complete sessions of the same calibration, read from the stored session files; the
+conditions between sessions are not all recorded):
+
+| First session | Second session | Whole table inside | Lowest slot |
+|---|---|---|---|
+| 2026-09-30 10:02 | 10:11 | 94.1% | 89% |
+| 2026-09-30 10:11 | 11:35 | 94.1% | 78% |
+| 2026-09-30 11:35 | 14:21 | 84.4% | 56% |
+| 2026-09-30 14:21 | 2026-10-01 08:11 | 95.2% | 89% |
+| 2026-10-01 08:11 | 08:14 | 86.6% | 59% |
+| 2026-10-01 08:14 | 08:20 | 94.0% | 83% |
+| 2026-10-01 08:20 | 08:54 | 95.5% | 87% |
+| 2026-10-05 14:13 | 2026-10-07 07:04 (cold start, fault and lens tests between) | 89.4% | 76% |
+
+The 2026-09-30 and 10-01 sessions predate the 20-minute rule. Under this rule 5 of the 8
+pass. A rule per slot (at least 90% in at least 11 of 12 slots) would fail 6 of the 8, including
+two sessions 3 and 6 minutes apart, so it is not proposed.
+
+### 14.2 Tape measure
+
+Section 9.2 method A unchanged: steel tape from the outer edge of a tag on the South 1 sheet to the
+outer edge of a tag on the South 6 sheet, two tag pairs, against the app's distance along the same
+line. **Pass:** the app agrees with the tape within 2% (PLAN.md). Optional, to close a gap in 9.2:
+the same along the North row, and one span front to back.
+
+### 14.3 Two calibrations with a cold start between
+
+**Question.** Two independent calibrations of the same unmoved table: how far apart are their
+scale fields, compared with the validation bands? And, in the same hour, how do readings change
+after a cold start on SN001?
+
+**Method (decision, Aaron 2026-10-09: cold start, as PLAN.md asks, run while Aaron is at the
+chamber, weekdays 8:30 to 16:30 local).** The sheets lie on the trays and are not touched from
+calibration A to calibration B; the chamber stays closed.
+
+1. Calibration A, with "Set as current" off.
+2. Reference photograph (section 8.1, step 2).
+3. Pi shut down and left off about 30 minutes to cool (as run 3, section 8.1), then switched on.
+4. Settling-hour photographs at +0, +15, +30 and +60 minutes after the app opens the camera
+   (section 8.1, steps 4 and 5), compared with the reference. This repeats the power-cut test on
+   SN001 and measures the 60-minute cold-start window, which is a placeholder until then
+   (section 8, *Cold-start window*).
+5. Calibration B, at least 60 minutes after power-on, with "Set as current" off.
+
+**Pass (calibrations):** at each of the 12 slot centres, the difference between the two fields'
+scales, doubled to give area (area error is about twice length error), is smaller than that slot's
+band from 14.1. **Settling hour:** no pass or fail; the result is compared with the old camera's
+run 3 (section 8 table), and says when the readings return to within the control range.
+
+### 14.4 Two heights
+
+Section 9.1 unchanged: one calibration with the sheets on the table surface, one on the trays at
+experiment height, lens refocused by Aaron for each. **Pass:** the scale-field shape (each corner's
+scale divided by the centre scale) differs between the two by less than both runs' residuals.
+
+### 14.5 Roll and knock
+
+Section 9.3 unchanged: tripwire baseline, a knock on the camera mount, then the camera rolled by
+hand, measured against the table rails. PLAN.md asks for about 5 deg (section 9.3 reached about
+3). **Pass:** the app's roll agrees with the rails within 0.2 deg, and the knock gives FAIL.
+
+### 14.6 Closing calibration and validation
+
+After 14.5 the camera has moved. A new calibration at experiment height, made current, and a
+complete validation give the bands the rig then runs with. Not a pass or fail test.
