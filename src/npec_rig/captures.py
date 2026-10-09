@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-from npec_rig import health
+from npec_rig import database, health
 from npec_rig.camera import CameraManager, array_to_jpeg, lens_check
 from npec_rig.settings import load_settings, save_setting
 
@@ -20,6 +20,14 @@ logger = logging.getLogger(__name__)
 # less than this are flagged as not covered by the validation bands. Measured 2026-10-06: a cold
 # start recovered over about an hour. Stays a placeholder until a cold-start run on SN001.
 COLD_START_WINDOW_S = 3600.0
+
+# Focus-lock position must match the calibration's to this many dioptres (the lens reports
+# positions to 0.01; a real refocus moves it by far more).
+CALIBRATION_LENS_TOLERANCE = 0.005
+
+# Purposes judged against a validation's bands. Validation and calibration photos make the bands,
+# and a tripwire check only finds tags, so none of them is measured against the bands.
+_MEASURED_PURPOSES = ("capture",)
 
 _app_start: dict | None = None
 
@@ -176,6 +184,8 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         "uptime": uptime_record(),
         "camera_fault": health.camera_fault_check(),
     }
+    if purpose in _MEASURED_PURPOSES:
+        checks["validation"] = validation_check(focus)
     sidecar = {
         "purpose": purpose,
         "lens_position": manager.get_lens_position(),
@@ -187,7 +197,82 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         "flags": [check["reason"] for check in checks.values() if check["flagged"]],
         **(extra or {}),
     }
-    return array, _save_photo(array, sidecar)
+    record = _save_photo(array, sidecar)
+    record["capture_id"] = _record_in_database(record)
+    return array, record
+
+
+def _active_calibration():
+    # Imported here: calibration_store imports this module (photos_root).
+    from npec_rig.calibration_store import load_current_calibration
+
+    return load_current_calibration()
+
+
+def _active_calibration_stem() -> str | None:
+    artifact = _active_calibration()
+    return artifact.frame_stem if artifact is not None else None
+
+
+def validation_check(focus: dict) -> dict:
+    """Which validation's bands apply to a photo taken now under `focus`, for its sidecar.
+
+    The most recent finished (all rounds counted) validation of the active calibration, and only
+    when the focus lock matches the calibration's lens position (Aaron, 2026-10-09). Otherwise no
+    validation applies and the photo is flagged as not covered. An unlocked focus is not flagged
+    again here: the lens check already says so."""
+    # Imported here: validation_store imports calibration_store, which imports this module.
+    from npec_rig import validation_store
+
+    artifact = _active_calibration()
+    session_id = None
+    locked_at = focus["lens_position"]
+    if artifact is None:
+        reason = "no calibration"
+    elif locked_at is None:
+        reason = None
+    elif (
+        artifact.lens_position is not None
+        and abs(locked_at - artifact.lens_position) > CALIBRATION_LENS_TOLERANCE
+    ):
+        reason = (
+            f"focus is locked at {locked_at:.2f}, the calibration was taken at "
+            f"{artifact.lens_position:.2f}"
+        )
+    else:
+        finished = [
+            s
+            for s in validation_store.list_sessions()
+            if s.get("calibration_stem") == artifact.frame_stem and s.get("completed_at")
+        ]
+        if finished:
+            session_id = max(finished, key=lambda s: s["completed_at"])["id"]
+            reason = None
+        else:
+            reason = "no finished validation of this calibration"
+    return {"session": session_id, "flagged": reason is not None, "reason": reason}
+
+
+def _record_in_database(record: dict) -> int | None:
+    """Add the photo's `capture` row, return its id. A failure is logged, never raised: the
+    photo and its sidecar are already saved, and the sidecar is the full record."""
+    sensor = record["sensor_metadata"]
+    try:
+        return database.record_capture(
+            taken_at=record["timestamp"],
+            path=f"{record['date']}/{Path(record['filename']).stem}",
+            purpose=record["purpose"],
+            calibration=_active_calibration_stem(),
+            validation=record.get("validation", {}).get("session"),
+            lens_position=sensor.get("LensPosition"),
+            focus_locked_at=record["focus"]["lens_position"],
+            exposure_us=sensor.get("ExposureTime"),
+            analogue_gain=sensor.get("AnalogueGain"),
+            flags=record["flags"],
+        )
+    except (sqlite3.Error, RuntimeError):
+        logger.exception("Could not add the photo %s to the database", record["filename"])
+        return None
 
 
 def _save_photo(image: np.ndarray, metadata: dict) -> dict:
@@ -244,5 +329,18 @@ def list_recent_captures(limit: int = 12) -> list[dict]:
                 }
             )
             if len(entries) >= limit:
-                return entries
+                return _with_database_rows(entries)
+    return _with_database_rows(entries)
+
+
+def _with_database_rows(entries: list[dict]) -> list[dict]:
+    """Add each photo's `capture` row as `record` (None for photos from before the database)."""
+    paths = [f"{e['date']}/{Path(e['filename']).stem}" for e in entries]
+    try:
+        rows = database.captures_by_path(paths)
+    except (sqlite3.Error, RuntimeError):
+        logger.exception("Could not read the capture rows for the gallery")
+        rows = {}
+    for entry, path in zip(entries, paths):
+        entry["record"] = rows.get(path)
     return entries

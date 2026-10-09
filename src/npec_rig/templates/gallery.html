@@ -39,11 +39,27 @@
         + `time since last record at app start ${gap}`;
     }
 
+    // A calibration or validation ID is its UTC start, YYYYMMDDTHHMMSSffffff.
+    function stemText(stem) {
+      if (!stem) return "none";
+      return `${stem.slice(0, 4)}-${stem.slice(4, 6)}-${stem.slice(6, 8)} `
+        + `${stem.slice(9, 11)}:${stem.slice(11, 13)}:${stem.slice(13, 15)} UTC`;
+    }
+
+    function recordText(record) {
+      if (!record) return "No database record (taken before the database existed)";
+      return `Database record ${record.id}: ${record.purpose}, `
+        + `experiment ${record.experiment_id ?? "none"}, `
+        + `calibration ${stemText(record.calibration)}, `
+        + `validation ${stemText(record.validation)}`;
+    }
+
     function renderGallery(items) {
       gallery.innerHTML = items.map((item) => `
         <div class="gallery-item">
           <img src="${item.url}" alt="capture ${item.filename}">
           <div>${item.timestamp ? item.timestamp.replace("T", " ").slice(0, 19) : item.filename}</div>
+          <div>${recordText(item.record)}</div>
           ${item.uptime ? `<div>${uptimeText(item.uptime)}</div>` : ""}
           ${item.flags && item.flags.length
             ? `<div class="gallery-flag">Not covered by the validation bands:
