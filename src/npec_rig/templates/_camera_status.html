@@ -7,7 +7,14 @@
 (function () {
   const box = document.getElementById("camera-status");
   const text = box.querySelector(".camera-status-text");
-  const time = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  // Each time in the browser's own zone, named, and in UTC, the zone the rig stores (health.py).
+  const time = (iso) => {
+    // Microseconds trimmed to milliseconds: not every browser parses more than 3 digits.
+    const d = new Date(iso.replace(/(\.\d{3})\d+/, "$1"));
+    const local = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
+    const utc = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+    return local + " (" + utc + " UTC)";
+  };
 
   function show(state, message) {
     box.dataset.cameraState = state;
@@ -25,7 +32,7 @@
       return;
     }
     const until = h.last_fault
-      ? time(new Date(Date.parse(h.last_fault.time_utc) + h.camera_fault_window_s * 1000).toISOString())
+      ? time(new Date(new Date(h.last_fault.time_utc.replace(/(\.\d{3})\d+/, "$1")).getTime() + h.camera_fault_window_s * 1000).toISOString())
       : null;
     if (h.state === "restarting") {
       show("restarting", "Camera: it stopped responding and is being restarted.");
