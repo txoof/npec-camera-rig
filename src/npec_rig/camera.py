@@ -385,6 +385,11 @@ class Picamera2Backend(CameraBackend):
         if self._lens_ignores_writes:
             self.reset()
 
+    def close(self) -> None:
+        """Stop and close the camera (camera_process.py, when the app stops cleanly)."""
+        self._picam2.stop()
+        self._picam2.close()
+
     def reset(self) -> None:
         """Close and reopen the camera in the same process: the lens control restarts with it, and
         the camera opens at the last lens position this app set. About 1 s; the app, its settings
@@ -578,6 +583,24 @@ def crop_roi(frame: np.ndarray, x: int, y: int, size: int) -> np.ndarray:
     return frame[y0 : y0 + size, x0 : x0 + size]
 
 
+class UnavailableBackend(CameraBackend):
+    """Stands in when the camera program could not even be started: every call says so at once
+    (503 in the browser) and the state is in health.py, instead of an error page on every route."""
+
+    def __init__(self, reason: str) -> None:
+        from npec_rig import health
+
+        self._reason = f"{reason} Restart the app; if this stays, the Pi needs a restart."
+        health.record_camera_state(health.CAMERA_FAILED_TO_REOPEN, self._reason)
+
+    def _fail(self, *_args: object) -> None:
+        raise CameraUnavailableError(self._reason)
+
+    capture_array = capture_preview_array = capture_full_res = _fail
+    set_lens_position = get_lens_position = autofocus = _fail
+    available_controls = get_controls = set_control = _fail
+
+
 def _default_backend() -> CameraBackend:
     """The real camera, in its own program (camera_process.py, #51). Falls back to the synthetic
     camera only when the camera software (picamera2) is not installed. A camera that is installed
@@ -592,6 +615,9 @@ def _default_backend() -> CameraBackend:
     except ImportError as exc:
         logger.warning("No camera software installed (%s); using synthetic backend", exc)
         return SyntheticBackend()
+    except Exception as exc:
+        logger.exception("The camera program could not be started")
+        return UnavailableBackend(f"The camera program could not be started ({exc}).")
 
 
 class AutofocusTimeoutError(RuntimeError):
@@ -692,8 +718,10 @@ class CameraManager:
         self._locked_lens_position = None
         try:
             self._apply_persisted_settings()
-        except (CameraFaultError, LensMovedDuringLockError) as exc:
-            logger.warning("Settings not restored after the camera restart: %s", exc)
+        except Exception:
+            # Focus stays unlocked, so every photo is flagged ("focus not locked") until the
+            # operator locks again: never photos at unknown settings that look fine.
+            logger.exception("Settings not restored after the camera restart")
             return
         logger.info("camera restored after restart: %s", self.focus_status())
 

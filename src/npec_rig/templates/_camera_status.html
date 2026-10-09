@@ -29,8 +29,8 @@
     } catch (e) {
       return;
     }
-    const until = h.last_fault
-      ? time(new Date(new Date(h.last_fault.time_utc.replace(/(\.\d{3})\d+/, "$1")).getTime() + h.camera_fault_window_s * 1000).toISOString())
+    const until = h.last_restart
+      ? time(new Date(new Date(h.last_restart.time_utc.replace(/(\.\d{3})\d+/, "$1")).getTime() + h.camera_fault_window_s * 1000).toISOString())
       : null;
     if (h.state === "restarting") {
       show("restarting", "Camera: it stopped responding and is being restarted.");
@@ -38,8 +38,8 @@
       show("failed", "Camera: " + (h.detail || "it could not be reopened.") +
         (h.reboot_needed ? " Restart needed." : ""));
     } else if (h.photos_flagged) {
-      show("flagged", "Camera: stopped responding at " + time(h.last_fault.time_utc) +
-        " and was restarted. Photos until " + until + " are flagged as not covered by the bands.");
+      show("flagged", "Camera: restarted after a fault at " + time(h.last_restart.time_utc) +
+        ". Photos until " + until + " are flagged as not covered by the bands.");
     } else {
       box.hidden = true;
     }

@@ -327,8 +327,11 @@ them. This is a record of conditions, not a correction: a flagged photo is kept,
 - *Camera-fault window (#51, built 2026-10-09).* The camera runs in its own program. Every camera
   call has a time limit; when one runs out, the program is ended, a new one opens the camera, and
   the app restores the settings and drives the lens back the one consistent way (the lock is kept
-  only if the camera confirms the lens there). The fault is saved with the boot ID and uptime, and a
-  photo taken within 60 minutes of it is flagged as not covered by the bands. **The 60 minutes is a
+  only if the camera confirms the lens there). The fault and the restart are saved with the boot ID
+  and uptime (`camera_events`, `docs/database.md`), and a photo taken within 60 minutes after the
+  restart is flagged as not covered by the bands. The window counts from the restart, which reopens
+  the camera and drives the lens again, so after a long outage the photos once the camera is back
+  still get the whole hour. **The 60 minutes is a
   decision, not a measurement**: on 2026-10-06 a camera fault left the central trays about half as
   sharp at the same reported lens position (section 8.1, run 3g), and how long such a change lasts
   has not been measured, so the cold-start window is used until it is. **The time limits are

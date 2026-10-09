@@ -14,6 +14,7 @@ chamber's local time is UTC+2; convert only for display.
 from __future__ import annotations
 
 import contextlib
+import functools
 import logging
 import socket
 import sqlite3
@@ -43,10 +44,12 @@ EVENT_CANNOT_END = "cannot_end"  # a stuck program would not end: the Pi needs a
 EVENT_KINDS = (EVENT_FAULT, EVENT_RESTARTED, EVENT_OPEN_FAILED, EVENT_CANNOT_END)
 
 # A decision, not a measurement (docs/metrology-log.md, section 8): photos taken within this long
-# after a camera fault are flagged as not covered by the validation bands. Basis: on 2026-10-06 a
-# camera fault left the central trays about half as sharp at the same lens position, and how long
-# such a change lasts has not been measured; the same hour as the cold-start window
-# (captures.COLD_START_WINDOW_S) until it is.
+# after the camera came back from a fault (or from a failed open) are flagged as not covered by the
+# validation bands. Counted from the restart, not the fault, because the restart is what reopens
+# the camera and drives the lens again. Basis: on 2026-10-06 a camera fault and restart left the
+# central trays about half as sharp at the same lens position, and how long such a change lasts
+# has not been measured; the same hour as the cold-start window (captures.COLD_START_WINDOW_S)
+# until it is.
 CAMERA_FAULT_WINDOW_S = 3600.0
 
 _RESTART_COUNT_WINDOW_S = 24 * 3600.0
@@ -117,7 +120,10 @@ def _boot_id() -> str | None:
         return None
 
 
-def _git_commit() -> str | None:
+@functools.cache
+def _app_version() -> str | None:
+    """The git commit of the running app, looked up once, when the first event is written (never
+    in the camera program, which imports this module too)."""
     try:
         out = subprocess.run(
             ["git", "-C", str(Path(__file__).parent), "rev-parse", "--short", "HEAD"],
@@ -128,7 +134,6 @@ def _git_commit() -> str | None:
         return None
 
 
-_APP_VERSION = _git_commit()
 _RIG = socket.gethostname()
 
 
@@ -147,11 +152,17 @@ def set_lens_lock_provider(provider: Callable[[], float | None]) -> None:
     _lens_lock_provider = provider
 
 
+_prepared: set[Path] = set()
+
+
 def _connect() -> sqlite3.Connection:
+    """A connection to rig.db; the table is created on the first connection to each database."""
     path = db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path, timeout=10)
-    conn.executescript(_SCHEMA)
+    if path not in _prepared:
+        conn.executescript(_SCHEMA)
+        _prepared.add(path)
     return conn
 
 
@@ -186,7 +197,7 @@ def record_camera_event(
         "detail": detail,
         "rig": _RIG,
         "camera": camera,
-        "app_version": _APP_VERSION,
+        "app_version": _app_version(),
         "program_pid": program_pid,
         "lens_locked": lens_locked,
         "recovery_s": recovery_s,
@@ -236,70 +247,76 @@ def record_good_photo() -> None:
         _camera["last_good_photo_utc"] = utc_now()
 
 
-def _last_fault() -> dict | None:
+def _read(conn: sqlite3.Connection, kind: str, cutoff_utc: str) -> tuple[dict | None, int]:
+    """The latest row of `kind`, and how many rows of `kind` since `cutoff_utc`."""
+    conn.row_factory = sqlite3.Row
+    row = conn.execute(
+        "SELECT * FROM camera_events WHERE kind = ? ORDER BY id DESC LIMIT 1", (kind,)
+    ).fetchone()
+    count = conn.execute(
+        "SELECT COUNT(*) FROM camera_events WHERE kind = ? AND time_utc >= ?", (kind, cutoff_utc)
+    ).fetchone()[0]
+    return (dict(row) if row else None), count
+
+
+def _restarts() -> tuple[dict | None, dict | None, int]:
+    """The last fault, the last restart, and the restarts in the last 24 h: one connection."""
+    cutoff = utc_now(datetime.now(timezone.utc) - timedelta(seconds=_RESTART_COUNT_WINDOW_S))
     try:
         with contextlib.closing(_connect()) as conn:
-            conn.row_factory = sqlite3.Row
-            row = conn.execute(
-                "SELECT * FROM camera_events WHERE kind = ? ORDER BY id DESC LIMIT 1",
-                (EVENT_FAULT,),
-            ).fetchone()
+            fault, _ = _read(conn, EVENT_FAULT, cutoff)
+            restart, count = _read(conn, EVENT_RESTARTED, cutoff)
     except sqlite3.Error:
-        logger.exception("Could not read the last camera fault")
-        return None
-    return dict(row) if row else None
+        logger.exception("Could not read the camera events")
+        return None, None, 0
+    return fault, restart, count
 
 
-def _faults_since(cutoff_utc: str) -> int:
-    try:
-        with contextlib.closing(_connect()) as conn:
-            return conn.execute(
-                "SELECT COUNT(*) FROM camera_events WHERE kind = ? AND time_utc >= ?",
-                (EVENT_FAULT, cutoff_utc),
-            ).fetchone()[0]
-    except sqlite3.Error:
-        logger.exception("Could not count the camera faults")
-        return 0
-
-
-def camera_fault_check() -> dict:
-    """For a photo's sidecar: flagged inside CAMERA_FAULT_WINDOW_S after the last camera fault in
-    this boot. A fault before a reboot is not counted here; the cold-start check covers a reboot.
-    Limit: only faults the rig detects count, that is a camera call that did not finish in time. A
-    camera fault libcamera recovers from by itself, without a call hanging, is not seen."""
-    fault = _last_fault()
+def _fault_check(fault: dict | None, restart: dict | None) -> dict:
     reason = None
     since_s = None
-    if fault and fault.get("boot_id") is not None and fault.get("boot_id") == _boot_id():
+    if restart and restart.get("boot_id") is not None and restart.get("boot_id") == _boot_id():
         now = _uptime_s()
-        if now is not None and fault.get("uptime_s") is not None:
-            since_s = round(now - fault["uptime_s"], 2)
+        if now is not None and restart.get("uptime_s") is not None:
+            since_s = round(now - restart["uptime_s"], 2)
             if since_s < CAMERA_FAULT_WINDOW_S:
                 reason = (
-                    f"taken {since_s / 60:.0f} min after a camera fault, inside the "
-                    f"{CAMERA_FAULT_WINDOW_S / 60:.0f} min camera-fault window"
+                    f"taken {since_s / 60:.0f} min after the camera was restarted after a fault, "
+                    f"inside the {CAMERA_FAULT_WINDOW_S / 60:.0f} min camera-fault window"
                 )
     return {
         "last_fault": fault,
-        "since_fault_s": since_s,
+        "last_restart": restart,
+        "since_restart_s": since_s,
         "camera_fault_window_s": CAMERA_FAULT_WINDOW_S,
         "flagged": reason is not None,
         "reason": reason,
     }
 
 
+def camera_fault_check() -> dict:
+    """For a photo's sidecar: flagged inside CAMERA_FAULT_WINDOW_S after the camera last came back
+    from a fault or a failed open (a `restarted` row) in this boot. A restart before a reboot is
+    not counted here; the cold-start check covers a reboot. Limit: only faults the rig detects
+    count, that is a camera call that did not finish in time. A camera fault libcamera recovers
+    from by itself, without a call hanging, is not seen."""
+    fault, restart, _ = _restarts()
+    return _fault_check(fault, restart)
+
+
 def camera_health() -> dict:
     """The camera part of the rig's health, for the status line and the fleet endpoint (#82)."""
     with _lock:
         snapshot = dict(_camera)
-    fault = camera_fault_check()
-    cutoff = utc_now(datetime.now(timezone.utc) - timedelta(seconds=_RESTART_COUNT_WINDOW_S))
+    fault, restart, restarts = _restarts()
+    check = _fault_check(fault, restart)
     return {
         **snapshot,
-        "restarts_24h": _faults_since(cutoff),
-        "last_fault": fault["last_fault"],
-        "photos_flagged": fault["flagged"],
-        "photos_flagged_reason": fault["reason"],
+        "restarts_24h": restarts,
+        "last_fault": fault,
+        "last_restart": restart,
+        "photos_flagged": check["flagged"],
+        "photos_flagged_reason": check["reason"],
         "camera_fault_window_s": CAMERA_FAULT_WINDOW_S,
     }
 

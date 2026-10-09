@@ -171,6 +171,13 @@ def _child_main(conn, parent_pid: int, name: str, kwargs: dict, pid_file: str | 
         try:
             req_id, method, args = conn.recv()
         except EOFError:
+            # The app closed the pipe (a clean stop): close the camera before ending.
+            close = getattr(backend, "close", None)
+            if close is not None:
+                try:
+                    close()
+                except Exception:
+                    pass
             return
         try:
             if method not in _METHODS:
@@ -215,14 +222,26 @@ def sweep_frame_files() -> None:
             path.unlink(missing_ok=True)
 
 
+def _parent_pid(pid: int) -> int | None:
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return None
+    return int(stat.rsplit(")", 1)[1].split()[1])
+
+
 def end_leftover_program(pid_file: Path) -> None:
-    """End a camera program an earlier app left running, if the parent-death signal did not."""
+    """End a camera program an earlier app left running, if the parent-death signal did not. Only
+    an orphan: a program whose app still runs (another server or test on this Pi using the same
+    database) is that app's and is left alone."""
     try:
         pid_text, started = pid_file.read_text().split()
         pid = int(pid_text)
     except (OSError, ValueError):
         return
-    if pid != os.getpid() and _start_time(pid) == started:
+    parent = _parent_pid(pid)
+    orphaned = parent is not None and (parent == 1 or not _pid_alive(parent))
+    if pid != os.getpid() and _start_time(pid) == started and orphaned:
         logger.warning("Ending camera program %d left by an earlier app", pid)
         try:
             os.kill(pid, signal.SIGKILL)
@@ -360,6 +379,7 @@ class ProcessBackend(CameraBackend):
         parent_conn.close()
         if not self._end(proc):
             self._report_unkillable(proc.pid)
+            self._schedule(lambda: self._end_and_restart(proc, None))
             return "failed"
         if kind == "missing" and not self._constructed:
             self._unavailable = f"No camera software installed: {detail}"
@@ -400,6 +420,8 @@ class ProcessBackend(CameraBackend):
             self._report_unkillable(proc.pid)
             self._schedule(lambda: self._end_and_restart(proc, None))
             return "failed"
+        # A frame the ended program wrote but the app never read (a 190 MB file in RAM).
+        sweep_frame_files()
         return self._start()
 
     def _report_unkillable(self, pid: int) -> None:
@@ -475,7 +497,8 @@ class ProcessBackend(CameraBackend):
         return _decode(payload)
 
     def close(self) -> None:
-        """End the camera program (tests, app shutdown)."""
+        """End the camera program (tests, app shutdown): it closes the camera itself when the pipe
+        closes, and is killed only if it has not ended within KILL_WAIT_S."""
         self._closed = True
         if self._retry_timer is not None:
             self._retry_timer.cancel()
@@ -485,6 +508,7 @@ class ProcessBackend(CameraBackend):
         if conn is not None:
             conn.close()
         if proc is not None:
+            proc.join(KILL_WAIT_S)
             self._end(proc)
         self._launcher.stop()
 

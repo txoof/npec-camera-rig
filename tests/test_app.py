@@ -1872,6 +1872,7 @@ def test_a_round_after_a_camera_fault_is_held_back_until_overridden(tray_scene: 
     health.record_camera_event(
         health.EVENT_FAULT, call="capture_full_res", limit_s=30.0, detail="test fault"
     )
+    health.record_camera_event(health.EVENT_RESTARTED, recovery_s=1.1)
     held = client.post(f"/validation/sessions/{session['id']}/rounds").json()["rounds"][0]
     assert not held["counted"] and held["overridable"]
     assert "camera-fault window" in held["reason"]
@@ -2068,6 +2069,21 @@ def test_camera_health_reports_the_camera_state() -> None:
         assert body["state"] == "failed_to_reopen"
         assert body["reboot_needed"] is True
         assert body["photos_flagged"] is False
+    finally:
+        health._reset_for_tests()
+
+
+def test_a_camera_program_that_cannot_start_answers_503() -> None:
+    from npec_rig import health
+    from npec_rig.camera import UnavailableBackend
+
+    health._reset_for_tests()
+    try:
+        CameraManager.set_instance(CameraManager(UnavailableBackend("spawn failed")))
+        response = TestClient(app).post("/capture")
+        assert response.status_code == 503
+        assert "spawn failed" in response.json()["detail"]
+        assert health.camera_health()["state"] == "failed_to_reopen"
     finally:
         health._reset_for_tests()
 

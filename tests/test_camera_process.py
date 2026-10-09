@@ -176,7 +176,7 @@ def test_the_lock_is_restored_after_a_restart(switches):
         assert fault["purpose"] == "capture" and fault["lens_locked"] == 6.04
         _array, record = take_photo("capture")
         assert record["camera_fault"]["flagged"]
-        assert any("camera fault" in reason for reason in record["flags"])
+        assert any("camera-fault window" in reason for reason in record["flags"])
         assert record["lens_check"]["flagged"] is False
     finally:
         CameraManager.set_instance(None)
@@ -191,8 +191,39 @@ def test_no_fault_no_flag():
 def test_a_fault_before_this_boot_is_not_counted(monkeypatch):
     monkeypatch.setattr(health, "_boot_id", lambda: "an-earlier-boot")
     health.record_camera_event(health.EVENT_FAULT, call="capture_full_res", limit_s=30.0)
+    health.record_camera_event(health.EVENT_RESTARTED, recovery_s=1.0)
     monkeypatch.setattr(health, "_boot_id", lambda: "this-boot")
     assert health.camera_fault_check()["flagged"] is False
+
+
+def test_the_window_counts_from_the_restart_not_the_fault(monkeypatch):
+    """A long outage: the photos after the camera comes back get the whole window."""
+    uptime = {"s": 1000.0}
+    monkeypatch.setattr(health, "_uptime_s", lambda: uptime["s"])
+    health.record_camera_event(health.EVENT_FAULT, call="capture_full_res", limit_s=30.0)
+    uptime["s"] += 2 * health.CAMERA_FAULT_WINDOW_S  # down for two windows
+    assert health.camera_fault_check()["flagged"] is False  # no restart yet, no photo possible
+    health.record_camera_event(health.EVENT_RESTARTED, recovery_s=7200.0)
+    uptime["s"] += 60
+    check = health.camera_fault_check()
+    assert check["flagged"] and check["since_restart_s"] == 60
+
+
+def test_a_leftover_program_of_a_running_app_is_left_alone(tmp_path):
+    """The pid file of another app on this Pi that still runs is not a leftover."""
+    import subprocess
+    import sys
+
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    try:
+        pid_file = tmp_path / "camera-process.pid"
+        pid_file.write_text(f"{child.pid} {camera_process._start_time(child.pid)}")
+        camera_process.end_leftover_program(pid_file)  # its parent, this test, is alive
+        time.sleep(0.2)
+        assert child.poll() is None
+    finally:
+        child.kill()
+        child.wait()
 
 
 def test_times_are_stored_in_one_utc_format():

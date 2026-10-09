@@ -132,6 +132,11 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     record_app_start()
     yield
     record_app_stop()
+    # End the camera program cleanly, so the camera is closed rather than killed (#51).
+    manager = CameraManager._instance
+    close = getattr(manager._backend, "close", None) if manager is not None else None
+    if close is not None:
+        await run_in_threadpool(close)
 
 
 app = FastAPI(title="NPEC Camera Rig", lifespan=_lifespan)

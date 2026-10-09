@@ -200,7 +200,7 @@ correct them. The cold-start half is built (2026-10-08): photos taken within 60 
 starting are flagged, a wider window than the 15 minutes above, chosen as a decision until a
 cold-start run on the replacement camera measures it. The camera-fault half is built too
 (2026-10-09): the camera runs in its own program, a camera call that does not finish in time ends
-that program and a new one is started, and photos taken within 60 minutes of that fault are flagged
+that program and a new one is started, and photos taken within 60 minutes after the camera is back are flagged
 (the same window, also a decision). A fault that does not make a camera call hang, for example one
 the camera software recovers from by itself, is not seen.
 
@@ -298,8 +298,9 @@ the extreme frame corners, and plants only sit on trays. No model is adopted.
   reopens the camera so the lens obeys again; measurements made without touching focus were not
   affected.
 - **After a camera fault.** A stalled camera followed by a restart left the central trays
-  blurrier at the same reported focus (one case, 2026-10-06). Photos within 60 minutes of a fault
-  the rig detects (a camera call that does not finish in time) are flagged; a fault that does not
+  blurrier at the same reported focus (one case, 2026-10-06). Photos within 60 minutes after the
+  camera comes back from a fault the rig detects (a camera call that does not finish in time) are
+  flagged; a fault that does not
   make a call hang is not detected.
 - **Tripwire limits.** The FAIL limits for roll (10°) and scale (8%) are provisional; the knock
   test reached FAIL through a lost corner tag, not through those limits.

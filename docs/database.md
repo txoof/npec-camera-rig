@@ -69,11 +69,13 @@ Each step is a row. Rows are never changed or deleted by the rig.
 Kinds of row:
 
 - **`fault`**: a camera call did not finish within its time limit, or the camera program ended
-  during a call. The program is ended and a new one started. Photos taken in the next 60 minutes
-  (the camera-fault window, a decision, see `docs/metrology-log.md`) are flagged as not covered
-  by the validation bands.
+  during a call. The program is ended and a new one started.
 - **`restarted`**: a new camera program is ready after a fault or a failed open, with
-  `recovery_s` saying how long that took.
+  `recovery_s` saying how long that took. Photos taken in the 60 minutes after this row (the
+  camera-fault window, a decision, see `docs/metrology-log.md`) are flagged as not covered by the
+  validation bands. The window counts from the restart, not the fault: after a long outage the
+  photos after the camera comes back still get the whole hour. The 24-hour restart count on the
+  status line and for the fleet endpoint (#82) counts these rows.
 - **`open_failed`**: a camera program could not open the camera. The rig tries again every
   60 seconds. From the third failure in a row, `reboot_needed` is 1.
 - **`cannot_end`**: a stuck camera program would not end, which happens when it is stuck inside the
