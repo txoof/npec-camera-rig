@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
+from npec_rig import health
 from npec_rig.camera import CameraManager, array_to_jpeg, lens_check
 from npec_rig.settings import load_settings, save_setting
 
@@ -158,7 +159,8 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
     Every still (Capture, validation round, calibration, tripwire check) comes through here, so
     a check added to the sidecar reaches every photo. `extra` adds caller fields to the sidecar
     (e.g. the validation session). Returns the frame and the saved record; the caller drops the
-    frame as soon as it can (a 64MP frame is about 250 MB). CameraBusyError is not caught.
+    frame as soon as it can (a 64MP frame is about 190 MB). CameraBusyError and CameraFaultError
+    (the camera stopped responding, camera_process.py) are not caught.
     """
     if purpose not in PURPOSES:
         raise ValueError(f"unknown photo purpose {purpose!r}, expected one of {PURPOSES}")
@@ -167,9 +169,11 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
     # taken under.
     focus = manager.focus_status()
     array, sensor_metadata = manager._capture_full_res()
+    health.record_good_photo()
     checks = {
         "lens_check": lens_check(sensor_metadata.get("LensPosition"), focus["lens_position"]),
         "uptime": uptime_record(),
+        "camera_fault": health.camera_fault_check(),
     }
     sidecar = {
         "purpose": purpose,

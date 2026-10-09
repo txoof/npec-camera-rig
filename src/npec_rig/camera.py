@@ -9,6 +9,7 @@ import logging
 import os
 import time
 from concurrent.futures import TimeoutError as FutureTimeoutError
+from pathlib import Path
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -79,6 +80,21 @@ STREAM_LOCK_TIMEOUT = 2.0
 class CameraBusyError(RuntimeError):
     """Raised by a streaming frame grab (preview_jpeg, roi_crop_jpeg) that could not acquire
     _call_lock within STREAM_LOCK_TIMEOUT. Callers should skip the frame, not block on it."""
+
+
+class CameraFaultError(RuntimeError):
+    """The camera program (camera_process.py) cannot answer: a call did not finish in time, or the
+    camera is being restarted or could not be reopened. The message is for the operator."""
+
+
+class CameraStuckError(CameraFaultError):
+    """A camera call did not finish within its time limit. The camera program was ended and is
+    being restarted (#51)."""
+
+
+class CameraUnavailableError(CameraFaultError):
+    """The camera is restarting after a fault, or could not be reopened. Raised at once, without
+    waiting, so no caller holds the camera lock for a camera that cannot answer."""
 
 
 # Controls exposed generically (slice 4): ranges are probed from picamera2's own
@@ -160,7 +176,22 @@ class SyntheticBackend(CameraBackend):
         height: int = MAIN_SIZE[1],
         preview_width: int = LORES_SIZE[0],
         preview_height: int = LORES_SIZE[1],
+        hang_file: str | None = None,
+        fail_open_file: str | None = None,
     ) -> None:
+        # Test switches for the camera program (camera_process.py), set by file so a test can
+        # throw them while the camera runs in another process. `hang_file`: the next call whose
+        # name is in the file (or any call, for "*") hangs, once: the file is removed, so the
+        # restarted camera answers. `fail_open_file`: while it exists, opening fails; it hangs
+        # instead if the file holds "hang", and reports the camera software missing for "missing".
+        if fail_open_file and Path(fail_open_file).exists():
+            switch = Path(fail_open_file).read_text().strip()
+            if switch == "hang":
+                time.sleep(3600)
+            if switch == "missing":
+                raise ImportError("synthetic camera software missing (test switch)")
+            raise RuntimeError("synthetic camera could not be opened (test switch)")
+        self._hang_file = hang_file
         self._width = width
         self._height = height
         self._preview_width = preview_width
@@ -172,13 +203,28 @@ class SyntheticBackend(CameraBackend):
             if name != "LensPosition"
         }
 
+    def _maybe_hang(self, name: str) -> None:
+        if not self._hang_file:
+            return
+        path = Path(self._hang_file)
+        try:
+            wanted = path.read_text().strip()
+        except OSError:
+            return
+        if wanted in (name, "*"):
+            path.unlink(missing_ok=True)
+            time.sleep(3600)
+
     def capture_array(self) -> np.ndarray:
+        self._maybe_hang("capture_array")
         return self._pattern(self._width, self._height, channels=4)
 
     def capture_preview_array(self) -> np.ndarray:
+        self._maybe_hang("capture_preview_array")
         return self._pattern(self._preview_width, self._preview_height, channels=4)
 
     def capture_full_res(self) -> tuple[np.ndarray, dict]:
+        self._maybe_hang("capture_full_res")
         # Same key set as Picamera2Backend.capture_full_res (SENSOR_METADATA_FIELDS) — no real
         # optics to report ColourGains/SensorTimestamp from, so those two are fixed placeholders.
         metadata = {
@@ -191,12 +237,15 @@ class SyntheticBackend(CameraBackend):
         return self._pattern(self._width, self._height, channels=3), metadata
 
     def set_lens_position(self, value: float) -> None:
+        self._maybe_hang("set_lens_position")
         self._lens_position = value
 
     def get_lens_position(self) -> float:
+        self._maybe_hang("get_lens_position")
         return self._lens_position
 
     def autofocus(self) -> tuple[bool, float]:
+        self._maybe_hang("autofocus")
         self._lens_position = SIMULATED_AUTOFOCUS_POSITION
         return True, self._lens_position
 
@@ -204,9 +253,11 @@ class SyntheticBackend(CameraBackend):
         return dict(SYNTHETIC_CONTROL_RANGES)
 
     def get_controls(self) -> dict:
+        self._maybe_hang("get_controls")
         return {**self._controls, "LensPosition": self._lens_position}
 
     def set_control(self, name: str, value: object) -> None:
+        self._maybe_hang("set_control")
         if name in _AE_DEPENDENT_CONTROLS and self._controls.get("AeEnable"):
             # Mirrors Picamera2Backend.set_control's guard so this invariant is testable
             # without hardware — see its docstring for why.
@@ -528,12 +579,18 @@ def crop_roi(frame: np.ndarray, x: int, y: int, size: int) -> np.ndarray:
 
 
 def _default_backend() -> CameraBackend:
+    """The real camera, in its own program (camera_process.py, #51). Falls back to the synthetic
+    camera only when the camera software (picamera2) is not installed. A camera that is installed
+    but does not open is a fault the status line shows, never a silent switch to synthetic frames
+    that would be saved as if they were photos."""
     if os.environ.get("NPEC_RIG_SYNTHETIC_CAMERA"):
         return SyntheticBackend()
+    from npec_rig.camera_process import ProcessBackend
+
     try:
-        return Picamera2Backend()
-    except (ImportError, RuntimeError) as exc:
-        logger.warning("No camera hardware available (%s); using synthetic backend", exc)
+        return ProcessBackend("picamera2")
+    except ImportError as exc:
+        logger.warning("No camera software installed (%s); using synthetic backend", exc)
         return SyntheticBackend()
 
 
@@ -546,6 +603,13 @@ class AutofocusTimeoutError(RuntimeError):
         # autofocus timed out with the lens unchanged (TODO.md, "Lens stops responding").
         super().__init__(f"{LENS_NOT_RESPONDING} (autofocus {step} after {elapsed_s:.0f} s)")
         self.lens_position = lens_position
+        self.step = step
+        self.elapsed_s = elapsed_s
+
+    def __reduce__(self):
+        # Rebuilt from its own fields, not from `args`, so it survives the trip back from the
+        # camera program (camera_process.py) with `lens_position` intact.
+        return (type(self), (self.lens_position, self.step, self.elapsed_s))
 
 
 LENS_NOT_RESPONDING = "Lens not responding: press Reset camera"
@@ -603,7 +667,31 @@ class CameraManager:
         self._commanded_lens_position: float | None = None
         self._drive_lock = Lock()
         self._peaking_enabled = False
-        self._apply_persisted_settings()
+        # The camera program (camera_process.py) calls this back after it restarted the camera.
+        set_listener = getattr(backend, "set_restart_listener", None)
+        if set_listener is not None:
+            set_listener(self._recover_after_restart)
+        try:
+            self._apply_persisted_settings()
+        except CameraFaultError as exc:
+            # The camera did not open; it is retried, and _recover_after_restart replays these
+            # settings once it does.
+            logger.warning("Settings not applied at startup: %s", exc)
+
+    def _recover_after_restart(self) -> None:
+        """After the camera program was restarted (#51): the new camera opens with default
+        settings and the lens at the default position, so restore everything the way an app start
+        does: settings in order, the lens driven the one consistent way, and the lock kept only if
+        the camera confirms the lens where it was locked. Runs on its own thread, after the failed
+        call released the camera lock. The lock is cleared in memory only, so the saved
+        confirmation can restore it."""
+        self._locked_lens_position = None
+        try:
+            self._apply_persisted_settings()
+        except (CameraFaultError, LensMovedDuringLockError) as exc:
+            logger.warning("Settings not restored after the camera restart: %s", exc)
+            return
+        logger.info("camera restored after restart: %s", self.focus_status())
 
     def _apply_persisted_settings(self) -> None:
         # The console loads last-used values rather than defaults (slice 4 requirement — the

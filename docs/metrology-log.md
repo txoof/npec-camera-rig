@@ -324,6 +324,20 @@ them. This is a record of conditions, not a correction: a flagged photo is kept,
   photo with focus locked at 6.04 reported 6.04 and was not flagged; one with focus unlocked was
   flagged. The cold-start flag itself is checked by unit tests only, because the Pi was not
   rebooted to test it.
+- *Camera-fault window (#51, built 2026-10-09).* The camera runs in its own program. Every camera
+  call has a time limit; when one runs out, the program is ended, a new one opens the camera, and
+  the app restores the settings and drives the lens back the one consistent way (the lock is kept
+  only if the camera confirms the lens there). The fault is saved with the boot ID and uptime, and a
+  photo taken within 60 minutes of it is flagged as not covered by the bands. **The 60 minutes is a
+  decision, not a measurement**: on 2026-10-06 a camera fault left the central trays about half as
+  sharp at the same reported lens position (section 8.1, run 3g), and how long such a change lasts
+  has not been measured, so the cold-start window is used until it is. **The time limits are
+  decisions too**: 30 s for a full-res photo (measured 2.7 to 2.8 s, section 8.2, step 3), 20 s for
+  reopening the camera (Reset camera measured 2.3 to 2.5 s), 90 s for autofocus (above its own 60 s
+  limit), 10 s for every other call, and 30 s to open the camera. They are set several times above
+  the measured calls because a false alarm costs more (the lens is moved and an hour of photos is
+  flagged) than a late one (one photo). Limit: only a call that does not finish counts. A camera
+  fault that libcamera recovers from by itself, without a call hanging, is not seen.
 - *Validation.* A validation round whose photo is flagged is held back from the bands, with the
   reason shown; the operator can still count it (Aaron, 2026-10-08).
 - *Not covered.* A camera fault in the middle of a run (frontend timeout, run 3g) is not detected

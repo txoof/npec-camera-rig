@@ -180,7 +180,7 @@ synthetic camera, then waits for the label.
 
 | Area | Files |
 |---|---|
-| camera | `camera.py`, `captures.py`, `settings.py` |
+| camera | `camera.py`, `camera_process.py`, `captures.py`, `health.py`, `settings.py` |
 | calibration | `tags.py`, `calibration*.py`, `validation_store.py`, `tripwire.py`, `certainty_map.py` |
 | web | `app.py`, `templates/`, `static/` |
 | images | `images.py`, `text_render.py` |

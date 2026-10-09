@@ -15,6 +15,7 @@
       <a href="/setup" class="{% if nav_active == 'setup' %}active{% endif %}">Setup</a>
       <a href="/gallery" class="{% if nav_active == 'gallery' %}active{% endif %}">Capture &amp; Gallery</a>
     </nav>
+    {% include "_camera_status.html" %}
   </header>
   {% block breadcrumb %}{% endblock %}
   {% block content %}{% endblock %}
