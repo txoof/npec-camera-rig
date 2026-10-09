@@ -54,13 +54,29 @@ def _stopped_experiment_with_photos(count: int = 2) -> dict:
     return captures.stop_experiment(experiment["id"])
 
 
-def test_only_a_stopped_experiment_can_be_exported() -> None:
+def test_an_experiment_that_never_started_has_nothing_to_export() -> None:
     set_up = captures.create_experiment()
-    with pytest.raises(ExperimentError, match="only a stopped experiment"):
+    with pytest.raises(ExperimentError, match="has not started"):
         database.create_export(set_up["id"], now="t")
-    running = captures.start_experiment(set_up["id"])
-    with pytest.raises(ExperimentError, match="only a stopped experiment"):
-        database.create_export(running["id"], now="t")
+
+
+def test_a_running_experiment_exports_its_photos_so_far() -> None:
+    experiment = captures.start_experiment(captures.create_experiment(name="Drought")["id"])
+    _array, before = captures.take_photo("capture")
+    export = database.create_export(experiment["id"], now=exports._now())
+    _array, after = captures.take_photo("capture")
+    del _array
+    exports._build(export["id"], experiment["id"])
+
+    export = database.get_export(export["id"])
+    assert export["error"] is None
+    with zipfile.ZipFile(exports.zip_path(export)) as zf:
+        top = zf.namelist()[0].split("/")[0]
+        rows = list(csv.DictReader(io.StringIO(zf.read(f"{top}/captures.csv").decode())))
+        readme = zf.read(f"{top}/README.txt").decode()
+    assert [r["path"] for r in rows] == [before["path"]]
+    assert readme.startswith(f"PARTIAL EXPORT: photos up to {export['started_at']}")
+    assert "still running" in readme
 
 
 def test_one_export_at_a_time_per_experiment() -> None:

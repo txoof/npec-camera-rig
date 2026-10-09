@@ -206,7 +206,10 @@ can never drift out of sync with the readings it summarises.
 ### CSV export
 
 An **Export** page, delivered in M3 and extended as tables appear. All exports are filtered by
-experiment and date range.
+experiment and date range. **Every table with rows for an experiment is added to its export when
+that table is built** (Aaron, 2026-10-09): tray positions (`detection`, M4) and areas
+(`measurement`, M5) included. The first version (#119) is one zip per experiment, from the
+experiments page, with a checksum manifest; a running experiment exports its photos so far.
 
 | File | Contents |
 |---|---|

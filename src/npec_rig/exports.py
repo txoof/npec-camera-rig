@@ -1,6 +1,11 @@
-"""Export a stopped experiment as one zip: its photos and sidecars, experiment.json, a CSV of its
-photos, copies of the calibration and validation records they used, a README and a checksum
-manifest (#119, first version agreed with Aaron 2026-10-09).
+"""Export an experiment as one zip: its photos and sidecars, experiment.json, a CSV of its photos,
+copies of the calibration and validation records they used, a README and a checksum manifest
+(#119, first version agreed with Aaron 2026-10-09). A running experiment can be exported too: the
+zip holds its photos up to the moment the export started, and the README says it is partial.
+
+**Every table with rows for an experiment is added to its export when that table is built**
+(Aaron, 2026-10-09; PLAN.md, *CSV export*): the tray positions (`detection`, M4) and the areas
+(`measurement`, M5) each become a CSV here, next to captures.csv.
 
 The zip is built in a background thread and kept in the experiment's own `exports/` folder, so it
 uses twice the disk space of the photos: fine for short test experiments. Downloads in parts are
@@ -82,7 +87,9 @@ class _Zip:
 def _write_zip(export_id: int, experiment_id: int) -> None:
     experiment = database.get_experiment(experiment_id)
     folder = experiments_root() / experiment["folder"]
-    captures = database.captures_for_experiment(experiment_id)
+    # Photos up to the export's start: a running experiment keeps taking them meanwhile.
+    until = database.get_export(export_id)["started_at"]
+    captures = database.captures_for_experiment(experiment_id, until=until)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     slug = slugify(experiment["name"])
     name = f"{slug + '_' if slug else ''}{experiment['folder']}_export_{stamp}"
@@ -104,7 +111,7 @@ def _write_zip(export_id: int, experiment_id: int) -> None:
             photos += 1
         z.add_bytes(f"{name}/captures.csv", _captures_csv(captures, experiment["folder"]))
         missing = _add_records(z, name, captures)
-        z.add_bytes(f"{name}/README.txt", _readme(experiment, photos, missing).encode())
+        z.add_bytes(f"{name}/README.txt", _readme(experiment, photos, missing, until).encode())
         manifest = "".join(f"{digest}  {path.removeprefix(name + '/')}\n" for digest, path in z.sums)
         zf.writestr(f"{name}/MANIFEST.sha256", manifest, compress_type=zipfile.ZIP_DEFLATED)
 
@@ -161,12 +168,17 @@ def _add_records(z: _Zip, name: str, captures: list[dict]) -> list[str]:
     return missing
 
 
-def _readme(experiment: dict, photos: int, missing: list[str]) -> str:
+def _readme(experiment: dict, photos: int, missing: list[str], until: str) -> str:
     title = experiment["name"] or f"Experiment started {experiment['periods'][0]['started_at']}"
     periods = "\n".join(
-        f"  {p['started_at']} to {p['ended_at']}" for p in experiment["periods"]
+        f"  {p['started_at']} to {p['ended_at'] or 'still running'}" for p in experiment["periods"]
     )
-    lines = [
+    partial = (
+        [f"PARTIAL EXPORT: photos up to {until}. The experiment was still running.", ""]
+        if experiment["state"] == "running"
+        else []
+    )
+    lines = partial + [
         f"Export of: {title}",
         f"Researcher: {experiment['researcher'] or 'not recorded'}",
         f"Experiment ID: {experiment['uuid']}",

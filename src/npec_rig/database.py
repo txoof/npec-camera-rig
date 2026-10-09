@@ -349,23 +349,26 @@ def stop_experiment(experiment_id: int, *, now: str) -> dict:
 # --- Exports ---
 
 
-def captures_for_experiment(experiment_id: int) -> list[dict]:
-    """The experiment's photos, oldest first."""
+def captures_for_experiment(experiment_id: int, until: str | None = None) -> list[dict]:
+    """The experiment's photos, oldest first; with `until`, only those taken up to that time."""
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT * FROM capture WHERE experiment_id = ? ORDER BY taken_at", (experiment_id,)
+            "SELECT * FROM capture WHERE experiment_id = ? AND (? IS NULL OR taken_at <= ?)"
+            " ORDER BY taken_at",
+            (experiment_id, until, until),
         ).fetchall()
     return [dict(row) for row in rows]
 
 
 def create_export(experiment_id: int, *, now: str) -> dict:
-    """A new export, refused unless the experiment is stopped and no export of it is still
-    being prepared."""
+    """A new export, refused for an experiment that has never started, or while an export of it
+    is still being prepared. A running experiment can be exported: the export holds its photos
+    up to `now` (Aaron, 2026-10-09)."""
     with _connect() as conn:
         # Take the write lock before checking, so two clicks cannot both start one.
         conn.execute("BEGIN IMMEDIATE")
-        if _experiment(conn, experiment_id)["state"] != "stopped":
-            raise ExperimentError("only a stopped experiment can be exported")
+        if _experiment(conn, experiment_id)["state"] == "set up":
+            raise ExperimentError("an experiment that has not started has nothing to export")
         busy = conn.execute(
             "SELECT 1 FROM export WHERE experiment_id = ? AND finished_at IS NULL",
             (experiment_id,),

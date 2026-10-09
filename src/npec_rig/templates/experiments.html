@@ -97,6 +97,10 @@
         buttons.push(`<button data-act="discard" data-id="${e.id}" class="secondary">Discard</button>`);
       } else if (e.state === "running") {
         buttons.push(`<button data-act="stop" data-id="${e.id}" class="stop">Stop</button>`);
+        if (!preparing(e)) {
+          buttons.push(`<button data-act="export" data-id="${e.id}" class="secondary"
+            title="Exports the photos taken so far">Export so far</button>`);
+        }
       } else {
         buttons.push(`<button data-act="start" data-id="${e.id}">Resume</button>`);
         if (!preparing(e)) {

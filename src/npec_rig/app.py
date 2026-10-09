@@ -564,7 +564,8 @@ def api_discard_experiment(experiment_id: int) -> dict:
 
 @app.post("/api/experiments/{experiment_id}/export")
 def api_export_experiment(experiment_id: int) -> dict:
-    """Start building an export of a stopped experiment; it is prepared in the background."""
+    """Start building an export, of photos up to now if the experiment is running; it is
+    prepared in the background."""
     return _experiment_action(exports.start_export, experiment_id)
 
 
