@@ -1863,6 +1863,20 @@ def test_a_round_inside_the_cold_start_window_is_held_back_until_overridden(
     assert body["rounds"][0]["counted"]
 
 
+def test_a_round_after_a_camera_fault_is_held_back_until_overridden(tray_scene: dict) -> None:
+    from npec_rig import health
+
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    tray_scene["shift"] = (200, -150)
+    health.record_camera_fault("capture_full_res did not finish within 30 s")
+    held = client.post(f"/validation/sessions/{session['id']}/rounds").json()["rounds"][0]
+    assert not held["counted"] and held["overridable"]
+    assert "camera-fault window" in held["reason"]
+    body = client.post(f"/validation/sessions/{session['id']}/rounds/0/count").json()
+    assert body["rounds"][0]["counted"]
+
+
 def test_a_round_missing_a_sheet_cannot_be_overridden(tray_scene: dict) -> None:
     client = TestClient(app)
     session = _calibrate_and_start(client)
