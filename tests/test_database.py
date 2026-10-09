@@ -72,7 +72,7 @@ def test_every_photo_gets_one_row() -> None:
     _array, validation = captures.take_photo("validation", {"validation_session": "s1"})
     del _array
 
-    paths = [f"{r['date']}/{r['filename'].removesuffix('.jpg')}" for r in (capture, validation)]
+    paths = [r["path"] for r in (capture, validation)]
     rows = database.captures_by_path(paths)
     assert [rows[p]["id"] for p in paths] == [capture["capture_id"], validation["capture_id"]]
     row = rows[paths[0]]
@@ -99,7 +99,7 @@ def test_a_photo_records_the_calibration_active_when_it_was_taken() -> None:
     _calibrate()
     _array, record = captures.take_photo("capture")
     del _array
-    path = f"{record['date']}/{record['filename'].removesuffix('.jpg')}"
+    path = record["path"]
     assert database.captures_by_path([path])[path]["calibration"] == _STEM
 
 
@@ -180,7 +180,7 @@ def test_the_validation_is_stored_for_a_capture_but_not_judged_for_a_validation_
 
     assert capture["validation"]["session"] == "20261009T100000000000"
     assert "validation" not in round_
-    paths = [f"{r['date']}/{r['filename'].removesuffix('.jpg')}" for r in (capture, round_)]
+    paths = [r["path"] for r in (capture, round_)]
     rows = database.captures_by_path(paths)
     assert rows[paths[0]]["validation"] == "20261009T100000000000"
     assert rows[paths[1]]["validation"] is None

@@ -5,6 +5,7 @@ import logging
 import os
 import sqlite3
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -156,9 +157,32 @@ def photos_root() -> Path:
     return Path(os.environ.get("NPEC_RIG_PHOTOS_DIR", "/var/lib/npec-rig/rig"))
 
 
-def _photo_dir(timestamp: datetime) -> Path:
-    """The one place a photo's folder is picked. An experiment's own folder is added here (#55)."""
-    return photos_root() / timestamp.strftime("%Y-%m-%d")
+def experiments_root() -> Path:
+    """Directory each experiment's own folder is made under (`<start date>_<uuid[:8]>`)."""
+    return Path(os.environ.get("NPEC_RIG_EXPERIMENTS_DIR", "/var/lib/npec-rig/experiments"))
+
+
+def _photo_dir(timestamp: datetime, experiment: dict | None) -> tuple[Path, str, str]:
+    """The one place a photo's folder is picked: `(folder, path prefix, url prefix)`. The path
+    prefix is relative to the data folder, as the `capture` table stores it."""
+    day = timestamp.strftime("%Y-%m-%d")
+    if experiment is None:
+        return photos_root() / day, f"rig/{day}", f"/photos/{day}"
+    stills = f"{experiment['folder']}/stills/{day}"
+    return experiments_root() / stills, f"experiments/{stills}", f"/experiment-files/{stills}"
+
+
+def _photo_owner(purpose: str) -> dict | None:
+    """The running experiment a photo belongs to, or None for a rig photo. Only Capture photos
+    belong to an experiment: calibration, validation and tripwire photos stay in rig/, where
+    their pages look for them, and no experiment's purge can reach them."""
+    if purpose not in _MEASURED_PURPOSES:
+        return None
+    try:
+        return database.running_experiment()
+    except (sqlite3.Error, RuntimeError):
+        logger.exception("Could not read the running experiment, saving as a rig photo")
+        return None
 
 
 def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dict]:
@@ -197,7 +221,12 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         "flags": [check["reason"] for check in checks.values() if check["flagged"]],
         **(extra or {}),
     }
-    record = _save_photo(array, sidecar)
+    # Read once, so the folder and the database row cannot disagree if Stop is pressed meanwhile.
+    owner = _photo_owner(purpose)
+    sidecar["experiment"] = (
+        None if owner is None else {k: owner[k] for k in ("id", "uuid", "name", "folder")}
+    )
+    record = _save_photo(array, sidecar, owner)
     record["capture_id"] = _record_in_database(record)
     return array, record
 
@@ -260,8 +289,9 @@ def _record_in_database(record: dict) -> int | None:
     try:
         return database.record_capture(
             taken_at=record["timestamp"],
-            path=f"{record['date']}/{Path(record['filename']).stem}",
+            path=record["path"],
             purpose=record["purpose"],
+            experiment_id=(record["experiment"] or {}).get("id"),
             calibration=_active_calibration_stem(),
             validation=record.get("validation", {}).get("session"),
             lens_position=sensor.get("LensPosition"),
@@ -275,13 +305,13 @@ def _record_in_database(record: dict) -> int | None:
         return None
 
 
-def _save_photo(image: np.ndarray, metadata: dict) -> dict:
+def _save_photo(image: np.ndarray, metadata: dict, experiment: dict | None = None) -> dict:
     """Write a full-res JPEG plus a JSON sidecar of `metadata`, return the combined record.
 
     Both are written under temporary names and renamed, sidecar first, so a crash never leaves
     half a file and a JPEG the gallery can see always has its sidecar."""
     timestamp = datetime.now(timezone.utc)
-    day_dir = _photo_dir(timestamp)
+    day_dir, path_prefix, url_prefix = _photo_dir(timestamp, experiment)
     day_dir.mkdir(parents=True, exist_ok=True)
 
     stem = timestamp.strftime("%H%M%S_%f")
@@ -299,43 +329,61 @@ def _save_photo(image: np.ndarray, metadata: dict) -> dict:
     return {
         "date": timestamp.strftime("%Y-%m-%d"),
         "filename": jpeg_path.name,
-        "url": f"/photos/{timestamp.strftime('%Y-%m-%d')}/{jpeg_path.name}",
+        "url": f"{url_prefix}/{jpeg_path.name}",
+        "path": f"{path_prefix}/{stem}",
         **record,
     }
 
 
+def _photo_roots() -> list[tuple[Path, str, str]]:
+    """Every folder of day folders: `(folder, path prefix, url prefix)`, rig first."""
+    roots = [(photos_root(), "rig", "/photos")]
+    if experiments_root().exists():
+        for folder in sorted(p for p in experiments_root().iterdir() if p.is_dir()):
+            stills = f"{folder.name}/stills"
+            roots.append((folder / "stills", f"experiments/{stills}", f"/experiment-files/{stills}"))
+    return roots
+
+
 def list_recent_captures(limit: int = 12) -> list[dict]:
-    """Most recent captures first, newest day and newest filename within a day sorting first."""
-    root = photos_root()
-    if not root.exists():
-        return []
+    """Most recent photos first, from rig/ and every experiment's stills."""
+    found: list[tuple[str, str, Path, str, str]] = []
+    for root, path_prefix, url_prefix in _photo_roots():
+        if not root.exists():
+            continue
+        newest: list[tuple[str, str, Path, str, str]] = []
+        for day_dir in sorted((p for p in root.iterdir() if p.is_dir()), reverse=True):
+            for jpeg_path in sorted(day_dir.glob("*.jpg"), reverse=True):
+                newest.append((day_dir.name, jpeg_path.stem, jpeg_path, path_prefix, url_prefix))
+            if len(newest) >= limit:
+                break
+        found += newest[:limit]
+    found.sort(key=lambda f: (f[0], f[1]), reverse=True)
 
     entries: list[dict] = []
-    for day_dir in sorted((p for p in root.iterdir() if p.is_dir()), reverse=True):
-        for jpeg_path in sorted(day_dir.glob("*.jpg"), reverse=True):
-            json_path = jpeg_path.with_suffix(".json")
-            record: dict = {}
-            if json_path.exists():
-                try:
-                    record = json.loads(json_path.read_text())
-                except json.JSONDecodeError:
-                    logger.warning("Corrupt sidecar JSON, skipping metadata: %s", json_path)
-            entries.append(
-                {
-                    "date": day_dir.name,
-                    "filename": jpeg_path.name,
-                    "url": f"/photos/{day_dir.name}/{jpeg_path.name}",
-                    **record,
-                }
-            )
-            if len(entries) >= limit:
-                return _with_database_rows(entries)
+    for day, stem, jpeg_path, path_prefix, url_prefix in found[:limit]:
+        json_path = jpeg_path.with_suffix(".json")
+        record: dict = {}
+        if json_path.exists():
+            try:
+                record = json.loads(json_path.read_text())
+            except json.JSONDecodeError:
+                logger.warning("Corrupt sidecar JSON, skipping metadata: %s", json_path)
+        entries.append(
+            {
+                "date": day,
+                "filename": jpeg_path.name,
+                "url": f"{url_prefix}/{day}/{jpeg_path.name}",
+                "path": f"{path_prefix}/{day}/{stem}",
+                **record,
+            }
+        )
     return _with_database_rows(entries)
 
 
 def _with_database_rows(entries: list[dict]) -> list[dict]:
     """Add each photo's `capture` row as `record` (None for photos from before the database)."""
-    paths = [f"{e['date']}/{Path(e['filename']).stem}" for e in entries]
+    paths = [e["path"] for e in entries]
     try:
         rows = database.captures_by_path(paths)
     except (sqlite3.Error, RuntimeError):
@@ -344,3 +392,60 @@ def _with_database_rows(entries: list[dict]) -> list[dict]:
     for entry, path in zip(entries, paths):
         entry["record"] = rows.get(path)
     return entries
+
+
+# --- Experiment folders ---
+# The rules (one running, Resume, what can be edited) are in database.py. This part makes the
+# folder at the first start and keeps experiment.json in it, so a copied folder says what it is.
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def create_experiment(**fields: object) -> dict:
+    return database.create_experiment(uuid=str(uuid.uuid4()), created_at=_now(), **fields)
+
+
+def _write_experiment_json(experiment: dict) -> None:
+    folder = experiments_root() / experiment["folder"]
+    tmp = folder / ".experiment.json.tmp"
+    tmp.write_text(json.dumps(experiment, indent=2))
+    tmp.replace(folder / "experiment.json")
+
+
+def start_experiment(experiment_id: int, *, stop_running: bool = False) -> dict:
+    """Start or resume. The first start makes `experiments/<start date>_<uuid[:8]>/` and refuses
+    one that already exists, so two experiments can never share a folder."""
+    now = _now()
+    experiment = database.get_experiment(experiment_id)
+    folder = None
+    if experiment["state"] == "set up":
+        folder = f"{now[:10]}_{experiment['uuid'][:8]}"
+        try:
+            (experiments_root() / folder).mkdir(parents=True)
+        except FileExistsError as exc:
+            raise database.ExperimentError(f"the folder {folder} already exists") from exc
+    try:
+        experiment = database.start_experiment(
+            experiment_id, now=now, folder=folder, stop_running=stop_running
+        )
+    except BaseException:
+        if folder is not None:
+            (experiments_root() / folder).rmdir()
+        raise
+    _write_experiment_json(experiment)
+    return experiment
+
+
+def stop_experiment(experiment_id: int) -> dict:
+    experiment = database.stop_experiment(experiment_id, now=_now())
+    _write_experiment_json(experiment)
+    return experiment
+
+
+def update_experiment(experiment_id: int, **fields: object) -> dict:
+    experiment = database.update_experiment(experiment_id, **fields)
+    if experiment["folder"]:
+        _write_experiment_json(experiment)
+    return experiment

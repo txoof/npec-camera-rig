@@ -81,6 +81,7 @@ from npec_rig.certainty_map import (
 )
 from npec_rig.captures import (
     CALIBRATION_LENS_TOLERANCE,
+    experiments_root,
     list_recent_captures,
     photos_root,
     record_app_start,
@@ -115,6 +116,7 @@ ROI_STREAM_FPS_LIMIT = 5.0
 CAMERA_FAULT_STREAM_RETRY_S = 1.0
 
 photos_root().mkdir(parents=True, exist_ok=True)
+experiments_root().mkdir(parents=True, exist_ok=True)
 calibration_root().mkdir(parents=True, exist_ok=True)
 
 @asynccontextmanager
@@ -143,6 +145,10 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # The focus controls tell the operator how long an autofocus may take (camera.py).
 templates.env.globals["AUTOFOCUS_TIMEOUT_S"] = int(AUTOFOCUS_TIMEOUT_S)
 app.mount("/photos", StaticFiles(directory=str(photos_root())), name="photos")
+# Not /experiments: that prefix is the experiments page.
+app.mount(
+    "/experiment-files", StaticFiles(directory=str(experiments_root())), name="experiment_files"
+)
 # PLAN.md M2 section A: calibration is "frozen, versioned, exportable" -- this is the export.
 # Serves the timestamped artifact JSON and its plots. Its photo is a rig photo, under /photos
 # (calibration_store.calibration_frame_url).
