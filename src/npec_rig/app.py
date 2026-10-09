@@ -97,7 +97,7 @@ from npec_rig.tags import (
     CORNER_ID_RANGE,
     detect_tags,
 )
-from npec_rig import images, validation_store
+from npec_rig import captures, database, images, validation_store
 from npec_rig.tripwire import (
     build_corner_baseline,
     check_tripwire,
@@ -486,6 +486,72 @@ def capture() -> dict:
     """Full-res JPEG to disk plus its JSON sidecar (captures.take_photo)."""
     _array, record = take_photo("capture")
     return record
+
+
+# --- Experiments ---
+# Rules in database.py, folders in captures.py. Every field is optional (Aaron, 2026-10-09): an
+# unnamed experiment is shown by the time it started.
+
+
+@app.get("/experiments")
+def experiments_page(request: Request) -> Response:
+    return templates.TemplateResponse(request, "experiments.html")
+
+
+class ExperimentFields(BaseModel):
+    name: str | None = None
+    researcher: str | None = None
+    tray_height_mm: float | None = Field(default=None, ge=0)
+    notes: str | None = None
+
+
+def _cleaned(fields: ExperimentFields) -> dict:
+    """Only the fields sent, with blank text stored as empty (NULL)."""
+    sent = fields.model_dump(exclude_unset=True)
+    return {k: (v.strip() or None) if isinstance(v, str) else v for k, v in sent.items()}
+
+
+def _experiment_action(action, *args, **kwargs) -> dict:
+    try:
+        return action(*args, **kwargs)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except database.ExperimentError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.get("/api/experiments")
+def api_experiments() -> list[dict]:
+    """Every experiment, newest first, with its state and periods."""
+    return database.list_experiments()
+
+
+@app.post("/api/experiments")
+def api_create_experiment(fields: ExperimentFields) -> dict:
+    return captures.create_experiment(**_cleaned(fields))
+
+
+@app.patch("/api/experiments/{experiment_id}")
+def api_update_experiment(experiment_id: int, fields: ExperimentFields) -> dict:
+    return _experiment_action(captures.update_experiment, experiment_id, **_cleaned(fields))
+
+
+@app.post("/api/experiments/{experiment_id}/start")
+def api_start_experiment(experiment_id: int, stop_running: bool = False) -> dict:
+    """Start, or resume a stopped experiment. `stop_running` stops the running one first, in the
+    same transaction."""
+    return _experiment_action(captures.start_experiment, experiment_id, stop_running=stop_running)
+
+
+@app.post("/api/experiments/{experiment_id}/stop")
+def api_stop_experiment(experiment_id: int) -> dict:
+    return _experiment_action(captures.stop_experiment, experiment_id)
+
+
+@app.delete("/api/experiments/{experiment_id}")
+def api_discard_experiment(experiment_id: int) -> dict:
+    _experiment_action(database.discard_experiment, experiment_id)
+    return {"discarded": experiment_id}
 
 
 @app.get("/api/captures")

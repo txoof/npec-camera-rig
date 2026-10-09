@@ -151,3 +151,35 @@ def test_after_stop_photos_are_rig_photos_again() -> None:
     del _array
     assert capture["path"].startswith("rig/")
     assert capture["experiment"] is None
+
+
+def test_the_page_and_its_routes() -> None:
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    assert client.get("/experiments").status_code == 200
+
+    first = client.post("/api/experiments", json={"name": "  ", "researcher": "Lisa"}).json()
+    assert first["name"] is None
+    assert first["researcher"] == "Lisa"
+    second = client.post("/api/experiments", json={}).json()
+
+    assert client.post(f"/api/experiments/{first['id']}/start").json()["state"] == "running"
+    refused = client.post(f"/api/experiments/{second['id']}/start")
+    assert refused.status_code == 409
+    assert "another experiment is running" in refused.json()["detail"]
+    started = client.post(f"/api/experiments/{second['id']}/start", params={"stop_running": True})
+    assert started.json()["state"] == "running"
+
+    locked = client.patch(f"/api/experiments/{second['id']}", json={"tray_height_mm": 50})
+    assert locked.status_code == 409
+    renamed = client.patch(f"/api/experiments/{second['id']}", json={"name": "Drought"}).json()
+    assert renamed["name"] == "Drought"
+
+    assert client.post(f"/api/experiments/{second['id']}/stop").json()["state"] == "stopped"
+    assert client.delete(f"/api/experiments/{second['id']}").status_code == 409
+    assert client.post("/api/experiments/999/stop").status_code == 404
+    states = {e["id"]: e["state"] for e in client.get("/api/experiments").json()}
+    assert states == {first["id"]: "stopped", second["id"]: "stopped"}
