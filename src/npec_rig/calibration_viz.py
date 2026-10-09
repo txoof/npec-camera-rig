@@ -121,6 +121,8 @@ def render_pct_heatmap(
     return cv2.addWeighted(base, 1 - alpha, color_rgb, alpha, 0)
 
 
+# Not shown to the operator (issue #52: the claim was smaller than the measured validation
+# error in 7 of 12 slots). Kept, unused by the app, for the M3 calibration plot review.
 def render_uncertainty_heatmap(
     field: UncertaintyField,
     frame: np.ndarray,
@@ -176,6 +178,8 @@ HONESTY_PLOT_SIZE = 640
 HONESTY_PLOT_MARGIN = 70
 
 
+# Not shown to the operator (issue #52: the claim was smaller than the measured validation
+# error in 7 of 12 slots). Kept, unused by the app, for the M3 calibration plot review.
 def render_honesty_plot(
     points: list[tuple[float, float]],
     *,
@@ -567,6 +571,8 @@ def render_radial_residual_plot(
     return img
 
 
+# Not shown to the operator (issue #52: the claim was smaller than the measured validation
+# error in 7 of 12 slots). Kept, unused by the app, for the M3 calibration plot review.
 def render_certainty_dome_plot(
     points: list[tuple[float, float, int]],
     *,

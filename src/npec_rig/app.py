@@ -27,7 +27,6 @@ from npec_rig.calibration import (
     build_calibration_report,
     build_scale_field,
     build_table_frame,
-    build_uncertainty_field,
     scale_residual_samples,
 )
 from npec_rig.calibration_store import (
@@ -40,28 +39,19 @@ from npec_rig.calibration_store import (
     load_calibration_frame,
     load_current_calibration,
     save_calibration,
-    save_calibration_accuracy_shape_heatmap,
     save_calibration_area_shape_heatmap,
-    save_calibration_heatmap,
-    save_calibration_table_view,
     save_calibration_table_view_area_shape,
     stem_for_photo,
 )
 from npec_rig.calibration_viz import (
-    ACCURACY_SHAPE_HEATMAP_K,
     AREA_SHAPE_HEATMAP_MAX_PCT,
     AREA_SHAPE_HEATMAP_MIN_PCT,
-    HEATMAP_MAX_PCT,
-    HEATMAP_MIN_PCT,
     render_area_shape_heatmap,
     render_best_worst_overlay,
-    render_certainty_dome_plot,
-    render_honesty_plot,
     render_level_overlay,
     render_radial_residual_plot,
     render_rank_plot,
     render_table_view,
-    render_uncertainty_heatmap,
 )
 from npec_rig.camera import (
     AUTOFOCUS_TIMEOUT_S,
@@ -766,27 +756,10 @@ def run_calibration(
         corner_baseline = None
     result["corner_baseline_tags"] = sorted(corner_baseline.corners_by_id) if corner_baseline else []
 
-    try:
-        uncertainty_field = build_uncertainty_field(field, detections, tag_sizes_mm)
-    except ValueError:
-        uncertainty_field = None
-    if uncertainty_field is not None:
-        heatmap = render_uncertainty_heatmap(uncertainty_field, array)
-        save_calibration_heatmap(heatmap, stem=stem)
-        result["heatmap_url"] = f"/calibration/files/heatmaps/{stem}.jpg"
-
-        # Same real per-tag residuals as the heatmap above, averaged over a much wider
-        # neighbourhood (see ACCURACY_SHAPE_HEATMAP_K's own comment) -- for judging the rig's
-        # overall accuracy shape once basic setup is done, not for finding exactly where
-        # coverage is thin (that's the small-k heatmap's job). Aaron/supervisor, 2026-09-25.
-        accuracy_shape_heatmap = render_uncertainty_heatmap(
-            uncertainty_field, array, k=ACCURACY_SHAPE_HEATMAP_K
-        )
-        save_calibration_accuracy_shape_heatmap(accuracy_shape_heatmap, stem=stem)
-        result["accuracy_shape_heatmap_url"] = f"/calibration/files/heatmaps/{stem}_accuracy-shape.jpg"
-    else:
-        result["heatmap_url"] = None
-        result["accuracy_shape_heatmap_url"] = None
+    # The calibration's claimed uncertainty (UncertaintyField: confidence heatmap, accuracy
+    # shape, scale-residual table view) is no longer built or shown: it was smaller than the
+    # measured validation error in 7 of 12 slots (issue #52). Only validation's per-slot band is
+    # reported. The drawing code stays in calibration_viz for the M3 plot review.
 
     try:
         area_field = build_area_scale_field(area_scale_samples(field, detections, tag_sizes_mm))
@@ -800,7 +773,7 @@ def run_calibration(
         result["area_shape_heatmap_url"] = None
 
     # The table-position trust view (PLAN.md 339-340's promised-but-unbuilt homography, see
-    # calibration.TableFrame): same two fields as the two heatmaps above, painted instead on a
+    # calibration.TableFrame): the area-shape field above, painted instead on a
     # straightened top-down view anchored to the four corner tags, so "this spot" means the same
     # real position across different calibration runs. `covered_positions` reuses the calibration
     # tags' own positions already extracted above -- no new detection pass.
@@ -816,23 +789,6 @@ def run_calibration(
     # rendered view still falls back to NOT-TO-SCALE, but the result must say so plainly rather
     # than letting the UI echo the entered numbers next to a canvas that silently ignored them.
     result["table_view_to_scale"] = render_width_mm is not None and render_length_mm is not None
-
-    if table_frame is not None and uncertainty_field is not None:
-        table_view = render_table_view(
-            array,
-            table_frame,
-            uncertainty_field.local_uncertainty_pct,
-            covered_positions,
-            label="scale residual",
-            vmin=HEATMAP_MIN_PCT,
-            vmax=HEATMAP_MAX_PCT,
-            table_width_mm=render_width_mm,
-            table_length_mm=render_length_mm,
-        )
-        save_calibration_table_view(table_view, stem=stem)
-        result["table_view_url"] = f"/calibration/files/heatmaps/{stem}_table-view.jpg"
-    else:
-        result["table_view_url"] = None
 
     if table_frame is not None and area_field is not None:
         table_view_shape = render_table_view(
@@ -872,7 +828,6 @@ def run_calibration(
         corner_baseline=corner_baseline,
         lens_position=lens_position,
         calibration_tag_size_mm=tag_size_mm,
-        uncertainty_field=uncertainty_field,
         frame_stem=stem,
     )
     result["artifact_path"] = str(save_calibration(artifact, stem=stem, promote=promote))
@@ -924,18 +879,9 @@ def list_calibration_artifacts() -> list[dict]:
             }
         )
         frame_url = calibration_frame_url(path.stem)
-        heatmap_url = None
-        if (calibration_root() / "heatmaps" / f"{path.stem}.jpg").exists():
-            heatmap_url = f"/calibration/files/heatmaps/{path.stem}.jpg"
         area_shape_heatmap_url = None
         if (calibration_root() / "heatmaps" / f"{path.stem}_area-shape.jpg").exists():
             area_shape_heatmap_url = f"/calibration/files/heatmaps/{path.stem}_area-shape.jpg"
-        accuracy_shape_heatmap_url = None
-        if (calibration_root() / "heatmaps" / f"{path.stem}_accuracy-shape.jpg").exists():
-            accuracy_shape_heatmap_url = f"/calibration/files/heatmaps/{path.stem}_accuracy-shape.jpg"
-        table_view_url = None
-        if (calibration_root() / "heatmaps" / f"{path.stem}_table-view.jpg").exists():
-            table_view_url = f"/calibration/files/heatmaps/{path.stem}_table-view.jpg"
         table_view_shape_url = None
         if (calibration_root() / "heatmaps" / f"{path.stem}_table-view-area-shape.jpg").exists():
             table_view_shape_url = (
@@ -947,10 +893,7 @@ def list_calibration_artifacts() -> list[dict]:
                 "filename": path.name,
                 "url": f"/calibration/files/{path.name}",
                 "frame_url": frame_url,
-                "heatmap_url": heatmap_url,
                 "area_shape_heatmap_url": area_shape_heatmap_url,
-                "accuracy_shape_heatmap_url": accuracy_shape_heatmap_url,
-                "table_view_url": table_view_url,
                 "table_view_shape_url": table_view_shape_url,
                 **stats,
             }
@@ -1069,28 +1012,10 @@ def current_calibration() -> dict:
     if artifact is None:
         return {"exists": False, **table_dims}
     frame_url = calibration_frame_url(artifact.frame_stem)
-    heatmap_url = (
-        f"/calibration/files/heatmaps/{artifact.frame_stem}.jpg"
-        if artifact.frame_stem
-        and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}.jpg").exists()
-        else None
-    )
     area_shape_heatmap_url = (
         f"/calibration/files/heatmaps/{artifact.frame_stem}_area-shape.jpg"
         if artifact.frame_stem
         and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}_area-shape.jpg").exists()
-        else None
-    )
-    accuracy_shape_heatmap_url = (
-        f"/calibration/files/heatmaps/{artifact.frame_stem}_accuracy-shape.jpg"
-        if artifact.frame_stem
-        and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}_accuracy-shape.jpg").exists()
-        else None
-    )
-    table_view_url = (
-        f"/calibration/files/heatmaps/{artifact.frame_stem}_table-view.jpg"
-        if artifact.frame_stem
-        and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}_table-view.jpg").exists()
         else None
     )
     table_view_shape_url = (
@@ -1112,12 +1037,8 @@ def current_calibration() -> dict:
             sorted(artifact.corner_baseline.corners_by_id) if artifact.corner_baseline else []
         ),
         "frame_url": frame_url,
-        "heatmap_url": heatmap_url,
         "area_shape_heatmap_url": area_shape_heatmap_url,
-        "accuracy_shape_heatmap_url": accuracy_shape_heatmap_url,
-        "table_view_url": table_view_url,
         "table_view_shape_url": table_view_shape_url,
-        "has_uncertainty_field": artifact.uncertainty_field is not None,
         **table_dims,
     }
 
@@ -1148,49 +1069,6 @@ def save_table_dims(
         "table_length_mm": table_length_mm,
         "corner_tag_size_mm": corner_tag_size_mm,
     }
-
-
-@app.get("/calibration/current/uncertainty")
-def current_uncertainty(x: float, y: float) -> dict:
-    """Claimed uncertainty (%) at image position `(x, y)`, from the live calibration's own
-    `UncertaintyField` -- the "claimed" half of PLAN.md's honesty plot. Aaron reads this off for
-    wherever he's placed a known target, then measures the *actual* error with a ruler; the two
-    together are one point on the plot.
-    """
-    artifact = load_current_calibration()
-    if artifact is None or artifact.uncertainty_field is None:
-        raise HTTPException(409, "no calibration with an uncertainty field saved yet")
-    return {"uncertainty_pct": artifact.uncertainty_field.local_uncertainty_pct(x, y)}
-
-
-class HonestyPlotPoint(BaseModel):
-    """One physical target position for the honesty plot: where it is in the frame, and how far
-    off the app's reading was there, measured with a ruler."""
-
-    x: float
-    y: float
-    actual_error_pct: float
-
-
-@app.post("/calibration/honesty-plot")
-def honesty_plot(points: list[HonestyPlotPoint]) -> Response:
-    """Render PLAN.md's M2 honesty plot from `points`: for each, look up the live calibration's
-    claimed uncertainty at that position and pair it with the actual error Aaron measured there.
-
-    Returns the rendered JPEG directly -- this is a one-off diagnostic chart for the chamber
-    acceptance test, not a persisted artifact.
-    """
-    if not points:
-        raise HTTPException(422, "need at least one point")
-    artifact = load_current_calibration()
-    if artifact is None or artifact.uncertainty_field is None:
-        raise HTTPException(409, "no calibration with an uncertainty field saved yet")
-    pairs = [
-        (artifact.uncertainty_field.local_uncertainty_pct(p.x, p.y), p.actual_error_pct)
-        for p in points
-    ]
-    image = render_honesty_plot(pairs)
-    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
 
 # The rank plot and best/worst photo endpoints each re-detect tags on the *full* saved frame
@@ -1374,53 +1252,6 @@ def stem_radial_plot(stem: str, metric: str = "scale_residual") -> Response:
     """`_radial_plot_response` for an arbitrary saved calibration `stem` -- see
     `stem_rank_plot`."""
     return _radial_plot_response(_load_saved_artifact(stem), metric)
-
-
-def _certainty_dome_plot_response(artifact: CalibrationArtifact) -> Response:
-    """Aaron, 2026-09-25: an honest display of modeled area-measurement certainty as a function
-    of distance from the image centre, where certainty *should* be highest -- claimed uncertainty
-    (`UncertaintyField.local_uncertainty_pct`, already computed and persisted on every run, no new
-    measurement) sampled at each detected calibration tag's position. See `_detect_tags_cached`
-    for why this re-detects tags from the saved frame rather than the live camera.
-    """
-    if artifact.uncertainty_field is None:
-        raise HTTPException(409, "no calibration with an uncertainty field saved yet")
-    if artifact.frame_stem is None:
-        raise HTTPException(409, "no calibration with a saved frame yet")
-
-    frame, detections = _detect_tags_cached(artifact.frame_stem)
-    cal_detections = [d for d in detections if d.tag_id in CALIBRATION_ID_RANGE]
-    if len(cal_detections) < 2:
-        raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
-
-    cx, cy = frame.shape[1] / 2, frame.shape[0] / 2
-    points = [
-        (
-            float(np.hypot(d.centre[0] - cx, d.centre[1] - cy)),
-            artifact.uncertainty_field.local_uncertainty_pct(d.centre[0], d.centre[1]),
-            d.tag_id,
-        )
-        for d in cal_detections
-    ]
-
-    image = render_certainty_dome_plot(points)
-    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
-
-
-@app.get("/calibration/current/certainty-dome-plot")
-def current_certainty_dome_plot() -> Response:
-    """`_certainty_dome_plot_response` for the live calibration."""
-    artifact = load_current_calibration()
-    if artifact is None:
-        raise HTTPException(409, "no calibration with an uncertainty field saved yet")
-    return _certainty_dome_plot_response(artifact)
-
-
-@app.get("/calibration/{stem}/certainty-dome-plot")
-def stem_certainty_dome_plot(stem: str) -> Response:
-    """`_certainty_dome_plot_response` for an arbitrary saved calibration `stem` -- see
-    `stem_rank_plot`."""
-    return _certainty_dome_plot_response(_load_saved_artifact(stem))
 
 
 # Validation captures for the certainty map. `_detect_tags_cached` keeps one full frame for the
