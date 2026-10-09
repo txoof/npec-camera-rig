@@ -55,6 +55,8 @@ two area errors (for example +1.00% to +1.03%) is given in *points* (+0.03 point
 | Callipers used for every reading in this table | NEIKO callipers; no model or serial number available | Stated by Aaron | 2026-10-08 | Not checked against a reference standard. The only independent check: the steel tape and the callipers agree on the sheets' 180 mm scale bars (section 9.2) |
 | Calliper resolution trusted | 0.1 mm | **Decision** | | Readings are not used beyond 0.1 mm |
 | Sheet-to-sheet difference | up to about 0.7% in area between sheets that both measure 30.0 mm | Fit residuals, 6 pages, 3 sessions | 2026-09-30 to 10-01 | `reference/arducam-central-error-2026-10.md` |
+| Tray heights, table surface to the top edge of the tray | Black tray 40 mm; 4x5 tray 105 mm; 4x4 tray 150 mm; 1x1 tray 175 mm | Tape measure, by Aaron, one reading per tray, given in cm (4, 10.5, 15, 17.5) | 2026-10-09 | One tape reading each, so a few mm either way. For the black, 4x4 and 1x1 trays the top edge is the growing-medium height (Aaron, 2026-10-09). The 4x5 is the exception: see the next row |
+| Growing medium height, 4x5 tray | 100 mm above the table surface; the tray lip stands 5 mm above the growing medium | Callipers, the 100 mm "normal tray" value of the height test (section 4); Aaron confirmed on 2026-10-09 that it is the growing-medium height and that the lip stands 5 mm proud of it | 2026-10-01 (callipers), 2026-10-09 (confirmed) | The height used for the 4x5 tray on the experiments page. Only the 4x5 has a lip above the growing medium |
 
 **Where the calliper readings are.** The 2026-09-21 readings were typed by Aaron into a table and
 given to a Claude Code session (2026-09-21 07:36 UTC), and given again on 2026-09-29 with the
@@ -63,6 +65,12 @@ that second date; the measurement was made on or before 2026-09-21 (calibrations
 12:12 UTC already used 30.02 mm). No other copy exists; this table is the record. The tag 500
 readings were given the same way on 2026-10-06. The table does not record which 3 tags were
 measured, only that they were at the left, middle and right of the sheet.
+
+**Tray heights: lip and growing medium.** The height test of 2026-10-01 (section 4) used "normal
+trays 100 mm, tall tray 175 mm", by callipers. The tape readings of 2026-10-09 gave 105 mm for the
+4x5 (normal) tray. Aaron resolved the difference the same day: 100 mm is the height of the growing
+medium, the height that matters for area because the plants start there, and the tray's lip stands
+5 mm above it. The tape reading was to the lip.
 
 Why tag size matters most: on the previous rig, trusting the 30 mm printed on the box (the tags
 measured 29.3106 mm) caused about 4.7% area error, larger than any other source. The lesson is to
@@ -1378,6 +1386,9 @@ done (section 9).
 4. Tray height: about 100 mm in some notes, a survey of 50 to 56 mm in another (the reference
    point of the survey is not stated). The 2026-10-05 two-height test implies about 100 mm from
    table surface to tray top (derived from scale, not taped), matching the 100 mm notes.
+   *Resolved 2026-10-09:* the 4x5 tray's growing medium is 100 mm above the table (callipers) and
+   its lip 5 mm higher (105 mm by tape, section 3). The 100 mm notes and the two-height test refer
+   to the growing medium. For the other trays the top edge is the growing medium (Aaron, same day).
 5. *Resolved 2026-10-08.* Central error size: "up to about 4%" (CLAUDE.md) is the ring 1000 to
    1500 px (-3.63 points at 6.10, the lowest lens position tested); -5.27 is the ring 0 to 1000 px,
    which holds only 5 tags (section 7).

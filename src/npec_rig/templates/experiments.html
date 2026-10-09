@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% set nav_active = "experiments" %}
+{% block title_suffix %} — Experiments{% endblock %}
+
+{% block content %}
+  <div class="experiment-running" id="running"></div>
+
+  <h2 id="form-title">New experiment</h2>
+  <form class="experiment-form" id="experiment-form">
+    <p class="experiment-hint">Every field is optional. An experiment with no name is shown by the
+      time it started.</p>
+    <label>Experiment name <input type="text" id="f-name" maxlength="200"></label>
+    <label>Researcher <input type="text" id="f-researcher" maxlength="200"></label>
+    <label for="f-tray-choice">Tray height</label>
+    <div class="experiment-tray-row">
+      <select id="f-tray-choice">
+        <option value="">Not recorded</option>
+        {% for label, mm in known_trays %}
+          <option value="{{ mm }}">{{ label }}, {{ mm | round(1) }} mm</option>
+        {% endfor %}
+        <option value="other">Other, type the height</option>
+      </select>
+      <span id="f-tray-other" class="experiment-tray-other" hidden>
+        <input type="number" id="f-tray-height" min="0" step="0.1" aria-label="Tray height in mm"> mm
+      </span>
+    </div>
+    <label>Notes <textarea id="f-notes" rows="2"></textarea></label>
+    <div class="experiment-form-buttons">
+      <button type="submit" id="f-submit">Set up</button>
+      <button type="button" id="f-cancel" class="secondary" hidden>Cancel</button>
+    </div>
+    <div class="experiment-message" id="form-message"></div>
+  </form>
+
+  <h2>All experiments</h2>
+  <div class="experiment-message" id="list-message"></div>
+  <table class="experiment-list">
+    <thead>
+      <tr><th>Experiment</th><th>Researcher</th><th>State</th><th>Folder</th><th></th></tr>
+    </thead>
+    <tbody id="experiment-rows"></tbody>
+  </table>
+
+  <script>
+    const running = document.getElementById("running");
+    const rows = document.getElementById("experiment-rows");
+    const form = document.getElementById("experiment-form");
+    const formTitle = document.getElementById("form-title");
+    const submit = document.getElementById("f-submit");
+    const cancel = document.getElementById("f-cancel");
+    const formMessage = document.getElementById("form-message");
+    const listMessage = document.getElementById("list-message");
+    const trayChoice = document.getElementById("f-tray-choice");
+    const trayOther = document.getElementById("f-tray-other");
+    const knownTrays = [...trayChoice.options].map((o) => o.value).filter((v) => v && v !== "other");
+    const fields = {
+      name: document.getElementById("f-name"),
+      researcher: document.getElementById("f-researcher"),
+      tray_height_mm: document.getElementById("f-tray-height"),
+      notes: document.getElementById("f-notes"),
+    };
+    let experiments = [];
+    let editing = null;
+
+    function esc(text) {
+      const div = document.createElement("div");
+      div.textContent = text ?? "";
+      return div.innerHTML;
+    }
+
+    function utc(iso) {
+      return iso ? `${iso.replace("T", " ").slice(0, 16)} UTC` : "";
+    }
+
+    function displayName(e) {
+      if (e.name) return e.name;
+      if (e.periods.length) return `Experiment started ${utc(e.periods[0].started_at)}`;
+      return `Experiment set up ${utc(e.created_at)}, not started`;
+    }
+
+    function stateText(e) {
+      if (e.state === "set up") return "Set up, not started";
+      const first = utc(e.periods[0].started_at);
+      if (e.state === "running") {
+        const resumed = e.periods.length > 1
+          ? `, resumed ${utc(e.periods[e.periods.length - 1].started_at)}` : "";
+        return `Running since ${first}${resumed}`;
+      }
+      return `Stopped ${utc(e.periods[e.periods.length - 1].ended_at)}. New photos are not saved `
+        + "to this experiment. Resume continues it in the same folder.";
+    }
+
+    function actions(e) {
+      const buttons = [`<button data-act="edit" data-id="${e.id}" class="secondary">Edit</button>`];
+      if (e.state === "set up") {
+        buttons.push(`<button data-act="start" data-id="${e.id}">Start</button>`);
+        buttons.push(`<button data-act="discard" data-id="${e.id}" class="secondary">Discard</button>`);
+      } else if (e.state === "running") {
+        buttons.push(`<button data-act="stop" data-id="${e.id}" class="stop">Stop</button>`);
+      } else {
+        buttons.push(`<button data-act="start" data-id="${e.id}">Resume</button>`);
+      }
+      return buttons.join(" ");
+    }
+
+    function render() {
+      const now = experiments.find((e) => e.state === "running");
+      running.innerHTML = now
+        ? `<strong>Running:</strong> ${esc(displayName(now))}`
+          + (now.researcher ? ` (${esc(now.researcher)})` : "")
+          + `<br>Capture photos are saved to <code>experiments/${esc(now.folder)}</code>.`
+        : "No experiment is running. Capture photos are saved as rig photos.";
+      running.classList.toggle("is-running", Boolean(now));
+      rows.innerHTML = experiments.length
+        ? experiments.map((e) => `
+          <tr>
+            <td>${esc(displayName(e))}${e.notes ? `<div class="experiment-notes">${esc(e.notes)}</div>` : ""}</td>
+            <td>${esc(e.researcher)}</td>
+            <td>${esc(stateText(e))}</td>
+            <td>${e.folder ? `<code>${esc(e.folder)}</code>` : ""}</td>
+            <td class="experiment-actions">${actions(e)}</td>
+          </tr>`).join("")
+        : `<tr><td colspan="5">No experiments yet.</td></tr>`;
+    }
+
+    async function refresh() {
+      const r = await fetch("/api/experiments");
+      experiments = await r.json();
+      render();
+    }
+
+    async function call(method, url, body) {
+      const r = await fetch(url, {
+        method,
+        headers: body ? { "Content-Type": "application/json" } : {},
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        const detail = Array.isArray(data.detail)
+          ? data.detail.map((d) => d.msg).join("; ") : data.detail;
+        throw new Error(detail);
+      }
+      return data;
+    }
+
+    function showTray(mm) {
+      if (mm === null || mm === undefined) {
+        trayChoice.value = "";
+      } else {
+        const known = knownTrays.find((v) => Number(v) === mm);
+        trayChoice.value = known ?? "other";
+        fields.tray_height_mm.value = known ? "" : mm;
+      }
+      trayOther.hidden = trayChoice.value !== "other";
+    }
+
+    function trayHeight() {
+      if (trayChoice.value === "") return null;
+      if (trayChoice.value !== "other") return Number(trayChoice.value);
+      return fields.tray_height_mm.value === "" ? null : Number(fields.tray_height_mm.value);
+    }
+
+    trayChoice.addEventListener("change", () => {
+      trayOther.hidden = trayChoice.value !== "other";
+    });
+
+    function resetForm() {
+      editing = null;
+      form.reset();
+      showTray(null);
+      trayChoice.disabled = false;
+      fields.tray_height_mm.disabled = false;
+      formTitle.textContent = "New experiment";
+      submit.textContent = "Set up";
+      cancel.hidden = true;
+    }
+
+    function edit(e) {
+      editing = e;
+      fields.name.value = e.name ?? "";
+      fields.researcher.value = e.researcher ?? "";
+      showTray(e.tray_height_mm);
+      fields.notes.value = e.notes ?? "";
+      // Readings depend on the tray height, so it is fixed at the first start.
+      fields.tray_height_mm.disabled = e.state !== "set up";
+      trayChoice.disabled = fields.tray_height_mm.disabled;
+      formTitle.textContent = `Edit: ${displayName(e)}`;
+      submit.textContent = "Save changes";
+      cancel.hidden = false;
+      formMessage.textContent = fields.tray_height_mm.disabled
+        ? "Tray height cannot be changed after the experiment has started." : "";
+      form.scrollIntoView({ behavior: "smooth" });
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const body = {
+        name: fields.name.value,
+        researcher: fields.researcher.value,
+        notes: fields.notes.value,
+      };
+      if (!fields.tray_height_mm.disabled) {
+        body.tray_height_mm = trayHeight();
+      }
+      submit.disabled = true;
+      try {
+        if (editing) {
+          await call("PATCH", `/api/experiments/${editing.id}`, body);
+          formMessage.textContent = "Saved.";
+        } else {
+          await call("POST", "/api/experiments", body);
+          formMessage.textContent = "Set up. Press Start in the list below when you are ready.";
+        }
+        resetForm();
+        await refresh();
+      } catch (err) {
+        formMessage.textContent = err.message;
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    cancel.addEventListener("click", () => {
+      resetForm();
+      formMessage.textContent = "";
+    });
+
+    rows.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-act]");
+      if (!button) return;
+      const e = experiments.find((x) => x.id === Number(button.dataset.id));
+      listMessage.textContent = "";
+      if (button.dataset.act === "edit") {
+        edit(e);
+        return;
+      }
+      try {
+        if (button.dataset.act === "start") {
+          const other = experiments.find((x) => x.state === "running");
+          let stopRunning = false;
+          if (other) {
+            if (!confirm(`"${displayName(other)}" is running. Stop it and start this one?`)) return;
+            stopRunning = true;
+          }
+          await call("POST", `/api/experiments/${e.id}/start?stop_running=${stopRunning}`);
+        } else if (button.dataset.act === "stop") {
+          if (!confirm("Stop this experiment? New photos will not be saved to it. "
+            + "You can resume it later in the same folder.")) return;
+          await call("POST", `/api/experiments/${e.id}/stop`);
+        } else if (button.dataset.act === "discard") {
+          if (!confirm("Discard this experiment? It has never started, so no photos are lost.")) return;
+          await call("DELETE", `/api/experiments/${e.id}`);
+        }
+      } catch (err) {
+        listMessage.textContent = err.message;
+      }
+      await refresh();
+    });
+
+    refresh();
+  </script>
+{% endblock %}
