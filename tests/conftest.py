@@ -28,6 +28,16 @@ def _no_lens_drive_waits(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(camera_module, "LENS_POLL_INTERVAL_S", 0.0)
 
 
+@pytest.fixture(autouse=True)
+def _synthetic_camera_unless_hardware(request: pytest.FixtureRequest, monkeypatch) -> None:
+    """Only a hardware-marked test may reach the real camera. Any other test that builds the
+    default camera (CameraManager.instance) gets the synthetic one: since #51 a real camera that
+    does not open (a live server holds it) is a reported fault, not a silent switch to synthetic,
+    so without this such a test would try the camera and fail."""
+    if "hardware" not in request.keywords:
+        monkeypatch.setenv("NPEC_RIG_SYNTHETIC_CAMERA", "1")
+
+
 def _hailo_present() -> bool:
     return shutil.which("hailortcli") is not None
 

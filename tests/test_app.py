@@ -1863,6 +1863,23 @@ def test_a_round_inside_the_cold_start_window_is_held_back_until_overridden(
     assert body["rounds"][0]["counted"]
 
 
+def test_a_round_after_a_camera_fault_is_held_back_until_overridden(tray_scene: dict) -> None:
+    from npec_rig import health
+
+    client = TestClient(app)
+    session = _calibrate_and_start(client)
+    tray_scene["shift"] = (200, -150)
+    health.record_camera_event(
+        health.EVENT_FAULT, call="capture_full_res", limit_s=30.0, detail="test fault"
+    )
+    health.record_camera_event(health.EVENT_RESTARTED, recovery_s=1.1)
+    held = client.post(f"/validation/sessions/{session['id']}/rounds").json()["rounds"][0]
+    assert not held["counted"] and held["overridable"]
+    assert "camera-fault window" in held["reason"]
+    body = client.post(f"/validation/sessions/{session['id']}/rounds/0/count").json()
+    assert body["rounds"][0]["counted"]
+
+
 def test_a_round_missing_a_sheet_cannot_be_overridden(tray_scene: dict) -> None:
     client = TestClient(app)
     session = _calibrate_and_start(client)
@@ -2021,3 +2038,56 @@ def test_validation_status_does_not_apply_at_another_focus(tray_scene: dict) -> 
     status = client.get("/validation/status").json()
     assert status["state"] == "focus_mismatch"
     assert status["text"] == "Not validated at this focus: focus is not locked"
+
+
+class _StuckCaptureBackend(SyntheticBackend):
+    """A camera whose full-res capture timed out in the camera program (camera_process.py)."""
+
+    def capture_full_res(self):
+        from npec_rig.camera import CameraStuckError
+
+        raise CameraStuckError(
+            "The camera stopped responding (capture_full_res did not finish within 30 s) and is "
+            "being restarted. Try again in a minute."
+        )
+
+
+def test_a_stuck_camera_answers_503_with_the_reason() -> None:
+    CameraManager.set_instance(CameraManager(_StuckCaptureBackend()))
+    response = TestClient(app).post("/capture")
+    assert response.status_code == 503
+    assert "stopped responding" in response.json()["detail"]
+
+
+def test_camera_health_reports_the_camera_state() -> None:
+    from npec_rig import health
+
+    health._reset_for_tests()
+    try:
+        health.record_camera_state(health.CAMERA_FAILED_TO_REOPEN, "could not be opened", True)
+        body = TestClient(app).get("/camera/health").json()
+        assert body["state"] == "failed_to_reopen"
+        assert body["reboot_needed"] is True
+        assert body["photos_flagged"] is False
+    finally:
+        health._reset_for_tests()
+
+
+def test_a_camera_program_that_cannot_start_answers_503() -> None:
+    from npec_rig import health
+    from npec_rig.camera import UnavailableBackend
+
+    health._reset_for_tests()
+    try:
+        CameraManager.set_instance(CameraManager(UnavailableBackend("spawn failed")))
+        response = TestClient(app).post("/capture")
+        assert response.status_code == 503
+        assert "spawn failed" in response.json()["detail"]
+        assert health.camera_health()["state"] == "failed_to_reopen"
+    finally:
+        health._reset_for_tests()
+
+
+def test_every_page_has_the_camera_status_line() -> None:
+    page = TestClient(app).get("/setup").text
+    assert 'id="camera-status"' in page

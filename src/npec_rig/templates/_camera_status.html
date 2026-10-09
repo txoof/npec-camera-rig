@@ -1,0 +1,51 @@
+{# Camera status line (#51), in the site header of every page through base.html. Hidden while the
+   camera is fine and no photo is flagged after a camera fault. Reads /camera/health (health.py). #}
+<div id="camera-status" class="camera-status" hidden>
+  <span class="camera-status-text"></span>
+</div>
+<script>
+(function () {
+  const box = document.getElementById("camera-status");
+  const text = box.querySelector(".camera-status-text");
+  // Each time in the browser's own zone, with the zone named (the rig stores UTC, health.py).
+  const time = (iso) => {
+    // Microseconds trimmed to milliseconds: not every browser parses more than 3 digits.
+    const d = new Date(iso.replace(/(\.\d{3})\d+/, "$1"));
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
+  };
+
+  function show(state, message) {
+    box.dataset.cameraState = state;
+    text.textContent = message;
+    box.hidden = false;
+  }
+
+  async function refresh() {
+    let h;
+    try {
+      const r = await fetch("/camera/health");
+      if (!r.ok) return;
+      h = await r.json();
+    } catch (e) {
+      return;
+    }
+    const until = h.last_restart
+      ? time(new Date(new Date(h.last_restart.time_utc.replace(/(\.\d{3})\d+/, "$1")).getTime() + h.camera_fault_window_s * 1000).toISOString())
+      : null;
+    if (h.state === "restarting") {
+      show("restarting", "Camera: it stopped responding and is being restarted.");
+    } else if (h.state === "failed_to_reopen") {
+      show("failed", "Camera: " + (h.detail || "it could not be reopened.") +
+        (h.reboot_needed ? " Restart needed." : ""));
+    } else if (h.photos_flagged) {
+      show("flagged", "Camera: restarted after a fault at " + time(h.last_restart.time_utc) +
+        ". Photos until " + until + " are flagged as not covered by the bands.");
+    } else {
+      box.hidden = true;
+    }
+  }
+
+  refresh();
+  setInterval(refresh, 10000);
+})();
+</script>

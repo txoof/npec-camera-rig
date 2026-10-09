@@ -537,3 +537,10 @@ a { color: #6cf; }
 .validation-status[data-validation-state="error"] .validation-status-text { color: #ff6b6b; }
 .validation-status[data-validation-state="not_validated"] { border-left-color: #e3b341; }
 .validation-status[data-validation-state="not_validated"] .validation-status-text { color: #e3b341; }
+
+/* Camera status line (_camera_status.html), in the site header of every page. */
+.camera-status { margin: 0 0 0.75rem; padding: 0.35rem 0.6rem; border-left: 4px solid #e3b341;
+  font-size: 0.9rem; }
+.camera-status .camera-status-text { font-weight: bold; color: #e3b341; }
+.camera-status[data-camera-state="failed"] { border-left-color: #ff6b6b; }
+.camera-status[data-camera-state="failed"] .camera-status-text { color: #ff6b6b; }

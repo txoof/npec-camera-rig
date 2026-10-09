@@ -198,7 +198,11 @@ tray tags could reliably show or correct such a change in tests the same day. Th
 mark readings after a camera fault or a cold start as not covered by the bands, rather than to
 correct them. The cold-start half is built (2026-10-08): photos taken within 60 minutes of the Pi
 starting are flagged, a wider window than the 15 minutes above, chosen as a decision until a
-cold-start run on the replacement camera measures it. The camera-fault half is not built yet.
+cold-start run on the replacement camera measures it. The camera-fault half is built too
+(2026-10-09): the camera runs in its own program, a camera call that does not finish in time ends
+that program and a new one is started, and photos taken within 60 minutes after the camera is back are flagged
+(the same window, also a decision). A fault that does not make a camera call hang, for example one
+the camera software recovers from by itself, is not seen.
 
 **Readings swing on a cycle of about 19 minutes.** On 2026-10-06 the rig took one photo a minute
 for 2 hours with nothing touched (lens locked, lights on), to check that photos taken the way an
@@ -294,8 +298,10 @@ the extreme frame corners, and plants only sit on trays. No model is adopted.
   reopens the camera so the lens obeys again; measurements made without touching focus were not
   affected.
 - **After a camera fault.** A stalled camera followed by a restart left the central trays
-  blurrier at the same reported focus (one case, 2026-10-06); no reliable automatic check for this
-  exists yet.
+  blurrier at the same reported focus (one case, 2026-10-06). Photos within 60 minutes after the
+  camera comes back from a fault the rig detects (a camera call that does not finish in time) are
+  flagged; a fault that does not
+  make a call hang is not detected.
 - **Tripwire limits.** The FAIL limits for roll (10°) and scale (8%) are provisional; the knock
   test reached FAIL through a lost corner tag, not through those limits.
 - **One rig, two cameras, under three weeks of data.** The evidence above comes from this rig

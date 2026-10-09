@@ -324,6 +324,30 @@ them. This is a record of conditions, not a correction: a flagged photo is kept,
   photo with focus locked at 6.04 reported 6.04 and was not flagged; one with focus unlocked was
   flagged. The cold-start flag itself is checked by unit tests only, because the Pi was not
   rebooted to test it.
+- *Camera-fault window (#51, built 2026-10-09).* The camera runs in its own program. Every camera
+  call has a time limit; when one runs out, the program is ended, a new one opens the camera, and
+  the app restores the settings and drives the lens back the one consistent way (the lock is kept
+  only if the camera confirms the lens there). The fault and the restart are saved with the boot ID
+  and uptime (`camera_events`, `docs/database.md`), and a photo taken within 60 minutes after the
+  restart is flagged as not covered by the bands. The window counts from the restart, which reopens
+  the camera and drives the lens again, so after a long outage the photos once the camera is back
+  still get the whole hour. **The 60 minutes is a
+  decision, not a measurement**: on 2026-10-06 a camera fault left the central trays about half as
+  sharp at the same reported lens position (section 8.1, run 3g), and how long such a change lasts
+  has not been measured, so the cold-start window is used until it is. **The time limits are
+  decisions too**: 30 s for a full-res photo (measured 2.7 to 2.8 s, section 8.2, step 3), 20 s for
+  reopening the camera (Reset camera measured 2.3 to 2.5 s), 90 s for autofocus (above its own 60 s
+  limit), 10 s for every other call, and 30 s to open the camera. They are set several times above
+  the measured calls because a false alarm costs more (the lens is moved and an hour of photos is
+  flagged) than a late one (one photo). Limit: only a call that does not finish counts. A camera
+  fault that libcamera recovers from by itself, without a call hanging, is not seen.
+  Checked on the rig, 2026-10-09 (SN001, focus locked at 6.04): the camera program was frozen
+  (`kill -STOP`) and a photo asked for. The app answered after 30.1 s that the camera stopped
+  responding; the new camera program was ready 1.1 s later, with focus locked again at 6.04, and the
+  next photo was flagged as taken after a camera fault (lens reported 6.040, not flagged). Killing
+  the app with SIGKILL also ended the camera program. A full-res photo took 2.70 to 2.81 s (3
+  photos), against 2.67 to 2.71 s before this change; the live preview and focus zoom kept 10 and 5
+  frames per second; free memory stayed above 12.8 GB of 16 GB during photos.
 - *Validation.* A validation round whose photo is flagged is held back from the bands, with the
   reason shown; the operator can still count it (Aaron, 2026-10-08).
 - *Not covered.* A camera fault in the middle of a run (frontend timeout, run 3g) is not detected

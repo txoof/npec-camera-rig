@@ -12,7 +12,7 @@ from threading import Lock
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import RedirectResponse, Response, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
@@ -66,6 +66,7 @@ from npec_rig.calibration_viz import (
 from npec_rig.camera import (
     AUTOFOCUS_TIMEOUT_S,
     CameraBusyError,
+    CameraFaultError,
     CameraManager,
     FocusLockedError,
     LensMovedDuringLockError,
@@ -95,6 +96,7 @@ from npec_rig.captures import (
     record_app_stop,
     take_photo,
 )
+from npec_rig import health
 from npec_rig.settings import load_settings, save_setting
 from npec_rig.tags import (
     ASSUMED_CALIBRATION_TAG_SIZE_MM,
@@ -118,6 +120,8 @@ CALIBRATION_SHEETS_DIR = Path(__file__).parent.parent.parent / "reference" / "ca
 PREVIEW_BOUNDARY = b"frame"
 PREVIEW_FPS_LIMIT = 10.0
 ROI_STREAM_FPS_LIMIT = 5.0
+# How often a live stream asks again for a frame while the camera restarts.
+CAMERA_FAULT_STREAM_RETRY_S = 1.0
 
 photos_root().mkdir(parents=True, exist_ok=True)
 calibration_root().mkdir(parents=True, exist_ok=True)
@@ -128,9 +132,22 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     record_app_start()
     yield
     record_app_stop()
+    # End the camera program cleanly, so the camera is closed rather than killed (#51).
+    manager = CameraManager._instance
+    close = getattr(manager._backend, "close", None) if manager is not None else None
+    if close is not None:
+        await run_in_threadpool(close)
 
 
 app = FastAPI(title="NPEC Camera Rig", lifespan=_lifespan)
+
+
+@app.exception_handler(CameraFaultError)
+async def _camera_fault(_request: Request, exc: CameraFaultError) -> JSONResponse:
+    """A camera call that did not finish in time, or a camera restarting or not reopened
+    (camera_process.py): one answer for every route, in the shape HTTPException gives, so every
+    page shows the message the way it shows its other errors."""
+    return JSONResponse({"detail": str(exc)}, status_code=503)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # The focus controls tell the operator how long an autofocus may take (camera.py).
 templates.env.globals["AUTOFOCUS_TIMEOUT_S"] = int(AUTOFOCUS_TIMEOUT_S)
@@ -260,6 +277,11 @@ async def _mjpeg_frames(
                 elapsed = time.monotonic() - start
                 if elapsed < min_interval:
                     await asyncio.sleep(min_interval - elapsed)
+                continue
+            except CameraFaultError:
+                # The camera is restarting (camera_process.py): keep the stream open and pick up
+                # frames again once it is back, rather than ending the preview.
+                await asyncio.sleep(CAMERA_FAULT_STREAM_RETRY_S)
                 continue
             yield (
                 b"--" + PREVIEW_BOUNDARY + b"\r\n"
@@ -431,6 +453,13 @@ def lock_focus() -> dict:
         raise HTTPException(503, f"{exc}; focus is not locked") from exc
     except LensMovedDuringLockError as exc:
         raise HTTPException(409, f"{exc}: focus is not locked, press Lock focus again") from exc
+
+
+@app.get("/camera/health")
+def camera_health() -> dict:
+    """The camera's state for the status line on every page (health.py). The fleet endpoint
+    (#82) will report the same."""
+    return health.camera_health()
 
 
 @app.post("/camera/reset")
