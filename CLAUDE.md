@@ -184,6 +184,7 @@ synthetic camera, then waits for the label.
 | calibration | `tags.py`, `calibration*.py`, `validation_store.py`, `tripwire.py`, `certainty_map.py` |
 | web | `app.py`, `templates/`, `static/` |
 | images | `images.py`, `text_render.py` |
+| database | `database.py` (the experiment's tables in `rig.db` and their migrations) |
 | docs | `docs/` (except the shared files below), `reference/`, `README.md` |
 | cad | `hardware/` |
 | deploy | `deploy/` |

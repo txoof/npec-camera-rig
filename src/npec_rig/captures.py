@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-from npec_rig import health
+from npec_rig import database, health
 from npec_rig.camera import CameraManager, array_to_jpeg, lens_check
 from npec_rig.settings import load_settings, save_setting
 
@@ -187,7 +187,38 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         "flags": [check["reason"] for check in checks.values() if check["flagged"]],
         **(extra or {}),
     }
-    return array, _save_photo(array, sidecar)
+    record = _save_photo(array, sidecar)
+    record["capture_id"] = _record_in_database(record)
+    return array, record
+
+
+def _active_calibration_stem() -> str | None:
+    # Imported here: calibration_store imports this module (photos_root).
+    from npec_rig.calibration_store import load_current_calibration
+
+    artifact = load_current_calibration()
+    return artifact.frame_stem if artifact is not None else None
+
+
+def _record_in_database(record: dict) -> int | None:
+    """Add the photo's `capture` row, return its id. A failure is logged, never raised: the
+    photo and its sidecar are already saved, and the sidecar is the full record."""
+    sensor = record["sensor_metadata"]
+    try:
+        return database.record_capture(
+            taken_at=record["timestamp"],
+            path=f"{record['date']}/{Path(record['filename']).stem}",
+            purpose=record["purpose"],
+            calibration=_active_calibration_stem(),
+            lens_position=sensor.get("LensPosition"),
+            focus_locked_at=record["focus"]["lens_position"],
+            exposure_us=sensor.get("ExposureTime"),
+            analogue_gain=sensor.get("AnalogueGain"),
+            flags=record["flags"],
+        )
+    except (sqlite3.Error, RuntimeError):
+        logger.exception("Could not add the photo %s to the database", record["filename"])
+        return None
 
 
 def _save_photo(image: np.ndarray, metadata: dict) -> dict:
