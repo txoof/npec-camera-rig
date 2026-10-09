@@ -1429,8 +1429,7 @@ before that change. The current calibration and bands were made after it.
 
 ## 14. M2 acceptance tests on the current camera SN001 (method written 2026-10-09, before any test runs)
 
-**Status: draft.** Items marked **pending** wait for Aaron's decision. No test in this section has
-run yet.
+**Status:** method agreed with Aaron, 2026-10-09. No test in this section has run yet.
 
 **Why.** The section 9 tests ran on the old camera SN000. Section 13 lists them as not repeated on
 SN001, so M2 cannot close on them. PLAN.md's M2 *You verify* also asks for a repeat validation on
@@ -1443,7 +1442,7 @@ result compares directly with the old camera's.
 |---|---|---|
 | 1 | 14.1 Repeat validation | Nothing |
 | 2 | 14.2 Tape measure | Nothing |
-| 3 | 14.3 Two calibrations in a row | The lens (moved away and back) |
+| 3 | 14.3 Two calibrations with a cold start between | The whole rig (switched off and on) |
 | 4 | 14.4 Two heights | The lens, the sheets |
 | 5 | 14.5 Roll and knock | The camera |
 | 6 | 14.6 Closing calibration and validation | Leaves the rig with current bands |
@@ -1461,18 +1460,26 @@ same calibration on another day?
 
 **Method.** Two complete validation sessions (section 6 rules: 3 counted rounds, at least 20
 minutes first to last, at least 10 minutes apart) of the same calibration, on different days.
-Between them: no recalibration, no lens move, no cold start, no camera fault. The first session's
-bands are the reference; the second session's tag errors are checked against them.
+Between them: no recalibration, no lens move, no cold start, no camera fault. The trays stay in
+their slots; the small nudges from moving the sheets are part of every validation and so part of
+this test. The first session's bands are the reference; the second session's tag errors are
+checked against them.
 
-**Which first session (pending).** The newest complete session is `20261009T073553378279`
+**Which first session (decision, Aaron 2026-10-09).** A fresh validation on a day with no camera
+fault, repeated on a later day. Not the newest complete session, `20261009T073553378279`
 (calibration `20261009T073108292325`, lens 6.04, rounds at 07:37, 07:48 and 07:58 UTC, 21.2
-minutes, 78% to 83% of tags moved, 85 to 90 tags per slot), not yet written up elsewhere in this
-log. Two camera faults followed it the same day (`capture_full_res` did not finish within 30 s,
-08:29 and 09:25 UTC, each followed by an automatic restart, lens 6.04), so by the rule above it
-cannot be the first session unless Aaron decides otherwise.
+minutes, 78% to 83% of tags moved, 85 to 90 tags per slot): that calibration and validation were
+run to check interface changes, with nothing physical changed (Aaron), and two camera faults
+followed the same day (`capture_full_res` did not finish within 30 s, 08:29 and 09:25 UTC, each
+followed by an automatic restart, lens 6.04).
 
-**Pass rule (pending).** Proposed: at least 90% of all the second session's tags fall inside their
-slot's first-session band, and no slot below 75%. Basis, measured on the old camera SN000 (pairs of
+**Pass rule (decision, Aaron 2026-10-09).** At least 90% of all the second session's tags fall
+inside their slot's first-session band, and no slot below 75%. Reported in full whatever the
+outcome: each slot's fraction inside, and each slot's change in band and median. If it fails, the
+bands drift between days by more than they show, and how to include that drift becomes its own
+task. Weak point: the basis below is from the old camera, and the conditions between some of its
+sessions were not recorded. Why 90% and not 95%: each band is itself estimated from about 90 tags,
+so a new session is expected to fall somewhat short of 95% even when the band is right. Basis, measured on the old camera SN000 (pairs of
 consecutive complete sessions of the same calibration, read from the stored session files; the
 conditions between sessions are not all recorded):
 
@@ -1487,7 +1494,7 @@ conditions between sessions are not all recorded):
 | 2026-10-01 08:20 | 08:54 | 95.5% | 87% |
 | 2026-10-05 14:13 | 2026-10-07 07:04 (cold start, fault and lens tests between) | 89.4% | 76% |
 
-The 2026-09-30 and 10-01 sessions predate the 20-minute rule. Under the proposed rule 5 of the 8
+The 2026-09-30 and 10-01 sessions predate the 20-minute rule. Under this rule 5 of the 8
 pass. A rule per slot (at least 90% in at least 11 of 12 slots) would fail 6 of the 8, including
 two sessions 3 and 6 minutes apart, so it is not proposed.
 
@@ -1498,19 +1505,29 @@ outer edge of a tag on the South 6 sheet, two tag pairs, against the app's dista
 line. **Pass:** the app agrees with the tape within 2% (PLAN.md). Optional, to close a gap in 9.2:
 the same along the North row, and one span front to back.
 
-### 14.3 Two calibrations in a row
+### 14.3 Two calibrations with a cold start between
 
 **Question.** Two independent calibrations of the same unmoved table: how far apart are their
-scale fields, compared with the validation bands?
+scale fields, compared with the validation bands? And, in the same hour, how do readings change
+after a cold start on SN001?
 
-**Method (pending).** PLAN.md asks for a power cycle and refocus between the two. Switching the Pi
-off is not done for tests (a failed restart costs a 3-hour trip to the chamber). Proposed
-substitute: two calibrations with "Set as current" off, with an app restart and the lens moved away
-and driven back between them, as in the 2026-09-25 test (section 8 table). This tests the restart
-and the lens return, not a cold start.
+**Method (decision, Aaron 2026-10-09: cold start, as PLAN.md asks, run while Aaron is at the
+chamber, weekdays 8:30 to 16:30 local).** The sheets lie on the trays and are not touched from
+calibration A to calibration B; the chamber stays closed.
 
-**Pass:** at each of the 12 slot centres, the difference between the two fields' scales, doubled to
-give area (area error is about twice length error), is smaller than that slot's band from 14.1.
+1. Calibration A, with "Set as current" off.
+2. Reference photograph (section 8.1, step 2).
+3. Pi shut down and left off about 30 minutes to cool (as run 3, section 8.1), then switched on.
+4. Settling-hour photographs at +0, +15, +30 and +60 minutes after the app opens the camera
+   (section 8.1, steps 4 and 5), compared with the reference. This repeats the power-cut test on
+   SN001 and measures the 60-minute cold-start window, which is a placeholder until then
+   (section 7, *Cold-start window*).
+5. Calibration B, at least 60 minutes after power-on, with "Set as current" off.
+
+**Pass (calibrations):** at each of the 12 slot centres, the difference between the two fields'
+scales, doubled to give area (area error is about twice length error), is smaller than that slot's
+band from 14.1. **Settling hour:** no pass or fail; the result is compared with the old camera's
+run 3 (section 8 table), and says when the readings return to within the control range.
 
 ### 14.4 Two heights
 
