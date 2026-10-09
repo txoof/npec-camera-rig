@@ -596,3 +596,5 @@ button.stop { background: #8a3b2f; }
 .experiment-tray-other { display: flex; gap: 0.3rem; align-items: center; }
 .experiment-tray-other[hidden] { display: none; }
 .experiment-tray-other input { width: 6rem; }
+.experiment-export { margin-top: 0.3rem; color: #ccc; }
+.experiment-export a { color: #7cb7ff; }

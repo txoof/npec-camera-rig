@@ -185,6 +185,7 @@ synthetic camera, then waits for the label.
 | web | `app.py`, `templates/`, `static/` |
 | images | `images.py`, `text_render.py` |
 | database | `database.py` (the experiment's tables in `rig.db` and their migrations) |
+| exports | `exports.py` (an experiment's export zip and its checksum manifest) |
 | docs | `docs/` (except the shared files below), `reference/`, `README.md` |
 | cad | `hardware/` |
 | deploy | `deploy/` |

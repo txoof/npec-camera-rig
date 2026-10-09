@@ -12,7 +12,7 @@ from threading import Lock
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
@@ -97,7 +97,7 @@ from npec_rig.tags import (
     CORNER_ID_RANGE,
     detect_tags,
 )
-from npec_rig import captures, database, images, validation_store
+from npec_rig import captures, database, exports, images, validation_store
 from npec_rig.tripwire import (
     build_corner_baseline,
     check_tripwire,
@@ -123,6 +123,8 @@ calibration_root().mkdir(parents=True, exist_ok=True)
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # The gap since the last tick is measured at start, before any photo (captures.py).
     record_app_start()
+    # An export cut off by the previous stop can never finish (exports.py).
+    database.fail_unfinished_exports(now=datetime.now(timezone.utc).isoformat())
     yield
     record_app_stop()
     # End the camera program cleanly, so the camera is closed rather than killed (#51).
@@ -524,8 +526,12 @@ def _experiment_action(action, *args, **kwargs) -> dict:
 
 @app.get("/api/experiments")
 def api_experiments() -> list[dict]:
-    """Every experiment, newest first, with its state and periods."""
-    return database.list_experiments()
+    """Every experiment, newest first, with its state, periods and newest export."""
+    experiments = database.list_experiments()
+    for experiment in experiments:
+        newest = database.exports_for(experiment["id"])[:1]
+        experiment["export"] = newest[0] if newest else None
+    return experiments
 
 
 @app.post("/api/experiments")
@@ -554,6 +560,26 @@ def api_stop_experiment(experiment_id: int) -> dict:
 def api_discard_experiment(experiment_id: int) -> dict:
     _experiment_action(database.discard_experiment, experiment_id)
     return {"discarded": experiment_id}
+
+
+@app.post("/api/experiments/{experiment_id}/export")
+def api_export_experiment(experiment_id: int) -> dict:
+    """Start building an export of a stopped experiment; it is prepared in the background."""
+    return _experiment_action(exports.start_export, experiment_id)
+
+
+@app.get("/api/exports/{export_id}/download")
+def api_download_export(export_id: int) -> Response:
+    try:
+        export = database.get_export(export_id)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    if export["error"] or not export["file"]:
+        raise HTTPException(409, "this export did not finish")
+    path = exports.zip_path(export)
+    if not path.exists():
+        raise HTTPException(404, "the export file is no longer on the rig")
+    return FileResponse(path, media_type="application/zip", filename=path.name)
 
 
 @app.get("/api/captures")

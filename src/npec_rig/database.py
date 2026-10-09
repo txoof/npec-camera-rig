@@ -81,6 +81,26 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "UPDATE capture SET path = 'rig/' || path",
         ),
     ),
+    (
+        3,
+        "export: one row per export of an experiment",
+        (
+            """
+            CREATE TABLE export (
+                id INTEGER PRIMARY KEY,
+                experiment_id INTEGER NOT NULL REFERENCES experiment (id),
+                started_at TEXT NOT NULL,        -- UTC, ISO 8601
+                finished_at TEXT,                -- NULL while it is being prepared
+                file TEXT,                       -- experiments/<folder>/exports/<name>.zip
+                bytes INTEGER,
+                files INTEGER,                   -- files listed in the manifest
+                manifest_sha256 TEXT,            -- checksum of MANIFEST.sha256 itself
+                error TEXT                       -- why it failed; NULL when it did not
+            )
+            """,
+            "CREATE INDEX export_experiment ON export (experiment_id)",
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -324,3 +344,78 @@ def stop_experiment(experiment_id: int, *, now: str) -> dict:
             (now, experiment_id),
         )
         return _experiment(conn, experiment_id)
+
+
+# --- Exports ---
+
+
+def captures_for_experiment(experiment_id: int) -> list[dict]:
+    """The experiment's photos, oldest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM capture WHERE experiment_id = ? ORDER BY taken_at", (experiment_id,)
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def create_export(experiment_id: int, *, now: str) -> dict:
+    """A new export, refused unless the experiment is stopped and no export of it is still
+    being prepared."""
+    with _connect() as conn:
+        # Take the write lock before checking, so two clicks cannot both start one.
+        conn.execute("BEGIN IMMEDIATE")
+        if _experiment(conn, experiment_id)["state"] != "stopped":
+            raise ExperimentError("only a stopped experiment can be exported")
+        busy = conn.execute(
+            "SELECT 1 FROM export WHERE experiment_id = ? AND finished_at IS NULL",
+            (experiment_id,),
+        ).fetchone()
+        if busy:
+            raise ExperimentError("an export of this experiment is already being prepared")
+        cursor = conn.execute(
+            "INSERT INTO export (experiment_id, started_at) VALUES (?, ?)", (experiment_id, now)
+        )
+        return dict(conn.execute("SELECT * FROM export WHERE id = ?", (cursor.lastrowid,)).fetchone())
+
+
+def finish_export(export_id: int, *, now: str, file: str, bytes: int, files: int, manifest_sha256: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE export SET finished_at = ?, file = ?, bytes = ?, files = ?, manifest_sha256 = ?"
+            " WHERE id = ?",
+            (now, file, bytes, files, manifest_sha256, export_id),
+        )
+
+
+def fail_export(export_id: int, *, now: str, error: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE export SET finished_at = ?, error = ? WHERE id = ?", (now, error, export_id)
+        )
+
+
+def fail_unfinished_exports(*, now: str) -> int:
+    """At app start: an export still marked as being prepared was cut off by a restart."""
+    with _connect() as conn:
+        return conn.execute(
+            "UPDATE export SET finished_at = ?, error = 'the app restarted while it was being"
+            " prepared' WHERE finished_at IS NULL",
+            (now,),
+        ).rowcount
+
+
+def get_export(export_id: int) -> dict:
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM export WHERE id = ?", (export_id,)).fetchone()
+    if row is None:
+        raise LookupError(f"export {export_id} not found")
+    return dict(row)
+
+
+def exports_for(experiment_id: int) -> list[dict]:
+    """The experiment's exports, newest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM export WHERE experiment_id = ? ORDER BY id DESC", (experiment_id,)
+        ).fetchall()
+    return [dict(row) for row in rows]
