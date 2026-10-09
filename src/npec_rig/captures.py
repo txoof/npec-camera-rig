@@ -394,6 +394,11 @@ def _with_database_rows(entries: list[dict]) -> list[dict]:
     return entries
 
 
+# Tray heights offered on the experiments page, (label, mm). Measured with callipers by Aaron,
+# docs/metrology-log.md (the height test, 2026-10-01). Any other value can be typed in.
+KNOWN_TRAY_HEIGHTS_MM = (("Normal tray", 100.0), ("Tall tray", 175.0))
+
+
 # --- Experiment folders ---
 # The rules (one running, Resume, what can be edited) are in database.py. This part makes the
 # folder at the first start and keeps experiment.json in it, so a copied folder says what it is.

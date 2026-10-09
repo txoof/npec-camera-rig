@@ -581,3 +581,13 @@ a { color: #6cf; }
 .experiment-actions { white-space: nowrap; }
 button.secondary { background: #444; }
 button.stop { background: #8a3b2f; }
+.experiment-form select {
+  display: block;
+  width: 100%;
+  min-height: 2.25rem;
+  font: inherit;
+  background: #222;
+  border: 1px solid #444;
+  color: #eee;
+  border-radius: 4px;
+}

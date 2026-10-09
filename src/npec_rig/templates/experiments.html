@@ -9,9 +9,20 @@
   <form class="experiment-form" id="experiment-form">
     <p class="experiment-hint">Every field is optional. An experiment with no name is shown by the
       time it started.</p>
-    <label>Name <input type="text" id="f-name" maxlength="200"></label>
+    <label>Experiment name <input type="text" id="f-name" maxlength="200"></label>
     <label>Researcher <input type="text" id="f-researcher" maxlength="200"></label>
-    <label>Tray height (mm) <input type="number" id="f-tray-height" min="0" step="0.1"></label>
+    <label>Tray height
+      <select id="f-tray-choice">
+        <option value="">Not recorded</option>
+        {% for label, mm in known_trays %}
+          <option value="{{ mm }}">{{ label }}, {{ mm | round(1) }} mm</option>
+        {% endfor %}
+        <option value="other">Other, type the height</option>
+      </select>
+    </label>
+    <label id="f-tray-other" hidden>Tray height (mm)
+      <input type="number" id="f-tray-height" min="0" step="0.1">
+    </label>
     <label>Notes <textarea id="f-notes" rows="2"></textarea></label>
     <div class="experiment-form-buttons">
       <button type="submit" id="f-submit">Set up</button>
@@ -38,6 +49,9 @@
     const cancel = document.getElementById("f-cancel");
     const formMessage = document.getElementById("form-message");
     const listMessage = document.getElementById("list-message");
+    const trayChoice = document.getElementById("f-tray-choice");
+    const trayOther = document.getElementById("f-tray-other");
+    const knownTrays = [...trayChoice.options].map((o) => o.value).filter((v) => v && v !== "other");
     const fields = {
       name: document.getElementById("f-name"),
       researcher: document.getElementById("f-researcher"),
@@ -129,9 +143,32 @@
       return data;
     }
 
+    function showTray(mm) {
+      if (mm === null || mm === undefined) {
+        trayChoice.value = "";
+      } else {
+        const known = knownTrays.find((v) => Number(v) === mm);
+        trayChoice.value = known ?? "other";
+        fields.tray_height_mm.value = known ? "" : mm;
+      }
+      trayOther.hidden = trayChoice.value !== "other";
+    }
+
+    function trayHeight() {
+      if (trayChoice.value === "") return null;
+      if (trayChoice.value !== "other") return Number(trayChoice.value);
+      return fields.tray_height_mm.value === "" ? null : Number(fields.tray_height_mm.value);
+    }
+
+    trayChoice.addEventListener("change", () => {
+      trayOther.hidden = trayChoice.value !== "other";
+    });
+
     function resetForm() {
       editing = null;
       form.reset();
+      showTray(null);
+      trayChoice.disabled = false;
       fields.tray_height_mm.disabled = false;
       formTitle.textContent = "New experiment";
       submit.textContent = "Set up";
@@ -142,10 +179,11 @@
       editing = e;
       fields.name.value = e.name ?? "";
       fields.researcher.value = e.researcher ?? "";
-      fields.tray_height_mm.value = e.tray_height_mm ?? "";
+      showTray(e.tray_height_mm);
       fields.notes.value = e.notes ?? "";
       // Readings depend on the tray height, so it is fixed at the first start.
       fields.tray_height_mm.disabled = e.state !== "set up";
+      trayChoice.disabled = fields.tray_height_mm.disabled;
       formTitle.textContent = `Edit: ${displayName(e)}`;
       submit.textContent = "Save changes";
       cancel.hidden = false;
@@ -162,8 +200,7 @@
         notes: fields.notes.value,
       };
       if (!fields.tray_height_mm.disabled) {
-        body.tray_height_mm = fields.tray_height_mm.value === ""
-          ? null : Number(fields.tray_height_mm.value);
+        body.tray_height_mm = trayHeight();
       }
       submit.disabled = true;
       try {

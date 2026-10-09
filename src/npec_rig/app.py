@@ -495,7 +495,9 @@ def capture() -> dict:
 
 @app.get("/experiments")
 def experiments_page(request: Request) -> Response:
-    return templates.TemplateResponse(request, "experiments.html")
+    return templates.TemplateResponse(
+        request, "experiments.html", {"known_trays": captures.KNOWN_TRAY_HEIGHTS_MM}
+    )
 
 
 class ExperimentFields(BaseModel):
