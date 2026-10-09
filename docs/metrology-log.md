@@ -1521,7 +1521,7 @@ calibration A to calibration B; the chamber stays closed.
 4. Settling-hour photographs at +0, +15, +30 and +60 minutes after the app opens the camera
    (section 8.1, steps 4 and 5), compared with the reference. This repeats the power-cut test on
    SN001 and measures the 60-minute cold-start window, which is a placeholder until then
-   (section 7, *Cold-start window*).
+   (section 8, *Cold-start window*).
 5. Calibration B, at least 60 minutes after power-on, with "Set as current" off.
 
 **Pass (calibrations):** at each of the 12 slot centres, the difference between the two fields'
