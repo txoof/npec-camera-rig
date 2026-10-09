@@ -7,13 +7,11 @@
 (function () {
   const box = document.getElementById("camera-status");
   const text = box.querySelector(".camera-status-text");
-  // Each time in the browser's own zone, named, and in UTC, the zone the rig stores (health.py).
+  // Each time in the browser's own zone, with the zone named (the rig stores UTC, health.py).
   const time = (iso) => {
     // Microseconds trimmed to milliseconds: not every browser parses more than 3 digits.
     const d = new Date(iso.replace(/(\.\d{3})\d+/, "$1"));
-    const local = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
-    const utc = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
-    return local + " (" + utc + " UTC)";
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
   };
 
   function show(state, message) {
