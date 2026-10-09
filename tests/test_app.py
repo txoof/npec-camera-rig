@@ -509,26 +509,27 @@ def test_run_calibration_builds_field_and_saves_artifact_and_frame(
     sidecar = json.loads(Path(body["frame_path"]).with_suffix(".json").read_text())
     assert sidecar["purpose"] == "calibration"
     assert body["frame_url"] is not None
-    assert body["heatmap_url"] is not None
     assert body["area_shape_heatmap_url"] is not None
     assert (calibration_root() / "heatmaps" / Path(body["area_shape_heatmap_url"]).name).exists()
-    assert body["accuracy_shape_heatmap_url"] is not None
-    assert (calibration_root() / "heatmaps" / Path(body["accuracy_shape_heatmap_url"]).name).exists()
+    # The calibration's claimed uncertainty is not shown or saved (issue #52).
+    claim_keys = {"heatmap_url", "accuracy_shape_heatmap_url", "table_view_url"}
+    assert not claim_keys & body.keys()
+    assert sorted(p.name for p in (calibration_root() / "heatmaps").iterdir()) == [
+        Path(body["area_shape_heatmap_url"]).name
+    ]
+    assert "uncertainty_field" not in json.loads(Path(body["artifact_path"]).read_text())
 
     current = client.get("/calibration/current").json()
     assert current["exists"] is True
     assert current["corner_baseline_tags"] == [450, 451]
     assert current["residual_std_pct"] == body["residual_std_pct"]
     assert current["frame_url"] == body["frame_url"]
-    assert current["heatmap_url"] == body["heatmap_url"]
     assert current["area_shape_heatmap_url"] == body["area_shape_heatmap_url"]
-    assert current["accuracy_shape_heatmap_url"] == body["accuracy_shape_heatmap_url"]
-    assert current["has_uncertainty_field"] is True
+    assert not (claim_keys | {"has_uncertainty_field"}) & current.keys()
 
     listing = client.get("/calibration/list").json()
     assert listing[0]["area_shape_heatmap_url"] == body["area_shape_heatmap_url"]
-    assert listing[0]["accuracy_shape_heatmap_url"] == body["accuracy_shape_heatmap_url"]
-    assert body["table_view_url"] is None  # only 2 of 4 corner tags -- no table frame buildable
+    assert not claim_keys & listing[0].keys()
     assert body["table_view_shape_url"] is None
 
 
@@ -558,17 +559,14 @@ def test_run_calibration_builds_table_view_with_all_four_corner_tags(
     assert body["table_width_mm"] == 1000.0
     assert body["table_length_mm"] == 800.0
     assert body["table_view_to_scale"] is True
-    assert body["table_view_url"] is not None
+    assert "table_view_url" not in body  # the scale-residual view showed the claim (issue #52)
     assert body["table_view_shape_url"] is not None
-    assert (calibration_root() / "heatmaps" / Path(body["table_view_url"]).name).exists()
     assert (calibration_root() / "heatmaps" / Path(body["table_view_shape_url"]).name).exists()
 
     current = client.get("/calibration/current").json()
-    assert current["table_view_url"] == body["table_view_url"]
     assert current["table_view_shape_url"] == body["table_view_shape_url"]
 
     listing = client.get("/calibration/list").json()
-    assert listing[0]["table_view_url"] == body["table_view_url"]
     assert listing[0]["table_view_shape_url"] == body["table_view_shape_url"]
 
 
@@ -847,7 +845,7 @@ def test_run_calibration_converts_outer_edge_span_to_table_view(
     body = response.json()
     assert body["table_width_mm"] == 40.0  # still echoed as entered, not silently corrected
     assert body["table_view_to_scale"] is False  # the UI must say so, not just render a square
-    assert body["table_view_url"] is not None  # still built -- just NOT-TO-SCALE for this run
+    assert body["table_view_shape_url"] is not None  # still built, just NOT-TO-SCALE
 
 
 def test_outer_edge_span_to_centre_distance_subtracts_one_tag_width() -> None:
@@ -864,62 +862,6 @@ def test_outer_edge_span_to_centre_distance_guards_against_undersized_span() -> 
     # non-positive or zero "distance".
     assert app_module._outer_edge_span_to_centre_distance_mm(50.0, 50.0) is None
     assert app_module._outer_edge_span_to_centre_distance_mm(30.0, 50.0) is None
-
-
-def test_current_uncertainty_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
-    client = TestClient(app)
-    response = client.get("/calibration/current/uncertainty", params={"x": 100, "y": 100})
-    assert response.status_code == 409
-
-
-def test_current_uncertainty_reports_a_real_value(
-    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
-) -> None:
-    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
-    client = TestClient(app)
-    client.post("/calibration/run")
-
-    response = client.get(
-        "/calibration/current/uncertainty", params={"x": _CALIBRATION_TAGS[0].centre[0], "y": _CALIBRATION_TAGS[0].centre[1]}
-    )
-    assert response.status_code == 200
-    assert response.json()["uncertainty_pct"] == pytest.approx(0.0, abs=1e-6)
-
-
-def test_honesty_plot_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
-    client = TestClient(app)
-    response = client.post("/calibration/honesty-plot", json=[{"x": 1, "y": 1, "actual_error_pct": 1.0}])
-    assert response.status_code == 409
-
-
-def test_honesty_plot_rejects_an_empty_point_list(
-    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
-) -> None:
-    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
-    client = TestClient(app)
-    client.post("/calibration/run")
-
-    response = client.post("/calibration/honesty-plot", json=[])
-    assert response.status_code == 422
-
-
-def test_honesty_plot_returns_a_jpeg(
-    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
-) -> None:
-    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
-    client = TestClient(app)
-    client.post("/calibration/run")
-
-    response = client.post(
-        "/calibration/honesty-plot",
-        json=[
-            {"x": _CALIBRATION_TAGS[0].centre[0], "y": _CALIBRATION_TAGS[0].centre[1], "actual_error_pct": 1.5},
-            {"x": _CALIBRATION_TAGS[1].centre[0], "y": _CALIBRATION_TAGS[1].centre[1], "actual_error_pct": 3.0},
-        ],
-    )
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "image/jpeg"
-    assert response.content[:2] == b"\xff\xd8"
 
 
 def test_run_calibration_accepts_a_measured_tag_size_override(
@@ -1133,7 +1075,7 @@ def test_calibration_list_and_files_are_downloadable(monkeypatch: pytest.MonkeyP
     entry = next(e for e in listing if e["url"] == f"/calibration/files/{Path(run['artifact_path']).name}")
     assert entry["frame_url"] == run["frame_url"]
     assert entry["frame_url"].startswith("/photos/")
-    assert entry["heatmap_url"] == run["heatmap_url"]
+    assert entry["area_shape_heatmap_url"] == run["area_shape_heatmap_url"]
 
     artifact_response = client.get(entry["url"])
     assert artifact_response.status_code == 200
@@ -1143,7 +1085,7 @@ def test_calibration_list_and_files_are_downloadable(monkeypatch: pytest.MonkeyP
     assert frame_response.status_code == 200
     assert frame_response.content[:2] == b"\xff\xd8"
 
-    heatmap_response = client.get(entry["heatmap_url"])
+    heatmap_response = client.get(entry["area_shape_heatmap_url"])
     assert heatmap_response.status_code == 200
     assert heatmap_response.content[:2] == b"\xff\xd8"
 
@@ -1219,6 +1161,9 @@ def test_delete_calibration_removes_its_files(
     old_stem = Path(old["artifact_path"]).stem
     assert Path(old["artifact_path"]).exists()
     assert Path(old["frame_path"]).exists()
+    # A confidence heatmap left by a run from before issue #52 is still cleaned up.
+    legacy_heatmap = calibration_root() / "heatmaps" / f"{old_stem}.jpg"
+    legacy_heatmap.write_bytes(b"\xff\xd8")
 
     response = client.delete(f"/calibration/{old_stem}")
     assert response.status_code == 200
@@ -1227,7 +1172,8 @@ def test_delete_calibration_removes_its_files(
     assert not Path(old["artifact_path"]).exists()
     # The photo stays with the other rig photos: originals are never changed.
     assert Path(old["frame_path"]).exists()
-    assert not (calibration_root() / "heatmaps" / f"{old_stem}.jpg").exists()
+    assert not legacy_heatmap.exists()
+    assert not (calibration_root() / "heatmaps" / f"{old_stem}_area-shape.jpg").exists()
 
     listing = client.get("/calibration/list").json()
     assert all(e["stem"] != old_stem for e in listing)
@@ -1501,34 +1447,12 @@ def test_radial_plot_refused_with_too_few_tags_in_the_saved_frame(
     assert response.status_code == 409
 
 
-# --- Certainty dome plot ---
-
-
-def test_certainty_dome_plot_without_a_calibration_is_refused(isolated_calibration_dir: None) -> None:
-    client = TestClient(app)
-    response = client.get("/calibration/current/certainty-dome-plot")
-    assert response.status_code == 409
-
-
-def test_certainty_dome_plot_returns_a_jpeg(
-    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
-) -> None:
-    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
-    client = TestClient(app)
-    client.post("/calibration/run")
-
-    response = client.get("/calibration/current/certainty-dome-plot")
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "image/jpeg"
-    assert response.content[:2] == b"\xff\xd8"
-
-
 # --- Stem-scoped diagnostics (calibration-history drill-down) ---
 
 
 @pytest.mark.parametrize(
     "path",
-    ["rank-plot", "best-worst-photo", "radial-plot", "certainty-dome-plot"],
+    ["rank-plot", "best-worst-photo", "radial-plot"],
 )
 def test_stem_diagnostics_unknown_stem_returns_404(path: str, isolated_calibration_dir: None) -> None:
     client = TestClient(app)
@@ -1538,7 +1462,7 @@ def test_stem_diagnostics_unknown_stem_returns_404(path: str, isolated_calibrati
 
 @pytest.mark.parametrize(
     "path",
-    ["rank-plot", "best-worst-photo", "radial-plot", "certainty-dome-plot"],
+    ["rank-plot", "best-worst-photo", "radial-plot"],
 )
 def test_stem_diagnostics_unreadable_calibration_returns_422(
     path: str, isolated_calibration_dir: None
@@ -1561,7 +1485,7 @@ def test_stem_diagnostics_serve_an_old_run_not_whatever_is_current(
     client.post("/calibration/run")  # a second, newer run promotes over it
     old_stem = Path(old["artifact_path"]).stem
 
-    for path in ("rank-plot", "best-worst-photo", "radial-plot", "certainty-dome-plot"):
+    for path in ("rank-plot", "best-worst-photo", "radial-plot"):
         response = client.get(f"/calibration/{old_stem}/{path}")
         assert response.status_code == 200
         assert response.headers["content-type"] == "image/jpeg"

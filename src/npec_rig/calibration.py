@@ -438,6 +438,8 @@ def refit_scale_factor(
     return ScaleFactorRefit(field=refit_field, interior_scatter_pct=interior_scatter_pct)
 
 
+# Not shown to the operator (issue #52: the claim was smaller than the measured validation
+# error in 7 of 12 slots). Kept, unused by the app, for the M3 calibration plot review.
 @dataclass(frozen=True)
 class UncertaintyField:
     """Local scatter among neighbouring tags -- PLAN.md's "uncertainty field", distinct from
