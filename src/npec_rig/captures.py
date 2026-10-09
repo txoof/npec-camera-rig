@@ -237,7 +237,7 @@ def validation_check(focus: dict) -> dict:
     ):
         reason = (
             f"focus is locked at {locked_at:.2f}, the calibration was taken at "
-            f"{artifact.lens_position:.2f}: not covered by a validation"
+            f"{artifact.lens_position:.2f}"
         )
     else:
         finished = [
@@ -249,7 +249,7 @@ def validation_check(focus: dict) -> dict:
             session_id = max(finished, key=lambda s: s["completed_at"])["id"]
             reason = None
         else:
-            reason = "no finished validation of this calibration: not covered by a validation"
+            reason = "no finished validation of this calibration"
     return {"session": session_id, "flagged": reason is not None, "reason": reason}
 
 
@@ -329,5 +329,18 @@ def list_recent_captures(limit: int = 12) -> list[dict]:
                 }
             )
             if len(entries) >= limit:
-                return entries
+                return _with_database_rows(entries)
+    return _with_database_rows(entries)
+
+
+def _with_database_rows(entries: list[dict]) -> list[dict]:
+    """Add each photo's `capture` row as `record` (None for photos from before the database)."""
+    paths = [f"{e['date']}/{Path(e['filename']).stem}" for e in entries]
+    try:
+        rows = database.captures_by_path(paths)
+    except (sqlite3.Error, RuntimeError):
+        logger.exception("Could not read the capture rows for the gallery")
+        rows = {}
+    for entry, path in zip(entries, paths):
+        entry["record"] = rows.get(path)
     return entries

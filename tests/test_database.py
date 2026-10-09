@@ -148,7 +148,7 @@ def test_a_lock_away_from_the_calibration_is_not_covered() -> None:
     _session("20261009T080000000000", "2026-10-09T09:00:00+00:00")
     check = captures.validation_check(_locked(6.50))
     assert check["session"] is None
-    assert check["reason"].startswith("focus is locked at 6.50, the calibration was taken at 6.04")
+    assert check["reason"] == "focus is locked at 6.50, the calibration was taken at 6.04"
 
 
 def test_only_a_finished_validation_of_this_calibration_applies() -> None:
@@ -184,3 +184,15 @@ def test_the_validation_is_stored_for_a_capture_but_not_judged_for_a_validation_
     rows = database.captures_by_path(paths)
     assert rows[paths[0]]["validation"] == "20261009T100000000000"
     assert rows[paths[1]]["validation"] is None
+
+
+def test_the_gallery_list_carries_each_photos_record() -> None:
+    _array, record = captures.take_photo("capture")
+    del _array
+    (captures.photos_root() / "2026-01-01").mkdir()
+    old = captures.photos_root() / "2026-01-01" / "000000_000000"
+    old.with_suffix(".jpg").write_bytes(b"")
+
+    entries = {e["filename"]: e for e in captures.list_recent_captures()}
+    assert entries[record["filename"]]["record"]["id"] == record["capture_id"]
+    assert entries["000000_000000.jpg"]["record"] is None
