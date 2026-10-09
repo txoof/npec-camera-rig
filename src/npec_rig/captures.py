@@ -394,9 +394,9 @@ def _with_database_rows(entries: list[dict]) -> list[dict]:
     return entries
 
 
-# Tray heights offered on the experiments page, (label, mm). Tape measure, by Aaron, 2026-10-09,
-# given in cm (black tray 4, 4x5 10.5, 4x4 15, 1x 17.5); the number of readings was not stated.
-# Not yet in docs/metrology-log.md. Any other value can be typed in.
+# Tray heights offered on the experiments page, (label, mm): table surface to the tray's top edge,
+# tape measure, one reading each, by Aaron, 2026-10-09 (docs/metrology-log.md, section 3). Any other
+# value can be typed in.
 KNOWN_TRAY_HEIGHTS_MM = (
     ("Black tray", 40.0),
     ("4x5 tray", 105.0),
