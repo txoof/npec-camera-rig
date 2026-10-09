@@ -37,7 +37,7 @@ justify picking it up. Do not adopt one without that measurement.
 
 | Deferred | Adopt when |
 |---|---|
-| Intrinsic calibration, distortion coefficients | The honesty plot shows residuals that are structured (worse toward frame corners), not random |
+| Intrinsic calibration, distortion coefficients | The radial plot (calibration step 5) shows error growing steadily toward the frame corners, beyond the known central low reading, not random scatter. "Structured" is Aaron's judgement, no numeric threshold |
 | Out-of-plane parallax correction | A measured depth source exists |
 | Orthophoto / photogrammetry | A second viewpoint exists |
 | Second camera | M1–M6 done, and measured in-plane accuracy proved insufficient |
