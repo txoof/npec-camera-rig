@@ -518,27 +518,43 @@ details.help .help-body p { margin: 0 0 10px; }
 /* Focus controls (_focus_controls.html): the live view with the lock and exposure controls under
    it on the left, the magnified view with the lens controls under it on the right. Everything
    fits 1024x600 without scrolling (mockup 7). */
-.focus-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+/* The left column is wider: its Gain row also holds Auto, and the magnified view is square. */
+.focus-cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
 .focus-col { display: grid; gap: 10px; justify-items: start; min-width: 0; }
-.focus-row { display: flex; align-items: center; gap: 10px 8px; flex-wrap: nowrap; }
+.focus-row { display: flex; align-items: center; gap: 10px 8px; flex-wrap: wrap; }
 .focus-row .btn, .focus-row .switch.compact { min-height: 52px; }
 .focus-row .btn { min-width: 0; padding: 0 16px; }
 .live-view {
   position: relative; width: fit-content; max-width: 100%; background: #000;
   border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden;
 }
-.live-view img { display: block; height: 240px; width: auto; max-width: 100%; }
+.live-view img { display: block; height: 300px; width: auto; max-width: 100%; }
 .live-view #preview { cursor: crosshair; }
 .live-view #roi-crop { image-rendering: pixelated; }
 .live-view .tag {
   position: absolute; right: 8px; bottom: 8px; max-width: calc(100% - 16px);
   padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.75); color: var(--fg-2); font-size: 0.85rem;
 }
-.live-view .tag .chip { white-space: normal; padding-block: 2px; font-size: 0.8rem; }
-.live-view .tag:has(.chip) { padding: 0; background: none; }
+/* The lock status uses the same box as the sharpness: the chip keeps its icon, word and color. */
+.live-view .tag .chip { white-space: normal; padding: 0; border: 0; border-radius: 0; font-size: inherit; gap: 6px; }
+.live-view .tag .chip .ui-icon { width: 18px; height: 18px; }
 .live-view .tag strong { color: var(--fg); font-family: var(--font-num); }
 .lens-fault { flex-wrap: wrap; }
+.auto-values { color: var(--fg-2); font-family: var(--font-num); }
+.lens-total { margin: 0; color: var(--fg-2); }
+.lens-total strong { color: var(--fg); font-family: var(--font-num); }
+.view-stack { display: grid; gap: 6px; width: fit-content; max-width: 100%; }
+.score-trace {
+  position: relative; background: #000; border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden;
+}
+.score-trace canvas { display: block; width: 100%; min-width: 0; height: 52px; }
+.score-trace .tag {
+  position: absolute; left: 6px; top: 4px; padding: 0 6px; border-radius: 6px;
+  background: rgba(0, 0, 0, 0.75); color: var(--fg-2); font-size: 0.8rem;
+}
 /* Step 2 of the wizard, until the wizard frame gives it a head of its own. */
+/* The wizard is 480px wide; Step 2's two views need the whole work area. */
+.calibration-section:has(.wizard-step[data-step="2"].active) { max-width: none; }
 .focus-step-head { margin-bottom: 12px; }
 .focus-step-head h3 { margin: 0; flex: 1; }
 .focus-step-head .btn { min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; }
@@ -546,9 +562,21 @@ details.help .help-body p { margin: 0 0 10px; }
 /* Square mode on the Focus and Square page: the live view alone, larger, with room past its left,
    right and bottom edges for the guide handles. */
 .focus-cols.mode-square { grid-template-columns: minmax(0, 1fr); }
-.focus-cols.mode-square .focus-crop-col { display: none; }
+.focus-cols.mode-square .focus-crop-col, .focus-cols.mode-square .score-trace { display: none; }
+.focus-cols.mode-square .view-stack { width: 100%; }
 .focus-cols.mode-square .live-view { margin: 0 20px 20px; overflow: visible; }
-.focus-cols.mode-square .live-view img { height: auto; width: 100%; max-height: 420px; }
+/* As large as the work area allows: the full width, or the height left under the page head and
+   mode buttons at 1024x600 to 768, whichever is smaller. 4:3 always, so the lines never distort. */
+.focus-cols.mode-square .live-view img {
+  /* 248px: the rail, the scroll area's padding and gutter, and the handles' margins. */
+  height: auto; aspect-ratio: 4 / 3; max-width: none;
+  width: min(calc(100vw - 248px), calc((100dvh - 200px) * 4 / 3));
+}
+.focus-cols.mode-square #lock-status { display: none; }
+/* On a phone the rail is a bottom bar: only the gutter, padding and handle margins take width. */
+@media (max-width: 700px) {
+  .focus-cols.mode-square .live-view img { width: calc(100vw - 120px); }
+}
 .capture-section, .calibration-section {
   max-width: 480px;
   margin-top: 0.75rem;

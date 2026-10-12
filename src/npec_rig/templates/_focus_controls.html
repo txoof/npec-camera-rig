@@ -18,6 +18,8 @@
 
 <div class="focus-cols" id="focus-cols">
   <div class="focus-col">
+    {#- The sharpness trace sits under the live view, as wide as it (a grid as wide as the image). -#}
+    <div class="view-stack">
     <div class="live-view">
       <img id="preview" src="/preview.mjpg" alt="Live view of the whole table. Tap it to move the focus area">
       <div class="roi-box" id="roi-box" hidden></div>
@@ -34,6 +36,11 @@
       {% endif %}
       <span class="tag" id="lock-status">{{ ui.chip("info", "Reading focus") }}</span>
     </div>
+    <div class="score-trace">
+      <canvas id="score-trace" width="400" height="52" aria-label="Sharpness over the last 18 seconds"></canvas>
+      <span class="tag">Sharpness, last 18 s</span>
+    </div>
+    </div>
     <div class="focus-row">
       {{ ui.button("Autofocus", id="autofocus-btn") }}
       {{ ui.button("Lock focus", "primary", id="lock-btn") }}
@@ -42,20 +49,24 @@
       <span class="lens-error" id="lens-error"></span>
       {{ ui.button("Reset camera", id="camera-reset-btn") }}
     </div>
-    <div class="focus-row">{{ ui.stepper("exposure", "Exposure", "", "ms", 0.1, 1000, 1, 3, tight=true) }}</div>
+    {#- While Auto exposure is on, the camera sets exposure and gain: their steppers are hidden
+        and the values it is using are shown beside the button instead. -#}
     <div class="focus-row">
-      {{ ui.stepper("gain", "Gain", "", "x", 1, 16, 1, 2, tight=true) }}
-      {{ ui.button("Auto", id="auto-exposure", icon_name="ok", attrs={"aria-pressed": "false"}) }}
+      {{ ui.button("Auto exposure", id="auto-exposure", icon_name="ok", attrs={"aria-pressed": "false"}) }}
+      <span class="auto-values" id="auto-values" hidden></span>
     </div>
+    <div class="focus-row" id="exposure-row">{{ ui.stepper("exposure", "Exposure", "", "ms", 0.1, 1000, 1, 3, tight=true) }}</div>
+    <div class="focus-row" id="gain-row">{{ ui.stepper("gain", "Gain", "", "x", 1, 16, 1, 2, tight=true) }}</div>
   </div>
   <div class="focus-col focus-crop-col">
     <div class="live-view">
       <img id="roi-crop" src="/focus/roi.mjpg" alt="The focus area, magnified">
       <span class="tag">Sharpness <strong id="score-value">-</strong></span>
     </div>
+    <p class="lens-total">Lens position <strong id="lens-total">-</strong> dpt</p>
     <div class="focus-row">{{ ui.stepper("lens-coarse", "Coarse", "", "dpt", 0, 15, 1, 2, tight=true) }}</div>
     <div class="focus-row">{{ ui.stepper("lens-fine", "Fine", "", "dpt", 0, 0.99, 0.05, 2, tight=true) }}</div>
-    <div class="focus-row">{{ ui.switch("peaking-toggle", "Peaking", compact=true) }}</div>
+    <div class="focus-row">{{ ui.switch("peaking-toggle", "Focus peaking", compact=true) }}</div>
   </div>
 </div>
 
@@ -73,10 +84,11 @@
   ("Reset camera", "Shown only when the lens does not follow a command. Restarts the camera and moves the lens back to its set position."),
   ("Coarse", "Lens position in whole dioptres (dpt). Minus and plus move one step. Tap the value to type one: a value such as 6.8 sets Coarse to 6 and Fine to 0.80."),
   ("Fine", "Added to Coarse, 0 to 0.99 dpt. Minus and plus move 0.05. Use it for the last bit of sharpness."),
-  ("Peaking", "Marks sharp edges in the magnified view in magenta. Denser marks mean sharper focus. Use it with the sharpness number, not instead of it."),
+  ("Focus peaking", "Marks sharp edges in the magnified view in magenta. Denser marks mean sharper focus. Use it with the sharpness number, not instead of it."),
+  ("Sharpness trace", "The line under the live view: the sharpness number over the last 18 seconds, highest at the top. Move the lens until the line peaks."),
   ("Exposure", "How long the sensor collects light for one photo. Each press is one third of a camera stop, about 1.26 times the light, shown as a shutter speed such as 1/125 s. Tap the value to type any time in milliseconds: 1 ms is 1/1000 s, so 4 ms is 1/250 s."),
   ("Gain", "Brightens the image in the sensor, like a camera's ISO. 1 is the sensor's own sensitivity and 2 is twice as bright. More gain means more noise, so prefer a longer exposure. Each press is one third of a stop (1, 1.25, 1.6, 2 and so on); tap the value to type any multiplier."),
-  ("Auto", "Lets the camera choose exposure and gain. While it is on, both are greyed out and show the values the camera is using, read every 2 seconds. Turn it off to keep those values and set them yourself."),
+  ("Auto exposure", "Lets the camera choose exposure and gain. While it is on, the Exposure and Gain controls are hidden and the values the camera is using are shown beside the button, read every 2 seconds. Turn it off to keep those values and set them yourself."),
   ("Camera settings", "Opens the settings changed less often: Auto white balance, which lets the camera correct the color of the light."),
 ] %}
 {% if show_square_mode %}
@@ -143,6 +155,7 @@
       }
       ui.showField(coarseField, String(whole));
       ui.showField(fineField, fraction.toFixed(2));
+      $("lens-total").textContent = (whole + fraction).toFixed(2);
     }
 
     function currentLensPosition() {
@@ -232,18 +245,29 @@
       return best;
     }
 
+    // What Auto exposure is using, beside its button: text only, never a button redrawn.
+    const autoValues = $("auto-values");
+    const shownValues = { exposure: "", gain: "" };
+    function paintAutoValues() {
+      autoValues.textContent = [shownValues.exposure, shownValues.gain].filter(Boolean).join(", gain ");
+    }
+
     function showExposure(us) {
       if (us === null || us === undefined) return;
       const stop = nearestStopIndex(EXPOSURE_STOPS_US, us);
       const onStop = Math.abs(us / EXPOSURE_STOPS_US[stop] - 1) <= STOP_LABEL_TOLERANCE;
       // The shutter speed when the value is on a stop, else milliseconds; the keypad takes ms.
-      ui.showField(exposureField, String(usToMs(us)),
-        onStop ? `${EXPOSURE_STOP_LABELS[stop]} s` : `${usToMs(us)} ms`, "");
+      shownValues.exposure = onStop ? `${EXPOSURE_STOP_LABELS[stop]} s` : `${usToMs(us)} ms`;
+      ui.showField(exposureField, String(usToMs(us)), shownValues.exposure, "");
+      paintAutoValues();
     }
 
     function showGain(gain) {
       if (gain === null || gain === undefined) return;
-      ui.showField(gainField, String(Number(Number(gain).toFixed(2))));
+      const value = String(Number(Number(gain).toFixed(2)));
+      shownValues.gain = `${value}x`;
+      ui.showField(gainField, value);
+      paintAutoValues();
     }
 
     const SHOW = { ExposureTime: showExposure, AnalogueGain: showGain };
@@ -297,8 +321,9 @@
 
     function showAuto(on) {
       autoBtn.setAttribute("aria-pressed", String(on));
-      ui.setDisabled(exposureStepper, on);
-      ui.setDisabled(gainStepper, on);
+      $("exposure-row").hidden = on;
+      $("gain-row").hidden = on;
+      autoValues.hidden = !on;
     }
     const autoOn = () => autoBtn.getAttribute("aria-pressed") === "true";
 
@@ -332,7 +357,7 @@
         !ON_PAGE.includes(name) && typeof lastControls.available[name][0] === "boolean");
       const p = ui.infoPanel({
         title: "Camera settings",
-        sub: "Settings changed less often. Exposure, Gain and Auto are under the live view.",
+        sub: "Settings changed less often. Exposure, Gain and Auto exposure are under the live view.",
         body: `<div class="stack" style="max-width: 560px;">${names.map((name) => {
           const on = Boolean(lastControls.values[name]);
           return `<button type="button" class="switch hit" role="switch" data-control="${ui.esc(name)}" aria-checked="${on}">
@@ -390,6 +415,7 @@
       showGain(values.AnalogueGain);
       showAuto(Boolean(values.AeEnable));
       autoBtn.hidden = !("AeEnable" in available);
+      if (autoBtn.hidden) showAuto(false);
     }
 
     // --- ROI selection: tap the live view to place the focus area ---
@@ -407,13 +433,36 @@
       roiBox.hidden = false;
     }
 
-    // --- Sharpness, shown on the magnified view ---
+    // --- Sharpness: the number on the magnified view, and its trace under the live view ---
     const scoreValue = $("score-value");
+    const traceCanvas = $("score-trace");
+    const traceCtx = traceCanvas.getContext("2d");
+    const scoreHistory = [];
+    const HISTORY_LEN = 60;
+
+    function drawTrace() {
+      traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+      if (scoreHistory.length < 2) return;
+      const max = Math.max(...scoreHistory, 1);
+      traceCtx.beginPath();
+      scoreHistory.forEach((value, i) => {
+        const x = (i / (HISTORY_LEN - 1)) * traceCanvas.width;
+        const y = traceCanvas.height - (value / max) * (traceCanvas.height - 4) - 2;
+        if (i === 0) traceCtx.moveTo(x, y); else traceCtx.lineTo(x, y);
+      });
+      traceCtx.strokeStyle = "#6cb4ff";
+      traceCtx.lineWidth = 3;
+      traceCtx.stroke();
+    }
+
     async function pollScore() {
       if (isActiveStep(step) && interactionMode === "focus") {
         try {
           const data = await (await fetch("/focus/score")).json();
           scoreValue.textContent = data.score.toFixed(1);
+          scoreHistory.push(data.score);
+          if (scoreHistory.length > HISTORY_LEN) scoreHistory.shift();
+          drawTrace();
         } catch (e) {
           // transient network hiccup, try again next tick
         }
