@@ -136,12 +136,19 @@ def test_tag_map_stacks_header_square_map_and_histogram_when_not_to_scale() -> N
     assert image.dtype == np.uint8
 
 
-def test_tag_map_takes_the_entered_table_proportions() -> None:
-    frame = np.full((500, 500, 3), 128, dtype=np.uint8)
-    image = render_tag_map(
-        frame, 0.5, _axis_aligned_table_frame(), [_tag(500, 500, 0.0)],
-        table_width_mm=1000.0, table_length_mm=500.0,
+def test_tag_map_takes_the_corner_tags_photographed_proportions() -> None:
+    # Corner tags twice as far apart across as down the photo: the map is half as tall as wide.
+    baseline = CornerBaseline(
+        corners_by_id={
+            450: _square_detection(450, 0.0, 0.0, 20.0).corners,
+            451: _square_detection(451, 1000.0, 0.0, 20.0).corners,
+            452: _square_detection(452, 1000.0, 500.0, 20.0).corners,
+            455: _square_detection(455, 0.0, 500.0, 20.0).corners,
+        }
     )
+    frame = np.full((250, 500, 3), 128, dtype=np.uint8)
+    image = render_tag_map(frame, 0.5, build_table_frame(baseline), [_tag(500, 250, 0.0)])
+    assert image.shape[1] == TAG_MAP_CANVAS_DIM
     assert image.shape[0] == TAG_MAP_HEADER_PX + TAG_MAP_CANVAS_DIM // 2 + TAG_MAP_HISTOGRAM_PX
 
 

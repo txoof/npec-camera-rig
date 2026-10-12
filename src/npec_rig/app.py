@@ -83,10 +83,8 @@ from npec_rig.captures import (
     take_photo,
 )
 from npec_rig import health
-from npec_rig.settings import load_settings, save_setting
 from npec_rig.tags import (
     ASSUMED_CALIBRATION_TAG_SIZE_MM,
-    ASSUMED_CORNER_TAG_SIZE_MM,
     CALIBRATION_ID_RANGE,
     CORNER_ID_RANGE,
     detect_tags,
@@ -603,72 +601,6 @@ def api_captures(limit: int = 12) -> list[dict]:
     return list_recent_captures(limit=limit)
 
 
-def _outer_edge_span_to_centre_distance_mm(
-    outer_edge_span_mm: float | None, corner_tag_size_mm: float
-) -> float | None:
-    """Convert an operator's outer-edge-to-outer-edge tape measurement between two corner tags
-    into the tag-centre-to-centre distance `render_tag_map` actually needs.
-
-    There's no mark at a tag's centre to measure to directly, so the operator lays a tape measure
-    from one tag's outer edge (the corner facing away from the table) straight across to the
-    opposite tag's outer edge and reads the number off -- no arithmetic on their end. Each outer
-    edge sits half a tag width beyond its own tag's centre, so across both ends that's one full
-    tag width to remove here, not on the tape measure. This assumes the tags are mounted
-    axis-aligned with the table (true on this rig -- confirmed against a real saved frame, see
-    TODO.md); a tag mounted at a real angle to the width/length axis would sit more than half its
-    width beyond centre along that axis, and this would under-subtract.
-
-    Returns `None` (falls back to a NOT-TO-SCALE canvas) rather than a non-positive number if
-    `corner_tag_size_mm` comes out implausibly close to or bigger than what was measured -- almost
-    certainly a data-entry mistake (e.g. an inner-edge measurement typed in instead), and a wrong
-    aspect ratio is worse than none.
-    """
-    if outer_edge_span_mm is None:
-        return None
-    centre_to_centre_mm = outer_edge_span_mm - corner_tag_size_mm
-    return centre_to_centre_mm if centre_to_centre_mm > 0 else None
-
-
-def _resolve_table_dims(
-    table_width_mm: float | None,
-    table_length_mm: float | None,
-    corner_tag_size_mm: float | None,
-    *,
-    persist: bool,
-) -> tuple[float | None, float | None, float | None]:
-    """Resolve the three table-position-view display values against what's already persisted
-    (`settings.py`), used by both `run_calibration` and `save_table_dims` -- found duplicated
-    (and already diverging) by code review 2026-09-26.
-
-    A given value only counts as real if it's a positive number. 0 or negative can't be a
-    physical tag size or table span; letting one through used to reach
-    `_outer_edge_span_to_centre_distance_mm` as `corner_tag_size_mm=0`, which doesn't trip that
-    function's own non-positive guard (0 subtracts nothing, rather than producing a non-positive
-    result) -- silently rendering "to scale" with the tag-width correction missing entirely, and
-    persisting the bad 0 as every future run's default. An invalid value here is treated exactly
-    like a blank field: falls back to whatever was last validly persisted, and is never written.
-
-    `persist=False` for a `promote=False` comparison run (PLAN.md's two-baseline/two-height
-    tests): a deliberately different value for that one comparison run must not silently become
-    every future real run's default, the way `promote=False` already keeps `current.json`
-    untouched.
-    """
-    persisted = load_settings()
-    resolved: list[float | None] = []
-    for name, value in (
-        ("table_width_mm", table_width_mm),
-        ("table_length_mm", table_length_mm),
-        ("corner_tag_size_mm", corner_tag_size_mm),
-    ):
-        if value is not None and value > 0:
-            if persist:
-                save_setting(name, value)
-            resolved.append(value)
-        else:
-            resolved.append(persisted.get(name))
-    return tuple(resolved)  # type: ignore[return-value]
-
-
 # Calibration's own readiness gate (TODO.md, "Give Lock focus a real function"): all 4 mounted
 # corner tags, not check_tripwire's 2-tag minimum -- that check answers "has something changed
 # since a good baseline", this one answers "is the camera positioned well enough to calibrate at
@@ -752,9 +684,6 @@ def _build_calibration_delta(
 def run_calibration(
     promote: bool = True,
     calibration_tag_size_mm: float | None = None,
-    table_width_mm: float | None = None,
-    table_length_mm: float | None = None,
-    corner_tag_size_mm: float | None = None,
     override_focus_gate: bool = False,
 ) -> dict:
     """Setup calibration (PLAN.md M2 section A): capture a full-res still, detect tags, build the
@@ -779,25 +708,9 @@ def run_calibration(
     is a placeholder for whoever hasn't measured yet, not a substitute for measuring. A reprint at
     a different size needs a new measurement typed in here, not a source change.
 
-    `table_width_mm`/`table_length_mm`, if given, are the operator's **outer-edge-to-outer-edge**
-    tape measurement between corner tags (there's no mark at a tag's centre to measure to) --
-    converted to the centre-to-centre distance `render_tag_map` needs via
-    `_outer_edge_span_to_centre_distance_mm`, using `corner_tag_size_mm` (calliper-measured if
-    given, else `ASSUMED_CORNER_TAG_SIZE_MM`'s nominal placeholder, same pattern as
-    `calibration_tag_size_mm`).
-
-    All three go through `_resolve_table_dims` (see its docstring): remembered across runs via
-    `settings.py`'s key/value store, not the `CalibrationArtifact`; only a real (positive),
-    explicitly-given value is ever persisted, and only when `promote` is also true -- a
-    `promote=False` comparison run's own values are reported for *this* run but never become the
-    sticky default for every real run after it, the same way `promote=False` already keeps
-    `current.json` untouched. The tag map is drawn with the last saved values, for every
-    calibration: the table size is not stored per calibration.
     """
-    # Checked before anything below, including _resolve_table_dims' own persistence -- a
-    # refused run (no capture, gate_failed) must have no lasting side effects. Found by
-    # /code-review 2026-09-28: this used to run after _resolve_table_dims, so a gate-refused
-    # run still silently overwrote the sticky table-dims defaults.
+    # Checked before anything below: a refused run (no capture, gate_failed) must have no
+    # lasting side effects.
     if not override_focus_gate:
         readiness = _calibration_readiness()
         if not readiness["ready"]:
@@ -813,12 +726,6 @@ def run_calibration(
 
     tag_size_mm = calibration_tag_size_mm if calibration_tag_size_mm is not None else (
         ASSUMED_CALIBRATION_TAG_SIZE_MM
-    )
-    table_width_mm, table_length_mm, corner_tag_size_mm = _resolve_table_dims(
-        table_width_mm, table_length_mm, corner_tag_size_mm, persist=promote
-    )
-    corner_size_mm = corner_tag_size_mm if corner_tag_size_mm is not None else (
-        ASSUMED_CORNER_TAG_SIZE_MM
     )
 
     manager = CameraManager.instance()
@@ -848,17 +755,6 @@ def run_calibration(
         "frame_path": str(calibration_frame_path(stem)),
         # Recorded, not a gate (Aaron, 2026-10-08): the run is promoted as before.
         "photo_flags": photo["flags"],
-        "table_width_mm": table_width_mm,
-        "table_length_mm": table_length_mm,
-        "corner_tag_size_mm": corner_size_mm,
-        "corner_tag_size_mm_is_default": corner_tag_size_mm is None,
-        # Distinct from "nothing entered": entered but rejected (smaller than a corner tag, almost
-        # certainly a data-entry mistake) also draws the tag map NOT TO SCALE, and the page must
-        # say so rather than echo numbers the map ignored.
-        "tag_map_to_scale": all(
-            _outer_edge_span_to_centre_distance_mm(v, corner_size_mm) is not None
-            for v in (table_width_mm, table_length_mm)
-        ),
     }
 
     try:
@@ -1053,22 +949,10 @@ def delete_calibration(stem: str) -> dict:
 
 @app.get("/calibration/current")
 def current_calibration() -> dict:
-    """Summary of the active saved calibration, so the operator knows which one is live.
-
-    `table_width_mm`/`table_length_mm`/`corner_tag_size_mm` come from `settings.py`, not the
-    artifact -- they're the operator's last real, explicitly-typed values (see `run_calibration`'s
-    docstring), available for the UI to pre-fill from regardless of whether a calibration has
-    ever been saved.
-    """
-    persisted = load_settings()
-    table_dims = {
-        "table_width_mm": persisted.get("table_width_mm"),
-        "table_length_mm": persisted.get("table_length_mm"),
-        "corner_tag_size_mm": persisted.get("corner_tag_size_mm"),
-    }
+    """Summary of the active saved calibration, so the operator knows which one is live."""
     artifact = load_current_calibration()
     if artifact is None:
-        return {"exists": False, **table_dims}
+        return {"exists": False}
     frame_url = calibration_frame_url(artifact.frame_stem)
     return {
         "exists": True,
@@ -1081,35 +965,6 @@ def current_calibration() -> dict:
             sorted(artifact.corner_baseline.corners_by_id) if artifact.corner_baseline else []
         ),
         "frame_url": frame_url,
-        **table_dims,
-    }
-
-
-@app.post("/calibration/table-dims")
-def save_table_dims(
-    table_width_mm: float | None = None,
-    table_length_mm: float | None = None,
-    corner_tag_size_mm: float | None = None,
-) -> dict:
-    """Save table width/length/corner-tag size on their own, with no camera capture and no tag
-    detection -- these are pure display-convenience values for the table-position view (see
-    `run_calibration`'s docstring), not measurements a calibration produces. Before this endpoint
-    existed, the only way to persist them was as a side effect of "Run calibration", which needs
-    real calibration sheets in frame to succeed -- so once sheets come off the table after setup
-    (Step 6), there was no way to fix a mistyped table dimension without redoing the whole
-    physical setup (Aaron, 2026-09-25: "There's no way to enter the table width and length in mm.
-    There's no submit button.").
-
-    Uses `_resolve_table_dims` (see its docstring) -- only a given, positive value is written; a
-    blank or non-positive field keeps whatever was persisted before.
-    """
-    table_width_mm, table_length_mm, corner_tag_size_mm = _resolve_table_dims(
-        table_width_mm, table_length_mm, corner_tag_size_mm, persist=True
-    )
-    return {
-        "table_width_mm": table_width_mm,
-        "table_length_mm": table_length_mm,
-        "corner_tag_size_mm": corner_tag_size_mm,
     }
 
 
@@ -1194,15 +1049,7 @@ def _render_tag_map(inputs: dict) -> bytes:
         if residual is not None:
             tags.append((np.asarray(d.corners, dtype=float), residual - median))
     frame, scale = images.reduced_frame(_calibration_photo(stem), HEATMAP_MAX_WIDTH)
-    image = render_tag_map(
-        frame,
-        scale,
-        table_frame,
-        tags,
-        table_width_mm=inputs["table_width_mm"],
-        table_length_mm=inputs["table_length_mm"],
-    )
-    return array_to_jpeg(image)
+    return array_to_jpeg(render_tag_map(frame, scale, table_frame, tags))
 
 
 def _calibration_plot(stem: str, recipe: str) -> Response:
@@ -1214,13 +1061,6 @@ def _calibration_plot(stem: str, recipe: str) -> Response:
         "scale_field": scale_field_to_dict(artifact.scale_field),
         "calibration_tag_size_mm": artifact.calibration_tag_size_mm,
     }
-    if recipe == "calibration_tag_map":
-        # The table size last saved on the calibration page (not stored per calibration), as the
-        # distance between corner tag centres the straightened view needs.
-        persisted = load_settings()
-        corner_mm = persisted.get("corner_tag_size_mm") or ASSUMED_CORNER_TAG_SIZE_MM
-        for name in ("table_width_mm", "table_length_mm"):
-            inputs[name] = _outer_edge_span_to_centre_distance_mm(persisted.get(name), corner_mm)
     return _derived_response(recipe, _calibration_source(stem), inputs)
 
 

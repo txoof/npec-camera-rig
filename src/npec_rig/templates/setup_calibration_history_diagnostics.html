@@ -9,8 +9,6 @@
   </p>
 {% endblock %}
 
-{% block head_extra %}<script src="/static/load-images.js"></script>{% endblock %}
-
 {% block content %}
   <h2>Calibration diagnostics</h2>
   <p id="calibration-summary" style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
@@ -28,28 +26,7 @@
       does not change which calibration is active.
     </p>
 
-    <div style="margin: 1rem 0 0.5rem;">
-      <button id="load-diagnostics-btn">Load the tag map and radial plot</button>
-      <span style="color: #aaa; font-size: 0.8rem; margin-left: 0.5rem;">
-        The first time for a calibration, this reads the tags from its saved photo, which can take
-        about 15 seconds. After that the plots open from storage.
-      </span>
-    </div>
-    <p id="diagnostics-load-result" style="margin: 0.25rem 0 0; font-size: 0.85rem;" hidden></p>
-
-    <h3 style="margin: 1rem 0 0.25rem;">Tag map: where tags read far from normal
-      <button class="help-icon" data-help="tag-map" aria-label="What is this?">ⓘ</button>
-    </h3>
-    <div class="help-popover" data-help-body="tag-map" style="display: none;"></div>
-    <img id="tag-map" alt="Tag map: each tag coloured by how far it reads from the median, with a histogram"
-         class="diagnostic-image">
-
-    <h3 style="margin: 1rem 0 0.25rem;">Radial plot: is there lens distortion?
-      <button class="help-icon" data-help="radial-plot" aria-label="What is this?">ⓘ</button>
-    </h3>
-    <div class="help-popover" data-help-body="radial-plot" style="display: none;"></div>
-    <img id="radial-plot" alt="Scale residual against distance from the image centre"
-         class="diagnostic-image">
+    {% include "_calibration_diagnostics.html" %}
   </div>
 
   <script>
@@ -59,77 +36,8 @@
     const notFound = document.getElementById("calibration-not-found");
     const body = document.getElementById("calibration-diagnostics-body");
 
-    const tagMap = document.getElementById("tag-map");
-    const radialPlot = document.getElementById("radial-plot");
-    const loadDiagnosticsBtn = document.getElementById("load-diagnostics-btn");
-    const diagnosticsLoadResult = document.getElementById("diagnostics-load-result");
-
-    // Help text lives in a plain file Aaron can edit directly (static/help/diagnostics.md), not
-    // in this HTML -- one "## topic-key" section per pop-over, plain paragraphs plus **bold**.
-    // Fetched once and cached; each pop-over's own content is filled in lazily on first open.
-    let helpTopicsPromise = null;
-    function loadHelpTopics() {
-      if (!helpTopicsPromise) {
-        helpTopicsPromise = fetch("/static/help/diagnostics.md", { cache: "no-store" })
-          .then((r) => r.text())
-          .then((text) => {
-            const topics = {};
-            for (const block of text.split(/^## /m).slice(1)) {
-              // A trailing "## topic" section with no body text (or no final newline) has no
-              // "\n" at all -- indexOf returns -1, so treat the whole block as the key with an
-              // empty body rather than truncating the key's last character.
-              const nl = block.indexOf("\n");
-              const key = (nl === -1 ? block : block.slice(0, nl)).trim();
-              const body = nl === -1 ? "" : block.slice(nl + 1).trim();
-              topics[key] = body
-                ? body
-                    .split(/\n\s*\n/)
-                    .map((p) => `<p>${p.trim().replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</p>`)
-                    .join("")
-                : "";
-            }
-            return topics;
-          });
-      }
-      return helpTopicsPromise;
-    }
-
-    document.addEventListener("click", async (e) => {
-      const btn = e.target.closest(".help-icon");
-      if (!btn) return;
-      const key = btn.dataset.help;
-      const panel = document.querySelector(`.help-popover[data-help-body="${key}"]`);
-      if (!panel) return;
-      if (panel.style.display === "block") {
-        panel.style.display = "none";
-        return;
-      }
-      if (!panel.dataset.loaded) {
-        const topics = await loadHelpTopics();
-        panel.innerHTML = topics[key] || "<p>No help text found for this topic.</p>";
-        panel.dataset.loaded = "1";
-      }
-      panel.style.display = "block";
-    });
-
-    // Awaits the images, so the button stays busy until they are on screen and a second press
-    // cannot start a second batch.
-    loadDiagnosticsBtn.addEventListener("click", async () => {
-      loadDiagnosticsBtn.disabled = true;
-      loadDiagnosticsBtn.textContent = "Loading diagnostics...";
-      try {
-        const t = Date.now();
-        const failed = await window.loadDiagnosticImages([
-          [tagMap, `/calibration/${stem}/tag-map?t=${t}`],
-          [radialPlot, `/calibration/${stem}/radial-plot?t=${t}`],
-        ]);
-        diagnosticsLoadResult.textContent = `${failed} of 2 diagnostic plots could not be drawn.`;
-        diagnosticsLoadResult.hidden = failed === 0;
-      } finally {
-        loadDiagnosticsBtn.disabled = false;
-        loadDiagnosticsBtn.textContent = "Load the tag map and radial plot";
-      }
-    });
+    const diagnostics = window.calibrationDiagnostics;
+    diagnostics.setBase(`/calibration/${encodeURIComponent(stem)}`);
 
     async function init() {
       try {
@@ -152,17 +60,13 @@
             : "stats unavailable (file could not be read)";
         summary.textContent = `${dt}${badge}, ${stats}`;
         if (!entry.frame_url) {
-          loadDiagnosticsBtn.disabled = true;
-          loadDiagnosticsBtn.textContent =
-            "No saved frame for this run: tag map and radial plot unavailable";
+          diagnostics.disable("No saved photo for this run: no plots");
         } else if (entry.residual_std_pct == null) {
           // The artifact JSON itself failed to load (same signal /calibration/list uses for
           // "stats unavailable" above) -- a frame can still be on disk, but re-detecting tags
           // from it needs the artifact's own calibration_tag_size_mm/scale_field, so these
           // endpoints would 422. Say so up front instead of a silent broken-image icon.
-          loadDiagnosticsBtn.disabled = true;
-          loadDiagnosticsBtn.textContent =
-            "This calibration's saved file could not be read: tag map and radial plot unavailable";
+          diagnostics.disable("This calibration's saved file could not be read: no plots");
         }
         body.style.display = "block";
       } catch (err) {

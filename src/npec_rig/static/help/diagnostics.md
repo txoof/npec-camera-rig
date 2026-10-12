@@ -15,9 +15,9 @@ stays pale. The scale is fitted to these same tags, so a whole bad sheet pulls t
 itself and reads somewhat less far off than it really is. This is for setup only. How far a
 measurement can be trusted comes from validation.
 
-NOT TO SCALE unless both table width and length have been entered on the calibration page:
-the map's proportions then follow the corner tags in the photo, not the real table. Positions on
-the table are right either way; only the proportions need the two numbers.
+The map's proportions are those of the corner tags in the photo. The camera looks straight down,
+so they are close to the real table, but they are not measured. Positions on the table are right
+either way.
 
 ## radial-plot
 

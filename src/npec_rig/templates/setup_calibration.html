@@ -2,8 +2,7 @@
 {% set nav_active = "setup" %}
 {% block title_suffix %}: Calibration{% endblock %}
 
-{% block head_extra %}<script src="/static/validation-status.js"></script>
-<script src="/static/load-images.js"></script>{% endblock %}
+{% block head_extra %}<script src="/static/validation-status.js"></script>{% endblock %}
 
 {% block breadcrumb %}
   <p class="breadcrumb">
@@ -193,91 +192,15 @@
     <h3 style="margin: 1rem 0 0.25rem;">Step 5 - Read the report</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       The result above states the scale, coverage, and any coverage gaps found. If it says
-      coverage is weak somewhere, open Diagnostics below to see exactly where, add a sheet there,
+      coverage is weak somewhere, load the plots below to see exactly where, add a sheet there,
       and run calibration again. There is no need to redo Steps 1 to 3 unless something actually moved.
     </p>
-    <div style="margin: 0.5rem 0;">
-      <button id="load-diagnostics-btn">Load diagnostics for the active calibration</button>
-      <span style="color: #aaa; font-size: 0.8rem; margin-left: 0.5rem;">
-        The first time for a calibration, this reads the tags from its saved photo, which can
-        take about 15 seconds. After that the plots open from storage. Use this to see the
-        active calibration's diagnostics without running a new one (e.g. after promoting one
-        from history below).
-      </span>
-    </div>
-    <p id="diagnostics-load-result" style="margin: 0.25rem 0 0; font-size: 0.85rem;" hidden></p>
-
-    <details id="diagnostics-details" style="margin-top: 0.75rem;">
-      <summary>Diagnostics</summary>
-    <h3 style="margin: 1rem 0 0.25rem;">Tag map: where tags read far from normal</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      The table, straightened on the four corner tags. Each calibration tag is filled with how far
-      its size reads from the middle (median) tag of this run: blue reads small, orange-red reads
-      large, pale is normal. Tags more than 1.5% off are also outlined in black. A whole sheet in
-      one colour usually means that sheet printed at the wrong size: measure it with callipers. The
-      histogram under the map counts the tags, so one stray tag can be told from a group. This is
-      for setup only. How far a measurement can be trusted comes from validation.
-    </p>
-    <img id="tag-map" alt="Tag map: each tag coloured by how far it reads from the median, with a histogram"
-         class="diagnostic-image">
-    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Table size for the tag map</h4>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Press "Save" any time. No camera capture is needed, just these three numbers. They only
-      affect whether the tag map is drawn to scale, nothing else, so there is no need to run a
-      calibration again to fix one of them.
-    </p>
-    <label class="peaking-row">
-      <span>
-        <strong>Table width / length (mm)</strong>: lay a tape measure across the <em>outer</em>
-        edges of two corner tags (the corners facing away from the table) and enter the number you
-        read, straight off the tape. No centre to find, no arithmetic: the app subtracts the
-        corner tag size below for you. <strong>Width</strong> is the left-to-right pair in the
-        camera image (top-left to top-right corner tag); <strong>length</strong> is top-to-bottom
-        (top-left to bottom-left corner tag). Swapping them renders a transposed rectangle.
-        Leave either blank (before you have ever entered one) for a square, NOT-TO-SCALE canvas
-        that still shows relative position correctly. Remembered between runs once entered,
-        pre-filled here from the last value you actually typed in, so you do not need to retype
-        it every run.
-      </span>
-      <span>
-        <input type="number" id="table-width-input" step="0.1" min="0"
-               placeholder="width e.g. 1050" style="width: 7rem;">
-        <input type="number" id="table-length-input" step="0.1" min="0"
-               placeholder="length e.g. 850" style="width: 7rem;">
-      </span>
-    </label>
-    <label class="peaking-row">
-      <span>
-        <strong>Corner tag size (mm)</strong>: the corner tags' own physical size, used only to
-        convert the outer-edge measurement above into the centre-to-centre distance the tag map
-        needs. Measure with callipers for accuracy; leave blank to use the placeholder default
-        (shown after you run a calibration).
-      </span>
-      <input type="number" id="corner-tag-size-input" step="0.01" min="0"
-             placeholder="e.g. 50" style="width: 7rem;">
-    </label>
-    <div class="lock-row">
-      <button id="table-dims-save-btn">Save</button>
-      <span id="table-dims-save-result" style="font-size: 0.85rem; color: #aaa;"></span>
-    </div>
-
-    <h3 style="margin: 1rem 0 0.25rem;">Radial plot: is there lens distortion?</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Each dot is one calibration tag: across, its distance from the centre of the photo; up and
-      down, how far its size reads from the fitted scale, with its sign. Dots that climb or fall
-      steadily toward the right (the frame corners) would mean lens distortion, the one finding
-      that justifies modelling the lens (CLAUDE.md). A cloud with no trend means none is needed.
-      The known low reading near the centre is a dip at the left end and does not count. R² says
-      how much of the spread a straight line explains, from 0 to 1; read it with the slope and the
-      dots, not alone.
-    </p>
-    <img id="radial-plot" alt="Scale residual against distance from the image centre"
-         class="diagnostic-image">
+    {% set plot_base = "/calibration/current" %}
+    {% include "_calibration_diagnostics.html" %}
 
     <p style="margin: 0.75rem 0 0;">
       <a href="/setup/calibration-history">Browse calibration history →</a>
     </p>
-    </details>
 
     </div>
     <div class="wizard-step" data-step="6">
@@ -434,27 +357,9 @@
     const calibrationResult = document.getElementById("calibration-result");
     const calibrationCurrent = document.getElementById("calibration-current");
     const tagSizeInput = document.getElementById("tag-size-input");
-    const tableWidthInput = document.getElementById("table-width-input");
-    const tableLengthInput = document.getElementById("table-length-input");
-    const cornerTagSizeInput = document.getElementById("corner-tag-size-input");
-    const tableDimsSaveBtn = document.getElementById("table-dims-save-btn");
-    const tableDimsSaveResult = document.getElementById("table-dims-save-result");
-    const tagMap = document.getElementById("tag-map");
-    const radialPlot = document.getElementById("radial-plot");
+    const diagnostics = window.calibrationDiagnostics;
 
     function renderCurrentCalibration(data) {
-      // Pre-fill with the operator's last real, explicitly-typed values (settings.py, not tied
-      // to a saved calibration existing) so a repeat run does not need them retyped -- only
-      // overwritten by hand if the operator has already typed something in for *this* run.
-      if (!tableWidthInput.value && data.table_width_mm != null) {
-        tableWidthInput.value = data.table_width_mm;
-      }
-      if (!tableLengthInput.value && data.table_length_mm != null) {
-        tableLengthInput.value = data.table_length_mm;
-      }
-      if (!cornerTagSizeInput.value && data.corner_tag_size_mm != null) {
-        cornerTagSizeInput.value = data.corner_tag_size_mm;
-      }
       if (!data.exists) {
         calibrationCurrent.textContent = "No calibration saved yet.";
         return;
@@ -477,23 +382,6 @@
       const r = await fetch("/calibration/current");
       renderCurrentCalibration(await r.json());
       window.refreshValidationStatus();
-    }
-
-    // The tag map and radial plot for the current calibration. The first request reads the tags
-    // from its saved photo; after that both come from the images.py store. Always targets
-    // whatever /calibration/current is, so only call this once that is the run to plot (see the
-    // promoted_to_current gate below). Resolves to the number of images that failed.
-    function loadDiagnosticPlots() {
-      const t = Date.now();
-      return window.loadDiagnosticImages([
-        [tagMap, `/calibration/current/tag-map?t=${t}`],
-        [radialPlot, `/calibration/current/radial-plot?t=${t}`],
-      ]);
-    }
-
-    function hideDiagnosticPlots() {
-      window.hideDiagnosticImages([tagMap, radialPlot]);
-      diagnosticsLoadResult.hidden = true;
     }
 
     // vs. the calibration that was active right before this run replaced it (Aaron, 2026-09-28)
@@ -531,9 +419,6 @@
         const promote = promoteToggle.checked;
         let url = `/calibration/run?promote=${promote}`;
         if (tagSizeInput.value) url += `&calibration_tag_size_mm=${tagSizeInput.value}`;
-        if (tableWidthInput.value) url += `&table_width_mm=${tableWidthInput.value}`;
-        if (tableLengthInput.value) url += `&table_length_mm=${tableLengthInput.value}`;
-        if (cornerTagSizeInput.value) url += `&corner_tag_size_mm=${cornerTagSizeInput.value}`;
         let r = await fetch(url, { method: "POST" });
         let data = await r.json();
         if (data.gate_failed) {
@@ -561,29 +446,10 @@
             ? `tag size: ${data.calibration_tag_size_mm} mm placeholder default, measure with ` +
               "callipers and enter it above"
             : `tag size: ${data.calibration_tag_size_mm} mm (calliper-measured, as entered)`;
-          const cornerTagSize = data.corner_tag_size_mm_is_default
-            ? `corner tag size: ${data.corner_tag_size_mm} mm placeholder default, measure with ` +
-              "callipers and enter it below the tag map for a precise map"
-            : `corner tag size: ${data.corner_tag_size_mm} mm (calliper-measured, as entered)`;
-          let tableDims;
-          if (data.tag_map_to_scale) {
-            tableDims =
-              `tag map: ${data.table_width_mm}mm x ${data.table_length_mm}mm outer-edge span, as entered`;
-          } else if (data.table_width_mm || data.table_length_mm) {
-            tableDims =
-              `tag map: NOT TO SCALE: entered width/length (${data.table_width_mm}mm x ` +
-              `${data.table_length_mm}mm) could not convert against corner tag size ` +
-              `${data.corner_tag_size_mm}mm (too small, or one of the two left blank), check ` +
-              "your measurement";
-          } else {
-            tableDims = "tag map: NOT TO SCALE: enter table width and length below the tag map for real proportions";
-          }
           lines = [
             `${data.calibration_tags_detected} calibration tags, ` +
               `${data.corner_tags_detected} corner tags detected`,
             tagSize,
-            cornerTagSize,
-            tableDims,
             `${centre}, plane-fit residual ${data.residual_std_pct.toFixed(2)}%`,
             ...data.report,
           ];
@@ -611,11 +477,9 @@
           // comparison run would silently show the *previous* baseline's plots, not this run's.
           // Awaited, so the button stays busy until the plots are on screen.
           calibrateBtn.textContent = "Drawing diagnostics...";
-          const failed = await loadDiagnosticPlots();
-          diagnosticsLoadResult.textContent = `${failed} of 2 diagnostic plots could not be drawn.`;
-          diagnosticsLoadResult.hidden = failed === 0;
+          await diagnostics.load();
         } else {
-          hideDiagnosticPlots();
+          diagnostics.hide();
         }
       } finally {
         calibrateBtn.disabled = false;
@@ -623,56 +487,15 @@
       }
     });
 
-    const loadDiagnosticsBtn = document.getElementById("load-diagnostics-btn");
-    const diagnosticsDetails = document.getElementById("diagnostics-details");
-    const diagnosticsLoadResult = document.getElementById("diagnostics-load-result");
-
-    loadDiagnosticsBtn.addEventListener("click", async () => {
-      loadDiagnosticsBtn.disabled = true;
-      loadDiagnosticsBtn.textContent = "Loading diagnostics...";
-      try {
-        const r = await fetch("/calibration/current");
-        const data = await r.json();
-        if (!data.exists) {
-          alert("No calibration saved yet.");
-          return;
-        }
-        diagnosticsDetails.open = true;
-        // The plots need the saved photo; an artifact can exist without one (calibration.py:
-        // "a ScaleField alone is still a valid, usable artifact"), and frame_url is the signal.
-        // Without this check they would fail as broken images with no explanation.
-        if (data.frame_url) {
-          const failed = await loadDiagnosticPlots();
-          diagnosticsLoadResult.textContent = `${failed} of 2 diagnostic plots could not be drawn.`;
-          diagnosticsLoadResult.hidden = failed === 0;
-        } else {
-          hideDiagnosticPlots();
-        }
-      } finally {
-        loadDiagnosticsBtn.disabled = false;
-        loadDiagnosticsBtn.textContent = "Load diagnostics for the active calibration";
-      }
-    });
-
-    tableDimsSaveBtn.addEventListener("click", async () => {
-      tableDimsSaveBtn.disabled = true;
-      tableDimsSaveResult.textContent = "Saving...";
-      try {
-        let url = "/calibration/table-dims";
-        const params = [];
-        if (tableWidthInput.value) params.push(`table_width_mm=${tableWidthInput.value}`);
-        if (tableLengthInput.value) params.push(`table_length_mm=${tableLengthInput.value}`);
-        if (cornerTagSizeInput.value) params.push(`corner_tag_size_mm=${cornerTagSizeInput.value}`);
-        if (params.length) url += `?${params.join("&")}`;
-        const r = await fetch(url, { method: "POST" });
-        const data = await r.json();
-        tableDimsSaveResult.textContent =
-          `Saved: width ${data.table_width_mm ?? "?"}mm, length ${data.table_length_mm ?? "?"}mm, ` +
-          `corner tag ${data.corner_tag_size_mm ?? "?"}mm`;
-      } finally {
-        tableDimsSaveBtn.disabled = false;
-      }
-    });
+    // The plots need a calibration with its saved photo; an artifact can exist without one
+    // (calibration.py: "a ScaleField alone is still a valid, usable artifact"), and frame_url is
+    // the signal. Without this check they would fail as broken images with no explanation.
+    diagnostics.beforeLoad = async () => {
+      const data = await (await fetch("/calibration/current")).json();
+      if (!data.exists) return "No calibration saved yet.";
+      if (!data.frame_url) return "The active calibration has no saved photo, so there are no plots.";
+      return null;
+    };
 
     refreshCurrentCalibration();
 

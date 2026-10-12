@@ -139,17 +139,12 @@ class TableFrame:
 
     `(u, v) in [0, 1]^2` span the quadrilateral of the four corner tags' own centres, not the
     table's physical edge some distance further out. `u` runs TL -> TR (left-to-right in the
-    camera image), `v` runs TL -> BL (top-to-bottom). A real-world width/length measurement used
-    alongside this (e.g. in `calibration_viz.render_tag_map`) must be the distance
-    centre-to-centre between the same four tags, not the table's outer edge, or the aspect ratio
-    silently won't match what gets rendered -- and *which* edge is "width" matters too: it must be
-    the TL-TR edge (`u`), not TL-BL (`v`), or the rendered rectangle comes out transposed. Nobody
-    measures to a tag's centre directly (there's no mark there) -- `app.py`'s `run_calibration`
-    converts an operator's outer-edge tape measurement into this centre-to-centre distance before
-    it ever reaches here.
+    camera image), `v` runs TL -> BL (top-to-bottom). Fractions carry no millimetres: a map drawn
+    in these coordinates has the corner tags' proportions, not a measured table size.
 
-    `corners_px` is the same four points, in TL/TR/BR/BL order, kept for provenance/debugging --
-    not consulted by `to_fraction`/`to_pixel`, which go through `_matrix` alone.
+    `corners_px` is the same four points, in TL/TR/BR/BL order -- not consulted by
+    `to_fraction`/`to_pixel`, which go through `_matrix` alone; the tag map reads its proportions
+    from them.
     """
 
     _matrix: tuple[

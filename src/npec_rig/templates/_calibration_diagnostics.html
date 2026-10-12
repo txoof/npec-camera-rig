@@ -1,0 +1,181 @@
+{# Shared by the calibration wizard's Step 5 and the calibration history diagnostics page: one
+   copy of the calibration plots (the tag map and the radial plot), their help and their load
+   button, instead of two hand-maintained duplicates (issue #57).
+
+   Context variable: plot_base (string, optional) -- the URL the plots hang off, e.g.
+   "/calibration/current". A page that only knows it in the browser leaves it unset and calls
+   calibrationDiagnostics.setBase(...) instead.
+
+   Page script API, window.calibrationDiagnostics:
+     load()            show both plots; resolves once both have loaded or failed
+     hide()            hide both plots and the status line
+     setBase(url)      set where the plots come from
+     disable(reason)   disable the button, showing why on it
+     beforeLoad        optional async function a page sets; returns a reason not to load, or null #}
+<section class="calibration-diagnostics" id="calibration-diagnostics" data-plot-base="{{ plot_base or '' }}">
+  <div style="margin: 0.5rem 0;">
+    <button id="load-diagnostics-btn">Load the tag map and radial plot</button>
+  </div>
+  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
+    The first time for a calibration, this reads the tags from its photo, about 15 seconds.
+    After that the plots open from storage.
+  </p>
+  <p id="diagnostics-load-result" style="margin: 0 0 0.5rem; font-size: 0.85rem;" hidden></p>
+
+  <h3 style="margin: 1rem 0 0.25rem;">Tag map: where tags read far from normal
+    <button class="help-icon" data-help="tag-map" aria-label="What is this?">ⓘ</button>
+  </h3>
+  <div class="help-popover" data-help-body="tag-map" style="display: none;"></div>
+  <img id="tag-map" alt="Tag map: each tag coloured by how far it reads from the median, with a histogram"
+       class="diagnostic-image">
+
+  <h3 style="margin: 1rem 0 0.25rem;">Radial plot: is there lens distortion?
+    <button class="help-icon" data-help="radial-plot" aria-label="What is this?">ⓘ</button>
+  </h3>
+  <div class="help-popover" data-help-body="radial-plot" style="display: none;"></div>
+  <img id="radial-plot" alt="Scale residual against distance from the image centre"
+       class="diagnostic-image">
+</section>
+
+<script>
+  (() => {
+    const panel = document.getElementById("calibration-diagnostics");
+    const button = document.getElementById("load-diagnostics-btn");
+    const result = document.getElementById("diagnostics-load-result");
+    const plots = [
+      [document.getElementById("tag-map"), "tag-map"],
+      [document.getElementById("radial-plot"), "radial-plot"],
+    ];
+    const buttonLabel = button.textContent;
+
+    // `.diagnostic-image` is `display: none` in the shared style.css, so these images are shown
+    // with style.display rather than the hidden attribute. A new load or a hide settles an
+    // earlier, still pending load of the same image first, so no caller waits forever on an
+    // image that was taken over (the Run calibration button and this one both load them).
+    function settlePending(img) {
+      if (img._settlePending) img._settlePending(0);
+    }
+
+    function loadImage(img, url) {
+      return new Promise((resolve) => {
+        settlePending(img);
+        const settle = (failed) => {
+          img.onload = null;
+          img.onerror = null;
+          img._settlePending = null;
+          resolve(failed);
+        };
+        img._settlePending = settle;
+        img.onload = () => {
+          img.style.display = "block";
+          settle(0);
+        };
+        img.onerror = () => {
+          img.style.display = "none";
+          settle(1);
+        };
+        img.src = url;
+      });
+    }
+
+    function showResult(text) {
+      result.textContent = text || "";
+      result.hidden = !text;
+    }
+
+    const api = {
+      beforeLoad: null,
+      setBase(url) {
+        panel.dataset.plotBase = url;
+      },
+      disable(reason) {
+        button.disabled = true;
+        button.textContent = reason;
+      },
+      hide() {
+        for (const [img] of plots) {
+          settlePending(img);
+          img.style.display = "none";
+        }
+        showResult("");
+      },
+      async load() {
+        showResult("");
+        const t = Date.now();
+        const failures = await Promise.all(
+          plots.map(([img, name]) => loadImage(img, `${panel.dataset.plotBase}/${name}?t=${t}`))
+        );
+        const failed = failures.reduce((a, b) => a + b, 0);
+        if (failed) showResult(`${failed} of ${plots.length} plots could not be drawn.`);
+        return failed;
+      },
+    };
+    window.calibrationDiagnostics = api;
+
+    // Awaits the images, so the button stays busy until they are on screen and a second press
+    // cannot start a second batch.
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      button.textContent = "Loading...";
+      try {
+        const reason = api.beforeLoad ? await api.beforeLoad() : null;
+        if (reason) {
+          api.hide();
+          showResult(reason);
+          return;
+        }
+        await api.load();
+      } finally {
+        button.disabled = false;
+        button.textContent = buttonLabel;
+      }
+    });
+
+    // Help text lives in a plain file Aaron can edit directly (static/help/diagnostics.md), not
+    // in this HTML: one "## topic-key" section per pop-over, plain paragraphs plus **bold**.
+    // Fetched once and cached; each pop-over's content is filled in on first open.
+    let helpTopicsPromise = null;
+    function loadHelpTopics() {
+      if (!helpTopicsPromise) {
+        helpTopicsPromise = fetch("/static/help/diagnostics.md", { cache: "no-store" })
+          .then((r) => r.text())
+          .then((text) => {
+            const topics = {};
+            for (const block of text.split(/^## /m).slice(1)) {
+              // A trailing "## topic" section with no body (or no final newline) has no "\n":
+              // treat the whole block as the key with an empty body.
+              const nl = block.indexOf("\n");
+              const key = (nl === -1 ? block : block.slice(0, nl)).trim();
+              const body = nl === -1 ? "" : block.slice(nl + 1).trim();
+              topics[key] = body
+                ? body
+                    .split(/\n\s*\n/)
+                    .map((p) => `<p>${p.trim().replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</p>`)
+                    .join("")
+                : "";
+            }
+            return topics;
+          });
+      }
+      return helpTopicsPromise;
+    }
+
+    panel.addEventListener("click", async (e) => {
+      const icon = e.target.closest(".help-icon");
+      if (!icon) return;
+      const key = icon.dataset.help;
+      const body = panel.querySelector(`.help-popover[data-help-body="${key}"]`);
+      if (!body) return;
+      if (body.style.display === "block") {
+        body.style.display = "none";
+        return;
+      }
+      if (!body.dataset.loaded) {
+        const topics = await loadHelpTopics();
+        body.innerHTML = topics[key] || "<p>No help text found for this topic.</p>";
+        body.dataset.loaded = "1";
+      }
+      body.style.display = "block";
+    });
+  })();
+</script>

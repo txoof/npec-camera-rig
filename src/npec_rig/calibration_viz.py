@@ -243,19 +243,18 @@ def _tag_map_extent(full_to_fraction: np.ndarray, tags: list[tuple[np.ndarray, f
     return u_low - margin, u_high + margin, v_low - margin, v_high + margin
 
 
-def _tag_map_canvas_size(
-    u_span: float, v_span: float, table_width_mm: float | None, table_length_mm: float | None
-) -> tuple[int, int, bool]:
-    """`(width_px, height_px, to_scale)` for a map covering `u_span` x `v_span` of the corner-tag
-    square. Proportions follow the corner-tag square (NOT TO SCALE) unless both real dimensions
-    were entered -- never a plausible-looking but wrong rectangle from only one of the two."""
-    to_scale = bool(table_width_mm and table_length_mm)
-    aspect = v_span / u_span  # height / width
-    if to_scale:
-        aspect *= table_length_mm / table_width_mm
+def _tag_map_canvas_size(table_frame: TableFrame, u_span: float, v_span: float) -> tuple[int, int]:
+    """`(width_px, height_px)` for a map covering `u_span` x `v_span` of the corner-tag square,
+    in the proportions the corner tags have in the photo: the mean length of its top and bottom
+    edges against its left and right. The camera looks straight down, so that is close to the
+    real table's shape, but it is not measured, and the map says so."""
+    tl, tr, br, bl = (np.array(p) for p in table_frame.corners_px)
+    width_px = (np.linalg.norm(tr - tl) + np.linalg.norm(br - bl)) / 2
+    height_px = (np.linalg.norm(bl - tl) + np.linalg.norm(br - tr)) / 2
+    aspect = (v_span * height_px) / (u_span * width_px)  # height / width
     if aspect >= 1:
-        return max(1, int(round(TAG_MAP_CANVAS_DIM / aspect))), TAG_MAP_CANVAS_DIM, to_scale
-    return TAG_MAP_CANVAS_DIM, max(1, int(round(TAG_MAP_CANVAS_DIM * aspect))), to_scale
+        return max(1, int(round(TAG_MAP_CANVAS_DIM / aspect))), TAG_MAP_CANVAS_DIM
+    return TAG_MAP_CANVAS_DIM, max(1, int(round(TAG_MAP_CANVAS_DIM * aspect)))
 
 
 def _tag_map_histogram(deviations: list[float], width: int) -> np.ndarray:
@@ -324,9 +323,6 @@ def render_tag_map(
     frame_scale: float,
     table_frame: TableFrame,
     tags: list[tuple[np.ndarray, float]],
-    *,
-    table_width_mm: float | None = None,
-    table_length_mm: float | None = None,
 ) -> np.ndarray:
     """Where calibration tags read far from the run's norm (Aaron's plot review, issue #53): a
     setup aid for finding a sheet printed at the wrong size or a camera behaving poorly, not a
@@ -348,9 +344,7 @@ def render_tag_map(
     """
     full_to_fraction = table_frame.as_matrix()
     u_low, u_high, v_low, v_high = _tag_map_extent(full_to_fraction, tags)
-    canvas_width, canvas_height, to_scale = _tag_map_canvas_size(
-        u_high - u_low, v_high - v_low, table_width_mm, table_length_mm
-    )
+    canvas_width, canvas_height = _tag_map_canvas_size(table_frame, u_high - u_low, v_high - v_low)
     reduced_to_full = np.diag([1.0 / frame_scale, 1.0 / frame_scale, 1.0])
     sx, sy = canvas_width / (u_high - u_low), canvas_height / (v_high - v_low)
     fraction_to_canvas = np.array([[sx, 0.0, -u_low * sx], [0.0, sy, -v_low * sy], [0.0, 0.0, 1.0]])
@@ -384,17 +378,12 @@ def render_tag_map(
         cv2.rectangle(header, (x, key_y - 16), (x + 22, key_y + 6), (60, 60, 60), 1)
     far_x = 20 + 3 * 170
     cv2.rectangle(header, (far_x, key_y - 16), (far_x + 22, key_y + 6), (0, 0, 0), 3)
-    scale_note = (
-        f"to scale: {table_width_mm:.0f} x {table_length_mm:.0f} mm between corner tag centres"
-        if to_scale
-        else "NOT TO SCALE: no usable table width and length entered, positions are relative"
-    )
     with text_layer(header) as t:
         t.text("Tag size against the fitted scale, from this run's median", (20, 30), 0.7, (0, 0, 0))
         for index, (_pct, word) in enumerate(_TAG_MAP_KEY):
             t.text(word, (20 + index * 170 + 30, key_y + 4), 0.5, (0, 0, 0))
         t.text(f"outlined: over {TAG_MAP_FAR_PCT:.1f}%, marked - or +", (far_x + 30, key_y + 4), 0.5, (0, 0, 0))
-        t.text(f"{scale_note}. Grey: no tag.", (20, 96), 0.45, (0, 0, 0))
+        t.text("Proportions as photographed, not measured. Grey: no tag.", (20, 96), 0.45, (0, 0, 0))
 
     body = np.full((canvas_height, width, 3), 255, dtype=np.uint8)
     body[:, :canvas_width] = canvas

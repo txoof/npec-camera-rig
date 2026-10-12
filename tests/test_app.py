@@ -23,7 +23,7 @@ from npec_rig.camera import (
 )
 from npec_rig import captures, images
 from npec_rig.captures import photos_root
-from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM, ASSUMED_CORNER_TAG_SIZE_MM
+from npec_rig.tags import ASSUMED_CALIBRATION_TAG_SIZE_MM
 from npec_rig.tripwire import CornerBaseline
 from tests.helpers import rotate_detection, sheet_detections, square_detection, tray_layout_detections
 
@@ -536,15 +536,12 @@ def test_tag_map_is_drawn_for_a_calibration_with_all_four_corner_tags(
     )
 
     client = TestClient(app)
-    response = client.post(
-        "/calibration/run", params={"table_width_mm": 1000.0, "table_length_mm": 800.0}
-    )
+    response = client.post("/calibration/run")
     assert response.status_code == 200
     body = response.json()
 
     assert body["corner_baseline_tags"] == [450, 451, 452, 455]
-    assert body["table_width_mm"] == 1000.0
-    assert body["table_length_mm"] == 800.0
+    assert client.post("/calibration/table-dims").status_code in (404, 405)  # the inputs are gone
 
     for path in ("/calibration/current/tag-map", f"/calibration/{Path(body['artifact_path']).stem}/tag-map"):
         response = client.get(path)
@@ -645,220 +642,6 @@ def test_run_calibration_refuses_with_too_few_corner_tags_and_can_be_overridden(
     assert "error" not in overridden
 
 
-def test_run_calibration_echoes_corner_tag_size_and_default_flag(
-    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
-) -> None:
-    monkeypatch.setattr(
-        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
-    )
-    client = TestClient(app)
-
-    default_run = client.post("/calibration/run").json()
-    assert default_run["corner_tag_size_mm"] == ASSUMED_CORNER_TAG_SIZE_MM
-    assert default_run["corner_tag_size_mm_is_default"] is True
-
-    measured_run = client.post(
-        "/calibration/run", params={"corner_tag_size_mm": 49.87}
-    ).json()
-    assert measured_run["corner_tag_size_mm"] == 49.87
-    assert measured_run["corner_tag_size_mm_is_default"] is False
-
-
-def test_run_calibration_remembers_table_dims_across_runs(
-    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
-) -> None:
-    # Aaron, 2026-09-25: "the calibration doesn't remember the settings from previous runs so I
-    # always get the NOT TO SCALE thing." A run that omits all three must reuse whatever was
-    # last actually given, not fall back to NOT-TO-SCALE/the placeholder default.
-    monkeypatch.setattr(
-        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
-    )
-    client = TestClient(app)
-
-    first = client.post(
-        "/calibration/run",
-        params={"table_width_mm": 1000.0, "table_length_mm": 800.0, "corner_tag_size_mm": 49.87},
-    ).json()
-    assert first["tag_map_to_scale"] is True
-
-    current = client.get("/calibration/current").json()
-    assert current["table_width_mm"] == 1000.0
-    assert current["table_length_mm"] == 800.0
-    assert current["corner_tag_size_mm"] == 49.87
-
-    second = client.post("/calibration/run").json()
-    assert second["table_width_mm"] == 1000.0
-    assert second["table_length_mm"] == 800.0
-    assert second["corner_tag_size_mm"] == 49.87
-    assert second["corner_tag_size_mm_is_default"] is False
-    assert second["tag_map_to_scale"] is True
-
-
-def test_save_table_dims_persists_without_a_camera_capture(
-    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
-) -> None:
-    # Aaron, 2026-09-25: "There's no way to enter the table width and length in mm. There's no
-    # submit button." Before this endpoint, the only way to persist these was as a side effect
-    # of /calibration/run, which needs real tags in frame to succeed at all.
-    def _fail_if_called(*_args: object, **_kwargs: object) -> None:
-        raise AssertionError("saving table dims must not touch the camera")
-
-    monkeypatch.setattr(app_module.CameraManager, "instance", staticmethod(_fail_if_called))
-
-    client = TestClient(app)
-    response = client.post(
-        "/calibration/table-dims",
-        params={"table_width_mm": 1496.0, "table_length_mm": 1152.0, "corner_tag_size_mm": 50.0},
-    )
-    assert response.status_code == 200
-    assert response.json() == {
-        "table_width_mm": 1496.0,
-        "table_length_mm": 1152.0,
-        "corner_tag_size_mm": 50.0,
-    }
-
-    current = client.get("/calibration/current").json()
-    assert current["table_width_mm"] == 1496.0
-    assert current["table_length_mm"] == 1152.0
-    assert current["corner_tag_size_mm"] == 50.0
-
-
-def test_save_table_dims_leaves_unset_fields_alone(isolated_calibration_dir: None) -> None:
-    client = TestClient(app)
-    client.post("/calibration/table-dims", params={"table_width_mm": 1496.0})
-    response = client.post("/calibration/table-dims", params={"corner_tag_size_mm": 50.0})
-    assert response.json() == {
-        "table_width_mm": 1496.0,
-        "table_length_mm": None,
-        "corner_tag_size_mm": 50.0,
-    }
-
-
-def test_save_table_dims_rejects_non_positive_values(isolated_calibration_dir: None) -> None:
-    # Found by code review 2026-09-26: 0 used to pass straight through
-    # _outer_edge_span_to_centre_distance_mm as "no tag-width correction needed" instead of
-    # "invalid", and would have silently poisoned every future run's persisted default.
-    client = TestClient(app)
-    client.post(
-        "/calibration/table-dims",
-        params={"table_width_mm": 1496.0, "table_length_mm": 1152.0, "corner_tag_size_mm": 50.0},
-    )
-    response = client.post(
-        "/calibration/table-dims",
-        params={"table_width_mm": 0.0, "table_length_mm": -5.0, "corner_tag_size_mm": 0.0},
-    )
-    assert response.json() == {
-        "table_width_mm": 1496.0,
-        "table_length_mm": 1152.0,
-        "corner_tag_size_mm": 50.0,
-    }
-
-
-def test_run_calibration_does_not_persist_table_dims_when_not_promoted(
-    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
-) -> None:
-    # Aaron's own "never overwrite with a guess" rule applied to promote=False (found by code
-    # review 2026-09-26): a comparison run's own test values must not become the sticky default
-    # for every real run after it, the same way promote=False already keeps current.json alone.
-    monkeypatch.setattr(
-        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
-    )
-    client = TestClient(app)
-
-    client.post(
-        "/calibration/run",
-        params={"table_width_mm": 1496.0, "table_length_mm": 1152.0, "corner_tag_size_mm": 50.0},
-    )
-    comparison = client.post(
-        "/calibration/run",
-        params={
-            "promote": False,
-            "table_width_mm": 40.0,
-            "table_length_mm": 30.0,
-            "corner_tag_size_mm": 5.0,
-        },
-    ).json()
-    # The comparison run's own table view still uses its own entered values...
-    assert comparison["table_width_mm"] == 40.0
-    assert comparison["table_length_mm"] == 30.0
-    assert comparison["corner_tag_size_mm"] == 5.0
-
-    # ...but the persisted defaults for the *next* run are untouched.
-    current = client.get("/calibration/current").json()
-    assert current["table_width_mm"] == 1496.0
-    assert current["table_length_mm"] == 1152.0
-    assert current["corner_tag_size_mm"] == 50.0
-
-
-def test_run_calibration_gate_refusal_does_not_persist_table_dims(
-    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
-) -> None:
-    # Found by /code-review 2026-09-28: _resolve_table_dims used to persist before the
-    # readiness gate check, so a refused run (no capture at all) still overwrote the sticky
-    # table-dims defaults with whatever was typed in for that attempt.
-    from npec_rig.settings import load_settings
-
-    monkeypatch.setattr(
-        app_module,
-        "_calibration_readiness",
-        lambda: {
-            "focus_locked": False,
-            "corner_tags_detected": 0,
-            "corner_tags_required": 4,
-            "ready": False,
-        },
-    )
-    client = TestClient(app)
-
-    refused = client.post(
-        "/calibration/run",
-        params={"table_width_mm": 999.0, "table_length_mm": 888.0, "corner_tag_size_mm": 77.0},
-    ).json()
-    assert refused["gate_failed"] is True
-
-    persisted = load_settings()
-    assert "table_width_mm" not in persisted
-    assert "table_length_mm" not in persisted
-    assert "corner_tag_size_mm" not in persisted
-
-
-def test_run_calibration_says_when_the_tag_map_is_not_to_scale(
-    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
-) -> None:
-    # table_width_mm/table_length_mm are the operator's outer-edge-to-outer-edge tape measurement
-    # (see app_module._outer_edge_span_to_centre_distance_mm) -- too small relative to the corner
-    # tag size (e.g. an inner-edge measurement typed in by mistake) must fall back to NOT-TO-SCALE
-    # rather than rendering a nonsense aspect ratio, without failing the whole run.
-    monkeypatch.setattr(
-        app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS
-    )
-    client = TestClient(app)
-    response = client.post(
-        "/calibration/run",
-        params={"table_width_mm": 40.0, "table_length_mm": 800.0, "corner_tag_size_mm": 50.0},
-    )
-    body = response.json()
-    assert body["table_width_mm"] == 40.0  # still echoed as entered, not silently corrected
-    assert body["tag_map_to_scale"] is False  # the UI must say so, not just render a square
-    assert client.get("/calibration/current/tag-map").status_code == 200  # still drawn, NOT TO SCALE
-
-
-def test_outer_edge_span_to_centre_distance_subtracts_one_tag_width() -> None:
-    assert app_module._outer_edge_span_to_centre_distance_mm(1000.0, 50.0) == pytest.approx(950.0)
-
-
-def test_outer_edge_span_to_centre_distance_passes_through_none() -> None:
-    assert app_module._outer_edge_span_to_centre_distance_mm(None, 50.0) is None
-
-
-def test_outer_edge_span_to_centre_distance_guards_against_undersized_span() -> None:
-    # Smaller than (or equal to) the tag size itself -- almost certainly a data-entry mistake
-    # (e.g. an inner-edge measurement) -- falls back to None (NOT-TO-SCALE) rather than a
-    # non-positive or zero "distance".
-    assert app_module._outer_edge_span_to_centre_distance_mm(50.0, 50.0) is None
-    assert app_module._outer_edge_span_to_centre_distance_mm(30.0, 50.0) is None
-
-
 def test_run_calibration_accepts_a_measured_tag_size_override(
     monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
 ) -> None:
@@ -894,12 +677,7 @@ def test_current_calibration_before_any_run(isolated_calibration_dir: None) -> N
     client = TestClient(app)
     response = client.get("/calibration/current")
     assert response.status_code == 200
-    assert response.json() == {
-        "exists": False,
-        "table_width_mm": None,
-        "table_length_mm": None,
-        "corner_tag_size_mm": None,
-    }
+    assert response.json() == {"exists": False}
 
 
 def test_tripwire_check_without_baseline_is_refused(isolated_calibration_dir: None) -> None:
@@ -981,8 +759,6 @@ def test_tripwire_check_reports_a_real_roll_through_the_json_round_trip(
     assert body["verdict"] == "DRIFT"
     assert body["roll_deg"] == pytest.approx(5.0, abs=0.01)
     assert set(body["scale_delta_pct"].keys()) == {"450", "451"}
-
-
 
 
 def test_run_calibration_with_promote_false_does_not_replace_current(
