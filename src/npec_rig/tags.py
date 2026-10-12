@@ -40,15 +40,6 @@ RESERVED_ID_RANGE = range(500, 587)  # buffer for a future fixed rig-level role.
 # of this rig, never against an absolute mm figure, so it doesn't need this constant.
 ASSUMED_CALIBRATION_TAG_SIZE_MM = 30.0
 
-# The corner tags' nominal printed size (callipers, 2026-09-29: the 50mm tag measured 50.02mm, same
-# caution as ASSUMED_CALIBRATION_TAG_SIZE_MM above: measure each print). Used only by
-# the table-position view's outer-edge-to-centre conversion (app.py's run_calibration) -- an
-# operator measures corner-tag-to-corner-tag with a tape measure laid outer-edge to outer-edge (no
-# centre mark exists on a tag to measure to directly), and this constant converts that to the
-# centre-to-centre distance TableFrame's aspect ratio actually needs. Overridable per run with a
-# calliper measurement, same pattern as calibration_tag_size_mm.
-ASSUMED_CORNER_TAG_SIZE_MM = 50.0
-
 
 def _detector_parameters() -> cv2.aruco.DetectorParameters:
     params = cv2.aruco.DetectorParameters()

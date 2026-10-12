@@ -218,6 +218,7 @@ TAG_MAP_BIN_PCT = 0.25
 TAG_MAP_SMALL_COLOUR = (30, 90, 210)  # RGB blue: tag reads small
 TAG_MAP_LARGE_COLOUR = (210, 60, 20)  # RGB orange-red: tag reads large
 TAG_MAP_NEUTRAL_COLOUR = (240, 240, 240)
+_KEY_STEP = 150  # px from one legend entry to the next
 _TAG_MAP_KEY = ((-TAG_MAP_RANGE_PCT, "reads small"), (0.0, "normal"), (TAG_MAP_RANGE_PCT, "reads large"))
 
 
@@ -369,19 +370,21 @@ def render_tag_map(
             for centre, sign in far_marks:
                 t.text(sign, centre, 0.6, (255, 255, 255), anchor="mm", stroke_width=1, stroke_fill=(0, 0, 0))
 
-    width = max(canvas_width, 700)
+    # Wide enough for the legend's last entry, so its text is never cut off on a narrow map.
+    legend_end = 20 + 3 * _KEY_STEP + 30 + text_width(f"outlined: over {TAG_MAP_FAR_PCT:.1f}%, marked - or +", 0.5) + 20
+    width = max(canvas_width, legend_end)
     header = np.full((TAG_MAP_HEADER_PX, width, 3), 255, dtype=np.uint8)
     key_y = 62
     for index, (pct, _word) in enumerate(_TAG_MAP_KEY):
-        x = 20 + index * 170
+        x = 20 + index * _KEY_STEP
         cv2.rectangle(header, (x, key_y - 16), (x + 22, key_y + 6), tag_map_colour(pct), -1)
         cv2.rectangle(header, (x, key_y - 16), (x + 22, key_y + 6), (60, 60, 60), 1)
-    far_x = 20 + 3 * 170
+    far_x = 20 + 3 * _KEY_STEP
     cv2.rectangle(header, (far_x, key_y - 16), (far_x + 22, key_y + 6), (0, 0, 0), 3)
     with text_layer(header) as t:
         t.text("Tag size against the fitted scale, from this run's median", (20, 30), 0.7, (0, 0, 0))
         for index, (_pct, word) in enumerate(_TAG_MAP_KEY):
-            t.text(word, (20 + index * 170 + 30, key_y + 4), 0.5, (0, 0, 0))
+            t.text(word, (20 + index * _KEY_STEP + 30, key_y + 4), 0.5, (0, 0, 0))
         t.text(f"outlined: over {TAG_MAP_FAR_PCT:.1f}%, marked - or +", (far_x + 30, key_y + 4), 0.5, (0, 0, 0))
         t.text("Proportions as photographed, not measured. Grey: no tag.", (20, 96), 0.45, (0, 0, 0))
 

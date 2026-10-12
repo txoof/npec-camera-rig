@@ -1183,6 +1183,30 @@ def test_calibration_plots_use_the_runs_own_tags_and_keep_the_plots(
     assert len(renders) == 1
 
 
+def test_current_plots_come_from_current_json_not_the_history_file(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS)
+    client = TestClient(app)
+    run = client.post("/calibration/run").json()
+    Path(run["artifact_path"]).unlink()  # only current.json is left
+
+    for plot in ("radial-plot", "tag-map"):
+        assert client.get(f"/calibration/current/{plot}").status_code == 200, plot
+
+
+def test_radial_plot_refuses_a_removed_metric(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # Only the scale residual is plotted since the plot review (issue #53): an old
+    # ?metric=shape_distortion link is refused, not silently answered with the other plot.
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    client = TestClient(app)
+    client.post("/calibration/run")
+    assert client.get("/calibration/current/radial-plot?metric=shape_distortion").status_code == 422
+    assert client.get("/calibration/current/radial-plot?metric=scale_residual").status_code == 200
+
+
 @pytest.mark.parametrize("plot", ["rank-plot", "best-worst-photo", "certainty-dome-plot"])
 def test_removed_calibration_plots_are_gone(
     plot: str, monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None

@@ -26,6 +26,7 @@ from npec_rig.calibration import (
     build_calibration_report,
     build_scale_field,
     build_table_frame,
+    scale_field_from_dict,
     scale_field_to_dict,
     scale_residual_samples,
 )
@@ -91,6 +92,7 @@ from npec_rig.tags import (
 )
 from npec_rig import captures, database, exports, images, validation_store
 from npec_rig.tripwire import (
+    CornerBaseline,
     build_corner_baseline,
     check_tripwire,
     corner_level_readings,
@@ -193,9 +195,8 @@ def setup_calibration_history_page(request: Request) -> Response:
 
 @app.get("/setup/calibration-history/{stem}")
 def setup_calibration_history_diagnostics_page(stem: str, request: Request) -> Response:
-    """Diagnostics drill-down for one arbitrary saved calibration -- TODO.md's "let the two
-    heatmaps and the best-vs-worst-tag rank plots be viewed for a past calibration, not just
-    whatever's live." One template serves any `stem`; the page reads it from its own URL and
+    """Diagnostics drill-down for one saved calibration: its tag map and radial plot, for a past
+    calibration, not just whatever is live. One template serves any `stem`; the page reads it from its own URL and
     looks itself up in `/calibration/list` client-side, same list the history page already
     fetches -- no new metadata endpoint needed.
     """
@@ -750,9 +751,6 @@ def run_calibration(
     tag_sizes_mm = {d.tag_id: tag_size_mm for d in calibration_detections}
 
     stem = stem_for_photo(photo)
-    # The tags this run fits its scale to, kept as the photo's tags: the diagnostic plots then
-    # need no second full-size search of the saved photo, and plot the same tags as the fit.
-    images.store_tag_detections(_calibration_ref(stem), detections)
 
     result: dict = {
         "calibration_tags_detected": len(calibration_detections),
@@ -769,6 +767,9 @@ def run_calibration(
     except ValueError as exc:
         result["error"] = str(exc)
         return result
+    # The tags this run fitted its scale to, kept as the photo's tags: the diagnostic plots then
+    # need no second full-size search of the saved photo, and plot the same tags as the fit.
+    images.store_tag_detections(f"{photo['date']}/{Path(photo['filename']).stem}", detections)
 
     try:
         result["report"] = build_calibration_report(detections, tag_sizes_mm, frame_width, frame_height)
@@ -981,55 +982,45 @@ def _calibration_source(stem: str) -> str:
     return f"calibration:{stem}"
 
 
-def _calibration_ref(stem: str) -> str:
-    """Calibration `stem`'s photo as a capture ref, the images.py source of its tags."""
-    path = calibration_frame_path(stem)
+def _calibration_ref(frame_stem: str) -> str:
+    """The capture ref of a calibration's photo (its `frame_stem`), the images.py source of its
+    tags. 409 for a stem that names no rig photo."""
+    path = calibration_frame_path(frame_stem)
     if path is None:
         raise HTTPException(409, "the saved frame for this calibration is missing on disk")
     return f"{path.parent.name}/{path.stem}"
 
 
-def _calibration_photo(stem: str) -> Path:
-    """Calibration `stem`'s photo. 409 when it is not on disk."""
-    path = calibration_frame_path(stem)
-    if path is None or not path.exists():
-        raise HTTPException(409, "the saved frame for this calibration is missing on disk")
-    return path
+def _calibration_tags(frame_stem: str) -> list:
+    """The tag detections of a calibration's photo, from the analysis store (images.py), the
+    same as a validation capture's (`_capture_tags`). A run stores the tags it fitted its scale
+    to; an older calibration's are worked out once from its photo."""
+    try:
+        return _capture_tags(_calibration_ref(frame_stem))
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            raise HTTPException(409, "the saved frame for this calibration is missing on disk") from exc
+        raise
 
 
-def _calibration_tags(stem: str) -> list:
-    """Calibration `stem`'s tag detections, from the analysis store (images.py). A run stores
-    the tags it fitted its scale to; an older calibration's are worked out once from its photo.
-    No full-size frame stays in memory between requests, and stored tags are used even if the
-    photo has since been deleted."""
-    ref = _calibration_ref(stem)
-    stored = images.stored_tag_detections(ref)
-    if stored is not None:
-        return stored
-    return images.tag_detections(ref, _calibration_photo(stem), detect=lambda frame: detect_tags(frame))
-
-
-def _scale_residuals(
-    stem: str, artifact: CalibrationArtifact
-) -> tuple[list, list[ScaleResidualSample]]:
-    """`(calibration tag detections, their scale residuals)` for saved calibration `stem`. Not
-    persisted per tag in the artifact, so worked out from the stored tag detections."""
-    detections = [d for d in _calibration_tags(stem) if d.tag_id in CALIBRATION_ID_RANGE]
-    tag_sizes_mm = {d.tag_id: artifact.calibration_tag_size_mm for d in detections}
-    samples = scale_residual_samples(artifact.scale_field, detections, tag_sizes_mm)
+def _plot_samples(inputs: dict) -> list[ScaleResidualSample]:
+    """The scale residual of every calibration tag in the photo `inputs` names, against the
+    scale field and tag size in `inputs`, never the artifact on disk: a plot is drawn only from
+    what its cache key holds."""
+    detections = [d for d in _calibration_tags(inputs["frame_stem"]) if d.tag_id in CALIBRATION_ID_RANGE]
+    tag_sizes_mm = {d.tag_id: inputs["calibration_tag_size_mm"] for d in detections}
+    samples = scale_residual_samples(scale_field_from_dict(inputs["scale_field"]), detections, tag_sizes_mm)
     if len(samples) < 2:
         raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
-    return detections, samples
+    return samples
 
 
 def _render_radial_plot(inputs: dict) -> bytes:
     """The evidence gate for lens distortion modelling (CLAUDE.md, see
     `calibration_viz.render_radial_residual_plot`): each tag's signed scale residual against its
     distance from the image centre."""
-    stem = inputs["stem"]
-    _detections, samples = _scale_residuals(stem, _load_saved_artifact(stem))
-    with Image.open(_calibration_photo(stem)) as photo:  # the header only, no decode
-        width, height = photo.size
+    samples = _plot_samples(inputs)
+    width, height = inputs["photo_size"]
     cx, cy = width / 2, height / 2
     points = [(float(np.hypot(s.x - cx, s.y - cy)), s.residual_pct, s.tag_id) for s in samples]
     return array_to_jpeg(render_radial_residual_plot(points, label="scale residual"))
@@ -1039,67 +1030,94 @@ def _render_tag_map(inputs: dict) -> bytes:
     """Where calibration tags read far from the run's median, on the table straightened by its
     corner tags, with a histogram (`calibration_viz.render_tag_map`). A setup aid for finding a
     badly printed sheet, not a claim about accuracy."""
-    stem = inputs["stem"]
-    artifact = _load_saved_artifact(stem)
-    if artifact.corner_baseline is None:
+    if inputs["corner_baseline"] is None:
         raise HTTPException(409, "this calibration has no corner tags to straighten the table on")
+    baseline = CornerBaseline(
+        corners_by_id={
+            int(tag_id): tuple(tuple(pt) for pt in corners)
+            for tag_id, corners in inputs["corner_baseline"].items()
+        }
+    )
     try:
-        table_frame = build_table_frame(artifact.corner_baseline)
+        table_frame = build_table_frame(baseline)
     except ValueError as exc:
         raise HTTPException(409, f"cannot straighten the table: {exc}") from exc
-    detections, samples = _scale_residuals(stem, artifact)
-    residual_at = {(s.tag_id, s.x, s.y): s.residual_pct for s in samples}
+    samples = _plot_samples(inputs)
     median = float(np.median([s.residual_pct for s in samples]))
-    tags = []
-    for d in detections:
-        residual = residual_at.get((d.tag_id, *d.centre))
-        if residual is not None:
-            tags.append((np.asarray(d.corners, dtype=float), residual - median))
-    frame, scale = images.reduced_frame(_calibration_photo(stem), HEATMAP_MAX_WIDTH)
+    tags = [(np.asarray(s.corners, dtype=float), s.residual_pct - median) for s in samples]
+    path = calibration_frame_path(inputs["frame_stem"])
+    frame, scale = images.reduced_frame(path, HEATMAP_MAX_WIDTH)
     return array_to_jpeg(render_tag_map(frame, scale, table_frame, tags))
 
 
-def _calibration_plot(stem: str, recipe: str) -> Response:
-    """Calibration `stem`'s `recipe` plot, from the images.py store once drawn."""
-    artifact = _load_saved_artifact(stem)  # 404/422 for an unknown or unreadable stem
-    # Everything the plot is drawn from, so a rewritten artifact draws anew.
+def _calibration_plot(artifact: CalibrationArtifact, source_stem: str, recipe: str) -> Response:
+    """`artifact`'s `recipe` plot, from the images.py store once drawn. The inputs are everything
+    the plot is drawn from, so a rewritten artifact or a new tag detector draws it anew. The
+    photo is the artifact's own (`frame_stem`), whatever file name the artifact is saved under."""
+    if artifact.frame_stem is None:
+        raise HTTPException(409, "this calibration has no saved photo to plot")
+    path = calibration_frame_path(artifact.frame_stem)
+    if path is None or not path.exists():
+        raise HTTPException(409, "the saved frame for this calibration is missing on disk")
+    with Image.open(path) as photo:  # the header only, no decode
+        photo_size = list(photo.size)
     inputs: dict = {
-        "stem": stem,
+        "frame_stem": artifact.frame_stem,
+        "photo_size": photo_size,
         "scale_field": scale_field_to_dict(artifact.scale_field),
         "calibration_tag_size_mm": artifact.calibration_tag_size_mm,
+        "tag_detector_version": images.TAG_DETECTOR_VERSION,
+        "corner_baseline": (
+            {str(k): [list(pt) for pt in v] for k, v in artifact.corner_baseline.corners_by_id.items()}
+            if artifact.corner_baseline is not None
+            else None
+        ),
     }
-    return _derived_response(recipe, _calibration_source(stem), inputs)
+    return _derived_response(recipe, _calibration_source(source_stem), inputs)
 
 
-def _current_stem() -> str:
+def _current_artifact() -> CalibrationArtifact:
+    """The live calibration, from current.json itself, not from the history file of the same
+    name."""
     artifact = load_current_calibration()
     if artifact is None or artifact.frame_stem is None:
         raise HTTPException(409, "no calibration with a saved frame yet")
-    return artifact.frame_stem
+    return artifact
+
+
+def _no_other_metric(metric: str | None) -> None:
+    """The plot review (issue #53) kept only the scale residual: say so rather than silently
+    drawing it for an old ?metric= link."""
+    if metric not in (None, "scale_residual"):
+        raise HTTPException(422, f"unknown metric {metric!r}: only scale_residual is plotted")
 
 
 @app.get("/calibration/current/radial-plot")
-def current_radial_plot() -> Response:
+def current_radial_plot(metric: str | None = None) -> Response:
     """The radial plot for the live calibration."""
-    return _calibration_plot(_current_stem(), "calibration_radial_plot")
+    _no_other_metric(metric)
+    artifact = _current_artifact()
+    return _calibration_plot(artifact, artifact.frame_stem, "calibration_radial_plot")
 
 
 @app.get("/calibration/{stem}/radial-plot")
-def stem_radial_plot(stem: str) -> Response:
+def stem_radial_plot(stem: str, metric: str | None = None) -> Response:
     """The radial plot for saved calibration `stem` (the calibration history drill-down)."""
-    return _calibration_plot(stem, "calibration_radial_plot")
+    _no_other_metric(metric)
+    return _calibration_plot(_load_saved_artifact(stem), stem, "calibration_radial_plot")
 
 
 @app.get("/calibration/current/tag-map")
 def current_tag_map() -> Response:
     """The tag map for the live calibration."""
-    return _calibration_plot(_current_stem(), "calibration_tag_map")
+    artifact = _current_artifact()
+    return _calibration_plot(artifact, artifact.frame_stem, "calibration_tag_map")
 
 
 @app.get("/calibration/{stem}/tag-map")
 def stem_tag_map(stem: str) -> Response:
     """The tag map for saved calibration `stem` (the calibration history drill-down)."""
-    return _calibration_plot(stem, "calibration_tag_map")
+    return _calibration_plot(_load_saved_artifact(stem), stem, "calibration_tag_map")
 
 
 # Validation captures for the certainty map. A full 64MP frame is ~180MB, so captures never stay

@@ -442,6 +442,7 @@ class ScaleResidualSample:
     y: float
     tag_id: int
     residual_pct: float
+    corners: tuple = ()  # the tag's four corners, full-resolution pixels: the tag map fills them
 
 
 def scale_residual_samples(
@@ -468,6 +469,7 @@ def scale_residual_samples(
                 y=y,
                 tag_id=detection.tag_id,
                 residual_pct=100.0 * (observed - predicted) / predicted,
+                corners=tuple(tuple(c) for c in detection.corners),
             )
         )
     return samples
