@@ -1,25 +1,49 @@
+{#- The shell (#128): a section rail, then the work area with its head, one scrolling area with a
+    control-free gutter on the right, and an action bar shown only when a page fills it. -#}
+{%- import "_ui.html" as ui -%}
+{%- set sections = [
+  ("setup", "/setup", "setup", "Setup"),
+  ("gallery", "/gallery", "capture", "Capture"),
+  ("experiments", "/experiments", "experiments", "Experiments"),
+] -%}
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>NPEC Camera Rig{% block title_suffix %}{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/squareness-guides.js"></script>
+  <script src="/static/ui.js" defer></script>
   {% block head_extra %}{% endblock %}
 </head>
 <body>
-  <header class="site-header">
-    <h1>NPEC Camera Rig</h1>
-    <nav class="top-nav">
-      <a href="/setup" class="{% if nav_active == 'setup' %}active{% endif %}">Setup</a>
-      <a href="/gallery" class="{% if nav_active == 'gallery' %}active{% endif %}">Capture &amp; Gallery</a>
-      <a href="/experiments" class="{% if nav_active == 'experiments' %}active{% endif %}">Experiments</a>
+  <div class="app">
+    <nav class="rail" aria-label="Sections">
+      {%- for key, href, icon_name, label in sections %}
+      <a class="rail-btn hit" href="{{ href }}"{% if nav_active == key %} aria-current="page"{% endif %}>
+        {{ ui.icon(icon_name) }}{{ label }}
+      </a>
+      {%- endfor %}
+      <div class="rail-spacer"></div>
+      {% include "_camera_status.html" %}
     </nav>
-    {% include "_camera_status.html" %}
-  </header>
-  {% block breadcrumb %}{% endblock %}
-  {% block content %}{% endblock %}
+    <main class="work">
+      <header class="work-head">
+        {#- A page with no breadcrumb is a section's own page: its head names the section. -#}
+        {% block breadcrumb %}
+          {%- for key, href, icon_name, label in sections if key == nav_active %}<h1>{{ label }}</h1>{% endfor -%}
+        {% endblock %}
+      </header>
+      <div class="scroll">
+        {{ ui.scroll_hint() }}
+        {% block content %}{% endblock %}
+      </div>
+      {%- if self.action_bar() | trim %}
+      <div class="action-bar">{% block action_bar %}{% endblock %}</div>
+      {%- endif %}
+    </main>
+  </div>
   <script src="/static/lightbox.js" defer></script>
 </body>
 </html>

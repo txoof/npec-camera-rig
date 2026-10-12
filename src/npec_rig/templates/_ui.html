@@ -1,0 +1,121 @@
+{#- Shared interface components (#128), drawn from reference/ui-mockup/rig-ui-mockup.html.
+    Import with {% import "_ui.html" as ui %}. Markup only: behavior is in static/ui.js, styles
+    in style.css, and every component is shown on /ui. A macro that renders an id takes it as an
+    argument, so a page can use it twice. -#}
+
+{% macro icon(name) -%}
+<svg class="ui-icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#{{ name }}"></use></svg>
+{%- endmacro %}
+
+{% macro scroll_hint() -%}
+<div class="scroll-hint" aria-hidden="true"><span class="scroll-hint-body">{{ icon("scroll") }}<span class="scroll-hint-label">Scroll here</span></span></div>
+{%- endmacro %}
+
+{#- kind: "", "primary" or "danger". attrs: any further attributes, as a dict. -#}
+{% macro button(label, kind="", id=none, icon_name=none, icon_after=none, disabled=false, attrs={}) -%}
+<button type="button" class="btn {{ kind }} hit"{% if id %} id="{{ id }}"{% endif %}{% if disabled %} disabled{% endif %}{{ attrs | xmlattr }}>
+  {%- if icon_name %}{{ icon(icon_name) }}{% endif %}{{ label }}{% if icon_after %}{{ icon(icon_after) }}{% endif -%}
+</button>
+{%- endmacro %}
+
+{% macro link_button(label, href, kind="", icon_name=none) -%}
+<a class="btn {{ kind }} hit" href="{{ href }}">{% if icon_name %}{{ icon(icon_name) }}{% endif %}{{ label }}</a>
+{%- endmacro %}
+
+{#- A whole-row switch. ui.bindSwitch(el, onChange) makes it toggle. -#}
+{% macro switch(id, title, description="", on=false, compact=false) -%}
+<button type="button" class="switch{% if compact %} compact{% endif %} hit" role="switch" id="{{ id }}" aria-checked="{{ 'true' if on else 'false' }}">
+  <span class="track"></span>
+  <span class="txt"><strong>{{ title }}{% if not compact %} <span class="state">{{ "On" if on else "Off" }}</span>{% endif %}</strong>
+    {%- if description and not compact %}<span>{{ description }}</span>{% endif %}</span>
+</button>
+{%- endmacro %}
+
+{#- kind: ok, warn, fail or info. Each has its own shape as well as its color. -#}
+{% macro chip(kind, text) -%}
+<span class="chip {{ kind }}">{{ icon(kind) }}{{ text }}</span>
+{%- endmacro %}
+
+{#- A message across the page. The caller holds the text and an optional button. -#}
+{% macro banner(kind="warn", chip_text=none) -%}
+<div class="banner {{ kind }}" role="status">
+  {%- if chip_text %}{{ chip(kind, chip_text) }}{% endif %}
+  {{ caller() }}
+</div>
+{%- endmacro %}
+
+{#- One problem that needs a person: what is wrong and what to do. kind: fail or warn. -#}
+{% macro alert_card(title, kind="fail") -%}
+<div class="alert-card {{ kind }}" role="alert">
+  {{ chip(kind, title) }}
+  {{ caller() }}
+</div>
+{%- endmacro %}
+
+{% macro help(title="About this step") -%}
+<details class="help">
+  <summary class="hit">{{ icon("help") }}<span class="title">{{ title }}</span><svg class="ui-icon chev" aria-hidden="true" focusable="false"><use href="/static/icons.svg#chev"></use></svg></summary>
+  <div class="help-body">{{ caller() }}</div>
+</details>
+{%- endmacro %}
+
+{#- A card with a title, a status chip, a line of details and, from the caller, its actions.
+    condensed: details on the left, actions on the right, for long lists. -#}
+{% macro card(title, status=none, meta=[], current=false, condensed=false) -%}
+<div class="card{% if current %} current{% endif %}{% if condensed %} condensed{% endif %}">
+  <div class="card-info">
+    <div class="card-head"><h3>{{ title }}</h3>{% if status %}{{ chip(status[0], status[1]) }}{% endif %}</div>
+    {%- if meta %}<p class="card-meta">{% for item in meta %}<span>{{ item }}</span>{% endfor %}</p>{% endif %}
+  </div>
+  <div class="card-actions">{{ caller() }}</div>
+</div>
+{%- endmacro %}
+
+{#- A table whose header row stays in view while .scroll scrolls. The caller writes the rows. -#}
+{% macro data_table(headers, id=none) -%}
+<table class="data-table"{% if id %} id="{{ id }}"{% endif %}>
+  <thead><tr>{% for h in headers %}<th scope="col">{{ h }}</th>{% endfor %}</tr></thead>
+  <tbody>{{ caller() }}</tbody>
+</table>
+{%- endmacro %}
+
+{#- Choice buttons, in place of <select> or radio buttons. options: (value, label, detail).
+    ui.bindChoices(el, onChange) marks the pressed one. -#}
+{% macro choices(id, label, options, value=none) -%}
+<div class="choices" id="{{ id }}" role="group" aria-label="{{ label }}">
+  {%- for v, text, detail in options %}
+  <button type="button" class="choice hit" data-value="{{ v }}" aria-pressed="{{ 'true' if v == value else 'false' }}"><strong>{{ text }}</strong>{% if detail %}<span>{{ detail }}</span>{% endif %}</button>
+  {%- endfor %}
+</div>
+{%- endmacro %}
+
+{#- Looks like an input, is a button. ui.bindField(el, onSet) opens the keypad (kind "number"),
+    the keyboard ("text") or the dropdown list ("choice", options as for choices()). -#}
+{% macro field_button(id, label, value="", unit="", kind="number", min=none, max=none, decimals=0, help="", max_length=200, options=[]) -%}
+<button type="button" class="field-btn{% if kind != 'number' %} text{% endif %} hit" id="{{ id }}"
+  data-kind="{{ kind }}" data-label="{{ label }}" data-value="{{ value }}" data-unit="{{ unit }}"
+  {%- if min is not none %} data-min="{{ min }}"{% endif %}{% if max is not none %} data-max="{{ max }}"{% endif %}
+  data-decimals="{{ decimals }}" data-help="{{ help }}" data-max-length="{{ max_length }}"
+  {%- if options %} data-options='{{ options | tojson }}'{% endif %}>
+  {%- set shown = namespace(text=value) %}{% for v, text, detail in options if v == value %}{% set shown.text = text %}{% endfor %}
+  {%- if value == "" %}<span class="empty">Not set, tap to enter</span>{% else %}<span><span class="value">{{ shown.text }}</span>{% if unit %} <span class="unit">{{ unit }}</span>{% endif %}</span>{% endif -%}
+  {{ icon("chev" if kind == "choice" else "edit") }}
+</button>
+{%- endmacro %}
+
+{% macro field(id, label, help_text="") -%}
+<div class="field">
+  <span class="field-label" id="{{ id }}-label">{{ label }}</span>
+  {%- if help_text %}<span class="field-help">{{ help_text }}</span>{% endif %}
+  {{ caller() }}
+</div>
+{%- endmacro %}
+
+{#- Whole-button steps either side of a typed value. ui.bindStepper(el, onChange). -#}
+{% macro stepper(id, label, value, unit="", min=0, max=100, step=1, decimals=0) -%}
+<div class="stepper" id="{{ id }}" data-step="{{ step }}">
+  <button type="button" class="btn hit" data-step-by="-1" aria-label="{{ label }}, down {{ step }}">{{ icon("minus") }}</button>
+  {{ field_button(id ~ "-value", label, value, unit, "number", min, max, decimals) }}
+  <button type="button" class="btn hit" data-step-by="1" aria-label="{{ label }}, up {{ step }}">{{ icon("plus") }}</button>
+</div>
+{%- endmacro %}
