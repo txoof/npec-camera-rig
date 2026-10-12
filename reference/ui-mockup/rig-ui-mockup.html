@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<!-- Approved UI mockup 3 for the redesign (UI redesign tracking issue, #125). Example data only.
-     Drawn from origin/main at 63ee0a6. Open in a browser; the top bar switches screen size. -->
+<!-- Approved UI mockup 7 for the redesign (UI redesign tracking issue, #125). Example data only.
+     Pages drawn from origin/main at 63ee0a6, diagnostics at 8668828, shell matched to the UI shell
+     as merged (#130). Open in a browser; the top bar switches screen size and shows tap areas. -->
 <style>[hidden] { display: none !important; }</style>
 <title>Camera Rig Interface</title>
 <style>
@@ -75,20 +76,20 @@ button { font: inherit; color: inherit; }
 
 /* ---------- App shell ---------- */
 .app {
-  height: 100%; display: grid; grid-template-columns: 116px 1fr; background: var(--bg);
+  height: 100%; display: grid; grid-template-columns: 104px minmax(0, 1fr); background: var(--bg);
 }
 .rail {
-  display: flex; flex-direction: column; gap: 20px; padding: 10px 8px;
+  display: flex; flex-direction: column; gap: 20px; padding: 10px 4px;
   background: var(--surface); border-right: 1px solid var(--line);
 }
 .rail-name { font-size: 0.85rem; color: var(--fg-2); text-align: center; padding: 6px 0 4px; }
 .rail-name strong { display: block; color: var(--fg); font-size: 0.85rem; overflow-wrap: anywhere; }
 .rail-btn {
-  min-height: 84px; border: 0; border-radius: var(--radius); background: transparent;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  font-size: 0.9rem; color: var(--fg-2); cursor: pointer;
+  min-height: 72px; border: 0; border-radius: var(--radius); background: transparent;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 0.75rem; color: var(--fg-2); cursor: pointer;
 }
-.rail-btn svg { width: 30px; height: 30px; }
+.rail-btn svg { width: 26px; height: 26px; }
 .rail-btn[aria-current=page] { background: var(--surface-2); color: var(--fg); font-weight: 700; box-shadow: inset 4px 0 0 var(--accent); }
 .rail-spacer { flex: 1; }
 .cam-status {
@@ -103,18 +104,18 @@ button { font: inherit; color: inherit; }
 }
 .work-head h1 { font-size: 1.35rem; margin: 0; text-wrap: balance; }
 .work-head .sub { color: var(--fg-2); font-size: 0.9rem; margin: 2px 0 0; }
-/* The scrolling area keeps a control-free lane on the right. It is drawn, so people learn
-   where it is safe to put the stylus or a thumb to scroll. */
+/* The scrolling area keeps a control-free lane on the right, shaded so people learn where it is
+   safe to put the stylus or a thumb to scroll. */
 .scroll {
   overflow-y: auto; min-height: 0;
   padding: 20px calc(var(--gutter) + 20px) 20px 20px;
-  background:
-    repeating-linear-gradient(0deg, transparent 0 22px, rgba(255,255,255,0.05) 22px 24px) right / var(--gutter) 100% no-repeat,
-    linear-gradient(var(--lane), var(--lane)) right / var(--gutter) 100% no-repeat;
+  background: linear-gradient(var(--lane), var(--lane)) right / var(--gutter) 100% no-repeat;
   border-right: 0;
   position: relative;
 }
-.scroll-hint {
+/* As built (UI shell, #130): the lane is shaded only, with no hint or stripes (Aaron's choice). */
+.scroll-hint { display: none; }
+.scroll-hint-unused {
   position: sticky; top: 40%; float: right; margin-right: calc(-1 * var(--gutter) - 20px + 8px);
   width: calc(var(--gutter) - 16px); text-align: center; color: var(--fg-2); font-size: 0.75rem;
   pointer-events: none; display: grid; justify-items: center; gap: 4px;
@@ -242,9 +243,13 @@ h3 { font-size: 1.05rem; margin: 0; }
 .group-label { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-2); margin: 8px 0 -4px; }
 
 /* ---------- Wizard ---------- */
-.steps { display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; padding: 10px 20px; border-bottom: 1px solid var(--line); }
+.cal-head { min-height: 60px; padding-block: 6px; }
+.cal-head h1 { font-size: 1.2rem; }
+.steps { display: flex; align-items: center; gap: 12px; padding: 6px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.step-list { flex: 1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; min-width: 0; }
+.step-nav { min-width: 0; min-height: 52px; padding: 0 14px; }
 .step-btn {
-  min-height: 56px; border-radius: var(--radius); border: 2px solid var(--line); background: var(--surface);
+  min-height: 52px; min-width: 0; padding: 0 6px; border-radius: var(--radius); border: 2px solid var(--line); background: var(--surface);
   display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-size: 0.95rem;
   color: var(--fg-2);
 }
@@ -255,7 +260,59 @@ h3 { font-size: 1.05rem; margin: 0; }
 .step-btn[aria-current=step] { border-color: var(--accent); color: var(--fg); background: var(--surface-2); font-weight: 700; }
 .step-btn[aria-current=step] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .step-btn.done .n { background: var(--ok); border-color: var(--ok); color: #052; }
-.wizard-body { display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+/* Focus step: two columns. Left: live view and what changes it (focus lock, exposure, gain).
+   Right: magnified view and what you focus with (coarse, fine, peaking). One screen, no scrolling. */
+#step-body { padding-top: 12px; padding-bottom: 12px; }
+.focus-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.focus-col { display: grid; gap: 10px; justify-items: start; min-width: 0; }
+.focus-col .preview { width: fit-content; max-width: 100%; }
+.focus-col .preview canvas { height: 240px; width: auto; max-width: 100%; }
+.preview .tag.br { left: auto; top: auto; right: 8px; bottom: 8px; padding: 0; background: none; }
+.preview .tag.br .chip { background: rgba(0,0,0,0.75); padding-block: 2px; font-size: 0.8rem; }
+.preview .tag.sharp { background: rgba(0,0,0,0.75); padding: 2px 8px; color: var(--fg-2); }
+.preview .tag.sharp strong { color: var(--fg); font-family: var(--font-num); }
+.auto-btn { min-width: 0; min-height: 52px; padding: 0 10px; }
+.focus-col .focus-row { gap: 10px 8px; flex-wrap: nowrap; }
+.auto-btn[aria-pressed=true] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.focus-grid { display: grid; gap: 12px; }
+.focus-imgs { display: grid; grid-template-columns: repeat(2, auto); justify-content: start; gap: 12px; }
+.focus-imgs .preview canvas { height: 270px; width: auto; max-width: 100%; }
+.focus-row { display: flex; align-items: center; gap: 12px 14px; flex-wrap: wrap; }
+.focus-row .btn, .focus-row .switch.compact { min-height: 52px; }
+.focus-row .grow { flex: 1; }
+.focus-row .sharp { color: var(--fg-2); white-space: nowrap; }
+.focus-row .sharp strong { color: var(--fg); font-family: var(--font-num); }
+.mini-label { font-weight: 600; color: var(--fg-2); min-width: 4.6em; }
+.lens-ctl { display: inline-flex; align-items: center; gap: 10px; }
+.stepper.tight { gap: 10px; }
+.stepper.tight .btn { min-width: 52px; min-height: 52px; padding: 0 6px; }
+.stepper.tight .field-btn { min-width: 96px; min-height: 52px; padding: 0 8px; font-size: 1.05rem; justify-content: center; }
+.stepper.tight .field-btn svg { display: none; }
+.icon-btn { min-width: 52px; padding: 0 12px; }
+.work-head .help-btn { margin-left: auto; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; flex: none; }
+.work-head .help-btn + .btn { flex: none; }
+.help-page { max-width: 70ch; display: grid; gap: 12px; }
+.help-page h2 { font-size: 1.1rem; margin-top: 8px; }
+.help-page ol { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
+.help-page dl { margin: 0; display: grid; grid-template-columns: minmax(8em, max-content) 1fr; gap: 10px 20px; }
+.help-page dt { font-weight: 700; }
+.help-page dd { margin: 0; color: var(--fg-2); }
+.help-page p { margin: 0; color: var(--fg-2); }
+
+/* Squareness step: big magenta handles just outside the image. */
+.sq-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.sq-frame { position: relative; margin: 0 48px 52px; }
+.handle {
+  position: absolute; border: 0; padding: 0; border-radius: 8px; background: var(--guide); cursor: grab;
+  touch-action: none; box-shadow: 0 0 0 2px #000;
+  background-image: repeating-linear-gradient(90deg, transparent 0 6px, rgba(0,0,0,0.35) 6px 8px);
+}
+.handle.hh { left: -46px; width: 40px; height: 60px; transform: translateY(-50%); background-image: repeating-linear-gradient(0deg, transparent 0 6px, rgba(0,0,0,0.35) 6px 8px); }
+.handle.hh.r { left: auto; right: -46px; }
+.handle.hv { top: calc(100% + 6px); width: 60px; height: 40px; transform: translateX(-50%); }
+.handle.sel { box-shadow: 0 0 0 3px var(--fg); }
+.handle:active { cursor: grabbing; }
+kbd { font-family: var(--font-num); font-size: 0.85rem; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--fg); background: var(--surface-2); }
 
 .split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .preview { position: relative; background: #000; border-radius: var(--radius); overflow: hidden; border: 2px solid var(--line); }
@@ -442,9 +499,28 @@ h3 { font-size: 1.05rem; margin: 0; }
 .kb-keys .hit::after { inset: -5px; }
 .kb-native { display: none; }
 
+/* ---------- Calibration diagnostics ---------- */
+.diag-tabs { display: flex; gap: 16px; padding: 8px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.diag-tabs .btn { flex: 1; min-width: 0; min-height: 52px; padding: 0 10px; }
+.diag-tabs .btn[aria-pressed=true], #diag-body .seg .btn[aria-pressed=true] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); color: var(--fg); }
+.diag-split { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.diag-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.figure { position: relative; display: block; width: 100%; padding: 0; border: 2px solid var(--line); border-radius: var(--radius); background: #000; overflow: hidden; cursor: zoom-in; }
+.figure canvas { display: block; width: 100%; height: auto; }
+.figure .tag { position: absolute; right: 8px; bottom: 8px; background: rgba(0,0,0,0.75); padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; color: var(--fg-2); }
+.legend-bar { height: 16px; border-radius: 4px; }
+.legend-ticks { display: flex; justify-content: space-between; color: var(--fg-2); font-size: 0.8rem; }
+.lightbox-layer { position: absolute; inset: 0; z-index: 60; background: rgba(0,0,0,0.96); display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.lb-img { display: grid; place-items: center; min-height: 0; padding: 12px; }
+.lb-img canvas { max-width: 100%; max-height: 100%; }
+.lb-bar { display: flex; align-items: center; gap: 16px; padding: 10px 20px; border-top: 1px solid var(--line); background: var(--surface); }
+.lb-bar .field-help { flex: 1; }
+
 /* ---------- Narrow screens (phones) ---------- */
 @container app (max-width: 700px) {
   .val-panes { grid-template-columns: 1fr; }
+  .diag-split, .diag-pair { grid-template-columns: 1fr; }
+  .diag-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 8px 14px; }
   .val-head { flex-wrap: wrap; gap: 8px 10px; }
   .val-head .btn-back .lbl { display: none; }
   .val-head #val-toggle { flex: 1 1 100%; min-height: 48px; }
@@ -487,7 +563,21 @@ h3 { font-size: 1.05rem; margin: 0; }
   .action-bar { padding: 8px 14px; }
   .action-bar .grow { display: none; }
   .action-bar .btn { flex: 1; min-width: 0; }
-  .steps { display: none; }
+  .step-list { display: none; }
+  .steps { padding: 6px 14px; }
+  .step-nav { flex: 1; }
+  .cal-head .btn-back .lbl, .work-head .help-btn .lbl { display: none; }
+  .help-page dl { grid-template-columns: 1fr; gap: 2px; }
+  .help-page dd { margin-bottom: 8px; }
+  .sq-grid { grid-template-columns: 1fr; }
+  .focus-imgs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .focus-cols { grid-template-columns: 1fr; }
+  .focus-col .preview canvas { height: auto; width: 100%; }
+  .focus-col .preview { width: 100%; }
+  .focus-col .focus-row { flex-wrap: wrap; }
+  .focus-imgs .preview canvas { height: auto; width: 100%; }
+  .focus-imgs .preview .tag { font-size: 0.7rem; }
+  .focus-row .grow { display: none; }
   .split { grid-template-columns: 1fr; }
   .task { grid-template-columns: 44px 1fr auto; }
   .task .task-meta { grid-column: 2 / 4; justify-items: start; }
@@ -506,7 +596,7 @@ h3 { font-size: 1.05rem; margin: 0; }
 
 
 <div class="mock-bar">
-  <strong>Camera Rig Interface: mockup 3</strong>
+  <strong>Camera Rig Interface: mockup 7, matched to the built shell</strong>
   <label for="mock-size">Screen
     <select id="mock-size">
       <option value="chamber">Chamber PC (1024 x 600 usable)</option>
@@ -516,7 +606,7 @@ h3 { font-size: 1.05rem; margin: 0; }
   </label>
   <label for="mock-hit"><input type="checkbox" id="mock-hit"> Show tap areas</label>
   <label for="mock-needs"><input type="checkbox" id="mock-needs"> Show backend notes</label>
-  <span class="mock-note">All numbers and images are example data, drawn from templates at 63ee0a6.</span>
+  <span class="mock-note">All numbers and images are example data, drawn from templates at 63ee0a6; diagnostics at 8668828.</span>
 </div>
 
 <div class="stage">
@@ -557,6 +647,7 @@ h3 { font-size: 1.05rem; margin: 0; }
       <h1>Setup</h1>
       <p class="sub">Occasional rig setup. Daily photos and browsing are under Capture.</p>
     </div>
+    <button class="btn hit help-btn" data-help="setup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6M12 17.2v.3"/></svg><span class="lbl">About</span></button>
   </header>
   <div class="scroll">
     <div class="scroll-hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8l4-4 4 4M8 16l4 4 4-4M12 4v16"/></svg><span>Scroll here</span></div>
@@ -608,28 +699,29 @@ h3 { font-size: 1.05rem; margin: 0; }
 </template>
 
 <template id="tpl-calibration">
-  <header class="work-head">
-    <button class="btn btn-back hit" data-goto="setup" aria-label="Back to Setup">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Setup
-    </button>
-    <div style="min-width:0">
-      <h1>Calibration</h1>
-      <p class="sub" id="step-title"></p>
-    </div>
-  </header>
-  <div class="wizard-body">
-    <nav class="steps" aria-label="Calibration steps" id="steps"></nav>
-    <div class="scroll" id="step-body"></div>
+  <div class="head-block">
+    <header class="work-head cal-head">
+      <button class="btn btn-back hit" data-goto="setup" aria-label="Back to Setup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span class="lbl">Setup</span>
+      </button>
+      <div style="min-width:0">
+        <h1>Calibration</h1>
+        <p class="sub" id="step-title"></p>
+      </div>
+      <button class="btn hit help-btn" data-help="step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6M12 17.2v.3"/></svg><span class="lbl">About this step</span></button>
+    </header>
+    <nav class="steps" aria-label="Calibration steps">
+      <button class="btn hit step-nav" id="back-btn" aria-label="Previous step">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Back
+      </button>
+      <div class="step-list" id="steps"></div>
+      <button class="btn primary hit step-nav" id="next-btn" aria-label="Next step">
+        Next<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </nav>
   </div>
-  <div class="action-bar">
-    <button class="btn hit" id="back-btn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Back
-    </button>
-    <span class="grow" id="progress"></span>
-    <button class="btn primary hit" id="next-btn">
-      Next<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
-    </button>
-  </div>
+  <div class="scroll" id="step-body"></div>
+  <div></div>
 </template>
 
 <template id="tpl-validation">
@@ -642,6 +734,7 @@ h3 { font-size: 1.05rem; margin: 0; }
         <h1>Validation</h1>
         <p class="sub val-sub" id="val-sub"></p>
       </div>
+      <button class="btn hit help-btn" data-help="validation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6M12 17.2v.3"/></svg><span class="lbl">About</span></button>
       <button class="btn hit" id="val-toggle"></button>
     </header>
     <div class="val-strip" id="val-strip"></div>
@@ -656,11 +749,30 @@ h3 { font-size: 1.05rem; margin: 0; }
       <h1>Experiments</h1>
       <p class="sub" id="exp-now"></p>
     </div>
+    <button class="btn hit help-btn" data-help="experiments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6M12 17.2v.3"/></svg><span class="lbl">About</span></button>
     <button class="btn primary hit" id="exp-new">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14M12 5v14"/></svg>New experiment
     </button>
   </header>
   <div class="scroll" id="exp-body"></div>
+  <div></div>
+</template>
+
+<template id="tpl-diagnostics">
+  <div class="head-block">
+    <header class="work-head val-head">
+      <button class="btn btn-back hit" data-goto="calibration" aria-label="Back to Calibration">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span class="lbl">Calibration</span>
+      </button>
+      <div style="min-width:0; flex:1">
+        <h1>Calibration diagnostics</h1>
+        <p class="sub val-sub"><span>Calibration of Oct 9, 14:12, 148 tags.</span><span class="example">Example data</span></p>
+      </div>
+      <button class="btn hit help-btn" data-help="diagnostics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6M12 17.2v.3"/></svg><span class="lbl">About</span></button>
+    </header>
+    <nav class="diag-tabs" id="diag-tabs" aria-label="Diagnostics views"></nav>
+  </div>
+  <div class="scroll" id="diag-body"></div>
   <div></div>
 </template>
 
@@ -688,7 +800,7 @@ h3 { font-size: 1.05rem; margin: 0; }
   const work = document.getElementById("work");
   const layer = document.getElementById("layer");
   const state = { page: "setup", step: 1, locked: false, sharp: null, corner: true, promote: true,
-    fields: { coarse: "4", fine: "0.35", tag: "", exposure: "8.0", gain: "1.25" },
+    peak: false, autoExp: false, fields: { coarse: "4", fine: "0.35", tag: "", exposure: "8.0", gain: "1.25" },
     guides: { h: 50, v1: 18, v2: 82 }, sel: "h", calibrated: false, done: new Set() };
 
   /* ---------- mock chrome ---------- */
@@ -720,6 +832,7 @@ h3 { font-size: 1.05rem; margin: 0; }
     if (page === "calibration") renderStep();
     if (page === "validation") renderValidation();
     if (page === "experiments") renderExperiments();
+    if (page === "diagnostics") renderDiag();
     const section = page === "experiments" ? "experiments" : "setup";
     document.querySelectorAll(".rail-btn").forEach(b => b.toggleAttribute("aria-current", false));
     const cur = document.querySelector(`.rail-btn[data-nav="${section}"]`);
@@ -739,9 +852,9 @@ h3 { font-size: 1.05rem; margin: 0; }
   const FIELDS = {
     tag: { label: "Calibration tag size", unit: "mm", min: 1, max: 100, dp: 4,
       help: "Measure this print run's tags with callipers. Leave empty to use the placeholder default." },
-    coarse: { label: "Lens, coarse", unit: "dioptres", min: 0, max: 15, dp: 0, help: "Whole dioptres, 0 to 15." },
-    fine: { label: "Lens, fine", unit: "dioptres", min: 0, max: 0.99, dp: 2, help: "Added to the coarse value, 0 to 0.99." },
-    exposure: { label: "Exposure time", unit: "ms", min: 0.16, max: 1000, dp: 2, help: "1 ms is 1/1000 s. 4 ms is 1/250 s." },
+    coarse: { label: "Lens, coarse", unit: "dpt", min: 0, max: 15, dp: 0, help: "Whole dioptres (dpt), 0 to 15." },
+    fine: { label: "Lens, fine", unit: "dpt", min: 0, max: 0.99, dp: 2, help: "Dioptres (dpt) added to the coarse value, 0 to 0.99." },
+    exposure: { label: "Exposure time", unit: "ms", min: 0.16, max: 1000, dp: 1, help: "1 ms is 1/1000 s. 4 ms is 1/250 s." },
     gain: { label: "Analogue gain", unit: "x", min: 1, max: 16, dp: 2, help: "1 is the sensor's own sensitivity. Prefer a longer exposure over more gain." }
   };
   function fieldBtn(key, extra = "") {
@@ -865,68 +978,56 @@ h3 { font-size: 1.05rem; margin: 0; }
           ${help("Why every tray", "<p>Sheets are reusable, so covering every tray costs nothing and guarantees the tags reach all four corners of the frame.</p>")}
         </div>
       </div>`,
-    2: () => `
-      <div class="split">
-        <div class="stack" style="gap:12px">
-          <div class="preview"><canvas id="cv-main" width="640" height="480"></canvas><span class="tag">Live view (example)</span></div>
-          <div class="preview"><canvas id="cv-crop" width="640" height="200"></canvas><span class="tag">Focus area, magnified</span></div>
-        </div>
-        <div class="stack" style="gap:var(--gap)">
-          <div class="row">
-            <button class="btn hit" id="af-btn" ${state.locked ? "disabled" : ""}>Autofocus</button>
+    2: () => {
+      const dis = state.locked ? "disabled" : "", ex = state.autoExp ? "disabled" : "";
+      const stepper = (key, label, down, up, d, attrs = "") => `<span class="lens-ctl"><span class="mini-label">${label}</span>
+          <span class="stepper tight">
+            <button class="btn hit" data-step-field="${key}" ${d} aria-label="${label} ${down}" ${attrs}>${ICON.minus}</button>
+            ${fieldBtn(key, attrs)}
+            <button class="btn hit" data-step-field="${key}" ${d.replace('="-', '="')} aria-label="${label} ${up}" ${attrs}>${ICON.plus}</button>
+          </span></span>`;
+      return `
+      <div class="focus-cols">
+        <div class="focus-col">
+          <div class="preview"><canvas id="cv-main" width="640" height="480"></canvas>
+            <span class="tag">Live view (example)</span>
+            <span class="tag br">${state.locked ? chip("ok", "Focus locked") : chip("warn", "Focus unlocked")}</span></div>
+          <div class="focus-row">
+            <button class="btn hit" id="af-btn" ${dis}>Autofocus</button>
             <button class="btn ${state.locked ? "" : "primary"} hit" id="lock-btn">${state.locked ? "Unlock focus" : "Lock focus"}</button>
           </div>
-          <div class="row" style="gap:12px">${state.locked ? chip("ok", "Focus locked") : chip("warn", "Focus unlocked")}
-            <span style="color:var(--fg-2)">Sharpness <strong style="font-family:var(--font-num);color:var(--fg)">${state.sharp ?? "-"}</strong></span></div>
-          <div class="field"><span class="field-label">Lens, coarse</span>
-            <div class="stepper">
-              <button class="btn hit" data-step-field="coarse" data-d="-1" aria-label="Coarse down 1" ${state.locked ? "disabled" : ""}>${ICON.minus}</button>
-              ${fieldBtn("coarse", state.locked ? "disabled" : "")}
-              <button class="btn hit" data-step-field="coarse" data-d="1" aria-label="Coarse up 1" ${state.locked ? "disabled" : ""}>${ICON.plus}</button>
-            </div></div>
-          <div class="field"><span class="field-label">Lens, fine</span>
-            <div class="stepper">
-              <button class="btn hit" data-step-field="fine" data-d="-0.05" aria-label="Fine down 0.05" ${state.locked ? "disabled" : ""}>${ICON.minus}</button>
-              ${fieldBtn("fine", state.locked ? "disabled" : "")}
-              <button class="btn hit" data-step-field="fine" data-d="0.05" aria-label="Fine up 0.05" ${state.locked ? "disabled" : ""}>${ICON.plus}</button>
-            </div>
-            <span class="field-help">Steps of 0.05. Tap the value to type an exact one.</span></div>
-          ${sw("peak-sw", false, "Focus peaking", "Marks sharp edges in the magnified view.")}
-          ${help("Camera settings: exposure and gain", `
-            <div class="stack" style="gap:16px;color:var(--fg)">
-              <div class="field"><span class="field-label">Exposure time</span>${fieldBtn("exposure")}</div>
-              <div class="field"><span class="field-label">Analogue gain</span>${fieldBtn("gain")}</div>
-            </div>`)}
-          ${help("About this step", "<p>Use Autofocus or the lens controls, then Lock focus. Calibration measures the scene through whatever focus is locked. Re-check any time the lens may have moved.</p><p>Tap the live view to move the focus area.</p>")}
+          <div class="focus-row">${stepper("exposure", "Exposure", "darker", "brighter", 'data-mul="-1"', ex)}</div>
+          <div class="focus-row">${stepper("gain", "Gain", "lower", "higher", 'data-mul="-1"', ex)}
+            <button class="btn hit auto-btn" id="auto-exp" aria-pressed="${state.autoExp}">Auto</button></div>
         </div>
-      </div>`,
+        <div class="focus-col">
+          <div class="preview"><canvas id="cv-crop" width="640" height="480"></canvas>
+            <span class="tag">Focus area, magnified</span>
+            <span class="tag br sharp">Sharpness <strong>${state.sharp ?? "-"}</strong></span></div>
+          <div class="focus-row">${stepper("coarse", "Coarse", "down 1", "up 1", 'data-d="-1"', dis)}</div>
+          <div class="focus-row">${stepper("fine", "Fine", "down 0.05", "up 0.05", 'data-d="-0.05"', dis)}</div>
+          <div class="focus-row"><button class="switch compact hit" role="switch" id="peak-sw" aria-checked="${state.peak ? "true" : "false"}"><span class="track"></span><span class="txt"><strong>Peaking</strong></span></button></div>
+        </div>
+      </div>`; },
     3: () => `
-      <div class="split">
-        <div class="stack" style="gap:12px">
+      <div class="sq-grid">
+        <div class="sq-frame" id="sq-frame">
           <div class="preview" id="sq-prev"><canvas id="cv-sq" width="640" height="480"></canvas>
-            <div class="guide h ${state.sel === "h" ? "sel" : ""}" style="top:${state.guides.h}%"></div>
-            <div class="guide v ${state.sel === "v1" ? "sel" : ""}" style="left:${state.guides.v1}%"></div>
-            <div class="guide v ${state.sel === "v2" ? "sel" : ""}" style="left:${state.guides.v2}%"></div>
+            <div class="guide h" id="g-h" style="top:${state.guides.h}%"></div>
+            <div class="guide v" id="g-v1" style="left:${state.guides.v1}%"></div>
+            <div class="guide v" id="g-v2" style="left:${state.guides.v2}%"></div>
             <span class="tag">Live view (example)</span></div>
-          <div class="legend">${chip("ok", "Within 3%")}${chip("warn", "3 to 8%: nudge")}${chip("fail", "Over 8%: adjust")}</div>
-          <span class="needs">needs backend: overlay draws ring shape and % label, not color only (images.py)</span>
+          <button class="handle hh hit ${state.sel === "h" ? "sel" : ""}" data-handle="h" data-side="l" style="top:${state.guides.h}%" aria-label="Across line, drag up or down"></button>
+          <button class="handle hh r hit ${state.sel === "h" ? "sel" : ""}" data-handle="h" data-side="r" style="top:${state.guides.h}%" aria-label="Across line, drag up or down"></button>
+          <button class="handle hv hit ${state.sel === "v1" ? "sel" : ""}" data-handle="v1" style="left:${state.guides.v1}%" aria-label="Left line, drag left or right"></button>
+          <button class="handle hv hit ${state.sel === "v2" ? "sel" : ""}" data-handle="v2" style="left:${state.guides.v2}%" aria-label="Right line, drag left or right"></button>
         </div>
-        <div class="stack" style="gap:var(--gap)">
-          <div class="field"><span class="field-label">Guide line to move</span>
-            <div class="seg">
-              <button class="btn hit" data-sel="h" aria-pressed="${state.sel === "h"}">Across</button>
-              <button class="btn hit" data-sel="v1" aria-pressed="${state.sel === "v1"}">Left</button>
-              <button class="btn hit" data-sel="v2" aria-pressed="${state.sel === "v2"}">Right</button>
-            </div></div>
-          <div class="field"><span class="field-label">Move it</span>
-            <div class="nudge">
-              ${state.sel === "h"
-                ? `<button class="btn hit" data-nudge="-5" aria-label="Up a lot">${ICON.up2}</button><button class="btn hit" data-nudge="-0.5" aria-label="Up a little">${ICON.up}</button><button class="btn hit" data-nudge="0.5" aria-label="Down a little">${rot(ICON.up, 180)}</button><button class="btn hit" data-nudge="5" aria-label="Down a lot">${rot(ICON.up2, 180)}</button>`
-                : `<button class="btn hit" data-nudge="-5" aria-label="Left a lot">${rot(ICON.up2, -90)}</button><button class="btn hit" data-nudge="-0.5" aria-label="Left a little">${rot(ICON.up, -90)}</button><button class="btn hit" data-nudge="0.5" aria-label="Right a little">${rot(ICON.up, 90)}</button><button class="btn hit" data-nudge="5" aria-label="Right a lot">${rot(ICON.up2, 90)}</button>`}
-            </div>
-            <span class="field-help">Line the magenta guides up with the table edges. Replaces dragging. Not saved.</span></div>
-          ${sw("corner-sw", state.corner, "Corner check", "Rings on the corner tags show how flat the table is to the camera.")}
-          ${help("About this step", "<p>Adjust the camera until the East side of the table is in view. If the guides line up with the table edges, the camera is not rotated or badly tilted.</p><p>Each ring's percentage is that tag's size compared to the others. Plus means closer to the camera, minus means farther. Nudge the rig until every ring shows a check.</p>")}
+        <div class="stack" style="gap:16px">
+          <p class="lead">Drag the magenta handles until the lines sit on the table edges. Not saved.</p>
+          <div class="legend">${chip("ok", "Within 3%")}${chip("warn", "3 to 8%: nudge")}${chip("fail", "Over 8%: adjust")}</div>
+          <button class="switch compact hit" role="switch" id="corner-sw" aria-checked="${state.corner}"><span class="track"></span><span class="txt"><strong>Corner rings</strong></span></button>
+          <p class="field-help keys">Keyboard: <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> choose a line, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or arrows move it, hold <kbd>Shift</kbd> for big steps.</p>
+          <span class="needs">needs backend: overlay draws ring shape and % label, not color only (images.py)</span>
         </div>
       </div>`,
     4: () => `
@@ -960,7 +1061,7 @@ h3 { font-size: 1.05rem; margin: 0; }
             <tr><td>Corner tags</td><td class="num">4 of 4</td><td>${chip("ok", "OK")}</td></tr>
           </tbody></table></div>
         <p class="lead">Coverage is weak near S6. Add a sheet there and run again. No need to redo steps 1 to 3 unless something moved.</p>
-        <div class="row"><button class="btn hit" data-jump="4">Run again</button><button class="btn hit" data-toast="Loads diagnostics">Open diagnostics</button></div>
+        <div class="row"><button class="btn hit" data-jump="4">Run again</button><button class="btn hit" data-goto="diagnostics">Open diagnostics</button></div>
       </div>` : `
       <div class="stack" style="gap:16px">${chip("info", "No report yet")}<p class="lead">Run calibration in step 4 first.</p>
         <div><button class="btn hit" data-jump="4">Go to step 4</button></div></div>`,
@@ -984,15 +1085,64 @@ h3 { font-size: 1.05rem; margin: 0; }
       `<button class="step-btn hit ${state.done.has(x.n) && x.n !== state.step ? "done" : ""}" data-jump="${x.n}" ${x.n === state.step ? 'aria-current="step"' : ""} aria-label="Step ${x.n}, ${x.short}">
         <span class="n">${x.n}</span><span class="lbl">${x.short}</span></button>`).join("");
     document.getElementById("step-body").innerHTML = '<div class="scroll-hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8l4-4 4 4M8 16l4 4 4-4M12 4v16"/></svg><span>Scroll here</span></div>' + BODY[state.step]();
-    document.getElementById("progress").textContent = `Step ${s.n} of 6`;
     document.getElementById("back-btn").disabled = state.step === 1;
-    const next = document.getElementById("next-btn");
-    next.hidden = state.step === 6;
+    document.getElementById("next-btn").disabled = state.step === 6;
     requestAnimationFrame(drawAll);
   }
 
+  /* Squareness guides: drag the handles (pointer events work for stylus, finger and mouse). */
+  function placeGuides() {
+    const g = state.guides;
+    const set = (id, prop, v) => { const el = document.getElementById(id); if (el) el.style[prop] = v + "%"; };
+    set("g-h", "top", g.h); set("g-v1", "left", g.v1); set("g-v2", "left", g.v2);
+    document.querySelectorAll("[data-handle]").forEach(b => {
+      const k = b.dataset.handle; b.style[k === "h" ? "top" : "left"] = g[k] + "%"; b.classList.toggle("sel", state.sel === k);
+    });
+  }
+  work.addEventListener("pointerdown", e => {
+    const hd = e.target.closest("[data-handle]"); if (!hd || state.page !== "calibration") return;
+    e.preventDefault();
+    const key = hd.dataset.handle, prev = document.getElementById("sq-prev");
+    state.sel = key; placeGuides();
+    hd.setPointerCapture(e.pointerId);
+    const move = ev => {
+      const r = prev.getBoundingClientRect();
+      const v = key === "h" ? (ev.clientY - r.top) / r.height : (ev.clientX - r.left) / r.width;
+      state.guides[key] = Math.min(99, Math.max(1, v * 100)); placeGuides();
+    };
+    const up = () => { hd.removeEventListener("pointermove", move); hd.removeEventListener("pointerup", up); hd.removeEventListener("pointercancel", up); };
+    hd.addEventListener("pointermove", move); hd.addEventListener("pointerup", up); hd.addEventListener("pointercancel", up);
+  });
+  document.addEventListener("keydown", e => {
+    if (state.page !== "calibration" || state.step !== 3 || layer.children.length || document.querySelector(".panel-layer")) return;
+    const k = e.key.toLowerCase(), step = e.shiftKey ? 5 : 0.5;
+    if (k === "1" || k === "2" || k === "3") { state.sel = { 1: "h", 2: "v1", 3: "v2" }[k]; placeGuides(); e.preventDefault(); return; }
+    const dir = { w: -1, arrowup: -1, s: 1, arrowdown: 1, a: -1, arrowleft: -1, d: 1, arrowright: 1 }[k];
+    if (dir === undefined) return;
+    const vertical = ["w", "s", "arrowup", "arrowdown"].includes(k);
+    if (vertical !== (state.sel === "h")) return;   // up/down moves the across line; left/right a side line
+    state.guides[state.sel] = Math.min(99, Math.max(1, state.guides[state.sel] + dir * step)); placeGuides(); e.preventDefault();
+  });
+  /* One "About this step" button in the header, the same place on every step. */
+  const STEP_HELP = {
+    1: "<p>Put a calibration sheet on every tray and a corner sheet at each corner of the table. Sheets are reusable, so covering every tray costs nothing and makes sure the tags reach all four corners of the photo.</p>",
+    2: "<p>Use Autofocus or the lens controls, then Lock focus. Calibration measures the scene through whatever focus is locked. Re-check any time the lens may have moved.</p><p>Tap the live view to move the focus area. Peaking marks sharp edges in the magnified view: denser marks mean sharper focus. Use it with the sharpness number, not instead of it.</p>",
+    3: "<p>Adjust the camera until the East side of the table is in view. Drag the magenta handles so the lines sit on the table edges: if they line up, the camera is not rotated or badly tilted.</p><p>Each ring's percentage is that corner tag's size compared to the others. Plus means closer to the camera, minus means farther. Nudge the rig until every ring shows a check.</p>",
+    4: "<p>Leave Make this the current baseline on for a normal setup. Turn it off only for a comparison run, so the Health check keeps the baseline it compares against.</p>",
+    5: "<p>The report states the scale, the coverage and any gaps. If coverage is weak somewhere, open diagnostics to see where, add a sheet there and run again. Steps 1 to 3 only need redoing if something moved.</p>",
+    6: "<p>Validation moves each sheet to a different tray and measures again, 3 rounds, to show how far an area can be trusted in each slot.</p>"
+  };
+  const infoPanel = (title, html) => { const p = openPanel({ title, body: `<div class="lead" style="color:var(--fg);max-width:65ch">${html}</div>`, actions: '<span class="grow"></span><button class="btn primary hit" data-close>Close</button>' });
+    p.addEventListener("click", ev => { if (ev.target.closest("[data-close]")) p.remove(); }); };
+
   work.addEventListener("click", e => {
     if (state.page !== "calibration") return;
+    if (e.target.closest(".panel-layer")) {
+      const fbp = e.target.closest("[data-field]"); if (fbp) openKeypad(fbp.dataset.field, () => { const p = e.target.closest(".panel-layer"); p.remove(); openCamSettings(); });
+      return;
+    }
+    if (e.target.closest("#cam-settings")) { openCamSettings(); return; }
+    if (e.target.closest("[data-handle]")) return;
     const j = e.target.closest("[data-jump]");
     if (j) { state.step = Number(j.dataset.jump); renderStep(); return; }
     if (e.target.closest("#back-btn")) { state.step = Math.max(1, state.step - 1); renderStep(); return; }
@@ -1001,8 +1151,9 @@ h3 { font-size: 1.05rem; margin: 0; }
     if (fb && !fb.disabled) { openKeypad(fb.dataset.field); return; }
     const st = e.target.closest("[data-step-field]");
     if (st) {
-      const k = st.dataset.stepField, f = FIELDS[k];
-      const v = Math.min(f.max, Math.max(f.min, (Number(state.fields[k]) || 0) + Number(st.dataset.d)));
+      const k = st.dataset.stepField, f = FIELDS[k], cur = Number(state.fields[k]) || 0;
+      const raw = st.dataset.mul !== undefined ? cur * Math.pow(2, Math.sign(Number(st.dataset.mul) || 1) / 3) : cur + Number(st.dataset.d);
+      const v = Math.min(f.max, Math.max(f.min, raw));
       state.fields[k] = f.dp ? v.toFixed(f.dp).replace(/0+$/, "").replace(/\.$/, "") : String(Math.round(v)); renderStep(); return;
     }
     if (e.target.closest("#af-btn")) {
@@ -1010,14 +1161,16 @@ h3 { font-size: 1.05rem; margin: 0; }
       setTimeout(() => { state.sharp = "412.7"; state.fields.coarse = "4"; state.fields.fine = "0.35"; renderStep(); }, 1200);
       return;
     }
+    if (e.target.closest("#auto-exp")) { state.autoExp = !state.autoExp; if (state.autoExp) { state.fields.exposure = "8"; state.fields.gain = "1.25"; } renderStep(); return; }
     if (e.target.closest("#lock-btn")) { state.locked = !state.locked; if (!state.sharp) state.sharp = "398.2"; renderStep(); return; }
     const swb = e.target.closest(".switch");
     if (swb) {
       const on = swb.getAttribute("aria-checked") !== "true";
       if (swb.id === "corner-sw") state.corner = on;
       if (swb.id === "promote-sw") state.promote = on;
+      if (swb.id === "peak-sw") state.peak = on;
       swb.setAttribute("aria-checked", on);
-      swb.querySelector(".state").textContent = on ? "On" : "Off";
+      const stEl = swb.querySelector(".state"); if (stEl) stEl.textContent = on ? "On" : "Off";
       drawAll();
       return;
     }
@@ -1031,6 +1184,15 @@ h3 { font-size: 1.05rem; margin: 0; }
       setTimeout(() => { state.calibrated = true; renderStep(); }, 1500);
     }
   });
+
+  function openCamSettings() {
+    const p = openPanel({ title: "Camera settings", sub: "Exposure and gain for the live view and every photo.",
+      body: `<div class="stack" style="gap:var(--gap);max-width:560px">
+        <div class="field"><span class="field-label">Exposure time</span>${fieldBtn("exposure")}<span class="field-help">1 ms is 1/1000 s. 4 ms is 1/250 s.</span></div>
+        <div class="field"><span class="field-label">Analogue gain</span>${fieldBtn("gain")}<span class="field-help">Prefer a longer exposure over more gain.</span></div></div>`,
+      actions: '<span class="grow"></span><button class="btn primary hit" data-close>Done</button>' });
+    p.addEventListener("click", ev => { if (ev.target.closest("[data-close]")) p.remove(); });
+  }
 
   /* ---------- example images (stand-ins for the live view) ---------- */
   function scene(ctx, w, h, rings) {
@@ -1073,14 +1235,17 @@ h3 { font-size: 1.05rem; margin: 0; }
   function drawAll() {
     const m = document.getElementById("cv-main");
     if (m) {
-      const c = m.getContext("2d"); scene(c, m.width, m.height, false);
+      const c = m.getContext("2d");
+      const light = (Number(state.fields.exposure) || 8) * (Number(state.fields.gain) || 1.25) / 10;
+      c.filter = `brightness(${Math.min(3, Math.max(0.15, light)).toFixed(2)})`;
+      scene(c, m.width, m.height, false); c.filter = "none";
       const k = document.getElementById("cv-crop"), kc = k.getContext("2d");
       kc.imageSmoothingEnabled = false;
       const sw = m.width * 0.14, sh = sw * k.height / k.width;
       kc.drawImage(m, m.width * 0.49 - sw / 2, m.height * 0.54 - sh / 2, sw, sh, 0, 0, k.width, k.height);
       c.strokeStyle = "#ff7a7a"; c.lineWidth = 3; c.strokeRect(m.width * 0.49 - sw / 2, m.height * 0.54 - sh / 2, sw, sh);
       const pk = document.getElementById("peak-sw");
-      if (pk && pk.getAttribute("aria-checked") === "true") { kc.strokeStyle = "#ff4fff"; kc.lineWidth = 2; kc.strokeRect(40, 30, 200, 120); }
+      if (pk && pk.getAttribute("aria-checked") === "true") { kc.strokeStyle = "#ff4fff"; kc.lineWidth = 3; kc.strokeRect(60, 60, 260, 200); kc.strokeRect(380, 120, 180, 220); }
     }
     const s = document.getElementById("cv-sq");
     if (s) scene(s.getContext("2d"), s.width, s.height, state.corner);
@@ -1272,7 +1437,6 @@ h3 { font-size: 1.05rem; margin: 0; }
             <tbody>${rows}</tbody>
           </table>
         </div>
-        ${help("What validation shows, and how to do a round", "<p>Calibration is checked against the same tags it was fitted to, so it cannot show how accurate an area is in each tray slot. Validation moves the sheets to different trays and measures every tag again. When a slot gives similar results across rounds, its error belongs to the slot, not to a sheet.</p><p>Each round: put each sheet on a different tray, 2 to 5 cm from where a sheet lay before. Step out of view, close the door, then capture. Take rounds at least 10 minutes apart and 20 minutes from first to last.</p>")}
         <div class="section-title"><h2>Validation history</h2></div>
         <div class="list">${VAL.history.map(h => `
           <div class="card ${h.open ? "current" : ""}">
@@ -1472,6 +1636,278 @@ h3 { font-size: 1.05rem; margin: 0; }
       body: `<p>Purge deletes this experiment's ${e.photos} photos and its export files. <strong>This cannot be undone.</strong> Its name, dates and notes stay as a record.</p>`
         + (e.exportAt ? `<p>It has a complete export, made ${e.exportAt}.</p>` : `<p>${chip("warn", "No complete export")} Export it first, or tick the box below to purge anyway.</p>`),
       onOk: () => { e.state = "purged"; renderExperiments(); toast("Purged"); } });
+  });
+
+  /* ================= Calibration diagnostics ================= */
+  FIELDS.tw = { label: "Table width", unit: "mm", min: 1, max: 5000, dp: 1, help: "Tape across the outer edges of the two top corner tags." };
+  FIELDS.tl = { label: "Table length", unit: "mm", min: 1, max: 5000, dp: 1, help: "Tape across the outer edges of the two left corner tags." };
+  FIELDS.cts = { label: "Corner tag size", unit: "mm", min: 1, max: 200, dp: 2, help: "Measured with callipers. Empty uses the placeholder default." };
+  Object.assign(state.fields, { tw: "1050", tl: "", cts: "50.02" });
+  const DIAG = { tab: "shape", metric: "scale" };
+  const DTABS = [["shape", "Area shape"], ["table", "Table view"], ["rank", "Best and worst"], ["lens", "Lens check"]];
+
+  // The colour stops the app's heatmaps use today (setup_calibration.html legend).
+  const STOPS = [[48,18,59],[70,105,224],[42,185,238],[47,241,155],[161,253,61],[236,209,58],[251,129,34],[210,49,5],[122,4,3]];
+  const ramp = t => { t = Math.max(0, Math.min(1, t)) * (STOPS.length - 1); const i = Math.min(STOPS.length - 2, Math.floor(t)), f = t - i;
+    return `rgb(${STOPS[i].map((c, k) => Math.round(c + (STOPS[i + 1][k] - c) * f)).join(",")})`; };
+  const legend = `<div class="legend-bar" style="background:linear-gradient(to right,${STOPS.map((c, i) => `rgb(${c}) ${i * 12.5}%`).join(",")})"></div>
+    <div class="legend-ticks"><span>0%, square</span><span>0.25%</span><span>0.5%+</span></div>`;
+
+  function renderDiag() {
+    document.getElementById("diag-tabs").innerHTML = DTABS.map(([k, l]) =>
+      `<button class="btn hit" data-dtab="${k}" aria-pressed="${DIAG.tab === k}">${l}</button>`).join("");
+    const metricSeg = `<div class="seg" role="group" aria-label="Measure">
+        <button class="btn hit" data-metric="scale" aria-pressed="${DIAG.metric === "scale"}">Scale</button>
+        <button class="btn hit" data-metric="area" aria-pressed="${DIAG.metric === "area"}">Area shape</button></div>`;
+    const fig = (id, alt, w = 640, h = 480) => `<button class="figure hit" data-enlarge="${id}" aria-label="${alt}. Tap to enlarge."><canvas id="${id}" width="${w}" height="${h}"></canvas><span class="tag">Tap to enlarge</span></button>`;
+    const views = {
+      shape: () => `<div class="diag-split">
+          <div class="stack" style="gap:8px">${fig("dg-shape", "Area shape distortion on the photo")}${legend}</div>
+          <div class="stack" style="gap:16px">
+            <dl class="readout"><dt>Worst tag</dt><dd>-0.46%</dd><dt>Median</dt><dd>-0.08%</dd><dt>Tags</dt><dd>148</dd></dl>
+            <p class="lead">Each tag's real area compared with a perfect square of the same size. Flat everywhere: squaring the length scale is fine for area. Worse toward the corners: area may need its own fit.</p>
+            ${help("How this is calculated", "<p>Each tag's pixel area comes exactly from its four corners, with no lens model. A square covers the most area for its side length, so the result is zero or negative, never positive.</p><p>Measured over 17 runs on this rig (2026-09-21): worst tag -0.46%, growing toward the table's corners with position, not with tag size.</p>")}
+          </div></div>`,
+      table: () => `<div class="diag-split">
+          <div class="stack" style="gap:8px">${fig("dg-table", "Area shape distortion on a top-down view of the table")}${legend}
+            <p class="field-help">Grey: no tag was near that spot, so it was not measured.</p></div>
+          <div class="stack" style="gap:16px">
+            ${state.fields.tw && state.fields.tl ? chip("ok", "Drawn to scale") : chip("warn", "Not to scale: enter width and length")}
+            <div class="field"><span class="field-label">Table width</span>${fieldBtn("tw")}</div>
+            <div class="field"><span class="field-label">Table length</span>${fieldBtn("tl")}</div>
+            <div class="field"><span class="field-label">Corner tag size</span>${fieldBtn("cts")}</div>
+            <button class="btn primary hit" id="dg-save">Save table size</button>
+            <p class="field-help">Tape across the outer edges of two corner tags. The app subtracts the corner tag size. These numbers only change this view; no new calibration is needed.</p>
+          </div></div>`,
+      rank: () => `<div class="stack" style="gap:16px">
+          <div class="row" style="gap:16px">${metricSeg}<span class="field-help">Green: best tag. Red: worst. Each plot uses this run's own range.</span></div>
+          <div class="diag-pair">${fig("dg-rank", "Every tag sorted best to worst", 640, 400)}${fig("dg-bw", "Best and worst tag on the photo", 640, 400)}</div>
+          <dl class="readout"><dt>Best</dt><dd>tag 341, ${DIAG.metric === "scale" ? "+0.01%" : "-0.00%"}</dd><dt>Worst</dt><dd>tag 417, ${DIAG.metric === "scale" ? "-0.38%" : "-0.46%"}</dd></dl>
+        </div>`,
+      lens: () => `<div class="diag-split">
+          <div class="stack" style="gap:12px">${metricSeg}${fig("dg-lens", "Each tag's signed error against distance from the image center")}</div>
+          <div class="stack" style="gap:16px">
+            <dl class="readout"><dt>Fit slope</dt><dd>${DIAG.metric === "scale" ? "-0.021" : "-0.034"}% per 1000 px</dd><dt>R squared</dt><dd>${DIAG.metric === "scale" ? "0.08" : "0.31"}</dd></dl>
+            <p class="lead">Lens or parallax distortion shows as a trend: error growing with distance from the center, with one sign. Random scatter is not. The page draws the fit and leaves the judgement to you.</p>
+            ${help("Why this matters", "<p>This is the measurement that decides whether lens-distortion modelling is justified (CLAUDE.md, evidence gates). It is plotted, not guessed.</p>")}
+          </div></div>`
+    };
+    document.getElementById("diag-body").innerHTML = HINT + views[DIAG.tab]();
+    requestAnimationFrame(drawDiag);
+  }
+
+  let seedD = 3; const rndD = () => (seedD = (seedD * 9301 + 49297) % 233280) / 233280;
+  const distortion = (u, v) => Math.min(1, 0.15 + 0.9 * ((u - 0.5) ** 2 + (v - 0.5) ** 2) * 2 + rndD() * 0.08);
+  function axes(x, W, H, xl, yl) {
+    x.fillStyle = "#121519"; x.fillRect(0, 0, W, H);
+    x.strokeStyle = "#3b434e"; x.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) { const y = 30 + i * (H - 80) / 4; x.beginPath(); x.moveTo(60, y); x.lineTo(W - 20, y); x.stroke(); }
+    x.fillStyle = "#b9c1cc"; x.font = "16px system-ui, sans-serif"; x.textAlign = "center"; x.fillText(xl, W / 2, H - 12);
+    x.save(); x.translate(18, H / 2 - 20); x.rotate(-Math.PI / 2); x.fillText(yl, 0, 0); x.restore();
+  }
+  function drawDiag() {
+    seedD = 3;
+    const get = id => { const c = document.getElementById(id); return c ? [c, c.getContext("2d")] : [null, null]; };
+    let [c, x] = get("dg-shape");
+    if (c) {
+      scene(x, c.width, c.height, false);
+      for (let r = 0; r < 7; r++) for (let q = 0; q < 10; q++) {
+        const u = 0.1 + q * 0.09, v = 0.14 + r * 0.12;
+        x.fillStyle = ramp(distortion(u, v)); x.globalAlpha = 0.85;
+        x.fillRect(c.width * u - 14, c.height * v - 14, 28, 28); x.globalAlpha = 1;
+      }
+    }
+    [c, x] = get("dg-table");
+    if (c) {
+      x.fillStyle = "#121519"; x.fillRect(0, 0, c.width, c.height);
+      const toScale = state.fields.tw && state.fields.tl, tw = toScale ? 560 : 420, th = toScale ? Math.round(560 * 850 / 1050) : 420;
+      const ox = (c.width - tw) / 2, oy = (c.height - th) / 2, n = 16;
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+        const u = (i + 0.5) / n, v = (j + 0.5) / n, edge = i < 1 || j < 1 || i > n - 2 || j > n - 2 || (i > 6 && i < 9 && j > 6 && j < 9);
+        x.fillStyle = edge ? "#4a4f57" : ramp(distortion(u, v));
+        x.fillRect(ox + i * tw / n, oy + j * th / n, tw / n + 0.5, th / n + 0.5);
+      }
+      x.strokeStyle = "#f1f3f6"; x.lineWidth = 2; x.strokeRect(ox, oy, tw, th);
+      x.fillStyle = "#f1f3f6"; x.font = "bold 16px system-ui"; x.textAlign = "center"; x.fillText("N", c.width / 2, oy - 8);
+      if (!toScale) { x.fillStyle = "#f4bf4f"; x.fillText("NOT TO SCALE", c.width / 2, oy + th + 24); }
+    }
+    [c, x] = get("dg-rank");
+    if (c) {
+      const W = c.width, H = c.height, n = 148; axes(x, W, H, "Tags, best to worst", DIAG.metric === "scale" ? "Scale error, %" : "Area shape, %");
+      const vals = Array.from({ length: n }, (_, i) => -((i / n) ** 2.2) * 0.46 - rndD() * 0.02).sort((a, b) => b - a);
+      vals.forEach((v, i) => { const px = 60 + i * (W - 80) / n, py = 30 + (-v / 0.5) * (H - 80);
+        x.fillStyle = i === 0 ? "#4fd18b" : i === n - 1 ? "#ff7a7a" : "#6cb4ff"; x.beginPath(); x.arc(px, py, i === 0 || i === n - 1 ? 7 : 3, 0, 7); x.fill(); });
+      x.font = "bold 15px system-ui"; x.textAlign = "left"; x.fillStyle = "#4fd18b"; x.fillText("Best: 341", 70, 26);
+      x.textAlign = "right"; x.fillStyle = "#ff7a7a"; x.fillText("Worst: 417", W - 28, H - 56);
+    }
+    [c, x] = get("dg-bw");
+    if (c) {
+      scene(x, c.width, c.height, false);
+      [[0.5, 0.45, "#4fd18b", "341 best"], [0.9, 0.86, "#ff7a7a", "417 worst"]].forEach(([u, v, col, l]) => {
+        x.strokeStyle = col; x.lineWidth = 5; x.beginPath(); x.arc(c.width * u, c.height * v, 26, 0, 7); x.stroke();
+        x.fillStyle = "rgba(0,0,0,0.8)"; x.fillRect(c.width * u - 50, c.height * v - 58, 100, 24);
+        x.fillStyle = col; x.font = "bold 15px system-ui"; x.textAlign = "center"; x.fillText(l, c.width * u, c.height * v - 40);
+      });
+    }
+    [c, x] = get("dg-lens");
+    if (c) {
+      const W = c.width, H = c.height, k = DIAG.metric === "scale" ? 0.021 : 0.034; axes(x, W, H, "Distance from image center, px", "Signed error, %");
+      const yv = v => 30 + (H - 80) * (0.5 - v / 0.12);
+      for (let i = 0; i < 148; i++) { const d = rndD() * 2000, v = -k * d / 1000 + (rndD() - 0.5) * 0.06;
+        x.fillStyle = "#6cb4ff"; x.beginPath(); x.arc(60 + d / 2000 * (W - 80), yv(v), 3.5, 0, 7); x.fill(); }
+      x.strokeStyle = "#f4bf4f"; x.lineWidth = 3; x.beginPath(); x.moveTo(60, yv(0)); x.lineTo(W - 20, yv(-k * 2)); x.stroke();
+      x.strokeStyle = "#b9c1cc"; x.setLineDash([6, 6]); x.lineWidth = 1; x.beginPath(); x.moveTo(60, yv(0)); x.lineTo(W - 20, yv(0)); x.stroke(); x.setLineDash([]);
+      x.fillStyle = "#f4bf4f"; x.font = "bold 15px system-ui"; x.textAlign = "right"; x.fillText("Linear fit", W - 28, yv(-k * 2) - 10);
+    }
+  }
+
+  function enlarge(id) {
+    const src = document.getElementById(id); if (!src) return;
+    const el = document.createElement("div");
+    el.className = "lightbox-layer"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true");
+    el.innerHTML = `<div class="lb-img"></div><div class="lb-bar"><span class="field-help">${esc(src.parentElement.getAttribute("aria-label").replace(" Tap to enlarge.", ""))}</span><button class="btn primary hit" id="lb-close">Close</button></div>`;
+    const big = document.createElement("canvas"); big.width = src.width; big.height = src.height; big.getContext("2d").drawImage(src, 0, 0);
+    el.querySelector(".lb-img").appendChild(big);
+    layer.appendChild(el);
+    const onKey = e => { if (e.key === "Escape") close(); };
+    const close = () => { document.removeEventListener("keydown", onKey); el.remove(); };
+    document.addEventListener("keydown", onKey);
+    el.querySelector("#lb-close").addEventListener("click", close);
+  }
+
+  work.addEventListener("click", e => {
+    if (state.page !== "diagnostics") return;
+    const t = e.target.closest("[data-dtab]"); if (t) { DIAG.tab = t.dataset.dtab; renderDiag(); return; }
+    const m = e.target.closest("[data-metric]"); if (m) { DIAG.metric = m.dataset.metric; renderDiag(); return; }
+    const f = e.target.closest("[data-enlarge]"); if (f) { enlarge(f.dataset.enlarge); return; }
+    const fb = e.target.closest("[data-field]"); if (fb) { openKeypad(fb.dataset.field, () => renderDiag()); return; }
+    if (e.target.closest("#dg-save")) { toast("Table size saved"); renderDiag(); }
+  });
+
+  /* ================= Help: one "About" page per screen ================= */
+  /* Every screen has an About button in its header. It opens a full help page with the same
+     three parts everywhere: what to do, what each control does, and why it matters. Long
+     explanations live here, so the working screen keeps its space for the task.
+     The help text below is a first draft, written from the app's current explanations. It is
+     placeholder content: replace or edit any of it as needed (Aaron, 2026-10-12). Keep the
+     three-part structure. */
+  const HELP = {
+    setup: { title: "About Setup",
+      todo: ["At chamber start, work down the first group in order: Focus and Square, Calibration, Validation.",
+             "Later, use the second group when needed: Calibration history to go back to an older calibration, Health check to test whether the rig moved."],
+      tools: [["Status chips", "Each task shows its current state in words and a shape, for example Locked, Active: Oct 9 or Needed."],
+              ["Warning banner", "Appears at the top when something needs doing before measurements can be trusted, with a button that goes straight there."]],
+      why: "Every area the rig measures depends on this setup. A wrong focus or an unvalidated calibration makes the numbers look precise when they are not." },
+    "cal-1": { title: "Step 1: Place calibration and corner sheets",
+      todo: ["Print the sheets if you do not have them: the buttons on this step open the PDFs.",
+             "Lay a calibration sheet (30 mm tags) flat on every tray.",
+             "Put a corner sheet (50 mm tags) at each of the table's four corners.",
+             "Measure one tag of each printed sheet with callipers. You enter the size in step 4.",
+             "Press Next."],
+      tools: [["Table diagram", "Blue squares are calibration sheets, one per tray. Yellow squares are corner sheets. Top of the drawing is north, the top of the camera view."],
+              ["Sheet buttons", "Open the printable PDF for each sheet."]],
+      why: "The tags are the ruler. Covering every tray makes sure tags reach all four corners of the photo, so the scale is measured everywhere, not guessed. Sheets are reusable, so full coverage costs nothing." },
+    "cal-2": { title: "Step 2: Lock focus",
+      todo: ["Tap the live view on the area you want sharp. The magnified view shows that area.",
+             "Press Autofocus, or set the lens yourself with Coarse and Fine while watching the magnified view.",
+             "Check the image is neither too dark nor washed out. Change Exposure first, Gain only if needed.",
+             "When the magnified view is as sharp as it gets, press Lock focus.",
+             "Press Next."],
+      tools: [["Live view", "The whole table as the camera sees it. Tap it to move the focus area (the red box). The corner label shows whether focus is locked."],
+              ["Magnified view", "The focus area enlarged, so small changes in sharpness are visible. The corner shows the sharpness number: higher is sharper."],
+              ["Autofocus", "Lets the camera find focus on the focus area. Greyed out while focus is locked."],
+              ["Lock focus", "Moves the lens to the set position, always from the same direction, and holds it there. Calibration and validation use the locked position. Press Unlock focus to change it."],
+              ["Coarse", "Lens position in whole dioptres (dpt), 0 to 15. Minus and plus move one step; tap the value to type one."],
+              ["Fine", "Added to Coarse, 0 to 0.99 dpt, in steps of 0.05. Use it for the last bit of sharpness."],
+              ["Peaking", "Marks sharp edges in the magnified view in magenta. Denser marks mean sharper focus. Use it with the sharpness number, not instead of it."],
+              ["Exposure", "How long the sensor collects light, in milliseconds. Each press is one third of a camera stop, about 1.26 times the light. 1 ms is 1/1000 s."],
+              ["Gain", "Brightens the image in the sensor, like a camera's ISO. 1 is the sensor's own sensitivity. More gain means more noise, so prefer a longer exposure."],
+              ["Auto", "Lets the camera choose exposure and gain. While it is on, both are greyed out and show the camera's values."]],
+      why: "Calibration measures the scene through whatever focus is locked. If the lens moves later, every measurement shifts with it, so re-check this step any time the lens may have moved." },
+    "cal-3": { title: "Step 3: Check squareness and coplanarity",
+      todo: ["Make sure the East side of the table (opposite the drain) is in view.",
+             "Drag the magenta handles so each line sits on a table edge.",
+             "If the lines do not follow the edges, the camera is rotated or tilted: adjust the rig and check again.",
+             "Look at the four corner rings. Nudge the rig until every ring shows a check.",
+             "Press Next."],
+      tools: [["Magenta handles", "Drag them to move the guide lines: the side handles move the line across, the bottom handles move the two side lines. On a keyboard: 1, 2 or 3 picks a line, W A S D or the arrows move it, Shift moves further. The lines are a straightening aid and are not saved."],
+              ["Corner rings", "One ring on each corner tag. The percentage compares that tag's size with the others: plus means closer to the camera, minus means farther. A check is within 3%, a triangle is 3 to 8% (nudge that corner), a stop sign is over 8% (that corner needs real adjustment)."],
+              ["Corner rings switch", "Turns the rings off. The live view then runs smoother, which can help while you move the guides."]],
+      why: "A tilted table makes things near one edge look bigger than near the other. The rings show tilt directly, so it is fixed with the rig, not corrected with maths." },
+    "cal-4": { title: "Step 4: Run calibration",
+      todo: ["Enter the calibration tag size you measured with callipers. Leave it empty only if you have no measurement.",
+             "Leave Make this the current baseline on, unless this is a comparison run.",
+             "Check the list on the right: every line should show a check.",
+             "Press Run calibration and wait for the result."],
+      tools: [["Calibration tag size", "The printed tag's real size in mm. Tap to open the keypad. Empty uses a placeholder default, and the report says so."],
+              ["Make this the current baseline", "On for a normal setup. Turn it off only for a comparison run, so the Health check keeps the baseline it compares against."],
+              ["Ready to run", "What the calibration needs before it can run: focus locked, all four corner tags seen, tag size measured."]],
+      why: "The tag size is the largest single source of error. The old rig's tags were 29.31 mm, not the 30 mm printed on the box, a 4.7% error in area. Measure every printed sheet." },
+    "cal-5": { title: "Step 5: Read the report",
+      todo: ["Read each line of the report. A check means it passed.",
+             "If coverage is weak somewhere, open Diagnostics to see where, add a sheet there and run again.",
+             "Steps 1 to 3 only need redoing if something moved.",
+             "Press Next."],
+      tools: [["Report table", "One line per check, with the measured value and its status."],
+              ["Run again", "Goes back to step 4."],
+              ["Open diagnostics", "Shows where on the table the calibration is weak, as maps and plots."]],
+      why: "A calibration that passes on average can still be weak in one tray slot. The report and the diagnostics show where, before any plant is measured there." },
+    "cal-6": { title: "Step 6: Validate",
+      todo: ["Leave the sheets where they are.",
+             "Press Start validation and follow the Validation page: 3 rounds, moving each sheet to a different tray between rounds.",
+             "Remove the sheets when validation is done, before starting a growth run."],
+      tools: [["Start validation", "Opens the Validation page."], ["Skip for now", "Back to Setup. Areas have no trust band until validation is done."]],
+      why: "Calibration is checked against the same tags it was fitted to, so it cannot show how accurate an area is in each slot. Validation measures that with the sheets in new places." },
+    validation: { title: "About Validation",
+      todo: ["Press Start validation if none is open.",
+             "Put each sheet on a different tray, 2 to 5 cm from where a sheet lay before, flat and fully on the tray.",
+             "Step out of view and close the chamber door. Switch on Door closed.",
+             "When the clock says Ready, press Capture round. It takes about 20 seconds.",
+             "Repeat until 3 rounds are counted. Take rounds at least 10 minutes apart, and at least 20 minutes from first to last."],
+      tools: [["Status", "At the top: whether this validation is provisional, validated or not consistent, and when it started."],
+              ["Clock", "Counts down to when the next round is due. Earlier rounds still count, but the result says they were rushed."],
+              ["Door closed", "Required before each round. An open door changes the air and the light."],
+              ["Problem card", "Appears when a round did not test something properly, with its photo. Count anyway accepts it; the result notes it."],
+              ["Map and table", "Each tray slot's error, pooled over all counted rounds: lower is better. The table shows each round and how far each sheet moved."],
+              ["End validation", "Stops taking rounds. With fewer than 3 counted rounds it ends as not validated."]],
+      why: "When a slot gives similar results across rounds with the sheets in new places, its error belongs to the slot, not to a sheet. That figure is what a plant measured there should expect. Chamber readings rise and fall on a cycle of about 19 minutes, so spreading rounds out gives a fairer result." },
+    experiments: { title: "About Experiments",
+      todo: ["Press New experiment and fill in what you know. Every field is optional.",
+             "Press Start when you are ready. New photos are saved to that experiment.",
+             "Press Stop at the end. Resume continues in the same folder.",
+             "Export to take the photos away. Purge only after a complete export."],
+      tools: [["Experiment card", "Its name, state, researcher, tray height, photo count and folder, with the actions that fit its state."],
+              ["Start or Resume", "Only one experiment runs at a time. Starting another asks to stop the running one first."],
+              ["Export", "Packs the photos into one download with a checksum list."],
+              ["Purge", "Deletes the photos and exports for good. You type the experiment's name to confirm. The name, dates and notes stay as a record."],
+              ["Typing", "Text fields open the on-screen keyboard. A plugged-in keyboard works too: Enter finishes, Escape cancels."]],
+      why: "An experiment ties every photo to its plants, dates and tray height, so results can be traced back later." },
+    diagnostics: { title: "About diagnostics",
+      todo: ["Start with Area shape: the colors should be even, not worse toward the corners.",
+             "Check Table view to see the same thing on the real table, and enter the table size once so it is drawn to scale.",
+             "Use Best and worst to find a single bad tag by its number.",
+             "Use Lens check to see whether errors grow with distance from the center."],
+      tools: [["Tabs", "Switch between the four views. Tap any image to see it full screen."],
+              ["Color scale", "Under each map: from even (0%) to most distorted (0.5% or more)."],
+              ["Grey areas", "No tag was near that spot, so it was not measured. Never filled in by guessing."],
+              ["Scale and Area shape", "Switch the plots between the length scale and the area shape check."]],
+      why: "These views decide whether more correction is needed before areas are trusted. They show measurements, never fitted guesses." }
+  };
+  function helpPanel(key) {
+    const h = HELP[key]; if (!h) return;
+    const p = openPanel({ title: h.title,
+      body: `<div class="help-page">
+        <h2>What to do</h2><ol>${h.todo.map(t => `<li>${t}</li>`).join("")}</ol>
+        <h2>The controls</h2><dl>${h.tools.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+        <h2>Why it matters</h2><p>${h.why}</p></div>`,
+      actions: '<span class="grow"></span><button class="btn primary hit" data-close>Close</button>' });
+    p.addEventListener("click", ev => { if (ev.target.closest("[data-close]")) p.remove(); });
+    const onKey = ev => { if (ev.key === "Escape" && document.body.contains(p) && !layer.children.length) { p.remove(); document.removeEventListener("keydown", onKey); } };
+    document.addEventListener("keydown", onKey);
+  }
+  frame.addEventListener("click", e => {
+    const b = e.target.closest("[data-help]"); if (!b) return;
+    helpPanel(b.dataset.help === "step" ? "cal-" + state.step : b.dataset.help);
   });
 
   show("setup");
