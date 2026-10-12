@@ -26,10 +26,10 @@
     el.innerHTML = html;
     document.body.appendChild(el);
     const keys = (e) => {
-      // Enter on a focused button presses that button, so Enter on Cancel cancels. Space stays a
-      // typed space in the keyboard.
+      // Enter on a focused finishing button (Set, Done, Cancel) presses that button, so Enter on
+      // Cancel cancels. On a key that was just tapped, Enter still finishes the entry.
       const b = document.activeElement;
-      if (e.key === "Enter" && b && b.tagName === "BUTTON" && el.contains(b)) return;
+      if (e.key === "Enter" && b && b.dataset && b.dataset.act && el.contains(b)) return;
       if (onKey(e) !== false) { e.preventDefault(); e.stopPropagation(); }
     };
     document.addEventListener("keydown", keys, true);
