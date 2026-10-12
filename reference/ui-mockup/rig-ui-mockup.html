@@ -4,8 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- Approved UI mockup 7 for the redesign (UI redesign tracking issue, #125). Example data only.
-     Pages drawn from origin/main at 63ee0a6, diagnostics at 8668828, shell matched to the UI shell
-     as merged (#130). Open in a browser; the top bar switches screen size and shows tap areas. -->
+     Pages drawn from origin/main at 63ee0a6, shell matched to the UI shell as merged (#130).
+     Calibration plots are NOT designed here: follow the built shared panel,
+     templates/_calibration_diagnostics.html (#127). Open in a browser; the top bar switches
+     screen size and shows tap areas. -->
 <style>[hidden] { display: none !important; }</style>
 <title>Camera Rig Interface</title>
 <style>
@@ -606,7 +608,7 @@ kbd { font-family: var(--font-num); font-size: 0.85rem; border: 1px solid var(--
   </label>
   <label for="mock-hit"><input type="checkbox" id="mock-hit"> Show tap areas</label>
   <label for="mock-needs"><input type="checkbox" id="mock-needs"> Show backend notes</label>
-  <span class="mock-note">All numbers and images are example data, drawn from templates at 63ee0a6; diagnostics at 8668828.</span>
+  <span class="mock-note">All numbers and images are example data, drawn from templates at 63ee0a6. Calibration plots: see the built panel on main (#127).</span>
 </div>
 
 <div class="stage">
@@ -1061,7 +1063,11 @@ kbd { font-family: var(--font-num); font-size: 0.85rem; border: 1px solid var(--
             <tr><td>Corner tags</td><td class="num">4 of 4</td><td>${chip("ok", "OK")}</td></tr>
           </tbody></table></div>
         <p class="lead">Coverage is weak near S6. Add a sheet there and run again. No need to redo steps 1 to 3 unless something moved.</p>
-        <div class="row"><button class="btn hit" data-jump="4">Run again</button><button class="btn hit" data-goto="diagnostics">Open diagnostics</button></div>
+        <div class="row"><button class="btn hit" data-jump="4">Run again</button></div>
+        <div class="card built-note" role="note">
+          <div class="card-head"><h3>Calibration plots: already built</h3>${chip("info", "Not designed in this mockup")}</div>
+          <p class="card-meta">Step 5 keeps the shared plots panel exactly as it is on main: <code>templates/_calibration_diagnostics.html</code>, from the calibration plots PR (#127). It holds the Load the plots button, the tag map and the radial plot, each with its About box, and is also used by Calibration history. Follow that panel, not an older mockup.</p>
+        </div>
       </div>` : `
       <div class="stack" style="gap:16px">${chip("info", "No report yet")}<p class="lead">Run calibration in step 4 first.</p>
         <div><button class="btn hit" data-jump="4">Go to step 4</button></div></div>`,
@@ -1653,7 +1659,16 @@ kbd { font-family: var(--font-num); font-size: 0.85rem; border: 1px solid var(--
   const legend = `<div class="legend-bar" style="background:linear-gradient(to right,${STOPS.map((c, i) => `rgb(${c}) ${i * 12.5}%`).join(",")})"></div>
     <div class="legend-ticks"><span>0%, square</span><span>0.25%</span><span>0.5%+</span></div>`;
 
+  /* Superseded (2026-10-12): the calibration plots PR (#127) replaced these four views and the
+     table-size fields with a shared two-plot panel, _calibration_diagnostics.html. That built
+     panel is the design. This page is no longer linked; it only explains where to look. */
   function renderDiag() {
+    document.getElementById("diag-tabs").innerHTML = "";
+    document.getElementById("diag-body").innerHTML = `<div class="stack" style="max-width:640px"><div class="card built-note" role="note">
+          <div class="card-head"><h3>Calibration plots: already built</h3>${chip("info", "Superseded")}</div>
+          <p class="card-meta">Step 5 keeps the shared plots panel exactly as it is on main: <code>templates/_calibration_diagnostics.html</code>, from the calibration plots PR (#127). It holds the Load the plots button, the tag map and the radial plot, each with its About box, and is also used by Calibration history. Follow that panel, not an older mockup.</p>
+        </div></div>`;
+    return;
     document.getElementById("diag-tabs").innerHTML = DTABS.map(([k, l]) =>
       `<button class="btn hit" data-dtab="${k}" aria-pressed="${DIAG.tab === k}">${l}</button>`).join("");
     const metricSeg = `<div class="seg" role="group" aria-label="Measure">
@@ -1845,12 +1860,12 @@ kbd { font-family: var(--font-num); font-size: 0.85rem; border: 1px solid var(--
       why: "The tag size is the largest single source of error. The old rig's tags were 29.31 mm, not the 30 mm printed on the box, a 4.7% error in area. Measure every printed sheet." },
     "cal-5": { title: "Step 5: Read the report",
       todo: ["Read each line of the report. A check means it passed.",
-             "If coverage is weak somewhere, open Diagnostics to see where, add a sheet there and run again.",
+             "If coverage is weak somewhere, press Load the plots to see where, add a sheet there and run again.",
              "Steps 1 to 3 only need redoing if something moved.",
              "Press Next."],
       tools: [["Report table", "One line per check, with the measured value and its status."],
               ["Run again", "Goes back to step 4."],
-              ["Open diagnostics", "Shows where on the table the calibration is weak, as maps and plots."]],
+              ["Load the plots", "Shows the tag map (which tags read far from normal, and where) and the radial plot (whether errors grow toward the frame corners). Built panel, see the note on this step."]],
       why: "A calibration that passes on average can still be weak in one tray slot. The report and the diagnostics show where, before any plant is measured there." },
     "cal-6": { title: "Step 6: Validate",
       todo: ["Leave the sheets where they are.",
