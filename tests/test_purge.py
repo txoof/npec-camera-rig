@@ -57,8 +57,10 @@ def test_only_a_stopped_experiment_can_be_purged() -> None:
 
 def test_the_typed_text_must_match() -> None:
     experiment = _stopped()
-    with pytest.raises(ExperimentError, match="does not match"):
+    with pytest.raises(ExperimentError, match='you typed "drought", and purging needs exactly "Drought"'):
         captures.purge_experiment(experiment["id"], confirm="drought", override_no_export=True)
+    with pytest.raises(ExperimentError, match='you typed "nothing"'):
+        captures.purge_experiment(experiment["id"], confirm="  ", override_no_export=True)
     assert database.get_experiment(experiment["id"])["state"] == "stopped"
 
 

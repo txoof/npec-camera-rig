@@ -478,9 +478,15 @@ def purge_experiment(experiment_id: int, *, confirm: str, override_no_export: bo
     if experiment["state"] != "stopped":
         raise database.ExperimentError("only a stopped experiment can be purged")
     if confirm.strip() != purge_confirmation(experiment):
-        raise database.ExperimentError("the text typed does not match, nothing was purged")
+        typed = confirm.strip() or "nothing"
+        raise database.ExperimentError(
+            f'Nothing was purged: you typed "{typed}", and purging needs exactly '
+            f'"{purge_confirmation(experiment)}"'
+        )
     if not override_no_export and database.complete_export(experiment_id) is None:
-        raise database.ExperimentError("this experiment has no complete export")
+        raise database.ExperimentError(
+            "Nothing was purged: this experiment has no complete export"
+        )
     # Rows first: if deleting files then fails, no row points at a missing photo.
     experiment = database.purge_experiment(experiment_id, now=_now())
     folder = experiments_root() / experiment["folder"]

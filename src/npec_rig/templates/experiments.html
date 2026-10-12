@@ -309,6 +309,8 @@
         }
       } catch (err) {
         listMessage.textContent = err.message;
+        // A purge refusal must not be missed: the text above the list is easy to overlook.
+        if (button.dataset.act === "purge") alert(err.message);
       }
       await refresh();
     });
