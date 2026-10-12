@@ -820,6 +820,17 @@ a { color: #6cf; }
 .diagnostic-image[data-no-lightbox] {
   cursor: crosshair;
 }
+/* A diagnostic image on a shell page (#125): shown and hidden with the hidden attribute, and as
+   wide as the work area, which already keeps the scroll lane clear. Still .diagnostic-image, so
+   lightbox.js opens it full size. */
+.diagnostic-image.figure {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
 .lightbox-overlay {
   display: none;
   position: fixed;
