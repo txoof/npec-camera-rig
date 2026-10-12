@@ -231,7 +231,9 @@
      page, so the buttons that finish it are always on screen. body and actions are HTML the
      page writes; anything a person typed goes in through ui.esc. Returns the panel; call
      panel.close() to remove it. */
-  function openPanel({ title, sub = "", body, actions }) {
+  // onEscape: what Escape does while the panel is open (none if not given). While the keypad or
+  // keyboard is open over the panel, Escape is theirs.
+  function openPanel({ title, sub = "", body, actions, onEscape = null }) {
     const opener = document.activeElement;
     const p = document.createElement("div");
     p.className = "panel-layer";
@@ -244,7 +246,15 @@
     p.querySelector(".panel-body").innerHTML = body;
     p.querySelector(".action-bar").innerHTML = actions;
     (document.querySelector(".work") || document.body).appendChild(p);
+    const keys = (e) => {
+      if (e.key !== "Escape" || document.querySelector(".kb-layer, .keypad-layer")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onEscape();
+    };
+    if (onEscape) document.addEventListener("keydown", keys, true);
     p.close = () => {
+      document.removeEventListener("keydown", keys, true);
       p.remove();
       if (opener && opener.isConnected && opener.focus) opener.focus();
     };
@@ -257,6 +267,7 @@
   function confirmPanel({ title, body, ok, danger = false, typed = null, typedLabel = "Type to confirm", check = null, onOk }) {
     const st = { typed: "", checked: false };
     const p = openPanel({
+      onEscape: () => p.close(),
       title,
       body: `<div class="stack" style="max-width:680px">
         <div class="lead" style="color:var(--fg)">${body}</div>
@@ -271,18 +282,7 @@
     const okBtn = p.querySelector('[data-act="ok"]');
     const ready = () => (!typed || st.typed.trim() === typed) && (!check || st.checked);
     const paint = () => { okBtn.disabled = !ready(); };
-    const keys = (e) => {
-      // While the keyboard is open over the panel, Escape is the keyboard's.
-      if (e.key !== "Escape" || document.querySelector(".kb-layer, .keypad-layer")) return;
-      e.preventDefault();
-      e.stopPropagation();
-      close();
-    };
-    const closePanel = p.close;
-    // Removes the Escape listener however the panel is closed, also by page code calling p.close().
-    const close = () => { document.removeEventListener("keydown", keys, true); closePanel(); };
-    p.close = close;
-    document.addEventListener("keydown", keys, true);
+    const close = () => p.close();
     p.addEventListener("click", (e) => {
       const b = e.target.closest("[data-act]");
       if (!b) return;
@@ -392,19 +392,13 @@
     bindField(field, onChange);
   }
 
+  // The next stop above (by 1) or below (by -1) the value. A value within 2% of a stop counts
+  // as on it: a camera reports the nearest value its sensor makes (7998 us for 8000). Past the
+  // last stop, or with no stops, the value stays.
+  const STOP_TOLERANCE = 1.02;
   function nextStop(stops, value, by) {
-    let i = 0;
-    if (value > 0) {
-      stops.forEach((stop, j) => {
-        if (Math.abs(Math.log(stop / value)) < Math.abs(Math.log(stops[i] / value))) i = j;
-      });
-    }
-    // A value between two stops goes to the one on the side pressed. A value within 2% of a stop
-    // counts as on it: a camera reports the nearest value its sensor makes (7998 us for 8000).
-    const off = value > 0 && Math.abs(Math.log(stops[i] / value)) > 0.02;
-    if (off && by > 0 && stops[i] > value) i -= 1;
-    if (off && by < 0 && stops[i] < value) i += 1;
-    return stops[Math.min(stops.length - 1, Math.max(0, i + by))];
+    if (by > 0) return stops.find((stop) => stop > value * STOP_TOLERANCE) ?? value;
+    return [...stops].reverse().find((stop) => stop < value / STOP_TOLERANCE) ?? value;
   }
 
   // Greys out a control and every button in it, such as a stepper while focus is locked.
@@ -417,19 +411,9 @@
      body is HTML the page writes. Returns the panel. */
   function infoPanel({ title, sub = "", body }) {
     const p = openPanel({
-      title, sub, body,
+      title, sub, body, onEscape: () => p.close(),
       actions: '<span class="grow"></span><button type="button" class="btn primary hit" data-act="close">Close</button>',
     });
-    const keys = (e) => {
-      // While the keypad or keyboard is open over the panel, Escape is theirs.
-      if (e.key !== "Escape" || document.querySelector(".kb-layer, .keypad-layer")) return;
-      e.preventDefault();
-      e.stopPropagation();
-      p.close();
-    };
-    const closePanel = p.close;
-    p.close = () => { document.removeEventListener("keydown", keys, true); closePanel(); };
-    document.addEventListener("keydown", keys, true);
     p.querySelector('[data-act="close"]').addEventListener("click", () => p.close());
     p.querySelector('[data-act="close"]').focus();
     return p;

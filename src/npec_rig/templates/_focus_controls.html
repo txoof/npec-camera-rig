@@ -83,7 +83,7 @@
   ("Lock focus", "Moves the lens to the set position, always the same way, and waits until the camera reports it there. Calibration and validation use the locked position. While focus is locked the lens controls and Autofocus are greyed out; press Unlock focus to change it."),
   ("Reset camera", "Shown only when the lens does not follow a command. Restarts the camera and moves the lens back to its set position."),
   ("Coarse", "Lens position in whole dioptres (dpt). Minus and plus move one step. Tap the value to type one: a value such as 6.8 sets Coarse to 6 and Fine to 0.80."),
-  ("Fine", "Added to Coarse, 0 to 0.99 dpt. Minus and plus move 0.05. Use it for the last bit of sharpness."),
+  ("Fine", "Added to Coarse, 0 to 0.99 dpt. Minus and plus move 0.05, and stop at 0 and 0.99: for the next whole dioptre, use Coarse. Use it for the last bit of sharpness."),
   ("Focus peaking", "Marks sharp edges in the magnified view in magenta. Denser marks mean sharper focus. Use it with the sharpness number, not instead of it."),
   ("Sharpness trace", "The line under the live view: the sharpness number over the last 18 seconds, highest at the top. Move the lens until the line peaks."),
   ("Exposure", "How long the sensor collects light for one photo. Each press is one third of a camera stop, about 1.26 times the light, shown as a shutter speed such as 1/125 s. Tap the value to type any time in milliseconds: 1 ms is 1/1000 s, so 4 ms is 1/250 s."),
@@ -188,14 +188,13 @@
 
     // One move at a time (each waits for the camera to confirm it). Presses made while one is in
     // flight are sent as one move when it finishes, so the lens ends where the steppers show.
-    let lensSending = false;
+    let lensSending = null; // the move in flight, if any
     let lensWaiting = false;
     function moveLens() {
       if (lensSending) { lensWaiting = true; return; }
-      lensSending = true;
       lensWaiting = false;
-      sendLensPosition().catch(() => {}).finally(() => {
-        lensSending = false;
+      lensSending = sendLensPosition().catch(() => {}).finally(() => {
+        lensSending = null;
         if (lensWaiting) moveLens();
       });
     }
@@ -377,7 +376,6 @@
       }));
     }
 
-    let steppersBound = false;
     async function loadControls() {
       const data = await (await fetch("/controls")).json();
       lastControls = data;
@@ -398,18 +396,6 @@
         gainField.dataset.min = min;
         gainField.dataset.max = max;
         gainStops.splice(0, Infinity, ...GAIN_STOPS.filter((g) => g >= min && g <= max));
-      }
-      if (!steppersBound) {
-        steppersBound = true;
-        ui.bindStepper(exposureStepper, (ms) => {
-          const us = msToUs(Number(ms));
-          showExposure(us);
-          sendExposure(us);
-        }, { stops: exposureStops });
-        ui.bindStepper(gainStepper, (gain) => {
-          showGain(gain);
-          sendGain(Number(gain));
-        }, { stops: gainStops });
       }
       showExposure(values.ExposureTime);
       showGain(values.AnalogueGain);
@@ -545,6 +531,16 @@
         }
       });
 
+      ui.bindStepper(exposureStepper, (ms) => {
+        const us = msToUs(Number(ms));
+        showExposure(us);
+        sendExposure(us);
+      }, { stops: exposureStops });
+      ui.bindStepper(gainStepper, (gain) => {
+        showGain(gain);
+        sendGain(Number(gain));
+      }, { stops: gainStops });
+
       // A whole number from minus, plus or the keypad keeps Fine; a typed "6.8" sets both.
       ui.bindStepper(coarseStepper, (v) => {
         const n = Number(v);
@@ -560,7 +556,12 @@
         const on = !autoOn();
         showAuto(on);
         const posted = postControl("AeEnable", on);
-        if (!on) {
+        if (on) {
+          // Refused or failed: show the controls as the camera has them.
+          posted
+            .then((response) => { if (!response.ok) return loadControls(); })
+            .catch(() => loadControls().catch(() => {}));
+        } else {
           // Auto off: keep the values the camera was just using, sent as the manual values, so
           // the page, the camera and the values restored after a photo agree.
           posted
@@ -655,8 +656,11 @@
           return;
         }
         // Locking drives the lens the one consistent way and waits for the camera to report it
-        // there, a few seconds at most (camera.py LENS_SETTLE_TIMEOUT_S).
+        // there, a few seconds at most (camera.py LENS_SETTLE_TIMEOUT_S). A move still in flight
+        // finishes first; one still waiting is dropped, since the lock would refuse it.
         lockBtn.disabled = true;
+        lensWaiting = false;
+        while (lensSending) await lensSending;
         lockStatus.innerHTML = ui.chip("info", "Locking focus, waiting for the camera");
         try {
           const resp = await fetch("/focus/lock", { method: "POST" });

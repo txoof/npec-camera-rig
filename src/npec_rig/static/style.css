@@ -570,6 +570,7 @@ details.help .help-body p { margin: 0 0 10px; }
 .focus-cols.mode-square .live-view img {
   /* 248px: the rail, the scroll area's padding and gutter, and the handles' margins. */
   height: auto; aspect-ratio: 4 / 3; max-width: none;
+  width: min(calc(100vw - 248px), calc((100vh - 200px) * 4 / 3));
   width: min(calc(100vw - 248px), calc((100dvh - 200px) * 4 / 3));
 }
 .focus-cols.mode-square #lock-status { display: none; }
