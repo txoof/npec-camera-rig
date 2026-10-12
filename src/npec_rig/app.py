@@ -531,7 +531,7 @@ def api_experiments() -> list[dict]:
     for experiment in experiments:
         newest = database.exports_for(experiment["id"])[:1]
         experiment["export"] = newest[0] if newest else None
-        experiment["complete_export"] = database.complete_export(experiment["id"]) is not None
+        experiment["complete_export"] = database.complete_export(experiment["id"])
         experiment["purge_confirmation"] = captures.purge_confirmation(experiment)
     return experiments
 

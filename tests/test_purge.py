@@ -114,7 +114,7 @@ def test_purge_through_the_route() -> None:
     export = _exported(experiment)
     client = TestClient(app)
     listed = {e["id"]: e for e in client.get("/api/experiments").json()}
-    assert listed[experiment["id"]]["complete_export"] is True
+    assert listed[experiment["id"]]["complete_export"]["id"] == export["id"]
     assert listed[experiment["id"]]["purge_confirmation"] == "Drought"
 
     wrong = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "x"})

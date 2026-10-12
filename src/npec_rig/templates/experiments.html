@@ -41,6 +41,26 @@
     <tbody id="experiment-rows"></tbody>
   </table>
 
+  <!-- One in-page dialog for every confirmation on this page. Not alert/confirm/prompt: a browser
+       can be told to block those, and then the page could not ask or explain anything. -->
+  <dialog class="experiment-dialog" id="ask">
+    <form method="dialog" id="ask-form">
+      <h3 id="ask-title"></h3>
+      <div id="ask-body"></div>
+      <label id="ask-input-row" hidden><span id="ask-input-label"></span>
+        <input type="text" id="ask-input" autocomplete="off">
+      </label>
+      <label id="ask-check-row" class="experiment-dialog-check" hidden>
+        <input type="checkbox" id="ask-check"> <span id="ask-check-label"></span>
+      </label>
+      <div class="experiment-dialog-error" id="ask-error"></div>
+      <div class="experiment-form-buttons">
+        <button type="submit" id="ask-ok"></button>
+        <button type="button" id="ask-cancel" class="secondary">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
   <script>
     const running = document.getElementById("running");
     const rows = document.getElementById("experiment-rows");
@@ -95,7 +115,9 @@
 
     function actions(e) {
       const buttons = [`<button data-act="edit" data-id="${e.id}" class="secondary">Edit</button>`];
-      if (e.state === "set up") {
+      if (e.state === "purged") {
+        // Only the notes of a purged experiment can be changed.
+      } else if (e.state === "set up") {
         buttons.push(`<button data-act="start" data-id="${e.id}">Start</button>`);
         buttons.push(`<button data-act="discard" data-id="${e.id}" class="secondary">Discard</button>`);
       } else if (e.state === "running") {
@@ -124,14 +146,22 @@
       return `${(bytes / 1e9).toFixed(2)} GB`;
     }
 
+    function completeText(e) {
+      if (e.state !== "stopped") return "";
+      return e.complete_export
+        ? `<div class="experiment-export">Complete export: yes, ${utc(e.complete_export.finished_at)}</div>`
+        : `<div class="experiment-export">No complete export: no export holds every photo yet</div>`;
+    }
+
     function exportText(e) {
       const x = e.export;
-      if (!x) return "";
+      if (!x) return completeText(e);
       if (!x.finished_at) return `<div class="experiment-export">Export: preparing, started ${utc(x.started_at)}</div>`;
       if (x.error) return `<div class="experiment-export">Export failed: ${esc(x.error)}</div>`;
       if (x.removed_at) return "";
       return `<div class="experiment-export">Export ${utc(x.finished_at)}, ${x.files} files, `
-        + `${size(x.bytes)}: <a href="/api/exports/${x.id}/download">Download</a></div>`;
+        + `${size(x.bytes)}: <a href="/api/exports/${x.id}/download">Download</a></div>`
+        + completeText(e);
     }
 
     function render() {
@@ -265,55 +295,142 @@
       formMessage.textContent = "";
     });
 
+    // --- The in-page dialog ---
+    const ask = {
+      dialog: document.getElementById("ask"),
+      form: document.getElementById("ask-form"),
+      title: document.getElementById("ask-title"),
+      body: document.getElementById("ask-body"),
+      inputRow: document.getElementById("ask-input-row"),
+      inputLabel: document.getElementById("ask-input-label"),
+      input: document.getElementById("ask-input"),
+      checkRow: document.getElementById("ask-check-row"),
+      checkLabel: document.getElementById("ask-check-label"),
+      check: document.getElementById("ask-check"),
+      error: document.getElementById("ask-error"),
+      ok: document.getElementById("ask-ok"),
+      cancel: document.getElementById("ask-cancel"),
+    };
+    let askAction = null;
+
+    // Opens the dialog. `action({ text, checked })` runs on OK; if it throws, its message shows
+    // inside the dialog, which stays open so the user can correct and try again.
+    function openAsk({ title, body, ok, danger = false, input = null, check = null, action }) {
+      ask.title.textContent = title;
+      ask.body.innerHTML = body;
+      ask.ok.textContent = ok;
+      ask.ok.className = danger ? "stop" : "";
+      ask.inputRow.hidden = !input;
+      ask.inputLabel.textContent = input ?? "";
+      ask.input.value = "";
+      ask.checkRow.hidden = !check;
+      ask.checkLabel.textContent = check ?? "";
+      ask.check.checked = false;
+      ask.error.textContent = "";
+      askAction = action;
+      ask.dialog.showModal();
+      (input ? ask.input : ask.ok).focus();
+    }
+
+    ask.form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      ask.ok.disabled = true;
+      try {
+        await askAction({ text: ask.input.value, checked: ask.check.checked });
+        ask.dialog.close();
+        await refresh();
+      } catch (err) {
+        ask.error.textContent = err.message;
+      } finally {
+        ask.ok.disabled = false;
+      }
+    });
+    ask.cancel.addEventListener("click", () => ask.dialog.close());
+
+    function purgeAsk(e) {
+      const exportLine = e.complete_export
+        ? `<p>It has a complete export, made ${esc(utc(e.complete_export.finished_at))}.</p>`
+        : `<p><strong>It has no complete export.</strong> A complete export is one made after the `
+          + "experiment's last photo, so it holds every photo. Without one, some or all photos "
+          + "have not been downloaded and will be lost.</p>";
+      openAsk({
+        title: `Purge ${displayName(e)}`,
+        body: "<p>Purge deletes this experiment's photos and export files. This cannot be undone. "
+          + "Its name, dates and notes stay as a record.</p>" + exportLine,
+        input: `Type ${e.purge_confirmation} to confirm`,
+        check: e.complete_export ? null : "Purge without a complete export",
+        ok: "Purge",
+        danger: true,
+        action: async ({ text, checked }) => {
+          // Checked here first, so the user is told before anything else is asked.
+          if (text.trim() !== e.purge_confirmation) {
+            const typed = text.trim() || "nothing";
+            throw new Error(`Nothing was purged: you typed "${typed}", and purging needs exactly `
+              + `"${e.purge_confirmation}".`);
+          }
+          if (!e.complete_export && !checked) {
+            throw new Error("Nothing was purged: tick \"Purge without a complete export\" to go ahead.");
+          }
+          await call("POST", `/api/experiments/${e.id}/purge`,
+            { confirm: text, override_no_export: !e.complete_export && checked });
+        },
+      });
+    }
+
     rows.addEventListener("click", async (event) => {
       const button = event.target.closest("button[data-act]");
       if (!button) return;
       const e = experiments.find((x) => x.id === Number(button.dataset.id));
+      const act = button.dataset.act;
       listMessage.textContent = "";
-      if (button.dataset.act === "edit") {
+      if (act === "edit") {
         edit(e);
-        return;
-      }
-      try {
-        if (button.dataset.act === "start") {
-          const other = experiments.find((x) => x.state === "running");
-          let stopRunning = false;
-          if (other) {
-            if (!confirm(`"${displayName(other)}" is running. Stop it and start this one?`)) return;
-            stopRunning = true;
-          }
-          await call("POST", `/api/experiments/${e.id}/start?stop_running=${stopRunning}`);
-        } else if (button.dataset.act === "stop") {
-          if (!confirm("Stop this experiment? New photos will not be saved to it. "
-            + "You can resume it later in the same folder.")) return;
-          await call("POST", `/api/experiments/${e.id}/stop`);
-        } else if (button.dataset.act === "purge") {
-          const typed = prompt(
-            `Purge deletes this experiment's photos and export files. This cannot be undone. `
-            + `Its name, dates and notes stay as a record.\n\nType "${e.purge_confirmation}" to purge it.`
-          );
-          if (typed === null) return;
-          let override = false;
-          if (!e.complete_export) {
-            if (!confirm("This experiment has no complete export. Its photos have not been "
-              + "downloaded in full. Purge anyway?")) return;
-            override = true;
-          }
-          await call("POST", `/api/experiments/${e.id}/purge`,
-            { confirm: typed, override_no_export: override });
-        } else if (button.dataset.act === "export") {
-          await call("POST", `/api/experiments/${e.id}/export`);
-        } else if (button.dataset.act === "discard") {
-          if (!confirm("Discard this experiment? It has never started, so no photos are lost.")) return;
-          await call("DELETE", `/api/experiments/${e.id}`);
+      } else if (act === "purge") {
+        purgeAsk(e);
+      } else if (act === "stop") {
+        openAsk({
+          title: `Stop ${displayName(e)}`,
+          body: "<p>New photos will not be saved to this experiment. You can resume it later in "
+            + "the same folder.</p>",
+          ok: "Stop",
+          danger: true,
+          action: () => call("POST", `/api/experiments/${e.id}/stop`),
+        });
+      } else if (act === "discard") {
+        openAsk({
+          title: `Discard ${displayName(e)}`,
+          body: "<p>It has never started, so no photos are lost.</p>",
+          ok: "Discard",
+          action: () => call("DELETE", `/api/experiments/${e.id}`),
+        });
+      } else if (act === "start") {
+        const other = experiments.find((x) => x.state === "running");
+        if (other) {
+          openAsk({
+            title: `Start ${displayName(e)}`,
+            body: `<p>${esc(displayName(other))} is running. Only one experiment runs at a time. `
+              + "Stop it and start this one?</p>",
+            ok: "Stop it and start this one",
+            action: () => call("POST", `/api/experiments/${e.id}/start?stop_running=true`),
+          });
+        } else {
+          await runAndRefresh(() => call("POST", `/api/experiments/${e.id}/start`));
         }
+      } else if (act === "export") {
+        await runAndRefresh(() => call("POST", `/api/experiments/${e.id}/export`));
+      }
+    });
+
+    // Actions with nothing to confirm; a refusal opens the dialog, so it cannot be missed.
+    async function runAndRefresh(action) {
+      try {
+        await action();
       } catch (err) {
-        listMessage.textContent = err.message;
-        // A purge refusal must not be missed: the text above the list is easy to overlook.
-        if (button.dataset.act === "purge") alert(err.message);
+        openAsk({ title: "That did not work", body: `<p>${esc(err.message)}</p>`, ok: "OK",
+          action: () => {} });
       }
       await refresh();
-    });
+    }
 
     refresh();
   </script>
