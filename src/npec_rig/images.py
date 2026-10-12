@@ -145,6 +145,12 @@ def tag_detections(
     return detections
 
 
+def store_tag_detections(source: str, detections: list[TagDetection]) -> None:
+    """Store `detections` as `source`'s tags, for a caller that has just run the current detector
+    on the photograph's own full-size pixels (a calibration run), so nothing searches it again."""
+    _store_tags(source, detections)
+
+
 def _store_tags(source: str, detections: list[TagDetection]) -> None:
     value = json.dumps([_detection_to_json(d) for d in detections])
     with _connect() as conn:

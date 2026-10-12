@@ -1305,17 +1305,40 @@ def test_radial_plot_refused_with_too_few_tags_in_the_saved_frame(
     client = TestClient(app)
     client.post("/calibration/run")
 
-    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS[:1] + _CORNER_TAGS)
+    # The stored tags of an older calibration, worked out from its photo, found only one tag.
+    photo = Path(client.get("/calibration/current").json()["frame_url"])
+    images.store_tag_detections(f"{photo.parent.name}/{photo.stem}", _CALIBRATION_TAGS[:1] + _CORNER_TAGS)
     response = client.get("/calibration/current/radial-plot")
     assert response.status_code == 409
 
 
-def test_calibration_plots_search_the_photo_for_tags_once_and_keep_the_plots(
+def test_calibration_tags_are_worked_out_once_from_an_older_calibrations_photo(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    # A calibration from before its run stored its tags: the photo is searched once, then stored.
+    detect_calls = 0
+
+    def counting_detect_tags(frame):
+        nonlocal detect_calls
+        detect_calls += 1
+        return _CALIBRATION_TAGS + _CORNER_TAGS
+
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _CORNER_TAGS)
+    monkeypatch.setattr(images, "store_tag_detections", lambda source, detections: None)
+    client = TestClient(app)
+    client.post("/calibration/run")
+    monkeypatch.setattr(app_module, "detect_tags", counting_detect_tags)
+    for _ in range(2):
+        assert client.get("/calibration/current/radial-plot?t=1").status_code == 200
+    assert detect_calls == 1
+
+
+def test_calibration_plots_use_the_runs_own_tags_and_keep_the_plots(
     monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
 ) -> None:
     # Searching a 64MP photo for tags is the expensive part (and several at once got the worker
-    # OOM-killed, 2026-09-22): the plots share one search, stored by images.py, and each plot is
-    # drawn once and then read from the store.
+    # OOM-killed, 2026-09-22): a run stores the tags it fitted to, so the plots search the photo
+    # not even once, and each plot is drawn once and then read from the store.
     detect_calls = 0
 
     def counting_detect_tags(frame):
@@ -1339,7 +1362,7 @@ def test_calibration_plots_search_the_photo_for_tags_once_and_keep_the_plots(
         for plot in ("radial-plot", "tag-map"):
             assert client.get(f"/calibration/current/{plot}").status_code == 200
 
-    assert detect_calls == 1
+    assert detect_calls == 0
     assert len(renders) == 1
 
 
@@ -1409,11 +1432,9 @@ def test_stem_diagnostics_actually_load_the_requested_stems_own_photo(
     assert old_stem != Path(current["artifact_path"]).stem
 
     sources = []
-    real_tag_detections = images.tag_detections
+    real_stored = images.stored_tag_detections
     monkeypatch.setattr(
-        images,
-        "tag_detections",
-        lambda source, path, **k: (sources.append(source), real_tag_detections(source, path, **k))[1],
+        images, "stored_tag_detections", lambda source: (sources.append(source), real_stored(source))[1]
     )
 
     response = client.get(f"/calibration/{old_stem}/radial-plot")

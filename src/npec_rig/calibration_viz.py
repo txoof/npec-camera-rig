@@ -285,6 +285,7 @@ TAG_MAP_BIN_PCT = 0.25
 TAG_MAP_SMALL_COLOUR = (30, 90, 210)  # RGB blue: tag reads small
 TAG_MAP_LARGE_COLOUR = (210, 60, 20)  # RGB orange-red: tag reads large
 TAG_MAP_NEUTRAL_COLOUR = (240, 240, 240)
+_TAG_MAP_KEY = ((-TAG_MAP_RANGE_PCT, "reads small"), (0.0, "normal"), (TAG_MAP_RANGE_PCT, "reads large"))
 
 
 def tag_map_colour(deviation_pct: float) -> tuple[int, int, int]:
@@ -444,7 +445,7 @@ def render_tag_map(
     width = max(canvas_width, 700)
     header = np.full((TAG_MAP_HEADER_PX, width, 3), 255, dtype=np.uint8)
     key_y = 62
-    for index, (pct, word) in enumerate(((-TAG_MAP_RANGE_PCT, "reads small"), (0.0, "normal"), (TAG_MAP_RANGE_PCT, "reads large"))):
+    for index, (pct, _word) in enumerate(_TAG_MAP_KEY):
         x = 20 + index * 170
         cv2.rectangle(header, (x, key_y - 16), (x + 22, key_y + 6), tag_map_colour(pct), -1)
         cv2.rectangle(header, (x, key_y - 16), (x + 22, key_y + 6), (60, 60, 60), 1)
@@ -453,11 +454,11 @@ def render_tag_map(
     scale_note = (
         f"to scale: {table_width_mm:.0f} x {table_length_mm:.0f} mm between corner tag centres"
         if to_scale
-        else "NOT TO SCALE: table width and length not entered, positions are relative"
+        else "NOT TO SCALE: no usable table width and length entered, positions are relative"
     )
     with text_layer(header) as t:
         t.text("Tag size against the fitted scale, from this run's median", (20, 30), 0.7, (0, 0, 0))
-        for index, word in enumerate(("reads small", "normal", "reads large")):
+        for index, (_pct, word) in enumerate(_TAG_MAP_KEY):
             t.text(word, (20 + index * 170 + 30, key_y + 4), 0.5, (0, 0, 0))
         t.text(f"outlined: over {TAG_MAP_FAR_PCT:.1f}%, marked - or +", (far_x + 30, key_y + 4), 0.5, (0, 0, 0))
         t.text(f"{scale_note}. Grey: no tag.", (20, 96), 0.45, (0, 0, 0))

@@ -26,6 +26,7 @@ from npec_rig.calibration import (
     build_calibration_report,
     build_scale_field,
     build_table_frame,
+    scale_field_to_dict,
     scale_residual_samples,
 )
 from npec_rig.calibration_store import (
@@ -788,9 +789,10 @@ def run_calibration(
     All three go through `_resolve_table_dims` (see its docstring): remembered across runs via
     `settings.py`'s key/value store, not the `CalibrationArtifact`; only a real (positive),
     explicitly-given value is ever persisted, and only when `promote` is also true -- a
-    `promote=False` comparison run's own values are used for *this* run's tag map but never
-    become the sticky default for every real run after it, the same way `promote=False` already
-    keeps `current.json` untouched.
+    `promote=False` comparison run's own values are reported for *this* run but never become the
+    sticky default for every real run after it, the same way `promote=False` already keeps
+    `current.json` untouched. The tag map is drawn with the last saved values, for every
+    calibration: the table size is not stored per calibration.
     """
     # Checked before anything below, including _resolve_table_dims' own persistence -- a
     # refused run (no capture, gate_failed) must have no lasting side effects. Found by
@@ -834,6 +836,9 @@ def run_calibration(
     tag_sizes_mm = {d.tag_id: tag_size_mm for d in calibration_detections}
 
     stem = stem_for_photo(photo)
+    # The tags this run fits its scale to, kept as the photo's tags: the diagnostic plots then
+    # need no second full-size search of the saved photo, and plot the same tags as the fit.
+    images.store_tag_detections(_calibration_ref(stem), detections)
 
     result: dict = {
         "calibration_tags_detected": len(calibration_detections),
@@ -1114,26 +1119,39 @@ def _calibration_source(stem: str) -> str:
     return f"calibration:{stem}"
 
 
-def _calibration_photo(stem: str) -> tuple[str, Path]:
-    """`(capture ref, path)` of calibration `stem`'s photo. 409 when it is not on disk."""
+def _calibration_ref(stem: str) -> str:
+    """Calibration `stem`'s photo as a capture ref, the images.py source of its tags."""
+    path = calibration_frame_path(stem)
+    if path is None:
+        raise HTTPException(409, "the saved frame for this calibration is missing on disk")
+    return f"{path.parent.name}/{path.stem}"
+
+
+def _calibration_photo(stem: str) -> Path:
+    """Calibration `stem`'s photo. 409 when it is not on disk."""
     path = calibration_frame_path(stem)
     if path is None or not path.exists():
         raise HTTPException(409, "the saved frame for this calibration is missing on disk")
-    return f"{path.parent.name}/{path.stem}", path
+    return path
 
 
 def _calibration_tags(stem: str) -> list:
-    """Calibration `stem`'s tag detections, worked out once per photo and then read from the
-    analysis store (images.py), the same as a validation capture's: no full-size frame stays in
-    memory between requests, and a restart does not decode it again."""
-    ref, path = _calibration_photo(stem)
-    return images.tag_detections(ref, path, detect=lambda frame: detect_tags(frame))
+    """Calibration `stem`'s tag detections, from the analysis store (images.py). A run stores
+    the tags it fitted its scale to; an older calibration's are worked out once from its photo.
+    No full-size frame stays in memory between requests, and stored tags are used even if the
+    photo has since been deleted."""
+    ref = _calibration_ref(stem)
+    stored = images.stored_tag_detections(ref)
+    if stored is not None:
+        return stored
+    return images.tag_detections(ref, _calibration_photo(stem), detect=lambda frame: detect_tags(frame))
 
 
-def _scale_residuals(stem: str) -> tuple[list, list[ScaleResidualSample]]:
+def _scale_residuals(
+    stem: str, artifact: CalibrationArtifact
+) -> tuple[list, list[ScaleResidualSample]]:
     """`(calibration tag detections, their scale residuals)` for saved calibration `stem`. Not
     persisted per tag in the artifact, so worked out from the stored tag detections."""
-    artifact = _load_saved_artifact(stem)
     detections = [d for d in _calibration_tags(stem) if d.tag_id in CALIBRATION_ID_RANGE]
     tag_sizes_mm = {d.tag_id: artifact.calibration_tag_size_mm for d in detections}
     samples = scale_residual_samples(artifact.scale_field, detections, tag_sizes_mm)
@@ -1147,8 +1165,8 @@ def _render_radial_plot(inputs: dict) -> bytes:
     `calibration_viz.render_radial_residual_plot`): each tag's signed scale residual against its
     distance from the image centre."""
     stem = inputs["stem"]
-    _detections, samples = _scale_residuals(stem)
-    with Image.open(_calibration_photo(stem)[1]) as photo:  # the header only, no decode
+    _detections, samples = _scale_residuals(stem, _load_saved_artifact(stem))
+    with Image.open(_calibration_photo(stem)) as photo:  # the header only, no decode
         width, height = photo.size
     cx, cy = width / 2, height / 2
     points = [(float(np.hypot(s.x - cx, s.y - cy)), s.residual_pct, s.tag_id) for s in samples]
@@ -1167,7 +1185,7 @@ def _render_tag_map(inputs: dict) -> bytes:
         table_frame = build_table_frame(artifact.corner_baseline)
     except ValueError as exc:
         raise HTTPException(409, f"cannot straighten the table: {exc}") from exc
-    detections, samples = _scale_residuals(stem)
+    detections, samples = _scale_residuals(stem, artifact)
     residual_at = {(s.tag_id, s.x, s.y): s.residual_pct for s in samples}
     median = float(np.median([s.residual_pct for s in samples]))
     tags = []
@@ -1175,7 +1193,7 @@ def _render_tag_map(inputs: dict) -> bytes:
         residual = residual_at.get((d.tag_id, *d.centre))
         if residual is not None:
             tags.append((np.asarray(d.corners, dtype=float), residual - median))
-    frame, scale = images.reduced_frame(_calibration_photo(stem)[1], HEATMAP_MAX_WIDTH)
+    frame, scale = images.reduced_frame(_calibration_photo(stem), HEATMAP_MAX_WIDTH)
     image = render_tag_map(
         frame,
         scale,
@@ -1189,11 +1207,16 @@ def _render_tag_map(inputs: dict) -> bytes:
 
 def _calibration_plot(stem: str, recipe: str) -> Response:
     """Calibration `stem`'s `recipe` plot, from the images.py store once drawn."""
-    _load_saved_artifact(stem)  # 404/422 for an unknown or unreadable stem, before anything is drawn
-    inputs: dict = {"stem": stem}
+    artifact = _load_saved_artifact(stem)  # 404/422 for an unknown or unreadable stem
+    # Everything the plot is drawn from, so a rewritten artifact draws anew.
+    inputs: dict = {
+        "stem": stem,
+        "scale_field": scale_field_to_dict(artifact.scale_field),
+        "calibration_tag_size_mm": artifact.calibration_tag_size_mm,
+    }
     if recipe == "calibration_tag_map":
-        # The operator's tape-measured table size (Step 5), as the distance between corner tag
-        # centres the straightened view needs. Part of the inputs, so a new value draws anew.
+        # The table size last saved on the calibration page (not stored per calibration), as the
+        # distance between corner tag centres the straightened view needs.
         persisted = load_settings()
         corner_mm = persisted.get("corner_tag_size_mm") or ASSUMED_CORNER_TAG_SIZE_MM
         for name in ("table_width_mm", "table_length_mm"):
