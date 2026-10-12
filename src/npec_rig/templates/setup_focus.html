@@ -1,25 +1,22 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui %}
 {% set nav_active = "setup" %}
-{% block title_suffix %} — Focus &amp; Square{% endblock %}
+{% block title_suffix %}: Focus and Square{% endblock %}
 
 {% block breadcrumb %}
-  <p class="breadcrumb">
-    <a href="/setup">Setup</a> / Focus &amp; Square
-  </p>
+  {{ ui.link_button("Setup", "/setup", "btn-back", "back") }}
+  <h1>Focus and Square</h1>
+  {{ ui.about_button("about-focus", "About") }}
+  {{ ui.button("Camera settings", id="camera-settings-btn") }}
 {% endblock %}
 
 {% block content %}
-  <p style="margin: 0.5rem 0; color: #aaa; font-size: 0.85rem;">
-    Click the live preview to place the focus region. Watch the score below peak while adjusting
-    the lens.
-  </p>
-
   {% set show_square_mode = true %}
   {% include "_focus_controls.html" %}
 
   <script>
-    // No wizard steps on this page -- always "active", so the shared focus-controls partial's
-    // stream/score gating (which exists for the calibration wizard's Step 1) is a no-op here.
+    // No wizard steps on this page: always "active", so the shared focus-controls partial's
+    // stream and score gating (which exists for the calibration wizard) is a no-op here.
     function isActiveStep(n) {
       return true;
     }

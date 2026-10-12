@@ -108,10 +108,30 @@
 {%- endmacro %}
 
 {#- Whole-button steps either side of a typed value. ui.bindStepper(el, onChange). -#}
-{% macro stepper(id, label, value, unit="", min=0, max=100, step=1, decimals=0) -%}
-<div class="stepper" id="{{ id }}" data-step="{{ step }}">
+{#- tight: smaller buttons with the label beside them, for a row of controls under an image. -#}
+{% macro stepper(id, label, value, unit="", min=0, max=100, step=1, decimals=0, tight=false) -%}
+<div class="stepper{% if tight %} tight{% endif %}" id="{{ id }}" data-step="{{ step }}">
+  {%- if tight %}<span class="stepper-label">{{ label }}</span>{% endif %}
   <button type="button" class="btn hit" data-step-by="-1" aria-label="{{ label }}, down {{ step }}">{{ icon("minus") }}</button>
   {{ field_button(id ~ "-value", label, value, unit, "number", min, max, decimals) }}
   <button type="button" class="btn hit" data-step-by="1" aria-label="{{ label }}, up {{ step }}">{{ icon("plus") }}</button>
 </div>
+{%- endmacro %}
+{#- About pages: one per page or wizard step, opened by its About button and closed by Close or
+    Escape (ui.bindAbout). Three parts, always: what to do (numbered steps), every control
+    explained, and why it matters. controls is a list of (name, explanation) pairs. -#}
+{% macro about_button(page_id, label="About this step") -%}
+<button type="button" class="btn hit help-btn" data-about="{{ page_id }}">{{ icon("help") }}<span class="lbl">{{ label }}</span></button>
+{%- endmacro %}
+{% macro about_page(id, title, todo, controls, why) -%}
+<template id="{{ id }}" data-title="{{ title }}">
+  <div class="help-page">
+    <h2>What to do</h2>
+    <ol>{% for item in todo %}<li>{{ item }}</li>{% endfor %}</ol>
+    <h2>The controls</h2>
+    <dl>{% for name, text in controls %}<dt>{{ name }}</dt><dd>{{ text }}</dd>{% endfor %}</dl>
+    <h2>Why it matters</h2>
+    <p>{{ why }}</p>
+  </div>
+</template>
 {%- endmacro %}

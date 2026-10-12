@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui %}
 {% set nav_active = "setup" %}
 {% block title_suffix %}: Calibration{% endblock %}
 
@@ -94,18 +95,13 @@
 
     </div>
     <div class="wizard-step" data-step="2">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 2 - Lock focus</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Set the focus for your setup, then lock it.
-    </p>
-    <details style="margin: 0 0 0.5rem;">
-      <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
-      <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-        Use "Autofocus" or the manual controls below, then "Lock focus". Re-check this any
-        time the lens may have moved. Calibration measures the scene through whatever focus is
-        locked.
-      </p>
-    </details>
+    {#- The About and Camera settings buttons move to the wizard's head with the wizard frame
+        (#136, second PR). -#}
+    <div class="row focus-step-head">
+      <h3>Step 2: Lock focus</h3>
+      {{ ui.about_button("about-focus") }}
+      {{ ui.button("Camera settings", id="camera-settings-btn") }}
+    </div>
 
     {% include "_focus_controls.html" %}
 
