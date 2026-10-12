@@ -42,7 +42,7 @@ from npec_rig.tags import TagDetection, detect_tags
 TAG_DETECTOR_VERSION = 1
 DERIVED_MAX_BYTES = 2 * 1024**3
 # One full-size decode at a time: each holds about 190MB, and the Pi has run out of memory before
-# with several 64MP frames live at once (see app.py, _detect_tags_cached).
+# with several 64MP frames live at once (dmesg-confirmed, 2026-09-22).
 _full_decode = threading.BoundedSemaphore(1)
 _key_locks: dict[str, threading.Lock] = {}
 _key_locks_guard = threading.Lock()
@@ -143,6 +143,12 @@ def tag_detections(
     with _key_locks_guard:
         _key_locks.pop(f"tags:{source}", None)
     return detections
+
+
+def store_tag_detections(source: str, detections: list[TagDetection]) -> None:
+    """Store `detections` as `source`'s tags, for a caller that has just run the current detector
+    on the photograph's own full-size pixels (a calibration run), so nothing searches it again."""
+    _store_tags(source, detections)
 
 
 def _store_tags(source: str, detections: list[TagDetection]) -> None:

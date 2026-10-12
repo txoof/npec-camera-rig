@@ -18,15 +18,11 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-import numpy as np
-from PIL import Image
-
 from npec_rig.calibration import (
     CalibrationArtifact,
     calibration_artifact_from_dict,
     calibration_artifact_to_dict,
 )
-from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import photos_root
 
 CURRENT_FILENAME = "current.json"
@@ -119,77 +115,17 @@ def calibration_frame_url(stem: str | None) -> str | None:
     return f"/photos/{path.parent.name}/{path.name}"
 
 
-def load_calibration_frame(stem: str) -> np.ndarray:
-    """Read back calibration `stem`'s photo, as an RGB array -- for reprocessing (re-detecting
-    tags) against a saved calibration without a fresh capture, e.g. the best-vs-worst-tag rank
-    plot, which needs per-tag data no artifact schema persists. FileNotFoundError when missing.
-    """
-    path = calibration_frame_path(stem)
-    if path is None:
-        raise FileNotFoundError(f"no photo for calibration {stem!r}")
-    return np.array(Image.open(path).convert("RGB"))
+# Diagnostic images that calibration runs used to write under `heatmaps/`, before the plot review
+# (issue #53) removed them. Nothing writes them now; deleting a calibration still removes any left
+# on disk. Plots drawn now go through images.py.
+LEGACY_HEATMAP_SUFFIXES = ("", "_area-shape", "_accuracy-shape", "_table-view", "_table-view-area-shape")
 
 
-def save_calibration_heatmap(image: np.ndarray, *, stem: str) -> Path:
-    """Write `image` (already rendered by `calibration_viz.render_uncertainty_heatmap`) as a
-    JPEG under its own directory, keyed by the same `stem` as the frame and artifact it came
-    from -- a rendering, not a measurement, so it lives separately from both.
-    """
+def delete_legacy_heatmaps(stem: str) -> None:
+    """Remove calibration `stem`'s old diagnostic images, if any are left."""
     root = calibration_root() / HEATMAPS_DIRNAME
-    root.mkdir(parents=True, exist_ok=True)
-    path = root / f"{stem}.jpg"
-    path.write_bytes(array_to_jpeg(image))
-    return path
-
-
-def save_calibration_area_shape_heatmap(image: np.ndarray, *, stem: str) -> Path:
-    """Write `image` (rendered by `calibration_viz.render_area_shape_heatmap`) as a JPEG under
-    the same heatmaps directory as `save_calibration_heatmap`, with a `_area-shape` suffix on
-    the stem so the two renderings from one capture don't collide.
-    """
-    root = calibration_root() / HEATMAPS_DIRNAME
-    root.mkdir(parents=True, exist_ok=True)
-    path = root / f"{stem}_area-shape.jpg"
-    path.write_bytes(array_to_jpeg(image))
-    return path
-
-
-def save_calibration_accuracy_shape_heatmap(image: np.ndarray, *, stem: str) -> Path:
-    """Write `image` (rendered by `calibration_viz.render_uncertainty_heatmap` with a large `k`)
-    as a JPEG under the same heatmaps directory as `save_calibration_heatmap`, with an
-    `_accuracy-shape` suffix -- the smoothed-neighbourhood accuracy-shape view (Aaron/supervisor,
-    2026-09-25), distinct from the small-`k` coverage-gap heatmap the plain `.jpg` stem holds.
-    """
-    root = calibration_root() / HEATMAPS_DIRNAME
-    root.mkdir(parents=True, exist_ok=True)
-    path = root / f"{stem}_accuracy-shape.jpg"
-    path.write_bytes(array_to_jpeg(image))
-    return path
-
-
-def save_calibration_table_view(image: np.ndarray, *, stem: str) -> Path:
-    """Write `image` (rendered by `calibration_viz.render_table_view` for the scale-residual
-    field) as a JPEG under the same heatmaps directory as `save_calibration_heatmap`, with a
-    `_table-view` suffix on the stem so the straightened view doesn't collide with the raw-photo
-    heatmap from the same capture.
-    """
-    root = calibration_root() / HEATMAPS_DIRNAME
-    root.mkdir(parents=True, exist_ok=True)
-    path = root / f"{stem}_table-view.jpg"
-    path.write_bytes(array_to_jpeg(image))
-    return path
-
-
-def save_calibration_table_view_area_shape(image: np.ndarray, *, stem: str) -> Path:
-    """Write `image` (rendered by `calibration_viz.render_table_view` for the area-shape field)
-    as a JPEG under the same heatmaps directory, with a `_table-view-area-shape` suffix -- the
-    table-view analogue of `save_calibration_area_shape_heatmap`.
-    """
-    root = calibration_root() / HEATMAPS_DIRNAME
-    root.mkdir(parents=True, exist_ok=True)
-    path = root / f"{stem}_table-view-area-shape.jpg"
-    path.write_bytes(array_to_jpeg(image))
-    return path
+    for suffix in LEGACY_HEATMAP_SUFFIXES:
+        (root / f"{stem}{suffix}.jpg").unlink(missing_ok=True)
 
 
 def load_calibration(path: Path) -> CalibrationArtifact:

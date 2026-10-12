@@ -192,174 +192,15 @@
     <h3 style="margin: 1rem 0 0.25rem;">Step 5 - Read the report</h3>
     <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
       The result above states the scale, coverage, and any coverage gaps found. If it says
-      coverage is weak somewhere, open Diagnostics below to see exactly where, add a sheet there,
+      coverage is weak somewhere, load the plots below to see exactly where, add a sheet there,
       and run calibration again. There is no need to redo Steps 1 to 3 unless something actually moved.
     </p>
-    <div style="margin: 0.5rem 0;">
-      <button id="load-diagnostics-btn">Load diagnostics for the active calibration</button>
-      <span style="color: #aaa; font-size: 0.8rem; margin-left: 0.5rem;">
-        Re-detects tags from the saved frame, which can take a few seconds. Use this to see the
-        active calibration's diagnostics without running a new one (e.g. after promoting one
-        from history below).
-      </span>
-    </div>
-
-    <details id="diagnostics-details" style="margin-top: 0.75rem;">
-      <summary>Diagnostics</summary>
-    <img id="calibration-area-shape-heatmap" alt="Area-scale shape distortion heatmap"
-         class="diagnostic-image">
-    <div id="calibration-area-shape-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
-      <div style="height: 14px; border-radius: 3px; background: linear-gradient(to right,
-        rgb(48,18,59) 0%, rgb(70,105,224) 12.5%, rgb(42,185,238) 25%, rgb(47,241,155) 37.5%,
-        rgb(161,253,61) 50%, rgb(236,209,58) 62.5%, rgb(251,129,34) 75%, rgb(210,49,5) 87.5%,
-        rgb(122,4,3) 100%);"></div>
-      <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #aaa; margin-top: 0.15rem;">
-        <span>0% (square)</span><span>0.13%</span><span>0.25%</span><span>0.38%</span><span>0.5%+ (most distorted)</span>
-      </div>
-      <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
-        Area-scale shape check (TODO.md): each tag's real pixel area (exact, from its four
-        corners) compared to treating it as a perfect square. The colour scale runs 0 to 0.5%,
-        a range measured from 17 real calibration runs on this rig (2026-09-21).
-        Flat/near-zero everywhere means squaring the scale field above is fine for area, not just
-        length. Structured, growing toward the corners, is real evidence area needs its own fit
-        before M5 (canopy area) relies on it.
-      </p>
-      <details style="margin-top: 0.4rem;">
-        <summary>How this number is calculated, and what it means</summary>
-        <div style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
-          <p>
-            The scale field above only ever measures <em>length</em> (pixels per millimetre in
-            one direction). Turning that into an <em>area</em> conversion (needed to report
-            canopy area in mm², not pixels) means squaring it, which is only exactly right if
-            every tag's photographed shape is a perfect square. Near a tilted table's edges, a
-            real square can photograph as a slightly non-square quadrilateral (a "keystone"
-            shape), and squaring the length scale would silently miss that.
-          </p>
-          <p>
-            Rather than model the lens or the table's tilt angle to predict this (the kind of
-            camera maths this project has failed at three times before, see CLAUDE.md), it is
-            measured directly: each tag's <em>real</em> pixel area, computed exactly from its
-            four detected corners (a standard geometry formula, no lens model, no assumptions),
-            compared to what a perfect square with that tag's own average side length would
-            cover. A square is the largest-area shape possible for a given average side length,
-            so this comparison can only ever come out as zero (a genuine square) or negative
-            (some real distortion), never positive; that is also why this heatmap's colour scale
-            only runs one direction.
-          </p>
-          <p>
-            <strong>What it means:</strong> answers "is squaring the length scale above good
-            enough for area, or does area need its own correction before the canopy-area feature
-            (M5) relies on it?" Flat/near-zero everywhere means squaring is fine. Measured across
-            17 real calibration runs on this rig (2026-09-21): the worst tag anywhere came out
-            at &minus;0.46%, and the pattern gets worse toward the table's corners in a way that
-            tracks position, not tag size or image noise (checked separately, by comparing
-            against tag size directly across 2104 tags), so it reads as a real, if very small,
-            geometric effect, not noise. Logged as an open scope decision in TODO.md, not acted
-            on further without sign-off, since an area-specific fit is exactly the calibration
-            maths CLAUDE.md's evidence gates exist to hold off on.
-          </p>
-        </div>
-      </details>
-    </div>
-    <h3 style="margin: 1rem 0 0.25rem;">Table-position view</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Click "Save" below any time. No camera capture is needed, just these three numbers. They only
-      affect whether the view below is drawn to scale, nothing else, so there is no need to
-      re-run a calibration just to fix one of them.
-    </p>
-    <label class="peaking-row">
-      <span>
-        <strong>Table width / length (mm)</strong>: lay a tape measure across the <em>outer</em>
-        edges of two corner tags (the corners facing away from the table) and enter the number you
-        read, straight off the tape. No centre to find, no arithmetic: the app subtracts the
-        corner tag size below for you. <strong>Width</strong> is the left-to-right pair in the
-        camera image (top-left to top-right corner tag); <strong>length</strong> is top-to-bottom
-        (top-left to bottom-left corner tag). Swapping them renders a transposed rectangle.
-        Leave either blank (before you have ever entered one) for a square, NOT-TO-SCALE canvas
-        that still shows relative position correctly. Remembered between runs once entered,
-        pre-filled here from the last value you actually typed in, so you do not need to retype
-        it every run.
-      </span>
-      <span>
-        <input type="number" id="table-width-input" step="0.1" min="0"
-               placeholder="width e.g. 1050" style="width: 7rem;">
-        <input type="number" id="table-length-input" step="0.1" min="0"
-               placeholder="length e.g. 850" style="width: 7rem;">
-      </span>
-    </label>
-    <label class="peaking-row">
-      <span>
-        <strong>Corner tag size (mm)</strong>: the corner tags' own physical size, used only to
-        convert the outer-edge measurement above into the centre-to-centre distance the table view
-        needs. Measure with callipers for accuracy; leave blank to use the placeholder default
-        (shown after you run a calibration).
-      </span>
-      <input type="number" id="corner-tag-size-input" step="0.01" min="0"
-             placeholder="e.g. 50" style="width: 7rem;">
-    </label>
-    <div class="lock-row">
-      <button id="table-dims-save-btn">Save</button>
-      <span id="table-dims-save-result" style="font-size: 0.85rem; color: #aaa;"></span>
-    </div>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      The area-shape field above, painted instead on a straightened, top-down view
-      of the table, anchored to the four corner tags, which do not move, so "this spot on the
-      picture" is the same real spot on the table across different calibration runs, not tied to
-      one specific photo's own tilt and framing (PLAN.md's own corner-tag homography, M2 section
-      A). Grey means no calibration tag was ever near that spot: not measured, regardless of
-      colour, never a guessed or smoothed-in value.
-    </p>
-    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Area-shape distortion</h4>
-    <img id="table-view-shape-distortion" alt="Area-shape distortion, table-position view"
-         class="diagnostic-image">
-    <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
-      NOT TO SCALE (a square canvas) unless both table width and length above were entered.
-      Relative position within the table is correct either way, but the rectangle's own
-      proportions only match the real table when both were measured and entered (as the
-      outer-edge-to-outer-edge tape measurement described above, with the corner tag size
-      subtracted automatically). A measurement smaller than the corner tag size itself falls
-      back to NOT TO SCALE rather than showing a nonsense rectangle.
-    </p>
-    <h3 style="margin: 1rem 0 0.25rem;">Best vs. worst tag</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Every calibration tag's own scale residual and area-shape distortion, sorted best to
-      worst, so a specific outlier tag can be found by ID and frame position rather than only
-      seeing the heatmap's average. Each plot's vertical axis is that run's own spread, not
-      the heatmap's fixed 0 to 0.5% scale. Read the axis label baked into each image, not the
-      colours above. Green marks the best tag, red the worst, on both the sorted plot and the
-      actual photo below it.
-    </p>
-    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Scale residual</h4>
-    <img id="rank-plot-scale-residual" alt="Scale residual, best to worst"
-         class="diagnostic-image">
-    <img id="best-worst-photo-scale-residual" alt="Scale residual, best and worst tag on the photo"
-         class="diagnostic-image">
-    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Area-shape distortion</h4>
-    <img id="rank-plot-shape-distortion" alt="Area-shape distortion, best to worst"
-         class="diagnostic-image">
-    <img id="best-worst-photo-shape-distortion" alt="Area-shape distortion, best and worst tag on the photo"
-         class="diagnostic-image">
-
-    <h3 style="margin: 1rem 0 0.25rem;">Is this lens/parallax distortion, or something else?</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      PLAN.md's own rule: a lens/parallax distortion signature is <em>structured</em>: residual
-      trends with distance from the image centre, with a consistent sign, not random scatter.
-      That is the specific measurement that decides whether picking up lens-distortion modelling
-      is justified, so it is plotted directly rather than guessed at: every tag's own signed
-      residual (not folded to a percentage magnitude, because a real distortion trend has a sign) against
-      its distance from the image centre, with an unweighted linear fit and its R². No judgement
-      is baked in here about whether a given R² counts as "structured". Read the scatter and the
-      fit yourself.
-    </p>
-    <img id="radial-plot-scale-residual" alt="Scale residual vs. distance from image centre"
-         class="diagnostic-image">
-    <img id="radial-plot-shape-distortion" alt="Area-shape distortion vs. distance from image centre"
-         class="diagnostic-image">
+    {% set plot_base = "/calibration/current" %}
+    {% include "_calibration_diagnostics.html" %}
 
     <p style="margin: 0.75rem 0 0;">
       <a href="/setup/calibration-history">Browse calibration history →</a>
     </p>
-    </details>
 
     </div>
     <div class="wizard-step" data-step="6">
@@ -516,36 +357,9 @@
     const calibrationResult = document.getElementById("calibration-result");
     const calibrationCurrent = document.getElementById("calibration-current");
     const tagSizeInput = document.getElementById("tag-size-input");
-    const calibrationAreaShapeHeatmap = document.getElementById("calibration-area-shape-heatmap");
-    const calibrationAreaShapeHeatmapLegend = document.getElementById(
-      "calibration-area-shape-heatmap-legend"
-    );
-    const tableWidthInput = document.getElementById("table-width-input");
-    const tableLengthInput = document.getElementById("table-length-input");
-    const cornerTagSizeInput = document.getElementById("corner-tag-size-input");
-    const tableDimsSaveBtn = document.getElementById("table-dims-save-btn");
-    const tableDimsSaveResult = document.getElementById("table-dims-save-result");
-    const tableViewShapeDistortion = document.getElementById("table-view-shape-distortion");
-    const rankPlotScaleResidual = document.getElementById("rank-plot-scale-residual");
-    const rankPlotShapeDistortion = document.getElementById("rank-plot-shape-distortion");
-    const bestWorstPhotoScaleResidual = document.getElementById("best-worst-photo-scale-residual");
-    const bestWorstPhotoShapeDistortion = document.getElementById("best-worst-photo-shape-distortion");
-    const radialPlotScaleResidual = document.getElementById("radial-plot-scale-residual");
-    const radialPlotShapeDistortion = document.getElementById("radial-plot-shape-distortion");
+    const diagnostics = window.calibrationDiagnostics;
 
     function renderCurrentCalibration(data) {
-      // Pre-fill with the operator's last real, explicitly-typed values (settings.py, not tied
-      // to a saved calibration existing) so a repeat run does not need them retyped -- only
-      // overwritten by hand if the operator has already typed something in for *this* run.
-      if (!tableWidthInput.value && data.table_width_mm != null) {
-        tableWidthInput.value = data.table_width_mm;
-      }
-      if (!tableLengthInput.value && data.table_length_mm != null) {
-        tableLengthInput.value = data.table_length_mm;
-      }
-      if (!cornerTagSizeInput.value && data.corner_tag_size_mm != null) {
-        cornerTagSizeInput.value = data.corner_tag_size_mm;
-      }
       if (!data.exists) {
         calibrationCurrent.textContent = "No calibration saved yet.";
         return;
@@ -568,58 +382,6 @@
       const r = await fetch("/calibration/current");
       renderCurrentCalibration(await r.json());
       window.refreshValidationStatus();
-    }
-
-    // The pre-rendered heatmap/table-view images are already on disk (saved at capture time),
-    // so displaying them for any artifact -- a just-finished run or one loaded generically from
-    // /calibration/current -- costs nothing extra.
-    function showPrerenderedDiagnosticImages(data) {
-      if (data.area_shape_heatmap_url) {
-        calibrationAreaShapeHeatmap.src = `${data.area_shape_heatmap_url}?t=${Date.now()}`;
-        calibrationAreaShapeHeatmap.style.display = "block";
-        calibrationAreaShapeHeatmapLegend.style.display = "block";
-      } else {
-        calibrationAreaShapeHeatmap.style.display = "none";
-        calibrationAreaShapeHeatmapLegend.style.display = "none";
-      }
-      if (data.table_view_shape_url) {
-        tableViewShapeDistortion.src = `${data.table_view_shape_url}?t=${Date.now()}`;
-        tableViewShapeDistortion.style.display = "block";
-      } else {
-        tableViewShapeDistortion.style.display = "none";
-      }
-    }
-
-    // Re-detects tags from the current baseline's saved frame each time (no per-tag persistence
-    // in the artifact) -- always targets whatever /calibration/current is, so only call this
-    // once that is actually the run you want plotted (see the promoted_to_current gate below,
-    // and the opt-in "Load diagnostics" button, both of which exist because this is not free).
-    function showRankPlots() {
-      rankPlotScaleResidual.src = `/calibration/current/rank-plot?metric=scale_residual&t=${Date.now()}`;
-      rankPlotScaleResidual.style.display = "block";
-      rankPlotShapeDistortion.src = `/calibration/current/rank-plot?metric=shape_distortion&t=${Date.now()}`;
-      rankPlotShapeDistortion.style.display = "block";
-      bestWorstPhotoScaleResidual.src =
-        `/calibration/current/best-worst-photo?metric=scale_residual&t=${Date.now()}`;
-      bestWorstPhotoScaleResidual.style.display = "block";
-      bestWorstPhotoShapeDistortion.src =
-        `/calibration/current/best-worst-photo?metric=shape_distortion&t=${Date.now()}`;
-      bestWorstPhotoShapeDistortion.style.display = "block";
-      radialPlotScaleResidual.src =
-        `/calibration/current/radial-plot?metric=scale_residual&t=${Date.now()}`;
-      radialPlotScaleResidual.style.display = "block";
-      radialPlotShapeDistortion.src =
-        `/calibration/current/radial-plot?metric=shape_distortion&t=${Date.now()}`;
-      radialPlotShapeDistortion.style.display = "block";
-    }
-
-    function hideRankPlots() {
-      rankPlotScaleResidual.style.display = "none";
-      rankPlotShapeDistortion.style.display = "none";
-      bestWorstPhotoScaleResidual.style.display = "none";
-      bestWorstPhotoShapeDistortion.style.display = "none";
-      radialPlotScaleResidual.style.display = "none";
-      radialPlotShapeDistortion.style.display = "none";
     }
 
     // vs. the calibration that was active right before this run replaced it (Aaron, 2026-09-28)
@@ -657,9 +419,6 @@
         const promote = promoteToggle.checked;
         let url = `/calibration/run?promote=${promote}`;
         if (tagSizeInput.value) url += `&calibration_tag_size_mm=${tagSizeInput.value}`;
-        if (tableWidthInput.value) url += `&table_width_mm=${tableWidthInput.value}`;
-        if (tableLengthInput.value) url += `&table_length_mm=${tableLengthInput.value}`;
-        if (cornerTagSizeInput.value) url += `&corner_tag_size_mm=${cornerTagSizeInput.value}`;
         let r = await fetch(url, { method: "POST" });
         let data = await r.json();
         if (data.gate_failed) {
@@ -687,30 +446,10 @@
             ? `tag size: ${data.calibration_tag_size_mm} mm placeholder default, measure with ` +
               "callipers and enter it above"
             : `tag size: ${data.calibration_tag_size_mm} mm (calliper-measured, as entered)`;
-          const cornerTagSize = data.corner_tag_size_mm_is_default
-            ? `corner tag size: ${data.corner_tag_size_mm} mm placeholder default, measure with ` +
-              "callipers and enter it above for a precise table view"
-            : `corner tag size: ${data.corner_tag_size_mm} mm (calliper-measured, as entered)`;
-          let tableDims;
-          if (data.table_view_to_scale) {
-            tableDims =
-              `table view: ${data.table_width_mm}mm x ${data.table_length_mm}mm outer-edge span, ` +
-              "as entered";
-          } else if (data.table_width_mm || data.table_length_mm) {
-            tableDims =
-              `table view: NOT TO SCALE: entered width/length (${data.table_width_mm}mm x ` +
-              `${data.table_length_mm}mm) could not convert against corner tag size ` +
-              `${data.corner_tag_size_mm}mm (too small, or one of the two left blank), check ` +
-              "your measurement";
-          } else {
-            tableDims = "table view: NOT TO SCALE: enter table width/length above for real proportions";
-          }
           lines = [
             `${data.calibration_tags_detected} calibration tags, ` +
               `${data.corner_tags_detected} corner tags detected`,
             tagSize,
-            cornerTagSize,
-            tableDims,
             `${centre}, plane-fit residual ${data.residual_std_pct.toFixed(2)}%`,
             ...data.report,
           ];
@@ -729,74 +468,34 @@
           lines.unshift(`Photo flagged: ${data.photo_flags.join("; ")}. Recorded with the photo.`);
         }
         calibrationResult.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
-        showPrerenderedDiagnosticImages(data);
+        await refreshCurrentCalibration();
+        // Step 2's focus status names the calibration's lens position; show the new one.
+        focusControls.refreshFocusStatus();
         if (!data.error && data.promoted_to_current) {
           // Gated on promoted_to_current (found by code review 2026-09-26): these endpoints
           // only ever read the current baseline, so fetching them after a promote=False
           // comparison run would silently show the *previous* baseline's plots, not this run's.
-          showRankPlots();
+          // Awaited, so the button stays busy until the plots are on screen.
+          calibrateBtn.textContent = "Drawing diagnostics...";
+          await diagnostics.load();
         } else {
-          hideRankPlots();
+          diagnostics.hide();
         }
-        await refreshCurrentCalibration();
-        // Step 2's focus status names the calibration's lens position; show the new one.
-        focusControls.refreshFocusStatus();
       } finally {
         calibrateBtn.disabled = false;
         calibrateBtn.textContent = "Run calibration";
       }
     });
 
-    const loadDiagnosticsBtn = document.getElementById("load-diagnostics-btn");
-    const diagnosticsDetails = document.getElementById("diagnostics-details");
-
-    loadDiagnosticsBtn.addEventListener("click", async () => {
-      loadDiagnosticsBtn.disabled = true;
-      loadDiagnosticsBtn.textContent = "Loading (re-detecting tags)...";
-      try {
-        const r = await fetch("/calibration/current");
-        const data = await r.json();
-        if (!data.exists) {
-          alert("No calibration saved yet.");
-          return;
-        }
-        diagnosticsDetails.open = true;
-        showPrerenderedDiagnosticImages(data);
-        // The rank/best-worst/radial plots need the saved frame (they re-detect tags from
-        // it); an artifact can exist with no frame_stem (calibration.py: "a ScaleField alone is
-        // still a valid, usable artifact"), and frame_url is the signal for that, same as the
-        // pre-rendered images above. Without this check they would 409 as broken-image icons with no
-        // explanation.
-        if (data.frame_url) {
-          showRankPlots();
-        } else {
-          hideRankPlots();
-        }
-      } finally {
-        loadDiagnosticsBtn.disabled = false;
-        loadDiagnosticsBtn.textContent = "Load diagnostics for the active calibration";
-      }
-    });
-
-    tableDimsSaveBtn.addEventListener("click", async () => {
-      tableDimsSaveBtn.disabled = true;
-      tableDimsSaveResult.textContent = "Saving...";
-      try {
-        let url = "/calibration/table-dims";
-        const params = [];
-        if (tableWidthInput.value) params.push(`table_width_mm=${tableWidthInput.value}`);
-        if (tableLengthInput.value) params.push(`table_length_mm=${tableLengthInput.value}`);
-        if (cornerTagSizeInput.value) params.push(`corner_tag_size_mm=${cornerTagSizeInput.value}`);
-        if (params.length) url += `?${params.join("&")}`;
-        const r = await fetch(url, { method: "POST" });
-        const data = await r.json();
-        tableDimsSaveResult.textContent =
-          `Saved: width ${data.table_width_mm ?? "?"}mm, length ${data.table_length_mm ?? "?"}mm, ` +
-          `corner tag ${data.corner_tag_size_mm ?? "?"}mm`;
-      } finally {
-        tableDimsSaveBtn.disabled = false;
-      }
-    });
+    // The plots need a calibration with its saved photo; an artifact can exist without one
+    // (calibration.py: "a ScaleField alone is still a valid, usable artifact"), and frame_url is
+    // the signal. Without this check they would fail as broken images with no explanation.
+    diagnostics.beforeLoad = async () => {
+      const data = await (await fetch("/calibration/current")).json();
+      if (!data.exists) return "No calibration saved yet.";
+      if (!data.frame_url) return "The active calibration has no saved photo, so there are no plots.";
+      return null;
+    };
 
     refreshCurrentCalibration();
 
