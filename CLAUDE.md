@@ -215,6 +215,17 @@ git -C ~/npec_camera_rig fetch origin
 git -C ~/npec_camera_rig worktree add -b <n>-<short-name> ~/wt/npec-<n>-<short-name> origin/main
 ```
 
+**When the issue names an existing branch**, start from that branch instead of `origin/main`, or
+the work it already holds (a spec, a mockup, an earlier slice) is missing and the push is
+refused:
+
+```bash
+git -C ~/npec_camera_rig worktree add -b <branch> ~/wt/npec-<branch> origin/<branch>
+```
+
+Check `git ls-remote --heads origin <n>-*` before creating a branch: if one exists for the
+issue, use it.
+
 The branch, the folder and the claim comment use the same name. Run tests there with
 `PYTHONPATH="$(pwd)/src"`. Never work on `main`. Do not touch another session's worktree or PR.
 After the merge, remove the worktree and the local branch.
@@ -252,7 +263,7 @@ limits: where one does not work for a page, choose what does and say why in the 
   them, so a missed tap lands on nothing instead of on a neighbor.
 - **No hover, no drag, no sliders.** Nothing is reachable only by hovering. Do not add drag
   handles or range inputs: use buttons (a stepper, nudge buttons) and a typed value instead.
-- **Scroll gutter.** Keep a lane on the right of scrolling content free of controls (about 88px on
+- **Scroll gutter.** Keep a lane on the right of scrolling content free of controls (about 64px on
   the chamber screen), so a stylus can scroll without pressing anything. Do not center wide
   content into it.
 - **Fit the screen.** At 1024x600 the controls that finish a task (Submit, Next, Save) stay on
