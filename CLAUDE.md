@@ -261,8 +261,10 @@ limits: where one does not work for a page, choose what does and say why in the 
 
 - **Big targets, wide gaps.** Make tapped controls large, about 64px tall, with about 24px between
   them, so a missed tap lands on nothing instead of on a neighbor.
-- **No hover, no drag, no sliders.** Nothing is reachable only by hovering. Do not add drag
-  handles or range inputs: use buttons (a stepper, nudge buttons) and a typed value instead.
+- **No hover, no small sliders, drag only where moving is the task.** Nothing is reachable only
+  by hovering. Use buttons (a stepper) and a typed value instead of range inputs. Drag only with
+  large handles, and only where moving something is the task itself, such as the squareness
+  guides; every drag also has a keyboard alternative (for example W A S D or the arrow keys).
 - **Scroll gutter.** Keep a lane on the right of scrolling content free of controls (about 64px on
   the chamber screen), so a stylus can scroll without pressing anything. Do not center wide
   content into it.
