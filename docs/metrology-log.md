@@ -1509,6 +1509,26 @@ The 2026-09-30 and 10-01 sessions predate the 20-minute rule. Under this rule 5 
 pass. A rule per slot (at least 90% in at least 11 of 12 slots) would fail 6 of the 8, including
 two sessions 3 and 6 minutes apart, so it is not proposed.
 
+**First session, done 2026-10-12.** Pi on since 2026-10-07 (no cold start); app restarted at
+06:54 UTC, before the session (a warm restart, section 8); no camera events on 2026-10-12. Lens
+locked at 5.97 at 07:05 UTC, a focus point Aaron chose deliberately slightly different from the
+previous one (6.04); the images stayed sharp. Calibration `20261012T070607812512` (07:06 UTC, made
+current, 30.0 mm tags, all 4 corner tags, residual 0.66%: higher than SN001's previous four,
+0.49% to 0.54%, inside SN000's 0.52% to 0.70%). Validation session `20261012T070703613469`: rounds
+at 07:08, 07:18 and 07:29 UTC, 21.0 minutes first to last, shortest gap 10.1 minutes, door closed;
+93.5%, 96.9% and 79.2% of tags moved; 85 to 90 tags per slot.
+
+| Slot | Band | Median error | Slot | Band | Median error |
+|---|---|---|---|---|---|
+| North 1 | ±2.9% | +0.67 | South 1 | ±1.4% | -0.07 |
+| North 2 | ±1.5% | -0.03 | South 2 | ±3.0% | +0.52 |
+| North 3 | ±2.7% | -0.58 | South 3 | ±2.8% | -0.42 |
+| North 4 | ±2.4% | -0.40 | South 4 | ±3.4% | -0.95 |
+| North 5 | ±1.4% | -0.31 | South 5 | ±1.3% | +0.15 |
+| North 6 | ±1.8% | +0.12 | South 6 | ±2.6% | +1.14 |
+
+Median of the slot medians -0.05 points. These are the reference bands for the second session.
+
 ### 14.2 Tape measure
 
 Section 9.2 method A unchanged: steel tape from the outer edge of a tag on the South 1 sheet to the
