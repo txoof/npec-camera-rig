@@ -232,11 +232,15 @@ After the merge, remove the worktree and the local branch.
 
 **The board.** Columns Todo, In Progress, In Review, Done. Move the cards for the issue and its PR:
 In Progress when claimed, In Review when the PR is opened, back to Todo when a claim is released
-unfinished. Closing and merging move cards to Done by themselves. `item-add` on a card that is
-already on the board returns its id, so always run both commands:
+unfinished. Closing and merging move cards to Done by themselves. The board may already hold the
+card (it can add new issues on its own), and `item-add` then fails with "Content already exists".
+So look the card up first and add it only when it is missing:
 
 ```bash
-item=$(gh project item-add 5 --owner txoof --url <issue-or-PR-URL> --format json --jq .id)
+url=<issue-or-PR-URL>
+item=$(gh project item-list 5 --owner txoof --limit 500 --format json \
+  --jq ".items[] | select(.content.url==\"$url\") | .id")
+[ -n "$item" ] || item=$(gh project item-add 5 --owner txoof --url "$url" --format json --jq .id)
 gh project item-edit --project-id PVT_kwHOANmg6c4BmGmA --id "$item" \
   --field-id PVTSSF_lAHOANmg6c4BmGmAzhkw6FQ --single-select-option-id <column-id>
 ```
