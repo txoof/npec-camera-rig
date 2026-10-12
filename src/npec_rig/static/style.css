@@ -635,3 +635,5 @@ button.stop { background: #8a3b2f; }
   padding: 0.05rem 0.35rem;
   white-space: pre;
 }
+/* Typed in the same fixed-width font as the text to copy, so 0 and O, 1 and l look alike in both. */
+.experiment-dialog input#ask-input { font-family: ui-monospace, "DejaVu Sans Mono", monospace; }
