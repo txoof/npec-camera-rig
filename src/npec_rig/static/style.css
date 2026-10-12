@@ -1,15 +1,43 @@
 * { box-sizing: border-box; }
+/* The hidden attribute always wins: components set display, and must still hide with hidden. */
+[hidden] { display: none !important; }
+/* Design tokens, from the approved mockup (reference/ui-mockup/rig-ui-mockup.html, #128). The
+   older rules below keep their literal colors until their pages move onto these. */
 :root {
+  color-scheme: dark;
+  --bg: #121519;
+  --surface: #1a1e24;
+  --surface-2: #232931;
+  --line: #3b434e;
+  --fg: #f1f3f6;
+  --fg-2: #b9c1cc;
+  --accent: #6cb4ff;
+  --accent-ink: #06121f;
+  --ok: #4fd18b;
+  --warn: #f4bf4f;
+  --fail: #ff7a7a;
+  --guide: #ff4fff;
+  --focus: #ffe066;
+  --lane: #171b20;
+
+  /* System fonts only: the chamber PCs may have no internet. */
+  --font-ui: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-num: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+
+  --tap: 64px;          /* minimum height of anything tapped */
+  --slop: 10px;         /* extra hit area on every side: touch error differs between the 15 screens */
+  --gap: 24px;          /* gap between tappable controls, always more than 2 x --slop */
+  --gutter: 64px;       /* right-hand lane with no controls: scroll there without pressing anything */
+  --radius: 10px;
+
   /* 48px clears every touch-target guideline checked against this app (WCAG 2.5.5 AAA,
      Apple HIG, Material Design) -- the WCAG 2.5.8 AA floor is 24px, but that's a legal
      minimum, not a usable one on this rig's touchscreen. */
   --touch-target-min: 48px;
-  /* "80% of the frame," not 80% of whatever narrow form-control column an element happens to sit
-     in (a real bug: inside .calibration-section's 480px cap, 80% rendered as ~30% of the actual
-     screen) -- viewport-relative. The one width rule for every wide element on these pages (live
-     views, diagnostic images, the focus control panel) -- not just images, despite the name
-     history; kept to one variable so a future width change is one edit, not a grep. */
-  --wide-content-width: min(80vw, 1400px);
+  /* The one width rule for every wide element on these pages (live views, diagnostic images,
+     the focus control panel). The work area beside the rail is the frame now, so this is all of
+     it: the old 80vw measured the window and overflowed the work area. */
+  --wide-content-width: 100%;
 }
 /* Every font-size on these pages is in rem, so bumping the root scales all of them together --
    raised from the 16px browser default because the small (0.75-0.85rem) copy read too small on
@@ -17,42 +45,338 @@
 html { font-size: 18px; }
 body {
   margin: 0;
-  padding: 0.75rem;
-  font-family: system-ui, sans-serif;
-  background: #111;
+  font-family: var(--font-ui);
+  line-height: 1.4;
+  background: var(--bg);
   color: #eee;
 }
-h1 { font-size: 1.1rem; margin: 0 0 0.75rem; }
-/* Sticky header: cancels the body's own padding on three sides and re-applies it, so the bar
-   spans full width flush to the viewport edges once stuck, with its own background so scrolled
-   content doesn't show through underneath it. */
-.site-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: #111;
-  margin: -0.75rem -0.75rem 0;
-  padding: 0.75rem 0.75rem 0;
-}
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
-.top-nav {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.9rem;
+
+/* ---------- App shell (base.html) ----------
+   A section rail on the left, one work area: its head, one scrolling area, and an optional
+   action bar fixed at the bottom, so the controls that finish a task never scroll away. Only
+   .scroll scrolls; the page itself never does. */
+.app {
+  height: 100vh; height: 100dvh;
+  display: grid; grid-template-columns: 104px minmax(0, 1fr);
+  background: var(--bg);
 }
-.top-nav a {
-  color: #aaa;
-  text-decoration: none;
+.rail {
+  display: flex; flex-direction: column; gap: 20px; padding: 10px 4px; min-height: 0;
+  overflow-y: auto;
+  background: var(--surface); border-right: 1px solid var(--line);
 }
-.top-nav a.active {
-  color: #fff;
-  font-weight: bold;
+.rail-btn {
+  min-height: 72px; border-radius: var(--radius); background: transparent;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 0.75rem; color: var(--fg-2); text-decoration: none; text-align: center;
 }
-.breadcrumb {
-  margin: -0.5rem 0 0.75rem;
-  font-size: 0.85rem;
+.rail-btn svg { width: 26px; height: 26px; }
+.rail-btn[aria-current=page] {
+  background: var(--surface-2); color: var(--fg); font-weight: 700;
+  box-shadow: inset 4px 0 0 var(--accent);
 }
+.rail-spacer { flex: 1; }
+/* The camera status (_camera_status.html) sits at the bottom of the rail, shown only on a fault. */
+.rail .camera-status {
+  margin: 0; padding: 6px; border-radius: var(--radius); background: var(--surface-2);
+  font-size: 0.8rem; overflow-wrap: anywhere;
+}
+
+.work { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; min-width: 0; }
+.work-head {
+  display: flex; align-items: center; gap: 16px; padding: 10px 20px;
+  border-bottom: 1px solid var(--line); min-height: 76px; color: var(--fg);
+}
+.work-head h1 { font-size: 1.35rem; margin: 0; text-wrap: balance; }
+.work-head .sub { color: var(--fg-2); font-size: 0.9rem; margin: 2px 0 0; }
+.work-head .breadcrumb { margin: 0; font-size: 1.1rem; }
+/* The scrolling area keeps a control-free lane on the right, shaded so people learn where it is
+   safe to put the stylus or a thumb to scroll. */
+.scroll {
+  --scroll-gap: 20px;   /* space between the content and the lane */
+  overflow-y: auto; min-height: 0; position: relative;
+  padding: 20px calc(var(--gutter) + var(--scroll-gap)) 20px 20px;
+  background: linear-gradient(var(--lane), var(--lane)) right / var(--gutter) 100% no-repeat;
+}
+.action-bar {
+  display: flex; align-items: center; gap: var(--gap); padding: 10px 20px;
+  border-top: 1px solid var(--line); background: var(--surface); color: var(--fg);
+}
+.action-bar .grow { flex: 1; text-align: center; color: var(--fg-2); font-size: 0.95rem; }
+
+/* ---------- Tap area ----------
+   Every tapped control reaches --slop past each edge, the same on every side: no screen's touch
+   error is designed around. Gaps are wider than twice the slop, so a missed tap lands on nothing. */
+.hit { position: relative; }
+.hit::after { content: ""; position: absolute; inset: calc(-1 * var(--slop)); border-radius: var(--radius); }
+.show-hit .hit::after { outline: 2px dashed var(--warn); background: rgba(244,191,79,0.08); }
+
+/* ---------- Components (templates/_ui.html, static/ui.js; tried on /ui) ---------- */
+.ui-icon { width: 24px; height: 24px; flex: none; }
+.btn {
+  min-height: var(--tap); min-width: 120px; padding: 0 22px; border-radius: var(--radius);
+  border: 2px solid var(--line); background: var(--surface-2); color: var(--fg);
+  font: inherit; font-size: 1.05rem; font-weight: 600; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.danger { background: var(--surface-2); border-color: var(--fail); color: var(--fail); }
+.btn:disabled, .field-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-back { min-width: 0; padding: 0 16px; }
+
+.row { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: center; }
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
+.lead { color: var(--fg-2); margin: 0; max-width: 65ch; }
+
+/* Field button: looks like an input, is a button, and opens the on-page keypad, keyboard or
+   list. Not a real text input, so the Windows on-screen keyboard has nothing to attach to. */
+.field { display: grid; gap: 6px; color: var(--fg); }
+.field-label { font-weight: 600; }
+.field-help { color: var(--fg-2); font-size: 0.9rem; }
+.field-btn {
+  min-height: var(--tap); min-width: 220px; padding: 0 16px; border-radius: var(--radius);
+  border: 2px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; white-space: normal;
+  font-family: var(--font-num); font-size: 1.2rem; font-variant-numeric: tabular-nums; text-align: left;
+}
+.field-btn .unit { font-family: var(--font-ui); color: var(--fg-2); font-size: 0.95rem; }
+.field-btn .empty { font-family: var(--font-ui); color: var(--fg-2); font-size: 0.95rem; }
+.field-btn .ui-icon { width: 22px; height: 22px; color: var(--fg-2); }
+.field-btn.text { font-family: var(--font-ui); font-size: 1.05rem; }
+.field-btn.text.match { border-color: var(--ok); }
+
+/* Stepper: replaces sliders and drags. Whole buttons, no precision needed. */
+.stepper { display: flex; align-items: stretch; gap: var(--gap); }
+.stepper .btn { min-width: var(--tap); padding: 0 12px; }
+.stepper .field-btn { min-width: 150px; justify-content: center; }
+
+/* Switch row: the whole row is the target, not a 16px checkbox. */
+.switch {
+  width: 100%; min-height: var(--tap); padding: 12px 16px; border-radius: var(--radius);
+  border: 2px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer;
+  text-align: left; white-space: normal; font: inherit;
+  display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center;
+}
+.switch .track { width: 64px; height: 36px; border-radius: 18px; background: var(--line); position: relative; }
+.switch .track::before {
+  content: ""; position: absolute; top: 4px; left: 4px; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--fg); transition: left .15s;
+}
+.switch[aria-checked=true] .track { background: var(--accent); }
+.switch[aria-checked=true] .track::before { left: 32px; background: var(--accent-ink); }
+.switch .txt strong { display: block; }
+.switch .txt span { color: var(--fg-2); font-size: 0.9rem; }
+.switch .state { font-weight: 700; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.switch.compact { width: auto; min-height: 52px; padding: 6px 14px; gap: 10px; grid-template-columns: auto auto; }
+.switch.compact .track { width: 52px; height: 30px; }
+.switch.compact .track::before { width: 22px; height: 22px; }
+.switch.compact[aria-checked=true] .track::before { left: 26px; }
+
+/* Status: color, shape and words together. Never color alone. */
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px;
+  border-radius: 999px; border: 2px solid currentColor; font-weight: 700; font-size: 0.9rem;
+  white-space: nowrap;
+}
+.chip .ui-icon { width: 20px; height: 20px; }
+.chip.ok { color: var(--ok); }
+.chip.warn { color: var(--warn); }
+.chip.fail { color: var(--fail); }
+.chip.info { color: var(--fg-2); }
+
+.banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px var(--gap); padding: 12px 16px;
+  border-radius: var(--radius); border: 2px solid var(--warn); background: rgba(244,191,79,0.08); color: var(--fg);
+}
+.banner.fail { border-color: var(--fail); background: rgba(255,122,122,0.08); }
+.banner.info { border-color: var(--line); background: var(--surface); }
+.banner p { margin: 0; flex: 1; min-width: 220px; }
+
+/* Alert card: one problem that needs a person, with what to do about it. */
+.alert-card {
+  border: 2px solid var(--fail); border-radius: var(--radius); padding: 12px 14px; color: var(--fg);
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px;
+}
+.alert-card.warn { border-color: var(--warn); }
+.alert-card p { margin: 0; }
+
+/* Help: one "About this step" pattern, with a large summary. */
+details.help { border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg); }
+details.help summary {
+  min-height: 56px; padding: 0 16px; display: flex; align-items: center; gap: 12px;
+  cursor: pointer; font-weight: 600; list-style: none;
+}
+details.help summary.hit::after { inset: -4px; }
+details.help summary::-webkit-details-marker { display: none; }
+details.help summary .ui-icon { color: var(--accent); }
+details.help summary .title { flex: 1; }
+details.help[open] summary .chev { transform: rotate(180deg); }
+details.help .help-body { padding: 0 16px 16px; color: var(--fg-2); max-width: 65ch; }
+details.help .help-body p { margin: 0 0 10px; }
+
+.card {
+  border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg);
+  padding: 14px 16px; display: grid; gap: 12px;
+}
+.card.current { border-color: var(--accent); }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.card-head h3 { font-size: 1.1rem; margin: 0; flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.card-meta { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--fg-2); font-size: 0.9rem; margin: 0; }
+.card-actions { display: flex; flex-wrap: wrap; gap: var(--gap); }
+.card-actions .btn { min-width: 132px; }
+/* Condensed card: details on the left, actions on the right, for long lists. */
+.card.condensed { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 10px 14px; gap: 8px 16px; }
+.card.condensed .card-head h3 { flex: 0 1 auto; }
+.card.condensed .card-meta { gap: 2px 16px; font-size: 0.85rem; }
+.card.condensed .card-info { display: grid; gap: 4px; min-width: 0; }
+.card.condensed .card-actions { gap: var(--gap); flex-wrap: nowrap; }
+.card.condensed .card-actions .btn { min-width: 0; min-height: 52px; padding: 0 16px; font-size: 1rem; }
+.list { display: grid; gap: var(--gap); }
+
+/* Data table. The header row sticks to the top of .scroll; the negative top cancels the scroll
+   area's top padding, or rows show through the padding above the header. */
+.data-table { border-collapse: collapse; width: 100%; font-size: 0.9rem; color: var(--fg); }
+.data-table th, .data-table td { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.data-table th { color: var(--fg-2); font-weight: 600; }
+.data-table th:first-child, .data-table td:first-child { text-align: left; }
+.data-table td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.data-table thead th { position: sticky; top: -20px; background: var(--bg); z-index: 1; box-shadow: 0 1px 0 var(--line); }
+
+/* Choice buttons: replace <select> and radio buttons. */
+.choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--gap); }
+.choice {
+  min-height: var(--tap); border-radius: var(--radius); border: 2px solid var(--line); background: var(--surface-2);
+  color: var(--fg); padding: 8px 14px; text-align: left; cursor: pointer; display: grid; gap: 2px;
+  white-space: normal; font: inherit;
+}
+.choice strong { font-size: 1rem; }
+.choice span { color: var(--fg-2); font-size: 0.85rem; font-family: var(--font-num); }
+.choice[aria-pressed=true] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* ---------- Layers: keypad, keyboard, dropdown list ----------
+   Each covers the screen and holds everything the entry needs: the field's label, its value,
+   the allowed range and the buttons that finish it, so nothing needed is underneath. */
+.keypad-layer, .kb-layer {
+  position: fixed; inset: 0; z-index: 50; color: var(--fg);
+}
+.keypad-layer {
+  background: rgba(5,7,9,0.94);
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; padding: 16px 20px;
+}
+.kp-info { display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 12px; min-height: 0; }
+.kp-label { font-size: 1.2rem; font-weight: 700; margin: 0; }
+.kp-help { color: var(--fg-2); margin: 0; font-size: 0.95rem; }
+.kp-value {
+  min-height: 84px; border: 3px solid var(--accent); border-radius: var(--radius); background: var(--bg);
+  display: flex; align-items: center; justify-content: space-between; padding: 0 18px;
+  font-family: var(--font-num); font-size: 2rem; font-variant-numeric: tabular-nums;
+}
+.kp-value .unit { font-family: var(--font-ui); font-size: 1rem; color: var(--fg-2); }
+.cursor { display: inline-block; width: 3px; height: 1.1em; background: var(--accent); vertical-align: middle; margin-left: 2px; }
+.kp-error { color: var(--fail); font-weight: 600; margin: 0; min-height: 1.4em; display: flex; gap: 8px; align-items: center; }
+.kp-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--gap); }
+.kp-actions .btn { min-height: 76px; }
+.kp-keys { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 14px; min-height: 0; padding-bottom: 6px; }
+.key {
+  min-height: var(--tap); border-radius: var(--radius); border: 2px solid var(--line); background: var(--surface-2);
+  color: var(--fg); padding: 0; font-family: var(--font-num); font-size: 1.8rem; font-weight: 600; cursor: pointer;
+  display: grid; place-items: center;
+}
+.key .ui-icon { width: 34px; height: 34px; }
+.key.fn { font-family: var(--font-ui); font-size: 1.1rem; background: var(--surface); }
+.key.wide { grid-column: span 3; min-height: 56px; }
+.key:active { background: var(--accent); color: var(--accent-ink); }
+/* Keypad keys sit closer together, so their extension is limited to half the gap. */
+.kp-keys .hit::after { inset: -7px; }
+
+.kb-layer {
+  background: rgba(5,7,9,0.96);
+  display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; padding: 12px 16px;
+}
+.kb-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px var(--gap); align-items: end; }
+.kb-top .kp-label { grid-column: 1 / -1; font-size: 1.05rem; }
+.kb-value {
+  min-height: 64px; border: 3px solid var(--accent); border-radius: var(--radius); background: var(--bg);
+  display: flex; align-items: center; padding: 0 14px; font-size: 1.3rem; overflow: hidden; white-space: nowrap;
+}
+.kb-value .count { margin-left: auto; padding-left: 12px; color: var(--fg-2); font-size: 0.8rem; font-family: var(--font-num); }
+.kb-top .btn { min-height: 64px; }
+.kb-keys { display: grid; grid-template-rows: repeat(5, 1fr); gap: 10px; min-height: 0; }
+.kb-row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; }
+.kb-row .key { min-height: 0; font-family: var(--font-ui); font-size: 1.35rem; }
+.kb-row .key.fn { font-size: 1rem; }
+.kb-row .key.space { grid-column: 2 / span 8; }
+.kb-row .key[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.kb-keys .hit::after { inset: -5px; }
+.kb-native { display: none; }
+.kb-native input { width: 100%; }
+
+.choice-layer .kb-top { grid-template-columns: minmax(0, 1fr) auto; }
+.choice-layer .kb-top .kp-label { grid-column: auto; align-self: center; margin: 0; }
+/* The list scrolls, so it keeps the same control-free lane on the right as .scroll. */
+.choice-list {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-content: start; overflow-y: auto;
+  padding: 10px calc(var(--gutter) + 10px) 10px 10px;
+  background: linear-gradient(var(--lane), var(--lane)) right / var(--gutter) 100% no-repeat;
+}
+.choice-list .choice { min-height: 68px; }
+
+/* ---------- Panels: a form or a confirmation over the work area ----------
+   The same head, scroll and action bar as a page, so the buttons that finish it stay on screen. */
+.panel-layer {
+  position: absolute; inset: 0; z-index: 40; background: var(--bg); color: var(--fg);
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.panel-layer .work-head h1 { font-size: 1.25rem; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 60;
+  background: var(--fg); color: var(--bg); padding: 12px 18px; border-radius: var(--radius); font-weight: 600;
+}
+.countdown { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* ---------- Narrow screens (phones) ----------
+   Under 700px wide the rail becomes a bottom bar and the full keyboard gives way to the
+   device's own. Width is how a page tells a phone from a chamber screen (#128). */
+@media (max-width: 700px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; --gutter: 48px; }
+  .rail {
+    order: 2; flex-direction: row; flex-wrap: wrap; border-right: 0; border-top: 1px solid var(--line);
+    padding: 6px; gap: 20px; overflow: visible;
+  }
+  .rail-spacer { display: none; }
+  .rail-btn { flex: 1; min-height: 64px; font-size: 0.8rem; gap: 2px; min-width: 0; }
+  .rail-btn[aria-current=page] { box-shadow: inset 0 4px 0 var(--accent); }
+  .rail .camera-status { flex: 1 1 100%; order: -1; }
+  .work-head { padding: 8px 14px; min-height: 64px; }
+  .work-head h1 { font-size: 1.15rem; }
+  .scroll { --scroll-gap: 12px; padding: 16px calc(var(--gutter) + var(--scroll-gap)) 16px 14px; }
+  .data-table thead th { top: -16px; }
+  .action-bar { padding: 8px 14px; }
+  .action-bar .grow { display: none; }
+  .action-bar .btn { flex: 1; min-width: 0; }
+  .row > .btn { flex: 1 1 140px; }
+  .stepper .field-btn { min-width: 0; flex: 1; }
+  .field-btn { min-width: 0; width: 100%; }
+  .card.condensed { grid-template-columns: minmax(0, 1fr); }
+  .card.condensed .card-actions { flex-wrap: wrap; }
+  .card.condensed .card-actions .btn { flex: 1 1 100px; }
+  .card-actions .btn { flex: 1 1 130px; min-width: 0; }
+  .choice-list { grid-template-columns: minmax(0, 1fr); }
+  .keypad-layer { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); padding: 12px 14px; gap: 12px; }
+  .kp-info { grid-template-rows: auto auto auto; }
+  .kp-info .kp-help, .kp-info .spacer { display: none; }
+  .kp-value { min-height: 68px; font-size: 1.6rem; }
+  .kp-actions { order: 9; }
+  .kb-keys { display: none; }
+  .kb-native { display: grid; }
+  .kb-top { grid-template-columns: 1fr 1fr; }
+  .kb-value { grid-column: 1 / -1; }
+}
+
 .focus-layout {
   display: flex;
   flex-direction: column;
@@ -69,6 +393,7 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
    edge. Harmless in focus mode too -- just a small gap next to the crop pane. */
 .focus-layout.mode-square .preview-wrap {
   margin: 0 20px 20px 20px;
+  width: calc(100% - 40px);
 }
 .preview {
   display: block;
@@ -538,7 +863,7 @@ a { color: #6cf; }
 .validation-status[data-validation-state="not_validated"] { border-left-color: #e3b341; }
 .validation-status[data-validation-state="not_validated"] .validation-status-text { color: #e3b341; }
 
-/* Camera status line (_camera_status.html), in the site header of every page. */
+/* Camera status line (_camera_status.html), at the bottom of the rail on every page. */
 .camera-status { margin: 0 0 0.75rem; padding: 0.35rem 0.6rem; border-left: 4px solid #e3b341;
   font-size: 0.9rem; }
 .camera-status .camera-status-text { font-weight: bold; color: #e3b341; }

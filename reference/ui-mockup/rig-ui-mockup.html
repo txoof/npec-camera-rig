@@ -1,0 +1,1482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Approved UI mockup 3 for the redesign (UI redesign tracking issue, #125). Example data only.
+     Drawn from origin/main at 63ee0a6. Open in a browser; the top bar switches screen size. -->
+<style>[hidden] { display: none !important; }</style>
+<title>Camera Rig Interface</title>
+<style>
+/* Layout concept: a left rail for site sections, one scrolling work area, and a fixed action
+   bar at the bottom of the work area, so the controls that finish a task never scroll away.
+   Single dark look by choice (the app is already dark); no light/dark switch. */
+:root {
+  color-scheme: dark;
+  --bg: #121519;
+  --surface: #1a1e24;
+  --surface-2: #232931;
+  --line: #3b434e;
+  --fg: #f1f3f6;
+  --fg-2: #b9c1cc;
+  --accent: #6cb4ff;
+  --accent-ink: #06121f;
+  --ok: #4fd18b;
+  --warn: #f4bf4f;
+  --fail: #ff7a7a;
+  --guide: #ff4fff;
+  --focus: #ffe066;
+
+  --font-ui: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-num: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+
+  --tap: 64px;          /* minimum height of anything tapped */
+  --slop: 10px;         /* extra hit area on every side: touch error is unknown on 14 of the 15 chamber screens */
+  --gap: 24px;          /* gap between tappable controls, always > 2 x --slop */
+  --gutter: 64px;       /* right-hand lane with no controls: scroll there without tapping anything */
+  --lane: #171b20;
+  --radius: 10px;
+}
+html { font-size: 18px; }
+body {
+  margin: 0;
+  background: #0b0d10;
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---------- Mockup chrome (not part of the design) ---------- */
+.mock-bar {
+  display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center;
+  padding: 12px 16px; background: #000; border-bottom: 1px solid #333;
+  font-size: 0.9rem; color: #ccc;
+}
+.mock-bar strong { color: #fff; }
+.mock-bar label { display: flex; gap: 8px; align-items: center; min-height: 44px; }
+.mock-bar select { font: inherit; min-height: 44px; padding: 0 10px; background: #1a1a1a; color: #fff; border: 1px solid #555; border-radius: 6px; }
+.mock-bar input[type=checkbox] { width: 24px; height: 24px; }
+.mock-note { color: #999; font-size: 0.85rem; }
+.stage { padding: 16px; overflow-x: auto; }
+.frame {
+  margin: 0 auto; border: 2px solid #444; border-radius: 6px; overflow: hidden;
+  position: relative; background: var(--bg);
+  container-type: inline-size; container-name: app;
+}
+.frame[data-size=chamber] { width: 1024px; height: 600px; }
+.frame[data-size=phone] { width: 390px; height: 760px; }
+.frame[data-size=fill] { width: 100%; height: calc(100dvh - 140px); min-height: 520px; }
+.frame-cap { text-align: center; color: #888; font-size: 0.85rem; margin: 8px 0 0; }
+
+/* ---------- App shell ---------- */
+.app {
+  height: 100%; display: grid; grid-template-columns: 116px 1fr; background: var(--bg);
+}
+.rail {
+  display: flex; flex-direction: column; gap: 20px; padding: 10px 8px;
+  background: var(--surface); border-right: 1px solid var(--line);
+}
+.rail-name { font-size: 0.85rem; color: var(--fg-2); text-align: center; padding: 6px 0 4px; }
+.rail-name strong { display: block; color: var(--fg); font-size: 0.85rem; overflow-wrap: anywhere; }
+.rail-btn {
+  min-height: 84px; border: 0; border-radius: var(--radius); background: transparent;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  font-size: 0.9rem; color: var(--fg-2); cursor: pointer;
+}
+.rail-btn svg { width: 30px; height: 30px; }
+.rail-btn[aria-current=page] { background: var(--surface-2); color: var(--fg); font-weight: 700; box-shadow: inset 4px 0 0 var(--accent); }
+.rail-spacer { flex: 1; }
+.cam-status {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px;
+  border-radius: var(--radius); background: var(--surface-2); font-size: 0.85rem; text-align: center;
+}
+
+.work { position: relative; display: grid; grid-template-rows: auto 1fr auto; min-height: 0; min-width: 0; }
+.work-head {
+  display: flex; align-items: center; gap: 16px; padding: 10px 20px;
+  border-bottom: 1px solid var(--line); min-height: 76px;
+}
+.work-head h1 { font-size: 1.35rem; margin: 0; text-wrap: balance; }
+.work-head .sub { color: var(--fg-2); font-size: 0.9rem; margin: 2px 0 0; }
+/* The scrolling area keeps a control-free lane on the right. It is drawn, so people learn
+   where it is safe to put the stylus or a thumb to scroll. */
+.scroll {
+  overflow-y: auto; min-height: 0;
+  padding: 20px calc(var(--gutter) + 20px) 20px 20px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 22px, rgba(255,255,255,0.05) 22px 24px) right / var(--gutter) 100% no-repeat,
+    linear-gradient(var(--lane), var(--lane)) right / var(--gutter) 100% no-repeat;
+  border-right: 0;
+  position: relative;
+}
+.scroll-hint {
+  position: sticky; top: 40%; float: right; margin-right: calc(-1 * var(--gutter) - 20px + 8px);
+  width: calc(var(--gutter) - 16px); text-align: center; color: var(--fg-2); font-size: 0.75rem;
+  pointer-events: none; display: grid; justify-items: center; gap: 4px;
+}
+.scroll-hint svg { width: 26px; height: 26px; }
+.action-bar {
+  display: flex; align-items: center; gap: 16px; padding: 10px 20px;
+  border-top: 1px solid var(--line); background: var(--surface);
+}
+.action-bar .grow { flex: 1; text-align: center; color: var(--fg-2); font-size: 0.95rem; }
+
+/* ---------- Controls ---------- */
+.hit { position: relative; }
+.hit::after {
+  content: ""; position: absolute; inset: calc(-1 * var(--slop)); border-radius: var(--radius);
+}
+.show-hit .hit::after { outline: 2px dashed var(--warn); background: rgba(244,191,79,0.08); }
+
+.btn {
+  min-height: var(--tap); min-width: 120px; padding: 0 22px; border-radius: var(--radius);
+  border: 2px solid var(--line); background: var(--surface-2); font-size: 1.05rem; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer;
+}
+.btn svg { width: 24px; height: 24px; flex: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.danger { border-color: var(--fail); color: var(--fail); }
+.btn:disabled, .field-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-back { min-width: 0; padding: 0 16px; }
+
+.row { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: center; }
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
+
+/* Field: looks like an input, opens the on-page keypad. Not a real text input, so the
+   Windows on-screen keyboard has nothing to attach to. */
+.field { display: grid; gap: 6px; }
+.field-label { font-weight: 600; }
+.field-help { color: var(--fg-2); font-size: 0.9rem; }
+.field-btn {
+  min-height: var(--tap); min-width: 220px; padding: 0 16px; border-radius: var(--radius);
+  border: 2px solid var(--line); background: var(--bg); cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-family: var(--font-num); font-size: 1.2rem; font-variant-numeric: tabular-nums; text-align: left;
+}
+.field-btn .unit { font-family: var(--font-ui); color: var(--fg-2); font-size: 0.95rem; }
+.field-btn .empty { font-family: var(--font-ui); color: var(--fg-2); font-size: 0.95rem; }
+.field-btn svg { width: 22px; height: 22px; color: var(--fg-2); }
+
+/* Stepper: replaces sliders and drags. Whole buttons, no precision needed. */
+.stepper { display: flex; align-items: stretch; gap: var(--gap); }
+.stepper .btn { min-width: var(--tap); padding: 0 12px; }
+.stepper .field-btn { min-width: 150px; justify-content: center; }
+
+/* Switch row: the whole row is the target, not a 16px checkbox. */
+.switch {
+  width: 100%; min-height: var(--tap); padding: 12px 16px; border-radius: var(--radius);
+  border: 2px solid var(--line); background: var(--surface); cursor: pointer; text-align: left;
+  display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center;
+}
+.switch .track { width: 64px; height: 36px; border-radius: 18px; background: var(--line); position: relative; }
+.switch .track::before {
+  content: ""; position: absolute; top: 4px; left: 4px; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--fg); transition: left .15s;
+}
+.switch[aria-checked=true] .track { background: var(--accent); }
+.switch[aria-checked=true] .track::before { left: 32px; background: var(--accent-ink); }
+.switch .txt strong { display: block; }
+.switch .txt span { color: var(--fg-2); font-size: 0.9rem; }
+.switch .state { font-weight: 700; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* Status: color, shape and words together. Never color alone. */
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px;
+  border-radius: 999px; border: 2px solid currentColor; font-weight: 700; font-size: 0.9rem;
+  white-space: nowrap;
+}
+.chip svg { width: 20px; height: 20px; flex: none; }
+.chip.ok { color: var(--ok); }
+.chip.warn { color: var(--warn); }
+.chip.fail { color: var(--fail); }
+.chip.info { color: var(--fg-2); }
+
+.banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 12px 16px;
+  border-radius: var(--radius); border: 2px solid var(--warn); background: rgba(244,191,79,0.08);
+}
+.banner p { margin: 0; flex: 1; min-width: 220px; }
+
+/* Help: one consistent "About this step" pattern, large summary. */
+details.help { border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+details.help summary {
+  min-height: 56px; padding: 0 16px; display: flex; align-items: center; gap: 12px;
+  cursor: pointer; font-weight: 600; list-style: none;
+}
+details.help summary.hit::after { inset: -4px; }
+details.help summary::-webkit-details-marker { display: none; }
+details.help summary svg { width: 24px; height: 24px; color: var(--accent); flex: none; }
+details.help[open] summary .chev { transform: rotate(180deg); }
+details.help .help-body { padding: 0 16px 16px; color: var(--fg-2); max-width: 65ch; }
+details.help .help-body p { margin: 0 0 10px; }
+
+.lead { color: var(--fg-2); margin: 0; max-width: 65ch; }
+h2 { font-size: 1.2rem; margin: 0; }
+h3 { font-size: 1.05rem; margin: 0; }
+
+.needs {
+  display: none; font-size: 0.75rem; font-weight: 700; color: #ffb3ff; border: 1px dashed #ffb3ff;
+  border-radius: 4px; padding: 1px 6px; width: fit-content;
+}
+.show-needs .needs { display: inline-block; }
+
+/* ---------- Setup index ---------- */
+.task-list { display: grid; gap: var(--gap); }
+.task {
+  display: grid; grid-template-columns: 52px 1fr auto auto; gap: 16px; align-items: center;
+  min-height: 88px; padding: 12px 16px; border-radius: var(--radius); cursor: pointer; text-align: left;
+  border: 2px solid var(--line); background: var(--surface);
+}
+.task .ico { width: 52px; height: 52px; border-radius: 12px; background: var(--surface-2); display: grid; place-items: center; color: var(--accent); }
+.task .ico svg { width: 30px; height: 30px; }
+.task .tt { display: grid; gap: 2px; min-width: 0; }
+.task .t { font-size: 1.1rem; font-weight: 700; }
+.task .d { color: var(--fg-2); font-size: 0.9rem; }
+.task .go svg { width: 28px; height: 28px; color: var(--fg-2); }
+.task-meta { display: grid; gap: 4px; justify-items: end; }
+.group-label { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-2); margin: 8px 0 -4px; }
+
+/* ---------- Wizard ---------- */
+.steps { display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; padding: 10px 20px; border-bottom: 1px solid var(--line); }
+.step-btn {
+  min-height: 56px; border-radius: var(--radius); border: 2px solid var(--line); background: var(--surface);
+  display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-size: 0.95rem;
+  color: var(--fg-2);
+}
+.step-btn .n {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700;
+  border: 2px solid currentColor; font-size: 0.9rem; flex: none;
+}
+.step-btn[aria-current=step] { border-color: var(--accent); color: var(--fg); background: var(--surface-2); font-weight: 700; }
+.step-btn[aria-current=step] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.step-btn.done .n { background: var(--ok); border-color: var(--ok); color: #052; }
+.wizard-body { display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+
+.split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.preview { position: relative; background: #000; border-radius: var(--radius); overflow: hidden; border: 2px solid var(--line); }
+.preview canvas { display: block; width: 100%; height: auto; }
+.preview .tag { position: absolute; left: 8px; top: 8px; background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; color: var(--fg-2); }
+.guide { position: absolute; background: var(--guide); pointer-events: none; }
+.guide.h { left: 0; right: 0; height: 3px; margin-top: -1px; }
+.guide.v { top: 0; bottom: 0; width: 3px; margin-left: -1px; }
+.guide.sel { box-shadow: 0 0 0 3px rgba(255,79,255,0.35); }
+
+.readout { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: baseline; margin: 0; }
+.readout dt { color: var(--fg-2); }
+.readout dd { margin: 0; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+.seg { display: flex; gap: var(--gap); flex-wrap: wrap; }
+.seg .btn { min-width: 0; flex: 1; }
+.seg .btn[aria-pressed=true] { border-color: var(--guide); box-shadow: inset 0 0 0 2px var(--guide); }
+.nudge { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--gap); }
+.nudge .btn { min-width: 0; padding: 0 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; }
+.checklist { display: grid; gap: var(--gap); margin: 0; padding: 0; list-style: none; }
+.checklist li { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.result-table { width: 100%; border-collapse: collapse; }
+.result-table th, .result-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.result-table th { color: var(--fg-2); font-weight: 600; font-size: 0.9rem; }
+.result-table td.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.sheet-links { display: grid; gap: var(--gap); }
+.example { font-size: 0.8rem; color: var(--fg-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+
+/* ---------- Keypad ---------- */
+.keypad-layer {
+  position: absolute; inset: 0; z-index: 50; background: rgba(5,7,9,0.94);
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; padding: 16px 20px;
+}
+.kp-info { display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 12px; min-height: 0; }
+.kp-label { font-size: 1.2rem; font-weight: 700; margin: 0; }
+.kp-help { color: var(--fg-2); margin: 0; font-size: 0.95rem; }
+.kp-value {
+  min-height: 84px; border: 3px solid var(--accent); border-radius: var(--radius); background: var(--bg);
+  display: flex; align-items: center; justify-content: space-between; padding: 0 18px;
+  font-family: var(--font-num); font-size: 2rem; font-variant-numeric: tabular-nums;
+}
+.kp-value .unit { font-family: var(--font-ui); font-size: 1rem; color: var(--fg-2); }
+.kp-value .cursor { display: inline-block; width: 3px; height: 1.1em; background: var(--accent); vertical-align: middle; margin-left: 2px; }
+.kp-error { color: var(--fail); font-weight: 600; margin: 0; min-height: 1.4em; display: flex; gap: 8px; align-items: center; }
+.kp-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--gap); }
+.kp-actions .btn { min-height: 76px; }
+.kp-keys { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 14px; min-height: 0; padding-bottom: 6px; }
+.key {
+  min-height: var(--tap); border-radius: var(--radius); border: 2px solid var(--line); background: var(--surface-2);
+  font-family: var(--font-num); font-size: 1.8rem; font-weight: 600; cursor: pointer;
+  display: grid; place-items: center;
+}
+.key svg { width: 34px; height: 34px; }
+.key.fn { font-family: var(--font-ui); font-size: 1.1rem; background: var(--surface); }
+.key:active { background: var(--accent); color: var(--accent-ink); }
+/* Keypad keys sit closer together, so their extension is limited to half the gap. */
+.kp-keys .hit::after { inset: -7px; }
+
+.toast {
+  position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 60;
+  background: var(--fg); color: var(--bg); padding: 12px 18px; border-radius: var(--radius); font-weight: 600;
+}
+
+/* ---------- Cards and lists (Validation history, Experiments) ---------- */
+.card {
+  border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface);
+  padding: 14px 16px; display: grid; gap: 12px;
+}
+.card.current { border-color: var(--accent); }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.card-head h3 { font-size: 1.1rem; flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.card-meta { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--fg-2); font-size: 0.9rem; margin: 0; }
+.card-meta code, code { font-family: var(--font-num); font-size: 0.85rem; color: var(--fg); overflow-wrap: anywhere; }
+.card-actions { display: flex; flex-wrap: wrap; gap: var(--gap); }
+.card-actions .btn { min-width: 132px; }
+.list { display: grid; gap: var(--gap); }
+.section-title { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.section-title h2 { flex: 1; }
+
+/* ---------- Validation ---------- */
+.val-panes { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 20px; align-items: start; }
+.val-map { border: 2px solid var(--line); border-radius: var(--radius); background: #000; overflow: hidden; }
+.val-map canvas { display: block; width: 100%; height: auto; }
+.data-table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+.data-table th, .data-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.data-table th { color: var(--fg-2); font-weight: 600; }
+.data-table th:first-child, .data-table td:first-child { text-align: left; }
+.data-table td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.data-table td.all { font-weight: 700; }
+.data-table tr.bad td { background: rgba(255,122,122,0.12); }
+.data-table td .mk { display: inline-flex; vertical-align: -4px; margin-right: 4px; color: var(--fail); }
+.data-table td .mk svg { width: 18px; height: 18px; }
+.problem {
+  border: 2px solid var(--fail); border-radius: var(--radius); padding: 12px 14px;
+  display: grid; grid-template-columns: auto 1fr; gap: 12px 14px; align-items: center;
+}
+.problem .thumb {
+  width: 96px; height: 72px; border-radius: 6px; border: 2px solid var(--fail); background: #222; cursor: zoom-in; padding: 0;
+}
+.problem .thumb canvas { width: 100%; height: 100%; display: block; border-radius: 4px; }
+.problem p { margin: 0; }
+.problem .card-actions { grid-column: 1 / -1; }
+.round-bar { display: flex; align-items: center; gap: var(--gap); flex-wrap: wrap; width: 100%; }
+.round-bar .switch { width: auto; flex: 1 1 260px; }
+.round-bar .btn.primary { flex: 0 0 auto; min-width: 220px; }
+.countdown { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* ---------- Validation: everything for a round sits at the top ---------- */
+.head-block { display: grid; min-width: 0; }
+.val-head { min-height: 64px; padding-block: 8px; }
+.val-head h1 { font-size: 1.2rem; }
+.val-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 4px; }
+.val-sub .chip { padding-block: 2px; font-size: 0.85rem; }
+.val-strip {
+  display: flex; align-items: center; gap: 16px; padding: 8px 20px; min-height: 68px;
+  border-bottom: 1px solid var(--line); background: var(--surface);
+}
+.val-strip .grow { flex: 1; }
+.strip-label { white-space: nowrap; }
+.switch.compact { width: auto; min-height: 52px; padding: 6px 14px; gap: 10px; grid-template-columns: auto auto; }
+.switch.compact .track { width: 52px; height: 30px; }
+.switch.compact .track::before { width: 22px; height: 22px; }
+.switch.compact[aria-checked=true] .track::before { left: 26px; }
+.val-strip .btn { min-height: 52px; }
+.problem.compact { grid-template-columns: auto minmax(0, 1fr) auto; padding: 8px 12px; }
+.problem.compact .thumb { width: 72px; height: 54px; }
+.data-table thead th { position: sticky; top: 0; background: var(--bg); z-index: 1; box-shadow: 0 1px 0 var(--line); }
+/* No top padding where a table header sticks, or rows show through the padding above it. */
+#val-body { padding-top: 0; }
+#val-body > .stack { padding-top: 16px; }
+.data-table th, .data-table td { padding: 4px 8px; }
+
+/* ---------- Condensed experiment cards: details left, actions right ---------- */
+.card.exp { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 10px 14px; gap: 8px 16px; }
+.card.exp .card-head h3 { flex: 0 1 auto; }
+.card.exp .card-meta { gap: 2px 16px; font-size: 0.85rem; }
+.card.exp .exp-info { display: grid; gap: 4px; min-width: 0; }
+.card.exp .card-actions { gap: 16px; flex-wrap: nowrap; }
+.card.exp .card-actions .btn { min-width: 0; min-height: 52px; padding: 0 16px; font-size: 1rem; }
+.list.exp-list { gap: 16px; }
+
+/* ---------- Dropdown list ---------- */
+.choice-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-content: start; overflow-y: auto; }
+.choice-list .choice { min-height: 68px; }
+
+/* ---------- Choice buttons (replace <select>) ---------- */
+.choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--gap); }
+.choice {
+  min-height: var(--tap); border-radius: var(--radius); border: 2px solid var(--line); background: var(--surface-2);
+  padding: 8px 14px; text-align: left; cursor: pointer; display: grid; gap: 2px;
+}
+.choice strong { font-size: 1rem; }
+.choice span { color: var(--fg-2); font-size: 0.85rem; font-family: var(--font-num); }
+.choice[aria-pressed=true] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* ---------- Panels: form and confirmation, over the work area ---------- */
+.panel-layer {
+  position: absolute; inset: 0; z-index: 40; background: var(--bg);
+  display: grid; grid-template-rows: auto 1fr auto;
+}
+.panel-layer .work-head h1 { font-size: 1.25rem; }
+.confirm-text { padding: 2px 8px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--line); }
+.field-btn.text { font-family: var(--font-ui); font-size: 1.05rem; }
+.field-btn.text.match { border-color: var(--ok); }
+
+/* ---------- Full keyboard ---------- */
+.kb-layer {
+  position: absolute; inset: 0; z-index: 55; background: rgba(5,7,9,0.96);
+  display: grid; grid-template-rows: auto 1fr; gap: 12px; padding: 12px 16px;
+}
+.kb-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px 16px; align-items: end; }
+.kb-top .kp-label { grid-column: 1 / -1; font-size: 1.05rem; }
+.kb-value {
+  min-height: 64px; border: 3px solid var(--accent); border-radius: var(--radius); background: var(--bg);
+  display: flex; align-items: center; padding: 0 14px; font-size: 1.3rem; overflow: hidden; white-space: nowrap;
+}
+.kb-value .count { margin-left: auto; padding-left: 12px; color: var(--fg-2); font-size: 0.8rem; font-family: var(--font-num); }
+.kb-top .btn { min-height: 64px; }
+.kb-keys { display: grid; grid-template-rows: repeat(5, 1fr); gap: 10px; min-height: 0; }
+.kb-row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; }
+.kb-row .key { min-height: 0; font-family: var(--font-ui); font-size: 1.35rem; text-transform: none; }
+.kb-row .key.fn { font-size: 1rem; }
+.kb-row .key[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.kb-keys .hit::after { inset: -5px; }
+.kb-native { display: none; }
+
+/* ---------- Narrow screens (phones) ---------- */
+@container app (max-width: 700px) {
+  .val-panes { grid-template-columns: 1fr; }
+  .val-head { flex-wrap: wrap; gap: 8px 10px; }
+  .val-head .btn-back .lbl { display: none; }
+  .val-head #val-toggle { flex: 1 1 100%; min-height: 48px; }
+  .val-sub span:not(.chip) { display: none; }
+  .val-strip { flex-wrap: wrap; padding: 8px 14px; gap: 10px 12px; }
+  .val-strip .grow { display: none; }
+  .val-strip .countdown { flex: 1 1 auto; }
+  .val-strip .switch, .val-strip .btn.primary { flex: 1 1 140px; }
+  .problem.compact { grid-template-columns: auto minmax(0, 1fr); }
+  .problem.compact .btn { grid-column: 1 / -1; }
+  .card.exp { grid-template-columns: 1fr; }
+  .card.exp .card-actions { flex-wrap: wrap; }
+  .card.exp .card-actions .btn { flex: 1 1 100px; }
+  .choice-list { grid-template-columns: 1fr; }
+  .kb-keys { display: none; }
+  .kb-native { display: grid; }
+  .kb-top { grid-template-columns: 1fr 1fr; }
+  .kb-value { grid-column: 1 / -1; }
+  .card-actions .btn { flex: 1 1 130px; min-width: 0; }
+  .round-bar { gap: 12px 16px; }
+  .round-bar .countdown { flex: 1 1 100%; order: -1; }
+  .round-bar .switch { flex: 1 1 150px; padding: 8px 10px; gap: 10px; }
+  .round-bar .switch .txt span { display: none; }
+  .round-bar .btn.primary { min-width: 0; flex: 1 1 150px; }
+  .problem { grid-template-columns: 1fr; }
+  .app { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .rail { order: 2; flex-direction: row; border-right: 0; border-top: 1px solid var(--line); padding: 6px; gap: 20px; }
+  .rail-name, .rail-spacer { display: none; }
+  .rail-btn { flex: 1; min-height: 64px; font-size: 0.8rem; gap: 2px; min-width: 0; }
+  .rail-btn[aria-current=page] { box-shadow: inset 0 4px 0 var(--accent); }
+  .cam-status { flex: 1; font-size: 0.75rem; padding: 4px; }
+  .work-head { padding: 8px 14px; min-height: 64px; }
+  .work-head h1 { font-size: 1.15rem; }
+  .stepper .field-btn { min-width: 0; flex: 1; }
+  .nudge { gap: 16px; }
+  .row > .btn { flex: 1 1 140px; }
+  .app { --gutter: 48px; }
+  .scroll { padding: 16px calc(var(--gutter) + 12px) 16px 14px; }
+  .scroll-hint span { display: none; }
+  .action-bar { padding: 8px 14px; }
+  .action-bar .grow { display: none; }
+  .action-bar .btn { flex: 1; min-width: 0; }
+  .steps { display: none; }
+  .split { grid-template-columns: 1fr; }
+  .task { grid-template-columns: 44px 1fr auto; }
+  .task .task-meta { grid-column: 2 / 4; justify-items: start; }
+  .task .go { grid-row: 1; grid-column: 3; }
+  .task .ico { width: 44px; height: 44px; }
+  .keypad-layer { grid-template-columns: 1fr; grid-template-rows: auto 1fr; padding: 12px 14px; gap: 12px; }
+  .kp-info { grid-template-rows: auto auto auto; }
+  .kp-info .kp-help, .kp-info .spacer { display: none; }
+  .kp-value { min-height: 68px; font-size: 1.6rem; }
+  .kp-actions { order: 9; }
+  .field-btn { min-width: 0; width: 100%; }
+}
+</style>
+</head>
+<body>
+
+
+<div class="mock-bar">
+  <strong>Camera Rig Interface: mockup 3</strong>
+  <label for="mock-size">Screen
+    <select id="mock-size">
+      <option value="chamber">Chamber PC (1024 x 600 usable)</option>
+      <option value="phone">Phone (390 wide)</option>
+      <option value="fill">Fill this window</option>
+    </select>
+  </label>
+  <label for="mock-hit"><input type="checkbox" id="mock-hit"> Show tap areas</label>
+  <label for="mock-needs"><input type="checkbox" id="mock-needs"> Show backend notes</label>
+  <span class="mock-note">All numbers and images are example data, drawn from templates at 63ee0a6.</span>
+</div>
+
+<div class="stage">
+  <div class="frame" id="frame" data-size="chamber">
+    <div class="app" id="app">
+
+      <nav class="rail" aria-label="Sections">
+        <div class="rail-name">Rig<strong>chamber-03</strong><span class="needs">needs backend: #82</span></div>
+        <button class="rail-btn hit" aria-current="page" data-nav="setup">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+          Setup
+        </button>
+        <button class="rail-btn hit" data-nav="gallery">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          Capture
+        </button>
+        <button class="rail-btn hit" data-nav="experiments">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></svg>
+          Experiments
+        </button>
+        <div class="rail-spacer"></div>
+        <div class="cam-status" role="status">
+          <span class="chip ok" style="padding:4px 8px 4px 6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>OK</span>
+          Camera
+        </div>
+      </nav>
+
+      <main class="work" id="work"></main>
+    </div>
+    <div id="layer"></div>
+  </div>
+  <p class="frame-cap" id="frame-cap">Chamber PC: 1024 x 768 screen, about 600 px of height left after the taskbar and browser bar.</p>
+</div>
+
+<template id="tpl-setup">
+  <header class="work-head">
+    <div>
+      <h1>Setup</h1>
+      <p class="sub">Occasional rig setup. Daily photos and browsing are under Capture.</p>
+    </div>
+  </header>
+  <div class="scroll">
+    <div class="scroll-hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8l4-4 4 4M8 16l4 4 4-4M12 4v16"/></svg><span>Scroll here</span></div>
+    <div class="stack" style="gap:16px">
+      <div class="banner" role="status">
+        <span class="chip warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5" stroke-linecap="round"/></svg>Not validated</span>
+        <p>The active calibration (Oct 9) has not been validated. Areas have no trust band until it is.</p>
+        <button class="btn hit" data-goto="validation">Validate now</button>
+      </div>
+      <p class="group-label">In order, at chamber start</p>
+      <div class="task-list">
+        <button class="task hit" data-toast="Opens Focus and Square">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg></span>
+          <span class="tt"><span class="t">Focus and Square</span><span class="d">Autofocus, manual lens, guide lines. Check whenever the lens may have moved.</span></span>
+          <span class="task-meta"><span class="chip ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>Locked</span><span class="needs">needs backend: focus state on index</span></span>
+          <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </button>
+        <button class="task hit" data-goto="calibration">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
+          <span class="tt"><span class="t">Calibration</span><span class="d">Sheets, focus, squareness, run, report. Rare: chamber start, or when the app asks.</span></span>
+          <span class="task-meta"><span class="chip info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="8"/></svg>Active: Oct 9</span><span class="needs">needs backend: /calibration/current date</span></span>
+          <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </button>
+        <button class="task hit" data-goto="validation">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></span>
+          <span class="tt"><span class="t">Validation</span><span class="d">How far an area can be trusted in each tray slot. After every calibration.</span></span>
+          <span class="task-meta"><span class="chip warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5" stroke-linecap="round"/></svg>Needed</span></span>
+          <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </button>
+      </div>
+      <p class="group-label">When needed</p>
+      <div class="task-list">
+        <button class="task hit" data-toast="Opens Calibration history">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <span class="tt"><span class="t">Calibration history</span><span class="d">Every saved calibration. Make an old one active, or delete old ones.</span></span>
+          <span class="task-meta"><span class="chip info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="8"/></svg>6 saved</span></span>
+          <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </button>
+        <button class="task hit" data-toast="Opens Health check">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>
+          <span class="tt"><span class="t">Health check</span><span class="d">Tripwire check: did the rig roll or get knocked since calibration?</span></span>
+          <span class="task-meta"><span class="chip ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>Passed Oct 11</span><span class="needs">needs backend: last tripwire result</span></span>
+          <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div></div>
+</template>
+
+<template id="tpl-calibration">
+  <header class="work-head">
+    <button class="btn btn-back hit" data-goto="setup" aria-label="Back to Setup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Setup
+    </button>
+    <div style="min-width:0">
+      <h1>Calibration</h1>
+      <p class="sub" id="step-title"></p>
+    </div>
+  </header>
+  <div class="wizard-body">
+    <nav class="steps" aria-label="Calibration steps" id="steps"></nav>
+    <div class="scroll" id="step-body"></div>
+  </div>
+  <div class="action-bar">
+    <button class="btn hit" id="back-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Back
+    </button>
+    <span class="grow" id="progress"></span>
+    <button class="btn primary hit" id="next-btn">
+      Next<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+</template>
+
+<template id="tpl-validation">
+  <div class="head-block">
+    <header class="work-head val-head">
+      <button class="btn btn-back hit" data-goto="setup" aria-label="Back to Setup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span class="lbl">Setup</span>
+      </button>
+      <div style="min-width:0; flex:1">
+        <h1>Validation</h1>
+        <p class="sub val-sub" id="val-sub"></p>
+      </div>
+      <button class="btn hit" id="val-toggle"></button>
+    </header>
+    <div class="val-strip" id="val-strip"></div>
+  </div>
+  <div class="scroll" id="val-body"></div>
+  <div></div>
+</template>
+
+<template id="tpl-experiments">
+  <header class="work-head">
+    <div style="min-width:0; flex:1">
+      <h1>Experiments</h1>
+      <p class="sub" id="exp-now"></p>
+    </div>
+    <button class="btn primary hit" id="exp-new">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14M12 5v14"/></svg>New experiment
+    </button>
+  </header>
+  <div class="scroll" id="exp-body"></div>
+  <div></div>
+</template>
+
+<script>
+(function () {
+  const ICON = {
+    ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>',
+    warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5" stroke-linecap="round"/></svg>',
+    fail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"><path d="M8 2h8l6 6v8l-6 6H8l-6-6V8z"/><path d="M9 9l6 6M15 9l-6 6" stroke-linecap="round"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="8"/></svg>',
+    help: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6M12 17.2v.3"/></svg>',
+    chev: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>',
+    minus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14M12 5v14"/></svg>',
+    up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
+    up2: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 13l6-6 6 6M6 19l6-6 6 6"/></svg>',
+    del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5h11v14H9l-6-7z"/><path d="M12 9l5 6M17 9l-5 6"/></svg>',
+    doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/></svg>'
+  };
+  const chip = (kind, text) => `<span class="chip ${kind}">${ICON[kind]}${text}</span>`;
+  const rot = (svg, deg) => svg.replace('<svg ', `<svg style="transform:rotate(${deg}deg)" `);
+
+  const frame = document.getElementById("frame");
+  const work = document.getElementById("work");
+  const layer = document.getElementById("layer");
+  const state = { page: "setup", step: 1, locked: false, sharp: null, corner: true, promote: true,
+    fields: { coarse: "4", fine: "0.35", tag: "", exposure: "8.0", gain: "1.25" },
+    guides: { h: 50, v1: 18, v2: 82 }, sel: "h", calibrated: false, done: new Set() };
+
+  /* ---------- mock chrome ---------- */
+  const caps = {
+    chamber: "Chamber PC: 1024 x 768 screen, about 600 px of height left after the taskbar and browser bar.",
+    phone: "Phone, portrait, 390 px wide. Sections move to a bottom bar.",
+    fill: "Fills this browser window."
+  };
+  document.getElementById("mock-size").addEventListener("change", e => {
+    frame.dataset.size = e.target.value;
+    document.getElementById("frame-cap").textContent = caps[e.target.value];
+    requestAnimationFrame(drawAll);
+  });
+  document.getElementById("mock-hit").addEventListener("change", e => frame.classList.toggle("show-hit", e.target.checked));
+  document.getElementById("mock-needs").addEventListener("change", e => frame.classList.toggle("show-needs", e.target.checked));
+
+  function toast(msg) {
+    const t = document.createElement("div");
+    t.className = "toast"; t.setAttribute("role", "status"); t.textContent = msg;
+    frame.appendChild(t);
+    setTimeout(() => t.remove(), 1800);
+  }
+
+  /* ---------- pages ---------- */
+  function show(page) {
+    state.page = page;
+    work.innerHTML = "";
+    work.appendChild(document.getElementById("tpl-" + page).content.cloneNode(true));
+    if (page === "calibration") renderStep();
+    if (page === "validation") renderValidation();
+    if (page === "experiments") renderExperiments();
+    const section = page === "experiments" ? "experiments" : "setup";
+    document.querySelectorAll(".rail-btn").forEach(b => b.toggleAttribute("aria-current", false));
+    const cur = document.querySelector(`.rail-btn[data-nav="${section}"]`);
+    if (cur) cur.setAttribute("aria-current", "page");
+  }
+  frame.addEventListener("click", e => {
+    const g = e.target.closest("[data-goto]");
+    if (g) { show(g.dataset.goto); return; }
+    const t = e.target.closest("[data-toast]");
+    if (t) { toast(t.dataset.toast + " (not in this mockup)"); return; }
+    const n = e.target.closest("[data-nav]");
+    if (n && n.dataset.nav === "gallery") { toast("Capture comes in a later mockup"); return; }
+    if (n) show(n.dataset.nav);
+  });
+
+  /* ---------- fields and keypad ---------- */
+  const FIELDS = {
+    tag: { label: "Calibration tag size", unit: "mm", min: 1, max: 100, dp: 4,
+      help: "Measure this print run's tags with callipers. Leave empty to use the placeholder default." },
+    coarse: { label: "Lens, coarse", unit: "dioptres", min: 0, max: 15, dp: 0, help: "Whole dioptres, 0 to 15." },
+    fine: { label: "Lens, fine", unit: "dioptres", min: 0, max: 0.99, dp: 2, help: "Added to the coarse value, 0 to 0.99." },
+    exposure: { label: "Exposure time", unit: "ms", min: 0.16, max: 1000, dp: 2, help: "1 ms is 1/1000 s. 4 ms is 1/250 s." },
+    gain: { label: "Analogue gain", unit: "x", min: 1, max: 16, dp: 2, help: "1 is the sensor's own sensitivity. Prefer a longer exposure over more gain." }
+  };
+  function fieldBtn(key, extra = "") {
+    const f = FIELDS[key], v = state.fields[key];
+    const shown = v === "" ? `<span class="empty">Not set, tap to enter</span>` : `<span>${v} <span class="unit">${f.unit}</span></span>`;
+    return `<button class="field-btn hit" data-field="${key}" ${extra} aria-label="${f.label}, ${v || "not set"} ${f.unit}. Tap to change.">${shown}${ICON.edit}</button>`;
+  }
+  function openKeypad(key, onSet) {
+    const f = FIELDS[key];
+    let val = state.fields[key];
+    const el = document.createElement("div");
+    el.className = "keypad-layer"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true");
+    el.setAttribute("aria-label", f.label);
+    el.innerHTML = `
+      <div class="kp-info">
+        <p class="kp-label">${f.label}</p>
+        <p class="kp-help">${f.help} Allowed: ${f.min} to ${f.max} ${f.unit}.</p>
+        <div class="kp-value" aria-live="polite"><span><span id="kp-v"></span><span class="cursor"></span></span><span class="unit">${f.unit}</span></div>
+        <p class="kp-error" id="kp-err"></p>
+        <div class="spacer"></div>
+        <div class="kp-actions">
+          <button class="btn hit" id="kp-cancel">Cancel</button>
+          <button class="btn primary hit" id="kp-set">Set ${f.label.toLowerCase()}</button>
+        </div>
+      </div>
+      <div class="kp-keys">
+        ${["7","8","9","4","5","6","1","2","3"].map(k => `<button class="key hit" data-k="${k}">${k}</button>`).join("")}
+        <button class="key hit" data-k="." ${f.dp === 0 ? "disabled" : ""} aria-label="Decimal point">.</button>
+        <button class="key hit" data-k="0">0</button>
+        <button class="key fn hit" data-k="del" aria-label="Delete last digit">${ICON.del}</button>
+        <button class="key fn hit" data-k="clear" style="grid-column: span 3; min-height: 56px">Clear</button>
+      </div>`;
+    layer.appendChild(el);
+    const vEl = el.querySelector("#kp-v"), err = el.querySelector("#kp-err");
+    const paint = () => { vEl.textContent = val; err.innerHTML = ""; };
+    paint();
+    const press = k => {
+      if (k === "." && f.dp === 0) return;
+      if (k === "del") val = val.slice(0, -1);
+      else if (k === "clear") val = "";
+      else if (k === ".") { if (!val.includes(".")) val = (val || "0") + "."; }
+      else {
+        const dec = val.split(".")[1];
+        if (dec !== undefined && dec.length >= f.dp) { err.innerHTML = ICON.fail.replace("<svg", '<svg width="22" height="22"') + `At most ${f.dp} decimal places.`; return; }
+        val = (val === "0" ? "" : val) + k;
+      }
+      paint();
+    };
+    el.querySelector(".kp-keys").addEventListener("click", e => {
+      const b = e.target.closest("[data-k]"); if (!b || b.disabled) return;
+      press(b.dataset.k);
+    });
+    /* A real keyboard works too, when one is plugged in: digits, point, Backspace, Enter, Escape. */
+    const onKey = e => {
+      if (e.key >= "0" && e.key <= "9" || e.key === "." || e.key === ",") press(e.key === "," ? "." : e.key);
+      else if (e.key === "Backspace") press("del");
+      else if (e.key === "Enter") setNow();
+      else if (e.key === "Escape") close();
+      else return;
+      e.preventDefault();
+    };
+    const close = () => { document.removeEventListener("keydown", onKey); el.remove(); };
+    document.addEventListener("keydown", onKey);
+    el.querySelector("#kp-cancel").addEventListener("click", () => close());
+    const setNow = () => {
+      if (val !== "") {
+        const n = Number(val);
+        if (Number.isNaN(n) || n < f.min || n > f.max) {
+          err.innerHTML = ICON.fail.replace("<svg", '<svg width="22" height="22"') + `${val || "That"} is outside ${f.min} to ${f.max} ${f.unit}.`;
+          return;
+        }
+        val = String(n);
+      }
+      state.fields[key] = val; close(); (onSet || renderStep)(val);
+    };
+    el.querySelector("#kp-set").addEventListener("click", setNow);
+    el.querySelector("#kp-set").focus();
+  }
+
+  /* ---------- wizard ---------- */
+  const STEPS = [
+    { n: 1, short: "Sheets", title: "Place calibration and corner sheets" },
+    { n: 2, short: "Focus", title: "Lock focus" },
+    { n: 3, short: "Square", title: "Check squareness and coplanarity" },
+    { n: 4, short: "Run", title: "Run calibration" },
+    { n: 5, short: "Report", title: "Read the report" },
+    { n: 6, short: "Validate", title: "Validate" }
+  ];
+  function help(title, html) {
+    return `<details class="help"><summary class="hit">${ICON.help}<span style="flex:1">${title}</span>${ICON.chev}</summary><div class="help-body">${html}</div></details>`;
+  }
+  function sw(id, on, title, desc, needs = "") {
+    return `<button class="switch hit" role="switch" id="${id}" aria-checked="${on}">
+      <span class="track"></span>
+      <span class="txt"><strong>${title} <span class="state">${on ? "On" : "Off"}</span></strong><span>${desc}</span>${needs}</span>
+    </button>`;
+  }
+  const BODY = {
+    1: () => `
+      <div class="split">
+        <div class="stack" style="gap:12px">
+          <p class="lead">Put a calibration sheet on every tray, and a corner sheet at each of the table's four corners.</p>
+          <svg viewBox="0 0 400 230" role="img" aria-label="Table seen from above: 12 trays in 2 rows of 6, each with a calibration sheet, and a corner sheet at NW, NE, SW and SE." style="width:100%;max-width:440px">
+            <rect x="24" y="24" width="352" height="182" rx="4" fill="none" stroke="#5b6573" stroke-width="2"/>
+            ${Array.from({length: 12}, (_, i) => { const c = i % 6, r = Math.floor(i / 6), x = 58 + c * 48, y = 62 + r * 56;
+              return `<rect x="${x}" y="${y}" width="42" height="48" rx="3" fill="#1f3b52" stroke="#6cb4ff" stroke-width="1.5"/>
+                <rect x="${x + 12}" y="${y + 15}" width="18" height="18" fill="none" stroke="#6cb4ff" stroke-width="2"/>`; }).join("")}
+            ${[[24,24,"NW"],[376,24,"NE"],[24,206,"SW"],[376,206,"SE"]].map(([x,y,l]) =>
+              `<rect x="${x-10}" y="${y-10}" width="20" height="20" fill="#f4bf4f" stroke="#121519" stroke-width="2"/>
+               <text x="${x}" y="${y < 100 ? y - 14 : y + 26}" text-anchor="middle" font-size="12" font-weight="700" fill="#f1f3f6">${l}</text>`).join("")}
+            <text x="200" y="16" text-anchor="middle" font-size="12" fill="#b9c1cc">N, top of camera view</text>
+          </svg>
+          <p class="lead" style="font-size:0.9rem">Blue squares: calibration sheet, 30 mm tags, one per tray. Yellow squares: corner sheet, 50 mm tags, one per corner.</p>
+        </div>
+        <div class="stack" style="gap:12px">
+          <h3>Sheets to print</h3>
+          <div class="sheet-links">
+            <button class="btn hit" style="justify-content:flex-start" data-toast="Opens the PDF">${ICON.doc}Calibration sheet, 30 mm, IDs 300 to 449</button>
+            <button class="btn hit" style="justify-content:flex-start" data-toast="Opens the PDF">${ICON.doc}Corner sheet, 50 mm, IDs 450 to 499</button>
+          </div>
+          ${help("Why every tray", "<p>Sheets are reusable, so covering every tray costs nothing and guarantees the tags reach all four corners of the frame.</p>")}
+        </div>
+      </div>`,
+    2: () => `
+      <div class="split">
+        <div class="stack" style="gap:12px">
+          <div class="preview"><canvas id="cv-main" width="640" height="480"></canvas><span class="tag">Live view (example)</span></div>
+          <div class="preview"><canvas id="cv-crop" width="640" height="200"></canvas><span class="tag">Focus area, magnified</span></div>
+        </div>
+        <div class="stack" style="gap:var(--gap)">
+          <div class="row">
+            <button class="btn hit" id="af-btn" ${state.locked ? "disabled" : ""}>Autofocus</button>
+            <button class="btn ${state.locked ? "" : "primary"} hit" id="lock-btn">${state.locked ? "Unlock focus" : "Lock focus"}</button>
+          </div>
+          <div class="row" style="gap:12px">${state.locked ? chip("ok", "Focus locked") : chip("warn", "Focus unlocked")}
+            <span style="color:var(--fg-2)">Sharpness <strong style="font-family:var(--font-num);color:var(--fg)">${state.sharp ?? "-"}</strong></span></div>
+          <div class="field"><span class="field-label">Lens, coarse</span>
+            <div class="stepper">
+              <button class="btn hit" data-step-field="coarse" data-d="-1" aria-label="Coarse down 1" ${state.locked ? "disabled" : ""}>${ICON.minus}</button>
+              ${fieldBtn("coarse", state.locked ? "disabled" : "")}
+              <button class="btn hit" data-step-field="coarse" data-d="1" aria-label="Coarse up 1" ${state.locked ? "disabled" : ""}>${ICON.plus}</button>
+            </div></div>
+          <div class="field"><span class="field-label">Lens, fine</span>
+            <div class="stepper">
+              <button class="btn hit" data-step-field="fine" data-d="-0.05" aria-label="Fine down 0.05" ${state.locked ? "disabled" : ""}>${ICON.minus}</button>
+              ${fieldBtn("fine", state.locked ? "disabled" : "")}
+              <button class="btn hit" data-step-field="fine" data-d="0.05" aria-label="Fine up 0.05" ${state.locked ? "disabled" : ""}>${ICON.plus}</button>
+            </div>
+            <span class="field-help">Steps of 0.05. Tap the value to type an exact one.</span></div>
+          ${sw("peak-sw", false, "Focus peaking", "Marks sharp edges in the magnified view.")}
+          ${help("Camera settings: exposure and gain", `
+            <div class="stack" style="gap:16px;color:var(--fg)">
+              <div class="field"><span class="field-label">Exposure time</span>${fieldBtn("exposure")}</div>
+              <div class="field"><span class="field-label">Analogue gain</span>${fieldBtn("gain")}</div>
+            </div>`)}
+          ${help("About this step", "<p>Use Autofocus or the lens controls, then Lock focus. Calibration measures the scene through whatever focus is locked. Re-check any time the lens may have moved.</p><p>Tap the live view to move the focus area.</p>")}
+        </div>
+      </div>`,
+    3: () => `
+      <div class="split">
+        <div class="stack" style="gap:12px">
+          <div class="preview" id="sq-prev"><canvas id="cv-sq" width="640" height="480"></canvas>
+            <div class="guide h ${state.sel === "h" ? "sel" : ""}" style="top:${state.guides.h}%"></div>
+            <div class="guide v ${state.sel === "v1" ? "sel" : ""}" style="left:${state.guides.v1}%"></div>
+            <div class="guide v ${state.sel === "v2" ? "sel" : ""}" style="left:${state.guides.v2}%"></div>
+            <span class="tag">Live view (example)</span></div>
+          <div class="legend">${chip("ok", "Within 3%")}${chip("warn", "3 to 8%: nudge")}${chip("fail", "Over 8%: adjust")}</div>
+          <span class="needs">needs backend: overlay draws ring shape and % label, not color only (images.py)</span>
+        </div>
+        <div class="stack" style="gap:var(--gap)">
+          <div class="field"><span class="field-label">Guide line to move</span>
+            <div class="seg">
+              <button class="btn hit" data-sel="h" aria-pressed="${state.sel === "h"}">Across</button>
+              <button class="btn hit" data-sel="v1" aria-pressed="${state.sel === "v1"}">Left</button>
+              <button class="btn hit" data-sel="v2" aria-pressed="${state.sel === "v2"}">Right</button>
+            </div></div>
+          <div class="field"><span class="field-label">Move it</span>
+            <div class="nudge">
+              ${state.sel === "h"
+                ? `<button class="btn hit" data-nudge="-5" aria-label="Up a lot">${ICON.up2}</button><button class="btn hit" data-nudge="-0.5" aria-label="Up a little">${ICON.up}</button><button class="btn hit" data-nudge="0.5" aria-label="Down a little">${rot(ICON.up, 180)}</button><button class="btn hit" data-nudge="5" aria-label="Down a lot">${rot(ICON.up2, 180)}</button>`
+                : `<button class="btn hit" data-nudge="-5" aria-label="Left a lot">${rot(ICON.up2, -90)}</button><button class="btn hit" data-nudge="-0.5" aria-label="Left a little">${rot(ICON.up, -90)}</button><button class="btn hit" data-nudge="0.5" aria-label="Right a little">${rot(ICON.up, 90)}</button><button class="btn hit" data-nudge="5" aria-label="Right a lot">${rot(ICON.up2, 90)}</button>`}
+            </div>
+            <span class="field-help">Line the magenta guides up with the table edges. Replaces dragging. Not saved.</span></div>
+          ${sw("corner-sw", state.corner, "Corner check", "Rings on the corner tags show how flat the table is to the camera.")}
+          ${help("About this step", "<p>Adjust the camera until the East side of the table is in view. If the guides line up with the table edges, the camera is not rotated or badly tilted.</p><p>Each ring's percentage is that tag's size compared to the others. Plus means closer to the camera, minus means farther. Nudge the rig until every ring shows a check.</p>")}
+        </div>
+      </div>`,
+    4: () => `
+      <div class="split">
+        <div class="stack" style="gap:var(--gap)">
+          <div class="field"><span class="field-label">Calibration tag size</span>${fieldBtn("tag")}
+            <span class="field-help">Measured with callipers for this print run. Empty uses the placeholder default.</span></div>
+          ${sw("promote-sw", state.promote, "Make this the current baseline", "Turn off only for a comparison run, so the Health check keeps its baseline.")}
+        </div>
+        <div class="stack" style="gap:16px">
+          <h3>Ready to run?</h3>
+          <ul class="checklist">
+            <li>${state.locked ? chip("ok", "Focus locked") : chip("fail", "Focus not locked")}<button class="btn hit" style="min-height:48px" data-jump="2" ${state.locked ? "hidden" : ""}>Go to step 2</button></li>
+            <li>${chip("ok", "4 of 4 corner tags seen")}</li>
+            <li>${state.fields.tag ? chip("ok", "Tag size " + state.fields.tag + " mm") : chip("warn", "Tag size not measured")}</li>
+          </ul>
+          <span class="needs">needs backend: readiness as separate checks (today one text line)</span>
+          <button class="btn primary hit" id="run-btn" ${state.locked ? "" : "disabled"} style="min-height:76px">Run calibration</button>
+          <div id="run-out" role="status">${state.calibrated ? chip("ok", "Calibration saved. Next: read the report.") : ""}</div>
+        </div>
+      </div>`,
+    5: () => state.calibrated ? `
+      <div class="stack" style="gap:16px">
+        <div class="row" style="gap:12px">${chip("warn", "Coverage gap")}<span class="example">Example data</span></div>
+        <div style="overflow-x:auto"><table class="result-table">
+          <thead><tr><th>Check</th><th>Result</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Tags found</td><td class="num">148 of 150</td><td>${chip("ok", "OK")}</td></tr>
+            <tr><td>Scale</td><td class="num">0.0921 mm per px</td><td>${chip("info", "Measured")}</td></tr>
+            <tr><td>Coverage</td><td>Weak near slot S6</td><td>${chip("warn", "Add a sheet")}</td></tr>
+            <tr><td>Corner tags</td><td class="num">4 of 4</td><td>${chip("ok", "OK")}</td></tr>
+          </tbody></table></div>
+        <p class="lead">Coverage is weak near S6. Add a sheet there and run again. No need to redo steps 1 to 3 unless something moved.</p>
+        <div class="row"><button class="btn hit" data-jump="4">Run again</button><button class="btn hit" data-toast="Loads diagnostics">Open diagnostics</button></div>
+      </div>` : `
+      <div class="stack" style="gap:16px">${chip("info", "No report yet")}<p class="lead">Run calibration in step 4 first.</p>
+        <div><button class="btn hit" data-jump="4">Go to step 4</button></div></div>`,
+    6: () => `
+      <div class="stack" style="gap:16px">
+        <p class="lead">Leave the sheets where they are. Validation moves each sheet to a different tray and measures again, 3 rounds, to show how far an area can be trusted in each slot.</p>
+        <ul class="checklist">
+          <li>${chip("info", "Close the door before every round")}</li>
+          <li>${chip("info", "Spread rounds over 20 minutes or more")}</li>
+          <li>${chip("info", "Remove sheets before a growth run")}</li>
+        </ul>
+        <div class="row"><button class="btn primary hit" data-goto="validation" style="min-width:240px">Start validation</button>
+          <button class="btn hit" data-goto="setup">Skip for now</button></div>
+      </div>`
+  };
+
+  function renderStep() {
+    const s = STEPS[state.step - 1];
+    document.getElementById("step-title").textContent = `Step ${s.n} of 6: ${s.title}`;
+    document.getElementById("steps").innerHTML = STEPS.map(x =>
+      `<button class="step-btn hit ${state.done.has(x.n) && x.n !== state.step ? "done" : ""}" data-jump="${x.n}" ${x.n === state.step ? 'aria-current="step"' : ""} aria-label="Step ${x.n}, ${x.short}">
+        <span class="n">${x.n}</span><span class="lbl">${x.short}</span></button>`).join("");
+    document.getElementById("step-body").innerHTML = '<div class="scroll-hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8l4-4 4 4M8 16l4 4 4-4M12 4v16"/></svg><span>Scroll here</span></div>' + BODY[state.step]();
+    document.getElementById("progress").textContent = `Step ${s.n} of 6`;
+    document.getElementById("back-btn").disabled = state.step === 1;
+    const next = document.getElementById("next-btn");
+    next.hidden = state.step === 6;
+    requestAnimationFrame(drawAll);
+  }
+
+  work.addEventListener("click", e => {
+    if (state.page !== "calibration") return;
+    const j = e.target.closest("[data-jump]");
+    if (j) { state.step = Number(j.dataset.jump); renderStep(); return; }
+    if (e.target.closest("#back-btn")) { state.step = Math.max(1, state.step - 1); renderStep(); return; }
+    if (e.target.closest("#next-btn")) { state.done.add(state.step); state.step = Math.min(6, state.step + 1); renderStep(); return; }
+    const fb = e.target.closest("[data-field]");
+    if (fb && !fb.disabled) { openKeypad(fb.dataset.field); return; }
+    const st = e.target.closest("[data-step-field]");
+    if (st) {
+      const k = st.dataset.stepField, f = FIELDS[k];
+      const v = Math.min(f.max, Math.max(f.min, (Number(state.fields[k]) || 0) + Number(st.dataset.d)));
+      state.fields[k] = f.dp ? v.toFixed(f.dp).replace(/0+$/, "").replace(/\.$/, "") : String(Math.round(v)); renderStep(); return;
+    }
+    if (e.target.closest("#af-btn")) {
+      const b = e.target.closest("#af-btn"); b.disabled = true; b.textContent = "Focusing";
+      setTimeout(() => { state.sharp = "412.7"; state.fields.coarse = "4"; state.fields.fine = "0.35"; renderStep(); }, 1200);
+      return;
+    }
+    if (e.target.closest("#lock-btn")) { state.locked = !state.locked; if (!state.sharp) state.sharp = "398.2"; renderStep(); return; }
+    const swb = e.target.closest(".switch");
+    if (swb) {
+      const on = swb.getAttribute("aria-checked") !== "true";
+      if (swb.id === "corner-sw") state.corner = on;
+      if (swb.id === "promote-sw") state.promote = on;
+      swb.setAttribute("aria-checked", on);
+      swb.querySelector(".state").textContent = on ? "On" : "Off";
+      drawAll();
+      return;
+    }
+    const sel = e.target.closest("[data-sel]");
+    if (sel) { state.sel = sel.dataset.sel; renderStep(); return; }
+    const nd = e.target.closest("[data-nudge]");
+    if (nd) { state.guides[state.sel] = Math.min(98, Math.max(2, state.guides[state.sel] + Number(nd.dataset.nudge))); renderStep(); return; }
+    if (e.target.closest("#run-btn")) {
+      const b = e.target.closest("#run-btn"); b.disabled = true; b.textContent = "Running calibration";
+      document.getElementById("run-out").innerHTML = chip("info", "Taking photos and finding tags");
+      setTimeout(() => { state.calibrated = true; renderStep(); }, 1500);
+    }
+  });
+
+  /* ---------- example images (stand-ins for the live view) ---------- */
+  function scene(ctx, w, h, rings) {
+    ctx.fillStyle = "#2a2622"; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#4a4640"; ctx.fillRect(w * 0.06, h * 0.08, w * 0.88, h * 0.84);
+    let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    for (let r = 0; r < 2; r++) for (let c = 0; c < 6; c++) {
+      const x = w * (0.12 + c * 0.13), y = h * (0.2 + r * 0.33), tw = w * 0.11, th = h * 0.27;
+      ctx.fillStyle = "#3a2d22"; ctx.fillRect(x, y, tw, th);
+      for (let p = 0; p < 6; p++) {
+        ctx.fillStyle = `hsl(${95 + rnd() * 30}, ${45 + rnd() * 20}%, ${28 + rnd() * 18}%)`;
+        ctx.beginPath(); ctx.arc(x + tw * (0.2 + (p % 2) * 0.6), y + th * (0.17 + Math.floor(p / 2) * 0.33), tw * (0.1 + rnd() * 0.08), 0, 7); ctx.fill();
+      }
+      ctx.fillStyle = "#fff"; ctx.fillRect(x + tw * 0.38, y - h * 0.035, tw * 0.24, h * 0.03);
+    }
+    const corners = [[0.06, 0.08, 1.2, "ok"], [0.94, 0.08, -2.1, "ok"], [0.06, 0.92, 4.6, "warn"], [0.94, 0.92, -9.3, "fail"]];
+    corners.forEach(([cx, cy, pct, kind]) => {
+      const x = w * cx, y = h * cy, s = w * 0.035;
+      ctx.fillStyle = "#fff"; ctx.fillRect(x - s, y - s, s * 2, s * 2);
+      ctx.fillStyle = "#000"; ctx.fillRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
+      if (!rings) return;
+      const col = { ok: "#4fd18b", warn: "#f4bf4f", fail: "#ff7a7a" }[kind];
+      ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x, y, s * 1.9, 0, 7); ctx.stroke();
+      const lx = cx < 0.5 ? x + s * 2.3 : x - s * 2.3, ly = cy < 0.5 ? y + s * 2.6 : y - s * 2.6;
+      const label = (pct > 0 ? "+" : "") + pct.toFixed(1) + "%";
+      ctx.font = `bold ${Math.round(w * 0.032)}px system-ui, sans-serif`;
+      ctx.textAlign = cx < 0.5 ? "left" : "right"; ctx.textBaseline = "middle";
+      const tw = ctx.measureText(label).width + w * 0.05;
+      const bx = cx < 0.5 ? lx : lx - tw;
+      ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(bx, ly - w * 0.025, tw, w * 0.05);
+      ctx.fillStyle = col;
+      const ix = bx + w * 0.022, r = w * 0.013;
+      ctx.beginPath();
+      if (kind === "ok") { ctx.lineWidth = 3; ctx.strokeStyle = col; ctx.moveTo(ix - r, ly); ctx.lineTo(ix - r * 0.2, ly + r * 0.8); ctx.lineTo(ix + r, ly - r * 0.8); ctx.stroke(); }
+      else if (kind === "warn") { ctx.moveTo(ix, ly - r); ctx.lineTo(ix + r, ly + r); ctx.lineTo(ix - r, ly + r); ctx.fill(); }
+      else { for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + i * Math.PI / 4; ctx[i ? "lineTo" : "moveTo"](ix + Math.cos(a) * r, ly + Math.sin(a) * r); } ctx.fill(); }
+      ctx.fillText(label, cx < 0.5 ? bx + w * 0.04 : bx + tw - w * 0.008, ly);
+    });
+  }
+  function drawAll() {
+    const m = document.getElementById("cv-main");
+    if (m) {
+      const c = m.getContext("2d"); scene(c, m.width, m.height, false);
+      const k = document.getElementById("cv-crop"), kc = k.getContext("2d");
+      kc.imageSmoothingEnabled = false;
+      const sw = m.width * 0.14, sh = sw * k.height / k.width;
+      kc.drawImage(m, m.width * 0.49 - sw / 2, m.height * 0.54 - sh / 2, sw, sh, 0, 0, k.width, k.height);
+      c.strokeStyle = "#ff7a7a"; c.lineWidth = 3; c.strokeRect(m.width * 0.49 - sw / 2, m.height * 0.54 - sh / 2, sw, sh);
+      const pk = document.getElementById("peak-sw");
+      if (pk && pk.getAttribute("aria-checked") === "true") { kc.strokeStyle = "#ff4fff"; kc.lineWidth = 2; kc.strokeRect(40, 30, 200, 120); }
+    }
+    const s = document.getElementById("cv-sq");
+    if (s) scene(s.getContext("2d"), s.width, s.height, state.corner);
+  }
+
+  /* ================= Shared: panels, confirmation, full keyboard ================= */
+  const HINT = '<div class="scroll-hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8l4-4 4 4M8 16l4 4 4-4M12 4v16"/></svg><span>Scroll here</span></div>';
+  const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
+
+  /* A panel covers the work area (not the rail), with the same head / scroll / action-bar layout
+     as a page, so the buttons that finish it are always on screen. */
+  function openPanel({ title, sub = "", body, actions, kind = "" }) {
+    const p = document.createElement("div");
+    p.className = "panel-layer " + kind;
+    p.setAttribute("role", "dialog"); p.setAttribute("aria-modal", "true"); p.setAttribute("aria-label", title);
+    p.innerHTML = `<header class="work-head"><div style="min-width:0"><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ""}</div></header>
+      <div class="scroll">${HINT}<div class="panel-body"></div></div>
+      <div class="action-bar"></div>`;
+    work.appendChild(p);
+    p.querySelector(".panel-body").innerHTML = body;
+    p.querySelector(".action-bar").innerHTML = actions;
+    return p;
+  }
+
+  /* In-page confirmation. Replaces confirm() and alert(), which a touch screen user can miss
+     and which the page cannot style. The safe choice is on the left, the action on the right. */
+  function confirmPanel({ title, body, ok, danger = false, typed = null, check = null, onOk }) {
+    const st = { typed: "", checked: false };
+    const p = openPanel({
+      title, kind: "confirm",
+      body: `<div class="stack" style="gap:var(--gap); max-width:680px">
+        <div class="lead" style="color:var(--fg)">${body}</div>
+        ${typed ? `<div class="field"><span class="field-label">To confirm, type exactly: <span class="confirm-text">${esc(typed)}</span></span>
+          <button class="field-btn text hit" id="cf-typed"><span class="empty">Tap to type</span>${ICON.edit}</button></div>` : ""}
+        ${check ? sw("cf-check", false, check, "Required to go ahead.") : ""}
+        <p class="kp-error" id="cf-err"></p></div>`,
+      actions: `<button class="btn hit" id="cf-cancel">Cancel</button><span class="grow"></span>
+        <button class="btn ${danger ? "danger" : "primary"} hit" id="cf-ok">${ok}</button>`
+    });
+    const okBtn = p.querySelector("#cf-ok");
+    const ready = () => (!typed || st.typed.trim() === typed) && (!check || st.checked);
+    const paint = () => { okBtn.disabled = !ready(); };
+    paint();
+    p.addEventListener("click", e => {
+      if (e.target.closest("#cf-cancel")) { p.remove(); return; }
+      if (e.target.closest("#cf-typed")) {
+        openKeyboard({ label: "Type the experiment name", value: st.typed, max: 200, onSet: v => {
+          st.typed = v;
+          const b = p.querySelector("#cf-typed");
+          b.classList.toggle("match", v.trim() === typed);
+          b.innerHTML = (v ? `<span>${esc(v)}</span>` : '<span class="empty">Tap to type</span>') + (v.trim() === typed ? chip("ok", "Matches") : ICON.edit);
+          paint();
+        } });
+        return;
+      }
+      const c = e.target.closest("#cf-check");
+      if (c) { st.checked = c.getAttribute("aria-checked") !== "true"; c.setAttribute("aria-checked", st.checked); c.querySelector(".state").textContent = st.checked ? "On" : "Off"; paint(); return; }
+      if (e.target.closest("#cf-ok") && ready()) { p.remove(); onOk(); }
+    });
+    return p;
+  }
+
+  /* Full keyboard for names, labels and notes. On a narrow screen (a phone) the phone's own
+     keyboard is used instead: it is good there, and 10 keys across would be too small. */
+  function openKeyboard({ label, value = "", max = 200, onSet }) {
+    let val = value, shift = true;
+    const el = document.createElement("div");
+    el.className = "kb-layer"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", label);
+    const rows = [
+      "1234567890".split(""),
+      "qwertyuiop".split(""),
+      "asdfghjkl-".split(""),
+      ["shift", ..."zxcvbnm".split(""), ".", "del"],
+      ["space"]
+    ];
+    const keyHtml = k => k === "shift" ? `<button class="key fn hit" data-k="shift" aria-pressed="${shift}">Shift</button>`
+      : k === "del" ? `<button class="key fn hit" data-k="del" aria-label="Delete last character">${ICON.del}</button>`
+      : k === "space" ? `<button class="key fn hit" data-k=" " style="grid-column: 2 / span 8">Space</button>`
+      : `<button class="key hit" data-k="${k}">${shift && /[a-z]/.test(k) ? k.toUpperCase() : k}</button>`;
+    const paintKeys = () => { el.querySelector(".kb-keys").innerHTML = rows.map(r => `<div class="kb-row">${r.map(keyHtml).join("")}</div>`).join(""); };
+    el.innerHTML = `
+      <div class="kb-top">
+        <p class="kp-label">${esc(label)}</p>
+        <div class="kb-value" aria-live="polite"><span id="kb-v"></span><span class="cursor kp-c"></span><span class="count" id="kb-n"></span></div>
+        <button class="btn hit" id="kb-cancel">Cancel</button>
+        <button class="btn primary hit" id="kb-set">Done</button>
+      </div>
+      <div class="kb-keys"></div>
+      <div class="kb-native field"><span class="field-help">On a phone, the phone's own keyboard is used.</span>
+        <input id="kb-native-in" class="field-btn text" maxlength="${max}" autocomplete="off"></div>`;
+    el.querySelector(".kp-c").style.cssText = "display:inline-block;width:3px;height:1.2em;background:var(--accent);margin-left:2px;vertical-align:middle";
+    layer.appendChild(el);
+    const native = el.querySelector("#kb-native-in");
+    native.value = val;
+    const paint = () => { el.querySelector("#kb-v").textContent = val; el.querySelector("#kb-n").textContent = `${val.length} / ${max}`; };
+    paintKeys(); paint();
+    native.addEventListener("input", () => { val = native.value; paint(); });
+    /* A real keyboard works too: any character, Backspace, Enter for Done, Escape for Cancel. */
+    const onKey = e => {
+      if (e.target === native) return;
+      if (e.key === "Enter") { close(); onSet(val); }
+      else if (e.key === "Escape") close();
+      else if (e.key === "Backspace") val = val.slice(0, -1);
+      else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) { if (val.length < max) val += e.key; }
+      else return;
+      e.preventDefault(); native.value = val; paint();
+    };
+    const close = () => { document.removeEventListener("keydown", onKey); el.remove(); };
+    document.addEventListener("keydown", onKey);
+    el.addEventListener("click", e => {
+      if (e.target.closest("#kb-cancel")) { close(); return; }
+      if (e.target.closest("#kb-set")) { close(); onSet(val); return; }
+      const b = e.target.closest("[data-k]"); if (!b) return;
+      const k = b.dataset.k;
+      if (k === "shift") { shift = !shift; paintKeys(); return; }
+      if (k === "del") val = val.slice(0, -1);
+      else if (val.length < max) { val += shift && /[a-z]/.test(k) ? k.toUpperCase() : k; if (shift) { shift = false; paintKeys(); } }
+      native.value = val; paint();
+    });
+  }
+
+  /* A dropdown that works with a stylus: looks like one field, opens a list of large rows.
+     A plain <select> opens the browser's own list, whose rows are too small on these screens. */
+  function openChoice({ label, options, value, onSet }) {
+    const el = document.createElement("div");
+    el.className = "kb-layer choice-layer"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", label);
+    el.innerHTML = `<div class="kb-top" style="grid-template-columns: minmax(0,1fr) auto"><p class="kp-label" style="margin:0;align-self:center;grid-column:auto">${esc(label)}</p>
+        <button class="btn hit" id="ch-cancel">Cancel</button></div>
+      <div class="choice-list" role="listbox">${options.map(o => `<button class="choice hit" role="option" data-v="${o.value}" aria-pressed="${o.value === value}"><strong>${o.label}</strong>${o.detail ? `<span>${o.detail}</span>` : ""}</button>`).join("")}</div>`;
+    layer.appendChild(el);
+    const onKey = e => { if (e.key === "Escape") { e.preventDefault(); close(); } };
+    const close = () => { document.removeEventListener("keydown", onKey); el.remove(); };
+    document.addEventListener("keydown", onKey);
+    el.addEventListener("click", e => {
+      if (e.target.closest("#ch-cancel")) { close(); return; }
+      const b = e.target.closest("[data-v]"); if (b) { close(); onSet(b.dataset.v); }
+    });
+  }
+  const CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+
+  /* ================= Validation ================= */
+  const SLOTS = ["N1","N2","N3","N4","N5","N6","S1","S2","S3","S4","S5","S6"];
+  const VAL = {
+    open: true, door: false, capturing: false, nextAt: Date.now() + 372000, rounds: 2, required: 3,
+    // per slot: [round1, round2] p95 abs %, pooled, moved mm
+    data: { N1:[0.6,0.8,0.8,31], N2:[0.5,0.7,0.7,28], N3:[0.9,0.6,0.9,35], N4:[0.7,0.8,0.8,30], N5:[1.1,0.9,1.1,26], N6:[1.4,1.2,1.4,33],
+            S1:[0.8,0.9,0.9,29], S2:[0.6,0.5,0.6,34], S3:[0.7,0.9,0.9,27], S4:[0.8,3.9,3.9,4], S5:[1.0,1.1,1.1,32], S6:[1.6,1.3,1.6,30] },
+    flagged: ["S4"], accepted: false,
+    history: [
+      { id: "v3", when: "Oct 12, 09:40", status: "info", text: "Provisional: 2 of 3 rounds", open: true },
+      { id: "v2", when: "Oct 9, 15:10", status: "ok", text: "Validated, 3 rounds over 34 min" },
+      { id: "v1", when: "Oct 2, 11:05", status: "warn", text: "Validated, rounds 9.6 min apart, under 10" }
+    ]
+  };
+  const valStatus = () => VAL.flagged.length && !VAL.accepted
+    ? chip("fail", `Not consistent: ${VAL.flagged.join(", ")}`)
+    : VAL.rounds >= VAL.required ? chip("ok", `Validated, ${VAL.rounds} rounds`) : chip("info", `Provisional: ${VAL.rounds} of ${VAL.required} rounds counted`);
+
+  function renderValidation() {
+    const body = document.getElementById("val-body");
+    const heads = Array.from({ length: VAL.rounds }, (_, i) => `<th>R${i + 1}</th>`).join("");
+    const rows = SLOTS.map(s => {
+      const d = VAL.data[s], bad = VAL.flagged.includes(s) && !VAL.accepted;
+      const cells = d.slice(0, VAL.rounds).map((v, i) => `<td>${bad && i === 1 ? `<span class="mk">${ICON.fail}</span>` : ""}${v.toFixed(1)}</td>`).join("");
+      return `<tr class="${bad ? "bad" : ""}"><td>${s}</td>${cells}<td class="all">${d[2].toFixed(1)}</td><td>${d[3]}</td></tr>`;
+    }).join("");
+    document.getElementById("val-sub").innerHTML = VAL.open
+      ? `${valStatus()}<span>Started Oct 12, 09:40. Calibration of Oct 9, 14:12.</span>`
+      : `${chip("info", "No validation open")}<span>Calibration of Oct 9, 14:12.</span>`;
+    const tg = document.getElementById("val-toggle");
+    tg.className = "btn hit " + (VAL.open ? "danger" : "primary");
+    tg.textContent = VAL.open ? "End validation" : "Start validation";
+    body.innerHTML = HINT + `
+      <div class="stack" style="gap:16px">
+        ${VAL.flagged.length && !VAL.accepted ? `
+        <div class="problem compact" role="alert">
+          <button class="thumb hit" aria-label="Enlarge round 2 photo, problem marked"><canvas id="cv-thumb" width="192" height="144"></canvas></button>
+          <p><strong style="color:var(--fail)">Round 2, S4:</strong> the sheet moved only 4 mm. Move it 2 to 5 cm and capture again, or count the round anyway.</p>
+          <button class="btn hit" id="val-accept">Count anyway</button>
+        </div>` : ""}
+        <div class="val-panes">
+          <div class="stack" style="gap:8px">
+            <div class="val-map"><canvas id="cv-valmap" width="420" height="240"></canvas></div>
+            <p class="field-help">+/- % error a new measurement in each slot should expect, all counted rounds pooled. Lower is better. <span class="example">Example data</span></p>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Slot</th>${heads}<th>All, %</th><th>Moved, mm</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        ${help("What validation shows, and how to do a round", "<p>Calibration is checked against the same tags it was fitted to, so it cannot show how accurate an area is in each tray slot. Validation moves the sheets to different trays and measures every tag again. When a slot gives similar results across rounds, its error belongs to the slot, not to a sheet.</p><p>Each round: put each sheet on a different tray, 2 to 5 cm from where a sheet lay before. Step out of view, close the door, then capture. Take rounds at least 10 minutes apart and 20 minutes from first to last.</p>")}
+        <div class="section-title"><h2>Validation history</h2></div>
+        <div class="list">${VAL.history.map(h => `
+          <div class="card ${h.open ? "current" : ""}">
+            <div class="card-head"><h3>${h.when}</h3>${chip(h.status, h.text)}</div>
+            <div class="card-actions">
+              ${h.open ? '<span class="field-help">Showing above</span>' : `<button class="btn hit" data-toast="Shows this validation">Show</button>`}
+              ${h.open ? "" : `<button class="btn danger hit" data-val-del="${h.id}">Delete</button>`}
+            </div>
+          </div>`).join("")}</div>
+      </div>`;
+    renderValBar();
+    requestAnimationFrame(drawValidation);
+  }
+  const clockChip = () => {
+    const due = Math.max(0, VAL.nextAt - Date.now());
+    const mm = Math.floor(due / 60000), ss = String(Math.floor(due / 1000) % 60).padStart(2, "0");
+    return due ? chip("warn", `Next round in ${mm}:${ss}`) : chip("ok", "Ready for the next round");
+  };
+  function renderValBar() {
+    const bar = document.getElementById("val-strip"); if (!bar) return;
+    const ready = VAL.open && VAL.door && !VAL.capturing;
+    bar.innerHTML = VAL.open ? `
+      <strong class="strip-label">Round ${VAL.rounds + 1}</strong>
+      <span class="countdown" id="val-count">${clockChip()}</span>
+      <span class="grow"></span>
+      <button class="switch compact hit" role="switch" id="val-door" aria-checked="${VAL.door}"><span class="track"></span><span class="txt"><strong>Door closed</strong></span></button>
+      <button class="btn primary hit" id="val-capture" ${ready ? "" : "disabled"}>${VAL.capturing ? "Capturing, about 20 s" : `Capture round ${VAL.rounds + 1}`}</button>`
+      : `<span class="field-help">Start a validation to capture rounds.</span>`;
+  }
+  function drawValidation() {
+    const c = document.getElementById("cv-valmap"); if (!c) return;
+    const x = c.getContext("2d"), W = c.width, H = c.height;
+    x.fillStyle = "#1a1e24"; x.fillRect(0, 0, W, H);
+    x.fillStyle = "#b9c1cc"; x.font = "bold 16px system-ui, sans-serif"; x.textAlign = "center"; x.fillText("N", W / 2, 20);
+    SLOTS.forEach((s, i) => {
+      const col = i % 6, row = Math.floor(i / 6), cw = (W - 40) / 6, ch = (H - 60) / 2;
+      const px = 20 + col * cw, py = 32 + row * ch, v = VAL.data[s][2], bad = VAL.flagged.includes(s) && !VAL.accepted;
+      const shade = Math.min(1, v / 2);   // one hue, darker = more error; the number is always printed
+      x.fillStyle = `rgb(${Math.round(40 + shade * 60)}, ${Math.round(70 + shade * 30)}, ${Math.round(110 - shade * 40)})`;
+      x.fillRect(px + 4, py + 4, cw - 8, ch - 8);
+      if (bad) { x.strokeStyle = "#ff7a7a"; x.lineWidth = 5; x.strokeRect(px + 6, py + 6, cw - 12, ch - 12); }
+      x.fillStyle = "#f1f3f6"; x.font = "bold 17px system-ui, sans-serif"; x.fillText(s, px + cw / 2, py + 26);
+      x.font = "bold 19px ui-monospace, Consolas, monospace"; x.fillText(v.toFixed(1), px + cw / 2, py + ch / 2 + 10);
+      if (bad) { x.fillStyle = "#ff7a7a"; x.font = "bold 14px system-ui"; x.fillText("CHECK", px + cw / 2, py + ch - 12); }
+    });
+    const t = document.getElementById("cv-thumb");
+    if (t) { const tc = t.getContext("2d"); scene(tc, t.width, t.height, false); tc.strokeStyle = "#ff7a7a"; tc.lineWidth = 4; tc.strokeRect(t.width * 0.48, t.height * 0.5, t.width * 0.14, t.height * 0.3); }
+  }
+  /* Only the clock is redrawn each second, so a button is never replaced under the stylus. */
+  setInterval(() => { const n = document.getElementById("val-count"); if (n) n.innerHTML = clockChip(); }, 1000);
+
+  work.addEventListener("click", e => {
+    if (state.page !== "validation") return;
+    if (e.target.closest(".panel-layer")) return;
+    const d = e.target.closest("#val-door");
+    if (d) { VAL.door = !VAL.door; renderValBar(); return; }
+    if (e.target.closest("#val-capture")) {
+      VAL.capturing = true; renderValBar();
+      setTimeout(() => { VAL.capturing = false; VAL.door = false; VAL.rounds = Math.min(3, VAL.rounds + 1); VAL.nextAt = Date.now() + 600000; VAL.history[0].text = `Provisional: ${VAL.rounds} of 3 rounds`; if (VAL.rounds === 3 && (VAL.accepted || !VAL.flagged.length)) { VAL.history[0].status = "ok"; VAL.history[0].text = "Validated, 3 rounds"; } renderValidation(); toast(`Round ${VAL.rounds} captured`); }, 1500);
+      return;
+    }
+    if (e.target.closest("#val-accept")) {
+      confirmPanel({ title: "Count round 2 anyway?", ok: "Count round 2", body: "<p>Slot S4's sheet moved only 4 mm in round 2, so this round does not test S4 in a new position. Counting it makes S4's figure look steadier than it has been shown to be.</p>",
+        onOk: () => { VAL.accepted = true; renderValidation(); toast("Round 2 counted"); } });
+      return;
+    }
+    if (e.target.closest("#val-toggle") && !VAL.open) { VAL.open = true; VAL.rounds = 0; VAL.flagged = []; VAL.nextAt = 0; renderValidation(); return; }
+    if (e.target.closest("#val-toggle")) {
+      confirmPanel({ title: "End this validation?", ok: "End validation", danger: true,
+        body: `<p>No more rounds can be added. It has ${VAL.rounds} of ${VAL.required} counted rounds, so it ends as <strong>not validated</strong>. The photos stay in the gallery.</p>`,
+        onOk: () => { VAL.open = false; renderValidation(); toast("Validation ended"); } });
+      return;
+    }
+    const del = e.target.closest("[data-val-del]");
+    if (del) {
+      const h = VAL.history.find(v => v.id === del.dataset.valDel);
+      confirmPanel({ title: `Delete the validation from ${h.when}?`, ok: "Delete validation", danger: true,
+        body: "<p>It is removed from history. This cannot be undone. Its photos stay in the gallery.</p>",
+        onOk: () => { VAL.history = VAL.history.filter(v => v !== h); renderValidation(); toast("Validation deleted"); } });
+    }
+  });
+
+  /* ================= Experiments ================= */
+  const TRAYS = [["", "Not recorded", ""], ["40", "Black tray", "40.0 mm"], ["100", "4x5 tray", "100.0 mm"], ["150", "4x4 tray", "150.0 mm"], ["175", "1x1 tray", "175.0 mm"], ["other", "Other", "type the height"]];
+  FIELDS.tray = { label: "Tray height", unit: "mm", min: 0, max: 400, dp: 1, help: "Measured to the top edge of the growing medium." };
+  const EXP = [
+    { id: 1, name: "Arabidopsis drought A", researcher: "J. de Vries", state: "running", since: "Oct 10, 08:00", folder: "2026-10-10_arabidopsis-drought-a", tray: "40", notes: "Watering stopped on day 3.", photos: 412 },
+    { id: 2, name: "Tomato seedlings light trial", researcher: "M. Jansen", state: "stopped", since: "Oct 9, 17:30", folder: "2026-10-01_tomato-seedlings-light-trial", tray: "100", notes: "", photos: 1218, exportAt: "Oct 9, 18:02" },
+    { id: 3, name: "", researcher: "", state: "set up", since: "Oct 12, 09:15", folder: "2026-10-12_0915", tray: "", notes: "", photos: 0 },
+    { id: 4, name: "Lettuce pilot", researcher: "J. de Vries", state: "stopped", since: "Oct 4, 12:00", folder: "2026-09-28_lettuce-pilot", tray: "150", notes: "", photos: 640 },
+    { id: 5, name: "Camera soak test", researcher: "", state: "purged", since: "Oct 3, 10:00", folder: "2026-09-25_camera-soak-test", tray: "", notes: "", photos: 0 }
+  ];
+  const expName = e => e.name || `Experiment of ${e.since}`;
+  const trayText = v => { const t = TRAYS.find(t => t[0] === v); return v === "" ? "Not recorded" : t ? `${t[1]}, ${t[2]}` : `${v} mm`; };
+  const STATE_CHIP = { running: ["ok", "Running"], stopped: ["info", "Stopped"], "set up": ["warn", "Set up, not started"], purged: ["info", "Purged"] };
+
+  function renderExperiments() {
+    const run = EXP.find(e => e.state === "running");
+    document.getElementById("exp-now").innerHTML = run
+      ? `Running: ${esc(expName(run))}. New photos go to it.`
+      : "No experiment is running. Capture photos are saved as rig photos.";
+    const card = e => {
+      const [k, t] = STATE_CHIP[e.state];
+      const btn = (act, label, cls = "") => `<button class="btn ${cls} hit" data-exp="${act}" data-id="${e.id}">${label}</button>`;
+      let acts = [];
+      if (e.state === "set up") acts = [btn("start", "Start", "primary"), btn("edit", "Edit"), btn("discard", "Discard", "danger")];
+      if (e.state === "running") acts = [btn("stop", "Stop", "danger"), btn("export", "Export so far"), btn("edit", "Edit")];
+      if (e.state === "stopped") acts = [btn("start", "Resume", "primary"), btn("export", "Export"), btn("edit", "Edit"), btn("purge", "Purge", "danger")];
+      const meta = e.state === "purged"
+        ? `<p class="card-meta"><span>Purged Oct 11. Its photos and exports were deleted; this record remains.</span></p>`
+        : `<p class="card-meta"><span>${e.state === "running" ? "Running since" : e.state === "stopped" ? "Stopped" : "Set up"} ${e.since}</span>
+            ${e.researcher ? `<span>${esc(e.researcher)}</span>` : ""}<span>Tray: ${trayText(e.tray)}</span><span>${e.photos} photos</span>
+            ${e.state === "stopped" ? `<span>${e.exportAt ? `Complete export ${e.exportAt}` : "No complete export"}</span>` : ""}</p>
+           <p class="card-meta"><code>${e.folder}</code></p>`;
+      return `<div class="card exp ${e.state === "running" ? "current" : ""}">
+        <div class="exp-info"><div class="card-head"><h3>${esc(expName(e))}</h3>${chip(k, t)}</div>${meta}</div>
+        ${acts.length ? `<div class="card-actions">${acts.join("")}</div>` : ""}</div>`;
+    };
+    const order = ["running", "set up", "stopped", "purged"];
+    document.getElementById("exp-body").innerHTML = HINT + `<div class="stack" style="gap:20px">
+      <div class="row" style="gap:12px"><span class="example">Example data</span><span class="field-help">Only one experiment runs at a time.</span></div>
+      <div class="list exp-list">${[...EXP].sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state)).map(card).join("")}</div></div>`;
+  }
+
+  function openExpForm(e) {
+    const editing = !!e;
+    const f = editing ? { ...e } : { name: "", researcher: "", tray: "", notes: "", state: "set up" };
+    const trayLocked = editing && f.state !== "set up";
+    const txt = (key, label) => `<div class="field"><span class="field-label">${label}</span>
+      <button class="field-btn text hit" data-text="${key}">${f[key] ? `<span>${esc(f[key])}</span>` : '<span class="empty">Not set, tap to type</span>'}${ICON.edit}</button></div>`;
+    const known = TRAYS.some(t => t[0] === f.tray && t[0] !== "other");
+    const p = openPanel({
+      title: editing ? `Edit: ${esc(expName(e))}` : "New experiment",
+      sub: "Every field is optional. An experiment with no name is shown by the time it started.",
+      body: `<div class="stack" style="gap:var(--gap); max-width:760px">
+        ${txt("name", "Experiment name")}${txt("researcher", "Researcher")}
+        <div class="field"><span class="field-label">Tray height</span>
+          ${trayLocked ? `<span class="field-help">${trayText(f.tray)}. It cannot be changed after the experiment has started.</span>` : `
+          <button class="field-btn text hit" id="tray-field" aria-label="Tray height, tap to choose"><span>${trayText(f.tray)}</span>${CHEV}</button>`}
+        </div>
+        ${txt("notes", "Notes")}
+      </div>`,
+      actions: `<button class="btn hit" id="ef-cancel">Cancel</button><span class="grow"></span>
+        <button class="btn primary hit" id="ef-save">${editing ? "Save changes" : "Set up"}</button>`
+    });
+    p.addEventListener("click", ev => {
+      if (ev.target.closest("#ef-cancel")) { p.remove(); return; }
+      const tb = ev.target.closest("[data-text]");
+      if (tb) {
+        const key = tb.dataset.text;
+        openKeyboard({ label: { name: "Experiment name", researcher: "Researcher", notes: "Notes" }[key], value: f[key], max: key === "notes" ? 1000 : 200,
+          onSet: v => { f[key] = v; tb.innerHTML = (v ? `<span>${esc(v)}</span>` : '<span class="empty">Not set, tap to type</span>') + ICON.edit; } });
+        return;
+      }
+      const tf = ev.target.closest("#tray-field");
+      if (tf) {
+        const known = TRAYS.some(t => t[0] === f.tray && t[0] !== "other");
+        const show = () => { tf.querySelector("span").textContent = trayText(f.tray); };
+        openChoice({ label: "Tray height", value: known || f.tray === "" ? f.tray : "other",
+          options: TRAYS.map(t => ({ value: t[0], label: t[1], detail: t[0] === "other" && !known && f.tray ? f.tray + " mm" : t[2] })),
+          onSet: v => {
+            if (v === "other") { state.fields.tray = known ? "" : f.tray; openKeypad("tray", n => { f.tray = n; show(); }); }
+            else { f.tray = v; show(); }
+          } });
+        return;
+      }
+      if (ev.target.closest("#ef-save")) {
+        if (editing) Object.assign(e, { name: f.name, researcher: f.researcher, tray: f.tray, notes: f.notes });
+        else EXP.push({ id: Date.now(), name: f.name, researcher: f.researcher, tray: f.tray, notes: f.notes, state: "set up", since: "Oct 12, 11:20", folder: "2026-10-12_" + (f.name ? f.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") : "1120"), photos: 0 });
+        p.remove(); renderExperiments(); toast(editing ? "Changes saved" : "Set up. Press Start when you are ready.");
+      }
+    });
+  }
+
+  work.addEventListener("click", ev => {
+    if (state.page !== "experiments" || ev.target.closest(".panel-layer")) return;
+    if (ev.target.closest("#exp-new")) { openExpForm(null); return; }
+    const b = ev.target.closest("[data-exp]"); if (!b) return;
+    const e = EXP.find(x => x.id === Number(b.dataset.id)), act = b.dataset.exp, run = EXP.find(x => x.state === "running");
+    if (act === "edit") { openExpForm(e); return; }
+    if (act === "export") { toast("Export starts (not in this mockup)"); return; }
+    if (act === "stop") confirmPanel({ title: `Stop ${esc(expName(e))}?`, ok: "Stop experiment", danger: true,
+      body: "<p>New photos will not be saved to this experiment. You can resume it later in the same folder.</p>",
+      onOk: () => { e.state = "stopped"; e.since = "Oct 12, 11:20"; renderExperiments(); toast("Stopped"); } });
+    if (act === "discard") confirmPanel({ title: `Discard ${esc(expName(e))}?`, ok: "Discard", danger: true,
+      body: "<p>It has never started, so no photos are lost.</p>",
+      onOk: () => { EXP.splice(EXP.indexOf(e), 1); renderExperiments(); toast("Discarded"); } });
+    if (act === "start") {
+      const go = () => { if (run && run !== e) { run.state = "stopped"; run.since = "Oct 12, 11:20"; } e.state = "running"; e.since = "Oct 12, 11:20"; renderExperiments(); toast("Running"); };
+      if (run && run !== e) confirmPanel({ title: `Start ${esc(expName(e))}?`, ok: "Stop it and start this one",
+        body: `<p><strong>${esc(expName(run))}</strong> is running. Only one experiment runs at a time.</p>`, onOk: go });
+      else go();
+    }
+    if (act === "purge") confirmPanel({ title: `Purge ${esc(expName(e))}?`, ok: "Purge", danger: true,
+      typed: e.name || e.folder,
+      check: e.exportAt ? null : "Purge without a complete export",
+      body: `<p>Purge deletes this experiment's ${e.photos} photos and its export files. <strong>This cannot be undone.</strong> Its name, dates and notes stay as a record.</p>`
+        + (e.exportAt ? `<p>It has a complete export, made ${e.exportAt}.</p>` : `<p>${chip("warn", "No complete export")} Export it first, or tick the box below to purge anyway.</p>`),
+      onOk: () => { e.state = "purged"; renderExperiments(); toast("Purged"); } });
+  });
+
+  show("setup");
+})();
+</script>
+
+</body>
+</html>

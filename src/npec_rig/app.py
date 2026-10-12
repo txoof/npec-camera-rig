@@ -225,6 +225,13 @@ def gallery_page(request: Request) -> Response:
     return templates.TemplateResponse(request, "gallery.html")
 
 
+@app.get("/ui")
+def ui_reference_page(request: Request) -> Response:
+    """Every shared interface component with example values, to try in a browser (#128). Not in
+    the rail. Later page issues point to it."""
+    return templates.TemplateResponse(request, "ui_reference.html")
+
+
 @app.get("/snapshot.jpg")
 def snapshot() -> Response:
     """One JPEG from the main stream."""
