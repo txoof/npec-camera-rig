@@ -42,7 +42,7 @@ from npec_rig.tags import TagDetection, detect_tags
 TAG_DETECTOR_VERSION = 1
 DERIVED_MAX_BYTES = 2 * 1024**3
 # One full-size decode at a time: each holds about 190MB, and the Pi has run out of memory before
-# with several 64MP frames live at once (see app.py, _detect_tags_cached).
+# with several 64MP frames live at once (dmesg-confirmed, 2026-09-22).
 _full_decode = threading.BoundedSemaphore(1)
 _key_locks: dict[str, threading.Lock] = {}
 _key_locks_guard = threading.Lock()

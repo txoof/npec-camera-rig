@@ -22,8 +22,7 @@ logger = logging.getLogger(__name__)
 
 from npec_rig.calibration import (
     CalibrationArtifact,
-    area_scale_samples,
-    build_area_scale_field,
+    ScaleResidualSample,
     build_calibration_report,
     build_scale_field,
     build_table_frame,
@@ -36,22 +35,16 @@ from npec_rig.calibration_store import (
     calibration_root,
     list_calibrations,
     load_calibration,
-    load_calibration_frame,
+    delete_legacy_heatmaps,
     load_current_calibration,
     save_calibration,
-    save_calibration_area_shape_heatmap,
-    save_calibration_table_view_area_shape,
     stem_for_photo,
 )
 from npec_rig.calibration_viz import (
-    AREA_SHAPE_HEATMAP_MAX_PCT,
-    AREA_SHAPE_HEATMAP_MIN_PCT,
-    render_area_shape_heatmap,
-    render_best_worst_overlay,
+    HEATMAP_MAX_WIDTH,
     render_level_overlay,
     render_radial_residual_plot,
-    render_rank_plot,
-    render_table_view,
+    render_tag_map,
 )
 from npec_rig.camera import (
     AUTOFOCUS_TIMEOUT_S,
@@ -613,7 +606,7 @@ def _outer_edge_span_to_centre_distance_mm(
     outer_edge_span_mm: float | None, corner_tag_size_mm: float
 ) -> float | None:
     """Convert an operator's outer-edge-to-outer-edge tape measurement between two corner tags
-    into the tag-centre-to-centre distance `render_table_view` actually needs.
+    into the tag-centre-to-centre distance `render_tag_map` actually needs.
 
     There's no mark at a tag's centre to measure to directly, so the operator lays a tape measure
     from one tag's outer edge (the corner facing away from the table) straight across to the
@@ -787,7 +780,7 @@ def run_calibration(
 
     `table_width_mm`/`table_length_mm`, if given, are the operator's **outer-edge-to-outer-edge**
     tape measurement between corner tags (there's no mark at a tag's centre to measure to) --
-    converted to the centre-to-centre distance `render_table_view` needs via
+    converted to the centre-to-centre distance `render_tag_map` needs via
     `_outer_edge_span_to_centre_distance_mm`, using `corner_tag_size_mm` (calliper-measured if
     given, else `ASSUMED_CORNER_TAG_SIZE_MM`'s nominal placeholder, same pattern as
     `calibration_tag_size_mm`).
@@ -795,7 +788,7 @@ def run_calibration(
     All three go through `_resolve_table_dims` (see its docstring): remembered across runs via
     `settings.py`'s key/value store, not the `CalibrationArtifact`; only a real (positive),
     explicitly-given value is ever persisted, and only when `promote` is also true -- a
-    `promote=False` comparison run's own values are used for *this* run's table view but never
+    `promote=False` comparison run's own values are used for *this* run's tag map but never
     become the sticky default for every real run after it, the same way `promote=False` already
     keeps `current.json` untouched.
     """
@@ -854,6 +847,13 @@ def run_calibration(
         "table_length_mm": table_length_mm,
         "corner_tag_size_mm": corner_size_mm,
         "corner_tag_size_mm_is_default": corner_tag_size_mm is None,
+        # Distinct from "nothing entered": entered but rejected (smaller than a corner tag, almost
+        # certainly a data-entry mistake) also draws the tag map NOT TO SCALE, and the page must
+        # say so rather than echo numbers the map ignored.
+        "tag_map_to_scale": all(
+            _outer_edge_span_to_centre_distance_mm(v, corner_size_mm) is not None
+            for v in (table_width_mm, table_length_mm)
+        ),
     }
 
     try:
@@ -877,59 +877,6 @@ def run_calibration(
     except ValueError:
         corner_baseline = None
     result["corner_baseline_tags"] = sorted(corner_baseline.corners_by_id) if corner_baseline else []
-
-    # The calibration's claimed uncertainty (UncertaintyField: confidence heatmap, accuracy
-    # shape, scale-residual table view) is no longer built or shown: it was smaller than the
-    # measured validation error in 7 of 12 slots (issue #52). Only validation's per-slot band is
-    # reported. The drawing code stays in calibration_viz for the M3 plot review.
-
-    try:
-        area_field = build_area_scale_field(area_scale_samples(field, detections, tag_sizes_mm))
-    except ValueError:
-        area_field = None
-    if area_field is not None:
-        area_shape_heatmap = render_area_shape_heatmap(area_field, array)
-        save_calibration_area_shape_heatmap(area_shape_heatmap, stem=stem)
-        result["area_shape_heatmap_url"] = f"/calibration/files/heatmaps/{stem}_area-shape.jpg"
-    else:
-        result["area_shape_heatmap_url"] = None
-
-    # The table-position trust view (PLAN.md 339-340's promised-but-unbuilt homography, see
-    # calibration.TableFrame): the area-shape field above, painted instead on a
-    # straightened top-down view anchored to the four corner tags, so "this spot" means the same
-    # real position across different calibration runs. `covered_positions` reuses the calibration
-    # tags' own positions already extracted above -- no new detection pass.
-    try:
-        table_frame = build_table_frame(corner_baseline) if corner_baseline is not None else None
-    except ValueError:
-        table_frame = None
-    covered_positions = [d.centre for d in calibration_detections]
-    render_width_mm = _outer_edge_span_to_centre_distance_mm(table_width_mm, corner_size_mm)
-    render_length_mm = _outer_edge_span_to_centre_distance_mm(table_length_mm, corner_size_mm)
-    # Distinct from "nothing entered": if width/length *were* entered but the conversion rejected
-    # them (too small relative to corner_size_mm -- almost certainly a data-entry mistake), the
-    # rendered view still falls back to NOT-TO-SCALE, but the result must say so plainly rather
-    # than letting the UI echo the entered numbers next to a canvas that silently ignored them.
-    result["table_view_to_scale"] = render_width_mm is not None and render_length_mm is not None
-
-    if table_frame is not None and area_field is not None:
-        table_view_shape = render_table_view(
-            array,
-            table_frame,
-            area_field.local_shape_factor_pct,
-            covered_positions,
-            label="area-shape distortion",
-            vmin=AREA_SHAPE_HEATMAP_MIN_PCT,
-            vmax=AREA_SHAPE_HEATMAP_MAX_PCT,
-            table_width_mm=render_width_mm,
-            table_length_mm=render_length_mm,
-        )
-        save_calibration_table_view_area_shape(table_view_shape, stem=stem)
-        result["table_view_shape_url"] = (
-            f"/calibration/files/heatmaps/{stem}_table-view-area-shape.jpg"
-        )
-    else:
-        result["table_view_shape_url"] = None
 
     result["frame_url"] = calibration_frame_url(stem)
 
@@ -1001,22 +948,12 @@ def list_calibration_artifacts() -> list[dict]:
             }
         )
         frame_url = calibration_frame_url(path.stem)
-        area_shape_heatmap_url = None
-        if (calibration_root() / "heatmaps" / f"{path.stem}_area-shape.jpg").exists():
-            area_shape_heatmap_url = f"/calibration/files/heatmaps/{path.stem}_area-shape.jpg"
-        table_view_shape_url = None
-        if (calibration_root() / "heatmaps" / f"{path.stem}_table-view-area-shape.jpg").exists():
-            table_view_shape_url = (
-                f"/calibration/files/heatmaps/{path.stem}_table-view-area-shape.jpg"
-            )
         entries.append(
             {
                 "stem": stem,
                 "filename": path.name,
                 "url": f"/calibration/files/{path.name}",
                 "frame_url": frame_url,
-                "area_shape_heatmap_url": area_shape_heatmap_url,
-                "table_view_shape_url": table_view_shape_url,
                 **stats,
             }
         )
@@ -1104,14 +1041,8 @@ def delete_calibration(stem: str) -> dict:
     # A validation session only means anything against its own calibration.
     validation_store.delete_sessions_for_calibration(stem)
     validation_store.delete_slot_layout(stem)
-    for suffix in (
-        "",
-        "_area-shape",
-        "_accuracy-shape",
-        "_table-view",
-        "_table-view-area-shape",
-    ):
-        (calibration_root() / "heatmaps" / f"{stem}{suffix}.jpg").unlink(missing_ok=True)
+    delete_legacy_heatmaps(stem)
+    images.forget_source(_calibration_source(stem))
     return {"deleted": stem}
 
 
@@ -1134,20 +1065,6 @@ def current_calibration() -> dict:
     if artifact is None:
         return {"exists": False, **table_dims}
     frame_url = calibration_frame_url(artifact.frame_stem)
-    area_shape_heatmap_url = (
-        f"/calibration/files/heatmaps/{artifact.frame_stem}_area-shape.jpg"
-        if artifact.frame_stem
-        and (calibration_root() / "heatmaps" / f"{artifact.frame_stem}_area-shape.jpg").exists()
-        else None
-    )
-    table_view_shape_url = (
-        f"/calibration/files/heatmaps/{artifact.frame_stem}_table-view-area-shape.jpg"
-        if artifact.frame_stem
-        and (
-            calibration_root() / "heatmaps" / f"{artifact.frame_stem}_table-view-area-shape.jpg"
-        ).exists()
-        else None
-    )
     return {
         "exists": True,
         "frame_stem": artifact.frame_stem,
@@ -1159,8 +1076,6 @@ def current_calibration() -> dict:
             sorted(artifact.corner_baseline.corners_by_id) if artifact.corner_baseline else []
         ),
         "frame_url": frame_url,
-        "area_shape_heatmap_url": area_shape_heatmap_url,
-        "table_view_shape_url": table_view_shape_url,
         **table_dims,
     }
 
@@ -1193,196 +1108,134 @@ def save_table_dims(
     }
 
 
-# The rank plot and best/worst photo endpoints each re-detect tags on the *full* saved frame
-# (9152x6944 -- there's no persisted per-tag data to read instead, see `_metric_points`), and the
-# UI fires all 4 of them (2 metrics x 2 views) right after every calibration run. Four concurrent
-# full-resolution detection passes in one process is exactly what pushed the picamera2 worker to
-# 6.6GB RSS and got it OOM-killed (dmesg-confirmed, 2026-09-22, right after this feature shipped)
-# -- detect_tags's multi-window adaptive threshold sweep (tags.py's own DetectorParameters) isn't
-# cheap at 64MP, and doing it four times at once is four times the transient memory, not four
-# times the work. A one-entry cache, guarded by a lock so concurrent requests for the same frame
-# queue instead of racing, turns that into one real decode-plus-detection pass plus three cache
-# hits -- the cache holds the decoded frame itself (not just its detections), so a cache hit skips
-# the ~180MB JPEG decode too, not only the detection sweep; otherwise all 4 requests would decode
-# their own copy of the frame in parallel before any of them reached the lock, which is the same
-# OOM condition under another name.
-_frame_detection_lock = Lock()
-_cached_frame_detections: tuple[str, np.ndarray, list] | None = None
+def _calibration_source(stem: str) -> str:
+    """The images.py source for calibration `stem`'s plots, so deleting the calibration forgets
+    them."""
+    return f"calibration:{stem}"
 
 
-def _detect_tags_cached(frame_stem: str) -> tuple[np.ndarray, list]:
-    """Returns the *shared* cached frame array -- callers must not mutate it in place (draw on a
-    copy instead), since every concurrent caller for the same frame_stem gets the same object."""
-    global _cached_frame_detections
-    with _frame_detection_lock:
-        if _cached_frame_detections is not None and _cached_frame_detections[0] == frame_stem:
-            return _cached_frame_detections[1], _cached_frame_detections[2]
-        # Drop the outgoing entry before decoding the new frame, not after -- the calibration-
-        # history drill-down makes switching frame_stem (not just growing the same one) a normal
-        # user action, so without this the previous ~180MB frame array stays referenced by this
-        # global while the next one is decoded, holding two full-res frames live at once. Same
-        # OOM condition this cache exists to prevent (see the comment above it), just at 2x
-        # instead of 4x.
-        _cached_frame_detections = None
-        try:
-            frame = load_calibration_frame(frame_stem)
-        except FileNotFoundError:
-            raise HTTPException(409, "the saved frame for this calibration is missing on disk")
-        detections = detect_tags(frame)
-        _cached_frame_detections = (frame_stem, frame, detections)
-        return frame, detections
+def _calibration_photo(stem: str) -> tuple[str, Path]:
+    """`(capture ref, path)` of calibration `stem`'s photo. 409 when it is not on disk."""
+    path = calibration_frame_path(stem)
+    if path is None or not path.exists():
+        raise HTTPException(409, "the saved frame for this calibration is missing on disk")
+    return f"{path.parent.name}/{path.stem}", path
 
 
-def _metric_points(metric: str, artifact: CalibrationArtifact) -> tuple[list[tuple[float, int, float, float]], str, np.ndarray]:
-    """`(points, label, frame)` for `metric` against the live calibration -- shared by the rank
-    plot and the best/worst photo overlay, so both read the same re-detection of the same saved
-    frame rather than two separate (and possibly inconsistent) passes.
-
-    `points` is `(signed_pct, tag_id, x, y)` per detected calibration tag -- signed, not
-    magnitude, so a caller that needs a distortion signature's shape (the radial plot) doesn't
-    have to reconstruct sign from an already-folded value; a caller that only wants magnitude
-    (the rank plot, the best/worst photo) takes `abs()` itself at the point of use. Neither
-    `scale_residual` nor `shape_distortion` is persisted per-tag in the artifact (only
-    smoothed/aggregated forms are), so this always re-detects tags from the saved frame -- via
-    `_detect_tags_cached`, not directly, see its own comment for why.
-    """
-    if metric not in ("scale_residual", "shape_distortion"):
-        raise HTTPException(422, f"unknown metric {metric!r}, expected scale_residual or shape_distortion")
-    if artifact.frame_stem is None:
-        raise HTTPException(409, "no calibration with a saved frame yet")
-
-    frame, detections = _detect_tags_cached(artifact.frame_stem)
-    cal_detections = [d for d in detections if d.tag_id in CALIBRATION_ID_RANGE]
-    tag_sizes_mm = {d.tag_id: artifact.calibration_tag_size_mm for d in cal_detections}
-
-    if metric == "scale_residual":
-        samples = scale_residual_samples(artifact.scale_field, cal_detections, tag_sizes_mm)
-        points = [(s.residual_pct, s.tag_id, s.x, s.y) for s in samples]
-        label = "scale residual"
-    else:
-        samples = area_scale_samples(artifact.scale_field, cal_detections, tag_sizes_mm)
-        points = [(s.shape_factor_pct, s.tag_id, s.x, s.y) for s in samples]
-        label = "area-shape distortion"
-
-    return points, label, frame
+def _calibration_tags(stem: str) -> list:
+    """Calibration `stem`'s tag detections, worked out once per photo and then read from the
+    analysis store (images.py), the same as a validation capture's: no full-size frame stays in
+    memory between requests, and a restart does not decode it again."""
+    ref, path = _calibration_photo(stem)
+    return images.tag_detections(ref, path, detect=lambda frame: detect_tags(frame))
 
 
-def _rank_plot_response(artifact: CalibrationArtifact, metric: str) -> Response:
-    """Sorted best-vs-worst-tag plot (TODO.md) for `artifact`'s own `metric` --
-    `"scale_residual"` (the confidence heatmap's number) or `"shape_distortion"` (the area-shape
-    heatmap's number). See `_metric_points` for why this re-detects tags each call.
-    """
-    signed_points, label, _frame = _metric_points(metric, artifact)
-
-    if len(signed_points) < 2:
+def _scale_residuals(stem: str) -> tuple[list, list[ScaleResidualSample]]:
+    """`(calibration tag detections, their scale residuals)` for saved calibration `stem`. Not
+    persisted per tag in the artifact, so worked out from the stored tag detections."""
+    artifact = _load_saved_artifact(stem)
+    detections = [d for d in _calibration_tags(stem) if d.tag_id in CALIBRATION_ID_RANGE]
+    tag_sizes_mm = {d.tag_id: artifact.calibration_tag_size_mm for d in detections}
+    samples = scale_residual_samples(artifact.scale_field, detections, tag_sizes_mm)
+    if len(samples) < 2:
         raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
-
-    points = [(abs(v), tag_id, x, y) for v, tag_id, x, y in signed_points]
-    image = render_rank_plot(points, label=label)
-    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+    return detections, samples
 
 
-@app.get("/calibration/current/rank-plot")
-def current_rank_plot(metric: str = "scale_residual") -> Response:
-    """`_rank_plot_response` for the live calibration."""
-    artifact = load_current_calibration()
-    if artifact is None:
-        raise HTTPException(409, "no calibration with a saved frame yet")
-    return _rank_plot_response(artifact, metric)
+def _render_radial_plot(inputs: dict) -> bytes:
+    """The evidence gate for lens distortion modelling (CLAUDE.md, see
+    `calibration_viz.render_radial_residual_plot`): each tag's signed scale residual against its
+    distance from the image centre."""
+    stem = inputs["stem"]
+    _detections, samples = _scale_residuals(stem)
+    with Image.open(_calibration_photo(stem)[1]) as photo:  # the header only, no decode
+        width, height = photo.size
+    cx, cy = width / 2, height / 2
+    points = [(float(np.hypot(s.x - cx, s.y - cy)), s.residual_pct, s.tag_id) for s in samples]
+    return array_to_jpeg(render_radial_residual_plot(points, label="scale residual"))
 
 
-@app.get("/calibration/{stem}/rank-plot")
-def stem_rank_plot(stem: str, metric: str = "scale_residual") -> Response:
-    """`_rank_plot_response` for an arbitrary saved calibration `stem` -- the calibration-history
-    browser's per-entry diagnostics drill-down (TODO.md, reference/plans/
-    calibration-history-browser.md), not just whatever's currently active."""
-    return _rank_plot_response(_load_saved_artifact(stem), metric)
-
-
-def _best_worst_photo_response(artifact: CalibrationArtifact, metric: str) -> Response:
-    """`artifact`'s actual saved photo, with its best and worst tag for `metric` circled directly
-    on it -- green for best, red for worst, each labelled with its magnitude -- so the worst tag
-    can be found and inspected physically, not just read off the rank plot's abstract rank axis.
-    See `_metric_points` for why this re-detects tags each call.
-    """
-    signed_points, label, frame = _metric_points(metric, artifact)
-
-    if len(signed_points) < 2:
-        raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
-
-    points = [(abs(v), tag_id, x, y) for v, tag_id, x, y in signed_points]
-    ordered = sorted(points, key=lambda p: p[0])
-    best_value, best_tag_id, best_x, best_y = ordered[0]
-    worst_value, worst_tag_id, worst_x, worst_y = ordered[-1]
-
-    image = render_best_worst_overlay(
+def _render_tag_map(inputs: dict) -> bytes:
+    """Where calibration tags read far from the run's median, on the table straightened by its
+    corner tags, with a histogram (`calibration_viz.render_tag_map`). A setup aid for finding a
+    badly printed sheet, not a claim about accuracy."""
+    stem = inputs["stem"]
+    artifact = _load_saved_artifact(stem)
+    if artifact.corner_baseline is None:
+        raise HTTPException(409, "this calibration has no corner tags to straighten the table on")
+    try:
+        table_frame = build_table_frame(artifact.corner_baseline)
+    except ValueError as exc:
+        raise HTTPException(409, f"cannot straighten the table: {exc}") from exc
+    detections, samples = _scale_residuals(stem)
+    residual_at = {(s.tag_id, s.x, s.y): s.residual_pct for s in samples}
+    median = float(np.median([s.residual_pct for s in samples]))
+    tags = []
+    for d in detections:
+        residual = residual_at.get((d.tag_id, *d.centre))
+        if residual is not None:
+            tags.append((np.asarray(d.corners, dtype=float), residual - median))
+    frame, scale = images.reduced_frame(_calibration_photo(stem)[1], HEATMAP_MAX_WIDTH)
+    image = render_tag_map(
         frame,
-        best=(best_tag_id, best_x, best_y, best_value),
-        worst=(worst_tag_id, worst_x, worst_y, worst_value),
-        label=label,
+        scale,
+        table_frame,
+        tags,
+        table_width_mm=inputs["table_width_mm"],
+        table_length_mm=inputs["table_length_mm"],
     )
-    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+    return array_to_jpeg(image)
 
 
-@app.get("/calibration/current/best-worst-photo")
-def current_best_worst_photo(metric: str = "scale_residual") -> Response:
-    """`_best_worst_photo_response` for the live calibration."""
+def _calibration_plot(stem: str, recipe: str) -> Response:
+    """Calibration `stem`'s `recipe` plot, from the images.py store once drawn."""
+    _load_saved_artifact(stem)  # 404/422 for an unknown or unreadable stem, before anything is drawn
+    inputs: dict = {"stem": stem}
+    if recipe == "calibration_tag_map":
+        # The operator's tape-measured table size (Step 5), as the distance between corner tag
+        # centres the straightened view needs. Part of the inputs, so a new value draws anew.
+        persisted = load_settings()
+        corner_mm = persisted.get("corner_tag_size_mm") or ASSUMED_CORNER_TAG_SIZE_MM
+        for name in ("table_width_mm", "table_length_mm"):
+            inputs[name] = _outer_edge_span_to_centre_distance_mm(persisted.get(name), corner_mm)
+    return _derived_response(recipe, _calibration_source(stem), inputs)
+
+
+def _current_stem() -> str:
     artifact = load_current_calibration()
-    if artifact is None:
+    if artifact is None or artifact.frame_stem is None:
         raise HTTPException(409, "no calibration with a saved frame yet")
-    return _best_worst_photo_response(artifact, metric)
-
-
-@app.get("/calibration/{stem}/best-worst-photo")
-def stem_best_worst_photo(stem: str, metric: str = "scale_residual") -> Response:
-    """`_best_worst_photo_response` for an arbitrary saved calibration `stem` -- see
-    `stem_rank_plot`."""
-    return _best_worst_photo_response(_load_saved_artifact(stem), metric)
-
-
-def _radial_plot_response(artifact: CalibrationArtifact, metric: str) -> Response:
-    """PLAN.md's own evidence-gate measurement (see `calibration_viz.render_radial_residual_plot`):
-    signed `metric` residual against distance from the image centre, one point per tag, with a
-    linear fit and its R^2 -- the specific measurement that decides whether a structured lens/
-    parallax distortion signature is present, as opposed to the coverage-and-outlier-driven
-    pattern the confidence heatmap otherwise shows. See `_metric_points` for why this re-detects
-    tags each call.
-    """
-    signed_points, label, frame = _metric_points(metric, artifact)
-
-    if len(signed_points) < 2:
-        raise HTTPException(409, "not enough calibration tags detected in the saved frame to plot")
-
-    cx, cy = frame.shape[1] / 2, frame.shape[0] / 2
-    points = [(float(np.hypot(x - cx, y - cy)), value, tag_id) for value, tag_id, x, y in signed_points]
-
-    image = render_radial_residual_plot(points, label=label)
-    return Response(content=array_to_jpeg(image), media_type="image/jpeg")
+    return artifact.frame_stem
 
 
 @app.get("/calibration/current/radial-plot")
-def current_radial_plot(metric: str = "scale_residual") -> Response:
-    """`_radial_plot_response` for the live calibration."""
-    artifact = load_current_calibration()
-    if artifact is None:
-        raise HTTPException(409, "no calibration with a saved frame yet")
-    return _radial_plot_response(artifact, metric)
+def current_radial_plot() -> Response:
+    """The radial plot for the live calibration."""
+    return _calibration_plot(_current_stem(), "calibration_radial_plot")
 
 
 @app.get("/calibration/{stem}/radial-plot")
-def stem_radial_plot(stem: str, metric: str = "scale_residual") -> Response:
-    """`_radial_plot_response` for an arbitrary saved calibration `stem` -- see
-    `stem_rank_plot`."""
-    return _radial_plot_response(_load_saved_artifact(stem), metric)
+def stem_radial_plot(stem: str) -> Response:
+    """The radial plot for saved calibration `stem` (the calibration history drill-down)."""
+    return _calibration_plot(stem, "calibration_radial_plot")
 
 
-# Validation captures for the certainty map. `_detect_tags_cached` keeps one full frame for the
-# calibration diagnostics; a full 64MP frame is ~180MB, so holding several would be the OOM
-# condition that cache exists to prevent. Captures never stay in memory at full size: their tags
-# come from the analysis store (images.py) and the copy to draw on is decoded straight to
-# _CAPTURE_PREVIEW_WIDTH. Full-size frames live at once, at most: the cached calibration frame, a
-# second calibration frame while that cache switches stems (under _frame_detection_lock), and one
-# capture being analysed for the first time (under images._full_decode, a separate lock).
+@app.get("/calibration/current/tag-map")
+def current_tag_map() -> Response:
+    """The tag map for the live calibration."""
+    return _calibration_plot(_current_stem(), "calibration_tag_map")
+
+
+@app.get("/calibration/{stem}/tag-map")
+def stem_tag_map(stem: str) -> Response:
+    """The tag map for saved calibration `stem` (the calibration history drill-down)."""
+    return _calibration_plot(stem, "calibration_tag_map")
+
+
+# Validation captures for the certainty map. A full 64MP frame is ~180MB, so captures never stay
+# in memory at full size: their tags come from the analysis store (images.py) and the copy to
+# draw on is decoded straight to _CAPTURE_PREVIEW_WIDTH. At most one full-size frame is live at
+# once: the photo being analysed for the first time, under images._full_decode.
 _CAPTURE_REF = re.compile(r"^\d{4}-\d{2}-\d{2}/\d{6}_\d{6}$")
 _CAPTURE_PREVIEW_WIDTH = 2000
 _MAX_CAPTURES_PER_MAP = 12
@@ -1427,7 +1280,7 @@ def _certainty_map_response(artifact: CalibrationArtifact, captures: list[str]) 
         raise HTTPException(422, f"at most {_MAX_CAPTURES_PER_MAP} validation captures per map")
     if artifact.frame_stem is None:
         raise HTTPException(409, "this calibration has no saved frame to take tray slots from")
-    _frame, calibration_detections = _detect_tags_cached(artifact.frame_stem)
+    calibration_detections = _calibration_tags(artifact.frame_stem)
     per_capture = [_capture_tags(ref) for ref in captures]  # only the last is drawn on
     try:
         layout, results = certainty_by_slot(
@@ -1613,7 +1466,7 @@ def _calibration_slot_layout(artifact: CalibrationArtifact) -> dict:
     saved = validation_store.load_slot_layout(artifact.frame_stem)
     if saved is not None:
         return saved
-    _frame, detections = _detect_tags_cached(artifact.frame_stem)
+    detections = _calibration_tags(artifact.frame_stem)
     try:
         layout = build_slot_layout(
             group_sheets(detections, artifact.scale_field, artifact.calibration_tag_size_mm)
@@ -1922,3 +1775,5 @@ def _render_problem_frame(inputs: dict) -> bytes:
 # Bump a recipe's version whenever its renderer would draw the same inputs differently.
 images.register(images.Recipe("validation_map", 1, _render_validation_map))
 images.register(images.Recipe("problem_frame", 1, _render_problem_frame))
+images.register(images.Recipe("calibration_radial_plot", 1, _render_radial_plot))
+images.register(images.Recipe("calibration_tag_map", 1, _render_tag_map))

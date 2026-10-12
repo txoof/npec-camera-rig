@@ -1,55 +1,35 @@
-## area-shape-heatmap
+## tag-map
 
-Area-scale shape check — each tag's real pixel area (exact, from its four corners) compared to
-treating it as a perfect square. The colour scale runs 0 to 0.5%, a range measured from
-17 real calibration runs on this rig (2026-09-21). Flat/near-zero everywhere means squaring the
-scale field is fine for area, not just length. Structured, growing toward the corners, is real
-evidence area needs its own fit before canopy-area measurement relies on it.
+The table, straightened on the four corner tags, so a spot on the map is the same real spot on the
+table in every calibration run. Each calibration tag is filled with how far its size reads from the
+middle (median) tag of this run: blue reads small, orange-red reads large, pale is normal. Tags more
+than 1.5% off are also outlined in black. Grey means no tag: nothing is guessed between tags.
 
-The scale field only ever measures length (pixels per millimetre in one direction). Turning that
-into an area conversion means squaring it, which is only exactly right if every tag's photographed
-shape is a perfect square. Near a tilted table's edges, a real square can photograph as a slightly
-non-square quadrilateral (a "keystone" shape), and squaring the length scale would silently miss
-that.
+What to look for: a whole sheet in one colour usually means that sheet printed at the wrong size,
+so measure it with callipers. Colour spread over the whole table, rather than one sheet, points at
+the camera instead. The histogram under the map counts the tags at each distance from the median,
+so one stray tag can be told from a group of them.
 
-Rather than model the lens or the table's tilt angle to predict this, it's measured directly: each
-tag's real pixel area, computed exactly from its four detected corners, compared to what a perfect
-square with that tag's own average side length would cover. A square is the largest-area shape
-possible for a given average side length, so this comparison can only ever come out as zero (a
-genuine square) or negative (some real distortion) — never positive.
+The colour range (2%) and the outline line (1.5%) are fixed choices, not measurements: a good run
+stays pale. The scale is fitted to these same tags, so a whole bad sheet pulls the fit toward
+itself and reads somewhat less far off than it really is. This is for setup only. How far a
+measurement can be trusted comes from validation.
 
-What it means: answers "is squaring the length scale good enough for area, or does area need its
-own correction before canopy-area measurement relies on it?" Flat/near-zero everywhere means
-squaring is fine. Measured across 17 real calibration runs on this rig (2026-09-21): the worst tag
-anywhere came out at -0.46%, and the pattern gets worse toward the table's corners in a way that
-tracks position, not tag size or image noise — so it reads as a real, if very small, geometric
-effect, not noise.
-
-## table-position-view
-
-Anchored to the four corner tags, which don't move, so "this spot on the picture" is the same real
-spot on the table across different calibration runs, not tied to one specific photo's own tilt and
-framing. Grey means no calibration tag was ever near that spot — not measured, regardless of
-colour, never a guessed or smoothed-in value.
-
-NOT TO SCALE (a square canvas) unless both table width and length were entered when this
-calibration was run — relative position within the table is correct either way, but the
-rectangle's own proportions only match the real table when both were measured and entered.
-
-## best-worst-tag
-
-Every calibration tag's own scale residual and area-shape distortion, sorted best to worst, so a
-specific outlier tag can be found by ID and frame position rather than only seeing the heatmap's
-average. Each plot's vertical axis is that run's own spread, not the heatmap's fixed 0 to 0.5%
-scale — read the axis label baked into each image, not the colours above. Green marks
-the best tag, red the worst, on both the sorted plot and the actual photo below it.
+NOT TO SCALE (a square map) unless both table width and length have been entered on the
+calibration page. Positions on the table are right either way; only the map's proportions need
+the two numbers.
 
 ## radial-plot
 
-A lens/parallax distortion signature is structured — residual trends with distance from the image
-centre, with a consistent sign — not random scatter. That's the specific measurement that decides
-whether picking up lens-distortion modelling is justified, so it's plotted directly rather than
-guessed at: every tag's own signed residual (not folded to a percentage magnitude — a real
-distortion trend has a sign) against its distance from the image centre, with an unweighted linear
-fit and its R². No judgement is baked in here about whether a given R² counts as "structured" —
-read the scatter and the fit yourself.
+Each dot is one calibration tag. Across: its distance from the centre of the photo, in pixels. Up
+and down: how far its size reads from the fitted scale, in percent, with its sign kept. The line is
+a straight fit through the dots.
+
+Dots that climb or fall steadily toward the right (the frame corners) would mean lens distortion.
+This is the one measurement that would justify modelling the lens (CLAUDE.md). A cloud with no
+trend means no lens model is needed. The known low reading near the centre of the frame is a dip
+at the left end, not a trend toward the corners, and does not count.
+
+R² says how much of the up-and-down spread the straight line explains, from 0 (none) to 1 (all of
+it). It ignores size: read the slope, in percent per pixel, with it. It only sees straight trends,
+so read the dots too.

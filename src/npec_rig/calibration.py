@@ -9,9 +9,8 @@ against a real capture (see project memory, not committed here).
 The fit is a single tilted plane (relative depth linear in image x, y) -- validated on a real
 capture where a plane explained the observed scale ramp to ~1.8% residual against a ~12% signal.
 `residual_std_pct` is a *global* figure: how much scatter is left after removing that plane, as a
-percentage of the mean scale. `UncertaintyField` is PLAN.md's *local* uncertainty: at a query
-position, the RMS residual of the k nearest tags to it, so two calibrations with the same global
-residual can still report different confidence in different parts of the frame.
+percentage of the mean scale. How far a measurement can be trusted at a position is not claimed
+here: validation measures it per slot (issue #52).
 
 `holdout_coverage_test` is PLAN.md's coverage check: fit on half the tags, predict the other
 half, measure the error -- turns "is there enough coverage" into a number instead of a guess.
@@ -141,7 +140,7 @@ class TableFrame:
     `(u, v) in [0, 1]^2` span the quadrilateral of the four corner tags' own centres, not the
     table's physical edge some distance further out. `u` runs TL -> TR (left-to-right in the
     camera image), `v` runs TL -> BL (top-to-bottom). A real-world width/length measurement used
-    alongside this (e.g. in `calibration_viz.render_table_view`) must be the distance
+    alongside this (e.g. in `calibration_viz.render_tag_map`) must be the distance
     centre-to-centre between the same four tags, not the table's outer edge, or the aspect ratio
     silently won't match what gets rendered -- and *which* edge is "width" matters too: it must be
     the TL-TR edge (`u`), not TL-BL (`v`), or the rendered rectangle comes out transposed. Nobody
@@ -189,7 +188,7 @@ class TableFrame:
 
     def as_matrix(self) -> np.ndarray:
         """The pixel -> fraction homography as a plain 3x3 `np.ndarray` -- for a caller (e.g.
-        `calibration_viz.render_table_view`) that needs to compose it with other matrices (a
+        `calibration_viz.render_tag_map`) that needs to compose it with other matrices (a
         downscale, a canvas scale) rather than call `to_fraction`/`to_pixel` point by point.
         """
         return np.array(self._matrix)
@@ -438,66 +437,10 @@ def refit_scale_factor(
     return ScaleFactorRefit(field=refit_field, interior_scatter_pct=interior_scatter_pct)
 
 
-# Not shown to the operator (issue #52: the claim was smaller than the measured validation
-# error in 7 of 12 slots). Kept, unused by the app, for the M3 calibration plot review.
-@dataclass(frozen=True)
-class UncertaintyField:
-    """Local scatter among neighbouring tags -- PLAN.md's "uncertainty field", distinct from
-    `ScaleField.residual_std_pct` (a single global plane-fit number). Built from the same
-    detections as a `ScaleField`: at each tag, how far the plane's prediction was off, as a
-    percentage of that tag's actual scale.
-
-    `local_uncertainty_pct` reports RMS-about-zero of the k nearest tags to a query position, not
-    their standard deviation about each other's mean. A region where every tag agrees with its
-    neighbours but all of them sit 5% off the fitted plane has zero *scatter* but a real 5% error
-    -- std would report that as maximum confidence, which is exactly the honesty-plot failure
-    mode M2's acceptance tests exist to catch. RMS-about-zero reports it as 5% uncertainty
-    instead.
-
-    Uses k-nearest-neighbour by image-plane distance, not a fixed grid -- tags are scattered
-    irregularly across a real calibration sheet, not laid out on a regular lattice.
-    """
-
-    _positions: tuple[tuple[float, float], ...]
-    _residual_pct: tuple[float, ...]
-
-    def local_uncertainty_pct(self, x: float, y: float, k: int = 5) -> float:
-        """RMS-about-zero residual of the k tags nearest to (x, y), as a percentage."""
-        positions = np.array(self._positions)
-        distances = np.linalg.norm(positions - np.array([x, y]), axis=1)
-        nearest = np.argsort(distances)[: min(k, len(distances))]
-        residuals = np.array(self._residual_pct)[nearest]
-        return float(np.sqrt(np.mean(residuals**2)))
-
-
-def build_uncertainty_field(
-    field: ScaleField, detections: list[TagDetection], tag_sizes_mm: dict[int, float]
-) -> UncertaintyField:
-    """Build an `UncertaintyField` from `field`'s own per-tag residuals.
-
-    Raises ValueError with fewer than 2 usable tags -- with 1, "neighbour scatter" is undefined.
-    """
-    x, y, ppm = _scale_samples(detections, tag_sizes_mm)
-    if len(x) < 2:
-        raise ValueError(
-            f"need at least 2 tags with a known size to build an uncertainty field, got {len(x)}"
-        )
-    predicted = np.array([field.px_per_mm(xi, yi) for xi, yi in zip(x, y)])
-    residual_pct = 100.0 * (ppm - predicted) / predicted
-    return UncertaintyField(
-        _positions=tuple(zip(x.tolist(), y.tolist())),
-        _residual_pct=tuple(residual_pct.tolist()),
-    )
-
-
 @dataclass(frozen=True)
 class ScaleResidualSample:
     """One calibration tag's own length-scale residual against the fitted plane, with its
-    `tag_id` and position -- the same number `UncertaintyField` smooths over each position's k
-    nearest neighbours, but per-tag and labelled. `UncertaintyField` doesn't keep `tag_id` (only
-    positions, since it was built to answer "how confident at this position", not "which tag"),
-    so this exists as its own thing rather than extending that persisted, versioned dataclass
-    for what's a one-off diagnostic plot (TODO.md's best-vs-worst-tag rank plot).
+    `tag_id` and position: the number the radial plot and the tag map draw, per tag.
     """
 
     x: float
@@ -545,7 +488,7 @@ class AreaScaleSample:
     for, `100 * (measured_area_scale / naive_area_scale - 1)`. But it is not a clean new
     measurement: writing `s = tag_side_px(corners)` (what the length field was fit from) and
     `P = field.px_per_mm(x, y)`, the tag's own length residual is `r = s / (size_mm * P) - 1`
-    (exactly what `UncertaintyField` already reports at this position), and
+    (the `ScaleResidualSample` at this tag), and
 
         area_error_pct ~= 100 * (kappa - 1) + 2 * (100 * r)
 
@@ -606,39 +549,6 @@ def area_scale_samples(
             )
         )
     return samples
-
-
-@dataclass(frozen=True)
-class AreaScaleField:
-    """Local smoothing of `AreaScaleSample.shape_factor_pct` for the confidence-heatmap-style
-    visual -- `shape_factor_pct`, not `area_error_pct`: see `AreaScaleSample`'s docstring for why
-    heatmapping `area_error_pct` would mostly recolour the already-shipped uncertainty heatmap.
-    Same k-nearest-neighbour lookup as `UncertaintyField`, for the same reason tags sit
-    irregularly, not on a grid. RMS-about-zero means something simpler here than in
-    `UncertaintyField`, though: since `shape_factor_pct` is one-sided (never positive, see
-    `AreaScaleSample`), it's purely a magnitude summary -- there's no bidirectional-cancellation
-    failure mode to guard against, unlike the length residual `UncertaintyField` smooths.
-    """
-
-    _positions: tuple[tuple[float, float], ...]
-    _shape_factor_pct: tuple[float, ...]
-
-    def local_shape_factor_pct(self, x: float, y: float, k: int = 5) -> float:
-        positions = np.array(self._positions)
-        distances = np.linalg.norm(positions - np.array([x, y]), axis=1)
-        nearest = np.argsort(distances)[: min(k, len(distances))]
-        values = np.array(self._shape_factor_pct)[nearest]
-        return float(np.sqrt(np.mean(values**2)))
-
-
-def build_area_scale_field(samples: list[AreaScaleSample]) -> AreaScaleField:
-    """Raises ValueError with zero samples -- nothing to smooth."""
-    if not samples:
-        raise ValueError("need at least 1 area-scale sample to build a field, got 0")
-    return AreaScaleField(
-        _positions=tuple((s.x, s.y) for s in samples),
-        _shape_factor_pct=tuple(s.shape_factor_pct for s in samples),
-    )
 
 
 def describe_area_scale_shape(samples: list[AreaScaleSample]) -> str:
@@ -927,11 +837,8 @@ def describe_regional_coverage(
 # corner tag measured -- see CLAUDE.md). Recording it per-artifact means a re-print doesn't
 # require a source change, and an old artifact stays honest about what it actually assumed.
 #
-# Version 3 adds `uncertainty_field` and `frame_stem`. The uncertainty field's per-tag residuals
-# were being computed and thrown away every run -- to answer "how confident is the *current*
-# calibration at this position" (the honesty plot, the confidence heatmap) later, without
-# re-detecting tags from the saved frame every time, the measurement has to be kept, not
-# re-derived. `frame_stem` records which saved frame this artifact's field was built from --
+# Version 3 adds `uncertainty_field` (no longer written or read, issue #52) and `frame_stem`.
+# `frame_stem` records which saved frame this artifact's field was built from --
 # `current.json` otherwise carries no way back to `frames/{stem}.jpg`, since it's a copy of the
 # same dict written under a different filename.
 CALIBRATION_ARTIFACT_VERSION = 3
@@ -953,20 +860,6 @@ def scale_field_from_dict(data: dict) -> ScaleField:
     )
 
 
-def uncertainty_field_to_dict(field: UncertaintyField) -> dict:
-    return {
-        "positions": [list(p) for p in field._positions],
-        "residual_pct": list(field._residual_pct),
-    }
-
-
-def uncertainty_field_from_dict(data: dict) -> UncertaintyField:
-    return UncertaintyField(
-        _positions=tuple(tuple(p) for p in data["positions"]),
-        _residual_pct=tuple(data["residual_pct"]),
-    )
-
-
 @dataclass(frozen=True)
 class CalibrationArtifact:
     """Everything one setup calibration produces, in one versioned, exportable bundle.
@@ -983,7 +876,6 @@ class CalibrationArtifact:
     # Default only serves callers (mostly tests) that don't care what size was assumed -- a real
     # calibration run always passes the value it actually used, calliper-measured or otherwise.
     calibration_tag_size_mm: float = ASSUMED_CALIBRATION_TAG_SIZE_MM
-    uncertainty_field: UncertaintyField | None = None
     frame_stem: str | None = None
     version: int = CALIBRATION_ARTIFACT_VERSION
 
@@ -1002,8 +894,6 @@ def calibration_artifact_to_dict(artifact: CalibrationArtifact) -> dict:
             str(tag_id): [list(pt) for pt in corners]
             for tag_id, corners in artifact.corner_baseline.corners_by_id.items()
         }
-    if artifact.uncertainty_field is not None:
-        data["uncertainty_field"] = uncertainty_field_to_dict(artifact.uncertainty_field)
     return data
 
 
@@ -1024,10 +914,7 @@ def calibration_artifact_from_dict(data: dict) -> CalibrationArtifact:
             }
         )
 
-    uncertainty_field = None
-    if "uncertainty_field" in data:
-        uncertainty_field = uncertainty_field_from_dict(data["uncertainty_field"])
-
+    # Artifacts saved before issue #52 may still hold an "uncertainty_field" key: ignored.
     return CalibrationArtifact(
         version=version,
         created_at=data["created_at"],
@@ -1035,6 +922,5 @@ def calibration_artifact_from_dict(data: dict) -> CalibrationArtifact:
         corner_baseline=corner_baseline,
         lens_position=data.get("lens_position"),
         calibration_tag_size_mm=data["calibration_tag_size_mm"],
-        uncertainty_field=uncertainty_field,
         frame_stem=data.get("frame_stem"),
     )
