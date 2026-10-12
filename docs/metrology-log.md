@@ -1545,6 +1545,47 @@ tape sits a few mm above the sheets (the tray construction); Aaron measures that
 The same photograph also gives section 9.2 method B (the tape's own marks read in the photo, with
 the height correction of 0.072% of length per mm, so ±2 mm is about ±0.15%).
 
+**Result, 2026-10-12: pass by both methods.** Calibration `20261012T070607812512`, lens 5.97
+locked. The sheets were placed for convenience, so they do not sit in their validation slots; the
+end sheets were taped down. Photos (full resolution, saved in the test experiment's folder
+`experiments/2026-10-09_68cdf210/stills/2026-10-12/`): `074846_006450` with the tape in place,
+`075738_490795` with the tape lifted. Scripts: `/home/pi/scratch/m2-acceptance-2026-10/tape_a.py`
+and `tape_b.py`.
+
+*Method A* (photo 07:57:38 UTC, tape lifted; with the tape in place the tape hid the west end tag
+and its row). Tag 325, top row of the western-most sheet, to tag 359, same row of the
+eastern-most sheet (centres 20 px apart in height over 8400 px), outer edge to outer edge:
+
+| Tape | App | App reads long by | Old camera (9.2) |
+|---|---|---|---|
+| 1736 mm | 1759.0 mm | **1.3%** | 1.6% and 1.7% |
+
+*Method B* (photo 07:48:46 UTC). The tape's red boxes at 10 to 170 cm were found by colour (the
+180 cm box is next to the tape case and was not found). The tape is curved across its width; its
+marks lie about 3 to 5 mm (centre line) to 10 to 12 mm (edges) above the tray top, so 3 to 12 mm
+is used (Aaron; the centre could not be measured directly). The height correction is therefore
+0.22% to 0.86% of length; the middle, 0.54%, is applied, with ±0.32%.
+
+| Span | Tape | App as read | Corrected |
+|---|---|---|---|
+| 10 to 170 cm | 1600 mm | +1.82% | **+1.3%** (+1.0% to +1.6%) |
+| 20 to 160 cm | 1400 mm | +1.70% | +1.2% |
+| 30 to 150 cm | 1200 mm | +1.54% | +1.0% |
+
+Each 10 cm step, as read, west to east: +3.0, +3.2, +2.6, +2.7, +2.4, +1.7, +1.2, +0.3, -0.3,
++0.1, +0.6, +2.4, +2.6, +1.9, +2.2, +2.3% (subtract about 0.54 for height). Near the centre the
+app reads about 0.5% short to correct, toward both ends about 2% long: the known central error
+(section 7), as on the old camera.
+
+The two methods agree within 0.1 points: over about 1600 to 1740 mm the app reads distances about
+1.3% long on SN001 (old camera SN000: 1.4% to 1.7%). The open point of 9.2 remains: measured by
+the app, the end tags themselves read 29.87 mm (west) and 30.85 mm (east), while the distance
+across the row reads long.
+
+**Covers.** The South row only, west to east, at tray-top height. The North row and a span front
+to back cannot be reached without moving the table (Aaron, 2026-10-12), so they are not covered,
+as on the old camera.
+
 ### 14.3 Two calibrations with a cold start between
 
 **Question.** Two independent calibrations of the same unmoved table: how far apart are their
