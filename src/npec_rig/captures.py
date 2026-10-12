@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import sqlite3
 import time
 import uuid
@@ -458,6 +459,38 @@ def stop_experiment(experiment_id: int) -> dict:
 
 def update_experiment(experiment_id: int, **fields: object) -> dict:
     experiment = database.update_experiment(experiment_id, **fields)
-    if experiment["folder"]:
+    # A purged experiment's folder is gone; its record is only in the database.
+    if experiment["folder"] and experiment["state"] != "purged":
         _write_experiment_json(experiment)
+    return experiment
+
+
+def purge_confirmation(experiment: dict) -> str:
+    """The text the user types to purge: the name, or the folder name for an unnamed experiment."""
+    return experiment["name"] or experiment["folder"]
+
+
+def purge_experiment(experiment_id: int, *, confirm: str, override_no_export: bool = False) -> dict:
+    """Purge a stopped experiment (PLAN.md, *Purging an experiment*): delete its folder (photos
+    and export zips) and its photo rows; its row stays as the record. Refused unless `confirm`
+    matches, and, without `override_no_export`, unless a complete export exists."""
+    experiment = database.get_experiment(experiment_id)
+    if experiment["state"] != "stopped":
+        raise database.ExperimentError("only a stopped experiment can be purged")
+    if confirm.strip() != purge_confirmation(experiment):
+        raise database.ExperimentError("the text typed does not match, nothing was purged")
+    if not override_no_export and database.complete_export(experiment_id) is None:
+        raise database.ExperimentError("this experiment has no complete export")
+    # Rows first: if deleting files then fails, no row points at a missing photo.
+    experiment = database.purge_experiment(experiment_id, now=_now())
+    folder = experiments_root() / experiment["folder"]
+    try:
+        shutil.rmtree(folder)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        logger.exception("Purged experiment %s, but its folder could not be deleted", experiment_id)
+        raise database.ExperimentError(
+            f"the experiment is purged, but its folder {folder} could not be deleted: {exc}"
+        ) from exc
     return experiment

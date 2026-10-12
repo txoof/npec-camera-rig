@@ -80,6 +80,9 @@
 
     function stateText(e) {
       if (e.state === "set up") return "Set up, not started";
+      if (e.state === "purged") {
+        return `Purged ${utc(e.purged_at)}. Its photos and exports were deleted; this record remains.`;
+      }
       const first = utc(e.periods[0].started_at);
       if (e.state === "running") {
         const resumed = e.periods.length > 1
@@ -105,6 +108,7 @@
         buttons.push(`<button data-act="start" data-id="${e.id}">Resume</button>`);
         if (!preparing(e)) {
           buttons.push(`<button data-act="export" data-id="${e.id}" class="secondary">Export</button>`);
+          buttons.push(`<button data-act="purge" data-id="${e.id}" class="stop">Purge</button>`);
         }
       }
       return buttons.join(" ");
@@ -125,6 +129,7 @@
       if (!x) return "";
       if (!x.finished_at) return `<div class="experiment-export">Export: preparing, started ${utc(x.started_at)}</div>`;
       if (x.error) return `<div class="experiment-export">Export failed: ${esc(x.error)}</div>`;
+      if (x.removed_at) return "";
       return `<div class="experiment-export">Export ${utc(x.finished_at)}, ${x.files} files, `
         + `${size(x.bytes)}: <a href="/api/exports/${x.id}/download">Download</a></div>`;
     }
@@ -201,6 +206,8 @@
       form.reset();
       showTray(null);
       trayChoice.disabled = false;
+      fields.name.disabled = false;
+      fields.researcher.disabled = false;
       fields.tray_height_mm.disabled = false;
       formTitle.textContent = "New experiment";
       submit.textContent = "Set up";
@@ -213,8 +220,11 @@
       fields.researcher.value = e.researcher ?? "";
       showTray(e.tray_height_mm);
       fields.notes.value = e.notes ?? "";
-      // Readings depend on the tray height, so it is fixed at the first start.
+      // Readings depend on the tray height, so it is fixed at the first start. A purged
+      // experiment keeps only its notes editable.
       fields.tray_height_mm.disabled = e.state !== "set up";
+      fields.name.disabled = e.state === "purged";
+      fields.researcher.disabled = e.state === "purged";
       trayChoice.disabled = fields.tray_height_mm.disabled;
       formTitle.textContent = `Edit: ${displayName(e)}`;
       submit.textContent = "Save changes";
@@ -226,11 +236,9 @@
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const body = {
-        name: fields.name.value,
-        researcher: fields.researcher.value,
-        notes: fields.notes.value,
-      };
+      const body = { notes: fields.notes.value };
+      if (!fields.name.disabled) body.name = fields.name.value;
+      if (!fields.researcher.disabled) body.researcher = fields.researcher.value;
       if (!fields.tray_height_mm.disabled) {
         body.tray_height_mm = trayHeight();
       }
@@ -279,6 +287,20 @@
           if (!confirm("Stop this experiment? New photos will not be saved to it. "
             + "You can resume it later in the same folder.")) return;
           await call("POST", `/api/experiments/${e.id}/stop`);
+        } else if (button.dataset.act === "purge") {
+          const typed = prompt(
+            `Purge deletes this experiment's photos and export files. This cannot be undone. `
+            + `Its name, dates and notes stay as a record.\n\nType "${e.purge_confirmation}" to purge it.`
+          );
+          if (typed === null) return;
+          let override = false;
+          if (!e.complete_export) {
+            if (!confirm("This experiment has no complete export. Its photos have not been "
+              + "downloaded in full. Purge anyway?")) return;
+            override = true;
+          }
+          await call("POST", `/api/experiments/${e.id}/purge`,
+            { confirm: typed, override_no_export: override });
         } else if (button.dataset.act === "export") {
           await call("POST", `/api/experiments/${e.id}/export`);
         } else if (button.dataset.act === "discard") {

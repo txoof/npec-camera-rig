@@ -531,6 +531,8 @@ def api_experiments() -> list[dict]:
     for experiment in experiments:
         newest = database.exports_for(experiment["id"])[:1]
         experiment["export"] = newest[0] if newest else None
+        experiment["complete_export"] = database.complete_export(experiment["id"]) is not None
+        experiment["purge_confirmation"] = captures.purge_confirmation(experiment)
     return experiments
 
 
@@ -562,6 +564,22 @@ def api_discard_experiment(experiment_id: int) -> dict:
     return {"discarded": experiment_id}
 
 
+class PurgeRequest(BaseModel):
+    confirm: str
+    override_no_export: bool = False
+
+
+@app.post("/api/experiments/{experiment_id}/purge")
+def api_purge_experiment(experiment_id: int, request: PurgeRequest) -> dict:
+    """Delete a stopped experiment's photos, rows and export zips; its record stays."""
+    return _experiment_action(
+        captures.purge_experiment,
+        experiment_id,
+        confirm=request.confirm,
+        override_no_export=request.override_no_export,
+    )
+
+
 @app.post("/api/experiments/{experiment_id}/export")
 def api_export_experiment(experiment_id: int) -> dict:
     """Start building an export, of photos up to now if the experiment is running; it is
@@ -577,6 +595,8 @@ def api_download_export(export_id: int) -> Response:
         raise HTTPException(404, str(exc)) from exc
     if export["error"] or not export["file"]:
         raise HTTPException(409, "this export did not finish")
+    if export["removed_at"]:
+        raise HTTPException(410, "this export was deleted when its experiment was purged")
     path = exports.zip_path(export)
     if not path.exists():
         raise HTTPException(404, "the export file is no longer on the rig")
