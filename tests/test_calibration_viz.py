@@ -171,7 +171,7 @@ def test_tag_map_fills_each_tag_with_its_colour_and_leaves_the_rest_grey() -> No
         frame, 0.5, _axis_aligned_table_frame(), [_tag(250, 250, -TAG_MAP_RANGE_PCT), _tag(750, 750, 0.4)]
     )
     canvas = image[TAG_MAP_HEADER_PX:TAG_MAP_HEADER_PX + TAG_MAP_CANVAS_DIM]
-    small = canvas[_canvas_px(250), _canvas_px(250)]
+    small = canvas[_canvas_px(250 - 20), _canvas_px(250 - 20)]  # off centre: a far tag carries a sign there
     assert tuple(int(c) for c in small) == TAG_MAP_SMALL_COLOUR
     between = canvas[_canvas_px(500), _canvas_px(500)]
     assert between[0] == between[1] == between[2] == 100  # greyed photo, nothing painted between tags

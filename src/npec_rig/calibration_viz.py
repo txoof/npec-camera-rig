@@ -427,12 +427,19 @@ def render_tag_map(
     grey = cv2.cvtColor(warped, cv2.COLOR_RGB2GRAY)
     canvas = cv2.cvtColor((grey * 0.5).astype(np.uint8), cv2.COLOR_GRAY2RGB)
 
+    far_marks = []  # (centre, sign): far tags also carry a sign, so small and large differ by more than colour
     for corners, deviation in tags:
         points = cv2.perspectiveTransform(np.asarray(corners, dtype=np.float64).reshape(-1, 1, 2), full_to_canvas)
         polygon = np.round(points.reshape(-1, 2)).astype(np.int32)
         cv2.fillConvexPoly(canvas, polygon, tag_map_colour(deviation), cv2.LINE_AA)
         if abs(deviation) > TAG_MAP_FAR_PCT:
             cv2.polylines(canvas, [polygon], True, (0, 0, 0), 3, cv2.LINE_AA)
+            centre = points.reshape(-1, 2).mean(axis=0)
+            far_marks.append(((int(round(centre[0])), int(round(centre[1]))), "-" if deviation < 0 else "+"))
+    if far_marks:
+        with text_layer(canvas) as t:
+            for centre, sign in far_marks:
+                t.text(sign, centre, 0.6, (255, 255, 255), anchor="mm", stroke_width=1, stroke_fill=(0, 0, 0))
 
     width = max(canvas_width, 700)
     header = np.full((TAG_MAP_HEADER_PX, width, 3), 255, dtype=np.uint8)
@@ -452,7 +459,7 @@ def render_tag_map(
         t.text("Tag size against the fitted scale, from this run's median", (20, 30), 0.7, (0, 0, 0))
         for index, word in enumerate(("reads small", "normal", "reads large")):
             t.text(word, (20 + index * 170 + 30, key_y + 4), 0.5, (0, 0, 0))
-        t.text(f"outlined: over {TAG_MAP_FAR_PCT:.1f}%", (far_x + 30, key_y + 4), 0.5, (0, 0, 0))
+        t.text(f"outlined: over {TAG_MAP_FAR_PCT:.1f}%, marked - or +", (far_x + 30, key_y + 4), 0.5, (0, 0, 0))
         t.text(f"{scale_note}. Grey: no tag.", (20, 96), 0.45, (0, 0, 0))
 
     body = np.full((canvas_height, width, 3), 255, dtype=np.uint8)

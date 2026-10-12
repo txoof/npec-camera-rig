@@ -610,7 +610,9 @@
           // comparison run would silently show the *previous* baseline's plots, not this run's.
           // Awaited, so the button stays busy until the plots are on screen.
           calibrateBtn.textContent = "Drawing diagnostics...";
-          await loadDiagnosticPlots();
+          const failed = await loadDiagnosticPlots();
+          diagnosticsLoadResult.textContent = `${failed} of 2 diagnostic plots could not be drawn.`;
+          diagnosticsLoadResult.hidden = failed === 0;
         } else {
           hideDiagnosticPlots();
         }
