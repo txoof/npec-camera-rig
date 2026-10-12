@@ -624,3 +624,14 @@ button.stop { background: #8a3b2f; }
 .experiment-dialog-check { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.6rem; }
 .experiment-dialog-check input { width: 1.2rem; height: 1.2rem; }
 .experiment-dialog-error { min-height: 1.2rem; margin-top: 0.5rem; color: #e3b341; }
+/* The shared `label { display: block }` rule overrides the hidden attribute; on this page hidden
+   always means hidden. */
+.experiment-form [hidden], .experiment-dialog [hidden] { display: none; }
+.confirm-text {
+  font-family: ui-monospace, "DejaVu Sans Mono", monospace;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 0.05rem 0.35rem;
+  white-space: pre;
+}

@@ -321,7 +321,7 @@
       ask.ok.textContent = ok;
       ask.ok.className = danger ? "stop" : "";
       ask.inputRow.hidden = !input;
-      ask.inputLabel.textContent = input ?? "";
+      ask.inputLabel.innerHTML = input ?? "";
       ask.input.value = "";
       ask.checkRow.hidden = !check;
       ask.checkLabel.textContent = check ?? "";
@@ -357,7 +357,7 @@
         title: `Purge ${displayName(e)}`,
         body: "<p>Purge deletes this experiment's photos and export files. This cannot be undone. "
           + "Its name, dates and notes stay as a record.</p>" + exportLine,
-        input: `Type ${e.purge_confirmation} to confirm`,
+        input: `To confirm, type exactly: <code class="confirm-text">${esc(e.purge_confirmation)}</code>`,
         check: e.complete_export ? null : "Purge without a complete export",
         ok: "Purge",
         danger: true,
