@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -103,14 +104,54 @@ def test_root_redirects_to_gallery() -> None:
     assert response.headers["location"] == "/gallery"
 
 
-@pytest.mark.parametrize(
-    "path", ["/setup", "/setup/focus", "/setup/calibration", "/setup/health-check", "/gallery"]
-)
+# Every page route. The diagnostics page serves any stem (see the test below), so one stands in.
+PAGE_ROUTES = [
+    "/setup",
+    "/setup/focus",
+    "/setup/calibration",
+    "/setup/calibration-history",
+    "/setup/calibration-history/20260101T000000000000",
+    "/setup/validation",
+    "/setup/health-check",
+    "/gallery",
+    "/experiments",
+    "/ui",
+]
+
+
+@pytest.mark.parametrize("path", PAGE_ROUTES)
 def test_page_loads(path: str) -> None:
     client = TestClient(app)
     response = client.get(path)
     assert response.status_code == 200
     assert "NPEC Camera Rig" in response.text
+
+
+# Ids a page's script looks up only behind a flag that is off on that page.
+LOOKED_UP_ONLY_WHEN_SHOWN = {
+    # _focus_controls.html reads the mode buttons only when show_square_mode is on (Focus page).
+    "/setup/calibration": {"mode-focus-btn", "mode-square-btn"},
+}
+
+
+@pytest.mark.parametrize("path", PAGE_ROUTES)
+def test_every_id_a_page_script_looks_up_is_on_the_page_once(path: str) -> None:
+    # A literal getElementById("x") with no id="x" on the page, or two of them, is a page that
+    # breaks in the browser while every other test passes. Ids that a script writes into the
+    # page itself count, since the check reads the whole response, scripts included. An id a
+    # script builds from a template (id="control-${name}") cannot be counted, only matched.
+    html = TestClient(app).get(path).text
+    # $("x") is the getElementById shorthand some page scripts define (the /ui page does).
+    lookup = r"(?:getElementById|\$)\(\s*[\"'`]([^\"'`$]+)[\"'`]\s*\)"
+    wanted = set(re.findall(lookup, html))
+    wanted -= LOOKED_UP_ONLY_WHEN_SHOWN.get(path, set())
+    built = re.findall(r'id="([^"$]*)\$\{', html)
+    wrong = {}
+    for name in sorted(wanted):
+        n = html.count(f'id="{name}"')
+        if n != 1 and not (n == 0 and any(name.startswith(prefix) for prefix in built if prefix)):
+            wrong[name] = n
+    assert wrong == {}
 
 
 def test_calibration_history_diagnostics_page_loads() -> None:

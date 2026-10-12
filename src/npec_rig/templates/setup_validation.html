@@ -498,7 +498,8 @@
       const del = e.target.closest(".validation-delete");
       if (view) {
         await refreshOrWarn(view.dataset.id);
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        // The shell scrolls .scroll, not the window (base.html).
+        document.querySelector(".scroll").scrollTo({ top: 0, behavior: "smooth" });
       } else if (del) {
         if (!confirm("Delete this validation from history? This cannot be undone.")) return;
         del.disabled = true;

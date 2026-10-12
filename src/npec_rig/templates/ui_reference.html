@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title_suffix %}: Interface components{% endblock %}
+
+{% block breadcrumb %}
+  <div style="min-width: 0;">
+    <h1>Interface components</h1>
+    <p class="sub">Every shared component, with example values. Nothing here changes the rig.</p>
+  </div>
+{% endblock %}
+
+{% block content %}
+<div class="stack">
+  <p class="lead">
+    Each example says what makes it: a macro in <code>templates/_ui.html</code> (written
+    <code>ui.name</code>) or a function in <code>static/ui.js</code> (written
+    <code>ui.name()</code> in a script). Turn on the switch below to see the tap area of every
+    control: it reaches 10 px past each edge, and the gaps between controls are wider than that.
+  </p>
+  {{ ui.switch("show-hit", "Show tap areas", "Draws a dashed box around the area each control answers to.") }}
+
+  <h2>Buttons</h2>
+  <p class="field-help">Macros <code>ui.button</code> and <code>ui.link_button</code>.</p>
+  <div class="row">
+    {{ ui.button("Plain", id="ex-btn-plain") }}
+    {{ ui.button("Primary", "primary", id="ex-btn-primary") }}
+    {{ ui.button("Delete", "danger", id="ex-btn-danger") }}
+    {{ ui.button("Not now", disabled=true) }}
+    {{ ui.link_button("Setup", "/setup", icon_name="back") }}
+  </div>
+
+  <h2>Switches</h2>
+  <p class="field-help">Macro <code>ui.switch</code>, made to toggle by <code>ui.bindSwitch()</code>. The compact one is <code>compact=true</code>.</p>
+  {{ ui.switch("ex-switch", "Door closed", "Required before a round is captured.") }}
+  <div class="row">{{ ui.switch("ex-switch-compact", "Door closed", compact=true) }}</div>
+
+  <h2>Status chips</h2>
+  <p class="field-help">Macro <code>ui.chip</code>, or <code>ui.chip()</code> in a script. Every status has a word and a shape as well as its color.</p>
+  <div class="row">
+    {{ ui.chip("ok", "Validated") }}
+    {{ ui.chip("warn", "Needed") }}
+    {{ ui.chip("fail", "Not consistent: S4") }}
+    {{ ui.chip("info", "Active: Oct 9") }}
+  </div>
+
+  <h2>Banner and alert card</h2>
+  <p class="field-help">Macros <code>ui.banner</code> and <code>ui.alert_card</code>; the caller writes the text.</p>
+  {% call ui.banner("warn", "Not validated") %}
+    <p>The active calibration has not been validated. Areas have no trust band until it is.</p>
+    {{ ui.button("Validate now", id="ex-banner-btn") }}
+  {% endcall %}
+  {% call ui.alert_card("Slot S4 moved 4 mm", "fail") %}
+    <p>Every other slot moved about 30 mm. Move the S4 sheet to a new place, then capture the round again.</p>
+    <div class="card-actions">{{ ui.button("Capture again", id="ex-alert-btn") }}</div>
+  {% endcall %}
+
+  <h2>About this step</h2>
+  <p class="field-help">Macro <code>ui.help</code>; the caller writes the explanation.</p>
+  {% call ui.help() %}
+    <p>One help pattern on every page. It is closed until it is opened, and its whole bar is the target.</p>
+  {% endcall %}
+
+  <h2>Cards</h2>
+  <p class="field-help">Macro <code>ui.card</code>; the caller writes the actions. <code>current=true</code> draws the blue edge, <code>condensed=true</code> puts the actions on the right.</p>
+  {% call ui.card("Calibration Oct 9, 15:10", ("ok", "Active"), ["12 sheets", "Scale 7.412 px/mm"], current=true) %}
+    {{ ui.button("Diagnostics", id="ex-card-diag") }}
+    {{ ui.button("Delete", "danger", id="ex-card-del", disabled=true) }}
+  {% endcall %}
+  <div class="list">
+    {% call ui.card("Pepper trial 3", ("ok", "Running"), ["Since Oct 12, 09:40", "124 photos"], condensed=true) %}
+      {{ ui.button("Stop", "danger", id="ex-exp-stop") }}
+    {% endcall %}
+    {% call ui.card("Lettuce, bench B", ("info", "Stopped"), ["Oct 2 to Oct 9", "880 photos"], condensed=true) %}
+      {{ ui.button("Export", id="ex-exp-export") }}
+      {{ ui.button("Resume", id="ex-exp-resume") }}
+    {% endcall %}
+  </div>
+
+  <h2>Data table</h2>
+  <p class="field-help">Macro <code>ui.data_table</code>; the caller writes the rows. Scroll down: the header row stays at the top.</p>
+  {% call ui.data_table(["Slot", "Round 1", "Round 2", "All rounds", "Moved"], id="ex-table") %}
+    {% for row in ["N", "S"] %}{% for n in range(1, 7) %}
+    <tr><td>{{ row }}{{ n }}</td><td>{{ "%.1f" | format(0.5 + n * 0.1) }}%</td><td>{{ "%.1f" | format(0.4 + n * 0.15) }}%</td><td>{{ "%.1f" | format(0.5 + n * 0.15) }}%</td><td>{{ 26 + n }} mm</td></tr>
+    {% endfor %}{% endfor %}
+  {% endcall %}
+
+  <h2>Choice buttons</h2>
+  <p class="field-help">Macro <code>ui.choices</code>, made to choose by <code>ui.bindChoices()</code>. In place of a list box or radio buttons.</p>
+  {{ ui.choices("ex-choices", "Tray height", [("60", "Standard tray", "60 mm"), ("135", "Tall tray", "135 mm"), ("0", "No tray", "Sheets on the table")], "60") }}
+
+  <h2>Stepper</h2>
+  <p class="field-help">Macro <code>ui.stepper</code>, made to work by <code>ui.bindStepper()</code>. In place of a slider: whole steps, or tap the value to type one.</p>
+  {{ ui.stepper("ex-stepper", "Analogue gain", "1.25", "x", 1, 16, 0.25, 2) }}
+
+  <h2>Field buttons</h2>
+  <p class="field-help">Macros <code>ui.field</code> and <code>ui.field_button</code>, opened by <code>ui.bindField()</code>. Each looks like an input and opens the keypad, the keyboard or the list.</p>
+  <div class="row" style="align-items: start;">
+    {% call ui.field("ex-tag", "Calibration tag size", "Measure this print with callipers.") %}
+      {{ ui.field_button("ex-tag", "Calibration tag size", "30", "mm", "number", 1, 100, 2, "Measure this print run's tags with callipers.") }}
+    {% endcall %}
+    {% call ui.field("ex-name", "Experiment name", "Optional.") %}
+      {{ ui.field_button("ex-name", "Experiment name", "", kind="text", max_length=200) }}
+    {% endcall %}
+    {% call ui.field("ex-tray", "Tray height", "Choose from the list.") %}
+      {{ ui.field_button("ex-tray", "Tray height", "60", kind="choice", options=[("60", "Standard tray", "60 mm"), ("135", "Tall tray", "135 mm"), ("0", "No tray", "Sheets on the table")]) }}
+    {% endcall %}
+  </div>
+
+  <h2>Keypad, keyboard and list on their own</h2>
+  <p class="field-help">Functions <code>ui.openKeypad()</code>, <code>ui.openKeyboard()</code> and <code>ui.openChoice()</code>. A plugged-in keyboard works too: characters, Backspace, Enter to finish, Escape to cancel. On a screen under 700 px wide, the full keyboard uses the device's own.</p>
+  <div class="row">
+    {{ ui.button("Open the keypad", id="ex-open-keypad") }}
+    {{ ui.button("Open the keyboard", id="ex-open-keyboard") }}
+    {{ ui.button("Open the list", id="ex-open-choice") }}
+  </div>
+
+  <h2>Panel and confirmation</h2>
+  <p class="field-help">Functions <code>ui.openPanel()</code> and <code>ui.confirmPanel()</code>. They cover the work area and have their own action bar. They replace the browser's own confirm and alert boxes.</p>
+  <div class="row">
+    {{ ui.button("Open a form panel", id="ex-open-panel") }}
+    {{ ui.button("Confirm: stop", "danger", id="ex-open-confirm") }}
+    {{ ui.button("Confirm: purge", "danger", id="ex-open-purge") }}
+  </div>
+
+  <h2>Toast and clock</h2>
+  <p class="field-help">Function <code>ui.toast()</code> for a short result. Function <code>ui.countdown()</code> is the only thing that redraws on a timer, and only its own text.</p>
+  <div class="row">
+    {{ ui.button("Show a toast", id="ex-toast") }}
+    <span class="chip warn">{{ ui.icon("warn") }}<span class="countdown" id="ex-clock">Next round in 2:00</span></span>
+    {{ ui.button("Start the clock again", id="ex-clock-reset") }}
+  </div>
+
+  <h2>Camera status</h2>
+  <p class="field-help">From <code>templates/_camera_status.html</code>, at the bottom of the rail. It shows only on a camera fault, so these two are copies.</p>
+  <div class="row" style="align-items: start;">
+    <div class="rail" style="width: 104px; padding: 4px;">
+      <div class="camera-status"><span class="camera-status-text">Camera: restarted after a fault at 14:02 CEST. Photos until 14:12 CEST are flagged as not covered by the bands.</span></div>
+    </div>
+    <div class="rail" style="width: 104px; padding: 4px;">
+      <div class="camera-status" data-camera-state="failed"><span class="camera-status-text">Camera: it could not be reopened. Restart needed.</span></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block action_bar %}
+  {{ ui.button("Back", icon_name="back", id="ex-bar-back") }}
+  <span class="grow">The action bar: the buttons that finish a task, always on screen.</span>
+  {{ ui.button("Save", "primary", id="ex-bar-save") }}
+{% endblock %}
+
+{% block head_extra %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const $ = (id) => document.getElementById(id);
+  const TRAYS = [
+    { value: "60", label: "Standard tray", detail: "60 mm" },
+    { value: "135", label: "Tall tray", detail: "135 mm" },
+    { value: "0", label: "No tray", detail: "Sheets on the table" },
+  ];
+
+  ui.bindSwitch($("show-hit"), (on) => document.body.classList.toggle("show-hit", on));
+  ui.bindSwitch($("ex-switch"), (on) => ui.toast(on ? "Door closed" : "Door open"));
+  ui.bindSwitch($("ex-switch-compact"));
+  ui.bindChoices($("ex-choices"), (v) => ui.toast("Chosen: " + v + " mm"));
+  ui.bindStepper($("ex-stepper"), (v) => ui.toast("Gain " + v));
+  ui.bindField($("ex-tag"), (v) => ui.toast(v ? "Tag size " + v + " mm" : "Tag size cleared"));
+  ui.bindField($("ex-name"), (v) => ui.toast(v ? "Name set" : "Name cleared"));
+  ui.bindField($("ex-tray"), (v) => ui.toast("Tray height " + v + " mm"));
+
+  ["ex-btn-plain", "ex-btn-primary", "ex-btn-danger", "ex-banner-btn", "ex-alert-btn",
+   "ex-card-diag", "ex-exp-stop", "ex-exp-export", "ex-exp-resume", "ex-bar-back"].forEach((id) =>
+    $(id).addEventListener("click", (e) => ui.toast(e.currentTarget.textContent.trim() + ": example only")));
+  $("ex-bar-save").addEventListener("click", () => ui.toast("Saved"));
+  $("ex-toast").addEventListener("click", () => ui.toast("Round 3 captured"));
+
+  $("ex-open-keypad").addEventListener("click", () => ui.openKeypad({
+    label: "Exposure time", unit: "ms", value: "8", min: 0.16, max: 1000, decimals: 2,
+    help: "1 ms is 1/1000 s.", onSet: (v) => ui.toast(v ? "Exposure " + v + " ms" : "Exposure cleared"),
+  }));
+  $("ex-open-keyboard").addEventListener("click", () => ui.openKeyboard({
+    label: "Notes", value: "", max: 1000, onSet: (v) => ui.toast(v.length + " characters"),
+  }));
+  $("ex-open-choice").addEventListener("click", () => ui.openChoice({
+    label: "Tray height", options: TRAYS, value: "60", onSet: (v) => ui.toast("Tray height " + v + " mm"),
+  }));
+
+  $("ex-open-panel").addEventListener("click", () => {
+    const p = ui.openPanel({
+      title: "New experiment",
+      sub: "Every field is optional. An experiment with no name is shown by the time it started.",
+      body: `<div class="stack" style="max-width: 760px;">
+        <div class="field"><span class="field-label">Experiment name</span>
+          <button type="button" class="field-btn text hit" data-kind="text" data-label="Experiment name" data-value="" data-unit="" data-max-length="200">
+            <span class="empty">Not set, tap to enter</span>${ui.icon("edit")}</button></div>
+        <div class="field"><span class="field-label">Tray height</span>
+          <button type="button" class="field-btn text hit" data-kind="choice" data-label="Tray height" data-value="60" data-unit=""
+            data-options='${JSON.stringify(TRAYS.map((t) => [t.value, t.label, t.detail]))}'>
+            <span><span class="value">Standard tray</span></span>${ui.icon("chev")}</button></div>
+      </div>`,
+      actions: `<button type="button" class="btn hit" data-act="cancel">Cancel</button><span class="grow"></span>
+        <button type="button" class="btn primary hit" data-act="save">Set up</button>`,
+    });
+    p.querySelectorAll(".field-btn").forEach((f) => ui.bindField(f));
+    p.querySelector('[data-act="cancel"]').addEventListener("click", () => p.close());
+    p.querySelector('[data-act="save"]').addEventListener("click", () => { p.close(); ui.toast("Set up. Example only."); });
+  });
+  $("ex-open-confirm").addEventListener("click", () => ui.confirmPanel({
+    title: "Stop Pepper trial 3?", ok: "Stop experiment", danger: true,
+    body: "<p>New photos will not be saved to this experiment. You can resume it later in the same folder.</p>",
+    onOk: () => ui.toast("Stopped. Example only."),
+  }));
+  $("ex-open-purge").addEventListener("click", () => ui.confirmPanel({
+    title: "Purge Lettuce, bench B?", ok: "Purge", danger: true,
+    typed: "Lettuce, bench B", typedLabel: "Type the experiment name",
+    check: "Purge without a complete export",
+    body: "<p>Purge deletes this experiment's 880 photos and its export files. <strong>This cannot be undone.</strong></p>",
+    onOk: () => ui.toast("Purged. Example only."),
+  }));
+
+  let stopClock = null;
+  const startClock = () => {
+    if (stopClock) stopClock();
+    stopClock = ui.countdown($("ex-clock"), Date.now() + 120000, {
+      render: (left) => "Next round in " + ui.mmss(left), done: "Ready for the next round",
+    });
+  };
+  $("ex-clock-reset").addEventListener("click", startClock);
+  startClock();
+});
+</script>
+{% endblock %}
