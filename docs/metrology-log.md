@@ -1536,6 +1536,15 @@ outer edge of a tag on the South 6 sheet, two tag pairs, against the app's dista
 line. **Pass:** the app agrees with the tape within 2% (PLAN.md). Optional, to close a gap in 9.2:
 the same along the North row, and one span front to back.
 
+**As run (Aaron, 2026-10-12, written before the run).** The sheets are placed for convenience and
+the western-most and eastern-most sheets are taped down at their edges (no tag covered) so laying
+the measuring tape does not move them. The steel tape runs from the outer edge of the
+eastern-most tag to the outer edge of the western-most tag in one row, read looking straight down
+at each edge, and is left in place, as close to the tag edges as it lies, for one photograph. The
+tape sits a few mm above the sheets (the tray construction); Aaron measures that height, ±2 mm.
+The same photograph also gives section 9.2 method B (the tape's own marks read in the photo, with
+the height correction of 0.072% of length per mm, so ±2 mm is about ±0.15%).
+
 ### 14.3 Two calibrations with a cold start between
 
 **Question.** Two independent calibrations of the same unmoved table: how far apart are their
