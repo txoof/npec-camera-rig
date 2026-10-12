@@ -7,10 +7,6 @@
 <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#{{ name }}"></use></svg>
 {%- endmacro %}
 
-{% macro scroll_hint() -%}
-<div class="scroll-hint" aria-hidden="true"><span class="scroll-hint-body">{{ icon("scroll") }}<span class="scroll-hint-label">Scroll here</span></span></div>
-{%- endmacro %}
-
 {#- kind: "", "primary" or "danger". attrs: any further attributes, as a dict. -#}
 {% macro button(label, kind="", id=none, icon_name=none, icon_after=none, disabled=false, attrs={}) -%}
 <button type="button" class="btn {{ kind }} hit"{% if id %} id="{{ id }}"{% endif %}{% if disabled %} disabled{% endif %}{{ attrs | xmlattr }}>

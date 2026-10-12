@@ -239,7 +239,7 @@
     p.setAttribute("aria-modal", "true");
     p.setAttribute("aria-label", title);
     p.innerHTML = `<header class="work-head"><div style="min-width:0"><h1>${esc(title)}</h1>${sub ? `<p class="sub">${esc(sub)}</p>` : ""}</div></header>
-      <div class="scroll"><div class="scroll-hint" aria-hidden="true"><span class="scroll-hint-body">${icon("scroll")}<span class="scroll-hint-label">Scroll here</span></span></div><div class="panel-body"></div></div>
+      <div class="scroll"><div class="panel-body"></div></div>
       <div class="action-bar"></div>`;
     p.querySelector(".panel-body").innerHTML = body;
     p.querySelector(".action-bar").innerHTML = actions;

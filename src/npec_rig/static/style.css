@@ -60,20 +60,20 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
    .scroll scrolls; the page itself never does. */
 .app {
   height: 100vh; height: 100dvh;
-  display: grid; grid-template-columns: 116px minmax(0, 1fr);
+  display: grid; grid-template-columns: 104px minmax(0, 1fr);
   background: var(--bg);
 }
 .rail {
-  display: flex; flex-direction: column; gap: 20px; padding: 10px 8px; min-height: 0;
+  display: flex; flex-direction: column; gap: 20px; padding: 10px 4px; min-height: 0;
   overflow-y: auto;
   background: var(--surface); border-right: 1px solid var(--line);
 }
 .rail-btn {
-  min-height: 84px; border-radius: var(--radius); background: transparent;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  font-size: 0.9rem; color: var(--fg-2); text-decoration: none; text-align: center;
+  min-height: 72px; border-radius: var(--radius); background: transparent;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 0.75rem; color: var(--fg-2); text-decoration: none; text-align: center;
 }
-.rail-btn svg { width: 30px; height: 30px; }
+.rail-btn svg { width: 26px; height: 26px; }
 .rail-btn[aria-current=page] {
   background: var(--surface-2); color: var(--fg); font-weight: 700;
   box-shadow: inset 4px 0 0 var(--accent);
@@ -93,25 +93,14 @@ h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 .work-head h1 { font-size: 1.35rem; margin: 0; text-wrap: balance; }
 .work-head .sub { color: var(--fg-2); font-size: 0.9rem; margin: 2px 0 0; }
 .work-head .breadcrumb { margin: 0; font-size: 1.1rem; }
-/* The scrolling area keeps a control-free lane on the right. It is drawn, so people learn where
-   it is safe to put the stylus or a thumb to scroll. */
+/* The scrolling area keeps a control-free lane on the right, shaded so people learn where it is
+   safe to put the stylus or a thumb to scroll. */
 .scroll {
-  --scroll-gap: 20px;   /* space between the content and the gutter lane */
+  --scroll-gap: 20px;   /* space between the content and the lane */
   overflow-y: auto; min-height: 0; position: relative;
   padding: 20px calc(var(--gutter) + var(--scroll-gap)) 20px 20px;
-  background:
-    repeating-linear-gradient(0deg, transparent 0 22px, rgba(255,255,255,0.05) 22px 24px) right / var(--gutter) 100% no-repeat,
-    linear-gradient(var(--lane), var(--lane)) right / var(--gutter) 100% no-repeat;
+  background: linear-gradient(var(--lane), var(--lane)) right / var(--gutter) 100% no-repeat;
 }
-/* The hint is a zero-size float at the content's right edge, and its body is placed out in the
-   lane. A float pushed there with a negative margin widens the scroll area instead (Chromium
-   counts it toward the scroll width), which gives every page a sideways scroll. */
-.scroll-hint { position: sticky; top: 40%; float: right; width: 0; height: 0; pointer-events: none; }
-.scroll-hint-body {
-  position: absolute; left: calc(var(--scroll-gap) + 8px); width: calc(var(--gutter) - 16px);
-  display: grid; justify-items: center; gap: 4px; text-align: center; color: var(--fg-2); font-size: 0.75rem;
-}
-.scroll-hint .ui-icon { width: 26px; height: 26px; }
 .action-bar {
   display: flex; align-items: center; gap: var(--gap); padding: 10px 20px;
   border-top: 1px solid var(--line); background: var(--surface); color: var(--fg);
@@ -365,7 +354,6 @@ details.help .help-body p { margin: 0 0 10px; }
   .work-head { padding: 8px 14px; min-height: 64px; }
   .work-head h1 { font-size: 1.15rem; }
   .scroll { --scroll-gap: 12px; padding: 16px calc(var(--gutter) + var(--scroll-gap)) 16px 14px; }
-  .scroll-hint-label { display: none; }
   .data-table thead th { top: -16px; }
   .action-bar { padding: 8px 14px; }
   .action-bar .grow { display: none; }

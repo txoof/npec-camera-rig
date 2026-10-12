@@ -36,7 +36,6 @@
         {% endblock %}
       </header>
       <div class="scroll">
-        {{ ui.scroll_hint() }}
         {% block content %}{% endblock %}
       </div>
       {%- if self.action_bar() | trim %}
