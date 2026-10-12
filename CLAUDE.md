@@ -197,7 +197,8 @@ creates it.
 **Shared files** may be changed by any task that needs to, after checking that no other open PR
 changes them: `CLAUDE.md`, `PLAN.md`, `CONTRIBUTING.md`, `docs/metrology-log.md`,
 `docs/measurement-trust.md`, `docs/operator-guide.md`, `pyproject.toml`, `uv.lock`,
-`tests/conftest.py`, `tests/helpers.py`.
+`tests/conftest.py`, `tests/helpers.py`, `src/npec_rig/static/style.css`,
+`src/npec_rig/templates/base.html`.
 
 ```bash
 f=docs/metrology-log.md
@@ -236,6 +237,34 @@ Low `feb93a98`. Set it with the same `item-edit` command.
 
 **Email.** Every GitHub action emails Aaron. Push in batches, post one combined comment, and do not
 switch labels, draft state or reviews back and forth.
+
+## Web pages
+
+The pages are used on the chamber PCs: Windows touch screens at 1024x768, where the taskbar and
+browser bar leave about 1024x600, worked with a stylus. Touch calibration is poor and differs
+between the 15 screens. Aaron has checked one; its error says nothing about the others, so no page
+is designed around a direction or size of touch error. The pages must also work on a phone. A
+redesign of the whole interface is in progress (#125); until its components land, every new or
+changed page follows these rules (Aaron, 2026-10-12). The numbers below are starting points, not
+limits: where one does not work for a page, choose what does and say why in the PR.
+
+- **Big targets, wide gaps.** Make tapped controls large, about 64px tall, with about 24px between
+  them, so a missed tap lands on nothing instead of on a neighbor.
+- **No hover, no drag, no sliders.** Nothing is reachable only by hovering. Do not add drag
+  handles or range inputs: use buttons (a stepper, nudge buttons) and a typed value instead.
+- **Scroll gutter.** Keep a lane on the right of scrolling content free of controls (about 88px on
+  the chamber screen), so a stylus can scroll without pressing anything. Do not center wide
+  content into it.
+- **Fit the screen.** At 1024x600 the controls that finish a task (Submit, Next, Save) stay on
+  screen without scrolling.
+- **Never color alone.** Every status carries a word and a shape as well as its color. Text meets
+  WCAG AA contrast (4.5:1).
+- **Show and hide with `hidden`.** Start hidden with the `hidden` attribute and toggle
+  `el.hidden`, not `style.display`.
+- **Keep typing to a minimum.** The Windows on-screen keyboard is unusable on these screens. Prefer
+  choices and steppers over free text. The redesign adds an on-page keypad.
+- **Do not restyle the site.** Colors, navigation, `base.html` and the shared rules in `style.css`
+  change only under the redesign issues. A feature page uses the classes that exist.
 
 ## Facts not to rediscover
 
