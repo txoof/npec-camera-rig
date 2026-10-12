@@ -26,6 +26,10 @@
     el.innerHTML = html;
     document.body.appendChild(el);
     const keys = (e) => {
+      // Enter on a focused button presses that button, so Enter on Cancel cancels. Space stays a
+      // typed space in the keyboard.
+      const b = document.activeElement;
+      if (e.key === "Enter" && b && b.tagName === "BUTTON" && el.contains(b)) return;
       if (onKey(e) !== false) { e.preventDefault(); e.stopPropagation(); }
     };
     document.addEventListener("keydown", keys, true);
@@ -51,7 +55,10 @@
      options: label, help, value (string), unit, min, max, decimals, onSet(value string). */
   function openKeypad({ label, help = "", value = "", unit = "", min = null, max = null, decimals = 0, onSet }) {
     let val = String(value ?? "");
-    const range = min != null && max != null ? ` Allowed: ${min} to ${max}${unit ? " " + unit : ""}.` : "";
+    const u = unit ? " " + unit : "";
+    const allowed = min != null && max != null ? `${min} to ${max}${u}`
+      : min != null ? `${min}${u} or more` : max != null ? `${max}${u} or less` : "";
+    const range = allowed ? ` Allowed: ${allowed}.` : "";
     const el = openLayer("keypad-layer", label, `
       <div class="kp-info">
         <p class="kp-label">${esc(label)}</p>
@@ -97,7 +104,7 @@
       if (val !== "") {
         const n = Number(val);
         if (Number.isNaN(n) || (min != null && n < min) || (max != null && n > max)) {
-          fail(`${val} is outside ${min} to ${max}${unit ? " " + unit : ""}.`);
+          fail(Number.isNaN(n) ? `${val} is not a number.` : `${val} is outside the allowed range: ${allowed}.`);
           return;
         }
         val = String(n);
@@ -155,7 +162,11 @@
       if (e.key === "Enter") done();
       else if (e.key === "Escape") el.close();
       else if (e.key === "Backspace") val = val.slice(0, -1);
-      else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { if (val.length < max) val += e.key; }
+      else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (val.length < max) val += e.key;
+        // A plugged-in keyboard does its own capitals, so the on-screen Shift lets go.
+        if (shift) { shift = false; paintKeys(); }
+      }
       else return false;
       native.value = val;
       paint();
@@ -201,7 +212,7 @@
       <div class="kb-top"><p class="kp-label">${esc(label)}</p>
         <button type="button" class="btn hit" data-act="cancel">Cancel</button></div>
       <div class="choice-list" role="listbox" aria-label="${esc(label)}">${options.map((o) =>
-        `<button type="button" class="choice hit" role="option" data-value="${esc(o.value)}" aria-selected="${o.value === value}" aria-pressed="${o.value === value}"><strong>${esc(o.label)}</strong>${o.detail ? `<span>${esc(o.detail)}</span>` : ""}</button>`).join("")}</div>`,
+        `<button type="button" class="choice hit" role="option" data-value="${esc(o.value)}" aria-selected="${String(o.value) === String(value)}" aria-pressed="${String(o.value) === String(value)}"><strong>${esc(o.label)}</strong>${o.detail ? `<span>${esc(o.detail)}</span>` : ""}</button>`).join("")}</div>`,
     (e) => {
       if (e.key === "Escape") el.close();
       else return false;
@@ -267,7 +278,10 @@
       e.stopPropagation();
       close();
     };
-    const close = () => { document.removeEventListener("keydown", keys, true); p.close(); };
+    const closePanel = p.close;
+    // Removes the Escape listener however the panel is closed, also by page code calling p.close().
+    const close = () => { document.removeEventListener("keydown", keys, true); closePanel(); };
+    p.close = close;
     document.addEventListener("keydown", keys, true);
     p.addEventListener("click", (e) => {
       const b = e.target.closest("[data-act]");
@@ -340,7 +354,7 @@
       if (d.kind === "text") {
         openKeyboard({ label, value: d.value, max: num("maxLength") || 200, onSet: (v) => set(v) });
       } else if (d.kind === "choice") {
-        const options = JSON.parse(d.options || "[]").map(([value, text, detail]) => ({ value, label: text, detail }));
+        const options = JSON.parse(d.options || "[]").map(([value, text, detail]) => ({ value: String(value), label: text, detail }));
         openChoice({
           label, options, value: d.value,
           onSet: (v) => set(v, (options.find((o) => o.value === v) || { label: v }).label),
@@ -357,7 +371,8 @@
   function bindStepper(el, onChange) {
     const field = el.querySelector(".field-btn");
     const step = Number(el.dataset.step) || 1;
-    const decimals = Number(field.dataset.decimals) || 0;
+    const stepDecimals = (String(step).split(".")[1] || "").length;
+    const decimals = Math.max(Number(field.dataset.decimals) || 0, stepDecimals);
     const clamp = (n) => {
       if (field.dataset.min !== undefined) n = Math.max(Number(field.dataset.min), n);
       if (field.dataset.max !== undefined) n = Math.min(Number(field.dataset.max), n);

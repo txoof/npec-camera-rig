@@ -141,7 +141,9 @@ def test_every_id_a_page_script_looks_up_is_on_the_page_once(path: str) -> None:
     # page itself count, since the check reads the whole response, scripts included. An id a
     # script builds from a template (id="control-${name}") cannot be counted, only matched.
     html = TestClient(app).get(path).text
-    wanted = set(re.findall(r"getElementById\(\s*[\"'`]([^\"'`$]+)[\"'`]\s*\)", html))
+    # $("x") is the getElementById shorthand some page scripts define (the /ui page does).
+    lookup = r"(?:getElementById|\$)\(\s*[\"'`]([^\"'`$]+)[\"'`]\s*\)"
+    wanted = set(re.findall(lookup, html))
     wanted -= LOOKED_UP_ONLY_WHEN_SHOWN.get(path, set())
     built = re.findall(r'id="([^"$]*)\$\{', html)
     wrong = {}

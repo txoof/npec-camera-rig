@@ -327,7 +327,12 @@ details.help .help-body p { margin: 0 0 10px; }
 
 .choice-layer .kb-top { grid-template-columns: minmax(0, 1fr) auto; }
 .choice-layer .kb-top .kp-label { grid-column: auto; align-self: center; margin: 0; }
-.choice-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-content: start; overflow-y: auto; padding: 10px; }
+/* The list scrolls, so it keeps the same control-free lane on the right as .scroll. */
+.choice-list {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-content: start; overflow-y: auto;
+  padding: 10px calc(var(--gutter) + 10px) 10px 10px;
+  background: linear-gradient(var(--lane), var(--lane)) right / var(--gutter) 100% no-repeat;
+}
 .choice-list .choice { min-height: 68px; }
 
 /* ---------- Panels: a form or a confirmation over the work area ----------
