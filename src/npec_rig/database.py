@@ -101,6 +101,14 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "CREATE INDEX export_experiment ON export (experiment_id)",
         ),
     ),
+    (
+        4,
+        "purge: an experiment's row stays as the record, its exports are marked removed",
+        (
+            "ALTER TABLE experiment ADD COLUMN purged_at TEXT",  # UTC; NULL unless purged
+            "ALTER TABLE export ADD COLUMN removed_at TEXT",  # UTC; the zip was deleted
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -230,7 +238,9 @@ def _experiment(conn: sqlite3.Connection, experiment_id: int) -> dict:
             (experiment_id,),
         )
     ]
-    if not experiment["periods"]:
+    if experiment["purged_at"]:
+        experiment["state"] = "purged"
+    elif not experiment["periods"]:
         experiment["state"] = "set up"
     elif experiment["periods"][-1]["ended_at"] is None:
         experiment["state"] = "running"
@@ -279,7 +289,7 @@ def running_experiment() -> dict | None:
 
 # Name, researcher and notes can be corrected at any time. Tray height can change only before the
 # first start: readings already taken depend on it.
-_EDITABLE = {"set up": {"name", "researcher", "tray_height_mm", "notes"}}
+_EDITABLE = {"set up": {"name", "researcher", "tray_height_mm", "notes"}, "purged": {"notes"}}
 _EDITABLE_LATER = {"name", "researcher", "notes"}
 
 
@@ -288,6 +298,8 @@ def update_experiment(experiment_id: int, **fields: object) -> dict:
         state = _experiment(conn, experiment_id)["state"]
         allowed = _EDITABLE.get(state, _EDITABLE_LATER)
         refused = set(fields) - allowed
+        if refused and state == "purged":
+            raise ExperimentError("only the notes of a purged experiment can be changed")
         if refused:
             raise ExperimentError(
                 f"{', '.join(sorted(refused))} cannot be changed once the experiment has started"
@@ -315,6 +327,8 @@ def start_experiment(
         experiment = _experiment(conn, experiment_id)
         if experiment["state"] == "running":
             raise ExperimentError("this experiment is already running")
+        if experiment["state"] == "purged":
+            raise ExperimentError("this experiment was purged: its photos are gone")
         running = conn.execute(
             "SELECT experiment_id FROM experiment_period WHERE ended_at IS NULL"
         ).fetchone()
@@ -367,8 +381,11 @@ def create_export(experiment_id: int, *, now: str) -> dict:
     with _connect() as conn:
         # Take the write lock before checking, so two clicks cannot both start one.
         conn.execute("BEGIN IMMEDIATE")
-        if _experiment(conn, experiment_id)["state"] == "set up":
+        state = _experiment(conn, experiment_id)["state"]
+        if state == "set up":
             raise ExperimentError("an experiment that has not started has nothing to export")
+        if state == "purged":
+            raise ExperimentError("this experiment was purged: there is nothing left to export")
         busy = conn.execute(
             "SELECT 1 FROM export WHERE experiment_id = ? AND finished_at IS NULL",
             (experiment_id,),
@@ -422,3 +439,40 @@ def exports_for(experiment_id: int) -> list[dict]:
             "SELECT * FROM export WHERE experiment_id = ? ORDER BY id DESC", (experiment_id,)
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+# --- Purge ---
+# PLAN.md, *Purging an experiment*: the one deletion. The experiment's row stays as the record.
+
+
+def complete_export(experiment_id: int) -> dict | None:
+    """The newest export that holds every photo of the experiment: finished, no error, its zip
+    not removed, and started after the last photo. A partial export taken while running does not
+    count unless no photo came after it."""
+    with _connect() as conn:
+        last = conn.execute(
+            "SELECT MAX(taken_at) FROM capture WHERE experiment_id = ?", (experiment_id,)
+        ).fetchone()[0]
+        row = conn.execute(
+            "SELECT * FROM export WHERE experiment_id = ? AND finished_at IS NOT NULL"
+            " AND error IS NULL AND removed_at IS NULL AND (? IS NULL OR started_at >= ?)"
+            " ORDER BY id DESC LIMIT 1",
+            (experiment_id, last, last),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def purge_experiment(experiment_id: int, *, now: str) -> dict:
+    """Mark a stopped experiment purged, delete its photo rows and mark its exports removed, in
+    one transaction. The caller deletes the folder afterwards."""
+    with _connect() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        if _experiment(conn, experiment_id)["state"] != "stopped":
+            raise ExperimentError("only a stopped experiment can be purged")
+        conn.execute("DELETE FROM capture WHERE experiment_id = ?", (experiment_id,))
+        conn.execute(
+            "UPDATE export SET removed_at = ? WHERE experiment_id = ? AND removed_at IS NULL",
+            (now, experiment_id),
+        )
+        conn.execute("UPDATE experiment SET purged_at = ? WHERE id = ?", (now, experiment_id))
+        return _experiment(conn, experiment_id)
