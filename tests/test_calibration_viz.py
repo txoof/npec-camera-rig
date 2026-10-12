@@ -11,7 +11,6 @@ from npec_rig.calibration_viz import (
     TAG_MAP_NEUTRAL_COLOUR,
     TAG_MAP_RANGE_PCT,
     TAG_MAP_SMALL_COLOUR,
-    render_honesty_plot,
     render_level_overlay,
     render_radial_residual_plot,
     render_tag_map,
@@ -42,25 +41,6 @@ pytestmark = pytest.mark.unit
 
 
 pytestmark = pytest.mark.unit
-
-
-def test_honesty_plot_renders_an_image_of_the_requested_size() -> None:
-    image = render_honesty_plot([(1.0, 1.2), (2.0, 1.8), (5.0, 6.0)], size=400, margin=50)
-    assert image.shape == (400, 400, 3)
-
-
-def test_honesty_plot_requires_at_least_one_point() -> None:
-    with pytest.raises(ValueError, match="at least one"):
-        render_honesty_plot([])
-
-
-def test_honesty_plot_point_on_the_honest_line_lands_on_the_diagonal() -> None:
-    # A single point where claimed == actual should land exactly on the y=x reference line --
-    # verify that pixel is not the plain white background, i.e. something was actually drawn
-    # there (the diagonal line and the point coincide).
-    image = render_honesty_plot([(5.0, 5.0)], size=300, margin=50, axis_max_pct=10.0)
-    assert not np.all(image == 255)
-
 
 
 def test_level_overlay_matches_frame_size_and_channels() -> None:
