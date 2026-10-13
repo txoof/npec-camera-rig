@@ -253,7 +253,7 @@ is not known.
 
 **Question.** The band is a percentile: it makes no assumption about the shape of the errors. The
 usual metrology route to a 95% interval is the GUM's expanded uncertainty, U = k × u with k = 2
-(JCGM 100:2008, section 6.2), which is about 95% only when the errors are roughly normal, and
+(JCGM 100:2008, sections 6.2.1 and 6.3.3), which is about 95% only when the errors are roughly normal, and
 which treats a known bias separately. On this rig's data, do the two give the same number? Where
 they differ, is the percentile catching a tail that a normal estimate would miss? No change to how
 the rig computes or reports the band (issue #146).
@@ -486,18 +486,53 @@ of area error (%). (c) marks a central slot.
 the same number to within 0.3 points in 5 of every 6 slot-sessions, so using a percentile costs
 nothing where the errors are close to normal. Where they differ by more, it is in both
 directions: in 9 slot-sessions 2 × RMS is the wider, as normal errors with a bias would give; in
-5 the band is the wider, and every one of those 5 is a group of tags in one photograph reading
-off together. In those 5 a normal estimate would have under-reported the spread by 0.37 to 0.86
+5 the band is the wider, and every one of those 5 is a group of tags in one or two photographs
+reading off together, all on the same side. In those 5 a normal estimate would have under-reported the spread by 0.37 to 0.86
 points. The central slots, where the known central error sits, are not among them.
 
 **What it does not show.** No confidence level can be attached to any band or ratio here: the 3
 rounds are not independent samples of 85 to 90 tags (method, above). With 85 to 90 tags the
 95th percentile lies between the 4th and 5th largest |error|, so 5 or 6 tags reading off together
-in one photograph decide the band; in this data such groups put the band above 2 × RMS by up to
-0.86 points. This comparison does not say whether such a photograph should count; that is
+decide the band; in this data such groups put the band above 2 × RMS by up to
+0.86 points. This comparison does not say whether such a group should count; that is
 outside this check. 7 sessions from 4
 calibrations, 2 cameras; nothing here covers plants, plant height or segmentation. The pass or
 fail of the 14.1 repeat validation is not judged here.
+
+**Background and sources** (checked against the primary texts on 2026-10-13 unless stated).
+
+- GUM (JCGM 100:2008): the expanded uncertainty is U = k × u_c(y) (6.2.1); "taking k = 2
+  produces an interval having a level of confidence of approximately 95 percent" when the
+  distribution is "approximately normal" and the degrees of freedom are large enough (6.3.3). A
+  measurement result is taken as "corrected for all recognized significant systematic effects"
+  (3.2.4), and enlarging the uncertainty instead of applying a known correction "should be
+  avoided" (6.3.1, note). The rig's band does the opposite on purpose: it keeps each slot's bias
+  inside the band, because the bias is measured per session and not corrected.
+- Wilks, S. S. (1941), "Determination of sample sizes for setting tolerance limits", Annals of
+  Mathematical Statistics 12(1): 91-96, doi:10.1214/aoms/1177731788. Tolerance limits from order
+  statistics are valid "for any unknown continuous distribution" (p. 93). From his one-sided
+  result (Eq. 6, p. 94), the largest of 59 independent observations bounds at least 95% of the
+  population with confidence 1 - 0.95^59 = 0.952 (58 gives 0.949). The figure 59 is worked out
+  here, not stated by Wilks; Blatman et al. (2017, arXiv:1701.02373, Table 1) state it. It needs
+  independent observations, which these tags are not (method, above).
+- NDEP, Guidelines for Digital Elevation Data, Version 1.0 (2004): in open terrain, where random
+  errors "typically follow a normal distribution" (1.5.2.6), accuracy at 95% is 1.96 × RMSE
+  (1.5.3.1); elsewhere "a normal distribution of error cannot be assumed and, therefore, RMSE
+  cannot be used to calculate the 95-percent accuracy value", and the 95th percentile is used
+  (1.5.3.2).
+- ASPRS Positional Accuracy Standards, Edition 1, Version 1.0 (2014; published in
+  Photogrammetric Engineering & Remote Sensing 81(3), 2015, A1-A26): non-vegetated vertical
+  accuracy is RMSE × 1.96, for terrain "where elevation errors typically follow a normal error
+  distribution"; vegetated vertical accuracy is "the 95th percentile of the absolute value of
+  vertical errors" (7.4). Edition 2 (2023, Version 2 2024) drops the 95% level and reports RMSE
+  only, with vegetated accuracy "assessed and reported as found". **Not checked against the
+  standard itself** (behind a login): from FGDC/NGAC slides (April 2024) and Abdullah, PE&RS
+  91(5), 2025, whose reason is that the 95% level "offers no additional benefits to the RMSE while
+  causing considerable confusion".
+
+NDEP and ASPRS use 1.96, not the GUM's 2. The difference is 2% of 2 × RMS, at most 0.10 points
+here. Recounted with 1.96 × RMS (not part of the method set beforehand): 72 of 84 agree within
+0.3 points, the band is wider in the same 5, and 1.96 × RMS is wider in 7 instead of 9.
 
 ## 7. Known error sources
 

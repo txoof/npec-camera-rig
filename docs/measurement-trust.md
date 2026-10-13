@@ -93,6 +93,18 @@ a band changes from one validation to the next is shown by the sessions of 2026-
 2026-10-07 on the same calibration (metrology-log section 6): single slots differed by up to 1.5
 points (North 1, ±1.77% then ±3.3%), with a cold start, a camera fault and lens tests in between.
 
+**Why a percentile, and not a normal-distribution estimate.** The usual metrology route to a 95%
+interval is twice the standard uncertainty (the GUM's k = 2), which is about 95% only when the
+errors are roughly normal. The band makes no such assumption. Compared on 7 validation sessions
+(84 slot-sessions, metrology-log section 6.1), the band and twice the root mean square error
+agree within 0.3 points in 70; across all 84 the band is a median of 0.95 times that normal
+estimate, as normal errors would give. In 5 the band is wider by 0.37 to 0.86 points, each
+time because a group of tags in one or two of the 3 photographs read off together, all on the
+same side (6 or 7 tags per slot); a normal estimate
+would have under-reported those slots. So the percentile costs nothing where errors are close
+to normal and catches the cases where they are not. No confidence level is attached: the 3
+rounds are not independent samples.
+
 **Why the calibration's own estimate is not used.** The calibration can also estimate its
 uncertainty from how closely the tags fit the scale field. Checked against validation, that
 estimate was slightly too small in 7 of 12 slots: typically 0.50% predicted against 0.54%
