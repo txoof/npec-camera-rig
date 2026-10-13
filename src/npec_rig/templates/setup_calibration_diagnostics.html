@@ -10,7 +10,8 @@
 {% block title_suffix %}: Calibration diagnostics{% endblock %}
 
 {% block breadcrumb %}
-  {{ ui.link_button(back_label, back_href, "btn-back", "back") }}
+  {#- Written out, not ui.link_button: its label in .lbl, so a phone shows the arrow only. -#}
+  <a class="btn btn-back hit" href="{{ back_href }}" aria-label="Back to {{ back_label }}">{{ ui.icon("back") }}<span class="lbl">{{ back_label }}</span></a>
   <div style="min-width: 0;">
     <h1>Calibration diagnostics</h1>
     <p class="sub" id="calibration-summary">Loading the calibration</p>

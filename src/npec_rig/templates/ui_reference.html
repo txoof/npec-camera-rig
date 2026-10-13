@@ -190,7 +190,9 @@ document.addEventListener("DOMContentLoaded", () => {
   ui.bindChoices($("ex-choices"), (v) => ui.toast("Chosen: " + v + " mm"));
   ui.bindTabs($("ex-tabs"));
   $("ex-figure").onload = () => { $("ex-figure-figure").hidden = false; };
-  $("ex-figure").src = "/static/icons.svg";
+  $("ex-figure").src = "data:image/svg+xml," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200"><rect width="300" height="200" fill="#fff"/>' +
+    '<path d="M20 180 L280 40" stroke="#dc7800" stroke-width="4"/><text x="20" y="30" font-size="18">Example plot</text></svg>');
   $("ex-readout-tags").textContent = "355";
   $("ex-readout-slope").textContent = "+0.30% per 1000 px";
   ui.bindStepper($("ex-stepper"), (v) => ui.toast("Gain " + v));
