@@ -118,6 +118,22 @@ RADIAL_PLOT_MARGIN = 90
 RADIAL_PLOT_TOP_MARGIN = 110
 
 
+def radial_fit(points: list[tuple[float, float, int]]) -> tuple[float, float, float]:
+    """The radial plot's straight line: `(slope, intercept, r_squared)` of an unweighted
+    least-squares fit of each point's signed value (%) to its radius (px), `points` as for
+    `render_radial_residual_plot`. The plot and the diagnostics readout both use it, so the two
+    always show the same numbers. R**2 is 0 when every value is the same."""
+    if len(points) < 2:
+        raise ValueError(f"need at least 2 points for a radial fit, got {len(points)}")
+    radii = np.array([p[0] for p in points])
+    values = np.array([p[1] for p in points])
+    slope, intercept = np.polyfit(radii, values, 1)
+    ss_res = float(np.sum((values - (slope * radii + intercept)) ** 2))
+    ss_tot = float(np.sum((values - values.mean()) ** 2))
+    r_squared = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+    return float(slope), float(intercept), r_squared
+
+
 def render_radial_residual_plot(
     points: list[tuple[float, float, int]],
     *,
@@ -149,12 +165,7 @@ def render_radial_residual_plot(
     radii = np.array([p[0] for p in points])
     values = np.array([p[1] for p in points])
     n = len(points)
-
-    slope, intercept = np.polyfit(radii, values, 1)
-    fitted = slope * radii + intercept
-    ss_res = float(np.sum((values - fitted) ** 2))
-    ss_tot = float(np.sum((values - values.mean()) ** 2))
-    r_squared = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+    slope, intercept, r_squared = radial_fit(points)
 
     radius_max = max(float(radii.max()) * 1.05, 1e-9)
     value_span = max(float(np.abs(values).max()) * 1.15, 1e-9)
@@ -223,7 +234,7 @@ def render_radial_residual_plot(
             t.text(text, (margin - 12 - tick_text_width, py + 5), 0.45, (0, 0, 0))
         t.text(title, (margin, 40), title_scale, (0, 0, 0))
         t.text(
-            f"linear fit: slope {slope:+.4f} %/px, R^2 = {r_squared:.3f}, n = {n} tags",
+            f"linear fit: slope {slope * 1000:+.2f}% per 1000 px, R^2 = {r_squared:.3f}, n = {n} tags",
             (margin, 70), 0.55, fit_colour,
         )
         t.text("distance from image centre (px)", (margin, size - margin + 40), 0.5, (0, 0, 0))

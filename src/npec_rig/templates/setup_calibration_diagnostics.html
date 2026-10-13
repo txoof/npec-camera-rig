@@ -1,0 +1,189 @@
+{#- Calibration diagnostics (#134, mockup 7): one calibration's tag map and lens check, each
+    with its numbers beside it. Serves a saved run from the calibration history (stem set) and
+    the active calibration from the wizard's Step 5 (stem none, from current.json itself).
+
+    Context: stem (string or none), plot_base ("/calibration/<stem>" or "/calibration/current"),
+    back_label and back_href (where the back button goes). -#}
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% set nav_active = "setup" %}
+{% block title_suffix %}: Calibration diagnostics{% endblock %}
+
+{% block breadcrumb %}
+  {#- Written out, not ui.link_button: its label in .lbl, so a phone shows the arrow only. -#}
+  <a class="btn btn-back hit" href="{{ back_href }}" aria-label="Back to {{ back_label }}">{{ ui.icon("back") }}<span class="lbl">{{ back_label }}</span></a>
+  <div style="min-width: 0;">
+    <h1>Calibration diagnostics</h1>
+    <p class="sub" id="calibration-summary">Loading the calibration</p>
+  </div>
+  <div class="head-actions">{{ ui.about_button("about-diagnostics", "About") }}</div>
+{% endblock %}
+
+{% block subhead %}
+  {{ ui.tabs("diag-tabs", "Diagnostics views",
+    [("tag-map", "Tag map", "Which tags read far off"), ("lens", "Lens check", "Errors toward the corners")],
+    "tag-map") }}
+{% endblock %}
+
+{% block content %}
+<div class="stack">
+  <div id="calibration-not-found" hidden>
+    {% call ui.banner("warn", "Not found") %}
+      <p id="not-found-text">No saved calibration matches this page's address. It may have been deleted.</p>
+    {% endcall %}
+  </div>
+
+  <div class="stack" id="calibration-diagnostics-body" hidden>
+    <div class="row" id="calibration-status"></div>
+    <div id="diagnostics-message" role="status" hidden></div>
+
+    <section class="plot-split" data-tab-panel="tag-map">
+      <div class="stack">
+        {{ ui.figure("tag-map", "Tag map: each tag coloured by how far it reads from the median, with a histogram") }}
+        <div id="tag-map-message" hidden></div>
+      </div>
+      <div class="stack">
+        {{ ui.readout("tag-map-readout", [("tm-tags", "Tags"), ("tm-median", "Median"), ("tm-far", "Past 1.5%"), ("tm-worst", "Worst tag")]) }}
+        <p class="lead">Each tag is coloured by how far its size reads from the median tag of this run. Look for a whole sheet in one colour: that sheet may have printed at the wrong size.</p>
+      </div>
+    </section>
+
+    <section class="plot-split" data-tab-panel="lens" hidden>
+      <div class="stack">
+        {{ ui.figure("radial-plot", "Each tag's scale error against its distance from the image centre") }}
+        <div id="radial-plot-message" hidden></div>
+      </div>
+      <div class="stack">
+        {{ ui.readout("lens-readout", [("lens-slope", "Fit slope"), ("lens-r2", "R squared"), ("lens-tags", "Tags")]) }}
+        <p class="lead">Each dot is one tag, by its distance from the centre of the photo. A steady climb or fall toward the right would mean lens distortion.</p>
+      </div>
+    </section>
+  </div>
+</div>
+
+{{ ui.about_page("about-diagnostics", "Calibration diagnostics",
+  ["Read the [Tag map]: look for a whole sheet in one colour, or many outlined tags in one place.",
+   "If one sheet stands out, measure its tags with callipers, reprint it if needed, and run calibration again.",
+   "Read the [Lens check]: look for dots that climb or fall steadily toward the right."],
+  [("Tag map", "The table, straightened on the four corner tags, so a spot on the map is the same real spot on the table in every run. Blue reads small, orange-red reads large, pale is normal. Tags more than 1.5% from the median are outlined in black and marked with a minus or plus sign. Grey means no tag: nothing is guessed between tags. The histogram under the map counts the tags at each distance from the median, so one stray tag can be told from a group."),
+   ("Tag map numbers", "Tags: how many calibration tags were found. Median: the middle tag's size against the fitted scale. Past 1.5%: how many tags are outlined on the map. Worst tag: the tag furthest from the median, and how far from it."),
+   ("Lens check", "Across: a tag's distance from the centre of the photo, in pixels. Up and down: how far its size reads from the fitted scale, in percent, with its sign kept. The line is a straight fit through the dots."),
+   ("Lens check numbers", "Fit slope: how much the line climbs per 1000 pixels toward the corners. R squared: how much of the up and down spread the line explains, from 0 (none) to 1 (all). Read the two together, and read the dots too: the fit only sees straight trends."),
+   ("Tap to enlarge", "Opens a plot full screen. Close it with the close button or Escape.")],
+  "A whole sheet in one colour usually means that sheet printed at the wrong size, so it is a problem with the sheet, not the camera. Colour spread over the whole table points at the camera instead. A steady trend toward the corners in the lens check is the one measurement that would justify modelling the lens. The known low reading near the centre of the frame is a dip at the left end, not a trend, and does not count. The colour range (2%) and the outline line (1.5%) are fixed choices, not measurements. This page is for setup only: how far a measurement can be trusted comes from validation.") }}
+
+<script>
+  (() => {
+    const stem = {{ stem | tojson }};
+    const plotBase = {{ plot_base | tojson }};
+    const $ = (id) => document.getElementById(id);
+    const summary = $("calibration-summary");
+    const body = $("calibration-diagnostics-body");
+    const message = $("diagnostics-message");
+    const signed = (v, digits) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}`;
+
+    function notFound(text) {
+      summary.textContent = "No calibration";
+      if (text) $("not-found-text").textContent = text;
+      $("calibration-not-found").hidden = false;
+    }
+
+    // A run with nothing to plot shows neither view nor the tabs between them.
+    function noPlots() {
+      document.querySelectorAll(".tab-bar, [data-tab-panel]").forEach((el) => { el.hidden = true; });
+    }
+
+    function say(el, kind, text) {
+      el.innerHTML = ui.chip(kind, text);
+      el.hidden = false;
+    }
+
+    // What the page shows about the run, from the history list or from current.json.
+    async function calibration() {
+      if (stem === null) {
+        const data = await (await fetch("/calibration/current")).json();
+        if (!data.exists) return null;
+        return { ...data, is_current: true, corner_tag_count: data.corner_baseline_tags.length };
+      }
+      const r = await fetch("/calibration/list");
+      if (!r.ok) throw new Error(`server returned ${r.status}`);
+      return (await r.json()).find((e) => e.stem === stem) || null;
+    }
+
+    function showPlot(name, url) {
+      const img = $(name);
+      const figure = $(`${name}-figure`);
+      img.onload = () => { figure.hidden = false; };
+      img.onerror = () => say($(`${name}-message`), "fail", "This plot could not be drawn.");
+      img.src = url;
+    }
+
+    function showReadout(d) {
+      $("tm-tags").textContent = d.tags;
+      $("tm-median").textContent = `${signed(d.median_pct, 2)}%`;
+      $("tm-far").textContent = `${d.tags_far} of ${d.tags}`;
+      $("tm-worst").textContent = `Tag ${d.worst_tag.id}, ${signed(d.worst_tag.from_median_pct, 2)}%`;
+      $("lens-slope").textContent = `${signed(d.slope_pct_per_1000px, 2)}% per 1000 px`;
+      $("lens-r2").textContent = d.r_squared.toFixed(2);
+      $("lens-tags").textContent = d.tags;
+    }
+
+    async function init() {
+      let entry;
+      try {
+        entry = await calibration();
+      } catch (err) {
+        summary.textContent = `Could not load this calibration: ${err.message}`;
+        return;
+      }
+      if (!entry) {
+        notFound(stem === null ? "No calibration has been saved yet." : null);
+        return;
+      }
+      const dt = entry.created_at ? entry.created_at.replace("T", " ").slice(0, 16) + " UTC" : entry.filename;
+      summary.textContent = `Calibration of ${dt}${entry.is_current ? ", active" : ""}`;
+      const chips = [];
+      if (entry.residual_std_pct != null) {
+        chips.push(ui.chip("info", `Residual ${entry.residual_std_pct.toFixed(2)}%`));
+        chips.push(ui.chip("info", `Tag size ${entry.calibration_tag_size_mm} mm`));
+        chips.push(ui.chip(entry.corner_tag_count === 4 ? "ok" : "warn", `${entry.corner_tag_count} of 4 corner tags`));
+      } else {
+        chips.push(ui.chip("fail", "Saved file could not be read"));
+      }
+      $("calibration-status").innerHTML = chips.join("");
+      body.hidden = false;
+      if (!entry.frame_url) {
+        say(message, "info", "No saved photo for this run, so there are no plots.");
+        noPlots();
+        return;
+      }
+      if (entry.residual_std_pct == null) {
+        // The plots need the saved file's scale and tag size: without them they would fail.
+        say(message, "fail", "This calibration's saved file could not be read, so there are no plots.");
+        noPlots();
+        return;
+      }
+      say(message, "info", "Loading. The first time for a calibration this reads the tags from its photo, about 15 seconds.");
+      // The numbers first: they read the run's tags once, and the plots then draw from them.
+      const r = await fetch(`${plotBase}/diagnostics`);
+      if (!r.ok) {
+        const detail = (await r.json().catch(() => ({}))).detail;
+        say(message, "fail", `The diagnostics could not be worked out${detail ? `: ${detail}` : ""}.`);
+        return;
+      }
+      const d = await r.json();
+      message.hidden = true;
+      showReadout(d);
+      if (d.tag_map) showPlot("tag-map", `${plotBase}/tag-map`);
+      else say($("tag-map-message"), "warn", "No tag map: this run has no corner tags to straighten the table on.");
+      showPlot("radial-plot", `${plotBase}/radial-plot`);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      ui.bindAbout(document.querySelector('[data-about="about-diagnostics"]'));
+      ui.bindTabs($("diag-tabs"));
+      init();
+    });
+  })();
+</script>
+{% endblock %}

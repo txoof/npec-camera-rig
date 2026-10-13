@@ -109,8 +109,7 @@
       <div class="stack">
         <div id="report-empty" class="stack">
           <div>{{ ui.chip("info", "No report yet") }}</div>
-          <p class="lead">Run calibration in step 4 first. The plots below show the current calibration.</p>
-          <div>{{ ui.button("Go to step 4", attrs={"data-jump": "4"}) }}</div>
+          <p class="lead">Run calibration in step 4 first. Open diagnostics, below, shows the plots of the active calibration.</p>
         </div>
         <div id="report" class="stack" hidden>
           <div id="report-flags" hidden></div>
@@ -119,12 +118,13 @@
             <tbody id="report-rows"></tbody>
           </table></div>
           <ul class="report-lines" id="report-lines"></ul>
-          <p class="lead">If coverage is weak somewhere, load the plots to see where, add a sheet there and run again. Steps 1 to 3 only need redoing if something moved.</p>
+          <p class="lead">If coverage is weak somewhere, open diagnostics to see where, add a sheet there and run again. Steps 1 to 3 only need redoing if something moved.</p>
           <div>{{ ui.button("Run again", attrs={"data-jump": "4"}) }}</div>
         </div>
-        {% set plot_base = "/calibration/current" %}
-        {% include "_calibration_diagnostics.html" %}
-        <div>{{ ui.link_button("Calibration history", "/setup/calibration-history") }}</div>
+        <div class="row">
+          {{ ui.link_button("Open diagnostics", "/setup/calibration/diagnostics", "primary") }}
+          {{ ui.link_button("Calibration history", "/setup/calibration-history") }}
+        </div>
       </div>
     </div>
 
@@ -169,12 +169,12 @@
       "The tag size is the largest single source of error. The old rig's tags were 29.31 mm, not the 30 mm printed on the box, a 4.7% error in area. Measure every printed sheet.") }}
     {{ ui.about_page("about-cal-5", "Step 5: Read the report",
       ["Read each line of the [Report table].",
-       "If coverage is weak somewhere, press [Load the plots] to see where, add a sheet there and press [Run again].",
+       "If coverage is weak somewhere, press [Open diagnostics] to see where, add a sheet there and press [Run again].",
        "Steps 1 to 3 only need redoing if something moved.",
        "Press [Next]."],
       [("Report table", "One line per check, with the measured value and its status. The lines under it are the rest of the report, and the change from the previous calibration."),
        ("Run again", "Goes back to step 4. Shown once a calibration has run on this page."),
-       ("Load the plots", "Shows the tag map (which tags read far from normal, and where) and the lens check (whether errors grow toward the frame corners), for the current calibration."),
+       ("Open diagnostics", "Opens the diagnostics page for the active calibration: the tag map (which tags read far from normal, and where) and the lens check (whether errors grow toward the frame corners). Its back button returns to this step. The report table is not kept: it shows again after the next run."),
        ("Calibration history", "Every saved calibration, with its plots.")],
       "A calibration that passes on average can still be weak in one tray slot. The report and the plots show where, before any plant is measured there.") }}
     {{ ui.about_page("about-cal-6", "Step 6: Validate",
@@ -249,7 +249,6 @@
     const promoteToggle = document.getElementById("promote-toggle");
     const runStatus = document.getElementById("calibration-run-status");
     const calibrationCurrent = document.getElementById("calibration-current");
-    const diagnostics = window.calibrationDiagnostics;
     let tagSizeTouched = false;
 
     function renderCurrentCalibration(data) {
@@ -379,15 +378,6 @@
         await refreshCurrentCalibration();
         // Step 2's focus status names the calibration's lens position; show the new one.
         focusControls.refreshFocusStatus();
-        if (!data.error && data.promoted_to_current) {
-          // Only after a promoted run: the plots read the current baseline, so after a
-          // comparison run they would show the previous baseline's. Awaited, so the button
-          // stays busy until the plots are on screen.
-          calibrateBtn.textContent = "Drawing the plots";
-          await diagnostics.load();
-        } else {
-          diagnostics.hide();
-        }
       } catch (e) {
         runStatus.innerHTML = ui.chip("fail", "Calibration request failed. Try again.");
       } finally {
@@ -395,16 +385,6 @@
         calibrateBtn.textContent = "Run calibration";
       }
     }
-
-    // The plots need a calibration with its saved photo; an artifact can exist without one
-    // (calibration.py: "a ScaleField alone is still a valid, usable artifact"), and frame_url is
-    // the signal. Without this check they would fail as broken images with no explanation.
-    diagnostics.beforeLoad = async () => {
-      const data = await (await fetch("/calibration/current")).json();
-      if (!data.exists) return "No calibration saved yet.";
-      if (!data.frame_url) return "The active calibration has no saved photo, so there are no plots.";
-      return null;
-    };
 
     // --- Wizard steps: Back, the six step buttons and Next; one step showing at a time ---
     // No gating: any step can be opened at any time, Next is always enabled until the last step.
@@ -451,6 +431,9 @@
       renderWizardStep();
     }
 
+    // The diagnostics page's back button returns to Step 5 (#step-5).
+    const stepInAddress = /^#step-(\d)$/.exec(window.location.hash);
+    if (stepInAddress) wizardStep = Math.min(STEP_TITLES.length, Math.max(1, Number(stepInAddress[1])));
     renderWizardStep();
     document.addEventListener("DOMContentLoaded", () => {
       ui.bindAbout(wizardAbout);

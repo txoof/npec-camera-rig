@@ -95,6 +95,19 @@
   <p class="field-help">Macro <code>ui.choices</code>, made to choose by <code>ui.bindChoices()</code>. In place of a list box or radio buttons.</p>
   {{ ui.choices("ex-choices", "Tray height", [("60", "Standard tray", "60 mm"), ("135", "Tall tray", "135 mm"), ("0", "No tray", "Sheets on the table")], "60") }}
 
+  <h2>Tabs</h2>
+  <p class="field-help">Macro <code>ui.tabs</code>, made to switch by <code>ui.bindTabs()</code>. Choice buttons in a bar under the page head (the page's <code>subhead</code> block), one per view. The pressed one shows the page's element with the same <code>data-tab-panel</code> value and hides the others.</p>
+  {{ ui.tabs("ex-tabs", "Example views", [("one", "Tag map", "Which tags read far off"), ("two", "Lens check", "Errors toward the corners")], "one") }}
+  <p class="lead" data-tab-panel="one">The first view.</p>
+  <p class="lead" data-tab-panel="two" hidden>The second view.</p>
+
+  <h2>Figure and readout</h2>
+  <p class="field-help">Macros <code>ui.figure</code> and <code>ui.readout</code>. A figure is a plot that opens full screen when tapped (<code>lightbox.js</code>); it starts hidden, and the page shows it once its image has loaded. A readout is the numbers beside it; the page writes each value into its id. <code>plot-split</code> puts the two side by side, one column on a phone.</p>
+  <div class="plot-split">
+    {{ ui.figure("ex-figure", "Example plot") }}
+    {{ ui.readout("ex-readout", [("ex-readout-tags", "Tags"), ("ex-readout-slope", "Fit slope")]) }}
+  </div>
+
   <h2>Stepper</h2>
   <p class="field-help">Macro <code>ui.stepper</code>, made to work by <code>ui.bindStepper()</code>. In place of a slider: whole steps, or tap the value to type one.</p>
   {{ ui.stepper("ex-stepper", "Analogue gain", "1.25", "x", 1, 16, 0.25, 2) }}
@@ -175,6 +188,13 @@ document.addEventListener("DOMContentLoaded", () => {
   ui.bindSwitch($("ex-switch"), (on) => ui.toast(on ? "Door closed" : "Door open"));
   ui.bindSwitch($("ex-switch-compact"));
   ui.bindChoices($("ex-choices"), (v) => ui.toast("Chosen: " + v + " mm"));
+  ui.bindTabs($("ex-tabs"));
+  $("ex-figure").onload = () => { $("ex-figure-figure").hidden = false; };
+  $("ex-figure").src = "data:image/svg+xml," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200"><rect width="300" height="200" fill="#fff"/>' +
+    '<path d="M20 180 L280 40" stroke="#dc7800" stroke-width="4"/><text x="20" y="30" font-size="18">Example plot</text></svg>');
+  $("ex-readout-tags").textContent = "355";
+  $("ex-readout-slope").textContent = "+0.30% per 1000 px";
   ui.bindStepper($("ex-stepper"), (v) => ui.toast("Gain " + v));
   ui.bindStepper($("ex-stepper-tight"), (v) => ui.toast("Gain " + v),
     { stops: [1, 1.25, 1.6, 2, 2.5, 3.2, 4, 5, 6.4, 8, 10, 12.5, 16] });

@@ -103,6 +103,7 @@ PAGE_ROUTES = [
     "/setup/calibration",
     "/setup/calibration-history",
     "/setup/calibration-history/20260101T000000000000",
+    "/setup/calibration/diagnostics",
     "/setup/validation",
     "/setup/health-check",
     "/gallery",
@@ -148,7 +149,7 @@ def test_every_id_a_page_script_looks_up_is_on_the_page_once(path: str) -> None:
 
 
 def test_calibration_history_diagnostics_page_loads() -> None:
-    # One static file serves any stem -- the page looks itself up in /calibration/list
+    # One template serves any stem -- the page looks itself up in /calibration/list
     # client-side, so this route never 404s on an unknown stem the way the JSON endpoints do.
     client = TestClient(app)
     response = client.get("/setup/calibration-history/20260101T000000000000")
@@ -1184,6 +1185,40 @@ def test_calibration_plots_use_the_runs_own_tags_and_keep_the_plots(
 
     assert detect_calls == 0
     assert len(renders) == 1
+
+
+def test_diagnostics_readout_shows_the_numbers_the_plots_are_drawn_from(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
+) -> None:
+    monkeypatch.setattr(app_module, "detect_tags", lambda frame: _CALIBRATION_TAGS + _FOUR_CORNER_TAGS)
+    client = TestClient(app)
+    stem = Path(client.post("/calibration/run").json()["artifact_path"]).stem
+    plotted = []
+    real_render = app_module.render_radial_residual_plot
+    monkeypatch.setattr(
+        app_module,
+        "render_radial_residual_plot",
+        lambda points, **k: (plotted.append(points), real_render(points, **k))[1],
+    )
+    assert client.get(f"/calibration/{stem}/radial-plot").status_code == 200
+    slope, _intercept, r_squared = app_module.radial_fit(plotted[0])
+    residuals = [p[1] for p in plotted[0]]
+    median = float(np.median(residuals))
+
+    for path in ("/calibration/current/diagnostics", f"/calibration/{stem}/diagnostics"):
+        body = client.get(path).json()
+        assert body["tags"] == len(plotted[0]), path
+        assert body["slope_pct_per_1000px"] == pytest.approx(slope * 1000)
+        assert body["r_squared"] == pytest.approx(r_squared)
+        assert body["median_pct"] == pytest.approx(median)
+        assert body["far_pct"] == app_module.TAG_MAP_FAR_PCT
+        assert body["tags_far"] == sum(abs(r - median) > app_module.TAG_MAP_FAR_PCT for r in residuals)
+        assert abs(body["worst_tag"]["from_median_pct"]) == pytest.approx(max(abs(r - median) for r in residuals))
+        assert body["tag_map"] is True
+
+
+def test_diagnostics_readout_for_an_unknown_calibration_is_not_found(isolated_calibration_dir: None) -> None:
+    assert TestClient(app).get("/calibration/20260101T000000000000/diagnostics").status_code == 404
 
 
 def test_current_plots_come_from_current_json_not_the_history_file(

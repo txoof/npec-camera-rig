@@ -86,6 +86,23 @@
 </div>
 {%- endmacro %}
 
+{#- Tabs: a bar of choice buttons under the page head, one per view. ui.bindTabs(el, onChange)
+    shows the page's [data-tab-panel] element whose value is pressed and hides the others. -#}
+{% macro tabs(id, label, options, value) -%}
+<nav class="tab-bar" aria-label="{{ label }}">{{ choices(id, label, options, value) }}</nav>
+{%- endmacro %}
+
+{#- A plot or photo that opens full screen when tapped (lightbox.js). Starts hidden: a page sets
+    the image's src (id) and shows the figure (id-figure) once it has loaded. -#}
+{% macro figure(id, alt) -%}
+<button type="button" class="figure hit" id="{{ id }}-figure" aria-label="{{ alt }}. Tap to enlarge." hidden><img id="{{ id }}" alt="{{ alt }}"><span class="tag">Tap to enlarge</span></button>
+{%- endmacro %}
+
+{#- Numbers beside a plot. rows: (id, label) pairs; a page writes each value into its id. -#}
+{% macro readout(id, rows) -%}
+<dl class="readout" id="{{ id }}">{% for row_id, label in rows %}<dt>{{ label }}</dt><dd id="{{ row_id }}">Loading</dd>{% endfor %}</dl>
+{%- endmacro %}
+
 {#- Looks like an input, is a button. ui.bindField(el, onSet) opens the keypad (kind "number"),
     the keyboard ("text") or the dropdown list ("choice", options as for choices()). -#}
 {% macro field_button(id, label, value="", unit="", kind="number", min=none, max=none, decimals=0, help="", max_length=200, options=[]) -%}
