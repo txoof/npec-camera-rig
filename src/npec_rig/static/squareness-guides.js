@@ -111,19 +111,22 @@ function initSquareness({ isActive }) {
     }
   }
 
-  // A server restart ends the live view (#139): ask again every 2 s until the server is back.
-  image.addEventListener("error", () => {
-    const stream = image.getAttribute("src");
-    if (showing !== "preview" || !stream || !stream.includes(".mjpg")) return;
-    setTimeout(() => {
-      if (showing === "preview" && image.getAttribute("src") === stream) {
-        image.src = `/preview.mjpg?retry=${Date.now()}`;
-      }
-    }, 2000);
-  });
+  // A server restart ends the live view without an error event on the image (#139). A small
+  // request beside the poll notices the server going and coming back, and asks for it again.
+  let serverLost = false;
+  async function checkServer() {
+    try {
+      await fetch("/static/icons.svg", { method: "HEAD", cache: "no-store" });
+      if (serverLost && showing === "preview") image.src = `/preview.mjpg?restart=${Date.now()}`;
+      serverLost = false;
+    } catch (e) {
+      serverLost = true;
+    }
+  }
 
   (function poll() {
     if (isActive() && ringsOn() && !document.hidden) refreshRings();
+    if (showing === "preview" && !document.hidden) checkServer();
     setTimeout(poll, LEVEL_OVERLAY_POLL_MS);
   })();
 
