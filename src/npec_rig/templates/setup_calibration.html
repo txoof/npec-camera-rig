@@ -130,7 +130,7 @@
           <div>{{ ui.button("Go to step 4", attrs={"data-jump": "4"}) }}</div>
         </div>
         <div id="report" class="stack" hidden>
-          <div id="report-flags"></div>
+          <div id="report-flags" hidden></div>
           <div class="table-scroll"><table class="result-table">
             <thead><tr><th>Check</th><th>Result</th><th>Status</th></tr></thead>
             <tbody id="report-rows"></tbody>
@@ -414,6 +414,7 @@
         // Recorded only (Aaron, 2026-10-08): the run is saved and promoted as normal.
         ? ui.chip("warn", `Photo flagged: ${data.photo_flags.join("; ")}. Recorded with the photo.`)
         : "";
+      flags.hidden = !flags.innerHTML;
       if (data.error) {
         rows.innerHTML =
           row("Calibration", data.error, ui.chip("fail", "Not saved")) +
