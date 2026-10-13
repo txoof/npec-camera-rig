@@ -117,10 +117,10 @@ def test_page_loads(path: str) -> None:
     assert "NPEC Camera Rig" in response.text
 
 
-# Ids a page's script looks up only behind a flag that is off on that page.
-LOOKED_UP_ONLY_WHEN_SHOWN = {
-    # _focus_controls.html reads the mode buttons only when show_square_mode is on (Focus page).
-    "/setup/calibration": {"mode-focus-btn", "mode-square-btn"},
+# Shared scripts that look up ids in the page that includes their panel.
+PANEL_SCRIPTS = {
+    "/setup/focus": ["squareness-guides.js"],
+    "/setup/calibration": ["squareness-guides.js"],
 }
 
 
@@ -134,7 +134,8 @@ def test_every_id_a_page_script_looks_up_is_on_the_page_once(path: str) -> None:
     # $("x") is the getElementById shorthand some page scripts define (the /ui page does).
     lookup = r"(?:getElementById|\$)\(\s*[\"'`]([^\"'`$]+)[\"'`]\s*\)"
     wanted = set(re.findall(lookup, html))
-    wanted -= LOOKED_UP_ONLY_WHEN_SHOWN.get(path, set())
+    for script in PANEL_SCRIPTS.get(path, []):
+        wanted |= set(re.findall(lookup, TestClient(app).get(f"/static/{script}").text))
     built = re.findall(r'id="([^"$]*)\$\{', html)
     wrong = {}
     for name in sorted(wanted):

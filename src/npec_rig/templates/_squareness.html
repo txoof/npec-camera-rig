@@ -1,0 +1,32 @@
+{#- The squareness panel, one copy for the calibration wizard's Step 3 and Square mode on the
+    Focus and Square page (mockup 7, #136): the live image with three magenta guide lines, large
+    handles just outside it, the corner rings switch and the ring legend. The page calls
+    initSquareness({ isActive }) (static/squareness-guides.js) and calls the returned update()
+    whenever the panel is shown or hidden. The guide lines are magenta so they can never be read
+    as the rings' red, amber or green verdict. -#}
+{% import "_ui.html" as ui %}
+<div class="sq-panel">
+  <div class="sq-frame">
+    <div class="sq-view">
+      <img id="sq-image" alt="Live view of the table, with the magenta guide lines over it">
+      <div class="guide h" id="sq-line-h"></div>
+      <div class="guide v" id="sq-line-v1"></div>
+      <div class="guide v" id="sq-line-v2"></div>
+    </div>
+    {#- Numbered as the keyboard picks them: 1 the across line, 2 the left, 3 the right. -#}
+    <button type="button" class="handle hh hit" data-line="h" aria-label="Line 1, across: drag up or down, or press 1 then W or S">1</button>
+    <button type="button" class="handle hh r hit" data-line="h" aria-label="Line 1, across: drag up or down, or press 1 then W or S">1</button>
+    <button type="button" class="handle hv hit" data-line="v1" aria-label="Line 2, left: drag left or right, or press 2 then A or D">2</button>
+    <button type="button" class="handle hv hit" data-line="v2" aria-label="Line 3, right: drag left or right, or press 3 then A or D">3</button>
+  </div>
+  {#- Aaron's wording, 2026-10-13. -#}
+  <p class="sq-help">Touch and drag the magenta handles to help check table orientation and squareness. Use 1, 2, 3 to select a line. WASD or the arrow keys move the line.</p>
+  <div class="sq-controls">
+    {{ ui.switch("corner-rings", "Corner rings", compact=true) }}
+    <div class="legend" aria-label="Corner ring colors">
+      {{ ui.chip("ok", "Under 3%") }}
+      {{ ui.chip("warn", "3 to 8%") }}
+      {{ ui.chip("fail", "Over 8%") }}
+    </div>
+  </div>
+</div>

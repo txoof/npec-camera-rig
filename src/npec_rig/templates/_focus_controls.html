@@ -2,20 +2,13 @@
    magnified views, the focus and exposure controls, the Camera settings panel, the About page and
    their JS. Laid out as mockup 7 (#136): everything fits 1024x600 without scrolling.
 
-   Context variable: show_square_mode (bool, default false), true only on the standalone Focus
-   and Square page, which adds a Focus/Square mode toggle and the squareness guide lines. The
-   wizard has its own Step 3 for that.
+   Context variables, set only by the Focus and Square page, which adds its Square mode around
+   this partial: about_title (default "Step 2: Lock focus"), about_more_todo, about_more_controls,
+   about_end_with_next (default true: the last step is "Press Next").
 
    The page places the About button for "about-focus" in its head and binds it (ui.bindAbout),
    and places the Camera settings button (id camera-settings-btn), which initFocusControls binds. #}
 {% import "_ui.html" as ui %}
-{% if show_square_mode %}
-<div class="mode-toggle-row">
-  <button type="button" id="mode-focus-btn">Focus mode</button>
-  <button type="button" id="mode-square-btn">Square mode</button>
-</div>
-{% endif %}
-
 <div class="focus-cols" id="focus-cols">
   <div class="focus-col">
     {#- The sharpness trace sits under the live view, as wide as it (a grid as wide as the image). -#}
@@ -23,17 +16,6 @@
     <div class="live-view">
       <img id="preview" src="/preview.mjpg" alt="Live view of the whole table. Tap it to move the focus area">
       <div class="roi-box" id="roi-box" hidden></div>
-      {% if show_square_mode %}
-      <div class="squareness-guides" id="squareness-guides">
-        <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
-        <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
-        <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
-        <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
-        <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
-        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
-        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
-      </div>
-      {% endif %}
       <span class="tag" id="lock-status">{{ ui.chip("info", "Reading focus") }}</span>
     </div>
     <div class="score-trace">
@@ -91,15 +73,14 @@
   ("Auto exposure", "Lets the camera choose exposure and gain. While it is on, the Exposure and Gain controls are hidden and the values the camera is using are shown beside the button, read every 2 seconds. Turn it off to keep those values and set them yourself."),
   ("Camera settings", "Opens the settings changed less often: Auto white balance, which lets the camera correct the color of the light."),
 ] %}
-{% if show_square_mode %}
-  {% set focus_todo = ["Choose [Focus mode]."] + focus_todo + ["To check the camera is square to the table, choose [Square mode] and drag the magenta tabs onto straight edges in the scene."] %}
-  {% set focus_controls = [("Focus mode and Square mode", "Focus mode shows the focus controls and the magnified view. Square mode shows the live view larger, with magenta guide lines: drag the tabs past its edges to line them up with real edges, such as the table's. If they line up, the camera is not rotated or badly tilted. A straightening aid only: the lines are not saved and reset when the page is reloaded.")] + focus_controls %}
-  {% set focus_title = "Focus and Square" %}
-{% else %}
+{#- The Focus and Square page adds its Square mode's steps and controls (about_more_todo,
+    about_more_controls) and sets about_end_with_next to false; the wizard ends with Next. -#}
+{% if about_end_with_next is not defined or about_end_with_next %}
   {% set focus_todo = focus_todo + ["Press [Next]."] %}
-  {% set focus_title = "Step 2: Lock focus" %}
 {% endif %}
-{{ ui.about_page("about-focus", focus_title, focus_todo, focus_controls,
+{% set focus_todo = focus_todo + (about_more_todo or []) %}
+{% set focus_controls = focus_controls + (about_more_controls or []) %}
+{{ ui.about_page("about-focus", about_title or "Step 2: Lock focus", focus_todo, focus_controls,
   "Calibration measures the scene through whatever focus is locked. If the lens moves later, every measurement shifts with it, so check focus again any time the lens may have moved.") }}
 
 <script>
@@ -107,7 +88,7 @@
   // safe wherever this partial lands relative to the caller's own script. The shared components
   // (static/ui.js) load deferred, after this inline script, so everything that uses them waits
   // for the document to finish loading.
-  function initFocusControls({ isActiveStep, showSquareMode, step = 1 }) {
+  function initFocusControls({ isActiveStep, step = 1 }) {
     const MAIN_WIDTH = 1536;
     const MAIN_HEIGHT = 1152;
     const DEFAULT_ROI_SIZE = 200;
@@ -408,8 +389,6 @@
     const previewImg = $("preview");
     const roiBox = $("roi-box");
     const roiCropImg = $("roi-crop");
-    // Only ever changes away from "focus" when showSquareMode's mode toggle exists and is used.
-    let interactionMode = "focus";
 
     function placeRoiBox(relX, relY) {
       roiBox.style.left = (relX * 100) + "%";
@@ -442,7 +421,7 @@
     }
 
     async function pollScore() {
-      if (isActiveStep(step) && interactionMode === "focus") {
+      if (isActiveStep(step)) {
         try {
           const data = await (await fetch("/focus/score")).json();
           scoreValue.textContent = data.score.toFixed(1);
@@ -460,11 +439,7 @@
     function updateLiveResources() {
       if (isActiveStep(step)) {
         if (!previewImg.getAttribute("src")) previewImg.src = "/preview.mjpg";
-        if (interactionMode === "focus") {
-          roiCropImg.src = "/focus/roi.mjpg";
-        } else {
-          roiCropImg.removeAttribute("src");
-        }
+        roiCropImg.src = "/focus/roi.mjpg";
       } else {
         previewImg.removeAttribute("src");
         roiCropImg.removeAttribute("src");
@@ -616,7 +591,6 @@
       });
 
       previewImg.addEventListener("click", (event) => {
-        if (interactionMode !== "focus") return; // square mode: dragging guide lines instead
         const rect = previewImg.getBoundingClientRect();
         const relX = (event.clientX - rect.left) / rect.width;
         const relY = (event.clientY - rect.top) / rect.height;
@@ -686,29 +660,6 @@
       // --- Camera settings, opened from the page head. The page binds its own About button. ---
       const settingsBtn = $("camera-settings-btn");
       if (settingsBtn) settingsBtn.addEventListener("click", openCameraSettings);
-
-      // --- Focus / Square mode toggle, and draggable squareness guide lines ---
-      // Client-side only, no server state: the lines are a straightening aid, not a measurement.
-      if (showSquareMode) {
-        const focusCols = $("focus-cols");
-        const squarenessGuides = $("squareness-guides");
-        const modeFocusBtn = $("mode-focus-btn");
-        const modeSquareBtn = $("mode-square-btn");
-
-        function setMode(mode) {
-          interactionMode = mode;
-          focusCols.classList.toggle("mode-square", mode === "square");
-          squarenessGuides.classList.toggle("mode-square", mode === "square");
-          modeFocusBtn.classList.toggle("active", mode === "focus");
-          modeSquareBtn.classList.toggle("active", mode === "square");
-          updateLiveResources();
-        }
-        modeFocusBtn.addEventListener("click", () => setMode("focus"));
-        modeSquareBtn.addEventListener("click", () => setMode("square"));
-        setMode("focus");
-
-        initSquarenessGuides(squarenessGuides, previewImg);
-      }
     });
 
     return { updateLiveResources, refreshFocusStatus };

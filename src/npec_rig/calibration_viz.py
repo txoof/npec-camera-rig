@@ -54,11 +54,16 @@ def render_level_overlay(
     else:
         img = np.ascontiguousarray(frame[..., :3]).copy()
 
-    radius = max(16, int(round(0.02 * img.shape[1])))
+    # Sized to the image, so the marks stay readable where the page shows it about a third of
+    # its width (Aaron, 2026-10-13: "nearly invisible at 1024 scale").
+    width = img.shape[1]
+    radius = max(16, int(round(0.04 * width)))
+    thickness = max(4, int(round(0.008 * width)))
+    font = max(0.8, 0.0014 * width)
     if not readings:
         draw_text(
             img, "need at least 2 corner tags in frame to judge levelling",
-            (20, 45), 1.0, (0, 0, 0), stroke_width=2,
+            (20, int(45 * font)), font, (0, 0, 0), stroke_width=2,
         )
         return img
 
@@ -66,8 +71,12 @@ def render_level_overlay(
     for reading in readings:
         colour = _LEVEL_STATUS_COLOUR[reading.status]
         cx, cy = int(round(reading.centre[0] * scale)), int(round(reading.centre[1] * scale))
-        cv2.circle(img, (cx, cy), radius, colour, 5, cv2.LINE_AA)
-        labels.append((f"{reading.deviation_pct:+.1f}%", (cx + radius + 8, cy + 6), colour))
+        _draw_level_mark(img, (cx, cy), radius, colour, thickness, reading.status)
+        # The label goes on the side of the mark facing the image's middle, so it stays on it.
+        text = f"{reading.deviation_pct:+.1f}%"
+        gap = radius + thickness + 8
+        x = cx + gap if cx < width / 2 else cx - gap - text_width(text, font)
+        labels.append((text, (x, cy + int(12 * font)), colour))
 
     worst = max(readings, key=lambda r: abs(r.deviation_pct))
     if worst.status == "ok":
@@ -78,10 +87,30 @@ def render_level_overlay(
 
     with text_layer(img) as t:
         for text, org, colour in labels:
-            t.text(text, org, 0.8, colour, stroke_width=2)
-        t.text(caption, (20, 45), 1.0, (0, 0, 0), stroke_width=2)
+            t.text(text, org, font, colour, stroke_width=3)
+        # The caption in the middle at the top, between the two upper marks, and smaller than them.
+        caption_font = 0.75 * font
+        t.text(caption, ((width - text_width(caption, caption_font)) // 2, int(45 * caption_font)),
+               caption_font, (0, 0, 0), stroke_width=2)
 
     return img
+
+
+def _draw_level_mark(img, centre, radius, colour, thickness, status) -> None:
+    """A shape as well as a color for each status, as the page's legend shows them (never color
+    alone): a circle for ok, a triangle for drift, a circle with a cross for fail."""
+    cx, cy = centre
+    if status == "drift":
+        points = np.array([
+            (cx, cy - radius), (cx + int(radius * 0.87), cy + radius // 2), (cx - int(radius * 0.87), cy + radius // 2),
+        ], dtype=np.int32)
+        cv2.polylines(img, [points], True, colour, thickness, cv2.LINE_AA)
+        return
+    cv2.circle(img, (cx, cy), radius, colour, thickness, cv2.LINE_AA)
+    if status == "fail":
+        d = int(radius * 0.7)
+        cv2.line(img, (cx - d, cy - d), (cx + d, cy + d), colour, thickness, cv2.LINE_AA)
+        cv2.line(img, (cx - d, cy + d), (cx + d, cy - d), colour, thickness, cv2.LINE_AA)
 
 
 RADIAL_PLOT_SIZE = 900
