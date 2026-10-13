@@ -36,21 +36,28 @@
       <div class="split">
         <div class="stack">
           <p class="lead">Put a calibration sheet on every tray, and a corner sheet at each of the table's four corners.</p>
-          <svg viewBox="0 0 400 230" role="img" class="table-diagram"
-               aria-label="Table seen from above: 12 trays in 2 rows of 6, each with a calibration sheet, and a corner sheet at NW, NE, SW and SE.">
-            <rect x="24" y="24" width="352" height="182" rx="4" fill="none" stroke="#5b6573" stroke-width="2"/>
+          {#- Seen from above, north at the top as in the camera view: 12 portrait trays in a north
+              and a south row of 6, each with a white portrait calibration sheet, and a corner sheet
+              at each corner of the table. -#}
+          <svg viewBox="0 0 420 310" role="img" class="table-diagram"
+               aria-label="Table seen from above: 12 trays in a north row and a south row of 6, each with a white calibration sheet, and a corner sheet at NW, NE, SW and SE.">
+            <rect x="40" y="40" width="340" height="230" rx="4" fill="none" stroke="#5b6573" stroke-width="2"/>
             {%- for i in range(12) %}
-            {%- set x = 58 + (i % 6) * 48 %}{% set y = 62 + (i // 6) * 56 %}
-            <rect x="{{ x }}" y="{{ y }}" width="42" height="48" rx="3" fill="#1f3b52" stroke="#6cb4ff" stroke-width="1.5"/>
-            <rect x="{{ x + 12 }}" y="{{ y + 15 }}" width="18" height="18" fill="none" stroke="#6cb4ff" stroke-width="2"/>
+            {%- set x = 55 + (i % 6) * 54 %}{% set y = 58 + (i // 6) * 116 %}
+            <rect x="{{ x }}" y="{{ y }}" width="40" height="78" rx="3" fill="#1f3b52" stroke="#6cb4ff" stroke-width="1.5"/>
+            <rect x="{{ x + 6 }}" y="{{ y + 19 }}" width="28" height="40" fill="#ffffff"/>
+            {%- for tx, ty in [(5, 6), (17, 6), (5, 17), (17, 17), (5, 28), (17, 28)] %}
+            <rect x="{{ x + 6 + tx }}" y="{{ y + 19 + ty }}" width="6" height="6" fill="#121519"/>
             {%- endfor %}
-            {%- for x, y, label in [(24, 24, "NW"), (376, 24, "NE"), (24, 206, "SW"), (376, 206, "SE")] %}
+            {%- endfor %}
+            {%- for x, y, label in [(40, 40, "NW"), (380, 40, "NE"), (40, 270, "SW"), (380, 270, "SE")] %}
             <rect x="{{ x - 10 }}" y="{{ y - 10 }}" width="20" height="20" fill="#f4bf4f" stroke="#121519" stroke-width="2"/>
-            <text x="{{ x }}" y="{{ y - 14 if y < 100 else y + 26 }}" text-anchor="middle" font-size="12" font-weight="700" fill="#f1f3f6">{{ label }}</text>
+            <text x="{{ x }}" y="{{ y - 16 if y < 100 else y + 28 }}" text-anchor="middle" font-size="13" font-weight="700" fill="#f1f3f6">{{ label }}</text>
             {%- endfor %}
-            <text x="200" y="16" text-anchor="middle" font-size="12" fill="#b9c1cc">N, top of camera view</text>
+            <text x="210" y="24" text-anchor="middle" font-size="13" fill="#b9c1cc">N, top of camera view</text>
+            <text x="210" y="298" text-anchor="middle" font-size="13" fill="#b9c1cc">S</text>
           </svg>
-          <p class="field-help">Blue squares: calibration sheet, 30 mm tags, one per tray. Yellow squares: corner sheet, 50 mm tags, one per corner.</p>
+          <p class="field-help">Blue: the 12 trays, in a north and a south row. White: a calibration sheet (30 mm tags) on every tray. Yellow: a corner sheet (50 mm tags) at each corner of the table.</p>
         </div>
         <div class="stack">
           <h3>Sheets to print</h3>
@@ -161,7 +168,7 @@
        "Put a corner sheet (50 mm tags) at each of the table's four corners.",
        "Measure one tag of each printed sheet with callipers. You enter the size in step 4.",
        "Press [Next]."],
-      [("Table diagram", "Blue squares are calibration sheets, one per tray. Yellow squares are corner sheets. The top of the drawing is north, the top of the camera view."),
+      [("Table diagram", "The table seen from above, north at the top as in the camera view. Blue rectangles are the 12 trays, in a north and a south row. The white rectangle on each is a calibration sheet. Yellow squares are the corner sheets."),
        ("Calibration sheet", "Opens the printable PDF in a new tab.")],
       "The tags are the ruler. Covering every tray makes sure tags reach all four corners of the photo, so the scale is measured everywhere, not guessed. Sheets are reusable, so full coverage costs nothing.") }}
     {{ ui.about_page("about-cal-3", "Step 3: Check squareness and coplanarity",

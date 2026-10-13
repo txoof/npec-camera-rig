@@ -280,6 +280,10 @@ limits: where one does not work for a page, choose what does and say why in the 
   `el.hidden`, not `style.display`.
 - **Keep typing to a minimum.** The Windows on-screen keyboard is unusable on these screens. Prefer
   choices and steppers over free text. The redesign adds an on-page keypad.
+- **Before and after pictures.** When developing a page, adding a feature to one or debugging
+  one, take a picture of it before the change and after it, and save both in
+  `~/development-snapshots/`. Log each pair in `~/development-snapshots/LOG.md`: the commit id,
+  the date and time (UTC), what the picture shows and what was changed (Aaron, 2026-10-13).
 - **Do not restyle the site.** Colors, navigation, `base.html` and the shared rules in `style.css`
   change only under the redesign issues. A feature page uses the classes that exist.
 
