@@ -98,12 +98,15 @@ interval is twice the standard uncertainty (the GUM's k = 2), which is about 95%
 errors are roughly normal. The band makes no such assumption. Compared on 7 validation sessions
 (84 slot-sessions, metrology-log section 6.1), the band and twice the root mean square error
 agree within 0.3 points in 70; across all 84 the band is a median of 0.95 times that normal
-estimate, as normal errors would give. In 5 the band is wider by 0.37 to 0.86 points, each
-time because a group of tags in one or two of the 3 photographs read off together, all on the
-same side (6 or 7 tags per slot); a normal estimate
-would have under-reported those slots. So the percentile costs nothing where errors are close
-to normal and catches the cases where they are not. No confidence level is attached: the 3
-rounds are not independent samples.
+estimate, as normal errors would give. Where they differ by more, it goes both ways. In 9 the
+normal estimate is wider, by more than 0.3 points, so there the band reports less than a normal
+estimate would. In 5 the band is wider, by 0.37 to 0.86 points, each time because a group of 6
+or 7 tags in one or two of the 3 photographs read off together, all on the same side; a normal
+estimate would have reported less spread than those tags showed. So on this rig the choice of
+method changes the band by 0.3 points or less in 5 of every 6 slot-sessions, and where the
+errors are not normal the band reports the spread the tags actually showed. Whether such a group
+of tags should count is a separate question, not examined. No confidence level is attached: the
+3 rounds are not independent samples.
 
 **Why the calibration's own estimate is not used.** The calibration can also estimate its
 uncertainty from how closely the tags fit the scale field. Checked against validation, that

@@ -310,6 +310,14 @@ centre. From the stored layouts this should be North 3, North 4, South 3 and Sou
 to 1850 px; every other slot is more than 2600 px away); the script lists them per session. They
 hold the tags nearest the central error.
 
+*Corrected after the run, 2026-10-13:* the distances above were read from one session's layout
+only. Per session the four central slots lie 1231 to 1833 px from the image centre, and the
+nearest other slot 2429 to 2571 px (`centre_dist_px` in `results.csv`). Some central slot
+centres do lie within 1500 px: North 3 in `20261005T071549445423` (1455 px), North 3 and North 4
+in `20261005T141310628479` and `20261007T070451149884` (1231 and 1481 px), South 4 in the three
+sessions of calibration `20261012T070607812512` (1457 px). Which slots count as central is the
+same in every session: North 3, North 4, South 3, South 4.
+
 **What it cannot show.** 3 rounds are not 3 independent samples of 85 to 90 tags: the tags in one
 photograph share the calibration, the lens position and the point in the 19-minute chamber cycle
 (section 8.1, run 3j). So no confidence level is attached to any band or ratio here. Wilks (1941)
@@ -317,7 +325,7 @@ gives distribution-free tolerance limits from order statistics, which is the bas
 percentile without assuming a shape, but his result needs independent observations.
 
 **Raw data and script.** `/home/pi/scratch/146-p95-vs-rms/` (`compare.py`, and its output
-`results.csv` and `rounds.csv`).
+`results.csv` and `rounds.csv`; `tables.py` makes the tables below from `results.csv`).
 
 **Result (computed 2026-10-13).** The script reproduced the stored band, median and tag count of
 every slot in every session (84 slot-sessions: 7 sessions of 12 slots). All values are in points
@@ -468,7 +476,8 @@ of area error (%). (c) marks a central slot.
    2 × RMS wider. Their errors lean low: skew is negative in 26 of 28 (median -0.46), and on
    average 4.1% of their tags lie below median - 2 SD against 0.4% above (2.3% each for normal
    errors; the other slots: 2.6% and 1.9%). This is the pattern the central low reading (section
-   7) would give, with the tags of a central slot nearest the image centre reading smallest, but
+   7) would give, with the tags of a central slot nearest the image centre reading smallest (in 8
+   of the 28 slot-sessions the slot centre itself is within 1500 px of the image centre), but
    that was not tested here. The lean is not strong enough to push the band past 2 × RMS.
 5. **All slots.** Skew is below -0.52 (2 standard errors) in 24 of 84 and above +0.52 in 6. On
    average 3.1% of tags lie below median - 2 SD and 1.4% above. The errors lean towards reading
