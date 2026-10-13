@@ -466,10 +466,9 @@ of area error (%). (c) marks a central slot.
    Each has a tail on one side only: 6.7% to 7.8% of its tags lie beyond 2 SD on that side, none
    on the other, and its skew is 1.2 to 2.1 in size. In each, the tail tags come from one or two
    of the 3 photographs. For example, South 6 on 2026-10-13 07:49 has 6 tags reading +5.6% to
-   +9.5% in round 1 and none in rounds 2 and 3; North 2 on 2026-10-08 has 6 tags at -2.5% to
+   +9.4% in round 1 and none in rounds 2 and 3; North 2 on 2026-10-08 has 6 tags at -2.5% to
    -3.0%, all in round 1. So these tails are something that happened to a group of tags in one
-   photograph, not scatter from tag to tag. What it was (for example a sheet not lying flat) was
-   not examined. In these 5 slots |median| + 2 SD is also smaller than the band: a normal
+   photograph, not scatter from tag to tag. What it was is in item 8. In these 5 slots |median| + 2 SD is also smaller than the band: a normal
    estimate, with or without the bias kept apart, would have reported a narrower band than the
    tags showed.
 4. **Central slots.** Band and 2 × RMS agree in 26 of 28 (median ratio 0.98); the other 2 have
@@ -490,21 +489,45 @@ of area error (%). (c) marks a central slot.
    most 1.31. Most of a slot's spread is between tags in the same photograph; shifts between
    rounds add little to the SD. The one-sided tails of item 3 are the exception, since each
    belongs to one photograph.
+8. **Cause of the 5 tails: visual inspection (Aaron, 2026-10-13).** Aaron looked at each round
+   photograph holding a tail, copied to `/home/pi/scratch/` and named by date, UTC time, slot and
+   round (for example `2026-10-13_0754UTC_South6_round1_sheet-not-flat.jpg`). Method: by eye, on
+   screen, one look per photograph; no measurement of flatness or sharpness. Result:
+
+   | Slot | Session | Round photograph | Tail | Seen |
+   |---|---|---|---|---|
+   | South 6 | 2026-10-13 07:49 | `rig/2026-10-13/075436_099643` (round 1) | 6 tags, +5.6% to +9.4% | Sheet not flat (also recorded under #116, section 14.1) |
+   | North 5 | 2026-10-13 07:49 | `rig/2026-10-13/080440_535100` (round 2) | 6 tags, +2.9% to +4.3% | Sheet not flat |
+   | South 2 | 2026-10-12 07:07 | `rig/2026-10-12/070819_803320` (round 1) | 2 tags, +3.6% and +5.0% | Sheet not flat |
+   | South 2 | 2026-10-12 07:07 | `rig/2026-10-12/071825_823198` (round 2) | 4 tags, +3.0% to +4.1% | Sheet not flat |
+   | North 2 | 2026-10-08 08:18 | `captures/2026-10-08/082015_437774` (round 1) | 6 tags, -2.5% to -2.9% | Sheet not flat |
+   | North 6 | 2026-10-05 07:15 (SN000) | `captures/2026-10-05/071633_026877` (round 1) | 4 tags, -2.9% to -4.4% | No apparent issue |
+   | North 6 | 2026-10-05 07:15 (SN000) | `captures/2026-10-05/071708_248354` (round 2) | 3 tags, -2.8% to -3.3% | No apparent issue |
+
+   Paths are under `/var/lib/npec-rig/`. A sheet not lying flat is seen in 4 of the 5 slots,
+   every one on SN001; North 6 on SN000 has no cause found. The errors go both ways: lifted tags
+   read large, and a tilted tag shows the camera less area and reads small (North 2). Height
+   alone does not account for the size: at about 0.145% of area per mm (section 7), +9.4% would
+   need about 65 mm of lift, so something more than the lift (for example blur moving the
+   detected corners) is likely involved; this was not measured. None of these rounds was flagged
+   by the validation checks (section 6). The session files do not record which tag gave which
+   error, so the tail tags were not matched one by one to the parts of the sheets seen lifted.
 
 **What this means.** On this rig's data the percentile band and the normal estimate 2 × RMS are
 the same number to within 0.3 points in 5 of every 6 slot-sessions, so using a percentile costs
 nothing where the errors are close to normal. Where they differ by more, it is in both
 directions: in 9 slot-sessions 2 × RMS is the wider, as normal errors with a bias would give; in
 5 the band is the wider, and every one of those 5 is a group of tags in one or two photographs
-reading off together, all on the same side. In those 5 a normal estimate would have under-reported the spread by 0.37 to 0.86
-points. The central slots, where the known central error sits, are not among them.
+reading off together, all on the same side. In those 5 a normal estimate would have
+under-reported the spread by 0.37 to 0.86 points. In 4 of the 5, all on SN001, the sheet was
+seen not to lie flat (item 8): the largest departures from normal errors in this data come from
+sheets not lying flat, which the validation checks do not catch. The central slots, where the known central error sits, are not among them.
 
 **What it does not show.** No confidence level can be attached to any band or ratio here: the 3
 rounds are not independent samples of 85 to 90 tags (method, above). With 85 to 90 tags the
 95th percentile lies between the 4th and 5th largest |error|, so 5 or 6 tags reading off together
 decide the band; in this data such groups put the band above 2 × RMS by up to
-0.86 points. This comparison does not say whether such a group should count; that is
-outside this check. 7 sessions from 4
+0.86 points. Whether a round with a sheet not lying flat should count is not decided here. 7 sessions from 4
 calibrations, 2 cameras; nothing here covers plants, plant height or segmentation. The pass or
 fail of the 14.1 repeat validation is not judged here.
 

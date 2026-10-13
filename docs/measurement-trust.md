@@ -104,8 +104,11 @@ estimate would. In 5 the band is wider, by 0.37 to 0.86 points, each time becaus
 or 7 tags in one or two of the 3 photographs read off together, all on the same side; a normal
 estimate would have reported less spread than those tags showed. So on this rig the choice of
 method changes the band by 0.3 points or less in 5 of every 6 slot-sessions, and where the
-errors are not normal the band reports the spread the tags actually showed. Whether such a group
-of tags should count is a separate question, not examined. No confidence level is attached: the
+errors are not normal the band reports the spread the tags actually showed. In 4 of those 5,
+all on the current camera, the photographs show a sheet not lying flat (Aaron, by eye,
+2026-10-13); the fifth, on the old camera, has no cause found. The validation checks did not flag
+any of them, so a sheet not lying flat can widen a band without warning. This is a weak point in
+the validation step, not yet addressed. No confidence level is attached: the
 3 rounds are not independent samples.
 
 **Why the calibration's own estimate is not used.** The calibration can also estimate its
