@@ -231,7 +231,9 @@
      page, so the buttons that finish it are always on screen. body and actions are HTML the
      page writes; anything a person typed goes in through ui.esc. Returns the panel; call
      panel.close() to remove it. */
-  function openPanel({ title, sub = "", body, actions }) {
+  // onEscape: what Escape does while the panel is open (none if not given). While the keypad or
+  // keyboard is open over the panel, Escape is theirs.
+  function openPanel({ title, sub = "", body, actions, onEscape = null }) {
     const opener = document.activeElement;
     const p = document.createElement("div");
     p.className = "panel-layer";
@@ -244,7 +246,15 @@
     p.querySelector(".panel-body").innerHTML = body;
     p.querySelector(".action-bar").innerHTML = actions;
     (document.querySelector(".work") || document.body).appendChild(p);
+    const keys = (e) => {
+      if (e.key !== "Escape" || document.querySelector(".kb-layer, .keypad-layer")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onEscape();
+    };
+    if (onEscape) document.addEventListener("keydown", keys, true);
     p.close = () => {
+      document.removeEventListener("keydown", keys, true);
       p.remove();
       if (opener && opener.isConnected && opener.focus) opener.focus();
     };
@@ -257,6 +267,7 @@
   function confirmPanel({ title, body, ok, danger = false, typed = null, typedLabel = "Type to confirm", check = null, onOk }) {
     const st = { typed: "", checked: false };
     const p = openPanel({
+      onEscape: () => p.close(),
       title,
       body: `<div class="stack" style="max-width:680px">
         <div class="lead" style="color:var(--fg)">${body}</div>
@@ -271,18 +282,7 @@
     const okBtn = p.querySelector('[data-act="ok"]');
     const ready = () => (!typed || st.typed.trim() === typed) && (!check || st.checked);
     const paint = () => { okBtn.disabled = !ready(); };
-    const keys = (e) => {
-      // While the keyboard is open over the panel, Escape is the keyboard's.
-      if (e.key !== "Escape" || document.querySelector(".kb-layer, .keypad-layer")) return;
-      e.preventDefault();
-      e.stopPropagation();
-      close();
-    };
-    const closePanel = p.close;
-    // Removes the Escape listener however the panel is closed, also by page code calling p.close().
-    const close = () => { document.removeEventListener("keydown", keys, true); closePanel(); };
-    p.close = close;
-    document.addEventListener("keydown", keys, true);
+    const close = () => p.close();
     p.addEventListener("click", (e) => {
       const b = e.target.closest("[data-act]");
       if (!b) return;
@@ -336,10 +336,10 @@
     });
   }
 
-  // Shows a value on a field button, or the empty prompt.
-  function showField(el, value, shown = value) {
+  // Shows a value on a field button, or the empty prompt. unit "" leaves the unit off, for a
+  // shown text that carries its own (1/125 s for a value kept in ms).
+  function showField(el, value, shown = value, unit = el.dataset.unit) {
     el.dataset.value = value;
-    const unit = el.dataset.unit;
     const tail = el.querySelector(".ui-icon").outerHTML;
     el.innerHTML = (value === ""
       ? '<span class="empty">Not set, tap to enter</span>'
@@ -368,7 +368,9 @@
     });
   }
 
-  function bindStepper(el, onChange) {
+  // options.stops: an ascending list of values, such as camera stops. Minus and plus then move to
+  // the next stop down or up from the nearest one, on a ratio scale; a typed value is kept as it is.
+  function bindStepper(el, onChange, { stops = null } = {}) {
     const field = el.querySelector(".field-btn");
     const step = Number(el.dataset.step) || 1;
     const stepDecimals = (String(step).split(".")[1] || "").length;
@@ -381,12 +383,48 @@
     el.addEventListener("click", (e) => {
       const b = e.target.closest("[data-step-by]");
       if (!b) return;
-      const n = clamp((Number(field.dataset.value) || 0) + step * Number(b.dataset.stepBy));
+      const cur = Number(field.dataset.value) || 0;
+      const n = clamp(stops ? nextStop(stops, cur, Number(b.dataset.stepBy)) : cur + step * Number(b.dataset.stepBy));
       const v = String(Number(n.toFixed(decimals)));
       showField(field, v);
       if (onChange) onChange(v);
     });
     bindField(field, onChange);
+  }
+
+  // The next stop above (by 1) or below (by -1) the value. A value within 2% of a stop counts
+  // as on it: a camera reports the nearest value its sensor makes (7998 us for 8000). Past the
+  // last stop, or with no stops, the value stays.
+  const STOP_TOLERANCE = 1.02;
+  function nextStop(stops, value, by) {
+    if (by > 0) return stops.find((stop) => stop > value * STOP_TOLERANCE) ?? value;
+    return [...stops].reverse().find((stop) => stop < value / STOP_TOLERANCE) ?? value;
+  }
+
+  // Greys out a control and every button in it, such as a stepper while focus is locked.
+  function setDisabled(el, disabled) {
+    [el, ...el.querySelectorAll("button")].forEach((b) => { if (b.tagName === "BUTTON") b.disabled = disabled; });
+  }
+
+  /* ---------- Info panel ----------
+     A panel with one Close button that Escape also closes: the About pages and settings panels.
+     body is HTML the page writes. Returns the panel. */
+  function infoPanel({ title, sub = "", body }) {
+    const p = openPanel({
+      title, sub, body, onEscape: () => p.close(),
+      actions: '<span class="grow"></span><button type="button" class="btn primary hit" data-act="close">Close</button>',
+    });
+    p.querySelector('[data-act="close"]').addEventListener("click", () => p.close());
+    p.querySelector('[data-act="close"]').focus();
+    return p;
+  }
+
+  // An About button (macro ui.about_button) opens the About page (macro ui.about_page) it names.
+  function bindAbout(button) {
+    button.addEventListener("click", () => {
+      const page = document.getElementById(button.dataset.about);
+      infoPanel({ title: page.dataset.title, body: page.innerHTML });
+    });
   }
 
   /* ---------- Clock ----------
@@ -407,6 +445,7 @@
   window.ui = {
     esc, icon, chip, isPhone, toast,
     openKeypad, openKeyboard, openChoice, openPanel, confirmPanel,
+    infoPanel, bindAbout, setDisabled,
     setSwitch, bindSwitch, bindChoices, showField, bindField, bindStepper,
     countdown, mmss,
   };

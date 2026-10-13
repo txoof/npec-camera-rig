@@ -217,6 +217,32 @@ details.help[open] summary .chev { transform: rotate(180deg); }
 details.help .help-body { padding: 0 16px 16px; color: var(--fg-2); max-width: 65ch; }
 details.help .help-body p { margin: 0 0 10px; }
 
+/* Tight stepper: smaller buttons with the label beside them, for rows of controls under an image
+   (the Focus step). 52px targets, as in mockup 7, so two images and their controls fit 1024x600. */
+.stepper.tight { gap: 10px; align-items: center; }
+.stepper.tight .stepper-label { font-weight: 600; color: var(--fg-2); min-width: 4.6em; }
+.stepper.tight .btn { min-width: 52px; min-height: 52px; padding: 0 6px; }
+.stepper.tight .field-btn {
+  min-width: 96px; min-height: 52px; padding: 0 8px; font-size: 1.05rem; justify-content: center;
+}
+.stepper.tight .field-btn .ui-icon { display: none; }
+/* A toggle button: pressed shows a ring and a tick as well as its color. */
+.btn[aria-pressed] .ui-icon { display: none; }
+.btn[aria-pressed=true] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.btn[aria-pressed=true] .ui-icon { display: block; color: var(--accent); }
+
+/* About pages (ui.about_page), opened from an About button in the page head. */
+.work-head .help-btn { margin-left: auto; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; flex: none; }
+.work-head .help-btn + .btn { flex: none; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; }
+.help-btn .ui-icon { color: var(--accent); }
+.help-page { max-width: 70ch; display: grid; gap: 12px; color: var(--fg); }
+.help-page h2 { font-size: 1.1rem; margin: 8px 0 0; }
+.help-page ol { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
+.help-page dl { margin: 0; display: grid; grid-template-columns: minmax(8em, max-content) 1fr; gap: 10px 20px; }
+.help-page dt { font-weight: 700; }
+.help-page dd { margin: 0; color: var(--fg-2); }
+.help-page p { margin: 0; color: var(--fg-2); }
+
 .card {
   border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg);
   padding: 14px 16px; display: grid; gap: 12px;
@@ -361,6 +387,9 @@ details.help .help-body p { margin: 0 0 10px; }
   .row > .btn { flex: 1 1 140px; }
   .stepper .field-btn { min-width: 0; flex: 1; }
   .field-btn { min-width: 0; width: 100%; }
+  .stepper.tight .field-btn { width: auto; }
+  .work-head .help-btn .lbl { display: none; }
+  .help-page dl { grid-template-columns: minmax(0, 1fr); }
   .card.condensed { grid-template-columns: minmax(0, 1fr); }
   .card.condensed .card-actions { flex-wrap: wrap; }
   .card.condensed .card-actions .btn { flex: 1 1 100px; }
@@ -377,23 +406,9 @@ details.help .help-body p { margin: 0 0 10px; }
   .kb-value { grid-column: 1 / -1; }
 }
 
-.focus-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  width: var(--wide-content-width);
-}
 .preview-wrap {
   position: relative;
   width: 100%;
-}
-/* Reserves room for the square-mode handles (see .squareness-handle below), which sit just
-   past the image's own edges (left, right, and bottom -- there's no top handle) and would
-   otherwise collide with the mode-toggle row, a sibling pane, or get clipped by the body
-   edge. Harmless in focus mode too -- just a small gap next to the crop pane. */
-.focus-layout.mode-square .preview-wrap {
-  margin: 0 20px 20px 20px;
-  width: calc(100% - 40px);
 }
 .preview {
   display: block;
@@ -406,7 +421,6 @@ details.help .help-body p { margin: 0 0 10px; }
   border: 2px solid #f55;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  display: none;
 }
 .squareness-guides {
   position: absolute;
@@ -496,129 +510,89 @@ details.help .help-body p { margin: 0 0 10px; }
   border-color: #6af;
   color: #fff;
 }
-.roi-crop {
-  display: block;
-  width: 100%;
-  background: #000;
-  image-rendering: pixelated;
+
+/* Focus controls (_focus_controls.html): the live view with the lock and exposure controls under
+   it on the left, the magnified view with the lens controls under it on the right. Everything
+   fits 1024x600 without scrolling (mockup 7). */
+/* The views grow with the window: as tall as the height left over the controls (470px: the page
+   head, padding, mode buttons and, with Auto exposure off, the left column's controls), never
+   under 300px, and never wider than their column. Columns 4:3, as the live view is 4:3 and the
+   magnified view square, so both are the same height. */
+.focus-cols {
+  display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 3fr); gap: 16px; align-items: start;
+  --view-h: max(300px, calc(100vh - 470px));
+  --view-h: max(300px, calc(100dvh - 470px));
 }
-/* No zoomed focus crop in square mode -- not helpful there, and clearing its src (in JS)
-   actually stops the MJPEG stream rather than just hiding a still-running one. With the crop
-   pane gone, .preview-wrap is flex's only remaining child and fills the row on its own. */
-.focus-layout.mode-square .roi-crop {
-  display: none;
+.focus-col { display: grid; gap: 10px; justify-items: start; min-width: 0; container-type: inline-size; }
+.focus-row { display: flex; align-items: center; gap: 10px 8px; flex-wrap: wrap; }
+.focus-row .btn, .focus-row .switch.compact { min-height: 52px; }
+.focus-row .btn { min-width: 0; padding: 0 16px; }
+.live-view {
+  position: relative; width: fit-content; max-width: 100%; background: #000;
+  border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden;
 }
-/* Side by side once there's room for both at a readable size; stacked below that. */
-@media (min-width: 800px) {
-  .focus-layout {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-  .focus-layout .preview-wrap,
-  .focus-layout .roi-crop {
-    flex: 1 1 0;
-    min-width: 0;
-  }
+.live-view img {
+  display: block; height: auto; aspect-ratio: 4 / 3;
+  width: min(calc(100cqw - 4px), calc(var(--view-h) * 4 / 3));
 }
-.focus-section, .capture-section, .camera-controls, .calibration-section {
+.live-view #preview { cursor: crosshair; }
+.live-view #roi-crop { image-rendering: pixelated; aspect-ratio: 1; width: min(calc(100cqw - 4px), var(--view-h)); }
+.live-view .tag {
+  position: absolute; right: 8px; bottom: 8px; max-width: calc(100% - 16px);
+  padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.75); color: var(--fg-2); font-size: 0.85rem;
+}
+/* The lock status uses the same box as the sharpness: the chip keeps its icon, word and color. */
+.live-view .tag .chip { white-space: normal; padding: 0; border: 0; border-radius: 0; font-size: inherit; gap: 6px; }
+.live-view .tag .chip .ui-icon { width: 18px; height: 18px; }
+.live-view .tag strong { color: var(--fg); font-family: var(--font-num); }
+.lens-fault { flex-wrap: wrap; }
+.auto-values { color: var(--fg-2); font-family: var(--font-num); }
+.lens-total { margin: 0; color: var(--fg-2); }
+.lens-total strong { color: var(--fg); font-family: var(--font-num); }
+.view-stack { display: grid; gap: 6px; width: fit-content; max-width: 100%; }
+.score-trace {
+  position: relative; background: #000; border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden;
+}
+.score-trace canvas { display: block; width: 100%; min-width: 0; height: 52px; }
+.score-trace .tag {
+  position: absolute; left: 6px; top: 4px; padding: 0 6px; border-radius: 6px;
+  background: rgba(0, 0, 0, 0.75); color: var(--fg-2); font-size: 0.8rem;
+}
+/* Step 2 of the wizard, until the wizard frame gives it a head of its own. */
+/* The wizard is 480px wide; Step 2's two views need the whole work area. */
+.calibration-section:has(.wizard-step[data-step="2"].active) { max-width: none; }
+.focus-step-head { margin-bottom: 12px; }
+.focus-step-head h3 { margin: 0; flex: 1; }
+.focus-step-head .btn { min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; }
+.lens-fault .lens-error { color: var(--fail); font-weight: 700; }
+/* Square mode on the Focus and Square page: the live view alone, larger, with room past its left,
+   right and bottom edges for the guide handles. */
+.focus-cols.mode-square { grid-template-columns: minmax(0, 1fr); }
+.focus-cols.mode-square .focus-crop-col, .focus-cols.mode-square .score-trace { display: none; }
+.focus-cols.mode-square .view-stack { width: 100%; }
+.focus-cols.mode-square .live-view { margin: 0 20px 20px; overflow: visible; }
+/* As large as the work area allows: the full width, or the height left under the page head and
+   mode buttons at 1024x600 to 768, whichever is smaller. 4:3 always, so the lines never distort. */
+.focus-cols.mode-square .live-view img {
+  /* 248px: the rail, the scroll area's padding and gutter, and the handles' margins. */
+  height: auto; aspect-ratio: 4 / 3; max-width: none;
+  width: min(calc(100vw - 248px), calc((100vh - 200px) * 4 / 3));
+  width: min(calc(100vw - 248px), calc((100dvh - 200px) * 4 / 3));
+}
+.focus-cols.mode-square #lock-status { display: none; }
+/* On a phone: one column, the live view and its controls first, then the magnified view, each
+   view the full width. The rail is a bottom bar there, so only the gutter, padding and handle
+   margins take width in Square mode. After the rules above, so these win. */
+@media (max-width: 700px) {
+  .focus-cols { grid-template-columns: minmax(0, 1fr); }
+  .view-stack, .live-view { width: 100%; }
+  .live-view img, .live-view #roi-crop { width: calc(100cqw - 4px); }
+  .focus-cols.mode-square .live-view { width: auto; }
+  .focus-cols.mode-square .live-view img { width: calc(100vw - 120px); }
+}
+.capture-section, .calibration-section {
   max-width: 480px;
   margin-top: 0.75rem;
-}
-/* Full-width panel below the images: every focus-adjustment control in one place, grouped by a
-   border/background rather than a column split -- co-visible with the images above it instead
-   of competing with them for vertical space. */
-.focus-control-panel {
-  width: var(--wide-content-width);
-  box-sizing: border-box;
-  margin-top: 0.5rem;
-  padding: 0.6rem 0.75rem;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 6px;
-}
-.focus-status {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 180px;
-  font-size: 0.9rem;
-}
-.focus-control-row.lens-row {
-  gap: 0.6rem;
-}
-.focus-control-row.sharpness-row strong {
-  font-size: 1.6rem;
-  min-width: 4.5rem;
-}
-/* Shorter than its 60 px drawing height, so the three rows fit under the images at 1024x768. */
-.sharpness-row canvas {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 40px;
-  background: #000;
-}
-.sharpness-row .peaking-inline {
-  flex: 0 0 auto;
-}
-.peaking-inline input[type="checkbox"] {
-  flex: 0 0 auto;
-}
-.focus-control-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
-}
-.focus-control-row + .focus-control-row {
-  margin-top: 0.5rem;
-}
-.focus-control-row label {
-  margin-bottom: 0;
-  white-space: nowrap;
-}
-.focus-control-row input[type="number"] {
-  width: 5rem;
-  flex: 0 0 auto;
-}
-.focus-control-row input[type="range"] {
-  flex: 1 1 60px;
-  min-width: 60px;
-  width: auto;
-}
-.focus-control-row strong {
-  font-size: 1.2rem;
-}
-.peaking-inline {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.peaking-inline input[type="checkbox"] {
-  width: 1.2rem;
-  height: 1.2rem;
-}
-.camera-controls-details {
-  max-width: 480px;
-  margin-top: 1rem;
-}
-.camera-controls-details summary {
-  cursor: pointer;
-  font-size: 1rem;
-  padding: 0.5rem 0;
-}
-.control-pair-row {
-  display: flex;
-  gap: 1.5rem;
-  margin-top: 0.5rem;
-}
-.control-pair-item {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-}
-.control-pair-item input[type="checkbox"] {
-  width: 1.2rem;
-  height: 1.2rem;
 }
 label { display: block; margin-bottom: 0.25rem; }
 input[type="range"] {
@@ -635,17 +609,6 @@ input[type="number"] {
   color: #eee;
   border-radius: 4px;
 }
-.focus-row { margin-top: 0.5rem; }
-.focus-row label { display: flex; justify-content: space-between; }
-.focus-row label.stepped-control-box {
-  justify-content: flex-start;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.25rem;
-  font-size: 0.85rem;
-  color: #ccc;
-}
-.stepped-control-box input { width: 7rem; min-height: var(--touch-target-min); }
 .peaking-row {
   display: flex;
   align-items: flex-start;
