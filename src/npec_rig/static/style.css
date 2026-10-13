@@ -564,7 +564,7 @@ a { color: #6cf; }
    The image as large as fits, 4:3, with room just outside it for the handles (42px left and
    right, 46px below) and two lines of controls under it. --sq-reserve is the height around the
    image: the page head, padding, handles and controls; the wizard adds its steps bar. */
-.sq-panel { container-type: inline-size; display: grid; gap: 12px; --sq-reserve: 256px; }
+.sq-panel { container-type: inline-size; display: grid; gap: 12px; --sq-reserve: 270px; }
 .wizard-step .sq-panel { --sq-reserve: 346px; }
 .sq-frame { position: relative; margin: 0 42px 46px; width: fit-content; justify-self: center; }
 .sq-view { position: relative; background: #000; border: 2px solid var(--line); border-radius: var(--radius); }
