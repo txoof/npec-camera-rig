@@ -35,12 +35,12 @@
     <div class="wizard-step" data-step="1">
       <div class="split">
         <div class="stack">
-          <p class="lead">Put a calibration sheet on every tray, and a corner sheet at each of the table's four corners.</p>
+          <p class="lead">Put a calibration sheet on every tray. The corner tags stay where they are, on the table's edges.</p>
           {#- Seen from above, north at the top as in the camera view: 12 portrait trays in a north
-              and a south row of 6, each with a white portrait calibration sheet, and a corner sheet
-              at each corner of the table. -#}
+              and a south row of 6, each with a white portrait calibration sheet, and the corner tags
+              fixed on the north and south edges. -#}
           <svg viewBox="0 0 420 310" role="img" class="table-diagram"
-               aria-label="Table seen from above: 12 trays in a north row and a south row of 6, each with a white calibration sheet, and a corner sheet at NW, NE, SW and SE.">
+               aria-label="Table seen from above: 12 trays in a north row and a south row of 6, each with a white calibration sheet, and the corner tags NW and NE on the north edge, SW and SE on the south edge.">
             <rect x="40" y="40" width="340" height="230" rx="4" fill="none" stroke="#5b6573" stroke-width="2"/>
             {%- for i in range(12) %}
             {%- set x = 55 + (i % 6) * 54 %}{% set y = 58 + (i // 6) * 116 %}
@@ -50,14 +50,15 @@
             <rect x="{{ x + 6 + tx }}" y="{{ y + 19 + ty }}" width="6" height="6" fill="#121519"/>
             {%- endfor %}
             {%- endfor %}
-            {%- for x, y, label in [(40, 40, "NW"), (380, 40, "NE"), (40, 270, "SW"), (380, 270, "SE")] %}
+            {#- The corner tags sit on the north and south edges, near the ends. -#}
+            {%- for x, y, label in [(75, 40, "NW"), (345, 40, "NE"), (75, 270, "SW"), (345, 270, "SE")] %}
             <rect x="{{ x - 10 }}" y="{{ y - 10 }}" width="20" height="20" fill="#f4bf4f" stroke="#121519" stroke-width="2"/>
             <text x="{{ x }}" y="{{ y - 16 if y < 100 else y + 28 }}" text-anchor="middle" font-size="13" font-weight="700" fill="#f1f3f6">{{ label }}</text>
             {%- endfor %}
             <text x="210" y="24" text-anchor="middle" font-size="13" fill="#b9c1cc">N, top of camera view</text>
             <text x="210" y="298" text-anchor="middle" font-size="13" fill="#b9c1cc">S</text>
           </svg>
-          <p class="field-help">Blue: the 12 trays, in a north and a south row. White: a calibration sheet (30 mm tags) on every tray. Yellow: a corner sheet (50 mm tags) at each corner of the table.</p>
+          <p class="field-help">Blue: the 12 trays, in a north and a south row. White: a calibration sheet (30 mm tags) on every tray. Yellow: 50 mm corner tags installed on the edge of the table.</p>
         </div>
         <div class="stack">
           <h3>Sheets to print</h3>
@@ -162,13 +163,13 @@
       </div>
     </div>
 
-    {{ ui.about_page("about-cal-1", "Step 1: Place calibration and corner sheets",
+    {{ ui.about_page("about-cal-1", "Step 1: Place calibration sheets",
       ["Print the sheets if you do not have them: the [Calibration sheet] button opens the PDF in a new tab.",
        "Lay a calibration sheet (30 mm tags) flat on every tray.",
-       "Put a corner sheet (50 mm tags) at each of the table's four corners.",
+       "Leave the four corner tags (50 mm) where they are, on the table's north and south edges.",
        "Measure one tag of each printed sheet with callipers. You enter the size in step 4.",
        "Press [Next]."],
-      [("Table diagram", "The table seen from above, north at the top as in the camera view. Blue rectangles are the 12 trays, in a north and a south row. The white rectangle on each is a calibration sheet. Yellow squares are the corner sheets."),
+      [("Table diagram", "The table seen from above, north at the top as in the camera view. Blue rectangles are the 12 trays, in a north and a south row. The white rectangle on each is a calibration sheet. Yellow squares are the 50 mm corner tags, installed on the north and south edges of the table."),
        ("Calibration sheet", "Opens the printable PDF in a new tab.")],
       "The tags are the ruler. Covering every tray makes sure tags reach all four corners of the photo, so the scale is measured everywhere, not guessed. Sheets are reusable, so full coverage costs nothing.") }}
     {{ ui.about_page("about-cal-3", "Step 3: Check squareness and coplanarity",
@@ -503,7 +504,7 @@
     // No gating: any step can be opened at any time, Next is always enabled until the last step.
     // Next marks the step done (a tick on its button); a jump does not.
     const STEP_TITLES = [
-      "Place calibration and corner sheets",
+      "Place calibration sheets",
       "Lock focus",
       "Check squareness and coplanarity",
       "Run calibration",
