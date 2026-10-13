@@ -13,8 +13,10 @@
     <h1>Calibration</h1>
     <p class="sub" id="step-title">Step 1 of 6</p>
   </div>
-  <button type="button" class="btn hit help-btn" id="wizard-about" data-about="about-cal-1" aria-label="About this step">{{ ui.icon("help") }}<span class="lbl">About this step</span></button>
-  {{ ui.button("Camera settings", id="camera-settings-btn", attrs={"hidden": true}) }}
+  <div class="head-actions">
+    {{ ui.button("Camera settings", id="camera-settings-btn", attrs={"hidden": true}) }}
+    <button type="button" class="btn hit help-btn" id="wizard-about" data-about="about-cal-1" aria-label="About this step">{{ ui.icon("help") }}<span class="lbl">About this step</span></button>
+  </div>
 {% endblock %}
 
 {% block subhead %}
@@ -52,9 +54,9 @@
         </div>
         <div class="stack">
           <h3>Sheets to print</h3>
+          <p class="lead">Print enough sheets for two trays. Duplicates are OK.</p>
           <div class="sheet-links">
-            {{ ui.link_button("Calibration sheet, 30 mm, IDs 300 to 449", "/reference/calibration-sheets/apriltags-36h11-30mm-a4-300-449.pdf") }}
-            {{ ui.link_button("Corner sheet, 50 mm, IDs 450 to 499", "/reference/calibration-sheets/apriltags-36h11-50mm-a4-450-499.pdf") }}
+            {{ ui.link_button("Calibration sheet, 30 mm, IDs 300 to 449", "/reference/calibration-sheets/apriltags-36h11-30mm-a4-300-449.pdf", new_tab=true) }}
           </div>
           {% call ui.help("Why every tray") %}
             <p>Sheets are reusable, so covering every tray costs nothing and makes sure the tags reach all four corners of the photo.</p>
@@ -84,7 +86,7 @@
         </div>
       </div>
       <label class="peaking-row">
-        <input type="checkbox" id="corner-check-toggle" checked>
+        <input type="checkbox" id="corner-check-toggle">
         <span><strong>Corner check</strong>: the co-planarity rings, refreshed a few times a second.</span>
       </label>
     </div>
@@ -154,47 +156,47 @@
     </div>
 
     {{ ui.about_page("about-cal-1", "Step 1: Place calibration and corner sheets",
-      ["Print the sheets if you do not have them: the buttons on this step open the PDFs.",
+      ["Print the sheets if you do not have them: the [Calibration sheet] button opens the PDF in a new tab.",
        "Lay a calibration sheet (30 mm tags) flat on every tray.",
        "Put a corner sheet (50 mm tags) at each of the table's four corners.",
        "Measure one tag of each printed sheet with callipers. You enter the size in step 4.",
-       "Press Next."],
+       "Press [Next]."],
       [("Table diagram", "Blue squares are calibration sheets, one per tray. Yellow squares are corner sheets. The top of the drawing is north, the top of the camera view."),
-       ("Sheet buttons", "Open the printable PDF for each sheet.")],
+       ("Calibration sheet", "Opens the printable PDF in a new tab.")],
       "The tags are the ruler. Covering every tray makes sure tags reach all four corners of the photo, so the scale is measured everywhere, not guessed. Sheets are reusable, so full coverage costs nothing.") }}
     {{ ui.about_page("about-cal-3", "Step 3: Check squareness and coplanarity",
       ["Make sure the East side of the table (opposite the drain) is in view.",
-       "Drag the magenta tabs at the edges of the image so each line sits on a table edge.",
+       "Drag the [Magenta tabs] at the edges of the image so each line sits on a table edge.",
        "If the lines do not follow the edges, the camera is rotated or tilted: adjust the rig and check again.",
-       "Look at the four corner rings. Nudge the rig until every ring is green.",
-       "Press Next."],
+       "Turn on [Corner check] and look at the four [Corner rings]. Nudge the rig until every ring is green.",
+       "Press [Next]."],
       [("Magenta tabs", "Drag them to move the guide lines: the side tabs move the line across, the bottom tabs move the two upright lines. The lines are a straightening aid. They never turn red, amber or green, so they cannot be read as the rings' verdict, and they are not saved."),
        ("Corner rings", "One ring on each corner tag, shown as soon as 2 or more corner tags are in view. The percentage compares that tag's size with the average of the others: plus means it looks bigger, so closer to the camera; minus means farther. Green is within 3% (level), amber is 3 to 8% (nudge that corner), red is over 8% (that corner needs real adjustment)."),
-       ("Corner check", "Turns the rings off. The live view then runs smoother, which can help while you move the lines. The rings come back when you turn it on.")],
+       ("Corner check", "Turns the rings on. It starts off, so the live view runs smoothly while you move the lines. The rings come back each time you turn it on.")],
       "A tilted table makes things near one edge look bigger than near the other. The rings show tilt directly, so it is fixed with the rig, not corrected with maths.") }}
     {{ ui.about_page("about-cal-4", "Step 4: Run calibration",
-      ["Enter the calibration tag size you measured with callipers. Leave it empty only if you have no measurement.",
-       "Leave Make this the current baseline on, unless this is a comparison run.",
-       "Check the list on the right: every line should be green. You can still run if one is not; you are asked to confirm.",
-       "Press Run calibration and wait for the result, then press Next."],
+      ["Enter the [Calibration tag size] you measured with callipers. Leave it empty only if you have no measurement.",
+       "Leave [Make this the current baseline] on, unless this is a comparison run.",
+       "Check the [Ready to run] list: every line should be green. You can still run if one is not; you are asked to confirm.",
+       "Press [Run calibration] and wait for the result, then press [Next]."],
       [("Calibration tag size", "The printed tag's real size in mm. Tap it to open the keypad. It starts at the size the current calibration used. Empty uses a placeholder default, and the report says so."),
        ("Make this the current baseline", "On for a normal setup. Turn it off only for a comparison run, so the Health check keeps the baseline it compares against."),
        ("Ready to run", "What the calibration needs: focus locked, all four corner tags seen, tag size measured. Checked about every 1.5 seconds while this step is open."),
        ("Run calibration", "Takes a full-resolution photo, finds the tags and fits the scale. It can take a while.")],
       "The tag size is the largest single source of error. The old rig's tags were 29.31 mm, not the 30 mm printed on the box, a 4.7% error in area. Measure every printed sheet.") }}
     {{ ui.about_page("about-cal-5", "Step 5: Read the report",
-      ["Read each line of the report.",
-       "If coverage is weak somewhere, press Load the plots to see where, add a sheet there and run again.",
+      ["Read each line of the [Report table].",
+       "If coverage is weak somewhere, press [Load the plots] to see where, add a sheet there and press [Run again].",
        "Steps 1 to 3 only need redoing if something moved.",
-       "Press Next."],
+       "Press [Next]."],
       [("Report table", "One line per check, with the measured value and its status. The lines under it are the rest of the report, and the change from the previous calibration."),
-       ("Run again", "Goes back to step 4."),
+       ("Run again", "Goes back to step 4. Shown once a calibration has run on this page."),
        ("Load the plots", "Shows the tag map (which tags read far from normal, and where) and the lens check (whether errors grow toward the frame corners), for the current calibration."),
        ("Calibration history", "Every saved calibration, with its plots.")],
       "A calibration that passes on average can still be weak in one tray slot. The report and the plots show where, before any plant is measured there.") }}
     {{ ui.about_page("about-cal-6", "Step 6: Validate",
       ["Leave the sheets where they are.",
-       "Press Start validation and follow the Validation page: 3 rounds, moving each sheet to a different tray between rounds.",
+       "Press [Start validation] and follow the Validation page: 3 rounds, moving each sheet to a different tray between rounds.",
        "Remove the sheets when validation is done, before starting a growth run."],
       [("Validation status", "Whether the current calibration has been validated."),
        ("Start validation", "Opens the Validation page."),

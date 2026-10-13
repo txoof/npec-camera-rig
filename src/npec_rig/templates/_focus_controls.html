@@ -71,16 +71,16 @@
 </div>
 
 {% set focus_todo = [
-  "Tap the live view on the area you want sharp. The magnified view shows that area.",
-  "Press Autofocus, or set the lens yourself with Coarse and Fine while watching the magnified view.",
-  "Check the image is neither too dark nor washed out. Change Exposure first, Gain only if needed.",
-  "When the magnified view is as sharp as it gets, press Lock focus.",
+  "Tap the [Live view] on the area you want sharp. The [Magnified view] shows that area.",
+  "Press [Autofocus], or set the lens yourself with [Coarse] and [Fine] while watching the magnified view.",
+  "Check the image is neither too dark nor washed out. Turn off [Auto exposure] if needed, then change [Exposure] first and [Gain] only if needed.",
+  "When the magnified view is as sharp as it gets, press [Lock focus].",
 ] %}
 {% set focus_controls = [
   ("Live view", "The whole table as the camera sees it. Tap it to move the focus area (the red box). The label in its corner shows whether focus is locked, at which lens position, and the position the current calibration was taken at."),
   ("Magnified view", "The focus area enlarged, so small changes in sharpness are visible. The corner shows the sharpness number: higher is sharper."),
   ("Autofocus", "Lets the camera find focus on the focus area. Greyed out while focus is locked."),
-  ("Lock focus", "Moves the lens to the set position, always the same way, and waits until the camera reports it there. Calibration and validation use the locked position. While focus is locked the lens controls and Autofocus are greyed out; press Unlock focus to change it."),
+  ("Lock focus", "Moves the lens to the set position, always the same way, and waits until the camera reports it there. Calibration and validation use the locked position. While focus is locked the lens controls and Autofocus are greyed out; press [Unlock focus] to change it."),
   ("Reset camera", "Shown only when the lens does not follow a command. Restarts the camera and moves the lens back to its set position."),
   ("Coarse", "Lens position in whole dioptres (dpt). Minus and plus move one step. Tap the value to type one: a value such as 6.8 sets Coarse to 6 and Fine to 0.80."),
   ("Fine", "Added to Coarse, 0 to 0.99 dpt. Minus and plus move 0.05, and stop at 0 and 0.99: for the next whole dioptre, use Coarse. Use it for the last bit of sharpness."),
@@ -92,11 +92,11 @@
   ("Camera settings", "Opens the settings changed less often: Auto white balance, which lets the camera correct the color of the light."),
 ] %}
 {% if show_square_mode %}
-  {% set focus_todo = ["Choose Focus mode."] + focus_todo + ["To check the camera is square to the table, choose Square mode and drag the magenta tabs onto straight edges in the scene."] %}
+  {% set focus_todo = ["Choose [Focus mode]."] + focus_todo + ["To check the camera is square to the table, choose [Square mode] and drag the magenta tabs onto straight edges in the scene."] %}
   {% set focus_controls = [("Focus mode and Square mode", "Focus mode shows the focus controls and the magnified view. Square mode shows the live view larger, with magenta guide lines: drag the tabs past its edges to line them up with real edges, such as the table's. If they line up, the camera is not rotated or badly tilted. A straightening aid only: the lines are not saved and reset when the page is reloaded.")] + focus_controls %}
   {% set focus_title = "Focus and Square" %}
 {% else %}
-  {% set focus_todo = focus_todo + ["Press Next."] %}
+  {% set focus_todo = focus_todo + ["Press [Next]."] %}
   {% set focus_title = "Step 2: Lock focus" %}
 {% endif %}
 {{ ui.about_page("about-focus", focus_title, focus_todo, focus_controls,

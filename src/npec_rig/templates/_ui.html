@@ -14,8 +14,9 @@
 </button>
 {%- endmacro %}
 
-{% macro link_button(label, href, kind="", icon_name=none) -%}
-<a class="btn {{ kind }} hit" href="{{ href }}">{% if icon_name %}{{ icon(icon_name) }}{% endif %}{{ label }}</a>
+{#- new_tab: opens in a new tab, for files such as the sheet PDFs. -#}
+{% macro link_button(label, href, kind="", icon_name=none, new_tab=false) -%}
+<a class="btn {{ kind }} hit" href="{{ href }}"{% if new_tab %} target="_blank" rel="noopener"{% endif %}>{% if icon_name %}{{ icon(icon_name) }}{% endif %}{{ label }}</a>
 {%- endmacro %}
 
 {#- A whole-row switch. ui.bindSwitch(el, onChange) makes it toggle. -#}
@@ -117,6 +118,11 @@
   <button type="button" class="btn hit" data-step-by="1" aria-label="{{ label }}, up {{ step }}">{{ icon("plus") }}</button>
 </div>
 {%- endmacro %}
+{#- In About page text, [Name] marks a button or other control on the page: it is shown in a
+    box like a key, so the reader knows it is something to press or look at. -#}
+{% macro ui_names(text) -%}
+{{ text | e | replace("[", '<span class="ui-name">') | replace("]", "</span>") | safe }}
+{%- endmacro %}
 {#- About pages: one per page or wizard step, opened by its About button and closed by Close or
     Escape (ui.bindAbout). Three parts, always: what to do (numbered steps), every control
     explained, and why it matters. controls is a list of (name, explanation) pairs. -#}
@@ -127,11 +133,11 @@
 <template id="{{ id }}" data-title="{{ title }}">
   <div class="help-page">
     <h2>What to do</h2>
-    <ol>{% for item in todo %}<li>{{ item }}</li>{% endfor %}</ol>
+    <ol>{% for item in todo %}<li>{{ ui_names(item) }}</li>{% endfor %}</ol>
     <h2>The controls</h2>
-    <dl>{% for name, text in controls %}<dt>{{ name }}</dt><dd>{{ text }}</dd>{% endfor %}</dl>
+    <dl>{% for name, text in controls %}<dt><span class="ui-name">{{ name }}</span></dt><dd>{{ ui_names(text) }}</dd>{% endfor %}</dl>
     <h2>Why it matters</h2>
-    <p>{{ why }}</p>
+    <p>{{ ui_names(why) }}</p>
   </div>
 </template>
 {%- endmacro %}

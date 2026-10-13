@@ -6,8 +6,10 @@
 {% block breadcrumb %}
   {{ ui.link_button("Setup", "/setup", "btn-back", "back") }}
   <h1>Focus and Square</h1>
-  {{ ui.about_button("about-focus", "About") }}
-  {{ ui.button("Camera settings", id="camera-settings-btn") }}
+  <div class="head-actions">
+    {{ ui.button("Camera settings", id="camera-settings-btn") }}
+    {{ ui.about_button("about-focus", "About") }}
+  </div>
 {% endblock %}
 
 {% block content %}

@@ -233,13 +233,21 @@ details.help .help-body p { margin: 0 0 10px; }
 
 /* About pages (ui.about_page), opened from an About button in the page head. */
 .work-head .help-btn { margin-left: auto; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; flex: none; }
-.work-head .help-btn + .btn { flex: none; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; }
+.work-head .head-actions .btn { flex: none; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; }
 .help-btn .ui-icon { color: var(--accent); }
 .help-page { max-width: 70ch; display: grid; gap: 12px; color: var(--fg); }
 .help-page h2 { font-size: 1.1rem; margin: 8px 0 0; }
 .help-page ol { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
 .help-page dl { margin: 0; display: grid; grid-template-columns: minmax(8em, max-content) 1fr; gap: 10px 20px; }
 .help-page dt { font-weight: 700; }
+/* A control named in help text (ui.ui_names): boxed like a key, so it reads as something on the page. */
+.ui-name {
+  display: inline-block; padding: 0 6px; border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 6px; background: var(--surface-2); color: var(--fg); font-weight: 600; white-space: nowrap;
+}
+/* The head's buttons on the right: About is always last, so it stays in one place. */
+.head-actions { margin-left: auto; display: flex; gap: 16px; flex: none; }
+.head-actions .help-btn { margin-left: 0; }
 .help-page dd { margin: 0; color: var(--fg-2); }
 .help-page p { margin: 0; color: var(--fg-2); }
 
