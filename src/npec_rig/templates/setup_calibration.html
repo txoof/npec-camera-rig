@@ -71,7 +71,7 @@
         third PR); this PR moves only its text into the About page. -#}
     <div class="wizard-step" data-step="3">
       <p class="lead">Drag the magenta tabs until the lines sit on the table edges, then nudge the rig until every corner ring is green. Nothing here is saved.</p>
-      <div class="preview-wrap" style="width: calc(var(--wide-content-width) - 40px); margin: 12px 20px 20px 20px;">
+      <div class="preview-wrap level-wrap">
         <img class="preview" id="level-overlay-image" alt="live squareness and co-planarity overlay" style="cursor: default;">
         <div class="squareness-guides mode-square" id="squareness-guides">
           <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
@@ -446,7 +446,8 @@
         if (data.gate_failed) {
           // A data-quality gate, not a safety one: always overridable, never a hard stop
           // (Aaron, 2026-09-28). Confirming is the explicit action that counts as the override.
-          runStatus.innerHTML = ui.chip("warn", "Not run yet: waiting for your answer");
+          // Cancel leaves this; Run calibration anyway replaces it.
+          runStatus.innerHTML = ui.chip("warn", `${data.error} Not run.`);
           ui.confirmPanel({
             title: "Run calibration anyway?",
             body: `<p>${ui.esc(data.error)}</p>`,

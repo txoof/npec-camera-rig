@@ -683,6 +683,11 @@ a { color: #6cf; }
 .step-btn.done .n::after { content: "\2713"; font-size: 1rem; }
 .split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .table-diagram { width: 100%; max-width: 440px; }
+/* Step 3's live image: as large as fits with its lead line and Corner check (300px of height
+   around it, 248px of width for the rail, padding, gutter and handle margins), 4:3. */
+.level-wrap { margin: 12px 20px 20px; width: min(calc(100vw - 248px), calc((100vh - 300px) * 4 / 3)); }
+.level-wrap { width: min(calc(100vw - 248px), calc((100dvh - 300px) * 4 / 3)); }
+@media (max-width: 700px) { .level-wrap { width: calc(100vw - 120px); } }
 .sheet-links { display: grid; gap: var(--gap); }
 .sheet-links .btn { justify-content: flex-start; }
 .checklist { display: grid; gap: var(--gap); margin: 0; padding: 0; list-style: none; }
