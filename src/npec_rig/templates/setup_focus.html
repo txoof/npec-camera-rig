@@ -23,5 +23,7 @@
       return true;
     }
     initFocusControls({ isActiveStep, showSquareMode: true });
+    document.addEventListener("DOMContentLoaded", () =>
+      ui.bindAbout(document.querySelector('[data-about="about-focus"]')));
   </script>
 {% endblock %}

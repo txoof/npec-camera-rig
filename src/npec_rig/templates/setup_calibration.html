@@ -320,7 +320,7 @@
     }
 
     async function pollCalibrationReadiness() {
-      if (isActiveStep(4) && window.ui) {
+      if (isActiveStep(4)) {
         try {
           const data = await (await fetch("/calibration/readiness")).json();
           readyFocus.innerHTML = data.focus_locked

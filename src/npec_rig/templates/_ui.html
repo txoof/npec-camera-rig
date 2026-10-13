@@ -136,7 +136,7 @@
     <h2>What to do</h2>
     <ol>{% for item in todo %}<li>{{ ui_names(item) }}</li>{% endfor %}</ol>
     <h2>The controls</h2>
-    <dl>{% for name, text in controls %}<dt><span class="ui-name">{{ name }}</span></dt><dd>{{ ui_names(text) }}</dd>{% endfor %}</dl>
+    <dl>{% for name, text in controls %}<dt>{{ name }}</dt><dd>{{ ui_names(text) }}</dd>{% endfor %}</dl>
     <h2>Why it matters</h2>
     <p>{{ ui_names(why) }}</p>
   </div>

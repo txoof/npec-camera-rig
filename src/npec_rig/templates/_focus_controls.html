@@ -6,8 +6,8 @@
    and Square page, which adds a Focus/Square mode toggle and the squareness guide lines. The
    wizard has its own Step 3 for that.
 
-   The page places the About button (ui.about_button("about-focus")) and the Camera settings
-   button (id camera-settings-btn) in its head; initFocusControls binds them. #}
+   The page places the About button for "about-focus" in its head and binds it (ui.bindAbout),
+   and places the Camera settings button (id camera-settings-btn), which initFocusControls binds. #}
 {% import "_ui.html" as ui %}
 {% if show_square_mode %}
 <div class="mode-toggle-row">
@@ -683,8 +683,7 @@
       });
       refreshFocusStatus();
 
-      // --- Header buttons: About and Camera settings ---
-      document.querySelectorAll('[data-about="about-focus"]').forEach((b) => ui.bindAbout(b));
+      // --- Camera settings, opened from the page head. The page binds its own About button. ---
       const settingsBtn = $("camera-settings-btn");
       if (settingsBtn) settingsBtn.addEventListener("click", openCameraSettings);
 
