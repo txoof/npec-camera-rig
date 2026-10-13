@@ -571,14 +571,14 @@ a { color: #6cf; }
 }
 .wizard-step .sq-panel { --sq-reserve: 312px; }
 .sq-frame { position: relative; margin: 0 42px 46px; width: fit-content; }
-.sq-help { margin: 0; color: var(--fg-2); min-width: 150px; }
+.sq-help { margin: 0; color: var(--fg-2); width: 120px; font-size: 0.95rem; }
 .sq-controls { grid-column: 1 / -1; }
 .sq-view { position: relative; background: #000; border: 2px solid var(--line); border-radius: var(--radius); }
 .sq-view img {
   display: block; height: auto; aspect-ratio: 4 / 3;
-  /* 246px across: the handles' room (84), the instructions (150), the gap (8) and borders. */
-  width: min(calc(100cqw - 246px), calc((100vh - var(--sq-reserve)) * 4 / 3));
-  width: min(calc(100cqw - 246px), calc((100dvh - var(--sq-reserve)) * 4 / 3));
+  /* 216px across: the handles' room (84), the instructions (120), the gap (8) and borders. */
+  width: min(calc(100cqw - 216px), calc((100vh - var(--sq-reserve)) * 4 / 3));
+  width: min(calc(100cqw - 216px), calc((100dvh - var(--sq-reserve)) * 4 / 3));
   min-width: 280px;
 }
 .guide { position: absolute; background: var(--guide); pointer-events: none; }
@@ -611,6 +611,7 @@ kbd {
 .work-head .choice { min-height: 52px; padding: 0 18px; align-content: center; }
 @media (max-width: 700px) {
   .sq-panel { grid-template-columns: minmax(0, 1fr); }
+  .sq-help { width: auto; }
   .sq-view img { width: calc(100cqw - 88px); min-width: 0; }
   .legend { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
