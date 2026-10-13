@@ -1529,6 +1529,51 @@ at 07:08, 07:18 and 07:29 UTC, 21.0 minutes first to last, shortest gap 10.1 min
 
 Median of the slot medians -0.05 points. These are the reference bands for the second session.
 
+**Between the sessions.** Camera events: the camera failed to open twice, 2026-10-12 08:27 and
+08:28 UTC ("Camera __init__ sequence did not complete"), and opened at 08:29. Warm app restarts
+(app only, page-only code, focus locked at 5.97 after each): 2026-10-12 08:29 (with the failed
+opens), 13:40, 14:07, 14:27 and 19:09 UTC, and 2026-10-13 07:42 UTC (the last four reported on
+#116 by the tasks that borrowed the hardware label). No lens move, no recalibration, no cold start
+(Pi on since 2026-10-07). Trays and sheets were nudged and the tape measure removed (allowed).
+
+**Second session, 2026-10-13: recorded two ways (decision, Aaron 2026-10-13).** Because of the
+failed camera opens, the "no camera fault" condition was not met. The session is therefore (1) the
+repeat of the 2026-10-12 session, with that deviation stated, and (2) the first session of a
+clean pair, repeated on 2026-10-14 before any test that disturbs the rig.
+
+Session `20261013T074951947771`, same calibration `20261012T070607812512`, lens 5.97 locked; rounds
+at 07:54, 08:04 and 08:15 UTC, 21.2 minutes first to last, shortest gap 10.1 minutes, door closed;
+92.7%, 85.6% and 51.5% of tags moved; 85 to 90 tags per slot.
+
+| Slot | 10-12 band | Inside it on 10-13 | 10-13 band | 10-12 median | 10-13 median |
+|---|---|---|---|---|---|
+| North 1 | ±2.9% | 98% (88 of 90) | ±2.4% | +0.67 | +0.64 |
+| North 2 | ±1.5% | 96% (86 of 90) | ±1.4% | -0.03 | +0.11 |
+| North 3 | ±2.7% | 95% (81 of 85) | ±2.5% | -0.58 | -0.62 |
+| North 4 | ±2.4% | 92% (78 of 85) | ±2.9% | -0.40 | -0.62 |
+| North 5 | ±1.4% | 88% (79 of 90) | ±3.1% | -0.31 | +0.25 |
+| North 6 | ±1.8% | 88% (79 of 90) | ±2.1% | +0.12 | +0.36 |
+| South 1 | ±1.4% | 99% (89 of 90) | ±1.2% | -0.07 | +0.19 |
+| South 2 | ±3.0% | 98% (88 of 90) | ±1.9% | +0.52 | +0.58 |
+| South 3 | ±2.8% | 97% (87 of 90) | ±2.4% | -0.42 | -0.22 |
+| South 4 | ±3.4% | 96% (82 of 85) | ±3.0% | -0.95 | -0.86 |
+| South 5 | ±1.3% | 97% (87 of 90) | ±1.1% | +0.15 | +0.22 |
+| South 6 | ±2.6% | 82% (74 of 90) | ±5.7% | +1.14 | +1.29 |
+
+Median of the slot medians +0.21 points (2026-10-12: -0.05).
+
+**Result as the repeat: pass, with the deviation above.** 93.7% of the whole table (998 of 1065
+tags) fell inside the first session's bands (rule: at least 90%); lowest slot South 6, 82% (rule:
+no slot below 75%). Bands changed by -1.1 to +3.1 points.
+
+**South 6 and North 5, observed.** South 6's wider band comes from round 1 alone (photo
+`rig/2026-10-13/075436_099643`): 6 of its 30 tags read +5.6% to +9.4%, all in the sheet's
+south-east corner, growing down the last column (tags 329 to 354: 0.0, +0.3, +2.1, +5.6, +7.9,
++9.4%). That corner looks less sharp than the rest of the sheet, which fits a sheet not lying flat
+there; a scrap of tape sits on the tray edge beside it. Rounds 2 and 3 in that slot stayed within
+2.8%. North 5's wider band comes from round 2 (5 tags at +3.3% to +4.3%). Neither was flagged by
+the validation checks (section 6). Script: `/home/pi/scratch/m2-acceptance-2026-10/slot_tags.py`.
+
 ### 14.2 Tape measure
 
 Section 9.2 method A unchanged: steel tape from the outer edge of a tag on the South 1 sheet to the
