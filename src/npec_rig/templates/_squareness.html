@@ -19,6 +19,8 @@
     <button type="button" class="handle hv hit" data-line="v1" aria-label="Line 2, left: drag left or right, or press 2 then A or D">2</button>
     <button type="button" class="handle hv hit" data-line="v2" aria-label="Line 3, right: drag left or right, or press 3 then A or D">3</button>
   </div>
+  {#- Aaron's wording, 2026-10-13. -#}
+  <p class="sq-help">Touch and drag the magenta lines to help check table orientation and squareness. Use 1, 2, 3 to select a line. WASD or the arrow keys move the line.</p>
   <div class="sq-controls">
     {{ ui.switch("corner-rings", "Corner rings", compact=true) }}
     <div class="legend" aria-label="Corner ring colors">
@@ -27,5 +29,4 @@
       {{ ui.chip("fail", "Over 8%") }}
     </div>
   </div>
-  <p class="field-help">Drag a handle, or press <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> then <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or the arrows. Not saved.</p>
 </div>
