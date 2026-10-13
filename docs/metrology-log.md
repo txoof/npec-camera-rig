@@ -249,6 +249,76 @@ is not known.
 | Whole table reads off | 2.5 points | Same 8 sessions: within 0.66 points of 0 |
 | Fraction of slots off together, to call it a whole-round shift | 50% | **Decision**, no data cited |
 
+### 6.1 The percentile band compared with a normal (2 × RMS) estimate (method written 2026-10-13, before any number was computed)
+
+**Question.** The band is a percentile: it makes no assumption about the shape of the errors. The
+usual metrology route to a 95% interval is the GUM's expanded uncertainty, U = k × u with k = 2
+(JCGM 100:2008, section 6.2), which is about 95% only when the errors are roughly normal, and
+which treats a known bias separately. On this rig's data, do the two give the same number? Where
+they differ, is the percentile catching a tail that a normal estimate would miss? No change to how
+the rig computes or reports the band (issue #146).
+
+**Data.** Stored validation sessions, read only, from
+`/var/lib/npec-rig/calibration/validations/`. In each, the signed area error (%) of every tag in a
+slot, pooled over the counted rounds, exactly as the rig pools them for the band:
+
+| Session | Camera | Calibration | Lens | Note |
+|---|---|---|---|---|
+| `20261005T071549445423` | SN000 | 07:11 UTC | 6.15 | 3 counted rounds |
+| `20261005T141310628479` | SN000 | `20261005T141101923639` | 6.27 | Rounds over 1.5 min |
+| `20261007T070451149884` | SN000 | `20261005T141101923639` | 6.27 | Rounds over 20.9 min |
+| `20261008T081846523784` | SN001 | `20261008T081832283098` | 6.04 | Rounds over 23.6 min |
+| `20261012T070703613469` | SN001 | `20261012T070607812512` | 5.97 | Section 14.1, first session |
+| `20261013T074951947771` | SN001 | `20261012T070607812512` | 5.97 | Section 14.1, repeat |
+| `20261013T081945572660` | SN001 | `20261012T070607812512` | 5.97 | Third session of the same calibration |
+
+The last three are the SN001 acceptance validations of section 14. Their pass or fail under 14.1
+is reported there, not here. `20261009T073553378279` is left out: it was an interface check, not
+part of acceptance (section 14.1).
+
+**What is computed, per slot and session** (n = number of tags, 80 to 90; e = signed error in %):
+
+1. `band`: 95th percentile of |e|, linear interpolation between order statistics (numpy's
+   default, the same call the rig makes). It must reproduce the stored band and median to
+   rounding; if any slot does not, the comparison stops and the mismatch is reported.
+2. `median`: median of e, the slot's bias.
+3. `rms`: square root of the mean of e², and `2 × rms`. RMS contains the bias: rms² is about
+   bias² plus spread².
+4. `gum_style`: |median| + 2 × SD, where SD = sqrt(Σ(e − median)² / (n − 1)), the spread about
+   the median. This is bias plus a normal 95% spread, kept apart as the GUM keeps them.
+5. `ratio`: band / (2 × rms).
+6. Skewness: the sample skewness g1 (third moment about the mean over the second to the power
+   1.5, divisor n). Normal errors give 0; with 90 tags its standard error is about
+   sqrt(6/90) = 0.26. Tails: the share of tags below median − 2 × SD and above median + 2 × SD.
+   Normal errors give 2.3% on each side, about 2 tags of 90.
+7. Per-round slot medians, and the within-round SD (each tag about its own round's median), to
+   show how much of the spread lies between rounds rather than between tags.
+
+**Agreement rule (set beforehand).** Band and 2 × rms agree when they differ by 0.3 points or
+less.
+
+**What normal errors would give (worked out beforehand).** If a slot's errors were normal with
+spread σ and no bias, the band would be 1.96σ and 2 × rms would be 2σ, a ratio of 0.98. With a
+bias equal to σ, the band would be about 2.65σ and 2 × rms about 2.83σ, a ratio of about 0.93.
+So for normal errors the ratio lies between about 0.93 and 0.98, with 2 × rms slightly the wider.
+A ratio near 1 or above means a heavier tail than normal; well below 0.93 means a lighter one.
+
+**Central slots (set beforehand).** The central low reading (section 7) is within about 1500 px
+of the image centre, (4576, 3472) in the 9152 × 6944 frame. No slot centre lies that close. A slot
+counts as central when its centre, as stored in the session, lies within 2000 px of the image
+centre. From the stored layouts this should be North 3, North 4, South 3 and South 4 (about 1550
+to 1850 px; every other slot is more than 2600 px away); the script lists them per session. They
+hold the tags nearest the central error.
+
+**What it cannot show.** 3 rounds are not 3 independent samples of 85 to 90 tags: the tags in one
+photograph share the calibration, the lens position and the point in the 19-minute chamber cycle
+(section 8.1, run 3j). So no confidence level is attached to any band or ratio here. Wilks (1941)
+gives distribution-free tolerance limits from order statistics, which is the basis for using a
+percentile without assuming a shape, but his result needs independent observations.
+
+**Raw data and script.** `/home/pi/scratch/146-p95-vs-rms/` (`compare.py`, and its output
+`results.csv` and `rounds.csv`).
+
 ## 7. Known error sources
 
 **Central error of the Arducam (closed investigation, `reference/arducam-central-error-2026-10.md`).**
