@@ -44,6 +44,8 @@ from npec_rig.calibration_store import (
 )
 from npec_rig.calibration_viz import (
     HEATMAP_MAX_WIDTH,
+    TAG_MAP_FAR_PCT,
+    radial_fit,
     render_level_overlay,
     render_radial_residual_plot,
     render_tag_map,
@@ -217,12 +219,30 @@ def setup_calibration_history_page(request: Request) -> Response:
 
 @app.get("/setup/calibration-history/{stem}")
 def setup_calibration_history_diagnostics_page(stem: str, request: Request) -> Response:
-    """Diagnostics drill-down for one saved calibration: its tag map and radial plot, for a past
-    calibration, not just whatever is live. One template serves any `stem`; the page reads it from its own URL and
-    looks itself up in `/calibration/list` client-side, same list the history page already
-    fetches -- no new metadata endpoint needed.
-    """
-    return templates.TemplateResponse(request, "setup_calibration_history_diagnostics.html")
+    """Calibration diagnostics for one saved run, opened from the calibration history: its tag
+    map and lens check with their numbers. The page looks the run up in `/calibration/list`."""
+    return _calibration_diagnostics_page(
+        request, stem, f"/calibration/{stem}", "Calibration history", "/setup/calibration-history"
+    )
+
+
+@app.get("/setup/calibration/diagnostics")
+def setup_current_calibration_diagnostics_page(request: Request) -> Response:
+    """Calibration diagnostics for the active calibration, from current.json itself (not the
+    history file of the same name), opened from the wizard's Step 5."""
+    return _calibration_diagnostics_page(
+        request, None, "/calibration/current", "Calibration", "/setup/calibration#step-5"
+    )
+
+
+def _calibration_diagnostics_page(
+    request: Request, stem: str | None, plot_base: str, back_label: str, back_href: str
+) -> Response:
+    return templates.TemplateResponse(
+        request,
+        "setup_calibration_diagnostics.html",
+        {"stem": stem, "plot_base": plot_base, "back_label": back_label, "back_href": back_href},
+    )
 
 
 @app.get("/setup/validation")
@@ -1041,11 +1061,15 @@ def _render_radial_plot(inputs: dict) -> bytes:
     """The evidence gate for lens distortion modelling (CLAUDE.md, see
     `calibration_viz.render_radial_residual_plot`): each tag's signed scale residual against its
     distance from the image centre."""
-    samples = _plot_samples(inputs)
+    points = _radial_points(inputs, _plot_samples(inputs))
+    return array_to_jpeg(render_radial_residual_plot(points, label="scale residual"))
+
+
+def _radial_points(inputs: dict, samples: list[ScaleResidualSample]) -> list[tuple[float, float, int]]:
+    """Each sample as `(distance from the image centre in px, residual %, tag id)`."""
     width, height = inputs["photo_size"]
     cx, cy = width / 2, height / 2
-    points = [(float(np.hypot(s.x - cx, s.y - cy)), s.residual_pct, s.tag_id) for s in samples]
-    return array_to_jpeg(render_radial_residual_plot(points, label="scale residual"))
+    return [(float(np.hypot(s.x - cx, s.y - cy)), s.residual_pct, s.tag_id) for s in samples]
 
 
 def _render_tag_map(inputs: dict) -> bytes:
@@ -1076,6 +1100,11 @@ def _calibration_plot(artifact: CalibrationArtifact, source_stem: str, recipe: s
     """`artifact`'s `recipe` plot, from the images.py store once drawn. The inputs are everything
     the plot is drawn from, so a rewritten artifact or a new tag detector draws it anew. The
     photo is the artifact's own (`frame_stem`), whatever file name the artifact is saved under."""
+    return _derived_response(recipe, _calibration_source(source_stem), _calibration_inputs(artifact))
+
+
+def _calibration_inputs(artifact: CalibrationArtifact) -> dict:
+    """Everything `artifact`'s plots and their readout are worked out from, and nothing else."""
     if artifact.frame_stem is None:
         raise HTTPException(409, "this calibration has no saved photo to plot")
     path = calibration_frame_path(artifact.frame_stem)
@@ -1095,7 +1124,29 @@ def _calibration_plot(artifact: CalibrationArtifact, source_stem: str, recipe: s
             else None
         ),
     }
-    return _derived_response(recipe, _calibration_source(source_stem), inputs)
+    return inputs
+
+
+def _calibration_diagnostics(artifact: CalibrationArtifact) -> dict:
+    """The numbers beside the diagnostics page's plots, from the same tags and fit the plots are
+    drawn from. Tag map: how far each tag reads from the run's median, and how many are past the
+    outline line (`TAG_MAP_FAR_PCT`). Lens check: the radial plot's fit, its slope in % per
+    1000 px. `tag_map` is false when the run has no corner tags, so its map cannot be drawn."""
+    inputs = _calibration_inputs(artifact)
+    samples = _plot_samples(inputs)
+    median = float(np.median([s.residual_pct for s in samples]))
+    worst = max(samples, key=lambda s: abs(s.residual_pct - median))
+    slope, _intercept, r_squared = radial_fit(_radial_points(inputs, samples))
+    return {
+        "tags": len(samples),
+        "median_pct": median,
+        "far_pct": TAG_MAP_FAR_PCT,
+        "tags_far": sum(abs(s.residual_pct - median) > TAG_MAP_FAR_PCT for s in samples),
+        "worst_tag": {"id": worst.tag_id, "from_median_pct": worst.residual_pct - median},
+        "slope_pct_per_1000px": slope * 1000,
+        "r_squared": r_squared,
+        "tag_map": inputs["corner_baseline"] is not None,
+    }
 
 
 def _current_artifact() -> CalibrationArtifact:
@@ -1112,6 +1163,18 @@ def _no_other_metric(metric: str | None) -> None:
     drawing it for an old ?metric= link."""
     if metric not in (None, "scale_residual"):
         raise HTTPException(422, f"unknown metric {metric!r}: only scale_residual is plotted")
+
+
+@app.get("/calibration/current/diagnostics")
+def current_diagnostics() -> dict:
+    """The diagnostics readout for the live calibration."""
+    return _calibration_diagnostics(_current_artifact())
+
+
+@app.get("/calibration/{stem}/diagnostics")
+def stem_diagnostics(stem: str) -> dict:
+    """The diagnostics readout for saved calibration `stem`."""
+    return _calibration_diagnostics(_load_saved_artifact(stem))
 
 
 @app.get("/calibration/current/radial-plot")
@@ -1685,5 +1748,6 @@ def _render_problem_frame(inputs: dict) -> bytes:
 # Bump a recipe's version whenever its renderer would draw the same inputs differently.
 images.register(images.Recipe("validation_map", 1, _render_validation_map))
 images.register(images.Recipe("problem_frame", 1, _render_problem_frame))
-images.register(images.Recipe("calibration_radial_plot", 1, _render_radial_plot))
+# Version 2: the caption gives the slope in % per 1000 px, as the diagnostics readout does.
+images.register(images.Recipe("calibration_radial_plot", 2, _render_radial_plot))
 images.register(images.Recipe("calibration_tag_map", 1, _render_tag_map))

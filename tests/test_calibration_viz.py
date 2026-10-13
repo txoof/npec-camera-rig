@@ -3,6 +3,7 @@ import pytest
 
 from npec_rig.calibration import build_table_frame
 from npec_rig.calibration_viz import (
+    radial_fit,
     TAG_MAP_CANVAS_DIM,
     TAG_MAP_FAR_PCT,
     TAG_MAP_HEADER_PX,
@@ -193,3 +194,15 @@ def test_tag_map_histogram_counts_tags_beyond_the_range_in_their_own_bars() -> N
     colours = {tuple(int(c) for c in px) for px in histogram.reshape(-1, 3)}
     assert TAG_MAP_SMALL_COLOUR in colours
     assert TAG_MAP_LARGE_COLOUR in colours
+
+
+def test_radial_fit_finds_a_straight_line_exactly() -> None:
+    points = [(r, 0.002 * r - 1.0, i) for i, r in enumerate((0.0, 500.0, 1000.0, 2000.0))]
+    slope, intercept, r_squared = radial_fit(points)
+    assert slope == pytest.approx(0.002)
+    assert intercept == pytest.approx(-1.0)
+    assert r_squared == pytest.approx(1.0)
+
+
+def test_radial_fit_of_equal_values_has_r_squared_zero() -> None:
+    assert radial_fit([(0.0, 0.5, 1), (100.0, 0.5, 2), (200.0, 0.5, 3)])[2] == 0.0

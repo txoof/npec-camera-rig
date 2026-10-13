@@ -738,16 +738,31 @@ kbd {
 .diagnostic-image[data-no-lightbox] {
   cursor: crosshair;
 }
-/* A diagnostic image on a shell page (#125): shown and hidden with the hidden attribute, and as
-   wide as the work area, which already keeps the scroll lane clear. Still .diagnostic-image, so
-   lightbox.js opens it full size. */
-.diagnostic-image.figure {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin-top: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+/* Tabs (ui.tabs): a bar of choice buttons under the page head, like the wizard's steps. */
+.tab-bar { padding: 6px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.tab-bar .choices { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); max-width: 640px; }
+.tab-bar .choice { min-height: 56px; }
+/* A plot that opens full screen when tapped (ui.figure, lightbox.js). Its height is capped so
+   the plot and the numbers beside it fit the 1024x600 chamber screen without scrolling. */
+.figure {
+  position: relative; display: block; width: 100%; padding: 0; border: 2px solid var(--line);
+  border-radius: var(--radius); background: #000; overflow: hidden; cursor: zoom-in;
+}
+.figure img {
+  display: block; width: 100%; height: auto; max-height: max(240px, calc(100vh - 290px)); object-fit: contain;
+}
+.figure .tag {
+  position: absolute; right: 8px; bottom: 8px; padding: 2px 8px; border-radius: 6px;
+  background: rgba(0, 0, 0, 0.8); color: var(--fg); font-size: 0.85rem;
+}
+/* Numbers beside a plot (ui.readout). */
+.readout { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: baseline; margin: 0; }
+.readout dt { color: var(--fg-2); }
+.readout dd { margin: 0; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+/* A plot with its numbers beside it; one column on a phone. */
+.plot-split { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 700px) {
+  .plot-split { grid-template-columns: minmax(0, 1fr); }
 }
 .lightbox-overlay {
   display: none;

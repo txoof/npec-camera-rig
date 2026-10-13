@@ -336,6 +336,14 @@
     });
   }
 
+  // Tabs (ui.tabs): the pressed choice's [data-tab-panel] shows, every other one hides.
+  function bindTabs(el, onChange) {
+    const show = (value) => document.querySelectorAll("[data-tab-panel]").forEach((p) => {
+      p.hidden = p.dataset.tabPanel !== value;
+    });
+    bindChoices(el, (value) => { show(value); if (onChange) onChange(value); });
+  }
+
   // Shows a value on a field button, or the empty prompt. unit "" leaves the unit off, for a
   // shown text that carries its own (1/125 s for a value kept in ms).
   function showField(el, value, shown = value, unit = el.dataset.unit) {
@@ -446,7 +454,7 @@
     esc, icon, chip, isPhone, toast,
     openKeypad, openKeyboard, openChoice, openPanel, confirmPanel,
     infoPanel, bindAbout, setDisabled,
-    setSwitch, bindSwitch, bindChoices, showField, bindField, bindStepper,
+    setSwitch, bindSwitch, bindChoices, bindTabs, showField, bindField, bindStepper,
     countdown, mmss,
   };
 })();
