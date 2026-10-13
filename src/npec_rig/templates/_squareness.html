@@ -1,0 +1,33 @@
+{#- The squareness panel, one copy for the calibration wizard's Step 3 and Square mode on the
+    Focus and Square page (mockup 7, #136): the live image with three magenta guide lines, large
+    handles just outside it, the corner rings switch and the ring legend. The page calls
+    initSquareness({ isActive }) (static/squareness-guides.js) and calls the returned update()
+    whenever the panel is shown or hidden. The guide lines are magenta so they can never be read
+    as the rings' red, amber or green verdict. -#}
+{% import "_ui.html" as ui %}
+<div class="sq-grid">
+  <div class="sq-col">
+    <div class="sq-frame">
+      <div class="sq-view">
+        <img id="sq-image" alt="Live view of the table, with the magenta guide lines over it">
+        <div class="guide h" id="sq-line-h"></div>
+        <div class="guide v" id="sq-line-v1"></div>
+        <div class="guide v" id="sq-line-v2"></div>
+      </div>
+      <button type="button" class="handle hh hit" data-line="h" aria-label="Across line: drag up or down, or press 1 then W or S"></button>
+      <button type="button" class="handle hh r hit" data-line="h" aria-label="Across line: drag up or down, or press 1 then W or S"></button>
+      <button type="button" class="handle hv hit" data-line="v1" aria-label="Left line: drag left or right, or press 2 then A or D"></button>
+      <button type="button" class="handle hv hit" data-line="v2" aria-label="Right line: drag left or right, or press 3 then A or D"></button>
+    </div>
+  </div>
+  <div class="stack sq-side">
+    <p class="lead">Drag the magenta handles until the lines sit on the table edges. Not saved.</p>
+    {{ ui.switch("corner-rings", "Corner rings", compact=true) }}
+    <div class="legend" aria-label="Corner ring colors">
+      {{ ui.chip("ok", "Within 3%") }}
+      {{ ui.chip("warn", "3 to 8%: nudge") }}
+      {{ ui.chip("fail", "Over 8%: adjust") }}
+    </div>
+    <p class="field-help">Keyboard: <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> choose a line, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or the arrows move it, hold <kbd>Shift</kbd> to move further.</p>
+  </div>
+</div>

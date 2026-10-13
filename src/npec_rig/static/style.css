@@ -414,116 +414,18 @@ details.help .help-body p { margin: 0 0 10px; }
   .kb-value { grid-column: 1 / -1; }
 }
 
-.preview-wrap {
-  position: relative;
-  width: 100%;
-}
-.preview {
-  display: block;
-  width: 100%;
-  background: #000;
-  cursor: crosshair;
-}
 .roi-box {
   position: absolute;
   border: 2px solid #f55;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
-.squareness-guides {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  display: none;
-}
-.squareness-guides.mode-square {
-  display: block;
-}
-/* Magenta, not red/amber/green -- those are the co-planarity rings' own verdict colors on the
-   same live image (Step 3 shows both together), and magenta doesn't occur in either that scale
-   or in a typical scene, so the two can't be read as one signal. */
-.squareness-line {
-  position: absolute;
-  background: rgba(255, 0, 255, 0.85);
-}
-.squareness-line-h {
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 2px;
-  margin-top: -1px;
-}
-.squareness-line-v {
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  margin-left: -1px;
-}
-/* The lines themselves are purely visual in square mode -- dragging happens on the
-   .squareness-handle tabs just past the frame's edge instead (see below). A hit-target
-   sitting on top of the live image is exactly what made this "nearly impossible" by touch:
-   it fights with the page-scroll gesture and is hard to land on precisely. */
-.squareness-guides.mode-square .squareness-line {
-  pointer-events: none;
-}
-/* One handle per line end: two for the horizontal line (just past the left/right edges),
-   one per vertical line (just past the bottom edge). touch-action: none is what the lines
-   never had -- without it, a touch-drag starting on a small element can be interpreted as a
-   page-scroll gesture before the browser recognizes the drag. Nothing else on the page gets
-   this, so scrolling everywhere else (including over the live image itself) is unaffected. */
-.squareness-handle {
-  position: absolute;
-  width: 28px;
-  height: 28px;
-  margin: -14px;
-  border-radius: 50%;
-  background: rgba(255, 0, 255, 0.9);
-  border: 2px solid #221;
-  pointer-events: auto;
-  touch-action: none;
-}
-.squareness-handle-h-left,
-.squareness-handle-h-right {
-  cursor: ns-resize;
-  top: 50%; /* JS keeps this in sync with the horizontal line's own top */
-}
-.squareness-handle-h-left { left: 0; }
-.squareness-handle-h-right { left: 100%; }
-.squareness-handle-v {
-  cursor: ew-resize;
-  top: 100%;
-  left: 50%; /* JS keeps this in sync with its vertical line's own left */
-}
-.mode-toggle-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  /* Matches .focus-layout above it -- these buttons control that frame, so they shouldn't
-     stay pinned to the old 480px cap while the frame itself is now much wider. */
-  max-width: var(--wide-content-width);
-}
-.mode-toggle-row button {
-  flex: 1;
-  padding: 0.2rem;
-  /* Thinner than other buttons, so the control panel below still fits on a 1024x768 screen. */
-  min-height: 34px;
-  background: #222;
-  border: 1px solid #444;
-  color: #ccc;
-  border-radius: 4px;
-  font-size: 0.85rem;
-}
-.mode-toggle-row button.active {
-  background: #456;
-  border-color: #6af;
-  color: #fff;
-}
 
 /* Focus controls (_focus_controls.html): the live view with the lock and exposure controls under
    it on the left, the magnified view with the lens controls under it on the right. Everything
    fits 1024x600 without scrolling (mockup 7). */
 /* The views grow with the window: as tall as the height left over the controls (470px: the page
-   head, padding, mode buttons and, with Auto exposure off, the left column's controls), never
+   head, padding and, with Auto exposure off, the left column's controls), never
    under 300px, and never wider than their column. Columns 4:3, as the live view is 4:3 and the
    magnified view square, so both are the same height. */
 .focus-cols {
@@ -567,30 +469,12 @@ details.help .help-body p { margin: 0 0 10px; }
   background: rgba(0, 0, 0, 0.75); color: var(--fg-2); font-size: 0.8rem;
 }
 .lens-fault .lens-error { color: var(--fail); font-weight: 700; }
-/* Square mode on the Focus and Square page: the live view alone, larger, with room past its left,
-   right and bottom edges for the guide handles. */
-.focus-cols.mode-square { grid-template-columns: minmax(0, 1fr); }
-.focus-cols.mode-square .focus-crop-col, .focus-cols.mode-square .score-trace { display: none; }
-.focus-cols.mode-square .view-stack { width: 100%; }
-.focus-cols.mode-square .live-view { margin: 0 20px 20px; overflow: visible; }
-/* As large as the work area allows: the full width, or the height left under the page head and
-   mode buttons at 1024x600 to 768, whichever is smaller. 4:3 always, so the lines never distort. */
-.focus-cols.mode-square .live-view img {
-  /* 248px: the rail, the scroll area's padding and gutter, and the handles' margins. */
-  height: auto; aspect-ratio: 4 / 3; max-width: none;
-  width: min(calc(100vw - 248px), calc((100vh - 200px) * 4 / 3));
-  width: min(calc(100vw - 248px), calc((100dvh - 200px) * 4 / 3));
-}
-.focus-cols.mode-square #lock-status { display: none; }
 /* On a phone: one column, the live view and its controls first, then the magnified view, each
-   view the full width. The rail is a bottom bar there, so only the gutter, padding and handle
-   margins take width in Square mode. After the rules above, so these win. */
+   view the full width. After the rules above, so these win. */
 @media (max-width: 700px) {
   .focus-cols { grid-template-columns: minmax(0, 1fr); }
   .view-stack, .live-view { width: 100%; }
   .live-view img, .live-view #roi-crop { width: calc(100cqw - 4px); }
-  .focus-cols.mode-square .live-view { width: auto; }
-  .focus-cols.mode-square .live-view img { width: calc(100vw - 120px); }
 }
 .capture-section {
   max-width: 480px;
@@ -610,21 +494,6 @@ input[type="number"] {
   border: 1px solid #444;
   color: #eee;
   border-radius: 4px;
-}
-.peaking-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  max-width: 480px;
-  font-size: 0.85rem;
-  color: #ccc;
-}
-.peaking-row input[type="checkbox"] {
-  width: 1.2rem;
-  height: 1.2rem;
-  margin-top: 0.15rem;
-  flex-shrink: 0;
 }
 .lock-row {
   display: flex;
@@ -691,11 +560,50 @@ a { color: #6cf; }
 .step-btn.done .n::after { content: "\2713"; font-size: 1rem; }
 .split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .table-diagram { width: 100%; max-width: 440px; }
-/* Step 3's live image: as large as fits with its lead line and Corner check (300px of height
-   around it, 248px of width for the rail, padding, gutter and handle margins), 4:3. */
-.level-wrap { margin: 12px 20px 20px; width: min(calc(100vw - 248px), calc((100vh - 300px) * 4 / 3)); }
-.level-wrap { width: min(calc(100vw - 248px), calc((100dvh - 300px) * 4 / 3)); }
-@media (max-width: 700px) { .level-wrap { width: calc(100vw - 120px); } }
+/* ---------- Squareness panel (_squareness.html, squareness-guides.js; mockup 7) ----------
+   The image as large as fits beside its 240px side column, 4:3, with room just outside it for
+   the handles: 48px left and right, 52px below. 250px of height: the page head, the steps bar
+   or nothing, the padding and the handles under the image. */
+.sq-grid { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 20px; align-items: start; }
+.sq-col { container-type: inline-size; min-width: 0; }
+.sq-frame { position: relative; margin: 0 48px 52px; width: fit-content; }
+.sq-view { position: relative; background: #000; border: 2px solid var(--line); border-radius: var(--radius); }
+.sq-view img {
+  display: block; height: auto; aspect-ratio: 4 / 3;
+  width: min(calc(100cqw - 100px), calc((100vh - 250px) * 4 / 3));
+  width: min(calc(100cqw - 100px), calc((100dvh - 250px) * 4 / 3));
+}
+.guide { position: absolute; background: var(--guide); pointer-events: none; }
+.guide.h { left: 0; right: 0; height: 3px; margin-top: -1px; }
+.guide.v { top: 0; bottom: 0; width: 3px; margin-left: -1px; }
+.guide.sel { box-shadow: 0 0 0 3px rgba(255, 79, 255, 0.35); }
+/* Handles: magenta bars with grip stripes, larger than the 28px dots they replace; the picked
+   one has a white ring. touch-action: none so a drag is never taken for a page scroll. */
+.handle {
+  position: absolute; border: 0; padding: 0; border-radius: 8px; background: var(--guide); cursor: grab;
+  touch-action: none; box-shadow: 0 0 0 2px #000;
+  background-image: repeating-linear-gradient(90deg, transparent 0 6px, rgba(0, 0, 0, 0.35) 6px 8px);
+}
+.handle.hh {
+  left: -46px; width: 40px; height: 60px; transform: translateY(-50%);
+  background-image: repeating-linear-gradient(0deg, transparent 0 6px, rgba(0, 0, 0, 0.35) 6px 8px);
+}
+.handle.hh.r { left: auto; right: -46px; }
+.handle.hv { top: calc(100% + 6px); width: 60px; height: 40px; transform: translateX(-50%); }
+.handle.sel { box-shadow: 0 0 0 3px var(--fg); }
+.handle:active { cursor: grabbing; }
+.legend { display: grid; gap: 10px; justify-items: start; }
+kbd {
+  font-family: var(--font-num); font-size: 0.85rem; border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 4px; padding: 0 5px; color: var(--fg); background: var(--surface-2);
+}
+/* The Focus and Square page's mode switch, in the page head. */
+.work-head .choices { grid-template-columns: repeat(2, auto); gap: 16px; }
+.work-head .choice { min-height: 52px; padding: 0 18px; align-content: center; }
+@media (max-width: 700px) {
+  .sq-grid { grid-template-columns: minmax(0, 1fr); }
+  .sq-view img { width: calc(100cqw - 100px); }
+}
 .sheet-links { display: grid; gap: var(--gap); }
 .sheet-links .btn { justify-content: flex-start; }
 .checklist { display: grid; gap: var(--gap); margin: 0; padding: 0; list-style: none; }

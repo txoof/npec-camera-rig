@@ -118,10 +118,7 @@ def test_page_loads(path: str) -> None:
 
 
 # Ids a page's script looks up only behind a flag that is off on that page.
-LOOKED_UP_ONLY_WHEN_SHOWN = {
-    # _focus_controls.html reads the mode buttons only when show_square_mode is on (Focus page).
-    "/setup/calibration": {"mode-focus-btn", "mode-square-btn"},
-}
+LOOKED_UP_ONLY_WHEN_SHOWN: dict[str, set[str]] = {}
 
 
 @pytest.mark.parametrize("path", PAGE_ROUTES)

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_ui.html" as ui %}
+{% from "_squareness_help.html" import sq_todo, sq_controls, sq_why %}
 {% set nav_active = "setup" %}
 {% block title_suffix %}: Calibration{% endblock %}
 
@@ -77,26 +78,8 @@
       {% include "_focus_controls.html" %}
     </div>
 
-    {#- Step 3's guides, handles and corner rings get their new form in the squareness PR (#136,
-        third PR); this PR moves only its text into the About page. -#}
     <div class="wizard-step" data-step="3">
-      <p class="lead">Drag the magenta tabs until the lines sit on the table edges, then nudge the rig until every corner ring is green. Nothing here is saved.</p>
-      <div class="preview-wrap level-wrap">
-        <img class="preview" id="level-overlay-image" alt="live squareness and co-planarity overlay" style="cursor: default;">
-        <div class="squareness-guides mode-square" id="squareness-guides">
-          <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
-          <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
-          <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
-          <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
-          <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
-          <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
-          <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
-        </div>
-      </div>
-      <label class="peaking-row">
-        <input type="checkbox" id="corner-check-toggle">
-        <span><strong>Corner check</strong>: the co-planarity rings, refreshed a few times a second.</span>
-      </label>
+      {% include "_squareness.html" %}
     </div>
 
     <div class="wizard-step" data-step="4">
@@ -173,15 +156,7 @@
        ("Calibration sheet", "Opens the printable PDF in a new tab.")],
       "The tags are the ruler. Covering every tray makes sure tags reach all four corners of the photo, so the scale is measured everywhere, not guessed. Sheets are reusable, so full coverage costs nothing.") }}
     {{ ui.about_page("about-cal-3", "Step 3: Check squareness and coplanarity",
-      ["Make sure the East side of the table (opposite the drain) is in view.",
-       "Drag the [Magenta tabs] at the edges of the image so each line sits on a table edge.",
-       "If the lines do not follow the edges, the camera is rotated or tilted: adjust the rig and check again.",
-       "Turn on [Corner check] and look at the four [Corner rings]. Nudge the rig until every ring is green.",
-       "Press [Next]."],
-      [("Magenta tabs", "Drag them to move the guide lines: the side tabs move the line across, the bottom tabs move the two upright lines. The lines are a straightening aid. They never turn red, amber or green, so they cannot be read as the rings' verdict, and they are not saved."),
-       ("Corner rings", "One ring on each corner tag, shown as soon as 2 or more corner tags are in view. The percentage compares that tag's size with the average of the others: plus means it looks bigger, so closer to the camera; minus means farther. Green is within 3% (level), amber is 3 to 8% (nudge that corner), red is over 8% (that corner needs real adjustment)."),
-       ("Corner check", "Turns the rings on. It starts off, so the live view runs smoothly while you move the lines. The rings come back each time you turn it on.")],
-      "A tilted table makes things near one edge look bigger than near the other. The rings show tilt directly, so it is fixed with the rig, not corrected with maths.") }}
+      sq_todo + ["Press [Next]."], sq_controls, sq_why) }}
     {{ ui.about_page("about-cal-4", "Step 4: Run calibration",
       ["Enter the [Calibration tag size] you measured with callipers. Leave it empty only if you have no measurement.",
        "Leave [Make this the current baseline] on, unless this is a comparison run.",
@@ -223,85 +198,17 @@
       return wizardStep === n;
     }
 
-    // Step 1's whole focus-control panel (images, autofocus/coarse/fine/peaking/lock, sharpness,
+    // Step 2's whole focus-control panel (images, autofocus/coarse/fine/peaking/lock, sharpness,
     // camera settings) is templates/_focus_controls.html -- also used standalone by
-    // setup_focus.html. showSquareMode is false here: this wizard has its own dedicated Step 2
-    // for the squareness/rotation check instead.
-    const focusControls = initFocusControls({ isActiveStep, showSquareMode: false, step: 2 });
+    // setup_focus.html.
+    const focusControls = initFocusControls({ isActiveStep, step: 2 });
 
-    // --- Step 3: squareness guide lines + live co-planarity overlay, one shared image ---
-    // The magenta draggable guide lines (straightening aid, client-side only) sit on top of
-    // the same live image the co-planarity rings are already drawn into server-side
-    // (/calibration/orientation/level.jpg) -- one live view carries both signals, instead of
-    // needing to flip between two separate steps to see them together (Aaron, 2026-09-28).
-    const squarenessGuides = document.getElementById("squareness-guides");
-    const levelOverlayImage = document.getElementById("level-overlay-image");
-    const cornerCheckToggle = document.getElementById("corner-check-toggle");
-    initSquarenessGuides(squarenessGuides, levelOverlayImage);
+    // --- Step 3: the shared squareness panel (_squareness.html, static/squareness-guides.js) ---
+    const squareness = initSquareness({ isActive: () => isActiveStep(3) });
 
-    // Loads into an off-screen probe first, swapping the visible <img>'s src only once a frame
-    // has fully loaded -- setting the visible img's src directly every tick let a slow request
-    // (e.g. right after Step 2's two video streams just stopped, still tearing down) get
-    // cancelled by the next tick's src reassignment before it ever painted, which is the more
-    // likely explanation for "blank until I navigate away and back" than the sizing bug was.
-    // `levelOverlayInFlight` skips starting a new probe while one's still pending, rather than
-    // letting probes pile up if requests are ever consistently slow.
-    // LEVEL_OVERLAY_POLL_MS: throttled from an original 500ms (Aaron, 2026-09-28) -- detecting
-    // AprilTags in every frame is real CPU cost on the Pi's own CPU, no acceleration for it, and
-    // it was making dragging the guide lines (a separate, client-side-only interaction) feel
-    // sluggish under the load. 1500ms keeps the rings live without competing as hard.
+    // Step 4's readiness poll captures a frame and finds tags every tick: real CPU on the Pi,
+    // so it runs at the same 1.5 s as the corner rings (Aaron, 2026-09-28).
     const LEVEL_OVERLAY_POLL_MS = 1500;
-    let levelOverlayInFlight = false;
-    function refreshLevelOverlay() {
-      if (levelOverlayInFlight) return;
-      levelOverlayInFlight = true;
-      const probe = new Image();
-      probe.onload = () => {
-        levelOverlayInFlight = false;
-        // Only apply this frame if rings are still what should be showing -- Corner check can
-        // be toggled off, or the wizard can move off Step 3 entirely, while this request was
-        // in flight (tag detection can take a while under load). Found by /code-review
-        // 2026-09-28: without this check, a late-arriving frame silently overwrote whatever
-        // updateCornerCheckMode had already switched to (the plain preview, or nothing).
-        if (cornerCheckShowing === "rings") {
-          levelOverlayImage.src = probe.src;
-        }
-      };
-      probe.onerror = () => {
-        levelOverlayInFlight = false;
-      };
-      probe.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
-    }
-
-    // Corner check on/off (Aaron, 2026-09-28): squaring needs to be fluid, and the detection
-    // behind the rings is real CPU competition for that. Off falls back to the plain continuous
-    // preview stream (no detection at all, same one Step 2 uses) so there is still a live image
-    // to drag the guide lines against.
-    let cornerCheckShowing = null; // "rings" | "preview" | null -- what is currently on screen
-    function updateCornerCheckMode() {
-      if (!isActiveStep(3)) {
-        if (cornerCheckShowing !== null) {
-          levelOverlayImage.removeAttribute("src");
-          cornerCheckShowing = null;
-        }
-        return;
-      }
-      if (cornerCheckToggle.checked) {
-        if (cornerCheckShowing !== "rings") {
-          cornerCheckShowing = "rings";
-          refreshLevelOverlay();
-        }
-      } else if (cornerCheckShowing !== "preview") {
-        cornerCheckShowing = "preview";
-        levelOverlayImage.src = "/preview.mjpg";
-      }
-    }
-    cornerCheckToggle.addEventListener("change", updateCornerCheckMode);
-    function pollLevelOverlay() {
-      if (isActiveStep(3) && cornerCheckToggle.checked) refreshLevelOverlay();
-      setTimeout(pollLevelOverlay, LEVEL_OVERLAY_POLL_MS);
-    }
-    pollLevelOverlay();
 
     // --- Calibration readiness (focus locked, all 4 corner tags detected, tag size entered) ---
     // Polled live while Step 4 is showing. A data-quality gate, not a safety one, so it never
@@ -538,7 +445,7 @@
       wizardNextBtn.disabled = wizardStep === STEP_TITLES.length;
       document.querySelector(".scroll").scrollTop = 0;
       focusControls.updateLiveResources();
-      updateCornerCheckMode();
+      squareness.update();
     }
 
     function goToStep(n) {
