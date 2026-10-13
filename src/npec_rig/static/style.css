@@ -562,16 +562,17 @@ a { color: #6cf; }
 .table-diagram { width: 100%; max-width: 440px; }
 /* ---------- Squareness panel (_squareness.html, squareness-guides.js; mockup 7) ----------
    The image as large as fits beside its 240px side column, 4:3, with room just outside it for
-   the handles: 48px left and right, 52px below. 250px of height: the page head, the steps bar
-   or nothing, the padding and the handles under the image. */
+   the handles: 52px left and right, 56px below. 254px of height: the page head, the steps bar
+   or nothing, the padding and the handles under the image. The handles are 44 x 64 px, not
+   64 x 64: wider ones would cover more of the image's edge, which is what is being lined up. */
 .sq-grid { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 20px; align-items: start; }
 .sq-col { container-type: inline-size; min-width: 0; }
-.sq-frame { position: relative; margin: 0 48px 52px; width: fit-content; }
+.sq-frame { position: relative; margin: 0 52px 56px; width: fit-content; }
 .sq-view { position: relative; background: #000; border: 2px solid var(--line); border-radius: var(--radius); }
 .sq-view img {
   display: block; height: auto; aspect-ratio: 4 / 3;
-  width: min(calc(100cqw - 100px), calc((100vh - 250px) * 4 / 3));
-  width: min(calc(100cqw - 100px), calc((100dvh - 250px) * 4 / 3));
+  width: min(calc(100cqw - 108px), calc((100vh - 254px) * 4 / 3));
+  width: min(calc(100cqw - 108px), calc((100dvh - 254px) * 4 / 3));
 }
 .guide { position: absolute; background: var(--guide); pointer-events: none; }
 .guide.h { left: 0; right: 0; height: 3px; margin-top: -1px; }
@@ -585,11 +586,11 @@ a { color: #6cf; }
   background-image: repeating-linear-gradient(90deg, transparent 0 6px, rgba(0, 0, 0, 0.35) 6px 8px);
 }
 .handle.hh {
-  left: -46px; width: 40px; height: 60px; transform: translateY(-50%);
+  left: -50px; width: 44px; height: 64px; transform: translateY(-50%);
   background-image: repeating-linear-gradient(0deg, transparent 0 6px, rgba(0, 0, 0, 0.35) 6px 8px);
 }
-.handle.hh.r { left: auto; right: -46px; }
-.handle.hv { top: calc(100% + 6px); width: 60px; height: 40px; transform: translateX(-50%); }
+.handle.hh.r { left: auto; right: -50px; }
+.handle.hv { top: calc(100% + 6px); width: 64px; height: 44px; transform: translateX(-50%); }
 .handle.sel { box-shadow: 0 0 0 3px var(--fg); }
 .handle:active { cursor: grabbing; }
 .legend { display: grid; gap: 10px; justify-items: start; }
@@ -598,11 +599,11 @@ kbd {
   border-radius: 4px; padding: 0 5px; color: var(--fg); background: var(--surface-2);
 }
 /* The Focus and Square page's mode switch, in the page head. */
-.work-head .choices { grid-template-columns: repeat(2, auto); gap: 16px; }
+.work-head .choices { grid-template-columns: repeat(2, auto); gap: var(--gap); }
 .work-head .choice { min-height: 52px; padding: 0 18px; align-content: center; }
 @media (max-width: 700px) {
   .sq-grid { grid-template-columns: minmax(0, 1fr); }
-  .sq-view img { width: calc(100cqw - 100px); }
+  .sq-view img { width: calc(100cqw - 108px); }
 }
 .sheet-links { display: grid; gap: var(--gap); }
 .sheet-links .btn { justify-content: flex-start; }

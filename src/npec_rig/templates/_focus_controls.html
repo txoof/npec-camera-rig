@@ -3,7 +3,8 @@
    their JS. Laid out as mockup 7 (#136): everything fits 1024x600 without scrolling.
 
    Context variables, set only by the Focus and Square page, which adds its Square mode around
-   this partial: about_title (default "Step 2: Lock focus"), about_more_todo, about_more_controls.
+   this partial: about_title (default "Step 2: Lock focus"), about_more_todo, about_more_controls,
+   about_end_with_next (default true: the last step is "Press Next").
 
    The page places the About button for "about-focus" in its head and binds it (ui.bindAbout),
    and places the Camera settings button (id camera-settings-btn), which initFocusControls binds. #}
@@ -73,8 +74,8 @@
   ("Camera settings", "Opens the settings changed less often: Auto white balance, which lets the camera correct the color of the light."),
 ] %}
 {#- The Focus and Square page adds its Square mode's steps and controls (about_more_todo,
-    about_more_controls); the wizard ends with Next. -#}
-{% if about_title is not defined %}
+    about_more_controls) and sets about_end_with_next to false; the wizard ends with Next. -#}
+{% if about_end_with_next is not defined or about_end_with_next %}
   {% set focus_todo = focus_todo + ["Press [Next]."] %}
 {% endif %}
 {% set focus_todo = focus_todo + (about_more_todo or []) %}

@@ -14,8 +14,9 @@ function initSquareness({ isActive }) {
   const pos = { h: 50, v1: 18, v2: 82 };
   const handles = document.querySelectorAll(".sq-frame .handle");
   let selected = "h";
+  let upright = "v1"; // the upright line left and right move: the last one picked
 
-  const clamp = (pct) => Math.min(99, Math.max(1, pct));
+  const clamp = (pct) => Math.min(100, Math.max(0, pct));
 
   function place(name) {
     const edge = axis[name] === "y" ? "top" : "left";
@@ -25,6 +26,7 @@ function initSquareness({ isActive }) {
 
   function select(name) {
     selected = name;
+    if (name !== "h") upright = name;
     handles.forEach((h) => h.classList.toggle("sel", h.dataset.line === name));
     Object.entries(lines).forEach(([n, line]) => line.classList.toggle("sel", n === name));
   }
@@ -55,6 +57,7 @@ function initSquareness({ isActive }) {
   const VERTICAL = ["w", "s", "arrowup", "arrowdown"];
   document.addEventListener("keydown", (e) => {
     if (!isActive() || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest && e.target.closest("input, textarea, select, [contenteditable]")) return;
     if (document.querySelector(".keypad-layer, .kb-layer, .panel-layer")) return;
     const key = e.key.toLowerCase();
     if (key === "1" || key === "2" || key === "3") {
@@ -63,7 +66,7 @@ function initSquareness({ isActive }) {
       return;
     }
     if (!(key in KEYS)) return;
-    const name = VERTICAL.includes(key) ? "h" : (selected === "h" ? "v1" : selected);
+    const name = VERTICAL.includes(key) ? "h" : upright;
     select(name);
     pos[name] = clamp(pos[name] + KEYS[key] * (e.shiftKey ? 5 : 0.5));
     place(name);
@@ -109,7 +112,7 @@ function initSquareness({ isActive }) {
   }
 
   (function poll() {
-    if (isActive() && ringsOn()) refreshRings();
+    if (isActive() && ringsOn() && !document.hidden) refreshRings();
     setTimeout(poll, LEVEL_OVERLAY_POLL_MS);
   })();
 

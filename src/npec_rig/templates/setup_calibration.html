@@ -207,8 +207,8 @@
     const squareness = initSquareness({ isActive: () => isActiveStep(3) });
 
     // Step 4's readiness poll captures a frame and finds tags every tick: real CPU on the Pi,
-    // so it runs at the same 1.5 s as the corner rings (Aaron, 2026-09-28).
-    const LEVEL_OVERLAY_POLL_MS = 1500;
+    // so it is throttled to 1.5 s, as the corner rings are (Aaron, 2026-09-28).
+    const READINESS_POLL_MS = 1500;
 
     // --- Calibration readiness (focus locked, all 4 corner tags detected, tag size entered) ---
     // Polled live while Step 4 is showing. A data-quality gate, not a safety one, so it never
@@ -241,9 +241,7 @@
           // transient network hiccup -- try again next tick
         }
       }
-      // Same real cost, same throttle as Step 3's LEVEL_OVERLAY_POLL_MS: this also captures a
-      // frame and runs AprilTag detection every tick.
-      setTimeout(pollCalibrationReadiness, LEVEL_OVERLAY_POLL_MS);
+      setTimeout(pollCalibrationReadiness, READINESS_POLL_MS);
     }
 
     // --- Calibration ---

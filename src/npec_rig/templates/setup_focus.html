@@ -18,6 +18,7 @@
 {% block content %}
   <div id="focus-mode-panel">
     {% set about_title = "Focus and Square" %}
+    {% set about_end_with_next = false %}
     {% set about_more_todo = ["To check the camera is square to the table, choose [Square]."] + sq_todo %}
     {% set about_more_controls = [("Focus and Square", "Focus shows the focus and exposure controls. Square shows the live view larger, with the guide lines and the corner rings, and hides the focus controls.")] + sq_controls %}
     {% include "_focus_controls.html" %}
