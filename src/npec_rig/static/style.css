@@ -390,10 +390,6 @@ details.help .help-body p { margin: 0 0 10px; }
   .stepper.tight .field-btn { width: auto; }
   .work-head .help-btn .lbl { display: none; }
   .help-page dl { grid-template-columns: minmax(0, 1fr); }
-  .focus-cols { grid-template-columns: minmax(0, 1fr); }
-  .live-view, .focus-col { width: 100%; }
-  .live-view img { width: 100%; height: auto; }
-  .focus-row { flex-wrap: wrap; }
   .card.condensed { grid-template-columns: minmax(0, 1fr); }
   .card.condensed .card-actions { flex-wrap: wrap; }
   .card.condensed .card-actions .btn { flex: 1 1 100px; }
@@ -518,9 +514,16 @@ details.help .help-body p { margin: 0 0 10px; }
 /* Focus controls (_focus_controls.html): the live view with the lock and exposure controls under
    it on the left, the magnified view with the lens controls under it on the right. Everything
    fits 1024x600 without scrolling (mockup 7). */
-/* The left column is wider: its Gain row also holds Auto, and the magnified view is square. */
-.focus-cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
-.focus-col { display: grid; gap: 10px; justify-items: start; min-width: 0; }
+/* The views grow with the window: as tall as the height left over the controls (470px: the page
+   head, padding, mode buttons and, with Auto exposure off, the left column's controls), never
+   under 300px, and never wider than their column. Columns 4:3, as the live view is 4:3 and the
+   magnified view square, so both are the same height. */
+.focus-cols {
+  display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 3fr); gap: 16px; align-items: start;
+  --view-h: max(300px, calc(100vh - 470px));
+  --view-h: max(300px, calc(100dvh - 470px));
+}
+.focus-col { display: grid; gap: 10px; justify-items: start; min-width: 0; container-type: inline-size; }
 .focus-row { display: flex; align-items: center; gap: 10px 8px; flex-wrap: wrap; }
 .focus-row .btn, .focus-row .switch.compact { min-height: 52px; }
 .focus-row .btn { min-width: 0; padding: 0 16px; }
@@ -528,9 +531,12 @@ details.help .help-body p { margin: 0 0 10px; }
   position: relative; width: fit-content; max-width: 100%; background: #000;
   border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden;
 }
-.live-view img { display: block; height: 300px; width: auto; max-width: 100%; }
+.live-view img {
+  display: block; height: auto; aspect-ratio: 4 / 3;
+  width: min(calc(100cqw - 4px), calc(var(--view-h) * 4 / 3));
+}
 .live-view #preview { cursor: crosshair; }
-.live-view #roi-crop { image-rendering: pixelated; }
+.live-view #roi-crop { image-rendering: pixelated; aspect-ratio: 1; width: min(calc(100cqw - 4px), var(--view-h)); }
 .live-view .tag {
   position: absolute; right: 8px; bottom: 8px; max-width: calc(100% - 16px);
   padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.75); color: var(--fg-2); font-size: 0.85rem;
@@ -574,8 +580,14 @@ details.help .help-body p { margin: 0 0 10px; }
   width: min(calc(100vw - 248px), calc((100dvh - 200px) * 4 / 3));
 }
 .focus-cols.mode-square #lock-status { display: none; }
-/* On a phone the rail is a bottom bar: only the gutter, padding and handle margins take width. */
+/* On a phone: one column, the live view and its controls first, then the magnified view, each
+   view the full width. The rail is a bottom bar there, so only the gutter, padding and handle
+   margins take width in Square mode. After the rules above, so these win. */
 @media (max-width: 700px) {
+  .focus-cols { grid-template-columns: minmax(0, 1fr); }
+  .view-stack, .live-view { width: 100%; }
+  .live-view img, .live-view #roi-crop { width: calc(100cqw - 4px); }
+  .focus-cols.mode-square .live-view { width: auto; }
   .focus-cols.mode-square .live-view img { width: calc(100vw - 120px); }
 }
 .capture-section, .calibration-section {
