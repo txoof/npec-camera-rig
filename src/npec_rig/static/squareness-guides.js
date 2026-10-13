@@ -111,8 +111,22 @@ function initSquareness({ isActive }) {
     }
   }
 
+  // A server restart ends the live view without an error event on the image (#139). A small
+  // request beside the poll notices the server going and coming back, and asks for it again.
+  let serverLost = false;
+  async function checkServer() {
+    try {
+      await fetch("/static/icons.svg", { method: "HEAD", cache: "no-store" });
+      if (serverLost && showing === "preview") image.src = `/preview.mjpg?restart=${Date.now()}`;
+      serverLost = false;
+    } catch (e) {
+      serverLost = true;
+    }
+  }
+
   (function poll() {
     if (isActive() && ringsOn() && !document.hidden) refreshRings();
+    if (showing === "preview" && !document.hidden) checkServer();
     setTimeout(poll, LEVEL_OVERLAY_POLL_MS);
   })();
 

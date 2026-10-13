@@ -424,12 +424,14 @@
       if (isActiveStep(step)) {
         try {
           const data = await (await fetch("/focus/score")).json();
+          if (serverLost) { serverLost = false; restartLiveResources(); }
           scoreValue.textContent = data.score.toFixed(1);
           scoreHistory.push(data.score);
           if (scoreHistory.length > HISTORY_LEN) scoreHistory.shift();
           drawTrace();
         } catch (e) {
-          // transient network hiccup, try again next tick
+          // transient network hiccup or a server restart, try again next tick
+          serverLost = true;
         }
       }
       setTimeout(pollScore, 300);
@@ -444,6 +446,14 @@
         previewImg.removeAttribute("src");
         roiCropImg.removeAttribute("src");
       }
+    }
+    // A server restart ends both streams without an error event on the images (#139). The score
+    // poll notices the server going and coming back, and asks for the streams again.
+    let serverLost = false;
+    function restartLiveResources() {
+      if (!isActiveStep(step)) return;
+      previewImg.src = `/preview.mjpg?restart=${Date.now()}`;
+      roiCropImg.src = `/focus/roi.mjpg?restart=${Date.now()}`;
     }
     updateLiveResources();
 
