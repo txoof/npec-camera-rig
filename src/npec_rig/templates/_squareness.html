@@ -5,29 +5,27 @@
     whenever the panel is shown or hidden. The guide lines are magenta so they can never be read
     as the rings' red, amber or green verdict. -#}
 {% import "_ui.html" as ui %}
-<div class="sq-grid">
-  <div class="sq-col">
-    <div class="sq-frame">
-      <div class="sq-view">
-        <img id="sq-image" alt="Live view of the table, with the magenta guide lines over it">
-        <div class="guide h" id="sq-line-h"></div>
-        <div class="guide v" id="sq-line-v1"></div>
-        <div class="guide v" id="sq-line-v2"></div>
-      </div>
-      <button type="button" class="handle hh hit" data-line="h" aria-label="Across line: drag up or down, or press 1 then W or S"></button>
-      <button type="button" class="handle hh r hit" data-line="h" aria-label="Across line: drag up or down, or press 1 then W or S"></button>
-      <button type="button" class="handle hv hit" data-line="v1" aria-label="Left line: drag left or right, or press 2 then A or D"></button>
-      <button type="button" class="handle hv hit" data-line="v2" aria-label="Right line: drag left or right, or press 3 then A or D"></button>
+<div class="sq-panel">
+  <div class="sq-frame">
+    <div class="sq-view">
+      <img id="sq-image" alt="Live view of the table, with the magenta guide lines over it">
+      <div class="guide h" id="sq-line-h"></div>
+      <div class="guide v" id="sq-line-v1"></div>
+      <div class="guide v" id="sq-line-v2"></div>
     </div>
+    {#- Numbered as the keyboard picks them: 1 the across line, 2 the left, 3 the right. -#}
+    <button type="button" class="handle hh hit" data-line="h" aria-label="Line 1, across: drag up or down, or press 1 then W or S">1</button>
+    <button type="button" class="handle hh r hit" data-line="h" aria-label="Line 1, across: drag up or down, or press 1 then W or S">1</button>
+    <button type="button" class="handle hv hit" data-line="v1" aria-label="Line 2, left: drag left or right, or press 2 then A or D">2</button>
+    <button type="button" class="handle hv hit" data-line="v2" aria-label="Line 3, right: drag left or right, or press 3 then A or D">3</button>
   </div>
-  <div class="stack sq-side">
-    <p class="lead">Drag the magenta handles until the lines sit on the table edges. Not saved.</p>
-    {{ ui.switch("corner-rings", "Corner rings", "Updates every 1.5 s while on.") }}
+  <div class="sq-controls">
+    {{ ui.switch("corner-rings", "Corner rings", compact=true) }}
     <div class="legend" aria-label="Corner ring colors">
-      {{ ui.chip("ok", "Within 3%") }}
-      {{ ui.chip("warn", "3 to 8%: nudge") }}
-      {{ ui.chip("fail", "Over 8%: adjust") }}
+      {{ ui.chip("ok", "Under 3%") }}
+      {{ ui.chip("warn", "3 to 8%") }}
+      {{ ui.chip("fail", "Over 8%") }}
     </div>
-    <p class="field-help">Keyboard: <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> choose a line, <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or the arrows move it, hold <kbd>Shift</kbd> to move further.</p>
   </div>
+  <p class="field-help">Drag a handle onto a table edge, or press <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to pick a line and <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or the arrows to move it. The lines are not saved.</p>
 </div>

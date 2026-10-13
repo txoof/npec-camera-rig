@@ -561,39 +561,40 @@ a { color: #6cf; }
 .split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .table-diagram { width: 100%; max-width: 440px; }
 /* ---------- Squareness panel (_squareness.html, squareness-guides.js; mockup 7) ----------
-   The image as large as fits beside its 240px side column, 4:3, with room just outside it for
-   the handles: 52px left and right, 56px below. 254px of height: the page head, the steps bar
-   or nothing, the padding and the handles under the image. The handles are 44 x 64 px, not
-   64 x 64: wider ones would cover more of the image's edge, which is what is being lined up. */
-.sq-grid { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 20px; align-items: start; }
-.sq-col { container-type: inline-size; min-width: 0; }
-.sq-frame { position: relative; margin: 0 52px 56px; width: fit-content; }
+   The image as large as fits, 4:3, with room just outside it for the handles (52px left and
+   right, 56px below) and two lines of controls under it. --sq-reserve is the height around the
+   image: the page head, padding, handles and controls; the wizard adds its steps bar. */
+.sq-panel { container-type: inline-size; display: grid; gap: 12px; --sq-reserve: 290px; }
+.wizard-step .sq-panel { --sq-reserve: 354px; }
+.sq-frame { position: relative; margin: 0 52px 56px; width: fit-content; justify-self: center; }
 .sq-view { position: relative; background: #000; border: 2px solid var(--line); border-radius: var(--radius); }
 .sq-view img {
   display: block; height: auto; aspect-ratio: 4 / 3;
-  width: min(calc(100cqw - 108px), calc((100vh - 254px) * 4 / 3));
-  width: min(calc(100cqw - 108px), calc((100dvh - 254px) * 4 / 3));
+  width: min(calc(100cqw - 108px), calc((100vh - var(--sq-reserve)) * 4 / 3));
+  width: min(calc(100cqw - 108px), calc((100dvh - var(--sq-reserve)) * 4 / 3));
+  min-width: 280px;
 }
 .guide { position: absolute; background: var(--guide); pointer-events: none; }
 .guide.h { left: 0; right: 0; height: 3px; margin-top: -1px; }
 .guide.v { top: 0; bottom: 0; width: 3px; margin-left: -1px; }
 .guide.sel { box-shadow: 0 0 0 3px rgba(255, 79, 255, 0.35); }
-/* Handles: magenta bars with grip stripes, larger than the 28px dots they replace; the picked
-   one has a white ring. touch-action: none so a drag is never taken for a page scroll. */
+/* Handles: magenta bars numbered as the keyboard picks the lines; the picked one has a white
+   ring. 44 x 64 px, not 64 x 64: wider ones would cover more of the image's edge, which is what
+   is being lined up. touch-action: none so a drag is never taken for a page scroll. */
 .handle {
   position: absolute; border: 0; padding: 0; border-radius: 8px; background: var(--guide); cursor: grab;
   touch-action: none; box-shadow: 0 0 0 2px #000;
-  background-image: repeating-linear-gradient(90deg, transparent 0 6px, rgba(0, 0, 0, 0.35) 6px 8px);
+  color: #000; font: inherit; font-size: 1.3rem; font-weight: 800; display: grid; place-items: center;
 }
-.handle.hh {
-  left: -50px; width: 44px; height: 64px; transform: translateY(-50%);
-  background-image: repeating-linear-gradient(0deg, transparent 0 6px, rgba(0, 0, 0, 0.35) 6px 8px);
-}
+.handle.hh { left: -50px; width: 44px; height: 64px; transform: translateY(-50%); }
 .handle.hh.r { left: auto; right: -50px; }
 .handle.hv { top: calc(100% + 6px); width: 64px; height: 44px; transform: translateX(-50%); }
 .handle.sel { box-shadow: 0 0 0 3px var(--fg); }
 .handle:active { cursor: grabbing; }
-.legend { display: grid; gap: 10px; justify-items: start; }
+.sq-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px var(--gap); }
+/* The ring legend on one line, three chips of one width. */
+.legend { display: grid; grid-template-columns: repeat(3, 8.5em); gap: 10px; }
+.legend .chip { justify-content: center; }
 kbd {
   font-family: var(--font-num); font-size: 0.85rem; border: 1px solid var(--line); border-bottom-width: 2px;
   border-radius: 4px; padding: 0 5px; color: var(--fg); background: var(--surface-2);
@@ -602,8 +603,8 @@ kbd {
 .work-head .choices { grid-template-columns: repeat(2, auto); gap: var(--gap); }
 .work-head .choice { min-height: 52px; padding: 0 18px; align-content: center; }
 @media (max-width: 700px) {
-  .sq-grid { grid-template-columns: minmax(0, 1fr); }
-  .sq-view img { width: calc(100cqw - 108px); }
+  .sq-view img { width: calc(100cqw - 108px); min-width: 0; }
+  .legend { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .sheet-links { display: grid; gap: var(--gap); }
 .sheet-links .btn { justify-content: flex-start; }

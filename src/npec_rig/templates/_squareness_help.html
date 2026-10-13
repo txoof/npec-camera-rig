@@ -7,9 +7,9 @@
   "Turn on [Corner rings] and look at the four rings. Nudge the rig until every ring is green.",
 ] %}
 {% set sq_controls = [
-  ("Handles", "The magenta bars just outside the image. The side handles move the across line up and down; the handles under the image move the left and right lines. Drag one, or tap it and use the keyboard. The lines are a straightening aid: they are not saved, and they are magenta so they cannot be read as the rings' verdict."),
-  ("Keyboard", "1 picks the across line, 2 the left line, 3 the right line. W and S or the up and down arrows move the across line; A and D or the left and right arrows move the picked upright line. Hold Shift to move 10 times further."),
+  ("Handles", "The magenta bars just outside the image, numbered as the keyboard picks the lines. The side handles, 1, move the across line up and down; the handles under the image, 2 and 3, move the left and right lines. Drag one, or tap it and use the keyboard. The lines are a straightening aid: they are not saved, and they are magenta so they cannot be read as the rings' verdict."),
+  ("Keyboard", "1 picks the across line, 2 the left line, 3 the right line. W and S or the up and down arrows move the across line; A and D or the left and right arrows move the picked upright line. Each press moves the line 0.5% of the image."),
   ("Corner rings", "Draws a ring on each corner tag, once 2 or more are in view. The percentage compares that tag's size with the average of the others: plus means it looks bigger, so closer to the camera; minus means farther. It starts off, so the live view runs smoothly while you move the lines; with it on the image updates every 1.5 seconds."),
-  ("Ring colors", "Green is within 3% (level), amber is 3 to 8% (nudge that corner), red is over 8% (that corner needs real adjustment). The legend beside the image says the same in words."),
+  ("Ring colors", "Green, with a check: under 3%, level. Amber, with a triangle: 3 to 8%, nudge that corner. Red, with a cross: over 8%, that corner needs real adjustment. The legend under the image shows the three."),
 ] %}
 {% set sq_why = "A tilted table makes things near one edge look bigger than near the other. The rings show tilt directly, so it is fixed with the rig, not corrected with maths." %}

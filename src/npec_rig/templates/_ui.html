@@ -23,7 +23,7 @@
 {% macro switch(id, title, description="", on=false, compact=false) -%}
 <button type="button" class="switch{% if compact %} compact{% endif %} hit" role="switch" id="{{ id }}" aria-checked="{{ 'true' if on else 'false' }}">
   <span class="track"></span>
-  <span class="txt"><strong>{{ title }}{% if not compact %} <span class="state">{{ "On" if on else "Off" }}</span>{% endif %}</strong>
+  <span class="txt"><strong>{{ title }} <span class="state">{{ "On" if on else "Off" }}</span></strong>
     {%- if description and not compact %}<span>{{ description }}</span>{% endif %}</span>
 </button>
 {%- endmacro %}

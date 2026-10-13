@@ -51,8 +51,8 @@ function initSquareness({ isActive }) {
   });
 
   // Keyboard: 1, 2, 3 pick the across, left and right line; up and down (W, S) move the across
-  // line, left and right (A, D) the picked upright line; Shift moves 10 times further. Only while
-  // the panel is showing and no keypad, keyboard or panel is open over it.
+  // line, left and right (A, D) the picked upright line, 0.5% of the image a press. Only while the
+  // panel is showing and no keypad, keyboard or panel is open over it.
   const KEYS = { w: -1, arrowup: -1, s: 1, arrowdown: 1, a: -1, arrowleft: -1, d: 1, arrowright: 1 };
   const VERTICAL = ["w", "s", "arrowup", "arrowdown"];
   document.addEventListener("keydown", (e) => {
@@ -68,7 +68,7 @@ function initSquareness({ isActive }) {
     if (!(key in KEYS)) return;
     const name = VERTICAL.includes(key) ? "h" : upright;
     select(name);
-    pos[name] = clamp(pos[name] + KEYS[key] * (e.shiftKey ? 5 : 0.5));
+    pos[name] = clamp(pos[name] + KEYS[key] * 0.5);
     place(name);
     e.preventDefault();
   });
