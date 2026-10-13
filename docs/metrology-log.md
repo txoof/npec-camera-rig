@@ -1530,10 +1530,11 @@ at 07:08, 07:18 and 07:29 UTC, 21.0 minutes first to last, shortest gap 10.1 min
 Median of the slot medians -0.05 points. These are the reference bands for the second session.
 
 **Between the sessions.** Camera events: the camera failed to open twice, 2026-10-12 08:27 and
-08:28 UTC ("Camera __init__ sequence did not complete"), and opened at 08:29. Warm app restarts
-(app only, page-only code, focus locked at 5.97 after each): 2026-10-12 08:29 (with the failed
-opens), 13:40, 14:07, 14:27 and 19:09 UTC, and 2026-10-13 07:42 UTC (the last four reported on
-#116 by the tasks that borrowed the hardware label). No lens move, no recalibration, no cold start
+08:28 UTC ("Camera __init__ sequence did not complete"), and opened at 08:29. Whether an app
+restart caused the failed opens is not recorded. Warm app restarts known (app only, page-only
+code): 2026-10-12 13:40, 14:07, 14:27 and 19:09 UTC, and 2026-10-13 07:42 UTC (the last four
+reported on #116 by the tasks that borrowed the hardware label, each with focus locked at 5.97
+after it). No lens move, no recalibration, no cold start
 (Pi on since 2026-10-07). Trays and sheets were nudged and the tape measure removed (allowed).
 
 **Second session, 2026-10-13: recorded two ways (decision, Aaron 2026-10-13).** Because of the
