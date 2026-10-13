@@ -121,7 +121,8 @@
 {#- In About page text, [Name] marks a button or other control on the page: it is shown in a
     box like a key, so the reader knows it is something to press or look at. -#}
 {% macro ui_names(text) -%}
-{{ text | e | replace("[", '<span class="ui-name">') | replace("]", "</span>") | safe }}
+{%- set parts = text.split("[") -%}
+{{ parts[0] }}{% for part in parts[1:] %}{% set name_rest = part.split("]", 1) %}<span class="ui-name">{{ name_rest[0] }}</span>{{ name_rest[1] if name_rest | length > 1 else "" }}{% endfor %}
 {%- endmacro %}
 {#- About pages: one per page or wizard step, opened by its About button and closed by Close or
     Escape (ui.bindAbout). Three parts, always: what to do (numbered steps), every control
