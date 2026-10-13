@@ -284,6 +284,9 @@ limits: where one does not work for a page, choose what does and say why in the 
   one, take a picture of it before the change and after it, and save both in
   `~/development-snapshots/`. Log each pair in `~/development-snapshots/LOG.md`: the commit id,
   the date and time (UTC), what the picture shows and what was changed (Aaron, 2026-10-13).
+  Picture the whole page, and the changed part closer where it helps.
+  `~/development-snapshots/tools/snapshot.py PATH OUT.png [--js "goToStep(3)"]` takes a
+  whole-page picture from a local copy of the page; its docstring says what it can not show.
 - **Do not restyle the site.** Colors, navigation, `base.html` and the shared rules in `style.css`
   change only under the redesign issues. A feature page uses the classes that exist.
 
