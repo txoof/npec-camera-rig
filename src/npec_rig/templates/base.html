@@ -29,12 +29,16 @@
       {% include "_camera_status.html" %}
     </nav>
     <main class="work">
-      <header class="work-head">
-        {#- A page with no breadcrumb is a section's own page: its head names the section. -#}
-        {% block breadcrumb %}
-          {%- for key, href, icon_name, label in sections if key == nav_active %}<h1>{{ label }}</h1>{% endfor -%}
-        {% endblock %}
-      </header>
+      <div class="head-block">
+        <header class="work-head">
+          {#- A page with no breadcrumb is a section's own page: its head names the section. -#}
+          {% block breadcrumb %}
+            {%- for key, href, icon_name, label in sections if key == nav_active %}<h1>{{ label }}</h1>{% endfor -%}
+          {% endblock %}
+        </header>
+        {#- A bar under the head that stays put while the work area scrolls: the wizard's steps. -#}
+        {% block subhead %}{% endblock %}
+      </div>
       <div class="scroll">
         {% block content %}{% endblock %}
       </div>
