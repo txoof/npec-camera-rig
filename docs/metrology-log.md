@@ -1575,6 +1575,15 @@ there; a scrap of tape sits on the tray edge beside it. Rounds 2 and 3 in that s
 2.8%. North 5's wider band comes from round 2 (5 tags at +3.3% to +4.3%). Neither was flagged by
 the validation checks (section 6). Script: `/home/pi/scratch/m2-acceptance-2026-10/slot_tags.py`.
 
+**Change of reference for the clean pair (decision, Aaron 2026-10-13, written at about 08:40 UTC,
+before the session it names exists).** In round 1 of `20261013T074951947771` the South 6 sheet
+was not lying flat (confirmed by Aaron), which widened that slot's band to ±5.7%, so it is not a
+fair reference. A third session of the same calibration is run on 2026-10-13 after it, with every
+sheet pressed flat and the tape scrap removed from the South 6 tray edge. That third session is
+the first session of the clean pair; its repeat on 2026-10-14 is judged against its bands with the
+same rule. It is also compared with `20261013T074951947771` as a same-day pair, for information.
+The morning session stays the repeat of 2026-10-12, with its deviation.
+
 ### 14.2 Tape measure
 
 Section 9.2 method A unchanged: steel tape from the outer edge of a tag on the South 1 sheet to the
