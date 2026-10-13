@@ -1575,7 +1575,7 @@ there; a scrap of tape sits on the tray edge beside it. Rounds 2 and 3 in that s
 2.8%. North 5's wider band comes from round 2 (5 tags at +3.3% to +4.3%). Neither was flagged by
 the validation checks (section 6). Script: `/home/pi/scratch/m2-acceptance-2026-10/slot_tags.py`.
 
-**Change of reference for the clean pair (decision, Aaron 2026-10-13, written at about 08:40 UTC,
+**Change of reference for the clean pair (decision, Aaron 2026-10-13, written at 08:19 UTC,
 before the session it names exists).** In round 1 of `20261013T074951947771` the South 6 sheet
 was not lying flat (confirmed by Aaron), which widened that slot's band to ±5.7%, so it is not a
 fair reference. A third session of the same calibration is run on 2026-10-13 after it, with every
