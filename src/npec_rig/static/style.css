@@ -233,13 +233,21 @@ details.help .help-body p { margin: 0 0 10px; }
 
 /* About pages (ui.about_page), opened from an About button in the page head. */
 .work-head .help-btn { margin-left: auto; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; flex: none; }
-.work-head .help-btn + .btn { flex: none; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; }
+.work-head .head-actions .btn { flex: none; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; }
 .help-btn .ui-icon { color: var(--accent); }
 .help-page { max-width: 70ch; display: grid; gap: 12px; color: var(--fg); }
 .help-page h2 { font-size: 1.1rem; margin: 8px 0 0; }
 .help-page ol { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
 .help-page dl { margin: 0; display: grid; grid-template-columns: minmax(8em, max-content) 1fr; gap: 10px 20px; }
 .help-page dt { font-weight: 700; }
+/* A control named in help text (ui.ui_names): boxed like a key, so it reads as something on the page. */
+.ui-name {
+  display: inline-block; padding: 0 6px; border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 6px; background: var(--surface-2); color: var(--fg); font-weight: 600; white-space: nowrap;
+}
+/* The head's buttons on the right: About is always last, so it stays in one place. */
+.head-actions { margin-left: auto; display: flex; gap: 16px; flex: none; }
+.head-actions .help-btn { margin-left: 0; }
 .help-page dd { margin: 0; color: var(--fg-2); }
 .help-page p { margin: 0; color: var(--fg-2); }
 
@@ -558,12 +566,6 @@ details.help .help-body p { margin: 0 0 10px; }
   position: absolute; left: 6px; top: 4px; padding: 0 6px; border-radius: 6px;
   background: rgba(0, 0, 0, 0.75); color: var(--fg-2); font-size: 0.8rem;
 }
-/* Step 2 of the wizard, until the wizard frame gives it a head of its own. */
-/* The wizard is 480px wide; Step 2's two views need the whole work area. */
-.calibration-section:has(.wizard-step[data-step="2"].active) { max-width: none; }
-.focus-step-head { margin-bottom: 12px; }
-.focus-step-head h3 { margin: 0; flex: 1; }
-.focus-step-head .btn { min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; }
 .lens-fault .lens-error { color: var(--fail); font-weight: 700; }
 /* Square mode on the Focus and Square page: the live view alone, larger, with room past its left,
    right and bottom edges for the guide handles. */
@@ -590,7 +592,7 @@ details.help .help-body p { margin: 0 0 10px; }
   .focus-cols.mode-square .live-view { width: auto; }
   .focus-cols.mode-square .live-view img { width: calc(100vw - 120px); }
 }
-.capture-section, .calibration-section {
+.capture-section {
   max-width: 480px;
   margin-top: 0.75rem;
 }
@@ -663,22 +665,56 @@ input[type="range"]:disabled { opacity: 0.5; }
 a { color: #6cf; }
 .wizard-step { display: none; }
 .wizard-step.active { display: block; }
-.wizard-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #333;
-  margin-bottom: 0.75rem;
-  font-size: 0.85rem;
-  color: #aaa;
+
+/* ---------- Calibration wizard (setup_calibration.html, mockup 7) ----------
+   The steps bar sits under the page head and stays put while the step scrolls. */
+.work-head .btn-back { min-height: 52px; flex: none; }
+.steps {
+  display: flex; align-items: center; gap: 12px; padding: 6px 20px;
+  border-bottom: 1px solid var(--line); background: var(--surface);
 }
-.wizard-nav-buttons { display: flex; gap: 0.5rem; }
-/* Prevents the wizard-progress label (which can shrink/wrap) from squeezing these below their
-   natural width -- a squeezed button wraps "&larr; Back" onto two lines (arrow over text) and
-   reads as square instead of the usual rectangular shape. */
-.wizard-nav-buttons button { flex-shrink: 0; }
+.step-list { flex: 1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; min-width: 0; }
+.step-nav { min-width: 0; min-height: 52px; padding: 0 14px; }
+.step-btn {
+  min-height: 52px; min-width: 0; padding: 0 6px; border-radius: var(--radius); border: 2px solid var(--line);
+  background: var(--surface); color: var(--fg-2); font: inherit; font-size: 0.95rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.step-btn .n {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  border: 2px solid currentColor; font-weight: 700; font-size: 0.9rem;
+}
+.step-btn[aria-current=step] { border-color: var(--accent); color: var(--fg); background: var(--surface-2); font-weight: 700; }
+.step-btn[aria-current=step] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+/* Done: a filled green circle with a tick in place of the number, not color alone. */
+.step-btn.done .n { background: var(--ok); border-color: var(--ok); color: #052; font-size: 0; }
+.step-btn.done .n::after { content: "\2713"; font-size: 1rem; }
+.split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.table-diagram { width: 100%; max-width: 440px; }
+/* Step 3's live image: as large as fits with its lead line and Corner check (300px of height
+   around it, 248px of width for the rail, padding, gutter and handle margins), 4:3. */
+.level-wrap { margin: 12px 20px 20px; width: min(calc(100vw - 248px), calc((100vh - 300px) * 4 / 3)); }
+.level-wrap { width: min(calc(100vw - 248px), calc((100dvh - 300px) * 4 / 3)); }
+@media (max-width: 700px) { .level-wrap { width: calc(100vw - 120px); } }
+.sheet-links { display: grid; gap: var(--gap); }
+.sheet-links .btn { justify-content: flex-start; }
+.checklist { display: grid; gap: var(--gap); margin: 0; padding: 0; list-style: none; }
+.checklist li { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.checklist .chip { white-space: normal; }
+.run-btn { min-height: 76px; }
+.table-scroll { overflow-x: auto; }
+.result-table { width: 100%; border-collapse: collapse; }
+.result-table th, .result-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.result-table th { color: var(--fg-2); font-weight: 600; font-size: 0.9rem; }
+.result-table td.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.report-lines { margin: 0; padding-left: 1.2em; color: var(--fg-2); display: grid; gap: 4px; }
+@media (max-width: 700px) {
+  .step-list { display: none; }
+  .steps { padding: 6px 14px; }
+  .step-nav { flex: 1; }
+  .work-head .btn-back .lbl { display: none; }
+  .split { grid-template-columns: minmax(0, 1fr); }
+}
 .calibration-history-list {
   display: flex;
   flex-direction: column;
