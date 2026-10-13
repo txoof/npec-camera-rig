@@ -319,6 +319,186 @@ percentile without assuming a shape, but his result needs independent observatio
 **Raw data and script.** `/home/pi/scratch/146-p95-vs-rms/` (`compare.py`, and its output
 `results.csv` and `rounds.csv`).
 
+**Result (computed 2026-10-13).** The script reproduced the stored band, median and tag count of
+every slot in every session (84 slot-sessions: 7 sessions of 12 slots). All values are in points
+of area error (%). (c) marks a central slot.
+
+**Per-slot tables.** Band, median, 2 × RMS and |median| + 2 SD in points; ratio is band / (2 × RMS); below / above 2 SD is the share of tags (%) below median - 2 SD and above median + 2 SD; round medians are the slot's median in each counted round, in order.
+
+**`20261005T071549445423`**
+
+| Slot | n | Band | Median | 2 × RMS | Band - 2 × RMS | Ratio | \|Median\| + 2 SD | Skew | Below / above 2 SD | Round medians | SD within rounds |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| North 1 | 85 | 2.12 | +0.13 | 2.10 | +0.02 | 1.01 | 2.24 | -0.57 | 4.7 / 1.2 | +0.33, +0.22, +0.05 | 1.08 |
+| North 2 | 85 | 1.94 | +0.71 | 2.19 | -0.25 | 0.89 | 2.45 | -0.35 | 5.9 / 1.2 | +0.75, +0.61, +0.81 | 0.88 |
+| North 3 (c) | 90 | 2.69 | -0.18 | 2.64 | +0.05 | 1.02 | 2.75 | -0.51 | 5.6 / 0.0 | -0.54, -0.17, +0.16 | 1.27 |
+| North 4 (c) | 90 | 3.36 | -0.48 | 3.36 | -0.01 | 1.00 | 3.56 | -0.40 | 4.4 / 0.0 | -0.51, -1.07, -0.20 | 1.52 |
+| North 5 | 90 | 1.43 | +0.00 | 1.53 | -0.10 | 0.93 | 1.54 | -0.05 | 1.1 / 1.1 | +0.00, -0.39, +0.22 | 0.77 |
+| North 6 | 90 | 2.98 | -0.53 | 2.45 | +0.53 | 1.21 | 2.61 | -1.20 | 7.8 / 0.0 | -0.53, -0.55, -0.56 | 1.05 |
+| South 1 | 90 | 1.89 | -0.01 | 1.94 | -0.05 | 0.97 | 1.96 | -0.10 | 3.3 / 1.1 | +0.16, -0.13, -0.10 | 0.99 |
+| South 2 | 85 | 1.63 | +0.45 | 1.71 | -0.08 | 0.95 | 1.95 | -0.34 | 5.9 / 0.0 | +0.47, +0.50, +0.32 | 0.76 |
+| South 3 (c) | 90 | 2.25 | +0.52 | 2.51 | -0.26 | 0.89 | 3.01 | -0.58 | 4.4 / 0.0 | +0.31, +0.53, +0.63 | 1.26 |
+| South 4 (c) | 90 | 2.38 | +0.38 | 2.55 | -0.17 | 0.93 | 3.01 | -0.48 | 5.6 / 0.0 | +0.56, +0.38, -0.19 | 1.28 |
+| South 5 | 90 | 1.51 | +0.09 | 1.64 | -0.13 | 0.92 | 1.72 | +0.23 | 2.2 / 3.3 | +0.42, -0.16, -0.01 | 0.84 |
+| South 6 | 90 | 1.78 | +0.04 | 1.82 | -0.04 | 0.98 | 1.86 | -0.14 | 2.2 / 2.2 | +0.27, +0.45, -0.11 | 0.91 |
+
+**`20261005T141310628479`**
+
+| Slot | n | Band | Median | 2 × RMS | Band - 2 × RMS | Ratio | \|Median\| + 2 SD | Skew | Below / above 2 SD | Round medians | SD within rounds |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| North 1 | 85 | 1.77 | -0.30 | 2.09 | -0.32 | 0.85 | 2.30 | -0.04 | 1.2 / 1.2 | +0.06, -0.30, -0.67 | 1.01 |
+| North 2 | 90 | 1.86 | +0.51 | 1.97 | -0.11 | 0.94 | 2.33 | -0.52 | 6.7 / 1.1 | +0.52, +0.70, +0.35 | 0.91 |
+| North 3 (c) | 85 | 2.64 | -0.39 | 2.82 | -0.18 | 0.94 | 3.09 | +0.09 | 2.4 / 2.4 | -0.75, -0.12, -0.45 | 1.34 |
+| North 4 (c) | 90 | 2.93 | -0.62 | 3.14 | -0.21 | 0.93 | 3.56 | -0.07 | 1.1 / 1.1 | -0.53, -1.07, -0.41 | 1.50 |
+| North 5 | 90 | 1.73 | +0.21 | 1.74 | -0.01 | 0.99 | 1.88 | -0.13 | 2.2 / 1.1 | +0.23, +0.19, +0.41 | 0.83 |
+| North 6 | 88 | 2.22 | +0.03 | 2.51 | -0.29 | 0.88 | 2.57 | -1.34 | 3.4 / 1.1 | +0.04, -0.33, +0.24 | 1.30 |
+| South 1 | 85 | 2.22 | -0.69 | 2.37 | -0.14 | 0.94 | 2.57 | -0.03 | 1.2 / 1.2 | -0.84, -0.55, -0.89 | 0.95 |
+| South 2 | 90 | 1.58 | +0.38 | 1.59 | -0.01 | 0.99 | 1.91 | -0.20 | 3.3 / 1.1 | +0.37, +0.12, +0.53 | 0.77 |
+| South 3 (c) | 90 | 2.44 | +0.16 | 2.60 | -0.16 | 0.94 | 2.79 | -0.65 | 4.4 / 0.0 | -0.21, +0.65, -0.12 | 1.27 |
+| South 4 (c) | 90 | 1.97 | +0.35 | 2.06 | -0.08 | 0.96 | 2.34 | -0.58 | 4.4 / 0.0 | +0.32, +0.56, +0.57 | 1.02 |
+| South 5 | 88 | 2.16 | -0.21 | 2.32 | -0.16 | 0.93 | 2.46 | -0.37 | 4.5 / 1.1 | +0.16, -0.21, -0.52 | 1.11 |
+| South 6 | 90 | 2.11 | -0.72 | 2.27 | -0.16 | 0.93 | 2.76 | +0.48 | 0.0 / 4.4 | -0.89, -0.66, -0.72 | 1.03 |
+
+**`20261007T070451149884`**
+
+| Slot | n | Band | Median | 2 × RMS | Band - 2 × RMS | Ratio | \|Median\| + 2 SD | Skew | Below / above 2 SD | Round medians | SD within rounds |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| North 1 | 86 | 3.26 | -0.90 | 3.35 | -0.08 | 0.98 | 3.46 | -1.45 | 4.7 / 0.0 | -1.28, -0.89, -0.58 | 1.25 |
+| North 2 | 88 | 2.52 | -0.80 | 2.60 | -0.09 | 0.97 | 2.74 | -0.19 | 4.5 / 1.1 | -1.40, -0.80, -0.42 | 0.86 |
+| North 3 (c) | 90 | 2.91 | -1.36 | 3.33 | -0.42 | 0.87 | 3.65 | +0.03 | 2.2 / 2.2 | -1.96, -0.83, -0.65 | 0.98 |
+| North 4 (c) | 90 | 2.33 | -0.25 | 2.38 | -0.05 | 0.98 | 2.61 | -0.36 | 3.3 / 0.0 | -0.38, -0.30, -0.20 | 1.19 |
+| North 5 | 80 | 2.41 | -0.71 | 2.22 | +0.19 | 1.08 | 2.64 | -0.04 | 1.2 / 1.2 | -0.89, -0.57, -0.20 | 0.92 |
+| North 6 | 80 | 2.97 | -0.91 | 3.22 | -0.25 | 0.92 | 3.37 | -1.40 | 3.8 / 0.0 | -1.58, -0.57, -0.93 | 1.15 |
+| South 1 | 89 | 2.82 | -1.33 | 3.28 | -0.46 | 0.86 | 3.31 | +0.09 | 3.4 / 3.4 | -1.61, -1.25, -1.20 | 0.97 |
+| South 2 | 88 | 2.21 | -0.76 | 2.39 | -0.18 | 0.92 | 2.51 | -0.04 | 1.1 / 0.0 | -1.27, -0.56, -0.65 | 0.83 |
+| South 3 (c) | 90 | 1.55 | -0.16 | 1.58 | -0.03 | 0.98 | 1.71 | -0.08 | 3.3 / 2.2 | -0.43, -0.07, -0.02 | 0.77 |
+| South 4 (c) | 85 | 1.62 | +0.11 | 1.66 | -0.04 | 0.98 | 1.77 | -0.49 | 5.9 / 0.0 | -0.05, +0.23, +0.31 | 0.83 |
+| South 5 | 81 | 3.07 | -1.20 | 3.30 | -0.23 | 0.93 | 3.29 | -0.34 | 2.5 / 1.2 | -1.72, -1.13, -0.98 | 1.00 |
+| South 6 | 90 | 2.24 | -0.37 | 2.09 | +0.15 | 1.07 | 2.31 | -0.35 | 4.4 / 1.1 | -0.42, -0.42, -0.02 | 0.97 |
+
+**`20261008T081846523784`**
+
+| Slot | n | Band | Median | 2 × RMS | Band - 2 × RMS | Ratio | \|Median\| + 2 SD | Skew | Below / above 2 SD | Round medians | SD within rounds |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| North 1 | 90 | 2.30 | +0.83 | 2.50 | -0.21 | 0.92 | 3.01 | -0.04 | 0.0 / 1.1 | +0.88, +0.47, +1.00 | 1.11 |
+| North 2 | 90 | 2.46 | +0.26 | 1.90 | +0.56 | 1.29 | 2.20 | -1.51 | 6.7 / 0.0 | -0.04, +0.31, +0.33 | 0.94 |
+| North 3 (c) | 85 | 1.97 | -0.45 | 2.22 | -0.25 | 0.89 | 2.44 | -0.10 | 3.5 / 0.0 | -0.48, -0.86, -0.11 | 0.96 |
+| North 4 (c) | 85 | 2.46 | -0.43 | 2.34 | +0.13 | 1.05 | 2.51 | -0.61 | 4.7 / 0.0 | -0.26, -0.13, -0.83 | 1.01 |
+| North 5 | 90 | 1.54 | -0.68 | 1.74 | -0.21 | 0.88 | 2.04 | +0.15 | 1.1 / 3.3 | -0.68, -0.59, -0.71 | 0.69 |
+| North 6 | 90 | 1.58 | +0.17 | 1.94 | -0.36 | 0.81 | 2.08 | +0.27 | 1.1 / 3.3 | +0.36, +0.02, +0.19 | 0.97 |
+| South 1 | 90 | 1.35 | -0.36 | 1.44 | -0.09 | 0.94 | 1.79 | +0.32 | 1.1 / 4.4 | -0.14, -0.36, -0.30 | 0.71 |
+| South 2 | 90 | 1.37 | +0.34 | 1.66 | -0.28 | 0.83 | 1.78 | +0.84 | 0.0 / 2.2 | +0.32, +0.49, +0.30 | 0.73 |
+| South 3 (c) | 85 | 2.08 | -0.13 | 2.13 | -0.05 | 0.98 | 2.24 | -0.44 | 4.7 / 0.0 | +0.02, -0.47, +0.06 | 1.02 |
+| South 4 (c) | 90 | 2.70 | -0.86 | 2.99 | -0.29 | 0.90 | 3.26 | -0.10 | 2.2 / 2.2 | -0.56, -0.56, -1.24 | 1.17 |
+| South 5 | 90 | 1.32 | -0.16 | 1.43 | -0.11 | 0.92 | 1.55 | +0.05 | 2.2 / 1.1 | -0.49, -0.09, -0.09 | 0.71 |
+| South 6 | 90 | 2.39 | +0.77 | 2.55 | -0.15 | 0.94 | 2.84 | -0.29 | 3.3 / 0.0 | +0.93, +0.64, +0.94 | 1.04 |
+
+**`20261012T070703613469`**
+
+| Slot | n | Band | Median | 2 × RMS | Band - 2 × RMS | Ratio | \|Median\| + 2 SD | Skew | Below / above 2 SD | Round medians | SD within rounds |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| North 1 | 90 | 2.95 | +0.67 | 2.81 | +0.14 | 1.05 | 3.46 | -1.08 | 6.7 / 0.0 | +0.62, +0.63, +0.75 | 1.41 |
+| North 2 | 90 | 1.45 | -0.03 | 1.51 | -0.06 | 0.96 | 1.56 | +1.18 | 0.0 / 4.4 | +0.06, -0.09, +0.00 | 0.76 |
+| North 3 (c) | 90 | 2.70 | -0.58 | 2.55 | +0.15 | 1.06 | 2.73 | -0.64 | 5.6 / 0.0 | -0.57, -0.64, -0.46 | 1.09 |
+| North 4 (c) | 85 | 2.40 | -0.40 | 2.37 | +0.04 | 1.02 | 2.55 | -0.36 | 4.7 / 0.0 | -0.62, -0.19, -0.59 | 1.06 |
+| North 5 | 90 | 1.39 | -0.31 | 1.51 | -0.12 | 0.92 | 1.76 | -0.01 | 2.2 / 3.3 | -0.34, -0.38, -0.19 | 0.72 |
+| North 6 | 90 | 1.83 | +0.12 | 1.97 | -0.14 | 0.93 | 2.07 | +0.07 | 1.1 / 1.1 | +0.17, +0.07, -0.06 | 0.99 |
+| South 1 | 90 | 1.36 | -0.07 | 2.22 | -0.86 | 0.61 | 2.28 | -2.34 | 3.3 / 0.0 | -0.32, +0.02, -0.12 | 1.10 |
+| South 2 | 90 | 3.03 | +0.52 | 2.67 | +0.37 | 1.14 | 2.78 | +1.53 | 0.0 / 6.7 | +0.55, +0.58, +0.44 | 1.13 |
+| South 3 (c) | 90 | 2.85 | -0.42 | 2.66 | +0.19 | 1.07 | 2.89 | -0.67 | 4.4 / 0.0 | -0.31, -0.35, -0.68 | 1.23 |
+| South 4 (c) | 85 | 3.39 | -0.95 | 3.46 | -0.07 | 0.98 | 3.59 | -0.33 | 4.7 / 0.0 | -0.70, -0.78, -1.52 | 1.27 |
+| South 5 | 85 | 1.30 | +0.15 | 1.49 | -0.19 | 0.88 | 1.61 | +0.28 | 1.2 / 1.2 | +0.18, +0.11, +0.19 | 0.74 |
+| South 6 | 90 | 2.58 | +1.14 | 2.96 | -0.38 | 0.87 | 3.06 | -0.54 | 3.3 / 1.1 | +1.00, +1.37, +1.17 | 0.96 |
+
+**`20261013T074951947771`**
+
+| Slot | n | Band | Median | 2 × RMS | Band - 2 × RMS | Ratio | \|Median\| + 2 SD | Skew | Below / above 2 SD | Round medians | SD within rounds |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| North 1 | 90 | 2.43 | +0.64 | 2.55 | -0.12 | 0.95 | 2.90 | +0.07 | 2.2 / 3.3 | +0.55, +0.88, +0.37 | 1.16 |
+| North 2 | 90 | 1.43 | +0.11 | 1.50 | -0.07 | 0.95 | 1.63 | -0.67 | 3.3 / 0.0 | +0.11, -0.11, +0.15 | 0.75 |
+| North 3 (c) | 85 | 2.51 | -0.62 | 2.71 | -0.20 | 0.93 | 2.89 | -0.40 | 3.5 / 0.0 | -0.40, -0.54, -1.17 | 1.13 |
+| North 4 (c) | 85 | 2.88 | -0.62 | 2.67 | +0.22 | 1.08 | 3.04 | -0.56 | 3.5 / 0.0 | -0.58, -0.23, -0.71 | 1.22 |
+| North 5 | 90 | 3.12 | +0.25 | 2.36 | +0.75 | 1.32 | 2.53 | +1.49 | 0.0 / 6.7 | +0.20, +0.56, +0.02 | 1.10 |
+| North 6 | 90 | 2.13 | +0.36 | 2.22 | -0.09 | 0.96 | 2.44 | -0.17 | 3.3 / 1.1 | +0.60, +0.12, +0.12 | 1.08 |
+| South 1 | 90 | 1.17 | +0.19 | 1.23 | -0.05 | 0.96 | 1.43 | -0.12 | 4.4 / 1.1 | +0.24, +0.19, +0.14 | 0.63 |
+| South 2 | 90 | 1.89 | +0.58 | 2.23 | -0.34 | 0.85 | 2.68 | -2.12 | 4.4 / 0.0 | +0.44, +0.54, +0.75 | 1.05 |
+| South 3 (c) | 90 | 2.45 | -0.22 | 2.34 | +0.11 | 1.05 | 2.46 | -0.62 | 5.6 / 0.0 | -0.56, +0.14, -0.18 | 1.11 |
+| South 4 (c) | 85 | 3.04 | -0.86 | 3.23 | -0.19 | 0.94 | 3.42 | -0.33 | 3.5 / 0.0 | -0.86, -1.10, -0.76 | 1.28 |
+| South 5 | 90 | 1.09 | +0.22 | 1.32 | -0.23 | 0.83 | 1.52 | -0.16 | 1.1 / 1.1 | +0.23, +0.21, +0.17 | 0.66 |
+| South 6 | 90 | 5.69 | +1.29 | 4.83 | +0.86 | 1.18 | 5.08 | +2.12 | 0.0 / 6.7 | +1.59, +1.40, +0.91 | 1.85 |
+
+**`20261013T081945572660`**
+
+| Slot | n | Band | Median | 2 × RMS | Band - 2 × RMS | Ratio | \|Median\| + 2 SD | Skew | Below / above 2 SD | Round medians | SD within rounds |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| North 1 | 90 | 2.80 | +0.73 | 2.69 | +0.11 | 1.04 | 2.94 | +0.48 | 1.1 / 4.4 | +0.71, +0.62, +0.78 | 1.13 |
+| North 2 | 90 | 1.55 | -0.03 | 1.63 | -0.08 | 0.95 | 1.66 | +0.13 | 2.2 / 2.2 | +0.03, +0.02, -0.36 | 0.83 |
+| North 3 (c) | 85 | 2.60 | -0.47 | 2.63 | -0.04 | 0.99 | 2.85 | -0.81 | 4.7 / 0.0 | +0.16, -0.72, -0.52 | 1.14 |
+| North 4 (c) | 85 | 2.57 | -0.34 | 2.57 | -0.00 | 1.00 | 2.75 | -0.59 | 3.5 / 0.0 | -0.61, +0.12, -0.73 | 1.15 |
+| North 5 | 90 | 1.16 | +0.00 | 1.31 | -0.16 | 0.88 | 1.32 | +0.31 | 0.0 / 2.2 | +0.07, +0.00, -0.04 | 0.67 |
+| North 6 | 90 | 2.14 | +0.42 | 2.24 | -0.10 | 0.96 | 2.45 | +0.33 | 1.1 / 3.3 | +0.60, +0.19, +0.45 | 1.01 |
+| South 1 | 90 | 1.54 | +0.01 | 1.68 | -0.14 | 0.92 | 1.70 | +0.25 | 0.0 / 4.4 | -0.08, +0.08, -0.19 | 0.87 |
+| South 2 | 90 | 1.96 | +0.58 | 2.05 | -0.10 | 0.95 | 2.18 | +0.69 | 0.0 / 2.2 | +0.59, +0.70, +0.58 | 0.80 |
+| South 3 (c) | 90 | 2.58 | -0.24 | 2.49 | +0.09 | 1.03 | 2.64 | -0.67 | 5.6 / 0.0 | -0.00, -0.82, +0.24 | 1.16 |
+| South 4 (c) | 85 | 3.26 | -1.21 | 3.74 | -0.48 | 0.87 | 3.96 | -0.25 | 2.4 / 1.2 | -1.81, -0.90, -0.89 | 1.33 |
+| South 5 | 90 | 1.08 | +0.27 | 1.25 | -0.17 | 0.86 | 1.47 | -0.05 | 2.2 / 1.1 | +0.27, +0.26, +0.27 | 0.61 |
+| South 6 | 90 | 2.66 | +1.36 | 3.17 | -0.51 | 0.84 | 3.23 | -0.56 | 5.6 / 0.0 | +1.54, +1.43, +0.95 | 0.97 |
+
+**Summary.**
+
+1. **Agreement.** In 70 of 84 slot-sessions the band and 2 × RMS differ by 0.3 points or less (9
+   to 11 of 12 slots per session). The median ratio is 0.95 (lowest 0.61, highest 1.32), inside
+   the 0.93 to 0.98 that normal errors would give.
+2. **Where they differ by more than 0.3 points.** The band is wider in 5 of 84, and 2 × RMS is
+   wider in 9 of 84. Where 2 × RMS is wider, it is the more cautious number, as it is for normal
+   errors with a bias.
+3. **The 5 slots where the band is wider are none of the central ones** (0 of 28 central
+   slot-sessions): North 6 (2026-10-05 07:15, +0.53), North 2 (2026-10-08, +0.56), South 2
+   (2026-10-12, +0.37), North 5 (2026-10-13 07:49, +0.75) and South 6 (2026-10-13 07:49, +0.86).
+   Each has a tail on one side only: 6.7% to 7.8% of its tags lie beyond 2 SD on that side, none
+   on the other, and its skew is 1.2 to 2.1 in size. In each, the tail tags come from one or two
+   of the 3 photographs. For example, South 6 on 2026-10-13 07:49 has 6 tags reading +5.6% to
+   +9.5% in round 1 and none in rounds 2 and 3; North 2 on 2026-10-08 has 6 tags at -2.5% to
+   -3.0%, all in round 1. So these tails are something that happened to a group of tags in one
+   photograph, not scatter from tag to tag. What it was (for example a sheet not lying flat) was
+   not examined. In these 5 slots |median| + 2 SD is also smaller than the band: a normal
+   estimate, with or without the bias kept apart, would have reported a narrower band than the
+   tags showed.
+4. **Central slots.** Band and 2 × RMS agree in 26 of 28 (median ratio 0.98); the other 2 have
+   2 × RMS wider. Their errors lean low: skew is negative in 26 of 28 (median -0.46), and on
+   average 4.1% of their tags lie below median - 2 SD against 0.4% above (2.3% each for normal
+   errors; the other slots: 2.6% and 1.9%). This is the pattern the central low reading (section
+   7) would give, with the tags of a central slot nearest the image centre reading smallest, but
+   that was not tested here. The lean is not strong enough to push the band past 2 × RMS.
+5. **All slots.** Skew is below -0.52 (2 standard errors) in 24 of 84 and above +0.52 in 6. On
+   average 3.1% of tags lie below median - 2 SD and 1.4% above. The errors lean towards reading
+   small.
+6. **|Median| + 2 SD** is wider than the band in 79 of 84 (median by 0.29 points, at most 0.92),
+   and narrower in the 5 slots of item 3.
+7. **Between rounds.** The SD of tags about their own round's median (median over slot-sessions
+   1.01 points) is nearly the whole SD about the slot median (1.03): their ratio has a median of
+   1.00 and is never below 0.86. A slot's 3 round medians differ by a median of 0.40 points, at
+   most 1.31. Most of a slot's spread is between tags in the same photograph; shifts between
+   rounds add little to the SD. The one-sided tails of item 3 are the exception, since each
+   belongs to one photograph.
+
+**What this means.** On this rig's data the percentile band and the normal estimate 2 × RMS are
+the same number to within 0.3 points in 5 of every 6 slot-sessions, so using a percentile costs
+nothing where the errors are close to normal. Where they differ by more, it is in both
+directions: in 9 slot-sessions 2 × RMS is the wider, as normal errors with a bias would give; in
+5 the band is the wider, and every one of those 5 is a group of tags in one photograph reading
+off together. In those 5 a normal estimate would have under-reported the spread by 0.37 to 0.86
+points. The central slots, where the known central error sits, are not among them.
+
+**What it does not show.** No confidence level can be attached to any band or ratio here: the 3
+rounds are not independent samples of 85 to 90 tags (method, above). With 85 to 90 tags the
+95th percentile lies between the 4th and 5th largest |error|, so 5 or 6 tags reading off together
+in one photograph decide the band; in this data such groups put the band above 2 × RMS by up to
+0.86 points. This comparison does not say whether such a photograph should count; that is
+outside this check. 7 sessions from 4
+calibrations, 2 cameras; nothing here covers plants, plant height or segmentation. The pass or
+fail of the 14.1 repeat validation is not judged here.
+
 ## 7. Known error sources
 
 **Central error of the Arducam (closed investigation, `reference/arducam-central-error-2026-10.md`).**
