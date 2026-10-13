@@ -1584,6 +1584,34 @@ the first session of the clean pair; its repeat on 2026-10-14 is judged against 
 same rule. It is also compared with `20261013T074951947771` as a same-day pair, for information.
 The morning session stays the repeat of 2026-10-12, with its deviation.
 
+**Third session, 2026-10-13: the first session of the clean pair.** Session
+`20261013T081945572660`, same calibration, lens 5.97 locked; every sheet pressed flat and its
+corners checked, tape scrap removed; rounds at 08:22, 08:32 and 08:50 UTC, 28.1 minutes first to
+last, shortest gap 10.6 minutes, door closed; 100%, 90.4% and 69.0% of tags moved; 85 to 90 tags
+per slot. No camera events since the morning session.
+
+| Slot | Band | Median error | Slot | Band | Median error |
+|---|---|---|---|---|---|
+| North 1 | ±2.8% | +0.73 | South 1 | ±1.5% | +0.01 |
+| North 2 | ±1.5% | -0.03 | South 2 | ±2.0% | +0.58 |
+| North 3 | ±2.6% | -0.47 | South 3 | ±2.6% | -0.24 |
+| North 4 | ±2.6% | -0.34 | South 4 | ±3.3% | -1.21 |
+| North 5 | ±1.2% | +0.00 | South 5 | ±1.1% | +0.27 |
+| North 6 | ±2.1% | +0.42 | South 6 | ±2.7% | +1.36 |
+
+Median of the slot medians 0.00 points. These are the reference bands for the 2026-10-14 repeat.
+
+Checked round by round before the session was closed (Aaron asked whether any round should be
+redone): none. South 4 in round 1 read lower than in rounds 2 and 3 (median -1.81 against -0.90
+and -0.89, 7 tags beyond 3%), but its tags read smoothly lower toward the image centre (from about
+0% at the sheet's far corner to -4.8% at the corner nearest the centre), the known central error
+(section 7) with the sheet sitting nearer the centre than usual, not a sheet off the tray.
+
+**Same-day pair, for information** (this session against the morning session's bands, the same
+rule): 93.6% of the whole table (997 of 1065) inside; lowest slot South 1, 86%. It would pass. The
+morning bands of North 5 (±3.1%) and South 6 (±5.7%) were widened by single rounds, so those two
+slots hold 100% here and say little.
+
 ### 14.2 Tape measure
 
 Section 9.2 method A unchanged: steel tape from the outer edge of a tag on the South 1 sheet to the
