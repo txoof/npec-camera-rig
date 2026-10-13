@@ -125,7 +125,29 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     manager = CameraManager._instance
     close = getattr(manager._backend, "close", None) if manager is not None else None
     if close is not None:
-        await run_in_threadpool(close)
+        await run_in_threadpool(_close_camera_when_idle, manager, close)
+
+
+# The launch command's --timeout-graceful-shutdown cancels a live stream that is still open, but a
+# frame grab it has started goes on in its worker thread. Closing the camera program under that
+# grab would read as a camera fault and restart it (#139), so the close waits for _call_lock. The
+# wait is bounded above the longest camera call limit (camera_process.CALL_TIME_LIMITS_S).
+SHUTDOWN_CAMERA_IDLE_WAIT_S = 120.0
+
+
+def _close_camera_when_idle(manager: CameraManager, close: Callable[[], None]) -> None:
+    """Run `close` holding the manager's call lock, so no camera call is in flight under it."""
+    acquired = manager._call_lock.acquire(timeout=SHUTDOWN_CAMERA_IDLE_WAIT_S)
+    if not acquired:
+        logger.error(
+            "A camera call was still running after %.0f s at shutdown; closing the camera anyway",
+            SHUTDOWN_CAMERA_IDLE_WAIT_S,
+        )
+    try:
+        close()
+    finally:
+        if acquired:
+            manager._call_lock.release()
 
 
 app = FastAPI(title="NPEC Camera Rig", lifespan=_lifespan)

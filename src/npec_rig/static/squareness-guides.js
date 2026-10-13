@@ -111,6 +111,17 @@ function initSquareness({ isActive }) {
     }
   }
 
+  // A server restart ends the live view (#139): ask again every 2 s until the server is back.
+  image.addEventListener("error", () => {
+    const stream = image.getAttribute("src");
+    if (showing !== "preview" || !stream || !stream.includes(".mjpg")) return;
+    setTimeout(() => {
+      if (showing === "preview" && image.getAttribute("src") === stream) {
+        image.src = `/preview.mjpg?retry=${Date.now()}`;
+      }
+    }, 2000);
+  });
+
   (function poll() {
     if (isActive() && ringsOn() && !document.hidden) refreshRings();
     setTimeout(poll, LEVEL_OVERLAY_POLL_MS);

@@ -445,6 +445,16 @@
         roiCropImg.removeAttribute("src");
       }
     }
+    // A server restart ends both streams (#139): ask again every 2 s until the server is back.
+    [previewImg, roiCropImg].forEach((img) => img.addEventListener("error", () => {
+      const stream = img.getAttribute("src");
+      if (!stream || !stream.includes(".mjpg")) return;
+      setTimeout(() => {
+        if (img.getAttribute("src") === stream && isActiveStep(step)) {
+          img.src = `${stream.split("?")[0]}?retry=${Date.now()}`;
+        }
+      }, 2000);
+    }));
     updateLiveResources();
 
     // --- Lock / unlock focus (/focus/lock and /focus/unlock) ---

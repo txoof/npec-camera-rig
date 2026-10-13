@@ -176,6 +176,18 @@ server was running with (`ps -eo args | grep uvicorn`). When Aaron has tried the
 server back as it was and remove the label. Everyone else writes code and runs unit tests with the
 synthetic camera, then waits for the label.
 
+**Restarting the port 8000 server.** Stop it with SIGTERM, never SIGINT or Ctrl+C (a second
+SIGINT makes uvicorn skip the app's shutdown, and the camera is not closed), and wait until the
+old PID is gone before relaunching. Launch it with `--timeout-graceful-shutdown 5`, so open
+browser tabs with a live view hold a restart for 5 s at most instead of until they are closed
+(#139):
+
+```bash
+/home/pi/npec_camera_rig/.venv/bin/python3 /home/pi/npec_camera_rig/.venv/bin/uvicorn \
+  npec_rig.app:app --app-dir /home/pi/npec_camera_rig/src --host 0.0.0.0 --port 8000 \
+  --timeout-graceful-shutdown 5
+```
+
 **Area map.** Which files a task may change. A test file goes with its module.
 
 | Area | Files |

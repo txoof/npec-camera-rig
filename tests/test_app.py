@@ -2,6 +2,8 @@ import asyncio
 import io
 import json
 import re
+import threading
+import time
 from pathlib import Path
 
 import numpy as np
@@ -1780,3 +1782,53 @@ def test_a_camera_program_that_cannot_start_answers_503() -> None:
 def test_every_page_has_the_camera_status_line() -> None:
     page = TestClient(app).get("/setup").text
     assert 'id="camera-status"' in page
+
+
+class _ClosingBackend(SyntheticBackend):
+    """Records when close() runs, to check the app's shutdown waits for an in-flight call."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.closed_at: float | None = None
+
+    def close(self) -> None:
+        self.closed_at = time.monotonic()
+
+
+def test_shutdown_closes_the_camera_only_after_an_in_flight_call(monkeypatch) -> None:
+    # A live stream cut off by --timeout-graceful-shutdown can leave a frame grab running in its
+    # worker thread; closing the camera under it would read as a camera fault (#139).
+    backend = _ClosingBackend()
+    manager = CameraManager(backend)
+    CameraManager.set_instance(manager)
+    released_at: list[float] = []
+
+    def hold_the_call_lock() -> None:
+        with manager._call_lock:
+            started.set()
+            time.sleep(0.3)
+            released_at.append(time.monotonic())
+
+    started = threading.Event()
+    grab = threading.Thread(target=hold_the_call_lock)
+    grab.start()
+    started.wait()
+    with TestClient(app):
+        pass
+    grab.join()
+    assert backend.closed_at is not None
+    assert backend.closed_at >= released_at[0]
+
+
+def test_shutdown_closes_the_camera_even_if_a_call_never_finishes(monkeypatch) -> None:
+    monkeypatch.setattr(app_module, "SHUTDOWN_CAMERA_IDLE_WAIT_S", 0.1)
+    backend = _ClosingBackend()
+    manager = CameraManager(backend)
+    CameraManager.set_instance(manager)
+    manager._call_lock.acquire()
+    try:
+        with TestClient(app):
+            pass
+    finally:
+        manager._call_lock.release()
+    assert backend.closed_at is not None
