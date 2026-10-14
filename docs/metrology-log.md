@@ -1752,6 +1752,21 @@ calibration stayed `20261012T070607812512`. Reference photo 07:39:09 UTC,
 `experiments/2026-10-12_631bb6b5/stills/2026-10-14/073909_652339` (saved in a test experiment's
 folder), no flags; Pi up 591512 s. Sheets pressed flat and not touched from calibration A on.
 
+**Run, parts B and C.** Pi shut down by Aaron after the reference photo and unplugged, off about
+30 minutes (Aaron); table untouched. The app's own record gives 2132 s (35.5 min) from its last run
+before the shutdown to its next start. Power on: Pi booted 08:17:19 UTC (boot
+`de439e0f-5bb8-4db1-8348-efad2a5a7513`). Nothing started automatically; at 08:18:50 UTC the server
+(the usual command) and `settling_photos.sh` were started from this session. The +0 photo was
+taken at 08:18:59 UTC, Pi up 99 s, app up 5 s, lens check passed (reported 5.97, locked 5.97),
+photo flagged "inside the 60 min cold-start window". No camera events. Photos are saved in the
+test experiment's folder `experiments/2026-10-12_631bb6b5/stills/2026-10-14/`. Comparison script:
+`/home/pi/scratch/m2-acceptance-2026-10/settling_compare.py` (area errors with calibration A's
+scale field; slot boxes from session `20261014T070107213176`; calibration sheet tags only).
+
+| Photo | Time (UTC) | Tags found, matched (of 359 in the reference) | Median change | Spread (SD) | Ring 1000 to 1500 px | Largest slot median |
+|---|---|---|---|---|---|---|
+| +0 | 08:18:59 | 331, 331 | -2.73 | 1.03 | -1.80 | -3.69 (North 1, North 5) |
+
 ### 14.4 Two heights
 
 Section 9.1 unchanged: one calibration with the sheets on the table surface, one on the trays at
