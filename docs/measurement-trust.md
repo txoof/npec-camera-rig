@@ -1,8 +1,11 @@
 # Why the rig's area measurements can be trusted
 
-**Status:** 2026-10-08. The camera was replaced on 2026-10-07 (old SN000, new SN001); the current
-calibration and bands are SN001's, made 2026-10-08. The M2 physical acceptance tests were run in
-the chamber on 2026-10-05, on SN000. The two-height, tape and roll tests passed. The check of the
+**Status:** 2026-10-14. The camera was replaced on 2026-10-07 (old SN000, new SN001); the current
+calibration and bands are SN001's, made 2026-10-14 at lens 6.05. The M2 physical acceptance tests
+were run on SN000 on 2026-10-05 and repeated on SN001 from 2026-10-12 to 10-14
+(`docs/metrology-log.md`, section 14): the repeat validation on another day, the tape, the two
+calibrations with a cold start between them, the two-height and the roll tests passed; a knock
+was detected but read DRIFT, not FAIL. The check of the
 calibration's own uncertainty claim failed, so that claim is no longer used (see *An independent
 check, which sets the band*). Which results were repeated on SN001 is listed in
 `docs/metrology-log.md`, section 13. The evidence for every number here, with its source, is in
@@ -84,14 +87,21 @@ times. A round counts only if at least half the tags actually moved, so the same
 counted twice. The calibration photograph itself is never used. In each slot, the band is the
 distance from the true area that 95% of the tags fall within, over all rounds.
 
-**Evidence.** The current validation (SN001, 2026-10-08, lens 6.04): 3 rounds spread over 23.6
-minutes, 74% to 87% of tags moved each round, 85 to 90 tags per slot, bands ±1.3% to ±2.7%. The
+**Evidence.** The current validation (SN001, 2026-10-14, lens 6.05): 3 rounds spread over 33.5
+minutes, 64% to 84% of tags moved each round, 85 to 90 tags per slot, bands ±1.3% to ±2.6%. The
+previous SN001 validation (2026-10-08, lens 6.04) gave ±1.3% to ±2.7%. The
 old camera's validation of 2026-10-05 (lens 6.27, rounds within 1.5 minutes) gave ±1.58% to
 ±2.93%. The band is therefore not an estimate: it is the observed spread of real measurements of
 known targets, in that slot, at that focus. Each band comes from one validation session; how much
 a band changes from one validation to the next is shown by the sessions of 2026-10-05 and
 2026-10-07 on the same calibration (metrology-log section 6): single slots differed by up to 1.5
 points (North 1, ±1.77% then ±3.3%), with a cold start, a camera fault and lens tests in between.
+
+**The band holds the next day.** On SN001 a validation was repeated the next day with nothing
+recalibrated or moved (2026-10-13 and 10-14, metrology-log 14.1): 94.1% of the second day's tags
+fell inside the first day's bands (rule, set before the test: at least 90%, no slot below 75%;
+lowest slot 81%), and bands changed by -0.5 to +0.3 points. The narrowest bands (about ±1.2%) had
+the fewest tags inside, because a day-to-day shift of a few tenths of a point uses more of them.
 
 **Why the calibration's own estimate is not used.** The calibration can also estimate its
 uncertainty from how closely the tags fit the scale field. Checked against validation, that
@@ -154,6 +164,22 @@ corner-tag tripwire, which compares every photo's 4 corner tags with the calibra
 - **Knock.** A firm knock on the camera mount gave FAIL (a corner tag pushed out of view). After
   re-framing, the app reported DRIFT with the roll and the tilt.
 
+**Evidence, replacement camera SN001 (2026-10-12 to 10-14, metrology-log section 14).**
+
+- **Tape measure**, about 1600 to 1740 mm along the South row: the app read about 1.3% long, tag
+  to tag and with the tape photographed (corrected for the tape's 3 to 12 mm height); the two
+  methods agree within 0.1 points. Inside the 2% required.
+- **Two calibrations with a cold start between them**, the table untouched: at the 12 slot centres
+  they differ by -0.08 to +0.19 points of area, at most about a ninth of that slot's band. So two
+  independent calibrations agree far inside the bands.
+- **Two heights**: the shape of the scale field on the table surface and on the trays (about 100 mm
+  apart) differs by at most 0.39 points, below both calibrations' residuals (0.50% and 0.66%); one
+  calibration's shape covers the tray height, with less margin than on SN000 (0.16).
+- **Camera roll**: two knocks rolled the camera 5.9° and 6.9°; the app's roll agreed with the
+  table's rails within 0.03°.
+- **Knock**: both knocks were caught and read DRIFT, not FAIL: FAIL needs a 10° roll, an 8% corner
+  scale change or a missing corner tag, and neither knock reached one.
+
 ## The band stays valid over time and after disturbance
 
 **What could go wrong.** The band is measured at one moment. If the camera's readings shifted
@@ -176,6 +202,7 @@ was compared with its own earlier reading:
 | App restart | +0.08 and +0.09 points (two attempts, 2026-10-05); within ±0.05 over 5 restarts (2026-10-06) | -0.29 points; every slot within ±0.39 over the 5 restarts |
 | App restart, replacement camera (2026-10-07) | within -0.04 to +0.06 over 5 restarts | every slot within ±0.24 over the 5 restarts (metrology-log 8.2, step 5) |
 | Power cut (cold start) | -1.73 points right after; -0.41 at +15 min; -0.14 at +60 min | -0.62 points at +60 min (South 1) |
+| Power cut (cold start), replacement camera (2026-10-14, Pi off about 35 min) | -2.73 points right after (100 s after power-on); +0.08 at +15 min; +0.07 at +60 min | every slot within 0.31 points from +15 min on (metrology-log 14.3) |
 
 Photographs of an unchanged scene differ anyway: on the old camera, two photos at different light
 levels differed by 0.27 to 0.46 points (standard deviation over tags), at most about 0.2 to 0.3
@@ -190,6 +217,8 @@ were blurrier and areas read about 1.7 points low, more than some slots' bands. 
 lens move the readings returned over the next hour: most of the change was gone after 15
 minutes, and after 60 minutes it was close to the change seen with nothing done. Readings taken in
 roughly the first 15 minutes after the app opens a cold camera are not covered by the bands.
+On the replacement camera the drop right after was larger (-2.73 points) but the readings were
+back within 0.31 points of the reference at +15 minutes and stayed there (one run, 2026-10-14).
 
 A camera fault is different too. On 2026-10-06 the camera once stopped delivering frames and the
 app had to be restarted; afterwards, at the same reported lens position, the central trays were
@@ -286,10 +315,12 @@ the extreme frame corners, and plants only sit on trays. No model is adopted.
   canopy-area milestone (M5) and is expected to add several percent.
 - **Other focus positions.** Each focus position needs its own calibration and validation.
 - **The first minutes after a power cut.** Readings in roughly the first 15 minutes after a cold
-  start are not covered by the bands (2026-10-06, one run). How long the warm-up takes in other
-  conditions is not measured.
+  start are not covered by the bands (one run on each camera, 2026-10-06 and 10-14; on SN001 the
+  readings were back by +15 minutes, but when within those 15 minutes is not known). How long the
+  warm-up takes in other conditions is not measured.
 - **Long distances across several trays.** The tape check passed, but distances across the South
-  row read 1.4% to 1.7% long while the tags at its ends read about right, which is not explained.
+  row read 1.4% to 1.7% long on SN000 and about 1.3% on SN001, while the tags at its ends read
+  about right, which is not explained. The North row cannot be reached without moving the table.
   Only the left-right direction of one row was checked. A plant is
   measured with the scale at its own slot, which validation checks directly; a distance spanning
   trays is not.
@@ -302,11 +333,14 @@ the extreme frame corners, and plants only sit on trays. No model is adopted.
   camera comes back from a fault the rig detects (a camera call that does not finish in time) are
   flagged; a fault that does not
   make a call hang is not detected.
-- **Tripwire limits.** The FAIL limits for roll (10°) and scale (8%) are provisional; the knock
-  test reached FAIL through a lost corner tag, not through those limits.
-- **One rig, two cameras, under three weeks of data.** The evidence above comes from this rig
-  between 2026-09-21 and 2026-10-08, on camera SN000 until 2026-10-07 and SN001 after. Most of the
-  acceptance tests (tape, roll, two heights, honesty plot) were run on SN000 only.
+- **Tripwire limits.** The FAIL limits for roll (10°) and scale (8%) are provisional; on SN000 the
+  knock test reached FAIL through a lost corner tag, not through those limits, and on SN001 two
+  knocks that rolled the camera 5.9° and 6.9° read DRIFT. Whether a knock of that size should read
+  FAIL is not decided.
+- **One rig, two cameras, under four weeks of data.** The evidence above comes from this rig
+  between 2026-09-21 and 2026-10-14, on camera SN000 until 2026-10-07 and SN001 after. The M2
+  acceptance tests were run on both cameras (the honesty plot only on SN000; it was dropped with
+  the claim it tested).
 
 ## Where the evidence is
 

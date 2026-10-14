@@ -9,8 +9,9 @@ calibration and bands are the new camera's from 2026-10-08. Section 13 says whic
 been repeated on SN001. Kept current as findings come in (CLAUDE.md, *Write up every
 measurement*). Numbers marked **decision** are settings chosen by the project, not measurements.
 Section 11 lists inconsistencies between project files that still need checking. Section 9
-holds the M2 physical acceptance tests, run 2026-10-05. Section 14 holds their repeat on SN001
-(method written 2026-10-09, not yet run).
+holds the M2 physical acceptance tests, run 2026-10-05 on SN000. Section 14 holds their repeat on
+SN001 (method written 2026-10-09, run 2026-10-12 to 10-14; summary in 14.7). Current calibration
+and bands: SN001, 2026-10-14, lens 6.05 (14.6).
 
 This document states every number the rig relies on to report plant canopy area and how far that
 area can be trusted: what was measured, how, how often, the result, and what it does and does
