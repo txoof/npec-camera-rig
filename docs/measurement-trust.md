@@ -159,8 +159,8 @@ most 1.96 points and sat at most 2.15 points from the rest.
 
 Conditions the bands do not cover are marked on each photo rather than averaged in. Since
 2026-10-08 a photo is flagged when its lens position differs from the focus lock, or when it was
-taken within 60 minutes of the Pi starting (a cold start; the 60 minutes is a decision until it is
-measured). A camera fault during a run is not detected yet (`docs/metrology-log.md`, section 8).
+taken within 60 minutes of the Pi starting (a cold start; the 60 minutes is a decision: one run on
+SN001 found the readings back within 15 minutes). A camera fault during a run is not detected yet (`docs/metrology-log.md`, section 8).
 
 ## Independent checks of the whole chain
 

@@ -646,8 +646,8 @@ them. This is a record of conditions, not a correction: a flagged photo is kept,
   kernel's own count, which does not depend on the clock), the seconds since the app started, and
   the gap before the app started. A photo is flagged when the Pi has been up less than 60 minutes.
   **The 60 minutes is a decision, not a measurement.** It comes from one cold start on the old
-  camera (Pi off about 30 min, recovered over about an hour, table above), and stays a placeholder
-  until a cold-start run on SN001 measures it. A reboot without a power cut is flagged too, because
+  camera (Pi off about 30 min, recovered over about an hour, table above). Measured once on SN001
+  (2026-10-14, section 14.3): readings back by +15 minutes. The 60 minutes stays a decision. A reboot without a power cut is flagged too, because
   it is not known whether the camera stays warm through one. Checked on the rig, 2026-10-08: a
   photo with focus locked at 6.04 reported 6.04 and was not flagged; one with focus unlocked was
   flagged. The cold-start flag itself is checked by unit tests only, because the Pi was not
@@ -2196,7 +2196,7 @@ to its edge points over x = 1500 to 7600 px, about 3800 to 4300 points per rail,
 neither was passed as OK; PLAN.md's wording asks for FAIL, which the tripwire gives only at a 10
 deg roll, an 8% corner scale change or a missing corner tag. On the old camera FAIL came from a
 corner tag pushed out of view. Whether a knock of this size should read FAIL is a question about
-the tripwire's provisional limits, not about the camera, and is left for a separate issue.
+the tripwire's provisional limits, not about the camera, and is not decided.
 
 **Covers.** Rolls of about 5.9 and 6.9 deg, both clockwise, produced by knocks. No table contact
 was reported.
