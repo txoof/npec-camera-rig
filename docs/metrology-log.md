@@ -1853,6 +1853,7 @@ recomputed from the saved photo with the app's own `check_tripwire`
 | Step | Photo (UTC) | Verdict | Roll | Corner scale changes |
 |---|---|---|---|---|
 | Baseline | `rig/2026-10-14/095152_652234`, 09:51:52 | OK, "no significant drift detected" | 0.00 deg | -0.06% to +0.05% |
+| Knock on the camera mount (one firm knock by hand) | `rig/2026-10-14/095420_606701`, 09:54:20 | DRIFT, "rolled 5.9 deg clockwise" | 5.86 deg | -0.46% to +0.44% |
  PLAN.md asks for about 5 deg (section 9.3 reached about
 3). **Pass:** the app's roll agrees with the rails within 0.2 deg, and the knock gives FAIL.
 
