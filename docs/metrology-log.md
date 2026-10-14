@@ -1786,6 +1786,27 @@ camera run): on SN001 the readings had recovered somewhere between +0 (100 s aft
 with room to spare. Whether to shorten it is a decision, not made here.
 
 
+**Calibration B and the comparison.** Calibration B `20261014T092907984792` (09:29 UTC, 70 minutes
+after power-on, "Set as current" off, lens 5.97 locked, 30.0 mm tags, residual 0.58%; A 0.55%);
+the current calibration stayed `20261012T070607812512`. Sheets untouched since calibration A.
+Script: `/home/pi/scratch/m2-acceptance-2026-10/two_cal.py`. Difference in area (B against A,
+twice the scale difference) at each slot centre, against the clean pair's reference bands
+(session `20261013T081945572660`):
+
+| Slot | B against A | Band | Slot | B against A | Band |
+|---|---|---|---|---|---|
+| North 1 | +0.19 | ±2.8% | South 1 | +0.06 | ±1.5% |
+| North 2 | +0.17 | ±1.5% | South 2 | +0.04 | ±2.0% |
+| North 3 | +0.13 | ±2.6% | South 3 | -0.00 | ±2.6% |
+| North 4 | +0.11 | ±2.6% | South 4 | -0.02 | ±3.3% |
+| North 5 | +0.09 | ±1.2% | South 5 | -0.05 | ±1.1% |
+| North 6 | +0.06 | ±2.1% | South 6 | -0.08 | ±2.7% |
+
+**Result: pass.** Every slot's difference is smaller than its band; the largest is about 0.11 of
+its band (North 2, 0.17 against ±1.5%). Two calibrations of the same table with a cold start
+between them agree far inside the validation bands, so the bands are not too narrow on this
+account. Old camera, 2026-09-25, without a cold start: 0.02% to 0.16% (section 8 table).
+
 ### 14.4 Two heights
 
 Section 9.1 unchanged: one calibration with the sheets on the table surface, one on the trays at
