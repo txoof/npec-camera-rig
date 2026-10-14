@@ -1746,6 +1746,12 @@ scales, doubled to give area (area error is about twice length error), is smalle
 band from 14.1. **Settling hour:** no pass or fail; the result is compared with the old camera's
 run 3 (section 8 table), and says when the readings return to within the control range.
 
+**Run, 2026-10-14 (part A, before the power cut).** Calibration A `20261014T073752589144`
+(07:38 UTC, "Set as current" off, lens 5.97 locked, 30.0 mm tags, residual 0.55%); the current
+calibration stayed `20261012T070607812512`. Reference photo 07:39:09 UTC,
+`experiments/2026-10-12_631bb6b5/stills/2026-10-14/073909_652339` (saved in a test experiment's
+folder), no flags; Pi up 591512 s. Sheets pressed flat and not touched from calibration A on.
+
 ### 14.4 Two heights
 
 Section 9.1 unchanged: one calibration with the sheets on the table surface, one on the trays at
@@ -1755,7 +1761,10 @@ scale divided by the centre scale) differs between the two by less than both run
 ### 14.5 Roll and knock
 
 Section 9.3 unchanged: tripwire baseline, a knock on the camera mount, then the camera rolled by
-hand, measured against the table rails. PLAN.md asks for about 5 deg (section 9.3 reached about
+hand, measured against the table rails. To reach the camera Aaron climbs on the table, so contact with
+the table is expected (Aaron, 2026-10-14, written before the run). Disturbed sheets and trays do
+not matter for this test; a shifted table or corner tag would show as a disagreement between the
+app's roll and the rails', and is then written up as a disturbed run. PLAN.md asks for about 5 deg (section 9.3 reached about
 3). **Pass:** the app's roll agrees with the rails within 0.2 deg, and the knock gives FAIL.
 
 ### 14.6 Closing calibration and validation
