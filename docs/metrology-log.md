@@ -1730,6 +1730,17 @@ calibration A to calibration B; the chamber stays closed.
    (section 8, *Cold-start window*).
 5. Calibration B, at least 60 minutes after power-on, with "Set as current" off.
 
+*Photo method as run (written 2026-10-14 before the run).* The reference and settling-hour photos
+are full-resolution photos taken through the app (`POST /capture`, the same `take_photo` path as a
+validation round) instead of validation rounds, because no validation session is open across a
+power cut. The settling photos are taken by
+`/home/pi/scratch/m2-acceptance-2026-10/settling_photos.sh`, started by Aaron once the server is up
+after power-on (nothing starts the server automatically); it takes the +0 photo as soon as the
+server answers and the others 15, 30 and 60 minutes after it, and logs the times, focus status
+and Pi uptime to `settling_log.txt`. The comparison is section 8.1 step 5 (each calibration tag
+matched to itself in the reference photo, same ID within 20 px), with the sheets untouched from
+the reference photo to the +60 photo.
+
 **Pass (calibrations):** at each of the 12 slot centres, the difference between the two fields'
 scales, doubled to give area (area error is about twice length error), is smaller than that slot's
 band from 14.1. **Settling hour:** no pass or fail; the result is compared with the old camera's
