@@ -1612,6 +1612,48 @@ rule): 93.6% of the whole table (997 of 1065) inside; lowest slot South 1, 86%. 
 morning bands of North 5 (±3.1%) and South 6 (±5.7%) were widened by single rounds, so those two
 slots hold 100% here and say little.
 
+**Clean repeat, 2026-10-14: pass.** Between the reference session (ended 2026-10-13 08:52 UTC)
+and this one: no camera events; no lens move, recalibration or cold start (Pi on since
+2026-10-07); warm app restarts, all reported on #116 with focus locked at 5.97 after each:
+2026-10-13 11:49, 11:51 and later during the #139 loan (shutdown change only), 12:04 (main pulled
+to `1df69c7`), 13:05, 13:52 and 14:12 UTC (#134 loans, page and plot code only). A second server
+from another task ran on port 8134 with the synthetic camera and its own data folders; it did not
+hold the camera.
+
+Session `20261014T070107213176`, same calibration `20261012T070607812512`, lens 5.97 locked; sheets
+pressed flat; rounds at 07:05, 07:16 and 07:27 UTC, 22.6 minutes first to last, shortest gap 11.0
+minutes, door closed; 97.7%, 77.7% and 74.4% of tags moved; 85 to 90 tags per slot.
+
+| Slot | Reference band (10-13) | Inside it on 10-14 | 10-14 band | 10-13 median | 10-14 median |
+|---|---|---|---|---|---|
+| North 1 | ±2.8% | 99% (84 of 85) | ±2.3% | +0.73 | +0.46 |
+| North 2 | ±1.5% | 97% (87 of 90) | ±1.3% | -0.03 | -0.19 |
+| North 3 | ±2.6% | 97% (87 of 90) | ±2.1% | -0.47 | -0.66 |
+| North 4 | ±2.6% | 98% (88 of 90) | ±2.1% | -0.34 | -0.42 |
+| North 5 | ±1.2% | 81% (73 of 90) | ±1.4% | +0.00 | -0.38 |
+| North 6 | ±2.1% | 100% (90 of 90) | ±1.6% | +0.42 | +0.30 |
+| South 1 | ±1.5% | 93% (79 of 85) | ±1.8% | +0.01 | -0.22 |
+| South 2 | ±2.0% | 95% (81 of 85) | ±1.9% | +0.58 | +0.45 |
+| South 3 | ±2.6% | 96% (86 of 90) | ±2.2% | -0.24 | -0.12 |
+| South 4 | ±3.3% | 97% (87 of 90) | ±3.1% | -1.21 | -0.81 |
+| South 5 | ±1.1% | 82% (74 of 90) | ±1.2% | +0.27 | -0.01 |
+| South 6 | ±2.7% | 96% (86 of 90) | ±2.6% | +1.36 | +1.32 |
+
+**Result: pass.** 94.1% of the whole table (1002 of 1065 tags) fell inside the reference bands
+(rule: at least 90%); lowest slot North 5, 81% (rule: no slot below 75%). Median of the slot
+medians -0.16 points (reference 0.00). Bands changed by -0.5 to +0.3 points. A slot's band
+measured on one day still described the same calibration on the next day.
+
+The two narrowest slots, North 5 (±1.2%) and South 5 (±1.1%), had the lowest fractions inside
+(81%, 82%): a narrow band leaves little room for a day-to-day shift of a few tenths of a point
+(North 5's median moved -0.38). Each slot's band comes from about 90 tags, so the narrowest ones
+are the least certain; this is the kind of result the per-slot floor (75%) was set to allow.
+
+**South 6, observed again.** In round 3 (photo `rig/2026-10-14/072749_451484`) three tags at the
+sheet corner in the south-east of the slot read +3.4%, +4.1% and +6.8%; the rest of the sheet read
+-0.0% to +2.6%. It was a different sheet from 2026-10-13's, at the same spot, so the tray may be
+lifting sheets there (not checked). It did not change the result: South 6 kept 96% inside.
+
 ### 14.2 Tape measure
 
 Section 9.2 method A unchanged: steel tape from the outer edge of a tag on the South 1 sheet to the
