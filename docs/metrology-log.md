@@ -1419,19 +1419,19 @@ This table says, for each result, whether it has been repeated on SN001.
 | Camera height, about 1482 mm | 4 | Tape-measure best estimate, not precise | Not re-measured |
 | Height effect, 0.145% per mm | 4 | One test, 3 slots | Not repeated. Depends on camera height, not on the camera unit |
 | Calibration residual | 5 | 8 calibrations, 0.516% to 0.700% | 3 calibrations, 0.491% to 0.503% |
-| Validation bands | 6 | 3 sessions | 2 sessions: lens 6.16 with foam (step 2) and lens 6.04 after (current) |
+| Validation bands | 6 | 3 sessions | 8 sessions; repeat on another day passes (14.1); current bands from 2026-10-14, lens 6.05 (14.6) |
 | Validation checks and their limits | 6 | Limits set from SN000 sessions | Both SN001 validations passed with no flags; limits not re-derived |
 | Central error against lens position | 7 | Sweep, 5 positions, one photo each | Checked once at lens 6.16 with foam on; not against lens position |
 | Photo-to-photo noise | 8, 8.2 step 3 | 3 photos at 3 light levels | 10 photos, fixed exposure, foam on |
 | Lens moved and driven back | 8 | One run | Not repeated |
 | Control (nothing done, 45 to 60 min) | 8 | Two series | Covered by the 6.8 hour overnight run |
 | App restart | 8, 8.2 step 5 | 2 attempts, then 5 restarts | 5 restarts, foam on |
-| Power cut, cold start | 8 | One run | Not repeated |
+| Power cut, cold start | 8 | One run | One run, 14.3: recovered by +15 min |
 | One photo a minute, the chamber cycle | 8.1 run 3j, 8.2 | 2 hours | 2 hours (step 6) and 6.8 hours (overnight) |
 | Lens ignores commands after a full-resolution photo | 11 | Seen twice | Seen (step 4) |
-| Two-height test | 9.1 | Pass | Not repeated |
-| Tape-measure check | 9.2 | Pass | Not repeated |
-| Roll and knock | 9.3 | Pass | Not repeated |
+| Two-height test | 9.1 | Pass | Pass, 14.4 |
+| Tape-measure check | 9.2 | Pass | Pass, 14.2 |
+| Roll and knock | 9.3 | Pass | Roll pass; knock read DRIFT, not FAIL, 14.5 |
 | Claimed uncertainty against actual error | 9.4 | Fail; the claim was removed | Not repeated (the claim is no longer shown) |
 
 Removing packing foam from SN001 changed its readings by about 0.8 points (section 8.2), so the
@@ -1888,3 +1888,43 @@ was reported.
 
 After 14.5 the camera has moved. A new calibration at experiment height, made current, and a
 complete validation give the bands the rig then runs with. Not a pass or fail test.
+
+**Run, 2026-10-14.** Aaron turned the camera back by hand after 14.5; the rails then read +0.64 deg
+at the image centre, against -0.08 deg at the 14.5 baseline, so the camera ended about 0.7 deg from
+its morning position (a new calibration follows, so this does not matter). Lens 6.05, Aaron's
+choice. Calibration `20261014T111147292361` (11:11 UTC, made current, 30.0 mm tags, residual
+0.48%). Validation session `20261014T111253582634`: counted rounds at 11:14, 11:35 and 11:47 UTC,
+33.5 minutes first to last, shortest gap 12.7 minutes; a round at 11:45 was not counted (49.6% of
+tags moved, under the 50% rule); 84.2%, 75.8% and 63.9% of tags moved in the counted rounds; 85 to
+90 tags per slot; no camera events.
+
+| Slot | Band | Median error | Slot | Band | Median error |
+|---|---|---|---|---|---|
+| North 1 | ±2.5% | +0.05 | South 1 | ±1.8% | +0.42 |
+| North 2 | ±1.6% | +0.56 | South 2 | ±1.5% | +0.13 |
+| North 3 | ±2.0% | -0.22 | South 3 | ±2.1% | -0.09 |
+| North 4 | ±2.6% | -0.62 | South 4 | ±2.6% | -0.55 |
+| North 5 | ±1.3% | -0.04 | South 5 | ±1.5% | -0.51 |
+| North 6 | ±1.9% | +0.40 | South 6 | ±2.2% | +0.90 |
+
+Median of the slot medians 0.00 points. **These are the current bands of SN001** (lens 6.05). Two
+small groups of high readings look like sheet corners not lying flat: North 1 in round 1 (2 tags,
+up to +6.1%) and South 6 in round 3 (3 tags, up to +5.5%, the third time at that slot in three
+days). Neither was flagged by the validation checks, and neither widened its slot's band much.
+The tray at South 6 has not been checked.
+
+### 14.7 Summary
+
+| Test | Pass criterion | Result on SN001 | SN000 (section 9) |
+|---|---|---|---|
+| 14.1 Repeat validation | Whole table at least 90% inside the first day's bands, no slot below 75% | **Pass**: 94.1%, lowest slot 81% (clean pair, 2026-10-13 and 10-14); also 93.7%, lowest 82% with a stated deviation (10-12 and 10-13) | Not run |
+| 14.2 Tape measure | App within 2% of the tape | **Pass**: about 1.3% long, both methods | Pass: 1.4% to 1.7% long |
+| 14.3 Two calibrations, cold start between | Difference at every slot centre smaller than its band | **Pass**: -0.08 to +0.19 points, at most 0.11 of a band | 0.02% to 0.16%, no cold start |
+| 14.3 Settling hour | None (measurement) | -2.73 points at +0, back within 0.31 by +15 min | -1.73 at +0, -0.41 at +15, -0.14 at +60 |
+| 14.4 Two heights | Shape difference below both residuals | **Pass**: 0.39 points against 0.50% and 0.66% | Pass: 0.16 |
+| 14.5 Roll | App within 0.2 deg of the rails | **Pass**: within 0.03 deg at 5.9 and 6.9 deg | Pass: 0.06 deg at 3.0 deg |
+| 14.5 Knock | A hard knock gives FAIL | **DRIFT, not FAIL**, at both knocks (rolls of 5.9 and 6.9 deg; FAIL needs 10 deg, 8% or a missing corner tag) | FAIL, through a corner tag pushed out of view |
+| 14.6 Closing calibration and validation | None | Bands ±1.3% to ±2.6%, lens 6.05 | |
+
+Every result that has a pass criterion passed except the knock, which was detected but read DRIFT
+instead of FAIL. Whether that meets PLAN.md's acceptance test is Aaron's decision.
