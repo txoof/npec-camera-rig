@@ -1,176 +1,126 @@
-{# Shared by setup_focus.html and the calibration wizard's Step 1 -- one copy of the focus
-   preview/crop images, the control panel (autofocus, coarse/fine, peaking, lock, sharpness),
-   and their JS, instead of two hand-maintained duplicates.
+{# Shared by setup_focus.html and the calibration wizard's Step 2: one copy of the live and
+   magnified views, the focus and exposure controls, the Camera settings panel, the About page and
+   their JS. Laid out as mockup 7 (#136): everything fits 1024x600 without scrolling.
 
-   Context variable: show_square_mode (bool, default false) -- true only on the standalone
-   Focus & Square page, which still combines focus adjustment with a Focus/Square mode toggle
-   and the draggable squareness guide lines. The wizard's Step 1 has its own dedicated Step 2
-   for that instead, so it renders this partial with show_square_mode unset. #}
-<div class="focus-layout">
-  <div class="preview-wrap">
-    <img class="preview" id="preview" src="/preview.mjpg" alt="live camera preview. click to place the focus ROI">
-    <div class="roi-box" id="roi-box"></div>
-    {% if show_square_mode %}
-    <div class="squareness-guides" id="squareness-guides">
-      <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
-      <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
-      <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
-      <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
-      <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
-      <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
-      <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
+   Context variables, set only by the Focus and Square page, which adds its Square mode around
+   this partial: about_title (default "Step 2: Lock focus"), about_more_todo, about_more_controls,
+   about_end_with_next (default true: the last step is "Press Next").
+
+   The page places the About button for "about-focus" in its head and binds it (ui.bindAbout),
+   and places the Camera settings button (id camera-settings-btn), which initFocusControls binds. #}
+{% import "_ui.html" as ui %}
+<div class="focus-cols" id="focus-cols">
+  <div class="focus-col">
+    {#- The sharpness trace sits under the live view, as wide as it (a grid as wide as the image). -#}
+    <div class="view-stack">
+    <div class="live-view">
+      <img id="preview" src="/preview.mjpg" alt="Live view of the whole table. Tap it to move the focus area">
+      <div class="roi-box" id="roi-box" hidden></div>
+      <span class="tag" id="lock-status">{{ ui.chip("info", "Reading focus") }}</span>
     </div>
-    {% endif %}
+    <div class="score-trace">
+      <canvas id="score-trace" width="400" height="52" aria-label="Sharpness over the last 18 seconds"></canvas>
+      <span class="tag">Sharpness, last 18 s</span>
+    </div>
+    </div>
+    <div class="focus-row">
+      {{ ui.button("Autofocus", id="autofocus-btn") }}
+      {{ ui.button("Lock focus", "primary", id="lock-btn") }}
+    </div>
+    <div class="focus-row lens-fault" id="lens-fault" hidden>
+      <span class="lens-error" id="lens-error"></span>
+      {{ ui.button("Reset camera", id="camera-reset-btn") }}
+    </div>
+    {#- While Auto exposure is on, the camera sets exposure and gain: their steppers are hidden
+        and the values it is using are shown beside the button instead. -#}
+    <div class="focus-row">
+      {{ ui.button("Auto exposure", id="auto-exposure", icon_name="ok", attrs={"aria-pressed": "false"}) }}
+      <span class="auto-values" id="auto-values" hidden></span>
+    </div>
+    <div class="focus-row" id="exposure-row">{{ ui.stepper("exposure", "Exposure", "", "ms", 0.1, 1000, 1, 3, tight=true) }}</div>
+    <div class="focus-row" id="gain-row">{{ ui.stepper("gain", "Gain", "", "x", 1, 16, 1, 2, tight=true) }}</div>
   </div>
-  <img class="roi-crop" id="roi-crop" src="/focus/roi.mjpg" alt="magnified 1:1 crop of the focus region">
+  <div class="focus-col focus-crop-col">
+    <div class="live-view">
+      <img id="roi-crop" src="/focus/roi.mjpg" alt="The focus area, magnified">
+      <span class="tag">Sharpness <strong id="score-value">-</strong></span>
+    </div>
+    <p class="lens-total">Lens position <strong id="lens-total">-</strong> dpt</p>
+    <div class="focus-row">{{ ui.stepper("lens-coarse", "Coarse", "", "dpt", 0, 15, 1, 2, tight=true) }}</div>
+    <div class="focus-row">{{ ui.stepper("lens-fine", "Fine", "", "dpt", 0, 0.99, 0.05, 2, tight=true) }}</div>
+    <div class="focus-row">{{ ui.switch("peaking-toggle", "Focus peaking", compact=true) }}</div>
+  </div>
 </div>
 
-{% if show_square_mode %}
-<div class="mode-toggle-row">
-  <button type="button" id="mode-focus-btn">Focus mode</button>
-  <button type="button" id="mode-square-btn">Square mode</button>
-</div>
+{% set focus_todo = [
+  "Tap the [Live view] on the area you want sharp. The [Magnified view] shows that area.",
+  "Press [Autofocus], or set the lens yourself with [Coarse] and [Fine] while watching the magnified view.",
+  "Check the image is neither too dark nor washed out. Turn off [Auto exposure] if needed, then change [Exposure] first and [Gain] only if needed.",
+  "When the magnified view is as sharp as it gets, press [Lock focus].",
+] %}
+{% set focus_controls = [
+  ("Live view", "The whole table as the camera sees it. Tap it to move the focus area (the red box). The label in its corner shows whether focus is locked, at which lens position, and the position the current calibration was taken at."),
+  ("Magnified view", "The focus area enlarged, so small changes in sharpness are visible. The corner shows the sharpness number: higher is sharper."),
+  ("Autofocus", "Lets the camera find focus on the focus area. Greyed out while focus is locked."),
+  ("Lock focus", "Moves the lens to the set position, always the same way, and waits until the camera reports it there. Calibration and validation use the locked position. While focus is locked the lens controls and Autofocus are greyed out; press [Unlock focus] to change it."),
+  ("Reset camera", "Shown only when the lens does not follow a command. Restarts the camera and moves the lens back to its set position."),
+  ("Coarse", "Lens position in whole dioptres (dpt). Minus and plus move one step. Tap the value to type one: a value such as 6.8 sets Coarse to 6 and Fine to 0.80."),
+  ("Fine", "Added to Coarse, 0 to 0.99 dpt. Minus and plus move 0.05, and stop at 0 and 0.99: for the next whole dioptre, use Coarse. Use it for the last bit of sharpness."),
+  ("Focus peaking", "Marks sharp edges in the magnified view in magenta. Denser marks mean sharper focus. Use it with the sharpness number, not instead of it."),
+  ("Sharpness trace", "The line under the live view: the sharpness number over the last 18 seconds, highest at the top. Move the lens until the line peaks."),
+  ("Exposure", "How long the sensor collects light for one photo. Each press is one third of a camera stop, about 1.26 times the light, shown as a shutter speed such as 1/125 s. Tap the value to type any time in milliseconds: 1 ms is 1/1000 s, so 4 ms is 1/250 s."),
+  ("Gain", "Brightens the image in the sensor, like a camera's ISO. 1 is the sensor's own sensitivity and 2 is twice as bright. More gain means more noise, so prefer a longer exposure. Each press is one third of a stop (1, 1.25, 1.6, 2 and so on); tap the value to type any multiplier."),
+  ("Auto exposure", "Lets the camera choose exposure and gain. While it is on, the Exposure and Gain controls are hidden and the values the camera is using are shown beside the button, read every 2 seconds. Turn it off to keep those values and set them yourself."),
+  ("Camera settings", "Opens the settings changed less often: Auto white balance, which lets the camera correct the color of the light."),
+] %}
+{#- The Focus and Square page adds its Square mode's steps and controls (about_more_todo,
+    about_more_controls) and sets about_end_with_next to false; the wizard ends with Next. -#}
+{% if about_end_with_next is not defined or about_end_with_next %}
+  {% set focus_todo = focus_todo + ["Press [Next]."] %}
 {% endif %}
-
-{# Three rows under the images (Aaron, 2026-10-06): the lock buttons with the focus status, then
-   the lens controls, then sharpness and focus peaking on their own line. #}
-<div class="focus-control-panel">
-  <div class="focus-control-row">
-    <button id="autofocus-btn">Autofocus</button>
-    <button id="lock-btn">Lock focus</button>
-    <button id="camera-reset-btn" type="button" style="display: none;">Reset camera</button>
-    <div class="focus-status">
-      <span id="lock-status">Focus is unlocked</span>
-      <span id="lens-error" style="color: #f66; font-weight: bold;"></span>
-    </div>
-  </div>
-  <div class="focus-control-row lens-row">
-    <label for="lens-coarse">Coarse (dioptres)</label>
-    <input type="number" id="lens-coarse" min="0" max="15" step="1" value="1" inputmode="decimal">
-    <label for="lens-fine">Fine adjust</label>
-    <input type="range" id="lens-fine" min="0" max="0.99" step="0.01" value="0">
-    <span id="lens-fine-value">.00</span>
-  </div>
-  <div class="focus-control-row sharpness-row">
-    <span>Sharpness</span>
-    <strong id="score-value">-</strong>
-    <canvas id="score-trace" width="480" height="60"></canvas>
-    <label class="peaking-inline">
-      <input type="checkbox" id="peaking-toggle">
-      <span>Focus peaking</span>
-    </label>
-  </div>
-</div>
-
-<details class="camera-controls-details">
-  <summary>Camera settings</summary>
-  <div id="camera-controls" class="camera-controls"></div>
-  <details class="focus-help">
-    <summary>How to use the camera settings</summary>
-    <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-      <strong>Auto exposure</strong> lets the camera choose the exposure time and gain. Untick it
-      to set them yourself. While it is ticked, the exposure time and gain controls are greyed out
-      and show the values the camera is using, marked (auto), updated every 2 seconds.
-    </p>
-    <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-      <strong>Exposure time</strong> is how long the sensor collects light for one photo. The
-      slider moves in the same steps as a DSLR's shutter speed (1/3 stop: each step lets in about
-      1.26 times the light of the one before), from 1/6400 s to 1 s, or as far as this camera allows. To set any other value, type
-      it in milliseconds (ms) in the box: 1 ms is 1/1000 s, so 4 ms is 1/250 s.
-    </p>
-    <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-      <strong>Analogue gain</strong> brightens the image in the sensor, like a DSLR's ISO; 1 is
-      the sensor's own sensitivity and 2 is twice as bright. Higher gain also makes the image
-      noisier, so prefer a longer exposure over more gain. The slider moves in the same 1/3-stop
-      steps (1, 1.25, 1.6, 2 ...); the box takes any value as a multiplier (x).
-    </p>
-    <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-      <strong>Auto white balance</strong> lets the camera correct the colour of the light. The
-      value next to each control is the one the camera is set to.
-    </p>
-  </details>
-</details>
-
-<details class="focus-help">
-  <summary>What do these controls do?</summary>
-  {% if show_square_mode %}
-  <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-    <strong>Focus mode:</strong> click the preview to place the focus ROI; the magnified
-    crop updates to match. <strong>Square mode:</strong> drag the guide-line tabs at the
-    frame's edge to line them up with a real edge, checking by eye that the rig sits
-    square: a straightening aid, not a saved reading.
-  </p>
-  {% else %}
-  <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-    Click the preview to place the focus ROI; the magnified crop updates to match.
-  </p>
-  {% endif %}
-  <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-    <strong>Focus peaking</strong> highlights high-contrast edges in the crop above in
-    magenta. Denser highlighting means sharper focus; use it alongside the sharpness
-    number, not instead of it.
-  </p>
-  <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-    <strong>Lock focus</strong> moves the lens to the position you set, always the same way, and
-    waits until the camera reports it there; calibration and validation then hold to that
-    position. While focus is locked the lens controls and Autofocus are greyed out; press Unlock
-    focus to change it.
-  </p>
-</details>
+{% set focus_todo = focus_todo + (about_more_todo or []) %}
+{% set focus_controls = focus_controls + (about_more_controls or []) %}
+{{ ui.about_page("about-focus", about_title or "Step 2: Lock focus", focus_todo, focus_controls,
+  "Calibration measures the scene through whatever focus is locked. If the lens moves later, every measurement shifts with it, so check focus again any time the lens may have moved.") }}
 
 <script>
-  // Defines initFocusControls only -- does not run until the including page calls it, so it is
-  // safe regardless of where this partial lands relative to the caller's own script.
-  function initFocusControls({ isActiveStep, showSquareMode, step = 1 }) {
+  // Defines initFocusControls only: it does not run until the including page calls it, so it is
+  // safe wherever this partial lands relative to the caller's own script. The shared components
+  // (static/ui.js) load deferred, after this inline script, so everything that uses them waits
+  // for the document to finish loading.
+  function initFocusControls({ isActiveStep, step = 1 }) {
     const MAIN_WIDTH = 1536;
     const MAIN_HEIGHT = 1152;
     const DEFAULT_ROI_SIZE = 200;
+    const $ = (id) => document.getElementById(id);
+    const whenReady = (fn) => (window.ui ? fn() : document.addEventListener("DOMContentLoaded", fn));
 
     // --- Lens position: autofocus + coarse (whole dioptres) + fine (.00-.99 fraction) ---
-    // The fine slider always spans a fixed .00-.99, left to right: no recentering, no
-    // dynamic range. Coarse holds the whole number; fine holds the fraction; the two just
-    // add together. Typing "6.8" into coarse splits into coarse=6, fine=.80 (80% along the
-    // slider): what you type is where the slider lands, always the same mapping.
-    // LENS_MIN/LENS_MAX start as reasonable guesses and are corrected from the probed range
-    // in loadControls() below; LensPosition's own max has already been observed to change
-    // between probes (15.0, then 32.0), so this cannot be a hardcoded constant.
+    // Coarse holds the whole number and fine the fraction; the two add together. A typed "6.8"
+    // in coarse splits into coarse 6, fine .80. LENS_MIN/LENS_MAX start as guesses and are
+    // corrected from the probed range in loadControls(): LensPosition's own max has been seen to
+    // change between probes (15.0, then 32.0), so it cannot be a constant.
     let LENS_MIN = 0, LENS_MAX = 15;
 
-    const autofocusBtn = document.getElementById("autofocus-btn");
-    const coarseInput = document.getElementById("lens-coarse");
-    const fineSlider = document.getElementById("lens-fine");
-    const fineValueLabel = document.getElementById("lens-fine-value");
-    const lensError = document.getElementById("lens-error");
-    const cameraResetBtn = document.getElementById("camera-reset-btn");
+    const autofocusBtn = $("autofocus-btn");
+    const coarseStepper = $("lens-coarse");
+    const fineStepper = $("lens-fine");
+    const coarseField = $("lens-coarse-value");
+    const fineField = $("lens-fine-value");
+    const lensFault = $("lens-fault");
+    const lensError = $("lens-error");
+    const cameraResetBtn = $("camera-reset-btn");
 
-    // The red error text, with the Reset camera button shown whenever there is one. Only the
-    // message before the details in brackets is shown, so the row keeps its height on a 1024x768
-    // screen; the full text is in the tooltip.
+    // The error text, with the Reset camera button whenever the lens does not follow. Only the
+    // message before the details in brackets is shown, so the row keeps its height; the full
+    // text is in the tooltip.
     function setLensError(text) {
       lensError.textContent = text.split(" (")[0];
       lensError.title = text;
+      lensFault.hidden = !text;
       // Only a lens that does not follow is helped by a reset, not "Focus is locked" and the like.
-      cameraResetBtn.style.display = text.startsWith("Lens not responding") ? "" : "none";
+      cameraResetBtn.hidden = !text.startsWith("Lens not responding");
     }
-
-    cameraResetBtn.addEventListener("click", async () => {
-      cameraResetBtn.disabled = true;
-      cameraResetBtn.textContent = "Resetting the camera";
-      try {
-        const r = await fetch("/camera/reset", { method: "POST" });
-        if (!r.ok) {
-          await showLensError(r);
-          return;
-        }
-        const data = await r.json();
-        setLensError("");
-        if (data.lens_position_set != null) applyLensPosition(data.lens_position_set);
-        refreshFocusStatus();
-      } finally {
-        cameraResetBtn.disabled = false;
-        cameraResetBtn.textContent = "Reset camera";
-      }
-    });
 
     function clamp(value, min, max) {
       return Math.min(max, Math.max(min, value));
@@ -184,13 +134,13 @@
         whole += 1;
         fraction = 0;
       }
-      coarseInput.value = whole;
-      fineSlider.value = fraction;
-      fineValueLabel.textContent = fraction.toFixed(2).slice(1); // "0.80" -> ".80"
+      ui.showField(coarseField, String(whole));
+      ui.showField(fineField, fraction.toFixed(2));
+      $("lens-total").textContent = (whole + fraction).toFixed(2);
     }
 
     function currentLensPosition() {
-      return clamp(Number(coarseInput.value) + Number(fineSlider.value), LENS_MIN, LENS_MAX);
+      return clamp(Number(coarseField.dataset.value) + Number(fineField.dataset.value), LENS_MIN, LENS_MAX);
     }
 
     // Every lens command waits for the camera to report the new position; a lens that does not
@@ -217,23 +167,30 @@
       }
     }
 
-    // --- Camera settings: rendered from whatever /controls reports, not hardcoded ---
-    const CONTROL_LABELS = {
-      ExposureTime: "Exposure time",
-      AnalogueGain: "Analogue gain",
-      AwbEnable: "Auto white balance",
-      AeEnable: "Auto exposure",
-    };
-    // AWB and AE are both "auto X" toggles, shown on one line together, not stacked.
-    const PAIRED_CHECKBOX_NAMES = ["AwbEnable", "AeEnable"];
-    // Manual writes to these while AE is on re-arm picamera2's manual-exposure latch (see
-    // Picamera2Backend.set_control); disable them while AeEnable is checked.
+    // One move at a time (each waits for the camera to confirm it). Presses made while one is in
+    // flight are sent as one move when it finishes, so the lens ends where the steppers show.
+    let lensSending = null; // the move in flight, if any
+    let lensWaiting = false;
+    function moveLens() {
+      if (lensSending) { lensWaiting = true; return; }
+      lensWaiting = false;
+      lensSending = sendLensPosition().catch(() => {}).finally(() => {
+        lensSending = null;
+        if (lensWaiting) moveLens();
+      });
+    }
+
+    // --- Exposure and gain: steppers in 1/3 stops, with Auto ---
     const AE_DEPENDENT_CONTROL_NAMES = ["ExposureTime", "AnalogueGain"];
-    const cameraControlsEl = document.getElementById("camera-controls");
+    const exposureStepper = $("exposure");
+    const gainStepper = $("gain");
+    const exposureField = $("exposure-value");
+    const gainField = $("gain-value");
+    const autoBtn = $("auto-exposure");
 
     // DSLR 1/3-stop series, as the camera shows them (Aaron, 2026-10-08). Each step sends the
     // labelled value exactly (1/125 is 8000 us); the camera then reports the nearest value its
-    // sensor can make (for example 7998 us), shown in ms next to the label.
+    // sensor can make (for example 7998 us).
     const EXPOSURE_STOP_LABELS = [
       "1/6400", "1/5000", "1/4000", "1/3200", "1/2500", "1/2000", "1/1600", "1/1250", "1/1000",
       "1/800", "1/640", "1/500", "1/400", "1/320", "1/250", "1/200", "1/160", "1/125", "1/100",
@@ -247,51 +204,16 @@
     const GAIN_STOPS = [
       1, 1.25, 1.6, 2, 2.5, 3.2, 4, 5, 6.4, 8, 10, 12.5, 16, 20, 25, 32, 40, 50, 64,
     ];
-    // The slider steps and the typed box for each stepped control. `toBox`/`fromBox` convert
-    // between the camera's unit and the box's.
-    const STEPPED_CONTROLS = {
-      ExposureTime: {
-        stops: EXPOSURE_STOPS_US,
-        unit: "ms",
-        toBox: (us) => Number((us / 1000).toFixed(3)),
-        fromBox: (ms) => Math.round(ms * 1000),
-        boxStep: 0.001,
-      },
-      AnalogueGain: {
-        stops: GAIN_STOPS,
-        unit: "x",
-        toBox: (gain) => Number(Number(gain).toFixed(2)),
-        fromBox: (gain) => gain,
-        boxStep: 0.01,
-      },
-    };
+    // The steppers' stops, in the fields' units (ms and x), cut to the camera's range in
+    // loadControls(). Filled in place: the steppers hold these same arrays.
+    const exposureStops = [];
+    const gainStops = [];
+    const usToMs = (us) => Number((us / 1000).toFixed(3));
+    const msToUs = (ms) => Math.round(ms * 1000);
 
-    const steppedDisplays = {};
-    const AUTO_REFRESH_MS = 2000;
-    let autoRefreshInFlight = false;
-
-    // While AE is ticked, re-read what the camera is really using, so the greyed-out controls
-    // never show a stale manual value (Aaron, 2026-10-08).
-    async function refreshAutoValues() {
-      const ae = document.getElementById("control-AeEnable");
-      const panel = cameraControlsEl.closest("details");
-      // One request at a time, and none from a hidden tab: each one waits for a camera frame.
-      if (!ae || !ae.checked || (panel && !panel.open) || document.hidden) return;
-      if (autoRefreshInFlight) return;
-      autoRefreshInFlight = true;
-      try {
-        const data = await (await fetch("/controls")).json();
-        if (!document.getElementById("control-AeEnable").checked) return;
-        AE_DEPENDENT_CONTROL_NAMES.forEach((name) => {
-          if (steppedDisplays[name]) steppedDisplays[name](data.values[name], true);
-        });
-      } catch (err) {
-        // The next refresh tries again.
-      } finally {
-        autoRefreshInFlight = false;
-      }
-    }
-    setInterval(refreshAutoValues, AUTO_REFRESH_MS);
+    // A value read back from the camera within this share of a step is shown with that step's
+    // label: the sensor rounds to its own line time (8000 us comes back as 7998).
+    const STOP_LABEL_TOLERANCE = 0.02;
 
     function nearestStopIndex(stops, value) {
       // Nearest on a ratio scale, since the stops are equal ratios apart.
@@ -303,9 +225,44 @@
       return best;
     }
 
+    // What Auto exposure is using, beside its button: text only, never a button redrawn.
+    const autoValues = $("auto-values");
+    const shownValues = { exposure: "", gain: "" };
+    function paintAutoValues() {
+      autoValues.textContent = [shownValues.exposure, shownValues.gain].filter(Boolean).join(", gain ");
+    }
+
+    function showExposure(us) {
+      if (us === null || us === undefined) return;
+      const stop = nearestStopIndex(EXPOSURE_STOPS_US, us);
+      const onStop = Math.abs(us / EXPOSURE_STOPS_US[stop] - 1) <= STOP_LABEL_TOLERANCE;
+      // The shutter speed when the value is on a stop, else milliseconds; the keypad takes ms.
+      shownValues.exposure = onStop ? `${EXPOSURE_STOP_LABELS[stop]} s` : `${usToMs(us)} ms`;
+      ui.showField(exposureField, String(usToMs(us)), shownValues.exposure, "");
+      paintAutoValues();
+    }
+
+    function showGain(gain) {
+      if (gain === null || gain === undefined) return;
+      const value = String(Number(Number(gain).toFixed(2)));
+      shownValues.gain = `${value}x`;
+      ui.showField(gainField, value);
+      paintAutoValues();
+    }
+
+    const SHOW = { ExposureTime: showExposure, AnalogueGain: showGain };
+
+    async function postControl(name, value) {
+      return fetch(`/controls/${name}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value }),
+      });
+    }
+
     // Sends the latest value only: a value that arrives while one is in flight replaces any
-    // waiting one and is sent when that finishes, so the last position is never dropped, also
-    // after a failed request. A refused or failed value reloads the panel, so it never shows a
+    // waiting one and is sent when that finishes, so the last value is never dropped, also after
+    // a failed request. A refused or failed value reloads the controls, so they never show a
     // setting the camera is not using.
     function latestOnlySender(name) {
       let sending = false;
@@ -320,7 +277,7 @@
             refused = true;
           } else {
             // The camera ignores exposure and gain while auto exposure is on (another tab may
-            // have ticked it): show the panel as the camera has it.
+            // have turned it on): show the controls as the camera has them.
             const values = await response.json();
             refused = AE_DEPENDENT_CONTROL_NAMES.includes(name) && values.AeEnable === true;
           }
@@ -339,301 +296,114 @@
       }
       return send;
     }
+    const sendExposure = latestOnlySender("ExposureTime");
+    const sendGain = latestOnlySender("AnalogueGain");
 
-    function renderSteppedControl(name, min, max, value, disabled) {
-      const spec = STEPPED_CONTROLS[name];
-      const stops = spec.stops.filter((stop) => stop >= min && stop <= max);
-      if (stops.length < 2) return null; // the caller falls back to the plain slider
-      const label = CONTROL_LABELS[name] || name;
-      const row = document.createElement("div");
-      row.className = "focus-row stepped-control";
-      const disabledAttr = disabled ? " disabled" : "";
-      row.innerHTML =
-        `<label for="control-${name}">${label} <span id="control-${name}-value">${formatControlValue(name, value)}</span></label>` +
-        `<input type="range" id="control-${name}" min="0" max="${stops.length - 1}" step="1" ` +
-        `value="${nearestStopIndex(stops, value)}"${disabledAttr}>` +
-        `<label class="stepped-control-box">or type <input type="number" id="control-${name}-box" ` +
-        `min="${spec.toBox(min)}" max="${spec.toBox(max)}" step="${spec.boxStep}" ` +
-        `value="${spec.toBox(value)}"${disabledAttr}> ${spec.unit}</label>`;
-      const slider = row.querySelector(`#control-${name}`);
-      const box = row.querySelector(`#control-${name}-box`);
-      const valueLabel = row.querySelector(`#control-${name}-value`);
-      const send = latestOnlySender(name);
-      function show(cameraValue) {
-        valueLabel.textContent = formatControlValue(name, cameraValue);
-        box.value = spec.toBox(cameraValue);
+    function showAuto(on) {
+      autoBtn.setAttribute("aria-pressed", String(on));
+      $("exposure-row").hidden = on;
+      $("gain-row").hidden = on;
+      autoValues.hidden = !on;
+    }
+    const autoOn = () => autoBtn.getAttribute("aria-pressed") === "true";
+
+    // While Auto is on, re-read what the camera is really using, so the greyed-out values are
+    // never stale (Aaron, 2026-10-08). One request at a time, and none from a hidden tab or step:
+    // each one waits for a camera frame. Only the two values are redrawn, never a button.
+    const AUTO_REFRESH_MS = 2000;
+    let autoRefreshInFlight = false;
+    async function refreshAutoValues() {
+      if (!autoOn() || document.hidden || !isActiveStep(step) || autoRefreshInFlight) return;
+      autoRefreshInFlight = true;
+      try {
+        const data = await (await fetch("/controls")).json();
+        if (!autoOn()) return;
+        AE_DEPENDENT_CONTROL_NAMES.forEach((name) => SHOW[name](data.values[name]));
+      } catch (err) {
+        // The next refresh tries again.
+      } finally {
+        autoRefreshInFlight = false;
       }
-      // While auto exposure is on the camera chooses the value: show what it reports.
-      steppedDisplays[name] = (cameraValue, auto) => {
-        if (cameraValue === null || cameraValue === undefined) return;
-        slider.value = nearestStopIndex(stops, cameraValue);
-        show(cameraValue);
-        if (auto) valueLabel.textContent += " (auto)";
-      };
-      slider.addEventListener("input", () => {
-        const cameraValue = stops[Number(slider.value)];
-        show(cameraValue);
-        send(cameraValue);
+    }
+
+    // --- Camera settings panel: every on/off setting /controls reports that is not on the page ---
+    const CONTROL_LABELS = { AwbEnable: "Auto white balance" };
+    const CONTROL_HELP = { AwbEnable: "Lets the camera correct the color of the light." };
+    const ON_PAGE = ["LensPosition", "ExposureTime", "AnalogueGain", "AeEnable"];
+    let lastControls = { available: {}, values: {} };
+
+    function openCameraSettings() {
+      const names = Object.keys(lastControls.available).filter((name) =>
+        !ON_PAGE.includes(name) && typeof lastControls.available[name][0] === "boolean");
+      const p = ui.infoPanel({
+        title: "Camera settings",
+        sub: "Settings changed less often. Exposure, Gain and Auto exposure are under the live view.",
+        body: `<div class="stack" style="max-width: 560px;">${names.map((name) => {
+          const on = Boolean(lastControls.values[name]);
+          return `<button type="button" class="switch hit" role="switch" data-control="${ui.esc(name)}" aria-checked="${on}">
+            <span class="track"></span><span class="txt"><strong>${ui.esc(CONTROL_LABELS[name] || name)} <span class="state">${on ? "On" : "Off"}</span></strong>
+            ${CONTROL_HELP[name] ? `<span>${ui.esc(CONTROL_HELP[name])}</span>` : ""}</span></button>`;
+        }).join("") || '<p class="lead">This camera reports no other settings.</p>'}</div>`,
       });
-      box.addEventListener("change", () => {
-        const typed = Number(box.value);
-        if (box.value === "" || Number.isNaN(typed)) return;
-        const cameraValue = Math.min(max, Math.max(min, spec.fromBox(typed)));
-        slider.value = nearestStopIndex(stops, cameraValue);
-        show(cameraValue);
-        send(cameraValue);
-      });
-      return row;
-    }
-
-    function controlStep(min, max) {
-      const span = max - min;
-      return span > 100 ? Math.max(1, Math.round(span / 200)) : Math.max(span / 100, 0.01);
-    }
-
-    // A value read back from the camera within this share of a step is shown with that step's
-    // label: the sensor rounds to its own line time (8000 us comes back as 7998).
-    const STOP_LABEL_TOLERANCE = 0.02;
-
-    function formatExposureTime(microseconds) {
-      if (microseconds === null || microseconds === undefined) return "unknown";
-      const ms = `${Number((microseconds / 1000).toFixed(3))} ms`;
-      const stop = nearestStopIndex(EXPOSURE_STOPS_US, microseconds);
-      const off = Math.abs(microseconds / EXPOSURE_STOPS_US[stop] - 1);
-      return off <= STOP_LABEL_TOLERANCE ? `${EXPOSURE_STOP_LABELS[stop]} s (${ms})` : ms;
-    }
-
-    function formatControlValue(name, value) {
-      if (name === "ExposureTime") return formatExposureTime(value);
-      if (name === "AnalogueGain") {
-        return value === null || value === undefined ? "unknown" : `${Number(Number(value).toFixed(2))}x`;
-      }
-      return value;
-    }
-
-    async function postControl(name, value) {
-      return fetch(`/controls/${name}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ value }),
-      });
-    }
-
-    function renderControls(available, values) {
-      cameraControlsEl.innerHTML = "";
-
-      const pairNames = PAIRED_CHECKBOX_NAMES.filter((name) => name in available);
-      if (pairNames.length) {
-        const row = document.createElement("div");
-        row.className = "control-pair-row";
-        row.innerHTML = pairNames
-          .map((name) => {
-            const checked = values[name] ? " checked" : "";
-            return `<label class="control-pair-item">
-              <input type="checkbox" id="control-${name}"${checked}>
-              <span>${CONTROL_LABELS[name] || name}</span>
-            </label>`;
-          })
-          .join("");
-        pairNames.forEach((name) => {
-          row.querySelector(`#control-${name}`).addEventListener("change", (event) => {
-            const posted = postControl(name, event.target.checked);
-            if (name === "AeEnable" && !event.target.checked) {
-              // Auto exposure off: keep the values the camera was just using, sent as the manual
-              // values, so the panel, the camera and the values restored after a photo agree.
-              posted
-                .then((response) => (response.ok ? response.json() : null))
-                .then((data) => {
-                  if (!data) return loadControls();
-                  AE_DEPENDENT_CONTROL_NAMES.forEach((depName) => {
-                    const v = data.values[depName];
-                    if (v === null || v === undefined) return;
-                    if (steppedDisplays[depName]) steppedDisplays[depName](v, false);
-                    postControl(depName, v);
-                  });
-                })
-                .catch(() => loadControls().catch(() => {}));
-            }
-            if (name === "AeEnable") {
-              AE_DEPENDENT_CONTROL_NAMES.forEach((depName) => {
-                for (const id of [`control-${depName}`, `control-${depName}-box`]) {
-                  const depInput = document.getElementById(id);
-                  if (depInput) depInput.disabled = event.target.checked;
-                }
-              });
-            }
-          });
-        });
-        cameraControlsEl.appendChild(row);
-      }
-
-      for (const [name, range] of Object.entries(available)) {
-        if (name === "LensPosition" || pairNames.includes(name)) continue;
-        const [min, max] = range;
-        const value = values[name];
-        const row = document.createElement("div");
-        const label = CONTROL_LABELS[name] || name;
-
-        if (typeof min === "boolean") {
-          // Any boolean control not already paired above (e.g. one a future camera exposes):
-          // still needs a checkbox, not a broken slider with min=false/max=true.
-          row.className = "peaking-row";
-          row.innerHTML =
-            `<input type="checkbox" id="control-${name}"` + (value ? " checked" : "") + `>` +
-            `<span><strong>${label}</strong></span>`;
-          row.querySelector("input").addEventListener("change", (event) => {
-            postControl(name, event.target.checked);
-          });
-          cameraControlsEl.appendChild(row);
-          continue;
+      p.querySelectorAll("[data-control]").forEach((sw) => ui.bindSwitch(sw, async (on) => {
+        const name = sw.dataset.control;
+        const r = await postControl(name, on).catch(() => null);
+        if (r && r.ok) {
+          lastControls.values = await r.json();
+        } else {
+          ui.toast(`${CONTROL_LABELS[name] || name} could not be changed`);
+          ui.setSwitch(sw, !on);
         }
-
-        if (name in STEPPED_CONTROLS) {
-          const disabled = AE_DEPENDENT_CONTROL_NAMES.includes(name) && values.AeEnable;
-          const stepped = renderSteppedControl(name, min, max, value, disabled);
-          if (stepped) {
-            cameraControlsEl.appendChild(stepped);
-            if (disabled) steppedDisplays[name](value, true);
-            continue;
-          }
-        }
-
-        row.className = "focus-row";
-        const step = controlStep(min, max);
-        const disabledAttr = AE_DEPENDENT_CONTROL_NAMES.includes(name) && values.AeEnable ? " disabled" : "";
-        row.innerHTML =
-          `<label for="control-${name}">${label} <span id="control-${name}-value">${formatControlValue(name, value)}</span></label>` +
-          `<input type="range" id="control-${name}" min="${min}" max="${max}" step="${step}" value="${value}"${disabledAttr}>`;
-        const input = row.querySelector("input");
-        const valueLabel = row.querySelector(`#control-${name}-value`);
-        const send = latestOnlySender(name);
-        input.addEventListener("input", () => {
-          valueLabel.textContent = formatControlValue(name, Number(input.value));
-          send(Number(input.value));
-        });
-        cameraControlsEl.appendChild(row);
-      }
+      }));
     }
 
     async function loadControls() {
-      const response = await fetch("/controls");
-      const data = await response.json();
-      renderControls(data.available, data.values);
-      if (data.available.LensPosition) {
-        [LENS_MIN, LENS_MAX] = data.available.LensPosition;
-        coarseInput.min = LENS_MIN;
-        coarseInput.max = LENS_MAX;
+      const data = await (await fetch("/controls")).json();
+      lastControls = data;
+      const { available, values } = data;
+      if (available.LensPosition) {
+        [LENS_MIN, LENS_MAX] = available.LensPosition;
+        coarseField.dataset.min = LENS_MIN;
+        coarseField.dataset.max = LENS_MAX;
       }
+      if (available.ExposureTime) {
+        const [min, max] = available.ExposureTime;
+        exposureField.dataset.min = usToMs(min);
+        exposureField.dataset.max = usToMs(max);
+        exposureStops.splice(0, Infinity, ...EXPOSURE_STOPS_US.filter((us) => us >= min && us <= max).map(usToMs));
+      }
+      if (available.AnalogueGain) {
+        const [min, max] = available.AnalogueGain;
+        gainField.dataset.min = min;
+        gainField.dataset.max = max;
+        gainStops.splice(0, Infinity, ...GAIN_STOPS.filter((g) => g >= min && g <= max));
+      }
+      showExposure(values.ExposureTime);
+      showGain(values.AnalogueGain);
+      showAuto(Boolean(values.AeEnable));
+      autoBtn.hidden = !("AeEnable" in available);
+      if (autoBtn.hidden) showAuto(false);
     }
 
-    // Load the real control ranges (including LensPosition's) before applying any current
-    // value, so a value near the edge of a since-changed range does not get silently clamped
-    // by a stale HTML `max` attribute.
-    loadControls()
-      .catch(() => {})
-      .then(() =>
-        fetch("/controls/lens-position")
-          .then((r) => r.json())
-          .then((data) => applyLensPosition(data.value))
-      )
-      .catch(() => {});
-
-    coarseInput.addEventListener("change", () => {
-      const typed = Number(coarseInput.value);
-      if (Number.isNaN(typed)) return;
-      applyLensPosition(typed); // splits a typed "6.8" into coarse=6, fine=.80
-      sendLensPosition();
-    });
-
-    // One move at a time (each waits for the camera to confirm it); a position dragged to while
-    // one is in flight is sent when it finishes, so the lens ends where the slider ends.
-    let sendingFine = false;
-    let fineMovedMeanwhile = false;
-    function sendFine() {
-      sendingFine = true;
-      fineMovedMeanwhile = false;
-      sendLensPosition().finally(() => {
-        sendingFine = false;
-        if (fineMovedMeanwhile) sendFine();
-      });
-    }
-    fineSlider.addEventListener("input", () => {
-      fineValueLabel.textContent = Number(fineSlider.value).toFixed(2).slice(1);
-      if (sendingFine) {
-        fineMovedMeanwhile = true;
-        return;
-      }
-      sendFine();
-    });
-
-    autofocusBtn.addEventListener("click", async () => {
-      autofocusBtn.disabled = true;
-      autofocusBtn.textContent = "Focusing (up to {{ AUTOFOCUS_TIMEOUT_S }} s)";
-      try {
-        const r = await fetch("/focus/autofocus", { method: "POST" });
-        if (!r.ok) {
-          autofocusBtn.textContent = "Autofocus";
-          await showLensError(r);
-          return;
-        }
-        const data = await r.json();
-        // timed_out: the camera did not finish in time, the lens is not following commands
-        // (camera.py AUTOFOCUS_TIMEOUT_S). The message says what to do next.
-        if (data.timed_out) {
-          autofocusBtn.textContent = "Autofocus";
-          setLensError(data.timed_out);
-          return;
-        }
-        applyLensPosition(data.lens_position);
-        await sendLensPosition();
-        autofocusBtn.textContent = data.success ? "Autofocus" : "Autofocus (failed, adjust manually)";
-      } finally {
-        autofocusBtn.disabled = false;
-      }
-    });
-
-    // --- ROI selection: click the preview to place the focus region ---
-    const previewImg = document.getElementById("preview");
-    const roiBox = document.getElementById("roi-box");
-    const roiCropImg = document.getElementById("roi-crop");
-    // Only ever changes away from "focus" when showSquareMode's mode toggle exists and is used.
-    let interactionMode = "focus";
+    // --- ROI selection: tap the live view to place the focus area ---
+    const previewImg = $("preview");
+    const roiBox = $("roi-box");
+    const roiCropImg = $("roi-crop");
 
     function placeRoiBox(relX, relY) {
       roiBox.style.left = (relX * 100) + "%";
       roiBox.style.top = (relY * 100) + "%";
       roiBox.style.width = ((DEFAULT_ROI_SIZE / MAIN_WIDTH) * 100) + "%";
       roiBox.style.height = ((DEFAULT_ROI_SIZE / MAIN_HEIGHT) * 100) + "%";
-      roiBox.style.display = "block";
+      roiBox.hidden = false;
     }
 
-    previewImg.addEventListener("click", (event) => {
-      if (interactionMode !== "focus") return; // square mode: dragging guide lines instead
-      const rect = previewImg.getBoundingClientRect();
-      const relX = (event.clientX - rect.left) / rect.width;
-      const relY = (event.clientY - rect.top) / rect.height;
-      const x = Math.round(relX * MAIN_WIDTH);
-      const y = Math.round(relY * MAIN_HEIGHT);
-      placeRoiBox(relX, relY);
-      fetch("/focus/roi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ x, y, size: DEFAULT_ROI_SIZE }),
-      });
-    });
-
-    fetch("/focus/roi")
-      .then((r) => r.json())
-      .then((roi) => placeRoiBox(roi.x / MAIN_WIDTH, roi.y / MAIN_HEIGHT))
-      .catch(() => {});
-
-    // --- Sharpness score + trace ---
-    const scoreValue = document.getElementById("score-value");
-    const traceCanvas = document.getElementById("score-trace");
+    // --- Sharpness: the number on the magnified view, and its trace under the live view ---
+    const scoreValue = $("score-value");
+    const traceCanvas = $("score-trace");
     const traceCtx = traceCanvas.getContext("2d");
     const scoreHistory = [];
     const HISTORY_LEN = 60;
-    let pollingScore = true;
 
     function drawTrace() {
       traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
@@ -642,96 +412,60 @@
       traceCtx.beginPath();
       scoreHistory.forEach((value, i) => {
         const x = (i / (HISTORY_LEN - 1)) * traceCanvas.width;
-        const y = traceCanvas.height - (value / max) * traceCanvas.height;
+        const y = traceCanvas.height - (value / max) * (traceCanvas.height - 4) - 2;
         if (i === 0) traceCtx.moveTo(x, y); else traceCtx.lineTo(x, y);
       });
-      traceCtx.strokeStyle = "#6cf";
-      traceCtx.lineWidth = 2;
+      traceCtx.strokeStyle = "#6cb4ff";
+      traceCtx.lineWidth = 3;
       traceCtx.stroke();
     }
 
     async function pollScore() {
-      if (!pollingScore) return;
       if (isActiveStep(step)) {
         try {
-          const r = await fetch("/focus/score");
-          const data = await r.json();
+          const data = await (await fetch("/focus/score")).json();
+          if (serverLost) { serverLost = false; restartLiveResources(); }
           scoreValue.textContent = data.score.toFixed(1);
           scoreHistory.push(data.score);
           if (scoreHistory.length > HISTORY_LEN) scoreHistory.shift();
           drawTrace();
         } catch (e) {
-          // transient network hiccup, try again next tick
+          // transient network hiccup or a server restart, try again next tick
+          serverLost = true;
         }
       }
       setTimeout(pollScore, 300);
     }
-    pollScore();
 
-    // --- Live preview/crop streams: only requested while this step is the visible one ---
+    // --- Live view and magnified view streams: only requested while this step is showing ---
     function updateLiveResources() {
       if (isActiveStep(step)) {
         if (!previewImg.getAttribute("src")) previewImg.src = "/preview.mjpg";
-        if (interactionMode === "focus") {
-          roiCropImg.src = "/focus/roi.mjpg";
-        } else {
-          roiCropImg.removeAttribute("src");
-        }
+        roiCropImg.src = "/focus/roi.mjpg";
       } else {
         previewImg.removeAttribute("src");
         roiCropImg.removeAttribute("src");
       }
     }
+    // A server restart ends both streams without an error event on the images (#139). The score
+    // poll notices the server going and coming back, and asks for the streams again.
+    let serverLost = false;
+    function restartLiveResources() {
+      if (!isActiveStep(step)) return;
+      previewImg.src = `/preview.mjpg?restart=${Date.now()}`;
+      roiCropImg.src = `/focus/roi.mjpg?restart=${Date.now()}`;
+    }
     updateLiveResources();
 
-    // --- Focus / Square mode toggle, and draggable squareness guide lines ---
-    // Client-side only, no server state: the lines are a straightening aid, not a measurement.
-    if (showSquareMode) {
-      const focusLayout = document.querySelector(".focus-layout");
-      const squarenessGuides = document.getElementById("squareness-guides");
-      const modeFocusBtn = document.getElementById("mode-focus-btn");
-      const modeSquareBtn = document.getElementById("mode-square-btn");
+    // --- Lock / unlock focus (/focus/lock and /focus/unlock) ---
+    const lockBtn = $("lock-btn");
+    const lockStatus = $("lock-status");
+    let locked = false;
 
-      function setMode(mode) {
-        interactionMode = mode;
-        focusLayout.classList.toggle("mode-square", mode === "square");
-        squarenessGuides.classList.toggle("mode-square", mode === "square");
-        modeFocusBtn.classList.toggle("active", mode === "focus");
-        modeSquareBtn.classList.toggle("active", mode === "square");
-        updateLiveResources();
-      }
-      modeFocusBtn.addEventListener("click", () => setMode("focus"));
-      modeSquareBtn.addEventListener("click", () => setMode("square"));
-      setMode("focus");
-
-      initSquarenessGuides(squarenessGuides, previewImg);
-    }
-
-    // --- Focus peaking toggle ---
-    const peakingToggle = document.getElementById("peaking-toggle");
-
-    fetch("/focus/peaking")
-      .then((r) => r.json())
-      .then((data) => { peakingToggle.checked = data.enabled; })
-      .catch(() => {});
-
-    peakingToggle.addEventListener("change", () => {
-      fetch("/focus/peaking", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: peakingToggle.checked }),
-      });
-    });
-
-    // --- Lock / unlock focus (/focus/lock and /focus/unlock). Wording and status line as
-    // Aaron set them, 2026-09-30 ---
-    const lockBtn = document.getElementById("lock-btn");
-    const lockStatus = document.getElementById("lock-status");
-
-    // The active calibration's lens position sits beside the status, so a lock at a different
-    // position is visible here and not only on the Validation page (Aaron, 2026-09-30: a restart
-    // left focus locked at 6.50 while the calibration was taken at 6.18). Same 0.005 tolerance
-    // and wording as the Validation page.
+    // The active calibration's lens position sits beside the lock status, so a lock at a
+    // different position is visible here and not only on the Validation page (Aaron, 2026-09-30:
+    // a restart left focus locked at 6.50 while the calibration was taken at 6.18). Same 0.005
+    // tolerance and wording as the Validation page.
     async function refreshFocusStatus() {
       const [r, cal] = await Promise.all([
         fetch("/focus/status"),
@@ -741,62 +475,202 @@
       const calLens = cal && cal.exists && cal.lens_position != null ? cal.lens_position : null;
       const mismatch = data.locked && calLens != null &&
         Math.abs(data.lens_position - calLens) > 0.005;
+      locked = data.locked;
       // While locked, nothing on the page can move the lens (Aaron, 2026-10-06: no one at the
       // rig changes a locked focus); the server refuses those commands too (FocusLockedError).
-      coarseInput.disabled = data.locked;
-      fineSlider.disabled = data.locked;
+      ui.setDisabled(coarseStepper, data.locked);
+      ui.setDisabled(fineStepper, data.locked);
       autofocusBtn.disabled = data.locked;
       let text = data.locked
-        ? `Focus is locked at ${data.lens_position.toFixed(2)}`
-        : "Focus is unlocked";
+        ? `Focus locked at ${data.lens_position.toFixed(2)}`
+        : "Focus unlocked";
       if (mismatch) {
         text += `, not the calibration's ${calLens.toFixed(2)}`;
       } else if (calLens != null) {
         text += `. Calibration: ${calLens.toFixed(2)}`;
       }
-      lockStatus.textContent = text;
-      lockStatus.style.color = mismatch ? "#ff6b6b" : "";
-      lockStatus.style.fontWeight = data.locked || mismatch ? "bold" : "";
+      lockStatus.innerHTML = ui.chip(mismatch ? "fail" : data.locked ? "ok" : "warn", text);
       lockBtn.textContent = data.locked ? "Unlock focus" : "Lock focus";
+      lockBtn.classList.toggle("primary", !data.locked);
       // Validation only holds at the calibration's focus (validation-status.js, where loaded).
       if (window.refreshValidationStatus) window.refreshValidationStatus();
     }
 
-    lockBtn.addEventListener("click", async () => {
-      const isLocked = lockBtn.textContent === "Unlock focus";
-      if (isLocked) {
-        await fetch("/focus/unlock", { method: "POST" });
-        refreshFocusStatus();
-        return;
-      }
-      // Locking drives the lens the one consistent way and waits for the camera to report it
-      // there, a few seconds at most (camera.py LENS_SETTLE_TIMEOUT_S).
-      lockBtn.disabled = true;
-      lockStatus.style.color = "";
-      lockStatus.style.fontWeight = "";
-      lockStatus.textContent = "Locking focus, waiting for the camera";
-      try {
-        const resp = await fetch("/focus/lock", { method: "POST" });
-        if (!resp.ok) {
-          const body = await resp.json().catch(() => ({}));
-          lockBtn.disabled = false;
-          if (resp.status === 503) {
-            // The lens did not follow: the message and the Reset camera button go next to it.
-            lockStatus.textContent = "Focus is unlocked";
-            setLensError(body.detail || "Lens not responding: press Reset camera");
-          } else {
-            lockStatus.textContent = `Focus is unlocked (${body.detail || "focus is not locked"})`;
+    whenReady(() => {
+      cameraResetBtn.addEventListener("click", async () => {
+        cameraResetBtn.disabled = true;
+        cameraResetBtn.textContent = "Resetting the camera";
+        try {
+          const r = await fetch("/camera/reset", { method: "POST" });
+          if (!r.ok) {
+            await showLensError(r);
+            return;
           }
-          lockBtn.textContent = "Lock focus";
+          const data = await r.json();
+          setLensError("");
+          if (data.lens_position_set != null) applyLensPosition(data.lens_position_set);
+          refreshFocusStatus();
+        } finally {
+          cameraResetBtn.disabled = false;
+          cameraResetBtn.textContent = "Reset camera";
+        }
+      });
+
+      ui.bindStepper(exposureStepper, (ms) => {
+        const us = msToUs(Number(ms));
+        showExposure(us);
+        sendExposure(us);
+      }, { stops: exposureStops });
+      ui.bindStepper(gainStepper, (gain) => {
+        showGain(gain);
+        sendGain(Number(gain));
+      }, { stops: gainStops });
+
+      // A whole number from minus, plus or the keypad keeps Fine; a typed "6.8" sets both.
+      ui.bindStepper(coarseStepper, (v) => {
+        const n = Number(v);
+        applyLensPosition(Number.isInteger(n) ? n + Number(fineField.dataset.value) : n);
+        moveLens();
+      });
+      ui.bindStepper(fineStepper, (v) => {
+        applyLensPosition(Math.floor(Number(coarseField.dataset.value)) + Number(v));
+        moveLens();
+      });
+
+      autoBtn.addEventListener("click", () => {
+        const on = !autoOn();
+        showAuto(on);
+        const posted = postControl("AeEnable", on);
+        if (on) {
+          // Refused or failed: show the controls as the camera has them.
+          posted
+            .then((response) => { if (!response.ok) return loadControls(); })
+            .catch(() => loadControls().catch(() => {}));
+        } else {
+          // Auto off: keep the values the camera was just using, sent as the manual values, so
+          // the page, the camera and the values restored after a photo agree.
+          posted
+            .then((response) => (response.ok ? response.json() : null))
+            .then((values) => {
+              if (!values) return loadControls();
+              AE_DEPENDENT_CONTROL_NAMES.forEach((name) => {
+                const v = values[name];
+                if (v === null || v === undefined) return;
+                SHOW[name](v);
+                postControl(name, v);
+              });
+            })
+            .catch(() => loadControls().catch(() => {}));
+        }
+      });
+      setInterval(refreshAutoValues, AUTO_REFRESH_MS);
+
+      // Load the real control ranges (including LensPosition's) before applying any current
+      // value, so a value near the edge of a since-changed range is not clamped by a stale one.
+      loadControls()
+        .catch(() => {})
+        .then(() => fetch("/controls/lens-position"))
+        .then((r) => r.json())
+        .then((data) => applyLensPosition(data.value))
+        .catch(() => {});
+
+      autofocusBtn.addEventListener("click", async () => {
+        autofocusBtn.disabled = true;
+        autofocusBtn.textContent = "Focusing (up to {{ AUTOFOCUS_TIMEOUT_S }} s)";
+        try {
+          const r = await fetch("/focus/autofocus", { method: "POST" });
+          if (!r.ok) {
+            autofocusBtn.textContent = "Autofocus";
+            await showLensError(r);
+            return;
+          }
+          const data = await r.json();
+          // timed_out: the camera did not finish in time, the lens is not following commands
+          // (camera.py AUTOFOCUS_TIMEOUT_S). The message says what to do next.
+          if (data.timed_out) {
+            autofocusBtn.textContent = "Autofocus";
+            setLensError(data.timed_out);
+            return;
+          }
+          applyLensPosition(data.lens_position);
+          await sendLensPosition();
+          autofocusBtn.textContent = data.success ? "Autofocus" : "Autofocus (failed, adjust manually)";
+        } finally {
+          autofocusBtn.disabled = locked;
+        }
+      });
+
+      previewImg.addEventListener("click", (event) => {
+        const rect = previewImg.getBoundingClientRect();
+        const relX = (event.clientX - rect.left) / rect.width;
+        const relY = (event.clientY - rect.top) / rect.height;
+        placeRoiBox(relX, relY);
+        fetch("/focus/roi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            x: Math.round(relX * MAIN_WIDTH), y: Math.round(relY * MAIN_HEIGHT), size: DEFAULT_ROI_SIZE,
+          }),
+        });
+      });
+      fetch("/focus/roi")
+        .then((r) => r.json())
+        .then((roi) => placeRoiBox(roi.x / MAIN_WIDTH, roi.y / MAIN_HEIGHT))
+        .catch(() => {});
+      pollScore();
+
+      // --- Focus peaking ---
+      const peakingToggle = $("peaking-toggle");
+      fetch("/focus/peaking")
+        .then((r) => r.json())
+        .then((data) => ui.setSwitch(peakingToggle, data.enabled))
+        .catch(() => {});
+      ui.bindSwitch(peakingToggle, (on) => {
+        fetch("/focus/peaking", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: on }),
+        });
+      });
+
+      lockBtn.addEventListener("click", async () => {
+        if (locked) {
+          await fetch("/focus/unlock", { method: "POST" });
+          refreshFocusStatus();
           return;
         }
-      } finally {
-        lockBtn.disabled = false;
-      }
-      setLensError("");
+        // Locking drives the lens the one consistent way and waits for the camera to report it
+        // there, a few seconds at most (camera.py LENS_SETTLE_TIMEOUT_S). A move still in flight
+        // finishes first; one still waiting is dropped, since the lock would refuse it.
+        lockBtn.disabled = true;
+        lensWaiting = false;
+        while (lensSending) await lensSending;
+        lockStatus.innerHTML = ui.chip("info", "Locking focus, waiting for the camera");
+        try {
+          const resp = await fetch("/focus/lock", { method: "POST" });
+          if (!resp.ok) {
+            const body = await resp.json().catch(() => ({}));
+            if (resp.status === 503) {
+              // The lens did not follow: the message and the Reset camera button show under it.
+              lockStatus.innerHTML = ui.chip("warn", "Focus unlocked");
+              setLensError(body.detail || "Lens not responding: press Reset camera");
+            } else {
+              lockStatus.innerHTML = ui.chip("warn", `Focus unlocked (${body.detail || "focus is not locked"})`);
+            }
+            return;
+          }
+        } finally {
+          lockBtn.disabled = false;
+        }
+        setLensError("");
+        refreshFocusStatus();
+      });
       refreshFocusStatus();
+
+      // --- Camera settings, opened from the page head. The page binds its own About button. ---
+      const settingsBtn = $("camera-settings-btn");
+      if (settingsBtn) settingsBtn.addEventListener("click", openCameraSettings);
     });
-    refreshFocusStatus();
 
     return { updateLiveResources, refreshFocusStatus };
   }

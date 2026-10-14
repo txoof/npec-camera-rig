@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 
 from npec_rig.calibration import CalibrationArtifact, ScaleField
@@ -11,10 +10,9 @@ from npec_rig.calibration_store import (
     save_calibration,
     calibration_frame_path,
     calibration_frame_url,
-    load_calibration_frame,
     stem_for_photo,
-    save_calibration_table_view,
-    save_calibration_table_view_area_shape,
+    LEGACY_HEATMAP_SUFFIXES,
+    delete_legacy_heatmaps,
 )
 
 pytestmark = pytest.mark.unit
@@ -87,29 +85,23 @@ def test_a_stem_from_elsewhere_has_no_photo() -> None:
     assert calibration_frame_path("shared-stem") is None
     assert calibration_frame_url("shared-stem") is None
     assert calibration_frame_url(None) is None
-    with pytest.raises(FileNotFoundError):
-        load_calibration_frame("shared-stem")
 
 
 def test_a_missing_photo_has_no_url() -> None:
     assert calibration_frame_url("20261008T203512123456") is None
 
 
-def test_save_calibration_table_view_writes_under_heatmaps_with_suffix() -> None:
-    image = np.zeros((8, 8, 3), dtype=np.uint8)
-    path = save_calibration_table_view(image, stem="shared-stem")
+def test_delete_legacy_heatmaps_removes_only_that_calibrations_old_images() -> None:
+    root = calibration_root() / "heatmaps"
+    root.mkdir(parents=True)
+    for suffix in LEGACY_HEATMAP_SUFFIXES:
+        (root / f"stem-a{suffix}.jpg").write_bytes(b"x")
+    (root / "stem-b_area-shape.jpg").write_bytes(b"x")
 
-    assert path == calibration_root() / "heatmaps" / "shared-stem_table-view.jpg"
-    assert path.exists()
-    assert path.read_bytes()[:2] == b"\xff\xd8"
+    delete_legacy_heatmaps("stem-a")
+    delete_legacy_heatmaps("never-had-any")  # nothing on disk: not an error
 
-
-def test_save_calibration_table_view_area_shape_writes_under_heatmaps_with_suffix() -> None:
-    image = np.zeros((8, 8, 3), dtype=np.uint8)
-    path = save_calibration_table_view_area_shape(image, stem="shared-stem")
-
-    assert path == calibration_root() / "heatmaps" / "shared-stem_table-view-area-shape.jpg"
-    assert path.exists()
+    assert [p.name for p in root.iterdir()] == ["stem-b_area-shape.jpg"]
 
 
 def test_storage_is_separate_from_captures_dir(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:

@@ -1,386 +1,190 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% from "_squareness_help.html" import sq_todo, sq_controls, sq_why %}
 {% set nav_active = "setup" %}
 {% block title_suffix %}: Calibration{% endblock %}
 
 {% block head_extra %}<script src="/static/validation-status.js"></script>{% endblock %}
 
+{#- The wizard frame (mockup 7, #136): the head names the step and holds its About button (and
+    Camera settings on Step 2); the steps bar under it stays put while the step scrolls. -#}
 {% block breadcrumb %}
-  <p class="breadcrumb">
-    <a href="/setup">Setup</a> / Calibration
-  </p>
+  <a class="btn btn-back hit" href="/setup" aria-label="Back to Setup">{{ ui.icon("back") }}<span class="lbl">Setup</span></a>
+  <div style="min-width: 0;">
+    <h1>Calibration</h1>
+    <p class="sub" id="step-title">Step 1 of 6</p>
+  </div>
+  <div class="head-actions">
+    {{ ui.button("Camera settings", id="camera-settings-btn", attrs={"hidden": true}) }}
+    <button type="button" class="btn hit help-btn" id="wizard-about" data-about="about-cal-1" aria-label="About this step">{{ ui.icon("help") }}<span class="lbl">About this step</span></button>
+  </div>
+{% endblock %}
+
+{% block subhead %}
+  <nav class="steps" aria-label="Calibration steps">
+    {{ ui.button("Back", "step-nav", id="wizard-back-btn", icon_name="back", attrs={"aria-label": "Previous step"}) }}
+    <div class="step-list" id="step-list">
+      {%- for short in ["Sheets", "Focus", "Square", "Run", "Report", "Validate"] %}
+      <button type="button" class="step-btn hit" data-jump="{{ loop.index }}" aria-label="Step {{ loop.index }}, {{ short }}"><span class="n">{{ loop.index }}</span><span class="lbl">{{ short }}</span></button>
+      {%- endfor %}
+    </div>
+    {{ ui.button("Next", "primary step-nav", id="wizard-next-btn", icon_after="next", attrs={"aria-label": "Next step"}) }}
+  </nav>
 {% endblock %}
 
 {% block content %}
-  <h2>Calibration</h2>
-  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    Set up or re-verify this rig, in order. Each step below is a real physical action or a real
-    measurement. None of it can be skipped by guessing.
-  </p>
-  <p class="validation-status" data-validation-status>
-    <span class="validation-status-text">Reading validation status&hellip;</span>
-    <a href="/setup/validation">Go to Validation</a>
-  </p>
-  <div class="calibration-section">
-    <div class="wizard-nav">
-      <span id="wizard-progress">Step 1 of 6</span>
-      <div class="wizard-nav-buttons">
-        <button type="button" id="wizard-back-btn">&larr; Back</button>
-        <button type="button" id="wizard-next-btn">Next &rarr;</button>
-      </div>
-    </div>
-
     <div class="wizard-step" data-step="1">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 1 - Place calibration and corner sheets</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Lay a calibration sheet on every tray, plus the corner/reference sheets at all four corners
-      of the table.
-    </p>
-    <svg viewBox="0 0 400 220" style="width: min(80vw, 500px); display: block; margin: 0 0 0.5rem;"
-         role="img" aria-label="Table diagram: calibration sheets on every tray, corner sheets at the four table corners (N top, E right)">
-      <rect x="20" y="20" width="360" height="180" rx="4" fill="none" stroke="#444" stroke-width="2"/>
-      <!-- 2 rows x 6 columns of trays, every one carrying a calibration sheet -- sheets are
-           reusable, so there is no reason to leave any tray uncovered, and it sidesteps ever
-           having to reason about whether a given pattern happens to reach all four corners. -->
-      <g id="step3-tray-grid"></g>
-      <script>
-        (() => {
-          const grid = document.currentScript.previousElementSibling;
-          const cols = 6, rows = 2, x0 = 55, y0 = 55, cw = 48, ch = 55, gap = 6;
-          for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-              const x = x0 + c * cw, y = y0 + r * ch;
-              const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-              rect.setAttribute("x", x); rect.setAttribute("y", y);
-              rect.setAttribute("width", cw - gap); rect.setAttribute("height", ch - gap);
-              rect.setAttribute("rx", 3);
-              rect.setAttribute("fill", "#2b4a5c");
-              rect.setAttribute("stroke", "#6cf");
-              rect.setAttribute("stroke-width", "1.5");
-              grid.appendChild(rect);
-              const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-              text.setAttribute("x", x + (cw - gap) / 2);
-              text.setAttribute("y", y + (ch - gap) / 2 + 4);
-              text.setAttribute("text-anchor", "middle");
-              text.setAttribute("font-size", "9");
-              text.setAttribute("fill", "#9cf");
-              text.textContent = "sheet";
-              grid.appendChild(text);
-            }
-          }
-        })();
-      </script>
-      <!-- Corner/reference sheets: at the table's four corners, outside the tray grid.
-           Compass convention (matches the top-down camera view): top = north, right = east. -->
-      <circle cx="20" cy="20" r="9" fill="#fc6" stroke="#663" stroke-width="1.5"/>
-      <text x="20" y="12" text-anchor="middle" font-size="10" fill="#ccc">NW</text>
-      <circle cx="380" cy="20" r="9" fill="#fc6" stroke="#663" stroke-width="1.5"/>
-      <text x="380" y="12" text-anchor="middle" font-size="10" fill="#ccc">NE</text>
-      <circle cx="20" cy="200" r="9" fill="#fc6" stroke="#663" stroke-width="1.5"/>
-      <text x="20" y="215" text-anchor="middle" font-size="10" fill="#ccc">SW</text>
-      <circle cx="380" cy="200" r="9" fill="#fc6" stroke="#663" stroke-width="1.5"/>
-      <text x="380" y="215" text-anchor="middle" font-size="10" fill="#ccc">SE</text>
-      <text x="200" y="14" text-anchor="middle" font-size="10" fill="#888">N</text>
-      <text x="393" y="114" text-anchor="middle" font-size="10" fill="#888">E</text>
-    </svg>
-    <p style="margin: 0 0 0.5rem; color: #888; font-size: 0.75rem;">
-      Blue = a calibration sheet on that tray, every tray. Amber dots = the four corner/reference
-      sheets, one per table corner (N/S/E/W, top-down view: top is north, right is east).
-    </p>
-    <p style="margin: 0 0 0.25rem; font-size: 0.85rem;">Sheets to print:</p>
-    <ul style="margin: 0 0 0.5rem; padding-left: 1.25rem; font-size: 0.85rem;">
-      <li><a href="/reference/calibration-sheets/apriltags-36h11-30mm-a4-300-449.pdf">calibration sheet (30 mm, IDs 300 to 449)</a></li>
-      <li><a href="/reference/calibration-sheets/apriltags-36h11-50mm-a4-450-499.pdf">corner/reference sheet (50 mm, IDs 450 to 499)</a></li>
-    </ul>
-
-    </div>
-    <div class="wizard-step" data-step="2">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 2 - Lock focus</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Set the focus for your setup, then lock it.
-    </p>
-    <details style="margin: 0 0 0.5rem;">
-      <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
-      <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-        Use "Autofocus" or the manual controls below, then "Lock focus". Re-check this any
-        time the lens may have moved. Calibration measures the scene through whatever focus is
-        locked.
-      </p>
-    </details>
-
-    {% include "_focus_controls.html" %}
-
-    </div>
-    <div class="wizard-step" data-step="3">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 3 - Check squareness and coplanarity</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Check that the camera is not rotated, tilted, or angled unevenly across the table.
-    </p>
-    <details style="margin: 0 0 0.5rem;">
-      <summary style="cursor: pointer; font-size: 0.85rem; color: #9cf;">More about this step</summary>
-      <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-        Physically adjust the camera until the East side of the table (opposite the drain) is
-        in view. Drag the magenta guide-line tabs at the frame's edge onto known perpendicular
-        lines in the scene (e.g. the table's own edges), if they line up, the camera is not
-        rotated or badly tilted. A straightening aid only; dragged positions are not saved and
-        reset on reload.
-      </p>
-      <p style="margin: 0.4rem 0 0; color: #ccc; font-size: 0.8rem;">
-        Colored rings on the corner tags show how co-planar the table is with the camera, live
-        (no zero step needed, works as soon as 2+ corner tags are in frame). Each ring's percentage
-        is that tag's apparent size compared to the average of the others: <strong>+</strong>
-        means it looks bigger, i.e. <strong>closer</strong> to the camera than the rest;
-        <strong>−</strong> means smaller, i.e. <strong>farther away</strong>. Green is within 3%
-        (co-planar); amber is 3 to 8% (nudge that corner); red is over 8% (that corner needs real
-        adjustment, not a small nudge). Nudge the rig until every ring is green. The magenta
-        guide lines are a separate, unrelated straightening aid -- they never turn red, amber, or
-        green, so they cannot be mistaken for the rings' verdict.
-      </p>
-    </details>
-    <div class="preview-wrap" style="width: var(--wide-content-width); margin: 0 20px 20px 20px;">
-      <img class="preview" id="level-overlay-image" alt="live squareness and co-planarity overlay" style="cursor: default;">
-      <div class="squareness-guides mode-square" id="squareness-guides">
-        <div class="squareness-line squareness-line-h" id="squareness-line-h"></div>
-        <div class="squareness-line squareness-line-v" id="squareness-line-v1" style="left: 33.33%;"></div>
-        <div class="squareness-line squareness-line-v" id="squareness-line-v2" style="left: 66.67%;"></div>
-        <div class="squareness-handle squareness-handle-h-left" data-for="squareness-line-h" data-axis="y"></div>
-        <div class="squareness-handle squareness-handle-h-right" data-for="squareness-line-h" data-axis="y"></div>
-        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v1" data-axis="x"></div>
-        <div class="squareness-handle squareness-handle-v" data-for="squareness-line-v2" data-axis="x"></div>
-      </div>
-    </div>
-    <label class="peaking-row">
-      <input type="checkbox" id="corner-check-toggle" checked>
-      <span>
-        <strong>Corner check</strong> shows the co-planarity rings, refreshed a few times a second.
-        Turn off while dragging the guide lines if squaring feels sluggish; the live view falls
-        back to the plain, fluid preview with no detection running, and the rings come right
-        back when you turn it on again.
-      </span>
-    </label>
-
-    </div>
-    <div class="wizard-step" data-step="4">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 4 - Run calibration</h3>
-    <label class="peaking-row">
-      <input type="checkbox" id="promote-toggle" checked>
-      <span>
-        <strong>Set as current baseline</strong>: leave this checked for a normal setup
-        calibration. Uncheck it for a comparison run (e.g. the two-baseline test) so it does not
-        replace the baseline the <a href="/setup/health-check">Health check</a> page's tripwire
-        check is still using.
-      </span>
-    </label>
-    <label class="peaking-row">
-      <span>
-        <strong>Calibration tag size (mm)</strong>: measure this print run's tags with
-        callipers and enter the value here. Leave blank to fall back to the placeholder default,
-        shown after you run a calibration.
-      </span>
-      <input type="number" id="tag-size-input" step="0.0001" min="0"
-             placeholder="e.g. 30.02" style="width: 6rem;">
-    </label>
-    <p id="calibration-readiness" style="margin: 0 0 0.5rem; font-size: 0.85rem; color: #aaa;">
-      Checking focus and corner tags&hellip;
-    </p>
-    <div class="lock-row">
-      <button id="calibrate-btn">Run calibration</button>
-    </div>
-    <div id="calibration-result" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
-
-    </div>
-    <div class="wizard-step" data-step="5">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 5 - Read the report</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      The result above states the scale, coverage, and any coverage gaps found. If it says
-      coverage is weak somewhere, open Diagnostics below to see exactly where, add a sheet there,
-      and run calibration again. There is no need to redo Steps 1 to 3 unless something actually moved.
-    </p>
-    <div style="margin: 0.5rem 0;">
-      <button id="load-diagnostics-btn">Load diagnostics for the active calibration</button>
-      <span style="color: #aaa; font-size: 0.8rem; margin-left: 0.5rem;">
-        Re-detects tags from the saved frame, which can take a few seconds. Use this to see the
-        active calibration's diagnostics without running a new one (e.g. after promoting one
-        from history below).
-      </span>
-    </div>
-
-    <details id="diagnostics-details" style="margin-top: 0.75rem;">
-      <summary>Diagnostics</summary>
-    <img id="calibration-area-shape-heatmap" alt="Area-scale shape distortion heatmap"
-         class="diagnostic-image">
-    <div id="calibration-area-shape-heatmap-legend" style="display: none; max-width: 100%; margin-top: 0.4rem;">
-      <div style="height: 14px; border-radius: 3px; background: linear-gradient(to right,
-        rgb(48,18,59) 0%, rgb(70,105,224) 12.5%, rgb(42,185,238) 25%, rgb(47,241,155) 37.5%,
-        rgb(161,253,61) 50%, rgb(236,209,58) 62.5%, rgb(251,129,34) 75%, rgb(210,49,5) 87.5%,
-        rgb(122,4,3) 100%);"></div>
-      <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #aaa; margin-top: 0.15rem;">
-        <span>0% (square)</span><span>0.13%</span><span>0.25%</span><span>0.38%</span><span>0.5%+ (most distorted)</span>
-      </div>
-      <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
-        Area-scale shape check (TODO.md): each tag's real pixel area (exact, from its four
-        corners) compared to treating it as a perfect square. The colour scale runs 0 to 0.5%,
-        a range measured from 17 real calibration runs on this rig (2026-09-21).
-        Flat/near-zero everywhere means squaring the scale field above is fine for area, not just
-        length. Structured, growing toward the corners, is real evidence area needs its own fit
-        before M5 (canopy area) relies on it.
-      </p>
-      <details style="margin-top: 0.4rem;">
-        <summary>How this number is calculated, and what it means</summary>
-        <div style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
-          <p>
-            The scale field above only ever measures <em>length</em> (pixels per millimetre in
-            one direction). Turning that into an <em>area</em> conversion (needed to report
-            canopy area in mm², not pixels) means squaring it, which is only exactly right if
-            every tag's photographed shape is a perfect square. Near a tilted table's edges, a
-            real square can photograph as a slightly non-square quadrilateral (a "keystone"
-            shape), and squaring the length scale would silently miss that.
-          </p>
-          <p>
-            Rather than model the lens or the table's tilt angle to predict this (the kind of
-            camera maths this project has failed at three times before, see CLAUDE.md), it is
-            measured directly: each tag's <em>real</em> pixel area, computed exactly from its
-            four detected corners (a standard geometry formula, no lens model, no assumptions),
-            compared to what a perfect square with that tag's own average side length would
-            cover. A square is the largest-area shape possible for a given average side length,
-            so this comparison can only ever come out as zero (a genuine square) or negative
-            (some real distortion), never positive; that is also why this heatmap's colour scale
-            only runs one direction.
-          </p>
-          <p>
-            <strong>What it means:</strong> answers "is squaring the length scale above good
-            enough for area, or does area need its own correction before the canopy-area feature
-            (M5) relies on it?" Flat/near-zero everywhere means squaring is fine. Measured across
-            17 real calibration runs on this rig (2026-09-21): the worst tag anywhere came out
-            at &minus;0.46%, and the pattern gets worse toward the table's corners in a way that
-            tracks position, not tag size or image noise (checked separately, by comparing
-            against tag size directly across 2104 tags), so it reads as a real, if very small,
-            geometric effect, not noise. Logged as an open scope decision in TODO.md, not acted
-            on further without sign-off, since an area-specific fit is exactly the calibration
-            maths CLAUDE.md's evidence gates exist to hold off on.
-          </p>
+      <div class="split">
+        <div class="stack">
+          <p class="lead">Put a calibration sheet on every tray. The corner tags stay where they are, on the table's edges.</p>
+          {#- Seen from above, north at the top as in the camera view: 12 portrait trays in a north
+              and a south row of 6, each with a white portrait calibration sheet, and the corner tags
+              fixed on the north and south edges. -#}
+          <svg viewBox="0 0 420 310" role="img" class="table-diagram"
+               aria-label="Table seen from above: 12 trays in a north row and a south row of 6, each with a white calibration sheet, and the corner tags NW and NE on the north edge, SW and SE on the south edge.">
+            <rect x="40" y="40" width="340" height="230" rx="4" fill="none" stroke="#5b6573" stroke-width="2"/>
+            {%- for i in range(12) %}
+            {%- set x = 55 + (i % 6) * 54 %}{% set y = 58 + (i // 6) * 116 %}
+            <rect x="{{ x }}" y="{{ y }}" width="40" height="78" rx="3" fill="#1f3b52" stroke="#6cb4ff" stroke-width="1.5"/>
+            <rect x="{{ x + 6 }}" y="{{ y + 19 }}" width="28" height="40" fill="#ffffff"/>
+            {%- for tx, ty in [(5, 6), (17, 6), (5, 17), (17, 17), (5, 28), (17, 28)] %}
+            <rect x="{{ x + 6 + tx }}" y="{{ y + 19 + ty }}" width="6" height="6" fill="#121519"/>
+            {%- endfor %}
+            {%- endfor %}
+            {#- The corner tags sit on the north and south edges, near the ends. -#}
+            {%- for x, y, label in [(75, 40, "NW"), (345, 40, "NE"), (75, 270, "SW"), (345, 270, "SE")] %}
+            <rect x="{{ x - 10 }}" y="{{ y - 10 }}" width="20" height="20" fill="#f4bf4f" stroke="#121519" stroke-width="2"/>
+            <text x="{{ x }}" y="{{ y - 16 if y < 100 else y + 28 }}" text-anchor="middle" font-size="13" font-weight="700" fill="#f1f3f6">{{ label }}</text>
+            {%- endfor %}
+            <text x="210" y="24" text-anchor="middle" font-size="13" fill="#b9c1cc">N, top of camera view</text>
+            <text x="210" y="298" text-anchor="middle" font-size="13" fill="#b9c1cc">S</text>
+          </svg>
+          <p class="field-help">Blue: the 12 trays, in a north and a south row. White: a calibration sheet (30 mm tags) on every tray. Yellow: 50 mm corner tags installed on the edge of the table.</p>
         </div>
-      </details>
+        <div class="stack">
+          <h3>Sheets to print</h3>
+          <p class="lead">Print enough sheets for twelve trays. Duplicate calibration sheets are OK.</p>
+          <div class="sheet-links">
+            {{ ui.link_button("Calibration sheet, 30 mm, IDs 300 to 449", "/reference/calibration-sheets/apriltags-36h11-30mm-a4-300-449.pdf", new_tab=true) }}
+          </div>
+          {% call ui.help("Why every tray") %}
+            <p>Sheets are reusable, so covering every tray costs nothing and makes sure the tags reach all four corners of the photo.</p>
+          {% endcall %}
+        </div>
+      </div>
     </div>
-    <h3 style="margin: 1rem 0 0.25rem;">Table-position view</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Click "Save" below any time. No camera capture is needed, just these three numbers. They only
-      affect whether the view below is drawn to scale, nothing else, so there is no need to
-      re-run a calibration just to fix one of them.
-    </p>
-    <label class="peaking-row">
-      <span>
-        <strong>Table width / length (mm)</strong>: lay a tape measure across the <em>outer</em>
-        edges of two corner tags (the corners facing away from the table) and enter the number you
-        read, straight off the tape. No centre to find, no arithmetic: the app subtracts the
-        corner tag size below for you. <strong>Width</strong> is the left-to-right pair in the
-        camera image (top-left to top-right corner tag); <strong>length</strong> is top-to-bottom
-        (top-left to bottom-left corner tag). Swapping them renders a transposed rectangle.
-        Leave either blank (before you have ever entered one) for a square, NOT-TO-SCALE canvas
-        that still shows relative position correctly. Remembered between runs once entered,
-        pre-filled here from the last value you actually typed in, so you do not need to retype
-        it every run.
-      </span>
-      <span>
-        <input type="number" id="table-width-input" step="0.1" min="0"
-               placeholder="width e.g. 1050" style="width: 7rem;">
-        <input type="number" id="table-length-input" step="0.1" min="0"
-               placeholder="length e.g. 850" style="width: 7rem;">
-      </span>
-    </label>
-    <label class="peaking-row">
-      <span>
-        <strong>Corner tag size (mm)</strong>: the corner tags' own physical size, used only to
-        convert the outer-edge measurement above into the centre-to-centre distance the table view
-        needs. Measure with callipers for accuracy; leave blank to use the placeholder default
-        (shown after you run a calibration).
-      </span>
-      <input type="number" id="corner-tag-size-input" step="0.01" min="0"
-             placeholder="e.g. 50" style="width: 7rem;">
-    </label>
-    <div class="lock-row">
-      <button id="table-dims-save-btn">Save</button>
-      <span id="table-dims-save-result" style="font-size: 0.85rem; color: #aaa;"></span>
+
+    <div class="wizard-step" data-step="2">
+      {% include "_focus_controls.html" %}
     </div>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      The area-shape field above, painted instead on a straightened, top-down view
-      of the table, anchored to the four corner tags, which do not move, so "this spot on the
-      picture" is the same real spot on the table across different calibration runs, not tied to
-      one specific photo's own tilt and framing (PLAN.md's own corner-tag homography, M2 section
-      A). Grey means no calibration tag was ever near that spot: not measured, regardless of
-      colour, never a guessed or smoothed-in value.
-    </p>
-    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Area-shape distortion</h4>
-    <img id="table-view-shape-distortion" alt="Area-shape distortion, table-position view"
-         class="diagnostic-image">
-    <p style="margin: 0.4rem 0 0; color: #aaa; font-size: 0.8rem;">
-      NOT TO SCALE (a square canvas) unless both table width and length above were entered.
-      Relative position within the table is correct either way, but the rectangle's own
-      proportions only match the real table when both were measured and entered (as the
-      outer-edge-to-outer-edge tape measurement described above, with the corner tag size
-      subtracted automatically). A measurement smaller than the corner tag size itself falls
-      back to NOT TO SCALE rather than showing a nonsense rectangle.
-    </p>
-    <h3 style="margin: 1rem 0 0.25rem;">Best vs. worst tag</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Every calibration tag's own scale residual and area-shape distortion, sorted best to
-      worst, so a specific outlier tag can be found by ID and frame position rather than only
-      seeing the heatmap's average. Each plot's vertical axis is that run's own spread, not
-      the heatmap's fixed 0 to 0.5% scale. Read the axis label baked into each image, not the
-      colours above. Green marks the best tag, red the worst, on both the sorted plot and the
-      actual photo below it.
-    </p>
-    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Scale residual</h4>
-    <img id="rank-plot-scale-residual" alt="Scale residual, best to worst"
-         class="diagnostic-image">
-    <img id="best-worst-photo-scale-residual" alt="Scale residual, best and worst tag on the photo"
-         class="diagnostic-image">
-    <h4 style="margin: 0.75rem 0 0.25rem; color: #ccc;">Area-shape distortion</h4>
-    <img id="rank-plot-shape-distortion" alt="Area-shape distortion, best to worst"
-         class="diagnostic-image">
-    <img id="best-worst-photo-shape-distortion" alt="Area-shape distortion, best and worst tag on the photo"
-         class="diagnostic-image">
 
-    <h3 style="margin: 1rem 0 0.25rem;">Is this lens/parallax distortion, or something else?</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      PLAN.md's own rule: a lens/parallax distortion signature is <em>structured</em>: residual
-      trends with distance from the image centre, with a consistent sign, not random scatter.
-      That is the specific measurement that decides whether picking up lens-distortion modelling
-      is justified, so it is plotted directly rather than guessed at: every tag's own signed
-      residual (not folded to a percentage magnitude, because a real distortion trend has a sign) against
-      its distance from the image centre, with an unweighted linear fit and its R². No judgement
-      is baked in here about whether a given R² counts as "structured". Read the scatter and the
-      fit yourself.
-    </p>
-    <img id="radial-plot-scale-residual" alt="Scale residual vs. distance from image centre"
-         class="diagnostic-image">
-    <img id="radial-plot-shape-distortion" alt="Area-shape distortion vs. distance from image centre"
-         class="diagnostic-image">
-
-    <p style="margin: 0.75rem 0 0;">
-      <a href="/setup/calibration-history">Browse calibration history →</a>
-    </p>
-    </details>
-
+    <div class="wizard-step" data-step="3">
+      {% include "_squareness.html" %}
     </div>
+
+    <div class="wizard-step" data-step="4">
+      <div class="split">
+        <div class="stack">
+          {% call ui.field("tag-size", "Calibration tag size", "Measured with callipers for this print run. Empty uses the placeholder default.") %}
+            {{ ui.field_button("tag-size", "Calibration tag size", "", "mm", "number", 1, 200, 4, "Measure this print run's tags with callipers.") }}
+          {% endcall %}
+          {{ ui.switch("promote-toggle", "Make this the current baseline", "Turn off only for a comparison run, so the Health check keeps its baseline.", on=true) }}
+          <p class="field-help" id="calibration-current">Loading current calibration&hellip;</p>
+        </div>
+        <div class="stack">
+          <h3>Ready to run?</h3>
+          <ul class="checklist">
+            <li><span id="ready-focus">{{ ui.chip("info", "Checking focus") }}</span>
+              {{ ui.button("Go to step 2", attrs={"data-jump": "2", "hidden": true, "id": "ready-focus-jump"}) }}</li>
+            <li id="ready-corners">{{ ui.chip("info", "Checking corner tags") }}</li>
+            <li id="ready-tag-size">{{ ui.chip("warn", "Tag size not measured") }}</li>
+          </ul>
+          {{ ui.button("Run calibration", "primary run-btn", id="calibrate-btn") }}
+          <div id="calibration-run-status" role="status"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wizard-step" data-step="5">
+      <div class="stack">
+        <div id="report-empty" class="stack">
+          <div>{{ ui.chip("info", "No report yet") }}</div>
+          <p class="lead">Run calibration in step 4 first. Open diagnostics, below, shows the plots of the active calibration.</p>
+        </div>
+        <div id="report" class="stack" hidden>
+          <div id="report-flags" hidden></div>
+          <div class="table-scroll"><table class="result-table">
+            <thead><tr><th>Check</th><th>Result</th><th>Status</th></tr></thead>
+            <tbody id="report-rows"></tbody>
+          </table></div>
+          <ul class="report-lines" id="report-lines"></ul>
+          <p class="lead">If coverage is weak somewhere, open diagnostics to see where, add a sheet there and run again. Steps 1 to 3 only need redoing if something moved.</p>
+          <div>{{ ui.button("Run again", attrs={"data-jump": "4"}) }}</div>
+        </div>
+        <div class="row">
+          {{ ui.link_button("Open diagnostics", "/setup/calibration/diagnostics", "primary") }}
+          {{ ui.link_button("Calibration history", "/setup/calibration-history") }}
+        </div>
+      </div>
+    </div>
+
     <div class="wizard-step" data-step="6">
-    <h3 style="margin: 1rem 0 0.25rem;">Step 6 - Validate</h3>
-    <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-      Leave the calibration and corner sheets where they are. Validation moves each sheet to a
-      different tray and measures again, 3 rounds, to show how far an area can be trusted in each
-      tray slot. Close the chamber door before every round, and spread the rounds over at least
-      20 minutes. Remove the sheets after validation, before starting a growth run.
-    </p>
-    <p style="margin: 0 0 0.5rem;">
-      <a href="/setup/validation">Go to Validation</a>
-      &nbsp;&middot;&nbsp;
-      <a href="/setup">Skip validation for now, back to Setup</a>
-    </p>
+      <div class="stack">
+        <p class="validation-status" data-validation-status>
+          <span class="validation-status-text">Reading validation status&hellip;</span>
+        </p>
+        <p class="lead">Leave the sheets where they are. Validation moves each sheet to a different tray and measures again, 3 rounds, to show how far an area can be trusted in each slot.</p>
+        <ul class="checklist">
+          <li>{{ ui.chip("info", "Close the door before every round") }}</li>
+          <li>{{ ui.chip("info", "Spread rounds over 20 minutes or more") }}</li>
+          <li>{{ ui.chip("info", "Remove sheets before a growth run") }}</li>
+        </ul>
+        <div class="row">
+          {{ ui.link_button("Start validation", "/setup/validation", "primary") }}
+          {{ ui.link_button("Skip for now", "/setup") }}
+        </div>
+      </div>
     </div>
 
-    <p id="calibration-current" style="margin: 1rem 0 0; padding-top: 0.75rem; border-top: 1px solid #333; color: #aaa; font-size: 0.85rem;">
-      Loading current calibration&hellip;
-    </p>
-  </div>
+    {{ ui.about_page("about-cal-1", "Step 1: Place calibration sheets",
+      ["Print the sheets if you do not have them: the [Calibration sheet] button opens the PDF in a new tab.",
+       "Lay a calibration sheet (30 mm tags) flat on every tray.",
+       "Leave the four corner tags (50 mm) where they are, on the table's north and south edges.",
+       "Measure one tag of each printed sheet with callipers. You enter the size in step 4.",
+       "Press [Next]."],
+      [("Table diagram", "The table seen from above, north at the top as in the camera view. Blue rectangles are the 12 trays, in a north and a south row. The white rectangle on each is a calibration sheet. Yellow squares are the 50 mm corner tags, installed on the north and south edges of the table."),
+       ("Calibration sheet", "Opens the printable PDF in a new tab.")],
+      "The tags are the ruler. Covering every tray makes sure tags reach all four corners of the photo, so the scale is measured everywhere, not guessed. Sheets are reusable, so full coverage costs nothing.") }}
+    {{ ui.about_page("about-cal-3", "Step 3: Check squareness and coplanarity",
+      sq_todo + ["Press [Next]."], sq_controls, sq_why) }}
+    {{ ui.about_page("about-cal-4", "Step 4: Run calibration",
+      ["Enter the [Calibration tag size] you measured with callipers. Leave it empty only if you have no measurement.",
+       "Leave [Make this the current baseline] on, unless this is a comparison run.",
+       "Check the [Ready to run] list: every line should be green. You can still run if one is not; you are asked to confirm.",
+       "Press [Run calibration] and wait for the result, then press [Next]."],
+      [("Calibration tag size", "The printed tag's real size in mm. Tap it to open the keypad. It starts at the size the current calibration used. Empty uses a placeholder default, and the report says so."),
+       ("Make this the current baseline", "On for a normal setup. Turn it off only for a comparison run, so the Health check keeps the baseline it compares against."),
+       ("Ready to run", "What the calibration needs: focus locked, all four corner tags seen, tag size measured. Checked about every 1.5 seconds while this step is open."),
+       ("Run calibration", "Takes a full-resolution photo, finds the tags and fits the scale. It can take a while.")],
+      "The tag size is the largest single source of error. The old rig's tags were 29.31 mm, not the 30 mm printed on the box, a 4.7% error in area. Measure every printed sheet.") }}
+    {{ ui.about_page("about-cal-5", "Step 5: Read the report",
+      ["Read each line of the [Report table].",
+       "If coverage is weak somewhere, press [Open diagnostics] to see where, add a sheet there and press [Run again].",
+       "Steps 1 to 3 only need redoing if something moved.",
+       "Press [Next]."],
+      [("Report table", "One line per check, with the measured value and its status. The lines under it are the rest of the report, and the change from the previous calibration."),
+       ("Run again", "Goes back to step 4. Shown once a calibration has run on this page."),
+       ("Open diagnostics", "Opens the diagnostics page for the active calibration: the tag map (which tags read far from normal, and where) and the lens check (whether errors grow toward the frame corners). Its back button returns to this step. The report table is not kept: it shows again after the next run."),
+       ("Calibration history", "Every saved calibration, with its plots.")],
+      "A calibration that passes on average can still be weak in one tray slot. The report and the plots show where, before any plant is measured there.") }}
+    {{ ui.about_page("about-cal-6", "Step 6: Validate",
+      ["Leave the sheets where they are.",
+       "Press [Start validation] and follow the Validation page: 3 rounds, moving each sheet to a different tray between rounds.",
+       "Remove the sheets when validation is done, before starting a growth run."],
+      [("Validation status", "Whether the current calibration has been validated."),
+       ("Start validation", "Opens the Validation page."),
+       ("Skip for now", "Back to Setup. Areas have no trust band until validation is done.")],
+      "Calibration is checked against the same tags it was fitted to, so it cannot show how accurate an area is in each slot. Validation measures that with the sheets in new places.") }}
 
   <script>
     // Declared up here so every live poll/stream below can check "is my step the one currently
@@ -394,158 +198,60 @@
       return wizardStep === n;
     }
 
-    // Step 1's whole focus-control panel (images, autofocus/coarse/fine/peaking/lock, sharpness,
+    // Step 2's whole focus-control panel (images, autofocus/coarse/fine/peaking/lock, sharpness,
     // camera settings) is templates/_focus_controls.html -- also used standalone by
-    // setup_focus.html. showSquareMode is false here: this wizard has its own dedicated Step 2
-    // for the squareness/rotation check instead.
-    const focusControls = initFocusControls({ isActiveStep, showSquareMode: false, step: 2 });
+    // setup_focus.html.
+    const focusControls = initFocusControls({ isActiveStep, step: 2 });
 
-    // --- Step 3: squareness guide lines + live co-planarity overlay, one shared image ---
-    // The magenta draggable guide lines (straightening aid, client-side only) sit on top of
-    // the same live image the co-planarity rings are already drawn into server-side
-    // (/calibration/orientation/level.jpg) -- one live view carries both signals, instead of
-    // needing to flip between two separate steps to see them together (Aaron, 2026-09-28).
-    const squarenessGuides = document.getElementById("squareness-guides");
-    const levelOverlayImage = document.getElementById("level-overlay-image");
-    const cornerCheckToggle = document.getElementById("corner-check-toggle");
-    initSquarenessGuides(squarenessGuides, levelOverlayImage);
+    // --- Step 3: the shared squareness panel (_squareness.html, static/squareness-guides.js) ---
+    const squareness = initSquareness({ isActive: () => isActiveStep(3) });
 
-    // Loads into an off-screen probe first, swapping the visible <img>'s src only once a frame
-    // has fully loaded -- setting the visible img's src directly every tick let a slow request
-    // (e.g. right after Step 2's two video streams just stopped, still tearing down) get
-    // cancelled by the next tick's src reassignment before it ever painted, which is the more
-    // likely explanation for "blank until I navigate away and back" than the sizing bug was.
-    // `levelOverlayInFlight` skips starting a new probe while one's still pending, rather than
-    // letting probes pile up if requests are ever consistently slow.
-    // LEVEL_OVERLAY_POLL_MS: throttled from an original 500ms (Aaron, 2026-09-28) -- detecting
-    // AprilTags in every frame is real CPU cost on the Pi's own CPU, no acceleration for it, and
-    // it was making dragging the guide lines (a separate, client-side-only interaction) feel
-    // sluggish under the load. 1500ms keeps the rings live without competing as hard.
-    const LEVEL_OVERLAY_POLL_MS = 1500;
-    let levelOverlayInFlight = false;
-    function refreshLevelOverlay() {
-      if (levelOverlayInFlight) return;
-      levelOverlayInFlight = true;
-      const probe = new Image();
-      probe.onload = () => {
-        levelOverlayInFlight = false;
-        // Only apply this frame if rings are still what should be showing -- Corner check can
-        // be toggled off, or the wizard can move off Step 3 entirely, while this request was
-        // in flight (tag detection can take a while under load). Found by /code-review
-        // 2026-09-28: without this check, a late-arriving frame silently overwrote whatever
-        // updateCornerCheckMode had already switched to (the plain preview, or nothing).
-        if (cornerCheckShowing === "rings") {
-          levelOverlayImage.src = probe.src;
-        }
-      };
-      probe.onerror = () => {
-        levelOverlayInFlight = false;
-      };
-      probe.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
+    // Step 4's readiness poll captures a frame and finds tags every tick: real CPU on the Pi,
+    // so it is throttled to 1.5 s, as the corner rings are (Aaron, 2026-09-28).
+    const READINESS_POLL_MS = 1500;
+
+    // --- Calibration readiness (focus locked, all 4 corner tags detected, tag size entered) ---
+    // Polled live while Step 4 is showing. A data-quality gate, not a safety one, so it never
+    // blocks (Aaron, 2026-09-28): Run calibration stays enabled and asks to confirm instead.
+    const readyFocus = document.getElementById("ready-focus");
+    const readyFocusJump = document.getElementById("ready-focus-jump");
+    const readyCorners = document.getElementById("ready-corners");
+    const readyTagSize = document.getElementById("ready-tag-size");
+    const tagSizeField = document.getElementById("tag-size");
+
+    function paintTagSizeReady() {
+      const size = tagSizeField.dataset.value;
+      readyTagSize.innerHTML = size
+        ? ui.chip("ok", `Tag size ${size} mm`)
+        : ui.chip("warn", "Tag size not measured");
     }
-
-    // Corner check on/off (Aaron, 2026-09-28): squaring needs to be fluid, and the detection
-    // behind the rings is real CPU competition for that. Off falls back to the plain continuous
-    // preview stream (no detection at all, same one Step 2 uses) so there is still a live image
-    // to drag the guide lines against.
-    let cornerCheckShowing = null; // "rings" | "preview" | null -- what is currently on screen
-    function updateCornerCheckMode() {
-      if (!isActiveStep(3)) {
-        if (cornerCheckShowing !== null) {
-          levelOverlayImage.removeAttribute("src");
-          cornerCheckShowing = null;
-        }
-        return;
-      }
-      if (cornerCheckToggle.checked) {
-        if (cornerCheckShowing !== "rings") {
-          cornerCheckShowing = "rings";
-          refreshLevelOverlay();
-        }
-      } else if (cornerCheckShowing !== "preview") {
-        cornerCheckShowing = "preview";
-        levelOverlayImage.src = "/preview.mjpg";
-      }
-    }
-    cornerCheckToggle.addEventListener("change", updateCornerCheckMode);
-    function pollLevelOverlay() {
-      if (isActiveStep(3) && cornerCheckToggle.checked) refreshLevelOverlay();
-      setTimeout(pollLevelOverlay, LEVEL_OVERLAY_POLL_MS);
-    }
-    pollLevelOverlay();
-
-    // --- Calibration readiness (focus confirmed, all 4 corner tags detected) ---
-    // Polled live while Step 4 is showing -- a data-quality gate, not a safety one, so it is
-    // always overridable (Aaron, 2026-09-28): this just tells the operator where things stand
-    // before they click "Run calibration", the actual override prompt lives in that handler.
-    const calibrationReadiness = document.getElementById("calibration-readiness");
 
     async function pollCalibrationReadiness() {
       if (isActiveStep(4)) {
         try {
-          const r = await fetch("/calibration/readiness");
-          const data = await r.json();
-          if (data.ready) {
-            calibrationReadiness.textContent =
-              `Ready: focus locked, ${data.corner_tags_detected}/` +
-              `${data.corner_tags_required} corner tags detected.`;
-            calibrationReadiness.style.color = "#8c8";
-          } else {
-            const lockPart = data.focus_locked ? "focus locked" : "focus not locked";
-            calibrationReadiness.textContent =
-              `Not ready: ${lockPart}, ${data.corner_tags_detected}/` +
-              `${data.corner_tags_required} corner tags detected. You can still run ` +
-              "calibration, but you will be asked to confirm.";
-            calibrationReadiness.style.color = "#dc6";
-          }
+          const data = await (await fetch("/calibration/readiness")).json();
+          readyFocus.innerHTML = data.focus_locked
+            ? ui.chip("ok", "Focus locked")
+            : ui.chip("fail", "Focus not locked");
+          readyFocusJump.hidden = data.focus_locked;
+          const allCorners = data.corner_tags_detected >= data.corner_tags_required;
+          readyCorners.innerHTML = ui.chip(allCorners ? "ok" : "fail",
+            `${data.corner_tags_detected} of ${data.corner_tags_required} corner tags seen`);
         } catch (e) {
           // transient network hiccup -- try again next tick
         }
       }
-      // Same real cost, same throttle as Step 3's LEVEL_OVERLAY_POLL_MS -- this also captures a
-      // frame and runs AprilTag detection every tick. Found by /code-review 2026-09-28: this was
-      // still polling at the original 500ms-era-equivalent rate, reintroducing the exact CPU
-      // competition that poll was throttled for, one step later.
-      setTimeout(pollCalibrationReadiness, LEVEL_OVERLAY_POLL_MS);
+      setTimeout(pollCalibrationReadiness, READINESS_POLL_MS);
     }
-    pollCalibrationReadiness();
 
     // --- Calibration ---
     const calibrateBtn = document.getElementById("calibrate-btn");
     const promoteToggle = document.getElementById("promote-toggle");
-    const calibrationResult = document.getElementById("calibration-result");
+    const runStatus = document.getElementById("calibration-run-status");
     const calibrationCurrent = document.getElementById("calibration-current");
-    const tagSizeInput = document.getElementById("tag-size-input");
-    const calibrationAreaShapeHeatmap = document.getElementById("calibration-area-shape-heatmap");
-    const calibrationAreaShapeHeatmapLegend = document.getElementById(
-      "calibration-area-shape-heatmap-legend"
-    );
-    const tableWidthInput = document.getElementById("table-width-input");
-    const tableLengthInput = document.getElementById("table-length-input");
-    const cornerTagSizeInput = document.getElementById("corner-tag-size-input");
-    const tableDimsSaveBtn = document.getElementById("table-dims-save-btn");
-    const tableDimsSaveResult = document.getElementById("table-dims-save-result");
-    const tableViewShapeDistortion = document.getElementById("table-view-shape-distortion");
-    const rankPlotScaleResidual = document.getElementById("rank-plot-scale-residual");
-    const rankPlotShapeDistortion = document.getElementById("rank-plot-shape-distortion");
-    const bestWorstPhotoScaleResidual = document.getElementById("best-worst-photo-scale-residual");
-    const bestWorstPhotoShapeDistortion = document.getElementById("best-worst-photo-shape-distortion");
-    const radialPlotScaleResidual = document.getElementById("radial-plot-scale-residual");
-    const radialPlotShapeDistortion = document.getElementById("radial-plot-shape-distortion");
+    let tagSizeTouched = false;
 
     function renderCurrentCalibration(data) {
-      // Pre-fill with the operator's last real, explicitly-typed values (settings.py, not tied
-      // to a saved calibration existing) so a repeat run does not need them retyped -- only
-      // overwritten by hand if the operator has already typed something in for *this* run.
-      if (!tableWidthInput.value && data.table_width_mm != null) {
-        tableWidthInput.value = data.table_width_mm;
-      }
-      if (!tableLengthInput.value && data.table_length_mm != null) {
-        tableLengthInput.value = data.table_length_mm;
-      }
-      if (!cornerTagSizeInput.value && data.corner_tag_size_mm != null) {
-        cornerTagSizeInput.value = data.corner_tag_size_mm;
-      }
       if (!data.exists) {
         calibrationCurrent.textContent = "No calibration saved yet.";
         return;
@@ -557,69 +263,19 @@
       calibrationCurrent.textContent =
         `Current calibration: ${data.created_at.replace("T", " ").slice(0, 19)}, ` +
         `residual ${data.residual_std_pct.toFixed(2)}%, lens ${lens}, tag size ` +
-        `${data.calibration_tag_size_mm}mm, ${baseline}`;
-      // Pre-fill with the size the live baseline was actually built from, so a repeat
-      // calibration on the same print run does not need it retyped -- only overwritten by hand
-      // if the operator has not already typed something in for *this* run.
-      if (!tagSizeInput.value) tagSizeInput.value = data.calibration_tag_size_mm;
+        `${data.calibration_tag_size_mm} mm, ${baseline}`;
+      // Starts at the size the live baseline was built from, so a repeat calibration on the same
+      // print run does not need it typed again; never over what the operator set for this run.
+      if (!tagSizeTouched && !tagSizeField.dataset.value) {
+        ui.showField(tagSizeField, String(data.calibration_tag_size_mm));
+        paintTagSizeReady();
+      }
     }
 
     async function refreshCurrentCalibration() {
       const r = await fetch("/calibration/current");
       renderCurrentCalibration(await r.json());
       window.refreshValidationStatus();
-    }
-
-    // The pre-rendered heatmap/table-view images are already on disk (saved at capture time),
-    // so displaying them for any artifact -- a just-finished run or one loaded generically from
-    // /calibration/current -- costs nothing extra.
-    function showPrerenderedDiagnosticImages(data) {
-      if (data.area_shape_heatmap_url) {
-        calibrationAreaShapeHeatmap.src = `${data.area_shape_heatmap_url}?t=${Date.now()}`;
-        calibrationAreaShapeHeatmap.style.display = "block";
-        calibrationAreaShapeHeatmapLegend.style.display = "block";
-      } else {
-        calibrationAreaShapeHeatmap.style.display = "none";
-        calibrationAreaShapeHeatmapLegend.style.display = "none";
-      }
-      if (data.table_view_shape_url) {
-        tableViewShapeDistortion.src = `${data.table_view_shape_url}?t=${Date.now()}`;
-        tableViewShapeDistortion.style.display = "block";
-      } else {
-        tableViewShapeDistortion.style.display = "none";
-      }
-    }
-
-    // Re-detects tags from the current baseline's saved frame each time (no per-tag persistence
-    // in the artifact) -- always targets whatever /calibration/current is, so only call this
-    // once that is actually the run you want plotted (see the promoted_to_current gate below,
-    // and the opt-in "Load diagnostics" button, both of which exist because this is not free).
-    function showRankPlots() {
-      rankPlotScaleResidual.src = `/calibration/current/rank-plot?metric=scale_residual&t=${Date.now()}`;
-      rankPlotScaleResidual.style.display = "block";
-      rankPlotShapeDistortion.src = `/calibration/current/rank-plot?metric=shape_distortion&t=${Date.now()}`;
-      rankPlotShapeDistortion.style.display = "block";
-      bestWorstPhotoScaleResidual.src =
-        `/calibration/current/best-worst-photo?metric=scale_residual&t=${Date.now()}`;
-      bestWorstPhotoScaleResidual.style.display = "block";
-      bestWorstPhotoShapeDistortion.src =
-        `/calibration/current/best-worst-photo?metric=shape_distortion&t=${Date.now()}`;
-      bestWorstPhotoShapeDistortion.style.display = "block";
-      radialPlotScaleResidual.src =
-        `/calibration/current/radial-plot?metric=scale_residual&t=${Date.now()}`;
-      radialPlotScaleResidual.style.display = "block";
-      radialPlotShapeDistortion.src =
-        `/calibration/current/radial-plot?metric=shape_distortion&t=${Date.now()}`;
-      radialPlotShapeDistortion.style.display = "block";
-    }
-
-    function hideRankPlots() {
-      rankPlotScaleResidual.style.display = "none";
-      rankPlotShapeDistortion.style.display = "none";
-      bestWorstPhotoScaleResidual.style.display = "none";
-      bestWorstPhotoShapeDistortion.style.display = "none";
-      radialPlotScaleResidual.style.display = "none";
-      radialPlotShapeDistortion.style.display = "none";
     }
 
     // vs. the calibration that was active right before this run replaced it (Aaron, 2026-09-28)
@@ -631,15 +287,15 @@
         const change = metric.delta === 0
           ? "unchanged"
           : `${metric.delta > 0 ? "+" : ""}${metric.delta.toFixed(decimals)}${suffix}`;
-        return `  ${label}: ${metric.previous.toFixed(decimals)}${suffix} -> ` +
+        return `${label}: ${metric.previous.toFixed(decimals)}${suffix} to ` +
           `${metric.current.toFixed(decimals)}${suffix} (${change})`;
       }
       const when = cmp.previous_created_at.replace("T", " ").slice(0, 19);
-      const lines = [`vs. previous calibration (${when}):`];
+      const lines = [`Compared with the previous calibration (${when}):`];
       const rows = [
         metricLine("residual", cmp.residual_std_pct, 2, "%"),
         metricLine("corner tags detected", cmp.corner_tags_detected, 0, ""),
-        metricLine("calibration tag size", cmp.calibration_tag_size_mm, 4, "mm"),
+        metricLine("calibration tag size", cmp.calibration_tag_size_mm, 4, " mm"),
         metricLine("scale at centre", cmp.px_per_mm_at_centre, 3, " px/mm"),
         metricLine("lens position", cmp.lens_position, 2, ""),
       ];
@@ -649,171 +305,104 @@
       return lines;
     }
 
-    calibrateBtn.addEventListener("click", async () => {
+    // Step 5's report: the run's result as a table where it gives a status, the rest of its
+    // report lines under it. Adding checks is "Calibration report as 7 checks" (#84).
+    function renderReport(data) {
+      const esc = ui.esc;
+      const row = (check, result, status) =>
+        `<tr><td>${esc(check)}</td><td class="num">${esc(result)}</td><td>${status}</td></tr>`;
+      const flags = document.getElementById("report-flags");
+      const rows = document.getElementById("report-rows");
+      const lines = document.getElementById("report-lines");
+      flags.innerHTML = data.photo_flags && data.photo_flags.length
+        // Recorded only (Aaron, 2026-10-08): the run is saved and promoted as normal.
+        ? ui.chip("warn", `Photo flagged: ${data.photo_flags.join("; ")}. Recorded with the photo.`)
+        : "";
+      flags.hidden = !flags.innerHTML;
+      if (data.error) {
+        rows.innerHTML =
+          row("Calibration", data.error, ui.chip("fail", "Not saved")) +
+          row("Tags found", `${data.calibration_tags_detected} calibration, ${data.corner_tags_detected} corner`, "");
+        lines.innerHTML = "";
+      } else {
+        rows.innerHTML =
+          row("Tags found", `${data.calibration_tags_detected} calibration, ${data.corner_tags_detected} corner`, ui.chip("info", "Counted")) +
+          row("Tag size", `${data.calibration_tag_size_mm} mm`, data.calibration_tag_size_mm_is_default
+            ? ui.chip("warn", "Placeholder: measure it")
+            : ui.chip("ok", "Calliper-measured")) +
+          row("Scale at centre", data.px_per_mm_at_centre ? `${data.px_per_mm_at_centre.toFixed(3)} px/mm` : "n/a", ui.chip("info", "Measured")) +
+          row("Plane-fit residual", `${data.residual_std_pct.toFixed(2)}%`, ui.chip("info", "Measured")) +
+          row("Baseline", data.promoted_to_current ? "Set as current" : "Comparison run, not current",
+            data.promoted_to_current ? ui.chip("ok", "Current") : ui.chip("info", "Not current"));
+        const more = [...data.report];
+        if (data.previous_calibration_comparison) {
+          more.push(...formatCalibrationDelta(data.previous_calibration_comparison));
+        }
+        if (!data.promoted_to_current) {
+          more.push("The plots below show the current baseline, not this run: it was not set as current.");
+        }
+        lines.innerHTML = more.map((line) => `<li>${esc(line)}</li>`).join("");
+      }
+      document.getElementById("report-empty").hidden = true;
+      document.getElementById("report").hidden = false;
+    }
+
+    async function runCalibration(override) {
       calibrateBtn.disabled = true;
-      calibrateBtn.textContent = "Calibrating (full-res detect can take a while)...";
-      calibrationResult.textContent = "";
+      calibrateBtn.textContent = "Running calibration";
+      runStatus.innerHTML = ui.chip("info", "Taking a photo and finding tags. This can take a while.");
       try {
-        const promote = promoteToggle.checked;
+        const promote = promoteToggle.getAttribute("aria-checked") === "true";
         let url = `/calibration/run?promote=${promote}`;
-        if (tagSizeInput.value) url += `&calibration_tag_size_mm=${tagSizeInput.value}`;
-        if (tableWidthInput.value) url += `&table_width_mm=${tableWidthInput.value}`;
-        if (tableLengthInput.value) url += `&table_length_mm=${tableLengthInput.value}`;
-        if (cornerTagSizeInput.value) url += `&corner_tag_size_mm=${cornerTagSizeInput.value}`;
-        let r = await fetch(url, { method: "POST" });
-        let data = await r.json();
+        const size = tagSizeField.dataset.value;
+        if (size) url += `&calibration_tag_size_mm=${encodeURIComponent(size)}`;
+        if (override) url += "&override_focus_gate=true";
+        const data = await (await fetch(url, { method: "POST" })).json();
         if (data.gate_failed) {
-          // A data-quality gate, not a safety one -- always overridable, never a hard stop
-          // (Aaron, 2026-09-28). The confirm dialog is the "explicit action" that counts as
-          // the override, not a silent retry.
-          if (!confirm(`${data.error} Run calibration anyway?`)) {
-            calibrationResult.textContent = `${data.error} (calibration not run)`;
-            return;
-          }
-          r = await fetch(`${url}&override_focus_gate=true`, { method: "POST" });
-          data = await r.json();
+          // A data-quality gate, not a safety one: always overridable, never a hard stop
+          // (Aaron, 2026-09-28). Confirming is the explicit action that counts as the override.
+          // Cancel leaves this; Run calibration anyway replaces it.
+          runStatus.innerHTML = ui.chip("warn", `${data.error} Not run.`);
+          ui.confirmPanel({
+            title: "Run calibration anyway?",
+            body: `<p>${ui.esc(data.error)}</p>`,
+            ok: "Run calibration anyway",
+            onOk: () => runCalibration(true),
+          });
+          return;
         }
-        let lines;
-        if (data.error) {
-          lines = [
-            `${data.error} (${data.calibration_tags_detected} calibration tags, ` +
-              `${data.corner_tags_detected} corner tags detected)`,
-          ];
-        } else {
-          const centre = data.px_per_mm_at_centre
-            ? `${data.px_per_mm_at_centre.toFixed(3)} px/mm at centre`
-            : "scale at centre: n/a";
-          const tagSize = data.calibration_tag_size_mm_is_default
-            ? `tag size: ${data.calibration_tag_size_mm} mm placeholder default, measure with ` +
-              "callipers and enter it above"
-            : `tag size: ${data.calibration_tag_size_mm} mm (calliper-measured, as entered)`;
-          const cornerTagSize = data.corner_tag_size_mm_is_default
-            ? `corner tag size: ${data.corner_tag_size_mm} mm placeholder default, measure with ` +
-              "callipers and enter it above for a precise table view"
-            : `corner tag size: ${data.corner_tag_size_mm} mm (calliper-measured, as entered)`;
-          let tableDims;
-          if (data.table_view_to_scale) {
-            tableDims =
-              `table view: ${data.table_width_mm}mm x ${data.table_length_mm}mm outer-edge span, ` +
-              "as entered";
-          } else if (data.table_width_mm || data.table_length_mm) {
-            tableDims =
-              `table view: NOT TO SCALE: entered width/length (${data.table_width_mm}mm x ` +
-              `${data.table_length_mm}mm) could not convert against corner tag size ` +
-              `${data.corner_tag_size_mm}mm (too small, or one of the two left blank), check ` +
-              "your measurement";
-          } else {
-            tableDims = "table view: NOT TO SCALE: enter table width/length above for real proportions";
-          }
-          lines = [
-            `${data.calibration_tags_detected} calibration tags, ` +
-              `${data.corner_tags_detected} corner tags detected`,
-            tagSize,
-            cornerTagSize,
-            tableDims,
-            `${centre}, plane-fit residual ${data.residual_std_pct.toFixed(2)}%`,
-            ...data.report,
-          ];
-          if (data.previous_calibration_comparison) {
-            lines.push(...formatCalibrationDelta(data.previous_calibration_comparison));
-          }
-          if (!data.promoted_to_current) {
-            lines.push(
-              "Diagnostics below are not shown for this run -- it was not set as the current " +
-                "baseline, so they would otherwise show the previous baseline's plots, not this run's."
-            );
-          }
-        }
-        if (data.photo_flags && data.photo_flags.length) {
-          // Recorded only (Aaron, 2026-10-08): the run is saved and promoted as normal.
-          lines.unshift(`Photo flagged: ${data.photo_flags.join("; ")}. Recorded with the photo.`);
-        }
-        calibrationResult.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
-        showPrerenderedDiagnosticImages(data);
-        if (!data.error && data.promoted_to_current) {
-          // Gated on promoted_to_current (found by code review 2026-09-26): these endpoints
-          // only ever read the current baseline, so fetching them after a promote=False
-          // comparison run would silently show the *previous* baseline's plots, not this run's.
-          showRankPlots();
-        } else {
-          hideRankPlots();
-        }
+        renderReport(data);
+        runStatus.innerHTML = data.error
+          ? ui.chip("fail", `${data.error} Not saved.`)
+          : ui.chip("ok", "Calibration saved. Next: read the report.");
         await refreshCurrentCalibration();
         // Step 2's focus status names the calibration's lens position; show the new one.
         focusControls.refreshFocusStatus();
+      } catch (e) {
+        runStatus.innerHTML = ui.chip("fail", "Calibration request failed. Try again.");
       } finally {
         calibrateBtn.disabled = false;
         calibrateBtn.textContent = "Run calibration";
       }
-    });
+    }
 
-    const loadDiagnosticsBtn = document.getElementById("load-diagnostics-btn");
-    const diagnosticsDetails = document.getElementById("diagnostics-details");
-
-    loadDiagnosticsBtn.addEventListener("click", async () => {
-      loadDiagnosticsBtn.disabled = true;
-      loadDiagnosticsBtn.textContent = "Loading (re-detecting tags)...";
-      try {
-        const r = await fetch("/calibration/current");
-        const data = await r.json();
-        if (!data.exists) {
-          alert("No calibration saved yet.");
-          return;
-        }
-        diagnosticsDetails.open = true;
-        showPrerenderedDiagnosticImages(data);
-        // The rank/best-worst/radial plots need the saved frame (they re-detect tags from
-        // it); an artifact can exist with no frame_stem (calibration.py: "a ScaleField alone is
-        // still a valid, usable artifact"), and frame_url is the signal for that, same as the
-        // pre-rendered images above. Without this check they would 409 as broken-image icons with no
-        // explanation.
-        if (data.frame_url) {
-          showRankPlots();
-        } else {
-          hideRankPlots();
-        }
-      } finally {
-        loadDiagnosticsBtn.disabled = false;
-        loadDiagnosticsBtn.textContent = "Load diagnostics for the active calibration";
-      }
-    });
-
-    tableDimsSaveBtn.addEventListener("click", async () => {
-      tableDimsSaveBtn.disabled = true;
-      tableDimsSaveResult.textContent = "Saving...";
-      try {
-        let url = "/calibration/table-dims";
-        const params = [];
-        if (tableWidthInput.value) params.push(`table_width_mm=${tableWidthInput.value}`);
-        if (tableLengthInput.value) params.push(`table_length_mm=${tableLengthInput.value}`);
-        if (cornerTagSizeInput.value) params.push(`corner_tag_size_mm=${cornerTagSizeInput.value}`);
-        if (params.length) url += `?${params.join("&")}`;
-        const r = await fetch(url, { method: "POST" });
-        const data = await r.json();
-        tableDimsSaveResult.textContent =
-          `Saved: width ${data.table_width_mm ?? "?"}mm, length ${data.table_length_mm ?? "?"}mm, ` +
-          `corner tag ${data.corner_tag_size_mm ?? "?"}mm`;
-      } finally {
-        tableDimsSaveBtn.disabled = false;
-      }
-    });
-
-    refreshCurrentCalibration();
-
-    // --- Wizard step navigation (Next/Back, one step visible at a time) ---
-    // No gating yet -- Next is always enabled. Per-step checks (e.g. "residuals too high, are
-    // you sure?") are TODO.md's "Calibration wizard ... with a gate at each step" item; they
-    // need real threshold values from measured runs, not guessed constants.
+    // --- Wizard steps: Back, the six step buttons and Next; one step showing at a time ---
+    // No gating: any step can be opened at any time, Next is always enabled until the last step.
+    // Next marks the step done (a tick on its button); a jump does not.
     const STEP_TITLES = [
-      "Place calibration and corner sheets",
+      "Place calibration sheets",
       "Lock focus",
       "Check squareness and coplanarity",
       "Run calibration",
       "Read the report",
       "Validate",
     ];
+    const done = new Set();
     const wizardSteps = document.querySelectorAll(".wizard-step");
-    const wizardProgress = document.getElementById("wizard-progress");
+    const stepButtons = document.querySelectorAll(".step-btn");
+    const stepTitle = document.getElementById("step-title");
+    const wizardAbout = document.getElementById("wizard-about");
+    const cameraSettingsBtn = document.getElementById("camera-settings-btn");
     const wizardBackBtn = document.getElementById("wizard-back-btn");
     const wizardNextBtn = document.getElementById("wizard-next-btn");
 
@@ -821,31 +410,49 @@
       wizardSteps.forEach((el) => {
         el.classList.toggle("active", Number(el.dataset.step) === wizardStep);
       });
-      wizardProgress.textContent =
-        `Step ${wizardStep} of ${STEP_TITLES.length}: ${STEP_TITLES[wizardStep - 1]}`;
+      stepButtons.forEach((b) => {
+        const n = Number(b.dataset.jump);
+        if (n === wizardStep) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
+        b.classList.toggle("done", done.has(n) && n !== wizardStep);
+      });
+      stepTitle.textContent = `Step ${wizardStep} of ${STEP_TITLES.length}: ${STEP_TITLES[wizardStep - 1]}`;
+      // Step 2's About page and Camera settings come from the shared focus controls.
+      wizardAbout.dataset.about = wizardStep === 2 ? "about-focus" : `about-cal-${wizardStep}`;
+      cameraSettingsBtn.hidden = wizardStep !== 2;
       wizardBackBtn.disabled = wizardStep === 1;
-      wizardNextBtn.textContent = wizardStep === STEP_TITLES.length ? "Go to Validation" : "Next →";
-      // The last step stays active -- it navigates on to validation instead of advancing. The
-      // Step 6 text offers the way back to Setup: a lead, not a block.
-      wizardNextBtn.disabled = false;
+      wizardNextBtn.disabled = wizardStep === STEP_TITLES.length;
+      document.querySelector(".scroll").scrollTop = 0;
       focusControls.updateLiveResources();
-      updateCornerCheckMode();
+      squareness.update();
     }
 
-    wizardBackBtn.addEventListener("click", () => {
-      if (wizardStep > 1) {
-        wizardStep -= 1;
-        renderWizardStep();
-      }
-    });
-    wizardNextBtn.addEventListener("click", () => {
-      if (wizardStep < STEP_TITLES.length) {
-        wizardStep += 1;
-        renderWizardStep();
-      } else {
-        window.location.href = "/setup/validation";
-      }
-    });
+    function goToStep(n) {
+      wizardStep = Math.min(STEP_TITLES.length, Math.max(1, n));
+      renderWizardStep();
+    }
+
+    // The diagnostics page's back button returns to Step 5 (#step-5).
+    const stepInAddress = /^#step-(\d)$/.exec(window.location.hash);
+    if (stepInAddress) wizardStep = Math.min(STEP_TITLES.length, Math.max(1, Number(stepInAddress[1])));
     renderWizardStep();
+    document.addEventListener("DOMContentLoaded", () => {
+      ui.bindAbout(wizardAbout);
+      ui.bindSwitch(promoteToggle);
+      ui.bindField(tagSizeField, () => { tagSizeTouched = true; paintTagSizeReady(); });
+      calibrateBtn.addEventListener("click", () => runCalibration(false));
+      wizardBackBtn.addEventListener("click", () => goToStep(wizardStep - 1));
+      wizardNextBtn.addEventListener("click", () => {
+        done.add(wizardStep);
+        goToStep(wizardStep + 1);
+      });
+      // The step buttons, and the "Go to step" and "Run again" buttons inside steps.
+      document.addEventListener("click", (e) => {
+        const jump = e.target.closest("[data-jump]");
+        if (jump && !jump.disabled) goToStep(Number(jump.dataset.jump));
+      });
+      paintTagSizeReady();
+      refreshCurrentCalibration();
+      pollCalibrationReadiness();
+    });
   </script>
 {% endblock %}

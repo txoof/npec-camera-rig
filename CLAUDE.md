@@ -176,6 +176,18 @@ server was running with (`ps -eo args | grep uvicorn`). When Aaron has tried the
 server back as it was and remove the label. Everyone else writes code and runs unit tests with the
 synthetic camera, then waits for the label.
 
+**Restarting the port 8000 server.** Stop it with SIGTERM, never SIGINT or Ctrl+C (a second
+SIGINT makes uvicorn skip the app's shutdown, and the camera is not closed), and wait until the
+old PID is gone before relaunching. Launch it with `--timeout-graceful-shutdown 5`, so open
+browser tabs with a live view hold a restart for 5 s at most instead of until they are closed
+(#139):
+
+```bash
+/home/pi/npec_camera_rig/.venv/bin/python3 /home/pi/npec_camera_rig/.venv/bin/uvicorn \
+  npec_rig.app:app --app-dir /home/pi/npec_camera_rig/src --host 0.0.0.0 --port 8000 \
+  --timeout-graceful-shutdown 5
+```
+
 **Area map.** Which files a task may change. A test file goes with its module.
 
 | Area | Files |
@@ -197,7 +209,8 @@ creates it.
 **Shared files** may be changed by any task that needs to, after checking that no other open PR
 changes them: `CLAUDE.md`, `PLAN.md`, `CONTRIBUTING.md`, `docs/metrology-log.md`,
 `docs/measurement-trust.md`, `docs/operator-guide.md`, `pyproject.toml`, `uv.lock`,
-`tests/conftest.py`, `tests/helpers.py`.
+`tests/conftest.py`, `tests/helpers.py`, `src/npec_rig/static/style.css`,
+`src/npec_rig/templates/base.html`.
 
 ```bash
 f=docs/metrology-log.md
@@ -214,17 +227,32 @@ git -C ~/npec_camera_rig fetch origin
 git -C ~/npec_camera_rig worktree add -b <n>-<short-name> ~/wt/npec-<n>-<short-name> origin/main
 ```
 
+**When the issue names an existing branch**, start from that branch instead of `origin/main`, or
+the work it already holds (a spec, a mockup, an earlier slice) is missing and the push is
+refused:
+
+```bash
+git -C ~/npec_camera_rig worktree add -b <branch> ~/wt/npec-<branch> origin/<branch>
+```
+
+Check `git ls-remote --heads origin <n>-*` before creating a branch: if one exists for the
+issue, use it.
+
 The branch, the folder and the claim comment use the same name. Run tests there with
 `PYTHONPATH="$(pwd)/src"`. Never work on `main`. Do not touch another session's worktree or PR.
 After the merge, remove the worktree and the local branch.
 
 **The board.** Columns Todo, In Progress, In Review, Done. Move the cards for the issue and its PR:
 In Progress when claimed, In Review when the PR is opened, back to Todo when a claim is released
-unfinished. Closing and merging move cards to Done by themselves. `item-add` on a card that is
-already on the board returns its id, so always run both commands:
+unfinished. Closing and merging move cards to Done by themselves. The board may already hold the
+card (it can add new issues on its own), and `item-add` then fails with "Content already exists".
+So look the card up first and add it only when it is missing:
 
 ```bash
-item=$(gh project item-add 5 --owner txoof --url <issue-or-PR-URL> --format json --jq .id)
+url=<issue-or-PR-URL>
+item=$(gh project item-list 5 --owner txoof --limit 500 --format json \
+  --jq ".items[] | select(.content.url==\"$url\") | .id")
+[ -n "$item" ] || item=$(gh project item-add 5 --owner txoof --url "$url" --format json --jq .id)
 gh project item-edit --project-id PVT_kwHOANmg6c4BmGmA --id "$item" \
   --field-id PVTSSF_lAHOANmg6c4BmGmAzhkw6FQ --single-select-option-id <column-id>
 ```
@@ -236,6 +264,43 @@ Low `feb93a98`. Set it with the same `item-edit` command.
 
 **Email.** Every GitHub action emails Aaron. Push in batches, post one combined comment, and do not
 switch labels, draft state or reviews back and forth.
+
+## Web pages
+
+The pages are used on the chamber PCs: Windows touch screens at 1024x768, where the taskbar and
+browser bar leave about 1024x600, worked with a stylus. Touch calibration is poor and differs
+between the 15 screens. Aaron has checked one; its error says nothing about the others, so no page
+is designed around a direction or size of touch error. The pages must also work on a phone. A
+redesign of the whole interface is in progress (#125); until its components land, every new or
+changed page follows these rules (Aaron, 2026-10-12). The numbers below are starting points, not
+limits: where one does not work for a page, choose what does and say why in the PR.
+
+- **Big targets, wide gaps.** Make tapped controls large, about 64px tall, with about 24px between
+  them, so a missed tap lands on nothing instead of on a neighbor.
+- **No hover, no small sliders, drag only where moving is the task.** Nothing is reachable only
+  by hovering. Use buttons (a stepper) and a typed value instead of range inputs. Drag only with
+  large handles, and only where moving something is the task itself, such as the squareness
+  guides; every drag also has a keyboard alternative (for example W A S D or the arrow keys).
+- **Scroll gutter.** Keep a lane on the right of scrolling content free of controls (about 64px on
+  the chamber screen), so a stylus can scroll without pressing anything. Do not center wide
+  content into it.
+- **Fit the screen.** At 1024x600 the controls that finish a task (Submit, Next, Save) stay on
+  screen without scrolling.
+- **Never color alone.** Every status carries a word and a shape as well as its color. Text meets
+  WCAG AA contrast (4.5:1).
+- **Show and hide with `hidden`.** Start hidden with the `hidden` attribute and toggle
+  `el.hidden`, not `style.display`.
+- **Keep typing to a minimum.** The Windows on-screen keyboard is unusable on these screens. Prefer
+  choices and steppers over free text. The redesign adds an on-page keypad.
+- **Before and after pictures.** When developing a page, adding a feature to one or debugging
+  one, take a picture of it before the change and after it, and save both in
+  `~/development-snapshots/`. Log each pair in `~/development-snapshots/LOG.md`: the commit id,
+  the date and time (UTC), what the picture shows and what was changed (Aaron, 2026-10-13).
+  Picture the whole page, and the changed part closer where it helps.
+  `~/development-snapshots/tools/snapshot.py PATH OUT.png [--js "goToStep(3)"]` takes a
+  whole-page picture from a local copy of the page; its docstring says what it can not show.
+- **Do not restyle the site.** Colors, navigation, `base.html` and the shared rules in `style.css`
+  change only under the redesign issues. A feature page uses the classes that exist.
 
 ## Facts not to rediscover
 

@@ -1,15 +1,43 @@
 * { box-sizing: border-box; }
+/* The hidden attribute always wins: components set display, and must still hide with hidden. */
+[hidden] { display: none !important; }
+/* Design tokens, from the approved mockup (reference/ui-mockup/rig-ui-mockup.html, #128). The
+   older rules below keep their literal colors until their pages move onto these. */
 :root {
+  color-scheme: dark;
+  --bg: #121519;
+  --surface: #1a1e24;
+  --surface-2: #232931;
+  --line: #3b434e;
+  --fg: #f1f3f6;
+  --fg-2: #b9c1cc;
+  --accent: #6cb4ff;
+  --accent-ink: #06121f;
+  --ok: #4fd18b;
+  --warn: #f4bf4f;
+  --fail: #ff7a7a;
+  --guide: #ff4fff;
+  --focus: #ffe066;
+  --lane: #171b20;
+
+  /* System fonts only: the chamber PCs may have no internet. */
+  --font-ui: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-num: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+
+  --tap: 64px;          /* minimum height of anything tapped */
+  --slop: 10px;         /* extra hit area on every side: touch error differs between the 15 screens */
+  --gap: 24px;          /* gap between tappable controls, always more than 2 x --slop */
+  --gutter: 64px;       /* right-hand lane with no controls: scroll there without pressing anything */
+  --radius: 10px;
+
   /* 48px clears every touch-target guideline checked against this app (WCAG 2.5.5 AAA,
      Apple HIG, Material Design) -- the WCAG 2.5.8 AA floor is 24px, but that's a legal
      minimum, not a usable one on this rig's touchscreen. */
   --touch-target-min: 48px;
-  /* "80% of the frame," not 80% of whatever narrow form-control column an element happens to sit
-     in (a real bug: inside .calibration-section's 480px cap, 80% rendered as ~30% of the actual
-     screen) -- viewport-relative. The one width rule for every wide element on these pages (live
-     views, diagnostic images, the focus control panel) -- not just images, despite the name
-     history; kept to one variable so a future width change is one edit, not a grep. */
-  --wide-content-width: min(80vw, 1400px);
+  /* The one width rule for every wide element on these pages (live views, diagnostic images,
+     the focus control panel). The work area beside the rail is the frame now, so this is all of
+     it: the old 80vw measured the window and overflowed the work area. */
+  --wide-content-width: 100%;
 }
 /* Every font-size on these pages is in rem, so bumping the root scales all of them together --
    raised from the 16px browser default because the small (0.75-0.85rem) copy read too small on
@@ -17,283 +45,440 @@
 html { font-size: 18px; }
 body {
   margin: 0;
-  padding: 0.75rem;
-  font-family: system-ui, sans-serif;
-  background: #111;
+  font-family: var(--font-ui);
+  line-height: 1.4;
+  background: var(--bg);
   color: #eee;
 }
-h1 { font-size: 1.1rem; margin: 0 0 0.75rem; }
-/* Sticky header: cancels the body's own padding on three sides and re-applies it, so the bar
-   spans full width flush to the viewport edges once stuck, with its own background so scrolled
-   content doesn't show through underneath it. */
-.site-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: #111;
-  margin: -0.75rem -0.75rem 0;
-  padding: 0.75rem 0.75rem 0;
-}
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
-.top-nav {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.9rem;
+
+/* ---------- App shell (base.html) ----------
+   A section rail on the left, one work area: its head, one scrolling area, and an optional
+   action bar fixed at the bottom, so the controls that finish a task never scroll away. Only
+   .scroll scrolls; the page itself never does. */
+.app {
+  height: 100vh; height: 100dvh;
+  display: grid; grid-template-columns: 104px minmax(0, 1fr);
+  background: var(--bg);
 }
-.top-nav a {
-  color: #aaa;
-  text-decoration: none;
+.rail {
+  display: flex; flex-direction: column; gap: 20px; padding: 10px 4px; min-height: 0;
+  overflow-y: auto;
+  background: var(--surface); border-right: 1px solid var(--line);
 }
-.top-nav a.active {
-  color: #fff;
-  font-weight: bold;
+.rail-btn {
+  min-height: 72px; border-radius: var(--radius); background: transparent;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 0.75rem; color: var(--fg-2); text-decoration: none; text-align: center;
 }
-.breadcrumb {
-  margin: -0.5rem 0 0.75rem;
-  font-size: 0.85rem;
+.rail-btn svg { width: 26px; height: 26px; }
+.rail-btn[aria-current=page] {
+  background: var(--surface-2); color: var(--fg); font-weight: 700;
+  box-shadow: inset 4px 0 0 var(--accent);
 }
-.focus-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  width: var(--wide-content-width);
+.rail-spacer { flex: 1; }
+/* The camera status (_camera_status.html) sits at the bottom of the rail, shown only on a fault. */
+.rail .camera-status {
+  margin: 0; padding: 6px; border-radius: var(--radius); background: var(--surface-2);
+  font-size: 0.8rem; overflow-wrap: anywhere;
 }
-.preview-wrap {
-  position: relative;
-  width: 100%;
+
+.work { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; min-width: 0; }
+.work-head {
+  display: flex; align-items: center; gap: 16px; padding: 10px 20px;
+  border-bottom: 1px solid var(--line); min-height: 76px; color: var(--fg);
 }
-/* Reserves room for the square-mode handles (see .squareness-handle below), which sit just
-   past the image's own edges (left, right, and bottom -- there's no top handle) and would
-   otherwise collide with the mode-toggle row, a sibling pane, or get clipped by the body
-   edge. Harmless in focus mode too -- just a small gap next to the crop pane. */
-.focus-layout.mode-square .preview-wrap {
-  margin: 0 20px 20px 20px;
+.work-head h1 { font-size: 1.35rem; margin: 0; text-wrap: balance; }
+.work-head .sub { color: var(--fg-2); font-size: 0.9rem; margin: 2px 0 0; }
+.work-head .breadcrumb { margin: 0; font-size: 1.1rem; }
+/* The scrolling area keeps a control-free lane on the right, shaded so people learn where it is
+   safe to put the stylus or a thumb to scroll. */
+.scroll {
+  --scroll-gap: 20px;   /* space between the content and the lane */
+  overflow-y: auto; min-height: 0; position: relative;
+  padding: 20px calc(var(--gutter) + var(--scroll-gap)) 20px 20px;
+  background: linear-gradient(var(--lane), var(--lane)) right / var(--gutter) 100% no-repeat;
 }
-.preview {
-  display: block;
-  width: 100%;
-  background: #000;
-  cursor: crosshair;
+.action-bar {
+  display: flex; align-items: center; gap: var(--gap); padding: 10px 20px;
+  border-top: 1px solid var(--line); background: var(--surface); color: var(--fg);
 }
+.action-bar .grow { flex: 1; text-align: center; color: var(--fg-2); font-size: 0.95rem; }
+
+/* ---------- Tap area ----------
+   Every tapped control reaches --slop past each edge, the same on every side: no screen's touch
+   error is designed around. Gaps are wider than twice the slop, so a missed tap lands on nothing. */
+.hit { position: relative; }
+.hit::after { content: ""; position: absolute; inset: calc(-1 * var(--slop)); border-radius: var(--radius); }
+.show-hit .hit::after { outline: 2px dashed var(--warn); background: rgba(244,191,79,0.08); }
+
+/* ---------- Components (templates/_ui.html, static/ui.js; tried on /ui) ---------- */
+.ui-icon { width: 24px; height: 24px; flex: none; }
+.btn {
+  min-height: var(--tap); min-width: 120px; padding: 0 22px; border-radius: var(--radius);
+  border: 2px solid var(--line); background: var(--surface-2); color: var(--fg);
+  font: inherit; font-size: 1.05rem; font-weight: 600; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.danger { background: var(--surface-2); border-color: var(--fail); color: var(--fail); }
+.btn:disabled, .field-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-back { min-width: 0; padding: 0 16px; }
+
+.row { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: center; }
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
+.lead { color: var(--fg-2); margin: 0; max-width: 65ch; }
+
+/* Field button: looks like an input, is a button, and opens the on-page keypad, keyboard or
+   list. Not a real text input, so the Windows on-screen keyboard has nothing to attach to. */
+.field { display: grid; gap: 6px; color: var(--fg); }
+.field-label { font-weight: 600; }
+.field-help { color: var(--fg-2); font-size: 0.9rem; }
+.field-btn {
+  min-height: var(--tap); min-width: 220px; padding: 0 16px; border-radius: var(--radius);
+  border: 2px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; white-space: normal;
+  font-family: var(--font-num); font-size: 1.2rem; font-variant-numeric: tabular-nums; text-align: left;
+}
+.field-btn .unit { font-family: var(--font-ui); color: var(--fg-2); font-size: 0.95rem; }
+.field-btn .empty { font-family: var(--font-ui); color: var(--fg-2); font-size: 0.95rem; }
+.field-btn .ui-icon { width: 22px; height: 22px; color: var(--fg-2); }
+.field-btn.text { font-family: var(--font-ui); font-size: 1.05rem; }
+.field-btn.text.match { border-color: var(--ok); }
+
+/* Stepper: replaces sliders and drags. Whole buttons, no precision needed. */
+.stepper { display: flex; align-items: stretch; gap: var(--gap); }
+.stepper .btn { min-width: var(--tap); padding: 0 12px; }
+.stepper .field-btn { min-width: 150px; justify-content: center; }
+
+/* Switch row: the whole row is the target, not a 16px checkbox. */
+.switch {
+  width: 100%; min-height: var(--tap); padding: 12px 16px; border-radius: var(--radius);
+  border: 2px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer;
+  text-align: left; white-space: normal; font: inherit;
+  display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center;
+}
+.switch .track { width: 64px; height: 36px; border-radius: 18px; background: var(--line); position: relative; }
+.switch .track::before {
+  content: ""; position: absolute; top: 4px; left: 4px; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--fg); transition: left .15s;
+}
+.switch[aria-checked=true] .track { background: var(--accent); }
+.switch[aria-checked=true] .track::before { left: 32px; background: var(--accent-ink); }
+.switch .txt strong { display: block; }
+.switch .txt span { color: var(--fg-2); font-size: 0.9rem; }
+.switch .state { font-weight: 700; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.switch.compact { width: auto; min-height: 52px; padding: 6px 14px; gap: 10px; grid-template-columns: auto auto; }
+.switch.compact .track { width: 52px; height: 30px; }
+.switch.compact .track::before { width: 22px; height: 22px; }
+.switch.compact[aria-checked=true] .track::before { left: 26px; }
+
+/* Status: color, shape and words together. Never color alone. */
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px;
+  border-radius: 999px; border: 2px solid currentColor; font-weight: 700; font-size: 0.9rem;
+  white-space: nowrap;
+}
+.chip .ui-icon { width: 20px; height: 20px; }
+.chip.ok { color: var(--ok); }
+.chip.warn { color: var(--warn); }
+.chip.fail { color: var(--fail); }
+.chip.info { color: var(--fg-2); }
+
+.banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px var(--gap); padding: 12px 16px;
+  border-radius: var(--radius); border: 2px solid var(--warn); background: rgba(244,191,79,0.08); color: var(--fg);
+}
+.banner.fail { border-color: var(--fail); background: rgba(255,122,122,0.08); }
+.banner.info { border-color: var(--line); background: var(--surface); }
+.banner p { margin: 0; flex: 1; min-width: 220px; }
+
+/* Alert card: one problem that needs a person, with what to do about it. */
+.alert-card {
+  border: 2px solid var(--fail); border-radius: var(--radius); padding: 12px 14px; color: var(--fg);
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px;
+}
+.alert-card.warn { border-color: var(--warn); }
+.alert-card p { margin: 0; }
+
+/* Help: one "About this step" pattern, with a large summary. */
+details.help { border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg); }
+details.help summary {
+  min-height: 56px; padding: 0 16px; display: flex; align-items: center; gap: 12px;
+  cursor: pointer; font-weight: 600; list-style: none;
+}
+details.help summary.hit::after { inset: -4px; }
+details.help summary::-webkit-details-marker { display: none; }
+details.help summary .ui-icon { color: var(--accent); }
+details.help summary .title { flex: 1; }
+details.help[open] summary .chev { transform: rotate(180deg); }
+details.help .help-body { padding: 0 16px 16px; color: var(--fg-2); max-width: 65ch; }
+details.help .help-body p { margin: 0 0 10px; }
+
+/* Tight stepper: smaller buttons with the label beside them, for rows of controls under an image
+   (the Focus step). 52px targets, as in mockup 7, so two images and their controls fit 1024x600. */
+.stepper.tight { gap: 10px; align-items: center; }
+.stepper.tight .stepper-label { font-weight: 600; color: var(--fg-2); min-width: 4.6em; }
+.stepper.tight .btn { min-width: 52px; min-height: 52px; padding: 0 6px; }
+.stepper.tight .field-btn {
+  min-width: 96px; min-height: 52px; padding: 0 8px; font-size: 1.05rem; justify-content: center;
+}
+.stepper.tight .field-btn .ui-icon { display: none; }
+/* A toggle button: pressed shows a ring and a tick as well as its color. */
+.btn[aria-pressed] .ui-icon { display: none; }
+.btn[aria-pressed=true] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.btn[aria-pressed=true] .ui-icon { display: block; color: var(--accent); }
+
+/* About pages (ui.about_page), opened from an About button in the page head. */
+.work-head .help-btn { margin-left: auto; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; flex: none; }
+.work-head .head-actions .btn { flex: none; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; }
+.help-btn .ui-icon { color: var(--accent); }
+.help-page { max-width: 70ch; display: grid; gap: 12px; color: var(--fg); }
+.help-page h2 { font-size: 1.1rem; margin: 8px 0 0; }
+.help-page ol { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
+.help-page dl { margin: 0; display: grid; grid-template-columns: minmax(8em, max-content) 1fr; gap: 10px 20px; }
+.help-page dt { font-weight: 700; }
+/* A control named in help text (ui.ui_names): boxed like a key, so it reads as something on the page. */
+.ui-name {
+  display: inline-block; padding: 0 6px; border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 6px; background: var(--surface-2); color: var(--fg); font-weight: 600; white-space: nowrap;
+}
+/* The head's buttons on the right: About is always last, so it stays in one place. */
+.head-actions { margin-left: auto; display: flex; gap: 16px; flex: none; }
+.head-actions .help-btn { margin-left: 0; }
+.help-page dd { margin: 0; color: var(--fg-2); }
+.help-page p { margin: 0; color: var(--fg-2); }
+
+.card {
+  border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg);
+  padding: 14px 16px; display: grid; gap: 12px;
+}
+.card.current { border-color: var(--accent); }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.card-head h3 { font-size: 1.1rem; margin: 0; flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.card-meta { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--fg-2); font-size: 0.9rem; margin: 0; }
+.card-actions { display: flex; flex-wrap: wrap; gap: var(--gap); }
+.card-actions .btn { min-width: 132px; }
+/* Condensed card: details on the left, actions on the right, for long lists. */
+.card.condensed { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 10px 14px; gap: 8px 16px; }
+.card.condensed .card-head h3 { flex: 0 1 auto; }
+.card.condensed .card-meta { gap: 2px 16px; font-size: 0.85rem; }
+.card.condensed .card-info { display: grid; gap: 4px; min-width: 0; }
+.card.condensed .card-actions { gap: var(--gap); flex-wrap: nowrap; }
+.card.condensed .card-actions .btn { min-width: 0; min-height: 52px; padding: 0 16px; font-size: 1rem; }
+.list { display: grid; gap: var(--gap); }
+
+/* Data table. The header row sticks to the top of .scroll; the negative top cancels the scroll
+   area's top padding, or rows show through the padding above the header. */
+.data-table { border-collapse: collapse; width: 100%; font-size: 0.9rem; color: var(--fg); }
+.data-table th, .data-table td { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.data-table th { color: var(--fg-2); font-weight: 600; }
+.data-table th:first-child, .data-table td:first-child { text-align: left; }
+.data-table td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.data-table thead th { position: sticky; top: -20px; background: var(--bg); z-index: 1; box-shadow: 0 1px 0 var(--line); }
+
+/* Choice buttons: replace <select> and radio buttons. */
+.choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--gap); }
+.choice {
+  min-height: var(--tap); border-radius: var(--radius); border: 2px solid var(--line); background: var(--surface-2);
+  color: var(--fg); padding: 8px 14px; text-align: left; cursor: pointer; display: grid; gap: 2px;
+  white-space: normal; font: inherit;
+}
+.choice strong { font-size: 1rem; }
+.choice span { color: var(--fg-2); font-size: 0.85rem; font-family: var(--font-num); }
+.choice[aria-pressed=true] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* ---------- Layers: keypad, keyboard, dropdown list ----------
+   Each covers the screen and holds everything the entry needs: the field's label, its value,
+   the allowed range and the buttons that finish it, so nothing needed is underneath. */
+.keypad-layer, .kb-layer {
+  position: fixed; inset: 0; z-index: 50; color: var(--fg);
+}
+.keypad-layer {
+  background: rgba(5,7,9,0.94);
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; padding: 16px 20px;
+}
+.kp-info { display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 12px; min-height: 0; }
+.kp-label { font-size: 1.2rem; font-weight: 700; margin: 0; }
+.kp-help { color: var(--fg-2); margin: 0; font-size: 0.95rem; }
+.kp-value {
+  min-height: 84px; border: 3px solid var(--accent); border-radius: var(--radius); background: var(--bg);
+  display: flex; align-items: center; justify-content: space-between; padding: 0 18px;
+  font-family: var(--font-num); font-size: 2rem; font-variant-numeric: tabular-nums;
+}
+.kp-value .unit { font-family: var(--font-ui); font-size: 1rem; color: var(--fg-2); }
+.cursor { display: inline-block; width: 3px; height: 1.1em; background: var(--accent); vertical-align: middle; margin-left: 2px; }
+.kp-error { color: var(--fail); font-weight: 600; margin: 0; min-height: 1.4em; display: flex; gap: 8px; align-items: center; }
+.kp-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--gap); }
+.kp-actions .btn { min-height: 76px; }
+.kp-keys { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 14px; min-height: 0; padding-bottom: 6px; }
+.key {
+  min-height: var(--tap); border-radius: var(--radius); border: 2px solid var(--line); background: var(--surface-2);
+  color: var(--fg); padding: 0; font-family: var(--font-num); font-size: 1.8rem; font-weight: 600; cursor: pointer;
+  display: grid; place-items: center;
+}
+.key .ui-icon { width: 34px; height: 34px; }
+.key.fn { font-family: var(--font-ui); font-size: 1.1rem; background: var(--surface); }
+.key.wide { grid-column: span 3; min-height: 56px; }
+.key:active { background: var(--accent); color: var(--accent-ink); }
+/* Keypad keys sit closer together, so their extension is limited to half the gap. */
+.kp-keys .hit::after { inset: -7px; }
+
+.kb-layer {
+  background: rgba(5,7,9,0.96);
+  display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; padding: 12px 16px;
+}
+.kb-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px var(--gap); align-items: end; }
+.kb-top .kp-label { grid-column: 1 / -1; font-size: 1.05rem; }
+.kb-value {
+  min-height: 64px; border: 3px solid var(--accent); border-radius: var(--radius); background: var(--bg);
+  display: flex; align-items: center; padding: 0 14px; font-size: 1.3rem; overflow: hidden; white-space: nowrap;
+}
+.kb-value .count { margin-left: auto; padding-left: 12px; color: var(--fg-2); font-size: 0.8rem; font-family: var(--font-num); }
+.kb-top .btn { min-height: 64px; }
+.kb-keys { display: grid; grid-template-rows: repeat(5, 1fr); gap: 10px; min-height: 0; }
+.kb-row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; }
+.kb-row .key { min-height: 0; font-family: var(--font-ui); font-size: 1.35rem; }
+.kb-row .key.fn { font-size: 1rem; }
+.kb-row .key.space { grid-column: 2 / span 8; }
+.kb-row .key[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.kb-keys .hit::after { inset: -5px; }
+.kb-native { display: none; }
+.kb-native input { width: 100%; }
+
+.choice-layer .kb-top { grid-template-columns: minmax(0, 1fr) auto; }
+.choice-layer .kb-top .kp-label { grid-column: auto; align-self: center; margin: 0; }
+/* The list scrolls, so it keeps the same control-free lane on the right as .scroll. */
+.choice-list {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-content: start; overflow-y: auto;
+  padding: 10px calc(var(--gutter) + 10px) 10px 10px;
+  background: linear-gradient(var(--lane), var(--lane)) right / var(--gutter) 100% no-repeat;
+}
+.choice-list .choice { min-height: 68px; }
+
+/* ---------- Panels: a form or a confirmation over the work area ----------
+   The same head, scroll and action bar as a page, so the buttons that finish it stay on screen. */
+.panel-layer {
+  position: absolute; inset: 0; z-index: 40; background: var(--bg); color: var(--fg);
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.panel-layer .work-head h1 { font-size: 1.25rem; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 60;
+  background: var(--fg); color: var(--bg); padding: 12px 18px; border-radius: var(--radius); font-weight: 600;
+}
+.countdown { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* ---------- Narrow screens (phones) ----------
+   Under 700px wide the rail becomes a bottom bar and the full keyboard gives way to the
+   device's own. Width is how a page tells a phone from a chamber screen (#128). */
+@media (max-width: 700px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; --gutter: 48px; }
+  .rail {
+    order: 2; flex-direction: row; flex-wrap: wrap; border-right: 0; border-top: 1px solid var(--line);
+    padding: 6px; gap: 20px; overflow: visible;
+  }
+  .rail-spacer { display: none; }
+  .rail-btn { flex: 1; min-height: 64px; font-size: 0.8rem; gap: 2px; min-width: 0; }
+  .rail-btn[aria-current=page] { box-shadow: inset 0 4px 0 var(--accent); }
+  .rail .camera-status { flex: 1 1 100%; order: -1; }
+  .work-head { padding: 8px 14px; min-height: 64px; }
+  .work-head h1 { font-size: 1.15rem; }
+  .scroll { --scroll-gap: 12px; padding: 16px calc(var(--gutter) + var(--scroll-gap)) 16px 14px; }
+  .data-table thead th { top: -16px; }
+  .action-bar { padding: 8px 14px; }
+  .action-bar .grow { display: none; }
+  .action-bar .btn { flex: 1; min-width: 0; }
+  .row > .btn { flex: 1 1 140px; }
+  .stepper .field-btn { min-width: 0; flex: 1; }
+  .field-btn { min-width: 0; width: 100%; }
+  .stepper.tight .field-btn { width: auto; }
+  .work-head .help-btn .lbl { display: none; }
+  .help-page dl { grid-template-columns: minmax(0, 1fr); }
+  .card.condensed { grid-template-columns: minmax(0, 1fr); }
+  .card.condensed .card-actions { flex-wrap: wrap; }
+  .card.condensed .card-actions .btn { flex: 1 1 100px; }
+  .card-actions .btn { flex: 1 1 130px; min-width: 0; }
+  .choice-list { grid-template-columns: minmax(0, 1fr); }
+  .keypad-layer { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); padding: 12px 14px; gap: 12px; }
+  .kp-info { grid-template-rows: auto auto auto; }
+  .kp-info .kp-help, .kp-info .spacer { display: none; }
+  .kp-value { min-height: 68px; font-size: 1.6rem; }
+  .kp-actions { order: 9; }
+  .kb-keys { display: none; }
+  .kb-native { display: grid; }
+  .kb-top { grid-template-columns: 1fr 1fr; }
+  .kb-value { grid-column: 1 / -1; }
+}
+
 .roi-box {
   position: absolute;
   border: 2px solid #f55;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  display: none;
 }
-.squareness-guides {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  display: none;
+
+/* Focus controls (_focus_controls.html): the live view with the lock and exposure controls under
+   it on the left, the magnified view with the lens controls under it on the right. Everything
+   fits 1024x600 without scrolling (mockup 7). */
+/* The views grow with the window: as tall as the height left over the controls (470px: the page
+   head, padding and, with Auto exposure off, the left column's controls), never
+   under 300px, and never wider than their column. Columns 4:3, as the live view is 4:3 and the
+   magnified view square, so both are the same height. */
+.focus-cols {
+  display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 3fr); gap: 16px; align-items: start;
+  --view-h: max(300px, calc(100vh - 470px));
+  --view-h: max(300px, calc(100dvh - 470px));
 }
-.squareness-guides.mode-square {
-  display: block;
+.focus-col { display: grid; gap: 10px; justify-items: start; min-width: 0; container-type: inline-size; }
+.focus-row { display: flex; align-items: center; gap: 10px 8px; flex-wrap: wrap; }
+.focus-row .btn, .focus-row .switch.compact { min-height: 52px; }
+.focus-row .btn { min-width: 0; padding: 0 16px; }
+.live-view {
+  position: relative; width: fit-content; max-width: 100%; background: #000;
+  border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden;
 }
-/* Magenta, not red/amber/green -- those are the co-planarity rings' own verdict colors on the
-   same live image (Step 3 shows both together), and magenta doesn't occur in either that scale
-   or in a typical scene, so the two can't be read as one signal. */
-.squareness-line {
-  position: absolute;
-  background: rgba(255, 0, 255, 0.85);
+.live-view img {
+  display: block; height: auto; aspect-ratio: 4 / 3;
+  width: min(calc(100cqw - 4px), calc(var(--view-h) * 4 / 3));
 }
-.squareness-line-h {
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 2px;
-  margin-top: -1px;
+.live-view #preview { cursor: crosshair; }
+.live-view #roi-crop { image-rendering: pixelated; aspect-ratio: 1; width: min(calc(100cqw - 4px), var(--view-h)); }
+.live-view .tag {
+  position: absolute; right: 8px; bottom: 8px; max-width: calc(100% - 16px);
+  padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.75); color: var(--fg-2); font-size: 0.85rem;
 }
-.squareness-line-v {
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  margin-left: -1px;
+/* The lock status uses the same box as the sharpness: the chip keeps its icon, word and color. */
+.live-view .tag .chip { white-space: normal; padding: 0; border: 0; border-radius: 0; font-size: inherit; gap: 6px; }
+.live-view .tag .chip .ui-icon { width: 18px; height: 18px; }
+.live-view .tag strong { color: var(--fg); font-family: var(--font-num); }
+.lens-fault { flex-wrap: wrap; }
+.auto-values { color: var(--fg-2); font-family: var(--font-num); }
+.lens-total { margin: 0; color: var(--fg-2); }
+.lens-total strong { color: var(--fg); font-family: var(--font-num); }
+.view-stack { display: grid; gap: 6px; width: fit-content; max-width: 100%; }
+.score-trace {
+  position: relative; background: #000; border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden;
 }
-/* The lines themselves are purely visual in square mode -- dragging happens on the
-   .squareness-handle tabs just past the frame's edge instead (see below). A hit-target
-   sitting on top of the live image is exactly what made this "nearly impossible" by touch:
-   it fights with the page-scroll gesture and is hard to land on precisely. */
-.squareness-guides.mode-square .squareness-line {
-  pointer-events: none;
+.score-trace canvas { display: block; width: 100%; min-width: 0; height: 52px; }
+.score-trace .tag {
+  position: absolute; left: 6px; top: 4px; padding: 0 6px; border-radius: 6px;
+  background: rgba(0, 0, 0, 0.75); color: var(--fg-2); font-size: 0.8rem;
 }
-/* One handle per line end: two for the horizontal line (just past the left/right edges),
-   one per vertical line (just past the bottom edge). touch-action: none is what the lines
-   never had -- without it, a touch-drag starting on a small element can be interpreted as a
-   page-scroll gesture before the browser recognizes the drag. Nothing else on the page gets
-   this, so scrolling everywhere else (including over the live image itself) is unaffected. */
-.squareness-handle {
-  position: absolute;
-  width: 28px;
-  height: 28px;
-  margin: -14px;
-  border-radius: 50%;
-  background: rgba(255, 0, 255, 0.9);
-  border: 2px solid #221;
-  pointer-events: auto;
-  touch-action: none;
+.lens-fault .lens-error { color: var(--fail); font-weight: 700; }
+/* On a phone: one column, the live view and its controls first, then the magnified view, each
+   view the full width. After the rules above, so these win. */
+@media (max-width: 700px) {
+  .focus-cols { grid-template-columns: minmax(0, 1fr); }
+  .view-stack, .live-view { width: 100%; }
+  .live-view img, .live-view #roi-crop { width: calc(100cqw - 4px); }
 }
-.squareness-handle-h-left,
-.squareness-handle-h-right {
-  cursor: ns-resize;
-  top: 50%; /* JS keeps this in sync with the horizontal line's own top */
-}
-.squareness-handle-h-left { left: 0; }
-.squareness-handle-h-right { left: 100%; }
-.squareness-handle-v {
-  cursor: ew-resize;
-  top: 100%;
-  left: 50%; /* JS keeps this in sync with its vertical line's own left */
-}
-.mode-toggle-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  /* Matches .focus-layout above it -- these buttons control that frame, so they shouldn't
-     stay pinned to the old 480px cap while the frame itself is now much wider. */
-  max-width: var(--wide-content-width);
-}
-.mode-toggle-row button {
-  flex: 1;
-  padding: 0.2rem;
-  /* Thinner than other buttons, so the control panel below still fits on a 1024x768 screen. */
-  min-height: 34px;
-  background: #222;
-  border: 1px solid #444;
-  color: #ccc;
-  border-radius: 4px;
-  font-size: 0.85rem;
-}
-.mode-toggle-row button.active {
-  background: #456;
-  border-color: #6af;
-  color: #fff;
-}
-.roi-crop {
-  display: block;
-  width: 100%;
-  background: #000;
-  image-rendering: pixelated;
-}
-/* No zoomed focus crop in square mode -- not helpful there, and clearing its src (in JS)
-   actually stops the MJPEG stream rather than just hiding a still-running one. With the crop
-   pane gone, .preview-wrap is flex's only remaining child and fills the row on its own. */
-.focus-layout.mode-square .roi-crop {
-  display: none;
-}
-/* Side by side once there's room for both at a readable size; stacked below that. */
-@media (min-width: 800px) {
-  .focus-layout {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-  .focus-layout .preview-wrap,
-  .focus-layout .roi-crop {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-}
-.focus-section, .capture-section, .camera-controls, .calibration-section {
+.capture-section {
   max-width: 480px;
   margin-top: 0.75rem;
-}
-/* Full-width panel below the images: every focus-adjustment control in one place, grouped by a
-   border/background rather than a column split -- co-visible with the images above it instead
-   of competing with them for vertical space. */
-.focus-control-panel {
-  width: var(--wide-content-width);
-  box-sizing: border-box;
-  margin-top: 0.5rem;
-  padding: 0.6rem 0.75rem;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 6px;
-}
-.focus-status {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 180px;
-  font-size: 0.9rem;
-}
-.focus-control-row.lens-row {
-  gap: 0.6rem;
-}
-.focus-control-row.sharpness-row strong {
-  font-size: 1.6rem;
-  min-width: 4.5rem;
-}
-/* Shorter than its 60 px drawing height, so the three rows fit under the images at 1024x768. */
-.sharpness-row canvas {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 40px;
-  background: #000;
-}
-.sharpness-row .peaking-inline {
-  flex: 0 0 auto;
-}
-.peaking-inline input[type="checkbox"] {
-  flex: 0 0 auto;
-}
-.focus-control-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
-}
-.focus-control-row + .focus-control-row {
-  margin-top: 0.5rem;
-}
-.focus-control-row label {
-  margin-bottom: 0;
-  white-space: nowrap;
-}
-.focus-control-row input[type="number"] {
-  width: 5rem;
-  flex: 0 0 auto;
-}
-.focus-control-row input[type="range"] {
-  flex: 1 1 60px;
-  min-width: 60px;
-  width: auto;
-}
-.focus-control-row strong {
-  font-size: 1.2rem;
-}
-.peaking-inline {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.peaking-inline input[type="checkbox"] {
-  width: 1.2rem;
-  height: 1.2rem;
-}
-.camera-controls-details {
-  max-width: 480px;
-  margin-top: 1rem;
-}
-.camera-controls-details summary {
-  cursor: pointer;
-  font-size: 1rem;
-  padding: 0.5rem 0;
-}
-.control-pair-row {
-  display: flex;
-  gap: 1.5rem;
-  margin-top: 0.5rem;
-}
-.control-pair-item {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-}
-.control-pair-item input[type="checkbox"] {
-  width: 1.2rem;
-  height: 1.2rem;
 }
 label { display: block; margin-bottom: 0.25rem; }
 input[type="range"] {
@@ -309,32 +494,6 @@ input[type="number"] {
   border: 1px solid #444;
   color: #eee;
   border-radius: 4px;
-}
-.focus-row { margin-top: 0.5rem; }
-.focus-row label { display: flex; justify-content: space-between; }
-.focus-row label.stepped-control-box {
-  justify-content: flex-start;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.25rem;
-  font-size: 0.85rem;
-  color: #ccc;
-}
-.stepped-control-box input { width: 7rem; min-height: var(--touch-target-min); }
-.peaking-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  max-width: 480px;
-  font-size: 0.85rem;
-  color: #ccc;
-}
-.peaking-row input[type="checkbox"] {
-  width: 1.2rem;
-  height: 1.2rem;
-  margin-top: 0.15rem;
-  flex-shrink: 0;
 }
 .lock-row {
   display: flex;
@@ -375,22 +534,106 @@ input[type="range"]:disabled { opacity: 0.5; }
 a { color: #6cf; }
 .wizard-step { display: none; }
 .wizard-step.active { display: block; }
-.wizard-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #333;
-  margin-bottom: 0.75rem;
-  font-size: 0.85rem;
-  color: #aaa;
+
+/* ---------- Calibration wizard (setup_calibration.html, mockup 7) ----------
+   The steps bar sits under the page head and stays put while the step scrolls. */
+.work-head .btn-back { min-height: 52px; flex: none; }
+.steps {
+  display: flex; align-items: center; gap: 12px; padding: 6px 20px;
+  border-bottom: 1px solid var(--line); background: var(--surface);
 }
-.wizard-nav-buttons { display: flex; gap: 0.5rem; }
-/* Prevents the wizard-progress label (which can shrink/wrap) from squeezing these below their
-   natural width -- a squeezed button wraps "&larr; Back" onto two lines (arrow over text) and
-   reads as square instead of the usual rectangular shape. */
-.wizard-nav-buttons button { flex-shrink: 0; }
+.step-list { flex: 1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; min-width: 0; }
+.step-nav { min-width: 0; min-height: 52px; padding: 0 14px; }
+.step-btn {
+  min-height: 52px; min-width: 0; padding: 0 6px; border-radius: var(--radius); border: 2px solid var(--line);
+  background: var(--surface); color: var(--fg-2); font: inherit; font-size: 0.95rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.step-btn .n {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  border: 2px solid currentColor; font-weight: 700; font-size: 0.9rem;
+}
+.step-btn[aria-current=step] { border-color: var(--accent); color: var(--fg); background: var(--surface-2); font-weight: 700; }
+.step-btn[aria-current=step] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+/* Done: a filled green circle with a tick in place of the number, not color alone. */
+.step-btn.done .n { background: var(--ok); border-color: var(--ok); color: #052; font-size: 0; }
+.step-btn.done .n::after { content: "\2713"; font-size: 1rem; }
+.split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.table-diagram { width: 100%; max-width: 440px; }
+/* ---------- Squareness panel (_squareness.html, squareness-guides.js; mockup 7) ----------
+   The image as large as fits, 4:3, with room just outside it for the handles (42px left and
+   right, 46px below), the instructions to its right and one line of controls under it.
+   --sq-reserve is the height around the image: the page head, padding, handles and controls; the
+   wizard adds its steps bar. */
+.sq-panel {
+  container-type: inline-size; display: grid; grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px 8px; align-items: start; --sq-reserve: 236px;
+}
+.wizard-step .sq-panel { --sq-reserve: 312px; }
+.sq-frame { position: relative; margin: 0 42px 46px; width: fit-content; }
+.sq-help { margin: 0; color: var(--fg-2); width: 120px; font-size: 0.95rem; }
+.sq-controls { grid-column: 1 / -1; }
+.sq-view { position: relative; background: #000; border: 2px solid var(--line); border-radius: var(--radius); }
+.sq-view img {
+  display: block; height: auto; aspect-ratio: 4 / 3;
+  /* 216px across: the handles' room (84), the instructions (120), the gap (8) and borders. */
+  width: min(calc(100cqw - 216px), calc((100vh - var(--sq-reserve)) * 4 / 3));
+  width: min(calc(100cqw - 216px), calc((100dvh - var(--sq-reserve)) * 4 / 3));
+  min-width: 280px;
+}
+.guide { position: absolute; background: var(--guide); pointer-events: none; }
+.guide.h { left: 0; right: 0; height: 3px; margin-top: -1px; }
+.guide.v { top: 0; bottom: 0; width: 3px; margin-left: -1px; }
+.guide.sel { box-shadow: 0 0 0 3px rgba(255, 79, 255, 0.35); }
+/* Handles: magenta bars numbered as the keyboard picks the lines; the picked one has a white
+   ring. 36 x 56 px, not 64 x 64: Aaron chose image size over handle size (2026-10-13), and wider
+   ones would cover more of the image's edge, which is what is being lined up. touch-action: none so a drag is never taken for a page scroll. */
+.handle {
+  position: absolute; border: 0; padding: 0; border-radius: 8px; background: var(--guide); cursor: grab;
+  touch-action: none; box-shadow: 0 0 0 2px #000;
+  color: #000; font: inherit; font-size: 1.3rem; font-weight: 800; display: grid; place-items: center;
+}
+.handle.hh { left: -40px; width: 36px; height: 56px; transform: translateY(-50%); }
+.handle.hh.r { left: auto; right: -40px; }
+.handle.hv { top: calc(100% + 4px); width: 56px; height: 36px; transform: translateX(-50%); }
+.handle.sel { box-shadow: 0 0 0 3px var(--fg); }
+.handle:active { cursor: grabbing; }
+.sq-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px var(--gap); }
+/* The ring legend on one line, three chips of one width. */
+.legend { display: grid; grid-template-columns: repeat(3, 8.5em); gap: 10px; }
+.legend .chip { justify-content: center; }
+kbd {
+  font-family: var(--font-num); font-size: 0.85rem; border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 4px; padding: 0 5px; color: var(--fg); background: var(--surface-2);
+}
+/* The Focus and Square page's mode switch, in the page head. */
+.work-head .choices { grid-template-columns: repeat(2, auto); gap: var(--gap); }
+.work-head .choice { min-height: 52px; padding: 0 18px; align-content: center; }
+@media (max-width: 700px) {
+  .sq-panel { grid-template-columns: minmax(0, 1fr); }
+  .sq-help { width: auto; }
+  .sq-view img { width: calc(100cqw - 88px); min-width: 0; }
+  .legend { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.sheet-links { display: grid; gap: var(--gap); }
+.sheet-links .btn { justify-content: flex-start; }
+.checklist { display: grid; gap: var(--gap); margin: 0; padding: 0; list-style: none; }
+.checklist li { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.checklist .chip { white-space: normal; }
+.run-btn { min-height: 76px; }
+.table-scroll { overflow-x: auto; }
+.result-table { width: 100%; border-collapse: collapse; }
+.result-table th, .result-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.result-table th { color: var(--fg-2); font-weight: 600; font-size: 0.9rem; }
+.result-table td.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.report-lines { margin: 0; padding-left: 1.2em; color: var(--fg-2); display: grid; gap: 4px; }
+@media (max-width: 700px) {
+  .step-list { display: none; }
+  .steps { padding: 6px 14px; }
+  .step-nav { flex: 1; }
+  .work-head .btn-back .lbl { display: none; }
+  .split { grid-template-columns: minmax(0, 1fr); }
+}
 .calibration-history-list {
   display: flex;
   flex-direction: column;
@@ -495,6 +738,32 @@ a { color: #6cf; }
 .diagnostic-image[data-no-lightbox] {
   cursor: crosshair;
 }
+/* Tabs (ui.tabs): a bar of choice buttons under the page head, like the wizard's steps. */
+.tab-bar { padding: 6px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.tab-bar .choices { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); max-width: 640px; }
+.tab-bar .choice { min-height: 64px; }
+/* A plot that opens full screen when tapped (ui.figure, lightbox.js). Its height is capped so
+   the plot and the numbers beside it fit the 1024x600 chamber screen without scrolling. */
+.figure {
+  position: relative; display: block; width: 100%; padding: 0; border: 2px solid var(--line);
+  border-radius: var(--radius); background: #000; overflow: hidden; cursor: zoom-in;
+}
+.figure img {
+  display: block; width: 100%; height: auto; max-height: max(240px, calc(100vh - 300px)); object-fit: contain;
+}
+.figure .tag {
+  position: absolute; right: 8px; bottom: 8px; padding: 2px 8px; border-radius: 6px;
+  background: rgba(0, 0, 0, 0.8); color: var(--fg); font-size: 0.85rem;
+}
+/* Numbers beside a plot (ui.readout). */
+.readout { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: baseline; margin: 0; }
+.readout dt { color: var(--fg-2); }
+.readout dd { margin: 0; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+/* A plot with its numbers beside it; one column on a phone. */
+.plot-split { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 700px) {
+  .plot-split { grid-template-columns: minmax(0, 1fr); }
+}
 .lightbox-overlay {
   display: none;
   position: fixed;
@@ -538,7 +807,7 @@ a { color: #6cf; }
 .validation-status[data-validation-state="not_validated"] { border-left-color: #e3b341; }
 .validation-status[data-validation-state="not_validated"] .validation-status-text { color: #e3b341; }
 
-/* Camera status line (_camera_status.html), in the site header of every page. */
+/* Camera status line (_camera_status.html), at the bottom of the rail on every page. */
 .camera-status { margin: 0 0 0.75rem; padding: 0.35rem 0.6rem; border-left: 4px solid #e3b341;
   font-size: 0.9rem; }
 .camera-status .camera-status-text { font-weight: bold; color: #e3b341; }
@@ -598,3 +867,42 @@ button.stop { background: #8a3b2f; }
 .experiment-tray-other input { width: 6rem; }
 .experiment-export { margin-top: 0.3rem; color: #ccc; }
 .experiment-export a { color: #7cb7ff; }
+.experiment-dialog {
+  max-width: 480px;
+  background: #1a1a1a;
+  color: #eee;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 1rem;
+}
+.experiment-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.experiment-dialog h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+.experiment-dialog p { margin: 0.4rem 0; font-size: 0.9rem; }
+.experiment-dialog input[type="text"] {
+  display: block;
+  width: 100%;
+  min-height: 2.25rem;
+  font: inherit;
+  margin-top: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: #222;
+  border: 1px solid #444;
+  color: #eee;
+  border-radius: 4px;
+}
+.experiment-dialog-check { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.6rem; }
+.experiment-dialog-check input { width: 1.2rem; height: 1.2rem; }
+.experiment-dialog-error { min-height: 1.2rem; margin-top: 0.5rem; color: #e3b341; }
+/* The shared `label { display: block }` rule overrides the hidden attribute; on this page hidden
+   always means hidden. */
+.experiment-form [hidden], .experiment-dialog [hidden] { display: none; }
+.confirm-text {
+  font-family: ui-monospace, "DejaVu Sans Mono", monospace;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 0.05rem 0.35rem;
+  white-space: pre;
+}
+/* Typed in the same fixed-width font as the text to copy, so 0 and O, 1 and l look alike in both. */
+.experiment-dialog input#ask-input { font-family: ui-monospace, "DejaVu Sans Mono", monospace; }

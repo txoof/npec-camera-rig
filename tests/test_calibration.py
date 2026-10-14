@@ -9,11 +9,9 @@ from npec_rig.calibration import (
     QuadrantCoverage,
     ScaleField,
     area_scale_samples,
-    build_area_scale_field,
     build_install_report,
     build_scale_field,
     build_table_frame,
-    build_uncertainty_field,
     describe_area_scale_shape,
     describe_coplanarity,
     describe_coverage,
@@ -356,51 +354,6 @@ def test_install_report_includes_regional_coverage_lines_when_given() -> None:
     assert len(report) == 2 + len(describe_regional_coverage(regional))
 
 
-def test_uncertainty_is_near_zero_when_the_plane_fits_perfectly() -> None:
-    positions = _grid_positions()
-    detections = [_square_detection(tag_id, x, y, 120) for tag_id, (x, y) in enumerate(positions)]
-    sizes = {i: 30.0 for i in range(len(positions))}
-    field = build_scale_field(detections, sizes)
-
-    uncertainty = build_uncertainty_field(field, detections, sizes)
-    assert uncertainty.local_uncertainty_pct(500, 500, k=5) < 0.01
-    assert uncertainty.local_uncertainty_pct(100, 0, k=3) < 0.01
-
-
-def test_uncertainty_reflects_local_bias_even_when_neighbours_agree_with_each_other() -> None:
-    # A local cluster all sharing the same 5% bias relative to the fitted plane: tight agreement
-    # among themselves (std about their own mean ~= 0), but each one really is off by ~5%.
-    # RMS-about-zero must report that as real uncertainty; std-about-the-neighbours'-mean would
-    # hide it entirely -- the exact honesty-plot failure this field exists to avoid.
-    size_mm = 30.0
-    base_positions = _grid_positions()
-    detections = [
-        _square_detection(tag_id, x, y, 4.0 * size_mm) for tag_id, (x, y) in enumerate(base_positions)
-    ]
-    cluster = [(540, 540), (560, 540), (550, 560)]
-    for i, (x, y) in enumerate(cluster):
-        detections.append(_square_detection(100 + i, x, y, 4.0 * 1.05 * size_mm))
-    sizes = {d.tag_id: size_mm for d in detections}
-
-    field = build_scale_field(detections, sizes)
-    uncertainty = build_uncertainty_field(field, detections, sizes)
-
-    near_cluster = uncertainty.local_uncertainty_pct(550, 550, k=3)
-    far_from_cluster = uncertainty.local_uncertainty_pct(100, 0, k=3)
-    assert near_cluster > 3.0
-    assert far_from_cluster < near_cluster
-
-
-def test_uncertainty_field_raises_with_fewer_than_two_usable_tags() -> None:
-    detections = [_square_detection(0, 100, 100, 120)]
-    field = build_scale_field(
-        [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(_grid_positions())],
-        {i: 30.0 for i in range(len(_grid_positions()))},
-    )
-    with pytest.raises(ValueError, match="at least 2"):
-        build_uncertainty_field(field, detections, {0: 30.0})
-
-
 def test_refit_scale_factor_recovers_a_uniform_change_keeping_shape() -> None:
     # A frozen field from a genuine tilted plane, built once (the paper calibration).
     size_mm = 30.0
@@ -516,7 +469,7 @@ def test_calibration_artifact_without_a_baseline_round_trips() -> None:
     assert restored.corner_baseline is None
 
 
-def test_calibration_artifact_with_uncertainty_field_and_frame_stem_round_trips() -> None:
+def test_calibration_artifact_with_frame_stem_round_trips() -> None:
     from npec_rig.calibration import (
         CalibrationArtifact,
         calibration_artifact_from_dict,
@@ -525,21 +478,34 @@ def test_calibration_artifact_with_uncertainty_field_and_frame_stem_round_trips(
 
     detections = [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(_grid_positions())]
     sizes = {i: 30.0 for i in range(len(_grid_positions()))}
-    field = build_scale_field(detections, sizes)
-    uncertainty = build_uncertainty_field(field, detections, sizes)
     artifact = CalibrationArtifact(
         created_at="2026-09-20T12:00:00+00:00",
-        scale_field=field,
-        uncertainty_field=uncertainty,
+        scale_field=build_scale_field(detections, sizes),
         frame_stem="20260920T120000000000",
     )
 
     restored = calibration_artifact_from_dict(calibration_artifact_to_dict(artifact))
     assert restored == artifact
     assert restored.frame_stem == "20260920T120000000000"
-    assert restored.uncertainty_field.local_uncertainty_pct(500, 500) == pytest.approx(
-        uncertainty.local_uncertainty_pct(500, 500)
+
+
+def test_calibration_artifact_saved_with_an_uncertainty_field_still_loads() -> None:
+    """Artifacts saved before issue #52 carry an "uncertainty_field" key; it is ignored."""
+    from npec_rig.calibration import (
+        CalibrationArtifact,
+        calibration_artifact_from_dict,
+        calibration_artifact_to_dict,
     )
+
+    detections = [_square_detection(i, x, y, 120) for i, (x, y) in enumerate(_grid_positions())]
+    sizes = {i: 30.0 for i in range(len(_grid_positions()))}
+    artifact = CalibrationArtifact(
+        created_at="2026-09-20T12:00:00+00:00", scale_field=build_scale_field(detections, sizes)
+    )
+    data = calibration_artifact_to_dict(artifact)
+    data["uncertainty_field"] = {"positions": [[500.0, 500.0]], "residual_pct": [0.1]}
+
+    assert calibration_artifact_from_dict(data) == artifact
 
 
 def test_calibration_artifact_rejects_an_unsupported_version() -> None:
@@ -726,53 +692,6 @@ def test_area_scale_samples_skips_tags_the_field_cant_evaluate() -> None:
 
     samples = area_scale_samples(field, [in_domain, far_away], sizes)
     assert {s.tag_id for s in samples} == {1}
-
-
-def test_build_area_scale_field_smooths_shape_factor_by_proximity() -> None:
-    # Mirrors test_uncertainty_reflects_local_bias_even_when_neighbours_agree_with_each_other:
-    # a local cluster of tags all sharing the same shape distortion should read as high nearby
-    # and low far away, via k-nearest-neighbour RMS-about-zero.
-    size_mm = 30.0
-    ppm = 4.0
-    fit_positions = _grid_positions()
-    fit_detections = [
-        _square_detection(tag_id, x, y, ppm * size_mm)
-        for tag_id, (x, y) in enumerate(fit_positions)
-    ]
-    field = build_scale_field(fit_detections, {i: size_mm for i in range(len(fit_positions))})
-
-    def _distorted(tag_id: int, cx: float, cy: float) -> TagDetection:
-        # Same mean side length as the field predicts (zero length residual), but a rectangle,
-        # not a square -- pure shape distortion, isolated from scale residual.
-        width, height = ppm * size_mm * 1.4, ppm * size_mm * 0.6
-        return TagDetection(
-            tag_id=tag_id,
-            corners=(
-                (cx - width / 2, cy - height / 2),
-                (cx + width / 2, cy - height / 2),
-                (cx + width / 2, cy + height / 2),
-                (cx - width / 2, cy + height / 2),
-            ),
-            centre=(cx, cy),
-        )
-
-    cluster = [_distorted(100 + i, x, y) for i, (x, y) in enumerate([(540, 540), (560, 540), (550, 560)])]
-    # Background: the same square fit tags, each with zero shape distortion of their own -- so
-    # a query far from the cluster finds *those* as its nearest neighbours instead.
-    detections = fit_detections + cluster
-    sizes = {i: size_mm for i in range(len(fit_positions))} | {d.tag_id: size_mm for d in cluster}
-    samples = area_scale_samples(field, detections, sizes)
-    area_field = build_area_scale_field(samples)
-
-    near_cluster = area_field.local_shape_factor_pct(550, 550, k=3)
-    far_from_cluster = area_field.local_shape_factor_pct(100, 0, k=3)
-    assert near_cluster > 5.0
-    assert far_from_cluster < near_cluster
-
-
-def test_build_area_scale_field_raises_with_zero_samples() -> None:
-    with pytest.raises(ValueError, match="at least 1"):
-        build_area_scale_field([])
 
 
 def test_describe_area_scale_shape_reports_mean_and_worst_tag() -> None:

@@ -97,6 +97,24 @@ a band changes from one validation to the next is shown by the sessions of 2026-
 2026-10-07 on the same calibration (metrology-log section 6): single slots differed by up to 1.5
 points (North 1, ±1.77% then ±3.3%), with a cold start, a camera fault and lens tests in between.
 
+**Why a percentile, and not a normal-distribution estimate.** The usual metrology route to a 95%
+interval is twice the standard uncertainty (the GUM's k = 2), which is about 95% only when the
+errors are roughly normal. The band makes no such assumption. Compared on 7 validation sessions
+(84 slot-sessions, metrology-log section 6.1), the band and twice the root mean square error
+agree within 0.3 points in 70; across all 84 the band is a median of 0.95 times that normal
+estimate, as normal errors would give. Where they differ by more, it goes both ways. In 9 the
+normal estimate is wider, by more than 0.3 points, so there the band reports less than a normal
+estimate would. In 5 the band is wider, by 0.37 to 0.86 points, each time because a group of 6
+or 7 tags in one or two of the 3 photographs read off together, all on the same side; a normal
+estimate would have reported less spread than those tags showed. So on this rig the choice of
+method changes the band by 0.3 points or less in 5 of every 6 slot-sessions, and where the
+errors are not normal the band reports the spread the tags actually showed. In 4 of those 5,
+all on the current camera, the photographs show a sheet not lying flat (Aaron, by eye,
+2026-10-13); the fifth, on the old camera, has no cause found. The validation checks did not flag
+any of them, so a sheet not lying flat can widen a band without warning. This is a weak point in
+the validation step, not yet addressed. No confidence level is attached: the
+3 rounds are not independent samples.
+
 **The band holds the next day.** On SN001 a validation was repeated the next day with nothing
 recalibrated or moved (2026-10-13 and 10-14, metrology-log 14.1): 94.1% of the second day's tags
 fell inside the first day's bands (rule, set before the test: at least 90%, no slot below 75%;

@@ -194,14 +194,31 @@ can never drift out of sync with the readings it summarises.
 
 1. **Every derived row carries its provenance** — which calibration, which segmenter version, what
    trust verdict. An experimenter can re-filter a finished experiment without re-deriving anything.
-2. **Nothing is ever deleted, only flagged.** Untrusted readings stay in the table with a `FAIL`
-   verdict. Removing them would hide that the rig was knocked.
+2. **Inside a kept experiment, nothing is ever deleted, only flagged.** Untrusted readings stay in
+   the table with a `FAIL` verdict. Removing them would hide that the rig was knocked. The one
+   deletion is a purge of a whole experiment (*Purging an experiment*, below).
 3. **Store the segmentation masks** (PNG alongside each capture — they compress to almost nothing).
    Area is a function of mask × scale field, so if a calibration later turns out to be wrong, every
    historical area can be **recomputed without re-running inference**. There's a **Reprocess**
    action in the UI for exactly this. This is the difference between a bad calibration costing an
    afternoon and costing the experiment.
-4. **Append-only readings**, so a crash mid-write can't corrupt history.
+4. **Append-only readings**, so a crash mid-write can't corrupt history. A purge removes an
+   experiment's readings all at once, never one by one.
+
+### Purging an experiment
+
+Experiments that are no longer needed can be removed (Aaron, 2026-10-12; #120). A purge is always
+a person's decision, never automatic; automatic shrinking or removal of old photos is the storage
+task (#63), not this.
+
+- Only a stopped experiment, never the running one.
+- A warning if the experiment has no complete export (finished, no error, started after its last
+  photo). The warning can be overridden.
+- The user types the experiment's name to confirm.
+- **Deleted:** the experiment's folder (its photos and its export zips) and its rows (photos, and
+  later tray positions and areas).
+- **Kept:** a short record: name, researcher, dates, when purged, the export's checksum.
+- **Never touched:** calibration and validation data in `rig/`, which other experiments may use.
 
 ### CSV export
 
@@ -476,7 +493,9 @@ bake-off from scratch. Only if measured corner jitter proves inadequate do we ev
   lens position and the validation it falls under; a capture taken with focus unlocked, or at a
   lens position other than the calibration's, is marked "not covered by a validation" (a flag, not
   a block). See *Per-slot area uncertainty*.
-- **Export page with CSV download**, covering whatever tables exist at each stage.
+- **Export page with CSV download**, covering whatever tables exist at each stage. Export of a
+  whole experiment as one zip with a checksum manifest (#119), and **purge** of an experiment that
+  is no longer needed (#120, see *Purging an experiment*).
 - Disk monitoring + retention policy, with **headroom shown prominently** — at 60/hour a month is
   ~170 GB, and the card must not fill mid-experiment.
 - **Timelapse** with scrub, play and mp4 export.

@@ -1,28 +1,47 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% from "_squareness_help.html" import sq_todo, sq_controls, sq_why %}
 {% set nav_active = "setup" %}
-{% block title_suffix %} — Focus &amp; Square{% endblock %}
+{% block title_suffix %}: Focus and Square{% endblock %}
 
 {% block breadcrumb %}
-  <p class="breadcrumb">
-    <a href="/setup">Setup</a> / Focus &amp; Square
-  </p>
+  {{ ui.link_button("Setup", "/setup", "btn-back", "back") }}
+  <h1>Focus and Square</h1>
+  {#- Focus mode shows only the focus controls, Square mode only the squareness panel (#89). -#}
+  {{ ui.choices("focus-mode", "Mode", [("focus", "Focus", ""), ("square", "Square", "")], "focus") }}
+  <div class="head-actions">
+    {{ ui.button("Camera settings", id="camera-settings-btn") }}
+    {{ ui.about_button("about-focus", "About") }}
+  </div>
 {% endblock %}
 
 {% block content %}
-  <p style="margin: 0.5rem 0; color: #aaa; font-size: 0.85rem;">
-    Click the live preview to place the focus region. Watch the score below peak while adjusting
-    the lens.
-  </p>
-
-  {% set show_square_mode = true %}
-  {% include "_focus_controls.html" %}
+  <div id="focus-mode-panel">
+    {% set about_title = "Focus and Square" %}
+    {% set about_end_with_next = false %}
+    {% set about_more_todo = ["To check the camera is square to the table, choose [Square]."] + sq_todo %}
+    {% set about_more_controls = [("Focus and Square", "Focus shows the focus and exposure controls. Square shows the live view larger, with the guide lines and the corner rings, and hides the focus controls.")] + sq_controls %}
+    {% include "_focus_controls.html" %}
+  </div>
+  <div id="square-mode-panel" hidden>
+    {% include "_squareness.html" %}
+  </div>
 
   <script>
-    // No wizard steps on this page -- always "active", so the shared focus-controls partial's
-    // stream/score gating (which exists for the calibration wizard's Step 1) is a no-op here.
-    function isActiveStep(n) {
-      return true;
-    }
-    initFocusControls({ isActiveStep, showSquareMode: true });
+    // One mode at a time: each panel streams only while it is showing.
+    let mode = "focus";
+    const focusControls = initFocusControls({ isActiveStep: () => mode === "focus" });
+    const squareness = initSquareness({ isActive: () => mode === "square" });
+    document.addEventListener("DOMContentLoaded", () => {
+      ui.bindAbout(document.querySelector('[data-about="about-focus"]'));
+      ui.bindChoices(document.getElementById("focus-mode"), (value) => {
+        mode = value;
+        document.getElementById("focus-mode-panel").hidden = mode !== "focus";
+        document.getElementById("square-mode-panel").hidden = mode !== "square";
+        document.getElementById("camera-settings-btn").hidden = mode !== "focus";
+        focusControls.updateLiveResources();
+        squareness.update();
+      });
+    });
   </script>
 {% endblock %}

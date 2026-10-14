@@ -1,4 +1,4 @@
-// Click-to-enlarge for any .diagnostic-image, shared across every page via base.html --
+// Click-to-enlarge for any .diagnostic-image or ui.figure, shared across every page via base.html --
 // event-delegated so it works on images added to the DOM after this script runs.
 (() => {
   const overlay = document.createElement("div");
@@ -17,7 +17,9 @@
   }
 
   document.addEventListener("click", (event) => {
-    const image = event.target.closest(".diagnostic-image:not([data-no-lightbox])");
+    // A ui.figure is a button around its image, so a tap or Enter on it opens the image too.
+    const figure = event.target.closest(".figure");
+    const image = figure ? figure.querySelector("img") : event.target.closest(".diagnostic-image:not([data-no-lightbox])");
     if (image && image.hasAttribute("src")) {
       overlayImage.src = image.src;
       overlayImage.alt = image.alt;
