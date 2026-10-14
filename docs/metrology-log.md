@@ -1843,7 +1843,17 @@ Section 9.3 unchanged: tripwire baseline, a knock on the camera mount, then the 
 hand, measured against the table rails. To reach the camera Aaron climbs on the table, so contact with
 the table is expected (Aaron, 2026-10-14, written before the run). Disturbed sheets and trays do
 not matter for this test; a shifted table or corner tag would show as a disagreement between the
-app's roll and the rails', and is then written up as a disturbed run. PLAN.md asks for about 5 deg (section 9.3 reached about
+app's roll and the rails', and is then written up as a disturbed run.
+
+**Run, 2026-10-14.** Baseline: calibration `20261014T095016381511` (14.4 run B, current, lens
+6.05). The app returns the verdict to the browser and saves only the photo, so each verdict is
+recomputed from the saved photo with the app's own `check_tripwire`
+(`/home/pi/scratch/m2-acceptance-2026-10/tripwire_replay.py`).
+
+| Step | Photo (UTC) | Verdict | Roll | Corner scale changes |
+|---|---|---|---|---|
+| Baseline | `rig/2026-10-14/095152_652234`, 09:51:52 | OK, "no significant drift detected" | 0.00 deg | -0.06% to +0.05% |
+ PLAN.md asks for about 5 deg (section 9.3 reached about
 3). **Pass:** the app's roll agrees with the rails within 0.2 deg, and the knock gives FAIL.
 
 ### 14.6 Closing calibration and validation
