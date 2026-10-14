@@ -1855,6 +1855,32 @@ recomputed from the saved photo with the app's own `check_tripwire`
 | Baseline | `rig/2026-10-14/095152_652234`, 09:51:52 | OK, "no significant drift detected" | 0.00 deg | -0.06% to +0.05% |
 | Knock on the camera mount (one firm knock by hand) | `rig/2026-10-14/095420_606701`, 09:54:20 | DRIFT, "rolled 5.9 deg clockwise" | 5.86 deg | -0.46% to +0.44% |
 | Second, harder knock (Aaron) | `rig/2026-10-14/095610_032904`, 09:56:10 | DRIFT, "rolled 6.9 deg clockwise" | 6.85 deg | -1.35% to +1.21% |
+
+Each knock rolled the camera; neither moved a corner tag out of view. The FAIL limits (roll 10 deg,
+corner scale 8%, a missing corner tag) were not reached, so both knocks read DRIFT. Aaron decided
+to stop there rather than knock harder (risk to the mount) and to use the two knock photos as the
+roll test, which PLAN.md sets at about 5 deg (2026-10-14).
+
+Rail angles (script `/home/pi/scratch/m2-acceptance-2026-10/rail_angles.py`: the strongest
+near-horizontal edge in each rail's region found by a Hough search, then fitted by least squares
+to its edge points over x = 1500 to 7600 px, about 3800 to 4300 points per rail, standard error
+0.0004 to 0.0007 deg; top and bottom rails interpolated to the image centre as in section 9.3):
+
+| Photo | Top rail | Bottom rail | At the image centre | Change from baseline | App's roll | Difference |
+|---|---|---|---|---|---|---|
+| Baseline | +0.228 deg | -0.396 deg | -0.082 deg | | 0.00 deg | |
+| First knock | +6.007 deg | +5.539 deg | +5.773 deg | +5.86 deg | 5.86 deg | 0.00 deg |
+| Second knock | +6.919 deg | +6.563 deg | +6.734 deg | +6.82 deg | 6.85 deg | 0.03 deg |
+
+**Result.** Roll: **pass**, the app's roll agrees with the rails within 0.03 deg at about 5.9 and
+6.9 deg (criterion 0.2 deg). Knock: **detected, but not FAIL**: both knocks were flagged DRIFT and
+neither was passed as OK; PLAN.md's wording asks for FAIL, which the tripwire gives only at a 10
+deg roll, an 8% corner scale change or a missing corner tag. On the old camera FAIL came from a
+corner tag pushed out of view. Whether a knock of this size should read FAIL is a question about
+the tripwire's provisional limits, not about the camera, and is left for a separate issue.
+
+**Covers.** Rolls of about 5.9 and 6.9 deg, both clockwise, produced by knocks. No table contact
+was reported.
  PLAN.md asks for about 5 deg (section 9.3 reached about
 3). **Pass:** the app's roll agrees with the rails within 0.2 deg, and the knock gives FAIL.
 
