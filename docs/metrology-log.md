@@ -4,8 +4,9 @@ This is the log: every measurement, test method and result, with its source. For
 these measurements can be trusted, read `docs/measurement-trust.md` first.
 
 **Status:** first draft 2026-10-05; raw-data sources, repeat counts and camera coverage added
-2026-10-08. The camera was replaced on 2026-10-07 (old SN000, new SN001; section 8.2); current
-calibration and bands are the new camera's from 2026-10-08. Section 13 says which results have
+2026-10-08; M2 acceptance on SN001 added 2026-10-14 (section 14). The camera was replaced on
+2026-10-07 (old SN000, new SN001; section 8.2); current calibration and bands are the new camera's
+from 2026-10-14. Section 13 says which results have
 been repeated on SN001. Kept current as findings come in (CLAUDE.md, *Write up every
 measurement*). Numbers marked **decision** are settings chosen by the project, not measurements.
 Section 11 lists inconsistencies between project files that still need checking. Section 9
