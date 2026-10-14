@@ -5,7 +5,7 @@ calibration and bands are SN001's, made 2026-10-14 at lens 6.05. The M2 physical
 were run on SN000 on 2026-10-05 and repeated on SN001 from 2026-10-12 to 10-14
 (`docs/metrology-log.md`, section 14): the repeat validation on another day, the tape, the two
 calibrations with a cold start between them, the two-height and the roll tests passed; a knock
-was detected but read DRIFT, not FAIL. The check of the
+was detected but read DRIFT, not FAIL, and was signed off with a covered-corner-tag check. The check of the
 calibration's own uncertainty claim failed, so that claim is no longer used (see *An independent
 check, which sets the band*). Which results were repeated on SN001 is listed in
 `docs/metrology-log.md`, section 13. The evidence for every number here, with its source, is in
@@ -196,7 +196,8 @@ corner-tag tripwire, which compares every photo's 4 corner tags with the calibra
 - **Camera roll**: two knocks rolled the camera 5.9° and 6.9°; the app's roll agreed with the
   table's rails within 0.03°.
 - **Knock**: both knocks were caught and read DRIFT, not FAIL: FAIL needs a 10° roll, an 8% corner
-  scale change or a missing corner tag, and neither knock reached one.
+  scale change or a missing corner tag, and neither knock reached one. Covering one corner tag by
+  hand gave FAIL, and uncovering it gave OK again. Signed off by Aaron on 2026-10-14.
 
 ## The band stays valid over time and after disturbance
 

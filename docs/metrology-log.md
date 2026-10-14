@@ -1750,7 +1750,7 @@ This table says, for each result, whether it has been repeated on SN001.
 | Lens ignores commands after a full-resolution photo | 11 | Seen twice | Seen (step 4) |
 | Two-height test | 9.1 | Pass | Pass, 14.4 |
 | Tape-measure check | 9.2 | Pass | Pass, 14.2 |
-| Roll and knock | 9.3 | Pass | Roll pass; knock read DRIFT, not FAIL, 14.5 |
+| Roll and knock | 9.3 | Pass | Pass (signed off): roll within 0.03 deg; knocks read DRIFT; covered corner tag gave FAIL, 14.5 |
 | Claimed uncertainty against actual error | 9.4 | Fail; the claim was removed | Not repeated (the claim is no longer shown) |
 
 Removing packing foam from SN001 changed its readings by about 0.8 points (section 8.2), so the
@@ -2198,6 +2198,20 @@ deg roll, an 8% corner scale change or a missing corner tag. On the old camera F
 corner tag pushed out of view. Whether a knock of this size should read FAIL is a question about
 the tripwire's provisional limits, not about the camera, and is not decided.
 
+**Missing corner tag, checked after the closing calibration (Aaron, 2026-10-14).** Against
+calibration `20261014T111147292361`, verdicts recomputed as above:
+
+| Step | Photo (UTC) | Verdict |
+|---|---|---|
+| Baseline | `rig/2026-10-14/115539_140848`, 11:55:39 | OK, roll 0.00 deg |
+| Corner tag 455 covered by hand | `rig/2026-10-14/115707_089824`, 11:57:07 | FAIL, "corner tag(s) [455] present at calibration are missing now" |
+| Tag uncovered | `rig/2026-10-14/115721_414161`, 11:57:21 | OK, roll 0.00 deg |
+
+**Decision (Aaron, 2026-10-14): roll and knock signed off.** The knocks were detected (DRIFT) and
+the missing-corner-tag path gives FAIL; a harder knock was not tried, being costly and a risk to
+the mount. PLAN.md's M2 line was changed to match: a hard knock is flagged (DRIFT or FAIL, never
+OK), and a missing corner tag gives FAIL.
+
 **Covers.** Rolls of about 5.9 and 6.9 deg, both clockwise, produced by knocks. No table contact
 was reported.
  PLAN.md asks for about 5 deg (section 9.3 reached about
@@ -2242,8 +2256,8 @@ The tray at South 6 has not been checked.
 | 14.3 Settling hour | None (measurement) | -2.73 points at +0, back within 0.31 by +15 min | -1.73 at +0, -0.41 at +15, -0.14 at +60 |
 | 14.4 Two heights | Shape difference below both residuals | **Pass**: 0.39 points against 0.50% and 0.66% | Pass: 0.16 |
 | 14.5 Roll | App within 0.2 deg of the rails | **Pass**: within 0.03 deg at 5.9 and 6.9 deg | Pass: 0.06 deg at 3.0 deg |
-| 14.5 Knock | A hard knock gives FAIL | **DRIFT, not FAIL**, at both knocks (rolls of 5.9 and 6.9 deg; FAIL needs 10 deg, 8% or a missing corner tag) | FAIL, through a corner tag pushed out of view |
+| 14.5 Knock | A hard knock is flagged (PLAN.md as changed 2026-10-14; was "gives FAIL") | **Signed off**: both knocks read DRIFT (rolls of 5.9 and 6.9 deg); a covered corner tag gave FAIL | FAIL, through a corner tag pushed out of view |
 | 14.6 Closing calibration and validation | None | Bands ±1.3% to ±2.6%, lens 6.05 | |
 
-Every result that has a pass criterion passed except the knock, which was detected but read DRIFT
-instead of FAIL. Whether that meets PLAN.md's acceptance test is Aaron's decision.
+Every result that has a pass criterion passed. The knock read DRIFT, not FAIL; Aaron signed it off
+on 2026-10-14 with the covered-corner-tag check, and PLAN.md's wording was changed to match.
