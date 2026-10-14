@@ -1766,6 +1766,7 @@ scale field; slot boxes from session `20261014T070107213176`; calibration sheet 
 | Photo | Time (UTC) | Tags found, matched (of 359 in the reference) | Median change | Spread (SD) | Ring 1000 to 1500 px | Largest slot median |
 |---|---|---|---|---|---|---|
 | +0 | 08:18:59 | 331, 331 | -2.73 | 1.03 | -1.80 | -3.69 (North 1, North 5) |
+| +15 | 08:34:03 | 359, 359 | +0.08 | 0.22 | +0.10 | +0.31 (South 1) |
 
 ### 14.4 Two heights
 
