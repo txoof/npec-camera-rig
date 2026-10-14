@@ -1768,6 +1768,23 @@ scale field; slot boxes from session `20261014T070107213176`; calibration sheet 
 | +0 | 08:18:59 | 331, 331 | -2.73 | 1.03 | -1.80 | -3.69 (North 1, North 5) |
 | +15 | 08:34:03 | 359, 359 | +0.08 | 0.22 | +0.10 | +0.31 (South 1) |
 | +30 | 08:49:06 | 359, 359 | +0.10 | 0.25 | +0.00 | +0.28 (South 1) |
+| +60 | 09:19:05 | 359, 359 | +0.07 | 0.25 | -0.01 | +0.27 (South 1) |
+
+Focus read locked at 5.97 at every photo; no camera events in the hour.
+
+**Settling hour result.** Right after the cold start the readings were 2.73 points low on average
+(every slot low, -1.02 to -3.69), and 28 of 359 tags were not found. By +15 minutes they were back:
+median +0.08, every slot within 0.31 of the reference, all tags found; +30 and +60 stayed there
+(medians +0.10 and +0.07, slots within 0.28). From +15 on the changes are inside the range of
+undisturbed photos (old camera control B: median within ±0.10, slots up to 0.52; new camera, 5 app
+restarts: largest slot 0.29, section 8). Against the old camera's run 3 (+0 -1.73, +15 -0.41,
++30 -0.38, +60 -0.14), SN001 starts lower and recovers sooner. One run.
+
+For the 60-minute cold-start window (section 8, *Cold-start window*, a placeholder from one old
+camera run): on SN001 the readings had recovered somewhere between +0 (100 s after power-on) and
++15 minutes; this run does not say exactly when within that time. The 60-minute window covers it
+with room to spare. Whether to shorten it is a decision, not made here.
+
 
 ### 14.4 Two heights
 
