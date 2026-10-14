@@ -1813,6 +1813,30 @@ Section 9.1 unchanged: one calibration with the sheets on the table surface, one
 experiment height, lens refocused by Aaron for each. **Pass:** the scale-field shape (each corner's
 scale divided by the centre scale) differs between the two by less than both runs' residuals.
 
+**Result, 2026-10-14: pass.** Two calibrations, same camera position, 30.0 mm tags, 359
+calibration tags and 4 corner tags each; lens focused and locked by Aaron for each height:
+
+| Run | Sheets on | Calibration | Lens | Centre scale | Residual |
+|---|---|---|---|---|---|
+| A | the table surface (trays moved as needed) | `20261014T094151646606` (09:41 UTC), not made current | 5.99 | 4.535 px/mm | 0.66% |
+| B | trays at experiment height, pressed flat | `20261014T095016381511` (09:50 UTC), made current | 6.05 | 4.859 px/mm | 0.50% |
+
+Each run's scale at the corners of the calibrated area divided by its own scale at the image centre
+(points and method as section 9.1; script `/home/pi/scratch/m2-acceptance-2026-10/two_heights.py`):
+
+| Position | Table | Trays | Difference (points) |
+|---|---|---|---|
+| Top-left | +0.70% | +0.30% | +0.39 |
+| Top-right | -0.26% | -0.30% | +0.03 |
+| Bottom-left | +0.27% | +0.30% | -0.04 |
+| Bottom-right | -0.69% | -0.30% | -0.39 |
+
+The largest difference (0.39 points, top-left and bottom-right) is below both residuals (0.50%
+and 0.66%): one paper calibration's shape covers the tray height. Less margin than the old camera
+(largest 0.16). The centre scale changed by 7.14% in length, 14.78% in area (old camera 15.1%),
+about 100 mm of height at 0.145% per mm (derived, not taped). The lens moved between runs (5.99,
+6.05), as in a real change of height. Run B is the tripwire baseline for 14.5.
+
 ### 14.5 Roll and knock
 
 Section 9.3 unchanged: tripwire baseline, a knock on the camera mount, then the camera rolled by
