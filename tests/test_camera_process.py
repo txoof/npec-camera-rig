@@ -21,8 +21,9 @@ from npec_rig.captures import take_photo
 
 pytestmark = pytest.mark.unit
 
-# Short limits, so a hang is detected in about a second.
-FAST = {"default_time_limit_s": 1.0, "time_limits": {"capture_full_res": 1.5}, "retry_s": 0.3}
+# Short limits, so a hang is detected in under a second. Measured 2026-10-15 on the Pi: the
+# synthetic program answers a call in about 1 ms and a full frame in about 10 ms (#169).
+FAST = {"default_time_limit_s": 0.4, "time_limits": {"capture_full_res": 0.6}, "retry_s": 0.05}
 
 
 @pytest.fixture(autouse=True)
@@ -247,7 +248,7 @@ def test_a_restart_writes_a_fault_row_and_a_restarted_row(backend, switches):
     assert restored.wait(15.0)
     restarted, fault = health.camera_events()[:2]
     assert fault["kind"] == "fault"
-    assert fault["call"] == "get_controls" and fault["limit_s"] == 1.0
+    assert fault["call"] == "get_controls" and fault["limit_s"] == FAST["default_time_limit_s"]
     assert fault["program_pid"] == old_pid
     assert fault["camera"] == "synthetic" and fault["rig"]
     assert restarted["kind"] == "restarted"
