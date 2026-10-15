@@ -2991,13 +2991,14 @@ south-west corner on the seam with North 2, within 60 mm of North 2's mask, so i
 (seen on `101419_730536`). The 13th is tags 5 and 9 on one first-pass mask (`101019_729462`).
 The fallback found 111 of the 125 trays sent to it.
 
-- So the trays that remain hard are trays with something large on them (the benchmark covers about
-  a quarter of the tray's top), next to a neighbour, with the tag on the shared edge.
+- So the trays that remain hard are trays with something large on them (the benchmark covers part
+  of the tray's top; not measured how much), next to a neighbour, with the tag on the shared edge.
 - The 60 mm link distance lets a tag on a seam link to the neighbour when its own tray has no mask.
   Not changed here; options for the next round: green tags inside cell A1 must lie inside their
   mask, or a tag left over after linking marks its neighbour's mask as doubtful instead of merged.
-- Tags 15, 16, 17 (20 mm, round 2 pairs) and 3 were left ambiguous in 24 stills in all (two masks
-  within 20 mm of each other); this did not cost a tray, since each tray's 30 mm tag linked.
+- A tag was left ambiguous (two masks within 20 mm of each other) 24 times over the 176 stills:
+  tag 15 16 times, 17 4 times, 16 3 times (20 mm edge tags of round 2) and tag 3 (the A1 tag of
+  its tray) once. Not checked which of these cost a tray.
 
 **Time per still** (Raspberry Pi 5, Hailo-8): 5.76 s with full-resolution tag detection (mean of
 133 stills detected in this run), 1.37 s with the tags read from the cache (43 stills).
