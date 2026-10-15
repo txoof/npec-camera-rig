@@ -2655,6 +2655,93 @@ calibration and lens position, about 10 minutes of photos. Not leaves standing a
 not other plants, not overlapping leaves. The true error lies between the "against before" and
 "against after" figures, since the shrinking between scans is not measured.
 
+### 15.5c Tray splitting and tray ID (issue #164, method written 2026-10-15, before the analysis)
+
+Answers the open item in 15.4, "trays separated and matched to a tag: how many of 12, per still",
+which nothing had measured. Reads the 15 October stills only; nothing is photographed and nothing
+is written into the experiment folder or `rig.db`. Record in `experiments/round1-trays/`
+(`NOTES.md`, `results.csv`); overlay pictures in `~/scratch/round1-trays/`, not in the repo.
+
+**Tray measurements (Aaron, 2026-10-15, one tray).** Number of readings per value not recorded.
+
+| What | Value | Instrument |
+|---|---|---|
+| Outside size, lip included, east-west (short side, tray in portrait) | 305.0 mm | tape measure |
+| Outside size, lip included, north-south (long side) | 366.0 mm | tape measure |
+| Height of the grid surface (cell openings) above the gray table | 99.89 mm | tape measure |
+| Height of the top of the lip above the gray table | 104.78 mm | tape measure |
+| Cell opening, both directions | 59.5 mm | callipers |
+| Wall between cells | 10.1 to 10.3 mm | callipers |
+| Outer grid wall at the lip, on the edges running north-south (west, east) | 13 mm | callipers |
+| Outer grid wall at the lip, on the edges running east-west (north, south) | 11 mm | callipers |
+
+Cells are not all the same size and the wall width varies a little (Aaron). Derived, not
+measured: cell centres about 69.7 mm apart (59.5 + 10.2); the grid sums to 294.6 mm east-west and
+360.3 mm north-south, so the lip reaches about 5.2 mm beyond the grid on each side east-west and
+2.9 mm north-south. The tape measure is the weakest of the two instruments, so the outside size is
+checked against the photos (method B) and the difference is reported, not used to correct it.
+The lip is 4.89 mm above the grid surface; at 0.145% of area per mm (section 4) the lip outline
+reads about 0.35% larger in length, about 1 mm on 305 mm. The calibration's scale field
+(`20261014T111147292361`) gives 4.83 to 4.89 px/mm across the frame, so a tray is about
+1,480 x 1,780 px at full resolution and 185 x 220 px on the 1/8 decode used for finding shapes,
+where one pixel is about 1.65 mm. The lip's 1 mm is below that.
+
+**Tray layout (Aaron, 2026-10-15).** A tray has columns A to D and rows 1 to 5; seen from above in
+portrait, A1 is the south-west corner. The 30 mm tray tag sits in cell A1. Six trays also carry a
+20 mm tag on the tray edge (pairs in 15.3a). With 12 trays, trays are always portrait in two rows,
+North 1 to 6 and South 1 to 6, at 0 or 180 degrees, so A1 is at the south-west or the north-east
+corner. Researchers will not reliably leave gaps between trays.
+
+**Data.** Experiment `2026-10-15_44a9e96e`, steps from `experiments/round1/session-2026-10-15.csv`.
+The calibration and lens position of each still are read from `rig.db` (read only) and recorded
+with the results.
+
+- **Gaps, 33 stills:** steps 1 (10), 2 (4), 3 (3), R2-1 (10), R2-2 (3), R2-3 (3). R2-3 has the trays
+  "fairly well split, not perfect", which Aaron calls typical of what the scientists do.
+- **Touching, 143 stills:** steps 5 (2), 4 (3), 6 (12), R2-4 (3), R3 (123). Steps 4 and 6 were taken
+  after step 5 with the trays left pushed together; the record file titles do not say so.
+
+The sort was made by eye from reduced copies, one still per step, and confirmed by Aaron for R2-3.
+
+**Tag detection.** The 36h11 detector with the 20 mm setting C from #156 (finer bit sampling,
+171 of 171 20 mm sightings against 121 of 171), inside the experiment script only. Tray IDs are
+0 to 299; other IDs are ignored. A tag's rotation comes from its corner order.
+
+**Methods, simplest first.** Each runs on the gap set first, then on the touching set.
+
+- **A. Tag only.** Each tray tag's centre is put on a slot with the slot boxes of the still's
+  calibration (`certainty_map.sheets_by_slot`, which refuses a tag more than half a slot spacing
+  from a slot centre). No outline. This is the reference for slots.
+- **B. Blue threshold.** Blue pixels on a 1/8 decode, shapes found as connected regions, each fitted
+  with a rotated rectangle and linked to the tray tags whose centres fall inside it. On the gap
+  set, the fitted size through the scale field at the shape's centre is the photo measurement of
+  the tray's outside size.
+- **C. Tag placement.** From the 30 mm tag's centre and rotation, place cell A1 and from it the
+  whole outside outline (305.0 x 366.0 mm, grid position from the measurements above), converted to pixels
+  with the scale field at the tag. Assumes every 30 mm tag is stuck on the same way relative to its
+  tray; step 2 (every tray turned 180 degrees in its slot) tests that assumption.
+- **D. Splitting.** Shapes from B that hold more than one tray, split along the borders that C
+  predicts between them, with the tags inside each shape.
+- **E. Edge refinement.** Only if D fails: the tray edges searched at full resolution in a narrow
+  band around the edges C predicts. At the 1/8 decode the seam between two touching trays is about
+  one pixel wide.
+
+**What is recorded, per method and per still.**
+
+- Trays found as separate shapes, of the trays in the still.
+- Shapes holding exactly one tray: one 30 mm tag, or one 30 mm and 20 mm pair from the same tray
+  (pairs from 15.3a). A shape with tags of two trays, or a tray split over two shapes, is a failure.
+- Slot of each tray, against method A, and against the known moves of steps 2, 3, 4, R2-2 and R2-3.
+- Outline corners: spread across the repeated stills of one layout (step 1: 10, R2-1: 10, R3: 123),
+  in mm through the scale field.
+- B only: fitted outside size against the tape measure.
+
+**Decision rule (proposed, a decision not a measurement; for Aaron to accept before the analysis).**
+A method *works* on a set when, in every still of that set, every tray is one shape holding
+exactly one tray, and every slot agrees with method A. Anything less is recorded with the count of
+stills and trays that failed, and the method is not dropped for it. No threshold is set for the
+corner spread in round 1: it is recorded, not judged.
+
 ### 15.6 Round 1 review
 
 Not yet written. Covers what was found, what surprised us, which step it sends work back to, and
