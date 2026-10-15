@@ -9,7 +9,9 @@ number. Everything below is recorded, nothing is judged against a target.
   `2026-10-15_83acd97d` (27) and `2026-10-15_44a9e96e` "tag-testing" (53: session 1 and the
   second tag round, steps from `experiments/round1/session-2026-10-15.csv` on branch
   `153-round1-benchmark`). Aaron agreed to "all 73" when there were 73; 19 more tag round 2
-  stills were added to tag-testing during the day and are included. The benchmark is in all 92.
+  stills (step names starting `R2`) were added to tag-testing during the day and are included.
+  The benchmark is in all 92. Leaving the R2 rows out (73 stills) changes the rosette means by
+  at most 3.5 mm² and the mean solid errors by at most 1.7 points.
 - **Calibration.** All 92 were taken under calibration `20261014T111147292361`, validation
   `20261014T111253582634`, lens position 6.05 (calibration lens 6.05), no capture flags (`rig.db`).
 - **Command.** `PYTHONPATH=src python3 experiments/round1-benchy/benchy.py --session-csv
@@ -19,8 +21,8 @@ number. Everything below is recorded, nothing is judged against a target.
 ## Method
 
 1. Find the yellow base on a 1/8 size decode: the largest square yellow blob (HSV hue 15 to 35,
-   saturation and value at least 120), square against its own turned rectangle so a base turned
-   45 degrees is found. Decode the full 64MP frame and cut out the base with a 250 px margin.
+   saturation and value at least 120), square against its own turned rectangle so a turned base
+   is found. Decode the full 64MP frame and cut out the base with a 250 px margin.
 2. Region: the base's convex hull, grown by 20 px on each side. Only colour inside it counts, so
    the moss pots in the aisle, the yellow bin and the green tray tags are left out.
 3. Tags: `npec_rig.tags.detect_tags` on the crop, the tag squares masked out of both colours.
@@ -37,6 +39,11 @@ number. Everything below is recorded, nothing is judged against a target.
    homography; this scale field is how it maps pixels to mm. No height correction.
 8. Static groups: a still is a repeat of the one before it (same experiment) when the base
    centre moved less than 20 px (about 4 mm) and the turn changed less than 1 degree.
+
+`turn_deg` in `results.csv` and on the overlays is not the angle from upright. It is the image
+angle (degrees, y down) of the NW direction, set from the NE rosette's centre, so it carries an
+offset from where that rosette sits on the base and from parallax. It is used only to find
+repeats and to count quarter turns.
 
 The thresholds, margins, minimum sizes and the static limits are decisions, picked by looking at
 one probe still (`2026-10-15_83acd97d` `065407_243036`). They were not tuned against the results.
@@ -117,9 +124,11 @@ other slot at 2 or 3 of the 4 quarter turns. 57 distinct positions (47 single st
   and up to +75.5% at the ends. Away from the middle the camera sees their sides as well as their
   tops (visible in the overlays). Height alone predicts only 1.7% to 2.2%.
 - **The flat circle reads small everywhere.** It has no sides to show, yet reads -11.5% to
-  -32.1%. The red threshold misses its blurred edge: at about 4.85 px/mm the 10 mm circle is about
-  48 px across, so a ring 2 px wide at its edge is about 17% of its area (a calculation, not a measurement). The sphere reads -9.4% to -23.0% the same
-  way. This is the edge effect 15.1 warned about.
+  -32.1%; the sphere reads -9.4% to -23.0%. Likely cause, not measured: the red threshold drops
+  the blurred edge. The red hue cut-off is 8, the solids sit at hue 4 (median) and the base at
+  27, so the cut falls inside the red, not halfway to the yellow. At about 4.85 px/mm the 10 mm
+  circle is about 48 px across, so a ring 2 px wide at its edge is about 17% of its area (a
+  calculation). This is the edge effect 15.1 warned about, and part of it is a threshold choice.
 - **Orientation.** The first run oriented by the least round red piece (meant to be the prism).
   In 6 of 92 stills the cylinder, seen from the side, was less round, and those stills were named
   a quarter turn off. Orienting by the largest rosette fixed all 6. In the final run the least
@@ -127,8 +136,9 @@ other slot at 2 or 3 of the 4 quarter turns. 57 distinct positions (47 single st
 - **The SW rosette comes apart.** Its thin leaves break into 2 or 3 green pieces in 82 of 92
   stills, so the pieces are merged per corner. Before merging, it read 34.3 mm across instead of
   about 42 mm.
-- **3 stills had the base turned about 45 degrees** (tag-testing step 4) and were not found
-  until the base test was changed to use the turned rectangle.
+- **3 stills had the base turned about 18 degrees from square** (tag-testing step 4,
+  `minAreaRect` 71.8 degrees) and were not found until the base test was changed to use the
+  turned rectangle.
 - **Tags.** A tray tag was in the crop in 5 stills (IDs 8, 10, 12), always outside the base
   region: 0 tag pixels were masked inside it, and no tag was counted as plant.
 - **The white centre beads** of the rosettes are not green and are not counted. They appear as
