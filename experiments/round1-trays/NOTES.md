@@ -25,6 +25,8 @@ FastSAM on the Hailo-8 (needs the accelerator; the HEF in `~/scratch/round1-tray
 - `--tiles grid`: 3000 px tiles every 1000 px over the table rows, no tag positions used.
 - The fallback runs by default after the first pass (`--no-fallback` turns it off): around each
   tag whose tray was not found, 8 windows of 2600 px with the found trays painted grey.
+- `summarise.py fastsam-NAME.csv` counts a run against the decision rule (15.5c) and writes
+  `summary-NAME.csv`; rule 3 uses the provisional row and order slot reference.
 - `diagnose.py` follows every tray without a mask through the stages (cut by the tile, low score,
   duplicate, never proposed, mask test) and writes `diagnose-NAME.csv`.
 

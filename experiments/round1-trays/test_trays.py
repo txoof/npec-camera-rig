@@ -79,3 +79,12 @@ def test_nearest_slots():
     slots = [{"name": "North 1", "centre": (0, 0)}, {"name": "North 2", "centre": (100, 0)}]
     name, d1, name2, d2 = trays.nearest_slots(30, 0, slots)
     assert (name, name2) == ("North 1", "North 2") and (d1, d2) == (30, 70)
+
+
+def test_row_order_names_slots_by_row_then_west_to_east():
+    import summarise
+
+    pts = {i + 1: (100 * (6 - i % 6), 50 if i < 6 else 900) for i in range(12)}  # tray 1 is east
+    slots = summarise.row_order(pts)
+    assert slots[1] == "North 6" and slots[6] == "North 1" and slots[7] == "South 6"
+    assert summarise.row_order({1: (0, 0)}) == {}

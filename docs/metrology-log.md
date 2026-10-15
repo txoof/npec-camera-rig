@@ -2964,6 +2964,47 @@ where a tray stands clear. Whether the outline is good enough depends on what it
 
 Twenty stills, not the full sets; not yet a count against the decision rule.
 
+**Full run: all 176 stills against the decision rule (2026-10-15).** Tag tiles at margin 1.15 with
+the fallback, the method above unchanged. Record `fastsam-full176.csv`, `fastsam-full176-masks.csv`,
+per still against the rule `summary-full176.csv` (script `summarise.py`), overlays
+`~/scratch/round1-trays/fastsam-stills-m1.15-fb/`. Every still: calibration
+`20261014T111147292361`, validation `20261014T111253582634`, lens 6.05; all 12 A1 tags found in
+every still. **Rule 3 uses a provisional slot reference**, row and order (a tray's mask centre and
+its A1 tag centre must give the same row, North or South, and the same place 1 to 6 from the west),
+not yet chosen by Aaron.
+
+| Set | Stills | Stills passing all 3 rules | Trays right | First pass alone | Fallback: found / needed |
+|---|---|---|---|---|---|
+| Gaps (steps 1, 2, 3, R2-1, R2-2, R2-3) | 33 | **33 (100%)** | 396 of 396 | 396 | 0 / 0 |
+| Touching, steps 5, 4, 6, R2-4 | 20 | **20 (100%)** | 240 of 240 | 228 | 12 / 12 |
+| Touching, R3 (one hour, nothing moved) | 123 | **110 (89%)** | 1449 of 1476 (98.2%) | 1363 | 99 / 113 |
+| All | 176 | 163 (93%) | 2085 of 2112 (98.7%) | 1987 | 111 / 125 |
+
+In every failing still, rule 2 failed (one mask holds the tags of two trays) and rule 3 failed with
+it, since a merged mask leaves fewer than 12 trays to number; rule 1 failed in 1 still. The 13
+failing stills are all in R3, so the same layout passes in 110 stills and fails in 13: the result
+for one layout is not fully repeatable from one still to the next.
+
+**What fails.** 12 of the 13 failures are the same: the tray on North 3 carries the benchmark,
+FastSAM gives it no tray mask in the first pass or the fallback, and its tag 4 sits at its
+south-west corner on the seam with North 2, within 60 mm of North 2's mask, so it links there
+(seen on `101419_730536`). The 13th is tags 5 and 9 on one first-pass mask (`101019_729462`).
+The fallback found 111 of the 125 trays sent to it.
+
+- So the trays that remain hard are trays with something large on them (the benchmark covers about
+  a quarter of the tray's top), next to a neighbour, with the tag on the shared edge.
+- The 60 mm link distance lets a tag on a seam link to the neighbour when its own tray has no mask.
+  Not changed here; options for the next round: green tags inside cell A1 must lie inside their
+  mask, or a tag left over after linking marks its neighbour's mask as doubtful instead of merged.
+- Tags 15, 16, 17 (20 mm, round 2 pairs) and 3 were left ambiguous in 24 stills in all (two masks
+  within 20 mm of each other); this did not cost a tray, since each tray's 30 mm tag linked.
+
+**Time per still** (Raspberry Pi 5, Hailo-8): 5.76 s with full-resolution tag detection (mean of
+133 stills detected in this run), 1.37 s with the tags read from the cache (43 stills).
+
+Round 1 bar: recorded, not judged. Whether 89% to 100% of stills, or 98.7% of trays, is good
+enough is decided by Aaron now that the results are in (decision rule, above).
+
 ### 15.6 Round 1 review
 
 Not yet written. Covers what was found, what surprised us, which step it sends work back to, and
