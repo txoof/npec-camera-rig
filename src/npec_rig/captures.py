@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shutil
 import sqlite3
 import time
@@ -346,15 +347,27 @@ def _photo_roots() -> list[tuple[Path, str, str]]:
     return roots
 
 
-def list_recent_captures(limit: int = 12) -> list[dict]:
-    """Most recent photos first, from rig/ and every experiment's stills."""
+# A photo's place in time, `YYYY-MM-DDTHHMMSS_ffffff` (its UTC day folder, "T", its file stem).
+# Keys sort in time order as plain strings, so the gallery pages back with `before=<key>`.
+PHOTO_KEY = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{6}_\d{6}$")
+# A gallery `path`: a photo under rig/ or under one experiment's stills.
+_PHOTO_PATH = re.compile(r"^(rig|experiments/[A-Za-z0-9_-]+/stills)/(\d{4}-\d{2}-\d{2})/(\d{6}_\d{6})$")
+
+
+def list_recent_captures(limit: int = 12, before: str | None = None) -> list[dict]:
+    """Most recent photos first, from rig/ and every experiment's stills. With `before` (a
+    PHOTO_KEY), only photos taken before it: the next page back in time."""
     found: list[tuple[str, str, Path, str, str]] = []
     for root, path_prefix, url_prefix in _photo_roots():
         if not root.exists():
             continue
         newest: list[tuple[str, str, Path, str, str]] = []
         for day_dir in sorted((p for p in root.iterdir() if p.is_dir()), reverse=True):
+            if before is not None and day_dir.name > before[:10]:
+                continue
             for jpeg_path in sorted(day_dir.glob("*.jpg"), reverse=True):
+                if before is not None and f"{day_dir.name}T{jpeg_path.stem}" >= before:
+                    continue
                 newest.append((day_dir.name, jpeg_path.stem, jpeg_path, path_prefix, url_prefix))
             if len(newest) >= limit:
                 break
@@ -376,10 +389,39 @@ def list_recent_captures(limit: int = 12) -> list[dict]:
                 "filename": jpeg_path.name,
                 "url": f"{url_prefix}/{day}/{jpeg_path.name}",
                 "path": f"{path_prefix}/{day}/{stem}",
+                "key": f"{day}T{stem}",
                 **record,
             }
         )
     return _with_database_rows(entries)
+
+
+def capture_hours() -> list[dict]:
+    """How many photos each UTC hour holds, newest first, as `{"hour": "YYYY-MM-DDTHH", "count"}`.
+    By hour, not day, so the browser can count them by its own local day."""
+    counts: dict[str, int] = {}
+    for root, _path_prefix, _url_prefix in _photo_roots():
+        if not root.exists():
+            continue
+        for day_dir in (p for p in root.iterdir() if p.is_dir()):
+            for jpeg_path in day_dir.glob("*.jpg"):
+                hour = f"{day_dir.name}T{jpeg_path.stem[:2]}"
+                counts[hour] = counts.get(hour, 0) + 1
+    return [{"hour": h, "count": counts[h]} for h in sorted(counts, reverse=True)]
+
+
+def photo_file(path: str) -> Path | None:
+    """The JPEG for a gallery `path` (as list_recent_captures gives it), or None if there is no
+    such photo. Raises ValueError for anything not shaped like a gallery path."""
+    match = _PHOTO_PATH.match(path)
+    if match is None:
+        raise ValueError(f"not a photo path: {path!r}")
+    prefix, day, stem = match.groups()
+    for root, path_prefix, _url_prefix in _photo_roots():
+        if path_prefix == prefix:
+            jpeg_path = root / day / f"{stem}.jpg"
+            return jpeg_path if jpeg_path.exists() else None
+    return None
 
 
 def _with_database_rows(entries: list[dict]) -> list[dict]:

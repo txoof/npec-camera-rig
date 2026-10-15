@@ -78,8 +78,11 @@ from npec_rig.certainty_map import (
 )
 from npec_rig.captures import (
     CALIBRATION_LENS_TOLERANCE,
+    PHOTO_KEY,
+    capture_hours,
     experiments_root,
     list_recent_captures,
+    photo_file,
     photos_root,
     record_app_start,
     record_app_stop,
@@ -646,9 +649,46 @@ def api_download_export(export_id: int) -> Response:
 
 
 @app.get("/api/captures")
-def api_captures(limit: int = 12) -> list[dict]:
-    """Most recent captures for the gallery, newest first."""
-    return list_recent_captures(limit=limit)
+def api_captures(limit: int = Query(12, ge=1, le=200), before: str | None = None) -> list[dict]:
+    """Most recent captures for the gallery, newest first. `before` (an entry's `key`) gives the
+    next page back in time."""
+    if before is not None and not PHOTO_KEY.match(before):
+        raise HTTPException(422, f"not a photo key: {before!r} (expected YYYY-MM-DDTHHMMSS_ffffff)")
+    return list_recent_captures(limit=limit, before=before)
+
+
+@app.get("/api/captures/hours")
+def api_capture_hours() -> list[dict]:
+    """Photos per UTC hour, newest first: the gallery's Go to date list, counted by local day."""
+    return capture_hours()
+
+
+# Gallery image sizes, as widths in pixels: a thumbnail, and a copy for the chamber screen when a
+# thumbnail is tapped (#56). Never the 64MP original.
+_GALLERY_WIDTHS = {"thumb": 480, "screen": 1600}
+
+
+@app.get("/gallery/image/{size}/{path:path}")
+def gallery_image(size: str, path: str) -> Response:
+    """Photo `path` (a gallery entry's `path`) reduced to `size`, made once and then served from
+    the derived image store (images.py)."""
+    if size not in _GALLERY_WIDTHS:
+        raise HTTPException(404, f"no gallery size {size!r}")
+    try:
+        found = photo_file(path)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if found is None:
+        raise HTTPException(404, f"photo {path} not found")
+    return _derived_response(f"gallery_{size}", path, {"photo": path, "width": _GALLERY_WIDTHS[size]})
+
+
+def _render_gallery_image(inputs: dict) -> bytes:
+    found = photo_file(inputs["photo"])
+    if found is None:
+        raise HTTPException(404, f"photo {inputs['photo']} not found")
+    image, _scale = images.reduced_frame(found, inputs["width"])
+    return array_to_jpeg(image)
 
 
 # Calibration's own readiness gate (TODO.md, "Give Lock focus a real function"): all 4 mounted
@@ -1751,3 +1791,5 @@ images.register(images.Recipe("problem_frame", 1, _render_problem_frame))
 # Version 2: the caption gives the slope in % per 1000 px, as the diagnostics readout does.
 images.register(images.Recipe("calibration_radial_plot", 2, _render_radial_plot))
 images.register(images.Recipe("calibration_tag_map", 1, _render_tag_map))
+images.register(images.Recipe("gallery_thumb", 1, _render_gallery_image))
+images.register(images.Recipe("gallery_screen", 1, _render_gallery_image))

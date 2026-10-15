@@ -1867,3 +1867,44 @@ def test_shutdown_closes_the_camera_even_if_a_call_never_finishes(monkeypatch) -
     finally:
         manager._call_lock.release()
     assert backend.closed_at is not None
+
+
+# --- Gallery images and paging (#56, #165) ---
+
+
+def test_gallery_thumb_and_screen_are_reduced_copies_made_once() -> None:
+    from PIL import Image
+    import io
+
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    thumb = client.get(f"/gallery/image/thumb/{path}")
+    screen = client.get(f"/gallery/image/screen/{path}")
+    assert thumb.status_code == screen.status_code == 200
+    assert thumb.headers["content-type"] == "image/jpeg"
+    original = client.get(client.get("/api/captures", params={"limit": 1}).json()[0]["url"]).content
+    full_width = Image.open(io.BytesIO(original)).width
+    assert Image.open(io.BytesIO(thumb.content)).width == min(480, full_width)
+    assert Image.open(io.BytesIO(screen.content)).width == min(1600, full_width)
+    assert client.get(f"/gallery/image/thumb/{path}").content == thumb.content
+
+
+def test_gallery_image_rejects_bad_paths_and_sizes() -> None:
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    assert client.get(f"/gallery/image/huge/{path}").status_code == 404
+    assert client.get("/gallery/image/thumb/rig/2020-01-01/000000_000000").status_code == 404
+    assert client.get("/gallery/image/thumb/rig/../etc/passwd").status_code in (404, 422)
+    assert client.get("/gallery/image/thumb/etc/2026-10-14/000000_000000").status_code == 422
+
+
+def test_api_captures_pages_back_with_before() -> None:
+    client = TestClient(app)
+    for _ in range(3):
+        assert client.post("/capture").status_code == 200
+    newest = client.get("/api/captures", params={"limit": 2}).json()
+    older = client.get("/api/captures", params={"limit": 2, "before": newest[-1]["key"]}).json()
+    assert older and older[0]["key"] < newest[-1]["key"]
+    assert client.get("/api/captures", params={"before": "yesterday"}).status_code == 422
+    hours = client.get("/api/captures/hours").json()
+    assert hours and all(set(h) == {"hour", "count"} for h in hours)

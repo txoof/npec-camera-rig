@@ -201,3 +201,81 @@ def test_tick_storage_failure_does_not_stop_a_photo(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(captures, "load_settings", fail)
     record = captures.uptime_record()
     assert record["pi_up_s"] == 5000.0
+
+
+# --- Gallery paging (#165) and photo paths (#56) ---
+
+
+def _put_photo(day_dir, stem: str) -> None:
+    from npec_rig.camera import array_to_jpeg
+
+    day_dir.mkdir(parents=True, exist_ok=True)
+    (day_dir / f"{stem}.jpg").write_bytes(array_to_jpeg(np.zeros((8, 8, 3), dtype=np.uint8)))
+
+
+@pytest.fixture
+def two_roots(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    """Five rig photos over two days and two in one experiment's stills."""
+    monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
+    for day, stem in [("2026-10-13", "230000_000000"), ("2026-10-14", "080000_000000"),
+                      ("2026-10-14", "090000_000000"), ("2026-10-14", "091500_000000"),
+                      ("2026-10-15", "010000_000000")]:
+        _put_photo(photos_root() / day, stem)
+    stills = tmp_path / "experiments" / "2026-10-14_abcd1234" / "stills"
+    _put_photo(stills / "2026-10-14", "085000_000000")
+    _put_photo(stills / "2026-10-14", "120000_000000")
+
+
+def test_pages_back_in_time_across_rig_and_experiment_photos(two_roots) -> None:
+    keys, before = [], None
+    while True:
+        page = list_recent_captures(limit=3, before=before)
+        keys += [p["key"] for p in page]
+        if len(page) < 3:
+            break
+        before = page[-1]["key"]
+    assert keys == [
+        "2026-10-15T010000_000000", "2026-10-14T120000_000000", "2026-10-14T091500_000000",
+        "2026-10-14T090000_000000", "2026-10-14T085000_000000", "2026-10-14T080000_000000",
+        "2026-10-13T230000_000000",
+    ]
+
+
+def test_before_is_exclusive_and_works_from_any_instant(two_roots) -> None:
+    page = list_recent_captures(limit=10, before="2026-10-14T090000_000000")
+    assert [p["key"] for p in page] == [
+        "2026-10-14T085000_000000", "2026-10-14T080000_000000", "2026-10-13T230000_000000",
+    ]
+    # A jump to the start of a day the folders do not have.
+    assert [p["key"] for p in list_recent_captures(limit=10, before="2026-10-14T000000_000000")] == [
+        "2026-10-13T230000_000000",
+    ]
+
+
+def test_capture_hours_counts_every_root_by_utc_hour(two_roots) -> None:
+    assert captures.capture_hours() == [
+        {"hour": "2026-10-15T01", "count": 1}, {"hour": "2026-10-14T12", "count": 1},
+        {"hour": "2026-10-14T09", "count": 2}, {"hour": "2026-10-14T08", "count": 2},
+        {"hour": "2026-10-13T23", "count": 1},
+    ]
+
+
+def test_photo_file_finds_rig_and_experiment_photos(two_roots, tmp_path) -> None:
+    assert captures.photo_file("rig/2026-10-14/090000_000000") == photos_root() / "2026-10-14" / "090000_000000.jpg"
+    assert captures.photo_file("experiments/2026-10-14_abcd1234/stills/2026-10-14/120000_000000") == (
+        tmp_path / "experiments" / "2026-10-14_abcd1234" / "stills" / "2026-10-14" / "120000_000000.jpg"
+    )
+    assert captures.photo_file("rig/2026-10-14/100000_000000") is None
+    assert captures.photo_file("experiments/2026-10-01_nope/stills/2026-10-14/120000_000000") is None
+
+
+@pytest.mark.parametrize("path", [
+    "rig/../2026-10-14/090000_000000",
+    "experiments/../../etc/stills/2026-10-14/090000_000000",
+    "rig/2026-10-14/090000_000000.jpg",
+    "/var/lib/npec-rig/rig/2026-10-14/090000_000000",
+    "calibration/2026-10-14/090000_000000",
+])
+def test_photo_file_rejects_anything_not_shaped_like_a_gallery_path(path) -> None:
+    with pytest.raises(ValueError):
+        captures.photo_file(path)
