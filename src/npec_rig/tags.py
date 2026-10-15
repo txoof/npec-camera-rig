@@ -6,6 +6,8 @@ against every calibration taken before. See PLAN.md's M2 section.
 
 from __future__ import annotations
 
+import math
+
 from dataclasses import dataclass
 
 import cv2
@@ -69,8 +71,13 @@ def tag_side_px(
     corners: tuple[tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]],
 ) -> float:
     """Mean side length of a tag's quadrilateral corners, in pixels."""
-    array = np.array(corners)
-    return float(np.linalg.norm(array - np.roll(array, -1, axis=0), axis=1).mean())
+    # Plain arithmetic, not numpy: four corners are too few for numpy to pay, and calibration and
+    # validation call this tens of thousands of times (#169).
+    (x0, y0), (x1, y1), (x2, y2), (x3, y3) = corners
+    return (
+        math.hypot(x1 - x0, y1 - y0) + math.hypot(x2 - x1, y2 - y1)
+        + math.hypot(x3 - x2, y3 - y2) + math.hypot(x0 - x3, y0 - y3)
+    ) / 4
 
 
 def tag_area_px(
@@ -81,9 +88,10 @@ def tag_area_px(
     The two agree exactly for a true square; a keystoned (non-square) quad is where they diverge,
     which is the signal `calibration.area_scale_samples` reads.
     """
-    array = np.array(corners)
-    x, y = array[:, 0], array[:, 1]
-    return float(0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
+    (x0, y0), (x1, y1), (x2, y2), (x3, y3) = corners
+    return float(0.5 * abs(
+        (x0 * y1 + x1 * y2 + x2 * y3 + x3 * y0) - (y0 * x1 + y1 * x2 + y2 * x3 + y3 * x0)
+    ))
 
 
 def detect_tags(frame: np.ndarray) -> list[TagDetection]:
