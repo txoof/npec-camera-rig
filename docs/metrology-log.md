@@ -2742,6 +2742,61 @@ exactly one tray, and every slot agrees with method A. Anything less is recorded
 stills and trays that failed, and the method is not dropped for it. No threshold is set for the
 corner spread in round 1: it is recorded, not judged.
 
+**Decision rule accepted** (Aaron, 2026-10-15, before the analysis). The rule above is used to
+count. Whether a method that is right most of the time (for example 80% to 95% of trays) is
+good enough is decided after the results of the methods are seen, not now.
+
+**Changes to the method, made before the first count (2026-10-15).**
+
+- Method A uses the nearest slot centre, not `certainty_map.sheets_by_slot`. The slot centres are
+  the calibration sheets' centres, and a tray tag in cell A1 lies about 170 mm or more from the
+  middle of its tray, more than the half slot spacing (about 152 mm) that `sheets_by_slot` allows,
+  so it would refuse every tray tag. The distance to the nearest and to the second-nearest slot
+  centre is recorded.
+- A tag belongs to a shape when its centre is inside the shape or within 15 mm of it (decision):
+  the 30 mm and 20 mm paper tags extend past the tray corner (15.2), so their centres can lie
+  outside the blue.
+- Blue threshold (decision, from one probe still `075756_789328`): OpenCV hue 100 to 118,
+  saturation at least 100, value at least 50, on the 1/8 decode; a 3 px opening; holes filled;
+  shapes smaller than a quarter of one tray dropped. Method B's slot is the slot centre nearest
+  the shape's centre, so it can be checked against method A.
+
+**Result, methods A and B on the gap set (2026-10-15, 33 stills).** Script
+`experiments/round1-trays/trays.py`, per still `results-gaps.csv`, per shape `shapes-gaps.csv`,
+overlays in `~/scratch/round1-trays/gaps/`. Every still: calibration `20261014T111147292361`,
+validation `20261014T111253582634`, lens 6.05. All 12 A1 tags were found in all 33 stills.
+
+| | Result |
+|---|---|
+| A: each tray on its own slot | 6 of 33 stills |
+| A: distance from tag to nearest slot centre, largest per still | 238.6 to 278.6 mm |
+| A: nearest against second-nearest slot, smallest margin per still | 1.3 to 17.8 mm |
+| B: stills passing the rule | 0 of 33 |
+| B: trays that are one shape holding only their own tags | 84 of 396 (21%) |
+| B: shapes by size in trays (from area) | 66 of one tray, 76 of two, 46 of three, 10 of four |
+| B: single-tray shapes, east-west | mean 306.0 mm, SD 1.4, 304.0 to 308.3 (tape 305.0) |
+| B: single-tray shapes, north-south | mean 373.6 mm, SD 1.3, 371.4 to 376.6 (tape 366.0) |
+
+The single-tray shapes are 66 sightings of 14 tray positions, so the SD is mostly repeat
+sightings, not 66 independent trays.
+
+**What this shows.**
+
+- **Method A cannot be the reference for slots.** The tag sits at a tray corner, and the slot
+  centres come from wherever the calibration sheets lay, so the nearest slot centre is often a
+  neighbour: two trays named the same slot in 27 of 33 stills. Rule 3 (slot agrees with method A)
+  needs a different reference.
+- **In the gap set the trays still touch in places.** Lips touch or nearly touch between
+  neighbours (for example North 1 and North 2, South 1 to 3 in step 1), and one touch merges two
+  shapes. Thresholding alone does not separate trays as the scientists place them.
+- **Where a tray stands clear, the blue outline is repeatable to about 1.4 mm** and matches the
+  tape measure east-west (306.0 against 305.0 mm). North-south it reads 7.6 mm (2%) larger than
+  the tape measure; not explained, recorded.
+- **Some trays carry no tag inside their shape.** Paper tags that lie more than 15 mm from the
+  blue (for example tag 3 in step 1) leave their tray as "no tray".
+
+What it does not cover: the touching set, and methods C to E.
+
 ### 15.6 Round 1 review
 
 Not yet written. Covers what was found, what surprised us, which step it sends work back to, and
