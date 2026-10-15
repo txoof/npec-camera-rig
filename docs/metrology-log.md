@@ -2498,12 +2498,34 @@ corner. Area = pixel count over the square of the calibration scale field's loca
 piece's centre (as `certainty_map.py`); the app has no pixel to mm homography. No height
 correction.
 
+**Raw data.** Stills, read only: `/var/lib/npec-rig/experiments/<experiment>/stills/2026-10-15/`
+for the three experiments named above. Capture rows (calibration, validation, lens, flags) from
+`rig.db` table `capture`. The overlays (one half size crop per still with the masks drawn) are not
+kept in the repo; `benchy.py` makes them again from the stills. Analysis run 2026-10-15.
+
+**Decisions in the method.** The thresholds were picked by looking at one probe still,
+`2026-10-15_83acd97d` `065407_243036`. A still counts as a repeat of the one before it (same
+experiment, "nothing moved") when the base centre moved less than 20 px (about 4 mm at
+4.85 px/mm) and its turn changed less than 1 degree. Red and green pieces under 300 px are
+dropped (at most 345 px of green in any still). All of these are decisions, not measurements.
+
+**Coverage.** Stills per slot: North 1 4, North 2 9, North 3 10, North 4 4, North 5 7, North 6 7,
+South 1 4, South 2 21, South 3 4, South 4 4, South 5 4, South 6 14. South 1 was seen at one
+quarter turn only; every other slot at 2 or 3 of the 4. 57 distinct positions: 47 single stills
+and 10 groups with nothing moved.
+
 **Rosettes.** Spread across all 92 stills (all slots and turns), SD as a share of the mean:
 NE 1.5% (mean 1823.8 mm²), SE 1.9% (1123.6), NW 3.2% (619.4), SW 3.6% (298.2). Within 9 groups of
 3 to 11 stills with nothing moved: 0.02% to 0.79%. Between slot means: NE 3.8%, SE 5.7%, NW 9.8%,
 SW 13.1% (lowest to highest slot, as a share of the mean). All 4 below their upper limits in all
 92 stills (they cover 25% to 51% of them). The true leaf area is not known, so this is
 repeatability, not accuracy.
+
+The widest outline measured in the stills (smallest circle around all the green of a rosette)
+against the calliper ⌀-max: NE 68.0 to 72.0 mm (calliper 67.20), SE 58.9 to 63.4 (59.64), NW
+49.5 to 54.2 (50.87), SW 41.2 to 43.6 (38.68). Height alone predicts the outline 1.7% to 2.3%
+larger in diameter (half the 3.4% to 4.7% area effect at the rosette tops, 15.1); SW reads 6.5%
+to 12.7% larger, which height does not explain. The calliper values are estimates (15.1).
 
 **Red solids** (known area, mean error, range over 92 stills): prism 51.6 mm², +39.4%, -14.7% to
 +83.2%; circle 78.5 mm², -20.7%, -32.1% to -11.5%; sphere 61.5 mm², -16.4%, -23.0% to -9.4%;
@@ -2512,6 +2534,24 @@ cylinder 55.3 mm², +18.6%, -22.3% to +44.4%. Prism and cylinder are close in th
 their sides are seen as well as their tops; height alone predicts 1.7% to 2.2%. The flat circle
 and the sphere read small in every slot. Likely cause, not measured: the red threshold leaves out
 the blurred edge (cut-off hue 8, solids at hue 4, base at 27). Per slot table in NOTES.md.
+Within the 9 groups with nothing moved, the SD of each solid's area is 0.07 to 0.83 mm², so the
+spread across stills comes from moving the benchmark, not from repeating the photo.
+
+**Problems found in the method and how they were handled.**
+- Orientation. The first run named the corners from the least round red piece, meant to be the
+  prism. In 6 of 92 stills the cylinder, seen from the side, was less round, and every name in
+  those stills was a quarter turn off. Orienting from the largest rosette (NE) fixed all 6. As a
+  recorded cross-check, the least round red piece is in NW in 86 stills and in SW (the cylinder)
+  in 6.
+- Turned base. In 3 stills (tag-testing step 4) the base was turned about 18 degrees from square
+  and was not found until the squareness test used the turned rectangle instead of the upright
+  box.
+- The SW rosette comes apart. Its thin leaves break into 2 or 3 green pieces in 82 of 92 stills.
+  The pieces in each corner are merged into one rosette; before merging, SW read 34.3 mm across
+  instead of about 42 mm.
+- Tags. A tray tag was in the crop in 5 stills (IDs 8, 10, 12), always outside the base region:
+  0 tag pixels were inside it, so no tag was counted as plant.
+- The white centre beads of the rosettes are not green and are not counted.
 
 **Visual check.** Aaron looked at all 92 overlays on 2026-10-15: masks, outlines and corner names
 correct in every one. One person, one pass; confirms what was found and named, not the areas.
