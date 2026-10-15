@@ -30,3 +30,25 @@ def test_tiles_from_tags_two_trays_per_tile_in_rows():
 
 def test_tiles_need_twelve_a1_tags():
     assert fastsam.tiles_from_tags([{"id": 1, "cx": 0, "cy": 0}]) == []
+
+
+def square(x0, y0, side):
+    return np.array([[[x0, y0]], [[x0 + side, y0]], [[x0 + side, y0 + side]], [[x0, y0 + side]]], np.int32)
+
+
+def test_dedupe_keeps_best_filled_of_close_masks():
+    a = {"cx": 0, "cy": 0, "fill": 0.9}
+    b = {"cx": 10, "cy": 0, "fill": 0.95}
+    c = {"cx": 500, "cy": 0, "fill": 0.9}
+    assert fastsam.dedupe([a, b, c], same_px=100) == [b, c]
+
+
+def test_link_tags_nearest_within_limit_and_clear_of_second():
+    masks = [{"contour": square(0, 0, 100)}, {"contour": square(100, 0, 100)}]
+    tags = [{"id": 5, "cx": 95, "cy": 120},  # 20 below mask 0, 20.6 from mask 1: too close to call
+            {"id": 6, "cx": 150, "cy": 150},  # inside mask 1
+            {"id": 7, "cx": 20, "cy": 150},  # 50 below mask 0, 94 from mask 1
+            {"id": 8, "cx": 50, "cy": 300},  # 200 away: no link
+            {"id": 400, "cx": 50, "cy": 50}]  # not a tray tag
+    links, ambiguous = fastsam.link_tags(masks, tags, ppm=1.0)
+    assert links == {6: 1, 7: 0} and ambiguous == [5]

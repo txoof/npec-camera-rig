@@ -2839,6 +2839,48 @@ background; the tray-shaped ones are kept.
 
 Two stills only; not a count against the decision rule.
 
+**Method F with tag linking, 20 stills (2026-10-15).** Changes before the run (decisions): tray
+masks from all 6 tiles of a still are pooled, and masks whose centres lie within 100 mm are one
+tray (the best filled stays). Each tray tag links to the nearest tray mask (distance to its
+outline, 0 inside) within 60 mm, unless the second-nearest is less than 20 mm further (then it is
+left ambiguous). Record `fastsam-small20.csv` (per still, with stage times) and
+`fastsam-small20-masks.csv`; whole-still overlays in `~/scratch/round1-trays/fastsam-stills/`.
+Stills: touching, steps 5 (2), 4 (3), R2-4 (3), 6 (2); gaps, steps 1 (2), 2 (2), 3 (2), R2-1 (1),
+R2-2 (2), R2-3 (1).
+
+| Set | Stills | Trays one mask, own tags only | Trays with no tray mask | Masks with tags of 2 or more trays | Stills 12 of 12 |
+|---|---|---|---|---|---|
+| Touching | 10 | 59 of 120 (49%) | 29 | 14 | 0 |
+| Gaps | 10 | 89 of 120 (74%) | 25 | 3 | 2 |
+
+Per still the count ranges from 2 of 12 (step 6) to 12 of 12 (step 1); no tag was left ambiguous,
+and no tray mask was left without a tag. Against method B on the gap set (40 of 396, 10%), F finds
+far more trays, including touching ones.
+
+- **The limit now is that FastSAM does not give a whole-tray mask for every tray**: 29 and 25 trays
+  had none. In step 6 (`082328_270773`), 5 of 12 trays have no mask.
+- **The "several trays" masks are mostly undersized masks** (for example 310 x 328 and
+  283 x 322 mm against 305 x 366) that pass the 0.8 tray area limit and then take a neighbour's
+  tag, because the neighbour has no mask of its own.
+- Not yet looked at: why the missing masks are missing (score below 0.25, removed as duplicates of
+  a larger mask, or failing the fill and shape tests), and whether overlapping or single-tray tiles
+  fill them in.
+
+**Time per still** (Raspberry Pi 5, Hailo-8, mean of the 20; 9 with tag detection, 11 with tags
+read from the cache):
+
+| Stage | Mean |
+|---|---|
+| Read the 64 MP JPEG | 0.37 s |
+| Tag detection, full resolution, setting C | 4.54 s |
+| FastSAM on the Hailo-8, 6 tiles | 0.16 s (about 27 ms per tile) |
+| Decoding the masks and choosing the trays (Python, CPU) | 4.1 s |
+| **Total per still, with tag detection** | **9.2 s** |
+| Total per still, tags cached | 4.6 s |
+
+The Hailo-8 is 2% of the time. Mask decoding builds a full 640 x 640 mask for each of the 108 to
+352 candidates per tile; most are cells and are thrown away.
+
 ### 15.6 Round 1 review
 
 Not yet written. Covers what was found, what surprised us, which step it sends work back to, and

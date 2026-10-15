@@ -37,6 +37,9 @@ TRAYS_PER_TILE = 2
 TRAY_AREA = (0.8, 1.2)  # mask area in trays
 TRAY_FILL_MIN = 0.85  # mask area over its rotated rectangle's area
 TRAY_ASPECT = (366 / 305 / 1.15, 366 / 305 * 1.15)  # north-south over east-west
+SAME_TRAY_MM = 100.0  # masks from overlapping tiles with centres closer than this are one tray
+LINK_MAX_MM = 60.0  # a tag links to the nearest tray mask within this distance
+LINK_MARGIN_MM = 20.0  # ...only if the second-nearest mask is at least this much further
 
 
 # ---------------------------------------------------------------- pure functions (unit tested)
@@ -93,6 +96,33 @@ def is_tray_mask(area_trays: float, fill: float, ew_mm: float, ns_mm: float) -> 
     aspect = ns_mm / ew_mm if ew_mm else 0
     return (TRAY_AREA[0] <= area_trays <= TRAY_AREA[1] and fill >= TRAY_FILL_MIN
             and TRAY_ASPECT[0] <= aspect <= TRAY_ASPECT[1])
+
+
+def dedupe(cands: list[dict], same_px: float) -> list[dict]:
+    """One mask per tray: of masks whose centres lie closer than same_px, the best filled stays."""
+    kept: list[dict] = []
+    for c in sorted(cands, key=lambda c: -c["fill"]):
+        if all(np.hypot(c["cx"] - k["cx"], c["cy"] - k["cy"]) >= same_px for k in kept):
+            kept.append(c)
+    return kept
+
+
+def link_tags(masks: list[dict], tags: list[dict], ppm: float) -> tuple[dict[int, int], list[int]]:
+    """Each tray tag to the index of the nearest mask (outline distance, 0 inside), within
+    LINK_MAX_MM and LINK_MARGIN_MM clear of the second-nearest; and the tags left ambiguous."""
+    links, ambiguous = {}, []
+    for t in tags:
+        if trays.tray_of(t["id"]) is None or not masks:
+            continue
+        d = sorted((max(0.0, -cv2.pointPolygonTest(m["contour"], (t["cx"], t["cy"]), True)) / ppm, k)
+                   for k, m in enumerate(masks))
+        if d[0][0] > LINK_MAX_MM:
+            continue
+        if len(d) > 1 and d[1][0] - d[0][0] < LINK_MARGIN_MM:
+            ambiguous.append(t["id"])
+            continue
+        links[t["id"]] = d[0][1]
+    return links, ambiguous
 
 
 def masks_for(boxes, coefs, protos) -> np.ndarray:
@@ -174,80 +204,138 @@ class FastSam:
 # ---------------------------------------------------------------- run
 
 
-def run_still(still: str, model: FastSam, scale_field, rows: list[dict], det) -> None:
-    tags = trays.detect(still, det)  # cached in scratch after the first time
+def run_still(still: str, model: FastSam, scale_field, det, rows: list[dict]) -> dict:
+    """Tray masks of one still from its tiles, tags linked, one overlay. Returns timings and counts."""
+    import time
+
+    t0 = time.perf_counter()
     img = cv2.imread(str(trays.EXPERIMENT / f"{still}.jpg"))
+    t1 = time.perf_counter()
+    cached = (trays.SCRATCH / "tags" / f"{still}.json").exists()
+    tags = trays.detect(still, det)  # cached in scratch after the first time
+    t2 = time.perf_counter()
+    h, w = img.shape[:2]
+    ppm = scale_field.px_per_mm(w / 2, h / 2)  # full-res px per mm, for distances
+    cands, t_infer = [], 0.0
     for t in tiles_from_tags(tags):
         tile, s, ox, oy = square_tile(img, t)
+        ti = time.perf_counter()
         raw = model(cv2.cvtColor(tile, cv2.COLOR_BGR2RGB))
+        t_infer += time.perf_counter() - ti
         boxes, scores, coefs, protos = decode(raw)
         sel = np.nonzero(scores >= SCORE_MIN)[0]
         keep = sel[nms(boxes[sel], scores[sel], IOU_MAX)] if len(sel) else sel
-        masks = masks_for(boxes[keep], coefs[keep], protos) if len(keep) else np.zeros((0, SIZE, SIZE), bool)
-        cxf, cyf = ox + SIZE / 2 / s, oy + SIZE / 2 / s
-        ppm = scale_field.px_per_mm(cxf, cyf) * s  # tile px per mm
-        tray_px = trays.TRAY_EW_MM * trays.TRAY_NS_MM * ppm**2
-        vis = tile.copy()
-        for k, m in enumerate(masks):
-            area = m.sum() / tray_px
+        if not len(keep):
+            continue
+        tile_ppm = scale_field.px_per_mm(ox + SIZE / 2 / s, oy + SIZE / 2 / s) * s
+        tray_px = trays.TRAY_EW_MM * trays.TRAY_NS_MM * tile_ppm**2
+        for k, m in enumerate(masks_for(boxes[keep], coefs[keep], protos)):
             ys, xs = np.nonzero(m)
             if len(xs) == 0:
                 continue
             (rx, ry), (rw, rh), _ = cv2.minAreaRect(np.column_stack([xs, ys]).astype(np.float32))
-            fill = m.sum() / max(rw * rh, 1)
-            ew, ns = (xs.max() - xs.min() + 1) / ppm, (ys.max() - ys.min() + 1) / ppm  # trays are axis-aligned portrait
-            tray_like = is_tray_mask(area, fill, ew, ns)
-            ids = []
-            if tray_like:
-                cnts, _ = cv2.findContours(m.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                c = max(cnts, key=cv2.contourArea)
-                local = [{"id": g["id"], "cx": (g["cx"] - ox) * s, "cy": (g["cy"] - oy) * s} for g in tags]
-                ids = trays.tags_in_shape(c, local, trays.TAG_NEAR_MM * ppm)
-            verdict, tray_ids = trays.judge_shape(ids, 1.0) if tray_like else ("not a tray", [])  # size checked above
-            rows.append({"still": still, "tile": t["name"], "mask": k, "score": round(float(scores[keep][k]), 3),
-                         "area_trays": round(float(area), 2), "fill": round(float(fill), 2),
-                         "ew_mm": round(float(ew), 1), "ns_mm": round(float(ns), 1),
-                         "tray_like": tray_like, "tags_inside": " ".join(map(str, ids)),
-                         "verdict": verdict, "trays": " ".join(map(str, tray_ids)),
-                         "cx_full": round(ox + rx / s), "cy_full": round(oy + ry / s)})
-            if not tray_like:
+            area, fill = m.sum() / tray_px, m.sum() / max(rw * rh, 1)
+            ew, ns = (xs.max() - xs.min() + 1) / tile_ppm, (ys.max() - ys.min() + 1) / tile_ppm
+            if not is_tray_mask(area, fill, ew, ns):
                 continue
-            col = {"one tray": (0, 200, 0), "several trays": (0, 0, 255)}.get(verdict, (0, 165, 255))
-            vis[m] = (0.6 * vis[m] + 0.4 * np.array(col)).astype(np.uint8)
-            cv2.drawContours(vis, [c], -1, col, 2)
-            label = f"tray {','.join(map(str, tray_ids))}" if tray_ids else "NO TAG"
-            for j, line in enumerate((label, f"{ew:.0f} x {ns:.0f} mm")):
-                org = (int(rx) - 50, int(ry) + 22 * j)
-                cv2.putText(vis, line, org, cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 3)
-                cv2.putText(vis, line, org, cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
-        cv2.rectangle(vis, (0, 0), (SIZE, 24), (0, 0, 0), -1)
-        cv2.putText(vis, f"{still} {t['name']} trays {t['trays']}: {len(masks)} masks", (6, 17),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        out = OUT / still / f"{t['name'].replace(' ', '_')}.jpg"
-        out.parent.mkdir(parents=True, exist_ok=True)
-        cv2.imwrite(str(out), np.hstack([tile, vis]), [cv2.IMWRITE_JPEG_QUALITY, 85])
-        mine = [r for r in rows if r["still"] == still and r["tile"] == t["name"] and r["tray_like"]]
-        print(f"{still} {t['name']} trays {t['trays']}: {len(masks)} masks, tray-like {len(mine)}: "
-              + "; ".join(f"{r['verdict']} [{r['trays']}] {r['area_trays']}" for r in mine), flush=True)
+            cnts, _ = cv2.findContours(m.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            c = max(cnts, key=cv2.contourArea).astype(np.float32) / s + np.float32([ox, oy])
+            cands.append({"tile": t["name"], "score": float(scores[keep][k]), "area_trays": float(area),
+                          "fill": float(fill), "ew_mm": float(ew), "ns_mm": float(ns),
+                          "cx": ox + rx / s, "cy": oy + ry / s, "contour": c.astype(np.int32)})
+    masks = dedupe(cands, SAME_TRAY_MM * ppm)
+    links, ambiguous = link_tags(masks, tags, ppm)
+    t3 = time.perf_counter()
+
+    a1 = sorted(g["id"] for g in tags if g["id"] in trays.A1_TAGS)
+    found = {}
+    for k, m in enumerate(masks):
+        ids = sorted(i for i, j in links.items() if j == k)
+        m["verdict"], m["trays"] = trays.judge_shape(ids, 1.0)
+        m["tag_ids"] = ids
+        for tr in m["trays"]:
+            found.setdefault(tr, []).append(k)
+        rows.append({"still": still, "mask": k, "tile": m["tile"], "verdict": m["verdict"],
+                     "trays": " ".join(map(str, m["trays"])), "tag_ids": " ".join(map(str, ids)),
+                     "area_trays": round(m["area_trays"], 2), "fill": round(m["fill"], 2),
+                     "ew_mm": round(m["ew_mm"], 1), "ns_mm": round(m["ns_mm"], 1),
+                     "cx_full": round(m["cx"]), "cy_full": round(m["cy"])})
+    ok = [tr for tr in a1 if len(found.get(tr, [])) == 1 and masks[found[tr][0]]["verdict"] == "one tray"]
+    res = {"still": still, "a1_tags": len(a1), "tray_masks": len(masks), "trays_ok": len(ok),
+           "no_tag_masks": sum(m["verdict"] == "no tray" for m in masks),
+           "several_masks": sum(m["verdict"] == "several trays" for m in masks),
+           "trays_without_mask": sum(tr not in found for tr in a1),
+           "ambiguous_tags": " ".join(map(str, ambiguous)),
+           "t_decode_s": round(t1 - t0, 2), "t_tags_s": round(t2 - t1, 2), "tags_cached": cached,
+           "t_hailo_s": round(t_infer, 2), "t_masks_s": round(t3 - t2 - t_infer, 2),
+           "t_total_s": round(t3 - t0, 2)}
+    overlay_still(img, masks, tags, links, res, trays.SCRATCH / "fastsam-stills" / f"{still}.jpg")
+    return res
+
+
+def overlay_still(img, masks, tags, links, res, out: Path) -> None:
+    """Tray masks and tag links on a 1/8 copy of the still. The still is never altered."""
+    r = trays.REDUCE
+    im = cv2.resize(img, (img.shape[1] // r, img.shape[0] // r), interpolation=cv2.INTER_AREA)
+    cols = {"one tray": (0, 200, 0), "several trays": (0, 0, 255), "no tray": (0, 165, 255)}
+    for k, m in enumerate(masks):
+        c = (m["contour"] / r).astype(np.int32)
+        cv2.drawContours(im, [c], -1, cols[m["verdict"]], 2)
+        label = {"one tray": "OK", "several trays": "MERGED", "no tray": "NO TAG"}[m["verdict"]]
+        text = [f"{label} tray {','.join(map(str, m['trays']))}" if m["trays"] else label,
+                f"{m['ew_mm']:.0f} x {m['ns_mm']:.0f} mm"]
+        for j, line in enumerate(text):
+            org = (int(m["cx"] / r) - 60, int(m["cy"] / r) + 22 * j)
+            cv2.putText(im, line, org, cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 4)
+            cv2.putText(im, line, org, cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
+    for g in tags:
+        p = (int(g["cx"] / r), int(g["cy"] / r))
+        if g["id"] in links:
+            m = masks[links[g["id"]]]
+            cv2.line(im, p, (int(m["cx"] / r), int(m["cy"] / r)), (255, 0, 255), 1)
+        cv2.circle(im, p, 5, (255, 0, 255), -1)
+        cv2.putText(im, str(g["id"]), (p[0] + 6, p[1] - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+    cv2.rectangle(im, (0, 0), (im.shape[1], 28), (0, 0, 0), -1)
+    cv2.putText(im, f"{res['still']} FastSAM: {res['trays_ok']}/{res['a1_tags']} trays OK, "
+                f"{res['no_tag_masks']} no tag, {res['several_masks']} merged, "
+                f"{res['trays_without_mask']} without mask", (8, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                (255, 255, 255), 1)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(out), im, [cv2.IMWRITE_JPEG_QUALITY, 85])
 
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("stills", nargs="+")
+    ap.add_argument("--name", default="run", help="results file suffix")
     args = ap.parse_args(argv)
     from npec_rig.calibration_store import load_calibration
 
     det = trays.detector()
     model = FastSam(HEF_PATH)
     rows: list[dict] = []
+    results: list[dict] = []
+    calibs: dict = {}
     try:
         for still in args.stills:
-            stem = trays.capture_info(still)["calibration"]
-            sf = load_calibration(trays.RIG / "calibration" / f"{stem}.json").scale_field
-            run_still(still, model, sf, rows, det)
+            info = trays.capture_info(still)
+            stem = info["calibration"]
+            if stem not in calibs:
+                calibs[stem] = load_calibration(trays.RIG / "calibration" / f"{stem}.json").scale_field
+            res = run_still(still, model, calibs[stem], det, rows)
+            res = {"step": "", **res, "calibration": stem, "validation": info["validation"], "lens": info["lens"]}
+            results.append(res)
+            print(f"{still}: {res['trays_ok']}/{res['a1_tags']} OK, {res['tray_masks']} masks, "
+                  f"no tag {res['no_tag_masks']}, merged {res['several_masks']}, "
+                  f"no mask {res['trays_without_mask']}, ambiguous [{res['ambiguous_tags']}], "
+                  f"{res['t_total_s']} s (tags {res['t_tags_s']}, hailo {res['t_hailo_s']})", flush=True)
     finally:
         model.close()
-    trays.write_csv(trays.HERE / "fastsam-masks.csv", rows)
+    steps = {r["still"]: r["step"] for r in trays.session_rows(sum(trays.SETS.values(), []))}
+    for r in results:
+        r["step"] = steps.get(r["still"], "")
+    trays.write_csv(trays.HERE / f"fastsam-{args.name}.csv", results)
+    trays.write_csv(trays.HERE / f"fastsam-{args.name}-masks.csv", rows)
 
 
 if __name__ == "__main__":
