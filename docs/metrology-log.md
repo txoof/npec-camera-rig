@@ -2920,6 +2920,50 @@ measured on 9 stills in the first run. The tags must be detected in any case, to
 
 Twenty stills, not the full sets; not yet a count against the decision rule.
 
+**Fallback around failed trays (2026-10-15, built at Aaron's request).** After the first pass (tag
+tiles, margin 1.15), every A1 tag whose tray is not one mask holding only its own tags gets a
+second search; masks holding several trays are dropped first. Decisions:
+
+- The trays already found are painted grey (with a 5 mm border) so their masks cannot be found
+  again or take a neighbour's tag.
+- Around the failed tag, the tray must lie within 1.15 trays in every direction. Windows of 2600 px
+  (about 1.2 px per mm at 640) are spaced so a tray with its lip (1650 x 1950 px) lies wholly in at
+  least one window (unit tested): 8 windows when nothing is cut by the frame edge.
+- Score cut-off 0.05 in the windows instead of 0.25; the same tray tests as the first pass.
+- The tray-shaped mask nearest the tag (within 60 mm) is taken. Then all tags are linked again over
+  the final set: right first-pass trays, fallback trays, and first-pass masks with no tag that are
+  not one of those.
+
+Record `fastsam-small20-m1.15-fb.csv` and `-masks.csv` (column `source`: first or fallback),
+overlays `~/scratch/round1-trays/fastsam-stills-m1.15-fb/` (fallback trays drawn thicker and
+labelled "(fallback)").
+
+| Same 20 stills | Touching: trays right | Gaps: trays right | Stills 12 of 12 | Time per still, tags cached |
+|---|---|---|---|---|
+| First pass only | 108 of 120 (90%) | 120 of 120 | 15 of 20 | 1.27 s |
+| With the fallback | **120 of 120** | **120 of 120** | **20 of 20** | 1.60 s (fallback 1.38 s mean, 2.22 s at most, on the 5 stills that needed it) |
+
+12 trays went to the fallback (on 5 stills) and all 12 were found, in 74 windows. Every pick scored
+at least 0.365, so the windows and the grey-out found them, not the lower cut-off. Add about 4.5 s
+per still for tag detection.
+
+**"Right" means the tray tag links to exactly one tray-shaped mask; the outline itself is rougher.**
+Checked by eye on `081433_159359` (4 fallback trays): each fallback mask is on the right tray, but
+some run into the aisle or the rail below.
+
+| Masks | Number | East-west, mean (SD), range | North-south, mean (SD), range |
+|---|---|---|---|
+| First pass | 228 | 306.5 mm (10.8), 273 to 328 | 376.3 mm (5.4), 366 to 409 |
+| Fallback | 12 | 311.1 mm (15.2), 287 to 342 | 391.4 mm (13.7), 372 to 411 |
+| Method B, stand-alone trays (gap set) | 66 | 306.0 mm (1.4) | 373.6 mm (1.3) |
+| Tape measure | | 305.0 mm | 366.0 mm |
+
+So FastSAM names the trays, but its outlines vary about 8 times more than the blue threshold's
+where a tray stands clear. Whether the outline is good enough depends on what it is used for
+(tray identity and slot only, or the region in which canopy area is counted); not decided.
+
+Twenty stills, not the full sets; not yet a count against the decision rule.
+
 ### 15.6 Round 1 review
 
 Not yet written. Covers what was found, what surprised us, which step it sends work back to, and

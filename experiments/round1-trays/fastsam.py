@@ -46,6 +46,13 @@ BOX_NS_MM = (280.0, 460.0)  # (decisions, wide of the TRAY_* tests below so they
 SAME_TRAY_MM = 100.0  # masks from overlapping tiles with centres closer than this are one tray
 LINK_MAX_MM = 60.0  # a tag links to the nearest tray mask within this distance
 LINK_MARGIN_MM = 20.0  # ...only if the second-nearest mask is at least this much further
+# Fallback around a tag whose tray was not found (decisions).
+FALLBACK = True  # --no-fallback turns it off
+FALLBACK_REACH = 1.15  # trays from the tag in every direction: where its tray must lie
+FALLBACK_TILE_PX = 2600  # window side at full resolution (about 1.2 px per mm at 640)
+TRAY_BOX_PX = (1650, 1950)  # a tray with its lip and a little turn, east-west and north-south
+FALLBACK_SCORE_MIN = 0.05  # lower than SCORE_MIN: the window is already where the tray must be
+HIDE_GREY = 114  # trays already found are painted this grey before the fallback
 
 
 # ---------------------------------------------------------------- pure functions (unit tested)
@@ -180,6 +187,26 @@ def grid_tiles(w: int, h: int, y0: int, y1: int, size: int = GRID_TILE_PX, step:
             for j, y in enumerate(starts(y0, y1)) for i, x in enumerate(starts(0, w))]
 
 
+def window_starts(lo: int, hi: int, size: int, item: int) -> list[int]:
+    """Starts of windows of `size` over lo..hi, spaced so any item of `item` px inside lo..hi lies
+    wholly in one window: neighbours no further apart than size - item."""
+    if hi - lo <= size:
+        return [(lo + hi - size) // 2]
+    n = int(np.ceil((hi - lo - size) / (size - item))) + 1
+    return [int(round(v)) for v in np.linspace(lo, hi - size, n)]
+
+
+def fallback_windows(cx: float, cy: float, w: int, h: int) -> list[dict]:
+    """Windows around a tag at (cx, cy) that between them hold its whole tray in some window."""
+    rx, ry = FALLBACK_REACH * TRAY_W_PX, FALLBACK_REACH * TRAY_H_PX
+    x0, x1 = int(max(0, cx - rx)), int(min(w, cx + rx))
+    y0, y1 = int(max(0, cy - ry)), int(min(h, cy + ry))
+    size = FALLBACK_TILE_PX
+    return [{"name": f"fallback {i},{j}", "trays": [], "x0": x, "x1": x + size, "y0": y, "y1": y + size}
+            for j, y in enumerate(window_starts(y0, y1, size, TRAY_BOX_PX[1]))
+            for i, x in enumerate(window_starts(x0, x1, size, TRAY_BOX_PX[0]))]
+
+
 def square_tile(img: np.ndarray, t: dict) -> tuple[np.ndarray, float, int, int]:
     """The crop padded to a square with grey and resized to 640; (tile, scale, x origin, y origin)."""
     h, w = img.shape[:2]
@@ -224,27 +251,18 @@ class FastSam:
 # ---------------------------------------------------------------- run
 
 
-def run_still(still: str, model: FastSam, scale_field, det, rows: list[dict], table_rows=(0, 0)) -> dict:
-    """Tray masks of one still from its tiles, tags linked, one overlay. Returns timings and counts."""
+def tray_masks(img, tiles, model, scale_field, score_min: float, source: str) -> tuple[list[dict], float]:
+    """Tray-shaped FastSAM masks from the given tiles, as full-resolution contours; Hailo time."""
     import time
 
-    t0 = time.perf_counter()
-    img = cv2.imread(str(trays.EXPERIMENT / f"{still}.jpg"))
-    t1 = time.perf_counter()
-    cached = (trays.SCRATCH / "tags" / f"{still}.json").exists()
-    tags = trays.detect(still, det)  # cached in scratch after the first time
-    t2 = time.perf_counter()
-    h, w = img.shape[:2]
-    ppm = scale_field.px_per_mm(w / 2, h / 2)  # full-res px per mm, for distances
-    cands, t_infer, n_tiles = [], 0.0, 0
-    for t in (tiles_from_tags(tags) if TILES == "tags" else grid_tiles(w, h, *table_rows)):
+    cands, t_infer = [], 0.0
+    for t in tiles:
         tile, s, ox, oy = square_tile(img, t)
-        n_tiles += 1
         ti = time.perf_counter()
         raw = model(cv2.cvtColor(tile, cv2.COLOR_BGR2RGB))
         t_infer += time.perf_counter() - ti
         boxes, scores, coefs, protos = decode(raw)
-        sel = np.nonzero(scores >= SCORE_MIN)[0]
+        sel = np.nonzero(scores >= score_min)[0]
         keep = sel[nms(boxes[sel], scores[sel], IOU_MAX)] if len(sel) else sel
         tile_ppm = scale_field.px_per_mm(ox + SIZE / 2 / s, oy + SIZE / 2 / s) * s
         bew = (boxes[keep, 2] - boxes[keep, 0]) / tile_ppm
@@ -264,36 +282,104 @@ def run_still(still: str, model: FastSam, scale_field, det, rows: list[dict], ta
                 continue
             cnts, _ = cv2.findContours(m.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             c = max(cnts, key=cv2.contourArea).astype(np.float32) / s + np.float32([ox, oy])
-            cands.append({"tile": t["name"], "score": float(scores[keep][k]), "area_trays": float(area),
-                          "fill": float(fill), "ew_mm": float(ew), "ns_mm": float(ns),
-                          "cx": ox + rx / s, "cy": oy + ry / s, "contour": c.astype(np.int32)})
-    masks = dedupe(cands, SAME_TRAY_MM * ppm)
-    links, ambiguous = link_tags(masks, tags, ppm)
-    t3 = time.perf_counter()
+            cands.append({"tile": t["name"], "source": source, "score": float(scores[keep][k]),
+                          "area_trays": float(area), "fill": float(fill), "ew_mm": float(ew),
+                          "ns_mm": float(ns), "cx": ox + rx / s, "cy": oy + ry / s,
+                          "contour": c.astype(np.int32)})
+    return cands, t_infer
 
-    a1 = sorted(g["id"] for g in tags if g["id"] in trays.A1_TAGS)
-    found = {}
+
+def judge_masks(masks: list[dict], links: dict[int, int], a1: list[int]) -> list[int]:
+    """Sets each mask's verdict and trays from its linked tags; the A1 trays found right."""
+    found: dict[int, list[int]] = {}
     for k, m in enumerate(masks):
         ids = sorted(i for i, j in links.items() if j == k)
         m["verdict"], m["trays"] = trays.judge_shape(ids, 1.0)
         m["tag_ids"] = ids
         for tr in m["trays"]:
             found.setdefault(tr, []).append(k)
-        rows.append({"still": still, "mask": k, "tile": m["tile"], "verdict": m["verdict"],
-                     "trays": " ".join(map(str, m["trays"])), "tag_ids": " ".join(map(str, ids)),
-                     "area_trays": round(m["area_trays"], 2), "fill": round(m["fill"], 2),
+    return [tr for tr in a1 if len(found.get(tr, [])) == 1 and masks[found[tr][0]]["verdict"] == "one tray"]
+
+
+def run_still(still: str, model: FastSam, scale_field, det, rows: list[dict], table_rows=(0, 0)) -> dict:
+    """Tray masks of one still: first pass, then the fallback around tags whose tray was not
+    found; tags linked, one overlay. Returns timings and counts."""
+    import time
+
+    t0 = time.perf_counter()
+    img = cv2.imread(str(trays.EXPERIMENT / f"{still}.jpg"))
+    t1 = time.perf_counter()
+    cached = (trays.SCRATCH / "tags" / f"{still}.json").exists()
+    tags = trays.detect(still, det)  # cached in scratch after the first time
+    t2 = time.perf_counter()
+    h, w = img.shape[:2]
+    ppm = scale_field.px_per_mm(w / 2, h / 2)  # full-res px per mm, for distances
+    a1 = sorted(g["id"] for g in tags if g["id"] in trays.A1_TAGS)
+
+    tiles = tiles_from_tags(tags) if TILES == "tags" else grid_tiles(w, h, *table_rows)
+    cands, t_infer = tray_masks(img, tiles, model, scale_field, SCORE_MIN, "first")
+    masks = dedupe(cands, SAME_TRAY_MM * ppm)
+    links, ambiguous = link_tags(masks, tags, ppm)
+    ok_first = judge_masks(masks, links, a1)
+    t3 = time.perf_counter()
+
+    # Fallback: trays found right stay; masks holding several trays are dropped; for every A1 tag
+    # whose tray is not right, its surroundings are searched with the found trays painted grey.
+    failed = [tr for tr in a1 if tr not in ok_first]
+    n_fb_tiles, t_fb_infer, fb_found = 0, 0.0, []
+    if FALLBACK and failed:
+        good = [m for m in masks if m["verdict"] == "one tray" and m["trays"][0] in ok_first]
+        loose = [m for m in masks if m["verdict"] == "no tray"]
+        hidden = img.copy()
+        for m in good:
+            cv2.drawContours(hidden, [m["contour"]], -1, (HIDE_GREY,) * 3, thickness=-1)
+            cv2.drawContours(hidden, [m["contour"]], -1, (HIDE_GREY,) * 3, thickness=int(5 * ppm))
+        by_id = {g["id"]: g for g in tags}
+        new = []
+        for tr in failed:
+            g = by_id[tr]
+            win = fallback_windows(g["cx"], g["cy"], w, h)
+            n_fb_tiles += len(win)
+            fc, ti = tray_masks(hidden, win, model, scale_field, FALLBACK_SCORE_MIN, "fallback")
+            t_fb_infer += ti
+            fc = [c for c in dedupe(fc, SAME_TRAY_MM * ppm)
+                  if all(np.hypot(c["cx"] - m["cx"], c["cy"] - m["cy"]) >= SAME_TRAY_MM * ppm for m in good + new)]
+            d = [(max(0.0, -cv2.pointPolygonTest(c["contour"], (g["cx"], g["cy"]), True)) / ppm, -c["fill"], k)
+                 for k, c in enumerate(fc)]
+            d = [x for x in d if x[0] <= LINK_MAX_MM]
+            if d:
+                pick = fc[min(d)[2]]
+                new.append(pick)
+                fb_found.append(tr)
+                cv2.drawContours(hidden, [pick["contour"]], -1, (HIDE_GREY,) * 3, thickness=-1)
+        # Final set: right first-pass trays, fallback trays, and first-pass masks with no tag that
+        # are not the same tray as one of those.
+        kept = good + new
+        kept += [m for m in loose if all(np.hypot(m["cx"] - k["cx"], m["cy"] - k["cy"]) >= SAME_TRAY_MM * ppm for k in kept)]
+        masks = kept
+        links, ambiguous = link_tags(masks, tags, ppm)
+    ok = judge_masks(masks, links, a1)
+    t4 = time.perf_counter()
+
+    found = {tr for m in masks for tr in m["trays"]}
+    for k, m in enumerate(masks):
+        rows.append({"still": still, "mask": k, "tile": m["tile"], "source": m["source"], "verdict": m["verdict"],
+                     "trays": " ".join(map(str, m["trays"])), "tag_ids": " ".join(map(str, m["tag_ids"])),
+                     "score": round(m["score"], 3), "area_trays": round(m["area_trays"], 2), "fill": round(m["fill"], 2),
                      "ew_mm": round(m["ew_mm"], 1), "ns_mm": round(m["ns_mm"], 1),
                      "cx_full": round(m["cx"]), "cy_full": round(m["cy"])})
-    ok = [tr for tr in a1 if len(found.get(tr, [])) == 1 and masks[found[tr][0]]["verdict"] == "one tray"]
-    res = {"still": still, "a1_tags": len(a1), "tray_masks": len(masks), "trays_ok": len(ok),
+    res = {"still": still, "a1_tags": len(a1), "first_pass_ok": len(ok_first), "fallback_tags": len(failed) if FALLBACK else 0,
+           "fallback_found": len(fb_found), "tray_masks": len(masks), "trays_ok": len(ok),
            "no_tag_masks": sum(m["verdict"] == "no tray" for m in masks),
            "several_masks": sum(m["verdict"] == "several trays" for m in masks),
            "trays_without_mask": sum(tr not in found for tr in a1),
            "ambiguous_tags": " ".join(map(str, ambiguous)),
            "t_decode_s": round(t1 - t0, 2), "t_tags_s": round(t2 - t1, 2), "tags_cached": cached,
            "t_hailo_s": round(t_infer, 2), "t_masks_s": round(t3 - t2 - t_infer, 2),
-           "t_total_s": round(t3 - t0, 2), "tiles": TILES, "n_tiles": n_tiles}
-    overlay_still(img, masks, tags, links, res, trays.SCRATCH / (f"fastsam-stills-m{TILE_MARGIN:g}" if TILES == "tags" else "fastsam-stills-grid") / f"{still}.jpg")
+           "t_fallback_s": round(t4 - t3, 2), "t_fallback_hailo_s": round(t_fb_infer, 2),
+           "t_total_s": round(t4 - t0, 2), "tiles": TILES, "n_tiles": len(tiles), "n_fallback_tiles": n_fb_tiles}
+    folder = (f"fastsam-stills-m{TILE_MARGIN:g}" if TILES == "tags" else "fastsam-stills-grid") + ("-fb" if FALLBACK else "")
+    overlay_still(img, masks, tags, links, res, trays.SCRATCH / folder / f"{still}.jpg")
     return res
 
 
@@ -304,8 +390,10 @@ def overlay_still(img, masks, tags, links, res, out: Path) -> None:
     cols = {"one tray": (0, 200, 0), "several trays": (0, 0, 255), "no tray": (0, 165, 255)}
     for k, m in enumerate(masks):
         c = (m["contour"] / r).astype(np.int32)
-        cv2.drawContours(im, [c], -1, cols[m["verdict"]], 2)
+        cv2.drawContours(im, [c], -1, cols[m["verdict"]], 2 if m.get("source") != "fallback" else 4)
         label = {"one tray": "OK", "several trays": "MERGED", "no tray": "NO TAG"}[m["verdict"]]
+        if m.get("source") == "fallback":
+            label += " (fallback)"
         text = [f"{label} tray {','.join(map(str, m['trays']))}" if m["trays"] else label,
                 f"{m['ew_mm']:.0f} x {m['ns_mm']:.0f} mm"]
         for j, line in enumerate(text):
@@ -320,7 +408,8 @@ def overlay_still(img, masks, tags, links, res, out: Path) -> None:
         cv2.circle(im, p, 5, (255, 0, 255), -1)
         cv2.putText(im, str(g["id"]), (p[0] + 6, p[1] - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
     cv2.rectangle(im, (0, 0), (im.shape[1], 28), (0, 0, 0), -1)
-    cv2.putText(im, f"{res['still']} FastSAM: {res['trays_ok']}/{res['a1_tags']} trays OK, "
+    cv2.putText(im, f"{res['still']} FastSAM: {res['trays_ok']}/{res['a1_tags']} trays OK "
+                f"(first pass {res.get('first_pass_ok', res['trays_ok'])}), "
                 f"{res['no_tag_masks']} no tag, {res['several_masks']} merged, "
                 f"{res['trays_without_mask']} without mask", (8, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                 (255, 255, 255), 1)
@@ -329,14 +418,15 @@ def overlay_still(img, masks, tags, links, res, out: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    global TILE_MARGIN, TILES
+    global TILE_MARGIN, TILES, FALLBACK
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("stills", nargs="+")
     ap.add_argument("--name", default="run", help="results file suffix")
     ap.add_argument("--margin", type=float, default=TILE_MARGIN, help="tile margin in trays")
     ap.add_argument("--tiles", choices=["tags", "grid"], default=TILES)
+    ap.add_argument("--no-fallback", action="store_true", help="first pass only")
     args = ap.parse_args(argv)
-    TILE_MARGIN, TILES = args.margin, args.tiles
+    TILE_MARGIN, TILES, FALLBACK = args.margin, args.tiles, not args.no_fallback
     from npec_rig.calibration_store import load_calibration
 
     det = trays.detector()
@@ -356,7 +446,8 @@ def main(argv: list[str] | None = None) -> None:
             res = run_still(still, model, sf, det, rows, table_rows)
             res = {"step": "", **res, "calibration": stem, "validation": info["validation"], "lens": info["lens"]}
             results.append(res)
-            print(f"{still}: {res['trays_ok']}/{res['a1_tags']} OK, {res['tray_masks']} masks, "
+            print(f"{still}: {res['trays_ok']}/{res['a1_tags']} OK (first {res['first_pass_ok']}, "
+                  f"fallback {res['fallback_found']}/{res['fallback_tags']}), {res['tray_masks']} masks, "
                   f"no tag {res['no_tag_masks']}, merged {res['several_masks']}, "
                   f"no mask {res['trays_without_mask']}, ambiguous [{res['ambiguous_tags']}], "
                   f"{res['t_total_s']} s (tags {res['t_tags_s']}, hailo {res['t_hailo_s']})", flush=True)

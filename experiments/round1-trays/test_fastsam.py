@@ -63,3 +63,20 @@ def test_grid_tiles_overlap_so_every_tray_fits_one_tile():
         for y in range(800, 6200 - tray_h, 97):
             assert any(t["x0"] <= x and x + tray_w <= t["x1"] and t["y0"] <= y and y + tray_h <= t["y1"]
                        for t in tiles), (x, y)
+
+
+def test_window_starts_hold_any_item_wholly():
+    lo, hi, size, item = 1000, 5100, 2600, 1950
+    starts = fastsam.window_starts(lo, hi, size, item)
+    assert starts[0] == lo and starts[-1] == hi - size
+    for x in range(lo, hi - item + 1, 13):
+        assert any(s <= x and x + item <= s + size for s in starts), x
+
+
+def test_fallback_windows_cover_the_tray_at_either_corner():
+    cx, cy = 5000, 3000
+    win = fastsam.fallback_windows(cx, cy, 9152, 6944)
+    bw, bh = fastsam.TRAY_BOX_PX
+    # tag at the south-west corner (tray north-east of it) or the north-east corner (tray south-west)
+    for x0, y0 in ((cx - 60, cy - bh + 60), (cx - bw + 60, cy - 60)):
+        assert any(t["x0"] <= x0 and x0 + bw <= t["x1"] and t["y0"] <= y0 and y0 + bh <= t["y1"] for t in win)

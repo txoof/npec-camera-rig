@@ -23,13 +23,15 @@ FastSAM on the Hailo-8 (needs the accelerator; the HEF in `~/scratch/round1-tray
 - `--tiles tags` (default): 2-tray tiles placed from the A1 tags, reaching `--margin` trays past the
   outer tags. Use 1.15: at the old 0.75 the tiles cut trays off (27 of 54 missing trays).
 - `--tiles grid`: 3000 px tiles every 1000 px over the table rows, no tag positions used.
+- The fallback runs by default after the first pass (`--no-fallback` turns it off): around each
+  tag whose tray was not found, 8 windows of 2600 px with the found trays painted grey.
 - `diagnose.py` follows every tray without a mask through the stages (cut by the tile, low score,
   duplicate, never proposed, mask test) and writes `diagnose-NAME.csv`.
 
 About 1.3 s per still with tag tiles and cached tags, 3.6 s with the grid; add about 4.5 s for the
 first tag detection of a still. HailoRT writes `hailort.log` in the working directory (not tracked).
 
-Overlays: `~/scratch/round1-trays/fastsam-stills-m<margin>/` or `fastsam-stills-grid/`, one per
+Overlays: `~/scratch/round1-trays/fastsam-stills-m<margin>[-fb]/` or `fastsam-stills-grid[-fb]/`, one per
 still at 1/8 size (green OK, orange NO TAG, red MERGED; magenta line from each tag to its tray);
 per tile `~/scratch/round1-trays/fastsam/<still>/<tile>.jpg` from the first version.
 
