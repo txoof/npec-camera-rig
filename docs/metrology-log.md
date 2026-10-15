@@ -2803,6 +2803,42 @@ sightings, not 66 independent trays.
 
 What it does not cover: the touching set, and methods C to E.
 
+**Method F, added 2026-10-15 after A and B: FastSAM on the Hailo-8 (Aaron asked for a Hailo model).**
+No precompiled Hailo-8 model has a tray class (research 2026-10-15); FastSAM outlines any object
+without class names. `fast_sam_s.hef`, Hailo Model Zoo v2.17.0 for Hailo-8 (the release for
+HailoRT 4.23), downloaded to `~/scratch/round1-trays/hailo/`, SHA-256
+`361cb280a2be5d2b9b12a65848b2d288e0b0a37db03a77d0490c5f307fbfcd9a`. `hailortcli parse-hef`: one
+input 640 x 640 x 3, and the YOLOv8 instance segmentation outputs: on 80, 40 and 20 cell grids a box
+(4 x 16 distance bins), a score and 32 mask coefficients; 32 base masks of 160 x 160. Decoded in
+`experiments/round1-trays/fastsam.py`; no Hailo decoding code is used.
+
+- Crops: from the A1 tags, each row is cut into 3 tiles of 2 neighbouring trays, reaching 0.75 of a
+  tray past the outer tags on every side (a tag is at the south-west or north-east corner), padded
+  to a square and resized to 640 x 640: about 1 px per mm.
+- Decisions: score at least 0.25 and duplicates removed above 0.7 overlap (FastSAM's usual
+  defaults); a mask is a tray when it is 0.8 to 1.2 trays in area, fills at least 0.85 of its
+  rotated rectangle, and its north-south over east-west extent is 366/305 within 15%; tags link
+  to it as in method B (inside or within 15 mm).
+
+**First result, 2 stills (2026-10-15).** Record `fastsam-masks.csv`, overlays in
+`~/scratch/round1-trays/fastsam/`. Each tile gives 108 to 352 masks, mostly cells and parts of the
+background; the tray-shaped ones are kept.
+
+| Still | Tray-shaped masks | Linked to one tray | No tag linked |
+|---|---|---|---|
+| R2-4 `092731_168752` (touching) | 11 of 12 (none for tray 4) | 6 (trays 3, 5, 6, 7, 8, 11) | 5 |
+| Step 1 `075756_789328` (gaps) | 12 of 12 | 11 | 1 (tray 10) |
+
+- **FastSAM separates touching trays** where thresholding cannot: in R2-4, South 3 and South 4
+  touch and come out as two masks of 307 x 372 and 307 x 375 mm.
+- **The failures are tag linking, not outlines.** Every tray whose tag is the green 30 mm tag
+  inside cell A1 links. The paper tags (1, 2, 9, 10, 12) stick out past the tray corner, more than
+  15 mm from the mask when the trays are pushed together.
+- Tray-shaped masks measure 272 to 324 mm east-west and 328 to 386 mm north-south across both
+  stills; some are cut by the tile edge. Not yet compared with B or the tape measure per tray.
+
+Two stills only; not a count against the decision rule.
+
 ### 15.6 Round 1 review
 
 Not yet written. Covers what was found, what surprised us, which step it sends work back to, and
