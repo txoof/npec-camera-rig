@@ -4,13 +4,15 @@ This is the log: every measurement, test method and result, with its source. For
 these measurements can be trusted, read `docs/measurement-trust.md` first.
 
 **Status:** first draft 2026-10-05; raw-data sources, repeat counts and camera coverage added
-2026-10-08. The camera was replaced on 2026-10-07 (old SN000, new SN001; section 8.2); current
-calibration and bands are the new camera's from 2026-10-08. Section 13 says which results have
+2026-10-08; M2 acceptance on SN001 added 2026-10-14 (section 14). The camera was replaced on
+2026-10-07 (old SN000, new SN001; section 8.2); current calibration and bands are the new camera's
+from 2026-10-14. Section 13 says which results have
 been repeated on SN001. Kept current as findings come in (CLAUDE.md, *Write up every
 measurement*). Numbers marked **decision** are settings chosen by the project, not measurements.
 Section 11 lists inconsistencies between project files that still need checking. Section 9
-holds the M2 physical acceptance tests, run 2026-10-05. Section 14 holds their repeat on SN001
-(method written 2026-10-09, not yet run).
+holds the M2 physical acceptance tests, run 2026-10-05 on SN000. Section 14 holds their repeat on
+SN001 (method written 2026-10-09, run 2026-10-12 to 10-14; summary in 14.7). Current calibration
+and bands: SN001, 2026-10-14, lens 6.05 (14.6).
 
 This document states every number the rig relies on to report plant canopy area and how far that
 area can be trusted: what was measured, how, how often, the result, and what it does and does
@@ -644,8 +646,8 @@ them. This is a record of conditions, not a correction: a flagged photo is kept,
   kernel's own count, which does not depend on the clock), the seconds since the app started, and
   the gap before the app started. A photo is flagged when the Pi has been up less than 60 minutes.
   **The 60 minutes is a decision, not a measurement.** It comes from one cold start on the old
-  camera (Pi off about 30 min, recovered over about an hour, table above), and stays a placeholder
-  until a cold-start run on SN001 measures it. A reboot without a power cut is flagged too, because
+  camera (Pi off about 30 min, recovered over about an hour, table above). Measured once on SN001
+  (2026-10-14, section 14.3): readings back by +15 minutes. The 60 minutes stays a decision. A reboot without a power cut is flagged too, because
   it is not known whether the camera stays warm through one. Checked on the rig, 2026-10-08: a
   photo with focus locked at 6.04 reported 6.04 and was not flagged; one with focus unlocked was
   flagged. The cold-start flag itself is checked by unit tests only, because the Pi was not
@@ -1736,19 +1738,19 @@ This table says, for each result, whether it has been repeated on SN001.
 | Camera height, about 1482 mm | 4 | Tape-measure best estimate, not precise | Not re-measured |
 | Height effect, 0.145% per mm | 4 | One test, 3 slots | Not repeated. Depends on camera height, not on the camera unit |
 | Calibration residual | 5 | 8 calibrations, 0.516% to 0.700% | 3 calibrations, 0.491% to 0.503% |
-| Validation bands | 6 | 3 sessions | 2 sessions: lens 6.16 with foam (step 2) and lens 6.04 after (current) |
+| Validation bands | 6 | 3 sessions | 8 sessions; repeat on another day passes (14.1); current bands from 2026-10-14, lens 6.05 (14.6) |
 | Validation checks and their limits | 6 | Limits set from SN000 sessions | Both SN001 validations passed with no flags; limits not re-derived |
 | Central error against lens position | 7 | Sweep, 5 positions, one photo each | Checked once at lens 6.16 with foam on; not against lens position |
 | Photo-to-photo noise | 8, 8.2 step 3 | 3 photos at 3 light levels | 10 photos, fixed exposure, foam on |
 | Lens moved and driven back | 8 | One run | Not repeated |
 | Control (nothing done, 45 to 60 min) | 8 | Two series | Covered by the 6.8 hour overnight run |
 | App restart | 8, 8.2 step 5 | 2 attempts, then 5 restarts | 5 restarts, foam on |
-| Power cut, cold start | 8 | One run | Not repeated |
+| Power cut, cold start | 8 | One run | One run, 14.3: recovered by +15 min |
 | One photo a minute, the chamber cycle | 8.1 run 3j, 8.2 | 2 hours | 2 hours (step 6) and 6.8 hours (overnight) |
 | Lens ignores commands after a full-resolution photo | 11 | Seen twice | Seen (step 4) |
-| Two-height test | 9.1 | Pass | Not repeated |
-| Tape-measure check | 9.2 | Pass | Not repeated |
-| Roll and knock | 9.3 | Pass | Not repeated |
+| Two-height test | 9.1 | Pass | Pass, 14.4 |
+| Tape-measure check | 9.2 | Pass | Pass, 14.2 |
+| Roll and knock | 9.3 | Pass | Pass (signed off): roll within 0.03 deg; knocks read DRIFT; covered corner tag gave FAIL, 14.5 |
 | Claimed uncertainty against actual error | 9.4 | Fail; the claim was removed | Not repeated (the claim is no longer shown) |
 
 Removing packing foam from SN001 changed its readings by about 0.8 points (section 8.2), so the
@@ -1826,12 +1828,207 @@ The 2026-09-30 and 10-01 sessions predate the 20-minute rule. Under this rule 5 
 pass. A rule per slot (at least 90% in at least 11 of 12 slots) would fail 6 of the 8, including
 two sessions 3 and 6 minutes apart, so it is not proposed.
 
+**First session, done 2026-10-12.** Pi on since 2026-10-07 (no cold start); app restarted at
+06:54 UTC, before the session (a warm restart, section 8); no camera events on 2026-10-12. Lens
+locked at 5.97 at 07:05 UTC, a focus point Aaron chose deliberately slightly different from the
+previous one (6.04); the images stayed sharp. Calibration `20261012T070607812512` (07:06 UTC, made
+current, 30.0 mm tags, all 4 corner tags, residual 0.66%: higher than SN001's previous four,
+0.49% to 0.54%, inside SN000's 0.52% to 0.70%). Validation session `20261012T070703613469`: rounds
+at 07:08, 07:18 and 07:29 UTC, 21.0 minutes first to last, shortest gap 10.1 minutes, door closed;
+93.5%, 96.9% and 79.2% of tags moved; 85 to 90 tags per slot.
+
+| Slot | Band | Median error | Slot | Band | Median error |
+|---|---|---|---|---|---|
+| North 1 | ±2.9% | +0.67 | South 1 | ±1.4% | -0.07 |
+| North 2 | ±1.5% | -0.03 | South 2 | ±3.0% | +0.52 |
+| North 3 | ±2.7% | -0.58 | South 3 | ±2.8% | -0.42 |
+| North 4 | ±2.4% | -0.40 | South 4 | ±3.4% | -0.95 |
+| North 5 | ±1.4% | -0.31 | South 5 | ±1.3% | +0.15 |
+| North 6 | ±1.8% | +0.12 | South 6 | ±2.6% | +1.14 |
+
+Median of the slot medians -0.05 points. These are the reference bands for the second session.
+
+**Between the sessions.** Camera events: the camera failed to open twice, 2026-10-12 08:27 and
+08:28 UTC ("Camera __init__ sequence did not complete"), and opened at 08:29. Whether an app
+restart caused the failed opens is not recorded. Warm app restarts known (app only, page-only
+code): 2026-10-12 13:40, 14:07, 14:27 and 19:09 UTC, and 2026-10-13 07:42 UTC (the last four
+reported on #116 by the tasks that borrowed the hardware label, each with focus locked at 5.97
+after it). No lens move, no recalibration, no cold start
+(Pi on since 2026-10-07). Trays and sheets were nudged and the tape measure removed (allowed).
+
+**Second session, 2026-10-13: recorded two ways (decision, Aaron 2026-10-13).** Because of the
+failed camera opens, the "no camera fault" condition was not met. The session is therefore (1) the
+repeat of the 2026-10-12 session, with that deviation stated, and (2) the first session of a
+clean pair, repeated on 2026-10-14 before any test that disturbs the rig.
+
+Session `20261013T074951947771`, same calibration `20261012T070607812512`, lens 5.97 locked; rounds
+at 07:54, 08:04 and 08:15 UTC, 21.2 minutes first to last, shortest gap 10.1 minutes, door closed;
+92.7%, 85.6% and 51.5% of tags moved; 85 to 90 tags per slot.
+
+| Slot | 10-12 band | Inside it on 10-13 | 10-13 band | 10-12 median | 10-13 median |
+|---|---|---|---|---|---|
+| North 1 | ±2.9% | 98% (88 of 90) | ±2.4% | +0.67 | +0.64 |
+| North 2 | ±1.5% | 96% (86 of 90) | ±1.4% | -0.03 | +0.11 |
+| North 3 | ±2.7% | 95% (81 of 85) | ±2.5% | -0.58 | -0.62 |
+| North 4 | ±2.4% | 92% (78 of 85) | ±2.9% | -0.40 | -0.62 |
+| North 5 | ±1.4% | 88% (79 of 90) | ±3.1% | -0.31 | +0.25 |
+| North 6 | ±1.8% | 88% (79 of 90) | ±2.1% | +0.12 | +0.36 |
+| South 1 | ±1.4% | 99% (89 of 90) | ±1.2% | -0.07 | +0.19 |
+| South 2 | ±3.0% | 98% (88 of 90) | ±1.9% | +0.52 | +0.58 |
+| South 3 | ±2.8% | 97% (87 of 90) | ±2.4% | -0.42 | -0.22 |
+| South 4 | ±3.4% | 96% (82 of 85) | ±3.0% | -0.95 | -0.86 |
+| South 5 | ±1.3% | 97% (87 of 90) | ±1.1% | +0.15 | +0.22 |
+| South 6 | ±2.6% | 82% (74 of 90) | ±5.7% | +1.14 | +1.29 |
+
+Median of the slot medians +0.21 points (2026-10-12: -0.05).
+
+**Result as the repeat: pass, with the deviation above.** 93.7% of the whole table (998 of 1065
+tags) fell inside the first session's bands (rule: at least 90%); lowest slot South 6, 82% (rule:
+no slot below 75%). Bands changed by -1.1 to +3.1 points.
+
+**South 6 and North 5, observed.** South 6's wider band comes from round 1 alone (photo
+`rig/2026-10-13/075436_099643`): 6 of its 30 tags read +5.6% to +9.4%, all in the sheet's
+south-east corner, growing down the last column (tags 329 to 354: 0.0, +0.3, +2.1, +5.6, +7.9,
++9.4%). That corner looks less sharp than the rest of the sheet, which fits a sheet not lying flat
+there; a scrap of tape sits on the tray edge beside it. Rounds 2 and 3 in that slot stayed within
+2.8%. North 5's wider band comes from round 2 (5 tags at +3.3% to +4.3%). Neither was flagged by
+the validation checks (section 6). Script: `/home/pi/scratch/m2-acceptance-2026-10/slot_tags.py`.
+
+**Change of reference for the clean pair (decision, Aaron 2026-10-13, written at 08:19 UTC,
+before the session it names exists).** In round 1 of `20261013T074951947771` the South 6 sheet
+was not lying flat (confirmed by Aaron), which widened that slot's band to ±5.7%, so it is not a
+fair reference. A third session of the same calibration is run on 2026-10-13 after it, with every
+sheet pressed flat and the tape scrap removed from the South 6 tray edge. That third session is
+the first session of the clean pair; its repeat on 2026-10-14 is judged against its bands with the
+same rule. It is also compared with `20261013T074951947771` as a same-day pair, for information.
+The morning session stays the repeat of 2026-10-12, with its deviation.
+
+**Third session, 2026-10-13: the first session of the clean pair.** Session
+`20261013T081945572660`, same calibration, lens 5.97 locked; every sheet pressed flat and its
+corners checked, tape scrap removed; rounds at 08:22, 08:32 and 08:50 UTC, 28.1 minutes first to
+last, shortest gap 10.6 minutes, door closed; 100%, 90.4% and 69.0% of tags moved; 85 to 90 tags
+per slot. No camera events since the morning session.
+
+| Slot | Band | Median error | Slot | Band | Median error |
+|---|---|---|---|---|---|
+| North 1 | ±2.8% | +0.73 | South 1 | ±1.5% | +0.01 |
+| North 2 | ±1.5% | -0.03 | South 2 | ±2.0% | +0.58 |
+| North 3 | ±2.6% | -0.47 | South 3 | ±2.6% | -0.24 |
+| North 4 | ±2.6% | -0.34 | South 4 | ±3.3% | -1.21 |
+| North 5 | ±1.2% | +0.00 | South 5 | ±1.1% | +0.27 |
+| North 6 | ±2.1% | +0.42 | South 6 | ±2.7% | +1.36 |
+
+Median of the slot medians 0.00 points. These are the reference bands for the 2026-10-14 repeat.
+
+Checked round by round before the session was closed (Aaron asked whether any round should be
+redone): none. South 4 in round 1 read lower than in rounds 2 and 3 (median -1.81 against -0.90
+and -0.89, 7 tags beyond 3%), but its tags read smoothly lower toward the image centre (from about
+0% at the sheet's far corner to -4.8% at the corner nearest the centre), the known central error
+(section 7) with the sheet sitting nearer the centre than usual, not a sheet off the tray.
+
+**Same-day pair, for information** (this session against the morning session's bands, the same
+rule): 93.6% of the whole table (997 of 1065) inside; lowest slot South 1, 86%. It would pass. The
+morning bands of North 5 (±3.1%) and South 6 (±5.7%) were widened by single rounds, so those two
+slots hold 100% here and say little.
+
+**Clean repeat, 2026-10-14: pass.** Between the reference session (ended 2026-10-13 08:52 UTC)
+and this one: no camera events; no lens move, recalibration or cold start (Pi on since
+2026-10-07); warm app restarts, all reported on #116 with focus locked at 5.97 after each:
+2026-10-13 11:49, 11:51 and later during the #139 loan (shutdown change only), 12:04 (main pulled
+to `1df69c7`), 13:05, 13:52 and 14:12 UTC (#134 loans, page and plot code only). A second server
+from another task ran on port 8134 with the synthetic camera and its own data folders; it did not
+hold the camera.
+
+Session `20261014T070107213176`, same calibration `20261012T070607812512`, lens 5.97 locked; sheets
+pressed flat; rounds at 07:05, 07:16 and 07:27 UTC, 22.6 minutes first to last, shortest gap 11.0
+minutes, door closed; 97.7%, 77.7% and 74.4% of tags moved; 85 to 90 tags per slot.
+
+| Slot | Reference band (10-13) | Inside it on 10-14 | 10-14 band | 10-13 median | 10-14 median |
+|---|---|---|---|---|---|
+| North 1 | ±2.8% | 99% (84 of 85) | ±2.3% | +0.73 | +0.46 |
+| North 2 | ±1.5% | 97% (87 of 90) | ±1.3% | -0.03 | -0.19 |
+| North 3 | ±2.6% | 97% (87 of 90) | ±2.1% | -0.47 | -0.66 |
+| North 4 | ±2.6% | 98% (88 of 90) | ±2.1% | -0.34 | -0.42 |
+| North 5 | ±1.2% | 81% (73 of 90) | ±1.4% | +0.00 | -0.38 |
+| North 6 | ±2.1% | 100% (90 of 90) | ±1.6% | +0.42 | +0.30 |
+| South 1 | ±1.5% | 93% (79 of 85) | ±1.8% | +0.01 | -0.22 |
+| South 2 | ±2.0% | 95% (81 of 85) | ±1.9% | +0.58 | +0.45 |
+| South 3 | ±2.6% | 96% (86 of 90) | ±2.2% | -0.24 | -0.12 |
+| South 4 | ±3.3% | 97% (87 of 90) | ±3.1% | -1.21 | -0.81 |
+| South 5 | ±1.1% | 82% (74 of 90) | ±1.2% | +0.27 | -0.01 |
+| South 6 | ±2.7% | 96% (86 of 90) | ±2.6% | +1.36 | +1.32 |
+
+**Result: pass.** 94.1% of the whole table (1002 of 1065 tags) fell inside the reference bands
+(rule: at least 90%); lowest slot North 5, 81% (rule: no slot below 75%). Median of the slot
+medians -0.16 points (reference 0.00). Bands changed by -0.5 to +0.3 points. A slot's band
+measured on one day still described the same calibration on the next day.
+
+The two narrowest slots, North 5 (±1.2%) and South 5 (±1.1%), had the lowest fractions inside
+(81%, 82%): a narrow band leaves little room for a day-to-day shift of a few tenths of a point
+(North 5's median moved -0.38). Each slot's band comes from about 90 tags, so the narrowest ones
+are the least certain; this is the kind of result the per-slot floor (75%) was set to allow.
+
+**South 6, observed again.** In round 3 (photo `rig/2026-10-14/072749_451484`) three tags at the
+sheet corner in the south-east of the slot read +3.4%, +4.1% and +6.8%; the rest of the sheet read
+-0.0% to +2.6%. It was a different sheet from 2026-10-13's, at the same spot, so the tray may be
+lifting sheets there (not checked). It did not change the result: South 6 kept 96% inside.
+
 ### 14.2 Tape measure
 
 Section 9.2 method A unchanged: steel tape from the outer edge of a tag on the South 1 sheet to the
 outer edge of a tag on the South 6 sheet, two tag pairs, against the app's distance along the same
 line. **Pass:** the app agrees with the tape within 2% (PLAN.md). Optional, to close a gap in 9.2:
 the same along the North row, and one span front to back.
+
+**As run (Aaron, 2026-10-12, written before the run).** The sheets are placed for convenience and
+the western-most and eastern-most sheets are taped down at their edges (no tag covered) so laying
+the measuring tape does not move them. The steel tape runs from the outer edge of the
+eastern-most tag to the outer edge of the western-most tag in one row, read looking straight down
+at each edge, and is left in place, as close to the tag edges as it lies, for one photograph. The
+tape sits a few mm above the sheets (the tray construction); Aaron measures that height, ±2 mm.
+The same photograph also gives section 9.2 method B (the tape's own marks read in the photo, with
+the height correction of 0.072% of length per mm, so ±2 mm is about ±0.15%).
+
+**Result, 2026-10-12: pass by both methods.** Calibration `20261012T070607812512`, lens 5.97
+locked. The sheets were placed for convenience, so they do not sit in their validation slots; the
+end sheets were taped down. Photos (full resolution, saved in the test experiment's folder
+`experiments/2026-10-09_68cdf210/stills/2026-10-12/`): `074846_006450` with the tape in place,
+`075738_490795` with the tape lifted. Scripts: `/home/pi/scratch/m2-acceptance-2026-10/tape_a.py`
+and `tape_b.py`.
+
+*Method A* (photo 07:57:38 UTC, tape lifted; with the tape in place the tape hid the west end tag
+and its row). Tag 325, top row of the western-most sheet, to tag 359, same row of the
+eastern-most sheet (centres 20 px apart in height over 8400 px), outer edge to outer edge:
+
+| Tape | App | App reads long by | Old camera (9.2) |
+|---|---|---|---|
+| 1736 mm | 1759.0 mm | **1.3%** | 1.6% and 1.7% |
+
+*Method B* (photo 07:48:46 UTC). The tape's red boxes at 10 to 170 cm were found by colour (the
+180 cm box is next to the tape case and was not found). The tape is curved across its width; its
+marks lie about 3 to 5 mm (centre line) to 10 to 12 mm (edges) above the tray top, so 3 to 12 mm
+is used (Aaron; the centre could not be measured directly). The height correction is therefore
+0.22% to 0.86% of length; the middle, 0.54%, is applied, with ±0.32%.
+
+| Span | Tape | App as read | Corrected |
+|---|---|---|---|
+| 10 to 170 cm | 1600 mm | +1.82% | **+1.3%** (+1.0% to +1.6%) |
+| 20 to 160 cm | 1400 mm | +1.70% | +1.2% |
+| 30 to 150 cm | 1200 mm | +1.54% | +1.0% |
+
+Each 10 cm step, as read, west to east: +3.0, +3.2, +2.6, +2.7, +2.4, +1.7, +1.2, +0.3, -0.3,
++0.1, +0.6, +2.4, +2.6, +1.9, +2.2, +2.3% (subtract about 0.54 for height). Near the centre the
+app reads about 0.5% short to correct, toward both ends about 2% long: the known central error
+(section 7), as on the old camera.
+
+The two methods agree within 0.1 points: over about 1600 to 1740 mm the app reads distances about
+1.3% long on SN001 (old camera SN000: 1.4% to 1.7%). The open point of 9.2 remains: measured by
+the app, the end tags themselves read 29.87 mm (west) and 30.85 mm (east), while the distance
+across the row reads long.
+
+**Covers.** The South row only, west to east, at tray-top height. The North row and a span front
+to back cannot be reached without moving the table (Aaron, 2026-10-12), so they are not covered,
+as on the old camera.
 
 ### 14.3 Two calibrations with a cold start between
 
@@ -1852,10 +2049,82 @@ calibration A to calibration B; the chamber stays closed.
    (section 8, *Cold-start window*).
 5. Calibration B, at least 60 minutes after power-on, with "Set as current" off.
 
+*Photo method as run (written 2026-10-14 before the run).* The reference and settling-hour photos
+are full-resolution photos taken through the app (`POST /capture`, the same `take_photo` path as a
+validation round) instead of validation rounds, because no validation session is open across a
+power cut. The settling photos are taken by
+`/home/pi/scratch/m2-acceptance-2026-10/settling_photos.sh`, started by Aaron once the server is up
+after power-on (nothing starts the server automatically); it takes the +0 photo as soon as the
+server answers and the others 15, 30 and 60 minutes after it, and logs the times, focus status
+and Pi uptime to `settling_log.txt`. The comparison is section 8.1 step 5 (each calibration tag
+matched to itself in the reference photo, same ID within 20 px), with the sheets untouched from
+the reference photo to the +60 photo.
+
 **Pass (calibrations):** at each of the 12 slot centres, the difference between the two fields'
 scales, doubled to give area (area error is about twice length error), is smaller than that slot's
 band from 14.1. **Settling hour:** no pass or fail; the result is compared with the old camera's
 run 3 (section 8 table), and says when the readings return to within the control range.
+
+**Run, 2026-10-14 (part A, before the power cut).** Calibration A `20261014T073752589144`
+(07:38 UTC, "Set as current" off, lens 5.97 locked, 30.0 mm tags, residual 0.55%); the current
+calibration stayed `20261012T070607812512`. Reference photo 07:39:09 UTC,
+`experiments/2026-10-12_631bb6b5/stills/2026-10-14/073909_652339` (saved in a test experiment's
+folder), no flags; Pi up 591512 s. Sheets pressed flat and not touched from calibration A on.
+
+**Run, parts B and C.** Pi shut down by Aaron after the reference photo and unplugged, off about
+30 minutes (Aaron); table untouched. The app's own record gives 2132 s (35.5 min) from its last run
+before the shutdown to its next start. Power on: Pi booted 08:17:19 UTC (boot
+`de439e0f-5bb8-4db1-8348-efad2a5a7513`). Nothing started automatically; at 08:18:50 UTC the server
+(the usual command) and `settling_photos.sh` were started from this session. The +0 photo was
+taken at 08:18:59 UTC, Pi up 99 s, app up 5 s, lens check passed (reported 5.97, locked 5.97),
+photo flagged "inside the 60 min cold-start window". No camera events. Photos are saved in the
+test experiment's folder `experiments/2026-10-12_631bb6b5/stills/2026-10-14/`. Comparison script:
+`/home/pi/scratch/m2-acceptance-2026-10/settling_compare.py` (area errors with calibration A's
+scale field; slot boxes from session `20261014T070107213176`; calibration sheet tags only).
+
+| Photo | Time (UTC) | Tags found, matched (of 359 in the reference) | Median change | Spread (SD) | Ring 1000 to 1500 px | Largest slot median |
+|---|---|---|---|---|---|---|
+| +0 | 08:18:59 | 331, 331 | -2.73 | 1.03 | -1.80 | -3.69 (North 1, North 5) |
+| +15 | 08:34:03 | 359, 359 | +0.08 | 0.22 | +0.10 | +0.31 (South 1) |
+| +30 | 08:49:06 | 359, 359 | +0.10 | 0.25 | +0.00 | +0.28 (South 1) |
+| +60 | 09:19:05 | 359, 359 | +0.07 | 0.25 | -0.01 | +0.27 (South 1) |
+
+Focus read locked at 5.97 at every photo; no camera events in the hour.
+
+**Settling hour result.** Right after the cold start the readings were 2.73 points low on average
+(every slot low, -1.02 to -3.69), and 28 of 359 tags were not found. By +15 minutes they were back:
+median +0.08, every slot within 0.31 of the reference, all tags found; +30 and +60 stayed there
+(medians +0.10 and +0.07, slots within 0.28). From +15 on the changes are inside the range of
+undisturbed photos (old camera control B: median within ±0.10, slots up to 0.52; new camera, 5 app
+restarts: largest slot 0.29, section 8). Against the old camera's run 3 (+0 -1.73, +15 -0.41,
++30 -0.38, +60 -0.14), SN001 starts lower and recovers sooner. One run.
+
+For the 60-minute cold-start window (section 8, *Cold-start window*, a placeholder from one old
+camera run): on SN001 the readings had recovered somewhere between +0 (100 s after power-on) and
++15 minutes; this run does not say exactly when within that time. The 60-minute window covers it
+with room to spare. Whether to shorten it is a decision, not made here.
+
+
+**Calibration B and the comparison.** Calibration B `20261014T092907984792` (09:29 UTC, 70 minutes
+after power-on, "Set as current" off, lens 5.97 locked, 30.0 mm tags, residual 0.58%; A 0.55%);
+the current calibration stayed `20261012T070607812512`. Sheets untouched since calibration A.
+Script: `/home/pi/scratch/m2-acceptance-2026-10/two_cal.py`. Difference in area (B against A,
+twice the scale difference) at each slot centre, against the clean pair's reference bands
+(session `20261013T081945572660`):
+
+| Slot | B against A | Band | Slot | B against A | Band |
+|---|---|---|---|---|---|
+| North 1 | +0.19 | ±2.8% | South 1 | +0.06 | ±1.5% |
+| North 2 | +0.17 | ±1.5% | South 2 | +0.04 | ±2.0% |
+| North 3 | +0.13 | ±2.6% | South 3 | -0.00 | ±2.6% |
+| North 4 | +0.11 | ±2.6% | South 4 | -0.02 | ±3.3% |
+| North 5 | +0.09 | ±1.2% | South 5 | -0.05 | ±1.1% |
+| North 6 | +0.06 | ±2.1% | South 6 | -0.08 | ±2.7% |
+
+**Result: pass.** Every slot's difference is smaller than its band; the largest is about 0.11 of
+its band (North 2, 0.17 against ±1.5%). Two calibrations of the same table with a cold start
+between them agree far inside the validation bands, so the bands are not too narrow on this
+account. Old camera, 2026-09-25, without a cold start: 0.02% to 0.16% (section 8 table).
 
 ### 14.4 Two heights
 
@@ -1863,16 +2132,135 @@ Section 9.1 unchanged: one calibration with the sheets on the table surface, one
 experiment height, lens refocused by Aaron for each. **Pass:** the scale-field shape (each corner's
 scale divided by the centre scale) differs between the two by less than both runs' residuals.
 
+**Result, 2026-10-14: pass.** Two calibrations, same camera position, 30.0 mm tags, 359
+calibration tags and 4 corner tags each; lens focused and locked by Aaron for each height:
+
+| Run | Sheets on | Calibration | Lens | Centre scale | Residual |
+|---|---|---|---|---|---|
+| A | the table surface (trays moved as needed) | `20261014T094151646606` (09:41 UTC), not made current | 5.99 | 4.535 px/mm | 0.66% |
+| B | trays at experiment height, pressed flat | `20261014T095016381511` (09:50 UTC), made current | 6.05 | 4.859 px/mm | 0.50% |
+
+Each run's scale at the corners of the calibrated area divided by its own scale at the image centre
+(points and method as section 9.1; script `/home/pi/scratch/m2-acceptance-2026-10/two_heights.py`):
+
+| Position | Table | Trays | Difference (points) |
+|---|---|---|---|
+| Top-left | +0.70% | +0.30% | +0.39 |
+| Top-right | -0.26% | -0.30% | +0.03 |
+| Bottom-left | +0.27% | +0.30% | -0.04 |
+| Bottom-right | -0.69% | -0.30% | -0.39 |
+
+The largest difference (0.39 points, top-left and bottom-right) is below both residuals (0.50%
+and 0.66%): one paper calibration's shape covers the tray height. Less margin than the old camera
+(largest 0.16). The centre scale changed by 7.14% in length, 14.78% in area (old camera 15.1%),
+about 100 mm of height at 0.145% per mm (derived, not taped). The lens moved between runs (5.99,
+6.05), as in a real change of height. Run B is the tripwire baseline for 14.5.
+
 ### 14.5 Roll and knock
 
 Section 9.3 unchanged: tripwire baseline, a knock on the camera mount, then the camera rolled by
-hand, measured against the table rails. PLAN.md asks for about 5 deg (section 9.3 reached about
+hand, measured against the table rails. To reach the camera Aaron climbs on the table, so contact with
+the table is expected (Aaron, 2026-10-14, written before the run). Disturbed sheets and trays do
+not matter for this test; a shifted table or corner tag would show as a disagreement between the
+app's roll and the rails', and is then written up as a disturbed run.
+
+**Run, 2026-10-14.** Baseline: calibration `20261014T095016381511` (14.4 run B, current, lens
+6.05). The app returns the verdict to the browser and saves only the photo, so each verdict is
+recomputed from the saved photo with the app's own `check_tripwire`
+(`/home/pi/scratch/m2-acceptance-2026-10/tripwire_replay.py`).
+
+| Step | Photo (UTC) | Verdict | Roll | Corner scale changes |
+|---|---|---|---|---|
+| Baseline | `rig/2026-10-14/095152_652234`, 09:51:52 | OK, "no significant drift detected" | 0.00 deg | -0.06% to +0.05% |
+| Knock on the camera mount (one firm knock by hand) | `rig/2026-10-14/095420_606701`, 09:54:20 | DRIFT, "rolled 5.9 deg clockwise" | 5.86 deg | -0.46% to +0.44% |
+| Second, harder knock (Aaron) | `rig/2026-10-14/095610_032904`, 09:56:10 | DRIFT, "rolled 6.9 deg clockwise" | 6.85 deg | -1.35% to +1.21% |
+
+Each knock rolled the camera; neither moved a corner tag out of view. The FAIL limits (roll 10 deg,
+corner scale 8%, a missing corner tag) were not reached, so both knocks read DRIFT. Aaron decided
+to stop there rather than knock harder (risk to the mount) and to use the two knock photos as the
+roll test, which PLAN.md sets at about 5 deg (2026-10-14).
+
+Rail angles (script `/home/pi/scratch/m2-acceptance-2026-10/rail_angles.py`: the strongest
+near-horizontal edge in each rail's region found by a Hough search, then fitted by least squares
+to its edge points over x = 1500 to 7600 px, about 3800 to 4300 points per rail, standard error
+0.0004 to 0.0007 deg; top and bottom rails interpolated to the image centre as in section 9.3):
+
+| Photo | Top rail | Bottom rail | At the image centre | Change from baseline | App's roll | Difference |
+|---|---|---|---|---|---|---|
+| Baseline | +0.228 deg | -0.396 deg | -0.082 deg | | 0.00 deg | |
+| First knock | +6.007 deg | +5.539 deg | +5.773 deg | +5.86 deg | 5.86 deg | 0.00 deg |
+| Second knock | +6.919 deg | +6.563 deg | +6.734 deg | +6.82 deg | 6.85 deg | 0.03 deg |
+
+**Result.** Roll: **pass**, the app's roll agrees with the rails within 0.03 deg at about 5.9 and
+6.9 deg (criterion 0.2 deg). Knock: **detected, but not FAIL**: both knocks were flagged DRIFT and
+neither was passed as OK; PLAN.md's wording asks for FAIL, which the tripwire gives only at a 10
+deg roll, an 8% corner scale change or a missing corner tag. On the old camera FAIL came from a
+corner tag pushed out of view. Whether a knock of this size should read FAIL is a question about
+the tripwire's provisional limits, not about the camera, and is not decided.
+
+**Missing corner tag, checked after the closing calibration (Aaron, 2026-10-14).** Against
+calibration `20261014T111147292361`, verdicts recomputed as above:
+
+| Step | Photo (UTC) | Verdict |
+|---|---|---|
+| Baseline | `rig/2026-10-14/115539_140848`, 11:55:39 | OK, roll 0.00 deg |
+| Corner tag 455 covered by hand | `rig/2026-10-14/115707_089824`, 11:57:07 | FAIL, "corner tag(s) [455] present at calibration are missing now" |
+| Tag uncovered | `rig/2026-10-14/115721_414161`, 11:57:21 | OK, roll 0.00 deg |
+
+**Decision (Aaron, 2026-10-14): roll and knock signed off.** The knocks were detected (DRIFT) and
+the missing-corner-tag path gives FAIL; a harder knock was not tried, being costly and a risk to
+the mount. PLAN.md's M2 line was changed to match: a hard knock is flagged (DRIFT or FAIL, never
+OK), and a missing corner tag gives FAIL.
+
+**Covers.** Rolls of about 5.9 and 6.9 deg, both clockwise, produced by knocks. No table contact
+was reported.
+ PLAN.md asks for about 5 deg (section 9.3 reached about
 3). **Pass:** the app's roll agrees with the rails within 0.2 deg, and the knock gives FAIL.
 
 ### 14.6 Closing calibration and validation
 
 After 14.5 the camera has moved. A new calibration at experiment height, made current, and a
 complete validation give the bands the rig then runs with. Not a pass or fail test.
+
+**Run, 2026-10-14.** Aaron turned the camera back by hand after 14.5; the rails then read +0.64 deg
+at the image centre, against -0.08 deg at the 14.5 baseline, so the camera ended about 0.7 deg from
+its morning position (a new calibration follows, so this does not matter). Lens 6.05, Aaron's
+choice. Calibration `20261014T111147292361` (11:11 UTC, made current, 30.0 mm tags, residual
+0.48%). Validation session `20261014T111253582634`: counted rounds at 11:14, 11:35 and 11:47 UTC,
+33.5 minutes first to last, shortest gap 12.7 minutes; a round at 11:45 was not counted (49.6% of
+tags moved, under the 50% rule); 84.2%, 75.8% and 63.9% of tags moved in the counted rounds; 85 to
+90 tags per slot; no camera events.
+
+| Slot | Band | Median error | Slot | Band | Median error |
+|---|---|---|---|---|---|
+| North 1 | ±2.5% | +0.05 | South 1 | ±1.8% | +0.42 |
+| North 2 | ±1.6% | +0.56 | South 2 | ±1.5% | +0.13 |
+| North 3 | ±2.0% | -0.22 | South 3 | ±2.1% | -0.09 |
+| North 4 | ±2.6% | -0.62 | South 4 | ±2.6% | -0.55 |
+| North 5 | ±1.3% | -0.04 | South 5 | ±1.5% | -0.51 |
+| North 6 | ±1.9% | +0.40 | South 6 | ±2.2% | +0.90 |
+
+Median of the slot medians 0.00 points. **These are the current bands of SN001** (lens 6.05). Two
+small groups of high readings look like sheet corners not lying flat: North 1 in round 1 (2 tags,
+up to +6.1%) and South 6 in round 3 (3 tags, up to +5.5%, the third time at that slot in three
+days). Neither was flagged by the validation checks, and neither widened its slot's band much.
+The tray at South 6 has not been checked.
+
+### 14.7 Summary
+
+| Test | Pass criterion | Result on SN001 | SN000 (section 9) |
+|---|---|---|---|
+| 14.1 Repeat validation | Whole table at least 90% inside the first day's bands, no slot below 75% | **Pass**: 94.1%, lowest slot 81% (clean pair, 2026-10-13 and 10-14); also 93.7%, lowest 82% with a stated deviation (10-12 and 10-13) | Not run |
+| 14.2 Tape measure | App within 2% of the tape | **Pass**: about 1.3% long, both methods | Pass: 1.4% to 1.7% long |
+| 14.3 Two calibrations, cold start between | Difference at every slot centre smaller than its band | **Pass**: -0.08 to +0.19 points, at most 0.11 of a band | 0.02% to 0.16%, no cold start |
+| 14.3 Settling hour | None (measurement) | -2.73 points at +0, back within 0.31 by +15 min | -1.73 at +0, -0.41 at +15, -0.14 at +60 |
+| 14.4 Two heights | Shape difference below both residuals | **Pass**: 0.39 points against 0.50% and 0.66% | Pass: 0.16 |
+| 14.5 Roll | App within 0.2 deg of the rails | **Pass**: within 0.03 deg at 5.9 and 6.9 deg | Pass: 0.06 deg at 3.0 deg |
+| 14.5 Knock | A hard knock is flagged (PLAN.md as changed 2026-10-14; was "gives FAIL") | **Signed off**: both knocks read DRIFT (rolls of 5.9 and 6.9 deg); a covered corner tag gave FAIL | FAIL, through a corner tag pushed out of view |
+| 14.6 Closing calibration and validation | None | Bands ±1.3% to ±2.6%, lens 6.05 | |
+
+Every result that has a pass criterion passed. The knock read DRIFT, not FAIL; Aaron signed it off
+on 2026-10-14 with the covered-corner-tag check, and PLAN.md's wording was changed to match.
 
 ## 15. CRISP-DM round 1: trays, tags and green area on the benchmark (method written 2026-10-15, before the photo session)
 

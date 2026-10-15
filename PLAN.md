@@ -458,7 +458,9 @@ bake-off from scratch. Only if measured corner jitter proves inadequate do we ev
 
 **You verify:**
 - Tape-measure two tags → app agrees within 2%.
-- Roll the camera ~5° → reported as ~5°; knock it hard → verdict flips to `FAIL`.
+- Roll the camera ~5° → reported as ~5°; knock it hard → the tripwire flags it (`DRIFT` or `FAIL`, never `OK`);
+  a corner tag missing (pushed out of view or covered) → `FAIL`. (Changed from "knock → `FAIL`" on
+  2026-10-14, when two knocks on SN001 read `DRIFT`; Aaron signed off, `docs/metrology-log.md` 14.5.)
 - **Validation:** known tags (calliper-measured) in every slot, each slot's error band reported.
   Then a **repeat validation on another day**, with nothing moved: check each slot's new errors
   against the first session's band. The pass rule is written into `docs/metrology-log.md` before
