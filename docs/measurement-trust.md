@@ -327,6 +327,14 @@ seen (R² 0.33 to 0.45 on repeat runs), but in the 2026-10-05 validation of the 
 (lens 6.15) the errors in the 4 corner slots (0.52% in length) were no larger than in the 4 central slots (0.69%). The trays do not reach
 the extreme frame corners, and plants only sit on trays. No model is adopted.
 
+**Segmentation, first look (round 1, 2026-10-15).** On a 3D-printed benchmark measured 92
+times across all 12 slots, fixed colour thresholds gave repeatable green areas (1.5% to 3.6%
+spread for the four rosettes, under 0.8% for repeated photos with nothing moved). The small red
+shapes of known area showed two error sources larger than anything in the geometry: edges
+(a flat 10 mm circle read about 21% small) and sides seen at an angle toward the row ends (a
+15 mm tall prism read up to 75% large). Segmentation is now the largest measured error source,
+as PLAN.md expected. Accuracy on real leaves is not yet measured. Metrology log section 15.5.
+
 ## What the trust does not cover yet
 
 - **Plant height and segmentation.** The bands are for flat targets at tray-top height. Telling

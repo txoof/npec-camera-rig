@@ -2292,13 +2292,15 @@ height above the tray = h + 4.27 mm.
 | Rectangular prism, NW corner | red | 6.34 x 8.14 mm, h 10.77 mm | 51.6 mm² | 15.04 mm |
 | Rosette NW | green | h-max 21.88, h-centre 14.12, ⌀-max 50.87 mm | at most 2032 mm² | top 26.15 mm |
 | Rosette NE | green | h-max 28.00, h-centre at least 19.05, ⌀-max 67.20 mm | at most 3547 mm² | top 32.27 mm |
-| Rosette SW | green | h-max 19.35, h-centre 12.78, ⌀-max 59.64 mm | at most 2794 mm² | top 23.62 mm |
-| Rosette SE | green | h-max 24.21, h-centre at least 15.41, ⌀-max 38.68 mm | at most 1175 mm² | top 28.48 mm |
+| Rosette SW | green | h-max 19.35, h-centre 12.78, ⌀-max 38.68 mm | at most 1175 mm² | top 23.62 mm |
+| Rosette SE | green | h-max 24.21, h-centre at least 15.41, ⌀-max 59.64 mm | at most 2794 mm² | top 28.48 mm |
 
 The solid areas are computed from the calliper dimensions (π r² for the round solids, X x Y for the
 prism). The sphere's outline seen from above is its widest circle, at h minus the radius. The
 rosette limits are a full circle of the widest diameter; the leaves cover less, so these are upper
 limits, not areas.
+
+*Correction, 2026-10-15:* the SE and SW rosette diameters were first written the wrong way round; the stills showed it and Aaron confirmed (SW 38.68 mm, SE 59.64 mm; the table above is corrected). The rosette diameters are vernier calliper estimates with no check of their accuracy (Aaron), so the upper limits made from them are estimates too.
 
 **What it can and cannot show.** The red solids are known areas at known heights, but small: at 50
 to 80 mm² most of their pixels lie near an edge, so edge pixels will dominate their error. The
@@ -2463,9 +2465,47 @@ the calibration homography. Recorded:
 - red solids: area per still against the computed area above
 - rosettes: area per slot and rotation, the spread, and that it stays below each upper limit
 
-### 15.5 Results
+### 15.5 Results: red and green area on the benchmark (issue #154)
 
-Not yet run.
+From the #154 session; full record in `experiments/round1-benchy/NOTES.md` and `results.csv` (main, commit 68ea0ad, PR #155), script `experiments/round1-benchy/benchy.py`.
+
+**Data.** 92 stills of the benchmark, 15 October: experiment `2026-10-12_631bb6b5` (12),
+`2026-10-15_83acd97d` (27), `2026-10-15_44a9e96e` tag-testing (53, session 1 and the second tag
+round). All under calibration `20261014T111147292361`, validation `20261014T111253582634`, lens
+6.05, no capture flags. The benchmark is in all 92. Leaving out the 19 second tag round stills
+changes the rosette means by at most 3.5 mm² and the mean solid errors by at most 1.7 points.
+
+**Method.** Fixed thresholds, nothing trained, picked on one probe still and not tuned against
+the results (decisions): red in HSV (hue 0 to 8 or 170 to 180, saturation at least 120, value at
+least 80), green by normalised excess green above 0.1 with green above red. Only colour inside
+the benchmark's yellow base (its hull grown by 20 px) counts; tray tags masked from
+`detect_tags` corners. Orientation from the largest rosette (NE); pieces go to their nearest
+corner. Area = pixel count over the square of the calibration scale field's local px/mm at the
+piece's centre (as `certainty_map.py`); the app has no pixel to mm homography. No height
+correction.
+
+**Rosettes.** Spread across all 92 stills (all slots and turns), SD as a share of the mean:
+NE 1.5% (mean 1823.8 mm²), SE 1.9% (1123.6), NW 3.2% (619.4), SW 3.6% (298.2). Within 9 groups of
+3 to 11 stills with nothing moved: 0.02% to 0.79%. Between slot means: NE 3.8%, SE 5.7%, NW 9.8%,
+SW 13.1% (lowest to highest slot, as a share of the mean). All 4 below their upper limits in all
+92 stills (they cover 25% to 51% of them). The true leaf area is not known, so this is
+repeatability, not accuracy.
+
+**Red solids** (known area, mean error, range over 92 stills): prism 51.6 mm², +39.4%, -14.7% to
++83.2%; circle 78.5 mm², -20.7%, -32.1% to -11.5%; sphere 61.5 mm², -16.4%, -23.0% to -9.4%;
+cylinder 55.3 mm², +18.6%, -22.3% to +44.4%. Prism and cylinder are close in the middle slots
+(North 3, North 4, South 3, South 4: -6.8% to +20.2%) and up to +75.5% at the row ends, where
+their sides are seen as well as their tops; height alone predicts 1.7% to 2.2%. The flat circle
+and the sphere read small in every slot. Likely cause, not measured: the red threshold leaves out
+the blurred edge (cut-off hue 8, solids at hue 4, base at 27). Per slot table in NOTES.md.
+
+**Visual check.** Aaron looked at all 92 overlays on 2026-10-15: masks, outlines and corner names
+correct in every one. One person, one pass; confirms what was found and named, not the areas.
+
+**Covers / does not cover.** The plastic benchmark on blue trays at tray-top height, one
+calibration, one lens position, one day. Not real leaves, not other lighting, not the accuracy of
+the rosette areas. The red solid errors mix edge pixels, sides seen at an angle and height, which
+this round does not separate.
 
 ### 15.6 Round 1 review
 
