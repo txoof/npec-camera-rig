@@ -18,7 +18,7 @@ import json
 import math
 import sqlite3
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 
 import cv2
@@ -29,9 +29,8 @@ sys.path.insert(0, str(HERE.parent / "round1-benchy"))
 import benchy  # noqa: E402  (round 1 colour tests, unchanged)
 
 RIG = Path("/var/lib/npec-rig")
-SCANS = Path("/home/pi/scratch")
+SCANS = HERE / "scans"  # also /var/lib/npec-rig/scans/2026-10-15_leaves/, read only
 LEAVES = ("L001", "L002", "L003")
-LOCAL = timezone(timedelta(hours=2))  # the scans' file times are chamber local time, UTC+2
 MIN_PIECE_RED = 40  # 1/8 decode pixels, about 2500 full-res px, about 100 mm²; smaller is noise
 MARGIN = 120  # full-res px around a leaf's box
 NEAR_SMALL = 40  # 1/8 decode px, about 65 mm: farthest a piece of a leaf may lie from its largest piece
@@ -62,10 +61,11 @@ def session() -> list[dict]:
 
 def scan_areas() -> dict[str, dict]:
     rows = {r["scan"]: r for r in csv.DictReader((HERE / "scan_areas.csv").open())}
+    times = {r["scan"]: datetime.fromisoformat(r["scanned_at_utc"])
+             for r in csv.DictReader((SCANS / "scan_times.csv").open())}
     out = {}
     for leaf in LEAVES:
-        t0 = datetime.fromtimestamp((SCANS / f"{leaf}.jpg").stat().st_mtime, LOCAL)
-        t1 = datetime.fromtimestamp((SCANS / f"{leaf}_after.jpg").stat().st_mtime, LOCAL)
+        t0, t1 = times[leaf], times[f"{leaf}_after"]
         out[leaf] = {"t0": t0, "a0": float(rows[leaf]["leaf_mm2"]),
                      "t1": t1, "a1": float(rows[f"{leaf}_after"]["leaf_mm2"])}
     return out

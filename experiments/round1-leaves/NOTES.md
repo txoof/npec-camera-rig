@@ -9,8 +9,9 @@ Method written at 11:53 UTC, before the photos (`~/scratch/round1-leaves-method.
 - **Leaves.** 3 garden leaves, labelled on the underside by Aaron: L001, L002, L003.
 - **Scans.** Epson flatbed, 300 dpi, each leaf with a 180 mm scale and 5 x 30 mm AprilTags:
   before the photos 11:49 to 11:51 UTC (`L001.jpg` to `L003.jpg`), after 12:05 to 12:07 UTC
-  (`L001_after.jpg` to `L003_after.jpg`), in `~/scratch/`. Times are the files' modification
-  times (chamber local time, UTC+2).
+  (`L001_after.jpg` to `L003_after.jpg`). Kept in `scans/` here and, read only, in
+  `/var/lib/npec-rig/scans/2026-10-15_leaves/`, both with `SHA256SUMS`. Scan times
+  (`scans/scan_times.csv`) are the files' modification times on the Pi, in UTC.
 - **Stills.** 32, taken by Aaron, 11:54 to 12:03 UTC, experiment `2026-10-15_44a9e96e`,
   calibration `20261014T111147292361`. Positions recorded by Aaron:
   - stills 1 to 10: blue trays, the 3 leaves in a line, one slot per still along South 1 to
@@ -65,9 +66,9 @@ against the after scan: mean +1.33%.
 
 | Leaf | n | Mean | SD | Range |
 |---|---|---|---|---|
-| L001 | 9 | -3.07% | 2.29 | -7.04% to +0.58% |
-| L002 | 9 | -4.58% | 2.67 | -9.10% to -0.97% |
-| L003 | 9 | +0.16% | 2.57 | -3.82% to +3.43% |
+| L001 | 9 | -3.07% | 2.29 | -7.03% to +0.59% |
+| L002 | 9 | -4.58% | 2.67 | -9.10% to -0.96% |
+| L003 | 9 | +0.17% | 2.57 | -3.82% to +3.43% |
 
 Against the benchmark (North 3, stills 8 to 10): -5.42% (L003), -10.4% (L002), -15.89% (L001).
 The benchmark's base is left out, and part of the leaf lay on or next to it (visible in the
@@ -77,7 +78,7 @@ overlays).
 
 | Side up | Mean | SD | Range | Against before | Against after |
 |---|---|---|---|---|---|
-| Top | +2.99% | 2.26 | -0.03% to +6.89% | -0.54% | +5.43% |
+| Top | +2.99% | 2.26 | -0.02% to +6.90% | -0.54% | +5.43% |
 | Underside | +2.45% | 2.47 | -1.19% to +7.05% | -2.11% | +3.77% |
 
 Per slot (top / underside): South 1 +1.6 / +0.4, South 2 +1.2 / -1.2, South 3 0.0 / -0.3, South 4

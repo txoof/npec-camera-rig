@@ -2575,8 +2575,9 @@ loose on the trays, door closed, lights on, focus as set; Aaron recorded the pos
 leaf's centre, no height correction. Rig area against scan area, per leaf and position. Round 1
 bar: record everything, judge nothing.
 
-**Data.** Scans 11:49 to 11:51 UTC (before) and 12:05 to 12:07 UTC (after), `~/scratch/L00n.jpg`
-and `L00n_after.jpg`. 32 stills by Aaron, 11:54 to 12:03 UTC, experiment `2026-10-15_44a9e96e`,
+**Data.** Scans 11:49 to 11:51 UTC (before) and 12:05 to 12:07 UTC (after), `L00n.jpg` and
+`L00n_after.jpg` in `experiments/round1-leaves/scans/` and, read only, in
+`/var/lib/npec-rig/scans/2026-10-15_leaves/` (both with `SHA256SUMS`; times in `scan_times.csv`). 32 stills by Aaron, 11:54 to 12:03 UTC, experiment `2026-10-15_44a9e96e`,
 calibration `20261014T111147292361`: 10 with the 3 leaves in a line on the blue trays moving one
 slot per still; 11 with the 3 leaves together on a black sheet, one slot per still (North 3, the
 benchmark, skipped); 11 the same with the leaves turned over.
@@ -2591,11 +2592,11 @@ given against each scan).
 **Results.** Error = rig area against the known area at the photo.
 - Blue trays, each leaf on its own, 27 readings (3 more lay against the benchmark and are listed
   apart): mean -2.49%, SD 3.15, range -9.10% to +3.43%; against the before scan -4.44%, against
-  the after scan +1.33%. Per leaf: L001 -3.07% (SD 2.29), L002 -4.58% (2.67), L003 +0.16% (2.57).
+  the after scan +1.33%. Per leaf: L001 -3.07% (SD 2.29), L002 -4.58% (2.67), L003 +0.17% (2.57).
 - Against the benchmark (North 3): -5.42%, -10.4% and -15.89%; the benchmark's base is left out
   and part of each leaf lay on or next to it.
 - Black sheet, the 3 leaves together (they lie almost touching and are not split), 11 slots:
-  top side mean +2.99% (SD 2.26, -0.03% to +6.89%), underside +2.45% (SD 2.47, -1.19% to +7.05%).
+  top side mean +2.99% (SD 2.26, -0.02% to +6.90%), underside +2.45% (SD 2.47, -1.19% to +7.05%).
   The east end (South 5, South 6, North 6) reads +3.2% to +7.1%, the other slots -1.2% to +4.5%.
 - Leaf identity from Aaron's record; a shape match against the scans agrees in 26 of 30.
 

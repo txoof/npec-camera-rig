@@ -4,7 +4,7 @@ The scan's mm per px is measured from the tags in each direction (the scanner's 
 by about 1%), not taken from its nominal dpi. Leaf = the round 1 green test (excess green above
 0.1, green above red), largest piece plus any piece touching it; holes in the leaf stay holes.
 
-    python3 experiments/round1-leaves/scan_area.py SCAN.jpg [SCAN.jpg ...]
+    python3 experiments/round1-leaves/scan_area.py experiments/round1-leaves/scans/*.jpg
 """
 
 from __future__ import annotations
