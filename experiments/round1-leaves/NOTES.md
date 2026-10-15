@@ -18,7 +18,8 @@ Method written at 11:53 UTC, before the photos (`~/scratch/round1-leaves-method.
     South 6 then North 6 to North 1. Still k: L001 on the k-th slot of that path, L002 on the
     next, L003 on the one after. (Aaron recalled 12 stills; there are 10, ending on North 3,
     North 2, North 1.)
-  - stills 11 to 21: the 3 leaves together on a black sheet, South 1 to South 6, then North 6
+  - stills 11 to 21: the 3 leaves together on a black sheet (used to lay them flat; all
+    experimental trays are blue, Aaron), South 1 to South 6, then North 6
     to North 1, skipping North 3 (the benchmark, not moved). 003 north west, 001 north east,
     002 south.
   - stills 22 to 32: the same, leaves turned over (underside up).

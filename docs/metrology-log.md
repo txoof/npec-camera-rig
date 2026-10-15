@@ -2583,7 +2583,8 @@ slot per still; 11 with the 3 leaves together on a black sheet, one slot per sti
 benchmark, skipped); 11 the same with the leaves turned over. Positions as recorded by Aaron:
 blue, still k, L001 on the k-th slot of South 1 to South 6 then North 6 to North 1, L002 on the
 next, L003 on the one after (Aaron recalled 12 stills; there are 10, ending on North 3, North 2,
-North 1); black sheet, 003 north west, 001 north east, 002 south. **The black sheet lifted the
+North 1); black sheet, 003 north west, 001 north east, 002 south. The black sheet was used to
+lay the leaves flat; all experimental trays are blue (Aaron). **The black sheet lifted the
 leaves about 3 to 10 mm above the blue tray top** (Aaron's estimate, not measured). At 0.145% of
 area per mm (section 4) that adds about 0.4% to 1.5% to the black sheet readings.
 
@@ -2642,11 +2643,12 @@ to ground).**
 3. The round 1 thresholds carry over from the plastic benchmark to real leaves unchanged. What
    breaks them is the setup, not the threshold: leaves that touch merge, a leaf next to another
    green object loses area, pale midribs are missed.
-4. The background matters: the same leaves read about 5 points higher on black than on blue, so
-   the tray colour is part of the measurement.
+4. What lies under the leaf matters: the same leaves read about 5 points higher on the black
+   sheet (used only to lay them flat, 3 to 10 mm above the tray) than on the blue trays.
+   Experiments use blue trays only, so the blue result (about 2.5% small) is the one that applies.
 
 In one sentence: leaf area from this rig is workable, and the open questions are about the setup
-(touching leaves, background), not the camera.
+(touching leaves, what lies under them), not the camera.
 
 **Covers / does not cover.** 3 leaves of one plant, flat or nearly flat at tray-top height, one
 calibration and lens position, about 10 minutes of photos. Not leaves standing above the tray,
