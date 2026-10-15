@@ -1984,6 +1984,38 @@ listed with its still name and position. A tag found badly prepared afterwards i
 separately with the reason, never dropped. Limit: paper tags, not 3D prints; the 3D-printed tag
 needs its own check (issue #70).
 
+### 15.3b Result of the paired 20 mm round (2026-10-15, 09:06 to 09:28 UTC)
+
+19 stills, experiment "tag-testing", steps R2-1 to R2-4 in `experiments/round1/session-2026-10-15.csv`:
+nothing moved (10), North and South rows swapped (3), trays swapped within rows (3), trays pushed
+together (3). Detector: `npec_rig.tags.detect_tags`, unchanged. Stills taken through `POST /capture`;
+no lens flag on any.
+
+**Rule A (persistent miss): met, 4 cases.** A 20 mm tag missed in every still of a position while its
+30 mm partner on the same tray was read:
+
+| Step | 20 mm tag | 30 mm partner | Stills |
+|---|---|---|---|
+| R2-1 nothing moved | 14 | 5 | 10 |
+| R2-2 rows swapped | 0 | 4 | 3 |
+| R2-3 swapped within rows | 14 | 5 | 3 |
+| R2-3 swapped within rows | 15 | 11 | 3 |
+
+**Rule B (miss rate): met.** In 40 of 114 pairs (35%) the 20 mm tag was missed while its partner was
+read; the reverse happened 0 times.
+
+**Misses per tag in 19 stills.** 20 mm: tag 0 11, tag 1 (new print) 0, tag 2 5, tag 3 1, tag 13 1,
+tag 14 15, tag 15 7, tag 16 0, tag 17 7. 30 mm: tag 5 1, all others 0. So 48 misses in 171 20 mm
+sightings against 1 in 171 30 mm sightings.
+
+**What it does and does not show.** Under the rule agreed before the photos, 20 mm paper tags have a
+problem on this rig: some are missed persistently at positions where a 30 mm tag on the same tray is
+read. Every tag that was missed persistently was read at some other position (tag 14 in R2-2, tag 0 in
+R2-3 and R2-4, tag 15 in R2-2 and R2-4), so the prints are readable and the misses depend on where the
+tag sits. The tags were prepared that morning by Aaron; no tag has been found badly prepared. Not
+shown: the cause (position in the frame, light, how the paper lies, or detector settings), or how
+3D-printed 20 mm tags behave (issue #70).
+
 ### 15.4 What is measured
 
 Each tray is one region; tags give identity only (decision, Aaron 2026-10-14). Trays are found by
