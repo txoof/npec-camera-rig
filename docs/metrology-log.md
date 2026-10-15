@@ -2760,6 +2760,10 @@ good enough is decided after the results of the methods are seen, not now.
   saturation at least 100, value at least 50, on the 1/8 decode; a 3 px opening; holes filled;
   shapes smaller than a quarter of one tray dropped. Method B's slot is the slot centre nearest
   the shape's centre, so it can be checked against method A.
+- A shape is one tray only when its area is 0.85 to 1.15 trays (decision) and it holds the tags of
+  one tray. A shape larger than that is several trays even when only one tray's tag is linked to
+  it. (A first count judged by tags alone and counted two- and three-tray shapes with one tag as
+  found, 84 of 396; replaced before the result was reported.)
 
 **Result, methods A and B on the gap set (2026-10-15, 33 stills).** Script
 `experiments/round1-trays/trays.py`, per still `results-gaps.csv`, per shape `shapes-gaps.csv`,
@@ -2772,7 +2776,9 @@ validation `20261014T111253582634`, lens 6.05. All 12 A1 tags were found in all 
 | A: distance from tag to nearest slot centre, largest per still | 238.6 to 278.6 mm |
 | A: nearest against second-nearest slot, smallest margin per still | 1.3 to 17.8 mm |
 | B: stills passing the rule | 0 of 33 |
-| B: trays that are one shape holding only their own tags | 84 of 396 (21%) |
+| B: trays that are one shape of one tray's size, holding only their own tags | 40 of 396 (10%), 1 or 2 per still |
+| B: one-tray shapes with no tray tag linked | 26 |
+| B: trays split over two shapes | 0 |
 | B: shapes by size in trays (from area) | 66 of one tray, 76 of two, 46 of three, 10 of four |
 | B: single-tray shapes, east-west | mean 306.0 mm, SD 1.4, 304.0 to 308.3 (tape 305.0) |
 | B: single-tray shapes, north-south | mean 373.6 mm, SD 1.3, 371.4 to 376.6 (tape 366.0) |

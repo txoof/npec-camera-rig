@@ -59,9 +59,14 @@ def test_tray_of_a1_edge_and_other_tags():
 
 
 def test_judge_shape():
-    assert trays.judge_shape([5, 14]) == ("one tray", [5])
-    assert trays.judge_shape([5, 6]) == ("several trays", [5, 6])
-    assert trays.judge_shape([]) == ("no tray", [])
+    assert trays.judge_shape([5, 14], 1.0) == ("one tray", [5])
+    assert trays.judge_shape([5, 6], 1.0) == ("several trays", [5, 6])
+    assert trays.judge_shape([], 1.0) == ("no tray", [])
+    assert trays.judge_shape([5], 0.5) == ("part of a tray", [5])
+
+
+def test_two_tray_shape_with_one_tag_is_merged():
+    assert trays.judge_shape([5], 2.0) == ("several trays", [5])
 
 
 def test_tags_in_shape_counts_tags_just_outside():

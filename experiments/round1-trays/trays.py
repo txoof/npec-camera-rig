@@ -52,6 +52,7 @@ BLUE_HSV = ((100, 100, 50), (118, 255, 255))
 REDUCE = 8  # shapes are found on a 1/8 decode
 OPEN_PX = 3  # 1/8 px, opening kernel: removes thin blue specks, kept small so gaps survive
 MIN_SHAPE_FRACTION = 0.25  # of one tray's area; smaller blue shapes are not trays
+ONE_TRAY_AREA = (0.85, 1.15)  # shape area in trays that counts as one tray (decision)
 TAG_NEAR_MM = 15.0  # a tag joins a shape if its centre is inside it or this close (paper tags
 # extend past the tray corner)
 
@@ -108,12 +109,18 @@ def tags_in_shape(contour: np.ndarray, tags: list[dict], near_px: float) -> list
     return out
 
 
-def judge_shape(tag_ids: list[int]) -> tuple[str, list[int]]:
-    """'one tray', 'no tray' or 'several trays', and the trays named by the tags in a shape."""
+def judge_shape(tag_ids: list[int], area_trays: float) -> tuple[str, list[int]]:
+    """'one tray', 'no tray' or 'several trays', and the trays named by the tags in a shape.
+
+    Area and tags together: a shape the size of two trays is several trays even when only one
+    tray's tags are linked to it, and a one-tray shape with tags of two trays is several too."""
     trays = sorted({t for t in (tray_of(i) for i in tag_ids) if t is not None})
+    lo, hi = ONE_TRAY_AREA
+    if area_trays > hi or len(trays) > 1:
+        return "several trays", trays
     if not trays:
         return "no tray", trays
-    return ("one tray" if len(trays) == 1 else "several trays"), trays
+    return ("one tray" if area_trays >= lo else "part of a tray"), trays
 
 
 # ---------------------------------------------------------------- data
@@ -203,10 +210,11 @@ def method_b(small: np.ndarray, tags: list[dict], scale, slots: list[dict]) -> l
         side_b = float(np.hypot(*(box[2] - box[1]))) / ppm
         ew, ns = (side_a, side_b) if abs(e[0]) >= abs(e[1]) else (side_b, side_a)
         ids = tags_in_shape(c, small_tags, TAG_NEAR_MM * ppm)
-        verdict, trays = judge_shape(ids)
+        area_trays = cv2.contourArea(c) / tray_px
+        verdict, trays = judge_shape(ids, area_trays)
         slot_b = nearest_slots(rx * REDUCE, ry * REDUCE, slots)[0]
         shapes.append({"contour": c, "box": box, "cx": rx, "cy": ry, "ew_mm": ew, "ns_mm": ns,
-                       "area_trays": cv2.contourArea(c) / tray_px, "tag_ids": ids,
+                       "area_trays": area_trays, "tag_ids": ids,
                        "verdict": verdict, "trays": trays, "slot_b": slot_b})
     return shapes
 
@@ -215,12 +223,14 @@ def overlay(small: np.ndarray, shapes: list[dict], a: dict[int, dict], tags: lis
             title: str, out: Path) -> None:
     """Shapes and tags drawn on a copy of the 1/8 decode. The still is never altered."""
     im = small.copy()
-    colours = {"one tray": (0, 200, 0), "several trays": (0, 0, 255), "no tray": (0, 165, 255)}
+    colours = {"one tray": (0, 200, 0), "several trays": (0, 0, 255), "no tray": (0, 165, 255),
+               "part of a tray": (0, 165, 255)}
     for s in shapes:
         col = colours[s["verdict"]]
         cv2.drawContours(im, [s["contour"]], -1, col, 2)
         cv2.polylines(im, [s["box"].astype(np.int32)], True, (255, 255, 255), 1)
-        label = {"one tray": "OK", "several trays": "MERGED", "no tray": "NO TAG"}[s["verdict"]]
+        label = {"one tray": "OK", "several trays": "MERGED", "no tray": "NO TAG",
+                 "part of a tray": "PART"}[s["verdict"]]
         trays = ",".join(str(t) for t in s["trays"])
         slot = s["slot_b"]
         text = [f"{label} tray {trays}" if trays else label, slot,
@@ -280,6 +290,7 @@ def run(set_name: str, limit: int | None = None) -> None:
             "b_one_tray": sum(s["verdict"] == "one tray" for s in shapes),
             "b_several_trays": sum(s["verdict"] == "several trays" for s in shapes),
             "b_no_tray": sum(s["verdict"] == "no tray" for s in shapes),
+            "b_part": sum(s["verdict"] == "part of a tray" for s in shapes),
             "b_trays_ok": len(ok_trays),
             "b_slot_agrees_a": len(slot_agree),
             "b_trays_split": sum(c > 1 for c in shape_count.values()),
