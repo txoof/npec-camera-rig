@@ -17,6 +17,7 @@ number. Everything below is recorded, nothing is judged against a target.
 - **Command.** `PYTHONPATH=src python3 experiments/round1-benchy/benchy.py --session-csv
   <session csv> <stills>`. About 4 s per still. Outputs: `results.csv` (one row per still),
   `overlays/<experiment>_<still>.jpg` (half size crop of the benchmark with the masks drawn).
+  The overlays are not kept in the repo; the script makes them again from the stills.
 
 ## Method
 
@@ -116,6 +117,13 @@ Mean error per slot:
 Stills per slot: North 1 4, North 2 9, North 3 10, North 4 4, North 5 7, North 6 7, South 1 4,
 South 2 21, South 3 4, South 4 4, South 5 4, South 6 14. South 1 was seen at one turn only; every
 other slot at 2 or 3 of the 4 quarter turns. 57 distinct positions (47 single stills, 10 groups).
+
+## Visual check
+
+Aaron looked at all 92 overlays on 2026-10-15, three of them closely (`2026-10-15_83acd97d`
+`065407_243036`, `2026-10-15_44a9e96e` `082210_013542` and `082446_183501`). In every one the
+rosette masks, the red solid outlines and the corner names were correct. A check by eye, one
+person, one pass: it confirms what was found and named, not the areas.
 
 ## Surprises and things to look at
 
