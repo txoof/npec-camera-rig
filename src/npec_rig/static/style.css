@@ -515,6 +515,7 @@ button:disabled { opacity: 0.5; }
 input[type="range"]:disabled { opacity: 0.5; }
 /* Gallery (gallery.html): one section per local day, each a wrapping grid of thumbnails. The
    gap is --gap, so a missed tap lands between photos, not on the next one. */
+.gallery-head { margin-top: var(--gap); }
 .gallery-head h2 { margin: 0; }
 .gallery-day h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 .gallery {
