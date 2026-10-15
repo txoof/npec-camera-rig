@@ -1965,7 +1965,7 @@ to changing the design given good evidence of a problem.
 
 **Design (paired).** Each of the 6 green-tag trays keeps its 30 mm green tag and gains a 20 mm
 paper tag on its outside edge, IDs 13 and up (one ID per tag, never a duplicate in the frame).
-Pairs recorded by Aaron before the photos: (to be filled in). Tag 1 is replaced by a properly
+Pairs recorded by Aaron before the photos (green 30 mm : 20 mm paper): 4:0, 5:14, 6:16, 7:17, 8:13, 11:15. So the green 30 mm tags are 4, 5, 6, 7, 8 and 11; the black 30 mm reference tags are 9, 10 and 12; the 20 mm tags are 0, 1, 2, 3, 13, 14, 15, 16 and 17. Tag 1 is replaced by a properly
 prepared print with the same ID; the old print leaves the chamber. The 3 black 30 mm trays stay
 as a reference. Steps, stills taken by the agent through the rig's capture API: nothing moved
 (10), North and South rows swapped (3), trays swapped within rows (3), trays pushed together (3).
