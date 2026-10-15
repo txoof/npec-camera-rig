@@ -105,7 +105,9 @@ scan range are L001 in still 2, L002 in stills 4, 8 and 10, and L003 in still 5.
 ## Surprises and things to look at
 
 - **Blue reads small, black reads large.** The same leaves read 2.5% small on blue trays and
-  2.5% to 3.0% large on the black sheet. Not measured why. One possibility: at a leaf's edge a
+  2.5% to 3.0% large on the black sheet. The black sheet lifted the leaves about 3 to 10 mm above
+  the tray top (Aaron's estimate, not measured), which at 0.145% of area per mm adds about 0.4% to
+  1.5%: part of the 5 to 5.5 point gap. The rest is not measured. One possibility: at a leaf's edge a
   pixel mixes leaf with background, and a green and blue mix fails the green test while a green
   and black mix passes it.
 - **The east end reads large on black.** South 5, South 6 and North 6 read +3.2% to +7.1%, the

@@ -2580,7 +2580,20 @@ bar: record everything, judge nothing.
 `/var/lib/npec-rig/scans/2026-10-15_leaves/` (both with `SHA256SUMS`; times in `scan_times.csv`). 32 stills by Aaron, 11:54 to 12:03 UTC, experiment `2026-10-15_44a9e96e`,
 calibration `20261014T111147292361`: 10 with the 3 leaves in a line on the blue trays moving one
 slot per still; 11 with the 3 leaves together on a black sheet, one slot per still (North 3, the
-benchmark, skipped); 11 the same with the leaves turned over.
+benchmark, skipped); 11 the same with the leaves turned over. Positions as recorded by Aaron:
+blue, still k, L001 on the k-th slot of South 1 to South 6 then North 6 to North 1, L002 on the
+next, L003 on the one after (Aaron recalled 12 stills; there are 10, ending on North 3, North 2,
+North 1); black sheet, 003 north west, 001 north east, 002 south. **The black sheet lifted the
+leaves about 3 to 10 mm above the blue tray top** (Aaron's estimate, not measured). At 0.145% of
+area per mm (section 4) that adds about 0.4% to 1.5% to the black sheet readings.
+
+**Decisions in the method.** Only the two tray rows count, across the full image width (the
+aisle with the moss pots and the floor are left out; a first run that used the end slots' boxes
+cut the black sheet at South 1 and South 6 and was replaced). The benchmark's base and a small
+margin are left out. On a 1/8 decode, pieces of one leaf are joined across gaps up to 4 px for
+grouping only (pale midribs split leaves), and a piece joins a leaf only within about 65 mm of
+it. Pieces under 40 px on the 1/8 decode (about 100 mm²) are dropped. The 3 leaves on the black
+sheet lie almost touching and are measured together, against the sum of their known areas.
 
 **Scan scale and known areas.** Tag scale 11.643 to 11.663 px/mm across the scanner and 11.777 to
 11.790 px/mm along it (the axes differ by 1.1%; nominal 300 dpi is 11.811), per-tag spread 0.46%
@@ -2598,16 +2611,24 @@ given against each scan).
 - Black sheet, the 3 leaves together (they lie almost touching and are not split), 11 slots:
   top side mean +2.99% (SD 2.26, -0.02% to +6.90%), underside +2.45% (SD 2.47, -1.19% to +7.05%).
   The east end (South 5, South 6, North 6) reads +3.2% to +7.1%, the other slots -1.2% to +4.5%.
-- Leaf identity from Aaron's record; a shape match against the scans agrees in 26 of 30.
+  Per slot, top / underside: South 1 +1.6 / +0.4, South 2 +1.2 / -1.2, South 3 0.0 / -0.3,
+  South 4 +1.8 / +1.5, South 5 +4.6 / +3.2, South 6 +6.8 / +5.2, North 6 +6.9 / +7.1, North 5
+  +3.3 / +2.6, North 4 +1.7 / +1.3, North 2 +1.9 / +2.8, North 1 +3.1 / +4.5.
+- Leaf identity from Aaron's record; a shape match against the scans (`cv2.matchShapes`) agrees
+  in 26 of 30. The 4 that differ are stills 7 and 8, where it swaps two leaves; the record gives
+  the smaller errors there, so the record is used.
 - Against the validation bands (session `20261014T111253582634`, p95 of |tag area error| per
   slot, 1.26% to 2.55%, nothing corrected): blue trays 8 of 27 within the band, 22 of 27 when the
   range between the before and after scans is allowed for; black sheet 5 of 11 (top) and 5 of 11
   (underside), 9 and 10 of 11 with that range. A band holds 95% of tag readings, but the known
   area's uncertainty (4.6% to 7.5% shrink between scans) is larger than the bands, so this does
-  not settle whether the bands cover leaves.
+  not settle whether the bands cover leaves. The 5 blue readings outside even the scan range:
+  L001 in still 2, L002 in stills 4, 8 and 10, L003 in still 5.
 
 **Observations, not measured causes.** The same leaves read about 2.5% small on blue and about
-2.5% to 3% large on black. L002 reads -1.0% to -5.8% in stills 1 to 6 and -4.3% to -9.1% later,
+2.5% to 3% large on black, a gap of about 5 to 5.5 points. The 3 to 10 mm lift of the black sheet
+explains about 0.4 to 1.5 of them; the rest is not explained (one possibility: how edge pixels,
+part leaf and part background, pass the green test on each background). L002 reads -1.0% to -5.8% in stills 1 to 6 and -4.3% to -9.1% later,
 which fits a leaf curling as it dries (the scanner glass flattens it, the tray does not). Pale
 midribs fail the green test in scans and stills alike. A first run cut the black sheet at the
 end slots; fixed before the results above.
