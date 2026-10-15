@@ -2881,6 +2881,45 @@ read from the cache):
 The Hailo-8 is 2% of the time. Mask decoding builds a full 640 x 640 mask for each of the 108 to
 352 candidates per tile; most are cells and are thrown away.
 
+**Why trays had no mask (2026-10-15, `diagnose.py`, record `diagnose-fastsam-small20.csv`).** For
+each of the 54 trays without a tray mask in the 20-still run, every raw FastSAM candidate box of
+about tray size (230 to 400 mm by 280 to 460 mm in the diagnosis: 250 to 360 by 300 to 430) within
+60 mm of the tray's tag was followed through the stages, and the furthest stage reached is counted.
+
+| Furthest stage | Trays | Touching | Gaps |
+|---|---|---|---|
+| Cut by the tile edge (FastSAM saw only part of the tray) | 27 | 17 | 10 |
+| Score below 0.25 | 14 | 8 | 6 |
+| Removed as a duplicate of an overlapping box | 6 | 1 | 5 |
+| No tray-sized box proposed | 5 | 2 | 3 |
+| Mask failed the shape test | 2 | 1 | 1 |
+
+The tiles were the main cause, a fault in the crop design: a tag sits at a tray corner, so the tray
+reaches a whole tray past its tag, and the crops reached only 0.75 of a tray past the outer tags.
+
+**Two crop designs on the same 20 stills (2026-10-15).** Both with masks built only for candidate
+boxes of about tray size (230 to 400 mm east-west, 280 to 460 mm north-south; decision), which left
+the counts unchanged and cut the decoding time.
+
+- **Tag tiles, margin 1.15:** as before, 2 trays per tile, reaching 1.15 trays past the outer tags
+  (decision). Record `fastsam-small20-m1.15.csv`, overlays `~/scratch/round1-trays/fastsam-stills-m1.15/`.
+- **Overlapping grid:** 3000 px square tiles every 1000 px over the full width and the rows between
+  the calibration's corner tags, 32 tiles per still; any tray smaller than 2000 px (a tray is about
+  1780 px north-south) lies wholly in one tile (unit tested). Uses no tray tag position. Record
+  `fastsam-small20-grid.csv`, overlays `~/scratch/round1-trays/fastsam-stills-grid/`.
+
+| Crops | Touching: trays right | Gaps: trays right | Stills 12 of 12 (touching, gaps) | Time per still, with tag detection |
+|---|---|---|---|---|
+| Tag tiles, margin 0.75 (first run) | 59 of 120 (49%) | 89 of 120 (74%) | 0, 2 | 9.2 s |
+| Tag tiles, margin 1.15 | 108 of 120 (90%) | 120 of 120 (100%) | 5, 10 | 5.8 s |
+| Overlapping grid | 104 of 120 (87%) | 114 of 120 (95%) | 2, 5 | 8.1 s |
+
+Times: mean of the 20 stills without tag detection (tag tiles 1.27 s, of which Hailo 0.16 s;
+grid 3.56 s, of which Hailo 0.87 s), plus the mean full-resolution tag detection of 4.54 s
+measured on 9 stills in the first run. The tags must be detected in any case, to name the trays.
+
+Twenty stills, not the full sets; not yet a count against the decision rule.
+
 ### 15.6 Round 1 review
 
 Not yet written. Covers what was found, what surprised us, which step it sends work back to, and

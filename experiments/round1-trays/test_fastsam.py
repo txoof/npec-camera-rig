@@ -25,7 +25,7 @@ def test_tiles_from_tags_two_trays_per_tile_in_rows():
     tiles = fastsam.tiles_from_tags(tags)
     assert [t["name"] for t in tiles] == ["North 1-2", "North 3-4", "North 5-6", "South 1-2", "South 3-4", "South 5-6"]
     assert tiles[0]["trays"] == [1, 2] and tiles[3]["trays"] == [7, 8]
-    assert tiles[0]["x1"] - tiles[0]["x0"] == 1500 + int(1.5 * fastsam.TRAY_W_PX)
+    assert tiles[0]["x1"] - tiles[0]["x0"] == pytest.approx(1500 + 2 * fastsam.TILE_MARGIN * fastsam.TRAY_W_PX, abs=1)
 
 
 def test_tiles_need_twelve_a1_tags():
@@ -52,3 +52,14 @@ def test_link_tags_nearest_within_limit_and_clear_of_second():
             {"id": 400, "cx": 50, "cy": 50}]  # not a tray tag
     links, ambiguous = fastsam.link_tags(masks, tags, ppm=1.0)
     assert links == {6: 1, 7: 0} and ambiguous == [5]
+
+
+def test_grid_tiles_overlap_so_every_tray_fits_one_tile():
+    tiles = fastsam.grid_tiles(9152, 6944, 800, 6200)
+    tray_w, tray_h = 1950, 1950  # tray with lip margin
+    assert all(t["x1"] - t["x0"] == fastsam.GRID_TILE_PX for t in tiles)
+    assert max(t["x1"] for t in tiles) == 9152 and min(t["x0"] for t in tiles) == 0
+    for x in range(0, 9152 - tray_w, 97):
+        for y in range(800, 6200 - tray_h, 97):
+            assert any(t["x0"] <= x and x + tray_w <= t["x1"] and t["y0"] <= y and y + tray_h <= t["y1"]
+                       for t in tiles), (x, y)

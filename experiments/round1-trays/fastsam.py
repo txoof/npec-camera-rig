@@ -33,10 +33,16 @@ IOU_MAX = 0.7  # decision: FastSAM's usual default for removing duplicates
 TRAY_W_PX = 1480  # tray east-west at full resolution (305 mm at about 4.86 px/mm)
 TRAY_H_PX = 1780  # north-south (366 mm)
 TRAYS_PER_TILE = 2
+TILE_MARGIN = 0.75  # trays past the outer tags; overridden by --margin
+TILES = "tags"  # 'tags': 2-tray tiles from the A1 tags; 'grid': overlapping grid (--tiles)
 # Which masks are trays (decisions, not measurements).
 TRAY_AREA = (0.8, 1.2)  # mask area in trays
 TRAY_FILL_MIN = 0.85  # mask area over its rotated rectangle's area
 TRAY_ASPECT = (366 / 305 / 1.15, 366 / 305 * 1.15)  # north-south over east-west
+GRID_TILE_PX = 3000  # overlapping grid: tile side at full resolution (about 1 px per mm at 640)
+GRID_STEP_PX = 1000  # step between tiles; tile minus step (2000 px) exceeds a tray (1780 px) plus lip
+BOX_EW_MM = (230.0, 400.0)  # candidate boxes of about one tray; masks are built only for these
+BOX_NS_MM = (280.0, 460.0)  # (decisions, wide of the TRAY_* tests below so they decide)
 SAME_TRAY_MM = 100.0  # masks from overlapping tiles with centres closer than this are one tray
 LINK_MAX_MM = 60.0  # a tag links to the nearest tray mask within this distance
 LINK_MARGIN_MM = 20.0  # ...only if the second-nearest mask is at least this much further
@@ -141,8 +147,9 @@ def tiles_from_tags(tags: list[dict], per_tile: int = TRAYS_PER_TILE) -> list[di
     """Full-resolution crop boxes, one per run of `per_tile` neighbouring trays in a row.
 
     Row and order from the A1 tags (North is the 6 with the smallest y). A tag sits at the south-
-    west or north-east corner of its tray, so the crop reaches 0.75 of a tray past the outer tags
-    on every side, which holds the trays at either orientation."""
+    west or north-east corner of its tray, so the tray reaches a whole tray past its tag. The crop
+    reaches TILE_MARGIN trays past the outer tags on every side; below 1 it cuts trays (#164
+    diagnosis: 27 of 54 missing trays at 0.75)."""
     a1 = sorted((t for t in tags if t["id"] in trays.A1_TAGS), key=lambda t: t["cy"])
     if len(a1) != 12:
         return []
@@ -154,10 +161,23 @@ def tiles_from_tags(tags: list[dict], per_tile: int = TRAYS_PER_TILE) -> list[di
             xs, ys = [t["cx"] for t in grp], [t["cy"] for t in grp]
             out.append({
                 "name": f"{row} {k + 1}-{k + len(grp)}", "trays": [t["id"] for t in grp],
-                "x0": int(min(xs) - 0.75 * TRAY_W_PX), "x1": int(max(xs) + 0.75 * TRAY_W_PX),
-                "y0": int(min(ys) - 0.75 * TRAY_H_PX), "y1": int(max(ys) + 0.75 * TRAY_H_PX),
+                "x0": int(min(xs) - TILE_MARGIN * TRAY_W_PX), "x1": int(max(xs) + TILE_MARGIN * TRAY_W_PX),
+                "y0": int(min(ys) - TILE_MARGIN * TRAY_H_PX), "y1": int(max(ys) + TILE_MARGIN * TRAY_H_PX),
             })
     return out
+
+
+def grid_tiles(w: int, h: int, y0: int, y1: int, size: int = GRID_TILE_PX, step: int = GRID_STEP_PX) -> list[dict]:
+    """Overlapping square tiles over the full width and rows y0..y1, the last tile in each
+    direction flush with the end, so any tray smaller than size - step lies wholly in one tile."""
+    def starts(lo, hi):
+        if hi - lo <= size:
+            return [max(0, (lo + hi - size) // 2)]
+        out = list(range(lo, hi - size, step))
+        return out + [hi - size]
+    y0, y1 = max(0, y0), min(h, y1)
+    return [{"name": f"grid {i},{j}", "trays": [], "x0": x, "x1": x + size, "y0": y, "y1": y + size}
+            for j, y in enumerate(starts(y0, y1)) for i, x in enumerate(starts(0, w))]
 
 
 def square_tile(img: np.ndarray, t: dict) -> tuple[np.ndarray, float, int, int]:
@@ -204,7 +224,7 @@ class FastSam:
 # ---------------------------------------------------------------- run
 
 
-def run_still(still: str, model: FastSam, scale_field, det, rows: list[dict]) -> dict:
+def run_still(still: str, model: FastSam, scale_field, det, rows: list[dict], table_rows=(0, 0)) -> dict:
     """Tray masks of one still from its tiles, tags linked, one overlay. Returns timings and counts."""
     import time
 
@@ -216,18 +236,22 @@ def run_still(still: str, model: FastSam, scale_field, det, rows: list[dict]) ->
     t2 = time.perf_counter()
     h, w = img.shape[:2]
     ppm = scale_field.px_per_mm(w / 2, h / 2)  # full-res px per mm, for distances
-    cands, t_infer = [], 0.0
-    for t in tiles_from_tags(tags):
+    cands, t_infer, n_tiles = [], 0.0, 0
+    for t in (tiles_from_tags(tags) if TILES == "tags" else grid_tiles(w, h, *table_rows)):
         tile, s, ox, oy = square_tile(img, t)
+        n_tiles += 1
         ti = time.perf_counter()
         raw = model(cv2.cvtColor(tile, cv2.COLOR_BGR2RGB))
         t_infer += time.perf_counter() - ti
         boxes, scores, coefs, protos = decode(raw)
         sel = np.nonzero(scores >= SCORE_MIN)[0]
         keep = sel[nms(boxes[sel], scores[sel], IOU_MAX)] if len(sel) else sel
+        tile_ppm = scale_field.px_per_mm(ox + SIZE / 2 / s, oy + SIZE / 2 / s) * s
+        bew = (boxes[keep, 2] - boxes[keep, 0]) / tile_ppm
+        bns = (boxes[keep, 3] - boxes[keep, 1]) / tile_ppm
+        keep = keep[(bew >= BOX_EW_MM[0]) & (bew <= BOX_EW_MM[1]) & (bns >= BOX_NS_MM[0]) & (bns <= BOX_NS_MM[1])]
         if not len(keep):
             continue
-        tile_ppm = scale_field.px_per_mm(ox + SIZE / 2 / s, oy + SIZE / 2 / s) * s
         tray_px = trays.TRAY_EW_MM * trays.TRAY_NS_MM * tile_ppm**2
         for k, m in enumerate(masks_for(boxes[keep], coefs[keep], protos)):
             ys, xs = np.nonzero(m)
@@ -268,8 +292,8 @@ def run_still(still: str, model: FastSam, scale_field, det, rows: list[dict]) ->
            "ambiguous_tags": " ".join(map(str, ambiguous)),
            "t_decode_s": round(t1 - t0, 2), "t_tags_s": round(t2 - t1, 2), "tags_cached": cached,
            "t_hailo_s": round(t_infer, 2), "t_masks_s": round(t3 - t2 - t_infer, 2),
-           "t_total_s": round(t3 - t0, 2)}
-    overlay_still(img, masks, tags, links, res, trays.SCRATCH / "fastsam-stills" / f"{still}.jpg")
+           "t_total_s": round(t3 - t0, 2), "tiles": TILES, "n_tiles": n_tiles}
+    overlay_still(img, masks, tags, links, res, trays.SCRATCH / (f"fastsam-stills-m{TILE_MARGIN:g}" if TILES == "tags" else "fastsam-stills-grid") / f"{still}.jpg")
     return res
 
 
@@ -305,10 +329,14 @@ def overlay_still(img, masks, tags, links, res, out: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    global TILE_MARGIN, TILES
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("stills", nargs="+")
     ap.add_argument("--name", default="run", help="results file suffix")
+    ap.add_argument("--margin", type=float, default=TILE_MARGIN, help="tile margin in trays")
+    ap.add_argument("--tiles", choices=["tags", "grid"], default=TILES)
     args = ap.parse_args(argv)
+    TILE_MARGIN, TILES = args.margin, args.tiles
     from npec_rig.calibration_store import load_calibration
 
     det = trays.detector()
@@ -321,8 +349,11 @@ def main(argv: list[str] | None = None) -> None:
             info = trays.capture_info(still)
             stem = info["calibration"]
             if stem not in calibs:
-                calibs[stem] = load_calibration(trays.RIG / "calibration" / f"{stem}.json").scale_field
-            res = run_still(still, model, calibs[stem], det, rows)
+                art = load_calibration(trays.RIG / "calibration" / f"{stem}.json")
+                ys = [y for c in art.corner_baseline.corners_by_id.values() for _, y in c]
+                calibs[stem] = (art.scale_field, (int(min(ys)), int(max(ys))))
+            sf, table_rows = calibs[stem]
+            res = run_still(still, model, sf, det, rows, table_rows)
             res = {"step": "", **res, "calibration": stem, "validation": info["validation"], "lens": info["lens"]}
             results.append(res)
             print(f"{still}: {res['trays_ok']}/{res['a1_tags']} OK, {res['tray_masks']} masks, "
