@@ -21,7 +21,8 @@
     const figure = event.target.closest(".figure");
     const image = figure ? figure.querySelector("img") : event.target.closest(".diagnostic-image:not([data-no-lightbox])");
     if (image && image.hasAttribute("src")) {
-      overlayImage.src = image.src;
+      // data-large: a bigger copy to open than the one shown (a gallery thumbnail's screen copy).
+      overlayImage.src = image.dataset.large || image.src;
       overlayImage.alt = image.alt;
       overlay.classList.add("open");
       return;

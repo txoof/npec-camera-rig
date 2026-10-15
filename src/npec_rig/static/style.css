@@ -513,23 +513,24 @@ button {
 }
 button:disabled { opacity: 0.5; }
 input[type="range"]:disabled { opacity: 0.5; }
+/* Gallery (gallery.html): one section per local day, each a wrapping grid of thumbnails. The
+   gap is --gap, so a missed tap lands between photos, not on the next one. */
+.gallery-head { margin-top: var(--gap); }
+.gallery-head h2 { margin: 0; }
+.gallery-day h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 .gallery {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  gap: var(--gap);
 }
-.gallery-item { width: 120px; }
-.gallery-item img {
-  width: 100%;
-  display: block;
-  background: #000;
-}
+.gallery-item { width: 200px; }
+.gallery-item .figure img { aspect-ratio: 4 / 3; object-fit: contain; }
 .gallery-item div {
   font-size: 0.75rem;
   color: #aaa;
   word-break: break-all;
 }
+.gallery-item .gallery-time { font-size: 1rem; color: var(--fg); margin-top: 4px; }
 .gallery-item .gallery-flag { color: #e3b341; word-break: normal; }
 a { color: #6cf; }
 .wizard-step { display: none; }
