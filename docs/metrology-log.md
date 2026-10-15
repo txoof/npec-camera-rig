@@ -1925,7 +1925,7 @@ solids, 3.4% to 4.7% at the rosette tops.
   experiments), moved through the frame and rotated on each tray. Capture names recorded with the
   results.
 - The 15 October photo session (15.3).
-- Tray tag designs in the chamber, all 36h11, tag in cell A1 of a 4x5 tray, trays at mixed
+- Tray tag designs in the chamber, all 36h11, IDs 1 to 12 (the 4x5 series; IDs 1 to 3 are the 20 mm tags by their size in the image), tag in cell A1 of a 4x5 tray, trays at mixed
   orientations: 3 x 30 mm black on white paper extending past the tray corner, 3 x 20 mm black on
   white paper extending past the tray corner, 6 x 30 mm green 3D-printed on white inside the tray.
 
@@ -1939,8 +1939,10 @@ closed and lights on for every photograph. In this order:
 
 | Step | Stills | What |
 |---|---|---|
-| a | 5 | Nothing moved (repeatability of tag detection and area) |
-| b | 3 | All 12 trays rotated 90° each time (4 rotations with step a) |
+| a | 10 | Nothing moved (repeatability of tag detection and area); taken 07:57 to 07:58 UTC, experiment "tag-testing" |
+| b1 | 1 | Every tray turned 180° in its own slot (trays fit their slots at 0° or 180° only) |
+| b2 | 1 | Trays swapped between the North and South rows, orientation kept from b1 (optional) |
+| b3 | 1 | Trays moved to other slots in their row, so each tag design reaches the frame centre and both ends (optional) |
 | c | 1 | Trays pushed as close together as they go (worst case for splitting trays) |
 | d | up to 12 | Benchmark on each slot, filling slots the gallery stills miss, frame centre and corners at least |
 | e | 5 | Benchmark on one slot, nothing moved (area repeatability) |
