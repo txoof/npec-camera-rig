@@ -1873,3 +1873,97 @@ hand, measured against the table rails. PLAN.md asks for about 5 deg (section 9.
 
 After 14.5 the camera has moved. A new calibration at experiment height, made current, and a
 complete validation give the bands the rig then runs with. Not a pass or fail test.
+
+## 15. CRISP-DM round 1: trays, tags and green area on the benchmark (method written 2026-10-15, before the photo session)
+
+**Status:** method agreed with Aaron, 2026-10-15. The 15 October photo session has not run yet.
+Issue #153. The plan behind the rounds is summarised in issue #153 and PLAN.md (to be added).
+
+**Why.** The academic supervisor recommended running the whole loop (photo, segmentation, area,
+review) early, with loose targets, so problems with the setup and the expectations show up early
+(CRISP-DM). PLAN.md expects segmentation to be the largest error source, and it has not been
+measured. This round is the first look.
+
+**Bar for this round (decision, Aaron 2026-10-14).** The pipeline runs end to end and gives a
+number per tray. Everything is recorded; nothing is judged against a target yet. Targets for
+round 2 are set in the round 1 review at the end of this section.
+
+### 15.1 The benchmark "Benchy Yellow-4"
+
+A 3D-printed plant benchmark. Its design file is not available, so its true leaf area is not
+known. Measured by Aaron on 2026-10-15 with vernier callipers (not trusted beyond 0.1 mm).
+Number of readings per figure: to be recorded. Heights were taken with the callipers' depth rod
+from the surface of the yellow base; the base is 4.27 mm thick and sits on the blue tray top, so
+height above the tray = h + 4.27 mm.
+
+| Feature | Colour | Measured | Area seen from above (computed) | Height above tray |
+|---|---|---|---|---|
+| Circle, embedded, NE corner | red | ⌀ 10 mm, h 0 | 78.5 mm² | 4.27 mm |
+| Sphere, SE corner | red | ⌀ 8.85 mm, h 6.78 mm | 61.5 mm² | widest outline about 6.6 mm |
+| Cylinder, SW corner | red | ⌀ 8.39 mm, h 7.73 mm | 55.3 mm² | 12.00 mm |
+| Rectangular prism, NW corner | red | 6.34 x 8.14 mm, h 10.77 mm | 51.6 mm² | 15.04 mm |
+| Rosette NW | green | h-max 21.88, h-centre 14.12, ⌀-max 50.87 mm | at most 2032 mm² | top 26.15 mm |
+| Rosette NE | green | h-max 28.00, h-centre at least 19.05, ⌀-max 67.20 mm | at most 3547 mm² | top 32.27 mm |
+| Rosette SW | green | h-max 19.35, h-centre 12.78, ⌀-max 59.64 mm | at most 2794 mm² | top 23.62 mm |
+| Rosette SE | green | h-max 24.21, h-centre at least 15.41, ⌀-max 38.68 mm | at most 1175 mm² | top 28.48 mm |
+
+The solid areas are computed from the calliper dimensions (π r² for the round solids, X x Y for the
+prism). The sphere's outline seen from above is its widest circle, at h minus the radius. The
+rosette limits are a full circle of the widest diameter; the leaves cover less, so these are upper
+limits, not areas.
+
+**What it can and cannot show.** The red solids are known areas at known heights, but small: at 50
+to 80 mm² most of their pixels lie near an edge, so edge pixels will dominate their error. The
+rosettes show repeatability (the same object in every slot and rotation should read the same) and
+plant-like colour on a blue tray, not accuracy. Plastic is shinier and a different green than
+leaves. Expected effect of height alone (0.145% of area per mm, section 4): 0.6% to 2.2% on the
+solids, 3.4% to 4.7% at the rosette tops.
+
+### 15.2 Data
+
+- About 36 gallery stills of the benchmark taken on 15 October (part of the two most recent
+  experiments), moved through the frame and rotated on each tray. Capture names recorded with the
+  results.
+- The 15 October photo session (15.3).
+- Tray tag designs in the chamber, all 36h11, tag in cell A1 of a 4x5 tray, trays at mixed
+  orientations: 3 x 30 mm black on white paper extending past the tray corner, 3 x 20 mm black on
+  white paper extending past the tray corner, 6 x 30 mm green 3D-printed on white inside the tray.
+
+Photos in `/var/lib/npec-rig/rig/`; scripts in `experiments/round1/`. Calibration, validation and
+lens position of every still are read from `rig.db` and recorded with the results.
+
+### 15.3 The 15 October photo session
+
+Aaron is in the chamber on 15 October only, so every photo that needs a move is taken then. Door
+closed and lights on for every photograph. In this order:
+
+| Step | Stills | What |
+|---|---|---|
+| a | 5 | Nothing moved (repeatability of tag detection and area) |
+| b | 3 | All 12 trays rotated 90° each time (4 rotations with step a) |
+| c | 1 | Trays pushed as close together as they go (worst case for splitting trays) |
+| d | up to 12 | Benchmark on each slot, filling slots the gallery stills miss, frame centre and corners at least |
+| e | 5 | Benchmark on one slot, nothing moved (area repeatability) |
+| f | 1 | Trays without the benchmark (background) |
+
+### 15.4 What is measured
+
+Each tray is one region; tags give identity only (decision, Aaron 2026-10-14). Trays are found by
+their blue, the benchmark's leaves by a green threshold (excess green), its solids by a red
+threshold; tag areas are masked out from the detected tag corners. Pixel areas become mm² through
+the calibration homography. Recorded:
+
+- per tag design: detected or not, per slot and rotation, with the detector's confidence margin
+- trays separated and matched to a tag: how many of 12, per still
+- green area per tray, in mm²
+- red solids: area per still against the computed area above
+- rosettes: area per slot and rotation, the spread, and that it stays below each upper limit
+
+### 15.5 Results
+
+Not yet run.
+
+### 15.6 Round 1 review
+
+Not yet written. Covers what was found, what surprised us, which step it sends work back to, and
+the targets for round 2.
