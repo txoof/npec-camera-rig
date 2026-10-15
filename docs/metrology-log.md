@@ -2048,6 +2048,18 @@ not: it affects only how the pattern is read, but that is not measured, so the c
 its frozen settings); whether it holds on other stills (session 1, calibration frames) and on
 3D-printed 20 mm tags (issue #70).
 
+### 15.3d One-hour unattended run (method written 2026-10-15, before the run)
+
+**Question.** With nothing moved for an hour, how steady are tag detection and the benchmark's
+green and red areas from one still to the next, and does anything drift? **Setup.** The layout of
+round 2 step 4 (trays pushed together, 20 mm tags on the 6 green trays, benchmark on its tray), door
+closed, nobody in the chamber (Aaron at lunch). **Method.** One still every 15 seconds, start to
+start, for 60 minutes, about 240 stills, taken by the agent through `POST /capture` into experiment
+"tag-testing", step R3 in `experiments/round1/session-2026-10-15.csv`. Every sidecar records lens
+position, exposure and colour gains, so drift in those is read from the stills. **Analysed:**
+tag detection per still with the rig's settings and with setting C (15.3c); benchmark areas through
+issue #154's method. Not covered: the chamber light cycle (the run is shorter than it).
+
 ### 15.4 What is measured
 
 Each tray is one region; tags give identity only (decision, Aaron 2026-10-14). Trays are found by
