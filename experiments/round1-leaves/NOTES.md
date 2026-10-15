@@ -85,6 +85,23 @@ Per slot (top / underside): South 1 +1.6 / +0.4, South 2 +1.2 / -1.2, South 3 0.
 +1.8 / +1.5, South 5 +4.6 / +3.2, South 6 +6.8 / +5.2, North 6 +6.9 / +7.1, North 5 +3.3 / +2.6,
 North 4 +1.7 / +1.3, North 2 +1.9 / +2.8, North 1 +3.1 / +4.5.
 
+**Against the validation bands** (session `20261014T111253582634`, in force for all 32 stills;
+band = p95 of |tag area error| per slot, 1.26% to 2.55%). Nothing is corrected.
+`within_band`: |error| at most the slot's band. `band_overlaps_scans`: the band overlaps the range
+from "against the before scan" to "against the after scan", which allows for the unknown shrink.
+
+| Readings | n | Within band | Band overlaps the scan range |
+|---|---|---|---|
+| Blue trays, not at the benchmark | 27 | 8 | 22 |
+| Blue trays, against the benchmark | 3 | 0 | 0 |
+| Black sheet, top side | 11 | 5 | 9 |
+| Black sheet, underside | 11 | 5 | 10 |
+
+A band holds 95% of tag readings, so about 26 of 27 would fall inside it if it covered these
+leaves. It does not settle the question: the uncertainty in the known area (the 4.6% to 7.5%
+shrink between scans) is larger than the bands themselves. The 5 blue readings outside even the
+scan range are L001 in still 2, L002 in stills 4, 8 and 10, and L003 in still 5.
+
 ## Surprises and things to look at
 
 - **Blue reads small, black reads large.** The same leaves read 2.5% small on blue trays and

@@ -2599,6 +2599,12 @@ given against each scan).
   top side mean +2.99% (SD 2.26, -0.02% to +6.90%), underside +2.45% (SD 2.47, -1.19% to +7.05%).
   The east end (South 5, South 6, North 6) reads +3.2% to +7.1%, the other slots -1.2% to +4.5%.
 - Leaf identity from Aaron's record; a shape match against the scans agrees in 26 of 30.
+- Against the validation bands (session `20261014T111253582634`, p95 of |tag area error| per
+  slot, 1.26% to 2.55%, nothing corrected): blue trays 8 of 27 within the band, 22 of 27 when the
+  range between the before and after scans is allowed for; black sheet 5 of 11 (top) and 5 of 11
+  (underside), 9 and 10 of 11 with that range. A band holds 95% of tag readings, but the known
+  area's uncertainty (4.6% to 7.5% shrink between scans) is larger than the bands, so this does
+  not settle whether the bands cover leaves.
 
 **Observations, not measured causes.** The same leaves read about 2.5% small on blue and about
 2.5% to 3% large on black. L002 reads -1.0% to -5.8% in stills 1 to 6 and -4.3% to -9.1% later,

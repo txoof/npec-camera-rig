@@ -246,7 +246,39 @@ def write_overlay(still, found, rows) -> None:
                 [cv2.IMWRITE_JPEG_QUALITY, 85])
 
 
+def add_bands(rows: list[dict]) -> None:
+    """Each reading next to its slot's validation band (the session in force for the still).
+
+    The band (p95 of |tag area error| in the slot) covers flat objects at tray-top height. A
+    reading is `within_band` when |error| is at most the band; because the known area is itself
+    uncertain (the leaves shrank between scans), `band_overlaps_scans` also says whether the band
+    overlaps the range from "against the before scan" to "against the after scan". Nothing is
+    corrected."""
+    db = sqlite3.connect(f"file:{RIG / 'rig.db'}?mode=ro", uri=True)
+    sessions: dict[str, dict] = {}
+    for r in rows:
+        still = db.execute("select validation from capture where path like ?", (f"%{r['still']}",)).fetchone()[0]
+        if still not in sessions:
+            v = json.loads((RIG / "calibration" / "validations" / f"{still}.json").read_text())
+            sessions[still] = {x["name"]: x for x in v["results"]}
+        band = sessions[still].get(r["slot"])
+        r["validation"] = still
+        if not band or band["p95_abs_pct"] is None or r["err_pct"] == "":
+            r.update(band_p95_pct="", band_median_pct="", within_band="", band_overlaps_scans="")
+            continue
+        p95 = band["p95_abs_pct"]
+        lo, hi = sorted((float(r["err_pct_vs_before"]), float(r["err_pct_vs_after"])))
+        r.update(band_p95_pct=round(p95, 2), band_median_pct=round(band["median_pct"], 2),
+                 within_band=abs(float(r["err_pct"])) <= p95, band_overlaps_scans=lo <= p95 and hi >= -p95)
+
+
 def main() -> None:
+    if "--bands-only" in sys.argv:  # add the band columns to an existing results.csv
+        rows = list(csv.DictReader((HERE / "results.csv").open()))
+        add_bands(rows)
+        write_results(rows)
+        return
+
     from npec_rig.calibration_store import load_calibration
 
     stills = session()
@@ -262,6 +294,11 @@ def main() -> None:
     for s in stills:
         print(s["n"], s["path"], file=sys.stderr, flush=True)
         rows += analyse(s, fields[s["calibration"]], layouts[s["calibration"]], contours, scans)
+    add_bands(rows)
+    write_results(rows)
+
+
+def write_results(rows: list[dict]) -> None:
     with (HERE / "results.csv").open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()
