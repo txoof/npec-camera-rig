@@ -1948,6 +1948,42 @@ closed and lights on for every photograph. In this order:
 | e | 5 | Benchmark on one slot, nothing moved (area repeatability) |
 | f | 1 | Trays without the benchmark (background) |
 
+### 15.3a Session 1 outcome and the second tag round (method written 2026-10-15, before the second round)
+
+**Session 1 (steps 1 to 6, 34 stills, record in `experiments/round1/session-2026-10-15.csv`).**
+Steps 7 (benchmark repeated on one slot) and 8 (trays without the benchmark) were dropped: step 1
+already repeats the benchmark on one slot 10 times, and in every still 11 of 12 trays carry no
+benchmark (Aaron). Tray tags found: 399 of 408 sightings. Misses: tag 1 (20 mm paper) 5 of 34,
+tag 2 (20 mm paper) 3 of 34, tag 5 (30 mm green) 1 of 34. Tag 1 was prepared without an adequate
+quiet zone (Aaron) and is replaced.
+
+**Why a second round.** The final tray tags must be about 20 mm, 3D printed, on the outside edge
+of the tray: the hard clearance at the tray side is 27 mm, and 30 mm edge tags collide with
+equipment elsewhere in the lab (Aaron, 2026-10-15). Three 20 mm tags, one badly prepared and all
+on the right half of the frame when missed, are too few to judge the size. The supervisor is open
+to changing the design given good evidence of a problem.
+
+**Design (paired).** Each of the 6 green-tag trays keeps its 30 mm green tag and gains a 20 mm
+paper tag on its outside edge, IDs 13 and up (one ID per tag, never a duplicate in the frame).
+Pairs recorded by Aaron before the photos: (to be filled in). Tag 1 is replaced by a properly
+prepared print with the same ID; the old print leaves the chamber. The 3 black 30 mm trays stay
+as a reference. Steps, stills taken by the agent through the rig's capture API: nothing moved
+(10), North and South rows swapped (3), trays swapped within rows (3), trays pushed together (3).
+
+**Decision rule (accepted by Aaron, 2026-10-15, before the photos).** A *pair* is the 20 mm and the
+30 mm tag on the same tray in the same still; a *position* is one layout step of at least 3 stills
+with nothing moved. 20 mm has a problem if either:
+
+- **A. Persistent miss (main rule).** A properly prepared 20 mm tag is missed in every still of a
+  position while the 30 mm tag on the same tray is read in at least one of them.
+- **B. Higher miss rate (supporting rule).** In at least 5% of pairs the 20 mm tag is missed while
+  its partner is read, and the reverse happens less than a fifth as often.
+
+Otherwise: no problem shown. The 5% and the fifth are decisions, not measurements. Every miss is
+listed with its still name and position. A tag found badly prepared afterwards is reported
+separately with the reason, never dropped. Limit: paper tags, not 3D prints; the 3D-printed tag
+needs its own check (issue #70).
+
 ### 15.4 What is measured
 
 Each tray is one region; tags give identity only (decision, Aaron 2026-10-14). Trays are found by
