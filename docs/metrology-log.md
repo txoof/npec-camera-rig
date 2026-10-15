@@ -2016,6 +2016,38 @@ tag sits. The tags were prepared that morning by Aaron; no tag has been found ba
 shown: the cause (position in the frame, light, how the paper lies, or detector settings), or how
 3D-printed 20 mm tags behave (issue #70).
 
+### 15.3c Detector settings on the same 19 stills (2026-10-15, from saved photos)
+
+**Question.** Are the 20 mm misses in 15.3b caused by the tags, or by the detector settings? The
+rig's settings (`npec_rig.tags._detector_parameters`) were tuned for calibration tags and are
+frozen; this test ran a copy with one change at a time, in a scratch script, without changing
+`tags.py`. Same 19 stills, OpenCV 4.10.0 ArUco detector, AprilTag 36h11, images read as grayscale
+by OpenCV. Also counted: any tag ID that is not on the table (IDs other than 0 to 17 and the corner
+tags 450 to 499), since looser settings can report tags that are not there.
+
+| Setting | 20 mm missed (of 171) | 30 mm missed (of 171) | Persistent misses (rule A) | IDs not on the table |
+|---|---|---|---|---|
+| A the rig's settings | 50 | 0 | 4 | none |
+| B error correction rate 1.0 | 50 | 0 | 4 | none |
+| C bit sampling 8 px per cell, ignored margin 0.2 | **0** | **0** | **0** | none |
+| D threshold windows 3 to 53 px, constant 5 | 39 | 0 | 3 | none |
+| E polygon accuracy 0.05 | 50 | 0 | 4 | none |
+| F B, C, D and E together | 0 | 1 | 0 | none |
+
+Setting A gives 50 and 0 here against 48 and 1 in 15.3b: 15.3b converted colour to grey with the
+rig's own conversion (`camera.to_grayscale`), this test with OpenCV's. The difference is 3
+sightings in 342.
+
+**What it shows.** On these 19 stills the 20 mm paper tag misses come from how the detector reads
+the tag's pattern (OpenCV's default reads each pattern square from 4 x 4 pixels after removing
+perspective; setting C uses 8 x 8 and ignores more of each square's edge), not from the tag size.
+With setting C, rules A and B of 15.3a are not met.
+
+**What it does not show.** Whether setting C changes the calibration corner positions (it should
+not: it affects only how the pattern is read, but that is not measured, so the calibration keeps
+its frozen settings); whether it holds on other stills (session 1, calibration frames) and on
+3D-printed 20 mm tags (issue #70).
+
 ### 15.4 What is measured
 
 Each tray is one region; tags give identity only (decision, Aaron 2026-10-14). Trays are found by
