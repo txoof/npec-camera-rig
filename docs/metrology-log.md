@@ -2633,6 +2633,21 @@ which fits a leaf curling as it dries (the scanner glass flattens it, the tray d
 midribs fail the green test in scans and stills alike. A first run cut the black sheet at the
 end slots; fixed before the results above.
 
+**Proof of concept: what it tells us (Aaron, 2026-10-15: a proof of concept test, not to be run
+to ground).**
+1. The whole chain works on real leaves: photo, green threshold, pixels to mm², comparison with a
+   known area, end to end on 32 stills with no failures.
+2. The answer is in the right range: flat leaves read within a few percent of their scanned area
+   (2.5% small on average), across all 12 slots.
+3. The round 1 thresholds carry over from the plastic benchmark to real leaves unchanged. What
+   breaks them is the setup, not the threshold: leaves that touch merge, a leaf next to another
+   green object loses area, pale midribs are missed.
+4. The background matters: the same leaves read about 5 points higher on black than on blue, so
+   the tray colour is part of the measurement.
+
+In one sentence: leaf area from this rig is workable, and the open questions are about the setup
+(touching leaves, background), not the camera.
+
 **Covers / does not cover.** 3 leaves of one plant, flat or nearly flat at tray-top height, one
 calibration and lens position, about 10 minutes of photos. Not leaves standing above the tray,
 not other plants, not overlapping leaves. The true error lies between the "against before" and
