@@ -2261,3 +2261,267 @@ The tray at South 6 has not been checked.
 
 Every result that has a pass criterion passed. The knock read DRIFT, not FAIL; Aaron signed it off
 on 2026-10-14 with the covered-corner-tag check, and PLAN.md's wording was changed to match.
+
+## 15. CRISP-DM round 1: trays, tags and green area on the benchmark (method written 2026-10-15, before the photo session)
+
+**Status:** method agreed with Aaron, 2026-10-15. The 15 October photo session has not run yet.
+Issue #153. The plan behind the rounds is summarised in issue #153 and PLAN.md (to be added).
+
+**Why.** The academic supervisor recommended running the whole loop (photo, segmentation, area,
+review) early, with loose targets, so problems with the setup and the expectations show up early
+(CRISP-DM). PLAN.md expects segmentation to be the largest error source, and it has not been
+measured. This round is the first look.
+
+**Bar for this round (decision, Aaron 2026-10-14).** The pipeline runs end to end and gives a
+number per tray. Everything is recorded; nothing is judged against a target yet. Targets for
+round 2 are set in the round 1 review at the end of this section.
+
+### 15.1 The benchmark "Benchy Yellow-4"
+
+A 3D-printed plant benchmark. Its design file is not available, so its true leaf area is not
+known. Measured by Aaron on 2026-10-15 with vernier callipers (not trusted beyond 0.1 mm).
+Number of readings per figure: to be recorded. Heights were taken with the callipers' depth rod
+from the surface of the yellow base; the base is 4.27 mm thick and sits on the blue tray top, so
+height above the tray = h + 4.27 mm.
+
+| Feature | Colour | Measured | Area seen from above (computed) | Height above tray |
+|---|---|---|---|---|
+| Circle, embedded, NE corner | red | ⌀ 10 mm, h 0 | 78.5 mm² | 4.27 mm |
+| Sphere, SE corner | red | ⌀ 8.85 mm, h 6.78 mm | 61.5 mm² | widest outline about 6.6 mm |
+| Cylinder, SW corner | red | ⌀ 8.39 mm, h 7.73 mm | 55.3 mm² | 12.00 mm |
+| Rectangular prism, NW corner | red | 6.34 x 8.14 mm, h 10.77 mm | 51.6 mm² | 15.04 mm |
+| Rosette NW | green | h-max 21.88, h-centre 14.12, ⌀-max 50.87 mm | at most 2032 mm² | top 26.15 mm |
+| Rosette NE | green | h-max 28.00, h-centre at least 19.05, ⌀-max 67.20 mm | at most 3547 mm² | top 32.27 mm |
+| Rosette SW | green | h-max 19.35, h-centre 12.78, ⌀-max 38.68 mm | at most 1175 mm² | top 23.62 mm |
+| Rosette SE | green | h-max 24.21, h-centre at least 15.41, ⌀-max 59.64 mm | at most 2794 mm² | top 28.48 mm |
+
+The solid areas are computed from the calliper dimensions (π r² for the round solids, X x Y for the
+prism). The sphere's outline seen from above is its widest circle, at h minus the radius. The
+rosette limits are a full circle of the widest diameter; the leaves cover less, so these are upper
+limits, not areas.
+
+*Correction, 2026-10-15:* the SE and SW rosette diameters were first written the wrong way round; the stills showed it and Aaron confirmed (SW 38.68 mm, SE 59.64 mm; the table above is corrected). The rosette diameters are vernier calliper estimates with no check of their accuracy (Aaron), so the upper limits made from them are estimates too.
+
+**What it can and cannot show.** The red solids are known areas at known heights, but small: at 50
+to 80 mm² most of their pixels lie near an edge, so edge pixels will dominate their error. The
+rosettes show repeatability (the same object in every slot and rotation should read the same) and
+plant-like colour on a blue tray, not accuracy. Plastic is shinier and a different green than
+leaves. Expected effect of height alone (0.145% of area per mm, section 4): 0.6% to 2.2% on the
+solids, 3.4% to 4.7% at the rosette tops.
+
+### 15.2 Data
+
+- About 36 gallery stills of the benchmark taken on 15 October (part of the two most recent
+  experiments), moved through the frame and rotated on each tray. Capture names recorded with the
+  results.
+- The 15 October photo session (15.3).
+- Tray tag designs in the chamber, all 36h11, IDs 1 to 12 (the 4x5 series; IDs 1 to 3 are the 20 mm tags by their size in the image), tag in cell A1 of a 4x5 tray, trays at mixed
+  orientations: 3 x 30 mm black on white paper extending past the tray corner, 3 x 20 mm black on
+  white paper extending past the tray corner, 6 x 30 mm green 3D-printed on white inside the tray.
+
+Photos in `/var/lib/npec-rig/rig/`; scripts in `experiments/round1/`. Calibration, validation and
+lens position of every still are read from `rig.db` and recorded with the results.
+
+### 15.3 The 15 October photo session
+
+Aaron is in the chamber on 15 October only, so every photo that needs a move is taken then. Door
+closed and lights on for every photograph. In this order:
+
+| Step | Stills | What |
+|---|---|---|
+| a | 10 | Nothing moved (repeatability of tag detection and area); taken 07:57 to 07:58 UTC, experiment "tag-testing" |
+| b1 | 1 | Every tray turned 180° in its own slot (trays fit their slots at 0° or 180° only) |
+| b2 | 1 | Trays swapped between the North and South rows, orientation kept from b1 (optional) |
+| b3 | 1 | Trays moved to other slots in their row, so each tag design reaches the frame centre and both ends (optional) |
+| c | 1 | Trays pushed as close together as they go (worst case for splitting trays) |
+| d | up to 12 | Benchmark on each slot, filling slots the gallery stills miss, frame centre and corners at least |
+| e | 5 | Benchmark on one slot, nothing moved (area repeatability) |
+| f | 1 | Trays without the benchmark (background) |
+
+### 15.3a Session 1 outcome and the second tag round (method written 2026-10-15, before the second round)
+
+**Session 1 (steps 1 to 6, 34 stills, record in `experiments/round1/session-2026-10-15.csv`).**
+Steps 7 (benchmark repeated on one slot) and 8 (trays without the benchmark) were dropped: step 1
+already repeats the benchmark on one slot 10 times, and in every still 11 of 12 trays carry no
+benchmark (Aaron). Tray tags found: 399 of 408 sightings. Misses: tag 1 (20 mm paper) 5 of 34,
+tag 2 (20 mm paper) 3 of 34, tag 5 (30 mm green) 1 of 34. Tag 1 was prepared without an adequate
+quiet zone (Aaron) and is replaced.
+
+**Why a second round.** The final tray tags must be about 20 mm, 3D printed, on the outside edge
+of the tray: the hard clearance at the tray side is 27 mm, and 30 mm edge tags collide with
+equipment elsewhere in the lab (Aaron, 2026-10-15). Three 20 mm tags, one badly prepared and all
+on the right half of the frame when missed, are too few to judge the size. The supervisor is open
+to changing the design given good evidence of a problem.
+
+**Design (paired).** Each of the 6 green-tag trays keeps its 30 mm green tag and gains a 20 mm
+paper tag on its outside edge, IDs 13 and up (one ID per tag, never a duplicate in the frame).
+Pairs recorded by Aaron before the photos (green 30 mm : 20 mm paper): 4:0, 5:14, 6:16, 7:17, 8:13, 11:15. So the green 30 mm tags are 4, 5, 6, 7, 8 and 11; the black 30 mm reference tags are 9, 10 and 12; the 20 mm tags are 0, 1, 2, 3, 13, 14, 15, 16 and 17. Tag 1 is replaced by a properly
+prepared print with the same ID; the old print leaves the chamber. The 3 black 30 mm trays stay
+as a reference. Steps, stills taken by the agent through the rig's capture API: nothing moved
+(10), North and South rows swapped (3), trays swapped within rows (3), trays pushed together (3).
+
+**Decision rule (accepted by Aaron, 2026-10-15, before the photos).** A *pair* is the 20 mm and the
+30 mm tag on the same tray in the same still; a *position* is one layout step of at least 3 stills
+with nothing moved. 20 mm has a problem if either:
+
+- **A. Persistent miss (main rule).** A properly prepared 20 mm tag is missed in every still of a
+  position while the 30 mm tag on the same tray is read in at least one of them.
+- **B. Higher miss rate (supporting rule).** In at least 5% of pairs the 20 mm tag is missed while
+  its partner is read, and the reverse happens less than a fifth as often.
+
+Otherwise: no problem shown. The 5% and the fifth are decisions, not measurements. Every miss is
+listed with its still name and position. A tag found badly prepared afterwards is reported
+separately with the reason, never dropped. Limit: paper tags, not 3D prints; the 3D-printed tag
+needs its own check (issue #70).
+
+### 15.3b Result of the paired 20 mm round (2026-10-15, 09:06 to 09:28 UTC)
+
+19 stills, experiment "tag-testing", steps R2-1 to R2-4 in `experiments/round1/session-2026-10-15.csv`:
+nothing moved (10), North and South rows swapped (3), trays swapped within rows (3), trays pushed
+together (3). Detector: `npec_rig.tags.detect_tags`, unchanged. Stills taken through `POST /capture`;
+no lens flag on any.
+
+**Rule A (persistent miss): met, 4 cases.** A 20 mm tag missed in every still of a position while its
+30 mm partner on the same tray was read:
+
+| Step | 20 mm tag | 30 mm partner | Stills |
+|---|---|---|---|
+| R2-1 nothing moved | 14 | 5 | 10 |
+| R2-2 rows swapped | 0 | 4 | 3 |
+| R2-3 swapped within rows | 14 | 5 | 3 |
+| R2-3 swapped within rows | 15 | 11 | 3 |
+
+**Rule B (miss rate): met.** In 40 of 114 pairs (35%) the 20 mm tag was missed while its partner was
+read; the reverse happened 0 times.
+
+**Misses per tag in 19 stills.** 20 mm: tag 0 11, tag 1 (new print) 0, tag 2 5, tag 3 1, tag 13 1,
+tag 14 15, tag 15 7, tag 16 0, tag 17 7. 30 mm: tag 5 1, all others 0. So 48 misses in 171 20 mm
+sightings against 1 in 171 30 mm sightings.
+
+**What it does and does not show.** Under the rule agreed before the photos, 20 mm paper tags have a
+problem on this rig: some are missed persistently at positions where a 30 mm tag on the same tray is
+read. Every tag that was missed persistently was read at some other position (tag 14 in R2-2, tag 0 in
+R2-3 and R2-4, tag 15 in R2-2 and R2-4), so the prints are readable and the misses depend on where the
+tag sits. The tags were prepared that morning by Aaron; no tag has been found badly prepared. Not
+shown: the cause (position in the frame, light, how the paper lies, or detector settings), or how
+3D-printed 20 mm tags behave (issue #70).
+
+### 15.3c Detector settings on the same 19 stills (2026-10-15, from saved photos)
+
+**Question.** Are the 20 mm misses in 15.3b caused by the tags, or by the detector settings? The
+rig's settings (`npec_rig.tags._detector_parameters`) were tuned for calibration tags and are
+frozen; this test ran a copy with one change at a time, in a scratch script, without changing
+`tags.py`. Same 19 stills, OpenCV 4.10.0 ArUco detector, AprilTag 36h11, images read as grayscale
+by OpenCV. Also counted: any tag ID that is not on the table (IDs other than 0 to 17 and the corner
+tags 450 to 499), since looser settings can report tags that are not there.
+
+| Setting | 20 mm missed (of 171) | 30 mm missed (of 171) | Persistent misses (rule A) | IDs not on the table |
+|---|---|---|---|---|
+| A the rig's settings | 50 | 0 | 4 | none |
+| B error correction rate 1.0 | 50 | 0 | 4 | none |
+| C bit sampling 8 px per cell, ignored margin 0.2 | **0** | **0** | **0** | none |
+| D threshold windows 3 to 53 px, constant 5 | 39 | 0 | 3 | none |
+| E polygon accuracy 0.05 | 50 | 0 | 4 | none |
+| F B, C, D and E together | 0 | 1 | 0 | none |
+
+Setting A gives 50 and 0 here against 48 and 1 in 15.3b: 15.3b converted colour to grey with the
+rig's own conversion (`camera.to_grayscale`), this test with OpenCV's. The difference is 3
+sightings in 342.
+
+**What it shows.** On these 19 stills the 20 mm paper tag misses come from how the detector reads
+the tag's pattern (OpenCV's default reads each pattern square from 4 x 4 pixels after removing
+perspective; setting C uses 8 x 8 and ignores more of each square's edge), not from the tag size.
+With setting C, rules A and B of 15.3a are not met.
+
+**What it does not show.** Whether setting C changes the calibration corner positions (it should
+not: it affects only how the pattern is read, but that is not measured, so the calibration keeps
+its frozen settings); whether it holds on other stills (session 1, calibration frames) and on
+3D-printed 20 mm tags (issue #70).
+
+### 15.3d One-hour unattended run (method written 2026-10-15, before the run)
+
+**Question.** With nothing moved for an hour, how steady are tag detection and the benchmark's
+green and red areas from one still to the next, and does anything drift? **Setup.** The layout of
+round 2 step 4 (trays pushed together, 20 mm tags on the 6 green trays, benchmark on its tray), door
+closed, nobody in the chamber (Aaron at lunch). **Method.** One still every 15 seconds, start to
+start, for 60 minutes, about 240 stills, taken by the agent through `POST /capture` into experiment
+"tag-testing", step R3 in `experiments/round1/session-2026-10-15.csv`. Every sidecar records lens
+position, exposure and colour gains, so drift in those is read from the stills. **Analysed:**
+tag detection per still with the rig's settings and with setting C (15.3c); benchmark areas through
+issue #154's method. Not covered: the chamber light cycle (the run is shorter than it).
+
+**As run.** Stopped early by decision (Aaron back early; 30 minutes judged enough for round 1): 123 stills, 10:01:50 to 10:32:19 UTC, no capture error, no lens flag.
+
+**Results.** Script `experiments/round1/run_analysis.py`, per still in `experiments/round1/run-2026-10-15-tags.csv`. Grey from the rig's own conversion (`camera.to_grayscale`); setting A is the rig's detector, setting C is A with finer bit sampling (15.3c).
+
+| | Setting A (rig) | Setting C |
+|---|---|---|
+| 20 mm tags missed (9 tags x 123 stills) | 165 of 1107 (14.9%): tag 14 55, tag 2 46, tag 3 42, tag 15 22 | 0 of 1107 |
+| 30 mm tags missed | 1 of 1107 (tag 11, once) | 1 of 1107 (the same) |
+| Detection time per still, mean (SD), min to max | 4.20 s (0.23), 3.99 to 6.33 | 4.17 s (0.11), 3.86 to 4.57 |
+
+With nothing moved, the rig's settings missed 4 of the 9 20 mm tags in many stills, tag 14 in 55 of 123; setting C missed none. Detection time is the same within its spread, so setting C costs no measurable time (one pass per still on the Pi 5, grey image already made; issue #156 repeats the timing).
+
+**Steadiness over the 30 minutes.** Exposure 6651 microseconds, analogue gain 1.0 and lens 6.05 did not change in any still. The colour gains moved slightly: red 1.994 to 2.012 (0.9%), blue 1.620 to 1.633 (0.8%). Their effect on the green and red areas is not measured here.
+
+**A tag that was not a tray tag.** Both settings read ID 29, which is in the tray ID range, in 3 (A) and 4 (C) stills. It is a real printed tag: an offcut of a tag sheet in a yellow waste bin at the bottom edge of the frame (about x 7047, y 6688). So a tag print lying anywhere in view is read as a tray. Discarded prints must leave the chamber, or the app must ignore tags outside the table.
+
+### 15.4 What is measured
+
+Each tray is one region; tags give identity only (decision, Aaron 2026-10-14). Trays are found by
+their blue, the benchmark's leaves by a green threshold (excess green), its solids by a red
+threshold; tag areas are masked out from the detected tag corners. Pixel areas become mm² through
+the calibration homography. Recorded:
+
+- per tag design: detected or not, per slot and rotation, with the detector's confidence margin
+- trays separated and matched to a tag: how many of 12, per still
+- green area per tray, in mm²
+- red solids: area per still against the computed area above
+- rosettes: area per slot and rotation, the spread, and that it stays below each upper limit
+
+### 15.5 Results: red and green area on the benchmark (issue #154)
+
+From the #154 session; full record in `experiments/round1-benchy/NOTES.md` and `results.csv` (main, commit 68ea0ad, PR #155), script `experiments/round1-benchy/benchy.py`.
+
+**Data.** 92 stills of the benchmark, 15 October: experiment `2026-10-12_631bb6b5` (12),
+`2026-10-15_83acd97d` (27), `2026-10-15_44a9e96e` tag-testing (53, session 1 and the second tag
+round). All under calibration `20261014T111147292361`, validation `20261014T111253582634`, lens
+6.05, no capture flags. The benchmark is in all 92. Leaving out the 19 second tag round stills
+changes the rosette means by at most 3.5 mm² and the mean solid errors by at most 1.7 points.
+
+**Method.** Fixed thresholds, nothing trained, picked on one probe still and not tuned against
+the results (decisions): red in HSV (hue 0 to 8 or 170 to 180, saturation at least 120, value at
+least 80), green by normalised excess green above 0.1 with green above red. Only colour inside
+the benchmark's yellow base (its hull grown by 20 px) counts; tray tags masked from
+`detect_tags` corners. Orientation from the largest rosette (NE); pieces go to their nearest
+corner. Area = pixel count over the square of the calibration scale field's local px/mm at the
+piece's centre (as `certainty_map.py`); the app has no pixel to mm homography. No height
+correction.
+
+**Rosettes.** Spread across all 92 stills (all slots and turns), SD as a share of the mean:
+NE 1.5% (mean 1823.8 mm²), SE 1.9% (1123.6), NW 3.2% (619.4), SW 3.6% (298.2). Within 9 groups of
+3 to 11 stills with nothing moved: 0.02% to 0.79%. Between slot means: NE 3.8%, SE 5.7%, NW 9.8%,
+SW 13.1% (lowest to highest slot, as a share of the mean). All 4 below their upper limits in all
+92 stills (they cover 25% to 51% of them). The true leaf area is not known, so this is
+repeatability, not accuracy.
+
+**Red solids** (known area, mean error, range over 92 stills): prism 51.6 mm², +39.4%, -14.7% to
++83.2%; circle 78.5 mm², -20.7%, -32.1% to -11.5%; sphere 61.5 mm², -16.4%, -23.0% to -9.4%;
+cylinder 55.3 mm², +18.6%, -22.3% to +44.4%. Prism and cylinder are close in the middle slots
+(North 3, North 4, South 3, South 4: -6.8% to +20.2%) and up to +75.5% at the row ends, where
+their sides are seen as well as their tops; height alone predicts 1.7% to 2.2%. The flat circle
+and the sphere read small in every slot. Likely cause, not measured: the red threshold leaves out
+the blurred edge (cut-off hue 8, solids at hue 4, base at 27). Per slot table in NOTES.md.
+
+**Visual check.** Aaron looked at all 92 overlays on 2026-10-15: masks, outlines and corner names
+correct in every one. One person, one pass; confirms what was found and named, not the areas.
+
+**Covers / does not cover.** The plastic benchmark on blue trays at tray-top height, one
+calibration, one lens position, one day. Not real leaves, not other lighting, not the accuracy of
+the rosette areas. The red solid errors mix edge pixels, sides seen at an angle and height, which
+this round does not separate.
+
+### 15.6 Round 1 review
+
+Not yet written. Covers what was found, what surprised us, which step it sends work back to, and
+the targets for round 2.
