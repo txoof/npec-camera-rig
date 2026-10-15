@@ -333,7 +333,15 @@ spread for the four rosettes, under 0.8% for repeated photos with nothing moved)
 shapes of known area showed two error sources larger than anything in the geometry: edges
 (a flat 10 mm circle read about 21% small) and sides seen at an angle toward the row ends (a
 15 mm tall prism read up to 75% large). Segmentation is now the largest measured error source,
-as PLAN.md expected. Accuracy on real leaves is not yet measured. Metrology log section 15.5.
+as PLAN.md expected. Metrology log section 15.5.
+
+**Real leaves, first look (round 1, 2026-10-15).** Three garden leaves of known area (flatbed
+scans scaled by printed tags), laid flat on the trays, read on average 2.5% smaller than their
+scans (27 readings, SD 3.2%). The leaves shrank 4.6% to 7.5% between the scans taken before and
+after the photos, so their true area at each photo is known less well than the rig's validation
+bands (1.3% to 2.6%): this test cannot yet show whether the bands hold for leaves. The same
+leaves read about 5 points larger on a black sheet than on the blue trays, only partly explained
+by the sheet lifting them 3 to 10 mm. Metrology log section 15.5b.
 
 ## What the trust does not cover yet
 
