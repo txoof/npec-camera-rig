@@ -89,9 +89,9 @@ def tag_area_px(
     which is the signal `calibration.area_scale_samples` reads.
     """
     (x0, y0), (x1, y1), (x2, y2), (x3, y3) = corners
-    return 0.5 * abs(
+    return float(0.5 * abs(
         (x0 * y1 + x1 * y2 + x2 * y3 + x3 * y0) - (y0 * x1 + y1 * x2 + y2 * x3 + y3 * x0)
-    )
+    ))
 
 
 def detect_tags(frame: np.ndarray) -> list[TagDetection]:

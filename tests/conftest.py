@@ -38,6 +38,38 @@ def _synthetic_camera_unless_hardware(request: pytest.FixtureRequest, monkeypatc
         monkeypatch.setenv("NPEC_RIG_SYNTHETIC_CAMERA", "1")
 
 
+@pytest.fixture(autouse=True)
+def _fresh_camera_manager(request: pytest.FixtureRequest):
+    """Each test starts with a new default camera, as it does with a fresh DB. A test that locks
+    focus and leaves it locked must not decide what a later test sees: with tests run in parallel
+    (pytest -n), the order changes from run to run (#169). Not for hardware tests: dropping a real
+    camera without closing it would leave the device held."""
+    if "hardware" in request.keywords:
+        yield
+        return
+    from npec_rig.camera import CameraManager
+
+    CameraManager.set_instance(None)
+    yield
+    CameraManager.set_instance(None)
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_cmdline_main(config: pytest.Config) -> None:
+    """A bare `pytest` (the unit tier, every test) runs on the Pi's 4 cores: 20 s serially, about
+    12 s in parallel (#169). Only then: the other tiers use the one camera or decode 64MP frames,
+    and four at once would fight over the camera or run out of memory. `-n 0` runs serially."""
+    if (
+        config.pluginmanager.hasplugin("xdist")
+        and config.option.numprocesses is None
+        and config.option.markexpr == "unit"
+        and config.args_source == pytest.Config.ArgsSource.TESTPATHS
+        and "PYTEST_XDIST_WORKER" not in os.environ
+    ):
+        config.option.numprocesses = 4
+        config.option.dist = "worksteal"
+
+
 def _hailo_present() -> bool:
     return shutil.which("hailortcli") is not None
 

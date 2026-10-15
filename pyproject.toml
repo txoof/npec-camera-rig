@@ -15,6 +15,7 @@ dependencies = [
 dev = [
     "pytest",
     "httpx",
+    "pytest-xdist",
 ]
 
 [build-system]
@@ -29,7 +30,7 @@ addopts = "-m unit"
 # Only tests/: experiments/ holds analysis scripts, some named *_test.py, that read data at import (#167).
 testpaths = ["tests"]
 markers = [
-    "unit: fast, no hardware, no accelerator (default tier, budget <10s)",
+    "unit: fast, no hardware, no accelerator (default tier, budget <15s; a bare pytest runs it on 4 cores)",
     "hardware: needs the camera",
     "hailo: needs the Hailo accelerator",
     "integration: full pipeline against fixture images",
