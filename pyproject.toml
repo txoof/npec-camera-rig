@@ -26,6 +26,8 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 addopts = "-m unit"
+# Only tests/: experiments/ holds analysis scripts, some named *_test.py, that read data at import (#167).
+testpaths = ["tests"]
 markers = [
     "unit: fast, no hardware, no accelerator (default tier, budget <10s)",
     "hardware: needs the camera",
