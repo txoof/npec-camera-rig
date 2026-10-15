@@ -2060,6 +2060,8 @@ position, exposure and colour gains, so drift in those is read from the stills. 
 tag detection per still with the rig's settings and with setting C (15.3c); benchmark areas through
 issue #154's method. Not covered: the chamber light cycle (the run is shorter than it).
 
+**As run.** Stopped early by decision (Aaron back early; 30 minutes judged enough for round 1): 123 stills, 10:01:50 to 10:32:19 UTC, no capture error, no lens flag. Results: not yet analysed.
+
 ### 15.4 What is measured
 
 Each tray is one region; tags give identity only (decision, Aaron 2026-10-14). Trays are found by
