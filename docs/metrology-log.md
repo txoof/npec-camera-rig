@@ -2883,8 +2883,8 @@ The Hailo-8 is 2% of the time. Mask decoding builds a full 640 x 640 mask for ea
 
 **Why trays had no mask (2026-10-15, `diagnose.py`, record `diagnose-fastsam-small20.csv`).** For
 each of the 54 trays without a tray mask in the 20-still run, every raw FastSAM candidate box of
-about tray size (230 to 400 mm by 280 to 460 mm in the diagnosis: 250 to 360 by 300 to 430) within
-60 mm of the tray's tag was followed through the stages, and the furthest stage reached is counted.
+about tray size (250 to 360 mm east-west, 300 to 430 mm north-south; decision for the diagnosis)
+within 60 mm of the tray's tag was followed through the stages, and the furthest stage reached is counted.
 
 | Furthest stage | Trays | Touching | Gaps |
 |---|---|---|---|
