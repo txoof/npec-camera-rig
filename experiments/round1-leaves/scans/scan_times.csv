@@ -1,0 +1,7 @@
+scan,scanned_at_utc,source
+L001,2026-10-15T11:49:21+00:00,file modification time on the Pi
+L001_after,2026-10-15T12:05:18+00:00,file modification time on the Pi
+L002,2026-10-15T11:50:42+00:00,file modification time on the Pi
+L002_after,2026-10-15T12:07:12+00:00,file modification time on the Pi
+L003,2026-10-15T11:51:27+00:00,file modification time on the Pi
+L003_after,2026-10-15T12:06:13+00:00,file modification time on the Pi

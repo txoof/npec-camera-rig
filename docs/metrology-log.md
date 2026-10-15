@@ -2561,6 +2561,100 @@ calibration, one lens position, one day. Not real leaves, not other lighting, no
 the rosette areas. The red solid errors mix edge pixels, sides seen at an angle and height, which
 this round does not separate.
 
+### 15.5b Real leaves of known area on the trays (issue #162, method written 2026-10-15 11:53 UTC, before the photos)
+
+From the #162 session; full record in `experiments/round1-leaves/NOTES.md`, `results.csv` and
+`scan_areas.csv`, scripts `scan_area.py` and `leaves.py`.
+
+**Method (written before the photos).** 3 garden leaves, labelled on the underside by Aaron
+(L001 to L003), scanned on an Epson flatbed (300 dpi) with a 180 mm scale and 5 x 30 mm
+AprilTags, before and after the photos. Known area = leaf pixels in the scan (the round 1 green
+test) over the scan's px/mm measured from the tags along each scanner axis. The leaves laid
+loose on the trays, door closed, lights on, focus as set; Aaron recorded the positions. Rig area
+= the round 1 green test unchanged, tags masked, through the calibration scale field at the
+leaf's centre, no height correction. Rig area against scan area, per leaf and position. Round 1
+bar: record everything, judge nothing.
+
+**Data.** Scans 11:49 to 11:51 UTC (before) and 12:05 to 12:07 UTC (after), `L00n.jpg` and
+`L00n_after.jpg` in `experiments/round1-leaves/scans/` and, read only, in
+`/var/lib/npec-rig/scans/2026-10-15_leaves/` (both with `SHA256SUMS`; times in `scan_times.csv`). 32 stills by Aaron, 11:54 to 12:03 UTC, experiment `2026-10-15_44a9e96e`,
+calibration `20261014T111147292361`: 10 with the 3 leaves in a line on the blue trays moving one
+slot per still; 11 with the 3 leaves together on a black sheet, one slot per still (North 3, the
+benchmark, skipped); 11 the same with the leaves turned over. Positions as recorded by Aaron:
+blue, still k, L001 on the k-th slot of South 1 to South 6 then North 6 to North 1, L002 on the
+next, L003 on the one after (Aaron recalled 12 stills; there are 10, ending on North 3, North 2,
+North 1); black sheet, 003 north west, 001 north east, 002 south. The black sheet was used to
+lay the leaves flat; all experimental trays are blue (Aaron). **The black sheet lifted the
+leaves about 3 to 10 mm above the blue tray top** (Aaron's estimate, not measured). At 0.145% of
+area per mm (section 4) that adds about 0.4% to 1.5% to the black sheet readings.
+
+**Decisions in the method.** Only the two tray rows count, across the full image width (the
+aisle with the moss pots and the floor are left out; a first run that used the end slots' boxes
+cut the black sheet at South 1 and South 6 and was replaced). The benchmark's base and a small
+margin are left out. On a 1/8 decode, pieces of one leaf are joined across gaps up to 4 px for
+grouping only (pale midribs split leaves), and a piece joins a leaf only within about 65 mm of
+it. Pieces under 40 px on the 1/8 decode (about 100 mm²) are dropped. The 3 leaves on the black
+sheet lie almost touching and are measured together, against the sum of their known areas.
+
+**Scan scale and known areas.** Tag scale 11.643 to 11.663 px/mm across the scanner and 11.777 to
+11.790 px/mm along it (the axes differ by 1.1%; nominal 300 dpi is 11.811), per-tag spread 0.46%
+to 0.61%. Areas before / after: L001 7331.3 / 6779.9 mm² (-7.5%), L002 7448.4 / 7081.0 (-4.9%),
+L003 7898.5 / 7532.8 (-4.6%). The leaves shrank 4.6% to 7.5% in 16 minutes. The known area at
+each photo is read off a straight line between the two scans (an assumption; results are also
+given against each scan).
+
+**Results.** Error = rig area against the known area at the photo.
+- Blue trays, each leaf on its own, 27 readings (3 more lay against the benchmark and are listed
+  apart): mean -2.49%, SD 3.15, range -9.10% to +3.43%; against the before scan -4.44%, against
+  the after scan +1.33%. Per leaf: L001 -3.07% (SD 2.29), L002 -4.58% (2.67), L003 +0.17% (2.57).
+- Against the benchmark (North 3): -5.42%, -10.4% and -15.89%; the benchmark's base is left out
+  and part of each leaf lay on or next to it.
+- Black sheet, the 3 leaves together (they lie almost touching and are not split), 11 slots:
+  top side mean +2.99% (SD 2.26, -0.02% to +6.90%), underside +2.45% (SD 2.47, -1.19% to +7.05%).
+  The east end (South 5, South 6, North 6) reads +3.2% to +7.1%, the other slots -1.2% to +4.5%.
+  Per slot, top / underside: South 1 +1.6 / +0.4, South 2 +1.2 / -1.2, South 3 0.0 / -0.3,
+  South 4 +1.8 / +1.5, South 5 +4.6 / +3.2, South 6 +6.8 / +5.2, North 6 +6.9 / +7.1, North 5
+  +3.3 / +2.6, North 4 +1.7 / +1.3, North 2 +1.9 / +2.8, North 1 +3.1 / +4.5.
+- Leaf identity from Aaron's record; a shape match against the scans (`cv2.matchShapes`) agrees
+  in 26 of 30. The 4 that differ are stills 7 and 8, where it swaps two leaves; the record gives
+  the smaller errors there, so the record is used.
+- Against the validation bands (session `20261014T111253582634`, p95 of |tag area error| per
+  slot, 1.26% to 2.55%, nothing corrected): blue trays 8 of 27 within the band, 22 of 27 when the
+  range between the before and after scans is allowed for; black sheet 5 of 11 (top) and 5 of 11
+  (underside), 9 and 10 of 11 with that range. A band holds 95% of tag readings, but the known
+  area's uncertainty (4.6% to 7.5% shrink between scans) is larger than the bands, so this does
+  not settle whether the bands cover leaves. The 5 blue readings outside even the scan range:
+  L001 in still 2, L002 in stills 4, 8 and 10, L003 in still 5.
+
+**Observations, not measured causes.** The same leaves read about 2.5% small on blue and about
+2.5% to 3% large on black, a gap of about 5 to 5.5 points. The 3 to 10 mm lift of the black sheet
+explains about 0.4 to 1.5 of them; the rest is not explained (one possibility: how edge pixels,
+part leaf and part background, pass the green test on each background). L002 reads -1.0% to -5.8% in stills 1 to 6 and -4.3% to -9.1% later,
+which fits a leaf curling as it dries (the scanner glass flattens it, the tray does not). Pale
+midribs fail the green test in scans and stills alike. A first run cut the black sheet at the
+end slots; fixed before the results above.
+
+**Proof of concept: what it tells us (Aaron, 2026-10-15: a proof of concept test, not to be run
+to ground).**
+1. The whole chain works on real leaves: photo, green threshold, pixels to mm², comparison with a
+   known area, end to end on 32 stills with no failures.
+2. The answer is in the right range: flat leaves read within a few percent of their scanned area
+   (2.5% small on average), across all 12 slots.
+3. The round 1 thresholds carry over from the plastic benchmark to real leaves unchanged. What
+   breaks them is the setup, not the threshold: leaves that touch merge, a leaf next to another
+   green object loses area, pale midribs are missed.
+4. What lies under the leaf matters: the same leaves read about 5 points higher on the black
+   sheet (used only to lay them flat, 3 to 10 mm above the tray) than on the blue trays.
+   Experiments use blue trays only, so the blue result (about 2.5% small) is the one that applies.
+
+In one sentence: leaf area from this rig is workable, and the open questions are about the setup
+(touching leaves, what lies under them), not the camera.
+
+**Covers / does not cover.** 3 leaves of one plant, flat or nearly flat at tray-top height, one
+calibration and lens position, about 10 minutes of photos. Not leaves standing above the tray,
+not other plants, not overlapping leaves. The true error lies between the "against before" and
+"against after" figures, since the shrinking between scans is not measured.
+
 ### 15.6 Round 1 review
 
 Not yet written. Covers what was found, what surprised us, which step it sends work back to, and
