@@ -20,6 +20,8 @@ from npec_rig.camera import CameraFaultError, CameraManager
 from npec_rig.captures import experiments_root, photos_root, record_app_start, record_app_stop
 from npec_rig import database
 from npec_rig.photo_tags import CaptureNotFoundError, CaptureRefError, FrameMissingError
+from npec_rig.validation import RoundNotFoundError, ValidationRefusedError
+from npec_rig.validation_store import SessionNotFoundError
 from npec_rig.routes import calibration, experiments, focus, gallery, shell, validation
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -79,7 +81,7 @@ async def _camera_fault(_request: Request, exc: CameraFaultError) -> JSONRespons
     return JSONResponse({"detail": str(exc)}, status_code=503)
 
 
-# The errors the photo and calibration modules raise for a request they cannot answer, each with
+# The errors the photo, calibration and validation modules raise for a request they cannot answer, each with
 # the status a route used to give it (#182). Only these classes: a handler on LookupError or
 # ValueError itself would turn a KeyError bug into a 404.
 _DOMAIN_ERROR_STATUS = {
@@ -88,6 +90,9 @@ _DOMAIN_ERROR_STATUS = {
     FrameMissingError: 409,
     CalibrationNotFoundError: 404,
     CalibrationUnreadableError: 422,
+    SessionNotFoundError: 404,
+    RoundNotFoundError: 404,
+    ValidationRefusedError: 409,
 }
 
 
