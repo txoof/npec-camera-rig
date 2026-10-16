@@ -3009,6 +3009,72 @@ The fallback found 111 of the 125 trays sent to it.
 Round 1 bar: recorded, not judged. Whether 89% to 100% of stills, or 98.7% of trays, is good
 enough is decided by Aaron now that the results are in (decision rule, above).
 
+**Success rate: not decided (Aaron, 2026-10-16).** No pass rate is fixed after the full run. Aaron
+first wants to see how tray tracking across the photos of an experiment performs (15.5d), then
+judge how good or bad the result is.
+
+### 15.5d Tray tracking over time (issue #164, method written 2026-10-16, before the analysis)
+
+**Question.** Followed through the 15 October stills in time order, does the tray splitting of
+15.5c (FastSAM, tag tiles at margin 1.15, fallback) report each tray's position and the moves that
+were made, and no others? And how much do two patches for missed trays add?
+
+**Data.** The 176 stills of the full run in 15.5c, ordered by `taken_at` (UTC) from `rig.db`;
+results already in `experiments/round1-trays/fastsam-full176.csv` and `-masks.csv`, tags in the
+scratch cache. No new Hailo run, no new photos. Script `experiments/round1-trays/track.py` (to be
+written), record `track-full176.csv`, plots and overlays in `~/scratch/round1-trays/track/`.
+
+**Known moves** (from `experiments/round1/session-2026-10-15.csv` and 15.3 to 15.3d), the
+reference the tracker is checked against:
+
+| Between | What moved |
+|---|---|
+| step 1 to 2 | every tray turned 180 degrees in its slot (position about the same, tag heading flips) |
+| step 2 to 3 | North and South rows swapped |
+| step 3 to 5 | trays pushed together (step 5 was taken before step 4) |
+| step 5 to 4 | trays swapped within rows, still pushed together |
+| step 4 to 6, within 6 | only the benchmark moves, one slot per still; no tray moves |
+| step 6 to R2-1 | trays re-tagged (20 mm tags added), layout reset with gaps |
+| R2-1 to R2-2 | rows swapped |
+| R2-2 to R2-3 | trays swapped within rows |
+| R2-3 to R2-4 | trays pushed together |
+| R2-4 to R3, within R3 | nothing moved |
+
+**Measures.**
+
+- Position of each tray in each still: its mask centre, in mm on the table through the scale
+  field. A *move* is a change of more than 50 mm in centre or a flip of the tag heading between
+  two consecutive stills (decision).
+- Moves found against the known moves: per step boundary, trays reported as moved and not moved;
+  moves reported inside a step where nothing moved (false moves), and known moves missed.
+- Position spread of each tray inside a step where nothing moved (step 1, R2-1, R3), in mm.
+- Trays right per still (the rule of 15.5c) before and after each patch, counted separately.
+
+**Patches (each labelled in the record and counted apart from measured trays; never shown as
+measured).**
+
+1. **Elimination:** in a still with exactly one A1 tag not linked to a tray and exactly one
+   tray-shaped mask with no tag, that mask is given that tray, labelled "inferred by elimination".
+2. **Two tags on one mask:** when a mask holds the tags of two trays and one of them lies inside
+   it while the other lies outside, the outside tag is unlinked and its tray sent to patch 1 or 3,
+   labelled "tag moved to unresolved". (This is the failure in 12 of the 13 failing R3 stills.)
+3. **Filled from neighbouring stills:** a tray missing or wrong in a still is given its position
+   from the stills before and after, labelled "filled from neighbours", only when all hold:
+   - the gap is at most 3 consecutive stills (decision);
+   - the positions just before and just after agree within 20 mm and the same tag heading
+     (decision);
+   - no other tray's mask covers that position in the gap stills;
+   - the gap is not at the start or end of the sequence and does not cross a step boundary
+     (so a move or a removal is never filled over).
+
+**Results reported.** Raw, after patch 1 and 2, after patch 3: trays right of 2112 and stills
+passing of 176, for gaps and touching; the number of trays patched by each kind; false and missed
+moves. A timeline per tray (position against time, steps marked) as a picture in scratch.
+
+**What it does not cover.** Trays removed from the chamber or added during a sequence (none on
+15 October), any angle other than 0 and 180 degrees, fewer than 12 trays, pots or plants in the
+wells. Round 1 bar: recorded, then judged by Aaron.
+
 ### 15.6 Round 1 review
 
 Not yet written. Covers what was found, what surprised us, which step it sends work back to, and

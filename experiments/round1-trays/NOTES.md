@@ -53,3 +53,31 @@ per tile `~/scratch/round1-trays/fastsam/<still>/<tile>.jpg` from the first vers
 Outline green: one tray. Red: several trays (MERGED). Orange: no tray tag (NO TAG). White: the
 fitted rectangle. Magenta dot and number: a tray tag's centre and ID. Text: tray, slot by method B,
 fitted size.
+
+## Resume here (state on 2026-10-16)
+
+Issue #164 (claimed, `in-progress`), branch and worktree `164-tray-splitting` in
+`~/wt/npec-164-tray-splitting`, everything committed and pushed; no pull request yet. Method and every
+result: `docs/metrology-log.md` 15.5c (splitting) and 15.5d (tracking plan). Tray facts:
+`reference/trays.md`.
+
+Where the data is:
+- HEF: `~/scratch/round1-trays/hailo/fast_sam_s.hef` (SHA-256 in 15.5c). Tag detections for all 176
+  stills cached in `~/scratch/round1-trays/tags/`. Overlays in `~/scratch/round1-trays/`.
+- Full run: `fastsam-full176.csv`, `fastsam-full176-masks.csv`, `summary-full176.csv` here.
+
+Commands (run from the worktree root; tests by explicit path, pytest's default is `tests/` only):
+
+    PYTHONPATH="$(pwd)/src" /home/pi/npec_camera_rig/.venv/bin/python3 -m pytest -q experiments/round1-trays -p no:xdist
+    cd experiments/round1-trays
+    PYTHONPATH=/home/pi/wt/npec-164-tray-splitting/src /home/pi/npec_camera_rig/.venv/bin/python3 fastsam.py --name NAME --margin 1.15 STILL ...
+    PYTHONPATH=/home/pi/wt/npec-164-tray-splitting/src /usr/bin/python3 summarise.py fastsam-NAME.csv
+
+Next step: write `track.py` as planned in 15.5d (no new Hailo run), run it on the full 176, write up.
+
+Open for Aaron:
+- Success rate that is good enough: deferred until the tracking result (15.5d).
+- Slot reference for rule 3: row and order is provisional.
+- Next week's session (plan on #164): counts and layout of 4 x 4 and 1 x 1 trays, where their tag
+  sits, and the 20 mm tag placement per tray.
+- Pull request for this branch, when Aaron wants to review.
