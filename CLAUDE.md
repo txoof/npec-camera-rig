@@ -198,12 +198,12 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 |---|---|
 | camera | `camera.py`, `camera_process.py`, `captures.py`, `health.py`, `settings.py` |
 | calibration | `tags.py`, `calibration*.py`, `validation_store.py`, `tripwire.py`, `certainty_map.py` |
-| web | `app.py`, `routes/shell.py`, `routes/shared.py`, `templates/setup_index.html`, `ui_reference.html`, `_ui.html`, `_camera_status.html`, `static/ui.js`, `icons.svg`, `lightbox.js`, `tests/web/conftest.py`, `tag_scenes.py`, `test_app.py`, and any page file not listed below |
-| web-focus | `routes/focus.py`, `templates/setup_focus.html`, `_focus_controls.html`, `_squareness.html`, `_squareness_help.html`, `static/squareness-guides.js` |
+| web | `app.py`, `routes/__init__.py`, `routes/shell.py`, `routes/shared.py`, `templates/setup_index.html`, `templates/ui_reference.html`, `templates/_ui.html`, `templates/_camera_status.html`, `static/ui.js`, `static/icons.svg`, `static/lightbox.js`, `static/squareness-guides.js`, `static/validation-status.js`, `tests/web/conftest.py`, `tests/web/tag_scenes.py`, `tests/web/test_app.py` |
+| web-focus | `routes/focus.py`, `templates/setup_focus.html`, `templates/_focus_controls.html`, `templates/_squareness.html`, `templates/_squareness_help.html` |
 | web-gallery | `routes/gallery.py`, `templates/gallery.html` |
 | web-experiments | `routes/experiments.py`, `templates/experiments.html` |
-| web-calibration | `routes/calibration.py`, `templates/setup_calibration*.html`, `setup_health_check.html` |
-| web-validation | `routes/validation.py`, `templates/setup_validation.html`, `static/validation-status.js` |
+| web-calibration | `routes/calibration.py`, `templates/setup_calibration*.html`, `templates/setup_health_check.html` |
+| web-validation | `routes/validation.py`, `templates/setup_validation.html` |
 | images | `images.py`, `text_render.py` |
 | database | `database.py` (the experiment's tables in `rig.db` and their migrations) |
 | exports | `exports.py` (an experiment's export zip and its checksum manifest) |
@@ -213,9 +213,21 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | ci | `.github/`, `pyproject.toml`, `uv.lock` |
 
 Module files are in `src/npec_rig/`. A new module or folder is added to this map in the PR that
-creates it. A route file's tests are `tests/web/test_<name>_routes.py`. The Calibration page
-includes the focus and squareness panels, so changing those panels is web-focus work even when
-the task is about calibration.
+creates it: a new page joins the area of its route file, and a new route file gets its own row.
+
+The web areas (#181):
+
+- A route file's tests are `tests/web/test_<name>_routes.py`. The experiments routes are the
+  exception: their tests are in `tests/test_experiments.py`, `test_exports.py` and
+  `test_purge.py`, so web-experiments also overlaps database and exports.
+- web holds what more than one page uses. `base.html` loads `squareness-guides.js` on every
+  page, and `validation-status.js` is used by three pages, so both are in web.
+- The Calibration page includes the focus and squareness panels: changing a panel is
+  web-focus work even in a calibration task.
+- `routes/validation.py` imports helpers from `routes/calibration.py` until #182 gives them
+  their own module, so web-validation overlaps web-calibration.
+- An issue whose Area says only `web`, written before the split, overlaps every web area until
+  its Area is narrowed to one.
 
 **Shared files** may be changed by any task that needs to, after checking that no other open PR
 changes them: `CLAUDE.md`, `PLAN.md`, `CONTRIBUTING.md`, `docs/metrology-log.md`,

@@ -85,8 +85,9 @@ Required pieces:
 - `calibration_store.save_calibration(artifact, stem=None, promote=True)` — the exact mechanism
   "promote" already uses; promoting from history is a call to this with an already-loaded
   artifact and no fresh capture, not new logic.
-- `GET /calibration/list` (`routes/calibration.py`, was `app.py` until #189): already returns every saved artifact with its
-  frame/heatmap URLs (`frame_url`, `heatmap_url`, `area_shape_heatmap_url`,
+- `GET /calibration/list` (`routes/calibration.py`, was `app.py` until #189): already returns
+  every saved artifact with its frame/heatmap URLs (`frame_url`, `heatmap_url`,
+  `area_shape_heatmap_url`,
   `accuracy_shape_heatmap_url`, `table_view_url`, `table_view_shape_url`). The heatmap/table-view
   images are pre-rendered and saved to disk at capture time (`calibration_store.save_calibration_*`
   functions) — they do **not** need re-rendering to view an old run's snapshot.
