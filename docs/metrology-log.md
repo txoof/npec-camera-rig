@@ -93,7 +93,8 @@ measure every printed sheet.
 | Perspective across the table | corrected by the scale field; positions mapped with a four-corner homography | Saved calibration frames | 2026-09-22 | Perspective within the table plane is modelled; lens distortion is not (section 10) |
 
 **Label: development check** for the two scale rows (from calibration fits). The camera, image
-size and camera height rows carry no label (section 12); the height row is the height test below.
+size, camera height and perspective rows carry no label: they are camera details, a reference
+measurement and method (section 12). The height row is the height test below.
 
 **Label: development check** for the height test. The tall tray's reading is compared with a
 prediction worked out from the camera and tray heights, not with a second measurement of area.
@@ -183,6 +184,7 @@ within 1.3 px), and the rig's area for each was compared with 900 mm² as well.
 **Conditions.** Photo `captures/2026-09-29/122649_225311` (under `/var/lib/npec-rig/`), 12:26:49
 UTC, old camera SN000, focus locked at lens 6.24, exposure 2702 µs. Rig calibration
 `20260929T122605739060`, 30.0 mm tag size, made from a photo of the same tags taken 43 s earlier.
+It is not among the 8 SN000 calibrations counted in section 5, which start at 14:34 UTC that day.
 All 17 sheets in the photo are full scale, each checked by Aaron (2026-10-16). Whether the sheets
 lay on the table or on the trays is not recorded.
 
@@ -239,7 +241,7 @@ The number is given as recorded.
 | West edge | +7.15% | +0.79% |
 | North-west corner | +4.60% | -1.51% |
 | All 27 tags, mean (SD) | +5.48% (2.03) | -0.55% (1.93) |
-| Range | +1.45% to +8.77% | -4.05% (centre0) to +3.07% (s1) |
+| Range | +1.45% to +8.77% | -4.05% (center0) to +3.07% (s1) |
 
 The two methods follow the same pattern across the frame (correlation 0.90 over the 27 tags,
 0.90 over the 9 positions): the centre lowest, the edge midpoints highest. ImageJ reads higher by
@@ -255,17 +257,19 @@ The two methods follow the same pattern across the frame (correlation 0.90 over 
   centre, 4.5286 px/mm (x 4600, y 3670), about 2.6% in area. The scale measured from the 3 centre
   tags themselves is 4.4487 px/mm (4.4373, 4.4513, 4.4576), 0.5% below ImageJ's. So the fitted
   field lies 1.8% above the centre tags' own scale, about 3.5% in area: the central low reading
-  (section 7).
+  (section 7). The centre tags' scales come from the rig's detected corners, ImageJ's from a line
+  drawn by hand; which tag that line was drawn on is not recorded, so the 0.5% between them is
+  not split further.
 
 **The rig's confidence figure.** Rebuilt from the calibration file (the spread of the 5 nearest
 calibration tags' residuals, turned into area; the claim section 9.4 later found too small and
-that was removed): 16 of 27 tags read within it and 11 beyond. Worst: centre0, -4.05% against
+that was removed): 16 of 27 tags read within it and 11 beyond. Worst: center0, -4.05% against
 3.47%; largest excess: ne0, -3.71% against 2.02%. These tags built the calibration, so this is a
 best case.
 
 **The rejected first pass.** An earlier set of outlines, `ROI_Calibration Image_142533_041268.zip`,
-was made on photo 142533 (2026-09-29, 06:57 UTC), which had sheets printed at 96% scale on the
-table. It is not used. Its outlines `se1-1` and `se2-1` are tags s1 and s2 under the wrong names.
+was made on photo `captures/2026-09-28/142533_041268` (2026-09-28, 14:25:33 UTC, from its record),
+which had sheets printed at 96% scale on the table. It is not used. Its outlines `se1-1` and `se2-1` are tags s1 and s2 under the wrong names.
 
 **Raw data** (on the Pi, read only). The photo and its record (above). The outlines:
 `/home/pi/scratch/ROI_Calibration_Image_122649_225311.zip` (`c0` to `c2` are center0 to
@@ -1907,13 +1911,14 @@ done (section 9).
   - **Validation:** the routine printed-target check per slot (section 6).
   - **Reference comparison:** a check against an independent measurement of the same real thing,
     one that does not pass through the printed tags' size, such as the steel tape or the table
-    rails. A wrongly printed sheet would show up in it.
+    rails. A wrongly printed sheet would show up in it. Where the reference depends on printed
+    tags in part, the label line says so (15.5b).
   - **Development check:** any other check made while building the rig. It shows that the rig
     agrees with itself or with a model, not that its areas are right.
 
   Calliper and tape readings of the sheets, trays, camera height and benchmark are the reference
-  measurements the rig is checked against; they carry no label. Neither do decisions, method text
-  and the summary tables (the table at the top of section 9, sections 13 and 14.7), which repeat
+  measurements the rig is checked against; they carry no label. Neither do camera details (serial
+  number, image size), decisions, method text and the summary tables (the table at the top of section 9, sections 13 and 14.7), which repeat
   results labelled where they are given.
 
 ## 13. Which results cover the current camera (SN001)
@@ -1941,7 +1946,7 @@ This table says, for each result, whether it has been repeated on SN001.
 | Tape-measure check | 9.2 | Pass | Pass, 14.2 |
 | Roll and knock | 9.3 | Pass | Pass (signed off): roll within 0.03 deg; knocks read DRIFT; covered corner tag gave FAIL, 14.5 |
 | Claimed uncertainty against actual error | 9.4 | Fail; the claim was removed | Not repeated (the claim is no longer shown) |
-| ImageJ area check (development check) | 5.1 | One photo, 2026-09-29 | Not repeated |
+| ImageJ area check | 5.1 | One photo, 2026-09-29 | Not repeated |
 
 Removing packing foam from SN001 changed its readings by about 0.8 points (section 8.2), so the
 SN001 results taken with the foam on (noise, restarts, the step 2 validation) describe the camera
@@ -2423,7 +2428,7 @@ was reported.
 
 ### 14.6 Closing calibration and validation
 
-**Label: validation.**
+**Labels:** validation for the validation session; development check for the closing calibration.
 
 After 14.5 the camera has moved. A new calibration at experiment height, made current, and a
 complete validation give the bands the rig then runs with. Not a pass or fail test.
