@@ -76,6 +76,26 @@ pytest -m slow         # soak
 
 No pre-commit hook that runs tests. Formatting and linting hooks are fine.
 
+### Test-first
+
+Logic modules and bug fixes are built test-first. Pages, CSS and copy are not: look at them in a
+browser. These rules apply to new tests. Older tests that break them are fixed only when a task
+touches them anyway.
+
+1. **Agree the seams first.** Before writing a test, list the public interfaces to test (a route's
+   response, a module's public function), one line each on what it catches and what it misses.
+   Aaron confirms the list. No test is written at an unconfirmed seam.
+2. **One test, then one change.** Write one failing test, run it and see it fail, then write only
+   enough code to pass it. Repeat. Do not write all the tests first.
+3. **A bug fix starts with a test that reproduces the bug.**
+4. **Expected values come from outside the code.** Calliper readings, worked examples, fixture
+   images with known answers. Never recompute the expected value the way the code does.
+5. **Test behaviour, not internals.** No tests of private (underscore) functions. Fake only at
+   these points: tag detection (`detect_tags`, since real photos are hard to build), the synthetic
+   camera backend and its subclasses, and timing constants. Do not replace any other project
+   function.
+6. Tidying the code comes after the tests pass, in review, not during the loop.
+
 Hardware tests skip when hardware is absent, they do not fail. A synthetic camera backend is
 required infrastructure, not a nicety.
 
