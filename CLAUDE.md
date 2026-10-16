@@ -198,7 +198,7 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | images | `images.py`, `text_render.py` |
 | database | `database.py` (the experiment's tables in `rig.db` and their migrations) |
 | exports | `exports.py` (an experiment's export zip and its checksum manifest) |
-| docs | `docs/` (except the shared files below), `reference/`, `README.md` |
+| docs | `docs/` (except the shared files below), `reference/`, `README.md`, `GLOSSARY.md` |
 | cad | `hardware/` |
 | deploy | `deploy/` |
 | ci | `.github/`, `pyproject.toml`, `uv.lock` |
@@ -355,6 +355,22 @@ limits: where one does not work for a page, choose what does and say why in the 
 | `docs/database.md` | Every table in `rig.db`, its columns, and the rule that all times are UTC |
 | `/var/lib/npec-rig/derived/` | Derived images (validation maps, problem frames; later thumbnails), made once by `images.py`, disposable. Every large image goes through `images.py` (PLAN.md, *Images*) |
 | `/etc/npec-rig/config.yaml` | Per-rig configuration. Planned (PLAN.md's Technical decisions table), not yet implemented — current settings live in env vars and SQLite only |
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues in `txoof/npec-camera-rig`, under the rules in *Parallel work* above. See
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default labels, unchanged. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` at the root and `docs/adr/`, made only when needed. See
+`docs/agents/domain.md`.
 
 ## Write up every measurement
 
