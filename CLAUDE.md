@@ -232,7 +232,8 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | docs | `docs/` (except the shared files below), `reference/`, `README.md`, `GLOSSARY.md` |
 | cad | `hardware/` |
 | deploy | `deploy/` |
-| ci | `.github/`, `pyproject.toml`, `uv.lock` |
+| experiments | `experiments/<folder>/`, each folder its own area: research scripts for one investigation. They may import `src/npec_rig/`, never the reverse (`tests/test_experiments_boundary.py`), and are not deployed (`.gitattributes` leaves them out of release archives) |
+| ci | `.github/`, `.gitattributes`, `pyproject.toml`, `uv.lock` |
 
 Module files are in `src/npec_rig/`. A new module or folder is added to this map in the PR that
 creates it: a new page joins the area of its route file, and a new route file gets its own row.
@@ -365,8 +366,9 @@ limits: where one does not work for a page, choose what does and say why in the 
   layers. Its `sweep.py` / `characterisation.py` (~2650 lines) is the same failure under another
   name and is entangled with the web routes.
 - **Old code is reference only.** Read it to learn what worked on this hardware, then write fresh.
-- **No Hailo code, no `.hef`, no segmentation exists anywhere.** M5 starts from nothing, behind a
-  `Segmenter` interface with a classical excess-green fallback.
+- **No segmentation exists in `src/`.** Round 1 tried a green threshold on the benchmark
+  (`experiments/round1-benchy/`) and FastSAM on the Hailo-8 for tray splitting
+  (`experiments/round1-trays/`); M5's `Segmenter` interface starts from those results.
 - **362 MB of bench frames** sit at `/home/pi/old/npec_OLD/npec-camera/tests/data/`. From the previous rig,
   so the geometry no longer matches. Available if needed, not copied in.
 - **The central low reading (the "North 4 hot spot") is the Arducam's own, and it is closed.**
@@ -385,6 +387,13 @@ limits: where one does not work for a page, choose what does and say why in the 
   only; plant height and segmentation add to them (PLAN.md, *Per-slot area uncertainty*).
 - **Rig timestamps (capture names, session IDs) are UTC; the chamber's local time is UTC+2.**
   Convert before matching them against anything a person reports.
+- **Tray tags.** The 15 October test trays use IDs 0 to 17 (1 to 12 original, 0 and 13 to 17 added
+  for the paired 20 mm test). Final tray tags are about 20 mm, 3D printed, on the tray's outside
+  edge: 27 mm hard clearance, and 30 mm edge tags hit other lab equipment (Aaron, 2026-10-15). Tray
+  tags (IDs 0 to 299) are read with finer bit sampling, calibration and corner tags with the frozen
+  settings (`tags._tray_detector_parameters`, metrology log 15.3e, #192).
+- **Trays touch.** Researchers will not reliably leave gaps, so tray splitting must work with trays
+  touching (`reference/trays.md`).
 
 ## Where things live
 
