@@ -3,7 +3,6 @@ and their plots, the certainty map, the level overlay and the tripwire check. Al
 lookup for photos, which validation uses too."""
 
 import logging
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -12,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 from PIL import Image
 
-from npec_rig import images, validation_store
+from npec_rig import images, photo_tags, validation_store
 from npec_rig.calibration import (
     CalibrationArtifact,
     ScaleResidualSample,
@@ -31,8 +30,10 @@ from npec_rig.calibration_store import (
     delete_legacy_heatmaps,
     list_calibrations,
     load_calibration,
+    load_saved_calibration,
     load_current_calibration,
     save_calibration,
+    saved_calibration_path,
     stem_for_photo,
 )
 from npec_rig.calibration_viz import (
@@ -44,14 +45,13 @@ from npec_rig.calibration_viz import (
     render_tag_map,
 )
 from npec_rig.camera import CameraManager, array_to_jpeg
-from npec_rig.captures import photos_root, take_photo
+from npec_rig.captures import take_photo
 from npec_rig.certainty_map import SlotLayoutError, certainty_by_slot, render_certainty_map
 from npec_rig.routes.shared import derived_response, templates
 from npec_rig.tags import (
     ASSUMED_CALIBRATION_TAG_SIZE_MM,
     CALIBRATION_ID_RANGE,
     CORNER_ID_RANGE,
-    detect_tags,
 )
 from npec_rig.tripwire import (
     CornerBaseline,
@@ -131,7 +131,7 @@ def _calibration_readiness() -> dict:
     manager = CameraManager.instance()
     focus_locked = manager.focus_status()["locked"]
     frame = manager.capture_array()
-    corner_tags_detected = len([d for d in detect_tags(frame) if d.tag_id in CORNER_ID_RANGE])
+    corner_tags_detected = len([d for d in photo_tags.detect_tags(frame) if d.tag_id in CORNER_ID_RANGE])
     return {
         "focus_locked": focus_locked,
         "corner_tags_detected": corner_tags_detected,
@@ -251,7 +251,7 @@ def run_calibration(
     array, photo = take_photo("calibration")
     frame_height, frame_width = array.shape[0], array.shape[1]
 
-    detections = detect_tags(array)
+    detections = photo_tags.detect_tags(array)
     calibration_detections = [d for d in detections if d.tag_id in CALIBRATION_ID_RANGE]
     corner_detections = [d for d in detections if d.tag_id in CORNER_ID_RANGE]
     tag_sizes_mm = {d.tag_id: tag_size_mm for d in calibration_detections}
@@ -375,31 +375,6 @@ def list_calibration_artifacts() -> list[dict]:
     return entries
 
 
-def _saved_calibration_path(stem: str) -> Path:
-    """Resolve a calibration-history `stem` (a URL path segment) to its artifact JSON file,
-    refusing anything that isn't a plain filename component -- `stem` comes straight from the
-    request path, and building a file path by string interpolation is exactly the shape that
-    needs this before it ever gets used, not after.
-    """
-    root = calibration_root()
-    path = (root / f"{stem}.json").resolve()
-    if path.parent != root.resolve() or path.name in (".json", CURRENT_FILENAME):
-        raise HTTPException(404, f"no saved calibration {stem!r}")
-    if not path.exists():
-        raise HTTPException(404, f"no saved calibration {stem!r}")
-    return path
-
-
-def _load_saved_artifact(stem: str) -> CalibrationArtifact:
-    """Load a saved calibration by history `stem`, for routes that need the full artifact rather
-    than just its list-view stats -- the diagnostics drill-down and promote both want this."""
-    path = _saved_calibration_path(stem)
-    try:
-        return load_calibration(path)
-    except (ValueError, KeyError, TypeError) as exc:
-        raise HTTPException(422, f"saved calibration {stem!r} could not be read: {exc}") from exc
-
-
 @router.post("/calibration/{stem}/promote")
 def promote_calibration(stem: str) -> dict:
     """Make a previously saved calibration the active one, no fresh capture -- the
@@ -408,7 +383,7 @@ def promote_calibration(stem: str) -> dict:
     promote-to-`current.json` mechanism, the same one a live run's "set as current baseline"
     checkbox already uses.
     """
-    artifact = _load_saved_artifact(stem)
+    artifact = load_saved_calibration(stem)
     save_calibration(artifact, stem=stem, promote=True)
     return {"promoted": stem, "created_at": artifact.created_at}
 
@@ -426,7 +401,7 @@ def delete_calibration(stem: str) -> dict:
     `current.json` means we don't know what's active at all, and a corrupt target stem can't be
     ruled out as the active one either (it could have been promoted before whatever damaged it).
     """
-    path = _saved_calibration_path(stem)
+    path = saved_calibration_path(stem)
 
     current_path = calibration_root() / CURRENT_FILENAME
     current = load_current_calibration() if current_path.exists() else None
@@ -488,32 +463,11 @@ def _calibration_source(stem: str) -> str:
     return f"calibration:{stem}"
 
 
-def _calibration_ref(frame_stem: str) -> str:
-    """The capture ref of a calibration's photo (its `frame_stem`), the images.py source of its
-    tags. 409 for a stem that names no rig photo."""
-    path = calibration_frame_path(frame_stem)
-    if path is None:
-        raise HTTPException(409, "the saved frame for this calibration is missing on disk")
-    return f"{path.parent.name}/{path.stem}"
-
-
-def _calibration_tags(frame_stem: str) -> list:
-    """The tag detections of a calibration's photo, from the analysis store (images.py), the
-    same as a validation capture's (`_capture_tags`). A run stores the tags it fitted its scale
-    to; an older calibration's are worked out once from its photo."""
-    try:
-        return _capture_tags(_calibration_ref(frame_stem))
-    except HTTPException as exc:
-        if exc.status_code == 404:
-            raise HTTPException(409, "the saved frame for this calibration is missing on disk") from exc
-        raise
-
-
 def _plot_samples(inputs: dict) -> list[ScaleResidualSample]:
     """The scale residual of every calibration tag in the photo `inputs` names, against the
     scale field and tag size in `inputs`, never the artifact on disk: a plot is drawn only from
     what its cache key holds."""
-    detections = [d for d in _calibration_tags(inputs["frame_stem"]) if d.tag_id in CALIBRATION_ID_RANGE]
+    detections = [d for d in photo_tags.calibration_tags(inputs["frame_stem"]) if d.tag_id in CALIBRATION_ID_RANGE]
     tag_sizes_mm = {d.tag_id: inputs["calibration_tag_size_mm"] for d in detections}
     samples = scale_residual_samples(scale_field_from_dict(inputs["scale_field"]), detections, tag_sizes_mm)
     if len(samples) < 2:
@@ -638,7 +592,7 @@ def current_diagnostics() -> dict:
 @router.get("/calibration/{stem}/diagnostics")
 def stem_diagnostics(stem: str) -> dict:
     """The diagnostics readout for saved calibration `stem`."""
-    return _calibration_diagnostics(_load_saved_artifact(stem))
+    return _calibration_diagnostics(load_saved_calibration(stem))
 
 
 @router.get("/calibration/current/radial-plot")
@@ -653,7 +607,7 @@ def current_radial_plot(metric: str | None = None) -> Response:
 def stem_radial_plot(stem: str, metric: str | None = None) -> Response:
     """The radial plot for saved calibration `stem` (the calibration history drill-down)."""
     _no_other_metric(metric)
-    return _calibration_plot(_load_saved_artifact(stem), stem, "calibration_radial_plot")
+    return _calibration_plot(load_saved_calibration(stem), stem, "calibration_radial_plot")
 
 
 @router.get("/calibration/current/tag-map")
@@ -666,43 +620,10 @@ def current_tag_map() -> Response:
 @router.get("/calibration/{stem}/tag-map")
 def stem_tag_map(stem: str) -> Response:
     """The tag map for saved calibration `stem` (the calibration history drill-down)."""
-    return _calibration_plot(_load_saved_artifact(stem), stem, "calibration_tag_map")
+    return _calibration_plot(load_saved_calibration(stem), stem, "calibration_tag_map")
 
 
-# Validation captures for the certainty map. A full 64MP frame is ~180MB, so captures never stay
-# in memory at full size: their tags come from the analysis store (images.py) and the copy to
-# draw on is decoded straight to _CAPTURE_PREVIEW_WIDTH. At most one full-size frame is live at
-# once: the photo being analysed for the first time, under images._full_decode.
-_CAPTURE_REF = re.compile(r"^\d{4}-\d{2}-\d{2}/\d{6}_\d{6}$")
-_CAPTURE_PREVIEW_WIDTH = 2000
 _MAX_CAPTURES_PER_MAP = 12
-
-
-def _capture_path(ref: str) -> Path:
-    if not _CAPTURE_REF.match(ref):
-        raise HTTPException(422, f"not a capture reference: {ref!r} (expected YYYY-MM-DD/HHMMSS_ffffff)")
-    path = photos_root() / f"{ref}.jpg"
-    if not path.exists():
-        raise HTTPException(404, f"capture {ref} not found")
-    return path
-
-
-def _capture_tags(ref: str) -> list:
-    """Capture `ref`'s tag detections, worked out once per photograph and then read from the
-    analysis store (images.py), so even after a restart nothing decodes it at full size again.
-    Stored tags are used even if the photograph itself has since been deleted."""
-    if not _CAPTURE_REF.match(ref):
-        raise HTTPException(422, f"not a capture reference: {ref!r} (expected YYYY-MM-DD/HHMMSS_ffffff)")
-    stored = images.stored_tag_detections(ref)
-    if stored is not None:
-        return stored
-    return images.tag_detections(ref, _capture_path(ref), detect=lambda frame: detect_tags(frame))
-
-
-def _capture_preview(ref: str) -> tuple[np.ndarray, float]:
-    """`(preview, preview_scale)`: capture `ref` decoded straight to about _CAPTURE_PREVIEW_WIDTH,
-    with its scale relative to full-resolution pixel coordinates."""
-    return images.reduced_frame(_capture_path(ref), _CAPTURE_PREVIEW_WIDTH)
 
 
 def _certainty_map_response(artifact: CalibrationArtifact, captures: list[str]) -> Response:
@@ -717,8 +638,8 @@ def _certainty_map_response(artifact: CalibrationArtifact, captures: list[str]) 
         raise HTTPException(422, f"at most {_MAX_CAPTURES_PER_MAP} validation captures per map")
     if artifact.frame_stem is None:
         raise HTTPException(409, "this calibration has no saved frame to take tray slots from")
-    calibration_detections = _calibration_tags(artifact.frame_stem)
-    per_capture = [_capture_tags(ref) for ref in captures]  # only the last is drawn on
+    calibration_detections = photo_tags.calibration_tags(artifact.frame_stem)
+    per_capture = [photo_tags.capture_tags(ref) for ref in captures]  # only the last is drawn on
     try:
         layout, results = certainty_by_slot(
             calibration_detections,
@@ -728,7 +649,7 @@ def _certainty_map_response(artifact: CalibrationArtifact, captures: list[str]) 
         )
     except SlotLayoutError as exc:
         raise HTTPException(409, str(exc)) from exc
-    preview, scale = _capture_preview(captures[-1])
+    preview, scale = photo_tags.capture_preview(captures[-1])
     caption = (
         f"Calibration {artifact.frame_stem}, {len(captures)} validation capture(s) pooled. "
         "95% of tags within the stated band, at tray-top height."
@@ -749,7 +670,7 @@ def current_certainty_map(captures: list[str] = Query(default=[])) -> Response:
 @router.get("/calibration/{stem}/certainty-map")
 def stem_certainty_map(stem: str, captures: list[str] = Query(default=[])) -> Response:
     """`_certainty_map_response` for an arbitrary saved calibration `stem`."""
-    return _certainty_map_response(_load_saved_artifact(stem), captures)
+    return _certainty_map_response(load_saved_calibration(stem), captures)
 
 
 @router.get("/calibration/orientation/level.jpg")
@@ -763,7 +684,7 @@ def live_level_overlay() -> Response:
     """
     manager = CameraManager.instance()
     frame = manager.capture_array()
-    readings = corner_level_readings(detect_tags(frame))
+    readings = corner_level_readings(photo_tags.detect_tags(frame))
     image = render_level_overlay(frame, readings)
     return Response(content=array_to_jpeg(image), media_type="image/jpeg")
 
@@ -781,7 +702,7 @@ def tripwire_check() -> dict:
         raise HTTPException(409, "no calibration baseline saved yet -- run a calibration first")
 
     array, photo = take_photo("tripwire")
-    detections = detect_tags(array)
+    detections = photo_tags.detect_tags(array)
     del array
     result = check_tripwire(artifact.corner_baseline, detections)
     return {

@@ -4,7 +4,7 @@ import pytest
 from PIL import Image
 from fastapi.testclient import TestClient
 
-import npec_rig.routes.calibration as calibration_routes
+import npec_rig.photo_tags as photo_tags
 import npec_rig.routes.validation as validation_routes
 from npec_rig import captures, images, validation_store
 from npec_rig.app import app
@@ -33,7 +33,7 @@ def tray_scene(monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None) 
             tags[k * 30 : (k + 1) * 30] = sheet_detections(300, x0, y0, side_px=120.0 * 0.96)
         return tags[30 * scene["drop_sheets"] :] + CORNER_TAGS
 
-    monkeypatch.setattr(calibration_routes, "detect_tags", detect)
+    monkeypatch.setattr(photo_tags, "detect_tags", detect)
     return scene
 
 
@@ -92,7 +92,7 @@ def test_validation_images_are_made_once_and_need_no_tag_search_after_a_restart(
     # restored: monkeypatch.undo() would also drop the per-test DB and folders.)
     for name, drawer in drawers.items():
         monkeypatch.setattr(validation_routes, name, drawer)
-    monkeypatch.setattr(calibration_routes, "detect_tags", must_not_run)
+    monkeypatch.setattr(photo_tags, "detect_tags", must_not_run)
     for path in images.derived_root().rglob("*.bin"):
         path.unlink()
     assert [client.get(url).status_code for url in urls] == [200, 200]
@@ -233,7 +233,7 @@ def test_a_calibrations_slot_layout_is_worked_out_once_and_kept(
     # calibration frame again. The layout is now saved, so a later start does not decode.
     client = TestClient(app)
     first = _calibrate_and_start(client)
-    monkeypatch.setattr(validation_routes, "_calibration_tags", lambda stem: pytest.fail("decoded again"))
+    monkeypatch.setattr(photo_tags, "calibration_tags", lambda stem: pytest.fail("decoded again"))
     second = client.post("/validation/sessions")
     assert second.status_code == 200
     assert second.json()["results"] == [

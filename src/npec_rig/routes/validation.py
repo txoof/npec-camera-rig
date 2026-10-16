@@ -8,9 +8,9 @@ from threading import Lock
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 
-from npec_rig import images, validation_store
+from npec_rig import images, photo_tags, validation_store
 from npec_rig.calibration import CalibrationArtifact
-from npec_rig.calibration_store import load_current_calibration
+from npec_rig.calibration_store import load_current_calibration, load_saved_calibration
 from npec_rig.camera import CameraBusyError, CameraManager, array_to_jpeg
 from npec_rig.captures import CALIBRATION_LENS_TOLERANCE, take_photo
 from npec_rig.certainty_map import (
@@ -27,13 +27,6 @@ from npec_rig.certainty_map import (
     sheets_by_slot,
     slot_layout_from_dict,
     slot_layout_to_dict,
-)
-from npec_rig.routes.calibration import (
-    _CAPTURE_PREVIEW_WIDTH,
-    _calibration_tags,
-    _capture_path,
-    _capture_tags,
-    _load_saved_artifact,
 )
 from npec_rig.routes.shared import derived_response, templates
 
@@ -156,7 +149,7 @@ def _calibration_slot_layout(artifact: CalibrationArtifact) -> dict:
     saved = validation_store.load_slot_layout(artifact.frame_stem)
     if saved is not None:
         return saved
-    detections = _calibration_tags(artifact.frame_stem)
+    detections = photo_tags.calibration_tags(artifact.frame_stem)
     try:
         layout = build_slot_layout(
             group_sheets(detections, artifact.scale_field, artifact.calibration_tag_size_mm)
@@ -238,7 +231,7 @@ def capture_validation_round(session_id: str) -> dict:
             )
         if validation_store.is_ended(session):
             raise HTTPException(409, "this validation has ended: start a new one")
-        artifact = _load_saved_artifact(session["calibration_stem"])
+        artifact = load_saved_calibration(session["calibration_stem"])
 
         try:
             array, record = take_photo("validation", {"validation_session": session_id})
@@ -247,7 +240,7 @@ def capture_validation_round(session_id: str) -> dict:
         del array
         focus = record["focus"]
         ref = f"{record['date']}/{Path(record['filename']).stem}"
-        detections = _capture_tags(ref)
+        detections = photo_tags.capture_tags(ref)
 
         round_ = {
             "capture": ref,
@@ -355,7 +348,7 @@ def validation_session_map(session_id: str) -> Response:
     )
     inputs = {
         "capture": counted[-1]["capture"],
-        "preview_width": _CAPTURE_PREVIEW_WIDTH,
+        "preview_width": photo_tags.PREVIEW_WIDTH,
         "slots": session["slots"],
         "results": session["results"],
         "caption": caption,
@@ -364,7 +357,7 @@ def validation_session_map(session_id: str) -> Response:
 
 
 def _render_validation_map(inputs: dict) -> bytes:
-    preview, scale = images.reduced_frame(_capture_path(inputs["capture"]), inputs["preview_width"])
+    preview, scale = images.reduced_frame(photo_tags.capture_path(inputs["capture"]), inputs["preview_width"])
     results = [
         SlotResult(r["name"], r["n"], r["p95_abs_pct"], r["median_pct"]) for r in inputs["results"]
     ]
@@ -427,8 +420,8 @@ def validation_offsets_image(session_id: str) -> Response:
 def _problem_frame_response(session: dict, round_: dict, problems: list[dict], caption: str) -> Response:
     """`round_`'s full frame, a red border around each named slot's sheet where it sat in that
     round, or around the whole frame for a problem with no slot."""
-    artifact = _load_saved_artifact(session["calibration_stem"])
-    detections = _capture_tags(round_["capture"])  # for the sheet boxes; the image is reduced
+    artifact = load_saved_calibration(session["calibration_stem"])
+    detections = photo_tags.capture_tags(round_["capture"])  # for the sheet boxes; the image is reduced
     placed = sheets_by_slot(
         group_sheets(detections, artifact.scale_field, artifact.calibration_tag_size_mm),
         slot_layout_from_dict(session["slots"]),
@@ -436,7 +429,7 @@ def _problem_frame_response(session: dict, round_: dict, problems: list[dict], c
     named = [p for p in problems if p["slot"] is not None]
     inputs = {
         "capture": round_["capture"],
-        "preview_width": _CAPTURE_PREVIEW_WIDTH,
+        "preview_width": photo_tags.PREVIEW_WIDTH,
         "boxes": {p["slot"]: list(placed[p["slot"]].box) for p in named},
         "labels": {p["slot"]: f"{p['slot']}: reads {_size_text(p['offset_pct'])}" for p in named},
         "caption": caption,
@@ -446,7 +439,7 @@ def _problem_frame_response(session: dict, round_: dict, problems: list[dict], c
 
 
 def _render_problem_frame(inputs: dict) -> bytes:
-    preview, scale = images.reduced_frame(_capture_path(inputs["capture"]), inputs["preview_width"])
+    preview, scale = images.reduced_frame(photo_tags.capture_path(inputs["capture"]), inputs["preview_width"])
     boxes = {name: tuple(box) for name, box in inputs["boxes"].items()}
     image = render_problem_frame(
         preview, boxes, inputs["labels"], inputs["caption"], whole_frame=inputs["whole_frame"],
