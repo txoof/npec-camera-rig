@@ -3,7 +3,7 @@ and the calibration readiness gate open by default."""
 
 import pytest
 
-import npec_rig.routes.calibration as calibration_routes
+import npec_rig.calibration_run as calibration_run
 from npec_rig import captures
 from npec_rig.camera import CameraManager, SyntheticBackend
 
@@ -30,8 +30,8 @@ def calibration_gate_open_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     open so none of them need a real lock or a 4-tag fixture; the dedicated gate tests in
     test_calibration_routes.py restore the real function to exercise it properly."""
     monkeypatch.setattr(
-        calibration_routes,
-        "_calibration_readiness",
+        calibration_run,
+        "readiness",
         lambda: {
             "focus_locked": True,
             "corner_tags_detected": 4,
