@@ -210,7 +210,8 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | docs | `docs/` (except the shared files below), `reference/`, `README.md`, `GLOSSARY.md` |
 | cad | `hardware/` |
 | deploy | `deploy/` |
-| ci | `.github/`, `pyproject.toml`, `uv.lock` |
+| experiments | `experiments/<folder>/`, each folder its own area: research scripts for one investigation. They may import `src/npec_rig/`, never the reverse (`tests/test_experiments_boundary.py`), and are not deployed (`.gitattributes` leaves them out of release archives) |
+| ci | `.github/`, `.gitattributes`, `pyproject.toml`, `uv.lock` |
 
 Module files are in `src/npec_rig/`. A new module or folder is added to this map in the PR that
 creates it: a new page joins the area of its route file, and a new route file gets its own row.
