@@ -170,7 +170,7 @@ def main(argv: list[str]) -> None:
         for t, v in resolved.items():
             g, m = a1[t], v["mask"]
             rows.append({"order": k, "still": s["still"], "taken_at_utc": s["taken_at"], "step": s["step"], "tray": t,
-                         "label": v["label"], "before_patch_1": v.get("was", ""),
+                         "label": v["label"], "before_patch_1": v.get("was", ""), "source": m and m["source"],
                          "x_px": m and m["cx_full"], "y_px": m and m["cy_full"],
                          "x_mm": m and round(float(m["cx_full"]) / ppm0), "y_mm": m and round(float(m["cy_full"]) / ppm0),
                          "tag_x_px": round(g["cx"]), "tag_y_px": round(g["cy"]), "heading_deg": g["heading_deg"],
@@ -231,17 +231,29 @@ def report(rows: list[dict], moves: list[dict], stills: list[dict]) -> None:
                 d += list(np.hypot(*(pts - pts.mean(axis=0)).T))
         if d:
             print(f"  {step:5s} n {len(d):4d}  rms {np.sqrt(np.mean(np.square(d))):5.1f}  max {max(d):5.1f}")
-    print(f"\nmeasured positions more than {MOVE_MM:.0f} mm from the tray's median in its step (nothing moved):")
+    # Added after the first run (15.5d, first slice): distance of each position from its tray's
+    # median in a step where nothing moved, at the local scale; patched positions shown, not counted.
+    print(f"\npositions more than {MOVE_MM:.0f} mm from the tray's median in its step (nothing moved, local scale):")
+    scale = {k: s["scale"] for k, s in enumerate(stills)}
+    off = set()
     for step in sorted(NOTHING_MOVED):
-        far = defaultdict(list)
         for t in range(1, 13):
-            rs = [r for r in rows if r["step"] == step and r["tray"] == t and r["label"] == MEASURED]
-            if len(rs) < 2:
+            rs = [r for r in rows if r["step"] == step and r["tray"] == t and r["x_px"] is not None]
+            meas = [r for r in rs if r["label"] == MEASURED]
+            if len(meas) < 2:
                 continue
-            med = np.median([(float(r["x_mm"]), float(r["y_mm"])) for r in rs], axis=0)
-            far[t] = [r["still"] for r in rs if np.hypot(float(r["x_mm"]) - med[0], float(r["y_mm"]) - med[1]) > MOVE_MM]
-        print(f"  {step:5s} {sum(map(len, far.values()))} of {sum(r['step'] == step and r['label'] == MEASURED for r in rows)}"
-              + "".join(f" | tray {t}: {len(v)}" for t, v in far.items() if v))
+            med = tuple(np.median([(float(r["x_px"]), float(r["y_px"])) for r in meas], axis=0))
+            for r in rs:
+                d = distance_mm((float(r["x_px"]), float(r["y_px"])), med, scale[r["order"]].px_per_mm)
+                if r["label"] != MEASURED:
+                    print(f"  {step:5s} {r['still']} tray {t:2d} {r['label']:24s} {d:6.1f} mm (patched, not counted)")
+                elif d > MOVE_MM:
+                    off.add((r["order"], t))
+                    print(f"  {step:5s} {r['still']} tray {t:2d} {r['source']:24s} {d:6.1f} mm")
+    right = sum(r["label"] == MEASURED and (r["order"], r["tray"]) not in off for r in rows)
+    passing = sum(all(r["label"] == MEASURED and r["slot_agrees"] and (k, r["tray"]) not in off
+                      for r in rows if r["order"] == k) for k in range(n))
+    print(f"raw, if those {len(off)} count as wrong: trays right {right}/{len(rows)}, stills passing {passing}/{n}")
     turned = [m["mask_mm"] for m in moves if m["turned"] and m["mask_mm"] is not None]
     if turned:
         print(f"mask centre shift where the tag turned: n {len(turned)}, max {max(turned):.1f} mm")
