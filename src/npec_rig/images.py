@@ -38,8 +38,8 @@ from npec_rig.settings import db_path
 from npec_rig.tags import TagDetection, detect_tags
 
 # Bump when detect_tags changes what it finds: stored detections from an older detector are then
-# worked out again rather than reused. 2: tray tags read with their own settings (#156).
-TAG_DETECTOR_VERSION = 2
+# worked out again rather than reused.
+TAG_DETECTOR_VERSION = 1
 DERIVED_MAX_BYTES = 2 * 1024**3
 # One full-size decode at a time: each holds about 190MB, and the Pi has run out of memory before
 # with several 64MP frames live at once (dmesg-confirmed, 2026-09-22).

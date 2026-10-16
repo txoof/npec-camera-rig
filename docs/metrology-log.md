@@ -2797,13 +2797,20 @@ compared). Setting C changes which tags are read, not where their corners are, o
 setting A, meets neither rule, and finds no invented tag. (3) holds: same IDs, 0.0 px. (1) is a
 decision for Aaron from the time above.
 
-**Decision (Aaron, 2026-10-16).** Two passes: calibration and corner tags keep the frozen settings,
-tray tags (0 to 299) are read with setting C in a second pass (`tags._tray_detector_parameters`).
-Every tag search then takes about 8.4 s instead of 4.2 s on a 64 MP still (part 1), which fits the
-budget of one photo per minute. One pass with setting C for every tag remains possible later: part 3
-found the same calibration and corner results to 0.0 px on 7 stills, so the second pass could be
-dropped if its time matters, after a check on more calibration stills. Stored tag detections are
-worked out again once with the new settings (`images.TAG_DETECTOR_VERSION` 2).
+**Outcome (Aaron, 2026-10-16).** On this evidence the final tray tags will be 3D-printed 20 mm tags.
+The detector is not changed in this issue: `tags.py` keeps its frozen settings for every tag. If tray
+tags later get setting C, the preferred design is two passes (calibration and corner tags with the
+frozen settings, tray tags with C, about 8.4 s instead of 4.2 s per 64 MP still); one pass with C for
+every tag remains possible after a check on more calibration stills.
+
+**Why this is not yet proof for 3D-printed tags.** (1) Every 20 mm tag here was paper; the
+3D-printed tag needs its own test (issue #70). (2) Setting C was chosen on the round 2 stills
+(15.3c); the stills not used to choose it are session 1 (20 mm tags 1 to 3 only) and the one-hour
+run (15.3d, the layout of round 2 step 4). (3) Stills taken with nothing moved repeat one test, so
+the number of independent cases is the number of layouts times tags, about 70, not 1380 sightings.
+(4) One day, one lighting setting, no plants near the tags, no weeks of dust or condensation. A
+defensible check of the printed tags needs new layouts, setting C fixed in advance and a pass rule
+written before the photos.
 
 ### 15.4 What is measured
 
