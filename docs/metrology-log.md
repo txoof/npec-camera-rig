@@ -2794,6 +2794,14 @@ compared). Setting C changes which tags are read, not where their corners are, o
 setting A, meets neither rule, and finds no invented tag. (3) holds: same IDs, 0.0 px. (1) is a
 decision for Aaron from the time above.
 
+**Decision (Aaron, 2026-10-16).** Two passes: calibration and corner tags keep the frozen settings,
+tray tags (0 to 299) are read with setting C in a second pass (`tags._tray_detector_parameters`).
+Every tag search then takes about 8.4 s instead of 4.2 s on a 64 MP still (part 1), which fits the
+budget of one photo per minute. One pass with setting C for every tag remains possible later: part 3
+found the same calibration and corner results to 0.0 px on 7 stills, so the second pass could be
+dropped if its time matters, after a check on more calibration stills. Stored tag detections are
+worked out again once with the new settings (`images.TAG_DETECTOR_VERSION` 2).
+
 ### 15.4 What is measured
 
 Each tray is one region; tags give identity only (decision, Aaron 2026-10-14). Trays are found by
