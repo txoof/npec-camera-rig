@@ -2803,6 +2803,13 @@ tags later get setting C, the preferred design is two passes (calibration and co
 frozen settings, tray tags with C, about 8.4 s instead of 4.2 s per 64 MP still); one pass with C for
 every tag remains possible after a check on more calibration stills.
 
+**Done in issue #192 (2026-10-16).** Tray tags (0 to 299) are now read with setting C in a second
+pass (`tags._tray_detector_parameters`); calibration and corner tags keep the frozen settings.
+`images.TAG_DETECTOR_VERSION` is 2. Tags stored by version 1 are still used when their photo is no
+longer in the photos folder (776 of 804 stored searches on 2026-10-16, photos in the old
+`captures/` folder): they cannot be searched again, and calibration and corner tags are identical
+between the versions (part 3).
+
 **Why this is not yet proof for 3D-printed tags.** (1) Every 20 mm tag here was paper; the
 3D-printed tag needs its own test (issue #70). (2) Setting C was chosen on the round 2 stills
 (15.3c); the stills not used to choose it are session 1 (20 mm tags 1 to 3 only) and the one-hour
@@ -3368,6 +3375,47 @@ enough is decided by Aaron now that the results are in (decision rule, above).
 **Success rate: not decided (Aaron, 2026-10-16).** No pass rate is fixed after the full run. Aaron
 first wants to see how tray tracking across the photos of an experiment performs (15.5d), then
 judge how good or bad the result is.
+
+**20 mm edge tags against their 30 mm partner (2026-10-16, issue #192).** **Label: development
+check.** Tags linked to trays, with no true area. **Written after the analysis was run, not
+before:** a check asked for by Aaron on the records of the full run above, so no decision rule was
+set in advance and none is applied.
+
+*Question.* The final tray tags are 20 mm and sit on the tray's outside edge (15.3a). In the full
+run above a tray's ID came from its 30 mm tag in cell A1. Does the 20 mm edge tag on the same tray
+land on that same tray?
+
+*Method.* No photo decoded and nothing run again. For every round 2 still (R2-1 to R2-4, 19) and
+every one-hour-run still (R3, 123), each of the 6 edge tags (pairs of 15.3a: 0:4, 14:5, 16:6, 17:7,
+13:8, 15:11, edge : A1) is classed from the full run's mask record (`fastsam-full176-masks.csv`,
+tag IDs inside each mask) and its cached tag detections (setting C): right tray (the edge tag is in
+one mask, a one-tray mask holding its A1 partner and no other tag); right tray but merged (in the
+partner's mask, which also holds another tray's tag); linked to no tray (on no mask, which is what
+the linking does when the tag is within 20 mm of two masks: ambiguous); wrong tray (in a mask
+without its partner); not read. Script `experiments/round1-trays/edge_tag_check.py`, one row per
+sighting in `edge-tags.csv`.
+
+*Result.*
+
+| Outcome | Round 2 (19 stills) | One hour (123 stills) | All |
+|---|---|---|---|
+| Right tray | 113 of 114 | 691 of 738 | **804 of 852 (94.4%)** |
+| Right tray, outline merged with a neighbour | 0 | 25 | 25 (2.9%) |
+| Linked to no tray (ambiguous) | 1 | 22 | 23 (2.7%): tag 15 16 times, 17 4, 16 3 |
+| Wrong tray | 0 | 0 | **0** |
+| Not read | 0 | 0 | 0 |
+
+The merged cases are tags 14 and 0, on the trays of the known one-hour failures above (the tray
+carrying the benchmark, and tags 5 and 9 on one mask).
+
+*What it shows.* On these stills a 20 mm edge tag never named the wrong tray. About 1 sighting in 37
+named no tray: an edge tag sits on the gap between two trays, so the 20 mm ambiguity test of the
+linking leaves it undecided. *What it does not show.* Trays named by the 20 mm tag alone (identity
+still came from the A1 tags; this checks where the edge tags land); 3D-printed tags (issue #70); trays
+with plants; more than one day and one layout family. The edge tags here are paper. Cached tag
+detections: `~/scratch/round1-trays/tags/` (not in the repository); they differ from the rig's own
+grey conversion in 3 of 53 stills compared (tag 5 twice and the offcut tag 29 once found only in the
+cache).
 
 ### 15.5d Tray tracking over time (issue #171, planned under #164, method written 2026-10-16, before the analysis)
 
