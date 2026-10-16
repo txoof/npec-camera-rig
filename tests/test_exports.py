@@ -8,6 +8,7 @@ import pytest
 
 from npec_rig import captures, database, exports
 from npec_rig.database import ExperimentError
+from tests.helpers import stored_validation
 
 pytestmark = pytest.mark.unit
 
@@ -23,7 +24,6 @@ def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
 
 
 def _calibrated_with_validation(monkeypatch: pytest.MonkeyPatch) -> None:
-    from npec_rig import validation_store
     from npec_rig.calibration import CalibrationArtifact, ScaleField
     from npec_rig.calibration_store import save_calibration
 
@@ -36,9 +36,7 @@ def _calibrated_with_validation(monkeypatch: pytest.MonkeyPatch) -> None:
         ),
         stem=_STEM,
     )
-    validation_store.save_session(
-        {"id": _SESSION, "calibration_stem": _STEM, "completed_at": "2026-10-09T11:00:00+00:00"}
-    )
+    stored_validation(_SESSION, _STEM)
     monkeypatch.setattr(
         captures.CameraManager.instance(),
         "focus_status",

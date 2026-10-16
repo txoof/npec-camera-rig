@@ -164,6 +164,12 @@ Conditions the bands do not cover are marked on each photo rather than averaged 
 taken within 60 minutes of the Pi starting (a cold start; the 60 minutes is a decision: one run on
 SN001 found the readings back within 15 minutes). A camera fault during a run is not detected yet (`docs/metrology-log.md`, section 8).
 
+Which validation a photo is given is one rule, used for the photo's record and the status line
+alike (2026-10-16, #183): the newest complete validation (3 counted rounds) of the active
+calibration. A newer validation that is still running, or ended early, does not replace it. If
+that validation is not consistent, the photo is flagged and its bands are not claimed; the record
+still names it, so it says which validation the photo was taken under.
+
 ## Checks of the whole chain
 
 **What could go wrong.** Calibration and validation both rest on the same typed-in tag size. If

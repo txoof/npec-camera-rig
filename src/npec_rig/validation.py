@@ -154,10 +154,53 @@ def slot_layout(artifact: CalibrationArtifact) -> dict:
     return {"slots": slots, "calibration_centres": [list(c) for c in centres]}
 
 
+def current_session(calibration_stem: str) -> dict | None:
+    """The current validation of a calibration: the newest complete one (ROUNDS_REQUIRED rounds
+    counted), consistent or not (Aaron, 2026-10-16, #183). A newer validation that is still open,
+    or ended early, does not replace it: one started by mistake changes nothing."""
+    complete = [
+        s
+        for s in validation_store.list_sessions()
+        if s.get("calibration_stem") == calibration_stem and s.get("completed_at")
+    ]
+    return max(complete, key=lambda s: s["completed_at"], default=None)
+
+
+def photo_check(focus: dict) -> dict:
+    """Which validation's bands apply to a photo taken now under `focus`, for its sidecar.
+
+    The current validation (`current_session`) of the active calibration, and only when the
+    focus lock matches the calibration's lens position (Aaron, 2026-10-09). The photo is flagged
+    as not covered when no validation applies, or when the current one is not consistent: a
+    not-consistent validation is still named, so the record says which validation the photo was
+    taken under, but its bands are not claimed. An unlocked focus is not flagged again here: the
+    lens check already says so."""
+    artifact = load_current_calibration()
+    if artifact is None:
+        return {"session": None, "flagged": True, "reason": "no calibration"}
+    if focus["lens_position"] is None:
+        return {"session": None, "flagged": False, "reason": None}
+    problem = focus_problem(focus, artifact)
+    if problem:
+        return {"session": None, "flagged": True, "reason": problem}
+    current = current_session(artifact.frame_stem)
+    if current is None:
+        return {"session": None, "flagged": True, "reason": "no finished validation of this calibration"}
+    session_status = validation_store.status(current)
+    if session_status["state"] == "not_consistent":
+        reason = f"the validation is {session_status['label'][0].lower()}{session_status['label'][1:]}"
+        return {"session": current["id"], "flagged": True, "reason": reason}
+    return {"session": current["id"], "flagged": False, "reason": None}
+
+
 def status(focus: dict) -> dict:
     """Whether the active calibration is validated at the focus lock `focus`, for the Setup and
     Calibration pages. A status, not a block: nothing is refused because of it. Reads the
-    session files only, never a capture."""
+    session files only, never a capture.
+
+    The current validation (`current_session`), the same one photos are given; the text adds a
+    newer validation that is in progress or ended early. With no complete validation yet, the
+    newest one's progress."""
     artifact = load_current_calibration()
     if artifact is None:
         return {"state": "no_calibration", "text": "No calibration yet", "session_id": None}
@@ -165,7 +208,16 @@ def status(focus: dict) -> dict:
     sessions = [
         s for s in validation_store.list_sessions() if s.get("calibration_stem") == artifact.frame_stem
     ]
-    if not sessions:
+    current = current_session(artifact.frame_stem)
+    if current is not None:
+        session_status, session_id = validation_store.status(current), current["id"]
+        state, text = session_status["state"], session_status["label"]
+        newer = [
+            s for s in sessions if not s.get("completed_at") and s["started_at"] > current["started_at"]
+        ]
+        if newer:
+            text += "; " + _newer_text(newer[0])
+    elif not sessions:
         state, text, session_id = "not_validated", "Not validated: no validation of this calibration yet", None
     else:
         session = sessions[0]
@@ -184,6 +236,20 @@ def status(focus: dict) -> dict:
         # The validation measured the error at the calibration's lens position, not this one.
         state, text = "focus_mismatch", f"Not validated at this focus: {problem}"
     return {"state": state, "text": text, "session_id": session_id}
+
+
+def _newer_text(session: dict) -> str:
+    """A newer validation that has not completed, for the status line."""
+    counted = len(validation_store.counted_rounds(session))
+    required = validation_store.ROUNDS_REQUIRED
+    if validation_store.is_ended(session):
+        text = f"a newer validation ended after {counted} of {required} rounds"
+    else:
+        text = f"a newer validation is in progress, {counted} of {required} rounds"
+    session_status = validation_store.status(session)
+    if session_status["state"] == "not_consistent":
+        text += f", {session_status['label'][0].lower()}{session_status['label'][1:]}"
+    return text
 
 
 def delete(session_id: str) -> None:

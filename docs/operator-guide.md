@@ -33,6 +33,14 @@ uncertainty column in the exported data means.
 The validation result is a map with one number per tray position (slot), for example "North 2:
 ±2.1%". That number is the uncertainty attached to every area measured at that position.
 
+Photos are given the newest **complete** validation, the one with 3 counted rounds. Starting a
+new validation does not change that until the new one completes: the status line then reads, for
+example, "Validated 2026-10-14; a newer validation is in progress, 1 of 3 rounds". So a validation
+started by mistake, or ended early, costs nothing. If the newest complete validation reads **Not
+consistent**, photos taken from then on are flagged as not covered by the bands. To go back to
+the previous validation after one was finished by mistake, delete the mistaken one from the
+history on the Validation page (a way to set one aside without deleting it is planned, #196).
+
 ## When to repeat
 
 Repeat all three steps after any of these:

@@ -211,7 +211,10 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         "camera_fault": health.camera_fault_check(),
     }
     if purpose in _MEASURED_PURPOSES:
-        checks["validation"] = validation_check(focus)
+        # Imported here: validation.py imports this module (take_photo).
+        from npec_rig.validation import photo_check
+
+        checks["validation"] = photo_check(focus)
     sidecar = {
         "purpose": purpose,
         "lens_position": manager.get_lens_position(),
@@ -243,45 +246,6 @@ def _active_calibration():
 def _active_calibration_stem() -> str | None:
     artifact = _active_calibration()
     return artifact.frame_stem if artifact is not None else None
-
-
-def validation_check(focus: dict) -> dict:
-    """Which validation's bands apply to a photo taken now under `focus`, for its sidecar.
-
-    The most recent finished (all rounds counted) validation of the active calibration, and only
-    when the focus lock matches the calibration's lens position (Aaron, 2026-10-09). Otherwise no
-    validation applies and the photo is flagged as not covered. An unlocked focus is not flagged
-    again here: the lens check already says so."""
-    # Imported here: validation_store imports calibration_store, which imports this module.
-    from npec_rig import validation_store
-
-    artifact = _active_calibration()
-    session_id = None
-    locked_at = focus["lens_position"]
-    if artifact is None:
-        reason = "no calibration"
-    elif locked_at is None:
-        reason = None
-    elif (
-        artifact.lens_position is not None
-        and abs(locked_at - artifact.lens_position) > CALIBRATION_LENS_TOLERANCE
-    ):
-        reason = (
-            f"focus is locked at {locked_at:.2f}, the calibration was taken at "
-            f"{artifact.lens_position:.2f}"
-        )
-    else:
-        finished = [
-            s
-            for s in validation_store.list_sessions()
-            if s.get("calibration_stem") == artifact.frame_stem and s.get("completed_at")
-        ]
-        if finished:
-            session_id = max(finished, key=lambda s: s["completed_at"])["id"]
-            reason = None
-        else:
-            reason = "no finished validation of this calibration"
-    return {"session": session_id, "flagged": reason is not None, "reason": reason}
 
 
 def _record_in_database(record: dict) -> int | None:

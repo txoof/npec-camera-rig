@@ -4,6 +4,7 @@ import pytest
 
 from npec_rig import captures, database
 from npec_rig.settings import db_path, save_setting
+from tests.helpers import stored_validation
 
 pytestmark = pytest.mark.unit
 
@@ -120,59 +121,15 @@ def _calibrate(lens_position: float = 6.04) -> None:
     )
 
 
-def _session(session_id: str, completed_at: str | None, calibration_stem: str = _STEM) -> None:
-    from npec_rig import validation_store
-
-    validation_store.save_session(
-        {"id": session_id, "calibration_stem": calibration_stem, "completed_at": completed_at}
-    )
-
-
 def _locked(at: float | None) -> dict:
     return {"locked": at is not None, "lens_position": at}
-
-
-def test_no_calibration_is_not_covered() -> None:
-    check = captures.validation_check(_locked(6.04))
-    assert check == {"session": None, "flagged": True, "reason": "no calibration"}
-
-
-def test_unlocked_focus_is_left_to_the_lens_check() -> None:
-    _calibrate()
-    check = captures.validation_check(_locked(None))
-    assert check == {"session": None, "flagged": False, "reason": None}
-
-
-def test_a_lock_away_from_the_calibration_is_not_covered() -> None:
-    _calibrate(6.04)
-    _session("20261009T080000000000", "2026-10-09T09:00:00+00:00")
-    check = captures.validation_check(_locked(6.50))
-    assert check["session"] is None
-    assert check["reason"] == "focus is locked at 6.50, the calibration was taken at 6.04"
-
-
-def test_only_a_finished_validation_of_this_calibration_applies() -> None:
-    _calibrate()
-    _session("20261009T080000000000", None)  # still running
-    _session("20261008T080000000000", "2026-10-08T09:00:00+00:00", calibration_stem="older")
-    check = captures.validation_check(_locked(6.04))
-    assert check["session"] is None
-    assert check["flagged"] is True
-
-
-def test_the_latest_finished_validation_applies() -> None:
-    _calibrate()
-    _session("20261009T080000000000", "2026-10-09T09:00:00+00:00")
-    _session("20261009T100000000000", "2026-10-09T11:00:00+00:00")
-    check = captures.validation_check(_locked(6.04))
-    assert check == {"session": "20261009T100000000000", "flagged": False, "reason": None}
 
 
 def test_the_validation_is_stored_for_a_capture_but_not_judged_for_a_validation_round(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _calibrate()
-    _session("20261009T100000000000", "2026-10-09T11:00:00+00:00")
+    stored_validation("20261009T100000000000", _STEM)
     monkeypatch.setattr(captures.CameraManager.instance(), "focus_status", lambda: _locked(6.04))
     _array, capture = captures.take_photo("capture")
     _array, round_ = captures.take_photo("validation", {"validation_session": "s1"})

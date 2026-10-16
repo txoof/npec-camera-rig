@@ -339,10 +339,12 @@ def test_validation_status_follows_the_newest_session_of_the_active_calibration(
     assert summary["first_counted_at"] <= summary["last_counted_at"]
     assert summary["round_span_minutes"] < 1
 
-    # A new session replaces the old one's status until it completes.
-    newer = client.post("/validation/sessions").json()
+    # A newer session does not replace the complete one until it completes itself (Aaron,
+    # 2026-10-16, #183): the status line keeps the current one and names the newer one.
+    client.post("/validation/sessions")
     status = client.get("/validation/status").json()
-    assert (status["state"], status["session_id"]) == ("not_validated", newer["id"])
+    assert (status["state"], status["session_id"]) == ("validated", session["id"])
+    assert status["text"].endswith("; a newer validation is in progress, 0 of 3 rounds")
 
 
 def test_validation_status_names_a_slot_that_is_not_consistent(tray_scene: dict) -> None:

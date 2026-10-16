@@ -4,13 +4,14 @@ import pytest
 
 from npec_rig import validation
 from npec_rig.calibration import CalibrationArtifact, ScaleField
+from npec_rig.calibration_store import save_calibration
 from npec_rig.certainty_map import (
     build_slot_layout,
     calibration_centres,
     group_sheets,
     slot_layout_to_dict,
 )
-from tests.helpers import tray_layout_detections
+from tests.helpers import stored_validation, tray_layout_detections
 
 pytestmark = pytest.mark.unit
 
@@ -87,3 +88,104 @@ def test_focus_problem() -> None:
     assert validation.focus_problem({"locked": False, "lens_position": None}, ARTIFACT) == "focus is not locked"
     no_lens = CalibrationArtifact(created_at="2026-10-16T00:00:00+00:00", scale_field=FIELD)
     assert validation.focus_problem({"locked": True, "lens_position": 9.0}, no_lens) is None
+
+
+# --- Which validation is current (#183): the photo record and the status line use one rule ---
+
+STEM = "20261009T073108292325"
+
+
+@pytest.fixture(autouse=True)
+def isolated_calibration_dir(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+
+
+def _calibrate(lens_position: float = 6.05) -> None:
+    save_calibration(
+        CalibrationArtifact(
+            created_at="2026-10-09T07:31:08+00:00",
+            scale_field=FIELD,
+            frame_stem=STEM,
+            lens_position=lens_position,
+        )
+    )
+
+
+def test_no_calibration_is_not_covered() -> None:
+    assert validation.photo_check(LOCKED) == {"session": None, "flagged": True, "reason": "no calibration"}
+
+
+def test_unlocked_focus_is_left_to_the_lens_check() -> None:
+    _calibrate()
+    assert validation.photo_check({"locked": False, "lens_position": None}) == {
+        "session": None, "flagged": False, "reason": None
+    }
+
+
+def test_a_lock_away_from_the_calibration_is_not_covered() -> None:
+    _calibrate()
+    stored_validation("20261009T080000000000", STEM)
+    check = validation.photo_check({"locked": True, "lens_position": 6.50})
+    assert check["session"] is None
+    assert check["reason"] == "focus is locked at 6.50, the calibration was taken at 6.05"
+
+
+def test_only_a_complete_validation_of_this_calibration_applies() -> None:
+    _calibrate()
+    stored_validation("20261009T080000000000", STEM, rounds=2)  # still running
+    stored_validation("20261008T080000000000", "20261008T073108292325")  # another calibration
+    check = validation.photo_check(LOCKED)
+    assert check == {"session": None, "flagged": True, "reason": "no finished validation of this calibration"}
+
+
+def test_the_newest_complete_validation_applies() -> None:
+    _calibrate()
+    stored_validation("20261009T080000000000", STEM)
+    stored_validation("20261009T100000000000", STEM)
+    assert validation.photo_check(LOCKED) == {"session": "20261009T100000000000", "flagged": False, "reason": None}
+
+
+def test_a_newer_validation_that_is_not_complete_does_not_replace_the_current_one() -> None:
+    # Aaron, 2026-10-16: a validation started by mistake must not take away the good one.
+    _calibrate()
+    stored_validation("20261009T080000000000", STEM)
+    stored_validation("20261009T100000000000", STEM, rounds=1)
+    stored_validation("20261009T110000000000", STEM, rounds=2, ended=True)
+    assert validation.photo_check(LOCKED)["session"] == "20261009T080000000000"
+    status = validation.status(LOCKED)
+    assert (status["state"], status["session_id"]) == ("validated", "20261009T080000000000")
+    assert status["text"] == (
+        "Validated 2026-10-09; a newer validation ended after 2 of 3 rounds"
+    )
+
+
+def test_a_current_validation_that_is_not_consistent_flags_photos_but_names_itself() -> None:
+    _calibrate()
+    stored_validation("20261009T080000000000", STEM)
+    stored_validation("20261009T100000000000", STEM, inconsistent=True)
+    assert validation.photo_check(LOCKED) == {
+        "session": "20261009T100000000000",
+        "flagged": True,
+        "reason": "the validation is not consistent: North 1",
+    }
+    status = validation.status(LOCKED)
+    assert (status["state"], status["text"]) == ("not_consistent", "Not consistent: North 1")
+
+
+def test_the_status_line_names_a_newer_validation_in_progress_and_its_problem() -> None:
+    _calibrate()
+    stored_validation("20261009T080000000000", STEM)
+    stored_validation("20261009T100000000000", STEM, rounds=2, inconsistent=True)
+    assert validation.status(LOCKED)["text"] == (
+        "Validated 2026-10-09; a newer validation is in progress, 2 of 3 rounds, "
+        "not consistent: North 1"
+    )
+
+
+def test_with_no_complete_validation_the_status_line_shows_the_newest_ones_progress() -> None:
+    _calibrate()
+    stored_validation("20261009T100000000000", STEM, rounds=2, inconsistent=True)
+    assert validation.status(LOCKED)["text"] == "Not consistent: North 1"
+    stored_validation("20261009T110000000000", STEM, rounds=1)
+    status = validation.status(LOCKED)
+    assert (status["state"], status["text"]) == ("not_validated", "Not validated: 1 of 3 rounds counted so far")
