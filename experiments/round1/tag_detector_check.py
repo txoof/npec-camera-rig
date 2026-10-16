@@ -111,7 +111,9 @@ def main():
                         " ".join(map(str, sorted(found_c)))] + secs + [round(os.getloadavg()[0], 2)])
             f.flush()
             print(group, step, still, len(found_a), len(found_c), flush=True)
-    json.dump(corners, open(HERE / "tag-detector-corners.json", "w"), indent=1)
+    with open(HERE / "tag-detector-corners.json", "w") as f:
+        # One line per still, so the file stays a few lines long in a diff.
+        f.write("{\n" + ",\n".join(f"{json.dumps(k)}: {json.dumps(v, separators=(',', ':'))}" for k, v in corners.items()) + "\n}\n")
     run["loadavg_end"] = os.getloadavg()
     run["finished_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     json.dump(run, open(HERE / "tag-detector-run.json", "w"), indent=1)
