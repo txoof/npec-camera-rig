@@ -56,25 +56,26 @@ fitted size.
 
 ## Resume here (state on 2026-10-16)
 
-Splitting: issue #164, branch `164-tray-splitting`, pull request open (closes #164). **Tracking
-continues in issue #171**: start its branch from `origin/main` after that pull request is merged,
-or from `origin/164-tray-splitting` if it is not merged yet. Method and every
-result: `docs/metrology-log.md` 15.5c (splitting) and 15.5d (tracking plan). Tray facts:
-`reference/trays.md`.
+Splitting: issue #164, merged (#172). **Tracking: issue #171, branch `171-tray-tracking`,
+worktree `~/wt/npec-171-tray-tracking`.** Method, amendments and first results:
+`docs/metrology-log.md` 15.5d. Splitting: 15.5c. Tray facts: `reference/trays.md`.
 
 Where the data is:
 - HEF: `~/scratch/round1-trays/hailo/fast_sam_s.hef` (SHA-256 in 15.5c). Tag detections for all 176
   stills cached in `~/scratch/round1-trays/tags/`. Overlays in `~/scratch/round1-trays/`.
 - Full run: `fastsam-full176.csv`, `fastsam-full176-masks.csv`, `summary-full176.csv` here.
+- Tracking: `track-full176.csv`, `track-full176-moves.csv` here; timeline in
+  `~/scratch/round1-trays/track/`, evidence overlays in `track/evidence/`.
 
 Commands (run from the worktree root; tests by explicit path, pytest's default is `tests/` only):
 
     PYTHONPATH="$(pwd)/src" /home/pi/npec_camera_rig/.venv/bin/python3 -m pytest -q experiments/round1-trays -p no:xdist
     cd experiments/round1-trays
-    PYTHONPATH=/home/pi/wt/npec-164-tray-splitting/src /home/pi/npec_camera_rig/.venv/bin/python3 fastsam.py --name NAME --margin 1.15 STILL ...
-    PYTHONPATH=/home/pi/wt/npec-164-tray-splitting/src /usr/bin/python3 summarise.py fastsam-NAME.csv
+    PYTHONPATH=/home/pi/wt/npec-171-tray-tracking/src /home/pi/npec_camera_rig/.venv/bin/python3 track.py fastsam-full176.csv
+    PYTHONPATH=/home/pi/wt/npec-171-tray-tracking/src /usr/bin/python3 summarise.py fastsam-full176.csv
 
-Next step: write `track.py` as planned in 15.5d (no new Hailo run), run it on the full 176, write up.
+Done: raw tracking and patches 1 to 3 (15.5d), 2109 of 2112 trays, 173 of 176 stills. Evidence
+overlays in `~/scratch/round1-trays/track/evidence/`. Next: Aaron judges the result.
 
 Open for Aaron:
 - Success rate that is good enough: deferred until the tracking result (15.5d).

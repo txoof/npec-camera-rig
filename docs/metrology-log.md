@@ -3373,6 +3373,8 @@ for one layout is not fully repeatable from one still to the next.
 FastSAM gives it no tray mask in the first pass or the fallback, and its tag 4 sits at its
 south-west corner on the seam with North 2, within 60 mm of North 2's mask, so it links there
 (seen on `101419_730536`). The 13th is tags 5 and 9 on one first-pass mask (`101019_729462`).
+*Added 2026-10-16:* tracking (15.5d) finds 7 more trays counted right here whose fallback mask
+lies 52 to 225 mm from the tray; counted as wrong, 2078 of 2112 trays and 159 of 176 stills.
 The fallback found 111 of the 125 trays sent to it.
 
 - So the trays that remain hard are trays with something large on them (the benchmark covers part
@@ -3496,6 +3498,149 @@ moves. A timeline per tray (position against time, steps marked) as a picture in
 **What it does not cover.** Trays removed from the chamber or added during a sequence (none on
 15 October), any angle other than 0 and 180 degrees, fewer than 12 trays, pots or plants in the
 wells. Round 1 bar: recorded, then judged by Aaron.
+
+**Amendments (2026-10-16, issue #171, written before the first run of `track.py`).** Found while
+reading the saved results. Each changes how a measure above is taken, not what is decided.
+
+- *Mask outline.* The full run kept each mask's centre and its east-west and north-south extent,
+  not its outline, and a new Hailo run is out of scope. Patch 2's "inside" therefore means inside
+  the mask's axis-aligned box widened by 15 mm (the tag tolerance of 15.5b, as paper tags extend
+  past the tray lip). Trays sit at 0 or 180 degrees, so the box is close to the outline.
+- *Millimetres.* The calibration gives a local scale (pixels per mm at a point), not a table
+  frame in mm. A distance between two positions is the pixel distance divided by the scale at
+  their midpoint. Timeline positions and the spread figures are pixels divided by the scale at
+  the image centre, good to a few percent; every 50 mm test uses the local scale.
+- *Reference per tray.* The step table above says what moved at each boundary, not which tray.
+  Each tray's own reference is its A1 tag: moved when the tag centre shifts more than 50 mm, or
+  when its heading changes by more than 90 degrees. The tag result is checked against the step
+  table; where the two disagree it is reported, not adjusted.
+- *Heading apart from position.* The heading comes only from the tag, so a turn found by heading
+  says nothing about the masks. Mask-centre moves (more than 50 mm) and heading flips are counted
+  and reported separately. In a 180 degree turn the tag crosses the tray (corner to corner) while
+  the tray centre stays, so a turn is a tag move but not a mask move.
+- *Positions counted.* A tray in a mask holding two trays has no measured position. Patched and
+  filled positions are never used in the position spread.
+- *Twelfth tray.* All 176 stills hold 12 A1 tags, so patch 1 never meets a tray whose tag was not
+  found.
+
+**Results, first slice (2026-10-16): raw tracking, patches 1 and 2.**
+`experiments/round1-trays/track.py` on the 176 stills in time order, record
+`track-full176.csv` (one row per tray per still) and `track-full176-moves.csv` (one row per tray
+per pair of consecutive stills), timeline `~/scratch/round1-trays/track/timeline-full176.png`.
+The raw count reproduces 15.5c: 2085 of 2112 trays right, 163 of 176 stills passing.
+
+| | Trays right, of 2112 | Stills passing, of 176 |
+|---|---|---|
+| Raw (15.5c) | 2085 | 163 |
+| After patches 1 and 2 | 2098 (13 kept by patch 2) | 163 |
+
+(Both rows count by the 15.5c rule; the final table below counts the off positions as wrong.)
+
+- *Patch 2* fired in all 13 failing stills, not the 12 expected: in the 12 benchmark stills it
+  kept tray 5 (North 2) and sent tray 4 (North 3, under the benchmark) to unresolved; in
+  `101019_729462` it kept tray 9 and sent tray 5 to unresolved. No still passes after it, since
+  the unresolved tray has no position.
+- *Patch 1* never fired: no failing still held a tray-shaped mask without a tag.
+
+Moves between consecutive stills, mask centre against the A1 tag reference (trays):
+
+| Pair | Pairs of stills | Tag turned | Move found | Missed | False | Still, agreed | Not judged |
+|---|---|---|---|---|---|---|---|
+| 1 to 2 (turned 180) | 1 | 12 | 0 | 0 | 0 | 0 | 12 |
+| 2 to 3 (rows swapped) | 1 | 0 | 12 | 0 | 0 | 0 | 0 |
+| 3 to 5 (pushed together) | 1 | 0 | 0 | 1 | 0 | 11 | 0 |
+| 5 to 4 (swapped in rows) | 1 | 0 | 12 | 0 | 0 | 0 | 0 |
+| 4 to 6 | 1 | 0 | 0 | 0 | 0 | 12 | 0 |
+| 6 to R2-1 (re-tagged, reset) | 1 | 2 | 0 | 0 | 0 | 10 | 2 |
+| R2-1 to R2-2 (rows swapped) | 1 | 0 | 12 | 0 | 0 | 0 | 0 |
+| R2-2 to R2-3 (swapped in rows) | 1 | 0 | 12 | 0 | 0 | 0 | 0 |
+| R2-3 to R2-4 (pushed together) | 1 | 0 | 1 | 1 | 0 | 10 | 0 |
+| R2-4 to R3 | 1 | 0 | 0 | 0 | 0 | 12 | 0 |
+| Within steps 1 to R2-4 | 43 | 0 | 0 | 0 | 0 | 516 | 0 |
+| Within R3 (one hour) | 122 | 0 | 0 | 0 | 11 | 1401 | 52 |
+
+- Every swap of rows or of trays within rows is found, 48 of 48, with no false move outside R3.
+  This is not independent evidence of tracking: a mask gets its tray from the tag linked to it
+  within 60 mm, so a mask follows its tag through a swap almost by construction. The independent
+  signals are the false moves and the position spread below.
+- The 2 missed moves are pushes near the 50 mm line: tag 59.9 mm and mask 49.5 mm (tray 9, 3 to
+  5); tag 58.4 mm and mask 42.3 mm (tray 10, R2-3 to R2-4). Pushing the trays together moved most
+  of them less than 50 mm, so the step table's "pushed together" is not a move by the 50 mm rule.
+- At the 180 degree turns the mask centre moved at most 30.5 mm (14 trays), as expected for a
+  turn in place. Two trays' tags turned between step 6 and R2-1, when the trays were re-tagged.
+- The 11 false moves in R3 come from 7 measured positions far from the tray's median position in
+  R3, all of them fallback masks (15.5c, score floor 0.05): tray 5 in `100634_758061`,
+  `101034_733642`, `101904_723909` and `102904_742544`, 218 to 225 mm off; tray 4 in
+  `100634_758061`, `101904_723909` and `102904_742544`, 52 to 62 mm off (local scale). Tray 5's
+  lie across the seam south of its tray (`100634_758061`: centre about 1000 px south of the other
+  North masks), still linked to tag 5 within 60 mm. Tray 4's are masks of 1.12 to 1.17 trays on
+  the benchmark tray. **15.5c counted all 7 as right**: the row-and-order slot rule does not see a
+  mask 220 mm off while it stays in its row. Counted as wrong, the raw result is 2078 of 2112
+  trays and 159 of 176 stills.
+- Patch 2 cross-check: each position it kept lies 11.0 to 20.3 mm from tray 5's R3 median (12
+  stills) and 1.4 mm from tray 9's, so it kept the right tray each time. In `101019_729462` tag 9
+  lies about 2 mm inside the widened box (985 px from the mask centre against a half height of
+  about 996 px); without the 15 mm widening patch 2 would not have fired there.
+- *Added after the first run, not in the plan:* the distance of each position from its tray's
+  median (the 50 mm count above) and the mask shift at the turns. Both explain results of the
+  planned measures; neither changes them.
+- Position spread of measured masks where nothing moved (distance from the tray's mean, by the
+  scale at the image centre): step 1 rms 1.8 mm, max 6.3 (120 positions); R2-1 rms 3.6, max 13.0
+  (120); R3 rms 12.3, max 215.7 (1449, including the 7 above).
+
+**Decision (Aaron, 2026-10-16).** A measured position more than 50 mm from its tray's median in a
+step where nothing moved counts as wrong: for trays right, and as a gap that patch 3 may fill.
+This changes the decision rule of 15.5c for these stills. It can only be applied where nothing
+moved; during an experiment a position would be judged wrong by its mask jumping while its tag
+stays still, not yet written.
+
+**Results, second slice (2026-10-16): patch 3.** Same script and record. Gaps eligible for
+patch 3: trays with no position and the wrong positions above. The positions before and after a
+gap are measured positions not counted wrong; a position kept by patch 1 or 2 is neither filled
+nor used as a neighbour (decision). "Another tray's mask" means a mask linked to at least one
+other tray's tag; a mask with no tag belongs to no tray. This reading was settled after the first
+run of patch 3, which had counted tagless masks and so refused tray 3 in `101549_732631`, where
+the tagless mask is tray 3's own, unlinked outline. Per-still counts (measured, kept by patch 2,
+inferred, filled, wrong, no position, passing) are in `track-full176-stills.csv`. Every still with a patched, filled or wrong tray is drawn in
+`~/scratch/round1-trays/track/evidence/` (17 stills): the 15.5c overlay with each final position
+as a tray-sized box labelled FILLED, KEPT BY PATCH 2, or WRONG with its distance.
+
+| Trays right, stills passing | All 176 stills | Gaps, 33 | Touching, 143 |
+|---|---|---|---|
+| Raw, 15.5c rule | 2085 of 2112, 163 | 396, 33 | 1689 of 1716, 130 |
+| Raw, wrong positions counted wrong | 2078, 159 | 396, 33 | 1682, 126 |
+| After patches 1 and 2 | 2091, 159 | 396, 33 | 1695, 126 |
+| After patch 3 | **2078 measured + 31 patched = 2109 of 2112; 173 of 176** | 396, 33 | 1713, 140 |
+
+Measured and patched are counted apart: 2078 trays (98.4%) were measured right, and 31 (1.5%)
+have a position from a patch (13 kept by patch 2, 18 filled from neighbours).
+
+- Patch 3 filled 18 tray positions: 12 of the 13 sent to unresolved by patch 2 (tray 4 in 11
+  stills, tray 5 in `101019_729462`), 5 of the 7 wrong positions (tray 5: 3, tray 4: 2), and
+  tray 3 in `101549_732631`.
+- Consistency check: every filled position lies 0.7 to 11.6 mm from its tray's R3 median (tray
+  4: 13 filled, mean 2.2 mm; tray 5: 4, at most 1.5 mm; tray 3: 1, 0.7 mm; scale 4.85 px/mm).
+  The median comes from the same tray's masks, so this shows the fills agree with the other
+  stills, not that those are right; that the trays did not move is known from their tags (no tag
+  moved more than 0.3 mm within R3).
+- Moves after all patches, within R3: 0 false moves, 1458 still and agreed, 6 not judged (the
+  3 positions left without a right position).
+- 3 trays are left without a right position, all in R3. Tray 4 in `100634_758061` and
+  `102104_724310`: refused because the positions before and after differ by more than 20 mm (tray
+  4 carries the benchmark and its masks vary). Tray 5 in `102904_742544`: the next still's
+  position was kept by patch 2, so there is no measured neighbour after it.
+- 31 of the 2112 tray positions (1.5%) are patched (13 by patch 2, 18 by patch 3), all in R3 and
+  none in the gaps set. They belong to 4 trays: 3, 4 and 5 on North 4, 3 and 2 around the
+  benchmark, and 9 on North 1.
+- Position spread of measured masks not counted wrong (distance from the tray's mean, scale at the
+  image centre): step 1 rms 1.8 mm, max 6.3 (120); R2-1 rms 3.6, max 13.0 (120); R3 rms 4.0, max
+  48.8 (1442). The R3 maximum is below 50 mm because positions over 50 mm from the median were
+  removed as wrong; the raw figures are in the first slice above.
+
+**What it does not cover.** As above, plus: all patching happened in one hour-long step, on 4
+trays in the North row around one benchmark, so how often the patches are needed or work
+elsewhere is not known. The success rate that is good enough is Aaron's to set; the slot
+reference is still provisional.
 
 ### 15.5e The benchmark from the supervisor's photogrammetry mesh (issue #206, method written 2026-10-16, after the analysis)
 
