@@ -3497,6 +3497,38 @@ moves. A timeline per tray (position against time, steps marked) as a picture in
 15 October), any angle other than 0 and 180 degrees, fewer than 12 trays, pots or plants in the
 wells. Round 1 bar: recorded, then judged by Aaron.
 
+### 15.5e The benchmark from the supervisor's photogrammetry mesh (issue #206, method written 2026-10-16, after the analysis)
+
+**Label: development check.** A second instrument measuring the benchmark of 15.1: one mesh made by
+the academic supervisor's iPhone software (time-of-flight depth plus camera, RealityKit Object
+Capture 3.9.4, detail level `.mobile`, 25,000 triangles, mean triangle 3.39 mm²). Neither the
+USDZ nor the STL stores an area; both hold the same mesh, in metres. Areas are computed from it as
+seen from directly above (rays every 0.2 mm, board top fitted as a plane, objects more than 1 to
+5 mm above it). Full record, file checksums and tables: `experiments/round1-benchy-mesh/NOTES.md`,
+script `mesh_area.py`, output `results.txt`. The mesh files stay outside the repo, in
+`~/scratch/`.
+
+**Scale.** Mesh lengths against the callipers: NE and NW widest span and the cylinder diameter
+within 0.6%, SE span -2.2%, the 4 rosette heights -4.9% to +2.0%. The base reads 188.3 x 188.3 mm;
+no calliper or tape reading of it exists yet. The SW span reads 41.00 mm against the calliper
+38.68 mm (+6.0%); the rig's photos also read it large (41.2 to 43.6 mm, 15.5), so two instruments
+disagree with that calliper figure, which 15.1 already calls an estimate. Open.
+
+**Rosette areas** (the same at every cut-off): NE 2009.9, SE 1343.7, NW 753.4, SW 413.7 mm². These
+are 10.2%, 19.6%, 21.6% and 38.7% above the rig's 15.5 means, and below the 15.1 upper limits.
+Neither instrument is known to be right. The mesh counts the white centre beads, which the rig
+leaves out; the rig sees the tops 3.4% to 4.7% large from height, which widens the gap; the rig's
+thresholds miss blurred edges (15.5). Likely, not measured: the mesh's coarse triangles widen thin
+leaves, which fits the largest gap being on the thin-leaved SW.
+
+**Red solids.** Prism 55.1 against 51.6 mm² (+6.8%), cylinder 49.8 against 55.3 (-9.9%), sphere 38.6 to
+59.6 depending on the cut-off (61.5 known), the flat circle not found (it has no relief). At this
+mesh size they are not a useful area reference.
+
+**Covers / does not cover.** One capture of one benchmark. Usable as a second check of the calliper
+lengths and heights. Not yet a reference area for the rosettes; not the repeatability of the
+photogrammetry; not plants.
+
 ### 15.6 Round 1 review
 
 Not yet written. Covers what was found, what surprised us, which step it sends work back to, and

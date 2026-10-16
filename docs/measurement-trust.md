@@ -343,7 +343,9 @@ spread for the four rosettes, under 0.8% for repeated photos with nothing moved)
 shapes of known area showed two error sources larger than anything in the geometry: edges
 (a flat 10 mm circle read about 21% small) and sides seen at an angle toward the row ends (a
 15 mm tall prism read up to 75% large). Segmentation is now the largest measured error source,
-as PLAN.md expected. Metrology log section 15.5.
+as PLAN.md expected. Metrology log section 15.5. A photogrammetry mesh of the same benchmark
+(one capture, a second instrument) gives rosette areas 10% to 39% larger than the rig; which of the
+two is closer to the truth is not known yet. Metrology log section 15.5e.
 
 **Real leaves, first look (round 1, 2026-10-15).** Three garden leaves of known area (flatbed
 scans scaled by printed tags), laid flat on the trays, read on average 2.5% smaller than their
