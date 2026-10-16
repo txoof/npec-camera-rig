@@ -386,6 +386,13 @@ limits: where one does not work for a page, choose what does and say why in the 
   only; plant height and segmentation add to them (PLAN.md, *Per-slot area uncertainty*).
 - **Rig timestamps (capture names, session IDs) are UTC; the chamber's local time is UTC+2.**
   Convert before matching them against anything a person reports.
+- **Tray tags.** The 15 October test trays use IDs 0 to 17 (1 to 12 original, 0 and 13 to 17 added
+  for the paired 20 mm test). Final tray tags are about 20 mm, 3D printed, on the tray's outside
+  edge: 27 mm hard clearance, and 30 mm edge tags hit other lab equipment (Aaron, 2026-10-15). Tray
+  tags (IDs 0 to 299) are read with finer bit sampling, calibration and corner tags with the frozen
+  settings (`tags._tray_detector_parameters`, metrology log 15.3e, #192).
+- **Trays touch.** Researchers will not reliably leave gaps, so tray splitting must work with trays
+  touching (`reference/trays.md`).
 
 ## Where things live
 
