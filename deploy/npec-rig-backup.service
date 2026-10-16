@@ -1,0 +1,12 @@
+[Unit]
+Description=NPEC Camera Rig backup to media-server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+ExecStart=/home/pi/npec_camera_rig/deploy/npec-rig-backup.sh
+# Low priority, so a backup never slows a capture.
+Nice=19
+IOSchedulingClass=idle

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the NPEC Camera Rig backup every 6 hours
+
+[Timer]
+OnCalendar=00/6:15
+# A run missed while the Pi was off happens at the next boot.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
