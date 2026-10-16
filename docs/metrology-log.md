@@ -3598,8 +3598,10 @@ stays still, not yet written.
 patch 3: trays with no position and the wrong positions above. The positions before and after a
 gap are measured positions not counted wrong; a position kept by patch 1 or 2 is neither filled
 nor used as a neighbour (decision). "Another tray's mask" means a mask linked to at least one
-other tray's tag; a mask with no tag belongs to no tray (in `101549_732631` it is tray 3's own,
-unlinked outline). Every still with a patched, filled or wrong tray is drawn in
+other tray's tag; a mask with no tag belongs to no tray. This reading was settled after the first
+run of patch 3, which had counted tagless masks and so refused tray 3 in `101549_732631`, where
+the tagless mask is tray 3's own, unlinked outline. Per-still counts (measured, kept by patch 2,
+inferred, filled, wrong, no position, passing) are in `track-full176-stills.csv`. Every still with a patched, filled or wrong tray is drawn in
 `~/scratch/round1-trays/track/evidence/` (17 stills): the 15.5c overlay with each final position
 as a tray-sized box labelled FILLED, KEPT BY PATCH 2, or WRONG with its distance.
 
@@ -3608,14 +3610,21 @@ as a tray-sized box labelled FILLED, KEPT BY PATCH 2, or WRONG with its distance
 | Raw, 15.5c rule | 2085 of 2112, 163 | 396, 33 | 1689 of 1716, 130 |
 | Raw, wrong positions counted wrong | 2078, 159 | 396, 33 | 1682, 126 |
 | After patches 1 and 2 | 2091, 159 | 396, 33 | 1695, 126 |
-| After patch 3 | **2109 of 2112 (99.9%), 173 of 176** | 396, 33 | 1713, 140 |
+| After patch 3 | **2078 measured + 31 patched = 2109 of 2112; 173 of 176** | 396, 33 | 1713, 140 |
+
+Measured and patched are counted apart: 2078 trays (98.4%) were measured right, and 31 (1.5%)
+have a position from a patch (13 kept by patch 2, 18 filled from neighbours).
 
 - Patch 3 filled 18 tray positions: 12 of the 13 sent to unresolved by patch 2 (tray 4 in 11
   stills, tray 5 in `101019_729462`), 5 of the 7 wrong positions (tray 5: 3, tray 4: 2), and
   tray 3 in `101549_732631`.
-- Cross-check: every filled position lies 0.7 to 11.6 mm from its tray's R3 median (tray 4: 13
-  filled, mean 2.2 mm; tray 5: 4, at most 1.5 mm; tray 3: 1, 0.7 mm; scale 4.85 px/mm), so
-  each was filled at the right place.
+- Consistency check: every filled position lies 0.7 to 11.6 mm from its tray's R3 median (tray
+  4: 13 filled, mean 2.2 mm; tray 5: 4, at most 1.5 mm; tray 3: 1, 0.7 mm; scale 4.85 px/mm).
+  The median comes from the same tray's masks, so this shows the fills agree with the other
+  stills, not that those are right; that the trays did not move is known from their tags (no tag
+  moved more than 0.3 mm within R3).
+- Moves after all patches, within R3: 0 false moves, 1458 still and agreed, 6 not judged (the
+  3 positions left without a right position).
 - 3 trays are left without a right position, all in R3. Tray 4 in `100634_758061` and
   `102104_724310`: refused because the positions before and after differ by more than 20 mm (tray
   4 carries the benchmark and its masks vary). Tray 5 in `102904_742544`: the next still's
@@ -3625,7 +3634,8 @@ as a tray-sized box labelled FILLED, KEPT BY PATCH 2, or WRONG with its distance
   benchmark, and 9 on North 1.
 - Position spread of measured masks not counted wrong (distance from the tray's mean, scale at the
   image centre): step 1 rms 1.8 mm, max 6.3 (120); R2-1 rms 3.6, max 13.0 (120); R3 rms 4.0, max
-  48.8 (1442).
+  48.8 (1442). The R3 maximum is below 50 mm because positions over 50 mm from the median were
+  removed as wrong; the raw figures are in the first slice above.
 
 **What it does not cover.** As above, plus: all patching happened in one hour-long step, on 4
 trays in the North row around one benchmark, so how often the patches are needed or work

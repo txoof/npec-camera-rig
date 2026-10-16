@@ -206,30 +206,18 @@ def main(argv: list[str]) -> None:
     by = defaultdict(dict)
     for r in rows:
         by[r["order"]][r["tray"]] = r
+    # Moves and spread from the raw positions (planned measures), before anything is patched.
+    moves = moves_between(by, stills, lambda r: r["label"] == MEASURED)
+    spread_raw = spread(rows, lambda r: r["label"] == MEASURED)
     for (k, t), d in off_positions(rows, stills).items():
         by[k][t]["off_median_mm"] = round(d, 1)
     patch3(by, stills, masks)
     final_slots(by)
     trays.write_csv(trays.HERE / f"track-{name}.csv", rows)
-
-    # Moves between consecutive stills, measured positions only.
-    moves = []
-    for k in range(1, len(stills)):
-        a, b, scale = by[k - 1], by[k], stills[k]["scale"]
-        pair = f"{stills[k - 1]['step']} to {stills[k]['step']}" if stills[k - 1]["step"] != stills[k]["step"] \
-            else f"within {stills[k]['step']}"
-        for t in sorted(b):
-            ra, rb = a[t], b[t]
-            tag_mm = distance_mm((ra["tag_x_px"], ra["tag_y_px"]), (rb["tag_x_px"], rb["tag_y_px"]), scale.px_per_mm)
-            both = ra["label"] == rb["label"] == MEASURED
-            mask_mm = distance_mm((float(ra["x_px"]), float(ra["y_px"])), (float(rb["x_px"]), float(rb["y_px"])),
-                                  scale.px_per_mm) if both else None
-            c = classify_moves(mask_mm, tag_mm, heading_change(ra["heading_deg"], rb["heading_deg"]))
-            moves.append({"pair": pair, "from": stills[k - 1]["still"], "to": stills[k]["still"], "tray": t,
-                          "tag_mm": round(tag_mm, 1), "mask_mm": None if mask_mm is None else round(mask_mm, 1),
-                          **c})
     trays.write_csv(trays.HERE / f"track-{name}-moves.csv", moves)
-    report(rows, moves, stills)
+    trays.write_csv(trays.HERE / f"track-{name}-stills.csv", per_still_counts(by, stills))
+    after = moves_between(by, stills, lambda r: r["label"] in RIGHT and not is_off(r))
+    report(rows, moves, stills, spread_raw, after)
     timeline(rows, stills, OUT / f"timeline-{name}.png")
     evidence(rows, stills, OUT / "evidence")
 
@@ -285,6 +273,60 @@ def evidence(rows: list[dict], stills: list[dict], out) -> None:
         cv2.putText(im, bar, (8, im.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
         cv2.imwrite(str(out / f"{stills[k]['step']}_{stills[k]['still']}.jpg"), im, [cv2.IMWRITE_JPEG_QUALITY, 85])
     print(f"evidence: {len(by)} stills in {out}")
+
+
+def moves_between(by: dict, stills: list[dict], use) -> list[dict]:
+    """Every tray between consecutive stills: tag reference against the mask centre, judged only
+    where use(row) holds in both stills."""
+    moves = []
+    for k in range(1, len(stills)):
+        a, b, scale = by[k - 1], by[k], stills[k]["scale"]
+        pair = f"{stills[k - 1]['step']} to {stills[k]['step']}" if stills[k - 1]["step"] != stills[k]["step"] \
+            else f"within {stills[k]['step']}"
+        for t in sorted(b):
+            ra, rb = a[t], b[t]
+            tag_mm = distance_mm((ra["tag_x_px"], ra["tag_y_px"]), (rb["tag_x_px"], rb["tag_y_px"]), scale.px_per_mm)
+            mask_mm = distance_mm((float(ra["x_px"]), float(ra["y_px"])), (float(rb["x_px"]), float(rb["y_px"])),
+                                  scale.px_per_mm) if use(ra) and use(rb) else None
+            c = classify_moves(mask_mm, tag_mm, heading_change(ra["heading_deg"], rb["heading_deg"]))
+            moves.append({"pair": pair, "from": stills[k - 1]["still"], "to": stills[k]["still"], "tray": t,
+                          "tag_mm": round(tag_mm, 1), "mask_mm": None if mask_mm is None else round(mask_mm, 1),
+                          **c})
+    return moves
+
+
+def spread(rows: list[dict], use) -> dict[str, tuple[int, float, float]]:
+    """Per step where nothing moved: positions, rms and max distance from the tray's mean, in mm
+    by the scale at the image centre."""
+    out = {}
+    for step in sorted(NOTHING_MOVED):
+        d = []
+        for t in range(1, 13):
+            pts = np.array([(float(r["x_mm"]), float(r["y_mm"])) for r in rows
+                            if r["step"] == step and r["tray"] == t and use(r)])
+            if len(pts) > 1:
+                d += list(np.hypot(*(pts - pts.mean(axis=0)).T))
+        if d:
+            out[step] = (len(d), float(np.sqrt(np.mean(np.square(d)))), float(max(d)))
+    return out
+
+
+def per_still_counts(by: dict, stills: list[dict]) -> list[dict]:
+    """One row per still: how many trays were measured, patched, filled, wrong or without a position."""
+    out = []
+    for k, s in enumerate(stills):
+        rs = list(by[k].values())
+        n = lambda f: sum(1 for r in rs if f(r))
+        out.append({"order": k, "still": s["still"], "step": s["step"], "taken_at_utc": s["taken_at"],
+                    "measured": n(lambda r: r["label"] == MEASURED and not is_off(r)),
+                    "kept_by_patch_2": n(lambda r: r["label"] == PATCH2),
+                    "inferred_by_elimination": n(lambda r: r["label"] == ELIMINATION),
+                    "filled_from_neighbours": n(lambda r: r["label"] == FILLED),
+                    "wrong_not_filled": n(is_off),
+                    "no_position": n(lambda r: r["x_px"] is None),
+                    "passes_raw": all(r["label_raw"] == MEASURED and r["slot_agrees"] for r in rs),
+                    "passes_after_patches": all(r["label"] in RIGHT and not is_off(r) and r["slot_agrees_final"] for r in rs)})
+    return out
 
 
 def is_off(r: dict) -> bool:
@@ -351,7 +393,7 @@ def final_slots(by: dict) -> None:
             r["slot_agrees_final"] = bool(slot_m) and slot_m.get(t) == r["slot_tag"]
 
 
-def report(rows: list[dict], moves: list[dict], stills: list[dict]) -> None:
+def report(rows: list[dict], moves: list[dict], stills: list[dict], spread_raw: dict, after: list[dict]) -> None:
     n = len(stills)
     print(f"trays by label, of {len(rows)}:")
     for lab in (MEASURED, PATCH2, ELIMINATION, UNRESOLVED, IN_TWO_TRAY_MASK, NO_MASK):
@@ -391,16 +433,16 @@ def report(rows: list[dict], moves: list[dict], stills: list[dict]) -> None:
     for p, ms in pairs.items():
         print(f"  {p:26s} {len(ms) // 12:6d} {sum(m['turned'] for m in ms):6d} "
               + " ".join(f"{sum(m['verdict'] == k for m in ms):13d}" for k in keys))
-    print("\nposition spread where nothing moved (measured, not counted wrong; mm from the tray's mean, scale at image centre):")
-    for step in sorted(NOTHING_MOVED):
-        d = []
-        for t in range(1, 13):
-            pts = np.array([(float(r["x_mm"]), float(r["y_mm"])) for r in rows if r["step"] == step
-                            and r["tray"] == t and r["label"] == MEASURED and r["off_median_mm"] is None])
-            if len(pts) > 1:
-                d += list(np.hypot(*(pts - pts.mean(axis=0)).T))
-        if d:
-            print(f"  {step:5s} n {len(d):4d}  rms {np.sqrt(np.mean(np.square(d))):5.1f}  max {max(d):5.1f}")
+    fin = defaultdict(int)
+    for m in after:
+        if m["pair"] == "within R3":
+            fin[m["verdict"]] += 1
+    print(f"  within R3 after all patches (patched positions included): {dict(fin)}")
+    spread_ok = spread(rows, lambda r: r["label"] == MEASURED and r["off_median_mm"] is None)
+    for title, sp in (("raw, all measured", spread_raw), ("measured, not counted wrong", spread_ok)):
+        print(f"\nposition spread where nothing moved ({title}; mm from the tray's mean, scale at image centre):")
+        for step, (n_, rms, mx) in sp.items():
+            print(f"  {step:5s} n {n_:4d}  rms {rms:5.1f}  max {mx:5.1f}")
     # Added after the first run (15.5d, first slice), counted as wrong since.
     print(f"\npositions more than {MOVE_MM:.0f} mm from the tray's median in its step (nothing moved, local scale):")
     for r in rows:
