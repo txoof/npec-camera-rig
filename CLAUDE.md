@@ -366,8 +366,9 @@ limits: where one does not work for a page, choose what does and say why in the 
   layers. Its `sweep.py` / `characterisation.py` (~2650 lines) is the same failure under another
   name and is entangled with the web routes.
 - **Old code is reference only.** Read it to learn what worked on this hardware, then write fresh.
-- **No Hailo code, no `.hef`, no segmentation exists anywhere.** M5 starts from nothing, behind a
-  `Segmenter` interface with a classical excess-green fallback.
+- **No segmentation exists in `src/`.** Round 1 tried a green threshold on the benchmark
+  (`experiments/round1-benchy/`) and FastSAM on the Hailo-8 for tray splitting
+  (`experiments/round1-trays/`); M5's `Segmenter` interface starts from those results.
 - **362 MB of bench frames** sit at `/home/pi/old/npec_OLD/npec-camera/tests/data/`. From the previous rig,
   so the geometry no longer matches. Available if needed, not copied in.
 - **The central low reading (the "North 4 hot spot") is the Arducam's own, and it is closed.**
