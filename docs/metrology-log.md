@@ -2560,6 +2560,12 @@ and R3, the one-hour run (123 stills, 15.3d).
 **Label: development check** for the session 1 tag counts: tags found or missed, with no true
 area.
 
+**Calibration, validation and lens of every tag still (read 2026-10-16).** From the `capture` table of
+`rig.db`, matched by still name to `experiments/round1/session-2026-10-15.csv`: all 34 session 1
+stills, all 19 round 2 stills (15.3b) and all 123 stills of the one-hour run (15.3d) were taken under
+calibration `20261014T111147292361` and validation `20261014T111253582634`, at lens position 6.05,
+with no capture flags. These are the same as the benchmark stills (15.5).
+
 **Session 1 (steps 1 to 6, 34 stills, record in `experiments/round1/session-2026-10-15.csv`).**
 Steps 7 (benchmark repeated on one slot) and 8 (trays without the benchmark) were dropped: step 1
 already repeats the benchmark on one slot 10 times, and in every still 11 of 12 trays carry no
