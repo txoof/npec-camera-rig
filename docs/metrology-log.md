@@ -2657,6 +2657,9 @@ not other plants, not overlapping leaves. The true error lies between the "again
 
 ### 15.5c Tray splitting and tray ID (issue #164, method written 2026-10-15, before the analysis)
 
+The tray facts used here (size, configurations, tag positions, layout rules) are collected in
+`reference/trays.md`.
+
 Answers the open item in 15.4, "trays separated and matched to a tag: how many of 12, per still",
 which nothing had measured. Reads the 15 October stills only; nothing is photographed and nothing
 is written into the experiment folder or `rig.db`. Record in `experiments/round1-trays/`
