@@ -2,6 +2,10 @@
 camera family (20 tags detected versus 12 with stock parameters, on a hard frame). Frozen on
 purpose -- corner precision is the whole measurement, so changing these invalidates comparisons
 against every calibration taken before. See PLAN.md's M2 section.
+
+Tray tags (TRAY_ID_RANGE) are read in a second pass with their own settings, which read the 20 mm
+tray tags the frozen settings miss (metrology log 15.3c to 15.3e, issue #156). Every other tag
+still comes from the frozen pass.
 """
 
 from __future__ import annotations
@@ -56,6 +60,19 @@ def _detector_parameters() -> cv2.aruco.DetectorParameters:
     return params
 
 
+def _tray_detector_parameters() -> cv2.aruco.DetectorParameters:
+    """The frozen parameters with finer bit sampling: each pattern square is read from 8 x 8 pixels
+    instead of 4 x 4, ignoring a wider margin at its edge. On the 53 tag-test stills this read 273
+    of 273 20 mm tray tag sightings against 218 with the frozen settings, found no tag that was not
+    there, took the same time, and gave the same corners to 0.0 px on all 7 calibration stills
+    (metrology log 15.3e). Calibration keeps the frozen pass anyway (Aaron, 2026-10-16); one pass
+    with these settings for every tag is possible later, if the second pass's 4 s matters."""
+    params = _detector_parameters()
+    params.perspectiveRemovePixelPerCell = 8
+    params.perspectiveRemoveIgnoredMarginPerCell = 0.2
+    return params
+
+
 @dataclass(frozen=True)
 class TagDetection:
     """One AprilTag, located in one frame."""
@@ -95,15 +112,24 @@ def tag_area_px(
 
 
 def detect_tags(frame: np.ndarray) -> list[TagDetection]:
-    """Every AprilTag 36h11 in `frame`, sorted by tag id.
+    """Every AprilTag 36h11 in `frame`, sorted by tag id. Tray tags come from a pass with
+    `_tray_detector_parameters`, every other tag from the frozen `_detector_parameters` pass.
 
     `frame` is RGB (this project's convention throughout, see camera.py) or already grayscale.
     Channel order doesn't otherwise matter here -- `to_grayscale` handles it, and the detector
     only ever sees the grayscale result.
     """
     gray = to_grayscale(frame).astype(np.uint8) if frame.ndim == 3 else frame
+    detections = [d for d in _detect(gray, _detector_parameters()) if d.tag_id not in TRAY_ID_RANGE]
+    detections += [d for d in _detect(gray, _tray_detector_parameters()) if d.tag_id in TRAY_ID_RANGE]
+    detections.sort(key=lambda d: d.tag_id)
+    return detections
+
+
+def _detect(gray: np.ndarray, params: cv2.aruco.DetectorParameters) -> list[TagDetection]:
+    """Every tag one detector pass with `params` finds in the grayscale `gray`."""
     dictionary = cv2.aruco.getPredefinedDictionary(TAG_DICTIONARY)
-    detector = cv2.aruco.ArucoDetector(dictionary, _detector_parameters())
+    detector = cv2.aruco.ArucoDetector(dictionary, params)
     corners_list, ids, _rejected = detector.detectMarkers(gray)
 
     detections = []
@@ -118,7 +144,6 @@ def detect_tags(frame: np.ndarray) -> list[TagDetection]:
                     centre=(float(centre[0]), float(centre[1])),
                 )
             )
-    detections.sort(key=lambda d: d.tag_id)
     return detections
 
 

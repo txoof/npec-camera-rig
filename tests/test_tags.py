@@ -5,7 +5,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from npec_rig.tags import TAG_DICTIONARY, detect_tags, tag_area_px
+from npec_rig import tags
+from npec_rig.tags import TAG_DICTIONARY, TagDetection, detect_tags, tag_area_px
 
 pytestmark = pytest.mark.unit
 
@@ -64,6 +65,59 @@ def test_detects_a_real_photographed_tag() -> None:
     frame = np.array(Image.open(REAL_TAG_CROP).convert("RGB"))
     detections = detect_tags(frame)
     assert REAL_TAG_CROP_ID in [d.tag_id for d in detections]
+
+
+def _parameter_values(params: cv2.aruco.DetectorParameters) -> dict:
+    return {
+        name: getattr(params, name)
+        for name in dir(params)
+        if not name.startswith("_") and not callable(getattr(params, name))
+    }
+
+
+def test_frozen_detector_parameters_are_unchanged() -> None:
+    """Calibration compares against every earlier calibration, so its settings stay as they were
+    (#156 added tray settings beside them, not instead of them)."""
+    values = _parameter_values(tags._detector_parameters())
+    stock = _parameter_values(cv2.aruco.DetectorParameters())
+    tuned = {
+        "cornerRefinementMethod": cv2.aruco.CORNER_REFINE_SUBPIX,
+        "minMarkerPerimeterRate": 0.005,
+        "adaptiveThreshWinSizeMin": 11,
+        "adaptiveThreshWinSizeMax": 91,
+        "adaptiveThreshWinSizeStep": 10,
+    }
+    assert values == {**stock, **tuned}
+
+
+def test_tray_detector_parameters_differ_only_in_bit_sampling() -> None:
+    frozen = _parameter_values(tags._detector_parameters())
+    tray = _parameter_values(tags._tray_detector_parameters())
+    changed = {name: value for name, value in tray.items() if frozen[name] != value}
+    assert changed == pytest.approx(
+        {"perspectiveRemovePixelPerCell": 8, "perspectiveRemoveIgnoredMarginPerCell": 0.2}
+    )
+
+
+def test_detects_a_tray_tag_and_a_calibration_tag_in_one_frame() -> None:
+    frame = np.hstack([_generate_tag(5, border=20), _generate_tag(350, border=20)])
+    assert [d.tag_id for d in detect_tags(frame)] == [5, 350]
+
+
+def test_tray_tags_come_from_the_tray_pass_and_others_from_the_frozen_pass(monkeypatch) -> None:
+    """Each pass finds tag 5 (a tray tag) and tag 350 (a calibration tag) at its own corners; the
+    result must take 5 from the tray pass and 350 from the frozen pass."""
+
+    def fake_detect(gray, params):
+        offset = 100.0 if params.perspectiveRemovePixelPerCell == 8 else 0.0
+        return [
+            TagDetection(tag_id, ((offset, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)), (offset, 0.0))
+            for tag_id in (350, 5)
+        ]
+
+    monkeypatch.setattr(tags, "_detect", fake_detect)
+    detections = detect_tags(np.zeros((10, 10), dtype=np.uint8))
+    assert [(d.tag_id, d.centre[0]) for d in detections] == [(5, 100.0), (350, 0.0)]
 
 
 def test_tag_area_px_of_a_square_is_side_squared() -> None:
