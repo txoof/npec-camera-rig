@@ -3517,7 +3517,7 @@ Covers what was found, what surprised us, which phase it sends work back to, and
 round 2. The segmentation part is 15.6a. The trays, tags and tracking part (15.3, 15.5c, 15.5d) is
 not yet written (issue #158).
 
-#### 15.6a Segmentation (issue #161, written 2026-10-16)
+### 15.6a Segmentation (issue #161, written 2026-10-16)
 
 From the existing results only (15.5, 15.5b, 15.5e, and the colour gain readings of 15.3d); no
 camera, no new analysis. Phase names are the CRISP-DM phases of the round 1 plan (Business
@@ -3573,9 +3573,12 @@ round 2 targets at the end are Aaron's decisions.
 **Targets for round 2 (Aaron decides).**
 
 1. **Real leaf area: every flat leaf reading on a blue tray within 10% of its known area**
-   (Aaron, 2026-10-16). Round 1 met this in 27 of 27 readings (range -9.10% to +3.43%). It
-   guards the round 2 multi-day run against getting worse while the threshold is unchanged; the
-   final 5% target is taken up in round 3 with the per-slot bands on plant area.
+   (Aaron, 2026-10-16). Round 1 met this in 27 of 27 readings of leaves lying on their own
+   (range -9.10% to +3.43%), against the known area read off the line between the two scans
+   (15.5b, an assumption; against the before scan the readings are about 2 points lower). The 3
+   readings beside the benchmark on North 3 (-5.42%, -10.4%, -15.89%) are left out; 2 of them
+   miss 10%. How round 2 checks this target is not yet decided. The final 5% target is taken up
+   in round 3 with the per-slot bands on plant area.
 2. **White balance: measure first** (Aaron, 2026-10-16). Benchmark green and red area against
    the red and blue colour gains on the 123 saved stills of the unattended run (15.3d), no camera
    needed. Fixing the colour balance for an experiment, the way focus is fixed, is decided from
