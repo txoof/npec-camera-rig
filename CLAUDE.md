@@ -128,25 +128,29 @@ Start agent sessions in `~/npec_camera_rig`; a session started anywhere else act
 related issues in the same milestone and area. It is one PR of about 500 changed lines or less,
 not counting tests. A bigger task is split into PRs that each work on their own.
 
-**Issues are the to-do list.** Every change starts from an issue made with the Task template,
-in a milestone (M2 to M6). Repo `txoof/npec-camera-rig`, board
-https://github.com/users/txoof/projects/5. Work only on issues in the milestone Aaron names. If he
-names none, use the lowest-numbered open milestone (M2 until it is closed, then M3). An issue
-with no milestone is started only when Aaron asks for it.
+**Issues are the to-do list.** Every change starts from an issue made with the Task template.
+Repo `txoof/npec-camera-rig`, board https://github.com/users/txoof/projects/5. Work is planned in
+rounds of about 2 weeks (PLAN.md, *Rounds*); each card's *Round* field says which round it belongs
+to. Milestones (M3 to M6) group issues by feature and do not set the order of work. Work only on
+issues in the round Aaron names. If he names none, use the current round (the one whose dates
+cover today). An issue with no Round is started only when Aaron asks for it.
 
-**Picking an issue.** When Aaron names no issue ("pick the next task"), read the milestone's description
-first: it holds the triage and the order he decided.
+**Picking an issue.** When Aaron names no issue ("pick the next task"), list the current round's
+Todo cards, then read the milestone descriptions: they hold the triage and the order he decided.
 
 ```bash
+gh project item-list 5 --owner txoof --limit 500 --format json \
+  --jq '.items[] | select(.round != null and .status == "Todo")
+    | select((.round.startDate | strptime("%Y-%m-%d") | mktime) as $s
+        | now >= $s and now < $s + .round.duration * 86400)
+    | [.round.title, .priority, .content.number, .title] | @tsv'
 gh api repos/txoof/npec-camera-rig/milestones --jq '.[] | "\(.title)\n\(.description)\n"'
-gh project item-list 5 --owner txoof --limit 200 --format json \
-  --jq '.items[] | select(.status=="Todo") | [.priority, .content.number, .title] | @tsv'
 ```
 
 Take the unclaimed issue with the highest board Priority (High, Medium, Low) whose Area does not
 overlap a claimed issue. Within one priority, follow the order in the milestone description, then
-the lowest issue number. A new issue gets a Priority when it is put on the board; ask Aaron if it
-is not clear which. `TODO.md` is a frozen record: read it for
+the lowest issue number. A new issue gets a Priority and a Round when it is put on the board; ask
+Aaron if it is not clear which. `TODO.md` is a frozen record: read it for
 the history of done items, never add to it.
 
 **Claiming.** Before starting, list what is taken:
@@ -261,6 +265,11 @@ Column ids: Todo `2ddd622b`, In Progress `3d30af1f`, In Review `822c51c8`, Done 
 
 Priority: field id `PVTSSF_lAHOANmg6c4BmGmAzhk3jzA`, option ids High `dc5dda64`, Medium `80dc29a9`,
 Low `feb93a98`. Set it with the same `item-edit` command.
+
+Round: field id `PVTIF_lAHOANmg6c4BmGmAzhl5GEo`, iteration ids Round 1 (15 to 22 Oct) `5fb3e246`,
+Round 2 (23 Oct to 5 Nov) `6f459427`, Round 3 (6 to 19 Nov) `62ef7908`, Round 4 (20 Nov to 3 Dec)
+`bc9ee329`. Set it with `item-edit` and `--iteration-id <id>` in place of
+`--single-select-option-id`.
 
 **Email.** Every GitHub action emails Aaron. Push in batches, post one combined comment, and do not
 switch labels, draft state or reviews back and forth.
