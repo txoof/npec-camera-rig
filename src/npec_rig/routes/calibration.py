@@ -122,7 +122,11 @@ def run_calibration(
     override_focus_gate: bool = False,
 ) -> dict:
     """Capture a full-res still and save the calibration built from it (calibration_run.run)."""
-    return calibration_run.run(promote, calibration_tag_size_mm, override_focus_gate)
+    return calibration_run.run(
+        promote=promote,
+        calibration_tag_size_mm=calibration_tag_size_mm,
+        override_focus_gate=override_focus_gate,
+    )
 
 
 @router.get("/calibration/list")

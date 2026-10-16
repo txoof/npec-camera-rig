@@ -224,8 +224,6 @@ The web areas (#181):
   page, and `validation-status.js` is used by three pages, so both are in web.
 - The Calibration page includes the focus and squareness panels: changing a panel is
   web-focus work even in a calibration task.
-- `routes/validation.py` imports helpers from `routes/calibration.py` until #182 gives them
-  their own module, so web-validation overlaps web-calibration.
 - An issue whose Area says only `web`, written before the split, overlaps every web area until
   its Area is narrowed to one.
 
