@@ -136,10 +136,15 @@ ID:
 | IDs | Tray type | Default style |
 |---|---|---|
 | 1-75 | `4x5` | `tab` |
-| 76-150 | `4x4` | `bolt` |
-| 151-225 | `1x1` | `bolt` |
+| 76-150 | `4x4` | `lip` |
+| 151-225 | `1x1` | `lip_bolt` |
 | 226-250 | `black_tray` | `disc` |
 | 251-299 | `OTHER` | `tab` |
+
+Styles, each with its own tag size: `tab` (20 mm tag, 32 x 26 mm plate with a tab over the tray
+edge), `bolt` (20 mm tag, flat M8 tab), `lip` (42 mm tag, 61 mm square plate with a lip),
+`lip_bolt` (the lip plate plus the M8 tab), `disc` (30 mm tag, 51 mm disc, always flat). The lip
+and disc sizes are version 2's (`tray_tags_alternative/`), fitted to those trays.
 
 IDs 300-449 are the calibration sheets, 450-499 the corner mounts and 500 (provisional) the
 auto-focus target, so tray tags stop at 299. See PLAN.md's tag ID allocation.
@@ -149,14 +154,14 @@ go to `exports/tray_tags/<tray type>/` by default; with `-o` they all go straigh
 
 ```sh
 # writes exports/tray_tags/4x5/apriltag_tray_tag_4x5_1-12_tab.3mf, 4x5/..._13-24_tab.3mf,
-# and exports/tray_tags/4x4/apriltag_tray_tag_4x4_101-112_bolt.3mf
+# and exports/tray_tags/4x4/apriltag_tray_tag_4x4_101-112_lip.3mf
 uv run tray_tags.py 1-12 13-24 101-112
 
 # override the default style per group, another folder, extra Customizer overrides
 uv run tray_tags.py 1-12:bolt 251-256 -o ~/prints -D on_side=false
 ```
 
-A group is a range (`1-12`) or a single ID (`7`), optionally followed by `:tab`, `:bolt` or `:disc`
+A group is a range (`1-12`) or a single ID (`7`), optionally followed by a style
 (`1-12:bolt`); without one it gets its type's default style. `uv run tray_tags.py --help` lists
 the types, defaults and examples. A group must stay within one tray type: `70-80`
 is refused, so split it at the boundary. Every group is checked before anything is exported.
