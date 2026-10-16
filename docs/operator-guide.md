@@ -62,6 +62,13 @@ where it was; the focus stays locked if the camera confirms the position. The ap
 tried this once by itself before showing the message. If the reset does not help, the page says so,
 and the app itself has to be restarted.
 
+## Keep spare tag prints out of view
+
+The rig reads every printed tag it can see. A spare or cut-off tag print anywhere in the photo, even
+in a waste bin at the edge of the frame, is read as a tray (this happened in a test on 2026-10-15,
+metrology log section 15.3d). Take spare prints and offcuts out of the chamber. The app is planned to
+ignore tags outside the table (#207); until it does, this is the only protection.
+
 ## Why validation takes 20 minutes, with the door closed
 
 Validation exists to show how far an area measured in each tray position can be trusted. Its
