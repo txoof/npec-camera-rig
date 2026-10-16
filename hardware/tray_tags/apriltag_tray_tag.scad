@@ -1,6 +1,6 @@
 /* ---------------------------------------------------------------------------
-   AprilTag tray tag -- 30 mm 36h11 tag on a square plate for each growth
-   tray (PLAN.md's fixed 30 mm tag on each tray). Two styles, chosen once
+   AprilTag tray tag -- 20 mm 36h11 tag on a square plate for each growth
+   tray (reference/trays.md: final tray tags about 20 mm). Two styles, chosen once
    for the whole layout with `tag_style`:
      - "tab": the plate sits on the tray's rim, with a tab hanging 90 deg
        over the tray's edge to locate it.
@@ -79,6 +79,9 @@
    `tag_embed` are starting values, same status as in
    `apriltag_corner_mount.scad`.
 
+   REV 1.15: `tag_size` 30 -> 20 mm (Aaron, 2026-10-16;
+     reference/trays.md, final tray tags about 20 mm). Plate 42 -> 32 mm
+     square with the 6 mm border unchanged. Geometry otherwise unchanged.
    REV 1.14: part name (`part_name`, the file name without .scad) and
      revision engraved into the plate's underside, mirrored, two lines
      ([Label] group). The revision moves there from the tab's inner face
@@ -152,7 +155,7 @@ tag_style = "tab"; // ["tab", "bolt"]
 
 /* [Tag] */
 tag_ids       = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // 36h11 ids, one tray tag each, laid out in this order -- tray id allocation not yet confirmed (PLAN.md open questions)
-tag_size      = 30;    // 36h11 tag width, mm -- tray tags (PLAN.md)
+tag_size      = 20;    // 36h11 tag width, mm -- tray tags (reference/trays.md)
 tag_border    = 6;     // quiet-zone margin each side, mm -- informed default, not yet measured [4:0.1:25]
 tag_plate_thk = 3;     // total plate thickness, mm  [2:0.5:6]
 tag_raise_h   = 0.6;   // dark tag layer height above the plate's top face, mm  [0.2:0.1:2]
@@ -200,7 +203,7 @@ side_plate_gap = 5; // space between the two plates of a nested pair, side layou
 plate_cols = 0;   // tags per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.14"; // revision stamp, engraved in the plate underside below the part name ("" = none)
+revision  = "RV1.15"; // revision stamp, engraved in the plate underside below the part name ("" = none)
 rev_size  = 3;       // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;     // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
