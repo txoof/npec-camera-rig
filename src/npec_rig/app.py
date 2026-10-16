@@ -11,10 +11,17 @@ from fastapi.staticfiles import StaticFiles
 
 logger = logging.getLogger(__name__)
 
-from npec_rig.calibration_store import calibration_root
+from npec_rig.calibration_store import (
+    CalibrationNotFoundError,
+    CalibrationUnreadableError,
+    calibration_root,
+)
 from npec_rig.camera import CameraFaultError, CameraManager
 from npec_rig.captures import experiments_root, photos_root, record_app_start, record_app_stop
 from npec_rig import database
+from npec_rig.photo_tags import CaptureNotFoundError, CaptureRefError, FrameMissingError
+from npec_rig.validation import RoundNotFoundError, ValidationRefusedError
+from npec_rig.validation_store import SessionNotFoundError
 from npec_rig.routes import calibration, experiments, focus, gallery, shell, validation
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -72,6 +79,31 @@ async def _camera_fault(_request: Request, exc: CameraFaultError) -> JSONRespons
     (camera_process.py): one answer for every route, in the shape HTTPException gives, so every
     page shows the message the way it shows its other errors."""
     return JSONResponse({"detail": str(exc)}, status_code=503)
+
+
+# The errors the photo, calibration and validation modules raise for a request they cannot answer, each with
+# the status a route used to give it (#182). Only these classes: a handler on LookupError or
+# ValueError itself would turn a KeyError bug into a 404.
+_DOMAIN_ERROR_STATUS = {
+    CaptureRefError: 422,
+    CaptureNotFoundError: 404,
+    FrameMissingError: 409,
+    CalibrationNotFoundError: 404,
+    CalibrationUnreadableError: 422,
+    SessionNotFoundError: 404,
+    RoundNotFoundError: 404,
+    ValidationRefusedError: 409,
+}
+
+
+async def _domain_error(_request: Request, exc: Exception) -> JSONResponse:
+    """In the shape HTTPException gives, so every page shows the message as it shows the others."""
+    status = next(_DOMAIN_ERROR_STATUS[k] for k in type(exc).__mro__ if k in _DOMAIN_ERROR_STATUS)
+    return JSONResponse({"detail": str(exc)}, status_code=status)
+
+
+for _error in _DOMAIN_ERROR_STATUS:
+    app.add_exception_handler(_error, _domain_error)
 app.mount("/photos", StaticFiles(directory=str(photos_root())), name="photos")
 # Not /experiments: that prefix is the experiments page.
 app.mount(

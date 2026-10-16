@@ -133,6 +133,39 @@ def load_calibration(path: Path) -> CalibrationArtifact:
     return calibration_artifact_from_dict(json.loads(Path(path).read_text()))
 
 
+class CalibrationNotFoundError(LookupError):
+    """No saved calibration of that stem (app.py answers 404)."""
+
+
+class CalibrationUnreadableError(ValueError):
+    """A saved calibration file that cannot be read back (app.py answers 422)."""
+
+
+def saved_calibration_path(stem: str) -> Path:
+    """Resolve a calibration-history `stem` (a URL path segment) to its artifact JSON file,
+    refusing anything that isn't a plain filename component -- `stem` comes straight from the
+    request path, and building a file path by string interpolation is exactly the shape that
+    needs this before it ever gets used, not after.
+    """
+    root = calibration_root()
+    path = (root / f"{stem}.json").resolve()
+    if path.parent != root.resolve() or path.name in (".json", CURRENT_FILENAME):
+        raise CalibrationNotFoundError(f"no saved calibration {stem!r}")
+    if not path.exists():
+        raise CalibrationNotFoundError(f"no saved calibration {stem!r}")
+    return path
+
+
+def load_saved_calibration(stem: str) -> CalibrationArtifact:
+    """Load a saved calibration by history `stem`, for callers that need the full artifact rather
+    than just its list-view stats -- the diagnostics drill-down, promote and validation."""
+    path = saved_calibration_path(stem)
+    try:
+        return load_calibration(path)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise CalibrationUnreadableError(f"saved calibration {stem!r} could not be read: {exc}") from exc
+
+
 def load_current_calibration() -> CalibrationArtifact | None:
     """The active calibration, or None if none has ever been saved, or the saved one can't be
     read back (an older/newer schema version, or a truncated/corrupt file) -- every caller of
