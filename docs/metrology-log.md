@@ -2475,8 +2475,8 @@ on 2026-10-14 with the covered-corner-tag check, and PLAN.md's wording was chang
 
 ## 15. CRISP-DM round 1: trays, tags and green area on the benchmark (method written 2026-10-15, before the photo session)
 
-**Status:** method agreed with Aaron, 2026-10-15. The 15 October photo session has not run yet.
-Issue #153. The plan behind the rounds is summarised in issue #153 and PLAN.md (to be added).
+**Status:** method agreed with Aaron, 2026-10-15. The 15 October photo session ran on 15 October (15.3a to 15.3d).
+Issue #153. The plan behind the rounds is summarised in issue #153 and in PLAN.md, *Rounds*.
 
 **Why.** The academic supervisor recommended running the whole loop (photo, segmentation, area,
 review) early, with loose targets, so problems with the setup and the expectations show up early
@@ -2522,9 +2522,9 @@ solids, 3.4% to 4.7% at the rosette tops.
 
 ### 15.2 Data
 
-- About 36 gallery stills of the benchmark taken on 15 October (part of the two most recent
-  experiments), moved through the frame and rotated on each tray. Capture names recorded with the
-  results.
+- 39 gallery stills of the benchmark taken on 15 October (12 and 27, from two experiments), moved
+  through the frame and rotated on each tray. Capture names recorded with the results. The
+  benchmark analysis (15.5) used these and the 53 photo session stills, 92 in all.
 - The 15 October photo session (15.3).
 - Tray tag designs in the chamber, all 36h11, IDs 1 to 12 (the 4x5 series; IDs 1 to 3 are the 20 mm tags by their size in the image), tag in cell A1 of a 4x5 tray, trays at mixed
   orientations: 3 x 30 mm black on white paper extending past the tray corner, 3 x 20 mm black on
@@ -2538,16 +2538,21 @@ lens position of every still are read from `rig.db` and recorded with the result
 Aaron is in the chamber on 15 October only, so every photo that needs a move is taken then. Door
 closed and lights on for every photograph. In this order:
 
-| Step | Stills | What |
-|---|---|---|
-| a | 10 | Nothing moved (repeatability of tag detection and area); taken 07:57 to 07:58 UTC, experiment "tag-testing" |
-| b1 | 1 | Every tray turned 180° in its own slot (trays fit their slots at 0° or 180° only) |
-| b2 | 1 | Trays swapped between the North and South rows, orientation kept from b1 (optional) |
-| b3 | 1 | Trays moved to other slots in their row, so each tag design reaches the frame centre and both ends (optional) |
-| c | 1 | Trays pushed as close together as they go (worst case for splitting trays) |
-| d | up to 12 | Benchmark on each slot, filling slots the gallery stills miss, frame centre and corners at least |
-| e | 5 | Benchmark on one slot, nothing moved (area repeatability) |
-| f | 1 | Trays without the benchmark (background) |
+| Step | Stills | What | Taken (record step, stills) |
+|---|---|---|---|
+| a | 10 | Nothing moved (repeatability of tag detection and area); taken 07:57 to 07:58 UTC, experiment "tag-testing" | 1, 10 |
+| b1 | 1 | Every tray turned 180° in its own slot (trays fit their slots at 0° or 180° only) | 2, 4 |
+| b2 | 1 | Trays swapped between the North and South rows, orientation kept from b1 (optional) | 3, 3 |
+| b3 | 1 | Trays moved to other slots in their row, so each tag design reaches the frame centre and both ends (optional) | 4, 3 |
+| c | 1 | Trays pushed as close together as they go (worst case for splitting trays) | 5, 2 |
+| d | up to 12 | Benchmark on each slot, filling slots the gallery stills miss, frame centre and corners at least | 6, 12 (one per slot) |
+| e | 5 | Benchmark on one slot, nothing moved (area repeatability) | dropped (15.3a) |
+| f | 1 | Trays without the benchmark (background) | dropped (15.3a) |
+
+*Taken column added 2026-10-16* from the record file `experiments/round1/session-2026-10-15.csv`,
+which numbers the steps 1 to 6; the planned columns are left as written before the session. After
+step 6 the record continues with R2-1 to R2-4, the second tag round (19 stills, 15.3a and 15.3b),
+and R3, the one-hour run (123 stills, 15.3d).
 
 ### 15.3a Session 1 outcome and the second tag round (method written 2026-10-15, before the second round)
 
