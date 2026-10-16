@@ -46,7 +46,7 @@ from npec_rig.calibration_viz import (
 from npec_rig.camera import CameraManager, array_to_jpeg
 from npec_rig.captures import photos_root, take_photo
 from npec_rig.certainty_map import SlotLayoutError, certainty_by_slot, render_certainty_map
-from npec_rig.routes.shared import _derived_response, templates
+from npec_rig.routes.shared import derived_response, templates
 from npec_rig.tags import (
     ASSUMED_CALIBRATION_TAG_SIZE_MM,
     CALIBRATION_ID_RANGE,
@@ -564,7 +564,7 @@ def _calibration_plot(artifact: CalibrationArtifact, source_stem: str, recipe: s
     """`artifact`'s `recipe` plot, from the images.py store once drawn. The inputs are everything
     the plot is drawn from, so a rewritten artifact or a new tag detector draws it anew. The
     photo is the artifact's own (`frame_stem`), whatever file name the artifact is saved under."""
-    return _derived_response(recipe, _calibration_source(source_stem), _calibration_inputs(artifact))
+    return derived_response(recipe, _calibration_source(source_stem), _calibration_inputs(artifact))
 
 
 def _calibration_inputs(artifact: CalibrationArtifact) -> dict:

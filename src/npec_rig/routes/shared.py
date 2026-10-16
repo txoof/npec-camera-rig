@@ -14,7 +14,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.globals["AUTOFOCUS_TIMEOUT_S"] = int(AUTOFOCUS_TIMEOUT_S)
 
 
-def _derived_response(recipe: str, source: str, inputs: dict) -> Response:
+def derived_response(recipe: str, source: str, inputs: dict) -> Response:
     """A derived image from the store. `no-cache`: the browser asks again every time (the URL
     stays the same while the session changes), and the store answers from disk."""
     content, media_type = images.get(recipe, source, inputs)

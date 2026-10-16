@@ -6,7 +6,7 @@ from fastapi.responses import Response
 from npec_rig import images
 from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import PHOTO_KEY, capture_hours, list_recent_captures, photo_file
-from npec_rig.routes.shared import _derived_response, templates
+from npec_rig.routes.shared import derived_response, templates
 
 router = APIRouter()
 
@@ -51,7 +51,7 @@ def gallery_image(size: str, path: str) -> Response:
         raise HTTPException(422, str(exc)) from exc
     if found is None:
         raise HTTPException(404, f"photo {path} not found")
-    return _derived_response(f"gallery_{size}", path, {"photo": path, "width": _GALLERY_WIDTHS[size]})
+    return derived_response(f"gallery_{size}", path, {"photo": path, "width": _GALLERY_WIDTHS[size]})
 
 
 def _render_gallery_image(inputs: dict) -> bytes:

@@ -25,10 +25,10 @@ def synthetic_camera() -> None:
 def calibration_gate_open_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     """Almost every /calibration/run test in these files is about calibration's own mechanics
     (tag size defaults, promote, table dims, history...), not the focus-lock/corner-tag
-    readiness gate, and most use only 2 corner tags (`_CORNER_TAGS`) since that's already
+    readiness gate, and most use only 2 corner tags (`CORNER_TAGS`) since that's already
     enough for a corner baseline -- fewer than the gate's own 4-tag minimum. Default the gate
-    open so none of them need a real lock or a 4-tag fixture; the dedicated gate tests below
-    restore the real function to exercise it properly."""
+    open so none of them need a real lock or a 4-tag fixture; the dedicated gate tests in
+    test_calibration_routes.py restore the real function to exercise it properly."""
     monkeypatch.setattr(
         calibration_routes,
         "_calibration_readiness",

@@ -35,7 +35,7 @@ from npec_rig.routes.calibration import (
     _capture_tags,
     _load_saved_artifact,
 )
-from npec_rig.routes.shared import _derived_response, templates
+from npec_rig.routes.shared import derived_response, templates
 
 router = APIRouter()
 
@@ -360,7 +360,7 @@ def validation_session_map(session_id: str) -> Response:
         "results": session["results"],
         "caption": caption,
     }
-    return _derived_response("validation_map", f"validation:{session_id}", inputs)
+    return derived_response("validation_map", f"validation:{session_id}", inputs)
 
 
 def _render_validation_map(inputs: dict) -> bytes:
@@ -442,7 +442,7 @@ def _problem_frame_response(session: dict, round_: dict, problems: list[dict], c
         "caption": caption,
         "whole_frame": any(p["slot"] is None for p in problems),
     }
-    return _derived_response("problem_frame", f"validation:{session['id']}", inputs)
+    return derived_response("problem_frame", f"validation:{session['id']}", inputs)
 
 
 def _render_problem_frame(inputs: dict) -> bytes:
