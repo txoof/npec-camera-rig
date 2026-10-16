@@ -198,7 +198,12 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 |---|---|
 | camera | `camera.py`, `camera_process.py`, `captures.py`, `health.py`, `settings.py` |
 | calibration | `tags.py`, `calibration*.py`, `validation_store.py`, `tripwire.py`, `certainty_map.py` |
-| web | `app.py`, `templates/`, `static/` |
+| web | `app.py`, `routes/shell.py`, `routes/shared.py`, `templates/setup_index.html`, `ui_reference.html`, `_ui.html`, `_camera_status.html`, `static/ui.js`, `icons.svg`, `lightbox.js`, `tests/web/conftest.py`, `tag_scenes.py`, `test_app.py`, and any page file not listed below |
+| web-focus | `routes/focus.py`, `templates/setup_focus.html`, `_focus_controls.html`, `_squareness.html`, `_squareness_help.html`, `static/squareness-guides.js` |
+| web-gallery | `routes/gallery.py`, `templates/gallery.html` |
+| web-experiments | `routes/experiments.py`, `templates/experiments.html` |
+| web-calibration | `routes/calibration.py`, `templates/setup_calibration*.html`, `setup_health_check.html` |
+| web-validation | `routes/validation.py`, `templates/setup_validation.html`, `static/validation-status.js` |
 | images | `images.py`, `text_render.py` |
 | database | `database.py` (the experiment's tables in `rig.db` and their migrations) |
 | exports | `exports.py` (an experiment's export zip and its checksum manifest) |
@@ -208,7 +213,9 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | ci | `.github/`, `pyproject.toml`, `uv.lock` |
 
 Module files are in `src/npec_rig/`. A new module or folder is added to this map in the PR that
-creates it.
+creates it. A route file's tests are `tests/web/test_<name>_routes.py`. The Calibration page
+includes the focus and squareness panels, so changing those panels is web-focus work even when
+the task is about calibration.
 
 **Shared files** may be changed by any task that needs to, after checking that no other open PR
 changes them: `CLAUDE.md`, `PLAN.md`, `CONTRIBUTING.md`, `docs/metrology-log.md`,
