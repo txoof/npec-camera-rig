@@ -2491,7 +2491,8 @@ round 2 are set in the round 1 review at the end of this section.
 
 A 3D-printed plant benchmark. Its design file is not available, so its true leaf area is not
 known. Measured by Aaron on 2026-10-15 with vernier callipers (not trusted beyond 0.1 mm).
-Number of readings per figure: to be recorded. Heights were taken with the callipers' depth rod
+Number of readings per figure (Aaron, 2026-10-16): the rosette figures were measured twice, every
+other figure once. Heights were taken with the callipers' depth rod
 from the surface of the yellow base; the base is 4.27 mm thick and sits on the blue tray top, so
 height above the tray = h + 4.27 mm.
 
