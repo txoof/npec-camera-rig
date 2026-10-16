@@ -34,12 +34,13 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from npec_rig.captures import photos_root
 from npec_rig.settings import db_path
 from npec_rig.tags import TagDetection, detect_tags
 
 # Bump when detect_tags changes what it finds: stored detections from an older detector are then
-# worked out again rather than reused.
-TAG_DETECTOR_VERSION = 1
+# worked out again rather than reused. 2: tray tags read with their own settings (#156).
+TAG_DETECTOR_VERSION = 2
 DERIVED_MAX_BYTES = 2 * 1024**3
 # One full-size decode at a time: each holds about 190MB, and the Pi has run out of memory before
 # with several 64MP frames live at once (dmesg-confirmed, 2026-09-22).
@@ -104,13 +105,21 @@ def _now() -> str:
 
 def stored_tag_detections(source: str) -> list[TagDetection] | None:
     """The tags stored for `source` by the current detector, or None if not worked out yet. Needs
-    no photograph: a derived image can be made again even if its capture was deleted."""
+    no photograph: a derived image can be made again even if its capture was deleted.
+
+    Tags stored by an older detector are used when the photograph is no longer in the photos
+    folder, since it cannot be searched again: 776 of 804 stored searches were in that state on
+    2026-10-16, their photographs in the old captures/ folder (#192). Version 2 changed only tray
+    tags; calibration and corner tags are identical between versions 1 and 2 (metrology log 15.3e).
+    """
     with _connect() as conn:
         row = conn.execute(
             "SELECT version, value FROM capture_analysis WHERE source = ? AND kind = 'tags'",
             (source,),
         ).fetchone()
-    if row is not None and row[0] == TAG_DETECTOR_VERSION:
+    if row is None:
+        return None
+    if row[0] == TAG_DETECTOR_VERSION or not (photos_root() / f"{source}.jpg").exists():
         return [_detection_from_json(d) for d in json.loads(row[1])]
     return None
 
