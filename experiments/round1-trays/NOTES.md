@@ -65,7 +65,7 @@ Where the data is:
   stills cached in `~/scratch/round1-trays/tags/`. Overlays in `~/scratch/round1-trays/`.
 - Full run: `fastsam-full176.csv`, `fastsam-full176-masks.csv`, `summary-full176.csv` here.
 - Tracking: `track-full176.csv`, `track-full176-moves.csv` here; timeline in
-  `~/scratch/round1-trays/track/`.
+  `~/scratch/round1-trays/track/`, evidence overlays in `track/evidence/`.
 
 Commands (run from the worktree root; tests by explicit path, pytest's default is `tests/` only):
 
@@ -74,11 +74,10 @@ Commands (run from the worktree root; tests by explicit path, pytest's default i
     PYTHONPATH=/home/pi/wt/npec-171-tray-tracking/src /home/pi/npec_camera_rig/.venv/bin/python3 track.py fastsam-full176.csv
     PYTHONPATH=/home/pi/wt/npec-171-tray-tracking/src /usr/bin/python3 summarise.py fastsam-full176.csv
 
-Next step: patch 3 (filled from neighbours, 15.5d), after Aaron decides whether a tracked
-position more than 50 mm off (7 in R3) counts as wrong.
+Done: raw tracking and patches 1 to 3 (15.5d), 2109 of 2112 trays, 173 of 176 stills. Evidence
+overlays in `~/scratch/round1-trays/track/evidence/`. Next: Aaron judges the result.
 
 Open for Aaron:
-- Whether a tracked position far from the tray's median counts as wrong (15.5d, first slice).
 - Success rate that is good enough: deferred until the tracking result (15.5d).
 - Slot reference for rule 3: row and order is provisional.
 - Next week's session (plan on #164): counts and layout of 4 x 4 and 1 x 1 trays, where their tag

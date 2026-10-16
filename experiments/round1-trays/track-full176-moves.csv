@@ -855,7 +855,7 @@ within R3,100619_714572,100634_758061,1,0.2,2.8,False,False,False,"still, agreed
 within R3,100619_714572,100634_758061,2,0.2,6.7,False,False,False,"still, agreed"
 within R3,100619_714572,100634_758061,3,0.0,27.7,False,False,False,"still, agreed"
 within R3,100619_714572,100634_758061,4,0.0,51.2,False,False,True,false move
-within R3,100619_714572,100634_758061,5,0.0,216.4,False,False,True,false move
+within R3,100619_714572,100634_758061,5,0.0,,False,False,,not judged
 within R3,100619_714572,100634_758061,6,0.0,2.3,False,False,False,"still, agreed"
 within R3,100619_714572,100634_758061,7,0.0,0.6,False,False,False,"still, agreed"
 within R3,100619_714572,100634_758061,8,0.0,5.2,False,False,False,"still, agreed"
@@ -867,7 +867,7 @@ within R3,100634_758061,100649_734331,1,0.0,2.3,False,False,False,"still, agreed
 within R3,100634_758061,100649_734331,2,0.0,8.2,False,False,False,"still, agreed"
 within R3,100634_758061,100649_734331,3,0.0,29.9,False,False,False,"still, agreed"
 within R3,100634_758061,100649_734331,4,0.0,68.4,False,False,True,false move
-within R3,100634_758061,100649_734331,5,0.0,220.1,False,False,True,false move
+within R3,100634_758061,100649_734331,5,0.0,,False,False,,not judged
 within R3,100634_758061,100649_734331,6,0.0,0.2,False,False,False,"still, agreed"
 within R3,100634_758061,100649_734331,7,0.0,0.8,False,False,False,"still, agreed"
 within R3,100634_758061,100649_734331,8,0.0,4.5,False,False,False,"still, agreed"
@@ -1059,7 +1059,7 @@ within R3,101034_733642,101049_714910,1,0.0,4.0,False,False,False,"still, agreed
 within R3,101034_733642,101049_714910,2,0.0,3.0,False,False,False,"still, agreed"
 within R3,101034_733642,101049_714910,3,0.0,24.7,False,False,False,"still, agreed"
 within R3,101034_733642,101049_714910,4,0.2,48.2,False,False,False,"still, agreed"
-within R3,101034_733642,101049_714910,5,0.0,221.1,False,False,True,false move
+within R3,101034_733642,101049_714910,5,0.0,,False,False,,not judged
 within R3,101034_733642,101049_714910,6,0.0,1.7,False,False,False,"still, agreed"
 within R3,101034_733642,101049_714910,7,0.3,1.7,False,False,False,"still, agreed"
 within R3,101034_733642,101049_714910,8,0.3,3.1,False,False,False,"still, agreed"
@@ -1454,8 +1454,8 @@ within R3,101834_740450,101849_733374,12,0.0,2.3,False,False,False,"still, agree
 within R3,101849_733374,101904_723909,1,0.0,2.3,False,False,False,"still, agreed"
 within R3,101849_733374,101904_723909,2,0.2,0.8,False,False,False,"still, agreed"
 within R3,101849_733374,101904_723909,3,0.0,20.8,False,False,False,"still, agreed"
-within R3,101849_733374,101904_723909,4,0.0,55.8,False,False,True,false move
-within R3,101849_733374,101904_723909,5,0.0,223.7,False,False,True,false move
+within R3,101849_733374,101904_723909,4,0.0,,False,False,,not judged
+within R3,101849_733374,101904_723909,5,0.0,,False,False,,not judged
 within R3,101849_733374,101904_723909,6,0.0,1.8,False,False,False,"still, agreed"
 within R3,101849_733374,101904_723909,7,0.0,0.7,False,False,False,"still, agreed"
 within R3,101849_733374,101904_723909,8,0.0,1.6,False,False,False,"still, agreed"
@@ -1466,8 +1466,8 @@ within R3,101849_733374,101904_723909,12,0.0,4.0,False,False,False,"still, agree
 within R3,101904_723909,101919_737232,1,0.0,2.4,False,False,False,"still, agreed"
 within R3,101904_723909,101919_737232,2,0.0,3.3,False,False,False,"still, agreed"
 within R3,101904_723909,101919_737232,3,0.0,22.1,False,False,False,"still, agreed"
-within R3,101904_723909,101919_737232,4,0.0,58.0,False,False,True,false move
-within R3,101904_723909,101919_737232,5,0.0,223.7,False,False,True,false move
+within R3,101904_723909,101919_737232,4,0.0,,False,False,,not judged
+within R3,101904_723909,101919_737232,5,0.0,,False,False,,not judged
 within R3,101904_723909,101919_737232,6,0.0,3.8,False,False,False,"still, agreed"
 within R3,101904_723909,101919_737232,7,0.0,1.0,False,False,False,"still, agreed"
 within R3,101904_723909,101919_737232,8,0.0,3.7,False,False,False,"still, agreed"
@@ -1934,7 +1934,7 @@ within R3,102834_746340,102849_741632,12,0.0,0.8,False,False,False,"still, agree
 within R3,102849_741632,102904_742544,1,0.0,1.8,False,False,False,"still, agreed"
 within R3,102849_741632,102904_742544,2,0.0,1.5,False,False,False,"still, agreed"
 within R3,102849_741632,102904_742544,3,0.0,23.7,False,False,False,"still, agreed"
-within R3,102849_741632,102904_742544,4,0.0,61.2,False,False,True,false move
+within R3,102849_741632,102904_742544,4,0.0,,False,False,,not judged
 within R3,102849_741632,102904_742544,5,0.3,223.7,False,False,True,false move
 within R3,102849_741632,102904_742544,6,0.2,2.3,False,False,False,"still, agreed"
 within R3,102849_741632,102904_742544,7,0.0,2.3,False,False,False,"still, agreed"

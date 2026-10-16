@@ -60,3 +60,23 @@ def test_resolve_still_patch2_then_elimination():
     assert out[1]["label"] == track.MEASURED
     assert out[2]["label"] == track.PATCH2
     assert out[3]["label"] == track.ELIMINATION and out[3]["was"] == track.UNRESOLVED
+
+
+def test_fill_gaps_fills_a_short_gap_inside_one_step():
+    good = [True, False, False, True]
+    assert track.fill_gaps(good, [not g for g in good], ["R3"] * 4) == [(1, 3)]
+
+
+def test_fill_gaps_refuses_long_gaps_ends_and_step_boundaries():
+    g = lambda s: [c == "g" for c in s]
+    n = lambda s: [c == "n" for c in s]
+    assert track.fill_gaps(g("gnnnng"), n("gnnnng"), ["R3"] * 6) == []  # 4 stills
+    assert track.fill_gaps(g("nng"), n("nng"), ["R3"] * 3) == []  # sequence start
+    assert track.fill_gaps(g("gnn"), n("gnn"), ["R3"] * 3) == []  # sequence end
+    assert track.fill_gaps(g("gng"), n("gng"), ["4", "4", "6"]) == []  # across a boundary
+
+
+def test_fill_gaps_needs_good_stills_on_both_sides():
+    good = [True, False, False, True]  # a still kept by a patch is neither good nor needing
+    need = [False, True, False, False]
+    assert track.fill_gaps(good, need, ["R3"] * 4) == []
