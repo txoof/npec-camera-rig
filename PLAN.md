@@ -23,7 +23,7 @@ repeatable by someone who didn't build it.
    moment it's needed rather than rely on someone remembering a procedure.
 
 Three previous attempts collapsed into camera metrology and never produced a working application.
-This plan is built to prevent that. Deadline: **mid-December 2026** (~12 weeks from 2026-09-19).
+This plan is built to prevent that. Wrap-up: **the week of 14 December 2026**, write-up submitted mid-January 2027 (see *Rounds*).
 
 ---
 
@@ -349,11 +349,100 @@ stays real rather than mock-heavy.
 
 ---
 
+## Rounds
+
+Agreed with Aaron 2026-10-14 to 10-16, on the academic supervisor's advice to work in CRISP-DM
+iterations. A **round** is about 2 weeks that takes the whole pipeline, from photo to a number per
+tray, one step further. Early rounds have looser error targets; the final target is set below.
+Running the whole pipeline in the first round shows problems with the setup and with expectations
+early, not in the last weeks.
+
+The rounds set the order of work. The milestones (M3 to M6, under *Milestones*) stay as feature
+groups: pools of issues that a round draws from.
+
+**Final target:** canopy area within 5% per tray (95% band), for area at tray-top height. Plant
+height is a stretch goal: it adds about 0.145% of area per mm above the tray top, on top of the
+band, and exports say so (*Per-slot area uncertainty*).
+
+### How rounds work
+
+1. **Fixed dates.** A round ends on its date. Work not finished by then is recorded as missed in
+   the review and goes back to the pool.
+2. **Plan one round ahead.** Only the next round is planned in detail, at the previous round's
+   review. Later rounds are one line each and are drafts.
+3. **Something to see.** From round 2, every round ends with something Aaron can open in the web
+   app. Round 1 is scripts on saved stills, a deliberate exception. Between those, check-ins: a
+   picture or table in `~/scratch` with 2 or 3 lines on what to look at, then wait for Aaron.
+4. **Round on the board card.** Every card on the project board has a Round field, and agents pick
+   issues from the current round (CLAUDE.md, *Parallel work*).
+5. **Chamber tests** for a milestone run in the round that finishes that milestone's issues. Aaron
+   can be in the chamber on most days.
+6. **Sorted for parallel work.** At each review the next round's issues are sorted into three
+   groups: can start now, waits for another issue (a GitHub blocked-by link), needs the camera.
+
+### Timeline
+
+| Round | Dates | Content |
+|---|---|---|
+| 1 | 15 to 22 Oct | Tags, trays and plant area end to end on saved stills, as scripts. Bar: it runs and gives a number per tray. Record everything, judge nothing |
+| 2 | 23 Oct to 5 Nov | Draft, decided at the round 1 review: a page in the app showing trays, tags and green area on the latest still, plus scheduled capture (M3 scheduler, experiment records, disk headroom); a run of several days with real plants |
+| 3 | 6 to 19 Nov | Draft: per-slot bands on plant area, the M5 printed-target test |
+| 4 | 20 Nov to 3 Dec | Draft: a trained plant segmentation model only if round 3 shows green thresholding is the largest error; otherwise M6 alerts |
+| Wrap-up | 4 Dec to the week of 14 Dec | Hardening, runbook, write-up, the baseline (below) |
+
+Submission of the write-up: mid-January 2027.
+
+**Moved earlier.** Tray splitting (M4) and green-threshold plant area (M5) moved into round 1,
+before the M3 scheduler, so plant images and segmentation problems show up first.
+
+**Probably cut.** Timelapse mp4 export (#64), and a trained plant segmentation model unless round
+3 calls for one. Export of an experiment (#119) and purge (#120) are already done.
+
+### Round 1 (15 to 22 October)
+
+Data: the rig's gallery stills, the 15 October photo session in the chamber, the 3D-printed
+benchmark "Benchy Yellow-4" with calliper dimensions, and real leaves of known area. The method,
+the results and the review are all in `docs/metrology-log.md` section 15:
+
+| Part | Log section |
+|---|---|
+| Benchmark and data | 15.1, 15.2 |
+| Tag detection per tag design, and the tray tag detector | 15.3 to 15.3e |
+| Red and green area on the benchmark | 15.5 |
+| Real leaves of known area | 15.5b |
+| Tray splitting and tray ID (FastSAM on the Hailo-8, #164) | 15.5c |
+| Tray tracking over time (#171) | 15.5d |
+| Round 1 review | 15.6 |
+
+Code for the round lives in `experiments/round1*/`, reusing `src/npec_rig/` rather than copying it.
+
+### Records kept for every round
+
+- **Round review**, in `docs/metrology-log.md`: what was found, what surprised us, which earlier
+  step each surprise sends work back to, methods dropped with their numbers, the accuracy table
+  with the raw data location and the code version, and the targets for the next round. The next
+  round's plan is then written into this section.
+- **Labels.** Every result in the metrology log is one of: a *development check* (a test made
+  while building), a *validation* (the routine printed-target check per slot) or a *reference
+  comparison* (against an independent measurement of the same real thing).
+- **Not yet shown.** A running section of `docs/measurement-trust.md` listing what the rig cannot
+  yet demonstrate, updated at each review, first at the round 1 review.
+- **Process log**, `docs/process-log.md`: 5 to 10 lines per round on Aaron's decisions, the
+  agents' work and errors, and what slowed the round.
+- **Baseline, the week of 14 December:** a code tag, a state-of-the-tool document of 2 to 4 pages
+  (`docs/baseline-2026-12.md`), and the raw data copied off the Pi. It separates the internship
+  proof of concept from possible graduation work.
+
+---
+
 ## Milestones
 
 Each ends with **acceptance tests you run in the chamber**. Nothing is done on a passing unit test
 alone. Each acceptance result, and every metrology finding on the way, is written up in
 `docs/metrology-log.md` (see item 5 of *Verification strategy*).
+
+The milestones group issues by feature; they do not set the order of work, which *Rounds* does.
+A milestone's chamber tests run in the round that finishes its issues.
 
 ### M0 — Probe the hardware (30 min, before any code)
 
