@@ -149,9 +149,31 @@ gh api repos/txoof/npec-camera-rig/milestones --jq '.[] | "\(.title)\n\(.descrip
 
 Take the unclaimed issue with the highest board Priority (High, Medium, Low) whose Area does not
 overlap a claimed issue. Within one priority, follow the order in the milestone description, then
-the lowest issue number. A new issue gets a Priority and a Round when it is put on the board; ask
-Aaron if it is not clear which. `TODO.md` is a frozen record: read it for
-the history of done items, never add to it.
+the lowest issue number. `TODO.md` is a frozen record: read it for the history of done items,
+never add to it.
+
+**Filing a new issue.** Every new issue gets a Round and a Priority when it is put on the board,
+chosen by the table below, and the reply that creates it says which in one line, so Aaron only
+corrects it when it is wrong. No issue is left without a Round: one without is forgotten. Put a
+session's follow-ups in one issue, not several (Aaron, 2026-10-16).
+
+| Kind of issue | Round | Priority |
+|---|---|---|
+| Can cause harm, new or old behaviour | Current | High |
+| Blocks work in the current round | Current | High |
+| Changes what users see | Next | Medium |
+| Old behaviour, no harm possible | Next | Low |
+
+Harm is any of:
+
+1. **Wrong numbers with no warning.** An area or uncertainty is wrong and nothing on the page
+   says so.
+2. **Lost data.** Photos, calibrations, validations or experiment records deleted or overwritten.
+3. **A running experiment disturbed.** Its calibration replaced, or the lens moved, mid-experiment.
+4. **An easy mistake with a bad result.** A control where one wrong tap causes 1, 2 or 3, with no
+   confirmation.
+
+When a round ends, the cards it did not finish move to the next round.
 
 **Claiming.** Before starting, list what is taken:
 
