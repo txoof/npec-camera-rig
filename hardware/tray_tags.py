@@ -12,7 +12,7 @@ before anything is exported.
 Usage:
     uv run tray_tags.py 1-12 13-24 101-112
     uv run tray_tags.py 1-12:bolt 101-112:tab -o ~/prints
-    uv run tray_tags.py 226-231 -D on_side=false
+    uv run tray_tags.py 251-256 -D on_side=false
 
 Writes e.g. ``exports/tray_tags/4x5/apriltag_tray_tag_4x5_1-12_tab.3mf``;
 with -o, every file goes straight into that folder.
@@ -35,13 +35,15 @@ TRAY_TYPES = [
     (1, 75, "4x5"),
     (76, 150, "4x4"),
     (151, 225, "1x1"),
-    (226, 299, "OTHER"),
+    (226, 250, "black_tray"),
+    (251, 299, "OTHER"),
 ]
 
-STYLES = ("tab", "bolt")  # tag_style values in apriltag_tray_tag.scad
+STYLES = ("tab", "bolt", "lip", "lip_bolt", "disc")  # tag_style values in apriltag_tray_tag.scad
 
 # style used when a group does not name one
-DEFAULT_STYLE = {"4x5": "tab", "4x4": "bolt", "1x1": "bolt", "OTHER": "tab"}
+DEFAULT_STYLE = {"4x5": "tab", "4x4": "lip", "1x1": "lip_bolt", "black_tray": "disc",
+                 "OTHER": "tab"}
 
 
 def tray_type(tag_id):
@@ -117,21 +119,24 @@ def help_epilog():
     Returns:
         Preformatted epilog text.
     """
-    rows = "\n".join(f"  {lo:>3}-{hi:<3}  {name:<6}  {DEFAULT_STYLE[name]}"
+    rows = "\n".join(f"  {lo:>3}-{hi:<3}  {name:<10}  {DEFAULT_STYLE[name]}"
                      for lo, hi, name in TRAY_TYPES)
     return f"""\
 tray types (a group must stay inside one):
-  ids      type    default style
+  ids      type        default style
 {rows}
 
 styles:
-  tab   90 deg tab that hangs over the tray edge
-  bolt  flat tab with an M8 clearance hole
+  tab       20 mm tag, 90 deg tab that hangs over the tray edge
+  bolt      20 mm tag, flat tab with an M8 clearance hole
+  lip       42 mm tag, 61 mm square plate with a lip
+  lip_bolt  42 mm tag, the lip plate plus the M8 tab
+  disc      30 mm tag, 51 mm round plate, always printed flat
 
 group format:
   FIRST-LAST         a range of ids, default style for its type   1-12
   ID                 a single id, default style for its type      7
-  FIRST-LAST:STYLE   a range of ids, in STYLE (tab or bolt)       1-12:bolt
+  FIRST-LAST:STYLE   a range of ids, in STYLE (see styles)        1-12:bolt
   ID:STYLE           a single id, in STYLE                        7:bolt
   Each group writes one file. No spaces inside a group.
 
@@ -140,22 +145,25 @@ examples:
       ids 1 to 12, 4x5, tab (the default for 4x5)
       -> exports/tray_tags/4x5/{SCAD.stem}_4x5_1-12_tab.3mf
   tray_tags.py 1-12 13-24 101-112
-      three files: 4x5 1-12 tab, 4x5 13-24 tab, 4x4 101-112 bolt
+      three files: 4x5 1-12 tab, 4x5 13-24 tab, 4x4 101-112 lip
   tray_tags.py 1-12:bolt
       ids 1 to 12, 4x5, bolt instead of the default tab
       -> exports/tray_tags/4x5/{SCAD.stem}_4x5_1-12_bolt.3mf
   tray_tags.py 1-6 7-12:bolt 101-106:tab 107-112
-      four files, styles mixed: 4x5 tab, 4x5 bolt, 4x4 tab, 4x4 bolt
+      four files, styles mixed: 4x5 tab, 4x5 bolt, 4x4 tab, 4x4 lip
   tray_tags.py 7:bolt
       a single tag, id 7, bolt
-  tray_tags.py 226-231 -D on_side=false -o ~/prints
+  tray_tags.py 226-237
+      ids 226 to 237, black_tray, disc (the default for black_tray)
+      -> exports/tray_tags/black_tray/{SCAD.stem}_black_tray_226-237_disc.3mf
+  tray_tags.py 251-256 -D on_side=false -o ~/prints
       lay the tags flat instead of on their side, write to ~/prints
 
 refused, nothing exported:
   tray_tags.py 70-80      crosses 4x5 and 4x4; use 70-75 76-80
   tray_tags.py 0-10       ids start at 1
   tray_tags.py 295-305    ids end at 299 (300-449 are calibration sheets)
-  tray_tags.py 1-12:clip  style must be tab or bolt
+  tray_tags.py 1-12:clip  not a style
 """
 
 
