@@ -2655,6 +2655,426 @@ calibration and lens position, about 10 minutes of photos. Not leaves standing a
 not other plants, not overlapping leaves. The true error lies between the "against before" and
 "against after" figures, since the shrinking between scans is not measured.
 
+### 15.5c Tray splitting and tray ID (issue #164, method written 2026-10-15, before the analysis)
+
+The tray facts used here (size, configurations, tag positions, layout rules) are collected in
+`reference/trays.md`.
+
+Answers the open item in 15.4, "trays separated and matched to a tag: how many of 12, per still",
+which nothing had measured. Reads the 15 October stills only; nothing is photographed and nothing
+is written into the experiment folder or `rig.db`. Record in `experiments/round1-trays/`
+(`NOTES.md`, `results.csv`); overlay pictures in `~/scratch/round1-trays/`, not in the repo.
+
+**Tray measurements (Aaron, 2026-10-15, one tray).** Number of readings per value not recorded.
+
+| What | Value | Instrument |
+|---|---|---|
+| Outside size, lip included, east-west (short side, tray in portrait) | 305.0 mm | tape measure |
+| Outside size, lip included, north-south (long side) | 366.0 mm | tape measure |
+| Height of the grid surface (cell openings) above the gray table | 99.89 mm | tape measure |
+| Height of the top of the lip above the gray table | 104.78 mm | tape measure |
+| Cell opening, both directions | 59.5 mm | callipers |
+| Wall between cells | 10.1 to 10.3 mm | callipers |
+| Outer grid wall at the lip, on the edges running north-south (west, east) | 13 mm | callipers |
+| Outer grid wall at the lip, on the edges running east-west (north, south) | 11 mm | callipers |
+
+Cells are not all the same size and the wall width varies a little (Aaron). Derived, not
+measured: cell centres about 69.7 mm apart (59.5 + 10.2); the grid sums to 294.6 mm east-west and
+360.3 mm north-south, so the lip reaches about 5.2 mm beyond the grid on each side east-west and
+2.9 mm north-south. The tape measure is the weakest of the two instruments, so the outside size is
+checked against the photos (method B) and the difference is reported, not used to correct it.
+The lip is 4.89 mm above the grid surface; at 0.145% of area per mm (section 4) the lip outline
+reads about 0.35% larger in length, about 1 mm on 305 mm. The calibration's scale field
+(`20261014T111147292361`) gives 4.83 to 4.89 px/mm across the frame, so a tray is about
+1,480 x 1,780 px at full resolution and 185 x 220 px on the 1/8 decode used for finding shapes,
+where one pixel is about 1.65 mm. The lip's 1 mm is below that.
+
+**Tray layout (Aaron, 2026-10-15).** A tray has columns A to D and rows 1 to 5; seen from above in
+portrait, A1 is the south-west corner. The 30 mm tray tag sits in cell A1. Six trays also carry a
+20 mm tag on the tray edge (pairs in 15.3a). With 12 trays, trays are always portrait in two rows,
+North 1 to 6 and South 1 to 6, at 0 or 180 degrees, so A1 is at the south-west or the north-east
+corner. Researchers will not reliably leave gaps between trays.
+
+**Data.** Experiment `2026-10-15_44a9e96e`, steps from `experiments/round1/session-2026-10-15.csv`.
+The calibration and lens position of each still are read from `rig.db` (read only) and recorded
+with the results.
+
+- **Gaps, 33 stills:** steps 1 (10), 2 (4), 3 (3), R2-1 (10), R2-2 (3), R2-3 (3). R2-3 has the trays
+  "fairly well split, not perfect", which Aaron calls typical of what the scientists do.
+- **Touching, 143 stills:** steps 5 (2), 4 (3), 6 (12), R2-4 (3), R3 (123). Steps 4 and 6 were taken
+  after step 5 with the trays left pushed together; the record file titles do not say so.
+
+The sort was made by eye from reduced copies, one still per step, and confirmed by Aaron for R2-3.
+
+**Tag detection.** The 36h11 detector with the 20 mm setting C from #156 (finer bit sampling,
+171 of 171 20 mm sightings against 121 of 171), inside the experiment script only. Tray IDs are
+0 to 299; other IDs are ignored. A tag's rotation comes from its corner order.
+
+**Methods, simplest first.** Each runs on the gap set first, then on the touching set.
+
+- **A. Tag only.** Each tray tag's centre is put on a slot with the slot boxes of the still's
+  calibration (`certainty_map.sheets_by_slot`, which refuses a tag more than half a slot spacing
+  from a slot centre). No outline. This is the reference for slots.
+- **B. Blue threshold.** Blue pixels on a 1/8 decode, shapes found as connected regions, each fitted
+  with a rotated rectangle and linked to the tray tags whose centres fall inside it. On the gap
+  set, the fitted size through the scale field at the shape's centre is the photo measurement of
+  the tray's outside size.
+- **C. Tag placement.** From the 30 mm tag's centre and rotation, place cell A1 and from it the
+  whole outside outline (305.0 x 366.0 mm, grid position from the measurements above), converted to pixels
+  with the scale field at the tag. Assumes every 30 mm tag is stuck on the same way relative to its
+  tray; step 2 (every tray turned 180 degrees in its slot) tests that assumption.
+- **D. Splitting.** Shapes from B that hold more than one tray, split along the borders that C
+  predicts between them, with the tags inside each shape.
+- **E. Edge refinement.** Only if D fails: the tray edges searched at full resolution in a narrow
+  band around the edges C predicts. At the 1/8 decode the seam between two touching trays is about
+  one pixel wide.
+
+**What is recorded, per method and per still.**
+
+- Trays found as separate shapes, of the trays in the still.
+- Shapes holding exactly one tray: one 30 mm tag, or one 30 mm and 20 mm pair from the same tray
+  (pairs from 15.3a). A shape with tags of two trays, or a tray split over two shapes, is a failure.
+- Slot of each tray, against method A, and against the known moves of steps 2, 3, 4, R2-2 and R2-3.
+- Outline corners: spread across the repeated stills of one layout (step 1: 10, R2-1: 10, R3: 123),
+  in mm through the scale field.
+- B only: fitted outside size against the tape measure.
+
+**Decision rule (proposed, a decision not a measurement; for Aaron to accept before the analysis).**
+A method *works* on a set when, in every still of that set, every tray is one shape holding
+exactly one tray, and every slot agrees with method A. Anything less is recorded with the count of
+stills and trays that failed, and the method is not dropped for it. No threshold is set for the
+corner spread in round 1: it is recorded, not judged.
+
+**Decision rule accepted** (Aaron, 2026-10-15, before the analysis). The rule above is used to
+count. Whether a method that is right most of the time (for example 80% to 95% of trays) is
+good enough is decided after the results of the methods are seen, not now.
+
+**Changes to the method, made before the first count (2026-10-15).**
+
+- Method A uses the nearest slot centre, not `certainty_map.sheets_by_slot`. The slot centres are
+  the calibration sheets' centres, and a tray tag in cell A1 lies about 170 mm or more from the
+  middle of its tray, more than the half slot spacing (about 152 mm) that `sheets_by_slot` allows,
+  so it would refuse every tray tag. The distance to the nearest and to the second-nearest slot
+  centre is recorded.
+- A tag belongs to a shape when its centre is inside the shape or within 15 mm of it (decision):
+  the 30 mm and 20 mm paper tags extend past the tray corner (15.2), so their centres can lie
+  outside the blue.
+- Blue threshold (decision, from one probe still `075756_789328`): OpenCV hue 100 to 118,
+  saturation at least 100, value at least 50, on the 1/8 decode; a 3 px opening; holes filled;
+  shapes smaller than a quarter of one tray dropped. Method B's slot is the slot centre nearest
+  the shape's centre, so it can be checked against method A.
+- A shape is one tray only when its area is 0.85 to 1.15 trays (decision) and it holds the tags of
+  one tray. A shape larger than that is several trays even when only one tray's tag is linked to
+  it. (A first count judged by tags alone and counted two- and three-tray shapes with one tag as
+  found, 84 of 396; replaced before the result was reported.)
+
+**Result, methods A and B on the gap set (2026-10-15, 33 stills).** Script
+`experiments/round1-trays/trays.py`, per still `results-gaps.csv`, per shape `shapes-gaps.csv`,
+overlays in `~/scratch/round1-trays/gaps/`. Every still: calibration `20261014T111147292361`,
+validation `20261014T111253582634`, lens 6.05. All 12 A1 tags were found in all 33 stills.
+
+| | Result |
+|---|---|
+| A: each tray on its own slot | 6 of 33 stills |
+| A: distance from tag to nearest slot centre, largest per still | 238.6 to 278.6 mm |
+| A: nearest against second-nearest slot, smallest margin per still | 1.3 to 17.8 mm |
+| B: stills passing the rule | 0 of 33 |
+| B: trays that are one shape of one tray's size, holding only their own tags | 40 of 396 (10%), 1 or 2 per still |
+| B: one-tray shapes with no tray tag linked | 26 |
+| B: trays split over two shapes | 0 |
+| B: shapes by size in trays (from area) | 66 of one tray, 76 of two, 46 of three, 10 of four |
+| B: single-tray shapes, east-west | mean 306.0 mm, SD 1.4, 304.0 to 308.3 (tape 305.0) |
+| B: single-tray shapes, north-south | mean 373.6 mm, SD 1.3, 371.4 to 376.6 (tape 366.0) |
+
+The single-tray shapes are 66 sightings of 14 tray positions, so the SD is mostly repeat
+sightings, not 66 independent trays.
+
+**What this shows.**
+
+- **Method A cannot be the reference for slots.** The tag sits at a tray corner, and the slot
+  centres come from wherever the calibration sheets lay, so the nearest slot centre is often a
+  neighbour: two trays named the same slot in 27 of 33 stills. Rule 3 (slot agrees with method A)
+  needs a different reference.
+- **In the gap set the trays still touch in places.** Lips touch or nearly touch between
+  neighbours (for example North 1 and North 2, South 1 to 3 in step 1), and one touch merges two
+  shapes. Thresholding alone does not separate trays as the scientists place them.
+- **Where a tray stands clear, the blue outline is repeatable to about 1.4 mm** and matches the
+  tape measure east-west (306.0 against 305.0 mm). North-south it reads 7.6 mm (2%) larger than
+  the tape measure; not explained, recorded.
+- **Some trays carry no tag inside their shape.** Paper tags that lie more than 15 mm from the
+  blue (for example tag 3 in step 1) leave their tray as "no tray".
+
+What it does not cover: the touching set, and methods C to E.
+
+**Method F, added 2026-10-15 after A and B: FastSAM on the Hailo-8 (Aaron asked for a Hailo model).**
+No precompiled Hailo-8 model has a tray class (research 2026-10-15); FastSAM outlines any object
+without class names. `fast_sam_s.hef`, Hailo Model Zoo v2.17.0 for Hailo-8 (the release for
+HailoRT 4.23), downloaded to `~/scratch/round1-trays/hailo/`, SHA-256
+`361cb280a2be5d2b9b12a65848b2d288e0b0a37db03a77d0490c5f307fbfcd9a`. `hailortcli parse-hef`: one
+input 640 x 640 x 3, and the YOLOv8 instance segmentation outputs: on 80, 40 and 20 cell grids a box
+(4 x 16 distance bins), a score and 32 mask coefficients; 32 base masks of 160 x 160. Decoded in
+`experiments/round1-trays/fastsam.py`; no Hailo decoding code is used.
+
+- Crops: from the A1 tags, each row is cut into 3 tiles of 2 neighbouring trays, reaching 0.75 of a
+  tray past the outer tags on every side (a tag is at the south-west or north-east corner), padded
+  to a square and resized to 640 x 640: about 1 px per mm.
+- Decisions: score at least 0.25 and duplicates removed above 0.7 overlap (FastSAM's usual
+  defaults); a mask is a tray when it is 0.8 to 1.2 trays in area, fills at least 0.85 of its
+  rotated rectangle, and its north-south over east-west extent is 366/305 within 15%; tags link
+  to it as in method B (inside or within 15 mm).
+
+**First result, 2 stills (2026-10-15).** Record `fastsam-masks.csv`, overlays in
+`~/scratch/round1-trays/fastsam/`. Each tile gives 108 to 352 masks, mostly cells and parts of the
+background; the tray-shaped ones are kept.
+
+| Still | Tray-shaped masks | Linked to one tray | No tag linked |
+|---|---|---|---|
+| R2-4 `092731_168752` (touching) | 11 of 12 (none for tray 4) | 6 (trays 3, 5, 6, 7, 8, 11) | 5 |
+| Step 1 `075756_789328` (gaps) | 12 of 12 | 11 | 1 (tray 10) |
+
+- **FastSAM separates touching trays** where thresholding cannot: in R2-4, South 3 and South 4
+  touch and come out as two masks of 307 x 372 and 307 x 375 mm.
+- **The failures are tag linking, not outlines.** Every tray whose tag is the green 30 mm tag
+  inside cell A1 links. The paper tags (1, 2, 9, 10, 12) stick out past the tray corner, more than
+  15 mm from the mask when the trays are pushed together.
+- Tray-shaped masks measure 272 to 324 mm east-west and 328 to 386 mm north-south across both
+  stills; some are cut by the tile edge. Not yet compared with B or the tape measure per tray.
+
+Two stills only; not a count against the decision rule.
+
+**Method F with tag linking, 20 stills (2026-10-15).** Changes before the run (decisions): tray
+masks from all 6 tiles of a still are pooled, and masks whose centres lie within 100 mm are one
+tray (the best filled stays). Each tray tag links to the nearest tray mask (distance to its
+outline, 0 inside) within 60 mm, unless the second-nearest is less than 20 mm further (then it is
+left ambiguous). Record `fastsam-small20.csv` (per still, with stage times) and
+`fastsam-small20-masks.csv`; whole-still overlays in `~/scratch/round1-trays/fastsam-stills/`.
+Stills: touching, steps 5 (2), 4 (3), R2-4 (3), 6 (2); gaps, steps 1 (2), 2 (2), 3 (2), R2-1 (1),
+R2-2 (2), R2-3 (1).
+
+| Set | Stills | Trays one mask, own tags only | Trays with no tray mask | Masks with tags of 2 or more trays | Stills 12 of 12 |
+|---|---|---|---|---|---|
+| Touching | 10 | 59 of 120 (49%) | 29 | 14 | 0 |
+| Gaps | 10 | 89 of 120 (74%) | 25 | 3 | 2 |
+
+Per still the count ranges from 2 of 12 (step 6) to 12 of 12 (step 1); no tag was left ambiguous,
+and no tray mask was left without a tag. Against method B on the gap set (40 of 396, 10%), F finds
+far more trays, including touching ones.
+
+- **The limit now is that FastSAM does not give a whole-tray mask for every tray**: 29 and 25 trays
+  had none. In step 6 (`082328_270773`), 5 of 12 trays have no mask.
+- **The "several trays" masks are mostly undersized masks** (for example 310 x 328 and
+  283 x 322 mm against 305 x 366) that pass the 0.8 tray area limit and then take a neighbour's
+  tag, because the neighbour has no mask of its own.
+- Not yet looked at: why the missing masks are missing (score below 0.25, removed as duplicates of
+  a larger mask, or failing the fill and shape tests), and whether overlapping or single-tray tiles
+  fill them in.
+
+**Time per still** (Raspberry Pi 5, Hailo-8, mean of the 20; 9 with tag detection, 11 with tags
+read from the cache):
+
+| Stage | Mean |
+|---|---|
+| Read the 64 MP JPEG | 0.37 s |
+| Tag detection, full resolution, setting C | 4.54 s |
+| FastSAM on the Hailo-8, 6 tiles | 0.16 s (about 27 ms per tile) |
+| Decoding the masks and choosing the trays (Python, CPU) | 4.1 s |
+| **Total per still, with tag detection** | **9.2 s** |
+| Total per still, tags cached | 4.6 s |
+
+The Hailo-8 is 2% of the time. Mask decoding builds a full 640 x 640 mask for each of the 108 to
+352 candidates per tile; most are cells and are thrown away.
+
+**Why trays had no mask (2026-10-15, `diagnose.py`, record `diagnose-fastsam-small20.csv`).** For
+each of the 54 trays without a tray mask in the 20-still run, every raw FastSAM candidate box of
+about tray size (250 to 360 mm east-west, 300 to 430 mm north-south; decision for the diagnosis)
+within 60 mm of the tray's tag was followed through the stages, and the furthest stage reached is counted.
+
+| Furthest stage | Trays | Touching | Gaps |
+|---|---|---|---|
+| Cut by the tile edge (FastSAM saw only part of the tray) | 27 | 17 | 10 |
+| Score below 0.25 | 14 | 8 | 6 |
+| Removed as a duplicate of an overlapping box | 6 | 1 | 5 |
+| No tray-sized box proposed | 5 | 2 | 3 |
+| Mask failed the shape test | 2 | 1 | 1 |
+
+The tiles were the main cause, a fault in the crop design: a tag sits at a tray corner, so the tray
+reaches a whole tray past its tag, and the crops reached only 0.75 of a tray past the outer tags.
+
+**Two crop designs on the same 20 stills (2026-10-15).** Both with masks built only for candidate
+boxes of about tray size (230 to 400 mm east-west, 280 to 460 mm north-south; decision), which left
+the counts unchanged and cut the decoding time.
+
+- **Tag tiles, margin 1.15:** as before, 2 trays per tile, reaching 1.15 trays past the outer tags
+  (decision). Record `fastsam-small20-m1.15.csv`, overlays `~/scratch/round1-trays/fastsam-stills-m1.15/`.
+- **Overlapping grid:** 3000 px square tiles every 1000 px over the full width and the rows between
+  the calibration's corner tags, 32 tiles per still; any tray smaller than 2000 px (a tray is about
+  1780 px north-south) lies wholly in one tile (unit tested). Uses no tray tag position. Record
+  `fastsam-small20-grid.csv`, overlays `~/scratch/round1-trays/fastsam-stills-grid/`.
+
+| Crops | Touching: trays right | Gaps: trays right | Stills 12 of 12 (touching, gaps) | Time per still, with tag detection |
+|---|---|---|---|---|
+| Tag tiles, margin 0.75 (first run) | 59 of 120 (49%) | 89 of 120 (74%) | 0, 2 | 9.2 s |
+| Tag tiles, margin 1.15 | 108 of 120 (90%) | 120 of 120 (100%) | 5, 10 | 5.8 s |
+| Overlapping grid | 104 of 120 (87%) | 114 of 120 (95%) | 2, 5 | 8.1 s |
+
+Times: mean of the 20 stills without tag detection (tag tiles 1.27 s, of which Hailo 0.16 s;
+grid 3.56 s, of which Hailo 0.87 s), plus the mean full-resolution tag detection of 4.54 s
+measured on 9 stills in the first run. The tags must be detected in any case, to name the trays.
+
+Twenty stills, not the full sets; not yet a count against the decision rule.
+
+**Fallback around failed trays (2026-10-15, built at Aaron's request).** After the first pass (tag
+tiles, margin 1.15), every A1 tag whose tray is not one mask holding only its own tags gets a
+second search; masks holding several trays are dropped first. Decisions:
+
+- The trays already found are painted grey (with a 5 mm border) so their masks cannot be found
+  again or take a neighbour's tag.
+- Around the failed tag, the tray must lie within 1.15 trays in every direction. Windows of 2600 px
+  (about 1.2 px per mm at 640) are spaced so a tray with its lip (1650 x 1950 px) lies wholly in at
+  least one window (unit tested): 8 windows when nothing is cut by the frame edge.
+- Score cut-off 0.05 in the windows instead of 0.25; the same tray tests as the first pass.
+- The tray-shaped mask nearest the tag (within 60 mm) is taken. Then all tags are linked again over
+  the final set: right first-pass trays, fallback trays, and first-pass masks with no tag that are
+  not one of those.
+
+Record `fastsam-small20-m1.15-fb.csv` and `-masks.csv` (column `source`: first or fallback),
+overlays `~/scratch/round1-trays/fastsam-stills-m1.15-fb/` (fallback trays drawn thicker and
+labelled "(fallback)").
+
+| Same 20 stills | Touching: trays right | Gaps: trays right | Stills 12 of 12 | Time per still, tags cached |
+|---|---|---|---|---|
+| First pass only | 108 of 120 (90%) | 120 of 120 | 15 of 20 | 1.27 s |
+| With the fallback | **120 of 120** | **120 of 120** | **20 of 20** | 1.60 s (fallback 1.38 s mean, 2.22 s at most, on the 5 stills that needed it) |
+
+12 trays went to the fallback (on 5 stills) and all 12 were found, in 74 windows. Every pick scored
+at least 0.365, so the windows and the grey-out found them, not the lower cut-off. Add about 4.5 s
+per still for tag detection.
+
+**"Right" means the tray tag links to exactly one tray-shaped mask; the outline itself is rougher.**
+Checked by eye on `081433_159359` (4 fallback trays): each fallback mask is on the right tray, but
+some run into the aisle or the rail below.
+
+| Masks | Number | East-west, mean (SD), range | North-south, mean (SD), range |
+|---|---|---|---|
+| First pass | 228 | 306.5 mm (10.8), 273 to 328 | 376.3 mm (5.4), 366 to 409 |
+| Fallback | 12 | 311.1 mm (15.2), 287 to 342 | 391.4 mm (13.7), 372 to 411 |
+| Method B, stand-alone trays (gap set) | 66 | 306.0 mm (1.4) | 373.6 mm (1.3) |
+| Tape measure | | 305.0 mm | 366.0 mm |
+
+So FastSAM names the trays, but its outlines vary about 8 times more than the blue threshold's
+where a tray stands clear. Whether the outline is good enough depends on what it is used for
+(tray identity and slot only, or the region in which canopy area is counted); not decided.
+
+Twenty stills, not the full sets; not yet a count against the decision rule.
+
+**Full run: all 176 stills against the decision rule (2026-10-15).** Tag tiles at margin 1.15 with
+the fallback, the method above unchanged. Record `fastsam-full176.csv`, `fastsam-full176-masks.csv`,
+per still against the rule `summary-full176.csv` (script `summarise.py`), overlays
+`~/scratch/round1-trays/fastsam-stills-m1.15-fb/`. Every still: calibration
+`20261014T111147292361`, validation `20261014T111253582634`, lens 6.05; all 12 A1 tags found in
+every still. **Rule 3 uses a provisional slot reference**, row and order (a tray's mask centre and
+its A1 tag centre must give the same row, North or South, and the same place 1 to 6 from the west),
+not yet chosen by Aaron.
+
+| Set | Stills | Stills passing all 3 rules | Trays right | First pass alone | Fallback: found / needed |
+|---|---|---|---|---|---|
+| Gaps (steps 1, 2, 3, R2-1, R2-2, R2-3) | 33 | **33 (100%)** | 396 of 396 | 396 | 0 / 0 |
+| Touching, steps 5, 4, 6, R2-4 | 20 | **20 (100%)** | 240 of 240 | 228 | 12 / 12 |
+| Touching, R3 (one hour, nothing moved) | 123 | **110 (89%)** | 1449 of 1476 (98.2%) | 1363 | 99 / 113 |
+| All | 176 | 163 (93%) | 2085 of 2112 (98.7%) | 1987 | 111 / 125 |
+
+In every failing still, rule 2 failed (one mask holds the tags of two trays) and rule 3 failed with
+it, since a merged mask leaves fewer than 12 trays to number; rule 1 failed in 1 still. The 13
+failing stills are all in R3, so the same layout passes in 110 stills and fails in 13: the result
+for one layout is not fully repeatable from one still to the next.
+
+**What fails.** 12 of the 13 failures are the same: the tray on North 3 carries the benchmark,
+FastSAM gives it no tray mask in the first pass or the fallback, and its tag 4 sits at its
+south-west corner on the seam with North 2, within 60 mm of North 2's mask, so it links there
+(seen on `101419_730536`). The 13th is tags 5 and 9 on one first-pass mask (`101019_729462`).
+The fallback found 111 of the 125 trays sent to it.
+
+- So the trays that remain hard are trays with something large on them (the benchmark covers part
+  of the tray's top; not measured how much), next to a neighbour, with the tag on the shared edge.
+- The 60 mm link distance lets a tag on a seam link to the neighbour when its own tray has no mask.
+  Not changed here; options for the next round: green tags inside cell A1 must lie inside their
+  mask, or a tag left over after linking marks its neighbour's mask as doubtful instead of merged.
+- A tag was left ambiguous (two masks within 20 mm of each other) 24 times over the 176 stills:
+  tag 15 16 times, 17 4 times, 16 3 times (20 mm edge tags of round 2) and tag 3 (the A1 tag of
+  its tray) once. Not checked which of these cost a tray.
+
+**Time per still** (Raspberry Pi 5, Hailo-8): 5.76 s with full-resolution tag detection (mean of
+133 stills detected in this run), 1.37 s with the tags read from the cache (43 stills).
+
+Round 1 bar: recorded, not judged. Whether 89% to 100% of stills, or 98.7% of trays, is good
+enough is decided by Aaron now that the results are in (decision rule, above).
+
+**Success rate: not decided (Aaron, 2026-10-16).** No pass rate is fixed after the full run. Aaron
+first wants to see how tray tracking across the photos of an experiment performs (15.5d), then
+judge how good or bad the result is.
+
+### 15.5d Tray tracking over time (issue #171, planned under #164, method written 2026-10-16, before the analysis)
+
+**Question.** Followed through the 15 October stills in time order, does the tray splitting of
+15.5c (FastSAM, tag tiles at margin 1.15, fallback) report each tray's position and the moves that
+were made, and no others? And how much do two patches for missed trays add?
+
+**Data.** The 176 stills of the full run in 15.5c, ordered by `taken_at` (UTC) from `rig.db`;
+results already in `experiments/round1-trays/fastsam-full176.csv` and `-masks.csv`, tags in the
+scratch cache. No new Hailo run, no new photos. Script `experiments/round1-trays/track.py` (to be
+written), record `track-full176.csv`, plots and overlays in `~/scratch/round1-trays/track/`.
+
+**Known moves** (from `experiments/round1/session-2026-10-15.csv` and 15.3 to 15.3d), the
+reference the tracker is checked against:
+
+| Between | What moved |
+|---|---|
+| step 1 to 2 | every tray turned 180 degrees in its slot (position about the same, tag heading flips) |
+| step 2 to 3 | North and South rows swapped |
+| step 3 to 5 | trays pushed together (step 5 was taken before step 4) |
+| step 5 to 4 | trays swapped within rows, still pushed together |
+| step 4 to 6, within 6 | only the benchmark moves, one slot per still; no tray moves |
+| step 6 to R2-1 | trays re-tagged (20 mm tags added), layout reset with gaps |
+| R2-1 to R2-2 | rows swapped |
+| R2-2 to R2-3 | trays swapped within rows |
+| R2-3 to R2-4 | trays pushed together |
+| R2-4 to R3, within R3 | nothing moved |
+
+**Measures.**
+
+- Position of each tray in each still: its mask centre, in mm on the table through the scale
+  field. A *move* is a change of more than 50 mm in centre or a flip of the tag heading between
+  two consecutive stills (decision).
+- Moves found against the known moves: per step boundary, trays reported as moved and not moved;
+  moves reported inside a step where nothing moved (false moves), and known moves missed.
+- Position spread of each tray inside a step where nothing moved (step 1, R2-1, R3), in mm.
+- Trays right per still (the rule of 15.5c) before and after each patch, counted separately.
+
+**Patches (each labelled in the record and counted apart from measured trays; never shown as
+measured).**
+
+1. **Elimination:** in a still with exactly one A1 tag not linked to a tray and exactly one
+   tray-shaped mask with no tag, that mask is given that tray, labelled "inferred by elimination".
+2. **Two tags on one mask:** when a mask holds the tags of two trays and one of them lies inside
+   it while the other lies outside, the outside tag is unlinked and its tray sent to patch 1 or 3,
+   labelled "tag moved to unresolved". (This is the failure in 12 of the 13 failing R3 stills.)
+3. **Filled from neighbouring stills:** a tray missing or wrong in a still is given its position
+   from the stills before and after, labelled "filled from neighbours", only when all hold:
+   - the gap is at most 3 consecutive stills (decision);
+   - the positions just before and just after agree within 20 mm and the same tag heading
+     (decision);
+   - no other tray's mask covers that position in the gap stills;
+   - the gap is not at the start or end of the sequence and does not cross a step boundary
+     (so a move or a removal is never filled over).
+
+**Results reported.** Raw, after patch 1 and 2, after patch 3: trays right of 2112 and stills
+passing of 176, for gaps and touching; the number of trays patched by each kind; false and missed
+moves. A timeline per tray (position against time, steps marked) as a picture in scratch.
+
+**What it does not cover.** Trays removed from the chamber or added during a sequence (none on
+15 October), any angle other than 0 and 180 degrees, fewer than 12 trays, pots or plants in the
+wells. Round 1 bar: recorded, then judged by Aaron.
+
 ### 15.6 Round 1 review
 
 Not yet written. Covers what was found, what surprised us, which step it sends work back to, and
