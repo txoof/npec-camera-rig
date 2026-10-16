@@ -1,19 +1,57 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui %}
 {% set nav_active = "gallery" %}
 {% block title_suffix %} — Capture &amp; Gallery{% endblock %}
 
 {% block content %}
   <h2>Capture</h2>
-  <div class="capture-section">
-    <button id="capture-btn">Capture</button>
-  </div>
+  <div class="row">{{ ui.button("Capture", "primary", id="capture-btn") }}</div>
 
-  <h2>Recent captures</h2>
-  <div class="gallery" id="gallery"></div>
+  <div class="row gallery-head">
+    <h2>Photos</h2>
+    {{ ui.button("Go to date", id="date-btn") }}
+    {{ ui.button("Show newest", id="newest-btn", attrs={"hidden": ""}) }}
+  </div>
+  <p class="lead" id="gallery-note">Newest first. Dates and times are this computer's local time. Tap a photo to see it larger.</p>
+  <div id="gallery"></div>
+  <p class="lead" id="gallery-status" role="status"></p>
+  <div class="row">{{ ui.button("Load older photos", id="older-btn", attrs={"hidden": ""}) }}</div>
+  <div id="gallery-sentinel"></div>
 
   <script>
+    // Photos page by page, newest first, grouped by local day (#165). Scrolling near the end
+    // loads the next page back in time; Load older photos does the same without scrolling.
+    // Thumbnails and the larger copy a tap opens come from the derived image store (#56).
+    const PAGE = 24;
     const captureBtn = document.getElementById("capture-btn");
+    const dateBtn = document.getElementById("date-btn");
+    const newestBtn = document.getElementById("newest-btn");
+    const olderBtn = document.getElementById("older-btn");
     const gallery = document.getElementById("gallery");
+    const statusText = document.getElementById("gallery-status");
+    const sentinel = document.getElementById("gallery-sentinel");
+    const scroller = document.querySelector(".scroll");
+
+    // oldestKey: where the next page starts (photos before it). generation: bumped on each
+    // reset, so a page that arrives after a jump is dropped.
+    let oldestKey = null, newestKey = null, loading = false, finished = false, shown = 0, generation = 0;
+
+    const pad = (n) => String(n).padStart(2, "0");
+
+    // A photo key is its UTC day and file stem, YYYY-MM-DDTHHMMSS_ffffff.
+    function keyDate(key) {
+      return new Date(Date.UTC(+key.slice(0, 4), +key.slice(5, 7) - 1, +key.slice(8, 10),
+        +key.slice(11, 13), +key.slice(13, 15), +key.slice(15, 17)));
+    }
+
+    function keyFor(date) {
+      return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`
+        + `T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}_000000`;
+    }
+
+    const localDay = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    const dayLabel = (date) => date.toLocaleDateString(undefined,
+      { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 
     function duration(seconds) {
       if (seconds === null || seconds === undefined) return "unknown";
@@ -54,37 +92,163 @@
         + `validation ${stemText(record.validation)}`;
     }
 
-    function renderGallery(items) {
-      gallery.innerHTML = items.map((item) => `
+    function itemHtml(item) {
+      const taken = keyDate(item.key);
+      const time = taken.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      return `
         <div class="gallery-item">
-          <img src="${item.url}" alt="capture ${item.filename}">
-          <div>${item.timestamp ? item.timestamp.replace("T", " ").slice(0, 19) : item.filename}</div>
+          <button type="button" class="figure hit" aria-label="Photo taken ${time}. Tap to enlarge.">
+            <img src="/gallery/image/thumb/${item.path}" data-large="/gallery/image/screen/${item.path}"
+              alt="Photo taken ${dayLabel(taken)} ${time}" loading="lazy">
+          </button>
+          <div class="gallery-time">${time}</div>
           <div>${recordText(item.record)}</div>
           ${item.uptime ? `<div>${uptimeText(item.uptime)}</div>` : ""}
           ${item.flags && item.flags.length
             ? `<div class="gallery-flag">Not covered by the validation bands:
                 ${item.flags.join("; ")}</div>`
             : ""}
-        </div>
-      `).join("");
+        </div>`;
     }
 
-    async function refreshGallery() {
-      const r = await fetch("/api/captures");
-      renderGallery(await r.json());
+    // The grid for `item`'s local day: the last (or, at the top, the first) one if it is that
+    // day, otherwise a new day section after (or before) the others.
+    function dayGrid(item, atTop) {
+      const taken = keyDate(item.key);
+      const day = localDay(taken);
+      const sections = gallery.querySelectorAll(".gallery-day");
+      const edge = atTop ? sections[0] : sections[sections.length - 1];
+      if (edge && edge.dataset.day === day) return edge.querySelector(".gallery");
+      const section = document.createElement("section");
+      section.className = "gallery-day";
+      section.dataset.day = day;
+      section.innerHTML = `<h3>${dayLabel(taken)}</h3><div class="gallery"></div>`;
+      if (atTop) gallery.prepend(section); else gallery.append(section);
+      return section.querySelector(".gallery");
+    }
+
+    function showStatus() {
+      olderBtn.hidden = finished;
+      if (shown === 0 && finished) statusText.textContent = "No photos yet.";
+      else if (finished) statusText.textContent = `No older photos. ${shown} shown.`;
+      else statusText.textContent = `${shown} shown. Scroll down or tap Load older photos for more.`;
+    }
+
+    function sentinelNear() {
+      return sentinel.getBoundingClientRect().top < scroller.getBoundingClientRect().bottom + 600;
+    }
+
+    async function loadOlder() {
+      if (loading || finished) return;
+      loading = true;
+      const gen = generation;
+      statusText.textContent = "Loading photos";
+      const params = new URLSearchParams({ limit: PAGE });
+      if (oldestKey) params.set("before", oldestKey);
+      let items;
+      try {
+        const r = await fetch(`/api/captures?${params}`);
+        if (!r.ok) throw new Error(r.statusText);
+        items = await r.json();
+      } catch (err) {
+        if (gen === generation) {
+          loading = false;
+          olderBtn.hidden = false;
+          statusText.textContent = "Could not load the photos. Tap Load older photos to try again.";
+        }
+        return;
+      }
+      if (gen !== generation) return;
+      for (const item of items) dayGrid(item, false).insertAdjacentHTML("beforeend", itemHtml(item));
+      if (items.length) {
+        newestKey = newestKey || items[0].key;
+        oldestKey = items[items.length - 1].key;
+      }
+      shown += items.length;
+      finished = items.length < PAGE;
+      loading = false;
+      showStatus();
+      // The observer fires only when the end comes into view, not while it stays there.
+      if (!finished && sentinelNear()) loadOlder();
+    }
+
+    // Start again from the newest photos (before null) or from the photos before a key.
+    function reset(before) {
+      generation += 1;
+      gallery.innerHTML = "";
+      oldestKey = before;
+      newestKey = null;
+      loading = false;
+      finished = false;
+      shown = 0;
+      newestBtn.hidden = before === null;
+      scroller.scrollTop = 0;
+      loadOlder();
+    }
+
+    // After a capture, the new photo goes on top; the pages already loaded stay.
+    async function showNewest() {
+      if (!newestBtn.hidden) { reset(null); return; }
+      const r = await fetch("/api/captures?limit=1");
+      const items = r.ok ? await r.json() : [];
+      if (!items.length || (newestKey && items[0].key <= newestKey)) return;
+      dayGrid(items[0], true).insertAdjacentHTML("afterbegin", itemHtml(items[0]));
+      newestKey = items[0].key;
+      oldestKey = oldestKey || items[0].key;
+      shown += 1;
+      showStatus();
+    }
+
+    async function goToDate() {
+      let hours;
+      try {
+        const r = await fetch("/api/captures/hours");
+        if (!r.ok) throw new Error(r.statusText);
+        hours = await r.json();
+      } catch (err) {
+        ui.toast("Could not load the list of dates.");
+        return;
+      }
+      // Counted per local day here, from UTC hours, so the days match the headings.
+      const days = new Map();
+      for (const { hour, count } of hours) {
+        const start = keyDate(`${hour}0000_000000`);
+        const day = localDay(start);
+        if (!days.has(day)) days.set(day, { label: dayLabel(start), count: 0 });
+        days.get(day).count += count;
+      }
+      if (!days.size) { ui.toast("No photos yet."); return; }
+      const current = gallery.querySelector(".gallery-day");
+      ui.openChoice({
+        label: "Go to date",
+        options: [...days].map(([day, d]) => ({
+          value: day, label: d.label, detail: `${d.count} photo${d.count === 1 ? "" : "s"}`,
+        })),
+        value: current ? current.dataset.day : null,
+        onSet: (day) => {
+          const [y, m, d] = day.split("-").map(Number);
+          reset(keyFor(new Date(y, m - 1, d + 1)));  // photos before the next local midnight
+        },
+      });
     }
 
     captureBtn.addEventListener("click", async () => {
       captureBtn.disabled = true;
-      captureBtn.textContent = "Capturing...";
+      captureBtn.textContent = "Capturing";
       try {
         await fetch("/capture", { method: "POST" });
-        await refreshGallery();
+        await showNewest();
       } finally {
         captureBtn.disabled = false;
         captureBtn.textContent = "Capture";
       }
     });
-    refreshGallery();
+    olderBtn.addEventListener("click", loadOlder);
+    newestBtn.addEventListener("click", () => reset(null));
+    dateBtn.addEventListener("click", goToDate);
+    new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) loadOlder();
+    }, { root: scroller, rootMargin: "0px 0px 600px 0px" }).observe(sentinel);
+    loadOlder();
   </script>
 {% endblock %}

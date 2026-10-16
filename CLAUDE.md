@@ -57,7 +57,7 @@ default did not.
 `pyproject.toml` sets `addopts = -m unit`. Expensive tiers are opt-in and unreachable by accident.
 
 ```
-pytest                 # unit only, no hardware, budget <10s
+pytest                 # unit only, no hardware, budget <15s, 4 workers in parallel (-n 0: serial)
 pytest -m hardware     # needs the camera
 pytest -m hailo        # needs the accelerator
 pytest -m integration  # full pipeline against fixture images
