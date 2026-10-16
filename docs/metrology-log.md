@@ -2748,8 +2748,11 @@ If any fails, `tags.py` stays as it is and the result is written up here.
 one lens position per photo set. Not covered: 3D-printed 20 mm tags (issue #70), other lighting,
 and calibration stills taken after 2026-10-14. Seven calibration stills are all that exist.
 
-**As run.** 2026-10-16, 09:26:33 to 09:43:41 UTC, commit `55d27a2` (this method, before any result),
-OpenCV 4.10.0 with 4 threads. Load average (1 minute) 2.36 at the start, from other work on the Pi,
+**As run.** 2026-10-16, 09:26:33 to 09:43:41 UTC, OpenCV 4.10.0 with 4 threads. The method was
+committed in `55d27a2` before the run; the script as run was committed with the results in
+`971c49d` (`tag-detector-run.json` records `55d27a2`, the commit checked out while the script was
+still uncommitted). A later commit changed only how the corners file is laid out (one line per
+still); its data were checked equal to the file as first written. Load average (1 minute) 2.36 at the start, from other work on the Pi,
 then 2.5 to 4.4 while the script itself ran. Every timed run of a still found the same IDs as its
 other runs. Raw data: `experiments/round1/tag-detector-stills.csv` (IDs found and each timed run,
 per still), `tag-detector-corners.json` (corners of tags 300 to 499 for both settings, per
