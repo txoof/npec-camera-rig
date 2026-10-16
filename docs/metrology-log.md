@@ -2844,6 +2844,12 @@ the calibration homography. Recorded:
 - red solids: area per still against the computed area above
 - rosettes: area per slot and rotation, the spread, and that it stays below each upper limit
 
+*Added 2026-10-16.* Trays separated and matched to a tag are counted in 15.5c: 2085 of 2112 trays
+right on 176 stills (98.7%), 163 of 176 stills passing all 3 rules. The trays were split with
+FastSAM on the Hailo-8, not the blue threshold planned above, because the blue threshold does not
+split touching trays (15.5c). Whether that rate is good enough is decided by Aaron after tray
+tracking (15.5d).
+
 ### 15.5 Results: red and green area on the benchmark (issue #154)
 
 **Labels:** red solids: reference comparison (their known areas come from calliper readings of
