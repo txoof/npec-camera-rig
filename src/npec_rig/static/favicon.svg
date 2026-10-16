@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- A common dicot leaf: oval blade, pointed tip, short stalk, midrib and paired side veins (#197). -->
+  <g transform="rotate(35 32 32)" stroke-linecap="round" fill="none">
+    <path d="M32 54 L32 62" stroke="#1b5e20" stroke-width="3.5"/>
+    <path d="M32 54 C13 50 8 28 32 3 C56 28 51 50 32 54 Z" fill="#2e7d32" stroke="#1b5e20" stroke-width="2"/>
+    <path d="M32 53 L32 9" stroke="#c8e6c9" stroke-width="2.5"/>
+    <g stroke="#c8e6c9" stroke-width="1.8">
+      <path d="M32 45 Q24 43 17 37"/>
+      <path d="M32 45 Q40 43 47 37"/>
+      <path d="M32 36 Q25 33 18 26"/>
+      <path d="M32 36 Q39 33 46 26"/>
+      <path d="M32 27 Q27 24 22 18"/>
+      <path d="M32 27 Q37 24 42 18"/>
+      <path d="M32 19 Q29 16 27 12"/>
+      <path d="M32 19 Q35 16 37 12"/>
+    </g>
+  </g>
+</svg>
