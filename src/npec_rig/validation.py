@@ -139,7 +139,10 @@ def slot_layout(artifact: CalibrationArtifact) -> dict:
     """The calibration's tray slots and tag centres, from disk when already worked out. Working
     them out decodes the 64MP calibration frame (about 15 s, the "Start validation" freeze of
     2026-10-02 after a restart emptied the in-memory cache), so the result is saved once."""
-    saved = validation_store.load_slot_layout(artifact.frame_stem)
+    try:
+        saved = validation_store.load_slot_layout(artifact.frame_stem)
+    except validation_store.SessionNotFoundError as exc:  # a stem that is not a photo instant
+        raise ValidationRefusedError(f"this calibration cannot be validated: {exc}") from exc
     if saved is not None:
         return saved
     detections = photo_tags.calibration_tags(artifact.frame_stem)
@@ -154,13 +157,16 @@ def slot_layout(artifact: CalibrationArtifact) -> dict:
     return {"slots": slots, "calibration_centres": [list(c) for c in centres]}
 
 
-def current_session(calibration_stem: str) -> dict | None:
+def current_session(calibration_stem: str, sessions: list[dict] | None = None) -> dict | None:
     """The current validation of a calibration: the newest complete one (ROUNDS_REQUIRED rounds
     counted), consistent or not (Aaron, 2026-10-16, #183). A newer validation that is still open,
-    or ended early, does not replace it: one started by mistake changes nothing."""
+    or ended early, does not replace it: one started by mistake changes nothing. `sessions`, if
+    given, is the already read list (validation_store.list_sessions)."""
+    if sessions is None:
+        sessions = validation_store.list_sessions()
     complete = [
         s
-        for s in validation_store.list_sessions()
+        for s in sessions
         if s.get("calibration_stem") == calibration_stem and s.get("completed_at")
     ]
     return max(complete, key=lambda s: s["completed_at"], default=None)
@@ -185,12 +191,31 @@ def photo_check(focus: dict) -> dict:
         return {"session": None, "flagged": True, "reason": problem}
     current = current_session(artifact.frame_stem)
     if current is None:
-        return {"session": None, "flagged": True, "reason": "no finished validation of this calibration"}
-    session_status = validation_store.status(current)
+        reason = "no finished validation of this calibration"
+        return {"session": None, "flagged": True, "reason": reason}
+    try:
+        session_status = validation_store.status(current)
+    except (KeyError, TypeError, ValueError):
+        # A photo is never lost to a damaged session file: it is taken and flagged instead.
+        reason = "the validation record could not be read"
+        return {"session": current["id"], "flagged": True, "reason": reason}
     if session_status["state"] == "not_consistent":
-        reason = f"the validation is {session_status['label'][0].lower()}{session_status['label'][1:]}"
+        reason = f"the validation is {_lower_first(session_status['label'])}"
         return {"session": current["id"], "flagged": True, "reason": reason}
     return {"session": current["id"], "flagged": False, "reason": None}
+
+
+def _lower_first(label: str) -> str:
+    """A status label ("Not consistent: North 1") inside a sentence."""
+    return label[:1].lower() + label[1:]
+
+
+def _progress_text(session: dict, ended: str, running: str) -> str:
+    """How far an unfinished `session` got, worded by `ended` or `running`, which take
+    {counted} and {required}."""
+    counted = len(validation_store.counted_rounds(session))
+    wording = ended if validation_store.is_ended(session) else running
+    return wording.format(counted=counted, required=validation_store.ROUNDS_REQUIRED)
 
 
 def status(focus: dict) -> dict:
@@ -208,12 +233,14 @@ def status(focus: dict) -> dict:
     sessions = [
         s for s in validation_store.list_sessions() if s.get("calibration_stem") == artifact.frame_stem
     ]
-    current = current_session(artifact.frame_stem)
+    current = current_session(artifact.frame_stem, sessions)
     if current is not None:
         session_status, session_id = validation_store.status(current), current["id"]
         state, text = session_status["state"], session_status["label"]
         newer = [
-            s for s in sessions if not s.get("completed_at") and s["started_at"] > current["started_at"]
+            s
+            for s in sessions
+            if not s.get("completed_at") and s["started_at"] > current["started_at"]
         ]
         if newer:
             text += "; " + _newer_text(newer[0])
@@ -224,12 +251,11 @@ def status(focus: dict) -> dict:
         session_status, session_id = validation_store.status(session), session["id"]
         state = session_status["state"]
         if state == "not_validated":
-            counted = len(validation_store.counted_rounds(session))
-            required = validation_store.ROUNDS_REQUIRED
-            if validation_store.is_ended(session):
-                text = f"Not validated: the last validation ended after {counted} of {required} rounds"
-            else:
-                text = f"Not validated: {counted} of {required} rounds counted so far"
+            text = _progress_text(
+                session,
+                "Not validated: the last validation ended after {counted} of {required} rounds",
+                "Not validated: {counted} of {required} rounds counted so far",
+            )
         else:
             text = session_status["label"]
     if problem:
@@ -240,15 +266,14 @@ def status(focus: dict) -> dict:
 
 def _newer_text(session: dict) -> str:
     """A newer validation that has not completed, for the status line."""
-    counted = len(validation_store.counted_rounds(session))
-    required = validation_store.ROUNDS_REQUIRED
-    if validation_store.is_ended(session):
-        text = f"a newer validation ended after {counted} of {required} rounds"
-    else:
-        text = f"a newer validation is in progress, {counted} of {required} rounds"
+    text = _progress_text(
+        session,
+        "a newer validation ended after {counted} of {required} rounds",
+        "a newer validation is in progress, {counted} of {required} rounds",
+    )
     session_status = validation_store.status(session)
     if session_status["state"] == "not_consistent":
-        text += f", {session_status['label'][0].lower()}{session_status['label'][1:]}"
+        text += f", {_lower_first(session_status['label'])}"
     return text
 
 

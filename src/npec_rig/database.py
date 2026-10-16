@@ -36,7 +36,7 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
                 purpose TEXT NOT NULL,           -- capture, validation, calibration, tripwire
                 experiment_id INTEGER,           -- NULL until experiments exist (#55)
                 calibration TEXT,                -- stem of the calibration active when it was taken
-                validation TEXT,                 -- session whose bands apply (captures.validation_check)
+                validation TEXT,                 -- current validation (validation.photo_check); bands apply unless flagged
                 lens_position REAL,              -- as the camera reported it
                 focus_locked_at REAL,            -- the focus lock, NULL when not locked
                 exposure_us INTEGER,

@@ -189,3 +189,17 @@ def test_with_no_complete_validation_the_status_line_shows_the_newest_ones_progr
     stored_validation("20261009T110000000000", STEM, rounds=1)
     status = validation.status(LOCKED)
     assert (status["state"], status["text"]) == ("not_validated", "Not validated: 1 of 3 rounds counted so far")
+
+
+def test_a_damaged_current_validation_flags_the_photo_instead_of_failing_it() -> None:
+    from npec_rig import validation_store
+
+    _calibrate()
+    session = stored_validation("20261009T080000000000", STEM)
+    del session["slots"]
+    validation_store.save_session(session)
+    assert validation.photo_check(LOCKED) == {
+        "session": "20261009T080000000000",
+        "flagged": True,
+        "reason": "the validation record could not be read",
+    }

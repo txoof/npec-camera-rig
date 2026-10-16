@@ -98,7 +98,8 @@ _DOMAIN_ERROR_STATUS = {
 
 async def _domain_error(_request: Request, exc: Exception) -> JSONResponse:
     """In the shape HTTPException gives, so every page shows the message as it shows the others."""
-    return JSONResponse({"detail": str(exc)}, status_code=_DOMAIN_ERROR_STATUS[type(exc)])
+    status = next(_DOMAIN_ERROR_STATUS[k] for k in type(exc).__mro__ if k in _DOMAIN_ERROR_STATUS)
+    return JSONResponse({"detail": str(exc)}, status_code=status)
 
 
 for _error in _DOMAIN_ERROR_STATUS:
