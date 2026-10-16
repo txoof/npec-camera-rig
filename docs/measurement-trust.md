@@ -6,8 +6,8 @@ were run on SN000 on 2026-10-05 and repeated on SN001 from 2026-10-12 to 10-14
 (`docs/metrology-log.md`, section 14): the repeat validation on another day, the tape, the two
 calibrations with a cold start between them, the two-height and the roll tests passed; a knock
 was detected but read DRIFT, not FAIL, and was signed off with a covered-corner-tag check. The check of the
-calibration's own uncertainty claim failed, so that claim is no longer used (see *An independent
-check, which sets the band*). Which results were repeated on SN001 is listed in
+calibration's own uncertainty claim failed, so that claim is no longer used (see *A check on
+placements the calibration did not use, which sets the band*). Which results were repeated on SN001 is listed in
 `docs/metrology-log.md`, section 13. The evidence for every number here, with its source, is in
 `docs/metrology-log.md`.
 
@@ -76,7 +76,7 @@ and on the trays (about 100 mm higher) gave the same shape of scale field within
 either calibration's own residual. A change of tray height changes the overall scale (about
 0.145% of area per mm), but not the shape.
 
-## An independent check, which sets the band
+## A check on placements the calibration did not use, which sets the band
 
 **What could go wrong.** A calibration always fits the targets it was made from. That says nothing
 about how well it measures something else, somewhere else.
@@ -85,7 +85,9 @@ about how well it measures something else, somewhere else.
 operator moves each sheet to a different tray, and the rig photographs again; this is repeated 3
 times. A round counts only if at least half the tags actually moved, so the same layout is never
 counted twice. The calibration photograph itself is never used. In each slot, the band is the
-distance from the true area that 95% of the tags fall within, over all rounds.
+distance from the true area that 95% of the tags fall within, over all rounds. Validation is
+independent of the calibration photograph, not of the printed tags: it checks against the same tag
+size the calibration used (metrology-log section 12, *Labels*). The next section covers that gap.
 
 **Evidence.** The current validation (SN001, 2026-10-14, lens 6.05): 3 rounds spread over 33.5
 minutes, 64% to 84% of tags moved each round, 85 to 90 tags per slot, bands ±1.3% to ±2.6%. The
@@ -162,14 +164,16 @@ Conditions the bands do not cover are marked on each photo rather than averaged 
 taken within 60 minutes of the Pi starting (a cold start; the 60 minutes is a decision: one run on
 SN001 found the readings back within 15 minutes). A camera fault during a run is not detected yet (`docs/metrology-log.md`, section 8).
 
-## Independent checks of the whole chain
+## Checks of the whole chain
 
 **What could go wrong.** Calibration and validation both rest on the same typed-in tag size. If
 that number were wrong, every area would be wrong by the same proportion and validation would
 still pass. And a camera that moves after calibration would make the calibration silently stale.
 
 **What the rig does.** Two checks that do not depend on the tag size: a tape measure, and the
-corner-tag tripwire, which compares every photo's 4 corner tags with the calibration's.
+corner-tag tripwire, which compares every photo's 4 corner tags with the calibration's. In the
+metrology log's labels, the tape and the roll against the table's rails are reference
+comparisons; the knocks, the two calibrations and the two heights are development checks.
 
 **Evidence (2026-10-05, in the chamber).**
 
@@ -189,7 +193,7 @@ corner-tag tripwire, which compares every photo's 4 corner tags with the calibra
   methods agree within 0.1 points. Inside the 2% required.
 - **Two calibrations with a cold start between them**, the table untouched: at the 12 slot centres
   they differ by -0.08 to +0.19 points of area, at most about a ninth of that slot's band. So two
-  independent calibrations agree far inside the bands.
+  separate calibrations agree far inside the bands.
 - **Two heights**: the shape of the scale field on the table surface and on the trays (about 100 mm
   apart) differs by at most 0.39 points, below both calibrations' residuals (0.50% and 0.66%); one
   calibration's shape covers the tray height, with less margin than on SN000 (0.16).

@@ -12,7 +12,9 @@ measurement*). Numbers marked **decision** are settings chosen by the project, n
 Section 11 lists inconsistencies between project files that still need checking. Section 9
 holds the M2 physical acceptance tests, run 2026-10-05 on SN000. Section 14 holds their repeat on
 SN001 (method written 2026-10-09, run 2026-10-12 to 10-14; summary in 14.7). Current calibration
-and bands: SN001, 2026-10-14, lens 6.05 (14.6).
+and bands: SN001, 2026-10-14, lens 6.05 (14.6). From 2026-10-16 each result carries a
+label saying what kind of evidence it is: validation, reference comparison or development check
+(section 12).
 
 This document states every number the rig relies on to report plant canopy area and how far that
 area can be trusted: what was measured, how, how often, the result, and what it does and does
@@ -90,6 +92,13 @@ measure every printed sheet.
 | Height above tray top | about +0.145% area per mm for small heights (model); over a 75 mm step the model gives 11.8% and the one test 11.2% to 12.0% | See *The height test* below | 2026-10-01 | Bands cover flat objects at tray-top height only. Plant height adds to the uncertainty (section 7) |
 | Perspective across the table | corrected by the scale field; positions mapped with a four-corner homography | Saved calibration frames | 2026-09-22 | Perspective within the table plane is modelled; lens distortion is not (section 10) |
 
+**Label: development check** for the two scale rows (from calibration fits). The camera, image
+size, camera height and perspective rows carry no label: they are camera details, a reference
+measurement and method (section 12). The height row is the height test below.
+
+**Label: development check** for the height test. The tall tray's reading is compared with a
+prediction worked out from the camera and tray heights, not with a second measurement of area.
+
 **The height test (2026-10-01, old camera SN000).** One tray 75 mm taller than the others (Aaron:
 the tall tray is 175 mm, the normal trays 100 mm, both measured with callipers) was put in 3 slots in
 turn, one validation round each: North 2, North 4, South 6. Lens 6.18, locked. Validation session
@@ -116,6 +125,10 @@ gives the low end as 11.3%).
 depends on the camera's height above the table, not on which camera unit is fitted.
 
 ## 5. Calibration
+
+**Label: development check**, every result in this section: the residuals, their repeatability
+between calibrations and the area-shape check test the calibration's own fit. The ImageJ area
+check is in 5.1.
 
 Current calibration (`20261008T081832283098`, 2026-10-08 08:18 UTC, replacement camera SN001,
 lens position 6.04, 30.0 mm tags, 355 tags, 4 corner tags): scale field residual 0.50% (standard
@@ -151,6 +164,135 @@ rig's 29.3106 mm tag size) gave 1.48% to 2.01% and are not comparable. The holdo
 | Area-shape check | worst tag -0.45%, mean -0.05% | 17 calibration frames, 2104 tags, 2026-09-21. Squaring a length scale is adequate for area at this level |
 | Calibration needs focus locked and all 4 corner tags visible | | **Decision**, overridable |
 
+### 5.1 ImageJ area check (2026-09-29, old camera SN000)
+
+**Label: development check.** The ImageJ scale was set on a printed tag and the outlines were
+traced by hand, so a wrongly printed sheet would affect both methods alike.
+
+**Question.** Does a count of tag pixels made by hand, outside the rig, agree with the areas the
+rig reports for the same tags?
+
+**Method.** Aaron, 2026-09-29. In one photograph, 27 calibration tags (30 mm) were outlined by hand
+in ImageJ as four-corner polygons: 3 tags at each of 9 positions (the image centre, the 4 edge
+midpoints and the 4 corners of the frame). The scale was set on one tag near the image centre,
+across its X side: 4.4706 px/mm (30 mm = 134.12 px). ImageJ gave each tag's area, perimeter and
+Feret diameter (the longest distance across), compared with the nominal values of a 30 mm square:
+900 mm², 120 mm and 42.426 mm. ImageJ's area for a polygon is the count of pixels whose centres
+lie inside it. The outlines were then matched by position to the tags the rig detected (all 27
+within 1.3 px), and the rig's area for each was compared with 900 mm² as well.
+
+**Conditions.** Photo `captures/2026-09-29/122649_225311` (under `/var/lib/npec-rig/`), 12:26:49
+UTC, old camera SN000, focus locked at lens 6.24, exposure 2702 µs. Rig calibration
+`20260929T122605739060`, 30.0 mm tag size, made from a photo of the same tags taken 43 s earlier.
+It is not among the 8 SN000 calibrations counted in section 5, which start at 14:34 UTC that day.
+All 17 sheets in the photo are full scale, each checked by Aaron (2026-10-16). Whether the sheets
+lay on the table or on the trays is not recorded.
+
+**Table E2, as recorded by Aaron** (second pass; errors against the nominal values, in %):
+
+| Tag | Area (mm²) | Perimeter (mm) | Feret (mm) | Area error | Perimeter error | Feret error |
+|---|---|---|---|---|---|---|
+| center0 | 913.066 | 120.865 | 42.852 | 1.452 | 0.721 | 1.003 |
+| center1 | 919.871 | 121.318 | 42.899 | 2.208 | 1.098 | 1.114 |
+| center2 | 917.419 | 121.141 | 42.858 | 1.935 | 0.951 | 1.017 |
+| n0 | 952.793 | 123.474 | 43.659 | 5.866 | 2.895 | 2.905 |
+| n1 | 973.157 | 124.593 | 44.090 | 8.129 | 3.828 | 3.921 |
+| n2 | 954.494 | 123.588 | 43.738 | 6.055 | 2.990 | 3.091 |
+| ne0 | 929.327 | 121.861 | 43.299 | 3.259 | 1.551 | 2.057 |
+| ne1 | 955.045 | 123.595 | 43.896 | 6.116 | 2.996 | 3.464 |
+| ne2 | 931.179 | 122.191 | 43.418 | 3.464 | 1.826 | 2.337 |
+| e0 | 969.955 | 124.679 | 44.182 | 7.773 | 3.899 | 4.138 |
+| e1 | 965.952 | 124.331 | 44.094 | 7.328 | 3.609 | 3.931 |
+| e2 | 968.604 | 124.518 | 44.269 | 7.623 | 3.765 | 4.343 |
+| se0 | 937.533 | 122.478 | 43.854 | 4.170 | 2.065 | 3.365 |
+| se1 | 953.694 | 123.490 | 43.696 | 5.966 | 2.908 | 2.992 |
+| se2 | 956.246 | 123.923 | 44.050 | 6.250 | 3.269 | 3.827 |
+| s0 | 965.202 | 124.281 | 43.994 | 7.245 | 3.568 | 3.695 |
+| s1 | 978.961 | 125.167 | 44.425 | 8.773 | 4.306 | 4.711 |
+| s2 | 963.450 | 124.161 | 43.972 | 7.050 | 3.468 | 3.643 |
+| sw0 | 930.728 | 122.170 | 43.312 | 3.414 | 1.808 | 2.087 |
+| sw1 | 937.333 | 122.054 | 43.391 | 4.148 | 1.712 | 2.274 |
+| sw2 | 941.235 | 122.592 | 43.866 | 4.582 | 2.160 | 3.393 |
+| w0 | 961.799 | 124.071 | 44.210 | 6.867 | 3.392 | 4.204 |
+| w1 | 959.248 | 123.888 | 43.851 | 6.583 | 3.240 | 3.358 |
+| w2 | 972.106 | 124.719 | 44.342 | 8.012 | 3.932 | 4.515 |
+| nw0 | 940.935 | 122.659 | 43.459 | 4.548 | 2.216 | 2.434 |
+| nw1 | 941.886 | 122.954 | 43.655 | 4.654 | 2.462 | 2.896 |
+| nw2 | 941.386 | 122.733 | 43.444 | 4.598 | 2.278 | 2.398 |
+
+Checked against the saved outlines (2026-10-16): counting pixels as ImageJ does, every tag's area,
+perimeter and Feret give 4.4706 px/mm, so the table comes from these outlines at one scale.
+*Exception: the sw1 perimeter does not match its outline.* At 4.4706 px/mm the sw1 outline
+measures 122.58 mm, not 122.054 mm. Its perimeter error (1.712%) was worked out from 122.054, so
+the value was there before the error column. Cause not found. The sw1 area and Feret fit normally.
+The number is given as recorded.
+
+**Result.** Area error against 900 mm², mean of the 3 tags at each position:
+
+| Position | ImageJ | Rig |
+|---|---|---|
+| Centre | +1.87% | -3.53% |
+| North edge | +6.68% | +1.57% |
+| North-east corner | +4.28% | -2.28% |
+| East edge | +7.57% | +0.01% |
+| South-east corner | +5.46% | -1.25% |
+| South edge | +7.69% | +2.36% |
+| South-west corner | +4.05% | -1.09% |
+| West edge | +7.15% | +0.79% |
+| North-west corner | +4.60% | -1.51% |
+| All 27 tags, mean (SD) | +5.48% (2.03) | -0.55% (1.93) |
+| Range | +1.45% to +8.77% | -4.05% (center0) to +3.07% (s1) |
+
+The two methods follow the same pattern across the frame (correlation 0.90 over the 27 tags,
+0.90 over the 9 positions): the centre lowest, the edge midpoints highest. ImageJ reads higher by
+6.03 points on average (SD 0.89, 4.39 to 7.67).
+
+**Where the 6 points come from.** Two parts, each measured from the saved files:
+
+- *Tracing.* In pixels, with no scale involved, every hand outline is larger than the rig's tag,
+  by 3.37% in area on average (SD 0.82, 1.73% to 4.90%). Along the middle 60% of each side, the
+  outlines sit 0.79 px outside the edge at 50% brightness on average (SD 0.25, 0.28 to 1.34 px); the
+  rig's tag corners sit 0.35 px inside it.
+- *Scale.* ImageJ's single scale, 4.4706 px/mm, is below the rig's fitted scale field at the image
+  centre, 4.5286 px/mm (x 4600, y 3670), about 2.6% in area. The scale measured from the 3 centre
+  tags themselves is 4.4487 px/mm (4.4373, 4.4513, 4.4576), 0.5% below ImageJ's. So the fitted
+  field lies 1.8% above the centre tags' own scale, about 3.5% in area: the central low reading
+  (section 7). The centre tags' scales come from the rig's detected corners, ImageJ's from a line
+  drawn by hand; which tag that line was drawn on is not recorded, so the 0.5% between them is
+  not split further.
+
+**The rig's confidence figure.** Rebuilt from the calibration file (the spread of the 5 nearest
+calibration tags' residuals, turned into area; the claim section 9.4 later found too small and
+that was removed): 16 of 27 tags read within it and 11 beyond. Worst: center0, -4.05% against
+3.47%; largest excess: ne0, -3.71% against 2.02%. These tags built the calibration, so this is a
+best case.
+
+**The rejected first pass.** An earlier set of outlines, `ROI_Calibration Image_142533_041268.zip`,
+was made on photo `captures/2026-09-28/142533_041268` (2026-09-28, 14:25:33 UTC, from its record),
+which had sheets printed at 96% scale on the table. It is not used. Its outlines `se1-1` and `se2-1` are tags s1 and s2 under the wrong names.
+
+**Raw data** (on the Pi, read only). The photo and its record (above). The outlines:
+`/home/pi/scratch/ROI_Calibration_Image_122649_225311.zip` (`c0` to `c2` are center0 to
+center2). The comparison, `/home/pi/scratch/imagej-comparison-2026-09-29/`: `run.json` (the
+calibration), `compare.py`, `compare.out` and `comparison.csv` (matching and per-tag errors),
+`check.py` and `check.out` (the confidence figure), `edges.py`, `edges.csv`, `rois.py` and
+`crop_*.png` (the tracing offset). Summary: `/home/pi/scratch/122649-rig-figures.md`
+(2026-10-02). Check of the table against the outlines: `/home/pi/scratch/imagej-check-179/`
+(`roi_mask_check.py`, `table_e2.md`, 2026-10-16).
+
+**Open points.**
+
+- The corners read lower than the edge midpoints by both methods (ImageJ +4.05% to +5.46% against
+  +6.68% to +7.69%; rig -2.28% to -1.09% against +0.01% to +2.36%), although the corners are
+  further from the centre. Not explained.
+- Tags s2 and sw2 both read as ID 351, at different positions: probably two sheets carrying the
+  same ID. Not checked.
+- The sw1 perimeter does not match its outline, cause not found (above).
+
+**Covers / does not cover.** One photograph, one rig state (SN000 on 2026-09-29, before the camera
+swap of 2026-10-07), 30 mm tags on the calibration sheets, and the same tags the calibration was
+built from. Not plants, not other tag sizes, not SN001, not targets placed after calibration.
+
 ## 6. Validation and the per-slot bands
 
 **Method.** After calibration, the operator moves each sheet to a different tray, leaving the trays
@@ -177,6 +319,9 @@ their true area. Fewer than 10 tags in a slot gives "not measured" (**decision**
 
 Every validation session is stored as `/var/lib/npec-rig/calibration/validations/<session>.json`,
 with each round's tag errors.
+
+**Label: validation**, every set of bands below (SN000 on 2026-10-05 twice and 2026-10-07, SN001
+on 2026-10-08): routine validation sessions.
 
 **Current bands, replacement camera SN001** (session `20261008T081846523784`, calibration
 `20261008T081832283098`, lens 6.04, rounds at 08:20, 08:32 and 08:43 UTC, 23.6 minutes first to
@@ -242,6 +387,9 @@ inside the 2.5-point whole-table check. Between the two lay the cold start, the 
 the lens tests of 2026-10-06 (section 8.1, runs 3 to 3j). Which of these, if any, caused the change
 is not known.
 
+**Label: development check** for the basis of these limits: an analysis of earlier validation
+sessions.
+
 **Checks on a validation**, each with the data it was set from:
 
 | Check | Limit | Basis |
@@ -252,6 +400,9 @@ is not known.
 | Fraction of slots off together, to call it a whole-round shift | 50% | **Decision**, no data cited |
 
 ### 6.1 The percentile band compared with a normal (2 × RMS) estimate (method written 2026-10-13, before any number was computed)
+
+**Label: development check.** An analysis of stored validation sessions, with Aaron's look at the
+photographs that held the tails (item 8).
 
 **Question.** The band is a percentile: it makes no assumption about the shape of the errors. The
 usual metrology route to a 95% interval is the GUM's expanded uncertainty, U = k × u with k = 2
@@ -570,6 +721,9 @@ here. Recounted with 1.96 × RMS (not part of the method set beforehand): 72 of 
 
 ## 7. Known error sources
 
+**Label: development check** for the lens position table and the SN001 check below. The Canon
+comparison is recorded in `reference/arducam-central-error-2026-10.md` and carries no label here.
+
 **Central error of the Arducam (closed investigation, `reference/arducam-central-error-2026-10.md`).**
 Targets within about 1500 px of the image centre read smaller than targets in mid-field. A Canon
 camera photographing the same table does not see it, so it belongs to the Arducam, not the table,
@@ -610,6 +764,9 @@ several percent. Measured at milestone M5.
 
 ## 8. Repeatability and stability
 
+**Label: development check**, every row of the table: repeated photographs of the same tags
+compared with themselves, with no second instrument.
+
 | Quantity | Result | How measured | Date |
 |---|---|---|---|
 | Photograph-to-photograph noise, old camera SN000 | 0.27 and 0.46 points: the standard deviation over 348 tags of the difference between two photos (12.5% light against 25%, and 50% against 25%). A difference of two photos carries about 1.4 (√2) times one photo's noise, and here also any effect of the light change, so one photo's noise is at most about 0.19 to 0.33 points (derived) | 3 photos, one per light level, auto-exposure compensating (3377, 7119 and 1714 µs), nothing else changed, calibration `20261001T091727374749`. Photos `captures/2026-10-01/113019_175501` (25%), `113116_696924` (12.5%), `113126_805785` (50%); script `/home/pi/scratch/intensity_test.py`; the output exists only in that session's chat record | 2026-10-01 |
@@ -630,6 +787,8 @@ restart (run 2) were inside the ordinary change over time measured by the contro
 added anything detectable. The 2026-10-01
 drift (1.3 points) was about 5 times larger than anything seen on 2026-10-05. The reason is not
 known.
+
+**Label: development check** for the checks of these flags on the rig.
 
 **Photos flagged as not covered by the validation bands (built 2026-10-08, #49).** Two
 conditions measured above (a lens away from its locked position, and the hour after a cold start)
@@ -682,6 +841,9 @@ them. This is a record of conditions, not a correction: a flagged photo is kept,
   yet: it happens inside the camera software and the app does not see it.
 
 ### 8.1 The repeat-photograph stability test
+
+**Label: development check**, every run below. The chamber's own log (run 3j) records the
+climate, not the area, so it is not a reference for the area.
 
 This is the test behind the lens-return, control, restart and power-cut results. It asks whether
 the rig reads the same area for the same object after a disturbance, compared with how much the
@@ -1111,6 +1273,10 @@ Detailed results: `reference/lens-return-2026-10.md`.
 
 ### 8.2 Camera swap comparison (method written 2026-10-07, before any step runs)
 
+**Labels:** development check for steps 0, 1 and 3 to 6, the overnight run, the packing foam and
+the central check; validation for the step 2 session and the validation after the recalibration,
+each also marked at its result.
+
 **Why.** The Arducam used since the rebuild may have been damaged (Aaron, 2026-10-07): after a
 full-res photo its lens stops following commands (section 8.1, run 3b and the diagnosis), a camera
 fault on 2026-10-06 left the central trays about half as sharp, and the 2026-10-07 validation read
@@ -1179,6 +1345,8 @@ limit was set for it. The wizard also reported: scale varies 1% across the calib
 top-left, 0.6% higher top-left than bottom-right; area-scale error 0.8% mean over 355 tags; shape
 distortion 0.01% mean, worst tag 395 at -0.06%. The 11:45 cold-start calibration at lens 6.23 gave
 4.864 px/mm and 0.50%, close to this one.
+
+**Label: validation.**
 
 **Step 2 result (2026-10-07).** Validation session `20261007T122525038952` of calibration
 `20261007T122200583188`, lens 6.16 locked, chamber door closed. Rounds at 12:26, 12:38 and
@@ -1457,6 +1625,8 @@ same signs as the old camera's (humidity negative, temperature positive); the op
 sign in step 6's extra analysis came during the settling after the foam came off. Present on both
 cameras, the cycle comes from the chamber, not the camera.
 
+**Label: validation.**
+
 **Recalibration after the foam came off (2026-10-08).** Before it, Aaron moved the trays slightly,
 moved the tray tags to inside each tray's boundary, and refocused: the lens was locked at **6.04**
 (the operator's choice) when the calibration ran. Calibration `20261008T081832283098`, 08:18 UTC,
@@ -1511,6 +1681,8 @@ UTC+2). The two-baseline test was run earlier (2026-09-25, section 8 table).
 
 ### 9.1 Two-height test
 
+**Label: development check.** Two calibrations of the rig compared with each other.
+
 **Question.** Does the shape of the scale field (how scale changes across the image) stay the same
 at a different height, so one paper calibration covers every tray height?
 
@@ -1541,6 +1713,8 @@ the table surface; it makes this test less strict, not more.
 area, and 0.145% of area per mm, not taped). Lens moved between runs (6.07 and 6.27), as in a real change of height.
 
 ### 9.2 Tape-measure check
+
+**Label: reference comparison.** The steel tape does not use the printed tags.
 
 **Question.** The scale rests on the tag size typed in (30.0 mm). If that were wrong, every reading
 would be wrong by the same proportion, and validation would not notice, because it checks against
@@ -1596,6 +1770,9 @@ back. Not the North row.
 
 ### 9.3 Roll and knock (tripwire)
 
+**Labels:** roll: reference comparison (the table's aluminium rails, fixed to the chamber). Knock:
+development check (how the tripwire responds).
+
 **Question.** After calibration, the app compares the 4 corner tags in each photo with the
 calibration's (the tripwire). Does it read a camera roll correctly, and does a knock give FAIL?
 
@@ -1631,6 +1808,9 @@ in both photos: straight lines near the top and bottom of the frame are slightly
 measure of its own, which is why the rails are the reference.
 
 ### 9.4 Claimed uncertainty against actual error (honesty plot)
+
+**Label: development check.** The claim is judged against validation tags, not against a second
+instrument.
 
 **Question.** The calibration claims an uncertainty at each position: the spread of the 5 nearest
 tags about the fitted field. Is that claim honest, that is, does it match the error actually
@@ -1726,6 +1906,20 @@ done (section 9).
   error, sign ignored. About 2 in 3 values lie within it.
 - **Roll:** rotation of the camera about its viewing direction, seen as the whole image turning.
 - **Tripwire:** the check of the 4 corner tags against the calibration, giving OK, DRIFT or FAIL.
+- **Labels.** Each result carries one, saying what kind of evidence it is (decided 2026-10-16,
+  issues #157 and #176):
+  - **Validation:** the routine printed-target check per slot (section 6).
+  - **Reference comparison:** a check against an independent measurement of the same real thing,
+    one that does not pass through the printed tags' size, such as the steel tape or the table
+    rails. A wrongly printed sheet would show up in it. Where the reference depends on printed
+    tags in part, the label line says so (15.5b).
+  - **Development check:** any other check made while building the rig. It shows that the rig
+    agrees with itself or with a model, not that its areas are right.
+
+  Calliper and tape readings of the sheets, trays, camera height and benchmark are the reference
+  measurements the rig is checked against; they carry no label. Neither do camera details (serial
+  number, image size), decisions, method text and the summary tables (the table at the top of section 9, sections 13 and 14.7), which repeat
+  results labelled where they are given.
 
 ## 13. Which results cover the current camera (SN001)
 
@@ -1752,6 +1946,7 @@ This table says, for each result, whether it has been repeated on SN001.
 | Tape-measure check | 9.2 | Pass | Pass, 14.2 |
 | Roll and knock | 9.3 | Pass | Pass (signed off): roll within 0.03 deg; knocks read DRIFT; covered corner tag gave FAIL, 14.5 |
 | Claimed uncertainty against actual error | 9.4 | Fail; the claim was removed | Not repeated (the claim is no longer shown) |
+| ImageJ area check | 5.1 | One photo, 2026-09-29 | Not repeated |
 
 Removing packing foam from SN001 changed its readings by about 0.8 points (section 8.2), so the
 SN001 results taken with the foam on (noise, restarts, the step 2 validation) describe the camera
@@ -1784,6 +1979,10 @@ start, section 8). Camera faults are listed from `camera_events` in `rig.db` for
 period. Raw data and scripts: `/home/pi/scratch/m2-acceptance-2026-10/`.
 
 ### 14.1 Repeat validation
+
+**Labels:** validation for each validation session (2026-10-12, 2026-10-13 twice, 2026-10-14);
+development check for the repeat test: its pass rule, the SN000 basis table and the comparison
+between days.
 
 **Question.** A slot's band is measured in one validation session. Does it still describe the
 same calibration on another day?
@@ -1975,6 +2174,8 @@ lifting sheets there (not checked). It did not change the result: South 6 kept 9
 
 ### 14.2 Tape measure
 
+**Label: reference comparison.** The steel tape, as in 9.2.
+
 Section 9.2 method A unchanged: steel tape from the outer edge of a tag on the South 1 sheet to the
 outer edge of a tag on the South 6 sheet, two tag pairs, against the app's distance along the same
 line. **Pass:** the app agrees with the tape within 2% (PLAN.md). Optional, to close a gap in 9.2:
@@ -2031,6 +2232,9 @@ to back cannot be reached without moving the table (Aaron, 2026-10-12), so they 
 as on the old camera.
 
 ### 14.3 Two calibrations with a cold start between
+
+**Label: development check**, both parts: readings after a cold start against the same tags before
+it, and two calibrations compared with each other.
 
 **Question.** Two independent calibrations of the same unmoved table: how far apart are their
 scale fields, compared with the validation bands? And, in the same hour, how do readings change
@@ -2128,6 +2332,8 @@ account. Old camera, 2026-09-25, without a cold start: 0.02% to 0.16% (section 8
 
 ### 14.4 Two heights
 
+**Label: development check**, as 9.1.
+
 Section 9.1 unchanged: one calibration with the sheets on the table surface, one on the trays at
 experiment height, lens refocused by Aaron for each. **Pass:** the scale-field shape (each corner's
 scale divided by the centre scale) differs between the two by less than both runs' residuals.
@@ -2157,6 +2363,9 @@ about 100 mm of height at 0.145% per mm (derived, not taped). The lens moved bet
 6.05), as in a real change of height. Run B is the tripwire baseline for 14.5.
 
 ### 14.5 Roll and knock
+
+**Labels:** roll: reference comparison (the table rails, as in 9.3). Knocks and the covered corner
+tag: development check.
 
 Section 9.3 unchanged: tripwire baseline, a knock on the camera mount, then the camera rolled by
 hand, measured against the table rails. To reach the camera Aaron climbs on the table, so contact with
@@ -2218,6 +2427,8 @@ was reported.
 3). **Pass:** the app's roll agrees with the rails within 0.2 deg, and the knock gives FAIL.
 
 ### 14.6 Closing calibration and validation
+
+**Labels:** validation for the validation session; development check for the closing calibration.
 
 After 14.5 the camera has moved. A new calibration at experiment height, made current, and a
 complete validation give the bands the rig then runs with. Not a pass or fail test.
@@ -2340,6 +2551,9 @@ closed and lights on for every photograph. In this order:
 
 ### 15.3a Session 1 outcome and the second tag round (method written 2026-10-15, before the second round)
 
+**Label: development check** for the session 1 tag counts: tags found or missed, with no true
+area.
+
 **Session 1 (steps 1 to 6, 34 stills, record in `experiments/round1/session-2026-10-15.csv`).**
 Steps 7 (benchmark repeated on one slot) and 8 (trays without the benchmark) were dropped: step 1
 already repeats the benchmark on one slot 10 times, and in every still 11 of 12 trays carry no
@@ -2376,6 +2590,8 @@ needs its own check (issue #70).
 
 ### 15.3b Result of the paired 20 mm round (2026-10-15, 09:06 to 09:28 UTC)
 
+**Label: development check.** Tags found or missed, with no true area.
+
 19 stills, experiment "tag-testing", steps R2-1 to R2-4 in `experiments/round1/session-2026-10-15.csv`:
 nothing moved (10), North and South rows swapped (3), trays swapped within rows (3), trays pushed
 together (3). Detector: `npec_rig.tags.detect_tags`, unchanged. Stills taken through `POST /capture`;
@@ -2408,6 +2624,8 @@ shown: the cause (position in the frame, light, how the paper lies, or detector 
 
 ### 15.3c Detector settings on the same 19 stills (2026-10-15, from saved photos)
 
+**Label: development check.** Tags found or missed, with no true area.
+
 **Question.** Are the 20 mm misses in 15.3b caused by the tags, or by the detector settings? The
 rig's settings (`npec_rig.tags._detector_parameters`) were tuned for calibration tags and are
 frozen; this test ran a copy with one change at a time, in a scratch script, without changing
@@ -2439,6 +2657,9 @@ its frozen settings); whether it holds on other stills (session 1, calibration f
 3D-printed 20 mm tags (issue #70).
 
 ### 15.3d One-hour unattended run (method written 2026-10-15, before the run)
+
+**Label: development check.** Tags found or missed and the steadiness of the stills, with no true
+area.
 
 **Question.** With nothing moved for an hour, how steady are tag detection and the benchmark's
 green and red areas from one still to the next, and does anything drift? **Setup.** The layout of
@@ -2480,6 +2701,10 @@ the calibration homography. Recorded:
 - rosettes: area per slot and rotation, the spread, and that it stays below each upper limit
 
 ### 15.5 Results: red and green area on the benchmark (issue #154)
+
+**Labels:** red solids: reference comparison (their known areas come from calliper readings of
+the solids themselves, not from the printed tags). Rosettes: development check (their true area
+is not known, so this is repeatability only).
 
 From the #154 session; full record in `experiments/round1-benchy/NOTES.md` and `results.csv` (main, commit 68ea0ad, PR #155), script `experiments/round1-benchy/benchy.py`.
 
@@ -2562,6 +2787,9 @@ the rosette areas. The red solid errors mix edge pixels, sides seen at an angle 
 this round does not separate.
 
 ### 15.5b Real leaves of known area on the trays (issue #162, method written 2026-10-15 11:53 UTC, before the photos)
+
+**Label: reference comparison.** The scan's scale comes from printed tags, so a wrongly printed
+sheet would affect both the scan and the rig.
 
 From the #162 session; full record in `experiments/round1-leaves/NOTES.md`, `results.csv` and
 `scan_areas.csv`, scripts `scan_area.py` and `leaves.py`.
@@ -2656,6 +2884,9 @@ not other plants, not overlapping leaves. The true error lies between the "again
 "against after" figures, since the shrinking between scans is not measured.
 
 ### 15.5c Tray splitting and tray ID (issue #164, method written 2026-10-15, before the analysis)
+
+**Label: development check.** Trays found and matched to tags, with no true area. The tray
+measurements in the first table are reference measurements and carry no label (section 12).
 
 The tray facts used here (size, configurations, tag positions, layout rules) are collected in
 `reference/trays.md`.
