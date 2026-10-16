@@ -1,8 +1,10 @@
 import sys, csv, cv2, collections
-sys.path.insert(0, "/home/pi/wt/npec-153-round1-benchmark/src")
+from pathlib import Path
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parents[1] / "src"))
 from npec_rig import tags
 D = "/var/lib/npec-rig/experiments/2026-10-15_44a9e96e/stills/2026-10-15"
-rows = [r for r in csv.reader(open("/home/pi/wt/npec-153-round1-benchmark/experiments/round1/session-2026-10-15.csv")) if r[0].startswith("R2-")]
+rows = [r for r in csv.reader(open(HERE / "session-2026-10-15.csv")) if r[0].startswith("R2-")]
 P = {4: 0, 5: 14, 6: 16, 7: 17, 8: 13, 11: 15}
 T20 = [0, 1, 2, 3, 13, 14, 15, 16, 17]; T30 = [4, 5, 6, 7, 8, 9, 10, 11, 12]
 EXPECTED = set(range(18))
