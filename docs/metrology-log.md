@@ -3513,5 +3513,86 @@ photogrammetry; not plants.
 
 ### 15.6 Round 1 review
 
-Not yet written. Covers what was found, what surprised us, which step it sends work back to, and
-the targets for round 2.
+Covers what was found, what surprised us, which phase it sends work back to, and the targets for
+round 2. The segmentation part is 15.6a. The trays, tags and tracking part (15.3, 15.5c, 15.5d) is
+not yet written (issue #158).
+
+### 15.6a Segmentation (issue #161, written 2026-10-16)
+
+From the existing results only (15.5, 15.5b, 15.5e, and the colour gain readings of 15.3d); no
+camera, no new analysis. Phase names are the CRISP-DM phases of the round 1 plan (Business
+understanding, Data understanding, Data preparation, Modelling, Evaluation, Deployment). The
+round 2 targets at the end are Aaron's decisions.
+
+**Accuracy table.**
+
+| What | Label | Result | Raw data | Code |
+|---|---|---|---|---|
+| Red solids, 4 shapes of 51.6 to 78.5 mm², 92 stills | reference comparison | mean error -20.7% (flat circle) to +39.4% (prism); range -32.1% to +83.2% | stills of experiments `2026-10-12_631bb6b5`, `2026-10-15_83acd97d`, `2026-10-15_44a9e96e`; `experiments/round1-benchy/results.csv` | `benchy.py`, 68ea0ad (#155), record 40c0792 (#160) |
+| Rosettes, repeat photos with nothing moved, 9 groups | development check | SD 0.02% to 0.79% of the mean | as above | as above |
+| Rosettes, all slots and turns, 92 stills | development check | SD 1.5% (NE) to 3.6% (SW); slot means differ 3.8% (NE) to 13.1% (SW) | as above | as above |
+| Rosettes against the photogrammetry mesh | development check | mesh 10.2% (NE) to 38.7% (SW) above the rig; neither known to be right | `experiments/round1-benchy-mesh/` | `mesh_area.py`, 0d6c181 (#208) |
+| Real leaves, flat, on blue trays, 27 readings | reference comparison | mean -2.49%, SD 3.15, range -9.10% to +3.43% | `/var/lib/npec-rig/experiments/2026-10-15_44a9e96e/`, scans in `experiments/round1-leaves/scans/` | `leaves.py`, `scan_area.py`, 2b4f8e3 (#163) |
+| Real leaves on a black sheet 3 to 10 mm above the tray, 11 slots x 2 sides | reference comparison | top +2.99% (SD 2.26), underside +2.45% (SD 2.47) | as above | as above |
+
+**What was found.**
+1. The chain runs end to end on the benchmark and on real leaves: photo, colour threshold,
+   pixels to mm², a number per object, with no failed stills (92 benchmark, 32 leaf stills).
+2. Flat real leaves on blue trays read 2.49% small on average (SD 3.15). This is the closest
+   result to what experiments will measure.
+3. Repeating a photo with nothing moved changes the rosette areas by under 0.8%. Moving the
+   object to another slot changes them by 3.8% to 13.1%. Position, not the photo, sets the spread.
+4. Small flat red shapes read small in every slot (circle -20.7%, sphere -16.4% on average).
+   Likely cause, not measured: the threshold leaves out the blurred edge, and at 50 to 80 mm²
+   most pixels are edge pixels (expected in 15.1).
+5. Rosette height alone makes their tops read 3.4% to 4.7% large (0.145% per mm, section 4). That
+   is close to the 5% final target before any segmentation error is added.
+
+**What surprised us, and which phase it sends work back to.**
+
+| Surprise | Numbers | Back to |
+|---|---|---|
+| Tall objects show their sides toward the row ends | prism up to +75.5%, cylinder up to +44.4%; height alone predicts 1.7% to 2.2% | Business understanding: what the area of a tall plant means when its sides are seen (plant height is a stretch goal, Phase 1). Parallax correction stays deferred: no measured depth source (CLAUDE.md evidence gates) |
+| The SW rosette is wider than its calliper diameter on two instruments | calliper 38.68 mm; rig 41.2 to 43.6 mm; mesh 41.00 mm | Data understanding: the reference figure, not segmentation, is the suspect. Re-measure with several readings |
+| The rosettes' true area is unknown and the two instruments differ widely | mesh 10.2% to 38.7% above the rig | Data understanding: the benchmark has no reference area for its leaves |
+| The background under a leaf changes its area | same leaves about 2.5% small on blue, 2.5% to 3% large on black; lift explains 0.4 to 1.5 of the 5 to 5.5 points | Modelling (how edge pixels pass the green test). Experiments use blue trays only, so this does not apply to them |
+| Leaves shrink while being measured | 4.6% to 7.5% in 16 minutes between scans | Data understanding: the known area of a cut leaf is not stable; the reference must be taken closer in time to the photo |
+| The white balance gains drift with nothing moved | red 1.994 to 2.012 (0.9%), blue 1.620 to 1.633 (0.8%) in 30 minutes; exposure, gain and lens unchanged | Data preparation: the colour going into the threshold is not fixed. Effect on area not measured |
+| Setup, not threshold, breaks the leaf count | touching leaves merge; a leaf next to the benchmark lost 5.4% to 15.9%; pale midribs missed | Data preparation: how leaves are split between trays and objects |
+
+**Methods dropped, with their numbers.**
+- Naming the benchmark corners from the least round red piece: wrong by a quarter turn in 6 of
+  92 stills. Replaced by orienting from the largest rosette (0 wrong).
+- The threshold check (recomputing the benchmark areas at other colour cut-offs): dropped
+  (Aaron, 2026-10-15), since real leaves read about 2.5% small with the round 1 threshold.
+- Leaf identity by shape match against the scans: agrees with Aaron's record in 26 of 30; the
+  record is used.
+- The first leaf run, which used the end slots' boxes: cut the black sheet at South 1 and
+  South 6; replaced before the results.
+
+**Targets for round 2 (Aaron decides).**
+
+1. **Real leaf area: every flat leaf reading on a blue tray within 10% of its known area**
+   (Aaron, 2026-10-16). Round 1 met this in 27 of 27 readings of leaves lying on their own
+   (range -9.10% to +3.43%), against the known area read off the line between the two scans
+   (15.5b, an assumption; against the before scan the readings are about 2 points lower). The 3
+   readings beside the benchmark on North 3 (-5.42%, -10.4%, -15.89%) are left out; 2 of them
+   miss 10%. How round 2 checks this target is not yet decided. The final 5% target is taken up
+   in round 3 with the per-slot bands on plant area.
+2. **White balance: measure first** (Aaron, 2026-10-16). Benchmark green and red area against
+   the red and blue colour gains on the 123 saved stills of the unattended run (15.3d), no camera
+   needed. Fixing the colour balance for an experiment, the way focus is fixed, is decided from
+   that result.
+3. **Benchmark plants of known area** (Aaron, 2026-10-16). Aaron gets benchmark plants with known
+   surface areas from the supervisor, from the week of 19 October; round 2 measures them on the
+   rig against those areas. To check when they arrive: whether the known figure is the area seen
+   from above (what the rig measures) or the full leaf surface, which is larger for any leaf not
+   lying flat. The current benchmark's rosettes stay a repeatability check; the SW calliper
+   diameter stays open.
+4. **Tall objects at the row ends: left for later** (Aaron, 2026-10-16). No round 2 work and no
+   target. Recorded as open; parallax correction stays deferred until a measured depth source
+   exists.
+
+Not made round 2 targets, recorded as open: the edge loss on small flat shapes, the blue against
+black background gap (experiments use blue trays only), the shrinking of cut leaves between
+scans, and leaves that touch or lie next to another green object (part of tray splitting, 15.5c).
