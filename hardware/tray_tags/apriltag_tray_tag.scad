@@ -1,7 +1,7 @@
 /* ---------------------------------------------------------------------------
    AprilTag tray tag -- 20 mm 36h11 tag on a square plate for each growth
-   tray (reference/trays.md: final tray tags about 20 mm). Two styles, chosen once
-   for the whole layout with `tag_style`:
+   tray (reference/trays.md: final tray tags about 20 mm). Three styles,
+   chosen once for the whole layout with `tag_style`:
      - "tab": the plate sits on the tray's rim, with a tab hanging 90 deg
        over the tray's edge to locate it.
      - "bolt": a tab in the plate's own plane, `bolt_tab_len` past the
@@ -11,6 +11,15 @@
        `on_side` is set, so the tab prints on the bed instead of hanging
        above it. All four plate corners are rounded and the
        tab-to-plate corners are filleted (`bolt_tab_fillet`).
+     - "disc": a round plate, `disc_dia` across, no tab, for the black
+       trays (from tray_tags_alternative/, REV 1.16). Always printed
+       flat, whatever `on_side` says. The tag and its quiet zone (the
+       `pw` x `pd` rectangle) must sit wholly inside the disc.
+
+   Plate size: `pw` wide (X) and `pd` deep (Y). The width is the tag plus
+   `tag_border` each side; the depth is `plate_depth`, set by the space at
+   the tray's side, with the tab inside it (REV 1.17). The quiet zone above
+   and below the tag is what the depth leaves, at least one bit.
 
    One continuous multi-material print, two colors, no assembly step, same
    construction as `apriltag_corner_mount.scad`:
@@ -56,22 +65,27 @@
    L to nest (its footprint on the side is a straight strip), so its tags
    are not flipped or raised: they stand `side_plate_gap` apart.
 
-   ID label: small, engraved into the top face in the quiet zone's top-left
-   corner (-X, +Y, viewed from above), `id_inset` in from both plate edges.
-   It sits inside the quiet zone by choice (Aaron, REV 1.2): small enough
-   to accept for this application.
+   ID label: small, engraved into the top face in the left side border
+   (-X), turned 90 deg to run along Y and reading from the bottom up,
+   its end `id_inset` in from the +Y edge, centred across the border
+   (REV 1.17). Disc style: the id is centred above the `pw` x `pd`
+   rectangle and the tray type centred below it, each halfway
+   between the rectangle's edge and the disc's edge, since a disc has no
+   top corners to put them in.
 
    Part name and revision: engraved into the plate's underside, the face
    opposite the tag, as two lines (name above revision, viewed from below),
    mirrored so they read correctly from below. Centred in X; in Y, centred
    on the underside's flat area (tab style: from the tab's inner face to
-   the +Y edge; bolt style: the whole plate). Same placement in both
-   styles, so the flat -Y outer face and the bolt tab stay unmarked.
+   the +Y edge; bolt and disc style: the whole plate). Same placement in
+   every style, so the flat -Y outer face and the bolt tab stay unmarked.
 
    Tray type label: the tray type for the id (`tray_type()`), engraved in
-   the quiet zone's top-right corner (+X, +Y), mirroring the ID label and
-   in the same font, size and depth. Id ranges (Aaron, REV 1.13): 1-75
-   "4x5", 76-150 "4x4", 151-225 "1x1", 226-299 "OTHER". Ids above 299
+   the right side border (+X), mirroring the ID label (reading from the
+   top down, starting `id_inset` in from the +Y edge) and in the same
+   font, size and depth. Id ranges (Aaron, REV 1.13, 1.16):
+   1-75 "4x5", 76-150 "4x4", 151-225 "1x1", 226-250 "black_tray",
+   251-299 "OTHER". Ids above 299
    fail the id assert: 300-449 are the calibration sheets and 450-499 the
    corner tags (PLAN.md's tag ID allocation, src/npec_rig/tags.py).
 
@@ -79,6 +93,20 @@
    `tag_embed` are starting values, same status as in
    `apriltag_corner_mount.scad`.
 
+   REV 1.17: plate depth (Y, tab included) set by `plate_depth`, 26 mm,
+     instead of the tag plus two borders (Aaron, 2026-10-16: the tag may
+     not reach more than 27 mm in from the tray's side; measured
+     clearance 27.39 mm, 26 mm for margin). Width unchanged at 32 mm.
+     With a 20 mm tag that leaves a 3 mm (1.2 bit) quiet zone above and
+     below it (assert: at least one bit). The id and type labels move
+     out of the quiet zone into the 6 mm side borders, turned 90 deg.
+     Applies to all three styles.
+   REV 1.16: style "disc" and tray type "black_tray", ids 226-250, from
+     tray_tags_alternative/ (version 2's black_tray design); "OTHER" is
+     now 251-299. `disc_dia` default 51 mm as in version 2. Version 2's
+     30 mm trial tag clipped the quiet zone's corners; here the tag is
+     `tag_size` (20 mm) and the whole quiet zone must fit the disc
+     (assert). Tab and bolt geometry unchanged.
    REV 1.15: `tag_size` 30 -> 20 mm (Aaron, 2026-10-16;
      reference/trays.md, final tray tags about 20 mm). Plate 42 -> 32 mm
      square with the 6 mm border unchanged. Geometry otherwise unchanged.
@@ -150,8 +178,8 @@
 use <../libraries/apriltag_36h11.scad>
 
 /* [Style] */
-tag_style = "tab"; // ["tab", "bolt"]
-// tab: 90 deg tab over the tray edge; bolt: in-plane tab with an M8 hole  ["tab","bolt"]
+tag_style = "tab"; // ["tab", "bolt", "disc"]
+// tab: 90 deg tab over the tray edge; bolt: in-plane tab with an M8 hole; disc: round plate, black trays, always flat  ["tab","bolt","disc"]
 
 /* [Tag] */
 tag_ids       = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // 36h11 ids, one tray tag each, laid out in this order -- tray id allocation not yet confirmed (PLAN.md open questions)
@@ -160,6 +188,7 @@ tag_border    = 6;     // quiet-zone margin each side, mm -- informed default, n
 tag_plate_thk = 3;     // total plate thickness, mm  [2:0.5:6]
 tag_raise_h   = 0.6;   // dark tag layer height above the plate's top face, mm  [0.2:0.1:2]
 tag_embed     = 0.2;   // how far the dark layer sinks into the plate so the parts overlap, mm  [0:0.05:1]
+plate_depth   = 26;    // plate depth, Y, tab included, mm -- tray side clearance measured 27.39 mm (Aaron), 26 for margin  [20:0.5:60]
 corner_r      = 3;     // rounding on the plate's vertical corners (tab style: +Y corners only, the -Y edge stays square), mm  [0:0.5:10]
 
 /* [Tab] */
@@ -174,13 +203,16 @@ bolt_dia        = 8.4; // M8 clearance hole, concentric with the round end, mm -
 bolt_tab_fillet = 3;   // fillet in the corners where the tab meets the plate, mm  [0:0.5:10]
 bolt_tab_flush  = true; // tab flush with the plate's +X edge (the bed face when on_side) instead of centred
 
+/* [Disc] */
+disc_dia = 51; // disc diameter, mm -- version 2's black_tray disc  [30:0.5:100]
+
 /* [ID Label] */
-id_label  = true;                      // engrave each tag's id on the top face, in the quiet zone's top-left corner
+id_label  = true;                      // engrave each tag's id on the top face, in the left side border (disc: above the tag)
 id_size   = 2.5;                       // label text cap height, mm  [1.5:0.5:6]
-id_inset  = 2;                         // label's distance in from the plate's -X and +Y edges, mm  [0.5:0.25:5]
+id_inset  = 2;                         // label's end, distance in from the plate's +Y edge, mm  [0.5:0.25:5]
 id_depth  = 0.6;                       // how far the label is inset into the top face, mm  [0.2:0.1:2]
 id_font   = "Liberation Sans:style=Bold";
-type_label = true;                     // engrave each tag's tray type (4x5, 4x4, 1x1, OTHER) in the quiet zone's top-right corner, same size, inset and depth as the id
+type_label = true;                     // engrave each tag's tray type (4x5, 4x4, 1x1, black_tray, OTHER) in the right side border (disc: below the tag), same size, inset and depth as the id
 
 /* [Label] */
 part_name  = "apriltag_tray_tag"; // file name without .scad, engraved in the plate underside above the revision ("" = none)
@@ -203,7 +235,7 @@ side_plate_gap = 5; // space between the two plates of a nested pair, side layou
 plate_cols = 0;   // tags per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.15"; // revision stamp, engraved in the plate underside below the part name ("" = none)
+revision  = "RV1.17"; // revision stamp, engraved in the plate underside below the part name ("" = none)
 rev_size  = 3;       // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;     // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -212,16 +244,27 @@ $fn = $preview ? 32 : 96;
 eps = 0.01;
 
 /* [Hidden] */
-pw = tag_size + 2 * tag_border; // plate width, X and Y
-cr = min(corner_r, pw / 2);     // clamp: rounding can't exceed half the plate
+pw = tag_size + 2 * tag_border; // plate width, X
+pd = plate_depth;               // plate depth, Y, tab included
+qy = (pd - tag_size) / 2;       // quiet zone above and below the tag, Y
+cr = min(corner_r, pw / 2, pd / 2); // clamp: rounding can't exceed half the plate
 tr = min(tab_r, tab_h, pw / 2); // clamp: rounding can't exceed the tab's height or half its width
-tabbed = tag_style == "tab"; // false: bolt
+tabbed = tag_style == "tab";
+bolted = tag_style == "bolt";
+disc   = tag_style == "disc";
+fw     = disc ? disc_dia : pw;  // footprint width, X
+fd     = disc ? disc_dia : pd;  // footprint depth, Y, without the bolt tab
+sided  = on_side && !disc;      // discs always lie flat
+// disc labels, Y: halfway between the pw x pd rectangle's edge and the disc's edge
+disc_ly = (pd / 2 + disc_dia / 2) / 2;
+// side labels, X: centred across the side border
+side_lx = pw / 2 - tag_border / 2;
 bolt_tab_x = bolt_tab_flush ? pw / 2 - bolt_tab_w / 2 : 0; // tab centre line, X
-bolt_y   = -pw / 2 - bolt_tab_len + bolt_tab_w / 2; // hole and round-end centre, Y
-tab_ext  = tabbed ? 0 : bolt_tab_len; // how far the part reaches past the plate's -Y edge
+bolt_y   = -pd / 2 - bolt_tab_len + bolt_tab_w / 2; // hole and round-end centre, Y
+tab_ext  = bolted ? bolt_tab_len : 0; // how far the part reaches past the plate's -Y edge
 // underside labels: the block (name, gap, revision) is centred in Y on the
 // underside's flat area -- tab style from the tab's inner face to the +Y
-// edge, bolt style the whole plate. name_size * 1.3 allows for descenders.
+// edge, bolt and disc style the whole plate. name_size * 1.3 allows for descenders.
 lbl_cy  = tabbed ? tab_thk / 2 : 0;
 lbl_h   = (part_name == "" ? 0 : 1.3 * name_size + label_gap) + (revision == "" ? 0 : rev_size);
 name_ly = lbl_cy + lbl_h / 2;                 // name line top, Y
@@ -231,33 +274,38 @@ rev_ly  = lbl_cy - lbl_h / 2;                 // revision line bottom, Y
 function tray_type(id) = id <= 75  ? "4x5"
                        : id <= 150 ? "4x4"
                        : id <= 225 ? "1x1"
+                       : id <= 250 ? "black_tray"
                        : "OTHER";
 
-assert(tag_style == "tab" || tag_style == "bolt", "tag_style must be \"tab\" or \"bolt\"");
+assert(tabbed || bolted || disc, "tag_style must be \"tab\", \"bolt\" or \"disc\"");
 assert(len(tag_ids) > 0, "tag_ids must list at least one id");
 assert(min(tag_ids) >= 1 && max(tag_ids) <= 299,
        "tag_ids must be within 1-299, the tray tag ids (tray_type()); 300-449 are calibration sheets");
-assert(tab_thk < pw / 2, "tab too thick for the plate");
+assert(tab_thk < pd / 2, "tab too thick for the plate");
+assert(qy >= tag_size / 8, "plate_depth leaves under one bit of quiet zone above and below the tag");
+assert(disc || id_size < tag_border - 1, "side border too narrow for the id and type labels");
 assert(rev_depth + tag_embed < tag_plate_thk, "revision engraving reaches the tag layer");
 assert(name_depth + tag_embed < tag_plate_thk, "name engraving reaches the tag layer");
-assert(lbl_h < pw - 2 * (tabbed ? tab_thk : 0), "name and revision do not fit the underside");
-assert(tabbed || bolt_tab_len >= bolt_tab_w / 2, "bolt tab shorter than its round end");
-assert(tabbed || bolt_dia < bolt_tab_w - 2, "M8 hole leaves under 1 mm of wall in the bolt tab");
-assert(tabbed || bolt_tab_w <= pw, "bolt tab wider than the plate");
+assert(lbl_h < pd - 2 * (tabbed ? tab_thk : 0), "name and revision do not fit the underside");
+assert(!bolted || bolt_tab_len >= bolt_tab_w / 2, "bolt tab shorter than its round end");
+assert(!bolted || bolt_dia < bolt_tab_w - 2, "M8 hole leaves under 1 mm of wall in the bolt tab");
+assert(!bolted || bolt_tab_w <= pw, "bolt tab wider than the plate");
 assert(id_depth < tag_plate_thk, "id engraving deeper than the plate");
+assert(!disc || norm([pw / 2, pd / 2]) <= disc_dia / 2, "tag's quiet zone runs past the disc's edge");
+assert(!disc || disc_dia / 2 - pd / 2 > id_size + 1, "no room for the id and type labels between the quiet zone and the disc's edge");
 
-// full Z extent of the unrotated part: bottom (tab style: tab, bolt: plate) to
+// full Z extent of the unrotated part: bottom (tab style: tab, bolt and disc: plate) to
 // the tag layer's top
 z_lo = tabbed ? -(tag_plate_thk + tab_h) : -tag_plate_thk;
 z_hi = tag_raise_h;
 
 n_tags  = len(tag_ids);
-gap     = on_side ? side_gap : plate_gap;
-part_dx = on_side ? z_hi - z_lo : pw; // footprint in X; rotating about Y turns the part's height into X
+gap     = sided ? side_gap : plate_gap;
+part_dx = sided ? z_hi - z_lo : fw; // footprint in X; rotating about Y turns the part's height into X
 tp      = tag_plate_thk + tag_raise_h; // plate plus tag layer, the part's X thickness on the side
-nest    = on_side && tabbed; // flip-and-raise pairs: tab style on the side only
-pitch_x = part_dx + (on_side ? side_plate_gap : gap); // bolt style on the side: plates side by side
-pitch_y = pw + tab_ext + gap;
+nest    = sided && tabbed; // flip-and-raise pairs: tab style on the side only
+pitch_x = part_dx + (sided ? side_plate_gap : gap); // bolt style on the side: plates side by side
+pitch_y = fd + tab_ext + gap;
 
 // Side layout, in footprint centres. A flipped tag's plate is at the -X end
 // of its footprint with the tab reaching +X; an unflipped tag's plate is at
@@ -313,7 +361,7 @@ function slot(i) = let(c = i % grid_cols) [
 // ---------------------------------------------------------------------------
 
 module bolt_profile() {
-    // XY plan view, bolt style: pw square with all four corners rounded,
+    // XY plan view, bolt style: pw x pd with all four corners rounded,
     // plus the tab off the -Y edge ending in a semicircle around the hole.
     // A flush tab covers the plate's rounded +X/-Y corner, so that edge
     // runs straight from plate to tab.
@@ -321,21 +369,21 @@ module bolt_profile() {
     // (offset(delta=+f) then offset(r=-f) rounds only concave corners).
     offset(r = -bolt_tab_fillet) offset(delta = bolt_tab_fillet)
         union() {
-            offset(r = cr) offset(delta = -cr) square(pw, center = true);
+            offset(r = cr) offset(delta = -cr) square([pw, pd], center = true);
             hull() {
-                translate([bolt_tab_x - bolt_tab_w / 2, -pw / 2 + cr]) square([bolt_tab_w, eps]);
+                translate([bolt_tab_x - bolt_tab_w / 2, -pd / 2 + cr]) square([bolt_tab_w, eps]);
                 translate([bolt_tab_x, bolt_y]) circle(d = bolt_tab_w);
             }
         }
 }
 
 module plate_profile() {
-    // XY plan view: pw square, rounded at the two +Y corners only. The -Y
+    // XY plan view: pw x pd, rounded at the two +Y corners only. The -Y
     // edge stays square so it is flush with the tab's flat outer face.
     hull() {
-        translate([-pw / 2, -pw / 2]) square([pw, eps]);
-        translate([-pw / 2 + cr, pw / 2 - cr]) circle(cr);
-        translate([ pw / 2 - cr, pw / 2 - cr]) circle(cr);
+        translate([-pw / 2, -pd / 2]) square([pw, eps]);
+        translate([-pw / 2 + cr, pd / 2 - cr]) circle(cr);
+        translate([ pw / 2 - cr, pd / 2 - cr]) circle(cr);
     }
 }
 
@@ -343,7 +391,7 @@ module tab() {
     // XZ profile extruded along +Y from the plate's -Y edge: square at the
     // top (overlapping the plate by eps), rounded at the two bottom corners
     zb = -(tag_plate_thk + tab_h);
-    translate([0, -pw / 2 + tab_thk, 0]) rotate([90, 0, 0]) linear_extrude(tab_thk)
+    translate([0, -pd / 2 + tab_thk, 0]) rotate([90, 0, 0]) linear_extrude(tab_thk)
         hull() {
             translate([-pw / 2, -tag_plate_thk - eps]) square([pw, eps]);
             translate([-pw / 2 + tr, zb + tr]) circle(tr);
@@ -361,20 +409,34 @@ module underside_text(t, y, valign, size, depth) {
 }
 
 module id_engrave(id) {
-    // engraved into the top face in the quiet zone's top-left corner viewed
-    // from above, its top-left corner `id_inset` in from both plate edges
-    translate([-pw / 2 + id_inset, pw / 2 - id_inset, -id_depth])
-        linear_extrude(id_depth + eps)
-            text(str(id), size = id_size, font = id_font, halign = "left", valign = "top");
+    // engraved into the top face in the left side border viewed from
+    // above, turned to read from the bottom up, ending `id_inset` in from
+    // the +Y edge. Disc: centred above the pw x pd rectangle instead
+    if (disc)
+        disc_engrave(str(id), disc_ly);
+    else
+        translate([-side_lx, pd / 2 - id_inset, -id_depth]) rotate(90)
+            linear_extrude(id_depth + eps)
+                text(str(id), size = id_size, font = id_font, halign = "right", valign = "center");
 }
 
 module type_engrave(id) {
-    // engraved into the top face in the quiet zone's top-right corner viewed
-    // from above, mirroring id_engrave(): its top-right corner `id_inset` in
-    // from the plate's +X and +Y edges
-    translate([pw / 2 - id_inset, pw / 2 - id_inset, -id_depth])
+    // engraved into the top face in the right side border viewed from
+    // above, mirroring id_engrave(): reads from the top down, starting
+    // `id_inset` in from the +Y edge. Disc: centred below the rectangle
+    if (disc)
+        disc_engrave(tray_type(id), -disc_ly);
+    else
+        translate([side_lx, pd / 2 - id_inset, -id_depth]) rotate(-90)
+            linear_extrude(id_depth + eps)
+                text(tray_type(id), size = id_size, font = id_font, halign = "left", valign = "center");
+}
+
+module disc_engrave(t, y) {
+    // engraved into the top face, centred on (0, y)
+    translate([0, y, -id_depth])
         linear_extrude(id_depth + eps)
-            text(tray_type(id), size = id_size, font = id_font, halign = "right", valign = "top");
+            text(t, size = id_size, font = id_font, halign = "center", valign = "center");
 }
 
 module tray_tag_body(id = tag_ids[0]) {
@@ -385,11 +447,14 @@ module tray_tag_body(id = tag_ids[0]) {
                     linear_extrude(tag_plate_thk) plate_profile();
                 tab();
             }
-        else
+        else if (bolted)
             translate([0, 0, -tag_plate_thk])
                 linear_extrude(tag_plate_thk) bolt_profile();
+        else
+            translate([0, 0, -tag_plate_thk])
+                linear_extrude(tag_plate_thk) circle(d = disc_dia);
 
-        if (!tabbed)
+        if (bolted)
             translate([bolt_tab_x, bolt_y, -tag_plate_thk - eps])
                 cylinder(d = bolt_dia, h = tag_plate_thk + 2 * eps);
         if (part_name != "") underside_text(part_name, name_ly, "top", name_size, name_depth);
@@ -416,7 +481,8 @@ module orient(flip = false) {
     // face onto Z = 0, and centre the rotated footprint on X = 0. flip
     // first turns the part 180 deg about its own X axis and shifts it back
     // into the same Z range [z_lo, z_hi], so both versions share a footprint.
-    if (on_side)
+    // Discs always lie flat (`sided`).
+    if (sided)
         translate([-(z_lo + z_hi) / 2, 0, pw / 2]) rotate([0, 90, 0])
             if (flip)
                 translate([0, 0, z_lo + z_hi]) rotate([180, 0, 0]) children();

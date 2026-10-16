@@ -138,7 +138,8 @@ ID:
 | 1-75 | `4x5` | `tab` |
 | 76-150 | `4x4` | `bolt` |
 | 151-225 | `1x1` | `bolt` |
-| 226-299 | `OTHER` | `tab` |
+| 226-250 | `black_tray` | `disc` |
+| 251-299 | `OTHER` | `tab` |
 
 IDs 300-449 are the calibration sheets, 450-499 the corner mounts and 500 (provisional) the
 auto-focus target, so tray tags stop at 299. See PLAN.md's tag ID allocation.
@@ -152,10 +153,10 @@ go to `exports/tray_tags/<tray type>/` by default; with `-o` they all go straigh
 uv run tray_tags.py 1-12 13-24 101-112
 
 # override the default style per group, another folder, extra Customizer overrides
-uv run tray_tags.py 1-12:bolt 226-231 -o ~/prints -D on_side=false
+uv run tray_tags.py 1-12:bolt 251-256 -o ~/prints -D on_side=false
 ```
 
-A group is a range (`1-12`) or a single ID (`7`), optionally followed by `:tab` or `:bolt`
+A group is a range (`1-12`) or a single ID (`7`), optionally followed by `:tab`, `:bolt` or `:disc`
 (`1-12:bolt`); without one it gets its type's default style. `uv run tray_tags.py --help` lists
 the types, defaults and examples. A group must stay within one tray type: `70-80`
 is refused, so split it at the boundary. Every group is checked before anything is exported.

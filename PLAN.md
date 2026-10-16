@@ -160,7 +160,8 @@ each tray tag (`hardware/tray_tags/apriltag_tray_tag.scad`, `tray_type()`):
 | 1-75 | Tray tags, 4x5 trays |
 | 76-150 | Tray tags, 4x4 trays |
 | 151-225 | Tray tags, 1x1 trays |
-| 226-299 | Tray tags, other trays |
+| 226-250 | Tray tags, black trays (disc tags) |
+| 251-299 | Tray tags, other trays |
 | 300-449 | Calibration sheets (`reference/calibration-sheets/`), in use, do not change |
 | 450-499 | Corner/reference tags (`hardware/camera_rig/apriltag_corner_mount.scad`) |
 | 500 | Auto-focus target (`hardware/camera_rig/auto-focus_bracket_2020.scad`). **Provisional**: the auto-focus target plan is not fully implemented, so this allocation may change |
