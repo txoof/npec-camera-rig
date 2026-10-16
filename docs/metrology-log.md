@@ -3013,7 +3013,7 @@ enough is decided by Aaron now that the results are in (decision rule, above).
 first wants to see how tray tracking across the photos of an experiment performs (15.5d), then
 judge how good or bad the result is.
 
-### 15.5d Tray tracking over time (issue #164, method written 2026-10-16, before the analysis)
+### 15.5d Tray tracking over time (issue #171, planned under #164, method written 2026-10-16, before the analysis)
 
 **Question.** Followed through the 15 October stills in time order, does the tray splitting of
 15.5c (FastSAM, tag tiles at margin 1.15, fallback) report each tray's position and the moves that

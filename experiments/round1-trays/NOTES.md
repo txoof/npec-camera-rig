@@ -56,8 +56,9 @@ fitted size.
 
 ## Resume here (state on 2026-10-16)
 
-Issue #164 (claimed, `in-progress`), branch and worktree `164-tray-splitting` in
-`~/wt/npec-164-tray-splitting`, everything committed and pushed; no pull request yet. Method and every
+Splitting: issue #164, branch `164-tray-splitting`, pull request open (closes #164). **Tracking
+continues in issue #171**: start its branch from `origin/main` after that pull request is merged,
+or from `origin/164-tray-splitting` if it is not merged yet. Method and every
 result: `docs/metrology-log.md` 15.5c (splitting) and 15.5d (tracking plan). Tray facts:
 `reference/trays.md`.
 
@@ -80,4 +81,3 @@ Open for Aaron:
 - Slot reference for rule 3: row and order is provisional.
 - Next week's session (plan on #164): counts and layout of 4 x 4 and 1 x 1 trays, where their tag
   sits, and the 20 mm tag placement per tray.
-- Pull request for this branch, when Aaron wants to review.
