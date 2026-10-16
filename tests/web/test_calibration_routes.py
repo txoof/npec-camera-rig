@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import npec_rig.photo_tags as photo_tags
+import npec_rig.calibration_run as calibration_run
 import npec_rig.routes.calibration as calibration_routes
 from npec_rig import images
 from npec_rig.app import app
@@ -29,7 +30,7 @@ pytestmark = pytest.mark.unit
 # Captured once, at collection time, before the autouse fixture below ever patches the module
 # attribute -- the small number of dedicated gate tests restore this to exercise the real
 # function instead of the "always ready" default.
-_REAL_CALIBRATION_READINESS = calibration_routes._calibration_readiness
+_REAL_CALIBRATION_READINESS = calibration_run.readiness
 
 
 def test_run_calibration_reports_insufficient_tags(isolated_calibration_dir: None) -> None:
@@ -123,7 +124,7 @@ def test_tag_map_needs_four_corner_tags(
 
 
 # --- Calibration readiness gate: focus locked, all 4 corner tags detected ---
-# These tests restore the real `_calibration_readiness` (the other tests in this file default it
+# These tests restore the real `calibration_run.readiness` (the other tests in this file default it
 # open, see `calibration_gate_open_by_default`) to exercise the actual gate logic against real
 # lock state and real `detect_tags` results.
 
@@ -131,7 +132,7 @@ def test_tag_map_needs_four_corner_tags(
 def test_calibration_readiness_reports_not_ready_with_no_lock_and_no_corner_tags(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(calibration_routes, "_calibration_readiness", _REAL_CALIBRATION_READINESS)
+    monkeypatch.setattr(calibration_run, "readiness", _REAL_CALIBRATION_READINESS)
     monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [])
 
     client = TestClient(app)
@@ -147,7 +148,7 @@ def test_calibration_readiness_reports_not_ready_with_no_lock_and_no_corner_tags
 def test_calibration_readiness_reports_ready_once_locked_with_four_corner_tags(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(calibration_routes, "_calibration_readiness", _REAL_CALIBRATION_READINESS)
+    monkeypatch.setattr(calibration_run, "readiness", _REAL_CALIBRATION_READINESS)
     monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: FOUR_CORNER_TAGS)
 
     client = TestClient(app)
@@ -166,7 +167,7 @@ def test_calibration_readiness_reports_ready_once_locked_with_four_corner_tags(
 def test_run_calibration_refuses_without_a_lock_and_can_be_overridden(
     monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
 ) -> None:
-    monkeypatch.setattr(calibration_routes, "_calibration_readiness", _REAL_CALIBRATION_READINESS)
+    monkeypatch.setattr(calibration_run, "readiness", _REAL_CALIBRATION_READINESS)
     monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: CALIBRATION_TAGS + FOUR_CORNER_TAGS)
 
     client = TestClient(app)
@@ -184,7 +185,7 @@ def test_run_calibration_refuses_without_a_lock_and_can_be_overridden(
 def test_run_calibration_refuses_with_too_few_corner_tags_and_can_be_overridden(
     monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
 ) -> None:
-    monkeypatch.setattr(calibration_routes, "_calibration_readiness", _REAL_CALIBRATION_READINESS)
+    monkeypatch.setattr(calibration_run, "readiness", _REAL_CALIBRATION_READINESS)
     monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: CALIBRATION_TAGS + CORNER_TAGS)
 
     client = TestClient(app)
