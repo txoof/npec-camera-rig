@@ -2687,6 +2687,67 @@ With nothing moved, the rig's settings missed 4 of the 9 20 mm tags in many stil
 
 **A tag that was not a tray tag.** Both settings read ID 29, which is in the tray ID range, in 3 (A) and 4 (C) stills. It is a real printed tag: an offcut of a tag sheet in a yellow waste bin at the bottom edge of the frame (about x 7047, y 6688). So a tag print lying anywhere in view is read as a tray. Discarded prints must leave the chamber, or the app must ignore tags outside the table.
 
+### 15.3e Tray tag detector check: timing, all 53 stills, calibration unchanged (issue #156, method written 2026-10-16, before the analysis)
+
+**Label: development check** for parts 1 and 2 (tags found or missed, with no true area). Part 3 is a
+**measurement** of corner positions in pixels, from saved photos.
+
+**Question.** 15.3c and 15.3d found that setting C (setting A, the rig's detector, with
+`perspectiveRemovePixelPerCell = 8` and `perspectiveRemoveIgnoredMarginPerCell = 0.2`) reads every
+20 mm paper tray tag the rig's settings miss. Before tray tags get their own detector settings:
+what does it cost in time, does it hold on all 53 tag-test stills, and does it leave calibration
+tags and corner tags exactly as they were?
+
+**Common to all parts.** Saved photos only, no camera. Each JPEG is decoded with Pillow to RGB and
+turned to grey with the rig's own `camera.to_grayscale`, as `tags.detect_tags` does. OpenCV
+4.10.0 ArUco detector, AprilTag 36h11. Setting A is `tags._detector_parameters()` unchanged;
+setting C is a copy with the two changes above. Script `experiments/round1/tag_detector_check.py`,
+results per still in CSV files beside it. Commit id, OpenCV version, OpenCV thread count and the
+Pi's load average are recorded with the results.
+
+**Part 1. Timing.** On the 19 round 2 stills (R2-1 to R2-4) and the 7 calibration stills of part 3:
+for each still, one grey image, then A, C, A, C, A, C in turn (3 runs each, interleaved so a change
+in load affects both settings alike). Reported: time per still for A, for C, and for A followed by
+C (two passes, which is the cost if calibration keeps setting A and tray tags use C on the same
+photo), as mean, standard deviation, minimum and maximum, plus the paired per-still difference C
+minus A. Only the detector call is timed; decoding and grey conversion are not. Whether the time
+found is acceptable is a decision, not a measurement, and is labelled as one.
+
+**Part 2. All 53 stills.** Setting A and setting C on each still. Expected tags:
+
+- Session 1 (steps 1 to 6, 34 stills): tags 1 to 12. 20 mm paper: 1, 2, 3. 30 mm: 4 to 12. Tag 1
+  is the old print, badly prepared (15.3a); its misses are reported separately, never dropped.
+- Round 2 (R2-1 to R2-4, 19 stills): tags 0 to 17 as in 15.3a; 20 mm 0, 1, 2, 3, 13 to 17; 30 mm 4 to
+  12. Pairs as recorded in 15.3a.
+
+Reported for each setting: misses per tag and step; rule A and rule B of 15.3a on round 2. Session 1
+had no 20 mm and 30 mm pairs on one tray, so for session 1 rule A is read as: a 20 mm tag missed in
+every still of a step while the 30 mm tags in those stills are read. Step 5 has 2 stills, fewer
+than the 3 that 15.3a requires for a position, and is reported but flagged. Any ID found that is
+not an expected tag and not a corner tag (450 to 499) is listed with its still and position, then
+checked on the photo: a real printed tag in view (such as ID 29 in 15.3d) is reported as such, and
+an ID with no tag at that place is an invented tag.
+
+**Part 3. Calibration unchanged.** Every still in `/var/lib/npec-rig/rig/*/` whose sidecar says
+`"purpose": "calibration"`: 7 stills, 2026-10-09 to 2026-10-14. (The old `calibration/frames/`
+folder stops at 2026-10-08 and is not used.) For calibration tags (300 to 449) and corner tags
+(450 to 499), compared between A and C: the set of IDs found, and, matched by ID, the largest
+absolute difference of any corner coordinate in pixels, per still and overall. Expected: the same
+IDs and a difference of 0.0 px, because C changes only how the pattern inside a tag is read, after
+the corners are found. Measured, not assumed: any difference larger than 0.0 is reported with its
+tag and still.
+
+**Decision rule (written before the analysis).** Tray tags (IDs 0 to 299) get their own detector
+settings in `tags.py`, with calibration and corner tags still read with setting A, only if all three
+hold: (1) the time is judged acceptable by Aaron from the numbers of part 1; (2) on all 53 stills,
+setting C misses no more tray tag sightings than setting A, meets neither rule A nor rule B, and
+finds no invented tag; (3) part 3 finds the same IDs and 0.0 px corner difference on all 7 stills.
+If any fails, `tags.py` stays as it is and the result is written up here.
+
+**Covers and does not cover.** Paper 20 mm tags on the 15 October layouts, one lighting setting,
+one lens position per photo set. Not covered: 3D-printed 20 mm tags (issue #70), other lighting,
+and calibration stills taken after 2026-10-14. Seven calibration stills are all that exist.
+
 ### 15.4 What is measured
 
 Each tray is one region; tags give identity only (decision, Aaron 2026-10-14). Trays are found by
