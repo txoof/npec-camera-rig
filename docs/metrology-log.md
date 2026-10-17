@@ -3692,15 +3692,16 @@ measured (Aaron, 2026-10-16), so it is left out.
 - 8 black pots per tray, no soil, in the same 8 cells on every tray: A2, A4, B1, B5, C4, D1, D3
   and D5 (drawing below). 96 pots of about 100. A1 is empty on every tray. The cell grid stays
   visible.
-- One 20 mm paper tag per tray at A1, from a new print. 6 trays carry it inside cell A1, 6 on
-  the narrow edge at the A1 corner. All 30 mm tray tags and the 15 October 20 mm tags are taken
-  off. IDs 40 to 51 are proposed: none was used on 15 October, so a tag left behind from then
-  reads as an ID outside the table, not as a tray.
+- One 20 mm tag per tray, IDs 13 to 24, from a new print, outside the tray on the narrow edge at
+  the A1 corner (Aaron, 2026-10-17). No tag inside a cell. All 30 mm tray tags and the 15 October
+  20 mm tags are taken off. IDs 13 to 17 were also used on 15 October as 20 mm paper edge tags, so
+  an old tag left on a tray or in the chamber would read as one of this session's trays and cannot
+  be told apart: every 15 October tag must leave the chamber.
 - Every tag print not on a tray leaves the chamber (15.3d: an offcut in a waste bin read as tag 29).
 - Door closed, lights on, focus as set. The lens is not moved during the session.
 
-Pot cells, one tray in portrait, north up, A1 at the lower left (SW). P is a pot, T the tag when
-it sits inside A1, `.` an empty cell:
+Pot cells (confirmed by Aaron, 2026-10-17), one tray in portrait, north up, A1 at the lower left
+(SW). P is a pot, `.` an empty cell:
 
 ```
           A   B   C   D
@@ -3708,20 +3709,19 @@ it sits inside A1, `.` an empty cell:
   row 4   P   .   P   .
   row 3   .   .   .   P
   row 2   P   .   .   .
-  row 1   T   P   .   P      south (narrow edge); an edge tag sits on this edge at the A1 corner
+  row 1   .   P   .   P      south (narrow edge); the tag sits outside this edge at the A1 corner
 ```
 
 Why these cells (decision, not a measurement): a pot on every one of the four edges and in two
 corners, so the tray outline is crossed by pots on all sides; A1's two neighbours (A2, B1) hold
-pots, so the tag sits next to a black pot as it will in a full tray; and empty cells stay between
-the pots, so the grid can still be seen.
+pots, so the tag corner has black pots near it as it will in a full tray; and empty cells stay
+between the pots, so the grid can still be seen.
 
 **Tag print, measured before the session.** Each new 20 mm tag is measured with the NEIKO
 callipers, X and Y, 3 readings each, as in section 3, and the readings are written here before the
 photos. The sheet is printed at 100% scale and checked against its scale bar if it has one.
 
-**Tag table, before the photos.** For each tray: tag ID, tray number, starting slot, and the
-placement (inside A1 or on the edge). Read by the agent from the first still and confirmed by
+**Tag table, before the photos.** For each tray: tag ID, tray number and starting slot. Read by the agent from the first still and confirmed by
 Aaron in a comment on #213. The tray is named by its tag from then on.
 
 **Steps.** Stills taken by the agent through `POST /capture` under the `hardware` label. Stills
@@ -3745,7 +3745,7 @@ where nothing moved, used for the position spread and the "wrong position" rule 
 with the fallback; the 15.5c rule per still (every tray one shape, every shape one tray, every slot
 right, slot reference row and order, still provisional); tracking with patches 1 to 3 and their
 limits as amended in 15.5d; measured and patched counted apart. Also recorded: tag detection per
-placement (inside A1, on the edge), with the tray tag detector settings (15.3e); time per still;
+tag, with the tray tag detector settings (15.3e); time per still;
 calibration, validation and lens position of each still from `rig.db`. Nothing is written into
 the experiment folder. The counts are reported as they are; Aaron judges them.
 
@@ -3759,9 +3759,10 @@ rejected only by the area or fill test, a second run measures area and fill on t
 inner holes filled, everything else unchanged. Both runs are reported, the first as the result.
 
 **Known risk, edge tags.** On 15 October, 23 of 852 edge tag readings (2.7%) were linked to no
-tray because two masks were about as close (`edge-tags.csv`, 15.5c). With 6 trays named only by
-an edge tag, the same may happen when the trays are pushed together (steps 5 and 6). Counted as it
-is.
+tray because two masks were about as close (`edge-tags.csv`, 15.5c). Every tray is now named only
+by an edge tag, and on 15 October each of those trays also had a 30 mm tag inside A1, so a missed
+link cost nothing. Now a missed link leaves the tray unnamed in that still. The same may happen
+when the trays are pushed together (steps 5 and 6). Counted as it is.
 
 **Limits of the evidence.** Black pots without soil or plants; paper tags, not 3D prints (issue
 #70); one 12-tray layout in portrait; one lens position; one hour. Not covered: 4 x 4 and 1 x 1
