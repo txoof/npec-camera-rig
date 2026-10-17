@@ -54,11 +54,11 @@ Outline green: one tray. Red: several trays (MERGED). Orange: no tray tag (NO TA
 fitted rectangle. Magenta dot and number: a tray tag's centre and ID. Text: tray, slot by method B,
 fitted size.
 
-## Resume here (state on 2026-10-16)
+## Resume here (state on 2026-10-17)
 
-Splitting: issue #164, merged (#172). **Tracking: issue #171, branch `171-tray-tracking`,
-worktree `~/wt/npec-171-tray-tracking`.** Method, amendments and first results:
-`docs/metrology-log.md` 15.5d. Splitting: 15.5c. Tray facts: `reference/trays.md`.
+Splitting: issue #164, merged (#172). Tracking: issue #171, merged (#212). **Next: the photo
+session with pots in the wells on Monday 19 October, issue #213.** Start its branch from
+`origin/main`. Method, amendments and results: `docs/metrology-log.md` 15.5d. Splitting: 15.5c. Tray facts: `reference/trays.md`.
 
 Where the data is:
 - HEF: `~/scratch/round1-trays/hailo/fast_sam_s.hef` (SHA-256 in 15.5c). Tag detections for all 176
@@ -67,18 +67,19 @@ Where the data is:
 - Tracking: `track-full176.csv`, `track-full176-moves.csv` here; timeline in
   `~/scratch/round1-trays/track/`, evidence overlays in `track/evidence/`.
 
-Commands (run from the worktree root; tests by explicit path, pytest's default is `tests/` only):
+Commands (run from the worktree root, `<worktree>` being its full path; tests by explicit path,
+pytest's default is `tests/` only):
 
     PYTHONPATH="$(pwd)/src" /home/pi/npec_camera_rig/.venv/bin/python3 -m pytest -q experiments/round1-trays -p no:xdist
     cd experiments/round1-trays
-    PYTHONPATH=/home/pi/wt/npec-171-tray-tracking/src /home/pi/npec_camera_rig/.venv/bin/python3 track.py fastsam-full176.csv
-    PYTHONPATH=/home/pi/wt/npec-171-tray-tracking/src /usr/bin/python3 summarise.py fastsam-full176.csv
+    PYTHONPATH=<worktree>/src /home/pi/npec_camera_rig/.venv/bin/python3 track.py fastsam-full176.csv
+    PYTHONPATH=<worktree>/src /usr/bin/python3 summarise.py fastsam-full176.csv
 
-Done: raw tracking and patches 1 to 3 (15.5d), 2109 of 2112 trays, 173 of 176 stills. Evidence
-overlays in `~/scratch/round1-trays/track/evidence/`. Next: Aaron judges the result.
+Done: raw tracking and patches 1 to 3 (15.5d), 2078 measured + 31 patched of 2112 trays, 173 of
+176 stills. Evidence overlays in `~/scratch/round1-trays/track/evidence/`.
 
 Open for Aaron:
 - Success rate that is good enough: deferred until the tracking result (15.5d).
 - Slot reference for rule 3: row and order is provisional.
-- Next week's session (plan on #164): counts and layout of 4 x 4 and 1 x 1 trays, where their tag
-  sits, and the 20 mm tag placement per tray.
+- The pot arrangement for #213 (to be proposed to Aaron first), and later the 4 x 4 and 1 x 1
+  tray configurations (`reference/trays.md`, "Not yet known").
