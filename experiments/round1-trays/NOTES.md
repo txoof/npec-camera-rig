@@ -57,8 +57,14 @@ fitted size.
 ## Resume here (state on 2026-10-17)
 
 Splitting: issue #164, merged (#172). Tracking: issue #171, merged (#212). **Next: the photo
-session with pots in the wells on Monday 19 October, issue #213.** Start its branch from
-`origin/main`. Method, amendments and results: `docs/metrology-log.md` 15.5d. Splitting: 15.5c. Tray facts: `reference/trays.md`.
+session with pots in the wells on Monday 19 October, issue #213, branch `213-pots-session`.**
+Method: `docs/metrology-log.md` 15.5f. The session checklist is a comment on #213. Splitting:
+15.5c, tracking: 15.5d. Tray facts: `reference/trays.md`.
+
+Still to do for #213 before the analysis: tray IDs from the session's tag table instead of 1 to 12
+and the 15 October edge pairs, the experiment folder and session record as arguments (15 October
+kept as the default so 15.5c and 15.5d still reproduce), and the holes-filled second run of 15.5f.
+Built test-first, after Aaron confirms the seams.
 
 Where the data is:
 - HEF: `~/scratch/round1-trays/hailo/fast_sam_s.hef` (SHA-256 in 15.5c). Tag detections for all 176
@@ -81,5 +87,5 @@ Done: raw tracking and patches 1 to 3 (15.5d), 2078 measured + 31 patched of 211
 Open for Aaron:
 - Success rate that is good enough: deferred until the tracking result (15.5d).
 - Slot reference for rule 3: row and order is provisional.
-- The pot arrangement for #213 (to be proposed to Aaron first), and later the 4 x 4 and 1 x 1
+- The pot arrangement for #213 (proposed in 15.5f, waiting for Aaron), and later the 4 x 4 and 1 x 1
   tray configurations (`reference/trays.md`, "Not yet known").
