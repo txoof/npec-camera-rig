@@ -429,8 +429,10 @@ Code for the round lives in `experiments/round1*/`, reusing `src/npec_rig/` rath
 - **Labels.** Every result in the metrology log is one of: a *development check* (a test made
   while building), a *validation* (the routine printed-target check per slot) or a *reference
   comparison* (against an independent measurement of the same real thing).
-- **Not yet shown.** A running section of `docs/measurement-trust.md` listing what the rig cannot
-  yet demonstrate, updated at each review, first at the round 1 review.
+- **Review issue.** Each round's review has its own issue, opened when the round starts, blocked
+  by the round's last photo session. A review is never an item inside another issue.
+- **Limits of the evidence.** A running section of `docs/measurement-trust.md` listing what the
+  rig cannot yet demonstrate, updated at each review, first at the round 1 review.
 - **Process log**, `docs/process-log.md`: 5 to 10 lines per round on Aaron's decisions, the
   agents' work and errors, and what slowed the round.
 - **Baseline, the week of 14 December:** a code tag, a state-of-the-tool document of 2 to 4 pages

@@ -119,6 +119,9 @@ stop, not one branch of a parallel batch.
 Explore agent or a fork, not inline in the main conversation. Keep only the findings, not the raw
 search output, in context.
 
+**Check-ins.** Between the ends of rounds, show progress as a picture or table in `~/scratch`
+with 2 or 3 lines on what to look at, then wait for Aaron before going on (PLAN.md, *Rounds*).
+
 **Reply format.** Five headings, in this order. Skip any that are empty.
 
 ```
@@ -457,6 +460,9 @@ result with its spread, the date, where the raw data is, and what it does and do
 Detailed investigations go in `reference/` and are linked from it. A number that is a decision or
 a placeholder, not a measurement, says so. Written for a scientist without a metrology
 background, formal enough to cite in a paper about the rig (Aaron, 2026-10-05).
+
+Every result is labelled a *development check*, a *validation* or a *reference comparison*
+(`GLOSSARY.md`).
 
 A test's method is written into `docs/metrology-log.md` before the test is run, and its result is
 added when it is done. When a finding adds to, strengthens or weakens a step of the case in
