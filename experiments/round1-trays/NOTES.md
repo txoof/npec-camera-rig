@@ -67,6 +67,10 @@ tray). Every script takes `--session NAME`; the default is `2026-10-15`, which r
 and 15.5d (checked 2026-10-18: tracking and summary outputs byte for byte, FastSAM masks of 2
 stills). For 19 October, write `sessions/2026-10-19.json` from the confirmed tag table once the new
 experiment's folder exists. `fastsam.py --fill-holes` is the second run of 15.5f.
+Every step of a session must be in one of its sets (gaps, touching): `track.py` stops on a step
+in neither. `track.py`'s evidence pictures read the overlays of `fastsam-stills-m1.15-fb/` and
+write to one `track/evidence/` folder for every session: fix before a `--fill-holes` run is
+tracked, or Monday's pictures mix with 15 October's.
 
 Where the data is:
 - HEF: `~/scratch/round1-trays/hailo/fast_sam_s.hef` (SHA-256 in 15.5c). Tag detections for all 176
