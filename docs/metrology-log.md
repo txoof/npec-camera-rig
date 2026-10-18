@@ -3727,7 +3727,9 @@ Aaron in a comment on #213. The tray is named by its tag from then on.
 **Steps.** Stills taken by the agent through `POST /capture` under the `hardware` label. Stills
 go into the experiment that is running, so a new experiment ("pots-2026-10-19") is started first
 and "tag-testing" stopped, keeping the 15 October record apart. Every still ID is recorded per step
-in `experiments/round1/session-2026-10-19.csv`, in the format of `session-2026-10-15.csv`.
+in `experiments/round1-trays/session-2026-10-19.csv`, in the format of
+`experiments/round1/session-2026-10-15.csv`, by `experiments/round1-trays/capture_session.py`,
+which writes each row as its still is taken and stops if a still lands outside the new experiment.
 
 | Step | Layout | Stills | Known move from the step before |
 |---|---|---|---|
