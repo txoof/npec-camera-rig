@@ -80,3 +80,31 @@ def test_fill_gaps_needs_good_stills_on_both_sides():
     good = [True, False, False, True]  # a still kept by a patch is neither good nor needing
     need = [False, True, False, False]
     assert track.fill_gaps(good, need, ["R3"] * 4) == []
+
+
+def test_spread_counts_trays_outside_1_to_12():
+    rows = [{"step": "1", "tray": 13, "x_mm": 0, "y_mm": 0}, {"step": "1", "tray": 13, "x_mm": 6, "y_mm": 8}]
+    n, rms, worst = track.spread(rows, lambda r: True, steps={"1"})["1"]
+    assert (n, rms, worst) == (2, 5.0, 5.0)  # both 5 mm from their mean (3, 4)
+
+
+class Scale:
+    px_per_mm = staticmethod(lambda x, y: PPM)
+
+
+def test_wrong_position_found_on_a_tray_outside_1_to_12():
+    pos = [(0, 0), (0, 0), (1000, 0)]  # the third is 200 mm from the median at 5 px per mm
+    rows = [{"order": k, "step": "1", "tray": 13, "label": track.MEASURED, "x_px": x, "y_px": y}
+            for k, (x, y) in enumerate(pos)]
+    stills = [{"scale": Scale()}] * 3
+    assert track.off_positions(rows, stills, steps={"1"}) == {(2, 13): 200.0}
+
+
+def test_gap_filled_on_a_tray_outside_1_to_12():
+    def row(x):
+        return {"label": track.MEASURED if x is not None else track.NO_MASK, "x_px": x, "y_px": None if x is None else 0,
+                "off_median_mm": None, "heading_deg": 0.0}
+    by = {k: {13: row(x)} for k, x in enumerate((0, None, 10))}
+    stills = [{"still": f"s{k}", "step": "6", "scale": Scale()} for k in range(3)]
+    track.patch3(by, stills, {f"s{k}": [] for k in range(3)})
+    assert by[1][13]["label"] == track.FILLED and by[1][13]["x_px"] == 5  # midway, 1 mm from each

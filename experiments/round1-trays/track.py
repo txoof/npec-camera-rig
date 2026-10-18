@@ -37,7 +37,6 @@ MEASURED, PATCH2, ELIMINATION, UNRESOLVED, IN_TWO_TRAY_MASK, NO_MASK = (
     "in a two-tray mask", "no mask")
 FILLED = "filled from neighbours"
 RIGHT = {MEASURED, PATCH2, ELIMINATION, FILLED}  # with a position the rig would report
-NOTHING_MOVED = {"1", "R2-1", "R3"}  # steps where nothing moved (15.5d), for the spread
 
 
 # ---------------------------------------------------------------- pure functions (unit tested)
@@ -173,6 +172,7 @@ def load(name: str):
 
 
 def main(argv: list[str]) -> None:
+    argv = trays.session_argv(argv)
     name = argv[0].removeprefix("fastsam-").removesuffix(".csv")
     stills, masks = load(name)
     rows, per_still = [], []
@@ -183,7 +183,7 @@ def main(argv: list[str]) -> None:
             t = trays.tray_of(g["id"])
             if t is not None:
                 by_tray[t].append(g)
-        a1 = {g["id"]: g for g in tags if g["id"] in trays.A1_TAGS}
+        a1 = {g["id"]: g for g in tags if g["id"] in trays.SESSION.trays}
         ppm0 = s["scale"].px_per_mm(4576, 3472)  # image centre of a 9152 x 6944 still
         resolved = resolve_still(masks[s["still"]], {t: by_tray[t] for t in a1}, ppm0)
         # Slot check of 15.5c (provisional reference: row and order), on any tray with a mask.
@@ -295,13 +295,13 @@ def moves_between(by: dict, stills: list[dict], use) -> list[dict]:
     return moves
 
 
-def spread(rows: list[dict], use) -> dict[str, tuple[int, float, float]]:
+def spread(rows: list[dict], use, steps: set[str] | None = None) -> dict[str, tuple[int, float, float]]:
     """Per step where nothing moved: positions, rms and max distance from the tray's mean, in mm
     by the scale at the image centre."""
     out = {}
-    for step in sorted(NOTHING_MOVED):
+    for step in sorted(steps or trays.SESSION.nothing_moved):
         d = []
-        for t in range(1, 13):
+        for t in sorted({r["tray"] for r in rows}):
             pts = np.array([(float(r["x_mm"]), float(r["y_mm"])) for r in rows
                             if r["step"] == step and r["tray"] == t and use(r)])
             if len(pts) > 1:
@@ -334,12 +334,12 @@ def is_off(r: dict) -> bool:
     return r["off_median_mm"] is not None and r["label"] != FILLED
 
 
-def off_positions(rows: list[dict], stills: list[dict]) -> dict[tuple[int, int], float]:
+def off_positions(rows: list[dict], stills: list[dict], steps: set[str] | None = None) -> dict[tuple[int, int], float]:
     """Measured positions more than MOVE_MM from the tray's median in a step where nothing moved,
     at the local scale. Counted as wrong (Aaron, 2026-10-16; 15.5d, first slice)."""
     out = {}
-    for step in NOTHING_MOVED:
-        for t in range(1, 13):
+    for step in steps or trays.SESSION.nothing_moved:
+        for t in sorted({r["tray"] for r in rows}):
             meas = [r for r in rows if r["step"] == step and r["tray"] == t and r["label"] == MEASURED]
             if len(meas) < 2:
                 continue
@@ -354,7 +354,7 @@ def off_positions(rows: list[dict], stills: list[dict]) -> dict[tuple[int, int],
 def patch3(by: dict, stills: list[dict], masks: dict) -> None:
     """Patch 3: fill a tray without a right position from the good stills before and after it."""
     steps = [s["step"] for s in stills]
-    for t in range(1, 13):
+    for t in sorted({t for trs in by.values() for t in trs}):
         seq = [by[k][t] for k in range(len(stills))]
         good = [r["label"] == MEASURED and not is_off(r) for r in seq]
         need = [r["x_px"] is None or is_off(r) for r in seq]
@@ -412,7 +412,7 @@ def report(rows: list[dict], moves: list[dict], stills: list[dict], spread_raw: 
               ("after patches 1 and 2", lambda r: (r["before_patch_3"] or r["label"]) in {MEASURED, PATCH2, ELIMINATION}
                and on(r), "slot_agrees"),
               ("after patch 3", lambda r: r["label"] in RIGHT and not is_off(r), "slot_agrees_final"))
-    sets = {st: name for name, sts in trays.SETS.items() for st in sts}
+    sets = {st: name for name, sts in trays.SESSION.sets.items() for st in sts}
     print(f"\n  {'':26s} " + " ".join(f"{x:>22s}" for x in ("all", "gaps", "touching")))
     for title, ok, slot in levels:
         cells = []
@@ -466,8 +466,8 @@ def timeline(rows: list[dict], stills: list[dict], out) -> None:
         cv2.putText(im, stills[k]["step"], (xs(k) - 2, top - 14 - 12 * (i % 2)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
     vals = [float(r[a]) for r in rows if r["x_mm"] is not None for a in ("x_mm", "y_mm")]
     lo, hi = min(vals), max(vals)
-    for t in range(1, 13):
-        y0 = top + (t - 1) * strip
+    for i, t in enumerate(sorted({r["tray"] for r in rows})):
+        y0 = top + i * strip
         cv2.rectangle(im, (left, y0 + 4), (w - 20, y0 + strip - 4), (220, 220, 220), 1)
         cv2.putText(im, f"tray {t}", (6, y0 + strip // 2), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1)
         ys = lambda v: int(y0 + strip - 8 - (v - lo) / (hi - lo) * (strip - 16))

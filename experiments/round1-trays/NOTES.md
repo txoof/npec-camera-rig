@@ -61,10 +61,12 @@ session with pots in the wells on Monday 19 October, issue #213, branch `213-pot
 Method: `docs/metrology-log.md` 15.5f. The session checklist is a comment on #213. Splitting:
 15.5c, tracking: 15.5d. Tray facts: `reference/trays.md`.
 
-Still to do for #213 before the analysis: tray IDs from the session's tag table instead of 1 to 12
-and the 15 October edge pairs, the experiment folder and session record as arguments (15 October
-kept as the default so 15.5c and 15.5d still reproduce), and the holes-filled second run of 15.5f.
-Built test-first, after Aaron confirms the seams.
+Sessions: each photo day has a file in `sessions/` (stills folder, record of still IDs per step,
+step sets, steps where nothing moved, and each tray's tags, the first tag placing and naming the
+tray). Every script takes `--session NAME`; the default is `2026-10-15`, which reproduces 15.5c
+and 15.5d (checked 2026-10-18: tracking and summary outputs byte for byte, FastSAM masks of 2
+stills). For 19 October, write `sessions/2026-10-19.json` from the confirmed tag table once the new
+experiment's folder exists. `fastsam.py --fill-holes` is the second run of 15.5f.
 
 Where the data is:
 - HEF: `~/scratch/round1-trays/hailo/fast_sam_s.hef` (SHA-256 in 15.5c). Tag detections for all 176
@@ -79,6 +81,7 @@ pytest's default is `tests/` only):
     PYTHONPATH="$(pwd)/src" /home/pi/npec_camera_rig/.venv/bin/python3 -m pytest -q experiments/round1-trays -p no:xdist
     cd experiments/round1-trays
     PYTHONPATH=<worktree>/src /home/pi/npec_camera_rig/.venv/bin/python3 track.py fastsam-full176.csv
+    PYTHONPATH=<worktree>/src /home/pi/npec_camera_rig/.venv/bin/python3 fastsam.py --session 2026-10-19 --name NAME --margin 1.15 STILL ...
     PYTHONPATH=<worktree>/src /usr/bin/python3 summarise.py fastsam-full176.csv
 
 Done: raw tracking and patches 1 to 3 (15.5d), 2078 measured + 31 patched of 2112 trays, 173 of

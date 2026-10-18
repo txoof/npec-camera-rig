@@ -1,3 +1,4 @@
+import json
 import cv2
 import numpy as np
 import pytest
@@ -88,3 +89,36 @@ def test_row_order_names_slots_by_row_then_west_to_east():
     slots = summarise.row_order(pts)
     assert slots[1] == "North 6" and slots[6] == "North 1" and slots[7] == "South 6"
     assert summarise.row_order({1: (0, 0)}) == {}
+
+
+def session_file(tmp_path, trays_):
+    """A made-up session: stills folder, record, step sets, steps where nothing moved, trays."""
+    p = tmp_path / "s.json"
+    p.write_text(json.dumps({
+        "stills": "experiments/2026-10-19_abcd1234/stills/2026-10-19",
+        "record": "experiments/round1/session-2026-10-19.csv",
+        "sets": {"gaps": ["1", "2"], "touching": ["5", "6"]},
+        "nothing_moved": ["1", "6"],
+        "trays": trays_}))
+    return p
+
+
+def test_session_file_is_read_back(tmp_path):
+    s = trays.load_session(session_file(tmp_path, [[13], [14], [15, 40]]))
+    assert s.stills_dir == trays.RIG / "experiments/2026-10-19_abcd1234/stills/2026-10-19"
+    assert s.record == trays.REPO / "experiments/round1/session-2026-10-19.csv"
+    assert s.sets == {"gaps": ["1", "2"], "touching": ["5", "6"]}
+    assert s.nothing_moved == {"1", "6"}
+    assert s.trays == [13, 14, 15]  # each tray named by its first tag
+
+
+def test_session_with_a_tag_listed_twice_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="13"):
+        trays.load_session(session_file(tmp_path, [[13], [14, 13]]))
+
+
+def test_tag_names_the_tray_of_its_own_session(tmp_path):
+    s = trays.load_session(session_file(tmp_path, [[13], [14], [15, 40]]))
+    assert trays.tray_of(13, s) == 13  # on 15 October tag 13 was tray 8's edge tag
+    assert trays.tray_of(40, s) == 15
+    assert trays.tray_of(4, s) is None  # a tag not in the table names no tray

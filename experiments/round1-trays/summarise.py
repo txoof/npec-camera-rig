@@ -23,8 +23,6 @@ from collections import defaultdict
 
 import trays
 
-TOUCHING = set(trays.SETS["touching"])
-
 
 def row_order(points: dict[int, tuple[float, float]]) -> dict[int, str]:
     """Slot names for 12 points by row (6 smallest y are North) and order from the west."""
@@ -39,6 +37,7 @@ def row_order(points: dict[int, tuple[float, float]]) -> dict[int, str]:
 
 
 def main(argv: list[str]) -> None:
+    argv = trays.session_argv(argv)
     name = argv[0].removeprefix("fastsam-").removesuffix(".csv")
     res = list(csv.DictReader(open(trays.HERE / argv[0])))
     masks = defaultdict(list)
@@ -47,7 +46,7 @@ def main(argv: list[str]) -> None:
     out = []
     for r in res:
         still = r["still"]
-        tags = {t["id"]: (t["cx"], t["cy"]) for t in trays.detect(still, None) if t["id"] in trays.A1_TAGS}
+        tags = {t["id"]: (t["cx"], t["cy"]) for t in trays.detect(still, None) if t["id"] in trays.SESSION.trays}
         ms = masks[still]
         count = defaultdict(int)
         for m in ms:
@@ -59,7 +58,7 @@ def main(argv: list[str]) -> None:
         slot_mask, slot_tag = row_order(right), row_order(tags)
         slots_agree = sum(1 for t in slot_tag if slot_mask.get(t) == slot_tag[t])
         rule1, rule2, rule3 = one_shape == 12, several == 0, slots_agree == 12
-        out.append({"still": still, "step": r["step"], "set": "touching" if r["step"] in TOUCHING else "gaps",
+        out.append({"still": still, "step": r["step"], "set": "touching" if r["step"] in trays.SESSION.sets["touching"] else "gaps",
                     "a1_tags": len(tags), "trays_one_shape": one_shape, "masks_several_trays": several,
                     "masks_no_tag": r["no_tag_masks"], "slots_agree": slots_agree,
                     "first_pass_ok": r["first_pass_ok"], "fallback_found": r["fallback_found"],

@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 import fastsam
+import trays
 
 pytestmark = pytest.mark.unit
 
@@ -80,3 +81,25 @@ def test_fallback_windows_cover_the_tray_at_either_corner():
     # tag at the south-west corner (tray north-east of it) or the north-east corner (tray south-west)
     for x0, y0 in ((cx - 60, cy - bh + 60), (cx - bw + 60, cy - 60)):
         assert any(t["x0"] <= x0 and x0 + bw <= t["x1"] and t["y0"] <= y0 and y0 + bh <= t["y1"] for t in win)
+
+
+def test_tiles_from_tags_of_another_session():
+    s = trays.Session(stills_dir=None, record=None, sets={}, nothing_moved=set(),
+                      tags=[[13 + i] for i in range(12)])
+    tags = [{"id": 13 + i, "cx": 1000 + 1500 * (i % 6), "cy": 2000 if i < 6 else 5000} for i in range(12)]
+    tags.append({"id": 3, "cx": 1000, "cy": 2100})  # an old tag left on a tray: not in the table
+    tiles = fastsam.tiles_from_tags(tags, session=s)
+    assert len(tiles) == 6
+    assert tiles[0]["trays"] == [13, 14] and tiles[5]["trays"] == [23, 24]
+
+
+def test_mask_with_pot_holes_measured_with_holes_filled():
+    m = np.zeros((200, 200), bool)
+    m[50:150, 50:150] = True  # a tray of 100 x 100 px = 10 000 px
+    for y, x in ((60, 60), (60, 115), (115, 60), (115, 115)):
+        m[y : y + 25, x : x + 25] = False  # four pots of 25 x 25 px, 2 500 px in all
+    # Fill within 0.03: the rectangle runs between pixel centres, 99 px for a 100 px side.
+    area, fill = fastsam.mask_measures(m, tray_px=10_000)
+    assert area == pytest.approx(0.75) and fill == pytest.approx(0.75, abs=0.03)
+    area, fill = fastsam.mask_measures(m, tray_px=10_000, fill_holes=True)
+    assert area == pytest.approx(1.0) and fill == pytest.approx(1.0, abs=0.03)

@@ -34,6 +34,7 @@ TRAY_W_PX = 1480  # tray east-west at full resolution (305 mm at about 4.86 px/m
 TRAY_H_PX = 1780  # north-south (366 mm)
 TRAYS_PER_TILE = 2
 TILE_MARGIN = 0.75  # trays past the outer tags; overridden by --margin
+FILL_HOLES = False  # 15.5f second run: area and fill with the mask's inner holes filled (--fill-holes)
 TILES = "tags"  # 'tags': 2-tray tiles from the A1 tags; 'grid': overlapping grid (--tiles)
 # Which masks are trays (decisions, not measurements).
 TRAY_AREA = (0.8, 1.2)  # mask area in trays
@@ -111,6 +112,17 @@ def is_tray_mask(area_trays: float, fill: float, ew_mm: float, ns_mm: float) -> 
             and TRAY_ASPECT[0] <= aspect <= TRAY_ASPECT[1])
 
 
+def mask_measures(m: np.ndarray, tray_px: float, fill_holes: bool = False) -> tuple[float, float]:
+    """A mask's area in trays and its fill of its rotated rectangle, from its pixels; with
+    fill_holes, holes inside the outline (pots left out of the tray) count as mask (15.5f)."""
+    if fill_holes:
+        cnts, _ = cv2.findContours(m.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        m = cv2.drawContours(np.zeros(m.shape, np.uint8), cnts, -1, 1, thickness=-1) > 0
+    ys, xs = np.nonzero(m)
+    _, (rw, rh), _ = cv2.minAreaRect(np.column_stack([xs, ys]).astype(np.float32))
+    return m.sum() / tray_px, m.sum() / max(rw * rh, 1)
+
+
 def dedupe(cands: list[dict], same_px: float) -> list[dict]:
     """One mask per tray: of masks whose centres lie closer than same_px, the best filled stays."""
     kept: list[dict] = []
@@ -150,14 +162,14 @@ def masks_for(boxes, coefs, protos) -> np.ndarray:
     return out
 
 
-def tiles_from_tags(tags: list[dict], per_tile: int = TRAYS_PER_TILE) -> list[dict]:
+def tiles_from_tags(tags: list[dict], per_tile: int = TRAYS_PER_TILE, session=None) -> list[dict]:
     """Full-resolution crop boxes, one per run of `per_tile` neighbouring trays in a row.
 
-    Row and order from the A1 tags (North is the 6 with the smallest y). A tag sits at the south-
-    west or north-east corner of its tray, so the tray reaches a whole tray past its tag. The crop
+    Row and order from each tray's first tag (North is the 6 with the smallest y). That tag sits at
+    the south-west or north-east corner of its tray, so the tray reaches a whole tray past its tag. The crop
     reaches TILE_MARGIN trays past the outer tags on every side; below 1 it cuts trays (#164
     diagnosis: 27 of 54 missing trays at 0.75)."""
-    a1 = sorted((t for t in tags if t["id"] in trays.A1_TAGS), key=lambda t: t["cy"])
+    a1 = sorted((t for t in tags if t["id"] in (session or trays.SESSION).trays), key=lambda t: t["cy"])
     if len(a1) != 12:
         return []
     out = []
@@ -275,8 +287,8 @@ def tray_masks(img, tiles, model, scale_field, score_min: float, source: str) ->
             ys, xs = np.nonzero(m)
             if len(xs) == 0:
                 continue
-            (rx, ry), (rw, rh), _ = cv2.minAreaRect(np.column_stack([xs, ys]).astype(np.float32))
-            area, fill = m.sum() / tray_px, m.sum() / max(rw * rh, 1)
+            (rx, ry), _, _ = cv2.minAreaRect(np.column_stack([xs, ys]).astype(np.float32))
+            area, fill = mask_measures(m, tray_px, FILL_HOLES)
             ew, ns = (xs.max() - xs.min() + 1) / tile_ppm, (ys.max() - ys.min() + 1) / tile_ppm
             if not is_tray_mask(area, fill, ew, ns):
                 continue
@@ -307,14 +319,14 @@ def run_still(still: str, model: FastSam, scale_field, det, rows: list[dict], ta
     import time
 
     t0 = time.perf_counter()
-    img = cv2.imread(str(trays.EXPERIMENT / f"{still}.jpg"))
+    img = cv2.imread(str(trays.SESSION.stills_dir / f"{still}.jpg"))
     t1 = time.perf_counter()
     cached = (trays.SCRATCH / "tags" / f"{still}.json").exists()
     tags = trays.detect(still, det)  # cached in scratch after the first time
     t2 = time.perf_counter()
     h, w = img.shape[:2]
     ppm = scale_field.px_per_mm(w / 2, h / 2)  # full-res px per mm, for distances
-    a1 = sorted(g["id"] for g in tags if g["id"] in trays.A1_TAGS)
+    a1 = sorted(g["id"] for g in tags if g["id"] in trays.SESSION.trays)
 
     tiles = tiles_from_tags(tags) if TILES == "tags" else grid_tiles(w, h, *table_rows)
     cands, t_infer = tray_masks(img, tiles, model, scale_field, SCORE_MIN, "first")
@@ -378,7 +390,7 @@ def run_still(still: str, model: FastSam, scale_field, det, rows: list[dict], ta
            "t_hailo_s": round(t_infer, 2), "t_masks_s": round(t3 - t2 - t_infer, 2),
            "t_fallback_s": round(t4 - t3, 2), "t_fallback_hailo_s": round(t_fb_infer, 2),
            "t_total_s": round(t4 - t0, 2), "tiles": TILES, "n_tiles": len(tiles), "n_fallback_tiles": n_fb_tiles}
-    folder = (f"fastsam-stills-m{TILE_MARGIN:g}" if TILES == "tags" else "fastsam-stills-grid") + ("-fb" if FALLBACK else "")
+    folder = (f"fastsam-stills-m{TILE_MARGIN:g}" if TILES == "tags" else "fastsam-stills-grid") + ("-fb" if FALLBACK else "") + ("-holes" if FILL_HOLES else "")
     overlay_still(img, masks, tags, links, res, trays.SCRATCH / folder / f"{still}.jpg")
     return res
 
@@ -418,15 +430,18 @@ def overlay_still(img, masks, tags, links, res, out: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    global TILE_MARGIN, TILES, FALLBACK
+    global TILE_MARGIN, TILES, FALLBACK, FILL_HOLES
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("stills", nargs="+")
     ap.add_argument("--name", default="run", help="results file suffix")
     ap.add_argument("--margin", type=float, default=TILE_MARGIN, help="tile margin in trays")
     ap.add_argument("--tiles", choices=["tags", "grid"], default=TILES)
     ap.add_argument("--no-fallback", action="store_true", help="first pass only")
+    ap.add_argument("--fill-holes", action="store_true", help="area and fill with inner holes filled (15.5f)")
+    trays.add_session_arg(ap)
     args = ap.parse_args(argv)
-    TILE_MARGIN, TILES, FALLBACK = args.margin, args.tiles, not args.no_fallback
+    trays.use_session(args.session)
+    TILE_MARGIN, TILES, FALLBACK, FILL_HOLES = args.margin, args.tiles, not args.no_fallback, args.fill_holes
     from npec_rig.calibration_store import load_calibration
 
     det = trays.detector()
@@ -453,7 +468,7 @@ def main(argv: list[str] | None = None) -> None:
                   f"{res['t_total_s']} s (tags {res['t_tags_s']}, hailo {res['t_hailo_s']})", flush=True)
     finally:
         model.close()
-    steps = {r["still"]: r["step"] for r in trays.session_rows(sum(trays.SETS.values(), []))}
+    steps = {r["still"]: r["step"] for r in trays.session_rows(sum(trays.SESSION.sets.values(), []))}
     for r in results:
         r["step"] = steps.get(r["still"], "")
     trays.write_csv(trays.HERE / f"fastsam-{args.name}.csv", results)
