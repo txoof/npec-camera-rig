@@ -1,0 +1,23 @@
+step,title,experiment_uuid,experiment_dir,still
+1,"Gaps, nothing moved",17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105128_023792
+1,"Gaps, nothing moved",17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105130_814455
+1,"Gaps, nothing moved",17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105133_548392
+1,"Gaps, nothing moved",17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105136_318736
+1,"Gaps, nothing moved",17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105139_114877
+1,"Gaps, nothing moved",17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105141_881367
+1,"Gaps, nothing moved",17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105144_686358
+1,"Gaps, nothing moved",17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105147_475830
+1,"Gaps, nothing moved",17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105150_266354
+1,"Gaps, nothing moved",17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105153_032138
+2,Every tray turned 180 degrees in its slot,17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105502_333891
+2,Every tray turned 180 degrees in its slot,17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105505_143054
+2,Every tray turned 180 degrees in its slot,17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105507_920426
+3,North and South rows swapped,17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105846_826781
+3,North and South rows swapped,17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105849_648443
+3,North and South rows swapped,17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,105852_413628
+4,Neighbours swapped in pairs within rows,17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,110048_638466
+4,Neighbours swapped in pairs within rows,17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,110051_441285
+4,Neighbours swapped in pairs within rows,17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,110054_246335
+5,Pushed together within rows,17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,110415_094542
+5,Pushed together within rows,17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,110417_886593
+5,Pushed together within rows,17cb7bfb-c6cf-4d95-83e6-85461044d2c7,2026-10-19_17cb7bfb,110420_651055

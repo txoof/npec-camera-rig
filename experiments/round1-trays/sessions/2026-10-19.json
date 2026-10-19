@@ -1,0 +1,23 @@
+{
+  "stills": "experiments/2026-10-19_17cb7bfb/stills/2026-10-19",
+  "record": "experiments/round1-trays/session-2026-10-19.csv",
+  "sets": {
+    "gaps": ["1", "2", "3", "4"],
+    "touching": ["5", "6"]
+  },
+  "nothing_moved": ["1", "6"],
+  "trays": [
+    [13],
+    [14],
+    [15],
+    [16],
+    [17],
+    [18],
+    [19],
+    [20],
+    [21],
+    [22],
+    [23],
+    [24]
+  ]
+}

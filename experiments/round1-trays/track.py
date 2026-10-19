@@ -8,12 +8,13 @@ rig.db (read only). No Hailo run, no photos read, nothing written to the experim
     PYTHONPATH=<worktree>/src <venv python> track.py fastsam-full176.csv
 
 Writes track-<name>.csv (one row per tray per still) and track-<name>-moves.csv (one row per
-pair of consecutive stills) next to this file, and the timeline picture to
-~/scratch/round1-trays/track/.
+pair of consecutive stills) next to this file, and the timeline picture and the evidence
+pictures (track/evidence-<name>/, drawn on the overlays of --overlays) to ~/scratch/round1-trays/.
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
 import sys
 from collections import defaultdict
@@ -173,7 +174,12 @@ def load(name: str):
 
 def main(argv: list[str]) -> None:
     argv = trays.session_argv(argv)
-    name = argv[0].removeprefix("fastsam-").removesuffix(".csv")
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("results", help="fastsam-NAME.csv")
+    ap.add_argument("--overlays", default="fastsam-stills-m1.15-fb",
+                    help="folder in scratch holding that run's fastsam.py overlays (-holes for --fill-holes)")
+    args = ap.parse_args(argv)
+    name = args.results.removeprefix("fastsam-").removesuffix(".csv")
     stills, masks = load(name)
     rows, per_still = [], []
     for k, s in enumerate(stills):
@@ -219,13 +225,12 @@ def main(argv: list[str]) -> None:
     after = moves_between(by, stills, lambda r: r["label"] in RIGHT and not is_off(r))
     report(rows, moves, stills, spread_raw, after)
     timeline(rows, stills, OUT / f"timeline-{name}.png")
-    evidence(rows, stills, OUT / "evidence")
+    evidence(rows, stills, trays.SCRATCH / args.overlays, OUT / f"evidence-{name}")
 
 
-def evidence(rows: list[dict], stills: list[dict], out) -> None:
+def evidence(rows: list[dict], stills: list[dict], src, out) -> None:
     """Every still with a patched, filled or wrong tray: the 15.5c overlay (read, not altered) with
     the final positions drawn over it as tray-sized boxes, each with its label in words."""
-    src = trays.SCRATCH / "fastsam-stills-m1.15-fb"
     out.mkdir(parents=True, exist_ok=True)
     marks = {FILLED: ("FILLED", (255, 255, 0)), PATCH2: ("KEPT BY PATCH 2", (0, 255, 255)),
              ELIMINATION: ("BY ELIMINATION", (255, 0, 255))}

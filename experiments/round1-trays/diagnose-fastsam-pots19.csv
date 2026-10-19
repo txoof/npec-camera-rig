@@ -1,0 +1,274 @@
+still,step,tray,stage,candidates,best_score,detail
+083312_825966,3,18,never proposed,0,,
+083318_389293,3,17,never proposed,0,,
+083840_426657,5,16,passed,18,0.384,North 3-4 box 324 x 378 mm
+083840_426657,5,24,passed,22,0.275,North 3-4 box 300 x 376 mm
+083843_210526,5,16,passed,17,0.388,North 3-4 box 316 x 378 mm
+083843_210526,5,24,passed,22,0.275,North 3-4 box 300 x 376 mm
+083845_983391,5,16,low score,17,0.239,North 3-4 box 331 x 377 mm
+083845_983391,5,24,low score,20,0.204,North 3-4 box 301 x 372 mm
+084104_357580,6,23,low score,17,0.122,South 3-4 box 322 x 381 mm
+084104_357580,6,16,passed,16,0.329,North 3-4 box 308 x 380 mm
+084104_357580,6,24,low score,21,0.204,North 3-4 box 298 x 371 mm
+084119_337943,6,16,passed,16,0.282,North 3-4 box 307 x 380 mm
+084119_337943,6,24,low score,19,0.192,North 3-4 box 302 x 374 mm
+084134_333788,6,16,passed,17,0.337,North 3-4 box 350 x 379 mm
+084149_345918,6,16,passed,16,0.345,North 3-4 box 335 x 377 mm
+084149_345918,6,24,passed,23,0.322,North 3-4 box 300 x 373 mm
+084204_363300,6,16,passed,18,0.384,North 3-4 box 318 x 378 mm
+084204_363300,6,24,passed,25,0.286,North 3-4 box 298 x 374 mm
+084219_349548,6,23,low score,21,0.055,South 3-4 box 350 x 384 mm
+084219_349548,6,16,passed,18,0.376,North 3-4 box 309 x 380 mm
+084219_349548,6,24,passed,20,0.376,North 3-4 box 298 x 373 mm
+084234_338674,6,16,passed,16,0.424,North 3-4 box 305 x 379 mm
+084234_338674,6,24,passed,21,0.255,North 3-4 box 300 x 376 mm
+084249_345289,6,16,passed,19,0.341,North 3-4 box 330 x 378 mm
+084249_345289,6,24,passed,24,0.255,North 3-4 box 303 x 376 mm
+084304_334230,6,13,low score,9,0.098,South 3-4 box 349 x 383 mm
+084304_334230,6,16,passed,18,0.447,North 3-4 box 307 x 380 mm
+084304_334230,6,24,passed,18,0.278,North 3-4 box 302 x 376 mm
+084319_341678,6,16,passed,20,0.388,North 3-4 box 305 x 380 mm
+084319_341678,6,18,never proposed,0,,
+084334_342476,6,16,low score,17,0.243,North 3-4 box 325 x 378 mm
+084334_342476,6,24,low score,23,0.224,North 3-4 box 303 x 375 mm
+084349_343572,6,13,low score,9,0.102,South 3-4 box 338 x 386 mm
+084349_343572,6,16,duplicate,15,0.282,North 3-4 box 311 x 379 mm
+084349_343572,6,24,low score,17,0.188,North 3-4 box 297 x 373 mm
+084404_346490,6,16,passed,17,0.341,North 3-4 box 308 x 378 mm
+084404_346490,6,24,low score,24,0.208,North 3-4 box 298 x 376 mm
+084419_336286,6,16,passed,16,0.329,North 3-4 box 354 x 379 mm
+084419_336286,6,18,never proposed,0,,
+084434_336101,6,16,passed,19,0.365,North 3-4 box 313 x 378 mm
+084434_336101,6,24,low score,24,0.227,North 3-4 box 300 x 372 mm
+084449_348709,6,13,low score,8,0.075,South 3-4 box 352 x 384 mm
+084449_348709,6,16,passed,18,0.345,North 3-4 box 311 x 379 mm
+084449_348709,6,24,low score,21,0.243,North 3-4 box 299 x 376 mm
+084504_338133,6,16,passed,17,0.271,North 3-4 box 336 x 377 mm
+084504_338133,6,24,passed,18,0.271,North 3-4 box 304 x 374 mm
+084519_344808,6,16,passed,16,0.306,North 3-4 box 308 x 378 mm
+084519_344808,6,24,passed,21,0.267,North 3-4 box 298 x 372 mm
+084534_351611,6,16,passed,16,0.325,North 3-4 box 344 x 376 mm
+084534_351611,6,24,passed,24,0.298,North 3-4 box 300 x 373 mm
+084549_346071,6,23,low score,23,0.086,South 3-4 box 305 x 382 mm
+084549_346071,6,13,low score,7,0.035,South 3-4 box 323 x 378 mm
+084549_346071,6,16,passed,16,0.337,North 3-4 box 321 x 377 mm
+084549_346071,6,24,passed,21,0.267,North 3-4 box 299 x 372 mm
+084604_341950,6,16,passed,18,0.345,North 3-4 box 309 x 381 mm
+084604_341950,6,24,low score,19,0.247,North 3-4 box 299 x 377 mm
+084619_351162,6,16,passed,17,0.373,North 3-4 box 322 x 377 mm
+084619_351162,6,24,passed,19,0.286,North 3-4 box 301 x 375 mm
+084634_334692,6,23,low score,17,0.078,South 3-4 box 351 x 380 mm
+084634_334692,6,13,low score,9,0.067,South 3-4 box 351 x 385 mm
+084634_334692,6,16,passed,16,0.361,North 3-4 box 319 x 377 mm
+084634_334692,6,18,cut by the tile,1,0.0,South 1-2 box 313 x 414 mm
+084634_334692,6,20,low score,33,0.012,South 1-2 box 263 x 377 mm
+084649_381874,6,16,passed,18,0.322,North 3-4 box 311 x 379 mm
+084649_381874,6,24,low score,21,0.227,North 3-4 box 299 x 371 mm
+084704_356668,6,16,passed,18,0.431,North 3-4 box 306 x 376 mm
+084704_356668,6,24,passed,19,0.259,North 3-4 box 301 x 373 mm
+084719_374037,6,23,low score,16,0.094,South 3-4 box 310 x 381 mm
+084719_374037,6,16,passed,18,0.29,North 3-4 box 306 x 381 mm
+084719_374037,6,24,passed,22,0.325,North 3-4 box 301 x 374 mm
+084734_347516,6,16,passed,16,0.267,North 3-4 box 319 x 377 mm
+084749_350658,6,23,low score,22,0.129,South 3-4 box 303 x 380 mm
+084749_350658,6,13,low score,10,0.075,South 3-4 box 353 x 388 mm
+084749_350658,6,16,passed,16,0.267,North 3-4 box 327 x 378 mm
+084749_350658,6,24,low score,16,0.247,North 3-4 box 301 x 373 mm
+084804_344058,6,16,passed,17,0.373,North 3-4 box 308 x 379 mm
+084804_344058,6,24,passed,24,0.251,North 3-4 box 297 x 374 mm
+084819_354175,6,23,low score,18,0.118,South 3-4 box 317 x 384 mm
+084819_354175,6,16,passed,18,0.341,North 3-4 box 335 x 378 mm
+084819_354175,6,24,passed,21,0.286,North 3-4 box 299 x 374 mm
+084834_347394,6,16,passed,16,0.267,North 3-4 box 308 x 380 mm
+084834_347394,6,24,low score,22,0.231,North 3-4 box 297 x 374 mm
+084849_342455,6,23,low score,21,0.133,South 3-4 box 305 x 383 mm
+084849_342455,6,13,low score,9,0.094,South 3-4 box 330 x 387 mm
+084849_342455,6,16,passed,18,0.424,North 3-4 box 320 x 379 mm
+084849_342455,6,24,low score,19,0.235,North 3-4 box 294 x 372 mm
+084904_352639,6,16,passed,16,0.275,North 3-4 box 345 x 379 mm
+084904_352639,6,24,low score,20,0.22,North 3-4 box 301 x 377 mm
+084919_328801,6,16,passed,17,0.322,North 3-4 box 306 x 381 mm
+084919_328801,6,24,low score,18,0.247,North 3-4 box 300 x 374 mm
+084934_354334,6,23,low score,19,0.098,South 3-4 box 322 x 381 mm
+084934_354334,6,13,low score,5,0.027,South 3-4 box 321 x 380 mm
+084934_354334,6,24,passed,23,0.255,North 3-4 box 300 x 375 mm
+084949_361964,6,23,low score,25,0.082,South 3-4 box 321 x 384 mm
+084949_361964,6,16,passed,17,0.388,North 3-4 box 306 x 378 mm
+084949_361964,6,24,passed,20,0.392,North 3-4 box 301 x 372 mm
+085004_353012,6,16,passed,17,0.302,North 3-4 box 307 x 378 mm
+085004_353012,6,24,low score,17,0.235,North 3-4 box 298 x 375 mm
+085019_353153,6,16,passed,18,0.357,North 3-4 box 308 x 380 mm
+085019_353153,6,24,low score,20,0.231,North 3-4 box 298 x 375 mm
+085034_315698,6,13,low score,7,0.035,South 3-4 box 312 x 376 mm
+085049_363623,6,23,low score,20,0.082,South 3-4 box 304 x 382 mm
+085049_363623,6,16,passed,17,0.341,North 3-4 box 316 x 377 mm
+085049_363623,6,24,passed,20,0.349,North 3-4 box 301 x 375 mm
+085104_350740,6,16,passed,18,0.361,North 3-4 box 312 x 377 mm
+085104_350740,6,24,passed,19,0.298,North 3-4 box 302 x 372 mm
+085119_311059,6,16,passed,18,0.38,North 3-4 box 306 x 380 mm
+085119_311059,6,24,low score,20,0.208,North 3-4 box 301 x 374 mm
+085134_307939,6,23,low score,22,0.106,South 3-4 box 329 x 380 mm
+085134_307939,6,16,passed,16,0.322,North 3-4 box 308 x 379 mm
+085134_307939,6,24,passed,23,0.259,North 3-4 box 297 x 375 mm
+085149_338346,6,16,passed,18,0.384,North 3-4 box 305 x 379 mm
+085149_338346,6,24,passed,22,0.322,North 3-4 box 293 x 375 mm
+085204_346286,6,23,low score,20,0.102,South 3-4 box 298 x 379 mm
+085204_346286,6,16,passed,18,0.416,North 3-4 box 308 x 377 mm
+085204_346286,6,24,passed,16,0.325,North 3-4 box 297 x 375 mm
+085219_338778,6,23,low score,21,0.106,South 3-4 box 303 x 382 mm
+085219_338778,6,16,passed,20,0.392,North 3-4 box 314 x 378 mm
+085219_338778,6,24,low score,21,0.239,North 3-4 box 303 x 372 mm
+085234_372330,6,16,low score,15,0.239,North 3-4 box 308 x 378 mm
+085249_313204,6,16,passed,17,0.314,North 3-4 box 322 x 379 mm
+085249_313204,6,24,passed,20,0.29,North 3-4 box 297 x 373 mm
+085304_349928,6,16,passed,19,0.4,North 3-4 box 309 x 377 mm
+085304_349928,6,18,never proposed,0,,
+085304_349928,6,20,low score,33,0.063,South 1-2 box 264 x 378 mm
+085319_346215,6,13,low score,6,0.027,South 3-4 box 315 x 377 mm
+085319_346215,6,16,passed,16,0.263,North 3-4 box 342 x 378 mm
+085319_346215,6,24,passed,20,0.259,North 3-4 box 301 x 376 mm
+085334_348207,6,16,passed,15,0.412,North 3-4 box 320 x 377 mm
+085334_348207,6,24,passed,21,0.302,North 3-4 box 301 x 371 mm
+085349_346111,6,16,passed,17,0.357,North 3-4 box 306 x 382 mm
+085349_346111,6,24,passed,19,0.325,North 3-4 box 302 x 373 mm
+085404_350684,6,16,passed,17,0.376,North 3-4 box 312 x 380 mm
+085404_350684,6,24,passed,24,0.298,North 3-4 box 301 x 376 mm
+085419_353294,6,16,passed,17,0.302,North 3-4 box 309 x 380 mm
+085419_353294,6,24,low score,23,0.212,North 3-4 box 300 x 373 mm
+085434_342821,6,16,passed,17,0.431,North 3-4 box 306 x 379 mm
+085434_342821,6,24,low score,21,0.224,North 3-4 box 302 x 374 mm
+085449_356823,6,16,passed,19,0.365,North 3-4 box 309 x 379 mm
+085449_356823,6,24,passed,19,0.329,North 3-4 box 298 x 377 mm
+085504_352544,6,16,passed,16,0.318,North 3-4 box 308 x 380 mm
+085504_352544,6,24,passed,23,0.251,North 3-4 box 297 x 374 mm
+085519_332956,6,23,low score,19,0.102,South 3-4 box 332 x 382 mm
+085519_332956,6,16,passed,17,0.353,North 3-4 box 337 x 378 mm
+085519_332956,6,24,passed,17,0.318,North 3-4 box 298 x 374 mm
+085534_352134,6,16,passed,18,0.369,North 3-4 box 305 x 381 mm
+085534_352134,6,24,low score,20,0.227,North 3-4 box 299 x 374 mm
+085549_334651,6,16,passed,16,0.275,North 3-4 box 311 x 380 mm
+085549_334651,6,24,passed,23,0.298,North 3-4 box 305 x 371 mm
+085604_397766,6,16,passed,19,0.353,North 3-4 box 311 x 379 mm
+085604_397766,6,24,low score,22,0.2,North 3-4 box 302 x 374 mm
+085619_337328,6,23,low score,19,0.078,South 3-4 box 310 x 383 mm
+085619_337328,6,16,low score,18,0.243,North 3-4 box 309 x 381 mm
+085619_337328,6,24,low score,20,0.216,North 3-4 box 299 x 374 mm
+085634_345730,6,16,passed,18,0.376,North 3-4 box 320 x 376 mm
+085649_347951,6,16,passed,15,0.341,North 3-4 box 308 x 380 mm
+085649_347951,6,24,passed,20,0.251,North 3-4 box 302 x 375 mm
+085704_349520,6,16,passed,17,0.325,North 3-4 box 326 x 378 mm
+085704_349520,6,24,passed,22,0.263,North 3-4 box 299 x 375 mm
+085719_336533,6,16,passed,17,0.314,North 3-4 box 308 x 380 mm
+085719_336533,6,24,passed,25,0.29,North 3-4 box 298 x 375 mm
+085734_355159,6,16,passed,18,0.412,North 3-4 box 322 x 377 mm
+085734_355159,6,24,low score,21,0.235,North 3-4 box 299 x 371 mm
+085749_352814,6,16,passed,17,0.388,North 3-4 box 305 x 380 mm
+085749_352814,6,24,passed,19,0.314,North 3-4 box 299 x 374 mm
+085804_349645,6,23,low score,21,0.118,South 3-4 box 309 x 380 mm
+085804_349645,6,16,passed,16,0.263,North 3-4 box 310 x 378 mm
+085804_349645,6,24,passed,22,0.278,North 3-4 box 299 x 373 mm
+085819_347811,6,23,low score,19,0.102,South 3-4 box 313 x 382 mm
+085819_347811,6,16,passed,19,0.333,North 3-4 box 307 x 380 mm
+085819_347811,6,24,low score,20,0.231,North 3-4 box 298 x 375 mm
+085819_347811,6,18,never proposed,0,,
+085834_354761,6,13,low score,8,0.055,South 3-4 box 358 x 387 mm
+085834_354761,6,16,passed,18,0.314,North 3-4 box 326 x 378 mm
+085834_354761,6,24,passed,23,0.325,North 3-4 box 296 x 376 mm
+085849_353431,6,23,low score,19,0.071,South 3-4 box 320 x 381 mm
+085849_353431,6,16,passed,20,0.412,North 3-4 box 310 x 378 mm
+085849_353431,6,24,passed,21,0.282,North 3-4 box 302 x 377 mm
+085904_358706,6,23,low score,18,0.129,South 3-4 box 313 x 382 mm
+085904_358706,6,16,passed,17,0.345,North 3-4 box 308 x 378 mm
+085904_358706,6,24,passed,20,0.259,North 3-4 box 301 x 374 mm
+085919_329163,6,24,passed,18,0.263,North 3-4 box 300 x 372 mm
+085934_356313,6,16,passed,18,0.384,North 3-4 box 311 x 382 mm
+085934_356313,6,24,passed,22,0.314,North 3-4 box 298 x 373 mm
+085949_346253,6,24,passed,21,0.314,North 3-4 box 301 x 372 mm
+090004_377150,6,24,passed,22,0.255,North 3-4 box 303 x 374 mm
+090019_346291,6,23,low score,15,0.071,South 3-4 box 302 x 381 mm
+090019_346291,6,16,passed,16,0.263,North 3-4 box 314 x 380 mm
+090019_346291,6,24,passed,18,0.282,North 3-4 box 297 x 373 mm
+090034_384323,6,16,passed,18,0.341,North 3-4 box 344 x 378 mm
+090034_384323,6,24,passed,25,0.294,North 3-4 box 302 x 375 mm
+090049_360204,6,16,passed,17,0.306,North 3-4 box 313 x 383 mm
+090049_360204,6,24,passed,17,0.259,North 3-4 box 306 x 373 mm
+090104_353930,6,16,passed,18,0.357,North 3-4 box 307 x 379 mm
+090104_353930,6,24,low score,21,0.247,North 3-4 box 298 x 371 mm
+090119_346307,6,16,passed,16,0.314,North 3-4 box 313 x 380 mm
+090119_346307,6,24,passed,21,0.251,North 3-4 box 301 x 374 mm
+090134_355380,6,16,passed,18,0.31,North 3-4 box 308 x 378 mm
+090149_353608,6,23,low score,21,0.106,South 3-4 box 312 x 383 mm
+090149_353608,6,16,passed,17,0.345,North 3-4 box 321 x 377 mm
+090149_353608,6,24,low score,20,0.235,North 3-4 box 303 x 373 mm
+090204_358561,6,16,passed,18,0.349,North 3-4 box 309 x 380 mm
+090204_358561,6,24,low score,20,0.231,North 3-4 box 301 x 375 mm
+090219_349385,6,23,low score,23,0.137,South 3-4 box 301 x 380 mm
+090219_349385,6,13,low score,5,0.043,South 3-4 box 316 x 378 mm
+090219_349385,6,16,passed,17,0.447,North 3-4 box 309 x 378 mm
+090219_349385,6,24,passed,19,0.275,North 3-4 box 300 x 372 mm
+090234_356020,6,23,low score,16,0.102,South 3-4 box 311 x 383 mm
+090234_356020,6,16,passed,18,0.396,North 3-4 box 308 x 379 mm
+090234_356020,6,24,passed,23,0.337,North 3-4 box 302 x 375 mm
+090249_312188,6,13,low score,8,0.043,South 3-4 box 300 x 379 mm
+090249_312188,6,16,passed,17,0.341,North 3-4 box 311 x 380 mm
+090249_312188,6,24,passed,19,0.278,North 3-4 box 303 x 373 mm
+090304_353962,6,23,low score,16,0.067,South 3-4 box 300 x 382 mm
+090304_353962,6,16,passed,16,0.322,North 3-4 box 308 x 380 mm
+090304_353962,6,24,low score,20,0.22,North 3-4 box 302 x 371 mm
+090319_354124,6,16,passed,17,0.365,North 3-4 box 310 x 379 mm
+090319_354124,6,24,low score,18,0.243,North 3-4 box 298 x 374 mm
+090334_333863,6,16,low score,15,0.227,North 3-4 box 321 x 381 mm
+090334_333863,6,24,passed,16,0.251,North 3-4 box 299 x 374 mm
+090349_433951,6,16,passed,16,0.278,North 3-4 box 344 x 379 mm
+090349_433951,6,24,passed,20,0.325,North 3-4 box 303 x 372 mm
+090404_361115,6,16,passed,17,0.302,North 3-4 box 329 x 380 mm
+090404_361115,6,24,passed,20,0.314,North 3-4 box 299 x 375 mm
+090419_358386,6,16,passed,15,0.259,North 3-4 box 315 x 380 mm
+090419_358386,6,24,low score,20,0.22,North 3-4 box 301 x 372 mm
+090434_357725,6,16,passed,18,0.29,North 3-4 box 312 x 378 mm
+090434_357725,6,24,low score,19,0.243,North 3-4 box 300 x 376 mm
+090449_350355,6,13,low score,7,0.063,South 3-4 box 355 x 383 mm
+090449_350355,6,16,passed,18,0.365,North 3-4 box 310 x 380 mm
+090504_356551,6,16,passed,17,0.369,North 3-4 box 309 x 382 mm
+090504_356551,6,24,passed,19,0.306,North 3-4 box 297 x 374 mm
+090519_342066,6,16,passed,19,0.337,North 3-4 box 321 x 377 mm
+090534_377125,6,23,low score,23,0.102,South 3-4 box 312 x 383 mm
+090534_377125,6,16,passed,17,0.42,North 3-4 box 306 x 379 mm
+090534_377125,6,24,low score,19,0.243,North 3-4 box 299 x 370 mm
+090549_366645,6,16,passed,16,0.337,North 3-4 box 309 x 378 mm
+090549_366645,6,24,passed,23,0.333,North 3-4 box 300 x 374 mm
+090604_353085,6,23,low score,21,0.122,South 3-4 box 307 x 381 mm
+090604_353085,6,16,passed,16,0.361,North 3-4 box 313 x 380 mm
+090604_353085,6,24,low score,20,0.204,North 3-4 box 303 x 374 mm
+090619_350000,6,16,passed,19,0.267,North 3-4 box 311 x 380 mm
+090634_354180,6,16,passed,19,0.325,North 3-4 box 333 x 378 mm
+090634_354180,6,24,mask test: fill 0.84,23,0.251,North 3-4 box 299 x 375 mm
+090649_344354,6,24,low score,19,0.235,North 3-4 box 302 x 374 mm
+090704_346324,6,16,passed,16,0.294,North 3-4 box 308 x 379 mm
+090719_346913,6,16,passed,16,0.384,North 3-4 box 309 x 380 mm
+090719_346913,6,24,passed,19,0.271,North 3-4 box 301 x 373 mm
+090734_358580,6,16,passed,17,0.373,North 3-4 box 316 x 378 mm
+090749_379715,6,23,low score,19,0.114,South 3-4 box 315 x 383 mm
+090749_379715,6,16,passed,17,0.322,North 3-4 box 327 x 378 mm
+090749_379715,6,24,passed,21,0.259,North 3-4 box 301 x 374 mm
+090804_346217,6,16,passed,18,0.345,North 3-4 box 310 x 379 mm
+090804_346217,6,24,passed,22,0.322,North 3-4 box 301 x 376 mm
+090819_347823,6,16,passed,19,0.286,North 3-4 box 351 x 378 mm
+090834_361493,6,16,passed,18,0.302,North 3-4 box 308 x 380 mm
+090834_361493,6,24,low score,21,0.208,North 3-4 box 299 x 374 mm
+090849_435979,6,16,passed,17,0.369,North 3-4 box 307 x 381 mm
+090849_435979,6,24,low score,23,0.216,North 3-4 box 299 x 372 mm
+090904_374847,6,16,passed,17,0.412,North 3-4 box 309 x 379 mm
+090904_374847,6,24,passed,19,0.376,North 3-4 box 298 x 376 mm
+090919_394451,6,16,passed,17,0.353,North 3-4 box 311 x 378 mm
+090934_350553,6,16,passed,17,0.345,North 3-4 box 309 x 379 mm
+090934_350553,6,24,low score,19,0.204,North 3-4 box 300 x 372 mm
+090949_354994,6,16,passed,18,0.376,North 3-4 box 342 x 378 mm
+090949_354994,6,24,passed,18,0.255,North 3-4 box 299 x 376 mm
+091004_358441,6,16,passed,18,0.376,North 3-4 box 309 x 380 mm
+091004_358441,6,24,passed,18,0.263,North 3-4 box 300 x 371 mm
+091019_386111,6,13,low score,11,0.071,South 3-4 box 358 x 385 mm
+091019_386111,6,16,passed,18,0.404,North 3-4 box 308 x 380 mm
+091019_386111,6,24,passed,21,0.322,North 3-4 box 299 x 374 mm
+091034_360494,6,16,passed,16,0.282,North 3-4 box 322 x 377 mm
+091034_360494,6,24,low score,19,0.212,North 3-4 box 301 x 375 mm

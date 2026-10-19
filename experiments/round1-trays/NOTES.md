@@ -54,7 +54,20 @@ Outline green: one tray. Red: several trays (MERGED). Orange: no tray tag (NO TA
 fitted rectangle. Magenta dot and number: a tray tag's centre and ID. Text: tray, slot by method B,
 fitted size.
 
-## Resume here (state on 2026-10-17)
+## Resume here (state on 2026-10-19)
+
+19 October sessions done and written up: 15.5f (pots, edge tags), 15.5g (footprint from the
+tag), 15.5h (cell A1 tags), 15.5i (shuffling proof of concept). Result: trays placed from the
+A1 cell tag with one common offset (`footprint.py --common`, `shuffle.py`, `TRAY_TYPES`) placed
+264 of 264 in 15.5h and tracked 11 of 12 trays through five random shuffles (197 of 198
+positions); tray 6 failed in every still because its tag lay turned 180 in its cell. FastSAM tray
+splitting fails on touching trays with pots. Agreed with Aaron (2026-10-19): this is the proof of
+concept; every cell tag must lie the same way round (arrow on each tag). Follow-ups in #224, among
+them a tag anywhere inside the tray (long term) and detecting a tag lying the wrong way.
+
+    PYTHONPATH=<worktree>/src <venv python> shuffle.py --experiment "simple segmentation test" --rounds 1 2 3 4 5 2
+
+## Earlier state (2026-10-17)
 
 Splitting: issue #164, merged (#172). Tracking: issue #171, merged (#212). **Next: the photo
 session with pots in the wells on Monday 19 October, issue #213, branch `213-pots-session`.**
@@ -70,16 +83,16 @@ experiment's folder exists. `fastsam.py --fill-holes` is the second run of 15.5f
 Stills for 19 October: `capture_session.py --experiment pots-2026-10-19 --step N --title T --count C
 [--every 15]`, under the `hardware` label only; it adds each still to `session-2026-10-19.csv` here.
 Every step of a session must be in one of its sets (gaps, touching): `track.py` stops on a step
-in neither. `track.py`'s evidence pictures read the overlays of `fastsam-stills-m1.15-fb/` and
-write to one `track/evidence/` folder for every session: fix before a `--fill-holes` run is
-tracked, or Monday's pictures mix with 15 October's.
+in neither. `track.py` writes its evidence pictures to `track/evidence-<run name>/`, drawn on the
+overlays of `--overlays` (default `fastsam-stills-m1.15-fb`; pass `fastsam-stills-m1.15-fb-holes`
+for a `--fill-holes` run).
 
 Where the data is:
 - HEF: `~/scratch/round1-trays/hailo/fast_sam_s.hef` (SHA-256 in 15.5c). Tag detections for all 176
   stills cached in `~/scratch/round1-trays/tags/`. Overlays in `~/scratch/round1-trays/`.
 - Full run: `fastsam-full176.csv`, `fastsam-full176-masks.csv`, `summary-full176.csv` here.
 - Tracking: `track-full176.csv`, `track-full176-moves.csv` here; timeline in
-  `~/scratch/round1-trays/track/`, evidence overlays in `track/evidence/`.
+  `~/scratch/round1-trays/track/`, evidence overlays in `track/evidence/` (15 October, made before the per-run folders).
 
 Commands (run from the worktree root, `<worktree>` being its full path; tests by explicit path,
 pytest's default is `tests/` only):
