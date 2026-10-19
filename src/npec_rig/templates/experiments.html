@@ -25,6 +25,8 @@
         <input type="number" id="f-tray-height" min="0" step="0.1" aria-label="Tray height in mm"> mm
       </span>
     </div>
+    {{ ui.stepper("f-interval", "Photo every", 0, "min", 0, 6, tight=true) }}
+    <p class="experiment-hint">0 means no scheduled photos. Can be changed while running.</p>
     <label>Notes <textarea id="f-notes" rows="2"></textarea></label>
     <div class="experiment-form-buttons">
       <button type="submit" id="f-submit">Set up</button>
@@ -51,11 +53,6 @@
       <label id="ask-input-row" hidden><span id="ask-input-label"></span>
         <input type="text" id="ask-input" autocomplete="off">
       </label>
-      <div id="ask-interval-row" hidden>
-        <p>Scheduled photos: one every</p>
-        {{ ui.stepper("ask-interval", "Minutes between photos", 1, "min", 0, 6) }}
-        <p>0 means no scheduled photos. The Capture button still works either way.</p>
-      </div>
       <label id="ask-check-row" class="experiment-dialog-check" hidden>
         <input type="checkbox" id="ask-check"> <span id="ask-check-label"></span>
       </label>
@@ -84,6 +81,7 @@
       researcher: document.getElementById("f-researcher"),
       tray_height_mm: document.getElementById("f-tray-height"),
       notes: document.getElementById("f-notes"),
+      interval: document.getElementById("f-interval-value"),
     };
     let experiments = [];
     let editing = null;
@@ -170,6 +168,12 @@
         + completeText(e);
     }
 
+    function intervalText(e) {
+      if (!e.interval_s) return "No scheduled photos.";
+      const minutes = e.interval_s / 60;
+      return minutes === 1 ? "Scheduled photos every minute." : `Scheduled photos every ${minutes} minutes.`;
+    }
+
     function scheduleText(schedule) {
       if (!schedule) return "No scheduled photos: only the Capture button takes photos.";
       const minutes = schedule.interval_s / 60;
@@ -192,7 +196,7 @@
           <tr>
             <td>${esc(displayName(e))}${e.notes ? `<div class="experiment-notes">${esc(e.notes)}</div>` : ""}</td>
             <td>${esc(e.researcher)}</td>
-            <td>${esc(stateText(e))}${exportText(e)}</td>
+            <td>${esc(stateText(e))}${e.state === "purged" ? "" : `<div class="experiment-export">${intervalText(e)}</div>`}${exportText(e)}</td>
             <td>${e.folder ? `<code>${esc(e.folder)}</code>` : ""}</td>
             <td class="experiment-actions">${actions(e)}</td>
           </tr>`).join("")
@@ -252,6 +256,7 @@
       editing = null;
       form.reset();
       showTray(null);
+      showInterval(null);
       trayChoice.disabled = false;
       fields.name.disabled = false;
       fields.researcher.disabled = false;
@@ -267,6 +272,7 @@
       fields.researcher.value = e.researcher ?? "";
       showTray(e.tray_height_mm);
       fields.notes.value = e.notes ?? "";
+      showInterval(e.interval_s);
       // Readings depend on the tray height, so it is fixed at the first start. A purged
       // experiment keeps only its notes editable.
       fields.tray_height_mm.disabled = e.state !== "set up";
@@ -283,7 +289,8 @@
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const body = { notes: fields.notes.value };
+      const minutes = Number(fields.interval.dataset.value) || 0;
+      const body = { notes: fields.notes.value, interval_s: minutes > 0 ? minutes * 60 : null };
       if (!fields.name.disabled) body.name = fields.name.value;
       if (!fields.researcher.disabled) body.researcher = fields.researcher.value;
       if (!fields.tray_height_mm.disabled) {
@@ -321,8 +328,6 @@
       inputRow: document.getElementById("ask-input-row"),
       inputLabel: document.getElementById("ask-input-label"),
       input: document.getElementById("ask-input"),
-      intervalRow: document.getElementById("ask-interval-row"),
-      interval: document.getElementById("ask-interval-value"),
       checkRow: document.getElementById("ask-check-row"),
       checkLabel: document.getElementById("ask-check-label"),
       check: document.getElementById("ask-check"),
@@ -334,8 +339,7 @@
 
     // Opens the dialog. `action({ text, checked })` runs on OK; if it throws, its message shows
     // inside the dialog, which stays open so the user can correct and try again.
-    function openAsk({ title, body, ok, danger = false, input = null, check = null, interval = false,
-      action }) {
+    function openAsk({ title, body, ok, danger = false, input = null, check = null, action }) {
       ask.title.textContent = title;
       ask.body.innerHTML = body;
       ask.ok.textContent = ok;
@@ -343,7 +347,6 @@
       ask.inputRow.hidden = !input;
       ask.inputLabel.innerHTML = input ?? "";
       ask.input.value = "";
-      ask.intervalRow.hidden = !interval;
       ask.checkRow.hidden = !check;
       ask.checkLabel.textContent = check ?? "";
       ask.check.checked = false;
@@ -357,8 +360,7 @@
       event.preventDefault();
       ask.ok.disabled = true;
       try {
-        await askAction({ text: ask.input.value, checked: ask.check.checked,
-          minutes: Number(ask.interval.dataset.value) || 0 });
+        await askAction({ text: ask.input.value, checked: ask.check.checked });
         ask.dialog.close();
         await refresh();
       } catch (err) {
@@ -369,7 +371,12 @@
     });
     ask.cancel.addEventListener("click", () => ask.dialog.close());
     const whenReady = (fn) => (window.ui ? fn() : document.addEventListener("DOMContentLoaded", fn));
-    whenReady(() => ui.bindStepper(document.getElementById("ask-interval")));
+    whenReady(() => ui.bindStepper(document.getElementById("f-interval")));
+
+    function showInterval(seconds) {
+      const minutes = seconds ? Math.round(seconds / 60) : 0;
+      whenReady(() => ui.showField(fields.interval, String(minutes)));
+    }
 
     function purgeAsk(e) {
       const exportLine = e.complete_export
@@ -429,21 +436,17 @@
         });
       } else if (act === "start") {
         const other = experiments.find((x) => x.state === "running");
-        const verb = e.state === "set up" ? "Start" : "Resume";
-        openAsk({
-          title: `${verb} ${displayName(e)}`,
-          body: other
-            ? `<p>${esc(displayName(other))} is running. Only one experiment runs at a time. `
-              + `Stop it and ${verb.toLowerCase()} this one?</p>` : "",
-          ok: other ? `Stop it and ${verb.toLowerCase()} this one` : verb,
-          interval: true,
-          action: ({ minutes }) => {
-            const query = new URLSearchParams();
-            if (other) query.set("stop_running", "true");
-            if (minutes > 0) query.set("interval_s", String(minutes * 60));
-            return call("POST", `/api/experiments/${e.id}/start?${query}`);
-          },
-        });
+        if (other) {
+          openAsk({
+            title: `Start ${displayName(e)}`,
+            body: `<p>${esc(displayName(other))} is running. Only one experiment runs at a time. `
+              + "Stop it and start this one?</p>",
+            ok: "Stop it and start this one",
+            action: () => call("POST", `/api/experiments/${e.id}/start?stop_running=true`),
+          });
+        } else {
+          await runAndRefresh(() => call("POST", `/api/experiments/${e.id}/start`));
+        }
       } else if (act === "export") {
         await runAndRefresh(() => call("POST", `/api/experiments/${e.id}/export`));
       }

@@ -155,15 +155,15 @@ Primary key: `source` and `kind` together.
 ### `scheduled_photo`
 
 One row per slot of an experiment's photo schedule. The schedule's interval is
-`experiment_period.interval_s` (seconds, NULL for no schedule), and slot *n* is due *n* intervals
-after that period's `started_at`. A slot that passed without a photo (the app was down, or the
+`experiment.interval_s` (seconds, NULL for no schedule), and slot *n* is due *n* intervals after
+`experiment.schedule_since`: the latest start, resume, or change of the interval while running. A slot that passed without a photo (the app was down, or the
 photo before it took longer than the interval) is recorded as missed. The rows stay when the
 experiment is purged, as the record of the schedule.
 
 | Column | Type | Meaning |
 |---|---|---|
 | `experiment_id` | integer | The experiment |
-| `period_started_at` | text | Start of the period the slot belongs to, UTC |
+| `schedule_since` | text | The schedule start the slot is counted from, UTC |
 | `slot` | integer | 1 for the first photo after the start |
 | `due_at` | text | When the photo was due, UTC (`isoformat()`) |
 | `capture_id` | integer | The photo's `capture` row; NULL when missed |

@@ -132,6 +132,17 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        6,
+        "scheduled capture: the interval is part of the experiment and can be changed while it runs",
+        (
+            "ALTER TABLE experiment ADD COLUMN interval_s REAL",  # seconds; NULL for no schedule
+            # UTC. Slot n is due n intervals after this: the latest start, resume or interval change.
+            "ALTER TABLE experiment ADD COLUMN schedule_since TEXT",
+            "ALTER TABLE scheduled_photo RENAME COLUMN period_started_at TO schedule_since",
+            "ALTER TABLE experiment_period DROP COLUMN interval_s",
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -257,8 +268,7 @@ def _experiment(conn: sqlite3.Connection, experiment_id: int) -> dict:
     experiment["periods"] = [
         dict(p)
         for p in conn.execute(
-            "SELECT started_at, ended_at, interval_s FROM experiment_period"
-            " WHERE experiment_id = ? ORDER BY id",
+            "SELECT started_at, ended_at FROM experiment_period WHERE experiment_id = ? ORDER BY id",
             (experiment_id,),
         )
     ]
@@ -281,12 +291,13 @@ def create_experiment(
     researcher: str | None = None,
     tray_height_mm: float | None = None,
     notes: str | None = None,
+    interval_s: float | None = None,
 ) -> dict:
     with _connect() as conn:
         cursor = conn.execute(
-            "INSERT INTO experiment (uuid, name, researcher, tray_height_mm, notes, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (uuid, name, researcher, tray_height_mm, notes, created_at),
+            "INSERT INTO experiment (uuid, name, researcher, tray_height_mm, notes, interval_s,"
+            " created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (uuid, name, researcher, tray_height_mm, notes, interval_s, created_at),
         )
         return _experiment(conn, cursor.lastrowid)
 
@@ -313,11 +324,15 @@ def running_experiment() -> dict | None:
 
 # Name, researcher and notes can be corrected at any time. Tray height can change only before the
 # first start: readings already taken depend on it.
-_EDITABLE = {"set up": {"name", "researcher", "tray_height_mm", "notes"}, "purged": {"notes"}}
-_EDITABLE_LATER = {"name", "researcher", "notes"}
+# The photo interval can change at any time; a change while running counts slots from then.
+_EDITABLE = {
+    "set up": {"name", "researcher", "tray_height_mm", "notes", "interval_s"},
+    "purged": {"notes"},
+}
+_EDITABLE_LATER = {"name", "researcher", "notes", "interval_s"}
 
 
-def update_experiment(experiment_id: int, **fields: object) -> dict:
+def update_experiment(experiment_id: int, *, now: str | None = None, **fields: object) -> dict:
     with _connect() as conn:
         state = _experiment(conn, experiment_id)["state"]
         allowed = _EDITABLE.get(state, _EDITABLE_LATER)
@@ -330,6 +345,10 @@ def update_experiment(experiment_id: int, **fields: object) -> dict:
             )
         for column, value in fields.items():
             conn.execute(f"UPDATE experiment SET {column} = ? WHERE id = ?", (value, experiment_id))
+        if "interval_s" in fields and state == "running":
+            if now is None:
+                raise ExperimentError("changing the interval while running needs the time")
+            conn.execute("UPDATE experiment SET schedule_since = ? WHERE id = ?", (now, experiment_id))
         return _experiment(conn, experiment_id)
 
 
@@ -347,7 +366,6 @@ def start_experiment(
     now: str,
     folder: str | None = None,
     stop_running: bool = False,
-    interval_s: float | None = None,
 ) -> dict:
     """Start (first time) or resume. `folder` is required on the first start and is the caller's
     to create. With `stop_running`, the running experiment is stopped in the same transaction,
@@ -372,9 +390,10 @@ def start_experiment(
                 raise ExperimentError("a first start needs a folder")
             conn.execute("UPDATE experiment SET folder = ? WHERE id = ?", (folder, experiment_id))
         conn.execute(
-            "INSERT INTO experiment_period (experiment_id, started_at, interval_s) VALUES (?, ?, ?)",
-            (experiment_id, now, interval_s),
+            "INSERT INTO experiment_period (experiment_id, started_at) VALUES (?, ?)",
+            (experiment_id, now),
         )
+        conn.execute("UPDATE experiment SET schedule_since = ? WHERE id = ?", (now, experiment_id))
         return _experiment(conn, experiment_id)
 
 
@@ -393,26 +412,26 @@ def stop_experiment(experiment_id: int, *, now: str) -> dict:
 
 
 def record_scheduled_photos(
-    experiment_id: int, period_started_at: str, slots: list[tuple[int, str, int | None, str | None]]
+    experiment_id: int, schedule_since: str, slots: list[tuple[int, str, int | None, str | None]]
 ) -> None:
     """Record slots as (slot, due_at, capture_id, missed_reason)."""
     with _connect() as conn:
         conn.executemany(
-            "INSERT INTO scheduled_photo (experiment_id, period_started_at, slot, due_at,"
+            "INSERT INTO scheduled_photo (experiment_id, schedule_since, slot, due_at,"
             " capture_id, missed_reason) VALUES (?, ?, ?, ?, ?, ?)",
-            [(experiment_id, period_started_at, *slot) for slot in slots],
+            [(experiment_id, schedule_since, *slot) for slot in slots],
         )
 
 
-def schedule_progress(experiment_id: int, period_started_at: str) -> dict:
+def schedule_progress(experiment_id: int, schedule_since: str) -> dict:
     """The last slot recorded (0 before the first), photos taken and missed, and when the last
     photo was due."""
     with _connect() as conn:
         row = conn.execute(
             "SELECT COALESCE(MAX(slot), 0), COUNT(capture_id), COUNT(missed_reason),"
             " MAX(CASE WHEN capture_id IS NOT NULL THEN due_at END)"
-            " FROM scheduled_photo WHERE experiment_id = ? AND period_started_at = ?",
-            (experiment_id, period_started_at),
+            " FROM scheduled_photo WHERE experiment_id = ? AND schedule_since = ?",
+            (experiment_id, schedule_since),
         ).fetchone()
     return {
         "last_slot": row[0],

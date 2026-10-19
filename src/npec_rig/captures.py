@@ -433,9 +433,7 @@ def _write_experiment_json(experiment: dict) -> None:
     tmp.replace(folder / "experiment.json")
 
 
-def start_experiment(
-    experiment_id: int, *, stop_running: bool = False, interval_s: float | None = None
-) -> dict:
+def start_experiment(experiment_id: int, *, stop_running: bool = False) -> dict:
     """Start or resume. The first start makes `experiments/<start date>_<uuid[:8]>/` and refuses
     one that already exists, so two experiments can never share a folder."""
     now = _now()
@@ -453,7 +451,6 @@ def start_experiment(
             now=now,
             folder=folder,
             stop_running=stop_running,
-            interval_s=interval_s,
         )
     except BaseException:
         if folder is not None:
@@ -470,7 +467,7 @@ def stop_experiment(experiment_id: int) -> dict:
 
 
 def update_experiment(experiment_id: int, **fields: object) -> dict:
-    experiment = database.update_experiment(experiment_id, **fields)
+    experiment = database.update_experiment(experiment_id, now=_now(), **fields)
     # A purged experiment's folder is gone; its record is only in the database.
     if experiment["folder"] and experiment["state"] != "purged":
         _write_experiment_json(experiment)

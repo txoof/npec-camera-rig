@@ -1,8 +1,8 @@
 """Scheduled capture: a photo every interval while an experiment runs (M3, issue #60).
 
-Photo times are counted from the start of the running period, in UTC, not from the last photo, so
-the next one is known after a restart and for any interval (a minute, an hour, a day). Slot n is
-due n intervals after the start. Every slot is recorded in `rig.db` as taken or missed, so a
+Photo times are counted from the schedule's start in UTC (the latest start, resume or interval
+change, `experiment.schedule_since`), not from the last photo, so the next one is known after a
+restart and for any interval (a minute, an hour, a day). Slot n is due n intervals after it. Every slot is recorded in `rig.db` as taken or missed, so a
 restart resumes after the last recorded slot and counts the slots that passed while it was down.
 """
 
@@ -24,33 +24,33 @@ MIN_INTERVAL_S = 10.0
 CHECK_S = 1.0
 
 
-def _running_period(experiment: dict | None) -> dict | None:
-    period = experiment["periods"][-1] if experiment and experiment["periods"] else None
-    if period is None or period["ended_at"] is not None or not period["interval_s"]:
+def _running_schedule(experiment: dict | None) -> dict | None:
+    """{"since", "interval_s"} of a running experiment with an interval, else None."""
+    if experiment is None or experiment["state"] != "running" or not experiment["interval_s"]:
         return None
-    return period
+    return {"since": experiment["schedule_since"], "interval_s": experiment["interval_s"]}
 
 
-def _due_at(period: dict, slot: int) -> datetime:
-    started = datetime.fromisoformat(period["started_at"])
-    return started + timedelta(seconds=slot * period["interval_s"])
+def _due_at(sched: dict, slot: int) -> datetime:
+    return datetime.fromisoformat(sched["since"]) + timedelta(seconds=slot * sched["interval_s"])
 
 
-def _current_slot(period: dict, now: datetime) -> int:
-    elapsed_s = (now - datetime.fromisoformat(period["started_at"])).total_seconds()
-    return math.floor(elapsed_s / period["interval_s"])
+def _current_slot(sched: dict, now: datetime) -> int:
+    elapsed_s = (now - datetime.fromisoformat(sched["since"])).total_seconds()
+    return math.floor(elapsed_s / sched["interval_s"])
 
 
 def schedule(experiment: dict) -> dict | None:
-    """The running period's schedule, or None when the experiment is not running on one."""
-    period = _running_period(experiment)
-    if period is None:
+    """The running experiment's schedule, or None when it is not running on one."""
+    sched = _running_schedule(experiment)
+    if sched is None:
         return None
-    progress = database.schedule_progress(experiment["id"], period["started_at"])
-    next_slot = max(_current_slot(period, datetime.now(UTC)), progress["last_slot"]) + 1
+    progress = database.schedule_progress(experiment["id"], sched["since"])
+    next_slot = max(_current_slot(sched, datetime.now(UTC)), progress["last_slot"]) + 1
     return {
-        "interval_s": period["interval_s"],
-        "next_photo_at": _due_at(period, next_slot).isoformat(),
+        "interval_s": sched["interval_s"],
+        "since": sched["since"],
+        "next_photo_at": _due_at(sched, next_slot).isoformat(),
         "photos_taken": progress["photos_taken"],
         "photos_missed": progress["photos_missed"],
         "last_photo_due_at": progress["last_photo_due_at"],
@@ -86,19 +86,19 @@ class Scheduler:
     def _tick(self) -> float:
         """Take the current slot's photo if it is not yet recorded. Returns seconds to wait."""
         experiment = database.running_experiment()
-        period = _running_period(experiment)
-        if period is None:
+        sched = _running_schedule(experiment)
+        if sched is None:
             return CHECK_S
-        started_at = period["started_at"]
-        last_slot = database.schedule_progress(experiment["id"], started_at)["last_slot"]
-        slot = _current_slot(period, datetime.now(UTC))
+        since = sched["since"]
+        last_slot = database.schedule_progress(experiment["id"], since)["last_slot"]
+        slot = _current_slot(sched, datetime.now(UTC))
         if slot > last_slot:
             # Slots that passed without a photo: the app was down, or a photo took too long.
             slots = [
-                (missed, _due_at(period, missed).isoformat(), None, "not taken in time")
+                (missed, _due_at(sched, missed).isoformat(), None, "not taken in time")
                 for missed in range(last_slot + 1, slot)
             ]
-            due_at = _due_at(period, slot).isoformat()
+            due_at = _due_at(sched, slot).isoformat()
             try:
                 # The app is shutting down: the camera may already be closing.
                 if self._stop.is_set():
@@ -113,7 +113,7 @@ class Scheduler:
             except Exception as exc:
                 logger.exception("Scheduled photo for slot %d failed", slot)
                 slots.append((slot, due_at, None, str(exc) or "failed"))
-            database.record_scheduled_photos(experiment["id"], started_at, slots)
+            database.record_scheduled_photos(experiment["id"], since, slots)
             last_slot = slot
-        wait_s = (_due_at(period, last_slot + 1) - datetime.now(UTC)).total_seconds()
+        wait_s = (_due_at(sched, last_slot + 1) - datetime.now(UTC)).total_seconds()
         return max(0.0, min(wait_s, CHECK_S))
