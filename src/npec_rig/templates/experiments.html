@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui %}
 {% set nav_active = "experiments" %}
 {% block title_suffix %} — Experiments{% endblock %}
 
@@ -50,6 +51,11 @@
       <label id="ask-input-row" hidden><span id="ask-input-label"></span>
         <input type="text" id="ask-input" autocomplete="off">
       </label>
+      <div id="ask-interval-row" hidden>
+        <p>Scheduled photos: one every</p>
+        {{ ui.stepper("ask-interval", "Minutes between photos", 1, "min", 0, 6) }}
+        <p>0 means no scheduled photos. The Capture button still works either way.</p>
+      </div>
       <label id="ask-check-row" class="experiment-dialog-check" hidden>
         <input type="checkbox" id="ask-check"> <span id="ask-check-label"></span>
       </label>
@@ -164,12 +170,21 @@
         + completeText(e);
     }
 
+    function scheduleText(schedule) {
+      if (!schedule) return "No scheduled photos: only the Capture button takes photos.";
+      const minutes = schedule.interval_s / 60;
+      const every = minutes === 1 ? "every minute" : `every ${minutes} minutes`;
+      return `<strong>Scheduled photos:</strong> one ${every}. Next at ${utc(schedule.next_photo_at)}. `
+        + `Taken ${schedule.photos_taken}, missed ${schedule.photos_missed}.`;
+    }
+
     function render() {
       const now = experiments.find((e) => e.state === "running");
       running.innerHTML = now
         ? `<strong>Running:</strong> ${esc(displayName(now))}`
           + (now.researcher ? ` (${esc(now.researcher)})` : "")
           + `<br>Capture photos are saved to <code>experiments/${esc(now.folder)}</code>.`
+          + `<br>${scheduleText(now.schedule)}`
         : "No experiment is running. Capture photos are saved as rig photos.";
       running.classList.toggle("is-running", Boolean(now));
       rows.innerHTML = experiments.length
@@ -193,6 +208,8 @@
       // While an export is being prepared, check again every 2 s.
       clearTimeout(poll);
       if (experiments.some(preparing)) poll = setTimeout(refresh, 2000);
+      // While photos are scheduled, the counts and next photo time are updated every 15 s.
+      else if (experiments.some((e) => e.schedule)) poll = setTimeout(refresh, 15000);
     }
 
     async function call(method, url, body) {
@@ -304,6 +321,8 @@
       inputRow: document.getElementById("ask-input-row"),
       inputLabel: document.getElementById("ask-input-label"),
       input: document.getElementById("ask-input"),
+      intervalRow: document.getElementById("ask-interval-row"),
+      interval: document.getElementById("ask-interval-value"),
       checkRow: document.getElementById("ask-check-row"),
       checkLabel: document.getElementById("ask-check-label"),
       check: document.getElementById("ask-check"),
@@ -315,7 +334,8 @@
 
     // Opens the dialog. `action({ text, checked })` runs on OK; if it throws, its message shows
     // inside the dialog, which stays open so the user can correct and try again.
-    function openAsk({ title, body, ok, danger = false, input = null, check = null, action }) {
+    function openAsk({ title, body, ok, danger = false, input = null, check = null, interval = false,
+      action }) {
       ask.title.textContent = title;
       ask.body.innerHTML = body;
       ask.ok.textContent = ok;
@@ -323,6 +343,7 @@
       ask.inputRow.hidden = !input;
       ask.inputLabel.innerHTML = input ?? "";
       ask.input.value = "";
+      ask.intervalRow.hidden = !interval;
       ask.checkRow.hidden = !check;
       ask.checkLabel.textContent = check ?? "";
       ask.check.checked = false;
@@ -336,7 +357,8 @@
       event.preventDefault();
       ask.ok.disabled = true;
       try {
-        await askAction({ text: ask.input.value, checked: ask.check.checked });
+        await askAction({ text: ask.input.value, checked: ask.check.checked,
+          minutes: Number(ask.interval.dataset.value) || 0 });
         ask.dialog.close();
         await refresh();
       } catch (err) {
@@ -346,6 +368,8 @@
       }
     });
     ask.cancel.addEventListener("click", () => ask.dialog.close());
+    const whenReady = (fn) => (window.ui ? fn() : document.addEventListener("DOMContentLoaded", fn));
+    whenReady(() => ui.bindStepper(document.getElementById("ask-interval")));
 
     function purgeAsk(e) {
       const exportLine = e.complete_export
@@ -405,17 +429,21 @@
         });
       } else if (act === "start") {
         const other = experiments.find((x) => x.state === "running");
-        if (other) {
-          openAsk({
-            title: `Start ${displayName(e)}`,
-            body: `<p>${esc(displayName(other))} is running. Only one experiment runs at a time. `
-              + "Stop it and start this one?</p>",
-            ok: "Stop it and start this one",
-            action: () => call("POST", `/api/experiments/${e.id}/start?stop_running=true`),
-          });
-        } else {
-          await runAndRefresh(() => call("POST", `/api/experiments/${e.id}/start`));
-        }
+        const verb = e.state === "set up" ? "Start" : "Resume";
+        openAsk({
+          title: `${verb} ${displayName(e)}`,
+          body: other
+            ? `<p>${esc(displayName(other))} is running. Only one experiment runs at a time. `
+              + `Stop it and ${verb.toLowerCase()} this one?</p>` : "",
+          ok: other ? `Stop it and ${verb.toLowerCase()} this one` : verb,
+          interval: true,
+          action: ({ minutes }) => {
+            const query = new URLSearchParams();
+            if (other) query.set("stop_running", "true");
+            if (minutes > 0) query.set("interval_s", String(minutes * 60));
+            return call("POST", `/api/experiments/${e.id}/start?${query}`);
+          },
+        });
       } else if (act === "export") {
         await runAndRefresh(() => call("POST", `/api/experiments/${e.id}/export`));
       }

@@ -433,7 +433,9 @@ def _write_experiment_json(experiment: dict) -> None:
     tmp.replace(folder / "experiment.json")
 
 
-def start_experiment(experiment_id: int, *, stop_running: bool = False) -> dict:
+def start_experiment(
+    experiment_id: int, *, stop_running: bool = False, interval_s: float | None = None
+) -> dict:
     """Start or resume. The first start makes `experiments/<start date>_<uuid[:8]>/` and refuses
     one that already exists, so two experiments can never share a folder."""
     now = _now()
@@ -447,7 +449,11 @@ def start_experiment(experiment_id: int, *, stop_running: bool = False) -> dict:
             raise database.ExperimentError(f"the folder {folder} already exists") from exc
     try:
         experiment = database.start_experiment(
-            experiment_id, now=now, folder=folder, stop_running=stop_running
+            experiment_id,
+            now=now,
+            folder=folder,
+            stop_running=stop_running,
+            interval_s=interval_s,
         )
     except BaseException:
         if folder is not None:

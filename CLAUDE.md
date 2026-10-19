@@ -241,7 +241,7 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 
 | Area | Files |
 |---|---|
-| camera | `camera.py`, `camera_process.py`, `captures.py`, `health.py`, `settings.py` |
+| camera | `camera.py`, `camera_process.py`, `captures.py`, `health.py`, `settings.py`, `scheduler.py` |
 | calibration | `tags.py`, `calibration*.py`, `validation_store.py`, `tripwire.py`, `certainty_map.py`, `photo_tags.py`, `validation.py` |
 | web | `app.py`, `routes/__init__.py`, `routes/shell.py`, `routes/shared.py`, `templates/setup_index.html`, `templates/ui_reference.html`, `templates/_ui.html`, `templates/_camera_status.html`, `static/ui.js`, `static/icons.svg`, `static/lightbox.js`, `static/squareness-guides.js`, `static/validation-status.js`, `tests/web/conftest.py`, `tests/web/tag_scenes.py`, `tests/web/test_app.py` |
 | web-focus | `routes/focus.py`, `templates/setup_focus.html`, `templates/_focus_controls.html`, `templates/_squareness.html`, `templates/_squareness_help.html` |

@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from npec_rig import captures, database, exports
+from npec_rig import captures, database, exports, scheduler
 from npec_rig.routes.shared import templates
 
 router = APIRouter()
@@ -53,6 +53,7 @@ def api_experiments() -> list[dict]:
         experiment["export"] = newest[0] if newest else None
         experiment["complete_export"] = database.complete_export(experiment["id"])
         experiment["purge_confirmation"] = captures.purge_confirmation(experiment)
+        experiment["schedule"] = scheduler.schedule(experiment)
     return experiments
 
 
@@ -67,10 +68,16 @@ def api_update_experiment(experiment_id: int, fields: ExperimentFields) -> dict:
 
 
 @router.post("/api/experiments/{experiment_id}/start")
-def api_start_experiment(experiment_id: int, stop_running: bool = False) -> dict:
+def api_start_experiment(
+    experiment_id: int, stop_running: bool = False, interval_s: float | None = None
+) -> dict:
     """Start, or resume a stopped experiment. `stop_running` stops the running one first, in the
-    same transaction."""
-    return _experiment_action(captures.start_experiment, experiment_id, stop_running=stop_running)
+    same transaction. `interval_s` takes a photo every that many seconds while it runs."""
+    experiment = _experiment_action(
+        captures.start_experiment, experiment_id, stop_running=stop_running, interval_s=interval_s
+    )
+    experiment["schedule"] = scheduler.schedule(experiment)
+    return experiment
 
 
 @router.post("/api/experiments/{experiment_id}/stop")

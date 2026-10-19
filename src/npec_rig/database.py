@@ -109,6 +109,29 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "ALTER TABLE export ADD COLUMN removed_at TEXT",  # UTC; the zip was deleted
         ),
     ),
+    (
+        5,
+        "scheduled capture: a period's photo interval, and every scheduled photo taken or missed",
+        (
+            # Seconds between scheduled photos, counted from the period's start; NULL for none.
+            "ALTER TABLE experiment_period ADD COLUMN interval_s REAL",
+            # One row per slot of a schedule, taken or missed. Slot n is due n intervals after the
+            # period's start. No reference to capture: a purge deletes the photos, these rows stay
+            # as the record of the schedule.
+            """
+            CREATE TABLE scheduled_photo (
+                id INTEGER PRIMARY KEY,
+                experiment_id INTEGER NOT NULL REFERENCES experiment (id),
+                period_started_at TEXT NOT NULL,  -- UTC, the period this slot belongs to
+                slot INTEGER NOT NULL,
+                due_at TEXT NOT NULL,             -- UTC, ISO 8601
+                capture_id INTEGER,               -- the photo; NULL when missed
+                missed_reason TEXT,               -- why it was not taken; NULL when taken
+                UNIQUE (experiment_id, period_started_at, slot)
+            )
+            """,
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -234,7 +257,8 @@ def _experiment(conn: sqlite3.Connection, experiment_id: int) -> dict:
     experiment["periods"] = [
         dict(p)
         for p in conn.execute(
-            "SELECT started_at, ended_at FROM experiment_period WHERE experiment_id = ? ORDER BY id",
+            "SELECT started_at, ended_at, interval_s FROM experiment_period"
+            " WHERE experiment_id = ? ORDER BY id",
             (experiment_id,),
         )
     ]
@@ -318,7 +342,12 @@ def discard_experiment(experiment_id: int) -> None:
 
 
 def start_experiment(
-    experiment_id: int, *, now: str, folder: str | None = None, stop_running: bool = False
+    experiment_id: int,
+    *,
+    now: str,
+    folder: str | None = None,
+    stop_running: bool = False,
+    interval_s: float | None = None,
 ) -> dict:
     """Start (first time) or resume. `folder` is required on the first start and is the caller's
     to create. With `stop_running`, the running experiment is stopped in the same transaction,
@@ -343,8 +372,8 @@ def start_experiment(
                 raise ExperimentError("a first start needs a folder")
             conn.execute("UPDATE experiment SET folder = ? WHERE id = ?", (folder, experiment_id))
         conn.execute(
-            "INSERT INTO experiment_period (experiment_id, started_at) VALUES (?, ?)",
-            (experiment_id, now),
+            "INSERT INTO experiment_period (experiment_id, started_at, interval_s) VALUES (?, ?, ?)",
+            (experiment_id, now, interval_s),
         )
         return _experiment(conn, experiment_id)
 
@@ -358,6 +387,39 @@ def stop_experiment(experiment_id: int, *, now: str) -> dict:
             (now, experiment_id),
         )
         return _experiment(conn, experiment_id)
+
+
+# --- Scheduled photos (scheduler.py) ---
+
+
+def record_scheduled_photos(
+    experiment_id: int, period_started_at: str, slots: list[tuple[int, str, int | None, str | None]]
+) -> None:
+    """Record slots as (slot, due_at, capture_id, missed_reason)."""
+    with _connect() as conn:
+        conn.executemany(
+            "INSERT INTO scheduled_photo (experiment_id, period_started_at, slot, due_at,"
+            " capture_id, missed_reason) VALUES (?, ?, ?, ?, ?, ?)",
+            [(experiment_id, period_started_at, *slot) for slot in slots],
+        )
+
+
+def schedule_progress(experiment_id: int, period_started_at: str) -> dict:
+    """The last slot recorded (0 before the first), photos taken and missed, and when the last
+    photo was due."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT COALESCE(MAX(slot), 0), COUNT(capture_id), COUNT(missed_reason),"
+            " MAX(CASE WHEN capture_id IS NOT NULL THEN due_at END)"
+            " FROM scheduled_photo WHERE experiment_id = ? AND period_started_at = ?",
+            (experiment_id, period_started_at),
+        ).fetchone()
+    return {
+        "last_slot": row[0],
+        "photos_taken": row[1],
+        "photos_missed": row[2],
+        "last_photo_due_at": row[3],
+    }
 
 
 # --- Exports ---
