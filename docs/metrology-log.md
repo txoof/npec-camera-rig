@@ -4202,6 +4202,28 @@ report. Not shown: tags lying 90 or 270 degrees round (none here; the method exp
 since only the tilt is taken from the heading); more than one tag lying a different way; fewer
 than 12 trays; the outline against a measured tray edge.
 
+### 15.5k Tags in four rotations, trays turned, pushed together and shuffled (issue #217, method written 2026-10-19, before the analysis)
+
+**Label: development check.** Whether trays are placed in the right slot and turn, with no true
+area.
+
+**Question.** With tags lying 0, 90, 180 and 270 degrees round in cell A1, trays turned, pushed
+together and shuffled, does the 15.5j rule put every tray in the slot and corner it is in?
+
+**Setup** (Aaron, 19 October 2026, after 15.5j): the 12 trays and tags 1 to 12 of 15.5i, moved,
+turned and pushed together by Aaron, tags turned in their cells. 24 stills, `125916_775000` to
+`130451_467380`, experiment "simple segmentation test" (`2026-10-19_ad4876e5`). No plan was drawn
+before the moves, so there is no known answer fixed in advance.
+
+**Analysis.** `shuffle.py --any-rotation` as 15.5j, every still on its own (`--gap 0`, no plan).
+Reported per still: trays found, each tray's slot, corner, and the tag's turn off the 15.5h
+heading for its corner (0, 90, 180, 270); the margin between the two candidates. A picture of every
+still with the placed outlines and labels. The known answer is Aaron's check of the pictures
+against what he did; any tray he finds in the wrong slot or corner is counted wrong.
+
+**What it does not cover.** As 15.5j. The answer is checked after the analysis, by eye, not fixed
+before it.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for
