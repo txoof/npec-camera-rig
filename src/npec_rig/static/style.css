@@ -849,6 +849,8 @@ kbd {
   border-bottom: 1px solid #333;
 }
 .experiment-actions { white-space: nowrap; }
+.experiment-actions .row { flex-wrap: nowrap; }
+.experiment-actions .row + .row { margin-top: var(--gap); }
 button.secondary { background: #444; }
 button.stop { background: #8a3b2f; }
 .experiment-form select {
