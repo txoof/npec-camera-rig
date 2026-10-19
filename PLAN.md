@@ -389,7 +389,7 @@ band, and exports say so (*Per-slot area uncertainty*).
 | Round | Dates | Content |
 |---|---|---|
 | 1 | 15 to 22 Oct | Tags, trays and plant area end to end on saved stills, as scripts. Bar: it runs and gives a number per tray. Record everything, judge nothing |
-| 2 | 23 Oct to 5 Nov | Draft, decided at the round 1 review: a page in the app showing trays, tags and green area on the latest still, plus scheduled capture (M3 scheduler, experiment records, disk headroom); a run of several days with real plants, measuring area jumps between consecutive photos of a tray and tag detection over time. Failure cases noted if seen, not expected (Aaron): moss or algae, shadows, leaves over tray edges |
+| 2 | 23 Oct to 5 Nov | Draft, decided at the round 1 review: a page in the app showing trays, tags and green area on the latest still, plus scheduled capture (M3 scheduler, experiment records, disk headroom); a run of several days, part A without plants and part B with plants (method in `docs/metrology-log.md` section 16), measuring area jumps between consecutive photos of a tray and tag detection over time. Failure cases noted if seen, not expected (Aaron): moss or algae, shadows, leaves over tray edges |
 | 3 | 6 to 19 Nov | Draft: per-slot bands on plant area, the M5 printed-target test |
 | 4 | 20 Nov to 3 Dec | Draft: a trained plant segmentation model only if round 3 shows green thresholding is the largest error, and adopted only if it beats green thresholding on the round 3 test by a margin Aaron sets before the comparison is run; otherwise M6 alerts |
 | Wrap-up | 4 Dec to the week of 14 Dec | Hardening, runbook, write-up, the baseline (below) |
