@@ -4146,6 +4146,38 @@ shuffles, with gaps and touching, with no tray splitting. It depends on each tag
 way round in its cell: one tag turned 180 put its tray in the wrong slot every time, silently.
 Not shown: a tag found in the wrong orientation being detected as such.
 
+### 15.5j Trays placed from the cell tag in any rotation, same 18 stills (issue #217, method written 2026-10-19, before the analysis)
+
+**Label: development check.** Re-analysis of the 18 stills of 15.5i; no new photos.
+
+**Question.** If the tag's heading is not used to tell which way a tray faces, is every tray in
+its planned slot and turn in the 18 stills, tray 6 included?
+
+**Why.** In 15.5i the tray's turn came from the tag heading, so a tag lying 180 degrees round
+put tray 6 one slot over in every still, with no warning. AprilTags read in any rotation, and
+operators will not follow a rule on which way round a tag lies (Aaron, 2026-10-19). With 12 trays
+every tray is turned 0 or 180 degrees, so A1 is at the south-west or the north-east corner.
+
+**Method** (`shuffle.py --any-rotation`, otherwise as 15.5i, same `--rounds 1 2 3 4 5 2`):
+
+1. The tray's small tilt is the tag heading's difference from the nearest right angle, as in
+   15.5i. This is the same whichever way round the tag lies.
+2. Two candidate tray centres are placed from the tag centre: A1 at the south-west (the 15.5h
+   common offset, turned by the tilt only) and A1 at the north-east (the same offset reversed).
+3. The candidate whose nearest slot centre is closer is taken; its slot and corner are the result.
+   Reported for every tray: the distance of each candidate to its nearest slot centre, and the
+   margin between them (mm, scale at the tag), so a close call shows.
+4. Also reported: each tag's heading off the 15.5h heading for its corner (0, 90, 180 or 270
+   degrees), to show how many tags lay a different way round.
+
+The offset is not refitted. Declared before the analysis: the method works on these stills if
+every found tray is in its planned slot and turn; anything less is reported as it is.
+
+**What it does not cover.** The same 18 stills; only tray 6 lay a different way round, so one
+tag tests the rotation. Fewer than 12 trays, where any turn is allowed and step 3 cannot choose
+between more than two candidates. A tray far from the slot grid. New stills with tags lying in
+several rotations, offered by Aaron, test it further.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for
@@ -4301,7 +4333,16 @@ the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
 
 **Targets for round 2 (Aaron decides).**
 
-To be decided at the review, one at a time. Recorded as open until then: the success rate that is
-good enough for placing and following trays (moved here from #171 on 2026-10-19); the tray tag
-design (above); detecting a tag that lies the wrong way round; the outline against a measured
-tray edge.
+1. **Tray placement: no tray in a wrong slot without a warning, and at least 95% of tray
+   positions placed** (Aaron, 2026-10-19). A tray that is not placed is shown as not placed.
+   Checked on the round 2 multi-day run. Round 1, cell tag (15.5i): 197 of 216 positions right;
+   the 18 wrong were all tray 6 and gave no warning, so round 1 does not meet the first part. This
+   is the success rate left open in 15.5c and 15.5d (moved here from #171).
+
+2. **Tray tag: about 40 mm, lying roughly centred in cell A1** (Aaron, 2026-10-19, being prepared).
+   Replaces the 20 mm edge tag for round 2; A1 holds no plant. Not yet tested: each print is
+   measured with callipers, and the common offset of 15.5h (learned with 30 mm tags) is learned
+   again for the new tag before it is used.
+
+Still to be decided at the review, one at a time: detecting a tag that lies the wrong way round;
+the outline against a measured tray edge.
