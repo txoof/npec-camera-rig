@@ -59,6 +59,23 @@ def tilt(heading_deg: float) -> float:
     return (heading_deg + 45) % 90 - 45
 
 
+def place_any_rotation(cx: float, cy: float, heading_deg: float, ppm: float, slots: list[dict],
+                       tt: dict) -> dict:
+    """Tray centre, slot and A1 corner from the tag centre alone, the tag lying any way round (15.5j).
+
+    Two candidates, A1 at SW and A1 at NE, each turned by the tilt only; the one whose nearest slot
+    centre is closer is taken. Distances in mm at the tag's scale."""
+    v = from_tag(np.array(tt["offset_mm"]), tt["sw_heading_deg"] + tilt(heading_deg)) * ppm
+    out = {}
+    for a1, c in (("SW", np.array([cx, cy]) + v), ("NE", np.array([cx, cy]) - v)):
+        slot, d, _, _ = trays.nearest_slots(c[0], c[1], slots)
+        out[a1] = {"centre": c, "slot": slot, "d_mm": d / ppm}
+    a1 = min(out, key=lambda k: out[k]["d_mm"])
+    return {"a1": a1, "slot": out[a1]["slot"], "centre": out[a1]["centre"],
+            "d_sw_mm": out["SW"]["d_mm"], "d_ne_mm": out["NE"]["d_mm"],
+            "turned_deg": round((heading_deg - tt["sw_heading_deg"] - (180 if a1 == "NE" else 0)) / 90) * 90 % 360}
+
+
 def rounds_by_gap(stills: list[dict], gap_s: float) -> list[list[dict]]:
     """Stills in time order, split wherever two are more than gap_s apart."""
     out: list[list[dict]] = []
@@ -113,6 +130,11 @@ def main(argv: list[str]) -> None:
     ap.add_argument("--gap", type=float, default=60.0, help="seconds between stills that start a new round")
     ap.add_argument("--rounds", type=int, nargs="*",
                     help="plan round of each group of stills in time order (0: no plan); default 0, 1, 2, ...")
+    ap.add_argument("--after", default="", help="only stills taken at or after this UTC time (ISO), e.g. 2026-10-19T12:18")
+    ap.add_argument("--before", default="", help="only stills taken before this UTC time (ISO)")
+    ap.add_argument("--name", default="", help="output name: shuffle-<folder>-<name>.csv (default: -any with --any-rotation)")
+    ap.add_argument("--any-rotation", action="store_true",
+                    help="15.5j: turn from the slot grid, not the tag heading")
     ap.add_argument("--url", default="http://127.0.0.1:8000")
     args = ap.parse_args(argv)
     from npec_rig.calibration_store import load_calibration
@@ -121,7 +143,9 @@ def main(argv: list[str]) -> None:
     plan = {r["round"]: r for r in json.loads(PLAN.read_text())["rounds"]}
     tt = TRAY_TYPES[TRAY_TYPE]
     folder = experiment_folder(args.experiment, args.url)
-    stills = stills_of(folder)
+    stills = [s for s in stills_of(folder)
+              if (not args.after or s["taken_at"] >= args.after) and (not args.before or s["taken_at"] < args.before)]
+    suffix = f"-{args.name}" if args.name else ("-any" if args.any_rotation else "")
     groups = rounds_by_gap(stills, args.gap)
     print(f"{args.experiment} ({folder}): {len(stills)} stills in {len(groups)} rounds (gap {args.gap:g} s)")
     names = args.rounds if args.rounds is not None else list(range(len(groups)))
@@ -146,16 +170,23 @@ def main(argv: list[str]) -> None:
             img = cv2.imread(str(s["path"])) if i == 0 else None
             for t in sorted((t for t in tags if t["id"] in TRAY_TAGS), key=lambda t: t["id"]):
                 ppm = sf.px_per_mm(t["cx"], t["cy"])
-                c = np.array([t["cx"], t["cy"]]) + from_tag(np.array(tt["offset_mm"]), t["heading_deg"]) * ppm
-                slot = trays.nearest_slots(c[0], c[1], slots)[0]
-                a1 = corner(t["heading_deg"], tt["sw_heading_deg"])
+                extra = {}
+                if args.any_rotation:
+                    p = place_any_rotation(t["cx"], t["cy"], t["heading_deg"], ppm, slots, tt)
+                    c, slot, a1 = p["centre"], p["slot"], p["a1"]
+                    extra = {"d_sw_mm": round(p["d_sw_mm"], 1), "d_ne_mm": round(p["d_ne_mm"], 1),
+                             "tag_turned_deg": p["turned_deg"]}
+                else:
+                    c = np.array([t["cx"], t["cy"]]) + from_tag(np.array(tt["offset_mm"]), t["heading_deg"]) * ppm
+                    slot = trays.nearest_slots(c[0], c[1], slots)[0]
+                    a1 = corner(t["heading_deg"], tt["sw_heading_deg"])
                 want = expect.get(t["id"])
                 ok = want == (slot, a1) if want else None
                 rows.append({"group": gi, "round": k, "still": s["still"], "taken_at_utc": s["taken_at"], "lens": s["lens"],
                              "tray": t["id"], "copies": ids[t["id"]], "x_px": round(c[0]), "y_px": round(c[1]),
                              "heading_deg": t["heading_deg"], "slot": slot, "a1": a1,
                              "planned_slot": want[0] if want else "", "planned_a1": want[1] if want else "",
-                             "right": ok})
+                             "right": ok, **extra})
                 if want:
                     per_round[gi]["right" if ok else "wrong"] += 1
                 if img is not None:
@@ -171,8 +202,8 @@ def main(argv: list[str]) -> None:
             if missing or twice:
                 print(f"  {s['still']}: missing {missing}, found twice {twice}")
             if img is not None:
-                cv2.imwrite(str(OUT / f"group{gi}-round{k}-{s['still']}.jpg"), cv2.resize(img, None, fx=0.25, fy=0.25))
-    trays.write_csv(trays.HERE / f"shuffle-{folder}.csv", rows)
+                cv2.imwrite(str(OUT / f"group{gi}-round{k}-{s['still']}{suffix}.jpg"), cv2.resize(img, None, fx=0.25, fy=0.25))
+    trays.write_csv(trays.HERE / f"shuffle-{folder}{suffix}.csv", rows)
 
     print("\ngroup round  stills  trays in planned slot and corner  wrong  tags missing")
     for gi, (k, g) in enumerate(zip(names, groups)):

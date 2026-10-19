@@ -1,0 +1,1122 @@
+{
+ "seed": 20261020,
+ "date": "2026-10-20",
+ "generator": "python random.Random(seed): per round, shuffle trays 1-12 into North 1..6, South 1..6, then A1 corner SW or NE per slot",
+ "turn": "SW: A1 and its tag at the lower left (south-west); NE: tray turned 180, A1 at the upper right",
+ "benchmark": "taped to tray 1",
+ "rounds": [
+  {
+   "round": 1,
+   "slots": {
+    "North 1": {
+     "tray": 2,
+     "a1": "NE"
+    },
+    "North 2": {
+     "tray": 3,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 5,
+     "a1": "SW"
+    },
+    "North 4": {
+     "tray": 7,
+     "a1": "SW"
+    },
+    "North 5": {
+     "tray": 9,
+     "a1": "NE"
+    },
+    "North 6": {
+     "tray": 10,
+     "a1": "SW"
+    },
+    "South 1": {
+     "tray": 1,
+     "a1": "SW"
+    },
+    "South 2": {
+     "tray": 12,
+     "a1": "SW"
+    },
+    "South 3": {
+     "tray": 4,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 6,
+     "a1": "SW"
+    },
+    "South 5": {
+     "tray": 11,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 8,
+     "a1": "SW"
+    }
+   }
+  },
+  {
+   "round": 2,
+   "slots": {
+    "North 1": {
+     "tray": 3,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 10,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 6,
+     "a1": "SW"
+    },
+    "North 4": {
+     "tray": 1,
+     "a1": "NE"
+    },
+    "North 5": {
+     "tray": 4,
+     "a1": "SW"
+    },
+    "North 6": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 9,
+     "a1": "NE"
+    },
+    "South 2": {
+     "tray": 11,
+     "a1": "SW"
+    },
+    "South 3": {
+     "tray": 7,
+     "a1": "NE"
+    },
+    "South 4": {
+     "tray": 8,
+     "a1": "SW"
+    },
+    "South 5": {
+     "tray": 5,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 2,
+     "a1": "SW"
+    }
+   }
+  },
+  {
+   "round": 3,
+   "slots": {
+    "North 1": {
+     "tray": 5,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 8,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 3,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 10,
+     "a1": "NE"
+    },
+    "North 5": {
+     "tray": 1,
+     "a1": "SW"
+    },
+    "North 6": {
+     "tray": 9,
+     "a1": "SW"
+    },
+    "South 1": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "South 2": {
+     "tray": 7,
+     "a1": "NE"
+    },
+    "South 3": {
+     "tray": 11,
+     "a1": "NE"
+    },
+    "South 4": {
+     "tray": 4,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 2,
+     "a1": "NE"
+    },
+    "South 6": {
+     "tray": 6,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 4,
+   "slots": {
+    "North 1": {
+     "tray": 3,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 7,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 10,
+     "a1": "SW"
+    },
+    "North 4": {
+     "tray": 6,
+     "a1": "NE"
+    },
+    "North 5": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "North 6": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "South 1": {
+     "tray": 5,
+     "a1": "NE"
+    },
+    "South 2": {
+     "tray": 9,
+     "a1": "SW"
+    },
+    "South 3": {
+     "tray": 1,
+     "a1": "NE"
+    },
+    "South 4": {
+     "tray": 11,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 4,
+     "a1": "NE"
+    },
+    "South 6": {
+     "tray": 8,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 5,
+   "slots": {
+    "North 1": {
+     "tray": 5,
+     "a1": "NE"
+    },
+    "North 2": {
+     "tray": 1,
+     "a1": "NE"
+    },
+    "North 3": {
+     "tray": 6,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 12,
+     "a1": "SW"
+    },
+    "North 5": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "North 6": {
+     "tray": 3,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 10,
+     "a1": "NE"
+    },
+    "South 2": {
+     "tray": 7,
+     "a1": "NE"
+    },
+    "South 3": {
+     "tray": 4,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 9,
+     "a1": "SW"
+    },
+    "South 5": {
+     "tray": 8,
+     "a1": "NE"
+    },
+    "South 6": {
+     "tray": 11,
+     "a1": "SW"
+    }
+   }
+  },
+  {
+   "round": 6,
+   "slots": {
+    "North 1": {
+     "tray": 3,
+     "a1": "NE"
+    },
+    "North 2": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 11,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 9,
+     "a1": "NE"
+    },
+    "North 5": {
+     "tray": 4,
+     "a1": "NE"
+    },
+    "North 6": {
+     "tray": 6,
+     "a1": "SW"
+    },
+    "South 1": {
+     "tray": 12,
+     "a1": "SW"
+    },
+    "South 2": {
+     "tray": 8,
+     "a1": "SW"
+    },
+    "South 3": {
+     "tray": 5,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 7,
+     "a1": "SW"
+    },
+    "South 5": {
+     "tray": 1,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 10,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 7,
+   "slots": {
+    "North 1": {
+     "tray": 5,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 7,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 3,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 2,
+     "a1": "NE"
+    },
+    "North 5": {
+     "tray": 11,
+     "a1": "SW"
+    },
+    "North 6": {
+     "tray": 10,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 8,
+     "a1": "NE"
+    },
+    "South 2": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "South 3": {
+     "tray": 1,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 4,
+     "a1": "SW"
+    },
+    "South 5": {
+     "tray": 9,
+     "a1": "NE"
+    },
+    "South 6": {
+     "tray": 6,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 8,
+   "slots": {
+    "North 1": {
+     "tray": 9,
+     "a1": "NE"
+    },
+    "North 2": {
+     "tray": 10,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 1,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 6,
+     "a1": "NE"
+    },
+    "North 5": {
+     "tray": 3,
+     "a1": "SW"
+    },
+    "North 6": {
+     "tray": 11,
+     "a1": "SW"
+    },
+    "South 1": {
+     "tray": 7,
+     "a1": "SW"
+    },
+    "South 2": {
+     "tray": 5,
+     "a1": "SW"
+    },
+    "South 3": {
+     "tray": 8,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "South 5": {
+     "tray": 4,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 12,
+     "a1": "SW"
+    }
+   }
+  },
+  {
+   "round": 9,
+   "slots": {
+    "North 1": {
+     "tray": 4,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 9,
+     "a1": "SW"
+    },
+    "North 4": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "North 5": {
+     "tray": 8,
+     "a1": "SW"
+    },
+    "North 6": {
+     "tray": 1,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 7,
+     "a1": "SW"
+    },
+    "South 2": {
+     "tray": 6,
+     "a1": "SW"
+    },
+    "South 3": {
+     "tray": 5,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 11,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 10,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 3,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 10,
+   "slots": {
+    "North 1": {
+     "tray": 6,
+     "a1": "NE"
+    },
+    "North 2": {
+     "tray": 3,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 8,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 11,
+     "a1": "SW"
+    },
+    "North 5": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "North 6": {
+     "tray": 4,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 9,
+     "a1": "NE"
+    },
+    "South 2": {
+     "tray": 1,
+     "a1": "NE"
+    },
+    "South 3": {
+     "tray": 10,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 7,
+     "a1": "SW"
+    },
+    "South 5": {
+     "tray": 2,
+     "a1": "NE"
+    },
+    "South 6": {
+     "tray": 5,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 11,
+   "slots": {
+    "North 1": {
+     "tray": 11,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 5,
+     "a1": "NE"
+    },
+    "North 3": {
+     "tray": 1,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 9,
+     "a1": "SW"
+    },
+    "North 5": {
+     "tray": 7,
+     "a1": "NE"
+    },
+    "North 6": {
+     "tray": 8,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 3,
+     "a1": "NE"
+    },
+    "South 2": {
+     "tray": 6,
+     "a1": "NE"
+    },
+    "South 3": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "South 4": {
+     "tray": 2,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 4,
+     "a1": "NE"
+    },
+    "South 6": {
+     "tray": 10,
+     "a1": "SW"
+    }
+   }
+  },
+  {
+   "round": 12,
+   "slots": {
+    "North 1": {
+     "tray": 1,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 7,
+     "a1": "NE"
+    },
+    "North 3": {
+     "tray": 6,
+     "a1": "SW"
+    },
+    "North 4": {
+     "tray": 11,
+     "a1": "NE"
+    },
+    "North 5": {
+     "tray": 8,
+     "a1": "SW"
+    },
+    "North 6": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 4,
+     "a1": "SW"
+    },
+    "South 2": {
+     "tray": 5,
+     "a1": "NE"
+    },
+    "South 3": {
+     "tray": 9,
+     "a1": "NE"
+    },
+    "South 4": {
+     "tray": 3,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 10,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 2,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 13,
+   "slots": {
+    "North 1": {
+     "tray": 11,
+     "a1": "NE"
+    },
+    "North 2": {
+     "tray": 9,
+     "a1": "NE"
+    },
+    "North 3": {
+     "tray": 1,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 3,
+     "a1": "NE"
+    },
+    "North 5": {
+     "tray": 8,
+     "a1": "NE"
+    },
+    "North 6": {
+     "tray": 2,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 7,
+     "a1": "SW"
+    },
+    "South 2": {
+     "tray": 12,
+     "a1": "SW"
+    },
+    "South 3": {
+     "tray": 5,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 6,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 10,
+     "a1": "NE"
+    },
+    "South 6": {
+     "tray": 4,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 14,
+   "slots": {
+    "North 1": {
+     "tray": 4,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "North 3": {
+     "tray": 6,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 1,
+     "a1": "NE"
+    },
+    "North 5": {
+     "tray": 11,
+     "a1": "NE"
+    },
+    "North 6": {
+     "tray": 3,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 5,
+     "a1": "NE"
+    },
+    "South 2": {
+     "tray": 10,
+     "a1": "NE"
+    },
+    "South 3": {
+     "tray": 9,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 2,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 8,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 7,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 15,
+   "slots": {
+    "North 1": {
+     "tray": 4,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 11,
+     "a1": "NE"
+    },
+    "North 3": {
+     "tray": 1,
+     "a1": "SW"
+    },
+    "North 4": {
+     "tray": 3,
+     "a1": "NE"
+    },
+    "North 5": {
+     "tray": 10,
+     "a1": "SW"
+    },
+    "North 6": {
+     "tray": 5,
+     "a1": "SW"
+    },
+    "South 1": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "South 2": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "South 3": {
+     "tray": 6,
+     "a1": "NE"
+    },
+    "South 4": {
+     "tray": 7,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 9,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 8,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 16,
+   "slots": {
+    "North 1": {
+     "tray": 8,
+     "a1": "NE"
+    },
+    "North 2": {
+     "tray": 7,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 3,
+     "a1": "SW"
+    },
+    "North 4": {
+     "tray": 11,
+     "a1": "SW"
+    },
+    "North 5": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "North 6": {
+     "tray": 1,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 5,
+     "a1": "SW"
+    },
+    "South 2": {
+     "tray": 10,
+     "a1": "NE"
+    },
+    "South 3": {
+     "tray": 9,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 6,
+     "a1": "SW"
+    },
+    "South 5": {
+     "tray": 4,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 12,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 17,
+   "slots": {
+    "North 1": {
+     "tray": 3,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 7,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 9,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 10,
+     "a1": "SW"
+    },
+    "North 5": {
+     "tray": 6,
+     "a1": "NE"
+    },
+    "North 6": {
+     "tray": 5,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 11,
+     "a1": "SW"
+    },
+    "South 2": {
+     "tray": 1,
+     "a1": "NE"
+    },
+    "South 3": {
+     "tray": 8,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 4,
+     "a1": "SW"
+    }
+   }
+  },
+  {
+   "round": 18,
+   "slots": {
+    "North 1": {
+     "tray": 7,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 5,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "North 5": {
+     "tray": 3,
+     "a1": "SW"
+    },
+    "North 6": {
+     "tray": 11,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 9,
+     "a1": "SW"
+    },
+    "South 2": {
+     "tray": 8,
+     "a1": "SW"
+    },
+    "South 3": {
+     "tray": 10,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 4,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 1,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 6,
+     "a1": "SW"
+    }
+   }
+  },
+  {
+   "round": 19,
+   "slots": {
+    "North 1": {
+     "tray": 6,
+     "a1": "NE"
+    },
+    "North 2": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 7,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 11,
+     "a1": "NE"
+    },
+    "North 5": {
+     "tray": 8,
+     "a1": "NE"
+    },
+    "North 6": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 5,
+     "a1": "NE"
+    },
+    "South 2": {
+     "tray": 3,
+     "a1": "NE"
+    },
+    "South 3": {
+     "tray": 1,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 9,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 4,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 10,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 20,
+   "slots": {
+    "North 1": {
+     "tray": 7,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 6,
+     "a1": "NE"
+    },
+    "North 3": {
+     "tray": 11,
+     "a1": "NE"
+    },
+    "North 4": {
+     "tray": 12,
+     "a1": "SW"
+    },
+    "North 5": {
+     "tray": 3,
+     "a1": "NE"
+    },
+    "North 6": {
+     "tray": 10,
+     "a1": "SW"
+    },
+    "South 1": {
+     "tray": 9,
+     "a1": "SW"
+    },
+    "South 2": {
+     "tray": 4,
+     "a1": "NE"
+    },
+    "South 3": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 8,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 5,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 1,
+     "a1": "NE"
+    }
+   }
+  },
+  {
+   "round": 21,
+   "slots": {
+    "North 1": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "North 2": {
+     "tray": 4,
+     "a1": "SW"
+    },
+    "North 3": {
+     "tray": 11,
+     "a1": "SW"
+    },
+    "North 4": {
+     "tray": 8,
+     "a1": "SW"
+    },
+    "North 5": {
+     "tray": 9,
+     "a1": "NE"
+    },
+    "North 6": {
+     "tray": 7,
+     "a1": "NE"
+    },
+    "South 1": {
+     "tray": 3,
+     "a1": "SW"
+    },
+    "South 2": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "South 3": {
+     "tray": 6,
+     "a1": "SW"
+    },
+    "South 4": {
+     "tray": 5,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 10,
+     "a1": "SW"
+    },
+    "South 6": {
+     "tray": 1,
+     "a1": "SW"
+    }
+   }
+  }
+ ]
+}
