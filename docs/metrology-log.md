@@ -4224,6 +4224,19 @@ against what he did; any tray he finds in the wrong slot or corner is counted wr
 **What it does not cover.** As 15.5j. The answer is checked after the analysis, by eye, not fixed
 before it.
 
+**Results (19 October 2026), before Aaron's check.** Output `shuffle-2026-10-19_ad4876e5-rotations.csv`,
+pictures `~/scratch/round1-trays/shuffle/group*-round0-*-any.jpg`, one sheet of the first still of
+each layout `~/scratch/rotations-8-layouts.jpg`. The 24 stills are 8 layouts of 3 stills.
+
+- All 12 tags found in all 24 stills (288 of 288); no two trays placed in the same slot.
+- Tag turns off the 15.5h heading: 0 degrees 39, 90 degrees 90, 180 degrees 69, 270 degrees 90
+  (tray positions).
+- Within each layout of 3 stills every tray has the same slot, corner and tag turn.
+- Margin between the two candidates: at least 157 mm in every still; the chosen candidate at most
+  106 mm from its slot centre.
+- By eye on the sheet, every outline lies on a tray. Whether each slot and corner is the one
+  Aaron set is his check, not yet done.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for
