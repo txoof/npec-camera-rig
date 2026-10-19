@@ -4321,7 +4321,10 @@ round 2 targets at the end are Aaron's decisions.
 2. **White balance: measure first** (Aaron, 2026-10-16). Benchmark green and red area against
    the red and blue colour gains on the 123 saved stills of the unattended run (15.3d), no camera
    needed. Fixing the colour balance for an experiment, the way focus is fixed, is decided from
-   that result.
+   that result. *Replaced 2026-10-19 (Aaron):* no separate white balance study. The round 2 run
+   measures area jumps between photos with nothing moved (#223), which include any effect of the
+   gain drift; every photo records its gains, so they are checked against the jumps only if the
+   run shows jumps.
 3. **Benchmark plants of known area** (Aaron, 2026-10-16). Aaron gets benchmark plants with known
    surface areas from the supervisor, from the week of 19 October; round 2 measures them on the
    rig against those areas. To check when they arrive: whether the known figure is the area seen

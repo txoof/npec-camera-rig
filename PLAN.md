@@ -444,8 +444,9 @@ Planned at the round 1 review (15.6, #217). Being decided with Aaron; items not 
   during the round, go on their own trays and are reported apart from the still scene (Aaron,
   2026-10-19).
 
-**Targets** (15.6a and 15.6b): real leaf area within 10% on blue trays; white balance measured
-first; benchmark plants of known area when they arrive; tray placement with no tray in a wrong
+**Targets** (15.6a and 15.6b): real leaf area within 10% on blue trays; white balance not
+studied apart, but checked against the run's area jumps if there are any (Aaron, 2026-10-19);
+benchmark plants of known area when they arrive; tray placement with no tray in a wrong
 slot without a warning and at least 95% of tray positions placed; tags in any rotation.
 
 ### Records kept for every round
