@@ -130,6 +130,9 @@ def main(argv: list[str]) -> None:
     ap.add_argument("--gap", type=float, default=60.0, help="seconds between stills that start a new round")
     ap.add_argument("--rounds", type=int, nargs="*",
                     help="plan round of each group of stills in time order (0: no plan); default 0, 1, 2, ...")
+    ap.add_argument("--after", default="", help="only stills taken at or after this UTC time (ISO), e.g. 2026-10-19T12:18")
+    ap.add_argument("--before", default="", help="only stills taken before this UTC time (ISO)")
+    ap.add_argument("--name", default="", help="output name: shuffle-<folder>-<name>.csv (default: -any with --any-rotation)")
     ap.add_argument("--any-rotation", action="store_true",
                     help="15.5j: turn from the slot grid, not the tag heading")
     ap.add_argument("--url", default="http://127.0.0.1:8000")
@@ -140,7 +143,9 @@ def main(argv: list[str]) -> None:
     plan = {r["round"]: r for r in json.loads(PLAN.read_text())["rounds"]}
     tt = TRAY_TYPES[TRAY_TYPE]
     folder = experiment_folder(args.experiment, args.url)
-    stills = stills_of(folder)
+    stills = [s for s in stills_of(folder)
+              if (not args.after or s["taken_at"] >= args.after) and (not args.before or s["taken_at"] < args.before)]
+    suffix = f"-{args.name}" if args.name else ("-any" if args.any_rotation else "")
     groups = rounds_by_gap(stills, args.gap)
     print(f"{args.experiment} ({folder}): {len(stills)} stills in {len(groups)} rounds (gap {args.gap:g} s)")
     names = args.rounds if args.rounds is not None else list(range(len(groups)))
@@ -197,8 +202,8 @@ def main(argv: list[str]) -> None:
             if missing or twice:
                 print(f"  {s['still']}: missing {missing}, found twice {twice}")
             if img is not None:
-                cv2.imwrite(str(OUT / f"group{gi}-round{k}-{s['still']}{'-any' if args.any_rotation else ''}.jpg"), cv2.resize(img, None, fx=0.25, fy=0.25))
-    trays.write_csv(trays.HERE / f"shuffle-{folder}{'-any' if args.any_rotation else ''}.csv", rows)
+                cv2.imwrite(str(OUT / f"group{gi}-round{k}-{s['still']}{suffix}.jpg"), cv2.resize(img, None, fx=0.25, fy=0.25))
+    trays.write_csv(trays.HERE / f"shuffle-{folder}{suffix}.csv", rows)
 
     print("\ngroup round  stills  trays in planned slot and corner  wrong  tags missing")
     for gi, (k, g) in enumerate(zip(names, groups)):

@@ -4179,7 +4179,8 @@ between more than two candidates. A tray far from the slot grid. New stills with
 several rotations, offered by Aaron, test it further.
 
 **Results (19 October 2026).** `shuffle.py --experiment "simple segmentation test" --rounds 1 2 3
-4 5 2 --any-rotation`, commit 81c86ff, output `shuffle-2026-10-19_ad4876e5-any.csv`, pictures
+4 5 2 --any-rotation`, commit 81c86ff, run before the 15.5k stills existed; to rebuild it now, add
+`--before 2026-10-19T12:18` (checked identical, byte for byte, on 2026-10-19). Output `shuffle-2026-10-19_ad4876e5-any.csv`, pictures
 `~/scratch/round1-trays/shuffle/*-any.jpg`. Same 18 stills and cached tags as 15.5i.
 
 | | 15.5i (turn from the tag heading) | 15.5j (turn from the slot grid) |
@@ -4229,8 +4230,12 @@ against what he did; any tray he finds in the wrong slot or corner is counted wr
 **What it does not cover.** As 15.5j. The answer is checked after the analysis, by eye, not fixed
 before it.
 
-**Results (19 October 2026), before Aaron's check.** Output `shuffle-2026-10-19_ad4876e5-rotations.csv`,
-pictures `~/scratch/round1-trays/shuffle/group*-round0-*-any.jpg`, one sheet of the first still of
+**Results (19 October 2026), before Aaron's check.** `shuffle.py --experiment "simple segmentation
+test" --after 2026-10-19T12:18 --gap 0 --rounds` followed by 24 zeros `--any-rotation --name
+rotations` (the options were added after the first run, which filtered the stills the same way in
+an uncommitted call; the rebuilt file is identical, byte for byte). Output
+`shuffle-2026-10-19_ad4876e5-rotations.csv`, pictures
+`~/scratch/round1-trays/shuffle/group*-round0-*-rotations.jpg`, one sheet of the first still of
 each layout `~/scratch/rotations-8-layouts.jpg`. The 24 stills are 8 layouts of 3 stills.
 
 - All 12 tags found in all 24 stills (288 of 288); no two trays placed in the same slot.
@@ -4353,7 +4358,7 @@ the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
 
 | What | Result | Raw data | Code |
 |---|---|---|---|
-| 20 mm paper tray tags, the rig's frozen detector settings (15.3b, 15.3d, 15.3e) | missed 47 of 171 sightings (round 2), 165 of 1107 (one hour, nothing moved); 30 mm tags missed 1 of 171 and 1 of 1107 | experiment "tag-testing"; `tag-detector-stills.csv`, `run-2026-10-15-tags.csv` | `tag_detector_check.py`, `run_analysis.py`, 830e4da (#156) |
+| 20 mm paper tray tags, the rig's frozen detector settings (15.3b, 15.3d, 15.3e) | missed 8 of 102 sightings (session 1), 47 of 171 (round 2), 165 of 1107 (one hour, nothing moved); 30 mm tags missed 1 of 171 and 1 of 1107 | experiment "tag-testing"; `tag-detector-stills.csv`, `run-2026-10-15-tags.csv` | `tag_detector_check.py`, `run_analysis.py`, 830e4da (#156) |
 | The same tags, finer bit sampling (setting C, 15.3c to 15.3e) | missed 0 of 102, 0 of 171 and 0 of 1107; same time per still (4.19 s); calibration and corner tag corners 0.000000 px from the frozen settings (1043 tags, 7 stills) | as above, `tag-detector-corners.json` | as above; adopted for tray tags in a6588c8 (#192) |
 | FastSAM tray splitting on the Hailo-8, empty trays, 15 October (15.5c, 15.5d) | 2078 of 2112 trays measured right (98.4%), 31 more patched; 159 of 176 stills all right; gaps 396 of 396 | `fastsam-full176*.csv`, `track-full176*.csv` | `fastsam.py`, `track.py`, 2e532a9 (#164), e523a45 (#171) |
 | Tray position spread with nothing moved, 15 October (15.5d) | step 1 rms 1.8 mm, max 6.3 (120); one hour rms 4.0 mm, max 48.8 (1442, after removing 7 positions over 50 mm off) | `track-full176.csv` | `track.py`, e523a45 |

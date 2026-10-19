@@ -412,8 +412,10 @@ limits: where one does not work for a page, choose what does and say why in the 
   UTC+2 in summer time, UTC+1 from the last Sunday of October (25 October 2026) to the last
   Sunday of March. Convert before matching them against anything a person reports.
 - **Tray tags.** The 15 October test trays use IDs 0 to 17 (1 to 12 original, 0 and 13 to 17 added
-  for the paired 20 mm test). Final tray tags are about 20 mm, 3D printed, on the tray's outside
-  edge: 27 mm hard clearance, and 30 mm edge tags hit other lab equipment (Aaron, 2026-10-15). Tray
+  for the paired 20 mm test). Round 2 tray tags are about 40 mm, lying roughly centred in cell A1,
+  in any rotation (Aaron, 2026-10-19), replacing the 20 mm edge tag of 2026-10-15: edge tags could
+  not be placed the same way on every tray. Each tray is placed from its tag and the slot grid
+  (metrology log 15.5h to 15.5k, #220); cell A1 holds no plant. Tray
   tags (IDs 0 to 299) are read with finer bit sampling, calibration and corner tags with the frozen
   settings (`tags._tray_detector_parameters`, metrology log 15.3e, #192).
 - **Trays touch.** Researchers will not reliably leave gaps, so tray splitting must work with trays

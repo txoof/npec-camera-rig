@@ -380,8 +380,10 @@ metrology log backs it.
 
 ### Trays and tags (round 1, 2026-10-19)
 
-- **Tray placement.** Placing each tray from its tag in cell A1 put every tray in its slot and
-  corner in 64 stills, gaps and touching, tags in any rotation (15.5h to 15.5k). That is one day,
+- **Tray placement.** Placing each tray from its tag in cell A1 put 503 of 504 tray positions in
+  the slot and corner known from a plan or from Aaron's check, gaps and touching, tags in any
+  rotation: 215 of 216 in 18 stills (15.5j; the one miss a tag not found) and 288 of 288 in 24
+  stills (15.5k). A further 22 stills (15.5h) were checked by eye only. That is one day,
   12 trays of 4 x 5 cells in portrait, paper 30 mm tags lying flat in an empty cell A1. Not
   shown: the tray outline against a measured tray edge; the 40 mm tags planned for round 2 (their
   offset is still to be learned); fewer than 12 trays; other tray types; cell A1 holding

@@ -429,9 +429,16 @@ Planned at the round 1 review (15.6, #217). Being decided with Aaron; items not 
 
 - *The day, in chamber time* (Aaron, 2026-10-19). 09:30 to 16:10: shuffling allowed. 17:00 to
   23:00: quiet, no movement, lights on. 23:00 to 09:30: effectively dark, no movement. Outside the
-  shuffling window the photos are static. In UTC this is 07:30 to 14:10, 15:00 to 21:00 and 21:00
-  to 07:30 while the chamber is on UTC+2; summer time ends on 25 October, after which the chamber
-  is UTC+1 and each UTC time is one hour later.
+  shuffling window the photos are static. In UTC (rig timestamps), summer time ends on Sunday
+  25 October at 01:00 UTC:
+
+  | Window | Chamber time | UTC to 24 October | UTC from 25 October |
+  |---|---|---|---|
+  | Shuffling allowed | 09:30 to 16:10 | 07:30 to 14:10 | 08:30 to 15:10 |
+  | Quiet, lights on | 17:00 to 23:00 | 15:00 to 21:00 | 16:00 to 22:00 |
+  | Dark | 23:00 to 09:30 | 21:00 to 07:30 | 22:00 to 08:30 |
+
+  The night of 24 to 25 October is dark from 21:00 UTC on 24 October to 08:30 UTC on 25 October.
 - *Steadiness.* From the static photos, where any change in a tray's reading from one photo to the
   next is the rig's own error. Photos in the dark are kept and reported apart; whether tags and
   area can be read in them is not known.
@@ -455,7 +462,8 @@ Planned at the round 1 review (15.6, #217). Being decided with Aaron; items not 
 **Targets** (15.6a and 15.6b): real leaf area within 10% on blue trays; white balance not
 studied apart, but checked against the run's area jumps if there are any (Aaron, 2026-10-19);
 benchmark plants of known area when they arrive; tray placement with no tray in a wrong
-slot without a warning and at least 95% of tray positions placed; tags in any rotation.
+slot without a warning and at least 95% of tray positions placed; tags in any rotation (shown
+for 12 trays in 15.5j and 15.5k; to hold on the run).
 
 ### Records kept for every round
 
