@@ -416,9 +416,37 @@ the results and the review are all in `docs/metrology-log.md` section 15:
 | Real leaves of known area | 15.5b |
 | Tray splitting and tray ID (FastSAM on the Hailo-8, #164) | 15.5c |
 | Tray tracking over time (#171) | 15.5d |
+| Trays with pots; placement from the cell A1 tag (#213, #217) | 15.5f to 15.5k |
 | Round 1 review | 15.6 |
 
 Code for the round lives in `experiments/round1*/`, reusing `src/npec_rig/` rather than copying it.
+
+### Round 2 (23 October to 5 November)
+
+Planned at the round 1 review (15.6, #217). Being decided with Aaron; items not yet decided say so.
+
+**The run (decided 2026-10-19, Aaron).** One run of several days that serves two measurements:
+
+- *The day, in chamber time* (Aaron, 2026-10-19). 09:30 to 16:10: shuffling allowed. 17:00 to
+  23:00: quiet, no movement, lights on. 23:00 to 09:30: effectively dark, no movement. Outside the
+  shuffling window the photos are static. In UTC this is 07:30 to 14:10, 15:00 to 21:00 and 21:00
+  to 07:30 while the chamber is on UTC+2; summer time ends on 25 October, after which the chamber
+  is UTC+1 and each UTC time is one hour later.
+- *Steadiness.* From the static photos, where any change in a tray's reading from one photo to the
+  next is the rig's own error. Photos in the dark are kept and reported apart; whether tags and
+  area can be read in them is not known.
+- *Tray tracking.* Aaron moves trays within the shuffling window, at times that cannot be fixed in
+  advance. Each move follows a shuffle map drawn and printed before it, with a check-off per tray
+  and a space for the time it was done. The map is the known answer.
+- Scheduled capture (#60) runs throughout; Aaron tests it with this run.
+- In the trays: pots and the 40 mm tags in cell A1 (offset learned again first, 15.6b target 2).
+  The benchmark taped to tray 1 for the whole run (Aaron, 2026-10-19). Plants, if they arrive
+  during the round, go on their own trays and are reported apart from the still scene (Aaron,
+  2026-10-19).
+
+**Targets** (15.6a and 15.6b): real leaf area within 10% on blue trays; white balance measured
+first; benchmark plants of known area when they arrive; tray placement with no tray in a wrong
+slot without a warning and at least 95% of tray positions placed; tags in any rotation.
 
 ### Records kept for every round
 

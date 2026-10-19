@@ -408,8 +408,9 @@ limits: where one does not work for a page, choose what does and say why in the 
   (model slope from a tape-measured best estimate of 1482 mm camera height; one test: a 75 mm taller tray read 11.2% to
   12.0% large, predicted 11.8%, about 0.157% per mm on average over that step). Validation bands cover flat objects at tray-top height
   only; plant height and segmentation add to them (PLAN.md, *Per-slot area uncertainty*).
-- **Rig timestamps (capture names, session IDs) are UTC; the chamber's local time is UTC+2.**
-  Convert before matching them against anything a person reports.
+- **Rig timestamps (capture names, session IDs) are UTC; the chamber keeps Dutch local time:**
+  UTC+2 in summer time, UTC+1 from the last Sunday of October (25 October 2026) to the last
+  Sunday of March. Convert before matching them against anything a person reports.
 - **Tray tags.** The 15 October test trays use IDs 0 to 17 (1 to 12 original, 0 and 13 to 17 added
   for the paired 20 mm test). Final tray tags are about 20 mm, 3D printed, on the tray's outside
   edge: 27 mm hard clearance, and 30 mm edge tags hit other lab equipment (Aaron, 2026-10-15). Tray
