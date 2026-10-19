@@ -39,6 +39,7 @@ should be compared as times, not as text.
 | `camera_settings` | The last value of each camera setting, the focus lock, and a few small records | `settings.py` |
 | `derived_image` | Index of images made from photographs (validation maps, problem frames) | `images.py` |
 | `capture_analysis` | Results worked out once per photograph, for example its detected tags | `images.py` |
+| `scheduled_photo` | One row per scheduled photo of an experiment, taken or missed | `scheduler.py` |
 
 ### `camera_events`
 
@@ -150,6 +151,29 @@ Results worked out once per photograph, so they are not worked out again on ever
 | `created_at` | text | When, UTC (`isoformat()`) |
 
 Primary key: `source` and `kind` together.
+
+### `scheduled_photo`
+
+One row per slot of an experiment's photo schedule. The schedule's interval is
+`experiment.interval_s` (seconds, NULL for no schedule), and slot *n* is due *n* intervals after
+`experiment.schedule_since`: the latest start, resume, or change of the interval while running. A slot that passed without a photo (the app was down, or the
+photo before it took longer than the interval) is recorded as missed. The rows stay when the
+experiment is purged, as the record of the schedule.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `experiment_id` | integer | The experiment |
+| `schedule_since` | text | The schedule start the slot is counted from, UTC |
+| `slot` | integer | 1 for the first photo after the start |
+| `due_at` | text | When the photo was due, UTC (`isoformat()`) |
+| `capture_id` | integer | The photo's `capture` row; NULL when missed |
+| `missed_reason` | text | Why it was not taken; NULL when taken |
+
+Photos missed in the running period:
+
+```
+SELECT due_at, missed_reason FROM scheduled_photo WHERE capture_id IS NULL ORDER BY due_at
+```
 
 ## Planned
 

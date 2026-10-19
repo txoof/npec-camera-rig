@@ -447,7 +447,10 @@ def start_experiment(experiment_id: int, *, stop_running: bool = False) -> dict:
             raise database.ExperimentError(f"the folder {folder} already exists") from exc
     try:
         experiment = database.start_experiment(
-            experiment_id, now=now, folder=folder, stop_running=stop_running
+            experiment_id,
+            now=now,
+            folder=folder,
+            stop_running=stop_running,
         )
     except BaseException:
         if folder is not None:
@@ -464,7 +467,7 @@ def stop_experiment(experiment_id: int) -> dict:
 
 
 def update_experiment(experiment_id: int, **fields: object) -> dict:
-    experiment = database.update_experiment(experiment_id, **fields)
+    experiment = database.update_experiment(experiment_id, now=_now(), **fields)
     # A purged experiment's folder is gone; its record is only in the database.
     if experiment["folder"] and experiment["state"] != "purged":
         _write_experiment_json(experiment)
