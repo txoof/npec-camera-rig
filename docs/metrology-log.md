@@ -4255,11 +4255,55 @@ Not shown: the outline against a measured tray edge; fewer than 12 trays; the 40
 learned with 30 mm tags); trays with plants, and A1 holding anything but the tag. The answer was
 checked by eye after the analysis, not fixed before it.
 
+### 15.5l Shuffles through a day with scheduled capture (method written 2026-10-19, before the photos; results in round 2)
+
+**Label: development check.** Whether trays are placed in their planned slot and corner over many
+shuffles, and how steady placement is between them, with no true area.
+
+**Question.** With trays placed from the cell A1 tag by the rule of 15.5j, unchanged, is every
+tray in its planned slot and corner in every settled still through up to 21 shuffles on one day,
+with photos taken by the scheduler (#60)? And how far does each placed tray centre move between
+stills when nothing is moved?
+
+**Setup** (Aaron, Tuesday 20 October 2026): the 12 trays and pots of 15.5i, tags 1 to 12 in cell
+A1, lying any way round; the benchmark taped to tray 1. If the 30 mm tags are used, the 15.5h
+common offset is used unchanged. If the 40 mm tags are used, the offset is learned first from one
+still with gaps, as in 15.5h, and written up here before the first shuffle. The scheduler interval
+is Aaron's choice and is recorded from the stills.
+
+**The known answer, fixed before the moves.** 21 layouts drawn by `shuffle_maps.py` (seed
+20261020), committed as `sessions/shuffle-maps-2026-10-20.json` in 64ba49e before any tray was
+moved, and printed for Aaron (`~/Documents/shuffle-maps-2026-10-20.pdf`, 3 per page). Shuffles are
+done in the order printed, 1 to 3 per hour, between 09:30 and 16:10 chamber time (07:30 to 14:10
+UTC). Aaron gives the start time of each shuffle he did; the sheets, with his marks, are
+photographed and kept with the raw data. A shuffle skipped or done out of order is recorded as such.
+
+**Analysis** (`shuffle.py --any-rotation`, the 15.5j rule, offset not refitted):
+
+1. Stills from the start of shuffle N to the start of shuffle N + 1 belong to layout N (the last
+   layout runs to the end of the experiment's stills that day).
+2. A still is *settled* when every tag found in it lies within 5 mm of its position in the next
+   still (a decision, not a measurement: tags moved less than 0.3 mm with nothing moved in 15.5d).
+   Stills that are not settled are counted as moving and left out of the placement count.
+3. Reported per layout and in total: settled stills; trays in the planned slot and corner; wrong;
+   tag not found; the smallest margin between the two candidates.
+4. Steadiness: for each tray and layout, the spread of the placed centre over the settled stills
+   (rms and max, mm). Stills in the quiet window (17:00 to 23:00 chamber time) and in the dark
+   (23:00 to 09:30) are reported apart.
+
+**Declared before the photos.** Against round 2 target 1 (15.6b): no tray in a wrong slot or
+corner, and at least 95% of tray positions in settled stills placed. Anything less is reported as
+it is.
+
+**What it does not cover.** As 15.5k. One day; trays with pots and no plants; the outline against
+a measured tray edge; fewer than 12 trays. Where a still is judged moving depends on the 5 mm
+rule above.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for
 round 2. The segmentation part is 15.6a. The trays, tags and tracking part (15.3 to 15.3e, 15.5c,
-15.5d, 15.5f to 15.5k) is 15.6b (issue #217).
+15.5d, 15.5f to 15.5k) is 15.6b (issue #217). 15.5l is the method of a test run after the review; its results belong to round 2.
 
 ### 15.6a Segmentation (issue #161, written 2026-10-16)
 
