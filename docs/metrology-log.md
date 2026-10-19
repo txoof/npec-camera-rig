@@ -4178,11 +4178,35 @@ tag tests the rotation. Fewer than 12 trays, where any turn is allowed and step 
 between more than two candidates. A tray far from the slot grid. New stills with tags lying in
 several rotations, offered by Aaron, test it further.
 
+**Results (19 October 2026).** `shuffle.py --experiment "simple segmentation test" --rounds 1 2 3
+4 5 2 --any-rotation`, commit 81c86ff, output `shuffle-2026-10-19_ad4876e5-any.csv`, pictures
+`~/scratch/round1-trays/shuffle/*-any.jpg`. Same 18 stills and cached tags as 15.5i.
+
+| | 15.5i (turn from the tag heading) | 15.5j (turn from the slot grid) |
+|---|---|---|
+| Trays in the planned slot and corner | 197 of 216 | **215 of 216** |
+| Wrong | 18 (tray 6 in every still) | **0** |
+| Tag not found | 1 (tag 1, `121700_460965`) | 1 (the same) |
+
+- Distance from the chosen candidate to its nearest slot centre: median 59.4 mm, max 97.4 mm
+  (215 trays). The other candidate was further by at least 152.4 mm (median 274.1 mm), so no
+  tray was a close call.
+- Tags lying a different way round from the 15.5h heading for their corner: tray 6, 180 degrees,
+  in 18 of 18 stills; every other tag 0 degrees. Tray 6 is now placed in its planned slot and
+  corner in every still.
+- In the picture of round 4 (`121231_081714`) every outline lies on its tray by eye.
+
+**What this shows.** On these 18 stills the tray's slot and turn come out right without using
+which way round the tag lies: 215 of 216, the one miss being a tag not found, which the rig can
+report. Not shown: tags lying 90 or 270 degrees round (none here; the method expects them to work,
+since only the tilt is taken from the heading); more than one tag lying a different way; fewer
+than 12 trays; the outline against a measured tray edge.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for
 round 2. The segmentation part is 15.6a. The trays, tags and tracking part (15.3 to 15.3e, 15.5c,
-15.5d, 15.5f to 15.5i) is 15.6b (issue #217).
+15.5d, 15.5f to 15.5j) is 15.6b (issue #217).
 
 ### 15.6a Segmentation (issue #161, written 2026-10-16)
 
@@ -4266,7 +4290,7 @@ scans, and leaves that touch or lie next to another green object (part of tray s
 
 ### 15.6b Trays, tags and tracking (issue #217, written 2026-10-19)
 
-From the existing results only (15.3 to 15.3e, 15.5c, 15.5d, 15.5f to 15.5i); no camera, no new
+From the existing results only (15.3 to 15.3e, 15.5c, 15.5d, 15.5f to 15.5j); no camera, no new
 analysis. Phase names as in 15.6a. The round 2 targets at the end are Aaron's decisions. Every
 result here is a *development check*: trays and tags found, placed or followed, with no true
 area. The known answers are the recorded moves (15.3, 15.5f, 15.5h) and the shuffle maps posted
@@ -4287,7 +4311,8 @@ the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
 | FastSAM with pots, cell A1 tags naming trays (15.5h) | gaps 222 of 228; touching 19 of 36 (53%) raw, 27 of 36 after patches | `fastsam-cell19*.csv`, `track-cell19*.csv` | as above |
 | Tray placed from its tag, one offset per tray, against FastSAM's mask centre (15.5g, 15.5h) | edge tags: median 20.8 mm with gaps, 23.1 touching, max 170.2; cell tags: median 18.5 with gaps | `footprint-pots19.csv`, `footprint-cell19.csv` | `footprint.py`, a9f9d7b |
 | Tray placed from its cell A1 tag, one common offset for every tray (15.5h) | all 264 tray positions placed in 22 stills; against FastSAM's mask centre median 8.4 mm with gaps (95th percentile 17.3, max 32.3, 102 positions), 11.4 mm touching (19) | `footprint-cell19-common.csv` | `footprint.py --common`, a9f9d7b |
-| The same, through 5 random shuffles plus one repeat (15.5i) | 197 of 216 tray positions in the planned slot and turn: tray 6 wrong in 18 of 18 stills (its tag lay 180 degrees round), tag 1 not found once; without tray 6, 197 of 198 | experiment "simple segmentation test" (`2026-10-19_ad4876e5`); `shuffle-2026-10-19_ad4876e5.csv` | `shuffle.py`, a9f9d7b |
+| The same, through 5 random shuffles plus one repeat, turn from the tag heading (15.5i) | 197 of 216 tray positions in the planned slot and turn: tray 6 wrong in 18 of 18 stills (its tag lay 180 degrees round), tag 1 not found once | experiment "simple segmentation test" (`2026-10-19_ad4876e5`); `shuffle-2026-10-19_ad4876e5.csv` | `shuffle.py`, a9f9d7b |
+| The same stills, turn from the slot grid, tag in any rotation (15.5j) | 215 of 216 right, 0 wrong, tag 1 not found once; the other candidate at least 152.4 mm further from a slot | `shuffle-2026-10-19_ad4876e5-any.csv` | `shuffle.py --any-rotation`, 81c86ff (#217) |
 
 **What was found.**
 1. The chain from photo to a named tray in a slot runs end to end on 176 stills of empty trays
@@ -4300,7 +4325,9 @@ the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
    with pots (19 October, 53% to 56% raw).
 4. A 30 mm tag lying flat in the empty cell A1 places its tray with no splitting at all: one
    offset common to every tray puts the outline on the tray in every still checked by eye,
-   touching or not, and tracked 11 of 12 trays through five random shuffles.
+   touching or not. Taking the tray's turn from the slot grid rather than the tag heading, it
+   placed 215 of 216 tray positions through five random shuffles, with the tags in any rotation
+   (15.5j).
 5. Where nothing moves, a tray's position repeats to about 2 mm rms (empty trays and pots, gaps).
 
 **What surprised us, and which phase it sends work back to.**
@@ -4309,7 +4336,7 @@ the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
 |---|---|---|
 | The tag design taken forward is not the one decided | decided: 20 mm, 3D printed, on the tray's outside edge (Aaron, 2026-10-15); taken forward: a 30 mm tag lying in cell A1, which keeps A1 free of plants | Business understanding: where the tray tag sits, its size, and whether one cell per tray can stay empty |
 | Pots in the wells stopped FastSAM splitting touching trays, and the tag was ruled out as the cause | touching, raw: 98% of trays right empty (15 October), 56% with pots and edge tags, 53% with pots and cell tags | Modelling: why FastSAM sees three touching trays with pots as one object (traced on 2 stills only) |
-| One tag lying the other way round in its cell moves its tray one slot, with no warning | tray 6 wrong in 18 of 18 stills; nothing in the result marks it | Modelling: a tag lying the wrong way round must be detected, or the cell must hold it one way only. This is a wrong number with no warning (CLAUDE.md, *Harm*) |
+| One tag lying the other way round in its cell moved its tray one slot, with no warning | tray 6 wrong in 18 of 18 stills; nothing in the result marked it | Modelling: operators will not follow a rule on which way round a tag lies (Aaron). Fixed in 15.5j by taking the turn from the slot grid: 215 of 216, 0 wrong |
 | A paper edge tag turned on its tray between steps | tray 14's tag turned about 11 degrees; its placement then about 61 mm off | Data preparation: tags must be fixed to the tray (3D-printed tags, #70) |
 | A tag print lying anywhere in view is read as a tray | ID 29, an offcut in a waste bin at the frame edge, read in 3 to 4 of 123 stills | Deployment: discarded prints leave the chamber, or tags outside the table are ignored |
 | Swaps were found by construction, not as evidence | 48 of 48 swaps found; a mask takes its tray from the tag within 60 mm, so it follows its tag | Evaluation: tracking is judged by false moves and position spread, not by swaps found |
@@ -4328,6 +4355,8 @@ the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
   that turned about 11 degrees. The cell tag's offsets lie within 18.1 mm.
 - One learned offset per tray (15.5g, 15.5h): replaced by one common offset (median 8.4 against
   18.5 mm from FastSAM's masks with gaps).
+- The tray's turn from the tag heading (15.5i): 18 of 216 wrong, all from one tag lying 180
+  degrees round. Replaced by the turn from the slot grid (15.5j, 0 wrong).
 - The 20 mm paper tag with the frozen detector settings: 220 misses in 1380 sightings; replaced by
   setting C for tray tags (#192).
 
@@ -4335,14 +4364,18 @@ the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
 
 1. **Tray placement: no tray in a wrong slot without a warning, and at least 95% of tray
    positions placed** (Aaron, 2026-10-19). A tray that is not placed is shown as not placed.
-   Checked on the round 2 multi-day run. Round 1, cell tag (15.5i): 197 of 216 positions right;
-   the 18 wrong were all tray 6 and gave no warning, so round 1 does not meet the first part. This
-   is the success rate left open in 15.5c and 15.5d (moved here from #171).
+   Checked on the round 2 multi-day run. Round 1, cell tag: 197 of 216 with the turn from the
+   tag heading (15.5i, 18 wrong with no warning); 215 of 216 with the turn from the slot grid
+   (15.5j, 0 wrong, 1 tag not found), which meets both parts on those 18 stills. This is the
+   success rate left open in 15.5c and 15.5d (moved here from #171).
 
 2. **Tray tag: about 40 mm, lying roughly centred in cell A1** (Aaron, 2026-10-19, being prepared).
    Replaces the 20 mm edge tag for round 2; A1 holds no plant. Not yet tested: each print is
    measured with callipers, and the common offset of 15.5h (learned with 30 mm tags) is learned
    again for the new tag before it is used.
 
-Still to be decided at the review, one at a time: detecting a tag that lies the wrong way round;
-the outline against a measured tray edge.
+3. **Tags in any rotation** (Aaron, 2026-10-19): placement must work with the tag lying any way
+   round, A1 at the south-west or north-east, since operators will not follow a positioning rule.
+   Done for 12 trays in 15.5j; Aaron takes new stills with several tags turned to test it further.
+
+Still to be decided at the review: the outline against a measured tray edge.
