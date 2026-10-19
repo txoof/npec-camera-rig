@@ -4195,6 +4195,11 @@ several rotations, offered by Aaron, test it further.
   in 18 of 18 stills; every other tag 0 degrees. Tray 6 is now placed in its planned slot and
   corner in every still.
 - In the picture of round 4 (`121231_081714`) every outline lies on its tray by eye.
+- *Observation, by eye, not a measurement:* the one miss, tag 1 in `121700_460965`, was compared
+  with the still taken 4 s before it, where it was found (crops 1000 px square around the tag,
+  `~/scratch/tag1-found-vs-missed.jpg`). The tag looks the same in both: sharp, whole, in the same
+  place. In both the card does not lie flat in its cell (its lower edge sits higher than its upper
+  edge). Why it was missed in one still is not known; the detector was not run on the crop.
 
 **What this shows.** On these 18 stills the tray's slot and turn come out right without using
 which way round the tag lies: 215 of 216, the one miss being a tag not found, which the rig can
