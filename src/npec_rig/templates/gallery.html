@@ -94,7 +94,8 @@
 
     function itemHtml(item) {
       const taken = keyDate(item.key);
-      const time = taken.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      const time = taken.toLocaleTimeString(undefined, {
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
       return `
         <div class="gallery-item">
           <button type="button" class="figure hit" aria-label="Photo taken ${time}. Tap to enlarge.">
