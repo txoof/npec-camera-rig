@@ -4149,8 +4149,8 @@ Not shown: a tag found in the wrong orientation being detected as such.
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for
-round 2. The segmentation part is 15.6a. The trays, tags and tracking part (15.3, 15.5c, 15.5d) is
-not yet written (issue #158).
+round 2. The segmentation part is 15.6a. The trays, tags and tracking part (15.3 to 15.3e, 15.5c,
+15.5d, 15.5f to 15.5i) is 15.6b (issue #217).
 
 ### 15.6a Segmentation (issue #161, written 2026-10-16)
 
@@ -4231,3 +4231,77 @@ round 2 targets at the end are Aaron's decisions.
 Not made round 2 targets, recorded as open: the edge loss on small flat shapes, the blue against
 black background gap (experiments use blue trays only), the shrinking of cut leaves between
 scans, and leaves that touch or lie next to another green object (part of tray splitting, 15.5c).
+
+### 15.6b Trays, tags and tracking (issue #217, written 2026-10-19)
+
+From the existing results only (15.3 to 15.3e, 15.5c, 15.5d, 15.5f to 15.5i); no camera, no new
+analysis. Phase names as in 15.6a. The round 2 targets at the end are Aaron's decisions. Every
+result here is a *development check*: trays and tags found, placed or followed, with no true
+area. The known answers are the recorded moves (15.3, 15.5f, 15.5h) and the shuffle maps posted
+on #213 before the stills (15.5i), not an independent measurement. All stills: calibration
+`20261014T111147292361`, validation `20261014T111253582634`, lens 6.05.
+
+**Accuracy table.** Raw data files are in `experiments/round1/` and `experiments/round1-trays/`;
+the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
+
+| What | Result | Raw data | Code |
+|---|---|---|---|
+| 20 mm paper tray tags, the rig's frozen detector settings (15.3b, 15.3d, 15.3e) | missed 47 of 171 sightings (round 2), 165 of 1107 (one hour, nothing moved); 30 mm tags missed 1 of 171 and 1 of 1107 | experiment "tag-testing"; `tag-detector-stills.csv`, `run-2026-10-15-tags.csv` | `tag_detector_check.py`, `run_analysis.py`, 830e4da (#156) |
+| The same tags, finer bit sampling (setting C, 15.3c to 15.3e) | missed 0 of 102, 0 of 171 and 0 of 1107; same time per still (4.19 s); calibration and corner tag corners 0.000000 px from the frozen settings (1043 tags, 7 stills) | as above, `tag-detector-corners.json` | as above; adopted for tray tags in a6588c8 (#192) |
+| FastSAM tray splitting on the Hailo-8, empty trays, 15 October (15.5c, 15.5d) | 2078 of 2112 trays measured right (98.4%), 31 more patched; 159 of 176 stills all right; gaps 396 of 396 | `fastsam-full176*.csv`, `track-full176*.csv` | `fastsam.py`, `track.py`, 2e532a9 (#164), e523a45 (#171) |
+| Tray position spread with nothing moved, 15 October (15.5d) | step 1 rms 1.8 mm, max 6.3 (120); one hour rms 4.0 mm, max 48.8 (1442, after removing 7 positions over 50 mm off) | `track-full176.csv` | `track.py`, e523a45 |
+| 20 mm edge tag lands on its own tray (15.5c) | 804 of 852 (94.4%) right, 25 right but merged, 23 on no tray, 0 on the wrong tray | `edge-tags.csv` | `edge_tag_check.py`, a6588c8 |
+| FastSAM with pots in the wells, edge tags naming trays, 19 October (15.5f) | gaps 226 of 228 trays; touching 825 of 1476 (56%) raw, 1101 (75%) after patches, 0 of 123 stills all right | experiment "pots-2026-10-19"; `fastsam-pots19*.csv`, `track-pots19*.csv` | `fastsam.py`, `track.py`, a9f9d7b (#213) |
+| FastSAM with pots, cell A1 tags naming trays (15.5h) | gaps 222 of 228; touching 19 of 36 (53%) raw, 27 of 36 after patches | `fastsam-cell19*.csv`, `track-cell19*.csv` | as above |
+| Tray placed from its tag, one offset per tray, against FastSAM's mask centre (15.5g, 15.5h) | edge tags: median 20.8 mm with gaps, 23.1 touching, max 170.2; cell tags: median 18.5 with gaps | `footprint-pots19.csv`, `footprint-cell19.csv` | `footprint.py`, a9f9d7b |
+| Tray placed from its cell A1 tag, one common offset for every tray (15.5h) | all 264 tray positions placed in 22 stills; against FastSAM's mask centre median 8.4 mm with gaps (95th percentile 17.3, max 32.3, 102 positions), 11.4 mm touching (19) | `footprint-cell19-common.csv` | `footprint.py --common`, a9f9d7b |
+| The same, through 5 random shuffles plus one repeat (15.5i) | 197 of 216 tray positions in the planned slot and turn: tray 6 wrong in 18 of 18 stills (its tag lay 180 degrees round), tag 1 not found once; without tray 6, 197 of 198 | experiment "simple segmentation test" (`2026-10-19_ad4876e5`); `shuffle-2026-10-19_ad4876e5.csv` | `shuffle.py`, a9f9d7b |
+
+**What was found.**
+1. The chain from photo to a named tray in a slot runs end to end on 176 stills of empty trays
+   and on 182 stills of trays with pots, on the Pi 5 and Hailo-8, with no failed stills.
+2. 20 mm paper tags are read reliably once the detector samples each pattern square more finely
+   (setting C): 0 misses in 1380 sightings against 220 with the frozen settings, at the same time
+   per still, with the calibration corners unchanged. Tray tags now use it (#192).
+3. With gaps between trays, FastSAM splits them with or without pots (396 of 396 trays right
+   empty, 222 to 226 of 228 with pots). With trays touching it splits empty trays (15 October) but not trays
+   with pots (19 October, 53% to 56% raw).
+4. A 30 mm tag lying flat in the empty cell A1 places its tray with no splitting at all: one
+   offset common to every tray puts the outline on the tray in every still checked by eye,
+   touching or not, and tracked 11 of 12 trays through five random shuffles.
+5. Where nothing moves, a tray's position repeats to about 2 mm rms (empty trays and pots, gaps).
+
+**What surprised us, and which phase it sends work back to.**
+
+| Surprise | Numbers | Back to |
+|---|---|---|
+| The tag design taken forward is not the one decided | decided: 20 mm, 3D printed, on the tray's outside edge (Aaron, 2026-10-15); taken forward: a 30 mm tag lying in cell A1, which keeps A1 free of plants | Business understanding: where the tray tag sits, its size, and whether one cell per tray can stay empty |
+| Pots in the wells stopped FastSAM splitting touching trays, and the tag was ruled out as the cause | touching, raw: 98% of trays right empty (15 October), 56% with pots and edge tags, 53% with pots and cell tags | Modelling: why FastSAM sees three touching trays with pots as one object (traced on 2 stills only) |
+| One tag lying the other way round in its cell moves its tray one slot, with no warning | tray 6 wrong in 18 of 18 stills; nothing in the result marks it | Modelling: a tag lying the wrong way round must be detected, or the cell must hold it one way only. This is a wrong number with no warning (CLAUDE.md, *Harm*) |
+| A paper edge tag turned on its tray between steps | tray 14's tag turned about 11 degrees; its placement then about 61 mm off | Data preparation: tags must be fixed to the tray (3D-printed tags, #70) |
+| A tag print lying anywhere in view is read as a tray | ID 29, an offcut in a waste bin at the frame edge, read in 3 to 4 of 123 stills | Deployment: discarded prints leave the chamber, or tags outside the table are ignored |
+| Swaps were found by construction, not as evidence | 48 of 48 swaps found; a mask takes its tray from the tag within 60 mm, so it follows its tag | Evaluation: tracking is judged by false moves and position spread, not by swaps found |
+| One common offset sits closer to FastSAM's masks than each tray's own learned offset | median 8.4 against 18.5 mm with gaps | Evaluation: not explained. Neither is checked against a measured tray edge |
+| The tray outline from the blue threshold reads 2% long north to south | 373.6 mm against 366.0 by tape; east to west 306.0 against 305.0 | Data understanding: not explained, recorded (15.5c) |
+
+**Methods dropped, with their numbers.**
+- Slot from the tag alone, nearest slot centre (15.5c method A): each tray on its own slot in 6
+  of 33 stills; the slot centres come from where the calibration sheets lay, not from the trays.
+- Blue threshold (15.5c method B): 0 of 33 stills passed; 40 of 396 trays were one shape of one
+  tray. Methods C to E (built on B) were not run; FastSAM (F) was added instead.
+- FastSAM tray splitting (15.5c to 15.5h): 53% to 56% of touching trays right with pots, raw.
+  Dropped for placement from the cell tag (15.5h). With it go the three patches of 15.5d and the
+  open question of 15.5d's slot reference, both of which existed only for FastSAM.
+- Edge tags for placing a tray (15.5g): offsets up to 49.7 mm apart between trays, and a paper tag
+  that turned about 11 degrees. The cell tag's offsets lie within 18.1 mm.
+- One learned offset per tray (15.5g, 15.5h): replaced by one common offset (median 8.4 against
+  18.5 mm from FastSAM's masks with gaps).
+- The 20 mm paper tag with the frozen detector settings: 220 misses in 1380 sightings; replaced by
+  setting C for tray tags (#192).
+
+**Targets for round 2 (Aaron decides).**
+
+To be decided at the review, one at a time. Recorded as open until then: the success rate that is
+good enough for placing and following trays (moved here from #171 on 2026-10-19); the tray tag
+design (above); detecting a tag that lies the wrong way round; the outline against a measured
+tray edge.
