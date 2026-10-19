@@ -3674,6 +3674,103 @@ mesh size they are not a useful area reference.
 lengths and heights. Not yet a reference area for the rosettes; not the repeatability of the
 photogrammetry; not plants.
 
+### 15.5f Trays with pots in the wells (issue #213, method written 2026-10-17, before the session)
+
+**Label: development check.** Whether trays are split and followed, with no true area.
+
+**Question.** With black pots in the wells and the benchmark left out, do the tray splitting of
+15.5c and the tracking of 15.5d find each tray, name it by its tag and report the known moves, as
+well as they did for the 8 trays that had no problems on 15 October? (Every problem in 15.5d was on
+trays 3, 4, 5 and 9: the benchmark tray, its two neighbours and North 1.)
+
+**Why.** Real experiments have pots in the wells. The benchmark does not stand for what will be
+measured (Aaron, 2026-10-16), so it is left out.
+
+**Setup** (Aaron, Monday 19 October 2026, in the chamber):
+
+- 12 trays, portrait, two rows (North 1 to 6, South 1 to 6), with gaps, as on 15 October.
+- 8 black pots per tray, no soil, in the same 8 cells on every tray: A2, A4, B1, B5, C4, D1, D3
+  and D5 (drawing below). 96 pots of about 100. A1 is empty on every tray. The cell grid stays
+  visible.
+- One 20 mm tag per tray, IDs 13 to 24, from a new print, outside the tray on the narrow edge at
+  the A1 corner (Aaron, 2026-10-17). No tag inside a cell. All 30 mm tray tags and the 15 October
+  20 mm tags are taken off. IDs 13 to 17 were also used on 15 October as 20 mm paper edge tags, so
+  an old tag left on a tray or in the chamber would read as one of this session's trays and cannot
+  be told apart: every 15 October tag must leave the chamber.
+- Every tag print not on a tray leaves the chamber (15.3d: an offcut in a waste bin read as tag 29).
+- Door closed, lights on, focus as set. The lens is not moved during the session.
+
+Pot cells (confirmed by Aaron, 2026-10-17), one tray in portrait, north up, A1 at the lower left
+(SW). P is a pot, `.` an empty cell:
+
+```
+          A   B   C   D
+  row 5   .   P   .   P      north (narrow edge)
+  row 4   P   .   P   .
+  row 3   .   .   .   P
+  row 2   P   .   .   .
+  row 1   .   P   .   P      south (narrow edge); the tag sits outside this edge at the A1 corner
+```
+
+Why these cells (decision, not a measurement): a pot on every one of the four edges and in two
+corners, so the tray outline is crossed by pots on all sides; A1's two neighbours (A2, B1) hold
+pots, so the tag corner has black pots near it as it will in a full tray; and empty cells stay
+between the pots, so the grid can still be seen.
+
+**Tag print, measured before the session.** Each new 20 mm tag is measured with the NEIKO
+callipers, X and Y, 3 readings each, as in section 3, and the readings are written here before the
+photos. The sheet is printed at 100% scale and checked against its scale bar if it has one.
+
+**Tag table, before the photos.** For each tray: tag ID, tray number and starting slot. Read by the agent from the first still and confirmed by
+Aaron in a comment on #213. The tray is named by its tag from then on.
+
+**Steps.** Stills taken by the agent through `POST /capture` under the `hardware` label. Stills
+go into the experiment that is running, so a new experiment ("pots-2026-10-19") is started first
+and "tag-testing" stopped, keeping the 15 October record apart. Every still ID is recorded per step
+in `experiments/round1-trays/session-2026-10-19.csv`, in the format of
+`experiments/round1/session-2026-10-15.csv`, by `experiments/round1-trays/capture_session.py`,
+which writes each row as its still is taken and stops if a still lands outside the new experiment.
+
+| Step | Layout | Stills | Known move from the step before |
+|---|---|---|---|
+| 1 | Gaps, nothing moved | 10 | (start) |
+| 2 | Every tray turned 180 degrees in its slot | 3 | every tray turned, position about the same, tag heading flips |
+| 3 | North and South rows swapped | 3 | rows swapped |
+| 4 | Trays swapped within rows | 3 | trays swapped within rows |
+| 5 | Trays pushed together | 3 | trays pushed together |
+| 6 | Pushed together, nobody in the chamber, nothing moved, 30 minutes at one still per 15 s | about 120 | none; within step 6, none |
+
+About 140 stills, about an hour with Aaron present for steps 1 to 5. Steps 1 and 6 are the steps
+where nothing moved, used for the position spread and the "wrong position" rule of 15.5d.
+
+**Analysis.** Unchanged from 15.5c and 15.5d: FastSAM on the Hailo-8, tag tiles at margin 1.15
+with the fallback; the 15.5c rule per still (every tray one shape, every shape one tray, every slot
+right, slot reference row and order, still provisional); tracking with patches 1 to 3 and their
+limits as amended in 15.5d; measured and patched counted apart. Also recorded: tag detection per
+tag, with the tray tag detector settings (15.3e); time per still;
+calibration, validation and lens position of each still from `rig.db`. Nothing is written into
+the experiment folder. The counts are reported as they are; Aaron judges them.
+
+**Declared before the session: pots and the mask tests.** FastSAM's tray mask is accepted only
+with an area of 0.8 to 1.2 trays and a fill of at least 0.85 of its rotated rectangle, both counted
+from the mask's pixels (`fastsam.py`). The 8 pot cells are about 25% of the tray's top (8 cells of
+59.5 mm, about 28 300 mm², against 305 x 366 mm). If FastSAM leaves the pots out of the tray
+mask, a whole tray could fail these tests for that reason alone. So the first run uses the
+rules unchanged, and every tray without a mask is followed through `diagnose.py`. If any tray is
+rejected only by the area or fill test, a second run measures area and fill on the mask with its
+inner holes filled, everything else unchanged. Both runs are reported, the first as the result.
+
+**Known risk, edge tags.** On 15 October, 23 of 852 edge tag readings (2.7%) were linked to no
+tray because two masks were about as close (`edge-tags.csv`, 15.5c). Every tray is now named only
+by an edge tag, and on 15 October each of those trays also had a 30 mm tag inside A1, so a missed
+link cost nothing. Now a missed link leaves the tray unnamed in that still. The same may happen
+when the trays are pushed together (steps 5 and 6). Counted as it is.
+
+**Limits of the evidence.** Black pots without soil or plants; paper tags, not 3D prints (issue
+#70); one 12-tray layout in portrait; one lens position; one hour. Not covered: 4 x 4 and 1 x 1
+trays, rotations other than 0 and 180 degrees, fewer than 12 trays, soil and plants, the chamber
+light cycle.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for

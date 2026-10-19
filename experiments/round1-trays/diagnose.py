@@ -47,6 +47,7 @@ ORDER = ["passed", "mask test", "duplicate", "low score", "cut by the tile"]
 
 
 def main(argv: list[str]) -> None:
+    argv = trays.session_argv(argv)
     from npec_rig.calibration_store import load_calibration
 
     name = Path(argv[0]).stem
@@ -61,12 +62,12 @@ def main(argv: list[str]) -> None:
         for r in res:
             still = r["still"]
             tags = trays.detect(still, None)
-            a1 = [g for g in tags if g["id"] in trays.A1_TAGS]
+            a1 = [g for g in tags if g["id"] in trays.SESSION.trays]
             missing = [g for g in a1 if g["id"] not in found.get(still, set())]
             if not missing:
                 continue
             sf = load_calibration(trays.RIG / "calibration" / f"{r['calibration']}.json").scale_field
-            img = cv2.imread(str(trays.EXPERIMENT / f"{still}.jpg"))
+            img = cv2.imread(str(trays.SESSION.stills_dir / f"{still}.jpg"))
             h, w = img.shape[:2]
             cands = []
             for t in fastsam.tiles_from_tags(tags):
