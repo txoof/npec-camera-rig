@@ -444,6 +444,14 @@ Planned at the round 1 review (15.6, #217). Being decided with Aaron; items not 
   during the round, go on their own trays and are reported apart from the still scene (Aaron,
   2026-10-19).
 
+**Sorted for parallel work** (Aaron, 2026-10-19):
+
+| Group | Work |
+|---|---|
+| Can start now | Tray placement in the app (#220, test seams agreed first); tray view page, tags slice (#194); the run's method and printable shuffle maps (#221); stray tags outside the table ignored (#207) |
+| Waits for another issue | Readings per tray per photo (#222, waits for #220); tray outlines on the page (#194 slice 2, waits for #220); run results (#223, waits for #221 and #222); benchmark plants of known area (#228, waits for the delivery) |
+| Needs the camera | Scheduled capture (#60, in progress); learning the 40 mm tag offset (one still with gaps); the run |
+
 **Targets** (15.6a and 15.6b): real leaf area within 10% on blue trays; white balance not
 studied apart, but checked against the run's area jumps if there are any (Aaron, 2026-10-19);
 benchmark plants of known area when they arrive; tray placement with no tray in a wrong
