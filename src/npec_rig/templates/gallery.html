@@ -9,6 +9,7 @@
 
   <div class="row gallery-head">
     <h2>Photos</h2>
+    {{ ui.button("Show: all photos", id="show-btn") }}
     {{ ui.button("Go to date", id="date-btn") }}
     {{ ui.button("Show newest", id="newest-btn", attrs={"hidden": ""}) }}
   </div>
@@ -25,6 +26,17 @@
     const PAGE = 24;
     const captureBtn = document.getElementById("capture-btn");
     const dateBtn = document.getElementById("date-btn");
+    const showBtn = document.getElementById("show-btn");
+    const note = document.getElementById("gallery-note");
+    const NOTE = note.textContent;
+    // The experiment whose photos are shown, by id, or null for every photo. Set from the
+    // address (?experiment=<id>, the Photos button on the Experiments page) or by Show.
+    let experiment = new URLSearchParams(location.search).get("experiment");
+    // With a filter on, every request for photos carries it.
+    const filtered = (params) => {
+      if (experiment !== null) params.set("experiment", experiment);
+      return params;
+    };
     const newestBtn = document.getElementById("newest-btn");
     const olderBtn = document.getElementById("older-btn");
     const gallery = document.getElementById("gallery");
@@ -144,7 +156,7 @@
       loading = true;
       const gen = generation;
       statusText.textContent = "Loading photos";
-      const params = new URLSearchParams({ limit: PAGE });
+      const params = filtered(new URLSearchParams({ limit: PAGE }));
       if (oldestKey) params.set("before", oldestKey);
       let items;
       try {
@@ -190,7 +202,7 @@
     // After a capture, the new photo goes on top; the pages already loaded stay.
     async function showNewest() {
       if (!newestBtn.hidden) { reset(null); return; }
-      const r = await fetch("/api/captures?limit=1");
+      const r = await fetch(`/api/captures?${filtered(new URLSearchParams({ limit: 1 }))}`);
       const items = r.ok ? await r.json() : [];
       if (!items.length || (newestKey && items[0].key <= newestKey)) return;
       dayGrid(items[0], true).insertAdjacentHTML("afterbegin", itemHtml(items[0]));
@@ -203,7 +215,7 @@
     async function goToDate() {
       let hours;
       try {
-        const r = await fetch("/api/captures/hours");
+        const r = await fetch(`/api/captures/hours?${filtered(new URLSearchParams())}`);
         if (!r.ok) throw new Error(r.statusText);
         hours = await r.json();
       } catch (err) {
@@ -233,6 +245,52 @@
       });
     }
 
+    function experimentName(e) {
+      if (e.name) return e.name;
+      return `Experiment started ${e.periods[0].started_at.replace("T", " ").slice(0, 16)} UTC`;
+    }
+
+    async function showFilter() {
+      let label = "all photos";
+      if (experiment !== null) {
+        const r = await fetch("/api/experiments");
+        const found = r.ok ? (await r.json()).find((e) => String(e.id) === experiment) : null;
+        label = found ? experimentName(found) : `experiment ${experiment}`;
+      }
+      showBtn.textContent = `Show: ${label}`;
+      note.textContent = experiment === null ? NOTE : `Only the photos of ${label}. ${NOTE}`;
+    }
+
+    async function chooseFilter() {
+      let experiments;
+      try {
+        const r = await fetch("/api/experiments");
+        if (!r.ok) throw new Error(r.statusText);
+        experiments = await r.json();
+      } catch (err) {
+        ui.toast("Could not load the list of experiments.");
+        return;
+      }
+      // Only experiments that have started can have photos.
+      const started = experiments.filter((e) => e.periods.length && e.state !== "purged");
+      ui.openChoice({
+        label: "Show",
+        options: [{ value: "", label: "All photos", detail: "Rig photos and every experiment" },
+          ...started.map((e) => ({ value: String(e.id), label: experimentName(e),
+            detail: e.state === "running" ? "Running" : "Stopped" }))],
+        value: experiment ?? "",
+        onSet: (value) => {
+          experiment = value === "" ? null : value;
+          const url = new URL(location.href);
+          if (experiment === null) url.searchParams.delete("experiment");
+          else url.searchParams.set("experiment", experiment);
+          history.replaceState(null, "", url);
+          showFilter();
+          reset(null);
+        },
+      });
+    }
+
     captureBtn.addEventListener("click", async () => {
       captureBtn.disabled = true;
       captureBtn.textContent = "Capturing";
@@ -247,6 +305,8 @@
     olderBtn.addEventListener("click", loadOlder);
     newestBtn.addEventListener("click", () => reset(null));
     dateBtn.addEventListener("click", goToDate);
+    showBtn.addEventListener("click", chooseFilter);
+    showFilter();
     new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) loadOlder();
     }, { root: scroller, rootMargin: "0px 0px 600px 0px" }).observe(sentinel);
