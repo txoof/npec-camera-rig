@@ -4234,14 +4234,22 @@ each layout `~/scratch/rotations-8-layouts.jpg`. The 24 stills are 8 layouts of 
 - Within each layout of 3 stills every tray has the same slot, corner and tag turn.
 - Margin between the two candidates: at least 157 mm in every still; the chosen candidate at most
   106 mm from its slot centre.
-- By eye on the sheet, every outline lies on a tray. Whether each slot and corner is the one
-  Aaron set is his check, not yet done.
+- By eye on the sheet, every outline lies on a tray.
+
+**Aaron's check (2026-10-19).** Aaron compared the sheet with what he did and found it accurate:
+288 of 288 tray positions in the slot and corner he set, 0 wrong.
+
+**What this shows.** With tags lying in all four rotations, trays turned, pushed together and
+shuffled, the 15.5j rule placed every tray in every still. Taken forward into the app (#220).
+Not shown: the outline against a measured tray edge; fewer than 12 trays; the 40 mm tag (offset
+learned with 30 mm tags); trays with plants, and A1 holding anything but the tag. The answer was
+checked by eye after the analysis, not fixed before it.
 
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for
 round 2. The segmentation part is 15.6a. The trays, tags and tracking part (15.3 to 15.3e, 15.5c,
-15.5d, 15.5f to 15.5j) is 15.6b (issue #217).
+15.5d, 15.5f to 15.5k) is 15.6b (issue #217).
 
 ### 15.6a Segmentation (issue #161, written 2026-10-16)
 
@@ -4325,7 +4333,7 @@ scans, and leaves that touch or lie next to another green object (part of tray s
 
 ### 15.6b Trays, tags and tracking (issue #217, written 2026-10-19)
 
-From the existing results only (15.3 to 15.3e, 15.5c, 15.5d, 15.5f to 15.5j); no camera, no new
+From the existing results only (15.3 to 15.3e, 15.5c, 15.5d, 15.5f to 15.5k); no camera, no new
 analysis. Phase names as in 15.6a. The round 2 targets at the end are Aaron's decisions. Every
 result here is a *development check*: trays and tags found, placed or followed, with no true
 area. The known answers are the recorded moves (15.3, 15.5f, 15.5h) and the shuffle maps posted
@@ -4348,6 +4356,7 @@ the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
 | Tray placed from its cell A1 tag, one common offset for every tray (15.5h) | all 264 tray positions placed in 22 stills; against FastSAM's mask centre median 8.4 mm with gaps (95th percentile 17.3, max 32.3, 102 positions), 11.4 mm touching (19) | `footprint-cell19-common.csv` | `footprint.py --common`, a9f9d7b |
 | The same, through 5 random shuffles plus one repeat, turn from the tag heading (15.5i) | 197 of 216 tray positions in the planned slot and turn: tray 6 wrong in 18 of 18 stills (its tag lay 180 degrees round), tag 1 not found once | experiment "simple segmentation test" (`2026-10-19_ad4876e5`); `shuffle-2026-10-19_ad4876e5.csv` | `shuffle.py`, a9f9d7b |
 | The same stills, turn from the slot grid, tag in any rotation (15.5j) | 215 of 216 right, 0 wrong, tag 1 not found once; the other candidate at least 152.4 mm further from a slot | `shuffle-2026-10-19_ad4876e5-any.csv` | `shuffle.py --any-rotation`, 81c86ff (#217) |
+| The same rule, tags in 0, 90, 180 and 270 degree rotations, trays turned, pushed together and shuffled, 8 layouts (15.5k) | 288 of 288 tray positions in the slot and corner Aaron set (checked by Aaron after the analysis); candidates at least 157 mm apart | `shuffle-2026-10-19_ad4876e5-rotations.csv` | as above |
 
 **What was found.**
 1. The chain from photo to a named tray in a slot runs end to end on 176 stills of empty trays
@@ -4361,8 +4370,8 @@ the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
 4. A 30 mm tag lying flat in the empty cell A1 places its tray with no splitting at all: one
    offset common to every tray puts the outline on the tray in every still checked by eye,
    touching or not. Taking the tray's turn from the slot grid rather than the tag heading, it
-   placed 215 of 216 tray positions through five random shuffles, with the tags in any rotation
-   (15.5j).
+   placed 215 of 216 tray positions through five random shuffles (15.5j), and 288 of 288 with
+   tags in all four rotations, trays turned, pushed together and shuffled (15.5k).
 5. Where nothing moves, a tray's position repeats to about 2 mm rms (empty trays and pots, gaps).
 
 **What surprised us, and which phase it sends work back to.**
@@ -4411,6 +4420,6 @@ the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
 
 3. **Tags in any rotation** (Aaron, 2026-10-19): placement must work with the tag lying any way
    round, A1 at the south-west or north-east, since operators will not follow a positioning rule.
-   Done for 12 trays in 15.5j; Aaron takes new stills with several tags turned to test it further.
+   Done for 12 trays: 15.5j, and 15.5k with tags in all four rotations (288 of 288).
 
 Still to be decided at the review: the outline against a measured tray edge.
