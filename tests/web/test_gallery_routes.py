@@ -70,3 +70,46 @@ def test_api_captures_pages_back_with_before() -> None:
     assert client.get("/api/captures", params={"before": "yesterday"}).status_code == 422
     hours = client.get("/api/captures/hours").json()
     assert hours and all(set(h) == {"hour", "count"} for h in hours)
+
+
+def _experiment_with_photos(client: TestClient, photos: int) -> tuple[dict, list[str]]:
+    """Start an experiment, take `photos` Capture photos into it, stop it."""
+    experiment = client.post("/api/experiments", json={}).json()
+    client.post(f"/api/experiments/{experiment['id']}/start", params={"stop_running": True})
+    paths = [client.post("/capture").json()["path"] for _ in range(photos)]
+    client.post(f"/api/experiments/{experiment['id']}/stop")
+    return experiment, paths
+
+
+def test_api_captures_shows_only_one_experiments_photos_and_pages_within_it() -> None:
+    client = TestClient(app)
+    chosen, chosen_paths = _experiment_with_photos(client, 3)
+    client.post("/capture")  # a rig photo, newer than the chosen experiment's
+    _experiment_with_photos(client, 1)  # another experiment's photo, newer still
+
+    first = client.get("/api/captures", params={"experiment": chosen["id"], "limit": 2}).json()
+    rest = client.get(
+        "/api/captures",
+        params={"experiment": chosen["id"], "limit": 2, "before": first[-1]["key"]},
+    ).json()
+    assert [p["path"] for p in first + rest] == chosen_paths[::-1]
+
+
+def test_go_to_date_counts_only_the_chosen_experiments_photos() -> None:
+    client = TestClient(app)
+    chosen, chosen_paths = _experiment_with_photos(client, 2)
+    client.post("/capture")
+    _experiment_with_photos(client, 1)
+
+    hours = client.get("/api/captures/hours", params={"experiment": chosen["id"]}).json()
+    assert sum(h["count"] for h in hours) == len(chosen_paths)
+
+
+def test_an_unknown_experiment_is_not_found_and_one_never_started_has_no_photos() -> None:
+    client = TestClient(app)
+    client.post("/capture")
+    never_started = client.post("/api/experiments", json={}).json()
+
+    for url in ("/api/captures", "/api/captures/hours"):
+        assert client.get(url, params={"experiment": 999999}).status_code == 404
+        assert client.get(url, params={"experiment": never_started["id"]}).json() == []

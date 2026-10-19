@@ -20,18 +20,27 @@ def gallery_page(request: Request) -> Response:
 
 
 @router.get("/api/captures")
-def api_captures(limit: int = Query(12, ge=1, le=200), before: str | None = None) -> list[dict]:
+def api_captures(
+    limit: int = Query(12, ge=1, le=200), before: str | None = None, experiment: int | None = None
+) -> list[dict]:
     """Most recent captures for the gallery, newest first. `before` (an entry's `key`) gives the
-    next page back in time."""
+    next page back in time; `experiment` (an id) only that experiment's photos."""
     if before is not None and not PHOTO_KEY.match(before):
         raise HTTPException(422, f"not a photo key: {before!r} (expected YYYY-MM-DDTHHMMSS_ffffff)")
-    return list_recent_captures(limit=limit, before=before)
+    try:
+        return list_recent_captures(limit=limit, before=before, experiment_id=experiment)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
 
 
 @router.get("/api/captures/hours")
-def api_capture_hours() -> list[dict]:
-    """Photos per UTC hour, newest first: the gallery's Go to date list, counted by local day."""
-    return capture_hours()
+def api_capture_hours(experiment: int | None = None) -> list[dict]:
+    """Photos per UTC hour, newest first: the gallery's Go to date list, counted by local day.
+    `experiment` (an id) counts only that experiment's photos."""
+    try:
+        return capture_hours(experiment_id=experiment)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
 
 
 # Gallery image sizes, as widths in pixels: a thumbnail, and a copy for the chamber screen when a

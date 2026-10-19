@@ -117,6 +117,13 @@
         + "to this experiment. Resume continues it in the same folder.";
     }
 
+    // Under the name, not with the actions: a fifth button there runs past the screen's edge.
+    // Only a started experiment can have photos; a purged one has none left.
+    function photosButton(e) {
+      if (!e.periods.length || e.state === "purged") return "";
+      return `<div><button data-act="photos" data-id="${e.id}" class="secondary">Photos</button></div>`;
+    }
+
     function actions(e) {
       const buttons = [`<button data-act="edit" data-id="${e.id}" class="secondary">Edit</button>`];
       if (e.state === "purged") {
@@ -194,7 +201,7 @@
       rows.innerHTML = experiments.length
         ? experiments.map((e) => `
           <tr>
-            <td>${esc(displayName(e))}${e.notes ? `<div class="experiment-notes">${esc(e.notes)}</div>` : ""}</td>
+            <td>${esc(displayName(e))}${e.notes ? `<div class="experiment-notes">${esc(e.notes)}</div>` : ""}${photosButton(e)}</td>
             <td>${esc(e.researcher)}</td>
             <td>${esc(stateText(e))}${e.state === "purged" ? "" : `<div class="experiment-export">${intervalText(e)}</div>`}${exportText(e)}</td>
             <td>${e.folder ? `<code>${esc(e.folder)}</code>` : ""}</td>
@@ -416,6 +423,8 @@
       listMessage.textContent = "";
       if (act === "edit") {
         edit(e);
+      } else if (act === "photos") {
+        location.href = `/gallery?experiment=${e.id}`;
       } else if (act === "purge") {
         purgeAsk(e);
       } else if (act === "stop") {

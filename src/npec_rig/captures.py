@@ -301,8 +301,16 @@ def _save_photo(image: np.ndarray, metadata: dict, experiment: dict | None = Non
     }
 
 
-def _photo_roots() -> list[tuple[Path, str, str]]:
-    """Every folder of day folders: `(folder, path prefix, url prefix)`, rig first."""
+def _photo_roots(experiment_id: int | None = None) -> list[tuple[Path, str, str]]:
+    """Every folder of day folders: `(folder, path prefix, url prefix)`, rig first. With
+    `experiment_id`, only that experiment's stills (none before its first start); LookupError
+    for an unknown experiment."""
+    if experiment_id is not None:
+        folder = database.get_experiment(experiment_id)["folder"]
+        if folder is None:
+            return []
+        stills = f"{folder}/stills"
+        return [(experiments_root() / stills, f"experiments/{stills}", f"/experiment-files/{stills}")]
     roots = [(photos_root(), "rig", "/photos")]
     if experiments_root().exists():
         for folder in sorted(p for p in experiments_root().iterdir() if p.is_dir()):
@@ -318,11 +326,14 @@ PHOTO_KEY = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{6}_\d{6}$")
 _PHOTO_PATH = re.compile(r"^(rig|experiments/[A-Za-z0-9_-]+/stills)/(\d{4}-\d{2}-\d{2})/(\d{6}_\d{6})$")
 
 
-def list_recent_captures(limit: int = 12, before: str | None = None) -> list[dict]:
-    """Most recent photos first, from rig/ and every experiment's stills. With `before` (a
-    PHOTO_KEY), only photos taken before it: the next page back in time."""
+def list_recent_captures(
+    limit: int = 12, before: str | None = None, experiment_id: int | None = None
+) -> list[dict]:
+    """Most recent photos first, from rig/ and every experiment's stills, or only one
+    experiment's with `experiment_id`. With `before` (a PHOTO_KEY), only photos taken before it:
+    the next page back in time."""
     found: list[tuple[str, str, Path, str, str]] = []
-    for root, path_prefix, url_prefix in _photo_roots():
+    for root, path_prefix, url_prefix in _photo_roots(experiment_id):
         if not root.exists():
             continue
         newest: list[tuple[str, str, Path, str, str]] = []
@@ -360,11 +371,12 @@ def list_recent_captures(limit: int = 12, before: str | None = None) -> list[dic
     return _with_database_rows(entries)
 
 
-def capture_hours() -> list[dict]:
+def capture_hours(experiment_id: int | None = None) -> list[dict]:
     """How many photos each UTC hour holds, newest first, as `{"hour": "YYYY-MM-DDTHH", "count"}`.
-    By hour, not day, so the browser can count them by its own local day."""
+    By hour, not day, so the browser can count them by its own local day. With `experiment_id`,
+    only that experiment's photos."""
     counts: dict[str, int] = {}
-    for root, _path_prefix, _url_prefix in _photo_roots():
+    for root, _path_prefix, _url_prefix in _photo_roots(experiment_id):
         if not root.exists():
             continue
         for day_dir in (p for p in root.iterdir() if p.is_dir()):
