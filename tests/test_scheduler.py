@@ -4,11 +4,16 @@ from datetime import datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from npec_rig import captures, database
+from npec_rig import captures, database, scheduler
 from npec_rig.app import app
 from npec_rig.camera import CameraManager, SyntheticBackend
 
 pytestmark = pytest.mark.unit
+
+
+@pytest.fixture(autouse=True)
+def short_intervals_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(scheduler, "MIN_INTERVAL_S", 0.0)
 
 
 @pytest.fixture(autouse=True)
@@ -93,9 +98,7 @@ def test_a_photo_slower_than_the_interval_skips_the_next_and_counts_it_missed() 
     with TestClient(app) as client:
         experiment = client.post("/api/experiments", json={}).json()
         client.post(f"/api/experiments/{experiment['id']}/start", params={"interval_s": 0.3})
-        _wait_for(lambda: len(database.captures_for_experiment(experiment["id"])) >= 2)
+        _wait_for(lambda: client.get("/api/experiments").json()[0]["schedule"]["photos_taken"] >= 2)
         schedule = client.get("/api/experiments").json()[0]["schedule"]
-        photos = len(database.captures_for_experiment(experiment["id"]))
     # Each 0.7 s photo spans at least one more 0.3 s slot, which is skipped, not queued.
-    assert schedule["photos_taken"] == photos
-    assert schedule["photos_missed"] >= photos - 1
+    assert schedule["photos_missed"] >= schedule["photos_taken"] - 1

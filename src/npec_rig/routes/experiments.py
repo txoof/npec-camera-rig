@@ -1,6 +1,6 @@
 """Routes for the Experiments page: set up, start, stop, purge, and export an experiment."""
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
@@ -69,10 +69,14 @@ def api_update_experiment(experiment_id: int, fields: ExperimentFields) -> dict:
 
 @router.post("/api/experiments/{experiment_id}/start")
 def api_start_experiment(
-    experiment_id: int, stop_running: bool = False, interval_s: float | None = None
+    experiment_id: int,
+    stop_running: bool = False,
+    interval_s: float | None = Query(default=None, gt=0),
 ) -> dict:
     """Start, or resume a stopped experiment. `stop_running` stops the running one first, in the
     same transaction. `interval_s` takes a photo every that many seconds while it runs."""
+    if interval_s is not None and interval_s < scheduler.MIN_INTERVAL_S:
+        raise HTTPException(422, f"the interval must be at least {scheduler.MIN_INTERVAL_S:g} s")
     experiment = _experiment_action(
         captures.start_experiment, experiment_id, stop_running=stop_running, interval_s=interval_s
     )

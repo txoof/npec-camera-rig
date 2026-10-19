@@ -15,6 +15,10 @@ from npec_rig import captures, database
 
 logger = logging.getLogger(__name__)
 
+# The shortest interval accepted: a full-resolution still takes about 3 s (issue #43). The page
+# offers 1 to 6 minutes.
+MIN_INTERVAL_S = 10.0
+
 # The longest the loop sleeps before looking at the running experiment again, so a start or stop
 # is noticed within this time whatever the interval.
 CHECK_S = 1.0
@@ -94,13 +98,21 @@ class Scheduler:
                 (missed, _due_at(period, missed).isoformat(), None, "not taken in time")
                 for missed in range(last_slot + 1, slot)
             ]
+            due_at = _due_at(period, slot).isoformat()
             try:
+                # The app is shutting down: the camera may already be closing.
+                if self._stop.is_set():
+                    return 0.0
                 array, record = captures.take_photo("capture")
                 del array
-                slots.append((slot, _due_at(period, slot).isoformat(), record["capture_id"], None))
+                # Stop pressed while the photo was taken: it was saved as a rig photo.
+                if (record["experiment"] or {}).get("id") == experiment["id"]:
+                    slots.append((slot, due_at, record["capture_id"], None))
+                else:
+                    slots.append((slot, due_at, None, "experiment stopped during the photo"))
             except Exception as exc:
                 logger.exception("Scheduled photo for slot %d failed", slot)
-                slots.append((slot, _due_at(period, slot).isoformat(), None, str(exc) or "failed"))
+                slots.append((slot, due_at, None, str(exc) or "failed"))
             database.record_scheduled_photos(experiment["id"], started_at, slots)
             last_slot = slot
         wait_s = (_due_at(period, last_slot + 1) - datetime.now(UTC)).total_seconds()
