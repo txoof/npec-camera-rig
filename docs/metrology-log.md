@@ -4325,7 +4325,10 @@ rule above.
 - **Missing tags.** Every still with a tag missing that is found in the stills around it is looked
   at and labelled *person in frame* (something visibly covers the tag) or *not found, nothing in the
   way*. Only the second counts against the 95% target; the first is counted apart. The 5 mm rule
-  is unchanged. How often and for how long a person hides tags, and whether a missing tag ever
+  is unchanged; a tag missing from a still or from the next still is left out of that comparison
+  (decided before the first run of `shuffle_day.py`). Layout N runs from Aaron's leave time after
+  shuffle N to his leave time after shuffle N + 1; the stills of a move fall at the end of the
+  layout before it and drop out as not settled. How often and for how long a person hides tags, and whether a missing tag ever
   led to a wrong placement, is reported for the app port (#220).
 
 **The 40 mm offset, learned before the first shuffle was looked at.** Layout 1 is the 6 stills
