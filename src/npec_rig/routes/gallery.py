@@ -57,8 +57,9 @@ def _photo_tags(path: str) -> list[TagDetection]:
         raise HTTPException(422, str(exc)) from exc
     if found is None:
         raise HTTPException(404, f"photo {path} not found")
-    source = path.removeprefix("rig/")
-    return images.tag_detections(source, found, detect=lambda frame: photo_tags.detect_tags(frame))
+    if path.startswith("rig/"):
+        return photo_tags.capture_tags(path.removeprefix("rig/"))
+    return images.tag_detections(path, found, detect=lambda frame: photo_tags.detect_tags(frame))
 
 
 def _tag_role(tag_id: int) -> str:
@@ -87,13 +88,10 @@ _GALLERY_WIDTHS = {"thumb": 480, "screen": 1600}
 @router.get("/gallery/image/tags/{path:path}")
 def gallery_tags_image(path: str) -> Response:
     """Photo `path` at the screen copy's size with every tag outlined and labelled with its ID,
-    tray tags as "Tray <id>". Searches the photo first if it has not been searched yet."""
-    _photo_tags(path)  # the 404 and 422 answers, and the search, before the store is asked
-    return derived_response(
-        "gallery_tags",
-        path,
-        {"photo": path, "width": _GALLERY_WIDTHS["screen"], "tag_detector_version": images.TAG_DETECTOR_VERSION},
-    )
+    tray tags as "Tray <id>". Searches the photo first if it has not been searched yet. The tags
+    are part of the image's inputs, so it is drawn again whenever the stored tags change."""
+    tags = [{"id": d.tag_id, "corners": [list(c) for c in d.corners]} for d in _photo_tags(path)]
+    return derived_response("gallery_tags", path, {"photo": path, "width": _GALLERY_WIDTHS["screen"], "tags": tags})
 
 
 @router.get("/gallery/image/{size}/{path:path}")
@@ -129,16 +127,16 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
     if found is None:
         raise HTTPException(404, f"photo {inputs['photo']} not found")
     image, scale = images.reduced_frame(found, inputs["width"])
-    detections = _photo_tags(inputs["photo"])
-    for d in detections:
-        points = (np.array(d.corners) * scale).round().astype(np.int32).reshape(-1, 1, 2)
-        cv2.polylines(image, [points], isClosed=True, color=_TAG_COLOUR, thickness=3 if d.tag_id in TRAY_ID_RANGE else 1)
+    tags = [(tag["id"], np.array(tag["corners"]) * scale) for tag in inputs["tags"]]
+    for tag_id, corners in tags:
+        points = corners.round().astype(np.int32).reshape(-1, 1, 2)
+        cv2.polylines(image, [points], isClosed=True, color=_TAG_COLOUR, thickness=3 if tag_id in TRAY_ID_RANGE else 1)
     with text_layer(image) as layer:
-        for d in detections:
-            label = f"Tray {d.tag_id}" if d.tag_id in TRAY_ID_RANGE else str(d.tag_id)
-            top = min(y for _x, y in d.corners) * scale
+        for tag_id, corners in tags:
+            label = f"Tray {tag_id}" if tag_id in TRAY_ID_RANGE else str(tag_id)
+            top = corners[:, 1].min()
             half = text_width(label, 0.8) / 2 + 3  # kept inside the frame, a tag at the edge too
-            x = min(max(d.centre[0] * scale, half), image.shape[1] - half)
+            x = min(max(corners[:, 0].mean(), half), image.shape[1] - half)
             layer.text(
                 label,
                 (round(x), max(round(top) - 6, 24)),

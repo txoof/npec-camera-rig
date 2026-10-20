@@ -182,3 +182,17 @@ def test_tags_image_is_a_marked_screen_copy_made_once(monkeypatch) -> None:
     assert client.get(f"/gallery/image/tags/{path}").content == marked.content
     assert len(searches) == 1
     assert client.get("/gallery/image/tags/rig/2020-01-01/000000_000000").status_code == 404
+
+
+def test_tags_image_is_drawn_again_when_the_photos_stored_tags_change(monkeypatch) -> None:
+    from npec_rig import images
+
+    _fake_tag_search(monkeypatch, [square_detection(7, 400, 300, 80)])
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    before = client.get(f"/gallery/image/tags/{path}").content
+
+    # A calibration run stores the tags it fitted to, in place of the earlier search.
+    images.store_tag_detections(path.removeprefix("rig/"), [square_detection(9, 800, 600, 80)])
+    assert client.get(f"/api/captures/tags/{path}").json()[0]["id"] == 9
+    assert client.get(f"/gallery/image/tags/{path}").content != before
