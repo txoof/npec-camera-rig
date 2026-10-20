@@ -4305,8 +4305,14 @@ rule above.
 - **Experiment and stills.** "tray tracking 26.10.20" (folder `2026-10-20_57f74959`), restarted by
   Aaron at 07:52 UTC. Stills every 5 minutes from 07:53:07 UTC, every minute from 07:56:57 UTC.
 - **Tags.** 40 mm tags 1 to 12 (36h11) in cell A1. Check still `075307_250557`: tags 1 to 12 found
-  once each, no other tray ID, sides 39.4 to 40.5 mm at the calibration scale; no calliper readings
-  of these prints are recorded here. Calibration `20261014T111147292361`, lens 6.05.
+  once each, no other tray ID, sides 39.4 to 40.5 mm at the calibration scale. Callipers (Aaron,
+  2026-10-20): 39.95 mm across the black square, quiet zone excluded; how many tags and readings
+  is not recorded. Tag size is not used by the placement rule. Calibration
+  `20261014T111147292361`, lens 6.05.
+- **Record of the shuffles.** Aaron writes down the time he leaves the chamber after each shuffle
+  (the layout is then in place) and whether it has gaps, in a table, kept in his own log and copied
+  to `shuffle-times-2026-10-20.csv`. The marked sheets are not photographed (Aaron, 2026-10-20);
+  the table replaces them.
 - **Offset.** Layout 1 (gaps) was already in place at the first still, so the 40 mm offset is
   learned from the layout 1 stills, as in 15.5h (FastSAM mask centres, `footprint.py --common`),
   and fixed before any later still is looked at. **Layout 1 is the learning layout and is left out
