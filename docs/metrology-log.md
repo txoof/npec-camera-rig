@@ -4329,7 +4329,7 @@ record `session-2026-10-20.csv`. `fastsam.py --session 2026-10-20 --name oct20-l
 1.15` placed 12 of 12 trays in all 6 stills (one still needed the fallback for 2 trays);
 `track.py`; then `learn_offset.py track-oct20-learn.csv`. For each tray, the tag-to-mask-centre
 vector is put in the frame `place_any_rotation` uses (A1 at SW, turned by the tilt only, reversed
-where layout 1 has A1 at NE). The vector is taken from the shuffle map, the known answer for
+where layout 1 has A1 at NE). The corner is taken from the shuffle map, the known answer for
 layout 1. Three tags do not lie the 30 mm way round (trays 2 and 9 turned 180, tag 8 turned 90).
 
 | | Offset (right, up), mm | Trays from it, mm |
