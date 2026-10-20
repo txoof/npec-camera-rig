@@ -4322,6 +4322,25 @@ rule above.
   is unchanged. How often and for how long a person hides tags, and whether a missing tag ever
   led to a wrong placement, is reported for the app port (#220).
 
+**The 40 mm offset, learned before the first shuffle was looked at.** Layout 1 is the 6 stills
+`075307_250557` to `080057_595732` (07:53 to 08:01 UTC; every tag within 0.2 mm of the first still;
+the next still, `080157_571787`, has 8 tags and moved). Session file `sessions/2026-10-20.json`,
+record `session-2026-10-20.csv`. `fastsam.py --session 2026-10-20 --name oct20-learn --margin
+1.15` placed 12 of 12 trays in all 6 stills (one still needed the fallback for 2 trays);
+`track.py`; then `learn_offset.py track-oct20-learn.csv`. For each tray, the tag-to-mask-centre
+vector is put in the frame `place_any_rotation` uses (A1 at SW, turned by the tilt only, reversed
+where layout 1 has A1 at NE). The vector is taken from the shuffle map, the known answer for
+layout 1. Three tags do not lie the 30 mm way round (trays 2 and 9 turned 180, tag 8 turned 90).
+
+| | Offset (right, up), mm | Trays from it, mm |
+|---|---|---|
+| 40 mm, 20 October (12 trays, 6 stills) | (-104.0, -141.6) | median 4.4, max 9.6 (tray 9) |
+| 30 mm, 15.5h, for comparison | (-107.8, -149.1) | max 18 |
+
+Within layout 1, each tray's offset spreads at most 1.0 to 7.9 mm across the 6 stills, except tray 1
+(19.5 mm; it carries the benchmark, not looked at). The offset is fixed as tray type
+`4x5 40 mm tag in A1` in `shuffle.py` and is not refitted.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for

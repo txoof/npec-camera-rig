@@ -1,0 +1,7 @@
+order,still,step,taken_at_utc,measured,kept_by_patch_2,inferred_by_elimination,filled_from_neighbours,wrong_not_filled,no_position,passes_raw,passes_after_patches
+0,075307_250557,1,2026-10-20T07:53:07.250557+00:00,12,0,0,0,0,0,True,True
+1,075657_597204,1,2026-10-20T07:56:57.597204+00:00,12,0,0,0,0,0,True,True
+2,075757_551199,1,2026-10-20T07:57:57.551199+00:00,12,0,0,0,0,0,True,True
+3,075857_575552,1,2026-10-20T07:58:57.575552+00:00,12,0,0,0,0,0,True,True
+4,075957_583055,1,2026-10-20T07:59:57.583055+00:00,12,0,0,0,0,0,True,True
+5,080057_595732,1,2026-10-20T08:00:57.595732+00:00,12,0,0,0,0,0,True,True
