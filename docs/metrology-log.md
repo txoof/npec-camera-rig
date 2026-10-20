@@ -4406,6 +4406,22 @@ Layout 20a (not as planned, counted apart): 15 positions in 3 settled stills, 15
 **Against round 2 target 1, as declared.** At least 95% placed: met (99.9%). No tray in a wrong
 slot or corner: not met against the map (139 positions in 3 layouts), pending Aaron's check.
 
+**Aaron's check (2026-10-20).** Aaron looked at the pictures of layouts 3, 11 and 12 and recorded
+what was laid out (`shuffle-times-2026-10-20.csv`, notes): layout 3, tray 1 was in North 4, not
+North 5; layout 11, trays 4 and 10 were exchanged (tray 4 in South 6, tray 10 in South 5); layout
+12, trays in the planned slots, trays 1, 4, 6, 8 and 10 with A1 at NE instead of SW and trays 9 and
+11 at SW instead of NE. Each is what the rig found, tray by tray. Against what was laid out: 3042
++ 139 = 3181 of 3184 uncovered positions in the planned (as laid out) slot and corner, **0 wrong**,
+3 not found (blurred by movement).
+
+**What this shows.** Over 19 counted layouts through one day, 9 with gaps and 10 touching, the 15.5j
+rule with the 40 mm offset learned once from layout 1 put every found tray in the slot and corner it
+was in, in every settled still, including the 3 layouts that differed from the map, which it
+caught. Each placed centre held within 2.0 mm rms while nothing moved. Hidden tags were all people
+or objects in the frame, except 3 blurred by movement. Not shown: night or quiet hours, plants, A1
+holding anything but the tag, fewer than 12 trays, the outline against a measured tray edge. The
+mismatches were checked by Aaron from the pictures after the analysis, not recorded at the time.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for

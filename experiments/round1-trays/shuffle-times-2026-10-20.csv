@@ -3,7 +3,7 @@
 shuffle,gaps,left_chamber,left_chamber_utc,note,status
 1,gap,09:53,07:53,"Learning image",learning
 2,touching,10:03,08:03,"",
-3,gap,10:15,08:15,"",
+3,gap,10:15,08:15,"Tray 1 was in North 4, not North 5 (Aaron, from the picture, after the analysis)",
 4,touching,10:27,08:27,"",
 5,gap,10:39,08:39,"",
 6,touching,10:52,08:52,"",
@@ -11,8 +11,8 @@ shuffle,gaps,left_chamber,left_chamber_utc,note,status
 8,touching,11:27,09:27,"",
 9,gap,11:40,09:40,"",
 10,touching,11:53,09:53,"",
-11,gap,12:08,10:08,"",
-12,touching,12:39,10:39,"",
+11,gap,12:08,10:08,"Trays 4 and 10 were swapped. T4: South 6; T10: South 5 (Aaron, from the picture, after the analysis)",
+12,touching,12:39,10:39,"Trays in correct order; T1, T4, T6, T8, T10 oriented NE instead of SW; T9, T11 oriented SW instead of NE (Aaron, from the picture, after the analysis)",
 13,gap,12:52,10:52,"",
 14,touching,13:01,11:01,"",
 15,gap,13:19,11:19,"",
