@@ -4299,6 +4299,29 @@ it is.
 a measured tray edge; fewer than 12 trays. Where a still is judged moving depends on the 5 mm
 rule above.
 
+**Decided on the day, before any still after layout 1 was looked at** (Aaron, 2026-10-20, issue
+#236):
+
+- **Experiment and stills.** "tray tracking 26.10.20" (folder `2026-10-20_57f74959`), restarted by
+  Aaron at 07:52 UTC. Stills every 5 minutes from 07:53:07 UTC, every minute from 07:56:57 UTC.
+- **Tags.** 40 mm tags 1 to 12 (36h11) in cell A1. Check still `075307_250557`: tags 1 to 12 found
+  once each, no other tray ID, sides 39.4 to 40.5 mm at the calibration scale; no calliper readings
+  of these prints are recorded here. Calibration `20261014T111147292361`, lens 6.05.
+- **Offset.** Layout 1 (gaps) was already in place at the first still, so the 40 mm offset is
+  learned from the layout 1 stills, as in 15.5h (FastSAM mask centres, `footprint.py --common`),
+  and fixed before any later still is looked at. **Layout 1 is the learning layout and is left out
+  of the placement count; shuffles 2 to 21 are the test.**
+- **Gaps and touching.** Odd shuffles with gaps between the trays, even shuffles pushed together
+  within rows. Every count in step 3 of the analysis is reported for each condition apart.
+- **Timing.** Shuffles about every 10 minutes, as Aaron's other work allows; not all 21 may be
+  done. Layout boundaries are found from the stills (where the tags move); Aaron's start times are
+  a cross-check, and a disagreement is reported.
+- **Missing tags.** Every still with a tag missing that is found in the stills around it is looked
+  at and labelled *person in frame* (something visibly covers the tag) or *not found, nothing in the
+  way*. Only the second counts against the 95% target; the first is counted apart. The 5 mm rule
+  is unchanged. How often and for how long a person hides tags, and whether a missing tag ever
+  led to a wrong placement, is reported for the app port (#220).
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for
