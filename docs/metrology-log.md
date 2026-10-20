@@ -4397,7 +4397,9 @@ Layout 20a (not as planned, counted apart): 15 positions in 3 settled stills, 15
   a phone and a blue folder laid on trays 1 and 3 for 17 to 18 stills in layout 19 (Aaron's
   supervisor in the chamber). 3 (trays 3, 5 and 7 in `115457_578163`, layout 18) are uncovered but
   blurred by movement: Aaron is in the frame and the trays moved during the exposure, less than
-  5 mm between the stills either side. Counted as *not found, nothing in the way*.
+  5 mm between the stills either side. Counted as *not found, nothing in the way*, as declared;
+  in that still Aaron is in the chamber, fully blocking several trays (Aaron, 2026-10-20), so it is
+  a poor example of a tag missed with nothing in the way.
 - **Placed.** Of the 3184 positions not covered, 3181 placed (99.9%), 3 not found.
 - **Steadiness** (228 tray layouts, settled stills, all daytime with people in and out): rms of the
   placed centre median 0.27 mm, max 2.0 mm; largest single distance from a tray's mean 5.0 mm
@@ -4421,6 +4423,13 @@ caught. Each placed centre held within 2.0 mm rms while nothing moved. Hidden ta
 or objects in the frame, except 3 blurred by movement. Not shown: night or quiet hours, plants, A1
 holding anything but the tag, fewer than 12 trays, the outline against a measured tray edge. The
 mismatches were checked by Aaron from the pictures after the analysis, not recorded at the time.
+
+**Quiet and dark windows, planned before the stills (Aaron, 2026-10-20).** The experiment keeps
+running overnight unchanged (one still per minute, layout 20b, chamber closed) until 09:30 chamber
+time on 21 October, for the steadiness of step 4 in the quiet window (17:00 to 23:00) and the dark
+(23:00 to 09:30). Disk before: 843 GB free; the experiment held 1.8 GB in 380 stills (about 4.8 MB
+each), so about 1150 more stills need about 5.5 GB. Analysed with `shuffle_day.py`, the stills
+after the layout 20b move all belonging to layout 20b unless a move is found; results added here.
 
 ### 15.6 Round 1 review
 
