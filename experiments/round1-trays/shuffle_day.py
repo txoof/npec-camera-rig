@@ -35,7 +35,7 @@ MAPS = trays.SESSIONS / "shuffle-maps-2026-10-20.json"
 TIMES = trays.HERE / "shuffle-times-2026-10-20.csv"
 TRAY_TYPE = "4x5 40 mm tag in A1"
 SETTLED_MM = 5.0  # 15.5l rule 2, a decision
-MATCH_S = 180  # a move ends within this of a leave time (a decision, 20 October)
+MATCH_S = 600  # a move ends within this of its leave time (a decision, 20 October, after the second run)
 OUT = trays.SCRATCH.parent / "round2-shuffles"
 
 
@@ -48,10 +48,10 @@ def leave_times(path, day: str) -> list[dict]:
 
 
 def assign_layouts(stills: list[dict], shuffles: list[dict]) -> None:
-    """Layouts from the stills: each run of stills that are not settled is a move, matched to the
-    leave time nearest its end (within MATCH_S); the stills after it, to the next matched move,
-    belong to that shuffle's layout. A run with no leave time near it (a person in the chamber,
-    nothing moved) starts no layout. Prints each move against Aaron's leave time."""
+    """Layouts from the stills: each run of stills that are not settled is a move. Each shuffle, in
+    order, takes the unused move whose end is nearest its leave time (within MATCH_S); the stills
+    after it, to the next matched move, belong to that shuffle's layout. A move no shuffle takes
+    (a person in the chamber) starts no layout. Prints each move against Aaron's leave time."""
     runs, cur = [], []
     for i, s in enumerate(stills):
         if not s["settled"]:
@@ -62,20 +62,25 @@ def assign_layouts(stills: list[dict], shuffles: list[dict]) -> None:
     if cur:
         runs.append(cur)
     starts = {0: shuffles[0]["shuffle"]} if stills else {}
-    print("moves found in the stills, against Aaron's leave times:")
-    for run in runs:
-        first_after = run[-1] + 1
-        if first_after >= len(stills):
+    ends = [r[-1] + 1 for r in runs if r[-1] + 1 < len(stills)]  # first settled still after each move
+    used = set()
+    for sh in shuffles[1:]:  # each shuffle takes the unused move ending nearest its leave time
+        free = [e for e in ends if e not in used and abs(stills[e]["t"] - sh["t"]) <= MATCH_S]
+        if not free:
+            print(f"  shuffle {sh['shuffle']}: no move found within {MATCH_S} s of his leave time")
             continue
-        t_end = stills[first_after]["t"]
-        sh = min(shuffles, key=lambda sh: abs(sh["t"] - t_end))
-        dt = t_end - sh["t"]
-        ok = abs(dt) <= MATCH_S
-        print(f"  {stills[run[0]]['still']} to {stills[run[-1]]['still']} ({len(run)} not settled): "
-              + (f"shuffle {sh['shuffle']}, first settled still {dt:+.0f} s from his leave time" if ok
-                 else f"no leave time within {MATCH_S} s (nearest shuffle {sh['shuffle']}, {dt:+.0f} s): no new layout"))
-        if ok:
-            starts[first_after] = sh["shuffle"]
+        e = min(free, key=lambda e: abs(stills[e]["t"] - sh["t"]))
+        used.add(e)
+        starts[e] = sh["shuffle"]
+    print("moves found in the stills, against Aaron's leave times:")
+    for r in runs:
+        e = r[-1] + 1
+        if e >= len(stills):
+            continue
+        sh = next((x for x in shuffles if x["shuffle"] == starts.get(e)), None)
+        what = (f"shuffle {sh['shuffle']}, first settled still {stills[e]['t'] - sh['t']:+.0f} s from his leave time"
+                if sh else "no shuffle (nothing planned moved): no new layout")
+        print(f"  {stills[r[0]]['still']} to {stills[r[-1]]['still']} ({len(r)} not settled): {what}")
     lay = ""
     for i, s in enumerate(stills):
         lay = starts.get(i, lay)

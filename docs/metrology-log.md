@@ -4358,6 +4358,54 @@ image or sidecar file exists, and the gallery does not show it. The scheduled st
 (Aaron, 2026-10-20: possibly the scheduler). Left out of the analysis; nothing in the experiment
 folder or `rig.db` was changed.
 
+**Changed after the first two runs of `shuffle_day.py`, before the results below.** Run 1 split
+layouts at Aaron's leave minute and put 3 stills, taken 2 to 3 s before the minute he wrote,
+into the layout before; run 2 matched each move to the nearest leave time within 180 s and missed
+shuffle 14 (its move ended 238 s after the time written). As run, each shuffle in order takes the
+unused move (a run of stills not settled) whose end is nearest its leave time, within 600 s; a
+move no shuffle takes starts no layout. The placement rule, offset and settled rule did not change.
+
+**Results (20 October 2026), before Aaron's check of layouts 3, 11 and 12.** `shuffle_day.py
+--experiment "tray tracking 26.10.20" --until 2026-10-20T13:31:00`: 336 stills, `075307_250557` to
+`133057_624157` (one record with no image left out, above). Output
+`shuffle-day-2026-10-20_57f74959.csv`, printout `~/scratch/round2-shuffles/run3.txt`, a picture of
+the first settled still of each layout `~/scratch/round2-shuffles/layout*.jpg`, a crop of every
+missing tag `missing-*.jpg`. 20 shuffles were done (21 not); every one was found in the stills, the
+layout in place 2 s before to 4 minutes after the time Aaron wrote, except 20b (9 minutes before:
+Aaron's note says it was started 15:20 and completed 15:30). One move matched no shuffle
+(`123257_585386`, 1 still, during layout 19; not looked at).
+
+| Counted layouts (2 to 19, 20b) | Gaps (9 layouts) | Touching (10 layouts) | All |
+|---|---|---|---|
+| Tray positions in settled stills | 1884 | 1344 | 3228 |
+| In the planned slot and corner | 1767 | 1275 | 3042 |
+| Wrong against the map | 76 (layouts 3, 11) | 63 (layout 12) | 139 |
+| Tag not found: person in frame | 41 | 3 | 44 |
+| Tag not found: nothing in the way | 0 | 3 | 3 |
+| Smallest margin between the two candidates | 184.0 mm | 103.4 mm | 103.4 mm |
+
+Layout 20a (not as planned, counted apart): 15 positions in 3 settled stills, 15 as the map, 21 not.
+
+- **Wrong against the map.** Each holds in every settled still of its layout with a margin of at
+  least 186 mm. Layout 3: trays 1 and 10 exchanged (North 4 and 5); tray 1 carries the benchmark,
+  which the picture shows in North 4, where the rig placed it. Layout 11: trays 4 and 10 exchanged
+  (South 5 and 6), the tray in South 6 with A1 at NE, not SW. Layout 12: 7 trays in their planned
+  slots turned 180 from the map. In all three pictures each tag lies where the rig places it.
+  Whether the trays were laid out as the map is not recorded (Aaron records times and gaps only);
+  Aaron's check of the pictures is below.
+- **Missing tags.** 47 of 3228 positions. 44 are covered: an arm or head, the clipboard, a tablet,
+  a phone and a blue folder laid on trays 1 and 3 for 17 to 18 stills in layout 19 (Aaron's
+  supervisor in the chamber). 3 (trays 3, 5 and 7 in `115457_578163`, layout 18) are uncovered but
+  blurred by movement: Aaron is in the frame and the trays moved during the exposure, less than
+  5 mm between the stills either side. Counted as *not found, nothing in the way*.
+- **Placed.** Of the 3184 positions not covered, 3181 placed (99.9%), 3 not found.
+- **Steadiness** (228 tray layouts, settled stills, all daytime with people in and out): rms of the
+  placed centre median 0.27 mm, max 2.0 mm; largest single distance from a tray's mean 5.0 mm
+  (layout 18, tray 6). No quiet or dark window was photographed.
+
+**Against round 2 target 1, as declared.** At least 95% placed: met (99.9%). No tray in a wrong
+slot or corner: not met against the map (139 positions in 3 layouts), pending Aaron's check.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for
