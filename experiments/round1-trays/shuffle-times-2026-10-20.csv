@@ -1,16 +1,24 @@
-# Aaron's table, 2026-10-20: time he left the chamber (layout in place), chamber time UTC+2
-shuffle,gaps,left_chamber,left_chamber_utc,note
-1,gap,09:53,07:53,Learning image
-2,touching,10:03,08:03,
-3,gap,10:15,08:15,
-4,touching,10:27,08:27,
-5,gap,10:39,08:39,
-6,touching,10:52,08:52,
-7,gap,11:14,09:14,
-8,touching,11:27,09:27,
-9,gap,11:40,09:40,
-10,touching,11:53,09:53,
-11,gap,12:08,10:08,
-12,touching,12:39,10:39,
-13,gap,12:52,10:52,
-14,touching,13:01,11:01,
+# Aaron's table, 2026-10-20: time he left the chamber (layout in place), chamber time UTC+2.
+# Shuffle 21 (gap) not done. Aaron's supervisor was in the chamber at times, blocking trays and the benchmark (times not recorded).
+shuffle,gaps,left_chamber,left_chamber_utc,note,status
+1,gap,09:53,07:53,"Learning image",learning
+2,touching,10:03,08:03,"",
+3,gap,10:15,08:15,"",
+4,touching,10:27,08:27,"",
+5,gap,10:39,08:39,"",
+6,touching,10:52,08:52,"",
+7,gap,11:14,09:14,"",
+8,touching,11:27,09:27,"",
+9,gap,11:40,09:40,"",
+10,touching,11:53,09:53,"",
+11,gap,12:08,10:08,"",
+12,touching,12:39,10:39,"",
+13,gap,12:52,10:52,"",
+14,touching,13:01,11:01,"",
+15,gap,13:19,11:19,"",
+16,touching,13:30,11:30,"",
+17,gap,13:43,11:43,"",
+18,touching,13:55,11:55,"",
+19,gap,14:08,12:08,"Knocked at least one AprilTag out of one tray",
+20a,touching,15:15,13:15,"trays not properly rotated",not as planned
+20b,touching,15:30,13:30,"trays rotated properly; started 15:20, completed 15:30",

@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -33,7 +34,6 @@ from shuffle import TRAY_TAGS, TRAY_TYPES, detect, experiment_folder, place_any_
 MAPS = trays.SESSIONS / "shuffle-maps-2026-10-20.json"
 TIMES = trays.HERE / "shuffle-times-2026-10-20.csv"
 TRAY_TYPE = "4x5 40 mm tag in A1"
-LEARNING = 1
 SETTLED_MM = 5.0  # 15.5l rule 2, a decision
 MATCH_S = 180  # a move ends within this of a leave time (a decision, 20 October)
 OUT = trays.SCRATCH.parent / "round2-shuffles"
@@ -42,7 +42,8 @@ OUT = trays.SCRATCH.parent / "round2-shuffles"
 def leave_times(path, day: str) -> list[dict]:
     with open(path) as f:
         rows = list(csv.DictReader(line for line in f if not line.startswith("#")))
-    return [{"shuffle": int(r["shuffle"]), "gaps": r["gaps"],
+    return [{"shuffle": r["shuffle"], "round": int(re.match(r"\d+", r["shuffle"]).group()), "gaps": r["gaps"],
+             "status": r["status"],
              "t": datetime.fromisoformat(f"{day}T{r['left_chamber_utc']}:00+00:00").timestamp()} for r in rows]
 
 
@@ -60,7 +61,7 @@ def assign_layouts(stills: list[dict], shuffles: list[dict]) -> None:
             cur = []
     if cur:
         runs.append(cur)
-    starts = {0: 1} if stills else {}
+    starts = {0: shuffles[0]["shuffle"]} if stills else {}
     print("moves found in the stills, against Aaron's leave times:")
     for run in runs:
         first_after = run[-1] + 1
@@ -75,7 +76,7 @@ def assign_layouts(stills: list[dict], shuffles: list[dict]) -> None:
                  else f"no leave time within {MATCH_S} s (nearest shuffle {sh['shuffle']}, {dt:+.0f} s): no new layout"))
         if ok:
             starts[first_after] = sh["shuffle"]
-    lay = 0
+    lay = ""
     for i, s in enumerate(stills):
         lay = starts.get(i, lay)
         s["layout"] = lay
@@ -120,13 +121,16 @@ def main(argv: list[str]) -> None:
         s["max_move_mm"] = max(moved) if moved else None
         s["settled"] = bool(moved) and max(moved) <= SETTLED_MM
     assign_layouts(stills, shuffles)
+    rnd = {sh["shuffle"]: sh["round"] for sh in shuffles}
+    status = {sh["shuffle"]: sh["status"] for sh in shuffles}  # "learning" and "not as planned" are counted apart
+    order = [sh["shuffle"] for sh in shuffles]
 
     rows, centres = [], defaultdict(list)
     OUT.mkdir(parents=True, exist_ok=True)
     pictured = set()
     for k, s in enumerate(stills):
         sf, slots = cal[s["calibration"]]
-        want = plan.get(s["layout"], {})
+        want = plan.get(rnd[s["layout"]], {})
         img = None
         if s["settled"] and s["layout"] not in pictured:
             img = cv2.imread(str(s["path"]))
@@ -164,14 +168,14 @@ def main(argv: list[str]) -> None:
                     cv2.imwrite(str(OUT / f"missing-{s['still']}-tag{n}.jpg"), cv2.resize(crop, None, fx=0.5, fy=0.5))
             rows.append(row)
         if img is not None:
-            cv2.imwrite(str(OUT / f"layout{s['layout']:02d}-{s['still']}.jpg"), cv2.resize(img, None, fx=0.25, fy=0.25))
+            cv2.imwrite(str(OUT / f"layout{s['layout']:0>3}-{s['still']}.jpg"), cv2.resize(img, None, fx=0.25, fy=0.25))
     trays.write_csv(trays.HERE / f"shuffle-day-{folder}.csv", rows)
 
     gaps = {sh["shuffle"]: sh["gaps"] for sh in shuffles}
     print(f"{args.experiment} ({folder}): {len(stills)} stills, {stills[0]['still']} to {stills[-1]['still']}")
     print("\nlayout  gaps      stills  settled  right  wrong  not found  min margin mm  max d_slot mm")
     total = defaultdict(Counter)
-    for lay in sorted({s["layout"] for s in stills}):
+    for lay in [x for x in order if any(s["layout"] == x for s in stills)]:
         rs = [r for r in rows if r["layout"] == lay and r["settled"]]
         c = Counter("right" if r.get("right") else "not found" if not r["found"] else "wrong" for r in rs)
         found = [r for r in rs if r["found"]]
@@ -179,17 +183,17 @@ def main(argv: list[str]) -> None:
         n_set = len({r["still"] for r in rs})
         mm = min((r["margin_mm"] for r in found), default=float("nan"))
         md = max((r["d_slot_mm"] for r in found), default=float("nan"))
-        tag = " (learning)" if lay == LEARNING else ""
-        print(f"  {lay:2d}    {gaps.get(lay, ''):9s} {n_st:4d}   {n_set:4d}    {c['right']:4d}  {c['wrong']:4d}  {c['not found']:6d}"
+        tag = f" ({status[lay]})" if status[lay] else ""
+        print(f"  {lay:>3}    {gaps.get(lay, ''):9s} {n_st:4d}   {n_set:4d}    {c['right']:4d}  {c['wrong']:4d}  {c['not found']:6d}"
               f"      {mm:7.1f}       {md:7.1f}{tag}")
-        if lay != LEARNING:
+        if not status[lay]:
             total[gaps.get(lay, "")].update(c)
             total["all"].update(c)
     for g, c in total.items():
         n = sum(c.values())
         print(f"  total {g:9s}: right {c['right']} of {n} ({100 * c['right'] / n:.1f}%), wrong {c['wrong']}, not found {c['not found']}")
     for r in rows:
-        if r["settled"] and r["found"] and not r["right"] and r["layout"] != LEARNING:
+        if r["settled"] and r["found"] and not r["right"] and not status[r["layout"]]:
             print(f"  wrong: layout {r['layout']} {r['still']} tray {r['tray']}: {r['slot']} {r['a1']}, "
                   f"planned {r['planned_slot']} {r['planned_a1']}")
     twice = sorted({(r["still"], r["tray"]) for r in rows if r["copies"] > 1})
@@ -199,7 +203,7 @@ def main(argv: list[str]) -> None:
     print("\nsteadiness of each placed centre over settled stills, mm (layouts after the learning one)")
     spread = []
     for (lay, n), cs in sorted(centres.items()):
-        if lay == LEARNING or len(cs) < 2:
+        if status[lay] or len(cs) < 2:
             continue
         d = np.linalg.norm(np.array(cs) - np.mean(cs, axis=0), axis=1)
         spread.append((lay, n, float(np.sqrt(np.mean(d ** 2))), float(d.max()), len(cs)))
@@ -209,9 +213,9 @@ def main(argv: list[str]) -> None:
         print(f"  {len(spread)} tray-layouts: rms median {np.median(rms):.2f}, max {rms.max():.2f}; "
               f"largest single {mx[3]:.2f} (layout {mx[0]} tray {mx[1]}, {mx[4]} stills)")
     print(f"\nmoving stills (not settled), by layout:")
-    for lay in sorted({s["layout"] for s in stills}):
+    for lay in [x for x in order if any(s["layout"] == x for s in stills)]:
         mv = [s["still"] for s in stills if s["layout"] == lay and not s["settled"]]
-        print(f"  {lay:2d}: {len(mv)} {' '.join(mv)}")
+        print(f"  {lay:>3}: {len(mv)} {' '.join(mv)}")
     print(f"\npictures and missing-tag crops in {OUT}")
 
 
