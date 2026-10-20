@@ -4354,7 +4354,7 @@ Within layout 1, each tray's offset spreads at most 1.0 to 7.9 mm across the 6 s
 2026-10-20T11:00:48.405213 UTC, in this experiment, path `.../110048_405213`, with lens position 1.0,
 exposure 20000 us, no calibration, no validation, flags "focus not locked" and "no calibration". No
 image or sidecar file exists, and the gallery does not show it. The scheduled stills either side
-(`105957_...`, `110057_592292`) are normal (lens 6.05, focus locked). Its source is not known
+(`105957_604718`, `110057_592292`) are normal (lens 6.05, focus locked). Its source is not known
 (Aaron, 2026-10-20: possibly the scheduler). Left out of the analysis; nothing in the experiment
 folder or `rig.db` was changed.
 
