@@ -121,8 +121,53 @@
             ? `<div class="gallery-flag">Not covered by the validation bands:
                 ${item.flags.join("; ")}</div>`
             : ""}
+          <div class="row"><button type="button" class="btn hit" data-tags="${item.path}">Show tags</button></div>
+          <div data-tags-list hidden style="word-break: normal"></div>
+          <button type="button" class="figure" data-tags-photo hidden><img alt="Photo taken ${dayLabel(taken)} ${time}, tags marked"></button>
         </div>`;
     }
+
+    // Show tags (#194): the tags found in the full-size photo, listed under it, then the photo
+    // with each tag outlined and labelled opens full screen. The first search of a photo reads
+    // it at full size and takes a while; later ones read the stored result.
+    const ROLE_NAMES = { tray: "Tray tags", calibration: "Calibration tags", corner: "Corner tags", other: "Other tags" };
+
+    function tagListText(tags) {
+      if (tags.length === 0) return "No tags found.";
+      const byRole = {};
+      for (const tag of tags) (byRole[tag.role] ??= []).push(tag.id);
+      return Object.keys(ROLE_NAMES).filter((role) => byRole[role])
+        .map((role) => `${ROLE_NAMES[role]} (${byRole[role].length}): ${byRole[role].sort((a, b) => a - b).join(", ")}`)
+        .join(". ") + ".";
+    }
+
+    async function showTags(btn) {
+      const item = btn.closest(".gallery-item");
+      const list = item.querySelector("[data-tags-list]");
+      const photo = item.querySelector("[data-tags-photo]");
+      btn.disabled = true;
+      btn.textContent = "Finding tags";
+      list.hidden = false;
+      list.textContent = "Searching the full-size photo. The first search of a photo takes about 10 seconds.";
+      try {
+        const r = await fetch(`/api/captures/tags/${btn.dataset.tags}`);
+        if (!r.ok) throw new Error(r.statusText);
+        list.textContent = tagListText(await r.json());
+        const image = photo.querySelector("img");
+        if (!image.hasAttribute("src")) image.src = `/gallery/image/tags/${btn.dataset.tags}`;
+        photo.click();  // lightbox.js opens it
+      } catch (err) {
+        list.textContent = "Could not search this photo for tags. Tap Show tags to try again.";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Show tags";
+      }
+    }
+
+    gallery.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-tags]");
+      if (btn) showTags(btn);
+    });
 
     // The grid for `item`'s local day: the last (or, at the top, the first) one if it is that
     // day, otherwise a new day section after (or before) the others.

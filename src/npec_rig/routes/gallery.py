@@ -1,12 +1,16 @@
 """Routes for the Gallery page: the photo list and reduced copies of each photo."""
 
+import cv2
+import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from npec_rig import images
+from npec_rig import images, photo_tags
 from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import PHOTO_KEY, capture_hours, list_recent_captures, photo_file
 from npec_rig.routes.shared import derived_response, templates
+from npec_rig.text_render import text_layer, text_width
+from npec_rig.tags import CALIBRATION_ID_RANGE, CORNER_ID_RANGE, TRAY_ID_RANGE, TagDetection
 
 router = APIRouter()
 
@@ -43,9 +47,53 @@ def api_capture_hours(experiment: int | None = None) -> list[dict]:
         raise HTTPException(404, str(exc)) from exc
 
 
+def _photo_tags(path: str) -> list[TagDetection]:
+    """Every tag in gallery photo `path`, searched once and then read from the analysis store
+    (images.py). A rig photo is stored under its capture reference, so it shares its search with
+    the calibration and validation pages; an experiment still under its whole gallery path."""
+    try:
+        found = photo_file(path)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if found is None:
+        raise HTTPException(404, f"photo {path} not found")
+    source = path.removeprefix("rig/")
+    return images.tag_detections(source, found, detect=lambda frame: photo_tags.detect_tags(frame))
+
+
+def _tag_role(tag_id: int) -> str:
+    for role, ids in (("tray", TRAY_ID_RANGE), ("calibration", CALIBRATION_ID_RANGE), ("corner", CORNER_ID_RANGE)):
+        if tag_id in ids:
+            return role
+    return "other"
+
+
+@router.get("/api/captures/tags/{path:path}")
+def api_photo_tags(path: str) -> list[dict]:
+    """The tags in gallery photo `path`: each one's ID, role (tray, calibration, corner or other)
+    and centre in full-size pixels. Only shows what the detector found; nothing is stored about
+    trays."""
+    return [
+        {"id": d.tag_id, "role": _tag_role(d.tag_id), "centre_px": [round(d.centre[0]), round(d.centre[1])]}
+        for d in _photo_tags(path)
+    ]
+
+
 # Gallery image sizes, as widths in pixels: a thumbnail, and a copy for the chamber screen when a
 # thumbnail is tapped (#56). Never the 64MP original.
 _GALLERY_WIDTHS = {"thumb": 480, "screen": 1600}
+
+
+@router.get("/gallery/image/tags/{path:path}")
+def gallery_tags_image(path: str) -> Response:
+    """Photo `path` at the screen copy's size with every tag outlined and labelled with its ID,
+    tray tags as "Tray <id>". Searches the photo first if it has not been searched yet."""
+    _photo_tags(path)  # the 404 and 422 answers, and the search, before the store is asked
+    return derived_response(
+        "gallery_tags",
+        path,
+        {"photo": path, "width": _GALLERY_WIDTHS["screen"], "tag_detector_version": images.TAG_DETECTOR_VERSION},
+    )
 
 
 @router.get("/gallery/image/{size}/{path:path}")
@@ -71,6 +119,39 @@ def _render_gallery_image(inputs: dict) -> bytes:
     return array_to_jpeg(image)
 
 
+_TAG_COLOUR = (255, 0, 255)  # magenta, as tags.draw_overlay
+
+
+def _render_gallery_tags_image(inputs: dict) -> bytes:
+    """Outlines each tag on the reduced copy, a thick line for a tray tag and a thin one for the
+    others, with its label beside it: the words, not the line, say which is a tray tag."""
+    found = photo_file(inputs["photo"])
+    if found is None:
+        raise HTTPException(404, f"photo {inputs['photo']} not found")
+    image, scale = images.reduced_frame(found, inputs["width"])
+    detections = _photo_tags(inputs["photo"])
+    for d in detections:
+        points = (np.array(d.corners) * scale).round().astype(np.int32).reshape(-1, 1, 2)
+        cv2.polylines(image, [points], isClosed=True, color=_TAG_COLOUR, thickness=3 if d.tag_id in TRAY_ID_RANGE else 1)
+    with text_layer(image) as layer:
+        for d in detections:
+            label = f"Tray {d.tag_id}" if d.tag_id in TRAY_ID_RANGE else str(d.tag_id)
+            top = min(y for _x, y in d.corners) * scale
+            half = text_width(label, 0.8) / 2 + 3  # kept inside the frame, a tag at the edge too
+            x = min(max(d.centre[0] * scale, half), image.shape[1] - half)
+            layer.text(
+                label,
+                (round(x), max(round(top) - 6, 24)),
+                0.8,
+                _TAG_COLOUR,
+                anchor="ms",
+                stroke_width=3,
+                stroke_fill=(0, 0, 0),
+            )
+    return array_to_jpeg(image)
+
+
 # Bump a recipe's version whenever its renderer would draw the same inputs differently.
 images.register(images.Recipe("gallery_thumb", 1, _render_gallery_image))
 images.register(images.Recipe("gallery_screen", 1, _render_gallery_image))
+images.register(images.Recipe("gallery_tags", 1, _render_gallery_tags_image))
