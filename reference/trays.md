@@ -54,6 +54,10 @@ the tray boundary (Aaron, 2026-10-17); the tags inside the boundary are handled 
 - **From the week of 2026-10-19:** the green 30 mm tags go; every tray tag is a 20 mm paper tag at
   A1 (statement by Aaron, 2026-10-15); on 4 x 5 trays outside the tray at the A1 corner (Aaron,
   2026-10-17).
+- **4 x 5 tray tags from 2026-10-21:** the 3D-printed default is the `lip_round` tag, a 40 mm tag
+  on a 60.5 mm plate with a lip (version 2's 4x5 design, `hardware/tray_tags/`, RV1.19). It is
+  larger than the 27 mm side clearance above; Aaron decided the 27 mm limit no longer applies to
+  it (2026-10-21). The 20 mm `tab` tag is still available as a style.
 - Every printed tag sheet is measured with callipers (CLAUDE.md, *Facts not to rediscover*).
 - 20 mm tags need the detector's finer bit sampling (setting C, #156: 171 of 171 found against 121
   of 171).
