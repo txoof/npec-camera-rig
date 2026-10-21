@@ -384,10 +384,18 @@ metrology log backs it.
   the slot and corner known from a plan or from Aaron's check, gaps and touching, tags in any
   rotation: 215 of 216 in 18 stills (15.5j; the one miss a tag not found) and 288 of 288 in 24
   stills (15.5k). A further 22 stills (15.5h) were checked by eye only. That is one day,
-  12 trays of 4 x 5 cells in portrait, paper 30 mm tags lying flat in an empty cell A1. Not
-  shown: the tray outline against a measured tray edge; the 40 mm tags planned for round 2 (their
-  offset is still to be learned); fewer than 12 trays; other tray types; cell A1 holding
-  anything but the tag.
+  12 trays of 4 x 5 cells in portrait, paper 30 mm tags lying flat in an empty cell A1.
+  With the 40 mm tags (20 October, 15.5l), the offset learned once from one layout, through 19
+  random layouts on one day with scheduled stills every minute: 3181 of 3184 uncovered tray
+  positions in the slot and corner as laid out, 0 wrong, 3 tags not found (blurred by movement);
+  the rule also caught 3 layouts that differed from the plan (confirmed by Aaron from the
+  pictures). Each placed centre held within 2.0 mm rms while nothing moved. 44 positions were
+  hidden by people or objects in the chamber. Overnight with nothing moved (15.5l), all 12 tags
+  were found in every lit still and each tray's centre returned within 0.65 mm of its evening
+  position after 7.5 hours of darkness; with the lights off no tag is found, so night stills hold
+  no tray data. Not shown: the tray outline against a measured tray edge; more than one night; an
+  in-between light level; fewer than 12 trays; other tray types; cell A1 holding anything but
+  the tag.
 - **Tray tags over time.** No run with trays longer than one hour, so the chamber's light cycle,
   dust and condensation on tags are not covered. 3D-printed tags are not tested (#70). A tag print
   lying anywhere in view is read as a tray (15.3d, #207).

@@ -54,7 +54,23 @@ Outline green: one tray. Red: several trays (MERGED). Orange: no tray tag (NO TA
 fitted rectangle. Magenta dot and number: a tray tag's centre and ID. Text: tray, slot by method B,
 fitted size.
 
-## Resume here (state on 2026-10-19)
+## Resume here (state on 2026-10-20)
+
+20 October shuffles done and written up in 15.5l (issue #236): 40 mm tags in cell A1, offset
+learned once from layout 1 (`learn_offset.py`, tray type `4x5 40 mm tag in A1` in `shuffle.py`),
+then 19 counted layouts with scheduled stills every minute: 3181 of 3184 uncovered positions in the
+slot and corner as laid out, 0 wrong after Aaron's check of layouts 3, 11 and 12. Script
+`shuffle_day.py` (layouts found from the stills, matched to Aaron's leave times in
+`shuffle-times-2026-10-20.csv`); pictures and missing-tag crops in `~/scratch/round2-shuffles/`.
+
+Overnight (15.5l): layout 20b to the stop at 07:04 UTC on 21 October, `overnight.py` by window;
+lights off 23:28 to 07:01 UTC, no tag found in the dark, every tag found in every lit still,
+trays back within 0.65 mm in the morning.
+
+    PYTHONPATH=<worktree>/src <venv python> shuffle_day.py --experiment "tray tracking 26.10.20" --until 2026-10-21T07:05:00
+    PYTHONPATH=<worktree>/src <venv python> overnight.py shuffle-day-2026-10-20_57f74959.csv
+
+## State on 2026-10-19
 
 19 October sessions done and written up: 15.5f (pots, edge tags), 15.5g (footprint from the
 tag), 15.5h (cell A1 tags), 15.5i (shuffling proof of concept). Result: trays placed from the

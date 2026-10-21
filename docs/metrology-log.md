@@ -4299,6 +4299,199 @@ it is.
 a measured tray edge; fewer than 12 trays. Where a still is judged moving depends on the 5 mm
 rule above.
 
+**Decided on the day, before any still after layout 1 was looked at** (Aaron, 2026-10-20, issue
+#236):
+
+- **Experiment and stills.** "tray tracking 26.10.20" (folder `2026-10-20_57f74959`), restarted by
+  Aaron at 07:52 UTC. Stills every 5 minutes from 07:53:07 UTC, every minute from 07:56:57 UTC.
+- **Tags.** 40 mm tags 1 to 12 (36h11) in cell A1. Check still `075307_250557`: tags 1 to 12 found
+  once each, no other tray ID, sides 39.4 to 40.5 mm at the calibration scale. Callipers (Aaron,
+  2026-10-20): 39.95 mm across the black square, quiet zone excluded; how many tags and readings
+  is not recorded. Tag size is not used by the placement rule. Calibration
+  `20261014T111147292361`, lens 6.05.
+- **Record of the shuffles.** Aaron writes down the time he leaves the chamber after each shuffle
+  (the layout is then in place) and whether it has gaps, in a table, kept in his own log and copied
+  to `shuffle-times-2026-10-20.csv`. The marked sheets are not photographed (Aaron, 2026-10-20);
+  the table replaces them.
+- **Offset.** Layout 1 (gaps) was already in place at the first still, so the 40 mm offset is
+  learned from the layout 1 stills, as in 15.5h (FastSAM mask centres, `footprint.py --common`),
+  and fixed before any later still is looked at. **Layout 1 is the learning layout and is left out
+  of the placement count; shuffles 2 to 21 are the test.**
+- **Gaps and touching.** Odd shuffles with gaps between the trays, even shuffles pushed together
+  within rows. Every count in step 3 of the analysis is reported for each condition apart.
+- **Timing.** Shuffles about every 10 minutes, as Aaron's other work allows; not all 21 may be
+  done. Layout boundaries are found from the stills (where the tags move); Aaron's start times are
+  a cross-check, and a disagreement is reported.
+- **Missing tags.** Every still with a tag missing that is found in the stills around it is looked
+  at and labelled *person in frame* (something visibly covers the tag) or *not found, nothing in the
+  way*. Only the second counts against the 95% target; the first is counted apart. The 5 mm rule
+  is unchanged; a tag missing from a still or from the next still is left out of that comparison
+  (decided before the first run of `shuffle_day.py`). Layout N runs from Aaron's leave time after
+  shuffle N to his leave time after shuffle N + 1; the stills of a move fall at the end of the
+  layout before it and drop out as not settled. How often and for how long a person hides tags, and whether a missing tag ever
+  led to a wrong placement, is reported for the app port (#220).
+
+**The 40 mm offset, learned before the first shuffle was looked at.** Layout 1 is the 6 stills
+`075307_250557` to `080057_595732` (07:53 to 08:01 UTC; every tag within 0.2 mm of the first still;
+the next still, `080157_571787`, has 8 tags and moved). Session file `sessions/2026-10-20.json`,
+record `session-2026-10-20.csv`. `fastsam.py --session 2026-10-20 --name oct20-learn --margin
+1.15` placed 12 of 12 trays in all 6 stills (one still needed the fallback for 2 trays);
+`track.py`; then `learn_offset.py track-oct20-learn.csv`. For each tray, the tag-to-mask-centre
+vector is put in the frame `place_any_rotation` uses (A1 at SW, turned by the tilt only, reversed
+where layout 1 has A1 at NE). The corner is taken from the shuffle map, the known answer for
+layout 1. Three tags do not lie the 30 mm way round (trays 2 and 9 turned 180, tag 8 turned 90).
+
+| | Offset (right, up), mm | Trays from it, mm |
+|---|---|---|
+| 40 mm, 20 October (12 trays, 6 stills) | (-104.0, -141.6) | median 4.4, max 9.6 (tray 9) |
+| 30 mm, 15.5h, for comparison | (-107.8, -149.1) | max 18 |
+
+Within layout 1, each tray's offset spreads at most 1.0 to 7.9 mm across the 6 stills, except tray 1
+(19.5 mm; it carries the benchmark, not looked at). The offset is fixed as tray type
+`4x5 40 mm tag in A1` in `shuffle.py` and is not refitted.
+
+**Anomaly: a capture record with no image.** `rig.db` holds capture 725, taken_at
+2026-10-20T11:00:48.405213 UTC, in this experiment, path `.../110048_405213`, with lens position 1.0,
+exposure 20000 us, no calibration, no validation, flags "focus not locked" and "no calibration". No
+image or sidecar file exists, and the gallery does not show it. The scheduled stills either side
+(`105957_604718`, `110057_592292`) are normal (lens 6.05, focus locked). Its source is not known
+(Aaron, 2026-10-20: possibly the scheduler). Left out of the analysis; nothing in the experiment
+folder or `rig.db` was changed.
+
+**Changed after the first two runs of `shuffle_day.py`, before the results below.** Run 1 split
+layouts at Aaron's leave minute and put 3 stills, taken 2 to 3 s before the minute he wrote,
+into the layout before; run 2 matched each move to the nearest leave time within 180 s and missed
+shuffle 14 (its move ended 238 s after the time written). As run, each shuffle in order takes the
+unused move (a run of stills not settled) whose end is nearest its leave time, within 600 s; a
+move no shuffle takes starts no layout. The placement rule, offset and settled rule did not change.
+
+**Results (20 October 2026), before Aaron's check of layouts 3, 11 and 12.** `shuffle_day.py
+--experiment "tray tracking 26.10.20" --until 2026-10-20T13:31:00`: 336 stills, `075307_250557` to
+`133057_624157` (one record with no image left out, above). Output
+`shuffle-day-2026-10-20_57f74959.csv`, printout `~/scratch/round2-shuffles/run3.txt`, a picture of
+the first settled still of each layout `~/scratch/round2-shuffles/layout*.jpg`, a crop of every
+missing tag `missing-*.jpg`. 20 shuffles were done (21 not); every one was found in the stills, the
+layout in place 2 s before to 4 minutes after the time Aaron wrote, except 20b (9 minutes before:
+Aaron's note says it was started 15:20 and completed 15:30). One move matched no shuffle
+(`123257_585386`, 1 still, during layout 19; not looked at).
+
+| Counted layouts (2 to 19, 20b) | Gaps (9 layouts) | Touching (10 layouts) | All |
+|---|---|---|---|
+| Tray positions in settled stills | 1884 | 1344 | 3228 |
+| In the planned slot and corner | 1767 | 1275 | 3042 |
+| Wrong against the map | 76 (layouts 3, 11) | 63 (layout 12) | 139 |
+| Tag not found: person in frame | 41 | 3 | 44 |
+| Tag not found: nothing in the way | 0 | 3 | 3 |
+| Smallest margin between the two candidates | 184.0 mm | 103.4 mm | 103.4 mm |
+
+Layout 20a (not as planned, counted apart): 15 positions in 3 settled stills, 15 as the map, 21 not.
+
+- **Wrong against the map.** Each holds in every settled still of its layout with a margin of at
+  least 186 mm. Layout 3: trays 1 and 10 exchanged (North 4 and 5); tray 1 carries the benchmark,
+  which the picture shows in North 4, where the rig placed it. Layout 11: trays 4 and 10 exchanged
+  (South 5 and 6), the tray in South 6 with A1 at NE, not SW. Layout 12: 7 trays in their planned
+  slots turned 180 from the map. In all three pictures each tag lies where the rig places it.
+  Whether the trays were laid out as the map is not recorded (Aaron records times and gaps only);
+  Aaron's check of the pictures is below.
+- **Missing tags.** 47 of 3228 positions. 44 are covered: an arm or head, the clipboard, a tablet,
+  a phone and a blue folder laid on trays 1 and 3 for 17 to 18 stills in layout 19 (Aaron's
+  supervisor in the chamber). 3 (trays 3, 5 and 7 in `115457_578163`, layout 18) are uncovered but
+  blurred by movement: Aaron is in the frame and the trays moved during the exposure, less than
+  5 mm between the stills either side. Counted as *not found, nothing in the way*, as declared;
+  in that still Aaron is in the chamber, fully blocking several trays (Aaron, 2026-10-20), so it is
+  a poor example of a tag missed with nothing in the way.
+- **Placed.** Of the 3184 positions not covered, 3181 placed (99.9%), 3 not found.
+- **Steadiness** (228 tray layouts, settled stills, all daytime with people in and out): rms of the
+  placed centre median 0.27 mm, max 2.0 mm; largest single distance from a tray's mean 5.0 mm
+  (layout 18, tray 6). No quiet or dark window was photographed.
+
+**Against round 2 target 1, as declared.** At least 95% placed: met (99.9%). No tray in a wrong
+slot or corner: not met against the map (139 positions in 3 layouts), pending Aaron's check.
+
+**Aaron's check (2026-10-20).** Aaron looked at the pictures of layouts 3, 11 and 12 and recorded
+what was laid out (`shuffle-times-2026-10-20.csv`, notes): layout 3, tray 1 was in North 4, not
+North 5; layout 11, trays 4 and 10 were exchanged (tray 4 in South 6, tray 10 in South 5); layout
+12, trays in the planned slots, trays 1, 4, 6, 8 and 10 with A1 at NE instead of SW and trays 9 and
+11 at SW instead of NE. Each is what the rig found, tray by tray. Against what was laid out: 3042
++ 139 = 3181 of 3184 uncovered positions in the planned (as laid out) slot and corner, **0 wrong**,
+3 not found (blurred by movement).
+
+**What this shows.** Over 19 counted layouts through one day, 9 with gaps and 10 touching, the 15.5j
+rule with the 40 mm offset learned once from layout 1 put every found tray in the slot and corner it
+was in, in every settled still, including the 3 layouts that differed from the map, which it
+caught. Each placed centre held within 2.0 mm rms while nothing moved. Hidden tags were all people
+or objects in the frame, except 3 blurred by movement. Not shown: night or quiet hours, plants, A1
+holding anything but the tag, fewer than 12 trays, the outline against a measured tray edge. The
+mismatches were checked by Aaron from the pictures after the analysis, not recorded at the time.
+
+**Quiet and dark windows, planned before the stills (Aaron, 2026-10-20).** The experiment keeps
+running overnight unchanged (one still per minute, layout 20b, chamber closed) until 09:30 chamber
+time on 21 October, for the steadiness of step 4 in the quiet window (17:00 to 23:00) and the dark
+(23:00 to 09:30). Disk before: 843 GB free; the experiment held 1.8 GB in 380 stills (about 4.8 MB
+each), so about 1150 more stills need about 5.5 GB. Analysed with `shuffle_day.py`, the stills
+after the layout 20b move all belonging to layout 20b unless a move is found; results added here.
+
+*Overnight analysis, decided 2026-10-21 at 06:50 UTC, before any overnight still was looked at*
+(only the tag cache was being filled). Stills from the 20b move to 07:30 UTC (09:30 chamber time),
+1372 stills in the experiment at 06:47 UTC with no minute missed. Aaron (2026-10-21): the lights
+come up from about 09:00 and reach full light about 09:30 chamber time.
+
+- **Windows** (chamber time, UTC+2): *day* to 17:00 on 20 October; *quiet* 17:00 to 23:00;
+  *dark* 23:00 to 09:00; *light coming up* 09:00 to 09:30, reported apart from the dark. Each
+  still's mean brightness (grey level, 0 to 255) is recorded, so when the lights changed is
+  read from the stills, not assumed.
+- **Tag detection per window, over every still**, settled or not: stills with all 12 tags, the
+  tags found per still (min, median), each tray's misses. A still with no tag found cannot be
+  judged settled, so detection is counted over all stills, not only the settled ones.
+- **Placement and steadiness per window**, settled stills only, as for the day: right, wrong, not
+  found; the rms and max of each tray's placed centre about its mean *within that window*, and
+  the largest distance between a tray's mean in one window and in the next.
+- Nobody entered the chamber overnight as far as is known; any move found is reported, not
+  explained.
+- **Ended early** (Aaron, 2026-10-21, before the results): Aaron stopped the experiment at
+  07:04:17 UTC (09:04 chamber time) and called the test done; the last still is `070359_857510`.
+  The *light coming up* window therefore holds only the few stills from 07:00 UTC to the stop.
+
+**Overnight results (21 October 2026).** `shuffle_day.py --experiment "tray tracking 26.10.20"
+--until 2026-10-21T07:05:00` then `overnight.py shuffle-day-2026-10-20_57f74959.csv`; outputs
+`shuffle-day-2026-10-20_57f74959.csv` (replacing the day's file; layouts 1 to 20a unchanged,
+20b now runs to the stop), `overnight-2026-10-20_57f74959.csv` (one row per still),
+printouts `~/scratch/round2-shuffles/run4.txt` and `overnight.txt`, timeline
+`overnight-timeline-2026-10-20_57f74959.png`. Layout 20b: 1066 stills, `132057_582161` to
+`070359_857510`, one per minute with no gap; two extra stills at 07:03:49 and 07:03:55 UTC, just
+before the stop, source not recorded. No move was found in layout 20b.
+
+- **When the lights changed, from the stills.** Mean brightness 105.3 to 105.9 until 23:27:57 UTC,
+  falling slightly over the last minutes; 0.2 to 0.3 from 23:28:57 UTC (01:29 chamber time) to
+  07:00:59 UTC; 89.4 at 07:01:59 and 104.1 to 104.7 from 07:03:49 UTC (09:02 to 09:04 chamber time).
+  The change each way took under a minute, with no stills in between. The chamber's dark period
+  is therefore about 01:29 to 09:02 chamber time, not 23:00 to 09:30 as assumed in the method; the
+  windows were kept as declared and the times are reported as found.
+
+| Window (chamber time) | Stills | All 12 tags found | No tag found | Settled | Right, wrong, not found |
+|---|---|---|---|---|---|
+| Day (to 17:00) | 100 | 100 | 0 | 100 | 1200, 0, 0 |
+| Quiet (17:00 to 23:00) | 360 | 360 | 0 | 360 | 4320, 0, 0 |
+| Dark window (23:00 to 09:00), lights on to 01:29 | 148 | 148 | 0 | 147 | 1764, 0, 0 |
+| Dark window, lights off | 452 | 0 | 452 | 0 | (none judged) |
+| Light coming up (09:00 to 09:04) | 6 | 5 | 1 (lights still off) | 4 | 48, 0, 0 |
+
+- **Detection.** Every lit still found all 12 tags (613 of 613 in layout 20b after its move);
+  every still with the lights off found none (452 of 452). There was no still at an in-between
+  light level, so how detection fails as light falls is not measured.
+- **Steadiness within each window** (rms of each tray's placed centre about its mean): median 0.27
+  mm (day), 0.26 (quiet), 0.25 (lit part of the dark window), 0.28 (light coming up); largest
+  single distance 2.38 mm (tray 10, quiet, 360 stills).
+- **Between windows** (each tray's mean centre): day to quiet max 0.10 mm, quiet to the lit part of
+  the dark window max 0.11 mm; **evening, before the lights went off, to the morning after 7.5
+  hours of darkness: median 0.32 mm, max 0.65 mm (tray 9)**, from 4 morning stills.
+
+**What this shows.** Through about 18 hours with nothing moved, including 7.5 hours of darkness,
+each tray's placed centre stayed within 0.65 mm of its evening position, and all 12 tags were found
+in every lit still. With the lights off the camera sees no tags at all, so night stills carry no
+tray data; the app must report them as too dark, not as trays missing. Not shown: an in-between
+light level; more than one night; the morning sample is 4 stills.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for

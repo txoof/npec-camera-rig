@@ -43,6 +43,11 @@ TRAY_TYPES = {
     # A1 is SW and about 0 when NE (same stills).
     "4x5 tag in A1": {"offset_mm": (-107.8, -149.1), "sw_heading_deg": 180.0,
                       "size_mm": (trays.TRAY_EW_MM, trays.TRAY_NS_MM)},
+    # 40 mm tag lying any way round, roughly centred in cell A1: the median of 12 trays' medians
+    # over the 6 layout 1 stills of 20 October (15.5l, learn_offset.py; within 9.6 mm on every tray),
+    # in the A1-at-SW frame turned by the tilt only, as place_any_rotation uses it.
+    "4x5 40 mm tag in A1": {"offset_mm": (-104.0, -141.6), "sw_heading_deg": 180.0,
+                            "size_mm": (trays.TRAY_EW_MM, trays.TRAY_NS_MM)},
 }
 TRAY_TYPE = "4x5 tag in A1"
 TRAY_TAGS = range(1, 13)
