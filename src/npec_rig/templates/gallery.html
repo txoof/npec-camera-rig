@@ -145,7 +145,7 @@
     function trayPlacementText(trays) {
       if (trays.length === 0) return "";
       const placed = trays.filter((tag) => tag.placement);
-      if (placed.length === 0) return " Trays not placed: this photo was taken without a calibration.";
+      if (placed.length === 0) return " Trays not placed: this photo has no calibration with worked-out tray slots.";
       const unsure = placed.filter((tag) => tag.placement.status !== "placed")
         .map((tag) => `Tray ${tag.id} ${tag.placement.status}`);
       return ` Trays placed in slots: ${placed.length}.` + (unsure.length ? ` Check: ${unsure.join(", ")}.` : "")

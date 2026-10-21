@@ -235,3 +235,22 @@ def test_photo_tags_place_each_tray_tag_with_the_photos_calibration(monkeypatch,
         8: ("South 4", "SW", "placed"), 5: ("South 5", "SW", "placed"), 2: ("South 6", "SW", "placed"),
     }
     assert "placement" not in found[450]  # a corner tag is not a tray
+
+
+def test_photo_tags_still_list_the_tags_when_the_saved_slot_layout_is_unusable(monkeypatch, isolated_calibration_dir) -> None:
+    from npec_rig import validation_store
+    from npec_rig.calibration import CalibrationArtifact, ScaleField
+    from npec_rig.calibration_store import save_calibration
+
+    stem = "20261014T111147292361"
+    save_calibration(CalibrationArtifact(created_at="2026-10-14T11:11:47+00:00", scale_field=ScaleField((1.0, 0.0, 0.0), 4.0, 0.0),
+                                         frame_stem=stem), stem=stem)
+    validation_store.save_slot_layout(stem, [], [])  # a layout with no slots
+    _fake_tag_search(monkeypatch, [square_detection(7, 400, 300, 40)])
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+
+    response = client.get(f"/api/captures/tags/{path}")
+    assert response.status_code == 200
+    assert response.json() == [{"id": 7, "role": "tray", "centre_px": [400, 300], "placement": None}]
+    assert client.get(f"/gallery/image/tags/{path}").status_code == 200

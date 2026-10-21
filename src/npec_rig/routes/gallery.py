@@ -79,7 +79,12 @@ def _tray_placements(path: str, tags: list[TagDetection]) -> dict[int, TrayPlace
         return None
     if layout is None:
         return None
-    return {p.tray_id: p for p in place_trays(tags, artifact.scale_field, layout["slots"])}
+    # Placement is an extra on the tag list: a layout or scale it cannot use leaves the tags shown.
+    try:
+        return {p.tray_id: p for p in place_trays(tags, artifact.scale_field, layout["slots"])}
+    except (ValueError, KeyError, TypeError, OSError):
+        logger.exception("Could not place the trays of %s", path)
+        return None
 
 
 def _placement_json(p: TrayPlacement | None) -> dict | None:
@@ -186,7 +191,8 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
             x, y = outline.mean(axis=0)
             lines = [f"{tray['slot']}, A1 {tray['a1_corner']}"] + ([tray["status"].upper()] if tray["status"] != "placed" else [])
             for i, line in enumerate(lines):
-                layer.text(line, (round(x), round(y) + 28 * i), 0.8, _TRAY_COLOUR, anchor="ms", stroke_width=3, stroke_fill=(0, 0, 0))
+                half = text_width(line, 0.8) / 2 + 3  # kept inside the frame, as the tag labels
+                layer.text(line, (round(min(max(x, half), image.shape[1] - half)), round(y) + 28 * i), 0.8, _TRAY_COLOUR, anchor="ms", stroke_width=3, stroke_fill=(0, 0, 0))
     return array_to_jpeg(image)
 
 
