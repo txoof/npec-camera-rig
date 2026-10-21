@@ -36,6 +36,9 @@ def _synthetic_camera_unless_hardware(request: pytest.FixtureRequest, monkeypatc
     so without this such a test would try the camera and fail."""
     if "hardware" not in request.keywords:
         monkeypatch.setenv("NPEC_RIG_SYNTHETIC_CAMERA", "1")
+    else:
+        # Set for the whole run at module load (below); a hardware test alone goes without it.
+        monkeypatch.delenv("NPEC_RIG_SYNTHETIC_CAMERA", raising=False)
 
 
 @pytest.fixture(autouse=True)
@@ -112,6 +115,18 @@ atexit.register(shutil.rmtree, _test_experiments_dir, ignore_errors=True)
 _test_calibration_dir = tempfile.mkdtemp(prefix="npec-rig-tests-calibration-")
 os.environ["NPEC_RIG_CALIBRATION_DIR"] = _test_calibration_dir
 atexit.register(shutil.rmtree, _test_calibration_dir, ignore_errors=True)
+
+# The database and derived folder are set per test (isolated_settings_db), and monkeypatch removes them when the
+# test ends. A thread that outlives its test (the app's scheduler or tray reader, stopped without
+# waiting) then falls back to these, never to /var/lib/npec-rig: on 2026-10-21 one such thread
+# migrated the live rig.db (#222).
+_test_fallback_dir = tempfile.mkdtemp(prefix="npec-rig-tests-fallback-")
+os.environ["NPEC_RIG_DB_PATH"] = os.path.join(_test_fallback_dir, "rig.db")
+os.environ["NPEC_RIG_DERIVED_DIR"] = os.path.join(_test_fallback_dir, "derived")
+atexit.register(shutil.rmtree, _test_fallback_dir, ignore_errors=True)
+# Likewise the camera: a scheduler thread left over from a test, during a running experiment in
+# the live rig.db, must never reach the real camera.
+os.environ["NPEC_RIG_SYNTHETIC_CAMERA"] = "1"
 
 
 @pytest.fixture(autouse=True)
