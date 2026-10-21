@@ -63,7 +63,12 @@ slot and corner as laid out, 0 wrong after Aaron's check of layouts 3, 11 and 12
 `shuffle_day.py` (layouts found from the stills, matched to Aaron's leave times in
 `shuffle-times-2026-10-20.csv`); pictures and missing-tag crops in `~/scratch/round2-shuffles/`.
 
-    PYTHONPATH=<worktree>/src <venv python> shuffle_day.py --experiment "tray tracking 26.10.20" --until 2026-10-20T13:31:00
+Overnight (15.5l): layout 20b to the stop at 07:04 UTC on 21 October, `overnight.py` by window;
+lights off 23:28 to 07:01 UTC, no tag found in the dark, every tag found in every lit still,
+trays back within 0.65 mm in the morning.
+
+    PYTHONPATH=<worktree>/src <venv python> shuffle_day.py --experiment "tray tracking 26.10.20" --until 2026-10-21T07:05:00
+    PYTHONPATH=<worktree>/src <venv python> overnight.py shuffle-day-2026-10-20_57f74959.csv
 
 ## State on 2026-10-19
 

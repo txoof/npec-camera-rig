@@ -4454,7 +4454,8 @@ come up from about 09:00 and reach full light about 09:30 chamber time.
 
 **Overnight results (21 October 2026).** `shuffle_day.py --experiment "tray tracking 26.10.20"
 --until 2026-10-21T07:05:00` then `overnight.py shuffle-day-2026-10-20_57f74959.csv`; outputs
-`shuffle-day-2026-10-20_57f74959.csv`, `overnight-2026-10-20_57f74959.csv` (one row per still),
+`shuffle-day-2026-10-20_57f74959.csv` (replacing the day's file; layouts 1 to 20a unchanged,
+20b now runs to the stop), `overnight-2026-10-20_57f74959.csv` (one row per still),
 printouts `~/scratch/round2-shuffles/run4.txt` and `overnight.txt`, timeline
 `overnight-timeline-2026-10-20_57f74959.png`. Layout 20b: 1066 stills, `132057_582161` to
 `070359_857510`, one per minute with no gap; two extra stills at 07:03:49 and 07:03:55 UTC, just
