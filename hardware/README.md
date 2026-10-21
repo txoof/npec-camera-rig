@@ -160,7 +160,7 @@ already has a file overwrites it.
 1. Open a terminal in this `hardware/` directory:
 
    ```sh
-   cd ~/edu/Internship/npec-camera-rig/hardware
+   cd hardware        # from the repository root
    ```
 
 2. Run `tray_tags.py` with the IDs you want, in groups of up to 12 (one build plate each). Each
@@ -191,7 +191,9 @@ already has a file overwrites it.
 #### Every tray tag, in the files kept in `exports/tray_tags/`
 
 These are the commands that made the files in `exports/tray_tags/`. Run them to rebuild a whole
-tray type, for example after changing the `.scad` or its revision:
+tray type, for example after changing the `.scad` or its revision. The 4x5 files are RV1.19. The
+4x4, 1x1 and black_tray files are RV1.18: their geometry did not change in RV1.19, so they were
+not rebuilt. Rebuilding them now gives the same tags stamped RV1.19.
 
 ```sh
 # 4x5, lip_round

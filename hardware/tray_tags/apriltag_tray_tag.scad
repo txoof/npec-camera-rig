@@ -3,7 +3,8 @@
    Six styles, chosen once for the whole layout with `tag_style`; each
    tray type has a default (tray_tags.py). Each style has its own tag
    size: the largest its plate allows, except the tab style, where the
-   space at the tray's side sets it.
+   space at the tray's side sets it, and "lip_round", which keeps version
+   2's 40 mm (43.6 mm would fit, set by the lip).
      - "lip_round" (4x5): version 2's 4x5 design from
        tray_tags_alternative/ (REV 1.19): a 60.5 mm square plate with
        9.33 mm corners copied from a physical part
@@ -126,7 +127,9 @@
      (Aaron, 2026-10-21). Its exports match version 2's RV2.1 4x5
      exports except for the revision. The "tab" style is kept unchanged.
      Leftover overrides at the end of the file removed (they set the
-     Customizer default to "lip"). Other styles' geometry unchanged.
+     Customizer default to "lip"). Other styles' geometry unchanged, and
+     their exports stay at RV1.18: rebuilding them changes only the
+     revision stamp.
    REV 1.18: styles "lip" (4x4) and "lip_bolt" (1x1) from
      tray_tags_alternative/ (version 2), and the disc's tag is version
      2's 30 mm (`disc_tag_size`) with its clipped quiet-zone corners and
@@ -259,7 +262,7 @@ lip_text_inset = 3;   // revision's and part name's distance in from the ends of
 /* [Lip Round] */
 round_plate_w  = 60.5; // plate side, X and Y, lip_round style, mm -- version 2's 4x5: the physical part's 61, less 0.5  [40:0.5:100]
 round_corner_r = 9.33; // rounding on the plate's four vertical corners, mm -- derived from the physical part, see header  [0:0.01:20]
-round_tag_size = 40;   // 36h11 tag width, lip_round style, mm -- version 2  [20:0.5:44]
+round_tag_size = 40;   // 36h11 tag width, lip_round style, mm -- version 2; above 43.5 the quiet zone runs under the lip (assert)  [20:0.5:43.5]
 
 /* [Disc] */
 disc_dia      = 51; // disc diameter, mm -- version 2's black_tray disc  [30:0.5:100]
@@ -321,7 +324,7 @@ cr = min(rounded ? round_corner_r : lipped ? lip_corner_r : corner_r, pw / 2, pd
 tr = min(tab_r, tab_h, pw / 2); // clamp: rounding can't exceed the tab's height or half its width
 
 sided    = on_side && !disc;          // discs always lie flat
-side_lip = sided && (tag_style == "lip" || rounded); // stands on the lip's outer face; other sided styles on the +X edge
+side_lip = sided && lipped && !has_bolt; // lip styles without a bolt tab stand on the lip's outer face; other sided styles on the +X edge
 
 // side labels (tab, bolt), X: centred across the side border
 side_lx = pw / 2 - tag_border / 2;
