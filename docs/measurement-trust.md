@@ -390,8 +390,11 @@ metrology log backs it.
   positions in the slot and corner as laid out, 0 wrong, 3 tags not found (blurred by movement);
   the rule also caught 3 layouts that differed from the plan (confirmed by Aaron from the
   pictures). Each placed centre held within 2.0 mm rms while nothing moved. 44 positions were
-  hidden by people or objects in the chamber. Not shown: the tray outline against a measured tray
-  edge; night or quiet hours; fewer than 12 trays; other tray types; cell A1 holding anything but
+  hidden by people or objects in the chamber. Overnight with nothing moved (15.5l), all 12 tags
+  were found in every lit still and each tray's centre returned within 0.65 mm of its evening
+  position after 7.5 hours of darkness; with the lights off no tag is found, so night stills hold
+  no tray data. Not shown: the tray outline against a measured tray edge; more than one night; an
+  in-between light level; fewer than 12 trays; other tray types; cell A1 holding anything but
   the tag.
 - **Tray tags over time.** No run with trays longer than one hour, so the chamber's light cycle,
   dust and condensation on tags are not covered. 3D-printed tags are not tested (#70). A tag print

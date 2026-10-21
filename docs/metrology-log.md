@@ -4452,6 +4452,45 @@ come up from about 09:00 and reach full light about 09:30 chamber time.
   07:04:17 UTC (09:04 chamber time) and called the test done; the last still is `070359_857510`.
   The *light coming up* window therefore holds only the few stills from 07:00 UTC to the stop.
 
+**Overnight results (21 October 2026).** `shuffle_day.py --experiment "tray tracking 26.10.20"
+--until 2026-10-21T07:05:00` then `overnight.py shuffle-day-2026-10-20_57f74959.csv`; outputs
+`shuffle-day-2026-10-20_57f74959.csv`, `overnight-2026-10-20_57f74959.csv` (one row per still),
+printouts `~/scratch/round2-shuffles/run4.txt` and `overnight.txt`, timeline
+`overnight-timeline-2026-10-20_57f74959.png`. Layout 20b: 1066 stills, `132057_582161` to
+`070359_857510`, one per minute with no gap; two extra stills at 07:03:49 and 07:03:55 UTC, just
+before the stop, source not recorded. No move was found in layout 20b.
+
+- **When the lights changed, from the stills.** Mean brightness 105.3 to 105.9 until 23:27:57 UTC,
+  falling slightly over the last minutes; 0.2 to 0.3 from 23:28:57 UTC (01:29 chamber time) to
+  07:00:59 UTC; 89.4 at 07:01:59 and 104.1 to 104.7 from 07:03:49 UTC (09:02 to 09:04 chamber time).
+  The change each way took under a minute, with no stills in between. The chamber's dark period
+  is therefore about 01:29 to 09:02 chamber time, not 23:00 to 09:30 as assumed in the method; the
+  windows were kept as declared and the times are reported as found.
+
+| Window (chamber time) | Stills | All 12 tags found | No tag found | Settled | Right, wrong, not found |
+|---|---|---|---|---|---|
+| Day (to 17:00) | 100 | 100 | 0 | 100 | 1200, 0, 0 |
+| Quiet (17:00 to 23:00) | 360 | 360 | 0 | 360 | 4320, 0, 0 |
+| Dark window (23:00 to 09:00), lights on to 01:29 | 148 | 148 | 0 | 147 | 1764, 0, 0 |
+| Dark window, lights off | 452 | 0 | 452 | 0 | (none judged) |
+| Light coming up (09:00 to 09:04) | 6 | 5 | 1 (lights still off) | 4 | 48, 0, 0 |
+
+- **Detection.** Every lit still found all 12 tags (613 of 613 in layout 20b after its move);
+  every still with the lights off found none (452 of 452). There was no still at an in-between
+  light level, so how detection fails as light falls is not measured.
+- **Steadiness within each window** (rms of each tray's placed centre about its mean): median 0.27
+  mm (day), 0.26 (quiet), 0.25 (lit part of the dark window), 0.28 (light coming up); largest
+  single distance 2.38 mm (tray 10, quiet, 360 stills).
+- **Between windows** (each tray's mean centre): day to quiet max 0.10 mm, quiet to the lit part of
+  the dark window max 0.11 mm; **evening, before the lights went off, to the morning after 7.5
+  hours of darkness: median 0.32 mm, max 0.65 mm (tray 9)**, from 4 morning stills.
+
+**What this shows.** Through about 18 hours with nothing moved, including 7.5 hours of darkness,
+each tray's placed centre stayed within 0.65 mm of its evening position, and all 12 tags were found
+in every lit still. With the lights off the camera sees no tags at all, so night stills carry no
+tray data; the app must report them as too dark, not as trays missing. Not shown: an in-between
+light level; more than one night; the morning sample is 4 stills.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for
