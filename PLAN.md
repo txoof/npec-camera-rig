@@ -23,7 +23,7 @@ repeatable by someone who didn't build it.
    moment it's needed rather than rely on someone remembering a procedure.
 
 Three previous attempts collapsed into camera metrology and never produced a working application.
-This plan is built to prevent that. Deadline: **mid-December 2026** (~12 weeks from 2026-09-19).
+This plan is built to prevent that. Wrap-up: **the week of 14 December 2026**, write-up submitted mid-January 2027 (see *Rounds*).
 
 ---
 
@@ -350,11 +350,150 @@ stays real rather than mock-heavy.
 
 ---
 
+## Rounds
+
+Agreed with Aaron 2026-10-14 to 10-16, on the academic supervisor's advice to work in CRISP-DM
+iterations. A **round** is about 2 weeks that takes the whole pipeline, from photo to a number per
+tray, one step further. Early rounds have looser error targets; the final target is set below.
+What changes between rounds is the target, never the rule: an early target is still checked against a
+measured number written up in `docs/metrology-log.md`, and every target is a decision by Aaron,
+labelled as one.
+Running the whole pipeline in the first round shows problems with the setup and with expectations
+early, not in the last weeks.
+
+The rounds set the order of work. The milestones (M3 to M6, under *Milestones*) stay as feature
+groups: pools of issues that a round draws from.
+
+**Final target:** canopy area within 5% per tray (95% band), for area at tray-top height. Plant
+height is a stretch goal: it adds about 0.145% of area per mm above the tray top, on top of the
+band, and exports say so (*Per-slot area uncertainty*).
+
+### How rounds work
+
+1. **Fixed dates.** A round ends on its date. Work not finished by then is recorded as missed in
+   the review and goes back to the pool.
+2. **Plan one round ahead.** Only the next round is planned in detail, at the previous round's
+   review. Later rounds are one line each and are drafts.
+3. **Something to see.** From round 2, every round ends with something Aaron can open in the web
+   app. Round 1 is scripts on saved stills, a deliberate exception. Between those, check-ins: a
+   picture or table in `~/scratch` with 2 or 3 lines on what to look at, then wait for Aaron.
+4. **Round on the board card.** Every card on the project board has a Round field, and agents pick
+   issues from the current round (CLAUDE.md, *Parallel work*).
+5. **Chamber tests** for a milestone run in the round that finishes that milestone's issues. Aaron
+   can be in the chamber on most days.
+6. **Sorted for parallel work.** At each review the next round's issues are sorted into three
+   groups: can start now, waits for another issue (a GitHub blocked-by link), needs the camera.
+
+### Timeline
+
+| Round | Dates | Content |
+|---|---|---|
+| 1 | 15 to 22 Oct | Tags, trays and plant area end to end on saved stills, as scripts. Bar: it runs and gives a number per tray. Record everything, judge nothing |
+| 2 | 23 Oct to 5 Nov | Draft, decided at the round 1 review: a page in the app showing trays, tags and green area on the latest still, plus scheduled capture (M3 scheduler, experiment records, disk headroom); a run of several days with real plants, measuring area jumps between consecutive photos of a tray and tag detection over time. Failure cases noted if seen, not expected (Aaron): moss or algae, shadows, leaves over tray edges |
+| 3 | 6 to 19 Nov | Draft: per-slot bands on plant area, the M5 printed-target test |
+| 4 | 20 Nov to 3 Dec | Draft: a trained plant segmentation model only if round 3 shows green thresholding is the largest error, and adopted only if it beats green thresholding on the round 3 test by a margin Aaron sets before the comparison is run; otherwise M6 alerts |
+| Wrap-up | 4 Dec to the week of 14 Dec | Hardening, runbook, write-up, the baseline (below) |
+
+Submission of the write-up: mid-January 2027.
+
+**Moved earlier.** Tray splitting (M4) and green-threshold plant area (M5) moved into round 1,
+before the M3 scheduler, so plant images and segmentation problems show up first.
+
+**Probably cut.** Timelapse mp4 export (#64), and a trained plant segmentation model unless round
+3 calls for one. Export of an experiment (#119) and purge (#120) are already done.
+
+### Round 1 (15 to 22 October)
+
+Data: the rig's gallery stills, the 15 October photo session in the chamber, the 3D-printed
+benchmark "Benchy Yellow-4" with calliper dimensions, and real leaves of known area. The method,
+the results and the review are all in `docs/metrology-log.md` section 15:
+
+| Part | Log section |
+|---|---|
+| Benchmark and data | 15.1, 15.2 |
+| Tag detection per tag design, and the tray tag detector | 15.3 to 15.3e |
+| Red and green area on the benchmark | 15.5 |
+| Real leaves of known area | 15.5b |
+| Tray splitting and tray ID (FastSAM on the Hailo-8, #164) | 15.5c |
+| Tray tracking over time (#171) | 15.5d |
+| Trays with pots; placement from the cell A1 tag (#213, #217) | 15.5f to 15.5k |
+| Round 1 review | 15.6 |
+
+Code for the round lives in `experiments/round1*/`, reusing `src/npec_rig/` rather than copying it.
+
+### Round 2 (23 October to 5 November)
+
+Planned at the round 1 review (15.6, #217). Being decided with Aaron; items not yet decided say so.
+
+**The run (decided 2026-10-19, Aaron).** One run of several days that serves two measurements:
+
+- *The day, in chamber time* (Aaron, 2026-10-19). 09:30 to 16:10: shuffling allowed. 17:00 to
+  23:00: quiet, no movement, lights on. 23:00 to 09:30: effectively dark, no movement. Outside the
+  shuffling window the photos are static. In UTC (rig timestamps), summer time ends on Sunday
+  25 October at 01:00 UTC:
+
+  | Window | Chamber time | UTC to 24 October | UTC from 25 October |
+  |---|---|---|---|
+  | Shuffling allowed | 09:30 to 16:10 | 07:30 to 14:10 | 08:30 to 15:10 |
+  | Quiet, lights on | 17:00 to 23:00 | 15:00 to 21:00 | 16:00 to 22:00 |
+  | Dark | 23:00 to 09:30 | 21:00 to 07:30 | 22:00 to 08:30 |
+
+  The night of 24 to 25 October is dark from 21:00 UTC on 24 October to 08:30 UTC on 25 October.
+- *Steadiness.* From the static photos, where any change in a tray's reading from one photo to the
+  next is the rig's own error. Photos in the dark are kept and reported apart; whether tags and
+  area can be read in them is not known.
+- *Tray tracking.* Aaron moves trays within the shuffling window, at times that cannot be fixed in
+  advance. Each move follows a shuffle map drawn and printed before it, with a check-off per tray
+  and a space for the time it was done. The map is the known answer.
+- Scheduled capture (#60) runs throughout; Aaron tests it with this run.
+- In the trays: pots and the 40 mm tags in cell A1 (offset learned again first, 15.6b target 2).
+  The benchmark taped to tray 1 for the whole run (Aaron, 2026-10-19). Plants, if they arrive
+  during the round, go on their own trays and are reported apart from the still scene (Aaron,
+  2026-10-19).
+
+**Sorted for parallel work** (Aaron, 2026-10-19):
+
+| Group | Work |
+|---|---|
+| Can start now | Tray placement in the app (#220, test seams agreed first); tray view page, tags slice (#194); the run's method and printable shuffle maps (#221); stray tags outside the table ignored (#207) |
+| Waits for another issue | Readings per tray per photo (#222, waits for #220); tray outlines on the page (#194 slice 2, waits for #220); run results (#223, waits for #221 and #222); benchmark plants of known area (#228, waits for the delivery) |
+| Needs the camera | Scheduled capture (#60, in progress); learning the 40 mm tag offset (one still with gaps); the run |
+
+**Targets** (15.6a and 15.6b): real leaf area within 10% on blue trays; white balance not
+studied apart, but checked against the run's area jumps if there are any (Aaron, 2026-10-19);
+benchmark plants of known area when they arrive; tray placement with no tray in a wrong
+slot without a warning and at least 95% of tray positions placed; tags in any rotation (shown
+for 12 trays in 15.5j and 15.5k; to hold on the run).
+
+### Records kept for every round
+
+- **Round review**, in `docs/metrology-log.md`: what was found, what surprised us, which earlier
+  step each surprise sends work back to, methods dropped with their numbers, the accuracy table
+  with the raw data location and the code version, and the targets for the next round. The next
+  round's plan is then written into this section.
+- **Labels.** Every result in the metrology log is one of: a *development check* (a test made
+  while building), a *validation* (the routine printed-target check per slot) or a *reference
+  comparison* (against an independent measurement of the same real thing).
+- **Review issue.** Each round's review has its own issue, opened when the round starts, blocked
+  by the round's last photo session. A review is never an item inside another issue.
+- **Limits of the evidence.** A running section of `docs/measurement-trust.md` listing what the
+  rig cannot yet demonstrate, updated at each review, first at the round 1 review.
+- **Process log**, `docs/process-log.md`: 5 to 10 lines per round on Aaron's decisions, the
+  agents' work and errors, and what slowed the round.
+- **Baseline, the week of 14 December:** a code tag, a state-of-the-tool document of 2 to 4 pages
+  (`docs/baseline-2026-12.md`), and the raw data copied off the Pi. It separates the internship
+  proof of concept from possible graduation work.
+
+---
+
 ## Milestones
 
 Each ends with **acceptance tests you run in the chamber**. Nothing is done on a passing unit test
 alone. Each acceptance result, and every metrology finding on the way, is written up in
 `docs/metrology-log.md` (see item 5 of *Verification strategy*).
+
+The milestones group issues by feature; they do not set the order of work, which *Rounds* does.
+A milestone's chamber tests run in the round that finishes its issues.
 
 ### M0 — Probe the hardware (30 min, before any code)
 

@@ -33,6 +33,14 @@ uncertainty column in the exported data means.
 The validation result is a map with one number per tray position (slot), for example "North 2:
 ±2.1%". That number is the uncertainty attached to every area measured at that position.
 
+Photos are given the newest **complete** validation, the one with 3 counted rounds. Starting a
+new validation does not change that until the new one completes: the status line then reads, for
+example, "Validated 2026-10-14; a newer validation is in progress, 1 of 3 rounds". So a validation
+started by mistake, or ended early, costs nothing. If the newest complete validation reads **Not
+consistent**, photos taken from then on are flagged as not covered by the bands. To go back to
+the previous validation after one was finished by mistake, delete the mistaken one from the
+history on the Validation page (a way to set one aside without deleting it is planned, #196).
+
 ## When to repeat
 
 Repeat all three steps after any of these:
@@ -53,6 +61,13 @@ button next to it. It restarts the camera connection (about 2 seconds) and moves
 where it was; the focus stays locked if the camera confirms the position. The app has already
 tried this once by itself before showing the message. If the reset does not help, the page says so,
 and the app itself has to be restarted.
+
+## Keep spare tag prints out of view
+
+The rig reads every printed tag it can see. A spare or cut-off tag print anywhere in the photo, even
+in a waste bin at the edge of the frame, is read as a tray (this happened in a test on 2026-10-15,
+metrology log section 15.3d). Take spare prints and offcuts out of the chamber. The app is planned to
+ignore tags outside the table (#207); until it does, this is the only protection.
 
 ## Why validation takes 20 minutes, with the door closed
 

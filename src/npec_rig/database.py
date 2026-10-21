@@ -36,7 +36,7 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
                 purpose TEXT NOT NULL,           -- capture, validation, calibration, tripwire
                 experiment_id INTEGER,           -- NULL until experiments exist (#55)
                 calibration TEXT,                -- stem of the calibration active when it was taken
-                validation TEXT,                 -- session whose bands apply (captures.validation_check)
+                validation TEXT,                 -- current validation (validation.photo_check); bands apply unless flagged
                 lens_position REAL,              -- as the camera reported it
                 focus_locked_at REAL,            -- the focus lock, NULL when not locked
                 exposure_us INTEGER,
@@ -107,6 +107,40 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
         (
             "ALTER TABLE experiment ADD COLUMN purged_at TEXT",  # UTC; NULL unless purged
             "ALTER TABLE export ADD COLUMN removed_at TEXT",  # UTC; the zip was deleted
+        ),
+    ),
+    (
+        5,
+        "scheduled capture: a period's photo interval, and every scheduled photo taken or missed",
+        (
+            # Seconds between scheduled photos, counted from the period's start; NULL for none.
+            "ALTER TABLE experiment_period ADD COLUMN interval_s REAL",
+            # One row per slot of a schedule, taken or missed. Slot n is due n intervals after the
+            # period's start. No reference to capture: a purge deletes the photos, these rows stay
+            # as the record of the schedule.
+            """
+            CREATE TABLE scheduled_photo (
+                id INTEGER PRIMARY KEY,
+                experiment_id INTEGER NOT NULL REFERENCES experiment (id),
+                period_started_at TEXT NOT NULL,  -- UTC, the period this slot belongs to
+                slot INTEGER NOT NULL,
+                due_at TEXT NOT NULL,             -- UTC, ISO 8601
+                capture_id INTEGER,               -- the photo; NULL when missed
+                missed_reason TEXT,               -- why it was not taken; NULL when taken
+                UNIQUE (experiment_id, period_started_at, slot)
+            )
+            """,
+        ),
+    ),
+    (
+        6,
+        "scheduled capture: the interval is part of the experiment and can be changed while it runs",
+        (
+            "ALTER TABLE experiment ADD COLUMN interval_s REAL",  # seconds; NULL for no schedule
+            # UTC. Slot n is due n intervals after this: the latest start, resume or interval change.
+            "ALTER TABLE experiment ADD COLUMN schedule_since TEXT",
+            "ALTER TABLE scheduled_photo RENAME COLUMN period_started_at TO schedule_since",
+            "ALTER TABLE experiment_period DROP COLUMN interval_s",
         ),
     ),
 )
@@ -257,12 +291,13 @@ def create_experiment(
     researcher: str | None = None,
     tray_height_mm: float | None = None,
     notes: str | None = None,
+    interval_s: float | None = None,
 ) -> dict:
     with _connect() as conn:
         cursor = conn.execute(
-            "INSERT INTO experiment (uuid, name, researcher, tray_height_mm, notes, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (uuid, name, researcher, tray_height_mm, notes, created_at),
+            "INSERT INTO experiment (uuid, name, researcher, tray_height_mm, notes, interval_s,"
+            " created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (uuid, name, researcher, tray_height_mm, notes, interval_s, created_at),
         )
         return _experiment(conn, cursor.lastrowid)
 
@@ -289,11 +324,15 @@ def running_experiment() -> dict | None:
 
 # Name, researcher and notes can be corrected at any time. Tray height can change only before the
 # first start: readings already taken depend on it.
-_EDITABLE = {"set up": {"name", "researcher", "tray_height_mm", "notes"}, "purged": {"notes"}}
-_EDITABLE_LATER = {"name", "researcher", "notes"}
+# The photo interval can change at any time; a change while running counts slots from then.
+_EDITABLE = {
+    "set up": {"name", "researcher", "tray_height_mm", "notes", "interval_s"},
+    "purged": {"notes"},
+}
+_EDITABLE_LATER = {"name", "researcher", "notes", "interval_s"}
 
 
-def update_experiment(experiment_id: int, **fields: object) -> dict:
+def update_experiment(experiment_id: int, *, now: str | None = None, **fields: object) -> dict:
     with _connect() as conn:
         state = _experiment(conn, experiment_id)["state"]
         allowed = _EDITABLE.get(state, _EDITABLE_LATER)
@@ -306,6 +345,10 @@ def update_experiment(experiment_id: int, **fields: object) -> dict:
             )
         for column, value in fields.items():
             conn.execute(f"UPDATE experiment SET {column} = ? WHERE id = ?", (value, experiment_id))
+        if "interval_s" in fields and state == "running":
+            if now is None:
+                raise ExperimentError("changing the interval while running needs the time")
+            conn.execute("UPDATE experiment SET schedule_since = ? WHERE id = ?", (now, experiment_id))
         return _experiment(conn, experiment_id)
 
 
@@ -318,7 +361,11 @@ def discard_experiment(experiment_id: int) -> None:
 
 
 def start_experiment(
-    experiment_id: int, *, now: str, folder: str | None = None, stop_running: bool = False
+    experiment_id: int,
+    *,
+    now: str,
+    folder: str | None = None,
+    stop_running: bool = False,
 ) -> dict:
     """Start (first time) or resume. `folder` is required on the first start and is the caller's
     to create. With `stop_running`, the running experiment is stopped in the same transaction,
@@ -346,6 +393,7 @@ def start_experiment(
             "INSERT INTO experiment_period (experiment_id, started_at) VALUES (?, ?)",
             (experiment_id, now),
         )
+        conn.execute("UPDATE experiment SET schedule_since = ? WHERE id = ?", (now, experiment_id))
         return _experiment(conn, experiment_id)
 
 
@@ -358,6 +406,39 @@ def stop_experiment(experiment_id: int, *, now: str) -> dict:
             (now, experiment_id),
         )
         return _experiment(conn, experiment_id)
+
+
+# --- Scheduled photos (scheduler.py) ---
+
+
+def record_scheduled_photos(
+    experiment_id: int, schedule_since: str, slots: list[tuple[int, str, int | None, str | None]]
+) -> None:
+    """Record slots as (slot, due_at, capture_id, missed_reason)."""
+    with _connect() as conn:
+        conn.executemany(
+            "INSERT INTO scheduled_photo (experiment_id, schedule_since, slot, due_at,"
+            " capture_id, missed_reason) VALUES (?, ?, ?, ?, ?, ?)",
+            [(experiment_id, schedule_since, *slot) for slot in slots],
+        )
+
+
+def schedule_progress(experiment_id: int, schedule_since: str) -> dict:
+    """The last slot recorded (0 before the first), photos taken and missed, and when the last
+    photo was due."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT COALESCE(MAX(slot), 0), COUNT(capture_id), COUNT(missed_reason),"
+            " MAX(CASE WHEN capture_id IS NOT NULL THEN due_at END)"
+            " FROM scheduled_photo WHERE experiment_id = ? AND schedule_since = ?",
+            (experiment_id, schedule_since),
+        ).fetchone()
+    return {
+        "last_slot": row[0],
+        "photos_taken": row[1],
+        "photos_missed": row[2],
+        "last_photo_due_at": row[3],
+    }
 
 
 # --- Exports ---

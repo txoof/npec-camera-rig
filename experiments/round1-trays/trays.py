@@ -18,6 +18,7 @@ import json
 import math
 import sqlite3
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
@@ -26,24 +27,15 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 RIG = Path("/var/lib/npec-rig")
-EXPERIMENT = RIG / "experiments" / "2026-10-15_44a9e96e" / "stills" / "2026-10-15"
-SESSION_CSV = REPO / "experiments" / "round1" / "session-2026-10-15.csv"
 SCRATCH = Path.home() / "scratch" / "round1-trays"
-
-# Sets (metrology-log 15.5c; R2-3 confirmed as gaps by Aaron 2026-10-15).
-SETS = {
-    "gaps": ["1", "2", "3", "R2-1", "R2-2", "R2-3"],
-    "touching": ["5", "4", "6", "R2-4", "R3"],
-}
+SESSIONS = HERE / "sessions"  # one file per photo day; 2026-10-15 is the default (15.5c, 15.5d)
 
 # Tray measurements (Aaron 2026-10-15, tape measure), outside size with the lip, portrait.
 TRAY_EW_MM = 305.0
 TRAY_NS_MM = 366.0
 
-# Tray identity. Session 1 and round 2: IDs 1 to 12 sit in cell A1, one per tray. Round 2 adds
-# 20 mm edge tags, each on the same tray as a 30 mm tag (15.3a, green 30 mm : 20 mm paper).
-A1_TAGS = set(range(1, 13))
-EDGE_PAIRS = {0: 4, 14: 5, 16: 6, 17: 7, 13: 8, 15: 11}  # edge tag -> A1 tag of its tray
+# Tray identity comes from the session file (15 October: IDs 1 to 12 in cell A1, plus the 20 mm
+# edge tags of round 2 on the same trays, 15.3a).
 TRAY_TAG_MAX_ID = 299
 
 # Blue. Decisions for round 1, picked on one probe still (075756_789328): tray hue 103 to 112
@@ -57,14 +49,67 @@ TAG_NEAR_MM = 15.0  # a tag joins a shape if its centre is inside it or this clo
 # extend past the tray corner)
 
 
+# ---------------------------------------------------------------- session (one file per photo day)
+
+
+@dataclass
+class Session:
+    """One photo day: where its stills are, its record of still IDs per step, and its tray tags.
+
+    Each tray is a list of tag IDs; the first places the tray and names it (on 15 October the
+    30 mm tag in A1, from 19 October the 20 mm tag outside the A1 corner)."""
+
+    stills_dir: Path
+    record: Path
+    sets: dict[str, list[str]]
+    nothing_moved: set[str]
+    tags: list[list[int]]
+
+    @property
+    def trays(self) -> list[int]:
+        return [t[0] for t in self.tags]
+
+
+def load_session(path: Path) -> Session:
+    d = json.loads(Path(path).read_text())
+    ids = [i for t in d["trays"] for i in t]
+    twice = sorted({i for i in ids if ids.count(i) > 1})
+    if twice:  # two trays sharing a tag would be reported as one
+        raise ValueError(f"{path}: tag listed more than once: {twice}")
+    return Session(stills_dir=RIG / d["stills"], record=REPO / d["record"], sets=d["sets"],
+                   nothing_moved=set(d["nothing_moved"]), tags=d["trays"])
+
+
+SESSION = load_session(SESSIONS / "2026-10-15.json")  # replaced by the scripts' --session
+
+
+def add_session_arg(ap: argparse.ArgumentParser) -> None:
+    ap.add_argument("--session", default="2026-10-15", help="photo day, a file in sessions/")
+
+
+def use_session(name: str) -> None:
+    global SESSION
+    SESSION = load_session(SESSIONS / f"{name}.json")
+
+
+def session_argv(argv: list[str]) -> list[str]:
+    """Takes --session NAME out of a script's arguments and uses it; returns the rest."""
+    ap = argparse.ArgumentParser(add_help=False)
+    add_session_arg(ap)
+    args, rest = ap.parse_known_args(argv)
+    use_session(args.session)
+    return rest
+
+
 # ---------------------------------------------------------------- pure functions (unit tested)
 
 
-def tray_of(tag_id: int) -> int | None:
-    """The tray a tray tag belongs to, named by its A1 tag ID; None for a non-tray tag."""
-    if tag_id in A1_TAGS:
-        return tag_id
-    return EDGE_PAIRS.get(tag_id)
+def tray_of(tag_id: int, session: Session | None = None) -> int | None:
+    """The tray a tag belongs to, named by the tray's first tag; None for a tag not in the table."""
+    for t in (session or SESSION).tags:
+        if tag_id in t:
+            return t[0]
+    return None
 
 
 def tag_heading_deg(corners) -> float:
@@ -127,7 +172,7 @@ def judge_shape(tag_ids: list[int], area_trays: float) -> tuple[str, list[int]]:
 
 
 def session_rows(steps: list[str]) -> list[dict]:
-    with open(SESSION_CSV) as f:
+    with open(SESSION.record) as f:
         rows = [r for r in csv.DictReader(f) if r["step"] in steps]
     order = {s: i for i, s in enumerate(steps)}
     return sorted(rows, key=lambda r: (order[r["step"]], r["still"]))
@@ -136,7 +181,7 @@ def session_rows(steps: list[str]) -> list[dict]:
 def capture_info(still: str) -> dict:
     """Calibration, validation and lens position of a still, from rig.db (read only)."""
     db = sqlite3.connect(f"file:{RIG / 'rig.db'}?mode=ro", uri=True)
-    rel = (EXPERIMENT / still).relative_to(RIG)
+    rel = (SESSION.stills_dir / still).relative_to(RIG)
     row = db.execute(
         "select taken_at, calibration, validation, lens_position from capture where path = ?",
         (str(rel),),
@@ -163,7 +208,7 @@ def detect(still: str, det) -> list[dict]:
     cache = SCRATCH / "tags" / f"{still}.json"
     if cache.exists():
         return json.loads(cache.read_text())
-    gray = cv2.imread(str(EXPERIMENT / f"{still}.jpg"), cv2.IMREAD_GRAYSCALE)
+    gray = cv2.imread(str(SESSION.stills_dir / f"{still}.jpg"), cv2.IMREAD_GRAYSCALE)
     corners, ids, _ = det.detectMarkers(gray)
     out = []
     for c, i in zip(corners, [] if ids is None else ids.ravel()):
@@ -184,7 +229,7 @@ def method_a(tags: list[dict], slots: list[dict], scale) -> dict[int, dict]:
     """Tray -> slot by the nearest slot centre to its A1 tag (the reference for slots)."""
     out = {}
     for t in tags:
-        if t["id"] not in A1_TAGS:
+        if t["id"] not in SESSION.trays:
             continue
         name, d1, name2, d2 = nearest_slots(t["cx"], t["cy"], slots)
         ppm = scale.px_per_mm(t["cx"], t["cy"])
@@ -259,7 +304,7 @@ def run(set_name: str, limit: int | None = None) -> None:
     det = detector()
     calibs: dict[str, tuple] = {}
     results, shape_rows = [], []
-    for r in session_rows(SETS[set_name])[:limit]:
+    for r in session_rows(SESSION.sets[set_name])[:limit]:
         still = r["still"]
         info = capture_info(still)
         stem = info["calibration"]
@@ -268,7 +313,7 @@ def run(set_name: str, limit: int | None = None) -> None:
             calibs[stem] = (art.scale_field, load_slot_layout(stem)["slots"])
         scale, slots = calibs[stem]
         tags = detect(still, det)
-        small = cv2.imread(str(EXPERIMENT / f"{still}.jpg"), cv2.IMREAD_REDUCED_COLOR_8)
+        small = cv2.imread(str(SESSION.stills_dir / f"{still}.jpg"), cv2.IMREAD_REDUCED_COLOR_8)
         a = method_a(tags, slots, scale)
         shapes = method_b(small, tags, scale, slots)
 
@@ -282,7 +327,7 @@ def run(set_name: str, limit: int | None = None) -> None:
         res = {
             "set": set_name, "step": r["step"], "still": still, "taken_at_utc": info["taken_at"],
             "calibration": stem, "validation": info["validation"], "lens": info["lens"],
-            "a1_tags_found": len(trays_seen), "edge_tags_found": sum(t["id"] in EDGE_PAIRS for t in tags),
+            "a1_tags_found": len(trays_seen), "edge_tags_found": sum(t["id"] not in SESSION.trays and tray_of(t["id"]) is not None for t in tags),
             "a_slots_unique": len(set(slots_a)) == len(slots_a),
             "a_max_dist_mm": round(max((v["dist_mm"] for v in a.values()), default=0), 1),
             "a_min_margin_mm": round(min((v["second_mm"] - v["dist_mm"] for v in a.values()), default=0), 1),
@@ -328,9 +373,11 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--set", choices=sorted(SETS), default="gaps")
+    ap.add_argument("--set", default="gaps", help="a set named in the session file")
     ap.add_argument("--limit", type=int, help="first N stills only, for a quick check")
+    add_session_arg(ap)
     args = ap.parse_args(argv)
+    use_session(args.session)
     run(args.set, args.limit)
 
 

@@ -82,7 +82,11 @@ def test_forgetting_a_source_removes_its_images() -> None:
 
 
 def test_tag_detections_are_found_once_per_photograph(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    path = tmp_path / "capture.jpg"
+    # In the photos folder, where the source name says it is: a missing photograph keeps its
+    # older tags instead of being searched again (#192).
+    monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path))
+    path = tmp_path / "2026-10-01" / "000000_000000.jpg"
+    path.parent.mkdir()
     Image.new("RGB", (64, 48), "white").save(path)
     found = [square_detection(300, 10.5, 20.25, 12.0)]
     runs: list = []
@@ -97,6 +101,26 @@ def test_tag_detections_are_found_once_per_photograph(tmp_path, monkeypatch: pyt
     monkeypatch.setattr(images, "TAG_DETECTOR_VERSION", images.TAG_DETECTOR_VERSION + 1)
     images.tag_detections("2026-10-01/000000_000000", path, detect=detect)  # a new detector: again
     assert len(runs) == 2
+
+
+def test_older_stored_tags_are_used_when_the_photograph_is_gone(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A photograph no longer in the photos folder cannot be searched again, so its tags from an
+    older detector are better than none (#192)."""
+    monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "photos"))
+    found = [square_detection(300, 10.5, 20.25, 12.0)]
+    images.store_tag_detections("2026-09-30/000000_000001", found)
+    monkeypatch.setattr(images, "TAG_DETECTOR_VERSION", images.TAG_DETECTOR_VERSION + 1)
+    assert images.stored_tag_detections("2026-09-30/000000_000001") == found
+
+
+def test_older_stored_tags_are_not_used_when_the_photograph_is_there(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    photos = tmp_path / "photos"
+    (photos / "2026-09-30").mkdir(parents=True)
+    Image.new("RGB", (64, 48), "white").save(photos / "2026-09-30" / "000000_000002.jpg")
+    monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(photos))
+    images.store_tag_detections("2026-09-30/000000_000002", [square_detection(300, 10.5, 20.25, 12.0)])
+    monkeypatch.setattr(images, "TAG_DETECTOR_VERSION", images.TAG_DETECTOR_VERSION + 1)
+    assert images.stored_tag_detections("2026-09-30/000000_000002") is None
 
 
 def test_two_requests_for_the_same_photographs_tags_search_it_once(tmp_path) -> None:

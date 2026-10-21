@@ -76,6 +76,26 @@ pytest -m slow         # soak
 
 No pre-commit hook that runs tests. Formatting and linting hooks are fine.
 
+### Test-first
+
+Logic modules and bug fixes are built test-first. Pages, CSS and copy are not: look at them in a
+browser. These rules apply to new tests. Older tests that break them are fixed only when a task
+touches them anyway.
+
+1. **Agree the seams first.** Before writing a test, list the public interfaces to test (a route's
+   response, a module's public function), one line each on what it catches and what it misses.
+   Aaron confirms the list. No test is written at an unconfirmed seam.
+2. **One test, then one change.** Write one failing test, run it and see it fail, then write only
+   enough code to pass it. Repeat. Do not write all the tests first.
+3. **A bug fix starts with a test that reproduces the bug.**
+4. **Expected values come from outside the code.** Calliper readings, worked examples, fixture
+   images with known answers. Never recompute the expected value the way the code does.
+5. **Test behaviour, not internals.** No tests of private (underscore) functions. Fake only at
+   these points: tag detection (`detect_tags`, since real photos are hard to build), the synthetic
+   camera backend and its subclasses, and timing constants. Do not replace any other project
+   function.
+6. Tidying the code comes after the tests pass, in review, not during the loop.
+
 Hardware tests skip when hardware is absent, they do not fail. A synthetic camera backend is
 required infrastructure, not a nicety.
 
@@ -98,6 +118,9 @@ stop, not one branch of a parallel batch.
 **Delegate noisy investigation.** Grep sweeps, log trawls, and broad file searches go through the
 Explore agent or a fork, not inline in the main conversation. Keep only the findings, not the raw
 search output, in context.
+
+**Check-ins.** Between the ends of rounds, show progress as a picture or table in `~/scratch`
+with 2 or 3 lines on what to look at, then wait for Aaron before going on (PLAN.md, *Rounds*).
 
 **Reply format.** Five headings, in this order. Skip any that are empty.
 
@@ -128,26 +151,52 @@ Start agent sessions in `~/npec_camera_rig`; a session started anywhere else act
 related issues in the same milestone and area. It is one PR of about 500 changed lines or less,
 not counting tests. A bigger task is split into PRs that each work on their own.
 
-**Issues are the to-do list.** Every change starts from an issue made with the Task template,
-in a milestone (M2 to M6). Repo `txoof/npec-camera-rig`, board
-https://github.com/users/txoof/projects/5. Work only on issues in the milestone Aaron names. If he
-names none, use the lowest-numbered open milestone (M2 until it is closed, then M3). An issue
-with no milestone is started only when Aaron asks for it.
+**Issues are the to-do list.** Every change starts from an issue made with the Task template.
+Repo `txoof/npec-camera-rig`, board https://github.com/users/txoof/projects/5. Work is planned in
+rounds of about 2 weeks (PLAN.md, *Rounds*); each card's *Round* field says which round it belongs
+to. Milestones (M3 to M6) group issues by feature and do not set the order of work. Work only on
+issues in the round Aaron names. If he names none, use the current round (the one whose dates
+cover today). An issue with no Round is started only when Aaron asks for it.
 
-**Picking an issue.** When Aaron names no issue ("pick the next task"), read the milestone's description
-first: it holds the triage and the order he decided.
+**Picking an issue.** When Aaron names no issue ("pick the next task"), list the current round's
+Todo cards, then read the milestone descriptions: they hold the triage and the order he decided.
 
 ```bash
+gh project item-list 5 --owner txoof --limit 500 --format json \
+  --jq '.items[] | select(.round != null and .status == "Todo")
+    | select((.round.startDate | strptime("%Y-%m-%d") | mktime) as $s
+        | now >= $s and now < $s + .round.duration * 86400)
+    | [.round.title, .priority, .content.number, .title] | @tsv'
 gh api repos/txoof/npec-camera-rig/milestones --jq '.[] | "\(.title)\n\(.description)\n"'
-gh project item-list 5 --owner txoof --limit 200 --format json \
-  --jq '.items[] | select(.status=="Todo") | [.priority, .content.number, .title] | @tsv'
 ```
 
 Take the unclaimed issue with the highest board Priority (High, Medium, Low) whose Area does not
 overlap a claimed issue. Within one priority, follow the order in the milestone description, then
-the lowest issue number. A new issue gets a Priority when it is put on the board; ask Aaron if it
-is not clear which. `TODO.md` is a frozen record: read it for
-the history of done items, never add to it.
+the lowest issue number. `TODO.md` is a frozen record: read it for the history of done items,
+never add to it.
+
+**Filing a new issue.** Every new issue gets a Round and a Priority when it is put on the board,
+chosen by the table below, and the reply that creates it says which in one line, so Aaron only
+corrects it when it is wrong. No issue is left without a Round: one without is forgotten. Put a
+session's follow-ups in one issue, not several (Aaron, 2026-10-16).
+
+| Kind of issue | Round | Priority |
+|---|---|---|
+| Can cause harm, new or old behaviour | Current | High |
+| Blocks work in the current round | Current | High |
+| Changes what users see | Next | Medium |
+| Old behaviour, no harm possible | Next | Low |
+
+Harm is any of:
+
+1. **Wrong numbers with no warning.** An area or uncertainty is wrong and nothing on the page
+   says so.
+2. **Lost data.** Photos, calibrations, validations or experiment records deleted or overwritten.
+3. **A running experiment disturbed.** Its calibration replaced, or the lens moved, mid-experiment.
+4. **An easy mistake with a bad result.** A control where one wrong tap causes 1, 2 or 3, with no
+   confirmation.
+
+When a round ends, the cards it did not finish move to the next round.
 
 **Claiming.** Before starting, list what is taken:
 
@@ -192,19 +241,37 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 
 | Area | Files |
 |---|---|
-| camera | `camera.py`, `camera_process.py`, `captures.py`, `health.py`, `settings.py` |
-| calibration | `tags.py`, `calibration*.py`, `validation_store.py`, `tripwire.py`, `certainty_map.py` |
-| web | `app.py`, `templates/`, `static/` |
+| camera | `camera.py`, `camera_process.py`, `captures.py`, `health.py`, `settings.py`, `scheduler.py` |
+| calibration | `tags.py`, `calibration*.py`, `validation_store.py`, `tripwire.py`, `certainty_map.py`, `photo_tags.py`, `validation.py` |
+| web | `app.py`, `routes/__init__.py`, `routes/shell.py`, `routes/shared.py`, `templates/setup_index.html`, `templates/ui_reference.html`, `templates/_ui.html`, `templates/_camera_status.html`, `static/ui.js`, `static/icons.svg`, `static/lightbox.js`, `static/squareness-guides.js`, `static/validation-status.js`, `tests/web/conftest.py`, `tests/web/tag_scenes.py`, `tests/web/test_app.py` |
+| web-focus | `routes/focus.py`, `templates/setup_focus.html`, `templates/_focus_controls.html`, `templates/_squareness.html`, `templates/_squareness_help.html` |
+| web-gallery | `routes/gallery.py`, `templates/gallery.html` |
+| web-experiments | `routes/experiments.py`, `templates/experiments.html` |
+| web-calibration | `routes/calibration.py`, `templates/setup_calibration*.html`, `templates/setup_health_check.html` |
+| web-validation | `routes/validation.py`, `templates/setup_validation.html` |
 | images | `images.py`, `text_render.py` |
 | database | `database.py` (the experiment's tables in `rig.db` and their migrations) |
 | exports | `exports.py` (an experiment's export zip and its checksum manifest) |
 | docs | `docs/` (except the shared files below), `reference/`, `README.md`, `GLOSSARY.md` |
 | cad | `hardware/` |
 | deploy | `deploy/` |
-| ci | `.github/`, `pyproject.toml`, `uv.lock` |
+| experiments | `experiments/<folder>/`, each folder its own area: research scripts for one investigation. They may import `src/npec_rig/`, never the reverse (`tests/test_experiments_boundary.py`), and are not deployed (`.gitattributes` leaves them out of release archives) |
+| ci | `.github/`, `.gitattributes`, `pyproject.toml`, `uv.lock` |
 
 Module files are in `src/npec_rig/`. A new module or folder is added to this map in the PR that
-creates it.
+creates it: a new page joins the area of its route file, and a new route file gets its own row.
+
+The web areas (#181):
+
+- A route file's tests are `tests/web/test_<name>_routes.py`. The experiments routes are the
+  exception: their tests are in `tests/test_experiments.py`, `test_exports.py` and
+  `test_purge.py`, so web-experiments also overlaps database and exports.
+- web holds what more than one page uses. `base.html` loads `squareness-guides.js` on every
+  page, and `validation-status.js` is used by three pages, so both are in web.
+- The Calibration page includes the focus and squareness panels: changing a panel is
+  web-focus work even in a calibration task.
+- An issue whose Area says only `web`, written before the split, overlaps every web area until
+  its Area is narrowed to one.
 
 **Shared files** may be changed by any task that needs to, after checking that no other open PR
 changes them: `CLAUDE.md`, `PLAN.md`, `CONTRIBUTING.md`, `docs/metrology-log.md`,
@@ -262,6 +329,11 @@ Column ids: Todo `2ddd622b`, In Progress `3d30af1f`, In Review `822c51c8`, Done 
 Priority: field id `PVTSSF_lAHOANmg6c4BmGmAzhk3jzA`, option ids High `dc5dda64`, Medium `80dc29a9`,
 Low `feb93a98`. Set it with the same `item-edit` command.
 
+Round: field id `PVTIF_lAHOANmg6c4BmGmAzhl5GEo`, iteration ids Round 1 (15 to 22 Oct) `5fb3e246`,
+Round 2 (23 Oct to 5 Nov) `6f459427`, Round 3 (6 to 19 Nov) `62ef7908`, Round 4 (20 Nov to 3 Dec)
+`bc9ee329`. Set it with `item-edit` and `--iteration-id <id>` in place of
+`--single-select-option-id`.
+
 **Email.** Every GitHub action emails Aaron. Push in batches, post one combined comment, and do not
 switch labels, draft state or reviews back and forth.
 
@@ -317,8 +389,9 @@ limits: where one does not work for a page, choose what does and say why in the 
   layers. Its `sweep.py` / `characterisation.py` (~2650 lines) is the same failure under another
   name and is entangled with the web routes.
 - **Old code is reference only.** Read it to learn what worked on this hardware, then write fresh.
-- **No Hailo code, no `.hef`, no segmentation exists anywhere.** M5 starts from nothing, behind a
-  `Segmenter` interface with a classical excess-green fallback.
+- **No segmentation exists in `src/`.** Round 1 tried a green threshold on the benchmark
+  (`experiments/round1-benchy/`) and FastSAM on the Hailo-8 for tray splitting
+  (`experiments/round1-trays/`); M5's `Segmenter` interface starts from those results.
 - **362 MB of bench frames** sit at `/home/pi/old/npec_OLD/npec-camera/tests/data/`. From the previous rig,
   so the geometry no longer matches. Available if needed, not copied in.
 - **The central low reading (the "North 4 hot spot") is the Arducam's own, and it is closed.**
@@ -335,8 +408,18 @@ limits: where one does not work for a page, choose what does and say why in the 
   (model slope from a tape-measured best estimate of 1482 mm camera height; one test: a 75 mm taller tray read 11.2% to
   12.0% large, predicted 11.8%, about 0.157% per mm on average over that step). Validation bands cover flat objects at tray-top height
   only; plant height and segmentation add to them (PLAN.md, *Per-slot area uncertainty*).
-- **Rig timestamps (capture names, session IDs) are UTC; the chamber's local time is UTC+2.**
-  Convert before matching them against anything a person reports.
+- **Rig timestamps (capture names, session IDs) are UTC; the chamber keeps Dutch local time:**
+  UTC+2 in summer time, UTC+1 from the last Sunday of October (25 October 2026) to the last
+  Sunday of March. Convert before matching them against anything a person reports.
+- **Tray tags.** The 15 October test trays use IDs 0 to 17 (1 to 12 original, 0 and 13 to 17 added
+  for the paired 20 mm test). Round 2 tray tags are about 40 mm, lying roughly centred in cell A1,
+  in any rotation (Aaron, 2026-10-19), replacing the 20 mm edge tag of 2026-10-15: edge tags could
+  not be placed the same way on every tray. Each tray is placed from its tag and the slot grid
+  (metrology log 15.5h to 15.5k, #220); cell A1 holds no plant. Tray
+  tags (IDs 0 to 299) are read with finer bit sampling, calibration and corner tags with the frozen
+  settings (`tags._tray_detector_parameters`, metrology log 15.3e, #192).
+- **Trays touch.** Researchers will not reliably leave gaps, so tray splitting must work with trays
+  touching (`reference/trays.md`).
 
 ## Where things live
 
@@ -380,6 +463,9 @@ result with its spread, the date, where the raw data is, and what it does and do
 Detailed investigations go in `reference/` and are linked from it. A number that is a decision or
 a placeholder, not a measurement, says so. Written for a scientist without a metrology
 background, formal enough to cite in a paper about the rig (Aaron, 2026-10-05).
+
+Every result is labelled a *development check*, a *validation* or a *reference comparison*
+(`GLOSSARY.md`).
 
 A test's method is written into `docs/metrology-log.md` before the test is run, and its result is
 added when it is done. When a finding adds to, strengthens or weakens a step of the case in

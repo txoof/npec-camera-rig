@@ -54,30 +54,60 @@ Outline green: one tray. Red: several trays (MERGED). Orange: no tray tag (NO TA
 fitted rectangle. Magenta dot and number: a tray tag's centre and ID. Text: tray, slot by method B,
 fitted size.
 
-## Resume here (state on 2026-10-16)
+## Resume here (state on 2026-10-19)
 
-Splitting: issue #164, branch `164-tray-splitting`, pull request open (closes #164). **Tracking
-continues in issue #171**: start its branch from `origin/main` after that pull request is merged,
-or from `origin/164-tray-splitting` if it is not merged yet. Method and every
-result: `docs/metrology-log.md` 15.5c (splitting) and 15.5d (tracking plan). Tray facts:
-`reference/trays.md`.
+19 October sessions done and written up: 15.5f (pots, edge tags), 15.5g (footprint from the
+tag), 15.5h (cell A1 tags), 15.5i (shuffling proof of concept). Result: trays placed from the
+A1 cell tag with one common offset (`footprint.py --common`, `shuffle.py`, `TRAY_TYPES`) placed
+264 of 264 in 15.5h and tracked 11 of 12 trays through five random shuffles (197 of 198
+positions); tray 6 failed in every still because its tag lay turned 180 in its cell. FastSAM tray
+splitting fails on touching trays with pots. Agreed with Aaron (2026-10-19): this is the proof of
+concept; every cell tag must lie the same way round (arrow on each tag). Follow-ups in #224, among
+them a tag anywhere inside the tray (long term) and detecting a tag lying the wrong way.
+
+    PYTHONPATH=<worktree>/src <venv python> shuffle.py --experiment "simple segmentation test" --rounds 1 2 3 4 5 2
+
+## Earlier state (2026-10-17)
+
+Splitting: issue #164, merged (#172). Tracking: issue #171, merged (#212). **Next: the photo
+session with pots in the wells on Monday 19 October, issue #213, branch `213-pots-session`.**
+Method: `docs/metrology-log.md` 15.5f. The session checklist is a comment on #213. Splitting:
+15.5c, tracking: 15.5d. Tray facts: `reference/trays.md`.
+
+Sessions: each photo day has a file in `sessions/` (stills folder, record of still IDs per step,
+step sets, steps where nothing moved, and each tray's tags, the first tag placing and naming the
+tray). Every script takes `--session NAME`; the default is `2026-10-15`, which reproduces 15.5c
+and 15.5d (checked 2026-10-18: tracking and summary outputs byte for byte, FastSAM masks of 2
+stills). For 19 October, write `sessions/2026-10-19.json` from the confirmed tag table once the new
+experiment's folder exists. `fastsam.py --fill-holes` is the second run of 15.5f.
+Stills for 19 October: `capture_session.py --experiment pots-2026-10-19 --step N --title T --count C
+[--every 15]`, under the `hardware` label only; it adds each still to `session-2026-10-19.csv` here.
+Every step of a session must be in one of its sets (gaps, touching): `track.py` stops on a step
+in neither. `track.py` writes its evidence pictures to `track/evidence-<run name>/`, drawn on the
+overlays of `--overlays` (default `fastsam-stills-m1.15-fb`; pass `fastsam-stills-m1.15-fb-holes`
+for a `--fill-holes` run).
 
 Where the data is:
 - HEF: `~/scratch/round1-trays/hailo/fast_sam_s.hef` (SHA-256 in 15.5c). Tag detections for all 176
   stills cached in `~/scratch/round1-trays/tags/`. Overlays in `~/scratch/round1-trays/`.
 - Full run: `fastsam-full176.csv`, `fastsam-full176-masks.csv`, `summary-full176.csv` here.
+- Tracking: `track-full176.csv`, `track-full176-moves.csv` here; timeline in
+  `~/scratch/round1-trays/track/`, evidence overlays in `track/evidence/` (15 October, made before the per-run folders).
 
-Commands (run from the worktree root; tests by explicit path, pytest's default is `tests/` only):
+Commands (run from the worktree root, `<worktree>` being its full path; tests by explicit path,
+pytest's default is `tests/` only):
 
     PYTHONPATH="$(pwd)/src" /home/pi/npec_camera_rig/.venv/bin/python3 -m pytest -q experiments/round1-trays -p no:xdist
     cd experiments/round1-trays
-    PYTHONPATH=/home/pi/wt/npec-164-tray-splitting/src /home/pi/npec_camera_rig/.venv/bin/python3 fastsam.py --name NAME --margin 1.15 STILL ...
-    PYTHONPATH=/home/pi/wt/npec-164-tray-splitting/src /usr/bin/python3 summarise.py fastsam-NAME.csv
+    PYTHONPATH=<worktree>/src /home/pi/npec_camera_rig/.venv/bin/python3 track.py fastsam-full176.csv
+    PYTHONPATH=<worktree>/src /home/pi/npec_camera_rig/.venv/bin/python3 fastsam.py --session 2026-10-19 --name NAME --margin 1.15 STILL ...
+    PYTHONPATH=<worktree>/src /usr/bin/python3 summarise.py fastsam-full176.csv
 
-Next step: write `track.py` as planned in 15.5d (no new Hailo run), run it on the full 176, write up.
+Done: raw tracking and patches 1 to 3 (15.5d), 2078 measured + 31 patched of 2112 trays, 173 of
+176 stills. Evidence overlays in `~/scratch/round1-trays/track/evidence/`.
 
 Open for Aaron:
 - Success rate that is good enough: deferred until the tracking result (15.5d).
 - Slot reference for rule 3: row and order is provisional.
-- Next week's session (plan on #164): counts and layout of 4 x 4 and 1 x 1 trays, where their tag
-  sits, and the 20 mm tag placement per tray.
+- Later: the 4 x 4 and 1 x 1
+  tray configurations (`reference/trays.md`, "Not yet known").

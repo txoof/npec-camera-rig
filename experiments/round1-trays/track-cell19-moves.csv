@@ -1,0 +1,253 @@
+pair,from,to,tray,tag_mm,mask_mm,turned,tag_moved,mask_moved,verdict
+within 1,105128_023792,105130_814455,1,0.0,3.2,False,False,False,"still, agreed"
+within 1,105128_023792,105130_814455,2,0.2,2.2,False,False,False,"still, agreed"
+within 1,105128_023792,105130_814455,3,0.0,2.3,False,False,False,"still, agreed"
+within 1,105128_023792,105130_814455,4,0.0,1.3,False,False,False,"still, agreed"
+within 1,105128_023792,105130_814455,5,0.2,3.4,False,False,False,"still, agreed"
+within 1,105128_023792,105130_814455,6,0.0,3.1,False,False,False,"still, agreed"
+within 1,105128_023792,105130_814455,7,0.0,7.2,False,False,False,"still, agreed"
+within 1,105128_023792,105130_814455,8,0.0,1.3,False,False,False,"still, agreed"
+within 1,105128_023792,105130_814455,9,0.0,2.9,False,False,False,"still, agreed"
+within 1,105128_023792,105130_814455,10,0.0,3.5,False,False,False,"still, agreed"
+within 1,105128_023792,105130_814455,11,0.2,3.1,False,False,False,"still, agreed"
+within 1,105128_023792,105130_814455,12,0.0,3.7,False,False,False,"still, agreed"
+within 1,105130_814455,105133_548392,1,0.0,2.5,False,False,False,"still, agreed"
+within 1,105130_814455,105133_548392,2,0.0,1.8,False,False,False,"still, agreed"
+within 1,105130_814455,105133_548392,3,0.2,2.3,False,False,False,"still, agreed"
+within 1,105130_814455,105133_548392,4,0.0,1.9,False,False,False,"still, agreed"
+within 1,105130_814455,105133_548392,5,0.3,3.0,False,False,False,"still, agreed"
+within 1,105130_814455,105133_548392,6,0.0,2.3,False,False,False,"still, agreed"
+within 1,105130_814455,105133_548392,7,0.0,7.2,False,False,False,"still, agreed"
+within 1,105130_814455,105133_548392,8,0.0,1.5,False,False,False,"still, agreed"
+within 1,105130_814455,105133_548392,9,0.0,2.1,False,False,False,"still, agreed"
+within 1,105130_814455,105133_548392,10,0.2,2.6,False,False,False,"still, agreed"
+within 1,105130_814455,105133_548392,11,0.2,1.0,False,False,False,"still, agreed"
+within 1,105130_814455,105133_548392,12,0.0,0.8,False,False,False,"still, agreed"
+within 1,105133_548392,105136_318736,1,0.0,0.0,False,False,False,"still, agreed"
+within 1,105133_548392,105136_318736,2,0.0,0.6,False,False,False,"still, agreed"
+within 1,105133_548392,105136_318736,3,0.2,2.3,False,False,False,"still, agreed"
+within 1,105133_548392,105136_318736,4,0.2,1.9,False,False,False,"still, agreed"
+within 1,105133_548392,105136_318736,5,0.0,3.0,False,False,False,"still, agreed"
+within 1,105133_548392,105136_318736,6,0.0,2.1,False,False,False,"still, agreed"
+within 1,105133_548392,105136_318736,7,0.0,3.6,False,False,False,"still, agreed"
+within 1,105133_548392,105136_318736,8,0.0,3.1,False,False,False,"still, agreed"
+within 1,105133_548392,105136_318736,9,0.0,11.3,False,False,False,"still, agreed"
+within 1,105133_548392,105136_318736,10,0.2,1.8,False,False,False,"still, agreed"
+within 1,105133_548392,105136_318736,11,0.0,2.7,False,False,False,"still, agreed"
+within 1,105133_548392,105136_318736,12,0.0,2.8,False,False,False,"still, agreed"
+within 1,105136_318736,105139_114877,1,0.0,1.8,False,False,False,"still, agreed"
+within 1,105136_318736,105139_114877,2,0.0,1.3,False,False,False,"still, agreed"
+within 1,105136_318736,105139_114877,3,0.0,4.0,False,False,False,"still, agreed"
+within 1,105136_318736,105139_114877,4,0.3,1.0,False,False,False,"still, agreed"
+within 1,105136_318736,105139_114877,5,0.0,2.1,False,False,False,"still, agreed"
+within 1,105136_318736,105139_114877,6,0.0,1.0,False,False,False,"still, agreed"
+within 1,105136_318736,105139_114877,7,0.0,3.5,False,False,False,"still, agreed"
+within 1,105136_318736,105139_114877,8,0.0,2.1,False,False,False,"still, agreed"
+within 1,105136_318736,105139_114877,9,0.0,10.6,False,False,False,"still, agreed"
+within 1,105136_318736,105139_114877,10,0.2,0.8,False,False,False,"still, agreed"
+within 1,105136_318736,105139_114877,11,0.0,3.4,False,False,False,"still, agreed"
+within 1,105136_318736,105139_114877,12,0.0,1.0,False,False,False,"still, agreed"
+within 1,105139_114877,105141_881367,1,0.0,1.2,False,False,False,"still, agreed"
+within 1,105139_114877,105141_881367,2,0.0,0.6,False,False,False,"still, agreed"
+within 1,105139_114877,105141_881367,3,0.2,2.8,False,False,False,"still, agreed"
+within 1,105139_114877,105141_881367,4,0.0,0.0,False,False,False,"still, agreed"
+within 1,105139_114877,105141_881367,5,0.0,1.0,False,False,False,"still, agreed"
+within 1,105139_114877,105141_881367,6,0.0,1.0,False,False,False,"still, agreed"
+within 1,105139_114877,105141_881367,7,0.2,1.0,False,False,False,"still, agreed"
+within 1,105139_114877,105141_881367,8,0.0,0.0,False,False,False,"still, agreed"
+within 1,105139_114877,105141_881367,9,0.0,2.0,False,False,False,"still, agreed"
+within 1,105139_114877,105141_881367,10,0.0,1.8,False,False,False,"still, agreed"
+within 1,105139_114877,105141_881367,11,0.0,3.1,False,False,False,"still, agreed"
+within 1,105139_114877,105141_881367,12,0.0,1.0,False,False,False,"still, agreed"
+within 1,105141_881367,105144_686358,1,0.0,3.2,False,False,False,"still, agreed"
+within 1,105141_881367,105144_686358,2,0.2,1.4,False,False,False,"still, agreed"
+within 1,105141_881367,105144_686358,3,0.2,9.3,False,False,False,"still, agreed"
+within 1,105141_881367,105144_686358,4,0.2,1.0,False,False,False,"still, agreed"
+within 1,105141_881367,105144_686358,5,0.2,3.1,False,False,False,"still, agreed"
+within 1,105141_881367,105144_686358,6,0.0,1.1,False,False,False,"still, agreed"
+within 1,105141_881367,105144_686358,7,0.2,2.4,False,False,False,"still, agreed"
+within 1,105141_881367,105144_686358,8,0.0,1.5,False,False,False,"still, agreed"
+within 1,105141_881367,105144_686358,9,0.0,11.1,False,False,False,"still, agreed"
+within 1,105141_881367,105144_686358,10,0.0,2.5,False,False,False,"still, agreed"
+within 1,105141_881367,105144_686358,11,0.0,1.3,False,False,False,"still, agreed"
+within 1,105141_881367,105144_686358,12,0.0,2.1,False,False,False,"still, agreed"
+within 1,105144_686358,105147_475830,1,0.0,2.0,False,False,False,"still, agreed"
+within 1,105144_686358,105147_475830,2,0.2,1.4,False,False,False,"still, agreed"
+within 1,105144_686358,105147_475830,3,0.2,12.0,False,False,False,"still, agreed"
+within 1,105144_686358,105147_475830,4,0.0,3.1,False,False,False,"still, agreed"
+within 1,105144_686358,105147_475830,5,0.2,2.6,False,False,False,"still, agreed"
+within 1,105144_686358,105147_475830,6,0.0,1.3,False,False,False,"still, agreed"
+within 1,105144_686358,105147_475830,7,0.2,2.0,False,False,False,"still, agreed"
+within 1,105144_686358,105147_475830,8,0.0,1.9,False,False,False,"still, agreed"
+within 1,105144_686358,105147_475830,9,0.0,10.1,False,False,False,"still, agreed"
+within 1,105144_686358,105147_475830,10,0.0,0.0,False,False,False,"still, agreed"
+within 1,105144_686358,105147_475830,11,0.0,2.0,False,False,False,"still, agreed"
+within 1,105144_686358,105147_475830,12,0.0,2.6,False,False,False,"still, agreed"
+within 1,105147_475830,105150_266354,1,0.0,0.8,False,False,False,"still, agreed"
+within 1,105147_475830,105150_266354,2,0.0,2.2,False,False,False,"still, agreed"
+within 1,105147_475830,105150_266354,3,0.0,3.1,False,False,False,"still, agreed"
+within 1,105147_475830,105150_266354,4,0.0,2.1,False,False,False,"still, agreed"
+within 1,105147_475830,105150_266354,5,0.0,2.9,False,False,False,"still, agreed"
+within 1,105147_475830,105150_266354,6,0.0,4.0,False,False,False,"still, agreed"
+within 1,105147_475830,105150_266354,7,0.2,0.8,False,False,False,"still, agreed"
+within 1,105147_475830,105150_266354,8,0.0,3.1,False,False,False,"still, agreed"
+within 1,105147_475830,105150_266354,9,0.0,0.8,False,False,False,"still, agreed"
+within 1,105147_475830,105150_266354,10,0.0,1.8,False,False,False,"still, agreed"
+within 1,105147_475830,105150_266354,11,0.0,1.9,False,False,False,"still, agreed"
+within 1,105147_475830,105150_266354,12,0.0,2.6,False,False,False,"still, agreed"
+within 1,105150_266354,105153_032138,1,0.0,2.9,False,False,False,"still, agreed"
+within 1,105150_266354,105153_032138,2,0.0,1.6,False,False,False,"still, agreed"
+within 1,105150_266354,105153_032138,3,0.0,2.1,False,False,False,"still, agreed"
+within 1,105150_266354,105153_032138,4,0.2,1.5,False,False,False,"still, agreed"
+within 1,105150_266354,105153_032138,5,0.0,2.3,False,False,False,"still, agreed"
+within 1,105150_266354,105153_032138,6,0.0,1.0,False,False,False,"still, agreed"
+within 1,105150_266354,105153_032138,7,0.0,1.4,False,False,False,"still, agreed"
+within 1,105150_266354,105153_032138,8,0.0,2.3,False,False,False,"still, agreed"
+within 1,105150_266354,105153_032138,9,0.0,0.0,False,False,False,"still, agreed"
+within 1,105150_266354,105153_032138,10,0.0,1.2,False,False,False,"still, agreed"
+within 1,105150_266354,105153_032138,11,0.0,1.9,False,False,False,"still, agreed"
+within 1,105150_266354,105153_032138,12,0.0,2.3,False,False,False,"still, agreed"
+1 to 2,105153_032138,105502_333891,1,371.7,11.1,True,,False,not judged
+1 to 2,105153_032138,105502_333891,2,357.6,5.3,True,,False,not judged
+1 to 2,105153_032138,105502_333891,3,358.7,8.5,True,,False,not judged
+1 to 2,105153_032138,105502_333891,4,372.9,13.6,True,,False,not judged
+1 to 2,105153_032138,105502_333891,5,374.6,21.6,True,,False,not judged
+1 to 2,105153_032138,105502_333891,6,357.0,10.5,True,,False,not judged
+1 to 2,105153_032138,105502_333891,7,369.9,5.5,True,,False,not judged
+1 to 2,105153_032138,105502_333891,8,367.2,9.3,True,,False,not judged
+1 to 2,105153_032138,105502_333891,9,350.0,10.3,True,,False,not judged
+1 to 2,105153_032138,105502_333891,10,381.9,16.4,True,,False,not judged
+1 to 2,105153_032138,105502_333891,11,354.8,15.0,True,,False,not judged
+1 to 2,105153_032138,105502_333891,12,370.9,33.6,True,,False,not judged
+within 2,105502_333891,105505_143054,1,0.0,3.1,False,False,False,"still, agreed"
+within 2,105502_333891,105505_143054,2,0.2,0.6,False,False,False,"still, agreed"
+within 2,105502_333891,105505_143054,3,0.0,1.8,False,False,False,"still, agreed"
+within 2,105502_333891,105505_143054,4,0.0,4.8,False,False,False,"still, agreed"
+within 2,105502_333891,105505_143054,5,0.0,1.8,False,False,False,"still, agreed"
+within 2,105502_333891,105505_143054,6,0.0,1.0,False,False,False,"still, agreed"
+within 2,105502_333891,105505_143054,7,0.2,2.8,False,False,False,"still, agreed"
+within 2,105502_333891,105505_143054,8,0.0,0.8,False,False,False,"still, agreed"
+within 2,105502_333891,105505_143054,9,0.0,0.6,False,False,False,"still, agreed"
+within 2,105502_333891,105505_143054,10,0.0,6.4,False,False,False,"still, agreed"
+within 2,105502_333891,105505_143054,11,0.0,1.0,False,False,False,"still, agreed"
+within 2,105502_333891,105505_143054,12,0.0,1.4,False,False,False,"still, agreed"
+within 2,105505_143054,105507_920426,1,0.0,1.7,False,False,False,"still, agreed"
+within 2,105505_143054,105507_920426,2,0.0,1.0,False,False,False,"still, agreed"
+within 2,105505_143054,105507_920426,3,0.0,1.5,False,False,False,"still, agreed"
+within 2,105505_143054,105507_920426,4,0.0,1.6,False,False,False,"still, agreed"
+within 2,105505_143054,105507_920426,5,0.0,1.8,False,False,False,"still, agreed"
+within 2,105505_143054,105507_920426,6,0.0,3.0,False,False,False,"still, agreed"
+within 2,105505_143054,105507_920426,7,0.2,0.8,False,False,False,"still, agreed"
+within 2,105505_143054,105507_920426,8,0.0,10.3,False,False,False,"still, agreed"
+within 2,105505_143054,105507_920426,9,0.0,1.8,False,False,False,"still, agreed"
+within 2,105505_143054,105507_920426,10,0.0,3.4,False,False,False,"still, agreed"
+within 2,105505_143054,105507_920426,11,0.0,0.0,False,False,False,"still, agreed"
+within 2,105505_143054,105507_920426,12,0.0,1.4,False,False,False,"still, agreed"
+2 to 3,105507_920426,105846_826781,1,547.0,526.5,False,True,True,move found
+2 to 3,105507_920426,105846_826781,2,522.1,528.8,False,True,True,move found
+2 to 3,105507_920426,105846_826781,3,548.3,552.0,False,True,True,move found
+2 to 3,105507_920426,105846_826781,4,555.3,,False,True,,not judged
+2 to 3,105507_920426,105846_826781,5,537.7,535.7,False,True,True,move found
+2 to 3,105507_920426,105846_826781,6,549.1,546.5,False,True,True,move found
+2 to 3,105507_920426,105846_826781,7,560.2,,False,True,,not judged
+2 to 3,105507_920426,105846_826781,8,566.6,566.9,False,True,True,move found
+2 to 3,105507_920426,105846_826781,9,534.9,541.3,False,True,True,move found
+2 to 3,105507_920426,105846_826781,10,545.2,547.1,False,True,True,move found
+2 to 3,105507_920426,105846_826781,11,540.3,540.2,False,True,True,move found
+2 to 3,105507_920426,105846_826781,12,537.9,534.7,False,True,True,move found
+within 3,105846_826781,105849_648443,1,0.0,18.8,False,False,False,"still, agreed"
+within 3,105846_826781,105849_648443,2,0.0,1.0,False,False,False,"still, agreed"
+within 3,105846_826781,105849_648443,3,0.0,1.0,False,False,False,"still, agreed"
+within 3,105846_826781,105849_648443,4,0.0,,False,False,,not judged
+within 3,105846_826781,105849_648443,5,0.0,1.0,False,False,False,"still, agreed"
+within 3,105846_826781,105849_648443,6,0.0,5.8,False,False,False,"still, agreed"
+within 3,105846_826781,105849_648443,7,0.0,,False,False,,not judged
+within 3,105846_826781,105849_648443,8,0.0,8.7,False,False,False,"still, agreed"
+within 3,105846_826781,105849_648443,9,0.2,3.2,False,False,False,"still, agreed"
+within 3,105846_826781,105849_648443,10,0.2,0.8,False,False,False,"still, agreed"
+within 3,105846_826781,105849_648443,11,0.0,0.6,False,False,False,"still, agreed"
+within 3,105846_826781,105849_648443,12,0.0,2.9,False,False,False,"still, agreed"
+within 3,105849_648443,105852_413628,1,0.3,0.0,False,False,False,"still, agreed"
+within 3,105849_648443,105852_413628,2,0.0,0.2,False,False,False,"still, agreed"
+within 3,105849_648443,105852_413628,3,0.0,0.8,False,False,False,"still, agreed"
+within 3,105849_648443,105852_413628,4,0.2,,False,False,,not judged
+within 3,105849_648443,105852_413628,5,0.0,1.7,False,False,False,"still, agreed"
+within 3,105849_648443,105852_413628,6,0.0,6.3,False,False,False,"still, agreed"
+within 3,105849_648443,105852_413628,7,0.2,,False,False,,not judged
+within 3,105849_648443,105852_413628,8,0.0,5.6,False,False,False,"still, agreed"
+within 3,105849_648443,105852_413628,9,0.2,5.0,False,False,False,"still, agreed"
+within 3,105849_648443,105852_413628,10,0.0,1.6,False,False,False,"still, agreed"
+within 3,105849_648443,105852_413628,11,0.0,1.6,False,False,False,"still, agreed"
+within 3,105849_648443,105852_413628,12,0.0,1.7,False,False,False,"still, agreed"
+3 to 4,105852_413628,110048_638466,1,321.7,325.5,False,True,True,move found
+3 to 4,105852_413628,110048_638466,2,351.0,330.1,False,True,True,move found
+3 to 4,105852_413628,110048_638466,3,316.0,307.5,False,True,True,move found
+3 to 4,105852_413628,110048_638466,4,312.0,,False,True,,not judged
+3 to 4,105852_413628,110048_638466,5,308.1,319.6,False,True,True,move found
+3 to 4,105852_413628,110048_638466,6,328.1,332.4,False,True,True,move found
+3 to 4,105852_413628,110048_638466,7,310.2,,False,True,,not judged
+3 to 4,105852_413628,110048_638466,8,303.8,317.7,False,True,True,move found
+3 to 4,105852_413628,110048_638466,9,321.7,313.2,False,True,True,move found
+3 to 4,105852_413628,110048_638466,10,316.2,317.3,False,True,True,move found
+3 to 4,105852_413628,110048_638466,11,309.2,306.4,False,True,True,move found
+3 to 4,105852_413628,110048_638466,12,293.2,303.0,False,True,True,move found
+within 4,110048_638466,110051_441285,1,0.0,2.3,False,False,False,"still, agreed"
+within 4,110048_638466,110051_441285,2,0.0,1.3,False,False,False,"still, agreed"
+within 4,110048_638466,110051_441285,3,0.2,0.6,False,False,False,"still, agreed"
+within 4,110048_638466,110051_441285,4,0.0,0.6,False,False,False,"still, agreed"
+within 4,110048_638466,110051_441285,5,0.2,1.5,False,False,False,"still, agreed"
+within 4,110048_638466,110051_441285,6,0.2,1.8,False,False,False,"still, agreed"
+within 4,110048_638466,110051_441285,7,0.0,1.9,False,False,False,"still, agreed"
+within 4,110048_638466,110051_441285,8,0.0,1.7,False,False,False,"still, agreed"
+within 4,110048_638466,110051_441285,9,0.0,2.9,False,False,False,"still, agreed"
+within 4,110048_638466,110051_441285,10,0.0,2.1,False,False,False,"still, agreed"
+within 4,110048_638466,110051_441285,11,0.0,0.9,False,False,False,"still, agreed"
+within 4,110048_638466,110051_441285,12,0.0,1.9,False,False,False,"still, agreed"
+within 4,110051_441285,110054_246335,1,0.0,1.0,False,False,False,"still, agreed"
+within 4,110051_441285,110054_246335,2,0.0,1.7,False,False,False,"still, agreed"
+within 4,110051_441285,110054_246335,3,0.0,0.8,False,False,False,"still, agreed"
+within 4,110051_441285,110054_246335,4,0.0,2.3,False,False,False,"still, agreed"
+within 4,110051_441285,110054_246335,5,0.2,2.6,False,False,False,"still, agreed"
+within 4,110051_441285,110054_246335,6,0.0,1.2,False,False,False,"still, agreed"
+within 4,110051_441285,110054_246335,7,0.0,1.5,False,False,False,"still, agreed"
+within 4,110051_441285,110054_246335,8,0.0,2.4,False,False,False,"still, agreed"
+within 4,110051_441285,110054_246335,9,0.0,4.9,False,False,False,"still, agreed"
+within 4,110051_441285,110054_246335,10,0.2,1.0,False,False,False,"still, agreed"
+within 4,110051_441285,110054_246335,11,0.0,0.2,False,False,False,"still, agreed"
+within 4,110051_441285,110054_246335,12,0.0,0.8,False,False,False,"still, agreed"
+4 to 5,110054_246335,110415_094542,1,18.0,,False,False,,not judged
+4 to 5,110054_246335,110415_094542,2,24.7,26.8,False,False,False,"still, agreed"
+4 to 5,110054_246335,110415_094542,3,6.6,46.7,False,False,False,"still, agreed"
+4 to 5,110054_246335,110415_094542,4,17.0,17.8,False,False,False,"still, agreed"
+4 to 5,110054_246335,110415_094542,5,1.1,,False,False,,not judged
+4 to 5,110054_246335,110415_094542,6,9.2,,False,False,,not judged
+4 to 5,110054_246335,110415_094542,7,13.1,,False,False,,not judged
+4 to 5,110054_246335,110415_094542,8,15.1,21.2,False,False,False,"still, agreed"
+4 to 5,110054_246335,110415_094542,9,7.5,,False,False,,not judged
+4 to 5,110054_246335,110415_094542,10,4.6,,False,False,,not judged
+4 to 5,110054_246335,110415_094542,11,51.0,41.1,False,True,False,move missed
+4 to 5,110054_246335,110415_094542,12,23.3,33.6,False,False,False,"still, agreed"
+within 5,110415_094542,110417_886593,1,0.0,,False,False,,not judged
+within 5,110415_094542,110417_886593,2,0.0,5.1,False,False,False,"still, agreed"
+within 5,110415_094542,110417_886593,3,0.0,34.2,False,False,False,"still, agreed"
+within 5,110415_094542,110417_886593,4,0.0,11.2,False,False,False,"still, agreed"
+within 5,110415_094542,110417_886593,5,0.0,,False,False,,not judged
+within 5,110415_094542,110417_886593,6,0.0,,False,False,,not judged
+within 5,110415_094542,110417_886593,7,0.0,,False,False,,not judged
+within 5,110415_094542,110417_886593,8,0.0,0.6,False,False,False,"still, agreed"
+within 5,110415_094542,110417_886593,9,0.0,,False,False,,not judged
+within 5,110415_094542,110417_886593,10,0.0,,False,False,,not judged
+within 5,110415_094542,110417_886593,11,0.0,1.0,False,False,False,"still, agreed"
+within 5,110415_094542,110417_886593,12,0.0,,False,False,,not judged
+within 5,110417_886593,110420_651055,1,0.0,,False,False,,not judged
+within 5,110417_886593,110420_651055,2,0.0,9.1,False,False,False,"still, agreed"
+within 5,110417_886593,110420_651055,3,0.0,3.4,False,False,False,"still, agreed"
+within 5,110417_886593,110420_651055,4,0.0,13.2,False,False,False,"still, agreed"
+within 5,110417_886593,110420_651055,5,0.0,,False,False,,not judged
+within 5,110417_886593,110420_651055,6,0.0,,False,False,,not judged
+within 5,110417_886593,110420_651055,7,0.0,,False,False,,not judged
+within 5,110417_886593,110420_651055,8,0.0,0.4,False,False,False,"still, agreed"
+within 5,110417_886593,110420_651055,9,0.0,,False,False,,not judged
+within 5,110417_886593,110420_651055,10,0.2,,False,False,,not judged
+within 5,110417_886593,110420_651055,11,0.0,0.6,False,False,False,"still, agreed"
+within 5,110417_886593,110420_651055,12,0.0,,False,False,,not judged

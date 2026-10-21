@@ -1,0 +1,2 @@
+# Research scripts stay out of release archives (git archive); see CLAUDE.md area map.
+experiments/ export-ignore

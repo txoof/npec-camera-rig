@@ -6,8 +6,8 @@ were run on SN000 on 2026-10-05 and repeated on SN001 from 2026-10-12 to 10-14
 (`docs/metrology-log.md`, section 14): the repeat validation on another day, the tape, the two
 calibrations with a cold start between them, the two-height and the roll tests passed; a knock
 was detected but read DRIFT, not FAIL, and was signed off with a covered-corner-tag check. The check of the
-calibration's own uncertainty claim failed, so that claim is no longer used (see *An independent
-check, which sets the band*). Which results were repeated on SN001 is listed in
+calibration's own uncertainty claim failed, so that claim is no longer used (see *A check on
+placements the calibration did not use, which sets the band*). Which results were repeated on SN001 is listed in
 `docs/metrology-log.md`, section 13. The evidence for every number here, with its source, is in
 `docs/metrology-log.md`.
 
@@ -76,7 +76,7 @@ and on the trays (about 100 mm higher) gave the same shape of scale field within
 either calibration's own residual. A change of tray height changes the overall scale (about
 0.145% of area per mm), but not the shape.
 
-## An independent check, which sets the band
+## A check on placements the calibration did not use, which sets the band
 
 **What could go wrong.** A calibration always fits the targets it was made from. That says nothing
 about how well it measures something else, somewhere else.
@@ -85,7 +85,9 @@ about how well it measures something else, somewhere else.
 operator moves each sheet to a different tray, and the rig photographs again; this is repeated 3
 times. A round counts only if at least half the tags actually moved, so the same layout is never
 counted twice. The calibration photograph itself is never used. In each slot, the band is the
-distance from the true area that 95% of the tags fall within, over all rounds.
+distance from the true area that 95% of the tags fall within, over all rounds. Validation is
+independent of the calibration photograph, not of the printed tags: it checks against the same tag
+size the calibration used (metrology-log section 12, *Labels*). The next section covers that gap.
 
 **Evidence.** The current validation (SN001, 2026-10-14, lens 6.05): 3 rounds spread over 33.5
 minutes, 64% to 84% of tags moved each round, 85 to 90 tags per slot, bands ±1.3% to ±2.6%. The
@@ -162,14 +164,22 @@ Conditions the bands do not cover are marked on each photo rather than averaged 
 taken within 60 minutes of the Pi starting (a cold start; the 60 minutes is a decision: one run on
 SN001 found the readings back within 15 minutes). A camera fault during a run is not detected yet (`docs/metrology-log.md`, section 8).
 
-## Independent checks of the whole chain
+Which validation a photo is given is one rule, used for the photo's record and the status line
+alike (2026-10-16, #183): the newest complete validation (3 counted rounds) of the active
+calibration. A newer validation that is still running, or ended early, does not replace it. If
+that validation is not consistent, the photo is flagged and its bands are not claimed; the record
+still names it, so it says which validation the photo was taken under.
+
+## Checks of the whole chain
 
 **What could go wrong.** Calibration and validation both rest on the same typed-in tag size. If
 that number were wrong, every area would be wrong by the same proportion and validation would
 still pass. And a camera that moves after calibration would make the calibration silently stale.
 
 **What the rig does.** Two checks that do not depend on the tag size: a tape measure, and the
-corner-tag tripwire, which compares every photo's 4 corner tags with the calibration's.
+corner-tag tripwire, which compares every photo's 4 corner tags with the calibration's. In the
+metrology log's labels, the tape and the roll against the table's rails are reference
+comparisons; the knocks, the two calibrations and the two heights are development checks.
 
 **Evidence (2026-10-05, in the chamber).**
 
@@ -189,7 +199,7 @@ corner-tag tripwire, which compares every photo's 4 corner tags with the calibra
   methods agree within 0.1 points. Inside the 2% required.
 - **Two calibrations with a cold start between them**, the table untouched: at the 12 slot centres
   they differ by -0.08 to +0.19 points of area, at most about a ninth of that slot's band. So two
-  independent calibrations agree far inside the bands.
+  separate calibrations agree far inside the bands.
 - **Two heights**: the shape of the scale field on the table surface and on the trays (about 100 mm
   apart) differs by at most 0.39 points, below both calibrations' residuals (0.50% and 0.66%); one
   calibration's shape covers the tray height, with less margin than on SN000 (0.16).
@@ -333,7 +343,9 @@ spread for the four rosettes, under 0.8% for repeated photos with nothing moved)
 shapes of known area showed two error sources larger than anything in the geometry: edges
 (a flat 10 mm circle read about 21% small) and sides seen at an angle toward the row ends (a
 15 mm tall prism read up to 75% large). Segmentation is now the largest measured error source,
-as PLAN.md expected. Metrology log section 15.5.
+as PLAN.md expected. Metrology log section 15.5. A photogrammetry mesh of the same benchmark
+(one capture, a second instrument) gives rosette areas 10% to 39% larger than the rig; which of the
+two is closer to the truth is not known yet. Metrology log section 15.5e.
 
 **Real leaves, first look (round 1, 2026-10-15).** Three garden leaves of known area (flatbed
 scans scaled by printed tags), laid flat on the trays, read on average 2.5% smaller than their
@@ -343,11 +355,50 @@ bands (1.3% to 2.6%): this test cannot yet show whether the bands hold for leave
 leaves read about 5 points larger on a black sheet than on the blue trays, only partly explained
 by the sheet lifting them 3 to 10 mm. Metrology log section 15.5b.
 
-## What the trust does not cover yet
+## Limits of the evidence
 
-- **Plant height and segmentation.** The bands are for flat targets at tray-top height. Telling
-  plant from background (segmentation) has not been measured on this rig; it is planned for the
-  canopy-area milestone (M5) and is expected to add several percent.
+What the rig cannot yet back with evidence. This list is updated at every round review (PLAN.md,
+*Records kept for every round*); last updated at the round 1 review, 2026-10-19
+(`docs/metrology-log.md`, 15.6). A claim leaves this list only when a measurement in the
+metrology log backs it.
+
+### Plant area (round 1, 2026-10-19)
+
+- **Canopy area of living plants.** Not measured. The closest result is cut real leaves lying
+  flat on blue trays: on average 2.49% small (SD 3.15, range -9.10% to +3.43%, 27 readings,
+  15.5b). That covers neither living rosettes, nor leaves that overlap, nor soil or moss around
+  them, and the known area of a cut leaf itself shrank 4.6% to 7.5% in 16 minutes.
+- **Plant height.** The bands are for flat targets at tray-top height. Height alone makes an
+  object read about 0.145% per mm larger (the rosette tops of the benchmark 3.4% to 4.7%), and
+  tall objects toward the row ends show their sides (a prism read up to 75.5% large, 15.5).
+  No correction is made; it needs a measured depth source (CLAUDE.md, *Evidence gates*).
+- **Very small plants.** Flat red shapes of 50 to 80 mm² read 16% to 21% small on average, likely
+  because most of their pixels are blurred edge pixels (not measured, 15.5). Young seedlings may
+  be this small.
+- **Colour drift.** With nothing moved, the camera's white balance gains drifted 0.8% to 0.9% in 30
+  minutes (15.3d). What that does to green area is not measured.
+
+### Trays and tags (round 1, 2026-10-19)
+
+- **Tray placement.** Placing each tray from its tag in cell A1 put 503 of 504 tray positions in
+  the slot and corner known from a plan or from Aaron's check, gaps and touching, tags in any
+  rotation: 215 of 216 in 18 stills (15.5j; the one miss a tag not found) and 288 of 288 in 24
+  stills (15.5k). A further 22 stills (15.5h) were checked by eye only. That is one day,
+  12 trays of 4 x 5 cells in portrait, paper 30 mm tags lying flat in an empty cell A1. Not
+  shown: the tray outline against a measured tray edge; the 40 mm tags planned for round 2 (their
+  offset is still to be learned); fewer than 12 trays; other tray types; cell A1 holding
+  anything but the tag.
+- **Tray tags over time.** No run with trays longer than one hour, so the chamber's light cycle,
+  dust and condensation on tags are not covered. 3D-printed tags are not tested (#70). A tag print
+  lying anywhere in view is read as a tray (15.3d, #207).
+- **Tray identity under plants.** Plants near or over a tag are not tested (the trays had no
+  plants).
+
+### Flat-target bands (M2, to 2026-10-14)
+
+- **Segmentation.** Telling plant from background was not part of M2. Round 1 measured a green
+  threshold on the benchmark and on cut leaves (above); it adds to the bands, by how much on
+  living plants is not known.
 - **Other focus positions.** Each focus position needs its own calibration and validation.
 - **The first minutes after a power cut.** Readings in roughly the first 15 minutes after a cold
   start are not covered by the bands (one run on each camera, 2026-10-06 and 10-14; on SN001 the
@@ -373,7 +424,8 @@ by the sheet lifting them 3 to 10 mm. Metrology log section 15.5b.
   knocks that rolled the camera 5.9° and 6.9° read DRIFT. Whether a knock of that size should read
   FAIL is not decided.
 - **One rig, two cameras, under four weeks of data.** The evidence above comes from this rig
-  between 2026-09-21 and 2026-10-14, on camera SN000 until 2026-10-07 and SN001 after. The M2
+  between 2026-09-21 and 2026-10-14 (round 1, to 2026-10-19, adds saved stills of one lens position
+  and calibration), on camera SN000 until 2026-10-07 and SN001 after. The M2
   acceptance tests were run on both cameras (the honesty plot only on SN000; it was dropped with
   the claim it tested).
 

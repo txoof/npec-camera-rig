@@ -67,3 +67,51 @@ def tray_layout_detections(
         for col in range(6)
         for d in sheet_detections(300, 800.0 + col * 1300.0 + dx, row_y + dy, side_px=side_px)
     ]
+
+
+def stored_validation(
+    session_id: str,
+    calibration_stem: str,
+    *,
+    rounds: int = 3,
+    inconsistent: bool = False,
+    ended: bool = False,
+) -> dict:
+    """A validation session saved by validation_store, `rounds` counted rounds of three slots that
+    read true size. `inconsistent` makes North 1 read 6 points large in the second round, past the
+    2.5-point limit. `session_id` (YYYYMMDDTHHMMSSffffff) is also its start; a session with
+    ROUNDS_REQUIRED rounds completes one hour after it."""
+    from datetime import datetime, timedelta, timezone
+
+    from npec_rig import validation_store
+
+    started = datetime.strptime(session_id, "%Y%m%dT%H%M%S%f").replace(tzinfo=timezone.utc)
+    names = ["North 1", "North 2", "North 3"]
+    session = {
+        "version": validation_store.SESSION_VERSION,
+        "id": session_id,
+        "calibration_stem": calibration_stem,
+        "started_at": started.isoformat(),
+        "completed_at": None,
+        "ended_at": started.isoformat() if ended else None,
+        "slots": [{"name": name} for name in names],
+        "calibration_centres": [],
+        "rounds": [
+            {
+                "capture": f"{started:%Y-%m-%d}/{i:06d}_000000",
+                "captured_at": (started + timedelta(minutes=15 * i)).isoformat(),
+                "counted": True,
+                "slot_errors": {
+                    name: [6.0 if inconsistent and i == 1 and name == "North 1" else 0.0] * 30
+                    for name in names
+                },
+            }
+            for i in range(rounds)
+        ],
+        "results": [],
+    }
+    validation_store.refresh_results(session)
+    if session["completed_at"] is not None:
+        session["completed_at"] = (started + timedelta(hours=1)).isoformat()
+    validation_store.save_session(session)
+    return session

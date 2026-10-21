@@ -35,11 +35,12 @@ Number of readings per value not recorded.
 
 | Configuration | Cells | Where the tray tag sits | Grid spacing |
 |---|---|---|---|
-| 4 x 5 | columns A to D, rows 1 to 5 | at A1: in cell A1, or at the A1 corner along the narrow (north or south) edge | measured above |
-| 4 x 4 | 16 | on the blue surface (where exactly: open) | not yet measured |
-| 1 x 1 | one large well | on the blue surface (where exactly: open) | not yet measured |
+| 4 x 5 | columns A to D, rows 1 to 5 | outside the tray, at the A1 corner along the narrow (north or south) edge; never inside a cell (Aaron, 2026-10-17) | measured above |
+| 4 x 4 | 16 | inside the tray boundary, on the blue surface (where exactly: open) | not yet measured |
+| 1 x 1 | one large well | inside the tray boundary, on the blue surface (where exactly: open) | not yet measured |
 
-All three use the same outer tray and the same colours.
+All three use the same outer tray and the same colours. Black trays will also have their tag inside
+the tray boundary (Aaron, 2026-10-17); the tags inside the boundary are handled later.
 
 - **A1 is the south-west corner** when the tray is seen from above in portrait (4 x 5, Aaron).
 - Wells: from the week of 2026-10-19 the wells hold black pots; later soil and plants (green,
@@ -51,7 +52,8 @@ All three use the same outer tray and the same colours.
 - **Final tray tags:** about 20 mm, 3D printed, on the outside edge; hard clearance at the tray side
   27 mm; 30 mm edge tags ruled out (Aaron, 2026-10-15, metrology log 15.3a).
 - **From the week of 2026-10-19:** the green 30 mm tags go; every tray tag is a 20 mm paper tag at
-  A1 (statement by Aaron, 2026-10-15).
+  A1 (statement by Aaron, 2026-10-15); on 4 x 5 trays outside the tray at the A1 corner (Aaron,
+  2026-10-17).
 - Every printed tag sheet is measured with callipers (CLAUDE.md, *Facts not to rediscover*).
 - 20 mm tags need the detector's finer bit sampling (setting C, #156: 171 of 171 found against 121
   of 171).
