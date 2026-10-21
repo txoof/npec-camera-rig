@@ -252,6 +252,7 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | images | `images.py`, `text_render.py` |
 | database | `database.py` (the experiment's tables in `rig.db` and their migrations) |
 | exports | `exports.py` (an experiment's export zip and its checksum manifest) |
+| trays | `tray_placement.py` (each tray's slot, A1 corner and outline, placed from its cell A1 tag), `tests/fixtures/trays/` |
 | docs | `docs/` (except the shared files below), `reference/`, `README.md`, `GLOSSARY.md` |
 | cad | `hardware/` |
 | deploy | `deploy/` |
