@@ -104,6 +104,38 @@
         + `validation ${stemText(record.validation)}`;
     }
 
+    // Readings per tray per photo (#222), made in the background after each photo is saved. A
+    // tray not found is one found earlier in the experiment: removed, swapped or with a dirty tag,
+    // which the rig cannot tell apart.
+    const TRAY_STATUS = {
+      "no tags found": "no tags found in this photo, as when the lights are off",
+      "no calibration": "this photo has no calibration",
+      "no slot layout": "its calibration has no worked-out tray slots",
+      "placement failed": "the trays could not be placed",
+      "read failed": "the photo could not be read",
+    };
+
+    function localTime(iso) {
+      return new Date(iso).toLocaleTimeString(undefined, {
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+    }
+
+    function traysHtml(trays) {
+      if (!trays) return "<div>Trays: not read yet.</div>";
+      if (trays.status !== "read") return `<div>Trays: not placed, ${TRAY_STATUS[trays.status] ?? trays.status}.</div>`;
+      const lines = [`Trays found: ${trays.trays.length}.`];
+      if (trays.not_found.length) {
+        lines.push("Not found: " + trays.not_found.map((t) =>
+          `Tray ${t.tray_id} since ${localTime(t.since)} (${t.photos} ${t.photos === 1 ? "photo" : "photos"})`).join("; ") + ".");
+      }
+      if (trays.moved.length) {
+        lines.push("Moved since the previous photo: " + trays.moved.map((t) => t.from[0] === t.to[0]
+          ? `Tray ${t.tray_id} turned, A1 ${t.from[1]} to ${t.to[1]}`
+          : `Tray ${t.tray_id} ${t.from[0]} to ${t.to[0]}` + (t.from[1] === t.to[1] ? "" : `, A1 ${t.from[1]} to ${t.to[1]}`)).join("; ") + ".");
+      }
+      return lines.map((line) => `<div>${line}</div>`).join("");
+    }
+
     function itemHtml(item) {
       const taken = keyDate(item.key);
       const time = taken.toLocaleTimeString(undefined, {
@@ -116,6 +148,7 @@
           </button>
           <div class="gallery-time">${time}</div>
           <div>${recordText(item.record)}</div>
+          ${item.record ? traysHtml(item.trays) : ""}
           ${item.uptime ? `<div>${uptimeText(item.uptime)}</div>` : ""}
           ${item.flags && item.flags.length
             ? `<div class="gallery-flag">Not covered by the validation bands:

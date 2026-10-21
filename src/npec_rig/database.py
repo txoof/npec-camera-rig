@@ -143,6 +143,38 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "ALTER TABLE experiment_period DROP COLUMN interval_s",
         ),
     ),
+    (
+        7,
+        "tray readings: every photo read for trays, and one row per tray found in it (#222)",
+        (
+            # A photo read with no trays found (the dark hours) still has its row here.
+            """
+            CREATE TABLE tray_read (
+                capture_id INTEGER PRIMARY KEY REFERENCES capture (id),
+                read_at TEXT NOT NULL,           -- UTC, ISO 8601
+                status TEXT NOT NULL             -- read, no tags found, no calibration, no slot layout, placement failed, read failed
+            )
+            """,
+            # Only trays whose tag was found. A tray not found is worked out when shown, from the
+            # experiment's earlier photos, never stored (Aaron, 2026-10-21).
+            """
+            CREATE TABLE tray_reading (
+                id INTEGER PRIMARY KEY,
+                capture_id INTEGER NOT NULL REFERENCES tray_read (capture_id),
+                tray_id INTEGER NOT NULL,        -- the tag ID in cell A1
+                slot TEXT NOT NULL,              -- nearest slot of the calibration's layout
+                a1_corner TEXT NOT NULL,         -- SW, or NE (turned 180)
+                placement TEXT NOT NULL,         -- placed, close call, two trays in one slot
+                centre_x_px REAL NOT NULL,       -- tray centre, full-size photo pixels
+                centre_y_px REAL NOT NULL,
+                tilt_deg REAL NOT NULL,
+                margin_mm REAL NOT NULL,
+                area_mm2 REAL,                   -- NULL until segmentation (#74)
+                UNIQUE (capture_id, tray_id)
+            )
+            """,
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -249,6 +281,111 @@ def captures_by_path(paths: list[str]) -> dict[str, dict]:
         ).fetchall()
     return {row["path"]: {**dict(row), "flags": json.loads(row["flags"])} for row in rows}
 
+
+
+# --- Tray readings (#222) ---
+
+
+def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: list[dict]) -> None:
+    """Save photo `capture_id`'s tray readings, replacing any saved before: a photo read twice
+    keeps one row per tray."""
+    with _connect() as conn:
+        conn.execute("DELETE FROM tray_reading WHERE capture_id = ?", (capture_id,))
+        conn.execute(
+            "INSERT OR REPLACE INTO tray_read (capture_id, read_at, status) VALUES (?, ?, ?)",
+            (capture_id, read_at, status),
+        )
+        conn.executemany(
+            "INSERT INTO tray_reading (capture_id, tray_id, slot, a1_corner, placement,"
+            " centre_x_px, centre_y_px, tilt_deg, margin_mm) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (capture_id, t["tray_id"], t["slot"], t["a1_corner"], t["placement"],
+                 t["centre_px"][0], t["centre_px"][1], t["tilt_deg"], t["margin_mm"])
+                for t in trays
+            ],
+        )
+
+
+def tray_readings(capture_id: int) -> dict | None:
+    """Photo `capture_id`'s tray readings: when it was read, its status, the trays found in tray
+    ID order, and `not_found`: each tray found in an earlier photo of the same experiment but not
+    in this one, with the time of the first read photo it was missing from and how many read
+    photos it has been missing from, this one included; and `moved`: each tray in another slot
+    or turned since the experiment's previous read photo. None when the photo has not been read.
+
+    A removed tray, a swapped tag and a dirty tag all look the same here: the rig cannot tell them
+    apart, so each is shown as not found since a time, never guessed at."""
+    with _connect() as conn:
+        read = conn.execute(
+            "SELECT tray_read.*, capture.taken_at, capture.experiment_id FROM tray_read"
+            " JOIN capture ON capture.id = tray_read.capture_id WHERE capture_id = ?",
+            (capture_id,),
+        ).fetchone()
+        if read is None:
+            return None
+        rows = conn.execute(
+            "SELECT * FROM tray_reading WHERE capture_id = ? ORDER BY tray_id", (capture_id,)
+        ).fetchall()
+        not_found, moved = [], []
+        if read["experiment_id"] is not None and read["status"] == "read":
+            # Photos read with trays placed only: one not read, too dark to find any tag, or with
+            # no calibration says nothing about which trays are in it.
+            in_experiment = (
+                "FROM tray_read JOIN capture ON capture.id = tray_read.capture_id"
+                " WHERE tray_read.status = 'read' AND capture.experiment_id = ? AND capture.taken_at <= ?"
+            )
+            args = (read["experiment_id"], read["taken_at"])
+            last_seen = conn.execute(
+                "SELECT tray_id, MAX(capture.taken_at) FROM tray_reading"
+                " JOIN capture ON capture.id = tray_reading.capture_id"
+                " WHERE capture.experiment_id = ? AND capture.taken_at <= ?"
+                " AND tray_id NOT IN (SELECT tray_id FROM tray_reading WHERE capture_id = ?)"
+                " GROUP BY tray_id ORDER BY tray_id",
+                (*args, capture_id),
+            ).fetchall()
+            for tray_id, seen in last_seen:
+                since, photos = conn.execute(
+                    f"SELECT MIN(capture.taken_at), COUNT(*) {in_experiment} AND capture.taken_at > ?",
+                    (*args, seen),
+                ).fetchone()
+                not_found.append({"tray_id": tray_id, "since": since, "photos": photos})
+            previous = conn.execute(
+                f"SELECT capture_id {in_experiment} AND capture.taken_at < ?"
+                " ORDER BY capture.taken_at DESC LIMIT 1",
+                (*args, read["taken_at"]),
+            ).fetchone()
+            if previous is not None:
+                before = {
+                    r["tray_id"]: [r["slot"], r["a1_corner"]]
+                    for r in conn.execute("SELECT * FROM tray_reading WHERE capture_id = ?", (previous[0],))
+                }
+                moved = [
+                    {"tray_id": r["tray_id"], "from": before[r["tray_id"]], "to": [r["slot"], r["a1_corner"]]}
+                    for r in rows
+                    if r["tray_id"] in before and before[r["tray_id"]] != [r["slot"], r["a1_corner"]]
+                ]
+    trays = [
+        {
+            "tray_id": r["tray_id"], "slot": r["slot"], "a1_corner": r["a1_corner"],
+            "placement": r["placement"], "centre_px": [r["centre_x_px"], r["centre_y_px"]],
+            "tilt_deg": r["tilt_deg"], "margin_mm": r["margin_mm"], "area_mm2": r["area_mm2"],
+        }
+        for r in rows
+    ]
+    return {"read_at": read["read_at"], "status": read["status"], "trays": trays, "not_found": not_found, "moved": moved}
+
+
+
+def unread_photos(limit: int) -> list[str]:
+    """Paths of up to `limit` photos taken as captures (not validation, calibration or tripwire
+    rounds) that have not been read for trays, oldest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT path FROM capture WHERE purpose = 'capture'"
+            " AND id NOT IN (SELECT capture_id FROM tray_read) ORDER BY taken_at LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [row["path"] for row in rows]
 
 # --- Experiments ---
 # State comes from the periods, never from a stored status: set up (no period), running (newest
@@ -544,12 +681,15 @@ def complete_export(experiment_id: int) -> dict | None:
 
 
 def purge_experiment(experiment_id: int, *, now: str) -> dict:
-    """Mark a stopped experiment purged, delete its photo rows and mark its exports removed, in
-    one transaction. The caller deletes the folder afterwards."""
+    """Mark a stopped experiment purged, delete its photo rows and their tray readings and mark
+    its exports removed, in one transaction. The caller deletes the folder afterwards."""
     with _connect() as conn:
         conn.execute("BEGIN IMMEDIATE")
         if _experiment(conn, experiment_id)["state"] != "stopped":
             raise ExperimentError("only a stopped experiment can be purged")
+        photos = "SELECT id FROM capture WHERE experiment_id = ?"
+        conn.execute(f"DELETE FROM tray_reading WHERE capture_id IN ({photos})", (experiment_id,))
+        conn.execute(f"DELETE FROM tray_read WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute("DELETE FROM capture WHERE experiment_id = ?", (experiment_id,))
         conn.execute(
             "UPDATE export SET removed_at = ? WHERE experiment_id = ? AND removed_at IS NULL",
