@@ -135,39 +135,101 @@ ID:
 
 | IDs | Tray type | Default style |
 |---|---|---|
-| 1-75 | `4x5` | `tab` |
+| 1-75 | `4x5` | `lip_round` |
 | 76-150 | `4x4` | `lip` |
 | 151-225 | `1x1` | `lip_bolt` |
 | 226-250 | `black_tray` | `disc` |
 | 251-299 | `OTHER` | `tab` |
 
-Styles, each with its own tag size: `tab` (20 mm tag, 32 x 26 mm plate with a tab over the tray
-edge), `bolt` (20 mm tag, flat M8 tab), `lip` (42 mm tag, 61 mm square plate with a lip),
-`lip_bolt` (the lip plate plus the M8 tab), `disc` (30 mm tag, 51 mm disc, always flat). The lip
-and disc sizes are version 2's (`tray_tags_alternative/`), fitted to those trays.
+Styles, each with its own tag size: `lip_round` (40 mm tag, 60.5 mm square plate with 9.33 mm
+corners and a lip), `tab` (20 mm tag, 32 x 26 mm plate with a tab over the tray edge, the 4x5
+default until RV1.19), `bolt` (20 mm tag, flat M8 tab), `lip` (42 mm tag, 61 mm square plate with a lip),
+`lip_bolt` (the lip plate plus the M8 tab), `disc` (30 mm tag, 51 mm disc, always flat). The lip_round,
+lip and disc sizes are version 2's (`tray_tags_alternative/`), fitted to those trays.
 
 IDs 300-449 are the calibration sheets, 450-499 the corner mounts and 500 (provisional) the
 auto-focus target, so tray tags stop at 299. See PLAN.md's tag ID allocation.
 
 `tray_tags.py` exports a list of ID groups, one 3MF per group, through `scad_to_3mf.py`. Files
 go to `exports/tray_tags/<tray type>/` by default; with `-o` they all go straight into that folder.
+Each file is named `apriltag_tray_tag_<tray type>_<ids>_<style>.3mf`. Exporting a group that
+already has a file overwrites it.
+
+#### Making new tags, step by step
+
+1. Open a terminal in this `hardware/` directory:
+
+   ```sh
+   cd ~/edu/Internship/npec-camera-rig/hardware
+   ```
+
+2. Run `tray_tags.py` with the IDs you want, in groups of up to 12 (one build plate each). Each
+   group gets its tray type's default style:
+
+   ```sh
+   # 4x5 tags 1 to 12
+   uv run tray_tags.py 1-12
+   ```
+
+3. Check the report. Every group prints one line, and every tag is one object with two parts
+   (white body, black tag), so 12 tags give `12 object(s), 24 parts`:
+
+   ```text
+   .../exports/tray_tags/4x5/apriltag_tray_tag_4x5_1-12_lip_round.3mf: 12 object(s), 24 parts
+     filament 1: #FFFFFF
+     filament 2: #000000
+   ```
+
+   If a group is refused (wrong range, unknown style), the script prints why and exports
+   nothing. A `warning` line means the file is not ready to print; see the rules below.
+
+4. Open the file in Orca (see *Loading in Orca* below) and print it.
+
+5. Measure each printed tag's black square with callipers. The size engraved on the tag is the
+   size the model draws, not a measurement.
+
+#### Every tray tag, in the files kept in `exports/tray_tags/`
+
+These are the commands that made the files in `exports/tray_tags/`. Run them to rebuild a whole
+tray type, for example after changing the `.scad` or its revision:
 
 ```sh
-# writes exports/tray_tags/4x5/apriltag_tray_tag_4x5_1-12_tab.3mf, 4x5/..._13-24_tab.3mf,
-# and exports/tray_tags/4x4/apriltag_tray_tag_4x4_101-112_lip.3mf
-uv run tray_tags.py 1-12 13-24 101-112
+# 4x5, lip_round
+uv run tray_tags.py 1-12 13-24 25-36 37-48 49-60 61-72 73-75
 
-# override the default style per group, another folder, extra Customizer overrides
-uv run tray_tags.py 1-12:bolt 251-256 -o ~/prints -D on_side=false
+# 4x4, lip
+uv run tray_tags.py 76-87 88-99 100-111 112-123 124-135 136-147 148-150
+
+# 1x1, lip_bolt
+uv run tray_tags.py 151-162 163-174 175-186 187-198 199-210 211-222 223-225
+
+# black_tray, disc
+uv run tray_tags.py 226-237 238-249 250
+```
+
+#### Other options
+
+```sh
+# a single tag
+uv run tray_tags.py 7
+
+# a style other than the default: the 20 mm tab tag for 4x5 ids 1 to 12
+uv run tray_tags.py 1-12:tab
+
+# write to another folder, lay the tags flat instead of on their side
+uv run tray_tags.py 251-256 -o ~/prints -D on_side=false
 ```
 
 A group is a range (`1-12`) or a single ID (`7`), optionally followed by a style
 (`1-12:bolt`); without one it gets its type's default style. `uv run tray_tags.py --help` lists
 the types, defaults and examples. A group must stay within one tray type: `70-80`
 is refused, so split it at the boundary. Every group is checked before anything is exported.
+`-D VAR=VALUE` passes any Customizer setting to OpenSCAD, as for `scad_to_3mf.py`.
+
 The ID table is in both `tray_type()` in the `.scad` (which engraves the label) and
 `TRAY_TYPES` in `tray_tags.py` (which names the file). Change them together. The default
-styles are `DEFAULT_STYLE` in `tray_tags.py` only.
+styles are `DEFAULT_STYLE` in `tray_tags.py` only. When the `.scad` changes, raise `revision` in
+it so the new prints can be told apart from the old ones, then rebuild the affected tray types.
 
 ### Corner mounts in batches
 

@@ -1,8 +1,13 @@
 # Alternative tray tags (version 2)
 
 A second generation of tray tags, developed on 2026-10-08 and parked here. It is **not** the tray
-tag in use. The tray tag in use is `../tray_tags/apriltag_tray_tag.scad` (version 1, RV1.14),
-which `../tray_tags.py` exports. Nothing in the repo uses or exports the files in this folder.
+tag in use. The tray tag in use is `../tray_tags/apriltag_tray_tag.scad`, which `../tray_tags.py`
+exports. Nothing in the repo uses or exports the files in this folder.
+
+All four designs have since been carried into that file as styles, with the same geometry: 4x4
+as `lip` and 1x1 as `lip_bolt` (RV1.18), black_tray as `disc` (RV1.16, RV1.18), and 4x5 as
+`lip_round` (RV1.19), now the 4x5 default. Their exports match this file's except for the
+revision engraved on them. This file is kept as the record of how the designs were made.
 
 ## Files
 

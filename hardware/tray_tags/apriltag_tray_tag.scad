@@ -1,12 +1,18 @@
 /* ---------------------------------------------------------------------------
    AprilTag tray tag -- one 36h11 tag on a plate for each growth tray.
-   Five styles, chosen once for the whole layout with `tag_style`; each
+   Six styles, chosen once for the whole layout with `tag_style`; each
    tray type has a default (tray_tags.py). Each style has its own tag
    size: the largest its plate allows, except the tab style, where the
    space at the tray's side sets it.
-     - "tab" (4x5): 20 mm tag (reference/trays.md). The plate sits on the
+     - "lip_round" (4x5): version 2's 4x5 design from
+       tray_tags_alternative/ (REV 1.19): a 60.5 mm square plate with
+       9.33 mm corners copied from a physical part
+       (tray_tags_alternative/tag_outline_61.scad, derived radius), a
+       40 mm tag and the lip described under "lip" below. Same as "lip"
+       but for the plate and tag size.
+     - "tab": 20 mm tag (reference/trays.md). The plate sits on the
        tray's rim, with a tab hanging 90 deg over the tray's edge to
-       locate it.
+       locate it. The 4x5 default until REV 1.19.
      - "bolt": a tab in the plate's own plane, `bolt_tab_len` past the
        plate's -Y edge, with a round end and an M8 clearance hole
        concentric with it. Centred on X, or with `bolt_tab_flush` flush
@@ -34,8 +40,8 @@
    width is the tag plus `tag_border` each side; the depth is
    `plate_depth`, set by the space at the tray's side, with the tab inside
    it (REV 1.17). The quiet zone above and below the tag is what the
-   depth leaves, at least one bit. Lip styles: `lip_plate_w` square.
-   Disc: `disc_dia` across.
+   depth leaves, at least one bit. Lip styles: `lip_plate_w` square
+   ("lip_round": `round_plate_w`). Disc: `disc_dia` across.
 
    One continuous multi-material print, two colors, no assembly step, same
    construction as `apriltag_corner_mount.scad`:
@@ -115,6 +121,12 @@
    `tag_embed` are starting values, same status as in
    `apriltag_corner_mount.scad`.
 
+   REV 1.19: style "lip_round", version 2's 4x5 design (60.5 mm plate,
+     9.33 mm corners, 40 mm tag), now the 4x5 default in place of "tab"
+     (Aaron, 2026-10-21). Its exports match version 2's RV2.1 4x5
+     exports except for the revision. The "tab" style is kept unchanged.
+     Leftover overrides at the end of the file removed (they set the
+     Customizer default to "lip"). Other styles' geometry unchanged.
    REV 1.18: styles "lip" (4x4) and "lip_bolt" (1x1) from
      tray_tags_alternative/ (version 2), and the disc's tag is version
      2's 30 mm (`disc_tag_size`) with its clipped quiet-zone corners and
@@ -209,8 +221,8 @@
 use <../libraries/apriltag_36h11.scad>
 
 /* [Style] */
-tag_style = "tab"; // ["tab", "bolt", "lip", "lip_bolt", "disc"]
-// tab: 90 deg tab over the tray edge (4x5); bolt: in-plane tab with an M8 hole; lip: square plate with a lip (4x4); lip_bolt: lip plus the M8 tab (1x1); disc: round plate, always flat (black_tray)
+tag_style = "lip_round"; // ["lip_round", "tab", "bolt", "lip", "lip_bolt", "disc"]
+// lip_round: lip with 9.33 mm corners, 40 mm tag (4x5); tab: 90 deg tab over the tray edge; bolt: in-plane tab with an M8 hole; lip: square plate with a lip (4x4); lip_bolt: lip plus the M8 tab (1x1); disc: round plate, always flat (black_tray)
 
 /* [Tag] */
 tag_ids       = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // 36h11 ids, one tray tag each, laid out in this order -- tray id allocation not yet confirmed (PLAN.md open questions)
@@ -244,18 +256,23 @@ lip_text_size  = 3;   // revision and part name on the lip's inner face, cap hei
 lip_text_depth = 0.6; // how far that text is inset into the lip, mm  [0.2:0.1:1.5]
 lip_text_inset = 3;   // revision's and part name's distance in from the ends of the lip's inner face, mm  [0:0.5:10]
 
+/* [Lip Round] */
+round_plate_w  = 60.5; // plate side, X and Y, lip_round style, mm -- version 2's 4x5: the physical part's 61, less 0.5  [40:0.5:100]
+round_corner_r = 9.33; // rounding on the plate's four vertical corners, mm -- derived from the physical part, see header  [0:0.01:20]
+round_tag_size = 40;   // 36h11 tag width, lip_round style, mm -- version 2  [20:0.5:44]
+
 /* [Disc] */
 disc_dia      = 51; // disc diameter, mm -- version 2's black_tray disc  [30:0.5:100]
 disc_tag_size = 30; // 36h11 tag width, disc style, mm -- version 2; the disc clips the quiet zone's corners (header)  [20:0.5:36]
 
 /* [ID Label] */
-id_label  = true;                      // engrave each tag's id on the top face, in the left side border (lip: top-left corner, disc: above the tag)
+id_label  = true;                      // engrave each tag's id on the top face, in the left side border (lip styles: top-left corner, disc: above the tag)
 id_size   = 2.5;                       // label text cap height, mm  [1.5:0.5:6]
 id_inset  = 2;                         // label's end, distance in from the plate's +Y edge, mm  [0.5:0.25:5]
 id_depth  = 0.6;                       // how far the label is inset into the top face, mm  [0.2:0.1:2]
 id_font   = "Liberation Sans:style=Bold";
-type_label = true;                     // engrave each tag's tray type (4x5, 4x4, 1x1, black_tray, OTHER) in the right side border (lip: top-right corner, disc: below the tag), same size and depth as the id
-size_label = true;                     // lip, lip_bolt and disc styles: engrave the tag's size ("42.0 x 42.0 mm") in the quiet zone below the tag
+type_label = true;                     // engrave each tag's tray type (4x5, 4x4, 1x1, black_tray, OTHER) in the right side border (lip styles: top-right corner, disc: below the tag), same size and depth as the id
+size_label = true;                     // lip styles and disc: engrave the tag's size ("42.0 x 42.0 mm") in the quiet zone below the tag
 
 /* [Label] */
 part_name  = "apriltag_tray_tag"; // file name without .scad, engraved in the plate underside above the revision ("" = none)
@@ -271,14 +288,14 @@ tag_pattern_color = "Black"; // the tag's dark modules
 part = "assembly"; // what to render  ["assembly","body","graphic"]
 
 /* [Build Plate] */
-on_side    = true; // stand each tag on an edge: tab, bolt and lip_bolt on the +X edge, lip on the lip's outer face; disc always lies flat
+on_side    = true; // stand each tag on an edge: tab, bolt and lip_bolt on the +X edge, lip and lip_round on the lip's outer face; disc always lies flat
 plate_gap  = 2;   // clear space between neighbouring tags, flat layout, mm  [0:0.5:50]
 side_gap   = 5;   // clear space between neighbouring tags, side layout, mm  [0.2:0.1:10]
 side_plate_gap = 5; // space between the two plates of a nested pair, side layout, mm  [0.2:0.1:10]
 plate_cols = 0;   // tags per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.18"; // revision stamp, engraved in the plate underside below the part name ("" = none)
+revision  = "RV1.19"; // revision stamp, engraved in the plate underside below the part name ("" = none)
 rev_size  = 3;       // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;     // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -289,21 +306,22 @@ eps = 0.01;
 /* [Hidden] */
 tabbed   = tag_style == "tab";
 bolted   = tag_style == "bolt";
-lipped   = tag_style == "lip" || tag_style == "lip_bolt";
+rounded  = tag_style == "lip_round";
+lipped   = tag_style == "lip" || tag_style == "lip_bolt" || rounded;
 disc     = tag_style == "disc";
 has_bolt = bolted || tag_style == "lip_bolt";
 
 // tag and plate by style (header, Plate size)
-ts = lipped ? lip_tag_size : disc ? disc_tag_size : tag_size; // tag width, black border
-pw = lipped ? lip_plate_w : disc ? disc_dia : tag_size + 2 * tag_border; // plate width, X (disc: diameter)
-pd = lipped ? lip_plate_w : disc ? disc_dia : plate_depth;               // plate depth, Y, tab included
+ts = rounded ? round_tag_size : lipped ? lip_tag_size : disc ? disc_tag_size : tag_size; // tag width, black border
+pw = rounded ? round_plate_w : lipped ? lip_plate_w : disc ? disc_dia : tag_size + 2 * tag_border; // plate width, X (disc: diameter)
+pd = rounded ? round_plate_w : lipped ? lip_plate_w : disc ? disc_dia : plate_depth;               // plate depth, Y, tab included
 wh = ts / 2 + ts / 8;     // half-width of the one-bit white square (36h11 is 8 bits across its black border)
 qy = (pd - ts) / 2;       // quiet zone above and below the tag, Y
-cr = min(lipped ? lip_corner_r : corner_r, pw / 2, pd / 2); // clamp: rounding can't exceed half the plate
+cr = min(rounded ? round_corner_r : lipped ? lip_corner_r : corner_r, pw / 2, pd / 2); // clamp: rounding can't exceed half the plate
 tr = min(tab_r, tab_h, pw / 2); // clamp: rounding can't exceed the tab's height or half its width
 
 sided    = on_side && !disc;          // discs always lie flat
-side_lip = sided && tag_style == "lip"; // stands on the lip's outer face; other sided styles on the +X edge
+side_lip = sided && (tag_style == "lip" || rounded); // stands on the lip's outer face; other sided styles on the +X edge
 
 // side labels (tab, bolt), X: centred across the side border
 side_lx = pw / 2 - tag_border / 2;
@@ -346,7 +364,7 @@ function tray_type(id) = id <= 75  ? "4x5"
                        : "OTHER";
 
 assert(tabbed || bolted || lipped || disc,
-       "tag_style must be \"tab\", \"bolt\", \"lip\", \"lip_bolt\" or \"disc\"");
+       "tag_style must be \"lip_round\", \"tab\", \"bolt\", \"lip\", \"lip_bolt\" or \"disc\"");
 assert(len(tag_ids) > 0, "tag_ids must list at least one id");
 assert(min(tag_ids) >= 1 && max(tag_ids) <= 299,
        "tag_ids must be within 1-299, the tray tag ids (tray_type()); 300-449 are calibration sheets");
@@ -631,9 +649,3 @@ for (i = [0 : n_tags - 1]) {
     if (part != "body")
         translate(slot(i)) color(tag_pattern_color) orient(flipped(i)) tray_tag_graphic(tag_ids[i]);
 }
-
-tag_style = "lip";
-tag_ids = [for (i = [76:87]) i];
-lip_plate_w = 61; lip_corner_r = 3; lip_tag_size = 42;
-lip_h = 5; lip_thk = 3;
-tag_plate_thk = 3; tag_raise_h = 0.6;
