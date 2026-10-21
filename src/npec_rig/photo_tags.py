@@ -1,6 +1,6 @@
 """The tags found in a rig photo, and a reduced copy of it to draw on.
 
-Used by the calibration routes and by the validation module (#182). A full 64MP frame is about
+Used by the calibration and gallery routes and by the validation module (#182). A full 64MP frame is about
 180 MB, so photos never stay in memory at full size: their tags come from the analysis store
 (images.py) and the copy to draw on is decoded straight to PREVIEW_WIDTH. At most one full-size
 frame is live at once: the photo being analysed for the first time, under images._full_decode.
@@ -19,7 +19,7 @@ import numpy as np
 
 from npec_rig import images
 from npec_rig.calibration_store import calibration_frame_path
-from npec_rig.captures import photos_root
+from npec_rig.captures import photo_file, photos_root
 from npec_rig.tags import TagDetection, detect_tags
 
 CAPTURE_REF = re.compile(r"^\d{4}-\d{2}-\d{2}/\d{6}_\d{6}$")
@@ -60,6 +60,22 @@ def capture_tags(ref: str) -> list[TagDetection]:
     if stored is not None:
         return stored
     return images.tag_detections(ref, capture_path(ref), detect=lambda frame: detect_tags(frame))
+
+
+def photo_tags_for(path: str) -> list[TagDetection]:
+    """Every tag in gallery photo `path` (a rig photo or an experiment still), searched once and
+    then read from the analysis store (images.py). A rig photo is stored under its capture
+    reference, so it shares its search with the calibration and validation pages; an experiment
+    still under its whole gallery path."""
+    try:
+        found = photo_file(path)
+    except ValueError as exc:
+        raise CaptureRefError(str(exc)) from exc
+    if found is None:
+        raise CaptureNotFoundError(f"photo {path} not found")
+    if path.startswith("rig/"):
+        return capture_tags(path.removeprefix("rig/"))
+    return images.tag_detections(path, found, detect=lambda frame: detect_tags(frame))
 
 
 def capture_preview(ref: str) -> tuple[np.ndarray, float]:

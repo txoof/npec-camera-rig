@@ -137,7 +137,18 @@
       for (const tag of tags) (byRole[tag.role] ??= []).push(tag.id);
       return Object.keys(ROLE_NAMES).filter((role) => byRole[role])
         .map((role) => `${ROLE_NAMES[role]} (${byRole[role].length}): ${byRole[role].sort((a, b) => a - b).join(", ")}`)
-        .join(". ") + ".";
+        .join(". ") + "." + trayPlacementText(tags.filter((tag) => tag.role === "tray"));
+    }
+
+    // Trays placed from their cell A1 tag (#220) with the photo's calibration; the photo shows
+    // each one's outline, slot and corner.
+    function trayPlacementText(trays) {
+      if (trays.length === 0) return "";
+      const placed = trays.filter((tag) => tag.placement);
+      if (placed.length === 0) return " Trays not placed: this photo was taken without a calibration.";
+      const unsure = placed.filter((tag) => tag.placement.status !== "placed")
+        .map((tag) => `Tray ${tag.id} ${tag.placement.status}`);
+      return ` Trays placed in slots: ${placed.length}.` + (unsure.length ? ` Check: ${unsure.join(", ")}.` : "");
     }
 
     async function showTags(btn) {

@@ -143,7 +143,7 @@ def test_photo_tags_lists_each_tag_with_its_role_and_is_searched_once(monkeypatc
     # Roles from the ID allocation of 2026-09-20: trays 0 to 299, calibration 300 to 449,
     # corners 450 to 499.
     assert response.json() == [
-        {"id": 7, "role": "tray", "centre_px": [400, 300]},
+        {"id": 7, "role": "tray", "centre_px": [400, 300], "placement": None},  # no calibration
         {"id": 310, "role": "calibration", "centre_px": [900, 500]},
         {"id": 452, "role": "corner", "centre_px": [60, 60]},
     ]
@@ -158,7 +158,7 @@ def test_photo_tags_reads_an_experiment_still_and_refuses_bad_paths(monkeypatch)
     assert path.startswith("experiments/")
 
     assert client.get(f"/api/captures/tags/{path}").json() == [
-        {"id": 12, "role": "tray", "centre_px": [500, 500]}
+        {"id": 12, "role": "tray", "centre_px": [500, 500], "placement": None}
     ]
     assert len(searches) == 1
     assert client.get("/api/captures/tags/rig/2020-01-01/000000_000000").status_code == 404
@@ -196,3 +196,42 @@ def test_tags_image_is_drawn_again_when_the_photos_stored_tags_change(monkeypatc
     images.store_tag_detections(path.removeprefix("rig/"), [square_detection(9, 800, 600, 80)])
     assert client.get(f"/api/captures/tags/{path}").json()[0]["id"] == 9
     assert client.get(f"/gallery/image/tags/{path}").content != before
+
+
+def test_photo_tags_place_each_tray_tag_with_the_photos_calibration(monkeypatch, isolated_calibration_dir) -> None:
+    """Layout 2 of 20 October (metrology log 15.5l), the real tags of still 080357_563754 with
+    their calibration's scale and slot layout. The expected slots and corners are the printed
+    shuffle map, as in tests/test_tray_placement.py."""
+    import json
+    from pathlib import Path
+
+    from npec_rig import validation_store
+    from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
+    from npec_rig.calibration_store import save_calibration
+    from npec_rig.tags import TagDetection
+
+    fixture = json.loads((Path(__file__).parent.parent / "fixtures" / "trays" / "shuffles-2026-10-20.json").read_text())
+    stem = fixture["calibration"]
+    save_calibration(
+        CalibrationArtifact(created_at="2026-10-14T11:11:47+00:00", scale_field=scale_field_from_dict(fixture["scale_field"]),
+                            frame_stem=stem, lens_position=6.05),
+        stem=stem,
+    )
+    validation_store.save_slot_layout(stem, fixture["slots"], [])
+    tags = [TagDetection(t["id"], tuple(tuple(c) for c in t["corners"]),
+                         (sum(c[0] for c in t["corners"]) / 4, sum(c[1] for c in t["corners"]) / 4))
+            for t in fixture["stills"]["080357_563754"]]
+    _fake_tag_search(monkeypatch, tags)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+
+    found = {t["id"]: t for t in client.get(f"/api/captures/tags/{path}").json()}
+    placed = {i: (t["placement"]["slot"], t["placement"]["a1_corner"], t["placement"]["status"])
+              for i, t in found.items() if t["role"] == "tray"}
+    assert placed == {
+        3: ("North 1", "SW", "placed"), 10: ("North 2", "SW", "placed"), 6: ("North 3", "SW", "placed"),
+        1: ("North 4", "NE", "placed"), 4: ("North 5", "SW", "placed"), 12: ("North 6", "NE", "placed"),
+        9: ("South 1", "NE", "placed"), 11: ("South 2", "SW", "placed"), 7: ("South 3", "NE", "placed"),
+        8: ("South 4", "SW", "placed"), 5: ("South 5", "SW", "placed"), 2: ("South 6", "SW", "placed"),
+    }
+    assert "placement" not in found[450]  # a corner tag is not a tray
