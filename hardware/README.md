@@ -31,15 +31,16 @@ Set in Orca for each print (Aaron, 2026-10-21):
 | 40x40 L bracket | `l_bracket_4040.scad` | about 80% | yes | on its side, both legs on the bed (below) |
 | Auto-focus bracket | `auto-focus_bracket_2020.scad` | about 80% | not recorded | as in the file |
 | Corner mounts | `apriltag_corner_mount.scad` | 50% or more, so they are robust | yes | as in the file |
-| Tray tags | `apriltag_tray_tag.scad` | 20-30% | not recorded | as in the file |
+| Slide pocket | `m5_slide_pocket.scad` | not recorded | not recorded | layer lines perpendicular to the pocket's short dimension, for strength |
+| Tray tags | `apriltag_tray_tag.scad` | 20-30% | no | as in the file |
 
 **L brackets.** The purchased aluminium brackets in [Bill-of-Materials.md](Bill-of-Materials.md)
 are preferred; print these only as a substitute. Both files model the bracket standing up: one
 leg flat and the other upright. In Orca, turn it onto its side so the L-shaped face rests on the
 bed and both legs lie on it. This puts the layer lines perpendicular to the load.
 
-Not yet recorded: settings for the camera mount and slide pocket, and any slicer setting other
-than infill and supports.
+Not yet recorded: settings for the camera mount, infill and supports for the slide pocket, and
+any slicer setting other than infill and supports.
 
 ## Tray tags: printing a complete set
 
@@ -209,7 +210,7 @@ The file already says which part uses which slot.
 either part. The file calls the pattern black; for blue, load blue in slot 2. Use the same
 filaments for every tag in a set.
 
-**Infill:** 20-30% (see *Print settings* above).
+**Infill:** 20-30%. **Supports:** none (see *Print settings* above).
 
 1. In Orca, choose a printer preset with at least 2 filaments. With only one, the black parts
    fall back to filament 1 and the tags print all white.
@@ -242,7 +243,7 @@ filaments for every tag in a set.
 
 ### Not yet decided or recorded
 
-- Whether tray tags need supports, and slicer settings other than infill.
+- Slicer settings other than infill and supports (tray tags need no supports).
 - The quiet-zone widths and the 0.2 mm overlap between the white and black parts are starting
   values, not measured ones. The 30 mm disc tag is still to be tested for detection.
 
