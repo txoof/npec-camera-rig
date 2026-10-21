@@ -19,8 +19,8 @@ from npec_rig.tray_placement import TrayPlacement, place_trays
 
 logger = logging.getLogger(__name__)
 
-# Seconds between looks for photos not yet read. One tag search on a 64MP photo took 8.9 s and
-# 9.0 s (2026-10-21, #251), so a photo a minute leaves the reader idle most of the time.
+# Seconds between looks for photos not yet read, when there are none. One reading took 9.6 s to
+# 12.5 s (metrology log 15.5m), so a photo a minute leaves the reader idle most of the time.
 POLL_S = 5.0
 
 
@@ -81,9 +81,9 @@ def photo_readings(path: str) -> dict | None:
 
 
 class TrayReader:
-    """One background thread that reads every new photo for its trays, after it is saved, so the
-    reading never delays the next photo. Photos left unread while the app was down are read
-    when it starts, oldest first."""
+    """One background thread that reads every photo for its trays after it is saved, newest
+    first; photos left unread from before (the app was down, or taken before #222) are read when
+    there is nothing newer."""
 
     def __init__(self) -> None:
         self._stop = threading.Event()

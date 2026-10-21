@@ -4505,9 +4505,9 @@ every photo can be read within the one-minute photo interval.
 - **Result.** Tag search 8.9 s and 9.0 s, JPEG decode 0.4 s. The whole reading took 9.6 s to
   12.5 s per still over the 24 stills.
 - **What it covers.** Tags and tray placement only, with the camera idle. Not covered:
-  segmentation (#74), which adds to the time; reading while a photo is being taken. The reader runs
-  in its own thread, so a slow reading delays the next reading, not the next photo. Slowing the
-  schedule when reading falls behind is #251.
+  segmentation (#74), which adds to the time; reading while a photo is being taken. Not measured:
+  whether reading delays a scheduled photo taken at the same time (both use the Pi's processor).
+  Slowing the schedule when reading falls behind is #251.
 
 ### 15.6 Round 1 review
 

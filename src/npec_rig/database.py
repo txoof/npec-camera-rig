@@ -378,11 +378,12 @@ def tray_readings(capture_id: int) -> dict | None:
 
 def unread_photos(limit: int) -> list[str]:
     """Paths of up to `limit` photos taken as captures (not validation, calibration or tripwire
-    rounds) that have not been read for trays, oldest first."""
+    rounds) that have not been read for trays, newest first: a new photo is read within the
+    interval, and photos left from before wait until the reader has nothing newer."""
     with _connect() as conn:
         rows = conn.execute(
             "SELECT path FROM capture WHERE purpose = 'capture'"
-            " AND id NOT IN (SELECT capture_id FROM tray_read) ORDER BY taken_at LIMIT ?",
+            " AND id NOT IN (SELECT capture_id FROM tray_read) ORDER BY taken_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
     return [row["path"] for row in rows]

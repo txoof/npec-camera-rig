@@ -259,3 +259,11 @@ def test_a_photo_with_no_tags_at_all_is_not_counted_as_trays_missing() -> None:
     assert database.tray_readings(morning)["not_found"] == [
         {"tray_id": 2, "since": "2026-10-21T21:02:00+00:00", "photos": 1}
     ]
+
+
+def test_unread_photos_come_newest_first_so_new_photos_are_not_stuck_behind_old_ones() -> None:
+    for taken_at in ("2026-10-21T07:00:00+00:00", "2026-10-21T07:02:00+00:00", "2026-10-21T07:01:00+00:00"):
+        _photo(taken_at)
+    _read("2026-10-21T07:03:00+00:00", [1], None)  # read already: left out
+
+    assert database.unread_photos(limit=2) == ["rig/2026-10-21T07:02:00+00:00", "rig/2026-10-21T07:01:00+00:00"]
