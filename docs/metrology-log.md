@@ -4448,6 +4448,9 @@ come up from about 09:00 and reach full light about 09:30 chamber time.
   the largest distance between a tray's mean in one window and in the next.
 - Nobody entered the chamber overnight as far as is known; any move found is reported, not
   explained.
+- **Ended early** (Aaron, 2026-10-21, before the results): Aaron stopped the experiment at
+  07:04:17 UTC (09:04 chamber time) and called the test done; the last still is `070359_857510`.
+  The *light coming up* window therefore holds only the few stills from 07:00 UTC to the stop.
 
 ### 15.6 Round 1 review
 
