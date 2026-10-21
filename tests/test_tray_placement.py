@@ -115,3 +115,36 @@ def test_each_outline_holds_its_own_tag_and_no_other_trays_tag(still: str) -> No
         outline = np.array(p.outline, dtype=np.float32).reshape(-1, 1, 2)
         inside = {tray for tray, c in tags.items() if cv2.pointPolygonTest(outline, c, False) > 0}
         assert inside == {p.tray_id}, f"tray {p.tray_id}"
+
+
+def _square_tag(tag_id: int, centre: tuple[float, float], side_px: float, turned_deg: float) -> TagDetection:
+    """A tag with its top facing up, turned clockwise on the photo by `turned_deg`."""
+    import math
+
+    t = math.radians(turned_deg)
+    h = side_px / 2
+    corners = tuple(
+        (centre[0] + x * math.cos(t) - y * math.sin(t), centre[1] + x * math.sin(t) + y * math.cos(t))
+        for x, y in ((-h, -h), (h, -h), (h, h), (-h, h))  # top-left, top-right, bottom-right, bottom-left
+    )
+    return TagDetection(tag_id=tag_id, corners=corners, centre=centre)
+
+
+@pytest.mark.parametrize("turned_deg, tilt_deg", [(5, 5), (-3, -3), (93, 3), (178, -2)])
+def test_tilt_is_the_tags_turn_off_the_nearest_right_angle(turned_deg: float, tilt_deg: float) -> None:
+    slot = next(s for s in FIXTURE["slots"] if s["name"] == "North 3")
+    tag = _square_tag(6, (slot["centre"][0] + 600, slot["centre"][1] - 700), 194, turned_deg)
+    [placed] = place_trays([tag], scale_field_from_dict(FIXTURE["scale_field"]), FIXTURE["slots"])
+    assert placed.tilt_deg == pytest.approx(tilt_deg, abs=0.01)
+
+
+def test_the_outline_is_the_trays_measured_size_at_the_tags_scale() -> None:
+    import math
+
+    scale = scale_field_from_dict(FIXTURE["scale_field"])
+    tags = {d.tag_id: d for d in _detections("080357_563754")}
+    for p in _place("080357_563754"):
+        ppm = scale.px_per_mm(*tags[p.tray_id].centre)
+        sides = [math.dist(p.outline[i], p.outline[(i + 1) % 4]) / ppm for i in range(4)]
+        # Tape measure, reference/trays.md: 305.0 mm east-west, 366.0 mm north-south.
+        assert sides == pytest.approx([305.0, 366.0, 305.0, 366.0], abs=0.01), f"tray {p.tray_id}"

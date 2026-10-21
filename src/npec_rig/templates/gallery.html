@@ -148,7 +148,8 @@
       if (placed.length === 0) return " Trays not placed: this photo was taken without a calibration.";
       const unsure = placed.filter((tag) => tag.placement.status !== "placed")
         .map((tag) => `Tray ${tag.id} ${tag.placement.status}`);
-      return ` Trays placed in slots: ${placed.length}.` + (unsure.length ? ` Check: ${unsure.join(", ")}.` : "");
+      return ` Trays placed in slots: ${placed.length}.` + (unsure.length ? ` Check: ${unsure.join(", ")}.` : "")
+        + " Placement assumes 12 trays, each with a 40 mm tag in cell A1.";
     }
 
     async function showTags(btn) {

@@ -8,7 +8,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from npec_rig import database, images, photo_tags, validation
+from npec_rig import database, images, photo_tags, validation_store
 from npec_rig.calibration_store import CalibrationNotFoundError, CalibrationUnreadableError, load_saved_calibration
 from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import PHOTO_KEY, capture_hours, list_recent_captures, photo_file
@@ -62,8 +62,8 @@ def _tag_role(tag_id: int) -> str:
 
 def _tray_placements(path: str, tags: list[TagDetection]) -> dict[int, TrayPlacement] | None:
     """Each tray tag in photo `path` placed with the calibration the photo was taken under, by
-    tray ID; None when the photo has no calibration, or its calibration or slot layout cannot be
-    read."""
+    tray ID; None when the photo has no calibration, or its calibration or saved slot layout
+    cannot be read. Reads only: nothing is worked out or stored."""
     try:
         record = database.captures_by_path([path]).get(path)
     except (sqlite3.Error, RuntimeError):
@@ -73,11 +73,13 @@ def _tray_placements(path: str, tags: list[TagDetection]) -> dict[int, TrayPlace
         return None
     try:
         artifact = load_saved_calibration(record["calibration"])
-        slots = validation.slot_layout(artifact)["slots"]
-    except (CalibrationNotFoundError, CalibrationUnreadableError, validation.ValidationRefusedError,
-            photo_tags.FrameMissingError):
+        # Only a layout already worked out: working it out decodes the 64MP calibration frame.
+        layout = validation_store.load_slot_layout(record["calibration"])
+    except (CalibrationNotFoundError, CalibrationUnreadableError, validation_store.SessionNotFoundError):
         return None
-    return {p.tray_id: p for p in place_trays(tags, artifact.scale_field, slots)}
+    if layout is None:
+        return None
+    return {p.tray_id: p for p in place_trays(tags, artifact.scale_field, layout["slots"])}
 
 
 def _placement_json(p: TrayPlacement | None) -> dict | None:
