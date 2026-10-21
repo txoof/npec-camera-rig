@@ -4431,6 +4431,24 @@ time on 21 October, for the steadiness of step 4 in the quiet window (17:00 to 2
 each), so about 1150 more stills need about 5.5 GB. Analysed with `shuffle_day.py`, the stills
 after the layout 20b move all belonging to layout 20b unless a move is found; results added here.
 
+*Overnight analysis, decided 2026-10-21 at 06:50 UTC, before any overnight still was looked at*
+(only the tag cache was being filled). Stills from the 20b move to 07:30 UTC (09:30 chamber time),
+1372 stills in the experiment at 06:47 UTC with no minute missed. Aaron (2026-10-21): the lights
+come up from about 09:00 and reach full light about 09:30 chamber time.
+
+- **Windows** (chamber time, UTC+2): *day* to 17:00 on 20 October; *quiet* 17:00 to 23:00;
+  *dark* 23:00 to 09:00; *light coming up* 09:00 to 09:30, reported apart from the dark. Each
+  still's mean brightness (grey level, 0 to 255) is recorded, so when the lights changed is
+  read from the stills, not assumed.
+- **Tag detection per window, over every still**, settled or not: stills with all 12 tags, the
+  tags found per still (min, median), each tray's misses. A still with no tag found cannot be
+  judged settled, so detection is counted over all stills, not only the settled ones.
+- **Placement and steadiness per window**, settled stills only, as for the day: right, wrong, not
+  found; the rms and max of each tray's placed centre about its mean *within that window*, and
+  the largest distance between a tray's mean in one window and in the next.
+- Nobody entered the chamber overnight as far as is known; any move found is reported, not
+  explained.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for
