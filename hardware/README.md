@@ -30,21 +30,19 @@ purchased parts in place. Step-by-step assembly pictures are in [Installation.md
 
 ## Printed parts and print settings
 
-Set in Orca for each print (Aaron, 2026-10-21). Files are in `camera_rig/` or `tray_tags/`;
-ready-made exports are in `exports/` (see *Layout*).
 
 | Picture | Part | File | Infill | Supports | Orientation |
 |---|---|---|---|---|---|
-| <img src="images/l_bracket_4020.png" alt="40x20 L bracket" width="160"> | 40x20 L bracket | `l_bracket_4020.scad` | about 80% | yes | on its side, both legs on the bed (below) |
-| <img src="images/l_bracket_4040.png" alt="40x40 L bracket" width="160"> | 40x40 L bracket | `l_bracket_4040.scad` | about 80% | yes | on its side, both legs on the bed (below) |
+| <img src="images/l_bracket_4020.png" alt="40x20 L bracket" width="160"> | 40x20 L bracket | `l_bracket_4020.scad` |  80% | yes | on its side, both legs parallel with the bed with support |
+| <img src="images/l_bracket_4040.png" alt="40x40 L bracket" width="160"> | 40x40 L bracket | `l_bracket_4040.scad` |  80% | yes | on its side, both legs on the bed (below) |
 | <img src="images/apriltag_corner_mount.png" alt="corner mount" width="160"> | Corner mounts | `apriltag_corner_mount.scad` | 50% or more, so they are robust | yes | as in the file |
 | <img src="images/m5_slide_pocket.png" alt="slide pocket" width="160"> | Slide pocket (cold shoe holder) | `m5_slide_pocket.scad` | not recorded | not recorded | layer lines perpendicular to the pocket's short dimension, for strength |
-| <img src="images/arducam64_mount.png" alt="camera mount" width="160"> | Camera mount | `arducam64_mount.scad` | not recorded | not recorded | not recorded |
-| <img src="images/tray_tags/style_lip_round.png" alt="tray tag" width="160"> | Tray tags | `apriltag_tray_tag.scad` | 20-30% | no | as in the file |
+| <img src="images/arducam64_mount.png" alt="camera mount" width="160"> | Camera mount | `arducam64_mount.scad` | 80% | no | flat on bed as in file |
+| <img src="images/tray_tags/style_lip_round.png" alt="tray tag" width="160"> | Tray tags | `apriltag_tray_tag.scad` | 20-30% | no | as in STL and 3MF files |
 
 **L brackets.** The purchased aluminium brackets in [Bill-of-Materials.md](Bill-of-Materials.md)
 are preferred; print these only as a substitute. Both files model the bracket standing up: one
-leg flat and the other upright. In Orca, turn it onto its side so the L-shaped face rests on the
+leg flat and the other upright. In slicer, turn it onto its side so the L-shaped face rests on the
 bed and both legs lie on it. This puts the layer lines perpendicular to the load.
 
 Not yet recorded: settings for the camera mount, infill and supports for the slide pocket, and
