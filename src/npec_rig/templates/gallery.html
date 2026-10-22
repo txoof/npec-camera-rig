@@ -124,9 +124,9 @@
       // Only captures are read in the background; validation, calibration and tripwire photos are
       // skipped, and say so (Aaron, 2026-10-22).
       if (!trays && purpose !== "capture") {
-        return `<div>Trays: skipped, ${purpose} photos are not read for trays automatically. Tap Show tags to read this one.</div>`;
+        return `<div>Trays: skipped, ${purpose} photos are not read for trays automatically. Tap Tags to read this one.</div>`;
       }
-      if (!trays) return "<div>Trays: not read yet. Tap Show tags to read this photo.</div>";
+      if (!trays) return "<div>Trays: not read yet. Tap Tags to read this photo.</div>";
       if (trays.status !== "read") return `<div>Trays: not placed, ${TRAY_STATUS[trays.status] ?? trays.status}.</div>`;
       const lines = [`Trays found: ${trays.trays.length}.`];
       if (trays.not_found.length) {
@@ -159,9 +159,10 @@
             ? `<div class="gallery-flag">Not covered by the validation bands:
                 ${item.flags.join("; ")}</div>`
             : ""}
-          <div class="row"><button type="button" class="btn hit" data-tags="${item.path}">Show tags</button></div>
+          <!-- Two buttons side by side in the 200 px card: each 88 px wide, the 24 px gap between. -->
+          <div class="row" style="flex-wrap: nowrap"><button type="button" class="btn hit" style="flex: 1; min-width: 0; padding: 0 8px" data-tags="${item.path}">Tags</button>
+            <button type="button" class="btn hit" style="flex: 1; min-width: 0; padding: 0 8px" data-tag-details hidden>Info</button></div>
           <p data-tags-list hidden></p>
-          <div class="row" data-tag-details-row hidden><button type="button" class="btn hit" data-tag-details>Tag details</button></div>
         </div>`;
     }
 
@@ -244,7 +245,7 @@
       const figure = item.querySelector(".figure");
       const thumb = figure.querySelector("img");
       btn.disabled = true;
-      btn.textContent = "Finding tags";
+      btn.textContent = "Finding";
       list.hidden = false;
       list.textContent = "Searching the full-size photo. The first search of a photo takes about 10 seconds.";
       try {
@@ -256,12 +257,12 @@
         if (!r.ok) throw new Error(r.statusText);
         const tags = await r.json();
         list.textContent = tagSummaryText(tags);
-        const detailsRow = item.querySelector("[data-tag-details-row]");
-        detailsRow.querySelector("button").onclick = () => ui.infoPanel({
+        const details = item.querySelector("[data-tag-details]");
+        details.onclick = () => ui.infoPanel({
           title: "Tags in this photo",
           body: tagDetailLines(tags).map((line) => `<p>${ui.esc(line)}</p>`).join(""),
         });
-        detailsRow.hidden = false;
+        details.hidden = false;
         await showSavedTrays(item, btn.dataset.tags);
         // lightbox.js opens a figure's data-large copy: the marked one for this tap only.
         const large = thumb.dataset.large;
@@ -269,10 +270,10 @@
         figure.click();
         thumb.dataset.large = large;
       } catch (err) {
-        list.textContent = "Could not search this photo for tags. Tap Show tags to try again.";
+        list.textContent = "Could not search this photo for tags. Tap Tags to try again.";
       } finally {
         btn.disabled = false;
-        btn.textContent = "Show tags";
+        btn.textContent = "Tags";
       }
     }
 
