@@ -4736,7 +4736,10 @@ by this one.
   (`sessions/shuffle-maps-2026-10-22.json`, committed before any tray was moved). Each puts trays 1
   to 7 in 7 of the 8 middle slots (North and South 2 to 5), as the collaborator's experiment
   prefers, and trays 8 to 12 in the others, with cell A1 at the south-west or north-east corner;
-  no tray stays in its slot from one map to the next. Printed in black and white, one per page.
+  no tray stays in its slot from one map to the next. Printed in black and white, one per page;
+  the PDF that was printed is committed beside the JSON (`sessions/shuffle-maps-2026-10-22.pdf`).
+  Running the script again refuses to change the committed answer: it only writes the PDF again,
+  and stops if its layouts differ from the JSON.
 - **Who and when.** The collaborator shuffles about 3 times a week, within the shuffling window
   (PLAN.md, Round 2): 09:30 to 16:10 chamber time. Each tray is ticked on the map, with the time it
   was put in place. The maps come back to Aaron, who posts the times on #221; the agent converts
@@ -4745,17 +4748,27 @@ by this one.
   outside a map, the benchmark taped on) is posted on #221 with the local time.
 - The collaborator is named in no record of this run (Aaron, 2026-10-22).
 
-### 16.3 Windows and undisturbed pairs
+### 16.3 Light, movement and undisturbed pairs
 
-The day is split as in PLAN.md (Round 2): shuffling allowed 09:30 to 16:10, quiet with lights on
-17:00 to 23:00, dark 23:00 to 09:30, chamber time. Photos in the dark are kept and counted apart
-(metrology log 15.5l: no tag is found with the lights off).
+- **Light is read from the photos, not the clock.** A photo is *dark* when no tag of any kind is
+  found in it (status `no tags found`), *lit* otherwise. 15.5l measured the lights off from about
+  01:29 to 09:02 chamber time, not 23:00 to 09:30 as PLAN.md assumed, so a clock window would
+  count lit photos as dark. Dark photos are kept and counted apart.
+- **Movement is by the clock.** Trays may be moved from 09:30 to 17:00 chamber time (the shuffling
+  window, 09:30 to 16:10, and the 50 minutes after it). From 17:00 to 09:30 nothing is moved. Every
+  photo is in exactly one of the two. Results for questions 1 and 2 are reported per movement
+  window and per lit or dark.
 
 A pair of consecutive photos is **undisturbed** when all of these hold:
 
 1. No shuffle and no events log entry falls between the two photos.
-2. Both have the same calibration and lens position, and neither has a flag.
+2. Both have the same calibration and lens position, and neither has a flag (the `flags` list of
+   its `capture` row, for example a lens check or a cold start).
 3. Both were read with the status `read` (tags found and trays placed).
+4. They are at most 2 intervals (120 s) apart: no missed photos between them.
+5. No app start and no camera event falls between them: the later photo's app uptime is longer
+   than the time between the two, and `camera_events` has no row between them. Cold starts and
+   camera faults were measured to shift readings (6 October, lens landing).
 
 Only undisturbed pairs are used for question 1. Other pairs are counted, with the reason.
 
@@ -4788,4 +4801,10 @@ One chamber, one camera, one lens position, one calibration. 12 trays of one kin
 40 mm paper tags. The still scene is 5 trays of black pots; plant growth and leaf movement are not
 separated from the rig's error in trays 1 to 7. Shuffles only in the middle and end slots the maps
 give, with plant trays always in the middle. Not covered: 4 x 4 and 1 x 1 trays, fewer than 12
-trays, a lens moved, other chambers. The method was written after the run started (see above).
+trays, a lens moved, other chambers.
+
+The method was written after the run started (see above), which is against this log's rule that
+a method comes before its test. What that means: no result had been looked at, so the questions,
+pairs and tables were not chosen from the data; but the run itself (trays, interval, positions)
+was set before the method existed, so nothing in it was designed for these questions. The results
+are development checks and are to be read that way.

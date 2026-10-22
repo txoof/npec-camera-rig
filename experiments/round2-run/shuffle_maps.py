@@ -10,7 +10,7 @@ Rules (Aaron, 2026-10-22):
 - Every tray moves: no tray is in the slot it had on the map before (for map 1, the layout read
   by the rig at the start, FIRST below).
 
-Writes the known answer as JSON (committed before any tray is moved) and an A4 landscape PDF, one
+Writes the known answer as JSON (committed before any tray is moved; never rewritten) and an A4 landscape PDF, one
 map per page, for a black and white printer: nothing is told apart by colour alone.
 
     python shuffle_maps.py OUT_DIR
@@ -59,11 +59,14 @@ def plan() -> dict:
         layout = draw_layout(rng, before)
         maps.append({"map": n, "slots": layout})
         before = {s: v["tray"] for s, v in layout.items()}
+    before = FIRST
     for m in maps:  # the rules, checked on the result
         slots = m["slots"]
         assert sorted(v["tray"] for v in slots.values()) == list(range(1, 13))
-        assert all(slots[s]["tray"] in PLANTS for s in SLOTS if slots[s]["tray"] in PLANTS and s in MIDDLE)
-        assert sum(slots[s]["tray"] in PLANTS for s in MIDDLE) == len(PLANTS)
+        assert all(slots[s]["tray"] not in PLANTS for s in SLOTS if s not in MIDDLE)  # no plants at the ends
+        assert all(slots[s]["a1"] in ("SW", "NE") for s in SLOTS)
+        assert all(slots[s]["tray"] != before[s] for s in SLOTS)  # every tray moves
+        before = {s: v["tray"] for s, v in slots.items()}
     return {
         "seed": SEED, "date": "2026-10-22", "experiment": "Potato Plants v001",
         "generator": "python random.Random(seed): per map, trays 1-7 into 7 of North/South 2-5, trays 8-12 "
@@ -169,7 +172,13 @@ def page(c: canvas.Canvas, m: dict) -> None:
 def main(out: Path) -> None:
     p = plan()
     stem = out / "shuffle-maps-2026-10-22"
-    stem.with_suffix(".json").write_text(json.dumps(p, indent=1))
+    answer = stem.with_suffix(".json")
+    # The known answer never changes once trays have moved: a second run only draws the PDF again.
+    if answer.exists():
+        if json.loads(answer.read_text())["maps"] != p["maps"]:
+            sys.exit(f"REFUSED: the layouts differ from {answer}; the known answer is not changed")
+    else:
+        answer.write_text(json.dumps(p, indent=1))
     pdfmetrics.registerFont(TTFont("Sans", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
     pdfmetrics.registerFont(TTFont("Bold", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
     c = canvas.Canvas(str(stem.with_suffix(".pdf")), pagesize=landscape(A4))
