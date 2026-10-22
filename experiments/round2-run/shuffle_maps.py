@@ -1,0 +1,167 @@
+"""Printable shuffle maps for the Round 2 run, and their known answer (metrology log 16, #221).
+
+Each map is one random layout of trays 1 to 12 in the slots North 1..6 and South 1..6, with cell
+A1 (and the tray's AprilTag) at the south-west or north-east corner. Drawn from a fixed seed, so
+the maps can be made again exactly.
+
+Rules (Aaron, 2026-10-22):
+- Trays 1 to 7 hold plants and go in 7 of the 8 middle slots, North and South 2 to 5: the
+  collaborator's experiment prefers them there. Trays 8 to 12 hold pots and fill the rest.
+- Every tray moves: no tray is in the slot it had on the map before (for map 1, the layout read
+  by the rig at the start, FIRST below).
+
+Writes the known answer as JSON (committed before any tray is moved) and an A4 landscape PDF, one
+map per page, for printing.
+
+    python shuffle_maps.py OUT_DIR
+"""
+
+import json
+import random
+import sys
+from pathlib import Path
+
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
+
+SEED, N_MAPS = 20261022, 12
+ROWS = ("North", "South")
+SLOTS = [f"{row} {i}" for row in ROWS for i in range(1, 7)]
+MIDDLE = [f"{row} {i}" for row in ROWS for i in range(2, 6)]
+PLANTS, POTS = list(range(1, 8)), list(range(8, 13))
+# The layout at the start of the run, from the rig's tray reading of the still taken at
+# 2026-10-22 08:50:53 UTC (experiment "Potato Plants v001"): slot -> tray.
+FIRST = {
+    "North 1": 12, "North 2": 10, "North 3": 6, "North 4": 3, "North 5": 5, "North 6": 9,
+    "South 1": 11, "South 2": 2, "South 3": 4, "South 4": 1, "South 5": 7, "South 6": 8,
+}
+
+
+def draw_layout(rng: random.Random, before: dict[str, int]) -> dict[str, dict]:
+    """One layout: plants in 7 random middle slots, pots in the other 5 slots, A1 corner random;
+    drawn again until no tray is in its slot of `before`."""
+    while True:
+        plant_slots = rng.sample(MIDDLE, len(PLANTS))
+        pot_slots = [s for s in SLOTS if s not in plant_slots]
+        trays = dict(zip(plant_slots, rng.sample(PLANTS, len(PLANTS))))
+        trays |= dict(zip(pot_slots, rng.sample(POTS, len(POTS))))
+        if all(before[s] != trays[s] for s in SLOTS):
+            return {s: {"tray": trays[s], "a1": rng.choice(["SW", "NE"])} for s in SLOTS}
+
+
+def plan() -> dict:
+    rng = random.Random(SEED)
+    maps, before = [], FIRST
+    for n in range(1, N_MAPS + 1):
+        layout = draw_layout(rng, before)
+        maps.append({"map": n, "slots": layout})
+        before = {s: v["tray"] for s, v in layout.items()}
+    for m in maps:  # the rules, checked on the result
+        slots = m["slots"]
+        assert sorted(v["tray"] for v in slots.values()) == list(range(1, 13))
+        assert all(slots[s]["tray"] in PLANTS for s in SLOTS if slots[s]["tray"] in PLANTS and s in MIDDLE)
+        assert sum(slots[s]["tray"] in PLANTS for s in MIDDLE) == len(PLANTS)
+    return {
+        "seed": SEED, "date": "2026-10-22", "experiment": "Potato Plants v001",
+        "generator": "python random.Random(seed): per map, trays 1-7 into 7 of North/South 2-5, trays 8-12 "
+                     "into the other slots, A1 corner SW or NE per tray; redrawn until no tray keeps its slot",
+        "first_layout": FIRST,
+        "turn": "SW: A1 and its tag at the lower left (south-west); NE: tray turned 180, A1 at the upper right",
+        "plants": PLANTS, "pots": POTS, "maps": maps,
+    }
+
+
+# --- Drawing (A4 landscape, points) ---
+
+PAGE_W, PAGE_H = landscape(A4)
+MARGIN = 28
+TRAY_W, TRAY_H = 112.0, 134.0  # 305 x 366 mm, portrait
+GAP_X, GAP_Y = 14.0, 66.0
+GRID_X = (PAGE_W - 6 * TRAY_W - 5 * GAP_X) / 2
+
+
+def tag(c: canvas.Canvas, x: float, y: float, s: float) -> None:
+    """A drawn AprilTag: black square, white inner square, a few black blocks."""
+    c.setFillGray(0); c.rect(x, y, s, s, stroke=0, fill=1)
+    b = s / 8
+    c.setFillGray(1); c.rect(x + b, y + b, s - 2 * b, s - 2 * b, stroke=0, fill=1)
+    c.setFillGray(0)
+    for i, j in ((1, 1), (1, 4), (2, 2), (3, 5), (4, 1), (4, 3), (5, 4), (2, 5), (5, 2)):
+        c.rect(x + b * (1 + i), y + b * (1 + j) - b, b, b, stroke=0, fill=1)
+
+
+def tray(c: canvas.Canvas, x: float, y: float, slot: str, number: int, a1: str) -> None:
+    plants = number in PLANTS
+    c.setLineWidth(2.2); c.setStrokeGray(0)
+    c.setFillColorRGB(0.86, 0.94, 0.86) if plants else c.setFillGray(0.93)
+    c.rect(x, y, TRAY_W, TRAY_H, stroke=1, fill=1)
+    # Cells, 4 across and 5 down, light lines.
+    cw, ch = TRAY_W / 4, TRAY_H / 5
+    c.setLineWidth(0.5); c.setStrokeGray(0.6)
+    for i in range(1, 4):
+        c.line(x + i * cw, y, x + i * cw, y + TRAY_H)
+    for j in range(1, 5):
+        c.line(x, y + j * ch, x + TRAY_W, y + j * ch)
+    # Cell A1 and its tag: lower left (SW) or upper right (NE).
+    ax, ay = (x, y) if a1 == "SW" else (x + 3 * cw, y + 4 * ch)
+    c.setFillColorRGB(1, 0.85, 0.2); c.setStrokeGray(0); c.setLineWidth(1.6)
+    c.rect(ax, ay, cw, ch, stroke=1, fill=1)
+    s = min(cw, ch) * 0.7
+    tag(c, ax + (cw - s) / 2, ay + (ch - s) / 2, s)
+    # Tray number, large, in the middle, and what it holds.
+    c.setFillGray(0); c.setFont("Bold", 40)
+    c.drawCentredString(x + TRAY_W / 2, y + TRAY_H / 2 - 8, str(number))
+    c.setFont("Sans", 11)
+    c.drawCentredString(x + TRAY_W / 2, y + TRAY_H / 2 - 26, "plants" if plants else "pots")
+    # Slot name above, tick box and time below.
+    c.setFont("Bold", 12)
+    c.drawCentredString(x + TRAY_W / 2, y + TRAY_H + 6, slot)
+    c.setFont("Sans", 10); c.setLineWidth(1); c.setFillGray(1)
+    c.rect(x, y - 22, 14, 14, stroke=1, fill=1)
+    c.setFillGray(0)
+    c.drawString(x + 20, y - 19, "done   time ______")
+
+
+def page(c: canvas.Canvas, m: dict) -> None:
+    c.setFont("Bold", 20)
+    c.drawString(MARGIN, PAGE_H - MARGIN - 14, f"Shuffle map {m['map']} of {N_MAPS}")
+    c.setFont("Sans", 11)
+    c.drawString(MARGIN + 250, PAGE_H - MARGIN - 12, "Date ____________   Started ________   Finished ________")
+    c.drawString(MARGIN, PAGE_H - MARGIN - 34,
+                 "Put each tray in the slot shown. Its tag (the black square in the yellow cell A1) goes in the corner")
+    c.drawString(MARGIN, PAGE_H - MARGIN - 48,
+                 "shown: lower left, or upper right (tray turned around). Tick each tray and write the time when it is in place.")
+    top = PAGE_H - MARGIN - 92
+    c.setFont("Bold", 16)
+    c.drawCentredString(PAGE_W / 2, top + 6, "NORTH")
+    for r, row in enumerate(ROWS):
+        y = top - 22 - TRAY_H - r * (TRAY_H + GAP_Y)
+        for i in range(6):
+            slot = f"{row} {i + 1}"
+            v = m["slots"][slot]
+            tray(c, GRID_X + i * (TRAY_W + GAP_X), y, slot, v["tray"], v["a1"])
+    c.setFont("Bold", 16)
+    c.drawCentredString(PAGE_W / 2, MARGIN + 18, "SOUTH")
+    c.setFont("Sans", 9)
+    c.drawRightString(PAGE_W - MARGIN, MARGIN + 4,
+                      f"Green: plants (trays 1 to 7). Grey: pots (8 to 12). Seed {SEED}. Known answer: shuffle-maps-2026-10-22.json")
+
+
+def main(out: Path) -> None:
+    p = plan()
+    stem = out / "shuffle-maps-2026-10-22"
+    stem.with_suffix(".json").write_text(json.dumps(p, indent=1))
+    pdfmetrics.registerFont(TTFont("Sans", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
+    pdfmetrics.registerFont(TTFont("Bold", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
+    c = canvas.Canvas(str(stem.with_suffix(".pdf")), pagesize=landscape(A4))
+    for m in p["maps"]:
+        page(c, m)
+        c.showPage()
+    c.save()
+    print(stem)
+
+
+if __name__ == "__main__":
+    main(Path(sys.argv[1]))
