@@ -173,8 +173,16 @@
       if (tags.length === 0) return "No tags found.";
       const byRole = {};
       for (const tag of tags) (byRole[tag.role] ??= []).push(tag.id);
+      // Tray, corner and other tags are checked by ID. Calibration tags matter as a count: one
+      // photo of validation sheets holds hundreds, each ID printed on several sheets (#258).
       return Object.keys(ROLE_NAMES).filter((role) => byRole[role])
-        .map((role) => `${ROLE_NAMES[role]} (${byRole[role].length}): ${byRole[role].sort((a, b) => a - b).join(", ")}`)
+        .map((role) => {
+          const ids = byRole[role].sort((a, b) => a - b);
+          if (role === "calibration") {
+            return `${ROLE_NAMES[role]}: ${ids.length} found, IDs ${ids[0]} to ${ids[ids.length - 1]}`;
+          }
+          return `${ROLE_NAMES[role]} (${ids.length}): ${ids.join(", ")}`;
+        })
         .join(". ") + "." + trayPlacementText(tags.filter((tag) => tag.role === "tray"));
     }
 
