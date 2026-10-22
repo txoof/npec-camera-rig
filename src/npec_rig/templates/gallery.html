@@ -120,7 +120,12 @@
         hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
     }
 
-    function traysHtml(trays) {
+    function traysHtml(trays, purpose) {
+      // Only captures are read in the background; validation, calibration and tripwire photos are
+      // skipped, and say so (Aaron, 2026-10-22).
+      if (!trays && purpose !== "capture") {
+        return `<div>Trays: skipped, ${purpose} photos are not read for trays automatically. Tap Show tags to read this one.</div>`;
+      }
       if (!trays) return "<div>Trays: not read yet. Tap Show tags to read this photo.</div>";
       if (trays.status !== "read") return `<div>Trays: not placed, ${TRAY_STATUS[trays.status] ?? trays.status}.</div>`;
       const lines = [`Trays found: ${trays.trays.length}.`];
@@ -148,7 +153,7 @@
           </button>
           <div class="gallery-time">${time}</div>
           <div>${recordText(item.record)}</div>
-          ${item.record ? `<div data-trays>${traysHtml(item.trays)}</div>` : ""}
+          ${item.record ? `<div data-trays>${traysHtml(item.trays, item.record.purpose)}</div>` : ""}
           ${item.uptime ? `<div>${uptimeText(item.uptime)}</div>` : ""}
           ${item.flags && item.flags.length
             ? `<div class="gallery-flag">Not covered by the validation bands:
@@ -206,7 +211,7 @@
         const traysBox = item.querySelector("[data-trays]");
         if (traysBox) {
           const t = await fetch(`/api/captures/trays/${btn.dataset.tags}`);
-          if (t.ok) traysBox.innerHTML = traysHtml(await t.json());
+          if (t.ok) traysBox.innerHTML = traysHtml(await t.json(), "capture");
         }
         // lightbox.js opens a figure's data-large copy: the marked one for this tap only.
         const large = thumb.dataset.large;
