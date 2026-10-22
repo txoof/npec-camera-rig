@@ -39,6 +39,9 @@ should be compared as times, not as text.
 | `camera_settings` | The last value of each camera setting, the focus lock, and a few small records | `settings.py` |
 | `derived_image` | Index of images made from photographs (validation maps, problem frames) | `images.py` |
 | `capture_analysis` | Results worked out once per photograph, for example its detected tags | `images.py` |
+| `scheduled_photo` | One row per scheduled photo of an experiment, taken or missed | `scheduler.py` |
+| `tray_read` | One row per photo read for trays, with its status | `tray_readings.py` |
+| `tray_reading` | One row per tray found in a photo: its slot, A1 corner and centre | `tray_readings.py` |
 
 ### `camera_events`
 
@@ -150,6 +153,66 @@ Results worked out once per photograph, so they are not worked out again on ever
 | `created_at` | text | When, UTC (`isoformat()`) |
 
 Primary key: `source` and `kind` together.
+
+### `scheduled_photo`
+
+One row per slot of an experiment's photo schedule. The schedule's interval is
+`experiment.interval_s` (seconds, NULL for no schedule), and slot *n* is due *n* intervals after
+`experiment.schedule_since`: the latest start, resume, or change of the interval while running. A slot that passed without a photo (the app was down, or the
+photo before it took longer than the interval) is recorded as missed. The rows stay when the
+experiment is purged, as the record of the schedule.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `experiment_id` | integer | The experiment |
+| `schedule_since` | text | The schedule start the slot is counted from, UTC |
+| `slot` | integer | 1 for the first photo after the start |
+| `due_at` | text | When the photo was due, UTC (`isoformat()`) |
+| `capture_id` | integer | The photo's `capture` row; NULL when missed |
+| `missed_reason` | text | Why it was not taken; NULL when taken |
+
+Photos missed in the running period:
+
+```
+SELECT due_at, missed_reason FROM scheduled_photo WHERE capture_id IS NULL ORDER BY due_at
+```
+
+### `tray_read` and `tray_reading`
+
+Readings per tray per photo (#222). The app reads each new photo taken as a capture in the
+background, after it is saved, newest first: every photo taken since the app started and every
+photo of the running experiment. Older photos are read when Show tags is tapped in the gallery
+(Aaron, 2026-10-22). A reading: its tags are found once (`capture_analysis`) and each
+tray is placed from the tag in its cell A1 with the photo's calibration (`tray_placement.py`).
+Validation, calibration and tripwire photos are not read in the background.
+
+`tray_read` has one row per photo read, even when no tray was found:
+
+| Column | Type | Meaning |
+|---|---|---|
+| `capture_id` | integer | The photo's `capture` row |
+| `read_at` | text | When it was read, UTC |
+| `status` | text | `read`; or why no tray was placed: `no tags found` (no tag of any kind, as with the lights off), `no calibration`, `no slot layout`, `placement failed`, `read failed` |
+
+`tray_reading` has one row per tray whose tag was found:
+
+| Column | Type | Meaning |
+|---|---|---|
+| `capture_id` | integer | The photo |
+| `tray_id` | integer | The tag ID in cell A1 |
+| `slot` | text | The nearest slot of the calibration's slot layout |
+| `a1_corner` | text | `SW`, or `NE` for a tray turned 180 |
+| `placement` | text | `placed`, `close call` or `two trays in one slot` |
+| `centre_x_px`, `centre_y_px` | real | Tray centre in full-size photo pixels |
+| `tilt_deg` | real | The tray's turn off the image axes, clockwise |
+| `margin_mm` | real | How much nearer a slot the chosen corner is than the other |
+| `area_mm2` | real | NULL until segmentation (#74) |
+
+A tray not found is never stored. When a photo's readings are shown, each tray found in an
+earlier photo of the same experiment but not in this one is listed as not found since the first
+photo it was missing from (Aaron, 2026-10-21): a removed tray, a swapped tag and a dirty tag look
+the same to the rig. Only photos with the status `read` count, so a dark photo is not a tray
+missing. A purge deletes both tables' rows with the photos.
 
 ## Planned
 

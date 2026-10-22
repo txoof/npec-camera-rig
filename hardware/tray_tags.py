@@ -11,10 +11,10 @@ before anything is exported.
 
 Usage:
     uv run tray_tags.py 1-12 13-24 101-112
-    uv run tray_tags.py 1-12:bolt 101-112:tab -o ~/prints
+    uv run tray_tags.py 1-12:tab 101-112:bolt -o ~/prints
     uv run tray_tags.py 251-256 -D on_side=false
 
-Writes e.g. ``exports/tray_tags/4x5/apriltag_tray_tag_4x5_1-12_tab.3mf``;
+Writes e.g. ``exports/tray_tags/4x5/apriltag_tray_tag_4x5_1-12_lip_round.3mf``;
 with -o, every file goes straight into that folder.
 """
 
@@ -39,10 +39,10 @@ TRAY_TYPES = [
     (251, 299, "OTHER"),
 ]
 
-STYLES = ("tab", "bolt", "lip", "lip_bolt", "disc")  # tag_style values in apriltag_tray_tag.scad
+STYLES = ("lip_round", "tab", "bolt", "lip", "lip_bolt", "disc")  # tag_style values in apriltag_tray_tag.scad
 
 # style used when a group does not name one
-DEFAULT_STYLE = {"4x5": "tab", "4x4": "lip", "1x1": "lip_bolt", "black_tray": "disc",
+DEFAULT_STYLE = {"4x5": "lip_round", "4x4": "lip", "1x1": "lip_bolt", "black_tray": "disc",
                  "OTHER": "tab"}
 
 
@@ -127,6 +127,7 @@ tray types (a group must stay inside one):
 {rows}
 
 styles:
+  lip_round 40 mm tag, 60.5 mm square plate, 9.33 mm corners, with a lip
   tab       20 mm tag, 90 deg tab that hangs over the tray edge
   bolt      20 mm tag, flat tab with an M8 clearance hole
   lip       42 mm tag, 61 mm square plate with a lip
@@ -142,15 +143,15 @@ group format:
 
 examples:
   tray_tags.py 1-12
-      ids 1 to 12, 4x5, tab (the default for 4x5)
-      -> exports/tray_tags/4x5/{SCAD.stem}_4x5_1-12_tab.3mf
+      ids 1 to 12, 4x5, lip_round (the default for 4x5)
+      -> exports/tray_tags/4x5/{SCAD.stem}_4x5_1-12_lip_round.3mf
   tray_tags.py 1-12 13-24 101-112
-      three files: 4x5 1-12 tab, 4x5 13-24 tab, 4x4 101-112 lip
-  tray_tags.py 1-12:bolt
-      ids 1 to 12, 4x5, bolt instead of the default tab
-      -> exports/tray_tags/4x5/{SCAD.stem}_4x5_1-12_bolt.3mf
+      three files: 4x5 1-12 lip_round, 4x5 13-24 lip_round, 4x4 101-112 lip
+  tray_tags.py 1-12:tab
+      ids 1 to 12, 4x5, the 20 mm tab tag instead of the default lip_round
+      -> exports/tray_tags/4x5/{SCAD.stem}_4x5_1-12_tab.3mf
   tray_tags.py 1-6 7-12:bolt 101-106:tab 107-112
-      four files, styles mixed: 4x5 tab, 4x5 bolt, 4x4 tab, 4x4 lip
+      four files, styles mixed: 4x5 lip_round, 4x5 bolt, 4x4 tab, 4x4 lip
   tray_tags.py 7:bolt
       a single tag, id 7, bolt
   tray_tags.py 226-237

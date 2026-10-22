@@ -21,6 +21,8 @@ from npec_rig.captures import experiments_root, photos_root, record_app_start, r
 from npec_rig import database
 from npec_rig.photo_tags import CaptureNotFoundError, CaptureRefError, FrameMissingError
 from npec_rig.validation import RoundNotFoundError, ValidationRefusedError
+from npec_rig.scheduler import Scheduler
+from npec_rig.tray_readings import TrayReader
 from npec_rig.validation_store import SessionNotFoundError
 from npec_rig.routes import calibration, experiments, focus, gallery, shell, validation
 
@@ -39,7 +41,16 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     record_app_start()
     # An export cut off by the previous stop can never finish (exports.py).
     database.fail_unfinished_exports(now=datetime.now(timezone.utc).isoformat())
+    photo_scheduler = Scheduler()
+    photo_scheduler.start()
+    # Reads each photo for its trays after it is saved (#222).
+    tray_reader = TrayReader()
+    tray_reader.start()
     yield
+    # A scheduled photo already being taken finishes; the camera close below waits for it.
+    photo_scheduler.stop(timeout_s=0)
+    # A tag search under way is not waited for: its thread ends with the process.
+    tray_reader.stop(timeout_s=0)
     record_app_stop()
     # End the camera program cleanly, so the camera is closed rather than killed (#51).
     manager = CameraManager._instance

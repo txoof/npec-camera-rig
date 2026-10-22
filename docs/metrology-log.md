@@ -3721,6 +3721,21 @@ between the pots, so the grid can still be seen.
 callipers, X and Y, 3 readings each, as in section 3, and the readings are written here before the
 photos. The sheet is printed at 100% scale and checked against its scale bar if it has one.
 
+*Result* (Aaron, 19 October 2026, before the photos). NEIKO callipers, readings taken across the
+20 mm A1 corner tags of the trays, 3 readings in X and 3 in Y:
+
+| Axis | Readings (mm) | Mean (mm) | Range (mm) |
+|---|---|---|---|
+| X | 19.96, 20.10, 20.02 | 20.03 | 0.14 |
+| Y | 20.11, 20.04, 20.14 | 20.10 | 0.10 |
+
+Mean of all 6 readings 20.06 mm, 0.3% above the nominal 20 mm. Every reading is within 0.14 mm of
+20 mm, about the callipers' 0.1 mm limit (section 3), so the print is taken as 20.0 mm with no
+correction. This differs from the method above: 3 readings per axis in all, not 3 for each of the
+12 tags, and which tags were read is not recorded. A single tag printed off-size would not
+necessarily show here. Tray tags name and place trays in this session; no area is computed from
+their size.
+
 **Tag table, before the photos.** For each tray: tag ID, tray number and starting slot. Read by the agent from the first still and confirmed by
 Aaron in a comment on #213. The tray is named by its tag from then on.
 
@@ -3771,11 +3786,734 @@ when the trays are pushed together (steps 5 and 6). Counted as it is.
 trays, rotations other than 0 and 180 degrees, fewer than 12 trays, soil and plants, the chamber
 light cycle.
 
+**Session record, 19 October 2026** (written during the session; times UTC, chamber UTC+2).
+
+- *Rig.* Experiment `pots-2026-10-19` (folder `2026-10-19_17cb7bfb`, tray height 100 mm set on
+  it) started 08:06:44; "tag-testing" stopped 08:04:31. Calibration `20261014T111147292361`
+  (residual 0.48%), validation `20261014T111253582634`, lens position 6.05 on every still.
+- *Check stills, not part of any step* (in the experiment folder, left out of
+  `session-2026-10-19.csv`): `080712_753898`, `082042_003216`, `082417_689445`. Each shows tags 13
+  to 24 once and no other tray ID. The first showed two round moss pots in the aisle and a pot in C2
+  instead of C4 on the five trays turned 0; Aaron removed the moss pots and moved those pots
+  (North 2 and 3, then South 3 and 6; South 2 was turned 180 instead). The third shows every tray
+  with the cells of the drawing.
+- *Tag table* (confirmed by Aaron on #213), North 1 to 6: 19, 20, 22, 23, 21, 13; South 1 to 6:
+  18, 17, 16, 24, 15, 14. Trays 19, 23, 21, 13, 18, 17, 24 and 15 start turned 180 (tag at the NE
+  corner), 20, 22, 16 and 14 turned 0. The table posted on #213 shows 17 at 0; it was turned before
+  step 1.
+- *Step 4, the swap within rows.* Not defined in the method. Agreed with Aaron at the step:
+  neighbours swapped in pairs in both rows, slot 1 with 2, 3 with 4, 5 with 6, no tray turned.
+  Expected after step 4, North 1 to 6: 17, 18, 24, 16, 14, 15; South: 20, 19, 23, 22, 13, 21.
+  Written here after the move and before any analysis. (The table shown to Aaron at the step had
+  North 3 and 4 the wrong way round; he swapped the real neighbours.)
+- *Step 5.* Trays touch within each row; the aisle between the rows stays open. North 5 and 6 sit
+  about 15 mm south of the rest of the North row.
+- *Quick check at each step* (nearest slot centre to the tag, last still of the step; not the
+  analysis): all 12 tags found in every check. A corner tag can sit nearer the next slot's centre
+  than its own tray's, so this check misnamed 2 slots in step 2, 1 in step 3 and 1 in step 4.
+  Aaron noted (at step 3) that the tag could go at the centre of the short edge, between B5 and
+  C5, if that helps tray naming on 4 x 5 trays; not tested (issue #224).
+
+**Results (analysis 19 October 2026).** Scripts and settings as in the method: `fastsam.py
+--session 2026-10-19 --margin 1.15` (first run `fastsam-pots19.csv`, second run `--fill-holes`,
+`fastsam-pots19-holes.csv`), `diagnose.py`, `track.py` (`track-pots19*.csv`, timeline and evidence
+pictures in `~/scratch/round1-trays/track/`), commits cca21dd and after. All 142 stills: calibration
+`20261014T111147292361`, validation `20261014T111253582634`, lens 6.05. Tags 13 to 24 were found in
+all 142 stills (1704 of 1704), with the tray tag detector settings of 15.3e.
+
+Trays right by the 15.5c rule, first run, raw (no patches), and stills with all 12 right:
+
+| Step | Stills | Trays right | Stills all right | Two-tray masks | Trays with no mask |
+|---|---|---|---|---|---|
+| 1 gaps, nothing moved | 10 | 120 of 120 | 10 | 0 | 0 |
+| 2 turned 180 | 3 | 36 of 36 | 3 | 0 | 0 |
+| 3 rows swapped | 3 | 34 of 36 | 1 | 0 | 2 |
+| 4 swapped within rows | 3 | 36 of 36 | 3 | 0 | 0 |
+| 5 pushed together | 3 | 22 of 36 | 0 | 4 | 6 |
+| 6 touching, nothing moved | 120 | 803 of 1440 | 0 | 186 | 265 |
+
+With tracking (15.5d rules and patches):
+
+| | Gaps (steps 1 to 4) | Touching (steps 5, 6) |
+|---|---|---|
+| Raw, 15.5c rule | 226 of 228 trays, 17 of 19 stills | 825 of 1476 trays (56%), 0 of 123 stills |
+| Positions over 50 mm off counted wrong | 226 of 228 | 815 of 1476 |
+| After patches 1 and 2 | 227 of 228, 18 of 19 | 1001 of 1476 |
+| After patch 3 | 227 of 228, 18 of 19 | 1101 of 1476 (75%), 0 of 123 |
+
+For comparison, 15 October (15.5c, same pipeline, no pots, a 30 mm tag inside A1 of each tray as
+well as the edge tags, the benchmark in one tray): 2085 of 2112 trays right raw, 163 of 176 stills,
+143 of them touching.
+
+- *Gaps.* Pots in the wells did not stop splitting: 226 of 228 trays right. Moves: the turn is
+  seen in every tray's tag (12 of 12); the row swap and the swap within rows are found for 11 of
+  11 trays judged each, with no false move. Position spread with nothing moved, step 1: rms 2.1
+  mm, max 9.9 mm (120 positions).
+- *Touching.* No still has all 12 trays right. Step 6 (nothing moved, 119 pairs of stills): 16
+  false moves, 566 trays agreed still, 846 not judged; position spread of measured positions not
+  counted wrong rms 8.3 mm, max 35.5 mm (793); 10 positions 50 to 342 mm from the tray's median.
+  On 15 October the hour with nothing moved (R3) had 11 false moves and 1401 agreed of 122 pairs.
+- *Second run, holes filled.* 1053 of 1704 trays right raw against 1051; touching 1106 of 1476
+  after patch 3 against 1101. Reported as declared; the first run is the result. Filling the
+  holes left by the pots changes almost nothing, because the masks are not being rejected by the
+  area or fill test (next point).
+- *Why trays have no mask* (`diagnose-fastsam-pots19.csv`, 273 trays with no mask, 265 in step 6):
+  furthest stage "passed" 174, low score 90, never proposed 6, duplicate 1, cut by the tile 1,
+  mask test 1 (tray 24, fill 0.84 against 0.85). Trays 16 and 24 (North 4 and North 3 from step 4
+  on) are 221 of the 273. **"Passed" is not reliable for touching trays**: `diagnose.py` takes any
+  tray-sized box within 60 mm of the tag as a candidate for that tray, and with trays touching the
+  neighbour's box falls within that distance (tag 16 lies about 50 mm from North 5's box). So most
+  of the 174 are the neighbour's good mask, not the tray's own.
+- *Trace of trays 16 and 24* (development check, 2 stills of step 5 and 6, `083840_426657` and
+  `085249_313204`, the North 3-4 tile; every box scoring 0.10 or more listed, and every link of
+  `link_tags` logged on 5 stills). FastSAM's best boxes of tray height in that tile are 905 to
+  913 mm wide, centred on North 3, scores 0.45 to 0.49: North 2, 3 and 4 as one object. No box of
+  one tray's width is centred on North 3 at any score down to 0.10; North 4 alone appears only at
+  0.10 to 0.20, below SCORE_MIN 0.25. The three-tray box fails the size test, so North 3 and 4
+  get no mask, and their corner tags then link to a neighbour's mask (that neighbour reads as two
+  trays) or to none. The same pattern (a tag linked to its neighbour's mask, e.g. tags 19 and 23
+  on one mask) is seen in the South row on the 5 traced stills; not traced further.
+- *Time per still* (first run, tags not cached): median 5.8 s (step 1) to 9.1 s (step 6), max 11.6
+  s, of which tag detection about 4.4 s. Slower when touching because of the fallback.
+
+**What this shows.** With gaps, tray splitting and tracking work with pots in the wells as they did
+on 15 October. With trays touching they do not: 56% of trays right before patches, 75% after, no
+still fully right. The one cause traced is FastSAM taking three touching trays as one object. Why
+this happened on 19 October and not on 15 October is not known; the days differ in the pots, in
+the tags (edge tags only now, a 30 mm tag inside A1 then), and in which trays touched where. Not
+shown: that the South row fails for the same reason; whether a different tile (one tray per tile,
+or tiles centred on the seams) would separate them.
+
+**Limits of the evidence.** As declared above, plus: the trace covers 2 stills and one tile; the
+diagnosis stage "passed" over-counts for touching trays; one session of one hour.
+
+### 15.5g Tray footprint from the tag (issue #213, method written 2026-10-19, before the analysis)
+
+**Label: development check.** No new photos; the 142 stills of 15.5f.
+
+**Question.** Does a tray's tag fix where the tray is? If the tag is fixed to the tray, its centre
+and heading give the tray's centre: one offset per tray, in the tag's own frame, learned once at
+the start (Aaron, 2026-10-19). Then touching trays would not need to be split by FastSAM at all.
+
+**Why.** 15.5f: with trays touching, FastSAM takes three trays as one object, and 25% of trays are
+not placed right even after patches.
+
+**Method.** From `track-pots19.csv` (first run, 15.5f), positions labelled "measured" and not more
+than 50 mm from the tray's median where nothing moved. For each such position: the vector from the
+tag centre to the FastSAM mask centre, in mm by the calibration's scale at the tag, turned into the
+tag's frame by the tag heading (so it is the same vector whichever way the tray is turned).
+
+1. *Learn.* Each tray's offset is the median vector over the 10 stills of step 1 (gaps, nothing
+   moved).
+2. *Hold-out with gaps.* Steps 2 to 4 (turned, rows swapped, swapped within rows): for each
+   measured position, the distance between the mask centre and the centre predicted from the
+   tag and the step 1 offset.
+3. *Touching.* Steps 5 and 6: the same distance, for every measured position there (the masks
+   FastSAM did get right).
+4. *Single offset.* The spread of the 12 trays' step 1 offsets: whether one offset fits every
+   tray (tags placed the same way on every tray) or each tray needs its own.
+5. *Picture.* Predicted tray outlines (305 x 366 mm, turned by the tag heading) drawn on 2
+   touching stills from step 6, for Aaron to look at, including trays 16 and 24.
+
+Reported as they are, as distances in mm (median, 95th percentile, max, count). No pass mark is
+set: Aaron judges. For scale: neighbouring trays' centres are about 305 mm apart, and step 1's
+position spread with nothing moved is rms 2.1 mm.
+
+**What it does not cover.** The predicted centre is checked only against FastSAM masks, so only
+for trays FastSAM placed right; trays 16 and 24 in steps 5 and 6 are seen only in the picture.
+The heading's accuracy limits the tilt: 1 degree moves a tray's far end about 6 mm. Paper tags,
+which can shift on a tray; one session. The mask centre is the centre of FastSAM's mask, not a
+measured tray position.
+
+**Results (19 October 2026).** `footprint.py --session 2026-10-19 track-pots19.csv`, output
+`footprint-pots19.csv`, pictures in `~/scratch/round1-trays/footprint/`.
+
+1. *Learn.* Within step 1 each tray's offset varies by at most 1.6 to 10.4 mm (10 stills).
+2. *Hold-out with gaps* (steps 2 to 4, 106 positions): predicted centre to mask centre median 20.8
+   mm, 95th percentile 62.0, max 170.2.
+3. *Touching* (steps 5 and 6, 815 positions): median 23.1 mm, 95th percentile 61.7, max 65.0.
+4. *Single offset.* The 12 trays' offsets lie a median 6.7 mm from their common median, max 49.7
+   mm (tray 14). Tags were not placed the same way on every tray.
+5. *Pictures* (`085249_313204`, `090504_356551`, step 6). The predicted outlines lie on the trays
+   for 11 of 12, judged by eye, including trays 24 and 16, which FastSAM did not place (15.5f).
+   Tray 14's outline is turned about 10 degrees off its tray.
+
+- The error is per tray, not random: each tray's median is about the same with gaps and touching
+  (for example tray 14: 61 and 61 mm; tray 23: 7 and 8 mm). By tray, medians with gaps: 7 to 11 mm
+  for trays 16, 22, 23 and 24, 16 to 39 mm for the other 7 learned trays, 61 mm for tray 14.
+- *Tray 14.* Its tag heading was 100.8 degrees in step 1 and 282.9 in step 2 (the same tilt after
+  the turn), then 271.5 in step 3 and 270.0 to 271.1 after: the paper tag turned by about 11
+  degrees on its tray between steps 2 and 3, when the rows were swapped. With the step 1 offset
+  that gives about 61 mm of error from step 3 on. A tag that shifts on its tray breaks the
+  footprint; this is the case for fixed tags (issue #70).
+- *Tray 18, step 3.* The 2 positions 168.6 and 170.2 mm off are masks labelled measured; not
+  looked at further.
+- Why the other trays are 16 to 39 mm off is not known. The four trays with errors of 7 to 11 mm
+  (16, 22, 23, 24) were in slot 3 or 4, the middle of a row, in every step. That would fit an error that
+  grows away from the image centre, either in the mask centre or in the tag, but this was not
+  tested. The pictures show outlines that lie on the trays; a difference of 20 mm is about a third
+  of one cell (59.5 mm).
+
+**What this shows.** Placed from its tag and one offset learned at the start, the tray outline
+lands on the tray in the two pictures, for 11 of 12 trays, including the two trays FastSAM could
+not split. Against FastSAM's masks the predicted centre is a median 21 to 23 mm off, the same with
+gaps and touching. It fails where the tag moved on its tray (tray 14, about 11 degrees). Not
+shown: how far off the predicted outline is from the real tray edge (no measured outline); that the
+tilt from the tag heading is right; any tray type other than 4 x 5 in portrait.
+
+### 15.5h Tag in cell A1 against tag on the edge, same stills (issue #213, method written 2026-10-19, before the photos)
+
+**Label: development check.** Whether trays are split and followed, with no true area.
+
+**Question.** With pots in the wells, does naming each tray by a tag inside cell A1 split and
+follow touching trays better than naming it by the 20 mm edge tag of 15.5f?
+
+**Why.** Tags cannot be placed on the tray edge repeatably; a tag inside a cell is held by the
+cell walls (Aaron, 2026-10-19). On 15 October, with 30 mm tags in A1, touching trays were split
+(15.5c); on 19 October, with edge tags only, they were not (15.5f). The days differ in more than
+the tag, so this session puts both tags on the same trays in the same stills.
+
+**Setup** (Aaron, 19 October 2026, after 15.5f): as 15.5f, plus tags 1 to 12 (30 mm, 36h11) lying
+in cell A1 of the 12 trays (A1 is empty on every tray). The edge tags 13 to 24 stay on. Whether
+these are the 15 October sheets (30.0 mm, section 3) is not recorded; tag size is not used here.
+
+**Steps.** Stills by the agent under the `hardware` label, into the running experiment
+"pots-2026-10-19", recorded in `experiments/round1-trays/session-2026-10-19-cell.csv` by
+`capture_session.py --record`:
+
+| Step | Layout | Stills |
+|---|---|---|
+| 1 | Gaps, nothing moved | 10 |
+| 2 | Every tray turned 180 degrees in its slot | 3 |
+| 3 | North and South rows swapped | 3 |
+| 4 | Neighbours swapped in pairs within rows (1-2, 3-4, 5-6) | 3 |
+| 5 | Pushed together within rows | 3 |
+| 6 | Pushed together, nobody in the chamber, nothing moved, 10 minutes, one still per 15 s | 40 |
+
+**Analysis.** As 15.5f (first run only, no holes-filled run), done twice on the same stills, with
+two session files that differ only in which tag names and places each tray: `2026-10-19-cell`
+(the A1 tag first) and `2026-10-19-edge` (the edge tag first). Both files list both tags for each
+tray. Reported for each, side by side: trays right raw and after patches, gaps and touching;
+stills all right; false moves in step 6; tag detection per tag. The tag table is read from the
+first still and confirmed by Aaron, as in 15.5f. Counts reported as they are; Aaron judges.
+
+**Changed before the step 5 stills (Aaron, 2026-10-19, for time):** step 6 is dropped, and the
+analysis is run only with the cell tags naming the trays (`2026-10-19-cell`). The edge-tag
+comparison is 15.5f's result on its own stills, not a run on these stills. The false moves of a
+step with nothing moved while touching are not measured here.
+
+**What it does not cover.** Tag size differs as well as position (30 mm in the cell, 20 mm on
+the edge), so a difference cannot be put on position alone. The pipeline builds its tiles from
+the naming tags, so the comparison is of the whole pipeline, not of the tag link alone. One
+session, 62 stills, paper tags, the pot cells of 15.5f with A1 empty; in an experiment A1 may
+hold a plant.
+
+**Results (19 October 2026).** 22 stills, `105128_023792` to `110420_651055`, record
+`session-2026-10-19-cell.csv`; check stills `104544_103703` (tag 1 found twice, tag 9 missing: two
+prints of tag 1; Aaron replaced the one on South 4 with tag 9) and `104959_856024` (tags 1 to 24
+once each). Tag table confirmed by Aaron. Tags 1 to 24 found once in every still. Calibration,
+validation and lens as 15.5f. `fastsam.py --session 2026-10-19-cell --name cell19 --margin 1.15`,
+`track.py`; outputs `fastsam-cell19*.csv`, `track-cell19*.csv`.
+
+| | Gaps (steps 1 to 4) | Touching (step 5) |
+|---|---|---|
+| Raw, 15.5c rule | 222 of 228 trays, 16 of 19 stills | 19 of 36 (53%), 0 of 3 stills |
+| After patches | 225 of 228 | 27 of 36 (75%) |
+| Edge tags, 15.5f (other stills) | 226 of 228 raw | 825 of 1476 raw (56%), 1101 (75%) after |
+
+- Step 3 (rows swapped): 10 of 12 right in each still, one two-tray mask per still. Steps 1, 2
+  and 4: every tray right in every still.
+- Touching: 2 to 3 two-tray masks per still, as with the edge tags. **Naming trays by a tag in
+  A1 does not make FastSAM split touching trays with pots in the wells.** The 15 October success
+  with touching trays is therefore not explained by the tag; the remaining known difference is the
+  empty trays (no pots) on 15 October. Not tested.
+
+*Added after the results, not in the method: the footprint of 15.5g on these stills*
+(`footprint.py --session 2026-10-19-cell track-cell19.csv --pictures 110420_651055`, output
+`footprint-cell19.csv`). Offsets learned from step 1 vary within step 1 by at most 1.7 to 11.0 mm.
+The 12 trays' offsets lie a median 10.0 mm, max 18.1 mm, from their common median (edge tags: max
+49.7 mm). Predicted centre to mask centre with gaps (steps 2 to 4, 102 positions): median 18.5
+mm, 95th percentile 31.5, max 41.7 (edge tags: 20.8, 62.0, 170.2). Touching (19 positions):
+median 20.4 mm, max 291.1 (one mask labelled measured, not looked at). In the touching picture
+`110420_651055` all 12 predicted outlines lie on their trays by eye, including the 5 trays FastSAM
+did not place; trays 1, 2 and 11 are drawn turned a few degrees from their trays (a tag can turn
+inside its cell).
+
+*Added after the results, at Aaron's request: placement from the cell tag alone* (`footprint.py
+--common`, output `footprint-cell19-common.csv`, pictures `~/scratch/round1-trays/footprint/`,
+sheet `cell-tag-only-steps.jpg`). Every tray is placed by the same offset (the median of the 12
+trays' step 1 offsets, (-107.8, -149.1) mm in the tag's frame), turned by the tag heading, its
+tilt taken as the heading's difference from the nearest right angle; nothing is learned per
+tray. All 264 tray positions of the 22 stills are placed (every cell tag is found in every still).
+Against FastSAM's measured masks: gaps (steps 2 to 4, 102 positions) median 8.4 mm, 95th
+percentile 17.3, max 32.3; touching (step 5, 19 positions) median 11.4 mm, with one at 294.3 mm
+(tray 5 in `110417_886593`, where FastSAM's mask is one tray to the east) and one at 41.4 mm.
+In one picture per step (5 stills), every outline lies on its tray by eye, touching included.
+The common offset is closer to FastSAM's masks than each tray's own step 1 offset (median 8.4
+against 18.5 mm with gaps); why is not known.
+
+**What this shows.** With pots, FastSAM splits trays with gaps and fails on touching trays,
+whichever tag names them. A tag in cell A1 sits more repeatably on its tray than a hand-placed edge
+tag (offsets within 18 mm of one common offset, against 50 mm), so one offset for every tray,
+with no learning per tray, places the tray outline from the tag alone. Not shown: the outline
+against a measured tray edge; the tilt; replacement of a tag mid-experiment (expected to need no
+relearning while the tag stays in A1, not tested).
+
+**Conclusion of 15.5f to 15.5h (19 October 2026).** With black pots in the wells, the method
+that placed every tray in every still is placing each tray from a 30 mm tag lying flat in the
+empty cell A1, by one offset common to every tray: 264 of 264 tray positions in 22 stills, gaps
+and touching. FastSAM tray splitting works with gaps (222 to 226 of 228 trays) and fails with trays
+touching (53 to 56% raw), with either tag. The edge tag cannot be placed repeatably on the tray
+(Aaron) and its offset varies by up to 50 mm between trays; the cell tag's by up to 18 mm. This
+is the method taken forward to the shuffling test (15.5i). It rests on one session of 22 stills,
+no ruler check of the outline, the tag lying the same way round in A1, and A1 kept free of plants.
+
+### 15.5i Shuffling rounds, trays placed from the cell tag only (issue #213, method written 2026-10-19, before the photos)
+
+**Label: development check.** Proof of concept for tracking trays through repeated moves.
+
+**Question.** Placing each tray only from its tag in cell A1 (15.5h, one common offset), is every
+tray found in the slot and turn it was moved to, in every still, over several rounds of
+shuffling, with gaps and touching?
+
+**Setup** (Aaron): the 12 trays and pots of 15.5h, tags 1 to 12 flat in cell A1, the same way round
+as in 15.5h. Every paper edge tag (13 to 24) taken off and out of the chamber. No FastSAM.
+
+**The shuffles are the known answer.** Before each round the agent draws the next layout at
+random (`shuffle.py plan`, seed written in the plan file): which tray goes to which of the 12
+slots, and whether it is turned 0 or 180 degrees. The plan is posted on #213 as a table before
+Aaron moves the trays, so the expected result is fixed before the stills.
+
+| Round | Layout | Stills |
+|---|---|---|
+| 0 | Starting layout as found, gaps | 3 |
+| 1 | Shuffled, gaps | 3 |
+| 2 | Shuffled, touching within rows | 3 |
+| 3 | Shuffled, gaps | 3 |
+| 4 | Shuffled, touching within rows | 3 |
+| 5 | Nothing moved; the tags of 3 trays named in the plan lifted out and dropped back into A1 | 3 |
+
+Round 0's layout is read from its stills and confirmed by Aaron; it is the start, not a test.
+
+**Analysis** (`shuffle.py check`, reads the record, the stills, rig.db and the calibration's slot
+layout; writes nothing to the experiment folder): for every tray in every still, the tray centre
+placed from its tag (15.5h `--common` offset, learned in 15.5h, not refitted), its slot (the
+slot centre nearest the placed tray centre, not the tag) and its turn (from the tag heading).
+Reported: trays in the planned slot and turn, of 12, per still and per round; trays not found;
+how far the placed centre moved between rounds 4 and 5 for the 3 replaced tags (mm) against the
+other 9. Pictures of the placed outlines, one still per round. Declared before the photos: the
+proof of concept holds if every tray is in its planned slot and turn in every still; anything less
+is reported as it is and Aaron judges.
+
+**What it does not cover.** As 15.5h: no ruler check of the outline; tags placed the same way
+round; A1 empty; 4 x 5 trays in portrait; one lens position. The slot rule needs trays near their
+slots: a layout far from the slot grid is not tested. Tag placement error inside A1 adds to the
+outline position.
+
+**Changed before the photos (Aaron, 2026-10-19):** Aaron took the stills himself, in a new
+experiment "simple segmentation test" (folder `2026-10-19_ad4876e5`); five shuffles from the
+posted maps (#213, seed 20261019), no round 0 and no tag lift. Round 2 was run twice: first with
+gaps, then pushed together (Aaron). Stills are split into rounds by time gaps over 60 s and each
+group assigned to its round by `--rounds 1 2 3 4 5 2`; the assignment was found by matching each
+group against all five maps (each group matched one map for 10 or 11 of 12 trays, every other map
+for 0 or 1).
+
+**Results (19 October 2026).** `shuffle.py --experiment "simple segmentation test" --rounds 1 2 3
+4 5 2`, commit after 18ca714, output `shuffle-2026-10-19_ad4876e5.csv`, pictures in
+`~/scratch/round1-trays/shuffle/`. 18 stills, 6 groups of 3, lens and calibration as 15.5f.
+
+| Group | Round | Layout | Trays in the planned slot and corner | Wrong | Tag not found |
+|---|---|---|---|---|---|
+| 0 | 1 | gaps | 33 of 36 | 3 | 0 |
+| 1 | 2 | gaps (first run) | 33 of 36 | 3 | 0 |
+| 2 | 3 | gaps | 33 of 36 | 3 | 0 |
+| 3 | 4 | touching | 33 of 36 | 3 | 0 |
+| 4 | 5 | gaps | 33 of 36 | 3 | 0 |
+| 5 | 2 | touching (second run) | 32 of 36 | 3 | 1 |
+
+- All 18 wrong positions are tray 6, in every still: found one slot over, with the corner the
+  wrong way (for example round 1: found South 6 SW, planned South 5 NE). In the picture of round
+  1 tray 6 stands in South 5 with A1 at NE as planned, and tag 6 lies in A1 turned 180 degrees
+  from the other tags (heading 184 against about 0 for the other NE trays). The rule assumes every
+  tag lies the same way round in its cell; tag 6 did not, so its offset pointed the wrong way.
+- Tag 1 was not found in 1 of 18 stills (`121700_460965`); found in the other 17.
+- Without tray 6: 197 of 198 tray positions right, the one miss being the tag not found.
+  **The proof of concept as declared (every tray right in every still) does not hold**: one tag
+  lying the other way round moves its tray to the next slot in every still.
+
+**What this shows.** Placing trays from a cell tag tracks 11 of 12 trays through five random
+shuffles, with gaps and touching, with no tray splitting. It depends on each tag lying the same
+way round in its cell: one tag turned 180 put its tray in the wrong slot every time, silently.
+Not shown: a tag found in the wrong orientation being detected as such.
+
+### 15.5j Trays placed from the cell tag in any rotation, same 18 stills (issue #217, method written 2026-10-19, before the analysis)
+
+**Label: development check.** Re-analysis of the 18 stills of 15.5i; no new photos.
+
+**Question.** If the tag's heading is not used to tell which way a tray faces, is every tray in
+its planned slot and turn in the 18 stills, tray 6 included?
+
+**Why.** In 15.5i the tray's turn came from the tag heading, so a tag lying 180 degrees round
+put tray 6 one slot over in every still, with no warning. AprilTags read in any rotation, and
+operators will not follow a rule on which way round a tag lies (Aaron, 2026-10-19). With 12 trays
+every tray is turned 0 or 180 degrees, so A1 is at the south-west or the north-east corner.
+
+**Method** (`shuffle.py --any-rotation`, otherwise as 15.5i, same `--rounds 1 2 3 4 5 2`):
+
+1. The tray's small tilt is the tag heading's difference from the nearest right angle, as in
+   15.5i. This is the same whichever way round the tag lies.
+2. Two candidate tray centres are placed from the tag centre: A1 at the south-west (the 15.5h
+   common offset, turned by the tilt only) and A1 at the north-east (the same offset reversed).
+3. The candidate whose nearest slot centre is closer is taken; its slot and corner are the result.
+   Reported for every tray: the distance of each candidate to its nearest slot centre, and the
+   margin between them (mm, scale at the tag), so a close call shows.
+4. Also reported: each tag's heading off the 15.5h heading for its corner (0, 90, 180 or 270
+   degrees), to show how many tags lay a different way round.
+
+The offset is not refitted. Declared before the analysis: the method works on these stills if
+every found tray is in its planned slot and turn; anything less is reported as it is.
+
+**What it does not cover.** The same 18 stills; only tray 6 lay a different way round, so one
+tag tests the rotation. Fewer than 12 trays, where any turn is allowed and step 3 cannot choose
+between more than two candidates. A tray far from the slot grid. New stills with tags lying in
+several rotations, offered by Aaron, test it further.
+
+**Results (19 October 2026).** `shuffle.py --experiment "simple segmentation test" --rounds 1 2 3
+4 5 2 --any-rotation`, commit 81c86ff, run before the 15.5k stills existed; to rebuild it now, add
+`--before 2026-10-19T12:18` (checked identical, byte for byte, on 2026-10-19). Output `shuffle-2026-10-19_ad4876e5-any.csv`, pictures
+`~/scratch/round1-trays/shuffle/*-any.jpg`. Same 18 stills and cached tags as 15.5i.
+
+| | 15.5i (turn from the tag heading) | 15.5j (turn from the slot grid) |
+|---|---|---|
+| Trays in the planned slot and corner | 197 of 216 | **215 of 216** |
+| Wrong | 18 (tray 6 in every still) | **0** |
+| Tag not found | 1 (tag 1, `121700_460965`) | 1 (the same) |
+
+- Distance from the chosen candidate to its nearest slot centre: median 59.4 mm, max 97.4 mm
+  (215 trays). The other candidate was further by at least 152.4 mm (median 274.1 mm), so no
+  tray was a close call.
+- Tags lying a different way round from the 15.5h heading for their corner: tray 6, 180 degrees,
+  in 18 of 18 stills; every other tag 0 degrees. Tray 6 is now placed in its planned slot and
+  corner in every still.
+- In the picture of round 4 (`121231_081714`) every outline lies on its tray by eye.
+- *Observation, by eye, not a measurement:* the one miss, tag 1 in `121700_460965`, was compared
+  with the still taken 4 s before it, where it was found (crops 1000 px square around the tag,
+  `~/scratch/tag1-found-vs-missed.jpg`). The tag looks the same in both: sharp, whole, in the same
+  place. In both the card does not lie flat in its cell (its lower edge sits higher than its upper
+  edge). Why it was missed in one still is not known; the detector was not run on the crop.
+
+**What this shows.** On these 18 stills the tray's slot and turn come out right without using
+which way round the tag lies: 215 of 216, the one miss being a tag not found, which the rig can
+report. Not shown: tags lying 90 or 270 degrees round (none here; the method expects them to work,
+since only the tilt is taken from the heading); more than one tag lying a different way; fewer
+than 12 trays; the outline against a measured tray edge.
+
+### 15.5k Tags in four rotations, trays turned, pushed together and shuffled (issue #217, method written 2026-10-19, before the analysis)
+
+**Label: development check.** Whether trays are placed in the right slot and turn, with no true
+area.
+
+**Question.** With tags lying 0, 90, 180 and 270 degrees round in cell A1, trays turned, pushed
+together and shuffled, does the 15.5j rule put every tray in the slot and corner it is in?
+
+**Setup** (Aaron, 19 October 2026, after 15.5j): the 12 trays and tags 1 to 12 of 15.5i, moved,
+turned and pushed together by Aaron, tags turned in their cells. 24 stills, `125916_775000` to
+`130451_467380`, experiment "simple segmentation test" (`2026-10-19_ad4876e5`). No plan was drawn
+before the moves, so there is no known answer fixed in advance.
+
+**Analysis.** `shuffle.py --any-rotation` as 15.5j, every still on its own (`--gap 0`, no plan).
+Reported per still: trays found, each tray's slot, corner, and the tag's turn off the 15.5h
+heading for its corner (0, 90, 180, 270); the margin between the two candidates. A picture of every
+still with the placed outlines and labels. The known answer is Aaron's check of the pictures
+against what he did; any tray he finds in the wrong slot or corner is counted wrong.
+
+**What it does not cover.** As 15.5j. The answer is checked after the analysis, by eye, not fixed
+before it.
+
+**Results (19 October 2026), before Aaron's check.** `shuffle.py --experiment "simple segmentation
+test" --after 2026-10-19T12:18 --gap 0 --rounds` followed by 24 zeros `--any-rotation --name
+rotations` (the options were added after the first run, which filtered the stills the same way in
+an uncommitted call; the rebuilt file is identical, byte for byte). Output
+`shuffle-2026-10-19_ad4876e5-rotations.csv`, pictures
+`~/scratch/round1-trays/shuffle/group*-round0-*-rotations.jpg`, one sheet of the first still of
+each layout `~/scratch/rotations-8-layouts.jpg`. The 24 stills are 8 layouts of 3 stills.
+
+- All 12 tags found in all 24 stills (288 of 288); no two trays placed in the same slot.
+- Tag turns off the 15.5h heading: 0 degrees 39, 90 degrees 90, 180 degrees 69, 270 degrees 90
+  (tray positions).
+- Within each layout of 3 stills every tray has the same slot, corner and tag turn.
+- Margin between the two candidates: at least 157 mm in every still; the chosen candidate at most
+  106 mm from its slot centre.
+- By eye on the sheet, every outline lies on a tray.
+
+**Aaron's check (2026-10-19).** Aaron compared the sheet with what he did and found it accurate:
+288 of 288 tray positions in the slot and corner he set, 0 wrong.
+
+**What this shows.** With tags lying in all four rotations, trays turned, pushed together and
+shuffled, the 15.5j rule placed every tray in every still. Taken forward into the app (#220).
+Not shown: the outline against a measured tray edge; fewer than 12 trays; the 40 mm tag (offset
+learned with 30 mm tags); trays with plants, and A1 holding anything but the tag. The answer was
+checked by eye after the analysis, not fixed before it.
+
+### 15.5l Shuffles through a day with scheduled capture (method written 2026-10-19, before the photos; results in round 2)
+
+**Label: development check.** Whether trays are placed in their planned slot and corner over many
+shuffles, and how steady placement is between them, with no true area.
+
+**Question.** With trays placed from the cell A1 tag by the rule of 15.5j, unchanged, is every
+tray in its planned slot and corner in every settled still through up to 21 shuffles on one day,
+with photos taken by the scheduler (#60)? And how far does each placed tray centre move between
+stills when nothing is moved?
+
+**Setup** (Aaron, Tuesday 20 October 2026): the 12 trays and pots of 15.5i, tags 1 to 12 in cell
+A1, lying any way round; the benchmark taped to tray 1. If the 30 mm tags are used, the 15.5h
+common offset is used unchanged. If the 40 mm tags are used, the offset is learned first from one
+still with gaps, as in 15.5h, and written up here before the first shuffle. The scheduler interval
+is Aaron's choice and is recorded from the stills.
+
+**The known answer, fixed before the moves.** 21 layouts drawn by `shuffle_maps.py` (seed
+20261020), committed as `sessions/shuffle-maps-2026-10-20.json` in 64ba49e before any tray was
+moved, and printed for Aaron (`~/Documents/shuffle-maps-2026-10-20.pdf`, 3 per page). Shuffles are
+done in the order printed, 1 to 3 per hour, between 09:30 and 16:10 chamber time (07:30 to 14:10
+UTC). Aaron gives the start time of each shuffle he did; the sheets, with his marks, are
+photographed and kept with the raw data. A shuffle skipped or done out of order is recorded as such.
+
+**Analysis** (`shuffle.py --any-rotation`, the 15.5j rule, offset not refitted):
+
+1. Stills from the start of shuffle N to the start of shuffle N + 1 belong to layout N (the last
+   layout runs to the end of the experiment's stills that day).
+2. A still is *settled* when every tag found in it lies within 5 mm of its position in the next
+   still (a decision, not a measurement: tags moved less than 0.3 mm with nothing moved in 15.5d).
+   Stills that are not settled are counted as moving and left out of the placement count.
+3. Reported per layout and in total: settled stills; trays in the planned slot and corner; wrong;
+   tag not found; the smallest margin between the two candidates.
+4. Steadiness: for each tray and layout, the spread of the placed centre over the settled stills
+   (rms and max, mm). Stills in the quiet window (17:00 to 23:00 chamber time) and in the dark
+   (23:00 to 09:30) are reported apart.
+
+**Declared before the photos.** Against round 2 target 1 (15.6b): no tray in a wrong slot or
+corner, and at least 95% of tray positions in settled stills placed. Anything less is reported as
+it is.
+
+**What it does not cover.** As 15.5k. One day; trays with pots and no plants; the outline against
+a measured tray edge; fewer than 12 trays. Where a still is judged moving depends on the 5 mm
+rule above.
+
+**Decided on the day, before any still after layout 1 was looked at** (Aaron, 2026-10-20, issue
+#236):
+
+- **Experiment and stills.** "tray tracking 26.10.20" (folder `2026-10-20_57f74959`), restarted by
+  Aaron at 07:52 UTC. Stills every 5 minutes from 07:53:07 UTC, every minute from 07:56:57 UTC.
+- **Tags.** 40 mm tags 1 to 12 (36h11) in cell A1. Check still `075307_250557`: tags 1 to 12 found
+  once each, no other tray ID, sides 39.4 to 40.5 mm at the calibration scale. Callipers (Aaron,
+  2026-10-20): 39.95 mm across the black square, quiet zone excluded; how many tags and readings
+  is not recorded. Tag size is not used by the placement rule. Calibration
+  `20261014T111147292361`, lens 6.05.
+- **Record of the shuffles.** Aaron writes down the time he leaves the chamber after each shuffle
+  (the layout is then in place) and whether it has gaps, in a table, kept in his own log and copied
+  to `shuffle-times-2026-10-20.csv`. The marked sheets are not photographed (Aaron, 2026-10-20);
+  the table replaces them.
+- **Offset.** Layout 1 (gaps) was already in place at the first still, so the 40 mm offset is
+  learned from the layout 1 stills, as in 15.5h (FastSAM mask centres, `footprint.py --common`),
+  and fixed before any later still is looked at. **Layout 1 is the learning layout and is left out
+  of the placement count; shuffles 2 to 21 are the test.**
+- **Gaps and touching.** Odd shuffles with gaps between the trays, even shuffles pushed together
+  within rows. Every count in step 3 of the analysis is reported for each condition apart.
+- **Timing.** Shuffles about every 10 minutes, as Aaron's other work allows; not all 21 may be
+  done. Layout boundaries are found from the stills (where the tags move); Aaron's start times are
+  a cross-check, and a disagreement is reported.
+- **Missing tags.** Every still with a tag missing that is found in the stills around it is looked
+  at and labelled *person in frame* (something visibly covers the tag) or *not found, nothing in the
+  way*. Only the second counts against the 95% target; the first is counted apart. The 5 mm rule
+  is unchanged; a tag missing from a still or from the next still is left out of that comparison
+  (decided before the first run of `shuffle_day.py`). Layout N runs from Aaron's leave time after
+  shuffle N to his leave time after shuffle N + 1; the stills of a move fall at the end of the
+  layout before it and drop out as not settled. How often and for how long a person hides tags, and whether a missing tag ever
+  led to a wrong placement, is reported for the app port (#220).
+
+**The 40 mm offset, learned before the first shuffle was looked at.** Layout 1 is the 6 stills
+`075307_250557` to `080057_595732` (07:53 to 08:01 UTC; every tag within 0.2 mm of the first still;
+the next still, `080157_571787`, has 8 tags and moved). Session file `sessions/2026-10-20.json`,
+record `session-2026-10-20.csv`. `fastsam.py --session 2026-10-20 --name oct20-learn --margin
+1.15` placed 12 of 12 trays in all 6 stills (one still needed the fallback for 2 trays);
+`track.py`; then `learn_offset.py track-oct20-learn.csv`. For each tray, the tag-to-mask-centre
+vector is put in the frame `place_any_rotation` uses (A1 at SW, turned by the tilt only, reversed
+where layout 1 has A1 at NE). The corner is taken from the shuffle map, the known answer for
+layout 1. Three tags do not lie the 30 mm way round (trays 2 and 9 turned 180, tag 8 turned 90).
+
+| | Offset (right, up), mm | Trays from it, mm |
+|---|---|---|
+| 40 mm, 20 October (12 trays, 6 stills) | (-104.0, -141.6) | median 4.4, max 9.6 (tray 9) |
+| 30 mm, 15.5h, for comparison | (-107.8, -149.1) | max 18 |
+
+Within layout 1, each tray's offset spreads at most 1.0 to 7.9 mm across the 6 stills, except tray 1
+(19.5 mm; it carries the benchmark, not looked at). The offset is fixed as tray type
+`4x5 40 mm tag in A1` in `shuffle.py` and is not refitted.
+
+**Anomaly: a capture record with no image.** `rig.db` holds capture 725, taken_at
+2026-10-20T11:00:48.405213 UTC, in this experiment, path `.../110048_405213`, with lens position 1.0,
+exposure 20000 us, no calibration, no validation, flags "focus not locked" and "no calibration". No
+image or sidecar file exists, and the gallery does not show it. The scheduled stills either side
+(`105957_604718`, `110057_592292`) are normal (lens 6.05, focus locked). Its source is not known
+(Aaron, 2026-10-20: possibly the scheduler). Left out of the analysis; nothing in the experiment
+folder or `rig.db` was changed.
+
+**Changed after the first two runs of `shuffle_day.py`, before the results below.** Run 1 split
+layouts at Aaron's leave minute and put 3 stills, taken 2 to 3 s before the minute he wrote,
+into the layout before; run 2 matched each move to the nearest leave time within 180 s and missed
+shuffle 14 (its move ended 238 s after the time written). As run, each shuffle in order takes the
+unused move (a run of stills not settled) whose end is nearest its leave time, within 600 s; a
+move no shuffle takes starts no layout. The placement rule, offset and settled rule did not change.
+
+**Results (20 October 2026), before Aaron's check of layouts 3, 11 and 12.** `shuffle_day.py
+--experiment "tray tracking 26.10.20" --until 2026-10-20T13:31:00`: 336 stills, `075307_250557` to
+`133057_624157` (one record with no image left out, above). Output
+`shuffle-day-2026-10-20_57f74959.csv`, printout `~/scratch/round2-shuffles/run3.txt`, a picture of
+the first settled still of each layout `~/scratch/round2-shuffles/layout*.jpg`, a crop of every
+missing tag `missing-*.jpg`. 20 shuffles were done (21 not); every one was found in the stills, the
+layout in place 2 s before to 4 minutes after the time Aaron wrote, except 20b (9 minutes before:
+Aaron's note says it was started 15:20 and completed 15:30). One move matched no shuffle
+(`123257_585386`, 1 still, during layout 19; not looked at).
+
+| Counted layouts (2 to 19, 20b) | Gaps (9 layouts) | Touching (10 layouts) | All |
+|---|---|---|---|
+| Tray positions in settled stills | 1884 | 1344 | 3228 |
+| In the planned slot and corner | 1767 | 1275 | 3042 |
+| Wrong against the map | 76 (layouts 3, 11) | 63 (layout 12) | 139 |
+| Tag not found: person in frame | 41 | 3 | 44 |
+| Tag not found: nothing in the way | 0 | 3 | 3 |
+| Smallest margin between the two candidates | 184.0 mm | 103.4 mm | 103.4 mm |
+
+Layout 20a (not as planned, counted apart): 15 positions in 3 settled stills, 15 as the map, 21 not.
+
+- **Wrong against the map.** Each holds in every settled still of its layout with a margin of at
+  least 186 mm. Layout 3: trays 1 and 10 exchanged (North 4 and 5); tray 1 carries the benchmark,
+  which the picture shows in North 4, where the rig placed it. Layout 11: trays 4 and 10 exchanged
+  (South 5 and 6), the tray in South 6 with A1 at NE, not SW. Layout 12: 7 trays in their planned
+  slots turned 180 from the map. In all three pictures each tag lies where the rig places it.
+  Whether the trays were laid out as the map is not recorded (Aaron records times and gaps only);
+  Aaron's check of the pictures is below.
+- **Missing tags.** 47 of 3228 positions. 44 are covered: an arm or head, the clipboard, a tablet,
+  a phone and a blue folder laid on trays 1 and 3 for 17 to 18 stills in layout 19 (Aaron's
+  supervisor in the chamber). 3 (trays 3, 5 and 7 in `115457_578163`, layout 18) are uncovered but
+  blurred by movement: Aaron is in the frame and the trays moved during the exposure, less than
+  5 mm between the stills either side. Counted as *not found, nothing in the way*, as declared;
+  in that still Aaron is in the chamber, fully blocking several trays (Aaron, 2026-10-20), so it is
+  a poor example of a tag missed with nothing in the way.
+- **Placed.** Of the 3184 positions not covered, 3181 placed (99.9%), 3 not found.
+- **Steadiness** (228 tray layouts, settled stills, all daytime with people in and out): rms of the
+  placed centre median 0.27 mm, max 2.0 mm; largest single distance from a tray's mean 5.0 mm
+  (layout 18, tray 6). No quiet or dark window was photographed.
+
+**Against round 2 target 1, as declared.** At least 95% placed: met (99.9%). No tray in a wrong
+slot or corner: not met against the map (139 positions in 3 layouts), pending Aaron's check.
+
+**Aaron's check (2026-10-20).** Aaron looked at the pictures of layouts 3, 11 and 12 and recorded
+what was laid out (`shuffle-times-2026-10-20.csv`, notes): layout 3, tray 1 was in North 4, not
+North 5; layout 11, trays 4 and 10 were exchanged (tray 4 in South 6, tray 10 in South 5); layout
+12, trays in the planned slots, trays 1, 4, 6, 8 and 10 with A1 at NE instead of SW and trays 9 and
+11 at SW instead of NE. Each is what the rig found, tray by tray. Against what was laid out: 3042
++ 139 = 3181 of 3184 uncovered positions in the planned (as laid out) slot and corner, **0 wrong**,
+3 not found (blurred by movement).
+
+**What this shows.** Over 19 counted layouts through one day, 9 with gaps and 10 touching, the 15.5j
+rule with the 40 mm offset learned once from layout 1 put every found tray in the slot and corner it
+was in, in every settled still, including the 3 layouts that differed from the map, which it
+caught. Each placed centre held within 2.0 mm rms while nothing moved. Hidden tags were all people
+or objects in the frame, except 3 blurred by movement. Not shown: night or quiet hours, plants, A1
+holding anything but the tag, fewer than 12 trays, the outline against a measured tray edge. The
+mismatches were checked by Aaron from the pictures after the analysis, not recorded at the time.
+
+**Quiet and dark windows, planned before the stills (Aaron, 2026-10-20).** The experiment keeps
+running overnight unchanged (one still per minute, layout 20b, chamber closed) until 09:30 chamber
+time on 21 October, for the steadiness of step 4 in the quiet window (17:00 to 23:00) and the dark
+(23:00 to 09:30). Disk before: 843 GB free; the experiment held 1.8 GB in 380 stills (about 4.8 MB
+each), so about 1150 more stills need about 5.5 GB. Analysed with `shuffle_day.py`, the stills
+after the layout 20b move all belonging to layout 20b unless a move is found; results added here.
+
+*Overnight analysis, decided 2026-10-21 at 06:50 UTC, before any overnight still was looked at*
+(only the tag cache was being filled). Stills from the 20b move to 07:30 UTC (09:30 chamber time),
+1372 stills in the experiment at 06:47 UTC with no minute missed. Aaron (2026-10-21): the lights
+come up from about 09:00 and reach full light about 09:30 chamber time.
+
+- **Windows** (chamber time, UTC+2): *day* to 17:00 on 20 October; *quiet* 17:00 to 23:00;
+  *dark* 23:00 to 09:00; *light coming up* 09:00 to 09:30, reported apart from the dark. Each
+  still's mean brightness (grey level, 0 to 255) is recorded, so when the lights changed is
+  read from the stills, not assumed.
+- **Tag detection per window, over every still**, settled or not: stills with all 12 tags, the
+  tags found per still (min, median), each tray's misses. A still with no tag found cannot be
+  judged settled, so detection is counted over all stills, not only the settled ones.
+- **Placement and steadiness per window**, settled stills only, as for the day: right, wrong, not
+  found; the rms and max of each tray's placed centre about its mean *within that window*, and
+  the largest distance between a tray's mean in one window and in the next.
+- Nobody entered the chamber overnight as far as is known; any move found is reported, not
+  explained.
+- **Ended early** (Aaron, 2026-10-21, before the results): Aaron stopped the experiment at
+  07:04:17 UTC (09:04 chamber time) and called the test done; the last still is `070359_857510`.
+  The *light coming up* window therefore holds only the few stills from 07:00 UTC to the stop.
+
+**Overnight results (21 October 2026).** `shuffle_day.py --experiment "tray tracking 26.10.20"
+--until 2026-10-21T07:05:00` then `overnight.py shuffle-day-2026-10-20_57f74959.csv`; outputs
+`shuffle-day-2026-10-20_57f74959.csv` (replacing the day's file; layouts 1 to 20a unchanged,
+20b now runs to the stop), `overnight-2026-10-20_57f74959.csv` (one row per still),
+printouts `~/scratch/round2-shuffles/run4.txt` and `overnight.txt`, timeline
+`overnight-timeline-2026-10-20_57f74959.png`. Layout 20b: 1066 stills, `132057_582161` to
+`070359_857510`, one per minute with no gap; two extra stills at 07:03:49 and 07:03:55 UTC, just
+before the stop, source not recorded. No move was found in layout 20b.
+
+- **When the lights changed, from the stills.** Mean brightness 105.3 to 105.9 until 23:27:57 UTC,
+  falling slightly over the last minutes; 0.2 to 0.3 from 23:28:57 UTC (01:29 chamber time) to
+  07:00:59 UTC; 89.4 at 07:01:59 and 104.1 to 104.7 from 07:03:49 UTC (09:02 to 09:04 chamber time).
+  The change each way took under a minute, with no stills in between. The chamber's dark period
+  is therefore about 01:29 to 09:02 chamber time, not 23:00 to 09:30 as assumed in the method; the
+  windows were kept as declared and the times are reported as found.
+
+| Window (chamber time) | Stills | All 12 tags found | No tag found | Settled | Right, wrong, not found |
+|---|---|---|---|---|---|
+| Day (to 17:00) | 100 | 100 | 0 | 100 | 1200, 0, 0 |
+| Quiet (17:00 to 23:00) | 360 | 360 | 0 | 360 | 4320, 0, 0 |
+| Dark window (23:00 to 09:00), lights on to 01:29 | 148 | 148 | 0 | 147 | 1764, 0, 0 |
+| Dark window, lights off | 452 | 0 | 452 | 0 | (none judged) |
+| Light coming up (09:00 to 09:04) | 6 | 5 | 1 (lights still off) | 4 | 48, 0, 0 |
+
+- **Detection.** Every lit still found all 12 tags (613 of 613 in layout 20b after its move);
+  every still with the lights off found none (452 of 452). There was no still at an in-between
+  light level, so how detection fails as light falls is not measured.
+- **Steadiness within each window** (rms of each tray's placed centre about its mean): median 0.27
+  mm (day), 0.26 (quiet), 0.25 (lit part of the dark window), 0.28 (light coming up); largest
+  single distance 2.38 mm (tray 10, quiet, 360 stills).
+- **Between windows** (each tray's mean centre): day to quiet max 0.10 mm, quiet to the lit part of
+  the dark window max 0.11 mm; **evening, before the lights went off, to the morning after 7.5
+  hours of darkness: median 0.32 mm, max 0.65 mm (tray 9)**, from 4 morning stills.
+
+**What this shows.** Through about 18 hours with nothing moved, including 7.5 hours of darkness,
+each tray's placed centre stayed within 0.65 mm of its evening position, and all 12 tags were found
+in every lit still. With the lights off the camera sees no tags at all, so night stills carry no
+tray data; the app must report them as too dark, not as trays missing. Not shown: an in-between
+light level; more than one night; the morning sample is 4 stills.
+
+### 15.5m Time to read one photo for trays (issue #222, development check, 2026-10-21)
+
+*Development check.* How long the app takes to read one photo for its trays, to decide whether
+every photo can be read within the one-minute photo interval.
+
+- **Method.** `tags.detect_tags` timed twice on one still of 20 October with 12 tray tags
+  (`experiments/2026-10-20_57f74959/stills/2026-10-21/070359_857510.jpg`), on the rig's Pi 5 with
+  nothing else running; then `tray_readings.read_photo` (decode, tag search, placement, database
+  write) timed once on each of 24 stills of the same experiment, 07:58 to 08:21 UTC on 20 October,
+  against a copy of `rig.db`.
+- **Result.** Tag search 8.9 s and 9.0 s, JPEG decode 0.4 s. The whole reading took 9.6 s to
+  12.5 s per still over the 24 stills.
+- **What it covers.** Tags and tray placement only, with the camera idle. Not covered:
+  segmentation (#74), which adds to the time; reading while a photo is being taken. Not measured:
+  whether reading delays a scheduled photo taken at the same time (both use the Pi's processor).
+  Slowing the schedule when reading falls behind is #251.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for
-round 2. The segmentation part is 15.6a. The trays, tags and tracking part (15.3, 15.5c, 15.5d) is
-not yet written (issue #158).
+round 2. The segmentation part is 15.6a. The trays, tags and tracking part (15.3 to 15.3e, 15.5c,
+15.5d, 15.5f to 15.5k) is 15.6b (issue #217). 15.5l is the method of a test run after the review; its results belong to round 2.
 
 ### 15.6a Segmentation (issue #161, written 2026-10-16)
 
@@ -3842,7 +4580,10 @@ round 2 targets at the end are Aaron's decisions.
 2. **White balance: measure first** (Aaron, 2026-10-16). Benchmark green and red area against
    the red and blue colour gains on the 123 saved stills of the unattended run (15.3d), no camera
    needed. Fixing the colour balance for an experiment, the way focus is fixed, is decided from
-   that result.
+   that result. *Replaced 2026-10-19 (Aaron):* no separate white balance study. The round 2 run
+   measures area jumps between photos with nothing moved (#223), which include any effect of the
+   gain drift; every photo records its gains, so they are checked against the jumps only if the
+   run shows jumps.
 3. **Benchmark plants of known area** (Aaron, 2026-10-16). Aaron gets benchmark plants with known
    surface areas from the supervisor, from the week of 19 October; round 2 measures them on the
    rig against those areas. To check when they arrive: whether the known figure is the area seen
@@ -3856,6 +4597,99 @@ round 2 targets at the end are Aaron's decisions.
 Not made round 2 targets, recorded as open: the edge loss on small flat shapes, the blue against
 black background gap (experiments use blue trays only), the shrinking of cut leaves between
 scans, and leaves that touch or lie next to another green object (part of tray splitting, 15.5c).
+
+### 15.6b Trays, tags and tracking (issue #217, written 2026-10-19)
+
+From the existing results only (15.3 to 15.3e, 15.5c, 15.5d, 15.5f to 15.5k); no camera, no new
+analysis. Phase names as in 15.6a. The round 2 targets at the end are Aaron's decisions. Every
+result here is a *development check*: trays and tags found, placed or followed, with no true
+area. The known answers are the recorded moves (15.3, 15.5f, 15.5h) and the shuffle maps posted
+on #213 before the stills (15.5i), not an independent measurement. All stills: calibration
+`20261014T111147292361`, validation `20261014T111253582634`, lens 6.05.
+
+**Accuracy table.** Raw data files are in `experiments/round1/` and `experiments/round1-trays/`;
+the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
+
+| What | Result | Raw data | Code |
+|---|---|---|---|
+| 20 mm paper tray tags, the rig's frozen detector settings (15.3b, 15.3d, 15.3e) | missed 8 of 102 sightings (session 1), 47 of 171 (round 2), 165 of 1107 (one hour, nothing moved); 30 mm tags missed 1 of 171 and 1 of 1107 | experiment "tag-testing"; `tag-detector-stills.csv`, `run-2026-10-15-tags.csv` | `tag_detector_check.py`, `run_analysis.py`, 830e4da (#156) |
+| The same tags, finer bit sampling (setting C, 15.3c to 15.3e) | missed 0 of 102, 0 of 171 and 0 of 1107; same time per still (4.19 s); calibration and corner tag corners 0.000000 px from the frozen settings (1043 tags, 7 stills) | as above, `tag-detector-corners.json` | as above; adopted for tray tags in a6588c8 (#192) |
+| FastSAM tray splitting on the Hailo-8, empty trays, 15 October (15.5c, 15.5d) | 2078 of 2112 trays measured right (98.4%), 31 more patched; 159 of 176 stills all right; gaps 396 of 396 | `fastsam-full176*.csv`, `track-full176*.csv` | `fastsam.py`, `track.py`, 2e532a9 (#164), e523a45 (#171) |
+| Tray position spread with nothing moved, 15 October (15.5d) | step 1 rms 1.8 mm, max 6.3 (120); one hour rms 4.0 mm, max 48.8 (1442, after removing 7 positions over 50 mm off) | `track-full176.csv` | `track.py`, e523a45 |
+| 20 mm edge tag lands on its own tray (15.5c) | 804 of 852 (94.4%) right, 25 right but merged, 23 on no tray, 0 on the wrong tray | `edge-tags.csv` | `edge_tag_check.py`, a6588c8 |
+| FastSAM with pots in the wells, edge tags naming trays, 19 October (15.5f) | gaps 226 of 228 trays; touching 825 of 1476 (56%) raw, 1101 (75%) after patches, 0 of 123 stills all right | experiment "pots-2026-10-19"; `fastsam-pots19*.csv`, `track-pots19*.csv` | `fastsam.py`, `track.py`, a9f9d7b (#213) |
+| FastSAM with pots, cell A1 tags naming trays (15.5h) | gaps 222 of 228; touching 19 of 36 (53%) raw, 27 of 36 after patches | `fastsam-cell19*.csv`, `track-cell19*.csv` | as above |
+| Tray placed from its tag, one offset per tray, against FastSAM's mask centre (15.5g, 15.5h) | edge tags: median 20.8 mm with gaps, 23.1 touching, max 170.2; cell tags: median 18.5 with gaps | `footprint-pots19.csv`, `footprint-cell19.csv` | `footprint.py`, a9f9d7b |
+| Tray placed from its cell A1 tag, one common offset for every tray (15.5h) | all 264 tray positions placed in 22 stills; against FastSAM's mask centre median 8.4 mm with gaps (95th percentile 17.3, max 32.3, 102 positions), 11.4 mm touching (19) | `footprint-cell19-common.csv` | `footprint.py --common`, a9f9d7b |
+| The same, through 5 random shuffles plus one repeat, turn from the tag heading (15.5i) | 197 of 216 tray positions in the planned slot and turn: tray 6 wrong in 18 of 18 stills (its tag lay 180 degrees round), tag 1 not found once | experiment "simple segmentation test" (`2026-10-19_ad4876e5`); `shuffle-2026-10-19_ad4876e5.csv` | `shuffle.py`, a9f9d7b |
+| The same stills, turn from the slot grid, tag in any rotation (15.5j) | 215 of 216 right, 0 wrong, tag 1 not found once; the other candidate at least 152.4 mm further from a slot | `shuffle-2026-10-19_ad4876e5-any.csv` | `shuffle.py --any-rotation`, 81c86ff (#217) |
+| The same rule, tags in 0, 90, 180 and 270 degree rotations, trays turned, pushed together and shuffled, 8 layouts (15.5k) | 288 of 288 tray positions in the slot and corner Aaron set (checked by Aaron after the analysis); candidates at least 157 mm apart | `shuffle-2026-10-19_ad4876e5-rotations.csv` | as above |
+
+**What was found.**
+1. The chain from photo to a named tray in a slot runs end to end on 176 stills of empty trays
+   and on 182 stills of trays with pots, on the Pi 5 and Hailo-8, with no failed stills.
+2. 20 mm paper tags are read reliably once the detector samples each pattern square more finely
+   (setting C): 0 misses in 1380 sightings against 220 with the frozen settings, at the same time
+   per still, with the calibration corners unchanged. Tray tags now use it (#192).
+3. With gaps between trays, FastSAM splits them with or without pots (396 of 396 trays right
+   empty, 222 to 226 of 228 with pots). With trays touching it splits empty trays (15 October) but not trays
+   with pots (19 October, 53% to 56% raw).
+4. A 30 mm tag lying flat in the empty cell A1 places its tray with no splitting at all: one
+   offset common to every tray puts the outline on the tray in every still checked by eye,
+   touching or not. Taking the tray's turn from the slot grid rather than the tag heading, it
+   placed 215 of 216 tray positions through five random shuffles (15.5j), and 288 of 288 with
+   tags in all four rotations, trays turned, pushed together and shuffled (15.5k).
+5. Where nothing moves, a tray's position repeats to about 2 mm rms (empty trays and pots, gaps).
+
+**What surprised us, and which phase it sends work back to.**
+
+| Surprise | Numbers | Back to |
+|---|---|---|
+| The tag design taken forward is not the one decided | decided: 20 mm, 3D printed, on the tray's outside edge (Aaron, 2026-10-15); taken forward: a 30 mm tag lying in cell A1, which keeps A1 free of plants | Business understanding: where the tray tag sits, its size, and whether one cell per tray can stay empty |
+| Pots in the wells stopped FastSAM splitting touching trays, and the tag was ruled out as the cause | touching, raw: 98% of trays right empty (15 October), 56% with pots and edge tags, 53% with pots and cell tags | Modelling: why FastSAM sees three touching trays with pots as one object (traced on 2 stills only) |
+| One tag lying the other way round in its cell moved its tray one slot, with no warning | tray 6 wrong in 18 of 18 stills; nothing in the result marked it | Modelling: operators will not follow a rule on which way round a tag lies (Aaron). Fixed in 15.5j by taking the turn from the slot grid: 215 of 216, 0 wrong |
+| A paper edge tag turned on its tray between steps | tray 14's tag turned about 11 degrees; its placement then about 61 mm off | Data preparation: tags must be fixed to the tray (3D-printed tags, #70) |
+| A tag print lying anywhere in view is read as a tray | ID 29, an offcut in a waste bin at the frame edge, read in 3 to 4 of 123 stills | Deployment: discarded prints leave the chamber, or tags outside the table are ignored |
+| Swaps were found by construction, not as evidence | 48 of 48 swaps found; a mask takes its tray from the tag within 60 mm, so it follows its tag | Evaluation: tracking is judged by false moves and position spread, not by swaps found |
+| One common offset sits closer to FastSAM's masks than each tray's own learned offset | median 8.4 against 18.5 mm with gaps | Evaluation: not explained. Neither is checked against a measured tray edge |
+| The tray outline from the blue threshold reads 2% long north to south | 373.6 mm against 366.0 by tape; east to west 306.0 against 305.0 | Data understanding: not explained, recorded (15.5c) |
+
+**Methods dropped, with their numbers.**
+- Slot from the tag alone, nearest slot centre (15.5c method A): each tray on its own slot in 6
+  of 33 stills; the slot centres come from where the calibration sheets lay, not from the trays.
+- Blue threshold (15.5c method B): 0 of 33 stills passed; 40 of 396 trays were one shape of one
+  tray. Methods C to E (built on B) were not run; FastSAM (F) was added instead.
+- FastSAM tray splitting (15.5c to 15.5h): 53% to 56% of touching trays right with pots, raw.
+  Dropped for placement from the cell tag (15.5h). With it go the three patches of 15.5d and the
+  open question of 15.5d's slot reference, both of which existed only for FastSAM.
+- Edge tags for placing a tray (15.5g): offsets up to 49.7 mm apart between trays, and a paper tag
+  that turned about 11 degrees. The cell tag's offsets lie within 18.1 mm.
+- One learned offset per tray (15.5g, 15.5h): replaced by one common offset (median 8.4 against
+  18.5 mm from FastSAM's masks with gaps).
+- The tray's turn from the tag heading (15.5i): 18 of 216 wrong, all from one tag lying 180
+  degrees round. Replaced by the turn from the slot grid (15.5j, 0 wrong).
+- The 20 mm paper tag with the frozen detector settings: 220 misses in 1380 sightings; replaced by
+  setting C for tray tags (#192).
+
+**Targets for round 2 (Aaron decides).**
+
+1. **Tray placement: no tray in a wrong slot without a warning, and at least 95% of tray
+   positions placed** (Aaron, 2026-10-19). A tray that is not placed is shown as not placed.
+   Checked on the round 2 multi-day run. Round 1, cell tag: 197 of 216 with the turn from the
+   tag heading (15.5i, 18 wrong with no warning); 215 of 216 with the turn from the slot grid
+   (15.5j, 0 wrong, 1 tag not found), which meets both parts on those 18 stills. This is the
+   success rate left open in 15.5c and 15.5d (moved here from #171).
+
+2. **Tray tag: about 40 mm, lying roughly centred in cell A1** (Aaron, 2026-10-19, being prepared).
+   Replaces the 20 mm edge tag for round 2; A1 holds no plant. Not yet tested: each print is
+   measured with callipers, and the common offset of 15.5h (learned with 30 mm tags) is learned
+   again for the new tag before it is used.
+
+3. **Tags in any rotation** (Aaron, 2026-10-19): placement must work with the tag lying any way
+   round, A1 at the south-west or north-east, since operators will not follow a positioning rule.
+   Done for 12 trays: 15.5j, and 15.5k with tags in all four rotations (288 of 288).
+
+Still to be decided at the review: the outline against a measured tray edge.
 
 ## 16. Round 2 multi-day run (issue #221, method written 2026-10-19, before the run)
 

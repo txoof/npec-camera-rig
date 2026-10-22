@@ -9,6 +9,7 @@
 
   <div class="row gallery-head">
     <h2>Photos</h2>
+    {{ ui.button("Show: all photos", id="show-btn") }}
     {{ ui.button("Go to date", id="date-btn") }}
     {{ ui.button("Show newest", id="newest-btn", attrs={"hidden": ""}) }}
   </div>
@@ -25,6 +26,17 @@
     const PAGE = 24;
     const captureBtn = document.getElementById("capture-btn");
     const dateBtn = document.getElementById("date-btn");
+    const showBtn = document.getElementById("show-btn");
+    const note = document.getElementById("gallery-note");
+    const NOTE = note.textContent;
+    // The experiment whose photos are shown, by id, or null for every photo. Set from the
+    // address (?experiment=<id>, the Photos button on the Experiments page) or by Show.
+    let experiment = new URLSearchParams(location.search).get("experiment");
+    // With a filter on, every request for photos carries it.
+    const filtered = (params) => {
+      if (experiment !== null) params.set("experiment", experiment);
+      return params;
+    };
     const newestBtn = document.getElementById("newest-btn");
     const olderBtn = document.getElementById("older-btn");
     const gallery = document.getElementById("gallery");
@@ -92,9 +104,47 @@
         + `validation ${stemText(record.validation)}`;
     }
 
+    // Readings per tray per photo (#222), made in the background after each new photo is saved,
+    // older photos when Show tags is tapped. A tray not found is one found earlier in the
+    // experiment: removed, swapped or with a dirty tag, which the rig cannot tell apart.
+    const TRAY_STATUS = {
+      "no tags found": "no tags found in this photo, as when the lights are off",
+      "no calibration": "this photo has no calibration",
+      "no slot layout": "its calibration has no worked-out tray slots",
+      "placement failed": "the trays could not be placed",
+      "read failed": "the photo could not be read",
+    };
+
+    function localTime(iso) {
+      return new Date(iso).toLocaleTimeString(undefined, {
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+    }
+
+    function traysHtml(trays, purpose) {
+      // Only captures are read in the background; validation, calibration and tripwire photos are
+      // skipped, and say so (Aaron, 2026-10-22).
+      if (!trays && purpose !== "capture") {
+        return `<div>Trays: skipped, ${purpose} photos are not read for trays automatically. Tap Show tags to read this one.</div>`;
+      }
+      if (!trays) return "<div>Trays: not read yet. Tap Show tags to read this photo.</div>";
+      if (trays.status !== "read") return `<div>Trays: not placed, ${TRAY_STATUS[trays.status] ?? trays.status}.</div>`;
+      const lines = [`Trays found: ${trays.trays.length}.`];
+      if (trays.not_found.length) {
+        lines.push("Not found: " + trays.not_found.map((t) =>
+          `Tray ${t.tray_id} since ${localTime(t.since)} (${t.photos} ${t.photos === 1 ? "photo" : "photos"})`).join("; ") + ".");
+      }
+      if (trays.moved.length) {
+        lines.push("Moved since the previous photo: " + trays.moved.map((t) => t.from[0] === t.to[0]
+          ? `Tray ${t.tray_id} turned, A1 ${t.from[1]} to ${t.to[1]}`
+          : `Tray ${t.tray_id} ${t.from[0]} to ${t.to[0]}` + (t.from[1] === t.to[1] ? "" : `, A1 ${t.from[1]} to ${t.to[1]}`)).join("; ") + ".");
+      }
+      return lines.map((line) => `<div>${line}</div>`).join("");
+    }
+
     function itemHtml(item) {
       const taken = keyDate(item.key);
-      const time = taken.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      const time = taken.toLocaleTimeString(undefined, {
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
       return `
         <div class="gallery-item">
           <button type="button" class="figure hit" aria-label="Photo taken ${time}. Tap to enlarge.">
@@ -103,13 +153,95 @@
           </button>
           <div class="gallery-time">${time}</div>
           <div>${recordText(item.record)}</div>
+          ${item.record ? `<div data-trays>${traysHtml(item.trays, item.record.purpose)}</div>` : ""}
           ${item.uptime ? `<div>${uptimeText(item.uptime)}</div>` : ""}
           ${item.flags && item.flags.length
             ? `<div class="gallery-flag">Not covered by the validation bands:
                 ${item.flags.join("; ")}</div>`
             : ""}
+          <div class="row"><button type="button" class="btn hit" data-tags="${item.path}">Show tags</button></div>
+          <p data-tags-list hidden></p>
         </div>`;
     }
+
+    // Show tags (#194): the tags found in the full-size photo, listed under it, then the photo
+    // with each tag outlined and labelled opens full screen. The first search of a photo reads
+    // it at full size and takes a while; later ones read the stored result.
+    const ROLE_NAMES = { tray: "Tray tags", calibration: "Calibration tags", corner: "Corner tags", other: "Other tags" };
+
+    function tagListText(tags) {
+      if (tags.length === 0) return "No tags found.";
+      const byRole = {};
+      for (const tag of tags) (byRole[tag.role] ??= []).push(tag.id);
+      return Object.keys(ROLE_NAMES).filter((role) => byRole[role])
+        .map((role) => `${ROLE_NAMES[role]} (${byRole[role].length}): ${byRole[role].sort((a, b) => a - b).join(", ")}`)
+        .join(". ") + "." + trayPlacementText(tags.filter((tag) => tag.role === "tray"));
+    }
+
+    // Trays placed from their cell A1 tag (#220) with the photo's calibration; the photo shows
+    // each one's outline, slot and corner.
+    function trayPlacementText(trays) {
+      if (trays.length === 0) return "";
+      const placed = trays.filter((tag) => tag.placement);
+      if (placed.length === 0) return " Trays not placed: this photo has no calibration with worked-out tray slots.";
+      const unsure = placed.filter((tag) => tag.placement.status !== "placed")
+        .map((tag) => `Tray ${tag.id} ${tag.placement.status}`);
+      return ` Trays placed in slots: ${placed.length}.` + (unsure.length ? ` Check: ${unsure.join(", ")}.` : "")
+        + " Placement assumes 12 trays, each with a 40 mm tag in cell A1.";
+    }
+
+    // Show tags also saved the photo's tray reading (#222): show it in place of the old line. Its
+    // own failure leaves the tags found, and the old line, as they are.
+    async function showSavedTrays(item, path) {
+      const traysBox = item.querySelector("[data-trays]");
+      if (!traysBox) return;
+      try {
+        const t = await fetch(`/api/captures/trays/${path}`);
+        if (!t.ok) return;
+        const trays = await t.json();
+        traysBox.innerHTML = trays
+          ? traysHtml(trays, "capture")
+          : "<div>Trays: the reading could not be saved for this photo.</div>";
+      } catch (err) {
+        // The tags were found; only the tray line is not updated.
+      }
+    }
+
+    async function showTags(btn) {
+      const item = btn.closest(".gallery-item");
+      const list = item.querySelector("[data-tags-list]");
+      const figure = item.querySelector(".figure");
+      const thumb = figure.querySelector("img");
+      btn.disabled = true;
+      btn.textContent = "Finding tags";
+      list.hidden = false;
+      list.textContent = "Searching the full-size photo. The first search of a photo takes about 10 seconds.";
+      try {
+        const r = await fetch(`/api/captures/tags/${btn.dataset.tags}`);
+        if (r.status === 404) {
+          list.textContent = "This photo is no longer on the rig.";
+          return;
+        }
+        if (!r.ok) throw new Error(r.statusText);
+        list.textContent = tagListText(await r.json());
+        await showSavedTrays(item, btn.dataset.tags);
+        // lightbox.js opens a figure's data-large copy: the marked one for this tap only.
+        const large = thumb.dataset.large;
+        thumb.dataset.large = `/gallery/image/tags/${btn.dataset.tags}`;
+        figure.click();
+        thumb.dataset.large = large;
+      } catch (err) {
+        list.textContent = "Could not search this photo for tags. Tap Show tags to try again.";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Show tags";
+      }
+    }
+
+    gallery.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-tags]");
+      if (btn) showTags(btn);
+    });
 
     // The grid for `item`'s local day: the last (or, at the top, the first) one if it is that
     // day, otherwise a new day section after (or before) the others.
@@ -143,7 +275,7 @@
       loading = true;
       const gen = generation;
       statusText.textContent = "Loading photos";
-      const params = new URLSearchParams({ limit: PAGE });
+      const params = filtered(new URLSearchParams({ limit: PAGE }));
       if (oldestKey) params.set("before", oldestKey);
       let items;
       try {
@@ -189,7 +321,7 @@
     // After a capture, the new photo goes on top; the pages already loaded stay.
     async function showNewest() {
       if (!newestBtn.hidden) { reset(null); return; }
-      const r = await fetch("/api/captures?limit=1");
+      const r = await fetch(`/api/captures?${filtered(new URLSearchParams({ limit: 1 }))}`);
       const items = r.ok ? await r.json() : [];
       if (!items.length || (newestKey && items[0].key <= newestKey)) return;
       dayGrid(items[0], true).insertAdjacentHTML("afterbegin", itemHtml(items[0]));
@@ -202,7 +334,7 @@
     async function goToDate() {
       let hours;
       try {
-        const r = await fetch("/api/captures/hours");
+        const r = await fetch(`/api/captures/hours?${filtered(new URLSearchParams())}`);
         if (!r.ok) throw new Error(r.statusText);
         hours = await r.json();
       } catch (err) {
@@ -232,6 +364,52 @@
       });
     }
 
+    function experimentName(e) {
+      if (e.name) return e.name;
+      return `Experiment started ${e.periods[0].started_at.replace("T", " ").slice(0, 16)} UTC`;
+    }
+
+    async function showFilter() {
+      let label = "all photos";
+      if (experiment !== null) {
+        const r = await fetch("/api/experiments");
+        const found = r.ok ? (await r.json()).find((e) => String(e.id) === experiment) : null;
+        label = found ? experimentName(found) : `experiment ${experiment}`;
+      }
+      showBtn.textContent = `Show: ${label}`;
+      note.textContent = experiment === null ? NOTE : `Only the photos of ${label}. ${NOTE}`;
+    }
+
+    async function chooseFilter() {
+      let experiments;
+      try {
+        const r = await fetch("/api/experiments");
+        if (!r.ok) throw new Error(r.statusText);
+        experiments = await r.json();
+      } catch (err) {
+        ui.toast("Could not load the list of experiments.");
+        return;
+      }
+      // Only experiments that have started can have photos.
+      const started = experiments.filter((e) => e.periods.length && e.state !== "purged");
+      ui.openChoice({
+        label: "Show",
+        options: [{ value: "", label: "All photos", detail: "Rig photos and every experiment" },
+          ...started.map((e) => ({ value: String(e.id), label: experimentName(e),
+            detail: e.state === "running" ? "Running" : "Stopped" }))],
+        value: experiment ?? "",
+        onSet: (value) => {
+          experiment = value === "" ? null : value;
+          const url = new URL(location.href);
+          if (experiment === null) url.searchParams.delete("experiment");
+          else url.searchParams.set("experiment", experiment);
+          history.replaceState(null, "", url);
+          showFilter();
+          reset(null);
+        },
+      });
+    }
+
     captureBtn.addEventListener("click", async () => {
       captureBtn.disabled = true;
       captureBtn.textContent = "Capturing";
@@ -246,6 +424,8 @@
     olderBtn.addEventListener("click", loadOlder);
     newestBtn.addEventListener("click", () => reset(null));
     dateBtn.addEventListener("click", goToDate);
+    showBtn.addEventListener("click", chooseFilter);
+    showFilter();
     new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) loadOlder();
     }, { root: scroller, rootMargin: "0px 0px 600px 0px" }).observe(sentinel);

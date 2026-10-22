@@ -164,7 +164,7 @@ each tray tag (`hardware/tray_tags/apriltag_tray_tag.scad`, `tray_type()`):
 | 251-299 | Tray tags, other trays |
 | 300-449 | Calibration sheets (`reference/calibration-sheets/`), in use, do not change |
 | 450-499 | Corner/reference tags (`hardware/camera_rig/apriltag_corner_mount.scad`) |
-| 500 | Auto-focus target (`hardware/camera_rig/auto-focus_bracket_2020.scad`). **Provisional**: the auto-focus target plan is not fully implemented, so this allocation may change |
+| 500-586 | Unallocated, kept for a future fixed rig-level role. 500 was provisionally the auto-focus target until 2026-10-22, when the auto-focus bracket was dropped as not needed (Aaron) |
 
 The tray split refines `TODO.md`'s 2026-09-20 allocation (0-299 trays) and matches
 `src/npec_rig/tags.py`. Id 0 is unallocated. Tag bit data covers the full family, ids 0-586
@@ -416,9 +416,54 @@ the results and the review are all in `docs/metrology-log.md` section 15:
 | Real leaves of known area | 15.5b |
 | Tray splitting and tray ID (FastSAM on the Hailo-8, #164) | 15.5c |
 | Tray tracking over time (#171) | 15.5d |
+| Trays with pots; placement from the cell A1 tag (#213, #217) | 15.5f to 15.5k |
 | Round 1 review | 15.6 |
 
 Code for the round lives in `experiments/round1*/`, reusing `src/npec_rig/` rather than copying it.
+
+### Round 2 (23 October to 5 November)
+
+Planned at the round 1 review (15.6, #217). Being decided with Aaron; items not yet decided say so.
+
+**The run (decided 2026-10-19, Aaron).** One run of several days that serves two measurements:
+
+- *The day, in chamber time* (Aaron, 2026-10-19). 09:30 to 16:10: shuffling allowed. 17:00 to
+  23:00: quiet, no movement, lights on. 23:00 to 09:30: effectively dark, no movement. Outside the
+  shuffling window the photos are static. In UTC (rig timestamps), summer time ends on Sunday
+  25 October at 01:00 UTC:
+
+  | Window | Chamber time | UTC to 24 October | UTC from 25 October |
+  |---|---|---|---|
+  | Shuffling allowed | 09:30 to 16:10 | 07:30 to 14:10 | 08:30 to 15:10 |
+  | Quiet, lights on | 17:00 to 23:00 | 15:00 to 21:00 | 16:00 to 22:00 |
+  | Dark | 23:00 to 09:30 | 21:00 to 07:30 | 22:00 to 08:30 |
+
+  The night of 24 to 25 October is dark from 21:00 UTC on 24 October to 08:30 UTC on 25 October.
+- *Steadiness.* From the static photos, where any change in a tray's reading from one photo to the
+  next is the rig's own error. Photos in the dark are kept and reported apart; whether tags and
+  area can be read in them is not known.
+- *Tray tracking.* Aaron moves trays within the shuffling window, at times that cannot be fixed in
+  advance. Each move follows a shuffle map drawn and printed before it, with a check-off per tray
+  and a space for the time it was done. The map is the known answer.
+- Scheduled capture (#60) runs throughout; Aaron tests it with this run.
+- In the trays: pots and the 40 mm tags in cell A1 (offset learned again first, 15.6b target 2).
+  The benchmark taped to tray 1 for the whole run (Aaron, 2026-10-19). Plants, if they arrive
+  during the round, go on their own trays and are reported apart from the still scene (Aaron,
+  2026-10-19).
+
+**Sorted for parallel work** (Aaron, 2026-10-19):
+
+| Group | Work |
+|---|---|
+| Can start now | Tray placement in the app (#220, test seams agreed first); tray view page, tags slice (#194); the run's method and printable shuffle maps (#221); stray tags outside the table ignored (#207) |
+| Waits for another issue | Readings per tray per photo (#222, waits for #220); tray outlines on the page (#194 slice 2, waits for #220); run results (#223, waits for #221 and #222); benchmark plants of known area (#228, waits for the delivery) |
+| Needs the camera | Scheduled capture (#60, in progress); learning the 40 mm tag offset (one still with gaps); the run |
+
+**Targets** (15.6a and 15.6b): real leaf area within 10% on blue trays; white balance not
+studied apart, but checked against the run's area jumps if there are any (Aaron, 2026-10-19);
+benchmark plants of known area when they arrive; tray placement with no tray in a wrong
+slot without a warning and at least 95% of tray positions placed; tags in any rotation (shown
+for 12 trays in 15.5j and 15.5k; to hold on the run).
 
 ### Records kept for every round
 

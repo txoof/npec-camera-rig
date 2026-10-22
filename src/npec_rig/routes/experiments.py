@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from npec_rig import captures, database, exports
+from npec_rig import captures, database, exports, scheduler
 from npec_rig.routes.shared import templates
 
 router = APIRouter()
@@ -27,12 +27,22 @@ class ExperimentFields(BaseModel):
     researcher: str | None = None
     tray_height_mm: float | None = Field(default=None, ge=0)
     notes: str | None = None
+    # Seconds between scheduled photos; empty for none. The page offers 1 to 6 minutes.
+    interval_s: float | None = Field(default=None, gt=0)
 
 
 def _cleaned(fields: ExperimentFields) -> dict:
     """Only the fields sent, with blank text stored as empty (NULL)."""
     sent = fields.model_dump(exclude_unset=True)
+    interval_s = sent.get("interval_s")
+    if interval_s is not None and interval_s < scheduler.MIN_INTERVAL_S:
+        raise HTTPException(422, f"the interval must be at least {scheduler.MIN_INTERVAL_S:g} s")
     return {k: (v.strip() or None) if isinstance(v, str) else v for k, v in sent.items()}
+
+
+def _with_schedule(experiment: dict) -> dict:
+    experiment["schedule"] = scheduler.schedule(experiment)
+    return experiment
 
 
 def _experiment_action(action, *args, **kwargs) -> dict:
@@ -53,29 +63,34 @@ def api_experiments() -> list[dict]:
         experiment["export"] = newest[0] if newest else None
         experiment["complete_export"] = database.complete_export(experiment["id"])
         experiment["purge_confirmation"] = captures.purge_confirmation(experiment)
+        _with_schedule(experiment)
     return experiments
 
 
 @router.post("/api/experiments")
 def api_create_experiment(fields: ExperimentFields) -> dict:
-    return captures.create_experiment(**_cleaned(fields))
+    return _with_schedule(captures.create_experiment(**_cleaned(fields)))
 
 
 @router.patch("/api/experiments/{experiment_id}")
 def api_update_experiment(experiment_id: int, fields: ExperimentFields) -> dict:
-    return _experiment_action(captures.update_experiment, experiment_id, **_cleaned(fields))
+    return _with_schedule(
+        _experiment_action(captures.update_experiment, experiment_id, **_cleaned(fields))
+    )
 
 
 @router.post("/api/experiments/{experiment_id}/start")
 def api_start_experiment(experiment_id: int, stop_running: bool = False) -> dict:
     """Start, or resume a stopped experiment. `stop_running` stops the running one first, in the
-    same transaction."""
-    return _experiment_action(captures.start_experiment, experiment_id, stop_running=stop_running)
+    same transaction. Scheduled photos follow the experiment's interval."""
+    return _with_schedule(
+        _experiment_action(captures.start_experiment, experiment_id, stop_running=stop_running)
+    )
 
 
 @router.post("/api/experiments/{experiment_id}/stop")
 def api_stop_experiment(experiment_id: int) -> dict:
-    return _experiment_action(captures.stop_experiment, experiment_id)
+    return _with_schedule(_experiment_action(captures.stop_experiment, experiment_id))
 
 
 @router.delete("/api/experiments/{experiment_id}")
