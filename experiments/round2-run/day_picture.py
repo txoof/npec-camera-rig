@@ -20,11 +20,11 @@ import numpy as np
 import analyse
 from analysis import CHAMBER, MOVING_FROM, MOVING_TO, window
 
-W, LEFT, RIGHT, TOP, ROW = 1800, 190, 30, 110, 34
+W, LEFT, RIGHT, TOP, ROW = 2400, 190, 30, 110, 40
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 INK, MUTED, GRID = (20, 20, 20), (90, 90, 90), (225, 225, 225)
 SURFACE, WINDOW = (251, 252, 252), (238, 244, 247)
-FOUND, MISSED, DARK, SHUFFLE = (214, 120, 42), (52, 104, 235), (70, 70, 70), (0, 161, 237)  # BGR
+FOUND, MISSED, DARK, SHUFFLE = (230, 196, 150), (30, 30, 180), (70, 70, 70), (0, 161, 237)  # BGR
 
 
 def x_of(local, day_start):
@@ -73,11 +73,13 @@ def draw_day(day, photos, centres, shuffles, events, trays, experiment):
         for n, tray in enumerate(trays):
             y = TOP + ROW * n + ROW // 2
             if tray in here:
-                cv2.line(img, (x, y - 6), (x, y + 6), FOUND, 1)
+                cv2.line(img, (x, y - 4), (x, y + 4), FOUND, 1)
             elif here:
-                cv2.line(img, (x - 7, y - 7), (x + 7, y + 7), MISSED, 3)
-                cv2.line(img, (x - 7, y + 7), (x + 7, y - 7), MISSED, 3)
-                misses.append((p["taken_at"], tray))
+                misses.append((p["taken_at"], x, y))
+    # Misses drawn last, over the found lines: a dark line the height of the row, under a triangle.
+    for _, x, y in misses:
+        cv2.line(img, (x, y - ROW // 2 + 3), (x, y + ROW // 2 - 3), MISSED, 3)
+        cv2.fillPoly(img, [np.array([(x - 6, y - ROW // 2 - 6), (x + 6, y - ROW // 2 - 6), (x, y - ROW // 2 + 3)])], MISSED)
 
     for s in shuffles:
         finish = s["finish"].astimezone(CHAMBER)
@@ -97,12 +99,14 @@ def draw_day(day, photos, centres, shuffles, events, trays, experiment):
     read = sum(p["status"] == "read" for p in mine)
     text(img, f"Experiment {experiment}, {day} (chamber time): {len(mine)} photos, {read} read, "
               f"{dark} dark, {len(misses)} tray tags missed while others were found", (14, 32), 0.65, INK, 2)
-    text(img, "Each short line: a photo with that tray's tag found.  x: tag missed while others were found.  "
+    text(img, "Pale line: a photo with that tray's tag found.  Dark red line under a triangle: tag missed while others were found.  "
               "Grey line across all trays: photo not read (dark).  Box: shuffle, start to finish.",
          (14, 60), 0.45, MUTED)
     y = bottom + 70
     text(img, "Missed, chamber time (UTC):", (14, y), 0.5, INK, 1)
-    for i, (t, tray) in enumerate(misses[:7]):
+    rows = {TOP + ROW * n + ROW // 2: tray for n, tray in enumerate(trays)}
+    for i, (t, _, row_y) in enumerate(misses[:7]):
+        tray = rows[row_y]
         local = t.astimezone(CHAMBER)
         text(img, f"tray {tray} {local:%H:%M:%S} ({t:%H:%M:%S})", (14 + 250 * i, y + 24), 0.5)
     if len(misses) > 7:
