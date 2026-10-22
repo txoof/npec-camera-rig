@@ -389,7 +389,7 @@ band, and exports say so (*Per-slot area uncertainty*).
 | Round | Dates | Content |
 |---|---|---|
 | 1 | 15 to 22 Oct | Tags, trays and plant area end to end on saved stills, as scripts. Bar: it runs and gives a number per tray. Record everything, judge nothing |
-| 2 | 23 Oct to 5 Nov | Draft, decided at the round 1 review: a page in the app showing trays, tags and green area on the latest still, plus scheduled capture (M3 scheduler, experiment records, disk headroom); a run of several days with real plants, measuring area jumps between consecutive photos of a tray and tag detection over time. Failure cases noted if seen, not expected (Aaron): moss or algae, shadows, leaves over tray edges |
+| 2 | 23 Oct to 5 Nov | Draft, decided at the round 1 review: a page in the app showing trays, tags and green area on the latest still, plus scheduled capture (M3 scheduler, experiment records, disk headroom); a run of several days, the potato experiment from 22 October: plant trays, and pot trays as the still scene (method in `docs/metrology-log.md` section 16), measuring area jumps between consecutive photos of a tray and tag detection over time. Failure cases noted if seen, not expected (Aaron): moss or algae, shadows, leaves over tray edges |
 | 3 | 6 to 19 Nov | Draft: per-slot bands on plant area, the M5 printed-target test |
 | 4 | 20 Nov to 3 Dec | Draft: a trained plant segmentation model only if round 3 shows green thresholding is the largest error, and adopted only if it beats green thresholding on the round 3 test by a margin Aaron sets before the comparison is run; otherwise M6 alerts |
 | Wrap-up | 4 Dec to the week of 14 Dec | Hardening, runbook, write-up, the baseline (below) |
@@ -442,14 +442,16 @@ Planned at the round 1 review (15.6, #217). Being decided with Aaron; items not 
 - *Steadiness.* From the static photos, where any change in a tray's reading from one photo to the
   next is the rig's own error. Photos in the dark are kept and reported apart; whether tags and
   area can be read in them is not known.
-- *Tray tracking.* Aaron moves trays within the shuffling window, at times that cannot be fixed in
-  advance. Each move follows a shuffle map drawn and printed before it, with a check-off per tray
+- *Tray tracking.* The collaborator (from 22 October) moves trays within the shuffling window, at
+  times that cannot be fixed in advance. Each move follows a shuffle map drawn and printed before it, with a check-off per tray
   and a space for the time it was done. The map is the known answer.
 - Scheduled capture (#60) runs throughout; Aaron tests it with this run.
 - In the trays: pots and the 40 mm tags in cell A1 (offset learned again first, 15.6b target 2).
-  The benchmark taped to tray 1 for the whole run (Aaron, 2026-10-19). Plants, if they arrive
-  during the round, go on their own trays and are reported apart from the still scene (Aaron,
-  2026-10-19).
+  Plants go on their own trays and are reported apart from the still scene (Aaron, 2026-10-19).
+- **The run is the potato experiment** (Aaron, 2026-10-22), "Potato Plants v001", from 08:40 UTC
+  on 22 October: trays 1 to 7 hold potato plants for a collaborator's experiment, trays 8 to 12
+  hold pots (the still scene), the benchmark is taped to tray 8. The collaborator shuffles about 3
+  times a week from printed maps that keep the plants in the middle slots. Method: metrology log 16.
 
 **Sorted for parallel work** (Aaron, 2026-10-19):
 
