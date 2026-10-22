@@ -37,7 +37,6 @@ ready-made exports are in `exports/` (see *Layout*).
 |---|---|---|---|---|---|
 | <img src="images/l_bracket_4020.png" alt="40x20 L bracket" width="160"> | 40x20 L bracket | `l_bracket_4020.scad` | about 80% | yes | on its side, both legs on the bed (below) |
 | <img src="images/l_bracket_4040.png" alt="40x40 L bracket" width="160"> | 40x40 L bracket | `l_bracket_4040.scad` | about 80% | yes | on its side, both legs on the bed (below) |
-| <img src="images/auto-focus_bracket_2020.png" alt="auto-focus bracket" width="160"> | Auto-focus bracket | `auto-focus_bracket_2020.scad` | about 80% | not recorded | as in the file |
 | <img src="images/apriltag_corner_mount.png" alt="corner mount" width="160"> | Corner mounts | `apriltag_corner_mount.scad` | 50% or more, so they are robust | yes | as in the file |
 | <img src="images/m5_slide_pocket.png" alt="slide pocket" width="160"> | Slide pocket (cold shoe holder) | `m5_slide_pocket.scad` | not recorded | not recorded | layer lines perpendicular to the pocket's short dimension, for strength |
 | <img src="images/arducam64_mount.png" alt="camera mount" width="160"> | Camera mount | `arducam64_mount.scad` | not recorded | not recorded | not recorded |
