@@ -6,6 +6,10 @@
 {% block content %}
   <div class="experiment-running" id="running"></div>
 
+  {#- While an experiment runs the form starts closed behind this button, so the list is in view
+      (#267). Both start hidden; the first refresh decides. -#}
+  <button type="button" class="btn hit" id="form-open" style="margin-top: var(--gap)" hidden>{{ ui.icon("plus") }} New experiment</button>
+  <section id="form-section" hidden>
   <h2 id="form-title">New experiment</h2>
   <form class="experiment-form stack" id="experiment-form">
     <p class="experiment-hint">Every field is optional. An experiment with no name is shown by the
@@ -29,6 +33,7 @@
     </div>
     <div class="experiment-message" id="form-message"></div>
   </form>
+  </section>
 
   <h2>All experiments</h2>
   <div class="experiment-message" id="list-message"></div>
@@ -61,6 +66,8 @@
     const submit = document.getElementById("f-submit");
     const cancel = document.getElementById("f-cancel");
     const formMessage = document.getElementById("form-message");
+    const formSection = document.getElementById("form-section");
+    const formOpen = document.getElementById("form-open");
     const listMessage = document.getElementById("list-message");
     const trayChoice = document.getElementById("f-tray-choice");
     const trayOther = document.getElementById("f-tray-other");
@@ -204,12 +211,38 @@
       const r = await fetch("/api/experiments");
       experiments = await r.json();
       render();
+      // Open whenever nothing runs; closed on the first load while something does.
+      if (!anyRunning()) showForm(true);
+      else if (formSection.hidden && formOpen.hidden) showForm(false);
       // While an export is being prepared, check again every 2 s.
       clearTimeout(poll);
       if (experiments.some(preparing)) poll = setTimeout(refresh, 2000);
       // While photos are scheduled, the counts and next photo time are updated every 15 s.
       else if (experiments.some((e) => e.schedule)) poll = setTimeout(refresh, 15000);
     }
+
+    const anyRunning = () => experiments.some((e) => e.state === "running");
+
+    // Shows the form or the button that opens it. While an experiment runs, Cancel closes it.
+    function showForm(shown) {
+      formSection.hidden = !shown;
+      formOpen.hidden = shown;
+      cancel.hidden = !(editing || (shown && anyRunning()));
+    }
+
+    // Closes the form after Set up or Cancel while an experiment runs; its message moves above
+    // the list, where it can still be read.
+    function closeFormIfRunning() {
+      if (!anyRunning()) return showForm(true);
+      showForm(false);
+      listMessage.textContent = formMessage.textContent;
+      formMessage.textContent = "";
+    }
+
+    formOpen.addEventListener("click", () => {
+      showForm(true);
+      form.scrollIntoView({ behavior: "smooth" });
+    });
 
     async function call(method, url, body) {
       const r = await fetch(url, {
@@ -279,6 +312,7 @@
       cancel.hidden = false;
       formMessage.textContent = fields.tray_height_mm.disabled
         ? "Tray height cannot be changed after the experiment has started." : "";
+      showForm(true);
       form.scrollIntoView({ behavior: "smooth" });
     }
 
@@ -302,6 +336,7 @@
         }
         resetForm();
         await refresh();
+        closeFormIfRunning();
       } catch (err) {
         formMessage.textContent = err.message;
       } finally {
@@ -312,6 +347,7 @@
     cancel.addEventListener("click", () => {
       resetForm();
       formMessage.textContent = "";
+      closeFormIfRunning();
     });
 
     // --- The in-page dialog ---
