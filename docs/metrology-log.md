@@ -4866,9 +4866,10 @@ the other 11 tray tags were found: capture 1972 (08:55:53 UTC, tray 2), 2007 (09
   missed photo inside the range of its neighbours.
 - **The outline is found, the pattern is not read.** Running the detector again on the full photo
   (OpenCV ArUco, the tray settings and the frozen settings), the miss repeats with both settings.
-  In each missed photo the detector's rejected candidates include a square of about 290 to 310 px
-  on the tag, the size of the 40 mm tag; in the photo before, the tag is found and no rejected
-  candidate of that size lies on it. So the tag's outline is found as a candidate and then
+  In each missed photo the detector rejects 4 candidates within 150 px of the tag's centre, the
+  first of them a square of 288 to 308 px, the size of the 40 mm tag; in the photo before, the
+  tag is found and 2 candidates near it are rejected, the first 24 to 46 px across (only the first
+  candidate's size was printed). So the tag's outline is found as a candidate and then
   rejected when its pattern is read, and the same photo gives the same result every time.
 
 **Not known.** Why the pattern is rejected in these photos and not in their neighbours, when the
