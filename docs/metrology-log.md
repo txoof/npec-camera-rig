@@ -4492,6 +4492,23 @@ in every lit still. With the lights off the camera sees no tags at all, so night
 tray data; the app must report them as too dark, not as trays missing. Not shown: an in-between
 light level; more than one night; the morning sample is 4 stills.
 
+### 15.5m Time to read one photo for trays (issue #222, development check, 2026-10-21)
+
+*Development check.* How long the app takes to read one photo for its trays, to decide whether
+every photo can be read within the one-minute photo interval.
+
+- **Method.** `tags.detect_tags` timed twice on one still of 20 October with 12 tray tags
+  (`experiments/2026-10-20_57f74959/stills/2026-10-21/070359_857510.jpg`), on the rig's Pi 5 with
+  nothing else running; then `tray_readings.read_photo` (decode, tag search, placement, database
+  write) timed once on each of 24 stills of the same experiment, 07:58 to 08:21 UTC on 20 October,
+  against a copy of `rig.db`.
+- **Result.** Tag search 8.9 s and 9.0 s, JPEG decode 0.4 s. The whole reading took 9.6 s to
+  12.5 s per still over the 24 stills.
+- **What it covers.** Tags and tray placement only, with the camera idle. Not covered:
+  segmentation (#74), which adds to the time; reading while a photo is being taken. Not measured:
+  whether reading delays a scheduled photo taken at the same time (both use the Pi's processor).
+  Slowing the schedule when reading falls behind is #251.
+
 ### 15.6 Round 1 review
 
 Covers what was found, what surprised us, which phase it sends work back to, and the targets for

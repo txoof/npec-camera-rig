@@ -153,3 +153,136 @@ def test_the_gallery_list_carries_each_photos_record() -> None:
     entries = {e["filename"]: e for e in captures.list_recent_captures()}
     assert entries[record["filename"]]["record"]["id"] == record["capture_id"]
     assert entries["000000_000000.jpg"]["record"] is None
+
+
+# --- Tray readings (#222) ---
+
+
+def _photo(taken_at: str, experiment_id: int | None = None) -> int:
+    return database.record_capture(
+        taken_at=taken_at, path=f"rig/{taken_at}", purpose="capture", experiment_id=experiment_id,
+        calibration=None, validation=None, lens_position=None, focus_locked_at=None,
+        exposure_us=None, analogue_gain=None, flags=[],
+    )
+
+
+def _tray(tray_id: int, slot: str = "N1") -> dict:
+    return {
+        "tray_id": tray_id, "slot": slot, "a1_corner": "SW", "placement": "placed",
+        "centre_px": [4000.0, 3000.0], "tilt_deg": 1.5, "margin_mm": 120.0,
+    }
+
+
+def test_a_photos_tray_readings_are_saved_and_read_back() -> None:
+    capture_id = _photo("2026-10-21T07:00:00+00:00")
+    database.record_tray_readings(
+        capture_id, read_at="2026-10-21T07:00:10+00:00", status="read", trays=[_tray(3, "N2"), _tray(1)]
+    )
+
+    readings = database.tray_readings(capture_id)
+    assert readings["status"] == "read"
+    assert readings["read_at"] == "2026-10-21T07:00:10+00:00"
+    assert [(t["tray_id"], t["slot"]) for t in readings["trays"]] == [(1, "N1"), (3, "N2")]
+    assert readings["trays"][0]["centre_px"] == [4000.0, 3000.0]
+    assert readings["trays"][0]["area_mm2"] is None
+
+
+def _experiment() -> int:
+    experiment = database.create_experiment(uuid="u-222", created_at="2026-10-21T06:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2026-10-21T06:00:00+00:00", folder="experiments/x")
+    return experiment["id"]
+
+
+def _read(taken_at: str, tray_ids: list[int], experiment_id: int | None) -> int:
+    capture_id = _photo(taken_at, experiment_id)
+    database.record_tray_readings(capture_id, read_at=taken_at, status="read", trays=[_tray(t) for t in tray_ids])
+    return capture_id
+
+
+def test_a_tray_seen_earlier_in_the_experiment_shows_as_not_found_since_it_went_missing() -> None:
+    experiment_id = _experiment()
+    _read("2026-10-21T07:00:00+00:00", [1, 2], experiment_id)
+    _read("2026-10-21T07:01:00+00:00", [1], experiment_id)
+    third = _read("2026-10-21T07:02:00+00:00", [1], experiment_id)
+
+    assert database.tray_readings(third)["not_found"] == [
+        {"tray_id": 2, "since": "2026-10-21T07:01:00+00:00", "photos": 2}
+    ]
+
+
+def test_purging_an_experiment_removes_its_tray_readings() -> None:
+    experiment_id = _experiment()
+    capture_id = _read("2026-10-21T07:00:00+00:00", [1], experiment_id)
+    database.stop_experiment(experiment_id, now="2026-10-21T08:00:00+00:00")
+
+    database.purge_experiment(experiment_id, now="2026-10-21T09:00:00+00:00")
+    assert database.tray_readings(capture_id) is None
+
+
+def test_a_swapped_tag_shows_the_new_tray_found_and_the_old_one_not_found() -> None:
+    experiment_id = _experiment()
+    _read("2026-10-21T07:00:00+00:00", [12], experiment_id)
+    swapped = _read("2026-10-21T07:01:00+00:00", [13], experiment_id)
+    # A rig photo outside the experiment says nothing about its trays.
+    _read("2026-10-21T07:00:30+00:00", [5], None)
+
+    readings = database.tray_readings(swapped)
+    assert [t["tray_id"] for t in readings["trays"]] == [13]
+    assert readings["not_found"] == [{"tray_id": 12, "since": "2026-10-21T07:01:00+00:00", "photos": 1}]
+
+
+def test_a_tray_moved_or_turned_since_the_previous_photo_is_listed_as_moved() -> None:
+    experiment_id = _experiment()
+    first = _photo("2026-10-21T07:00:00+00:00", experiment_id)
+    database.record_tray_readings(first, read_at="t", status="read", trays=[_tray(1, "North 1"), _tray(2, "North 2")])
+    second = _photo("2026-10-21T07:01:00+00:00", experiment_id)
+    database.record_tray_readings(
+        second, read_at="t", status="read", trays=[_tray(1, "South 3"), {**_tray(2, "North 2"), "a1_corner": "NE"}]
+    )
+
+    assert database.tray_readings(first)["moved"] == []
+    assert database.tray_readings(second)["moved"] == [
+        {"tray_id": 1, "from": ["North 1", "SW"], "to": ["South 3", "SW"]},
+        {"tray_id": 2, "from": ["North 2", "SW"], "to": ["North 2", "NE"]},
+    ]
+
+
+def test_a_photo_with_no_tags_at_all_is_not_counted_as_trays_missing() -> None:
+    """Metrology log 15.5l: with the lights off no tag is found, which says nothing about trays."""
+    experiment_id = _experiment()
+    _read("2026-10-21T21:00:00+00:00", [1, 2], experiment_id)
+    dark = _photo("2026-10-21T21:01:00+00:00", experiment_id)
+    database.record_tray_readings(dark, read_at="t", status="no tags found", trays=[])
+    morning = _read("2026-10-21T21:02:00+00:00", [1], experiment_id)
+
+    assert database.tray_readings(dark)["not_found"] == []
+    assert database.tray_readings(morning)["not_found"] == [
+        {"tray_id": 2, "since": "2026-10-21T21:02:00+00:00", "photos": 1}
+    ]
+
+
+def test_unread_photos_come_newest_first_so_new_photos_are_not_stuck_behind_old_ones() -> None:
+    for taken_at in ("2026-10-21T07:00:00+00:00", "2026-10-21T07:02:00+00:00", "2026-10-21T07:01:00+00:00"):
+        _photo(taken_at)
+    _read("2026-10-21T07:03:00+00:00", [1], None)  # read already: left out
+
+    assert database.unread_photos(limit=2, since="2026-10-21T00:00:00+00:00") == [
+        "rig/2026-10-21T07:02:00+00:00", "rig/2026-10-21T07:01:00+00:00"
+    ]
+
+
+def test_older_photos_are_left_for_on_demand_unless_their_experiment_is_running() -> None:
+    """Aaron, 2026-10-22: photos from before the reader started are read only when asked, except
+    those of the running experiment."""
+    _photo("2026-10-21T06:00:00+00:00")  # an old rig photo: on demand
+    stopped = database.create_experiment(uuid="u-old", created_at="2026-10-20T06:00:00+00:00")
+    database.start_experiment(stopped["id"], now="2026-10-20T06:00:00+00:00", folder="experiments/old")
+    _photo("2026-10-20T07:00:00+00:00", stopped["id"])  # an old experiment's photo: on demand
+    database.stop_experiment(stopped["id"], now="2026-10-20T08:00:00+00:00")
+    running = _experiment()
+    _photo("2026-10-21T06:30:00+00:00", running)  # before the start, but its experiment runs
+    _photo("2026-10-21T07:30:00+00:00")  # taken since the reader started
+
+    assert database.unread_photos(limit=10, since="2026-10-21T07:00:00+00:00") == [
+        "rig/2026-10-21T07:30:00+00:00", "rig/2026-10-21T06:30:00+00:00"
+    ]

@@ -8,14 +8,13 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from npec_rig import database, images, photo_tags, validation_store
-from npec_rig.calibration_store import CalibrationNotFoundError, CalibrationUnreadableError, load_saved_calibration
+from npec_rig import database, images, photo_tags, tray_readings
 from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import PHOTO_KEY, capture_hours, list_recent_captures, photo_file
 from npec_rig.routes.shared import derived_response, templates
 from npec_rig.text_render import text_layer, text_width
 from npec_rig.tags import CALIBRATION_ID_RANGE, CORNER_ID_RANGE, TRAY_ID_RANGE, TagDetection
-from npec_rig.tray_placement import TrayPlacement, place_trays
+from npec_rig.tray_placement import TrayPlacement
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -38,9 +37,20 @@ def api_captures(
     if before is not None and not PHOTO_KEY.match(before):
         raise HTTPException(422, f"not a photo key: {before!r} (expected YYYY-MM-DDTHHMMSS_ffffff)")
     try:
-        return list_recent_captures(limit=limit, before=before, experiment_id=experiment)
+        items = list_recent_captures(limit=limit, before=before, experiment_id=experiment)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
+    # Each photo's saved tray readings (#222), None until it has been read. Like the records
+    # (captures._with_database_rows), a database that cannot be read leaves the photos listed.
+    try:
+        for item in items:
+            record = item.get("record")
+            item["trays"] = database.tray_readings(record["id"]) if record else None
+    except (sqlite3.Error, RuntimeError):
+        logger.exception("Could not read the tray readings for the gallery")
+        for item in items:
+            item["trays"] = None
+    return items
 
 
 @router.get("/api/captures/hours")
@@ -60,31 +70,11 @@ def _tag_role(tag_id: int) -> str:
     return "other"
 
 
-def _tray_placements(path: str, tags: list[TagDetection]) -> dict[int, TrayPlacement] | None:
-    """Each tray tag in photo `path` placed with the calibration the photo was taken under, by
-    tray ID; None when the photo has no calibration, or its calibration or saved slot layout
-    cannot be read. Reads only: nothing is worked out or stored."""
-    try:
-        record = database.captures_by_path([path]).get(path)
-    except (sqlite3.Error, RuntimeError):
-        logger.exception("Could not read the capture row of %s", path)
-        return None
-    if record is None or not record.get("calibration"):
-        return None
-    try:
-        artifact = load_saved_calibration(record["calibration"])
-        # Only a layout already worked out: working it out decodes the 64MP calibration frame.
-        layout = validation_store.load_slot_layout(record["calibration"])
-    except (CalibrationNotFoundError, CalibrationUnreadableError, validation_store.SessionNotFoundError):
-        return None
-    if layout is None:
-        return None
-    # Placement is an extra on the tag list: a layout or scale it cannot use leaves the tags shown.
-    try:
-        return {p.tray_id: p for p in place_trays(tags, artifact.scale_field, layout["slots"])}
-    except (ValueError, KeyError, TypeError, OSError):
-        logger.exception("Could not place the trays of %s", path)
-        return None
+def _tray_placements(path: str, tags: list[TagDetection]) -> dict[int, TrayPlacement]:
+    """Each tray tag in photo `path` placed with its calibration, by tray ID; empty when the
+    photo has no calibration with a usable slot layout. Placement is an extra on the tag list."""
+    _status, placed = tray_readings.placements(path, tags)
+    return {p.tray_id: p for p in placed}
 
 
 def _placement_json(p: TrayPlacement | None) -> dict | None:
@@ -97,9 +87,18 @@ def _placement_json(p: TrayPlacement | None) -> dict | None:
 def api_photo_tags(path: str) -> list[dict]:
     """The tags in gallery photo `path`: each one's ID, role (tray, calibration, corner or other)
     and centre in full-size pixels. A tray tag also has its `placement` (slot, A1 corner, status)
-    from the photo's calibration, or None when the photo has none. Nothing is stored about trays."""
+    from the photo's calibration, or None when the photo has none. The photo's tray reading is
+    saved as well (#222): older photos are read on demand."""
     tags = photo_tags.photo_tags_for(path)
-    placements = _tray_placements(path, tags) or {}
+    placements = _tray_placements(path, tags)
+    # Older photos are read for their trays only when asked (Aaron, 2026-10-22): this is the ask.
+    try:
+        tray_readings.read_photo(path)
+    except LookupError:
+        pass  # no record in rig.db: nothing to save the reading against
+    except Exception:
+        # Saving the reading is an extra: the tags found are still returned.
+        logger.exception("Could not save the tray reading of %s", path)
     out = []
     for d in tags:
         entry = {"id": d.tag_id, "role": _tag_role(d.tag_id), "centre_px": [round(d.centre[0]), round(d.centre[1])]}
@@ -107,6 +106,16 @@ def api_photo_tags(path: str) -> list[dict]:
             entry["placement"] = _placement_json(placements.get(d.tag_id))
         out.append(entry)
     return out
+
+
+@router.get("/api/captures/trays/{path:path}")
+def api_photo_trays(path: str) -> dict | None:
+    """Gallery photo `path`'s saved tray reading (`database.tray_readings`); None when it has not
+    been read or has no record in rig.db."""
+    try:
+        return tray_readings.photo_readings(path)
+    except LookupError:
+        return None
 
 
 # Gallery image sizes, as widths in pixels: a thumbnail, and a copy for the chamber screen when a
@@ -123,7 +132,7 @@ def gallery_tags_image(path: str) -> Response:
     tags = [{"id": d.tag_id, "corners": [list(c) for c in d.corners]} for d in found]
     trays = [
         {"id": p.tray_id, "outline": [list(c) for c in p.outline], "slot": p.slot, "a1_corner": p.a1_corner, "status": p.status}
-        for p in (_tray_placements(path, found) or {}).values()
+        for p in _tray_placements(path, found).values()
     ]
     inputs = {"photo": path, "width": _GALLERY_WIDTHS["screen"], "tags": tags, "trays": trays}
     return derived_response("gallery_tags", path, inputs)

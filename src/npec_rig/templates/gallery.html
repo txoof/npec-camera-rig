@@ -104,6 +104,43 @@
         + `validation ${stemText(record.validation)}`;
     }
 
+    // Readings per tray per photo (#222), made in the background after each new photo is saved,
+    // older photos when Show tags is tapped. A tray not found is one found earlier in the
+    // experiment: removed, swapped or with a dirty tag, which the rig cannot tell apart.
+    const TRAY_STATUS = {
+      "no tags found": "no tags found in this photo, as when the lights are off",
+      "no calibration": "this photo has no calibration",
+      "no slot layout": "its calibration has no worked-out tray slots",
+      "placement failed": "the trays could not be placed",
+      "read failed": "the photo could not be read",
+    };
+
+    function localTime(iso) {
+      return new Date(iso).toLocaleTimeString(undefined, {
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+    }
+
+    function traysHtml(trays, purpose) {
+      // Only captures are read in the background; validation, calibration and tripwire photos are
+      // skipped, and say so (Aaron, 2026-10-22).
+      if (!trays && purpose !== "capture") {
+        return `<div>Trays: skipped, ${purpose} photos are not read for trays automatically. Tap Show tags to read this one.</div>`;
+      }
+      if (!trays) return "<div>Trays: not read yet. Tap Show tags to read this photo.</div>";
+      if (trays.status !== "read") return `<div>Trays: not placed, ${TRAY_STATUS[trays.status] ?? trays.status}.</div>`;
+      const lines = [`Trays found: ${trays.trays.length}.`];
+      if (trays.not_found.length) {
+        lines.push("Not found: " + trays.not_found.map((t) =>
+          `Tray ${t.tray_id} since ${localTime(t.since)} (${t.photos} ${t.photos === 1 ? "photo" : "photos"})`).join("; ") + ".");
+      }
+      if (trays.moved.length) {
+        lines.push("Moved since the previous photo: " + trays.moved.map((t) => t.from[0] === t.to[0]
+          ? `Tray ${t.tray_id} turned, A1 ${t.from[1]} to ${t.to[1]}`
+          : `Tray ${t.tray_id} ${t.from[0]} to ${t.to[0]}` + (t.from[1] === t.to[1] ? "" : `, A1 ${t.from[1]} to ${t.to[1]}`)).join("; ") + ".");
+      }
+      return lines.map((line) => `<div>${line}</div>`).join("");
+    }
+
     function itemHtml(item) {
       const taken = keyDate(item.key);
       const time = taken.toLocaleTimeString(undefined, {
@@ -116,6 +153,7 @@
           </button>
           <div class="gallery-time">${time}</div>
           <div>${recordText(item.record)}</div>
+          ${item.record ? `<div data-trays>${traysHtml(item.trays, item.record.purpose)}</div>` : ""}
           ${item.uptime ? `<div>${uptimeText(item.uptime)}</div>` : ""}
           ${item.flags && item.flags.length
             ? `<div class="gallery-flag">Not covered by the validation bands:
@@ -152,6 +190,23 @@
         + " Placement assumes 12 trays, each with a 40 mm tag in cell A1.";
     }
 
+    // Show tags also saved the photo's tray reading (#222): show it in place of the old line. Its
+    // own failure leaves the tags found, and the old line, as they are.
+    async function showSavedTrays(item, path) {
+      const traysBox = item.querySelector("[data-trays]");
+      if (!traysBox) return;
+      try {
+        const t = await fetch(`/api/captures/trays/${path}`);
+        if (!t.ok) return;
+        const trays = await t.json();
+        traysBox.innerHTML = trays
+          ? traysHtml(trays, "capture")
+          : "<div>Trays: the reading could not be saved for this photo.</div>";
+      } catch (err) {
+        // The tags were found; only the tray line is not updated.
+      }
+    }
+
     async function showTags(btn) {
       const item = btn.closest(".gallery-item");
       const list = item.querySelector("[data-tags-list]");
@@ -169,6 +224,7 @@
         }
         if (!r.ok) throw new Error(r.statusText);
         list.textContent = tagListText(await r.json());
+        await showSavedTrays(item, btn.dataset.tags);
         // lightbox.js opens a figure's data-large copy: the marked one for this tap only.
         const large = thumb.dataset.large;
         thumb.dataset.large = `/gallery/image/tags/${btn.dataset.tags}`;
