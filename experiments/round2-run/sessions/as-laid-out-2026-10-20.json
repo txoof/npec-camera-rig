@@ -1,0 +1,1061 @@
+{
+ "about": "The 20 October layouts as laid out (metrology log 15.5l, Aaron's check of 2026-10-20): the maps of shuffle-maps-2026-10-20.json with layouts 3, 11 and 12 changed. Slots from Aaron's notes in shuffle-times-2026-10-20.csv. His notes for layouts 3 and 11 give the slots only; the A1 corner of the 4 moved trays is the one the rig found, which 15.5l records Aaron confirmed from the pictures, tray by tray. Layout 20a was not as planned and what was laid out is not recorded: its map is kept and its results are reported apart. Layout 1 is the learning layout of 15.5l.",
+ "not_as_planned": [
+  "20a"
+ ],
+ "learning": [
+  "1"
+ ],
+ "layouts": {
+  "1": {
+   "North 1": {
+    "tray": 2,
+    "a1": "NE"
+   },
+   "North 2": {
+    "tray": 3,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "North 4": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "North 5": {
+    "tray": 9,
+    "a1": "NE"
+   },
+   "North 6": {
+    "tray": 10,
+    "a1": "SW"
+   },
+   "South 1": {
+    "tray": 1,
+    "a1": "SW"
+   },
+   "South 2": {
+    "tray": 12,
+    "a1": "SW"
+   },
+   "South 3": {
+    "tray": 4,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 6,
+    "a1": "SW"
+   },
+   "South 5": {
+    "tray": 11,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 8,
+    "a1": "SW"
+   }
+  },
+  "2": {
+   "North 1": {
+    "tray": 3,
+    "a1": "SW"
+   },
+   "North 2": {
+    "tray": 10,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 6,
+    "a1": "SW"
+   },
+   "North 4": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "North 5": {
+    "tray": 4,
+    "a1": "SW"
+   },
+   "North 6": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 9,
+    "a1": "NE"
+   },
+   "South 2": {
+    "tray": 11,
+    "a1": "SW"
+   },
+   "South 3": {
+    "tray": 7,
+    "a1": "NE"
+   },
+   "South 4": {
+    "tray": 8,
+    "a1": "SW"
+   },
+   "South 5": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 2,
+    "a1": "SW"
+   }
+  },
+  "3": {
+   "North 1": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "North 2": {
+    "tray": 8,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 3,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "North 5": {
+    "tray": 10,
+    "a1": "SW"
+   },
+   "North 6": {
+    "tray": 9,
+    "a1": "SW"
+   },
+   "South 1": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "South 2": {
+    "tray": 7,
+    "a1": "NE"
+   },
+   "South 3": {
+    "tray": 11,
+    "a1": "NE"
+   },
+   "South 4": {
+    "tray": 4,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 2,
+    "a1": "NE"
+   },
+   "South 6": {
+    "tray": 6,
+    "a1": "NE"
+   }
+  },
+  "4": {
+   "North 1": {
+    "tray": 3,
+    "a1": "SW"
+   },
+   "North 2": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 10,
+    "a1": "SW"
+   },
+   "North 4": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "North 5": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "North 6": {
+    "tray": 2,
+    "a1": "SW"
+   },
+   "South 1": {
+    "tray": 5,
+    "a1": "NE"
+   },
+   "South 2": {
+    "tray": 9,
+    "a1": "SW"
+   },
+   "South 3": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "South 4": {
+    "tray": 11,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 4,
+    "a1": "NE"
+   },
+   "South 6": {
+    "tray": 8,
+    "a1": "NE"
+   }
+  },
+  "5": {
+   "North 1": {
+    "tray": 5,
+    "a1": "NE"
+   },
+   "North 2": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "North 3": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 12,
+    "a1": "SW"
+   },
+   "North 5": {
+    "tray": 2,
+    "a1": "SW"
+   },
+   "North 6": {
+    "tray": 3,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 10,
+    "a1": "NE"
+   },
+   "South 2": {
+    "tray": 7,
+    "a1": "NE"
+   },
+   "South 3": {
+    "tray": 4,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 9,
+    "a1": "SW"
+   },
+   "South 5": {
+    "tray": 8,
+    "a1": "NE"
+   },
+   "South 6": {
+    "tray": 11,
+    "a1": "SW"
+   }
+  },
+  "6": {
+   "North 1": {
+    "tray": 3,
+    "a1": "NE"
+   },
+   "North 2": {
+    "tray": 2,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 11,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 9,
+    "a1": "NE"
+   },
+   "North 5": {
+    "tray": 4,
+    "a1": "NE"
+   },
+   "North 6": {
+    "tray": 6,
+    "a1": "SW"
+   },
+   "South 1": {
+    "tray": 12,
+    "a1": "SW"
+   },
+   "South 2": {
+    "tray": 8,
+    "a1": "SW"
+   },
+   "South 3": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "South 5": {
+    "tray": 1,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 10,
+    "a1": "NE"
+   }
+  },
+  "7": {
+   "North 1": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "North 2": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 3,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 2,
+    "a1": "NE"
+   },
+   "North 5": {
+    "tray": 11,
+    "a1": "SW"
+   },
+   "North 6": {
+    "tray": 10,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 8,
+    "a1": "NE"
+   },
+   "South 2": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "South 3": {
+    "tray": 1,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 4,
+    "a1": "SW"
+   },
+   "South 5": {
+    "tray": 9,
+    "a1": "NE"
+   },
+   "South 6": {
+    "tray": 6,
+    "a1": "NE"
+   }
+  },
+  "8": {
+   "North 1": {
+    "tray": 9,
+    "a1": "NE"
+   },
+   "North 2": {
+    "tray": 10,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "North 5": {
+    "tray": 3,
+    "a1": "SW"
+   },
+   "North 6": {
+    "tray": 11,
+    "a1": "SW"
+   },
+   "South 1": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "South 2": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "South 3": {
+    "tray": 8,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 2,
+    "a1": "SW"
+   },
+   "South 5": {
+    "tray": 4,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 12,
+    "a1": "SW"
+   }
+  },
+  "9": {
+   "North 1": {
+    "tray": 4,
+    "a1": "SW"
+   },
+   "North 2": {
+    "tray": 2,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 9,
+    "a1": "SW"
+   },
+   "North 4": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "North 5": {
+    "tray": 8,
+    "a1": "SW"
+   },
+   "North 6": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "South 2": {
+    "tray": 6,
+    "a1": "SW"
+   },
+   "South 3": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 11,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 10,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 3,
+    "a1": "NE"
+   }
+  },
+  "10": {
+   "North 1": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "North 2": {
+    "tray": 3,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 8,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 11,
+    "a1": "SW"
+   },
+   "North 5": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "North 6": {
+    "tray": 4,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 9,
+    "a1": "NE"
+   },
+   "South 2": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "South 3": {
+    "tray": 10,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "South 5": {
+    "tray": 2,
+    "a1": "NE"
+   },
+   "South 6": {
+    "tray": 5,
+    "a1": "NE"
+   }
+  },
+  "11": {
+   "North 1": {
+    "tray": 11,
+    "a1": "SW"
+   },
+   "North 2": {
+    "tray": 5,
+    "a1": "NE"
+   },
+   "North 3": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 9,
+    "a1": "SW"
+   },
+   "North 5": {
+    "tray": 7,
+    "a1": "NE"
+   },
+   "North 6": {
+    "tray": 8,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 3,
+    "a1": "NE"
+   },
+   "South 2": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "South 3": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "South 4": {
+    "tray": 2,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 10,
+    "a1": "NE"
+   },
+   "South 6": {
+    "tray": 4,
+    "a1": "NE"
+   }
+  },
+  "12": {
+   "North 1": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "North 2": {
+    "tray": 7,
+    "a1": "NE"
+   },
+   "North 3": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 11,
+    "a1": "SW"
+   },
+   "North 5": {
+    "tray": 8,
+    "a1": "NE"
+   },
+   "North 6": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 4,
+    "a1": "NE"
+   },
+   "South 2": {
+    "tray": 5,
+    "a1": "NE"
+   },
+   "South 3": {
+    "tray": 9,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 3,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 10,
+    "a1": "NE"
+   },
+   "South 6": {
+    "tray": 2,
+    "a1": "NE"
+   }
+  },
+  "13": {
+   "North 1": {
+    "tray": 11,
+    "a1": "NE"
+   },
+   "North 2": {
+    "tray": 9,
+    "a1": "NE"
+   },
+   "North 3": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 3,
+    "a1": "NE"
+   },
+   "North 5": {
+    "tray": 8,
+    "a1": "NE"
+   },
+   "North 6": {
+    "tray": 2,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "South 2": {
+    "tray": 12,
+    "a1": "SW"
+   },
+   "South 3": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 10,
+    "a1": "NE"
+   },
+   "South 6": {
+    "tray": 4,
+    "a1": "NE"
+   }
+  },
+  "14": {
+   "North 1": {
+    "tray": 4,
+    "a1": "SW"
+   },
+   "North 2": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "North 3": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "North 5": {
+    "tray": 11,
+    "a1": "NE"
+   },
+   "North 6": {
+    "tray": 3,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 5,
+    "a1": "NE"
+   },
+   "South 2": {
+    "tray": 10,
+    "a1": "NE"
+   },
+   "South 3": {
+    "tray": 9,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 2,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 8,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 7,
+    "a1": "NE"
+   }
+  },
+  "15": {
+   "North 1": {
+    "tray": 4,
+    "a1": "SW"
+   },
+   "North 2": {
+    "tray": 11,
+    "a1": "NE"
+   },
+   "North 3": {
+    "tray": 1,
+    "a1": "SW"
+   },
+   "North 4": {
+    "tray": 3,
+    "a1": "NE"
+   },
+   "North 5": {
+    "tray": 10,
+    "a1": "SW"
+   },
+   "North 6": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "South 1": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "South 2": {
+    "tray": 2,
+    "a1": "SW"
+   },
+   "South 3": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "South 4": {
+    "tray": 7,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 9,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 8,
+    "a1": "NE"
+   }
+  },
+  "16": {
+   "North 1": {
+    "tray": 8,
+    "a1": "NE"
+   },
+   "North 2": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 3,
+    "a1": "SW"
+   },
+   "North 4": {
+    "tray": 11,
+    "a1": "SW"
+   },
+   "North 5": {
+    "tray": 2,
+    "a1": "SW"
+   },
+   "North 6": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "South 2": {
+    "tray": 10,
+    "a1": "NE"
+   },
+   "South 3": {
+    "tray": 9,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 6,
+    "a1": "SW"
+   },
+   "South 5": {
+    "tray": 4,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 12,
+    "a1": "NE"
+   }
+  },
+  "17": {
+   "North 1": {
+    "tray": 3,
+    "a1": "SW"
+   },
+   "North 2": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 9,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 10,
+    "a1": "SW"
+   },
+   "North 5": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "North 6": {
+    "tray": 5,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 11,
+    "a1": "SW"
+   },
+   "South 2": {
+    "tray": 1,
+    "a1": "NE"
+   },
+   "South 3": {
+    "tray": 8,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 2,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 4,
+    "a1": "SW"
+   }
+  },
+  "18": {
+   "North 1": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "North 2": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 2,
+    "a1": "SW"
+   },
+   "North 5": {
+    "tray": 3,
+    "a1": "SW"
+   },
+   "North 6": {
+    "tray": 11,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 9,
+    "a1": "SW"
+   },
+   "South 2": {
+    "tray": 8,
+    "a1": "SW"
+   },
+   "South 3": {
+    "tray": 10,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 4,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 1,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 6,
+    "a1": "SW"
+   }
+  },
+  "19": {
+   "North 1": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "North 2": {
+    "tray": 2,
+    "a1": "SW"
+   },
+   "North 3": {
+    "tray": 7,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 11,
+    "a1": "NE"
+   },
+   "North 5": {
+    "tray": 8,
+    "a1": "NE"
+   },
+   "North 6": {
+    "tray": 12,
+    "a1": "NE"
+   },
+   "South 1": {
+    "tray": 5,
+    "a1": "NE"
+   },
+   "South 2": {
+    "tray": 3,
+    "a1": "NE"
+   },
+   "South 3": {
+    "tray": 1,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 9,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 4,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 10,
+    "a1": "NE"
+   }
+  },
+  "20a": {
+   "North 1": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "North 2": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "North 3": {
+    "tray": 11,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 12,
+    "a1": "SW"
+   },
+   "North 5": {
+    "tray": 3,
+    "a1": "NE"
+   },
+   "North 6": {
+    "tray": 10,
+    "a1": "SW"
+   },
+   "South 1": {
+    "tray": 9,
+    "a1": "SW"
+   },
+   "South 2": {
+    "tray": 4,
+    "a1": "NE"
+   },
+   "South 3": {
+    "tray": 2,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 8,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 1,
+    "a1": "NE"
+   }
+  },
+  "20b": {
+   "North 1": {
+    "tray": 7,
+    "a1": "SW"
+   },
+   "North 2": {
+    "tray": 6,
+    "a1": "NE"
+   },
+   "North 3": {
+    "tray": 11,
+    "a1": "NE"
+   },
+   "North 4": {
+    "tray": 12,
+    "a1": "SW"
+   },
+   "North 5": {
+    "tray": 3,
+    "a1": "NE"
+   },
+   "North 6": {
+    "tray": 10,
+    "a1": "SW"
+   },
+   "South 1": {
+    "tray": 9,
+    "a1": "SW"
+   },
+   "South 2": {
+    "tray": 4,
+    "a1": "NE"
+   },
+   "South 3": {
+    "tray": 2,
+    "a1": "SW"
+   },
+   "South 4": {
+    "tray": 8,
+    "a1": "NE"
+   },
+   "South 5": {
+    "tray": 5,
+    "a1": "SW"
+   },
+   "South 6": {
+    "tray": 1,
+    "a1": "NE"
+   }
+  }
+ }
+}

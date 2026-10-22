@@ -4814,3 +4814,39 @@ a method comes before its test. What that means: no result had been looked at, s
 pairs and tables were not chosen from the data; but the run itself (trays, interval, positions)
 was set before the method existed, so nothing in it was designed for these questions. The results
 are development checks and are to be read that way.
+
+### 16.7 The analysis checked on the 20 October capture (issue #223, method written 2026-10-22, before the full check)
+
+**Label: development check.** Whether the analysis of 16.4, fed the app's own tray readings,
+gives what 15.5l found on the same photos. It checks the analysis and the app's readings, not the
+rig: 15.5l is the known answer.
+
+**Data.** Experiment 16, "tray tracking 26.10.20" (folder `2026-10-20_57f74959`), 1391 photo
+records. `experiments/round2-run/read_photos.py` copies `rig.db` (sqlite backup from a read-only
+connection) and the calibration folder to `~/scratch/223-analysis/exp16/`, and reads every photo
+with `tray_readings.read_photo` (#222) into the copy. The live `rig.db` and the experiment folder
+are only read. About 13 s per photo, at low priority while the potato run's reader runs.
+
+**Compared** (`check_oct20.py`, against 15.5l's output files in `experiments/round1-trays/`):
+
+1. **Still by still, tray by tray** (`shuffle-day-2026-10-20_57f74959.csv`): tag found or not,
+   slot, A1 corner, and the placed centre within 1 mm (a decision; the CSV rounds centres to the
+   pixel, about 0.1 mm).
+2. **Lit and dark** (`overnight-2026-10-20_57f74959.csv`): each still with all 12 tags should be
+   status `read` with 12 trays; each still with no tag, status `no tags found`. 15.5l: 613 and 452.
+3. **Tracking against the layouts as laid out** (`sessions/as-laid-out-2026-10-20.json`): the 20
+   October maps with layouts 3, 11 and 12 changed to what Aaron recorded from the pictures. His
+   notes for layouts 3 and 11 give slots only; the A1 corner of those 4 trays is the one the rig
+   found, which 15.5l says Aaron confirmed tray by tray. 15.5l: 0 wrong.
+
+**Not the same numbers as 15.5l, and why.** 15.5l split layouts where the tags moved, counted only
+*settled* stills (its 5 mm rule), and gave steadiness as the spread about each layout's mean. 16.4
+counts every read photo between a shuffle's finish and the next start, and gives steadiness as the
+change between undisturbed pairs. 20 October has Aaron's leave times only, no start times, so each
+layout's finish is its first settled still in 15.5l and the next shuffle starts 1 s after the last
+still before the trays moved. The tracking counts and the steadiness of 16.4 are therefore new
+numbers on these photos, not a repeat of 15.5l's tables. Every difference in comparisons 1 and 2
+is listed, not tuned away.
+
+**Before the full check** (2026-10-22, on the first 30 photos read, to test the scripts): 424 of
+424 tray positions compared had the same slot and corner as 15.5l, centres at most 0.27 mm apart.
