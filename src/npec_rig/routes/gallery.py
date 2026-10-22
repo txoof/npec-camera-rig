@@ -1,5 +1,8 @@
 """Routes for the Gallery page: the photo list and reduced copies of each photo."""
 
+import logging
+import sqlite3
+
 import cv2
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -13,6 +16,7 @@ from npec_rig.text_render import text_layer, text_width
 from npec_rig.tags import CALIBRATION_ID_RANGE, CORNER_ID_RANGE, TRAY_ID_RANGE, TagDetection
 from npec_rig.tray_placement import TrayPlacement
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -36,10 +40,16 @@ def api_captures(
         items = list_recent_captures(limit=limit, before=before, experiment_id=experiment)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
-    # Each photo's saved tray readings (#222), None until the background reader has read it.
-    for item in items:
-        record = item.get("record")
-        item["trays"] = database.tray_readings(record["id"]) if record else None
+    # Each photo's saved tray readings (#222), None until it has been read. Like the records
+    # (captures._with_database_rows), a database that cannot be read leaves the photos listed.
+    try:
+        for item in items:
+            record = item.get("record")
+            item["trays"] = database.tray_readings(record["id"]) if record else None
+    except (sqlite3.Error, RuntimeError):
+        logger.exception("Could not read the tray readings for the gallery")
+        for item in items:
+            item["trays"] = None
     return items
 
 
@@ -86,6 +96,9 @@ def api_photo_tags(path: str) -> list[dict]:
         tray_readings.read_photo(path)
     except LookupError:
         pass  # no record in rig.db: nothing to save the reading against
+    except Exception:
+        # Saving the reading is an extra: the tags found are still returned.
+        logger.exception("Could not save the tray reading of %s", path)
     out = []
     for d in tags:
         entry = {"id": d.tag_id, "role": _tag_role(d.tag_id), "centre_px": [round(d.centre[0]), round(d.centre[1])]}

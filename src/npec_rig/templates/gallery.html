@@ -190,6 +190,23 @@
         + " Placement assumes 12 trays, each with a 40 mm tag in cell A1.";
     }
 
+    // Show tags also saved the photo's tray reading (#222): show it in place of the old line. Its
+    // own failure leaves the tags found, and the old line, as they are.
+    async function showSavedTrays(item, path) {
+      const traysBox = item.querySelector("[data-trays]");
+      if (!traysBox) return;
+      try {
+        const t = await fetch(`/api/captures/trays/${path}`);
+        if (!t.ok) return;
+        const trays = await t.json();
+        traysBox.innerHTML = trays
+          ? traysHtml(trays, "capture")
+          : "<div>Trays: the reading could not be saved for this photo.</div>";
+      } catch (err) {
+        // The tags were found; only the tray line is not updated.
+      }
+    }
+
     async function showTags(btn) {
       const item = btn.closest(".gallery-item");
       const list = item.querySelector("[data-tags-list]");
@@ -207,12 +224,7 @@
         }
         if (!r.ok) throw new Error(r.statusText);
         list.textContent = tagListText(await r.json());
-        // Show tags also saved the photo's tray reading (#222): show it in place of the old one.
-        const traysBox = item.querySelector("[data-trays]");
-        if (traysBox) {
-          const t = await fetch(`/api/captures/trays/${btn.dataset.tags}`);
-          if (t.ok) traysBox.innerHTML = traysHtml(await t.json(), "capture");
-        }
+        await showSavedTrays(item, btn.dataset.tags);
         // lightbox.js opens a figure's data-large copy: the marked one for this tap only.
         const large = thumb.dataset.large;
         thumb.dataset.large = `/gallery/image/tags/${btn.dataset.tags}`;
