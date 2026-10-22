@@ -12,18 +12,13 @@
       time it started.</p>
     {% call ui.field("f-name", "Experiment name") %}{{ ui.field_button("f-name", "Experiment name", kind="text") }}{% endcall %}
     {% call ui.field("f-researcher", "Researcher") %}{{ ui.field_button("f-researcher", "Researcher", kind="text") }}{% endcall %}
-    <label for="f-tray-choice">Tray height</label>
-    <div class="experiment-tray-row">
-      <select id="f-tray-choice">
-        <option value="">Not recorded</option>
-        {% for label, mm in known_trays %}
-          <option value="{{ mm }}">{{ label }}, {{ mm | round(1) }} mm</option>
-        {% endfor %}
-        <option value="other">Other, type the height</option>
-      </select>
-      <span id="f-tray-other" class="experiment-tray-other" hidden>
-        <input type="number" id="f-tray-height" min="0" step="0.1" aria-label="Tray height in mm"> mm
-      </span>
+    {#- "none", not "": an empty field button reads "Not set, tap to enter". -#}
+    {% set tray_options = [("none", "Not recorded", "")] %}
+    {% for label, mm in known_trays %}{% set _ = tray_options.append((mm | string, label ~ ", " ~ (mm | round(1)) ~ " mm", "")) %}{% endfor %}
+    {% set _ = tray_options.append(("other", "Other, type the height", "")) %}
+    {% call ui.field("f-tray-choice", "Tray height") %}{{ ui.field_button("f-tray-choice", "Tray height", "none", kind="choice", options=tray_options) }}{% endcall %}
+    <div id="f-tray-other" hidden>
+      {% call ui.field("f-tray-height", "Other tray height") %}{{ ui.field_button("f-tray-height", "Other tray height", "", "mm", "number", 0, 500, 1) }}{% endcall %}
     </div>
     {{ ui.stepper("f-interval", "Photo every", 0, "min", 0, 6, tight=true) }}
     <p class="experiment-hint">0 means no scheduled photos. Can be changed while running.</p>
@@ -69,7 +64,9 @@
     const listMessage = document.getElementById("list-message");
     const trayChoice = document.getElementById("f-tray-choice");
     const trayOther = document.getElementById("f-tray-other");
-    const knownTrays = [...trayChoice.options].map((o) => o.value).filter((v) => v && v !== "other");
+    // [value, label, detail] rows, as the tray height choice field lists them.
+    const trayOptions = JSON.parse(trayChoice.dataset.options);
+    const knownTrays = trayOptions.map(([v]) => v).filter((v) => v !== "none" && v !== "other");
     const fields = {
       name: document.getElementById("f-name"),
       researcher: document.getElementById("f-researcher"),
@@ -229,26 +226,25 @@
       return data;
     }
 
+    function showTrayChoice(value) {
+      ui.showField(trayChoice, value, trayOptions.find(([v]) => v === value)[1]);
+      trayOther.hidden = value !== "other";
+    }
+
     function showTray(mm) {
-      if (mm === null || mm === undefined) {
-        trayChoice.value = "";
-      } else {
-        const known = knownTrays.find((v) => Number(v) === mm);
-        trayChoice.value = known ?? "other";
-        fields.tray_height_mm.value = known ? "" : mm;
-      }
-      trayOther.hidden = trayChoice.value !== "other";
+      const missing = mm === null || mm === undefined;
+      const known = missing ? undefined : knownTrays.find((v) => Number(v) === mm);
+      showTrayChoice(missing ? "none" : known ?? "other");
+      ui.showField(fields.tray_height_mm, missing || known ? "" : String(mm));
     }
 
     function trayHeight() {
-      if (trayChoice.value === "") return null;
-      if (trayChoice.value !== "other") return Number(trayChoice.value);
-      return fields.tray_height_mm.value === "" ? null : Number(fields.tray_height_mm.value);
+      const choice = trayChoice.dataset.value;
+      if (choice === "none") return null;
+      if (choice !== "other") return Number(choice);
+      const typed = fields.tray_height_mm.dataset.value;
+      return typed === "" ? null : Number(typed);
     }
-
-    trayChoice.addEventListener("change", () => {
-      trayOther.hidden = trayChoice.value !== "other";
-    });
 
     function resetForm() {
       editing = null;
@@ -361,6 +357,8 @@
     whenReady(() => {
       ui.bindStepper(document.getElementById("f-interval"));
       textFields.forEach((el) => ui.bindField(el));
+      ui.bindField(trayChoice, (value) => { trayOther.hidden = value !== "other"; });
+      ui.bindField(fields.tray_height_mm);
     });
 
     function showInterval(seconds) {
