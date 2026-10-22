@@ -4850,3 +4850,26 @@ is listed, not tuned away.
 
 **Before the full check** (2026-10-22, on the photos read by then, to test the scripts): 424 of
 424 tray positions compared had the same slot and corner as 15.5l, centres at most 0.27 mm apart.
+
+### 16.8 Observations during the run: tray tags missed with nothing in the way (issue #223, 2026-10-22)
+
+**Label: development check.** Looked at because tray 2 was missed twice (the trigger on #223).
+
+From the analysis to about 11:00 UTC (16.4, question 2), 3 photos each missed one tray while
+the other 11 tray tags were found: capture 1972 (08:55:53 UTC, tray 2), 2007 (09:30:53, tray 2) and
+2039 (10:02:53, tray 6). Map 0 throughout, trays 2 and 6 are plant trays.
+
+- **The tag looks the same.** A crop around the tag in each missed photo and in the photos either
+  side (`~/scratch/223-analysis/misses/`) shows no leaf, hand or object over it, and no blur.
+  Mean grey level of the crop: 112.7 to 112.9 for tray 2 and 137.4 for tray 6, the same in all 3
+  photos of each group. Sharpness (variance of the Laplacian): 57.5 to 63.1 and 100.3 to 101.5, the
+  missed photo inside the range of its neighbours.
+- **The outline is found, the pattern is not read.** Running the detector again on the full photo
+  (OpenCV ArUco, the tray settings and the frozen settings), the miss repeats with both settings.
+  In each missed photo the detector's rejected candidates include a square of about 290 to 310 px
+  on the tag, the size of the 40 mm tag; in the photo before, the tag is found and no rejected
+  candidate of that size lies on it. So the tag's outline is found as a candidate and then
+  rejected when its pattern is read, and the same photo gives the same result every time.
+
+**Not known.** Why the pattern is rejected in these photos and not in their neighbours, when the
+crops look the same. Not investigated further, by decision pending (Aaron).
