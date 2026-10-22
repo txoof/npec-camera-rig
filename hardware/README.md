@@ -96,8 +96,8 @@ Rules for choosing IDs:
 
 - **Every tray in a chamber needs its own ID.** Two trays with the same ID cannot be told apart.
 - **Tray IDs are 1 to 299 only.** 300-449 are the calibration sheets, 450-499 the corner mounts,
-  500 the auto-focus target, and 0 is unused (PLAN.md, *Tag ID allocation*). The script refuses
-  anything else.
+  and 0 and 500-586 are unallocated (PLAN.md, *Tag ID allocation*). The script refuses anything
+  else.
 - **Keeping track of IDs is up to you.** This repo sets the ranges and what each one is for. It
   does not record which IDs have been printed or are on a tray. Keep your own list, and take
   new IDs from the free ones in the tray's range.
