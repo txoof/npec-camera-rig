@@ -7,7 +7,7 @@
   <div class="experiment-running" id="running"></div>
 
   <h2 id="form-title">New experiment</h2>
-  <form class="experiment-form" id="experiment-form">
+  <form class="experiment-form stack" id="experiment-form">
     <p class="experiment-hint">Every field is optional. An experiment with no name is shown by the
       time it started.</p>
     {% call ui.field("f-name", "Experiment name") %}{{ ui.field_button("f-name", "Experiment name", kind="text") }}{% endcall %}
