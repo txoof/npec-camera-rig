@@ -13,8 +13,9 @@ CHAMBER = ZoneInfo("Europe/Amsterdam")
 # Trays may be moved from 09:30 to 17:00 chamber time, nothing is moved from 17:00 to 09:30 (16.3).
 MOVING_FROM, MOVING_TO = time(9, 30), time(17, 0)
 
-# Two photo intervals at one photo a minute (16.3, rule 4), a decision.
-MAX_PAIR_S = 120.0
+# Two photo intervals at one photo a minute (16.3, rule 4), a decision. Photos come 59.4 to 60.9 s
+# apart (22 October), so the limit is 2.5 intervals: one missed photo keeps the pair, two do not.
+MAX_PAIR_S = 150.0
 
 
 def window(taken_at):
@@ -46,6 +47,8 @@ def _reason(a, b, breaks, camera_events):
     apart_s = (b["taken_at"] - a["taken_at"]).total_seconds()
     if apart_s > MAX_PAIR_S:
         return "photos missed"
+    if b["app_up_s"] is None:
+        return "app uptime unknown"
     if b["app_up_s"] <= apart_s:
         return "app restarted"
     if any(a["taken_at"] < t <= b["taken_at"] for t in camera_events):
@@ -111,18 +114,23 @@ def detection(photos, found, trays):
 def tracking(photos, readings, shuffles):
     """Tray tracking (16.4, question 3). Each shuffle's layout is `slots` ({slot: {"tray", "a1"}},
     as in the shuffle maps), in place from its `finish` to the next shuffle's `start` (the last to
-    the end). `readings` is {capture_id: {tray: (slot, a1)}}. Per shuffle: read photos, and each
-    tray right (slot and corner as the layout), wrong or not found; photos with another status are
-    counted as not read. Photos during a shuffle belong to none."""
+    the end). `readings` is {capture_id: {tray: (slot, a1, placement)}}. Per shuffle: read photos,
+    and each tray right (slot and corner as the layout), wrong, doubtful (the app marked the
+    placement other than "placed", for example "two trays in one slot", listed apart) or not found;
+    photos with another status are counted as not read. Photos during a shuffle belong to none."""
     ordered = sorted(shuffles, key=lambda s: s["finish"])
-    rows, wrong = [], []
+    by_time = sorted(photos, key=lambda p: p["taken_at"])
+    rows, wrong, doubtful = [], [], []
     for n, shuffle in enumerate(ordered):
         until = ordered[n + 1]["start"] if n + 1 < len(ordered) else None
         planned = {v["tray"]: (slot, v["a1"]) for slot, v in shuffle["slots"].items()}
-        row = {"shuffle": shuffle["shuffle"], "photos": 0, "right": 0, "wrong": 0, "not found": 0, "not read": 0}
-        for p in sorted(photos, key=lambda p: p["taken_at"]):
-            if p["taken_at"] < shuffle["finish"] or (until is not None and p["taken_at"] >= until):
+        row = {"shuffle": shuffle["shuffle"], "photos": 0, "right": 0, "wrong": 0, "doubtful": 0,
+               "not found": 0, "not read": 0}
+        for p in by_time:
+            if p["taken_at"] < shuffle["finish"]:
                 continue
+            if until is not None and p["taken_at"] >= until:
+                break
             if p["status"] != "read":
                 row["not read"] += 1
                 continue
@@ -131,11 +139,17 @@ def tracking(photos, readings, shuffles):
             for tray, place in sorted(planned.items()):
                 if tray not in read:
                     row["not found"] += 1
-                elif tuple(read[tray]) == place:
+                    continue
+                slot, a1, placement = read[tray]
+                seen = {"shuffle": shuffle["shuffle"], "capture_id": p["capture_id"], "taken_at": p["taken_at"],
+                        "tray": tray, "read": (slot, a1), "map": place}
+                if placement != "placed":
+                    row["doubtful"] += 1
+                    doubtful.append(seen | {"placement": placement})
+                elif (slot, a1) == place:
                     row["right"] += 1
                 else:
                     row["wrong"] += 1
-                    wrong.append({"shuffle": shuffle["shuffle"], "capture_id": p["capture_id"],
-                                  "taken_at": p["taken_at"], "tray": tray, "read": tuple(read[tray]), "map": place})
+                    wrong.append(seen)
         rows.append(row)
-    return {"shuffles": rows, "wrong": wrong}
+    return {"shuffles": rows, "wrong": wrong, "doubtful": doubtful}

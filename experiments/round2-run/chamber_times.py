@@ -35,7 +35,7 @@ def to_utc(row, maps):
         if not row["finish"] or (not row["start"] and row["map"] != "0"):
             raise ValueError(f"{where}: no start or no finish")
         for clock in (row["start"], row["finish"]):
-            if clock and not MOVING_FROM <= datetime.fromisoformat(f"{row['date']}T{clock}").time() <= MOVING_TO:
+            if clock and not MOVING_FROM <= datetime.fromisoformat(f"{row['date']}T{clock}").time() < MOVING_TO:
                 raise ValueError(f"{where}: {clock} is outside the shuffling window")
         if row["start"] and _utc(row["date"], row["finish"]) < _utc(row["date"], row["start"]):
             raise ValueError(f"{where}: finish before start")

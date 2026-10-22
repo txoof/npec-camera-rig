@@ -38,6 +38,8 @@ def test_from_25_october_chamber_time_is_one_hour_ahead_of_utc():
         ({"start": "10:25", "finish": "10:05"}, "finish before start"),
         ({"start": "09:20"}, "outside the shuffling window"),
         ({"finish": "17:05", "start": "16:50"}, "outside the shuffling window"),
+        # 17:00 already belongs to "nothing moved" (analysis.window), so a shuffle ends before it.
+        ({"finish": "17:00", "start": "16:50"}, "outside the shuffling window"),
         ({"map": "9"}, "no map 9"),
         ({"start": ""}, "no start"),
         ({"kind": "swap"}, "kind"),

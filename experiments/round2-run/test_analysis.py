@@ -134,17 +134,40 @@ def test_tracking_compares_each_read_photo_after_a_shuffle_with_its_map():
     ]
     photos = [photo(0), photo(1), photo(2), photo(3), photo(4, status="no tags found")]
     readings = {
-        0: {1: ("North 1", "SW"), 2: ("South 1", "NE")},
-        1: {1: ("North 1", "SW")},
-        2: {1: ("South 1", "SW")},  # during shuffle 1: belongs to no layout
-        3: {1: ("South 1", "SW"), 2: ("North 1", "NE")},
+        0: {1: ("North 1", "SW", "placed"), 2: ("South 1", "NE", "placed")},
+        1: {1: ("North 1", "SW", "placed")},
+        2: {1: ("South 1", "SW", "placed")},  # during shuffle 1: belongs to no layout
+        3: {1: ("South 1", "SW", "placed"), 2: ("North 1", "NE", "placed")},
     }
     result = analysis.tracking(photos, readings, shuffles)
     assert result["shuffles"] == [
-        {"shuffle": "0", "photos": 2, "right": 3, "wrong": 0, "not found": 1, "not read": 0},
-        {"shuffle": "1", "photos": 1, "right": 1, "wrong": 1, "not found": 0, "not read": 1},
+        {"shuffle": "0", "photos": 2, "right": 3, "wrong": 0, "doubtful": 0, "not found": 1, "not read": 0},
+        {"shuffle": "1", "photos": 1, "right": 1, "wrong": 1, "doubtful": 0, "not found": 0, "not read": 1},
     ]
     assert result["wrong"] == [
         {"shuffle": "1", "capture_id": 3, "taken_at": T0 + 3 * minute, "tray": 2,
          "read": ("North 1", "NE"), "map": ("North 1", "SW")},
     ]
+
+
+def test_a_photo_with_no_app_uptime_known_leaves_its_pair_out_with_that_reason():
+    pairs = analysis.pairs([photo(0), photo(1, app_up_s=None)], breaks=[], camera_events=[])
+    assert pairs[0]["reason"] == "app uptime unknown"
+
+
+def test_capture_jitter_around_two_intervals_keeps_the_pair():
+    # One photo missed between them, taken 120.4 s apart by the scheduler.
+    later = photo(2, taken_at=T0 + timedelta(seconds=120.4))
+    assert analysis.pairs([photo(0), later], breaks=[], camera_events=[])[0]["reason"] is None
+
+
+def test_a_reading_the_app_flagged_counts_as_doubtful_not_right():
+    # Both trays read in the slot the map gives, one marked "two trays in one slot" by the app.
+    slots = {"North 1": {"tray": 1, "a1": "SW"}, "South 1": {"tray": 2, "a1": "NE"}}
+    shuffles = [{"shuffle": "0", "slots": slots, "start": None, "finish": T0}]
+    readings = {0: {1: ("North 1", "SW", "two trays in one slot"), 2: ("South 1", "NE", "close call")}}
+    result = analysis.tracking([photo(0)], readings, shuffles)
+    assert result["shuffles"][0] == {
+        "shuffle": "0", "photos": 1, "right": 0, "wrong": 0, "doubtful": 2, "not found": 0, "not read": 0}
+    assert [(d["tray"], d["placement"]) for d in result["doubtful"]] == [
+        (1, "two trays in one slot"), (2, "close call")]

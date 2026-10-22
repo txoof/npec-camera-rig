@@ -75,7 +75,12 @@ def main():
     day_rows = list(csv.DictReader((ROUND1 / "shuffle-day-2026-10-20_57f74959.csv").open()))
     night_rows = list(csv.DictReader((ROUND1 / "overnight-2026-10-20_57f74959.csv").open()))
     laid_out = json.loads((HERE / "sessions/as-laid-out-2026-10-20.json").read_text())
-    mm_per_px = analyse.scale(next(p["calibration"] for p in photos if p["calibration"]))
+    scales = {}
+
+    def mm_per_px(p, x, y):
+        if p["calibration"] not in scales:
+            scales[p["calibration"]] = analyse.scale(p["calibration"])
+        return scales[p["calibration"]](x, y)
 
     print("1. Still by still against 15.5l")
     counts = {"tray positions": 0, "same found": 0, "same slot and corner": 0, "centre within 1 mm": 0}
@@ -94,12 +99,12 @@ def main():
         counts["same found"] += 1
         if not app_found:
             continue
-        if placements[cid][tray] == (r["slot"], r["a1"]):
+        if placements[cid][tray][:2] == (r["slot"], r["a1"]):
             counts["same slot and corner"] += 1
         else:
-            differ.append((r["still"], tray, f"15.5l {r['slot']} {r['a1']}, app {placements[cid][tray]}"))
+            differ.append((r["still"], tray, f"15.5l {r['slot']} {r['a1']}, app {placements[cid][tray][:2]}"))
         (x, y), (x0, y0) = centres[cid][tray], (float(r["x_px"]), float(r["y_px"]))
-        mm = math.hypot(x - x0, y - y0) * mm_per_px(x0, y0)
+        mm = math.hypot(x - x0, y - y0) * mm_per_px(p, x0, y0)
         worst = max(worst, mm)
         if mm <= CENTRE_TOLERANCE_MM:
             counts["centre within 1 mm"] += 1
@@ -121,14 +126,15 @@ def main():
             differ.append((r["still"], "-", f"15.5l tags {r['tags_found']}, app {p and p['status']} with {n} trays"))
     print(" ", light)
 
-    print("3. The analysis of 16.4 on the 20 October photos (layouts as laid out)")
-    shuffles = boundaries(day_rows, laid_out["layouts"])
-    pairs, steady, detected, tracked = analyse.report(photos, centres, placements, camera_events, shuffles, [], args.out)
-
+    # Written before step 3, which stops if the experiment has more than one calibration.
     print(f"\nDifferences from 15.5l: {len(differ)}")
     for d in differ:
         print("  ", *d)
     analyse.write_csv(f"{args.out}-differences.csv", [{"still": s, "tray": t, "difference": d} for s, t, d in differ])
+
+    print("\n3. The analysis of 16.4 on the 20 October photos (layouts as laid out)")
+    shuffles = boundaries(day_rows, laid_out["layouts"])
+    analyse.report(photos, centres, placements, camera_events, shuffles, [], args.out)
 
 
 if __name__ == "__main__":

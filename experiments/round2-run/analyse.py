@@ -30,7 +30,7 @@ def utc(text):
 
 def load(workdir, experiment_id):
     """(photos, centres, placements, camera_events) of an experiment, from the copy of rig.db.
-    `app_up_s` is read from each photo's sidecar file (read only)."""
+    `app_up_s` is read from each photo's sidecar file (read only), None when not known."""
     conn = sqlite3.connect(f"file:{workdir / 'rig.db'}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     experiments_dir = Path(os.environ.get("NPEC_RIG_EXPERIMENTS_DIR", "/var/lib/npec-rig/experiments"))
@@ -48,18 +48,33 @@ def load(workdir, experiment_id):
             "capture_id": row["id"], "path": row["path"], "taken_at": utc(row["taken_at"]),
             "status": row["status"] or "not read yet", "calibration": row["calibration"],
             "lens_position": row["lens_position"], "flags": json.loads(row["flags"] or "[]"),
-            "app_up_s": app_up_s if app_up_s is not None else 0.0,
+            "app_up_s": app_up_s,
         })
-    ids = [p["capture_id"] for p in photos]
     centres, placements = {}, {}
     for row in conn.execute(
-        f"SELECT * FROM tray_reading WHERE capture_id IN ({','.join('?' * len(ids))})", ids
+        "SELECT t.* FROM tray_reading t JOIN capture c ON c.id = t.capture_id WHERE c.experiment_id = ?",
+        (experiment_id,),
     ):
         centres.setdefault(row["capture_id"], {})[row["tray_id"]] = (row["centre_x_px"], row["centre_y_px"])
-        placements.setdefault(row["capture_id"], {})[row["tray_id"]] = (row["slot"], row["a1_corner"])
+        placements.setdefault(row["capture_id"], {})[row["tray_id"]] = (row["slot"], row["a1_corner"], row["placement"])
     camera_events = [utc(r[0]) for r in conn.execute("SELECT time_utc FROM camera_events")]
     conn.close()
     return photos, centres, placements, camera_events
+
+
+def read_shuffles(path, maps=None):
+    """The shuffles file (shuffle, map, start_utc, finish_utc), with each map's slots when `maps`
+    ({map: slots}) is given."""
+    return [
+        {"shuffle": r["shuffle"], "slots": maps[r["map"]] if maps else None,
+         "start": utc(r["start_utc"]) if r["start_utc"] else None, "finish": utc(r["finish_utc"])}
+        for r in csv.DictReader(Path(path).open())
+    ]
+
+
+def read_events(path):
+    """The events file (time_utc, event) as [(time, words)]; none when `path` is None."""
+    return [(utc(r["time_utc"]), r["event"]) for r in csv.DictReader(Path(path).open())] if path else []
 
 
 def scale(calibration):
@@ -108,8 +123,11 @@ def report(photos, centres, placements, camera_events, shuffles, events, out):
     table("Detection per tray, day and window", detected["trays"], ["tray", "day", "window", "photos", "found", "share"])
     table("Photos not read for trays", detected["not read"], ["day", "window", "status", "photos"])
     table("Photos with a tray missed while others were found", detected["misses"], ["capture_id", "taken_at", "missing"])
-    table("Tracking per shuffle", tracked["shuffles"], ["shuffle", "photos", "right", "wrong", "not found", "not read"])
+    table("Tracking per shuffle", tracked["shuffles"],
+          ["shuffle", "photos", "right", "wrong", "doubtful", "not found", "not read"])
     table("Wrong readings", tracked["wrong"], ["shuffle", "capture_id", "taken_at", "tray", "read", "map"])
+    table("Doubtful readings (the app marked the placement)", tracked["doubtful"],
+          ["shuffle", "capture_id", "taken_at", "tray", "placement", "read", "map"])
 
     write_csv(f"{out}-pairs.csv", pairs)
     write_csv(f"{out}-steadiness.csv", steady)
@@ -118,6 +136,7 @@ def report(photos, centres, placements, camera_events, shuffles, events, out):
     write_csv(f"{out}-misses.csv", detected["misses"])
     write_csv(f"{out}-tracking.csv", tracked["shuffles"])
     write_csv(f"{out}-wrong.csv", tracked["wrong"])
+    write_csv(f"{out}-doubtful.csv", tracked["doubtful"])
     return pairs, steady, detected, tracked
 
 
@@ -136,12 +155,8 @@ def main():
     os.environ["NPEC_RIG_DERIVED_DIR"] = str(workdir / "derived")
 
     maps = {str(m["map"]): m["slots"] for m in json.loads(args.maps.read_text())["maps"]}
-    shuffles = [
-        {"shuffle": r["shuffle"], "slots": maps[r["map"]], "start": utc(r["start_utc"]) if r["start_utc"] else None,
-         "finish": utc(r["finish_utc"])}
-        for r in csv.DictReader(args.shuffles.open())
-    ]
-    events = [utc(r["time_utc"]) for r in csv.DictReader(args.events.open())] if args.events else []
+    shuffles = read_shuffles(args.shuffles, maps)
+    events = [t for t, _ in read_events(args.events)]
     report(*load(workdir, args.experiment), shuffles, events, args.out)
 
 

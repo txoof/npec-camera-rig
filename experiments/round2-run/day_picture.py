@@ -9,8 +9,6 @@ Reads the copy of rig.db in WORKDIR (read_photos.py), writes DIR/day-<experiment
 """
 
 import argparse
-import csv
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -62,12 +60,17 @@ def draw_day(day, photos, centres, shuffles, events, trays, experiment):
         text(img, f"tray {tray} ({kind})", (14, y + 5), 0.5)
         cv2.line(img, (LEFT, y + ROW // 2), (W - RIGHT, y + ROW // 2), GRID, 1)
 
-    dark = 0
+    dark = other = 0
     for p in mine:
         x = x_of(p["taken_at"].astimezone(CHAMBER), day_start)
-        if p["status"] != "read":
-            dark += p["status"] == "no tags found"
+        if p["status"] == "no tags found":
+            dark += 1
             cv2.line(img, (x, TOP), (x, bottom), DARK, 1)
+            continue
+        if p["status"] != "read":
+            # Not read yet, or not readable (no calibration): says nothing about light or trays.
+            other += 1
+            cv2.line(img, (x, TOP - 8), (x, TOP - 2), DARK, 1)
             continue
         here = centres.get(p["capture_id"], {})
         for n, tray in enumerate(trays):
@@ -75,9 +78,9 @@ def draw_day(day, photos, centres, shuffles, events, trays, experiment):
             if tray in here:
                 cv2.line(img, (x, y - 4), (x, y + 4), FOUND, 1)
             elif here:
-                misses.append((p["taken_at"], x, y))
+                misses.append((p["taken_at"], tray, x, y))
     # Misses drawn last, over the found lines: a dark line the height of the row, under a triangle.
-    for _, x, y in misses:
+    for _, _, x, y in misses:
         cv2.line(img, (x, y - ROW // 2 + 3), (x, y + ROW // 2 - 3), MISSED, 3)
         cv2.fillPoly(img, [np.array([(x - 6, y - ROW // 2 - 6), (x + 6, y - ROW // 2 - 6), (x, y - ROW // 2 + 3)])], MISSED)
 
@@ -98,15 +101,15 @@ def draw_day(day, photos, centres, shuffles, events, trays, experiment):
 
     read = sum(p["status"] == "read" for p in mine)
     text(img, f"Experiment {experiment}, {day} (chamber time): {len(mine)} photos, {read} read, "
-              f"{dark} dark, {len(misses)} tray tags missed while others were found", (14, 32), 0.65, INK, 2)
+              f"{dark} dark, {other} not read, {len(misses)} tray tags missed while others were found",
+         (14, 32), 0.65, INK, 2)
     text(img, "Pale line: a photo with that tray's tag found.  Dark red line under a triangle: tag missed while others were found.  "
-              "Grey line across all trays: photo not read (dark).  Box: shuffle, start to finish.",
+              "Grey line across all trays: dark (no tag found).  Grey tick at the top: not read.  "
+              "Box: shuffle, start to finish.",
          (14, 60), 0.45, MUTED)
     y = bottom + 70
     text(img, "Missed, chamber time (UTC):", (14, y), 0.5, INK, 1)
-    rows = {TOP + ROW * n + ROW // 2: tray for n, tray in enumerate(trays)}
-    for i, (t, _, row_y) in enumerate(misses[:7]):
-        tray = rows[row_y]
+    for i, (t, tray, _, _) in enumerate(misses[:7]):
         local = t.astimezone(CHAMBER)
         text(img, f"tray {tray} {local:%H:%M:%S} ({t:%H:%M:%S})", (14 + 250 * i, y + 24), 0.5)
     if len(misses) > 7:
@@ -123,15 +126,9 @@ def main():
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     workdir = args.workdir.resolve()
-    os.environ["NPEC_RIG_EXPERIMENTS_DIR"] = os.environ.get("NPEC_RIG_EXPERIMENTS_DIR", "/var/lib/npec-rig/experiments")
     photos, centres, _, _ = analyse.load(workdir, args.experiment)
-    shuffles = [
-        {"shuffle": r["shuffle"], "start": analyse.utc(r["start_utc"]) if r["start_utc"] else None,
-         "finish": analyse.utc(r["finish_utc"])}
-        for r in csv.DictReader(args.shuffles.open())
-    ]
-    events = ([(analyse.utc(r["time_utc"]), r["event"]) for r in csv.DictReader(args.events.open())]
-              if args.events else [])
+    shuffles = analyse.read_shuffles(args.shuffles)
+    events = analyse.read_events(args.events)
     trays = sorted({t for found in centres.values() for t in found})
     args.out.mkdir(parents=True, exist_ok=True)
     for day in sorted({window(p["taken_at"])[0] for p in photos}):

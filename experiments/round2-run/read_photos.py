@@ -1,7 +1,7 @@
 """Read an experiment's photos for trays with the app's own code (tray_readings.read_photo, #222),
 into a COPY of rig.db, never the live one (metrology log 16.4).
 
-    python read_photos.py WORKDIR --experiment 16 [--refresh-copy]
+    python read_photos.py WORKDIR --experiment 16
 
 WORKDIR gets `rig.db` (a copy made with the sqlite backup API from a read-only connection),
 `calibration/` (a copy of the calibration folder) and `derived/`. The environment is pointed at
@@ -37,12 +37,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("workdir", type=Path)
     parser.add_argument("--experiment", type=int, required=True)
-    parser.add_argument("--refresh-copy", action="store_true", help="copy the live rig.db again")
     args = parser.parse_args()
     workdir = args.workdir.resolve()
     if workdir == LIVE_DB.parent or not str(workdir).startswith(str(Path.home())):
         sys.exit("WORKDIR must be a folder under your home, not the live data folder")
-    if args.refresh_copy or not (workdir / "rig.db").exists():
+    # The copy is made once: copying again would replace the readings already made in it.
+    # For photos taken since, use a new WORKDIR.
+    if not (workdir / "rig.db").exists():
         copy_live(workdir)
 
     os.environ["NPEC_RIG_DB_PATH"] = str(workdir / "rig.db")
