@@ -50,12 +50,6 @@
     <form method="dialog" id="ask-form">
       <h3 id="ask-title"></h3>
       <div id="ask-body"></div>
-      <label id="ask-input-row" hidden><span id="ask-input-label"></span>
-        <input type="text" id="ask-input" autocomplete="off">
-      </label>
-      <label id="ask-check-row" class="experiment-dialog-check" hidden>
-        <input type="checkbox" id="ask-check"> <span id="ask-check-label"></span>
-      </label>
       <div class="experiment-dialog-error" id="ask-error"></div>
       <div class="experiment-form-buttons">
         <button type="submit" id="ask-ok"></button>
@@ -325,42 +319,30 @@
       form: document.getElementById("ask-form"),
       title: document.getElementById("ask-title"),
       body: document.getElementById("ask-body"),
-      inputRow: document.getElementById("ask-input-row"),
-      inputLabel: document.getElementById("ask-input-label"),
-      input: document.getElementById("ask-input"),
-      checkRow: document.getElementById("ask-check-row"),
-      checkLabel: document.getElementById("ask-check-label"),
-      check: document.getElementById("ask-check"),
       error: document.getElementById("ask-error"),
       ok: document.getElementById("ask-ok"),
       cancel: document.getElementById("ask-cancel"),
     };
     let askAction = null;
 
-    // Opens the dialog. `action({ text, checked })` runs on OK; if it throws, its message shows
+    // Opens the dialog. `action()` runs on OK; if it throws, its message shows
     // inside the dialog, which stays open so the user can correct and try again.
-    function openAsk({ title, body, ok, danger = false, input = null, check = null, action }) {
+    function openAsk({ title, body, ok, danger = false, action }) {
       ask.title.textContent = title;
       ask.body.innerHTML = body;
       ask.ok.textContent = ok;
       ask.ok.className = danger ? "stop" : "";
-      ask.inputRow.hidden = !input;
-      ask.inputLabel.innerHTML = input ?? "";
-      ask.input.value = "";
-      ask.checkRow.hidden = !check;
-      ask.checkLabel.textContent = check ?? "";
-      ask.check.checked = false;
       ask.error.textContent = "";
       askAction = action;
       ask.dialog.showModal();
-      (input ? ask.input : ask.ok).focus();
+      ask.ok.focus();
     }
 
     ask.form.addEventListener("submit", async (event) => {
       event.preventDefault();
       ask.ok.disabled = true;
       try {
-        await askAction({ text: ask.input.value, checked: ask.check.checked });
+        await askAction();
         ask.dialog.close();
         await refresh();
       } catch (err) {
@@ -384,26 +366,25 @@
         : `<p><strong>It has no complete export.</strong> A complete export is one made after the `
           + "experiment's last photo, so it holds every photo. Without one, some or all photos "
           + "have not been downloaded and will be lost.</p>";
-      openAsk({
+      // The shared confirmation panel, not the page's dialog: its typed box opens the on-page
+      // keyboard (the Windows one is unusable on the chamber screens), and Purge stays off until
+      // the text matches and, with no complete export, the switch is on.
+      ui.confirmPanel({
         title: `Purge ${displayName(e)}`,
         body: "<p>Purge deletes this experiment's photos and export files. This cannot be undone. "
           + "Its name, dates and notes stay as a record.</p>" + exportLine,
-        input: `To confirm, type exactly: <code class="confirm-text">${esc(e.purge_confirmation)}</code>`,
+        typed: e.purge_confirmation,
         check: e.complete_export ? null : "Purge without a complete export",
         ok: "Purge",
         danger: true,
-        action: async ({ text, checked }) => {
-          // Checked here first, so the user is told before anything else is asked.
-          if (text.trim() !== e.purge_confirmation) {
-            const typed = text.trim() || "nothing";
-            throw new Error(`Nothing was purged: you typed "${typed}", and purging needs exactly `
-              + `"${e.purge_confirmation}".`);
+        onOk: async () => {
+          try {
+            await call("POST", `/api/experiments/${e.id}/purge`,
+              { confirm: e.purge_confirmation, override_no_export: !e.complete_export });
+          } catch (err) {
+            listMessage.textContent = `Nothing was purged: ${err.message}`;
           }
-          if (!e.complete_export && !checked) {
-            throw new Error("Nothing was purged: tick \"Purge without a complete export\" to go ahead.");
-          }
-          await call("POST", `/api/experiments/${e.id}/purge`,
-            { confirm: text, override_no_export: !e.complete_export && checked });
+          await refresh();
         },
       });
     }
