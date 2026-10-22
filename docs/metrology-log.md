@@ -4864,13 +4864,33 @@ the other 11 tray tags were found: capture 1972 (08:55:53 UTC, tray 2), 2007 (09
   Mean grey level of the crop: 112.7 to 112.9 for tray 2 and 137.4 for tray 6, the same in all 3
   photos of each group. Sharpness (variance of the Laplacian): 57.5 to 63.1 and 100.3 to 101.5, the
   missed photo inside the range of its neighbours.
-- **The outline is found, the pattern is not read.** Running the detector again on the full photo
-  (OpenCV ArUco, the tray settings and the frozen settings), the miss repeats with both settings.
-  In each missed photo the detector rejects 4 candidates within 150 px of the tag's centre, the
-  first of them a square of 288 to 308 px, the size of the 40 mm tag; in the photo before, the
-  tag is found and 2 candidates near it are rejected, the first 24 to 46 px across (only the first
-  candidate's size was printed). So the tag's outline is found as a candidate and then
-  rejected when its pattern is read, and the same photo gives the same result every time.
+- **The miss is in the detector's choice between candidates, not in the tag.** Running the
+  detector again (OpenCV 4.10 ArUco, the tray settings of `tags.detect_tags`) on the full photo
+  repeats the miss every time. On a crop around the tag (900 x 900 px up to 4768 x 4221 px) the
+  same photo finds the tag, with all 28 border bits and all 36 code bits right. The tag's square
+  is 192 to 198 px across (about 0.2 mm per pixel).
+- **What takes its place.** In each missed photo the detector rejects a larger four-sided shape
+  around the tag, sides 308 to 399 px, lying on the dark edge around the white tag tile (seen in
+  the crops). In the photo before (092953, measured), no such shape is among the rejected ones. The average distance between that shape's
+  corners and the tag's is 101 px (2 photos measured). OpenCV puts two candidates in one group
+  when that distance is under `minMarkerDistanceRate` (default 0.125) times the smaller one's
+  perimeter, here 0.125 x 792 px = 99 px, keeps the largest of each group, and tries the others
+  only when their corners lie close to the largest one's (OpenCV 4.10 source,
+  `ArucoDetectorImpl::filterTooCloseCandidates` and `identifyCandidates`). The rim shape is the
+  largest, cannot be read, and the tag is dropped with it. The one shape reported lies at 101 px,
+  just over 99 px; the detector runs 9 threshold window sizes and may form a slightly different
+  shape at each (not checked), and the grouping depends on the order candidates are visited, so
+  this is the likely mechanism, supported by the tests below, not proven step by step.
+- **Tests that support it.** Full photo, tray settings with one change each:
+  - one threshold window size alone (each of 11, 21 to 91): tag 2 found in 085553 at every size;
+  - grey over the right part (x from 4768 px) or the top part (y under 3723 px), far from the
+    tag: found, so content far from the tag changes the grouping;
+  - `minMarkerDistanceRate` 0.10: found in 2 of the 3 missed photos (085553, 100253), not in
+    093053; 0.08 and 0.05: found in 085553 and 093053 (100253 not run at these). The photos
+    before still found their tag: 085453 at 0.10 (all 12 tray tags), 092953 at 0.08 and 0.05.
 
-**Not known.** Why the pattern is rejected in these photos and not in their neighbours, when the
-crops look the same. Not investigated further, by decision pending (Aaron).
+**Not known.** Why the rim forms a closed four-sided shape in some photos and not in others that
+look the same, and why crops do not form or group it the same way. How often it happens over the
+run: 3 of about 1660 tray-tag reads to 11:00 UTC. Whether a smaller `minMarkerDistanceRate` for
+tray tags changes anything else: not tested on the 15.3e stills or the 20 October photos. No code
+was changed.
