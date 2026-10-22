@@ -376,17 +376,22 @@ def tray_readings(capture_id: int) -> dict | None:
 
 
 
-def unread_photos(limit: int) -> list[str]:
+def unread_photos(limit: int, since: str) -> list[str]:
     """Paths of up to `limit` photos taken as captures (not validation, calibration or tripwire
-    rounds) that have not been read for trays, newest first: a new photo is read within the
-    interval, and photos left from before wait until the reader has nothing newer."""
+    rounds) that have not been read for trays, newest first: those taken at or after `since` (UTC,
+    when the reader started) and every photo of the running experiment. Older photos are read
+    only when asked (Aaron, 2026-10-22)."""
     with _connect() as conn:
         rows = conn.execute(
             "SELECT path FROM capture WHERE purpose = 'capture'"
-            " AND id NOT IN (SELECT capture_id FROM tray_read) ORDER BY taken_at DESC LIMIT ?",
-            (limit,),
+            " AND id NOT IN (SELECT capture_id FROM tray_read)"
+            " AND (taken_at >= ? OR experiment_id IN"
+            " (SELECT experiment_id FROM experiment_period WHERE ended_at IS NULL))"
+            " ORDER BY taken_at DESC LIMIT ?",
+            (since, limit),
         ).fetchall()
     return [row["path"] for row in rows]
+
 
 # --- Experiments ---
 # State comes from the periods, never from a stored status: set up (no period), running (newest

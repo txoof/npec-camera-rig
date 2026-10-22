@@ -81,16 +81,18 @@ def photo_readings(path: str) -> dict | None:
 
 
 class TrayReader:
-    """One background thread that reads every photo for its trays after it is saved, newest
-    first; photos left unread from before (the app was down, or taken before #222) are read when
-    there is nothing newer."""
+    """One background thread that reads each photo for its trays after it is saved, newest first:
+    every photo taken since it started, and every photo of the running experiment. Older photos
+    are read only when asked, by Show tags (Aaron, 2026-10-22)."""
 
     def __init__(self) -> None:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._since = ""
 
     def start(self) -> None:
         self._stop.clear()
+        self._since = datetime.now(UTC).isoformat()
         self._thread = threading.Thread(target=self._run, name="tray-reader", daemon=True)
         self._thread.start()
 
@@ -102,7 +104,7 @@ class TrayReader:
     def _run(self) -> None:
         while not self._stop.is_set():
             try:
-                paths = database.unread_photos(limit=1)
+                paths = database.unread_photos(limit=1, since=self._since)
             except Exception:
                 logger.exception("Could not look for unread photos; trying again")
                 paths = []

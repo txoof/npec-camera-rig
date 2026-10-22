@@ -256,13 +256,13 @@ def test_photo_tags_still_list_the_tags_when_the_saved_slot_layout_is_unusable(m
     assert client.get(f"/gallery/image/tags/{path}").status_code == 200
 
 
-def test_each_photo_in_the_list_carries_its_tray_readings_once_read(monkeypatch, isolated_calibration_dir) -> None:
-    """Readings per tray per photo (#222): the 14 October calibration with layout 2 of 20 October
-    (metrology log 15.5l); the 12 trays found are the 12 of the printed shuffle map."""
+def _layout_2_calibration(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The 14 October calibration with its slot layout, and a tag search that finds the real tags
+    of layout 2 of 20 October (metrology log 15.5l, still 080357_563754)."""
     import json
     from pathlib import Path
 
-    from npec_rig import tray_readings, validation_store
+    from npec_rig import validation_store
     from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
     from npec_rig.calibration_store import save_calibration
     from npec_rig.tags import TagDetection
@@ -280,6 +280,16 @@ def test_each_photo_in_the_list_carries_its_tray_readings_once_read(monkeypatch,
                      (sum(c[0] for c in t["corners"]) / 4, sum(c[1] for c in t["corners"]) / 4))
         for t in fixture["stills"]["080357_563754"]
     ])
+
+
+TRAYS_1_TO_12 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+
+def test_each_photo_in_the_list_carries_its_tray_readings_once_read(monkeypatch, isolated_calibration_dir) -> None:
+    """Readings per tray per photo (#222): the 12 trays found are the 12 of the printed shuffle map."""
+    from npec_rig import tray_readings
+
+    _layout_2_calibration(monkeypatch)
     client = TestClient(app)
     read = client.post("/capture").json()["path"]
     unread = client.post("/capture").json()["path"]
@@ -289,4 +299,17 @@ def test_each_photo_in_the_list_carries_its_tray_readings_once_read(monkeypatch,
     assert items[unread]["trays"] is None
     trays = items[read]["trays"]
     assert trays["status"] == "read"
-    assert sorted(t["tray_id"] for t in trays["trays"]) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    assert sorted(t["tray_id"] for t in trays["trays"]) == TRAYS_1_TO_12
+
+
+def test_show_tags_also_reads_an_older_photo_for_its_trays(monkeypatch, isolated_calibration_dir) -> None:
+    """Older photos are read on demand (Aaron, 2026-10-22): Show tags saves the photo's reading."""
+    _layout_2_calibration(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    assert client.get(f"/api/captures/trays/{path}").json() is None
+
+    client.get(f"/api/captures/tags/{path}")
+    trays = client.get(f"/api/captures/trays/{path}").json()
+    assert trays["status"] == "read"
+    assert sorted(t["tray_id"] for t in trays["trays"]) == TRAYS_1_TO_12

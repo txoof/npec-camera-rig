@@ -10,8 +10,10 @@ import time
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
 from npec_rig import captures, photo_tags, tray_readings, validation_store
+from npec_rig.app import app
 from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
 from npec_rig.tags import TagDetection
@@ -98,20 +100,28 @@ def _wait_for(condition, timeout_s: float = 10.0) -> None:
         time.sleep(0.02)
 
 
-def test_the_background_reader_reads_photos_taken_before_it_started_and_after(monkeypatch) -> None:
+def test_the_background_reader_reads_new_photos_and_the_running_experiments_but_not_older_ones(
+    monkeypatch, tmp_path
+) -> None:
     monkeypatch.setattr(tray_readings, "POLL_S", 0.05)
+    monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
     _calibrate()
     _finds(monkeypatch, "080357_563754")
-    before = [_photo(), _photo()]
+    older = _photo()  # a rig photo from before the reader: read only when asked
+    client = TestClient(app)  # not started as a context: no reader or scheduler of its own
+    experiment = client.post("/api/experiments", json={}).json()
+    client.post(f"/api/experiments/{experiment['id']}/start")
+    before = _photo()  # before the reader, but its experiment is running
 
     reader = tray_readings.TrayReader()
     reader.start()
     try:
         after = _photo()
-        _wait_for(lambda: all(tray_readings.photo_readings(p) for p in [*before, after]))
+        _wait_for(lambda: all(tray_readings.photo_readings(p) for p in (before, after)))
     finally:
         reader.stop(timeout_s=5)
-    assert all(len(tray_readings.photo_readings(p)["trays"]) == 12 for p in [*before, after])
+    assert all(len(tray_readings.photo_readings(p)["trays"]) == 12 for p in (before, after))
+    assert tray_readings.photo_readings(older) is None
 
 
 def test_a_photo_with_no_tags_at_all_says_so(monkeypatch) -> None:

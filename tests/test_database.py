@@ -266,4 +266,23 @@ def test_unread_photos_come_newest_first_so_new_photos_are_not_stuck_behind_old_
         _photo(taken_at)
     _read("2026-10-21T07:03:00+00:00", [1], None)  # read already: left out
 
-    assert database.unread_photos(limit=2) == ["rig/2026-10-21T07:02:00+00:00", "rig/2026-10-21T07:01:00+00:00"]
+    assert database.unread_photos(limit=2, since="2026-10-21T00:00:00+00:00") == [
+        "rig/2026-10-21T07:02:00+00:00", "rig/2026-10-21T07:01:00+00:00"
+    ]
+
+
+def test_older_photos_are_left_for_on_demand_unless_their_experiment_is_running() -> None:
+    """Aaron, 2026-10-22: photos from before the reader started are read only when asked, except
+    those of the running experiment."""
+    _photo("2026-10-21T06:00:00+00:00")  # an old rig photo: on demand
+    stopped = database.create_experiment(uuid="u-old", created_at="2026-10-20T06:00:00+00:00")
+    database.start_experiment(stopped["id"], now="2026-10-20T06:00:00+00:00", folder="experiments/old")
+    _photo("2026-10-20T07:00:00+00:00", stopped["id"])  # an old experiment's photo: on demand
+    database.stop_experiment(stopped["id"], now="2026-10-20T08:00:00+00:00")
+    running = _experiment()
+    _photo("2026-10-21T06:30:00+00:00", running)  # before the start, but its experiment runs
+    _photo("2026-10-21T07:30:00+00:00")  # taken since the reader started
+
+    assert database.unread_photos(limit=10, since="2026-10-21T07:00:00+00:00") == [
+        "rig/2026-10-21T07:30:00+00:00", "rig/2026-10-21T06:30:00+00:00"
+    ]

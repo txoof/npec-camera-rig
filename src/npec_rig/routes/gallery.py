@@ -77,9 +77,15 @@ def _placement_json(p: TrayPlacement | None) -> dict | None:
 def api_photo_tags(path: str) -> list[dict]:
     """The tags in gallery photo `path`: each one's ID, role (tray, calibration, corner or other)
     and centre in full-size pixels. A tray tag also has its `placement` (slot, A1 corner, status)
-    from the photo's calibration, or None when the photo has none. Nothing is stored about trays."""
+    from the photo's calibration, or None when the photo has none. The photo's tray reading is
+    saved as well (#222): older photos are read on demand."""
     tags = photo_tags.photo_tags_for(path)
     placements = _tray_placements(path, tags)
+    # Older photos are read for their trays only when asked (Aaron, 2026-10-22): this is the ask.
+    try:
+        tray_readings.read_photo(path)
+    except LookupError:
+        pass  # no record in rig.db: nothing to save the reading against
     out = []
     for d in tags:
         entry = {"id": d.tag_id, "role": _tag_role(d.tag_id), "centre_px": [round(d.centre[0]), round(d.centre[1])]}
@@ -87,6 +93,16 @@ def api_photo_tags(path: str) -> list[dict]:
             entry["placement"] = _placement_json(placements.get(d.tag_id))
         out.append(entry)
     return out
+
+
+@router.get("/api/captures/trays/{path:path}")
+def api_photo_trays(path: str) -> dict | None:
+    """Gallery photo `path`'s saved tray reading (`database.tray_readings`); None when it has not
+    been read or has no record in rig.db."""
+    try:
+        return tray_readings.photo_readings(path)
+    except LookupError:
+        return None
 
 
 # Gallery image sizes, as widths in pixels: a thumbnail, and a copy for the chamber screen when a

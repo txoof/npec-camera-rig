@@ -179,10 +179,12 @@ SELECT due_at, missed_reason FROM scheduled_photo WHERE capture_id IS NULL ORDER
 
 ### `tray_read` and `tray_reading`
 
-Readings per tray per photo (#222). The app reads every photo taken as a capture in the
-background, after it is saved, newest first: its tags are found once (`capture_analysis`) and each
+Readings per tray per photo (#222). The app reads each new photo taken as a capture in the
+background, after it is saved, newest first: every photo taken since the app started and every
+photo of the running experiment. Older photos are read when Show tags is tapped in the gallery
+(Aaron, 2026-10-22). A reading: its tags are found once (`capture_analysis`) and each
 tray is placed from the tag in its cell A1 with the photo's calibration (`tray_placement.py`).
-Validation, calibration and tripwire photos are not read.
+Validation, calibration and tripwire photos are not read in the background.
 
 `tray_read` has one row per photo read, even when no tray was found:
 
