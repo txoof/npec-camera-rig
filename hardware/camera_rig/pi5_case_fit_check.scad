@@ -1,9 +1,9 @@
 /* ---------------------------------------------------------------------------
-   Fit check: the official Pi 5 model in the raspberry.tips v2.0 tub.
+   Fit check: the official Pi 5 model in our case tub (pi5_case.scad).
 
-   Not a printed part. Shows the stock raspberry.tips tub (variant B) with
-   the Pi 5 ghost from libraries/pi5_ghost.scad sitting on its domes, so the
-   port cutouts can be checked by eye from any angle.
+   Not a printed part. Shows the tub from camera_rig/pi5_case.scad (variant
+   B) with the Pi 5 ghost from libraries/pi5_ghost.scad sitting on its domes,
+   so the port cutouts can be checked by eye from any angle.
 
    view = "fit"           see-through tub, board in green, overlaps in red
    view = "interference"  only the overlaps, in red. Empty is a pass.
@@ -13,24 +13,23 @@
    Overlaps are computed against boxes, so a hit can be the box, not the
    part: look at it before changing the case.
 
-   Needs two local folders that are not committed:
-     reference/pi5_step/                 uv run fetch_pi5_model.py
-     reference/raspberry_tips_pi5_case/  rpi5_case.scad from
-       https://cdn.raspberry.tips/2026/08/raspberry-tips-pi5-case-v2.0.zip
+   Needs reference/pi5_step/, which is not committed: run
+   `uv run fetch_pi5_model.py` once.
    Case for Raspberry Pi 5 by raspberry.tips, CC BY 4.0
    https://raspberry.tips/en/3d-druck/raspberry-pi-5-case-3d-print
 
-   Board placement copies rpi5_case.scad's derived values for variant B
+   Board placement copies pi5_case.scad's derived values for variant B
    (use<> does not export variables): board corner at
    x = wand + spiel = 2.8, y = wand + spiel + ueber_y0 = 4.0, board bottom
    on the domes at z = boden + unter_pcb = 5.0.
 
+   REV 3: checks our copy, pi5_case.scad, not the reference original.
    REV 2: board choice, simple board by default.
    REV 1: first version.
 --------------------------------------------------------------------------- */
 
 include <../libraries/pi5_ghost.scad>
-use <../reference/raspberry_tips_pi5_case/rpi5_case.scad>
+use <pi5_case.scad>
 
 /* [View] */
 view = "fit"; // [fit, interference]

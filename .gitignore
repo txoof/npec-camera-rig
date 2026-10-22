@@ -36,4 +36,3 @@ hardware/**/*.json
 
 # Third-party CAD references fetched by scripts, not ours to commit
 hardware/reference/pi5_step/
-hardware/reference/raspberry_tips_pi5_case/
