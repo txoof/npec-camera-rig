@@ -37,6 +37,60 @@
  "benchmark": "taped to tray 8",
  "maps": [
   {
+   "map": 0,
+   "slots": {
+    "North 1": {
+     "tray": 12,
+     "a1": "NE"
+    },
+    "North 2": {
+     "tray": 10,
+     "a1": "NE"
+    },
+    "North 3": {
+     "tray": 6,
+     "a1": "SW"
+    },
+    "North 4": {
+     "tray": 3,
+     "a1": "SW"
+    },
+    "North 5": {
+     "tray": 5,
+     "a1": "NE"
+    },
+    "North 6": {
+     "tray": 9,
+     "a1": "SW"
+    },
+    "South 1": {
+     "tray": 11,
+     "a1": "SW"
+    },
+    "South 2": {
+     "tray": 2,
+     "a1": "SW"
+    },
+    "South 3": {
+     "tray": 4,
+     "a1": "NE"
+    },
+    "South 4": {
+     "tray": 1,
+     "a1": "NE"
+    },
+    "South 5": {
+     "tray": 7,
+     "a1": "NE"
+    },
+    "South 6": {
+     "tray": 8,
+     "a1": "NE"
+    }
+   },
+   "source": "read by the rig from the still of 2026-10-22 09:11:53 UTC; the layout at the start, not a shuffle"
+  },
+  {
    "map": 1,
    "slots": {
     "North 1": {

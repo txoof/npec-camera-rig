@@ -32,12 +32,15 @@ SLOTS = [f"{row} {i}" for row in ROWS for i in range(1, 7)]
 MIDDLE = [f"{row} {i}" for row in ROWS for i in range(2, 6)]
 PLANTS, POTS = list(range(1, 8)), list(range(8, 13))
 BENCHMARK = 8  # the plastic benchmark "Benchy Yellow-4" is taped to this pot tray for the run (Aaron, 2026-10-22)
-# The layout at the start of the run, from the rig's tray reading of the still taken at
-# 2026-10-22 08:50:53 UTC (experiment "Potato Plants v001"): slot -> tray.
-FIRST = {
-    "North 1": 12, "North 2": 10, "North 3": 6, "North 4": 3, "North 5": 5, "North 6": 9,
-    "South 1": 11, "South 2": 2, "South 3": 4, "South 4": 1, "South 5": 7, "South 6": 8,
+# Map 0: the layout at the start of the run, not drawn but read by the rig (tray readings, #222)
+# from the still taken at 2026-10-22 09:11:53 UTC, experiment "Potato Plants v001"; every photo of
+# the run from 08:41:20 had the trays in these slots (one, 08:55:53, missed tray 2). Slot -> tray, A1.
+MAP_0 = {
+    "North 1": (12, "NE"), "North 2": (10, "NE"), "North 3": (6, "SW"), "North 4": (3, "SW"),
+    "North 5": (5, "NE"), "North 6": (9, "SW"), "South 1": (11, "SW"), "South 2": (2, "SW"),
+    "South 3": (4, "NE"), "South 4": (1, "NE"), "South 5": (7, "NE"), "South 6": (8, "NE"),
 }
+FIRST = {s: tray for s, (tray, _a1) in MAP_0.items()}
 
 
 def draw_layout(rng: random.Random, before: dict[str, int]) -> dict[str, dict]:
@@ -55,6 +58,8 @@ def draw_layout(rng: random.Random, before: dict[str, int]) -> dict[str, dict]:
 def plan() -> dict:
     rng = random.Random(SEED)
     maps, before = [], FIRST
+    start = {"map": 0, "slots": {s: {"tray": t, "a1": a1} for s, (t, a1) in MAP_0.items()},
+             "source": "read by the rig from the still of 2026-10-22 09:11:53 UTC; the layout at the start, not a shuffle"}
     for n in range(1, N_MAPS + 1):
         layout = draw_layout(rng, before)
         maps.append({"map": n, "slots": layout})
@@ -73,7 +78,7 @@ def plan() -> dict:
                      "into the other slots, A1 corner SW or NE per tray; redrawn until no tray keeps its slot",
         "first_layout": FIRST,
         "turn": "SW: A1 and its tag at the lower left (south-west); NE: tray turned 180, A1 at the upper right",
-        "plants": PLANTS, "pots": POTS, "benchmark": f"taped to tray {BENCHMARK}", "maps": maps,
+        "plants": PLANTS, "pots": POTS, "benchmark": f"taped to tray {BENCHMARK}", "maps": [start, *maps],
     }
 
 
@@ -146,6 +151,10 @@ def tray(c: canvas.Canvas, x: float, y: float, slot: str, number: int, a1: str) 
 def page(c: canvas.Canvas, m: dict) -> None:
     c.setFont("Bold", 20)
     c.drawString(MARGIN, PAGE_H - MARGIN - 14, f"Shuffle map {m['map']} of {N_MAPS}")
+    if m["map"] == 0:
+        c.setFont("Bold", 11)
+        c.drawString(MARGIN, PAGE_H - MARGIN - 64,
+                     "Map 0 is the layout at the start, read by the rig at 11:11 on 22 October (09:11 UTC). Nothing to move.")
     c.setFont("Sans", 11)
     c.drawString(MARGIN + 250, PAGE_H - MARGIN - 12, "Date ____________   Started ________   Finished ________")
     c.drawString(MARGIN, PAGE_H - MARGIN - 34,

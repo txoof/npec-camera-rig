@@ -4736,7 +4736,10 @@ by this one.
   (`sessions/shuffle-maps-2026-10-22.json`, committed before any tray was moved). Each puts trays 1
   to 7 in 7 of the 8 middle slots (North and South 2 to 5), as the collaborator's experiment
   prefers, and trays 8 to 12 in the others, with cell A1 at the south-west or north-east corner;
-  no tray stays in its slot from one map to the next. Printed in black and white, one per page;
+  no tray stays in its slot from one map to the next. **Map 0** is the layout at the start, not
+  drawn but read by the rig (tray readings) from the still of 09:11:53 UTC: every one of the run's
+  32 photos from 08:41:20 had the trays in those slots, one (08:55:53) missing tray 2. Printed in
+  black and white, one per page;
   the PDF that was printed is committed beside the JSON (`sessions/shuffle-maps-2026-10-22.pdf`).
   Running the script again refuses to change the committed answer: it only writes the PDF again,
   and stops if its layouts differ from the JSON.
