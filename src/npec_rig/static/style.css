@@ -534,7 +534,12 @@ input[type="range"]:disabled { opacity: 0.5; }
 .gallery-item .gallery-flag { color: #e3b341; word-break: normal; }
 /* Week, day and hour views (#245). A week is a row per day, the whole row one target; its strip
    of first-of-hour pictures is too small to tap one by one. A day is a tile per hour. */
-.gallery-nav { margin: var(--gap) 0; }
+/* The navigation stays at the top of the scrolling page, so Previous and Next are in reach at
+   any depth; the photos scroll under it. */
+.gallery-nav {
+  position: sticky; top: -20px; z-index: 2; margin: 0 0 16px; padding: 20px 0 8px;  /* -20px: the .scroll top padding */
+  background: var(--bg);
+}
 .gallery-nav h3 { margin: 0; font-size: 1.05rem; }
 .gallery-week-day, .gallery-hour {
   display: grid; gap: 6px; padding: 8px; text-align: left; font: inherit; color: var(--fg);
