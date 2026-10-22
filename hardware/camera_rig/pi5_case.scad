@@ -33,6 +33,9 @@
      x = 0    -> microSD under the PCB, PCIe FPC on top of it
    (The original header puts the PCIe FPC on the y = 56 side; it is at x = 0.)
 
+   REV 10 (RV0.10): mounting holes moved 1 mm further out from the GPIO
+     wall (5.5 -> 6.5 mm) for heads or washers up to 12 mm (mount_head
+     10 -> 12); the flat seat cut into the fillet grows to 13 mm.
    REV 9 (RV0.9): x = 85 end mounting hole moved 87.75 -> 83.75, so the
      flange stops where that corner's curve starts. Holes 71.25 mm apart.
    REV 8 (RV0.8): stronger base. The two mounting ears are one 5 mm flange
@@ -183,12 +186,12 @@ mount       = true;
 mount_x     = [12.5, 83.75];  // hole centres along x; 83.75 ends the flange where the x = 85 corner's curve starts
 mount_hole  = 5.5;      // clearance hole, ISO 273 medium for M5
 mount_t     = 5.0;      // flange thickness
-mount_head  = 10.0;     // M5 head or washer diameter kept clear of the wall
+mount_head  = 12.0;     // M5 head or washer diameter kept clear of the wall; 12 takes a flange head (11.8)
 mount_rim   = 4.0;      // plastic around the hole
 mount_fillet = 5.0;     // height and depth of the 45 degree fillet along the wall
 
 /* [Revision] */
-revision  = "RV0.9"; // revision stamp, engraved in the lid top face beside the grille ("" = none)
+revision  = "RV0.10"; // revision stamp, engraved in the lid top face beside the grille ("" = none)
 rev_size  = 5;       // text cap height, mm  [2:0.5:12]
 rev_depth = 0.6;     // how far the text is inset below the surface, mm; the lid is 2 mm  [0.4:0.1:1.2]
 
