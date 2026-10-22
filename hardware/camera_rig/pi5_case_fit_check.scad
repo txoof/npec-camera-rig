@@ -18,11 +18,11 @@
    Case for Raspberry Pi 5 by raspberry.tips, CC BY 4.0
    https://raspberry.tips/en/3d-druck/raspberry-pi-5-case-3d-print
 
-   Board placement copies pi5_case.scad's derived values for variant B
-   (use<> does not export variables): board corner at
-   x = wall + pcb_gap = 2.8, y = wall + pcb_gap + overhang_y0 = 4.0, board
-   bottom on the posts at z = floor_t + under_pcb = 5.0.
+   Board placement comes from pi5_case.scad's case_board_at(): the case
+   PCB (1.4 mm) bottom rests on the posts, so the ghost's thinner PCB
+   (pi5_pcb_t) is placed with its bottom there too.
 
+   REV 5: board placement read from case_board_at(), not copied numbers.
    REV 4: English names from pi5_case.scad REV 2 (tub()).
    REV 3: checks our copy, pi5_case.scad, not the reference original.
    REV 2: board choice, simple board by default.
@@ -42,7 +42,10 @@ show_hits = true; // also draw the interference in red in the fit view
 // Lifted by eps: the board resting on the posts is contact, not overlap,
 // and would otherwise show as zero-thickness hits on every post top.
 eps = 0.01;
-board_at = [2.8, 4.0, 5.0 + pi5_pcb_t + eps];
+// The case places its PCB top at case_board_at()[2]; the ghost's PCB is
+// pi5_pcb_t thick, so its top goes where the case PCB bottom sits plus that.
+case_at = case_board_at();
+board_at = [case_at[0], case_at[1], case_at[2] - 1.4 + pi5_pcb_t + eps];
 
 // The closed-solid board used for overlaps
 module solid_board() {

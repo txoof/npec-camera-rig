@@ -9,7 +9,7 @@
    rpi5_case.scad. Check the fit with camera_rig/pi5_case_fit_check.scad.
 
    Variant A: Pi 5 + official Active Cooler
-   Variant B: Pi 5 + Active Cooler + HAT on 16 mm spacers
+   Variant B: Pi 5 + AI HAT with heatsink, on its spacers
 
    From the original header (raspberry.tips v2.0, 2026-08-13): connector
    positions come from RASPBERRY_PI_5_WITH_ACTIVE_COOLER.stl, with the parts
@@ -33,6 +33,22 @@
      x = 0    -> microSD under the PCB, PCIe FPC on top of it
    (The original header puts the PCIe FPC on the y = 56 side; it is at x = 0.)
 
+   REV 9 (RV0.9): x = 85 end mounting hole moved 87.75 -> 83.75, so the
+     flange stops where that corner's curve starts. Holes 71.25 mm apart.
+   REV 8 (RV0.8): stronger base. The two mounting ears are one 5 mm flange
+     along the GPIO side, following the rounded corner at the x = 85 end
+     (hole moved 88 -> 87.75 so it ends flush), with a 5 mm 45 degree
+     fillet to the wall, cut away around the bolt heads. Floor 2 -> 3 mm.
+     Wall honeycomb starts above the fillet. Port walls not thickened: the
+     plugs must still reach their sockets through them.
+   REV 7 (RV0.7): M5 mounting ears on the base along the y = 56 (GPIO) side,
+     opposite the USB-C and HDMI ports, for bolts into T-slot nuts. Holes at
+     x = 12.5 (just past the lid lug) and x = 88 (flush with the x = 85
+     end), 75.5 mm apart, 4 mm thick, flush with the bottom ([Mounting]).
+   REV 6 (RV0.6): AI HAT headroom. Variant B height is now the measured
+     hat_h = 26.5 mm (Pi PCB top to heatsink top) instead of the original's
+     M.2 HAT estimate (16 mm spacers + 1.4 mm PCB + 3 mm SSD = 20.4 mm).
+     top_clearance 1.5 -> 3.0 mm, for both variants. Tub 7.6 mm taller.
    REV 5 (RV0.5): revision stamp engraved in the lid top face, beside the
      grille ([Revision] group).
    REV 4: lid held by two M3 screws into captive nuts. Lugs on two diagonal
@@ -58,7 +74,7 @@
 
 /* [What to print] */
 part = "calibration"; // [tub, lid, calibration, port_gauge, preview]
-// A = Active Cooler only, B = Active Cooler plus a HAT on spacers
+// A = Active Cooler only, B = AI HAT on its spacers (height hat_h)
 variant = "B"; // [A, B]
 
 /* [PCB - official drawing] */
@@ -71,11 +87,9 @@ hole_dy   = 49.0;
 
 /* [Build heights] */
 cooler_h      = 13.7;  // Active Cooler above the PCB top
-hat_spacer    = 16.0;  // spacers supplied with the HAT
-hat_pcb_t     = 1.4;
-ssd_stack     = 3.0;   // M.2 socket + SSD above the HAT PCB
+hat_h         = 26.5;  // Pi PCB top to the top of the AI HAT heatsink; Aaron, 2026-10-22
 under_pcb     = 3.0;   // air under the PCB
-top_clearance = 1.5;
+top_clearance = 3.0;   // air between the tallest part and the lid underside
 
 /* [Connector overhang past the PCB edge] */
 // MEASURED on RASPBERRY_PI_5_WITH_ACTIVE_COOLER.stl. The interior must take
@@ -89,7 +103,7 @@ overhang_y1 = 0.0;   // GPIO side flush
 
 /* [Case] */
 wall     = 2.4;
-floor_t  = 2.0;
+floor_t  = 3.0;   // 3 mm (original 2.0): stiffer base, and 1 mm left under the bolt recesses
 lid_t    = 2.0;
 pcb_gap  = 0.4;   // gap around the PCB
 radius   = 4.0;   // outer corner radius
@@ -157,8 +171,24 @@ port_corner_r = 1.0;   // corner rounding of the port openings
 bezel_depth   = 0.8;   // depth of the recess around the port group, 0 = off
 bezel_margin  = 2.5;   // how far the recess reaches past the openings
 
+/* [Mounting] */
+// One flange on the base along the y = 56 (GPIO) side, opposite the USB-C
+// and HDMI ports, flush with the bottom, with two M5 clearance holes for
+// bolts into T-slot nuts. Both holes are on one line along x, so they go
+// into one slot. The flange runs from just past the lid lug on the x = 0
+// corner to where the rounded corner at the x = 85 end starts. A
+// 45 degree fillet joins it to the wall along its whole length, cut away
+// around each hole so the bolt heads seat flat.
+mount       = true;
+mount_x     = [12.5, 83.75];  // hole centres along x; 83.75 ends the flange where the x = 85 corner's curve starts
+mount_hole  = 5.5;      // clearance hole, ISO 273 medium for M5
+mount_t     = 5.0;      // flange thickness
+mount_head  = 10.0;     // M5 head or washer diameter kept clear of the wall
+mount_rim   = 4.0;      // plastic around the hole
+mount_fillet = 5.0;     // height and depth of the 45 degree fillet along the wall
+
 /* [Revision] */
-revision  = "RV0.5"; // revision stamp, engraved in the lid top face beside the grille ("" = none)
+revision  = "RV0.9"; // revision stamp, engraved in the lid top face beside the grille ("" = none)
 rev_size  = 5;       // text cap height, mm  [2:0.5:12]
 rev_depth = 0.6;     // how far the text is inset below the surface, mm; the lid is 2 mm  [0.4:0.1:1.2]
 
@@ -209,9 +239,7 @@ cooler_mx = hole_edge + hole_dx / 2;
 cooler_my = hole_edge + hole_dy / 2;
 
 // --- derived dimensions ------------------------------------------------------
-stack_h = (variant == "B")
-    ? hat_spacer + hat_pcb_t + ssd_stack
-    : cooler_h;
+stack_h = (variant == "B") ? hat_h : cooler_h;
 
 inner_h = under_pcb + pcb_t + stack_h + top_clearance;
 inner_l = pcb_l + overhang_x0 + overhang_x1 + 2 * pcb_gap;
@@ -371,9 +399,10 @@ module lid_vents() {
 }
 
 // Honeycomb field in the closed GPIO wall (y = 56). Sits between the floor
-// and the rebate, so neither the stiffness nor the lid edge is weakened.
+// and the rebate, so neither the stiffness nor the lid edge is weakened,
+// and above the mounting fillet, which would otherwise cover its lower row.
 module wall_vents() {
-    z0 = floor_t + 3;
+    z0 = max(floor_t + 3, mount ? mount_t + mount_fillet + 1 : 0);
     z1 = tub_h - rebate_h - 3;
     bx = outer_l - 34;
     bz = z1 - z0;
@@ -439,6 +468,57 @@ module lug_cuts() {
     }
 }
 
+// For the fit check, which use<>s this file (use<> exports functions, not
+// variables): where the PCB corner sits, z at the PCB top.
+function case_board_at() = [pcb_x0, pcb_y0, pcb_z_top];
+
+// =============================================================================
+// Mounting ears
+// =============================================================================
+// Hole centre out from the y = 56 wall face far enough that the bolt head
+// or washer clears the wall.
+mount_y = outer_w + mount_head / 2 + 0.5;
+mount_r = mount_hole / 2 + mount_rim;
+
+// Flange outline: a disc around each hole and a strip inside the wall,
+// hulled. If a disc reaches into a rounded corner, the corner's own circle
+// joins the hull so the flange follows it without a step; with the default
+// positions neither disc does. What the hull puts inside the tub is removed
+// with the interior in tub().
+module mount_outline() {
+    hull() {
+        for (x = mount_x) translate([x, mount_y]) circle(r = mount_r);
+        translate([mount_x[0] - mount_r, outer_w - wall / 2])
+            square([mount_x[1] - mount_x[0] + 2 * mount_r, wall / 2 + eps]);
+        if (mount_x[1] + mount_r > outer_l - radius + eps)
+            translate([outer_l - radius, outer_w - radius]) circle(r = radius);
+        if (mount_x[0] - mount_r < radius - eps)
+            translate([radius, outer_w - radius]) circle(r = radius);
+    }
+}
+
+module mount_ears() {
+    linear_extrude(mount_t) mount_outline();
+    // Fillet along the wall, trimmed to the flange outline
+    intersection() {
+        linear_extrude(mount_t + mount_fillet) mount_outline();
+        translate([0, outer_w - eps, mount_t - eps])
+            rotate([90, 0, 90])
+                linear_extrude(outer_l)
+                    polygon([[0, 0], [mount_fillet, 0], [0, mount_fillet]]);
+    }
+}
+
+// Through holes, and room above each for the bolt head (the fillet is cut
+// away there, so the head seats on the flat flange top)
+module mount_holes() {
+    for (x = mount_x)
+        translate([x, mount_y, 0]) {
+            translate([0, 0, -1]) cylinder(h = mount_t + 2, d = mount_hole);
+            translate([0, 0, mount_t]) cylinder(h = mount_fillet + 1, d = mount_head + 1);
+        }
+}
+
 // =============================================================================
 // Tub
 // =============================================================================
@@ -476,6 +556,7 @@ module tub() {
         union() {
             box_r(outer_l, outer_w, tub_h, radius);
             lugs(tub_h);
+            if (mount) mount_ears();
         }
 
         // Interior
@@ -490,6 +571,7 @@ module tub() {
         if (floor_slots) floor_vents();
         if (wall_honeycomb) wall_vents();
         lug_cuts();
+        if (mount) mount_holes();
     }
 
     posts();
@@ -593,17 +675,25 @@ if (part == "port_gauge") {
     echo("Unknown value for part");
 }
 
+// Shortest stock screw length that is at least l, ISO preferred lengths
+function stock_len(l) = [for (s = [6, 8, 10, 12, 14, 16, 20, 25]) if (s >= l) s][0];
+
 if (post_type == "through") {
     grip = pcb_z_top - bolt_head_h;   // head seat to PCB top
+    need = grip + nut_h + 1;          // through the nut, 1 mm spare
     echo(str("M2.5 bolt: ", grip, " mm from head seat to PCB top; with a nut use at least ",
-             grip + nut_h + 0.5, " mm (M2.5 x 8). Into a HAT riser: ",
+             need, " mm (M2.5 x ", stock_len(need), "). Into a HAT riser: ",
              grip, " mm plus the riser's thread depth."));
 }
 echo(str("Lid: M3 screw, at least ", lid_t + lid_nut_down + lid_nut_h,
-         " mm to pass the nut (M3 x 10)"));
+         " mm to pass the nut (M3 x ", stock_len(lid_t + lid_nut_down + lid_nut_h), ")"));
 if (sd_grip)
     echo(str("microSD: card end ", sd_card_out - (pcb_x0 - wall), " mm into the wall, ",
              wall - (sd_card_out - (pcb_x0 - wall)), " mm inside the outer face"));
+
+if (mount)
+    echo(str("Mounting: M5 holes at x = ", mount_x, ", ", mount_x[1] - mount_x[0],
+             " mm apart, ", mount_y - outer_w, " mm out from the y = 56 wall face"));
 
 echo(str("Variant ", variant,
          " | outer ", outer_l, " x ", outer_w, " x ", tub_h + lid_t,
