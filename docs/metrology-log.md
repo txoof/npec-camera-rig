@@ -4793,10 +4793,13 @@ Only undisturbed pairs are used for question 1. Other pairs are counted, with th
 - No threshold is set for what size of change matters. Results are reported as measured; any
   target is Aaron's decision, labelled as one.
 
-### 16.5 Open, to be set with Aaron
+### 16.5 Length, and what is still open
 
-- **Length.** When the run ends. Round 2 ends on 5 November.
-- **Benchmark time.** When the benchmark is taped to tray 8 (events log).
+- **Length** (Aaron, 2026-10-22): until 5 November, the end of Round 2, with the option to extend:
+  the plants will likely stay in the chamber. The Round 2 results use the photos up to the end of
+  5 November (chamber time); photos after it are reported apart if the run is extended. 12 maps at
+  about 3 a week last to about 19 November; the disk lasts about 100 days (16.1).
+- **Open: benchmark time.** When the benchmark is taped to tray 8 (events log).
 
 ### 16.6 Limits of the evidence (as planned)
 
