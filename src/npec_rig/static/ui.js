@@ -127,15 +127,17 @@
   /* ---------- Full keyboard ----------
      For names, labels and notes. On a phone the device's own keyboard is used instead: it is
      good there, and 10 keys across would be too small. options: label, value, max, onSet. */
-  function openKeyboard({ label, value = "", max = 200, onSet }) {
+  // shift: whether Shift starts on; by default only for an empty value (a capital first letter).
+  function openKeyboard({ label, value = "", max = 200, shift: shiftOn = null, onSet }) {
     let val = String(value ?? "");
-    let shift = val === "";
+    let shift = shiftOn ?? val === "";
     const rows = [
       "1234567890".split(""),
       "qwertyuiop".split(""),
       "asdfghjkl-".split(""),
       ["shift", ..."zxcvbnm".split(""), ".", "del"],
-      ["space"],
+      // "_" so a folder name (2026-10-22_df206967) can be typed, for an unnamed experiment's Purge.
+      ["_", "space"],
     ];
     const keyHtml = (k) => {
       if (k === "shift") return `<button type="button" class="key fn hit" data-k="shift" aria-pressed="${shift}">Shift</button>`;
@@ -290,7 +292,8 @@
       if (act === "cancel") close();
       else if (act === "typed") {
         openKeyboard({
-          label: typedLabel, value: st.typed, max: 200,
+          // Shift on only if the text starts with a capital, so "interval test" types as shown.
+          label: typedLabel, value: st.typed, max: 200, shift: !st.typed && /^[A-Z]/.test(typed),
           onSet: (v) => {
             st.typed = v;
             const match = v.trim() === typed;
