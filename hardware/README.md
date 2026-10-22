@@ -21,18 +21,27 @@ this level and find their files relative to themselves, so they work from any di
 `.scad` files reach each other with relative paths such as `use <../libraries/t_slot_bolt.scad>`,
 which OpenSCAD resolves from the including file's own folder.
 
-## Print settings
+## The rig
 
-Set in Orca for each print (Aaron, 2026-10-21):
+<img src="images/rig_assembly.png" alt="rig assembly" width="480">
 
-| Part | File in `camera_rig/` or `tray_tags/` | Infill | Supports | Orientation |
-|---|---|---|---|---|
-| 40x20 L bracket | `l_bracket_4020.scad` | about 80% | yes | on its side, both legs on the bed (below) |
-| 40x40 L bracket | `l_bracket_4040.scad` | about 80% | yes | on its side, both legs on the bed (below) |
-| Auto-focus bracket | `auto-focus_bracket_2020.scad` | about 80% | not recorded | as in the file |
-| Corner mounts | `apriltag_corner_mount.scad` | 50% or more, so they are robust | yes | as in the file |
-| Slide pocket | `m5_slide_pocket.scad` | not recorded | not recorded | layer lines perpendicular to the pocket's short dimension, for strength |
-| Tray tags | `apriltag_tray_tag.scad` | 20-30% | no | as in the file |
+`camera_rig/rig_assembly.scad`, the whole rig as a mockup: printed parts and models of the
+purchased parts in place. Step-by-step assembly pictures are in [Installation.md](Installation.md).
+
+## Printed parts and print settings
+
+Set in Orca for each print (Aaron, 2026-10-21). Files are in `camera_rig/` or `tray_tags/`;
+ready-made exports are in `exports/` (see *Layout*).
+
+| Picture | Part | File | Infill | Supports | Orientation |
+|---|---|---|---|---|---|
+| <img src="images/l_bracket_4020.png" alt="40x20 L bracket" width="160"> | 40x20 L bracket | `l_bracket_4020.scad` | about 80% | yes | on its side, both legs on the bed (below) |
+| <img src="images/l_bracket_4040.png" alt="40x40 L bracket" width="160"> | 40x40 L bracket | `l_bracket_4040.scad` | about 80% | yes | on its side, both legs on the bed (below) |
+| <img src="images/auto-focus_bracket_2020.png" alt="auto-focus bracket" width="160"> | Auto-focus bracket | `auto-focus_bracket_2020.scad` | about 80% | not recorded | as in the file |
+| <img src="images/apriltag_corner_mount.png" alt="corner mount" width="160"> | Corner mounts | `apriltag_corner_mount.scad` | 50% or more, so they are robust | yes | as in the file |
+| <img src="images/m5_slide_pocket.png" alt="slide pocket" width="160"> | Slide pocket (cold shoe holder) | `m5_slide_pocket.scad` | not recorded | not recorded | layer lines perpendicular to the pocket's short dimension, for strength |
+| <img src="images/arducam64_mount.png" alt="camera mount" width="160"> | Camera mount | `arducam64_mount.scad` | not recorded | not recorded | not recorded |
+| <img src="images/tray_tags/style_lip_round.png" alt="tray tag" width="160"> | Tray tags | `apriltag_tray_tag.scad` | 20-30% | no | as in the file |
 
 **L brackets.** The purchased aluminium brackets in [Bill-of-Materials.md](Bill-of-Materials.md)
 are preferred; print these only as a substitute. Both files model the bracket standing up: one
@@ -41,6 +50,15 @@ bed and both legs lie on it. This puts the layer lines perpendicular to the load
 
 Not yet recorded: settings for the camera mount, infill and supports for the slide pocket, and
 any slicer setting other than infill and supports.
+
+## Models of purchased parts
+
+Stand-ins in `libraries/` for parts that are bought, not printed, used in the rig mockup. They
+are not printed. What to buy is in [Bill-of-Materials.md](Bill-of-Materials.md).
+
+| {img("t_slot_40x40", "40x40 T-slot")} | {img("t_slot_20x20", "20x20 T-slot")} | {img("t_slot_bolt", "T-slot bolt")} | {img("cold_shoe_stud", "cold shoe stud")} | {img("mini_ball_head", "mini ball head")} |
+|---|---|---|---|---|
+| 40x40 T-slot extrusion, `t_slot_40x40.scad` | 20x20 T-slot extrusion, `t_slot_20x20.scad` | T-slot bolt, `t_slot_bolt.scad` | Cold shoe stud, `cold_shoe_stud.scad` | Mini ball head, `mini_ball_head.scad` |
 
 ## Tray tags: printing a complete set
 
@@ -210,7 +228,7 @@ The file already says which part uses which slot.
 either part. The file calls the pattern black; for blue, load blue in slot 2. Use the same
 filaments for every tag in a set.
 
-**Infill:** 20-30%. **Supports:** none (see *Print settings* above).
+**Infill:** 20-30%. **Supports:** none (see *Printed parts and print settings* above).
 
 1. In Orca, choose a printer preset with at least 2 filaments. With only one, the black parts
    fall back to filament 1 and the tags print all white.
