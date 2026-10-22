@@ -128,7 +128,8 @@
      For names, labels and notes. On a phone the device's own keyboard is used instead: it is
      good there, and 10 keys across would be too small. options: label, value, max, onSet. */
   // shift: whether Shift starts on; by default only for an empty value (a capital first letter).
-  function openKeyboard({ label, value = "", max = 200, shift: shiftOn = null, onSet }) {
+  // target: text to copy, shown after the label so it stays in view while typing.
+  function openKeyboard({ label, value = "", max = 200, shift: shiftOn = null, target = null, onSet }) {
     let val = String(value ?? "");
     let shift = shiftOn ?? val === "";
     const rows = [
@@ -147,7 +148,7 @@
     };
     const el = openLayer("kb-layer", label, `
       <div class="kb-top">
-        <p class="kp-label">${esc(label)}</p>
+        <p class="kp-label">${esc(label)}${target === null ? "" : ` <code class="confirm-text">${esc(target)}</code>`}</p>
         <div class="kb-value" aria-live="polite"><span class="kb-v"></span><span class="cursor"></span><span class="count"></span></div>
         <button type="button" class="btn hit" data-act="cancel">Cancel</button>
         <button type="button" class="btn primary hit" data-act="set">Done</button>
@@ -266,7 +267,7 @@
   /* In-page confirmation, in place of confirm() and alert(), which a touch screen user can miss
      and which the page cannot style. The safe choice is on the left, the action on the right.
      typed: text the person must type to go ahead. check: a switch they must turn on. */
-  function confirmPanel({ title, body, ok, danger = false, typed = null, typedLabel = "Type to confirm", check = null, onOk }) {
+  function confirmPanel({ title, body, ok, danger = false, typed = null, typedLabel = "To confirm, type exactly:", check = null, onOk }) {
     const st = { typed: "", checked: false };
     const p = openPanel({
       onEscape: () => p.close(),
@@ -293,7 +294,7 @@
       else if (act === "typed") {
         openKeyboard({
           // Shift on only if the text starts with a capital, so "interval test" types as shown.
-          label: typedLabel, value: st.typed, max: 200, shift: !st.typed && /^[A-Z]/.test(typed),
+          label: typedLabel, target: typed, value: st.typed, max: 200, shift: !st.typed && /^[A-Z]/.test(typed),
           onSet: (v) => {
             st.typed = v;
             const match = v.trim() === typed;

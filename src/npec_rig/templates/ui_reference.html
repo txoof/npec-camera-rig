@@ -252,7 +252,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }));
   $("ex-open-purge").addEventListener("click", () => ui.confirmPanel({
     title: "Purge Lettuce, bench B?", ok: "Purge", danger: true,
-    typed: "Lettuce, bench B", typedLabel: "Type the experiment name",
+    typed: "Lettuce, bench B", typedLabel: "Type the experiment name:",
     check: "Purge without a complete export",
     body: "<p>Purge deletes this experiment's 880 photos and its export files. <strong>This cannot be undone.</strong></p>",
     onOk: () => ui.toast("Purged. Example only."),
