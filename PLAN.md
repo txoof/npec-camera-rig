@@ -442,14 +442,16 @@ Planned at the round 1 review (15.6, #217). Being decided with Aaron; items not 
 - *Steadiness.* From the static photos, where any change in a tray's reading from one photo to the
   next is the rig's own error. Photos in the dark are kept and reported apart; whether tags and
   area can be read in them is not known.
-- *Tray tracking.* Aaron moves trays within the shuffling window, at times that cannot be fixed in
-  advance. Each move follows a shuffle map drawn and printed before it, with a check-off per tray
+- *Tray tracking.* The collaborator (from 22 October) moves trays within the shuffling window, at
+  times that cannot be fixed in advance. Each move follows a shuffle map drawn and printed before it, with a check-off per tray
   and a space for the time it was done. The map is the known answer.
 - Scheduled capture (#60) runs throughout; Aaron tests it with this run.
 - In the trays: pots and the 40 mm tags in cell A1 (offset learned again first, 15.6b target 2).
-  The benchmark taped to tray 1 for the whole run (Aaron, 2026-10-19). Plants, if they arrive
-  during the round, go on their own trays and are reported apart from the still scene (Aaron,
-  2026-10-19).
+  Plants go on their own trays and are reported apart from the still scene (Aaron, 2026-10-19).
+- **The run is the potato experiment** (Aaron, 2026-10-22), "Potato Plants v001", from 08:40 UTC
+  on 22 October: trays 1 to 7 hold potato plants for a collaborator's experiment, trays 8 to 12
+  hold pots (the still scene), the benchmark is taped to tray 8. The collaborator shuffles about 3
+  times a week from printed maps that keep the plants in the middle slots. Method: metrology log 16.
 
 **Sorted for parallel work** (Aaron, 2026-10-19):
 

@@ -4691,94 +4691,101 @@ the stills are in the rig's photo folders under `/var/lib/npec-rig/`.
 
 Still to be decided at the review: the outline against a measured tray edge.
 
-## 16. Round 2 multi-day run (issue #221, method written 2026-10-19, before the run)
+## 16. Round 2 run: the potato experiment (issue #221, method written 2026-10-22, after the run started, before any analysis)
 
 **Label: development check.** How steady each tray's readings are from one photo to the next over
-several days, with no true area. The results are written up under issue #223.
+several days, how often each tray's tag is found, and whether the rig follows the trays through
+shuffles, with no true area. The results are written up under issue #223.
 
-**Draft.** Written before the round 1 review (15.6), which sets the Round 2 plan. The parts marked
-*set at the review* are left blank on purpose and filled in there, before the run starts. Everything
-else is agreed with Aaron, 2026-10-19, unless it is marked as open.
+**When this was written.** The run is the experiment "Potato Plants v001", which started at
+08:40:51 UTC on 22 October 2026 (Aaron decided that morning that it is the Round 2 run). This
+method was written later the same day, from the first photos' records only: no result of the run
+had been looked at. An earlier draft (2026-10-19, two parts, no plants, 20 mm edge tags) is replaced
+by this one.
 
-**Question.** With nothing moved, (1) how much does each tray's area change from one photo to the
-next, and (2) in what share of photos is each tray's tag found, per tray per day?
+**Questions.**
+1. **Steadiness.** With nothing moved, how much does each tray's reading change from one photo to
+   the next? Today the reading is the tray's placed centre; area is added when the green-area
+   segmenter (issue #74) exists.
+2. **Tag detection.** In what share of photos is each tray's tag found, per tray, per day and per
+   window of the day?
+3. **Tray tracking.** After each shuffle, is every tray read in the slot and A1 corner its shuffle
+   map gives?
 
-**Two parts** (Aaron, 2026-10-19).
+### 16.1 Setup
 
-| Part | In the trays | What a change between photos means |
-|---|---|---|
-| A, before plants | Black pots, the benchmark "Benchy Yellow-4", printed targets | Nothing grows, so every change is the rig's own error |
-| B, with plants | The plants arriving the week of 26 October (Aaron, 2026-10-19), in pots | The rig's error plus the plants' growth and movement between the two photos |
+- **Experiment** "Potato Plants v001" (id 18, folder `experiments/2026-10-22_df206967`), one photo
+  every 60 s from 08:40:51 UTC on 22 October. Calibration `20261022T072523939958`, validation
+  `20261022T072759980696` (Validated 2026-10-22), lens position 6.05, all as recorded in each
+  photo's `capture` row.
+- **Trays.** 12 trays of 4 x 5 cells in portrait, one 40 mm tag in cell A1 each (IDs 1 to 12),
+  in any rotation. Trays 1 to 7 hold potato plants, for the collaborator's own experiment. Trays 8
+  to 12 hold black pots and no plants (Aaron, 2026-10-22). The plastic benchmark "Benchy Yellow-4"
+  is taped to tray 8 for the run, from a time to be noted in the events log.
+- **The still scene** is trays 8 to 12: nothing in them grows, so a change in their reading
+  between two undisturbed photos is the rig's own error. Trays 1 to 7 are reported apart: their
+  change includes growth and leaf movement, which nothing in this run measures apart.
+- **The rule of the run:** the lens is not moved, and calibration and validation are not redone
+  while it runs (operator guide; a run that needs either is stopped and the change noted).
+- **Disk.** The stills average 5.6 MB (22 stills, 22 October). At one a minute that is about 8.1
+  GB a day; 838 GB were free, so the disk lasts about 100 days.
 
-Part A runs first and gives the rig's own spread. Part B uses the same method, and its spread is
-compared with part A's. A larger spread in part B is not split into growth, leaf movement and rig
-error: Arabidopsis leaves rise and fall over the day, which changes the area seen from above, and
-nothing in this run measures that apart. The two spreads are reported side by side as they are.
+### 16.2 Shuffles and the events log
 
-### 16.1 Setup, both parts
+- **Shuffle maps.** `experiments/round2-run/shuffle_maps.py` draws 12 maps from seed 20261022
+  (`sessions/shuffle-maps-2026-10-22.json`, committed before any tray was moved). Each puts trays 1
+  to 7 in 7 of the 8 middle slots (North and South 2 to 5), as the collaborator's experiment
+  prefers, and trays 8 to 12 in the others, with cell A1 at the south-west or north-east corner;
+  no tray stays in its slot from one map to the next. Printed in black and white, one per page.
+- **Who and when.** The collaborator shuffles about 3 times a week, within the shuffling window
+  (PLAN.md, Round 2): 09:30 to 16:10 chamber time. Each tray is ticked on the map, with the time it
+  was put in place. The maps come back to Aaron, who posts the times on #221; the agent converts
+  chamber time to UTC (UTC+2 to 24 October, UTC+1 from 25 October).
+- **Events log.** Anything else that happens in the chamber (door opened, a tray moved or watered
+  outside a map, the benchmark taped on) is posted on #221 with the local time.
+- The collaborator is named in no record of this run (Aaron, 2026-10-22).
 
-- 12 trays in the layout used on 19 October (15.5f), one 20 mm edge tag per tray, the same IDs.
-  The layout is confirmed from the 15.5f results at the review.
-- Every tag print not on a tray leaves the chamber (15.3d).
-- Door closed. Focus as set by Aaron; the lens is not moved during a part.
-- One calibration and one validation at the start of each part, none during it. A part that needs
-  either redone mid-run is stopped and restarted, not continued.
-- Part A, printed targets: which ones and where, set with Aaron before the run from what is on hand.
-- Part B, plants: which plants, how many per tray and which cells, set with Aaron when they arrive.
-  Open: whether these are growing plants or the supervisor's benchmark plants of known area (15.6a,
-  round 2 target 3).
+### 16.3 Windows and undisturbed pairs
 
-### 16.2 Taking the photos
+The day is split as in PLAN.md (Round 2): shuffling allowed 09:30 to 16:10, quiet with lights on
+17:00 to 23:00, dark 23:00 to 09:30, chamber time. Photos in the dark are kept and counted apart
+(metrology log 15.5l: no tag is found with the lights off).
 
-- Stills through `POST /capture`, by a script on the rig run by the agent under the `hardware`
-  label, as in 15.3d, unless the scheduler (issue #60) is in the app by the start of the run.
-- Each part has its own experiment, so the stills of the two parts stay apart.
-- Every still's sidecar records lens position, exposure, analogue gain and colour gains, so changes
-  in them are read from the stills.
-- **Events log.** Aaron writes down every door opening, every person in the chamber and anything
-  moved, with the local time, in a comment on #221. The agent converts it to UTC.
-- *Set at the review:* start dates, length of each part, and the interval between stills. The
-  experiment budget is one still per minute; the run may use less.
-- Open, checked before the start: free disk space against the number of stills planned, using the
-  still sizes of the 19 October session.
-- Open, asked of Aaron: the chamber's light schedule. Stills taken with the lights off are kept and
-  counted apart, not mixed into the results.
+A pair of consecutive photos is **undisturbed** when all of these hold:
 
-### 16.3 What counts as "nothing changed"
+1. No shuffle and no events log entry falls between the two photos.
+2. Both have the same calibration and lens position, and neither has a flag.
+3. Both were read with the status `read` (tags found and trays placed).
 
-A pair of consecutive stills counts as **undisturbed** when all of these hold:
-
-1. No entry in the events log falls between the two stills.
-2. Both stills have the same calibration and the same lens position, and neither has a lens flag.
-3. Both stills were taken with the lights on.
-
-A change in exposure, analogue gain or colour gains between the two stills does not exclude the
-pair, but such pairs are counted and reported apart, so their effect can be seen (15.3d found the
-colour gains moving 0.9% in 30 minutes, with no measured effect on area yet).
-
-Only undisturbed pairs are used for result 1. Pairs that are not undisturbed are counted, with the
-reason.
+Only undisturbed pairs are used for question 1. Other pairs are counted, with the reason.
 
 ### 16.4 Analysis
 
-- Readings per tray per photo (issue #222): tray, by its tag; tag found or not; area. Trays found
-  by the method chosen for the app (issue #220).
-- **Result 1, changes between photos.** For each tray and each undisturbed pair, the area of the
-  later still minus the earlier one, as a percentage of the earlier one. Reported per tray and per
-  part: the number of pairs, mean, SD and the range.
-- **Result 2, tag detection.** For each tray, per day: stills with the lights on, stills in which
-  its tag was found, and the share. Stills where a tag was missed are listed by still ID so they
-  can be looked at.
-- If area is not yet in the app (issue #74), result 1 uses the tray outline area from tray
-  splitting, or the benchmark's red solids in part A, as issue #223 says, and says which.
-- No threshold is set for what size of change matters. The results are reported as measured; any
+- **Data.** The rig's own tray readings (`tray_read`, `tray_reading`, issue #222), read from a copy
+  of `rig.db`; scripts and results in `experiments/round2-run/`. Nothing is written into the
+  experiment folder or the live `rig.db` by analysis.
+- **Question 1.** For each tray and each undisturbed pair, the change in the placed centre, in mm
+  (pixels over the calibration's scale at that point). Reported per tray and per window: number of
+  pairs, the root mean square change and the largest. Area changes the same way, as a percentage,
+  once area exists. Still scene (trays 8 to 12) and plant trays (1 to 7) in separate tables.
+- **Question 2.** For each tray, per day and window: photos read, photos with its tag found, and the
+  share. Photos with no tag at all (dark) are counted apart. Each photo where one tray was missed
+  while others were found is listed by its time, to be looked at.
+- **Question 3.** For each shuffle, every photo from the time its last tray was ticked to the next
+  shuffle: for each tray, right (slot and corner as the map), wrong, or not found. Reported per
+  shuffle; every wrong reading is listed.
+- No threshold is set for what size of change matters. Results are reported as measured; any
   target is Aaron's decision, labelled as one.
-- Scripts and results go in `experiments/round2-run/`. Nothing is written into the experiment
-  folders or `rig.db` by analysis.
 
-### 16.5 Limits of the evidence (as planned)
+### 16.5 Open, to be set with Aaron
 
-One layout of 12 trays in portrait, one lens position per part, paper tags, not 3D prints (issue
-#70). Part A: no soil, no plants. Part B: growth and leaf movement are not separated from the rig's
-error. Not covered: 4 x 4 and 1 x 1 trays, fewer than 12 trays, moved trays (covered by 15.5d and
-15.5f), a lens moved between parts, other chambers.
+- **Length.** When the run ends. Round 2 ends on 5 November.
+- **Benchmark time.** When the benchmark is taped to tray 8 (events log).
+
+### 16.6 Limits of the evidence (as planned)
+
+One chamber, one camera, one lens position, one calibration. 12 trays of one kind (4 x 5, portrait),
+40 mm paper tags. The still scene is 5 trays of black pots; plant growth and leaf movement are not
+separated from the rig's error in trays 1 to 7. Shuffles only in the middle and end slots the maps
+give, with plant trays always in the middle. Not covered: 4 x 4 and 1 x 1 trays, fewer than 12
+trays, a lens moved, other chambers. The method was written after the run started (see above).
