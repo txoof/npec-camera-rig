@@ -4741,9 +4741,10 @@ by this one.
   Running the script again refuses to change the committed answer: it only writes the PDF again,
   and stops if its layouts differ from the JSON.
 - **Who and when.** The collaborator shuffles about 3 times a week, within the shuffling window
-  (PLAN.md, Round 2): 09:30 to 16:10 chamber time. Each tray is ticked on the map, with the time it
-  was put in place. The maps come back to Aaron, who posts the times on #221; the agent converts
-  chamber time to UTC (UTC+2 to 24 October, UTC+1 from 25 October).
+  (PLAN.md, Round 2): 09:30 to 16:10 chamber time. Each tray is ticked on the map when it is in
+  place; the date and the times the shuffle started and finished are written at the top (Aaron,
+  2026-10-22: no time per tray). The maps come back to Aaron, who posts the times on #221; the agent
+  converts chamber time to UTC (UTC+2 to 24 October, UTC+1 from 25 October).
 - **Events log.** Anything else that happens in the chamber (door opened, a tray moved or watered
   outside a map, the benchmark taped on) is posted on #221 with the local time.
 - The collaborator is named in no record of this run (Aaron, 2026-10-22).
@@ -4784,8 +4785,7 @@ Only undisturbed pairs are used for question 1. Other pairs are counted, with th
 - **Question 2.** For each tray, per day and window: photos read, photos with its tag found, and the
   share. Photos with no tag at all (dark) are counted apart. Each photo where one tray was missed
   while others were found is listed by its time, to be looked at.
-- **Question 3.** For each shuffle, every photo from the time its last tray was ticked to the next
-  shuffle: for each tray, right (slot and corner as the map), wrong, or not found. Reported per
+- **Question 3.** For each shuffle, every photo from its finish time to the next shuffle's start: for each tray, right (slot and corner as the map), wrong, or not found. Reported per
   shuffle; every wrong reading is listed.
 - No threshold is set for what size of change matters. Results are reported as measured; any
   target is Aaron's decision, labelled as one.

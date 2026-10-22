@@ -140,7 +140,7 @@ def tray(c: canvas.Canvas, x: float, y: float, slot: str, number: int, a1: str) 
     c.setFont("Sans", 10); c.setLineWidth(1); c.setFillGray(1)
     c.rect(x, y - 22, 14, 14, stroke=1, fill=1)
     c.setFillGray(0)
-    c.drawString(x + 20, y - 19, "done   time ______")
+    c.drawString(x + 20, y - 19, "done")
 
 
 def page(c: canvas.Canvas, m: dict) -> None:
@@ -151,7 +151,7 @@ def page(c: canvas.Canvas, m: dict) -> None:
     c.drawString(MARGIN, PAGE_H - MARGIN - 34,
                  "Put each tray in the slot shown. Its tag (the black square in the striped cell A1) goes in the corner")
     c.drawString(MARGIN, PAGE_H - MARGIN - 48,
-                 "shown: lower left, or upper right (tray turned around). Tick each tray and write the time when it is in place.")
+                 "shown: lower left, or upper right (tray turned around). Tick each tray when it is in place.")
     top = PAGE_H - MARGIN - 92
     c.setFont("Bold", 16)
     c.drawCentredString(PAGE_W / 2, top + 6, "NORTH")
