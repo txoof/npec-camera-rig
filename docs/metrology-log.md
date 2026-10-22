@@ -4848,5 +4848,5 @@ still before the trays moved. The tracking counts and the steadiness of 16.4 are
 numbers on these photos, not a repeat of 15.5l's tables. Every difference in comparisons 1 and 2
 is listed, not tuned away.
 
-**Before the full check** (2026-10-22, on the first 30 photos read, to test the scripts): 424 of
+**Before the full check** (2026-10-22, on the photos read by then, to test the scripts): 424 of
 424 tray positions compared had the same slot and corner as 15.5l, centres at most 0.27 mm apart.
