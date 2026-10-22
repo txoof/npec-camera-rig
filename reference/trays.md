@@ -35,12 +35,12 @@ Number of readings per value not recorded.
 
 | Configuration | Cells | Where the tray tag sits | Grid spacing |
 |---|---|---|---|
-| 4 x 5 | columns A to D, rows 1 to 5 | outside the tray, at the A1 corner along the narrow (north or south) edge; never inside a cell (Aaron, 2026-10-17) | measured above |
-| 4 x 4 | 16 | inside the tray boundary, on the blue surface (where exactly: open) | not yet measured |
-| 1 x 1 | one large well | inside the tray boundary, on the blue surface (where exactly: open) | not yet measured |
+| 4 x 5 | columns A to D, rows 1 to 5 | in cell A1, roughly centred, any rotation; A1 holds no plant (Aaron, 2026-10-21). Until then: outside the tray at the A1 corner, never inside a cell (Aaron, 2026-10-17) | measured above |
+| 4 x 4 | 16 | in the middle of the tray (Aaron, 2026-10-21) | not yet measured |
+| 1 x 1 | one large well | bolted to a corner of the tray, the whole tag inside the tray's footprint (Aaron, 2026-10-21) | not yet measured |
 
-All three use the same outer tray and the same colours. Black trays will also have their tag inside
-the tray boundary (Aaron, 2026-10-17); the tags inside the boundary are handled later.
+All three use the same outer tray and the same colours. Black trays have their tag (the disc) in a
+pot (Aaron, 2026-10-21).
 
 - **A1 is the south-west corner** when the tray is seen from above in portrait (4 x 5, Aaron).
 - Wells: from the week of 2026-10-19 the wells hold black pots; later soil and plants (green,
@@ -80,7 +80,7 @@ the tray boundary (Aaron, 2026-10-17); the tags inside the boundary are handled 
 
 ## Not yet known
 
-- Grid spacing of the 4 x 4 and 1 x 1 configurations, and where their tag sits on the blue surface.
+- Grid spacing of the 4 x 4 and 1 x 1 configurations.
 - How many trays of each configuration exist, and whether 4 x 4 and 1 x 1 are used in the 12-tray
   layout or with fewer trays.
 - Whether FastSAM finds a 1 x 1 tray (no cell pattern) and trays with pots, soil and plants.

@@ -46,8 +46,8 @@ Not yet installed as a systemd service — see `deploy/npec-rig.service`.
 ## Hardware
 
 The rig's printed mounts and OpenSCAD models live in [`hardware/`](hardware/). See
-[hardware/README.md](hardware/README.md) for the AprilTag corner mounts and how to export
-multi-color prints, and [hardware/Installation.md](hardware/Installation.md) for installing the
+[hardware/README.md](hardware/README.md) for printing the tray tags, the AprilTag corner mounts
+and how to export multi-color prints, and [hardware/Installation.md](hardware/Installation.md) for installing the
 rig in the chamber.
 
 ## The one thing to read before contributing
