@@ -4780,7 +4780,10 @@ A pair of consecutive photos is **undisturbed** when all of these hold:
 
 Only undisturbed pairs are used for question 1. Other pairs are counted, with the reason.
 
-*Changed 2026-10-22, before any result of the run was reported (code review of #265).* Rule 4 is
+*Changed 2026-10-22, from the code review of #265, after the first tables of the run (to about
+11:00 UTC, check-in 1) had been shown to Aaron; the changes come from the review, not from those
+tables, and none changes them (no pair there was 120 to 150 s apart or lacked an uptime, and no
+placement was marked).* Rule 4 is
 applied as at most 150 s (2.5 intervals): photos come 59.4 to 60.9 s apart, so a pair with one
 photo missed between them is 119 to 122 s apart, and an exact 120 s limit kept or dropped it by
 chance. Rule 5: a photo whose app uptime is not recorded leaves its pair out with the reason "app
