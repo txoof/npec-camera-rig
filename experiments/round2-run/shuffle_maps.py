@@ -11,7 +11,7 @@ Rules (Aaron, 2026-10-22):
   by the rig at the start, FIRST below).
 
 Writes the known answer as JSON (committed before any tray is moved) and an A4 landscape PDF, one
-map per page, for printing.
+map per page, for a black and white printer: nothing is told apart by colour alone.
 
     python shuffle_maps.py OUT_DIR
 """
@@ -31,6 +31,7 @@ ROWS = ("North", "South")
 SLOTS = [f"{row} {i}" for row in ROWS for i in range(1, 7)]
 MIDDLE = [f"{row} {i}" for row in ROWS for i in range(2, 6)]
 PLANTS, POTS = list(range(1, 8)), list(range(8, 13))
+BENCHMARK = 8  # the plastic benchmark "Benchy Yellow-4" is taped to this pot tray for the run (Aaron, 2026-10-22)
 # The layout at the start of the run, from the rig's tray reading of the still taken at
 # 2026-10-22 08:50:53 UTC (experiment "Potato Plants v001"): slot -> tray.
 FIRST = {
@@ -69,7 +70,7 @@ def plan() -> dict:
                      "into the other slots, A1 corner SW or NE per tray; redrawn until no tray keeps its slot",
         "first_layout": FIRST,
         "turn": "SW: A1 and its tag at the lower left (south-west); NE: tray turned 180, A1 at the upper right",
-        "plants": PLANTS, "pots": POTS, "maps": maps,
+        "plants": PLANTS, "pots": POTS, "benchmark": f"taped to tray {BENCHMARK}", "maps": maps,
     }
 
 
@@ -94,9 +95,12 @@ def tag(c: canvas.Canvas, x: float, y: float, s: float) -> None:
 
 def tray(c: canvas.Canvas, x: float, y: float, slot: str, number: int, a1: str) -> None:
     plants = number in PLANTS
-    c.setLineWidth(2.2); c.setStrokeGray(0)
-    c.setFillColorRGB(0.86, 0.94, 0.86) if plants else c.setFillGray(0.93)
+    c.setStrokeGray(0); c.setFillGray(1)
+    c.setLineWidth(2.2)
     c.rect(x, y, TRAY_W, TRAY_H, stroke=1, fill=1)
+    if plants:  # a second border inside: plant trays are told apart without colour
+        c.setLineWidth(1.4)
+        c.rect(x + 4, y + 4, TRAY_W - 8, TRAY_H - 8, stroke=1, fill=0)
     # Cells, 4 across and 5 down, light lines.
     cw, ch = TRAY_W / 4, TRAY_H / 5
     c.setLineWidth(0.5); c.setStrokeGray(0.6)
@@ -106,15 +110,27 @@ def tray(c: canvas.Canvas, x: float, y: float, slot: str, number: int, a1: str) 
         c.line(x, y + j * ch, x + TRAY_W, y + j * ch)
     # Cell A1 and its tag: lower left (SW) or upper right (NE).
     ax, ay = (x, y) if a1 == "SW" else (x + 3 * cw, y + 4 * ch)
-    c.setFillColorRGB(1, 0.85, 0.2); c.setStrokeGray(0); c.setLineWidth(1.6)
-    c.rect(ax, ay, cw, ch, stroke=1, fill=1)
+    c.saveState()
+    p = c.beginPath(); p.rect(ax, ay, cw, ch); c.clipPath(p, stroke=0)
+    c.setStrokeGray(0.45); c.setLineWidth(0.8)
+    for k in range(-10, 14):  # diagonal hatching
+        c.line(ax + k * 5, ay, ax + k * 5 + ch, ay + ch)
+    c.restoreState()
+    c.setStrokeGray(0); c.setLineWidth(2.4)
+    c.rect(ax, ay, cw, ch, stroke=1, fill=0)
     s = min(cw, ch) * 0.7
+    c.setFillGray(1); c.rect(ax + (cw - s) / 2 - 2, ay + (ch - s) / 2 - 2, s + 4, s + 4, stroke=0, fill=1)
     tag(c, ax + (cw - s) / 2, ay + (ch - s) / 2, s)
     # Tray number, large, in the middle, and what it holds.
     c.setFillGray(0); c.setFont("Bold", 40)
     c.drawCentredString(x + TRAY_W / 2, y + TRAY_H / 2 - 8, str(number))
-    c.setFont("Sans", 11)
-    c.drawCentredString(x + TRAY_W / 2, y + TRAY_H / 2 - 26, "plants" if plants else "pots")
+    if plants:
+        c.setFont("Bold", 12)
+        c.drawCentredString(x + TRAY_W / 2, y + TRAY_H / 2 - 26, "PLANTS")
+    else:
+        c.setFont("Sans", 11)
+        label = "pots, \u2605 benchmark" if number == BENCHMARK else "pots"
+        c.drawCentredString(x + TRAY_W / 2, y + TRAY_H / 2 - 26, label)
     # Slot name above, tick box and time below.
     c.setFont("Bold", 12)
     c.drawCentredString(x + TRAY_W / 2, y + TRAY_H + 6, slot)
@@ -130,7 +146,7 @@ def page(c: canvas.Canvas, m: dict) -> None:
     c.setFont("Sans", 11)
     c.drawString(MARGIN + 250, PAGE_H - MARGIN - 12, "Date ____________   Started ________   Finished ________")
     c.drawString(MARGIN, PAGE_H - MARGIN - 34,
-                 "Put each tray in the slot shown. Its tag (the black square in the yellow cell A1) goes in the corner")
+                 "Put each tray in the slot shown. Its tag (the black square in the striped cell A1) goes in the corner")
     c.drawString(MARGIN, PAGE_H - MARGIN - 48,
                  "shown: lower left, or upper right (tray turned around). Tick each tray and write the time when it is in place.")
     top = PAGE_H - MARGIN - 92
@@ -146,7 +162,8 @@ def page(c: canvas.Canvas, m: dict) -> None:
     c.drawCentredString(PAGE_W / 2, MARGIN + 18, "SOUTH")
     c.setFont("Sans", 9)
     c.drawRightString(PAGE_W - MARGIN, MARGIN + 4,
-                      f"Green: plants (trays 1 to 7). Grey: pots (8 to 12). Seed {SEED}. Known answer: shuffle-maps-2026-10-22.json")
+                      f"Double border: PLANTS (trays 1 to 7). Single border: pots (8 to 12); the benchmark is on tray {BENCHMARK}. "
+                      f"Seed {SEED}. Known answer: shuffle-maps-2026-10-22.json")
 
 
 def main(out: Path) -> None:
