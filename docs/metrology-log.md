@@ -4748,6 +4748,10 @@ by this one.
   place; the date and the times the shuffle started and finished are written at the top (Aaron,
   2026-10-22: no time per tray). The maps come back to Aaron, who posts the times on #221; the agent
   converts chamber time to UTC (UTC+2 to 24 October, UTC+1 from 25 October).
+  Each post is copied as written into `sessions/chamber-times-2026-10-22.csv` (chamber time);
+  `chamber_times.py` makes the UTC shuffles and events files from it, and stops, naming the row,
+  on a finish before its start, a shuffle time outside 09:30 to 17:00, an unknown map, a map used
+  twice, or shuffles out of order or overlapping (added 2026-10-22, before the first shuffle).
 - **Events log.** Anything else that happens in the chamber (door opened, a tray moved or watered
   outside a map, the benchmark taped on) is posted on #221 with the local time.
 - The collaborator is named in no record of this run (Aaron, 2026-10-22).
