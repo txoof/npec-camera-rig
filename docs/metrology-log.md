@@ -4780,6 +4780,14 @@ A pair of consecutive photos is **undisturbed** when all of these hold:
 
 Only undisturbed pairs are used for question 1. Other pairs are counted, with the reason.
 
+*Changed 2026-10-22, before any result of the run was reported (code review of #265).* Rule 4 is
+applied as at most 150 s (2.5 intervals): photos come 59.4 to 60.9 s apart, so a pair with one
+photo missed between them is 119 to 122 s apart, and an exact 120 s limit kept or dropped it by
+chance. Rule 5: a photo whose app uptime is not recorded leaves its pair out with the reason "app
+uptime unknown", not as a restart. Question 3: a tray whose placement the app marked other than
+"placed" ("close call", "two trays in one slot") is counted as *doubtful*, apart from right and
+wrong, and listed.
+
 ### 16.4 Analysis
 
 - **Data.** The rig's own tray readings (`tray_read`, `tray_reading`, issue #222), read from a copy
