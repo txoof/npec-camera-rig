@@ -2,7 +2,7 @@
    Fit check: the official Pi 5 model in our case tub (pi5_case.scad).
 
    Not a printed part. Shows the tub from camera_rig/pi5_case.scad (variant
-   B) with the Pi 5 ghost from libraries/pi5_ghost.scad sitting on its domes,
+   B) with the Pi 5 ghost from libraries/pi5_ghost.scad sitting on its posts,
    so the port cutouts can be checked by eye from any angle.
 
    view = "fit"           see-through tub, board in green, overlaps in red
@@ -20,9 +20,10 @@
 
    Board placement copies pi5_case.scad's derived values for variant B
    (use<> does not export variables): board corner at
-   x = wand + spiel = 2.8, y = wand + spiel + ueber_y0 = 4.0, board bottom
-   on the domes at z = boden + unter_pcb = 5.0.
+   x = wall + pcb_gap = 2.8, y = wall + pcb_gap + overhang_y0 = 4.0, board
+   bottom on the posts at z = floor_t + under_pcb = 5.0.
 
+   REV 4: English names from pi5_case.scad REV 2 (tub()).
    REV 3: checks our copy, pi5_case.scad, not the reference original.
    REV 2: board choice, simple board by default.
    REV 1: first version.
@@ -38,8 +39,8 @@ tub_alpha = 0.3; // see-through amount of the tub [0:0.1:1]
 show_hits = true; // also draw the interference in red in the fit view
 
 /* [Hidden] */
-// Lifted by eps: the board resting on the domes is contact, not overlap,
-// and would otherwise show as zero-thickness hits on every dome top.
+// Lifted by eps: the board resting on the posts is contact, not overlap,
+// and would otherwise show as zero-thickness hits on every post top.
 eps = 0.01;
 board_at = [2.8, 4.0, 5.0 + pi5_pcb_t + eps];
 
@@ -52,13 +53,13 @@ module solid_board() {
 
 // render() so the preview shows the computed overlap, not both operands
 module hits() {
-    color("red") render() intersection() { wanne(); solid_board(); }
+    color("red") render() intersection() { tub(); solid_board(); }
 }
 
 if (view == "interference") {
     hits();
 } else {
-    color("grey", tub_alpha) wanne();
+    color("grey", tub_alpha) tub();
     color("green")
         if (board == "mesh") translate(board_at) pi5_ghost();
         else solid_board();
