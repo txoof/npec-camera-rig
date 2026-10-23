@@ -5280,3 +5280,50 @@ height (about 0.145% of area per mm, *The height test*). Only the slots the maps
 slots, two middle slots. Slot, orientation and time of day are mixed: each visit is at a different
 time, with automatic exposure and colour balance (17.4). One camera, one lens position, one
 calibration.
+
+### 17.6 Tag edges read short against tag spacing (issue to follow, development check, 2026-10-23)
+
+**Label: development check.** Found while checking the flat target of 17.5. Written the same day,
+after the measurements below, so this is a finding, not a planned test.
+
+**How it was found.** The flat green target (17.5, 149.9 x 149.8 mm by callipers, re-measured by
+Aaron 2026-10-23, 3 readings per side at different places along each edge: east-west 149.80,
+150.01, 149.85; north-south 149.94, 149.85, 149.71) was taped flat on tray 10 in North 1 at 14:02
+UTC. Its area read 23,788 to 23,817 mm² (3 photos), 5.8% above its calliper area. The mask was the
+target (557,224 px, its width times height 751 x 743 px), so the threshold was not the cause. At
+14:16 UTC Aaron laid two measured 30 mm calibration sheets in the chamber, a trimmed one flat on the
+tray top beside the target (tray 10) and one on the pots of tray 12 (the calibration height). Against
+the calibration, their tags read -0.83% to -0.87% in length on the tray top (9 tags; expected about
+-0.65%, 8.9 mm below the calibration height) and -0.22% to -0.28% on the pots (30 tags). So the
+calibration agrees with the tags, and measured against those tags the target is 156.4 x 154.6 mm.
+
+**The measurement.** Each tag's scale measured two ways in the same photo (14:16:53 and 14:17:53 UTC):
+from its edges (mean side in pixels over 30 mm, as `calibration.py` builds the scale field, line
+339, and as validation checks it, line 465) and from the distance between the centres of tags on
+the same printed page, over their designed spacing (`reference/calibration-sheets/` manifest:
+37.5 mm across, 41.1 mm down; the page's 180 mm bar measured 179.93 mm, section 3, so the print is
+true to about 0.05%). Centres do not depend on where an edge is found.
+
+| Sheet | Tags, pairs | Scale from edges | Scale from centre spacing | Edges / centres |
+|---|---|---|---|---|
+| Tray 10, tray top, 14:16:53 | 9, 16 | 4.807 px/mm | 4.928 px/mm | 0.975 |
+| Tray 10, tray top, 14:17:53 | 9, 16 | 4.809 | 4.928 | 0.976 |
+| Tray 12, on pots, 14:16:53 | 30, 346 | 4.863 | 4.964 | 0.980 |
+| Tray 12, on pots, 14:17:53 | 30, 346 | 4.860 | 4.964 | 0.979 |
+| Calibration photo `20261022T072523939958` (stored tags) | 361, 1791 | | | median 0.986, middle half 0.982 to 0.990 |
+
+(Pairs 30 to 90 mm apart on one page, and on the calibration photo only pairs whose two scales agree
+within 15%: several sheets there carry the same IDs, so a pair could join two sheets.)
+
+**What it means, if it holds.** Measured by their edges, the tags look 1.4% (22 October) to 2.5%
+(today) smaller than their spacing says. The scale field is built from edges, so it is that much too
+low in length, and every area reads about 2 x that too high: about 2.9% for the 22 October
+calibration, more under today's light. Validation uses the same edges, so it cannot see it. A likely
+cause, not tested: blur and the bright paper spreading into the black border, so the corner finder
+places corners inside it; that would depend on exposure and focus. With the scale from spacing, the
+target is 152.6 x 150.8 mm, +1.8% and +0.6%, which fits the mask taking one or two edge pixels.
+
+**What it does not cover.** Two photos and one calibration photo, two slots (North 1, South 6), one
+lens position, one exposure each. The paper's flatness: a curled sheet would make spacing read
+shorter, so it cannot cause this direction. Not checked: other calibrations, the old rig's data, how
+the bias changes with exposure and across the frame. Nothing in the code was changed.
