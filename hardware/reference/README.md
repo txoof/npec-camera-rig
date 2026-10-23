@@ -33,3 +33,27 @@ datasheet (`20x20_profile.pdf`). That PDF has been discarded; `t_slot_20x20.scad
 already documents which figures are vendor-labelled (e.g. the M6 groove size) vs. visually
 approximated from the raster image, so nothing is lost by removing it. If higher-fidelity
 geometry is needed later, a DXF/DWG would need to be re-sourced from the vendor.
+
+## raspberry_tips_pi5_case/ — Pi 5 case base (`camera_rig/pi5_case.scad`)
+
+The raspberry.tips v2.0 Pi 5 case (2026-08-13), from
+`https://cdn.raspberry.tips/2026/08/raspberry-tips-pi5-case-v2.0.zip` (downloaded 2026-10-22).
+Licence CC BY 4.0. Attribution, which every derived file carries:
+
+    Case for Raspberry Pi 5 by raspberry.tips, CC BY 4.0
+    https://raspberry.tips/en/3d-druck/raspberry-pi-5-case-3d-print
+
+Kept, unchanged:
+
+- `rpi5_case.scad` — the parametric source. `camera_rig/pi5_case.scad` started as an exact copy
+  of it; diff the two to see every change made for the rig.
+- `README.txt` — their licence, print settings and calibration notes (German).
+
+Dropped: their STL and 3MF exports (rebuilt from the source) and `pi5_referenz.scad`, their Pi 5
+ghost, which is drawn mirrored in y. `libraries/pi5_ghost.scad` uses the official STEP instead.
+
+## pi5_step/ — Raspberry Pi 5 STEP model (not committed)
+
+Gitignored. Raspberry Pi Ltd owns the model, so it is fetched, not kept: `uv run
+fetch_pi5_model.py` downloads `RP-010083-CA` and writes the STL and box sets that
+`libraries/pi5_ghost.scad` reads.
