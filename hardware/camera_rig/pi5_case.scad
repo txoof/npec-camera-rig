@@ -33,6 +33,8 @@
      x = 0    -> microSD under the PCB, PCIe FPC on top of it
    (The original header puts the PCIe FPC on the y = 56 side; it is at x = 0.)
 
+   REV 15 (RV0.15): part "tub_and_lid": tub and lid on one plate, each in
+     its print orientation, plate_gap apart; works with copies.
    REV 14 (RV0.14): [Build Plate] group (copies, plate_gap, plate_cols) for
      the chosen part, laid out on a grid centred on the origin, as in the
      other printed parts. Print-ready exports in exports/camera_rig/.
@@ -94,7 +96,7 @@
 --------------------------------------------------------------------------- */
 
 /* [What to print] */
-part = "calibration"; // [tub, lid, calibration, port_gauge, preview]
+part = "lid"; // [tub, lid, tub_and_lid, calibration, port_gauge, preview]
 // A = Active Cooler only, B = AI HAT on its spacers (height hat_h)
 variant = "B"; // [A, B]
 
@@ -227,7 +229,7 @@ cam_margin = 1.5;   // added on every side of the connector footprint
 cam_r      = 2.0;   // radius of the two inner corners
 
 /* [Revision] */
-revision  = "RV0.14"; // revision stamp, engraved in the y = 0 (USB-C) wall, under the part name ("" = none)
+revision  = "RV0.15"; // revision stamp, engraved in the y = 0 (USB-C) wall, under the part name ("" = none)
 rev_size  = 5;       // text cap height, mm  [2:0.5:12]
 rev_depth = 0.6;     // how far the text is inset below the surface, mm; the wall is 2.4 mm  [0.4:0.1:1.2]
 
@@ -761,14 +763,22 @@ module port_gauge() {
 // =============================================================================
 // Output
 // =============================================================================
+// Lid in its print orientation: flipped, top face on the bed, skirt up
+module lid_printed() {
+    rotate([180, 0, 0]) translate([0, 0, -lid_t]) lid();
+}
+
 module part_body() {
-    if (part == "port_gauge") {
+    if (part == "tub_and_lid") {
+        // one print: tub, and beside it (+y) the lid, plate_gap apart
+        tub();
+        translate([0, fy1_tub + plate_gap + fy1_lid, 0]) lid_printed();
+    } else if (part == "port_gauge") {
         port_gauge();
     } else if (part == "tub") {
         tub();
     } else if (part == "lid") {
-        // flipped: plate on the bed, skirt up
-        rotate([180, 0, 0]) translate([0, 0, -lid_t]) lid();
+        lid_printed();
     } else if (part == "calibration") {
         calibration();
     } else if (part == "preview") {
@@ -783,13 +793,16 @@ module part_body() {
 // the outline plus the lid lugs, plus the mounting flange for the tub. The
 // calibration piece and port gauge are cut from the tub and use its
 // footprint, which spaces them generously. The lid prints flipped about x,
-// so its y range is mirrored.
+// so its y range is mirrored. tub_and_lid is the tub's footprint, the gap
+// and the lid's, stacked along y.
 fx0     = min(0, lug_pos[0][0] - lug_d / 2);
 fx1     = max(outer_l, lug_pos[1][0] + lug_d / 2);
 fy0     = min(0, lug_pos[1][1] - lug_d / 2);
 fy1_lid = max(outer_w, lug_pos[0][1] + lug_d / 2);
 fy1_tub = max(fy1_lid, mount ? mount_y + mount_r : 0);
-footprint = part == "lid" ? [fx0, fx1, -fy1_lid, -fy0] : [fx0, fx1, fy0, fy1_tub];
+footprint = part == "lid"         ? [fx0, fx1, -fy1_lid, -fy0]
+          : part == "tub_and_lid" ? [fx0, fx1, fy0, fy1_tub + plate_gap + fy1_lid - fy0]
+          :                         [fx0, fx1, fy0, fy1_tub];
 part_dx = footprint[1] - footprint[0];
 part_dy = footprint[3] - footprint[2];
 
