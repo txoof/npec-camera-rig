@@ -33,6 +33,21 @@
      x = 0    -> microSD under the PCB, PCIe FPC on top of it
    (The original header puts the PCIe FPC on the y = 56 side; it is at x = 0.)
 
+   REV 13 (RV0.13): part name and revision moved from the lid to the outside
+     of the y = 0 (USB-C) wall, between the port recess and the x = 85 lug;
+     the lid vents now also cover the strip the labels used. GPIO wall
+     honeycomb raised so every hole's bottom is vent_keep (3 mm) above the
+     mounting fillet; before, the lowest row reached into the fillet.
+   REV 12 (RV0.12): lid vents laid out for the usual mounting (USB-C side
+     down, GPIO wall on top): a honeycomb over the whole heatsink area (the
+     PCB except the Ethernet/USB-A block), whole hexagons only, with 3 mm
+     kept solid around the camera opening, screw ears and labels and a
+     5 mm solid border. Part name and revision engraved over the USB-C
+     ports. Old fixed 48 x 36 grille and cooler-centre values removed.
+   REV 11 (RV0.11): camera cable opening in the lid over both FPC connectors
+     (official STEP footprint plus 1.5 mm), open through the lid's y = 0
+     edge and skirt, so the lid is a U and comes off over the cables
+     ([Camera cables] group). Tub not cut.
    REV 10 (RV0.10): mounting holes moved 1 mm further out from the GPIO
      wall (5.5 -> 6.5 mm) for heads or washers up to 12 mm (mount_head
      10 -> 12); the flat seat cut into the fillet grows to 13 mm.
@@ -161,9 +176,19 @@ sd_grip_r   = 2.0;    // corner radius of notch and scoop
 sd_scoop_l  = 10;     // floor scoop length, from the outer wall face inward
 
 /* [Ventilation] */
+// Designed for the usual mounting: USB-C side (y = 0) facing the floor, lid
+// vertical, GPIO wall (y = 56) on top. Warm air rises from the y = 0 end to
+// the GPIO wall. Air comes in low (camera opening, floor slots) and leaves
+// high (GPIO wall honeycomb, the top face). The lid vents sit over the AI
+// HAT heatsink, which covers the PCB except the Ethernet and USB-A block, so
+// they open the whole hot area to the air rising past it. No vents in the
+// y = 0 (USB-C) face.
 floor_slots    = true;
 lid_grille     = true;
-wall_honeycomb = true;   // honeycomb field in the closed GPIO wall
+wall_honeycomb = true;   // honeycomb field in the closed GPIO wall: the exhaust
+heatsink_x1    = 66.45;  // heatsink end along x, PCB coordinates: where the Ethernet socket starts (STEP)
+vent_border    = 5.0;    // solid lid border, clear of the skirt (which joins the plate 1.4 to 3.8 mm in)
+vent_keep      = 3.0;    // solid plastic kept around the camera opening, screw ears and labels
 slot_w         = 3.0;
 slot_pitch     = 6.0;
 hex_af         = 5.0;    // hexagon size across flats
@@ -190,10 +215,23 @@ mount_head  = 12.0;     // M5 head or washer diameter kept clear of the wall; 12
 mount_rim   = 4.0;      // plastic around the hole
 mount_fillet = 5.0;     // height and depth of the 45 degree fillet along the wall
 
+/* [Camera cables] */
+// One opening in the lid over both camera/display FPC connectors, running
+// out through the lid's y = 0 edge (skirt included), so the lid is a U and
+// lifts off over the cables without unplugging them. The tub is not cut.
+cam_slot   = true;
+cam_margin = 1.5;   // added on every side of the connector footprint
+cam_r      = 2.0;   // radius of the two inner corners
+
 /* [Revision] */
-revision  = "RV0.10"; // revision stamp, engraved in the lid top face beside the grille ("" = none)
+revision  = "RV0.13"; // revision stamp, engraved in the y = 0 (USB-C) wall, under the part name ("" = none)
 rev_size  = 5;       // text cap height, mm  [2:0.5:12]
-rev_depth = 0.6;     // how far the text is inset below the surface, mm; the lid is 2 mm  [0.4:0.1:1.2]
+rev_depth = 0.6;     // how far the text is inset below the surface, mm; the wall is 2.4 mm  [0.4:0.1:1.2]
+
+/* [Label] */
+part_name  = "pi5_case"; // file name without .scad, engraved in the y = 0 (USB-C) wall ("" = none)
+name_size  = 5;      // text cap height, mm  [2:0.5:12]
+name_depth = 0.6;    // how far the text is inset below the surface, mm  [0.4:0.1:1.2]
 
 /* [Hidden] */
 $fn = 48;
@@ -225,6 +263,11 @@ ports_front = [
     [ 35.95, 42.45, -0.55,  2.97, "micro-HDMI 1" ]
 ];
 
+// Both camera/display FPC connectors together, from the official STEP
+// (libraries/pi5_ghost.scad frame): [x_from, x_to, y_from, y_to], PCB corner
+// at (0,0). CAM/DISP 0 is x 47.10..50.65, CAM/DISP 1 x 53.30..56.85.
+cam_footprint = [47.10, 56.85, 0.14, 16.84];
+
 // optional FPC slots on the same edge
 ports_fpc = [
     [ 47.40, 50.70,  0.00,  3.90, "FPC CAM/DISP 0" ],
@@ -235,11 +278,6 @@ ports_fpc = [
 ports_left = [
     [ 22.00, 33.95, -3.05, -1.60, "microSD" ]
 ];
-
-// Cooler position: it sits on the hole grid, centred on it.
-// Grid centre = (hole_edge + hole_dx/2, hole_edge + hole_dy/2)
-cooler_mx = hole_edge + hole_dx / 2;
-cooler_my = hole_edge + hole_dy / 2;
 
 // --- derived dimensions ------------------------------------------------------
 stack_h = (variant == "B") ? hat_h : cooler_h;
@@ -392,37 +430,58 @@ module floor_vents() {
                 rrect(slot_w, len, slot_w / 2 - 0.01);
 }
 
-// Lid grille, centred over the cooler instead of in the middle of the lid
+// Lid vents: a honeycomb over the heatsink, holding only whole hexagons that
+// keep clear of the border, the camera opening and the screw ears. The lid prints flat, so the holes need no supports; a honeycomb
+// keeps an even web everywhere, the stiffest hole pattern for a thin plate.
+hex_r = hex_af / sqrt(3);                 // hexagon corner radius
+
+// Camera opening extents (see cam_outline())
+cam_x0  = pcb_x0 + cam_footprint[0] - cam_margin;
+cam_x1  = pcb_x0 + cam_footprint[1] + cam_margin;
+cam_y1  = pcb_y0 + cam_footprint[3] + cam_margin;
+
+function vent_ok(x, y) =
+    let(k = vent_keep + hex_r)
+    x - hex_r >= vent_border && x + hex_r <= min(outer_l - vent_border, pcb_x0 + heatsink_x1)
+    && y - hex_r >= vent_border && y + hex_r <= outer_w - vent_border
+    // camera opening, which reaches the y = 0 edge
+    && !(x > cam_x0 - k && x < cam_x1 + k && y < cam_y1 + k)
+    // screw ears
+    && min([for (c = lug_pos) norm([x - c[0], y - c[1]])]) > lug_d / 2 + k;
+
 module lid_vents() {
-    gx = pcb_x0 + cooler_mx;
-    gy = pcb_y0 + cooler_my;
-    bx = 48; by = 36;
-    translate([gx - bx / 2, gy - by / 2, 0])
-        hex_grid(bx, by, lid_t, hex_af, hex_web);
+    dx = hex_af + hex_web;
+    dy = dx * sqrt(3) / 2;
+    for (j = [0 : floor(outer_w / dy)], i = [-1 : floor(outer_l / dx)]) {
+        x = i * dx + (j % 2) * dx / 2;
+        y = j * dy;
+        if (vent_ok(x, y))
+            translate([x, y, -eps])
+                rotate([0, 0, 30]) cylinder(h = lid_t + 2 * eps, d = hex_af / cos(30), $fn = 6);
+    }
 }
 
 // Honeycomb field in the closed GPIO wall (y = 56). Sits between the floor
 // and the rebate, so neither the stiffness nor the lid edge is weakened,
 // and above the mounting fillet, which would otherwise cover its lower row.
+// Hexagons with a flat top and bottom (a 2.9 mm bridge, prints without
+// supports). Every hole's bottom stays vent_keep above the mounting fillet,
+// its top 3 mm under the rebate.
 module wall_vents() {
-    z0 = max(floor_t + 3, mount ? mount_t + mount_fillet + 1 : 0);
-    z1 = tub_h - rebate_h - 3;
-    bx = outer_l - 34;
-    bz = z1 - z0;
+    half = hex_af / 2 * cos(30);              // centre to flat, top and bottom
+    zlo  = max(floor_t + 3, mount ? mount_t + mount_fillet + vent_keep : 0);
+    zhi  = tub_h - rebate_h - 3;
+    x0 = 17; x1 = outer_l - 17;
     dx = hex_af + hex_web;
-    dz = dx * 0.866;
-    nx = floor(bx / dx);
-    nz = floor(bz / dz);
-    if (bz > hex_af + 2)
-        for (j = [0 : max(nz - 1, 0)])
-            for (i = [0 : max(nx - 1, 0)]) {
-                px = i * dx + (j % 2) * dx / 2;
-                pz = j * dz;
-                if (px + hex_af / 2 <= bx && pz + hex_af / 2 <= bz)
-                    translate([17 + px, outer_w - wall - eps, z0 + pz])
-                        rotate([-90, 0, 0])
-                            cylinder(h = wall + 2 * eps, d = hex_af, $fn = 6);
-            }
+    dz = dx * sqrt(3) / 2;
+    for (j = [0 : floor((zhi - zlo) / dz)], i = [0 : floor((x1 - x0) / dx)]) {
+        x = x0 + hex_af / 2 + i * dx + (j % 2) * dx / 2;
+        z = zlo + half + j * dz;
+        if (x + hex_af / 2 <= x1 && z + half <= zhi)
+            translate([x, outer_w - wall - eps, z])
+                rotate([-90, 0, 0])
+                    cylinder(h = wall + 2 * eps, d = hex_af, $fn = 6);
+    }
 }
 
 // =============================================================================
@@ -523,6 +582,31 @@ module mount_holes() {
 }
 
 // =============================================================================
+// Labels
+// =============================================================================
+// Part name over the revision, engraved into the outside of the y = 0 wall
+// (the USB-C face), in the plain stretch between the port recess and the
+// lid lug at the x = 85 corner, reading along +x from outside, upright with
+// the tub standing on its floor.
+label_x0 = pcb_x0 + ports_front[len(ports_front) - 1][1] + bezel_margin + vent_keep;
+label_x1 = lug_pos[1][0] - lug_d / 2 - vent_keep;
+label_x  = (label_x0 + label_x1) / 2;
+label_zc = (floor_t + tub_h - rebate_h) / 2;          // middle of the plain wall
+name_z   = label_zc + 1 + name_size / 2;
+rev_z    = label_zc - 1 - rev_size / 2;
+
+module wall_labels() {
+    if (part_name != "")
+        translate([label_x, name_depth, part_name != "" && revision != "" ? name_z : label_zc])
+            rotate([90, 0, 0]) linear_extrude(name_depth + eps)
+                text(part_name, size = name_size, halign = "center", valign = "center");
+    if (revision != "")
+        translate([label_x, rev_depth, part_name != "" ? rev_z : label_zc])
+            rotate([90, 0, 0]) linear_extrude(rev_depth + eps)
+                text(revision, size = rev_size, halign = "center", valign = "center");
+}
+
+// =============================================================================
 // Tub
 // =============================================================================
 
@@ -575,6 +659,7 @@ module tub() {
         if (wall_honeycomb) wall_vents();
         lug_cuts();
         if (mount) mount_holes();
+        wall_labels();
     }
 
     posts();
@@ -587,15 +672,20 @@ module tub() {
 // Lid
 // =============================================================================
 
-// Engraved into the lid top face, centred in the plain strip between the
-// grille and the x = 85 end, reading along +x. The lid prints upside down,
-// so the stamp is on the bed side and reads correctly from above.
-module revision_stamp() {
-    grille_x1 = pcb_x0 + cooler_mx + 48 / 2;   // lid_vents() field is 48 wide
-    translate([(grille_x1 + outer_l - wall) / 2, outer_w / 2, lid_t - rev_depth])
-        linear_extrude(rev_depth + eps)
-            text(revision, size = rev_size, halign = "center", valign = "center");
+// Camera cable opening, 2D: the connector footprint plus cam_margin, open
+// past the y = 0 edge, inner corners rounded
+module cam_outline() {
+    x0 = pcb_x0 + cam_footprint[0] - cam_margin;
+    x1 = pcb_x0 + cam_footprint[1] + cam_margin;
+    y1 = pcb_y0 + cam_footprint[3] + cam_margin;
+    hull() {
+        translate([x0, -1]) square([x1 - x0, 1]);
+        translate([x0 + cam_r, y1 - cam_r]) circle(r = cam_r);
+        translate([x1 - cam_r, y1 - cam_r]) circle(r = cam_r);
+    }
 }
+
+
 module lid() {
     difference() {
         union() {
@@ -616,7 +706,8 @@ module lid() {
         }
 
         if (lid_grille) lid_vents();
-        if (revision != "") revision_stamp();
+        if (cam_slot)
+            translate([0, 0, -rebate_h - 1]) linear_extrude(lid_t + rebate_h + 2) cam_outline();
         for (c = lug_pos)
             translate([c[0], c[1], -1]) cylinder(h = lid_t + 2, d = lid_screw_d);
     }
@@ -690,6 +781,10 @@ if (post_type == "through") {
 }
 echo(str("Lid: M3 screw, at least ", lid_t + lid_nut_down + lid_nut_h,
          " mm to pass the nut (M3 x ", stock_len(lid_t + lid_nut_down + lid_nut_h), ")"));
+if (cam_slot)
+    echo(str("Camera opening: x ", pcb_x0 + cam_footprint[0] - cam_margin, " to ",
+             pcb_x0 + cam_footprint[1] + cam_margin, ", from the y = 0 edge to y ",
+             pcb_y0 + cam_footprint[3] + cam_margin));
 if (sd_grip)
     echo(str("microSD: card end ", sd_card_out - (pcb_x0 - wall), " mm into the wall, ",
              wall - (sd_card_out - (pcb_x0 - wall)), " mm inside the outer face"));
