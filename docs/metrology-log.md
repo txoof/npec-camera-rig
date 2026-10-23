@@ -5211,3 +5211,58 @@ on a card, not a plant. The empty trays hold black pots on blue trays: soil with
 in the run, so what bare soil reads is not covered. Areas of photos taken before 11:24 UTC on 23
 October come from Reprocess, the same code, read hours to a day after the photo. Area uncertainty
 per reading (#76) is not part of this review.
+
+### 17.5 A flat green target on tray 10 (method written 2026-10-23, before the target was put in)
+
+**Label: development check.** Two of the failure modes the review found (17.4) are: the benchmark's
+area changes from one photo to the next with nothing moved, and it read 10% lower after shuffle 1
+moved it from South 6 to North 6 and turned it. The benchmark is a 3D-printed piece with height,
+so light across the table and the side the camera sees at the table's ends are mixed in its
+readings. A flat target has almost no side, so what changes in its area from slot to slot is
+light and colour, and the difference from the benchmark is the side seen. Its size is measured, so
+it also shows how close the green threshold comes to a known area on a flat green object.
+
+**Questions.**
+1. **Accuracy on a flat target.** In each slot, how far is the target's area from its calliper area?
+2. **Slot and light.** How much does the target's area change from slot to slot, and between the two
+   orientations (A1 at south-west or north-east)?
+3. **Side view.** In the slots both the target and the benchmark visit, how much more does the
+   benchmark's area change from slot to slot than the target's?
+4. **Photo to photo.** For the target, the change between undisturbed pairs (16.3), as for the
+   benchmark in 17.2: if a flat target scatters as much, the scatter is not caused by height.
+
+**Target.** A 3D-printed green square, nominally 150.0 x 150.0 mm (Aaron), with two red specks near
+its centre, each under 1 mm², which the threshold will not count (under 0.01% of its area together).
+Before it goes in: both sides measured with the NEIKO callipers, 3 readings each, and its thickness,
+recorded here with the date. The calliper area is the product of the two mean sides; the callipers
+are not trusted beyond 0.1 mm (section 3), so about 0.13% in area.
+
+**Placement.** Taped flat on tray 10 (black pots, a still tray, 16.1), clear of cell A1 so the tray
+tag stays visible, inside the tray's edges. The chamber time it went in is posted to the events
+log on #221. Tray 10 then leaves question 3 of 17.2 (3 empty trays remain). Pairs across the time it
+was put in are disturbed (16.3, rule 1).
+
+**Slots it will visit.** The shuffle maps were drawn before the target existed (16.2), so nothing
+about them was chosen for this test. From map 2 on:
+
+| Map | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Tray 10 (target) | N6 NE | S1 SW | N6 SW | S6 NE | S5 NE | N6 NE | S6 SW | N4 SW | N6 SW | N1 SW | S1 SW |
+| Tray 8 (benchmark) | N1 NE | N6 NE | S5 NE | S2 SW | S1 NE | N1 SW | S5 NE | N6 SW | S1 SW | S4 NE | S6 SW |
+
+(Slot and the corner A1 is at.) Before map 2, tray 10 stays in North 1 with A1 at the south-west.
+Slots both visit: N6, S1, S5, S6 (and N1, the target only before map 2).
+
+**Analysis.** From the rig's own readings in a copy of `rig.db`, with `experiments/round2-area/`,
+lit photos only, photos inside a shuffle or event left out (16.3). Per slot and orientation, for
+the target and the benchmark: photos, median area, standard deviation, and for the target the
+difference from the calliper area in percent. Question 3 compares each slot's median with the same
+object's median over all its slots. No threshold is set for what difference matters; results are
+reported as measured.
+
+**Limits (as planned).** One flat target of one green (printed plastic, not leaf), at tray-top height
+plus its thickness, which adds a little side at the ends of the table and raises it above tray-top
+height (about 0.145% of area per mm, section *Facts*). Only the slots the maps give: mostly the end
+slots, two middle slots. Slot, orientation and time of day are mixed: each visit is at a different
+time, with automatic exposure and colour balance (17.4). One camera, one lens position, one
+calibration.
