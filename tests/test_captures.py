@@ -362,3 +362,20 @@ def test_a_replay_camera_that_cannot_replay_is_unavailable_not_another_camera(
 
     with pytest.raises(CameraUnavailableError, match=reason):
         take_photo("capture")
+
+
+def test_a_replay_camera_skips_hidden_files_and_reads_any_jpeg_name(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    # A Mac copy leaves "._" files beside each photo: not JPEGs, and they sort first.
+    from PIL import Image
+
+    folder = tmp_path / "replay"
+    folder.mkdir()
+    (folder / "._a.jpg").write_bytes(b"\x00\x05\x16\x07 not a jpeg")
+    Image.new("RGB", (40, 30), (200, 30, 30)).save(folder / "a.JPG", format="JPEG")
+    Image.new("RGB", (50, 20), (30, 30, 200)).save(folder / "b.jpeg")
+    monkeypatch.delenv("NPEC_RIG_SYNTHETIC_CAMERA")
+    monkeypatch.setenv("NPEC_RIG_REPLAY_PHOTOS", str(folder))
+
+    replayed = [take_photo("capture")[1]["sensor_metadata"]["ReplayedFrom"] for _ in range(2)]
+
+    assert replayed == [str(folder / "a.JPG"), str(folder / "b.jpeg")]
