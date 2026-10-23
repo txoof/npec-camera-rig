@@ -2831,6 +2831,14 @@ the number of independent cases is the number of layouts times tags, about 70, n
 defensible check of the printed tags needs new layouts, setting C fixed in advance and a pass rule
 written before the photos.
 
+![Four 20 mm tray tags marked missed by the frozen settings](figures/15.3e/frozen-settings-missed-20mm-tags.jpg)
+
+*Figure 15.3e-a. Still `090640_702608` (step R2-1): 20 mm tags 0, 17, 14 and 15 on the tray edge, each outlined where it lies and marked MISSED by the frozen detector settings, although each is in view; slightly soft at this size. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/156-tray-tags/step-R2-1_090640_702608_missed-tags-closeup.jpg`.*
+
+![The same four tags found with finer bit sampling](figures/15.3e/finer-sampling-found-20mm-tags.jpg)
+
+*Figure 15.3e-b. The same still and tags, all four found with the finer bit sampling adopted for tray tags (`tags._tray_detector_parameters`). Copied into `docs/figures/` on 2026-10-23 from `~/scratch/192-tray-tags/step-R2-1_090640_702608_new-tags.jpg`.*
+
 ### 15.4 What is measured
 
 Each tray is one region; tags give identity only (decision, Aaron 2026-10-14). Trays are found by
@@ -3437,6 +3445,14 @@ detections: `~/scratch/round1-trays/tags/` (not in the repository); they differ 
 grey conversion in 3 of 53 stills compared (tag 5 twice and the offcut tag 29 once found only in the
 cache).
 
+![FastSAM outlines, trays touching, 12 of 12 placed](figures/15.5c/fastsam-touching-12-of-12.jpg)
+
+*Figure 15.5c-a. Still `092731_168752` (R2-4, trays touching): FastSAM tray outlines (green) with each tray ID and outline size in mm, 12 of 12 trays OK (11 on the first pass, tray 3 by the fallback). Copied into `docs/figures/` on 2026-10-23 from `~/scratch/194-tray-view-evidence/overlays/2-touching_R2-4_092731_168752.jpg`.*
+
+![FastSAM outlines with trays 4 and 5 merged](figures/15.5c/fastsam-trays-4-5-merged.jpg)
+
+*Figure 15.5c-b. Still `101419_730536`: the typical failure, trays 4 and 5 in one outline (red, MERGED), 10 of 12 OK. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/194-tray-view-evidence/overlays/3-failure-merged_R3_101419_730536.jpg`.*
+
 ### 15.5d Tray tracking over time (issue #171, planned under #164, method written 2026-10-16, before the analysis)
 
 **Question.** Followed through the 15 October stills in time order, does the tray splitting of
@@ -3641,6 +3657,10 @@ have a position from a patch (13 kept by patch 2, 18 filled from neighbours).
 trays in the North row around one benchmark, so how often the patches are needed or work
 elsewhere is not known. The success rate that is good enough is Aaron's to set; the slot
 reference is still provisional.
+
+![Position of each of 12 trays over 176 stills](figures/15.5d/tracking-timeline-full176.png)
+
+*Figure 15.5d-a. The timeline named above: for each tray, east-west (blue) and north-south (orange) position in every still in time order, steps marked by grey lines; a square is a patched position, a red triangle a wrong one, a red cross no position. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/track/timeline-full176.png`.*
 
 ### 15.5e The benchmark from the supervisor's photogrammetry mesh (issue #206, method written 2026-10-16, after the analysis)
 
@@ -3887,6 +3907,10 @@ or tiles centred on the seams) would separate them.
 **Limits of the evidence.** As declared above, plus: the trace covers 2 stills and one tile; the
 diagnosis stage "passed" over-counts for touching trays; one session of one hour.
 
+![Position timeline with pots in the wells](figures/15.5f/tracking-timeline-pots19-holes.png)
+
+*Figure 15.5f-a. The same kind of timeline as Figure 15.5d-a, trays 13 to 24 with pots in the wells: many red crosses (no position) and wrong positions; trays 16 and 24 almost never placed from step 5 on. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/track/timeline-pots19-holes.png`.*
+
 ### 15.5g Tray footprint from the tag (issue #213, method written 2026-10-19, before the analysis)
 
 **Label: development check.** No new photos; the 142 stills of 15.5f.
@@ -4068,6 +4092,10 @@ touching (53 to 56% raw), with either tag. The edge tag cannot be placed repeata
 is the method taken forward to the shuffling test (15.5i). It rests on one session of 22 stills,
 no ruler check of the outline, the tag lying the same way round in A1, and A1 kept free of plants.
 
+![Tray outlines placed from the cell tag in 5 steps](figures/15.5h/outlines-from-cell-tag-5-steps.jpg)
+
+*Figure 15.5h-a. The sheet named above (`cell-tag-only-steps.jpg`): one still per step (gaps, turned 180, rows swapped, pairs swapped, touching), each tray outline placed from its cell A1 tag; outlines and labels in red where the tray was not measured. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/footprint/cell-tag-only-steps.jpg`, scaled down.*
+
 ### 15.5i Shuffling rounds, trays placed from the cell tag only (issue #213, method written 2026-10-19, before the photos)
 
 **Label: development check.** Proof of concept for tracking trays through repeated moves.
@@ -4208,6 +4236,10 @@ report. Not shown: tags lying 90 or 270 degrees round (none here; the method exp
 since only the tilt is taken from the heading); more than one tag lying a different way; fewer
 than 12 trays; the outline against a measured tray edge.
 
+![Tag 1 found in one still and missed in the next](figures/15.5j/tag1-found-vs-missed.jpg)
+
+*Figure 15.5j-a. Tag 1 in cell A1, found in `121656_304541` (left) and not found in `121700_460965` 4 s later (right), looking the same: the observation above. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/tag1-found-vs-missed.jpg`.*
+
 ### 15.5k Tags in four rotations, trays turned, pushed together and shuffled (issue #217, method written 2026-10-19, before the analysis)
 
 **Label: development check.** Whether trays are placed in the right slot and turn, with no true
@@ -4254,6 +4286,10 @@ shuffled, the 15.5j rule placed every tray in every still. Taken forward into th
 Not shown: the outline against a measured tray edge; fewer than 12 trays; the 40 mm tag (offset
 learned with 30 mm tags); trays with plants, and A1 holding anything but the tag. The answer was
 checked by eye after the analysis, not fixed before it.
+
+![Eight layouts with tags in all rotations, every tray placed](figures/15.5k/rotations-8-layouts.jpg)
+
+*Figure 15.5k-a. The sheet named above: the first still of each of the 8 layouts, each tray outlined and labelled with its tray, slot and A1 corner. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/rotations-8-layouts.jpg`, scaled down.*
 
 ### 15.5l Shuffles through a day with scheduled capture (method written 2026-10-19, before the photos; results in round 2)
 
@@ -4491,6 +4527,10 @@ each tray's placed centre stayed within 0.65 mm of its evening position, and all
 in every lit still. With the lights off the camera sees no tags at all, so night stills carry no
 tray data; the app must report them as too dark, not as trays missing. Not shown: an in-between
 light level; more than one night; the morning sample is 4 stills.
+
+![Brightness and tags found per still overnight](figures/15.5l/overnight-timeline.png)
+
+*Figure 15.5l-a. The overnight timeline named above, one point per still from the 20b move to the stop: mean brightness (black, top) and tags found (blue: all 12, red: fewer; here 0 with the lights off), window lines quiet, dark, light. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round2-shuffles/overnight-timeline-2026-10-20_57f74959.png`.*
 
 ### 15.5m Time to read one photo for trays (issue #222, development check, 2026-10-21)
 
