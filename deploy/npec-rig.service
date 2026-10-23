@@ -1,14 +1,21 @@
 [Unit]
 Description=NPEC Camera Rig web console
 After=network.target
+# Never give up restarting (#62): a running experiment resumes as soon as the app is back.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/npec_camera_rig
 ExecStart=/home/pi/npec_camera_rig/.venv/bin/uvicorn npec_rig.app:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5
-Restart=on-failure
+# Restarted after any exit, not only a crash: an app that stops by itself would stop the
+# experiment's photos without a word (#62). `systemctl stop` still stops it.
+Restart=always
 RestartSec=5
+# SIGTERM lets the app close the camera cleanly. Never SIGINT: a second one skips the app's
+# shutdown and leaves the camera open (#139).
+KillSignal=SIGTERM
 
 [Install]
 WantedBy=multi-user.target
