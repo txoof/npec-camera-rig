@@ -13,9 +13,12 @@ ExecStart=/home/pi/npec_camera_rig/.venv/bin/uvicorn npec_rig.app:app --host 0.0
 # experiment's photos without a word (#62). `systemctl stop` still stops it.
 Restart=always
 RestartSec=5
-# SIGTERM lets the app close the camera cleanly. Never SIGINT: a second one skips the app's
-# shutdown and leaves the camera open (#139).
+# SIGTERM (the systemd default, stated on purpose) lets the app close the camera cleanly. Never
+# SIGINT: a second one skips the app's shutdown and leaves the camera open (#139).
 KillSignal=SIGTERM
+# Longer than the app's wait for the camera to go idle at shutdown (SHUTDOWN_CAMERA_IDLE_WAIT_S,
+# 120 s), so a stop during a long still does not kill the camera program mid-call.
+TimeoutStopSec=150
 
 [Install]
 WantedBy=multi-user.target
