@@ -4901,7 +4901,13 @@ wrong, and listed.
   the plants will likely stay in the chamber. The Round 2 results use the photos up to the end of
   5 November (chamber time); photos after it are reported apart if the run is extended. 12 maps at
   about 3 a week last to about 19 November; the disk lasts about 100 days (16.1).
-- **Open: benchmark time.** When the benchmark is taped to tray 8 (events log).
+- **Benchmark time** (found 2026-10-23, Aaron confirmed): the benchmark was put on tray 8 between
+  the photos of 09:32:53 UTC (black pots, no benchmark) and 09:33:53 UTC on 22 October (benchmark
+  on its card, the pots taken out, a person at the frame's edge and a pot on the table), 11:33
+  chamber time. Found from the green-pixel count of every photo from 09:30 to 09:59 UTC (190 to
+  265 before, 972 to 1145 after, at 800 px wide) and checked by eye
+  (`~/scratch/benchmark_time_check.jpg`). Aaron's own record said 11:53; the photos show no change
+  then. Posted to the events log on #221.
 
 ### 16.6 Limits of the evidence (as planned)
 
@@ -5177,9 +5183,9 @@ the copy; the run continues.
    failed`, and Reprocess's failed count, with the reasons from the server log); lit photos with
    trays placed but no area (segmentation failed). Counted per day and lit or dark, each failure
    listed by time.
-2. **Benchmark repeatability.** Tray 8's area in lit photos, from the time the benchmark was taped
-   on. That time is not in the events log (16.5, open): it is asked of Aaron, and if not known, taken
-   as the first lit photo whose tray 8 area is above 1000 mm² and said to be taken that way.
+2. **Benchmark repeatability.** Tray 8's area in lit photos from 09:34:53 UTC on 22 October, the
+   first photo after the benchmark was put on (16.5; the 09:33:53 photo was taken while it was
+   being put on, Aaron, 2026-10-23).
    Reported: (a) for undisturbed pairs, the change from one photo to the next as a percentage, its
    root mean square and its largest; (b) over each lit period, the mean, standard deviation,
    smallest and largest; (c) the same for the plant pixel count, to separate the threshold from the
