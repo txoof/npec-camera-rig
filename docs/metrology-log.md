@@ -5041,6 +5041,16 @@ lens position 1.0, exposure 20000 us, no calibration and no image, came with the
 counted as not read. Both were written by unit tests into the live `rig.db` (cause found under
 #241, written up in 15.5l above); they are 2 of the 6 such records, to be ignored by any analysis.
 
+![Bar charts of 20 October's misses by tray ID and by slot](figures/16.7/misses-by-tray-and-slot-2026-10-20.png)
+
+*Figure 16.7a. 20 October, misses outside the moves 15.5l found, by tray ID and by the slot the
+rig last read the tray in: 45, of which 36 are trays 1 and 3 in South 3 and South 2 in layout 19,
+most likely the folder and phone laid on them then (15.5l; not checked crop by crop here). Outside
+a move is not the same as nothing in the way: only a crop tells them apart. Made with
+`misses_chart.py ~/scratch/223-analysis/exp16 --experiment 16 --shuffles
+~/scratch/223-analysis/out/oct20-shuffles.csv` (the shuffles file made from 15.5l's moves, as
+`check_oct20.py` does).*
+
 **What this shows.** Fed the app's own readings of the 20 October photos, the analysis gives
 15.5l's answers tray by tray and still by still: the same tags found, the same slot and corner for
 every one, centres within 0.29 mm, the same lit and dark stills, and against what was laid out
