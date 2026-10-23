@@ -303,3 +303,34 @@ def test_a_replay_camera_takes_the_folders_photos_in_name_order(monkeypatch: pyt
         str(folder / "b.jpg"),
         str(folder / "a.jpg"),
     ]
+
+
+def test_a_replay_cameras_live_view_shows_the_photo_the_next_still_will_be(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    import io
+
+    from PIL import Image
+
+    from npec_rig.camera import CameraManager
+
+    folder = tmp_path / "replay"
+    folder.mkdir()
+    Image.new("RGB", (40, 30), (200, 30, 30)).save(folder / "a.jpg")
+    Image.new("RGB", (50, 20), (30, 30, 200)).save(folder / "b.jpg")
+    monkeypatch.delenv("NPEC_RIG_SYNTHETIC_CAMERA")
+    monkeypatch.setenv("NPEC_RIG_REPLAY_PHOTOS", str(folder))
+    manager = CameraManager.instance()
+
+    def views() -> list[tuple[tuple[int, int], int]]:
+        # (size, strongest colour channel) of the live preview and the main-stream snapshot.
+        out = []
+        for jpeg in (manager.preview_jpeg(), manager.snapshot_jpeg()):
+            image = Image.open(io.BytesIO(jpeg)).convert("RGB")
+            out.append((image.size, int(np.argmax(np.asarray(image).reshape(-1, 3).mean(axis=0)))))
+        return out
+
+    # The camera's stream sizes: lores 320 x 240 for the preview, main 1536 x 1152.
+    assert views() == [((320, 240), 0), ((1536, 1152), 0)]
+    take_photo("capture")
+    assert views() == [((320, 240), 2), ((1536, 1152), 2)]

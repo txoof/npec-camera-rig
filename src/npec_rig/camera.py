@@ -292,6 +292,27 @@ class ReplayBackend(SyntheticBackend):
         super().__init__()
         self._photos = sorted(folder.glob("*.jpg"))
         self._next = 0
+        self._views: dict[tuple[int, int, int], np.ndarray] = {}  # (photo, width, height)
+
+    def _view(self, width: int, height: int) -> np.ndarray:
+        """The next still's photo at a stream's size, 4 channels as the video streams are,
+        decoded once per photo and size: the live preview asks several times a second."""
+        key = (self._next, width, height)
+        if key not in self._views:
+            with Image.open(self._photos[self._next]) as image:
+                image.draft("RGB", (width, height))  # a JPEG decodes straight to near this size
+                rgb = np.asarray(image.convert("RGB").resize((width, height)))
+            frame = np.full((height, width, 4), 255, dtype=np.uint8)
+            frame[:, :, :3] = rgb
+            self._views = {k: v for k, v in self._views.items() if k[0] == self._next}
+            self._views[key] = frame
+        return self._views[key]
+
+    def capture_array(self) -> np.ndarray:
+        return self._view(self._width, self._height)
+
+    def capture_preview_array(self) -> np.ndarray:
+        return self._view(self._preview_width, self._preview_height)
 
     def capture_full_res(self) -> tuple[np.ndarray, dict]:
         _pattern, metadata = super().capture_full_res()
