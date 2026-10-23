@@ -334,3 +334,31 @@ def test_a_replay_cameras_live_view_shows_the_photo_the_next_still_will_be(
     assert views() == [((320, 240), 0), ((1536, 1152), 0)]
     take_photo("capture")
     assert views() == [((320, 240), 2), ((1536, 1152), 2)]
+
+
+@pytest.mark.parametrize(
+    ("case", "reason"),
+    [
+        ("missing", "no photos to replay in"),
+        ("empty", "no photos to replay in"),
+        ("both", "both NPEC_RIG_REPLAY_PHOTOS and NPEC_RIG_SYNTHETIC_CAMERA are set"),
+    ],
+)
+def test_a_replay_camera_that_cannot_replay_is_unavailable_not_another_camera(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, case: str, reason: str
+) -> None:
+    from PIL import Image
+
+    from npec_rig.camera import CameraUnavailableError
+
+    folder = tmp_path / "replay"
+    if case != "missing":
+        folder.mkdir()
+    if case == "both":
+        Image.new("RGB", (40, 30), (200, 30, 30)).save(folder / "a.jpg")
+    else:
+        monkeypatch.delenv("NPEC_RIG_SYNTHETIC_CAMERA")
+    monkeypatch.setenv("NPEC_RIG_REPLAY_PHOTOS", str(folder))
+
+    with pytest.raises(CameraUnavailableError, match=reason):
+        take_photo("capture")

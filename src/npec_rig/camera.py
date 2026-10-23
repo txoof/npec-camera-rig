@@ -650,6 +650,15 @@ def _default_backend() -> CameraBackend:
     that would be saved as if they were photos."""
     replay = os.environ.get("NPEC_RIG_REPLAY_PHOTOS")
     if replay:
+        # Never a quiet fall back to another camera: a test bench set to replay must not save
+        # test patterns, nor reach a real camera, as if they were the photos it was given.
+        if os.environ.get("NPEC_RIG_SYNTHETIC_CAMERA"):
+            return UnavailableBackend(
+                "The camera is set up wrongly: both NPEC_RIG_REPLAY_PHOTOS and "
+                "NPEC_RIG_SYNTHETIC_CAMERA are set. Set one."
+            )
+        if not sorted(Path(replay).glob("*.jpg")):
+            return UnavailableBackend(f"There are no photos to replay in {replay}.")
         return ReplayBackend(Path(replay))
     if os.environ.get("NPEC_RIG_SYNTHETIC_CAMERA"):
         return SyntheticBackend()
