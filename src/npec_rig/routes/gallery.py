@@ -143,12 +143,7 @@ def gallery_tags_image(path: str) -> Response:
 def gallery_green_image(path: str) -> Response:
     """Photo `path` at the screen copy's size with the pixels the green threshold takes as plant
     tinted magenta (#74). The mask is made on the screen copy, for looking at, not for areas."""
-    try:
-        found = photo_file(path)
-    except ValueError as exc:
-        raise HTTPException(422, str(exc)) from exc
-    if found is None:
-        raise HTTPException(404, f"photo {path} not found")
+    _require_photo(path)
     return derived_response("gallery_green", path, {"photo": path, "width": _GALLERY_WIDTHS["screen"], "exg_min": EXG_MIN})
 
 
@@ -158,13 +153,18 @@ def gallery_image(size: str, path: str) -> Response:
     the derived image store (images.py)."""
     if size not in _GALLERY_WIDTHS:
         raise HTTPException(404, f"no gallery size {size!r}")
+    _require_photo(path)
+    return derived_response(f"gallery_{size}", path, {"photo": path, "width": _GALLERY_WIDTHS[size]})
+
+
+def _require_photo(path: str) -> None:
+    """422 for a path that is not a photo path, 404 for a photo no longer on the rig."""
     try:
         found = photo_file(path)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     if found is None:
         raise HTTPException(404, f"photo {path} not found")
-    return derived_response(f"gallery_{size}", path, {"photo": path, "width": _GALLERY_WIDTHS[size]})
 
 
 def _render_gallery_image(inputs: dict) -> bytes:

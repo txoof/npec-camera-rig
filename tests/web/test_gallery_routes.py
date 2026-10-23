@@ -389,3 +389,4 @@ def test_green_image_marks_the_plant_square_and_leaves_the_rest() -> None:
     assert np.abs(green[inside] - plain[inside]).mean() > 40
     assert np.abs(green[outside] - plain[outside]).mean() < 8
     assert client.get("/gallery/image/green/rig/2020-01-01/000000_000000").status_code == 404
+    assert client.get("/gallery/image/green/not-a-photo").status_code == 422
