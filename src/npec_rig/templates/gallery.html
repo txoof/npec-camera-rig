@@ -172,15 +172,17 @@
       // Plant area per tray (#75): green pixels inside the tray outline at the local scale. Its
       // uncertainty comes with #76; until then the line says it is not measured.
       const measured = trays.trays.filter((t) => t.area_mm2 !== null && t.area_mm2 !== undefined);
+      let table = "";
       if (measured.length) {
         lines.push(`Plant area, ${ui.esc(measured[0].segmenter)}, uncertainty not measured yet:`);
-        for (const t of measured) {
-          lines.push(`Tray ${t.tray_id}, ${t.slot}: ${Math.round(t.area_mm2).toLocaleString("en-US")} mm²`);
-        }
+        const rows = measured.map((t) =>
+          `<tr><td>${t.tray_id}</td><td style="text-align: left">${ui.esc(t.slot)}</td><td>${Math.round(t.area_mm2).toLocaleString("en-US")}</td></tr>`).join("");
+        table = `<table class="data-table" style="max-width: 480px; margin-top: 8px"><thead><tr><th>Tray</th>`
+          + `<th style="text-align: left">Slot</th><th>Plant area (mm²)</th></tr></thead><tbody>${rows}</tbody></table>`;
       } else if (trays.trays.length) {
         lines.push("Plant area: not worked out for this photo.");
       }
-      return lines.map((line) => `<div>${line}</div>`).join("");
+      return lines.map((line) => `<div>${line}</div>`).join("") + table;
     }
 
     // The card's one tray line; the full reading is under Info.
