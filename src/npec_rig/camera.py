@@ -572,7 +572,7 @@ def lens_check(reported: float | None, locked: float | None) -> dict:
     return {"reported": reported, "locked": locked, "flagged": reason is not None, "reason": reason}
 
 
-def array_to_jpeg(frame: np.ndarray) -> bytes:
+def array_to_jpeg(frame: np.ndarray, description: str | None = None) -> bytes:
     """`frame`'s first 3 channels are literally R,G,B, in that order, with an optional 4th
     (unused padding) channel ignored -- verified directly against a known-color real-world
     reference on 2026-09-21, not inferred from picamera2's own format name (which is
@@ -580,9 +580,15 @@ def array_to_jpeg(frame: np.ndarray) -> bytes:
     see Picamera2Backend.__init__). `frame[..., :3]` takes the first three channels
     unreordered; do not add a reversal here without re-running that same direct check --
     exactly this reversal was tried and measured wrong once already (TODO.md has the account).
+    `description`, if given, is written as the EXIF ImageDescription.
     """
     buffer = io.BytesIO()
-    Image.fromarray(frame[..., :3]).convert("RGB").save(buffer, format="JPEG")
+    extra = {}
+    if description:  # other photos are written exactly as before, with no EXIF
+        exif = Image.Exif()
+        exif[0x010E] = description
+        extra["exif"] = exif
+    Image.fromarray(frame[..., :3]).convert("RGB").save(buffer, format="JPEG", **extra)
     return buffer.getvalue()
 
 

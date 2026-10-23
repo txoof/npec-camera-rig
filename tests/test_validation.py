@@ -53,6 +53,13 @@ def test_a_moved_round_at_the_calibration_focus_counts() -> None:
     assert set(round_["slot_errors"]) == {slot["name"] for slot in _session()["slots"]}
 
 
+def test_a_replayed_photo_on_the_test_bench_still_counts() -> None:
+    # The replay flag warns a person; it does not hold a test bench round back (#279).
+    round_ = _judge(tray_layout_detections(shift=(200, -150)), _record(flags=["replayed from a.jpg"]))
+    assert round_["counted"] is True
+    assert round_["reason"] is None
+
+
 def test_a_round_where_nothing_moved_is_held_back_and_can_be_counted_anyway() -> None:
     round_ = _judge(tray_layout_detections())
     assert round_["counted"] is False

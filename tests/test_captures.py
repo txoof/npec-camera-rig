@@ -379,3 +379,20 @@ def test_a_replay_camera_skips_hidden_files_and_reads_any_jpeg_name(monkeypatch:
     replayed = [take_photo("capture")[1]["sensor_metadata"]["ReplayedFrom"] for _ in range(2)]
 
     assert replayed == [str(folder / "a.JPG"), str(folder / "b.jpeg")]
+
+
+def test_a_replayed_still_says_so_in_its_flags_sidecar_and_jpeg(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    from PIL import Image
+
+    folder = tmp_path / "replay"
+    folder.mkdir()
+    Image.new("RGB", (40, 30), (200, 30, 30)).save(folder / "a.jpg")
+    monkeypatch.delenv("NPEC_RIG_SYNTHETIC_CAMERA")
+    monkeypatch.setenv("NPEC_RIG_REPLAY_PHOTOS", str(folder))
+
+    _array, record = take_photo("capture")
+
+    assert "replayed from a.jpg" in record["flags"]
+    assert record["replayed_from"] == str(folder / "a.jpg")
+    with Image.open(photos_root() / record["date"] / record["filename"]) as saved:
+        assert saved.getexif()[0x010E].startswith("Replayed from a.jpg")  # EXIF ImageDescription
