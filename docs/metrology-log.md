@@ -5036,23 +5036,10 @@ camera event (below).
 | Nothing moved (17:00 to 09:30, lit photos only) | 512 | 0.13 to 0.78 mm | 2.46 mm (tray 10) |
 | Trays may move (09:30 to 17:00, people in and out) | 345 to 365 | 0.27 to 0.71 mm | 10.17 mm (tray 6) |
 
-**Two records without an image, and their likely source.** Capture 725 (11:00:48 UTC, known in
-15.5l, "source not known") and capture 912 (14:06:48 UTC, not noticed in 15.5l) both have lens
-position 1.0, exposure 20000 us, no calibration and no image. `camera_events` has a row at
-11:00:46 UTC, 2 s before capture 725: "synthetic camera could not be opened (test switch)",
-app version d95b4d4. 20000 us is the synthetic camera's default exposure (`camera.py`). Both are
-therefore likely written into the live `rig.db` by test runs, the leak fixed on 21 October (#253,
-PR #254); not proven, and not looked at further. `rig.db` holds 6 capture records with lens 1.0
-and exposure 20000 us in all. Nothing was changed in the live `rig.db`.
-
-![Bar charts of 20 October's misses by tray ID and by slot](figures/16.7/misses-by-tray-and-slot-2026-10-20.png)
-
-*Figure 16.7a. 20 October, misses outside the moves 15.5l found, by tray ID and by the slot the
-rig last read the tray in: 45, of which 36 are trays 1 and 3 in South 3 and South 2 in layout 19,
-most likely the folder and phone laid on them then (15.5l; not checked crop by crop here). Outside a move is not the same as nothing in the
-way: only a crop tells them apart. Made with `misses_chart.py ~/scratch/223-analysis/exp16
---experiment 16 --shuffles ~/scratch/223-analysis/out/oct20-shuffles.csv` (the shuffles file made
-from 15.5l's moves, as `check_oct20.py` does).*
+**Two records without an image.** Capture 725 (11:00:48 UTC) and capture 912 (14:06:48 UTC), both
+lens position 1.0, exposure 20000 us, no calibration and no image, came with the copy and were
+counted as not read. Both were written by unit tests into the live `rig.db` (cause found under
+#241, written up in 15.5l above); they are 2 of the 6 such records, to be ignored by any analysis.
 
 **What this shows.** Fed the app's own readings of the 20 October photos, the analysis gives
 15.5l's answers tray by tray and still by still: the same tags found, the same slot and corner for
