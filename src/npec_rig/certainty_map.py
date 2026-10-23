@@ -166,6 +166,11 @@ def build_slot_layout(sheets: list[Sheet], columns: int = DEFAULT_COLUMNS) -> tu
     return tuple(slots)
 
 
+def _sheet_text(sheet: Sheet) -> str:
+    ids = [t.tag_id for t in sheet.tags]
+    return f"the sheet with tags {min(ids)} to {max(ids)}"
+
+
 def _off_slot_text(
     sheet: Sheet, layout: tuple[Slot, ...], scale_field: ScaleField, trays: list[TrayPlacement]
 ) -> str:
@@ -191,8 +196,7 @@ def _off_slot_text(
                          (east_mm, "east" if east_mm > 0 else "west"))
         if abs(round(mm, -1)) >= 10
     ]
-    ids = [t.tag_id for t in sheet.tags]
-    text = f"the sheet with tags {min(ids)} to {max(ids)} is about {' and '.join(parts)} of {layout[nearest].name}"
+    text = f"{_sheet_text(sheet)} is about {' and '.join(parts)} of {layout[nearest].name}"
     text += (
         ", outside the slots"
         if towards is None
@@ -231,7 +235,10 @@ def sheets_by_slot(
                 "put it back on its tray"
             )
         if name in placed:
-            raise SlotLayoutError(f"two sheets are on slot {name}: one sheet per tray")
+            raise SlotLayoutError(
+                f"two sheets are on slot {name}, {_sheet_text(placed[name])} and "
+                f"{_sheet_text(sheet)}: one sheet per tray"
+            )
         placed[name] = sheet
     return placed
 

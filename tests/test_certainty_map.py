@@ -178,6 +178,17 @@ def test_two_sheets_on_one_slot_are_refused() -> None:
         certainty_by_slot(tray_layout_detections(), [tray_layout_detections() + extra], FIELD, TAG_MM)
 
 
+def test_two_sheets_on_one_slot_are_named_by_their_tags() -> None:
+    # A one-column strip of tags 300 to 305 beside North 1's full sheet of tags 300 to 329.
+    extra = sheet_detections(300, 800.0 + 4 * 160.0 + 300.0, 1000.0, columns=1, rows=6)
+    with pytest.raises(SlotLayoutError) as exc:
+        certainty_by_slot(tray_layout_detections(), [tray_layout_detections() + extra], FIELD, TAG_MM)
+    assert (
+        "two sheets are on slot North 1, the sheet with tags 300 to 329 and the sheet with "
+        "tags 300 to 305" in str(exc.value)
+    )
+
+
 def test_an_untouched_layout_has_not_moved() -> None:
     centres = calibration_centres(tray_layout_detections())
     assert moved_fraction(centres, [centres], FIELD) == 0.0
