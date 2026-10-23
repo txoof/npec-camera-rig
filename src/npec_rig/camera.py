@@ -281,6 +281,27 @@ class SyntheticBackend(CameraBackend):
         return frame
 
 
+class ReplayBackend(SyntheticBackend):
+    """Saved photos taken again as new stills, for a test bench with no rig table under its
+    camera (#279): each still is the next JPEG of `folder` in name order, starting over after
+    the last. Chosen only by NPEC_RIG_REPLAY_PHOTOS, never by default, and every still says
+    which file it replayed (`ReplayedFrom` in its sensor metadata), so a replayed still is never
+    taken for a real one. Lens and controls behave as the synthetic camera's."""
+
+    def __init__(self, folder: Path) -> None:
+        super().__init__()
+        self._photos = sorted(folder.glob("*.jpg"))
+        self._next = 0
+
+    def capture_full_res(self) -> tuple[np.ndarray, dict]:
+        _pattern, metadata = super().capture_full_res()
+        path = self._photos[self._next]
+        self._next = (self._next + 1) % len(self._photos)
+        with Image.open(path) as image:
+            frame = np.asarray(image.convert("RGB"))
+        return frame, {**metadata, "ReplayedFrom": str(path)}
+
+
 class Picamera2Backend(CameraBackend):
     """Wraps picamera2. The only code in this project touching the camera.
 
@@ -606,6 +627,9 @@ def _default_backend() -> CameraBackend:
     camera only when the camera software (picamera2) is not installed. A camera that is installed
     but does not open is a fault the status line shows, never a silent switch to synthetic frames
     that would be saved as if they were photos."""
+    replay = os.environ.get("NPEC_RIG_REPLAY_PHOTOS")
+    if replay:
+        return ReplayBackend(Path(replay))
     if os.environ.get("NPEC_RIG_SYNTHETIC_CAMERA"):
         return SyntheticBackend()
     from npec_rig.camera_process import ProcessBackend

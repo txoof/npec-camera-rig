@@ -279,3 +279,27 @@ def test_photo_file_finds_rig_and_experiment_photos(two_roots, tmp_path) -> None
 def test_photo_file_rejects_anything_not_shaped_like_a_gallery_path(path) -> None:
     with pytest.raises(ValueError):
         captures.photo_file(path)
+
+
+def test_a_replay_camera_takes_the_folders_photos_in_name_order(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    # Two saved photos of different sizes and colours; a third still starts over at the first.
+    from PIL import Image
+
+    folder = tmp_path / "replay"
+    folder.mkdir()
+    Image.new("RGB", (40, 30), (200, 30, 30)).save(folder / "a.jpg")
+    Image.new("RGB", (50, 20), (30, 30, 200)).save(folder / "b.jpg")
+    monkeypatch.delenv("NPEC_RIG_SYNTHETIC_CAMERA")
+    monkeypatch.setenv("NPEC_RIG_REPLAY_PHOTOS", str(folder))
+
+    stills = [take_photo("capture") for _ in range(3)]
+
+    assert [array.shape for array, _record in stills] == [(30, 40, 3), (20, 50, 3), (30, 40, 3)]
+    # JPEG is lossy: the colour, not the exact pixel values.
+    reds = [array.reshape(-1, 3).mean(axis=0) for array, _record in stills]
+    assert [int(np.argmax(c)) for c in reds] == [0, 2, 0]
+    assert [record["sensor_metadata"]["ReplayedFrom"] for _array, record in stills] == [
+        str(folder / "a.jpg"),
+        str(folder / "b.jpg"),
+        str(folder / "a.jpg"),
+    ]
