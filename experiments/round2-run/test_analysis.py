@@ -104,7 +104,7 @@ def test_steadiness_is_the_rms_and_largest_centre_change_over_undisturbed_pairs(
     pairs = analysis.pairs(photos, breaks=[], camera_events=[])
     # 0.1 mm per pixel: changes of 5 px (0.5 mm) and 0; the flagged photo's pair is left out.
     # rms = sqrt((0.5^2 + 0^2) / 2) = 0.3536 mm.
-    rows = analysis.steadiness(photos, pairs, centres, mm_per_px=lambda x, y: 0.1)
+    rows = analysis.steadiness(photos, pairs, centres, mm_per_px=lambda cal, x, y: 0.1)
     assert rows == [
         {"tray": 8, "window": "nothing moved", "pairs": 2, "rms_mm": pytest.approx(0.35355, abs=1e-4),
          "max_mm": pytest.approx(0.5)},
@@ -199,3 +199,29 @@ def test_a_tray_missed_before_it_was_ever_read_has_no_slot():
     readings = {0: {2: ("South 1", "NE", "placed")}, 1: {1: ("North 2", "SW", "placed"), 2: ("South 1", "NE", "placed")}}
     result = analysis.misses(photos, readings, [], trays=[1, 2])
     assert [(m["tray"], m["slot"]) for m in result["misses"]] == [(1, "not read yet")]
+
+
+def test_a_tray_read_that_is_not_on_the_map_counts_as_wrong():
+    slots = {"North 1": {"tray": 1, "a1": "SW"}}
+    shuffles = [{"shuffle": "0", "slots": slots, "start": None, "finish": T0}]
+    readings = {0: {1: ("North 1", "SW", "placed"), 29: ("North 3", "NE", "placed")}}
+    result = analysis.tracking([photo(0)], readings, shuffles)
+    assert (result["shuffles"][0]["right"], result["shuffles"][0]["wrong"]) == (1, 1)
+    assert [(w["tray"], w["read"], w["map"]) for w in result["wrong"]] == [(29, ("North 3", "NE"), None)]
+
+
+def test_a_map_that_names_a_tray_twice_is_refused():
+    slots = {"North 1": {"tray": 1, "a1": "SW"}, "North 2": {"tray": 1, "a1": "NE"}}
+    with pytest.raises(ValueError, match="tray 1"):
+        analysis.tracking([photo(0)], {}, [{"shuffle": "3", "slots": slots, "start": None, "finish": T0}])
+
+
+def test_steadiness_uses_the_scale_of_the_pair_s_own_calibration():
+    photos = [photo(0), photo(1), photo(2, calibration="C2"), photo(3, calibration="C2")]
+    centres = {i: {8: (0.0, 10.0 * i)} for i in range(4)}
+    pairs = analysis.pairs(photos, breaks=[], camera_events=[])
+    # 10 px per step: C1 at 0.1 mm/px gives 1.0 mm, C2 at 0.2 mm/px gives 2.0 mm; the pair across
+    # the change of calibration is left out.
+    rows = analysis.steadiness(photos, pairs, centres, mm_per_px=lambda cal, x, y: {"C1": 0.1, "C2": 0.2}[cal])
+    assert (rows[0]["pairs"], rows[0]["max_mm"]) == (2, pytest.approx(2.0))
+    assert rows[0]["rms_mm"] == pytest.approx(((1.0 ** 2 + 2.0 ** 2) / 2) ** 0.5)

@@ -12,13 +12,13 @@ OUT-detection.csv, OUT-tracking.csv, OUT-pairs.csv and prints the tables.
 import argparse
 import csv
 import json
-import os
 import sqlite3
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
 import analysis
+import read_photos
 
 STILL_SCENE = range(8, 13)  # trays 8 to 12: black pots, nothing grows (16.1)
 PLANT_TRAYS = range(1, 8)
@@ -33,7 +33,9 @@ def load(workdir, experiment_id):
     `app_up_s` is read from each photo's sidecar file (read only), None when not known."""
     conn = sqlite3.connect(f"file:{workdir / 'rig.db'}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
-    experiments_dir = Path(os.environ.get("NPEC_RIG_EXPERIMENTS_DIR", "/var/lib/npec-rig/experiments"))
+    from npec_rig.captures import experiments_root
+
+    experiments_dir = experiments_root()
     photos = []
     for row in conn.execute(
         "SELECT c.*, r.status FROM capture c LEFT JOIN tray_read r ON r.capture_id = c.id"
@@ -57,7 +59,10 @@ def load(workdir, experiment_id):
     ):
         centres.setdefault(row["capture_id"], {})[row["tray_id"]] = (row["centre_x_px"], row["centre_y_px"])
         placements.setdefault(row["capture_id"], {})[row["tray_id"]] = (row["slot"], row["a1_corner"], row["placement"])
-    camera_events = [utc(r[0]) for r in conn.execute("SELECT time_utc FROM camera_events")]
+    # Rows from the synthetic camera were written by unit tests leaking into the live rig.db (#241,
+    # #253): the rig never runs it, so they are not camera events.
+    camera_events = [utc(r[0]) for r in conn.execute(
+        "SELECT time_utc FROM camera_events WHERE COALESCE(detail, '') NOT LIKE '%synthetic camera%'")]
     conn.close()
     return photos, centres, placements, camera_events
 
@@ -77,11 +82,16 @@ def read_events(path):
     return [(utc(r["time_utc"]), r["event"]) for r in csv.DictReader(Path(path).open())] if path else []
 
 
-def scale(calibration):
-    """mm per pixel at a point, from the calibration's scale field (read from WORKDIR's copy)."""
+_scales = {}
+
+
+def scale(calibration, x, y):
+    """mm per pixel at a point under `calibration`, from its scale field (read from the copy)."""
     from npec_rig.calibration_store import load_saved_calibration
 
-    return load_saved_calibration(calibration).scale_field.mm_per_px
+    if calibration not in _scales:
+        _scales[calibration] = load_saved_calibration(calibration).scale_field.mm_per_px
+    return _scales[calibration](x, y)
 
 
 def write_csv(path, rows):
@@ -104,13 +114,11 @@ def table(title, rows, keys):
 
 def report(photos, centres, placements, camera_events, shuffles, events, out):
     breaks = [(s["start"] or s["finish"], s["finish"]) for s in shuffles] + [(t, t) for t in events]
-    pairs = analysis.pairs([p for p in photos if p["status"] != "not read yet"], breaks, camera_events)
+    # Every photo goes in, read or not: a photo not read breaks the pair across it (16.3, rule 3).
+    pairs = analysis.pairs(photos, breaks, camera_events)
     reasons = Counter(p["reason"] or "undisturbed" for p in pairs)
     print("Pairs:", dict(reasons))
-    calibrations = {p["calibration"] for p in photos if p["calibration"]}
-    if len(calibrations) != 1:
-        raise SystemExit(f"expected one calibration, found {sorted(calibrations)}")
-    steady = analysis.steadiness(photos, pairs, centres, scale(calibrations.pop()))
+    steady = analysis.steadiness(photos, pairs, centres, scale)
     trays = sorted({t for found in centres.values() for t in found})
     found = {cid: set(t) for cid, t in centres.items()}
     detected = analysis.detection(photos, found, trays)
@@ -150,9 +158,7 @@ def main():
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
     workdir = args.workdir.resolve()
-    os.environ["NPEC_RIG_DB_PATH"] = str(workdir / "rig.db")
-    os.environ["NPEC_RIG_CALIBRATION_DIR"] = str(workdir / "calibration")
-    os.environ["NPEC_RIG_DERIVED_DIR"] = str(workdir / "derived")
+    read_photos.use_copy(workdir)
 
     maps = {str(m["map"]): m["slots"] for m in json.loads(args.maps.read_text())["maps"]}
     shuffles = read_shuffles(args.shuffles, maps)

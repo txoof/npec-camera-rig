@@ -76,3 +76,16 @@ def test_a_file_gives_the_shuffles_and_events_in_utc_in_order():
 def test_a_file_that_cannot_be_right_stops_with_the_rows_named(rows, words):
     with pytest.raises(ValueError, match=words):
         chamber_times.convert(rows, MAPS)
+
+
+@pytest.mark.parametrize("clock", ["02:30", "02:00"])
+def test_a_time_in_the_repeated_hour_of_the_clock_change_is_refused(clock):
+    # 25 October 2026: 02:00 to 03:00 chamber time happens twice (03:00 summer time becomes 02:00).
+    with pytest.raises(ValueError, match="happened twice"):
+        chamber_times.to_utc(row(kind="event", map="", date="2026-10-25", start=clock, finish=""), MAPS)
+
+
+def test_a_map_name_that_is_not_a_number_is_refused_with_the_row_named():
+    with pytest.raises(ValueError, match="no map 20b") as raised:
+        chamber_times.to_utc(row(map="20b"), MAPS)
+    assert "2026-10-23" in str(raised.value)

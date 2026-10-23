@@ -3,6 +3,7 @@ tray tracking, from the rig's own tray readings. Plain rows in, tables out; read
 copy of rig.db is left to the script that calls these.
 """
 
+import bisect
 import math
 from datetime import time
 from zoneinfo import ZoneInfo
@@ -59,8 +60,10 @@ def _reason(a, b, breaks, camera_events):
 def steadiness(photos, pairs, centres, mm_per_px):
     """Per tray and movement window: undisturbed pairs, rms and largest change of the placed
     centre in mm (16.4, question 1). `centres` is {capture_id: {tray: (x_px, y_px)}};
-    `mm_per_px(x, y)` is the calibration's scale at a point. A pair's window is its later photo's."""
+    `mm_per_px(calibration, x, y)` is that calibration's scale at a point (an undisturbed pair has
+    one calibration). A pair's window is its later photo's."""
     taken = {p["capture_id"]: p["taken_at"] for p in photos}
+    calibration = {p["capture_id"]: p["calibration"] for p in photos}
     changes = {}
     for pair in pairs:
         if pair["reason"] is not None:
@@ -69,7 +72,8 @@ def steadiness(photos, pairs, centres, mm_per_px):
         _, win = window(taken[pair["after"]])
         for tray in before.keys() & after.keys():
             (x0, y0), (x1, y1) = before[tray], after[tray]
-            mm = math.hypot(x1 - x0, y1 - y0) * mm_per_px((x0 + x1) / 2, (y0 + y1) / 2)
+            scale = mm_per_px(calibration[pair["after"]], (x0 + x1) / 2, (y0 + y1) / 2)
+            mm = math.hypot(x1 - x0, y1 - y0) * scale
             changes.setdefault((tray, win), []).append(mm)
     return [
         {"tray": tray, "window": win, "pairs": len(mm), "rms_mm": math.sqrt(sum(c * c for c in mm) / len(mm)),
@@ -117,18 +121,22 @@ def tracking(photos, readings, shuffles):
     the end). `readings` is {capture_id: {tray: (slot, a1, placement)}}. Per shuffle: read photos,
     and each tray right (slot and corner as the layout), wrong, doubtful (the app marked the
     placement other than "placed", for example "two trays in one slot", listed apart) or not found;
-    photos with another status are counted as not read. Photos during a shuffle belong to none."""
+    a tray read that the layout does not hold is wrong. Photos with another status are counted as
+    not read; photos during a shuffle belong to none. A layout naming a tray twice raises ValueError."""
     ordered = sorted(shuffles, key=lambda s: s["finish"])
     by_time = sorted(photos, key=lambda p: p["taken_at"])
+    times = [p["taken_at"] for p in by_time]
     rows, wrong, doubtful = [], [], []
     for n, shuffle in enumerate(ordered):
         until = ordered[n + 1]["start"] if n + 1 < len(ordered) else None
+        named = [v["tray"] for v in shuffle["slots"].values()]
+        twice = sorted({t for t in named if named.count(t) > 1})
+        if twice:
+            raise ValueError(f"layout {shuffle['shuffle']} names tray {twice[0]} twice")
         planned = {v["tray"]: (slot, v["a1"]) for slot, v in shuffle["slots"].items()}
         row = {"shuffle": shuffle["shuffle"], "photos": 0, "right": 0, "wrong": 0, "doubtful": 0,
                "not found": 0, "not read": 0}
-        for p in by_time:
-            if p["taken_at"] < shuffle["finish"]:
-                continue
+        for p in by_time[bisect.bisect_left(times, shuffle["finish"]):]:
             if until is not None and p["taken_at"] >= until:
                 break
             if p["status"] != "read":
@@ -151,6 +159,12 @@ def tracking(photos, readings, shuffles):
                 else:
                     row["wrong"] += 1
                     wrong.append(seen)
+            # A tray read that the layout does not hold (a misread or stray tag) is wrong too.
+            for tray in sorted(set(read) - set(planned)):
+                slot, a1, _ = read[tray]
+                row["wrong"] += 1
+                wrong.append({"shuffle": shuffle["shuffle"], "capture_id": p["capture_id"],
+                              "taken_at": p["taken_at"], "tray": tray, "read": (slot, a1), "map": None})
         rows.append(row)
     return {"shuffles": rows, "wrong": wrong, "doubtful": doubtful}
 

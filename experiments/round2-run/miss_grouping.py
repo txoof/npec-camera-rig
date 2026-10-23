@@ -4,10 +4,12 @@ Reads the photos and a copy of rig.db (read_photos.py) only.
 
     python miss_grouping.py   # the copy in ~/scratch/223-analysis/exp18
 """
-import os, sqlite3
+import sqlite3
 from pathlib import Path
+
+import read_photos
 W = Path.home()/'scratch/223-analysis/exp18'
-os.environ['NPEC_RIG_DB_PATH'] = str(W/'rig.db'); os.environ['NPEC_RIG_DERIVED_DIR'] = str(W/'derived')
+read_photos.use_copy(W)
 import cv2, numpy as np
 from npec_rig import images, tags
 from npec_rig.tags import to_grayscale
@@ -28,8 +30,10 @@ def run(gray, rate=None):
 print("time UTC | tray | default | larger shape near tag (avg corner distance, px) | threshold px | 0.08 | 0.05 | other tray tags 0.05 vs default")
 for t, tray in misses:
     cid, path = c.execute("select id, path from capture where experiment_id=18 and taken_at like ?", (t + "%",)).fetchone()
-    before = c.execute("select path from capture where id=?", (cid - 1,)).fetchone()[0]
-    ref = next(x for x in images.stored_tag_detections(before) if x.tag_id == tray)
+    # The tag's corners from the latest earlier photo of the same experiment that found it.
+    earlier = c.execute("select path from capture where experiment_id=18 and taken_at < ? order by taken_at desc",
+                        (t,)).fetchall()
+    ref = next(x for (p,) in earlier for x in (images.stored_tag_detections(p) or []) if x.tag_id == tray)
     true = np.array(ref.corners)
     per = sum(np.linalg.norm(true[i] - true[(i + 1) % 4]) for i in range(4))
     gray = to_grayscale(cv2.imread(f"/var/lib/npec-rig/{path}.jpg")[:, :, ::-1]).astype(np.uint8)

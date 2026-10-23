@@ -20,6 +20,9 @@ from analysis import CHAMBER, MOVING_FROM, MOVING_TO
 
 def _utc(date, clock):
     local = datetime.fromisoformat(f"{date}T{clock}").replace(tzinfo=CHAMBER)
+    # In the hour the clocks go back the same chamber time happened twice: which is not known.
+    if local.utcoffset() != local.replace(fold=1).utcoffset():
+        raise ValueError(f"{date} {clock} happened twice (the clocks went back); give it in UTC")
     return local.astimezone(UTC)
 
 
@@ -30,7 +33,7 @@ def to_utc(row, maps):
     the row."""
     where = f"{row['kind']} {row['map']} on {row['date']} {row['start']} to {row['finish']}".strip()
     if row["kind"] == "shuffle":
-        if not row["map"] or int(row["map"]) not in maps:
+        if row["map"] not in {str(m) for m in maps}:
             raise ValueError(f"{where}: no map {row['map']} in the maps file")
         if not row["finish"] or (not row["start"] and row["map"] != "0"):
             raise ValueError(f"{where}: no start or no finish")
@@ -44,10 +47,15 @@ def to_utc(row, maps):
             raise ValueError(f"{where}: an event needs its time in start")
     else:
         raise ValueError(f"{where}: kind must be shuffle or event")
+    try:
+        start = _utc(row["date"], row["start"]) if row["start"] else None
+        finish = _utc(row["date"], row["finish"]) if row["finish"] else None
+    except ValueError as exc:
+        raise ValueError(f"{where}: {exc}") from None
     return {
         "kind": row["kind"], "map": row["map"],
-        "start_utc": _utc(row["date"], row["start"]) if row["start"] else None,
-        "finish_utc": _utc(row["date"], row["finish"]) if row["finish"] else None,
+        "start_utc": start,
+        "finish_utc": finish,
         "note": row["note"],
     }
 

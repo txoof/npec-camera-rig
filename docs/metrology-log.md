@@ -5027,14 +5027,15 @@ counted here; the 455 not read are the 453 dark stills and the 2 records with no
 wrong in 20a are 7 trays turned from the map in 4 photos, as 15.5l found (3 settled stills there).
 
 **Steadiness** (16.4, question 1; a new number on these photos, change between undisturbed
-pairs, not 15.5l's spread about a layout's mean). Pairs: 877 undisturbed; 57 across a shuffle;
-454 with a photo not read; 1 with photos missed (07:53 to 07:56, the interval change); 1 across a
-camera event (below).
+pairs, not 15.5l's spread about a layout's mean). Pairs: 876 undisturbed; 57 across a shuffle;
+454 next to a photo not read (the 453 dark stills); 4 next to the 2 records with no image (no
+calibration); 1 with photos missed (07:53 to 07:56, the interval change). The camera event of
+11:00:46 UTC was written by a unit test (#241) and is not counted as one.
 
 | Window | Pairs per tray | rms change per tray | Largest single change |
 |---|---|---|---|
 | Nothing moved (17:00 to 09:30, lit photos only) | 512 | 0.13 to 0.78 mm | 2.46 mm (tray 10) |
-| Trays may move (09:30 to 17:00, people in and out) | 345 to 365 | 0.27 to 0.71 mm | 10.17 mm (tray 6) |
+| Trays may move (09:30 to 17:00, people in and out) | 344 to 364 | 0.27 to 0.71 mm | 10.17 mm (tray 6) |
 
 **Two records without an image.** Capture 725 (11:00:48 UTC) and capture 912 (14:06:48 UTC), both
 lens position 1.0, exposure 20000 us, no calibration and no image, came with the copy and were

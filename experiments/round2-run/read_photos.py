@@ -33,22 +33,28 @@ def copy_live(workdir: Path) -> None:
     shutil.copytree(LIVE_CALIBRATION, workdir / "calibration", dirs_exist_ok=True)
 
 
+def use_copy(workdir: Path) -> None:
+    """Point npec_rig at the copy in `workdir`: its rig.db, calibration and derived folders. Call
+    before anything from npec_rig reads them."""
+    os.environ["NPEC_RIG_DB_PATH"] = str(workdir / "rig.db")
+    os.environ["NPEC_RIG_CALIBRATION_DIR"] = str(workdir / "calibration")
+    os.environ["NPEC_RIG_DERIVED_DIR"] = str(workdir / "derived")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("workdir", type=Path)
     parser.add_argument("--experiment", type=int, required=True)
     args = parser.parse_args()
     workdir = args.workdir.resolve()
-    if workdir == LIVE_DB.parent or not str(workdir).startswith(str(Path.home())):
+    if not workdir.is_relative_to(Path.home()) or workdir.is_relative_to(LIVE_DB.parent):
         sys.exit("WORKDIR must be a folder under your home, not the live data folder")
     # The copy is made once: copying again would replace the readings already made in it.
     # For photos taken since, use a new WORKDIR.
     if not (workdir / "rig.db").exists():
         copy_live(workdir)
 
-    os.environ["NPEC_RIG_DB_PATH"] = str(workdir / "rig.db")
-    os.environ["NPEC_RIG_CALIBRATION_DIR"] = str(workdir / "calibration")
-    os.environ["NPEC_RIG_DERIVED_DIR"] = str(workdir / "derived")
+    use_copy(workdir)
     from npec_rig import tray_readings
 
     conn = sqlite3.connect(workdir / "rig.db")

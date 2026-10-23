@@ -18,11 +18,11 @@ import argparse
 import csv
 import json
 import math
-import os
 from datetime import timedelta
 from pathlib import Path
 
 import analyse
+import read_photos
 
 ROUND1 = Path(__file__).resolve().parent.parent / "round1-trays"
 HERE = Path(__file__).resolve().parent
@@ -66,22 +66,13 @@ def main():
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
     workdir = args.workdir.resolve()
-    os.environ["NPEC_RIG_DB_PATH"] = str(workdir / "rig.db")
-    os.environ["NPEC_RIG_CALIBRATION_DIR"] = str(workdir / "calibration")
-    os.environ["NPEC_RIG_DERIVED_DIR"] = str(workdir / "derived")
+    read_photos.use_copy(workdir)
 
     photos, centres, placements, camera_events = analyse.load(workdir, 16)
     by_stem = {stem(p["path"]): p for p in photos}
     day_rows = list(csv.DictReader((ROUND1 / "shuffle-day-2026-10-20_57f74959.csv").open()))
     night_rows = list(csv.DictReader((ROUND1 / "overnight-2026-10-20_57f74959.csv").open()))
     laid_out = json.loads((HERE / "sessions/as-laid-out-2026-10-20.json").read_text())
-    scales = {}
-
-    def mm_per_px(p, x, y):
-        if p["calibration"] not in scales:
-            scales[p["calibration"]] = analyse.scale(p["calibration"])
-        return scales[p["calibration"]](x, y)
-
     print("1. Still by still against 15.5l")
     counts = {"tray positions": 0, "same found": 0, "same slot and corner": 0, "centre within 1 mm": 0}
     differ, worst = [], 0.0
@@ -104,7 +95,7 @@ def main():
         else:
             differ.append((r["still"], tray, f"15.5l {r['slot']} {r['a1']}, app {placements[cid][tray][:2]}"))
         (x, y), (x0, y0) = centres[cid][tray], (float(r["x_px"]), float(r["y_px"]))
-        mm = math.hypot(x - x0, y - y0) * mm_per_px(p, x0, y0)
+        mm = math.hypot(x - x0, y - y0) * analyse.scale(p["calibration"], x0, y0)
         worst = max(worst, mm)
         if mm <= CENTRE_TOLERANCE_MM:
             counts["centre within 1 mm"] += 1
