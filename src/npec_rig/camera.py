@@ -225,16 +225,18 @@ class SyntheticBackend(CameraBackend):
 
     def capture_full_res(self) -> tuple[np.ndarray, dict]:
         self._maybe_hang("capture_full_res")
+        return self._pattern(self._width, self._height, channels=3), self._sensor_metadata()
+
+    def _sensor_metadata(self) -> dict:
         # Same key set as Picamera2Backend.capture_full_res (SENSOR_METADATA_FIELDS) — no real
         # optics to report ColourGains/SensorTimestamp from, so those two are fixed placeholders.
-        metadata = {
+        return {
             "SensorTimestamp": 0,
             "ExposureTime": self._controls["ExposureTime"],
             "AnalogueGain": self._controls["AnalogueGain"],
             "ColourGains": (1.0, 1.0),
             "LensPosition": self._lens_position,
         }
-        return self._pattern(self._width, self._height, channels=3), metadata
 
     def set_lens_position(self, value: float) -> None:
         self._maybe_hang("set_lens_position")
@@ -279,6 +281,59 @@ class SyntheticBackend(CameraBackend):
         if channels == 4:
             frame[:, :, 3] = 255
         return frame
+
+
+class ReplayBackend(SyntheticBackend):
+    """Saved photos taken again as new stills, for a test bench with no rig table under its
+    camera (#279): each still is the next JPEG of `folder` in name order, starting over after
+    the last. Chosen only by NPEC_RIG_REPLAY_PHOTOS, never by default, and every still says
+    which file it replayed (`ReplayedFrom` in its sensor metadata), so a replayed still is never
+    taken for a real one. Lens and controls behave as the synthetic camera's, and so do the
+    still's other sensor values: they are not the replayed photo's.
+
+    Raises ValueError when `folder` holds no photos. Hidden files are skipped: a copy from a
+    Mac leaves a "._" file, not a JPEG, beside each photo."""
+
+    def __init__(self, folder: Path) -> None:
+        super().__init__()
+        self._photos = sorted(
+            path
+            for path in (folder.iterdir() if folder.is_dir() else ())
+            if path.suffix.lower() in (".jpg", ".jpeg") and not path.name.startswith(".")
+        )
+        if not self._photos:
+            raise ValueError(f"There are no photos to replay in {folder}.")
+        self._next = 0
+        self._views: dict[tuple[int, int, int], np.ndarray] = {}  # (photo, width, height)
+
+    def _view(self, width: int, height: int) -> np.ndarray:
+        """The next still's photo at a stream's size, 4 channels as the video streams are,
+        decoded once per photo and size: the live preview asks several times a second."""
+        key = (self._next, width, height)
+        if key not in self._views:
+            with Image.open(self._photos[self._next]) as image:
+                image.draft("RGB", (width, height))  # a JPEG decodes straight to near this size
+                rgb = np.asarray(image.convert("RGB").resize((width, height)))
+            frame = np.full((height, width, 4), 255, dtype=np.uint8)
+            frame[:, :, :3] = rgb
+            frame.setflags(write=False)  # one cached frame serves every caller: none may draw on it
+            self._views = {k: v for k, v in self._views.items() if k[0] == self._next}
+            self._views[key] = frame
+        return self._views[key]
+
+    def capture_array(self) -> np.ndarray:
+        return self._view(self._width, self._height)
+
+    def capture_preview_array(self) -> np.ndarray:
+        return self._view(self._preview_width, self._preview_height)
+
+    def capture_full_res(self) -> tuple[np.ndarray, dict]:
+        metadata = self._sensor_metadata()
+        path = self._photos[self._next]
+        self._next = (self._next + 1) % len(self._photos)
+        with Image.open(path) as image:
+            frame = np.asarray(image.convert("RGB"))
+        return frame, {**metadata, "ReplayedFrom": str(path)}
 
 
 class Picamera2Backend(CameraBackend):
@@ -517,7 +572,7 @@ def lens_check(reported: float | None, locked: float | None) -> dict:
     return {"reported": reported, "locked": locked, "flagged": reason is not None, "reason": reason}
 
 
-def array_to_jpeg(frame: np.ndarray) -> bytes:
+def array_to_jpeg(frame: np.ndarray, description: str | None = None) -> bytes:
     """`frame`'s first 3 channels are literally R,G,B, in that order, with an optional 4th
     (unused padding) channel ignored -- verified directly against a known-color real-world
     reference on 2026-09-21, not inferred from picamera2's own format name (which is
@@ -525,9 +580,15 @@ def array_to_jpeg(frame: np.ndarray) -> bytes:
     see Picamera2Backend.__init__). `frame[..., :3]` takes the first three channels
     unreordered; do not add a reversal here without re-running that same direct check --
     exactly this reversal was tried and measured wrong once already (TODO.md has the account).
+    `description`, if given, is written as the EXIF ImageDescription.
     """
     buffer = io.BytesIO()
-    Image.fromarray(frame[..., :3]).convert("RGB").save(buffer, format="JPEG")
+    extra = {}
+    if description:  # other photos are written exactly as before, with no EXIF
+        exif = Image.Exif()
+        exif[0x010E] = description
+        extra["exif"] = exif
+    Image.fromarray(frame[..., :3]).convert("RGB").save(buffer, format="JPEG", **extra)
     return buffer.getvalue()
 
 
@@ -587,10 +648,12 @@ class UnavailableBackend(CameraBackend):
     """Stands in when the camera program could not even be started: every call says so at once
     (503 in the browser) and the state is in health.py, instead of an error page on every route."""
 
-    def __init__(self, reason: str) -> None:
+    def __init__(
+        self, reason: str, advice: str = "Restart the app; if this stays, the Pi needs a restart."
+    ) -> None:
         from npec_rig import health
 
-        self._reason = f"{reason} Restart the app; if this stays, the Pi needs a restart."
+        self._reason = f"{reason} {advice}"
         health.record_camera_state(health.CAMERA_FAILED_TO_REOPEN, self._reason)
 
     def _fail(self, *_args: object) -> None:
@@ -601,11 +664,30 @@ class UnavailableBackend(CameraBackend):
     available_controls = get_controls = set_control = _fail
 
 
+# A replay camera that cannot start is a setting to fix, not a fault a Pi restart clears.
+_REPLAY_ADVICE = "Fix the setting (deploy/test-bench-replay.conf), then restart the app."
+
+
 def _default_backend() -> CameraBackend:
-    """The real camera, in its own program (camera_process.py, #51). Falls back to the synthetic
+    """The replay camera when NPEC_RIG_REPLAY_PHOTOS is set (a test bench, #279), else the real
+    camera, in its own program (camera_process.py, #51). Falls back to the synthetic
     camera only when the camera software (picamera2) is not installed. A camera that is installed
     but does not open is a fault the status line shows, never a silent switch to synthetic frames
     that would be saved as if they were photos."""
+    replay = os.environ.get("NPEC_RIG_REPLAY_PHOTOS")
+    if replay:
+        # Never a quiet fall back to another camera: a test bench set to replay must not save
+        # test patterns, nor reach a real camera, as if they were the photos it was given.
+        if os.environ.get("NPEC_RIG_SYNTHETIC_CAMERA"):
+            return UnavailableBackend(
+                "The camera is set up wrongly: both NPEC_RIG_REPLAY_PHOTOS and "
+                "NPEC_RIG_SYNTHETIC_CAMERA are set. Set one.",
+                _REPLAY_ADVICE,
+            )
+        try:
+            return ReplayBackend(Path(replay))
+        except ValueError as exc:
+            return UnavailableBackend(str(exc), _REPLAY_ADVICE)
     if os.environ.get("NPEC_RIG_SYNTHETIC_CAMERA"):
         return SyntheticBackend()
     from npec_rig.camera_process import ProcessBackend

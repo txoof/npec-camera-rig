@@ -187,6 +187,10 @@ def _photo_owner(purpose: str) -> dict | None:
         return None
 
 
+# Starts the flag on a replayed still. It warns a person; validation still counts the round.
+REPLAY_FLAG_PREFIX = "replayed from "
+
+
 def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dict]:
     """The one way to take a full-resolution still: take it, build its sidecar, save both.
 
@@ -226,6 +230,10 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         "flags": [check["reason"] for check in checks.values() if check["flagged"]],
         **(extra or {}),
     }
+    replayed = sensor_metadata.get("ReplayedFrom")
+    if replayed:  # a test bench still (#279): say so where people look, not only in the sensor values
+        sidecar["replayed_from"] = replayed
+        sidecar["flags"].append(f"{REPLAY_FLAG_PREFIX}{Path(replayed).name}")
     # Read once, so the folder and the database row cannot disagree if Stop is pressed meanwhile.
     owner = _photo_owner(purpose)
     sidecar["experiment"] = (
@@ -287,7 +295,9 @@ def _save_photo(image: np.ndarray, metadata: dict, experiment: dict | None = Non
 
     jpeg_tmp = day_dir / f".{stem}.jpg.tmp"
     json_tmp = day_dir / f".{stem}.json.tmp"
-    jpeg_tmp.write_bytes(array_to_jpeg(image))
+    replayed = metadata.get("replayed_from")
+    description = f"Replayed from {Path(replayed).name} by the test bench, not taken by a camera" if replayed else None
+    jpeg_tmp.write_bytes(array_to_jpeg(image, description))
     json_tmp.write_text(json.dumps(record, indent=2, default=str))
     json_tmp.replace(json_path)
     jpeg_tmp.replace(jpeg_path)
