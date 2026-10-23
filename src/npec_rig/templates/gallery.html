@@ -10,25 +10,52 @@
   <div class="row gallery-head">
     <h2>Photos</h2>
     {{ ui.button("Show: all photos", id="show-btn") }}
-    {{ ui.button("Go to date", id="date-btn") }}
-    {{ ui.button("Show newest", id="newest-btn", attrs={"hidden": ""}) }}
+    {{ ui.button("Select period", id="date-btn") }}
+    {{ ui.button("Newest first", id="order-btn") }}
   </div>
-  <p class="lead" id="gallery-note">Newest first. Dates and times are this computer's local time. Tap a photo to see it larger.</p>
+  <p class="lead" id="gallery-note">Tap photos to enlarge.</p>
+  {#- Week, day or hour (#245): Earlier and Later step to the nearest one with photos. -#}
+  <div class="gallery-nav" id="gallery-nav" hidden>
+    <h3 id="view-title"></h3>
+    <div class="row">
+      {{ ui.button("Back", id="back-btn", attrs={"hidden": ""}) }}
+      {{ ui.button("Earlier", id="prev-btn") }}
+      {{ ui.button("Later", id="next-btn") }}
+      {{ ui.button("See all", id="up-btn") }}
+    </div>
+  </div>
   <div id="gallery"></div>
   <p class="lead" id="gallery-status" role="status"></p>
-  <div class="row">{{ ui.button("Load older photos", id="older-btn", attrs={"hidden": ""}) }}</div>
-  <div id="gallery-sentinel"></div>
 
   <script>
-    // Photos page by page, newest first, grouped by local day (#165). Scrolling near the end
-    // loads the next page back in time; Load older photos does the same without scrolling.
-    // Thumbnails and the larger copy a tap opens come from the derived image store (#56).
-    const PAGE = 24;
+    // Photos by week, day or hour (#245), from the photo count of every UTC hour: a week is a
+    // row per day, each a strip of the first photo of every hour; a day is a tile per hour; an
+    // hour is its photos. The gallery opens at the closest one that holds every photo shown.
+    // Every view is keyed on UTC hours, labelled in local time: on 25 October the clock goes
+    // back, that local day has 25 hours and "02:00" twice. Thumbnails and the larger copy a tap
+    // opens come from the derived image store (#56).
+    const HOUR_MS = 3600000;
     const captureBtn = document.getElementById("capture-btn");
     const dateBtn = document.getElementById("date-btn");
+    const orderBtn = document.getElementById("order-btn");
+    // The order of the days in a week, the hours in a day and the photos in an hour, and of Go
+    // to's lists; remembered in this browser only. The week strips stay a 00:00 to 23:00 timeline.
+    let newestFirst = true;
+    try { newestFirst = localStorage.getItem("gallery-order") !== "oldest"; } catch (err) { /* not stored */ }
+    const ordered = (list) => (newestFirst ? [...list].reverse() : list);
     const showBtn = document.getElementById("show-btn");
     const note = document.getElementById("gallery-note");
-    const NOTE = note.textContent;
+    // The browser's own time zone, by name ("Central European Time"), which every time is shown in.
+    const zoneName = (() => {
+      try {
+        return new Intl.DateTimeFormat(undefined, { timeZoneName: "longGeneric" }).formatToParts(new Date())
+          .find((part) => part.type === "timeZoneName").value;
+      } catch (err) {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone;
+      }
+    })();
+    const NOTE = `Date and time shown in ${zoneName}. Tap photos to enlarge.`;
+    note.textContent = NOTE;
     // The experiment whose photos are shown, by id, or null for every photo. Set from the
     // address (?experiment=<id>, the Photos button on the Experiments page) or by Show.
     let experiment = new URLSearchParams(location.search).get("experiment");
@@ -37,16 +64,20 @@
       if (experiment !== null) params.set("experiment", experiment);
       return params;
     };
-    const newestBtn = document.getElementById("newest-btn");
-    const olderBtn = document.getElementById("older-btn");
     const gallery = document.getElementById("gallery");
     const statusText = document.getElementById("gallery-status");
-    const sentinel = document.getElementById("gallery-sentinel");
     const scroller = document.querySelector(".scroll");
+    const nav = document.getElementById("gallery-nav");
+    const viewTitle = document.getElementById("view-title");
+    const prevBtn = document.getElementById("prev-btn");
+    const nextBtn = document.getElementById("next-btn");
+    const upBtn = document.getElementById("up-btn");
+    const backBtn = document.getElementById("back-btn");
 
-    // oldestKey: where the next page starts (photos before it). generation: bumped on each
-    // reset, so a page that arrives after a jump is dropped.
-    let oldestKey = null, newestKey = null, loading = false, finished = false, shown = 0, generation = 0;
+    // hours: every UTC hour with photos, oldest first, as { hour, count, first, ms }. view: what
+    // is shown, { level: "week" | "day" | "hour", key }. generation: bumped on each new view, so
+    // photos that arrive for an older one are dropped.
+    let hours = [], view = null, generation = 0;
 
     const pad = (n) => String(n).padStart(2, "0");
 
@@ -141,10 +172,24 @@
       return lines.map((line) => `<div>${line}</div>`).join("");
     }
 
+    // The card's one tray line; the full reading is under Info.
+    function traysLine(trays, purpose) {
+      if (!trays && purpose !== "capture") return `Trays: skipped, a ${purpose} photo. Tap Tags to read it.`;
+      if (!trays) return "Trays: not read yet. Tap Tags to read it.";
+      if (trays.status !== "read") return "Trays: not placed. Info says why.";
+      const changed = trays.not_found.length || trays.moved.length;
+      return `Trays found: ${trays.trays.length}.` + (changed ? " Changes, see Info." : "");
+    }
+
+    // What Info shows for each card, by path: the photo, its tray reading and, after Tags, its tags.
+    const cards = new Map();
+
     function itemHtml(item) {
       const taken = keyDate(item.key);
       const time = taken.toLocaleTimeString(undefined, {
         hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+      cards.set(item.path, { item, trays: item.trays, tags: null });
+      // Compact (#245): picture, time, one tray line and a short warning; the rest under Info.
       return `
         <div class="gallery-item">
           <button type="button" class="figure hit" aria-label="Photo taken ${time}. Tap to enlarge.">
@@ -152,18 +197,29 @@
               alt="Photo taken ${dayLabel(taken)} ${time}" loading="lazy">
           </button>
           <div class="gallery-time">${time}</div>
-          <div>${recordText(item.record)}</div>
-          ${item.record ? `<div data-trays>${traysHtml(item.trays, item.record.purpose)}</div>` : ""}
-          ${item.uptime ? `<div>${uptimeText(item.uptime)}</div>` : ""}
+          ${item.record ? `<div data-trays>${traysLine(item.trays, item.record.purpose)}</div>` : ""}
           ${item.flags && item.flags.length
-            ? `<div class="gallery-flag">Not covered by the validation bands:
-                ${item.flags.join("; ")}</div>`
-            : ""}
+            ? '<div class="gallery-flag">Not covered by the validation bands. Info says why.</div>' : ""}
           <!-- Two buttons side by side in the 200 px card: each 88 px wide, the 24 px gap between. -->
           <div class="row" style="flex-wrap: nowrap"><button type="button" class="btn hit" style="flex: 1; min-width: 0; padding: 0 8px" data-tags="${item.path}">Tags</button>
-            <button type="button" class="btn hit" style="flex: 1; min-width: 0; padding: 0 8px" data-tag-details hidden>Info</button></div>
+            <button type="button" class="btn hit" style="flex: 1; min-width: 0; padding: 0 8px" data-info="${item.path}">Info</button></div>
           <p data-tags-list hidden></p>
         </div>`;
+    }
+
+    // Info: everything known about one photo, in a panel over the page.
+    function showInfo(path) {
+      const { item, trays, tags } = cards.get(path);
+      const taken = keyDate(item.key);
+      const lines = [`<p>${dayLabel(taken)} ${localTime(taken)}</p>`, `<p>${recordText(item.record)}</p>`];
+      if (item.record) lines.push(traysHtml(trays, item.record.purpose));
+      if (item.uptime) lines.push(`<p>${uptimeText(item.uptime)}</p>`);
+      if (item.flags && item.flags.length) {
+        lines.push(`<p class="gallery-flag">Not covered by the validation bands: ${ui.esc(item.flags.join("; "))}</p>`);
+      }
+      lines.push(...(tags ? tagDetailLines(tags) : ["Tags: not searched yet. Tap Tags on the photo."])
+        .map((line) => `<p>${ui.esc(line)}</p>`));
+      ui.infoPanel({ title: "About this photo", body: lines.join("") });
     }
 
     // Show tags (#194): the tags found in the full-size photo, listed under it, then the photo
@@ -182,8 +238,8 @@
       return runs.map(([a, b]) => (b - a >= 2 ? `${a} to ${b}` : a === b ? `${a}` : `${a}, ${b}`)).join(", ");
     }
 
-    // The card's one line: the trays found and any that need checking. The rest is behind Tag
-    // details, so a photo of validation sheets (hundreds of calibration tags) stays short (#258).
+    // The card's one line: the trays found and any that need checking. The rest is under Info,
+    // so a photo of validation sheets (hundreds of calibration tags) stays short (#258).
     function tagSummaryText(tags) {
       const trays = tags.filter((tag) => tag.role === "tray");
       if (trays.length === 0) return tags.length ? "No tray tags found." : "No tags found.";
@@ -193,7 +249,7 @@
         + (unsure.length ? ` Check: ${unsure.join(", ")}.` : "");
     }
 
-    // Tag details: one line per role. Tray, corner and other tags are checked by ID; calibration
+    // Info's tag lines: one per role. Tray, corner and other tags are checked by ID; calibration
     // tags matter as a count, each ID being printed on several sheets.
     function tagDetailLines(tags) {
       if (tags.length === 0) return ["No tags found."];
@@ -231,9 +287,10 @@
         const t = await fetch(`/api/captures/trays/${path}`);
         if (!t.ok) return;
         const trays = await t.json();
-        traysBox.innerHTML = trays
-          ? traysHtml(trays, "capture")
-          : "<div>Trays: the reading could not be saved for this photo.</div>";
+        cards.get(path).trays = trays;
+        traysBox.textContent = trays
+          ? traysLine(trays, "capture")
+          : "Trays: the reading could not be saved for this photo.";
       } catch (err) {
         // The tags were found; only the tray line is not updated.
       }
@@ -256,13 +313,8 @@
         }
         if (!r.ok) throw new Error(r.statusText);
         const tags = await r.json();
+        cards.get(btn.dataset.tags).tags = tags;
         list.textContent = tagSummaryText(tags);
-        const details = item.querySelector("[data-tag-details]");
-        details.onclick = () => ui.infoPanel({
-          title: "Tags in this photo",
-          body: tagDetailLines(tags).map((line) => `<p>${ui.esc(line)}</p>`).join(""),
-        });
-        details.hidden = false;
         await showSavedTrays(item, btn.dataset.tags);
         // lightbox.js opens a figure's data-large copy: the marked one for this tap only.
         const large = thumb.dataset.large;
@@ -280,125 +332,255 @@
     gallery.addEventListener("click", (event) => {
       const btn = event.target.closest("[data-tags]");
       if (btn) showTags(btn);
+      const info = event.target.closest("[data-info]");
+      if (info) showInfo(info.dataset.info);
+      const day = event.target.closest("[data-go-day]");
+      if (day) show({ level: "day", key: day.dataset.goDay });
+      const hour = event.target.closest("[data-go-hour]");
+      if (hour) show({ level: "hour", key: hour.dataset.goHour });
     });
 
-    // The grid for `item`'s local day: the last (or, at the top, the first) one if it is that
-    // day, otherwise a new day section after (or before) the others.
-    function dayGrid(item, atTop) {
-      const taken = keyDate(item.key);
-      const day = localDay(taken);
-      const sections = gallery.querySelectorAll(".gallery-day");
-      const edge = atTop ? sections[0] : sections[sections.length - 1];
-      if (edge && edge.dataset.day === day) return edge.querySelector(".gallery");
-      const section = document.createElement("section");
-      section.className = "gallery-day";
-      section.dataset.day = day;
-      section.innerHTML = `<h3>${dayLabel(taken)}</h3><div class="gallery"></div>`;
-      if (atTop) gallery.prepend(section); else gallery.append(section);
-      return section.querySelector(".gallery");
+    const hourLabel = (ms) => new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+    const count = (n) => `${n} photo${n === 1 ? "" : "s"}`;
+
+    // The local Monday a time's week starts on, as YYYY-MM-DD.
+    function weekOf(ms) {
+      const d = new Date(ms);
+      return localDay(new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7)));
     }
 
-    function showStatus() {
-      olderBtn.hidden = finished;
-      if (shown === 0 && finished) statusText.textContent = "No photos yet.";
-      else if (finished) statusText.textContent = `No older photos. ${shown} shown.`;
-      else statusText.textContent = `${shown} shown. Scroll down or tap Load older photos for more.`;
+    // The key of the week, day or hour an hour belongs to.
+    const keyOf = { week: (h) => weekOf(h.ms), day: (h) => localDay(new Date(h.ms)), hour: (h) => h.hour };
+
+    // The hours of one week, day or hour, oldest first.
+    const hoursIn = (level, key) => hours.filter((h) => keyOf[level](h) === key);
+    // Every week, day or hour with photos, oldest first.
+    const keysOf = (level) => [...new Set(hours.map(keyOf[level]))];
+
+    // The closest view that holds every photo shown: one hour, one day, or the newest week.
+    function fittingView() {
+      const newest = hours[hours.length - 1];
+      for (const level of ["hour", "day"]) {
+        if (keysOf(level).length === 1) return { level, key: keyOf[level](newest) };
+      }
+      return { level: "week", key: keyOf.week(newest) };
     }
 
-    function sentinelNear() {
-      return sentinel.getBoundingClientRect().top < scroller.getBoundingClientRect().bottom + 600;
+    async function loadHours() {
+      const r = await fetch(`/api/captures/hours?${filtered(new URLSearchParams())}`);
+      if (!r.ok) throw new Error(r.statusText);
+      hours = (await r.json()).map((h) => ({ ...h, ms: keyDate(`${h.hour}0000_000000`).getTime() })).reverse();
     }
 
-    async function loadOlder() {
-      if (loading || finished) return;
-      loading = true;
-      const gen = generation;
-      statusText.textContent = "Loading photos";
-      const params = filtered(new URLSearchParams({ limit: PAGE }));
-      if (oldestKey) params.set("before", oldestKey);
-      let items;
-      try {
-        const r = await fetch(`/api/captures?${params}`);
+    // A local day's hour labels, with the zone when the clock change gives two of one.
+    function hourLabels(dayHours) {
+      const labels = dayHours.map((h) => hourLabel(h.ms));
+      const twice = labels.some((l, i) => labels.indexOf(l) !== i);
+      return twice
+        ? dayHours.map((h) => new Date(h.ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZoneName: "short" }))
+        : labels;
+    }
+
+    const thumb = (path, alt) => `<img src="/gallery/image/thumb/${path}" alt="${alt}" loading="lazy">`;
+
+    function weekHtml(key) {
+      const days = new Map();
+      for (const h of hoursIn("week", key)) (days.get(keyOf.day(h)) ?? days.set(keyOf.day(h), []).get(keyOf.day(h))).push(h);
+      return ordered([...days]).map(([day, dayHours]) => {
+        const label = dayLabel(new Date(dayHours[0].ms));
+        const total = dayHours.reduce((n, h) => n + h.count, 0);
+        return `<button type="button" class="gallery-week-day hit" data-go-day="${day}">
+          <span class="gallery-time">${label}, ${count(total)}</span>
+          <span class="gallery-strip">${dayHours.map((h) => `<span style="grid-column: ${new Date(h.ms).getHours() + 1}">${thumb(h.first, `${label} ${hourLabel(h.ms)}`)}</span>`).join("")}</span>
+        </button>`;
+      }).join("");
+    }
+
+    function dayHtml(key) {
+      const dayHours = hoursIn("day", key);
+      const labels = hourLabels(dayHours);
+      return `<div class="gallery">${ordered(dayHours.map((h, i) => [h, labels[i]])).map(([h, label]) => `
+        <button type="button" class="gallery-hour hit" data-go-hour="${h.hour}" aria-label="${label}, ${count(h.count)}. Tap to open this hour.">
+          ${thumb(h.first, `First photo of ${label}`)}
+          <span class="gallery-time">${label}, ${count(h.count)}</span>
+        </button>`).join("")}</div>`;
+    }
+
+    // An hour's photos, oldest first: the photos before the next hour, back to this one's start.
+    async function hourItems(key) {
+      const start = keyDate(`${key}0000_000000`).getTime();
+      const items = [];
+      let before = keyFor(new Date(start + HOUR_MS));
+      for (;;) {
+        const r = await fetch(`/api/captures?${filtered(new URLSearchParams({ limit: 200, before }))}`);
         if (!r.ok) throw new Error(r.statusText);
-        items = await r.json();
-      } catch (err) {
-        if (gen === generation) {
-          loading = false;
-          olderBtn.hidden = false;
-          statusText.textContent = "Could not load the photos. Tap Load older photos to try again.";
+        const page = await r.json();
+        const inHour = page.filter((item) => keyDate(item.key).getTime() >= start);
+        items.push(...inHour);
+        if (page.length < 200 || inHour.length < page.length) return items.reverse();
+        before = page[page.length - 1].key;
+      }
+    }
+
+    // A local YYYY-MM-DD as a date at its midnight.
+    const dayDate = (day) => { const [y, m, d] = day.split("-").map(Number); return new Date(y, m - 1, d); };
+    const shortDay = (date, weekday = true) => date.toLocaleDateString(undefined,
+      weekday ? { weekday: "short", day: "numeric", month: "short" } : { day: "numeric", month: "short" });
+
+    // A view's short name for the buttons: "week of 19 Oct", "Thu 22 Oct", "Thu 22 Oct, 14:00".
+    function shortName({ level, key }) {
+      if (level === "week") return `week of ${shortDay(dayDate(key), false)}`;
+      if (level === "day") return shortDay(dayDate(key));
+      const first = hoursIn("hour", key)[0];
+      const dayHours = hoursIn("day", keyOf.day(first));
+      return `${shortDay(new Date(first.ms))}, ${hourLabels(dayHours)[dayHours.indexOf(first)]}`;
+    }
+
+    function viewTitleText({ level, key }) {
+      if (level === "week") return `Week of ${dayLabel(dayDate(key))}`;
+      const first = hoursIn(level, key)[0];
+      if (level === "day") return dayLabel(new Date(first.ms));
+      const labels = hourLabels(hoursIn("day", keyOf.day(first)));
+      return `${dayLabel(new Date(first.ms))}, ${labels[hoursIn("day", keyOf.day(first)).indexOf(first)]}`;
+    }
+
+    // Each view is a step in the browser's history, its address ?view=level:key, so the browser's
+    // Back (and the page's) goes to the view before, not off the page. `how`: "push" a new
+    // step, "replace" the current one (the first view), or "none" (going back, or a re-sort).
+    function viewUrl(v) {
+      const url = new URL(location.href);
+      url.searchParams.set("view", `${v.level}:${v.key}`);
+      if (experiment === null) url.searchParams.delete("experiment");
+      else url.searchParams.set("experiment", experiment);
+      return url;
+    }
+
+    // backTo: the short name of the view Back returns to, kept with the step.
+    function remember(v, how, backTo) {
+      if (how === "none") return;
+      const depth = how === "push" ? (history.state?.depth ?? -1) + 1 : (history.state?.depth ?? 0);
+      const state = { gallery: true, view: v, experiment, depth, backTo: how === "push" ? backTo : history.state?.backTo };
+      if (how === "push") history.pushState(state, "", viewUrl(v));
+      else history.replaceState(state, "", viewUrl(v));
+    }
+
+    // A view with photos: `v` if it still has some, otherwise the one that fits.
+    const known = (v) => (v && ["week", "day", "hour"].includes(v.level) && hoursIn(v.level, v.key).length ? v : fittingView());
+
+    async function show(next, how = "push") {
+      const from = view ? shortName(view) : null;
+      view = next;
+      remember(view, how, from);
+      backBtn.hidden = !(history.state?.gallery && history.state.depth > 0 && history.state.backTo);
+      backBtn.textContent = `Back to ${history.state?.backTo ?? ""}`;
+      generation += 1;
+      const gen = generation;
+      const { level, key } = view;
+      const keys = keysOf(level);
+      const at = keys.indexOf(key);
+      nav.hidden = false;
+      viewTitle.textContent = viewTitleText(view);
+      ui.setDisabled(prevBtn, at <= 0);
+      ui.setDisabled(nextBtn, at >= keys.length - 1);
+      // Named by what they do: a step in time, by the view's unit, and out to the day or week.
+      const unit = { week: "week", day: "day", hour: "hour" }[level];
+      prevBtn.textContent = `Earlier ${unit}`;
+      nextBtn.textContent = `Later ${unit}`;
+      // Out to the day or week, unless Back already goes there (one button, not two to one place).
+      upBtn.hidden = true;
+      if (level !== "week") {
+        const h = hoursIn(level, key)[0];
+        const outTo = level === "hour" ? shortName({ level: "day", key: keyOf.day(h) }) : shortName({ level: "week", key: keyOf.week(h) });
+        upBtn.textContent = level === "hour" ? `See all of ${outTo}` : `See ${outTo}`;
+        upBtn.hidden = !backBtn.hidden && history.state.backTo === outTo;
+      }
+      scroller.scrollTop = 0;
+      const total = hoursIn(level, key).reduce((n, h) => n + h.count, 0);
+      if (level === "week") {
+        gallery.innerHTML = weekHtml(key);
+        statusText.textContent = `${count(total)} this week. Tap a day to view hours.`;
+      } else if (level === "day") {
+        gallery.innerHTML = dayHtml(key);
+        statusText.textContent = `${count(total)} this day. Tap an hour for additional photos.`;
+      } else {
+        gallery.innerHTML = "";
+        statusText.textContent = "Loading photos";
+        let items;
+        try {
+          items = await hourItems(key);
+        } catch (err) {
+          if (gen === generation) statusText.textContent = "Could not load the photos. Tap Select period to try again.";
+          return;
         }
+        if (gen !== generation) return;
+        gallery.innerHTML = `<div class="gallery">${ordered(items).map(itemHtml).join("")}</div>`;
+        statusText.textContent = `${count(items.length)} this hour.`;
+      }
+    }
+
+    // Start again: the hours afresh, then `next` or the view that fits them.
+    async function reset(next = null, how = "push") {
+      try {
+        await loadHours();
+      } catch (err) {
+        statusText.textContent = "Could not load the photos. Reload the page to try again.";
         return;
       }
-      if (gen !== generation) return;
-      for (const item of items) dayGrid(item, false).insertAdjacentHTML("beforeend", itemHtml(item));
-      if (items.length) {
-        newestKey = newestKey || items[0].key;
-        oldestKey = items[items.length - 1].key;
+      if (!hours.length) {
+        nav.hidden = true;
+        gallery.innerHTML = "";
+        statusText.textContent = "No photos yet.";
+        return;
       }
-      shown += items.length;
-      finished = items.length < PAGE;
-      loading = false;
-      showStatus();
-      // The observer fires only when the end comes into view, not while it stays there.
-      if (!finished && sentinelNear()) loadOlder();
+      // "newest": the newest hour, as after a Capture.
+      if (next && next.key === "newest") next = { level: next.level, key: hours[hours.length - 1].hour };
+      show(known(next), how);
     }
 
-    // Start again from the newest photos (before null) or from the photos before a key.
-    function reset(before) {
-      generation += 1;
-      gallery.innerHTML = "";
-      oldestKey = before;
-      newestKey = null;
-      loading = false;
-      finished = false;
-      shown = 0;
-      newestBtn.hidden = before === null;
-      scroller.scrollTop = 0;
-      loadOlder();
+    function step(by) {
+      const keys = keysOf(view.level);
+      const key = keys[keys.indexOf(view.key) + by];
+      if (key !== undefined) show({ level: view.level, key });
     }
 
-    // After a capture, the new photo goes on top; the pages already loaded stay.
-    async function showNewest() {
-      if (!newestBtn.hidden) { reset(null); return; }
-      const r = await fetch(`/api/captures?${filtered(new URLSearchParams({ limit: 1 }))}`);
-      const items = r.ok ? await r.json() : [];
-      if (!items.length || (newestKey && items[0].key <= newestKey)) return;
-      dayGrid(items[0], true).insertAdjacentHTML("afterbegin", itemHtml(items[0]));
-      newestKey = items[0].key;
-      oldestKey = oldestKey || items[0].key;
-      shown += 1;
-      showStatus();
+    function up() {
+      const h = hoursIn(view.level, view.key)[0];
+      const level = view.level === "hour" ? "day" : "week";
+      show({ level, key: keyOf[level](h) });
     }
 
-    async function goToDate() {
-      let hours;
+    // Select period: a day with photos, then that whole week, that whole day or one of its hours.
+    async function goTo() {
       try {
-        const r = await fetch(`/api/captures/hours?${filtered(new URLSearchParams())}`);
-        if (!r.ok) throw new Error(r.statusText);
-        hours = await r.json();
+        await loadHours();
       } catch (err) {
         ui.toast("Could not load the list of dates.");
         return;
       }
-      // Counted per local day here, from UTC hours, so the days match the headings.
-      const days = new Map();
-      for (const { hour, count } of hours) {
-        const start = keyDate(`${hour}0000_000000`);
-        const day = localDay(start);
-        if (!days.has(day)) days.set(day, { label: dayLabel(start), count: 0 });
-        days.get(day).count += count;
-      }
-      if (!days.size) { ui.toast("No photos yet."); return; }
-      const current = gallery.querySelector(".gallery-day");
+      if (!hours.length) { ui.toast("No photos yet."); return; }
+      const days = ordered(keysOf("day"));
       ui.openChoice({
-        label: "Go to date",
-        options: [...days].map(([day, d]) => ({
-          value: day, label: d.label, detail: `${d.count} photo${d.count === 1 ? "" : "s"}`,
-        })),
-        value: current ? current.dataset.day : null,
+        label: "Select period",
+        options: days.map((day) => {
+          const dayHours = hoursIn("day", day);
+          return { value: day, label: dayLabel(new Date(dayHours[0].ms)), detail: count(dayHours.reduce((n, h) => n + h.count, 0)) };
+        }),
+        value: view ? keyOf.day(hoursIn(view.level, view.key)[0]) : null,
         onSet: (day) => {
-          const [y, m, d] = day.split("-").map(Number);
-          reset(keyFor(new Date(y, m - 1, d + 1)));  // photos before the next local midnight
+          const dayHours = hoursIn("day", day);
+          const labels = hourLabels(dayHours);
+          const weekKey = keyOf.week(dayHours[0]);
+          ui.openChoice({
+            label: dayLabel(new Date(dayHours[0].ms)),
+            options: [
+              { value: "week", label: "Whole week", detail: count(hoursIn("week", weekKey).reduce((n, h) => n + h.count, 0)) },
+              { value: "day", label: "Whole day", detail: count(dayHours.reduce((n, h) => n + h.count, 0)) },
+              ...ordered(dayHours.map((h, i) => ({ value: h.hour, label: labels[i], detail: count(h.count) }))),
+            ],
+            value: null,
+            onSet: (choice) => show(choice === "week" ? { level: "week", key: weekKey }
+              : choice === "day" ? { level: "day", key: day } : { level: "hour", key: choice }),
+          });
         },
       });
     }
@@ -439,12 +621,8 @@
         value: experiment ?? "",
         onSet: (value) => {
           experiment = value === "" ? null : value;
-          const url = new URL(location.href);
-          if (experiment === null) url.searchParams.delete("experiment");
-          else url.searchParams.set("experiment", experiment);
-          history.replaceState(null, "", url);
           showFilter();
-          reset(null);
+          reset();
         },
       });
     }
@@ -454,20 +632,42 @@
       captureBtn.textContent = "Capturing";
       try {
         await fetch("/capture", { method: "POST" });
-        await showNewest();
+        // The new photo's hour, so it is in view at once.
+        await reset({ level: "hour", key: "newest" });
       } finally {
         captureBtn.disabled = false;
         captureBtn.textContent = "Capture";
       }
     });
-    olderBtn.addEventListener("click", loadOlder);
-    newestBtn.addEventListener("click", () => reset(null));
-    dateBtn.addEventListener("click", goToDate);
+    prevBtn.addEventListener("click", () => step(-1));
+    nextBtn.addEventListener("click", () => step(1));
+    upBtn.addEventListener("click", up);
+    dateBtn.addEventListener("click", goTo);
+    const showOrder = () => { orderBtn.textContent = newestFirst ? "Newest first" : "Oldest first"; };
+    orderBtn.addEventListener("click", () => {
+      newestFirst = !newestFirst;
+      try { localStorage.setItem("gallery-order", newestFirst ? "newest" : "oldest"); } catch (err) { /* not stored */ }
+      showOrder();
+      if (view) show(view, "none");
+    });
+    backBtn.addEventListener("click", () => history.back());
+    // The browser's Back and Forward: the view (and what was shown) of that step.
+    window.addEventListener("popstate", async (event) => {
+      const state = event.state;
+      if (!state || !state.gallery) return;
+      if (state.experiment !== experiment) {
+        experiment = state.experiment;
+        showFilter();
+      }
+      await reset(state.view, "none");
+    });
+    showOrder();
     showBtn.addEventListener("click", chooseFilter);
     showFilter();
-    new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) loadOlder();
-    }, { root: scroller, rootMargin: "0px 0px 600px 0px" }).observe(sentinel);
-    loadOlder();
+    // ui.js loads after this script (defer); the first view uses it.
+    const whenReady = (fn) => (window.ui ? fn() : document.addEventListener("DOMContentLoaded", fn));
+    // The view in the address (a reload, or a link), if it still has photos.
+    const [startLevel, ...startKey] = (new URLSearchParams(location.search).get("view") ?? "").split(":");
+    whenReady(() => reset(startLevel ? { level: startLevel, key: startKey.join(":") } : null, "replace"));
   </script>
 {% endblock %}

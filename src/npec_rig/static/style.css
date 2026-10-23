@@ -532,6 +532,25 @@ input[type="range"]:disabled { opacity: 0.5; }
 }
 .gallery-item .gallery-time { font-size: 1rem; color: var(--fg); margin-top: 4px; }
 .gallery-item .gallery-flag { color: #e3b341; word-break: normal; }
+/* Week, day and hour views (#245). A week is a row per day, the whole row one target; its strip
+   of first-of-hour pictures is too small to tap one by one. A day is a tile per hour. */
+/* The navigation stays at the top of the scrolling page, so Previous and Next are in reach at
+   any depth; the photos scroll under it. */
+.gallery-nav {
+  position: sticky; top: -20px; z-index: 2; margin: 0 0 16px; padding: 20px 0 8px;  /* -20px: the .scroll top padding */
+  background: var(--bg);
+}
+.gallery-nav h3 { margin: 0 0 8px; font-size: 1.05rem; }
+.gallery-week-day, .gallery-hour {
+  display: grid; gap: 6px; padding: 8px; text-align: left; font: inherit; color: var(--fg);
+  background: var(--surface-2); border: 2px solid var(--line); border-radius: var(--radius); cursor: pointer;
+}
+.gallery-week-day { width: 100%; margin-bottom: var(--gap); }
+.gallery-strip { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 2px; }
+.gallery-strip img, .gallery-hour img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #000; }
+/* Taller than 4:3 in the week strip, so each picture is big enough to tell apart; the sides are cropped. */
+.gallery-strip img { aspect-ratio: auto; height: 48px; }
+.gallery-hour { width: 200px; overflow: hidden; white-space: normal; }
 a { color: #6cf; }
 .wizard-step { display: none; }
 .wizard-step.active { display: block; }
