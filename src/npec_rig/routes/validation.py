@@ -173,6 +173,7 @@ def _problem_frame_response(session: dict, round_: dict, problems: list[dict], c
     placed = sheets_by_slot(
         group_sheets(detections, artifact.scale_field, artifact.calibration_tag_size_mm),
         slot_layout_from_dict(session["slots"]),
+        artifact.scale_field,
     )
     named = [p for p in problems if p["slot"] is not None]
     inputs = {

@@ -25,6 +25,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from npec_rig.calibration import ScaleField
 from npec_rig.tags import CALIBRATION_ID_RANGE, TagDetection, tag_area_px
+from npec_rig.tray_placement import place_trays
 
 # Tags on one sheet sit ~40mm apart centre to centre; neighbouring trays' sheets are further apart
 # than this. Measured on the 2026-09-29 tray and table layouts (300px at ~4.5-4.8 px/mm worked on
@@ -165,12 +166,66 @@ def build_slot_layout(sheets: list[Sheet], columns: int = DEFAULT_COLUMNS) -> tu
     return tuple(slots)
 
 
-def sheets_by_slot(sheets: list[Sheet], layout: tuple[Slot, ...]) -> dict[str, Sheet]:
+def _sheet_text(sheet: Sheet) -> str:
+    ids = [t.tag_id for t in sheet.tags]
+    return f"the sheet with tags {min(ids)} to {max(ids)}"
+
+
+def _off_slot_text(
+    sheet: Sheet, layout: tuple[Slot, ...], scale_field: ScaleField, detections: list[TagDetection]
+) -> str:
+    """Where an off-slot sheet is, in the chamber's words: its tag IDs, its offset in mm from the
+    nearest slot centre (north is up the photo, west is left), the tray whose centre is nearest
+    when tray tags are in the photo, and which slot it lies towards:
+    the one in the direction it moved, not merely the second nearest (a sheet moved south of
+    North 1 is nearer North 2 than South 1)."""
+    centres = np.array([slot.centre for slot in layout])
+    nearest = int(np.argmin(np.hypot(*(centres - sheet.centre).T)))
+    offset = np.array(sheet.centre) - centres[nearest]
+    others = [i for i in range(len(layout)) if i != nearest]
+    directions = centres[others] - centres[nearest]
+    distances = np.hypot(*directions.T)
+    # Nearest slot within 45 degrees of the offset, if any.
+    aligned = directions @ offset / (distances * np.hypot(*offset)) > np.cos(np.pi / 4)
+    towards = others[int(np.argmin(np.where(aligned, distances, np.inf)))] if aligned.any() else None
+    px_per_mm = scale_field.px_per_mm(*sheet.centre)
+    east_mm, south_mm = offset / px_per_mm
+    parts = [
+        f"{abs(round(mm, -1)):.0f} mm {name}"
+        for mm, name in ((south_mm, "south" if south_mm > 0 else "north"),
+                         (east_mm, "east" if east_mm > 0 else "west"))
+        if abs(round(mm, -1)) >= 10
+    ]
+    text = f"{_sheet_text(sheet)} is about {' and '.join(parts)} of {layout[nearest].name}"
+    text += (
+        ", outside the slots"
+        if towards is None
+        else f", between {layout[nearest].name} and {layout[towards].name}"
+    )
+    try:
+        trays = place_trays(detections, scale_field, slot_layout_to_dict(layout))
+    except ValueError:  # a tray tag where the scale field is not valid: name no tray
+        trays = []
+    if trays:
+        tray = min(trays, key=lambda t: np.hypot(*(np.array(t.centre) - sheet.centre)))
+        text += f", nearest tray {tray.tray_id}"
+    return text
+
+
+def sheets_by_slot(
+    sheets: list[Sheet],
+    layout: tuple[Slot, ...],
+    scale_field: ScaleField,
+    detections: list[TagDetection] | None = None,
+) -> dict[str, Sheet]:
     """Each sheet under the name of the slot whose centre is nearest the sheet's.
 
     Refused rather than guessed: a sheet more than half the closest slot spacing from every slot
     centre (it isn't on a tray slot), or two sheets on one slot in the same capture (one tray
-    holds one sheet). Either would silently pool a sheet's tags into the wrong slot."""
+    holds one sheet). Either would silently pool a sheet's tags into the wrong slot. An off-slot
+    sheet is named by its nearest slot and its distance from it, not a pixel position, and by
+    the nearest tray placed from the tray tags in `detections`, the same photo's, when given
+    (#257). Trays are placed only for that message, not for every capture."""
     centres = np.array([slot.centre for slot in layout])
     spacing = np.hypot(*(centres[:, None, :] - centres[None, :, :]).transpose(2, 0, 1))
     max_offset = np.min(spacing[spacing > 0]) / 2
@@ -180,19 +235,27 @@ def sheets_by_slot(sheets: list[Sheet], layout: tuple[Slot, ...]) -> dict[str, S
         nearest = int(np.argmin(distances))
         name = layout[nearest].name
         if distances[nearest] > max_offset:
-            x, y = sheet.centre
             raise SlotLayoutError(
-                f"a sheet near pixel ({x:.0f}, {y:.0f}) is not on any tray slot: put it back on a tray"
+                f"{_off_slot_text(sheet, layout, scale_field, detections or [])}, not on any tray slot: "
+                "put it back on its tray"
             )
         if name in placed:
-            raise SlotLayoutError(f"two sheets are on slot {name}: one sheet per tray")
+            raise SlotLayoutError(
+                f"two sheets are on slot {name}, {_sheet_text(placed[name])} and "
+                f"{_sheet_text(sheet)}: one sheet per tray"
+            )
         placed[name] = sheet
     return placed
 
 
-def assign_to_slots(sheets: list[Sheet], layout: tuple[Slot, ...]) -> dict[str, list[TagError]]:
+def assign_to_slots(
+    sheets: list[Sheet],
+    layout: tuple[Slot, ...],
+    scale_field: ScaleField,
+    detections: list[TagDetection],
+) -> dict[str, list[TagError]]:
     """Each sheet's tags, whole, under its slot's name (see `sheets_by_slot`); [] for an empty slot."""
-    placed = sheets_by_slot(sheets, layout)
+    placed = sheets_by_slot(sheets, layout, scale_field, detections)
     return {slot.name: list(placed[slot.name].tags) if slot.name in placed else [] for slot in layout}
 
 
@@ -232,7 +295,8 @@ def certainty_by_slot(
     layout = build_slot_layout(group_sheets(calibration_detections, scale_field, tag_size_mm), columns)
     pooled: dict[str, list[TagError]] = {slot.name: [] for slot in layout}
     for detections in capture_detections:
-        for name, tags in assign_to_slots(group_sheets(detections, scale_field, tag_size_mm), layout).items():
+        sheets = group_sheets(detections, scale_field, tag_size_mm)
+        for name, tags in assign_to_slots(sheets, layout, scale_field, detections).items():
             pooled[name].extend(tags)
     return layout, slot_results(pooled)
 
@@ -282,7 +346,7 @@ def round_errors_by_slot(
         )
     return {
         name: [t.error_pct for t in tags]
-        for name, tags in assign_to_slots(sheets, layout).items()
+        for name, tags in assign_to_slots(sheets, layout, scale_field, detections).items()
     }
 
 
