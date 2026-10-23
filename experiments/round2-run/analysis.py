@@ -153,3 +153,32 @@ def tracking(photos, readings, shuffles):
                     wrong.append(seen)
         rows.append(row)
     return {"shuffles": rows, "wrong": wrong, "doubtful": doubtful}
+
+
+def misses(photos, readings, shuffles, trays=None):
+    """Every read photo where a tray's tag was missed while others were found, with the slot the rig
+    last read that tray in ("not read yet" before its first reading), and whether the photo was
+    taken during a shuffle (between a shuffle's start and finish; the start layout has no start).
+    `readings` is {capture_id: {tray: (slot, a1, placement)}}; `trays` defaults to every tray read.
+    Also counted by tray and by slot, outside and during shuffles."""
+    if trays is None:
+        trays = sorted({t for found in readings.values() for t in found})
+    moving = [(s["start"], s["finish"]) for s in shuffles if s["start"] is not None]
+    last_slot, found, by_tray, by_slot = {}, [], {}, {}
+    for p in sorted(photos, key=lambda p: p["taken_at"]):
+        if p["status"] != "read":
+            continue
+        here = readings.get(p["capture_id"], {})
+        during = any(start <= p["taken_at"] <= finish for start, finish in moving)
+        for tray in trays:
+            if tray in here or not here:
+                continue
+            slot = last_slot.get(tray, "not read yet")
+            found.append({"capture_id": p["capture_id"], "taken_at": p["taken_at"], "tray": tray,
+                          "slot": slot, "during_shuffle": during})
+            key = "during shuffles" if during else "outside shuffles"
+            for counts, name in ((by_tray, tray), (by_slot, slot)):
+                counts.setdefault(name, {"outside shuffles": 0, "during shuffles": 0})[key] += 1
+        for tray, (slot, _, _) in here.items():
+            last_slot[tray] = slot
+    return {"misses": found, "by_tray": by_tray, "by_slot": by_slot}

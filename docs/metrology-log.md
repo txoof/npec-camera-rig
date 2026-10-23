@@ -4802,7 +4802,10 @@ wrong, and listed.
   once area exists. Still scene (trays 8 to 12) and plant trays (1 to 7) in separate tables.
 - **Question 2.** For each tray, per day and window: photos read, photos with its tag found, and the
   share. Photos with no tag at all (dark) are counted apart. Each photo where one tray was missed
-  while others were found is listed by its time, to be looked at.
+  while others were found is listed by its time, to be looked at. For check-ins (added 2026-10-23, Aaron):
+  `misses_chart.py` gives a table per tray and bar charts of the misses outside shuffles by tray ID
+  and by the slot the rig last read that tray in (the tray's own slot cannot be read when its tag
+  is missed; a tray moved without being seen would be counted under its old slot).
 - **Question 3.** For each shuffle, every photo from its finish time to the next shuffle's start: for each tray, right (slot and corner as the map), wrong, or not found. Reported per
   shuffle; every wrong reading is listed.
 - No threshold is set for what size of change matters. Results are reported as measured; any

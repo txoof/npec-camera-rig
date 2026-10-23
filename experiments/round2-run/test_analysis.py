@@ -171,3 +171,31 @@ def test_a_reading_the_app_flagged_counts_as_doubtful_not_right():
         "shuffle": "0", "photos": 1, "right": 0, "wrong": 0, "doubtful": 2, "not found": 0, "not read": 0}
     assert [(d["tray"], d["placement"]) for d in result["doubtful"]] == [
         (1, "two trays in one slot"), (2, "close call")]
+
+
+def test_a_miss_counts_under_the_tray_and_the_slot_it_was_last_read_in():
+    minute = timedelta(minutes=1)
+    photos = [photo(0), photo(1), photo(2), photo(3), photo(4)]
+    readings = {
+        0: {1: ("North 2", "SW", "placed"), 2: ("South 1", "NE", "placed")},
+        1: {2: ("South 1", "NE", "placed")},                                    # tray 1 missed
+        2: {1: ("North 3", "SW", "placed"), 2: ("South 1", "NE", "placed")},    # moved, seen
+        3: {2: ("South 1", "NE", "placed")},                                    # tray 1 missed, last in North 3
+        4: {1: ("North 3", "SW", "placed")},                                    # tray 2 missed, during a shuffle
+    }
+    shuffles = [{"shuffle": "1", "slots": {}, "start": T0 + 3.5 * minute, "finish": T0 + 4.5 * minute}]
+    result = analysis.misses(photos, readings, shuffles)
+    assert [(m["capture_id"], m["tray"], m["slot"], m["during_shuffle"]) for m in result["misses"]] == [
+        (1, 1, "North 2", False), (3, 1, "North 3", False), (4, 2, "South 1", True)]
+    assert result["by_tray"] == {1: {"outside shuffles": 2, "during shuffles": 0},
+                                 2: {"outside shuffles": 0, "during shuffles": 1}}
+    assert result["by_slot"] == {"North 2": {"outside shuffles": 1, "during shuffles": 0},
+                                 "North 3": {"outside shuffles": 1, "during shuffles": 0},
+                                 "South 1": {"outside shuffles": 0, "during shuffles": 1}}
+
+
+def test_a_tray_missed_before_it_was_ever_read_has_no_slot():
+    photos = [photo(0), photo(1)]
+    readings = {0: {2: ("South 1", "NE", "placed")}, 1: {1: ("North 2", "SW", "placed"), 2: ("South 1", "NE", "placed")}}
+    result = analysis.misses(photos, readings, [], trays=[1, 2])
+    assert [(m["tray"], m["slot"]) for m in result["misses"]] == [(1, "not read yet")]
