@@ -4909,3 +4909,60 @@ look the same, and why crops do not form or group it the same way. How often it 
 run: 3 of about 1660 tray-tag reads to 11:00 UTC. Whether a smaller `minMarkerDistanceRate` for
 tray tags changes anything else: not tested on the 15.3e stills or the 20 October photos. No code
 was changed.
+
+### 16.7 results: the check on 20 October (2026-10-23)
+
+`read_photos.py ~/scratch/223-analysis/exp16 --experiment 16` read 1390 photo records (1 was
+already read in the live `rig.db` and came with the copy) from 10:41 UTC on 22 October to the
+early hours of 23 October; 2 had no image (below). Then `check_oct20.py`; printout
+`~/scratch/223-analysis/out/oct20.txt`, tables `oct20-*.csv`, day pictures
+`~/scratch/223-analysis/days/day-16-2026-10-20.png` and `-21.png`.
+
+| Compared with 15.5l | 15.5l | The app's readings, this analysis |
+|---|---|---|
+| Tray positions, tag found or not (1391 stills x 12) | 16692 | 16692 the same, 0 different |
+| Of those found, same slot and A1 corner | 11113 | 11113 the same, 0 different |
+| Placed centre within 1 mm | | 11113, largest difference 0.29 mm |
+| Lit stills with all 12 tags | 613 | 613 read with 12 trays |
+| Stills with no tag | 452 dark + 1 light coming up | 453 `no tags found` |
+
+**Tracking against the layouts as laid out** (16.4, question 3; every read photo from a layout's
+first settled still to the next move, not only settled ones):
+
+| Layouts | Read photos | Right | Wrong | Doubtful | Not found | Not read |
+|---|---|---|---|---|---|---|
+| 2 to 19 (the day's shuffles) | 278 | 3285 | 0 | 0 | 51 | 1 |
+| 2 to 19 and 20b (to the stop next morning) | 891 | 10641 | 0 | 0 | 51 | 455 |
+| 1 (learning layout, apart) | 6 | 72 | 0 | 0 | 0 | 0 |
+| 20a (not as planned, apart) | 4 | 20 | 28 | 0 | 0 | 0 |
+
+The 51 not found are more than 15.5l's 47 because photos 15.5l left out as not settled are
+counted here; the 455 not read are the 453 dark stills and the 2 records with no image. The 28
+wrong in 20a are 7 trays turned from the map in 4 photos, as 15.5l found (3 settled stills there).
+
+**Steadiness** (16.4, question 1; a new number on these photos, change between undisturbed
+pairs, not 15.5l's spread about a layout's mean). Pairs: 877 undisturbed; 57 across a shuffle;
+454 with a photo not read; 1 with photos missed (07:53 to 07:56, the interval change); 1 across a
+camera event (below).
+
+| Window | Pairs per tray | rms change per tray | Largest single change |
+|---|---|---|---|
+| Nothing moved (17:00 to 09:30, lit photos only) | 512 | 0.13 to 0.78 mm | 2.46 mm (tray 10) |
+| Trays may move (09:30 to 17:00, people in and out) | 345 to 365 | 0.27 to 0.71 mm | 10.17 mm (tray 6) |
+
+**Two records without an image, and their likely source.** Capture 725 (11:00:48 UTC, known in
+15.5l, "source not known") and capture 912 (14:06:48 UTC, not noticed in 15.5l) both have lens
+position 1.0, exposure 20000 us, no calibration and no image. `camera_events` has a row at
+11:00:46 UTC, 2 s before capture 725: "synthetic camera could not be opened (test switch)",
+app version d95b4d4. 20000 us is the synthetic camera's default exposure (`camera.py`). Both are
+therefore likely written into the live `rig.db` by test runs, the leak fixed on 21 October (#253,
+PR #254); not proven, and not looked at further. `rig.db` holds 6 capture records with lens 1.0
+and exposure 20000 us in all. Nothing was changed in the live `rig.db`.
+
+**What this shows.** Fed the app's own readings of the 20 October photos, the analysis gives
+15.5l's answers tray by tray and still by still: the same tags found, the same slot and corner for
+every one, centres within 0.29 mm, the same lit and dark stills, and against what was laid out
+no tray in a wrong slot or corner. So the app's readings (#222) and this analysis can stand in
+for 15.5l's scripts on the potato run. **Not shown:** that the analysis is right where 15.5l was
+not checked (steadiness between pairs, the clock windows, doubtful placements: none occurred);
+plants; more than one calibration in an experiment.

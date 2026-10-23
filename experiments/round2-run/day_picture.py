@@ -18,7 +18,7 @@ import numpy as np
 import analyse
 from analysis import CHAMBER, MOVING_FROM, MOVING_TO, window
 
-W, LEFT, RIGHT, TOP, ROW = 2400, 190, 30, 110, 40
+W, LEFT, RIGHT, TOP, ROW = 2400, 190, 30, 160, 40
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 INK, MUTED, GRID = (20, 20, 20), (90, 90, 90), (225, 225, 225)
 SURFACE, WINDOW = (251, 252, 252), (238, 244, 247)
@@ -84,14 +84,15 @@ def draw_day(day, photos, centres, shuffles, events, trays, experiment):
         cv2.line(img, (x, y - ROW // 2 + 3), (x, y + ROW // 2 - 3), MISSED, 3)
         cv2.fillPoly(img, [np.array([(x - 6, y - ROW // 2 - 6), (x + 6, y - ROW // 2 - 6), (x, y - ROW // 2 + 3)])], MISSED)
 
-    for s in shuffles:
+    for n, s in enumerate(shuffles):
         finish = s["finish"].astimezone(CHAMBER)
         start = (s["start"] or s["finish"]).astimezone(CHAMBER)
         if finish.date().isoformat() != day:
             continue
         xs, xf = x_of(start, day_start), x_of(finish, day_start)
         cv2.rectangle(img, (xs, TOP - 4), (max(xf, xs + 2), bottom), SHUFFLE, 2)
-        text(img, f"map {s['shuffle']}", (xs + 4, TOP - 34), 0.5, INK)
+        # Staggered over 3 heights: shuffles can be minutes apart.
+        text(img, s["shuffle"], (xs, TOP - 34 - 18 * (n % 3)), 0.45, INK)
     for t, words in events:
         local = t.astimezone(CHAMBER)
         if local.date().isoformat() == day:
@@ -105,7 +106,7 @@ def draw_day(day, photos, centres, shuffles, events, trays, experiment):
          (14, 32), 0.65, INK, 2)
     text(img, "Pale line: a photo with that tray's tag found.  Dark red line under a triangle: tag missed while others were found.  "
               "Grey line across all trays: dark (no tag found).  Grey tick at the top: not read.  "
-              "Box: shuffle, start to finish.",
+              "Box: shuffle, start to finish, its map number above.",
          (14, 60), 0.45, MUTED)
     y = bottom + 70
     text(img, "Missed, chamber time (UTC):", (14, y), 0.5, INK, 1)
