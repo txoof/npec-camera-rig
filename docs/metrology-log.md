@@ -4913,8 +4913,8 @@ was changed.
 ### 16.7 results: the check on 20 October (2026-10-23)
 
 `read_photos.py ~/scratch/223-analysis/exp16 --experiment 16` read 1390 photo records (1 was
-already read in the live `rig.db` and came with the copy) from 10:41 UTC on 22 October to the
-early hours of 23 October; 2 had no image (below). Then `check_oct20.py`; printout
+already read in the live `rig.db` and came with the copy) from 10:41 to 14:51 UTC on 22 October;
+2 had no image (below). Then `check_oct20.py` (23 October); printout
 `~/scratch/223-analysis/out/oct20.txt`, tables `oct20-*.csv`, day pictures
 `~/scratch/223-analysis/days/day-16-2026-10-20.png` and `-21.png`.
 
