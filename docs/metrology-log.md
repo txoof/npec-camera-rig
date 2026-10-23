@@ -1271,6 +1271,10 @@ Raw data for runs 3 to 3c:
 
 Detailed results: `reference/lens-return-2026-10.md`.
 
+![The 12-sheet table photographed at 09:38 and at 11:18](figures/8.1/overview-0938-vs-1118.jpg)
+
+*Figure 8.1-a. The table with the 12 validation sheets in their slots, the photograph of 09:38:07 UTC (left) and of 11:18:32 UTC (right) on 2026-10-06, as compared in run 3d above (sides by the file name; the image carries no labels). Copied into `docs/figures/` on 2026-10-23 from `~/scratch/lens-fix-check-2026-10-06/overview_0938_vs_1118.jpg`, scaled down.*
+
 ### 8.2 Camera swap comparison (method written 2026-10-07, before any step runs)
 
 **Labels:** development check for steps 0, 1 and 3 to 6, the overnight run, the packing foam and
@@ -1807,6 +1811,10 @@ in both photos: straight lines near the top and bottom of the frame are slightly
 **Covers.** One roll of about 3 deg, not 5 deg. The camera can only be nudged by hand, with no
 measure of its own, which is why the rails are the reference.
 
+![Eight crops of the table rails with the fitted edge line](figures/9.3/rail-edge-lines.jpg)
+
+*Figure 9.3-a. The independent reference for roll: 8 crops of the table's aluminium rail edges, with the straight line fitted to each edge drawn in red (RANSAC over x = 1500 to 7600 px, as above). Copied into `docs/figures/` on 2026-10-23 from `~/scratch/roll-rail-lines.jpg` (made 2026-10-05; which photographs the 8 crops come from is not recorded).*
+
 ### 9.4 Claimed uncertainty against actual error (honesty plot)
 
 **Label: development check.** The claim is judged against validation tags, not against a second
@@ -2230,6 +2238,10 @@ across the row reads long.
 **Covers.** The South row only, west to east, at tray-top height. The North row and a span front
 to back cannot be reached without moving the table (Aaron, 2026-10-12), so they are not covered,
 as on the old camera.
+
+![The tape measure lying across the sheets](figures/14.2/tape-strip-074846.jpg)
+
+*Figure 14.2-a. A strip of photo `074846_006450` (2026-10-12, 07:48:46 UTC), the tape measure lying across the sheets of the South row, as used by method B above. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/m2-acceptance-2026-10/tape_strip_0748.jpg`.*
 
 ### 14.3 Two calibrations with a cold start between
 
@@ -2831,6 +2843,14 @@ the number of independent cases is the number of layouts times tags, about 70, n
 defensible check of the printed tags needs new layouts, setting C fixed in advance and a pass rule
 written before the photos.
 
+![Four 20 mm tray tags marked missed by the frozen settings](figures/15.3e/frozen-settings-missed-20mm-tags.jpg)
+
+*Figure 15.3e-a. Still `090640_702608` (step R2-1): 20 mm tags 0, 17, 14 and 15 on the tray edge, each outlined where it lies and marked MISSED by the frozen detector settings, although each is in view; slightly soft at this size. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/156-tray-tags/step-R2-1_090640_702608_missed-tags-closeup.jpg`.*
+
+![The same four tags found with finer bit sampling](figures/15.3e/finer-sampling-found-20mm-tags.jpg)
+
+*Figure 15.3e-b. The same still and tags, all four found with the finer bit sampling adopted for tray tags (`tags._tray_detector_parameters`). Copied into `docs/figures/` on 2026-10-23 from `~/scratch/192-tray-tags/step-R2-1_090640_702608_new-tags.jpg`.*
+
 ### 15.4 What is measured
 
 Each tray is one region; tags give identity only (decision, Aaron 2026-10-14). Trays are found by
@@ -3032,6 +3052,10 @@ In one sentence: leaf area from this rig is workable, and the open questions are
 calibration and lens position, about 10 minutes of photos. Not leaves standing above the tray,
 not other plants, not overlapping leaves. The true error lies between the "against before" and
 "against after" figures, since the shrinking between scans is not measured.
+
+![Three leaves on grey board, measured area shaded and outlined](figures/15.5b/leaves-115925.jpg)
+
+*Figure 15.5b-a. Still `115925_456242`: 3 real leaves on grey board on a tray, the area the rig measured shaded magenta and outlined in cyan; the label gives the value printed by the analysis (22338) and +1.8% against the leaves' scanned area. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/leaves/overlays/14_115925_456242.jpg`, scaled down.*
 
 ### 15.5c Tray splitting and tray ID (issue #164, method written 2026-10-15, before the analysis)
 
@@ -3437,6 +3461,14 @@ detections: `~/scratch/round1-trays/tags/` (not in the repository); they differ 
 grey conversion in 3 of 53 stills compared (tag 5 twice and the offcut tag 29 once found only in the
 cache).
 
+![FastSAM outlines, trays touching, 12 of 12 placed](figures/15.5c/fastsam-touching-12-of-12.jpg)
+
+*Figure 15.5c-a. Still `092731_168752` (R2-4, trays touching): FastSAM tray outlines (green) with each tray ID and outline size in mm, 12 of 12 trays OK (11 on the first pass, tray 3 by the fallback). Copied into `docs/figures/` on 2026-10-23 from `~/scratch/194-tray-view-evidence/overlays/2-touching_R2-4_092731_168752.jpg`.*
+
+![FastSAM outlines with trays 4 and 5 merged](figures/15.5c/fastsam-trays-4-5-merged.jpg)
+
+*Figure 15.5c-b. Still `101419_730536`: the typical failure, trays 4 and 5 in one outline (red, MERGED), 10 of 12 OK. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/194-tray-view-evidence/overlays/3-failure-merged_R3_101419_730536.jpg`.*
+
 ### 15.5d Tray tracking over time (issue #171, planned under #164, method written 2026-10-16, before the analysis)
 
 **Question.** Followed through the 15 October stills in time order, does the tray splitting of
@@ -3642,6 +3674,10 @@ trays in the North row around one benchmark, so how often the patches are needed
 elsewhere is not known. The success rate that is good enough is Aaron's to set; the slot
 reference is still provisional.
 
+![Position of each of 12 trays over 176 stills](figures/15.5d/tracking-timeline-full176.png)
+
+*Figure 15.5d-a. The timeline named above: for each tray, east-west (blue) and north-south (orange) position in every still in time order, steps marked by grey lines; a square is a patched position, a red triangle a wrong one, a red cross no position. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/track/timeline-full176.png`.*
+
 ### 15.5e The benchmark from the supervisor's photogrammetry mesh (issue #206, method written 2026-10-16, after the analysis)
 
 **Label: development check.** A second instrument measuring the benchmark of 15.1: one mesh made by
@@ -3673,6 +3709,10 @@ mesh size they are not a useful area reference.
 **Covers / does not cover.** One capture of one benchmark. Usable as a second check of the calliper
 lengths and heights. Not yet a reference area for the rosettes; not the repeatability of the
 photogrammetry; not plants.
+
+![Height map of the benchmark from the photogrammetry mesh](figures/15.5e/mesh-heightmap.png)
+
+*Figure 15.5e-a. Height map of the benchmark made from the supervisor's photogrammetry mesh, seen from above, base turned 45 deg: the 4 rosettes light (higher), the base grey, with a red grid. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/rosette-mesh/heightmap.png`.*
 
 ### 15.5f Trays with pots in the wells (issue #213, method written 2026-10-17, before the session)
 
@@ -3887,6 +3927,14 @@ or tiles centred on the seams) would separate them.
 **Limits of the evidence.** As declared above, plus: the trace covers 2 stills and one tile; the
 diagnosis stage "passed" over-counts for touching trays; one session of one hour.
 
+![Position timeline with pots in the wells](figures/15.5f/tracking-timeline-pots19-holes.png)
+
+*Figure 15.5f-a. The same kind of timeline as Figure 15.5d-a, trays 13 to 24 with pots in the wells: many red crosses (no position) and wrong positions; trays 16 and 24 almost never placed from step 5 on. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/track/timeline-pots19-holes.png`.*
+
+![One step 6 still with pots: merged and patched trays](figures/15.5f/step6-overlay-084234.jpg)
+
+*Figure 15.5f-b. Still `084234_338674` (step 6, pots in the wells): FastSAM finds 4 of 12 trays (green); red outlines are merged trays, yellow are trays kept by the patch, cyan filled; tray 16 has no mask. The kind of still behind the red in Figure 15.5f-a. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/track/evidence-pots19/6_084234_338674.jpg`.*
+
 ### 15.5g Tray footprint from the tag (issue #213, method written 2026-10-19, before the analysis)
 
 **Label: development check.** No new photos; the 142 stills of 15.5f.
@@ -4068,6 +4116,14 @@ touching (53 to 56% raw), with either tag. The edge tag cannot be placed repeata
 is the method taken forward to the shuffling test (15.5i). It rests on one session of 22 stills,
 no ruler check of the outline, the tag lying the same way round in A1, and A1 kept free of plants.
 
+![Tray outlines placed from the cell tag in 5 steps](figures/15.5h/outlines-from-cell-tag-5-steps.jpg)
+
+*Figure 15.5h-a. The sheet named above (`cell-tag-only-steps.jpg`): one still per step (gaps, turned 180, rows swapped, pairs swapped, touching), each tray outline placed from its cell A1 tag; outlines and labels in red where the tray was not measured. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/footprint/cell-tag-only-steps.jpg`, scaled down.*
+
+![Position timeline for the cell tag stills](figures/15.5h/tracking-timeline-cell19.png)
+
+*Figure 15.5h-b. The same kind of timeline as Figure 15.5d-a for the cell-tag stills of 19 October (`track-cell19.csv` in `experiments/round1-trays/`), steps 1 to 5; red crosses (no position) and patched squares appear from step 3. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/track/timeline-cell19.png`.*
+
 ### 15.5i Shuffling rounds, trays placed from the cell tag only (issue #213, method written 2026-10-19, before the photos)
 
 **Label: development check.** Proof of concept for tracking trays through repeated moves.
@@ -4208,6 +4264,14 @@ report. Not shown: tags lying 90 or 270 degrees round (none here; the method exp
 since only the tilt is taken from the heading); more than one tag lying a different way; fewer
 than 12 trays; the outline against a measured tray edge.
 
+![Tag 1 found in one still and missed in the next](figures/15.5j/tag1-found-vs-missed.jpg)
+
+*Figure 15.5j-a. Tag 1 in cell A1, found in `121656_304541` (left) and not found in `121700_460965` 4 s later (right), looking the same: the observation above. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/tag1-found-vs-missed.jpg`.*
+
+![One shuffled layout, each tray labelled with slot and corner](figures/15.5j/shuffled-layout-121656.jpg)
+
+*Figure 15.5j-b. Still `121656_304541`, one shuffled layout placed by the any-rotation rule: each tray outlined (green) and labelled with its tray, slot and A1 corner. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/shuffle/group5-round2-121656_304541-any.jpg`, scaled down.*
+
 ### 15.5k Tags in four rotations, trays turned, pushed together and shuffled (issue #217, method written 2026-10-19, before the analysis)
 
 **Label: development check.** Whether trays are placed in the right slot and turn, with no true
@@ -4254,6 +4318,10 @@ shuffled, the 15.5j rule placed every tray in every still. Taken forward into th
 Not shown: the outline against a measured tray edge; fewer than 12 trays; the 40 mm tag (offset
 learned with 30 mm tags); trays with plants, and A1 holding anything but the tag. The answer was
 checked by eye after the analysis, not fixed before it.
+
+![Eight layouts with tags in all rotations, every tray placed](figures/15.5k/rotations-8-layouts.jpg)
+
+*Figure 15.5k-a. The sheet named above: the first still of each of the 8 layouts, each tray outlined and labelled with its tray, slot and A1 corner. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/rotations-8-layouts.jpg`, scaled down.*
 
 ### 15.5l Shuffles through a day with scheduled capture (method written 2026-10-19, before the photos; results in round 2)
 
@@ -4503,6 +4571,10 @@ each tray's placed centre stayed within 0.65 mm of its evening position, and all
 in every lit still. With the lights off the camera sees no tags at all, so night stills carry no
 tray data; the app must report them as too dark, not as trays missing. Not shown: an in-between
 light level; more than one night; the morning sample is 4 stills.
+
+![Brightness and tags found per still overnight](figures/15.5l/overnight-timeline.png)
+
+*Figure 15.5l-a. The overnight timeline named above, one point per still from the 20b move to the stop: mean brightness (black, top) and tags found (blue: all 12, red: fewer; here 0 with the lights off), window lines quiet, dark, light. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round2-shuffles/overnight-timeline-2026-10-20_57f74959.png`.*
 
 ### 15.5m Time to read one photo for trays (issue #222, development check, 2026-10-21)
 
@@ -4760,6 +4832,10 @@ by this one.
   place; the date and the times the shuffle started and finished are written at the top (Aaron,
   2026-10-22: no time per tray). The maps come back to Aaron, who posts the times on #221; the agent
   converts chamber time to UTC (UTC+2 to 24 October, UTC+1 from 25 October).
+  Each post is copied as written into `sessions/chamber-times-2026-10-22.csv` (chamber time);
+  `chamber_times.py` makes the UTC shuffles and events files from it, and stops, naming the row,
+  on a finish before its start, a shuffle time outside 09:30 to 17:00, an unknown map, a map used
+  twice, or shuffles out of order or overlapping (added 2026-10-22, before the first shuffle).
 - **Events log.** Anything else that happens in the chamber (door opened, a tray moved or watered
   outside a map, the benchmark taped on) is posted on #221 with the local time.
 - The collaborator is named in no record of this run (Aaron, 2026-10-22).
@@ -4788,6 +4864,17 @@ A pair of consecutive photos is **undisturbed** when all of these hold:
 
 Only undisturbed pairs are used for question 1. Other pairs are counted, with the reason.
 
+*Changed 2026-10-22, from the code review of #265, after the first tables of the run (to about
+11:00 UTC, check-in 1) had been shown to Aaron; the changes come from the review, not from those
+tables, and none changes them (no pair there was 120 to 150 s apart or lacked an uptime, and no
+placement was marked).* Rule 4 is
+applied as at most 150 s (2.5 intervals): photos come 59.4 to 60.9 s apart, so a pair with one
+photo missed between them is 119 to 122 s apart, and an exact 120 s limit kept or dropped it by
+chance. Rule 5: a photo whose app uptime is not recorded leaves its pair out with the reason "app
+uptime unknown", not as a restart. Question 3: a tray whose placement the app marked other than
+"placed" ("close call", "two trays in one slot") is counted as *doubtful*, apart from right and
+wrong, and listed.
+
 ### 16.4 Analysis
 
 - **Data.** The rig's own tray readings (`tray_read`, `tray_reading`, issue #222), read from a copy
@@ -4799,7 +4886,10 @@ Only undisturbed pairs are used for question 1. Other pairs are counted, with th
   once area exists. Still scene (trays 8 to 12) and plant trays (1 to 7) in separate tables.
 - **Question 2.** For each tray, per day and window: photos read, photos with its tag found, and the
   share. Photos with no tag at all (dark) are counted apart. Each photo where one tray was missed
-  while others were found is listed by its time, to be looked at.
+  while others were found is listed by its time, to be looked at. For check-ins (added 2026-10-23, Aaron):
+  `misses_chart.py` gives a table per tray and bar charts of the misses outside shuffles by tray ID
+  and by the slot the rig last read that tray in (the tray's own slot cannot be read when its tag
+  is missed; a tray moved without being seen would be counted under its old slot).
 - **Question 3.** For each shuffle, every photo from its finish time to the next shuffle's start: for each tray, right (slot and corner as the map), wrong, or not found. Reported per
   shuffle; every wrong reading is listed.
 - No threshold is set for what size of change matters. Results are reported as measured; any
@@ -4826,3 +4916,201 @@ a method comes before its test. What that means: no result had been looked at, s
 pairs and tables were not chosen from the data; but the run itself (trays, interval, positions)
 was set before the method existed, so nothing in it was designed for these questions. The results
 are development checks and are to be read that way.
+
+### 16.7 The analysis checked on the 20 October capture (issue #223, method written 2026-10-22, before the full check)
+
+**Label: development check.** Whether the analysis of 16.4, fed the app's own tray readings,
+gives what 15.5l found on the same photos. It checks the analysis and the app's readings, not the
+rig: 15.5l is the known answer.
+
+**Data.** Experiment 16, "tray tracking 26.10.20" (folder `2026-10-20_57f74959`), 1391 photo
+records. `experiments/round2-run/read_photos.py` copies `rig.db` (sqlite backup from a read-only
+connection) and the calibration folder to `~/scratch/223-analysis/exp16/`, and reads every photo
+with `tray_readings.read_photo` (#222) into the copy. The live `rig.db` and the experiment folder
+are only read. About 13 s per photo, at low priority while the potato run's reader runs.
+
+**Compared** (`check_oct20.py`, against 15.5l's output files in `experiments/round1-trays/`):
+
+1. **Still by still, tray by tray** (`shuffle-day-2026-10-20_57f74959.csv`): tag found or not,
+   slot, A1 corner, and the placed centre within 1 mm (a decision; the CSV rounds centres to the
+   pixel, about 0.1 mm).
+2. **Lit and dark** (`overnight-2026-10-20_57f74959.csv`): each still with all 12 tags should be
+   status `read` with 12 trays; each still with no tag, status `no tags found`. 15.5l: 613 and 452.
+3. **Tracking against the layouts as laid out** (`sessions/as-laid-out-2026-10-20.json`): the 20
+   October maps with layouts 3, 11 and 12 changed to what Aaron recorded from the pictures. His
+   notes for layouts 3 and 11 give slots only; the A1 corner of those 4 trays is the one the rig
+   found, which 15.5l says Aaron confirmed tray by tray. 15.5l: 0 wrong.
+
+**Not the same numbers as 15.5l, and why.** 15.5l split layouts where the tags moved, counted only
+*settled* stills (its 5 mm rule), and gave steadiness as the spread about each layout's mean. 16.4
+counts every read photo between a shuffle's finish and the next start, and gives steadiness as the
+change between undisturbed pairs. 20 October has Aaron's leave times only, no start times, so each
+layout's finish is its first settled still in 15.5l and the next shuffle starts 1 s after the last
+still before the trays moved. The tracking counts and the steadiness of 16.4 are therefore new
+numbers on these photos, not a repeat of 15.5l's tables. Every difference in comparisons 1 and 2
+is listed, not tuned away.
+
+**Before the full check** (2026-10-22, on the photos read by then, to test the scripts): 424 of
+424 tray positions compared had the same slot and corner as 15.5l, centres at most 0.27 mm apart.
+
+### 16.8 Observations during the run: tray tags missed with nothing in the way (issue #223, 2026-10-22)
+
+**Label: development check.** Looked at because tray 2 was missed twice (the trigger on #223).
+
+From the analysis to about 11:00 UTC (16.4, question 2), 3 photos each missed one tray while
+the other 11 tray tags were found: capture 1972 (08:55:53 UTC, tray 2), 2007 (09:30:53, tray 2) and
+2039 (10:02:53, tray 6). Map 0 throughout, trays 2 and 6 are plant trays.
+
+- **The tag looks the same.** A crop around the tag in each missed photo and in the photos either
+  side (`~/scratch/223-analysis/misses/`) shows no leaf, hand or object over it, and no blur.
+  Mean grey level of the crop: 112.7 to 112.9 for tray 2 and 137.4 for tray 6, the same in all 3
+  photos of each group. Sharpness (variance of the Laplacian): 57.5 to 63.1 and 100.3 to 101.5, the
+  missed photo inside the range of its neighbours.
+- **The miss is in the detector's choice between candidates, not in the tag.** Running the
+  detector again (OpenCV 4.10 ArUco, the tray settings of `tags.detect_tags`) on the full photo
+  repeats the miss every time. On a crop around the tag (900 x 900 px up to 4768 x 4221 px) the
+  same photo finds the tag, with all 28 border bits and all 36 code bits right. The tag's square
+  is 192 to 198 px across (about 0.2 mm per pixel).
+- **What takes its place.** In each missed photo the detector rejects a larger four-sided shape
+  around the tag, sides 308 to 399 px, lying on the dark edge around the white tag tile (seen in
+  the crops). In the photo before (092953, measured), no such shape is among the rejected ones. The average distance between that shape's
+  corners and the tag's is 101 px (2 photos measured). OpenCV puts two candidates in one group
+  when that distance is under `minMarkerDistanceRate` (default 0.125) times the smaller one's
+  perimeter, here 0.125 x 792 px = 99 px, keeps the largest of each group, and tries the others
+  only when their corners lie close to the largest one's (OpenCV 4.10 source,
+  `ArucoDetectorImpl::filterTooCloseCandidates` and `identifyCandidates`). The rim shape is the
+  largest, cannot be read, and the tag is dropped with it. The one shape reported lies at 101 px,
+  just over 99 px; the detector runs 9 threshold window sizes and may form a slightly different
+  shape at each (not checked), and the grouping depends on the order candidates are visited, so
+  this is the likely mechanism, supported by the tests below, not proven step by step.
+- **Tests that support it.** Full photo, tray settings with one change each:
+  - one threshold window size alone (each of 11, 21 to 91): tag 2 found in 085553 at every size;
+  - grey over the right part (x from 4768 px) or the top part (y under 3723 px), far from the
+    tag: found, so content far from the tag changes the grouping;
+  - `minMarkerDistanceRate` 0.10: found in 2 of the 3 missed photos (085553, 100253), not in
+    093053; 0.08 and 0.05: found in 085553 and 093053 (100253 not run at these). The photos
+    before still found their tag: 085453 at 0.10 (all 12 tray tags), 092953 at 0.08 and 0.05.
+
+**Not known.** Why the rim forms a closed four-sided shape in some photos and not in others that
+look the same, and why crops do not form or group it the same way. How often it happens over the
+run: 3 of about 1660 tray-tag reads to 11:00 UTC. Whether a smaller `minMarkerDistanceRate` for
+tray tags changes anything else: not tested on the 15.3e stills or the 20 October photos. No code
+was changed.
+
+### 16.7 results: the check on 20 October (2026-10-23)
+
+`read_photos.py ~/scratch/223-analysis/exp16 --experiment 16` read 1390 photo records (1 was
+already read in the live `rig.db` and came with the copy) from 10:41 to 14:51 UTC on 22 October;
+2 had no image (below). Then `check_oct20.py` (23 October); printout
+`~/scratch/223-analysis/out/oct20.txt`, tables `oct20-*.csv`; misses chart, Figure 16.7a.
+
+| Compared with 15.5l | 15.5l | The app's readings, this analysis |
+|---|---|---|
+| Tray positions, tag found or not (1391 stills x 12) | 16692 | 16692 the same, 0 different |
+| Of those found, same slot and A1 corner | 11113 | 11113 the same, 0 different |
+| Placed centre within 1 mm | | 11113, largest difference 0.29 mm |
+| Lit stills with all 12 tags | 613 | 613 read with 12 trays |
+| Stills with no tag | 452 dark + 1 light coming up | 453 `no tags found` |
+
+**Tracking against the layouts as laid out** (16.4, question 3; every read photo from a layout's
+first settled still to the next move, not only settled ones):
+
+| Layouts | Read photos | Right | Wrong | Doubtful | Not found | Not read |
+|---|---|---|---|---|---|---|
+| 2 to 19 (the day's shuffles) | 278 | 3285 | 0 | 0 | 51 | 1 |
+| 2 to 19 and 20b (to the stop next morning) | 891 | 10641 | 0 | 0 | 51 | 455 |
+| 1 (learning layout, apart) | 6 | 72 | 0 | 0 | 0 | 0 |
+| 20a (not as planned, apart) | 4 | 20 | 28 | 0 | 0 | 0 |
+
+The 51 not found are more than 15.5l's 47 because photos 15.5l left out as not settled are
+counted here; the 455 not read are the 453 dark stills and the 2 records with no image. The 28
+wrong in 20a are 7 trays turned from the map in 4 photos, as 15.5l found (3 settled stills there).
+
+**Steadiness** (16.4, question 1; a new number on these photos, change between undisturbed
+pairs, not 15.5l's spread about a layout's mean). Pairs: 876 undisturbed; 57 across a shuffle;
+454 next to a photo not read (the 453 dark stills); 4 next to the 2 records with no image (no
+calibration); 1 with photos missed (07:53 to 07:56, the interval change). The camera event of
+11:00:46 UTC was written by a unit test (#241) and is not counted as one.
+
+| Window | Pairs per tray | rms change per tray | Largest single change |
+|---|---|---|---|
+| Nothing moved (17:00 to 09:30, lit photos only) | 512 | 0.13 to 0.78 mm | 2.46 mm (tray 10) |
+| Trays may move (09:30 to 17:00, people in and out) | 344 to 364 | 0.27 to 0.71 mm | 10.17 mm (tray 6) |
+
+**Two records without an image.** Capture 725 (11:00:48 UTC) and capture 912 (14:06:48 UTC), both
+lens position 1.0, exposure 20000 us, no calibration and no image, came with the copy and were
+counted as not read. Both were written by unit tests into the live `rig.db` (cause found under
+#241, written up in 15.5l above); they are 2 of the 6 such records, to be ignored by any analysis.
+
+![Bar charts of 20 October's misses by tray ID and by slot](figures/16.7/misses-by-tray-and-slot-2026-10-20.png)
+
+*Figure 16.7a. 20 October, misses outside the moves 15.5l found, by tray ID and by the slot the
+rig last read the tray in: 45, of which 36 are trays 1 and 3 in South 3 and South 2 in layout 19,
+most likely the folder and phone laid on them then (15.5l; not checked crop by crop here). Outside
+a move is not the same as nothing in the way: only a crop tells them apart. Made with
+`misses_chart.py ~/scratch/223-analysis/exp16 --experiment 16 --shuffles
+~/scratch/223-analysis/out/oct20-shuffles.csv` (the shuffles file made from 15.5l's moves, as
+`check_oct20.py` does).*
+
+**What this shows.** Fed the app's own readings of the 20 October photos, the analysis gives
+15.5l's answers tray by tray and still by still: the same tags found, the same slot and corner for
+every one, centres within 0.29 mm, the same lit and dark stills, and against what was laid out
+no tray in a wrong slot or corner. So the app's readings (#222) and this analysis can stand in
+for 15.5l's scripts on the potato run. **Not shown:** that the analysis is right where 15.5l was
+not checked (steadiness between pairs, the clock windows, doubtful placements: none occurred);
+plants; more than one calibration in an experiment.
+
+**All misses of the run's first day, the same test** (2026-10-23, before #264's test). The 12
+misses with the lights on from 08:55:53 UTC on 22 October to 07:01 UTC on 23 October (13 in
+all; the 13th, 07:00:53 UTC, is the lights coming on and is left out). For each: the full photo
+with the tray settings, then `minMarkerDistanceRate` 0.08 and 0.05; the tag's corners from the
+photo before. Script `experiments/round2-run/miss_grouping.py`; printout
+`~/scratch/223-analysis/misses/run168.txt`.
+
+| Time (UTC) | Tray | Larger rejected shape near the tag: average corner distance | Threshold 0.125 x perimeter | Found at 0.08 | Found at 0.05 |
+|---|---|---|---|---|---|
+| 08:55:53 | 2 | 101.6 px | 99.1 px | yes | yes |
+| 09:30:53 | 2 | 101.1 | 99.1 | yes | yes |
+| 10:02:53 | 6 | 72.7 | 96.7 | yes | yes |
+| 11:23:55 | 10 | 95.8 | 97.6 | yes | yes |
+| 13:33:54 | 8 | 84.6 | 98.7 | yes | yes |
+| 13:53:55 | 12 | 82.5 | 97.8 | yes | yes |
+| 14:12:55 | 8 | 84.7 | 98.7 | yes | yes |
+| 17:20:53 | 8 | 84.0 | 98.8 | no | yes |
+| 18:49:53 | 8 | 83.9 | 98.8 | no | yes |
+| 20:05:53 | 10 | 95.9 | 97.6 | no | yes |
+| 20:17:53 | 8 | 85.3 | 98.8 | yes | yes |
+| 22:50:53 | 7 | 104.6 | 97.7 | yes | no |
+
+- **Every miss has the larger shape.** In all 12, exactly one larger four-sided shape is
+  rejected within 150 px of the tag's centre, 72.7 to 104.6 px from its corners on average.
+- **A smaller setting finds them, but not always the same one.** 0.08 found 9 of 12, 0.05 found
+  11 of 12; each was found by one of the two. 22:50:53 is found at 0.08 and missed at 0.05, so a
+  smaller value is not simply better: the grouping depends on more than the distance (16.8
+  above). Choosing a value is #264.
+- **Nothing else changed in these photos.** At 0.05, each photo found the same tray tag IDs as
+  with the tray settings, plus the missed one; no other ID appeared.
+- **Where.** Tray 8 has 6 of the 12, all in South 6 (the slot it was last read in); trays 2 and
+  10 two each (South 2, North 2); trays 6, 7 and 12 one each.
+
+![Bar charts of the 13 misses by tray ID and by slot](figures/16.8/misses-by-tray-and-slot-2026-10-22.png)
+
+*Figure 16.8a. The potato run's misses outside shuffles (there was none yet), 22 October 10:41
+to 23 October 09:05 chamber time, 895 lit photos: by tray ID (left) and by the slot the rig last
+read the tray in (right), 13 in all including the lights coming on at 07:00:53 UTC. Made with
+`misses_chart.py ~/scratch/223-analysis/exp18 --experiment 18 --shuffles
+sessions/shuffles-2026-10-22.csv` from a copy of `rig.db` made on 23 October.*
+
+![Tray 8's tag in the photo before, the missed photo and the photo after, six times](figures/16.8/tray8-misses.jpg)
+
+*Figure 16.8b. Tray 8, the 6 misses: each row is the photo before, the missed photo and the photo
+after, cropped around the tag (520 x 520 px, scaled down). Rows 1 to 5 look the same as their
+neighbours (mean grey 125.1 to 125.9, sharpness 39.8 to 45.0). Row 6 is the lights coming on
+(07:00:53 UTC): the photo before is dark, the missed one dim and red. Cropped from the stills of
+`experiments/2026-10-22_df206967`.*
+
+![Tray 2's tag, photo before, missed, photo after](figures/16.8/tray2-miss-085553.jpg)
+
+*Figure 16.8c. Tray 2 at 08:55:53 UTC, the first miss of the run (#223 observation 1), with the
+photos either side; no difference to be seen. Tray 6 at 10:02:53 UTC looks the same way
+(`figures/16.8/tray6-miss-100253.jpg`).*
