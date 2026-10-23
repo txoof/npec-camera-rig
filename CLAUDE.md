@@ -461,7 +461,9 @@ Single-context: `GLOSSARY.md` at the root and `docs/adr/`, made only when needed
 Every metrology finding and every validation result is written up in `docs/metrology-log.md`, in the
 same change that produces it: what was measured, how, with what instrument, how many times, the
 result with its spread, the date, where the raw data is, and what it does and does not cover.
-Detailed investigations go in `reference/` and are linked from it. A number that is a decision or
+Detailed investigations go in `reference/` and are linked from it. Images that show a result
+go in `docs/figures/<section>/`, linked from the section with a caption, in the same change
+(`docs/figures/README.md`, Aaron, 2026-10-23); `~/scratch` is not kept. A number that is a decision or
 a placeholder, not a measurement, says so. Written for a scientist without a metrology
 background, formal enough to cite in a paper about the rig (Aaron, 2026-10-05).
 

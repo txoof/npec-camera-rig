@@ -4918,8 +4918,7 @@ was changed.
 `read_photos.py ~/scratch/223-analysis/exp16 --experiment 16` read 1390 photo records (1 was
 already read in the live `rig.db` and came with the copy) from 10:41 to 14:51 UTC on 22 October;
 2 had no image (below). Then `check_oct20.py` (23 October); printout
-`~/scratch/223-analysis/out/oct20.txt`, tables `oct20-*.csv`, day pictures
-`~/scratch/223-analysis/days/day-16-2026-10-20.png` and `-21.png`.
+`~/scratch/223-analysis/out/oct20.txt`, tables `oct20-*.csv`; misses chart, Figure 16.7a.
 
 | Compared with 15.5l | 15.5l | The app's readings, this analysis |
 |---|---|---|
@@ -4962,6 +4961,15 @@ therefore likely written into the live `rig.db` by test runs, the leak fixed on 
 PR #254); not proven, and not looked at further. `rig.db` holds 6 capture records with lens 1.0
 and exposure 20000 us in all. Nothing was changed in the live `rig.db`.
 
+![Bar charts of 20 October's misses by tray ID and by slot](figures/16.7/misses-by-tray-and-slot-2026-10-20.png)
+
+*Figure 16.7a. 20 October, misses outside the moves 15.5l found, by tray ID and by the slot the
+rig last read the tray in: 45, of which 36 are trays 1 and 3 in South 3 and South 2 in layout 19,
+most likely the folder and phone laid on them then (15.5l; not checked crop by crop here). Outside a move is not the same as nothing in the
+way: only a crop tells them apart. Made with `misses_chart.py ~/scratch/223-analysis/exp16
+--experiment 16 --shuffles ~/scratch/223-analysis/out/oct20-shuffles.csv` (the shuffles file made
+from 15.5l's moves, as `check_oct20.py` does).*
+
 **What this shows.** Fed the app's own readings of the 20 October photos, the analysis gives
 15.5l's answers tray by tray and still by still: the same tags found, the same slot and corner for
 every one, centres within 0.29 mm, the same lit and dark stills, and against what was laid out
@@ -4969,3 +4977,58 @@ no tray in a wrong slot or corner. So the app's readings (#222) and this analysi
 for 15.5l's scripts on the potato run. **Not shown:** that the analysis is right where 15.5l was
 not checked (steadiness between pairs, the clock windows, doubtful placements: none occurred);
 plants; more than one calibration in an experiment.
+
+**All misses of the run's first day, the same test** (2026-10-23, before #264's test). The 12
+misses with the lights on from 08:55:53 UTC on 22 October to 07:01 UTC on 23 October (13 in
+all; the 13th, 07:00:53 UTC, is the lights coming on and is left out). For each: the full photo
+with the tray settings, then `minMarkerDistanceRate` 0.08 and 0.05; the tag's corners from the
+photo before. Script `experiments/round2-run/miss_grouping.py`; printout
+`~/scratch/223-analysis/misses/run168.txt`.
+
+| Time (UTC) | Tray | Larger rejected shape near the tag: average corner distance | Threshold 0.125 x perimeter | Found at 0.08 | Found at 0.05 |
+|---|---|---|---|---|---|
+| 08:55:53 | 2 | 101.6 px | 99.1 px | yes | yes |
+| 09:30:53 | 2 | 101.1 | 99.1 | yes | yes |
+| 10:02:53 | 6 | 72.7 | 96.7 | yes | yes |
+| 11:23:55 | 10 | 95.8 | 97.6 | yes | yes |
+| 13:33:54 | 8 | 84.6 | 98.7 | yes | yes |
+| 13:53:55 | 12 | 82.5 | 97.8 | yes | yes |
+| 14:12:55 | 8 | 84.7 | 98.7 | yes | yes |
+| 17:20:53 | 8 | 84.0 | 98.8 | no | yes |
+| 18:49:53 | 8 | 83.9 | 98.8 | no | yes |
+| 20:05:53 | 10 | 95.9 | 97.6 | no | yes |
+| 20:17:53 | 8 | 85.3 | 98.8 | yes | yes |
+| 22:50:53 | 7 | 104.6 | 97.7 | yes | no |
+
+- **Every miss has the larger shape.** In all 12, exactly one larger four-sided shape is
+  rejected within 150 px of the tag's centre, 72.7 to 104.6 px from its corners on average.
+- **A smaller setting finds them, but not always the same one.** 0.08 found 9 of 12, 0.05 found
+  11 of 12; each was found by one of the two. 22:50:53 is found at 0.08 and missed at 0.05, so a
+  smaller value is not simply better: the grouping depends on more than the distance (16.8
+  above). Choosing a value is #264.
+- **Nothing else changed in these photos.** At 0.05, each photo found the same tray tag IDs as
+  with the tray settings, plus the missed one; no other ID appeared.
+- **Where.** Tray 8 has 6 of the 12, all in South 6 (the slot it was last read in); trays 2 and
+  10 two each (South 2, North 2); trays 6, 7 and 12 one each.
+
+![Bar charts of the 13 misses by tray ID and by slot](figures/16.8/misses-by-tray-and-slot-2026-10-22.png)
+
+*Figure 16.8a. The potato run's misses outside shuffles (there was none yet), 22 October 10:41
+to 23 October 09:05 chamber time, 895 lit photos: by tray ID (left) and by the slot the rig last
+read the tray in (right), 13 in all including the lights coming on at 07:00:53 UTC. Made with
+`misses_chart.py ~/scratch/223-analysis/exp18 --experiment 18 --shuffles
+sessions/shuffles-2026-10-22.csv` from a copy of `rig.db` made on 23 October.*
+
+![Tray 8's tag in the photo before, the missed photo and the photo after, six times](figures/16.8/tray8-misses.jpg)
+
+*Figure 16.8b. Tray 8, the 6 misses: each row is the photo before, the missed photo and the photo
+after, cropped around the tag (520 x 520 px, scaled down). Rows 1 to 5 look the same as their
+neighbours (mean grey 125.1 to 125.9, sharpness 39.8 to 45.0). Row 6 is the lights coming on
+(07:00:53 UTC): the photo before is dark, the missed one dim and red. Cropped from the stills of
+`experiments/2026-10-22_df206967`.*
+
+![Tray 2's tag, photo before, missed, photo after](figures/16.8/tray2-miss-085553.jpg)
+
+*Figure 16.8c. Tray 2 at 08:55:53 UTC, the first miss of the run (#223 observation 1), with the
+photos either side; no difference to be seen. Tray 6 at 10:02:53 UTC looks the same way
+(`figures/16.8/tray6-miss-100253.jpg`).*
