@@ -125,6 +125,34 @@ def test_a_sheet_off_every_tray_slot_is_refused() -> None:
         certainty_by_slot(tray_layout_detections(), [capture], FIELD, TAG_MM)
 
 
+def test_an_off_slot_sheet_is_named_by_its_nearest_slot_and_distance() -> None:
+    # North 1's sheet moved 720 px (180 mm at 4 px/mm) south, past half the 1300 px slot
+    # spacing. Slot centres: North 1 (1120, 1400), South 1 (1120, 3900).
+    capture = [
+        d for d in tray_layout_detections() if not (d.centre[0] < 1500 and d.centre[1] < 2500)
+    ] + sheet_detections(300, 800.0, 1000.0 + 720.0)
+    layout = build_slot_layout(group_sheets(tray_layout_detections(), FIELD, TAG_MM))
+    with pytest.raises(SlotLayoutError) as exc:
+        round_errors_by_slot(capture, layout, FIELD, TAG_MM)
+    assert (
+        "the sheet with tags 300 to 329 is about 180 mm south of North 1, "
+        "between North 1 and South 1" in str(exc.value)
+    )
+
+
+def test_a_sheet_off_the_outer_edge_is_named_outside_the_slots() -> None:
+    # North 1's sheet moved 720 px (180 mm) west, off the west edge: no slot lies that way.
+    capture = [
+        d for d in tray_layout_detections() if not (d.centre[0] < 1500 and d.centre[1] < 2500)
+    ] + sheet_detections(300, 800.0 - 720.0, 1000.0)
+    layout = build_slot_layout(group_sheets(tray_layout_detections(), FIELD, TAG_MM))
+    with pytest.raises(SlotLayoutError) as exc:
+        round_errors_by_slot(capture, layout, FIELD, TAG_MM)
+    assert "the sheet with tags 300 to 329 is about 180 mm west of North 1, outside the slots" in str(
+        exc.value
+    )
+
+
 def test_two_sheets_on_one_slot_are_refused() -> None:
     # A second, separate sheet on North 1's tray, clear of the first (gap > the 65 mm link).
     extra = sheet_detections(300, 800.0 + 4 * 160.0 + 300.0, 1000.0, columns=1, rows=6)
