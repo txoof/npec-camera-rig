@@ -5212,6 +5212,75 @@ in the run, so what bare soil reads is not covered. Areas of photos taken before
 October come from Reprocess, the same code, read hours to a day after the photo. Area uncertainty
 per reading (#76) is not part of this review.
 
+### 17.4 Results of the review (2026-10-23)
+
+**Data.** Reprocess of experiment 18 ran from 12:40 to 13:30:25 UTC on 23 October: 1,680 of 1,680
+photos, 0 failed. Copy of `rig.db` at 13:31 UTC (`~/scratch/area-review/rig.db`, schema version 9):
+1,731 photos from 08:41:20 UTC on 22 October to 13:30:53 UTC on 23 October. `experiments/round2-area/
+review.py ~/scratch/area-review/rig.db --experiment 18 --out ~/scratch/area-review --break
+2026-10-23T08:43:00+00:00 2026-10-23T08:56:00+00:00` (shuffle 1, below); tables, CSVs and charts in
+`~/scratch/area-review/review.html`. Two outputs were added after the first run and say so in the
+script: the median and 95th percentile of the pair changes, and the benchmark split by slot.
+
+**Shuffle 1** (map 1) was not in the shuffles file when the review first ran. The photos show it:
+trays went missing from 08:43:53 UTC on 23 October, and from 08:55:53 all 12 trays read in map 1's
+slots and corners. Aaron gave the finish as 10:56 chamber time (08:56 UTC); no start is recorded,
+so 08:43 UTC is taken from the photos. Posted to #221.
+
+| Question | Result |
+|---|---|
+| 1. Failures | 0 photos `read failed`; 0 of 15,329 placed trays without an area. 800 lit photos on 22 October; on 23 October 480 lit, 451 dark |
+| 2. Benchmark, pairs | 1,184 undisturbed pairs: change median 1.64%, 95th percentile 5.35%, RMS 4.34%, largest 99.99% (lights off). Pixel count the same to 0.01%: the scale does not move, the threshold does |
+| 2. Benchmark, by slot | South 6, 22 October: 741 photos, mean 4,997 mm², SD 3.8%. North 6, 23 October after shuffle 1 (turned 180°): 274 photos, mean 4,475 mm², SD 6.4%, 10% lower |
+| 3. Empty trays (9 to 12) | Above 0 in 99.8 to 100% of lit photos. Median per tray and day 27 to 78 mm², each tray steady at its own level; largest 98 mm² outside shuffle 1, 630 mm² inside it |
+| 4. Plant trays (1 to 7) | None yet above the empty trays' largest for a whole lit period; latest 20 to 137 mm² |
+| 5. Time of day | Plotted only. The benchmark in North 6 rose from about 4,200 to 5,000 mm² over the afternoon of 23 October; not separated from light or exposure |
+
+**Failure modes, each discussed with Aaron on 2026-10-23.**
+
+1. **Photo-to-photo scatter with nothing moved** (question 2): 1.6% typical, 5.4% for 1 pair in 20,
+   against under 0.8% in round 1. Exposure, gain and colour balance are automatic; across the run
+   the benchmark's area follows the colour gains (correlation about 0.44, which includes the shuffle,
+   so not shown to be the cause). *Decision (Aaron):* nothing on the rig changes during the run; the
+   scatter is a stated limit of one photo's area; growth is reported over many photos (an hourly or
+   daily median); the cause is looked for in the existing photos first (area against the recorded
+   gains within undisturbed stretches); fixed colour gains and exposure are tried only on a separate
+   run, measured before and after; raw images not now.
+2. **Slot.** The benchmark read 10% lower in North 6 than in South 6. Round 1 saw 3.8% to 13.1%
+   between slots. Aaron: the lamps are evenly spread over the ceiling; light differs at the table's
+   edges because the back, front and side walls reflect differently and the side walls are at a
+   different distance; tall objects read most distorted in N/S 1 and N/S 6, where more of their side
+   is seen. South 6 and North 6 are about the same distance from the image centre (about 4,150 and
+   4,060 px), but the benchmark was turned 180°, so a different side faced the camera. Light and the
+   side seen are mixed in this one move. The plant trays already stay in the 8 middle slots. *Next:*
+   a table of the benchmark by slot from the planned shuffles; growth compared within the stretches
+   between shuffles; a flat target to separate light from the side seen (17.5), which led to 17.6.
+3. **Lights fading.** The lights fade rather than switch. Exposure leaves its lit value (5,248 µs) at
+   23:05:53 UTC, 24 minutes before the first dark photo (23:29:53), and comes back at 07:24:53, 24
+   minutes after the first lit one (07:00:53), with gain rising to 4. Photos in the fades still find
+   tags, so they count as lit; the last before dark read the benchmark as 0.4 mm², the first after
+   it 2,951 mm². *Decision (Aaron):* these photos are left out by rule. Which rule is open: a window
+   of 10 minutes around dark photos was proposed before the fades were measured and would keep most
+   of them; a window of about 25 minutes, or leaving out lit photos whose exposure is more than a
+   set factor above the lit median, would not.
+4. **People in the frame.** During shuffle 1 single photos gave tray 4 2,117 mm², tray 7 2,034, tray
+   6 820 and tray 11 630 (normal under 140), with only 8 to 11 trays found. *Decision (Aaron):* both
+   the events log and a rule from the photos: a large area jump that falls back within a few
+   photos, together with trays missing or moving, marks a visit, whether logged or not (in practice
+   visits will not be logged). Its sizes and times are to be set from shuffle 1 and labelled as
+   decisions.
+5. **What an empty tray reads.** 85% to 99% of each empty tray's false plant pixels are one piece: a
+   round light-blue mark where cell walls meet, 32 to 38 mm from the tray's centre on its long axis,
+   about RGB 40, 173, 229 (6 photos of 22 October, trays 9 to 12; `~/scratch/area-review/floor/`).
+   Cyan passes the threshold, which asks only for green above red. Without that piece an empty tray
+   reads about 1 to 4 mm². The dark pixels of 17.1 are 0.3% to 15% of the rest. *Decision (Aaron):*
+   the floor is reported with each area, not subtracted. Whether to change the threshold (for example
+   also green above blue) is not decided: it would also change leaf edges against the blue trays,
+   which must be measured first.
+
+**Limits.** All of 17.3. One shuffle so far. The benchmark's slot change was also a 180° turn. The
+review's lit and dark come from tags found, which the light fades show is not enough.
+
 ### 17.5 A flat green target on tray 10 (method written 2026-10-23, before the target was put in)
 
 **Label: development check.** Two of the failure modes the review found (17.4) are: the benchmark's
