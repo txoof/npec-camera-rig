@@ -253,7 +253,7 @@ def test_before_is_exclusive_and_works_from_any_instant(two_roots) -> None:
 
 
 def test_capture_hours_counts_every_root_by_utc_hour(two_roots) -> None:
-    assert captures.capture_hours() == [
+    assert [{"hour": h["hour"], "count": h["count"]} for h in captures.capture_hours()] == [
         {"hour": "2026-10-15T01", "count": 1}, {"hour": "2026-10-14T12", "count": 1},
         {"hour": "2026-10-14T09", "count": 2}, {"hour": "2026-10-14T08", "count": 2},
         {"hour": "2026-10-13T23", "count": 1},

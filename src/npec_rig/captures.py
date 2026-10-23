@@ -372,18 +372,25 @@ def list_recent_captures(
 
 
 def capture_hours(experiment_id: int | None = None) -> list[dict]:
-    """How many photos each UTC hour holds, newest first, as `{"hour": "YYYY-MM-DDTHH", "count"}`.
-    By hour, not day, so the browser can count them by its own local day. With `experiment_id`,
-    only that experiment's photos."""
+    """How many photos each UTC hour holds, newest first, as `{"hour": "YYYY-MM-DDTHH", "count",
+    "first"}`, `first` being the gallery path of the hour's earliest photo (the gallery's day and
+    week tiles). By hour, not day, so the browser can count them by its own local day. With
+    `experiment_id`, only that experiment's photos."""
     counts: dict[str, int] = {}
-    for root, _path_prefix, _url_prefix in _photo_roots(experiment_id):
+    first: dict[str, tuple[str, str]] = {}  # hour: (stem, path) of its earliest photo
+    for root, path_prefix, _url_prefix in _photo_roots(experiment_id):
         if not root.exists():
             continue
         for day_dir in (p for p in root.iterdir() if p.is_dir()):
             for jpeg_path in day_dir.glob("*.jpg"):
-                hour = f"{day_dir.name}T{jpeg_path.stem[:2]}"
+                stem = jpeg_path.stem
+                hour = f"{day_dir.name}T{stem[:2]}"
                 counts[hour] = counts.get(hour, 0) + 1
-    return [{"hour": h, "count": counts[h]} for h in sorted(counts, reverse=True)]
+                if hour not in first or stem < first[hour][0]:
+                    first[hour] = (stem, f"{path_prefix}/{day_dir.name}/{stem}")
+    return [
+        {"hour": h, "count": counts[h], "first": first[h][1]} for h in sorted(counts, reverse=True)
+    ]
 
 
 def photo_file(path: str) -> Path | None:

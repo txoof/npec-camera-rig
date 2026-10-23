@@ -71,7 +71,7 @@ def test_api_captures_pages_back_with_before() -> None:
     assert older and older[0]["key"] < newest[-1]["key"]
     assert client.get("/api/captures", params={"before": "yesterday"}).status_code == 422
     hours = client.get("/api/captures/hours").json()
-    assert hours and all(set(h) == {"hour", "count"} for h in hours)
+    assert hours and all(set(h) == {"hour", "count", "first"} for h in hours)
 
 
 def _experiment_with_photos(client: TestClient, photos: int) -> tuple[dict, list[str]]:
@@ -105,6 +105,34 @@ def test_go_to_date_counts_only_the_chosen_experiments_photos() -> None:
 
     hours = client.get("/api/captures/hours", params={"experiment": chosen["id"]}).json()
     assert sum(h["count"] for h in hours) == len(chosen_paths)
+
+
+def test_each_hour_gives_its_earliest_photo_for_the_day_and_week_tiles() -> None:
+    client = TestClient(app)
+    client.post("/capture")  # a rig photo, earlier than the experiment's, in the same hour
+    chosen, chosen_paths = _experiment_with_photos(client, 3)
+
+    hours = client.get("/api/captures/hours", params={"experiment": chosen["id"]}).json()
+    # The hour the first photo was taken in (two entries if the test crosses an hour).
+    day, stem = chosen_paths[0].split("/")[-2:]
+    first_hour = next(h for h in hours if h["hour"] == f"{day}T{stem[:2]}")
+    assert first_hour["first"] == chosen_paths[0]
+
+
+def test_the_hour_view_asks_for_photos_before_an_on_the_hour_time() -> None:
+    from datetime import datetime, timedelta
+
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    day, stem = path.split("/")[-2:]
+    hour_start = datetime.strptime(f"{day}T{stem[:2]}", "%Y-%m-%dT%H")
+    key = lambda t: t.strftime("%Y-%m-%dT%H0000_000000")  # noqa: E731
+
+    before_next = client.get("/api/captures", params={"before": key(hour_start + timedelta(hours=1))})
+    before_this = client.get("/api/captures", params={"before": key(hour_start)})
+    assert before_next.status_code == before_this.status_code == 200
+    assert path in [p["path"] for p in before_next.json()]
+    assert path not in [p["path"] for p in before_this.json()]
 
 
 def test_an_unknown_experiment_is_not_found_and_one_never_started_has_no_photos() -> None:

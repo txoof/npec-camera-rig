@@ -4426,6 +4426,18 @@ image or sidecar file exists, and the gallery does not show it. The scheduled st
 (Aaron, 2026-10-20: possibly the scheduler). Left out of the analysis; nothing in the experiment
 folder or `rig.db` was changed.
 
+*Cause, found 2026-10-22 (#241).* The record was written by a unit test, not by the rig. A
+scheduler thread started by a test outlived it and wrote into the live `rig.db` (#253, fixed by PR
+#254, merged 2026-10-21 13:17 UTC). The evidence, read from `rig.db` without changing it:
+lens 1.0 and exposure 20000 us are the synthetic camera's defaults (`camera.py`); `camera_events`
+logs "synthetic camera could not be opened (test switch)" 1.5 s before the record; no
+`scheduled_photo` slot points to it. The leaked thread saved its image in the test's temporary
+folder, which is why no file exists. The rig saves the image before it writes the record, so a
+failed save in real use leaves no record. Six records carry these values (captures 517, 536, 725,
+912, 1933, 1935), all from before the fix; they are the only 6 of 2080 with no image on disk. They
+are bogus and are left in `rig.db`, to be ignored by any analysis (Aaron, 2026-10-22). No guard is
+built.
+
 **Changed after the first two runs of `shuffle_day.py`, before the results below.** Run 1 split
 layouts at Aaron's leave minute and put 3 stills, taken 2 to 3 s before the minute he wrote,
 into the layout before; run 2 matched each move to the nearest leave time within 180 s and missed
