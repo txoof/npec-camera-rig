@@ -14,14 +14,14 @@
     {{ ui.button("Newest first", id="order-btn") }}
   </div>
   <p class="lead" id="gallery-note">Tap photos to enlarge.</p>
-  {#- Week, day or hour (#245): Previous and Next step to the nearest one with photos. -#}
+  {#- Week, day or hour (#245): Earlier and Later step to the nearest one with photos. -#}
   <div class="gallery-nav" id="gallery-nav" hidden>
     <h3 id="view-title"></h3>
     <div class="row">
       {{ ui.button("Back", id="back-btn", attrs={"hidden": ""}) }}
-      {{ ui.button("Previous", id="prev-btn") }}
-      {{ ui.button("Next", id="next-btn") }}
-      {{ ui.button("Whole day", id="up-btn") }}
+      {{ ui.button("Earlier", id="prev-btn") }}
+      {{ ui.button("Later", id="next-btn") }}
+      {{ ui.button("See all", id="up-btn") }}
     </div>
   </div>
   <div id="gallery"></div>
@@ -422,8 +422,22 @@
       }
     }
 
+    // A local YYYY-MM-DD as a date at its midnight.
+    const dayDate = (day) => { const [y, m, d] = day.split("-").map(Number); return new Date(y, m - 1, d); };
+    const shortDay = (date, weekday = true) => date.toLocaleDateString(undefined,
+      weekday ? { weekday: "short", day: "numeric", month: "short" } : { day: "numeric", month: "short" });
+
+    // A view's short name for the buttons: "week of 19 Oct", "Thu 22 Oct", "Thu 22 Oct, 14:00".
+    function shortName({ level, key }) {
+      if (level === "week") return `week of ${shortDay(dayDate(key), false)}`;
+      if (level === "day") return shortDay(dayDate(key));
+      const first = hoursIn("hour", key)[0];
+      const dayHours = hoursIn("day", keyOf.day(first));
+      return `${shortDay(new Date(first.ms))}, ${hourLabels(dayHours)[dayHours.indexOf(first)]}`;
+    }
+
     function viewTitleText({ level, key }) {
-      if (level === "week") return `Week of ${dayLabel(new Date(hoursIn("week", key)[0].ms))}`;
+      if (level === "week") return `Week of ${dayLabel(dayDate(key))}`;
       const first = hoursIn(level, key)[0];
       if (level === "day") return dayLabel(new Date(first.ms));
       const labels = hourLabels(hoursIn("day", keyOf.day(first)));
@@ -441,10 +455,11 @@
       return url;
     }
 
-    function remember(v, how) {
+    // backTo: the short name of the view Back returns to, kept with the step.
+    function remember(v, how, backTo) {
       if (how === "none") return;
       const depth = how === "push" ? (history.state?.depth ?? -1) + 1 : (history.state?.depth ?? 0);
-      const state = { gallery: true, view: v, experiment, depth };
+      const state = { gallery: true, view: v, experiment, depth, backTo: how === "push" ? backTo : history.state?.backTo };
       if (how === "push") history.pushState(state, "", viewUrl(v));
       else history.replaceState(state, "", viewUrl(v));
     }
@@ -453,9 +468,11 @@
     const known = (v) => (v && ["week", "day", "hour"].includes(v.level) && hoursIn(v.level, v.key).length ? v : fittingView());
 
     async function show(next, how = "push") {
+      const from = view ? shortName(view) : null;
       view = next;
-      remember(view, how);
-      backBtn.hidden = !(history.state?.gallery && history.state.depth > 0);
+      remember(view, how, from);
+      backBtn.hidden = !(history.state?.gallery && history.state.depth > 0 && history.state.backTo);
+      backBtn.textContent = `Back to ${history.state?.backTo ?? ""}`;
       generation += 1;
       const gen = generation;
       const { level, key } = view;
@@ -465,8 +482,18 @@
       viewTitle.textContent = viewTitleText(view);
       ui.setDisabled(prevBtn, at <= 0);
       ui.setDisabled(nextBtn, at >= keys.length - 1);
-      upBtn.hidden = level === "week";
-      upBtn.textContent = level === "hour" ? "Whole day" : "Whole week";
+      // Named by what they do: a step in time, by the view's unit, and out to the day or week.
+      const unit = { week: "week", day: "day", hour: "hour" }[level];
+      prevBtn.textContent = `Earlier ${unit}`;
+      nextBtn.textContent = `Later ${unit}`;
+      // Out to the day or week, unless Back already goes there (one button, not two to one place).
+      upBtn.hidden = true;
+      if (level !== "week") {
+        const h = hoursIn(level, key)[0];
+        const outTo = level === "hour" ? shortName({ level: "day", key: keyOf.day(h) }) : shortName({ level: "week", key: keyOf.week(h) });
+        upBtn.textContent = level === "hour" ? `See all of ${outTo}` : `See ${outTo}`;
+        upBtn.hidden = !backBtn.hidden && history.state.backTo === outTo;
+      }
       scroller.scrollTop = 0;
       const total = hoursIn(level, key).reduce((n, h) => n + h.count, 0);
       if (level === "week") {
@@ -482,7 +509,7 @@
         try {
           items = await hourItems(key);
         } catch (err) {
-          if (gen === generation) statusText.textContent = "Could not load the photos. Tap Previous and Next to try again.";
+          if (gen === generation) statusText.textContent = "Could not load the photos. Tap Select period to try again.";
           return;
         }
         if (gen !== generation) return;
