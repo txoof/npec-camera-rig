@@ -5237,6 +5237,20 @@ Before it goes in: both sides measured with the NEIKO callipers, 3 readings each
 recorded here with the date. The calliper area is the product of the two mean sides; the callipers
 are not trusted beyond 0.1 mm (section 3), so about 0.13% in area.
 
+*Measured 2026-10-23 by Aaron, NEIKO callipers, 4 readings each (one more than planned):*
+
+| | Readings (mm) | Mean | SD | Range |
+|---|---|---|---|---|
+| Side X | 150.31, 149.93, 150.42, 149.92 | 150.145 | 0.258 | 0.50 |
+| Side Y | 149.80, 149.78, 150.08, 150.18 | 149.960 | 0.201 | 0.40 |
+| Thickness | 0.58, 0.58, 0.57, 0.54 | 0.568 | 0.019 | 0.04 |
+
+**Calliper area 22,515.7 mm²** (150.145 x 149.960). The readings spread by 0.4 to 0.5 mm, more than
+the callipers' 0.1 mm, so the print's sides are not perfectly straight or even; the standard error
+of the two means gives about 0.11% in area. Its thickness raises its top 0.57 mm above the tray,
+about +0.08% in area (0.145% per mm), smaller than that uncertainty and not corrected. Where along
+each side the readings were taken was not recorded.
+
 **Placement.** Taped flat on tray 10 (black pots, a still tray, 16.1), clear of cell A1 so the tray
 tag stays visible, inside the tray's edges. The chamber time it went in is posted to the events
 log on #221. Tray 10 then leaves question 3 of 17.2 (3 empty trays remain). Pairs across the time it
