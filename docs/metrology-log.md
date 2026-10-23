@@ -5262,7 +5262,7 @@ reported as measured.
 
 **Limits (as planned).** One flat target of one green (printed plastic, not leaf), at tray-top height
 plus its thickness, which adds a little side at the ends of the table and raises it above tray-top
-height (about 0.145% of area per mm, section *Facts*). Only the slots the maps give: mostly the end
+height (about 0.145% of area per mm, *The height test*). Only the slots the maps give: mostly the end
 slots, two middle slots. Slot, orientation and time of day are mixed: each visit is at a different
 time, with automatic exposure and colour balance (17.4). One camera, one lens position, one
 calibration.
