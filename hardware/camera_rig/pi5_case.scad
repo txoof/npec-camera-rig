@@ -33,6 +33,9 @@
      x = 0    -> microSD under the PCB, PCIe FPC on top of it
    (The original header puts the PCIe FPC on the y = 56 side; it is at x = 0.)
 
+   REV 14 (RV0.14): [Build Plate] group (copies, plate_gap, plate_cols) for
+     the chosen part, laid out on a grid centred on the origin, as in the
+     other printed parts. Print-ready exports in exports/camera_rig/.
    REV 13 (RV0.13): part name and revision moved from the lid to the outside
      of the y = 0 (USB-C) wall, between the port recess and the x = 85 lug;
      the lid vents now also cover the strip the labels used. GPIO wall
@@ -224,7 +227,7 @@ cam_margin = 1.5;   // added on every side of the connector footprint
 cam_r      = 2.0;   // radius of the two inner corners
 
 /* [Revision] */
-revision  = "RV0.13"; // revision stamp, engraved in the y = 0 (USB-C) wall, under the part name ("" = none)
+revision  = "RV0.14"; // revision stamp, engraved in the y = 0 (USB-C) wall, under the part name ("" = none)
 rev_size  = 5;       // text cap height, mm  [2:0.5:12]
 rev_depth = 0.6;     // how far the text is inset below the surface, mm; the wall is 2.4 mm  [0.4:0.1:1.2]
 
@@ -232,6 +235,11 @@ rev_depth = 0.6;     // how far the text is inset below the surface, mm; the wal
 part_name  = "pi5_case"; // file name without .scad, engraved in the y = 0 (USB-C) wall ("" = none)
 name_size  = 5;      // text cap height, mm  [2:0.5:12]
 name_depth = 0.6;    // how far the text is inset below the surface, mm  [0.4:0.1:1.2]
+
+/* [Build Plate] */
+copies     = 1;   // how many of the chosen part to lay out  [1:200]
+plate_gap  = 5;   // clear space between neighbours, mm
+plate_cols = 0;   // columns across X; 0 = auto (near-square grid)
 
 /* [Hidden] */
 $fn = 48;
@@ -753,20 +761,52 @@ module port_gauge() {
 // =============================================================================
 // Output
 // =============================================================================
-if (part == "port_gauge") {
-    port_gauge();
-} else if (part == "tub") {
-    tub();
-} else if (part == "lid") {
-    // flipped: plate on the bed, skirt up
-    rotate([180, 0, 0]) translate([0, 0, -lid_t]) lid();
-} else if (part == "calibration") {
-    calibration();
-} else if (part == "preview") {
-    tub();
-    translate([0, 0, tub_h + 6]) lid();
-} else {
-    echo("Unknown value for part");
+module part_body() {
+    if (part == "port_gauge") {
+        port_gauge();
+    } else if (part == "tub") {
+        tub();
+    } else if (part == "lid") {
+        // flipped: plate on the bed, skirt up
+        rotate([180, 0, 0]) translate([0, 0, -lid_t]) lid();
+    } else if (part == "calibration") {
+        calibration();
+    } else if (part == "preview") {
+        tub();
+        translate([0, 0, tub_h + 6]) lid();
+    } else {
+        echo("Unknown value for part");
+    }
+}
+
+// Footprint of the chosen part in its print orientation, [x0, x1, y0, y1]:
+// the outline plus the lid lugs, plus the mounting flange for the tub. The
+// calibration piece and port gauge are cut from the tub and use its
+// footprint, which spaces them generously. The lid prints flipped about x,
+// so its y range is mirrored.
+fx0     = min(0, lug_pos[0][0] - lug_d / 2);
+fx1     = max(outer_l, lug_pos[1][0] + lug_d / 2);
+fy0     = min(0, lug_pos[1][1] - lug_d / 2);
+fy1_lid = max(outer_w, lug_pos[0][1] + lug_d / 2);
+fy1_tub = max(fy1_lid, mount ? mount_y + mount_r : 0);
+footprint = part == "lid" ? [fx0, fx1, -fy1_lid, -fy0] : [fx0, fx1, fy0, fy1_tub];
+part_dx = footprint[1] - footprint[0];
+part_dy = footprint[3] - footprint[2];
+
+grid_cols = plate_cols > 0 ? plate_cols : ceil(sqrt(copies));
+grid_rows = ceil(copies / grid_cols);
+pitch_x   = part_dx + plate_gap;
+pitch_y   = part_dy + plate_gap;
+
+module plate(n) {
+    // grid is centred on the origin; index 0 is the -X/-Y corner
+    x0 = -(grid_cols * pitch_x - plate_gap) / 2 - footprint[0];
+    y0 = -(grid_rows * pitch_y - plate_gap) / 2 - footprint[2];
+    for (i = [0 : n - 1])
+        translate([x0 + (i % grid_cols)     * pitch_x,
+                   y0 + floor(i / grid_cols) * pitch_y,
+                   0])
+            part_body();
 }
 
 // Shortest stock screw length that is at least l, ISO preferred lengths
@@ -795,4 +835,7 @@ if (mount)
 
 echo(str("Variant ", variant,
          " | outer ", outer_l, " x ", outer_w, " x ", tub_h + lid_t,
-         " mm | inner height ", inner_h, " | stack ", stack_h));
+         " mm | inner height ", inner_h, " | stack ", stack_h,
+         " | footprint with lugs and flange ", part_dx, " x ", part_dy, " mm"));
+
+if (copies > 1) plate(copies); else part_body();
