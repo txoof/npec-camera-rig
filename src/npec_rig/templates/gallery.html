@@ -15,11 +15,14 @@
   </div>
   <p class="lead" id="gallery-note">Tap photos to enlarge.</p>
   {#- Week, day or hour (#245): Previous and Next step to the nearest one with photos. -#}
-  <div class="row gallery-nav" id="gallery-nav" hidden>
-    {{ ui.button("Previous", id="prev-btn") }}
+  <div class="gallery-nav" id="gallery-nav" hidden>
     <h3 id="view-title"></h3>
-    {{ ui.button("Next", id="next-btn") }}
-    {{ ui.button("Whole day", id="up-btn") }}
+    <div class="row">
+      {{ ui.button("Back", id="back-btn", attrs={"hidden": ""}) }}
+      {{ ui.button("Previous", id="prev-btn") }}
+      {{ ui.button("Next", id="next-btn") }}
+      {{ ui.button("Whole day", id="up-btn") }}
+    </div>
   </div>
   <div id="gallery"></div>
   <p class="lead" id="gallery-status" role="status"></p>
@@ -69,6 +72,7 @@
     const prevBtn = document.getElementById("prev-btn");
     const nextBtn = document.getElementById("next-btn");
     const upBtn = document.getElementById("up-btn");
+    const backBtn = document.getElementById("back-btn");
 
     // hours: every UTC hour with photos, oldest first, as { hour, count, first, ms }. view: what
     // is shown, { level: "week" | "day" | "hour", key }. generation: bumped on each new view, so
@@ -426,8 +430,32 @@
       return `${dayLabel(new Date(first.ms))}, ${labels[hoursIn("day", keyOf.day(first)).indexOf(first)]}`;
     }
 
-    async function show(next) {
+    // Each view is a step in the browser's history, its address ?view=level:key, so the browser's
+    // Back (and the page's) goes to the view before, not off the page. `how`: "push" a new
+    // step, "replace" the current one (the first view), or "none" (going back, or a re-sort).
+    function viewUrl(v) {
+      const url = new URL(location.href);
+      url.searchParams.set("view", `${v.level}:${v.key}`);
+      if (experiment === null) url.searchParams.delete("experiment");
+      else url.searchParams.set("experiment", experiment);
+      return url;
+    }
+
+    function remember(v, how) {
+      if (how === "none") return;
+      const depth = how === "push" ? (history.state?.depth ?? -1) + 1 : (history.state?.depth ?? 0);
+      const state = { gallery: true, view: v, experiment, depth };
+      if (how === "push") history.pushState(state, "", viewUrl(v));
+      else history.replaceState(state, "", viewUrl(v));
+    }
+
+    // A view with photos: `v` if it still has some, otherwise the one that fits.
+    const known = (v) => (v && ["week", "day", "hour"].includes(v.level) && hoursIn(v.level, v.key).length ? v : fittingView());
+
+    async function show(next, how = "push") {
       view = next;
+      remember(view, how);
+      backBtn.hidden = !(history.state?.gallery && history.state.depth > 0);
       generation += 1;
       const gen = generation;
       const { level, key } = view;
@@ -464,7 +492,7 @@
     }
 
     // Start again: the hours afresh, then `next` or the view that fits them.
-    async function reset(next = null) {
+    async function reset(next = null, how = "push") {
       try {
         await loadHours();
       } catch (err) {
@@ -479,7 +507,7 @@
       }
       // "newest": the newest hour, as after a Capture.
       if (next && next.key === "newest") next = { level: next.level, key: hours[hours.length - 1].hour };
-      show(next ?? fittingView());
+      show(known(next), how);
     }
 
     function step(by) {
@@ -566,10 +594,6 @@
         value: experiment ?? "",
         onSet: (value) => {
           experiment = value === "" ? null : value;
-          const url = new URL(location.href);
-          if (experiment === null) url.searchParams.delete("experiment");
-          else url.searchParams.set("experiment", experiment);
-          history.replaceState(null, "", url);
           showFilter();
           reset();
         },
@@ -597,13 +621,26 @@
       newestFirst = !newestFirst;
       try { localStorage.setItem("gallery-order", newestFirst ? "newest" : "oldest"); } catch (err) { /* not stored */ }
       showOrder();
-      if (view) show(view);
+      if (view) show(view, "none");
+    });
+    backBtn.addEventListener("click", () => history.back());
+    // The browser's Back and Forward: the view (and what was shown) of that step.
+    window.addEventListener("popstate", async (event) => {
+      const state = event.state;
+      if (!state || !state.gallery) return;
+      if (state.experiment !== experiment) {
+        experiment = state.experiment;
+        showFilter();
+      }
+      await reset(state.view, "none");
     });
     showOrder();
     showBtn.addEventListener("click", chooseFilter);
     showFilter();
     // ui.js loads after this script (defer); the first view uses it.
     const whenReady = (fn) => (window.ui ? fn() : document.addEventListener("DOMContentLoaded", fn));
-    whenReady(() => reset());
+    // The view in the address (a reload, or a link), if it still has photos.
+    const [startLevel, ...startKey] = (new URLSearchParams(location.search).get("view") ?? "").split(":");
+    whenReady(() => reset(startLevel ? { level: startLevel, key: startKey.join(":") } : null, "replace"));
   </script>
 {% endblock %}

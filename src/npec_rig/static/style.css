@@ -540,7 +540,7 @@ input[type="range"]:disabled { opacity: 0.5; }
   position: sticky; top: -20px; z-index: 2; margin: 0 0 16px; padding: 20px 0 8px;  /* -20px: the .scroll top padding */
   background: var(--bg);
 }
-.gallery-nav h3 { margin: 0; font-size: 1.05rem; }
+.gallery-nav h3 { margin: 0 0 8px; font-size: 1.05rem; }
 .gallery-week-day, .gallery-hour {
   display: grid; gap: 6px; padding: 8px; text-align: left; font: inherit; color: var(--fg);
   background: var(--surface-2); border: 2px solid var(--line); border-radius: var(--radius); cursor: pointer;
