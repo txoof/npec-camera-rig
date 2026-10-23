@@ -5175,7 +5175,7 @@ Each is a development check from the photos named, on the rig's Pi 5 with the li
 
 **Data.** A copy of `rig.db` taken after Reprocess of experiment 18 finishes (Reprocess's own
 count of photos done and failed is noted with it), and the saved masks. Scripts and results in
-`experiments/round2-run/`. Nothing is written into the experiment folder, the masks folder or the
+`experiments/round2-area/` (using the undisturbed-pair code of `experiments/round2-run/`). Nothing is written into the experiment folder, the masks folder or the
 live `rig.db`. Lit and dark photos, movement windows and undisturbed pairs as 16.3. Photos up to
 the copy; the run continues.
 
