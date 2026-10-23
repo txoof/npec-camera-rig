@@ -1271,6 +1271,10 @@ Raw data for runs 3 to 3c:
 
 Detailed results: `reference/lens-return-2026-10.md`.
 
+![The 12-sheet table photographed at 09:38 and at 11:18](figures/8.1/overview-0938-vs-1118.jpg)
+
+*Figure 8.1-a. The table with the 12 validation sheets in their slots, the photograph of 09:38:07 UTC (left) and of 11:18:32 UTC (right) on 2026-10-06, as compared in run 3d above (sides by the file name; the image carries no labels). Copied into `docs/figures/` on 2026-10-23 from `~/scratch/lens-fix-check-2026-10-06/overview_0938_vs_1118.jpg`, scaled down.*
+
 ### 8.2 Camera swap comparison (method written 2026-10-07, before any step runs)
 
 **Labels:** development check for steps 0, 1 and 3 to 6, the overnight run, the packing foam and
@@ -1807,6 +1811,10 @@ in both photos: straight lines near the top and bottom of the frame are slightly
 **Covers.** One roll of about 3 deg, not 5 deg. The camera can only be nudged by hand, with no
 measure of its own, which is why the rails are the reference.
 
+![Eight crops of the table rails with the fitted edge line](figures/9.3/rail-edge-lines.jpg)
+
+*Figure 9.3-a. The independent reference for roll: 8 crops of the table's aluminium rail edges, with the straight line fitted to each edge drawn in red (RANSAC over x = 1500 to 7600 px, as above). Copied into `docs/figures/` on 2026-10-23 from `~/scratch/roll-rail-lines.jpg` (made 2026-10-05; which photographs the 8 crops come from is not recorded).*
+
 ### 9.4 Claimed uncertainty against actual error (honesty plot)
 
 **Label: development check.** The claim is judged against validation tags, not against a second
@@ -2230,6 +2238,10 @@ across the row reads long.
 **Covers.** The South row only, west to east, at tray-top height. The North row and a span front
 to back cannot be reached without moving the table (Aaron, 2026-10-12), so they are not covered,
 as on the old camera.
+
+![The tape measure lying across the sheets](figures/14.2/tape-strip-074846.jpg)
+
+*Figure 14.2-a. A strip of photo `074846_006450` (2026-10-12, 07:48:46 UTC), the tape measure lying across the sheets of the South row, as used by method B above. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/m2-acceptance-2026-10/tape_strip_0748.jpg`.*
 
 ### 14.3 Two calibrations with a cold start between
 
@@ -3041,6 +3053,10 @@ calibration and lens position, about 10 minutes of photos. Not leaves standing a
 not other plants, not overlapping leaves. The true error lies between the "against before" and
 "against after" figures, since the shrinking between scans is not measured.
 
+![Three leaves on grey board, measured area shaded and outlined](figures/15.5b/leaves-115925.jpg)
+
+*Figure 15.5b-a. Still `115925_456242`: 3 real leaves on grey board on a tray, the area the rig measured shaded magenta and outlined in cyan; the label gives the value printed by the analysis (22338) and +1.8% against the leaves' scanned area. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/leaves/overlays/14_115925_456242.jpg`, scaled down.*
+
 ### 15.5c Tray splitting and tray ID (issue #164, method written 2026-10-15, before the analysis)
 
 **Label: development check.** Trays found and matched to tags, with no true area. The tray
@@ -3694,6 +3710,10 @@ mesh size they are not a useful area reference.
 lengths and heights. Not yet a reference area for the rosettes; not the repeatability of the
 photogrammetry; not plants.
 
+![Height map of the benchmark from the photogrammetry mesh](figures/15.5e/mesh-heightmap.png)
+
+*Figure 15.5e-a. Height map of the benchmark made from the supervisor's photogrammetry mesh, seen from above, base turned 45 deg: the 4 rosettes light (higher), the base grey, with a red grid. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/rosette-mesh/heightmap.png`.*
+
 ### 15.5f Trays with pots in the wells (issue #213, method written 2026-10-17, before the session)
 
 **Label: development check.** Whether trays are split and followed, with no true area.
@@ -3911,6 +3931,10 @@ diagnosis stage "passed" over-counts for touching trays; one session of one hour
 
 *Figure 15.5f-a. The same kind of timeline as Figure 15.5d-a, trays 13 to 24 with pots in the wells: many red crosses (no position) and wrong positions; trays 16 and 24 almost never placed from step 5 on. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/track/timeline-pots19-holes.png`.*
 
+![One step 6 still with pots: merged and patched trays](figures/15.5f/step6-overlay-084234.jpg)
+
+*Figure 15.5f-b. Still `084234_338674` (step 6, pots in the wells): FastSAM finds 4 of 12 trays (green); red outlines are merged trays, yellow are trays kept by the patch, cyan filled; tray 16 has no mask. The kind of still behind the red in Figure 15.5f-a. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/track/evidence-pots19/6_084234_338674.jpg`.*
+
 ### 15.5g Tray footprint from the tag (issue #213, method written 2026-10-19, before the analysis)
 
 **Label: development check.** No new photos; the 142 stills of 15.5f.
@@ -4096,6 +4120,10 @@ no ruler check of the outline, the tag lying the same way round in A1, and A1 ke
 
 *Figure 15.5h-a. The sheet named above (`cell-tag-only-steps.jpg`): one still per step (gaps, turned 180, rows swapped, pairs swapped, touching), each tray outline placed from its cell A1 tag; outlines and labels in red where the tray was not measured. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/footprint/cell-tag-only-steps.jpg`, scaled down.*
 
+![Position timeline for the cell tag stills](figures/15.5h/tracking-timeline-cell19.png)
+
+*Figure 15.5h-b. The same kind of timeline as Figure 15.5d-a for the cell-tag stills of 19 October (`track-cell19.csv` in `experiments/round1-trays/`), steps 1 to 5; red crosses (no position) and patched squares appear from step 3. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/track/timeline-cell19.png`.*
+
 ### 15.5i Shuffling rounds, trays placed from the cell tag only (issue #213, method written 2026-10-19, before the photos)
 
 **Label: development check.** Proof of concept for tracking trays through repeated moves.
@@ -4239,6 +4267,10 @@ than 12 trays; the outline against a measured tray edge.
 ![Tag 1 found in one still and missed in the next](figures/15.5j/tag1-found-vs-missed.jpg)
 
 *Figure 15.5j-a. Tag 1 in cell A1, found in `121656_304541` (left) and not found in `121700_460965` 4 s later (right), looking the same: the observation above. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/tag1-found-vs-missed.jpg`.*
+
+![One shuffled layout, each tray labelled with slot and corner](figures/15.5j/shuffled-layout-121656.jpg)
+
+*Figure 15.5j-b. Still `121656_304541`, one shuffled layout placed by the any-rotation rule: each tray outlined (green) and labelled with its tray, slot and A1 corner. Copied into `docs/figures/` on 2026-10-23 from `~/scratch/round1-trays/shuffle/group5-round2-121656_304541-any.jpg`, scaled down.*
 
 ### 15.5k Tags in four rotations, trays turned, pushed together and shuffled (issue #217, method written 2026-10-19, before the analysis)
 
