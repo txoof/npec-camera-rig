@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
-from npec_rig import database, health
+from npec_rig import database, health, segmentation
 from npec_rig.camera import CameraManager, array_to_jpeg, lens_check
 from npec_rig.settings import load_settings, save_setting
 
@@ -527,4 +527,12 @@ def purge_experiment(experiment_id: int, *, confirm: str, override_no_export: bo
         raise database.ExperimentError(
             f"the experiment is purged, but its folder {folder} could not be deleted: {exc}"
         ) from exc
+    # Its plant masks (#75) are kept apart from the photos, under the same folder name.
+    masks = segmentation.masks_root() / "experiments" / experiment["folder"]
+    try:
+        shutil.rmtree(masks)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        logger.exception("Purged experiment %s, but its plant masks in %s could not be deleted", experiment_id, masks)
     return experiment

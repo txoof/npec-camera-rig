@@ -2,7 +2,8 @@
 `rig.db` (`database.record_tray_readings`).
 
 A reading is the trays whose tag was found, each placed in a slot with the calibration the photo
-was taken under (`tray_placement.place_trays`). Its area stays empty until segmentation (#74). A
+was taken under (`tray_placement.place_trays`), with its plant area: the segmenter's mask of the
+full-size photo, saved to disk, summed inside the tray outline at the local scale (#75). A
 tray not found is never stored: `database.tray_readings` works it out from the experiment's
 earlier photos when the readings are shown.
 """
@@ -12,12 +13,19 @@ import sqlite3
 import threading
 from datetime import UTC, datetime
 
-from npec_rig import database, photo_tags, validation_store
+import numpy as np
+from PIL import Image
+
+from npec_rig import database, photo_tags, segmentation, validation_store
+from npec_rig.captures import photo_file
 from npec_rig.calibration_store import CalibrationNotFoundError, CalibrationUnreadableError, load_saved_calibration
 from npec_rig.tags import TagDetection
 from npec_rig.tray_placement import TrayPlacement, place_trays
 
 logger = logging.getLogger(__name__)
+
+# What makes each mask. One line to change for another segmenter: every area records its name.
+SEGMENTER: segmentation.Segmenter = segmentation.ExGSegmenter()
 
 # Seconds between looks for photos not yet read, when there are none. One reading took 9.6 s to
 # 12.5 s (metrology log 15.5m), so a photo a minute leaves the reader idle most of the time.
@@ -64,15 +72,35 @@ def read_photo(path: str) -> dict:
     tags = photo_tags.photo_tags_for(path)
     # No tag of any kind, as with the lights off (metrology log 15.5l): not trays missing.
     status, placed = placements(path, tags) if tags else ("no tags found", [])
+    areas = _areas(path, placed) if placed else {}
     trays = [
         {
             "tray_id": p.tray_id, "slot": p.slot, "a1_corner": p.a1_corner, "placement": p.status,
             "centre_px": list(p.centre), "tilt_deg": p.tilt_deg, "margin_mm": p.margin_mm,
+            "area_mm2": areas.get(p.tray_id), "segmenter": SEGMENTER.name if p.tray_id in areas else None,
         }
         for p in placed
     ]
     database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
     return database.tray_readings(capture_id)
+
+
+def _areas(path: str, placed: list[TrayPlacement]) -> dict[int, float]:
+    """Each placed tray's plant area in mm2, by tray ID, from the full-size photo's mask, which is
+    saved for Reprocess. Empty when the photo cannot be segmented: the trays are still placed."""
+    try:
+        record = database.captures_by_path([path])[path]
+        scale_field = load_saved_calibration(record["calibration"]).scale_field
+        with Image.open(photo_file(path)) as image:
+            # One copy of the 64MP photo (about 190 MB): convert() would make a second.
+            rgb = np.asarray(image if image.mode == "RGB" else image.convert("RGB"))
+        mask = SEGMENTER.segment(rgb)
+        del rgb
+        segmentation.save_mask(path, mask)
+        return {p.tray_id: segmentation.plant_area_mm2(mask, p.outline, scale_field) for p in placed}
+    except Exception:
+        logger.exception("Could not work out the plant areas of %s", path)
+        return {}
 
 
 def photo_readings(path: str) -> dict | None:
