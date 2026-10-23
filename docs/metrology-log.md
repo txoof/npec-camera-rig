@@ -5306,10 +5306,10 @@ true to about 0.05%). Centres do not depend on where an edge is found.
 
 | Sheet | Tags, pairs | Scale from edges | Scale from centre spacing | Edges / centres |
 |---|---|---|---|---|
-| Tray 10, tray top, 14:16:53 | 9, 16 | 4.807 px/mm | 4.928 px/mm | 0.975 |
-| Tray 10, tray top, 14:17:53 | 9, 16 | 4.809 | 4.928 | 0.976 |
-| Tray 12, on pots, 14:16:53 | 30, 346 | 4.863 | 4.964 | 0.980 |
-| Tray 12, on pots, 14:17:53 | 30, 346 | 4.860 | 4.964 | 0.979 |
+| Tray 10, tray top, North 1, 14:16:53 | 9, 16 | 4.807 px/mm | 4.928 px/mm | 0.975 |
+| Tray 10, tray top, North 1, 14:17:53 | 9, 16 | 4.809 | 4.928 | 0.976 |
+| Tray 12, on pots, South 1, 14:16:53 | 30, 346 | 4.863 | 4.964 | 0.980 |
+| Tray 12, on pots, South 1, 14:17:53 | 30, 346 | 4.860 | 4.964 | 0.979 |
 | Calibration photo `20261022T072523939958` (stored tags) | 361, 1791 | | | median 0.986, middle half 0.982 to 0.990 |
 
 (Pairs 30 to 90 mm apart on one page, and on the calibration photo only pairs whose two scales agree
@@ -5323,7 +5323,7 @@ cause, not tested: blur and the bright paper spreading into the black border, so
 places corners inside it; that would depend on exposure and focus. With the scale from spacing, the
 target is 152.6 x 150.8 mm, +1.8% and +0.6%, which fits the mask taking one or two edge pixels.
 
-**What it does not cover.** Two photos and one calibration photo, two slots (North 1, South 6), one
+**What it does not cover.** Two photos and one calibration photo, two slots (North 1, and South 1 for tray 12), one
 lens position, one exposure each. The paper's flatness: a curled sheet would make spacing read
 shorter, so it cannot cause this direction. Not checked: other calibrations, the old rig's data, how
 the bias changes with exposure and across the frame. Nothing in the code was changed.
