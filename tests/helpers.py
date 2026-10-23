@@ -115,3 +115,48 @@ def stored_validation(
         session["completed_at"] = (started + timedelta(hours=1)).isoformat()
     validation_store.save_session(session)
     return session
+
+
+# The benchmark plant's mint leaf colour, measured in the potato run still of 23 October 2026
+# 08:35:53 UTC (tests/test_segmentation.py).
+MINT_LEAF_RGB = (156, 228, 188)
+
+
+def one_tray_plant_scene(monkeypatch) -> None:
+    """One tray at an even 10 px/mm, for plant areas worked out by hand (#75).
+
+    Tray 5's 40 mm tag (400 px) lies in cell A1 at the south-west, so the tray outline is x 115 to
+    3165, y 554 to 4214 in a 4000 x 4400 photo. The photo is grey with two 500 x 300 px rectangles
+    of mint leaf colour, 50 x 30 mm = 1500 mm2 each: one inside the tray (x 1400 to 1900, y 2200 to
+    2500), one outside it (x 3400 to 3900). Saves the calibration as the fixture's, so photos taken
+    after this are read with it.
+    """
+    import json
+    from pathlib import Path
+
+    from npec_rig import photo_tags, validation_store
+    from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
+    from npec_rig.calibration_store import save_calibration
+    from npec_rig.camera import CameraManager, SyntheticBackend
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[2200:2500, 1400:1900] = MINT_LEAF_RGB
+            frame[2200:2500, 3400:3900] = MINT_LEAF_RGB
+            return frame, metadata
+
+    stem = json.loads((Path(__file__).parent / "fixtures" / "trays" / "shuffles-2026-10-20.json").read_text())["calibration"]
+    save_calibration(
+        CalibrationArtifact(
+            created_at="2026-10-14T11:11:47+00:00",
+            scale_field=scale_field_from_dict({"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 10.0, "residual_std_pct": 0.0}),
+            frame_stem=stem, lens_position=6.05,
+        ),
+        stem=stem,
+    )
+    validation_store.save_slot_layout(stem, [{"name": "North 1", "centre": [1640, 2384], "box": [100, 500, 3200, 4300]}], [])
+    tag = TagDetection(5, ((400, 3600), (800, 3600), (800, 4000), (400, 4000)), (600, 3800))
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [tag])
+    CameraManager.set_instance(CameraManager(Scene(width=4000, height=4400)))

@@ -17,6 +17,7 @@ from npec_rig.app import app
 from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
 from npec_rig.tags import TagDetection
+from tests.helpers import one_tray_plant_scene
 
 pytestmark = pytest.mark.unit
 
@@ -129,3 +130,15 @@ def test_a_photo_with_no_tags_at_all_says_so(monkeypatch) -> None:
     _finds(monkeypatch, None)
 
     assert tray_readings.read_photo(_photo())["status"] == "no tags found"
+
+
+def test_each_tray_gets_its_plant_area_in_mm2_and_the_segmenter_that_made_it(monkeypatch) -> None:
+    """A worked example, not the code's own sum (`one_tray_plant_scene`): a 500 x 300 px mint
+    rectangle inside the tray at 10 px/mm is 50 x 30 mm = 1500 mm2. The one outside the tray must
+    not count."""
+    one_tray_plant_scene(monkeypatch)
+
+    tray = tray_readings.read_photo(_photo())["trays"][0]
+    assert tray["tray_id"] == 5
+    assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)  # 1%: JPEG blurs the rectangle's edge
+    assert tray["segmenter"] == "green threshold, 0.1"

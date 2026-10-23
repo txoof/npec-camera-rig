@@ -175,6 +175,11 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        8,
+        "tray readings: the segmenter that made each tray's area (#75)",
+        ("ALTER TABLE tray_reading ADD COLUMN segmenter TEXT",),  # e.g. "green threshold, 0.1"; NULL with no area
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -297,10 +302,12 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
         )
         conn.executemany(
             "INSERT INTO tray_reading (capture_id, tray_id, slot, a1_corner, placement,"
-            " centre_x_px, centre_y_px, tilt_deg, margin_mm) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (capture_id, t["tray_id"], t["slot"], t["a1_corner"], t["placement"],
-                 t["centre_px"][0], t["centre_px"][1], t["tilt_deg"], t["margin_mm"])
+                 t["centre_px"][0], t["centre_px"][1], t["tilt_deg"], t["margin_mm"],
+                 t.get("area_mm2"), t.get("segmenter"))
                 for t in trays
             ],
         )
@@ -369,6 +376,7 @@ def tray_readings(capture_id: int) -> dict | None:
             "tray_id": r["tray_id"], "slot": r["slot"], "a1_corner": r["a1_corner"],
             "placement": r["placement"], "centre_px": [r["centre_x_px"], r["centre_y_px"]],
             "tilt_deg": r["tilt_deg"], "margin_mm": r["margin_mm"], "area_mm2": r["area_mm2"],
+            "segmenter": r["segmenter"],
         }
         for r in rows
     ]

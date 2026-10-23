@@ -123,6 +123,7 @@ atexit.register(shutil.rmtree, _test_calibration_dir, ignore_errors=True)
 _test_fallback_dir = tempfile.mkdtemp(prefix="npec-rig-tests-fallback-")
 os.environ["NPEC_RIG_DB_PATH"] = os.path.join(_test_fallback_dir, "rig.db")
 os.environ["NPEC_RIG_DERIVED_DIR"] = os.path.join(_test_fallback_dir, "derived")
+os.environ["NPEC_RIG_MASKS_DIR"] = os.path.join(_test_fallback_dir, "masks")
 atexit.register(shutil.rmtree, _test_fallback_dir, ignore_errors=True)
 # Likewise the camera: a scheduler thread left over from a test, during a running experiment in
 # the live rig.db, must never reach the real camera.
@@ -136,3 +137,5 @@ def isolated_settings_db(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("NPEC_RIG_DB_PATH", str(tmp_path / "rig.db"))
     # Derived images (images.py) go with the per-test DB that indexes them.
     monkeypatch.setenv("NPEC_RIG_DERIVED_DIR", str(tmp_path / "derived"))
+    # Plant masks (segmentation.py) likewise.
+    monkeypatch.setenv("NPEC_RIG_MASKS_DIR", str(tmp_path / "masks"))

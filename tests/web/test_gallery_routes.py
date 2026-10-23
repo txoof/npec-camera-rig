@@ -390,3 +390,17 @@ def test_green_image_marks_the_plant_square_and_leaves_the_rest() -> None:
     assert np.abs(green[outside] - plain[outside]).mean() < 8
     assert client.get("/gallery/image/green/rig/2020-01-01/000000_000000").status_code == 404
     assert client.get("/gallery/image/green/not-a-photo").status_code == 422
+
+
+def test_tray_readings_give_each_trays_plant_area_and_segmenter(monkeypatch) -> None:
+    """`one_tray_plant_scene`: 1500 mm2 of plant inside tray 5, worked out by hand."""
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    client.get(f"/api/captures/tags/{path}")  # Show tags reads the photo for its trays
+
+    tray = client.get(f"/api/captures/trays/{path}").json()["trays"][0]
+    assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)
+    assert tray["segmenter"] == "green threshold, 0.1"
