@@ -10,10 +10,10 @@
   <div class="row gallery-head">
     <h2>Photos</h2>
     {{ ui.button("Show: all photos", id="show-btn") }}
-    {{ ui.button("Go to", id="date-btn") }}
+    {{ ui.button("Select period", id="date-btn") }}
     {{ ui.button("Newest first", id="order-btn") }}
   </div>
-  <p class="lead" id="gallery-note">Dates and times are this computer's local time. Tap a photo to see it larger.</p>
+  <p class="lead" id="gallery-note">Tap photos to enlarge.</p>
   {#- Week, day or hour (#245): Previous and Next step to the nearest one with photos. -#}
   <div class="row gallery-nav" id="gallery-nav" hidden>
     {{ ui.button("Previous", id="prev-btn") }}
@@ -42,7 +42,17 @@
     const ordered = (list) => (newestFirst ? [...list].reverse() : list);
     const showBtn = document.getElementById("show-btn");
     const note = document.getElementById("gallery-note");
-    const NOTE = note.textContent;
+    // The browser's own time zone, by name ("Central European Time"), which every time is shown in.
+    const zoneName = (() => {
+      try {
+        return new Intl.DateTimeFormat(undefined, { timeZoneName: "longGeneric" }).formatToParts(new Date())
+          .find((part) => part.type === "timeZoneName").value;
+      } catch (err) {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone;
+      }
+    })();
+    const NOTE = `Date and time shown in ${zoneName}. Tap photos to enlarge.`;
+    note.textContent = NOTE;
     // The experiment whose photos are shown, by id, or null for every photo. Set from the
     // address (?experiment=<id>, the Photos button on the Experiments page) or by Show.
     let experiment = new URLSearchParams(location.search).get("experiment");
@@ -433,10 +443,10 @@
       const total = hoursIn(level, key).reduce((n, h) => n + h.count, 0);
       if (level === "week") {
         gallery.innerHTML = weekHtml(key);
-        statusText.textContent = `${count(total)} this week. Tap a day to see it by hour.`;
+        statusText.textContent = `${count(total)} this week. Tap a day to view hours.`;
       } else if (level === "day") {
         gallery.innerHTML = dayHtml(key);
-        statusText.textContent = `${count(total)} this day. Each picture is the first photo of its hour; tap one to see the hour.`;
+        statusText.textContent = `${count(total)} this day. Tap an hour for additional photos.`;
       } else {
         gallery.innerHTML = "";
         statusText.textContent = "Loading photos";
@@ -484,7 +494,7 @@
       show({ level, key: keyOf[level](h) });
     }
 
-    // Go to: a day with photos, then that whole week, that whole day or one of its hours.
+    // Select period: a day with photos, then that whole week, that whole day or one of its hours.
     async function goTo() {
       try {
         await loadHours();
@@ -495,7 +505,7 @@
       if (!hours.length) { ui.toast("No photos yet."); return; }
       const days = ordered(keysOf("day"));
       ui.openChoice({
-        label: "Go to",
+        label: "Select period",
         options: days.map((day) => {
           const dayHours = hoursIn("day", day);
           return { value: day, label: dayLabel(new Date(dayHours[0].ms)), detail: count(dayHours.reduce((n, h) => n + h.count, 0)) };
