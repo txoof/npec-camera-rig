@@ -142,3 +142,15 @@ def test_each_tray_gets_its_plant_area_in_mm2_and_the_segmenter_that_made_it(mon
     assert tray["tray_id"] == 5
     assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)  # 1%: JPEG blurs the rectangle's edge
     assert tray["segmenter"] == "green threshold, 0.1"
+
+
+def test_each_trays_area_keeps_its_plant_pixel_count_centre_and_calibration(monkeypatch) -> None:
+    """The raw measurement under the mm2 (Aaron, 2026-10-23), so another calibration can be applied
+    later: `one_tray_plant_scene`'s rectangle inside the tray is 500 x 300 = 150,000 px, centred at
+    x 1650, y 2350 (from its corners, x 1400 to 1900 and y 2200 to 2500)."""
+    one_tray_plant_scene(monkeypatch)
+
+    tray = tray_readings.read_photo(_photo())["trays"][0]
+    assert tray["plant_px"] == pytest.approx(150_000, rel=0.01)  # 1%: JPEG blurs the edge
+    assert tray["plant_centre_px"] == pytest.approx([1650, 2350], abs=2)
+    assert tray["calibration"] == FIXTURE["calibration"]

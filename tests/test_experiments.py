@@ -183,3 +183,65 @@ def test_the_page_and_its_routes() -> None:
     assert client.post("/api/experiments/999/stop").status_code == 404
     states = {e["id"]: e["state"] for e in client.get("/api/experiments").json()}
     assert states == {first["id"]: "stopped", second["id"]: "stopped"}
+
+
+def _reprocessed(client, experiment_id: int) -> dict:
+    """Start Reprocess and wait for it to finish; its last progress."""
+    import time
+
+    assert client.post(f"/api/experiments/{experiment_id}/reprocess").status_code == 200
+    deadline = time.monotonic() + 30
+    while True:
+        progress = client.get(f"/api/experiments/{experiment_id}/reprocess").json()
+        if not progress["running"]:
+            return progress
+        assert time.monotonic() < deadline, "Reprocess did not finish"
+        time.sleep(0.05)
+
+
+def test_reprocess_fills_in_the_area_of_an_experiment_photo_that_has_none(monkeypatch) -> None:
+    """`one_tray_plant_scene`: 1500 mm2 of plant inside tray 5, worked out by hand. The photo is
+    taken during the experiment but never read, as the potato run's photos before areas existed."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig import tray_readings
+    from npec_rig.app import app
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    experiment = captures.start_experiment(captures.create_experiment()["id"])
+    _array, record = captures.take_photo("capture")
+    del _array
+    captures.stop_experiment(experiment["id"])
+    assert tray_readings.photo_readings(record["path"]) is None
+
+    progress = _reprocessed(TestClient(app), experiment["id"])
+
+    assert (progress["done"], progress["total"]) == (1, 1)
+    tray = tray_readings.photo_readings(record["path"])["trays"][0]
+    assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)
+
+
+def test_reprocess_recounts_from_the_saved_mask_without_segmenting_again(monkeypatch) -> None:
+    """The photo is read once (its mask saved), then its file is deleted: an area after Reprocess
+    can only come from the mask. 1500 mm2 as `one_tray_plant_scene`."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig import tray_readings
+    from npec_rig.app import app
+    from npec_rig.captures import photo_file
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    experiment = captures.start_experiment(captures.create_experiment()["id"])
+    _array, record = captures.take_photo("capture")
+    del _array
+    captures.stop_experiment(experiment["id"])
+    tray_readings.read_photo(record["path"])
+    photo_file(record["path"]).unlink()
+
+    progress = _reprocessed(TestClient(app), experiment["id"])
+
+    assert (progress["done"], progress["failed"]) == (1, 0)
+    tray = tray_readings.photo_readings(record["path"])["trays"][0]
+    assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)

@@ -180,6 +180,16 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
         "tray readings: the segmenter that made each tray's area (#75)",
         ("ALTER TABLE tray_reading ADD COLUMN segmenter TEXT",),  # e.g. "green threshold, 0.1"; NULL with no area
     ),
+    (
+        9,
+        "tray readings: the raw measurement under each area, so another calibration can be applied later (#75)",
+        (
+            "ALTER TABLE tray_reading ADD COLUMN plant_px INTEGER",  # plant pixels inside the tray outline
+            "ALTER TABLE tray_reading ADD COLUMN plant_centre_x_px REAL",  # their centre, full-size photo pixels
+            "ALTER TABLE tray_reading ADD COLUMN plant_centre_y_px REAL",
+            "ALTER TABLE tray_reading ADD COLUMN calibration TEXT",  # the calibration area_mm2 was worked out with
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -302,12 +312,14 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
         )
         conn.executemany(
             "INSERT INTO tray_reading (capture_id, tray_id, slot, a1_corner, placement,"
-            " centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter,"
+            " plant_px, plant_centre_x_px, plant_centre_y_px, calibration)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (capture_id, t["tray_id"], t["slot"], t["a1_corner"], t["placement"],
                  t["centre_px"][0], t["centre_px"][1], t["tilt_deg"], t["margin_mm"],
-                 t.get("area_mm2"), t.get("segmenter"))
+                 t.get("area_mm2"), t.get("segmenter"), t.get("plant_px"),
+                 *(t.get("plant_centre_px") or (None, None)), t.get("calibration"))
                 for t in trays
             ],
         )
@@ -376,7 +388,9 @@ def tray_readings(capture_id: int) -> dict | None:
             "tray_id": r["tray_id"], "slot": r["slot"], "a1_corner": r["a1_corner"],
             "placement": r["placement"], "centre_px": [r["centre_x_px"], r["centre_y_px"]],
             "tilt_deg": r["tilt_deg"], "margin_mm": r["margin_mm"], "area_mm2": r["area_mm2"],
-            "segmenter": r["segmenter"],
+            "segmenter": r["segmenter"], "plant_px": r["plant_px"],
+            "plant_centre_px": None if r["plant_centre_x_px"] is None else [r["plant_centre_x_px"], r["plant_centre_y_px"]],
+            "calibration": r["calibration"],
         }
         for r in rows
     ]

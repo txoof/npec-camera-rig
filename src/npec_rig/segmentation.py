@@ -8,6 +8,7 @@ without changes elsewhere.
 
 import os
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -73,10 +74,25 @@ class HailoSegmenter:
 _SCALE_BLOCK_PX = 64
 
 
-def plant_area_mm2(mask: np.ndarray, outline_px, scale_field) -> float:
-    """Plant area in mm2 inside the polygon `outline_px` (full-size pixel corners, any number) of
-    full-size `mask`, each pixel weighted by the local scale (`ScaleField.mm_per_px`) at its block.
-    Parts of the outline outside the photo count nothing. Any outline: a tray now, a cell later."""
+@dataclass(frozen=True)
+class PlantMeasure:
+    """The plant inside one outline: the raw measurement and its area.
+
+    `plant_px` and `centre_px` are the raw measurement (Aaron, 2026-10-23): with them any
+    calibration can be applied later, `plant_px * mm_per_px(centre)**2`, close to the per-pixel
+    sum: across a tray the scale changes by about 0.5%, and taking it at the centre differs from
+    the per-pixel sum by less than that squared."""
+
+    plant_px: int
+    centre_px: tuple[float, float] | None  # None when no plant pixel is inside
+    area_mm2: float
+
+
+def measure_plant(mask: np.ndarray, outline_px, scale_field) -> PlantMeasure:
+    """The plant pixels inside the polygon `outline_px` (full-size pixel corners, any number) of
+    full-size `mask`: their count, centre, and area in mm2 with each pixel weighted by the local
+    scale (`ScaleField.mm_per_px`) at its block. Parts of the outline outside the photo count
+    nothing. Any outline: a tray now, a cell later."""
     import cv2
 
     h, w = mask.shape
@@ -84,10 +100,13 @@ def plant_area_mm2(mask: np.ndarray, outline_px, scale_field) -> float:
     x0, y0 = np.clip(np.floor(corners.min(axis=0)).astype(int), 0, [w, h])
     x1, y1 = np.clip(np.ceil(corners.max(axis=0)).astype(int) + 1, 0, [w, h])
     if x1 <= x0 or y1 <= y0:
-        return 0.0
+        return PlantMeasure(0, None, 0.0)
     inside = np.zeros((y1 - y0, x1 - x0), dtype=np.uint8)
     cv2.fillPoly(inside, [np.round(corners - [x0, y0]).astype(np.int32).reshape(-1, 1, 2)], 1)
     plant = mask[y0:y1, x0:x1] & inside.astype(bool)
+    ys, xs = np.nonzero(plant)
+    if len(xs) == 0:
+        return PlantMeasure(0, None, 0.0)
     area = 0.0
     for by in range(0, plant.shape[0], _SCALE_BLOCK_PX):
         for bx in range(0, plant.shape[1], _SCALE_BLOCK_PX):
@@ -96,7 +115,8 @@ def plant_area_mm2(mask: np.ndarray, outline_px, scale_field) -> float:
                 cx = x0 + bx + min(_SCALE_BLOCK_PX, plant.shape[1] - bx) / 2
                 cy = y0 + by + min(_SCALE_BLOCK_PX, plant.shape[0] - by) / 2
                 area += count * scale_field.mm_per_px(cx, cy) ** 2
-    return area
+    # Pixel centres: pixel (0, 0) covers 0 to 1, so its centre is 0.5.
+    return PlantMeasure(len(xs), (float(xs.mean()) + x0 + 0.5, float(ys.mean()) + y0 + 0.5), area)
 
 
 # --- Masks on disk ----------------------------------------------------------------------------------
