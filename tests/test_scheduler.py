@@ -1,5 +1,6 @@
+import threading
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -21,6 +22,17 @@ def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
     monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
     monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+
+
+@pytest.fixture(autouse=True)
+def no_scheduler_left_running():
+    """Wait for each test's scheduler thread to finish. Its app stop does not wait for it
+    (`stop(0)`), so one still inside a slow photo would carry on into the next test, read that
+    test's database and take its photos."""
+    yield
+    for thread in threading.enumerate():
+        if thread.name == "scheduler":
+            thread.join(5.0)
 
 
 def _start(client: TestClient, interval_s: float) -> tuple[dict, dict]:
@@ -113,3 +125,46 @@ def test_a_new_interval_while_running_counts_from_the_change() -> None:
     assert since >= datetime.fromisoformat(started["periods"][-1]["started_at"])
     assert schedule["interval_s"] == 7200
     assert datetime.fromisoformat(schedule["next_photo_at"]) == since + timedelta(seconds=7200)
+
+
+def _missed_reasons(started: dict, due_before: datetime | None = None) -> list[str]:
+    """The missed slots' reasons for the schedule `started` began, from the rig's own record of
+    scheduled photos; with `due_before`, only slots due before then. Matched by the schedule's
+    start as well as the experiment: a slow photo from the test before can finish after it, and
+    its slots land in this test's fresh database under the same experiment number."""
+    import sqlite3
+
+    from npec_rig.settings import db_path
+
+    query = (
+        "SELECT missed_reason FROM scheduled_photo WHERE experiment_id = ? AND schedule_since = ?"
+        " AND missed_reason IS NOT NULL AND due_at < ? ORDER BY slot"
+    )
+    until = (due_before or datetime.now(UTC) + timedelta(days=1)).isoformat()
+    with sqlite3.connect(db_path()) as conn:
+        rows = conn.execute(query, (started["id"], started["schedule"]["since"], until)).fetchall()
+    return [reason for (reason,) in rows]
+
+
+def test_slots_missed_while_the_app_was_down_say_so() -> None:
+    client = TestClient(app)  # no lifespan: no scheduler runs, as while the app is down
+    _experiment, started = _start(client, 0.3)
+    time.sleep(1.0)  # slots at 0.3, 0.6 and 0.9 s pass with nobody to take them
+
+    restarted_at = datetime.now(UTC)
+    with TestClient(app) as client:
+        _wait_for(lambda: client.get("/api/experiments").json()[0]["schedule"]["photos_taken"] >= 1)
+    # Slots after the restart may be missed behind a slow photo; those due before it were not.
+    reasons = _missed_reasons(started, due_before=restarted_at)
+    assert len(reasons) >= 2
+    assert set(reasons) == {"the app was not running"}
+
+
+def test_slots_missed_during_a_slow_photo_say_so() -> None:
+    CameraManager.set_instance(CameraManager(SlowBackend()))
+    with TestClient(app) as client:
+        _experiment, started = _start(client, 0.3)
+        _wait_for(lambda: client.get("/api/experiments").json()[0]["schedule"]["photos_taken"] >= 2)
+    reasons = _missed_reasons(started)
+    assert reasons
+    assert set(reasons) == {"the previous photo took longer than the interval"}

@@ -22,6 +22,8 @@ MIN_INTERVAL_S = 10.0
 # The longest the loop sleeps before looking at the running experiment again, so a start or stop
 # is noticed within this time whatever the interval.
 CHECK_S = 1.0
+MISSED_APP_DOWN = "the app was not running"
+MISSED_PHOTO_SLOW = "the previous photo took longer than the interval"
 
 
 def _running_schedule(experiment: dict | None) -> dict | None:
@@ -63,9 +65,11 @@ class Scheduler:
     def __init__(self) -> None:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._started_at = datetime.now(UTC)
 
     def start(self) -> None:
         self._stop.clear()
+        self._started_at = datetime.now(UTC)
         self._thread = threading.Thread(target=self._run, name="scheduler", daemon=True)
         self._thread.start()
 
@@ -93,11 +97,13 @@ class Scheduler:
         last_slot = database.schedule_progress(experiment["id"], since)["last_slot"]
         slot = _current_slot(sched, datetime.now(UTC))
         if slot > last_slot:
-            # Slots that passed without a photo: the app was down, or a photo took too long.
-            slots = [
-                (missed, _due_at(sched, missed).isoformat(), None, "not taken in time")
-                for missed in range(last_slot + 1, slot)
-            ]
+            # Slots that passed without a photo: due before this scheduler started, the app was
+            # down; due since, the previous photo was still being taken (#62).
+            slots = []
+            for missed in range(last_slot + 1, slot):
+                due = _due_at(sched, missed)
+                reason = MISSED_APP_DOWN if due < self._started_at else MISSED_PHOTO_SLOW
+                slots.append((missed, due.isoformat(), None, reason))
             due_at = _due_at(sched, slot).isoformat()
             try:
                 # The app is shutting down: the camera may already be closing.
