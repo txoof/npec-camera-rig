@@ -341,3 +341,52 @@ def test_show_tags_also_reads_an_older_photo_for_its_trays(monkeypatch, isolated
     trays = client.get(f"/api/captures/trays/{path}").json()
     assert trays["status"] == "read"
     assert sorted(t["tray_id"] for t in trays["trays"]) == TRAYS_1_TO_12
+
+
+class _MintSquareBackend:
+    """Synthetic camera whose photo is grey with one square of the benchmark plant's mint leaf
+    colour (RGB 156, 228, 188, measured in the still of 23 October 2026 08:35:53 UTC, as
+    tests/test_segmentation.py), in the middle of the left half."""
+
+    @staticmethod
+    def build():
+        import numpy as np
+
+        from npec_rig.camera import SyntheticBackend
+
+        class Backend(SyntheticBackend):
+            def capture_full_res(self):
+                frame, metadata = super().capture_full_res()
+                h, w = frame.shape[:2]
+                frame[:] = 128
+                frame[h * 3 // 8 : h * 5 // 8, w // 8 : w * 3 // 8] = (156, 228, 188)
+                return frame, metadata
+
+        return Backend()
+
+
+def test_green_image_marks_the_plant_square_and_leaves_the_rest() -> None:
+    import io
+
+    import numpy as np
+    from PIL import Image
+
+    from npec_rig.camera import CameraManager
+
+    CameraManager.set_instance(CameraManager(_MintSquareBackend.build()))
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+
+    marked = client.get(f"/gallery/image/green/{path}")
+    assert marked.status_code == 200
+    assert marked.headers["content-type"] == "image/jpeg"
+    green = np.asarray(Image.open(io.BytesIO(marked.content)).convert("RGB")).astype(int)
+    plain = np.asarray(Image.open(io.BytesIO(client.get(f"/gallery/image/screen/{path}").content)).convert("RGB")).astype(int)
+    assert green.shape == plain.shape
+    h, w = green.shape[:2]
+    inside = (slice(h * 7 // 16, h * 9 // 16), slice(w * 3 // 16, w * 5 // 16))
+    outside = (slice(h * 7 // 16, h * 9 // 16), slice(w * 11 // 16, w * 13 // 16))
+    assert np.abs(green[inside] - plain[inside]).mean() > 40
+    assert np.abs(green[outside] - plain[outside]).mean() < 8
+    assert client.get("/gallery/image/green/rig/2020-01-01/000000_000000").status_code == 404
+    assert client.get("/gallery/image/green/not-a-photo").status_code == 422

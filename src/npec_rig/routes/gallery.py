@@ -12,6 +12,7 @@ from npec_rig import database, images, photo_tags, tray_readings
 from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import PHOTO_KEY, capture_hours, list_recent_captures, photo_file
 from npec_rig.routes.shared import derived_response, templates
+from npec_rig.segmentation import EXG_MIN, ExGSegmenter
 from npec_rig.text_render import text_layer, text_width
 from npec_rig.tags import CALIBRATION_ID_RANGE, CORNER_ID_RANGE, TRAY_ID_RANGE, TagDetection
 from npec_rig.tray_placement import TrayPlacement
@@ -138,19 +139,32 @@ def gallery_tags_image(path: str) -> Response:
     return derived_response("gallery_tags", path, inputs)
 
 
+@router.get("/gallery/image/green/{path:path}")
+def gallery_green_image(path: str) -> Response:
+    """Photo `path` at the screen copy's size with the pixels the green threshold takes as plant
+    tinted magenta (#74). The mask is made on the screen copy, for looking at, not for areas."""
+    _require_photo(path)
+    return derived_response("gallery_green", path, {"photo": path, "width": _GALLERY_WIDTHS["screen"], "exg_min": EXG_MIN})
+
+
 @router.get("/gallery/image/{size}/{path:path}")
 def gallery_image(size: str, path: str) -> Response:
     """Photo `path` (a gallery entry's `path`) reduced to `size`, made once and then served from
     the derived image store (images.py)."""
     if size not in _GALLERY_WIDTHS:
         raise HTTPException(404, f"no gallery size {size!r}")
+    _require_photo(path)
+    return derived_response(f"gallery_{size}", path, {"photo": path, "width": _GALLERY_WIDTHS[size]})
+
+
+def _require_photo(path: str) -> None:
+    """422 for a path that is not a photo path, 404 for a photo no longer on the rig."""
     try:
         found = photo_file(path)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     if found is None:
         raise HTTPException(404, f"photo {path} not found")
-    return derived_response(f"gallery_{size}", path, {"photo": path, "width": _GALLERY_WIDTHS[size]})
 
 
 def _render_gallery_image(inputs: dict) -> bytes:
@@ -161,6 +175,18 @@ def _render_gallery_image(inputs: dict) -> bytes:
     return array_to_jpeg(image)
 
 
+def _render_gallery_green_image(inputs: dict) -> bytes:
+    found = photo_file(inputs["photo"])
+    if found is None:
+        raise HTTPException(404, f"photo {inputs['photo']} not found")
+    image, _scale = images.reduced_frame(found, inputs["width"])
+    mask = ExGSegmenter(inputs["exg_min"]).segment(image)
+    tinted = image.astype(np.float32)
+    tinted[mask] = 0.4 * tinted[mask] + 0.6 * np.array(_PLANT_COLOUR, dtype=np.float32)
+    return array_to_jpeg(tinted.round().astype(np.uint8))
+
+
+_PLANT_COLOUR = (255, 0, 255)  # magenta: stands out from green leaves, brown soil and blue trays
 _TAG_COLOUR = (255, 0, 255)  # magenta, as tags.draw_overlay
 _TRAY_COLOUR = (255, 220, 0)  # yellow, apart from the tags and the blue trays
 
@@ -209,3 +235,4 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
 images.register(images.Recipe("gallery_thumb", 1, _render_gallery_image))
 images.register(images.Recipe("gallery_screen", 1, _render_gallery_image))
 images.register(images.Recipe("gallery_tags", 2, _render_gallery_tags_image))
+images.register(images.Recipe("gallery_green", 1, _render_gallery_green_image))
