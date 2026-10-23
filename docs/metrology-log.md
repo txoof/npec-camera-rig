@@ -5114,3 +5114,94 @@ neighbours (mean grey 125.1 to 125.9, sharpness 39.8 to 45.0). Row 6 is the ligh
 *Figure 16.8c. Tray 2 at 08:55:53 UTC, the first miss of the run (#223 observation 1), with the
 photos either side; no difference to be seen. Tray 6 at 10:02:53 UTC looks the same way
 (`figures/16.8/tray6-miss-100253.jpg`).*
+
+## 17. Plant area per tray on the potato run (issues #74, #75, method written 2026-10-23, before the analysis)
+
+**Label: development check.** What the rig's plant area per tray reads on the Round 2 run (section
+16), how often it fails, how far it moves with nothing changed, and how much an empty tray reads.
+No true area is known for any tray, so nothing here says how close an area is to the truth.
+
+**When this was written.** The green threshold went into the app on 23 October (#280), and plant
+area per tray at 11:24 UTC the same day (#281). At 12:40 UTC every photo of the run was queued to be
+read again with areas (Reprocess, #75 part 2). This section was written while that ran, before any
+area series of the run was looked at. What had been seen by then is listed in 17.1, each from one
+photo or a handful; the questions in 17.2 were written knowing those figures.
+
+### 17.1 Observations before the review (23 October)
+
+Each is a development check from the photos named, on the rig's Pi 5 with the live server running
+(the camera taking one photo a minute). Calibration `20261022T072523939958` throughout.
+
+- **The method.** A pixel is plant when its normalised excess green (2g - r - b) / (r + g + b) is
+  above 0.1 and green is above red (`segmentation.ExGSegmenter`), round 1's threshold (15.5,
+  15.6a), not tuned for this run. It is applied to the full-size 9152 x 6944 photo. A tray's area
+  is its plant pixels inside the tray outline (tray placement, 15.5g), each weighted by the scale
+  field at its 64 px block. Each reading also stores the pixel count, their centre and the
+  calibration used (#75 part 2), so another calibration can be applied later.
+- **Colours used in the tests.** Mean RGB of 12 x 12 px patches of the still of 08:35:53 UTC
+  (`experiments/2026-10-22_df206967/stills/2026-10-23/083553_637710.jpg`): benchmark mint leaf
+  156, 228, 188 (passes); dark soil 95, 58, 55; pale soil 146, 95, 88; blue tray 39, 88, 159 and in
+  shade 14, 49, 101; black pot 11, 10, 15; yellow benchmark card 254, 224, 54; grey table 235, 227,
+  240 (all fail). One patch each, one photo.
+- **The potato sprouts fail the threshold on 23 October.** In the same still a sprout is a few
+  pixels across; its 12 greenest pixels average 112, 110, 64 (spread about 10 per channel), blurred
+  with the soil, and fail "green above red". Whole-frame tint image `~/scratch/seg74_green_overlay.jpg`:
+  the benchmark rosettes on tray 8 taken in full, the sprouts not. One photo, one sprout sampled.
+- **Dark pixels with a green cast.** In the same still at full size, 4458 of 139,983 plant pixels
+  have an RGB sum below 60, nearly all along the chamber's back wall above the table; inside the
+  band of rows holding the trays (y 1258 to 5950), 98 of 126,038 (0.08%). No brightness floor was
+  added: it would be a chosen number (#75 comment, 2026-10-23).
+- **Areas in one photo.** 11:24:55 UTC (the first with areas): tray 8 (benchmark) 4,578 mm²; trays
+  9 to 12 (black pots only) 25 to 109 mm²; potato trays 1 to 7, 48 to 109 mm², the same range as the
+  empty trays, so the sprouts could not be told from what empty trays read. 11:26:53 UTC: trays 1 to
+  6, 19 to 115 mm². Two photos.
+- **Outlines past the photo edge, and overlapping.** In the stills 113453_600583 and 113553_609273,
+  the outlines of trays 8, 9 and 12 reach 12 to 44 px (about 2 to 9 mm at 4.86 px/mm) beyond the
+  photo, into the tray's outer wall; the outlines of trays 5 and 7 share 2,249 and 2,932 px. Where
+  outlines overlap, each pixel will count only for the tray whose centre is nearer (Aaron,
+  2026-10-23, #282); until then, plant pixels in the overlap count in both.
+- **Time.** On one full-size still: decode 0.6 s, threshold 1.1 s, mask saved 0.3 s (42 kB, 1 bit
+  per pixel), one tray's area 0.01 s. Reprocess, reading each photo again with stored tags: 17
+  photos in about 160 s from its start at 12:40 UTC (about 9 s a photo), alongside the live reader.
+  Where the rest of the 9 s goes is not measured.
+
+### 17.2 Questions for the review, and method
+
+**Data.** A copy of `rig.db` taken after Reprocess of experiment 18 finishes (Reprocess's own
+count of photos done and failed is noted with it), and the saved masks. Scripts and results in
+`experiments/round2-run/`. Nothing is written into the experiment folder, the masks folder or the
+live `rig.db`. Lit and dark photos, movement windows and undisturbed pairs as 16.3. Photos up to
+the copy; the run continues.
+
+1. **Failures.** Photos of the run read and not read; photos whose reading failed (status `read
+   failed`, and Reprocess's failed count, with the reasons from the server log); lit photos with
+   trays placed but no area (segmentation failed). Counted per day and lit or dark, each failure
+   listed by time.
+2. **Benchmark repeatability.** Tray 8's area in lit photos, from the time the benchmark was taped
+   on. That time is not in the events log (16.5, open): it is asked of Aaron, and if not known, taken
+   as the first lit photo whose tray 8 area is above 1000 mm² and said to be taken that way.
+   Reported: (a) for undisturbed pairs, the change from one photo to the next as a percentage, its
+   root mean square and its largest; (b) over each lit period, the mean, standard deviation,
+   smallest and largest; (c) the same for the plant pixel count, to separate the threshold from the
+   scale (the scale is fixed within a calibration, so the two should move together).
+3. **What an empty tray reads.** Trays 9 to 12 in lit photos: per tray and per day, the median, the
+   95th percentile and the largest area, and the share of photos above 0. Tray 8 is not used here:
+   the benchmark on it is not masked out.
+4. **The plant trays.** Trays 1 to 7: area against time in lit photos, per tray, beside the empty
+   trays' 95th percentile from question 3. Reported as plotted, with the first time each tray's area
+   stays above the empty trays' largest for a whole lit period. Growth, leaf movement and the
+   threshold's error are not separated.
+5. **Time of day.** For trays 8 to 12, area against time of day in lit photos, to see whether light
+   through the day moves the area. Reported as plotted; no test is set.
+
+No threshold is set for what size of change or floor matters. Results are reported as measured;
+any target is Aaron's decision, labelled as one.
+
+### 17.3 Limits of the evidence (as planned)
+
+All of 16.6. One segmenter (green threshold 0.1), not tuned; no true area for any tray, plant or
+benchmark (the benchmark's known area waits on #228). Tray 8's benchmark is a flat plastic piece
+on a card, not a plant. The empty trays hold black pots on blue trays: soil without plants is not
+in the run, so what bare soil reads is not covered. Areas of photos taken before 11:24 UTC on 23
+October come from Reprocess, the same code, read hours to a day after the photo. Area uncertainty
+per reading (#76) is not part of this review.
