@@ -122,3 +122,23 @@ def test_purge_through_the_route() -> None:
     done = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
     assert done.json()["state"] == "purged"
     assert client.get(f"/api/exports/{export['id']}/download").status_code == 410
+
+
+def test_purge_deletes_the_experiments_plant_masks_and_keeps_rig_photos_masks() -> None:
+    import numpy as np
+
+    from npec_rig import segmentation
+
+    experiment = _stopped()
+    _exported(experiment)
+    still = database.captures_for_experiment(experiment["id"])[0]["path"]
+    _array, rig_photo = captures.take_photo("capture")
+    del _array
+    mask = np.zeros((4, 4), dtype=bool)
+    segmentation.save_mask(still, mask)
+    segmentation.save_mask(rig_photo["path"], mask)
+
+    captures.purge_experiment(experiment["id"], confirm="Drought")
+
+    assert segmentation.load_mask(still) is None
+    assert segmentation.load_mask(rig_photo["path"]) is not None

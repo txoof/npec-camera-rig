@@ -7,6 +7,7 @@ without changes elsewhere.
 """
 
 import os
+import threading
 from pathlib import Path
 from typing import Protocol
 
@@ -67,7 +68,8 @@ class HailoSegmenter:
 
 # Side of the square blocks the scale is looked up in, in full-size pixels. The scale field is a
 # fitted plane, smooth over thousands of pixels: across one 64 px block it changes by about
-# 0.01% at the field's steepest (calibration of 14 October), far below its 0.5% residual.
+# 0.01% (worked out from the fitted coefficients of the calibration of 14 October, not measured),
+# far below the field's 0.5% residual.
 _SCALE_BLOCK_PX = 64
 
 
@@ -115,7 +117,9 @@ def save_mask(photo_path: str, mask: np.ndarray) -> Path:
     """Save `mask` as a 1-bit PNG beside any earlier one of the photo, replacing it."""
     target = mask_file(photo_path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    partial = target.with_suffix(".png.partial")
+    # A name of its own per thread: the background reader and Show tags can save one photo's mask
+    # at the same time, and a shared name lets one thread's rename take the other's file.
+    partial = target.with_name(f"{target.name}.{os.getpid()}.{threading.get_ident()}.partial")
     Image.fromarray(mask).convert("1").save(partial, format="PNG", optimize=False)
     partial.replace(target)
     return target

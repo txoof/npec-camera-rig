@@ -92,7 +92,8 @@ def _areas(path: str, placed: list[TrayPlacement]) -> dict[int, float]:
         record = database.captures_by_path([path])[path]
         scale_field = load_saved_calibration(record["calibration"]).scale_field
         with Image.open(photo_file(path)) as image:
-            rgb = np.asarray(image.convert("RGB"))
+            # One copy of the 64MP photo (about 190 MB): convert() would make a second.
+            rgb = np.asarray(image if image.mode == "RGB" else image.convert("RGB"))
         mask = SEGMENTER.segment(rgb)
         del rgb
         segmentation.save_mask(path, mask)
