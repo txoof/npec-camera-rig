@@ -35,9 +35,12 @@ def centred(img, words, x, y, scale=0.5, colour=INK, thick=1):
 
 
 def shuffle_hours(shuffles, day):
-    """{hour: [map numbers]} for the shuffles of `day` (chamber time), each in every hour it spans."""
+    """{hour: [map numbers]} for the shuffles of `day` (chamber time), each in every hour it spans.
+    A layout with no start (map 0, the layout at the experiment's start) is not a shuffle."""
     hours = {}
     for s in shuffles:
+        if s["start"] is None:
+            continue
         start = (s["start"] or s["finish"]).astimezone(CHAMBER)
         finish = s["finish"].astimezone(CHAMBER)
         if finish.date().isoformat() != day and start.date().isoformat() != day:
@@ -133,7 +136,8 @@ def draw_day(day, photos, centres, shuffles, events, trays, experiment):
         text(img, "none", (14, y + 26), 0.5, MUTED)
     y += 26 + 24 * max(1, (len(quiet) + 5) // 6) + 20
     text(img, "Shuffles (map, start to finish) and events, chamber time:", (14, y), 0.5, INK)
-    items = [f"map {s['shuffle']} {(s['start'] or s['finish']).astimezone(CHAMBER):%H:%M} to {s['finish'].astimezone(CHAMBER):%H:%M}"
+    items = [f"map {s['shuffle']} {s['start'].astimezone(CHAMBER):%H:%M} to {s['finish'].astimezone(CHAMBER):%H:%M}"
+             if s["start"] else f"map {s['shuffle']} (start) from {s['finish'].astimezone(CHAMBER):%H:%M}"
              for s in day_shuffles] + [f"{t.astimezone(CHAMBER):%H:%M} {w[:24]}" for t, w in day_events]
     for i, words in enumerate(items):
         text(img, words, (14 + 250 * (i % 6), y + 26 + 24 * (i // 6)), 0.5)
