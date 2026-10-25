@@ -5404,3 +5404,71 @@ target is 152.6 x 150.8 mm, +1.8% and +0.6%, which fits the mask taking one or t
 lens position, one exposure each. The paper's flatness: a curled sheet would make spacing read
 shorter, so it cannot cause this direction. Not checked: other calibrations, the old rig's data, how
 the bias changes with exposure and across the frame. Nothing in the code was changed.
+
+## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
+
+**Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from
+tag edges 1.4 to 2.5% below the scale from tag spacing in three photos. This section measures the
+same thing in every stored photo that shows calibration sheets, with no new photos and no camera.
+
+**Question.** Is the edges/spacing ratio the same in every photo, or does it change with exposure
+time, gain, lens position, slot or distance from the image centre? A constant ratio could be
+corrected once; a changing one could not.
+
+**Photos.** Read only, nothing under `/var/lib/npec-rig/` is written:
+
+1. The 22 October calibration (`20261022T072523939958`) and the rounds of its validation
+   (`20261022T072759980696`, sheets in all 12 slots).
+2. The two photos of 23 October 14:16:53 and 14:17:53 UTC (17.6, two sheets).
+3. Every other calibration and validation photo still on disk: 16 calibration and 31 validation
+   photos in `rig/`, and 88 calibration photos from before #103 in `calibration/frames/`.
+
+**Tags.** The tag corners stored with each photo in `rig.db` (`capture_analysis`, kind `tags`,
+version 2), opened read-only. Where none are stored, tags are detected again with
+`tags.detect_tags`, the rig's detector, and the table says which. Only calibration sheet tags (IDs
+300 to 449) are used.
+
+**Sheets and slots.** Tags are grouped into printed sheets with the rig's own grouping
+(`certainty_map.group_sheets`, with the scale field of the calibration the photo belongs to), and
+each sheet is named by its slot with `certainty_map.sheets_by_slot` and the saved slot layout of
+that calibration. A photo the grouping refuses (two sheets touching) or one without a slot layout
+is listed with the reason; its sheets are still measured, by image position.
+
+**The measurement, per pair of tags.** For two tags of one sheet that lie on the same page of the
+sheet manifest (`reference/calibration-sheets/apriltags-36h11-30mm-a4-300-449.manifest.json`) and
+whose designed centres are 30 to 90 mm apart:
+
+- edge scale = mean side of the two tags in pixels / 30.0 mm (the calliper value, CLAUDE.md
+  Facts; the rig uses the same mean side, `calibration.py:339`);
+- spacing scale = distance between the two tag centres in pixels / designed distance in mm. A
+  tag's centre is the mean of its four corners (`tags.py:139`), so a shift of all four corners
+  toward the middle of the tag does not move it;
+- ratio = edge scale / spacing scale. Below 1 means edges read short.
+
+Both scales are taken at the same place in the same photo, so the ratio does not depend on the
+scale field, the camera height or the print scale (the 180 mm bars agree with the design within
+0.05%, section 3). Per sheet: the median ratio of its pairs and their middle half, and the ratio
+also split into pairs across the page (37.5 mm) and down it (41.1 mm). The shortfall is also
+given in pixels per edge, (30.0 mm x spacing scale - mean side) / 2: a corner finder that sits a
+fixed number of pixels inside the black square gives the same pixels per edge at every scale.
+
+**Recorded with each sheet:** photo, kind (calibration or validation), calibration, slot, sheet
+centre and its distance from the image centre (4576, 3472), tags and pairs, exposure time,
+analogue gain, colour gains and lens position (from the photo's sidecar, or for the older
+calibration photos the lens position in the calibration file only), the calibration's
+`calibration_tag_size_mm`, and where the tags came from.
+
+**Check before the full run.** On `20261022T072523939958` the script must give the 17.6 result:
+median 0.986, middle half 0.982 to 0.990. If it does not, the difference is found before any other
+photo is measured.
+
+**Output.** One table (one row per photo and sheet) and charts of the ratio by slot, against
+distance from the image centre, and against exposure time. Script:
+`experiments/round2-tagedge/`.
+
+**Limits of the evidence (as planned).** The photos were taken for calibration and validation, not
+for this question: exposure and lens position were not varied on purpose, and may change together.
+The sheets lay where trays put them, at pot or tray-top height. A ratio that differs between
+photos taken at different exposures shows that something changed between them, not that exposure
+caused it. The older calibration photos may come from before the rig was rebuilt; the ratio does
+not depend on the rig's geometry, but their sheets may be other prints.
