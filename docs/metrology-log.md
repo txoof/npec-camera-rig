@@ -5259,10 +5259,18 @@ so 08:43 UTC is taken from the photos. Posted to #221.
    23:05:53 UTC, 24 minutes before the first dark photo (23:29:53), and comes back at 07:24:53, 24
    minutes after the first lit one (07:00:53), with gain rising to 4. Photos in the fades still find
    tags, so they count as lit; the last before dark read the benchmark as 0.4 mm², the first after
-   it 2,951 mm². *Decision (Aaron):* these photos are left out by rule. Which rule is open: a window
-   of 10 minutes around dark photos was proposed before the fades were measured and would keep most
-   of them; a window of about 25 minutes, or leaving out lit photos whose exposure is more than a
-   set factor above the lit median, would not.
+   it 2,951 mm². *Decision (Aaron, 2026-10-23 and 10-25):* photos taken while the light is changing
+   are left out by rule. The light schedule (fades, their length, several light levels, or none) is
+   the researcher's choice for each experiment, so the rule depends on no schedule, fade length or
+   "normal" light level: a photo is left out when its exposure or gain differs from the photo
+   before or after it by more than a set amount, meaning the camera was still adjusting. A steady
+   light level, bright or dim, is kept; a fade is left out however long it lasts; an experiment
+   without fades loses nothing. The set amount is a decision, to be chosen from this run's fades
+   and labelled as one. Replaced: a 10-minute window around dark photos (proposed before the fades
+   were measured, it kept most of them), a 25-minute window, and exposure above a factor of the lit
+   median (both assume one schedule or one light level). *Limit:* areas read under a different
+   steady light level are not known to match those under the normal one (the threshold depends on
+   colour, and this run has one lit level); stated until an experiment with two levels shows it.
 4. **People in the frame.** During shuffle 1 single photos gave tray 4 2,117 mm², tray 7 2,034, tray
    6 820 and tray 11 630 (normal under 140), with only 8 to 11 trays found. *Decision (Aaron):* both
    the events log and a rule from the photos: a large area jump that falls back within a few
