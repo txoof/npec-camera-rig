@@ -175,9 +175,10 @@
       let table = "";
       if (measured.length) {
         // Until #286 is closed: a flat green square of known size reads about 6% high (scale and
-        // mask edge together, metrology log 17.6 and 18); small plants have more edge per area.
-        lines.push(`<div class="banner" style="margin: 8px 0">${ui.icon("warn")}<p><strong>Warning: plant areas read high.</strong> `
-          + "A flat green square of 150 mm reads 6% high; small plants may read higher. Being checked, issue #286.</p></div>");
+        // mask edge together, metrology log 17.6 and 18). Small plants are mostly edge, and the
+        // edge error's size and direction on plants is not measured (red shapes read small, 15.5).
+        lines.push(`<div class="banner" style="margin: 8px 0">${ui.icon("warn")}<p><strong>Warning: plant areas are not yet correct.</strong> `
+          + "A flat green square of 150 mm reads 6% high. Small plants may be further off, in either direction. Being checked, issue #286.</p></div>");
         lines.push(`Plant area, ${ui.esc(measured[0].segmenter)}, uncertainty not measured yet:`);
         const rows = measured.map((t) =>
           `<tr><td>${t.tray_id}</td><td style="text-align: left">${ui.esc(t.slot)}</td><td>${Math.round(t.area_mm2).toLocaleString("en-US")}</td></tr>`).join("");
