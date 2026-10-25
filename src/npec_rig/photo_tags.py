@@ -74,7 +74,7 @@ def photo_tags_for(path: str) -> list[TagDetection]:
     if found is None:
         # Searched before the photo was deleted: its tags are still known, as in capture_tags.
         # Reprocess reads trays from them and the saved mask without the photo (#75).
-        stored = images.stored_tag_detections(path.removeprefix("rig/") if path.startswith("rig/") else path)
+        stored = images.stored_tag_detections(path.removeprefix("rig/"))
         if stored is not None:
             return stored
         raise CaptureNotFoundError(f"photo {path} not found")

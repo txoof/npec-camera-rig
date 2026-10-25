@@ -129,6 +129,7 @@ def gallery_tags_image(path: str) -> Response:
     """Photo `path` at the screen copy's size with every tag outlined and labelled with its ID,
     tray tags as "Tray <id>", and each placed tray's outline, slot and A1 corner. Searches the photo first if it has not been searched yet. The tags
     are part of the image's inputs, so it is drawn again whenever the stored tags change."""
+    _require_photo(path)  # 404 for a deleted photo, whose tags photo_tags still knows (#287)
     found = photo_tags.photo_tags_for(path)
     tags = [{"id": d.tag_id, "corners": [list(c) for c in d.corners]} for d in found]
     trays = [

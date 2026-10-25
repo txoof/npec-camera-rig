@@ -138,7 +138,8 @@
       }
       // Only a started experiment can have photos; a purged one has none left.
       const photos = e.periods.length && e.state !== "purged" ? [button("photos", "Photos")] : [];
-      if (photos.length && !e.reprocess.running) photos.push(button("reprocess", "Reprocess areas"));
+      // One Reprocess at a time: the button is hidden on every experiment while one runs.
+      if (photos.length && !experiments.some((x) => x.reprocess.running)) photos.push(button("reprocess", "Reprocess areas"));
       return [first, photos, last].filter((line) => line.length)
         .map((line) => `<div class="row">${line.join("")}</div>`).join("");
     }

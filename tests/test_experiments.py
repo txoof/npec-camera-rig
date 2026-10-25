@@ -245,3 +245,30 @@ def test_reprocess_recounts_from_the_saved_mask_without_segmenting_again(monkeyp
     assert (progress["done"], progress["failed"]) == (1, 0)
     tray = tray_readings.photo_readings(record["path"])["trays"][0]
     assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)
+
+
+def test_reprocess_keeps_a_photos_areas_when_it_can_no_longer_work_them_out(monkeypatch) -> None:
+    """Review of #287: a photo read with areas, whose file and mask are then both gone, cannot be
+    segmented or counted again. Reprocess must leave its saved areas as they were and count it as
+    failed, not replace them with none (lost data). 1500 mm2 as `one_tray_plant_scene`."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig import segmentation, tray_readings
+    from npec_rig.app import app
+    from npec_rig.captures import photo_file
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    experiment = captures.start_experiment(captures.create_experiment()["id"])
+    _array, record = captures.take_photo("capture")
+    del _array
+    captures.stop_experiment(experiment["id"])
+    tray_readings.read_photo(record["path"])
+    photo_file(record["path"]).unlink()
+    segmentation.mask_file(record["path"]).unlink()
+
+    progress = _reprocessed(TestClient(app), experiment["id"])
+
+    assert (progress["done"], progress["failed"]) == (1, 1)
+    tray = tray_readings.photo_readings(record["path"])["trays"][0]
+    assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)

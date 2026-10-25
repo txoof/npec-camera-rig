@@ -71,10 +71,12 @@ def read_photo(path: str, *, reuse_mask: bool = False) -> dict:
     `reuse_mask`, a mask saved by the same segmenter is counted again instead of segmenting the
     photo: Reprocess, which then needs neither the photo nor the segmenter."""
     capture_id = _capture_id(path)
+    saved = database.tray_readings(capture_id)
     tags = photo_tags.photo_tags_for(path)
     # No tag of any kind, as with the lights off (metrology log 15.5l): not trays missing.
     status, placed = placements(path, tags) if tags else ("no tags found", [])
-    calibration, measures = _measures(path, placed, reuse_mask and _saved_by_this_segmenter(capture_id)) if placed else (None, {})
+    calibration, measures = _measures(path, placed, reuse_mask and _saved_by_this_segmenter(saved)) if placed else (None, {})
+    _refuse_worse(path, saved, status, measures)
     trays = []
     for p in placed:
         m = measures.get(p.tray_id)
@@ -90,9 +92,24 @@ def read_photo(path: str, *, reuse_mask: bool = False) -> dict:
     return database.tray_readings(capture_id)
 
 
-def _saved_by_this_segmenter(capture_id: int) -> bool:
+class ReadingWorse(RuntimeError):
+    """Reading the photo again would replace a saved reading with less: nothing is saved."""
+
+
+def _refuse_worse(path: str, saved: dict | None, status: str, measures: dict) -> None:
+    """Raise ReadingWorse when a saved reading had trays placed, or areas, and this one has not:
+    the photo, its mask or its calibration may be gone, and the saved values are kept (review of
+    #287: Reprocess and Show tags must never turn saved areas into none)."""
+    if not saved or saved["status"] != "read":
+        return
+    if status != "read":
+        raise ReadingWorse(f"{path}: read as {status!r} now, kept the saved reading")
+    if not measures and any(t["area_mm2"] is not None for t in saved["trays"]):
+        raise ReadingWorse(f"{path}: plant areas could not be worked out now, kept the saved ones")
+
+
+def _saved_by_this_segmenter(saved: dict | None) -> bool:
     """Whether the photo's saved reading, and so its saved mask, came from `SEGMENTER`."""
-    saved = database.tray_readings(capture_id)
     return bool(saved) and any(t["segmenter"] == SEGMENTER.name for t in saved["trays"])
 
 
