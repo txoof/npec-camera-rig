@@ -41,7 +41,6 @@ def main(path, out):
         by_photo[r["photo"]].append(r)
     photo_median = {p: statistics.median(num(r["ratio_median"]) for r in rs) for p, rs in by_photo.items()}
     start = min(when(p) for p in by_photo)
-    one = [(r, 1.0) for r in rows]  # noqa: F841
     ref = [(1.0, "1 = no bias")]
 
     def series(points_for, kinds=KINDS):
@@ -55,7 +54,6 @@ def main(path, out):
         return out
 
     day = lambda p: (when(p) - start).total_seconds() / 86400  # noqa: E731
-    dates = [(d, (start.replace(hour=0, minute=0, second=0, microsecond=0)).strftime("%d %b")) for d in ()]
     first_day = start.replace(hour=0, minute=0, second=0, microsecond=0)
     ticks = []
     for offset in range(0, 40, 7):

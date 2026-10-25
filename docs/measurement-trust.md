@@ -328,11 +328,11 @@ The focus position is the experimenter's choice; the rig never tunes it for accu
 the length of each tag's edges. Measured against the distance between tag centres on the same
 printed sheet, which does not depend on where an edge is found, the edges read 1.1% to 1.9% short
 in every calibration and validation photo since 8 October, and up to 4% short in older ones. Areas
-measured with the calibration in use since 22 October therefore read about 2.9% high from scale
-alone. Validation checks with the same edges, so its bands do not include this: **the bands
+measured with the calibration in use since 22 October therefore read 1.1% to 4.1% high from scale
+alone, depending on the slot. Validation checks with the same edges, so its bands do not include this: **the bands
 above are measured against tag edges, not against true size.** The shortfall changes between
 photos, so a single correction factor would not hold. A flat green square of 150 mm by callipers
-reads 6.1% high, about half of it from scale and the rest from where the green mask puts its edge.
+reads 6.1% high: 3.5% from scale and 2.2% from where the green mask puts its edge.
 Being worked on in issue #286; metrology log sections 17.6 and 18.
 
 **Height above the tray.** About +0.145% of area per mm above the tray top. That figure comes from

@@ -102,7 +102,7 @@ def photos(db, cals):
         cal = session_cal.get(capture) or db_cal.get(capture) or latest_before(cals, capture_time(capture))
         if purpose == "calibration":
             match = [s for s in cals if calibration_store.calibration_frame_path(s) == jpg]
-            cal = match[0] if match else latest_before(cals, capture_time(capture))
+            cal = match[0] if match else db_cal.get(capture) or latest_before(cals, capture_time(capture))
         found[capture] = (purpose, capture, jpg, jpg.with_suffix(".json"), cal)
     return sorted(found.values(), key=lambda p: "/".join(p[1].split("/")[-2:]).replace("/", "T").replace("-", ""))
 
@@ -240,7 +240,7 @@ def measure(entry, db, cals, manifest):
                 "spacing_scale_px_per_mm": round(statistics.median(p[4] for p in pairs), 4),
                 "inset_px_per_edge": round(statistics.median(p[1] for p in pairs), 3),
                 "mean_side_px": round(statistics.mean(tag_side_px(t.corners) for t in members), 2),
-                "lens_position_calibration": round(artifact.lens_position, 3) if artifact.lens_position else "",
+                "lens_position_calibration": round(artifact.lens_position, 3) if artifact.lens_position is not None else "",
                 **side,
                 "tags_from": source,
             }

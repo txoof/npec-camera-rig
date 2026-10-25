@@ -59,7 +59,11 @@ def main(photo, cx, cy, out, expected_px=None):
             x = np.arange(edge - 25, edge + 26)
             seg = green[x]
             above = seg > halfway
-            k = int(np.nonzero(above[1:] != above[:-1])[0][0])
+            crossings = np.nonzero(above[1:] != above[:-1])[0]
+            if not len(crossings):
+                print(f"{name}, {'first' if first else 'second'} edge: no half-brightness crossing within 25 px, skipped")
+                continue
+            k = int(crossings[0])
             cross = x[k] + (halfway - seg[k]) / (seg[k + 1] - seg[k])
             mask_edge = edge - 0.5 if first else edge + 0.5
             grow = (cross - mask_edge) if first else (mask_edge - cross)

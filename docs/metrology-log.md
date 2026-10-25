@@ -5527,12 +5527,22 @@ they come from an earlier geometry of the rig; they have no exposure record; the
 pattern with distance from the image centre beyond that. Pairs across the page (37.5 mm) and down
 it (41.1 mm) give the same median (0.9866, 0.9868).
 
-**What it means for areas.** The scale field is built from tag edges (`calibration.py:339`), so
-for the calibration in use since 22 October it is 1.4% low in length, and every area is about
-2.9% high (1 / 0.9857²) from scale alone, in every slot, with no warning. Validation measures with
-the same edges and cannot see it. Because the ratio changes between photos, one correction factor
-taken from the calibration photo would not hold for photos taken later; scale from spacing does
-not depend on where an edge is found.
+**What it means for areas.** The rig measures areas with the scale field fitted to the tag edges
+of the calibration photo (`calibration.py:339`), a smooth plane over all 12 sheets, not with each
+sheet's own edges. Compared at each sheet's centre with that sheet's spacing scale, the field of
+the calibration in use since 22 October is low by 0.6% to 2.0% in length, so areas read high by:
+
+| Slot | N1 | N2 | N3 | N4 | N5 | N6 | S1 | S2 | S3 | S4 | S5 | S6 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Area read high, % | +3.9 | +4.1 | +2.5 | +1.4 | +3.6 | +3.6 | +2.9 | +3.5 | +1.1 | +1.7 | +3.6 | +2.8 |
+
+(`experiments/round2-tagedge/field_vs_spacing.py docs/figures/18/sheets.csv 20261022T072523939958
+2026-10-22/072523_939958`). This is in every photo measured with that calibration, with no
+warning; validation measures with tag edges and cannot see it. The difference between slots is
+larger than the slots' own edge ratios suggest, because the plane does not follow each sheet.
+These are the spacing scales of the sheets in the calibration photo, at their heights then. Because
+the edge ratio changes between photos, one correction factor taken from the calibration photo would
+not hold for later photos; scale from spacing does not depend on where an edge is found.
 
 **Edge inset in pixels.** The shortfall is about 1 px per tag edge in the photos since 8
 October and up to 3 px in the older ones. A fixed inset in pixels is what a corner finder placed
@@ -5563,14 +5573,17 @@ needs no new photo. Read from `rig.db` (`tray_reading`, tray 10, read-only), 2,3
 Under steady light the area repeats within 0.7% (range), over two days. While the lights change it
 reads up to about 1% lower. Six dark photos (gain 4) find no target or part of it and are left out.
 
-**Where the 6% comes from, in the 23 October 14:16 still.** Measured against the spacing scale of
-the 9 tags lying beside the target at the same height (4.923 px/mm), the target's calliper side
-(149.85 mm) is 737.7 px. Its mask is 748.6 px across west to east and 743.3 px north to south
-(the mean over the middle 200 rows or columns), +10.9 and +5.6 px: about +2.3% in area from the
-mask edge. The rest is scale. The 22 October calibration's edge scale in North 1 is 1.7% low in
-length (0.9834), +3.4% in area; the target lies 8.9 mm below the calibration height, -1.3%; and
-the spacing scale in North 1 was about 0.4% higher in length on 23 October than at the calibration,
-+0.8%. Together about +5.2%, against +6.1% measured; the remaining 0.9 point is not explained.
+**Where the 6% comes from, in the 23 October 14:16 still.** Two measured parts, no model:
+
+- **Mask edge, +2.2%.** Against the spacing scale of the 9 tags lying beside the target at the
+  same height (4.923 px/mm), the target's calliper side (149.85 mm) is 737.7 px. Its mask is
+  748.6 px across west to east and 743.3 px north to south (the mean over the middle 200 rows or
+  columns), +10.9 and +5.6 px.
+- **Scale, +3.5%.** The 22 October calibration's scale field at the target's centre is 4.840
+  px/mm, against 4.923 from the tags beside it: 1.7% low in length.
+
+Together +5.8%, against +6.0% read in that still (23,800 mm²) and +6.1% over two days. Height is
+inside the scale part: the tags beside the target lie at its height.
 
 **The mask edge.** Across the middle of each edge, the mask ends 0.5 to 4.7 px outside the point
 where the green channel is half way between tray and target. The target lies on the blue tray;
