@@ -5480,7 +5480,8 @@ September) no longer load in the rig; the script reads only their scale field, l
 tag size from them. Three calibration photos with no saved calibration (16 October 14:05 and
 14:07, 23 October 09:14) were grouped with the calibration before them; none of them had a sheet
 with pairs. The two 17.6 photos are experiment stills, read from the experiment folder; the second
-had no stored tags and was detected again. The calibration files store the tag size the operator
+had no stored tags and was detected again. In two validation photos a sheet lay off its slot, so the rig's slot
+naming refused the photo; their sheets are measured but carry no slot name. The calibration files store the tag size the operator
 entered: 30.0 or 30.02 mm, and 29.3106 mm (the previous rig's size, entered by mistake) for five
 photos of 21 September whose sheets were the current 30 mm prints (section 3). The ratio uses
 30.0 mm for every photo, so this entry does not affect it.
