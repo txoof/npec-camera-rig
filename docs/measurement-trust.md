@@ -406,7 +406,10 @@ metrology log backs it.
 
 - **Segmentation.** Telling plant from background was not part of M2. Round 1 measured a green
   threshold on the benchmark and on cut leaves (above); it adds to the bands, by how much on
-  living plants is not known.
+  living plants is not known. Since 23 October the rig reads a plant area for every tray with that
+  threshold. A first look: trays holding only black pots read 25 to 109 mm² in one photo, which
+  day-old potato sprouts could not be told apart from (metrology log 17.1); the review of the
+  potato run (17.2) measures how steady these areas are and how much an empty tray reads.
 - **Other focus positions.** Each focus position needs its own calibration and validation.
 - **The first minutes after a power cut.** Readings in roughly the first 15 minutes after a cold
   start are not covered by the bands (one run on each camera, 2026-10-06 and 10-14; on SN001 the
