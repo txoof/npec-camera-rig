@@ -5472,3 +5472,127 @@ The sheets lay where trays put them, at pot or tray-top height. A ratio that dif
 photos taken at different exposures shows that something changed between them, not that exposure
 caused it. The older calibration photos may come from before the rig was rebuilt; the ratio does
 not depend on the rig's geometry, but their sheets may be other prints.
+
+### 18.1 Results (2026-10-25)
+
+**Changes to the method while running it.** Six calibration files of an older format (21 and 22
+September) no longer load in the rig; the script reads only their scale field, lens position and
+tag size from them. Three calibration photos with no saved calibration (16 October 14:05 and
+14:07, 23 October 09:14) were grouped with the calibration before them; none of them had a sheet
+with pairs. The two 17.6 photos are experiment stills, read from the experiment folder; the second
+had no stored tags and was detected again. The calibration files store the tag size the operator
+entered: 30.0 or 30.02 mm, and 29.3106 mm (the previous rig's size, entered by mistake) for five
+photos of 21 September whose sheets were the current 30 mm prints (section 3). The ratio uses
+30.0 mm for every photo, so this entry does not affect it.
+
+**Check.** On the 22 October calibration the script gives a median of 0.9857 over its 12 sheets
+(1,781 pairs), against 0.986 in 17.6; on the two 17.6 stills 0.977 to 0.979 per sheet, against
+0.975 to 0.980 in 17.6 (there a ratio of mean scales, here the median of pairs).
+
+| Photos | Photos, sheets, pairs | Edges / spacing, median per photo | Inset per edge, px |
+|---|---|---|---|
+| Calibration and validation photos, 8 to 21 October | 38, 456 | 0.9857 to 0.9889, median 0.9875 | 0.8 to 1.1 |
+| The same, 22 October (calibration 07:25 and its 3 validation rounds, a validation round at 07:17) | 6, 72 | 0.9807 to 0.9866 | 1.0 to 1.4 |
+| Experiment 18 stills, 23 October 14:16 and 14:17 (17.6) | 2, 4 | 0.9776 to 0.9779 | 1.6 to 1.7 |
+| Calibration photos before #103, 21 September to 8 October (73 of 88 with sheets in pairs) | 73, 935 | 0.9582 to 0.9886, median 0.9784 | 0.8 to 3.0 |
+
+All 1,467 sheets in 119 photos read below 1: no photo has tag edges as long as their spacing says.
+
+**Not constant.** From 8 to 21 October, 38 photos at exposures 2,338 to 4,001 µs agree within
+0.003 (0.9857 to 0.9889). The 22 October photos are lower, and the 23 October stills lower again.
+Within one photo the pairs spread more than that: the middle half of a sheet's pairs is about
+0.008 wide.
+
+**Exposure.** Not shown to be the cause. The same exposure, 4,001 µs, gave 0.9870 on 9 October and
+0.9807 on 22 October 07:17. Exposure was never varied on purpose; the stills of 23 October were at
+4,988 µs, the highest of the set.
+
+**The edges move, the spacing does not.** Slot by slot from the 22 October calibration to its
+validation rounds and the 23 October stills, the spacing scale stays within about 0.5% (sheets
+were moved and laid on different trays between photos), while the edge scale of North 1 went from
+4.849 px/mm (calibration) to 4.815 (07:17 the same morning) and 4.811 (23 October, tray top). In the
+South 1 sheet on the pots of tray 12 on 23 October the spacing scale was 4.965 px/mm against 4.945
+at the calibration, +0.4%: either the magnification changed after the calibration or that sheet
+lay about 3 mm higher than the calibration's. These data cannot tell the two apart.
+
+**Older photos.** The calibration photos from before #103 read lower and spread more (0.958 to
+0.989). Those before 29 September have tags 131 to 136 px across against 145 to 147 px since, so
+they come from an earlier geometry of the rig; they have no exposure record; their lens positions
+(6.04 to 6.38) changed together with the date and the setup. A trend with lens position is visible
+(about 0.987 at 6.04 to 6.16, about 0.975 at 6.30 to 6.38) but cannot be separated from those.
+
+**Across the frame.** Against each photo's own median, slots North 5 and South 5 read 0.004 to
+0.005 lower in every photo since 8 October; the other 10 slots lie within 0.002. There is no
+pattern with distance from the image centre beyond that. Pairs across the page (37.5 mm) and down
+it (41.1 mm) give the same median (0.9866, 0.9868).
+
+**What it means for areas.** The scale field is built from tag edges (`calibration.py:339`), so
+for the calibration in use since 22 October it is 1.4% low in length, and every area is about
+2.9% high (1 / 0.9857²) from scale alone, in every slot, with no warning. Validation measures with
+the same edges and cannot see it. Because the ratio changes between photos, one correction factor
+taken from the calibration photo would not hold for photos taken later; scale from spacing does
+not depend on where an edge is found.
+
+**Edge inset in pixels.** The shortfall is about 1 px per tag edge in the photos since 8
+October and up to 3 px in the older ones. A fixed inset in pixels is what a corner finder placed
+a little inside a blurred black square would give; it is consistent with blur, but blur was not
+measured, so this is not shown to be the cause.
+
+![Edge scale against spacing scale: each photo by date and by exposure, each sheet by slot and by distance from the image centre](figures/18/tag-edges-against-spacing.png)
+
+*Figure 18a. Edge scale over spacing scale. (a) Each photo's median over its sheets, by date. (b)
+The photos since 8 October by exposure time. (c) Each sheet since 8 October against its photo's
+median, by slot. (d) The same against the sheet's distance from the image centre. Made with
+`experiments/round2-tagedge/measure.py` and `chart.py` (commands in their docstrings); the table is
+`docs/figures/18/sheets.csv`.*
+
+### 18.2 The flat green target over two days (2026-10-25)
+
+**Label: development check.** The target of 17.5 has lain on tray 10 (North 1) since 23 October
+14:02 UTC. The rig reads it in every experiment still as tray 10's green area, so its history
+needs no new photo. Read from `rig.db` (`tray_reading`, tray 10, read-only), 2,307 stills from
+23 October 14:05 to 25 October 20:39 UTC, with the calibration of 22 October.
+
+| Exposure | Stills | Area read, mm² (median, range) | Against callipers (22,455 mm²) |
+|---|---|---|---|
+| 4,832 to 5,300 µs, gain 1.0 (lights on, steady) | 2,198 | 23,815 (23,724 to 23,889) | +6.1% (+5.7% to +6.4%) |
+| 5,404 to 29,932 µs, gain 1.0 to 1.5 (lights changing) | 95 | 23,773 (23,585 to 23,856) | +5.0% to +6.2% |
+| 30,036 to 50,771 µs, gain 2.0 | 8 | 23,621 (23,606 to 23,681) | +5.1% to +5.5% |
+
+Under steady light the area repeats within 0.7% (range), over two days. While the lights change it
+reads up to about 1% lower. Six dark photos (gain 4) find no target or part of it and are left out.
+
+**Where the 6% comes from, in the 23 October 14:16 still.** Measured against the spacing scale of
+the 9 tags lying beside the target at the same height (4.923 px/mm), the target's calliper side
+(149.85 mm) is 737.7 px. Its mask is 748.6 px across west to east and 743.3 px north to south
+(the mean over the middle 200 rows or columns), +10.9 and +5.6 px: about +2.3% in area from the
+mask edge. The rest is scale. The 22 October calibration's edge scale in North 1 is 1.7% low in
+length (0.9834), +3.4% in area; the target lies 8.9 mm below the calibration height, -1.3%; and
+the spacing scale in North 1 was about 0.4% higher in length on 23 October than at the calibration,
++0.8%. Together about +5.2%, against +6.1% measured; the remaining 0.9 point is not explained.
+
+**The mask edge.** Across the middle of each edge, the mask ends 0.5 to 4.7 px outside the point
+where the green channel is half way between tray and target. The target lies on the blue tray;
+the green index (`segmentation.py`) is a ratio of colours, so at a blurred edge where the target's
+green mixes with the darker blue it stays above the threshold for some pixels beyond the half-way
+point. On soil or black pots the mixture is different, so this result does not give the edge error
+for plants: in round 1, small red shapes read 16% to 21% small with a different threshold (15.5).
+
+![Profiles across the four edges of the flat green target, with the mask edge and the half-brightness point](figures/18/target-edges-2026-10-23.png)
+
+*Figure 18b. The flat green target in still 141653_607387 (23 October 14:16:53 UTC): the green
+channel and the green index across the middle 200 px of each edge, the mask edge (orange) and the
+half-brightness point. On the north to south second edge a white calibration sheet lies a few
+millimetres south of the target, which raises the green channel there. Made with `experiments/round2-tagedge/target_edges.py`
+(command in its docstring).*
+
+### 18.3 Limits of the evidence
+
+- The photos were taken for calibration and validation; exposure, lens position and the sheets'
+  heights were not varied on purpose, and changed together with the date.
+- The cause of the shortfall is not shown. It changes between photos taken minutes apart (22
+  October 07:17 against 07:25) and between days.
+- The spacing is trusted from the print: the 180 mm bars agree with the design within 0.05%
+  (section 3). Paper that curls would make spacing read short, the other direction.
+- The target's mask edge was measured on one still, on the blue tray. Not on soil, pots or leaves.
+- Nothing in the rig's code was changed.

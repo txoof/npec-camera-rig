@@ -324,6 +324,17 @@ central low reading (metrology-log section 8.2), but its size against lens posit
 measured on SN001.
 The focus position is the experimenter's choice; the rig never tunes it for accuracy.
 
+**Tag edges read short (found 2026-10-23, measured 2026-10-25).** The scale field is built from
+the length of each tag's edges. Measured against the distance between tag centres on the same
+printed sheet, which does not depend on where an edge is found, the edges read 1.1% to 1.9% short
+in every calibration and validation photo since 8 October, and up to 4% short in older ones. Areas
+measured with the calibration in use since 22 October therefore read about 2.9% high from scale
+alone. Validation checks with the same edges, so its bands do not include this: **the bands
+above are measured against tag edges, not against true size.** The shortfall changes between
+photos, so a single correction factor would not hold. A flat green square of 150 mm by callipers
+reads 6.1% high, about half of it from scale and the rest from where the green mask puts its edge.
+Being worked on in issue #286; metrology log sections 17.6 and 18.
+
 **Height above the tray.** About +0.145% of area per mm above the tray top. That figure comes from
 the camera's height (about 1482 mm, a best estimate with a tape measure, not a precise value); one test, a
 tray 75 mm taller in 3 slots on the old camera, read 11.2% to 12.0% large against 11.8% predicted,
