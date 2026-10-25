@@ -16,7 +16,7 @@ from npec_rig import images, photo_tags, validation_store
 from npec_rig.calibration import CalibrationArtifact
 from npec_rig.calibration_store import load_current_calibration, load_saved_calibration
 from npec_rig.camera import CameraBusyError
-from npec_rig.captures import CALIBRATION_LENS_TOLERANCE, take_photo
+from npec_rig.captures import CALIBRATION_LENS_TOLERANCE, REPLAY_FLAG_PREFIX, take_photo
 from npec_rig.certainty_map import (
     MIN_MOVED_FRACTION,
     SlotLayoutError,
@@ -353,7 +353,11 @@ def judge_round(
     # A photo flagged as not covered by the bands is not counted into them either (Aaron,
     # 2026-10-08); the Count anyway override still applies. An unlocked focus is already
     # reported by focus_problem.
-    reasons += [flag for flag in record["flags"] if flag != "focus not locked"]
+    reasons += [
+        flag
+        for flag in record["flags"]
+        if flag != "focus not locked" and not flag.startswith(REPLAY_FLAG_PREFIX)
+    ]
     try:
         round_["slot_errors"] = round_errors_by_slot(
             detections,

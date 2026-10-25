@@ -279,3 +279,120 @@ def test_photo_file_finds_rig_and_experiment_photos(two_roots, tmp_path) -> None
 def test_photo_file_rejects_anything_not_shaped_like_a_gallery_path(path) -> None:
     with pytest.raises(ValueError):
         captures.photo_file(path)
+
+
+def test_a_replay_camera_takes_the_folders_photos_in_name_order(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    # Two saved photos of different sizes and colours; a third still starts over at the first.
+    from PIL import Image
+
+    folder = tmp_path / "replay"
+    folder.mkdir()
+    Image.new("RGB", (40, 30), (200, 30, 30)).save(folder / "a.jpg")
+    Image.new("RGB", (50, 20), (30, 30, 200)).save(folder / "b.jpg")
+    monkeypatch.delenv("NPEC_RIG_SYNTHETIC_CAMERA")
+    monkeypatch.setenv("NPEC_RIG_REPLAY_PHOTOS", str(folder))
+
+    stills = [take_photo("capture") for _ in range(3)]
+
+    assert [array.shape for array, _record in stills] == [(30, 40, 3), (20, 50, 3), (30, 40, 3)]
+    # JPEG is lossy: the colour, not the exact pixel values.
+    reds = [array.reshape(-1, 3).mean(axis=0) for array, _record in stills]
+    assert [int(np.argmax(c)) for c in reds] == [0, 2, 0]
+    assert [record["sensor_metadata"]["ReplayedFrom"] for _array, record in stills] == [
+        str(folder / "a.jpg"),
+        str(folder / "b.jpg"),
+        str(folder / "a.jpg"),
+    ]
+
+
+def test_a_replay_cameras_live_view_shows_the_photo_the_next_still_will_be(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    import io
+
+    from PIL import Image
+
+    from npec_rig.camera import CameraManager
+
+    folder = tmp_path / "replay"
+    folder.mkdir()
+    Image.new("RGB", (40, 30), (200, 30, 30)).save(folder / "a.jpg")
+    Image.new("RGB", (50, 20), (30, 30, 200)).save(folder / "b.jpg")
+    monkeypatch.delenv("NPEC_RIG_SYNTHETIC_CAMERA")
+    monkeypatch.setenv("NPEC_RIG_REPLAY_PHOTOS", str(folder))
+    manager = CameraManager.instance()
+
+    def views() -> list[tuple[tuple[int, int], int]]:
+        # (size, strongest colour channel) of the live preview and the main-stream snapshot.
+        out = []
+        for jpeg in (manager.preview_jpeg(), manager.snapshot_jpeg()):
+            image = Image.open(io.BytesIO(jpeg)).convert("RGB")
+            out.append((image.size, int(np.argmax(np.asarray(image).reshape(-1, 3).mean(axis=0)))))
+        return out
+
+    # The camera's stream sizes: lores 320 x 240 for the preview, main 1536 x 1152.
+    assert views() == [((320, 240), 0), ((1536, 1152), 0)]
+    take_photo("capture")
+    assert views() == [((320, 240), 2), ((1536, 1152), 2)]
+
+
+@pytest.mark.parametrize(
+    ("case", "reason"),
+    [
+        ("missing", "no photos to replay in"),
+        ("empty", "no photos to replay in"),
+        ("both", "both NPEC_RIG_REPLAY_PHOTOS and NPEC_RIG_SYNTHETIC_CAMERA are set"),
+    ],
+)
+def test_a_replay_camera_that_cannot_replay_is_unavailable_not_another_camera(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, case: str, reason: str
+) -> None:
+    from PIL import Image
+
+    from npec_rig.camera import CameraUnavailableError
+
+    folder = tmp_path / "replay"
+    if case != "missing":
+        folder.mkdir()
+    if case == "both":
+        Image.new("RGB", (40, 30), (200, 30, 30)).save(folder / "a.jpg")
+    else:
+        monkeypatch.delenv("NPEC_RIG_SYNTHETIC_CAMERA")
+    monkeypatch.setenv("NPEC_RIG_REPLAY_PHOTOS", str(folder))
+
+    with pytest.raises(CameraUnavailableError, match=reason):
+        take_photo("capture")
+
+
+def test_a_replay_camera_skips_hidden_files_and_reads_any_jpeg_name(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    # A Mac copy leaves "._" files beside each photo: not JPEGs, and they sort first.
+    from PIL import Image
+
+    folder = tmp_path / "replay"
+    folder.mkdir()
+    (folder / "._a.jpg").write_bytes(b"\x00\x05\x16\x07 not a jpeg")
+    Image.new("RGB", (40, 30), (200, 30, 30)).save(folder / "a.JPG", format="JPEG")
+    Image.new("RGB", (50, 20), (30, 30, 200)).save(folder / "b.jpeg")
+    monkeypatch.delenv("NPEC_RIG_SYNTHETIC_CAMERA")
+    monkeypatch.setenv("NPEC_RIG_REPLAY_PHOTOS", str(folder))
+
+    replayed = [take_photo("capture")[1]["sensor_metadata"]["ReplayedFrom"] for _ in range(2)]
+
+    assert replayed == [str(folder / "a.JPG"), str(folder / "b.jpeg")]
+
+
+def test_a_replayed_still_says_so_in_its_flags_sidecar_and_jpeg(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    from PIL import Image
+
+    folder = tmp_path / "replay"
+    folder.mkdir()
+    Image.new("RGB", (40, 30), (200, 30, 30)).save(folder / "a.jpg")
+    monkeypatch.delenv("NPEC_RIG_SYNTHETIC_CAMERA")
+    monkeypatch.setenv("NPEC_RIG_REPLAY_PHOTOS", str(folder))
+
+    _array, record = take_photo("capture")
+
+    assert "replayed from a.jpg" in record["flags"]
+    assert record["replayed_from"] == str(folder / "a.jpg")
+    with Image.open(photos_root() / record["date"] / record["filename"]) as saved:
+        assert saved.getexif()[0x010E].startswith("Replayed from a.jpg")  # EXIF ImageDescription
