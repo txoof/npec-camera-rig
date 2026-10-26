@@ -5670,3 +5670,60 @@ UTC), as figure 18b. Made with `experiments/round2-tagedge/target_edges.py PHOTO
 **Limits.** One ramp, with the lights; exposure and light level change together. The sheets were
 not in the same places as in the calibration photo. The target's edges were measured on one still.
 Why the green channel rises outside the west and east edges is not shown.
+
+### 18.5 Green test squares on the pots: the mask edge by size (method written 2026-10-26, before the session)
+
+**Label: development check.** Purpose: measure how much the green mask adds at the edge of a flat
+green object, by object size, with the scale error removed. The result becomes a rule in the error
+band (issue #286, agreed 2026-10-26). A one-time measurement by us; researchers need no green test
+squares.
+
+**Objects.** Twelve green test squares, 3D printed by Aaron in the green of the 150 mm target (17.5),
+measured by Aaron on 2026-10-26 with the NEIKO callipers, 3 readings per side and, for six of them,
+3 of the thickness. Square C's second Y reading was first written as 0.03 and corrected by Aaron to
+9.93.
+
+| Square | Size | X mean (mm) | X range | Y mean (mm) | Y range | Thickness mean (mm) | Calliper area (mm²) |
+|---|---|---|---|---|---|---|---|
+| A | 10 mm | 9.953 | 0.04 | 9.907 | 0.01 | 0.650 | 98.60 |
+| B | 10 mm | 9.953 | 0.04 | 9.943 | 0.06 | not measured | 98.97 |
+| C | 10 mm | 9.947 | 0.03 | 9.940 | 0.05 | 0.650 | 98.87 |
+| D | 10 mm | 9.910 | 0.05 | 9.983 | 0.03 | not measured | 98.93 |
+| H | 20 mm | 19.950 | 0.12 | 19.920 | 0.06 | 0.657 | 397.40 |
+| E | 20 mm | 19.953 | 0.03 | 19.933 | 0.02 | not measured | 397.74 |
+| F | 20 mm | 20.007 | 0.04 | 19.957 | 0.03 | 0.640 | 399.27 |
+| G | 20 mm | 19.957 | 0.08 | 19.983 | 0.06 | not measured | 398.80 |
+| K | 40 mm | 40.007 | 0.07 | 39.990 | 0.08 | 0.647 | 1,599.87 |
+| L | 40 mm | 39.970 | 0.06 | 39.930 | 0.07 | not measured | 1,596.00 |
+| I | 55 mm | 54.957 | 0.04 | 54.930 | 0.09 | 0.657 | 3,018.77 |
+| J | 55 mm | 54.973 | 0.09 | 54.993 | 0.07 | not measured | 3,023.17 |
+
+The callipers are not trusted beyond 0.1 mm (section 3): about ±2% in area on a 10 mm square, ±1% on
+20 mm, ±0.5% on 40 mm and ±0.4% on 55 mm. The repeat readings spread by 0.01 to 0.12 mm. Thickness
+(about 0.65 mm) raises a square's top about +0.09% in area (0.145% per mm), not corrected.
+
+**Placement.** One square per pot on the pot tops of trays that carry a tag sheet on their pots
+(trays 9 to 12, 18.4), at least 10 mm from each other and from the tag sheet, taped underneath only.
+Aaron records the tray and cell of each square; cell A1 holds the tray tag. The 150 mm target stays on
+the pots of tray 10.
+
+**Session.** 60 to 90 minutes of the experiment's own stills (one per minute) under steady light,
+no camera setting changed. Stills during a lights ramp are left out.
+
+**Analysis** (read-only, a script in `experiments/round2-tagedge/`):
+
+1. In each still, the green threshold's mask (`segmentation.py`, threshold 0.1), split into
+   connected pieces. Each square is the piece inside its recorded cell.
+2. The scale beside it: the tag spacing of the tag sheet on the same tray (median over its pairs,
+   `measure.py`), at the same height. Not the calibration's scale field.
+3. Per square and still: area read = pixels / scale²; error = area read / calliper area - 1.
+4. The edge width: (area read - calliper area) / perimeter, in mm, and in px at that scale. If the
+   mask adds a fixed width at the edge, this width is the same for every size and the error falls
+   as 1 / size. That is the rule to check. If the width changes with size, the rule is a table by
+   size instead.
+5. Spread: per square over the stills, and between the copies of one size.
+
+**What it covers and does not.** Flat green squares at pot height, on black pot tops, under the
+chamber lights at their steady level, with the threshold of 17.5. Not soil, not leaves, not plant
+shapes: a rosette has more edge per area than a square of the same area, which the width (step 4)
+is meant to carry over, but that is not shown here.
