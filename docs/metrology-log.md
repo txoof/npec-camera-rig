@@ -5416,18 +5416,20 @@ from the photo's own exposure and gain, never from the time of day, because the 
 the researcher's choice. What the value rests on, read from `rig.db` (read-only, 2026-10-26 about
 14:00 UTC), exposure times gain per photo:
 
-| Experiment | Photos | Lit, usual | Dark (about 64,000 µs at gain 4.0) | In between (fades) |
-|---|---|---|---|---|
-| 16, potato run, 20 to 21 October | 1,393 | 6,000 to 10,000: 873 | 456 | 25 |
-| 18, Round 2, 22 to 26 October | 6,067 | under 6,000: 4,008 | 1,876 | 103 |
+| Experiment | Photos | Under 6,000 | 6,000 to 10,000 | 10,000 to 30,000 | 30,000 to 200,000 | 200,000 or more (dark, about 64,000 µs at gain 4.0) |
+|---|---|---|---|---|---|---|
+| 16, potato run, 20 to 21 October | 1,393 | 39 | 873 | 17 | 8 | 456 |
+| 18, Round 2, 22 to 26 October | 6,067 | 4,008 | 80 | 76 | 27 | 1,876 |
+
+The usual lit level is 6,000 to 10,000 on the potato run and under 6,000 in Round 2.
 
 All 7,460 photos have both values recorded. Dark photos sit at the auto-exposure ceiling, about
-256,000; no lit photo comes near 200,000. The photos in between are the fades, left to the light
+256,000; 35 photos (8 and 27) lie between 30,000 and 200,000. The photos between 10,000 and 200,000 are taken to be the fades (not checked one by one), left to the light
 changing rule of #288's second part. *Limits:* with auto-exposure off the ceiling is never
 reached, so a dark photo is not marked; two experiments, one light program.
 
-**Floor: 100 mm² per tray with the green threshold (`green threshold, 0.1`).** An area at or below
-it is shown as "nothing detected". Reported with each area, never subtracted (Aaron). From 17.4:
+**Floor: 100 mm² per tray with the green threshold (`green threshold, 0.1`).** An area below it
+is shown as "under 100" in the gallery. Reported with each area, never subtracted (Aaron). From 17.4:
 empty trays read 27 to 78 mm² (median per tray and day) and at most 98 mm² outside shuffle 1.
 *Limits:* one run, trays 9 to 12; one value for every tray and slot.
 

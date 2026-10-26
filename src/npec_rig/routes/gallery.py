@@ -47,7 +47,7 @@ def api_captures(
     try:
         for item in items:
             record = item.get("record")
-            item["trays"] = tray_readings.photo_readings(item["path"]) if record else None
+            item["trays"] = tray_readings.capture_readings(record) if record else None
     except (sqlite3.Error, RuntimeError):
         logger.exception("Could not read the tray readings for the gallery")
         for item in items:
