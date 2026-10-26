@@ -406,9 +406,10 @@ def test_tray_readings_give_each_trays_plant_area_and_segmenter(monkeypatch) -> 
     assert tray["segmenter"] == "green threshold, 0.1"
 
 
-def test_each_photo_in_the_list_carries_its_light_mark_and_each_area_its_floor(monkeypatch, isolated_calibration_dir) -> None:
-    """#288: a photo taken in the dark (64,022 us at gain 4.0, a real photo of experiment 18) is
-    marked so, and each tray area shows the green threshold's floor, 100 mm2 (Aaron, 2026-10-26)."""
+def test_each_photo_in_the_list_carries_its_exclusion_and_each_area_its_floor(monkeypatch, isolated_calibration_dir) -> None:
+    """#288: a photo taken with the lights off (64,022 us at gain 4.0, a real photo of experiment
+    18) is excluded as such, and each tray area shows the green threshold's floor, 100 mm2
+    (Aaron, 2026-10-26)."""
     from npec_rig import tray_readings
     from npec_rig.camera import CameraManager, SyntheticBackend
 
@@ -424,5 +425,5 @@ def test_each_photo_in_the_list_carries_its_light_mark_and_each_area_its_floor(m
     tray_readings.read_photo(path)
 
     trays = {i["path"]: i for i in client.get("/api/captures").json()}[path]["trays"]
-    assert trays["light"] == "dark, no data"
+    assert trays["exclusion"] == "lights off"
     assert [t["floor_mm2"] for t in trays["trays"]] == [100] * 12
