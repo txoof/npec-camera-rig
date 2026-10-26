@@ -657,14 +657,14 @@ def test_area_error_pct_at_zero_shape_distortion_is_the_squared_length_residual(
     ])
     field = build_scale_field(fit_detections, _SIZES)
 
-    off_plane = _square_detection(90, 500, 500, 132)  # ppm implied = 4.4, field predicts 4.0
-    samples = area_scale_samples(field, [off_plane], {90: size_mm})
+    off_plane = _paired([_square_detection(9, 500, 500, 132)])  # tag spacing 4.4 px/mm, field 4.0
+    samples = area_scale_samples(field, off_plane, _SIZES)
 
-    assert len(samples) == 1
-    r = 132 / (size_mm * field.px_per_mm(500, 500)) - 1.0
-    expected_area_error_pct = 100.0 * ((1.0 + r) ** 2 - 1.0)
-    assert samples[0].shape_factor_pct == pytest.approx(0.0, abs=1e-6)
-    assert samples[0].area_error_pct == pytest.approx(expected_area_error_pct, rel=1e-6)
+    assert len(samples) == 2
+    for sample in samples:
+        r = 132 / (size_mm * field.px_per_mm(sample.x, sample.y)) - 1.0
+        assert sample.shape_factor_pct == pytest.approx(0.0, abs=1e-6)
+        assert sample.area_error_pct == pytest.approx(100.0 * ((1.0 + r) ** 2 - 1.0), rel=1e-6)
 
 
 def test_shape_factor_pct_isolates_distortion_when_length_residual_is_zero() -> None:
@@ -685,24 +685,30 @@ def test_shape_factor_pct_isolates_distortion_when_length_residual_is_zero() -> 
     ])
     field = build_scale_field(fit_detections, _SIZES)
 
-    cx, cy = 500.0, 500.0
-    rectangle = TagDetection(
-        tag_id=90,
-        corners=(
-            (cx - width / 2, cy - height / 2),
-            (cx + width / 2, cy - height / 2),
-            (cx + width / 2, cy + height / 2),
-            (cx - width / 2, cy + height / 2),
-        ),
-        centre=(cx, cy),
-    )
-    samples = area_scale_samples(field, [rectangle], {90: size_mm})
+    # Two such rectangles, a printed pair spaced at exactly that scale, corners in the detector's
+    # order (the page's x direction from corner 1 to corner 0, as `printed_tag`).
+    a, b = _PAIRS[0]
+    rectangles = [
+        TagDetection(
+            tag_id=tag_id,
+            corners=(
+                (cx + width / 2, 500 - height / 2),
+                (cx - width / 2, 500 - height / 2),
+                (cx - width / 2, 500 + height / 2),
+                (cx + width / 2, 500 + height / 2),
+            ),
+            centre=(cx, 500.0),
+        )
+        for tag_id, cx in ((a, 500 - 37.5 / 2 * ppm), (b, 500 + 37.5 / 2 * ppm))
+    ]
+    samples = area_scale_samples(field, rectangles, _SIZES)
 
-    assert len(samples) == 1
+    assert len(samples) == 2
     expected_kappa = (width * height) / (mean_side**2)
     expected_pct = 100.0 * (expected_kappa - 1.0)
-    assert samples[0].shape_factor_pct == pytest.approx(expected_pct, rel=1e-6)
-    assert samples[0].area_error_pct == pytest.approx(expected_pct, rel=1e-6)
+    for sample in samples:
+        assert sample.shape_factor_pct == pytest.approx(expected_pct, rel=1e-6)
+        assert sample.area_error_pct == pytest.approx(expected_pct, rel=1e-6)
 
 
 def test_area_scale_samples_skips_tags_the_field_cant_evaluate() -> None:
@@ -710,12 +716,11 @@ def test_area_scale_samples_skips_tags_the_field_cant_evaluate() -> None:
     # relative_depth = 1 - 0.001 * x, which goes to zero at x=1000 and negative beyond it.
     field = ScaleField(_coeffs=(1.0, -0.001, 0.0), _mean_px_per_mm=4.0, residual_std_pct=0.0)
 
-    in_domain = _square_detection(1, 100, 100, 120)
-    far_away = _square_detection(999, 2000, 100, 120)  # relative_depth = -1, non-physical
-    sizes = {1: 30.0, 999: 30.0}
+    in_domain = _paired([_square_detection(1, 100, 100, 120)])
+    far_away = _paired([_square_detection(9, 2000, 100, 120)])  # relative_depth = -1, non-physical
 
-    samples = area_scale_samples(field, [in_domain, far_away], sizes)
-    assert {s.tag_id for s in samples} == {1}
+    samples = area_scale_samples(field, in_domain + far_away, _SIZES)
+    assert {s.tag_id for s in samples} == {d.tag_id for d in in_domain}
 
 
 def test_describe_area_scale_shape_reports_mean_and_worst_tag() -> None:

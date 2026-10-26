@@ -343,9 +343,13 @@ _PARTNER_TOLERANCE = 0.10
 
 @cache
 def sheet_layout() -> dict[int, tuple[str, float, float, float]]:
-    """tag_id -> (page, x mm, y mm, printed size mm) from every print layout file."""
+    """tag_id -> (page, x mm, y mm, printed size mm) from every print layout file. Raises
+    FileNotFoundError when there is none: without them no scale can be fitted."""
+    paths = sorted(SHEET_LAYOUTS_DIR.glob("*.manifest.json"))
+    if not paths:
+        raise FileNotFoundError(f"no print layout files (*.manifest.json) in {SHEET_LAYOUTS_DIR}")
     layout = {}
-    for path in sorted(SHEET_LAYOUTS_DIR.glob("*.manifest.json")):
+    for path in paths:
         for tag in json.loads(path.read_text())["tags"]:
             layout[tag["id"]] = (f"{path.name} page {tag['page']}", tag["center_x_mm"], tag["center_y_mm"], tag["size_mm"])
     return layout
@@ -479,7 +483,9 @@ def build_scale_field(
     x, y, ppm = _scale_samples(detections, tag_sizes_mm)
     if len(x) < 3:
         raise ValueError(
-            f"need at least 3 tags with a known size to fit a scale field, got {len(x)}"
+            f"need at least 3 pairs of tags of one tag sheet to fit a scale field from tag "
+            f"spacing, got {len(x)}: are the tag sheets printed from the layout files in "
+            f"{SHEET_LAYOUTS_DIR}, at 100%?"
         )
     return _fit_plane(x, y, ppm)
 
@@ -566,15 +572,15 @@ class AreaScaleSample:
 def area_scale_samples(
     field: ScaleField, detections: list[TagDetection], tag_sizes_mm: dict[int, float]
 ) -> list[AreaScaleSample]:
-    """One `AreaScaleSample` per detection with a known size, at the position `field` was
-    evaluated at. Skips a detection if `field.px_per_mm` isn't physically valid there (the same
-    extrapolation guard `regional_coverage_test` treats as a coverage failure, not an error).
+    """One `AreaScaleSample` per tag with a scale from tag spacing (`tag_spacing_scales`), at the
+    position `field` was evaluated at. The measured area scale is the tag's spacing scale squared
+    times its shape factor: tag edges read short (metrology log 18), and the shape factor, a
+    ratio of the tag's own pixel area to its own side squared, does not carry that. Skips a tag
+    if `field.px_per_mm` isn't physically valid there (the same extrapolation guard
+    `regional_coverage_test` treats as a coverage failure, not an error).
     """
     samples = []
-    for detection in detections:
-        size_mm = tag_sizes_mm.get(detection.tag_id)
-        if size_mm is None:
-            continue
+    for detection, spacing_px_per_mm in tag_spacing_scales(detections, tag_sizes_mm):
         x, y = detection.centre
         try:
             naive_area_scale = field.px_per_mm(x, y) ** 2
@@ -582,8 +588,8 @@ def area_scale_samples(
             continue
         side_px = tag_side_px(detection.corners)
         area_px = tag_area_px(detection.corners)
-        measured_area_scale = area_px / (size_mm**2)
         kappa = area_px / (side_px**2)
+        measured_area_scale = spacing_px_per_mm**2 * kappa
         samples.append(
             AreaScaleSample(
                 x=x,
@@ -776,7 +782,7 @@ def holdout_coverage_test(
     n = len(x)
     if n < 6:
         raise ValueError(
-            f"need at least 6 tags with a known size to hold out half and still fit a plane "
+            f"need at least 6 pairs of tags to hold out half and still fit a plane "
             f"on the rest, got {n}"
         )
 
