@@ -27,3 +27,11 @@ _Avoid_: test, verification, check (on its own)
 A comparison of the rig's measurement with an independent measurement of the same real thing, such
 as callipers on a printed target or a photogrammetry mesh of the benchmark.
 _Avoid_: validation, ground truth
+
+## Plant areas
+
+**Exclusion**:
+A stored reason that a photo's plant areas are left out of averages and exports: lights off,
+light changing, light disturbed, light off norm, or a visit (#288). The areas themselves are kept,
+never deleted, so an exclusion can be shown, reviewed or worked out again.
+_Avoid_: mark, flag (a photo's flags say why the validation bands do not cover it)
