@@ -5789,7 +5789,8 @@ band for plant segmentation is derived from it (Aaron, 2026-10-26).
 fitted to tag spacing instead of tag edges, and validation scored by tag spacing. Run read-only on
 stored tags with that branch's code:
 
-- The 22 October calibration photo (345 tags, 1,791 pairs) refitted: residual 0.66% (edges: 0.58%).
+- The 22 October calibration (`20261022T072523939958`, photo `rig/2026-10-22/072523_939958`, 345
+  tags, 1,791 pairs) refitted: residual 0.66% (edges: 0.58%).
 - Against the tag sheets on the pots on 26 October 08:22 UTC (18.4), area read from scale alone:
   **-1.6% to +1.5%** with the refitted scale, **+1.0% to +4.8%** with the scale in use (13 groups
   of tags, 1 to 20 tags each).

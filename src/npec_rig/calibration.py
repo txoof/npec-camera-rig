@@ -929,6 +929,9 @@ class CalibrationArtifact:
     calibration_tag_size_mm: float = ASSUMED_CALIBRATION_TAG_SIZE_MM
     frame_stem: str | None = None
     version: int = CALIBRATION_ARTIFACT_VERSION
+    # The calibration this one was rebuilt from, from that calibration's own stored photo (#286):
+    # its scale refitted to tag spacing. None for a calibration made by a run.
+    rebuilt_from: str | None = None
 
 
 def calibration_artifact_to_dict(artifact: CalibrationArtifact) -> dict:
@@ -940,6 +943,8 @@ def calibration_artifact_to_dict(artifact: CalibrationArtifact) -> dict:
         "calibration_tag_size_mm": artifact.calibration_tag_size_mm,
         "frame_stem": artifact.frame_stem,
     }
+    if artifact.rebuilt_from is not None:
+        data["rebuilt_from"] = artifact.rebuilt_from
     if artifact.corner_baseline is not None:
         data["corner_baseline"] = {
             str(tag_id): [list(pt) for pt in corners]
@@ -974,4 +979,5 @@ def calibration_artifact_from_dict(data: dict) -> CalibrationArtifact:
         lens_position=data.get("lens_position"),
         calibration_tag_size_mm=data["calibration_tag_size_mm"],
         frame_stem=data.get("frame_stem"),
+        rebuilt_from=data.get("rebuilt_from"),
     )

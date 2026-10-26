@@ -18,7 +18,12 @@ from PIL import Image
 
 from npec_rig import database, photo_tags, segmentation, validation_store
 from npec_rig.captures import photo_file
-from npec_rig.calibration_store import CalibrationNotFoundError, CalibrationUnreadableError, load_saved_calibration
+from npec_rig.calibration_store import (
+    CalibrationNotFoundError,
+    CalibrationUnreadableError,
+    calibration_for_photos,
+    load_saved_calibration,
+)
 from npec_rig.tags import TagDetection
 from npec_rig.tray_placement import TrayPlacement, place_trays
 
@@ -44,9 +49,11 @@ def placements(path: str, tags: list[TagDetection]) -> tuple[str, list[TrayPlace
     if record is None or not record.get("calibration"):
         return "no calibration", []
     try:
-        artifact = load_saved_calibration(record["calibration"])
+        stem = calibration_for_photos(record["calibration"])
+        artifact = load_saved_calibration(stem)
         # Only a layout already worked out: working it out decodes the 64MP calibration frame.
-        layout = validation_store.load_slot_layout(record["calibration"])
+        # A twin has its original's slots.
+        layout = validation_store.load_slot_layout(stem) or validation_store.load_slot_layout(record["calibration"])
     except (CalibrationNotFoundError, CalibrationUnreadableError, validation_store.SessionNotFoundError):
         return "no calibration", []
     if layout is None:
@@ -121,17 +128,18 @@ def _measures(
     the photo cannot be segmented: the trays are still placed."""
     try:
         record = database.captures_by_path([path])[path]
-        scale_field = load_saved_calibration(record["calibration"]).scale_field
+        stem = calibration_for_photos(record["calibration"])
+        scale_field = load_saved_calibration(stem).scale_field
         mask = segmentation.load_mask(path) if reuse_mask else None
         if mask is not None:
-            return record["calibration"], {p.tray_id: segmentation.measure_plant(mask, p.outline, scale_field) for p in placed}
+            return stem, {p.tray_id: segmentation.measure_plant(mask, p.outline, scale_field) for p in placed}
         with Image.open(photo_file(path)) as image:
             # One copy of the 64MP photo (about 190 MB): convert() would make a second.
             rgb = np.asarray(image if image.mode == "RGB" else image.convert("RGB"))
         mask = SEGMENTER.segment(rgb)
         del rgb
         segmentation.save_mask(path, mask)
-        return record["calibration"], {p.tray_id: segmentation.measure_plant(mask, p.outline, scale_field) for p in placed}
+        return stem, {p.tray_id: segmentation.measure_plant(mask, p.outline, scale_field) for p in placed}
     except Exception:
         logger.exception("Could not work out the plant areas of %s", path)
         return None, {}

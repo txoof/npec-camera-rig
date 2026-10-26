@@ -413,3 +413,36 @@ def end(session_id: str) -> dict:
         validation_store.end_session(session)
         validation_store.save_session(session)
         return summary(session, _current_calibration_stem())
+
+
+def rescore(twin_stem: str) -> dict:
+    """The validation of calibration `twin_stem`'s original, scored again for the twin (#286): its
+    newest session's stored rounds, the same photos and tags, scored by tag spacing against the
+    twin's scale. Nothing is photographed. Which rounds count, and why, stays as the original
+    decided it. Saved as a new session, marked `rescored_from` the original's id with the time; the
+    original's file is not touched. Returned as saved."""
+    twin = load_saved_calibration(twin_stem)
+    if twin.rebuilt_from is None:
+        raise ValidationRefusedError(f"calibration {twin_stem} is not a rebuilt twin")
+    originals = [s for s in validation_store.list_sessions() if s["calibration_stem"] == twin.rebuilt_from]
+    if not originals:
+        raise ValidationRefusedError(f"calibration {twin.rebuilt_from} has no validation to score again")
+    original = max(originals, key=lambda s: s["id"])
+    layout = slot_layout_from_dict(original["slots"])
+    with _lock:
+        session = validation_store.new_session(twin_stem, original["slots"], original["calibration_centres"])
+        session["rescored_from"] = original["id"]
+        session["rescored_at"] = session["started_at"]
+        session["started_at"], session["ended_at"] = original["started_at"], original["ended_at"]
+        for round_ in original["rounds"]:
+            again = dict(round_)
+            if round_["slot_errors"] is not None:
+                again["slot_errors"] = round_errors_by_slot(
+                    photo_tags.capture_tags(round_["capture"]), layout, twin.scale_field, twin.calibration_tag_size_mm
+                )
+            session["rounds"].append(again)
+        validation_store.refresh_results(session)
+        if original["completed_at"] is not None:
+            session["completed_at"] = original["completed_at"]
+        validation_store.save_session(session)
+    return session

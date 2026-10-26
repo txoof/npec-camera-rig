@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from npec_rig import captures, photo_tags, tray_readings, validation_store
+from npec_rig import captures, database, photo_tags, tray_readings, validation_store
 from npec_rig.app import app
 from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
@@ -154,3 +154,28 @@ def test_each_trays_area_keeps_its_plant_pixel_count_centre_and_calibration(monk
     assert tray["plant_px"] == pytest.approx(150_000, rel=0.01)  # 1%: JPEG blurs the edge
     assert tray["plant_centre_px"] == pytest.approx([1650, 2350], abs=2)
     assert tray["calibration"] == FIXTURE["calibration"]
+
+
+def test_a_photo_takes_its_area_from_the_rebuilt_twin_of_its_calibration(monkeypatch) -> None:
+    """Part B, test point 2 (#286). `one_tray_plant_scene`: 150,000 plant px under a calibration of
+    10.0 px/mm, 1500 mm2. A twin rebuilt from that calibration at 10.0 x 5.00 / 4.90 px/mm (the
+    ratio of tag spacing to tag edges agreed for this test) gives 1500 x (4.90 / 5.00)^2 =
+    1440.6 mm2. The photo's own record still names the original calibration."""
+    from npec_rig.calibration import CalibrationArtifact, ScaleField
+
+    one_tray_plant_scene(monkeypatch)
+    path = _photo()
+    stem = FIXTURE["calibration"]
+    assert tray_readings.read_photo(path)["trays"][0]["area_mm2"] == pytest.approx(1500, rel=0.01)
+
+    save_calibration(
+        CalibrationArtifact(
+            created_at="2026-10-26T15:00:00+00:00", scale_field=ScaleField((1.0, 0.0, 0.0), 10.0 * 5.00 / 4.90, 0.0),
+            frame_stem=stem, lens_position=6.05, rebuilt_from=stem,
+        ),
+        stem="20261026T150000000000", promote=False,
+    )
+    tray = tray_readings.read_photo(path)["trays"][0]
+
+    assert tray["area_mm2"] == pytest.approx(1440.6, rel=0.01)  # 1%: JPEG blurs the edge
+    assert database.captures_by_path([path])[path]["calibration"] == stem
