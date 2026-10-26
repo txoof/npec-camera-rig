@@ -8,7 +8,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from npec_rig import database, images, photo_tags, tray_readings
+from npec_rig import images, photo_tags, tray_readings
 from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import PHOTO_KEY, capture_hours, list_recent_captures, photo_file
 from npec_rig.routes.shared import derived_response, templates
@@ -41,12 +41,13 @@ def api_captures(
         items = list_recent_captures(limit=limit, before=before, experiment_id=experiment)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
-    # Each photo's saved tray readings (#222), None until it has been read. Like the records
-    # (captures._with_database_rows), a database that cannot be read leaves the photos listed.
+    # Each photo's saved tray readings (#222) with its light mark and floors (#288), None until
+    # it has been read. Like the records (captures._with_database_rows), a database that cannot
+    # be read leaves the photos listed.
     try:
         for item in items:
             record = item.get("record")
-            item["trays"] = database.tray_readings(record["id"]) if record else None
+            item["trays"] = tray_readings.photo_readings(item["path"]) if record else None
     except (sqlite3.Error, RuntimeError):
         logger.exception("Could not read the tray readings for the gallery")
         for item in items:

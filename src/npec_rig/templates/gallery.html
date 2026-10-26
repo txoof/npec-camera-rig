@@ -158,6 +158,8 @@
         return `<div>Trays: skipped, ${purpose} photos are not read for trays automatically. Tap Tags to read this one.</div>`;
       }
       if (!trays) return "<div>Trays: not read yet. Tap Tags to read this photo.</div>";
+      // A photo taken in the dark holds no plant data, whatever its tags (#288).
+      if (trays.light) return `<div>Light: ${ui.esc(trays.light)}. Its plant areas are left out.</div>`;
       if (trays.status !== "read") return `<div>Trays: not placed, ${TRAY_STATUS[trays.status] ?? trays.status}.</div>`;
       const lines = [`Trays found: ${trays.trays.length}.`];
       if (trays.not_found.length) {
@@ -175,10 +177,15 @@
       let table = "";
       if (measured.length) {
         lines.push(`Plant area, ${ui.esc(measured[0].segmenter)}, uncertainty not measured yet:`);
+        // The floor (#288): at or below it an area means nothing detected yet. Shown, never
+        // subtracted (Aaron).
+        const area = (t) => Math.round(t.area_mm2).toLocaleString("en-US")
+          + (t.floor_mm2 != null && t.area_mm2 <= t.floor_mm2 ? ", nothing detected" : "");
+        const floor = (t) => t.floor_mm2 == null ? "not measured" : t.floor_mm2.toLocaleString("en-US");
         const rows = measured.map((t) =>
-          `<tr><td>${t.tray_id}</td><td style="text-align: left">${ui.esc(t.slot)}</td><td>${Math.round(t.area_mm2).toLocaleString("en-US")}</td></tr>`).join("");
-        table = `<table class="data-table" style="max-width: 480px; margin-top: 8px"><thead><tr><th>Tray</th>`
-          + `<th style="text-align: left">Slot</th><th>Plant area (mm²)</th></tr></thead><tbody>${rows}</tbody></table>`;
+          `<tr><td>${t.tray_id}</td><td style="text-align: left">${ui.esc(t.slot)}</td><td>${area(t)}</td><td>${floor(t)}</td></tr>`).join("");
+        table = `<table class="data-table" style="max-width: 640px; margin-top: 8px"><thead><tr><th>Tray</th>`
+          + `<th style="text-align: left">Slot</th><th>Plant area (mm²)</th><th>Floor (mm²)</th></tr></thead><tbody>${rows}</tbody></table>`;
       } else if (trays.trays.length) {
         lines.push("Plant area: not worked out for this photo.");
       }
@@ -189,6 +196,7 @@
     function traysLine(trays, purpose) {
       if (!trays && purpose !== "capture") return `Trays: skipped, a ${purpose} photo. Tap Tags to read it.`;
       if (!trays) return "Trays: not read yet. Tap Tags to read it.";
+      if (trays.light) return `Light: ${ui.esc(trays.light)}.`;
       if (trays.status !== "read") return "Trays: not placed. Info says why.";
       const changed = trays.not_found.length || trays.moved.length;
       return `Trays found: ${trays.trays.length}.` + (changed ? " Changes, see Info." : "");

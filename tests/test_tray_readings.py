@@ -154,3 +154,40 @@ def test_each_trays_area_keeps_its_plant_pixel_count_centre_and_calibration(monk
     assert tray["plant_px"] == pytest.approx(150_000, rel=0.01)  # 1%: JPEG blurs the edge
     assert tray["plant_centre_px"] == pytest.approx([1650, 2350], abs=2)
     assert tray["calibration"] == FIXTURE["calibration"]
+
+
+def _camera_reports(monkeypatch, exposure_us: int, gain: float) -> None:
+    """The synthetic camera, reporting the exposure and gain of a real photo."""
+    from npec_rig.camera import CameraManager, SyntheticBackend
+
+    class Reports(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            return frame, {**metadata, "ExposureTime": exposure_us, "AnalogueGain": gain}
+
+    CameraManager.set_instance(CameraManager(Reports()))
+
+
+def test_a_photo_taken_in_the_dark_is_marked_dark_from_its_exposure_and_gain(monkeypatch) -> None:
+    """Exposure and gain of real photos of experiment 18 (rig.db, 2026-10-26): lights off at
+    23:28:53 UTC on 22 October, 64,022 us at gain 4.0; lit at 08:41:20, 5,404 us at gain 1.0."""
+    _calibrate()
+    _finds(monkeypatch, None)
+    _camera_reports(monkeypatch, 64_022, 4.0)
+    dark = _photo()
+    _camera_reports(monkeypatch, 5_404, 1.0)
+    lit = _photo()
+
+    for path in (dark, lit):
+        tray_readings.read_photo(path)
+    assert tray_readings.photo_readings(dark)["light"] == "dark, no data"
+    assert tray_readings.photo_readings(lit)["light"] is None
+
+
+def test_each_trays_area_carries_the_floor_below_which_it_means_nothing_detected(monkeypatch) -> None:
+    """100 mm2 for the green threshold: Aaron's starting value (2026-10-26), from empty trays
+    reading up to 98 mm2 (metrology log 17.4); checked in #293."""
+    one_tray_plant_scene(monkeypatch)
+
+    tray = tray_readings.read_photo(_photo())["trays"][0]
+    assert tray["floor_mm2"] == 100
