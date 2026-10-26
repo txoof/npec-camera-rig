@@ -1,9 +1,11 @@
-"""Summarise methods.py runs (metrology log 18.8): per method, background and square size, how often
-the squares were found, the median error, the range over single stills and the median edge width.
+"""Summarise methods.py or edges.py runs (metrology log 18.8, 18.9): per method, background and
+square size, how often the squares were found, the median error, the range over single stills and
+the median edge width.
 
     python experiments/round2-tagedge/methods_summary.py OUT.csv LABEL=DIR [LABEL=DIR ...]
 
-Each DIR holds a methods.csv; LABEL names its background, e.g. "black paper=OUT/methods-paper".
+Each DIR holds a methods.csv or an edges.csv; LABEL names its background, e.g.
+"black paper=OUT/methods-paper".
 """
 
 import collections
@@ -13,7 +15,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from methods import METHODS  # noqa: E402
 from squares import SQUARES  # noqa: E402
 
 
@@ -24,19 +25,22 @@ def nominal(side_mm):
 def main(out, *runs):
     per_size = collections.Counter(nominal(sx) for sx, *_ in SQUARES.values())
     errors, widths, stills = collections.defaultdict(list), collections.defaultdict(list), {}
-    labels = []
+    labels, methods = [], []
     for run in runs:
         label, folder = run.split("=", 1)
         labels.append(label)
         captures = set()
-        for r in csv.DictReader(open(Path(folder) / "methods.csv")):
+        table = next(Path(folder) / n for n in ("methods.csv", "edges.csv") if (Path(folder) / n).exists())
+        for r in csv.DictReader(open(table)):
+            if r["method"] not in methods:
+                methods.append(r["method"])
             key = (r["method"], label, nominal(float(r["calliper_mm2"]) ** 0.5))
             errors[key].append(float(r["error_pct"]))
             widths[key].append(float(r["edge_width_mm"]))
             captures.add(r["capture"])
         stills[label] = len(captures)
     rows = []
-    for method in METHODS:
+    for method in methods:
         for label in labels:
             for size in sorted(per_size):
                 e = errors.get((method, label, size), [])

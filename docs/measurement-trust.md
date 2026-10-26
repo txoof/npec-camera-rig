@@ -355,7 +355,11 @@ larger and changes from slot to slot, mostly with the brightness around the obje
 are right for the scale and say nothing about the mask. Three other published green thresholds
 (metrology log 18.8) leave the same strip of about 0.6 to 1.0 mm, so changing the threshold does not help.
 The strip is a larger share of a smaller object: about +28% on a 10 mm square, and nothing below
-10 mm was measured, so areas of plants smaller than that carry no measured error.
+10 mm was measured, so areas of plants smaller than that carry no measured error. Methods that place the
+edge half way between object and background in linear light, instead of counting every tinted
+pixel, remove most of the strip on the squares (metrology log 18.9: 10 mm squares -2.9% median,
+single stills -8.6% to +6.6%). They are not yet tried on plants (#297), and the threshold in use
+stays for now.
 
 **Height above the tray.** About +0.145% of area per mm above the tray top. That figure comes from
 the camera's height (about 1482 mm, a best estimate with a tape measure, not a precise value); one test, a

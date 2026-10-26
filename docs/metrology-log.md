@@ -5917,8 +5917,8 @@ Ranges are over single stills and all three backgrounds.
   +28.1%).
 - **exg_exr and exg_otsu** miss up to half of the squares on some backgrounds, and exg_otsu reads
   larger than exg.
-- **Recommendation, not yet decided: keep the green threshold in use (exg, 0.1).** No other method
-  narrows the strip.
+- **Decision (Aaron, 2026-10-26): the green threshold in use (exg, 0.1) stays for the moment.** No
+  other colour rule narrows the strip; the edge methods of 18.9 are compared on plants in #297.
 
 **What the strip means for small areas.** A strip of fixed width is a larger share of a small
 object: a square of side s gains about 4 x 0.7 / s of its area. Measured: 10 mm squares read
@@ -5938,3 +5938,59 @@ plants, each smaller.
 light level; one camera position and focus; published thresholds only, none tuned. Why the strip
 is there (blur, reflected light or the JPEG's colour detail) is not separated. A trained model
 (the second literature comment on #286) was not tried.
+
+### 18.9 Edge methods on the squares (method written 2026-10-26, before the run)
+
+**Label: development check.** The comment on #286 of 26 October 20:26 UTC lists methods that find
+an object's edge instead of judging each pixel's colour. Aaron asked on 26 October to try the ones
+that work on stored stills and compare them with 18.8.
+
+**Tried on the stored stills of 18.8** (same 471 stills, same squares, same scale from the tag
+sheet on each tray, read-only). Each square is first found by the threshold in use (exg, 0.1);
+then, in a box 30 px larger on every side:
+
+- **half way, linear**: the JPEG values are converted back to linear light (the sRGB curve), and
+  each pixel's green is taken as 2G - R - B in linear light. The square's level is the median inside
+  the exg mask shrunk by 8 px, the background's the median of a ring 20 to 30 px outside it. A pixel
+  counts when it is above half way between the two, and the area is the connected piece holding
+  the square's centre (Burns, 2000, the ISO 12233 idea of an edge on linear data).
+- **partial area, linear**: each pixel in the box counts as the fraction (green - background) /
+  (square - background), clipped to 0 to 1, summed over the pixels within 15 px of the exg mask.
+  An edge pixel that is part square, part background then counts as that part (after
+  Trujillo-Pino et al., 2013, simplified: no subpixel edge fit).
+- **GrabCut**: OpenCV's `grabCut` (Rother et al., 2004) on the box, started from the exg mask
+  shrunk by 8 px as certain square, the mask itself as probable square, the ring of 15 px around
+  it as probable background and the rest as background; 5 iterations, no border matting (not in
+  OpenCV).
+
+Compared with exg from 18.8 on the same stills, by error against the calliper area and by edge
+width. **Not tried:** Chan and Vese (2001), which needs a library the rig does not have; points 1
+and 2 of the comment (JPEG colour detail, colour denoise, glare), which need new stills with other
+camera settings.
+
+**Results (2026-10-26).** All 471 stills; every square found by exg was read by every method. Error
+against the calliper area, all three backgrounds together; ranges over single stills; edge width as
+in 18.8. Table per method, background and size: `figures/18/edges.csv` (exg rows repeat 18.8).
+
+| Method | 10 mm, median (single stills) | 20 mm | 40 mm | 55 mm | Edge width, median by size and background |
+|---|---|---|---|---|---|
+| exg (in use, 18.8) | +27.8% (-33.8% to +45.9%) | +11.3% (-6.9% to +26.3%) | +7.8% (+5.5% to +12.3%) | +6.5% (-2.3% to +8.6%) | 0.4 to 1.0 mm |
+| half way, linear | -2.9% (-8.6% to +6.6%) | +1.1% (-4.9% to +3.6%) | +0.4% (-1.5% to +1.2%) | +1.3% (-3.3% to +3.1%) | -0.09 to +0.27 mm |
+| partial area, linear | +2.0% (-7.0% to +11.3%) | +2.2% (-4.8% to +10.2%) | +0.7% (-1.4% to +3.5%) | +1.3% (-4.5% to +4.1%) | -0.00 to +0.28 mm |
+| GrabCut | +4.7% (-23.3% to +25.7%) | +3.1% (-3.5% to +25.0%) | +2.5% (-0.5% to +5.3%) | +3.6% (-2.8% to +12.0%) | 0.05 to 0.53 mm |
+
+- **Half way, linear removes most of the strip.** Median error within 3 points at every size and on
+  every background (10 mm: -3.6% to -1.6% by background, against +17.7% to +31.5% for exg); single
+  10 mm stills within -8.6% to +6.6%, about a fifth of the exg spread. It reads 10 mm squares
+  slightly small and 55 mm squares slightly large (+0.9% to +2.0% by background).
+- **Partial area, linear** is close: medians +2% or less except 20 mm (+1.9% to +4.5%), with a wider
+  spread on small squares (10 mm up to +11.3%).
+- **GrabCut** is better than exg but has single stills off by up to 26% on small squares and keeps
+  a strip of 0.3 to 0.5 mm on the large ones.
+- The scale part of 18.7 (under 1 point) is still in every figure.
+
+**Limits of the evidence.** Squares, not leaves: each square has a solid middle (8 px inside) and
+clear background 20 to 30 px around it, which half way needs and plants may not have (thin leaves,
+touching leaves and plants). Each square was first found by exg, so a method's result starts from
+exg's object. One light level, three backgrounds, one camera position and focus. Not a band for
+plants: plants are compared in #297.
