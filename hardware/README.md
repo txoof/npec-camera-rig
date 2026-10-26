@@ -40,7 +40,7 @@ purchased parts in place. Step-by-step assembly pictures are in [Installation.md
 | <img src="images/m5_slide_pocket.png" alt="slide pocket" width="160"> | Slide pocket (cold shoe holder) | `m5_slide_pocket.scad` | not recorded | not recorded | layer lines perpendicular to the pocket's short dimension, for strength |
 | <img src="images/arducam64_mount.png" alt="camera mount" width="160"> | Camera mount | `arducam64_mount.scad` | 80% | no | flat on bed as in file |
 | <img src="images/tray_tags/style_lip_round.png" alt="tray tag" width="160"> | Tray tags | `apriltag_tray_tag.scad` | 20-30% | no | as in STL and 3MF files |
-| | Calibration squares (**green filament**) | `calibration_targets/calibration_squares.scad` | 100% (solid, 0.568 mm thick) | no | flat on bed as in file |
+| <img src="images/calibration_squares.png" alt="calibration squares" width="160"> | Calibration squares (**green filament**) | `calibration_targets/calibration_squares.scad` | 100% (solid, 0.568 mm thick) | no | flat on bed as in file |
 
 **L brackets.** The purchased aluminium brackets in [Bill-of-Materials.md](Bill-of-Materials.md)
 are preferred; print these only as a substitute. Both files model the bracket standing up: one

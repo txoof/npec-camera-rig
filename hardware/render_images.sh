@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Renders every standalone .scad in camera_rig/, tray_tags/ and libraries/ to a
-# diagonal-perspective PNG in images/, overwriting any existing PNGs by default.
+# Renders every standalone .scad in camera_rig/, tray_tags/, calibration_targets/
+# and libraries/ to a diagonal-perspective PNG in images/, overwriting any
+# existing PNGs by default.
 # Skips BOSL2 and the `use`-only AprilTag library files, which draw nothing.
 set -euo pipefail
 
@@ -15,7 +16,7 @@ mkdir -p "$IMAGES_DIR"
 cd "$SCRIPT_DIR"
 
 shopt -s nullglob
-for scad_file in camera_rig/*.scad tray_tags/*.scad libraries/*.scad; do
+for scad_file in camera_rig/*.scad tray_tags/*.scad calibration_targets/*.scad libraries/*.scad; do
   case " $SKIP " in *" ${scad_file##*/} "*) continue ;; esac
   name="$(basename "$scad_file" .scad)"
   out="$IMAGES_DIR/${name}.png"
