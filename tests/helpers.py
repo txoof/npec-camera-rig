@@ -4,6 +4,9 @@ same convention as test_tags.py/test_calibration.py.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 
 from npec_rig.tags import TagDetection
@@ -18,6 +21,35 @@ def square_detection(tag_id: int, cx: float, cy: float, side_px: float) -> TagDe
         (cx + half, cy + half),
         (cx - half, cy + half),
     )
+    return TagDetection(tag_id=tag_id, corners=corners, centre=(cx, cy))
+
+
+_LAYOUT_30MM = Path(__file__).parent.parent / "reference/calibration-sheets/apriltags-36h11-30mm-a4-300-449.manifest.json"
+
+
+def printed_sheet(
+    page: int, x0: float, y0: float, px_per_mm: float, *, edge_scale: float = 1.0
+) -> list[TagDetection]:
+    """One printed 30 mm tag sheet as the camera would see it: every tag of `page` of the print
+    layout file at its printed position times `px_per_mm`, the page's bottom-left corner at pixel
+    (x0, y0) (page y is up, image y is down). `edge_scale` draws every tag edge that much too long
+    or short, the fault the real photos show (metrology log 18), without moving the centres."""
+    tags = json.loads(_LAYOUT_30MM.read_text())["tags"]
+    return [
+        printed_tag(
+            t["id"], x0 + t["center_x_mm"] * px_per_mm, y0 - t["center_y_mm"] * px_per_mm,
+            t["size_mm"] * px_per_mm * edge_scale,
+        )
+        for t in tags
+        if t["page"] == page
+    ]
+
+
+def printed_tag(tag_id: int, cx: float, cy: float, side_px: float) -> TagDetection:
+    """A tag on an upright printed page, its corners in the tag detector's order: the page's x
+    direction runs from corner 1 to corner 0 (checked on real photos, `calibration.spacing_pairs`)."""
+    half = side_px / 2
+    corners = ((cx + half, cy - half), (cx - half, cy - half), (cx - half, cy + half), (cx + half, cy + half))
     return TagDetection(tag_id=tag_id, corners=corners, centre=(cx, cy))
 
 
@@ -43,15 +75,24 @@ def rotate_detection(detection: TagDetection, pivot: tuple[float, float], angle_
 
 
 def sheet_detections(
-    first_id: int, x0: float, y0: float, *, side_px: float = 120.0, pitch_px: float = 160.0,
-    columns: int = 5, rows: int = 6,
+    first_id: int, x0: float, y0: float, *, side_px: float = 120.0, columns: int = 5, rows: int = 6,
 ) -> list[TagDetection]:
-    """One printed calibration sheet: a `columns` x `rows` grid of square tags with consecutive
-    IDs from `first_id`, top-left tag centred at (x0, y0)."""
+    """One printed tag sheet as laid out in the print layout file: the page holding `first_id`,
+    its first `rows` rows of `columns` tags, every tag `side_px` wide and spaced as printed at the
+    same scale (side_px / 30 px/mm), its top-left tag centred at (x0, y0). Page 2 (IDs 325 to
+    354) is the full 5 x 6 page."""
+    tags = json.loads(_LAYOUT_30MM.read_text())["tags"]
+    page = next(t["page"] for t in tags if t["id"] == first_id)
+    on_page = [t for t in tags if t["page"] == page]
+    xs = sorted({t["center_x_mm"] for t in on_page})
+    ys = sorted({t["center_y_mm"] for t in on_page}, reverse=True)
+    px_per_mm = side_px / 30.0
     return [
-        square_detection(first_id + r * columns + c, x0 + c * pitch_px, y0 + r * pitch_px, side_px)
-        for r in range(rows)
-        for c in range(columns)
+        printed_tag(
+            t["id"], x0 + (t["center_x_mm"] - xs[0]) * px_per_mm, y0 + (ys[0] - t["center_y_mm"]) * px_per_mm, side_px
+        )
+        for t in on_page
+        if xs.index(t["center_x_mm"]) < columns and ys.index(t["center_y_mm"]) < rows
     ]
 
 
@@ -65,7 +106,7 @@ def tray_layout_detections(
         d
         for row_y in (1000.0, 3500.0)
         for col in range(6)
-        for d in sheet_detections(300, 800.0 + col * 1300.0 + dx, row_y + dy, side_px=side_px)
+        for d in sheet_detections(325, 800.0 + col * 1300.0 + dx, row_y + dy, side_px=side_px)
     ]
 
 

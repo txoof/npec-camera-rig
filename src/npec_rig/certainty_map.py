@@ -23,8 +23,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from npec_rig.calibration import ScaleField
-from npec_rig.tags import CALIBRATION_ID_RANGE, TagDetection, tag_area_px
+from npec_rig.calibration import ScaleField, tag_spacing_scales
+from npec_rig.tags import CALIBRATION_ID_RANGE, TagDetection
 from npec_rig.tray_placement import place_trays
 
 # Tags on one sheet sit ~40mm apart centre to centre; neighbouring trays' sheets are further apart
@@ -85,16 +85,21 @@ def tag_errors(
     detections: list[TagDetection], scale_field: ScaleField, tag_size_mm: float
 ) -> tuple[list[TagError], dict[int, tuple[tuple[float, float], ...]]]:
     """Signed % area error of every calibration tag, plus each result's corners by list index
-    (kept separate so `TagError` stays a small value type)."""
-    true_area_mm2 = tag_size_mm**2
+    (kept separate so `TagError` stays a small value type).
+
+    The error is what an area at the tag reads against its true size: (tag spacing scale / the
+    calibration's scale)^2 - 1, from the tag's own scale by tag spacing
+    (`calibration.tag_spacing_scales`). Not from the tag's edges: they read 1 to 2.5% short, and
+    a calibration fitted to the same edges hid that (metrology log 18, #286). Tags in no pair of
+    their tag sheet are left out."""
+    sizes = {d.tag_id: tag_size_mm for d in detections if d.tag_id in CALIBRATION_ID_RANGE}
+    order = {id(d): k for k, d in enumerate(detections)}
+    scales = sorted(tag_spacing_scales(detections, sizes), key=lambda found: order[id(found[0])])
     errors, corners = [], {}
-    for d in detections:
-        if d.tag_id not in CALIBRATION_ID_RANGE:
-            continue
+    for d, spacing_px_per_mm in scales:
         x, y = d.centre
-        area_mm2 = tag_area_px(d.corners) / scale_field.px_per_mm(x, y) ** 2
         corners[len(errors)] = d.corners
-        errors.append(TagError(d.tag_id, x, y, 100 * (area_mm2 / true_area_mm2 - 1)))
+        errors.append(TagError(d.tag_id, x, y, 100 * ((spacing_px_per_mm / scale_field.px_per_mm(x, y)) ** 2 - 1)))
     return errors, corners
 
 

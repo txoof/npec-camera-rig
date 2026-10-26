@@ -210,3 +210,67 @@ def test_a_damaged_current_validation_flags_the_photo_instead_of_failing_it() ->
         "flagged": True,
         "reason": "the validation record could not be read",
     }
+
+
+def _edges_short(detections, factor: float = 0.98):
+    """`detections` with every tag edge `factor` as long, centres unmoved: the real photos' fault."""
+    from npec_rig.tags import TagDetection
+
+    return [
+        TagDetection(d.tag_id, tuple((d.centre[0] + factor * (x - d.centre[0]), d.centre[1] + factor * (y - d.centre[1])) for x, y in d.corners), d.centre)
+        for d in detections
+    ]
+
+
+def test_a_twin_gets_its_original_validation_scored_again_by_tag_spacing(isolated_settings_db) -> None:
+    # Part B, test point 3 (#286). The original calibration was fitted to tag edges, 2% short: 3.92
+    # px/mm where the tags are spaced at exactly 4.00. Its validation, scored the old way (edges
+    # against 3.92), read 0.0% in every slot. Scored again for the twin (4.00), every slot reads
+    # 0.0% by tag spacing too, and the table passes. The original validation file is unchanged.
+    from npec_rig import images, validation_store
+
+    original_stem, twin_stem = "20261016T090000000000", "20261026T150000000000"
+    save_calibration(
+        CalibrationArtifact(created_at="2026-10-16T09:00:00+00:00", scale_field=ScaleField((1.0, 0.0, 0.0), 3.92, 0.0),
+                            lens_position=6.05, calibration_tag_size_mm=30.0, frame_stem=original_stem),
+        stem=original_stem, promote=False,
+    )
+    save_calibration(
+        CalibrationArtifact(created_at="2026-10-26T15:00:00+00:00", scale_field=FIELD, lens_position=6.05,
+                            calibration_tag_size_mm=30.0, frame_stem=original_stem, rebuilt_from=original_stem),
+        stem=twin_stem, promote=False,
+    )
+    session = validation_store.new_session(original_stem, _session()["slots"], _session()["calibration_centres"])
+    for i, shift in enumerate(((200, -150), (-250, 100), (150, 200))):
+        ref = f"2026-10-16/1{i}0000_000000"
+        images.store_tag_detections(ref, _edges_short(tray_layout_detections(shift=shift)))
+        session["rounds"].append({
+            "capture": ref, "captured_at": f"2026-10-16T1{i}:00:00+00:00", "moved_pct": 90.0, "counted": True,
+            "overridden": False, "reason": None, "overridable": False, "centres": [],
+            "slot_errors": {slot["name"]: [0.0] * 30 for slot in session["slots"]},
+        })
+    validation_store.refresh_results(session)
+    validation_store.save_session(session)
+    original_file = validation_store.validations_root() / f"{session['id']}.json"
+    before = original_file.read_bytes()
+
+    rescored = validation.rescore(twin_stem)
+
+    assert rescored["calibration_stem"] == twin_stem
+    assert rescored["rescored_from"] == session["id"]
+    assert len(rescored["rounds"]) == 3
+    for round_ in rescored["rounds"]:
+        assert round_["counted"]
+        for errors in round_["slot_errors"].values():
+            assert errors == pytest.approx([0.0] * 30, abs=1e-6)
+    assert validation_store.offset_problems(rescored) == []
+    assert original_file.read_bytes() == before
+    # By tag spacing against the original's 3.92 px/mm the bias shows: (4.00 / 3.92)^2 - 1 = +4.12%.
+    from npec_rig.certainty_map import round_errors_by_slot, slot_layout_from_dict
+
+    against_original = round_errors_by_slot(
+        _edges_short(tray_layout_detections(shift=(200, -150))), slot_layout_from_dict(session["slots"]),
+        ScaleField((1.0, 0.0, 0.0), 3.92, 0.0), 30.0,
+    )
+    for errors in against_original.values():
+        assert errors == pytest.approx([4.12] * 30, abs=0.01)

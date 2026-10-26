@@ -98,7 +98,7 @@ def squares_in(rgb_crop, offset, scale):
     for k in range(1, n):
         x, y, w, h, area = stats[k]
         side_mm = math.sqrt(area) / scale
-        if not 6 <= side_mm <= 70 or not 0.8 <= w / h <= 1.25 or area / (w * h) < 0.85:
+        if not 6 <= side_mm <= 70 or not 0.8 <= w / h <= 1.25 or area / (w * h) < 0.7:
             continue
         found.append((int(area), centroids[k][0] + offset[0], centroids[k][1] + offset[1]))
     return found
@@ -138,10 +138,15 @@ def main(out, start, end):
                     continue
                 want_px = sx * sy * scale**2
                 want_from_tag = cell_offset_mm(cell) * scale
-                candidates = [p for p in pieces if 0.6 <= p[0] / want_px <= 1.5]
+                # Its own size, and its cell's distance from the tray tag within half a cell.
+                candidates = [
+                    p for p in pieces
+                    if 0.6 <= p[0] / want_px <= 1.6 and abs(math.dist(p[1:], tag.centre) - want_from_tag) < CELL_MM / 2 * scale
+                ]
                 if not candidates:
                     continue
                 piece = min(candidates, key=lambda p: abs(math.dist(p[1:], tag.centre) - want_from_tag))
+                pieces.remove(piece)
                 calliper = sx * sy
                 area = piece[0] / scale**2
                 perimeter = 2 * (sx + sy)

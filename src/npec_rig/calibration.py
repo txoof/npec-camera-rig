@@ -1,10 +1,11 @@
-"""Scale field across the measurement plane, built from tags of known physical size.
+"""Scale field across the measurement plane, built from tag spacing on the tag sheets.
 
 PLAN.md's M2 section A: the scale field is the local scale (px/mm) as a function of position in
-the frame. This fits it from `TagDetection`s plus a tag_id -> real-world size (mm) lookup --
-not yet from real-world tag *position* (a per-sheet position manifest is separate, in-progress
-work); size alone is what the rig has today, and it's the same approach validated by hand
-against a real capture (see project memory, not committed here).
+the frame. It is fitted to tag spacing: the distance between the centres of two tags of one tag
+sheet over their distance as printed (the print layout files in `reference/calibration-sheets/`),
+scaled by the calliper-measured tag size. Not to tag edges: in the rig's photos they read 1 to
+2.5% short of tag spacing, by an amount that changes between photos, so areas read 1 to 5% high
+(metrology log 18, #286).
 
 The fit is a single tilted plane (relative depth linear in image x, y) -- validated on a real
 capture where a plane explained the observed scale ramp to ~1.8% residual against a ~12% signal.
@@ -20,8 +21,11 @@ can say "add coverage in the top-left" instead of just a single global percentag
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from functools import cache
 from itertools import combinations
+from pathlib import Path
 
 import numpy as np
 
@@ -323,21 +327,132 @@ class QuadrantCoverage:
     max_abs_pct_error: float | None
 
 
+# The print layout files of the tag sheets: where each tag's centre sits on its printed page.
+SHEET_LAYOUTS_DIR = Path(__file__).parent.parent.parent / "reference" / "calibration-sheets"
+# Tag spacing is used only between tags of one tag sheet 30 to 90 mm apart as printed: neighbours
+# and their neighbours, over which the paper lies flat (metrology log 18).
+PAIR_MM = (30.0, 90.0)
+# A partner is taken only where the print layout puts it: its offset from the tag, predicted from
+# the tag's own direction and rough scale (its corners and edges), within this fraction of the
+# predicted distance. Edges read at most ~2.5% short (metrology log 18); a tag on another copy of
+# the same page lies far from the predicted spot (on the 2026-10-22 calibration photo, 12 sheets
+# from 6 pages: every one of 3,582 pairs within 3.4% at the 95th percentile, the next candidate
+# always over 300% off).
+_PARTNER_TOLERANCE = 0.10
+
+
+@cache
+def sheet_layout() -> dict[int, tuple[str, float, float, float]]:
+    """tag_id -> (page, x mm, y mm, printed size mm) from every print layout file. Raises
+    FileNotFoundError when there is none: without them no scale can be fitted."""
+    paths = sorted(SHEET_LAYOUTS_DIR.glob("*.manifest.json"))
+    if not paths:
+        raise FileNotFoundError(f"no print layout files (*.manifest.json) in {SHEET_LAYOUTS_DIR}")
+    layout = {}
+    for path in paths:
+        for tag in json.loads(path.read_text())["tags"]:
+            layout[tag["id"]] = (f"{path.name} page {tag['page']}", tag["center_x_mm"], tag["center_y_mm"], tag["size_mm"])
+    return layout
+
+
+@dataclass(frozen=True)
+class SpacingPair:
+    """Two tags of one tag sheet: their midpoint and the scale their centre distance gives."""
+
+    a: TagDetection
+    b: TagDetection
+    x: float
+    y: float
+    px_per_mm: float
+
+
+def spacing_pairs(detections: list[TagDetection], tag_sizes_mm: dict[int, float]) -> list[SpacingPair]:
+    """Every pair of tags of one tag sheet 30 to 90 mm apart as printed, with the scale (px/mm)
+    from their centre distance over their printed distance.
+
+    Tag edges read 1 to 2.5% short of tag spacing in the rig's photos, by an amount that changes
+    between photos (metrology log 18); the centres do not move with the edges. A printed distance
+    is scaled by the tag's calliper size over its printed size, so a sheet printed at 96% still
+    gives the right scale. IDs repeat between copies of one page, so a partner is taken only where
+    the print layout puts it, seen from the tag: the detector's first two corners give the page's
+    x direction (from corner 1 to corner 0, checked on the 2026-10-22 calibration photo) and the
+    tag's edges a rough scale. A pair counts only when each of its two tags finds the other.
+    """
+    layout = sheet_layout()
+    partners = _printed_partners()
+    usable = [d for d in detections if d.tag_id in tag_sizes_mm and d.tag_id in layout]
+    by_id: dict[int, list[int]] = {}
+    for i, d in enumerate(usable):
+        by_id.setdefault(d.tag_id, []).append(i)
+    centres = {tag_id: np.array([usable[k].centre for k in members]) for tag_id, members in by_id.items()}
+
+    seen: dict[tuple[int, int], list[float]] = {}
+    for i, d in enumerate(usable):
+        _, _, _, printed_mm = layout[d.tag_id]
+        factor = tag_sizes_mm[d.tag_id] / printed_mm
+        rough = tag_side_px(d.corners) / tag_sizes_mm[d.tag_id]
+        ux, uy = np.subtract(d.corners[0], d.corners[1])
+        norm = float(np.hypot(ux, uy))
+        if norm == 0:
+            continue
+        ux, uy = ux / norm, uy / norm
+        for partner_id, dx_printed, dy_printed in partners[d.tag_id]:
+            candidates = by_id.get(partner_id)
+            if not candidates:
+                continue
+            dx_mm, dy_mm = dx_printed * factor, dy_printed * factor
+            true_mm = float(np.hypot(dx_mm, dy_mm))
+            # Page y is up; in the image it is the page's x direction turned a quarter back.
+            predicted = rough * np.array([dx_mm * ux + dy_mm * uy, dx_mm * uy - dy_mm * ux])
+            offsets = centres[partner_id] - d.centre
+            misses = np.hypot(*(offsets - predicted).T)
+            best = int(np.argmin(misses))
+            if misses[best] > _PARTNER_TOLERANCE * rough * true_mm:
+                continue
+            j, offset = candidates[best], offsets[best]
+            seen.setdefault((min(i, j), max(i, j)), []).append(float(np.hypot(*offset)) / true_mm)
+    # Both tags must find each other: seen from either, the other sits where the print puts it.
+    return [
+        SpacingPair(
+            usable[i], usable[j],
+            (usable[i].centre[0] + usable[j].centre[0]) / 2, (usable[i].centre[1] + usable[j].centre[1]) / 2,
+            ratios[0],
+        )
+        for (i, j), ratios in seen.items()
+        if len(ratios) == 2
+    ]
+
+
+@cache
+def _printed_partners() -> dict[int, tuple[tuple[int, float, float], ...]]:
+    """tag_id -> (partner_id, dx mm, dy mm) for every tag of its page 30 to 90 mm from it as printed."""
+    layout = sheet_layout()
+    partners: dict[int, list[tuple[int, float, float]]] = {tag_id: [] for tag_id in layout}
+    for tag_id, (page, x_mm, y_mm, _) in layout.items():
+        for other_id, (other_page, ox_mm, oy_mm, _) in layout.items():
+            if other_page == page and PAIR_MM[0] <= np.hypot(ox_mm - x_mm, oy_mm - y_mm) <= PAIR_MM[1]:
+                partners[tag_id].append((other_id, ox_mm - x_mm, oy_mm - y_mm))
+    return {tag_id: tuple(found) for tag_id, found in partners.items()}
+
+
+def tag_spacing_scales(
+    detections: list[TagDetection], tag_sizes_mm: dict[int, float]
+) -> list[tuple[TagDetection, float]]:
+    """Each tag's own scale (px/mm) from tag spacing: the median over the pairs it is in
+    (`spacing_pairs`). Tags in no pair are left out."""
+    ratios: dict[int, tuple[TagDetection, list[float]]] = {}
+    for pair in spacing_pairs(detections, tag_sizes_mm):
+        for tag in (pair.a, pair.b):
+            ratios.setdefault(id(tag), (tag, []))[1].append(pair.px_per_mm)
+    return [(tag, float(np.median(values))) for tag, values in ratios.values()]
+
+
 def _scale_samples(
     detections: list[TagDetection], tag_sizes_mm: dict[int, float]
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """(x, y, px_per_mm) for every detection whose tag id has a known real-world size."""
-    xs: list[float] = []
-    ys: list[float] = []
-    px_per_mm: list[float] = []
-    for detection in detections:
-        size_mm = tag_sizes_mm.get(detection.tag_id)
-        if size_mm is None:
-            continue
-        xs.append(detection.centre[0])
-        ys.append(detection.centre[1])
-        px_per_mm.append(tag_side_px(detection.corners) / size_mm)
-    return np.array(xs), np.array(ys), np.array(px_per_mm)
+    """(x, y, px_per_mm) at the midpoint of every pair from tag spacing (`spacing_pairs`)."""
+    pairs = spacing_pairs(detections, tag_sizes_mm)
+    return np.array([p.x for p in pairs]), np.array([p.y for p in pairs]), np.array([p.px_per_mm for p in pairs])
 
 
 def _fit_plane(x: np.ndarray, y: np.ndarray, ppm: np.ndarray) -> ScaleField:
@@ -368,68 +483,11 @@ def build_scale_field(
     x, y, ppm = _scale_samples(detections, tag_sizes_mm)
     if len(x) < 3:
         raise ValueError(
-            f"need at least 3 tags with a known size to fit a scale field, got {len(x)}"
+            f"need at least 3 pairs of tags of one tag sheet to fit a scale field from tag "
+            f"spacing, got {len(x)}: are the tag sheets printed from the layout files in "
+            f"{SHEET_LAYOUTS_DIR}, at 100%?"
         )
     return _fit_plane(x, y, ppm)
-
-
-@dataclass(frozen=True)
-class ScaleFactorRefit:
-    """The result of refitting a frozen field's scale factor from a small set of new detections.
-
-    `interior_scatter_pct` is deliberately its own field, not `field.residual_std_pct` --
-    it means something different (scatter of *these* detections' implied scale factor about
-    their mean), while `field.residual_std_pct` keeps meaning what it means everywhere else in
-    this module: the frozen field's own global plane-fit diagnostic from the paper-sheet
-    calibration it came from, unaffected by this refit.
-    """
-
-    field: ScaleField
-    interior_scatter_pct: float
-
-
-def refit_scale_factor(
-    frozen: ScaleField, detections: list[TagDetection], tag_sizes_mm: dict[int, float]
-) -> ScaleFactorRefit:
-    """Re-fit `frozen`'s scale factor from new detections (e.g. the 12 tray tags each capture),
-    keeping its *shape* (the plane's tilt coefficients) fixed.
-
-    PLAN.md's M2 section B is explicit that the tray tags supply only the current scale factor,
-    not a rebuilt shape: all 12 trays sit in the table's interior, where distortion is smallest,
-    so a fresh plane fit from them alone would silently throw away the edge information the paper
-    calibration exists to provide. Given a frozen shape, a uniform multiplicative scale
-    correction is also the only well-posed degree of freedom left to fit from interior-only
-    points -- refitting the plane's tilt coefficients too would be degenerate with rescaling here,
-    not an independent "perspective correction".
-
-    Each detection's implied mean_px_per_mm is `observed_ppm * frozen_relative_depth`; the new
-    scale factor is their mean, and `interior_scatter_pct` is how much they disagree with each
-    other (0% with a single detection). Raises ValueError with zero usable detections.
-    """
-    x, y, ppm = _scale_samples(detections, tag_sizes_mm)
-    if len(x) == 0:
-        raise ValueError("need at least 1 tag with a known size to refit the scale factor, got 0")
-
-    a, b, c = frozen._coeffs
-    relative_depth = a + b * x + c * y
-    if np.any(relative_depth <= 0):
-        raise ValueError(
-            "frozen field is not physically valid at one or more of these detections' positions "
-            "(relative_depth <= 0) -- can't refit against it"
-        )
-
-    implied_mean_ppm = ppm * relative_depth
-    new_mean_ppm = float(implied_mean_ppm.mean())
-    interior_scatter_pct = (
-        float(100.0 * implied_mean_ppm.std() / new_mean_ppm) if len(x) > 1 else 0.0
-    )
-
-    refit_field = ScaleField(
-        _coeffs=frozen._coeffs,
-        _mean_px_per_mm=new_mean_ppm,
-        residual_std_pct=frozen.residual_std_pct,
-    )
-    return ScaleFactorRefit(field=refit_field, interior_scatter_pct=interior_scatter_pct)
 
 
 @dataclass(frozen=True)
@@ -448,21 +506,17 @@ class ScaleResidualSample:
 def scale_residual_samples(
     field: ScaleField, detections: list[TagDetection], tag_sizes_mm: dict[int, float]
 ) -> list[ScaleResidualSample]:
-    """One `ScaleResidualSample` per detection with a known size. Skips a detection if
-    `field.px_per_mm` isn't physically valid there (same extrapolation guard as
+    """One `ScaleResidualSample` per tag with a scale from tag spacing (`tag_spacing_scales`).
+    Skips a tag if `field.px_per_mm` isn't physically valid there (same extrapolation guard as
     `area_scale_samples`) rather than raising, so one bad position doesn't take down the plot.
     """
     samples = []
-    for detection in detections:
-        size_mm = tag_sizes_mm.get(detection.tag_id)
-        if size_mm is None:
-            continue
+    for detection, observed in tag_spacing_scales(detections, tag_sizes_mm):
         x, y = detection.centre
         try:
             predicted = field.px_per_mm(x, y)
         except ValueError:
             continue
-        observed = tag_side_px(detection.corners) / size_mm
         samples.append(
             ScaleResidualSample(
                 x=x,
@@ -518,15 +572,15 @@ class AreaScaleSample:
 def area_scale_samples(
     field: ScaleField, detections: list[TagDetection], tag_sizes_mm: dict[int, float]
 ) -> list[AreaScaleSample]:
-    """One `AreaScaleSample` per detection with a known size, at the position `field` was
-    evaluated at. Skips a detection if `field.px_per_mm` isn't physically valid there (the same
-    extrapolation guard `regional_coverage_test` treats as a coverage failure, not an error).
+    """One `AreaScaleSample` per tag with a scale from tag spacing (`tag_spacing_scales`), at the
+    position `field` was evaluated at. The measured area scale is the tag's spacing scale squared
+    times its shape factor: tag edges read short (metrology log 18), and the shape factor, a
+    ratio of the tag's own pixel area to its own side squared, does not carry that. Skips a tag
+    if `field.px_per_mm` isn't physically valid there (the same extrapolation guard
+    `regional_coverage_test` treats as a coverage failure, not an error).
     """
     samples = []
-    for detection in detections:
-        size_mm = tag_sizes_mm.get(detection.tag_id)
-        if size_mm is None:
-            continue
+    for detection, spacing_px_per_mm in tag_spacing_scales(detections, tag_sizes_mm):
         x, y = detection.centre
         try:
             naive_area_scale = field.px_per_mm(x, y) ** 2
@@ -534,8 +588,8 @@ def area_scale_samples(
             continue
         side_px = tag_side_px(detection.corners)
         area_px = tag_area_px(detection.corners)
-        measured_area_scale = area_px / (size_mm**2)
         kappa = area_px / (side_px**2)
+        measured_area_scale = spacing_px_per_mm**2 * kappa
         samples.append(
             AreaScaleSample(
                 x=x,
@@ -728,7 +782,7 @@ def holdout_coverage_test(
     n = len(x)
     if n < 6:
         raise ValueError(
-            f"need at least 6 tags with a known size to hold out half and still fit a plane "
+            f"need at least 6 pairs of tags to hold out half and still fit a plane "
             f"on the rest, got {n}"
         )
 
@@ -875,6 +929,9 @@ class CalibrationArtifact:
     calibration_tag_size_mm: float = ASSUMED_CALIBRATION_TAG_SIZE_MM
     frame_stem: str | None = None
     version: int = CALIBRATION_ARTIFACT_VERSION
+    # The calibration this one was rebuilt from, from that calibration's own stored photo (#286):
+    # its scale refitted to tag spacing. None for a calibration made by a run.
+    rebuilt_from: str | None = None
 
 
 def calibration_artifact_to_dict(artifact: CalibrationArtifact) -> dict:
@@ -886,6 +943,8 @@ def calibration_artifact_to_dict(artifact: CalibrationArtifact) -> dict:
         "calibration_tag_size_mm": artifact.calibration_tag_size_mm,
         "frame_stem": artifact.frame_stem,
     }
+    if artifact.rebuilt_from is not None:
+        data["rebuilt_from"] = artifact.rebuilt_from
     if artifact.corner_baseline is not None:
         data["corner_baseline"] = {
             str(tag_id): [list(pt) for pt in corners]
@@ -920,4 +979,5 @@ def calibration_artifact_from_dict(data: dict) -> CalibrationArtifact:
         lens_position=data.get("lens_position"),
         calibration_tag_size_mm=data["calibration_tag_size_mm"],
         frame_stem=data.get("frame_stem"),
+        rebuilt_from=data.get("rebuilt_from"),
     )

@@ -1,7 +1,7 @@
 """Tag detections the calibration and validation tests hand to `detect_tags` in place of real
 photos."""
 
-from tests.helpers import square_detection
+from tests.helpers import sheet_detections, square_detection
 
 
 # SyntheticBackend's frame has no real tags drawn into it, so `detect_tags` finds nothing on a
@@ -10,11 +10,11 @@ from tests.helpers import square_detection
 # test_calibration.py/test_tripwire.py), since drawing a real detectable tag into the frame isn't
 # needed to test this module's own wiring.
 
+# Four printed tag sheets (pages 2 to 5 of the print layout), tags 40 px wide, spaced as printed.
 CALIBRATION_TAGS = [
-    square_detection(300 + i, cx, cy, side_px=40.0)
-    for i, (cx, cy) in enumerate(
-        [(200, 200), (1300, 200), (200, 950), (1300, 950), (750, 575), (500, 400)]
-    )
+    d
+    for first_id, (x0, y0) in ((325, (150, 150)), (355, (1150, 150)), (385, (150, 650)), (415, (1150, 650)))
+    for d in sheet_detections(first_id, x0, y0, side_px=40.0)
 ]
 CORNER_TAGS = [
     square_detection(450, 30, 30, side_px=60.0),

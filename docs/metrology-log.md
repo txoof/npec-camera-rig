@@ -5755,3 +5755,72 @@ no camera setting changed. Stills during a lights ramp are left out.
 chamber lights at their steady level, with the threshold of 17.5. Not soil, not leaves, not plant
 shapes: a rosette has more edge per area than a square of the same area, which the width (step 4)
 is meant to carry over, but that is not shown here.
+
+**Results (2026-10-26).** Placed 10:42 UTC on the pot tops of trays 7 to 12, cells as Aaron
+recorded them (G on tray 7, which has plants and no tag sheet, and D on tray 8, which has no tag
+sheet: both take the median tag spacing scale of the tag sheets in the photo, less certain, about
+±0.8% in length). Three backgrounds, one after the other, each read with
+`experiments/round2-tagedge/squares.py` (each square matched by size and by its cell's distance
+from the tray tag; every match checked by eye on crops):
+
+1. **Open pot tops**, 10:45 to 11:58 UTC, 66 to 73 stills per square. Some squares lie over the
+   dark pot opening, some on the light plastic rim.
+2. **A dark layer under the squares**, laid by Aaron at 12:00 UTC, the plastic rims still in view;
+   12:05 to 13:15 UTC, about 69 stills (the last few while Aaron changed the layout; without the stills
+   after 13:10 every median moves by 0.2 points or less).
+3. **Black paper only** (0.33 mm thick), no plastic in view, from 13:19 UTC; 13:22 to 13:48 UTC,
+   26 stills.
+
+| Square | Size | Open pot tops | Dark layer | Black paper | Edge width on black paper (mm) |
+|---|---|---|---|---|---|
+| A | 10 mm | +16.8% | +34.2% | +28.5% | 0.71 |
+| B | 10 mm | +28.6% | +40.6% | +31.8% | 0.80 |
+| C | 10 mm | -27.1% | -18.0% | +9.0% | 0.22 |
+| D | 10 mm | +18.8% | +28.3% | +30.1% | 0.75 |
+| H | 20 mm | +23.1% | +24.3% | +18.2% | 0.91 |
+| E | 20 mm | +18.1% | +21.4% | +14.6% | 0.73 |
+| F | 20 mm | +4.4% | +7.5% | +9.2% | 0.46 |
+| G | 20 mm | -5.4% | -1.3% | -1.0% | -0.05 |
+| K | 40 mm | +11.2% | +9.7% | +8.0% | 0.79 |
+| L | 40 mm | +7.9% | +9.1% | +6.0% | 0.60 |
+| I | 55 mm | +4.2% | -1.9% | +6.5% | 0.89 |
+| J | 55 mm | +5.1% | +5.3% | +7.7% | 1.06 |
+
+Medians over the stills. Within one background each square repeats within ±3 points from still
+to still. Tables: `figures/18/squares-open.csv`, `squares-darklayer.csv`, `squares-paper.csv`.
+
+- **The background decides the sign and size of the error.** Over a dark opening the mask grows:
+  just outside the edge the pixels are dark (20 to 50 of 255) with green 5 to 20 counts above red
+  and blue, fading over about 12 px; the index divides by brightness, so these pass the threshold.
+  On a bright white rim the mask shrinks: square C read -27% there (figure 18d).
+- **On black paper every square but G reads high**, and the mask adds a strip 0 to 1.1 mm wide
+  (0.2 to 1.1 mm for all but G) at every edge: up to +32% on 10 mm squares, +18% on 20 mm, +8% on
+  40 and 55 mm. C and G looked paler, more brightly lit, than the others (figure 18e).
+
+![The squares on open pot tops: C on a bright rim, E, H over dark openings, G beside soil](figures/18/squares-open-crops.jpg)
+
+*Figure 18d. Squares C, E, G and H in still 105253_615512 (26 October 10:52:53 UTC), the mask
+outline in red. Made with `squares.py` and the crop code of this section.*
+
+![The squares on black paper](figures/18/squares-paper-crops.jpg)
+
+*Figure 18e. Squares B, C, F, G and J on black paper in still 134753_674253 (13:47:53 UTC).*
+
+**What this does and does not show.** It shows how the green threshold treats the edge of a flat,
+uniformly green object on these backgrounds. It does not give the segmentation error for plants:
+leaves are not flat or of one colour, and soil is neither black paper nor a pot opening. No error
+band for plant segmentation is derived from it (Aaron, 2026-10-26).
+
+### 18.6 The scale from tag spacing, checked on the stored photos (2026-10-26)
+
+**Label: development check.** The fix of #286 step 4 (branch `286-spacing-scale`): the scale field
+fitted to tag spacing instead of tag edges, and validation scored by tag spacing. Run read-only on
+stored tags with that branch's code:
+
+- The 22 October calibration (`20261022T072523939958`, photo `rig/2026-10-22/072523_939958`, 345
+  tags, 1,791 pairs) refitted: residual 0.66% (edges: 0.58%).
+- Against the tag sheets on the pots on 26 October 08:22 UTC (18.4), area read from scale alone:
+  **-1.6% to +1.5%** with the refitted scale, **+1.0% to +4.8%** with the scale in use (13 groups
+  of tags, 1 to 20 tags each).
+- The three stored validation rounds of 22 October, scored against the refitted scale by tag
+  spacing: table median +0.1%, +0.1% and +0.6% (limit 2.5%); slots -1.5% to +1.2%.

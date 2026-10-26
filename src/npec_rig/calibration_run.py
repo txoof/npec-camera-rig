@@ -9,10 +9,11 @@ A refused run and a run whose scale field cannot be built are answered, not rais
 returns a result with an `error` field, which the wizard shows next to the Run button.
 """
 
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
-from npec_rig import images, photo_tags
+from npec_rig import images, photo_tags, validation_store
 from npec_rig.calibration import (
     CalibrationArtifact,
     build_calibration_report,
@@ -22,6 +23,7 @@ from npec_rig.calibration_store import (
     calibration_frame_path,
     calibration_frame_url,
     load_current_calibration,
+    load_saved_calibration,
     save_calibration,
     stem_for_photo,
 )
@@ -236,3 +238,25 @@ def run(
     result["promoted_to_current"] = promote
     result["lens_position"] = lens_position
     return result
+
+
+def rebuild(stem: str) -> str:
+    """A twin of saved calibration `stem`, rebuilt from its own stored photo with the scale fitted
+    to tag spacing (#286), saved under a new stem and returned. Everything else is the original's:
+    its photo, corner baseline, lens position, calliper tag size and slot layout. The original's
+    file is not touched and the twin is not made current: photos taken under the original find
+    the twin by `calibration_store.twin_of`.
+    """
+    original = load_saved_calibration(stem)
+    tags = photo_tags.calibration_tags(original.frame_stem)
+    sizes = {d.tag_id: original.calibration_tag_size_mm for d in tags if d.tag_id in CALIBRATION_ID_RANGE}
+    now = datetime.now(timezone.utc)
+    twin = replace(
+        original, created_at=now.isoformat(), scale_field=build_scale_field(tags, sizes), rebuilt_from=stem
+    )
+    twin_stem = now.strftime("%Y%m%dT%H%M%S%f")
+    save_calibration(twin, stem=twin_stem, promote=False)
+    layout = validation_store.load_slot_layout(stem)
+    if layout is not None:
+        validation_store.save_slot_layout(twin_stem, layout["slots"], layout["calibration_centres"])
+    return twin_stem

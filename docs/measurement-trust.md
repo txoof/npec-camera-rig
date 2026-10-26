@@ -335,7 +335,21 @@ photos, so a single correction factor would not hold. A flat green square of 150
 reads 6.1% high: 3.5% from scale and 2.2% from where the green mask puts its edge. Raised onto
 the pots, at the calibration height, it reads 8.4% high: 4.9% from scale and 3.4% from the mask
 edge, so the mask edge also depends on what lies around an object.
-Being worked on in issue #286; metrology log sections 17.6 and 18.
+
+**The fix (2026-10-26, #286).** Calibration now fits the scale to tag spacing, and validation
+scores each tag by its tag spacing against the calibration, so the bands are measured against the
+printed distances, not against tag edges. Checked on stored photos (metrology log 18.6): against
+tag sheets on the pots, the 22 October calibration refitted this way reads -1.6% to +1.5% in area
+where the old one read +1.0% to +4.8%; its three validation rounds give a table median of +0.1% to
++0.6%. Calibrations made before the fix keep their edge-based scale until they are rebuilt from
+their stored photos.
+
+**The mask edge is not measured for plants.** Green test squares (metrology log 18.5) show the green
+threshold reading the area of a flat green object anywhere from 27% low to 41% high on a 10 mm
+square, depending on the background: it grows over dark backgrounds and shrinks on bright ones.
+On black paper it adds a strip 0 to 1.1 mm wide at every edge. That is a property of the threshold
+on those objects, not a band for plants: leaves and soil were not tested, and no band for plant
+segmentation is claimed.
 
 **Height above the tray.** About +0.145% of area per mm above the tray top. That figure comes from
 the camera's height (about 1482 mm, a best estimate with a tape measure, not a precise value); one test, a
