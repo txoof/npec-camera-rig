@@ -5866,9 +5866,11 @@ tray; their scale comes from the other trays' sheets and is left out of the comp
   sheets have no green.
 - **The mask edge follows the slot.** All three squares in North 2 read low for their size (10 mm
   +9.7% where the others read +28% to +30%, 20 mm +9.1% where the others read +13% to +17%), and G
-  in South 4 lowest. The black paper there is brighter (mean grey 87 to 92 around the squares in the
-  18:55:53 still, 50 to 81 elsewhere): the index divides by brightness, so the same faint green
-  tint passes on darker paper and not on brighter. Whether the tint is light reflected from the
-  square or blur is not separated.
+  in South 4 lowest. Within one size, brighter paper goes with a smaller error (mean grey of the
+  paper just outside each square in the 18:55:53 still): 10 mm, C 90 at +9.7% against A, B, D 57
+  to 73 at +28% to +30%; 20 mm, G 92 at -1.0%, F 87 at +9.1%, E 89 at +13.0%, H 81 at +16.9%. Not
+  for every square: L in North 2 sits on paper of 73. The index divides by brightness, so the same
+  faint green tint passes on darker paper and not on brighter. Whether the tint is light reflected
+  from the square or blur is not separated.
 
 Not covered: plants, soil, the lights' other levels, and any slot without a square.

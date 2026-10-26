@@ -351,7 +351,7 @@ On black paper it adds a strip 0 to 1.1 mm wide at every edge. That is a propert
 on those objects, not a band for plants: leaves and soil were not tested, and no band for plant
 segmentation is claimed. With the scale taken out (metrology log 18.7), the scale part at each square
 agrees with its slot's validation median within 0.5 points, while the mask edge is 6 to 30 times
-larger and changes from slot to slot with the brightness around the object: the validation bands
+larger and changes from slot to slot, mostly with the brightness around the object: the validation bands
 are right for the scale and say nothing about the mask.
 
 **Height above the tray.** About +0.145% of area per mm above the tray top. That figure comes from
