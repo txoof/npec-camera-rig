@@ -5874,3 +5874,67 @@ tray; their scale comes from the other trays' sheets and is left out of the comp
   from the square or blur is not separated.
 
 Not covered: plants, soil, the lights' other levels, and any slot without a square.
+
+### 18.8 Four green thresholds from the literature, tried on the squares (2026-10-26)
+
+**Label: development check.** The comment on #286 of 26 October 14:03 UTC lists the published ways
+to pick out green pixels. Aaron agreed in the session of 26 October to try them offline on the
+stored stills of 18.5 and 18.7. The method was agreed in that session and not written here before
+the run.
+
+**Method.** The same stills, read-only from `rig.db` and the photo files; nothing on the rig
+written. Each still was decoded once, and all four methods read the same tray crops. The scale is
+the tag spacing of the tag sheet on the square's tray, as in 18.5, so the error is the mask edge
+plus the scale part of 18.7 (under 1 point). The squares were found and matched the same way for
+every method (size, shape and distance from the tray tag, `squares.py`). The thresholds are the
+published values, not tuned on these squares:
+
+| Method | Rule | Source |
+|---|---|---|
+| exg (in use) | 2g - r - b above 0.1 and G above R, on r = R / (R + G + B) and so on | Woebbecke et al., 1995 |
+| canopeo | 2G - R - B above 20 on 8-bit values, R/G and B/G below 0.95 | Patrignani and Ochsner, 2015 (rule as reimplemented) |
+| exg_exr | (2g - r - b) - (1.4r - g) above 0 | Meyer and Camargo Neto, 2008 |
+| exg_otsu | 2g - r - b above an Otsu threshold chosen per tray crop, and G above R | common practice |
+
+Stills: pot tops 10:45 to 11:58 UTC (73), dark layer 12:05 to 13:10 (65), black paper 13:22 to
+18:55 (333), all at steady exposure. Code: `experiments/round2-tagedge/methods.py`, summary by
+`methods_summary.py`. Table per method, background and size: `figures/18/methods.csv`.
+
+**Results.** Edge width is the extra strip at every edge, (area - calliper area) / perimeter.
+Ranges are over single stills and all three backgrounds.
+
+| Method | Edge width, median by size | 10 mm squares | 20 mm squares | 55 mm squares | Squares found |
+|---|---|---|---|---|---|
+| exg (in use) | 0.56 to 0.90 mm | -33.8% to +45.9% | -6.9% to +26.3% | -2.3% to +8.6% | 97 to 100% |
+| canopeo | 0.61 to 0.99 mm | -9.7% to +42.6% | +0.3% to +25.4% | -1.3% to +9.1% | 99 to 100% |
+| exg_exr | 0.64 to 0.97 mm | -17.9% to +59.7% | -3.7% to +33.3% | -1.4% to +9.8% | 49 to 100% |
+| exg_otsu | 0.87 to 1.18 mm | +10.5% to +47.9% | +5.5% to +59.8% | -1.2% to +9.0% | 25 to 100% |
+
+- **None of the four removes the mask edge.** Every method reads the squares large by a strip of
+  about 0.6 to 1.0 mm at each edge (median), on every background.
+- **canopeo** finds every square and has fewer low readings on 10 mm squares (lowest -9.7% against
+  -33.8%), but its medians are no smaller than those of exg (10 mm on black paper +29.2% against
+  +28.1%).
+- **exg_exr and exg_otsu** miss up to half of the squares on some backgrounds, and exg_otsu reads
+  larger than exg.
+- **Recommendation, not yet decided: keep the green threshold in use (exg, 0.1).** No other method
+  narrows the strip.
+
+**What the strip means for small areas.** A strip of fixed width is a larger share of a small
+object: a square of side s gains about 4 x 0.7 / s of its area. Measured: 10 mm squares read
++17.7% to +31.5% (median by background), 55 mm squares +4.5% to +7.1%. Below 10 mm nothing was
+measured. Extended to smaller squares with the same strip (an extrapolation, not a measurement), 5
+mm would read about +56% and 3 mm about +93%, and a leaf has more edge for its area than a square.
+For plants below the 10 mm squares, such as the young plants of the potato run, the areas are
+therefore not measured, and the early part of a growth curve reads flatter than the plant grows,
+because the strip's share falls as the plant grows.
+
+**Agreed with Aaron (2026-10-26):** a green object below 100 mm² (a 10 mm square) has no measured
+error; one of about 100 mm² reads about 28% high on black paper (18.7). The floor of 17.7 (100 mm²
+per tray) was set from empty trays and is not an accuracy limit: 100 mm² on a tray may be several
+plants, each smaller.
+
+**Limits of the evidence.** Flat paper squares, not leaves or soil; three backgrounds and one
+light level; one camera position and focus; published thresholds only, none tuned. Why the strip
+is there (blur, reflected light or the JPEG's colour detail) is not separated. A trained model
+(the second literature comment on #286) was not tried.

@@ -90,9 +90,10 @@ def sheet_scale(tags, outline, manifest):
     return statistics.median(ratios) if ratios else None
 
 
-def squares_in(rgb_crop, offset, scale):
-    """Square green pieces in a crop: (pixels, centre x, centre y) in full-size pixels."""
-    mask = ExGSegmenter().segment(rgb_crop).astype(np.uint8)
+def squares_in(rgb_crop, offset, scale, segment=None):
+    """Square green pieces in a crop: (pixels, centre x, centre y) in full-size pixels. `segment`:
+    rgb -> bool mask, the green threshold when None (methods.py passes the others)."""
+    mask = (segment or ExGSegmenter().segment)(rgb_crop).astype(np.uint8)
     n, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
     found = []
     for k in range(1, n):
@@ -102,6 +103,40 @@ def squares_in(rgb_crop, offset, scale):
             continue
         found.append((int(area), centroids[k][0] + offset[0], centroids[k][1] + offset[1]))
     return found
+
+
+def match_squares(pieces, tray, tag, scale):
+    """One row per square of `tray` found among `pieces` (squares_in), by its calliper size and its
+    cell's distance from the tray tag. Takes found pieces out of `pieces`."""
+    rows = []
+    for letter, (sx, sy, sq_tray, cell) in SQUARES.items():
+        if sq_tray != tray:
+            continue
+        want_px = sx * sy * scale**2
+        want_from_tag = cell_offset_mm(cell) * scale
+        # Its own size, and its cell's distance from the tray tag within half a cell.
+        candidates = [
+            p for p in pieces
+            if 0.6 <= p[0] / want_px <= 1.6 and abs(math.dist(p[1:], tag.centre) - want_from_tag) < CELL_MM / 2 * scale
+        ]
+        if not candidates:
+            continue
+        piece = min(candidates, key=lambda p: abs(math.dist(p[1:], tag.centre) - want_from_tag))
+        pieces.remove(piece)
+        calliper = sx * sy
+        area = piece[0] / scale**2
+        perimeter = 2 * (sx + sy)
+        rows.append({
+            "square": letter, "tray": tray, "cell": cell,
+            "scale_px_per_mm": round(scale, 4), "pixels": piece[0],
+            "area_mm2": round(area, 2), "calliper_mm2": round(calliper, 2),
+            "error_pct": round(100 * (area / calliper - 1), 3),
+            "edge_width_mm": round((area - calliper) / perimeter, 4),
+            "edge_width_px": round((area - calliper) / perimeter * scale, 3),
+            "from_tag_mm": round(math.dist(piece[1:], tag.centre) / scale, 1),
+            "x_px": round(piece[1], 1), "y_px": round(piece[2], 1),
+        })
+    return rows
 
 
 def main(out, start, end):
@@ -133,33 +168,8 @@ def main(out, start, end):
             x1, y1 = min(int(max(xs)) + 1, bgr.shape[1]), min(int(max(ys)) + 1, bgr.shape[0])
             crop = cv2.cvtColor(bgr[y0:y1, x0:x1], cv2.COLOR_BGR2RGB)
             pieces = squares_in(crop, (x0, y0), scale)
-            for letter, (sx, sy, sq_tray, cell) in SQUARES.items():
-                if sq_tray != tray:
-                    continue
-                want_px = sx * sy * scale**2
-                want_from_tag = cell_offset_mm(cell) * scale
-                # Its own size, and its cell's distance from the tray tag within half a cell.
-                candidates = [
-                    p for p in pieces
-                    if 0.6 <= p[0] / want_px <= 1.6 and abs(math.dist(p[1:], tag.centre) - want_from_tag) < CELL_MM / 2 * scale
-                ]
-                if not candidates:
-                    continue
-                piece = min(candidates, key=lambda p: abs(math.dist(p[1:], tag.centre) - want_from_tag))
-                pieces.remove(piece)
-                calliper = sx * sy
-                area = piece[0] / scale**2
-                perimeter = 2 * (sx + sy)
-                rows.append({
-                    "capture": path, "square": letter, "tray": tray, "cell": cell, "exposure_us": exposure,
-                    "scale_px_per_mm": round(scale, 4), "scale_from": scale_from, "pixels": piece[0],
-                    "area_mm2": round(area, 2), "calliper_mm2": round(calliper, 2),
-                    "error_pct": round(100 * (area / calliper - 1), 3),
-                    "edge_width_mm": round((area - calliper) / perimeter, 4),
-                    "edge_width_px": round((area - calliper) / perimeter * scale, 3),
-                    "from_tag_mm": round(math.dist(piece[1:], tag.centre) / scale, 1),
-                    "x_px": round(piece[1], 1), "y_px": round(piece[2], 1),
-                })
+            for row in match_squares(pieces, tray, tag, scale):
+                rows.append({"capture": path, **row, "exposure_us": exposure, "scale_from": scale_from})
         print(f"{path}: {sum(r['capture'] == path for r in rows)} squares", file=sys.stderr, flush=True)
     with open(out / "squares.csv", "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0]))
