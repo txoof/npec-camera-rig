@@ -2,6 +2,7 @@
 Read only: rig.db is opened read-only and nothing under /var/lib/npec-rig/ is written.
 
     PYTHONPATH=src python experiments/round2-tagedge/measure.py OUT_DIR [--only STEM_OR_CAPTURE ...]
+        [--stills experiments/<folder>/stills/<date>/<HHMM> ...]   (experiment stills only)
 
 Writes OUT_DIR/sheets.csv (one row per photo and sheet) and OUT_DIR/skipped.csv, and prints them.
 Per pair of tags on one sheet and one manifest page, 30 to 90 mm apart by design:
@@ -68,7 +69,7 @@ def calibrations():
     return out
 
 
-def photos(db, cals):
+def photos(db, cals, extra=()):
     """[(kind, capture or stem, image path, sidecar path or None, calibration stem)] in time order."""
     found = {}
     for stem in cals:
@@ -93,6 +94,9 @@ def photos(db, cals):
     for prefix in EXTRA_PHOTOS:
         for jpg in sorted(DATA.glob(f"{prefix}*.jpg")):
             captures[str(jpg.relative_to(DATA).with_suffix(""))] = "experiment still (17.6)"
+    for prefix in extra:
+        for jpg in sorted(DATA.glob(f"{prefix}*.jpg")):
+            captures[str(jpg.relative_to(DATA).with_suffix(""))] = "experiment still"
     for capture, purpose in captures.items():
         if capture in found:
             continue
@@ -252,12 +256,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("out", type=Path)
     parser.add_argument("--only", nargs="*", help="photos (capture or stem) to measure, default all")
+    parser.add_argument("--stills", nargs="*", default=[], help="experiment still prefixes under DATA, measured alone")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
     cals = calibrations()
     manifest = load_manifest()
-    entries = photos(db, cals)
+    entries = photos(db, cals, args.stills)
+    if args.stills:
+        entries = [e for e in entries if any(e[1].startswith(p) for p in args.stills)]
     if args.only:
         entries = [e for e in entries if e[1] in args.only]
     rows, skipped = [], []

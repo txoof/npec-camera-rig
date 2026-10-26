@@ -332,7 +332,9 @@ measured with the calibration in use since 22 October therefore read 1.1% to 4.1
 alone, depending on the slot. Validation checks with the same edges, so its bands do not include this: **the bands
 above are measured against tag edges, not against true size.** The shortfall changes between
 photos, so a single correction factor would not hold. A flat green square of 150 mm by callipers
-reads 6.1% high: 3.5% from scale and 2.2% from where the green mask puts its edge.
+reads 6.1% high: 3.5% from scale and 2.2% from where the green mask puts its edge. Raised onto
+the pots, at the calibration height, it reads 8.4% high: 4.9% from scale and 3.4% from the mask
+edge, so the mask edge also depends on what lies around an object.
 Being worked on in issue #286; metrology log sections 17.6 and 18.
 
 **Height above the tray.** About +0.145% of area per mm above the tray top. That figure comes from

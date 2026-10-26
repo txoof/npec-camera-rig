@@ -5564,13 +5564,13 @@ median, by slot. (d) The same against the sheet's distance from the image centre
 needs no new photo. Read from `rig.db` (`tray_reading`, tray 10, read-only), 2,307 stills from
 23 October 14:05 to 25 October 20:39 UTC, with the calibration of 22 October.
 
-| Exposure | Stills | Area read, mm² (median, range) | Against callipers (22,455 mm²) |
+| Exposure | Stills | Area read, mm² (median, range) | Against callipers (22,455 mm², the re-measurement of 17.6) |
 |---|---|---|---|
 | 4,832 to 5,300 µs, gain 1.0 (lights on, steady) | 2,198 | 23,815 (23,724 to 23,889) | +6.1% (+5.7% to +6.4%) |
 | 5,404 to 29,932 µs, gain 1.0 to 1.5 (lights changing) | 95 | 23,773 (23,585 to 23,856) | +5.0% to +6.2% |
 | 30,036 to 50,771 µs, gain 2.0 | 8 | 23,621 (23,606 to 23,681) | +5.1% to +5.5% |
 
-Under steady light the area repeats within 0.7% (range), over two days. While the lights change it
+The first calliper measurement (17.5, 22,515.7 mm²) is 0.3% larger and would give +5.8% under steady light. Under steady light the area repeats within 0.7% (range), over two days. While the lights change it
 reads up to about 1% lower. Six dark photos (gain 4) find no target or part of it and are left out.
 
 **Where the 6% comes from, in the 23 October 14:16 still.** Two measured parts, no model:
@@ -5608,5 +5608,65 @@ millimetres south of the target, which raises the green channel there. Made with
   October 07:17 against 07:25) and between days.
 - The spacing is trusted from the print: the 180 mm bars agree with the design within 0.05%
   (section 3). Paper that curls would make spacing read short, the other direction.
-- The target's mask edge was measured on one still, on the blue tray. Not on soil, pots or leaves.
+- The target's mask edge was measured on one still, on the blue tray. Not on soil, pots or leaves
+  (on the pots: 18.4).
 - Nothing in the rig's code was changed.
+
+### 18.4 Sheets on the pots through a lights ramp, and the target raised (2026-10-26)
+
+**Label: development check.** Planned in issue #286 on 25 October, before the sheets went in: no
+camera setting was changed, so the chamber's own lights ramp is the only change in exposure.
+Before the first still of 26 October 07:44 UTC (lights off), Aaron put measured 30 mm sheets on the
+pots of trays 9, 11 and 12 (South 1, South 4, South 6 that day), moved the partial sheet of tray 10
+(North 1) from the tray top onto the pots, and moved the green target of 17.5 onto the pots too.
+Measured with `measure.py --stills` from the stored tags of every still, 26 October 00:00 to 08:22
+UTC, and for comparison 25 October 07:00 to 08:59 and 12:00 to 12:59 (the tray 10 sheet alone, on
+the tray top). Calibration of 22 October. Tables: `figures/18/sheets-2026-10-25.csv` and
+`sheets-2026-10-26.csv`.
+
+**Exposure.** Per sheet, the edge to spacing ratio:
+
+| Sheet | Lights on, 08:01 to 08:09 (11 to 61 ms, gain 1.5 to 4) | 08:12 to 08:22 (5 to 10 ms, gain 1.0) | Spacing scale over the ramp, px/mm |
+|---|---|---|---|
+| North 1 (pots) | 0.9725 to 0.9747 | 0.9750 to 0.9768 | 4.952 to 4.961 |
+| South 1 | 0.9758 to 0.9776 | 0.9781 to 0.9796 | 4.958 to 4.961 |
+| South 4 | 0.9822 to 0.9832 | 0.9825 to 0.9834 | 4.944 to 4.946 |
+| South 6 | 0.9842 to 0.9861 | 0.9861 to 0.9872 | 5.004 to 5.007 |
+
+On 25 October the tray 10 sheet gave 0.9715 to 0.9731 at 11 to 31 ms and 0.9756 to 0.9780 under
+steady light (4,988 µs, gain 1.0), with a spacing scale of 4.924 to 4.933 px/mm all day. So over a
+ramp the edges change by 0.1% to 0.5% in length while the spacing holds within 0.2%. Exposure moves
+the edge shortfall a little, but it does not explain most of it, and the sheets differ more from
+each other (0.975 to 0.987) than any one changes with exposure. In the stills with the lights off
+(66 ms, gain 4) the ratio is 0.986 to 0.995: the edges read close to the spacing in a dark photo.
+
+**The calibration against the sheets on the pots**, still 082253_610657, area read high from
+scale alone (`field_vs_spacing.py`): North 1 +4.5%, South 1 +3.6%, South 4 +1.6%, South 6 +3.4%.
+The values of 18.2's slot table for the same slots are +3.9%, +2.9%, +1.7% and +2.8%, taken from
+other sheets in other places within each slot.
+
+**The target raised onto the pots.** Tray 10's green pixel count went from 558,496 (median of 60
+stills, 25 October 12:00 UTC) to 570,067 (10 stills, 26 October 08:10 to 08:19 UTC), +2.1%. The tags
+of the North 1 sheet moved from 4.927 to 4.956 px/mm, which predicts +1.2% for the same move. Its
+area now reads 24,341 mm², +8.4% against the calliper area of 17.6:
+
+- **Scale, +4.9%.** The calibration's field at the target's centre is 4.839 px/mm, against 4.956
+  from the tags on the pots beside it. On the tray top the height difference had hidden part of
+  this (18.2: +3.5%).
+- **Mask edge, +3.4%.** At 4.956 px/mm the calliper side (149.86 mm) is 742.7 px. Across the middle
+  200 rows or columns the mask is 763.4 px west to east and 750.2 px north to south (+20.7 and +7.5
+  px). The mask ends 10.6 and 10.4 px outside the half-brightness point on the west and east edges
+  and 3.4 and 4.8 px on the north and south edges (figure 18c). On the west and east edges the green
+  channel rises slowly over about 10 px outside the target before its sharp edge.
+
+So the same target, moved about 9 mm up and onto another background, gained 1.2 points of mask
+edge error. The mask edge depends on what lies around and under an object, not only on the object.
+
+![Profiles across the four edges of the green target on the pots](figures/18/target-edges-2026-10-26-on-pots.png)
+
+*Figure 18c. The green target on the pots of tray 10 in still 082253_610657 (26 October 08:22:53
+UTC), as figure 18b. Made with `experiments/round2-tagedge/target_edges.py PHOTO 795 2041 OUT 742.7`.*
+
+**Limits.** One ramp, with the lights; exposure and light level change together. The sheets were
+not in the same places as in the calibration photo. The target's edges were measured on one still.
+Why the green channel rises outside the west and east edges is not shown.
