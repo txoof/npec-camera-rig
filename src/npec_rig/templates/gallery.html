@@ -151,6 +151,13 @@
         hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
     }
 
+    // Each exclusion but lights off (#288, GLOSSARY.md), in plain words.
+    const EXCLUDED = {
+      "light changing": "Light changing",
+      "light disturbed": "Light briefly changed",
+      "light off norm": "Light not at its usual level",
+    };
+
     function traysHtml(trays, purpose) {
       // Only captures are read in the background; validation, calibration and tripwire photos are
       // skipped, and say so (Aaron, 2026-10-22).
@@ -158,8 +165,9 @@
         return `<div>Trays: skipped, ${purpose} photos are not read for trays automatically. Tap Tags to read this one.</div>`;
       }
       if (!trays) return "<div>Trays: not read yet. Tap Tags to read this photo.</div>";
-      // A photo taken in the dark holds no plant data (#288); trays found in it are still listed.
-      const dark = trays.light === "dark, no data";
+      // A photo taken with the lights off holds no plant data (#288); trays found in it are still
+      // listed. Other exclusions keep the areas on show, said to be left out.
+      const dark = trays.exclusion === "lights off";
       const darkLine = "Photo taken with the lights off. No plant areas.";
       if (dark && trays.status !== "read") return `<div>${darkLine}</div>`;
       if (trays.status !== "read") return `<div>Trays: not placed, ${TRAY_STATUS[trays.status] ?? trays.status}.</div>`;
@@ -178,6 +186,7 @@
       const measured = dark ? [] : trays.trays.filter((t) => t.area_mm2 !== null && t.area_mm2 !== undefined);
       let table = "";
       if (measured.length) {
+        if (EXCLUDED[trays.exclusion]) lines.push(`${EXCLUDED[trays.exclusion]}. These plant areas are left out.`);
         lines.push(`Plant area, ${ui.esc(measured[0].segmenter)}, uncertainty not measured yet:`);
         // The floor (#288): an empty tray reads up to about this much, so the rig cannot tell a
         // smaller plant from an empty tray. The number read stays stored, never subtracted (Aaron).
@@ -197,7 +206,8 @@
     function traysLine(trays, purpose) {
       if (!trays && purpose !== "capture") return `Trays: skipped, a ${purpose} photo. Tap Tags to read it.`;
       if (!trays) return "Trays: not read yet. Tap Tags to read it.";
-      if (trays.light === "dark, no data") return "Lights off. No plant areas.";
+      if (trays.exclusion === "lights off") return "Lights off. No plant areas.";
+      if (EXCLUDED[trays.exclusion]) return `${EXCLUDED[trays.exclusion]}. Areas left out.`;
       if (trays.status !== "read") return "Trays: not placed. Info says why.";
       const changed = trays.not_found.length || trays.moved.length;
       return `Trays found: ${trays.trays.length}.` + (changed ? " Changes, see Info." : "");

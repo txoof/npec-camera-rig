@@ -190,6 +190,21 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "ALTER TABLE tray_reading ADD COLUMN calibration TEXT",  # the calibration area_mm2 was worked out with
         ),
     ),
+    (
+        10,
+        "exclusions: why a photo's plant areas are left out, worked out again as photos come (#288)",
+        (
+            """
+            CREATE TABLE exclusion (
+                capture_id INTEGER PRIMARY KEY REFERENCES capture (id),
+                name TEXT,                       -- lights off, light changing, light disturbed, light off norm; NULL: none
+                norm_e REAL,                     -- the norm (exposure us x gain) it was worked out with; NULL until there is one
+                limit_fraction REAL,             -- how far from the norm counts as off it, e.g. 0.21
+                worked_out_at TEXT NOT NULL      -- UTC, ISO 8601
+            )
+            """,
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -396,6 +411,24 @@ def tray_readings(capture_id: int) -> dict | None:
     ]
     return {"read_at": read["read_at"], "status": read["status"], "trays": trays, "not_found": not_found, "moved": moved}
 
+
+
+def record_exclusions(rows: list[dict], *, worked_out_at: str) -> None:
+    """Save each photo's exclusion (`capture_id`, `name`, `norm_e`, `limit_fraction`), replacing
+    what was saved before."""
+    with _connect() as conn:
+        conn.executemany(
+            "INSERT OR REPLACE INTO exclusion (capture_id, name, norm_e, limit_fraction, worked_out_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            [(r["capture_id"], r["name"], r["norm_e"], r["limit_fraction"], worked_out_at) for r in rows],
+        )
+
+
+def exclusion(capture_id: int) -> dict | None:
+    """Photo `capture_id`'s saved exclusion row, None when none has been worked out."""
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM exclusion WHERE capture_id = ?", (capture_id,)).fetchone()
+    return dict(row) if row else None
 
 
 def unread_photos(limit: int, since: str) -> list[str]:
