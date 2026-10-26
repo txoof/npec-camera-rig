@@ -174,11 +174,13 @@
       const measured = trays.trays.filter((t) => t.area_mm2 !== null && t.area_mm2 !== undefined);
       let table = "";
       if (measured.length) {
-        // Until #286 is closed: a flat green square of known size reads about 6% high (scale and
-        // mask edge together, metrology log 17.6 and 18). Small plants are mostly edge, and the
-        // edge error's size and direction on plants is not measured (red shapes read small, 15.5).
+        // Until #286 is closed: the scale reads areas 1 to 5% high (metrology log 18), and the
+        // green mask's edge error is not measured for plants; on flat green test squares it was
+        // -27% to +41% at 10 mm and up to 8% at 55 mm, by background (18.5). Wording: Aaron, 2026-10-26.
         lines.push(`<div class="banner" style="margin: 8px 0">${ui.icon("warn")}<p><strong>Warning: plant areas are not yet correct.</strong> `
-          + "A flat green square of 150 mm reads 6% high. Small plants may be further off, in either direction. Being checked, issue #286.</p></div>");
+          + "The scale reads them 1% to 5% high, and the green mask adds an error that has not been measured for plants. "
+          + "On flat green test squares that error was 27% low to 41% high for 10 mm squares and up to 8% for 55 mm squares. "
+          + "Being fixed, issue #286.</p></div>");
         lines.push(`Plant area, ${ui.esc(measured[0].segmenter)}, uncertainty not measured yet:`);
         const rows = measured.map((t) =>
           `<tr><td>${t.tray_id}</td><td style="text-align: left">${ui.esc(t.slot)}</td><td>${Math.round(t.area_mm2).toLocaleString("en-US")}</td></tr>`).join("");
