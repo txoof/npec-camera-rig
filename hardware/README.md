@@ -11,6 +11,7 @@ AprilTag corner mounts, and how to export multi-color prints.
 |---|---|
 | `camera_rig/` | Printable rig parts: brackets, slide pocket, camera mount, AprilTag corner mount, and `rig_assembly.scad`, the assembled mockup |
 | `tray_tags/` | `apriltag_tray_tag.scad`, the per-tray AprilTag |
+| `calibration_targets/` | `calibration_squares.scad`, flat green squares of known size on one plate, see `calibration_targets/README.md` |
 | `libraries/` | Modules other files `use`: vendored BOSL2, T-slot extrusion and bolt stand-ins, purchased-part stand-ins for the mockup (cold shoe stud, mini ball head), AprilTag geometry and bit data |
 | `exports/` | STL and 3MF exports, in subfolders mirroring the source folders |
 | `images/` | Preview renders for the docs, made by `render_images.sh` |
@@ -39,6 +40,7 @@ purchased parts in place. Step-by-step assembly pictures are in [Installation.md
 | <img src="images/m5_slide_pocket.png" alt="slide pocket" width="160"> | Slide pocket (cold shoe holder) | `m5_slide_pocket.scad` | not recorded | not recorded | layer lines perpendicular to the pocket's short dimension, for strength |
 | <img src="images/arducam64_mount.png" alt="camera mount" width="160"> | Camera mount | `arducam64_mount.scad` | 80% | no | flat on bed as in file |
 | <img src="images/tray_tags/style_lip_round.png" alt="tray tag" width="160"> | Tray tags | `apriltag_tray_tag.scad` | 20-30% | no | as in STL and 3MF files |
+| | Calibration squares (**green filament**) | `calibration_targets/calibration_squares.scad` | 100% (solid, 0.568 mm thick) | no | flat on bed as in file |
 
 **L brackets.** The purchased aluminium brackets in [Bill-of-Materials.md](Bill-of-Materials.md)
 are preferred; print these only as a substitute. Both files model the bracket standing up: one
