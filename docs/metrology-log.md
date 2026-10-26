@@ -5738,7 +5738,8 @@ from the tray tag; every match checked by eye on crops):
 1. **Open pot tops**, 10:45 to 11:58 UTC, 66 to 73 stills per square. Some squares lie over the
    dark pot opening, some on the light plastic rim.
 2. **A dark layer under the squares**, laid by Aaron at 12:00 UTC, the plastic rims still in view;
-   12:05 to 13:10 UTC, about 69 stills.
+   12:05 to 13:15 UTC, about 69 stills (the last few while Aaron changed the layout; the medians
+   barely move without them).
 3. **Black paper only** (0.33 mm thick), no plastic in view, from 13:19 UTC; 13:22 to 13:48 UTC,
    26 stills.
 
