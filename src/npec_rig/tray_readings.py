@@ -32,6 +32,16 @@ logger = logging.getLogger(__name__)
 # What makes each mask. One line to change for another segmenter: every area records its name.
 SEGMENTER: segmentation.Segmenter = segmentation.ExGSegmenter()
 
+# A photo whose exposure (us) times analogue gain is at least this was taken in the dark: the
+# camera at its auto-exposure ceiling (64 ms at gain 4.0, about 256,000), against under 10,000
+# lit (experiments 16 and 18, metrology log 17.7). A decision, not a measurement (#288), checked in #293.
+DARK_EXPOSURE_GAIN = 200_000
+
+# Each segmenter's floor, by its name: an area below it means nothing detected yet. Empty
+# trays read up to 98 mm2 with the green threshold, mostly one light-blue mark per tray (metrology
+# log 17.4). Reported with each area, never subtracted (Aaron). A decision (#288), checked in #293.
+FLOORS_MM2 = {"green threshold, 0.1": 100}
+
 # Seconds between looks for photos not yet read, when there are none. One reading took 9.6 s to
 # 12.5 s (metrology log 15.5m), so a photo a minute leaves the reader idle most of the time.
 POLL_S = 5.0
@@ -77,7 +87,10 @@ def read_photo(path: str, *, reuse_mask: bool = False) -> dict:
     return it as `photo_readings` would. The tags are searched once per photo (photo_tags). With
     `reuse_mask`, a mask saved by the same segmenter is counted again instead of segmenting the
     photo: Reprocess, which then needs neither the photo nor the segmenter."""
-    capture_id = _capture_id(path)
+    record = database.captures_by_path([path]).get(path)
+    if record is None:
+        raise LookupError(f"photo {path} has no record in rig.db")
+    capture_id = record["id"]
     saved = database.tray_readings(capture_id)
     tags = photo_tags.photo_tags_for(path)
     # No tag of any kind, as with the lights off (metrology log 15.5l): not trays missing.
@@ -96,7 +109,7 @@ def read_photo(path: str, *, reuse_mask: bool = False) -> dict:
             "calibration": calibration if m else None,
         })
     database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
-    return database.tray_readings(capture_id)
+    return capture_readings(record)
 
 
 class ReadingWorse(RuntimeError):
@@ -146,8 +159,33 @@ def _measures(
 
 
 def photo_readings(path: str) -> dict | None:
-    """Photo `path`'s saved tray readings (`database.tray_readings`), None when not yet read."""
-    return database.tray_readings(_capture_id(path))
+    """Photo `path`'s saved tray readings (`database.tray_readings`), None when not yet read, with
+    `light`: the photo's light mark (`light_mark`), and each tray's `floor_mm2` (`FLOORS_MM2`,
+    None for a segmenter without one). Both worked out when shown, so they cover older photos."""
+    record = database.captures_by_path([path]).get(path)
+    if record is None:
+        raise LookupError(f"photo {path} has no record in rig.db")
+    return capture_readings(record)
+
+
+def capture_readings(capture: dict) -> dict | None:
+    """`photo_readings` for a photo whose rig.db row `capture` is already at hand."""
+    readings = database.tray_readings(capture["id"])
+    if readings is not None:
+        readings["light"] = light_mark(capture)
+        for tray in readings["trays"]:
+            tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
+    return readings
+
+
+def light_mark(capture: dict) -> str | None:
+    """Why the light of photo `capture` (its rig.db row) makes its areas no reading, or None.
+    "dark, no data": taken with the lights off, decided from the photo's own exposure and gain,
+    never from the time of day (#288). A photo with no exposure or gain recorded is not marked."""
+    exposure, gain = capture.get("exposure_us"), capture.get("analogue_gain")
+    if exposure is not None and gain is not None and exposure * gain >= DARK_EXPOSURE_GAIN:
+        return "dark, no data"
+    return None
 
 
 class TrayReader:
