@@ -5824,3 +5824,51 @@ stored tags with that branch's code:
   of tags, 1 to 20 tags each).
 - The three stored validation rounds of 22 October, scored against the refitted scale by tag
   spacing: table median +0.1%, +0.1% and +0.6% (limit 2.5%); slots -1.5% to +1.2%.
+
+### 18.7 The squares split into scale and mask edge, against validation (2026-10-26)
+
+**Label: development check.** After the fix was applied on the live rig (26 October 15:32 UTC: the
+22 October calibration rebuilt as twin `20261026T153214381640`, its validation scored again as
+session `20261026T153214526314`, experiment 18 reprocessed), the squares of 18.5 on black paper read
+from 13:22 to 18:55 UTC: 334 stills per square, all twelve found in every one (table:
+`figures/18/squares-paper-long.csv`).
+
+**Steady over time.** Each square's hourly median stays within 1 point over the 5.5 hours, except B
+(+30.9% falling to +26.9%). From still to still a 10 mm square varies by about ±6 points, a 20 mm by
+±3, 40 and 55 mm by ±1. Between squares of one size the spread stays: 10 mm +3% to +41% in single
+stills (medians +9.7% to +29.9%), 20 mm -5% to +22% (-1.0% to +16.9%), 40 mm +5% to +9%, 55 mm +6%
+to +9%.
+
+**The split.** Each square's error read with the twin's scale field (what the rig reports) is the
+sum of two parts: the scale error at the square, (tag spacing of the tag sheet on its tray / the
+twin's scale there)^2 - 1, and the mask edge, measured against that tag spacing (18.5). The scale
+part set against the rescored validation median of the square's slot:
+
+| Square | Slot (tray) | Scale error at the square | Validation median, slot | Total | Mask edge |
+|---|---|---|---|---|---|
+| A, 10 mm | South 1 (9) | +0.26% | +0.22% | +28.8% | +28.5% |
+| K, 40 mm | South 1 (9) | +0.18% | +0.22% | +8.1% | +7.9% |
+| I, 55 mm | South 1 (9) | -0.15% | +0.22% | +6.3% | +6.5% |
+| B, 10 mm | South 6 (11) | +0.36% | +0.63% | +29.2% | +28.7% |
+| H, 20 mm | South 6 (11) | +0.66% | +0.63% | +17.6% | +16.9% |
+| E, 20 mm | South 6 (11) | +0.90% | +0.63% | +14.0% | +13.0% |
+| C, 10 mm | North 2 (12) | +0.37% | +0.77% | +10.1% | +9.7% |
+| F, 20 mm | North 2 (12) | +0.45% | +0.77% | +9.6% | +9.1% |
+| L, 40 mm | North 2 (12) | +0.86% | +0.77% | +6.9% | +6.0% |
+| J, 55 mm | North 6 (10) | +0.45% | -0.03% | +7.9% | +7.4% |
+
+Medians over the 334 stills. D (North 1, tray 8) and G (South 4, tray 7) have no tag sheet on their
+tray; their scale comes from the other trays' sheets and is left out of the comparison.
+
+- **The scale part agrees with validation**: within 0.5 points of the slot's median in every slot,
+  inside the slot bands (95% at ±1.2% to ±1.7%). The bands are right for what they measure.
+- **The mask edge is 6 to 30 times the scale part**, and no band covers it: validation's tag
+  sheets have no green.
+- **The mask edge follows the slot.** All three squares in North 2 read low for their size (10 mm
+  +9.7% where the others read +28% to +30%, 20 mm +9.1% where the others read +13% to +17%), and G
+  in South 4 lowest. The black paper there is brighter (mean grey 87 to 92 around the squares in the
+  18:55:53 still, 50 to 81 elsewhere): the index divides by brightness, so the same faint green
+  tint passes on darker paper and not on brighter. Whether the tint is light reflected from the
+  square or blur is not separated.
+
+Not covered: plants, soil, the lights' other levels, and any slot without a square.
