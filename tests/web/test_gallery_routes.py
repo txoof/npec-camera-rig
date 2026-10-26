@@ -404,3 +404,25 @@ def test_tray_readings_give_each_trays_plant_area_and_segmenter(monkeypatch) -> 
     tray = client.get(f"/api/captures/trays/{path}").json()["trays"][0]
     assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)
     assert tray["segmenter"] == "green threshold, 0.1"
+
+
+def test_each_photo_in_the_list_carries_its_light_mark_and_each_area_its_floor(monkeypatch, isolated_calibration_dir) -> None:
+    """#288: a photo taken in the dark (64,022 us at gain 4.0, a real photo of experiment 18) is
+    marked so, and each tray area shows the green threshold's floor, 100 mm2 (Aaron, 2026-10-26)."""
+    from npec_rig import tray_readings
+    from npec_rig.camera import CameraManager, SyntheticBackend
+
+    class Dark(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            return frame, {**metadata, "ExposureTime": 64_022, "AnalogueGain": 4.0}
+
+    _layout_2_calibration(monkeypatch)
+    CameraManager.set_instance(CameraManager(Dark()))
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    tray_readings.read_photo(path)
+
+    trays = {i["path"]: i for i in client.get("/api/captures").json()}[path]["trays"]
+    assert trays["light"] == "dark, no data"
+    assert [t["floor_mm2"] for t in trays["trays"]] == [100] * 12
