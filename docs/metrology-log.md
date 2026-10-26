@@ -5433,6 +5433,42 @@ is shown as "under 100" in the gallery. Reported with each area, never subtracte
 empty trays read 27 to 78 mm² (median per tray and day) and at most 98 mm² outside shuffle 1.
 *Limits:* one run, trays 9 to 12; one value for every tray and slot.
 
+### 17.8 Light exclusions: how far the light moves (method written 2026-10-26, before the data was read)
+
+**Label: development check.** #288 part 2 leaves out the plant areas of photos taken while the
+light is changing, briefly disturbed, or steady at a level away from the experiment's norm
+(exclusions, `GLOSSARY.md`). Three values are open: how far from the norm counts as off norm,
+how large a step from one photo to the next counts as the light changing, and how many photos
+still count as a short run. This section sets out how they are chosen from photos already taken.
+
+**Data.** `rig.db`, read-only, the photos taken as captures of experiments 16 (potato run, 20 to
+21 October) and 18 (Round 2, from 22 October). For each photo: its time, exposure (µs) and
+analogue gain, and their product E (exposure times gain), which the camera's auto-exposure raises
+as the light falls. Photos with E of 200,000 or more are lights off (17.7) and are not used.
+Script `experiments/round2-light/light_review.py`; its tables and charts go to `docs/figures/17/`.
+
+**Questions.**
+
+1. *Steady light.* In each experiment's first full 24 hours, outside the fades, how far does E
+   move from one photo to the next, and how far from its median (the norm)? Reported as the
+   ratio to the previous photo and to the median, median and 99th percentile and largest.
+2. *Fades.* In every fade of both experiments (the stretches either side of lights off where E
+   leaves its steady range): how long they last, how many photos, and the step from one photo to
+   the next. The steps of question 1 against these show whether one value separates them.
+3. *Shuffle 1* (23 October 08:43 to 08:56 UTC, people at the table, 17.4): does E move, by how
+   much, and for how many photos? If it does not move, people at the table are left to the
+   visits rule (#288 part 3), not to the light rules.
+4. *Lit levels.* How many steady lit levels each experiment has. With one level only, no photo
+   shows what a different steady level does, and the off norm value has no data behind it.
+
+**How the values are chosen.** Shown to Aaron as tables before any value is fixed, then written
+here as decisions with the numbers they rest on. A value with no data behind it is left out of
+the rules, and that is said here.
+
+**Limits, as planned.** Two experiments, one chamber, one light program with fades. E is what
+the camera did, not a light measurement: a change in E is the camera adjusting, whatever the
+cause. Nothing here shows that areas read under a different steady level match the norm's.
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from
