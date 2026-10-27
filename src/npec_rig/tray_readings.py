@@ -9,6 +9,7 @@ earlier photos when the readings are shown.
 """
 
 import logging
+import math
 import sqlite3
 import threading
 from datetime import UTC, datetime
@@ -25,7 +26,7 @@ from npec_rig.calibration_store import (
     load_saved_calibration,
 )
 from npec_rig.tags import TagDetection
-from npec_rig.tray_placement import TrayPlacement, place_trays
+from npec_rig.tray_placement import TRAY_SIZE_MM, TrayPlacement, place_trays
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,8 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
     # No tag of any kind, as with the lights off (metrology log 15.5l): not trays missing.
     status, placed = placements(path, tags) if tags else ("no tags found", [])
     reuse = reuse_mask and _saved_by_this_segmenter(saved)
-    calibration, measures, outside = _measures(path, record["calibration"], placed, reuse) if placed else (None, {}, {})
+    calibration, measures = _measures(path, record["calibration"], placed, reuse) if placed else (None, {})
+    size = _photo_size(path) if placed else None
     _refuse_worse(path, saved, status, measures)
     trays = []
     for p in placed:
@@ -113,7 +115,7 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
             "area_mm2": m.area_mm2 if m else None, "segmenter": SEGMENTER.name if m else None,
             "plant_px": m.plant_px if m else None,
             "plant_centre_px": list(m.centre_px) if m and m.centre_px else None,
-            "calibration": calibration if m else None, "outside_mm": outside.get(p.tray_id),
+            "calibration": calibration if m else None, "outside_mm": outside_mm(p, size) if size else None,
         })
     database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
     exclusions.update(record)
@@ -143,9 +145,8 @@ def _saved_by_this_segmenter(saved: dict | None) -> bool:
 
 def _measures(
     path: str, photo_calibration: str, placed: list[TrayPlacement], reuse_mask: bool = False
-) -> tuple[str | None, dict[int, segmentation.PlantMeasure], dict[int, float]]:
-    """The calibration used, each placed tray's plant measure and how far its outline reaches past
-    the photo edge in mm (`_outside_mm`), both by tray ID, from the full-size
+) -> tuple[str | None, dict[int, segmentation.PlantMeasure]]:
+    """The calibration used and each placed tray's plant measure, by tray ID, from the full-size
     photo's mask: the saved one with `reuse_mask`, else a new one, saved for Reprocess. Empty when
     the photo cannot be segmented: the trays are still placed. Plant in the strip two touching
     trays share counts once, for the tray with the nearer centre (`segmentation.measure_trays`)."""
@@ -157,19 +158,29 @@ def _measures(
             mask = _segment(path)
         trays = [(p.outline, p.centre) for p in placed]
         measures = segmentation.measure_trays(mask, trays, scale_field)
-        outside = {p.tray_id: _outside_mm(p, mask.shape, scale_field) for p in placed}
-        return stem, {p.tray_id: m for p, m in zip(placed, measures, strict=True)}, outside
+        return stem, {p.tray_id: m for p, m in zip(placed, measures, strict=True)}
     except Exception:
         logger.exception("Could not work out the plant areas of %s", path)
-        return None, {}, {}
+        return None, {}
 
 
-def _outside_mm(p: TrayPlacement, shape: tuple[int, int], scale_field) -> float:
-    """How far tray `p`'s outline reaches past the edge of a photo of `shape` (height, width), at
-    its farthest corner, in mm at the tray's centre; 0 when it lies inside."""
-    h, w = shape
-    past = max(max(-x, x - w, -y, y - h, 0.0) for x, y in p.outline)
-    return past / scale_field.px_per_mm(*p.centre)
+def _photo_size(path: str) -> tuple[int, int] | None:
+    """Photo `path`'s width and height in pixels, from its file's header, or None without it."""
+    try:
+        with Image.open(photo_file(path)) as image:
+            return image.size
+    except OSError:
+        return None
+
+
+def outside_mm(p: TrayPlacement, size: tuple[int, int]) -> float:
+    """How far tray `p`'s outline reaches past the edge of a photo of `size` (width, height), at
+    its farthest corner, in mm; 0 when it lies inside. Converted at the scale the outline was
+    drawn with: its width is the tray's 305 mm (`TRAY_SIZE_MM`)."""
+    w, h = size
+    (x0, y0), (x1, y1) = p.outline[0], p.outline[1]
+    px_per_mm = math.hypot(x1 - x0, y1 - y0) / TRAY_SIZE_MM[0]
+    return max(max(-x, x - w, -y, y - h, 0.0) for x, y in p.outline) / px_per_mm
 
 
 def _segment(path: str) -> np.ndarray:

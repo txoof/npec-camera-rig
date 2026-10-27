@@ -162,8 +162,8 @@ def test_a_tray_more_than_13_mm_past_the_photo_edge_is_marked_partly_outside(
 ) -> None:
     """#282 item 1: `one_tray_plant_scene`'s tray outline reaches x 3165 and y 4214 at 10 px/mm.
     In a photo 3015 px wide its east side is 150 px (15 mm) past the edge; in one 4164 px high
-    its south side is 50 px (5 mm) past. Marked only beyond 13 mm, the widest measured outer wall,
-    where plants can grow (a decision, Aaron, 2026-10-27)."""
+    its south side is 50 px (5 mm) past. Marked only beyond 13 mm, the widest measured outer wall:
+    up to there only wall is outside, beyond it plants can be (a decision, Aaron, 2026-10-27)."""
     from npec_rig.camera import CameraManager, SyntheticBackend
     from tests.helpers import MINT_LEAF_RGB
 
