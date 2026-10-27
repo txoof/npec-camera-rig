@@ -156,6 +156,51 @@ def test_each_trays_area_keeps_its_plant_pixel_count_centre_and_calibration(monk
     assert tray["calibration"] == FIXTURE["calibration"]
 
 
+def _two_touching_trays_scene(monkeypatch) -> None:
+    """`one_tray_plant_scene` with a second tray touching it on the east, in a 6400 x 4400 photo.
+
+    Tray 5's outline is x 115 to 3165 (as in `one_tray_plant_scene`), centre x 1640. Tray 7's tag
+    lies 3025 px east of tray 5's, so its outline is x 3140 to 6190, centre x 4665: the outlines
+    share x 3140 to 3165, and the point midway between the centres is x 3152.5. A 500 x 300 px mint
+    rectangle at x 2900 to 3400, y 2200 to 2500 (1500 mm2) crosses the strip: columns 2900 to 3152
+    (253 x 300 px, 759 mm2) are nearer tray 5, columns 3153 to 3399 (247 x 300 px, 741 mm2) nearer
+    tray 7."""
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB
+
+    one_tray_plant_scene(monkeypatch)
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[2200:2500, 2900:3400] = MINT_LEAF_RGB
+            return frame, metadata
+
+    stem = FIXTURE["calibration"]
+    validation_store.save_slot_layout(
+        stem,
+        [{"name": "North 1", "centre": [1640, 2384], "box": [100, 500, 3200, 4300]},
+         {"name": "North 2", "centre": [4665, 2384], "box": [3125, 500, 6225, 4300]}],
+        [],
+    )
+    tags = [TagDetection(5, ((400, 3600), (800, 3600), (800, 4000), (400, 4000)), (600, 3800)),
+            TagDetection(7, ((3425, 3600), (3825, 3600), (3825, 4000), (3425, 4000)), (3625, 3800))]
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: tags)
+    CameraManager.set_instance(CameraManager(Scene(width=6400, height=4400)))
+
+
+def test_plant_in_the_strip_touching_trays_share_is_counted_once_for_the_nearer_tray(monkeypatch) -> None:
+    """#282, the rule of 2026-10-23 (Aaron): the two trays' areas add up to the plant, 1500 mm2,
+    not more, and each tray has its own part (`_two_touching_trays_scene`)."""
+    _two_touching_trays_scene(monkeypatch)
+
+    trays = {t["tray_id"]: t for t in tray_readings.read_photo(_photo())["trays"]}
+    assert trays[5]["area_mm2"] + trays[7]["area_mm2"] == pytest.approx(1500, rel=0.01)  # 1%: JPEG blur
+    assert trays[5]["area_mm2"] == pytest.approx(759, rel=0.01)
+    assert trays[7]["area_mm2"] == pytest.approx(741, rel=0.01)
+
+
 def test_a_photo_takes_its_area_from_the_rebuilt_twin_of_its_calibration(monkeypatch) -> None:
     """Part B, test point 2 (#286). `one_tray_plant_scene`: 150,000 plant px under a calibration of
     10.0 px/mm, 1500 mm2. A twin rebuilt from that calibration at 10.0 x 5.00 / 4.90 px/mm (the

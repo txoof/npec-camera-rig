@@ -5642,6 +5642,35 @@ larger plant or another segmenter would give false marks, and larger plants will
 mm² with no one there. A visit that changes no area by that much (27 October 09:45 CET) is not
 seen. To be checked again with the light values in #296.
 
+### 17.10 Touching trays: plant in a shared strip counted once (#282, 2026-10-27)
+
+**Label: development check.** The method was not written before the check was run; this is a
+check that a code change does what it should on real photos, not a measurement of accuracy.
+
+*The change.* Where two tray outlines overlap, a plant pixel now counts only for the tray whose
+centre is nearer the pixel's centre (Aaron, 2026-10-23); at the same distance, for the lower tray
+in the list. A pixel inside one outline only stays with that tray. Before, it counted in both.
+The review of #281 measured trays 5 and 7 sharing 2,249 to 2,932 px of outline (about 100 to
+125 mm² of tray) on the 23 October photos.
+
+*How it was checked.* `experiments/round2-touching/overlap_check.py`, read-only on `rig.db`
+and the saved masks: each tray's outline rebuilt from its stored centre, tilt and the
+calibration's scale, then measured the old way (each tray alone) and the new way (all trays
+together). The old areas matched the stored ones exactly, so the rebuilt outlines are the ones
+the rig used.
+
+*Results* (experiment 18, "Potato Plants v001"):
+
+| Photo (UTC) | All trays, old | All trays, new | Trays that change |
+|---|---|---|---|
+| 23 Oct 11:34:53 (113453_600583) | 4,794.4 mm² | 4,794.4 mm² | none: no plant in a shared strip |
+| 23 Oct 11:35:53 (113553_609273) | 4,702.1 mm² | 4,702.1 mm² | none |
+| 27 Oct 14:34:53 (143453_829671) | 40,227.9 mm² | 40,227.5 mm² | tray 10 −0.4 mm², tray 1 less than 0.1 mm² |
+
+*Limits.* Three photos, one experiment. The change matters as leaves grow over the tray walls;
+its size then is not measured. Photos read before the change keep their areas until Reprocess,
+and nothing stored tells the two rules apart.
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from
