@@ -9,8 +9,6 @@ Writes OUT_DIR/edges.csv: one row per method, square and still, the same columns
 
 import csv
 import math
-import sqlite3
-import statistics
 import sys
 from pathlib import Path
 
@@ -18,12 +16,8 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from measure import load_manifest  # noqa: E402
 from methods import exg  # noqa: E402
-from squares import (  # noqa: E402
-    DATA, DB, SQUARES, STEADY_EXPOSURE_US, match_squares, sheet_scale, squares_in, stills, stored_tags,
-    tray_outlines,
-)
+from squares import SQUARES, match_squares, squares_in, tray_crops  # noqa: E402
 
 MARGIN_PX = 30  # box around the square
 INNER_PX = 8  # mask shrunk by this for the square's level
@@ -44,17 +38,21 @@ def _disc(r):
 
 
 def edge_areas(rgb_box, mask_box):
-    """Pixel counts of the square in a box by each edge method, from its exg mask in that box."""
+    """Pixel counts of the square in a box by each edge method, from its exg mask in that box; None
+    when the background is as green as the square."""
     mask = mask_box.astype(np.uint8)
     inner = cv2.erode(mask, _disc(INNER_PX)).astype(bool)
     ring = cv2.dilate(mask, _disc(RING_PX[1])).astype(bool) & ~cv2.dilate(mask, _disc(RING_PX[0])).astype(bool)
     near = cv2.dilate(mask, _disc(NEAR_PX)).astype(bool)
     green = linear_green(rgb_box)
     square, background = float(np.median(green[inner])), float(np.median(green[ring]))
+    if square <= background:
+        return None  # background as green as the square: no edge to place
     half = green > (square + background) / 2
     n, labels = cv2.connectedComponents(half.astype(np.uint8), connectivity=8)
-    ys, xs = np.nonzero(inner)
-    centre_label = labels[int(np.median(ys)), int(np.median(xs))]
+    # The piece holding most of the square's middle, not the label of one centre pixel.
+    inside = labels[inner]
+    centre_label = np.bincount(inside[inside > 0]).argmax() if (inside > 0).any() else 0
     half_px = int((labels == centre_label).sum()) if centre_label else 0
     fraction = np.clip((green - background) / (square - background), 0, 1)
     partial_px = float(fraction[near].sum())
@@ -71,49 +69,31 @@ def edge_areas(rgb_box, mask_box):
 def main(out, start, end):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
-    manifest = load_manifest()
     rows = []
-    for capture_id, path, exposure, gain in stills(db, start, end):
-        if exposure > STEADY_EXPOSURE_US or gain > 1.0:
-            continue
-        tags = stored_tags(db, path)
-        outlines = tray_outlines(db, capture_id)
-        bgr = cv2.imread(str(DATA / f"{path}.jpg"))
-        sheet_scales = {tray: sheet_scale(tags, outline, manifest) for tray, outline in outlines.items()}
-        pooled = statistics.median(s for s in sheet_scales.values() if s)
-        for tray in sorted({v[2] for v in SQUARES.values()}):
-            outline = outlines.get(tray)
-            tag = next((t for t in tags if t.tag_id == tray), None)
-            if not outline or tag is None:
+    for path, exposure, tray, tag, scale, _, crop, (x0, y0) in tray_crops(start, end):
+        mask = exg(crop)
+        n, labels, stats, centroids = cv2.connectedComponentsWithStats(mask.astype(np.uint8), connectivity=8)
+        for found in match_squares(squares_in(crop, (x0, y0), scale, lambda _: mask), tray, tag, scale):
+            cx, cy = found["x_px"] - x0, found["y_px"] - y0
+            k = min(range(1, n), key=lambda i: math.dist(centroids[i], (cx, cy)))
+            bx, by, bw, bh, _ = stats[k]
+            bx0, by0 = max(bx - MARGIN_PX, 0), max(by - MARGIN_PX, 0)
+            bx1, by1 = min(bx + bw + MARGIN_PX, crop.shape[1]), min(by + bh + MARGIN_PX, crop.shape[0])
+            areas = edge_areas(crop[by0:by1, bx0:bx1], labels[by0:by1, bx0:bx1] == k)
+            if areas is None:
+                print(f"{path}: square {found['square']} skipped, background as green as the square", file=sys.stderr)
                 continue
-            scale = sheet_scales.get(tray) or pooled
-            xs, ys = zip(*outline)
-            x0, y0 = max(int(min(xs)), 0), max(int(min(ys)), 0)
-            x1, y1 = min(int(max(xs)) + 1, bgr.shape[1]), min(int(max(ys)) + 1, bgr.shape[0])
-            crop = cv2.cvtColor(bgr[y0:y1, x0:x1], cv2.COLOR_BGR2RGB)
-            mask = exg(crop)
-            n, labels, stats, centroids = cv2.connectedComponentsWithStats(mask.astype(np.uint8), connectivity=8)
-            for found in match_squares(squares_in(crop, (x0, y0), scale, exg), tray, tag, scale):
-                cx, cy = found["x_px"] - x0, found["y_px"] - y0
-                k = min(range(1, n), key=lambda i: math.dist(centroids[i], (cx, cy)))
-                bx, by, bw, bh, _ = stats[k]
-                bx0, by0 = max(bx - MARGIN_PX, 0), max(by - MARGIN_PX, 0)
-                bx1, by1 = min(bx + bw + MARGIN_PX, crop.shape[1]), min(by + bh + MARGIN_PX, crop.shape[0])
-                box_mask = labels[by0:by1, bx0:bx1] == k
-                areas = edge_areas(crop[by0:by1, bx0:bx1], box_mask)
-                sx, sy = SQUARES[found["square"]][:2]
-                calliper, perimeter = sx * sy, 2 * (sx + sy)
-                for method in METHODS:
-                    area = areas[method] / scale**2
-                    rows.append({
-                        "method": method, "capture": path, "square": found["square"], "tray": tray,
-                        "cell": found["cell"], "scale_px_per_mm": found["scale_px_per_mm"],
-                        "pixels": round(areas[method], 1), "area_mm2": round(area, 2),
-                        "calliper_mm2": round(calliper, 2), "error_pct": round(100 * (area / calliper - 1), 3),
-                        "edge_width_mm": round((area - calliper) / perimeter, 4), "exposure_us": exposure,
-                    })
-        print(f"{path}: {sum(r['capture'] == path for r in rows)} rows", file=sys.stderr, flush=True)
+            sx, sy = SQUARES[found["square"]][:2]
+            calliper, perimeter = sx * sy, 2 * (sx + sy)
+            for method in METHODS:
+                area = areas[method] / scale**2
+                rows.append({
+                    "method": method, "capture": path, "square": found["square"], "tray": tray,
+                    "cell": found["cell"], "scale_px_per_mm": found["scale_px_per_mm"],
+                    "pixels": round(areas[method], 1), "area_mm2": round(area, 2),
+                    "calliper_mm2": round(calliper, 2), "error_pct": round(100 * (area / calliper - 1), 3),
+                    "edge_width_mm": round((area - calliper) / perimeter, 4), "exposure_us": exposure,
+                })
     with open(out / "edges.csv", "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0]))
         writer.writeheader()

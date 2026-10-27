@@ -16,20 +16,16 @@ Thresholds are the published ones, not tuned on these squares:
 """
 
 import csv
-import sqlite3
-import statistics
 import sys
 from pathlib import Path
 
 import cv2
 import numpy as np
 
+from npec_rig.segmentation import ExGSegmenter
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from measure import load_manifest  # noqa: E402
-from squares import (  # noqa: E402
-    DATA, DB, SQUARES, STEADY_EXPOSURE_US, match_squares, sheet_scale, squares_in, stills, stored_tags,
-    tray_outlines,
-)
+from squares import match_squares, squares_in, tray_crops  # noqa: E402
 
 
 def _channels(rgb):
@@ -42,8 +38,7 @@ def _exg(r, g, b):
 
 
 def exg(rgb):
-    r, g, b = _channels(rgb)
-    return (_exg(r, g, b) > 0.1) & (g > r)
+    return ExGSegmenter().segment(rgb)
 
 
 def canopeo(rgb):
@@ -71,32 +66,11 @@ METHODS = {"exg": exg, "canopeo": canopeo, "exg_exr": exg_exr, "exg_otsu": exg_o
 def main(out, start, end):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
-    manifest = load_manifest()
     rows = []
-    for capture_id, path, exposure, gain in stills(db, start, end):
-        if exposure > STEADY_EXPOSURE_US or gain > 1.0:
-            continue
-        tags = stored_tags(db, path)
-        outlines = tray_outlines(db, capture_id)
-        bgr = cv2.imread(str(DATA / f"{path}.jpg"))
-        sheet_scales = {tray: sheet_scale(tags, outline, manifest) for tray, outline in outlines.items()}
-        pooled = statistics.median(s for s in sheet_scales.values() if s)
-        for tray in sorted({v[2] for v in SQUARES.values()}):
-            outline = outlines.get(tray)
-            tag = next((t for t in tags if t.tag_id == tray), None)
-            if not outline or tag is None:
-                continue
-            scale = sheet_scales.get(tray) or pooled
-            xs, ys = zip(*outline)
-            x0, y0 = max(int(min(xs)), 0), max(int(min(ys)), 0)
-            x1, y1 = min(int(max(xs)) + 1, bgr.shape[1]), min(int(max(ys)) + 1, bgr.shape[0])
-            crop = cv2.cvtColor(bgr[y0:y1, x0:x1], cv2.COLOR_BGR2RGB)
-            for name, segment in METHODS.items():
-                pieces = squares_in(crop, (x0, y0), scale, segment)
-                for row in match_squares(pieces, tray, tag, scale):
-                    rows.append({"method": name, "capture": path, **row, "exposure_us": exposure})
-        print(f"{path}: {sum(r['capture'] == path for r in rows)} rows", file=sys.stderr, flush=True)
+    for path, exposure, tray, tag, scale, _, crop, offset in tray_crops(start, end):
+        for name, segment in METHODS.items():
+            for row in match_squares(squares_in(crop, offset, scale, segment), tray, tag, scale):
+                rows.append({"method": name, "capture": path, **row, "exposure_us": exposure})
     with open(out / "methods.csv", "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0]))
         writer.writeheader()

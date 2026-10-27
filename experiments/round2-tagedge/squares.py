@@ -139,21 +139,19 @@ def match_squares(pieces, tray, tag, scale):
     return rows
 
 
-def main(out, start, end):
-    out = Path(out)
-    out.mkdir(parents=True, exist_ok=True)
+def tray_crops(start, end):
+    """For every steady still from `start` to `end` (UTC) and every tray holding a square: (still
+    path, exposure, tray, tray tag, scale px/mm, where the scale came from, RGB crop of the tray,
+    crop's top left (x, y) in the still). Also used by methods.py and edges.py."""
     db = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
     manifest = load_manifest()
-    rows = []
     for capture_id, path, exposure, gain in stills(db, start, end):
         if exposure > STEADY_EXPOSURE_US or gain > 1.0:
             continue
         tags = stored_tags(db, path)
         outlines = tray_outlines(db, capture_id)
         bgr = cv2.imread(str(DATA / f"{path}.jpg"))
-        sheet_scales = {}
-        for tray, outline in outlines.items():
-            sheet_scales[tray] = sheet_scale(tags, outline, manifest)
+        sheet_scales = {tray: sheet_scale(tags, outline, manifest) for tray, outline in outlines.items()}
         pooled = statistics.median(s for s in sheet_scales.values() if s)
         for tray in sorted({v[2] for v in SQUARES.values()}):
             outline = outlines.get(tray)
@@ -162,15 +160,21 @@ def main(out, start, end):
                 continue
             scale = sheet_scales.get(tray)
             scale_from = "tag sheet on the tray" if scale else "median of the tag sheets in the photo"
-            scale = scale or pooled
             xs, ys = zip(*outline)
             x0, y0 = max(int(min(xs)), 0), max(int(min(ys)), 0)
             x1, y1 = min(int(max(xs)) + 1, bgr.shape[1]), min(int(max(ys)) + 1, bgr.shape[0])
             crop = cv2.cvtColor(bgr[y0:y1, x0:x1], cv2.COLOR_BGR2RGB)
-            pieces = squares_in(crop, (x0, y0), scale)
-            for row in match_squares(pieces, tray, tag, scale):
-                rows.append({"capture": path, **row, "exposure_us": exposure, "scale_from": scale_from})
-        print(f"{path}: {sum(r['capture'] == path for r in rows)} squares", file=sys.stderr, flush=True)
+            yield path, exposure, tray, tag, scale or pooled, scale_from, crop, (x0, y0)
+        print(f"{path}: done", file=sys.stderr, flush=True)
+
+
+def main(out, start, end):
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for path, exposure, tray, tag, scale, scale_from, crop, offset in tray_crops(start, end):
+        for row in match_squares(squares_in(crop, offset, scale), tray, tag, scale):
+            rows.append({"capture": path, **row, "exposure_us": exposure, "scale_from": scale_from})
     with open(out / "squares.csv", "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0]))
         writer.writeheader()

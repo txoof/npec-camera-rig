@@ -178,9 +178,9 @@
       const measured = dark ? [] : trays.trays.filter((t) => t.area_mm2 !== null && t.area_mm2 !== undefined);
       let table = "";
       if (measured.length) {
-        // Until #286 is closed: the scale reads areas 1 to 5% high (metrology log 18), and the
-        // green mask's edge error is not measured for plants; on flat green test squares it was
-        // -27% to +41% at 10 mm and up to 8% at 55 mm, by background (18.5). Wording: Aaron, 2026-10-26.
+        // Until #286 is closed: the scale is fixed (#294), but the green mask reads flat green test
+        // squares large, median +27.8% at 10 mm and +6.5% at 55 mm, nothing measured below 10 mm
+        // (metrology log 18.8). Not measured for plants (#297). Wording: Aaron, 2026-10-26.
         lines.push(`<div class="banner" style="margin: 8px 0">${ui.icon("warn")}<p><strong>Warning: plant areas read high.</strong> `
           + "About 30% high for a 10 mm leaf, 6% for 55 mm. Smaller plants: not measured. Issue #286.</p></div>");
         lines.push(`Plant area, ${ui.esc(measured[0].segmenter)}, uncertainty not measured yet:`);

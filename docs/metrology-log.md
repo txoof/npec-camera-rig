@@ -5830,7 +5830,7 @@ stored tags with that branch's code:
 **Label: development check.** After the fix was applied on the live rig (26 October 15:32 UTC: the
 22 October calibration rebuilt as twin `20261026T153214381640`, its validation scored again as
 session `20261026T153214526314`, experiment 18 reprocessed), the squares of 18.5 on black paper read
-from 13:22 to 18:55 UTC: 334 stills per square, all twelve found in every one (table:
+from 13:22 to 18:56 UTC: 334 stills per square, all twelve found in every one (table:
 `figures/18/squares-paper-long.csv`).
 
 **Steady over time.** Each square's hourly median stays within 1 point over the 5.5 hours, except B
@@ -5897,7 +5897,7 @@ published values, not tuned on these squares:
 | exg_otsu | 2g - r - b above an Otsu threshold chosen per tray crop, and G above R | common practice |
 
 Stills: pot tops 10:45 to 11:58 UTC (73), dark layer 12:05 to 13:10 (65), black paper 13:22 to
-18:55 (333), all at steady exposure. Code: `experiments/round2-tagedge/methods.py`, summary by
+18:55 (333, the 18.7 set without its last still, 18:55:53), all at steady exposure. Code: `experiments/round2-tagedge/methods.py`, summary by
 `methods_summary.py`. Table per method, background and size: `figures/18/methods.csv`.
 
 **Results.** Edge width is the extra strip at every edge, (area - calliper area) / perimeter.
@@ -5974,7 +5974,7 @@ in 18.8. Table per method, background and size: `figures/18/edges.csv` (exg rows
 
 | Method | 10 mm, median (single stills) | 20 mm | 40 mm | 55 mm | Edge width, median by size and background |
 |---|---|---|---|---|---|
-| exg (in use, 18.8) | +27.8% (-33.8% to +45.9%) | +11.3% (-6.9% to +26.3%) | +7.8% (+5.5% to +12.3%) | +6.5% (-2.3% to +8.6%) | 0.4 to 1.0 mm |
+| exg (in use, 18.8) | +27.8% (-33.8% to +45.9%) | +11.3% (-6.9% to +26.3%) | +7.8% (+5.5% to +12.3%) | +6.5% (-2.3% to +8.6%) | 0.44 to 1.0 mm (18.8: 0.56 to 0.90 mm, by size only) |
 | half way, linear | -2.9% (-8.6% to +6.6%) | +1.1% (-4.9% to +3.6%) | +0.4% (-1.5% to +1.2%) | +1.3% (-3.3% to +3.1%) | -0.09 to +0.27 mm |
 | partial area, linear | +2.0% (-7.0% to +11.3%) | +2.2% (-4.8% to +10.2%) | +0.7% (-1.4% to +3.5%) | +1.3% (-4.5% to +4.1%) | -0.00 to +0.28 mm |
 | GrabCut | +4.7% (-23.3% to +25.7%) | +3.1% (-3.5% to +25.0%) | +2.5% (-0.5% to +5.3%) | +3.6% (-2.8% to +12.0%) | 0.05 to 0.53 mm |
