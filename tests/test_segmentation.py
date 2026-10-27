@@ -87,3 +87,16 @@ def test_plant_inside_one_tray_only_stays_with_it_even_when_another_trays_centre
 
     a, b = measure_trays(mask, [(_box(0, 0, 100, 99), (50, 50)), (_box(90, 0, 130, 20), (110, 10))], _even_scale())
     assert (a.plant_px, b.plant_px) == (25, 25)
+
+
+def test_a_plant_pixel_exactly_midway_between_two_tray_centres_counts_once():
+    """Review of #311: tray A centre x 50, tray B centre x 131, both outlines x 80 to 100. The
+    midpoint, x 90.5, is the centre of pixel column 90, which is as near one tray as the other. A
+    10 x 10 px plant at x 90 to 100 must still add up to 100 px across the two trays."""
+    from npec_rig.segmentation import measure_trays
+
+    mask = np.zeros((100, 200), dtype=bool)
+    mask[40:50, 90:100] = True
+
+    a, b = measure_trays(mask, [(_box(0, 0, 100, 99), (50, 50)), (_box(80, 0, 181, 99), (131, 50))], _even_scale())
+    assert a.plant_px + b.plant_px == 100

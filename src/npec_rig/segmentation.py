@@ -103,7 +103,8 @@ def measure_trays(mask: np.ndarray, trays, scale_field) -> list[PlantMeasure]:
     """`measure_plant` for every tray of one photo, `trays` as (outline, centre) pairs in full-size
     pixels, in their order. Where outlines overlap, a plant pixel counts only for the tray whose
     centre is nearer its pixel centre, so touching trays never count it twice (Aaron,
-    2026-10-23). A pixel inside one outline only stays with that tray."""
+    2026-10-23); at the same distance, for the tray listed first. A pixel inside one outline only
+    stays with that tray."""
     boxes = [_box(mask, outline) for outline, _centre in trays]
     out = []
     for i, ((outline, centre), box) in enumerate(zip(trays, boxes, strict=True)):
@@ -111,15 +112,19 @@ def measure_trays(mask: np.ndarray, trays, scale_field) -> list[PlantMeasure]:
             out.append(PlantMeasure(0, None, 0.0))
             continue
         inside = _inside(box, outline)
-        x0, y0, x1, y1 = box
-        xs = np.arange(x0, x1) + 0.5
-        ys = (np.arange(y0, y1) + 0.5)[:, None]
-        own = (xs - centre[0]) ** 2 + (ys - centre[1]) ** 2
         for j, ((other, other_centre), other_box) in enumerate(zip(trays, boxes, strict=True)):
-            if j == i or other_box is None or not _overlap(box, other_box):
+            shared = _overlap(box, other_box) if j != i and other_box is not None else None
+            if shared is None:
                 continue
-            nearer_other = (xs - other_centre[0]) ** 2 + (ys - other_centre[1]) ** 2 < own
-            inside &= ~(_inside(box, other) & nearer_other)
+            # Only the part of the box both trays cover: a strip for trays side by side.
+            x0, y0, x1, y1 = shared
+            xs = np.arange(x0, x1) + 0.5
+            ys = (np.arange(y0, y1) + 0.5)[:, None]
+            own = (xs - centre[0]) ** 2 + (ys - centre[1]) ** 2
+            theirs = (xs - other_centre[0]) ** 2 + (ys - other_centre[1]) ** 2
+            lose = (theirs < own) | ((theirs == own) & (j < i))
+            part = inside[y0 - box[1] : y1 - box[1], x0 - box[0] : x1 - box[0]]
+            part &= ~(_inside(shared, other) & lose)
         out.append(_measure(mask, box, inside, scale_field))
     return out
 
@@ -135,8 +140,10 @@ def _box(mask: np.ndarray, outline_px) -> tuple[int, int, int, int] | None:
     return int(x0), int(y0), int(x1), int(y1)
 
 
-def _overlap(a, b) -> bool:
-    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+def _overlap(a, b) -> tuple[int, int, int, int] | None:
+    """The box two boxes share, or None."""
+    x0, y0, x1, y1 = max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3])
+    return (x0, y0, x1, y1) if x0 < x1 and y0 < y1 else None
 
 
 def _inside(box, outline_px) -> np.ndarray:
