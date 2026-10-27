@@ -5671,6 +5671,33 @@ the rig used.
 its size then is not measured. Photos read before the change keep their areas until Reprocess,
 and nothing stored tells the two rules apart.
 
+### 17.11 Trays past the photo edge (#282, 2026-10-27)
+
+**Label: development check.** Not written before the check was run; it sets a decision.
+
+*What was measured.* How far each tray's outline reaches past the photo edge, at its farthest
+corner, in mm at the tray's scale: `experiments/round2-photo-edge/past_edge.py`, read-only on
+`rig.db`, with each outline rebuilt from its stored centre and tilt (the method of 17.10). Photos
+are 9152 x 6944 px.
+
+| Photo (UTC) | Tray 8 (North 6) | Tray 9 (South 6) | Tray 12 (South 1) | Tray 10 (South 1) |
+|---|---|---|---|---|
+| 23 Oct 11:34:53 | 8.4 mm | 11.9 mm | 3.1 mm | |
+| 23 Oct 11:35:53 | 8.5 mm | 11.9 mm | 4.9 mm | |
+| 27 Oct 14:34:53 | 10.4 mm | 11.1 mm | | 0.3 mm |
+
+All other trays lie inside. The review of #281 gave 12 to 44 px (about 2 to 9 mm); these figures
+are larger because they are taken at the farthest corner of a slightly turned tray.
+
+*Decision* (Aaron, 2026-10-27, labelled as one): a tray is shown as "partly outside the photo"
+when it reaches more than **13 mm** past the edge, the widest measured outer wall (11 to 13 mm),
+where no plant grows. 10 mm was agreed first and raised after these figures: it would have marked
+trays 8 and 9 on every photo with only their wall outside.
+
+*Limits.* Tray outlines are placed to within about 10 mm (15.5l), so the mark is approximate: a
+tray 13 mm past may in fact be up to about 10 mm more or less. Three photos of one experiment.
+Leaves hanging past the tray's own outline are not seen by this check at all.
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from

@@ -9,6 +9,7 @@ earlier photos when the readings are shown.
 """
 
 import logging
+import math
 import sqlite3
 import threading
 from datetime import UTC, datetime
@@ -25,7 +26,7 @@ from npec_rig.calibration_store import (
     load_saved_calibration,
 )
 from npec_rig.tags import TagDetection
-from npec_rig.tray_placement import TrayPlacement, place_trays
+from npec_rig.tray_placement import TRAY_SIZE_MM, TrayPlacement, place_trays
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,13 @@ SEGMENTER: segmentation.Segmenter = segmentation.ExGSegmenter()
 # trays read up to 98 mm2 with the green threshold, mostly one light-blue mark per tray (metrology
 # log 17.4). Reported with each area, never subtracted (Aaron). A decision (#288), checked in #293.
 FLOORS_MM2 = {"green threshold, 0.1": 100}
+
+# How far a tray's outline may reach past the photo edge, mm, before its area is marked partly
+# outside the photo: the widest measured outer wall, 11 to 13 mm (review of #281), where no plant
+# grows. Trays 8 and 9 of the potato run reach 8.4 to 11.9 mm past at their farthest corner, and
+# outlines are placed to within about 10 mm (metrology log 15.5l), so the mark is approximate. A
+# decision, not a measurement (Aaron, 2026-10-27).
+PAST_EDGE_MM = 13.0
 
 # Seconds between looks for photos not yet read, when there are none. One reading took 9.6 s to
 # 12.5 s (metrology log 15.5m), so a photo a minute leaves the reader idle most of the time.
@@ -96,6 +104,7 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
     status, placed = placements(path, tags) if tags else ("no tags found", [])
     reuse = reuse_mask and _saved_by_this_segmenter(saved)
     calibration, measures = _measures(path, record["calibration"], placed, reuse) if placed else (None, {})
+    size = _photo_size(path) if placed else None
     _refuse_worse(path, saved, status, measures)
     trays = []
     for p in placed:
@@ -106,7 +115,7 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
             "area_mm2": m.area_mm2 if m else None, "segmenter": SEGMENTER.name if m else None,
             "plant_px": m.plant_px if m else None,
             "plant_centre_px": list(m.centre_px) if m and m.centre_px else None,
-            "calibration": calibration if m else None,
+            "calibration": calibration if m else None, "outside_mm": outside_mm(p, size) if size else None,
         })
     database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
     exclusions.update(record)
@@ -155,6 +164,30 @@ def _measures(
         return None, {}
 
 
+def _photo_size(path: str) -> tuple[int, int] | None:
+    """Photo `path`'s width and height in pixels, from its file's header, or from its saved
+    full-size mask when the photo is gone (Reprocess); None without either."""
+    for file in (photo_file(path), segmentation.mask_file(path)):
+        if file is None:  # photo_file: no such photo
+            continue
+        try:
+            with Image.open(file) as image:
+                return image.size
+        except OSError:
+            continue
+    return None
+
+
+def outside_mm(p: TrayPlacement, size: tuple[int, int]) -> float:
+    """How far tray `p`'s outline reaches past the edge of a photo of `size` (width, height), at
+    its farthest corner, in mm; 0 when it lies inside. Converted at the scale the outline was
+    drawn with: its width is the tray's 305 mm (`TRAY_SIZE_MM`)."""
+    w, h = size
+    (x0, y0), (x1, y1) = p.outline[0], p.outline[1]
+    px_per_mm = math.hypot(x1 - x0, y1 - y0) / TRAY_SIZE_MM[0]
+    return max(max(-x, x - w, -y, y - h, 0.0) for x, y in p.outline) / px_per_mm
+
+
 def _segment(path: str) -> np.ndarray:
     """A new mask of photo `path`, saved for Reprocess."""
     with Image.open(photo_file(path)) as image:
@@ -190,6 +223,7 @@ def capture_readings(capture: dict) -> dict | None:
         readings["norm_pending"] = saved["norm_e"] is None
         for tray in readings["trays"]:
             tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
+            tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM
     return readings
 
 

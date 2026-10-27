@@ -209,6 +209,7 @@ Validation, calibration and tripwire photos are not read in the background.
 | `tilt_deg` | real | The tray's turn off the image axes, clockwise |
 | `margin_mm` | real | How much nearer a slot the chosen corner is than the other |
 | `area_mm2` | real | NULL until segmentation (#74) |
+| `outside_mm` | real | How far the tray's outline reaches past the photo edge at its farthest corner, mm; 0 inside. More than 13 mm shows "partly outside the photo" (#282). NULL for photos read before version 12 |
 
 A tray not found is never stored. When a photo's readings are shown, each tray found in an
 earlier photo of the same experiment but not in this one is listed as not found since the first
