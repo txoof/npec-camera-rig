@@ -114,7 +114,7 @@ def api_photo_tags(path: str) -> list[dict]:
     placements = _tray_placements(path, tags)
     # Older photos are read for their trays only when asked (Aaron, 2026-10-22): this is the ask.
     try:
-        tray_readings.read_photo(path)
+        tray_readings.read_photo(path, unless_measured=True)
     except LookupError:
         pass  # no record in rig.db: nothing to save the reading against
     except Exception:

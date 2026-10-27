@@ -77,16 +77,20 @@ def _capture_id(path: str) -> int:
     return record["id"]
 
 
-def read_photo(path: str, *, reuse_mask: bool = False) -> dict:
+def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = False) -> dict:
     """Read gallery photo `path` for its trays, save the reading (replacing any earlier one) and
     return it as `photo_readings` would. The tags are searched once per photo (photo_tags). With
     `reuse_mask`, a mask saved by the same segmenter is counted again instead of segmenting the
-    photo: Reprocess, which then needs neither the photo nor the segmenter."""
+    photo: Reprocess, which then needs neither the photo nor the segmenter. With
+    `unless_measured`, a saved reading with plant areas from the same segmenter is kept and
+    returned as it is: Show tags, which would otherwise segment the photo on every tap (#282)."""
     record = database.captures_by_path([path]).get(path)
     if record is None:
         raise LookupError(f"photo {path} has no record in rig.db")
     capture_id = record["id"]
     saved = database.tray_readings(capture_id)
+    if unless_measured and _saved_by_this_segmenter(saved):
+        return capture_readings(record)
     tags = photo_tags.photo_tags_for(path)
     # No tag of any kind, as with the lights off (metrology log 15.5l): not trays missing.
     status, placed = placements(path, tags) if tags else ("no tags found", [])
