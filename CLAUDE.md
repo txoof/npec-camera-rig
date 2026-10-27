@@ -175,17 +175,23 @@ overlap a claimed issue. Within one priority, follow the order in the milestone 
 the lowest issue number. `TODO.md` is a frozen record: read it for the history of done items,
 never add to it.
 
-**Filing a new issue.** Every new issue gets a Round and a Priority when it is put on the board,
-chosen by the table below, and the reply that creates it says which in one line, so Aaron only
-corrects it when it is wrong. No issue is left without a Round: one without is forgotten. Put a
-session's follow-ups in one issue, not several (Aaron, 2026-10-16).
+**Filing a new issue.** Every new issue gets a Priority, and a Round or the label
+`Future development`, when it is put on the board, chosen by the table below. The reply that
+creates it says which in one line, so Aaron only corrects it when it is wrong. Put a session's
+follow-ups in one issue, not several (Aaron, 2026-10-16).
+
+Rounds hold only work that can cause harm, blocks the current round, or is needed for the thesis
+requirements: the acceptance tests in PLAN.md, the final target and the wrap-up. Every other
+issue gets the label `Future development` and no Round. It is not closed for that reason
+(Aaron, 2026-10-27).
 
 | Kind of issue | Round | Priority |
 |---|---|---|
 | Can cause harm, new or old behaviour | Current | High |
 | Blocks work in the current round | Current | High |
-| Changes what users see | Next | Medium |
-| Old behaviour, no harm possible | Next | Low |
+| Needed for the thesis requirements | Current or next | High or Medium |
+| Changes what users see | `Future development` | Medium |
+| Old behaviour, no harm possible | `Future development` | Low |
 
 Harm is any of:
 
