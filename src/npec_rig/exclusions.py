@@ -32,6 +32,11 @@ LIMIT_FACTOR = 3
 # disturbed", someone at the table or a door (Aaron, 2026-10-26, 17.8). Revisited in #296.
 SHORT_RUN = 3
 
+# The light warning: more than this much "light off norm" within WARNING_WINDOW raises it. Light
+# changing, light disturbed and lights off never do. A decision (Aaron, 2026-10-23, #288).
+WARNING_HOURS = timedelta(hours=2)
+WARNING_WINDOW = timedelta(hours=24)
+
 
 def _e(photo: dict) -> float | None:
     """The photo's E, None when it has none: no exposure or gain recorded, or 0 (a camera fault)."""
@@ -110,6 +115,43 @@ def _norm_and_limit(
     in_steady = set(steady)
     steps = [abs(es[i] / es[i - 1] - 1) for i in steady if i - 1 in in_steady]
     return norm, LIMIT_FACTOR * max(abs(es[i] / norm - 1) for i in steady), max(steps, default=0.0)
+
+
+def light_warning(experiment_id: int) -> dict | None:
+    """The experiment's light warning, None when there is none: the `hours` of light off norm
+    and the `first` and `last` times (UTC) of the stretches that raise it. A stretch lasts from
+    its first photo to the photo after it, or to its last photo at the end. A stretch that
+    starts before the end of the last dismissed one is not counted again."""
+    rows = database.experiment_exclusions(experiment_id)
+    dismissed = [datetime.fromisoformat(d["covers_until"]) for d in database.light_warning_dismissals(experiment_id)]
+    stretches = []
+    for start, end in _runs([r["name"] == "light off norm" for r in rows]):
+        until = rows[end + 1] if end + 1 < len(rows) else rows[end]
+        stretch = (datetime.fromisoformat(rows[start]["taken_at"]), datetime.fromisoformat(until["taken_at"]))
+        if not dismissed or stretch[0] >= max(dismissed):
+            stretches.append(stretch)
+    raising: set[int] = set()
+    for i, (window_start, _end) in enumerate(stretches):
+        window_end = window_start + WARNING_WINDOW
+        inside = [j for j in range(i, len(stretches)) if stretches[j][0] < window_end]
+        if sum((min(stretches[j][1], window_end) - stretches[j][0] for j in inside), timedelta()) > WARNING_HOURS:
+            raising.update(inside)
+    if not raising:
+        return None
+    counted = [stretches[j] for j in sorted(raising)]
+    return {
+        "hours": round(sum((end - start for start, end in counted), timedelta()) / timedelta(hours=1), 2),
+        "first": counted[0][0].isoformat(),
+        "last": counted[-1][1].isoformat(),
+    }
+
+
+def dismiss_light_warning(experiment_id: int, *, now: str) -> None:
+    """Dismiss the experiment's light warning at time `now` (UTC): its stretches are not counted
+    again, later ones are. Nothing is saved when there is no warning."""
+    warning = light_warning(experiment_id)
+    if warning is not None:
+        database.record_light_warning_dismissal(experiment_id, dismissed_at=now, covers_until=warning["last"])
 
 
 def update(capture: dict) -> None:

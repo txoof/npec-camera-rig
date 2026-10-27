@@ -2,13 +2,14 @@
 
 import logging
 import sqlite3
+from datetime import UTC, datetime
 
 import cv2
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from npec_rig import images, photo_tags, tray_readings
+from npec_rig import exclusions, images, photo_tags, tray_readings
 from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import PHOTO_KEY, capture_hours, list_recent_captures, photo_file
 from npec_rig.routes.shared import derived_response, templates
@@ -63,6 +64,20 @@ def api_capture_hours(experiment: int | None = None) -> list[dict]:
         return capture_hours(experiment_id=experiment)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/api/captures/light-warning")
+def api_light_warning(experiment: int) -> dict | None:
+    """The experiment's light warning (#288): the hours of light off its usual level and when,
+    None when there is none or it was dismissed."""
+    return exclusions.light_warning(experiment)
+
+
+@router.post("/api/captures/light-warning/dismiss")
+def api_dismiss_light_warning(experiment: int) -> dict | None:
+    """Dismiss the experiment's light warning, saved with the time; returns the warning now."""
+    exclusions.dismiss_light_warning(experiment, now=datetime.now(UTC).isoformat())
+    return exclusions.light_warning(experiment)
 
 
 def _tag_role(tag_id: int) -> str:

@@ -43,6 +43,7 @@ should be compared as times, not as text.
 | `tray_read` | One row per photo read for trays, with its status | `tray_readings.py` |
 | `tray_reading` | One row per tray found in a photo: its slot, A1 corner and centre | `tray_readings.py` |
 | `exclusion` | One row per photo of an experiment: why its plant areas are left out, if they are | `exclusions.py` |
+| `light_warning_dismissal` | One row per dismissal of an experiment's light warning | `exclusions.py` |
 
 ### `camera_events`
 
@@ -235,6 +236,21 @@ and tripwire photos get NULL and are left out of the norm. The rules and their v
 A photo read before this table existed has no row until its experiment is read again or
 reprocessed; until then only lights off is shown, worked out from the photo itself. A purge
 deletes the rows with the photos.
+
+### `light_warning_dismissal`
+
+The light warning (#288) is shown in the gallery when an experiment has more than 2 hours of
+`light off norm` within 24 hours. It is worked out when shown, never stored. Dismissing it adds a
+row; stretches that start before `covers_until` are not counted again, later ones are.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | integer | The dismissal |
+| `experiment_id` | integer | The experiment |
+| `dismissed_at` | text | When the researcher dismissed it, UTC |
+| `covers_until` | text | The end of the last stretch the warning counted, UTC |
+
+Kept when an experiment is purged, with its `experiment` row.
 
 ## Planned
 

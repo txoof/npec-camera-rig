@@ -14,6 +14,13 @@
     {{ ui.button("Newest first", id="order-btn") }}
   </div>
   <p class="lead" id="gallery-note">Tap photos to enlarge.</p>
+  {#- The light warning (#288): one experiment shown, more than 2 hours off its usual light. -#}
+  <div id="light-warning" hidden>
+    {% call ui.banner("warn", "Warning") %}
+      <p id="light-warning-text"></p>
+      {{ ui.button("Dismiss", id="light-warning-dismiss") }}
+    {% endcall %}
+  </div>
   {#- Week, day or hour (#245): Earlier and Later step to the nearest one with photos. -#}
   <div class="gallery-nav" id="gallery-nav" hidden>
     <h3 id="view-title"></h3>
@@ -642,7 +649,47 @@
       return `Experiment started ${e.periods[0].started_at.replace("T", " ").slice(0, 16)} UTC`;
     }
 
+    // The light warning (#288) of the experiment shown, until the researcher dismisses it.
+    const lightWarning = document.getElementById("light-warning");
+    const clock = (d) => d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+    function lightWhen(first, last) {
+      const [a, b] = [new Date(first), new Date(last)];
+      const to = localDay(a) === localDay(b) ? clock(b) : `${shortDay(b, false)} ${clock(b)}`;
+      return `${shortDay(a, false)} ${clock(a)} to ${to}`;
+    }
+
+    function showLightWarning(w) {
+      lightWarning.hidden = !w;
+      if (!w) return;
+      const hours = w.hours.toLocaleString("en-US", { maximumFractionDigits: 1 });
+      document.getElementById("light-warning-text").textContent =
+        `Light not at its usual level for ${hours} hours, ${lightWhen(w.first, w.last)}. `
+        + "These plant areas are left out.";
+    }
+
+    async function loadLightWarning() {
+      if (experiment === null) { showLightWarning(null); return; }
+      try {
+        const r = await fetch(`/api/captures/light-warning?experiment=${encodeURIComponent(experiment)}`);
+        showLightWarning(r.ok ? await r.json() : null);
+      } catch (err) {
+        showLightWarning(null);
+      }
+    }
+
+    document.getElementById("light-warning-dismiss").addEventListener("click", async () => {
+      try {
+        const r = await fetch(`/api/captures/light-warning/dismiss?experiment=${encodeURIComponent(experiment)}`,
+          { method: "POST" });
+        if (!r.ok) throw new Error(r.statusText);
+        showLightWarning(await r.json());
+      } catch (err) {
+        ui.toast("Could not dismiss the warning. Try again.");
+      }
+    });
+
     async function showFilter() {
+      loadLightWarning();
       let label = "all photos";
       if (experiment !== null) {
         const r = await fetch("/api/experiments");

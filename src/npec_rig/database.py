@@ -205,6 +205,20 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        11,
+        "light warning dismissals: when the researcher dismissed it, and the hours it covered (#288)",
+        (
+            """
+            CREATE TABLE light_warning_dismissal (
+                id INTEGER PRIMARY KEY,
+                experiment_id INTEGER NOT NULL REFERENCES experiment (id),
+                dismissed_at TEXT NOT NULL,      -- UTC, ISO 8601
+                covers_until TEXT NOT NULL       -- UTC: the end of the last stretch it covered
+            )
+            """,
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -429,6 +443,38 @@ def exclusion(capture_id: int) -> dict | None:
     with _connect() as conn:
         row = conn.execute("SELECT * FROM exclusion WHERE capture_id = ?", (capture_id,)).fetchone()
     return dict(row) if row else None
+
+
+def experiment_exclusions(experiment_id: int) -> list[dict]:
+    """The experiment's photos taken as captures, oldest first: `taken_at` and the saved
+    exclusion `name` (None for none, or when none has been worked out)."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT capture.taken_at, exclusion.name FROM capture"
+            " LEFT JOIN exclusion ON exclusion.capture_id = capture.id"
+            " WHERE capture.experiment_id = ? AND capture.purpose = 'capture' ORDER BY capture.taken_at",
+            (experiment_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def record_light_warning_dismissal(experiment_id: int, *, dismissed_at: str, covers_until: str) -> None:
+    """Save a dismissal of the experiment's light warning."""
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO light_warning_dismissal (experiment_id, dismissed_at, covers_until) VALUES (?, ?, ?)",
+            (experiment_id, dismissed_at, covers_until),
+        )
+
+
+def light_warning_dismissals(experiment_id: int) -> list[dict]:
+    """The experiment's light warning dismissals, oldest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM light_warning_dismissal WHERE experiment_id = ? ORDER BY dismissed_at",
+            (experiment_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def unread_photos(limit: int, since: str) -> list[str]:
