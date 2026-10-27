@@ -477,6 +477,21 @@ def light_warning_dismissals(experiment_id: int) -> list[dict]:
     return [dict(row) for row in rows]
 
 
+def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
+    """Each read photo of the experiment's saved plant areas: tray ID to mm2, by capture id."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT tray_reading.capture_id, tray_reading.tray_id, tray_reading.area_mm2 FROM tray_reading"
+            " JOIN capture ON capture.id = tray_reading.capture_id"
+            " WHERE capture.experiment_id = ? AND tray_reading.area_mm2 IS NOT NULL",
+            (experiment_id,),
+        ).fetchall()
+    areas: dict[int, dict[int, float]] = {}
+    for capture_id, tray_id, area in rows:
+        areas.setdefault(capture_id, {})[tray_id] = area
+    return areas
+
+
 def unread_photos(limit: int, since: str) -> list[str]:
     """Paths of up to `limit` photos taken as captures (not validation, calibration or tripwire
     rounds) that have not been read for trays, newest first: those taken at or after `since` (UTC,

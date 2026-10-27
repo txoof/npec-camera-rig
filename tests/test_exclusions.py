@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from npec_rig import captures, exclusions
+from npec_rig import captures, database, exclusions
 from tests.helpers import record_light_photos
 
 pytestmark = pytest.mark.unit
@@ -245,3 +245,71 @@ def test_a_pause_after_photos_off_norm_counts_one_usual_gap_not_the_pause() -> N
     off = [(timedelta(hours=25, minutes=10 * i), 4000) for i in range(4)]
     experiment_id = _experiment(*_first_day(), *off, (timedelta(hours=40), 5000))
     assert exclusions.light_warning(experiment_id) is None
+
+
+# --- Visits (#288 part 2 PR 3, metrology log 17.9) -------------------------------------------------
+
+
+def _areas(*rows: dict[int, float]) -> list[dict]:
+    """Photos a minute apart from START, each with its trays' areas (mm2)."""
+    return [{"taken_at": (START + timedelta(minutes=i)).isoformat(), "areas": areas} for i, areas in enumerate(rows)]
+
+
+def test_a_jump_of_more_than_250_mm2_and_2_times_is_a_visit_up_or_down() -> None:
+    """Tray 1 steady at 100 mm2 and tray 2 at 600 for 10 photos (the usual level), then:
+    tray 1 at 400 (+300, 4 times): a visit; tray 1 at 340 (+240): not; tray 2 at 250 (-350,
+    0.42 times): a visit; tray 2 at 1,000 (+400, 1.67 times): not (17.9). The two visits are 5
+    photos apart, so the photos between them are not filled in."""
+    steady = [{1: 100, 2: 600}] * 10
+    result = exclusions.visits(_areas(*steady, {1: 400, 2: 600}, {1: 100, 2: 600}, {1: 340, 2: 600},
+                                      {1: 100, 2: 600}, {1: 100, 2: 600}, {1: 100, 2: 250},
+                                      {1: 100, 2: 600}, {1: 100, 2: 1000}))
+    assert result == [False] * 10 + [True, False, False, False, False, True, False, False]
+
+
+def test_photos_between_two_visits_at_most_4_photos_apart_are_visits_too() -> None:
+    """Tray 1 steady at 100 mm2, then 400 (a visit), 3 photos back at 100, 400 again: 4 photos
+    apart, so the 3 between are visits too, as in the tray move of 26 October (17.9). Then 4
+    photos at 100 and 400 once more: 5 apart, not filled."""
+    steady = [{1: 100}] * 10
+    spike, back = {1: 400}, {1: 100}
+    result = exclusions.visits(_areas(*steady, spike, back, back, back, spike, back, back, back, back, spike))
+    assert result == [False] * 10 + [True] * 5 + [False] * 4 + [True]
+
+
+def test_a_visit_is_stored_and_a_light_exclusion_wins() -> None:
+    """An experiment of 12 photos a minute apart, tray 1 read at 100 mm2 in the first 10, then
+    400 (+300, 4 times) lit: stored as "visit"; then 400 again with the lights off (E 256,000):
+    stored as "lights off", which wins (17.9)."""
+    experiment_id = captures.create_experiment(name="Visit")["id"]
+    series = [(timedelta(minutes=i), 5000) for i in range(11)] + [(timedelta(minutes=11), 256_000)]
+    record_light_photos(experiment_id, START, series, f"visit-{experiment_id}")
+    photos = database.captures_for_experiment(experiment_id)
+    for photo, area in zip(photos, [100] * 10 + [400, 400]):
+        database.record_tray_readings(photo["id"], read_at=START.isoformat(), status="read", trays=[{
+            "tray_id": 1, "slot": "North 1", "a1_corner": "SW", "placement": "placed", "centre_px": [0, 0],
+            "tilt_deg": 0, "margin_mm": 50, "area_mm2": area,
+        }])
+
+    exclusions.update(photos[-1])
+
+    assert [database.exclusion(p["id"])["name"] for p in photos[9:]] == [None, "visit", "lights off"]
+
+
+def test_photos_with_a_light_exclusion_do_not_set_the_usual_level() -> None:
+    """10 lit photos with tray 1 at 100 mm2, then 10 with the lights off reading 2,000 (light on
+    the tray changes the green area), then lit at 100 again. The usual level comes from lit photos
+    only, as in the review (17.9), so the last photo is no visit."""
+    experiment_id = captures.create_experiment(name="Fade")["id"]
+    series = [(timedelta(minutes=i), 5000 if i < 10 or i == 20 else 256_000) for i in range(21)]
+    record_light_photos(experiment_id, START, series, f"fade-{experiment_id}")
+    photos = database.captures_for_experiment(experiment_id)
+    for photo, area in zip(photos, [100] * 10 + [2000] * 10 + [100]):
+        database.record_tray_readings(photo["id"], read_at=START.isoformat(), status="read", trays=[{
+            "tray_id": 1, "slot": "North 1", "a1_corner": "SW", "placement": "placed", "centre_px": [0, 0],
+            "tilt_deg": 0, "margin_mm": 50, "area_mm2": area,
+        }])
+
+    exclusions.update(photos[-1])
+
+    assert database.exclusion(photos[-1]["id"])["name"] is None

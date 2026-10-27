@@ -228,7 +228,7 @@ and tripwire photos get NULL and are left out of the norm. The rules and their v
 | Column | Type | Meaning |
 |---|---|---|
 | `capture_id` | integer | The photo's `capture` row |
-| `name` | text | `lights off`, `light changing`, `light disturbed` or `light off norm`; NULL for none |
+| `name` | text | `lights off`, `light changing`, `light disturbed`, `light off norm` or `visit` (chamber activity, metrology log 17.9); NULL for none |
 | `norm_e` | real | The experiment's norm (E) it was worked out with; NULL until the experiment has a full first day |
 | `limit_fraction` | real | How far from the norm, as a fraction of it, counts as off it, for example 0.21 |
 | `worked_out_at` | text | When it was worked out, UTC |
