@@ -215,10 +215,11 @@ def update(capture: dict) -> None:
     names = result["exclusions"]
     if experiment_id:
         areas = database.experiment_tray_areas(experiment_id)
-        # Lit photos taken as captures only, as in the review: a light exclusion's areas would
-        # move the usual level.
-        own = [i for i, p in enumerate(photos) if p.get("purpose", "capture") == "capture" and names[i] is None]
-        seen = visits([{"taken_at": photos[i]["taken_at"], "areas": areas.get(photos[i]["id"], {})} for i in own])
+        # Lit photos taken as captures with their trays read only, as in the review: a light
+        # exclusion's areas would move the usual level, and a photo not read has none to judge.
+        own = [i for i, p in enumerate(photos)
+               if p.get("purpose", "capture") == "capture" and names[i] is None and p["id"] in areas]
+        seen = visits([{"taken_at": photos[i]["taken_at"], "areas": areas[photos[i]["id"]]} for i in own])
         for i, visit in zip(own, seen):
             if visit:
                 names[i] = "visit"

@@ -313,3 +313,22 @@ def test_photos_with_a_light_exclusion_do_not_set_the_usual_level() -> None:
     exclusions.update(photos[-1])
 
     assert database.exclusion(photos[-1]["id"])["name"] is None
+
+
+def test_photos_whose_trays_are_not_read_are_left_out_of_visits() -> None:
+    """Review of #301: tray 1 read at 100 mm2 in 10 photos, then 400 (a visit), 2 photos not read
+    yet, then 400 again. As in the review (17.9), only photos with trays read count: the two
+    visits are next to each other, and the 2 photos not read are not visits."""
+    experiment_id = captures.create_experiment(name="Unread")["id"]
+    record_light_photos(experiment_id, START, [(timedelta(minutes=i), 5000) for i in range(14)], f"unread-{experiment_id}")
+    photos = database.captures_for_experiment(experiment_id)
+    for photo, area in zip(photos, [100] * 10 + [400, None, None, 400]):
+        if area is not None:
+            database.record_tray_readings(photo["id"], read_at=START.isoformat(), status="read", trays=[{
+                "tray_id": 1, "slot": "North 1", "a1_corner": "SW", "placement": "placed", "centre_px": [0, 0],
+                "tilt_deg": 0, "margin_mm": 50, "area_mm2": area,
+            }])
+
+    exclusions.update(photos[-1])
+
+    assert [database.exclusion(p["id"])["name"] for p in photos[10:]] == ["visit", None, None, "visit"]

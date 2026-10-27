@@ -11,9 +11,11 @@ Prints the tables of 17.9's questions 1 to 4 and writes one CSV row per photo.
 import argparse
 import csv
 import statistics
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
+
+from npec_rig import exclusions
 
 USUAL = 10  # photos before, for a tray's usual level
 NEAR = timedelta(minutes=10)  # either side of a visit Aaron gave as one time
@@ -32,26 +34,28 @@ def t(iso: str) -> datetime:
 # Known visits, UTC (17.9). A single time gets NEAR either side.
 KNOWN = [
     ("benchmark on tray 8", t("2026-10-22T09:33:00+00:00") - NEAR, t("2026-10-22T09:33:00+00:00") + NEAR),
+    # Shuffle 1 and Aaron's 23 Oct 10:56 local (08:56 UTC) are one visit.
     ("shuffle 1", t("2026-10-23T08:43:00+00:00"), t("2026-10-23T08:56:00+00:00") + NEAR),
-    ("23 Oct 10:56 local", t("2026-10-23T08:56:00+00:00") - NEAR, t("2026-10-23T08:56:00+00:00") + NEAR),
     ("target on tray 10", t("2026-10-23T14:02:00+00:00") - NEAR, t("2026-10-23T14:02:00+00:00") + NEAR),
     ("sheets on the pots", t("2026-10-26T08:25:00+00:00") - NEAR, t("2026-10-26T08:25:00+00:00") + NEAR),
     ("tray moved", t("2026-10-26T10:30:00+00:00") - NEAR, t("2026-10-26T10:35:00+00:00") + NEAR),
     ("27 Oct 09:45 local", t("2026-10-27T08:45:00+00:00") - NEAR, t("2026-10-27T08:45:00+00:00") + NEAR),
     ("27 Oct 10:49 local", t("2026-10-27T09:49:00+00:00") - NEAR, t("2026-10-27T09:49:00+00:00") + NEAR),
 ]
-MONDAY = (t("2026-10-26T00:00:00+00:00"), t("2026-10-27T00:00:00+00:00"))
+# Monday 26 October in the chamber's local time (CET, UTC+1 from 25 October).
+MONDAY = (t("2026-10-25T23:00:00+00:00"), t("2026-10-26T23:00:00+00:00"))
 
 
 def photos(db: Path, experiment: int) -> list[dict]:
-    """Capture photos with trays read and no light exclusion, oldest first: time and areas."""
+    """Capture photos with trays read and no light exclusion, oldest first: time and areas. A
+    stored visit is kept, so the review gives the same answer once visits are stored."""
     import sqlite3
 
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     rows = conn.execute(
         "SELECT c.id, c.taken_at FROM capture c JOIN tray_read r ON r.capture_id = c.id"
         " LEFT JOIN exclusion x ON x.capture_id = c.id"
-        " WHERE c.experiment_id = ? AND c.purpose = 'capture' AND r.status = 'read' AND x.name IS NULL"
+        " WHERE c.experiment_id = ? AND c.purpose = 'capture' AND r.status = 'read' AND (x.name IS NULL OR x.name = 'visit')"
         " ORDER BY c.taken_at", (experiment,)).fetchall()
     areas = defaultdict(dict)
     for cid, tray, area in conn.execute(
@@ -111,9 +115,9 @@ def stays(rows: list[dict], threshold: float, ratio: float) -> int:
         for tray, (mm2, _ratio, usual) in r["jumps"].items():
             if not big((mm2, _ratio, usual), threshold, ratio):
                 continue
-            later = [rows[j]["jumps"].get(tray) for j in range(i + LATER[0], min(len(rows), i + LATER[1] + 1))]
-            later_areas = [rows[j]["t"] for j in range(i + LATER[0], min(len(rows), i + LATER[1] + 1))]
-            if later and len(later_areas) == LATER[1] - LATER[0] + 1:
+            window = range(i + LATER[0], i + LATER[1] + 1)
+            if window[-1] < len(rows):  # the whole window is in the series
+                later = [rows[j]["jumps"].get(tray) for j in window]
                 # the area itself against the usual level before the jump
                 if all(v is not None and big((v[2] + v[0] - usual, (v[2] + v[0]) / usual if usual else float("inf"), usual), threshold, ratio)
                        for v in later):
@@ -128,8 +132,11 @@ def main() -> None:
     ap.add_argument("--experiment", type=int, default=18)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
-    rows = review(photos(a.db, a.experiment))
+    ps = photos(a.db, a.experiment)
+    rows = review(ps)
     away = [r for r in rows if r["where"] == "" and r["top_usual"] is not None]
+    if not away:
+        raise SystemExit("no photos away from known visits and Monday: nothing to compare with")
     print(f"{len(rows)} photos used (trays read, no light exclusion), {len(away)} away from known visits and Monday\n")
 
     print("Q1. Largest jump per photo, away from known visits and Monday")
@@ -168,21 +175,20 @@ def main() -> None:
             print(f"  {th:>4} | {ratio:>5} | {sum(1 for r in away if marked(r, th, ratio)):>4} |"
                   f" {sum(1 for r in rows if r['where'] == 'Monday' and marked(r, th, ratio)):>6} | {len(caught)} of {len(KNOWN)} | {stays(rows, th, ratio)}")
     print(f"  a tray missing only: away {sum(1 for r in away if r['missing'])}, trays: "
-          + str(__import__("collections").Counter(tuple(r["missing"]) for r in away if r["missing"]).most_common(6)))
+          + str(Counter(tuple(r["missing"]) for r in away if r["missing"]).most_common(6)))
     print("  away, a tray missing, by UTC day and hour: " + ", ".join(
-        f"{h} ({n})" for h, n in sorted(__import__("collections").Counter(f"{r['t']:%d %H}h" for r in away if r["missing"]).items())))
+        f"{h} ({n})" for h, n in sorted(Counter(f"{r['t']:%d %H}h" for r in away if r["missing"]).items())))
     jumps_away = [r for r in away if any(big(j, 100, 2) for j in r["jumps"].values())]
     print("  away, jump at 100 mm2 and 2x, by UTC hour: " + ", ".join(
-        f"{h} ({n})" for h, n in sorted(__import__("collections").Counter(f"{r['t']:%d %H}h" for r in jumps_away).items())))
+        f"{h} ({n})" for h, n in sorted(Counter(f"{r['t']:%d %H}h" for r in jumps_away).items())))
 
-    flags = [any(big(j, JUMP_MM2, JUMP_RATIO) for j in r["jumps"].values()) for r in rows]
-    marks = [i for i, f in enumerate(flags) if f]
-    filled = set(marks)
-    for i, j in zip(marks, marks[1:]):
-        if j - i <= GAP:
-            filled.update(range(i, j))
-    print(f"\nChosen rule, {JUMP_MM2} mm2 and {JUMP_RATIO}x, gaps of up to {GAP} photos filled:"
-          f" {len(marks)} photos marked, {len(filled)} with the gaps filled")
+    # The rule as the rig stores it (exclusions.visits), on the same photos.
+    assert (exclusions.VISIT_JUMP_MM2, exclusions.VISIT_JUMP_RATIO, exclusions.VISIT_GAP) == (JUMP_MM2, JUMP_RATIO, GAP)
+    stored = exclusions.visits([{"taken_at": p["t"].isoformat(), "areas": p["areas"]} for p in ps])
+    marks = [i for i, r in enumerate(rows) if any(big(j, JUMP_MM2, JUMP_RATIO) for j in r["jumps"].values())]
+    filled = {i for i, v in enumerate(stored) if v}
+    print(f"\nChosen rule, {JUMP_MM2} mm2 and {JUMP_RATIO}x, gaps of up to {GAP} photos filled"
+          f" (exclusions.visits): {len(marks)} photos over the jump, {len(filled)} visits with the gaps filled")
     for name in [n for n, _a, _b in KNOWN] + ["Monday", ""]:
         here = [i for i, r in enumerate(rows) if r["where"] == name]
         m = sorted(i for i in here if i in filled)

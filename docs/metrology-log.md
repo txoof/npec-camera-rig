@@ -5583,10 +5583,14 @@ who know the rig. Areas are the green threshold's; a person in dark clothes with
 change no area and hide no tag, and is not seen. Nothing here shows that areas between visits
 are free of people.
 
-**Results (2026-10-27, about 11:00 UTC).** `python3 experiments/round2-visits/visit_review.py
-/var/lib/npec-rig/rig.db --experiment 18 --out docs/figures/17.9` (read-only); one row per photo
-in `docs/figures/17.9/visits-e18.csv`, with the rule's marks. 4,658 photos of experiment 18 had
-their trays read and no light exclusion, from 22 October 08:41 to 27 October about 10:30 UTC.
+**Results (2026-10-27, run again at about 11:50 UTC after the review of #301).**
+`python3 experiments/round2-visits/visit_review.py /var/lib/npec-rig/rig.db --experiment 18 --out
+docs/figures/17.9` (read-only); one row per photo in `docs/figures/17.9/visits-e18.csv`, with the
+rule's marks. 4,736 photos of experiment 18 had their trays read and no light exclusion, from 22
+October 08:41 to 27 October 11:50 UTC. Monday is the chamber's local day (25 October 23:00 to 26
+October 23:00 UTC); the chosen rule's marks come from `exclusions.visits`, the code the rig runs,
+not from a copy in the script. The first run, at about 11:00 UTC on 4,658 photos with Monday as a
+UTC day, gave the same marks and the same table.
 
 One known visit was added after the first run, from Aaron's answer to its marks: the benchmark
 put on tray 8, 22 October 11:33 CEST (09:33 UTC). The first run also marked 11 photos of tray 7
@@ -5604,7 +5608,7 @@ on 22 October between 13:16 and 16:06 CEST; Aaron has no record of being in the 
    from 61), 5,089 mm² (the tray move, tray 9 from 3) and -419 mm² (27 October 10:49 CET, tray 7
    from 448, a hand over it). 27 October 09:45 CET changed no area by more than 235 mm² on tray
    10 (usual 26,463). The sheets on the pots fall in photos already left out by the light rules.
-2. *Missing trays.* Away from known visits, 42 of 3,715 photos (1.1%) miss one tray found before
+2. *Missing trays.* Away from known visits, 42 of 3,793 photos (1.1%) miss one tray found before
    and after, spread over every hour including nights (trays 12, 8, 10, 2, 7, 6): tag reads that
    fail, not visits. At known visits 0 to 5 photos each. A missing tray is not used.
 3. *Length.* With the rule below, the marks of one visit run 1 to 8 photos, with up to 4

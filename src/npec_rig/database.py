@@ -478,17 +478,23 @@ def light_warning_dismissals(experiment_id: int) -> list[dict]:
 
 
 def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
-    """Each read photo of the experiment's saved plant areas: tray ID to mm2, by capture id."""
+    """The saved plant areas of each of the experiment's photos whose trays were read (status
+    `read`): tray ID to mm2, by capture id; empty for a read photo with no area. Photos not read,
+    or read with another status, are not included."""
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT tray_reading.capture_id, tray_reading.tray_id, tray_reading.area_mm2 FROM tray_reading"
-            " JOIN capture ON capture.id = tray_reading.capture_id"
-            " WHERE capture.experiment_id = ? AND tray_reading.area_mm2 IS NOT NULL",
+            "SELECT tray_read.capture_id, tray_reading.tray_id, tray_reading.area_mm2 FROM tray_read"
+            " JOIN capture ON capture.id = tray_read.capture_id"
+            " LEFT JOIN tray_reading ON tray_reading.capture_id = tray_read.capture_id"
+            " AND tray_reading.area_mm2 IS NOT NULL"
+            " WHERE capture.experiment_id = ? AND tray_read.status = 'read'",
             (experiment_id,),
         ).fetchall()
     areas: dict[int, dict[int, float]] = {}
     for capture_id, tray_id, area in rows:
-        areas.setdefault(capture_id, {})[tray_id] = area
+        photo = areas.setdefault(capture_id, {})
+        if tray_id is not None:
+            photo[tray_id] = area
     return areas
 
 
