@@ -42,6 +42,7 @@ should be compared as times, not as text.
 | `scheduled_photo` | One row per scheduled photo of an experiment, taken or missed | `scheduler.py` |
 | `tray_read` | One row per photo read for trays, with its status | `tray_readings.py` |
 | `tray_reading` | One row per tray found in a photo: its slot, A1 corner and centre | `tray_readings.py` |
+| `exclusion` | One row per photo of an experiment: why its plant areas are left out, if they are | `exclusions.py` |
 
 ### `camera_events`
 
@@ -213,6 +214,27 @@ earlier photo of the same experiment but not in this one is listed as not found 
 photo it was missing from (Aaron, 2026-10-21): a removed tray, a swapped tag and a dirty tag look
 the same to the rig. Only photos with the status `read` count, so a dark photo is not a tray
 missing. A purge deletes both tables' rows with the photos.
+
+### `exclusion`
+
+Exclusions (#288, `GLOSSARY.md`): why a photo's plant areas are left out of averages and
+exports. The areas themselves are kept. Each time a photo is read, every photo of its
+experiment is worked out again from its exposure times analogue gain (E) and saved, because a new
+photo can change earlier ones. Only photos taken as captures get a name: validation, calibration
+and tripwire photos get NULL and are left out of the norm. The rules and their values are in
+`exclusions.py` and metrology log 17.8.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `capture_id` | integer | The photo's `capture` row |
+| `name` | text | `lights off`, `light changing`, `light disturbed` or `light off norm`; NULL for none |
+| `norm_e` | real | The experiment's norm (E) it was worked out with; NULL until the experiment has a full first day |
+| `limit_fraction` | real | How far from the norm, as a fraction of it, counts as off it, for example 0.21 |
+| `worked_out_at` | text | When it was worked out, UTC |
+
+A photo read before this table existed has no row until its experiment is read again or
+reprocessed; until then only lights off is shown, worked out from the photo itself. A purge
+deletes the rows with the photos.
 
 ## Planned
 

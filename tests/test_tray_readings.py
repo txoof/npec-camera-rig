@@ -193,7 +193,7 @@ def _camera_reports(monkeypatch, exposure_us: int, gain: float) -> None:
     CameraManager.set_instance(CameraManager(Reports()))
 
 
-def test_a_photo_taken_in_the_dark_is_marked_dark_from_its_exposure_and_gain(monkeypatch) -> None:
+def test_a_photo_taken_with_the_lights_off_is_excluded_from_its_exposure_and_gain(monkeypatch) -> None:
     """Exposure and gain of real photos of experiment 18 (rig.db, 2026-10-26): lights off at
     23:28:53 UTC on 22 October, 64,022 us at gain 4.0; lit at 08:41:20, 5,404 us at gain 1.0."""
     _calibrate()
@@ -205,8 +205,8 @@ def test_a_photo_taken_in_the_dark_is_marked_dark_from_its_exposure_and_gain(mon
 
     for path in (dark, lit):
         tray_readings.read_photo(path)
-    assert tray_readings.photo_readings(dark)["light"] == "dark, no data"
-    assert tray_readings.photo_readings(lit)["light"] is None
+    assert tray_readings.photo_readings(dark)["exclusion"] == "lights off"
+    assert tray_readings.photo_readings(lit)["exclusion"] is None
 
 
 def test_each_trays_area_carries_the_floor_below_which_it_means_nothing_detected(monkeypatch) -> None:
@@ -216,3 +216,39 @@ def test_each_trays_area_carries_the_floor_below_which_it_means_nothing_detected
 
     tray = tray_readings.read_photo(_photo())["trays"][0]
     assert tray["floor_mm2"] == 100
+
+
+def test_each_photos_exclusion_is_stored_and_earlier_photos_are_checked_again_as_new_ones_come(
+    monkeypatch, tmp_path
+) -> None:
+    """#288: the experiment's first "day" (shortened to 0.3 s, a timing constant) is 5,000 and
+    5,100 us: norm 5,050, largest swing 1%, limit 3%. A photo at 4,000 is off the norm; while it
+    is the newest it is "light off norm", and once the next photo is back at 5,000 it is a short
+    run that returned: "light disturbed"."""
+    from datetime import timedelta
+
+    from npec_rig import exclusions
+
+    monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
+    monkeypatch.setattr(exclusions, "FIRST_DAY", timedelta(seconds=0.3))
+    monkeypatch.setattr(exclusions, "NEAR_LIGHTS_OFF", timedelta(0))
+    _calibrate()
+    _finds(monkeypatch, None)
+    client = TestClient(app)
+    experiment = client.post("/api/experiments", json={}).json()
+    client.post(f"/api/experiments/{experiment['id']}/start")
+
+    def taken(exposure_us: int) -> str:
+        _camera_reports(monkeypatch, exposure_us, 1.0)
+        path = _photo()
+        tray_readings.read_photo(path)
+        return path
+
+    taken(5_000)
+    taken(5_100)
+    time.sleep(0.35)
+    taken(5_000)
+    dip = taken(4_000)
+    assert tray_readings.photo_readings(dip)["exclusion"] == "light off norm"
+    taken(5_000)
+    assert tray_readings.photo_readings(dip)["exclusion"] == "light disturbed"

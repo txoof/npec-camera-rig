@@ -5433,6 +5433,84 @@ is shown as "under 100" in the gallery. Reported with each area, never subtracte
 empty trays read 27 to 78 mm² (median per tray and day) and at most 98 mm² outside shuffle 1.
 *Limits:* one run, trays 9 to 12; one value for every tray and slot.
 
+### 17.8 Light exclusions: how far the light moves (method written 2026-10-26, before the data was read)
+
+**Label: development check.** #288 part 2 leaves out the plant areas of photos taken while the
+light is changing, briefly disturbed, or steady at a level away from the experiment's norm
+(exclusions, `GLOSSARY.md`). Three values are open: how far from the norm counts as off norm,
+how large a step from one photo to the next counts as the light changing, and how many photos
+still count as a short run. This section sets out how they are chosen from photos already taken.
+
+**Data.** `rig.db`, read-only, the photos taken as captures of experiments 16 (potato run, 20 to
+21 October) and 18 (Round 2, from 22 October). For each photo: its time, exposure (µs) and
+analogue gain, and their product E (exposure times gain), which the camera's auto-exposure raises
+as the light falls. Photos with E of 200,000 or more are lights off (17.7) and are not used.
+Script `experiments/round2-light/light_review.py`; its per-photo values go to `docs/figures/17.8/`.
+
+**Questions.**
+
+1. *Steady light.* In each experiment's first full 24 hours, outside the fades, how far does E
+   move from one photo to the next, and how far from its median (the norm)? Reported as the
+   ratio to the previous photo and to the median, median and 99th percentile and largest.
+2. *Fades.* In every fade of both experiments (the stretches either side of lights off where E
+   leaves its steady range): how long they last, how many photos, and the step from one photo to
+   the next. The steps of question 1 against these show whether one value separates them.
+3. *Shuffle 1* (23 October 08:43 to 08:56 UTC, people at the table, 17.4): does E move, by how
+   much, and for how many photos? If it does not move, people at the table are left to the
+   visits rule (#288 part 3), not to the light rules.
+4. *Lit levels.* How many steady lit levels each experiment has. With one level only, no photo
+   shows what a different steady level does, and the off norm value has no data behind it.
+
+**How the values are chosen.** Shown to Aaron as tables before any value is fixed, then written
+here as decisions with the numbers they rest on. A value with no data behind it is left out of
+the rules, and that is said here.
+
+**Limits, as planned.** Two experiments, one chamber, one light program with fades. E is what
+the camera did, not a light measurement: a change in E is the camera adjusting, whatever the
+cause. Nothing here shows that areas read under a different steady level match the norm's.
+
+**Results (2026-10-26, about 15:00 UTC).** `python3 experiments/round2-light/light_review.py
+/var/lib/npec-rig/rig.db --experiment 16 18 --out docs/figures/17.8` (read-only); the per-photo
+values are `docs/figures/17.8/light-e16.csv` and `light-e18.csv`. One photo a minute in both. E is
+exposure times gain; the norm is the median of the first day's steady photos (lit, more than 60
+minutes from any lights-off photo).
+
+| Question | Experiment 18 (Round 2) |
+|---|---|
+| 1. Steady light, first 24 h | 868 photos, norm E 5,248 (5,248 µs at gain 1.0). Off the norm: 99% within 3.0%, largest 6.9%. From one photo to the next: 99% within 3.1%, largest 5.9% |
+| 2. Fades | 10 fades, 20 to 26 photos and 19 to 25 minutes each, E up to about 20 times the norm. From one photo to the next: median 7.4% to 8.4%, largest 63% to 73% |
+| 3. Shuffle 1 | E moved: 8% to 11% low, in runs of 1 to 3 photos, steps 8% to 12% |
+| 4. Lit levels | One level on the first day. From 08:25 UTC on 26 October, after sheets and squares were put on the pots (18.4, 18.5), E has been 9% to 27% low and steady for 397 photos so far |
+
+Experiment 16 (potato run) is not usable for question 1: its first day already holds 5 levels of E
+(bands of 25%), with 99% of steady photos within 107% of the norm.
+
+What this shows. A fade's steps are larger than the steps of people at the table, so step size
+alone does not separate them; how long the light stays off the norm, and whether it reaches lights
+off, does. People at the table move E by little more than steady light does, so visits are left
+to the visits rule (#288 part 3). E follows what is on the table as well as the lamps: the sheets
+and squares lowered it by up to 27% with the lamps unchanged.
+
+**Decisions (Aaron, 2026-10-26).** These are decisions, not measurements; revisited in #296.
+
+- *Off norm:* a lit photo whose E differs from the norm by more than 3 times the first day's
+  largest steady swing (for experiment 18, 3 x 6.9%, about 21%). The limit comes from each
+  experiment's own first day, so a noisier experiment gets a wider one; only the factor 3 is
+  fixed. Chosen over a fixed 10%, which would sit just above experiment 18's steady swing and
+  could not adapt to another experiment (Aaron: "I'm scared that we hard-code in a value that
+  will bite us later").
+- *Steady photos on the first day:* lit and more than 60 minutes from any lights-off photo; all
+  lit photos when the first day has no lights-off photo.
+- *Short run:* 3 photos or fewer off the norm, returning to it: "light disturbed", no warning.
+- *Changing:* an off-norm stretch that reaches lights off, or in which E keeps moving: "light
+  changing", no warning. A longer steady stretch is "light off norm" and counts toward the warning.
+- Each exclusion stores the norm and limit it used, and all of an experiment's exclusions are
+  worked out again whenever a photo is read, so a changed rule corrects older photos.
+
+*Limits.* One usable experiment, one light program, one lit level. A ramp program with no lights
+off makes a wide limit and may leave dim photos in. Whether areas read under a steady level away
+from the norm are wrong is not known.
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from

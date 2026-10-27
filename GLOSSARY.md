@@ -73,3 +73,11 @@ The range reported with each area, within which the true area is expected to lie
 A check the computer runs on the code, with no chamber and no physical object; its inputs are
 numbers written into the test.
 _Avoid_: test sheet, test target
+
+## Plant areas
+
+**Exclusion**:
+A stored reason that a photo's plant areas are left out of averages and exports: lights off,
+light changing, light disturbed, light off norm, or a visit (#288). The areas themselves are kept,
+never deleted, so an exclusion can be shown, reviewed or worked out again.
+_Avoid_: mark, flag (a photo's flags say why the validation bands do not cover it)

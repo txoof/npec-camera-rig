@@ -253,7 +253,7 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | segmentation | `segmentation.py` (plant masks: the `Segmenter` interface, the green threshold and the Hailo stub, #74) |
 | database | `database.py` (the experiment's tables in `rig.db` and their migrations) |
 | exports | `exports.py` (an experiment's export zip and its checksum manifest) |
-| trays | `tray_placement.py` (each tray's slot, A1 corner and outline, placed from its cell A1 tag), `tray_readings.py` (each photo read for its trays in the background, #222), `tests/fixtures/trays/` |
+| trays | `tray_placement.py` (each tray's slot, A1 corner and outline, placed from its cell A1 tag), `tray_readings.py` (each photo read for its trays in the background, #222), `exclusions.py` (why a photo's plant areas are left out, from its exposure and gain, #288), `tests/fixtures/trays/` |
 | docs | `docs/` (except the shared files below), `reference/`, `README.md`, `GLOSSARY.md` |
 | cad | `hardware/` |
 | deploy | `deploy/` |
