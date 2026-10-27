@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from npec_rig import exclusions
+from npec_rig import captures, exclusions
+from tests.helpers import record_light_photos
 
 pytestmark = pytest.mark.unit
 
@@ -132,3 +133,115 @@ def test_a_photo_with_no_exposure_is_left_out_and_the_others_are_still_labelled(
     assert result["norm"] == 5000
     assert result["limit"] == pytest.approx(0.18)
     assert result["exclusions"][24:] == [None, None, "light disturbed", "light disturbed", None]
+
+
+# --- The light warning (#288 part 2 PR 2) ----------------------------------------------------------
+# More than 2 hours of "light off norm" within 24 hours raises it; the time of a stretch runs from
+# its first photo to the photo after it (Aaron, 2026-10-27).
+
+
+def _experiment(*series: tuple[timedelta, float]) -> int:
+    """An experiment with photos at START plus each offset (`record_light_photos`); its id."""
+    experiment_id = captures.create_experiment(name="Light")["id"]
+    record_light_photos(experiment_id, START, series, f"light-{experiment_id}")
+    return experiment_id
+
+
+def _first_day() -> list[tuple[timedelta, float]]:
+    """FIRST_DAY hourly, then one photo on the norm at 24 h: norm 5,000, limit 18%."""
+    return [(timedelta(hours=h), e) for h, e in enumerate([*FIRST_DAY, 5000])]
+
+
+def _off(start_h: float, photos: int, every_min: int) -> list[tuple[timedelta, float]]:
+    """`photos` at 4,000 (-20%, off norm) `every_min` apart from `start_h`, then one back at
+    5,000."""
+    times = [timedelta(hours=start_h) + timedelta(minutes=every_min * i) for i in range(photos + 1)]
+    return [(t, 4000) for t in times[:-1]] + [(times[-1], 5000)]
+
+
+def test_more_than_2_hours_off_norm_raises_the_warning_and_2_hours_does_not() -> None:
+    """4 photos at 4,000, 30 minutes apart, from 25 h: 25:00 to the photo back at 27:00 is 2.0
+    hours, no warning. 5 photos: 25:00 to 27:30, 2.5 hours, a warning."""
+    assert exclusions.light_warning(_experiment(*_first_day(), *_off(25, 4, 30))) is None
+
+    warning = exclusions.light_warning(_experiment(*_first_day(), *_off(25, 5, 30)))
+    assert warning == {
+        "hours": 2.5,
+        "first": (START + timedelta(hours=25)).isoformat(),
+        "last": (START + timedelta(hours=27, minutes=30)).isoformat(),
+    }
+
+
+def test_two_short_stretches_count_together_only_within_24_hours() -> None:
+    """Two stretches of 1.5 hours (6 photos 15 minutes apart, then back): from 25 h and 30 h they
+    add to 3.0 hours within 24 hours, a warning from 25:00 to 31:30; from 25 h and 50 h they are
+    25 hours apart, no warning."""
+    near = _experiment(*_first_day(), *_off(25, 6, 15), *_off(30, 6, 15))
+    assert exclusions.light_warning(near) == {
+        "hours": 3.0,
+        "first": (START + timedelta(hours=25)).isoformat(),
+        "last": (START + timedelta(hours=31, minutes=30)).isoformat(),
+    }
+    assert exclusions.light_warning(_experiment(*_first_day(), *_off(25, 6, 15), *_off(50, 6, 15))) is None
+
+
+def test_dismissing_hides_the_warning_until_a_new_stretch_raises_it() -> None:
+    """2.5 hours from 25 h raise the warning; dismissed, it is gone. A new 2.5 hours from 40 h,
+    photos taken after the dismissal, raise it again for those hours only."""
+    series = [*_first_day(), *_off(25, 5, 30)]
+    experiment_id = _experiment(*series)
+    exclusions.dismiss_light_warning(
+        experiment_id, now="2026-10-23T12:00:00+00:00", until=exclusions.light_warning(experiment_id)["last"]
+    )
+    assert exclusions.light_warning(experiment_id) is None
+
+    record_light_photos(experiment_id, START, _off(40, 5, 30), f"later-{experiment_id}")
+    assert exclusions.light_warning(experiment_id) == {
+        "hours": 2.5,
+        "first": (START + timedelta(hours=40)).isoformat(),
+        "last": (START + timedelta(hours=42, minutes=30)).isoformat(),
+    }
+
+
+def test_dismissing_covers_only_the_warning_the_researcher_saw() -> None:
+    """Review of #300: the warning shown ends at 27:30; a new 2.5 hours from 40 h arrive before
+    Dismiss is tapped. Dismissing what was seen leaves the new stretch raising the warning."""
+    experiment_id = _experiment(*_first_day(), *_off(25, 5, 30))
+    seen = exclusions.light_warning(experiment_id)
+    record_light_photos(experiment_id, START, _off(40, 5, 30), f"later-{experiment_id}")
+
+    exclusions.dismiss_light_warning(experiment_id, now="2026-10-24T12:00:00+00:00", until=seen["last"])
+
+    assert exclusions.light_warning(experiment_id) == {
+        "hours": 2.5,
+        "first": (START + timedelta(hours=40)).isoformat(),
+        "last": (START + timedelta(hours=42, minutes=30)).isoformat(),
+    }
+
+
+def test_hours_after_a_dismissal_count_again_while_the_stretch_goes_on() -> None:
+    """Review of #300: 6 photos at 4,000, 30 minutes apart from 25 h, the light not back yet:
+    2.5 hours to the newest photo at 27:30, a warning. Dismissed, then the stretch goes on with
+    5 more photos to 30:00: 27:30 to 30:00, 2.5 hours, raise it again."""
+    off = [(timedelta(hours=25, minutes=30 * i), 4000) for i in range(6)]
+    experiment_id = _experiment(*_first_day(), *off)
+    seen = exclusions.light_warning(experiment_id)
+    assert seen["last"] == (START + timedelta(hours=27, minutes=30)).isoformat()
+    exclusions.dismiss_light_warning(experiment_id, now="2026-10-23T12:00:00+00:00", until=seen["last"])
+
+    more = [(timedelta(hours=28, minutes=30 * i), 4000) for i in range(5)]
+    record_light_photos(experiment_id, START, more, f"later-{experiment_id}")
+    assert exclusions.light_warning(experiment_id) == {
+        "hours": 2.5,
+        "first": (START + timedelta(hours=27, minutes=30)).isoformat(),
+        "last": (START + timedelta(hours=30)).isoformat(),
+    }
+
+
+def test_a_pause_after_photos_off_norm_counts_one_usual_gap_not_the_pause() -> None:
+    """Review of #300: 4 photos at 4,000, 10 minutes apart from 25 h, then a pause to 40 h. The
+    usual gap is 1 hour (the first day), so the last photo counts 1 hour, not 14.5: 10 + 10 + 10
+    + 60 minutes, 1.5 hours, no warning. Before, 25:00 to 40:00 read as 15 hours."""
+    off = [(timedelta(hours=25, minutes=10 * i), 4000) for i in range(4)]
+    experiment_id = _experiment(*_first_day(), *off, (timedelta(hours=40), 5000))
+    assert exclusions.light_warning(experiment_id) is None

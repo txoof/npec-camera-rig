@@ -1,9 +1,11 @@
+from datetime import datetime, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 
-from npec_rig import photo_tags
+from npec_rig import captures, database, photo_tags
 from npec_rig.app import app
-from tests.helpers import square_detection
+from tests.helpers import record_light_photos, square_detection
 
 pytestmark = pytest.mark.unit
 
@@ -427,3 +429,32 @@ def test_each_photo_in_the_list_carries_its_exclusion_and_each_area_its_floor(mo
     trays = {i["path"]: i for i in client.get("/api/captures").json()}[path]["trays"]
     assert trays["exclusion"] == "lights off"
     assert [t["floor_mm2"] for t in trays["trays"]] == [100] * 12
+
+
+def test_the_light_warning_is_shown_until_dismissed_and_the_dismissal_is_saved() -> None:
+    """A first day steady at 5,000, then 5 photos at 4,000 (-20%) 30 minutes apart from 25 h and
+    one back: 2.5 hours off norm (#288). Dismiss saves when, and the warning is gone."""
+    start = datetime.fromisoformat("2026-10-22T08:00:00+00:00")
+    series = [(timedelta(hours=h), 5000) for h in range(25)]
+    series[5] = (timedelta(hours=5), 5300)
+    series += [(timedelta(hours=25, minutes=30 * i), 4000) for i in range(5)]
+    series += [(timedelta(hours=27, minutes=30), 5000)]
+    experiment_id = captures.create_experiment(name="Light")["id"]
+    record_light_photos(experiment_id, start, series, "light")
+    client = TestClient(app)
+
+    response = client.get("/api/captures/light-warning", params={"experiment": experiment_id})
+    assert response.status_code == 200
+    assert response.json() == {
+        "hours": 2.5, "first": "2026-10-23T09:00:00+00:00", "last": "2026-10-23T11:30:00+00:00",
+    }
+
+    before = datetime.now().astimezone()
+    assert client.post(
+        "/api/captures/light-warning/dismiss",
+        params={"experiment": experiment_id, "until": "2026-10-23T11:30:00+00:00"},
+    ).status_code == 200
+    assert client.get("/api/captures/light-warning", params={"experiment": experiment_id}).json() is None
+    [dismissal] = database.light_warning_dismissals(experiment_id)
+    assert dismissal["covers_until"] == "2026-10-23T11:30:00+00:00"
+    assert before <= datetime.fromisoformat(dismissal["dismissed_at"]) <= datetime.now().astimezone()

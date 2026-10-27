@@ -201,3 +201,17 @@ def one_tray_plant_scene(monkeypatch) -> None:
     tag = TagDetection(5, ((400, 3600), (800, 3600), (800, 4000), (400, 4000)), (600, 3800))
     monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [tag])
     CameraManager.set_instance(CameraManager(Scene(width=4000, height=4400)))
+
+
+def record_light_photos(experiment_id: int, start, series, folder: str) -> None:
+    """Photos of the experiment at `start` plus each (offset, E) of `series`, exposure E at gain
+    1.0, saved under `folder`, then its exclusions worked out as the rig does after a read."""
+    from npec_rig import database, exclusions
+
+    for i, (offset, e) in enumerate(series):
+        database.record_capture(
+            taken_at=(start + offset).isoformat(), path=f"{folder}/{i}.jpg", purpose="capture",
+            experiment_id=experiment_id, calibration=None, validation=None, lens_position=None,
+            focus_locked_at=None, exposure_us=e, analogue_gain=1.0, flags=[],
+        )
+    exclusions.update(database.captures_for_experiment(experiment_id)[-1])
