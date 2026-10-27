@@ -5824,3 +5824,173 @@ stored tags with that branch's code:
   of tags, 1 to 20 tags each).
 - The three stored validation rounds of 22 October, scored against the refitted scale by tag
   spacing: table median +0.1%, +0.1% and +0.6% (limit 2.5%); slots -1.5% to +1.2%.
+
+### 18.7 The squares split into scale and mask edge, against validation (2026-10-26)
+
+**Label: development check.** After the fix was applied on the live rig (26 October 15:32 UTC: the
+22 October calibration rebuilt as twin `20261026T153214381640`, its validation scored again as
+session `20261026T153214526314`, experiment 18 reprocessed), the squares of 18.5 on black paper read
+from 13:22 to 18:56 UTC: 334 stills per square, all twelve found in every one (table:
+`figures/18/squares-paper-long.csv`).
+
+**Steady over time.** Each square's hourly median stays within 1 point over the 5.5 hours, except B
+(+30.9% falling to +26.9%). From still to still a 10 mm square varies by about ±6 points, a 20 mm by
+±3, 40 and 55 mm by ±1. Between squares of one size the spread stays: 10 mm +3% to +41% in single
+stills (medians +9.7% to +29.9%), 20 mm -5% to +22% (-1.0% to +16.9%), 40 mm +5% to +9%, 55 mm +6%
+to +9%.
+
+**The split.** Each square's error read with the twin's scale field (what the rig reports) is the
+sum of two parts: the scale error at the square, (tag spacing of the tag sheet on its tray / the
+twin's scale there)^2 - 1, and the mask edge, measured against that tag spacing (18.5). The scale
+part set against the rescored validation median of the square's slot:
+
+| Square | Slot (tray) | Scale error at the square | Validation median, slot | Total | Mask edge |
+|---|---|---|---|---|---|
+| A, 10 mm | South 1 (9) | +0.26% | +0.22% | +28.8% | +28.5% |
+| K, 40 mm | South 1 (9) | +0.18% | +0.22% | +8.1% | +7.9% |
+| I, 55 mm | South 1 (9) | -0.15% | +0.22% | +6.3% | +6.5% |
+| B, 10 mm | South 6 (11) | +0.36% | +0.63% | +29.2% | +28.7% |
+| H, 20 mm | South 6 (11) | +0.66% | +0.63% | +17.6% | +16.9% |
+| E, 20 mm | South 6 (11) | +0.90% | +0.63% | +14.0% | +13.0% |
+| C, 10 mm | North 2 (12) | +0.37% | +0.77% | +10.1% | +9.7% |
+| F, 20 mm | North 2 (12) | +0.45% | +0.77% | +9.6% | +9.1% |
+| L, 40 mm | North 2 (12) | +0.86% | +0.77% | +6.9% | +6.0% |
+| J, 55 mm | North 6 (10) | +0.45% | -0.03% | +7.9% | +7.4% |
+
+Medians over the 334 stills. D (North 1, tray 8) and G (South 4, tray 7) have no tag sheet on their
+tray; their scale comes from the other trays' sheets and is left out of the comparison.
+
+- **The scale part agrees with validation**: within 0.5 points of the slot's median in every slot,
+  inside the slot bands (95% at ±1.2% to ±1.7%). The bands are right for what they measure.
+- **The mask edge is 6 to 30 times the scale part**, and no band covers it: validation's tag
+  sheets have no green.
+- **The mask edge follows the slot.** All three squares in North 2 read low for their size (10 mm
+  +9.7% where the others read +28% to +30%, 20 mm +9.1% where the others read +13% to +17%), and G
+  in South 4 lowest. Within one size, brighter paper goes with a smaller error (mean grey of the
+  paper just outside each square in the 18:55:53 still): 10 mm, C 90 at +9.7% against A, B, D 57
+  to 73 at +28% to +30%; 20 mm, G 92 at -1.0%, F 87 at +9.1%, E 89 at +13.0%, H 81 at +16.9%. Not
+  for every square: L in North 2 sits on paper of 73. The index divides by brightness, so the same
+  faint green tint passes on darker paper and not on brighter. Whether the tint is light reflected
+  from the square or blur is not separated.
+
+Not covered: plants, soil, the lights' other levels, and any slot without a square.
+
+### 18.8 Four green thresholds from the literature, tried on the squares (2026-10-26)
+
+**Label: development check.** The comment on #286 of 26 October 14:03 UTC lists the published ways
+to pick out green pixels. Aaron agreed in the session of 26 October to try them offline on the
+stored stills of 18.5 and 18.7. The method was agreed in that session and not written here before
+the run.
+
+**Method.** The same stills, read-only from `rig.db` and the photo files; nothing on the rig
+written. Each still was decoded once, and all four methods read the same tray crops. The scale is
+the tag spacing of the tag sheet on the square's tray, as in 18.5, so the error is the mask edge
+plus the scale part of 18.7 (under 1 point). The squares were found and matched the same way for
+every method (size, shape and distance from the tray tag, `squares.py`). The thresholds are the
+published values, not tuned on these squares:
+
+| Method | Rule | Source |
+|---|---|---|
+| exg (in use) | 2g - r - b above 0.1 and G above R, on r = R / (R + G + B) and so on | Woebbecke et al., 1995 |
+| canopeo | 2G - R - B above 20 on 8-bit values, R/G and B/G below 0.95 | Patrignani and Ochsner, 2015 (rule as reimplemented) |
+| exg_exr | (2g - r - b) - (1.4r - g) above 0 | Meyer and Camargo Neto, 2008 |
+| exg_otsu | 2g - r - b above an Otsu threshold chosen per tray crop, and G above R | common practice |
+
+Stills: pot tops 10:45 to 11:58 UTC (73), dark layer 12:05 to 13:10 (65), black paper 13:22 to
+18:55 (333, the 18.7 set without its last still, 18:55:53), all at steady exposure. Code: `experiments/round2-tagedge/methods.py`, summary by
+`methods_summary.py`. Table per method, background and size: `figures/18/methods.csv`.
+
+**Results.** Edge width is the extra strip at every edge, (area - calliper area) / perimeter.
+Ranges are over single stills and all three backgrounds.
+
+| Method | Edge width, median by size | 10 mm squares | 20 mm squares | 55 mm squares | Squares found |
+|---|---|---|---|---|---|
+| exg (in use) | 0.56 to 0.90 mm | -33.8% to +45.9% | -6.9% to +26.3% | -2.3% to +8.6% | 97 to 100% |
+| canopeo | 0.61 to 0.99 mm | -9.7% to +42.6% | +0.3% to +25.4% | -1.3% to +9.1% | 99 to 100% |
+| exg_exr | 0.64 to 0.97 mm | -17.9% to +59.7% | -3.7% to +33.3% | -1.4% to +9.8% | 49 to 100% |
+| exg_otsu | 0.87 to 1.18 mm | +10.5% to +47.9% | +5.5% to +59.8% | -1.2% to +9.0% | 25 to 100% |
+
+- **None of the four removes the mask edge.** Every method reads the squares large by a strip of
+  about 0.6 to 1.0 mm at each edge (median), on every background.
+- **canopeo** finds every square and has fewer low readings on 10 mm squares (lowest -9.7% against
+  -33.8%), but its medians are no smaller than those of exg (10 mm on black paper +29.2% against
+  +28.1%).
+- **exg_exr and exg_otsu** miss up to half of the squares on some backgrounds, and exg_otsu reads
+  larger than exg.
+- **Decision (Aaron, 2026-10-26): the green threshold in use (exg, 0.1) stays for the moment.** No
+  other colour rule narrows the strip; the edge methods of 18.9 are compared on plants in #297.
+
+**What the strip means for small areas.** A strip of fixed width is a larger share of a small
+object: a square of side s gains about 4 x 0.7 / s of its area. Measured: 10 mm squares read
++17.7% to +31.5% (median by background), 55 mm squares +4.5% to +7.1%. Below 10 mm nothing was
+measured. Extended to smaller squares with the same strip (an extrapolation, not a measurement), 5
+mm would read about +56% and 3 mm about +93%, and a leaf has more edge for its area than a square.
+For plants below the 10 mm squares, such as the young plants of the potato run, the areas are
+therefore not measured, and the early part of a growth curve reads flatter than the plant grows,
+because the strip's share falls as the plant grows.
+
+**Agreed with Aaron (2026-10-26):** a green object below 100 mm² (a 10 mm square) has no measured
+error; one of about 100 mm² reads about 28% high on black paper (18.7). The floor of 17.7 (100 mm²
+per tray) was set from empty trays and is not an accuracy limit: 100 mm² on a tray may be several
+plants, each smaller.
+
+**Limits of the evidence.** Flat paper squares, not leaves or soil; three backgrounds and one
+light level; one camera position and focus; published thresholds only, none tuned. Why the strip
+is there (blur, reflected light or the JPEG's colour detail) is not separated. A trained model
+(the second literature comment on #286) was not tried.
+
+### 18.9 Edge methods on the squares (method written 2026-10-26, before the run)
+
+**Label: development check.** The comment on #286 of 26 October 20:26 UTC lists methods that find
+an object's edge instead of judging each pixel's colour. Aaron asked on 26 October to try the ones
+that work on stored stills and compare them with 18.8.
+
+**Tried on the stored stills of 18.8** (same 471 stills, same squares, same scale from the tag
+sheet on each tray, read-only). Each square is first found by the threshold in use (exg, 0.1);
+then, in a box 30 px larger on every side:
+
+- **half way, linear**: the JPEG values are converted back to linear light (the sRGB curve), and
+  each pixel's green is taken as 2G - R - B in linear light. The square's level is the median inside
+  the exg mask shrunk by 8 px, the background's the median of a ring 20 to 30 px outside it. A pixel
+  counts when it is above half way between the two, and the area is the connected piece holding
+  the square's centre (Burns, 2000, the ISO 12233 idea of an edge on linear data).
+- **partial area, linear**: each pixel in the box counts as the fraction (green - background) /
+  (square - background), clipped to 0 to 1, summed over the pixels within 15 px of the exg mask.
+  An edge pixel that is part square, part background then counts as that part (after
+  Trujillo-Pino et al., 2013, simplified: no subpixel edge fit).
+- **GrabCut**: OpenCV's `grabCut` (Rother et al., 2004) on the box, started from the exg mask
+  shrunk by 8 px as certain square, the mask itself as probable square, the ring of 15 px around
+  it as probable background and the rest as background; 5 iterations, no border matting (not in
+  OpenCV).
+
+Compared with exg from 18.8 on the same stills, by error against the calliper area and by edge
+width. **Not tried:** Chan and Vese (2001), which needs a library the rig does not have; points 1
+and 2 of the comment (JPEG colour detail, colour denoise, glare), which need new stills with other
+camera settings.
+
+**Results (2026-10-26).** All 471 stills; every square found by exg was read by every method. Error
+against the calliper area, all three backgrounds together; ranges over single stills; edge width as
+in 18.8. Table per method, background and size: `figures/18/edges.csv` (exg rows repeat 18.8).
+
+| Method | 10 mm, median (single stills) | 20 mm | 40 mm | 55 mm | Edge width, median by size and background |
+|---|---|---|---|---|---|
+| exg (in use, 18.8) | +27.8% (-33.8% to +45.9%) | +11.3% (-6.9% to +26.3%) | +7.8% (+5.5% to +12.3%) | +6.5% (-2.3% to +8.6%) | 0.44 to 1.0 mm (18.8: 0.56 to 0.90 mm, by size only) |
+| half way, linear | -2.9% (-8.6% to +6.6%) | +1.1% (-4.9% to +3.6%) | +0.4% (-1.5% to +1.2%) | +1.3% (-3.3% to +3.1%) | -0.09 to +0.27 mm |
+| partial area, linear | +2.0% (-7.0% to +11.3%) | +2.2% (-4.8% to +10.2%) | +0.7% (-1.4% to +3.5%) | +1.3% (-4.5% to +4.1%) | -0.00 to +0.28 mm |
+| GrabCut | +4.7% (-23.3% to +25.7%) | +3.1% (-3.5% to +25.0%) | +2.5% (-0.5% to +5.3%) | +3.6% (-2.8% to +12.0%) | 0.05 to 0.53 mm |
+
+- **Half way, linear removes most of the strip.** Median error within 3 points at every size and on
+  every background (10 mm: -3.6% to -1.6% by background, against +17.7% to +31.5% for exg); single
+  10 mm stills within -8.6% to +6.6%, about a fifth of the exg spread. It reads 10 mm squares
+  slightly small and 55 mm squares slightly large (+0.9% to +2.0% by background).
+- **Partial area, linear** is close: medians +2% or less except 20 mm (+1.9% to +4.5%), with a wider
+  spread on small squares (10 mm up to +11.3%).
+- **GrabCut** is better than exg but has single stills off by up to 26% on small squares and keeps
+  a strip of 0.3 to 0.5 mm on the large ones.
+- The scale part of 18.7 (under 1 point) is still in every figure.
+
+**Limits of the evidence.** Squares, not leaves: each square has a solid middle (8 px inside) and
+clear background 20 to 30 px around it, which half way needs and plants may not have (thin leaves,
+touching leaves and plants). Each square was first found by exg, so a method's result starts from
+exg's object. One light level, three backgrounds, one camera position and focus. Not a band for
+plants: plants are compared in #297.
