@@ -5519,6 +5519,129 @@ and squares lowered it by up to 27% with the lamps unchanged.
 off makes a wide limit and may leave dim photos in. Whether areas read under a steady level away
 from the norm are wrong is not known.
 
+### 17.9 Visits: people at the table (method written 2026-10-27, before the data was read)
+
+**Label: development check.** #288 part 2 leaves out the plant areas of photos taken while
+someone is at the table: handling a tray, taking one away or putting it back, blocking it for a
+moment, or wearing green gloves or a green sweater. Such a photo gets the exclusion "visit"
+(`GLOSSARY.md`), is left out of averages and exports, and raises no warning. The whole photo is
+left out, not only the trays that changed: at one photo a minute a visit costs a few minutes of
+photos, and one exclusion per photo is what the rig already stores (Aaron, 2026-10-27). When a
+photo is both a light exclusion and a visit, it keeps the light one.
+
+What the rig sees in the photos, by kind (Aaron, 2026-10-27):
+
+1. *A short disturbance that returns.* A tray found before and after is missing for a few
+   photos, or a tray's plant area jumps up or down and comes back. These are visits.
+2. *A tray taken away.* The photos of its going and of its return, if it returns, are a visit.
+   While it is away it has no area and the other trays are not affected. A tray that never
+   returns is already shown as "not found since" (`database.tray_readings`).
+3. *A change that stays.* A green notebook or target left on a tray, a tray swapped, a plant
+   cut back: the area steps and does not come back. The rig cannot tell such a step from a real
+   change. Not part of this rule; counted here only to size a later issue.
+
+Two values are open: how large a jump in a tray's area counts, and within how many photos it
+must come back. This section sets out how they are chosen from photos already taken.
+
+**Data.** `rig.db`, read-only: the photos taken as captures of experiment 18 (Round 2, from 22
+October), each tray's saved area (`tray_reading`, green threshold) and the trays found, and each
+photo's light exclusion (17.8). Photos with a light exclusion are not used. Script
+`experiments/round2-visits/visit_review.py`; its per-photo values go to `docs/figures/17.9/`.
+
+**Known visits.** The times written in this log before the data is read: shuffle 1, 23 October
+08:43 to 08:56 UTC (17.4); the green target put on tray 10, 23 October about 14:02 UTC (17.5,
+kind 3 after it is down); sheets and squares put on the pots from 26 October 08:25 UTC, and a
+tray moved about 10:30 UTC (17.8). Reported by Aaron on 2026-10-27, before the analysis, in
+Dutch local time and given here in UTC: 23 October 10:56 CEST (08:56 UTC, the end of shuffle 1);
+26 October 11:35 CET (10:35 UTC, near the tray move); 27 October 09:45 CET (08:45 UTC) and 10:49
+CET (09:49 UTC). Aaron was also in the chamber several times on Monday 26 October at times not
+noted, so that whole UTC day is left out of the photos taken as no one at the table, and its
+marks are reported apart. Every other photo is taken as no one at the table, which is not known
+for certain: an unlogged visit would show as a false mark.
+
+**Questions.**
+
+1. *Jumps.* For each tray in each photo: its area against its usual level, the median of the
+   same tray's areas in the 10 photos before. Reported in mm² and as a ratio, up and down, for
+   photos away from known visits (median, 99th percentile and largest) and at each known visit.
+   The plants are small Arabidopsis: a ratio alone can be large for a tray near the
+   floor of 100 mm² (17.7), so both are shown.
+2. *Missing trays.* How often a tray found in the photos before and after is missing from one
+   photo, away from known visits (tag reads that fail with no one there) and at each known visit.
+3. *Length.* How many photos each known visit lasts, from the first photo that differs to the
+   first photo back to how it was. This sets how many photos still count as "comes back".
+4. *Steps that stay.* How many times a tray's area steps by more than the chosen jump and does not
+   come back within that many photos (kind 3).
+
+**How the values are chosen.** The smallest jump that marks every known visit, if one exists
+that marks few other photos; the number of photos from the longest known visit. Shown to Aaron
+as tables before any value is fixed, then written here as decisions with the numbers they rest
+on.
+
+**Limits, as planned.** One experiment, one chamber, a handful of known visits, all by people
+who know the rig. Areas are the green threshold's; a person in dark clothes with bare hands may
+change no area and hide no tag, and is not seen. Nothing here shows that areas between visits
+are free of people.
+
+**Results (2026-10-27, run again at about 11:50 UTC after the review of #301).**
+`python3 experiments/round2-visits/visit_review.py /var/lib/npec-rig/rig.db --experiment 18 --out
+docs/figures/17.9` (read-only); one row per photo in `docs/figures/17.9/visits-e18.csv`, with the
+rule's marks. 4,736 photos of experiment 18 had their trays read and no light exclusion, from 22
+October 08:41 to 27 October 11:50 UTC. Monday is the chamber's local day (25 October 23:00 to 26
+October 23:00 UTC); the chosen rule's marks come from `exclusions.visits`, the code the rig runs,
+not from a copy in the script. The first run, at about 11:00 UTC on 4,658 photos with Monday as a
+UTC day, gave the same marks and the same table.
+
+One known visit was added after the first run, from Aaron's answer to its marks: the benchmark
+put on tray 8, 22 October 11:33 CEST (09:33 UTC). The first run also marked 11 photos of tray 7
+on 22 October between 13:16 and 16:06 CEST; Aaron has no record of being in the chamber then
+(2026-10-27), so they are taken as false marks.
+
+1. *Jumps.* Away from known visits and Monday, the largest jump per photo has a median of 68
+   mm², 99% within 554 mm² and largest 1,336 mm², but never 2 times the usual level (largest
+   ratio 1.94). The large ones are the large green objects: the benchmark on tray 8 (about 4,000
+   to 5,000 mm²) moves about 10% from photo to photo, and the target on tray 10 (about 23,000 mm²)
+   by a few hundred mm². The small ones near the floor move by large ratios: tray 7 (usual 64 to
+   114 mm²) reaches 247 mm², more than 2 times, with no one there. A jump must therefore be large
+   both in mm² and as a ratio. At the known visits the largest jumps were 2,401 mm² (shuffle 1,
+   tray 7 from 64), 4,355 mm² (the benchmark, tray 8 from 809), 22,994 mm² (the target, tray 10
+   from 61), 5,089 mm² (the tray move, tray 9 from 3) and -419 mm² (27 October 10:49 CET, tray 7
+   from 448, a hand over it). 27 October 09:45 CET changed no area by more than 235 mm² on tray
+   10 (usual 26,463). The sheets on the pots fall in photos already left out by the light rules.
+2. *Missing trays.* Away from known visits, 42 of 3,793 photos (1.1%) miss one tray found before
+   and after, spread over every hour including nights (trays 12, 8, 10, 2, 7, 6): tag reads that
+   fail, not visits. At known visits 0 to 5 photos each. A missing tray is not used.
+3. *Length.* With the rule below, the marks of one visit run 1 to 8 photos, with up to 4
+   unmarked photos between two marks of the same visit (the tray move).
+4. *Steps that stay.* 13 jumps over the rule after which the tray was still over it 10 to 30
+   photos later: the benchmark, the target, and trays put in new slots in the tray move.
+
+| Jump of more than (and 2 times) | Photos marked with no one there | Photos marked at known visits |
+|---|---|---|
+| 100 mm² | 20 | 32 |
+| 150 mm² | 8 | 27 |
+| 200 mm² | 2 (tray 7, 247 and 242 mm²) | 25 |
+| 250 mm² | 0 | 24 |
+
+**Decisions (Aaron, 2026-10-27).**
+
+- *Visit:* a photo in which a tray's area is more than 250 mm² and more than 2 times away from its
+  usual level, up or down; the usual level is the median of the same tray's areas in the 10
+  photos before. The photos between two such photos at most 4 photos apart are visits too.
+- A missing tray is not a visit on its own.
+- A light exclusion wins over a visit; the whole photo is left out (above).
+- With these values, experiment 18 has 29 photos marked: the benchmark 6, shuffle 1 6, the
+  target 6, the tray move 8, 27 October 10:49 CET 1, and 2 on Monday 26 October 13:09 to 13:16
+  UTC (Aaron was in the chamber that day; not known whether then). None away from known visits.
+- A step that stays is marked for its first few photos (until the usual level catches up),
+  which are the photos of the object being put down. Steps that stay are not otherwise handled;
+  left for a later issue.
+
+*Limits.* The margin is thin: the largest false jump was 247 mm² against 250; a noisier tray, a
+larger plant or another segmenter would give false marks, and larger plants will move by more
+mm² with no one there. A visit that changes no area by that much (27 October 09:45 CET) is not
+seen. To be checked again with the light values in #296.
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from
