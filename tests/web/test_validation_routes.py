@@ -165,6 +165,60 @@ def test_an_unmoved_round_is_held_back_until_overridden(tray_scene: dict) -> Non
     assert again.status_code == 409
 
 
+def _three_counted_rounds(client: TestClient, tray_scene: dict) -> dict:
+    session = _calibrate_and_start(client)
+    for shift in ((200, -150), (-250, 100), (100, 230)):
+        tray_scene["shift"] = shift
+        client.post(f"/validation/sessions/{session['id']}/rounds")
+    return session
+
+
+def test_a_discarded_round_stops_counting_and_keeps_its_reason(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _three_counted_rounds(client, tray_scene)
+    response = client.post(
+        f"/validation/sessions/{session['id']}/rounds/1/discard", json={"reason": "sheet_not_flat"}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    discarded = body["rounds"][1]
+    assert not discarded["counted"] and discarded["overridable"]
+    assert discarded["reason"] == "discarded: sheet not flat"
+    assert discarded["discarded"]["reason"] == "sheet_not_flat"
+    assert discarded["discarded"]["at"] is not None
+    assert body["rounds_counted"] == 2
+    assert [r["n"] for r in body["results"]] == [60] * 12
+    # 2 counted rounds do not complete a validation, even though 3 once did.
+    assert body["completed_at"] is None and not body["validated"]
+
+
+def test_a_discard_is_refused_for_an_unknown_reason_or_round_or_an_ended_validation(
+    tray_scene: dict,
+) -> None:
+    client = TestClient(app)
+    session = _three_counted_rounds(client, tray_scene)
+    rounds = f"/validation/sessions/{session['id']}/rounds"
+    assert client.post(f"{rounds}/1/discard", json={"reason": "bored"}).status_code == 409
+    assert client.post(f"{rounds}/7/discard", json={"reason": "mistake"}).status_code == 404
+    client.post(f"/validation/sessions/{session['id']}/end")
+    assert client.post(f"{rounds}/1/discard", json={"reason": "mistake"}).status_code == 409
+    body = client.get(f"/validation/sessions/{session['id']}").json()
+    assert body["rounds_counted"] == 3 and body["completed_at"] is not None
+
+
+def test_count_it_anyway_brings_a_discarded_round_back_and_keeps_the_discard(tray_scene: dict) -> None:
+    client = TestClient(app)
+    session = _three_counted_rounds(client, tray_scene)
+    rounds = f"/validation/sessions/{session['id']}/rounds"
+    client.post(f"{rounds}/1/discard", json={"reason": "mistake"})
+    body = client.post(f"{rounds}/1/count").json()
+    restored = body["rounds"][1]
+    assert restored["counted"] and restored["overridden"]
+    assert restored["discarded"]["reason"] == "mistake"
+    assert body["rounds_counted"] == 3 and body["completed_at"] is not None
+    assert [r["n"] for r in body["results"]] == [90] * 12
+
+
 def test_a_round_without_focus_locked_is_held_back(tray_scene: dict) -> None:
     client = TestClient(app)
     session = _calibrate_and_start(client, lock_focus=False)

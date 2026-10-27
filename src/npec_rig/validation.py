@@ -83,6 +83,7 @@ def summary(session: dict, current_stem: str | None) -> dict:
         "rounds": [
             {
                 **{k: r[k] for k in ("capture", "captured_at", "moved_pct", "counted", "overridden", "reason", "overridable")},
+                "discarded": r.get("discarded"),
                 "slots": validation_store.round_slot_results(r),
             }
             for r in session["rounds"]
@@ -400,6 +401,38 @@ def count_round(session_id: str, index: int) -> dict:
         _refuse_unless_open(session)
         round_["counted"] = True
         round_["overridden"] = True
+        validation_store.refresh_results(session)
+        validation_store.save_session(session)
+        return summary(session, _current_calibration_stem())
+
+
+# What the operator can give as the reason for discarding a round (Aaron, 2026-10-27, #151).
+DISCARD_REASONS = {
+    "mistake": "taken by mistake",
+    "sheet_not_flat": "sheet not flat",
+    "other": "other",
+}
+
+
+def discard_round(session_id: str, index: int, reason: str) -> dict:
+    """Stop counting a round on the operator's say-so, with a reason from `DISCARD_REASONS`. The
+    round stays in the session, marked not counted, and Count it anyway counts it again. Only
+    while the validation is open: an ended one's results already apply to measurements."""
+    if reason not in DISCARD_REASONS:
+        raise ValidationRefusedError(f"unknown discard reason: {reason}")
+    with _lock:
+        session = validation_store.load_session(session_id)
+        if not 0 <= index < len(session["rounds"]):
+            raise RoundNotFoundError(f"round {index} not found")
+        round_ = session["rounds"][index]
+        _refuse_unless_open(session)
+        round_["counted"] = False
+        round_["overridable"] = True
+        round_["reason"] = f"discarded: {DISCARD_REASONS[reason]}"
+        round_["discarded"] = {"reason": reason, "at": datetime.now(timezone.utc).isoformat()}
+        # A completion that rested on this round no longer stands.
+        if len(validation_store.counted_rounds(session)) < validation_store.ROUNDS_REQUIRED:
+            session["completed_at"] = None
         validation_store.refresh_results(session)
         validation_store.save_session(session)
         return summary(session, _current_calibration_stem())

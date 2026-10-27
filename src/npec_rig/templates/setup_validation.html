@@ -41,6 +41,9 @@
     .validation-held-round { margin: 0.5rem 0; }
     .validation-held-round p { margin: 0.15rem 0; }
     .validation-held-round .btn { margin-top: 0.3rem; }
+    .validation-discard { margin-top: 0.6rem; font-size: 0.85rem; max-width: 60rem; }
+    .validation-discard p { margin: 0.15rem 0; }
+    .validation-discard-row { display: flex; flex-wrap: wrap; gap: var(--gap); margin-top: 0.4rem; }
     /* Buttons on their own line at the left of each card: the right edge stays free for
        scrolling on a touch screen (Aaron, 2026-10-01). */
     .calibration-history-card .calibration-history-actions { margin-left: 0; flex-basis: 100%; }
@@ -104,6 +107,7 @@
       <div id="validation-readout"></div>
     </div>
     <div id="validation-held" class="validation-held"></div>
+    <div id="validation-discard" class="validation-discard"></div>
   </section>
 
   <h2 style="margin-top: 1rem;">Validation history</h2>
@@ -301,6 +305,31 @@
         .join("");
     }
 
+    // A counted round taken by mistake, or with a sheet not flat, is discarded with a reason from
+    // a fixed list; it stays in the session as not counted (#151). Tapping a reason is the
+    // confirmation.
+    function discardHtml(s) {
+      const counted = s.rounds
+        .map((r, i) => ({ ...r, number: i + 1 }))
+        .filter((r) => r.counted);
+      if (!s.is_open || !counted.length) return "";
+      const rounds = counted
+        .map((r) => `<button type="button" class="btn hit danger validation-discard-pick" ` +
+          `data-index="${r.number - 1}">Discard round ${r.number}</button>`)
+        .join("");
+      return `<p><strong>Discard a round</strong></p>` +
+        `<div class="validation-discard-row" id="discard-rounds">${rounds}</div>` +
+        `<div id="discard-reasons" hidden>` +
+          `<p><strong id="discard-question"></strong></p>` +
+          `<div class="validation-discard-row">` +
+            `<button type="button" class="btn hit danger validation-discard-reason" data-reason="mistake">Taken by mistake</button>` +
+            `<button type="button" class="btn hit danger validation-discard-reason" data-reason="sheet_not_flat">Sheet not flat</button>` +
+            `<button type="button" class="btn hit danger validation-discard-reason" data-reason="other">Other</button>` +
+            `<button type="button" class="btn hit validation-discard-cancel">Cancel</button>` +
+          `</div>` +
+        `</div>`;
+    }
+
     function renderControls() {
       const toggle = el("validation-toggle");
       toggle.textContent = openSession ? "End validation" : "Start validation";
@@ -331,6 +360,7 @@
       }
       el("validation-readout").innerHTML = readoutHtml(session);
       el("validation-held").innerHTML = heldHtml(session);
+      el("validation-discard").innerHTML = discardHtml(session);
     }
 
     function historyCard(s) {
@@ -414,8 +444,10 @@
       }
     }
 
-    async function post(url) {
-      const resp = await fetch(url, { method: "POST" });
+    async function post(url, body) {
+      const resp = await fetch(url, body === undefined ? { method: "POST" } : {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
         throw new Error(body.detail || resp.statusText);
@@ -499,6 +531,31 @@
       } catch (err) {
         alert(`Could not count this round: ${err.message}`);
         btn.disabled = false;
+      }
+    });
+
+    let discardIndex = null;
+    el("validation-discard").addEventListener("click", async (e) => {
+      const pick = e.target.closest(".validation-discard-pick");
+      const reason = e.target.closest(".validation-discard-reason");
+      if (pick) {
+        discardIndex = Number(pick.dataset.index);
+        el("discard-question").textContent = `Why discard round ${discardIndex + 1}?`;
+        el("discard-rounds").hidden = true;
+        el("discard-reasons").hidden = false;
+      } else if (e.target.closest(".validation-discard-cancel")) {
+        el("discard-reasons").hidden = true;
+        el("discard-rounds").hidden = false;
+      } else if (reason) {
+        reason.disabled = true;
+        try {
+          const s = await post(`/validation/sessions/${session.id}/rounds/${discardIndex}/discard`,
+            { reason: reason.dataset.reason });
+          await refreshOrWarn(s.id);
+        } catch (err) {
+          alert(`Could not discard this round: ${err.message}`);
+          reason.disabled = false;
+        }
       }
     });
 
