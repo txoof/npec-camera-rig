@@ -74,9 +74,13 @@ def api_light_warning(experiment: int) -> dict | None:
 
 
 @router.post("/api/captures/light-warning/dismiss")
-def api_dismiss_light_warning(experiment: int) -> dict | None:
-    """Dismiss the experiment's light warning, saved with the time; returns the warning now."""
-    exclusions.dismiss_light_warning(experiment, now=datetime.now(UTC).isoformat())
+def api_dismiss_light_warning(experiment: int, until: str) -> dict | None:
+    """Dismiss the experiment's light warning as shown, up to `until` (its `last`), saved with
+    the time; returns the warning now."""
+    try:
+        exclusions.dismiss_light_warning(experiment, now=datetime.now(UTC).isoformat(), until=until)
+    except ValueError as exc:
+        raise HTTPException(422, f"not a time: {until!r}") from exc
     return exclusions.light_warning(experiment)
 
 

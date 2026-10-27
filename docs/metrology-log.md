@@ -5506,9 +5506,12 @@ and squares lowered it by up to 27% with the lamps unchanged.
   changing", no warning. A longer steady stretch is "light off norm" and counts toward the warning.
 - Each exclusion stores the norm and limit it used, and all of an experiment's exclusions are
   worked out again whenever a photo is read, so a changed rule corrects older photos.
-- *Warning:* more than 2 hours of "light off norm" within any 24 hours. A stretch lasts from its
-  first photo to the photo after it. The researcher can dismiss it; the dismissal is stored with
-  its time, and a later stretch raises it again (Aaron, 2026-10-23 and 10-27, #288 part 2 PR 2).
+- *Warning:* more than 2 hours of "light off norm" within any 24 hours. Each photo off norm
+  counts from its own time to the next photo's, at most the experiment's usual gap between
+  photos (the median), so a pause is not counted. The researcher can dismiss it after a
+  confirmation; the dismissal is stored with its time and the end of the hours it covered, and
+  later hours raise it again, also in a stretch still going on (Aaron, 2026-10-23 and 10-27,
+  #288 part 2 PR 2, review of #300).
   A decision, not a measurement. Experiment 18's one off-norm stretch, the sheets on the pots on
   26 October, lasted 1.9 hours, so it raises no warning.
 

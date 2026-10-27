@@ -658,34 +658,53 @@
       return `${shortDay(a, false)} ${clock(a)} to ${to}`;
     }
 
+    let shownWarning = null;  // the warning on screen: Dismiss covers only what was seen
+    let warningRequest = 0;  // the newest load: an older answer, for another experiment, is dropped
+
     function showLightWarning(w) {
+      shownWarning = w;
       lightWarning.hidden = !w;
       if (!w) return;
-      const hours = w.hours.toLocaleString("en-US", { maximumFractionDigits: 1 });
+      // Rounded up to 0.1 h (hours come in hundredths), so more than 2 hours never reads as "2".
+      const hours = (Math.ceil(Math.round(w.hours * 100) / 10) / 10).toLocaleString("en-US", { maximumFractionDigits: 1 });
       document.getElementById("light-warning-text").textContent =
         `Light not at its usual level for ${hours} hours, ${lightWhen(w.first, w.last)}. `
         + "These plant areas are left out.";
     }
 
     async function loadLightWarning() {
-      if (experiment === null) { showLightWarning(null); return; }
-      try {
-        const r = await fetch(`/api/captures/light-warning?experiment=${encodeURIComponent(experiment)}`);
-        showLightWarning(r.ok ? await r.json() : null);
-      } catch (err) {
-        showLightWarning(null);
+      const request = ++warningRequest;
+      let w = null;
+      if (experiment !== null) {
+        try {
+          const r = await fetch(`/api/captures/light-warning?experiment=${encodeURIComponent(experiment)}`);
+          w = r.ok ? await r.json() : null;
+        } catch (err) { /* no warning shown */ }
       }
+      if (request === warningRequest) showLightWarning(w);
     }
 
-    document.getElementById("light-warning-dismiss").addEventListener("click", async () => {
+    async function dismissLightWarning() {
+      const request = ++warningRequest;
+      const params = new URLSearchParams({ experiment, until: shownWarning.last });
       try {
-        const r = await fetch(`/api/captures/light-warning/dismiss?experiment=${encodeURIComponent(experiment)}`,
-          { method: "POST" });
+        const r = await fetch(`/api/captures/light-warning/dismiss?${params}`, { method: "POST" });
         if (!r.ok) throw new Error(r.statusText);
-        showLightWarning(await r.json());
+        const w = await r.json();
+        if (request === warningRequest) showLightWarning(w);
       } catch (err) {
         ui.toast("Could not dismiss the warning. Try again.");
       }
+    }
+
+    document.getElementById("light-warning-dismiss").addEventListener("click", () => {
+      if (!shownWarning) return;
+      ui.confirmPanel({
+        title: "Dismiss this warning?",
+        body: "<p>It does not come back for these hours.</p>",
+        ok: "Dismiss",
+        onOk: dismissLightWarning,
+      });
     });
 
     async function showFilter() {

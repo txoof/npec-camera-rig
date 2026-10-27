@@ -241,14 +241,15 @@ deletes the rows with the photos.
 
 The light warning (#288) is shown in the gallery when an experiment has more than 2 hours of
 `light off norm` within 24 hours. It is worked out when shown, never stored. Dismissing it adds a
-row; stretches that start before `covers_until` are not counted again, later ones are.
+row; hours up to `covers_until`, the end of the warning the researcher saw, are not counted
+again, later ones are, also in a stretch still going on.
 
 | Column | Type | Meaning |
 |---|---|---|
 | `id` | integer | The dismissal |
 | `experiment_id` | integer | The experiment |
 | `dismissed_at` | text | When the researcher dismissed it, UTC |
-| `covers_until` | text | The end of the last stretch the warning counted, UTC |
+| `covers_until` | text | The end of the warning as shown when it was dismissed, UTC |
 
 Kept when an experiment is purged, with its `experiment` row.
 

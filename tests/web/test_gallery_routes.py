@@ -1,7 +1,7 @@
+from datetime import datetime, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
-
-from datetime import datetime, timedelta
 
 from npec_rig import captures, database, photo_tags
 from npec_rig.app import app
@@ -450,7 +450,10 @@ def test_the_light_warning_is_shown_until_dismissed_and_the_dismissal_is_saved()
     }
 
     before = datetime.now().astimezone()
-    assert client.post("/api/captures/light-warning/dismiss", params={"experiment": experiment_id}).status_code == 200
+    assert client.post(
+        "/api/captures/light-warning/dismiss",
+        params={"experiment": experiment_id, "until": "2026-10-23T11:30:00+00:00"},
+    ).status_code == 200
     assert client.get("/api/captures/light-warning", params={"experiment": experiment_id}).json() is None
     [dismissal] = database.light_warning_dismissals(experiment_id)
     assert dismissal["covers_until"] == "2026-10-23T11:30:00+00:00"

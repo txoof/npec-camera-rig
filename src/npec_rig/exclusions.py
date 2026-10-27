@@ -119,26 +119,38 @@ def _norm_and_limit(
 
 def light_warning(experiment_id: int) -> dict | None:
     """The experiment's light warning, None when there is none: the `hours` of light off norm
-    and the `first` and `last` times (UTC) of the stretches that raise it. A stretch lasts from
-    its first photo to the photo after it, or to its last photo at the end. A stretch that
-    starts before the end of the last dismissed one is not counted again."""
+    and the `first` and `last` times (UTC) of the photos that raise it. Each photo off norm counts
+    from its own time to the next photo's, at most the experiment's usual gap between photos (the
+    median), so a pause is not counted. Hours up to the last dismissal's `covers_until` are
+    not counted again, later ones are, also in a stretch that was still going on."""
     rows = database.experiment_exclusions(experiment_id)
     dismissed = [datetime.fromisoformat(d["covers_until"]) for d in database.light_warning_dismissals(experiment_id)]
-    stretches = []
-    for start, end in _runs([r["name"] == "light off norm" for r in rows]):
-        until = rows[end + 1] if end + 1 < len(rows) else rows[end]
-        stretch = (datetime.fromisoformat(rows[start]["taken_at"]), datetime.fromisoformat(until["taken_at"]))
-        if not dismissed or stretch[0] >= max(dismissed):
-            stretches.append(stretch)
+    covered = max(dismissed) if dismissed else None
+    times = [datetime.fromisoformat(r["taken_at"]) for r in rows]
+    usual = statistics.median(b - a for a, b in zip(times, times[1:])) if len(times) > 1 else timedelta()
+    spans = []  # (start, end) of each photo off norm, in time order
+    for i in range(len(rows) - 1):
+        if rows[i]["name"] != "light off norm":
+            continue
+        start, end = times[i], min(times[i + 1], times[i] + usual)
+        if covered is not None:
+            start = max(start, covered)
+        if end > start:
+            spans.append((start, end))
     raising: set[int] = set()
-    for i, (window_start, _end) in enumerate(stretches):
+    j, total = 0, timedelta()  # spans[i:j] start inside the window from spans[i]; total their time
+    for i, (window_start, _end) in enumerate(spans):
         window_end = window_start + WARNING_WINDOW
-        inside = [j for j in range(i, len(stretches)) if stretches[j][0] < window_end]
-        if sum((min(stretches[j][1], window_end) - stretches[j][0] for j in inside), timedelta()) > WARNING_HOURS:
-            raising.update(inside)
+        while j < len(spans) and spans[j][0] < window_end:
+            total += spans[j][1] - spans[j][0]
+            j += 1
+        overshoot = max(spans[j - 1][1] - window_end, timedelta())  # only the last can reach past it
+        if total - overshoot > WARNING_HOURS:
+            raising.update(range(i, j))
+        total -= spans[i][1] - spans[i][0]
     if not raising:
         return None
-    counted = [stretches[j] for j in sorted(raising)]
+    counted = [spans[k] for k in sorted(raising)]
     return {
         "hours": round(sum((end - start for start, end in counted), timedelta()) / timedelta(hours=1), 2),
         "first": counted[0][0].isoformat(),
@@ -146,12 +158,13 @@ def light_warning(experiment_id: int) -> dict | None:
     }
 
 
-def dismiss_light_warning(experiment_id: int, *, now: str) -> None:
-    """Dismiss the experiment's light warning at time `now` (UTC): its stretches are not counted
-    again, later ones are. Nothing is saved when there is no warning."""
-    warning = light_warning(experiment_id)
-    if warning is not None:
-        database.record_light_warning_dismissal(experiment_id, dismissed_at=now, covers_until=warning["last"])
+def dismiss_light_warning(experiment_id: int, *, now: str, until: str) -> None:
+    """Dismiss the experiment's light warning at time `now` (UTC), as the researcher saw it:
+    hours up to `until` (the `last` it showed) are not counted again, later ones are. Nothing is
+    saved when there is no warning."""
+    if light_warning(experiment_id) is not None:
+        datetime.fromisoformat(until)  # a time, or ValueError
+        database.record_light_warning_dismissal(experiment_id, dismissed_at=now, covers_until=until)
 
 
 def update(capture: dict) -> None:
