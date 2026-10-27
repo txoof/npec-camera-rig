@@ -376,7 +376,7 @@ def judge_round(
         if moved < MIN_MOVED_FRACTION:
             reasons.append(
                 f"only {100 * moved:.0f}% of tags moved since the calibration or an earlier "
-                "round: leave the trays where they are and put each sheet on a different tray"
+                "round. Leave the trays where they are and put each sheet on a different tray"
             )
         round_["reason"] = "; ".join(reasons) or None
         round_["overridable"] = bool(reasons)
