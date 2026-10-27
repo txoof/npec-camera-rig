@@ -165,12 +165,17 @@ def _measures(
 
 
 def _photo_size(path: str) -> tuple[int, int] | None:
-    """Photo `path`'s width and height in pixels, from its file's header, or None without it."""
-    try:
-        with Image.open(photo_file(path)) as image:
-            return image.size
-    except OSError:
-        return None
+    """Photo `path`'s width and height in pixels, from its file's header, or from its saved
+    full-size mask when the photo is gone (Reprocess); None without either."""
+    for file in (photo_file(path), segmentation.mask_file(path)):
+        if file is None:  # photo_file: no such photo
+            continue
+        try:
+            with Image.open(file) as image:
+                return image.size
+        except OSError:
+            continue
+    return None
 
 
 def outside_mm(p: TrayPlacement, size: tuple[int, int]) -> float:
