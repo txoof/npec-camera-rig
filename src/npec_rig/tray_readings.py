@@ -37,6 +37,13 @@ SEGMENTER: segmentation.Segmenter = segmentation.ExGSegmenter()
 # log 17.4). Reported with each area, never subtracted (Aaron). A decision (#288), checked in #293.
 FLOORS_MM2 = {"green threshold, 0.1": 100}
 
+# How far a tray's outline may reach past the photo edge, mm, before its area is marked partly
+# outside the photo: the widest measured outer wall, 11 to 13 mm (review of #281), where no plant
+# grows. Trays 8 and 9 of the potato run reach 8.4 to 11.9 mm past at their farthest corner, and
+# outlines are placed to within about 10 mm (metrology log 15.5l), so the mark is approximate. A
+# decision, not a measurement (Aaron, 2026-10-27).
+PAST_EDGE_MM = 13.0
+
 # Seconds between looks for photos not yet read, when there are none. One reading took 9.6 s to
 # 12.5 s (metrology log 15.5m), so a photo a minute leaves the reader idle most of the time.
 POLL_S = 5.0
@@ -95,7 +102,7 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
     # No tag of any kind, as with the lights off (metrology log 15.5l): not trays missing.
     status, placed = placements(path, tags) if tags else ("no tags found", [])
     reuse = reuse_mask and _saved_by_this_segmenter(saved)
-    calibration, measures = _measures(path, record["calibration"], placed, reuse) if placed else (None, {})
+    calibration, measures, outside = _measures(path, record["calibration"], placed, reuse) if placed else (None, {}, {})
     _refuse_worse(path, saved, status, measures)
     trays = []
     for p in placed:
@@ -106,7 +113,7 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
             "area_mm2": m.area_mm2 if m else None, "segmenter": SEGMENTER.name if m else None,
             "plant_px": m.plant_px if m else None,
             "plant_centre_px": list(m.centre_px) if m and m.centre_px else None,
-            "calibration": calibration if m else None,
+            "calibration": calibration if m else None, "outside_mm": outside.get(p.tray_id),
         })
     database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
     exclusions.update(record)
@@ -136,8 +143,9 @@ def _saved_by_this_segmenter(saved: dict | None) -> bool:
 
 def _measures(
     path: str, photo_calibration: str, placed: list[TrayPlacement], reuse_mask: bool = False
-) -> tuple[str | None, dict[int, segmentation.PlantMeasure]]:
-    """The calibration used and each placed tray's plant measure, by tray ID, from the full-size
+) -> tuple[str | None, dict[int, segmentation.PlantMeasure], dict[int, float]]:
+    """The calibration used, each placed tray's plant measure and how far its outline reaches past
+    the photo edge in mm (`_outside_mm`), both by tray ID, from the full-size
     photo's mask: the saved one with `reuse_mask`, else a new one, saved for Reprocess. Empty when
     the photo cannot be segmented: the trays are still placed. Plant in the strip two touching
     trays share counts once, for the tray with the nearer centre (`segmentation.measure_trays`)."""
@@ -149,10 +157,19 @@ def _measures(
             mask = _segment(path)
         trays = [(p.outline, p.centre) for p in placed]
         measures = segmentation.measure_trays(mask, trays, scale_field)
-        return stem, {p.tray_id: m for p, m in zip(placed, measures, strict=True)}
+        outside = {p.tray_id: _outside_mm(p, mask.shape, scale_field) for p in placed}
+        return stem, {p.tray_id: m for p, m in zip(placed, measures, strict=True)}, outside
     except Exception:
         logger.exception("Could not work out the plant areas of %s", path)
-        return None, {}
+        return None, {}, {}
+
+
+def _outside_mm(p: TrayPlacement, shape: tuple[int, int], scale_field) -> float:
+    """How far tray `p`'s outline reaches past the edge of a photo of `shape` (height, width), at
+    its farthest corner, in mm at the tray's centre; 0 when it lies inside."""
+    h, w = shape
+    past = max(max(-x, x - w, -y, y - h, 0.0) for x, y in p.outline)
+    return past / scale_field.px_per_mm(*p.centre)
 
 
 def _segment(path: str) -> np.ndarray:
@@ -190,6 +207,7 @@ def capture_readings(capture: dict) -> dict | None:
         readings["norm_pending"] = saved["norm_e"] is None
         for tray in readings["trays"]:
             tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
+            tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM
     return readings
 
 

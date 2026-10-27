@@ -156,6 +156,49 @@ def test_each_trays_area_keeps_its_plant_pixel_count_centre_and_calibration(monk
     assert tray["calibration"] == FIXTURE["calibration"]
 
 
+@pytest.mark.parametrize(("width", "height", "past_mm", "partly_outside"), [(3015, 4400, 15, True), (4000, 4164, 5, False)])
+def test_a_tray_more_than_13_mm_past_the_photo_edge_is_marked_partly_outside(
+    monkeypatch, width, height, past_mm, partly_outside
+) -> None:
+    """#282 item 1: `one_tray_plant_scene`'s tray outline reaches x 3165 and y 4214 at 10 px/mm.
+    In a photo 3015 px wide its east side is 150 px (15 mm) past the edge; in one 4164 px high
+    its south side is 50 px (5 mm) past. Marked only beyond 13 mm, the widest measured outer wall,
+    where plants can grow (a decision, Aaron, 2026-10-27)."""
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB
+
+    one_tray_plant_scene(monkeypatch)
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[2200:2500, 1400:1900] = MINT_LEAF_RGB
+            return frame, metadata
+
+    CameraManager.set_instance(CameraManager(Scene(width=width, height=height)))
+
+    tray = tray_readings.read_photo(_photo())["trays"][0]
+    assert tray["outside_mm"] == pytest.approx(past_mm, abs=0.1)
+    assert tray["partly_outside"] is partly_outside
+
+
+def test_a_tray_read_before_the_photo_edge_was_checked_is_not_marked_either_way(monkeypatch) -> None:
+    """#282 item 1: a reading saved without `outside_mm`, as every photo read before it, says
+    nothing about the photo edge (None), not that the tray lies inside (False)."""
+    _calibrate()
+    path = _photo()
+    tray = {"tray_id": 5, "slot": "North 1", "a1_corner": "SW", "placement": "placed",
+            "centre_px": [1640, 2384], "tilt_deg": 0.0, "margin_mm": 300.0, "area_mm2": 1500.0,
+            "segmenter": "green threshold, 0.1"}
+    database.record_tray_readings(
+        database.captures_by_path([path])[path]["id"], read_at="2026-10-27T12:00:00+00:00", status="read", trays=[tray]
+    )
+
+    saved = tray_readings.photo_readings(path)["trays"][0]
+    assert (saved["outside_mm"], saved["partly_outside"]) == (None, None)
+
+
 def _two_touching_trays_scene(monkeypatch) -> None:
     """`one_tray_plant_scene` with a second tray touching it on the east, in a 6400 x 4400 photo.
 

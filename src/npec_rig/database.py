@@ -219,6 +219,13 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        12,
+        "each tray's outline past the photo edge, mm (#282)",
+        (
+            "ALTER TABLE tray_reading ADD COLUMN outside_mm REAL",  # 0 when inside; NULL: read before #282
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -342,13 +349,13 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
         conn.executemany(
             "INSERT INTO tray_reading (capture_id, tray_id, slot, a1_corner, placement,"
             " centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter,"
-            " plant_px, plant_centre_x_px, plant_centre_y_px, calibration)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " plant_px, plant_centre_x_px, plant_centre_y_px, calibration, outside_mm)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (capture_id, t["tray_id"], t["slot"], t["a1_corner"], t["placement"],
                  t["centre_px"][0], t["centre_px"][1], t["tilt_deg"], t["margin_mm"],
                  t.get("area_mm2"), t.get("segmenter"), t.get("plant_px"),
-                 *(t.get("plant_centre_px") or (None, None)), t.get("calibration"))
+                 *(t.get("plant_centre_px") or (None, None)), t.get("calibration"), t.get("outside_mm"))
                 for t in trays
             ],
         )
@@ -419,7 +426,7 @@ def tray_readings(capture_id: int) -> dict | None:
             "tilt_deg": r["tilt_deg"], "margin_mm": r["margin_mm"], "area_mm2": r["area_mm2"],
             "segmenter": r["segmenter"], "plant_px": r["plant_px"],
             "plant_centre_px": None if r["plant_centre_x_px"] is None else [r["plant_centre_x_px"], r["plant_centre_y_px"]],
-            "calibration": r["calibration"],
+            "calibration": r["calibration"], "outside_mm": r["outside_mm"],
         }
         for r in rows
     ]
