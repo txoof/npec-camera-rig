@@ -106,3 +106,29 @@ def test_people_at_the_table_do_not_move_the_light_past_the_limit() -> None:
     shuffle = [name for t, name in photo.items() if "2026-10-23T08:43" <= t <= "2026-10-23T08:56"]
     assert len(shuffle) == 13
     assert shuffle == [None] * 13
+
+
+def test_photos_taken_for_calibration_or_validation_are_left_out() -> None:
+    """Review of #299: a validation photo at 9,000 (+80%, sheets on the table) in the first day
+    leaves the norm at 5,000 and the limit at 18%, as without it, and gets no exclusion: only
+    the experiment's own photos count, as in Reprocess and metrology log 17.8."""
+    photos = _photos(*FIRST_DAY, 5000)
+    validation = {"taken_at": (START + timedelta(hours=3, minutes=30)).isoformat(),
+                  "exposure_us": 9000, "analogue_gain": 1.0, "purpose": "validation"}
+    photos.insert(4, validation)
+    result = exclusions.light_exclusions(photos)
+    assert result["norm"] == 5000
+    assert result["limit"] == pytest.approx(0.18)
+    assert result["exclusions"][4] is None
+
+
+def test_a_photo_with_no_exposure_is_left_out_and_the_others_are_still_labelled() -> None:
+    """Review of #299: exposure 0 (a camera fault, or the synthetic camera) once stopped the
+    whole experiment's exclusions. With one in the first day and one after it, the norm stays
+    5,000 and the limit 18%, and a later dip of two photos at 4,000 is still light disturbed."""
+    day = list(FIRST_DAY)
+    day[10] = 0
+    result = exclusions.light_exclusions(_photos(*day, 5000, 0, 4000, 4000, 5000))
+    assert result["norm"] == 5000
+    assert result["limit"] == pytest.approx(0.18)
+    assert result["exclusions"][24:] == [None, None, "light disturbed", "light disturbed", None]

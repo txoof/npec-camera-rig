@@ -742,8 +742,8 @@ def complete_export(experiment_id: int) -> dict | None:
 
 
 def purge_experiment(experiment_id: int, *, now: str) -> dict:
-    """Mark a stopped experiment purged, delete its photo rows and their tray readings and mark
-    its exports removed, in one transaction. The caller deletes the folder afterwards."""
+    """Mark a stopped experiment purged, delete its photo rows, their tray readings and
+    exclusions, and mark its exports removed, in one transaction. The caller deletes the folder afterwards."""
     with _connect() as conn:
         conn.execute("BEGIN IMMEDIATE")
         if _experiment(conn, experiment_id)["state"] != "stopped":
@@ -751,6 +751,7 @@ def purge_experiment(experiment_id: int, *, now: str) -> dict:
         photos = "SELECT id FROM capture WHERE experiment_id = ?"
         conn.execute(f"DELETE FROM tray_reading WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute(f"DELETE FROM tray_read WHERE capture_id IN ({photos})", (experiment_id,))
+        conn.execute(f"DELETE FROM exclusion WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute("DELETE FROM capture WHERE experiment_id = ?", (experiment_id,))
         conn.execute(
             "UPDATE export SET removed_at = ? WHERE experiment_id = ? AND removed_at IS NULL",

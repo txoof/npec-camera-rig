@@ -1,6 +1,6 @@
 import pytest
 
-from npec_rig import captures, database, exports
+from npec_rig import captures, database, exclusions, exports
 from npec_rig.database import ExperimentError
 
 pytestmark = pytest.mark.unit
@@ -142,3 +142,17 @@ def test_purge_deletes_the_experiments_plant_masks_and_keeps_rig_photos_masks() 
 
     assert segmentation.load_mask(still) is None
     assert segmentation.load_mask(rig_photo["path"]) is not None
+
+
+def test_purge_deletes_the_photos_exclusions() -> None:
+    """Review of #299: a photo with a stored exclusion could not be deleted, so an experiment
+    whose photos were read could not be purged."""
+    experiment = _stopped(photos=2)
+    photos = database.captures_for_experiment(experiment["id"])
+    exclusions.update(photos[-1])
+    assert database.exclusion(photos[0]["id"]) is not None
+
+    purged = captures.purge_experiment(experiment["id"], confirm="Drought", override_no_export=True)
+
+    assert purged["state"] == "purged"
+    assert [database.exclusion(p["id"]) for p in photos] == [None, None]

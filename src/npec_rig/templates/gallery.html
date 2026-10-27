@@ -212,8 +212,8 @@
       if (!trays && purpose !== "capture") return `Trays: skipped, a ${purpose} photo. Tap Tags to read it.`;
       if (!trays) return "Trays: not read yet. Tap Tags to read it.";
       if (trays.exclusion === "lights off") return "Lights off. No plant areas.";
-      if (EXCLUDED[trays.exclusion]) return `${EXCLUDED[trays.exclusion]}. Areas left out.`;
       if (trays.status !== "read") return "Trays: not placed. Info says why.";
+      if (EXCLUDED[trays.exclusion]) return `${EXCLUDED[trays.exclusion]}. Areas left out.`;
       const changed = trays.not_found.length || trays.moved.length;
       return `Trays found: ${trays.trays.length}.` + (changed ? " Changes, see Info." : "");
     }

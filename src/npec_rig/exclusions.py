@@ -34,15 +34,27 @@ SHORT_RUN = 3
 
 
 def _e(photo: dict) -> float | None:
+    """The photo's E, None when it has none: no exposure or gain recorded, or 0 (a camera fault)."""
     exposure, gain = photo.get("exposure_us"), photo.get("analogue_gain")
-    return None if exposure is None or gain is None else exposure * gain
+    e = None if exposure is None or gain is None else exposure * gain
+    return e if e and e > 0 else None
 
 
 def light_exclusions(photos: list[dict]) -> dict:
     """The light exclusion of each of one experiment's photos (dicts with `taken_at`,
     `exposure_us`, `analogue_gain`, oldest first): `exclusions`, one name or None per photo, and
     the `norm` (E) and `limit` (a fraction of the norm) they were worked out with, both None until
-    the experiment has a full first day."""
+    the experiment has a full first day. Only photos taken as captures count: a calibration,
+    validation or tripwire photo (its `purpose`) gets None and is left out of the norm."""
+    own = [i for i, p in enumerate(photos) if p.get("purpose", "capture") == "capture"]
+    result = _light_exclusions([photos[i] for i in own])
+    names: list[str | None] = [None] * len(photos)
+    for i, name in zip(own, result["exclusions"]):
+        names[i] = name
+    return {**result, "exclusions": names}
+
+
+def _light_exclusions(photos: list[dict]) -> dict:
     times = [datetime.fromisoformat(p["taken_at"]) for p in photos]
     es = [_e(p) for p in photos]
     off = [e is not None and e >= LIGHTS_OFF_E for e in es]
