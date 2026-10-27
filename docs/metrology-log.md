@@ -5519,6 +5519,70 @@ and squares lowered it by up to 27% with the lamps unchanged.
 off makes a wide limit and may leave dim photos in. Whether areas read under a steady level away
 from the norm are wrong is not known.
 
+### 17.9 Visits: people at the table (method written 2026-10-27, before the data was read)
+
+**Label: development check.** #288 part 2 leaves out the plant areas of photos taken while
+someone is at the table: handling a tray, taking one away or putting it back, blocking it for a
+moment, or wearing green gloves or a green sweater. Such a photo gets the exclusion "visit"
+(`GLOSSARY.md`), is left out of averages and exports, and raises no warning. The whole photo is
+left out, not only the trays that changed: at one photo a minute a visit costs a few minutes of
+photos, and one exclusion per photo is what the rig already stores (Aaron, 2026-10-27). When a
+photo is both a light exclusion and a visit, it keeps the light one.
+
+What the rig sees in the photos, by kind (Aaron, 2026-10-27):
+
+1. *A short disturbance that returns.* A tray found before and after is missing for a few
+   photos, or a tray's plant area jumps up or down and comes back. These are visits.
+2. *A tray taken away.* The photos of its going and of its return, if it returns, are a visit.
+   While it is away it has no area and the other trays are not affected. A tray that never
+   returns is already shown as "not found since" (`database.tray_readings`).
+3. *A change that stays.* A green notebook or target left on a tray, a tray swapped, a plant
+   cut back: the area steps and does not come back. The rig cannot tell such a step from a real
+   change. Not part of this rule; counted here only to size a later issue.
+
+Two values are open: how large a jump in a tray's area counts, and within how many photos it
+must come back. This section sets out how they are chosen from photos already taken.
+
+**Data.** `rig.db`, read-only: the photos taken as captures of experiment 18 (Round 2, from 22
+October), each tray's saved area (`tray_reading`, green threshold) and the trays found, and each
+photo's light exclusion (17.8). Photos with a light exclusion are not used. Script
+`experiments/round2-visits/visit_review.py`; its per-photo values go to `docs/figures/17.9/`.
+
+**Known visits.** The times written in this log before the data is read: shuffle 1, 23 October
+08:43 to 08:56 UTC (17.4); the green target put on tray 10, 23 October about 14:02 UTC (17.5,
+kind 3 after it is down); sheets and squares put on the pots from 26 October 08:25 UTC, and a
+tray moved about 10:30 UTC (17.8). Reported by Aaron on 2026-10-27, before the analysis, in
+Dutch local time and given here in UTC: 23 October 10:56 CEST (08:56 UTC, the end of shuffle 1);
+26 October 11:35 CET (10:35 UTC, near the tray move); 27 October 09:45 CET (08:45 UTC) and 10:49
+CET (09:49 UTC). Aaron was also in the chamber several times on Monday 26 October at times not
+noted, so that whole UTC day is left out of the photos taken as no one at the table, and its
+marks are reported apart. Every other photo is taken as no one at the table, which is not known
+for certain: an unlogged visit would show as a false mark.
+
+**Questions.**
+
+1. *Jumps.* For each tray in each photo: its area against its usual level, the median of the
+   same tray's areas in the 10 photos before. Reported in mm² and as a ratio, up and down, for
+   photos away from known visits (median, 99th percentile and largest) and at each known visit.
+   The plants are small Arabidopsis: a ratio alone can be large for a tray near the
+   floor of 100 mm² (17.7), so both are shown.
+2. *Missing trays.* How often a tray found in the photos before and after is missing from one
+   photo, away from known visits (tag reads that fail with no one there) and at each known visit.
+3. *Length.* How many photos each known visit lasts, from the first photo that differs to the
+   first photo back to how it was. This sets how many photos still count as "comes back".
+4. *Steps that stay.* How many times a tray's area steps by more than the chosen jump and does not
+   come back within that many photos (kind 3).
+
+**How the values are chosen.** The smallest jump that marks every known visit, if one exists
+that marks few other photos; the number of photos from the longest known visit. Shown to Aaron
+as tables before any value is fixed, then written here as decisions with the numbers they rest
+on.
+
+**Limits, as planned.** One experiment, one chamber, a handful of known visits, all by people
+who know the rig. Areas are the green threshold's; a person in dark clothes with bare hands may
+change no area and hide no tag, and is not seen. Nothing here shows that areas between visits
+are free of people.
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from
