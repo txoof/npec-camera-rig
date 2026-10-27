@@ -37,7 +37,10 @@
     .validation-short { color: #e6aa3c; font-weight: bold; }
     .door-check { display: flex; align-items: center; gap: 0.4rem; font-weight: bold; }
     .door-check input { width: 1.2rem; height: 1.2rem; }
-    .validation-held { margin-top: 0.4rem; font-size: 0.75rem; }
+    .validation-held { margin-top: 0.4rem; font-size: 0.85rem; max-width: 60rem; }
+    .validation-held-round { margin: 0.5rem 0; }
+    .validation-held-round p { margin: 0.15rem 0; }
+    .validation-held-round .btn { margin-top: 0.3rem; }
     /* Buttons on their own line at the left of each card: the right edge stays free for
        scrolling on a touch screen (Aaron, 2026-10-01). */
     .calibration-history-card .calibration-history-actions { margin-left: 0; flex-basis: 100%; }
@@ -287,9 +290,13 @@
         .filter((r) => !r.counted)
         .map((r) => {
           const override = r.overridable && s.is_open
-            ? ` <button class="validation-count" data-index="${r.number - 1}">Count it anyway</button>`
+            ? `<button type="button" class="btn hit validation-count" data-index="${r.number - 1}">Count it anyway</button>`
             : "";
-          return `<div>Round ${r.number} (${when(r.captured_at)}) not counted: ${r.reason}${override}</div>`;
+          // One line per reason, each a sentence, so a long reason does not run into the heading.
+          const reasons = (r.reason || "").split("; ").filter(Boolean)
+            .map((part) => `<p>${part[0].toUpperCase()}${part.slice(1)}${part.endsWith(".") ? "" : "."}</p>`);
+          return `<div class="validation-held-round"><p><strong>Round ${r.number}, ${when(r.captured_at)}: ` +
+            `not counted.</strong></p>${reasons.join("")}${override}</div>`;
         })
         .join("");
     }
