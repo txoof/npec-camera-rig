@@ -94,7 +94,8 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
     tags = photo_tags.photo_tags_for(path)
     # No tag of any kind, as with the lights off (metrology log 15.5l): not trays missing.
     status, placed = placements(path, tags) if tags else ("no tags found", [])
-    calibration, measures = _measures(path, placed, reuse_mask and _saved_by_this_segmenter(saved)) if placed else (None, {})
+    reuse = reuse_mask and _saved_by_this_segmenter(saved)
+    calibration, measures = _measures(path, record["calibration"], placed, reuse) if placed else (None, {})
     _refuse_worse(path, saved, status, measures)
     trays = []
     for p in placed:
@@ -134,28 +135,35 @@ def _saved_by_this_segmenter(saved: dict | None) -> bool:
 
 
 def _measures(
-    path: str, placed: list[TrayPlacement], reuse_mask: bool = False
+    path: str, photo_calibration: str, placed: list[TrayPlacement], reuse_mask: bool = False
 ) -> tuple[str | None, dict[int, segmentation.PlantMeasure]]:
     """The calibration used and each placed tray's plant measure, by tray ID, from the full-size
     photo's mask: the saved one with `reuse_mask`, else a new one, saved for Reprocess. Empty when
-    the photo cannot be segmented: the trays are still placed."""
+    the photo cannot be segmented: the trays are still placed. Plant in the strip two touching
+    trays share counts once, for the tray with the nearer centre (`segmentation.measure_trays`)."""
     try:
-        record = database.captures_by_path([path])[path]
-        stem = calibration_for_photos(record["calibration"])
+        stem = calibration_for_photos(photo_calibration)
         scale_field = load_saved_calibration(stem).scale_field
         mask = segmentation.load_mask(path) if reuse_mask else None
-        if mask is not None:
-            return stem, {p.tray_id: segmentation.measure_plant(mask, p.outline, scale_field) for p in placed}
-        with Image.open(photo_file(path)) as image:
-            # One copy of the 64MP photo (about 190 MB): convert() would make a second.
-            rgb = np.asarray(image if image.mode == "RGB" else image.convert("RGB"))
-        mask = SEGMENTER.segment(rgb)
-        del rgb
-        segmentation.save_mask(path, mask)
-        return stem, {p.tray_id: segmentation.measure_plant(mask, p.outline, scale_field) for p in placed}
+        if mask is None:
+            mask = _segment(path)
+        trays = [(p.outline, p.centre) for p in placed]
+        measures = segmentation.measure_trays(mask, trays, scale_field)
+        return stem, {p.tray_id: m for p, m in zip(placed, measures, strict=True)}
     except Exception:
         logger.exception("Could not work out the plant areas of %s", path)
         return None, {}
+
+
+def _segment(path: str) -> np.ndarray:
+    """A new mask of photo `path`, saved for Reprocess."""
+    with Image.open(photo_file(path)) as image:
+        # One copy of the 64MP photo (about 190 MB): convert() would make a second.
+        rgb = np.asarray(image if image.mode == "RGB" else image.convert("RGB"))
+    mask = SEGMENTER.segment(rgb)
+    del rgb
+    segmentation.save_mask(path, mask)
+    return mask
 
 
 def photo_readings(path: str) -> dict | None:
