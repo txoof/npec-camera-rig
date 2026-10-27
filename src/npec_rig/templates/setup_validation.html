@@ -455,19 +455,30 @@
       return resp.json();
     }
 
-    el("validation-toggle").addEventListener("click", async () => {
+    // An error after a tap, in the page instead of alert() (ui.js, infoPanel).
+    function showError(title, err) {
+      ui.infoPanel({ title, body: `<p>${ui.esc(err.message)}</p>` });
+    }
+
+    el("validation-toggle").addEventListener("click", () => {
+      if (!openSession) {
+        startOrEnd();
+        return;
+      }
+      ui.confirmPanel({
+        title: "End this validation?",
+        body: "<p>No more rounds can be added. With 3 counted rounds, its results apply to " +
+          "measurements from now on. A validation with fewer than 3 counted rounds will not be used.</p>",
+        ok: "End validation",
+        onOk: startOrEnd,
+      });
+    });
+
+    async function startOrEnd() {
       el("validation-toggle").disabled = true;
       let selectId;
       try {
         if (openSession) {
-          if (!confirm(
-            "End this validation? No more rounds can be added. With 3 counted rounds, its " +
-            "results apply to measurements from now on. A validation with fewer than 3 counted " +
-            "rounds will not be used."
-          )) {
-            renderControls();
-            return;
-          }
           selectId = (await post(`/validation/sessions/${openSession.id}/end`)).id;
         } else {
           // The first validation of a calibration reads its full-resolution photograph to find
@@ -477,12 +488,12 @@
           selectId = (await post("/validation/sessions")).id;
         }
       } catch (err) {
-        alert(`Could not ${openSession ? "end" : "start"} the validation: ${err.message}`);
+        showError(`Could not ${openSession ? "end" : "start"} the validation`, err);
       } finally {
         busyText(null);
       }
       await refreshOrWarn(selectId);
-    });
+    }
 
     function busyText(text) {
       const busy = el("validation-busy");
@@ -490,18 +501,25 @@
       show(busy, !!text, "inline");
     }
 
-    el("validation-capture").addEventListener("click", async () => {
+    el("validation-capture").addEventListener("click", () => {
       const due = nextRoundDue(openSession);
-      if (due !== null && serverNow() < due) {
-        const sinceLast = (serverNow() - Date.parse(openSession.last_counted_at)) / 60000;
-        const ok = confirm(
-          `Only ${sinceLast.toFixed(1)} minutes since the last round. Rounds should be at least ` +
+      if (due === null || serverNow() >= due) {
+        captureRound();
+        return;
+      }
+      const sinceLast = (serverNow() - Date.parse(openSession.last_counted_at)) / 60000;
+      ui.confirmPanel({
+        title: "Capture this round now anyway?",
+        body: `<p>Only ${sinceLast.toFixed(1)} minutes since the last round. Rounds should be at least ` +
           `${openSession.min_round_gap_minutes} minutes apart, and ${openSession.min_span_minutes} ` +
           `minutes from first to last, so the readings cover the chamber's cycle. A rushed ` +
-          `validation still counts, but says so. Capture this round now anyway?`
-        );
-        if (!ok) return;
-      }
+          `validation still counts, but says so.</p>`,
+        ok: "Capture round",
+        onOk: captureRound,
+      });
+    });
+
+    async function captureRound() {
       capturing = true;
       renderControls();
       busyText("Capturing and measuring, about 20 seconds...");
@@ -509,29 +527,35 @@
       try {
         s = await post(`/validation/sessions/${openSession.id}/rounds`);
       } catch (err) {
-        alert(`Round not captured: ${err.message}`);
+        showError("Round not captured", err);
       }
       capturing = false;
       busyText(null);
       // The door is opened again to move the sheets, so it is confirmed again for every round.
       if (s) el("door-closed").checked = false;
       await refreshOrWarn(s ? s.id : undefined);
-    });
+    }
 
     el("door-closed").addEventListener("change", renderControls);
 
-    el("validation-held").addEventListener("click", async (e) => {
+    el("validation-held").addEventListener("click", (e) => {
       const btn = e.target.closest(".validation-count");
       if (!btn) return;
-      if (!confirm("Count this round even though it did not pass the check shown?")) return;
-      btn.disabled = true;
-      try {
-        const s = await post(`/validation/sessions/${session.id}/rounds/${btn.dataset.index}/count`);
-        await refreshOrWarn(s.id);
-      } catch (err) {
-        alert(`Could not count this round: ${err.message}`);
-        btn.disabled = false;
-      }
+      ui.confirmPanel({
+        title: "Count this round even though it did not pass the check shown?",
+        body: "",
+        ok: "Count it anyway",
+        onOk: async () => {
+          btn.disabled = true;
+          try {
+            const s = await post(`/validation/sessions/${session.id}/rounds/${btn.dataset.index}/count`);
+            await refreshOrWarn(s.id);
+          } catch (err) {
+            showError("Could not count this round", err);
+            btn.disabled = false;
+          }
+        },
+      });
     });
 
     let discardIndex = null;
@@ -553,7 +577,7 @@
             { reason: reason.dataset.reason });
           await refreshOrWarn(s.id);
         } catch (err) {
-          alert(`Could not discard this round: ${err.message}`);
+          showError("Could not discard this round", err);
           reason.disabled = false;
         }
       }
@@ -567,22 +591,31 @@
         // The shell scrolls .scroll, not the window (base.html).
         document.querySelector(".scroll").scrollTo({ top: 0, behavior: "smooth" });
       } else if (del) {
-        if (!confirm("Delete this validation from history? This cannot be undone.")) return;
-        del.disabled = true;
-        try {
-          const resp = await fetch(`/validation/sessions/${del.dataset.id}`, { method: "DELETE" });
-          if (!resp.ok) {
-            const body = await resp.json().catch(() => ({}));
-            throw new Error(body.detail || resp.statusText);
-          }
-          if (session && session.id === del.dataset.id) session = null;
-          await refreshOrWarn();
-        } catch (err) {
-          alert(`Could not delete this validation: ${err.message}`);
-          del.disabled = false;
-        }
+        ui.confirmPanel({
+          title: "Delete this validation from history?",
+          body: "<p>This cannot be undone.</p>",
+          ok: "Delete",
+          danger: true,
+          onOk: () => deleteValidation(del),
+        });
       }
     });
+
+    async function deleteValidation(del) {
+      del.disabled = true;
+      try {
+        const resp = await fetch(`/validation/sessions/${del.dataset.id}`, { method: "DELETE" });
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          throw new Error(body.detail || resp.statusText);
+        }
+        if (session && session.id === del.dataset.id) session = null;
+        await refreshOrWarn();
+      } catch (err) {
+        showError("Could not delete this validation", err);
+        del.disabled = false;
+      }
+    }
 
     refreshOrWarn();
   </script>
