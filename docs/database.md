@@ -198,7 +198,9 @@ Validation, calibration and tripwire photos are not read in the background.
 
 `tray_reading` has one row per tray whose tag was found. Two trays in one photo may carry the same
 tag (a misprint): both rows are kept, each with its own area, and neither area counts in that photo
-("2 trays carry tag 1", #302). Before version 13 the table allowed one row per tag in a photo, and
+("2 trays carry tag 1", #302). Two trays placed in one slot (`placement` is `two trays in one
+slot`: a tray carried over the table, or a loose tag lying on a tray) make the whole photo chamber
+activity (`exclusion` `visit`), and both trays show "2 trays in South 1" (#315). Before version 13 the table allowed one row per tag in a photo, and
 such a photo was saved as `read failed` with no trays.
 
 | Column | Type | Meaning |

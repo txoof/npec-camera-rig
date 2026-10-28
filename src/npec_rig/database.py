@@ -549,6 +549,20 @@ def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
     return areas
 
 
+def experiment_shared_slot_photos(experiment_id: int) -> set[int]:
+    """Capture ids of the experiment's photos in which two trays were placed in one slot
+    (placement `two trays in one slot`): a tray carried over the table, or a loose tag on a tray
+    (#315)."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT tray_reading.capture_id FROM tray_reading"
+            " JOIN capture ON capture.id = tray_reading.capture_id"
+            " WHERE capture.experiment_id = ? AND tray_reading.placement = 'two trays in one slot'",
+            (experiment_id,),
+        ).fetchall()
+    return {row[0] for row in rows}
+
+
 def unread_photos(limit: int, since: str) -> list[str]:
     """Paths of up to `limit` photos taken as captures (not validation, calibration or tripwire
     rounds) that have not been read for trays, newest first: those taken at or after `since` (UTC,
