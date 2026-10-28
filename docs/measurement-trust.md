@@ -382,11 +382,14 @@ shapes of known area showed two error sources larger than anything in the geomet
 15 mm tall prism read up to 75% large). Segmentation is now the largest measured error source,
 as PLAN.md expected. Metrology log section 15.5. A photogrammetry mesh of the same benchmark
 (one capture, a second instrument) gives rosette areas 10% to 39% larger than the rig; which of the
-two is closer to the truth is not known yet. Metrology log section 15.5e. A third instrument, a
-phone photo of the same benchmark scaled by calliper readings of its base (2026-10-28), agrees with
-the mesh within 4.6% per rosette at the base's scale. Allowing for the phone's own, larger,
-height effect with a measured spacing at rosette-centre height (the reference chosen by Aaron), the
-rig, in the potato run, reads the benchmark about 5% small. Metrology log section 17.13.
+two is closer to the truth is not known yet. Metrology log section 15.5e. The mesh is the least
+reliable instrument, an order of size with very low precision (Aaron, 2026-10-28). A phone photo of
+the same benchmark (2026-10-28), scaled by vernier calliper readings of its base and with the
+phone's own, larger, height effect taken out using a measured spacing at rosette-centre height, is
+the reference chosen by Aaron. Against it, the rig, in the potato run, reads the benchmark about 5%
+small, at the edge of the 5% target. The phone application's leaf outline is unchecked, so whether
+the gap is the rig's edge rule or the application's is not known; the ImageJ comparison (#297)
+checks the edge. Metrology log section 17.13.
 
 **Real leaves, first look (round 1, 2026-10-15).** Three garden leaves of known area (flatbed
 scans scaled by printed tags), laid flat on the trays, read on average 2.5% smaller than their

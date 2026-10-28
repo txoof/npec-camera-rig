@@ -5856,7 +5856,12 @@ effect accounts for most of the difference between them.
 
 *Against the 3D scan.* At the base, the phone reads within 4.6% of the scan for each rosette (NE
 +3.5%, SE -3.4%, NW +0.7%, SW -4.6%). Divided by the bead factor, 5.6% (NE) to 13.1% (SW) below it.
-The scan counts the white beads (15.5e); whether the phone app counts them is not known.
+The scan counts the white beads (15.5e); whether the phone app counts them is not known. The two
+are not independent: the 3D scan was made by the same application, on an iPhone with LiDAR, and
+the phone scan by a beta version of it on Android, so they may share the rule for where a leaf
+ends. The 3D scan is the least reliable of the three instruments, an order of size with very low
+precision (Aaron, 2026-10-28): neither its agreement with the phone nor its 10% to 39% gap from
+the rig in 15.5e confirms anything.
 
 *Against the rig.* The rig's tray 8 area in the 39 photos of 09:20:53 to 09:58:53 UTC (all
 counted, North 6, green threshold 0.1): median 4021.6, range 3986.4 to 4054.0. (The method said
@@ -5875,8 +5880,8 @@ above the beads reads even larger than the bead factor allows for. The rig has i
 height effect the other way: at about 0.145% per mm (15.5), rosettes 17 to 23 mm above the tray top
 read about 2.5% to 3.4% large, so the rig's shortfall at true scale is larger, not smaller.
 
-*Limits of the evidence.* Two phone photos, one benchmark, one day. The app's edge rule is not
-known, and it found the NE and NW rosettes as one in the first photo. The bead centres are the
+*Limits of the evidence.* Two phone photos, one benchmark, one day. The app is a beta version;
+its edge rule is not known and has not been checked, and it found the NE and NW rosettes as one in the first photo. The bead centres are the
 middle of each white blob, at bead height, which the callipers measured centre to centre. The
 green square is not scaled for its own height, which is below the base's top face. No pass rule
 was set. A tray's plant in the run is measured by the rig only, so the comparison holds for this
@@ -5888,6 +5893,21 @@ scale, 4131.1 mm2 for the four rosettes in the 09:39:41 photo (NE 1896.4, SE 118
 photos, totals with the green square). Two effects not allowed for work in opposite directions:
 leaf tips above the beads would make the true area smaller and the rig's shortfall less, and the
 rig's own height effect (2.5% to 3.4% large, above) would make its shortfall at true scale more.
+
+*What the data provides* (talked through with Aaron, 2026-10-28):
+
+1. A reference for the benchmark's area seen from above, built from three parts. The scale comes
+   from vernier calliper readings of the base itself, independent of any application; the tilt
+   correction from the base's four corners, plain plane geometry; each rosette's outline from the
+   beta phone application, the one unchecked part. The reference is as good as that outline.
+2. A measurement, not an estimate, of the height effect at close range: the measured 70.0 mm bead
+   spacing reads 3% to 5% long in the photos, so areas at bead height read 8% to 10% large. Taking
+   each photo's own effect out brings the two photos, taken from different distances, together.
+3. The rig reads the benchmark about 5% small against that reference, at the edge of the final
+   target of 5% per tray. Part or all of it may be the rig's edge rule (a flat 10 mm circle read
+   21% small in round 1, 15.5), but the application's edge rule is unchecked as well, so which is
+   nearer the truth is not known. Where a leaf ends is the largest open question, and the plant
+   segmentation comparison with ImageJ (#297) is the check on it.
 
 ![Corners and beads found, 09:39:41](figures/17.13/baee65e4-corners-beads.jpg)
 
