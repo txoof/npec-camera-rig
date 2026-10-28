@@ -191,7 +191,8 @@
           ? `Tray ${t.tray_id} turned, A1 ${t.from[1]} to ${t.to[1]}`
           : `Tray ${t.tray_id} ${t.from[0]} to ${t.to[0]}` + (t.from[1] === t.to[1] ? "" : `, A1 ${t.from[1]} to ${t.to[1]}`)).join("; ") + ".");
       }
-      // A misprint can give two trays one tag (#302): neither tray's area counts in this photo.
+      // Trays whose areas do not count in this photo: two carrying one tag (#302), or two in one
+      // slot (#315).
       const shared = notCounted(trays);
       if (shared && dark) lines.push(shared);
       // Plant area per tray (#75): green pixels inside the tray outline at the local scale. Its

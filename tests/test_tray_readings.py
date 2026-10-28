@@ -423,13 +423,13 @@ def test_two_trays_in_one_slot_are_both_marked_not_counted_with_the_slot(monkeyp
     assert trays[7]["not_counted"] == []
 
 
-def test_two_trays_in_one_slot_are_left_out_of_the_photos_areas_for_chamber_activity(monkeypatch) -> None:
-    """#315: the areas the visit check judges hold tray 7 only, neither tray of North 1
-    (`_two_trays_in_one_slot_scene`)."""
+def test_a_photo_with_two_trays_in_one_slot_is_left_out_whole_as_chamber_activity(monkeypatch) -> None:
+    """#315, decided by Aaron 2026-10-28: two outlines in one slot mean a tray carried over the
+    table or a loose tag on a tray (metrology log 17.12), too abnormal to measure, so the whole
+    photo is a visit, as for any chamber activity (`_two_trays_in_one_slot_scene`)."""
     _two_trays_in_one_slot_scene(monkeypatch)
-    experiment = captures.start_experiment(captures.create_experiment()["id"])
+    captures.start_experiment(captures.create_experiment()["id"])
     path = _photo()
     tray_readings.read_photo(path)
 
-    capture_id = database.captures_by_path([path])[path]["id"]
-    assert database.experiment_tray_areas(experiment["id"])[capture_id] == {7: pytest.approx(1500, rel=0.01)}
+    assert tray_readings.photo_readings(path)["exclusion"] == "visit"

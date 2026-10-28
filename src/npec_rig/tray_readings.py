@@ -223,15 +223,16 @@ def capture_readings(capture: dict) -> dict | None:
         readings["exclusion"] = saved["name"]
         readings["norm_pending"] = saved["norm_e"] is None
         carried = Counter(tray["tray_id"] for tray in readings["trays"])
-        in_slot = Counter(tray["slot"] for tray in readings["trays"])
+        # Placed as sharing a slot by tray_placement.place_trays, counted per slot for the reason.
+        shared = Counter(tray["slot"] for tray in readings["trays"] if tray["placement"] == "two trays in one slot")
         for tray in readings["trays"]:
             # Neither area counts, in this photo only: a misprint can give two trays one tag, and
             # their areas cannot be told apart (Aaron, 2026-10-27, #302); a second outline in a
             # slot, from a loose tag, takes part of the real tray's plant (2026-10-28, #315).
-            tag, slot = carried[tray["tray_id"]], in_slot[tray["slot"]]
+            n_tag, n_slot = carried[tray["tray_id"]], shared[tray["slot"]]
             tray["not_counted"] = [
-                *([f"{tag} trays carry tag {tray['tray_id']}"] if tag > 1 else []),
-                *([f"{slot} trays in {tray['slot']}"] if slot > 1 else []),
+                *([f"{n_tag} trays carry tag {tray['tray_id']}"] if n_tag > 1 else []),
+                *([f"{n_slot} trays in {tray['slot']}"] if tray["placement"] == "two trays in one slot" else []),
             ]
             tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
             tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM

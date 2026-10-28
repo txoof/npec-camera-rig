@@ -5757,12 +5757,25 @@ the factor of 2 (17.9).
 misprint) was shown only by the swap of tray 10's tag. The photos of 08:47:53 to 08:50:01 hold a
 wrong area for tray 10 or a tray 10 not counted, and are left out of the run's analysis (#223).
 
-*Follow-up (#315, 2026-10-28).* Decision (Aaron): a tray that shares its slot with another tray
-is not counted either, with the reason "2 trays in South 1", in that photo only. Every row stored
-as `two trays in one slot` in `rig.db`, read-only on the same day: 6 rows in 3 photos, all of
-experiment 18. Two are the photos of 08:47:53 and 08:48:53 above, where the rule now marks tray 10.
-The third is 27 Oct 09:57:53 UTC, trays 3 and 11 both in North 3 during the tray move of that
-morning, a photo already left out as "light disturbed". No other photo changes.
+*Follow-up (#315, 2026-10-28).* Every row stored as `two trays in one slot` in `rig.db`, read-only
+on the same day: 6 rows in 3 photos, all of experiment 18. Two are the photos of 08:47:53 and
+08:48:53 above (the spare tag 1 on tray 10). The third is 27 Oct 09:57:53 UTC: tray 11 carried by
+hand over North 3 during the tray move of that morning, its tag seen and its outline placed over
+tray 3 (`docs/figures/17.12/095753-tags.jpg`). Two real trays never lie in one slot (Aaron), so the
+status means a tray carried over the table or a loose tag on a tray.
+
+Decision (Aaron, 2026-10-28): such a photo is too abnormal to measure. It is chamber activity
+("visit", 17.9): the whole photo is not counted, and nearby marks join as for any visit. Both trays
+also show "2 trays in South 1" in Info. A light exclusion still wins over it, so 09:57:53 stays
+"light disturbed"; 08:47:53 and 08:48:53 become visits. A loose tag left on a tray marks every photo
+until it is removed, shown on the page.
+
+![Tags picture of 27 Oct 09:57:53](figures/17.12/095753-tags.jpg)
+
+*The gallery's Tags picture of the photo of 27 Oct 09:57:53 UTC (10:57:53 Amsterdam), 1600 px wide,
+from `/gallery/image/tags/experiments/2026-10-22_df206967/stills/2026-10-27/095753_613513` on main.
+Tray 11, carried by hand, is outlined at a slant over North 3 and labelled "two trays in one
+slot", as is tray 3 under it.*
 
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
