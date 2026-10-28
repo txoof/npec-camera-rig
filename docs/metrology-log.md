@@ -5698,6 +5698,31 @@ trays 8 and 9 on every photo with only their wall outside.
 tray 13 mm past may in fact be up to about 10 mm more or less. Three photos of one experiment.
 Leaves hanging past the tray's own outline are not seen by this check at all.
 
+### 17.12 Two trays carrying the same tag, in the chamber (#302, method written 2026-10-28, before the check)
+
+**Label: development check.** Whether the rig marks both trays when a misprint gives two trays
+one tag, on real photos, with the code of branch `302-duplicate-tags` (rig.db version 13).
+
+*Before the change.* `rig.db` allowed one row per tag in a photo. A photo in which two trays carry
+one tag failed to save its reading and was stored as `read failed`, with no trays and no areas
+(found while writing the test, 2026-10-28; no such photo exists in the potato run).
+
+*Method.* During the potato run, in the lit hours. A second printed tag 1 (a duplicate of the tag
+of tray 1) is laid on another tray of the 12, in that tray's own cell A1 area, for about 3 minutes,
+then removed. The rig keeps its photo a minute. Read from `rig.db` (read-only) and the gallery:
+
+1. Photos with the duplicate: two rows for tag 1, each with its own area, both shown as "not
+   counted" with "2 trays carry tag 1"; the other trays counted.
+2. The photo before and the photo after: one tray 1, counted, no mark.
+3. No "moved" line for tray 1 while the duplicate is there.
+
+*What it disturbs.* The photos with the duplicate: the tray it lies on gains a second outline
+over its own, so its area, and the duplicate's, are wrong for those photos. The duplicate's
+two tag-1 areas are marked, the tray under it is not. Those photos are also likely to be marked
+as chamber activity (the person placing it).
+
+*Result.* Not yet run.
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from

@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+from collections import Counter
 from collections.abc import Iterator
 from contextlib import closing, contextmanager
 from pathlib import Path
@@ -226,6 +227,40 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "ALTER TABLE tray_reading ADD COLUMN outside_mm REAL",  # 0 when inside; NULL: read before #282
         ),
     ),
+    (
+        13,
+        "tray readings: two trays in one photo may carry the same tag (#302)",
+        # SQLite cannot drop a UNIQUE constraint: the table is copied into one without it.
+        (
+            """
+            CREATE TABLE tray_reading_13 (
+                id INTEGER PRIMARY KEY,
+                capture_id INTEGER NOT NULL REFERENCES tray_read (capture_id),
+                tray_id INTEGER NOT NULL,        -- the tag ID in cell A1; twice in a photo when two trays carry it
+                slot TEXT NOT NULL,
+                a1_corner TEXT NOT NULL,
+                placement TEXT NOT NULL,
+                centre_x_px REAL NOT NULL,
+                centre_y_px REAL NOT NULL,
+                tilt_deg REAL NOT NULL,
+                margin_mm REAL NOT NULL,
+                area_mm2 REAL,
+                segmenter TEXT,
+                plant_px INTEGER,
+                plant_centre_x_px REAL,
+                plant_centre_y_px REAL,
+                calibration TEXT,
+                outside_mm REAL
+            )
+            """,
+            "INSERT INTO tray_reading_13 SELECT id, capture_id, tray_id, slot, a1_corner, placement,"
+            " centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter, plant_px,"
+            " plant_centre_x_px, plant_centre_y_px, calibration, outside_mm FROM tray_reading",
+            "DROP TABLE tray_reading",
+            "ALTER TABLE tray_reading_13 RENAME TO tray_reading",
+            "CREATE INDEX tray_reading_capture ON tray_reading (capture_id, tray_id)",
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -410,10 +445,10 @@ def tray_readings(capture_id: int) -> dict | None:
                 (*args, read["taken_at"]),
             ).fetchone()
             if previous is not None:
-                before = {
-                    r["tray_id"]: [r["slot"], r["a1_corner"]]
-                    for r in conn.execute("SELECT * FROM tray_reading WHERE capture_id = ?", (previous[0],))
-                }
+                earlier = conn.execute("SELECT * FROM tray_reading WHERE capture_id = ?", (previous[0],)).fetchall()
+                # A tag two trays carry, in either photo, says nothing about which tray moved (#302).
+                carried = Counter(r["tray_id"] for r in [*earlier, *rows])
+                before = {r["tray_id"]: [r["slot"], r["a1_corner"]] for r in earlier if carried[r["tray_id"]] == 2}
                 moved = [
                     {"tray_id": r["tray_id"], "from": before[r["tray_id"]], "to": [r["slot"], r["a1_corner"]]}
                     for r in rows
@@ -487,7 +522,8 @@ def light_warning_dismissals(experiment_id: int) -> list[dict]:
 def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
     """The saved plant areas of each of the experiment's photos whose trays were read (status
     `read`): tray ID to mm2, by capture id; empty for a read photo with no area. Photos not read,
-    or read with another status, are not included."""
+    or read with another status, are not included. A tag two trays carry in one photo is left
+    out of that photo: neither area counts (#302)."""
     with _connect() as conn:
         rows = conn.execute(
             "SELECT tray_read.capture_id, tray_reading.tray_id, tray_reading.area_mm2 FROM tray_read"
@@ -498,10 +534,15 @@ def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
             (experiment_id,),
         ).fetchall()
     areas: dict[int, dict[int, float]] = {}
+    carried: Counter = Counter()
     for capture_id, tray_id, area in rows:
         photo = areas.setdefault(capture_id, {})
         if tray_id is not None:
             photo[tray_id] = area
+            carried[capture_id, tray_id] += 1
+    for (capture_id, tray_id), n in carried.items():
+        if n > 1:
+            del areas[capture_id][tray_id]
     return areas
 
 

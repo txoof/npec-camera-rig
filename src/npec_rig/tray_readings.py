@@ -12,6 +12,7 @@ import logging
 import math
 import sqlite3
 import threading
+from collections import Counter
 from datetime import UTC, datetime
 
 import numpy as np
@@ -103,12 +104,11 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
     # No tag of any kind, as with the lights off (metrology log 15.5l): not trays missing.
     status, placed = placements(path, tags) if tags else ("no tags found", [])
     reuse = reuse_mask and _saved_by_this_segmenter(saved)
-    calibration, measures = _measures(path, record["calibration"], placed, reuse) if placed else (None, {})
+    calibration, measures = _measures(path, record["calibration"], placed, reuse) if placed else (None, [])
     size = _photo_size(path) if placed else None
     _refuse_worse(path, saved, status, measures)
     trays = []
-    for p in placed:
-        m = measures.get(p.tray_id)
+    for p, m in zip(placed, measures or [None] * len(placed), strict=True):
         trays.append({
             "tray_id": p.tray_id, "slot": p.slot, "a1_corner": p.a1_corner, "placement": p.status,
             "centre_px": list(p.centre), "tilt_deg": p.tilt_deg, "margin_mm": p.margin_mm,
@@ -145,9 +145,10 @@ def _saved_by_this_segmenter(saved: dict | None) -> bool:
 
 def _measures(
     path: str, photo_calibration: str, placed: list[TrayPlacement], reuse_mask: bool = False
-) -> tuple[str | None, dict[int, segmentation.PlantMeasure]]:
-    """The calibration used and each placed tray's plant measure, by tray ID, from the full-size
-    photo's mask: the saved one with `reuse_mask`, else a new one, saved for Reprocess. Empty when
+) -> tuple[str | None, list[segmentation.PlantMeasure]]:
+    """The calibration used and each placed tray's plant measure, in the order of `placed` (two
+    trays may carry the same tag, #302), from the full-size photo's mask: the saved one with
+    `reuse_mask`, else a new one, saved for Reprocess. Empty when
     the photo cannot be segmented: the trays are still placed. Plant in the strip two touching
     trays share counts once, for the tray with the nearer centre (`segmentation.measure_trays`)."""
     try:
@@ -158,10 +159,10 @@ def _measures(
             mask = _segment(path)
         trays = [(p.outline, p.centre) for p in placed]
         measures = segmentation.measure_trays(mask, trays, scale_field)
-        return stem, {p.tray_id: m for p, m in zip(placed, measures, strict=True)}
+        return stem, measures
     except Exception:
         logger.exception("Could not work out the plant areas of %s", path)
-        return None, {}
+        return None, []
 
 
 def _photo_size(path: str) -> tuple[int, int] | None:
@@ -202,8 +203,8 @@ def _segment(path: str) -> np.ndarray:
 def photo_readings(path: str) -> dict | None:
     """Photo `path`'s saved tray readings (`database.tray_readings`), None when not yet read, with
     its `exclusion` (`exclusions`, `GLOSSARY.md`) or None, `norm_pending` while its experiment has
-    no light norm yet, and each tray's `floor_mm2` (`FLOORS_MM2`, None for a segmenter without
-    one)."""
+    no light norm yet, each tray's `floor_mm2` (`FLOORS_MM2`, None for a segmenter without
+    one) and `not_counted`: why its area is left out, None when it counts."""
     record = database.captures_by_path([path]).get(path)
     if record is None:
         raise LookupError(f"photo {path} has no record in rig.db")
@@ -221,7 +222,12 @@ def capture_readings(capture: dict) -> dict | None:
             saved = {"name": result["exclusions"][0], "norm_e": None}
         readings["exclusion"] = saved["name"]
         readings["norm_pending"] = saved["norm_e"] is None
+        carried = Counter(tray["tray_id"] for tray in readings["trays"])
         for tray in readings["trays"]:
+            # A misprint can give two trays one tag: their areas cannot be told apart, so neither
+            # counts, in this photo only (Aaron, 2026-10-27, #302).
+            n = carried[tray["tray_id"]]
+            tray["not_counted"] = f"{n} trays carry tag {tray['tray_id']}" if n > 1 else None
             tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
             tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM
     return readings
