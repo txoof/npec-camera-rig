@@ -126,7 +126,7 @@ class ReadingWorse(RuntimeError):
     """Reading the photo again would replace a saved reading with less: nothing is saved."""
 
 
-def _refuse_worse(path: str, saved: dict | None, status: str, measures: dict) -> None:
+def _refuse_worse(path: str, saved: dict | None, status: str, measures: list) -> None:
     """Raise ReadingWorse when a saved reading had trays placed, or areas, and this one has not:
     the photo, its mask or its calibration may be gone, and the saved values are kept (review of
     #287: Reprocess and Show tags must never turn saved areas into none)."""

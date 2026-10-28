@@ -237,23 +237,26 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
                 id INTEGER PRIMARY KEY,
                 capture_id INTEGER NOT NULL REFERENCES tray_read (capture_id),
                 tray_id INTEGER NOT NULL,        -- the tag ID in cell A1; twice in a photo when two trays carry it
-                slot TEXT NOT NULL,
-                a1_corner TEXT NOT NULL,
-                placement TEXT NOT NULL,
-                centre_x_px REAL NOT NULL,
+                slot TEXT NOT NULL,              -- nearest slot of the calibration's layout
+                a1_corner TEXT NOT NULL,         -- SW, or NE (turned 180)
+                placement TEXT NOT NULL,         -- placed, close call, two trays in one slot
+                centre_x_px REAL NOT NULL,       -- tray centre, full-size photo pixels
                 centre_y_px REAL NOT NULL,
                 tilt_deg REAL NOT NULL,
                 margin_mm REAL NOT NULL,
-                area_mm2 REAL,
-                segmenter TEXT,
-                plant_px INTEGER,
-                plant_centre_x_px REAL,
+                area_mm2 REAL,                   -- NULL when not worked out
+                segmenter TEXT,                  -- e.g. "green threshold, 0.1"; NULL with no area
+                plant_px INTEGER,                -- plant pixels inside the tray outline
+                plant_centre_x_px REAL,          -- their centre, full-size photo pixels
                 plant_centre_y_px REAL,
-                calibration TEXT,
-                outside_mm REAL
+                calibration TEXT,                -- the calibration area_mm2 was worked out with
+                outside_mm REAL                  -- 0 when inside; NULL: read before #282
             )
             """,
-            "INSERT INTO tray_reading_13 SELECT id, capture_id, tray_id, slot, a1_corner, placement,"
+            "INSERT INTO tray_reading_13 (id, capture_id, tray_id, slot, a1_corner, placement,"
+            " centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter, plant_px,"
+            " plant_centre_x_px, plant_centre_y_px, calibration, outside_mm)"
+            " SELECT id, capture_id, tray_id, slot, a1_corner, placement,"
             " centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter, plant_px,"
             " plant_centre_x_px, plant_centre_y_px, calibration, outside_mm FROM tray_reading",
             "DROP TABLE tray_reading",
@@ -447,8 +450,8 @@ def tray_readings(capture_id: int) -> dict | None:
             if previous is not None:
                 earlier = conn.execute("SELECT * FROM tray_reading WHERE capture_id = ?", (previous[0],)).fetchall()
                 # A tag two trays carry, in either photo, says nothing about which tray moved (#302).
-                carried = Counter(r["tray_id"] for r in [*earlier, *rows])
-                before = {r["tray_id"]: [r["slot"], r["a1_corner"]] for r in earlier if carried[r["tray_id"]] == 2}
+                shared = {t for photo in (earlier, rows) for t, n in Counter(r["tray_id"] for r in photo).items() if n > 1}
+                before = {r["tray_id"]: [r["slot"], r["a1_corner"]] for r in earlier if r["tray_id"] not in shared}
                 moved = [
                     {"tray_id": r["tray_id"], "from": before[r["tray_id"]], "to": [r["slot"], r["a1_corner"]]}
                     for r in rows
@@ -529,7 +532,6 @@ def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
             "SELECT tray_read.capture_id, tray_reading.tray_id, tray_reading.area_mm2 FROM tray_read"
             " JOIN capture ON capture.id = tray_read.capture_id"
             " LEFT JOIN tray_reading ON tray_reading.capture_id = tray_read.capture_id"
-            " AND tray_reading.area_mm2 IS NOT NULL"
             " WHERE capture.experiment_id = ? AND tray_read.status = 'read'",
             (experiment_id,),
         ).fetchall()
@@ -538,11 +540,12 @@ def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
     for capture_id, tray_id, area in rows:
         photo = areas.setdefault(capture_id, {})
         if tray_id is not None:
-            photo[tray_id] = area
             carried[capture_id, tray_id] += 1
+            if area is not None:
+                photo[tray_id] = area
     for (capture_id, tray_id), n in carried.items():
         if n > 1:
-            del areas[capture_id][tray_id]
+            areas[capture_id].pop(tray_id, None)
     return areas
 
 
