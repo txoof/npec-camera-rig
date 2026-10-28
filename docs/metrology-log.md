@@ -5777,6 +5777,55 @@ from `/gallery/image/tags/experiments/2026-10-22_df206967/stills/2026-10-27/0957
 Tray 11, carried by hand, is outlined at a slant over North 3 and labelled "two trays in one
 slot", as is tray 3 under it.*
 
+### 17.13 The benchmark rosettes against a phone scan scaled by callipers (#228, method written 2026-10-28, before the analysis)
+
+**Label: reference comparison.** The benchmark "Benchy Yellow-4" (15.1) lies on tray 8 in North 6
+in the potato run. Its four rosettes are measured from above with a second instrument, a phone
+photo scaled by calliper readings of the benchmark itself, and compared with the rig's area of
+tray 8 and with the 3D scan of 15.5e.
+
+*Reference instrument.* Two photos taken by Aaron in the chamber on 2026-10-28 with a Google Pixel
+11 Pro XL (back camera, 4032 x 3024, held above the tray) and analysed on the phone by its 2D
+phenotyping app (`android_ios_foliage_tray_pipeline_v1`, foliage mode): at 09:36:53 UTC
+(`142a6558...`) and 09:39:41 UTC (`baee65e4...`). For each green object found, the app gives its
+area in pixels and its centre, on a 1080 x 1440 copy of the photo (`analysis/analysis-input.png`),
+and no scale. Files in `~/scratch/<id>.ft2dphenodataset/`; SHA-256 of the photos `bdd63ae7...` and
+`ccafad89...`, matching each package's manifest. The app's own outline of each plant is the
+reference mask: its edge rule is not known.
+
+| Photo | Objects found by the app |
+|---|---|
+| 09:36:53 | 4: NW and SW merged into one, the other two rosettes, the green square on the black card |
+| 09:39:41 | 5: the four rosettes separately and the green square |
+
+*Calliper readings* (Aaron, 2026-10-28, vernier calliper; the spacings his best estimate from
+several readings). Base sides: north 187.76, south 187.90, west 187.74, east 187.83 mm (mean
+187.81). Rosette centre to centre: NW to NE, NE to SE, NW to SW and SW to SE each 70.0 mm (the
+last given as "NE:SE" a second time, taken to be SW:SE). Heights and diameters: 15.1.
+
+*Method.* `experiments/round2-benchmark-plants/`, on the files above only:
+
+1. The base's four corners are found in `analysis-input.png` from the yellow of its top face.
+2. A plane-to-plane map (homography) takes them to a 187.81 mm square: the scale at the base's
+   top face, with any tilt of the phone corrected within that plane.
+3. Each object's area in mm2 is its app area in pixels times the map's local area factor at its
+   centre.
+4. Height check, reported and not applied: the four rosette centres (the beads, 12.8 to 19.1 mm
+   above the base) mapped onto the base plane give their spacings in mm, against the 70.0 mm
+   measured. The ratio shows how much larger the rosettes read at bead height than at the base.
+   Applying it is a decision for Aaron, labelled as one.
+5. Compared with: the 3D scan per rosette (15.5e: NE 2009.9, SE 1343.7, NW 753.4, SW 413.7 mm2);
+   and the rig's area of tray 8 in its 20 photos of 09:20:53 to 09:58:53 UTC (rig.db read-only,
+   3986 to 4054 mm2). The rig gives only the tray's total, so the phone's four rosettes plus the
+   green square are compared with it.
+
+*Pass rule.* None set before the analysis.
+
+*Not covered.* The rosettes' own height range (leaves from the base to 19.4 to 28.0 mm above it)
+beyond the height check; living plants (#223); the app's edge rule, which is not known.
+
+*Result.* Not yet worked out.
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from
