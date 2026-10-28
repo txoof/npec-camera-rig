@@ -5698,6 +5698,65 @@ trays 8 and 9 on every photo with only their wall outside.
 tray 13 mm past may in fact be up to about 10 mm more or less. Three photos of one experiment.
 Leaves hanging past the tray's own outline are not seen by this check at all.
 
+### 17.12 Two trays carrying the same tag, in the chamber (#302, method written 2026-10-28, before the check)
+
+**Label: development check.** Whether the rig marks both trays when a misprint gives two trays
+one tag, on real photos, with the code of branch `302-duplicate-tags` (rig.db version 13).
+
+*Before the change.* `rig.db` allowed one row per tag in a photo. A photo in which two trays carry
+one tag failed to save its reading and was stored as `read failed`, with no trays and no areas
+(found while writing the test, 2026-10-28; no such photo exists in the potato run).
+
+*Method.* During the potato run, in the lit hours. A second printed tag 1 (a duplicate of the tag
+of tray 1) is laid on another tray of the 12, in that tray's own cell A1 area, for about 3 minutes,
+then removed. The rig keeps its photo a minute. Read from `rig.db` (read-only) and the gallery:
+
+1. Photos with the duplicate: two rows for tag 1, each with its own area, both shown as "not
+   counted" with "2 trays carry tag 1"; the other trays counted.
+2. The photo before and the photo after: one tray 1, counted, no mark.
+3. No "moved" line for tray 1 while the duplicate is there.
+
+*What it disturbs.* The photos with the duplicate: the tray it lies on gains a second outline
+over its own, so its area, and the duplicate's, are wrong for those photos. The duplicate's
+two tag-1 areas are marked, the tray under it is not. Those photos are also likely to be marked
+as chamber activity (the person placing it).
+
+*Result* (2026-10-28, potato run, experiment 18, branch `302-duplicate-tags` at rig.db version
+13; times UTC, Dutch time is UTC+1). Read from `rig.db` read-only and the gallery's API. Areas in
+mm2.
+
+| Photo | What lay on the table | Tag 1 rows (slot, area) | Tray 10 (South 1) | Marked not counted |
+|---|---|---|---|---|
+| 08:46:53 | as usual | South 2, 91 | 26,709 | none |
+| 08:47:53 | a second tag 1 in tray 10's cell A1, beside tray 10's own tag | South 2, 75; South 1, 12,041 | 14,401 | both tag 1 rows |
+| 08:48:53 | the same | South 2, 82; South 1, 12,049 | 14,367 | both tag 1 rows |
+| 08:49:53, 08:49:56, 08:50:01 (two taken by hand) | tray 10's tag taken away, the second tag 1 in its place | South 2, 79 to 82; South 1, 26,645 to 26,652 | not found since 08:49:53 | both tag 1 rows |
+| 08:50:53 | as usual | South 2, 91 | 26,634 | none |
+
+1. Holds. Both tag 1 trays keep their own area and both are marked "2 trays carry tag 1"; the
+   other 10 or 11 trays are counted. With the tag in place of tray 10's, the South 1 tray keeps
+   tray 10's area (26,645 to 26,652 against 26,634 to 26,709 before and after).
+2. Holds. The photos before and after have one tray 1, counted, with no mark.
+3. Holds. No "moved" line in any of the 6 photos. Tray 10 shows as not found while its tag was
+   away, as for any missing tag.
+
+![Tags picture of 08:49:53](figures/17.12/084953-tags.jpg)
+
+*The gallery's Tags picture of the photo of 08:49:53 UTC (1600 px wide), from
+`/gallery/image/tags/experiments/2026-10-22_df206967/stills/2026-10-28/084953_704526` on the branch.
+Both tag 1 trays are outlined: South 1 (its label cut by the photo edge, with tray 10's tag
+replaced by the second tag 1) and South 2.*
+
+*Found.* With both tags on tray 10, the second tag 1's outline lies over tray 10's own, and the
+plant is shared between them by the nearer centre (17.10): tray 10 read 14,401 instead of about
+26,700, and is not marked. The two parts add up to 26,442 and 26,416, within 1.1% of the readings
+before and after. Neither photo was marked as chamber activity: tray 10 fell by 1.85 times, under
+the factor of 2 (17.9).
+
+*Limits.* One tray, 6 photos, one printed duplicate. A duplicate on a tray of its own (a real
+misprint) was shown only by the swap of tray 10's tag. The photos of 08:47:53 to 08:50:01 hold a
+wrong area for tray 10 or a tray 10 not counted, and are left out of the run's analysis (#223).
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from

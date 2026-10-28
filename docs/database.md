@@ -196,12 +196,15 @@ Validation, calibration and tripwire photos are not read in the background.
 | `read_at` | text | When it was read, UTC |
 | `status` | text | `read`; or why no tray was placed: `no tags found` (no tag of any kind, as with the lights off), `no calibration`, `no slot layout`, `placement failed`, `read failed` |
 
-`tray_reading` has one row per tray whose tag was found:
+`tray_reading` has one row per tray whose tag was found. Two trays in one photo may carry the same
+tag (a misprint): both rows are kept, each with its own area, and neither area counts in that photo
+("2 trays carry tag 1", #302). Before version 13 the table allowed one row per tag in a photo, and
+such a photo was saved as `read failed` with no trays.
 
 | Column | Type | Meaning |
 |---|---|---|
 | `capture_id` | integer | The photo |
-| `tray_id` | integer | The tag ID in cell A1 |
+| `tray_id` | integer | The tag ID in cell A1; twice in a photo when two trays carry it |
 | `slot` | text | The nearest slot of the calibration's slot layout |
 | `a1_corner` | text | `SW`, or `NE` for a tray turned 180 |
 | `placement` | text | `placed`, `close call` or `two trays in one slot` |

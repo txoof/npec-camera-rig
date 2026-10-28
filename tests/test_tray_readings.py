@@ -340,3 +340,63 @@ def test_each_photos_exclusion_is_stored_and_earlier_photos_are_checked_again_as
     assert tray_readings.photo_readings(dip)["exclusion"] == "light off norm"
     taken(5_000)
     assert tray_readings.photo_readings(dip)["exclusion"] == "light disturbed"
+
+
+def _two_trays_with_one_tag_scene(monkeypatch) -> None:
+    """`one_tray_plant_scene` with three trays side by side in a 9600 x 4400 photo, at 10 px/mm:
+    two carry tag 1, the third tag 7. Tag centres x 600, 3625 and 6650, so the outlines are x 115 to
+    3165, 3140 to 6190 and 6165 to 9215 (3025 px apart, as in `_two_touching_trays_scene`). Each
+    holds a mint rectangle 300 px tall, clear of the strips the outlines share: 500 px wide in the
+    first (1500 mm2), 250 px in the second (750 mm2), 500 px in the third (1500 mm2)."""
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB
+
+    one_tray_plant_scene(monkeypatch)
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[2200:2500, 1400:1900] = MINT_LEAF_RGB
+            frame[2200:2500, 4400:4650] = MINT_LEAF_RGB
+            frame[2200:2500, 7450:7950] = MINT_LEAF_RGB
+            return frame, metadata
+
+    validation_store.save_slot_layout(
+        FIXTURE["calibration"],
+        [{"name": "North 1", "centre": [1640, 2384], "box": [100, 500, 3200, 4300]},
+         {"name": "North 2", "centre": [4665, 2384], "box": [3125, 500, 6225, 4300]},
+         {"name": "North 3", "centre": [7690, 2384], "box": [6150, 500, 9250, 4300]}],
+        [],
+    )
+    tags = [TagDetection(tag_id, ((x - 200, 3600), (x + 200, 3600), (x + 200, 4000), (x - 200, 4000)), (x, 3800))
+            for tag_id, x in ((1, 600), (1, 3625), (7, 6650))]
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: tags)
+    CameraManager.set_instance(CameraManager(Scene(width=9600, height=4400)))
+
+
+def test_two_trays_with_the_same_tag_each_keep_their_own_area_and_neither_is_counted(monkeypatch) -> None:
+    """#302, decided by Aaron 2026-10-27: both trays' areas are saved and marked not counted, with
+    the reason; the other trays count as normal (`_two_trays_with_one_tag_scene`)."""
+    _two_trays_with_one_tag_scene(monkeypatch)
+
+    trays = tray_readings.read_photo(_photo())["trays"]
+    ones = sorted((t for t in trays if t["tray_id"] == 1), key=lambda t: t["area_mm2"])
+    assert [t["area_mm2"] for t in ones] == [pytest.approx(750, rel=0.01), pytest.approx(1500, rel=0.01)]
+    assert [t["not_counted"] for t in ones] == ["2 trays carry tag 1"] * 2
+    (seven,) = [t for t in trays if t["tray_id"] == 7]
+    assert seven["not_counted"] is None
+
+
+def test_a_tag_two_trays_carry_is_left_out_of_the_photos_areas_for_chamber_activity(monkeypatch) -> None:
+    """#302: the areas the visit check judges (`exclusions.visits`) hold only the trays that count:
+    tray 7, not either tray 1 (`_two_trays_with_one_tag_scene`)."""
+    _two_trays_with_one_tag_scene(monkeypatch)
+    experiment = captures.start_experiment(captures.create_experiment()["id"])
+    path = _photo()
+    tray_readings.read_photo(path)
+
+    capture_id = database.captures_by_path([path])[path]["id"]
+    areas = database.experiment_tray_areas(experiment["id"])
+    assert list(areas) == [capture_id]
+    assert areas[capture_id] == {7: pytest.approx(1500, rel=0.01)}

@@ -92,10 +92,15 @@ def _tag_role(tag_id: int) -> str:
 
 
 def _tray_placements(path: str, tags: list[TagDetection]) -> dict[int, TrayPlacement]:
-    """Each tray tag in photo `path` placed with its calibration, by tray ID; empty when the
-    photo has no calibration with a usable slot layout. Placement is an extra on the tag list."""
+    """Each tray tag in photo `path` placed with its calibration, by the `id()` of its detection,
+    not by tray ID: two trays may carry the same tag (#302). Empty when the photo has no calibration with a usable
+    slot layout. Placement is an extra on the tag list."""
     _status, placed = tray_readings.placements(path, tags)
-    return {p.tray_id: p for p in placed}
+    if not placed:
+        return {}
+    # place_trays places the tray tags in tag ID order, a stable sort: the same order as here.
+    trays = sorted((d for d in tags if d.tag_id in TRAY_ID_RANGE), key=lambda d: d.tag_id)
+    return {id(d): p for d, p in zip(trays, placed, strict=True)}
 
 
 def _placement_json(p: TrayPlacement | None) -> dict | None:
@@ -124,7 +129,7 @@ def api_photo_tags(path: str) -> list[dict]:
     for d in tags:
         entry = {"id": d.tag_id, "role": _tag_role(d.tag_id), "centre_px": [round(d.centre[0]), round(d.centre[1])]}
         if entry["role"] == "tray":
-            entry["placement"] = _placement_json(placements.get(d.tag_id))
+            entry["placement"] = _placement_json(placements.get(id(d)))
         out.append(entry)
     return out
 
