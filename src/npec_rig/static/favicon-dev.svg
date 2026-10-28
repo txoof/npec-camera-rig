@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- favicon.svg's leaf in red, for the development rig (NPEC_RIG_ENVIRONMENT=development, #320).
+       Colours meet WCAG G207 (3:1 for graphics): light, leaf 5.9:1 on #f1f3f4 and midrib 5.7:1
+       on the leaf; dark, leaf 5.6:1 on #35363a and midrib 5.1:1 on the leaf. -->
+  <style>
+    .leaf { fill: #b71c1c; stroke: #b71c1c; }
+    .rib { stroke: #ffebee; }
+    @media (prefers-color-scheme: dark) {
+      .leaf { fill: #ef9a9a; stroke: #ef9a9a; }
+      .rib { stroke: #7f0000; }
+    }
+  </style>
+  <path class="leaf" d="M10 54 L3 61" stroke-width="6" stroke-linecap="round"/>
+  <path class="leaf" d="M8 56 C2 24 26 2 62 2 C62 38 40 62 8 56 Z" stroke-width="0"/>
+  <path class="rib" d="M13 51 L44 20" stroke-width="4.5" stroke-linecap="round"/>
+</svg>
