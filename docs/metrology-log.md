@@ -5824,7 +5824,67 @@ last given as "NE:SE" a second time, taken to be SW:SE). Heights and diameters: 
 *Not covered.* The rosettes' own height range (leaves from the base to 19.4 to 28.0 mm above it)
 beyond the height check; living plants (#223); the app's edge rule, which is not known.
 
-*Result.* Not yet worked out.
+*Result* (2026-10-28). Script `experiments/round2-benchmark-plants/phone_scan.py`, run as
+`phone_scan.py docs/figures/17.13 ~/scratch/142a6558*.ft2dphenodataset
+~/scratch/baee65e4*.ft2dphenodataset`; values in `docs/figures/17.13/results.csv`. The app's reports, manifests and
+traits of both packages are copied to `experiments/round2-benchmark-plants/data/`; the photos stay
+in the packages in `~/scratch`, checksums above. The rig's side:
+`rig_tray8.py 2026-10-28T09:20 2026-10-28T09:59` (rig.db read-only). Areas in mm2.
+
+The base was found as a clean four-sided outline in both photos: sides 574 to 577 px (09:36:53)
+and 657 to 664 px (09:39:41), so the phone was about 15% nearer for the second.
+
+*Height check (step 4).* The beads, mapped onto the base plane, lie 72.20 to 72.81 mm apart
+(09:36:53) and 73.05 to 73.68 mm apart (09:39:41), against 70.0 mm measured: 3.1% to 5.3% long.
+At bead height, areas read 7.6% large in the first photo and 9.7% large in the nearer second
+(the mean of the squared ratios). The phone was close (its focus setting gives 44 and 37 cm), so height
+counts about 4 times more per mm than on the rig: about 0.6% per mm at the beads, against 0.145%.
+
+| Object | 09:36:53, at the base | 09:39:41, at the base | 09:39:41, divided by the bead factor | 3D scan (15.5e) |
+|---|---|---|---|---|
+| NE | 2777.7 (NE + NW, merged) | 2081.0 | 1896.4 | 2009.9 |
+| SE | 1258.1 | 1298.5 | 1183.4 | 1343.7 |
+| NW | (merged) | 758.9 | 691.6 | 753.4 |
+| SW | 365.7 | 394.7 | 359.7 | 413.7 |
+| Four rosettes | 4401.5 | 4533.1 | 4131.1 | 4520.7 |
+| Green square on the black card | 123.6 | 126.2 | not divided (flat) | |
+
+*Repeatability, two photos.* At the base, the two photos differ by 2.2% (NE + NW), 3.2% (SE) and
+7.9% (SW). Divided by each photo's own bead factor, by 0.2%, 1.2% and 5.7%. The measured height
+effect accounts for most of the difference between them.
+
+*Against the 3D scan.* At the base, the phone reads within 4.6% of the scan for each rosette (NE
++3.5%, SE -3.4%, NW +0.7%, SW -4.6%). Divided by the bead factor, 5.6% (NE) to 13.1% (SW) below it.
+The scan counts the white beads (15.5e); whether the phone app counts them is not known.
+
+*Against the rig.* The rig's tray 8 area in the 39 photos of 09:20:53 to 09:58:53 UTC (all
+counted, North 6, green threshold 0.1): median 4021.6, range 3986.4 to 4054.0. (The method said
+20 photos: a miscount of the same span.) The rig gives the tray's total, so it is compared with
+the four rosettes plus the green square:
+
+| Phone photo | Phone total, at the base | Rig against it | Phone total, divided by the bead factor | Rig against it |
+|---|---|---|---|---|
+| 09:36:53 | 4525.1 | -11.1% | 4214.3 | -4.6% |
+| 09:39:41 | 4659.3 | -13.7% | 4257.3 | -5.5% |
+
+*What it shows.* The rig reads the benchmark 4.6% to 13.7% smaller than the phone scan, depending
+on which phone scale is taken. The true top-down area lies between the two phone scales or below
+them: most leaf surface sits between the base and the leaf tips (12.8 to 28.0 mm up), and a leaf
+above the beads reads even larger than the bead factor allows for. The rig has its own, smaller,
+height effect the other way: at about 0.145% per mm (15.5), rosettes 17 to 23 mm above the tray top
+read about 2.5% to 3.4% large, so the rig's shortfall at true scale is larger, not smaller.
+
+*Limits of the evidence.* Two phone photos, one benchmark, one day. The app's edge rule is not
+known, and it found the two west rosettes as one in the first photo. The bead centres are the
+middle of each white blob, at bead height, which the callipers measured centre to centre. The
+green square is not scaled for its own height, which is below the base's top face. No pass rule
+was set. Which phone scale to use as the benchmark's reference is a decision for Aaron.
+
+![Corners and beads found, 09:39:41](figures/17.13/baee65e4-corners-beads.jpg)
+
+*The 09:39:41 UTC phone photo at the app's 1080 x 1440 size, with the base's four corners
+(magenta dots and outline) and the four beads (magenta rings) found by `phone_scan.py`. The
+09:36:53 picture is `figures/17.13/142a6558-corners-beads.jpg`.*
 
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 

@@ -382,7 +382,11 @@ shapes of known area showed two error sources larger than anything in the geomet
 15 mm tall prism read up to 75% large). Segmentation is now the largest measured error source,
 as PLAN.md expected. Metrology log section 15.5. A photogrammetry mesh of the same benchmark
 (one capture, a second instrument) gives rosette areas 10% to 39% larger than the rig; which of the
-two is closer to the truth is not known yet. Metrology log section 15.5e.
+two is closer to the truth is not known yet. Metrology log section 15.5e. A third instrument, a
+phone photo of the same benchmark scaled by calliper readings of its base (2026-10-28), agrees with
+the mesh within 4.6% per rosette at the base's scale; the rig, in the potato run, reads the
+benchmark 4.6% to 13.7% smaller than the phone, depending on how the phone's own, larger, height
+effect is allowed for. Metrology log section 17.13.
 
 **Real leaves, first look (round 1, 2026-10-15).** Three garden leaves of known area (flatbed
 scans scaled by printed tags), laid flat on the trays, read on average 2.5% smaller than their
