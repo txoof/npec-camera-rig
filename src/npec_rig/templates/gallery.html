@@ -218,9 +218,11 @@
         const edge = (t) => t.partly_outside ? ", partly outside the photo" : "";
         const counted = (t) => t.not_counted?.length ? ", not counted" : "";
         // A tray found earlier but not in this photo: its slot is empty, or its tag is dirty or
-        // swapped, which the rig cannot tell apart (#318). Yellow, with the icon and the word.
-        const empty = (t) => `<span style="color: var(--warn)">${ui.icon("warn")} Empty, not found since `
-          + `${localTime(t.since)} (${t.photos} ${t.photos === 1 ? "photo" : "photos"})</span>`;
+        // swapped, which the rig cannot tell apart (#318). "Empty" only when no tray found in this
+        // photo sits in that slot.
+        const occupied = new Set(trays.trays.map((t) => t.slot));
+        const empty = (t) => ui.chip("warn", `${occupied.has(t.slot) ? "Not found" : "Empty, not found"} since `
+          + `${localTime(t.since)} (${t.photos} ${t.photos === 1 ? "photo" : "photos"})`);
         const rows = [
           ...measured.map((t) => ({ t, cell: `${area(t)}${edge(t)}${counted(t)}` })),
           ...trays.not_found.map((t) => ({ t, cell: empty(t) })),
@@ -240,12 +242,24 @@
       if (!trays) return "Trays: not read yet. Tap Tags to read it.";
       if (trays.exclusion === "lights off") return "Lights off. No plant areas.";
       if (trays.status !== "read") return "Trays: not placed. Info says why.";
-      if (EXCLUDED[trays.exclusion]) return `${EXCLUDED[trays.exclusion].card}. Areas not counted.`;
+      const missing = missingLine(trays);
+      if (EXCLUDED[trays.exclusion]) return `${EXCLUDED[trays.exclusion].card}. Areas not counted.` + missing;
       const shared = notCounted(trays);
-      const n = trays.not_found.length;
-      const empty = n ? ` <span style="color: var(--warn)">${ui.icon("warn")} ${n} ${n === 1 ? "slot" : "slots"} empty, see Info.</span>` : "";
-      const moved = trays.moved.length ? (n ? " Moved trays, see Info." : " Changes, see Info.") : "";
-      return `Trays found: ${trays.trays.length}.` + (shared ? ` ${shared}` : "") + empty + moved;
+      const moved = trays.moved.length ? (missing ? " Moved trays, see Info." : " Changes, see Info.") : "";
+      return `Trays found: ${trays.trays.length}.` + (shared ? ` ${shared}` : "") + missing + moved;
+    }
+
+    // The card's warning for trays found earlier but not in this photo (#318): empty slots are
+    // those no tray found in this photo sits in; the others are trays not found.
+    function missingLine(trays) {
+      const occupied = new Set(trays.trays.map((t) => t.slot));
+      const slots = new Set(trays.not_found.filter((t) => !occupied.has(t.slot)).map((t) => t.slot));
+      const others = trays.not_found.filter((t) => occupied.has(t.slot)).length;
+      const parts = [
+        ...(slots.size ? [`${slots.size} ${slots.size === 1 ? "slot" : "slots"} empty`] : []),
+        ...(others ? [`${others} ${others === 1 ? "tray" : "trays"} not found`] : []),
+      ];
+      return parts.length ? ` ${ui.chip("warn", `${parts.join(", ")}, see Info.`)}` : "";
     }
 
     // Why trays' areas are not counted, each reason once, as sentences: "2 trays carry tag 1."
@@ -362,7 +376,7 @@
         if (!t.ok) return;
         const trays = await t.json();
         cards.get(path).trays = trays;
-        traysBox.textContent = trays
+        traysBox.innerHTML = trays
           ? traysLine(trays, "capture")
           : "Trays: the reading could not be saved for this photo.";
       } catch (err) {

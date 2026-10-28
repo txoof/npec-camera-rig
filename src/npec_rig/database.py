@@ -403,8 +403,8 @@ def tray_readings(capture_id: int) -> dict | None:
     """Photo `capture_id`'s tray readings: when it was read, its status, the trays found in tray
     ID order, and `not_found`: each tray found in an earlier photo of the same experiment but not
     in this one, with the slot it was last found in (#318), the time of the first read photo it
-    was missing from and how many read photos it has been missing from, this one included; and `moved`: each tray in another slot
-    or turned since the experiment's previous read photo. None when the photo has not been read.
+    was missing from and how many read photos it has been missing from, this one included; and
+    `moved`: each tray in another slot or turned since the experiment's previous read photo. None when the photo has not been read.
 
     A removed tray, a swapped tag and a dirty tag all look the same here: the rig cannot tell them
     apart, so each is shown as not found since a time, never guessed at."""
