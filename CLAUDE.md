@@ -137,6 +137,26 @@ by default. Longer only in answer to a direct question that needs it.
 
 When using AskUserQuestion, always leave room for a free-text answer.
 
+## Development and production rigs
+
+Since 2026-10-28 (#322). The full rule is in `~/ansible-npec/AGENTS.md`.
+
+| | Rig | App |
+|---|---|---|
+| **development** | `npec-rig-01` (`10.248.49.102`), red leaf in the tab | Managed from `~/ansible-npec` |
+| **production** | `ac-testing`, this Pi | `~/npec_camera_rig` and its port 8000 server |
+
+A new app version runs on development first. It reaches production only after it has passed on
+development (health OK and a live snapshot) **and** Aaron has approved that update.
+
+- **Updating production** means changing the code in `~/npec_camera_rig` (pull, checkout, merge)
+  or restarting its port 8000 server. After a PR is merged, leave production as it is and say in
+  the reply that it can be promoted.
+- **A branch on development**, from `~/ansible-npec`:
+  `make update-app HOST=npec-rig-01 ARGS="-e npec_rig_version=<branch>"`. It restarts the app.
+  If `curl -s 10.248.49.102:8000/api/experiments` shows an experiment `"state": "running"`, ask
+  Aaron first.
+
 ## Parallel work
 
 Several agent sessions may work at once, each on its own task. The PR workflow is in
