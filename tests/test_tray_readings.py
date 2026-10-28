@@ -383,9 +383,9 @@ def test_two_trays_with_the_same_tag_each_keep_their_own_area_and_neither_is_cou
     trays = tray_readings.read_photo(_photo())["trays"]
     ones = sorted((t for t in trays if t["tray_id"] == 1), key=lambda t: t["area_mm2"])
     assert [t["area_mm2"] for t in ones] == [pytest.approx(750, rel=0.01), pytest.approx(1500, rel=0.01)]
-    assert [t["not_counted"] for t in ones] == ["2 trays carry tag 1"] * 2
+    assert [t["not_counted"] for t in ones] == [["2 trays carry tag 1"]] * 2
     (seven,) = [t for t in trays if t["tray_id"] == 7]
-    assert seven["not_counted"] is None
+    assert seven["not_counted"] == []
 
 
 def test_a_tag_two_trays_carry_is_left_out_of_the_photos_areas_for_chamber_activity(monkeypatch) -> None:
@@ -400,3 +400,36 @@ def test_a_tag_two_trays_carry_is_left_out_of_the_photos_areas_for_chamber_activ
     areas = database.experiment_tray_areas(experiment["id"])
     assert list(areas) == [capture_id]
     assert areas[capture_id] == {7: pytest.approx(1500, rel=0.01)}
+
+
+def _two_trays_in_one_slot_scene(monkeypatch) -> None:
+    """`_two_trays_with_one_tag_scene` with tags 5 and 13 in place of the two tag 1s, tag 13 lying
+    300 px (30 mm) east of tag 5: a loose tag on tray 5 (metrology log 17.12). Both trays' centres
+    (x 1640 and 1940) are nearest North 1; tray 7 is alone in North 3."""
+    _two_trays_with_one_tag_scene(monkeypatch)
+    tags = [TagDetection(tag_id, ((x - 200, 3600), (x + 200, 3600), (x + 200, 4000), (x - 200, 4000)), (x, 3800))
+            for tag_id, x in ((5, 600), (13, 900), (7, 6650))]
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: tags)
+
+
+def test_two_trays_in_one_slot_are_both_marked_not_counted_with_the_slot(monkeypatch) -> None:
+    """#315, decided by Aaron 2026-10-28: a second outline over a tray takes part of its plant, so
+    neither tray in the slot counts, in this photo; the other trays count as normal."""
+    _two_trays_in_one_slot_scene(monkeypatch)
+
+    trays = {t["tray_id"]: t for t in tray_readings.read_photo(_photo())["trays"]}
+    assert trays[5]["not_counted"] == ["2 trays in North 1"]
+    assert trays[13]["not_counted"] == ["2 trays in North 1"]
+    assert trays[7]["not_counted"] == []
+
+
+def test_two_trays_in_one_slot_are_left_out_of_the_photos_areas_for_chamber_activity(monkeypatch) -> None:
+    """#315: the areas the visit check judges hold tray 7 only, neither tray of North 1
+    (`_two_trays_in_one_slot_scene`)."""
+    _two_trays_in_one_slot_scene(monkeypatch)
+    experiment = captures.start_experiment(captures.create_experiment()["id"])
+    path = _photo()
+    tray_readings.read_photo(path)
+
+    capture_id = database.captures_by_path([path])[path]["id"]
+    assert database.experiment_tray_areas(experiment["id"])[capture_id] == {7: pytest.approx(1500, rel=0.01)}

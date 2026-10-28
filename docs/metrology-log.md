@@ -5757,6 +5757,13 @@ the factor of 2 (17.9).
 misprint) was shown only by the swap of tray 10's tag. The photos of 08:47:53 to 08:50:01 hold a
 wrong area for tray 10 or a tray 10 not counted, and are left out of the run's analysis (#223).
 
+*Follow-up (#315, 2026-10-28).* Decision (Aaron): a tray that shares its slot with another tray
+is not counted either, with the reason "2 trays in South 1", in that photo only. Every row stored
+as `two trays in one slot` in `rig.db`, read-only on the same day: 6 rows in 3 photos, all of
+experiment 18. Two are the photos of 08:47:53 and 08:48:53 above, where the rule now marks tray 10.
+The third is 27 Oct 09:57:53 UTC, trays 3 and 11 both in North 3 during the tray move of that
+morning, a photo already left out as "light disturbed". No other photo changes.
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from

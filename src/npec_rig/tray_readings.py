@@ -204,7 +204,7 @@ def photo_readings(path: str) -> dict | None:
     """Photo `path`'s saved tray readings (`database.tray_readings`), None when not yet read, with
     its `exclusion` (`exclusions`, `GLOSSARY.md`) or None, `norm_pending` while its experiment has
     no light norm yet, each tray's `floor_mm2` (`FLOORS_MM2`, None for a segmenter without
-    one) and `not_counted`: why its area is left out, None when it counts."""
+    one) and `not_counted`: the reasons its area is left out, empty when it counts."""
     record = database.captures_by_path([path]).get(path)
     if record is None:
         raise LookupError(f"photo {path} has no record in rig.db")
@@ -223,11 +223,16 @@ def capture_readings(capture: dict) -> dict | None:
         readings["exclusion"] = saved["name"]
         readings["norm_pending"] = saved["norm_e"] is None
         carried = Counter(tray["tray_id"] for tray in readings["trays"])
+        in_slot = Counter(tray["slot"] for tray in readings["trays"])
         for tray in readings["trays"]:
-            # A misprint can give two trays one tag: their areas cannot be told apart, so neither
-            # counts, in this photo only (Aaron, 2026-10-27, #302).
-            n = carried[tray["tray_id"]]
-            tray["not_counted"] = f"{n} trays carry tag {tray['tray_id']}" if n > 1 else None
+            # Neither area counts, in this photo only: a misprint can give two trays one tag, and
+            # their areas cannot be told apart (Aaron, 2026-10-27, #302); a second outline in a
+            # slot, from a loose tag, takes part of the real tray's plant (2026-10-28, #315).
+            tag, slot = carried[tray["tray_id"]], in_slot[tray["slot"]]
+            tray["not_counted"] = [
+                *([f"{tag} trays carry tag {tray['tray_id']}"] if tag > 1 else []),
+                *([f"{slot} trays in {tray['slot']}"] if slot > 1 else []),
+            ]
             tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
             tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM
     return readings

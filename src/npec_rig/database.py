@@ -525,27 +525,23 @@ def light_warning_dismissals(experiment_id: int) -> list[dict]:
 def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
     """The saved plant areas of each of the experiment's photos whose trays were read (status
     `read`): tray ID to mm2, by capture id; empty for a read photo with no area. Photos not read,
-    or read with another status, are not included. A tag two trays carry in one photo is left
-    out of that photo: neither area counts (#302)."""
+    or read with another status, are not included. Neither area counts, so both are left out of
+    that photo, for a tag two trays carry (#302) and for two trays in one slot (#315)."""
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT tray_read.capture_id, tray_reading.tray_id, tray_reading.area_mm2 FROM tray_read"
-            " JOIN capture ON capture.id = tray_read.capture_id"
+            "SELECT tray_read.capture_id, tray_reading.tray_id, tray_reading.slot, tray_reading.area_mm2"
+            " FROM tray_read JOIN capture ON capture.id = tray_read.capture_id"
             " LEFT JOIN tray_reading ON tray_reading.capture_id = tray_read.capture_id"
             " WHERE capture.experiment_id = ? AND tray_read.status = 'read'",
             (experiment_id,),
         ).fetchall()
+    carried = Counter((capture_id, tray_id) for capture_id, tray_id, _slot, _area in rows if tray_id is not None)
+    in_slot = Counter((capture_id, slot) for capture_id, tray_id, slot, _area in rows if tray_id is not None)
     areas: dict[int, dict[int, float]] = {}
-    carried: Counter = Counter()
-    for capture_id, tray_id, area in rows:
+    for capture_id, tray_id, slot, area in rows:
         photo = areas.setdefault(capture_id, {})
-        if tray_id is not None:
-            carried[capture_id, tray_id] += 1
-            if area is not None:
-                photo[tray_id] = area
-    for (capture_id, tray_id), n in carried.items():
-        if n > 1:
-            areas[capture_id].pop(tray_id, None)
+        if area is not None and carried[capture_id, tray_id] == 1 and in_slot[capture_id, slot] == 1:
+            photo[tray_id] = area
     return areas
 
 
