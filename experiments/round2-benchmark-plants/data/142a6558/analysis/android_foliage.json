@@ -1,0 +1,125 @@
+{
+  "schema_version": "android_foliage_report_v1",
+  "assay_mode": "foliage",
+  "method": "android_ios_foliage_tray_pipeline_v1",
+  "timestamp": "2026-10-28T09:37:07.867284Z",
+  "totalPlants": 4,
+  "expectedPlants": 4,
+  "image_width": 1080,
+  "image_height": 1440,
+  "imagePath": "analysis-input.png",
+  "overlayPath": "overlay.png",
+  "original_file": "media\/images\/top_view.jpg",
+  "original_sha256": "bdd63ae7254b4ddb43f7636bf998bf3d6f754bf15d511c003c1d0576d0e1cd02",
+  "scaleProvenance": "unavailable_pixel_units_only",
+  "calibration_available": false,
+  "physical_status": "unavailable_pixel_units_only",
+  "averageHeight": null,
+  "source_notes": [
+    "lidar_points_not_supplied"
+  ],
+  "notes": [
+    "lidar_points_not_supplied",
+    "pixel_units_only_no_metric_scale",
+    "depth_and_physical_3d_traits_not_available",
+    "leaf_count_is_image_radial_tip_heuristic_not_anatomical_validation"
+  ],
+  "traits": [
+    {
+      "id": 1,
+      "centroid": {
+        "x": 405.13945578231295,
+        "y": 221.52636054421768
+      },
+      "areaPixels": 1176,
+      "perimeterPixels": 127,
+      "boundingBox": {
+        "x": 389,
+        "y": 204,
+        "width": 34,
+        "height": 36
+      },
+      "circularity": 0.9162410467162495,
+      "solidity": 1,
+      "convexHullArea": 1120,
+      "leafCountEstimate": 20,
+      "leafCountMethod": "image_radial_tip_estimate_v1",
+      "leafCountConfidence": 0.6635415509569536,
+      "heightMeters": null,
+      "canopyAreaM2": null,
+      "volumeM3": null
+    },
+    {
+      "id": 2,
+      "centroid": {
+        "x": 610.0345641544427,
+        "y": 627.9881976058
+      },
+      "areaPixels": 11862,
+      "perimeterPixels": 803,
+      "boundingBox": {
+        "x": 536,
+        "y": 531,
+        "width": 168,
+        "height": 189
+      },
+      "circularity": 0.23117277864845018,
+      "solidity": 0.5644002474187563,
+      "convexHullArea": 21017,
+      "leafCountEstimate": 20,
+      "leafCountMethod": "image_radial_tip_estimate_v1",
+      "leafCountConfidence": 0.7945843871185299,
+      "heightMeters": null,
+      "canopyAreaM2": null,
+      "volumeM3": null
+    },
+    {
+      "id": 3,
+      "centroid": {
+        "x": 382.13854290422717,
+        "y": 689.8481585099452
+      },
+      "areaPixels": 26093,
+      "perimeterPixels": 1591,
+      "boundingBox": {
+        "x": 272,
+        "y": 528,
+        "width": 216,
+        "height": 397
+      },
+      "circularity": 0.12953690579610636,
+      "solidity": 0.4276068894315072,
+      "convexHullArea": 61021,
+      "leafCountEstimate": 12,
+      "leafCountMethod": "image_radial_tip_estimate_v1",
+      "leafCountConfidence": 0.7951220633886483,
+      "heightMeters": null,
+      "canopyAreaM2": null,
+      "volumeM3": null
+    },
+    {
+      "id": 4,
+      "centroid": {
+        "x": 603.3272037361354,
+        "y": 857.6117921774664
+      },
+      "areaPixels": 3426,
+      "perimeterPixels": 438,
+      "boundingBox": {
+        "x": 545,
+        "y": 799,
+        "width": 94,
+        "height": 123
+      },
+      "circularity": 0.2244135116281694,
+      "solidity": 0.465552384834896,
+      "convexHullArea": 7359,
+      "leafCountEstimate": 20,
+      "leafCountMethod": "image_radial_tip_estimate_v1",
+      "leafCountConfidence": 0.7258055910584904,
+      "heightMeters": null,
+      "canopyAreaM2": null,
+      "volumeM3": null
+    }
+  ]
+}

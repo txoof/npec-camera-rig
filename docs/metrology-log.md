@@ -5777,6 +5777,144 @@ from `/gallery/image/tags/experiments/2026-10-22_df206967/stills/2026-10-27/0957
 Tray 11, carried by hand, is outlined at a slant over North 3 and labelled "two trays in one
 slot", as is tray 3 under it.*
 
+### 17.13 The benchmark rosettes against a phone scan scaled by callipers (#228, method written 2026-10-28, before the analysis)
+
+**Label: reference comparison.** The benchmark "Benchy Yellow-4" (15.1) lies on tray 8 in North 6
+in the potato run. Its four rosettes are measured from above with a second instrument, a phone
+photo scaled by calliper readings of the benchmark itself, and compared with the rig's area of
+tray 8 and with the 3D scan of 15.5e.
+
+*Reference instrument.* Two photos taken by Aaron in the chamber on 2026-10-28 with a Google Pixel
+11 Pro XL (back camera, 4032 x 3024, held above the tray) and analysed on the phone by its 2D
+phenotyping app (`android_ios_foliage_tray_pipeline_v1`, foliage mode): at 09:36:53 UTC
+(`142a6558...`) and 09:39:41 UTC (`baee65e4...`). For each green object found, the app gives its
+area in pixels and its centre, on a 1080 x 1440 copy of the photo (`analysis/analysis-input.png`),
+and no scale. Kept in `experiments/round2-benchmark-plants/data/<id>/` (the photo, the app's input copy,
+its reports and the manifest; the app's overlay picture is not kept); SHA-256 of the photos
+`bdd63ae7...` and `ccafad89...`, matching each package's manifest. The app's own outline of each plant is the
+reference mask: its edge rule is not known.
+
+| Photo | Objects found by the app |
+|---|---|
+| 09:36:53 | 4: NE and NW merged into one, the other two rosettes, the green square on the black card |
+| 09:39:41 | 5: the four rosettes separately and the green square |
+
+*Calliper readings* (Aaron, 2026-10-28, vernier calliper; the spacings his best estimate from
+several readings). Base sides: north 187.76, south 187.90, west 187.74, east 187.83 mm (mean
+187.81). Rosette centre to centre: NW to NE, NE to SE, NW to SW and SW to SE each 70.0 mm (the
+last given as "NE:SE" a second time, taken to be SW:SE). Heights and diameters: 15.1.
+
+*Method.* `experiments/round2-benchmark-plants/`, on the files above only:
+
+1. The base's four corners are found in `analysis-input.png` from the yellow of its top face.
+2. A plane-to-plane map (homography) takes them to a 187.81 mm square: the scale at the base's
+   top face, with any tilt of the phone corrected within that plane.
+3. Each object's area in mm2 is its app area in pixels times the map's local area factor at its
+   centre.
+4. Height check, reported and not applied: the four rosette centres (the beads, 12.8 to 19.1 mm
+   above the base) mapped onto the base plane give their spacings in mm, against the 70.0 mm
+   measured. The ratio shows how much larger the rosettes read at bead height than at the base.
+   Applying it is a decision for Aaron, labelled as one.
+5. Compared with: the 3D scan per rosette (15.5e: NE 2009.9, SE 1343.7, NW 753.4, SW 413.7 mm2);
+   and the rig's area of tray 8 in its 20 photos of 09:20:53 to 09:58:53 UTC (rig.db read-only,
+   3986 to 4054 mm2). The rig gives only the tray's total, so the phone's four rosettes plus the
+   green square are compared with it.
+
+*Pass rule.* None set before the analysis.
+
+*Not covered.* The rosettes' own height range (leaves from the base to 19.4 to 28.0 mm above it)
+beyond the height check; living plants (#223); the app's edge rule, which is not known.
+
+*Result* (2026-10-28). Script `experiments/round2-benchmark-plants/phone_scan.py`, run from the
+repository root as `phone_scan.py docs/figures/17.13 experiments/round2-benchmark-plants/data
+experiments/round2-benchmark-plants/data/142a6558 experiments/round2-benchmark-plants/data/baee65e4`;
+values in `experiments/round2-benchmark-plants/data/results.csv`. A merged object is named by the
+beads inside the app's box for it. The rig's side: `rig_tray8.py 2026-10-28T09:20
+2026-10-28T09:59` (rig.db read-only; captures with tray 8 placed alone in its slot). Areas in mm2.
+
+The base was found as a clean four-sided outline in both photos: sides 574 to 577 px (09:36:53)
+and 657 to 664 px (09:39:41), so the phone was about 15% nearer for the second.
+
+*Height check (step 4).* The beads, mapped onto the base plane, lie 72.20 to 72.81 mm apart
+(09:36:53) and 73.05 to 73.68 mm apart (09:39:41), against 70.0 mm measured: 3.1% to 5.3% long.
+At bead height, areas read 7.6% large in the first photo and 9.7% large in the nearer second
+(the mean of the squared ratios). The phone was close (its focus setting gives 44 and 37 cm), so height
+counts about 4 times more per mm than on the rig: about 0.6% per mm at the beads, against 0.145%.
+
+| Object | 09:36:53, at the base | 09:39:41, at the base | 09:39:41, divided by the bead factor | 3D scan (15.5e) |
+|---|---|---|---|---|
+| NE | 2777.7 (NE + NW, merged) | 2081.0 | 1896.4 | 2009.9 |
+| SE | 1258.1 | 1298.5 | 1183.4 | 1343.7 |
+| NW | (merged) | 758.9 | 691.6 | 753.4 |
+| SW | 365.7 | 394.7 | 359.7 | 413.7 |
+| Four rosettes | 4401.5 | 4533.1 | 4131.1 | 4520.7 |
+| Green square on the black card | 123.6 | 126.2 | not divided (flat) | |
+
+*Repeatability, two photos.* At the base, the two photos differ by 2.2% (NE + NW), 3.2% (SE) and
+7.9% (SW). Divided by each photo's own bead factor, by 0.2%, 1.2% and 5.9% (each against the first photo). The measured height
+effect accounts for most of the difference between them.
+
+*Against the 3D scan.* At the base, the phone reads within 4.6% of the scan for each rosette (NE
++3.5%, SE -3.4%, NW +0.7%, SW -4.6%). Divided by the bead factor, 5.6% (NE) to 13.1% (SW) below it.
+The scan counts the white beads (15.5e); whether the phone app counts them is not known. The two
+are not independent: the 3D scan was made by the same application, on an iPhone with LiDAR, and
+the phone scan by a beta version of it on Android, so they may share the rule for where a leaf
+ends. The 3D scan is the least reliable of the three instruments, an order of size with very low
+precision (Aaron, 2026-10-28): neither its agreement with the phone nor its 10% to 39% gap from
+the rig in 15.5e confirms anything.
+
+*Against the rig.* The rig's tray 8 area in the 39 photos of 09:20:53 to 09:58:53 UTC (all
+counted, North 6, green threshold 0.1): median 4021.6, range 3986.4 to 4054.0. (The method said
+20 photos: a miscount of the same span.) The rig gives the tray's total, so it is compared with
+the four rosettes plus the green square:
+
+| Phone photo | Phone total, at the base | Rig against it | Phone total, divided by the bead factor | Rig against it |
+|---|---|---|---|---|
+| 09:36:53 | 4525.1 | -11.1% | 4214.3 | -4.6% |
+| 09:39:41 | 4659.3 | -13.7% | 4257.3 | -5.5% |
+
+*What it shows.* The rig reads the benchmark 4.6% to 13.7% smaller than the phone scan, depending
+on which phone scale is taken. The true top-down area lies between the two phone scales or below
+them: most leaf surface sits between the base and the leaf tips (12.8 to 28.0 mm up), and a leaf
+above the beads reads even larger than the bead factor allows for. The rig has its own, smaller,
+height effect the other way: at about 0.145% per mm (15.5), rosettes 17 to 23 mm above the tray top
+read about 2.5% to 3.4% large, so the rig's shortfall at true scale is larger, not smaller.
+
+*Limits of the evidence.* Two phone photos, one benchmark, one day. The app is a beta version;
+its edge rule is not known and has not been checked, and it found the NE and NW rosettes as one in the first photo. The bead centres are the
+middle of each white blob, at bead height, which the callipers measured centre to centre. The
+green square is not scaled for its own height, which is below the base's top face. No pass rule
+was set. A tray's plant in the run is measured by the rig only, so the comparison holds for this
+benchmark and this tray, not for each slot.
+
+*Decision* (Aaron, 2026-10-28, labelled as one): the reference is the phone at the bead-height
+scale, 4131.1 mm2 for the four rosettes in the 09:39:41 photo (NE 1896.4, SE 1183.4, NW 691.6, SW
+359.7). Against it, the rig reads the benchmark about 5% small (4.6% and 5.5% against the two
+photos, totals with the green square). Two effects not allowed for work in opposite directions:
+leaf tips above the beads would make the true area smaller and the rig's shortfall less, and the
+rig's own height effect (2.5% to 3.4% large, above) would make its shortfall at true scale more.
+
+*What the data provides* (talked through with Aaron, 2026-10-28):
+
+1. A reference for the benchmark's area seen from above, built from three parts. The scale comes
+   from vernier calliper readings of the base itself, independent of any application; the tilt
+   correction from the base's four corners, plain plane geometry; each rosette's outline from the
+   beta phone application, the one unchecked part. The reference is as good as that outline.
+2. A measurement, not an estimate, of the height effect at close range: the measured 70.0 mm bead
+   spacing reads 3% to 5% long in the photos, so areas at bead height read 8% to 10% large. Taking
+   each photo's own effect out brings the two photos, taken from different distances, together.
+3. The rig reads the benchmark about 5% small against that reference, at the edge of the final
+   target of 5% per tray. Part or all of it may be the rig's edge rule (a flat 10 mm circle read
+   21% small in round 1, 15.5), but the application's edge rule is unchecked as well, so which is
+   nearer the truth is not known. Where a leaf ends is the largest open question, and the plant
+   segmentation comparison with ImageJ (#297) is the check on it.
+
+![Corners and beads found, 09:39:41](figures/17.13/baee65e4-corners-beads.jpg)
+
+*The 09:39:41 UTC phone photo at the app's 1080 x 1440 size, with the base's four corners
+(magenta dots and outline) and the four beads (magenta rings) found by `phone_scan.py`. The
+09:36:53 picture is `figures/17.13/142a6558-corners-beads.jpg`.*
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from

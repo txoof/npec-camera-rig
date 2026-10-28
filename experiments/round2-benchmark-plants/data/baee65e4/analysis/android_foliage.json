@@ -1,0 +1,149 @@
+{
+  "schema_version": "android_foliage_report_v1",
+  "assay_mode": "foliage",
+  "method": "android_ios_foliage_tray_pipeline_v1",
+  "timestamp": "2026-10-28T09:39:50.103825Z",
+  "totalPlants": 5,
+  "expectedPlants": 4,
+  "image_width": 1080,
+  "image_height": 1440,
+  "imagePath": "analysis-input.png",
+  "overlayPath": "overlay.png",
+  "original_file": "media\/images\/top_view.jpg",
+  "original_sha256": "ccafad89b93f6ec89df719b0bb99b963d4502bd69a2d417412b2dde123241130",
+  "scaleProvenance": "unavailable_pixel_units_only",
+  "calibration_available": false,
+  "physical_status": "unavailable_pixel_units_only",
+  "averageHeight": null,
+  "source_notes": [
+    "lidar_points_not_supplied"
+  ],
+  "notes": [
+    "lidar_points_not_supplied",
+    "pixel_units_only_no_metric_scale",
+    "depth_and_physical_3d_traits_not_available",
+    "leaf_count_is_image_radial_tip_heuristic_not_anatomical_validation"
+  ],
+  "traits": [
+    {
+      "id": 1,
+      "centroid": {
+        "x": 431.3048620236531,
+        "y": 231.16031537450723
+      },
+      "areaPixels": 1522,
+      "perimeterPixels": 143,
+      "boundingBox": {
+        "x": 412,
+        "y": 211,
+        "width": 40,
+        "height": 42
+      },
+      "circularity": 0.9353032458826671,
+      "solidity": 1,
+      "convexHullArea": 1490,
+      "leafCountEstimate": 20,
+      "leafCountMethod": "image_radial_tip_estimate_v1",
+      "leafCountConfidence": 0.6800655889541665,
+      "heightMeters": null,
+      "canopyAreaM2": null,
+      "volumeM3": null
+    },
+    {
+      "id": 2,
+      "centroid": {
+        "x": 669.1950184156315,
+        "y": 690.1076221986391
+      },
+      "areaPixels": 16019,
+      "perimeterPixels": 946,
+      "boundingBox": {
+        "x": 583,
+        "y": 578,
+        "width": 198,
+        "height": 220
+      },
+      "circularity": 0.22493808454806885,
+      "solidity": 0.556795272853667,
+      "convexHullArea": 28770,
+      "leafCountEstimate": 20,
+      "leafCountMethod": "image_radial_tip_estimate_v1",
+      "leafCountConfidence": 0.7952756102128723,
+      "heightMeters": null,
+      "canopyAreaM2": null,
+      "volumeM3": null
+    },
+    {
+      "id": 3,
+      "centroid": {
+        "x": 405.1666536843745,
+        "y": 696.8999844212494
+      },
+      "areaPixels": 25676,
+      "perimeterPixels": 1156,
+      "boundingBox": {
+        "x": 279,
+        "y": 577,
+        "width": 251,
+        "height": 234
+      },
+      "circularity": 0.24144686059066442,
+      "solidity": 0.6270238589464944,
+      "convexHullArea": 40949,
+      "leafCountEstimate": 3,
+      "leafCountMethod": "image_radial_tip_estimate_v1",
+      "leafCountConfidence": 0.7963981928649323,
+      "heightMeters": null,
+      "canopyAreaM2": null,
+      "volumeM3": null
+    },
+    {
+      "id": 4,
+      "centroid": {
+        "x": 408.77065091254354,
+        "y": 951.0702605760101
+      },
+      "areaPixels": 9479,
+      "perimeterPixels": 712,
+      "boundingBox": {
+        "x": 341,
+        "y": 855,
+        "width": 157,
+        "height": 183
+      },
+      "circularity": 0.23496999087376633,
+      "solidity": 0.49716773313752227,
+      "convexHullArea": 19066,
+      "leafCountEstimate": 20,
+      "leafCountMethod": "image_radial_tip_estimate_v1",
+      "leafCountConfidence": 0.7907957742622836,
+      "heightMeters": null,
+      "canopyAreaM2": null,
+      "volumeM3": null
+    },
+    {
+      "id": 5,
+      "centroid": {
+        "x": 663.5535279805353,
+        "y": 956.9519464720195
+      },
+      "areaPixels": 4932,
+      "perimeterPixels": 479,
+      "boundingBox": {
+        "x": 595,
+        "y": 888,
+        "width": 110,
+        "height": 145
+      },
+      "circularity": 0.2701232119369225,
+      "solidity": 0.485672082717873,
+      "convexHullArea": 10155,
+      "leafCountEstimate": 20,
+      "leafCountMethod": "image_radial_tip_estimate_v1",
+      "leafCountConfidence": 0.7500210043618113,
+      "heightMeters": null,
+      "canopyAreaM2": null,
+      "volumeM3": null
+    }
+  ]
+}
