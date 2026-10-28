@@ -13,10 +13,12 @@ app's areas in pixels (`analysis/android_foliage.json`):
 
 Objects are named by where they lie on the base, in the base's own frame: the base turned so its
 prism marker is at the north-west (15.1). In these photos that is the photo turned a quarter turn
-clockwise: the NE rosette is at the photo's top left. Writes `results.csv` and one picture per
-package with the corners and beads found.
+clockwise: the NE rosette is at the photo's top left. Writes `results.csv` to DATA_DIR and one picture
+per package, with the corners and beads found, to FIGURE_DIR.
 
-Usage: phone_scan.py OUT_DIR PACKAGE [PACKAGE ...]
+Usage: phone_scan.py FIGURE_DIR DATA_DIR PACKAGE [PACKAGE ...]
+
+A PACKAGE is a folder holding `analysis/analysis-input.png` and `analysis/android_foliage.json`.
 """
 import csv
 import itertools
@@ -45,8 +47,11 @@ def base_corners(hsv: np.ndarray) -> np.ndarray:
     quad = cv2.approxPolyDP(hull, 0.02 * cv2.arcLength(hull, True), True).reshape(-1, 2).astype(float)
     if len(quad) != 4:
         raise ValueError(f"base outline reduced to {len(quad)} points, not 4")
-    s, d = quad.sum(1), quad[:, 0] - quad[:, 1]
-    return np.array([quad[s.argmin()], quad[d.argmax()], quad[s.argmax()], quad[d.argmin()]])
+    # Clockwise from the corner nearest the image's top left, by angle around the centre, so a
+    # base turned toward 45 degrees is still ordered right.
+    centre = quad.mean(0)
+    quad = quad[np.argsort(np.arctan2(quad[:, 1] - centre[1], quad[:, 0] - centre[0]))]
+    return np.roll(quad, -int(quad.sum(1).argmin()), axis=0)
 
 
 def to_base(h: np.ndarray, x: float, y: float) -> np.ndarray:
@@ -64,12 +69,15 @@ def area_factor(h: np.ndarray, x: float, y: float) -> float:
 
 
 def beads(hsv: np.ndarray, corners: np.ndarray) -> list[tuple[float, float]]:
-    """The four largest white blobs inside the base, away from its edge: the rosette beads."""
+    """The four largest white blobs inside the base, away from its edge: the rosette beads.
+    Raises ValueError unless there are at least four."""
     inside = np.zeros(hsv.shape[:2], np.uint8)
     cv2.fillPoly(inside, [corners.round().astype(np.int32)], 255)
     inside = cv2.erode(inside, np.ones((41, 41), np.uint8))
     white = cv2.inRange(hsv, (0, 0, 200), (180, 60, 255)) & inside
     n, _labels, stats, cents = cv2.connectedComponentsWithStats(white)
+    if n - 1 < 4:
+        raise ValueError(f"{n - 1} white blobs inside the base, not 4 beads")
     return [tuple(cents[i]) for i in sorted(range(1, n), key=lambda i: stats[i, cv2.CC_STAT_AREA])[-4:]]
 
 
@@ -83,17 +91,27 @@ def measure(package: Path, out_dir: Path) -> list[dict]:
     sides = [math.dist(corners[i], corners[(i + 1) % 4]) for i in range(4)]
     found = beads(hsv, corners)
     on_base = [to_base(h, *b) for b in found]
-    spacings = [math.dist(a, b) for a, b in itertools.combinations(on_base, 2) if math.dist(a, b) < 85]
+    # The four sides of the square of beads, not its two diagonals (about 99 mm).
+    spacings = sorted(math.dist(a, b) for a, b in itertools.combinations(on_base, 2))[:4]
+    if max(spacings) > 1.2 * SPACING_MM or min(spacings) < 0.8 * SPACING_MM:
+        raise ValueError(f"bead spacings {spacings} mm are not a square of about {SPACING_MM} mm")
     factor = statistics.mean((d / SPACING_MM) ** 2 for d in spacings)
     print(f"{package.name}: base sides {[round(v, 1) for v in sides]} px; bead spacings "
           f"{[round(d, 2) for d in spacings]} mm; area factor at bead height {factor:.4f}")
     rows = []
+    outside = [t for t in report["traits"] if not 0 <= to_base(h, t["centroid"]["x"], t["centroid"]["y"])[1] <= SIDE_MM]
+    if len(outside) != 1:
+        raise ValueError(f"{len(outside)} objects off the base, expected the green square only")
     for t in report["traits"]:
         cx, cy = t["centroid"]["x"], t["centroid"]["y"]
-        x, y = to_base(h, cx, cy)
-        name = "green square" if y < 0 else NAMES[(x < SIDE_MM / 2, y < SIDE_MM / 2)]
-        if t["boundingBox"]["height"] > 300:  # two rosettes counted as one
-            name = {"NE": "NE + NW", "SE": "SE + SW"}[NAMES[(x < SIDE_MM / 2, True)]]
+        box = t["boundingBox"]
+        # The rosettes whose bead lies in the app's box for this object: two when it merged them.
+        held = sorted(NAMES[(bx_mm < SIDE_MM / 2, by_mm < SIDE_MM / 2)]
+                      for (bx, by), (bx_mm, by_mm) in zip(found, on_base)
+                      if box["x"] <= bx <= box["x"] + box["width"] and box["y"] <= by <= box["y"] + box["height"])
+        name = "green square" if t is outside[0] else " + ".join(held)
+        if not name:
+            raise ValueError(f"object {t['id']} holds no bead")
         mm2 = t["areaPixels"] * area_factor(h, cx, cy)
         rows.append({"package": package.name.split(".")[0], "object": name, "area_px2": t["areaPixels"],
                      "base_mm2": round(mm2, 1), "bead_area_factor": round(factor, 4),
@@ -108,10 +126,10 @@ def measure(package: Path, out_dir: Path) -> list[dict]:
 
 
 def main() -> None:
-    out_dir = Path(sys.argv[1])
+    out_dir, data_dir = Path(sys.argv[1]), Path(sys.argv[2])
     out_dir.mkdir(parents=True, exist_ok=True)
-    rows = [r for p in sys.argv[2:] for r in measure(Path(p), out_dir)]
-    with open(out_dir / "results.csv", "w", newline="") as f:
+    rows = [r for p in sys.argv[3:] for r in measure(Path(p), out_dir)]
+    with open(data_dir / "results.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()
         w.writerows(rows)

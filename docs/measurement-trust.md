@@ -384,9 +384,9 @@ as PLAN.md expected. Metrology log section 15.5. A photogrammetry mesh of the sa
 (one capture, a second instrument) gives rosette areas 10% to 39% larger than the rig; which of the
 two is closer to the truth is not known yet. Metrology log section 15.5e. A third instrument, a
 phone photo of the same benchmark scaled by calliper readings of its base (2026-10-28), agrees with
-the mesh within 4.6% per rosette at the base's scale; the rig, in the potato run, reads the
-benchmark 4.6% to 13.7% smaller than the phone, depending on how the phone's own, larger, height
-effect is allowed for. Metrology log section 17.13.
+the mesh within 4.6% per rosette at the base's scale. Allowing for the phone's own, larger,
+height effect with a measured spacing at rosette-centre height (the reference chosen by Aaron), the
+rig, in the potato run, reads the benchmark about 5% small. Metrology log section 17.13.
 
 **Real leaves, first look (round 1, 2026-10-15).** Three garden leaves of known area (flatbed
 scans scaled by printed tags), laid flat on the trays, read on average 2.5% smaller than their

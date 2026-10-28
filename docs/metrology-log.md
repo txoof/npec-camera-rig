@@ -5789,13 +5789,14 @@ tray 8 and with the 3D scan of 15.5e.
 phenotyping app (`android_ios_foliage_tray_pipeline_v1`, foliage mode): at 09:36:53 UTC
 (`142a6558...`) and 09:39:41 UTC (`baee65e4...`). For each green object found, the app gives its
 area in pixels and its centre, on a 1080 x 1440 copy of the photo (`analysis/analysis-input.png`),
-and no scale. Files in `~/scratch/<id>.ft2dphenodataset/`; SHA-256 of the photos `bdd63ae7...` and
-`ccafad89...`, matching each package's manifest. The app's own outline of each plant is the
+and no scale. Kept in `experiments/round2-benchmark-plants/data/<id>/` (the photo, the app's input copy,
+its reports and the manifest; the app's overlay picture is not kept); SHA-256 of the photos
+`bdd63ae7...` and `ccafad89...`, matching each package's manifest. The app's own outline of each plant is the
 reference mask: its edge rule is not known.
 
 | Photo | Objects found by the app |
 |---|---|
-| 09:36:53 | 4: NW and SW merged into one, the other two rosettes, the green square on the black card |
+| 09:36:53 | 4: NE and NW merged into one, the other two rosettes, the green square on the black card |
 | 09:39:41 | 5: the four rosettes separately and the green square |
 
 *Calliper readings* (Aaron, 2026-10-28, vernier calliper; the spacings his best estimate from
@@ -5824,12 +5825,12 @@ last given as "NE:SE" a second time, taken to be SW:SE). Heights and diameters: 
 *Not covered.* The rosettes' own height range (leaves from the base to 19.4 to 28.0 mm above it)
 beyond the height check; living plants (#223); the app's edge rule, which is not known.
 
-*Result* (2026-10-28). Script `experiments/round2-benchmark-plants/phone_scan.py`, run as
-`phone_scan.py docs/figures/17.13 ~/scratch/142a6558*.ft2dphenodataset
-~/scratch/baee65e4*.ft2dphenodataset`; values in `docs/figures/17.13/results.csv`. The app's reports, manifests and
-traits of both packages are copied to `experiments/round2-benchmark-plants/data/`; the photos stay
-in the packages in `~/scratch`, checksums above. The rig's side:
-`rig_tray8.py 2026-10-28T09:20 2026-10-28T09:59` (rig.db read-only). Areas in mm2.
+*Result* (2026-10-28). Script `experiments/round2-benchmark-plants/phone_scan.py`, run from the
+repository root as `phone_scan.py docs/figures/17.13 experiments/round2-benchmark-plants/data
+experiments/round2-benchmark-plants/data/142a6558 experiments/round2-benchmark-plants/data/baee65e4`;
+values in `experiments/round2-benchmark-plants/data/results.csv`. A merged object is named by the
+beads inside the app's box for it. The rig's side: `rig_tray8.py 2026-10-28T09:20
+2026-10-28T09:59` (rig.db read-only; captures with tray 8 placed alone in its slot). Areas in mm2.
 
 The base was found as a clean four-sided outline in both photos: sides 574 to 577 px (09:36:53)
 and 657 to 664 px (09:39:41), so the phone was about 15% nearer for the second.
@@ -5850,7 +5851,7 @@ counts about 4 times more per mm than on the rig: about 0.6% per mm at the beads
 | Green square on the black card | 123.6 | 126.2 | not divided (flat) | |
 
 *Repeatability, two photos.* At the base, the two photos differ by 2.2% (NE + NW), 3.2% (SE) and
-7.9% (SW). Divided by each photo's own bead factor, by 0.2%, 1.2% and 5.7%. The measured height
+7.9% (SW). Divided by each photo's own bead factor, by 0.2%, 1.2% and 5.9% (each against the first photo). The measured height
 effect accounts for most of the difference between them.
 
 *Against the 3D scan.* At the base, the phone reads within 4.6% of the scan for each rosette (NE
@@ -5875,10 +5876,18 @@ height effect the other way: at about 0.145% per mm (15.5), rosettes 17 to 23 mm
 read about 2.5% to 3.4% large, so the rig's shortfall at true scale is larger, not smaller.
 
 *Limits of the evidence.* Two phone photos, one benchmark, one day. The app's edge rule is not
-known, and it found the two west rosettes as one in the first photo. The bead centres are the
+known, and it found the NE and NW rosettes as one in the first photo. The bead centres are the
 middle of each white blob, at bead height, which the callipers measured centre to centre. The
 green square is not scaled for its own height, which is below the base's top face. No pass rule
-was set. Which phone scale to use as the benchmark's reference is a decision for Aaron.
+was set. A tray's plant in the run is measured by the rig only, so the comparison holds for this
+benchmark and this tray, not for each slot.
+
+*Decision* (Aaron, 2026-10-28, labelled as one): the reference is the phone at the bead-height
+scale, 4131.1 mm2 for the four rosettes in the 09:39:41 photo (NE 1896.4, SE 1183.4, NW 691.6, SW
+359.7). Against it, the rig reads the benchmark about 5% small (4.6% and 5.5% against the two
+photos, totals with the green square). Two effects not allowed for work in opposite directions:
+leaf tips above the beads would make the true area smaller and the rig's shortfall less, and the
+rig's own height effect (2.5% to 3.4% large, above) would make its shortfall at true scale more.
 
 ![Corners and beads found, 09:39:41](figures/17.13/baee65e4-corners-beads.jpg)
 
