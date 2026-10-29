@@ -23,13 +23,17 @@ Between experiments only, never during one. First check:
 Then:
 
 ```bash
-sudo cp deploy/npec-rig.service /etc/systemd/system/npec-rig.service
-sudo mkdir -p /etc/systemd/system/systemd-time-wait-sync.service.d
-sudo cp deploy/time-wait-limit.conf /etc/systemd/system/systemd-time-wait-sync.service.d/limit.conf
-sudo systemctl daemon-reload
-sudo systemctl enable systemd-time-wait-sync
-sudo systemctl enable --now npec-rig
+sudo deploy/install.sh
 ```
+
+It installs `npec-rig.service` and `time-wait-limit.conf`, enables them, and starts the service
+if it is not running. Run it again after either file changes. A running service is not
+restarted, so an experiment is not interrupted; the script says when a restart is needed.
+This is the only way the service file is installed: Ansible runs this script too (#62), so
+every rig runs the service file in this repo.
+
+Settings that differ per rig, such as environment variables, go in a drop-in in
+`/etc/systemd/system/npec-rig.service.d/`, which the script never changes.
 
 At boot the app waits for the clock to have the network time, for at most 120 s
 (`time-wait-limit.conf`). After a power cut the Pi's clock can be wrong until then, and the app
