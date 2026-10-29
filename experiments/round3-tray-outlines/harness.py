@@ -47,6 +47,9 @@ CAL = {"prod": ("cal-ac-testing", "20261022T072523939958"),
        "dev": ("cal-npec-rig-01", "20261021T140121832677"),
        "hard": ("cal-ac-testing", "20261014T111147292361")}
 RIGS = ("prod", "dev", "hard")
+# "held": stills not used for tuning, each with its own calibration (held/calibrations.json:
+# stem -> [calibration folder, calibration stem], from the photo's row in its rig's rig.db).
+# No known answer: Aaron inspects the pictures.
 TRAY_MM = (305.0, 366.0)  # outer size of every blue tray type, lip included (reference/trays.md)
 CENTRE_MM = 30.0
 IOU_MIN = 0.80
@@ -56,11 +59,10 @@ Q = 4  # quarter-size copies: full px = Q * quarter px
 LAYOUT_PICTURES = {"123005_857835", "120843_746861", "121045_059986", "121231_081714", "121449_465196"}
 
 
-def _cal(rig):
+def _cal(folder, stem):
     from npec_rig import calibration_store, validation_store
     from npec_rig.tray_readings import calibration_for_photos
 
-    folder, stem = CAL[rig]
     os.environ["NPEC_RIG_CALIBRATION_DIR"] = str(DATA / folder)  # read on every call
     s =calibration_for_photos(stem)
     art = calibration_store.load_saved_calibration(s)
@@ -69,6 +71,11 @@ def _cal(rig):
 
 
 _CALS: dict = {}
+
+
+@functools.cache
+def _held_cals():
+    return json.loads((DATA / "held" / "calibrations.json").read_text())
 
 
 @dataclass(frozen=True)
@@ -100,9 +107,10 @@ class Still:
         return json.loads((DATA / "cache" / f"{self.rig}-{self.stem}-tags.json").read_text())
 
     def _calibration(self):
-        if self.rig not in _CALS:
-            _CALS[self.rig] = _cal(self.rig)
-        return _CALS[self.rig]
+        key = tuple(CAL[self.rig]) if self.rig in CAL else tuple(_held_cals()[self.stem])
+        if key not in _CALS:
+            _CALS[key] = _cal(*key)
+        return _CALS[key]
 
     @property
     def scale_field(self):

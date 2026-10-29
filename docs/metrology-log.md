@@ -6792,3 +6792,19 @@ trays only (not the 1x1 or black trays); stills within a set are mostly repeats 
 layouts, so they test steadiness more than variety; the prod and hard known answer is the tag
 placement, so a method that agrees with the tag is not shown to beat it. Methods were developed on
 the same stills they are scored on; the full test of decision 9 needs stills not used here.
+
+### 20.1 Held-out stills, truth by inspection (method written 2026-10-29, before the truth)
+
+**Label: development check.** The finders frozen at commit `49c868e` (B blue v7 with tags and photo
+only, D rims v3 with tags and with tags hidden; A FastSAM and E fitting left out after the first
+round) on 24 stills used for no tuning: production experiments `631bb6b5`, `44a9e96e`, `17cb7bfb`,
+`57f74959`, `c2c49f62`, `e7a53c3e` and `df206967` (12 to 28 October: pots, empty trays, calibration
+sheets on every tray, edge tags, cards and squares) and development `907f12cd` and `8cb40de9`
+(23 and 28 October, today after 16:00), each with the calibration its photo was taken under. One
+still per rig is in the dark (lights off): no tray should be found. Chosen from 53 stills spread
+evenly over every experiment and day, for variety, by looking at a contact sheet.
+
+*Truth.* Aaron, by inspecting each still's sheet (`~/scratch/sam297/328-held-1/`, outlines
+numbered): the trays really there, and per finder which outlines are wrong and which trays are
+missed. Scored as in section 20: a tray found, missed, an outline wrong, an outline matching no
+tray.
