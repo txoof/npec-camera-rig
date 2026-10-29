@@ -139,20 +139,26 @@ When using AskUserQuestion, always leave room for a free-text answer.
 
 ## Development and production rigs
 
-Since 2026-10-28 (#322). The full rule is in `~/ansible-npec/AGENTS.md`.
+Since 2026-10-28 (#322), with the controller since 2026-10-29 (#324). The full rule is in
+`~/ansible-npec/AGENTS.md`. Three devices in total:
 
-| | Rig | App |
+| | Device | What runs there |
 |---|---|---|
-| **development** | `npec-rig-01` (`10.248.49.102`), red leaf in the tab | Managed from `~/ansible-npec` |
-| **production** | `ac-testing`, this Pi | `~/npec_camera_rig` and its port 8000 server |
+| **controller** | `testpi-02`, where agent sessions run | Agent sessions, worktrees, unit tests, `~/ansible-npec` |
+| **development** | `npec-rig-01` (`10.248.49.102`), red leaf in the tab, Arducam 64MP | The app as the `npec-rig` service on port 8000, managed from `~/ansible-npec` |
+| **production** | `ac-testing`, the chamber Pi | Running experiments: `~/npec_camera_rig` and its port 8000 server |
+
+Reach the rigs from the controller with `ssh pi@npec-rig-01` and `ssh pi@ac-testing`. No agent
+session is started on a rig.
 
 A new app version runs on development first. It reaches production only after it has passed on
 development (health OK and a live snapshot) **and** Aaron has approved that update.
 
-- **Updating production** means changing the code in `~/npec_camera_rig` (pull, checkout, merge)
-  or restarting its port 8000 server. After a PR is merged, leave production as it is and say in
-  the reply that it can be promoted.
-- **A branch on development**, from `~/ansible-npec`:
+- **Updating production** means changing the code in `~/npec_camera_rig` on `ac-testing` (pull,
+  checkout, merge) or restarting its port 8000 server. After a PR is merged, leave production as
+  it is and say in the reply that it can be promoted. Reading production (its API, logs, photos,
+  a read-only look at `rig.db`) is fine; nothing else is done there without Aaron's approval.
+- **A branch on development**, from `~/ansible-npec` on the controller:
   `make update-app HOST=npec-rig-01 ARGS="-e npec_rig_version=<branch>"`. It restarts the app.
   If `curl -s 10.248.49.102:8000/api/experiments` shows an experiment `"state": "running"`, ask
   Aaron first.
@@ -165,7 +171,8 @@ Several agent sessions may work at once, each on its own task. The PR workflow i
 **Identity.** Agents act as `txoof-bot`. `.claude/settings.local.json` in `~/npec_camera_rig`
 (not tracked) sets `GH_CONFIG_DIR`, `GIT_SSH_COMMAND` and the git author for every session started
 there. Do not unset or override them. Check at the start: `gh auth status` says `txoof-bot`.
-Start agent sessions in `~/npec_camera_rig`; a session started anywhere else acts as Aaron.
+Start agent sessions in `~/npec_camera_rig` on the controller `testpi-02`; a session started
+anywhere else acts as Aaron.
 
 **A task** is one thing Aaron can try in the browser in one sitting. It may cover several small
 related issues in the same milestone and area. It is one PR of about 500 changed lines or less,
@@ -243,15 +250,18 @@ gh issue comment <n> --body "released: <reason>"
 Other labels: `needs-decision` (waiting for Aaron), `blocked` (waiting for another issue or an
 outside thing), `area:*` (filter by area).
 
-**The camera and port 8000: the `hardware` label.** There is one camera and one live server. The
-`hardware` label is a lock: at most one open issue has it. Only that task may use the camera,
-restart the port 8000 server, or ask Aaron to try its work. Take it only when
-`gh issue list --label hardware` is empty. In the claim comment, write the command line the
-server was running with (`ps -eo args | grep uvicorn`). When Aaron has tried the work, put the
-server back as it was and remove the label. Everyone else writes code and runs unit tests with the
-synthetic camera, then waits for the label.
+**The development rig: the `hardware` label.** Tasks use one camera and one server: those on
+`npec-rig-01`. The `hardware` label is a lock: at most one open issue has it. Only that task may
+use the development camera, put its branch on development, or ask Aaron to try its work there.
+Take it only when `gh issue list --label hardware` is empty. In the claim comment, write the app
+version development was running
+(`ssh pi@npec-rig-01 'git -C ~/npec_camera_rig log --oneline -1'`). When Aaron has tried the
+work, put development back on that version and remove the label. Everyone else writes code and
+runs unit tests with the synthetic camera on the controller, then waits for the label. No task
+uses the production camera or server.
 
-**Restarting the port 8000 server.** Stop it with SIGTERM, never SIGINT or Ctrl+C (a second
+**Restarting the production server.** Only on a promotion Aaron approved, on `ac-testing`, over
+ssh. Stop it with SIGTERM, never SIGINT or Ctrl+C (a second
 SIGINT makes uvicorn skip the app's shutdown, and the camera is not closed), and wait until the
 old PID is gone before relaunching. Launch it with `--timeout-graceful-shutdown 5`, so open
 browser tabs with a live view hold a restart for 5 s at most instead of until they are closed
@@ -314,8 +324,8 @@ for n in $(gh pr list --json number --jq '.[].number'); do
 done
 ```
 
-**Worktrees.** One per task, outside the repo, so the live server never sees the files change.
-Do not use the EnterWorktree tool: it puts worktrees inside the repo.
+**Worktrees.** One per task, on the controller, outside the repo, so `~/npec_camera_rig` stays on
+`main`. Do not use the EnterWorktree tool: it puts worktrees inside the repo.
 
 ```bash
 git -C ~/npec_camera_rig fetch origin
@@ -464,7 +474,7 @@ limits: where one does not work for a page, choose what does and say why in the 
 | `docs/measurement-trust.md` | Why the rig's area measurements can be trusted, and the steps taken to build that trust. The case, for reports and a possible paper |
 | `docs/metrology-log.md` | Log of every measurement, test method and result, with sources: the evidence behind `measurement-trust.md`. See *Write up every measurement* |
 | `docs/operator-guide.md` | For the scientists running experiments: focus, lock, calibrate, validate, and what the uncertainty column means |
-| `/var/lib/npec-rig/` | Runtime data: `rig/` photos (every still, written by `captures.take_photo`), masks, `rig.db`. The old `captures/` and `calibration/frames/` folders are no longer read |
+| `/var/lib/npec-rig/` | On each rig, not the controller. Runtime data: `rig/` photos (every still, written by `captures.take_photo`), masks, `rig.db`. The old `captures/` and `calibration/frames/` folders are no longer read |
 | `docs/database.md` | Every table in `rig.db`, its columns, and the rule that all times are UTC |
 | `/var/lib/npec-rig/derived/` | Derived images (validation maps, problem frames; later thumbnails), made once by `images.py`, disposable. Every large image goes through `images.py` (PLAN.md, *Images*) |
 | `/etc/npec-rig/config.yaml` | Per-rig configuration. Planned (PLAN.md's Technical decisions table), not yet implemented — current settings live in env vars and SQLite only |
