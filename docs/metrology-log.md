@@ -6667,3 +6667,56 @@ CLIP's image side was not tested on its own, and Hailo's 8-bit CLIP may score di
 original. The timings are from the development rig, not the production rig, and the SAM 2.1 time
 in this run is throttled. What the rig reports is unchanged: the green threshold stays (Aaron,
 2026-10-26), so `docs/measurement-trust.md` is not changed by this section.
+
+### 19.2 ExG minus ExR as the colour rule, and the expected count from the tag (2026-10-29)
+
+**Label: development check.** The same still, crop, trays and truth as 19.1, the same script
+(`compare.py --light --cv-threads 2`, which leaves out CLIP and SAM 2.1). The green threshold in use
+is replaced by **ExG minus ExR > 0** (excess green minus excess red, 1.4 r - g, in chromatic
+coordinates; Meyer and Neto 2008; the rule of 18.8, `experiments/round2-tagedge/methods.py`), on the
+same half-size copy, pieces of at least 0.5 mm²: joined within 3, 5 and 10 mm, and as the points for
+FastSAM. Question: does holding back the red-brown soil keep pale seedlings the green threshold
+misses (tray 4, 13 of 19 in 19.1)?
+
+*Expected count from the tag.* Each tray's tag ID sets its type (PLAN.md, Tag ID allocation): IDs
+1 to 75 are 4 x 5 trays (19 plants, A1 holds the tag), 76 to 150 4 x 4 (16), 151 to 225 1 x 1 (1),
+226 to 250 black trays and 251 to 299 other trays (no fixed number). All 12 trays here are 4 x 5
+(IDs 1 to 12), so each is expected to hold at most 19. A tray read above its expected count is
+certainly wrong; one read below may be wrong or only partly planted (tray 7), which the tag cannot
+tell. `compare.py` lists the trays read above it.
+
+*Result.* Results `docs/figures/19.2/per_tray.csv` and `summary.json`; the green threshold rows are
+those of 19.1, run again (identical).
+
+| Method | Trays 1 to 6 (true 114) | Tray 4 (true 19) | Tray 7 (true 7) | Tray 8 (true 5) | Mean error per tray, 1 to 8 | Trays above 19 | Time |
+|---|---|---|---|---|---|---|---|
+| exg join 5 mm (19.1) | 106 | 13 | 16 | 6 | 3.3 | 1, 5 | 0.4 s |
+| exg join 10 mm (19.1) | 103 | 13 | 15 | 6 | 2.8 | 1 | 0.6 s |
+| FastSAM point, exg (19.1) | 101 | 13 | 8 | 5 | 2.0 | 1 | 6.9 s |
+| ExG - ExR join 3 mm | 263 | | 28 | 35 | 25.0 | 1 to 8, 12 | 0.6 s |
+| ExG - ExR join 5 mm | 171 | | 18 | 18 | 10.6 | 1, 2, 3, 5, 6, 12 | 0.6 s |
+| ExG - ExR join 10 mm | 153 | 17 | 12 | 7 | 6.3 | 1, 2, 3, 5, 6, 12 | 0.7 s |
+| FastSAM point, ExG - ExR | 97 | 10 | 14 | 18 | 4.6 | 12 | 6.9 s |
+
+- **ExG minus ExR is worse here on every count.** With its threshold at 0 it takes in soil and, on
+  the Benchy, much of the yellow base: tray 4's area is 140681 mm² (rig 53 mm²) and the Benchy's
+  largest object 36801 mm² at 3 mm.
+- Its 17 on tray 4 is not a gain: with the soil taken in, the objects there are mostly not plants.
+- The expected count flags the green threshold's over-counts (trays 1 and 5 at 5 mm), but not its
+  misses, which is where its errors now are.
+
+*Figure.* `docs/figures/19.2/exgr-join10.jpg`: ExG minus ExR joined within 10 mm (magenta boxes),
+trays with found and true counts; made by `compare.py`, scaled down.
+
+*Incident: the development rig's app was killed by these runs.* The full runs of 19.1 (about
+2.3 GB with CLIP and SAM 2.1) left too little memory on the 8 GB development rig, whose app holds
+about 4 GB, and the kernel's out-of-memory killer stopped the app three times (13:01:00, 13:03:08,
+13:17:30 UTC); systemd restarted it each time. Its running experiment ("development rig") lost no
+still; 8 stills were 4 to 89 s late; the lens read 6.10 (the locked position) throughout, not
+flagged. The app's restart record did not log the three kills. 19.1's statement that the app was
+not used is true of the camera but not of its memory. The runs of 19.2 used `ulimit -v` (3 GB) and 2
+OpenCV threads: peak 1.7 GB, 24 s, no kill. The app's memory is #326.
+
+**Limits of the evidence.** As 19.1. ExG minus ExR is tried only with its literature threshold of 0;
+a higher threshold might keep less soil, but would then be a second tuned threshold, not the
+literature rule.

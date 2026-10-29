@@ -184,11 +184,12 @@ def fastsam_all(bgr, model):
     return dets, t_hailo
 
 
-def exg_blobs(bgr):
-    """Green blobs from the green threshold in use, on a half-size copy; boxes in full-size px."""
+def exg_blobs(bgr, segment=None):
+    """Green blobs from the green threshold in use (or `segment`, rgb -> bool), on a half-size
+    copy; boxes in full-size px."""
     r = EXG_REDUCE
     small = cv2.resize(bgr, (bgr.shape[1] // r, bgr.shape[0] // r), interpolation=cv2.INTER_AREA)
-    mask = ExGSegmenter().segment(cv2.cvtColor(small, cv2.COLOR_BGR2RGB))
+    mask = (segment or ExGSegmenter().segment)(cv2.cvtColor(small, cv2.COLOR_BGR2RGB))
     # Joining: pieces grown by half the join distance touch when closer than it. Areas, boxes and
     # the prompt point come from the green pixels only.
     grown = mask.astype(np.uint8)

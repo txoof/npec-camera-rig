@@ -15,6 +15,11 @@ Methods (all from the green threshold in use, EXG_MIN, pieces of at least 0.5 mm
     sam21                              SAM 2.1 small, box and point from each 3 mm blob, overlapping
                                        masks merged; area = the mask (sam21_plants.py)
     sam21_green                        the same plants; area = green pixels inside the mask
+    exgr_join3, exgr_join5, exgr_join10, fastsam_point_exgr
+                                       the same with ExG - ExR > 0 in place of the green threshold
+                                       (Meyer and Neto 2008; experiments/round2-tagedge/methods.py,
+                                       metrology log 18.8)
+Expected per tray: the count for the tray's configuration, from its tag ID (EXPECTED_BY_ID).
 A plant belongs to the tray its centre lies in. R.json is the rig's own stored reading of the
 still (GET /api/captures/trays/...), shown beside the methods.
 """
@@ -39,7 +44,27 @@ from npec_rig.tags import detect_tags
 
 TRUTH = sp.TRUTH  # Aaron, 2026-10-29
 METHODS = ("exg_join3", "exg_join5", "exg_join10", "fastsam_point", "clip_foliage", "clip_leaves",
-           "clip_plants", "sam21", "sam21_green")
+           "clip_plants", "sam21", "sam21_green", "exgr_join3", "exgr_join5", "exgr_join10",
+           "fastsam_point_exgr")
+# Plants a full tray holds, by the tray type its tag ID sets (PLAN.md, Tag ID allocation,
+# 2026-10-02; reference/trays.md): 4 x 5, 20 cells with the tag in A1; 4 x 4, 16 cells with the tag
+# in the middle of the tray; 1 x 1, one well. Black and other trays have no fixed number (None).
+TRAY_TYPES = ((range(1, 76), "4x5", 19), (range(76, 151), "4x4", 16), (range(151, 226), "1x1", 1),
+              (range(226, 251), "black", None), (range(251, 300), "other", None))
+
+
+def EXPECTED_BY_ID(tag_id):  # noqa: N802 (used as a table)
+    return next((n for ids, _, n in TRAY_TYPES if tag_id in ids), None)
+
+
+ACTIVE = METHODS  # --light: without CLIP and SAM 2.1 (memory, #326)
+
+
+def exg_exr(rgb):
+    """ExG - ExR > 0: excess green minus excess red (1.4 r - g), chromatic coordinates."""
+    r, g, b = (rgb[:, :, i].astype(np.float32) for i in range(3))
+    s = r + g + b + 1e-6
+    return (2 * g - r - b) / s - (1.4 * r - g) / s > 0
 
 
 def obj(cx, cy, area_px, contour=None, box=None):
@@ -78,7 +103,8 @@ def picture(bgr, objs, trays, counts, oy, title, path):
     for tp, _ in trays:
         cv2.polylines(im, [((np.float32(tp.outline) - np.float32([0, oy])) * f).astype(np.int32)], True, (255, 255, 0), 3)
         n = counts[tp.tray_id][0]
-        lab = f"tray {tp.tray_id}: {n}" + (f" (true {TRUTH[tp.tray_id]})" if tp.tray_id in TRUTH else "")
+        lab = f"tray {tp.tray_id}: {n}" + (f" (true {TRUTH[tp.tray_id]})" if tp.tray_id in TRUTH else
+                                           f" (expect {EXPECTED_BY_ID(tp.tray_id) or '?'})")
         org = (int(tp.centre[0] * f) - 90, int((tp.centre[1] - oy) * f))
         cv2.putText(im, lab, org, cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 6)
         cv2.putText(im, lab, org, cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
@@ -94,9 +120,10 @@ def run(still, nets, placing, rig_reading, out: Path):
     secs = {}
     t0 = time.perf_counter()
     full = cv2.imread(str(still))
-    tags = detect_tags(cv2.cvtColor(full, cv2.COLOR_BGR2RGB))
+    tags = detect_tags(cv2.cvtColor(full, cv2.COLOR_BGR2GRAY))  # grayscale: one copy less (#326)
     trays = fp.trays_of(tags, placing)
     bgr, crop, _ = fp.crop_to_corner_tags(full, tags)
+    del full
     oy = crop[1]
     secs["shared: read, tags, trays, crop"] = time.perf_counter() - t0
     found = {}
@@ -110,6 +137,15 @@ def run(still, nets, placing, rig_reading, out: Path):
         found[f"exg_join{j}"] = [obj(b["cx"], b["cy"], b["area_px"], box=(b["x0"], b["y0"], b["x1"], b["y1"])) for b in blobs]
         if j == 3:
             blobs3 = blobs
+    exgr3 = None
+    for j in (3, 5, 10):
+        fp.JOIN_MM = j
+        t = time.perf_counter()
+        _, blobs = fp.exg_blobs(bgr, exg_exr)
+        secs[f"exgr_join{j}"] = time.perf_counter() - t
+        found[f"exgr_join{j}"] = [obj(b["cx"], b["cy"], b["area_px"], box=(b["x0"], b["y0"], b["x1"], b["y1"])) for b in blobs]
+        if j == 3:
+            exgr3 = blobs
     fp.JOIN_MM = 3
 
     t = time.perf_counter()
@@ -120,7 +156,19 @@ def run(still, nets, placing, rig_reading, out: Path):
     uniq = {id(d): d for d in picks if d is not None}.values()
     found["fastsam_point"] = [obj(*contour_centre(d["contour"]), d["area_px"], contour=d["contour"]) for d in uniq]
     secs["fastsam_point"] = t_fastsam + time.perf_counter() - t
+    t = time.perf_counter()
+    uniq = {id(d): d for d in fp.prompted(dets, exgr3) if d is not None}.values()
+    found["fastsam_point_exgr"] = [obj(*contour_centre(d["contour"]), d["area_px"], contour=d["contour"]) for d in uniq]
+    secs["fastsam_point_exgr"] = t_fastsam + time.perf_counter() - t
 
+    if "clip_leaves" in ACTIVE:
+        clip_rows(bgr, dets, image_net, texts, found, secs, t_fastsam)
+    if "sam21" in ACTIVE:
+        sam_rows(bgr, blobs3, sam, sf, oy, found, secs)
+    finish(still, bgr, trays, oy, sf, found, secs, rig_reading, out)
+
+
+def clip_rows(bgr, dets, image_net, texts, found, secs, t_fastsam):
     t = time.perf_counter()
     img = np.stack([cp.unit(image_net(cp.object_crop(bgr, d))) for d in dets])
     bg = np.stack([texts[w] for w in cp.BACKGROUND])
@@ -131,6 +179,8 @@ def run(still, nets, placing, rig_reading, out: Path):
                               for d, k in zip(dets, kept) if k]
         secs[f"clip_{p}"] = t_fastsam + t_clip  # FastSAM and CLIP once, all three words from it
 
+
+def sam_rows(bgr, blobs3, sam, sf, oy, found, secs):
     t = time.perf_counter()
     plants, _, _, _, _ = sp.sam_plants(bgr, blobs3, sam, sf, oy)
     secs["sam21"] = time.perf_counter() - t
@@ -150,6 +200,9 @@ def run(still, nets, placing, rig_reading, out: Path):
     found["sam21_green"] = green
     secs["sam21_green"] = secs["sam21"] + time.perf_counter() - t
 
+
+def finish(still, bgr, trays, oy, sf, found, secs, rig_reading, out):
+    METHODS = ACTIVE  # noqa: N806
     counts = {m: by_tray(found[m], trays, oy, sf) for m in METHODS}
     for i, m in enumerate(METHODS, 1):
         c = counts[m]
@@ -161,18 +214,20 @@ def run(still, nets, placing, rig_reading, out: Path):
     tray_ids = sorted(counts[METHODS[0]])
     with open(out / "per_tray.csv", "w", newline="") as fh:
         wr = csv.writer(fh)
-        wr.writerow(["tray", "slot", "true_plants", *[f"{m}_plants" for m in METHODS], *[f"{m}_mm2" for m in METHODS], "rig_reading_mm2"])
+        wr.writerow(["tray", "slot", "true_plants", "expected_by_tag", *[f"{m}_plants" for m in METHODS], *[f"{m}_mm2" for m in METHODS], "rig_reading_mm2"])
         slots = {tp.tray_id: tp.slot for tp, _ in trays}
         for k in tray_ids:
-            wr.writerow([k, slots[k], TRUTH.get(k, ""), *[counts[m][k][0] for m in METHODS],
+            wr.writerow([k, slots[k], TRUTH.get(k, ""), EXPECTED_BY_ID(k), *[counts[m][k][0] for m in METHODS],
                          *[round(counts[m][k][1], 1) for m in METHODS], round(rig[k], 1) if rig.get(k) is not None else ""])
     summary = {}
     for m in METHODS:
         c = counts[m]
         err = [c[k][0] - TRUTH[k] for k in TRUTH if k in c]
+        over = [k for k in c if EXPECTED_BY_ID(k) is not None and c[k][0] > EXPECTED_BY_ID(k)]  # more than a full tray holds
         summary[m] = {"trays_1_6_plants": sum(c[k][0] for k in range(1, 7)), "tray_7": c[7][0], "tray_8": c[8][0],
                       "mean_abs_error_trays_1_8": round(float(np.mean(np.abs(err))), 2),
                       "worst_tray_error": int(max(err, key=abs)), "seconds": round(secs[m], 1),
+                      "trays_over_expected": over,
                       "benchy_4_largest_mm2": [round(a) for a in c[8][2][:4]]}
     notes = {"still": str(still), "truth": TRUTH, "iphone_benchy_mm2": sp.IPHONE_MM2,
              "scan_benchy_mm2": {"NE": 2009.9, "SE": 1343.7, "NW": 753.4, "SW": 413.7},
@@ -181,6 +236,7 @@ def run(still, nets, placing, rig_reading, out: Path):
     for m, s in summary.items():
         print(f"{m:14s} trays1-6 {s['trays_1_6_plants']:3d}/114  t7 {s['tray_7']:2d}/7  t8 {s['tray_8']:2d}/5  "
               f"MAE {s['mean_abs_error_trays_1_8']:5.2f}  worst {s['worst_tray_error']:+d}  {s['seconds']:6.1f} s  "
+              f"over {s['trays_over_expected']}  "
               f"benchy {s['benchy_4_largest_mm2']}", flush=True)
     print("shared", notes["shared_seconds"], "s", flush=True)
 
@@ -193,25 +249,37 @@ def main():
     for a_ in ("--fastsam-hef", "--clip", "--sam", "--calibration", "--slots", "--out"):
         ap.add_argument(a_, type=Path, required=True)
     ap.add_argument("--rig-reading", type=Path)
+    ap.add_argument("--light", action="store_true", help="without CLIP and SAM 2.1 (less memory)")
+    ap.add_argument("--cv-threads", type=int, default=0, help="OpenCV threads; fewer uses less memory in tag detection")
     a = ap.parse_args()
+    if a.cv_threads:
+        cv2.setNumThreads(a.cv_threads)
+    global ACTIVE
+    if a.light:
+        ACTIVE = tuple(m for m in METHODS if not m.startswith(("clip", "sam21")))
     fp.BLOB_MIN_MM2 = 0.5
     a.out.mkdir(parents=True, exist_ok=False)
     placing = (load_calibration(a.calibration).scale_field, json.loads(a.slots.read_text())["slots"])
     rig = json.loads(a.rig_reading.read_text()) if a.rig_reading else None
-    vocab = json.loads((a.clip / "clip_tokenizer.json").read_text())["model"]["vocab"]
-    lut = np.load(a.clip / "token_embedding_lut.npy", allow_pickle=False)
-    proj = np.load(a.clip / "text_projection.npy", allow_pickle=False)
+    if not a.light:
+        vocab = json.loads((a.clip / "clip_tokenizer.json").read_text())["model"]["vocab"]
+        lut = np.load(a.clip / "token_embedding_lut.npy", allow_pickle=False)
+        proj = np.load(a.clip / "text_projection.npy", allow_pickle=False)
     device = VDevice()
     fastsam = fp.FastSam(a.fastsam_hef, device)
-    image_net = cp.HailoNet(device, a.clip / "clip_vit_b_32_image_encoder.hef", input_float=False)
-    text_net = cp.HailoNet(device, a.clip / "clip_vit_b_32_text_encoder.hef", input_float=True)
+    image_net = text_net = texts = sam = None
+    if not a.light:
+        image_net = cp.HailoNet(device, a.clip / "clip_vit_b_32_image_encoder.hef", input_float=False)
+        text_net = cp.HailoNet(device, a.clip / "clip_vit_b_32_text_encoder.hef", input_float=True)
     try:
-        texts = {w: cp.text_embedding(w, text_net, vocab, lut, proj) for w in cp.PROMPTS + cp.BACKGROUND}
-        sam = sp.Sam21(a.sam)
+        if not a.light:
+            texts = {w: cp.text_embedding(w, text_net, vocab, lut, proj) for w in cp.PROMPTS + cp.BACKGROUND}
+            sam = sp.Sam21(a.sam)
         run(a.still, (fastsam, image_net, texts, sam), placing, rig, a.out / a.still.stem)
     finally:
-        text_net.close()
-        image_net.close()
+        for net in (text_net, image_net):
+            if net is not None:
+                net.close()
         fastsam.close()
         device.release()
 
