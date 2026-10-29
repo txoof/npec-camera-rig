@@ -311,6 +311,6 @@ def run(name: str, find, version: str, notes: str = "", rigs=RIGS, pictures: str
         for r in rigs if r in summ] + [f"{summ['seconds_per_still']} s per still on the controller",
                                        "white: reference; green: found; red: wrong size or place; orange: matches no tray"]
     (out / "notes.txt").write_text("\n".join(x for x in lines if x) + "\n")
-    (out / "summary.json").write_text(json.dumps(summ, indent=1))
-    print(json.dumps(summ))
+    (out / "summary.json").write_text(json.dumps(summ, indent=1, default=float))
+    print(json.dumps(summ, default=float))
     return summ
