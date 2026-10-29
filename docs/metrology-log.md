@@ -5915,6 +5915,33 @@ rig's own height effect (2.5% to 3.4% large, above) would make its shortfall at 
 (magenta dots and outline) and the four beads (magenta rings) found by `phone_scan.py`. The
 09:36:53 picture is `figures/17.13/142a6558-corners-beads.jpg`.*
 
+### 17.14 The benchmark rosettes measured by the supervisor with a phone app (#297, noted 2026-10-29)
+
+**Label: reference comparison** (a reference value only; not yet compared with the rig). Given by
+Aaron on 2026-10-29: the supervisor's areas of the four rosettes of "Benchy Yellow-4" (15.1),
+measured on 29 October with the app iPhonoType on two phones.
+
+| Rosette | iPhone (mm²) | Galaxy S24 (as given: px; cm) | Galaxy S24 px per cm² (computed) |
+|---|---|---|---|
+| NE | 1692.05 | 3391 px; 3.63 | 934 |
+| SE | 1064.17 | 7428 px; 6.75 | 1100 |
+| NW | 611.92 | 21243 px; 19.31 | 1100 |
+| SW | 325.37 | 13770 px; 12.51 | 1101 |
+
+The iPhone areas are in mm² (Aaron, 2026-10-29) and follow the size order of the 3D scan
+(15.5e: NE 2009.9, SE 1343.7, NW 753.4, SW 413.7 mm²). The Galaxy S24 areas were given in "cm",
+taken to be cm². They do not agree with the iPhone or the 3D scan: their order runs the other
+way (NW largest, NE smallest), and NE has a different px per cm² from the other three. Recorded as
+given; whether the Galaxy labels or the NE reading are mixed up is not known.
+
+*Method as given.* The supervisor's segmentation uses SAM 2.1 small. His description: "for SAM 2.1
+small: it auto-generate points and box prompts from RGB color-shape cues, run SAM 2.1 small locally
+via ONNX Runtime with cached image embeddings, and then post-process the overlapping masks before
+measuring each plant region." He recommends this approach for #297.
+
+*Not known yet.* The iPhone model; how the app sets its scale and which height it applies to;
+the time of day. The photos and the app's outlines are not kept in the repository.
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from
@@ -6476,3 +6503,254 @@ clear background 20 to 30 px around it, which half way needs and plants may not 
 touching leaves and plants). Each square was first found by exg, so a method's result starts from
 exg's object. One light level, three backgrounds, one camera position and focus. Not a band for
 plants: plants are compared in #297.
+
+## 19. Segmentation methods on the potato plants (issue #297)
+
+### 19.1 Every method tried, on one still (2026-10-29)
+
+**Label: development check** for the plant counts (against the known contents of the trays);
+**reference comparison** for the Benchy rosettes (against the supervisor's phone app, 17.14, and
+the 3D scan, 15.5e). **The method was not written before the run.** It was put together during an
+exploratory session on 2026-10-29, and its settings (crop, piece size, join distance, tiles) were
+chosen while looking at this still and four others of the same run. The counts below are therefore
+optimistic for this still; they say which methods are worth carrying forward, not how well any of
+them will do.
+
+*Still.* Production rig, experiment 18 ("Potato Plants v001"),
+`experiments/2026-10-22_df206967/stills/2026-10-29/120453_603102.jpg`, 2026-10-29 12:04:53 UTC
+(13:04 Dutch time), exposure 4469 µs, gain 1.0, calibration `20261026T153214381640` (the one the
+rig read it with). Copied read-only; nothing written on production.
+
+*Truth* (Aaron, 2026-10-29, from what was planted): trays 1 to 6, 19 plants each (20 cells, A1 holds
+the tag); tray 7 (North 5), 6 plants and a green benchmark, 7 green objects; tray 8 (South 2), the
+Benchy (15.1): 4 plastic rosettes and a green benchmark, 5 green objects. Trays 9 to 12 hold test
+targets and sheets and are not counted.
+
+*Where it ran.* The development rig `npec-rig-01` (Raspberry Pi 5, 8 GB), offline on the copied
+still; its camera and app were not used. Its accelerator is a **Hailo-10H** (HailoRT 5.1.1), not the
+Hailo-8 of production, so round 1's `fast_sam_s.hef` (Hailo-8) does not run there. Models, with
+SHA-256 of the files used:
+
+| Model | Source | Runs on | SHA-256 |
+|---|---|---|---|
+| FastSAM-s | Hailo Model Zoo v5.1.0, hailo10h, `fast_sam_s.hef` | Hailo-10H | `d6e30803...` |
+| CLIP ViT-B/32 image encoder | Hailo Model Zoo v5.1.0, hailo10h | Hailo-10H | `a831d634...` |
+| CLIP ViT-B/32 text encoder | Hailo Model Zoo v5.1.0, hailo10h | Hailo-10H | `405a17c8...` |
+| CLIP text tables | hailo-apps resources: `token_embedding_lut.npy`, `text_projection.npy`, `clip_tokenizer.json` | CPU | `36138bdc...`, `c1720633...`, `6d9109cc...` |
+| SAM 2.1 small | `onnx-community/sam2.1-hiera-small-ONNX`, full precision: `vision_encoder.onnx` (+ data), `prompt_encoder_mask_decoder.onnx` (+ data) | CPU, ONNX Runtime 1.31.1, 4 threads | `aacf1f71...` (+ `260fd1f0...`), `079c59b2...` (+ `f9e59a58...`) |
+
+*Shared steps, the same for every method.*
+
+1. Tags: `npec_rig.tags.detect_tags` on the full still. Trays: `tray_placement.place_trays` with
+   copies of the rig's calibration and slot layout for `20261026T153214381640`; all 12 trays placed.
+2. Crop: the full width, rows from the highest to the lowest corner of the 4 corner tags; each
+   corner tag (and its green holder) painted grey to 1.5 tag sides from its centre.
+3. Green pieces: the green threshold in use (`ExGSegmenter`, excess green above 0.1) on a half-size
+   copy; pieces of at least 0.5 mm² (at 4.86 px/mm).
+4. A plant belongs to the tray its centre lies in. Areas in mm² from the calibration's scale at
+   the plant's centre (tray-top height; no height correction).
+
+*Methods.*
+
+| Method | What counts as one plant | Area |
+|---|---|---|
+| exg join 3, 5, 10 mm | green pieces closer than 3, 5 or 10 mm | green pixels |
+| FastSAM point | the smallest FastSAM object holding a 3 mm blob's centre; blobs in the same object are one plant; blobs with no object are dropped | the object's mask |
+| FastSAM + CLIP "foliage", "leaves", "plants" | FastSAM objects that CLIP scores higher for the word than for "soil", "blue plastic", "white paper", "black and white pattern" and "grey metal" | the object's mask |
+| SAM 2.1 | SAM 2.1 small with a box (the blob's box, 25% wider per side) and a point (its green pixel nearest the centre) per 3 mm blob; one image embedding per tile (3 x 2 tiles, 300 px overlap, about 3 times reduced) used for all its prompts; masks sharing 30% of the smaller merged | the merged mask |
+| SAM 2.1, green inside | the same plants | green pixels (full size) inside the merged mask |
+
+The three CLIP words follow the supervisor's use of "foliage" with a SAM variant (17.14); his own
+method (SAM 2.1 small with prompts from colour and shape) is the SAM 2.1 row, with our green blobs
+as the prompts.
+
+*Script.* `experiments/round3-segmentation/compare.py` (with `fastsam_plants.py`,
+`clip_prompts.py`, `sam21_plants.py`), run on the development rig as
+`compare.py 120453_603102.jpg --fastsam-hef ... --clip ... --sam ... --calibration ... --slots ...
+--rig-reading ...`; results `docs/figures/19.1/per_tray.csv` and `summary.json`.
+
+*Result: plant counts.*
+
+| Method | Trays 1 to 6 (true 114) | Tray 7 (true 7) | Tray 8 (true 5) | Mean error per tray, trays 1 to 8 | Worst tray | Time |
+|---|---|---|---|---|---|---|
+| exg join 3 mm | 135 | 16 | 6 | 3.9 | +9 | 0.4 s |
+| exg join 5 mm | 106 | 16 | 6 | 3.3 | +9 | 0.4 s |
+| exg join 10 mm | 103 | 15 | 6 | 2.8 | +8 | 0.5 s |
+| FastSAM point | 101 | 8 | 5 | 2.0 | -6 | 6.8 s |
+| FastSAM + CLIP "foliage" | 30 | 1 | 5 | 11.3 | -18 | 18.9 s |
+| FastSAM + CLIP "leaves" | 72 | 2 | 5 | 5.9 | -12 | 18.9 s |
+| FastSAM + CLIP "plants" | 35 | 8 | 18 | 11.6 | -16 | 18.9 s |
+| SAM 2.1 | 103 | 16 | 6 | 2.9 | +9 | 224.6 s (100.5 s in its own run) |
+| SAM 2.1, green inside | 103 | 16 | 6 | 2.9 | +9 | 225.0 s |
+
+Mean error per tray is the mean of |found - true| over trays 1 to 8. Times are each method's own
+steps; the shared steps took 10.9 s (most of it tag detection on the full still). The CLIP times
+include FastSAM, run once for all three words.
+
+| Tray | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| True | 19 | 19 | 19 | 19 | 19 | 19 | 7 | 5 |
+| exg join 3 mm | 26 | 21 | 22 | 19 | 26 | 21 | 16 | 6 |
+| exg join 5 mm | 21 | 17 | 18 | 13 | 21 | 16 | 16 | 6 |
+| exg join 10 mm | 20 | 17 | 18 | 13 | 19 | 16 | 15 | 6 |
+| FastSAM point | 20 | 16 | 18 | 13 | 18 | 16 | 8 | 5 |
+| CLIP "foliage" | 4 | 4 | 6 | 9 | 6 | 1 | 1 | 5 |
+| CLIP "leaves" | 14 | 10 | 14 | 14 | 13 | 7 | 2 | 5 |
+| CLIP "plants" | 3 | 4 | 8 | 11 | 6 | 3 | 8 | 18 |
+| SAM 2.1 | 20 | 17 | 18 | 13 | 19 | 16 | 16 | 6 |
+
+- **No method gets every tray right.** FastSAM point is closest: it drops green specks on the blue
+  plastic of tray 7's empty half (no FastSAM object there) and joins pieces of one plant that fall
+  in the same object. Like every method here it starts from the green pieces, so it cannot find a
+  plant the green threshold missed: tray 4 reads 13 of 19 in every green-based method except
+  exg join 3 mm (19, while it counts trays 1 and 5 seven too many).
+- **Joining by distance alone has no right setting.** 3 mm counts trays 1 and 5 seven too many;
+  5 mm already loses 6 plants on tray 4.
+- **The CLIP words do not find seedlings.** At most 72 of 114, and "plants" mostly picks the tag
+  sheets (134 objects on trays 9 to 12).
+- **SAM 2.1 counts as exg join 5 to 10 mm does**, since its prompts are the 3 mm blobs and nearly
+  every blob's mask overlaps another piece of the same plant.
+
+*Result: areas.* The green area per tray agrees with the rig's own stored reading of the same still
+(trays 1 to 8: green inside the SAM 2.1 masks within 1.9%, exg join 5 mm within 6%, the half-size
+copy reading slightly low on the smallest plants). Mask areas do not: SAM 2.1's masks are 12 to 24
+times the green area on trays 1 to 6 (tray 1: 2228 against 183 mm²), and FastSAM point includes
+whole pots on trays 1, 2 and 6 (5848, 9717, 9508 mm²).
+
+*Result: the Benchy rosettes*, the four largest objects on tray 8, matched to the references by
+size order (17.14; which rosette is which in the still was not checked):
+
+| | Largest | 2nd | 3rd | Smallest |
+|---|---|---|---|---|
+| exg (green pixels; SAM 2.1 green inside the same) | 1689 | 1043 | 565 | 258 |
+| FastSAM point (mask) | 1887 | 1230 | 732 | 399 |
+| SAM 2.1 (mask) | 2620 | 1478 | 885 | 492 |
+| iPhone, iPhonoType (17.14) | 1692 | 1064 | 612 | 325 |
+| 3D scan (15.5e) | 2010 | 1344 | 753 | 414 |
+
+In mm². exg is within 2% of the iPhone on the two largest rosettes and 8% and 21% below it on the
+two smallest. FastSAM's masks are 3% to 9% below the 3D scan. SAM 2.1's masks are 39% to 55% above
+the iPhone: at this tile size its mask is 256 cells across about 3000 px (one cell about 2.4 mm), and
+it fills the gaps between the leaf tips; the largest rosette's mask also runs into its shadow. The
+two references differ from each other by 16% to 21%, so which is right is not known (17.13, 17.14).
+
+*Timing.* Target: under 1 minute per still for the whole pipeline (Aaron, 2026-10-29), with area
+work possibly moved to the dark hours (lights off about 00:28 to 08:03 UTC). SAM 2.1 small on the
+CPU took 100.5 s in its own run (6 tile embeddings 54.9 s, 175 prompts 33.8 s, tags 10.6 s) and
+224.6 s in this run, where the development rig's CPU was throttled for heat (79 °C, throttle flags
+`0xe0000`: frequency capped, throttled, soft temperature limit). A single embedding took 6.5 s cool
+(4.8 s with the 8-bit encoder) and each prompt 0.13 to 0.19 s. FastSAM on the Hailo-10H took 6.8 s
+per still, CLIP 12 s more for 664 objects.
+
+*Figures* (made by `compare.py` and `sam21_plants.py` on 2026-10-29, scaled down; full size on the
+development rig in `~/sam297/out/13-compare/` and `12-sam21/`):
+
+- `docs/figures/19.1/exg-join5.jpg`: green pieces joined within 5 mm (magenta boxes), trays
+  outlined with found and true counts.
+- `docs/figures/19.1/fastsam-point.jpg`: FastSAM point; green outlines are the chosen objects,
+  including whole pots.
+- `docs/figures/19.1/clip-leaves.jpg`: FastSAM objects kept for "leaves".
+- `docs/figures/19.1/sam21.jpg`: SAM 2.1 plants.
+- `docs/figures/19.1/benchy-sam21.jpg`: tray 8 at full size with SAM 2.1's masks and areas
+  (from the `sam21_plants.py` run of the same still): the masks fill between leaf tips and the
+  largest runs into its shadow.
+
+**Limits of the evidence.** One still at one time of day, with settings chosen on it. Truth is the
+number of plants planted, not a count from the photo; pots where a plant died or did not come up
+would count against every method alike. Every method starts from the green threshold's pieces, so
+none is tested on plants the threshold misses, and the SAM methods are not tested with their own
+prompts. Young plants only (seedlings of a few mm² to about 600 mm² on tray 7): older plants that
+touch or hang over a pot edge (the development rig's photo) and the black tray of loose pots are not
+covered. The Benchy rosettes are matched by size, not by position, and are 20 to 30 mm above the
+tray top, so the rig's figures read about 3% to 4% large (0.145% per mm) before any method's edge.
+CLIP's image side was not tested on its own, and Hailo's 8-bit CLIP may score differently from the
+original. The timings are from the development rig, not the production rig, and the SAM 2.1 time
+in this run is throttled. What the rig reports is unchanged: the green threshold stays (Aaron,
+2026-10-26), so `docs/measurement-trust.md` is not changed by this section.
+
+### 19.2 ExG minus ExR as the colour rule, and the expected count from the tag (2026-10-29)
+
+**Label: development check.** The same still, crop, trays and truth as 19.1, the same script
+(`compare.py --light --cv-threads 2`, which leaves out CLIP and SAM 2.1). The green threshold in use
+is replaced by **ExG minus ExR > 0** (excess green minus excess red, 1.4 r - g, in chromatic
+coordinates; Meyer and Neto 2008; the rule of 18.8, `experiments/round2-tagedge/methods.py`), on the
+same half-size copy, pieces of at least 0.5 mm²: joined within 3, 5 and 10 mm, and as the points for
+FastSAM. Question: does holding back the red-brown soil keep pale seedlings the green threshold
+misses (tray 4, 13 of 19 in 19.1)?
+
+*Expected count from the tag.* Each tray's tag ID sets its type (PLAN.md, Tag ID allocation): IDs
+1 to 75 are 4 x 5 trays (19 plants, A1 holds the tag), 76 to 150 4 x 4 (16), 151 to 225 1 x 1 (1),
+226 to 250 black trays and 251 to 299 other trays (no fixed number). All 12 trays here are 4 x 5
+(IDs 1 to 12), so each is expected to hold at most 19. A tray read above its expected count is
+certainly wrong; one read below may be wrong or only partly planted (tray 7), which the tag cannot
+tell. `compare.py` lists the trays read above it.
+
+*Result.* Results `docs/figures/19.2/per_tray.csv` and `summary.json`; the green threshold rows are
+those of 19.1, run again (identical).
+
+| Method | Trays 1 to 6 (true 114) | Tray 4 (true 19) | Tray 7 (true 7) | Tray 8 (true 5) | Mean error per tray, 1 to 8 | Trays above 19 | Time |
+|---|---|---|---|---|---|---|---|
+| exg join 5 mm (19.1) | 106 | 13 | 16 | 6 | 3.3 | 1, 5 | 0.4 s |
+| exg join 10 mm (19.1) | 103 | 13 | 15 | 6 | 2.8 | 1 | 0.6 s |
+| FastSAM point, exg (19.1) | 101 | 13 | 8 | 5 | 2.0 | 1 | 6.9 s |
+| ExG - ExR join 3 mm | 263 | 28 | 28 | 35 | 25.0 | 1 to 8, 12 | 0.6 s |
+| ExG - ExR join 5 mm | 171 | 17 | 18 | 18 | 10.6 | 1, 2, 3, 5, 6, 12 | 0.6 s |
+| ExG - ExR join 10 mm | 153 | 17 | 12 | 7 | 6.3 | 1, 2, 3, 5, 6, 12 | 0.7 s |
+| FastSAM point, ExG - ExR | 97 | 10 | 14 | 18 | 4.6 | 12 | 6.9 s |
+
+- **ExG minus ExR is worse here on every count.** With its threshold at 0 it takes in soil and, on
+  the Benchy, much of the yellow base: tray 4's area is 140681 mm² (rig 53 mm²) and the Benchy's
+  largest object 36801 mm² at 3 mm.
+- Its 17 on tray 4 is not a gain: with the soil taken in, the objects there are mostly not plants.
+- The expected count flags the green threshold's over-counts (trays 1 and 5 at 5 mm), but not its
+  misses, which is where its errors now are.
+
+*Figure.* `docs/figures/19.2/exgr-join10.jpg`: ExG minus ExR joined within 10 mm (magenta boxes),
+trays with found and true counts; made by `compare.py`, scaled down.
+
+*Incident: the development rig's app was killed by these runs.* The full runs of 19.1 (about
+2.3 GB with CLIP and SAM 2.1) left too little memory on the 8 GB development rig, whose app holds
+about 4 GB, and the kernel's out-of-memory killer stopped the app three times (13:01:00, 13:03:08,
+13:17:30 UTC); systemd restarted it each time. Its running experiment ("development rig") lost no
+still; 8 stills were 4 to 89 s late; the lens read 6.10 (the locked position) throughout, not
+flagged. The app's restart record did not log the three kills. 19.1's statement that the app was
+not used is true of the camera but not of its memory. The runs of 19.2 used `ulimit -v` (3 GB) and 2
+OpenCV threads: peak 1.7 GB, 24 s, no kill. The app's memory is #326.
+
+**Limits of the evidence.** As 19.1. ExG minus ExR is tried only with its literature threshold of 0;
+a higher threshold might keep less soil, but would then be a second tuned threshold, not the
+literature rule.
+
+### 19.3 Older plants on 2x2 trays, the development rig (2026-10-29)
+
+**Label: development check.** One still of the development rig's own experiment ("development
+rig"), `experiments/2026-10-28_8cb40de9/stills/2026-10-29/133905_854292.jpg`, 2026-10-29 13:39:05
+UTC, exposure 3585 µs, gain 1.0, calibration `20261021T140121832677`. Nine 2x2 trays (#327: the
+trays called "4x4" so far), five in the north row and four in the south row, with no tray tags.
+Older potato plants on North 1 to 3 and South 1, young ones on the others. Truth (Aaron,
+2026-10-29): 4 plants per tray, except North 2 (2), North 3 (3) and South 1 (3), counted by
+position along each row: 32 plants.
+
+*Method.* `experiments/round3-segmentation/slot_counts.py`: the crop, green pieces and FastSAM point
+of 19.1 and 19.2 (2 OpenCV threads, `ulimit -v` 3 GB, peak 1.8 GB, no app restart), each plant put
+in the nearest slot of the calibration's 12-slot layout.
+
+*Result.*
+
+- **The slots do not fit these trays.** The layout was made for twelve 4x5 trays; the nine larger
+  2x2 trays sit across it: slot South 2 is bare floor and North 1 to 3 each cover parts of two
+  trays. Counts per slot (`docs/figures/19.3/per_slot.csv`) therefore say nothing, and the truth
+  used for them (12 slots, 44 plants) was wrong. Not used further.
+- **Young plants: every plant found**, one green piece per pot (Aaron, from the figure).
+- **Older plants: found, but in pieces.** Each large plant is split into several pieces, even when
+  pieces within 10 mm are joined, and the plants hang over their pot edges into neighbouring cells.
+- **Extra objects:** small green specks at the frame's top and right edges, outside any tray.
+- Total objects: 65 (join 10 mm) to 94 (join 3 mm), FastSAM point 73, against 32 plants; the
+  difference is the split older plants and the specks.
+
+*Figure.* `docs/figures/19.3/dev-2x2-exg-join10.jpg`: green pieces joined within 10 mm (magenta
+boxes) and the 12 slots (cyan) with their counts; made by `slot_counts.py`, scaled down. The slot
+labels show the mismatch, not results.
+
+**Limits of the evidence.** One still; truth by position, not by tag; plant identity across the
+split pieces not checked one by one. Placing trays from the photo rather than from slots is #328.
