@@ -153,7 +153,7 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             CREATE TABLE tray_read (
                 capture_id INTEGER PRIMARY KEY REFERENCES capture (id),
                 read_at TEXT NOT NULL,           -- UTC, ISO 8601
-                status TEXT NOT NULL             -- read, no tags found, no calibration, no slot layout, placement failed, read failed
+                status TEXT NOT NULL             -- read, no trays found (no tags found before #331), no calibration, no slot layout, placement failed, read failed
             )
             """,
             # Only trays whose tag was found. A tray not found is worked out when shown, from the

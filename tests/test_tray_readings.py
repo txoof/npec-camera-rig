@@ -125,11 +125,12 @@ def test_the_background_reader_reads_new_photos_and_the_running_experiments_but_
     assert tray_readings.photo_readings(older) is None
 
 
-def test_a_photo_with_no_tags_at_all_says_so(monkeypatch) -> None:
+def test_a_photo_with_no_tray_and_no_tag_says_so(monkeypatch) -> None:
+    """As with the lights off (metrology log 15.5l, 20.1): not every tray missing (#331)."""
     _calibrate()
     _finds(monkeypatch, None)
 
-    assert tray_readings.read_photo(_photo())["status"] == "no tags found"
+    assert tray_readings.read_photo(_photo())["status"] == "no trays found"
 
 
 def test_each_tray_gets_its_plant_area_in_mm2_and_the_segmenter_that_made_it(monkeypatch) -> None:
@@ -433,3 +434,70 @@ def test_a_photo_with_two_trays_in_one_slot_is_left_out_whole_as_chamber_activit
     tray_readings.read_photo(path)
 
     assert tray_readings.photo_readings(path)["exclusion"] == "visit"
+
+
+# --- Trays found in the photo (#331) -------------------------------------------------------------
+TRAY_BLUE = (40, 90, 200)  # OpenCV hue 110, saturation 204, value 200: the sampled tray plastic
+
+
+def _blue_tray_scene(monkeypatch, tags: list[TagDetection], box=(300, 400, 3350, 4060), size=(4000, 4400)) -> None:
+    """`one_tray_plant_scene` (10 px/mm, North 1) with a blue tray 3050 x 3660 px (305 x 366 mm)
+    drawn at `box`, the mint rectangle inside it (x 1400 to 1900, y 2200 to 2500, 1500 mm2) and
+    the one outside it at x 3400 to 3900 beyond the tray's east side."""
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB
+
+    one_tray_plant_scene(monkeypatch)
+    x0, y0, x1, y1 = box
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[y0:y1, x0:x1] = TRAY_BLUE
+            frame[2200:2500, 1400:1900] = MINT_LEAF_RGB
+            frame[2200:2500, 3400:3900] = MINT_LEAF_RGB
+            return frame, metadata
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: tags)
+    CameraManager.set_instance(CameraManager(Scene(width=size[0], height=size[1])))
+
+
+def _flat(corners) -> list[float]:
+    return [v for corner in sorted(corners) for v in corner]
+
+
+def test_a_tray_found_in_the_photo_is_named_by_its_tag_and_measured_inside_its_outline(monkeypatch) -> None:
+    """Tag 5 lies in the tray's north-east corner, not in cell A1: its placement from the tag
+    would put the tray somewhere else, the photo puts it where it was drawn."""
+    tag = TagDetection(5, ((2800, 600), (3200, 600), (3200, 1000), (2800, 1000)), (3000, 800))
+    _blue_tray_scene(monkeypatch, [tag])
+
+    readings = tray_readings.read_photo(_photo())
+    assert readings["status"] == "read"
+    [tray] = readings["trays"]
+    assert (tray["tray_id"], tray["found"], tray["warnings"], tray["slot"]) == (5, "photo + tag", [], "North 1")
+    assert _flat(tray["outline_px"]) == pytest.approx(_flat([(300, 400), (3350, 400), (3350, 4060), (300, 4060)]), abs=10)
+    assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)  # 1%: JPEG blurs the rectangle's edge
+
+
+def test_a_tray_lying_sideways_past_the_photo_edge_is_measured_past_it_at_the_calibrations_scale(monkeypatch) -> None:
+    """A tray turned 90 degrees, 3660 x 3050 px, from x 500: it would end at x 4160, 160 px
+    (16 mm at 10 px/mm) past the east edge of a 4000 px photo. Its outline is the full tray from
+    its west side, so it reaches 16 mm past."""
+    tag = TagDetection(5, ((800, 800), (1200, 800), (1200, 1200), (800, 1200)), (1000, 1000))
+    _blue_tray_scene(monkeypatch, [tag], box=(500, 600, 4000, 3650))
+
+    [tray] = tray_readings.read_photo(_photo())["trays"]
+    assert tray["outside_mm"] == pytest.approx(16, abs=1)
+    assert tray["partly_outside"] is True
+    assert tray["warnings"] == ["partly outside the photo"]
+
+
+def test_two_trays_with_no_tag_are_each_kept_and_never_said_to_share_a_tag(monkeypatch) -> None:
+    """Two untagged trays side by side, 6100 x 3660 px in a 7000 x 4400 photo."""
+    _blue_tray_scene(monkeypatch, [], box=(300, 400, 6400, 4060), size=(7000, 4400))
+
+    trays = tray_readings.read_photo(_photo())["trays"]
+    assert [(t["tray_id"], t["found"], t["warnings"]) for t in trays] == [(None, "photo, no tag", ["no tag"])] * 2
+    assert [t["not_counted"] for t in trays] == [[], []]
