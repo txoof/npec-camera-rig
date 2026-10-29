@@ -6693,8 +6693,8 @@ those of 19.1, run again (identical).
 | exg join 5 mm (19.1) | 106 | 13 | 16 | 6 | 3.3 | 1, 5 | 0.4 s |
 | exg join 10 mm (19.1) | 103 | 13 | 15 | 6 | 2.8 | 1 | 0.6 s |
 | FastSAM point, exg (19.1) | 101 | 13 | 8 | 5 | 2.0 | 1 | 6.9 s |
-| ExG - ExR join 3 mm | 263 | | 28 | 35 | 25.0 | 1 to 8, 12 | 0.6 s |
-| ExG - ExR join 5 mm | 171 | | 18 | 18 | 10.6 | 1, 2, 3, 5, 6, 12 | 0.6 s |
+| ExG - ExR join 3 mm | 263 | 28 | 28 | 35 | 25.0 | 1 to 8, 12 | 0.6 s |
+| ExG - ExR join 5 mm | 171 | 17 | 18 | 18 | 10.6 | 1, 2, 3, 5, 6, 12 | 0.6 s |
 | ExG - ExR join 10 mm | 153 | 17 | 12 | 7 | 6.3 | 1, 2, 3, 5, 6, 12 | 0.7 s |
 | FastSAM point, ExG - ExR | 97 | 10 | 14 | 18 | 4.6 | 12 | 6.9 s |
 
