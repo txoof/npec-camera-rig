@@ -286,3 +286,62 @@ def test_a_tray_is_found_at_the_calibrations_scale_where_it_lies() -> None:
     small = _scene(boxes=[(400, 400, 1925, 2230)])
     assert len(find_outlines(small, scale_field_from_dict({**EVEN_10, "mean_px_per_mm": 5.0}), 4)) == 1
     assert find_outlines(small, scale_field_from_dict(EVEN_10), 4) == []
+
+
+# Real stills at a quarter of full size, with answers from outside the finder: Aaron's held-out
+# inspection, the rig's tag placement where he accepted it, corners marked by eye
+# (tests/fixtures/trays/blue-finder/README.md).
+BLUE_FIXTURES = Path(__file__).parent / "fixtures" / "trays" / "blue-finder"
+BLUE_EXPECTED = json.loads((BLUE_FIXTURES / "expected.json").read_text())["fixtures"]
+
+
+def _fixture_outlines(name: str):
+    import numpy as np
+    from PIL import Image
+
+    from npec_rig.tray_placement import find_outlines
+
+    fixture = BLUE_EXPECTED[name]
+    with Image.open(BLUE_FIXTURES / f"{name}.jpg") as image:
+        rgb = np.asarray(image.convert("RGB"))
+    return find_outlines(rgb, scale_field_from_dict(fixture["scale_field"]), fixture["factor"])
+
+
+@pytest.mark.parametrize("name", sorted(BLUE_EXPECTED))
+def test_every_tray_in_a_real_still_is_found_once(name: str) -> None:
+    assert len(_fixture_outlines(name)) == BLUE_EXPECTED[name]["count"]
+
+
+@pytest.mark.parametrize("name", sorted(n for n, f in BLUE_EXPECTED.items() if f["trays"]))
+def test_each_tray_found_in_a_real_still_lies_within_30_mm_of_its_known_centre(name: str) -> None:
+    """30 mm, as in #328. A tray only partly in the photo is left out: its outline is the tray's
+    full size from its side inside the photo, not the visible part that was marked."""
+    import math
+
+    fixture = BLUE_EXPECTED[name]
+    scale = scale_field_from_dict(fixture["scale_field"])
+    found = [o.centre for o in _fixture_outlines(name)]
+    for tray in fixture["trays"]:
+        if tray.get("partial"):
+            continue
+        x, y = tray["centre_px"]
+        nearest = min(math.dist((x, y), c) for c in found) / scale.px_per_mm(x, y)
+        assert nearest <= fixture["centre_tolerance_mm"], f"{tray.get('tray_id', tray.get('name'))}: {nearest:.1f} mm"
+
+
+@pytest.mark.parametrize("name", sorted(n for n, f in BLUE_EXPECTED.items() if f["trays"] and "tray_id" in f["trays"][0]))
+def test_each_tray_tag_in_a_real_still_names_the_tray_it_lies_on(name: str) -> None:
+    import math
+
+    from npec_rig.tray_placement import name_trays
+
+    fixture = BLUE_EXPECTED[name]
+    scale = scale_field_from_dict(fixture["scale_field"])
+    tags = [TagDetection(t["tag_id"], tuple(tuple(c) for c in t["corners"]), tuple(t["centre"])) for t in fixture["tags"]]
+    trays = name_trays(_fixture_outlines(name), tags, scale, fixture["slots"])
+    assert {t.found for t in trays} == {"photo + tag"}
+    named = {t.tray_id: t for t in trays}
+    assert sorted(named) == sorted(t["tray_id"] for t in fixture["trays"])
+    for tray in fixture["trays"]:
+        x, y = tray["centre_px"]
+        assert math.dist((x, y), named[tray["tray_id"]].centre) / scale.px_per_mm(x, y) <= 30, f"tray {tray['tray_id']}"
