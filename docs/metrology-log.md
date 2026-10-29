@@ -5915,6 +5915,30 @@ rig's own height effect (2.5% to 3.4% large, above) would make its shortfall at 
 (magenta dots and outline) and the four beads (magenta rings) found by `phone_scan.py`. The
 09:36:53 picture is `figures/17.13/142a6558-corners-beads.jpg`.*
 
+### 17.14 The benchmark rosettes measured by the supervisor with a phone app (#297, noted 2026-10-29)
+
+**Label: reference comparison** (a reference value only; not yet compared with the rig). Given by
+Aaron on 2026-10-29: the supervisor's areas of the four rosettes of "Benchy Yellow-4" (15.1),
+measured with the app iPhonoType on an iPhone.
+
+| Supervisor's name | Area |
+|---|---|
+| Plant 1 | 1692.05 |
+| Plant 2 | 1064.17 |
+| Plant 3 | 611.92 |
+| Plant 4 | 325.37 |
+
+*Method as given.* The supervisor's segmentation uses SAM 2.1 small. His description: "for SAM 2.1
+small: it auto-generate points and box prompts from RGB color-shape cues, run SAM 2.1 small locally
+via ONNX Runtime with cached image embeddings, and then post-process the overlapping masks before
+measuring each plant region." He recommends this approach for #297.
+
+*Not known yet.* The unit (taken to be mm², not confirmed); the date the photos were taken; the
+iPhone model; how the app sets its scale and which height it applies to; which plant is which
+rosette. By size the order is that of the 3D scan per rosette (15.5e: NE 2009.9, SE 1343.7,
+NW 753.4, SW 413.7 mm2), so Plant 1 to 4 would be NE, SE, NW, SW, but this mapping is not
+confirmed. The photos and the app's outlines are not kept in the repository.
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from
