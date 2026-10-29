@@ -6754,3 +6754,41 @@ labels show the mismatch, not results.
 
 **Limits of the evidence.** One still; truth by position, not by tag; plant identity across the
 split pieces not checked one by one. Placing trays from the photo rather than from slots is #328.
+
+## 20. Finding trays from the photo (issue #328, method written 2026-10-29, before the results)
+
+**Label: development check.** Several ways of outlining each tray from the photo itself, rather than
+from a slot, compared on stored stills. This is the first round of the "test before use" of #328
+(decision 9): it chooses which methods go on to the full test, and does not itself clear a method
+for use.
+
+*Stills (read only, copied to the controller; nothing written on the rigs' data).*
+
+| Set | Rig, experiment | Stills | Trays | Known answer |
+|---|---|---|---|---|
+| prod | production, `2026-10-22_df206967` (Potato Plants v001), 2026-10-29 08:30 to 14:30 UTC, one per 30 min | 13 | 12 tagged 4x5, touching within two rows of six; sheets, cards and green squares on parts of 5 trays | the rig's tag placement (`tray_placement.place_trays`, good to about 10 mm, 15.5l) |
+| dev | development, `2026-10-28_8cb40de9`, same times | 13 | 9 untagged 2x2, five north and four south; two layouts (trays moved about 12:15 UTC, two north trays then touching) | top-rim corners marked by eye on full-size crops, repeatable to about 5 px (1 mm); North 1 lies partly outside the frame and is not scored |
+| hard | production, `2026-10-19_ad4876e5` ("simple segmentation test"), the 18 shuffle stills of 15.5 | 18 | 12 tagged 4x5 full of pots, with gaps and touching within rows | the tag placement; it matches the shuffle plan in every still. Tags not detected (tag 5 in 3 stills, tag 1 in 1) leave that tray unscored |
+
+FastSAM-s ran on the development rig's Hailo-10H (Hailo Model Zoo v5.1.0 HEF) over every still at
+three tile sizes (the whole still, 4096 px and 2560 px tiles, objects with score 0.05 or more), one
+still per process with memory capped at 1.5 GB (two runs of several stills per process were killed
+after 4 stills each). The finders run on the controller.
+
+*Scoring, set before the results.* A tray is found when an outline's centre lies within 30 mm of the
+known centre (the distance of decision 2) and the two outlines overlap by at least 80% (intersection
+over union, a guard against an outline of two trays or half a tray), and, where both carry a tray
+ID, the IDs agree. Also counted: outlines that match no tray. Good (Aaron, 2026-10-29): 12 of 12 on
+every prod and hard still, at least 7 of the 8 scored trays on every dev still.
+
+*Methods.* A: FastSAM objects on the blue plastic; B: a blue colour threshold; C: the tag placement
+alone (baseline; finds no untagged tray); D: blue regions first, then rims, seams and corner bumps;
+E: tray-sized rectangles fitted to the whole picture at once. With a tag, the tag decides which tray
+it is. Each method may use only the still, its tags, its scale and the known tray size (305 x 366
+mm), never the known answer or the number of trays. Code: `experiments/round3-tray-outlines/`.
+
+**Limits of the evidence (set before the results).** Three experiments on two rigs; 4x5 and 2x2
+trays only (not the 1x1 or black trays); stills within a set are mostly repeats of one or two
+layouts, so they test steadiness more than variety; the prod and hard known answer is the tag
+placement, so a method that agrees with the tag is not shown to beat it. Methods were developed on
+the same stills they are scored on; the full test of decision 9 needs stills not used here.
