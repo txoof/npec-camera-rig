@@ -6808,3 +6808,44 @@ evenly over every experiment and day, for variety, by looking at a contact sheet
 numbered): the trays really there, and per finder which outlines are wrong and which trays are
 missed. Scored as in section 20: a tray found, missed, an outline wrong, an outline matching no
 tray.
+
+*Result (Aaron's inspection, 2026-10-29; `experiments/round3-tray-outlines/heldout-truth.json`).*
+The sheets were first drawn with the photo-only outlines in light blue, which Aaron could not see
+on the blue trays; they were redrawn in red (`~/scratch/sam297/328-held-2/`, the same outlines)
+and the red outlines rechecked on every still answered before. On still 22 Aaron answered
+"everything right"; the agent then saw that the rims method with tags hidden had 11 outlines and
+missed South 1 under a paper sheet, and it is scored wrong.
+
+| Finder | Stills right, of 22 lit | Wrong on |
+|---|---|---|
+| B blue, photo only | **22** | none |
+| D rims, tags hidden | 14 | 1, 4, 5, 22 (one tray missed, the tray at a frame edge or under a sheet); 14, 15 (south row missed under sheets); 16 (North 6 missed); 7 (a row of 6 extra outlines) |
+| B blue, with tags | 13 | 6, 8, 9, 10, 11, 14, 15, 16, 17 (extra and overlapping outlines) |
+| D rims, with tags | 12 | 1 (South 1 missed); 6, 8, 9, 10, 11, 14, 15, 16, 17 (outlines shifted or extra) |
+
+Both dark stills: no tray found by any finder, as it should be.
+
+- **The photo-only blue finder was right on every still**, both rigs, every kind of scene: trays
+  full of pots, empty trays, calibration sheets on every tray, soil, cards, 2x2 trays.
+- **Every failure of the tag versions comes from tags not placed as the 4x5 cell-A1 tag**: the
+  20 mm edge tags of 15 to 19 October (IDs 13 to 24, and 0 to 17 in pairs) and the tags of the 12
+  to 15 October layout. The tag placement then disagrees with the photo, and the finder returns
+  the tag's tray at the wrong place, or twice (once from the tag, once from the photo). The
+  rims finder with tags shifted outlines with no warning (still 14).
+- The rims finder alone (tags hidden) misses trays whose rims are covered or at the frame edge.
+
+*Figures.* `docs/figures/20.1/held-14-prod_631bb6b5_20261012_133117_986053.jpg`: calibration
+sheets on every tray, 12 October; red (photo only) right, green overlapping, yellow shifted right,
+purple missing the south row. `docs/figures/20.1/held-09-prod_44a9e96e_20261015_120350_220119.jpg`:
+18 tags including edge tags, 15 October; red and purple right, green and yellow with outlines
+everywhere. Both from `heldout.py`, scaled down.
+
+![Held-out still 14, calibration sheets on every tray](figures/20.1/held-14-prod_631bb6b5_20261012_133117_986053.jpg)
+
+![Held-out still 9, edge tags](figures/20.1/held-09-prod_44a9e96e_20261015_120350_220119.jpg)
+
+**Limits of the evidence.** 24 stills, chosen for variety by eye, not at random; truth by one
+person's inspection of quarter-size pictures, so an outline a few mm off its rim is not judged;
+2x2 and 4x5 trays only (no 1x1 or black trays); the finders return which tray from tags only in
+the tag versions, so the photo-only finder's outlines carry no tray ID: joining them to tags is the
+next step, and must not repeat the tag versions' failures.

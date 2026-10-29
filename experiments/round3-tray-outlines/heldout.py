@@ -22,14 +22,15 @@ from harness import Q, VIEW, stills  # noqa: E402
 
 FINDERS = [("B blue, with tags", methods_blue.find), ("B blue, photo only", methods_blue.find_photo_only),
            ("D rims, with tags", methods_rims.find), ("D rims, tags hidden", methods_rims.find_blind)]
-COLOURS = [(0, 220, 0), (255, 160, 0), (0, 200, 255), (255, 0, 255)]
+# Green, red, yellow, purple: all stand out on the blue trays (light blue did not, 2026-10-29).
+COLOURS = [(0, 220, 0), (0, 0, 255), (0, 200, 255), (255, 0, 255)]
 
 
 def panel(still, found, title, colour):
     im = still.quarter.copy()
     for k, f in enumerate(found, 1):
         o = np.int32(np.asarray(f["outline"]) / Q)
-        cv2.polylines(im, [o], True, colour, 5)
+        cv2.polylines(im, [o], True, colour, 9)
         cx, cy = o.mean(0)
         tid = "no tag" if f.get("tray_id") is None else f"tray {f['tray_id']}"
         warn = [w for w in f.get("warnings", []) if w != "no tag"]
