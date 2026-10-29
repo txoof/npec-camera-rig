@@ -264,6 +264,18 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "CREATE INDEX tray_reading_capture ON tray_reading (capture_id, tray_id)",
         ),
     ),
+    (
+        14,
+        "app starts: when the app came back, to measure downtime (#62)",
+        (
+            """
+            CREATE TABLE app_start (
+                id INTEGER PRIMARY KEY,
+                started_at TEXT NOT NULL         -- UTC, ISO 8601
+            )
+            """,
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -754,9 +766,34 @@ def record_scheduled_photos(
         )
 
 
+def record_app_start(started_at: str) -> None:
+    with _connect() as conn:
+        conn.execute("INSERT INTO app_start (started_at) VALUES (?)", (started_at,))
+
+
+def app_starts(after: str) -> list[str]:
+    """When the app started since `after`, oldest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT started_at FROM app_start WHERE started_at > ? ORDER BY started_at", (after,)
+        ).fetchall()
+    return [started_at for (started_at,) in rows]
+
+
+def scheduled_photos_taken(experiment_id: int, schedule_since: str) -> list[dict]:
+    """{"due_at", "taken_at"} of each scheduled photo taken, oldest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT s.due_at, c.taken_at FROM scheduled_photo s JOIN capture c ON c.id = s.capture_id"
+            " WHERE s.experiment_id = ? AND s.schedule_since = ? ORDER BY s.slot",
+            (experiment_id, schedule_since),
+        ).fetchall()
+    return [{"due_at": due_at, "taken_at": taken_at} for due_at, taken_at in rows]
+
+
 def schedule_progress(experiment_id: int, schedule_since: str) -> dict:
-    """The last slot recorded (0 before the first), photos taken and missed, and when the last
-    photo was due."""
+    """The last slot recorded (0 before the first), photos taken and missed, the missed ones
+    counted by reason, and when the last photo was due."""
     with _connect() as conn:
         row = conn.execute(
             "SELECT COALESCE(MAX(slot), 0), COUNT(capture_id), COUNT(missed_reason),"
@@ -764,10 +801,16 @@ def schedule_progress(experiment_id: int, schedule_since: str) -> dict:
             " FROM scheduled_photo WHERE experiment_id = ? AND schedule_since = ?",
             (experiment_id, schedule_since),
         ).fetchone()
+        reasons = conn.execute(
+            "SELECT missed_reason, COUNT(*) FROM scheduled_photo WHERE experiment_id = ?"
+            " AND schedule_since = ? AND missed_reason IS NOT NULL GROUP BY missed_reason",
+            (experiment_id, schedule_since),
+        ).fetchall()
     return {
         "last_slot": row[0],
         "photos_taken": row[1],
         "photos_missed": row[2],
+        "missed_reasons": dict(reasons),
         "last_photo_due_at": row[3],
     }
 

@@ -44,6 +44,7 @@ should be compared as times, not as text.
 | `tray_reading` | One row per tray found in a photo: its slot, A1 corner and centre | `tray_readings.py` |
 | `exclusion` | One row per photo of an experiment: why its plant areas are left out, if they are | `exclusions.py` |
 | `light_warning_dismissal` | One row per dismissal of an experiment's light warning | `exclusions.py` |
+| `app_start` | One row each time the app starts | `scheduler.py` |
 
 ### `camera_events`
 
@@ -171,13 +172,25 @@ experiment is purged, as the record of the schedule.
 | `slot` | integer | 1 for the first photo after the start |
 | `due_at` | text | When the photo was due, UTC (`isoformat()`) |
 | `capture_id` | integer | The photo's `capture` row; NULL when missed |
-| `missed_reason` | text | Why it was not taken; NULL when taken |
+| `missed_reason` | text | Why it was not taken; NULL when taken. `the app was not running` when it was due before the app last started, `the previous photo took longer than the interval` when due since, otherwise the camera's error |
 
 Photos missed in the running period:
 
 ```
 SELECT due_at, missed_reason FROM scheduled_photo WHERE capture_id IS NULL ORDER BY due_at
 ```
+
+### `app_start`
+
+One row each time the app starts (#62), written when its scheduler starts. With the scheduled
+photos it gives each time the app was down during a schedule: from the last photo taken before a
+start until the start. When the app went down is not recorded. Rows are never changed or
+deleted by the rig.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | integer | Row number, increasing |
+| `started_at` | text | When the app started, UTC (`isoformat()`) |
 
 ### `tray_read` and `tray_reading`
 

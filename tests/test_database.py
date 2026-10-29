@@ -321,7 +321,7 @@ def test_version_13_keeps_every_saved_tray_reading_value(monkeypatch: pytest.Mon
             )
             conn.commit()
     with sqlite3.connect(db_path()) as conn:
-        assert database.migrate(conn) == 13
+        assert database.migrate(conn) == database.SCHEMA_VERSION
         row = conn.execute(
             "SELECT id, capture_id, tray_id, slot, a1_corner, placement, centre_x_px, centre_y_px, tilt_deg,"
             " margin_mm, area_mm2, segmenter, plant_px, plant_centre_x_px, plant_centre_y_px, calibration,"

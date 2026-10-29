@@ -1,6 +1,12 @@
 [Unit]
 Description=NPEC Camera Rig web console
-After=network.target
+After=network.target time-sync.target
+# Start once the clock has the network time (#62). After a power cut the Pi's clock can be old
+# until then; an app started on it would record the photos missed while the power was off as
+# missed behind a slow photo, and their times wrong. Needs systemd-time-wait-sync enabled
+# (README.md); time-wait-limit.conf stops the wait after 120 s, so with no network the app
+# still starts, on the clock it has.
+Wants=time-sync.target
 # Never give up restarting (#62): a running experiment resumes as soon as the app is back.
 StartLimitIntervalSec=0
 
