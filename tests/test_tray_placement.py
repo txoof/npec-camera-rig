@@ -148,3 +148,75 @@ def test_the_outline_is_the_trays_measured_size_at_the_tags_scale() -> None:
         sides = [math.dist(p.outline[i], p.outline[(i + 1) % 4]) / ppm for i in range(4)]
         # Tape measure, reference/trays.md: 305.0 mm east-west, 366.0 mm north-south.
         assert sides == pytest.approx([305.0, 366.0, 305.0, 366.0], abs=0.01), f"tray {p.tray_id}"
+
+
+# --- Naming outlines found in the photo from the tags inside them (#331) -------------------------
+# Worked examples at an even 10 px/mm: a tray 305 x 366 mm is 3050 x 3660 px.
+
+EVEN_10 = {"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 10.0, "residual_std_pct": 0.0}
+
+
+def _box_outline(x0: float, y0: float, edge: bool = False):
+    from npec_rig.tray_placement import TrayOutline
+
+    corners = ((x0, y0), (x0 + 3050, y0), (x0 + 3050, y0 + 3660), (x0, y0 + 3660))
+    return TrayOutline(corners=corners, centre=(x0 + 1525, y0 + 1830), tilt_deg=0.0, edge=edge)
+
+
+def _tag_at(tag_id: int, x: float, y: float) -> TagDetection:
+    return TagDetection(tag_id, ((x - 200, y - 200), (x + 200, y - 200), (x + 200, y + 200), (x - 200, y + 200)), (x, y))
+
+
+def test_a_tag_names_the_outline_its_centre_lies_inside_wherever_it_lies_in_the_tray() -> None:
+    from npec_rig.tray_placement import name_trays
+
+    # Tag 4 near the outline's north-east corner, not in cell A1: it still names the outline.
+    outline = _box_outline(1000, 500)
+    [tray] = name_trays([outline], [_tag_at(4, 3700, 900)], scale_field_from_dict(EVEN_10),
+                        [{"name": "North 1", "centre": [2525, 2330]}])
+    assert (tray.tray_id, tray.found, tray.warnings) == (4, "photo + tag", ())
+    assert tray.outline == outline.corners
+    assert tray.centre == (2525, 2330)
+    assert tray.slot == "North 1"
+
+
+def test_an_outline_with_no_tag_inside_keeps_its_outline_with_no_tray_id_and_says_no_tag() -> None:
+    from npec_rig.tray_placement import name_trays
+
+    outline = _box_outline(1000, 500)
+    [tray] = name_trays([outline], [], scale_field_from_dict(EVEN_10), None)
+    assert (tray.tray_id, tray.found, tray.warnings, tray.slot) == (None, "photo, no tag", ("no tag",), None)
+    assert tray.outline == outline.corners
+
+
+def test_two_tags_in_one_outline_both_get_it_and_both_say_so() -> None:
+    from npec_rig.tray_placement import name_trays
+
+    outline = _box_outline(1000, 500)
+    trays = name_trays([outline], [_tag_at(4, 1500, 3800), _tag_at(9, 3700, 900)], scale_field_from_dict(EVEN_10), None)
+    assert sorted((t.tray_id, t.found, t.warnings) for t in trays) == [
+        (4, "photo + tag", ("two tags in one tray outline",)),
+        (9, "photo + tag", ("two tags in one tray outline",)),
+    ]
+    assert all(t.outline == outline.corners for t in trays)
+
+
+def test_a_tag_inside_no_outline_is_placed_from_the_tag_as_before_and_says_so() -> None:
+    """No tray found in the photo (a black tray, one under a sheet): each tray tag of layout 2 is
+    placed from its tag in the slot and corner of the printed map, with the warning."""
+    from npec_rig.tray_placement import name_trays
+
+    trays = name_trays([], _detections("080357_563754"), scale_field_from_dict(FIXTURE["scale_field"]), FIXTURE["slots"])
+    assert {t.tray_id: (t.slot, t.a1_corner) for t in trays} == LAYOUTS["080357_563754"]
+    assert {(t.found, t.warnings) for t in trays} == {("tag only", ("tray not found in the photo, placed from its tag",))}
+
+
+def test_an_outline_cut_from_blue_touching_the_photo_edge_says_partly_outside_the_photo() -> None:
+    from npec_rig.tray_placement import name_trays
+
+    tagged, untagged = _box_outline(0, 500, edge=True), _box_outline(3050, 500, edge=True)
+    trays = name_trays([tagged, untagged], [_tag_at(4, 1500, 3800)], scale_field_from_dict(EVEN_10), None)
+    assert sorted((t.tray_id or 0, t.warnings) for t in trays) == [
+        (0, ("no tag", "partly outside the photo")),
+        (4, ("partly outside the photo",)),
+    ]

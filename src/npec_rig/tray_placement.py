@@ -38,16 +38,31 @@ CLOSE_CALL_MM = 50.0
 
 @dataclass(frozen=True)
 class TrayPlacement:
-    """One tray, placed from its tag. Positions in full-size photo pixels."""
+    """One tray, placed from its tag or found in the photo (#331). Positions in full-size photo
+    pixels. What is not known is None: the tray ID of an outline with no tag, the slot without a
+    slot layout, the A1 corner and margin of a tray found in the photo."""
 
-    tray_id: int
+    tray_id: int | None
     centre: tuple[float, float]
-    slot: str
-    a1_corner: str  # "SW", or "NE" (tray turned 180)
+    slot: str | None
+    a1_corner: str | None  # "SW", or "NE" (tray turned 180)
     tilt_deg: float
     outline: tuple[tuple[float, float], ...]  # the tray's four outside corners, turned by the tilt
-    margin_mm: float  # how much nearer a slot the chosen candidate is than the other
+    margin_mm: float | None  # how much nearer a slot the chosen candidate is than the other
     status: str = "placed"  # or "close call", "two trays in one slot"
+    found: str = "tag only"  # or "photo + tag", "photo, no tag"
+    warnings: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class TrayOutline:
+    """One tray found in the photo from its blue plastic (`find_outlines`), in full-size photo
+    pixels."""
+
+    corners: tuple[tuple[float, float], ...]  # four outside corners
+    centre: tuple[float, float]
+    tilt_deg: float
+    edge: bool  # the blue piece it was cut from touches the photo's edge
 
 
 def _tilt_deg(tag: TagDetection) -> float:
@@ -103,3 +118,48 @@ def place_trays(detections: list[TagDetection], scale_field: ScaleField, slots: 
         ))
     per_slot = Counter(p.slot for p in out)
     return [replace(p, status="two trays in one slot") if per_slot[p.slot] > 1 else p for p in out]
+
+
+def _inside(point: tuple[float, float], corners: tuple[tuple[float, float], ...]) -> bool:
+    """Whether `point` lies inside the convex outline `corners` (either winding)."""
+    signs = set()
+    for (x0, y0), (x1, y1) in zip(corners, corners[1:] + corners[:1], strict=True):
+        cross = (x1 - x0) * (point[1] - y0) - (y1 - y0) * (point[0] - x0)
+        if cross:
+            signs.add(cross > 0)
+    return len(signs) < 2
+
+
+def name_trays(
+    outlines: list[TrayOutline], detections: list[TagDetection], scale_field: ScaleField, slots: list[dict] | None
+) -> list[TrayPlacement]:
+    """Each outline found in the photo named by the tray tag whose centre lies inside it, wherever
+    the tag lies in the tray (#331): its place in the tray is never used."""
+    tags = [t for t in detections if t.tag_id in TRAY_ID_RANGE]
+    out = []
+    for outline in outlines:
+        named = [t for t in tags if _inside(t.centre, outline.corners)]
+        slot = _nearest_slot(*outline.centre, slots)[0] if slots else None
+        edge = ("partly outside the photo",) if outline.edge else ()
+        if not named:
+            out.append(TrayPlacement(
+                tray_id=None, centre=outline.centre, slot=slot, a1_corner=None, tilt_deg=outline.tilt_deg,
+                outline=outline.corners, margin_mm=None, found="photo, no tag", warnings=("no tag", *edge),
+            ))
+        # A merge the cut did not split, or two tags on one tray: both trays keep the outline.
+        warnings = (*(("two tags in one tray outline",) if len(named) > 1 else ()), *edge)
+        for tag in named:
+            out.append(TrayPlacement(
+                tray_id=tag.tag_id, centre=outline.centre, slot=slot, a1_corner=None, tilt_deg=outline.tilt_deg,
+                outline=outline.corners, margin_mm=None, found="photo + tag", warnings=warnings,
+            ))
+    # A tray tag in no outline: the tray was not found in the photo (not blue, under a sheet), so
+    # it is placed from its tag as before (`place_trays`). That needs the slot layout.
+    named_ids = {id(t) for o in outlines for t in tags if _inside(t.centre, o.corners)}
+    loose = [t for t in tags if id(t) not in named_ids]
+    if loose and slots:
+        out += [
+            replace(p, found="tag only", warnings=("tray not found in the photo, placed from its tag",))
+            for p in place_trays(loose, scale_field, slots)
+        ]
+    return out
