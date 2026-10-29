@@ -220,3 +220,69 @@ def test_an_outline_cut_from_blue_touching_the_photo_edge_says_partly_outside_th
         (0, ("no tag", "partly outside the photo")),
         (4, ("partly outside the photo",)),
     ]
+
+
+# --- Trays found in the photo from their blue plastic (#331) -------------------------------------
+# Drawn scenes, a quarter of full size: tray blue (RGB 40, 90, 200: OpenCV hue 110, saturation
+# 204, value 200, inside the sampled tray plastic) on grey table. At an even 10 px/mm a tray is
+# 3050 x 3660 full-size px, 762.5 x 915 at a quarter.
+
+TRAY_BLUE = (40, 90, 200)
+
+
+def _scene(size=(1100, 1300), boxes=()):
+    """A grey quarter-size photo (width, height) with blue boxes given in FULL-size px
+    (x0, y0, x1, y1)."""
+    import numpy as np
+
+    image = np.full((size[1], size[0], 3), 128, np.uint8)
+    for x0, y0, x1, y1 in boxes:
+        image[round(y0 / 4):round(y1 / 4), round(x0 / 4):round(x1 / 4)] = TRAY_BLUE
+    return image
+
+
+def _flat(corners) -> list[float]:
+    return [v for corner in sorted(corners) for v in corner]
+
+
+def test_one_blue_tray_is_found_where_it_was_drawn() -> None:
+    from npec_rig.tray_placement import find_outlines
+
+    [tray] = find_outlines(_scene(boxes=[(400, 400, 3450, 4060)]), scale_field_from_dict(EVEN_10), 4)
+    assert tray.centre == pytest.approx((1925, 2230), abs=10)  # 1 mm
+    assert _flat(tray.corners) == pytest.approx(_flat([(400, 400), (3450, 400), (3450, 4060), (400, 4060)]), abs=10)
+    assert tray.edge is False
+
+
+def test_two_touching_trays_in_one_blue_piece_are_cut_into_two_at_the_tray_size() -> None:
+    """Two trays side by side with no gap, 6100 x 3660 px: the cut lies at x 400 + 3050 = 3450."""
+    from npec_rig.tray_placement import find_outlines
+
+    trays = find_outlines(_scene((1800, 1300), [(400, 400, 6500, 4060)]), scale_field_from_dict(EVEN_10), 4)
+    assert sorted(t.centre for t in trays) == [pytest.approx((1925, 2230), abs=10), pytest.approx((4975, 2230), abs=10)]
+
+
+def test_a_photo_with_no_blue_finds_no_trays() -> None:
+    from npec_rig.tray_placement import find_outlines
+
+    assert find_outlines(_scene(), scale_field_from_dict(EVEN_10), 4) == []
+
+
+def test_a_tray_cut_off_by_the_photo_edge_is_cut_from_the_side_inside_the_photo() -> None:
+    """A tray reaching 600 px past the west edge: 2450 px of it shows. Its outline is the tray's
+    full 3050 px, measured from its east side (x 2450), so the centre is at x 2450 - 1525 = 925."""
+    from npec_rig.tray_placement import find_outlines
+
+    [tray] = find_outlines(_scene(boxes=[(0, 400, 2450, 4060)]), scale_field_from_dict(EVEN_10), 4)
+    assert tray.centre == pytest.approx((925, 2230), abs=10)
+    assert tray.edge is True
+
+
+def test_a_tray_is_found_at_the_calibrations_scale_where_it_lies() -> None:
+    """At 5 px/mm a tray is 1525 x 1830 px. Drawn that size it is one tray; at 10 px/mm it would
+    be under half a tray and not a tray at all."""
+    from npec_rig.tray_placement import find_outlines
+
+    small = _scene(boxes=[(400, 400, 1925, 2230)])
+    assert len(find_outlines(small, scale_field_from_dict({**EVEN_10, "mean_px_per_mm": 5.0}), 4)) == 1
+    assert find_outlines(small, scale_field_from_dict(EVEN_10), 4) == []

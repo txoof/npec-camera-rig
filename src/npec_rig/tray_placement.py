@@ -1,4 +1,12 @@
-"""Trays placed on a photo from the tag in their cell A1 (#220).
+"""Trays found in a photo from their blue plastic and named by the tag inside them (#331), or
+placed from the tag in their cell A1 when the photo shows no tray there (#220).
+
+Found in the photo (`find_outlines`, metrology log 20 and 20.1): the blue finder of
+`experiments/round3-tray-outlines/methods_blue.py`, photo only, tags never used for where a tray
+is. Named (`name_trays`): a tray tag names the outline its centre lies inside, wherever it lies
+in the tray.
+
+Placed from the tag (`place_trays`):
 
 The method of metrology log 15.5h to 15.5l, written fresh from `experiments/round1-trays/shuffle.py`
 (`place_any_rotation`): geometry on the tag detections, no image segmentation.
@@ -17,6 +25,9 @@ The tag's heading is never used for which way the tray faces, only for its tilt.
 import math
 from collections import Counter
 from dataclasses import dataclass, replace
+
+import cv2
+import numpy as np
 
 from npec_rig.calibration import ScaleField
 from npec_rig.tags import TRAY_ID_RANGE, TagDetection
@@ -162,4 +173,166 @@ def name_trays(
             replace(p, found="tag only", warnings=("tray not found in the photo, placed from its tag",))
             for p in place_trays(loose, scale_field, slots)
         ]
+    return out
+
+
+# --- Found in the photo: the blue finder (#331) ------------------------------------------------
+# Parameters of `find_photo_only` in experiments/round3-tray-outlines/methods_blue.py, frozen
+# before the held-out test (commit 49c868e, metrology log 20.1), tuned on quarter-size stills.
+
+# Tray plastic, HSV in OpenCV's ranges. Sampled on both rigs: hue 103 to 119 (1st to 99th
+# percentile), saturation 5th percentile 106 to 134. Table and white paper: saturation under 50;
+# soil, paper shadows and the yellow card hue 0 to 30; plants and green squares hue 35 to 80.
+BLUE_HUE = (95, 130)
+BLUE_SAT_MIN = 90
+BLUE_VALUE_MIN = 50  # every blue pixel, shaded walls included
+# The lit top rim: blue pixels brighter than this times the photo's 75th percentile of blue value,
+# so it follows exposure. The rim faces the lights (value 140 to 200); shaded side walls, lower
+# stacked trays and crate rims are darker (60 to 110). Scored the same from 0.60 to 0.70, lost
+# trays at 0.80.
+RIM_VALUE_REL = 0.65
+# Pieces under this share of one tray's area are noise (a broken thin rim piece is about 1%).
+MIN_PIECE = 0.003
+# Two pieces merge when together they fit one tray with this slack (a leaf or a sheet across a rim
+# splits a tray; a development tray with its crate needs 1.09), unless both are a whole tray
+# (hull over 85% of a tray).
+MERGE_SLACK = 1.12
+WHOLE_TRAY = 0.85
+# A hull under this share of a tray's area, or narrower than this share of its short side, is not
+# a tray (blue bits of the ceiling, strips of lower trays).
+MIN_TRAY_AREA = 0.4
+MIN_TRAY_WIDTH = 0.6
+# A cell lying more than this share on a cell already accepted (from a bigger piece) is dropped:
+# fragments of two touching trays merged into a false tray.
+MAX_OVERLAP = 0.25
+
+
+def _blue_rim(image: np.ndarray) -> np.ndarray:
+    hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    h, s, v = cv2.split(hsv)
+    loose = (h >= BLUE_HUE[0]) & (h <= BLUE_HUE[1]) & (s >= BLUE_SAT_MIN) & (v >= BLUE_VALUE_MIN)
+    if not loose.any():
+        return np.zeros(h.shape, np.uint8)
+    rim = (loose & (v >= RIM_VALUE_REL * np.percentile(v[loose], 75))).astype(np.uint8)
+    return cv2.morphologyEx(rim, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+
+
+def _fill_holes(piece: np.ndarray) -> np.ndarray:
+    flood = np.pad(piece, 1).copy()
+    cv2.floodFill(flood, np.zeros((flood.shape[0] + 2, flood.shape[1] + 2), np.uint8), (0, 0), 1)
+    return piece | (flood[1:-1, 1:-1] == 0).astype(np.uint8)
+
+
+def _tray_px(hull: np.ndarray, scale_field: ScaleField, factor: float) -> tuple[float, float]:
+    """A tray's short and long side in image pixels at the scale where `hull` lies."""
+    cx, cy = hull.mean(axis=0)
+    ppm = scale_field.px_per_mm(cx * factor, cy * factor) / factor
+    return TRAY_SIZE_MM[0] * ppm, TRAY_SIZE_MM[1] * ppm
+
+
+def _fits_one_tray(hull: np.ndarray, short: float, long: float, slack: float) -> bool:
+    w, h = sorted(cv2.minAreaRect(hull.astype(np.float32))[1])
+    return w <= short * slack and h <= long * slack
+
+
+def _cells(hull: np.ndarray, short: float, long: float, shape: tuple[int, int]) -> tuple[list[np.ndarray], bool]:
+    """`hull` cut into tray cells of the known size: its minimum-area rectangle, trays along each
+    axis = round(extent / tray size) for the orientation that fits best. Along each axis the cells
+    are centred on the hull, or aligned away from a frame edge the hull touches (the tray there
+    may reach past the photo). Also whether the hull touches the frame edge."""
+    (_cx, _cy), (w, h), angle = cv2.minAreaRect(hull.astype(np.float32))
+    best = None
+    for tu, tv in ((short, long), (long, short)):
+        nu, nv = max(1, round(w / tu)), max(1, round(h / tv))
+        err = abs(w - nu * tu) / tu + abs(h - nv * tv) / tv
+        if best is None or err < best[0]:
+            best = (err, nu, nv, tu, tv)
+    _err, nu, nv, tu, tv = best
+    t = math.radians(angle)
+    u, v = np.array([math.cos(t), math.sin(t)]), np.array([-math.sin(t), math.cos(t)])
+    height, width = shape
+    border = (hull[:, 0] <= 2) | (hull[:, 1] <= 2) | (hull[:, 0] >= width - 3) | (hull[:, 1] >= height - 3)
+
+    def start(p: np.ndarray, n: int, size: float) -> float:
+        lo, hi = p.min(), p.max()
+        at_lo, at_hi = bool(np.any(border & (p <= lo + 4))), bool(np.any(border & (p >= hi - 4)))
+        if at_lo and not at_hi:
+            return hi - n * size / 2
+        if at_hi and not at_lo:
+            return lo + n * size / 2
+        return (lo + hi) / 2
+
+    cu, cv_ = start(hull @ u, nu, tu), start(hull @ v, nv, tv)
+    cells = []
+    for i in range(nu):
+        for j in range(nv):
+            c = u * (cu + (i - (nu - 1) / 2) * tu) + v * (cv_ + (j - (nv - 1) / 2) * tv)
+            cells.append(np.array([c + a * u * tu / 2 + b * v * tv / 2 for a, b in ((-1, -1), (1, -1), (1, 1), (-1, 1))]))
+    return cells, bool(border.any())
+
+
+def _tray_outline(cell: np.ndarray, factor: float, edge: bool) -> TrayOutline:
+    """A cell in image pixels as a TrayOutline in full-size pixels: corners clockwise on the photo
+    from the one nearest its top-left, tilt the turn of its sides off the image axes."""
+    full = cell * factor
+    centre = full.mean(axis=0)
+    order = np.argsort(np.arctan2(full[:, 1] - centre[1], full[:, 0] - centre[0]))
+    full = full[order]
+    first = int(np.argmin(full.sum(axis=1)))
+    full = np.roll(full, -first, axis=0)
+    dx, dy = full[1] - full[0]
+    tilt = (math.degrees(math.atan2(dy, dx)) + 45) % 90 - 45
+    return TrayOutline(
+        corners=tuple((float(x), float(y)) for x, y in full), centre=(float(centre[0]), float(centre[1])),
+        tilt_deg=tilt, edge=edge,
+    )
+
+
+def find_outlines(image: np.ndarray, scale_field: ScaleField, factor: float) -> list[TrayOutline]:
+    """Every tray in `image` (RGB, `factor` times smaller than the full-size photo; the parameters
+    were tuned at 4) found from its blue plastic, as outlines in full-size photo pixels. Tags are
+    not used. Every tray is taken to be 305 x 366 mm (`TRAY_SIZE_MM`), at the calibration's scale
+    where it lies."""
+    rim = _blue_rim(image)
+    n, labels, stats, _centres = cv2.connectedComponentsWithStats(rim, connectivity=8)
+    pieces = []
+    for k in range(1, n):
+        x, y, w, h, area = stats[k]
+        piece = _fill_holes((labels[y:y + h, x:x + w] == k).astype(np.uint8))
+        contours, _ = cv2.findContours(piece, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        hull = cv2.convexHull(max(contours, key=cv2.contourArea) + np.array([x, y])).reshape(-1, 2).astype(float)
+        short, long = _tray_px(hull, scale_field, factor)
+        if area >= MIN_PIECE * short * long:
+            pieces.append(hull)
+    merged = True
+    while merged:
+        merged = False
+        for i in range(len(pieces)):
+            for j in range(i + 1, len(pieces)):
+                a, b = pieces[i], pieces[j]
+                joint = cv2.convexHull(np.vstack([a, b]).astype(np.float32)).reshape(-1, 2).astype(float)
+                short, long = _tray_px(joint, scale_field, factor)
+                whole = [cv2.contourArea(p.astype(np.float32)) > WHOLE_TRAY * short * long for p in (a, b)]
+                if not all(whole) and _fits_one_tray(joint, short, long, MERGE_SLACK):
+                    pieces[i] = joint
+                    del pieces[j]
+                    merged = True
+                    break
+            if merged:
+                break
+    accepted: list[np.ndarray] = []
+    out = []
+    for hull in sorted(pieces, key=lambda p: -cv2.contourArea(p.astype(np.float32))):
+        short, long = _tray_px(hull, scale_field, factor)
+        if cv2.contourArea(hull.astype(np.float32)) < MIN_TRAY_AREA * short * long:
+            continue
+        if min(cv2.minAreaRect(hull.astype(np.float32))[1]) < MIN_TRAY_WIDTH * short:
+            continue
+        cells, edge = _cells(hull, short, long, rim.shape)
+        for cell in cells:
+            c = cell.astype(np.float32)
+            if any(cv2.intersectConvexConvex(c, a)[0] > MAX_OVERLAP * cv2.contourArea(c) for a in accepted):
+                continue
+            accepted.append(c)
+            out.append(_tray_outline(cell, factor, edge))
     return out
