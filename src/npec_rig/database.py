@@ -264,6 +264,42 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "CREATE INDEX tray_reading_capture ON tray_reading (capture_id, tray_id)",
         ),
     ),
+    (
+        14,
+        "tray readings: trays found in the photo, with or without a tag (#331)",
+        # NOT NULL cannot be dropped either: copied into a table where what a tray found in the
+        # photo may not know is nullable.
+        (
+            """
+            CREATE TABLE tray_reading_14 (
+                id INTEGER PRIMARY KEY,
+                capture_id INTEGER NOT NULL REFERENCES tray_read (capture_id),
+                tray_id INTEGER,                 -- the tag ID inside the outline; NULL: no tag
+                slot TEXT,                       -- nearest slot of the calibration's layout; NULL: no layout
+                a1_corner TEXT,                  -- SW, or NE (turned 180); placed from the tag only, else NULL
+                placement TEXT NOT NULL,         -- placed, close call, two trays in one slot
+                centre_x_px REAL NOT NULL,       -- tray centre, full-size photo pixels
+                centre_y_px REAL NOT NULL,
+                tilt_deg REAL NOT NULL,
+                margin_mm REAL,                  -- placed from the tag only, else NULL
+                area_mm2 REAL,                   -- NULL when not worked out
+                segmenter TEXT,                  -- e.g. "green threshold, 0.1"; NULL with no area
+                plant_px INTEGER,                -- plant pixels inside the tray outline
+                plant_centre_x_px REAL,          -- their centre, full-size photo pixels
+                plant_centre_y_px REAL,
+                calibration TEXT,                -- the calibration area_mm2 was worked out with
+                outside_mm REAL,                 -- 0 when inside; NULL: read before #282
+                found TEXT,                      -- photo + tag, photo, no tag, tag only; NULL: read before #331
+                warnings TEXT,                   -- JSON list of warning words; NULL: read before #331
+                outline TEXT                     -- JSON [[x, y]] x 4, full-size photo pixels; NULL: read before #331
+            )
+            """,
+            "INSERT INTO tray_reading_14 (id, capture_id, tray_id, slot, a1_corner, placement, centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter, plant_px, plant_centre_x_px, plant_centre_y_px, calibration, outside_mm) SELECT id, capture_id, tray_id, slot, a1_corner, placement, centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter, plant_px, plant_centre_x_px, plant_centre_y_px, calibration, outside_mm FROM tray_reading",
+            "DROP TABLE tray_reading",
+            "ALTER TABLE tray_reading_14 RENAME TO tray_reading",
+            "CREATE INDEX tray_reading_capture ON tray_reading (capture_id, tray_id)",
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -387,16 +423,21 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
         conn.executemany(
             "INSERT INTO tray_reading (capture_id, tray_id, slot, a1_corner, placement,"
             " centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter,"
-            " plant_px, plant_centre_x_px, plant_centre_y_px, calibration, outside_mm)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " plant_px, plant_centre_x_px, plant_centre_y_px, calibration, outside_mm, found, warnings, outline)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (capture_id, t["tray_id"], t["slot"], t["a1_corner"], t["placement"],
                  t["centre_px"][0], t["centre_px"][1], t["tilt_deg"], t["margin_mm"],
                  t.get("area_mm2"), t.get("segmenter"), t.get("plant_px"),
-                 *(t.get("plant_centre_px") or (None, None)), t.get("calibration"), t.get("outside_mm"))
+                 *(t.get("plant_centre_px") or (None, None)), t.get("calibration"), t.get("outside_mm"),
+                 t.get("found"), _json_or_none(t.get("warnings")), _json_or_none(t.get("outline_px")))
                 for t in trays
             ],
         )
+
+
+def _json_or_none(value: object) -> str | None:
+    return None if value is None else json.dumps(value)
 
 
 def tray_readings(capture_id: int) -> dict | None:
@@ -428,12 +469,14 @@ def tray_readings(capture_id: int) -> dict | None:
                 " WHERE tray_read.status = 'read' AND capture.experiment_id = ? AND capture.taken_at <= ?"
             )
             args = (read["experiment_id"], read["taken_at"])
-            # SQLite takes the bare `slot` from the row holding the MAX: the newest slot.
+            # SQLite takes the bare `slot` from the row holding the MAX: the newest slot. A tray
+            # with no tag (#331) cannot be followed from photo to photo: left out on both sides.
             last_seen = conn.execute(
                 "SELECT tray_id, MAX(capture.taken_at), slot FROM tray_reading"
                 " JOIN capture ON capture.id = tray_reading.capture_id"
-                " WHERE capture.experiment_id = ? AND capture.taken_at <= ?"
-                " AND tray_id NOT IN (SELECT tray_id FROM tray_reading WHERE capture_id = ?)"
+                " WHERE capture.experiment_id = ? AND capture.taken_at <= ? AND tray_id IS NOT NULL"
+                " AND tray_id NOT IN"
+                " (SELECT tray_id FROM tray_reading WHERE capture_id = ? AND tray_id IS NOT NULL)"
                 " GROUP BY tray_id ORDER BY tray_id",
                 (*args, capture_id),
             ).fetchall()
@@ -452,7 +495,10 @@ def tray_readings(capture_id: int) -> dict | None:
                 earlier = conn.execute("SELECT * FROM tray_reading WHERE capture_id = ?", (previous[0],)).fetchall()
                 # A tag two trays carry, in either photo, says nothing about which tray moved (#302).
                 shared = {t for photo in (earlier, rows) for t, n in Counter(r["tray_id"] for r in photo).items() if n > 1}
-                before = {r["tray_id"]: [r["slot"], r["a1_corner"]] for r in earlier if r["tray_id"] not in shared}
+                before = {
+                    r["tray_id"]: [r["slot"], r["a1_corner"]]
+                    for r in earlier if r["tray_id"] is not None and r["tray_id"] not in shared
+                }
                 moved = [
                     {"tray_id": r["tray_id"], "from": before[r["tray_id"]], "to": [r["slot"], r["a1_corner"]]}
                     for r in rows
@@ -465,7 +511,9 @@ def tray_readings(capture_id: int) -> dict | None:
             "tilt_deg": r["tilt_deg"], "margin_mm": r["margin_mm"], "area_mm2": r["area_mm2"],
             "segmenter": r["segmenter"], "plant_px": r["plant_px"],
             "plant_centre_px": None if r["plant_centre_x_px"] is None else [r["plant_centre_x_px"], r["plant_centre_y_px"]],
-            "calibration": r["calibration"], "outside_mm": r["outside_mm"],
+            "calibration": r["calibration"], "outside_mm": r["outside_mm"], "found": r["found"],
+            "warnings": [] if r["warnings"] is None else json.loads(r["warnings"]),
+            "outline_px": None if r["outline"] is None else json.loads(r["outline"]),
         }
         for r in rows
     ]
