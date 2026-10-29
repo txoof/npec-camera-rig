@@ -375,3 +375,18 @@ def test_a_tray_with_no_tag_is_never_listed_as_moved() -> None:
     database.record_tray_readings(second, read_at="t", status="read", trays=[_tray(1), _untagged("S3")])
 
     assert database.tray_readings(second)["moved"] == []
+
+
+def test_a_tray_with_no_slot_is_never_listed_as_moved() -> None:
+    """#331: trays found in the photo have no slot; a tray read before (in North 1) and after is
+    not a tray moved. Moves without slots are left for later."""
+    experiment_id = _experiment()
+    first = _photo("2026-10-29T07:00:00+00:00", experiment_id)
+    database.record_tray_readings(first, read_at="t", status="read", trays=[_tray(1, "North 1")])
+    second = _photo("2026-10-29T07:01:00+00:00", experiment_id)
+    tag_only = {**_tray(1, None), "a1_corner": None, "margin_mm": None, "found": "tag only",
+                "warnings": ["tag seen, tray not found in the photo"], "outline_px": None}
+    database.record_tray_readings(second, read_at="t", status="read", trays=[tag_only])
+
+    assert database.tray_readings(second)["moved"] == []
+    assert database.tray_readings(second)["trays"][0]["outline_px"] is None

@@ -50,17 +50,18 @@ CLOSE_CALL_MM = 50.0
 @dataclass(frozen=True)
 class TrayPlacement:
     """One tray, placed from its tag or found in the photo (#331). Positions in full-size photo
-    pixels. What is not known is None: the tray ID of an outline with no tag, the slot without a
-    slot layout, the A1 corner and margin of a tray found in the photo."""
+    pixels. What is not known is None: the tray ID of an outline with no tag, the outline of a tag
+    whose tray was not found, the slot, A1 corner and margin of every tray not placed by
+    `place_trays`."""
 
     tray_id: int | None
     centre: tuple[float, float]
     slot: str | None
     a1_corner: str | None  # "SW", or "NE" (tray turned 180)
     tilt_deg: float
-    outline: tuple[tuple[float, float], ...]  # the tray's four outside corners, turned by the tilt
+    outline: tuple[tuple[float, float], ...] | None  # four outside corners; None: a tag seen, no tray found
     margin_mm: float | None  # how much nearer a slot the chosen candidate is than the other
-    status: str = "placed"  # or "close call", "two trays in one slot"
+    status: str = "placed"  # or "close call", "two trays in one slot" (place_trays), "two tags in one outline"
     found: str = "tag only"  # or "photo + tag", "photo, no tag"
     warnings: tuple[str, ...] = ()
 
@@ -141,38 +142,37 @@ def _inside(point: tuple[float, float], corners: tuple[tuple[float, float], ...]
     return len(signs) < 2
 
 
-def name_trays(
-    outlines: list[TrayOutline], detections: list[TagDetection], scale_field: ScaleField, slots: list[dict] | None
-) -> list[TrayPlacement]:
+def name_trays(outlines: list[TrayOutline], detections: list[TagDetection], scale_field: ScaleField) -> list[TrayPlacement]:
     """Each outline found in the photo named by the tray tag whose centre lies inside it, wherever
-    the tag lies in the tray (#331): its place in the tray is never used."""
+    the tag lies in the tray (#331): its place in the tray is never used. A tray tag inside no
+    outline is reported where it lies, with no outline: the tray was not found in the photo (not
+    blue, under a sheet), and a tray placed from the tag assumed it lay in cell A1, putting edge
+    tags and second tags about 176 mm off (#331). Trays can lie anywhere on the table: no slot."""
     tags = [t for t in detections if t.tag_id in TRAY_ID_RANGE]
     out = []
     for outline in outlines:
         named = [t for t in tags if _inside(t.centre, outline.corners)]
-        slot = _nearest_slot(*outline.centre, slots)[0] if slots else None
         edge = ("partly outside the photo",) if outline.edge else ()
         if not named:
             out.append(TrayPlacement(
-                tray_id=None, centre=outline.centre, slot=slot, a1_corner=None, tilt_deg=outline.tilt_deg,
+                tray_id=None, centre=outline.centre, slot=None, a1_corner=None, tilt_deg=outline.tilt_deg,
                 outline=outline.corners, margin_mm=None, found="photo, no tag", warnings=("no tag", *edge),
             ))
         # A merge the cut did not split, or two tags on one tray: both trays keep the outline.
-        warnings = (*(("two tags in one tray outline",) if len(named) > 1 else ()), *edge)
+        shared = len(named) > 1
+        warnings = (*(("two tags in one tray outline",) if shared else ()), *edge)
         for tag in named:
             out.append(TrayPlacement(
-                tray_id=tag.tag_id, centre=outline.centre, slot=slot, a1_corner=None, tilt_deg=outline.tilt_deg,
-                outline=outline.corners, margin_mm=None, found="photo + tag", warnings=warnings,
+                tray_id=tag.tag_id, centre=outline.centre, slot=None, a1_corner=None, tilt_deg=outline.tilt_deg,
+                outline=outline.corners, margin_mm=None, status="two tags in one outline" if shared else "placed",
+                found="photo + tag", warnings=warnings,
             ))
-    # A tray tag in no outline: the tray was not found in the photo (not blue, under a sheet), so
-    # it is placed from its tag as before (`place_trays`). That needs the slot layout.
-    named_ids = {id(t) for o in outlines for t in tags if _inside(t.centre, o.corners)}
-    loose = [t for t in tags if id(t) not in named_ids]
-    if loose and slots:
-        out += [
-            replace(p, found="tag only", warnings=("tray not found in the photo, placed from its tag",))
-            for p in place_trays(loose, scale_field, slots)
-        ]
+    for tag in tags:
+        if not any(_inside(tag.centre, o.corners) for o in outlines):
+            out.append(TrayPlacement(
+                tray_id=tag.tag_id, centre=tag.centre, slot=None, a1_corner=None, tilt_deg=_tilt_deg(tag),
+                outline=None, margin_mm=None, found="tag only", warnings=("tag seen, tray not found in the photo",),
+            ))
     return out
 
 

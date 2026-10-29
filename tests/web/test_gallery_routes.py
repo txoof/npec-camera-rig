@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from npec_rig import captures, database, photo_tags
 from npec_rig.app import app
-from tests.helpers import record_light_photos, square_detection
+from tests.helpers import draw_tray, one_tray_plant_scene, record_light_photos, square_detection
 
 pytestmark = pytest.mark.unit
 
@@ -348,7 +348,7 @@ def test_show_tags_also_reads_an_older_photo_for_its_trays(monkeypatch, isolated
 def test_show_tags_again_keeps_a_reading_that_has_areas(monkeypatch, isolated_calibration_dir) -> None:
     """Each Show tags segmented the 64MP photo again, about 2 s and 250 MB (review of #281, #282):
     a photo whose saved reading has plant areas from the same segmenter is not read again."""
-    _layout_2_calibration(monkeypatch)
+    one_tray_plant_scene(monkeypatch)
     client = TestClient(app)
     path = client.post("/capture").json()["path"]
     client.get(f"/api/captures/tags/{path}")
@@ -361,7 +361,7 @@ def test_show_tags_again_keeps_a_reading_that_has_areas(monkeypatch, isolated_ca
 
 def test_show_tags_reads_again_a_photo_whose_areas_were_not_worked_out(monkeypatch, isolated_calibration_dir) -> None:
     """A reading saved with trays placed but no plant areas (segmenting failed) is read again."""
-    _layout_2_calibration(monkeypatch)
+    one_tray_plant_scene(monkeypatch)
     client = TestClient(app)
     path = client.post("/capture").json()["path"]
     capture_id = database.captures_by_path([path])[path]["id"]
@@ -449,17 +449,19 @@ def test_each_photo_in_the_list_carries_its_exclusion_and_each_area_its_floor(mo
     class Dark(SyntheticBackend):
         def capture_full_res(self):
             frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            draw_tray(frame, 115, 554, 3165, 4214)  # one_tray_plant_scene's tray
             return frame, {**metadata, "ExposureTime": 64_022, "AnalogueGain": 4.0}
 
-    _layout_2_calibration(monkeypatch)
-    CameraManager.set_instance(CameraManager(Dark()))
+    one_tray_plant_scene(monkeypatch)
+    CameraManager.set_instance(CameraManager(Dark(width=4000, height=4400)))
     client = TestClient(app)
     path = client.post("/capture").json()["path"]
     tray_readings.read_photo(path)
 
     trays = {i["path"]: i for i in client.get("/api/captures").json()}[path]["trays"]
     assert trays["exclusion"] == "lights off"
-    assert [t["floor_mm2"] for t in trays["trays"]] == [100] * 12
+    assert [t["floor_mm2"] for t in trays["trays"]] == [100]
 
 
 def test_the_light_warning_is_shown_until_dismissed_and_the_dismissal_is_saved() -> None:

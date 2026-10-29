@@ -2,8 +2,9 @@
 `rig.db` (`database.record_tray_readings`).
 
 A reading is the trays found in the photo from their blue plastic, each named by the tag inside
-it, and each tray tag inside no outline placed from the tag (`tray_placement.find_outlines`,
-`name_trays`, #331), with the calibration the photo was taken under, and with its plant area:
+it, and each tray tag inside no outline seen where it lies, with no outline and no area
+(`tray_placement.find_outlines`, `name_trays`, #331); no slot layout is needed. Each outlined tray
+is read with the calibration the photo was taken under, and with its plant area:
 the segmenter's mask of the full-size photo, saved to disk, summed inside the tray outline at the
 local scale (#75). A tray not found is never stored: `database.tray_readings` works it out from
 the experiment's earlier photos when the readings are shown.
@@ -28,7 +29,7 @@ from npec_rig.calibration_store import (
     load_saved_calibration,
 )
 from npec_rig.tags import TagDetection
-from npec_rig.tray_placement import TRAY_SIZE_MM, TrayPlacement, find_outlines, name_trays, place_trays
+from npec_rig.tray_placement import TRAY_SIZE_MM, TrayOutline, TrayPlacement, find_outlines, name_trays, place_trays
 
 logger = logging.getLogger(__name__)
 
@@ -107,20 +108,40 @@ def _small_copy(path: str) -> tuple[np.ndarray, float] | None:
     return small, width / small.shape[1]
 
 
-def found_trays(path: str, tags: list[TagDetection]) -> tuple[str, list[TrayPlacement]]:
+def _saved_outlines(saved: dict | None) -> list[TrayOutline]:
+    """The outlines a saved reading found in the photo, once each (two tags may share one)."""
+    out: dict[tuple, TrayOutline] = {}
+    for tray in (saved or {}).get("trays", []):
+        if tray.get("outline_px") and tray.get("found", "").startswith("photo"):
+            corners = tuple(tuple(c) for c in tray["outline_px"])
+            out[corners] = TrayOutline(
+                corners=corners, centre=tuple(tray["centre_px"]), tilt_deg=tray["tilt_deg"],
+                edge="partly outside the photo" in tray["warnings"],
+            )
+    return list(out.values())
+
+
+def found_trays(path: str, tags: list[TagDetection], saved: dict | None = None) -> tuple[str, list[TrayPlacement]]:
     """The trays of photo `path`: found in the photo from their blue plastic and named by the tag
-    inside each, and each tray tag inside no outline placed from the tag, with the calibration the
-    photo was taken under. The status as for `placements`, or "no trays found" when the photo shows
-    neither a tray nor a tag, as with the lights off."""
-    status, scale_field, slots = _calibration(path)
-    if status != "read":
+    inside each, and each tray tag inside no outline seen where it lies, with the calibration the
+    photo was taken under; no slot layout is needed (#331). The status: "read", "no calibration",
+    "placement failed", or "no trays found" when the photo shows neither a tray nor a tag, as with
+    the lights off. With the photo gone (Reprocess from its saved mask), the outlines of the saved
+    reading `saved` are used again; with none saved, "photo not found"."""
+    status, scale_field, _slots = _calibration(path)
+    if scale_field is None:
         return status, []
     try:
         small = _small_copy(path)
-        outlines = find_outlines(small[0], scale_field, small[1]) if small else []
+        if small is not None:
+            outlines = find_outlines(small[0], scale_field, small[1])
+        elif outlines := _saved_outlines(saved):
+            pass
+        else:
+            return "photo not found", []
         if not outlines and not tags:
             return "no trays found", []
-        return "read", name_trays(outlines, tags, scale_field, slots)
+        return "read", name_trays(outlines, tags, scale_field)
     except (ValueError, KeyError, TypeError, OSError):
         logger.exception("Could not find the trays of %s", path)
         return "placement failed", []
@@ -148,21 +169,27 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
     if unless_measured and _saved_by_this_segmenter(saved):
         return capture_readings(record)
     tags = photo_tags.photo_tags_for(path)
-    status, placed = found_trays(path, tags)
+    status, placed = found_trays(path, tags, saved)
     reuse = reuse_mask and _saved_by_this_segmenter(saved)
-    calibration, measures = _measures(path, record["calibration"], placed, reuse) if placed else (None, [])
-    size = _photo_size(path) if placed else None
-    _refuse_worse(path, saved, status, measures)
+    # A tag seen with no tray found around it has no outline: nothing to measure (#331).
+    outlined = [p for p in placed if p.outline is not None]
+    calibration, measures = _measures(path, record["calibration"], outlined, reuse) if outlined else (None, [])
+    size = _photo_size(path) if outlined else None
+    _refuse_worse(path, saved, status, areas_lost=bool(outlined) and not measures)
+    measured = dict(zip(map(id, outlined), measures, strict=True)) if measures else {}
     trays = []
-    for p, m in zip(placed, measures or [None] * len(placed), strict=True):
+    for p in placed:
+        m = measured.get(id(p))
         trays.append({
             "tray_id": p.tray_id, "slot": p.slot, "a1_corner": p.a1_corner, "placement": p.status,
             "centre_px": list(p.centre), "tilt_deg": p.tilt_deg, "margin_mm": p.margin_mm,
             "area_mm2": m.area_mm2 if m else None, "segmenter": SEGMENTER.name if m else None,
             "plant_px": m.plant_px if m else None,
             "plant_centre_px": list(m.centre_px) if m and m.centre_px else None,
-            "calibration": calibration if m else None, "outside_mm": outside_mm(p, size) if size else None,
-            "found": p.found, "warnings": list(p.warnings), "outline_px": [list(c) for c in p.outline],
+            "calibration": calibration if m else None,
+            "outside_mm": outside_mm(p, size) if size and p.outline is not None else None,
+            "found": p.found, "warnings": list(p.warnings),
+            "outline_px": None if p.outline is None else [list(c) for c in p.outline],
         })
     database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
     exclusions.update(record)
@@ -173,7 +200,7 @@ class ReadingWorse(RuntimeError):
     """Reading the photo again would replace a saved reading with less: nothing is saved."""
 
 
-def _refuse_worse(path: str, saved: dict | None, status: str, measures: list) -> None:
+def _refuse_worse(path: str, saved: dict | None, status: str, *, areas_lost: bool) -> None:
     """Raise ReadingWorse when a saved reading had trays placed, or areas, and this one has not:
     the photo, its mask or its calibration may be gone, and the saved values are kept (review of
     #287: Reprocess and Show tags must never turn saved areas into none)."""
@@ -181,7 +208,7 @@ def _refuse_worse(path: str, saved: dict | None, status: str, measures: list) ->
         return
     if status != "read":
         raise ReadingWorse(f"{path}: read as {status!r} now, kept the saved reading")
-    if not measures and any(t["area_mm2"] is not None for t in saved["trays"]):
+    if areas_lost and any(t["area_mm2"] is not None for t in saved["trays"]):
         raise ReadingWorse(f"{path}: plant areas could not be worked out now, kept the saved ones")
 
 
@@ -281,6 +308,8 @@ def capture_readings(capture: dict) -> dict | None:
             tray["not_counted"] = [
                 *([f"{n_tag} trays carry tag {tray['tray_id']}"] if n_tag > 1 else []),
                 *([f"{n_slot} trays in {tray['slot']}"] if tray["placement"] == "two trays in one slot" else []),
+                # The same rule for trays found in the photo (#331): one outline, two trays' tags.
+                *(["2 tags in one tray outline"] if tray["placement"] == "two tags in one outline" else []),
             ]
             tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
             tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM

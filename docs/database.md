@@ -186,9 +186,11 @@ background, after it is saved, newest first: every photo taken since the app sta
 photo of the running experiment. Older photos are read when Show tags is tapped in the gallery
 (Aaron, 2026-10-22). A reading: its tags are found once (`capture_analysis`), the trays are
 found in the photo from their blue plastic and each is named by the tray tag whose centre lies
-inside its outline, wherever the tag lies in the tray; a tray tag inside no outline is placed
-from the tag in its cell A1 with the photo's calibration, as before version 14 (#331,
-`tray_placement.py`).
+inside its outline, wherever the tag lies in the tray; a tray tag inside no outline is a tag
+seen with no tray found, stored at the tag's centre with no outline and no area (#331,
+`tray_placement.py`). Only a calibration is needed: trays can lie anywhere on the table, and
+readings from version 14 on have no slot. Before version 14 each tray was placed from the tag in
+its cell A1 and the nearest slot of the calibration's slot layout.
 Validation, calibration and tripwire photos are not read in the background.
 
 `tray_read` has one row per photo read, even when no tray was found:
@@ -197,7 +199,7 @@ Validation, calibration and tripwire photos are not read in the background.
 |---|---|---|
 | `capture_id` | integer | The photo's `capture` row |
 | `read_at` | text | When it was read, UTC |
-| `status` | text | `read`; or why no tray was placed: `no trays found` (neither a tray nor a tag, as with the lights off; `no tags found` before version 14), `no calibration`, `no slot layout`, `placement failed`, `read failed` |
+| `status` | text | `read`; or why no tray was placed: `no trays found` (neither a tray nor a tag, as with the lights off; `no tags found` before version 14), `no calibration`, `no slot layout` (before version 14), `photo not found` (Reprocess with the photo gone and no outlines saved), `placement failed`, `read failed` |
 
 `tray_reading` has one row per tray found in the photo or by its tag. Two trays in one photo may carry the same
 tag (a misprint): both rows are kept, each with its own area, and neither area counts in that photo
@@ -210,23 +212,24 @@ such a photo was saved as `read failed` with no trays.
 |---|---|---|
 | `capture_id` | integer | The photo |
 | `tray_id` | integer | The tray tag's ID; twice in a photo when two trays carry it; NULL for a tray found in the photo with no tag inside it |
-| `slot` | text | The nearest slot of the calibration's slot layout |
+| `slot` | text | The nearest slot of the calibration's slot layout; NULL from version 14 on |
 | `a1_corner` | text | `SW`, or `NE` for a tray turned 180; only for a tray placed from its tag, else NULL |
-| `placement` | text | `placed`, `close call` or `two trays in one slot` |
-| `centre_x_px`, `centre_y_px` | real | Tray centre in full-size photo pixels |
+| `placement` | text | `placed`, `close call` or `two trays in one slot` (placed from the tag, before version 14), or `two tags in one outline`: neither tray counts and the photo is chamber activity, as for two trays in one slot (#315) |
+| `centre_x_px`, `centre_y_px` | real | Tray centre in full-size photo pixels; for `tag only`, the tag's centre |
 | `tilt_deg` | real | The tray's turn off the image axes, clockwise |
 | `margin_mm` | real | How much nearer a slot the chosen corner is than the other; only for a tray placed from its tag, else NULL |
 | `area_mm2` | real | NULL until segmentation (#74) |
 | `outside_mm` | real | How far the tray's outline reaches past the photo edge at its farthest corner, mm; 0 inside. More than 13 mm shows "partly outside the photo" (#282). NULL for photos read before version 12 |
-| `found` | text | How the tray was found: `photo + tag`, `photo, no tag` or `tag only` (not found in the photo, placed from its tag). NULL for photos read before version 14 |
-| `warnings` | text | JSON list of warnings: `no tag`, `two tags in one tray outline`, `tray not found in the photo, placed from its tag`, `partly outside the photo`. NULL before version 14 |
-| `outline` | text | JSON list of the outline's four corners, `[x, y]` in full-size photo pixels. NULL before version 14 |
+| `found` | text | How the tray was found: `photo + tag`, `photo, no tag` or `tag only` (a tag seen, its tray not found in the photo: no outline, no area). NULL for photos read before version 14 |
+| `warnings` | text | JSON list of warnings: `no tag`, `two tags in one tray outline`, `tag seen, tray not found in the photo`, `partly outside the photo`. NULL before version 14 |
+| `outline` | text | JSON list of the outline's four corners, `[x, y]` in full-size photo pixels. NULL for `tag only` and before version 14 |
 
 A tray not found is never stored. When a photo's readings are shown, each tray found in an
 earlier photo of the same experiment but not in this one is listed as not found since the first
 photo it was missing from (Aaron, 2026-10-21): a removed tray, a swapped tag and a dirty tag look
 the same to the rig. A tray with no tag is never listed as not found or as moved: it cannot be
-followed from photo to photo. Only photos with the status `read` count, so a dark photo is not a tray
+followed from photo to photo. A tray with no slot is never listed as moved: a move without slots
+is not worked out yet. Only photos with the status `read` count, so a dark photo is not a tray
 missing. A purge deletes both tables' rows with the photos.
 
 ### `exclusion`

@@ -161,13 +161,22 @@ def stored_validation(
 # The benchmark plant's mint leaf colour, measured in the potato run still of 23 October 2026
 # 08:35:53 UTC (tests/test_segmentation.py).
 MINT_LEAF_RGB = (156, 228, 188)
+# Tray plastic as the blue finder sees it (#331): OpenCV hue 110, saturation 204, value 200, inside
+# the sampled tray plastic (metrology log 20).
+TRAY_BLUE_RGB = (40, 90, 200)
+
+
+def draw_tray(frame, x0: int, y0: int, x1: int, y1: int) -> None:
+    """A blue tray top over full-size photo pixels x0 to x1, y0 to y1, for the tray finder."""
+    frame[y0:y1, x0:x1] = TRAY_BLUE_RGB
 
 
 def one_tray_plant_scene(monkeypatch) -> None:
     """One tray at an even 10 px/mm, for plant areas worked out by hand (#75).
 
-    Tray 5's 40 mm tag (400 px) lies in cell A1 at the south-west, so the tray outline is x 115 to
-    3165, y 554 to 4214 in a 4000 x 4400 photo. The photo is grey with two 500 x 300 px rectangles
+    Tray 5's 40 mm tag (400 px) lies in cell A1 at the south-west of a blue tray drawn at x 115 to
+    3165, y 554 to 4214 (305 x 366 mm) in a 4000 x 4400 photo, so the tray finder's outline is the
+    drawn tray (#331). The photo is grey with two 500 x 300 px rectangles
     of mint leaf colour, 50 x 30 mm = 1500 mm2 each: one inside the tray (x 1400 to 1900, y 2200 to
     2500), one outside it (x 3400 to 3900). Saves the calibration as the fixture's, so photos taken
     after this are read with it.
@@ -184,6 +193,7 @@ def one_tray_plant_scene(monkeypatch) -> None:
         def capture_full_res(self):
             frame, metadata = super().capture_full_res()
             frame[:] = 128
+            draw_tray(frame, 115, 554, 3165, 4214)
             frame[2200:2500, 1400:1900] = MINT_LEAF_RGB
             frame[2200:2500, 3400:3900] = MINT_LEAF_RGB
             return frame, metadata

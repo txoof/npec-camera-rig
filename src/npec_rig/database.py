@@ -277,8 +277,8 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
                 tray_id INTEGER,                 -- the tag ID inside the outline; NULL: no tag
                 slot TEXT,                       -- nearest slot of the calibration's layout; NULL: no layout
                 a1_corner TEXT,                  -- SW, or NE (turned 180); placed from the tag only, else NULL
-                placement TEXT NOT NULL,         -- placed, close call, two trays in one slot
-                centre_x_px REAL NOT NULL,       -- tray centre, full-size photo pixels
+                placement TEXT NOT NULL,         -- placed, close call, two trays in one slot, two tags in one outline
+                centre_x_px REAL NOT NULL,       -- tray centre (a tag seen with no tray: the tag's), full-size photo pixels
                 centre_y_px REAL NOT NULL,
                 tilt_deg REAL NOT NULL,
                 margin_mm REAL,                  -- placed from the tag only, else NULL
@@ -495,14 +495,16 @@ def tray_readings(capture_id: int) -> dict | None:
                 earlier = conn.execute("SELECT * FROM tray_reading WHERE capture_id = ?", (previous[0],)).fetchall()
                 # A tag two trays carry, in either photo, says nothing about which tray moved (#302).
                 shared = {t for photo in (earlier, rows) for t, n in Counter(r["tray_id"] for r in photo).items() if n > 1}
+                # A tray with no slot (found in the photo, #331) cannot be compared by slot: a move
+                # without slots is not worked out yet.
                 before = {
                     r["tray_id"]: [r["slot"], r["a1_corner"]]
-                    for r in earlier if r["tray_id"] is not None and r["tray_id"] not in shared
+                    for r in earlier if r["tray_id"] is not None and r["slot"] is not None and r["tray_id"] not in shared
                 }
                 moved = [
                     {"tray_id": r["tray_id"], "from": before[r["tray_id"]], "to": [r["slot"], r["a1_corner"]]}
                     for r in rows
-                    if r["tray_id"] in before and before[r["tray_id"]] != [r["slot"], r["a1_corner"]]
+                    if r["tray_id"] in before and r["slot"] is not None and before[r["tray_id"]] != [r["slot"], r["a1_corner"]]
                 ]
     trays = [
         {
@@ -600,13 +602,15 @@ def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
 
 def experiment_shared_slot_photos(experiment_id: int) -> set[int]:
     """Capture ids of the experiment's photos in which two trays were placed in one slot
-    (placement `two trays in one slot`): a tray carried over the table, or a loose tag on a tray
+    (placement `two trays in one slot`), or two tags lie in one tray outline found in the photo
+    (`two tags in one outline`, #331): a tray carried over the table, or a loose tag on a tray
     (#315)."""
     with _connect() as conn:
         rows = conn.execute(
             "SELECT DISTINCT tray_reading.capture_id FROM tray_reading"
             " JOIN capture ON capture.id = tray_reading.capture_id"
-            " WHERE capture.experiment_id = ? AND tray_reading.placement = 'two trays in one slot'",
+            " WHERE capture.experiment_id = ?"
+            " AND tray_reading.placement IN ('two trays in one slot', 'two tags in one outline')",
             (experiment_id,),
         ).fetchall()
     return {row[0] for row in rows}
