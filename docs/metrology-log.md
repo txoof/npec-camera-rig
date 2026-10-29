@@ -6720,3 +6720,37 @@ OpenCV threads: peak 1.7 GB, 24 s, no kill. The app's memory is #326.
 **Limits of the evidence.** As 19.1. ExG minus ExR is tried only with its literature threshold of 0;
 a higher threshold might keep less soil, but would then be a second tuned threshold, not the
 literature rule.
+
+### 19.3 Older plants on 2x2 trays, the development rig (2026-10-29)
+
+**Label: development check.** One still of the development rig's own experiment ("development
+rig"), `experiments/2026-10-28_8cb40de9/stills/2026-10-29/133905_854292.jpg`, 2026-10-29 13:39:05
+UTC, exposure 3585 µs, gain 1.0, calibration `20261021T140121832677`. Nine 2x2 trays (#327: the
+trays called "4x4" so far), five in the north row and four in the south row, with no tray tags.
+Older potato plants on North 1 to 3 and South 1, young ones on the others. Truth (Aaron,
+2026-10-29): 4 plants per tray, except North 2 (2), North 3 (3) and South 1 (3), counted by
+position along each row: 32 plants.
+
+*Method.* `experiments/round3-segmentation/slot_counts.py`: the crop, green pieces and FastSAM point
+of 19.1 and 19.2 (2 OpenCV threads, `ulimit -v` 3 GB, peak 1.8 GB, no app restart), each plant put
+in the nearest slot of the calibration's 12-slot layout.
+
+*Result.*
+
+- **The slots do not fit these trays.** The layout was made for twelve 4x5 trays; the nine larger
+  2x2 trays sit across it: slot South 2 is bare floor and North 1 to 3 each cover parts of two
+  trays. Counts per slot (`docs/figures/19.3/per_slot.csv`) therefore say nothing, and the truth
+  used for them (12 slots, 44 plants) was wrong. Not used further.
+- **Young plants: every plant found**, one green piece per pot (Aaron, from the figure).
+- **Older plants: found, but in pieces.** Each large plant is split into several pieces, even when
+  pieces within 10 mm are joined, and the plants hang over their pot edges into neighbouring cells.
+- **Extra objects:** small green specks at the frame's top and right edges, outside any tray.
+- Total objects: 65 (join 10 mm) to 94 (join 3 mm), FastSAM point 73, against 32 plants; the
+  difference is the split older plants and the specks.
+
+*Figure.* `docs/figures/19.3/dev-2x2-exg-join10.jpg`: green pieces joined within 10 mm (magenta
+boxes) and the 12 slots (cyan) with their counts; made by `slot_counts.py`, scaled down. The slot
+labels show the mismatch, not results.
+
+**Limits of the evidence.** One still; truth by position, not by tag; plant identity across the
+split pieces not checked one by one. Placing trays from the photo rather than from slots is #328.
