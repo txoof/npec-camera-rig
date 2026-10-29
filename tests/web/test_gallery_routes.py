@@ -228,46 +228,36 @@ def test_tags_image_is_drawn_again_when_the_photos_stored_tags_change(monkeypatc
     assert client.get(f"/gallery/image/tags/{path}").content != before
 
 
-def test_photo_tags_place_each_tray_tag_with_the_photos_calibration(monkeypatch, isolated_calibration_dir) -> None:
-    """Layout 2 of 20 October (metrology log 15.5l), the real tags of still 080357_563754 with
-    their calibration's scale and slot layout. The expected slots and corners are the printed
-    shuffle map, as in tests/test_tray_placement.py."""
-    import json
-    from pathlib import Path
-
-    from npec_rig import validation_store
-    from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
-    from npec_rig.calibration_store import save_calibration
-    from npec_rig.tags import TagDetection
-
-    fixture = json.loads((Path(__file__).parent.parent / "fixtures" / "trays" / "shuffles-2026-10-20.json").read_text())
-    stem = fixture["calibration"]
-    save_calibration(
-        CalibrationArtifact(created_at="2026-10-14T11:11:47+00:00", scale_field=scale_field_from_dict(fixture["scale_field"]),
-                            frame_stem=stem, lens_position=6.05),
-        stem=stem,
-    )
-    validation_store.save_slot_layout(stem, fixture["slots"], [])
-    tags = [TagDetection(t["id"], tuple(tuple(c) for c in t["corners"]),
-                         (sum(c[0] for c in t["corners"]) / 4, sum(c[1] for c in t["corners"]) / 4))
-            for t in fixture["stills"]["080357_563754"]]
-    _fake_tag_search(monkeypatch, tags)
+def test_photo_tags_without_a_tray_around_them_are_seen_and_not_placed(monkeypatch, isolated_calibration_dir) -> None:
+    """The real tags of layout 2 of 20 October (still 080357_563754) on the synthetic camera's
+    photo, which has no blue tray: each tray tag is seen, its tray not found, and nothing is
+    placed from the slots any more (#331, Aaron 2026-10-29)."""
+    _layout_2_calibration(monkeypatch)
     client = TestClient(app)
     path = client.post("/capture").json()["path"]
 
     found = {t["id"]: t for t in client.get(f"/api/captures/tags/{path}").json()}
-    placed = {i: (t["placement"]["slot"], t["placement"]["a1_corner"], t["placement"]["status"])
-              for i, t in found.items() if t["role"] == "tray"}
-    assert placed == {
-        3: ("North 1", "SW", "placed"), 10: ("North 2", "SW", "placed"), 6: ("North 3", "SW", "placed"),
-        1: ("North 4", "NE", "placed"), 4: ("North 5", "SW", "placed"), 12: ("North 6", "NE", "placed"),
-        9: ("South 1", "NE", "placed"), 11: ("South 2", "SW", "placed"), 7: ("South 3", "NE", "placed"),
-        8: ("South 4", "SW", "placed"), 5: ("South 5", "SW", "placed"), 2: ("South 6", "SW", "placed"),
-    }
+    seen = {"found": "tag only", "warnings": ["tag seen, tray not found in the photo"]}
+    assert {i: t["placement"] for i, t in found.items() if t["role"] == "tray"} == {i: seen for i in TRAYS_1_TO_12}
     assert "placement" not in found[450]  # a corner tag is not a tray
 
 
-def test_photo_tags_still_list_the_tags_when_the_saved_slot_layout_is_unusable(monkeypatch, isolated_calibration_dir) -> None:
+def test_photo_tags_say_how_each_tray_tag_was_found_in_the_photo(monkeypatch) -> None:
+    """#331: a tray tag names the outline found from the blue plastic around it, wherever it lies
+    in the tray; no slot. `one_tray_plant_scene`: tray 5's tag inside a drawn blue tray."""
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+
+    [tag] = client.get(f"/api/captures/tags/{path}").json()
+    assert tag["placement"] == {"found": "photo + tag", "warnings": []}
+
+
+def test_photo_tags_need_no_slot_layout(monkeypatch, isolated_calibration_dir) -> None:
+    """Trays can lie anywhere on the table (Aaron, 2026-10-29, #331): a calibration whose slot
+    layout is empty still reads the photo, and the tray tag is seen."""
     from npec_rig import validation_store
     from npec_rig.calibration import CalibrationArtifact, ScaleField
     from npec_rig.calibration_store import save_calibration
@@ -282,7 +272,8 @@ def test_photo_tags_still_list_the_tags_when_the_saved_slot_layout_is_unusable(m
 
     response = client.get(f"/api/captures/tags/{path}")
     assert response.status_code == 200
-    assert response.json() == [{"id": 7, "role": "tray", "centre_px": [400, 300], "placement": None}]
+    seen = {"found": "tag only", "warnings": ["tag seen, tray not found in the photo"]}
+    assert response.json() == [{"id": 7, "role": "tray", "centre_px": [400, 300], "placement": seen}]
     assert client.get(f"/gallery/image/tags/{path}").status_code == 200
 
 
