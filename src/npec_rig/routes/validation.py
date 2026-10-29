@@ -3,6 +3,7 @@ maps and problem images."""
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from npec_rig import images, photo_tags, validation, validation_store
 from npec_rig.calibration_store import load_saved_calibration
@@ -72,6 +73,16 @@ def capture_validation_round(session_id: str) -> dict:
 def count_validation_round(session_id: str, index: int) -> dict:
     """Count a round the checks held back, on the operator's say-so."""
     return validation.count_round(session_id, index)
+
+
+class DiscardRequest(BaseModel):
+    reason: str
+
+
+@router.post("/validation/sessions/{session_id}/rounds/{index}/discard")
+def discard_validation_round(session_id: str, index: int, request: DiscardRequest) -> dict:
+    """Stop counting a round, with the operator's reason; Count it anyway undoes it."""
+    return validation.discard_round(session_id, index, request.reason)
 
 
 @router.post("/validation/sessions/{session_id}/end")

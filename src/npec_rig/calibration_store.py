@@ -187,3 +187,31 @@ def list_calibrations() -> list[Path]:
     if not root.exists():
         return []
     return sorted(p for p in root.glob("*.json") if p.name != CURRENT_FILENAME)
+
+
+# path -> (modification time, the calibration it was rebuilt from): read each file once, not once
+# per photo, when a whole experiment is read again.
+_rebuilt_from_cache: dict[Path, tuple[float, str | None]] = {}
+
+
+def twin_of(stem: str) -> str | None:
+    """The stem of the newest calibration rebuilt from `stem` (`calibration_run.rebuild`, #286),
+    or None if it has not been rebuilt. Photos taken under `stem` take their scale from it."""
+    twins = []
+    for path in list_calibrations():
+        mtime = path.stat().st_mtime
+        cached = _rebuilt_from_cache.get(path)
+        if cached is None or cached[0] != mtime:
+            try:
+                source = json.loads(path.read_text()).get("rebuilt_from")
+            except (ValueError, OSError):
+                source = None
+            cached = _rebuilt_from_cache[path] = (mtime, source)
+        if cached[1] == stem:
+            twins.append(path.stem)
+    return max(twins) if twins else None
+
+
+def calibration_for_photos(stem: str) -> str:
+    """The calibration photos taken under `stem` are read with: its newest twin, or itself."""
+    return twin_of(stem) or stem

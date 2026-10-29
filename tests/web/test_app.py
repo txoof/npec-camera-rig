@@ -184,3 +184,22 @@ def test_shutdown_closes_the_camera_even_if_a_call_never_finishes(monkeypatch) -
 
 
 # --- Gallery images and paging (#56, #165) ---
+
+
+# The development rig shows a red leaf in the browser tab, so it can't be taken for production (#320).
+def test_development_rig_links_the_red_favicon(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NPEC_RIG_ENVIRONMENT", "development")
+    response = TestClient(app).get("/gallery")
+    assert '<link rel="icon" href="/static/favicon-dev.svg"' in response.text
+
+
+def test_production_keeps_the_green_favicon(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NPEC_RIG_ENVIRONMENT", raising=False)
+    response = TestClient(app).get("/gallery")
+    assert '<link rel="icon" href="/static/favicon.svg"' in response.text
+
+
+def test_red_favicon_is_served() -> None:
+    response = TestClient(app).get("/static/favicon-dev.svg")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/svg+xml")

@@ -4901,7 +4901,13 @@ wrong, and listed.
   the plants will likely stay in the chamber. The Round 2 results use the photos up to the end of
   5 November (chamber time); photos after it are reported apart if the run is extended. 12 maps at
   about 3 a week last to about 19 November; the disk lasts about 100 days (16.1).
-- **Open: benchmark time.** When the benchmark is taped to tray 8 (events log).
+- **Benchmark time** (found 2026-10-23, Aaron confirmed): the benchmark was put on tray 8 between
+  the photos of 09:32:53 UTC (black pots, no benchmark) and 09:33:53 UTC on 22 October (benchmark
+  on its card, the pots taken out, a person at the frame's edge and a pot on the table), 11:33
+  chamber time. Found from the green-pixel count of every photo from 09:30 to 09:59 UTC (190 to
+  265 before, 972 to 1145 after, at 800 px wide) and checked by eye
+  (`~/scratch/benchmark_time_check.jpg`). Aaron's own record said 11:53; the photos show no change
+  then. Posted to the events log on #221.
 
 ### 16.6 Limits of the evidence (as planned)
 
@@ -5114,3 +5120,1359 @@ neighbours (mean grey 125.1 to 125.9, sharpness 39.8 to 45.0). Row 6 is the ligh
 *Figure 16.8c. Tray 2 at 08:55:53 UTC, the first miss of the run (#223 observation 1), with the
 photos either side; no difference to be seen. Tray 6 at 10:02:53 UTC looks the same way
 (`figures/16.8/tray6-miss-100253.jpg`).*
+
+## 17. Plant area per tray on the potato run (issues #74, #75, method written 2026-10-23, before the analysis)
+
+**Label: development check.** What the rig's plant area per tray reads on the Round 2 run (section
+16), how often it fails, how far it moves with nothing changed, and how much an empty tray reads.
+No true area is known for any tray, so nothing here says how close an area is to the truth.
+
+**When this was written.** The green threshold went into the app on 23 October (#280), and plant
+area per tray at 11:24 UTC the same day (#281). At 12:40 UTC every photo of the run was queued to be
+read again with areas (Reprocess, #75 part 2). This section was written while that ran, before any
+area series of the run was looked at. What had been seen by then is listed in 17.1, each from one
+photo or a handful; the questions in 17.2 were written knowing those figures.
+
+### 17.1 Observations before the review (23 October)
+
+Each is a development check from the photos named, on the rig's Pi 5 with the live server running
+(the camera taking one photo a minute). Calibration `20261022T072523939958` throughout.
+
+- **The method.** A pixel is plant when its normalised excess green (2g - r - b) / (r + g + b) is
+  above 0.1 and green is above red (`segmentation.ExGSegmenter`), round 1's threshold (15.5,
+  15.6a), not tuned for this run. It is applied to the full-size 9152 x 6944 photo. A tray's area
+  is its plant pixels inside the tray outline (tray placement, 15.5g), each weighted by the scale
+  field at its 64 px block. Each reading also stores the pixel count, their centre and the
+  calibration used (#75 part 2), so another calibration can be applied later.
+- **Colours used in the tests.** Mean RGB of 12 x 12 px patches of the still of 08:35:53 UTC
+  (`experiments/2026-10-22_df206967/stills/2026-10-23/083553_637710.jpg`): benchmark mint leaf
+  156, 228, 188 (passes); dark soil 95, 58, 55; pale soil 146, 95, 88; blue tray 39, 88, 159 and in
+  shade 14, 49, 101; black pot 11, 10, 15; yellow benchmark card 254, 224, 54; grey table 235, 227,
+  240 (all fail). One patch each, one photo.
+- **The potato sprouts fail the threshold on 23 October.** In the same still a sprout is a few
+  pixels across; its 12 greenest pixels average 112, 110, 64 (spread about 10 per channel), blurred
+  with the soil, and fail "green above red". Whole-frame tint image `~/scratch/seg74_green_overlay.jpg`:
+  the benchmark rosettes on tray 8 taken in full, the sprouts not. One photo, one sprout sampled.
+- **Dark pixels with a green cast.** In the same still at full size, 4458 of 139,983 plant pixels
+  have an RGB sum below 60, nearly all along the chamber's back wall above the table; inside the
+  band of rows holding the trays (y 1258 to 5950), 98 of 126,038 (0.08%). No brightness floor was
+  added: it would be a chosen number (#75 comment, 2026-10-23).
+- **Areas in one photo.** 11:24:55 UTC (the first with areas): tray 8 (benchmark) 4,578 mm²; trays
+  9 to 12 (black pots only) 25 to 109 mm²; potato trays 1 to 7, 48 to 109 mm², the same range as the
+  empty trays, so the sprouts could not be told from what empty trays read. 11:26:53 UTC: trays 1 to
+  6, 19 to 115 mm². Two photos.
+- **Outlines past the photo edge, and overlapping.** In the stills 113453_600583 and 113553_609273,
+  the outlines of trays 8, 9 and 12 reach 12 to 44 px (about 2 to 9 mm at 4.86 px/mm) beyond the
+  photo, into the tray's outer wall; the outlines of trays 5 and 7 share 2,249 and 2,932 px. Where
+  outlines overlap, each pixel will count only for the tray whose centre is nearer (Aaron,
+  2026-10-23, #282); until then, plant pixels in the overlap count in both.
+- **Time.** On one full-size still: decode 0.6 s, threshold 1.1 s, mask saved 0.3 s (42 kB, 1 bit
+  per pixel), one tray's area 0.01 s. Reprocess, reading each photo again with stored tags: 17
+  photos in about 160 s from its start at 12:40 UTC (about 9 s a photo), alongside the live reader.
+  Where the rest of the 9 s goes is not measured.
+
+### 17.2 Questions for the review, and method
+
+**Data.** A copy of `rig.db` taken after Reprocess of experiment 18 finishes (Reprocess's own
+count of photos done and failed is noted with it), and the saved masks. Scripts and results in
+`experiments/round2-area/` (using the undisturbed-pair code of `experiments/round2-run/`). Nothing is written into the experiment folder, the masks folder or the
+live `rig.db`. Lit and dark photos, movement windows and undisturbed pairs as 16.3. Photos up to
+the copy; the run continues.
+
+1. **Failures.** Photos of the run read and not read; photos whose reading failed (status `read
+   failed`, and Reprocess's failed count, with the reasons from the server log); lit photos with
+   trays placed but no area (segmentation failed). Counted per day and lit or dark, each failure
+   listed by time.
+2. **Benchmark repeatability.** Tray 8's area in lit photos from 09:34:53 UTC on 22 October, the
+   first photo after the benchmark was put on (16.5; the 09:33:53 photo was taken while it was
+   being put on, Aaron, 2026-10-23).
+   Reported: (a) for undisturbed pairs, the change from one photo to the next as a percentage, its
+   root mean square and its largest; (b) over each lit period, the mean, standard deviation,
+   smallest and largest; (c) the same for the plant pixel count, to separate the threshold from the
+   scale (the scale is fixed within a calibration, so the two should move together).
+3. **What an empty tray reads.** Trays 9 to 12 in lit photos: per tray and per day, the median, the
+   95th percentile and the largest area, and the share of photos above 0. Tray 8 is not used here:
+   the benchmark on it is not masked out.
+4. **The plant trays.** Trays 1 to 7: area against time in lit photos, per tray, beside the empty
+   trays' 95th percentile from question 3. Reported as plotted, with the first time each tray's area
+   stays above the empty trays' largest for a whole lit period. Growth, leaf movement and the
+   threshold's error are not separated.
+5. **Time of day.** For trays 8 to 12, area against time of day in lit photos, to see whether light
+   through the day moves the area. Reported as plotted; no test is set.
+
+No threshold is set for what size of change or floor matters. Results are reported as measured;
+any target is Aaron's decision, labelled as one.
+
+### 17.3 Limits of the evidence (as planned)
+
+All of 16.6. One segmenter (green threshold 0.1), not tuned; no true area for any tray, plant or
+benchmark (the benchmark's known area waits on #228). Tray 8's benchmark is a flat plastic piece
+on a card, not a plant. The empty trays hold black pots on blue trays: soil without plants is not
+in the run, so what bare soil reads is not covered. Areas of photos taken before 11:24 UTC on 23
+October come from Reprocess, the same code, read hours to a day after the photo. Area uncertainty
+per reading (#76) is not part of this review.
+
+### 17.4 Results of the review (2026-10-23)
+
+**Data.** Reprocess of experiment 18 ran from 12:40 to 13:30:25 UTC on 23 October: 1,680 of 1,680
+photos, 0 failed. Copy of `rig.db` at 13:31 UTC (`~/scratch/area-review/rig.db`, schema version 9):
+1,731 photos from 08:41:20 UTC on 22 October to 13:30:53 UTC on 23 October. `experiments/round2-area/
+review.py ~/scratch/area-review/rig.db --experiment 18 --out ~/scratch/area-review --break
+2026-10-23T08:43:00+00:00 2026-10-23T08:56:00+00:00` (shuffle 1, below); tables, CSVs and charts in
+`~/scratch/area-review/review.html`. Two outputs were added after the first run and say so in the
+script: the median and 95th percentile of the pair changes, and the benchmark split by slot.
+
+**Shuffle 1** (map 1) was not in the shuffles file when the review first ran. The photos show it:
+trays went missing from 08:43:53 UTC on 23 October, and from 08:55:53 all 12 trays read in map 1's
+slots and corners. Aaron gave the finish as 10:56 chamber time (08:56 UTC); no start is recorded,
+so 08:43 UTC is taken from the photos. Posted to #221.
+
+| Question | Result |
+|---|---|
+| 1. Failures | 0 photos `read failed`; 0 of 15,329 placed trays without an area. 800 lit photos on 22 October; on 23 October 480 lit, 451 dark |
+| 2. Benchmark, pairs | 1,184 undisturbed pairs: change median 1.64%, 95th percentile 5.35%, RMS 4.34%, largest 99.99% (lights off). Pixel count the same to 0.01%: the scale does not move, the threshold does |
+| 2. Benchmark, by slot | South 6, 22 October: 741 photos, mean 4,997 mm², SD 3.8%. North 6, 23 October after shuffle 1 (turned 180°): 274 photos, mean 4,475 mm², SD 6.4%, 10% lower |
+| 3. Empty trays (9 to 12) | Above 0 in 99.8 to 100% of lit photos. Median per tray and day 27 to 78 mm², each tray steady at its own level; largest 98 mm² outside shuffle 1, 630 mm² inside it |
+| 4. Plant trays (1 to 7) | None yet above the empty trays' largest for a whole lit period; latest 20 to 137 mm² |
+| 5. Time of day | Plotted only. The benchmark in North 6 rose from about 4,200 to 5,000 mm² over the afternoon of 23 October; not separated from light or exposure |
+
+**Failure modes, each discussed with Aaron on 2026-10-23.**
+
+1. **Photo-to-photo scatter with nothing moved** (question 2): 1.6% typical, 5.4% for 1 pair in 20,
+   against under 0.8% in round 1. Exposure, gain and colour balance are automatic; across the run
+   the benchmark's area follows the colour gains (correlation about 0.44, which includes the shuffle,
+   so not shown to be the cause). *Decision (Aaron):* nothing on the rig changes during the run; the
+   scatter is a stated limit of one photo's area; growth is reported over many photos (an hourly or
+   daily median); the cause is looked for in the existing photos first (area against the recorded
+   gains within undisturbed stretches); fixed colour gains and exposure are tried only on a separate
+   run, measured before and after; raw images not now.
+2. **Slot.** The benchmark read 10% lower in North 6 than in South 6. Round 1 saw 3.8% to 13.1%
+   between slots. Aaron: the lamps are evenly spread over the ceiling; light differs at the table's
+   edges because the back, front and side walls reflect differently and the side walls are at a
+   different distance; tall objects read most distorted in N/S 1 and N/S 6, where more of their side
+   is seen. South 6 and North 6 are about the same distance from the image centre (about 4,150 and
+   4,060 px), but the benchmark was turned 180°, so a different side faced the camera. Light and the
+   side seen are mixed in this one move. The plant trays already stay in the 8 middle slots. *Next:*
+   a table of the benchmark by slot from the planned shuffles; growth compared within the stretches
+   between shuffles; a flat target to separate light from the side seen (17.5), which led to 17.6.
+3. **Lights fading.** The lights fade rather than switch. Exposure leaves its lit value (5,248 µs) at
+   23:05:53 UTC, 24 minutes before the first dark photo (23:29:53), and comes back at 07:24:53, 24
+   minutes after the first lit one (07:00:53), with gain rising to 4. Photos in the fades still find
+   tags, so they count as lit; the last before dark read the benchmark as 0.4 mm², the first after
+   it 2,951 mm². *Decision (Aaron, 2026-10-23 and 10-25):* photos taken while the light is changing
+   are left out by rule. The light schedule (fades, their length, several light levels, or none) is
+   the researcher's choice for each experiment, so the rule depends on no schedule, fade length or
+   "normal" light level: a photo is left out when its exposure or gain differs from the photo
+   before or after it by more than a set amount, meaning the camera was still adjusting. A steady
+   light level, bright or dim, is kept; a fade is left out however long it lasts; an experiment
+   without fades loses nothing. The set amount is a decision, to be chosen from this run's fades
+   and labelled as one. Replaced: a 10-minute window around dark photos (proposed before the fades
+   were measured, it kept most of them), a 25-minute window, and exposure above a factor of the lit
+   median (both assume one schedule or one light level). *Limit:* areas read under a different
+   steady light level are not known to match those under the normal one (the threshold depends on
+   colour, and this run has one lit level); stated until an experiment with two levels shows it.
+4. **People in the frame.** During shuffle 1 single photos gave tray 4 2,117 mm², tray 7 2,034, tray
+   6 820 and tray 11 630 (normal under 140), with only 8 to 11 trays found. *Decision (Aaron):* both
+   the events log and a rule from the photos: a large area jump that falls back within a few
+   photos, together with trays missing or moving, marks a visit, whether logged or not (in practice
+   visits will not be logged). Its sizes and times are to be set from shuffle 1 and labelled as
+   decisions.
+5. **What an empty tray reads.** 85% to 99% of each empty tray's false plant pixels are one piece: a
+   round light-blue mark where cell walls meet, 32 to 38 mm from the tray's centre on its long axis,
+   about RGB 40, 173, 229 (6 photos of 22 October, trays 9 to 12; `~/scratch/area-review/floor/`).
+   Cyan passes the threshold, which asks only for green above red. Without that piece an empty tray
+   reads about 1 to 4 mm². The dark pixels of 17.1 are 0.3% to 15% of the rest. *Decision (Aaron):*
+   the floor is reported with each area, not subtracted. Whether to change the threshold (for example
+   also green above blue) is not decided: it would also change leaf edges against the blue trays,
+   which must be measured first.
+
+**Limits.** All of 17.3. One shuffle so far. The benchmark's slot change was also a 180° turn. The
+review's lit and dark come from tags found, which the light fades show is not enough.
+
+### 17.5 A flat green target on tray 10 (method written 2026-10-23, before the target was put in)
+
+**Label: development check.** Two of the failure modes the review found (17.4) are: the benchmark's
+area changes from one photo to the next with nothing moved, and it read 10% lower after shuffle 1
+moved it from South 6 to North 6 and turned it. The benchmark is a 3D-printed piece with height,
+so light across the table and the side the camera sees at the table's ends are mixed in its
+readings. A flat target has almost no side, so what changes in its area from slot to slot is
+light and colour, and the difference from the benchmark is the side seen. Its size is measured, so
+it also shows how close the green threshold comes to a known area on a flat green object.
+
+**Questions.**
+1. **Accuracy on a flat target.** In each slot, how far is the target's area from its calliper area?
+2. **Slot and light.** How much does the target's area change from slot to slot, and between the two
+   orientations (A1 at south-west or north-east)?
+3. **Side view.** In the slots both the target and the benchmark visit, how much more does the
+   benchmark's area change from slot to slot than the target's?
+4. **Photo to photo.** For the target, the change between undisturbed pairs (16.3), as for the
+   benchmark in 17.2: if a flat target scatters as much, the scatter is not caused by height.
+
+**Target.** A 3D-printed green square, nominally 150.0 x 150.0 mm (Aaron), with two red specks near
+its centre, each under 1 mm², which the threshold will not count (under 0.01% of its area together).
+Before it goes in: both sides measured with the NEIKO callipers, 3 readings each, and its thickness,
+recorded here with the date. The calliper area is the product of the two mean sides; the callipers
+are not trusted beyond 0.1 mm (section 3), so about 0.13% in area.
+
+*Measured 2026-10-23 by Aaron, NEIKO callipers, 4 readings each (one more than planned):*
+
+| | Readings (mm) | Mean | SD | Range |
+|---|---|---|---|---|
+| Side X | 150.31, 149.93, 150.42, 149.92 | 150.145 | 0.258 | 0.50 |
+| Side Y | 149.80, 149.78, 150.08, 150.18 | 149.960 | 0.201 | 0.40 |
+| Thickness | 0.58, 0.58, 0.57, 0.54 | 0.568 | 0.019 | 0.04 |
+
+**Calliper area 22,515.7 mm²** (150.145 x 149.960). The readings spread by 0.4 to 0.5 mm, more than
+the callipers' 0.1 mm, so the print's sides are not perfectly straight or even; the standard error
+of the two means gives about 0.11% in area. Its thickness raises its top 0.57 mm above the tray,
+about +0.08% in area (0.145% per mm), smaller than that uncertainty and not corrected. Where along
+each side the readings were taken was not recorded.
+
+**Placement.** Taped flat on tray 10 (black pots, a still tray, 16.1), clear of cell A1 so the tray
+tag stays visible, inside the tray's edges. The chamber time it went in is posted to the events
+log on #221. Tray 10 then leaves question 3 of 17.2 (3 empty trays remain). Pairs across the time it
+was put in are disturbed (16.3, rule 1).
+
+**Slots it will visit.** The shuffle maps were drawn before the target existed (16.2), so nothing
+about them was chosen for this test. From map 2 on:
+
+| Map | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Tray 10 (target) | N6 NE | S1 SW | N6 SW | S6 NE | S5 NE | N6 NE | S6 SW | N4 SW | N6 SW | N1 SW | S1 SW |
+| Tray 8 (benchmark) | N1 NE | N6 NE | S5 NE | S2 SW | S1 NE | N1 SW | S5 NE | N6 SW | S1 SW | S4 NE | S6 SW |
+
+(Slot and the corner A1 is at.) Before map 2, tray 10 stays in North 1 with A1 at the south-west.
+Slots both visit: N6, S1, S5, S6 (and N1, the target only before map 2).
+
+**Analysis.** From the rig's own readings in a copy of `rig.db`, with `experiments/round2-area/`,
+lit photos only, photos inside a shuffle or event left out (16.3). Per slot and orientation, for
+the target and the benchmark: photos, median area, standard deviation, and for the target the
+difference from the calliper area in percent. Question 3 compares each slot's median with the same
+object's median over all its slots. No threshold is set for what difference matters; results are
+reported as measured.
+
+**Limits (as planned).** One flat target of one green (printed plastic, not leaf), at tray-top height
+plus its thickness, which adds a little side at the ends of the table and raises it above tray-top
+height (about 0.145% of area per mm, *The height test*). Only the slots the maps give: mostly the end
+slots, two middle slots. Slot, orientation and time of day are mixed: each visit is at a different
+time, with automatic exposure and colour balance (17.4). One camera, one lens position, one
+calibration.
+
+### 17.6 Tag edges read short against tag spacing (issue to follow, development check, 2026-10-23)
+
+**Label: development check.** Found while checking the flat target of 17.5. Written the same day,
+after the measurements below, so this is a finding, not a planned test.
+
+**How it was found.** The flat green target (17.5, 149.9 x 149.8 mm by callipers, re-measured by
+Aaron 2026-10-23, 3 readings per side at different places along each edge: east-west 149.80,
+150.01, 149.85; north-south 149.94, 149.85, 149.71) was taped flat on tray 10 in North 1 at 14:02
+UTC. Its area read 23,788 to 23,817 mm² (3 photos), 5.8% above its calliper area. The mask was the
+target (557,224 px, its width times height 751 x 743 px), so the threshold was not the cause. At
+14:16 UTC Aaron laid two measured 30 mm calibration sheets in the chamber, a trimmed one flat on the
+tray top beside the target (tray 10) and one on the pots of tray 12 (the calibration height). Against
+the calibration, their tags read -0.83% to -0.87% in length on the tray top (9 tags; expected about
+-0.65%, 8.9 mm below the calibration height) and -0.22% to -0.28% on the pots (30 tags). So the
+calibration agrees with the tags, and measured against those tags the target is 156.4 x 154.6 mm.
+
+**The measurement.** Each tag's scale measured two ways in the same photo (14:16:53 and 14:17:53 UTC):
+from its edges (mean side in pixels over 30 mm, as `calibration.py` builds the scale field, line
+339, and as validation checks it, line 465) and from the distance between the centres of tags on
+the same printed page, over their designed spacing (`reference/calibration-sheets/` manifest:
+37.5 mm across, 41.1 mm down; the page's 180 mm bar measured 179.93 mm, section 3, so the print is
+true to about 0.05%). Centres do not depend on where an edge is found.
+
+| Sheet | Tags, pairs | Scale from edges | Scale from centre spacing | Edges / centres |
+|---|---|---|---|---|
+| Tray 10, tray top, North 1, 14:16:53 | 9, 16 | 4.807 px/mm | 4.928 px/mm | 0.975 |
+| Tray 10, tray top, North 1, 14:17:53 | 9, 16 | 4.809 | 4.928 | 0.976 |
+| Tray 12, on pots, South 1, 14:16:53 | 30, 346 | 4.863 | 4.964 | 0.980 |
+| Tray 12, on pots, South 1, 14:17:53 | 30, 346 | 4.860 | 4.964 | 0.979 |
+| Calibration photo `20261022T072523939958` (stored tags) | 361, 1791 | | | median 0.986, middle half 0.982 to 0.990 |
+
+(Pairs 30 to 90 mm apart on one page, and on the calibration photo only pairs whose two scales agree
+within 15%: several sheets there carry the same IDs, so a pair could join two sheets.)
+
+**What it means, if it holds.** Measured by their edges, the tags look 1.4% (22 October) to 2.5%
+(today) smaller than their spacing says. The scale field is built from edges, so it is that much too
+low in length, and every area reads about 2 x that too high: about 2.9% for the 22 October
+calibration, more under today's light. Validation uses the same edges, so it cannot see it. A likely
+cause, not tested: blur and the bright paper spreading into the black border, so the corner finder
+places corners inside it; that would depend on exposure and focus. With the scale from spacing, the
+target is 152.6 x 150.8 mm, +1.8% and +0.6%, which fits the mask taking one or two edge pixels.
+
+**What it does not cover.** Two photos and one calibration photo, two slots (North 1, and South 1 for tray 12), one
+lens position, one exposure each. The paper's flatness: a curled sheet would make spacing read
+shorter, so it cannot cause this direction. Not checked: other calibrations, the old rig's data, how
+the bias changes with exposure and across the frame. Nothing in the code was changed.
+
+### 17.7 Dark photos and the floor: two starting values (decisions, #288, 2026-10-26)
+
+**Label: decision, not a measurement.** Two values chosen by Aaron on 2026-10-26 to start the
+rules of #288 (failure modes 3 and 5 of 17.4); both are to be checked against a later run in #293.
+
+**Dark limit: exposure times gain of at least 200,000.** A photo whose exposure (µs) times analogue
+gain is at least 200,000 is marked "dark, no data" and its areas are left out. Dark is decided
+from the photo's own exposure and gain, never from the time of day, because the light program is
+the researcher's choice. What the value rests on, read from `rig.db` (read-only, 2026-10-26 about
+14:00 UTC), exposure times gain per photo:
+
+| Experiment | Photos | Under 6,000 | 6,000 to 10,000 | 10,000 to 30,000 | 30,000 to 200,000 | 200,000 or more (dark, about 64,000 µs at gain 4.0) |
+|---|---|---|---|---|---|---|
+| 16, potato run, 20 to 21 October | 1,393 | 39 | 873 | 17 | 8 | 456 |
+| 18, Round 2, 22 to 26 October | 6,067 | 4,008 | 80 | 76 | 27 | 1,876 |
+
+The usual lit level is 6,000 to 10,000 on the potato run and under 6,000 in Round 2.
+
+All 7,460 photos have both values recorded. Dark photos sit at the auto-exposure ceiling, about
+256,000; 35 photos (8 and 27) lie between 30,000 and 200,000. The photos between 10,000 and 200,000 are taken to be the fades (not checked one by one), left to the light
+changing rule of #288's second part. *Limits:* with auto-exposure off the ceiling is never
+reached, so a dark photo is not marked; two experiments, one light program.
+
+**Floor: 100 mm² per tray with the green threshold (`green threshold, 0.1`).** An area below it
+is shown as "under 100" in the gallery. Reported with each area, never subtracted (Aaron). From 17.4:
+empty trays read 27 to 78 mm² (median per tray and day) and at most 98 mm² outside shuffle 1.
+*Limits:* one run, trays 9 to 12; one value for every tray and slot.
+
+### 17.8 Light exclusions: how far the light moves (method written 2026-10-26, before the data was read)
+
+**Label: development check.** #288 part 2 leaves out the plant areas of photos taken while the
+light is changing, briefly disturbed, or steady at a level away from the experiment's norm
+(exclusions, `GLOSSARY.md`). Three values are open: how far from the norm counts as off norm,
+how large a step from one photo to the next counts as the light changing, and how many photos
+still count as a short run. This section sets out how they are chosen from photos already taken.
+
+**Data.** `rig.db`, read-only, the photos taken as captures of experiments 16 (potato run, 20 to
+21 October) and 18 (Round 2, from 22 October). For each photo: its time, exposure (µs) and
+analogue gain, and their product E (exposure times gain), which the camera's auto-exposure raises
+as the light falls. Photos with E of 200,000 or more are lights off (17.7) and are not used.
+Script `experiments/round2-light/light_review.py`; its per-photo values go to `docs/figures/17.8/`.
+
+**Questions.**
+
+1. *Steady light.* In each experiment's first full 24 hours, outside the fades, how far does E
+   move from one photo to the next, and how far from its median (the norm)? Reported as the
+   ratio to the previous photo and to the median, median and 99th percentile and largest.
+2. *Fades.* In every fade of both experiments (the stretches either side of lights off where E
+   leaves its steady range): how long they last, how many photos, and the step from one photo to
+   the next. The steps of question 1 against these show whether one value separates them.
+3. *Shuffle 1* (23 October 08:43 to 08:56 UTC, people at the table, 17.4): does E move, by how
+   much, and for how many photos? If it does not move, people at the table are left to the
+   visits rule (#288 part 3), not to the light rules.
+4. *Lit levels.* How many steady lit levels each experiment has. With one level only, no photo
+   shows what a different steady level does, and the off norm value has no data behind it.
+
+**How the values are chosen.** Shown to Aaron as tables before any value is fixed, then written
+here as decisions with the numbers they rest on. A value with no data behind it is left out of
+the rules, and that is said here.
+
+**Limits, as planned.** Two experiments, one chamber, one light program with fades. E is what
+the camera did, not a light measurement: a change in E is the camera adjusting, whatever the
+cause. Nothing here shows that areas read under a different steady level match the norm's.
+
+**Results (2026-10-26, about 15:00 UTC).** `python3 experiments/round2-light/light_review.py
+/var/lib/npec-rig/rig.db --experiment 16 18 --out docs/figures/17.8` (read-only); the per-photo
+values are `docs/figures/17.8/light-e16.csv` and `light-e18.csv`. One photo a minute in both. E is
+exposure times gain; the norm is the median of the first day's steady photos (lit, more than 60
+minutes from any lights-off photo).
+
+| Question | Experiment 18 (Round 2) |
+|---|---|
+| 1. Steady light, first 24 h | 868 photos, norm E 5,248 (5,248 µs at gain 1.0). Off the norm: 99% within 3.0%, largest 6.9%. From one photo to the next: 99% within 3.1%, largest 5.9% |
+| 2. Fades | 10 fades, 20 to 26 photos and 19 to 25 minutes each, E up to about 20 times the norm. From one photo to the next: median 7.4% to 8.4%, largest 63% to 73% |
+| 3. Shuffle 1 | E moved: 8% to 11% low, in runs of 1 to 3 photos, steps 8% to 12% |
+| 4. Lit levels | One level on the first day. From 08:25 UTC on 26 October, after sheets and squares were put on the pots (18.4, 18.5), E has been 9% to 27% low and steady for 397 photos so far |
+
+Experiment 16 (potato run) is not usable for question 1: its first day already holds 5 levels of E
+(bands of 25%), with 99% of steady photos within 107% of the norm.
+
+What this shows. A fade's steps are larger than the steps of people at the table, so step size
+alone does not separate them; how long the light stays off the norm, and whether it reaches lights
+off, does. People at the table move E by little more than steady light does, so visits are left
+to the visits rule (#288 part 3). E follows what is on the table as well as the lamps: the sheets
+and squares lowered it by up to 27% with the lamps unchanged.
+
+**Decisions (Aaron, 2026-10-26).** These are decisions, not measurements; revisited in #296.
+
+- *Off norm:* a lit photo whose E differs from the norm by more than 3 times the first day's
+  largest steady swing (for experiment 18, 3 x 6.9%, about 21%). The limit comes from each
+  experiment's own first day, so a noisier experiment gets a wider one; only the factor 3 is
+  fixed. Chosen over a fixed 10%, which would sit just above experiment 18's steady swing and
+  could not adapt to another experiment (Aaron: "I'm scared that we hard-code in a value that
+  will bite us later").
+- *Steady photos on the first day:* lit and more than 60 minutes from any lights-off photo; all
+  lit photos when the first day has no lights-off photo.
+- *Short run:* 3 photos or fewer off the norm, returning to it: "light disturbed", no warning.
+- *Changing:* an off-norm stretch that reaches lights off, or in which E keeps moving: "light
+  changing", no warning. A longer steady stretch is "light off norm" and counts toward the warning.
+- Each exclusion stores the norm and limit it used, and all of an experiment's exclusions are
+  worked out again whenever a photo is read, so a changed rule corrects older photos.
+- *Warning:* more than 2 hours of "light off norm" within any 24 hours. Each photo off norm
+  counts from its own time to the next photo's, at most the experiment's usual gap between
+  photos (the median), so a pause is not counted. The researcher can dismiss it after a
+  confirmation; the dismissal is stored with its time and the end of the hours it covered, and
+  later hours raise it again, also in a stretch still going on (Aaron, 2026-10-23 and 10-27,
+  #288 part 2 PR 2, review of #300).
+  A decision, not a measurement. Experiment 18's one off-norm stretch, the sheets on the pots on
+  26 October, lasted 1.9 hours, so it raises no warning.
+
+*Limits.* One usable experiment, one light program, one lit level. A ramp program with no lights
+off makes a wide limit and may leave dim photos in. Whether areas read under a steady level away
+from the norm are wrong is not known.
+
+### 17.9 Visits: people at the table (method written 2026-10-27, before the data was read)
+
+**Label: development check.** #288 part 2 leaves out the plant areas of photos taken while
+someone is at the table: handling a tray, taking one away or putting it back, blocking it for a
+moment, or wearing green gloves or a green sweater. Such a photo gets the exclusion "visit"
+(`GLOSSARY.md`), is left out of averages and exports, and raises no warning. The whole photo is
+left out, not only the trays that changed: at one photo a minute a visit costs a few minutes of
+photos, and one exclusion per photo is what the rig already stores (Aaron, 2026-10-27). When a
+photo is both a light exclusion and a visit, it keeps the light one.
+
+What the rig sees in the photos, by kind (Aaron, 2026-10-27):
+
+1. *A short disturbance that returns.* A tray found before and after is missing for a few
+   photos, or a tray's plant area jumps up or down and comes back. These are visits.
+2. *A tray taken away.* The photos of its going and of its return, if it returns, are a visit.
+   While it is away it has no area and the other trays are not affected. A tray that never
+   returns is already shown as "not found since" (`database.tray_readings`).
+3. *A change that stays.* A green notebook or target left on a tray, a tray swapped, a plant
+   cut back: the area steps and does not come back. The rig cannot tell such a step from a real
+   change. Not part of this rule; counted here only to size a later issue.
+
+Two values are open: how large a jump in a tray's area counts, and within how many photos it
+must come back. This section sets out how they are chosen from photos already taken.
+
+**Data.** `rig.db`, read-only: the photos taken as captures of experiment 18 (Round 2, from 22
+October), each tray's saved area (`tray_reading`, green threshold) and the trays found, and each
+photo's light exclusion (17.8). Photos with a light exclusion are not used. Script
+`experiments/round2-visits/visit_review.py`; its per-photo values go to `docs/figures/17.9/`.
+
+**Known visits.** The times written in this log before the data is read: shuffle 1, 23 October
+08:43 to 08:56 UTC (17.4); the green target put on tray 10, 23 October about 14:02 UTC (17.5,
+kind 3 after it is down); sheets and squares put on the pots from 26 October 08:25 UTC, and a
+tray moved about 10:30 UTC (17.8). Reported by Aaron on 2026-10-27, before the analysis, in
+Dutch local time and given here in UTC: 23 October 10:56 CEST (08:56 UTC, the end of shuffle 1);
+26 October 11:35 CET (10:35 UTC, near the tray move); 27 October 09:45 CET (08:45 UTC) and 10:49
+CET (09:49 UTC). Aaron was also in the chamber several times on Monday 26 October at times not
+noted, so that whole UTC day is left out of the photos taken as no one at the table, and its
+marks are reported apart. Every other photo is taken as no one at the table, which is not known
+for certain: an unlogged visit would show as a false mark.
+
+**Questions.**
+
+1. *Jumps.* For each tray in each photo: its area against its usual level, the median of the
+   same tray's areas in the 10 photos before. Reported in mm² and as a ratio, up and down, for
+   photos away from known visits (median, 99th percentile and largest) and at each known visit.
+   The plants are small Arabidopsis: a ratio alone can be large for a tray near the
+   floor of 100 mm² (17.7), so both are shown.
+2. *Missing trays.* How often a tray found in the photos before and after is missing from one
+   photo, away from known visits (tag reads that fail with no one there) and at each known visit.
+3. *Length.* How many photos each known visit lasts, from the first photo that differs to the
+   first photo back to how it was. This sets how many photos still count as "comes back".
+4. *Steps that stay.* How many times a tray's area steps by more than the chosen jump and does not
+   come back within that many photos (kind 3).
+
+**How the values are chosen.** The smallest jump that marks every known visit, if one exists
+that marks few other photos; the number of photos from the longest known visit. Shown to Aaron
+as tables before any value is fixed, then written here as decisions with the numbers they rest
+on.
+
+**Limits, as planned.** One experiment, one chamber, a handful of known visits, all by people
+who know the rig. Areas are the green threshold's; a person in dark clothes with bare hands may
+change no area and hide no tag, and is not seen. Nothing here shows that areas between visits
+are free of people.
+
+**Results (2026-10-27, run again at about 11:50 UTC after the review of #301).**
+`python3 experiments/round2-visits/visit_review.py /var/lib/npec-rig/rig.db --experiment 18 --out
+docs/figures/17.9` (read-only); one row per photo in `docs/figures/17.9/visits-e18.csv`, with the
+rule's marks. 4,736 photos of experiment 18 had their trays read and no light exclusion, from 22
+October 08:41 to 27 October 11:50 UTC. Monday is the chamber's local day (25 October 23:00 to 26
+October 23:00 UTC); the chosen rule's marks come from `exclusions.visits`, the code the rig runs,
+not from a copy in the script. The first run, at about 11:00 UTC on 4,658 photos with Monday as a
+UTC day, gave the same marks and the same table.
+
+One known visit was added after the first run, from Aaron's answer to its marks: the benchmark
+put on tray 8, 22 October 11:33 CEST (09:33 UTC). The first run also marked 11 photos of tray 7
+on 22 October between 13:16 and 16:06 CEST; Aaron has no record of being in the chamber then
+(2026-10-27), so they are taken as false marks.
+
+1. *Jumps.* Away from known visits and Monday, the largest jump per photo has a median of 68
+   mm², 99% within 554 mm² and largest 1,336 mm², but never 2 times the usual level (largest
+   ratio 1.94). The large ones are the large green objects: the benchmark on tray 8 (about 4,000
+   to 5,000 mm²) moves about 10% from photo to photo, and the target on tray 10 (about 23,000 mm²)
+   by a few hundred mm². The small ones near the floor move by large ratios: tray 7 (usual 64 to
+   114 mm²) reaches 247 mm², more than 2 times, with no one there. A jump must therefore be large
+   both in mm² and as a ratio. At the known visits the largest jumps were 2,401 mm² (shuffle 1,
+   tray 7 from 64), 4,355 mm² (the benchmark, tray 8 from 809), 22,994 mm² (the target, tray 10
+   from 61), 5,089 mm² (the tray move, tray 9 from 3) and -419 mm² (27 October 10:49 CET, tray 7
+   from 448, a hand over it). 27 October 09:45 CET changed no area by more than 235 mm² on tray
+   10 (usual 26,463). The sheets on the pots fall in photos already left out by the light rules.
+2. *Missing trays.* Away from known visits, 42 of 3,793 photos (1.1%) miss one tray found before
+   and after, spread over every hour including nights (trays 12, 8, 10, 2, 7, 6): tag reads that
+   fail, not visits. At known visits 0 to 5 photos each. A missing tray is not used.
+3. *Length.* With the rule below, the marks of one visit run 1 to 8 photos, with up to 4
+   unmarked photos between two marks of the same visit (the tray move).
+4. *Steps that stay.* 13 jumps over the rule after which the tray was still over it 10 to 30
+   photos later: the benchmark, the target, and trays put in new slots in the tray move.
+
+| Jump of more than (and 2 times) | Photos marked with no one there | Photos marked at known visits |
+|---|---|---|
+| 100 mm² | 20 | 32 |
+| 150 mm² | 8 | 27 |
+| 200 mm² | 2 (tray 7, 247 and 242 mm²) | 25 |
+| 250 mm² | 0 | 24 |
+
+**Decisions (Aaron, 2026-10-27).**
+
+- *Visit:* a photo in which a tray's area is more than 250 mm² and more than 2 times away from its
+  usual level, up or down; the usual level is the median of the same tray's areas in the 10
+  photos before. The photos between two such photos at most 4 photos apart are visits too.
+- A missing tray is not a visit on its own.
+- A light exclusion wins over a visit; the whole photo is left out (above).
+- With these values, experiment 18 has 29 photos marked: the benchmark 6, shuffle 1 6, the
+  target 6, the tray move 8, 27 October 10:49 CET 1, and 2 on Monday 26 October 13:09 to 13:16
+  UTC (Aaron was in the chamber that day; not known whether then). None away from known visits.
+- A step that stays is marked for its first few photos (until the usual level catches up),
+  which are the photos of the object being put down. Steps that stay are not otherwise handled;
+  left for a later issue.
+
+*Limits.* The margin is thin: the largest false jump was 247 mm² against 250; a noisier tray, a
+larger plant or another segmenter would give false marks, and larger plants will move by more
+mm² with no one there. A visit that changes no area by that much (27 October 09:45 CET) is not
+seen. To be checked again with the light values in #296.
+
+### 17.10 Touching trays: plant in a shared strip counted once (#282, 2026-10-27)
+
+**Label: development check.** The method was not written before the check was run; this is a
+check that a code change does what it should on real photos, not a measurement of accuracy.
+
+*The change.* Where two tray outlines overlap, a plant pixel now counts only for the tray whose
+centre is nearer the pixel's centre (Aaron, 2026-10-23); at the same distance, for the lower tray
+in the list. A pixel inside one outline only stays with that tray. Before, it counted in both.
+The review of #281 measured trays 5 and 7 sharing 2,249 to 2,932 px of outline (about 100 to
+125 mm² of tray) on the 23 October photos.
+
+*How it was checked.* `experiments/round2-touching/overlap_check.py`, read-only on `rig.db`
+and the saved masks: each tray's outline rebuilt from its stored centre, tilt and the
+calibration's scale, then measured the old way (each tray alone) and the new way (all trays
+together). The old areas matched the stored ones exactly, so the rebuilt outlines are the ones
+the rig used.
+
+*Results* (experiment 18, "Potato Plants v001"):
+
+| Photo (UTC) | All trays, old | All trays, new | Trays that change |
+|---|---|---|---|
+| 23 Oct 11:34:53 (113453_600583) | 4,794.4 mm² | 4,794.4 mm² | none: no plant in a shared strip |
+| 23 Oct 11:35:53 (113553_609273) | 4,702.1 mm² | 4,702.1 mm² | none |
+| 27 Oct 14:34:53 (143453_829671) | 40,227.9 mm² | 40,227.5 mm² | tray 10 −0.4 mm², tray 1 less than 0.1 mm² |
+
+*Limits.* Three photos, one experiment. The change matters as leaves grow over the tray walls;
+its size then is not measured. Photos read before the change keep their areas until Reprocess,
+and nothing stored tells the two rules apart.
+
+### 17.11 Trays past the photo edge (#282, 2026-10-27)
+
+**Label: development check.** Not written before the check was run; it sets a decision.
+
+*What was measured.* How far each tray's outline reaches past the photo edge, at its farthest
+corner, in mm at the tray's scale: `experiments/round2-photo-edge/past_edge.py`, read-only on
+`rig.db`, with each outline rebuilt from its stored centre and tilt (the method of 17.10). Photos
+are 9152 x 6944 px.
+
+| Photo (UTC) | Tray 8 (North 6) | Tray 9 (South 6) | Tray 12 (South 1) | Tray 10 (South 1) |
+|---|---|---|---|---|
+| 23 Oct 11:34:53 | 8.4 mm | 11.9 mm | 3.1 mm | |
+| 23 Oct 11:35:53 | 8.5 mm | 11.9 mm | 4.9 mm | |
+| 27 Oct 14:34:53 | 10.4 mm | 11.1 mm | | 0.3 mm |
+
+All other trays lie inside. The review of #281 gave 12 to 44 px (about 2 to 9 mm); these figures
+are larger because they are taken at the farthest corner of a slightly turned tray.
+
+*Decision* (Aaron, 2026-10-27, labelled as one): a tray is shown as "partly outside the photo"
+when it reaches more than **13 mm** past the edge, the widest measured outer wall (11 to 13 mm),
+where no plant grows. 10 mm was agreed first and raised after these figures: it would have marked
+trays 8 and 9 on every photo with only their wall outside.
+
+*Limits.* Tray outlines are placed to within about 10 mm (15.5l), so the mark is approximate: a
+tray 13 mm past may in fact be up to about 10 mm more or less. Three photos of one experiment.
+Leaves hanging past the tray's own outline are not seen by this check at all.
+
+### 17.12 Two trays carrying the same tag, in the chamber (#302, method written 2026-10-28, before the check)
+
+**Label: development check.** Whether the rig marks both trays when a misprint gives two trays
+one tag, on real photos, with the code of branch `302-duplicate-tags` (rig.db version 13).
+
+*Before the change.* `rig.db` allowed one row per tag in a photo. A photo in which two trays carry
+one tag failed to save its reading and was stored as `read failed`, with no trays and no areas
+(found while writing the test, 2026-10-28; no such photo exists in the potato run).
+
+*Method.* During the potato run, in the lit hours. A second printed tag 1 (a duplicate of the tag
+of tray 1) is laid on another tray of the 12, in that tray's own cell A1 area, for about 3 minutes,
+then removed. The rig keeps its photo a minute. Read from `rig.db` (read-only) and the gallery:
+
+1. Photos with the duplicate: two rows for tag 1, each with its own area, both shown as "not
+   counted" with "2 trays carry tag 1"; the other trays counted.
+2. The photo before and the photo after: one tray 1, counted, no mark.
+3. No "moved" line for tray 1 while the duplicate is there.
+
+*What it disturbs.* The photos with the duplicate: the tray it lies on gains a second outline
+over its own, so its area, and the duplicate's, are wrong for those photos. The duplicate's
+two tag-1 areas are marked, the tray under it is not. Those photos are also likely to be marked
+as chamber activity (the person placing it).
+
+*Result* (2026-10-28, potato run, experiment 18, branch `302-duplicate-tags` at rig.db version
+13; times UTC, Dutch time is UTC+1). Read from `rig.db` read-only and the gallery's API. Areas in
+mm2.
+
+| Photo | What lay on the table | Tag 1 rows (slot, area) | Tray 10 (South 1) | Marked not counted |
+|---|---|---|---|---|
+| 08:46:53 | as usual | South 2, 91 | 26,709 | none |
+| 08:47:53 | a second tag 1 in tray 10's cell A1, beside tray 10's own tag | South 2, 75; South 1, 12,041 | 14,401 | both tag 1 rows |
+| 08:48:53 | the same | South 2, 82; South 1, 12,049 | 14,367 | both tag 1 rows |
+| 08:49:53, 08:49:56, 08:50:01 (two taken by hand) | tray 10's tag taken away, the second tag 1 in its place | South 2, 79 to 82; South 1, 26,645 to 26,652 | not found since 08:49:53 | both tag 1 rows |
+| 08:50:53 | as usual | South 2, 91 | 26,634 | none |
+
+1. Holds. Both tag 1 trays keep their own area and both are marked "2 trays carry tag 1"; the
+   other 10 or 11 trays are counted. With the tag in place of tray 10's, the South 1 tray keeps
+   tray 10's area (26,645 to 26,652 against 26,634 to 26,709 before and after).
+2. Holds. The photos before and after have one tray 1, counted, with no mark.
+3. Holds. No "moved" line in any of the 6 photos. Tray 10 shows as not found while its tag was
+   away, as for any missing tag.
+
+![Tags picture of 08:49:53](figures/17.12/084953-tags.jpg)
+
+*The gallery's Tags picture of the photo of 08:49:53 UTC (1600 px wide), from
+`/gallery/image/tags/experiments/2026-10-22_df206967/stills/2026-10-28/084953_704526` on the branch.
+Both tag 1 trays are outlined: South 1 (its label cut by the photo edge, with tray 10's tag
+replaced by the second tag 1) and South 2.*
+
+*Found.* With both tags on tray 10, the second tag 1's outline lies over tray 10's own, and the
+plant is shared between them by the nearer centre (17.10): tray 10 read 14,401 instead of about
+26,700, and is not marked. The two parts add up to 26,442 and 26,416, within 1.1% of the readings
+before and after. Neither photo was marked as chamber activity: tray 10 fell by 1.85 times, under
+the factor of 2 (17.9).
+
+*Limits.* One tray, 6 photos, one printed duplicate. A duplicate on a tray of its own (a real
+misprint) was shown only by the swap of tray 10's tag. The photos of 08:47:53 to 08:50:01 hold a
+wrong area for tray 10 or a tray 10 not counted, and are left out of the run's analysis (#223).
+
+*Follow-up (#315, 2026-10-28).* Every row stored as `two trays in one slot` in `rig.db`, read-only
+on the same day: 6 rows in 3 photos, all of experiment 18. Two are the photos of 08:47:53 and
+08:48:53 above (the spare tag 1 on tray 10). The third is 27 Oct 09:57:53 UTC: tray 11 carried by
+hand over North 3 during the tray move of that morning, its tag seen and its outline placed over
+tray 3 (`docs/figures/17.12/095753-tags.jpg`). Two real trays never lie in one slot (Aaron), so the
+status means a tray carried over the table or a loose tag on a tray.
+
+Decision (Aaron, 2026-10-28): such a photo is too abnormal to measure. It is chamber activity
+("visit", 17.9): the whole photo is not counted, and nearby marks join as for any visit. Both trays
+also show "2 trays in South 1" in Info. A light exclusion still wins over it, so 09:57:53 stays
+"light disturbed"; 08:47:53 and 08:48:53 become visits. A loose tag left on a tray marks every photo
+until it is removed, shown on the page.
+
+![Tags picture of 27 Oct 09:57:53](figures/17.12/095753-tags.jpg)
+
+*The gallery's Tags picture of the photo of 27 Oct 09:57:53 UTC (10:57:53 Amsterdam), 1600 px wide,
+from `/gallery/image/tags/experiments/2026-10-22_df206967/stills/2026-10-27/095753_613513` on main.
+Tray 11, carried by hand, is outlined at a slant over North 3 and labelled "two trays in one
+slot", as is tray 3 under it.*
+
+### 17.13 The benchmark rosettes against a phone scan scaled by callipers (#228, method written 2026-10-28, before the analysis)
+
+**Label: reference comparison.** The benchmark "Benchy Yellow-4" (15.1) lies on tray 8 in North 6
+in the potato run. Its four rosettes are measured from above with a second instrument, a phone
+photo scaled by calliper readings of the benchmark itself, and compared with the rig's area of
+tray 8 and with the 3D scan of 15.5e.
+
+*Reference instrument.* Two photos taken by Aaron in the chamber on 2026-10-28 with a Google Pixel
+11 Pro XL (back camera, 4032 x 3024, held above the tray) and analysed on the phone by its 2D
+phenotyping app (`android_ios_foliage_tray_pipeline_v1`, foliage mode): at 09:36:53 UTC
+(`142a6558...`) and 09:39:41 UTC (`baee65e4...`). For each green object found, the app gives its
+area in pixels and its centre, on a 1080 x 1440 copy of the photo (`analysis/analysis-input.png`),
+and no scale. Kept in `experiments/round2-benchmark-plants/data/<id>/` (the photo, the app's input copy,
+its reports and the manifest; the app's overlay picture is not kept); SHA-256 of the photos
+`bdd63ae7...` and `ccafad89...`, matching each package's manifest. The app's own outline of each plant is the
+reference mask: its edge rule is not known.
+
+| Photo | Objects found by the app |
+|---|---|
+| 09:36:53 | 4: NE and NW merged into one, the other two rosettes, the green square on the black card |
+| 09:39:41 | 5: the four rosettes separately and the green square |
+
+*Calliper readings* (Aaron, 2026-10-28, vernier calliper; the spacings his best estimate from
+several readings). Base sides: north 187.76, south 187.90, west 187.74, east 187.83 mm (mean
+187.81). Rosette centre to centre: NW to NE, NE to SE, NW to SW and SW to SE each 70.0 mm (the
+last given as "NE:SE" a second time, taken to be SW:SE). Heights and diameters: 15.1.
+
+*Method.* `experiments/round2-benchmark-plants/`, on the files above only:
+
+1. The base's four corners are found in `analysis-input.png` from the yellow of its top face.
+2. A plane-to-plane map (homography) takes them to a 187.81 mm square: the scale at the base's
+   top face, with any tilt of the phone corrected within that plane.
+3. Each object's area in mm2 is its app area in pixels times the map's local area factor at its
+   centre.
+4. Height check, reported and not applied: the four rosette centres (the beads, 12.8 to 19.1 mm
+   above the base) mapped onto the base plane give their spacings in mm, against the 70.0 mm
+   measured. The ratio shows how much larger the rosettes read at bead height than at the base.
+   Applying it is a decision for Aaron, labelled as one.
+5. Compared with: the 3D scan per rosette (15.5e: NE 2009.9, SE 1343.7, NW 753.4, SW 413.7 mm2);
+   and the rig's area of tray 8 in its 20 photos of 09:20:53 to 09:58:53 UTC (rig.db read-only,
+   3986 to 4054 mm2). The rig gives only the tray's total, so the phone's four rosettes plus the
+   green square are compared with it.
+
+*Pass rule.* None set before the analysis.
+
+*Not covered.* The rosettes' own height range (leaves from the base to 19.4 to 28.0 mm above it)
+beyond the height check; living plants (#223); the app's edge rule, which is not known.
+
+*Result* (2026-10-28). Script `experiments/round2-benchmark-plants/phone_scan.py`, run from the
+repository root as `phone_scan.py docs/figures/17.13 experiments/round2-benchmark-plants/data
+experiments/round2-benchmark-plants/data/142a6558 experiments/round2-benchmark-plants/data/baee65e4`;
+values in `experiments/round2-benchmark-plants/data/results.csv`. A merged object is named by the
+beads inside the app's box for it. The rig's side: `rig_tray8.py 2026-10-28T09:20
+2026-10-28T09:59` (rig.db read-only; captures with tray 8 placed alone in its slot). Areas in mm2.
+
+The base was found as a clean four-sided outline in both photos: sides 574 to 577 px (09:36:53)
+and 657 to 664 px (09:39:41), so the phone was about 15% nearer for the second.
+
+*Height check (step 4).* The beads, mapped onto the base plane, lie 72.20 to 72.81 mm apart
+(09:36:53) and 73.05 to 73.68 mm apart (09:39:41), against 70.0 mm measured: 3.1% to 5.3% long.
+At bead height, areas read 7.6% large in the first photo and 9.7% large in the nearer second
+(the mean of the squared ratios). The phone was close (its focus setting gives 44 and 37 cm), so height
+counts about 4 times more per mm than on the rig: about 0.6% per mm at the beads, against 0.145%.
+
+| Object | 09:36:53, at the base | 09:39:41, at the base | 09:39:41, divided by the bead factor | 3D scan (15.5e) |
+|---|---|---|---|---|
+| NE | 2777.7 (NE + NW, merged) | 2081.0 | 1896.4 | 2009.9 |
+| SE | 1258.1 | 1298.5 | 1183.4 | 1343.7 |
+| NW | (merged) | 758.9 | 691.6 | 753.4 |
+| SW | 365.7 | 394.7 | 359.7 | 413.7 |
+| Four rosettes | 4401.5 | 4533.1 | 4131.1 | 4520.7 |
+| Green square on the black card | 123.6 | 126.2 | not divided (flat) | |
+
+*Repeatability, two photos.* At the base, the two photos differ by 2.2% (NE + NW), 3.2% (SE) and
+7.9% (SW). Divided by each photo's own bead factor, by 0.2%, 1.2% and 5.9% (each against the first photo). The measured height
+effect accounts for most of the difference between them.
+
+*Against the 3D scan.* At the base, the phone reads within 4.6% of the scan for each rosette (NE
++3.5%, SE -3.4%, NW +0.7%, SW -4.6%). Divided by the bead factor, 5.6% (NE) to 13.1% (SW) below it.
+The scan counts the white beads (15.5e); whether the phone app counts them is not known. The two
+are not independent: the 3D scan was made by the same application, on an iPhone with LiDAR, and
+the phone scan by a beta version of it on Android, so they may share the rule for where a leaf
+ends. The 3D scan is the least reliable of the three instruments, an order of size with very low
+precision (Aaron, 2026-10-28): neither its agreement with the phone nor its 10% to 39% gap from
+the rig in 15.5e confirms anything.
+
+*Against the rig.* The rig's tray 8 area in the 39 photos of 09:20:53 to 09:58:53 UTC (all
+counted, North 6, green threshold 0.1): median 4021.6, range 3986.4 to 4054.0. (The method said
+20 photos: a miscount of the same span.) The rig gives the tray's total, so it is compared with
+the four rosettes plus the green square:
+
+| Phone photo | Phone total, at the base | Rig against it | Phone total, divided by the bead factor | Rig against it |
+|---|---|---|---|---|
+| 09:36:53 | 4525.1 | -11.1% | 4214.3 | -4.6% |
+| 09:39:41 | 4659.3 | -13.7% | 4257.3 | -5.5% |
+
+*What it shows.* The rig reads the benchmark 4.6% to 13.7% smaller than the phone scan, depending
+on which phone scale is taken. The true top-down area lies between the two phone scales or below
+them: most leaf surface sits between the base and the leaf tips (12.8 to 28.0 mm up), and a leaf
+above the beads reads even larger than the bead factor allows for. The rig has its own, smaller,
+height effect the other way: at about 0.145% per mm (15.5), rosettes 17 to 23 mm above the tray top
+read about 2.5% to 3.4% large, so the rig's shortfall at true scale is larger, not smaller.
+
+*Limits of the evidence.* Two phone photos, one benchmark, one day. The app is a beta version;
+its edge rule is not known and has not been checked, and it found the NE and NW rosettes as one in the first photo. The bead centres are the
+middle of each white blob, at bead height, which the callipers measured centre to centre. The
+green square is not scaled for its own height, which is below the base's top face. No pass rule
+was set. A tray's plant in the run is measured by the rig only, so the comparison holds for this
+benchmark and this tray, not for each slot.
+
+*Decision* (Aaron, 2026-10-28, labelled as one): the reference is the phone at the bead-height
+scale, 4131.1 mm2 for the four rosettes in the 09:39:41 photo (NE 1896.4, SE 1183.4, NW 691.6, SW
+359.7). Against it, the rig reads the benchmark about 5% small (4.6% and 5.5% against the two
+photos, totals with the green square). Two effects not allowed for work in opposite directions:
+leaf tips above the beads would make the true area smaller and the rig's shortfall less, and the
+rig's own height effect (2.5% to 3.4% large, above) would make its shortfall at true scale more.
+
+*What the data provides* (talked through with Aaron, 2026-10-28):
+
+1. A reference for the benchmark's area seen from above, built from three parts. The scale comes
+   from vernier calliper readings of the base itself, independent of any application; the tilt
+   correction from the base's four corners, plain plane geometry; each rosette's outline from the
+   beta phone application, the one unchecked part. The reference is as good as that outline.
+2. A measurement, not an estimate, of the height effect at close range: the measured 70.0 mm bead
+   spacing reads 3% to 5% long in the photos, so areas at bead height read 8% to 10% large. Taking
+   each photo's own effect out brings the two photos, taken from different distances, together.
+3. The rig reads the benchmark about 5% small against that reference, at the edge of the final
+   target of 5% per tray. Part or all of it may be the rig's edge rule (a flat 10 mm circle read
+   21% small in round 1, 15.5), but the application's edge rule is unchecked as well, so which is
+   nearer the truth is not known. Where a leaf ends is the largest open question, and the plant
+   segmentation comparison with ImageJ (#297) is the check on it.
+
+![Corners and beads found, 09:39:41](figures/17.13/baee65e4-corners-beads.jpg)
+
+*The 09:39:41 UTC phone photo at the app's 1080 x 1440 size, with the base's four corners
+(magenta dots and outline) and the four beads (magenta rings) found by `phone_scan.py`. The
+09:36:53 picture is `figures/17.13/142a6558-corners-beads.jpg`.*
+
+## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
+
+**Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from
+tag edges 1.4 to 2.5% below the scale from tag spacing in three photos. This section measures the
+same thing in every stored photo that shows calibration sheets, with no new photos and no camera.
+
+**Question.** Is the edges/spacing ratio the same in every photo, or does it change with exposure
+time, gain, lens position, slot or distance from the image centre? A constant ratio could be
+corrected once; a changing one could not.
+
+**Photos.** Read only, nothing under `/var/lib/npec-rig/` is written:
+
+1. The 22 October calibration (`20261022T072523939958`) and the rounds of its validation
+   (`20261022T072759980696`, sheets in all 12 slots).
+2. The two photos of 23 October 14:16:53 and 14:17:53 UTC (17.6, two sheets).
+3. Every other calibration and validation photo still on disk: 16 calibration and 31 validation
+   photos in `rig/`, and 88 calibration photos from before #103 in `calibration/frames/`.
+
+**Tags.** The tag corners stored with each photo in `rig.db` (`capture_analysis`, kind `tags`,
+version 2), opened read-only. Where none are stored, tags are detected again with
+`tags.detect_tags`, the rig's detector, and the table says which. Only calibration sheet tags (IDs
+300 to 449) are used.
+
+**Sheets and slots.** Tags are grouped into printed sheets with the rig's own grouping
+(`certainty_map.group_sheets`, with the scale field of the calibration the photo belongs to), and
+each sheet is named by its slot with `certainty_map.sheets_by_slot` and the saved slot layout of
+that calibration. A photo the grouping refuses (two sheets touching) or one without a slot layout
+is listed with the reason; its sheets are still measured, by image position.
+
+**The measurement, per pair of tags.** For two tags of one sheet that lie on the same page of the
+sheet manifest (`reference/calibration-sheets/apriltags-36h11-30mm-a4-300-449.manifest.json`) and
+whose designed centres are 30 to 90 mm apart:
+
+- edge scale = mean side of the two tags in pixels / 30.0 mm (the calliper value, CLAUDE.md
+  Facts; the rig uses the same mean side, `calibration.py:339`);
+- spacing scale = distance between the two tag centres in pixels / designed distance in mm. A
+  tag's centre is the mean of its four corners (`tags.py:139`), so a shift of all four corners
+  toward the middle of the tag does not move it;
+- ratio = edge scale / spacing scale. Below 1 means edges read short.
+
+Both scales are taken at the same place in the same photo, so the ratio does not depend on the
+scale field, the camera height or the print scale (the 180 mm bars agree with the design within
+0.05%, section 3). Per sheet: the median ratio of its pairs and their middle half, and the ratio
+also split into pairs across the page (37.5 mm) and down it (41.1 mm). The shortfall is also
+given in pixels per edge, (30.0 mm x spacing scale - mean side) / 2: a corner finder that sits a
+fixed number of pixels inside the black square gives the same pixels per edge at every scale.
+
+**Recorded with each sheet:** photo, kind (calibration or validation), calibration, slot, sheet
+centre and its distance from the image centre (4576, 3472), tags and pairs, exposure time,
+analogue gain, colour gains and lens position (from the photo's sidecar, or for the older
+calibration photos the lens position in the calibration file only), the calibration's
+`calibration_tag_size_mm`, and where the tags came from.
+
+**Check before the full run.** On `20261022T072523939958` the script must give the 17.6 result:
+median 0.986, middle half 0.982 to 0.990. If it does not, the difference is found before any other
+photo is measured.
+
+**Output.** One table (one row per photo and sheet) and charts of the ratio by slot, against
+distance from the image centre, and against exposure time. Script:
+`experiments/round2-tagedge/`.
+
+**Limits of the evidence (as planned).** The photos were taken for calibration and validation, not
+for this question: exposure and lens position were not varied on purpose, and may change together.
+The sheets lay where trays put them, at pot or tray-top height. A ratio that differs between
+photos taken at different exposures shows that something changed between them, not that exposure
+caused it. The older calibration photos may come from before the rig was rebuilt; the ratio does
+not depend on the rig's geometry, but their sheets may be other prints.
+
+### 18.1 Results (2026-10-25)
+
+**Changes to the method while running it.** Six calibration files of an older format (21 and 22
+September) no longer load in the rig; the script reads only their scale field, lens position and
+tag size from them. Three calibration photos with no saved calibration (16 October 14:05 and
+14:07, 23 October 09:14) were grouped with the calibration before them; none of them had a sheet
+with pairs. The two 17.6 photos are experiment stills, read from the experiment folder; the second
+had no stored tags and was detected again. In two validation photos a sheet lay off its slot, so the rig's slot
+naming refused the photo; their sheets are measured but carry no slot name. The calibration files store the tag size the operator
+entered: 30.0 or 30.02 mm, and 29.3106 mm (the previous rig's size, entered by mistake) for five
+photos of 21 September whose sheets were the current 30 mm prints (section 3). The ratio uses
+30.0 mm for every photo, so this entry does not affect it.
+
+**Check.** On the 22 October calibration the script gives a median of 0.9857 over its 12 sheets
+(1,781 pairs), against 0.986 in 17.6; on the two 17.6 stills 0.977 to 0.979 per sheet, against
+0.975 to 0.980 in 17.6 (there a ratio of mean scales, here the median of pairs).
+
+| Photos | Photos, sheets, pairs | Edges / spacing, median per photo | Inset per edge, px |
+|---|---|---|---|
+| Calibration and validation photos, 8 to 21 October | 38, 456 | 0.9857 to 0.9889, median 0.9875 | 0.8 to 1.1 |
+| The same, 22 October (calibration 07:25 and its 3 validation rounds, a validation round at 07:17) | 6, 72 | 0.9807 to 0.9866 | 1.0 to 1.4 |
+| Experiment 18 stills, 23 October 14:16 and 14:17 (17.6) | 2, 4 | 0.9776 to 0.9779 | 1.6 to 1.7 |
+| Calibration photos before #103, 21 September to 8 October (73 of 88 with sheets in pairs) | 73, 935 | 0.9582 to 0.9886, median 0.9784 | 0.8 to 3.0 |
+
+All 1,467 sheets in 119 photos read below 1: no photo has tag edges as long as their spacing says.
+
+**Not constant.** From 8 to 21 October, 38 photos at exposures 2,338 to 4,001 µs agree within
+0.003 (0.9857 to 0.9889). The 22 October photos are lower, and the 23 October stills lower again.
+Within one photo the pairs spread more than that: the middle half of a sheet's pairs is about
+0.008 wide.
+
+**Exposure.** Not shown to be the cause. The same exposure, 4,001 µs, gave 0.9870 on 9 October and
+0.9807 on 22 October 07:17. Exposure was never varied on purpose; the stills of 23 October were at
+4,988 µs, the highest of the set.
+
+**The edges move, the spacing does not.** Slot by slot from the 22 October calibration to its
+validation rounds and the 23 October stills, the spacing scale stays within about 0.5% (sheets
+were moved and laid on different trays between photos), while the edge scale of North 1 went from
+4.849 px/mm (calibration) to 4.815 (07:17 the same morning) and 4.811 (23 October, tray top). In the
+South 1 sheet on the pots of tray 12 on 23 October the spacing scale was 4.965 px/mm against 4.945
+at the calibration, +0.4%: either the magnification changed after the calibration or that sheet
+lay about 3 mm higher than the calibration's. These data cannot tell the two apart.
+
+**Older photos.** The calibration photos from before #103 read lower and spread more (0.958 to
+0.989). Those before 29 September have tags 131 to 136 px across against 145 to 147 px since, so
+they come from an earlier geometry of the rig; they have no exposure record; their lens positions
+(6.04 to 6.38) changed together with the date and the setup. A trend with lens position is visible
+(about 0.987 at 6.04 to 6.16, about 0.975 at 6.30 to 6.38) but cannot be separated from those.
+
+**Across the frame.** Against each photo's own median, slots North 5 and South 5 read 0.004 to
+0.005 lower in every photo since 8 October; the other 10 slots lie within 0.002. There is no
+pattern with distance from the image centre beyond that. Pairs across the page (37.5 mm) and down
+it (41.1 mm) give the same median (0.9866, 0.9868).
+
+**What it means for areas.** The rig measures areas with the scale field fitted to the tag edges
+of the calibration photo (`calibration.py:339`), a smooth plane over all 12 sheets, not with each
+sheet's own edges. Compared at each sheet's centre with that sheet's spacing scale, the field of
+the calibration in use since 22 October is low by 0.6% to 2.0% in length, so areas read high by:
+
+| Slot | N1 | N2 | N3 | N4 | N5 | N6 | S1 | S2 | S3 | S4 | S5 | S6 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Area read high, % | +3.9 | +4.1 | +2.5 | +1.4 | +3.6 | +3.6 | +2.9 | +3.5 | +1.1 | +1.7 | +3.6 | +2.8 |
+
+(`experiments/round2-tagedge/field_vs_spacing.py docs/figures/18/sheets.csv 20261022T072523939958
+2026-10-22/072523_939958`). This is in every photo measured with that calibration, with no
+warning; validation measures with tag edges and cannot see it. The difference between slots is
+larger than the slots' own edge ratios suggest, because the plane does not follow each sheet.
+These are the spacing scales of the sheets in the calibration photo, at their heights then. Because
+the edge ratio changes between photos, one correction factor taken from the calibration photo would
+not hold for later photos; scale from spacing does not depend on where an edge is found.
+
+**Edge inset in pixels.** The shortfall is about 1 px per tag edge in the photos since 8
+October and up to 3 px in the older ones. A fixed inset in pixels is what a corner finder placed
+a little inside a blurred black square would give; it is consistent with blur, but blur was not
+measured, so this is not shown to be the cause.
+
+![Edge scale against spacing scale: each photo by date and by exposure, each sheet by slot and by distance from the image centre](figures/18/tag-edges-against-spacing.png)
+
+*Figure 18a. Edge scale over spacing scale. (a) Each photo's median over its sheets, by date. (b)
+The photos since 8 October by exposure time. (c) Each sheet since 8 October against its photo's
+median, by slot. (d) The same against the sheet's distance from the image centre. Made with
+`experiments/round2-tagedge/measure.py` and `chart.py` (commands in their docstrings); the table is
+`docs/figures/18/sheets.csv`.*
+
+### 18.2 The flat green target over two days (2026-10-25)
+
+**Label: development check.** The target of 17.5 has lain on tray 10 (North 1) since 23 October
+14:02 UTC. The rig reads it in every experiment still as tray 10's green area, so its history
+needs no new photo. Read from `rig.db` (`tray_reading`, tray 10, read-only), 2,307 stills from
+23 October 14:05 to 25 October 20:39 UTC, with the calibration of 22 October.
+
+| Exposure | Stills | Area read, mm² (median, range) | Against callipers (22,455 mm², the re-measurement of 17.6) |
+|---|---|---|---|
+| 4,832 to 5,300 µs, gain 1.0 (lights on, steady) | 2,198 | 23,815 (23,724 to 23,889) | +6.1% (+5.7% to +6.4%) |
+| 5,404 to 29,932 µs, gain 1.0 to 1.5 (lights changing) | 95 | 23,773 (23,585 to 23,856) | +5.0% to +6.2% |
+| 30,036 to 50,771 µs, gain 2.0 | 8 | 23,621 (23,606 to 23,681) | +5.1% to +5.5% |
+
+The first calliper measurement (17.5, 22,515.7 mm²) is 0.3% larger and would give +5.8% under steady light. Under steady light the area repeats within 0.7% (range), over two days. While the lights change it
+reads up to about 1% lower. Six dark photos (gain 4) find no target or part of it and are left out.
+
+**Where the 6% comes from, in the 23 October 14:16 still.** Two measured parts, no model:
+
+- **Mask edge, +2.2%.** Against the spacing scale of the 9 tags lying beside the target at the
+  same height (4.923 px/mm), the target's calliper side (149.85 mm) is 737.7 px. Its mask is
+  748.6 px across west to east and 743.3 px north to south (the mean over the middle 200 rows or
+  columns), +10.9 and +5.6 px.
+- **Scale, +3.5%.** The 22 October calibration's scale field at the target's centre is 4.840
+  px/mm, against 4.923 from the tags beside it: 1.7% low in length.
+
+Together +5.8%, against +6.0% read in that still (23,800 mm²) and +6.1% over two days. Height is
+inside the scale part: the tags beside the target lie at its height.
+
+**The mask edge.** Across the middle of each edge, the mask ends 0.5 to 4.7 px outside the point
+where the green channel is half way between tray and target. The target lies on the blue tray;
+the green index (`segmentation.py`) is a ratio of colours, so at a blurred edge where the target's
+green mixes with the darker blue it stays above the threshold for some pixels beyond the half-way
+point. On soil or black pots the mixture is different, so this result does not give the edge error
+for plants: in round 1, small red shapes read 16% to 21% small with a different threshold (15.5).
+
+![Profiles across the four edges of the flat green target, with the mask edge and the half-brightness point](figures/18/target-edges-2026-10-23.png)
+
+*Figure 18b. The flat green target in still 141653_607387 (23 October 14:16:53 UTC): the green
+channel and the green index across the middle 200 px of each edge, the mask edge (orange) and the
+half-brightness point. On the north to south second edge a white calibration sheet lies a few
+millimetres south of the target, which raises the green channel there. Made with `experiments/round2-tagedge/target_edges.py`
+(command in its docstring).*
+
+### 18.3 Limits of the evidence
+
+- The photos were taken for calibration and validation; exposure, lens position and the sheets'
+  heights were not varied on purpose, and changed together with the date.
+- The cause of the shortfall is not shown. It changes between photos taken minutes apart (22
+  October 07:17 against 07:25) and between days.
+- The spacing is trusted from the print: the 180 mm bars agree with the design within 0.05%
+  (section 3). Paper that curls would make spacing read short, the other direction.
+- The target's mask edge was measured on one still, on the blue tray. Not on soil, pots or leaves
+  (on the pots: 18.4).
+- Nothing in the rig's code was changed.
+
+### 18.4 Sheets on the pots through a lights ramp, and the target raised (2026-10-26)
+
+**Label: development check.** Planned in issue #286 on 25 October, before the sheets went in: no
+camera setting was changed, so the chamber's own lights ramp is the only change in exposure.
+Before the first still of 26 October 07:44 UTC (lights off), Aaron put measured 30 mm sheets on the
+pots of trays 9, 11 and 12 (South 1, South 4, South 6 that day), moved the partial sheet of tray 10
+(North 1) from the tray top onto the pots, and moved the green target of 17.5 onto the pots too.
+Measured with `measure.py --stills` from the stored tags of every still, 26 October 00:00 to 08:22
+UTC, and for comparison 25 October 07:00 to 08:59 and 12:00 to 12:59 (the tray 10 sheet alone, on
+the tray top). Calibration of 22 October. Tables: `figures/18/sheets-2026-10-25.csv` and
+`sheets-2026-10-26.csv`.
+
+**Exposure.** Per sheet, the edge to spacing ratio:
+
+| Sheet | Lights on, 08:01 to 08:09 (11 to 61 ms, gain 1.5 to 4) | 08:12 to 08:22 (5 to 10 ms, gain 1.0) | Spacing scale over the ramp, px/mm |
+|---|---|---|---|
+| North 1 (pots) | 0.9725 to 0.9747 | 0.9750 to 0.9768 | 4.952 to 4.961 |
+| South 1 | 0.9758 to 0.9776 | 0.9781 to 0.9796 | 4.958 to 4.961 |
+| South 4 | 0.9822 to 0.9832 | 0.9825 to 0.9834 | 4.944 to 4.946 |
+| South 6 | 0.9842 to 0.9861 | 0.9861 to 0.9872 | 5.004 to 5.007 |
+
+On 25 October the tray 10 sheet gave 0.9715 to 0.9731 at 11 to 31 ms and 0.9756 to 0.9780 under
+steady light (4,988 µs, gain 1.0), with a spacing scale of 4.924 to 4.933 px/mm all day. So over a
+ramp the edges change by 0.1% to 0.5% in length while the spacing holds within 0.2%. Exposure moves
+the edge shortfall a little, but it does not explain most of it, and the sheets differ more from
+each other (0.975 to 0.987) than any one changes with exposure. In the stills with the lights off
+(66 ms, gain 4) the ratio is 0.986 to 0.995: the edges read close to the spacing in a dark photo.
+
+**The calibration against the sheets on the pots**, still 082253_610657, area read high from
+scale alone (`field_vs_spacing.py`): North 1 +4.5%, South 1 +3.6%, South 4 +1.6%, South 6 +3.4%.
+The values of 18.2's slot table for the same slots are +3.9%, +2.9%, +1.7% and +2.8%, taken from
+other sheets in other places within each slot.
+
+**The target raised onto the pots.** Tray 10's green pixel count went from 558,496 (median of 60
+stills, 25 October 12:00 UTC) to 570,067 (10 stills, 26 October 08:10 to 08:19 UTC), +2.1%. The tags
+of the North 1 sheet moved from 4.927 to 4.956 px/mm, which predicts +1.2% for the same move. Its
+area now reads 24,341 mm², +8.4% against the calliper area of 17.6:
+
+- **Scale, +4.9%.** The calibration's field at the target's centre is 4.839 px/mm, against 4.956
+  from the tags on the pots beside it. On the tray top the height difference had hidden part of
+  this (18.2: +3.5%).
+- **Mask edge, +3.4%.** At 4.956 px/mm the calliper side (149.86 mm) is 742.7 px. Across the middle
+  200 rows or columns the mask is 763.4 px west to east and 750.2 px north to south (+20.7 and +7.5
+  px). The mask ends 10.6 and 10.4 px outside the half-brightness point on the west and east edges
+  and 3.4 and 4.8 px on the north and south edges (figure 18c). On the west and east edges the green
+  channel rises slowly over about 10 px outside the target before its sharp edge.
+
+So the same target, moved about 9 mm up and onto another background, gained 1.2 points of mask
+edge error. The mask edge depends on what lies around and under an object, not only on the object.
+
+![Profiles across the four edges of the green target on the pots](figures/18/target-edges-2026-10-26-on-pots.png)
+
+*Figure 18c. The green target on the pots of tray 10 in still 082253_610657 (26 October 08:22:53
+UTC), as figure 18b. Made with `experiments/round2-tagedge/target_edges.py PHOTO 795 2041 OUT 742.7`.*
+
+**Limits.** One ramp, with the lights; exposure and light level change together. The sheets were
+not in the same places as in the calibration photo. The target's edges were measured on one still.
+Why the green channel rises outside the west and east edges is not shown.
+
+### 18.5 Green test squares on the pots: the mask edge by size (method written 2026-10-26, before the session)
+
+**Label: development check.** Purpose: measure how much the green mask adds at the edge of a flat
+green object, by object size, with the scale error removed. The result becomes a rule in the error
+band (issue #286, agreed 2026-10-26). A one-time measurement by us; researchers need no green test
+squares.
+
+**Objects.** Twelve green test squares, 3D printed by Aaron in the green of the 150 mm target (17.5),
+measured by Aaron on 2026-10-26 with the NEIKO callipers, 3 readings per side and, for six of them,
+3 of the thickness. Square C's second Y reading was first written as 0.03 and corrected by Aaron to
+9.93.
+
+| Square | Size | X mean (mm) | X range | Y mean (mm) | Y range | Thickness mean (mm) | Calliper area (mm²) |
+|---|---|---|---|---|---|---|---|
+| A | 10 mm | 9.953 | 0.04 | 9.907 | 0.01 | 0.650 | 98.60 |
+| B | 10 mm | 9.953 | 0.04 | 9.943 | 0.06 | not measured | 98.97 |
+| C | 10 mm | 9.947 | 0.03 | 9.940 | 0.05 | 0.650 | 98.87 |
+| D | 10 mm | 9.910 | 0.05 | 9.983 | 0.03 | not measured | 98.93 |
+| H | 20 mm | 19.950 | 0.12 | 19.920 | 0.06 | 0.657 | 397.40 |
+| E | 20 mm | 19.953 | 0.03 | 19.933 | 0.02 | not measured | 397.74 |
+| F | 20 mm | 20.007 | 0.04 | 19.957 | 0.03 | 0.640 | 399.27 |
+| G | 20 mm | 19.957 | 0.08 | 19.983 | 0.06 | not measured | 398.80 |
+| K | 40 mm | 40.007 | 0.07 | 39.990 | 0.08 | 0.647 | 1,599.87 |
+| L | 40 mm | 39.970 | 0.06 | 39.930 | 0.07 | not measured | 1,596.00 |
+| I | 55 mm | 54.957 | 0.04 | 54.930 | 0.09 | 0.657 | 3,018.77 |
+| J | 55 mm | 54.973 | 0.09 | 54.993 | 0.07 | not measured | 3,023.17 |
+
+The callipers are not trusted beyond 0.1 mm (section 3): about ±2% in area on a 10 mm square, ±1% on
+20 mm, ±0.5% on 40 mm and ±0.4% on 55 mm. The repeat readings spread by 0.01 to 0.12 mm. Thickness
+(about 0.65 mm) raises a square's top about +0.09% in area (0.145% per mm), not corrected.
+
+**Placement.** One square per pot on the pot tops of trays that carry a tag sheet on their pots
+(trays 9 to 12, 18.4), at least 10 mm from each other and from the tag sheet, taped underneath only.
+Aaron records the tray and cell of each square; cell A1 holds the tray tag. The 150 mm target stays on
+the pots of tray 10.
+
+**Session.** 60 to 90 minutes of the experiment's own stills (one per minute) under steady light,
+no camera setting changed. Stills during a lights ramp are left out.
+
+**Analysis** (read-only, a script in `experiments/round2-tagedge/`):
+
+1. In each still, the green threshold's mask (`segmentation.py`, threshold 0.1), split into
+   connected pieces. Each square is the piece inside its recorded cell.
+2. The scale beside it: the tag spacing of the tag sheet on the same tray (median over its pairs,
+   `measure.py`), at the same height. Not the calibration's scale field.
+3. Per square and still: area read = pixels / scale²; error = area read / calliper area - 1.
+4. The edge width: (area read - calliper area) / perimeter, in mm, and in px at that scale. If the
+   mask adds a fixed width at the edge, this width is the same for every size and the error falls
+   as 1 / size. That is the rule to check. If the width changes with size, the rule is a table by
+   size instead.
+5. Spread: per square over the stills, and between the copies of one size.
+
+**What it covers and does not.** Flat green squares at pot height, on black pot tops, under the
+chamber lights at their steady level, with the threshold of 17.5. Not soil, not leaves, not plant
+shapes: a rosette has more edge per area than a square of the same area, which the width (step 4)
+is meant to carry over, but that is not shown here.
+
+**Results (2026-10-26).** Placed 10:42 UTC on the pot tops of trays 7 to 12, cells as Aaron
+recorded them (G on tray 7, which has plants and no tag sheet, and D on tray 8, which has no tag
+sheet: both take the median tag spacing scale of the tag sheets in the photo, less certain, about
+±0.8% in length). Three backgrounds, one after the other, each read with
+`experiments/round2-tagedge/squares.py` (each square matched by size and by its cell's distance
+from the tray tag; every match checked by eye on crops):
+
+1. **Open pot tops**, 10:45 to 11:58 UTC, 66 to 73 stills per square. Some squares lie over the
+   dark pot opening, some on the light plastic rim.
+2. **A dark layer under the squares**, laid by Aaron at 12:00 UTC, the plastic rims still in view;
+   12:05 to 13:15 UTC, about 69 stills (the last few while Aaron changed the layout; without the stills
+   after 13:10 every median moves by 0.2 points or less).
+3. **Black paper only** (0.33 mm thick), no plastic in view, from 13:19 UTC; 13:22 to 13:48 UTC,
+   26 stills.
+
+| Square | Size | Open pot tops | Dark layer | Black paper | Edge width on black paper (mm) |
+|---|---|---|---|---|---|
+| A | 10 mm | +16.8% | +34.2% | +28.5% | 0.71 |
+| B | 10 mm | +28.6% | +40.6% | +31.8% | 0.80 |
+| C | 10 mm | -27.1% | -18.0% | +9.0% | 0.22 |
+| D | 10 mm | +18.8% | +28.3% | +30.1% | 0.75 |
+| H | 20 mm | +23.1% | +24.3% | +18.2% | 0.91 |
+| E | 20 mm | +18.1% | +21.4% | +14.6% | 0.73 |
+| F | 20 mm | +4.4% | +7.5% | +9.2% | 0.46 |
+| G | 20 mm | -5.4% | -1.3% | -1.0% | -0.05 |
+| K | 40 mm | +11.2% | +9.7% | +8.0% | 0.79 |
+| L | 40 mm | +7.9% | +9.1% | +6.0% | 0.60 |
+| I | 55 mm | +4.2% | -1.9% | +6.5% | 0.89 |
+| J | 55 mm | +5.1% | +5.3% | +7.7% | 1.06 |
+
+Medians over the stills. Within one background each square repeats within ±3 points from still
+to still. Tables: `figures/18/squares-open.csv`, `squares-darklayer.csv`, `squares-paper.csv`.
+
+- **The background decides the sign and size of the error.** Over a dark opening the mask grows:
+  just outside the edge the pixels are dark (20 to 50 of 255) with green 5 to 20 counts above red
+  and blue, fading over about 12 px; the index divides by brightness, so these pass the threshold.
+  On a bright white rim the mask shrinks: square C read -27% there (figure 18d).
+- **On black paper every square but G reads high**, and the mask adds a strip 0 to 1.1 mm wide
+  (0.2 to 1.1 mm for all but G) at every edge: up to +32% on 10 mm squares, +18% on 20 mm, +8% on
+  40 and 55 mm. C and G looked paler, more brightly lit, than the others (figure 18e).
+
+![The squares on open pot tops: C on a bright rim, E, H over dark openings, G beside soil](figures/18/squares-open-crops.jpg)
+
+*Figure 18d. Squares C, E, G and H in still 105253_615512 (26 October 10:52:53 UTC), the mask
+outline in red. Made with `squares.py` and the crop code of this section.*
+
+![The squares on black paper](figures/18/squares-paper-crops.jpg)
+
+*Figure 18e. Squares B, C, F, G and J on black paper in still 134753_674253 (13:47:53 UTC).*
+
+**What this does and does not show.** It shows how the green threshold treats the edge of a flat,
+uniformly green object on these backgrounds. It does not give the segmentation error for plants:
+leaves are not flat or of one colour, and soil is neither black paper nor a pot opening. No error
+band for plant segmentation is derived from it (Aaron, 2026-10-26).
+
+### 18.6 The scale from tag spacing, checked on the stored photos (2026-10-26)
+
+**Label: development check.** The fix of #286 step 4 (branch `286-spacing-scale`): the scale field
+fitted to tag spacing instead of tag edges, and validation scored by tag spacing. Run read-only on
+stored tags with that branch's code:
+
+- The 22 October calibration (`20261022T072523939958`, photo `rig/2026-10-22/072523_939958`, 345
+  tags, 1,791 pairs) refitted: residual 0.66% (edges: 0.58%).
+- Against the tag sheets on the pots on 26 October 08:22 UTC (18.4), area read from scale alone:
+  **-1.6% to +1.5%** with the refitted scale, **+1.0% to +4.8%** with the scale in use (13 groups
+  of tags, 1 to 20 tags each).
+- The three stored validation rounds of 22 October, scored against the refitted scale by tag
+  spacing: table median +0.1%, +0.1% and +0.6% (limit 2.5%); slots -1.5% to +1.2%.
+
+### 18.7 The squares split into scale and mask edge, against validation (2026-10-26)
+
+**Label: development check.** After the fix was applied on the live rig (26 October 15:32 UTC: the
+22 October calibration rebuilt as twin `20261026T153214381640`, its validation scored again as
+session `20261026T153214526314`, experiment 18 reprocessed), the squares of 18.5 on black paper read
+from 13:22 to 18:56 UTC: 334 stills per square, all twelve found in every one (table:
+`figures/18/squares-paper-long.csv`).
+
+**Steady over time.** Each square's hourly median stays within 1 point over the 5.5 hours, except B
+(+30.9% falling to +26.9%). From still to still a 10 mm square varies by about ±6 points, a 20 mm by
+±3, 40 and 55 mm by ±1. Between squares of one size the spread stays: 10 mm +3% to +41% in single
+stills (medians +9.7% to +29.9%), 20 mm -5% to +22% (-1.0% to +16.9%), 40 mm +5% to +9%, 55 mm +6%
+to +9%.
+
+**The split.** Each square's error read with the twin's scale field (what the rig reports) is the
+sum of two parts: the scale error at the square, (tag spacing of the tag sheet on its tray / the
+twin's scale there)^2 - 1, and the mask edge, measured against that tag spacing (18.5). The scale
+part set against the rescored validation median of the square's slot:
+
+| Square | Slot (tray) | Scale error at the square | Validation median, slot | Total | Mask edge |
+|---|---|---|---|---|---|
+| A, 10 mm | South 1 (9) | +0.26% | +0.22% | +28.8% | +28.5% |
+| K, 40 mm | South 1 (9) | +0.18% | +0.22% | +8.1% | +7.9% |
+| I, 55 mm | South 1 (9) | -0.15% | +0.22% | +6.3% | +6.5% |
+| B, 10 mm | South 6 (11) | +0.36% | +0.63% | +29.2% | +28.7% |
+| H, 20 mm | South 6 (11) | +0.66% | +0.63% | +17.6% | +16.9% |
+| E, 20 mm | South 6 (11) | +0.90% | +0.63% | +14.0% | +13.0% |
+| C, 10 mm | North 2 (12) | +0.37% | +0.77% | +10.1% | +9.7% |
+| F, 20 mm | North 2 (12) | +0.45% | +0.77% | +9.6% | +9.1% |
+| L, 40 mm | North 2 (12) | +0.86% | +0.77% | +6.9% | +6.0% |
+| J, 55 mm | North 6 (10) | +0.45% | -0.03% | +7.9% | +7.4% |
+
+Medians over the 334 stills. D (North 1, tray 8) and G (South 4, tray 7) have no tag sheet on their
+tray; their scale comes from the other trays' sheets and is left out of the comparison.
+
+- **The scale part agrees with validation**: within 0.5 points of the slot's median in every slot,
+  inside the slot bands (95% at ±1.2% to ±1.7%). The bands are right for what they measure.
+- **The mask edge is 6 to 30 times the scale part**, and no band covers it: validation's tag
+  sheets have no green.
+- **The mask edge follows the slot.** All three squares in North 2 read low for their size (10 mm
+  +9.7% where the others read +28% to +30%, 20 mm +9.1% where the others read +13% to +17%), and G
+  in South 4 lowest. Within one size, brighter paper goes with a smaller error (mean grey of the
+  paper just outside each square in the 18:55:53 still): 10 mm, C 90 at +9.7% against A, B, D 57
+  to 73 at +28% to +30%; 20 mm, G 92 at -1.0%, F 87 at +9.1%, E 89 at +13.0%, H 81 at +16.9%. Not
+  for every square: L in North 2 sits on paper of 73. The index divides by brightness, so the same
+  faint green tint passes on darker paper and not on brighter. Whether the tint is light reflected
+  from the square or blur is not separated.
+
+Not covered: plants, soil, the lights' other levels, and any slot without a square.
+
+### 18.8 Four green thresholds from the literature, tried on the squares (2026-10-26)
+
+**Label: development check.** The comment on #286 of 26 October 14:03 UTC lists the published ways
+to pick out green pixels. Aaron agreed in the session of 26 October to try them offline on the
+stored stills of 18.5 and 18.7. The method was agreed in that session and not written here before
+the run.
+
+**Method.** The same stills, read-only from `rig.db` and the photo files; nothing on the rig
+written. Each still was decoded once, and all four methods read the same tray crops. The scale is
+the tag spacing of the tag sheet on the square's tray, as in 18.5, so the error is the mask edge
+plus the scale part of 18.7 (under 1 point). The squares were found and matched the same way for
+every method (size, shape and distance from the tray tag, `squares.py`). The thresholds are the
+published values, not tuned on these squares:
+
+| Method | Rule | Source |
+|---|---|---|
+| exg (in use) | 2g - r - b above 0.1 and G above R, on r = R / (R + G + B) and so on | Woebbecke et al., 1995 |
+| canopeo | 2G - R - B above 20 on 8-bit values, R/G and B/G below 0.95 | Patrignani and Ochsner, 2015 (rule as reimplemented) |
+| exg_exr | (2g - r - b) - (1.4r - g) above 0 | Meyer and Camargo Neto, 2008 |
+| exg_otsu | 2g - r - b above an Otsu threshold chosen per tray crop, and G above R | common practice |
+
+Stills: pot tops 10:45 to 11:58 UTC (73), dark layer 12:05 to 13:10 (65), black paper 13:22 to
+18:55 (333, the 18.7 set without its last still, 18:55:53), all at steady exposure. Code: `experiments/round2-tagedge/methods.py`, summary by
+`methods_summary.py`. Table per method, background and size: `figures/18/methods.csv`.
+
+**Results.** Edge width is the extra strip at every edge, (area - calliper area) / perimeter.
+Ranges are over single stills and all three backgrounds.
+
+| Method | Edge width, median by size | 10 mm squares | 20 mm squares | 55 mm squares | Squares found |
+|---|---|---|---|---|---|
+| exg (in use) | 0.56 to 0.90 mm | -33.8% to +45.9% | -6.9% to +26.3% | -2.3% to +8.6% | 97 to 100% |
+| canopeo | 0.61 to 0.99 mm | -9.7% to +42.6% | +0.3% to +25.4% | -1.3% to +9.1% | 99 to 100% |
+| exg_exr | 0.64 to 0.97 mm | -17.9% to +59.7% | -3.7% to +33.3% | -1.4% to +9.8% | 49 to 100% |
+| exg_otsu | 0.87 to 1.18 mm | +10.5% to +47.9% | +5.5% to +59.8% | -1.2% to +9.0% | 25 to 100% |
+
+- **None of the four removes the mask edge.** Every method reads the squares large by a strip of
+  about 0.6 to 1.0 mm at each edge (median), on every background.
+- **canopeo** finds every square and has fewer low readings on 10 mm squares (lowest -9.7% against
+  -33.8%), but its medians are no smaller than those of exg (10 mm on black paper +29.2% against
+  +28.1%).
+- **exg_exr and exg_otsu** miss up to half of the squares on some backgrounds, and exg_otsu reads
+  larger than exg.
+- **Decision (Aaron, 2026-10-26): the green threshold in use (exg, 0.1) stays for the moment.** No
+  other colour rule narrows the strip; the edge methods of 18.9 are compared on plants in #297.
+
+**What the strip means for small areas.** A strip of fixed width is a larger share of a small
+object: a square of side s gains about 4 x 0.7 / s of its area. Measured: 10 mm squares read
++17.7% to +31.5% (median by background), 55 mm squares +4.5% to +7.1%. Below 10 mm nothing was
+measured. Extended to smaller squares with the same strip (an extrapolation, not a measurement), 5
+mm would read about +56% and 3 mm about +93%, and a leaf has more edge for its area than a square.
+For plants below the 10 mm squares, such as the young plants of the potato run, the areas are
+therefore not measured, and the early part of a growth curve reads flatter than the plant grows,
+because the strip's share falls as the plant grows.
+
+**Agreed with Aaron (2026-10-26):** a green object below 100 mm² (a 10 mm square) has no measured
+error; one of about 100 mm² reads about 28% high on black paper (18.7). The floor of 17.7 (100 mm²
+per tray) was set from empty trays and is not an accuracy limit: 100 mm² on a tray may be several
+plants, each smaller.
+
+**Limits of the evidence.** Flat paper squares, not leaves or soil; three backgrounds and one
+light level; one camera position and focus; published thresholds only, none tuned. Why the strip
+is there (blur, reflected light or the JPEG's colour detail) is not separated. A trained model
+(the second literature comment on #286) was not tried.
+
+### 18.9 Edge methods on the squares (method written 2026-10-26, before the run)
+
+**Label: development check.** The comment on #286 of 26 October 20:26 UTC lists methods that find
+an object's edge instead of judging each pixel's colour. Aaron asked on 26 October to try the ones
+that work on stored stills and compare them with 18.8.
+
+**Tried on the stored stills of 18.8** (same 471 stills, same squares, same scale from the tag
+sheet on each tray, read-only). Each square is first found by the threshold in use (exg, 0.1);
+then, in a box 30 px larger on every side:
+
+- **half way, linear**: the JPEG values are converted back to linear light (the sRGB curve), and
+  each pixel's green is taken as 2G - R - B in linear light. The square's level is the median inside
+  the exg mask shrunk by 8 px, the background's the median of a ring 20 to 30 px outside it. A pixel
+  counts when it is above half way between the two, and the area is the connected piece holding
+  the square's centre (Burns, 2000, the ISO 12233 idea of an edge on linear data).
+- **partial area, linear**: each pixel in the box counts as the fraction (green - background) /
+  (square - background), clipped to 0 to 1, summed over the pixels within 15 px of the exg mask.
+  An edge pixel that is part square, part background then counts as that part (after
+  Trujillo-Pino et al., 2013, simplified: no subpixel edge fit).
+- **GrabCut**: OpenCV's `grabCut` (Rother et al., 2004) on the box, started from the exg mask
+  shrunk by 8 px as certain square, the mask itself as probable square, the ring of 15 px around
+  it as probable background and the rest as background; 5 iterations, no border matting (not in
+  OpenCV).
+
+Compared with exg from 18.8 on the same stills, by error against the calliper area and by edge
+width. **Not tried:** Chan and Vese (2001), which needs a library the rig does not have; points 1
+and 2 of the comment (JPEG colour detail, colour denoise, glare), which need new stills with other
+camera settings.
+
+**Results (2026-10-26).** All 471 stills; every square found by exg was read by every method. Error
+against the calliper area, all three backgrounds together; ranges over single stills; edge width as
+in 18.8. Table per method, background and size: `figures/18/edges.csv` (exg rows repeat 18.8).
+
+| Method | 10 mm, median (single stills) | 20 mm | 40 mm | 55 mm | Edge width, median by size and background |
+|---|---|---|---|---|---|
+| exg (in use, 18.8) | +27.8% (-33.8% to +45.9%) | +11.3% (-6.9% to +26.3%) | +7.8% (+5.5% to +12.3%) | +6.5% (-2.3% to +8.6%) | 0.44 to 1.0 mm (18.8: 0.56 to 0.90 mm, by size only) |
+| half way, linear | -2.9% (-8.6% to +6.6%) | +1.1% (-4.9% to +3.6%) | +0.4% (-1.5% to +1.2%) | +1.3% (-3.3% to +3.1%) | -0.09 to +0.27 mm |
+| partial area, linear | +2.0% (-7.0% to +11.3%) | +2.2% (-4.8% to +10.2%) | +0.7% (-1.4% to +3.5%) | +1.3% (-4.5% to +4.1%) | -0.00 to +0.28 mm |
+| GrabCut | +4.7% (-23.3% to +25.7%) | +3.1% (-3.5% to +25.0%) | +2.5% (-0.5% to +5.3%) | +3.6% (-2.8% to +12.0%) | 0.05 to 0.53 mm |
+
+- **Half way, linear removes most of the strip.** Median error within 3 points at every size and on
+  every background (10 mm: -3.6% to -1.6% by background, against +17.7% to +31.5% for exg); single
+  10 mm stills within -8.6% to +6.6%, about a fifth of the exg spread. It reads 10 mm squares
+  slightly small and 55 mm squares slightly large (+0.9% to +2.0% by background).
+- **Partial area, linear** is close: medians +2% or less except 20 mm (+1.9% to +4.5%), with a wider
+  spread on small squares (10 mm up to +11.3%).
+- **GrabCut** is better than exg but has single stills off by up to 26% on small squares and keeps
+  a strip of 0.3 to 0.5 mm on the large ones.
+- The scale part of 18.7 (under 1 point) is still in every figure.
+
+**Limits of the evidence.** Squares, not leaves: each square has a solid middle (8 px inside) and
+clear background 20 to 30 px around it, which half way needs and plants may not have (thin leaves,
+touching leaves and plants). Each square was first found by exg, so a method's result starts from
+exg's object. One light level, three backgrounds, one camera position and focus. Not a band for
+plants: plants are compared in #297.

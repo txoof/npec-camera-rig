@@ -183,3 +183,142 @@ def test_the_page_and_its_routes() -> None:
     assert client.post("/api/experiments/999/stop").status_code == 404
     states = {e["id"]: e["state"] for e in client.get("/api/experiments").json()}
     assert states == {first["id"]: "stopped", second["id"]: "stopped"}
+
+
+def _reprocessed(client, experiment_id: int) -> dict:
+    """Start Reprocess and wait for it to finish; its last progress."""
+    import time
+
+    assert client.post(f"/api/experiments/{experiment_id}/reprocess").status_code == 200
+    deadline = time.monotonic() + 30
+    while True:
+        progress = client.get(f"/api/experiments/{experiment_id}/reprocess").json()
+        if not progress["running"]:
+            return progress
+        assert time.monotonic() < deadline, "Reprocess did not finish"
+        time.sleep(0.05)
+
+
+def test_reprocess_fills_in_the_area_of_an_experiment_photo_that_has_none(monkeypatch) -> None:
+    """`one_tray_plant_scene`: 1500 mm2 of plant inside tray 5, worked out by hand. The photo is
+    taken during the experiment but never read, as the potato run's photos before areas existed."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig import tray_readings
+    from npec_rig.app import app
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    experiment = captures.start_experiment(captures.create_experiment()["id"])
+    _array, record = captures.take_photo("capture")
+    del _array
+    captures.stop_experiment(experiment["id"])
+    assert tray_readings.photo_readings(record["path"]) is None
+
+    progress = _reprocessed(TestClient(app), experiment["id"])
+
+    assert (progress["done"], progress["total"]) == (1, 1)
+    tray = tray_readings.photo_readings(record["path"])["trays"][0]
+    assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)
+
+
+def test_reprocess_recounts_from_the_saved_mask_without_segmenting_again(monkeypatch) -> None:
+    """The photo is read once (its mask saved), then its file is deleted: an area after Reprocess
+    can only come from the mask. 1500 mm2 as `one_tray_plant_scene`."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig import tray_readings
+    from npec_rig.app import app
+    from npec_rig.captures import photo_file
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    experiment = captures.start_experiment(captures.create_experiment()["id"])
+    _array, record = captures.take_photo("capture")
+    del _array
+    captures.stop_experiment(experiment["id"])
+    tray_readings.read_photo(record["path"])
+    photo_file(record["path"]).unlink()
+
+    progress = _reprocessed(TestClient(app), experiment["id"])
+
+    assert (progress["done"], progress["failed"]) == (1, 0)
+    tray = tray_readings.photo_readings(record["path"])["trays"][0]
+    assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)
+
+
+def test_reprocess_keeps_a_photos_areas_when_it_can_no_longer_work_them_out(monkeypatch) -> None:
+    """Review of #287: a photo read with areas, whose file and mask are then both gone, cannot be
+    segmented or counted again. Reprocess must leave its saved areas as they were and count it as
+    failed, not replace them with none (lost data). 1500 mm2 as `one_tray_plant_scene`."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig import segmentation, tray_readings
+    from npec_rig.app import app
+    from npec_rig.captures import photo_file
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    experiment = captures.start_experiment(captures.create_experiment()["id"])
+    _array, record = captures.take_photo("capture")
+    del _array
+    captures.stop_experiment(experiment["id"])
+    tray_readings.read_photo(record["path"])
+    photo_file(record["path"]).unlink()
+    segmentation.mask_file(record["path"]).unlink()
+
+    progress = _reprocessed(TestClient(app), experiment["id"])
+
+    assert (progress["done"], progress["failed"]) == (1, 1)
+    tray = tray_readings.photo_readings(record["path"])["trays"][0]
+    assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)
+
+
+def test_reprocess_reads_an_experiment_again_with_the_rebuilt_twin(monkeypatch) -> None:
+    """Part B, test point 4 (#286). Two photos of `one_tray_plant_scene` (150,000 plant px at 10.0
+    px/mm, 1500 mm2), read once, so their masks are saved. After a twin is rebuilt at 10.0 x 5.00 /
+    4.90 px/mm, Reprocess gives each 1500 x (4.90 / 5.00)^2 = 1440.6 mm2, names the twin as its
+    calibration, and leaves the photos and masks as they were."""
+    import json
+    from pathlib import Path
+
+    import numpy as np
+    from fastapi.testclient import TestClient
+
+    from npec_rig import segmentation, tray_readings
+    from npec_rig.app import app
+    from npec_rig.calibration import CalibrationArtifact, ScaleField
+    from npec_rig.calibration_store import save_calibration
+    from npec_rig.captures import photo_file
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    stem = json.loads((Path(__file__).parent / "fixtures" / "trays" / "shuffles-2026-10-20.json").read_text())["calibration"]
+    experiment = captures.start_experiment(captures.create_experiment()["id"])
+    paths = []
+    for _ in range(2):
+        _array, record = captures.take_photo("capture")
+        del _array
+        paths.append(record["path"])
+        tray_readings.read_photo(record["path"])
+    captures.stop_experiment(experiment["id"])
+    photos = {p: photo_file(p).read_bytes() for p in paths}
+    masks = {p: segmentation.load_mask(p) for p in paths}
+    twin = "20261026T150000000001"
+    save_calibration(
+        CalibrationArtifact(
+            created_at="2026-10-26T15:00:00+00:00", scale_field=ScaleField((1.0, 0.0, 0.0), 10.0 * 5.00 / 4.90, 0.0),
+            frame_stem=stem, lens_position=6.05, rebuilt_from=stem,
+        ),
+        stem=twin, promote=False,
+    )
+
+    progress = _reprocessed(TestClient(app), experiment["id"])
+
+    assert (progress["done"], progress["failed"]) == (2, 0)
+    for p in paths:
+        tray = tray_readings.photo_readings(p)["trays"][0]
+        assert tray["area_mm2"] == pytest.approx(1440.6, rel=0.01)  # 1%: JPEG blurs the edge
+        assert tray["calibration"] == twin
+        assert photo_file(p).read_bytes() == photos[p]
+        assert np.array_equal(segmentation.load_mask(p), masks[p])

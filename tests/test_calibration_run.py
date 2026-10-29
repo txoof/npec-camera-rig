@@ -84,3 +84,46 @@ def test_comparison_without_a_previous_scale_at_the_centre():
     assert comparison["px_per_mm_at_centre"] == {"previous": None, "current": 5.0, "delta": None}
     assert comparison["corner_tags_detected"]["previous"] == 0
     assert comparison["lens_position"] == {"previous": None, "current": 6.05, "delta": None}
+
+
+def _stored_calibration(stem: str, frame_stem: str, px_per_mm: float) -> None:
+    """A saved calibration fitted (as before #286) to tag edges at `px_per_mm`, its photo's tags
+    stored as a calibration run stores them: four tag sheets spaced at exactly 5.00 px/mm."""
+    from npec_rig import calibration_store, images
+
+    from tests.helpers import printed_sheet
+
+    ref = f"{frame_stem[0:4]}-{frame_stem[4:6]}-{frame_stem[6:8]}/{frame_stem[9:15]}_{frame_stem[15:21]}"
+    tags = [
+        d
+        for page, (x0, y0) in ((2, (500, 2000)), (3, (6500, 2000)), (4, (500, 6000)), (5, (6500, 6000)))
+        for d in printed_sheet(page, x0, y0, 5.0, edge_scale=0.98)
+    ]
+    images.store_tag_detections(ref, tags)
+    artifact = CalibrationArtifact(
+        created_at="2026-10-22T07:25:23+00:00",
+        scale_field=ScaleField((1.0, 0.0, 0.0), px_per_mm, 0.5),
+        calibration_tag_size_mm=30.0,
+        frame_stem=frame_stem,
+    )
+    calibration_store.save_calibration(artifact, stem=stem, promote=False)
+
+
+def test_a_rebuild_makes_a_twin_from_tag_spacing_and_leaves_the_original(isolated_settings_db):
+    # Part B, test point 1 (#286): an original fitted to tag edges at 4.90 px/mm, its photo's tags
+    # spaced at exactly 5.00. The twin reads 5.00; the original file stays byte for byte the same.
+    from npec_rig import calibration_store
+    from npec_rig.calibration_run import rebuild
+
+    _stored_calibration("20261022T072523939958", "20261022T072502150851", 4.90)
+    original = calibration_store.saved_calibration_path("20261022T072523939958")
+    before = original.read_bytes()
+
+    twin_stem = rebuild("20261022T072523939958")
+    twin = calibration_store.load_saved_calibration(twin_stem)
+
+    assert twin_stem != "20261022T072523939958"
+    assert twin.scale_field.px_per_mm(4000, 3000) == pytest.approx(5.00, rel=1e-6)
+    assert twin.rebuilt_from == "20261022T072523939958"
+    assert twin.frame_stem == "20261022T072502150851"
+    assert original.read_bytes() == before

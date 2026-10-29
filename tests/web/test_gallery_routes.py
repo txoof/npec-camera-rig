@@ -1,9 +1,11 @@
+from datetime import datetime, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 
-from npec_rig import photo_tags
+from npec_rig import captures, database, photo_tags
 from npec_rig.app import app
-from tests.helpers import square_detection
+from tests.helpers import record_light_photos, square_detection
 
 pytestmark = pytest.mark.unit
 
@@ -343,6 +345,37 @@ def test_show_tags_also_reads_an_older_photo_for_its_trays(monkeypatch, isolated
     assert sorted(t["tray_id"] for t in trays["trays"]) == TRAYS_1_TO_12
 
 
+def test_show_tags_again_keeps_a_reading_that_has_areas(monkeypatch, isolated_calibration_dir) -> None:
+    """Each Show tags segmented the 64MP photo again, about 2 s and 250 MB (review of #281, #282):
+    a photo whose saved reading has plant areas from the same segmenter is not read again."""
+    _layout_2_calibration(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    client.get(f"/api/captures/tags/{path}")
+    first = client.get(f"/api/captures/trays/{path}").json()
+    assert any(t["area_mm2"] is not None for t in first["trays"])
+
+    client.get(f"/api/captures/tags/{path}")
+    assert client.get(f"/api/captures/trays/{path}").json()["read_at"] == first["read_at"]
+
+
+def test_show_tags_reads_again_a_photo_whose_areas_were_not_worked_out(monkeypatch, isolated_calibration_dir) -> None:
+    """A reading saved with trays placed but no plant areas (segmenting failed) is read again."""
+    _layout_2_calibration(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    capture_id = database.captures_by_path([path])[path]["id"]
+    tray = {"tray_id": 1, "slot": "North 1", "a1_corner": "SW", "placement": "placed", "centre_px": [0.0, 0.0],
+            "tilt_deg": 0.0, "margin_mm": 0.0, "area_mm2": None, "segmenter": None, "plant_px": None,
+            "plant_centre_px": None, "calibration": None}
+    database.record_tray_readings(capture_id, read_at="2026-10-23T11:34:53+00:00", status="read", trays=[tray])
+
+    client.get(f"/api/captures/tags/{path}")
+    trays = client.get(f"/api/captures/trays/{path}").json()
+    assert trays["read_at"] != "2026-10-23T11:34:53+00:00"
+    assert any(t["area_mm2"] is not None for t in trays["trays"])
+
+
 class _MintSquareBackend:
     """Synthetic camera whose photo is grey with one square of the benchmark plant's mint leaf
     colour (RGB 156, 228, 188, measured in the still of 23 October 2026 08:35:53 UTC, as
@@ -404,3 +437,55 @@ def test_tray_readings_give_each_trays_plant_area_and_segmenter(monkeypatch) -> 
     tray = client.get(f"/api/captures/trays/{path}").json()["trays"][0]
     assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)
     assert tray["segmenter"] == "green threshold, 0.1"
+
+
+def test_each_photo_in_the_list_carries_its_exclusion_and_each_area_its_floor(monkeypatch, isolated_calibration_dir) -> None:
+    """#288: a photo taken with the lights off (64,022 us at gain 4.0, a real photo of experiment
+    18) is excluded as such, and each tray area shows the green threshold's floor, 100 mm2
+    (Aaron, 2026-10-26)."""
+    from npec_rig import tray_readings
+    from npec_rig.camera import CameraManager, SyntheticBackend
+
+    class Dark(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            return frame, {**metadata, "ExposureTime": 64_022, "AnalogueGain": 4.0}
+
+    _layout_2_calibration(monkeypatch)
+    CameraManager.set_instance(CameraManager(Dark()))
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    tray_readings.read_photo(path)
+
+    trays = {i["path"]: i for i in client.get("/api/captures").json()}[path]["trays"]
+    assert trays["exclusion"] == "lights off"
+    assert [t["floor_mm2"] for t in trays["trays"]] == [100] * 12
+
+
+def test_the_light_warning_is_shown_until_dismissed_and_the_dismissal_is_saved() -> None:
+    """A first day steady at 5,000, then 5 photos at 4,000 (-20%) 30 minutes apart from 25 h and
+    one back: 2.5 hours off norm (#288). Dismiss saves when, and the warning is gone."""
+    start = datetime.fromisoformat("2026-10-22T08:00:00+00:00")
+    series = [(timedelta(hours=h), 5000) for h in range(25)]
+    series[5] = (timedelta(hours=5), 5300)
+    series += [(timedelta(hours=25, minutes=30 * i), 4000) for i in range(5)]
+    series += [(timedelta(hours=27, minutes=30), 5000)]
+    experiment_id = captures.create_experiment(name="Light")["id"]
+    record_light_photos(experiment_id, start, series, "light")
+    client = TestClient(app)
+
+    response = client.get("/api/captures/light-warning", params={"experiment": experiment_id})
+    assert response.status_code == 200
+    assert response.json() == {
+        "hours": 2.5, "first": "2026-10-23T09:00:00+00:00", "last": "2026-10-23T11:30:00+00:00",
+    }
+
+    before = datetime.now().astimezone()
+    assert client.post(
+        "/api/captures/light-warning/dismiss",
+        params={"experiment": experiment_id, "until": "2026-10-23T11:30:00+00:00"},
+    ).status_code == 200
+    assert client.get("/api/captures/light-warning", params={"experiment": experiment_id}).json() is None
+    [dismissal] = database.light_warning_dismissals(experiment_id)
+    assert dismissal["covers_until"] == "2026-10-23T11:30:00+00:00"
+    assert before <= datetime.fromisoformat(dismissal["dismissed_at"]) <= datetime.now().astimezone()

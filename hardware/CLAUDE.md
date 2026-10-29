@@ -11,9 +11,10 @@ that repo's git history and covered by its top-level `CONTRIBUTING.md` (branchin
 discipline). This file only covers conventions specific to the CAD files in this directory.
 
 Layout: printable rig parts (and the `rig_assembly.scad` mockup) in `camera_rig/`, tray tags in
-`tray_tags/`, everything that is only `use`d or `include`d in `libraries/` (BOSL2, T-slot stock,
-bolt and purchased-part stand-ins, AprilTag geometry and bit data), exports in `exports/` mirroring
-the source folders, preview renders in `images/`. Scripts stay at the top level and resolve paths
+`tray_tags/`, flat green area targets in `calibration_targets/`, everything that is only `use`d
+or `include`d in `libraries/` (BOSL2, T-slot stock, bolt and purchased-part stand-ins, AprilTag
+geometry and bit data), exports in `exports/` mirroring the source folders, preview renders in
+`images/`. Scripts stay at the top level and resolve paths
 from their own location. Docs and `reference/` stay at the top level.
 
 The [BOSL2](https://github.com/BelfrySCAD/BOSL2) library is vendored (source only, no `.git`) at

@@ -206,7 +206,21 @@ def test_a_tray_seen_earlier_in_the_experiment_shows_as_not_found_since_it_went_
     third = _read("2026-10-21T07:02:00+00:00", [1], experiment_id)
 
     assert database.tray_readings(third)["not_found"] == [
-        {"tray_id": 2, "since": "2026-10-21T07:01:00+00:00", "photos": 2}
+        {"tray_id": 2, "slot": "N1", "since": "2026-10-21T07:01:00+00:00", "photos": 2}
+    ]
+
+
+def test_a_tray_not_found_names_the_slot_it_was_last_found_in_even_after_moving() -> None:
+    """#318: the gallery shows the empty slot, so it is the newest slot, not the first."""
+    experiment_id = _experiment()
+    first = _photo("2026-10-21T07:00:00+00:00", experiment_id)
+    database.record_tray_readings(first, read_at="t", status="read", trays=[_tray(1, "North 1"), _tray(8, "North 5")])
+    second = _photo("2026-10-21T07:01:00+00:00", experiment_id)
+    database.record_tray_readings(second, read_at="t", status="read", trays=[_tray(1, "North 1"), _tray(8, "North 6")])
+    third = _read("2026-10-21T07:02:00+00:00", [1], experiment_id)
+
+    assert database.tray_readings(third)["not_found"] == [
+        {"tray_id": 8, "slot": "North 6", "since": "2026-10-21T07:02:00+00:00", "photos": 1}
     ]
 
 
@@ -228,7 +242,7 @@ def test_a_swapped_tag_shows_the_new_tray_found_and_the_old_one_not_found() -> N
 
     readings = database.tray_readings(swapped)
     assert [t["tray_id"] for t in readings["trays"]] == [13]
-    assert readings["not_found"] == [{"tray_id": 12, "since": "2026-10-21T07:01:00+00:00", "photos": 1}]
+    assert readings["not_found"] == [{"tray_id": 12, "slot": "N1", "since": "2026-10-21T07:01:00+00:00", "photos": 1}]
 
 
 def test_a_tray_moved_or_turned_since_the_previous_photo_is_listed_as_moved() -> None:
@@ -257,7 +271,7 @@ def test_a_photo_with_no_tags_at_all_is_not_counted_as_trays_missing() -> None:
 
     assert database.tray_readings(dark)["not_found"] == []
     assert database.tray_readings(morning)["not_found"] == [
-        {"tray_id": 2, "since": "2026-10-21T21:02:00+00:00", "photos": 1}
+        {"tray_id": 2, "slot": "N1", "since": "2026-10-21T21:02:00+00:00", "photos": 1}
     ]
 
 
@@ -286,3 +300,32 @@ def test_older_photos_are_left_for_on_demand_unless_their_experiment_is_running(
     assert database.unread_photos(limit=10, since="2026-10-21T07:00:00+00:00") == [
         "rig/2026-10-21T07:30:00+00:00", "rig/2026-10-21T06:30:00+00:00"
     ]
+
+
+def test_version_13_keeps_every_saved_tray_reading_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#302: version 13 copies tray_reading into a table without its one-row-per-tag rule. A row
+    saved at version 12 comes through with every value in its own column."""
+    with monkeypatch.context() as m:
+        m.setattr(database, "MIGRATIONS", database.MIGRATIONS[:12])
+        m.setattr(database, "SCHEMA_VERSION", 12)
+        with sqlite3.connect(db_path()) as conn:
+            database.migrate(conn)
+            conn.execute("INSERT INTO capture (id, taken_at, path, purpose, flags) VALUES (9, 't', 'p', 'capture', '[]')")
+            conn.execute("INSERT INTO tray_read (capture_id, read_at, status) VALUES (9, 'r', 'read')")
+            conn.execute(
+                "INSERT INTO tray_reading (id, capture_id, tray_id, slot, a1_corner, placement, centre_x_px,"
+                " centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter, plant_px, plant_centre_x_px,"
+                " plant_centre_y_px, calibration, outside_mm) VALUES"
+                " (4, 9, 1, 'North 4', 'NE', 'close call', 10.5, 20.5, -1.5, 40.5, 1234.5, 'green', 678,"
+                " 11.5, 21.5, '20261026T153214381640', 3.5)"
+            )
+            conn.commit()
+    with sqlite3.connect(db_path()) as conn:
+        assert database.migrate(conn) == 13
+        row = conn.execute(
+            "SELECT id, capture_id, tray_id, slot, a1_corner, placement, centre_x_px, centre_y_px, tilt_deg,"
+            " margin_mm, area_mm2, segmenter, plant_px, plant_centre_x_px, plant_centre_y_px, calibration,"
+            " outside_mm FROM tray_reading"
+        ).fetchall()
+    assert row == [(4, 9, 1, "North 4", "NE", "close call", 10.5, 20.5, -1.5, 40.5, 1234.5, "green", 678,
+                    11.5, 21.5, "20261026T153214381640", 3.5)]

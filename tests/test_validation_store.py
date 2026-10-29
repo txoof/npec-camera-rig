@@ -206,7 +206,7 @@ def _tray_session(bad_slot_per_round: list[str | None], round_scale: list[float]
         if bad is not None:
             k = _SLOT_NAMES.index(bad)
             x0, y0 = 800.0 + (k % 6) * 1300.0, (1000.0, 3500.0)[k // 6]
-            capture[k * 30 : (k + 1) * 30] = sheet_detections(300, x0, y0, side_px=120.0 * 0.96 * scale)
+            capture[k * 30 : (k + 1) * 30] = sheet_detections(325, x0, y0, side_px=120.0 * 0.96 * scale)
         errors = round_errors_by_slot(capture, layout, _FIELD, _TAG_MM)
         session["rounds"].append({"counted": True, "slot_errors": errors, "centres": []})
     store.refresh_results(session)

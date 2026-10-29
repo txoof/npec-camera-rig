@@ -324,6 +324,43 @@ central low reading (metrology-log section 8.2), but its size against lens posit
 measured on SN001.
 The focus position is the experimenter's choice; the rig never tunes it for accuracy.
 
+**Tag edges read short (found 2026-10-23, measured 2026-10-25).** The scale field is built from
+the length of each tag's edges. Measured against the distance between tag centres on the same
+printed sheet, which does not depend on where an edge is found, the edges read 1.1% to 1.9% short
+in every calibration and validation photo since 8 October, and up to 4% short in older ones. Areas
+measured with the calibration in use since 22 October therefore read 1.1% to 4.1% high from scale
+alone, depending on the slot. Validation checks with the same edges, so its bands do not include this: **the bands
+above are measured against tag edges, not against true size.** The shortfall changes between
+photos, so a single correction factor would not hold. A flat green square of 150 mm by callipers
+reads 6.1% high: 3.5% from scale and 2.2% from where the green mask puts its edge. Raised onto
+the pots, at the calibration height, it reads 8.4% high: 4.9% from scale and 3.4% from the mask
+edge, so the mask edge also depends on what lies around an object.
+
+**The fix (2026-10-26, #286).** Calibration now fits the scale to tag spacing, and validation
+scores each tag by its tag spacing against the calibration, so the bands are measured against the
+printed distances, not against tag edges. Checked on stored photos (metrology log 18.6): against
+tag sheets on the pots, the 22 October calibration refitted this way reads -1.6% to +1.5% in area
+where the old one read +1.0% to +4.8%; its three validation rounds give a table median of +0.1% to
++0.6%. Calibrations made before the fix keep their edge-based scale until they are rebuilt from
+their stored photos.
+
+**The mask edge is not measured for plants.** Green test squares (metrology log 18.5) show the green
+threshold reading the area of a flat green object anywhere from 27% low to 41% high on a 10 mm
+square, depending on the background: it grows over dark backgrounds and shrinks on bright ones.
+On black paper it adds a strip 0 to 1.1 mm wide at every edge. That is a property of the threshold
+on those objects, not a band for plants: leaves and soil were not tested, and no band for plant
+segmentation is claimed. With the scale taken out (metrology log 18.7), the scale part at each square
+agrees with its slot's validation median within 0.5 points, while the mask edge is 6 to 30 times
+larger and changes from slot to slot, mostly with the brightness around the object: the validation bands
+are right for the scale and say nothing about the mask. Three other published green thresholds
+(metrology log 18.8) leave the same strip of about 0.6 to 1.0 mm, so changing the threshold does not help.
+The strip is a larger share of a smaller object: about +28% on a 10 mm square, and nothing below
+10 mm was measured, so areas of plants smaller than that carry no measured error. Methods that place the
+edge half way between object and background in linear light, instead of counting every tinted
+pixel, remove most of the strip on the squares (metrology log 18.9: 10 mm squares -2.9% median,
+single stills -8.6% to +6.6%). They are not yet tried on plants (#297), and the threshold in use
+stays for now.
+
 **Height above the tray.** About +0.145% of area per mm above the tray top. That figure comes from
 the camera's height (about 1482 mm, a best estimate with a tape measure, not a precise value); one test, a
 tray 75 mm taller in 3 slots on the old camera, read 11.2% to 12.0% large against 11.8% predicted,
@@ -345,7 +382,14 @@ shapes of known area showed two error sources larger than anything in the geomet
 15 mm tall prism read up to 75% large). Segmentation is now the largest measured error source,
 as PLAN.md expected. Metrology log section 15.5. A photogrammetry mesh of the same benchmark
 (one capture, a second instrument) gives rosette areas 10% to 39% larger than the rig; which of the
-two is closer to the truth is not known yet. Metrology log section 15.5e.
+two is closer to the truth is not known yet. Metrology log section 15.5e. The mesh is the least
+reliable instrument, an order of size with very low precision (Aaron, 2026-10-28). A phone photo of
+the same benchmark (2026-10-28), scaled by vernier calliper readings of its base and with the
+phone's own, larger, height effect taken out using a measured spacing at rosette-centre height, is
+the reference chosen by Aaron. Against it, the rig, in the potato run, reads the benchmark about 5%
+small, at the edge of the 5% target. The phone application's leaf outline is unchecked, so whether
+the gap is the rig's edge rule or the application's is not known; the ImageJ comparison (#297)
+checks the edge. Metrology log section 17.13.
 
 **Real leaves, first look (round 1, 2026-10-15).** Three garden leaves of known area (flatbed
 scans scaled by printed tags), laid flat on the trays, read on average 2.5% smaller than their
@@ -406,7 +450,10 @@ metrology log backs it.
 
 - **Segmentation.** Telling plant from background was not part of M2. Round 1 measured a green
   threshold on the benchmark and on cut leaves (above); it adds to the bands, by how much on
-  living plants is not known.
+  living plants is not known. Since 23 October the rig reads a plant area for every tray with that
+  threshold. A first look: trays holding only black pots read 25 to 109 mm² in one photo, which
+  day-old potato sprouts could not be told apart from (metrology log 17.1); the review of the
+  potato run (17.2) measures how steady these areas are and how much an empty tray reads.
 - **Other focus positions.** Each focus position needs its own calibration and validation.
 - **The first minutes after a power cut.** Readings in roughly the first 15 minutes after a cold
   start are not covered by the bands (one run on each camera, 2026-10-06 and 10-14; on SN001 the

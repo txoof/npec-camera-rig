@@ -8,6 +8,7 @@ without changes elsewhere.
 
 import os
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -73,21 +74,95 @@ class HailoSegmenter:
 _SCALE_BLOCK_PX = 64
 
 
-def plant_area_mm2(mask: np.ndarray, outline_px, scale_field) -> float:
-    """Plant area in mm2 inside the polygon `outline_px` (full-size pixel corners, any number) of
-    full-size `mask`, each pixel weighted by the local scale (`ScaleField.mm_per_px`) at its block.
-    Parts of the outline outside the photo count nothing. Any outline: a tray now, a cell later."""
-    import cv2
+@dataclass(frozen=True)
+class PlantMeasure:
+    """The plant inside one outline: the raw measurement and its area.
 
+    `plant_px` and `centre_px` are the raw measurement (Aaron, 2026-10-23): with them any
+    calibration can be applied later, `plant_px * mm_per_px(centre)**2`, close to the per-pixel
+    sum: across a tray the scale changes by about 0.5%, and taking it at the centre differs from
+    the per-pixel sum by less than that squared."""
+
+    plant_px: int
+    centre_px: tuple[float, float] | None  # None when no plant pixel is inside
+    area_mm2: float
+
+
+def measure_plant(mask: np.ndarray, outline_px, scale_field) -> PlantMeasure:
+    """The plant pixels inside the polygon `outline_px` (full-size pixel corners, any number) of
+    full-size `mask`: their count, centre, and area in mm2 with each pixel weighted by the local
+    scale (`ScaleField.mm_per_px`) at its block. Parts of the outline outside the photo count
+    nothing. Any outline: a tray now, a cell later."""
+    box = _box(mask, outline_px)
+    if box is None:
+        return PlantMeasure(0, None, 0.0)
+    return _measure(mask, box, _inside(box, outline_px), scale_field)
+
+
+def measure_trays(mask: np.ndarray, trays, scale_field) -> list[PlantMeasure]:
+    """`measure_plant` for every tray of one photo, `trays` as (outline, centre) pairs in full-size
+    pixels, in their order. Where outlines overlap, a plant pixel counts only for the tray whose
+    centre is nearer its pixel centre, so touching trays never count it twice (Aaron,
+    2026-10-23); at the same distance, for the tray listed first. A pixel inside one outline only
+    stays with that tray."""
+    boxes = [_box(mask, outline) for outline, _centre in trays]
+    out = []
+    for i, ((outline, centre), box) in enumerate(zip(trays, boxes, strict=True)):
+        if box is None:
+            out.append(PlantMeasure(0, None, 0.0))
+            continue
+        inside = _inside(box, outline)
+        for j, ((other, other_centre), other_box) in enumerate(zip(trays, boxes, strict=True)):
+            shared = _overlap(box, other_box) if j != i and other_box is not None else None
+            if shared is None:
+                continue
+            # Only the part of the box both trays cover: a strip for trays side by side.
+            x0, y0, x1, y1 = shared
+            xs = np.arange(x0, x1) + 0.5
+            ys = (np.arange(y0, y1) + 0.5)[:, None]
+            own = (xs - centre[0]) ** 2 + (ys - centre[1]) ** 2
+            theirs = (xs - other_centre[0]) ** 2 + (ys - other_centre[1]) ** 2
+            lose = (theirs < own) | ((theirs == own) & (j < i))
+            part = inside[y0 - box[1] : y1 - box[1], x0 - box[0] : x1 - box[0]]
+            part &= ~(_inside(shared, other) & lose)
+        out.append(_measure(mask, box, inside, scale_field))
+    return out
+
+
+def _box(mask: np.ndarray, outline_px) -> tuple[int, int, int, int] | None:
+    """The part of `mask` around `outline_px`, x0, y0, x1, y1, or None when it is outside."""
     h, w = mask.shape
     corners = np.asarray(outline_px, dtype=np.float64)
     x0, y0 = np.clip(np.floor(corners.min(axis=0)).astype(int), 0, [w, h])
     x1, y1 = np.clip(np.ceil(corners.max(axis=0)).astype(int) + 1, 0, [w, h])
     if x1 <= x0 or y1 <= y0:
-        return 0.0
+        return None
+    return int(x0), int(y0), int(x1), int(y1)
+
+
+def _overlap(a, b) -> tuple[int, int, int, int] | None:
+    """The box two boxes share, or None."""
+    x0, y0, x1, y1 = max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3])
+    return (x0, y0, x1, y1) if x0 < x1 and y0 < y1 else None
+
+
+def _inside(box, outline_px) -> np.ndarray:
+    """Which pixels of `box` lie inside the polygon `outline_px`."""
+    import cv2
+
+    x0, y0, x1, y1 = box
     inside = np.zeros((y1 - y0, x1 - x0), dtype=np.uint8)
+    corners = np.asarray(outline_px, dtype=np.float64)
     cv2.fillPoly(inside, [np.round(corners - [x0, y0]).astype(np.int32).reshape(-1, 1, 2)], 1)
-    plant = mask[y0:y1, x0:x1] & inside.astype(bool)
+    return inside.astype(bool)
+
+
+def _measure(mask: np.ndarray, box, inside: np.ndarray, scale_field) -> PlantMeasure:
+    x0, y0, x1, y1 = box
+    plant = mask[y0:y1, x0:x1] & inside
+    ys, xs = np.nonzero(plant)
+    if len(xs) == 0:
+        return PlantMeasure(0, None, 0.0)
     area = 0.0
     for by in range(0, plant.shape[0], _SCALE_BLOCK_PX):
         for bx in range(0, plant.shape[1], _SCALE_BLOCK_PX):
@@ -96,7 +171,8 @@ def plant_area_mm2(mask: np.ndarray, outline_px, scale_field) -> float:
                 cx = x0 + bx + min(_SCALE_BLOCK_PX, plant.shape[1] - bx) / 2
                 cy = y0 + by + min(_SCALE_BLOCK_PX, plant.shape[0] - by) / 2
                 area += count * scale_field.mm_per_px(cx, cy) ** 2
-    return area
+    # Pixel centres: pixel (0, 0) covers 0 to 1, so its centre is 0.5.
+    return PlantMeasure(len(xs), (float(xs.mean()) + x0 + 0.5, float(ys.mean()) + y0 + 0.5), area)
 
 
 # --- Masks on disk ----------------------------------------------------------------------------------

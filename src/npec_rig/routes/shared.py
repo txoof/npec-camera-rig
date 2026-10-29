@@ -1,5 +1,6 @@
 """What several route files use: the page templates and the derived-image response."""
 
+import os
 from pathlib import Path
 
 from fastapi.responses import Response
@@ -12,6 +13,15 @@ TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # The focus controls tell the operator how long an autofocus may take (camera.py).
 templates.env.globals["AUTOFOCUS_TIMEOUT_S"] = int(AUTOFOCUS_TIMEOUT_S)
+
+
+def is_development_rig() -> bool:
+    """NPEC_RIG_ENVIRONMENT=development marks the development rig (#320). Read on every page, so
+    the service's environment decides, not the moment the app was imported."""
+    return os.environ.get("NPEC_RIG_ENVIRONMENT") == "development"
+
+
+templates.env.globals["is_development_rig"] = is_development_rig
 
 
 def derived_response(recipe: str, source: str, inputs: dict) -> Response:

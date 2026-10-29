@@ -42,6 +42,8 @@ should be compared as times, not as text.
 | `scheduled_photo` | One row per scheduled photo of an experiment, taken or missed | `scheduler.py` |
 | `tray_read` | One row per photo read for trays, with its status | `tray_readings.py` |
 | `tray_reading` | One row per tray found in a photo: its slot, A1 corner and centre | `tray_readings.py` |
+| `exclusion` | One row per photo of an experiment: why its plant areas are left out, if they are | `exclusions.py` |
+| `light_warning_dismissal` | One row per dismissal of an experiment's light warning | `exclusions.py` |
 
 ### `camera_events`
 
@@ -194,12 +196,17 @@ Validation, calibration and tripwire photos are not read in the background.
 | `read_at` | text | When it was read, UTC |
 | `status` | text | `read`; or why no tray was placed: `no tags found` (no tag of any kind, as with the lights off), `no calibration`, `no slot layout`, `placement failed`, `read failed` |
 
-`tray_reading` has one row per tray whose tag was found:
+`tray_reading` has one row per tray whose tag was found. Two trays in one photo may carry the same
+tag (a misprint): both rows are kept, each with its own area, and neither area counts in that photo
+("2 trays carry tag 1", #302). Two trays placed in one slot (`placement` is `two trays in one
+slot`: a tray carried over the table, or a loose tag lying on a tray) make the whole photo chamber
+activity (`exclusion` `visit`), and both trays show "2 trays in South 1" (#315). Before version 13 the table allowed one row per tag in a photo, and
+such a photo was saved as `read failed` with no trays.
 
 | Column | Type | Meaning |
 |---|---|---|
 | `capture_id` | integer | The photo |
-| `tray_id` | integer | The tag ID in cell A1 |
+| `tray_id` | integer | The tag ID in cell A1; twice in a photo when two trays carry it |
 | `slot` | text | The nearest slot of the calibration's slot layout |
 | `a1_corner` | text | `SW`, or `NE` for a tray turned 180 |
 | `placement` | text | `placed`, `close call` or `two trays in one slot` |
@@ -207,12 +214,50 @@ Validation, calibration and tripwire photos are not read in the background.
 | `tilt_deg` | real | The tray's turn off the image axes, clockwise |
 | `margin_mm` | real | How much nearer a slot the chosen corner is than the other |
 | `area_mm2` | real | NULL until segmentation (#74) |
+| `outside_mm` | real | How far the tray's outline reaches past the photo edge at its farthest corner, mm; 0 inside. More than 13 mm shows "partly outside the photo" (#282). NULL for photos read before version 12 |
 
 A tray not found is never stored. When a photo's readings are shown, each tray found in an
 earlier photo of the same experiment but not in this one is listed as not found since the first
 photo it was missing from (Aaron, 2026-10-21): a removed tray, a swapped tag and a dirty tag look
 the same to the rig. Only photos with the status `read` count, so a dark photo is not a tray
 missing. A purge deletes both tables' rows with the photos.
+
+### `exclusion`
+
+Exclusions (#288, `GLOSSARY.md`): why a photo's plant areas are left out of averages and
+exports. The areas themselves are kept. Each time a photo is read, every photo of its
+experiment is worked out again from its exposure times analogue gain (E) and saved, because a new
+photo can change earlier ones. Only photos taken as captures get a name: validation, calibration
+and tripwire photos get NULL and are left out of the norm. The rules and their values are in
+`exclusions.py` and metrology log 17.8.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `capture_id` | integer | The photo's `capture` row |
+| `name` | text | `lights off`, `light changing`, `light disturbed`, `light off norm` or `visit` (chamber activity, metrology log 17.9); NULL for none |
+| `norm_e` | real | The experiment's norm (E) it was worked out with; NULL until the experiment has a full first day |
+| `limit_fraction` | real | How far from the norm, as a fraction of it, counts as off it, for example 0.21 |
+| `worked_out_at` | text | When it was worked out, UTC |
+
+A photo read before this table existed has no row until its experiment is read again or
+reprocessed; until then only lights off is shown, worked out from the photo itself. A purge
+deletes the rows with the photos.
+
+### `light_warning_dismissal`
+
+The light warning (#288) is shown in the gallery when an experiment has more than 2 hours of
+`light off norm` within 24 hours. It is worked out when shown, never stored. Dismissing it adds a
+row; hours up to `covers_until`, the end of the warning the researcher saw, are not counted
+again, later ones are, also in a stretch still going on.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | integer | The dismissal |
+| `experiment_id` | integer | The experiment |
+| `dismissed_at` | text | When the researcher dismissed it, UTC |
+| `covers_until` | text | The end of the warning as shown when it was dismissed, UTC |
+
+Kept when an experiment is purged, with its `experiment` row.
 
 ## Planned
 

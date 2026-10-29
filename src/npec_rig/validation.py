@@ -83,6 +83,7 @@ def summary(session: dict, current_stem: str | None) -> dict:
         "rounds": [
             {
                 **{k: r[k] for k in ("capture", "captured_at", "moved_pct", "counted", "overridden", "reason", "overridable")},
+                "discarded": r.get("discarded"),
                 "slots": validation_store.round_slot_results(r),
             }
             for r in session["rounds"]
@@ -376,7 +377,7 @@ def judge_round(
         if moved < MIN_MOVED_FRACTION:
             reasons.append(
                 f"only {100 * moved:.0f}% of tags moved since the calibration or an earlier "
-                "round: leave the trays where they are and put each sheet on a different tray"
+                "round. Leave the trays where they are and put each sheet on a different tray"
             )
         round_["reason"] = "; ".join(reasons) or None
         round_["overridable"] = bool(reasons)
@@ -405,6 +406,38 @@ def count_round(session_id: str, index: int) -> dict:
         return summary(session, _current_calibration_stem())
 
 
+# What the operator can give as the reason for discarding a round (Aaron, 2026-10-27, #151).
+DISCARD_REASONS = {
+    "mistake": "taken by mistake",
+    "sheet_not_flat": "sheet not flat",
+    "other": "other",
+}
+
+
+def discard_round(session_id: str, index: int, reason: str) -> dict:
+    """Stop counting a round on the operator's say-so, with a reason from `DISCARD_REASONS`. The
+    round stays in the session, marked not counted, and Count it anyway counts it again. Only
+    while the validation is open: an ended one's results already apply to measurements."""
+    if reason not in DISCARD_REASONS:
+        raise ValidationRefusedError(f"unknown discard reason: {reason}")
+    with _lock:
+        session = validation_store.load_session(session_id)
+        if not 0 <= index < len(session["rounds"]):
+            raise RoundNotFoundError(f"round {index} not found")
+        round_ = session["rounds"][index]
+        _refuse_unless_open(session)
+        round_["counted"] = False
+        round_["overridable"] = True
+        round_["reason"] = f"discarded: {DISCARD_REASONS[reason]}"
+        round_["discarded"] = {"reason": reason, "at": datetime.now(timezone.utc).isoformat()}
+        # A completion that rested on this round no longer stands.
+        if len(validation_store.counted_rounds(session)) < validation_store.ROUNDS_REQUIRED:
+            session["completed_at"] = None
+        validation_store.refresh_results(session)
+        validation_store.save_session(session)
+        return summary(session, _current_calibration_stem())
+
+
 def end(session_id: str) -> dict:
     """End a validation: it keeps its rounds and results but takes no more. A validation with
     fewer than the required rounds stays provisional."""
@@ -413,3 +446,36 @@ def end(session_id: str) -> dict:
         validation_store.end_session(session)
         validation_store.save_session(session)
         return summary(session, _current_calibration_stem())
+
+
+def rescore(twin_stem: str) -> dict:
+    """The validation of calibration `twin_stem`'s original, scored again for the twin (#286): its
+    newest session's stored rounds, the same photos and tags, scored by tag spacing against the
+    twin's scale. Nothing is photographed. Which rounds count, and why, stays as the original
+    decided it. Saved as a new session, marked `rescored_from` the original's id with the time; the
+    original's file is not touched. Returned as saved."""
+    twin = load_saved_calibration(twin_stem)
+    if twin.rebuilt_from is None:
+        raise ValidationRefusedError(f"calibration {twin_stem} is not a rebuilt twin")
+    originals = [s for s in validation_store.list_sessions() if s["calibration_stem"] == twin.rebuilt_from]
+    if not originals:
+        raise ValidationRefusedError(f"calibration {twin.rebuilt_from} has no validation to score again")
+    original = max(originals, key=lambda s: s["id"])
+    layout = slot_layout_from_dict(original["slots"])
+    with _lock:
+        session = validation_store.new_session(twin_stem, original["slots"], original["calibration_centres"])
+        session["rescored_from"] = original["id"]
+        session["rescored_at"] = session["started_at"]
+        session["started_at"], session["ended_at"] = original["started_at"], original["ended_at"]
+        for round_ in original["rounds"]:
+            again = dict(round_)
+            if round_["slot_errors"] is not None:
+                again["slot_errors"] = round_errors_by_slot(
+                    photo_tags.capture_tags(round_["capture"]), layout, twin.scale_field, twin.calibration_tag_size_mm
+                )
+            session["rounds"].append(again)
+        validation_store.refresh_results(session)
+        if original["completed_at"] is not None:
+            session["completed_at"] = original["completed_at"]
+        validation_store.save_session(session)
+    return session

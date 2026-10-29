@@ -1,0 +1,73 @@
+{
+  "packageVersion": "1.0",
+  "createdAtUTC": "2026-10-28T09:37:17Z",
+  "session": {
+    "projectName": "",
+    "plantID": "Foliage 28 Oct 10:36",
+    "genotype": "",
+    "treatment": "",
+    "operatorName": "",
+    "notes": "Android foliage pixel analysis. RGB original preserved; no metric scale, depth or calibrated physical traits. Android report retained separately; Studio trait import is not implied.",
+    "startedAtUTC": "2026-10-28T09:36:48Z",
+    "endedAtUTC": "2026-10-28T09:37:08Z",
+    "workflowKind": "2D Phenotyping",
+    "assayMode": "foliage",
+    "preferredCameraPosition": "Back camera",
+    "expectedPlantCount": 4
+  },
+  "analysis": {
+    "totalPlants": 4
+  },
+  "assets": {
+    "files": [
+      {
+        "type": "rgb_frame",
+        "path": "media\/images\/top_view.jpg",
+        "bytes": 1992685,
+        "sha256": "bdd63ae7254b4ddb43f7636bf998bf3d6f754bf15d511c003c1d0576d0e1cd02"
+      },
+      {
+        "type": "analysis",
+        "path": "analysis\/analysis-input.png",
+        "bytes": 1603060,
+        "sha256": "35c0d663502bbf6af95836e6680ea9fb6d17eb41385b3844fa4159ed014af6aa"
+      },
+      {
+        "type": "analysis",
+        "path": "analysis\/overlay.png",
+        "bytes": 1806512,
+        "sha256": "5d4274c6176d171f209a577f4eda7f92f8d3ff106713224b806a754ec69a472b"
+      },
+      {
+        "type": "analysis",
+        "path": "analysis\/traits.csv",
+        "bytes": 441,
+        "sha256": "1135699dc71321310744ad64d5909ea42cd57ff94e708b7ed2d82b10d216bb4d"
+      },
+      {
+        "type": "analysis",
+        "path": "analysis\/report.html",
+        "bytes": 1299,
+        "sha256": "2ffbfb9babe4048fcb27e52148a28601106836ede1e5ce698faea93f4e4fad2b"
+      },
+      {
+        "type": "analysis",
+        "path": "analysis\/entry.json",
+        "bytes": 291,
+        "sha256": "d79e36b55aef243d6284e51827c399bc966930dd7688b4e7973929501d6b4e75"
+      },
+      {
+        "type": "analysis",
+        "path": "analysis\/android_foliage.json",
+        "bytes": 3366,
+        "sha256": "72cc74868fa41540ba638c0b7229b185d073035a0661df3df933c84d21adb7b8"
+      },
+      {
+        "type": "analysis",
+        "path": "analysis\/android_provenance.json",
+        "bytes": 1809,
+        "sha256": "672902067b76912fc0cf1638bee33c20956a6376e3fcad468f5d052558dfaa82"
+      }
+    ]
+  }
+}

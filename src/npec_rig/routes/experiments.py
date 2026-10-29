@@ -1,10 +1,10 @@
-"""Routes for the Experiments page: set up, start, stop, purge, and export an experiment."""
+"""Routes for the Experiments page: set up, start, stop, purge, export and reprocess an experiment."""
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from npec_rig import captures, database, exports, scheduler
+from npec_rig import captures, database, exports, scheduler, tray_readings
 from npec_rig.routes.shared import templates
 
 router = APIRouter()
@@ -56,9 +56,10 @@ def _experiment_action(action, *args, **kwargs) -> dict:
 
 @router.get("/api/experiments")
 def api_experiments() -> list[dict]:
-    """Every experiment, newest first, with its state, periods and newest export."""
+    """Every experiment, newest first, with its state, periods, newest export and Reprocess progress."""
     experiments = database.list_experiments()
     for experiment in experiments:
+        experiment["reprocess"] = tray_readings.reprocess_progress(experiment["id"])
         newest = database.exports_for(experiment["id"])[:1]
         experiment["export"] = newest[0] if newest else None
         experiment["complete_export"] = database.complete_export(experiment["id"])
@@ -113,6 +114,22 @@ def api_purge_experiment(experiment_id: int, request: PurgeRequest) -> dict:
         confirm=request.confirm,
         override_no_export=request.override_no_export,
     )
+
+
+@router.post("/api/experiments/{experiment_id}/reprocess")
+def api_reprocess_experiment(experiment_id: int) -> dict:
+    """Read every photo of the experiment again in the background and work out its plant areas
+    afresh (#75). 409 while a Reprocess is running."""
+    _experiment_action(database.get_experiment, experiment_id)  # 404 for no such experiment
+    try:
+        return tray_readings.start_reprocess(experiment_id)
+    except tray_readings.ReprocessRunning as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.get("/api/experiments/{experiment_id}/reprocess")
+def api_reprocess_progress(experiment_id: int) -> dict:
+    return tray_readings.reprocess_progress(experiment_id)
 
 
 @router.post("/api/experiments/{experiment_id}/export")

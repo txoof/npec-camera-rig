@@ -2,13 +2,14 @@
 
 import logging
 import sqlite3
+from datetime import UTC, datetime
 
 import cv2
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from npec_rig import database, images, photo_tags, tray_readings
+from npec_rig import exclusions, images, photo_tags, tray_readings
 from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import PHOTO_KEY, capture_hours, list_recent_captures, photo_file
 from npec_rig.routes.shared import derived_response, templates
@@ -41,12 +42,13 @@ def api_captures(
         items = list_recent_captures(limit=limit, before=before, experiment_id=experiment)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
-    # Each photo's saved tray readings (#222), None until it has been read. Like the records
-    # (captures._with_database_rows), a database that cannot be read leaves the photos listed.
+    # Each photo's saved tray readings (#222) with its light mark and floors (#288), None until
+    # it has been read. Like the records (captures._with_database_rows), a database that cannot
+    # be read leaves the photos listed.
     try:
         for item in items:
             record = item.get("record")
-            item["trays"] = database.tray_readings(record["id"]) if record else None
+            item["trays"] = tray_readings.capture_readings(record) if record else None
     except (sqlite3.Error, RuntimeError):
         logger.exception("Could not read the tray readings for the gallery")
         for item in items:
@@ -64,6 +66,24 @@ def api_capture_hours(experiment: int | None = None) -> list[dict]:
         raise HTTPException(404, str(exc)) from exc
 
 
+@router.get("/api/captures/light-warning")
+def api_light_warning(experiment: int) -> dict | None:
+    """The experiment's light warning (#288): the hours of light off its usual level and when,
+    None when there is none or it was dismissed."""
+    return exclusions.light_warning(experiment)
+
+
+@router.post("/api/captures/light-warning/dismiss")
+def api_dismiss_light_warning(experiment: int, until: str) -> dict | None:
+    """Dismiss the experiment's light warning as shown, up to `until` (its `last`), saved with
+    the time; returns the warning now."""
+    try:
+        exclusions.dismiss_light_warning(experiment, now=datetime.now(UTC).isoformat(), until=until)
+    except ValueError as exc:
+        raise HTTPException(422, f"not a time: {until!r}") from exc
+    return exclusions.light_warning(experiment)
+
+
 def _tag_role(tag_id: int) -> str:
     for role, ids in (("tray", TRAY_ID_RANGE), ("calibration", CALIBRATION_ID_RANGE), ("corner", CORNER_ID_RANGE)):
         if tag_id in ids:
@@ -72,10 +92,15 @@ def _tag_role(tag_id: int) -> str:
 
 
 def _tray_placements(path: str, tags: list[TagDetection]) -> dict[int, TrayPlacement]:
-    """Each tray tag in photo `path` placed with its calibration, by tray ID; empty when the
-    photo has no calibration with a usable slot layout. Placement is an extra on the tag list."""
+    """Each tray tag in photo `path` placed with its calibration, by the `id()` of its detection,
+    not by tray ID: two trays may carry the same tag (#302). Empty when the photo has no calibration with a usable
+    slot layout. Placement is an extra on the tag list."""
     _status, placed = tray_readings.placements(path, tags)
-    return {p.tray_id: p for p in placed}
+    if not placed:
+        return {}
+    # place_trays places the tray tags in tag ID order, a stable sort: the same order as here.
+    trays = sorted((d for d in tags if d.tag_id in TRAY_ID_RANGE), key=lambda d: d.tag_id)
+    return {id(d): p for d, p in zip(trays, placed, strict=True)}
 
 
 def _placement_json(p: TrayPlacement | None) -> dict | None:
@@ -94,7 +119,7 @@ def api_photo_tags(path: str) -> list[dict]:
     placements = _tray_placements(path, tags)
     # Older photos are read for their trays only when asked (Aaron, 2026-10-22): this is the ask.
     try:
-        tray_readings.read_photo(path)
+        tray_readings.read_photo(path, unless_measured=True)
     except LookupError:
         pass  # no record in rig.db: nothing to save the reading against
     except Exception:
@@ -104,7 +129,7 @@ def api_photo_tags(path: str) -> list[dict]:
     for d in tags:
         entry = {"id": d.tag_id, "role": _tag_role(d.tag_id), "centre_px": [round(d.centre[0]), round(d.centre[1])]}
         if entry["role"] == "tray":
-            entry["placement"] = _placement_json(placements.get(d.tag_id))
+            entry["placement"] = _placement_json(placements.get(id(d)))
         out.append(entry)
     return out
 
@@ -129,6 +154,7 @@ def gallery_tags_image(path: str) -> Response:
     """Photo `path` at the screen copy's size with every tag outlined and labelled with its ID,
     tray tags as "Tray <id>", and each placed tray's outline, slot and A1 corner. Searches the photo first if it has not been searched yet. The tags
     are part of the image's inputs, so it is drawn again whenever the stored tags change."""
+    _require_photo(path)  # 404 for a deleted photo, whose tags photo_tags still knows (#287)
     found = photo_tags.photo_tags_for(path)
     tags = [{"id": d.tag_id, "corners": [list(c) for c in d.corners]} for d in found]
     trays = [
