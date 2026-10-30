@@ -1,0 +1,81 @@
+{#- The Experiments page's tray areas panel (#332), from routes/experiments.py `_tray_areas`. The
+    table is cut in 6 areas; every piece of a diagram carries its area's name, never colour alone. -#}
+{% import "_ui.html" as ui %}
+{% if view.running %}
+  {% if view.warnings %}
+    {% call ui.banner("warn", "Too long in one area") %}
+      <p>{% for w in view.warnings %}{{ w }}{% if not loop.last %}<br>{% endif %}{% endfor %}<br>Move these trays to another area.</p>
+    {% endcall %}
+  {% else %}
+    <p>{{ ui.chip("ok", "No tray too long in one area") }}</p>
+  {% endif %}
+{% endif %}
+<p class="experiment-hint">Limit: {{ view.limit }} in one area. Areas: NW, NM, NE along the top of the photo,
+  SW, SM, SE along the bottom. A tray counts as moved after 1 hour in another area.</p>
+{% if not view.trays %}
+  <p>No trays found in this experiment's photos yet.</p>
+{% endif %}
+<div class="list">
+{% for t in view.trays %}
+  <div class="card">
+    <div class="card-head">
+      <h3>Tray {{ t.tray_id }}</h3>
+      {% if t.warning %}{{ ui.chip("warn", t.warning) }}{% endif %}
+    </div>
+    <div class="row" style="align-items: flex-start">
+      {#- The map: hours in each area, the area it is in now outlined, its moves as numbered arrows. -#}
+      <svg viewBox="-4 -4 338 228" width="338" height="228" role="img"
+        aria-label="Tray {{ t.tray_id }}, hours in each area{% if t.now %}. {{ t.now }}{% endif %}">
+        <defs>
+          <marker id="arrow-{{ t.tray_id }}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" style="fill: var(--fg)"></path>
+          </marker>
+        </defs>
+        {% for c in t.cells %}
+          <rect x="{{ c.x }}" y="{{ c.y }}" width="110" height="110" fill="{{ c.tint }}" fill-opacity="0.45" style="stroke: var(--line)" stroke-width="1"></rect>
+          <text x="{{ c.x + 8 }}" y="{{ c.y + 20 }}" font-size="15" font-weight="700" style="fill: var(--fg)">{{ c.area }}</text>
+          <text x="{{ c.x + 55 }}" y="{{ c.y + 50 }}" font-size="20" text-anchor="middle" style="fill: var(--fg)">{{ c.hours }}</text>
+        {% endfor %}
+        {% for c in t.cells if c.now %}
+          <rect x="{{ c.x + 3 }}" y="{{ c.y + 3 }}" width="104" height="104" fill="none" style="stroke: var(--fg)" stroke-width="6"></rect>
+          <text x="{{ c.x + 102 }}" y="{{ c.y + 20 }}" font-size="13" font-weight="700" text-anchor="end" style="fill: var(--fg)">NOW</text>
+        {% endfor %}
+        {% for a in t.arrows %}
+          <line x1="{{ a.x1 }}" y1="{{ a.y1 }}" x2="{{ a.x2 }}" y2="{{ a.y2 }}" style="stroke: var(--fg)" stroke-width="2.5" marker-end="url(#arrow-{{ t.tray_id }})"></line>
+        {% endfor %}
+        {% for a in t.arrows %}
+          <circle cx="{{ a.nx }}" cy="{{ a.ny }}" r="10" style="fill: var(--surface); stroke: var(--fg)" stroke-width="1.5"></circle>
+          <text x="{{ a.nx }}" y="{{ a.ny + 4.5 }}" font-size="13" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ a.n }}</text>
+        {% endfor %}
+      </svg>
+      <div style="flex: 1 1 300px; min-width: 0">
+        {% if t.now %}<p style="margin: 0 0 8px"><strong>{{ t.now }}</strong></p>{% else %}<p style="margin: 0 0 8px">Not found in the last 48 hours.</p>{% endif %}
+        {#- The timeline strip: one piece per stay, from the experiment's start to its end or now. -#}
+        <svg viewBox="0 0 {{ t.strip.w }} {{ 86 if t.strip.under else 62 }}" width="100%" role="img"
+          aria-label="Tray {{ t.tray_id }}, areas over time">
+          <rect x="0" y="0" width="{{ t.strip.w }}" height="36" fill="none" style="stroke: var(--line)" stroke-width="1"></rect>
+          {% for p in t.strip.pieces %}
+            <rect x="{{ p.x }}" y="0" width="{{ p.w }}" height="36" fill="{{ p.tint }}" style="stroke: var(--fg)" stroke-width="1"></rect>
+            {% if p.inside %}
+              <text x="{{ p.mid }}" y="23" font-size="14" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.area }}</text>
+            {% else %}
+              <line x1="{{ p.mid }}" y1="36" x2="{{ p.mid }}" y2="{{ 44 + 22 * p.row }}" style="stroke: var(--fg)" stroke-width="1"></line>
+              <text x="{{ p.mid }}" y="{{ 56 + 22 * p.row }}" font-size="12" text-anchor="middle" style="fill: var(--fg)">{{ p.area }}</text>
+            {% endif %}
+          {% endfor %}
+          {% for k in t.strip.ticks %}
+            <line x1="{{ k.x }}" y1="36" x2="{{ k.x }}" y2="42" style="stroke: var(--fg-2)" stroke-width="1"></line>
+            {% if k.label and not t.strip.under %}<text x="{{ k.x }}" y="56" font-size="12" text-anchor="middle" style="fill: var(--fg-2)">{{ k.label }}</text>{% endif %}
+          {% endfor %}
+        </svg>
+        <p class="experiment-hint" style="margin: 0">{{ view.begin }} to {{ view.end }}, UTC.{% if t.strip.ticks %} A tick at each midnight.{% endif %}</p>
+        {% if t.moves %}
+          <p style="margin: 8px 0 0">Moves:<br>{% for m in t.moves %}{{ m }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+        {% else %}
+          <p style="margin: 8px 0 0">No moves.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endfor %}
+</div>

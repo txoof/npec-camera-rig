@@ -26,6 +26,8 @@
     </div>
     {{ ui.stepper("f-interval", "Photo every", 0, "min", 0, 6, tight=true) }}
     <p class="experiment-hint">0 means no scheduled photos. Can be changed while running.</p>
+    {#- How long a tray may stay in one area of the table before this page warns (#332). -#}
+    {{ ui.stepper("f-dwell", "Too long in one area after", 4, "days", 1, 30, tight=true) }}
     {% call ui.field("f-notes", "Notes") %}{{ ui.field_button("f-notes", "Notes", kind="text", max_length=1000) }}{% endcall %}
     <div class="experiment-form-buttons">
       <button type="submit" id="f-submit">Set up</button>
@@ -43,6 +45,15 @@
     </thead>
     <tbody id="experiment-rows"></tbody>
   </table>
+
+  {#- Where each tray has been on the table (#332): opened by a row's Tray areas button. -#}
+  <section id="tray-areas-section" hidden>
+    <div class="row" style="margin-top: var(--gap)">
+      <h2 id="tray-areas-title" style="margin: 0; flex: 1 1 300px"></h2>
+      {{ ui.button("Close", id="tray-areas-close") }}
+    </div>
+    <div id="tray-areas" style="margin-top: var(--gap)"></div>
+  </section>
 
   <!-- One in-page dialog for every confirmation on this page. Not alert/confirm/prompt: a browser
        can be told to block those, and then the page could not ask or explain anything. -->
@@ -80,6 +91,7 @@
       tray_height_mm: document.getElementById("f-tray-height"),
       notes: document.getElementById("f-notes"),
       interval: document.getElementById("f-interval-value"),
+      dwell: document.getElementById("f-dwell-value"),
     };
     // Name, researcher and notes are field buttons typed on the on-page keyboard (the Windows one
     // is unusable on the chamber screens); the value is the button's data-value.
@@ -140,6 +152,7 @@
       const photos = e.periods.length && e.state !== "purged" ? [button("photos", "Photos")] : [];
       // One Reprocess at a time: the button is hidden on every experiment while one runs.
       if (photos.length && !experiments.some((x) => x.reprocess.running)) photos.push(button("reprocess", "Reprocess areas"));
+      if (photos.length) photos.push(button("tray-areas", "Tray areas"));
       return [first, photos, last].filter((line) => line.length)
         .map((line) => `<div class="row">${line.join("")}</div>`).join("");
     }
@@ -182,6 +195,11 @@
         : `<div class="experiment-export">Areas reprocessed: ${r.done} photos${failed}</div>`;
     }
 
+    function dwellLimitText(e) {
+      const days = e.dwell_limit_h / 24;
+      return `Too long in one area after ${Number.isInteger(days) ? days : days.toFixed(1)} days.`;
+    }
+
     function intervalText(e) {
       if (!e.interval_s) return "No scheduled photos.";
       const minutes = e.interval_s / 60;
@@ -196,6 +214,15 @@
         + `Taken ${schedule.photos_taken}, missed ${schedule.photos_missed}.`;
     }
 
+    // Trays too long in one area of the table (#332): a word and a shape, never colour alone.
+    function dwellText(e) {
+      if (!e.dwell_warnings || !e.dwell_warnings.length) return "";
+      const lines = e.dwell_warnings.map((w) => ui.chip("warn",
+        `Tray ${w.tray_id}: too long in ${w.area}, ${(w.hours / 24).toFixed(1)} days`));
+      return `<div class="row" style="margin-top: 8px; gap: 8px var(--gap)">${lines.join("")}</div>`
+        + "Move these trays to another area. Tray areas shows where each tray has been.";
+    }
+
     function render() {
       const now = experiments.find((e) => e.state === "running");
       running.innerHTML = now
@@ -203,6 +230,7 @@
           + (now.researcher ? ` (${esc(now.researcher)})` : "")
           + `<br>Capture photos are saved to <code>experiments/${esc(now.folder)}</code>.`
           + `<br>${scheduleText(now.schedule)}`
+          + dwellText(now)
         : "No experiment is running. Capture photos are saved as rig photos.";
       running.classList.toggle("is-running", Boolean(now));
       rows.innerHTML = experiments.length
@@ -210,7 +238,7 @@
           <tr>
             <td>${esc(displayName(e))}${e.notes ? `<div class="experiment-notes">${esc(e.notes)}</div>` : ""}</td>
             <td>${esc(e.researcher)}</td>
-            <td>${esc(stateText(e))}${e.state === "purged" ? "" : `<div class="experiment-export">${intervalText(e)}</div>`}${exportText(e)}${reprocessText(e)}</td>
+            <td>${esc(stateText(e))}${e.state === "purged" ? "" : `<div class="experiment-export">${intervalText(e)} ${dwellLimitText(e)}</div>`}${exportText(e)}${reprocessText(e)}</td>
             <td>${e.folder ? `<code>${esc(e.folder)}</code>` : ""}</td>
             <td class="experiment-actions">${actions(e)}</td>
           </tr>`).join("")
@@ -297,6 +325,7 @@
       textFields.forEach((el) => ui.showField(el, ""));
       showTray(null);
       showInterval(null);
+      showDwell(96);
       trayChoice.disabled = false;
       fields.name.disabled = false;
       fields.researcher.disabled = false;
@@ -313,6 +342,7 @@
       showTray(e.tray_height_mm);
       ui.showField(fields.notes, e.notes ?? "");
       showInterval(e.interval_s);
+      showDwell(e.dwell_limit_h);
       // Readings depend on the tray height, so it is fixed at the first start. A purged
       // experiment keeps only its notes editable.
       fields.tray_height_mm.disabled = e.state !== "set up";
@@ -331,7 +361,8 @@
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const minutes = Number(fields.interval.dataset.value) || 0;
-      const body = { notes: text(fields.notes), interval_s: minutes > 0 ? minutes * 60 : null };
+      const days = Number(fields.dwell.dataset.value) || 4;
+      const body = { notes: text(fields.notes), interval_s: minutes > 0 ? minutes * 60 : null, dwell_limit_h: days * 24 };
       if (!fields.name.disabled) body.name = text(fields.name);
       if (!fields.researcher.disabled) body.researcher = text(fields.researcher);
       if (!fields.tray_height_mm.disabled) {
@@ -404,6 +435,7 @@
     const whenReady = (fn) => (window.ui ? fn() : document.addEventListener("DOMContentLoaded", fn));
     whenReady(() => {
       ui.bindStepper(document.getElementById("f-interval"));
+      ui.bindStepper(document.getElementById("f-dwell"));
       textFields.forEach((el) => ui.bindField(el));
       ui.bindField(trayChoice, (value) => { trayOther.hidden = value !== "other"; });
       ui.bindField(fields.tray_height_mm);
@@ -413,6 +445,28 @@
       const minutes = seconds ? Math.round(seconds / 60) : 0;
       whenReady(() => ui.showField(fields.interval, String(minutes)));
     }
+
+    function showDwell(hours) {
+      whenReady(() => ui.showField(fields.dwell, String(Math.max(1, Math.round(hours / 24)))));
+    }
+
+    // The tray areas panel (#332), made on the rig as HTML; opened under the list.
+    const trayAreasSection = document.getElementById("tray-areas-section");
+    const trayAreas = document.getElementById("tray-areas");
+    async function showTrayAreas(e) {
+      document.getElementById("tray-areas-title").textContent = `Tray areas: ${displayName(e)}`;
+      trayAreas.textContent = "Working out where each tray has been...";
+      trayAreasSection.hidden = false;
+      trayAreasSection.scrollIntoView({ behavior: "smooth" });
+      try {
+        const r = await fetch(`/experiments/${e.id}/tray-areas`);
+        if (!r.ok) throw new Error(r.statusText);
+        trayAreas.innerHTML = await r.text();
+      } catch (err) {
+        trayAreas.textContent = "Could not show the tray areas. Try again.";
+      }
+    }
+    document.getElementById("tray-areas-close").addEventListener("click", () => { trayAreasSection.hidden = true; });
 
     function purgeAsk(e) {
       const exportLine = e.complete_export
@@ -451,6 +505,8 @@
       listMessage.textContent = "";
       if (act === "edit") {
         edit(e);
+      } else if (act === "tray-areas") {
+        showTrayAreas(e);
       } else if (act === "photos") {
         location.href = `/gallery?experiment=${e.id}`;
       } else if (act === "purge") {
