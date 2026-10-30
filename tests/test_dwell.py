@@ -1,6 +1,8 @@
 """Time each tray spends in each area of the chamber table, and a warning when it stays too long
 (#332). Decisions: Aaron, 2026-10-30 (issue #332)."""
 
+from datetime import datetime, timedelta
+
 import pytest
 
 from npec_rig import dwell
@@ -58,3 +60,62 @@ def test_rows_follow_the_tag_rows_when_the_table_lies_turned_in_the_photo() -> N
 )
 def test_without_a_table_frame_the_photo_itself_is_divided_into_halves_and_thirds(centre, area) -> None:
     assert dwell.area_of(centre, PHOTO, None) == area
+
+
+# --- Stays ---------------------------------------------------------------------------------------
+
+
+def _t(text: str) -> datetime:
+    return datetime.fromisoformat(f"2027-{text}+00:00")
+
+
+def test_a_tray_off_the_table_for_part_of_a_day_and_back_in_its_area_stays_there_4_days() -> None:
+    """Aaron's example: in NW from 1 January, off the table on 2 January, back in NW the same day
+    and there until 5 January counts as 4 days. Off the table, the tray is not found: no reading."""
+    readings = [(_t("01-01T00:00"), "NW"), (_t("01-02T08:00"), "NW"), (_t("01-02T15:00"), "NW"),
+                (_t("01-04T00:00"), "NW"), (_t("01-05T00:00"), "NW")]
+
+    assert dwell.stays(readings) == [dwell.Stay("NW", _t("01-01T00:00"), _t("01-05T00:00"))]
+    assert dwell.stays(readings)[0].end - dwell.stays(readings)[0].start == timedelta(days=4)
+
+
+def test_a_tray_moved_away_for_days_and_back_starts_a_new_stay_when_it_comes_back() -> None:
+    """Aaron's example: in NW 1 January, SW 3 January, NW again 5 January: the run in NW is
+    restarted on 5 January."""
+    readings = [(_t("01-01T00:00"), "NW"), (_t("01-02T00:00"), "NW"), (_t("01-03T00:00"), "SW"),
+                (_t("01-03T12:00"), "SW"), (_t("01-05T00:00"), "NW"), (_t("01-05T06:00"), "NW")]
+
+    assert dwell.stays(readings) == [
+        dwell.Stay("NW", _t("01-01T00:00"), _t("01-02T00:00")),
+        dwell.Stay("SW", _t("01-03T00:00"), _t("01-03T12:00")),
+        dwell.Stay("NW", _t("01-05T00:00"), _t("01-05T06:00")),
+    ]
+
+
+def test_a_tray_beside_its_area_for_3_minutes_has_not_moved() -> None:
+    """Tray 1 beside its slot for 3 minutes on 28 October (issue #332): a nudge, not a move."""
+    readings = [(_t("01-01T10:00"), "NW"), (_t("01-01T10:01"), "NM"), (_t("01-01T10:02"), "NM"),
+                (_t("01-01T10:03"), "NM"), (_t("01-01T10:04"), "NW")]
+
+    assert dwell.stays(readings) == [dwell.Stay("NW", _t("01-01T10:00"), _t("01-01T10:04"))]
+
+
+@pytest.mark.parametrize(("last_away", "moved"), [("10:59", False), ("11:00", True)])
+def test_a_tray_counts_as_moved_after_1_hour_found_in_another_area(last_away, moved) -> None:
+    readings = [(_t("01-01T09:00"), "SE"), (_t("01-01T10:00"), "SM"), (_t(f"01-01T{last_away}"), "SM"),
+                (_t("01-01T11:30"), "SE")]
+
+    expected = (
+        [dwell.Stay("SE", _t("01-01T09:00"), _t("01-01T09:00")), dwell.Stay("SM", _t("01-01T10:00"), _t("01-01T11:00"))]
+        if moved else [dwell.Stay("SE", _t("01-01T09:00"), _t("01-01T11:30"))]
+    )
+    # Moved: back in SE at 11:30 for one photo only is not yet a move back.
+    assert dwell.stays(readings) == expected
+
+
+def test_an_hour_away_spread_over_two_other_areas_is_not_a_move() -> None:
+    """NM from 10:10 to 11:15 is over an hour, but not in a row: NE at 10:30 lies between."""
+    readings = [(_t("01-01T10:00"), "NW"), (_t("01-01T10:10"), "NM"), (_t("01-01T10:30"), "NE"),
+                (_t("01-01T11:15"), "NM"), (_t("01-01T11:20"), "NW")]
+
+    assert dwell.stays(readings) == [dwell.Stay("NW", _t("01-01T10:00"), _t("01-01T11:20"))]
