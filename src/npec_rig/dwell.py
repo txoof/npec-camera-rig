@@ -171,3 +171,17 @@ def over_limit(experiment_id: int, at: str) -> list[dict]:
         if _hours(stay) >= limit_h:
             out.append({"tray_id": tray_id, "area": stay.area, "since": stay.start.isoformat(), "hours": _hours(stay)})
     return out
+
+
+def hours_per_area(experiment_id: int) -> dict[int, dict[str, float]]:
+    """Each tray's hours in each area (`AREAS`, every one, 0 where it never stayed) over the
+    experiment, by tray ID: each stay from its first to its last photo. The minutes between a
+    stay's last photo and the next stay's first are in neither, nor are nudges a stay of their
+    own: they count in the stay they interrupted."""
+    out = {}
+    for tray_id, readings in sorted(_experiment_readings(experiment_id).items()):
+        hours = dict.fromkeys(AREAS, 0.0)
+        for stay in stays(readings):
+            hours[stay.area] += _hours(stay)
+        out[tray_id] = hours
+    return out

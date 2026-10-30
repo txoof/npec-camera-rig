@@ -204,3 +204,19 @@ def test_the_experiments_own_limit_is_used() -> None:
     assert dwell.over_limit(experiment_id, at=_t("01-02T00:00").isoformat()) == [
         {"tray_id": 8, "area": "SW", "since": _t("01-01T00:00").isoformat(), "hours": 24.0}
     ]
+
+
+def test_each_trays_hours_in_each_area_over_the_experiment() -> None:
+    """Tray 7: NW 2 days, then SE 6 hours. Tray 8: 3 minutes in NM is a nudge, counted in SW."""
+    experiment_id = _experiment()
+    _read(experiment_id, "01-01T00:00", {7: "NW", 8: "SW"})
+    _read(experiment_id, "01-03T00:00", {7: "NW", 8: "SW"})
+    _read(experiment_id, "01-03T00:01", {7: "SE", 8: "NM"})
+    _read(experiment_id, "01-03T00:04", {8: "SW"})
+    _read(experiment_id, "01-03T06:01", {7: "SE"})
+
+    zero = dict.fromkeys(["NW", "NM", "NE", "SW", "SM", "SE"], 0.0)
+    assert dwell.hours_per_area(experiment_id) == {
+        7: {**zero, "NW": 48.0, "SE": 6.0},
+        8: {**zero, "SW": 48.0 + 4 / 60},
+    }
