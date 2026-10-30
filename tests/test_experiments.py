@@ -322,3 +322,22 @@ def test_reprocess_reads_an_experiment_again_with_the_rebuilt_twin(monkeypatch) 
         assert tray["calibration"] == twin
         assert photo_file(p).read_bytes() == photos[p]
         assert np.array_equal(segmentation.load_mask(p), masks[p])
+
+
+def test_how_long_a_tray_may_stay_in_one_area_defaults_to_4_days_and_can_be_changed_while_running() -> None:
+    """Aaron, 2026-10-30 (#332): a setting on each experiment, default 4 days, kept in hours."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    plain = client.post("/api/experiments", json={}).json()
+    assert plain["dwell_limit_h"] == 96
+    two_days = client.post("/api/experiments", json={"dwell_limit_h": 48}).json()
+    assert two_days["dwell_limit_h"] == 48
+
+    client.post(f"/api/experiments/{plain['id']}/start")
+    assert client.patch(f"/api/experiments/{plain['id']}", json={"dwell_limit_h": 144}).json()["dwell_limit_h"] == 144
+    assert client.patch(f"/api/experiments/{plain['id']}", json={"dwell_limit_h": 0}).status_code == 422
+    saved = {e["id"]: e["dwell_limit_h"] for e in client.get("/api/experiments").json()}
+    assert saved == {plain["id"]: 144, two_days["id"]: 48}

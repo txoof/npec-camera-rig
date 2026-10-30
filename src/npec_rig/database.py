@@ -723,13 +723,18 @@ def create_experiment(
     tray_height_mm: float | None = None,
     notes: str | None = None,
     interval_s: float | None = None,
+    dwell_limit_h: float | None = None,
 ) -> dict:
+    """A new experiment, set up. `dwell_limit_h`: hours a tray may stay in one area of the table
+    before the page warns (#332); None keeps the column's default, 4 days."""
     with _connect() as conn:
         cursor = conn.execute(
             "INSERT INTO experiment (uuid, name, researcher, tray_height_mm, notes, interval_s,"
             " created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (uuid, name, researcher, tray_height_mm, notes, interval_s, created_at),
         )
+        if dwell_limit_h is not None:
+            conn.execute("UPDATE experiment SET dwell_limit_h = ? WHERE id = ?", (dwell_limit_h, cursor.lastrowid))
         return _experiment(conn, cursor.lastrowid)
 
 

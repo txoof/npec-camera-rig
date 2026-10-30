@@ -29,11 +29,16 @@ class ExperimentFields(BaseModel):
     notes: str | None = None
     # Seconds between scheduled photos; empty for none. The page offers 1 to 6 minutes.
     interval_s: float | None = Field(default=None, gt=0)
+    # Hours a tray may stay in one area of the table before the page warns (#332). The page
+    # offers whole days; left out, 4 days.
+    dwell_limit_h: float | None = Field(default=None, gt=0)
 
 
 def _cleaned(fields: ExperimentFields) -> dict:
     """Only the fields sent, with blank text stored as empty (NULL)."""
     sent = fields.model_dump(exclude_unset=True)
+    if sent.get("dwell_limit_h", 0) is None:
+        del sent["dwell_limit_h"]  # never empty: the column keeps its value
     interval_s = sent.get("interval_s")
     if interval_s is not None and interval_s < scheduler.MIN_INTERVAL_S:
         raise HTTPException(422, f"the interval must be at least {scheduler.MIN_INTERVAL_S:g} s")
