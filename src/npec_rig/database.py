@@ -458,8 +458,10 @@ def _json_or_none(value: object) -> str | None:
 def tray_readings(capture_id: int) -> dict | None:
     """Photo `capture_id`'s tray readings: when it was read, its status, the trays found in tray
     ID order, and `not_found`: each tray found in an earlier photo of the same experiment but not
-    in this one, with the slot it was last found in (#318), the time of the first read photo it
-    was missing from and how many read photos it has been missing from, this one included; and
+    in this one, with where it was last found (`seen_in`: that photo's path and calibration and
+    the tray's centre, for its area of the table, `tray_readings.capture_readings`, #332), the
+    time of the first read photo it was missing from and how many read photos it has been missing
+    from, this one included; and
     `moved`: each tray in another slot or turned since the experiment's previous read photo. None when the photo has not been read.
 
     A removed tray, a swapped tag and a dirty tag all look the same here: the rig cannot tell them
@@ -484,10 +486,12 @@ def tray_readings(capture_id: int) -> dict | None:
                 " WHERE tray_read.status = 'read' AND capture.experiment_id = ? AND capture.taken_at <= ?"
             )
             args = (read["experiment_id"], read["taken_at"])
-            # SQLite takes the bare `slot` from the row holding the MAX: the newest slot. A tray
-            # with no tag (#331) cannot be followed from photo to photo: left out on both sides.
+            # SQLite takes the bare columns from the row holding the MAX: where the tray was
+            # last found. A tray with no tag (#331) cannot be followed from photo to photo: left
+            # out on both sides.
             last_seen = conn.execute(
-                "SELECT tray_id, MAX(capture.taken_at), slot FROM tray_reading"
+                "SELECT tray_id, MAX(capture.taken_at), capture.path, capture.calibration, centre_x_px, centre_y_px"
+                " FROM tray_reading"
                 " JOIN capture ON capture.id = tray_reading.capture_id"
                 " WHERE capture.experiment_id = ? AND capture.taken_at <= ? AND tray_id IS NOT NULL"
                 " AND tray_id NOT IN"
@@ -495,14 +499,17 @@ def tray_readings(capture_id: int) -> dict | None:
                 " GROUP BY tray_id ORDER BY tray_id",
                 (*args, capture_id),
             ).fetchall()
-            for tray_id, seen, slot in last_seen:
+            for tray_id, seen, path, calibration, x, y in last_seen:
                 if datetime.fromisoformat(read["taken_at"]) - datetime.fromisoformat(seen) > NOT_SEEN_FOR:
                     continue
                 since, photos = conn.execute(
                     f"SELECT MIN(capture.taken_at), COUNT(*) {in_experiment} AND capture.taken_at > ?",
                     (*args, seen),
                 ).fetchone()
-                not_found.append({"tray_id": tray_id, "slot": slot, "since": since, "photos": photos, "last_seen": seen})
+                not_found.append({
+                    "tray_id": tray_id, "since": since, "photos": photos, "last_seen": seen,
+                    "seen_in": {"path": path, "calibration": calibration, "centre_px": (x, y)},
+                })
             previous = conn.execute(
                 f"SELECT capture_id {in_experiment} AND capture.taken_at < ?"
                 " ORDER BY capture.taken_at DESC LIMIT 1",

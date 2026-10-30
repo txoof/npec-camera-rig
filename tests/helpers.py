@@ -225,3 +225,55 @@ def record_light_photos(experiment_id: int, start, series, folder: str) -> None:
             focus_locked_at=None, exposure_us=e, analogue_gain=1.0, flags=[],
         )
     exclusions.update(database.captures_for_experiment(experiment_id)[-1])
+
+
+# --- Trays on the table's areas (#332) -----------------------------------------------------------
+# A 900 x 600 photo with its corner tags at x 100 and 800, y 100 and 500: the rows of areas meet at
+# y 300, the columns at x 300 and 600. TABLE_CENTRES: a point well inside each area.
+TABLE_STEM = "20270101T000000000000"
+TABLE_CENTRES = {"NW": (150, 150), "NM": (450, 150), "NE": (750, 150), "SW": (150, 450), "SM": (450, 450),
+                 "SE": (750, 450)}
+
+
+def table_calibration() -> None:
+    """Save calibration TABLE_STEM: 1 px/mm, its four corner tags at the corners above."""
+    from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
+    from npec_rig.calibration_store import save_calibration
+    from npec_rig.tripwire import CornerBaseline
+
+    corners = {450: (100, 100), 451: (800, 100), 452: (800, 500), 453: (100, 500)}
+    save_calibration(
+        CalibrationArtifact(
+            created_at="2027-01-01T00:00:00+00:00", frame_stem=TABLE_STEM,
+            scale_field=scale_field_from_dict({"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 1.0, "residual_std_pct": 0.0}),
+            corner_baseline=CornerBaseline(corners_by_id={
+                i: ((x - 5, y - 5), (x + 5, y - 5), (x + 5, y + 5), (x - 5, y + 5)) for i, (x, y) in corners.items()
+            }),
+        ),
+        stem=TABLE_STEM,
+    )
+
+
+def table_photo(experiment_id: int | None, taken, trays: dict[int, str]) -> str:
+    """A 900 x 600 photo taken at `taken` (a datetime) under TABLE_STEM, read with each tray of
+    `trays` (tray ID: area) found at that area's centre; its path."""
+    from PIL import Image
+
+    from npec_rig import captures, database
+
+    day, stem = f"{taken:%Y-%m-%d}", f"{taken:%H%M%S}_{taken:%f}"
+    file = captures.photos_root() / day / f"{stem}.jpg"
+    file.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (900, 600)).save(file)
+    capture_id = database.record_capture(
+        taken_at=taken.isoformat(), path=f"rig/{day}/{stem}", purpose="capture", experiment_id=experiment_id,
+        calibration=TABLE_STEM, validation=None, lens_position=None, focus_locked_at=None, exposure_us=None,
+        analogue_gain=None, flags=[],
+    )
+    database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[
+        {"tray_id": tray_id, "slot": None, "a1_corner": None, "placement": "placed",
+         "centre_px": list(TABLE_CENTRES[area]), "tilt_deg": 0.0, "margin_mm": None, "found": "photo + tag",
+         "warnings": [], "outline_px": None}
+        for tray_id, area in trays.items()
+    ])
+    return f"rig/{day}/{stem}"

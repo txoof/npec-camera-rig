@@ -17,7 +17,7 @@ from npec_rig.app import app
 from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
 from npec_rig.tags import TagDetection
-from tests.helpers import one_tray_plant_scene
+from tests.helpers import one_tray_plant_scene, table_calibration, table_photo
 
 pytestmark = pytest.mark.unit
 
@@ -517,3 +517,30 @@ def test_two_trays_with_no_tag_are_each_kept_and_never_said_to_share_a_tag(monke
     trays = tray_readings.read_photo(_photo())["trays"]
     assert [(t["tray_id"], t["found"], t["warnings"]) for t in trays] == [(None, "photo, no tag", ["no tag"])] * 2
     assert [t["not_counted"] for t in trays] == [[], []]
+
+
+# --- Areas of the table, not slots (#332) --------------------------------------------------------
+
+
+def _table_experiment() -> int:
+    table_calibration()
+    experiment = database.create_experiment(uuid="u-332", created_at="2027-01-01T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2027-01-01T00:00:00+00:00", folder="experiments/x")
+    return experiment["id"]
+
+
+def _at(minute: int):
+    from datetime import UTC, datetime
+
+    return datetime(2027, 1, 1, 7, minute, tzinfo=UTC)
+
+
+def test_a_tray_not_found_names_the_area_of_the_table_it_was_last_found_in() -> None:
+    experiment_id = _table_experiment()
+    table_photo(experiment_id, _at(0), {7: "NW", 8: "NW"})
+    table_photo(experiment_id, _at(1), {7: "NW", 8: "SE"})
+    path = table_photo(experiment_id, _at(2), {7: "NW"})
+
+    assert tray_readings.photo_readings(path)["not_found"] == [
+        {"tray_id": 8, "area": "SE", "since": _at(2).isoformat(), "photos": 1, "last_seen": _at(1).isoformat()}
+    ]

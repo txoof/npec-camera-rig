@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 import numpy as np
 from PIL import Image
 
-from npec_rig import database, exclusions, photo_tags, segmentation, validation_store
+from npec_rig import database, dwell, exclusions, photo_tags, segmentation, validation_store
 from npec_rig.captures import photo_file
 from npec_rig.calibration_store import (
     CalibrationNotFoundError,
@@ -289,6 +289,10 @@ def capture_readings(capture: dict) -> dict | None:
     """`photo_readings` for a photo whose rig.db row `capture` is already at hand."""
     readings = database.tray_readings(capture["id"])
     if readings is not None:
+        areas = dwell.AreaFinder()
+        for tray in readings["not_found"]:
+            seen_in = tray.pop("seen_in")
+            tray["area"] = areas.area(seen_in["path"], seen_in["calibration"], seen_in["centre_px"])
         saved = database.exclusion(capture["id"])
         if saved is None:
             # Read before exclusions were stored: lights off needs only the photo itself.
