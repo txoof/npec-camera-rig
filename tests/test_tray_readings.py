@@ -544,3 +544,19 @@ def test_a_tray_not_found_names_the_area_of_the_table_it_was_last_found_in() -> 
     assert tray_readings.photo_readings(path)["not_found"] == [
         {"tray_id": 8, "area": "SE", "since": _at(2).isoformat(), "photos": 1, "last_seen": _at(1).isoformat()}
     ]
+
+
+def test_a_tray_counts_as_moved_when_its_centre_leaves_its_area_not_when_it_is_nudged_or_turned() -> None:
+    """Aaron, 2026-10-30: only a centre leaving its area is a move. Tray 8 nudged 100 px inside NW,
+    and tray 9 turned (its centre stays where it was), have not moved."""
+    experiment_id = _table_experiment()
+    first = table_photo(experiment_id, _at(0), {7: "NW", 8: "NW", 9: "SE"})
+    second = table_photo(experiment_id, _at(1), {7: "SM", 9: "SE"})
+    capture_id = database.captures_by_path([second])[second]["id"]
+    saved = database.tray_readings(capture_id)["trays"]
+    nudged = {**saved[0], "tray_id": 8, "centre_px": [250.0, 250.0]}  # (150, 150) moved 100 px, x and y
+    turned = {**saved[1], "a1_corner": "NE", "tilt_deg": 90.0}
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[saved[0], nudged, turned])
+
+    assert tray_readings.photo_readings(first)["moved"] == []
+    assert tray_readings.photo_readings(second)["moved"] == [{"tray_id": 7, "from": "NW", "to": "SM"}]

@@ -461,8 +461,10 @@ def tray_readings(capture_id: int) -> dict | None:
     in this one, with where it was last found (`seen_in`: that photo's path and calibration and
     the tray's centre, for its area of the table, `tray_readings.capture_readings`, #332), the
     time of the first read photo it was missing from and how many read photos it has been missing
-    from, this one included; and
-    `moved`: each tray in another slot or turned since the experiment's previous read photo. None when the photo has not been read.
+    from, this one included; and `in_both`: each tray also found in the experiment's previous read
+    photo, with its centre in this one and where it was in that one (`before`), for whether it
+    left its area (`moved`, `tray_readings.capture_readings`, #332). None when the photo has not
+    been read.
 
     A removed tray, a swapped tag and a dirty tag all look the same here: the rig cannot tell them
     apart, so each is shown as not found since a time, never guessed at."""
@@ -477,7 +479,7 @@ def tray_readings(capture_id: int) -> dict | None:
         rows = conn.execute(
             "SELECT * FROM tray_reading WHERE capture_id = ? ORDER BY tray_id", (capture_id,)
         ).fetchall()
-        not_found, moved = [], []
+        not_found, in_both = [], []
         if read["experiment_id"] is not None and read["status"] == "read":
             # Photos read with trays placed only: one not read, too dark to find any tag, or with
             # no calibration says nothing about which trays are in it.
@@ -511,7 +513,7 @@ def tray_readings(capture_id: int) -> dict | None:
                     "seen_in": {"path": path, "calibration": calibration, "centre_px": (x, y)},
                 })
             previous = conn.execute(
-                f"SELECT capture_id {in_experiment} AND capture.taken_at < ?"
+                f"SELECT capture_id, capture.path, capture.calibration {in_experiment} AND capture.taken_at < ?"
                 " ORDER BY capture.taken_at DESC LIMIT 1",
                 (*args, read["taken_at"]),
             ).fetchone()
@@ -519,16 +521,14 @@ def tray_readings(capture_id: int) -> dict | None:
                 earlier = conn.execute("SELECT * FROM tray_reading WHERE capture_id = ?", (previous[0],)).fetchall()
                 # A tag two trays carry, in either photo, says nothing about which tray moved (#302).
                 shared = {t for photo in (earlier, rows) for t, n in Counter(r["tray_id"] for r in photo).items() if n > 1}
-                # A tray with no slot (found in the photo, #331) cannot be compared by slot: a move
-                # without slots is not worked out yet.
                 before = {
-                    r["tray_id"]: [r["slot"], r["a1_corner"]]
-                    for r in earlier if r["tray_id"] is not None and r["slot"] is not None and r["tray_id"] not in shared
+                    r["tray_id"]: (r["centre_x_px"], r["centre_y_px"])
+                    for r in earlier if r["tray_id"] is not None and r["tray_id"] not in shared
                 }
-                moved = [
-                    {"tray_id": r["tray_id"], "from": before[r["tray_id"]], "to": [r["slot"], r["a1_corner"]]}
-                    for r in rows
-                    if r["tray_id"] in before and r["slot"] is not None and before[r["tray_id"]] != [r["slot"], r["a1_corner"]]
+                in_both = [
+                    {"tray_id": r["tray_id"], "centre_px": (r["centre_x_px"], r["centre_y_px"]),
+                     "before": {"path": previous[1], "calibration": previous[2], "centre_px": before[r["tray_id"]]}}
+                    for r in rows if r["tray_id"] in before
                 ]
     trays = [
         {
@@ -543,7 +543,7 @@ def tray_readings(capture_id: int) -> dict | None:
         }
         for r in rows
     ]
-    return {"read_at": read["read_at"], "status": read["status"], "trays": trays, "not_found": not_found, "moved": moved}
+    return {"read_at": read["read_at"], "status": read["status"], "trays": trays, "not_found": not_found, "in_both": in_both}
 
 
 

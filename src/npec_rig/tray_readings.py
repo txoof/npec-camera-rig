@@ -293,6 +293,14 @@ def capture_readings(capture: dict) -> dict | None:
         for tray in readings["not_found"]:
             seen_in = tray.pop("seen_in")
             tray["area"] = areas.area(seen_in["path"], seen_in["calibration"], seen_in["centre_px"])
+        # A move is a tray's centre leaving its area of the table; a nudge or a turn is not
+        # (Aaron, 2026-10-30, #332).
+        readings["moved"] = []
+        for tray in readings.pop("in_both"):
+            before = areas.area(tray["before"]["path"], tray["before"]["calibration"], tray["before"]["centre_px"])
+            now = areas.area(capture["path"], capture["calibration"], tray["centre_px"])
+            if before is not None and now is not None and before != now:
+                readings["moved"].append({"tray_id": tray["tray_id"], "from": before, "to": now})
         saved = database.exclusion(capture["id"])
         if saved is None:
             # Read before exclusions were stored: lights off needs only the photo itself.
