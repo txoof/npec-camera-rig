@@ -252,7 +252,7 @@ def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list
     for group in groups.values():
         ids = ", ".join(map(str, sorted(group["ids"])))
         if group["outline"] is None:
-            lines = [f"Tag {ids}, no tray found"]
+            lines = [f"Tag {ids},", "no tray found"]  # two short lines: the tags lie close together
             out.append((None, np.array(group["centre"], float), lines))
             continue
         name = f"Tray {ids}" if len(group["ids"]) == 1 else f"Trays {ids}" if group["ids"] else "No tag"
@@ -307,7 +307,7 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
             # than its name.
             y0 = y + (52 if outline is None else 0)
             for i, line in enumerate(lines):
-                size = 0.8 if i == 0 else 0.6
+                size = 0.8 if i == 0 and outline is not None else 0.6
                 half = text_width(line, size) / 2 + 3  # kept inside the frame, as the tag labels
                 layer.text(line, (round(min(max(x, half), image.shape[1] - half)), round(y0) + 26 * i), size, _TRAY_COLOUR, anchor="ms", stroke_width=3, stroke_fill=(0, 0, 0))
     return array_to_jpeg(image)
