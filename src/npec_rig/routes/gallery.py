@@ -163,8 +163,8 @@ _GALLERY_WIDTHS = {"thumb": 480, "screen": 1600}
 
 @router.get("/gallery/image/tags/{path:path}")
 def gallery_tags_image(path: str) -> Response:
-    """Photo `path` at the screen copy's size with every tag outlined and labelled with its ID,
-    tray tags as "Tray <id>", and each tray of the photo's reading (#331): its outline found in
+    """Photo `path` at the screen copy's size with every tag outlined, each tag but a tray
+    tag labelled with its ID, and each tray of the photo's reading (#331): its outline found in
     the photo, named by its tag or "No tag", with its warnings, or a cross where a tag was seen
     with no tray found around it. Searches and reads the photo first if not yet done. The tags
     and trays are part of the image's inputs, so it is drawn again whenever either changes."""
@@ -232,7 +232,7 @@ _TRAY_COLOUR = (255, 220, 0)  # yellow, apart from the tags and the blue trays
 
 
 # Each warning in a few words on the image, where the trays sit close together; Info has them in
-# full. A tag seen with no tray found already carries its "Tray <id>" label.
+# full.
 _SHORT_WARNINGS = {"partly outside the photo": "PARTLY OUTSIDE", "two tags in one tray outline": "TWO TAGS"}
 
 
@@ -252,7 +252,7 @@ def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list
     for group in groups.values():
         ids = ", ".join(map(str, sorted(group["ids"])))
         if group["outline"] is None:
-            lines = ["NO TRAY FOUND"]
+            lines = [f"Tag {ids}, no tray found"]
             out.append((None, np.array(group["centre"], float), lines))
             continue
         name = f"Tray {ids}" if len(group["ids"]) == 1 else f"Trays {ids}" if group["ids"] else "No tag"
@@ -264,9 +264,10 @@ def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list
 
 def _render_gallery_tags_image(inputs: dict) -> bytes:
     """Outlines each tag on the reduced copy, a thick line for a tray tag and a thin one for the
-    others, with its label beside it: the words, not the line, say which is a tray tag. Each tray
-    found in the photo gets its outline, with its tag or "No tag" and its warnings written at its
-    centre; a tag seen with no tray found around it gets a cross and words saying so (#331)."""
+    others, each other tag with its ID beside it. Each tray found in the photo gets its outline,
+    with "Tray <id>" or "No tag" and its warnings written at its centre; a tag seen with no tray
+    found around it gets a cross and "Tag <id>, no tray found" (#331): a tray's number is written
+    once, never on its tag as well."""
     found = photo_file(inputs["photo"])
     if found is None:
         raise HTTPException(404, f"photo {inputs['photo']} not found")
@@ -284,7 +285,11 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
         cv2.polylines(image, [points], isClosed=True, color=_TAG_COLOUR, thickness=3 if tag_id in TRAY_ID_RANGE else 1)
     with text_layer(image) as layer:
         for tag_id, corners in tags:
-            label = f"Tray {tag_id}" if tag_id in TRAY_ID_RANGE else str(tag_id)
+            # A tray tag's number is written once, on its tray's outline or by its cross (Aaron,
+            # 2026-10-30): the tag keeps only its box.
+            if tag_id in TRAY_ID_RANGE:
+                continue
+            label = str(tag_id)
             top = corners[:, 1].min()
             half = text_width(label, 0.8) / 2 + 3  # kept inside the frame, a tag at the edge too
             x = min(max(corners[:, 0].mean(), half), image.shape[1] - half)
@@ -298,11 +303,11 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
                 stroke_fill=(0, 0, 0),
             )
         for outline, (x, y), lines in trays:
-            # A cross's words sit below it, clear of the tag's own label above the tag; the
-            # warnings are smaller than the tray's name.
+            # A cross's words sit below it, clear of the tag's box; a tray's warnings are smaller
+            # than its name.
             y0 = y + (52 if outline is None else 0)
             for i, line in enumerate(lines):
-                size = 0.8 if i == 0 and outline is not None else 0.6
+                size = 0.8 if i == 0 else 0.6
                 half = text_width(line, size) / 2 + 3  # kept inside the frame, as the tag labels
                 layer.text(line, (round(min(max(x, half), image.shape[1] - half)), round(y0) + 26 * i), size, _TRAY_COLOUR, anchor="ms", stroke_width=3, stroke_fill=(0, 0, 0))
     return array_to_jpeg(image)
@@ -311,5 +316,5 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
 # Bump a recipe's version whenever its renderer would draw the same inputs differently.
 images.register(images.Recipe("gallery_thumb", 1, _render_gallery_image))
 images.register(images.Recipe("gallery_screen", 1, _render_gallery_image))
-images.register(images.Recipe("gallery_tags", 3, _render_gallery_tags_image))
+images.register(images.Recipe("gallery_tags", 4, _render_gallery_tags_image))
 images.register(images.Recipe("gallery_green", 1, _render_gallery_green_image))

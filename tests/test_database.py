@@ -206,7 +206,8 @@ def test_a_tray_seen_earlier_in_the_experiment_shows_as_not_found_since_it_went_
     third = _read("2026-10-21T07:02:00+00:00", [1], experiment_id)
 
     assert database.tray_readings(third)["not_found"] == [
-        {"tray_id": 2, "slot": "N1", "since": "2026-10-21T07:01:00+00:00", "photos": 2}
+        {"tray_id": 2, "slot": "N1", "since": "2026-10-21T07:01:00+00:00", "photos": 2,
+         "last_seen": "2026-10-21T07:00:00+00:00"}
     ]
 
 
@@ -220,7 +221,7 @@ def test_a_tray_not_found_names_the_slot_it_was_last_found_in_even_after_moving(
     third = _read("2026-10-21T07:02:00+00:00", [1], experiment_id)
 
     assert database.tray_readings(third)["not_found"] == [
-        {"tray_id": 8, "slot": "North 6", "since": "2026-10-21T07:02:00+00:00", "photos": 1}
+        {"tray_id": 8, "slot": "North 6", "since": "2026-10-21T07:02:00+00:00", "photos": 1, "last_seen": "2026-10-21T07:01:00+00:00"}
     ]
 
 
@@ -242,7 +243,7 @@ def test_a_swapped_tag_shows_the_new_tray_found_and_the_old_one_not_found() -> N
 
     readings = database.tray_readings(swapped)
     assert [t["tray_id"] for t in readings["trays"]] == [13]
-    assert readings["not_found"] == [{"tray_id": 12, "slot": "N1", "since": "2026-10-21T07:01:00+00:00", "photos": 1}]
+    assert readings["not_found"] == [{"tray_id": 12, "slot": "N1", "since": "2026-10-21T07:01:00+00:00", "photos": 1, "last_seen": "2026-10-21T07:00:00+00:00"}]
 
 
 def test_a_tray_moved_or_turned_since_the_previous_photo_is_listed_as_moved() -> None:
@@ -271,7 +272,39 @@ def test_a_photo_with_no_tags_at_all_is_not_counted_as_trays_missing() -> None:
 
     assert database.tray_readings(dark)["not_found"] == []
     assert database.tray_readings(morning)["not_found"] == [
-        {"tray_id": 2, "slot": "N1", "since": "2026-10-21T21:02:00+00:00", "photos": 1}
+        {"tray_id": 2, "slot": "N1", "since": "2026-10-21T21:02:00+00:00", "photos": 1, "last_seen": "2026-10-21T21:00:00+00:00"}
+    ]
+
+
+def test_a_tray_not_seen_for_48_hours_is_no_longer_reported_until_it_returns() -> None:
+    """Aaron, 2026-10-30: a tray taken away is reported as not seen for 48 h after the last read
+    photo that had it, then no longer; when it comes back it is a tray found as any other."""
+    experiment_id = _experiment()
+    _read("2026-10-21T07:00:00+00:00", [1, 2], experiment_id)
+    within = _read("2026-10-23T07:00:00+00:00", [1], experiment_id)  # 48 h 0 min after
+    past = _read("2026-10-23T07:01:00+00:00", [1], experiment_id)  # 48 h 1 min after
+    back = _read("2026-10-24T07:00:00+00:00", [1, 2], experiment_id)
+    gone = _read("2026-10-24T08:00:00+00:00", [1], experiment_id)
+
+    assert [t["tray_id"] for t in database.tray_readings(within)["not_found"]] == [2]
+    assert database.tray_readings(past)["not_found"] == []
+    assert database.tray_readings(back)["not_found"] == []
+    assert [t["tray_id"] for t in database.tray_readings(gone)["not_found"]] == [2]
+
+
+def test_a_photo_with_no_trays_found_is_not_counted_as_trays_missing() -> None:
+    """#331: the finder reads a dark photo as "no trays found"; like a photo with no tags, it says
+    nothing about which trays are there, so it neither reports trays missing nor counts as one."""
+    experiment_id = _experiment()
+    _read("2026-10-29T21:00:00+00:00", [1, 2], experiment_id)
+    dark = _photo("2026-10-29T21:01:00+00:00", experiment_id)
+    database.record_tray_readings(dark, read_at="t", status="no trays found", trays=[])
+    morning = _read("2026-10-29T21:02:00+00:00", [1], experiment_id)
+
+    assert database.tray_readings(dark)["not_found"] == []
+    assert database.tray_readings(morning)["not_found"] == [
+        {"tray_id": 2, "slot": "N1", "since": "2026-10-29T21:02:00+00:00", "photos": 1,
+         "last_seen": "2026-10-29T21:00:00+00:00"}
     ]
 
 
@@ -362,7 +395,7 @@ def test_a_tray_with_no_tag_never_hides_a_tray_not_found_and_is_never_one_itself
     database.record_tray_readings(third, read_at="t", status="read", trays=[_tray(1)])
 
     assert database.tray_readings(second)["not_found"] == [
-        {"tray_id": 2, "slot": "N1", "since": "2026-10-29T07:01:00+00:00", "photos": 1}
+        {"tray_id": 2, "slot": "N1", "since": "2026-10-29T07:01:00+00:00", "photos": 1, "last_seen": "2026-10-29T07:00:00+00:00"}
     ]
     assert [t["tray_id"] for t in database.tray_readings(third)["not_found"]] == [2]
 

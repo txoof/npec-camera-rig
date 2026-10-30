@@ -19,6 +19,7 @@ import threading
 from collections import Counter
 from collections.abc import Iterator
 from contextlib import closing, contextmanager
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from npec_rig.settings import db_path
@@ -304,6 +305,11 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 
+# How long after the last read photo that had it a tray missing from a photo is still reported as
+# not seen. After that it was taken away on purpose, not lost; it is reported again if it comes
+# back and goes missing once more. A decision, not a measurement (Aaron, 2026-10-30).
+NOT_SEEN_FOR = timedelta(hours=48)
+
 _migrated: set[Path] = set()
 _migrate_guard = threading.Lock()
 
@@ -481,11 +487,13 @@ def tray_readings(capture_id: int) -> dict | None:
                 (*args, capture_id),
             ).fetchall()
             for tray_id, seen, slot in last_seen:
+                if datetime.fromisoformat(read["taken_at"]) - datetime.fromisoformat(seen) > NOT_SEEN_FOR:
+                    continue
                 since, photos = conn.execute(
                     f"SELECT MIN(capture.taken_at), COUNT(*) {in_experiment} AND capture.taken_at > ?",
                     (*args, seen),
                 ).fetchone()
-                not_found.append({"tray_id": tray_id, "slot": slot, "since": since, "photos": photos})
+                not_found.append({"tray_id": tray_id, "slot": slot, "since": since, "photos": photos, "last_seen": seen})
             previous = conn.execute(
                 f"SELECT capture_id {in_experiment} AND capture.taken_at < ?"
                 " ORDER BY capture.taken_at DESC LIMIT 1",
