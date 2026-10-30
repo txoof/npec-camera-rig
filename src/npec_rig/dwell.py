@@ -16,7 +16,18 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from npec_rig.calibration import TableFrame
+from PIL import Image
+
+from npec_rig import database
+from npec_rig.calibration import TableFrame, build_table_frame
+from npec_rig.calibration_store import (
+    CalibrationNotFoundError,
+    CalibrationUnreadableError,
+    calibration_frame_path,
+    calibration_for_photos,
+    load_saved_calibration,
+)
+from npec_rig.captures import photo_file
 
 AREAS = ("NW", "NM", "NE", "SW", "SM", "SE")
 
@@ -81,4 +92,82 @@ def stays(readings: Iterable[tuple[datetime, str]]) -> list[Stay]:
             if taken_at - away[0][0] >= MOVE_AFTER:
                 out.append(Stay(area, away[0][0], taken_at))
                 away = []
+    return out
+
+
+class AreaFinder:
+    """The area of each tray in photos read with their calibration (`area_of`), each calibration's
+    table frame and photo size looked up once. Photos taken under one calibration are taken in one
+    camera mode, so the first photo found gives the size of all; with none on disk, the
+    calibration's own photo. Make one per question: a calibration can be rebuilt in the meantime."""
+
+    def __init__(self) -> None:
+        self._frames: dict[str | None, TableFrame | None] = {}
+        self._sizes: dict[str | None, tuple[int, int]] = {}
+
+    def area(self, path: str, calibration: str | None, centre_px: tuple[float, float]) -> str | None:
+        """The area of a tray centred at `centre_px` in photo `path`, taken under `calibration`;
+        None when the photo's size cannot be known (neither it nor its calibration's photo is on
+        disk)."""
+        size = self._size(path, calibration)
+        return None if size is None else area_of(centre_px, size, self._frame(calibration))
+
+    def _frame(self, calibration: str | None) -> TableFrame | None:
+        if calibration not in self._frames:
+            self._frames[calibration] = _table_frame(calibration)
+        return self._frames[calibration]
+
+    def _size(self, path: str, calibration: str | None) -> tuple[int, int] | None:
+        if calibration not in self._sizes:
+            files = [photo_file(path)]
+            if calibration is not None:
+                files.append(calibration_frame_path(calibration))
+            for file in files:
+                if file is not None and file.exists():
+                    with Image.open(file) as image:
+                        self._sizes[calibration] = image.size
+                    break
+        return self._sizes.get(calibration)
+
+
+def _table_frame(calibration: str | None) -> TableFrame | None:
+    """The table frame of the calibration photos taken under `calibration` are read with, from
+    its four corner tags; None without a calibration or four corner tags."""
+    if calibration is None:
+        return None
+    try:
+        baseline = load_saved_calibration(calibration_for_photos(calibration)).corner_baseline
+        return None if baseline is None else build_table_frame(baseline)
+    except (CalibrationNotFoundError, CalibrationUnreadableError, ValueError):
+        return None
+
+
+def _experiment_readings(experiment_id: int, until: str | None = None) -> dict[int, list[tuple[datetime, str]]]:
+    """Each tray's readings in the experiment's read photos taken up to `until` (all with None):
+    (time, area), oldest first. A tray whose area cannot be known in a photo is left out of it."""
+    finder = AreaFinder()
+    readings: dict[int, list[tuple[datetime, str]]] = {}
+    for p in database.experiment_tray_positions(experiment_id):
+        if until is not None and p["taken_at"] > until:
+            continue
+        area = finder.area(p["path"], p["calibration"], p["centre_px"])
+        if area is not None:
+            readings.setdefault(p["tray_id"], []).append((datetime.fromisoformat(p["taken_at"]), area))
+    return readings
+
+
+def _hours(stay: Stay) -> float:
+    return (stay.end - stay.start) / timedelta(hours=1)
+
+
+def over_limit(experiment_id: int, at: str) -> list[dict]:
+    """The experiment's trays that, at time `at` (UTC), have stayed in one area for its dwell
+    limit (`experiment.dwell_limit_h`) or longer, in tray ID order: tray ID, the area, since when
+    and for how many hours, from the first to the last photo of the stay taken by then."""
+    limit_h = database.get_experiment(experiment_id)["dwell_limit_h"]
+    out = []
+    for tray_id, readings in sorted(_experiment_readings(experiment_id, until=at).items()):
+        stay = stays(readings)[-1]
+        if _hours(stay) >= limit_h:
+            out.append({"tray_id": tray_id, "area": stay.area, "since": stay.start.isoformat(), "hours": _hours(stay)})
     return out

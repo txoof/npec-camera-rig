@@ -617,6 +617,30 @@ def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
     return areas
 
 
+def experiment_tray_positions(experiment_id: int) -> list[dict]:
+    """Where each tray was found in each of the experiment's read photos (status `read`), oldest
+    first: tray ID, the photo's time, path and calibration, and the tray's centre in full-size
+    photo pixels. A tray with no tag cannot be followed from photo to photo and is left out; so is
+    a tag two trays carry in one photo, from that photo (#302)."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT tray_reading.tray_id, capture.taken_at, capture.path, capture.calibration,"
+            " tray_reading.centre_x_px, tray_reading.centre_y_px FROM tray_reading"
+            " JOIN tray_read ON tray_read.capture_id = tray_reading.capture_id"
+            " JOIN capture ON capture.id = tray_reading.capture_id"
+            " WHERE capture.experiment_id = ? AND tray_read.status = 'read' AND tray_reading.tray_id IS NOT NULL"
+            " AND (SELECT COUNT(*) FROM tray_reading AS other WHERE other.capture_id = tray_reading.capture_id"
+            " AND other.tray_id = tray_reading.tray_id) = 1"
+            " ORDER BY capture.taken_at, tray_reading.tray_id",
+            (experiment_id,),
+        ).fetchall()
+    return [
+        {"tray_id": r["tray_id"], "taken_at": r["taken_at"], "path": r["path"], "calibration": r["calibration"],
+         "centre_px": (r["centre_x_px"], r["centre_y_px"])}
+        for r in rows
+    ]
+
+
 def experiment_shared_slot_photos(experiment_id: int) -> set[int]:
     """Capture ids of the experiment's photos in which two trays were placed in one slot
     (placement `two trays in one slot`), or two tags lie in one tray outline found in the photo

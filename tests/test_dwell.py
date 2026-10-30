@@ -4,9 +4,11 @@
 from datetime import datetime, timedelta
 
 import pytest
+from PIL import Image
 
-from npec_rig import dwell
-from npec_rig.calibration import build_table_frame
+from npec_rig import captures, database, dwell
+from npec_rig.calibration import CalibrationArtifact, build_table_frame, scale_field_from_dict
+from npec_rig.calibration_store import save_calibration
 from npec_rig.tripwire import CornerBaseline
 
 pytestmark = pytest.mark.unit
@@ -119,3 +121,86 @@ def test_an_hour_away_spread_over_two_other_areas_is_not_a_move() -> None:
                 (_t("01-01T11:15"), "NM"), (_t("01-01T11:20"), "NW")]
 
     assert dwell.stays(readings) == [dwell.Stay("NW", _t("01-01T10:00"), _t("01-01T11:20"))]
+
+
+# --- An experiment's trays -----------------------------------------------------------------------
+# A 900 x 600 photo with its corner tags at x 100 and 800, y 100 and 500: the rows meet at y 300,
+# the columns at x 300 and 600.
+STEM = "20270101T000000000000"
+CENTRES = {"NW": (150, 150), "NM": (450, 150), "NE": (750, 150), "SW": (150, 450), "SM": (450, 450), "SE": (750, 450)}
+
+
+@pytest.fixture(autouse=True)
+def isolated_photos_and_calibration(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
+    monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+
+
+def _experiment(**settings) -> int:
+    corners = {450: (100, 100), 451: (800, 100), 452: (800, 500), 453: (100, 500)}
+    save_calibration(
+        CalibrationArtifact(
+            created_at="2027-01-01T00:00:00+00:00", frame_stem=STEM,
+            scale_field=scale_field_from_dict({"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 1.0, "residual_std_pct": 0.0}),
+            corner_baseline=CornerBaseline(corners_by_id={i: _square(*c, side=10) for i, c in corners.items()}),
+        ),
+        stem=STEM,
+    )
+    experiment = database.create_experiment(uuid="u-332", created_at="2027-01-01T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2027-01-01T00:00:00+00:00", folder="experiments/x")
+    if settings:
+        database.update_experiment(experiment["id"], **settings)
+    return experiment["id"]
+
+
+def _read(experiment_id: int, when: str, trays: dict[int, str]) -> None:
+    """A photo taken at `when` and read with each tray of `trays` (tray ID: area) found at that
+    area's centre."""
+    taken = _t(when)
+    path = f"rig/{taken:%Y-%m-%d}/{taken:%H%M%S}_000000"
+    file = captures.photos_root() / f"{taken:%Y-%m-%d}" / f"{taken:%H%M%S}_000000.jpg"
+    file.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (900, 600)).save(file)
+    capture_id = database.record_capture(
+        taken_at=taken.isoformat(), path=path, purpose="capture", experiment_id=experiment_id, calibration=STEM,
+        validation=None, lens_position=None, focus_locked_at=None, exposure_us=None, analogue_gain=None, flags=[],
+    )
+    database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[
+        {"tray_id": tray_id, "slot": None, "a1_corner": None, "placement": "placed", "centre_px": list(CENTRES[area]),
+         "tilt_deg": 0.0, "margin_mm": None, "found": "photo + tag", "warnings": [], "outline_px": None}
+        for tray_id, area in trays.items()
+    ])
+
+
+def test_a_tray_4_days_in_a_row_in_one_area_is_over_the_limit_and_one_less_is_not() -> None:
+    experiment_id = _experiment()
+    _read(experiment_id, "01-01T00:00", {7: "NW", 8: "SE"})
+    _read(experiment_id, "01-04T23:00", {7: "NW", 8: "SE"})
+    _read(experiment_id, "01-05T00:00", {7: "NW"})
+
+    assert dwell.over_limit(experiment_id, at=_t("01-05T00:00").isoformat()) == [
+        {"tray_id": 7, "area": "NW", "since": _t("01-01T00:00").isoformat(), "hours": 96.0}
+    ]
+    assert dwell.over_limit(experiment_id, at=_t("01-04T23:30").isoformat()) == []
+
+
+def test_the_warning_clears_once_the_tray_has_been_in_another_area_for_an_hour() -> None:
+    experiment_id = _experiment()
+    for when in ("01-01T00:00", "01-05T00:00", "01-05T10:00"):
+        _read(experiment_id, when, {7: "NW"})
+    for when in ("01-05T10:30", "01-05T11:29", "01-05T11:30"):
+        _read(experiment_id, when, {7: "SM"})
+
+    assert [t["tray_id"] for t in dwell.over_limit(experiment_id, at=_t("01-05T11:29").isoformat())] == [7]
+    assert dwell.over_limit(experiment_id, at=_t("01-05T11:30").isoformat()) == []
+
+
+def test_the_experiments_own_limit_is_used() -> None:
+    experiment_id = _experiment(dwell_limit_h=24)
+    _read(experiment_id, "01-01T00:00", {7: "NE", 8: "SW"})
+    _read(experiment_id, "01-01T23:59", {7: "NE"})
+    _read(experiment_id, "01-02T00:00", {8: "SW"})
+
+    assert dwell.over_limit(experiment_id, at=_t("01-02T00:00").isoformat()) == [
+        {"tray_id": 8, "area": "SW", "since": _t("01-01T00:00").isoformat(), "hours": 24.0}
+    ]
