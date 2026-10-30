@@ -145,8 +145,10 @@ def _read(experiment_id: int, when: str, trays: dict[int, str]) -> None:
 
 
 def test_a_tray_4_days_in_a_row_in_one_area_is_over_the_limit_and_one_less_is_not() -> None:
+    """Tray 8, from 1 hour later and missing from the last photo, is 1 hour short."""
     experiment_id = _experiment()
-    _read(experiment_id, "01-01T00:00", {7: "NW", 8: "SE"})
+    _read(experiment_id, "01-01T00:00", {7: "NW"})
+    _read(experiment_id, "01-01T01:00", {7: "NW", 8: "SE"})
     _read(experiment_id, "01-04T23:00", {7: "NW", 8: "SE"})
     _read(experiment_id, "01-05T00:00", {7: "NW"})
 
@@ -169,9 +171,9 @@ def test_the_warning_clears_once_the_tray_has_been_in_another_area_for_an_hour()
 
 def test_the_experiments_own_limit_is_used() -> None:
     experiment_id = _experiment(dwell_limit_h=24)
-    _read(experiment_id, "01-01T00:00", {7: "NE", 8: "SW"})
-    _read(experiment_id, "01-01T23:59", {7: "NE"})
-    _read(experiment_id, "01-02T00:00", {8: "SW"})
+    _read(experiment_id, "01-01T00:00", {8: "SW"})
+    _read(experiment_id, "01-01T00:01", {7: "NE"})
+    _read(experiment_id, "01-02T00:00", {7: "NE", 8: "SW"})
 
     assert dwell.over_limit(experiment_id, at=_t("01-02T00:00").isoformat()) == [
         {"tray_id": 8, "area": "SW", "since": _t("01-01T00:00").isoformat(), "hours": 24.0}
@@ -192,3 +194,21 @@ def test_each_trays_hours_in_each_area_over_the_experiment() -> None:
         7: {**zero, "NW": 48.0, "SE": 6.0},
         8: {**zero, "SW": 48.0 + 4 / 60},
     }
+
+
+@pytest.mark.parametrize(
+    ("last", "at", "warned"),
+    [
+        # Missing 3 days (over 48 h) at day 6: taken away, its stay ended at day 3, no warning.
+        ("01-04T00:00", "01-07T00:00", []),
+        # Missing 1 day (under 48 h) at day 4.5: still counted in NW, 4.5 days since day 0.
+        ("01-04T12:00", "01-05T12:00", [{"tray_id": 7, "area": "NW", "since": "2027-01-01T00:00:00+00:00", "hours": 108.0}]),
+    ],
+)
+def test_a_tray_missing_over_48_hours_was_taken_away_and_is_not_warned_for(last, at, warned) -> None:
+    """Aaron, 2026-10-30: #331's rule, database.NOT_SEEN_FOR. Limit 4 days, in NW from day 0."""
+    experiment_id = _experiment()
+    _read(experiment_id, "01-01T00:00", {7: "NW"})
+    _read(experiment_id, last, {7: "NW"})
+
+    assert dwell.over_limit(experiment_id, at=_t(at).isoformat()) == warned

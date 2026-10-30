@@ -163,13 +163,19 @@ def _hours(stay: Stay) -> float:
 def over_limit(experiment_id: int, at: str) -> list[dict]:
     """The experiment's trays that, at time `at` (UTC), have stayed in one area for its dwell
     limit (`experiment.dwell_limit_h`) or longer, in tray ID order: tray ID, the area, since when
-    and for how many hours, from the first to the last photo of the stay taken by then."""
+    and for how many hours, from the stay's first photo to `at`. A tray missing for up to
+    `database.NOT_SEEN_FOR` still counts in its area; missing longer, it was taken away, and is
+    not warned for until it is found again (Aaron, 2026-10-30, #331's rule)."""
     limit_h = database.get_experiment(experiment_id)["dwell_limit_h"]
+    now = datetime.fromisoformat(at)
     out = []
     for tray_id, readings in sorted(_experiment_readings(experiment_id, until=at).items()):
         stay = stays(readings)[-1]
-        if _hours(stay) >= limit_h:
-            out.append({"tray_id": tray_id, "area": stay.area, "since": stay.start.isoformat(), "hours": _hours(stay)})
+        if now - readings[-1][0] > database.NOT_SEEN_FOR:
+            continue
+        hours = (now - stay.start) / timedelta(hours=1)
+        if hours >= limit_h:
+            out.append({"tray_id": tray_id, "area": stay.area, "since": stay.start.isoformat(), "hours": hours})
     return out
 
 

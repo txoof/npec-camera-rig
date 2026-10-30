@@ -173,7 +173,10 @@ columns are thirds of the photo's width along each row of the table. With no tab
 calibration without four corner tags, or a photo with no calibration), the photo itself is halved
 and cut in thirds. A tray's centre decides its area. A tray is in a new area only after it has
 been found there for 1 hour in a row (from its first to its last photo there); shorter stays,
-misses and the tray taken off the table for a while do not break its stay. Nothing about areas or
+misses and the tray taken off the table for a while do not break its stay. The warning counts a
+stay from its first photo to the time it is shown; a tray missing for more than 48 hours
+(`NOT_SEEN_FOR`, as for trays not found) was taken away and is not warned for until it is found
+again. Nothing about areas or
 stays is stored: they are worked out from `tray_reading` each time.
 
 ### `scheduled_photo`
