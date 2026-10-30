@@ -560,3 +560,19 @@ def test_a_tray_counts_as_moved_when_its_centre_leaves_its_area_not_when_it_is_n
 
     assert tray_readings.photo_readings(first)["moved"] == []
     assert tray_readings.photo_readings(second)["moved"] == [{"tray_id": 7, "from": "NW", "to": "SM"}]
+
+
+def test_two_trays_placed_in_one_slot_before_331_are_still_not_counted_without_naming_the_slot() -> None:
+    """Readings saved before #331 can hold two trays placed in one slot (a loose tag, #315); they
+    still do not count, and the reason no longer names a slot (#332)."""
+    experiment_id = _table_experiment()
+    path = table_photo(experiment_id, _at(0), {5: "NW", 13: "NW", 7: "SE"})
+    capture_id = database.captures_by_path([path])[path]["id"]
+    old = [{**t, "slot": "North 1" if t["tray_id"] != 7 else "South 3",
+            "placement": "two trays in one slot" if t["tray_id"] != 7 else "placed"}
+           for t in database.tray_readings(capture_id)["trays"]]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=old)
+
+    assert {t["tray_id"]: t["not_counted"] for t in tray_readings.photo_readings(path)["trays"]} == {
+        5: ["2 trays in one place"], 7: [], 13: ["2 trays in one place"]
+    }

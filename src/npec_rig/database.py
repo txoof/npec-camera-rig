@@ -648,11 +648,11 @@ def experiment_tray_positions(experiment_id: int) -> list[dict]:
     ]
 
 
-def experiment_shared_slot_photos(experiment_id: int) -> set[int]:
-    """Capture ids of the experiment's photos in which two trays were placed in one slot
-    (placement `two trays in one slot`), or two tags lie in one tray outline found in the photo
-    (`two tags in one outline`, #331): a tray carried over the table, or a loose tag on a tray
-    (#315)."""
+def experiment_shared_tray_photos(experiment_id: int) -> set[int]:
+    """Capture ids of the experiment's photos in which two tags lie in one tray outline found in
+    the photo (`two tags in one outline`, #331), or, in readings saved before #331, two trays were
+    placed in one slot (`two trays in one slot`): a tray carried over the table, or a loose tag on
+    a tray (#315)."""
     with _connect() as conn:
         rows = conn.execute(
             "SELECT DISTINCT tray_reading.capture_id FROM tray_reading"

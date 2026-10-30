@@ -310,16 +310,16 @@ def capture_readings(capture: dict) -> dict | None:
         readings["norm_pending"] = saved["norm_e"] is None
         # A tray with no tag (#331) carries no tag another tray could share.
         carried = Counter(tray["tray_id"] for tray in readings["trays"] if tray["tray_id"] is not None)
-        # Placed as sharing a slot by tray_placement.place_trays, counted per slot for the reason.
-        shared = Counter(tray["slot"] for tray in readings["trays"] if tray["placement"] == "two trays in one slot")
         for tray in readings["trays"]:
             # Neither area counts, in this photo only: a misprint can give two trays one tag, and
             # their areas cannot be told apart (Aaron, 2026-10-27, #302); a second outline in a
-            # slot, from a loose tag, takes part of the real tray's plant (2026-10-28, #315).
-            n_tag, n_slot = carried[tray["tray_id"]], shared[tray["slot"]]
+            # slot, from a loose tag, takes part of the real tray's plant (2026-10-28, #315). Two
+            # trays placed in one slot are found in readings saved before #331 only; the reason
+            # names no slot (#332).
+            n_tag = carried[tray["tray_id"]]
             tray["not_counted"] = [
                 *([f"{n_tag} trays carry tag {tray['tray_id']}"] if n_tag > 1 else []),
-                *([f"{n_slot} trays in {tray['slot']}"] if tray["placement"] == "two trays in one slot" else []),
+                *(["2 trays in one place"] if tray["placement"] == "two trays in one slot" else []),
                 # The same rule for trays found in the photo (#331): one outline, two trays' tags.
                 *(["2 tags in one tray outline"] if tray["placement"] == "two tags in one outline" else []),
             ]
