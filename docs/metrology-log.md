@@ -6871,7 +6871,7 @@ their content. Aaron looked at the overlays of steps 4, 8b and 8d and found noth
 | 5 | 1 | Tray 77 alone, warning gone; "not seen: tray 83" |
 | 6 | 2 | Tag 83 seen with no tray, no outline, neighbours unchanged |
 | 7 | 1 | Gone |
-| 8a | 3 | Tray 76 named, area 632 to 694 mm2 (649 to 689 before) |
+| 8a | 3 | Tray 76 named, area 632 to 694 mm2 (590 to 689 before) |
 | 8b | 1 | Tray 86 turned about 25 degrees (by the outline's tilt; 15 planned), outline on the rim, named |
 | 8c | 4 | Tray 85 slid about 130 mm, named |
 | 8d | 1 | Trays 85 and 87 touching: two outlines, own numbers, no warning |
