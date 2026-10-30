@@ -212,3 +212,21 @@ def test_a_tray_missing_over_48_hours_was_taken_away_and_is_not_warned_for(last,
     _read(experiment_id, last, {7: "NW"})
 
     assert dwell.over_limit(experiment_id, at=_t(at).isoformat()) == warned
+
+
+@pytest.mark.parametrize(
+    ("at", "warned"),
+    [
+        # Missing 2.5 days (over 48 h): taken away, though its stay of 5 days was over the limit.
+        ("01-08T12:00", []),
+        # Missing 1.5 days (under 48 h): still in NW, 6.5 days since day 0.
+        ("01-07T12:00", [{"tray_id": 7, "area": "NW", "since": "2027-01-01T00:00:00+00:00", "hours": 156.0}]),
+    ],
+)
+def test_a_tray_over_the_limit_then_missing_over_48_hours_is_no_longer_warned_for(at, warned) -> None:
+    """In NW from day 0 (1 January), photos until day 5, none after. Limit 4 days."""
+    experiment_id = _experiment()
+    for when in ("01-01T00:00", "01-03T00:00", "01-06T00:00"):
+        _read(experiment_id, when, {7: "NW"})
+
+    assert dwell.over_limit(experiment_id, at=_t(at).isoformat()) == warned
