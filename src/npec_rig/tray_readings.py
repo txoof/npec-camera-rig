@@ -311,6 +311,9 @@ def capture_readings(capture: dict) -> dict | None:
         # A tray with no tag (#331) carries no tag another tray could share.
         carried = Counter(tray["tray_id"] for tray in readings["trays"] if tray["tray_id"] is not None)
         for tray in readings["trays"]:
+            # The area of the table the tray lies in, for the Gallery (#332); None when the
+            # photo's size cannot be known.
+            tray["area"] = areas.area(capture["path"], capture["calibration"], tray["centre_px"])
             # Neither area counts, in this photo only: a misprint can give two trays one tag, and
             # their areas cannot be told apart (Aaron, 2026-10-27, #302); a second outline in a
             # slot, from a loose tag, takes part of the real tray's plant (2026-10-28, #315). Two

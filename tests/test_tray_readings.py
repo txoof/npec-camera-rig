@@ -576,3 +576,11 @@ def test_two_trays_placed_in_one_slot_before_331_are_still_not_counted_without_n
     assert {t["tray_id"]: t["not_counted"] for t in tray_readings.photo_readings(path)["trays"]} == {
         5: ["2 trays in one place"], 7: [], 13: ["2 trays in one place"]
     }
+
+
+def test_each_tray_found_in_a_photo_names_the_area_of_the_table_it_lies_in() -> None:
+    """The Gallery names a tray's area, not a slot (#332)."""
+    experiment_id = _table_experiment()
+    path = table_photo(experiment_id, _at(0), {3: "NE", 7: "SW"})
+
+    assert {t["tray_id"]: t["area"] for t in tray_readings.photo_readings(path)["trays"]} == {3: "NE", 7: "SW"}
