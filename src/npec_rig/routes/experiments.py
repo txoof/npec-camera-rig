@@ -177,7 +177,7 @@ _CELL = 110
 _AREA_CELLS = {area: (i % 3, i // 3) for i, area in enumerate(dwell.AREAS)}
 _AREA_TINTS = {"NW": "#2f5f91", "NM": "#2e7556", "NE": "#6e5596", "SW": "#8c5f2b", "SM": "#56742f", "SE": "#8a3c5b"}
 _STRIP_W = 600  # the timeline strip's drawing width; it is scaled to the space on the page
-_LABEL_MIN_W = 26  # a piece narrower than this has its name written under the strip
+_LABEL_MIN_W = 32  # a piece narrower than this has its name written under the strip
 
 
 def _now() -> str:
@@ -192,6 +192,12 @@ def _days(hours: float) -> str:
     return f"{hours / 24:.1f} days"
 
 
+def _limit(hours: float) -> str:
+    """The limit as the page sets it, in whole days: "4 days"."""
+    days = hours / 24
+    return f"{days:g} day" if days == 1 else f"{days:g} days"
+
+
 def _cell_point(area: str, down: float) -> tuple[float, float]:
     col, row = _AREA_CELLS[area]
     return (col + 0.5) * _CELL, (row + down) * _CELL
@@ -199,21 +205,24 @@ def _cell_point(area: str, down: float) -> tuple[float, float]:
 
 def _map_arrows(moves: list[tuple[str, str]]) -> list[dict]:
     """A numbered arrow for each move, from one area to the other through the lower half of the
-    cells, clear of the hours. Moves between the same two areas lie side by side."""
-    out, pairs = [], {}
+    cells, clear of the hours. Each arrow lies on one of 4 lanes beside the line between the two
+    areas' centres, in turn, so moves along one line (there and back, or through a middle area)
+    lie side by side."""
+    out = []
     for n, (a, b) in enumerate(moves, start=1):
         (ax, ay), (bx, by) = _cell_point(a, 0.7), _cell_point(b, 0.7)
         length = ((bx - ax) ** 2 + (by - ay) ** 2) ** 0.5
         ux, uy = (bx - ax) / length, (by - ay) / length
-        k = pairs.setdefault(frozenset((a, b)), 0)
-        pairs[frozenset((a, b))] += 1
-        side = (k + 1) // 2 * (1 if k % 2 else -1) * 12  # 0, +12, -12, +24, ...
+        # The lane is measured from the pair in one order, so a move back lies beside, not on,
+        # the move there.
+        side = ((n - 1) % 4 - 1.5) * 12 * (1 if a < b else -1)  # -18, -6, 6, 18
         ox, oy = -uy * side, ux * side
         start = (ax + ux * 22 + ox, ay + uy * 22 + oy)
         end = (bx - ux * 22 + ox, by - uy * 22 + oy)
+        along = (0.5, 0.3, 0.7)[(n - 1) % 3]  # numbers on near lanes apart along them too
         out.append({
             "n": n, "x1": round(start[0], 1), "y1": round(start[1], 1), "x2": round(end[0], 1), "y2": round(end[1], 1),
-            "nx": round((start[0] + end[0]) / 2, 1), "ny": round((start[1] + end[1]) / 2, 1),
+            "nx": round(start[0] + (end[0] - start[0]) * along, 1), "ny": round(start[1] + (end[1] - start[1]) * along, 1),
         })
     return out
 
@@ -249,8 +258,9 @@ def _tray_areas(experiment: dict) -> dict:
     area now (a running experiment only) and, per tray, its map and strip."""
     running = experiment["state"] == "running"
     periods = experiment["periods"]
+    setting = {"limit": _limit(experiment["dwell_limit_h"])}
     if not periods:
-        return {"limit": _days(experiment["dwell_limit_h"]), "warnings": [], "trays": [], "running": running}
+        return {**setting, "warnings": [], "trays": [], "running": running}
     begin = datetime.fromisoformat(periods[0]["started_at"])
     end = datetime.now(UTC) if running else datetime.fromisoformat(periods[-1]["ended_at"] or _now())
     warned = {w["tray_id"]: w for w in dwell.over_limit(experiment["id"], at=end.isoformat())} if running else {}
@@ -278,7 +288,7 @@ def _tray_areas(experiment: dict) -> dict:
             "strip": _strip(stays, begin, end),
         })
     return {
-        "limit": _days(experiment["dwell_limit_h"]),
+        **setting,
         "warnings": [f"Tray {t['tray_id']}: {t['warning'][0].lower()}{t['warning'][1:]}." for t in trays if t["warning"]],
         "trays": trays,
         "running": running,

@@ -33,39 +33,43 @@
         </defs>
         {% for c in t.cells %}
           <rect x="{{ c.x }}" y="{{ c.y }}" width="110" height="110" fill="{{ c.tint }}" fill-opacity="0.45" style="stroke: var(--line)" stroke-width="1"></rect>
-          <text x="{{ c.x + 8 }}" y="{{ c.y + 20 }}" font-size="15" font-weight="700" style="fill: var(--fg)">{{ c.area }}</text>
-          <text x="{{ c.x + 55 }}" y="{{ c.y + 50 }}" font-size="20" text-anchor="middle" style="fill: var(--fg)">{{ c.hours }}</text>
-        {% endfor %}
-        {% for c in t.cells if c.now %}
-          <rect x="{{ c.x + 3 }}" y="{{ c.y + 3 }}" width="104" height="104" fill="none" style="stroke: var(--fg)" stroke-width="6"></rect>
-          <text x="{{ c.x + 102 }}" y="{{ c.y + 20 }}" font-size="13" font-weight="700" text-anchor="end" style="fill: var(--fg)">NOW</text>
         {% endfor %}
         {% for a in t.arrows %}
           <line x1="{{ a.x1 }}" y1="{{ a.y1 }}" x2="{{ a.x2 }}" y2="{{ a.y2 }}" style="stroke: var(--fg)" stroke-width="2.5" marker-end="url(#arrow-{{ t.tray_id }})"></line>
+        {% endfor %}
+        {#- The words over the arrows, each with a dark edge, so an arrow never hides them. -#}
+        {% for c in t.cells %}
+          <text x="{{ c.x + 8 }}" y="{{ c.y + 20 }}" font-size="15" font-weight="700" style="fill: var(--fg); stroke: var(--surface); stroke-width: 4px; paint-order: stroke">{{ c.area }}</text>
+          <text x="{{ c.x + 55 }}" y="{{ c.y + 48 }}" font-size="20" text-anchor="middle" style="fill: var(--fg); stroke: var(--surface); stroke-width: 4px; paint-order: stroke">{{ c.hours }}</text>
         {% endfor %}
         {% for a in t.arrows %}
           <circle cx="{{ a.nx }}" cy="{{ a.ny }}" r="10" style="fill: var(--surface); stroke: var(--fg)" stroke-width="1.5"></circle>
           <text x="{{ a.nx }}" y="{{ a.ny + 4.5 }}" font-size="13" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ a.n }}</text>
         {% endfor %}
+        {% for c in t.cells if c.now %}
+          <rect x="{{ c.x + 3 }}" y="{{ c.y + 3 }}" width="104" height="104" fill="none" style="stroke: var(--fg)" stroke-width="6"></rect>
+          <text x="{{ c.x + 55 }}" y="{{ c.y + 101 }}" font-size="13" font-weight="700" text-anchor="middle" style="fill: var(--fg); stroke: var(--surface); stroke-width: 4px; paint-order: stroke">NOW</text>
+        {% endfor %}
       </svg>
       <div style="flex: 1 1 300px; min-width: 0">
         {% if t.now %}<p style="margin: 0 0 8px"><strong>{{ t.now }}</strong></p>{% else %}<p style="margin: 0 0 8px">Not found in the last 48 hours.</p>{% endif %}
         {#- The timeline strip: one piece per stay, from the experiment's start to its end or now. -#}
-        <svg viewBox="0 0 {{ t.strip.w }} {{ 86 if t.strip.under else 62 }}" width="100%" role="img"
+        <svg viewBox="0 0 {{ t.strip.w }} {{ 104 if t.strip.under else 64 }}" width="100%" role="img"
           aria-label="Tray {{ t.tray_id }}, areas over time">
           <rect x="0" y="0" width="{{ t.strip.w }}" height="36" fill="none" style="stroke: var(--line)" stroke-width="1"></rect>
           {% for p in t.strip.pieces %}
             <rect x="{{ p.x }}" y="0" width="{{ p.w }}" height="36" fill="{{ p.tint }}" style="stroke: var(--fg)" stroke-width="1"></rect>
             {% if p.inside %}
-              <text x="{{ p.mid }}" y="23" font-size="14" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.area }}</text>
+              <text x="{{ p.mid }}" y="24" font-size="17" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.area }}</text>
             {% else %}
-              <line x1="{{ p.mid }}" y1="36" x2="{{ p.mid }}" y2="{{ 44 + 22 * p.row }}" style="stroke: var(--fg)" stroke-width="1"></line>
-              <text x="{{ p.mid }}" y="{{ 56 + 22 * p.row }}" font-size="12" text-anchor="middle" style="fill: var(--fg)">{{ p.area }}</text>
+              {#- Too narrow for its name: written under the dates, on one of two rows. -#}
+              <line x1="{{ p.mid }}" y1="36" x2="{{ p.mid }}" y2="{{ 64 + 20 * p.row }}" style="stroke: var(--fg)" stroke-width="1"></line>
+              <text x="{{ p.mid }}" y="{{ 78 + 20 * p.row }}" font-size="15" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.area }}</text>
             {% endif %}
           {% endfor %}
           {% for k in t.strip.ticks %}
             <line x1="{{ k.x }}" y1="36" x2="{{ k.x }}" y2="42" style="stroke: var(--fg-2)" stroke-width="1"></line>
-            {% if k.label and not t.strip.under %}<text x="{{ k.x }}" y="56" font-size="12" text-anchor="middle" style="fill: var(--fg-2)">{{ k.label }}</text>{% endif %}
+            {% if k.label %}<text x="{{ k.x }}" y="56" font-size="15" text-anchor="middle" style="fill: var(--fg-2)">{{ k.label }}</text>{% endif %}
           {% endfor %}
         </svg>
         <p class="experiment-hint" style="margin: 0">{{ view.begin }} to {{ view.end }}, UTC.{% if t.strip.ticks %} A tick at each midnight.{% endif %}</p>
