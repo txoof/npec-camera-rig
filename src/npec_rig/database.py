@@ -301,6 +301,15 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "CREATE INDEX tray_reading_capture ON tray_reading (capture_id, tray_id)",
         ),
     ),
+    (
+        15,
+        "experiment: how long a tray may stay in one area of the table (#332)",
+        (
+            # Hours in a row in one area before the experiment warns; default 4 days, a decision
+            # (Aaron, 2026-10-30).
+            "ALTER TABLE experiment ADD COLUMN dwell_limit_h REAL NOT NULL DEFAULT 96",
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -715,12 +724,13 @@ def running_experiment() -> dict | None:
 
 # Name, researcher and notes can be corrected at any time. Tray height can change only before the
 # first start: readings already taken depend on it.
-# The photo interval can change at any time; a change while running counts slots from then.
+# The photo interval can change at any time; a change while running counts slots from then. So can
+# how long a tray may stay in one area: the warning is worked out from the readings each time.
 _EDITABLE = {
-    "set up": {"name", "researcher", "tray_height_mm", "notes", "interval_s"},
+    "set up": {"name", "researcher", "tray_height_mm", "notes", "interval_s", "dwell_limit_h"},
     "purged": {"notes"},
 }
-_EDITABLE_LATER = {"name", "researcher", "notes", "interval_s"}
+_EDITABLE_LATER = {"name", "researcher", "notes", "interval_s", "dwell_limit_h"}
 
 
 def update_experiment(experiment_id: int, *, now: str | None = None, **fields: object) -> dict:

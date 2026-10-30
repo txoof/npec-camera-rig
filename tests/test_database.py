@@ -355,7 +355,7 @@ def test_versions_13_and_14_keep_every_saved_tray_reading_value(monkeypatch: pyt
             )
             conn.commit()
     with sqlite3.connect(db_path()) as conn:
-        assert database.migrate(conn) == 14
+        assert database.migrate(conn) == database.SCHEMA_VERSION
         row = conn.execute(
             "SELECT id, capture_id, tray_id, slot, a1_corner, placement, centre_x_px, centre_y_px, tilt_deg,"
             " margin_mm, area_mm2, segmenter, plant_px, plant_centre_x_px, plant_centre_y_px, calibration,"
@@ -423,3 +423,25 @@ def test_a_tray_with_no_slot_is_never_listed_as_moved() -> None:
 
     assert database.tray_readings(second)["moved"] == []
     assert database.tray_readings(second)["trays"][0]["outline_px"] is None
+
+
+def test_an_experiment_warns_of_a_tray_in_one_area_after_4_days_unless_set_otherwise() -> None:
+    """#332, Aaron 2026-10-30: a setting on each experiment, default 4 days in a row in one area."""
+    experiment = database.create_experiment(uuid="u-332", created_at="2026-10-30T06:00:00+00:00")
+    assert experiment["dwell_limit_h"] == 96
+
+    database.start_experiment(experiment["id"], now="2026-10-30T06:00:00+00:00", folder="experiments/x")
+    assert database.update_experiment(experiment["id"], dwell_limit_h=48)["dwell_limit_h"] == 48
+
+
+def test_version_15_gives_an_experiment_made_before_it_the_4_day_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    with monkeypatch.context() as m:
+        m.setattr(database, "MIGRATIONS", database.MIGRATIONS[:14])
+        m.setattr(database, "SCHEMA_VERSION", 14)
+        with sqlite3.connect(db_path()) as conn:
+            database.migrate(conn)
+            conn.execute("INSERT INTO experiment (uuid, created_at) VALUES ('u-old', '2026-10-29T06:00:00+00:00')")
+            conn.commit()
+    with sqlite3.connect(db_path()) as conn:
+        assert database.migrate(conn) == 15
+        assert conn.execute("SELECT dwell_limit_h FROM experiment").fetchall() == [(96,)]
