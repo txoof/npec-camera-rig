@@ -6854,3 +6854,47 @@ Two checks need no chamber time and are read from development's `rig.db`, read o
   1 November. Experiment 2 must still be running.
 
 Not covered: a tray covered for days, a table full of skewed trays, the 1x1 and black trays.
+
+*Result (2026-10-30, 11:19 to 11:28 chamber time, 10:19 to 10:28 UTC).* Aaron ran the steps and
+noted the trays used: tray A = 81, tray B = 77, 8a tray 76, 8b tray 86, 8c tray 85, 8d trays 85
+and 87, tray 82 removed at 11:28. The photos are experiment 2's (one a minute) and others taken
+during the session, captures 2730 to 2757 on development; readings and the tray view's data were
+read from development's `rig.db` and API, read only, and each step matched to its photos by
+their content. Aaron looked at the overlays of steps 4, 8b and 8d and found nothing wrong.
+
+| Step | Photos | Result |
+|---|---|---|
+| 1 | 3 | 9 trays, each named |
+| 2 | 2 | Outline at tray 81's place, "no tag", area 4323 mm2 (4192 to 4366 before); "not seen: tray 81" |
+| 3 | 2 | Tray 81 named again, not-seen line gone |
+| 4 | 1 | Trays 77 and 83 on one outline, "two tags in one tray outline", both not counted |
+| 5 | 1 | Tray 77 alone, warning gone; "not seen: tray 83" |
+| 6 | 2 | Tag 83 seen with no tray, no outline, neighbours unchanged |
+| 7 | 1 | Gone |
+| 8a | 3 | Tray 76 named, area 632 to 694 mm2 (649 to 689 before) |
+| 8b | 1 | Tray 86 turned about 25 degrees (by the outline's tilt; 15 planned), outline on the rim, named |
+| 8c | 4 | Tray 85 slid about 130 mm, named |
+| 8d | 1 | Trays 85 and 87 touching: two outlines, own numbers, no warning |
+| 9 | 3 | Tray 82 named on its first photo (area 28 to 44 mm2: empty tray, another height, not judged) |
+| 10 | from 10:28:30 UTC | "Not seen: tray 82" on every photo after |
+
+- **Every step as expected.** Steps 4, 7, 8b and 8d had one photo each where the method asked for
+  two: by the method's own rule they passed on one photo.
+- **A person over a tray gives a wrong area with no warning.** Not a planned step: on the photo of
+  10:26:06 UTC (capture 2750) Aaron leaned into the frame over the lower part of tray 86. Its
+  outline shifted towards the visible part and its area read 12718 mm2 against 15088 to 15483 mm2
+  on the photos around it, about 17% low, with nothing on the page saying so. Not new with #331:
+  tag placement would have measured the hidden tray the same way. Issue #333 (High).
+- **A tag seen on the table counts as the tray seen.** Tray 83's 48 hours run from its last photo
+  as a loose tag (step 6, 10:21:11 UTC), not from step 5. As designed: the warning is about the
+  tag number, wherever it was seen.
+- Still to come: the lights-off check (dark photos of the nights of 29 and 30 October) and the
+  48-hour check on 1 November (tray 82 last seen 10:28:05 UTC, tray 83 10:21:11 UTC).
+
+*Figures* (`docs/figures/21/`, overlays as the Gallery draws them, scaled down):
+`live-step4-two-tags.jpg` (step 4), `live-step8b-skewed.jpg` (step 8b),
+`live-step8d-touching.jpg` (step 8d), `live-person-over-tray-86.jpg` (the person over tray 86).
+
+**Limits of the evidence.** One session of 9 minutes on one rig, nine 2x2 trays; each change made
+once, on one tray; one skewed tray at one angle; the steps matched to photos by their content, as
+no step times were noted. Covered tags only, not dirty or damaged ones.
