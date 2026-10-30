@@ -188,3 +188,34 @@ def test_an_unnamed_experiment_exports_under_its_folder_name() -> None:
     assert exports.zip_path(database.get_export(export["id"])).name.startswith(
         f"{experiment['folder']}_export_"
     )
+
+
+def test_the_export_holds_each_trays_hours_in_each_area_of_the_table() -> None:
+    """#332, hand-worked: tray 7 in NW from 1 October 00:00 to 3 October 00:00 (48 h), then in SE
+    from 00:01 to 06:01 (6 h). Tray 8 in SW for the same 48 h; its 3 minutes in NM is a nudge, so
+    its SW stay runs to its last photo there, 00:04 (48 h 4 min)."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Dwell")["id"])
+    for when, trays in [
+        ((1, 0, 0), {7: "NW", 8: "SW"}), ((3, 0, 0), {7: "NW", 8: "SW"}), ((3, 0, 1), {7: "SE", 8: "NM"}),
+        ((3, 0, 4), {8: "SW"}), ((3, 6, 1), {7: "SE"}),
+    ]:
+        table_photo(experiment["id"], datetime(2026, 10, *when, tzinfo=UTC), trays)
+    captures.stop_experiment(experiment["id"])
+    export = database.create_export(experiment["id"], now=exports._now())
+    exports._build(export["id"], experiment["id"])
+
+    with zipfile.ZipFile(exports.zip_path(database.get_export(export["id"]))) as zf:
+        top = zf.namelist()[0].split("/")[0]
+        rows = list(csv.reader(io.StringIO(zf.read(f"{top}/tray-areas.csv").decode())))
+        readme = zf.read(f"{top}/README.txt").decode()
+    assert rows == [
+        ["tray", "NW_h", "NM_h", "NE_h", "SW_h", "SM_h", "SE_h"],
+        ["7", "48.00", "0.00", "0.00", "0.00", "0.00", "6.00"],
+        ["8", "0.00", "0.00", "0.00", "48.07", "0.00", "0.00"],
+    ]
+    assert "tray-areas.csv" in readme

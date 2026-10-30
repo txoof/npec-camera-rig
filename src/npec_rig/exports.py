@@ -27,7 +27,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from npec_rig import database
+from npec_rig import database, dwell
 from npec_rig.calibration_store import calibration_root
 from npec_rig.captures import experiments_root
 from npec_rig.validation_store import validations_root
@@ -110,6 +110,7 @@ def _write_zip(export_id: int, experiment_id: int) -> None:
                     z.add_file(f"{name}/stills/{rel}{suffix}", source)
             photos += 1
         z.add_bytes(f"{name}/captures.csv", _captures_csv(captures, experiment["folder"]))
+        z.add_bytes(f"{name}/tray-areas.csv", _tray_areas_csv(experiment_id, until))
         missing = _add_records(z, name, captures)
         z.add_bytes(f"{name}/README.txt", _readme(experiment, photos, missing, until).encode())
         manifest = "".join(f"{digest}  {path.removeprefix(name + '/')}\n" for digest, path in z.sums)
@@ -147,6 +148,17 @@ def _captures_csv(captures: list[dict], folder: str) -> bytes:
     writer.writeheader()
     for row in captures:
         writer.writerow({"file": f"stills/{_stills_relative(row['path'], folder)}.jpg", **row})
+    return buffer.getvalue().encode()
+
+
+def _tray_areas_csv(experiment_id: int, until: str) -> bytes:
+    """One line per tray: its hours in each area of the table (`dwell.hours_per_area`, #332) in
+    the photos up to `until`, to 0.01 h."""
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(["tray", *(f"{area}_h" for area in dwell.AREAS)])
+    for tray_id, hours in dwell.hours_per_area(experiment_id, until).items():
+        writer.writerow([tray_id, *(f"{hours[area]:.2f}" for area in dwell.AREAS)])
     return buffer.getvalue().encode()
 
 
@@ -193,6 +205,10 @@ def _readme(experiment: dict, photos: int, missing: list[str], until: str) -> st
         "  stills/              every photo (.jpg) and its record (.json), by UTC day",
         "  captures.csv         one line per photo: time, purpose, calibration, validation, lens,",
         "                       focus lock, exposure, gain, flags. Open it in Excel",
+        "  tray-areas.csv       one line per tray: its hours in each area of the table. The table is",
+        "                       cut in 6 areas, NW NM NE in the north row, SW SM SE in the south row",
+        "                       (north is the top of the photo). A tray counts as moved only after",
+        "                       1 hour in another area. Open it in Excel",
         "  experiment.json      the experiment's name, researcher, tray height, notes and periods",
         "  records/             the calibration and validation records the photos were taken under,",
         "                       so every number can be traced",
