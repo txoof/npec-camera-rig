@@ -6754,3 +6754,103 @@ labels show the mismatch, not results.
 
 **Limits of the evidence.** One still; truth by position, not by tag; plant identity across the
 split pieces not checked one by one. Placing trays from the photo rather than from slots is #328.
+
+## 21. Trays found from the photo in the app, named by the tag inside them (issue #331)
+
+The blue finder of section 20 (photo only; sections 20 and 20.1 are on branch `328-tray-outlines`
+until it is merged), built into the app: `tray_placement.find_outlines` finds each tray's outline
+from its lit blue rim on a quarter-size copy of the photo, at the calibration's scale at each
+tray; `tray_placement.name_trays` names each outline by the tray tag whose centre lies inside it
+(Aaron, 2026-10-29, replacing decision 2 of #328). Slots are not used. A tray tag inside no outline
+is reported as seen, with no outline and no area: placing a tray from its tag (section 15.5) is
+dropped, because it assumes the tag lies in cell A1 and put trays about 176 mm off for tags lying
+elsewhere (21.1). The tray outline size, 305 x 366 mm, is the measured outside size of the blue
+4x5 and 2x2 trays (`reference/trays.md`, #327).
+
+### 21.1 The built finder on 92 copied stills (2026-10-29)
+
+**Label: development check.** Branch `331-tray-blue-finder`, commit `a3e6006` with the naming rule
+above, on copies of 72 production stills (the 24 held-out stills of 20.1 and about one capture per
+6 hours of every experiment, 12 to 29 October) and 20 development stills (23, 28 and 29 October).
+Nothing was written on either rig. Tags from each rig's `rig.db` where stored, else detected on
+the still. Comparison: for each tray named by a tag, the distance from its outline centre to the
+centre the rig stored for the same tray ID by tag placement (section 15.5; stored for 34 stills,
+production from 22 October and development 23 October). Aaron treats production's stored
+placements as mostly correct for trays with their tag in cell A1. Pass: within 30 mm (as in 20).
+
+*Result.*
+
+| Group | Stills | Lit | Outlines | Named by a tag | Within 30 mm of stored | Largest distance |
+|---|---|---|---|---|---|---|
+| Held-out stills of 20.1 | 24 | 22 | 258 | 185 | 72 of 72 | 21.6 mm |
+| Edge-tag stills, 12 to 19 Oct (other) | 8 | 8 | 97 | 46 | none stored | |
+| Other production | 45 | 33 | 395 | 394 | 311 of 311 | 6.8 mm |
+| Other development | 15 | 11 | 105 | 24 | 24 of 24 | 21.6 mm |
+
+- On all 24 held-out stills the outline count equals 20.1's photo-only count, which Aaron judged
+  right on all 22 lit stills.
+- All 19 lights-off stills: no outline and no tag (right).
+- Time: 0.1 to 0.3 s per quarter still on the controller (Raspberry Pi 5, 4 GB), plus 0.1 to
+  0.2 s to decode the 64MP still at quarter size.
+- **One finder error by eye:** on a still of 16 October (`docs/figures/21/false-outline-aisle.jpg`)
+  a false, tilted outline lies across the aisle between the rows, over parts of four trays. It
+  holds four tags, so it carries the warning "two tags in one tray outline" and trays 5 and 7 are
+  named twice in that still.
+- **Edge tags** (20 mm tags on the table beside the trays, 12 to 19 October): every tray is
+  outlined from the photo, the tags lie outside every outline and are reported as seen
+  (`docs/figures/21/edge-tags-seen.jpg`). A side trial on 5 of these stills
+  (`~/scratch/sam297/331-edge-tags-1/`, not kept) showed that placing a tray from such a tag put
+  its outline about 176 mm from the real tray; letting a tag within 20 mm of an outline name it
+  helped on 4 of 5 stills but left 3 to 8 wrong outlines per still. Both were dropped.
+- **"Partly outside the photo"** is set for every tray cut from a blue area that touches the frame
+  edge, also for trays wholly inside the photo. A known weakness, not yet fixed.
+- One tray outlined but not named: its tag at the frame edge was not found by the tag search.
+
+*Figures.* `docs/figures/21/prod-agrees.jpg`: production, 25 October, 12 outlines from the photo
+(green) on the rig's stored tag placements (thin yellow, mostly hidden beneath).
+`false-outline-aisle.jpg` and `edge-tags-seen.jpg` as above. Orange crosses: tags seen with no
+outline around them. All scaled down from the run's pictures.
+
+**Limits of the evidence.** Copies of stills only, with trays square to the table; no skewed tray,
+no 1x1 tray and no black tray. Stored placements exist for 34 of 92 stills. Spare trays of another
+height read a different size (about 0.145% per mm, see *Facts*), not tested here.
+
+### 21.2 The live rig, trays covered, added, moved and removed (method written 2026-10-30, before the session)
+
+**Label: development check.** Development rig `npec-rig-01`, experiment 2 (one photo a minute),
+branch `331-tray-blue-finder` at `4c4fb87`. Nine blue 2x2 trays with taped tray tags. Aaron changes
+the trays; after each step the agent takes 2 photos through the rig's capture call and records
+their capture IDs; Aaron looks at the overlay and the tray view of each, against the expected
+result below. Tags 82, 83 and 84 had never been read in experiment 2. Checklist used in the
+chamber: `~/scratch/sam297/331-chamber-test/331-chamber-test.pdf` (not kept; the steps are below).
+
+| Step | Change | Expected | What it checks |
+|---|---|---|---|
+| 1 | None (baseline) | 9 outlines, each named | Starting point |
+| 2 | Cover tray A's tag | Tray A outlined as "No tag"; "Not seen in this photo: tray A"; card warning; others unchanged | A covered or lost tag is reported, the tray still measured |
+| 3 | Uncover it | Tray A named again; warning gone on both photos; area close to step 1 | The warning clears by itself |
+| 4 | Loose tag 83 laid in tray B, which has its own tag | Both numbers and "two tags in one tray outline"; neither area counted | Two tags in one outline give a warning, not a guess |
+| 5 | Tag 83 taken out | One number again; "Not seen: tray 83" appears (tag 83 was read as a tray in step 4) | Recovery |
+| 6 | Tag 83 on the table, touching no tray | A cross, "Tag 83, no tray found"; no outline; neighbours unchanged | A loose tag creates no tray and names no neighbour |
+| 7 | Tag 83 taken away | Cross gone | |
+| 8a | One tray turned 90 degrees | Outline on the rim; same number; area steady | Any turn |
+| 8b | One tray turned about 15 degrees | As 8a | A skewed tray, never tested before |
+| 8c | One tray slid about 10 cm into open table | As 8a | Any place on the table |
+| 8d | Two trays pushed together until touching | Two outlines, each with its own number, no two-tags warning | Touching trays split |
+| 9 | Spare blue tray with tag 82 on open table | Tray 82 named on its first photo | A new tray picked up without setup |
+| 10 | Tray 82 removed for good (time noted) | "Not seen in this photo: tray 82" and the card warning on every photo after | A removed tray is reported |
+
+Pass: every step as expected on both of its photos. The spare tray is another height than the
+chamber's trays, so tray 82's area is not a measurement and is not judged.
+
+Two checks need no chamber time and are read from development's `rig.db`, read only:
+
+- **Lights off:** the dark photos the rig takes every night, from 29 October 18:18 UTC (when the
+  finder went on development) and the night after step 10: each read as "no trays found", no tray
+  reported as not seen because of them, and the first lit photo after normal.
+- **48 hours:** a tray is reported as not seen only within 48 hours of the last read photo that had
+  it (`database.NOT_SEEN_FOR`, a decision, not a measurement: Aaron, 2026-10-30). Photos up to 48
+  hours after tray 82 (and tray 83) was last seen report it; photos after do not. Checked on
+  1 November. Experiment 2 must still be running.
+
+Not covered: a tray covered for days, a table full of skewed trays, the 1x1 and black trays.
