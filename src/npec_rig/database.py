@@ -648,6 +648,24 @@ def experiment_tray_positions(experiment_id: int) -> list[dict]:
     ]
 
 
+def experiment_tray_reads_mark(experiment_id: int) -> tuple:
+    """A mark that changes whenever a photo of the experiment is read or read again (#332): the
+    database, its photos read and when the newest was, and its tray readings' rows, newest row and
+    centres."""
+    with _connect() as conn:
+        reads = conn.execute(
+            "SELECT COUNT(*), MAX(tray_read.read_at) FROM tray_read JOIN capture ON capture.id = tray_read.capture_id"
+            " WHERE capture.experiment_id = ?",
+            (experiment_id,),
+        ).fetchone()
+        rows = conn.execute(
+            "SELECT COUNT(*), MAX(tray_reading.id), TOTAL(centre_x_px), TOTAL(centre_y_px), TOTAL(tray_id)"
+            " FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id WHERE capture.experiment_id = ?",
+            (experiment_id,),
+        ).fetchone()
+    return (str(db_path()), *reads, *rows)
+
+
 def experiment_shared_tray_photos(experiment_id: int) -> set[int]:
     """Capture ids of the experiment's photos in which two tags lie in one tray outline found in
     the photo (`two tags in one outline`, #331), or, in readings saved before #331, two trays were

@@ -15,6 +15,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 from PIL import Image
 
@@ -51,15 +52,23 @@ def area_of(centre_px: tuple[float, float], photo_size: tuple[int, int], frame: 
     if frame is None:
         return ("N" if y < height / 2 else "S") + "WME"[min(max(int(3 * x / width), 0), 2)]
     u, v = frame.to_fraction(x, y)
-    west, east = (_edge_u(frame, edge_x, height, v) for edge_x in (0, width))
+    west, east = (_edge_u(_edge_ends(frame, edge_x, height), v) for edge_x in (0, width))
     column = int(3 * (u - west) / (east - west))
     return ("N" if v < 0.5 else "S") + "WME"[min(max(column, 0), 2)]
 
 
-def _edge_u(frame: TableFrame, edge_x: float, height: int, v: float) -> float:
-    """Where the photo's vertical edge at pixel column `edge_x` meets the table's row `v`, as the
-    table's `u`. The edge is a straight line on the table too: a homography keeps lines straight."""
-    (u0, v0), (u1, v1) = frame.to_fraction(edge_x, 0), frame.to_fraction(edge_x, height)
+@lru_cache(maxsize=64)
+def _edge_ends(frame: TableFrame, edge_x: float, height: int) -> tuple[tuple[float, float], tuple[float, float]]:
+    """The photo's vertical edge at pixel column `edge_x`, top and bottom, on the table: the same
+    for every tray in photos of one size and calibration, worked out once."""
+    return frame.to_fraction(edge_x, 0), frame.to_fraction(edge_x, height)
+
+
+def _edge_u(ends: tuple[tuple[float, float], tuple[float, float]], v: float) -> float:
+    """Where the photo's vertical edge with these `ends` (`_edge_ends`) meets the table's row `v`,
+    as the table's `u`. The edge is a straight line on the table too: a homography keeps lines
+    straight."""
+    (u0, v0), (u1, v1) = ends
     return u0 + (u1 - u0) * (v - v0) / (v1 - v0)
 
 
@@ -142,18 +151,37 @@ def _table_frame(calibration: str | None) -> TableFrame | None:
         return None
 
 
+# The last experiment's readings, with the mark of its tray readings they were worked out from: the
+# pages ask again every few seconds, and an experiment of 8 days (about 100 000 readings) takes
+# seconds to work out.
+_last_readings: dict = {}
+
+
 def _experiment_readings(experiment_id: int, until: str | None = None) -> dict[int, list[tuple[datetime, str]]]:
     """Each tray's readings in the experiment's read photos taken up to `until` (all with None):
-    (time, area), oldest first. A tray whose area cannot be known in a photo is left out of it."""
-    finder = AreaFinder()
+    (time, area), oldest first. A tray whose area cannot be known in a photo is left out of it.
+    Worked out again whenever a photo of the experiment is read or read again."""
+    mark = (experiment_id, database.experiment_tray_reads_mark(experiment_id))
+    if _last_readings.get("mark") != mark:
+        finder = AreaFinder()
+        everything: list[tuple[int, str, datetime, str]] = []
+        for p in database.experiment_tray_positions(experiment_id):
+            area = finder.area(p["path"], p["calibration"], p["centre_px"])
+            if area is not None:
+                everything.append((p["tray_id"], p["taken_at"], datetime.fromisoformat(p["taken_at"]), area))
+        _last_readings.clear()
+        _last_readings.update(mark=mark, readings=everything)
     readings: dict[int, list[tuple[datetime, str]]] = {}
-    for p in database.experiment_tray_positions(experiment_id):
-        if until is not None and p["taken_at"] > until:
-            continue
-        area = finder.area(p["path"], p["calibration"], p["centre_px"])
-        if area is not None:
-            readings.setdefault(p["tray_id"], []).append((datetime.fromisoformat(p["taken_at"]), area))
+    for tray_id, taken_at, when, area in _last_readings["readings"]:
+        if until is None or taken_at <= until:
+            readings.setdefault(tray_id, []).append((when, area))
     return readings
+
+
+def tray_stays(experiment_id: int, until: str | None = None) -> dict[int, list[Stay]]:
+    """Each tray's stays (`stays`) in the experiment's read photos taken up to `until` (UTC; all
+    with None), oldest first, by tray ID: for the diagrams on the Experiments page."""
+    return {tray_id: stays(readings) for tray_id, readings in sorted(_experiment_readings(experiment_id, until).items())}
 
 
 def _hours(stay: Stay) -> float:
@@ -179,15 +207,15 @@ def over_limit(experiment_id: int, at: str) -> list[dict]:
     return out
 
 
-def hours_per_area(experiment_id: int) -> dict[int, dict[str, float]]:
+def hours_per_area(experiment_id: int, until: str | None = None) -> dict[int, dict[str, float]]:
     """Each tray's hours in each area (`AREAS`, every one, 0 where it never stayed) over the
-    experiment, by tray ID: each stay from its first to its last photo. The minutes between a
-    stay's last photo and the next stay's first are in neither, nor are nudges a stay of their
-    own: they count in the stay they interrupted."""
+    experiment, up to `until` (UTC; all with None), by tray ID: each stay from its first to its
+    last photo. The minutes between a stay's last photo and the next stay's first are in neither,
+    nor are nudges a stay of their own: they count in the stay they interrupted."""
     out = {}
-    for tray_id, readings in sorted(_experiment_readings(experiment_id).items()):
+    for tray_id, tray in tray_stays(experiment_id, until).items():
         hours = dict.fromkeys(AREAS, 0.0)
-        for stay in stays(readings):
+        for stay in tray:
             hours[stay.area] += _hours(stay)
         out[tray_id] = hours
     return out
