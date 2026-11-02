@@ -108,6 +108,16 @@ def _saved_trays(path: str) -> list[dict]:
     return reading["trays"] if reading else []
 
 
+def _reading_trays(path: str) -> list[dict]:
+    """Photo `path`'s trays as its saved reading has them, without reading the photo; empty when
+    it has not been read."""
+    try:
+        reading = tray_readings.photo_readings(path)
+    except LookupError:
+        return []
+    return reading["trays"] if reading else []
+
+
 def _tray_of(tag: TagDetection, trays: list[dict]) -> dict | None:
     """The saved tray tag `tag` names: the outline its centre lies inside, or the tray seen at
     the tag itself when no outline holds it."""
@@ -166,14 +176,16 @@ def gallery_tags_image(path: str) -> Response:
     """Photo `path` at the screen copy's size with every tag outlined, each tag but a tray
     tag labelled with its ID, and each tray of the photo's reading (#331): its outline found in
     the photo, named by its tag or "No tag", with its warnings, or a cross where a tag was seen
-    with no tray found around it. Searches and reads the photo first if not yet done. The tags
-    and trays are part of the image's inputs, so it is drawn again whenever either changes."""
+    with no tray found around it. Searches the photo for tags first if not yet done, but draws
+    only a tray reading already saved: the tag list (`api_photo_tags`) is what reads the photo,
+    so one tap never reads the 64MP photo twice (review of #334). The tags and trays are part of
+    the image's inputs, so it is drawn again whenever either changes."""
     _require_photo(path)  # 404 for a deleted photo, whose tags photo_tags still knows (#287)
     found = photo_tags.photo_tags_for(path)
     tags = [{"id": d.tag_id, "corners": [list(c) for c in d.corners]} for d in found]
     trays = [
         {"id": t["tray_id"], "outline": t["outline_px"], "centre": t["centre_px"], "found": t["found"], "warnings": t["warnings"]}
-        for t in _saved_trays(path)
+        for t in _reading_trays(path)
     ]
     inputs = {"photo": path, "width": _GALLERY_WIDTHS["screen"], "tags": tags, "trays": trays}
     return derived_response("gallery_tags", path, inputs)

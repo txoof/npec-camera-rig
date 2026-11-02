@@ -507,3 +507,20 @@ def test_a_reading_saved_before_trays_were_found_in_the_photo_keeps_its_trays_ou
     [tray] = client.get(f"/api/captures/trays/{path}").json()["trays"]
     corners = sorted(tray["outline_px"])
     assert [v for c in corners for v in c] == pytest.approx([115, 554, 115, 4214, 3165, 554, 3165, 4214], abs=1)
+
+
+def test_the_tags_image_never_reads_the_photo_for_trays_and_draws_them_once_read(monkeypatch) -> None:
+    """Review of #334: Tags asks for the tag list and the image at once; both reading the 64MP
+    photo meant two decodes and two segmentations side by side. The tag list reads it; the image
+    draws only a reading already saved, and is drawn again once there is one."""
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+
+    before = client.get(f"/gallery/image/tags/{path}")
+    assert before.status_code == 200
+    assert client.get(f"/api/captures/trays/{path}").json() is None
+
+    client.get(f"/api/captures/tags/{path}")
+    assert client.get(f"/api/captures/trays/{path}").json()["status"] == "read"
+    assert client.get(f"/gallery/image/tags/{path}").content != before.content
