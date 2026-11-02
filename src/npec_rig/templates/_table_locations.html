@@ -16,6 +16,35 @@
 {% if not view.trays %}
   <p>No trays found in this experiment's photos yet.</p>
 {% endif %}
+{#- All trays on one time axis, a row each, the location named in each piece (2026-11-02). -#}
+{% set tl = view.timeline %}
+{% if tl and tl.rows %}
+  <h3>Location over time, all trays</h3>
+  <svg viewBox="0 0 {{ tl.w }} {{ tl.height + 30 }}" width="100%" role="img" aria-label="Location over time, all trays">
+    {% for k in tl.ticks %}
+      <line x1="{{ k.x }}" y1="0" x2="{{ k.x }}" y2="{{ tl.height + 4 }}" style="stroke: var(--line)" stroke-width="1"></line>
+      {% if k.label %}<text x="{{ k.mid }}" y="{{ tl.height + 20 }}" font-size="12" text-anchor="middle" style="fill: var(--fg-2)">{{ k.label }}</text>{% endif %}
+    {% endfor %}
+    {% for r in tl.rows %}
+      <g role="img" aria-label="{{ r.label }}">
+        <text x="{{ tl.x0 - 8 }}" y="{{ r.y + 19 }}" font-size="14" font-weight="700" text-anchor="end" style="fill: var(--fg-2)">Tray {{ r.tray_id }}</text>
+        {% for p in r.pieces %}
+          <rect x="{{ p.x }}" y="{{ r.y }}" width="{{ p.w }}" height="28" fill="{{ p.tint }}" style="stroke: var(--surface)" stroke-width="1"></rect>
+          {% if p.name == "inside" %}
+            <text x="{{ p.mid }}" y="{{ r.y + 19 }}" font-size="13" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.location }}</text>
+          {% elif p.name == "small" %}
+            <text x="{{ p.mid }}" y="{{ r.y + 18 }}" font-size="9" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.location }}</text>
+          {% elif p.name == "after" %}
+            <text x="{{ p.end }}" y="{{ r.y + 19 }}" font-size="12" font-weight="700" style="fill: var(--fg)">{{ p.location }}</text>
+          {% endif %}
+        {% endfor %}
+      </g>
+    {% endfor %}
+  </svg>
+  <p class="experiment-hint" style="margin: 0">{{ view.begin }} to {{ view.end }}, UTC. A line at each midnight.
+    {%- if tl.short %} Short stays: {{ tl.short | join(", ") }}.{% endif %}</p>
+{% endif %}
+{% if view.hidden %}<p class="experiment-hint">Hidden from this timeline: {{ "trays" if "," in view.hidden else "tray" }} {{ view.hidden }}.</p>{% endif %}
 <div class="list">
 {% for t in view.trays %}
   {% if t.hidden %}
@@ -64,26 +93,6 @@
       </svg>
       <div style="flex: 1 1 300px; min-width: 0">
         {% if t.now %}<p style="margin: 0 0 8px"><strong>{{ t.now }}</strong></p>{% else %}<p style="margin: 0 0 8px">Not found in the last 48 hours.</p>{% endif %}
-        {#- The timeline strip: one piece per stay, from the experiment's start to its end or now. -#}
-        <svg viewBox="0 0 {{ t.strip.w }} {{ 104 if t.strip.under else 64 }}" width="100%" role="img"
-          aria-label="Tray {{ t.tray_id }}, locations over time">
-          <rect x="0" y="0" width="{{ t.strip.w }}" height="36" fill="none" style="stroke: var(--line)" stroke-width="1"></rect>
-          {% for p in t.strip.pieces %}
-            <rect x="{{ p.x }}" y="0" width="{{ p.w }}" height="36" fill="{{ p.tint }}" style="stroke: var(--fg)" stroke-width="1"></rect>
-            {% if p.inside %}
-              <text x="{{ p.mid }}" y="24" font-size="17" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.location }}</text>
-            {% else %}
-              {#- Too narrow for its name: written under the dates, on one of two rows. -#}
-              <line x1="{{ p.mid }}" y1="36" x2="{{ p.mid }}" y2="{{ 64 + 20 * p.row }}" style="stroke: var(--fg)" stroke-width="1"></line>
-              <text x="{{ p.mid }}" y="{{ 78 + 20 * p.row }}" font-size="15" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.location }}</text>
-            {% endif %}
-          {% endfor %}
-          {% for k in t.strip.ticks %}
-            <line x1="{{ k.x }}" y1="36" x2="{{ k.x }}" y2="42" style="stroke: var(--fg-2)" stroke-width="1"></line>
-            {% if k.label %}<text x="{{ k.x }}" y="56" font-size="15" text-anchor="middle" style="fill: var(--fg-2)">{{ k.label }}</text>{% endif %}
-          {% endfor %}
-        </svg>
-        <p class="experiment-hint" style="margin: 0">{{ view.begin }} to {{ view.end }}, UTC.{% if t.strip.ticks %} A tick at each midnight.{% endif %}</p>
         {% if t.moves %}
           <p style="margin: 8px 0 0">Moves:<br>{% for m in t.moves %}{{ m }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
         {% else %}

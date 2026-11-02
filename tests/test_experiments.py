@@ -454,3 +454,23 @@ def test_a_hidden_tray_gives_no_warning_and_the_export_is_unchanged() -> None:
     assert listed["dwell_warnings"] == []
     assert export_rows() == before
     assert before[1][:2] == ["7", "119.00"]
+
+
+def test_the_panel_stacks_every_shown_tray_on_one_timeline_and_leaves_out_hidden_ones() -> None:
+    """Aaron, 2026-11-02 (#332): one strip per tray on a shared time axis, each named by its
+    locations in order. Tray 7 was in NW, tray 12 in SE; tray 12 hidden is left out of it."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    experiment_id = _two_trays_running(client)
+    page = client.get(f"/experiments/{experiment_id}/table-locations").text
+    assert 'aria-label="Tray 7 over time: NW"' in page
+    assert 'aria-label="Tray 12 over time: SE"' in page
+
+    client.post(f"/api/experiments/{experiment_id}/trays/12/hide")
+    page = client.get(f"/experiments/{experiment_id}/table-locations").text
+    assert 'aria-label="Tray 7 over time: NW"' in page
+    assert "Tray 12 over time" not in page
+    assert "Hidden from this timeline: tray 12." in page

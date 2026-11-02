@@ -168,16 +168,21 @@ def api_download_export(export_id: int) -> Response:
 
 
 # --- Where each tray has been on the table (#332) ---
-# Table locations, the 1 hour rule and the limit: dwell.py. The diagrams Aaron chose (2026-10-30): a map per
-# tray with its hours in each location and where it is now, the path of its moves on that map, and a
-# timeline strip split at each move. Every piece carries its location's name, never colour alone.
+# Table locations, the 1 hour rule and the limit: dwell.py. The diagrams Aaron chose: a map per tray
+# with its hours in each location, where it is now and the path of its moves (2026-10-30), and one
+# timeline of all trays (2026-11-02). Every piece carries its location's name, never colour alone.
 
 # A tray's map: a 3 x 2 grid of square cells, north at the top. Each location keeps one tint.
 _CELL = 110
 _LOCATION_CELLS = {location: (i % 3, i // 3) for i, location in enumerate(dwell.LOCATIONS)}
 _LOCATION_TINTS = {"NW": "#2f5f91", "NM": "#2e7556", "NE": "#6e5596", "SW": "#8c5f2b", "SM": "#56742f", "SE": "#8a3c5b"}
-_STRIP_W = 600  # the timeline strip's drawing width; it is scaled to the space on the page
-_LABEL_MIN_W = 32  # a piece narrower than this has its name written under the strip
+# The all trays timeline (Aaron, 2026-11-02): a row per tray on one time axis, in drawing units,
+# scaled to the space on the page. Names fit inside pieces this wide, smaller down to the second.
+_TIMELINE_LABEL_W = 80
+_TIMELINE_W = 680
+_TIMELINE_MARGIN = 40  # right of the strips: the name of a short last stay
+_ROW_H, _ROW_GAP = 28, 8
+_NAME_W, _SMALL_NAME_W = 30, 18
 
 
 def _now() -> str:
@@ -227,35 +232,44 @@ def _map_arrows(moves: list[tuple[str, str]]) -> list[dict]:
     return out
 
 
-def _strip(stays: list[dwell.Stay], begin: datetime, end: datetime) -> dict:
-    """The timeline strip: one piece per stay, placed across the experiment from `begin` to `end`,
-    and a tick at each UTC midnight, labelled on every day or every few when they are many."""
+def _timeline(rows: list[tuple[int, list[dwell.Stay]]], begin: datetime, end: datetime) -> dict:
+    """The all trays timeline: for each tray, one piece per stay across the experiment from `begin`
+    to `end`, and a tick at each UTC midnight. Every piece is named: inside it when it is wide
+    enough, right of the strips when it is the last stay, else in the list of short stays."""
     span = max((end - begin).total_seconds(), 1.0)
-    x = lambda moment: round(max(0.0, min(1.0, (moment - begin).total_seconds() / span)) * _STRIP_W, 1)  # noqa: E731
-    pieces, under = [], 0
-    for stay in stays:
-        x1, x2 = x(stay.start), x(stay.end)
-        width = max(x2 - x1, 2.0)
-        piece = {"location": stay.location, "x": x1, "w": width, "mid": round(x1 + width / 2, 1), "tint": _LOCATION_TINTS[stay.location],
-                 "inside": width >= _LABEL_MIN_W, "row": 0}
-        if not piece["inside"]:
-            piece["row"] = under % 2  # names under the strip alternate between two rows
-            under += 1
-        pieces.append(piece)
+    x = lambda moment: round(_TIMELINE_LABEL_W + 4 + max(0.0, min(1.0, (moment - begin).total_seconds() / span)) * _TIMELINE_W, 1)  # noqa: E731
+    out, short = [], []
+    for i, (tray_id, stays) in enumerate(rows):
+        y = i * (_ROW_H + _ROW_GAP)
+        pieces = []
+        for n, stay in enumerate(stays):
+            x1 = x(stay.start)
+            width = max(x(stay.end) - x1, 2.0)
+            name = ("inside" if width >= _NAME_W else "small" if width >= _SMALL_NAME_W
+                    else "after" if n == len(stays) - 1 else "listed")
+            if name == "listed":
+                short.append(f"tray {tray_id} {stay.location} {_when(stay.start)}")
+            pieces.append({"location": stay.location, "x": x1, "w": width, "mid": round(x1 + width / 2, 1),
+                           "end": round(x1 + width + 4, 1), "tint": _LOCATION_TINTS[stay.location], "name": name})
+        out.append({"tray_id": tray_id, "y": y, "pieces": pieces,
+                    "label": f"Tray {tray_id} over time: " + ", ".join(stay.location for stay in stays)})
+    height = len(rows) * (_ROW_H + _ROW_GAP)
     days = (end - begin).days + 1
     every = 1 if days <= 9 else 2 if days <= 18 else 7
-    ticks, day = [], datetime(begin.year, begin.month, begin.day, tzinfo=UTC) + timedelta(days=1)
-    i = 0
+    ticks, day, i = [], datetime(begin.year, begin.month, begin.day, tzinfo=UTC) + timedelta(days=1), 0
     while day < end:
-        ticks.append({"x": x(day), "label": f"{day:%d %b}" if i % every == 0 else ""})
+        # The label sits at the middle of its day, as far as the experiment covers it.
+        middle = x(min(day + timedelta(hours=12), end))
+        ticks.append({"x": x(day), "label": f"{day:%a %d %b}" if i % every == 0 else "", "mid": middle})
         day += timedelta(days=1)
         i += 1
-    return {"pieces": pieces, "ticks": ticks, "w": _STRIP_W, "under": bool(under)}
+    return {"rows": out, "ticks": ticks, "height": height, "w": _TIMELINE_LABEL_W + 4 + _TIMELINE_W + _TIMELINE_MARGIN,
+            "x0": _TIMELINE_LABEL_W + 4, "x1": _TIMELINE_LABEL_W + 4 + _TIMELINE_W, "short": short}
 
 
 def _table_locations(experiment: dict) -> dict:
     """What the table locations panel shows for `experiment`: its limit, the trays too long in one
-    location now (a running experiment only) and, per tray, its map and strip."""
+    location now (a running experiment only), the all trays timeline, and per tray its map."""
     running = experiment["state"] == "running"
     periods = experiment["periods"]
     setting = {"limit": _limit(experiment["dwell_limit_h"])}
@@ -266,12 +280,13 @@ def _table_locations(experiment: dict) -> dict:
     warned = {w["tray_id"]: w for w in dwell.over_limit(experiment["id"], at=end.isoformat())} if running else {}
     hours = dwell.hours_per_location(experiment["id"])
     hidden = database.hidden_trays(experiment["id"])
-    trays = []
+    trays, shown = [], []
     for tray_id, stays in dwell.tray_stays(experiment["id"]).items():
         if tray_id in hidden:
             # One line until Show is tapped, such as a misread tag (Aaron, 2026-11-02).
             trays.append({"tray_id": tray_id, "hidden": True, "warning": None})
             continue
+        shown.append((tray_id, stays))
         last = stays[-1]
         # Where the tray is now: its last stay, unless it has not been found for over 48 hours,
         # as for trays not found in the Gallery (database.NOT_SEEN_FOR).
@@ -291,12 +306,14 @@ def _table_locations(experiment: dict) -> dict:
             "now": None if now_location is None else f"Now in {now_location}, {_days(here_h)}",
             "arrows": _map_arrows(moves),
             "moves": [f"{n}. {a} to {b}, {_when(stay.start)}" for n, ((a, b), stay) in enumerate(zip(moves, stays[1:]), start=1)],
-            "strip": _strip(stays, begin, end),
         })
     return {
         **setting,
         "warnings": [f"Tray {t['tray_id']}: {t['warning'][0].lower()}{t['warning'][1:]}." for t in trays if t["warning"]],
         "trays": trays,
+        "timeline": _timeline(shown, begin, end),
+        # Hidden trays are left out of the timeline, and named once under it.
+        "hidden": ", ".join(str(t["tray_id"]) for t in trays if t["hidden"]),
         "running": running,
         "begin": _when(begin),
         "end": "now" if running else _when(end),
