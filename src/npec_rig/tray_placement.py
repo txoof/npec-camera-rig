@@ -1,12 +1,14 @@
-"""Trays found in a photo from their blue plastic and named by the tag inside them (#331), or
-placed from the tag in their cell A1 when the photo shows no tray there (#220).
+"""Trays found in a photo from their blue plastic and named by the tag inside them (#331).
 
 Found in the photo (`find_outlines`, metrology log 20 and 20.1): the blue finder of
 `experiments/round3-tray-outlines/methods_blue.py`, photo only, tags never used for where a tray
 is. Named (`name_trays`): a tray tag names the outline its centre lies inside, wherever it lies
-in the tray.
+in the tray. A tray tag inside no outline is only seen: a tray is never placed from its tag for a
+reading, because that assumed the tag lay in cell A1 and put trays about 176 mm off for tags
+lying elsewhere (metrology log 21.1).
 
-Placed from the tag (`place_trays`):
+Placed from the tag (`place_trays`, #220): kept for the certainty map only
+(`certainty_map.py`), which places trays on a calibration's slot layout. Not for tray readings:
 
 The method of metrology log 15.5h to 15.5l, written fresh from `experiments/round1-trays/shuffle.py`
 (`place_any_rotation`): geometry on the tag detections, no image segmentation.
@@ -88,7 +90,9 @@ def _tilt_deg(tag: TagDetection) -> float:
     return (heading + 45) % 90 - 45
 
 
-def _outline(centre: tuple[float, float], tilt_deg: float, ppm: float) -> tuple[tuple[float, float], ...]:
+def tray_outline_at(centre: tuple[float, float], tilt_deg: float, ppm: float) -> tuple[tuple[float, float], ...]:
+    """A tray's four outside corners (`TRAY_SIZE_MM`) around `centre`, turned by `tilt_deg`, at
+    `ppm` pixels per mm: how a tray placed from its tag was outlined."""
     t = math.radians(tilt_deg)
     half_w, half_h = TRAY_SIZE_MM[0] / 2 * ppm, TRAY_SIZE_MM[1] / 2 * ppm
     across, down = (math.cos(t), math.sin(t)), (-math.sin(t), math.cos(t))
@@ -125,7 +129,7 @@ def place_trays(detections: list[TagDetection], scale_field: ScaleField, slots: 
         margin = (far - near) / ppm
         out.append(TrayPlacement(
             tray_id=tag.tag_id, centre=centre, slot=slot, a1_corner=corner, tilt_deg=tilt,
-            outline=_outline(centre, tilt, ppm), margin_mm=margin,
+            outline=tray_outline_at(centre, tilt, ppm), margin_mm=margin,
             status="close call" if margin < CLOSE_CALL_MM else "placed",
         ))
     per_slot = Counter(p.slot for p in out)
@@ -142,16 +146,23 @@ def _inside(point: tuple[float, float], corners: tuple[tuple[float, float], ...]
     return len(signs) < 2
 
 
-def name_trays(outlines: list[TrayOutline], detections: list[TagDetection], scale_field: ScaleField) -> list[TrayPlacement]:
+def name_trays(outlines: list[TrayOutline], detections: list[TagDetection]) -> list[TrayPlacement]:
     """Each outline found in the photo named by the tray tag whose centre lies inside it, wherever
     the tag lies in the tray (#331): its place in the tray is never used. A tray tag inside no
     outline is reported where it lies, with no outline: the tray was not found in the photo (not
     blue, under a sheet), and a tray placed from the tag assumed it lay in cell A1, putting edge
     tags and second tags about 176 mm off (#331). Trays can lie anywhere on the table: no slot."""
     tags = [t for t in detections if t.tag_id in TRAY_ID_RANGE]
+    # Accepted outlines may overlap a little (`MAX_OVERLAP`): a tag in the strip two share names
+    # only the one whose centre is nearer, never both (review of #334).
+    home: dict[int, int] = {}
+    for k, tag in enumerate(tags):
+        holding = [i for i, o in enumerate(outlines) if _inside(tag.centre, o.corners)]
+        if holding:
+            home[k] = min(holding, key=lambda i: math.dist(tag.centre, outlines[i].centre))
     out = []
-    for outline in outlines:
-        named = [t for t in tags if _inside(t.centre, outline.corners)]
+    for i, outline in enumerate(outlines):
+        named = [t for k, t in enumerate(tags) if home.get(k) == i]
         edge = ("partly outside the photo",) if outline.edge else ()
         if not named:
             out.append(TrayPlacement(
@@ -167,8 +178,8 @@ def name_trays(outlines: list[TrayOutline], detections: list[TagDetection], scal
                 outline=outline.corners, margin_mm=None, status="two tags in one outline" if shared else "placed",
                 found="photo + tag", warnings=warnings,
             ))
-    for tag in tags:
-        if not any(_inside(tag.centre, o.corners) for o in outlines):
+    for k, tag in enumerate(tags):
+        if k not in home:
             out.append(TrayPlacement(
                 tray_id=tag.tag_id, centre=tag.centre, slot=None, a1_corner=None, tilt_deg=_tilt_deg(tag),
                 outline=None, margin_mm=None, found="tag only", warnings=("tag seen, tray not found in the photo",),

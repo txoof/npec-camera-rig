@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import pytest
+from PIL import Image
 from fastapi.testclient import TestClient
 
 from npec_rig import captures, database, photo_tags, tray_readings, validation_store
@@ -518,6 +519,72 @@ def test_two_trays_with_no_tag_are_each_kept_and_never_said_to_share_a_tag(monke
     assert [(t["tray_id"], t["found"], t["warnings"]) for t in trays] == [(None, "photo, no tag", ["no tag"])] * 2
     assert [t["not_counted"] for t in trays] == [[], []]
 
+
+def test_reading_again_never_turns_saved_areas_into_none_when_no_tray_is_found_now(monkeypatch) -> None:
+    """Review of #334, the #287 guard: a photo read before #331 by tag placement, with an area,
+    read again now that the finder finds no blue in it (a black tray, sheets, dim light) while its
+    tray tag is still seen. The saved reading is kept."""
+    _calibrate()
+    _finds(monkeypatch, "080357_563754")
+    path = _photo()
+    capture_id = database.captures_by_path([path])[path]["id"]
+    database.record_tray_readings(capture_id, read_at="2026-10-28T10:00:00+00:00", status="read", trays=[{
+        "tray_id": 3, "slot": "North 1", "a1_corner": "SW", "placement": "placed", "centre_px": [1000.0, 1000.0],
+        "tilt_deg": 0.0, "margin_mm": 200.0, "area_mm2": 1500.0, "segmenter": "green threshold, 0.1",
+    }])
+
+    with pytest.raises(tray_readings.ReadingWorse):
+        tray_readings.read_photo(path)
+    assert [(t["tray_id"], t["area_mm2"]) for t in tray_readings.photo_readings(path)["trays"]] == [(3, 1500.0)]
+
+
+def test_a_photo_with_no_tray_and_only_a_corner_tag_says_no_trays_found(monkeypatch) -> None:
+    """Review of #334: in dim light a bright corner tag (ID 452, 450 to 499) can still be read
+    when no tray is found. That says nothing about the trays: the photo is "no trays found", not
+    read with every tray missing."""
+    _calibrate()
+    corner = TagDetection(452, ((100, 100), (500, 100), (500, 500), (100, 500)), (300, 300))
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [corner])
+
+    readings = tray_readings.read_photo(_photo())
+    assert (readings["status"], readings["trays"]) == ("no trays found", [])
+
+
+def test_a_photo_is_read_with_its_calibration_whatever_the_calibrations_name(monkeypatch) -> None:
+    """Review of #334: only the scale field is needed to find trays. A calibration saved under a
+    name a slot layout cannot have (not a timestamp) made the slot layout lookup fail and the
+    photo read as having no calibration."""
+    tag = TagDetection(5, ((2800, 600), (3200, 600), (3200, 1000), (2800, 1000)), (3000, 800))
+    _blue_tray_scene(monkeypatch, [tag])
+    save_calibration(
+        CalibrationArtifact(created_at="2026-10-29T10:00:00+00:00", scale_field=scale_field_from_dict(
+            {"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 10.0, "residual_std_pct": 0.0}),
+            frame_stem="bench-check", lens_position=6.05),
+        stem="bench-check",
+    )
+
+    readings = tray_readings.read_photo(_photo())
+    assert readings["status"] == "read"
+    assert [(t["tray_id"], t["found"]) for t in readings["trays"]] == [(5, "photo + tag")]
+
+
+def test_a_photo_stored_as_png_is_searched_for_trays_as_a_jpeg_is(monkeypatch) -> None:
+    """Review of #334: JPEG draft mode shrinks a photo for the finder; a PNG does not shrink, and
+    the finder ran on the full-size photo with parameters tuned at a quarter. The tray drawn at
+    x 300 to 3350, y 400 to 4060 is found there either way."""
+    from npec_rig.captures import photo_file
+
+    tag = TagDetection(5, ((2800, 600), (3200, 600), (3200, 1000), (2800, 1000)), (3000, 800))
+    _blue_tray_scene(monkeypatch, [tag])
+    path = _photo()
+    file = photo_file(path)
+    with Image.open(file) as image:
+        rgb = image.convert("RGB")
+    rgb.save(file, format="PNG")
+
+    [tray] = tray_readings.read_photo(path)["trays"]
+    assert tray["found"] == "photo + tag"
+    assert _flat(tray["outline_px"]) == pytest.approx(_flat([(300, 400), (3350, 400), (3350, 4060), (300, 4060)]), abs=10)
 
 # --- Table locations, not slots (#332) -----------------------------------------------------------
 

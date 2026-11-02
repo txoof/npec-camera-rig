@@ -108,6 +108,16 @@ def _saved_trays(path: str) -> list[dict]:
     return reading["trays"] if reading else []
 
 
+def _reading_trays(path: str) -> list[dict]:
+    """Photo `path`'s trays as its saved reading has them, without reading the photo; empty when
+    it has not been read."""
+    try:
+        reading = tray_readings.photo_readings(path)
+    except LookupError:
+        return []
+    return reading["trays"] if reading else []
+
+
 def _tray_of(tag: TagDetection, trays: list[dict]) -> dict | None:
     """The saved tray tag `tag` names: the outline its centre lies inside, or the tray seen at
     the tag itself when no outline holds it."""
@@ -166,17 +176,19 @@ _GALLERY_WIDTHS = {"thumb": 480, "screen": 1600}
 def gallery_tags_image(path: str) -> Response:
     """Photo `path` at the screen copy's size with every tag outlined, each tag but a tray
     tag labelled with its ID, and each tray of the photo's reading (#331): its outline found in
-    the photo, named by its tag or "No tag" and the table location it lies in (#332), with
-    its warnings, or a cross where a tag was seen
-    with no tray found around it. Searches and reads the photo first if not yet done. The tags
-    and trays are part of the image's inputs, so it is drawn again whenever either changes."""
+    the photo, named by its tag or "No tag" and the table location it lies in (#332), with its
+    warnings, or a cross where a tag was seen with no tray found around it. Searches the photo for
+    tags first if not yet done, but draws only a tray reading already saved: the tag list
+    (`api_photo_tags`) is what reads the photo, so one tap never reads the 64MP photo twice
+    (review of #334). The tags and trays are part of the image's inputs, so it is drawn again
+    whenever either changes."""
     _require_photo(path)  # 404 for a deleted photo, whose tags photo_tags still knows (#287)
     found = photo_tags.photo_tags_for(path)
     tags = [{"id": d.tag_id, "corners": [list(c) for c in d.corners]} for d in found]
     trays = [
         {"id": t["tray_id"], "outline": t["outline_px"], "centre": t["centre_px"], "found": t["found"], "warnings": t["warnings"],
          "location": t.get("location")}
-        for t in _saved_trays(path)
+        for t in _reading_trays(path)
     ]
     inputs = {"photo": path, "width": _GALLERY_WIDTHS["screen"], "tags": tags, "trays": trays}
     return derived_response("gallery_tags", path, inputs)
@@ -239,10 +251,10 @@ _TRAY_COLOUR = (255, 220, 0)  # yellow, apart from the tags and the blue trays
 _SHORT_WARNINGS = {"partly outside the photo": "PARTLY OUTSIDE", "two tags in one tray outline": "TWO TAGS"}
 
 
-def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list[str]]]:
+def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list[str], bool]]:
     """Each outline once, with its lines of words: two trays may share one (two tags in one tray
     outline), and an old reading has no outline or found. A tag seen with no tray found around it
-    has no outline, only its centre."""
+    has no outline, only its centre, and is marked with a cross (the last item)."""
     groups: dict[tuple, dict] = {}
     for tray in inputs.get("trays", []):
         outline = tray.get("outline")
@@ -256,15 +268,20 @@ def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list
     for group in groups.values():
         ids = ", ".join(map(str, sorted(group["ids"])))
         if group["outline"] is None:
-            lines = [f"Tag {ids},", "no tray found"]  # two short lines: the tags lie close together
-            out.append((None, np.array(group["centre"], float), lines))
+            if group["found"] == "tag only":
+                lines = [f"Tag {ids},", "no tray found"]  # two short lines: the tags lie close together
+                out.append((None, np.array(group["centre"], float), lines, True))
+            else:
+                # Read before #331 with no outline to give it (its calibration is gone): the name
+                # alone at its centre, never a tag seen with no tray found (review of #334).
+                out.append((None, np.array(group["centre"], float), [f"Tray {ids}"], False))
             continue
         name = f"Tray {ids}" if len(group["ids"]) == 1 else f"Trays {ids}" if group["ids"] else "No tag"
         if group["location"]:
             name += f", {group['location']}"  # the table location, not a slot (#332)
         lines = [name] + [_SHORT_WARNINGS.get(w, w.upper()) for w in group["warnings"] if w != "no tag"]
         outline = np.array(group["outline"], float)
-        out.append((outline, outline.mean(axis=0), lines))
+        out.append((outline, outline.mean(axis=0), lines, False))
     return out
 
 
@@ -279,11 +296,14 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
         raise HTTPException(404, f"photo {inputs['photo']} not found")
     image, scale = images.reduced_frame(found, inputs["width"])
     tags = [(tag["id"], np.array(tag["corners"]) * scale) for tag in inputs["tags"]]
-    trays = [(None if outline is None else outline * scale, centre * scale, lines) for outline, centre, lines in _tray_labels(inputs)]
-    for outline, centre, _lines in trays:
+    trays = [
+        (None if outline is None else outline * scale, centre * scale, lines, cross)
+        for outline, centre, lines, cross in _tray_labels(inputs)
+    ]
+    for outline, centre, _lines, cross in trays:
         if outline is not None:
             cv2.polylines(image, [outline.round().astype(np.int32).reshape(-1, 1, 2)], isClosed=True, color=_TRAY_COLOUR, thickness=3)
-        else:
+        elif cross:
             x, y = centre.round().astype(int)
             cv2.drawMarker(image, (int(x), int(y)), _TRAY_COLOUR, markerType=cv2.MARKER_TILTED_CROSS, markerSize=48, thickness=4)
     for tag_id, corners in tags:
@@ -308,10 +328,10 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
                 stroke_width=3,
                 stroke_fill=(0, 0, 0),
             )
-        for outline, (x, y), lines in trays:
+        for outline, (x, y), lines, cross in trays:
             # A cross's words sit below it, clear of the tag's box; a tray's warnings are smaller
             # than its name.
-            y0 = y + (52 if outline is None else 0)
+            y0 = y + (52 if cross else 0)
             for i, line in enumerate(lines):
                 size = 0.8 if i == 0 and outline is not None else 0.6
                 half = text_width(line, size) / 2 + 3  # kept inside the frame, as the tag labels
