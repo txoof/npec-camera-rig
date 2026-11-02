@@ -396,3 +396,35 @@ def test_a_replayed_still_says_so_in_its_flags_sidecar_and_jpeg(monkeypatch: pyt
     assert record["replayed_from"] == str(folder / "a.jpg")
     with Image.open(photos_root() / record["date"] / record["filename"]) as saved:
         assert saved.getexif()[0x010E].startswith("Replayed from a.jpg")  # EXIF ImageDescription
+
+
+def test_a_photo_taken_before_the_clock_has_the_network_time_says_so(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    # Test C of #62 (2026-11-02): after a power cut with no network the rig booted 11 min 35 s
+    # slow, and its photos carried those times with no mark.
+    from npec_rig import database
+
+    monkeypatch.setattr(captures, "CLOCK_SYNC_MARKER", tmp_path / "synchronized")  # not there
+
+    _array, record = take_photo("capture")
+
+    assert record["clock"]["synchronized"] is False
+    row = database.captures_by_path([record["path"]])[record["path"]]
+    assert row["clock_synced"] == 0
+
+
+def test_a_photo_taken_once_the_clock_has_the_network_time_is_not_marked(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    from npec_rig import database
+
+    marker = tmp_path / "synchronized"
+    marker.touch()
+    monkeypatch.setattr(captures, "CLOCK_SYNC_MARKER", marker)
+
+    _array, record = take_photo("capture")
+
+    assert record["clock"]["synchronized"] is True
+    assert "time may be wrong: clock not set" not in record["flags"]
+    assert database.captures_by_path([record["path"]])[record["path"]]["clock_synced"] == 1

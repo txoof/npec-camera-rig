@@ -321,12 +321,19 @@
           ${item.record ? `<div data-trays>${traysLine(item.trays, item.record.purpose)}</div>` : ""}
           ${item.flags && item.flags.length
             ? '<div class="gallery-flag">Not covered by the validation bands. Info says why.</div>' : ""}
+          ${clockUnset(item) ? `<div class="gallery-flag">${ui.icon("warn")} Time may be wrong: clock not set</div>` : ""}
           <!-- Two buttons side by side in the 200 px card: each 88 px wide, the 24 px gap between. -->
           <div class="row" style="flex-wrap: nowrap"><button type="button" class="btn hit" style="flex: 1; min-width: 0; padding: 0 8px" data-tags="${item.path}">Tags</button>
             <button type="button" class="btn hit" style="flex: 1; min-width: 0; padding: 0 8px" data-info="${item.path}">Info</button></div>
           <button type="button" class="btn hit" style="width: 100%; margin-top: 24px" data-green="${item.path}">Green</button>
           <p data-tags-list hidden></p>
         </div>`;
+    }
+
+    // A photo taken before the clock had the network time after a boot (#62): with no RTC battery
+    // its time may be off by as long as the power was off. Photos from before #62 say nothing.
+    function clockUnset(item) {
+      return Boolean(item.clock) && item.clock.synchronized === false;
     }
 
     // Info: everything known about one photo, in a panel over the page.
@@ -338,6 +345,9 @@
       if (item.uptime) lines.push(`<p>${uptimeText(item.uptime)}</p>`);
       if (item.flags && item.flags.length) {
         lines.push(`<p class="gallery-flag">Not covered by the validation bands: ${ui.esc(item.flags.join("; "))}</p>`);
+      }
+      if (clockUnset(item)) {
+        lines.push(`<p class="gallery-flag">${ui.icon("warn")} Time may be wrong: the clock was not set from the network when this photo was taken.</p>`);
       }
       lines.push(...(tags ? tagDetailLines(tags) : ["Tags: not searched yet. Tap Tags on the photo."])
         .map((line) => `<p>${ui.esc(line)}</p>`));

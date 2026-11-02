@@ -1,5 +1,6 @@
+import threading
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,6 +15,8 @@ pytestmark = pytest.mark.unit
 @pytest.fixture(autouse=True)
 def short_intervals_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(scheduler, "MIN_INTERVAL_S", 0.0)
+    # Notice a start well within the tests' 0.3 s intervals, as 1 s is within the rig's 10 s.
+    monkeypatch.setattr(scheduler, "CHECK_S", 0.05)
 
 
 @pytest.fixture(autouse=True)
@@ -21,6 +24,17 @@ def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
     monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
     monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+
+
+@pytest.fixture(autouse=True)
+def no_scheduler_left_running():
+    """Wait for each test's scheduler thread to finish. Its app stop does not wait for it
+    (`stop(0)`), so one still inside a slow photo would carry on into the next test, read that
+    test's database and take its photos."""
+    yield
+    for thread in threading.enumerate():
+        if thread.name == "scheduler":
+            thread.join(5.0)
 
 
 def _start(client: TestClient, interval_s: float) -> tuple[dict, dict]:
@@ -113,3 +127,88 @@ def test_a_new_interval_while_running_counts_from_the_change() -> None:
     assert since >= datetime.fromisoformat(started["periods"][-1]["started_at"])
     assert schedule["interval_s"] == 7200
     assert datetime.fromisoformat(schedule["next_photo_at"]) == since + timedelta(seconds=7200)
+
+
+
+def test_photos_missed_while_the_app_was_down_say_so() -> None:
+    client = TestClient(app)  # no lifespan: no scheduler runs, as while the app is down
+    _experiment, _started = _start(client, 0.3)
+    time.sleep(1.0)  # photos due at 0.3, 0.6 and 0.9 s pass with nobody to take them
+
+    with TestClient(app) as client:
+        _wait_for(lambda: client.get("/api/experiments").json()[0]["schedule"]["photos_taken"] >= 1)
+        schedule = client.get("/api/experiments").json()[0]["schedule"]
+    assert schedule["missed_by_reason"]["app_down"] >= 2
+    assert schedule["missed_by_reason"]["photo_failed"] == 0
+
+
+def test_photos_missed_behind_a_slow_photo_say_so() -> None:
+    CameraManager.set_instance(CameraManager(SlowBackend()))
+    with TestClient(app) as client:
+        _start(client, 0.3)
+        _wait_for(lambda: client.get("/api/experiments").json()[0]["schedule"]["photos_taken"] >= 2)
+        schedule = client.get("/api/experiments").json()[0]["schedule"]
+    assert schedule["missed_by_reason"]["photo_slow"] >= 1
+    assert schedule["missed_by_reason"]["app_down"] == 0
+
+
+class FailingBackend(SyntheticBackend):
+    """A camera whose stills fail."""
+
+    def capture_full_res(self):
+        raise RuntimeError("camera timed out")
+
+
+def test_failed_photos_are_counted_as_failed() -> None:
+    CameraManager.set_instance(CameraManager(FailingBackend()))
+    with TestClient(app) as client:
+        _start(client, 0.3)
+        _wait_for(
+            lambda: client.get("/api/experiments").json()[0]["schedule"]["missed_by_reason"]["photo_failed"] >= 2
+        )
+        schedule = client.get("/api/experiments").json()[0]["schedule"]
+    assert schedule["missed_by_reason"]["app_down"] == 0
+
+
+def test_downtime_runs_from_the_last_photo_before_it_to_the_restart() -> None:
+    with TestClient(app) as client:
+        _experiment, started = _start(client, 0.3)
+        _wait_for(lambda: client.get("/api/experiments").json()[0]["schedule"]["photos_taken"] >= 1)
+    client = TestClient(app)  # the app is down: no scheduler runs
+    time.sleep(1.0)  # about 3 scheduled photos pass with nobody to take them
+    last_photo_at = datetime.fromisoformat(database.captures_for_experiment(started["id"])[-1]["taken_at"])
+
+    restarted_at = datetime.now(UTC)
+    with TestClient(app) as client:
+        _wait_for(lambda: client.get("/api/experiments").json()[0]["schedule"]["missed_by_reason"]["app_down"] >= 1)
+        schedule = client.get("/api/experiments").json()[0]["schedule"]
+    (period,) = schedule["downtime"]
+    assert datetime.fromisoformat(period["after"]) == last_photo_at
+    until = datetime.fromisoformat(period["until"])
+    assert restarted_at <= until <= restarted_at + timedelta(seconds=0.5)
+
+
+def test_the_photo_taken_on_return_is_listed_as_late() -> None:
+    client = TestClient(app)  # no lifespan: no scheduler runs, as while the app is down
+    _experiment, started = _start(client, 0.3)
+    time.sleep(1.0)
+
+    restarted_at = datetime.now(UTC)
+    with TestClient(app) as client:
+        _wait_for(lambda: client.get("/api/experiments").json()[0]["schedule"]["photos_taken"] >= 1)
+        schedule = client.get("/api/experiments").json()[0]["schedule"]
+    first_photo = database.captures_for_experiment(started["id"])[0]
+    (late, *_) = schedule["late_photos"]
+    assert datetime.fromisoformat(late["due"]) < restarted_at
+    assert late["taken"] == first_photo["taken_at"]
+    elapsed = datetime.fromisoformat(late["taken"]) - datetime.fromisoformat(late["due"])
+    assert late["late_s"] == pytest.approx(elapsed.total_seconds())
+
+
+def test_photos_taken_on_time_are_not_listed_as_late() -> None:
+    with TestClient(app) as client:
+        _start(client, 0.3)
+        _wait_for(lambda: client.get("/api/experiments").json()[0]["schedule"]["photos_taken"] >= 2)
+        schedule = client.get("/api/experiments").json()[0]["schedule"]
+    assert schedule["late_photos"] == []
+    assert schedule["downtime"] == []
