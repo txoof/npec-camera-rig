@@ -535,3 +535,15 @@ def test_reading_again_never_turns_saved_areas_into_none_when_no_tray_is_found_n
     with pytest.raises(tray_readings.ReadingWorse):
         tray_readings.read_photo(path)
     assert [(t["tray_id"], t["area_mm2"]) for t in tray_readings.photo_readings(path)["trays"]] == [(3, 1500.0)]
+
+
+def test_a_photo_with_no_tray_and_only_a_corner_tag_says_no_trays_found(monkeypatch) -> None:
+    """Review of #334: in dim light a bright corner tag (ID 452, 450 to 499) can still be read
+    when no tray is found. That says nothing about the trays: the photo is "no trays found", not
+    read with every tray missing."""
+    _calibrate()
+    corner = TagDetection(452, ((100, 100), (500, 100), (500, 500), (100, 500)), (300, 300))
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [corner])
+
+    readings = tray_readings.read_photo(_photo())
+    assert (readings["status"], readings["trays"]) == ("no trays found", [])

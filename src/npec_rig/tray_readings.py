@@ -28,7 +28,7 @@ from npec_rig.calibration_store import (
     calibration_for_photos,
     load_saved_calibration,
 )
-from npec_rig.tags import TagDetection
+from npec_rig.tags import TRAY_ID_RANGE, TagDetection
 from npec_rig.tray_placement import (
     TRAY_SIZE_MM,
     TrayOutline,
@@ -147,7 +147,9 @@ def found_trays(path: str, tags: list[TagDetection], saved: dict | None = None) 
             pass
         else:
             return "photo not found", []
-        if not outlines and not tags:
+        # Only tray tags say anything about trays: a corner or calibration tag read in dim light
+        # does not (review of #334).
+        if not outlines and not any(t.tag_id in TRAY_ID_RANGE for t in tags):
             return "no trays found", []
         return "read", name_trays(outlines, tags)
     except (ValueError, KeyError, TypeError, OSError):
