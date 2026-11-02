@@ -322,3 +322,181 @@ def test_reprocess_reads_an_experiment_again_with_the_rebuilt_twin(monkeypatch) 
         assert tray["calibration"] == twin
         assert photo_file(p).read_bytes() == photos[p]
         assert np.array_equal(segmentation.load_mask(p), masks[p])
+
+
+def test_how_long_a_tray_may_stay_in_one_location_defaults_to_4_days_and_can_be_changed_while_running() -> None:
+    """Aaron, 2026-10-30 (#332): a setting on each experiment, default 4 days, kept in hours."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    plain = client.post("/api/experiments", json={}).json()
+    assert plain["dwell_limit_h"] == 96
+    two_days = client.post("/api/experiments", json={"dwell_limit_h": 48}).json()
+    assert two_days["dwell_limit_h"] == 48
+
+    client.post(f"/api/experiments/{plain['id']}/start")
+    assert client.patch(f"/api/experiments/{plain['id']}", json={"dwell_limit_h": 144}).json()["dwell_limit_h"] == 144
+    assert client.patch(f"/api/experiments/{plain['id']}", json={"dwell_limit_h": 0}).status_code == 422
+    saved = {e["id"]: e["dwell_limit_h"] for e in client.get("/api/experiments").json()}
+    assert saved == {plain["id"]: 144, two_days["id"]: 48}
+
+
+def test_a_tray_over_its_limit_in_one_location_is_warned_for_on_the_page_in_words() -> None:
+    """#332, limit 4 days: tray 7 in NW since 5 days ago (photos then and 1 hour ago) is too long
+    there; tray 8 in SE since 3 days ago is not."""
+    from datetime import UTC, datetime, timedelta
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    client = TestClient(app)
+    experiment = client.post("/api/experiments", json={}).json()
+    client.post(f"/api/experiments/{experiment['id']}/start")
+    now = datetime.now(UTC)
+    # Never missing over 48 hours (database.NOT_SEEN_FOR): that would end a stay.
+    table_photo(experiment["id"], now - timedelta(days=5), {7: "NW"})
+    table_photo(experiment["id"], now - timedelta(days=4), {7: "NW"})
+    for ago in (timedelta(days=3), timedelta(days=1.5), timedelta(hours=1)):
+        table_photo(experiment["id"], now - ago, {7: "NW", 8: "SE"})
+
+    page = client.get(f"/experiments/{experiment['id']}/table-locations")
+    assert page.status_code == 200
+    assert "Tray 7: too long in NW, 5.0 days" in page.text
+    assert "Tray 8: too long" not in page.text
+    listed = {e["id"]: e for e in client.get("/api/experiments").json()}[experiment["id"]]
+    assert [(w["tray_id"], w["location"]) for w in listed["dwell_warnings"]] == [(7, "NW")]
+
+
+def _two_trays_running(client) -> int:
+    """A running experiment with trays 7 (NW since 5 days ago, over the 4 day limit) and 12 (SE
+    since 1 day ago, under it)."""
+    from datetime import UTC, datetime, timedelta
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = client.post("/api/experiments", json={}).json()
+    client.post(f"/api/experiments/{experiment['id']}/start")
+    now = datetime.now(UTC)
+    # Never missing over 48 hours (database.NOT_SEEN_FOR): that would end a stay.
+    table_photo(experiment["id"], now - timedelta(days=5), {7: "NW"})
+    table_photo(experiment["id"], now - timedelta(days=3), {7: "NW"})
+    table_photo(experiment["id"], now - timedelta(days=1), {7: "NW", 12: "SE"})
+    table_photo(experiment["id"], now - timedelta(hours=1), {7: "NW", 12: "SE"})
+    return experiment["id"]
+
+
+def test_a_hidden_tray_shows_as_one_line_until_shown_again() -> None:
+    """Aaron, 2026-11-02 (#332): a misread tag, such as 12, can be hidden on the panel."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    experiment_id = _two_trays_running(client)
+    full_view = "Tray 12, hours in each location"
+
+    assert client.post(f"/api/experiments/{experiment_id}/trays/12/hide").status_code == 200
+    page = client.get(f"/experiments/{experiment_id}/table-locations").text
+    assert "Tray 12, hidden" in page
+    assert full_view not in page
+    assert "Tray 7, hours in each location" in page
+
+    assert client.post(f"/api/experiments/{experiment_id}/trays/12/show").status_code == 200
+    page = client.get(f"/experiments/{experiment_id}/table-locations").text
+    assert "Tray 12, hidden" not in page
+    assert full_view in page
+
+
+def test_a_hidden_tray_stays_hidden_on_a_fresh_page_load() -> None:
+    """Kept in rig.db: every PC and a restart show it hidden (#332)."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    experiment_id = _two_trays_running(TestClient(app))
+    TestClient(app).post(f"/api/experiments/{experiment_id}/trays/12/hide")
+
+    with TestClient(app) as fresh:  # a new client, with the app started again
+        assert "Tray 12, hidden" in fresh.get(f"/experiments/{experiment_id}/table-locations").text
+
+
+def test_a_hidden_tray_gives_no_warning_and_the_export_is_unchanged() -> None:
+    """Tray 7 is 5 days in NW, over the 4 day limit; hidden, it is warned for nowhere. Its hours stay
+    in the export: 5 days less 1 hour in NW, 119.00 h, as before it was hidden."""
+    import csv
+    import io
+    import zipfile
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig import exports
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    experiment_id = _two_trays_running(client)
+
+    def export_rows() -> list[list[str]]:
+        export = database.create_export(experiment_id, now=exports._now())
+        exports._build(export["id"], experiment_id)
+        with zipfile.ZipFile(exports.zip_path(database.get_export(export["id"]))) as zf:
+            name = next(n for n in zf.namelist() if n.endswith("time-in-table-location.csv"))
+            return list(csv.reader(io.StringIO(zf.read(name).decode())))
+
+    before = export_rows()
+    client.post(f"/api/experiments/{experiment_id}/trays/7/hide")
+
+    page = client.get(f"/experiments/{experiment_id}/table-locations").text
+    assert "Tray 7: too long" not in page
+    assert "No tray too long in one location" in page
+    listed = {e["id"]: e for e in client.get("/api/experiments").json()}[experiment_id]
+    assert listed["dwell_warnings"] == []
+    assert export_rows() == before
+    assert before[1][:2] == ["7", "119.00"]
+
+
+def test_the_panel_stacks_every_shown_tray_on_one_timeline_and_leaves_out_hidden_ones() -> None:
+    """Aaron, 2026-11-02 (#332): one strip per tray on a shared time axis, each named by its
+    locations in order. Tray 7 was in NW, tray 12 in SE; tray 12 hidden is left out of it."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    experiment_id = _two_trays_running(client)
+    page = client.get(f"/experiments/{experiment_id}/table-locations").text
+    assert 'aria-label="Tray 7 over time: NW"' in page
+    assert 'aria-label="Tray 12 over time: SE"' in page
+
+    client.post(f"/api/experiments/{experiment_id}/trays/12/hide")
+    page = client.get(f"/experiments/{experiment_id}/table-locations").text
+    assert 'aria-label="Tray 7 over time: NW"' in page
+    assert "Tray 12 over time" not in page
+    assert "Hidden from this timeline: tray 12." in page
+
+
+def test_a_tray_taken_away_and_back_in_the_same_location_is_not_a_move_on_the_panel() -> None:
+    """#332: missing over 48 hours ends a stay; back in NW, the new stay is in NW, not a move."""
+    from datetime import UTC, datetime, timedelta
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    client = TestClient(app)
+    experiment = client.post("/api/experiments", json={}).json()
+    client.post(f"/api/experiments/{experiment['id']}/start")
+    now = datetime.now(UTC)
+    table_photo(experiment["id"], now - timedelta(days=4), {7: "NW"})
+    table_photo(experiment["id"], now - timedelta(hours=1), {7: "NW"})
+
+    page = client.get(f"/experiments/{experiment['id']}/table-locations")
+    assert page.status_code == 200
+    assert "NW to NW" not in page.text

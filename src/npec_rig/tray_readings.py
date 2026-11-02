@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 import numpy as np
 from PIL import Image
 
-from npec_rig import database, exclusions, photo_tags, segmentation, validation_store
+from npec_rig import database, dwell, exclusions, photo_tags, segmentation, validation_store
 from npec_rig.captures import photo_file
 from npec_rig.calibration_store import (
     CalibrationNotFoundError,
@@ -288,6 +288,18 @@ def capture_readings(capture: dict) -> dict | None:
     """`photo_readings` for a photo whose rig.db row `capture` is already at hand."""
     readings = database.tray_readings(capture["id"])
     if readings is not None:
+        locations = dwell.LocationFinder()
+        for tray in readings["not_found"]:
+            seen_in = tray.pop("seen_in")
+            tray["location"] = locations.location(seen_in["path"], seen_in["calibration"], seen_in["centre_px"])
+        # A move is a tray's centre leaving its table location; a nudge or a turn is not
+        # (Aaron, 2026-10-30, #332).
+        readings["moved"] = []
+        for tray in readings.pop("in_both"):
+            before = locations.location(tray["before"]["path"], tray["before"]["calibration"], tray["before"]["centre_px"])
+            now = locations.location(capture["path"], capture["calibration"], tray["centre_px"])
+            if before is not None and now is not None and before != now:
+                readings["moved"].append({"tray_id": tray["tray_id"], "from": before, "to": now})
         saved = database.exclusion(capture["id"])
         if saved is None:
             # Read before exclusions were stored: lights off needs only the photo itself.
@@ -298,16 +310,19 @@ def capture_readings(capture: dict) -> dict | None:
         _outline_old_rows(capture, readings["trays"])
         # A tray with no tag (#331) carries no tag another tray could share.
         carried = Counter(tray["tray_id"] for tray in readings["trays"] if tray["tray_id"] is not None)
-        # Placed as sharing a slot by tray_placement.place_trays, counted per slot for the reason.
-        shared = Counter(tray["slot"] for tray in readings["trays"] if tray["placement"] == "two trays in one slot")
         for tray in readings["trays"]:
+            # The table location the tray lies in, for the Gallery (#332); None when the
+            # photo's size cannot be known.
+            tray["location"] = locations.location(capture["path"], capture["calibration"], tray["centre_px"])
             # Neither area counts, in this photo only: a misprint can give two trays one tag, and
             # their areas cannot be told apart (Aaron, 2026-10-27, #302); a second outline in a
-            # slot, from a loose tag, takes part of the real tray's plant (2026-10-28, #315).
-            n_tag, n_slot = carried[tray["tray_id"]], shared[tray["slot"]]
+            # slot, from a loose tag, takes part of the real tray's plant (2026-10-28, #315). Two
+            # trays placed in one slot are found in readings saved before #331 only; the reason
+            # names no slot (#332).
+            n_tag = carried[tray["tray_id"]]
             tray["not_counted"] = [
                 *([f"{n_tag} trays carry tag {tray['tray_id']}"] if n_tag > 1 else []),
-                *([f"{n_slot} trays in {tray['slot']}"] if tray["placement"] == "two trays in one slot" else []),
+                *(["2 trays in one place"] if tray["placement"] == "two trays in one slot" else []),
                 # The same rule for trays found in the photo (#331): one outline, two trays' tags.
                 *(["2 tags in one tray outline"] if tray["placement"] == "two tags in one outline" else []),
             ]

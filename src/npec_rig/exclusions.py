@@ -173,16 +173,16 @@ def light_warning(experiment_id: int) -> dict | None:
 
 def visits(photos: list[dict]) -> list[bool]:
     """Whether each of one experiment's photos (dicts with `taken_at` and `areas`, each tray's
-    plant area by tray ID, oldest first, and optionally `shared_slot`) is a visit: a tray's area
+    plant area by tray ID, oldest first, and optionally `shared_tray`) is a visit: a tray's area
     more than VISIT_JUMP_MM2 and more than VISIT_JUMP_RATIO times away from its usual level, up or
-    down, or two trays placed in one slot (`shared_slot`: a tray carried over the table or a loose
+    down, or two trays in one place (`shared_tray`: a tray carried over the table or a loose
     tag on a tray, too abnormal to measure; Aaron, 2026-10-28, #315). The usual level is the
     median of the same tray's areas in the VISIT_USUAL photos before; a tray with fewer is not
     judged. The photos between two visits at most VISIT_GAP photos apart are visits too."""
     history: dict[int, list[float]] = {}
     marks = []
     for photo in photos:
-        mark = bool(photo.get("shared_slot"))
+        mark = bool(photo.get("shared_tray"))
         for tray, area in photo["areas"].items():
             before = history.setdefault(tray, [])[-VISIT_USUAL:]
             if len(before) == VISIT_USUAL:
@@ -218,13 +218,13 @@ def update(capture: dict) -> None:
     names = result["exclusions"]
     if experiment_id:
         areas = database.experiment_tray_areas(experiment_id)
-        shared = database.experiment_shared_slot_photos(experiment_id)
+        shared = database.experiment_shared_tray_photos(experiment_id)
         # Lit photos taken as captures with their trays read only, as in the review: a light
         # exclusion's areas would move the usual level, and a photo not read has none to judge.
         own = [i for i, p in enumerate(photos)
                if p.get("purpose", "capture") == "capture" and names[i] is None and p["id"] in areas]
         seen = visits([
-            {"taken_at": photos[i]["taken_at"], "areas": areas[photos[i]["id"]], "shared_slot": photos[i]["id"] in shared}
+            {"taken_at": photos[i]["taken_at"], "areas": areas[photos[i]["id"]], "shared_tray": photos[i]["id"] in shared}
             for i in own
         ])
         for i, visit in zip(own, seen):

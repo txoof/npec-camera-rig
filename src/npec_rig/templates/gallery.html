@@ -21,6 +21,12 @@
       {{ ui.button("Dismiss", id="light-warning-dismiss") }}
     {% endcall %}
   </div>
+  {#- Trays too long in one table location (#332), for the running experiment. -#}
+  <div id="dwell-warning" hidden>
+    {% call ui.banner("warn", "Too long in one table location") %}
+      <p id="dwell-warning-text"></p>
+    {% endcall %}
+  </div>
   {#- Week, day or hour (#245): Earlier and Later step to the nearest one with photos. -#}
   <div class="gallery-nav" id="gallery-nav" hidden>
     <h3 id="view-title"></h3>
@@ -187,10 +193,11 @@
       const lines = dark ? [darkLine, trayCountText(trays)] : [trayCountText(trays)];
       lines.push(...trays.trays.map(trayFoundLine));
       const measured = dark ? [] : trays.trays.filter((t) => t.area_mm2 !== null && t.area_mm2 !== undefined);
+      // A move is a tray's centre leaving its table location (#332): NW NM NE along the top of
+      // the photo, SW SM SE along the bottom.
       if (trays.moved.length) {
-        lines.push("Moved since the previous photo: " + trays.moved.map((t) => t.from[0] === t.to[0]
-          ? `Tray ${t.tray_id} turned, A1 ${t.from[1]} to ${t.to[1]}`
-          : `Tray ${t.tray_id} ${t.from[0]} to ${t.to[0]}` + (t.from[1] === t.to[1] ? "" : `, A1 ${t.from[1]} to ${t.to[1]}`)).join("; ") + ".");
+        lines.push("Moved since the previous photo: "
+          + trays.moved.map((t) => `Tray ${t.tray_id} ${t.from} to ${t.to}`).join("; ") + ".");
       }
       // Trays whose areas do not count in this photo: two carrying one tag (#302), or two in one
       // slot (#315).
@@ -234,7 +241,7 @@
       const when = (iso) => new Date(iso).toLocaleString(undefined, {
         day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
       return `<div style="margin-top: 8px">Not seen in this photo: ${trays.not_found.map((t) =>
-        `tray ${t.tray_id} (last seen ${when(t.last_seen ?? t.since)})`).join(", ")}.</div>`;
+        `tray ${t.tray_id} (last seen ${t.location ? `in ${t.location}, ` : ""}${when(t.last_seen ?? t.since)})`).join(", ")}.</div>`;
     }
 
     // Trays are found in the photo from their blue plastic and named by the tag inside each
@@ -257,7 +264,8 @@
       const how = { "photo + tag": ": found in the photo, named by its tag", "photo, no tag": ": found in the photo",
         "tag only": "" }[t.found] ?? ": placed from its tag";
       const warnings = (t.warnings ?? []).map((w) => ui.chip("warn", w)).join(" ");
-      return `${name}${how}${how ? "." : ""} ${warnings}`;
+      const location = t.location ? ` In ${t.location}.` : "";  // the table location it lies in (#332)
+      return `${name}${how}${how ? "." : ""}${location} ${warnings}`;
     }
 
     // The card's one tray line; the full reading is under Info.
@@ -289,7 +297,7 @@
     }
 
     // Why trays' areas are not counted, each reason once, as sentences: "2 trays carry tag 1."
-    // (#302), "2 trays in South 1." (#315).
+    // (#302), "2 trays in one place." (#315, #332).
     function notCounted(trays) {
       return [...new Set(trays.trays.flatMap((t) => t.not_counted ?? []))].map((r) => `${ui.esc(r)}.`).join(" ");
     }
@@ -776,12 +784,28 @@
       });
     });
 
+    // Trays too long in one table location (#332): only a running experiment's trays can be
+    // moved, so its warning shows with all photos or its own.
+    function showDwellWarning(list) {
+      const running = list.find((e) => e.state === "running");
+      const shown = running && (experiment === null || String(running.id) === experiment) ? running.dwell_warnings : [];
+      document.getElementById("dwell-warning").hidden = !shown.length;
+      document.getElementById("dwell-warning-text").innerHTML = shown.map((w) =>
+        `Tray ${w.tray_id}: too long in ${w.location}, ${(w.hours / 24).toFixed(1)} days.`).join("<br>")
+        + (shown.length ? "<br>Move these trays to another location. Table locations, on the Experiments page, shows where each tray has been." : "");
+    }
+
     async function showFilter() {
       loadLightWarning();
       let label = "all photos";
-      if (experiment !== null) {
+      let list = [];
+      try {
         const r = await fetch("/api/experiments");
-        const found = r.ok ? (await r.json()).find((e) => String(e.id) === experiment) : null;
+        list = r.ok ? await r.json() : [];
+      } catch (err) { /* no experiments shown */ }
+      showDwellWarning(list);
+      if (experiment !== null) {
+        const found = list.find((e) => String(e.id) === experiment);
         label = found ? experimentName(found) : `experiment ${experiment}`;
       }
       showBtn.textContent = `Show: ${label}`;

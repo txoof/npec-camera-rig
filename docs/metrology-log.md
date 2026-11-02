@@ -7090,3 +7090,46 @@ enough to count how long each tray spends in each table location.
   `~/scratch/332/analysis/` (`expected.csv`, `comparison.csv`, `measured_slot_stays.csv`,
   `measured_area_stays.csv`, `outside_shuffles.csv`), not kept; the script remakes them from a
   new copy of production's `rig.db`.
+
+## 23. Time per table location in the app, tried on the development rig (issue #332, 2026-11-02)
+
+**Label: development check.** Whether the app's count of time per table location (#332), its
+too-long warning and hiding a tray behave as decided, on a live rig with real photos. The answer
+is what Aaron saw on the pages and the rig's own readings, not an independent measurement, so this
+is not a validation. The method was not written down before the session: Aaron tried each
+feature while the agent guided him, and this entry is written afterwards.
+
+**Setup.** Development rig `npec-rig-01`, branch `332-tray-dwell` (PR #336) from 2026-11-02 08:05
+UTC, rig.db version 15, then 16 from 09:04 UTC. Experiment 2, "development rig", running since
+2026-10-28 13:24 UTC, one photo a minute; its tagged trays 76 to 87 (section 21.2) were first
+read on 2026-10-30 from 08:13 UTC. Table locations as decided on #332: a 3 x 2 grid, NW NM NE over
+SW SM SE, between the table tag rows; a move only when a tray's centre stays over 1 hour in
+another location; absences up to 48 h do not break a stay.
+
+**What was tried, and what was seen.** All times UTC.
+
+| Step | Done by Aaron | Seen |
+|---|---|---|
+| Time per location | Opened the Table locations panel | Each tray's hours per location. The export code, run on the rig at 08:26, gave 72.15 to 72.22 h for each of trays 76 to 87, each in one location: 30 Oct 08:13 to 2 Nov 08:26 is 72.2 h, nights included |
+| Limit | Stepped the limit through 1, 2, 3, 4 and 5 days, saving each | Warnings appeared and disappeared with the limit, in the panel, the Experiments page's Running box and the Gallery banner |
+| Locations in the Gallery | Opened a photo's Info | Each tray named by its location |
+| Hide | Hid trays 12, 13, 26 and 27 (each read in 7 to 12 of about 3,000 photos, likely misread tags) and 82 and 83 (laid on the table for a few minutes in section 21.2), reloaded | Each stayed one line, "hidden"; after the review, Hide first asks for confirmation |
+| Swap | Swapped trays 78 (NE) and 81 (SM) by hand | The rig read each in the other's place from the 08:31:49 photo. From about 09:32, 1 hour later, the panel showed the move on both trays: an arrow on its map and its timeline split in two named pieces (Aaron, 2026-11-02) |
+
+Readings: tray 78 in NE in 2,996 photos from 30 Oct 08:14 to 2 Nov 08:30, then in SM in 127
+photos from 08:31:49 to 10:36; tray 81 the reverse, 2,992 and 127 photos (rig.db read-only,
+2026-11-02 10:36).
+
+**Result.** Every feature behaved as decided. One swap of two trays was counted as a move on
+both, after 1 hour, as the rule says.
+
+**Limits of the evidence.**
+
+- One swap, of two trays, between two locations far from any line. A tray moved near a line
+  between locations, a tray off the table for over 48 hours and a stay over the 4-day default
+  were not tried live; they are covered by unit tests only (`tests/test_dwell.py`).
+- The live trays had stayed in place since 30 Oct, so the warnings were seen only with limits
+  of 1 to 5 days against stays of about 3 days, never at the 4-day default in a real experiment.
+- The pages were looked at, not measured; times on the panel are shown in UTC.
+- Raw data: development's `rig.db`, experiment 2 (kept on the rig); the export output of 08:26 at
+  `~/scratch/sam297/332-live-export/` (not kept).
