@@ -125,5 +125,5 @@ Done: raw tracking and patches 1 to 3 (15.5d), 2078 measured + 31 patched of 211
 Open for Aaron:
 - Success rate that is good enough: deferred until the tracking result (15.5d).
 - Slot reference for rule 3: row and order is provisional.
-- Later: the 4 x 4 and 1 x 1
+- Later: the 2 x 2 and 1 x 1
   tray configurations (`reference/trays.md`, "Not yet known").

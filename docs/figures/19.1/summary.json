@@ -1,0 +1,154 @@
+{
+ "still": "in2/prod_2026-10-29_1204.jpg",
+ "truth": {
+  "1": 19,
+  "2": 19,
+  "3": 19,
+  "4": 19,
+  "5": 19,
+  "6": 19,
+  "7": 7,
+  "8": 5
+ },
+ "iphone_benchy_mm2": {
+  "NE": 1692.05,
+  "SE": 1064.17,
+  "NW": 611.92,
+  "SW": 325.37
+ },
+ "scan_benchy_mm2": {
+  "NE": 2009.9,
+  "SE": 1343.7,
+  "NW": 753.4,
+  "SW": 413.7
+ },
+ "shared_seconds": 10.9,
+ "methods": {
+  "exg_join3": {
+   "trays_1_6_plants": 135,
+   "tray_7": 16,
+   "tray_8": 6,
+   "mean_abs_error_trays_1_8": 3.88,
+   "worst_tray_error": 9,
+   "seconds": 0.4,
+   "benchy_4_largest_mm2": [
+    1689,
+    1043,
+    565,
+    258
+   ]
+  },
+  "exg_join5": {
+   "trays_1_6_plants": 106,
+   "tray_7": 16,
+   "tray_8": 6,
+   "mean_abs_error_trays_1_8": 3.25,
+   "worst_tray_error": 9,
+   "seconds": 0.4,
+   "benchy_4_largest_mm2": [
+    1689,
+    1043,
+    565,
+    258
+   ]
+  },
+  "exg_join10": {
+   "trays_1_6_plants": 103,
+   "tray_7": 15,
+   "tray_8": 6,
+   "mean_abs_error_trays_1_8": 2.75,
+   "worst_tray_error": 8,
+   "seconds": 0.5,
+   "benchy_4_largest_mm2": [
+    1689,
+    1043,
+    565,
+    258
+   ]
+  },
+  "fastsam_point": {
+   "trays_1_6_plants": 101,
+   "tray_7": 8,
+   "tray_8": 5,
+   "mean_abs_error_trays_1_8": 2.0,
+   "worst_tray_error": -6,
+   "seconds": 6.8,
+   "benchy_4_largest_mm2": [
+    1887,
+    1230,
+    732,
+    399
+   ]
+  },
+  "clip_foliage": {
+   "trays_1_6_plants": 30,
+   "tray_7": 1,
+   "tray_8": 5,
+   "mean_abs_error_trays_1_8": 11.25,
+   "worst_tray_error": -18,
+   "seconds": 18.9,
+   "benchy_4_largest_mm2": [
+    1887,
+    1230,
+    732,
+    399
+   ]
+  },
+  "clip_leaves": {
+   "trays_1_6_plants": 72,
+   "tray_7": 2,
+   "tray_8": 5,
+   "mean_abs_error_trays_1_8": 5.88,
+   "worst_tray_error": -12,
+   "seconds": 18.9,
+   "benchy_4_largest_mm2": [
+    1887,
+    1230,
+    732,
+    399
+   ]
+  },
+  "clip_plants": {
+   "trays_1_6_plants": 35,
+   "tray_7": 8,
+   "tray_8": 18,
+   "mean_abs_error_trays_1_8": 11.62,
+   "worst_tray_error": -16,
+   "seconds": 18.9,
+   "benchy_4_largest_mm2": [
+    732,
+    673,
+    453,
+    452
+   ]
+  },
+  "sam21": {
+   "trays_1_6_plants": 103,
+   "tray_7": 16,
+   "tray_8": 6,
+   "mean_abs_error_trays_1_8": 2.88,
+   "worst_tray_error": 9,
+   "seconds": 224.6,
+   "benchy_4_largest_mm2": [
+    2620,
+    1478,
+    885,
+    492
+   ]
+  },
+  "sam21_green": {
+   "trays_1_6_plants": 103,
+   "tray_7": 16,
+   "tray_8": 6,
+   "mean_abs_error_trays_1_8": 2.88,
+   "worst_tray_error": 9,
+   "seconds": 225.0,
+   "benchy_4_largest_mm2": [
+    1689,
+    1043,
+    564,
+    258
+   ]
+  }
+ }
+}

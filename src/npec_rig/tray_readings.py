@@ -1,11 +1,13 @@
 """Readings per tray per photo (#222): each photo read once for its trays, and the result saved in
 `rig.db` (`database.record_tray_readings`).
 
-A reading is the trays whose tag was found, each placed in a slot with the calibration the photo
-was taken under (`tray_placement.place_trays`), with its plant area: the segmenter's mask of the
-full-size photo, saved to disk, summed inside the tray outline at the local scale (#75). A
-tray not found is never stored: `database.tray_readings` works it out from the experiment's
-earlier photos when the readings are shown.
+A reading is the trays found in the photo from their blue plastic, each named by the tag inside
+it, and each tray tag inside no outline seen where it lies, with no outline and no area
+(`tray_placement.find_outlines`, `name_trays`, #331); no slot layout is needed. Each outlined tray
+is read with the calibration the photo was taken under, and with its plant area:
+the segmenter's mask of the full-size photo, saved to disk, summed inside the tray outline at the
+local scale (#75). A tray not found is never stored: `database.tray_readings` works it out from
+the experiment's earlier photos when the readings are shown.
 """
 
 import logging
@@ -18,7 +20,7 @@ from datetime import UTC, datetime
 import numpy as np
 from PIL import Image
 
-from npec_rig import database, exclusions, photo_tags, segmentation, validation_store
+from npec_rig import database, dwell, exclusions, photo_tags, segmentation, validation_store
 from npec_rig.captures import photo_file
 from npec_rig.calibration_store import (
     CalibrationNotFoundError,
@@ -26,8 +28,15 @@ from npec_rig.calibration_store import (
     calibration_for_photos,
     load_saved_calibration,
 )
-from npec_rig.tags import TagDetection
-from npec_rig.tray_placement import TRAY_SIZE_MM, TrayPlacement, place_trays
+from npec_rig.tags import TRAY_ID_RANGE, TagDetection
+from npec_rig.tray_placement import (
+    TRAY_SIZE_MM,
+    TrayOutline,
+    TrayPlacement,
+    find_outlines,
+    name_trays,
+    tray_outline_at,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,36 +55,93 @@ FLOORS_MM2 = {"green threshold, 0.1": 100}
 # decision, not a measurement (Aaron, 2026-10-27).
 PAST_EDGE_MM = 13.0
 
+# The photo is searched for trays at this fraction of its size: the blue finder's parameters were
+# tuned on quarter-size stills (metrology log 20).
+FINDER_FACTOR = 4
+
 # Seconds between looks for photos not yet read, when there are none. One reading took 9.6 s to
 # 12.5 s (metrology log 15.5m), so a photo a minute leaves the reader idle most of the time.
 POLL_S = 5.0
 
 
-def placements(path: str, tags: list[TagDetection]) -> tuple[str, list[TrayPlacement]]:
-    """Each tray tag of photo `path` placed with the calibration the photo was taken under, and
-    the status: "read", or why nothing could be placed ("no calibration", "no slot layout",
-    "placement failed"). Reads only: nothing is worked out from the photo or stored."""
+def _calibration(path: str) -> tuple[str, object, list[dict] | None]:
+    """Photo `path`'s status so far ("read", or "no calibration", "no slot layout"), its
+    calibration's scale field and its slot layout's slots."""
     try:
         record = database.captures_by_path([path]).get(path)
     except (sqlite3.Error, RuntimeError):
         logger.exception("Could not read the capture row of %s", path)
-        return "no calibration", []
+        return "no calibration", None, None
     if record is None or not record.get("calibration"):
-        return "no calibration", []
+        return "no calibration", None, None
     try:
         stem = calibration_for_photos(record["calibration"])
         artifact = load_saved_calibration(stem)
-        # Only a layout already worked out: working it out decodes the 64MP calibration frame.
-        # A twin has its original's slots.
-        layout = validation_store.load_slot_layout(stem) or validation_store.load_slot_layout(record["calibration"])
-    except (CalibrationNotFoundError, CalibrationUnreadableError, validation_store.SessionNotFoundError):
-        return "no calibration", []
-    if layout is None:
-        return "no slot layout", []
+    except (CalibrationNotFoundError, CalibrationUnreadableError):
+        return "no calibration", None, None
     try:
-        return "read", place_trays(tags, artifact.scale_field, layout["slots"])
+        # Only a layout already worked out: working it out decodes the 64MP calibration frame.
+        # A twin has its original's slots. Optional: trays are found without one (review of #334).
+        layout = validation_store.load_slot_layout(stem) or validation_store.load_slot_layout(record["calibration"])
+    except validation_store.SessionNotFoundError:
+        layout = None
+    if layout is None:
+        return "no slot layout", artifact.scale_field, None
+    return "read", artifact.scale_field, layout["slots"]
+
+
+def _small_copy(path: str) -> tuple[np.ndarray, float] | None:
+    """Photo `path` decoded at about 1 / FINDER_FACTOR of its size (JPEG draft mode: the 64MP
+    photo is never decoded whole for this), and how many times smaller it is; None when the
+    photo is gone."""
+    file = photo_file(path)
+    if file is None:
+        return None
+    with Image.open(file) as image:
+        width = image.size[0]
+        image.draft("RGB", (image.size[0] // FINDER_FACTOR, image.size[1] // FINDER_FACTOR))
+        small = np.asarray(image.convert("RGB"))
+    return small, width / small.shape[1]
+
+
+def _saved_outlines(saved: dict | None) -> list[TrayOutline]:
+    """The outlines a saved reading found in the photo, once each (two tags may share one)."""
+    out: dict[tuple, TrayOutline] = {}
+    for tray in (saved or {}).get("trays", []):
+        if tray.get("outline_px") and tray.get("found", "").startswith("photo"):
+            corners = tuple(tuple(c) for c in tray["outline_px"])
+            out[corners] = TrayOutline(
+                corners=corners, centre=tuple(tray["centre_px"]), tilt_deg=tray["tilt_deg"],
+                edge="partly outside the photo" in tray["warnings"],
+            )
+    return list(out.values())
+
+
+def found_trays(path: str, tags: list[TagDetection], saved: dict | None = None) -> tuple[str, list[TrayPlacement]]:
+    """The trays of photo `path`: found in the photo from their blue plastic and named by the tag
+    inside each, and each tray tag inside no outline seen where it lies, with the calibration the
+    photo was taken under; no slot layout is needed (#331). The status: "read", "no calibration",
+    "placement failed", or "no trays found" when the photo shows neither a tray nor a tag, as with
+    the lights off. With the photo gone (Reprocess from its saved mask), the outlines of the saved
+    reading `saved` are used again; with none saved, "photo not found"."""
+    status, scale_field, _slots = _calibration(path)
+    if scale_field is None:
+        return status, []
+    try:
+        small = _small_copy(path)
+        if small is not None:
+            outlines = find_outlines(small[0], scale_field, small[1])
+        elif outlines := _saved_outlines(saved):
+            pass
+        else:
+            return "photo not found", []
+        # Only tray tags say anything about trays: a corner or calibration tag read in dim light
+        # does not (review of #334).
+        if not outlines and not any(t.tag_id in TRAY_ID_RANGE for t in tags):
+            return "no trays found", []
+        return "read", name_trays(outlines, tags)
     except (ValueError, KeyError, TypeError, OSError):
-        logger.exception("Could not place the trays of %s", path)
+        logger.exception("Could not find the trays of %s", path)
         return "placement failed", []
 
 
@@ -101,21 +167,28 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
     if unless_measured and _saved_by_this_segmenter(saved):
         return capture_readings(record)
     tags = photo_tags.photo_tags_for(path)
-    # No tag of any kind, as with the lights off (metrology log 15.5l): not trays missing.
-    status, placed = placements(path, tags) if tags else ("no tags found", [])
+    status, placed = found_trays(path, tags, saved)
     reuse = reuse_mask and _saved_by_this_segmenter(saved)
-    calibration, measures = _measures(path, record["calibration"], placed, reuse) if placed else (None, [])
-    size = _photo_size(path) if placed else None
-    _refuse_worse(path, saved, status, measures)
+    # A tag seen with no tray found around it has no outline: nothing to measure (#331).
+    outlined = [p for p in placed if p.outline is not None]
+    calibration, measures = _measures(path, record["calibration"], outlined, reuse) if outlined else (None, [])
+    size = _photo_size(path) if outlined else None
+    # No area now, whether or not any tray was outlined (review of #334): a saved area is kept.
+    _refuse_worse(path, saved, status, areas_lost=not measures)
+    measured = dict(zip(map(id, outlined), measures, strict=True)) if measures else {}
     trays = []
-    for p, m in zip(placed, measures or [None] * len(placed), strict=True):
+    for p in placed:
+        m = measured.get(id(p))
         trays.append({
             "tray_id": p.tray_id, "slot": p.slot, "a1_corner": p.a1_corner, "placement": p.status,
             "centre_px": list(p.centre), "tilt_deg": p.tilt_deg, "margin_mm": p.margin_mm,
             "area_mm2": m.area_mm2 if m else None, "segmenter": SEGMENTER.name if m else None,
             "plant_px": m.plant_px if m else None,
             "plant_centre_px": list(m.centre_px) if m and m.centre_px else None,
-            "calibration": calibration if m else None, "outside_mm": outside_mm(p, size) if size else None,
+            "calibration": calibration if m else None,
+            "outside_mm": outside_mm(p, size) if size and p.outline is not None else None,
+            "found": p.found, "warnings": list(p.warnings),
+            "outline_px": None if p.outline is None else [list(c) for c in p.outline],
         })
     database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
     exclusions.update(record)
@@ -126,7 +199,7 @@ class ReadingWorse(RuntimeError):
     """Reading the photo again would replace a saved reading with less: nothing is saved."""
 
 
-def _refuse_worse(path: str, saved: dict | None, status: str, measures: list) -> None:
+def _refuse_worse(path: str, saved: dict | None, status: str, *, areas_lost: bool) -> None:
     """Raise ReadingWorse when a saved reading had trays placed, or areas, and this one has not:
     the photo, its mask or its calibration may be gone, and the saved values are kept (review of
     #287: Reprocess and Show tags must never turn saved areas into none)."""
@@ -134,7 +207,7 @@ def _refuse_worse(path: str, saved: dict | None, status: str, measures: list) ->
         return
     if status != "read":
         raise ReadingWorse(f"{path}: read as {status!r} now, kept the saved reading")
-    if not measures and any(t["area_mm2"] is not None for t in saved["trays"]):
+    if areas_lost and any(t["area_mm2"] is not None for t in saved["trays"]):
         raise ReadingWorse(f"{path}: plant areas could not be worked out now, kept the saved ones")
 
 
@@ -182,10 +255,10 @@ def _photo_size(path: str) -> tuple[int, int] | None:
 def outside_mm(p: TrayPlacement, size: tuple[int, int]) -> float:
     """How far tray `p`'s outline reaches past the edge of a photo of `size` (width, height), at
     its farthest corner, in mm; 0 when it lies inside. Converted at the scale the outline was
-    drawn with: its width is the tray's 305 mm (`TRAY_SIZE_MM`)."""
+    drawn with: its short side is the tray's 305 mm (`TRAY_SIZE_MM`), whichever way it lies."""
     w, h = size
-    (x0, y0), (x1, y1) = p.outline[0], p.outline[1]
-    px_per_mm = math.hypot(x1 - x0, y1 - y0) / TRAY_SIZE_MM[0]
+    sides = [math.dist(p.outline[i], p.outline[(i + 1) % 4]) for i in range(2)]
+    px_per_mm = min(sides) / TRAY_SIZE_MM[0]
     return max(max(-x, x - w, -y, y - h, 0.0) for x, y in p.outline) / px_per_mm
 
 
@@ -215,6 +288,18 @@ def capture_readings(capture: dict) -> dict | None:
     """`photo_readings` for a photo whose rig.db row `capture` is already at hand."""
     readings = database.tray_readings(capture["id"])
     if readings is not None:
+        locations = dwell.LocationFinder()
+        for tray in readings["not_found"]:
+            seen_in = tray.pop("seen_in")
+            tray["location"] = locations.location(seen_in["path"], seen_in["calibration"], seen_in["centre_px"])
+        # A move is a tray's centre leaving its table location; a nudge or a turn is not
+        # (Aaron, 2026-10-30, #332).
+        readings["moved"] = []
+        for tray in readings.pop("in_both"):
+            before = locations.location(tray["before"]["path"], tray["before"]["calibration"], tray["before"]["centre_px"])
+            now = locations.location(capture["path"], capture["calibration"], tray["centre_px"])
+            if before is not None and now is not None and before != now:
+                readings["moved"].append({"tray_id": tray["tray_id"], "from": before, "to": now})
         saved = database.exclusion(capture["id"])
         if saved is None:
             # Read before exclusions were stored: lights off needs only the photo itself.
@@ -222,21 +307,46 @@ def capture_readings(capture: dict) -> dict | None:
             saved = {"name": result["exclusions"][0], "norm_e": None}
         readings["exclusion"] = saved["name"]
         readings["norm_pending"] = saved["norm_e"] is None
-        carried = Counter(tray["tray_id"] for tray in readings["trays"])
-        # Placed as sharing a slot by tray_placement.place_trays, counted per slot for the reason.
-        shared = Counter(tray["slot"] for tray in readings["trays"] if tray["placement"] == "two trays in one slot")
+        _outline_old_rows(capture, readings["trays"])
+        # A tray with no tag (#331) carries no tag another tray could share.
+        carried = Counter(tray["tray_id"] for tray in readings["trays"] if tray["tray_id"] is not None)
         for tray in readings["trays"]:
+            # The table location the tray lies in, for the Gallery (#332); None when the
+            # photo's size cannot be known.
+            tray["location"] = locations.location(capture["path"], capture["calibration"], tray["centre_px"])
             # Neither area counts, in this photo only: a misprint can give two trays one tag, and
             # their areas cannot be told apart (Aaron, 2026-10-27, #302); a second outline in a
-            # slot, from a loose tag, takes part of the real tray's plant (2026-10-28, #315).
-            n_tag, n_slot = carried[tray["tray_id"]], shared[tray["slot"]]
+            # slot, from a loose tag, takes part of the real tray's plant (2026-10-28, #315). Two
+            # trays placed in one slot are found in readings saved before #331 only; the reason
+            # names no slot (#332).
+            n_tag = carried[tray["tray_id"]]
             tray["not_counted"] = [
                 *([f"{n_tag} trays carry tag {tray['tray_id']}"] if n_tag > 1 else []),
-                *([f"{n_slot} trays in {tray['slot']}"] if tray["placement"] == "two trays in one slot" else []),
+                *(["2 trays in one place"] if tray["placement"] == "two trays in one slot" else []),
+                # The same rule for trays found in the photo (#331): one outline, two trays' tags.
+                *(["2 tags in one tray outline"] if tray["placement"] == "two tags in one outline" else []),
             ]
             tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
             tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM
     return readings
+
+
+def _outline_old_rows(capture: dict, trays: list[dict]) -> None:
+    """Give each tray read before #331 (placed from its tag, no outline stored) the outline its
+    placement had: the tray's outside size around its stored centre, turned by its tilt, at its
+    calibration's scale (review of #334). Left without one when the calibration cannot be read."""
+    scales: dict[str, object] = {}
+    for tray in trays:
+        if tray["outline_px"] is not None or tray["found"] is not None:
+            continue
+        try:
+            stem = tray["calibration"] or calibration_for_photos(capture["calibration"])
+            if stem not in scales:
+                scales[stem] = load_saved_calibration(stem).scale_field
+            ppm = scales[stem].px_per_mm(*tray["centre_px"])
+        except (CalibrationNotFoundError, CalibrationUnreadableError, TypeError, ValueError):
+            continue
+        tray["outline_px"] = [list(c) for c in tray_outline_at(tuple(tray["centre_px"]), tray["tilt_deg"], ppm)]
 
 
 class TrayReader:

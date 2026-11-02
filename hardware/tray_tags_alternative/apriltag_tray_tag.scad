@@ -74,18 +74,18 @@
 
    Designs by tray type (Aaron, REV 1.3): each tag's design follows its
    id through `tray_type()`, the same id ranges as `apriltag_tray_tags_v1.scad`:
-   1-75 "4x5", 76-150 "4x4", 151-225 "1x1", 226-250 "black_tray",
+   1-75 "4x5", 76-150 "2x2", 151-225 "1x1", 226-250 "black_tray",
    251-299 "OTHER" (black_tray, Aaron, REV 1.6). Ids above
    299 fail the id assert: 300-449 are the calibration sheets and 450-499
    the corner tags. Each design's dimensions are its own Customizer group;
    the `t_*()` functions return them for a type. Designs so far:
      - "4x5": the rounded square above (60.5 mm, 9.33 mm corners, 40 mm
        tag).
-     - "4x4": a 61 mm square with 3 mm corners, as on the tray tag
+     - "2x2": a 61 mm square with 3 mm corners, as on the tray tag
        (Aaron, REV 1.4), and a 42 mm tag: 5.25 mm bits, its one-bit white
        square 1.25 mm clear of the lip. The lip, not the corners, limits
        the tag here (44 mm at most with one bit of quiet zone).
-     - "1x1": the "4x4" (its Customizer group sets both) plus the tray
+     - "1x1": the "2x2" (its Customizer group sets both) plus the tray
        tag's bolt tab (Aaron, REV 1.5): a tab in the plate's own plane,
        `bolt_tab_len` past the -Y edge (opposite the lip), with a round
        end and an M8 clearance hole concentric with it, and the
@@ -123,6 +123,10 @@
    Open assumption, not yet measured: `tag_embed` is a starting value, same
    status as in `apriltag_tray_tags_v1.scad`.
 
+   REV 2.2: tray type "4x4" renamed "2x2" (ids 76-150 unchanged): these
+     trays have 2 x 2 cells, 4 plants; "4x4" was a mislabel (Aaron,
+     2026-10-29, #327). The engraved type label changes with it.
+     Geometry unchanged.
    REV 2.1: "4x5" plate 61 -> 60.5 mm, still square, corners and tag
      unchanged (Aaron). Other designs unchanged.
    REV 2.0: revision 1.10 renumbered for the first test prints of all
@@ -182,10 +186,10 @@ t45_plate_w  = 60.5;  // plate side, X and Y, mm -- the physical part's 61, less
 t45_corner_r = 9.33;  // rounding on the plate's four vertical corners, mm -- derived, see header  [0:0.01:20]
 t45_tag_size = 40;    // 36h11 tag width (black border), mm  [20:0.5:44]
 
-/* [4x4 and 1x1 Design] */
-t44_plate_w  = 61;    // plate side, X and Y, mm  [40:0.5:100]
-t44_corner_r = 3;     // rounding on the plate's four vertical corners, mm -- as on the tray tag  [0:0.5:20]
-t44_tag_size = 42;    // 36h11 tag width (black border), mm  [20:0.5:44]
+/* [2x2 and 1x1 Design] */
+t22_plate_w  = 61;    // plate side, X and Y, mm  [40:0.5:100]
+t22_corner_r = 3;     // rounding on the plate's four vertical corners, mm -- as on the tray tag  [0:0.5:20]
+t22_tag_size = 42;    // 36h11 tag width (black border), mm  [20:0.5:44]
 
 /* [black_tray Design] */
 tbk_dia      = 51;  // disc diameter, mm  [30:0.5:100]
@@ -207,7 +211,7 @@ id_size  = 2.5;                       // label text cap height, mm  [1.5:0.5:6]
 id_depth = 0.6;                       // how far the label is inset into the top face, mm  [0.2:0.1:2]
 id_font  = "Liberation Sans:style=Bold";
 size_label = true;                    // engrave each tag's size (black border edge to edge, "40.0 x 40.0 mm") in the quiet zone below the tag, same size and depth as the id
-type_label = true;                    // engrave each tag's tray type (4x5, 4x4, 1x1, black_tray) in the top-right corner (black_tray: below the tag), same size and depth as the id
+type_label = true;                    // engrave each tag's tray type (4x5, 2x2, 1x1, black_tray) in the top-right corner (black_tray: below the tag), same size and depth as the id
 
 /* [Label] */
 part_name  = "apriltag_tray_tag"; // file name without .scad, engraved right-justified in the lip's inner face ("" = none)
@@ -229,7 +233,7 @@ side_gap   = 5;    // clear space between neighbouring tags, side layout, mm  [0
 plate_cols = 0;    // tags per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV2.1"; // revision stamp, engraved left-justified in the lip's inner face ("" = none)
+revision  = "RV2.2"; // revision stamp, engraved left-justified in the lip's inner face ("" = none)
 rev_size  = 3;       // text cap height, mm  [1:0.25:4]
 rev_depth = 0.6;     // how far the text is inset into the lip's inner face, mm  [0.2:0.1:1.5]
 
@@ -240,19 +244,19 @@ eps = 0.01;
 /* [Hidden] */
 // tray type for a tag id; the id ranges are the allocation (header)
 function tray_type(id) = id <= 75  ? "4x5"
-                       : id <= 150 ? "4x4"
+                       : id <= 150 ? "2x2"
                        : id <= 225 ? "1x1"
                        : id <= 250 ? "black_tray"
                        : "OTHER";
-designed = ["4x5", "4x4", "1x1", "black_tray"]; // tray types with a design in this file
+designed = ["4x5", "2x2", "1x1", "black_tray"]; // tray types with a design in this file
 
 // per-design dimensions, by tray type
-// ("1x1" is the "4x4" plus the bolt tab)
-function sq44(t)  = t == "4x4" || t == "1x1";
+// ("1x1" is the "2x2" plus the bolt tab)
+function sq22(t)  = t == "2x2" || t == "1x1";
 function t_disc(t) = t == "black_tray"; // round, no lip, flat print only
-function t_w(t)   = t == "4x5" ? t45_plate_w  : sq44(t) ? t44_plate_w  : t_disc(t) ? tbk_dia : undef; // plate side (disc: diameter), X and Y
-function t_tag(t) = t == "4x5" ? t45_tag_size : sq44(t) ? t44_tag_size : t_disc(t) ? tbk_tag_size : undef; // tag width (black border)
-function t_cr(t)  = min(t == "4x5" ? t45_corner_r : sq44(t) ? t44_corner_r : t_disc(t) ? tbk_dia / 2 : undef,
+function t_w(t)   = t == "4x5" ? t45_plate_w  : sq22(t) ? t22_plate_w  : t_disc(t) ? tbk_dia : undef; // plate side (disc: diameter), X and Y
+function t_tag(t) = t == "4x5" ? t45_tag_size : sq22(t) ? t22_tag_size : t_disc(t) ? tbk_tag_size : undef; // tag width (black border)
+function t_cr(t)  = min(t == "4x5" ? t45_corner_r : sq22(t) ? t22_corner_r : t_disc(t) ? tbk_dia / 2 : undef,
                         t_w(t) / 2); // clamp: rounding can't exceed half the plate
 function t_bolt(t) = t == "1x1";                     // has the bolt tab
 function t_ext(t)  = t_bolt(t) ? bolt_tab_len : 0;   // how far the part reaches past the plate's -Y edge

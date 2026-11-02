@@ -21,6 +21,12 @@
       {{ ui.button("Dismiss", id="light-warning-dismiss") }}
     {% endcall %}
   </div>
+  {#- Trays too long in one table location (#332), for the running experiment. -#}
+  <div id="dwell-warning" hidden>
+    {% call ui.banner("warn", "Too long in one table location") %}
+      <p id="dwell-warning-text"></p>
+    {% endcall %}
+  </div>
   {#- Week, day or hour (#245): Earlier and Later step to the nearest one with photos. -#}
   <div class="gallery-nav" id="gallery-nav" hidden>
     <h3 id="view-title"></h3>
@@ -147,6 +153,8 @@
     // experiment: removed, swapped or with a dirty tag, which the rig cannot tell apart.
     const TRAY_STATUS = {
       "no tags found": "no tags found in this photo, as when the lights are off",
+      "no trays found": "no trays and no tags found in this photo, as when the lights are off",
+      "photo not found": "the photo is no longer on the rig",
       "no calibration": "this photo has no calibration",
       "no slot layout": "its calibration has no worked-out tray slots",
       "placement failed": "the trays could not be placed",
@@ -180,19 +188,16 @@
       const dark = trays.exclusion === "lights off";
       const darkLine = "Photo taken with the lights off. No plant areas.";
       if (dark && trays.status !== "read") return `<div>${darkLine}</div>`;
+      if (trays.status === "no trays found") return "<div>No trays found: no tray and no tag in this photo, as when the lights are off.</div>";
       if (trays.status !== "read") return `<div>Trays: not placed, ${TRAY_STATUS[trays.status] ?? trays.status}.</div>`;
-      const lines = dark ? [darkLine, `Trays found: ${trays.trays.length}.`] : [`Trays found: ${trays.trays.length}.`];
-      // Trays not found are rows of the area table, in their last slot (#318); listed here only
-      // when there is no table.
+      const lines = dark ? [darkLine, trayCountText(trays)] : [trayCountText(trays)];
+      lines.push(...trays.trays.map(trayFoundLine));
       const measured = dark ? [] : trays.trays.filter((t) => t.area_mm2 !== null && t.area_mm2 !== undefined);
-      if (trays.not_found.length && !measured.length) {
-        lines.push("Not found: " + trays.not_found.map((t) =>
-          `Tray ${t.tray_id} since ${localTime(t.since)} (${t.photos} ${t.photos === 1 ? "photo" : "photos"})`).join("; ") + ".");
-      }
+      // A move is a tray's centre leaving its table location (#332): NW NM NE along the top of
+      // the photo, SW SM SE along the bottom.
       if (trays.moved.length) {
-        lines.push("Moved since the previous photo: " + trays.moved.map((t) => t.from[0] === t.to[0]
-          ? `Tray ${t.tray_id} turned, A1 ${t.from[1]} to ${t.to[1]}`
-          : `Tray ${t.tray_id} ${t.from[0]} to ${t.to[0]}` + (t.from[1] === t.to[1] ? "" : `, A1 ${t.from[1]} to ${t.to[1]}`)).join("; ") + ".");
+        lines.push("Moved since the previous photo: "
+          + trays.moved.map((t) => `Tray ${t.tray_id} ${t.from} to ${t.to}`).join("; ") + ".");
       }
       // Trays whose areas do not count in this photo: two carrying one tag (#302), or two in one
       // slot (#315).
@@ -217,23 +222,50 @@
         // A tray more than its wall past the photo edge (#282): plant past the edge is not counted.
         const edge = (t) => t.partly_outside ? ", partly outside the photo" : "";
         const counted = (t) => t.not_counted?.length ? ", not counted" : "";
-        // A tray found earlier but not in this photo: its slot is empty, or its tag is dirty or
-        // swapped, which the rig cannot tell apart (#318). "Empty" only when no tray found in this
-        // photo sits in that slot.
-        const occupied = new Set(trays.trays.map((t) => t.slot));
-        const empty = (t) => ui.chip("warn", `${occupied.has(t.slot) ? "Not found" : "Empty, not found"} since `
-          + `${localTime(t.since)} (${t.photos} ${t.photos === 1 ? "photo" : "photos"})`);
-        const rows = [
-          ...measured.map((t) => ({ t, cell: `${area(t)}${edge(t)}${counted(t)}` })),
-          ...trays.not_found.map((t) => ({ t, cell: empty(t) })),
-        ].sort((a, b) => a.t.tray_id - b.t.tray_id).map(({ t, cell }) =>
-          `<tr><td>${t.tray_id}</td><td style="text-align: left">${ui.esc(t.slot ?? "")}</td><td>${cell}</td></tr>`).join("");
+        // The table holds only the trays in this photo (Aaron, 2026-10-30): no slot column.
+        const rows = measured.sort((a, b) => (a.tray_id ?? 1e9) - (b.tray_id ?? 1e9)).map((t) =>
+          `<tr><td>${t.tray_id ?? "No tag"}</td><td>${area(t)}${edge(t)}${counted(t)}</td></tr>`).join("");
         table = `<table class="data-table" style="max-width: 560px; margin-top: 8px"><thead><tr><th>Tray</th>`
-          + `<th style="text-align: left">Slot</th><th>Plant area (mm²)</th></tr></thead><tbody>${rows}</tbody></table>`;
+          + `<th>Plant area (mm²)</th></tr></thead><tbody>${rows}</tbody></table>`;
       } else if (trays.trays.length && !dark) {
         lines.push("Plant area: not worked out for this photo.");
       }
-      return lines.map((line) => `<div>${line}</div>`).join("") + table;
+      return lines.map((line) => `<div>${line}</div>`).join("") + table + notSeenHtml(trays);
+    }
+
+    // Trays found in earlier photos of the experiment but not in this one, for 48 h after they
+    // were last seen (#318, #331): removed, or a dirty or swapped tag, which the rig cannot tell
+    // apart. One plain line under the table, never rows in it: they are not in the photo.
+    function notSeenHtml(trays) {
+      if (!trays.not_found.length) return "";
+      const when = (iso) => new Date(iso).toLocaleString(undefined, {
+        day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+      return `<div style="margin-top: 8px">Not seen in this photo: ${trays.not_found.map((t) =>
+        `tray ${t.tray_id} (last seen ${t.location ? `in ${t.location}, ` : ""}${when(t.last_seen ?? t.since)})`).join(", ")}.</div>`;
+    }
+
+    // Trays are found in the photo from their blue plastic and named by the tag inside each
+    // (#331). A tag with no tray found around it is seen, not a tray: it has no outline or area.
+    const outlined = (trays) => trays.trays.filter((t) => t.found !== "tag only");
+
+    function trayCountText(trays) {
+      // A reading from before #331 placed every tray from its tag and says nothing of the photo.
+      if (!trays.trays.some((t) => t.found)) return `Trays found: ${trays.trays.length}.`;
+      const n = outlined(trays).length;
+      const seen = trays.trays.length - n;
+      return `Trays found in the photo: ${n}.` + (seen ? ` Tags seen with no tray found: ${seen}.` : "");
+    }
+
+    // One line per tray in Info: its name, how it was found, and each warning as a chip (a word
+    // and a shape, never colour alone).
+    function trayFoundLine(t) {
+      // The warning chips say "no tag" and "tag seen, tray not found in the photo" themselves.
+      const name = t.tray_id === null ? "Tray" : `Tray ${t.tray_id}`;
+      const how = { "photo + tag": ": found in the photo, named by its tag", "photo, no tag": ": found in the photo",
+        "tag only": "" }[t.found] ?? ": placed from its tag";
+      const warnings = (t.warnings ?? []).map((w) => ui.chip("warn", w)).join(" ");
+      const location = t.location ? ` In ${t.location}.` : "";  // the table location it lies in (#332)
+      return `${name}${how}${how ? "." : ""}${location} ${warnings}`;
     }
 
     // The card's one tray line; the full reading is under Info.
@@ -241,29 +273,31 @@
       if (!trays && purpose !== "capture") return `Trays: skipped, a ${purpose} photo. Tap Tags to read it.`;
       if (!trays) return "Trays: not read yet. Tap Tags to read it.";
       if (trays.exclusion === "lights off") return "Lights off. No plant areas.";
+      if (trays.status === "no trays found") return "No trays found.";
       if (trays.status !== "read") return "Trays: not placed. Info says why.";
       const missing = missingLine(trays);
       if (EXCLUDED[trays.exclusion]) return `${EXCLUDED[trays.exclusion].card}. Areas not counted.` + missing;
       const shared = notCounted(trays);
       const moved = trays.moved.length ? (missing ? " Moved trays, see Info." : " Changes, see Info.") : "";
-      return `Trays found: ${trays.trays.length}.` + (shared ? ` ${shared}` : "") + missing + moved;
+      const n = outlined(trays).length;
+      const untagged = trays.trays.filter((t) => t.found === "photo, no tag").length;
+      const seen = trays.trays.length - n;
+      const checks = [
+        ...(untagged ? [`${untagged} with no tag`] : []),
+        ...(seen ? [`${seen} ${seen === 1 ? "tag" : "tags"} with no tray`] : []),
+      ];
+      return `Trays found: ${n}.` + (checks.length ? ` ${ui.chip("warn", `${checks.join(", ")}, see Info.`)}` : "")
+        + (shared ? ` ${shared}` : "") + missing + moved;
     }
 
-    // The card's warning for trays found earlier but not in this photo (#318): empty slots are
-    // those no tray found in this photo sits in; the others are trays not found.
+    // The card's warning for trays found earlier but not in this photo (#318); Info names them.
     function missingLine(trays) {
-      const occupied = new Set(trays.trays.map((t) => t.slot));
-      const slots = new Set(trays.not_found.filter((t) => !occupied.has(t.slot)).map((t) => t.slot));
-      const others = trays.not_found.filter((t) => occupied.has(t.slot)).length;
-      const parts = [
-        ...(slots.size ? [`${slots.size} ${slots.size === 1 ? "slot" : "slots"} empty`] : []),
-        ...(others ? [`${others} ${others === 1 ? "tray" : "trays"} not found`] : []),
-      ];
-      return parts.length ? ` ${ui.chip("warn", `${parts.join(", ")}, see Info.`)}` : "";
+      const n = trays.not_found.length;
+      return n ? ` ${ui.chip("warn", `${n} ${n === 1 ? "tray" : "trays"} not seen`)}` : "";
     }
 
     // Why trays' areas are not counted, each reason once, as sentences: "2 trays carry tag 1."
-    // (#302), "2 trays in South 1." (#315).
+    // (#302), "2 trays in one place." (#315, #332).
     function notCounted(trays) {
       return [...new Set(trays.trays.flatMap((t) => t.not_counted ?? []))].map((r) => `${ui.esc(r)}.`).join(" ");
     }
@@ -331,9 +365,9 @@
     function tagSummaryText(tags) {
       const trays = tags.filter((tag) => tag.role === "tray");
       if (trays.length === 0) return tags.length ? "No tray tags found." : "No tags found.";
-      const unsure = trays.filter((tag) => tag.placement && tag.placement.status !== "placed")
-        .map((tag) => `tray ${tag.id} ${tag.placement.status}`);
-      return `Trays found: ${idRuns(trays.map((tag) => tag.id).sort((a, b) => a - b))}.`
+      const unsure = trays.filter((tag) => tag.placement?.warnings.length)
+        .map((tag) => `tray ${tag.id} ${tag.placement.warnings.join(", ")}`);
+      return `Tray tags found: ${idRuns(trays.map((tag) => tag.id).sort((a, b) => a - b))}.`
         + (unsure.length ? ` Check: ${unsure.join(", ")}.` : "");
     }
 
@@ -354,16 +388,16 @@
       return placement ? [...lines, placement] : lines;
     }
 
-    // Trays placed from their cell A1 tag (#220) with the photo's calibration; the photo shows
-    // each one's outline, slot and corner.
+    // How each tray tag's tray was found (#331): inside an outline found in the photo, or seen
+    // with no tray found around it. The photo shows each outline and each tag seen.
     function trayPlacementText(trays) {
       if (trays.length === 0) return "";
-      const placed = trays.filter((tag) => tag.placement);
-      if (placed.length === 0) return " Trays not placed: this photo has no calibration with worked-out tray slots.";
-      const unsure = placed.filter((tag) => tag.placement.status !== "placed")
-        .map((tag) => `Tray ${tag.id} ${tag.placement.status}`);
-      return ` Trays placed in slots: ${placed.length}.` + (unsure.length ? ` Check: ${unsure.join(", ")}.` : "")
-        + " Placement assumes 12 trays, each with a 40 mm tag in cell A1.";
+      const read = trays.filter((tag) => tag.placement);
+      if (read.length === 0) return " Trays not read: this photo has no calibration.";
+      const inside = read.filter((tag) => tag.placement.found !== "tag only").length;
+      const seen = read.filter((tag) => tag.placement.found === "tag only").map((tag) => tag.id).sort((a, b) => a - b);
+      return ` Tray tags inside a tray found in the photo: ${inside}.`
+        + (seen.length ? ` Tags seen with no tray found around them: ${idRuns(seen)}.` : "");
     }
 
     // Show tags also saved the photo's tray reading (#222): show it in place of the old line. Its
@@ -750,12 +784,28 @@
       });
     });
 
+    // Trays too long in one table location (#332): only a running experiment's trays can be
+    // moved, so its warning shows with all photos or its own.
+    function showDwellWarning(list) {
+      const running = list.find((e) => e.state === "running");
+      const shown = running && (experiment === null || String(running.id) === experiment) ? running.dwell_warnings : [];
+      document.getElementById("dwell-warning").hidden = !shown.length;
+      document.getElementById("dwell-warning-text").innerHTML = shown.map((w) =>
+        `Tray ${w.tray_id}: too long in ${w.location}, ${(w.hours / 24).toFixed(1)} days.`).join("<br>")
+        + (shown.length ? "<br>Move these trays to another location. Table locations, on the Experiments page, shows where each tray has been." : "");
+    }
+
     async function showFilter() {
       loadLightWarning();
       let label = "all photos";
-      if (experiment !== null) {
+      let list = [];
+      try {
         const r = await fetch("/api/experiments");
-        const found = r.ok ? (await r.json()).find((e) => String(e.id) === experiment) : null;
+        list = r.ok ? await r.json() : [];
+      } catch (err) { /* no experiments shown */ }
+      showDwellWarning(list);
+      if (experiment !== null) {
+        const found = list.find((e) => String(e.id) === experiment);
         label = found ? experimentName(found) : `experiment ${experiment}`;
       }
       showBtn.textContent = `Show: ${label}`;

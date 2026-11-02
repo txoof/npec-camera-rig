@@ -1,0 +1,13 @@
+328 comparison: each method's best run. worst / mean = trays found on the worst still / on average.
+Targets: prod 12 of 12, dev 7 or more of 8, hard 12 of 12 (11 where a tag is not read).
+The time does not include FastSAM's own 15 to 20 s per still on the development rig's Hailo.
+
+run                       prod worst/mean  dev worst/mean  hard worst/mean   extra per still (p/d/h)  median mm (p/d/h)  s per still
+tag-v2                    12 / 12 of 12    0 / 0 of 8      11 / 11.78 of 11  0 / 0 / 0                0 / nan / 0        0          
+blue-v7                   12 / 12 of 12    8 / 8 of 8      11 / 11.78 of 11  0 / 0 / 0.22             2.5 / 2.1 / 4      0.5        
+blue-find_photo_only-v7p  12 / 12 of 12    8 / 8 of 8      11 / 11.78 of 11  0 / 0 / 0.22             3.3 / 1.8 / 8.3    0.3        
+rims-v3                   12 / 12 of 12    8 / 8 of 8      11 / 11.78 of 11  0 / 0 / 0.22             3.7 / 3.8 / 8.9    0.5        
+rims-find_blind-v3        12 / 12 of 12    8 / 8 of 8      11 / 11.78 of 11  0 / 0 / 0.22             3.4 / 3.8 / 9.6    0.6        
+fastsam-v5b               12 / 12 of 12    8 / 8 of 8      9 / 11.5 of 11    0 / 0.08 / 4.44          3.9 / 2.8 / 5.4    1.5        
+fastsam-find_photo-p5b    12 / 12 of 12    8 / 8 of 8      2 / 6.06 of 11    0 / 0.08 / 0.22          3.9 / 2.8 / 22.9   1.5        
+fit-v4                    12 / 12 of 12    8 / 8 of 8      11 / 11.78 of 11  0 / 0 / 0.17             3.9 / 2.3 / 8.7    13.1       

@@ -442,9 +442,29 @@ metrology log backs it.
   the tag.
 - **Tray tags over time.** No run with trays longer than one hour, so the chamber's light cycle,
   dust and condensation on tags are not covered. 3D-printed tags are not tested (#70). A tag print
-  lying anywhere in view is read as a tray (15.3d, #207).
+  lying anywhere in view is read as a tray (15.3d, #207). *Added 2026-10-30:* on the potato run
+  (12 trays in 2 x 6 slots, 8 days from 22 October through the light cycle), every tray was read
+  in its planned slot, A1 corner and table location after each of 6 shuffles (72 of 72), each
+  move dated from 5 minutes before to 1 minute after the recorded finish. Outside the shuffles
+  the rig read 2 short changes and no move under the 1-hour rule: a duplicate tag laid on another
+  tray for 5 photos (17.12) and a second tag 2 read in 1 photo, 6 of 95,482 tray readings
+  (metrology log 22). Dust and condensation were not checked apart.
 - **Tray identity under plants.** Plants near or over a tag are not tested (the trays had no
   plants).
+
+### Trays found from the photo (round 2, 2026-10-29)
+
+- **Tray outlines from the blue plastic.** Outlining each tray from its lit blue rim, using the
+  photo only, was right on 22 of 22 lit held-out stills (metrology log 20.1, judged by Aaron's
+  inspection; 24 stills from 9 experiments on both rigs, 12 to 28 October, with pots, empty
+  trays, calibration sheets on every tray, edge tags, cards, 4x5 and 2x2 trays), and found no
+  tray in the 2 dark stills. The versions that also used tags were wrong on 9 and 10 of the 22,
+  every time because a tag did not lie in cell A1 of a 4x5 tray; a rims method with tags hidden
+  was wrong on 8, missing trays under sheets or at the frame edge. On the 44 tuning stills (20)
+  the method met its target on every set. This method is what the app uses (21); placing a tray
+  from its cell A1 tag, the round 1 step above, is no longer used. Not shown: an outline against
+  a measured tray edge (outlines were judged by eye on quarter-size pictures); stills picked at
+  random; 1x1 or black trays.
 
 ### Flat-target bands (M2, to 2026-10-14)
 

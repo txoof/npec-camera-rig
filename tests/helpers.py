@@ -161,13 +161,22 @@ def stored_validation(
 # The benchmark plant's mint leaf colour, measured in the potato run still of 23 October 2026
 # 08:35:53 UTC (tests/test_segmentation.py).
 MINT_LEAF_RGB = (156, 228, 188)
+# Tray plastic as the blue finder sees it (#331): OpenCV hue 110, saturation 204, value 200, inside
+# the sampled tray plastic (metrology log 20).
+TRAY_BLUE_RGB = (40, 90, 200)
+
+
+def draw_tray(frame, x0: int, y0: int, x1: int, y1: int) -> None:
+    """A blue tray top over full-size photo pixels x0 to x1, y0 to y1, for the tray finder."""
+    frame[y0:y1, x0:x1] = TRAY_BLUE_RGB
 
 
 def one_tray_plant_scene(monkeypatch) -> None:
     """One tray at an even 10 px/mm, for plant areas worked out by hand (#75).
 
-    Tray 5's 40 mm tag (400 px) lies in cell A1 at the south-west, so the tray outline is x 115 to
-    3165, y 554 to 4214 in a 4000 x 4400 photo. The photo is grey with two 500 x 300 px rectangles
+    Tray 5's 40 mm tag (400 px) lies in cell A1 at the south-west of a blue tray drawn at x 115 to
+    3165, y 554 to 4214 (305 x 366 mm) in a 4000 x 4400 photo, so the tray finder's outline is the
+    drawn tray (#331). The photo is grey with two 500 x 300 px rectangles
     of mint leaf colour, 50 x 30 mm = 1500 mm2 each: one inside the tray (x 1400 to 1900, y 2200 to
     2500), one outside it (x 3400 to 3900). Saves the calibration as the fixture's, so photos taken
     after this are read with it.
@@ -184,6 +193,7 @@ def one_tray_plant_scene(monkeypatch) -> None:
         def capture_full_res(self):
             frame, metadata = super().capture_full_res()
             frame[:] = 128
+            draw_tray(frame, 115, 554, 3165, 4214)
             frame[2200:2500, 1400:1900] = MINT_LEAF_RGB
             frame[2200:2500, 3400:3900] = MINT_LEAF_RGB
             return frame, metadata
@@ -215,3 +225,55 @@ def record_light_photos(experiment_id: int, start, series, folder: str) -> None:
             focus_locked_at=None, exposure_us=e, analogue_gain=1.0, flags=[],
         )
     exclusions.update(database.captures_for_experiment(experiment_id)[-1])
+
+
+# --- Trays in the table locations (#332) ----------------------------------------------------------
+# A 900 x 600 photo with its corner tags at x 100 and 800, y 100 and 500: the rows of locations meet at
+# y 300, the columns at x 300 and 600. TABLE_CENTRES: a point well inside each location.
+TABLE_STEM = "20270101T000000000000"
+TABLE_CENTRES = {"NW": (150, 150), "NM": (450, 150), "NE": (750, 150), "SW": (150, 450), "SM": (450, 450),
+                 "SE": (750, 450)}
+
+
+def table_calibration() -> None:
+    """Save calibration TABLE_STEM: 1 px/mm, its four corner tags at the corners above."""
+    from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
+    from npec_rig.calibration_store import save_calibration
+    from npec_rig.tripwire import CornerBaseline
+
+    corners = {450: (100, 100), 451: (800, 100), 452: (800, 500), 453: (100, 500)}
+    save_calibration(
+        CalibrationArtifact(
+            created_at="2027-01-01T00:00:00+00:00", frame_stem=TABLE_STEM,
+            scale_field=scale_field_from_dict({"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 1.0, "residual_std_pct": 0.0}),
+            corner_baseline=CornerBaseline(corners_by_id={
+                i: ((x - 5, y - 5), (x + 5, y - 5), (x + 5, y + 5), (x - 5, y + 5)) for i, (x, y) in corners.items()
+            }),
+        ),
+        stem=TABLE_STEM,
+    )
+
+
+def table_photo(experiment_id: int | None, taken, trays: dict[int, str]) -> str:
+    """A 900 x 600 photo taken at `taken` (a datetime) under TABLE_STEM, read with each tray of
+    `trays` (tray ID: location) found at that location's centre; its path."""
+    from PIL import Image
+
+    from npec_rig import captures, database
+
+    day, stem = f"{taken:%Y-%m-%d}", f"{taken:%H%M%S}_{taken:%f}"
+    file = captures.photos_root() / day / f"{stem}.jpg"
+    file.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (900, 600)).save(file)
+    capture_id = database.record_capture(
+        taken_at=taken.isoformat(), path=f"rig/{day}/{stem}", purpose="capture", experiment_id=experiment_id,
+        calibration=TABLE_STEM, validation=None, lens_position=None, focus_locked_at=None, exposure_us=None,
+        analogue_gain=None, flags=[],
+    )
+    database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[
+        {"tray_id": tray_id, "slot": None, "a1_corner": None, "placement": "placed",
+         "centre_px": list(TABLE_CENTRES[location]), "tilt_deg": 0.0, "margin_mm": None, "found": "photo + tag",
+         "warnings": [], "outline_px": None}
+        for tray_id, location in trays.items()
+    ])
+    return f"rig/{day}/{stem}"

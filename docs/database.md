@@ -39,9 +39,11 @@ should be compared as times, not as text.
 | `camera_settings` | The last value of each camera setting, the focus lock, and a few small records | `settings.py` |
 | `derived_image` | Index of images made from photographs (validation maps, problem frames) | `images.py` |
 | `capture_analysis` | Results worked out once per photograph, for example its detected tags | `images.py` |
+| `experiment` | One row per experiment, kept when it is purged; here only its dwell limit (#332) | `database.py` |
+| `experiment_hidden_tray` | One row per tray hidden on an experiment's table locations panel (#332) | `database.py` |
 | `scheduled_photo` | One row per scheduled photo of an experiment, taken or missed | `scheduler.py` |
 | `tray_read` | One row per photo read for trays, with its status | `tray_readings.py` |
-| `tray_reading` | One row per tray found in a photo: its slot, A1 corner and centre | `tray_readings.py` |
+| `tray_reading` | One row per tray found in a photo: its centre and outline (its slot and A1 corner before version 14) | `tray_readings.py` |
 | `exclusion` | One row per photo of an experiment: why its plant areas are left out, if they are | `exclusions.py` |
 | `light_warning_dismissal` | One row per dismissal of an experiment's light warning | `exclusions.py` |
 | `app_start` | One row each time the app starts | `scheduler.py` |
@@ -157,6 +159,44 @@ Results worked out once per photograph, so they are not worked out again on ever
 
 Primary key: `source` and `kind` together.
 
+### `experiment`: the dwell limit
+
+Version 15 (#332) adds one column. Its other columns are described where they are made, in
+`database.py`'s migrations.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `dwell_limit_h` | real | Hours a tray may stay in one table location in a row before the experiment warns. Default 96 (4 days), also for experiments made before version 15. A decision, not a measurement (Aaron, 2026-10-30). Can be changed at any time but after a purge: the warning is worked out from the tray readings each time it is shown |
+
+The table is divided into 6 table locations, 3 columns by 2 rows: NW, NM, NE in the north row, SW, SM, SE
+in the south row (`dwell.py`). The rows meet halfway between the northern and the southern row of
+corner tags, through the calibration's table frame (the homography of the four corner tags); the
+columns are thirds of the photo's width along each row of the table. With no table frame (a
+calibration without four corner tags, or a photo with no calibration), the photo itself is halved
+and cut in thirds. A tray's centre decides its location. A tray is in a new location only after it has
+been away from its location for over 1 hour (from its first to its last photo elsewhere, in any
+other locations together), and then in the one it was in longest in that time; shorter stays,
+misses and the tray taken off the table for up to 48 hours do not break its stay. A tray missing
+for more than 48 hours (`NOT_SEEN_FOR`, as for trays not found) was taken away: its stay ends at
+its last photo, it is not warned for, and when it is found again it starts a new stay, even in the
+same location. The warning counts a stay from its first photo to the time it is shown. Nothing about table locations or
+stays is stored: they are worked out from `tray_reading` each time.
+
+### `experiment_hidden_tray`
+
+Version 16 (#332). A tray hidden on an experiment's table locations panel, such as a misread tag
+(Aaron, 2026-11-02). A hidden tray shows as one line on the panel and gives no warning anywhere;
+its tray readings and the export are unchanged. Show deletes the row.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `experiment_id` | integer | The experiment (`experiment.id`) |
+| `tray_id` | integer | The tray's tag ID |
+| `hidden_at` | text | When it was hidden, UTC. Hiding it again keeps the first time |
+
+One row per experiment and tray (the two together are the key). The rows of a discarded
+experiment are deleted with it; a purge keeps them, with the experiment's record.
+
 ### `scheduled_photo`
 
 One row per slot of an experiment's photo schedule. The schedule's interval is
@@ -197,8 +237,13 @@ deleted by the rig.
 Readings per tray per photo (#222). The app reads each new photo taken as a capture in the
 background, after it is saved, newest first: every photo taken since the app started and every
 photo of the running experiment. Older photos are read when Show tags is tapped in the gallery
-(Aaron, 2026-10-22). A reading: its tags are found once (`capture_analysis`) and each
-tray is placed from the tag in its cell A1 with the photo's calibration (`tray_placement.py`).
+(Aaron, 2026-10-22). A reading: its tags are found once (`capture_analysis`), the trays are
+found in the photo from their blue plastic and each is named by the tray tag whose centre lies
+inside its outline, wherever the tag lies in the tray; a tray tag inside no outline is a tag
+seen with no tray found, stored at the tag's centre with no outline and no area (#331,
+`tray_placement.py`). Only a calibration is needed: trays can lie anywhere on the table, and
+readings from version 14 on have no slot. Before version 14 each tray was placed from the tag in
+its cell A1 and the nearest slot of the calibration's slot layout.
 Validation, calibration and tripwire photos are not read in the background.
 
 `tray_read` has one row per photo read, even when no tray was found:
@@ -207,32 +252,39 @@ Validation, calibration and tripwire photos are not read in the background.
 |---|---|---|
 | `capture_id` | integer | The photo's `capture` row |
 | `read_at` | text | When it was read, UTC |
-| `status` | text | `read`; or why no tray was placed: `no tags found` (no tag of any kind, as with the lights off), `no calibration`, `no slot layout`, `placement failed`, `read failed` |
+| `status` | text | `read`; or why no tray was placed: `no trays found` (neither a tray nor a tag, as with the lights off; `no tags found` before version 14), `no calibration`, `no slot layout` (before version 14), `photo not found` (Reprocess with the photo gone and no outlines saved), `placement failed`, `read failed` |
 
-`tray_reading` has one row per tray whose tag was found. Two trays in one photo may carry the same
+`tray_reading` has one row per tray found in the photo or by its tag. Two trays in one photo may carry the same
 tag (a misprint): both rows are kept, each with its own area, and neither area counts in that photo
 ("2 trays carry tag 1", #302). Two trays placed in one slot (`placement` is `two trays in one
-slot`: a tray carried over the table, or a loose tag lying on a tray) make the whole photo chamber
-activity (`exclusion` `visit`), and both trays show "2 trays in South 1" (#315). Before version 13 the table allowed one row per tag in a photo, and
+slot`, before version 14: a tray carried over the table, or a loose tag lying on a tray) make the
+whole photo chamber activity (`exclusion` `visit`), and both trays show "2 trays in one place"
+(#315; it named the slot before #332). Before version 13 the table allowed one row per tag in a photo, and
 such a photo was saved as `read failed` with no trays.
 
 | Column | Type | Meaning |
 |---|---|---|
 | `capture_id` | integer | The photo |
-| `tray_id` | integer | The tag ID in cell A1; twice in a photo when two trays carry it |
-| `slot` | text | The nearest slot of the calibration's slot layout |
-| `a1_corner` | text | `SW`, or `NE` for a tray turned 180 |
-| `placement` | text | `placed`, `close call` or `two trays in one slot` |
-| `centre_x_px`, `centre_y_px` | real | Tray centre in full-size photo pixels |
+| `tray_id` | integer | The tray tag's ID; twice in a photo when two trays carry it; NULL for a tray found in the photo with no tag inside it |
+| `slot` | text | The nearest slot of the calibration's slot layout; NULL from version 14 on |
+| `a1_corner` | text | `SW`, or `NE` for a tray turned 180; only for a tray placed from its tag, else NULL |
+| `placement` | text | `placed`, `close call` or `two trays in one slot` (placed from the tag, before version 14), or `two tags in one outline`: neither tray counts and the photo is chamber activity, as for two trays in one slot (#315) |
+| `centre_x_px`, `centre_y_px` | real | Tray centre in full-size photo pixels; for `tag only`, the tag's centre |
 | `tilt_deg` | real | The tray's turn off the image axes, clockwise |
-| `margin_mm` | real | How much nearer a slot the chosen corner is than the other |
+| `margin_mm` | real | How much nearer a slot the chosen corner is than the other; only for a tray placed from its tag, else NULL |
 | `area_mm2` | real | NULL until segmentation (#74) |
 | `outside_mm` | real | How far the tray's outline reaches past the photo edge at its farthest corner, mm; 0 inside. More than 13 mm shows "partly outside the photo" (#282). NULL for photos read before version 12 |
+| `found` | text | How the tray was found: `photo + tag`, `photo, no tag` or `tag only` (a tag seen, its tray not found in the photo: no outline, no area). NULL for photos read before version 14 |
+| `warnings` | text | JSON list of warnings: `no tag`, `two tags in one tray outline`, `tag seen, tray not found in the photo`, `partly outside the photo`. NULL before version 14 |
+| `outline` | text | JSON list of the outline's four corners, `[x, y]` in full-size photo pixels. NULL for `tag only` and before version 14 |
 
 A tray not found is never stored. When a photo's readings are shown, each tray found in an
 earlier photo of the same experiment but not in this one is listed as not found since the first
 photo it was missing from (Aaron, 2026-10-21): a removed tray, a swapped tag and a dirty tag look
-the same to the rig. Only photos with the status `read` count, so a dark photo is not a tray
+the same to the rig. It is shown with the table location it was last found in (#332). A tray
+is listed as moved when its centre is in another table location than in the experiment's previous read
+photo; a nudge within its location or a turn is not a move (#332). A tray with no tag is never listed
+as not found or as moved: it cannot be followed from photo to photo. Only photos with the status `read` count, so a dark photo is not a tray
 missing. A purge deletes both tables' rows with the photos.
 
 ### `exclusion`

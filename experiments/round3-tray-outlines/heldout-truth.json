@@ -1,0 +1,244 @@
+{
+ "01-dev_8cb40de9_20261028_132505_838293": {
+  "trays": "9, one partly outside",
+  "wrong": {
+   "yellow (rims, with tags)": "South 1 not outlined",
+   "purple (rims, tags hidden)": "South 1 not outlined"
+  },
+  "right": [
+   "green (blue, with tags)",
+   "red (blue, photo only)"
+  ],
+  "note": "North 1 slightly out of frame in all; outlines very good otherwise"
+ },
+ "03-dev_8cb40de9_20261029_163305_859989": {
+  "wrong": {},
+  "red_rechecked": "right"
+ },
+ "04-dev_907f12cd_20261023_133141_374223": {
+  "trays": 12,
+  "wrong": {
+   "purple (rims, tags hidden)": "missed one tray (11 of 12)"
+  },
+  "red_rechecked": "right"
+ },
+ "05-dev_907f12cd_20261023_135340_337613": {
+  "trays": 12,
+  "wrong": {
+   "purple (rims, tags hidden)": "missed South 1"
+  },
+  "red_rechecked": "right"
+ },
+ "06-prod_17cb7bfb_20261019_080712_753898": {
+  "wrong": {
+   "green (blue, with tags)": "very wrong (24 outlines, doubles)",
+   "yellow (rims, with tags)": "all outlines far off"
+  },
+  "right": [
+   "purple (rims, tags hidden)",
+   "red (blue, photo only; was light blue)"
+  ]
+ },
+ "_note": "Light blue outlines were nearly invisible on blue trays; redrawn red in 328-held-2 (same outlines). Red rechecked per still.",
+ "07-prod_17cb7bfb_20261019_113854_929105": {
+  "trays": 12,
+  "wrong": {
+   "purple (rims, tags hidden)": "extra row of 6 outlines along the south edge"
+  },
+  "right": [
+   "green",
+   "red",
+   "yellow"
+  ]
+ },
+ "08-prod_44a9e96e_20261015_075756_789328": {
+  "trays": 12,
+  "wrong": {
+   "green (blue, with tags)": "extra outlines not matching trays",
+   "yellow (rims, with tags)": "badly placed, extra outlines"
+  },
+  "right": [
+   "red",
+   "purple"
+  ]
+ },
+ "09-prod_44a9e96e_20261015_120350_220119": {
+  "trays": 12,
+  "wrong": {
+   "green (blue, with tags)": "outlines everywhere, poorly aligned",
+   "yellow (rims, with tags)": "outlines everywhere"
+  },
+  "right": [
+   "red",
+   "purple"
+  ]
+ },
+ "10-prod_44a9e96e_20261018_103736_958739": {
+  "trays": 12,
+  "wrong": {
+   "green (blue, with tags)": "mess, many extra outlines",
+   "yellow (rims, with tags)": "similar mess"
+  },
+  "right": [
+   "red",
+   "purple"
+  ]
+ },
+ "11-prod_44a9e96e_20261019_080328_217729": {
+  "trays": 12,
+  "wrong": {
+   "green (blue, with tags)": "extra outlines",
+   "yellow (rims, with tags)": "poorly aligned"
+  },
+  "right": [
+   "red",
+   "purple"
+  ],
+  "note": "red and purple not named: taken as right"
+ },
+ "12-prod_57f74959_20261020_131657_581470": {
+  "trays": 12,
+  "wrong": {},
+  "right": [
+   "green",
+   "red",
+   "yellow",
+   "purple"
+  ]
+ },
+ "13-prod_57f74959_20261021_070359_857510": {
+  "trays": 12,
+  "wrong": {},
+  "right": [
+   "green",
+   "red",
+   "yellow",
+   "purple"
+  ]
+ },
+ "14-prod_631bb6b5_20261012_133117_986053": {
+  "trays": 12,
+  "wrong": {
+   "green": "mess of overlapping outlines, especially south",
+   "yellow": "shifts everything right, misses South 1",
+   "purple": "misses the whole south row"
+  },
+  "right": [
+   "red"
+  ]
+ },
+ "15-prod_631bb6b5_20261012_193529_996762": {
+  "trays": 12,
+  "wrong": {
+   "green": "mess of overlaps",
+   "yellow": "misses South 1, shifts everything",
+   "purple": "misses south row"
+  },
+  "right": [
+   "red"
+  ]
+ },
+ "16-prod_631bb6b5_20261014_191712_932232": {
+  "trays": 12,
+  "wrong": {
+   "green": "messy, too many outlines",
+   "yellow": "poorly aligned, mostly in the right spots",
+   "purple": "misses North 6"
+  },
+  "right": [
+   "red"
+  ]
+ },
+ "17-prod_631bb6b5_20261015_065317_495702": {
+  "trays": 12,
+  "wrong": {
+   "green": "extra outlines",
+   "yellow": "poorly aligned"
+  },
+  "right": [
+   "red",
+   "purple"
+  ]
+ },
+ "18-prod_c2c49f62_20261019_135041_697173": {
+  "trays": 12,
+  "wrong": {},
+  "right": [
+   "green",
+   "red",
+   "yellow",
+   "purple"
+  ]
+ },
+ "19-prod_df206967_20261022_162053_615911": {
+  "trays": 12,
+  "wrong": {},
+  "right": [
+   "green",
+   "red",
+   "yellow",
+   "purple"
+  ]
+ },
+ "20-prod_df206967_20261024_120053_608338": {
+  "trays": 12,
+  "wrong": {},
+  "right": [
+   "green",
+   "red",
+   "yellow",
+   "purple"
+  ]
+ },
+ "21-prod_df206967_20261026_120053_612887": {
+  "trays": 12,
+  "wrong": {},
+  "right": [
+   "green",
+   "red",
+   "yellow",
+   "purple"
+  ]
+ },
+ "22-prod_df206967_20261028_115953_618767": {
+  "trays": 12,
+  "wrong": {
+   "purple": "misses South 1 (tray under a sheet); found by the agent on checking the 11 outlines, Aaron answered everything right"
+  },
+  "right": [
+   "green",
+   "red",
+   "yellow"
+  ]
+ },
+ "24-prod_e7a53c3e_20261020_074505_340951": {
+  "trays": 12,
+  "wrong": {},
+  "right": [
+   "green",
+   "red",
+   "yellow",
+   "purple"
+  ]
+ },
+ "02-dev_8cb40de9_20261029_041305_934789": {
+  "trays": "none visible (dark)",
+  "wrong": {},
+  "right": [
+   "green",
+   "red",
+   "yellow",
+   "purple"
+  ]
+ },
+ "23-prod_df206967_20261029_051653_839622": {
+  "trays": "none visible (dark)",
+  "wrong": {},
+  "right": [
+   "green",
+   "red",
+   "yellow",
+   "purple"
+  ]
+ }
+}

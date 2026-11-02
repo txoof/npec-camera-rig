@@ -59,7 +59,7 @@ two area errors (for example +1.00% to +1.03%) is given in *points* (+0.03 point
 | Callipers used for every reading in this table | NEIKO callipers; no model or serial number available | Stated by Aaron | 2026-10-08 | Not checked against a reference standard. The only independent check: the steel tape and the callipers agree on the sheets' 180 mm scale bars (section 9.2) |
 | Calliper resolution trusted | 0.1 mm | **Decision** | | Readings are not used beyond 0.1 mm |
 | Sheet-to-sheet difference | up to about 0.7% in area between sheets that both measure 30.0 mm | Fit residuals, 6 pages, 3 sessions | 2026-09-30 to 10-01 | `reference/arducam-central-error-2026-10.md` |
-| Tray heights, table surface to the top edge of the tray | Black tray 40 mm; 4x5 tray 105 mm; 4x4 tray 150 mm; 1x1 tray 175 mm | Tape measure, by Aaron, one reading per tray, given in cm (4, 10.5, 15, 17.5) | 2026-10-09 | One tape reading each, so a few mm either way. For the black, 4x4 and 1x1 trays the top edge is the growing-medium height (Aaron, 2026-10-09). The 4x5 is the exception: see the next row |
+| Tray heights, table surface to the top edge of the tray | Black tray 40 mm; 4x5 tray 105 mm; 4x4 tray 150 mm; 1x1 tray 175 mm | Tape measure, by Aaron, one reading per tray, given in cm (4, 10.5, 15, 17.5) | 2026-10-09 | One tape reading each, so a few mm either way. For the black, 4x4 and 1x1 trays the top edge is the growing-medium height (Aaron, 2026-10-09). The 4x5 is the exception: see the next row. Correction, 2026-11-02 (#327): the "4x4 tray" is a 2 x 2 tray (4 cells, 4 plants), a mislabel (Aaron, 2026-10-29); its height is unchanged |
 | Growing medium height, 4x5 tray | 100 mm above the table surface; the tray lip stands 5 mm above the growing medium | Callipers, the 100 mm "normal tray" value of the height test (section 4); Aaron confirmed on 2026-10-09 that it is the growing-medium height and that the lip stands 5 mm proud of it | 2026-10-01 (callipers), 2026-10-09 (confirmed) | The height used for the 4x5 tray on the experiments page. Only the 4x5 has a lip above the growing medium |
 
 **Where the calliper readings are.** The 2026-09-21 readings were typed by Aaron into a table and
@@ -3826,6 +3826,10 @@ when the trays are pushed together (steps 5 and 6). Counted as it is.
 trays, rotations other than 0 and 180 degrees, fewer than 12 trays, soil and plants, the chamber
 light cycle.
 
+*Correction, 2026-11-02 (#327): the trays called "4x4" here are 2 x 2 trays, 4 cells and 4 plants
+(Aaron, 2026-10-29). The name was a mislabel, not a measurement; the text above is left as it was
+recorded.*
+
 **Session record, 19 October 2026** (written during the session; times UTC, chamber UTC+2).
 
 - *Rig.* Experiment `pots-2026-10-19` (folder `2026-10-19_17cb7bfb`, tray height 100 mm set on
@@ -4917,6 +4921,10 @@ separated from the rig's error in trays 1 to 7. Shuffles only in the middle and 
 give, with plant trays always in the middle. Not covered: 4 x 4 and 1 x 1 trays, fewer than 12
 trays, a lens moved, other chambers.
 
+*Correction, 2026-11-02 (#327): the trays called "4x4" here are 2 x 2 trays, 4 cells and 4 plants
+(Aaron, 2026-10-29). The name was a mislabel, not a measurement; the text above is left as it was
+recorded.*
+
 The method was written after the run started (see above), which is against this log's rule that
 a method comes before its test. What that means: no result had been looked at, so the questions,
 pairs and tables were not chosen from the data; but the run itself (trays, interval, positions)
@@ -5915,6 +5923,33 @@ rig's own height effect (2.5% to 3.4% large, above) would make its shortfall at 
 (magenta dots and outline) and the four beads (magenta rings) found by `phone_scan.py`. The
 09:36:53 picture is `figures/17.13/142a6558-corners-beads.jpg`.*
 
+### 17.14 The benchmark rosettes measured by the supervisor with a phone app (#297, noted 2026-10-29)
+
+**Label: reference comparison** (a reference value only; not yet compared with the rig). Given by
+Aaron on 2026-10-29: the supervisor's areas of the four rosettes of "Benchy Yellow-4" (15.1),
+measured on 29 October with the app iPhonoType on two phones.
+
+| Rosette | iPhone (mm²) | Galaxy S24 (as given: px; cm) | Galaxy S24 px per cm² (computed) |
+|---|---|---|---|
+| NE | 1692.05 | 3391 px; 3.63 | 934 |
+| SE | 1064.17 | 7428 px; 6.75 | 1100 |
+| NW | 611.92 | 21243 px; 19.31 | 1100 |
+| SW | 325.37 | 13770 px; 12.51 | 1101 |
+
+The iPhone areas are in mm² (Aaron, 2026-10-29) and follow the size order of the 3D scan
+(15.5e: NE 2009.9, SE 1343.7, NW 753.4, SW 413.7 mm²). The Galaxy S24 areas were given in "cm",
+taken to be cm². They do not agree with the iPhone or the 3D scan: their order runs the other
+way (NW largest, NE smallest), and NE has a different px per cm² from the other three. Recorded as
+given; whether the Galaxy labels or the NE reading are mixed up is not known.
+
+*Method as given.* The supervisor's segmentation uses SAM 2.1 small. His description: "for SAM 2.1
+small: it auto-generate points and box prompts from RGB color-shape cues, run SAM 2.1 small locally
+via ONNX Runtime with cached image embeddings, and then post-process the overlapping masks before
+measuring each plant region." He recommends this approach for #297.
+
+*Not known yet.* The iPhone model; how the app sets its scale and which height it applies to;
+the time of day. The photos and the app's outlines are not kept in the repository.
+
 ## 18. Tag edges against tag spacing in the stored photos (issue #286, method written 2026-10-25, before the analysis)
 
 **Label: development check.** Step 1 of the plan in issue #286: section 17.6 found the scale from
@@ -6476,3 +6511,758 @@ clear background 20 to 30 px around it, which half way needs and plants may not 
 touching leaves and plants). Each square was first found by exg, so a method's result starts from
 exg's object. One light level, three backgrounds, one camera position and focus. Not a band for
 plants: plants are compared in #297.
+
+## 19. Segmentation methods on the potato plants (issue #297)
+
+### 19.1 Every method tried, on one still (2026-10-29)
+
+**Label: development check** for the plant counts (against the known contents of the trays);
+**reference comparison** for the Benchy rosettes (against the supervisor's phone app, 17.14, and
+the 3D scan, 15.5e). **The method was not written before the run.** It was put together during an
+exploratory session on 2026-10-29, and its settings (crop, piece size, join distance, tiles) were
+chosen while looking at this still and four others of the same run. The counts below are therefore
+optimistic for this still; they say which methods are worth carrying forward, not how well any of
+them will do.
+
+*Still.* Production rig, experiment 18 ("Potato Plants v001"),
+`experiments/2026-10-22_df206967/stills/2026-10-29/120453_603102.jpg`, 2026-10-29 12:04:53 UTC
+(13:04 Dutch time), exposure 4469 µs, gain 1.0, calibration `20261026T153214381640` (the one the
+rig read it with). Copied read-only; nothing written on production.
+
+*Truth* (Aaron, 2026-10-29, from what was planted): trays 1 to 6, 19 plants each (20 cells, A1 holds
+the tag); tray 7 (North 5), 6 plants and a green benchmark, 7 green objects; tray 8 (South 2), the
+Benchy (15.1): 4 plastic rosettes and a green benchmark, 5 green objects. Trays 9 to 12 hold test
+targets and sheets and are not counted.
+
+*Where it ran.* The development rig `npec-rig-01` (Raspberry Pi 5, 8 GB), offline on the copied
+still; its camera and app were not used. Its accelerator is a **Hailo-10H** (HailoRT 5.1.1), not the
+Hailo-8 of production, so round 1's `fast_sam_s.hef` (Hailo-8) does not run there. Models, with
+SHA-256 of the files used:
+
+| Model | Source | Runs on | SHA-256 |
+|---|---|---|---|
+| FastSAM-s | Hailo Model Zoo v5.1.0, hailo10h, `fast_sam_s.hef` | Hailo-10H | `d6e30803...` |
+| CLIP ViT-B/32 image encoder | Hailo Model Zoo v5.1.0, hailo10h | Hailo-10H | `a831d634...` |
+| CLIP ViT-B/32 text encoder | Hailo Model Zoo v5.1.0, hailo10h | Hailo-10H | `405a17c8...` |
+| CLIP text tables | hailo-apps resources: `token_embedding_lut.npy`, `text_projection.npy`, `clip_tokenizer.json` | CPU | `36138bdc...`, `c1720633...`, `6d9109cc...` |
+| SAM 2.1 small | `onnx-community/sam2.1-hiera-small-ONNX`, full precision: `vision_encoder.onnx` (+ data), `prompt_encoder_mask_decoder.onnx` (+ data) | CPU, ONNX Runtime 1.31.1, 4 threads | `aacf1f71...` (+ `260fd1f0...`), `079c59b2...` (+ `f9e59a58...`) |
+
+*Shared steps, the same for every method.*
+
+1. Tags: `npec_rig.tags.detect_tags` on the full still. Trays: `tray_placement.place_trays` with
+   copies of the rig's calibration and slot layout for `20261026T153214381640`; all 12 trays placed.
+2. Crop: the full width, rows from the highest to the lowest corner of the 4 corner tags; each
+   corner tag (and its green holder) painted grey to 1.5 tag sides from its centre.
+3. Green pieces: the green threshold in use (`ExGSegmenter`, excess green above 0.1) on a half-size
+   copy; pieces of at least 0.5 mm² (at 4.86 px/mm).
+4. A plant belongs to the tray its centre lies in. Areas in mm² from the calibration's scale at
+   the plant's centre (tray-top height; no height correction).
+
+*Methods.*
+
+| Method | What counts as one plant | Area |
+|---|---|---|
+| exg join 3, 5, 10 mm | green pieces closer than 3, 5 or 10 mm | green pixels |
+| FastSAM point | the smallest FastSAM object holding a 3 mm blob's centre; blobs in the same object are one plant; blobs with no object are dropped | the object's mask |
+| FastSAM + CLIP "foliage", "leaves", "plants" | FastSAM objects that CLIP scores higher for the word than for "soil", "blue plastic", "white paper", "black and white pattern" and "grey metal" | the object's mask |
+| SAM 2.1 | SAM 2.1 small with a box (the blob's box, 25% wider per side) and a point (its green pixel nearest the centre) per 3 mm blob; one image embedding per tile (3 x 2 tiles, 300 px overlap, about 3 times reduced) used for all its prompts; masks sharing 30% of the smaller merged | the merged mask |
+| SAM 2.1, green inside | the same plants | green pixels (full size) inside the merged mask |
+
+The three CLIP words follow the supervisor's use of "foliage" with a SAM variant (17.14); his own
+method (SAM 2.1 small with prompts from colour and shape) is the SAM 2.1 row, with our green blobs
+as the prompts.
+
+*Script.* `experiments/round3-segmentation/compare.py` (with `fastsam_plants.py`,
+`clip_prompts.py`, `sam21_plants.py`), run on the development rig as
+`compare.py 120453_603102.jpg --fastsam-hef ... --clip ... --sam ... --calibration ... --slots ...
+--rig-reading ...`; results `docs/figures/19.1/per_tray.csv` and `summary.json`.
+
+*Result: plant counts.*
+
+| Method | Trays 1 to 6 (true 114) | Tray 7 (true 7) | Tray 8 (true 5) | Mean error per tray, trays 1 to 8 | Worst tray | Time |
+|---|---|---|---|---|---|---|
+| exg join 3 mm | 135 | 16 | 6 | 3.9 | +9 | 0.4 s |
+| exg join 5 mm | 106 | 16 | 6 | 3.3 | +9 | 0.4 s |
+| exg join 10 mm | 103 | 15 | 6 | 2.8 | +8 | 0.5 s |
+| FastSAM point | 101 | 8 | 5 | 2.0 | -6 | 6.8 s |
+| FastSAM + CLIP "foliage" | 30 | 1 | 5 | 11.3 | -18 | 18.9 s |
+| FastSAM + CLIP "leaves" | 72 | 2 | 5 | 5.9 | -12 | 18.9 s |
+| FastSAM + CLIP "plants" | 35 | 8 | 18 | 11.6 | -16 | 18.9 s |
+| SAM 2.1 | 103 | 16 | 6 | 2.9 | +9 | 224.6 s (100.5 s in its own run) |
+| SAM 2.1, green inside | 103 | 16 | 6 | 2.9 | +9 | 225.0 s |
+
+Mean error per tray is the mean of |found - true| over trays 1 to 8. Times are each method's own
+steps; the shared steps took 10.9 s (most of it tag detection on the full still). The CLIP times
+include FastSAM, run once for all three words.
+
+| Tray | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| True | 19 | 19 | 19 | 19 | 19 | 19 | 7 | 5 |
+| exg join 3 mm | 26 | 21 | 22 | 19 | 26 | 21 | 16 | 6 |
+| exg join 5 mm | 21 | 17 | 18 | 13 | 21 | 16 | 16 | 6 |
+| exg join 10 mm | 20 | 17 | 18 | 13 | 19 | 16 | 15 | 6 |
+| FastSAM point | 20 | 16 | 18 | 13 | 18 | 16 | 8 | 5 |
+| CLIP "foliage" | 4 | 4 | 6 | 9 | 6 | 1 | 1 | 5 |
+| CLIP "leaves" | 14 | 10 | 14 | 14 | 13 | 7 | 2 | 5 |
+| CLIP "plants" | 3 | 4 | 8 | 11 | 6 | 3 | 8 | 18 |
+| SAM 2.1 | 20 | 17 | 18 | 13 | 19 | 16 | 16 | 6 |
+
+- **No method gets every tray right.** FastSAM point is closest: it drops green specks on the blue
+  plastic of tray 7's empty half (no FastSAM object there) and joins pieces of one plant that fall
+  in the same object. Like every method here it starts from the green pieces, so it cannot find a
+  plant the green threshold missed: tray 4 reads 13 of 19 in every green-based method except
+  exg join 3 mm (19, while it counts trays 1 and 5 seven too many).
+- **Joining by distance alone has no right setting.** 3 mm counts trays 1 and 5 seven too many;
+  5 mm already loses 6 plants on tray 4.
+- **The CLIP words do not find seedlings.** At most 72 of 114, and "plants" mostly picks the tag
+  sheets (134 objects on trays 9 to 12).
+- **SAM 2.1 counts as exg join 5 to 10 mm does**, since its prompts are the 3 mm blobs and nearly
+  every blob's mask overlaps another piece of the same plant.
+
+*Result: areas.* The green area per tray agrees with the rig's own stored reading of the same still
+(trays 1 to 8: green inside the SAM 2.1 masks within 1.9%, exg join 5 mm within 6%, the half-size
+copy reading slightly low on the smallest plants). Mask areas do not: SAM 2.1's masks are 12 to 24
+times the green area on trays 1 to 6 (tray 1: 2228 against 183 mm²), and FastSAM point includes
+whole pots on trays 1, 2 and 6 (5848, 9717, 9508 mm²).
+
+*Result: the Benchy rosettes*, the four largest objects on tray 8, matched to the references by
+size order (17.14; which rosette is which in the still was not checked):
+
+| | Largest | 2nd | 3rd | Smallest |
+|---|---|---|---|---|
+| exg (green pixels; SAM 2.1 green inside the same) | 1689 | 1043 | 565 | 258 |
+| FastSAM point (mask) | 1887 | 1230 | 732 | 399 |
+| SAM 2.1 (mask) | 2620 | 1478 | 885 | 492 |
+| iPhone, iPhonoType (17.14) | 1692 | 1064 | 612 | 325 |
+| 3D scan (15.5e) | 2010 | 1344 | 753 | 414 |
+
+In mm². exg is within 2% of the iPhone on the two largest rosettes and 8% and 21% below it on the
+two smallest. FastSAM's masks are 3% to 9% below the 3D scan. SAM 2.1's masks are 39% to 55% above
+the iPhone: at this tile size its mask is 256 cells across about 3000 px (one cell about 2.4 mm), and
+it fills the gaps between the leaf tips; the largest rosette's mask also runs into its shadow. The
+two references differ from each other by 16% to 21%, so which is right is not known (17.13, 17.14).
+
+*Timing.* Target: under 1 minute per still for the whole pipeline (Aaron, 2026-10-29), with area
+work possibly moved to the dark hours (lights off about 00:28 to 08:03 UTC). SAM 2.1 small on the
+CPU took 100.5 s in its own run (6 tile embeddings 54.9 s, 175 prompts 33.8 s, tags 10.6 s) and
+224.6 s in this run, where the development rig's CPU was throttled for heat (79 °C, throttle flags
+`0xe0000`: frequency capped, throttled, soft temperature limit). A single embedding took 6.5 s cool
+(4.8 s with the 8-bit encoder) and each prompt 0.13 to 0.19 s. FastSAM on the Hailo-10H took 6.8 s
+per still, CLIP 12 s more for 664 objects.
+
+*Figures* (made by `compare.py` and `sam21_plants.py` on 2026-10-29, scaled down; full size on the
+development rig in `~/sam297/out/13-compare/` and `12-sam21/`):
+
+- `docs/figures/19.1/exg-join5.jpg`: green pieces joined within 5 mm (magenta boxes), trays
+  outlined with found and true counts.
+- `docs/figures/19.1/fastsam-point.jpg`: FastSAM point; green outlines are the chosen objects,
+  including whole pots.
+- `docs/figures/19.1/clip-leaves.jpg`: FastSAM objects kept for "leaves".
+- `docs/figures/19.1/sam21.jpg`: SAM 2.1 plants.
+- `docs/figures/19.1/benchy-sam21.jpg`: tray 8 at full size with SAM 2.1's masks and areas
+  (from the `sam21_plants.py` run of the same still): the masks fill between leaf tips and the
+  largest runs into its shadow.
+
+**Limits of the evidence.** One still at one time of day, with settings chosen on it. Truth is the
+number of plants planted, not a count from the photo; pots where a plant died or did not come up
+would count against every method alike. Every method starts from the green threshold's pieces, so
+none is tested on plants the threshold misses, and the SAM methods are not tested with their own
+prompts. Young plants only (seedlings of a few mm² to about 600 mm² on tray 7): older plants that
+touch or hang over a pot edge (the development rig's photo) and the black tray of loose pots are not
+covered. The Benchy rosettes are matched by size, not by position, and are 20 to 30 mm above the
+tray top, so the rig's figures read about 3% to 4% large (0.145% per mm) before any method's edge.
+CLIP's image side was not tested on its own, and Hailo's 8-bit CLIP may score differently from the
+original. The timings are from the development rig, not the production rig, and the SAM 2.1 time
+in this run is throttled. What the rig reports is unchanged: the green threshold stays (Aaron,
+2026-10-26), so `docs/measurement-trust.md` is not changed by this section.
+
+### 19.2 ExG minus ExR as the colour rule, and the expected count from the tag (2026-10-29)
+
+**Label: development check.** The same still, crop, trays and truth as 19.1, the same script
+(`compare.py --light --cv-threads 2`, which leaves out CLIP and SAM 2.1). The green threshold in use
+is replaced by **ExG minus ExR > 0** (excess green minus excess red, 1.4 r - g, in chromatic
+coordinates; Meyer and Neto 2008; the rule of 18.8, `experiments/round2-tagedge/methods.py`), on the
+same half-size copy, pieces of at least 0.5 mm²: joined within 3, 5 and 10 mm, and as the points for
+FastSAM. Question: does holding back the red-brown soil keep pale seedlings the green threshold
+misses (tray 4, 13 of 19 in 19.1)?
+
+*Expected count from the tag.* Each tray's tag ID sets its type (PLAN.md, Tag ID allocation): IDs 1
+to 75 are 4 x 5 trays (19 plants, A1 holds the tag), 76 to 150 4 x 4 (16; correction 2026-11-02,
+#327: these are 2 x 2 trays, 4 plants), 151 to 225 1 x 1 (1), 226 to 250 black trays and 251 to 299
+other trays (no fixed number). All 12 trays here are 4 x 5 (IDs 1 to 12), so each is expected to
+hold at most 19. A tray read above its expected count is certainly wrong; one read below may be
+wrong or only partly planted (tray 7), which the tag cannot tell. `compare.py` lists the trays read
+above it.
+
+*Result.* Results `docs/figures/19.2/per_tray.csv` and `summary.json`; the green threshold rows are
+those of 19.1, run again (identical).
+
+| Method | Trays 1 to 6 (true 114) | Tray 4 (true 19) | Tray 7 (true 7) | Tray 8 (true 5) | Mean error per tray, 1 to 8 | Trays above 19 | Time |
+|---|---|---|---|---|---|---|---|
+| exg join 5 mm (19.1) | 106 | 13 | 16 | 6 | 3.3 | 1, 5 | 0.4 s |
+| exg join 10 mm (19.1) | 103 | 13 | 15 | 6 | 2.8 | 1 | 0.6 s |
+| FastSAM point, exg (19.1) | 101 | 13 | 8 | 5 | 2.0 | 1 | 6.9 s |
+| ExG - ExR join 3 mm | 263 | 28 | 28 | 35 | 25.0 | 1 to 8, 12 | 0.6 s |
+| ExG - ExR join 5 mm | 171 | 17 | 18 | 18 | 10.6 | 1, 2, 3, 5, 6, 12 | 0.6 s |
+| ExG - ExR join 10 mm | 153 | 17 | 12 | 7 | 6.3 | 1, 2, 3, 5, 6, 12 | 0.7 s |
+| FastSAM point, ExG - ExR | 97 | 10 | 14 | 18 | 4.6 | 12 | 6.9 s |
+
+- **ExG minus ExR is worse here on every count.** With its threshold at 0 it takes in soil and, on
+  the Benchy, much of the yellow base: tray 4's area is 140681 mm² (rig 53 mm²) and the Benchy's
+  largest object 36801 mm² at 3 mm.
+- Its 17 on tray 4 is not a gain: with the soil taken in, the objects there are mostly not plants.
+- The expected count flags the green threshold's over-counts (trays 1 and 5 at 5 mm), but not its
+  misses, which is where its errors now are.
+
+*Figure.* `docs/figures/19.2/exgr-join10.jpg`: ExG minus ExR joined within 10 mm (magenta boxes),
+trays with found and true counts; made by `compare.py`, scaled down.
+
+*Incident: the development rig's app was killed by these runs.* The full runs of 19.1 (about
+2.3 GB with CLIP and SAM 2.1) left too little memory on the 8 GB development rig, whose app holds
+about 4 GB, and the kernel's out-of-memory killer stopped the app three times (13:01:00, 13:03:08,
+13:17:30 UTC); systemd restarted it each time. Its running experiment ("development rig") lost no
+still; 8 stills were 4 to 89 s late; the lens read 6.10 (the locked position) throughout, not
+flagged. The app's restart record did not log the three kills. 19.1's statement that the app was
+not used is true of the camera but not of its memory. The runs of 19.2 used `ulimit -v` (3 GB) and 2
+OpenCV threads: peak 1.7 GB, 24 s, no kill. The app's memory is #326.
+
+**Limits of the evidence.** As 19.1. ExG minus ExR is tried only with its literature threshold of 0;
+a higher threshold might keep less soil, but would then be a second tuned threshold, not the
+literature rule.
+
+### 19.3 Older plants on 2x2 trays, the development rig (2026-10-29)
+
+**Label: development check.** One still of the development rig's own experiment ("development
+rig"), `experiments/2026-10-28_8cb40de9/stills/2026-10-29/133905_854292.jpg`, 2026-10-29 13:39:05
+UTC, exposure 3585 µs, gain 1.0, calibration `20261021T140121832677`. Nine 2x2 trays (#327: the
+trays called "4x4" so far), five in the north row and four in the south row, with no tray tags.
+Older potato plants on North 1 to 3 and South 1, young ones on the others. Truth (Aaron,
+2026-10-29): 4 plants per tray, except North 2 (2), North 3 (3) and South 1 (3), counted by
+position along each row: 32 plants.
+
+*Method.* `experiments/round3-segmentation/slot_counts.py`: the crop, green pieces and FastSAM point
+of 19.1 and 19.2 (2 OpenCV threads, `ulimit -v` 3 GB, peak 1.8 GB, no app restart), each plant put
+in the nearest slot of the calibration's 12-slot layout.
+
+*Result.*
+
+- **The slots do not fit these trays.** The layout was made for twelve 4x5 trays; the nine larger
+  2x2 trays sit across it: slot South 2 is bare floor and North 1 to 3 each cover parts of two
+  trays. Counts per slot (`docs/figures/19.3/per_slot.csv`) therefore say nothing, and the truth
+  used for them (12 slots, 44 plants) was wrong. Not used further.
+- **Young plants: every plant found**, one green piece per pot (Aaron, from the figure).
+- **Older plants: found, but in pieces.** Each large plant is split into several pieces, even when
+  pieces within 10 mm are joined, and the plants hang over their pot edges into neighbouring cells.
+- **Extra objects:** small green specks at the frame's top and right edges, outside any tray.
+- Total objects: 65 (join 10 mm) to 94 (join 3 mm), FastSAM point 73, against 32 plants; the
+  difference is the split older plants and the specks.
+
+*Figure.* `docs/figures/19.3/dev-2x2-exg-join10.jpg`: green pieces joined within 10 mm (magenta
+boxes) and the 12 slots (cyan) with their counts; made by `slot_counts.py`, scaled down. The slot
+labels show the mismatch, not results.
+
+**Limits of the evidence.** One still; truth by position, not by tag; plant identity across the
+split pieces not checked one by one. Placing trays from the photo rather than from slots is #328.
+
+## 20. Finding trays from the photo (issue #328, method written 2026-10-29, before the results)
+
+**Label: development check.** Several ways of outlining each tray from the photo itself, rather than
+from a slot, compared on stored stills. This is the first round of the "test before use" of #328
+(decision 9): it chooses which methods go on to the full test, and does not itself clear a method
+for use.
+
+*Stills (read only, copied to the controller; nothing written on the rigs' data).*
+
+| Set | Rig, experiment | Stills | Trays | Known answer |
+|---|---|---|---|---|
+| prod | production, `2026-10-22_df206967` (Potato Plants v001), 2026-10-29 08:30 to 14:30 UTC, one per 30 min | 13 | 12 tagged 4x5, touching within two rows of six; sheets, cards and green squares on parts of 5 trays | the rig's tag placement (`tray_placement.place_trays`, good to about 10 mm, 15.5l) |
+| dev | development, `2026-10-28_8cb40de9`, same times | 13 | 9 untagged 2x2, five north and four south; two layouts (trays moved about 12:15 UTC, two north trays then touching) | top-rim corners marked by eye on full-size crops, repeatable to about 5 px (1 mm); North 1 lies partly outside the frame and is not scored |
+| hard | production, `2026-10-19_ad4876e5` ("simple segmentation test"), the 18 shuffle stills of 15.5 | 18 | 12 tagged 4x5 full of pots, with gaps and touching within rows | the tag placement; it matches the shuffle plan in every still. Tags not detected (tag 5 in 3 stills, tag 1 in 1) leave that tray unscored |
+
+FastSAM-s ran on the development rig's Hailo-10H (Hailo Model Zoo v5.1.0 HEF) over every still at
+three tile sizes (the whole still, 4096 px and 2560 px tiles, objects with score 0.05 or more), one
+still per process with memory capped at 1.5 GB (two runs of several stills per process were killed
+after 4 stills each). The finders run on the controller.
+
+*Scoring, set before the results.* A tray is found when an outline's centre lies within 30 mm of the
+known centre (the distance of decision 2) and the two outlines overlap by at least 80% (intersection
+over union, a guard against an outline of two trays or half a tray), and, where both carry a tray
+ID, the IDs agree. Also counted: outlines that match no tray. Good (Aaron, 2026-10-29): 12 of 12 on
+every prod and hard still, at least 7 of the 8 scored trays on every dev still.
+
+*Methods.* A: FastSAM objects on the blue plastic; B: a blue colour threshold; C: the tag placement
+alone (baseline; finds no untagged tray); D: blue regions first, then rims, seams and corner bumps;
+E: tray-sized rectangles fitted to the whole picture at once. With a tag, the tag decides which tray
+it is. Each method may use only the still, its tags, its scale and the known tray size (305 x 366
+mm), never the known answer or the number of trays. Code: `experiments/round3-tray-outlines/`.
+
+**Limits of the evidence (set before the results).** Three experiments on two rigs; 4x5 and 2x2
+trays only (not the 1x1 or black trays); stills within a set are mostly repeats of one or two
+layouts, so they test steadiness more than variety; the prod and hard known answer is the tag
+placement, so a method that agrees with the tag is not shown to beat it. Methods were developed on
+the same stills they are scored on; the full test of decision 9 needs stills not used here.
+
+*Result (2026-10-29; scores copied 2026-11-02 from `~/scratch/sam297/328-99-comparison-1/notes.txt`,
+kept as `experiments/round3-tray-outlines/first-round-scores.txt`).* Each method's best run, made
+by `compare.py`. "Worst / mean" is the trays found on the worst still and on average; "extra" is
+outlines matching no tray, per still; "median mm" is the median distance from the known centre.
+The time leaves out FastSAM's own 15 to 20 s per still on the Hailo.
+
+| Run | prod worst / mean (of 12) | dev worst / mean (of 8) | hard worst / mean (of 11) | Extra per still (prod / dev / hard) | Median mm (prod / dev / hard) | s per still |
+|---|---|---|---|---|---|---|
+| C tag (v2, baseline) | 12 / 12 | 0 / 0 | 11 / 11.78 | 0 / 0 / 0 | 0 / - / 0 | 0 |
+| B blue, with tags (v7) | 12 / 12 | 8 / 8 | 11 / 11.78 | 0 / 0 / 0.22 | 2.5 / 2.1 / 4 | 0.5 |
+| B blue, photo only (v7p) | 12 / 12 | 8 / 8 | 11 / 11.78 | 0 / 0 / 0.22 | 3.3 / 1.8 / 8.3 | 0.3 |
+| D rims, with tags (v3) | 12 / 12 | 8 / 8 | 11 / 11.78 | 0 / 0 / 0.22 | 3.7 / 3.8 / 8.9 | 0.5 |
+| D rims, tags hidden (v3) | 12 / 12 | 8 / 8 | 11 / 11.78 | 0 / 0 / 0.22 | 3.4 / 3.8 / 9.6 | 0.6 |
+| A FastSAM, with tags (v5b) | 12 / 12 | 8 / 8 | 9 / 11.5 | 0 / 0.08 / 4.44 | 3.9 / 2.8 / 5.4 | 1.5 |
+| A FastSAM, photo only (p5b) | 12 / 12 | 8 / 8 | 2 / 6.06 | 0 / 0.08 / 0.22 | 3.9 / 2.8 / 22.9 | 1.5 |
+| E fitting (v4) | 12 / 12 | 8 / 8 | 11 / 11.78 | 0 / 0 / 0.17 | 3.9 / 2.3 / 8.7 | 13.1 |
+
+The hard set's "of 11" counts the trays scored on its worst still (one tag not read); its mean
+is over all scored trays, so it can be above 11. B and D, in both versions, met the target on all
+three sets and went on to the held-out test (20.1). A FastSAM missed trays on the hard set (worst
+still 9 and 2), and with tags added 4.44 outlines per still matching no tray; E fitting met the
+target but took 13 s per still. Both were left out of 20.1. The tag baseline finds no untagged
+2x2 tray.
+
+*Figure.* `docs/figures/20/sheet-hard-121231_081714.jpg`: one hard-set still (12 trays full of
+pots, touching in rows of six) with every run's outlines side by side; made by `compare.py`,
+copied 2026-11-02 from `~/scratch/sam297/328-99-comparison-1/`.
+
+![Hard-set still, every finder's outlines side by side](figures/20/sheet-hard-121231_081714.jpg)
+
+### 20.1 Held-out stills, truth by inspection (method written 2026-10-29, before the truth)
+
+**Label: development check.** The finders frozen at commit `49c868e` (B blue v7 with tags and photo
+only, D rims v3 with tags and with tags hidden; A FastSAM and E fitting left out after the first
+round) on 24 stills used for no tuning: production experiments `631bb6b5`, `44a9e96e`, `17cb7bfb`,
+`57f74959`, `c2c49f62`, `e7a53c3e` and `df206967` (12 to 28 October: pots, empty trays, calibration
+sheets on every tray, edge tags, cards and squares) and development `907f12cd` and `8cb40de9`
+(23 and 28 October, today after 16:00), each with the calibration its photo was taken under. One
+still per rig is in the dark (lights off): no tray should be found. Chosen from 53 stills spread
+evenly over every experiment and day, for variety, by looking at a contact sheet.
+
+*Truth.* Aaron, by inspecting each still's sheet (`~/scratch/sam297/328-held-1/`, outlines
+numbered): the trays really there, and per finder which outlines are wrong and which trays are
+missed. Scored as in section 20: a tray found, missed, an outline wrong, an outline matching no
+tray.
+
+*Result (Aaron's inspection, 2026-10-29; `experiments/round3-tray-outlines/heldout-truth.json`).*
+The sheets were first drawn with the photo-only outlines in light blue, which Aaron could not see
+on the blue trays; they were redrawn in red (`~/scratch/sam297/328-held-2/`, the same outlines)
+and the red outlines rechecked on every still answered before. On still 22 Aaron answered
+"everything right"; the agent then saw that the rims method with tags hidden had 11 outlines and
+missed South 1 under a paper sheet, and it is scored wrong.
+
+| Finder | Stills right, of 22 lit | Wrong on |
+|---|---|---|
+| B blue, photo only | **22** | none |
+| D rims, tags hidden | 14 | 1, 4, 5, 22 (one tray missed, the tray at a frame edge or under a sheet); 14, 15 (south row missed under sheets); 16 (North 6 missed); 7 (a row of 6 extra outlines) |
+| B blue, with tags | 13 | 6, 8, 9, 10, 11, 14, 15, 16, 17 (extra and overlapping outlines) |
+| D rims, with tags | 12 | 1 (South 1 missed); 6, 8, 9, 10, 11, 14, 15, 16, 17 (outlines shifted or extra) |
+
+Both dark stills: no tray found by any finder, as it should be.
+
+- **The photo-only blue finder was right on every still**, both rigs, every kind of scene: trays
+  full of pots, empty trays, calibration sheets on every tray, soil, cards, 2x2 trays.
+- **Every failure of the tag versions comes from tags not placed as the 4x5 cell-A1 tag**: the
+  20 mm edge tags of 15 to 19 October (IDs 13 to 24, and 0 to 17 in pairs) and the tags of the 12
+  to 15 October layout. The tag placement then disagrees with the photo, and the finder returns
+  the tag's tray at the wrong place, or twice (once from the tag, once from the photo). The
+  rims finder with tags shifted outlines with no warning (still 14).
+- The rims finder alone (tags hidden) misses trays whose rims are covered or at the frame edge.
+
+*Figures.* `docs/figures/20.1/held-14-prod_631bb6b5_20261012_133117_986053.jpg`: calibration
+sheets on every tray, 12 October; red (photo only) right, green overlapping, yellow shifted right,
+purple missing the south row. `docs/figures/20.1/held-09-prod_44a9e96e_20261015_120350_220119.jpg`:
+18 tags including edge tags, 15 October; red and purple right, green and yellow with outlines
+everywhere. Both from `heldout.py`, scaled down.
+
+![Held-out still 14, calibration sheets on every tray](figures/20.1/held-14-prod_631bb6b5_20261012_133117_986053.jpg)
+
+![Held-out still 9, edge tags](figures/20.1/held-09-prod_44a9e96e_20261015_120350_220119.jpg)
+
+**Limits of the evidence.** 24 stills, chosen for variety by eye, not at random; truth by one
+person's inspection of quarter-size pictures, so an outline a few mm off its rim is not judged;
+2x2 and 4x5 trays only (no 1x1 or black trays); the finders return which tray from tags only in
+the tag versions, so the photo-only finder's outlines carry no tray ID: joining them to tags is the
+next step, and must not repeat the tag versions' failures.
+
+## 21. Trays found from the photo in the app, named by the tag inside them (issue #331)
+
+The blue finder of section 20 (photo only), built into the app: `tray_placement.find_outlines`
+finds each tray's outline from its lit blue rim on a quarter-size copy of the photo, at the
+calibration's scale at each tray; `tray_placement.name_trays` names each outline by the tray tag whose centre lies inside it
+(Aaron, 2026-10-29, replacing decision 2 of #328). Slots are not used. A tray tag inside no outline
+is reported as seen, with no outline and no area: placing a tray from its tag (section 15.5) is
+dropped, because it assumes the tag lies in cell A1 and put trays about 176 mm off for tags lying
+elsewhere (21.1). The tray outline size, 305 x 366 mm, is the measured outside size of the blue
+4x5 and 2x2 trays (`reference/trays.md`, #327).
+
+### 21.1 The built finder on 92 copied stills (2026-10-29)
+
+**Label: development check.** Branch `331-tray-blue-finder`, commit `a3e6006` with the naming rule
+above, on copies of 72 production stills (the 24 held-out stills of 20.1 and about one capture per
+6 hours of every experiment, 12 to 29 October) and 20 development stills (23, 28 and 29 October).
+Nothing was written on either rig. Tags from each rig's `rig.db` where stored, else detected on
+the still. Comparison: for each tray named by a tag, the distance from its outline centre to the
+centre the rig stored for the same tray ID by tag placement (section 15.5; stored for 34 stills,
+production from 22 October and development 23 October). Aaron treats production's stored
+placements as mostly correct for trays with their tag in cell A1. Pass: within 30 mm (as in 20).
+
+*Result.*
+
+| Group | Stills | Lit | Outlines | Named by a tag | Within 30 mm of stored | Largest distance |
+|---|---|---|---|---|---|---|
+| Held-out stills of 20.1 | 24 | 22 | 258 | 185 | 72 of 72 | 21.6 mm |
+| Edge-tag stills, 12 to 19 Oct (other) | 8 | 8 | 97 | 46 | none stored | |
+| Other production | 45 | 33 | 395 | 394 | 311 of 311 | 6.8 mm |
+| Other development | 15 | 11 | 105 | 24 | 24 of 24 | 21.6 mm |
+
+- On all 24 held-out stills the outline count equals 20.1's photo-only count, which Aaron judged
+  right on all 22 lit stills.
+- All 19 lights-off stills: no outline and no tag (right).
+- Time: 0.1 to 0.3 s per quarter still on the controller (Raspberry Pi 5, 4 GB), plus 0.1 to
+  0.2 s to decode the 64MP still at quarter size.
+- **One finder error by eye:** on a still of 16 October (`docs/figures/21/false-outline-aisle.jpg`)
+  a false, tilted outline lies across the aisle between the rows, over parts of four trays. It
+  holds four tags, so it carries the warning "two tags in one tray outline" and trays 5 and 7 are
+  named twice in that still.
+- **Edge tags** (20 mm tags on the table beside the trays, 12 to 19 October): every tray is
+  outlined from the photo, the tags lie outside every outline and are reported as seen
+  (`docs/figures/21/edge-tags-seen.jpg`). A side trial on 5 of these stills
+  (`~/scratch/sam297/331-edge-tags-1/`, not kept) showed that placing a tray from such a tag put
+  its outline about 176 mm from the real tray; letting a tag within 20 mm of an outline name it
+  helped on 4 of 5 stills but left 3 to 8 wrong outlines per still. Both were dropped.
+- **"Partly outside the photo"** is set for every tray cut from a blue area that touches the frame
+  edge, also for trays wholly inside the photo. A known weakness, not yet fixed.
+- One tray outlined but not named: its tag at the frame edge was not found by the tag search.
+
+*Figures.* `docs/figures/21/prod-agrees.jpg`: production, 25 October, 12 outlines from the photo
+(green) on the rig's stored tag placements (thin yellow, mostly hidden beneath).
+`false-outline-aisle.jpg` and `edge-tags-seen.jpg` as above. Orange crosses: tags seen with no
+outline around them. All scaled down from the run's pictures.
+
+**Limits of the evidence.** Copies of stills only, with trays square to the table; no skewed tray,
+no 1x1 tray and no black tray. Stored placements exist for 34 of 92 stills. Spare trays of another
+height read a different size (about 0.145% per mm, see *Facts*), not tested here.
+
+### 21.2 The live rig, trays covered, added, moved and removed (method written 2026-10-30, before the session)
+
+**Label: development check.** Development rig `npec-rig-01`, experiment 2 (one photo a minute),
+branch `331-tray-blue-finder` at `4c4fb87`. Nine blue 2x2 trays with taped tray tags. Aaron changes
+the trays; after each step the agent takes 2 photos through the rig's capture call and records
+their capture IDs; Aaron looks at the overlay and the tray view of each, against the expected
+result below. Tags 82, 83 and 84 had never been read in experiment 2. Checklist used in the
+chamber: `~/scratch/sam297/331-chamber-test/331-chamber-test.pdf` (not kept; the steps are below).
+
+| Step | Change | Expected | What it checks |
+|---|---|---|---|
+| 1 | None (baseline) | 9 outlines, each named | Starting point |
+| 2 | Cover tray A's tag | Tray A outlined as "No tag"; "Not seen in this photo: tray A"; card warning; others unchanged | A covered or lost tag is reported, the tray still measured |
+| 3 | Uncover it | Tray A named again; warning gone on both photos; area close to step 1 | The warning clears by itself |
+| 4 | Loose tag 83 laid in tray B, which has its own tag | Both numbers and "two tags in one tray outline"; neither area counted | Two tags in one outline give a warning, not a guess |
+| 5 | Tag 83 taken out | One number again; "Not seen: tray 83" appears (tag 83 was read as a tray in step 4) | Recovery |
+| 6 | Tag 83 on the table, touching no tray | A cross, "Tag 83, no tray found"; no outline; neighbours unchanged | A loose tag creates no tray and names no neighbour |
+| 7 | Tag 83 taken away | Cross gone | |
+| 8a | One tray turned 90 degrees | Outline on the rim; same number; area steady | Any turn |
+| 8b | One tray turned about 15 degrees | As 8a | A skewed tray, never tested before |
+| 8c | One tray slid about 10 cm into open table | As 8a | Any place on the table |
+| 8d | Two trays pushed together until touching | Two outlines, each with its own number, no two-tags warning | Touching trays split |
+| 9 | Spare blue tray with tag 82 on open table | Tray 82 named on its first photo | A new tray picked up without setup |
+| 10 | Tray 82 removed for good (time noted) | "Not seen in this photo: tray 82" and the card warning on every photo after | A removed tray is reported |
+
+Pass: every step as expected on both of its photos. The spare tray is another height than the
+chamber's trays, so tray 82's area is not a measurement and is not judged.
+
+Two checks need no chamber time and are read from development's `rig.db`, read only:
+
+- **Lights off:** the dark photos the rig takes every night, from 29 October 18:18 UTC (when the
+  finder went on development) and the night after step 10: each read as "no trays found", no tray
+  reported as not seen because of them, and the first lit photo after normal.
+- **48 hours:** a tray is reported as not seen only within 48 hours of the last read photo that had
+  it (`database.NOT_SEEN_FOR`, a decision, not a measurement: Aaron, 2026-10-30). Photos up to 48
+  hours after tray 82 (and tray 83) was last seen report it; photos after do not. Checked on
+  1 November. Experiment 2 must still be running.
+
+Not covered: a tray covered for days, a table full of skewed trays, the 1x1 and black trays.
+
+*Result (2026-10-30, 11:19 to 11:28 chamber time, 10:19 to 10:28 UTC).* Aaron ran the steps and
+noted the trays used: tray A = 81, tray B = 77, 8a tray 76, 8b tray 86, 8c tray 85, 8d trays 85
+and 87, tray 82 removed at 11:28. The photos are experiment 2's (one a minute) and others taken
+during the session, captures 2730 to 2757 on development; readings and the tray view's data were
+read from development's `rig.db` and API, read only, and each step matched to its photos by
+their content. Aaron looked at the overlays of steps 4, 8b and 8d and found nothing wrong.
+
+| Step | Photos | Result |
+|---|---|---|
+| 1 | 3 | 9 trays, each named |
+| 2 | 2 | Outline at tray 81's place, "no tag", area 4323 mm2 (4192 to 4366 before); "not seen: tray 81" |
+| 3 | 2 | Tray 81 named again, not-seen line gone |
+| 4 | 1 | Trays 77 and 83 on one outline, "two tags in one tray outline", both not counted |
+| 5 | 1 | Tray 77 alone, warning gone; "not seen: tray 83" |
+| 6 | 2 | Tag 83 seen with no tray, no outline, neighbours unchanged |
+| 7 | 1 | Gone |
+| 8a | 3 | Tray 76 named, area 632 to 694 mm2 (590 to 689 before) |
+| 8b | 1 | Tray 86 turned about 25 degrees (by the outline's tilt; 15 planned), outline on the rim, named |
+| 8c | 4 | Tray 85 slid about 130 mm, named |
+| 8d | 1 | Trays 85 and 87 touching: two outlines, own numbers, no warning |
+| 9 | 3 | Tray 82 named on its first photo (area 28 to 44 mm2: empty tray, another height, not judged) |
+| 10 | from 10:28:30 UTC | "Not seen: tray 82" on every photo after |
+
+- **Every step as expected.** Steps 4, 7, 8b and 8d had one photo each where the method asked for
+  two: by the method's own rule they passed on one photo.
+- **A person over a tray gives a wrong area with no warning.** Not a planned step: on the photo of
+  10:26:06 UTC (capture 2750) Aaron leaned into the frame over the lower part of tray 86. Its
+  outline shifted towards the visible part and its area read 12718 mm2 against 15088 to 15483 mm2
+  on the photos around it, about 17% low, with nothing on the page saying so. Not new with #331:
+  tag placement would have measured the hidden tray the same way. Issue #333 (High).
+- **A tag seen on the table counts as the tray seen.** Tray 83's 48 hours run from its last photo
+  as a loose tag (step 6, 10:21:11 UTC), not from step 5. As designed: the warning is about the
+  tag number, wherever it was seen.
+- Still to come: the lights-off check (dark photos of the nights of 29 and 30 October) and the
+  48-hour check on 1 November (tray 82 last seen 10:28:05 UTC, tray 83 10:21:11 UTC).
+
+*Figures* (`docs/figures/21/`, overlays as the Gallery draws them, scaled down):
+`live-step4-two-tags.jpg` (step 4), `live-step8b-skewed.jpg` (step 8b),
+`live-step8d-touching.jpg` (step 8d), `live-person-over-tray-86.jpg` (the person over tray 86).
+
+**Limits of the evidence.** One session of 9 minutes on one rig, nine 2x2 trays; each change made
+once, on one tray; one skewed tray at one angle; the steps matched to photos by their content, as
+no step times were noted. Covered tags only, not dirty or damaged ones.
+
+*Result of the lights-off and 48-hour checks (read 2026-11-02).* A copy of development's
+`rig.db` (online backup, 2026-11-02 08:39 UTC; integrity check ok) was read on the controller
+with #331's own code (`database.tray_readings` at commit `44c5d93`). Development had moved on to
+the #332 branch (`86c9a10`, which includes #331) and schema version 15, which only adds
+`experiment.dwell_limit_h`; the copy was marked version 14 so #331's code would open it.
+Experiment 2 ran throughout: 4215 photos from 2026-10-30 10:28 UTC to 2026-11-02 08:39 UTC, none
+more than 2.5 minutes apart, all but the newest read.
+
+- **48 hours: as expected.** Tray 83 (last seen 2026-10-30 10:21:11 UTC) was reported as not seen
+  on every photo up to 2026-11-01 10:21:05 and on none from 10:22:05. Tray 82 (last seen
+  10:28:05) up to 2026-11-01 10:28:05 and on none from 10:29:05. Trays 12, 13, 26 and 27 (last
+  seen 2026-10-29 12:20 UTC) were still reported on 31 October at 08:01 and no longer on
+  1 November.
+- **Lights off: as expected.** Four nights (about 451 dark photos each, 00:30 to 08:00 UTC): every
+  dark photo read as "no trays found", with no tray reported as not seen. Dark photos did not add
+  to the count of photos a tray was missing from: tray 82's count grew by the lit photos only
+  (843 lit photos by 31 October 08:01, against about 1290 minutes since it was removed). The first
+  lit photo of each morning showed all 9 trays named.
+- **Three days of lit photos, 2860:** 2828 (98.9%) had all 9 trays outlined and named. The other
+  32 each carried a warning:
+  - 31 photos: one tray's tag not read (trays 85, 79, 86 and 77; 23 of them tray 85), so that
+    tray was outlined as "No tag" and reported as not seen in that photo.
+  - At each lights change, one photo (6 in all, 00:29 and 08:01 UTC) where all 9 tags were read
+    but no tray rim was found: all 9 trays reported as "tag seen", with no area.
+  - 1 photo, 2026-10-31 00:28:05 UTC, under the dimming light a minute before lights off: a false,
+    tilted "No tag" outline across the aisle and tray 79's outline shifted off the tray
+    (`docs/figures/21/dimming-false-outline.jpg`; Aaron found nothing else wrong).
+  All the dimming and lights-change photos are already left out of the experiment's numbers
+  (`exclusions.py`: "light changing" or "lights off"), so none of these gave a wrong number
+  without a warning.
+
+*Figure.* `docs/figures/21/dimming-false-outline.jpg`: the overlay as development's Gallery drew
+it on 2026-11-02, with #332's code (the area names after each tray number, such as "NW", are
+#332's), scaled down.
+
+**Limits of the evidence.** One rig, nine 2x2 trays that did not move after the live test; one
+removed tray. A tray that comes back after more than 48 hours was checked by the unit tests only.
+
+## 22. Tray movements on the potato run: the shuffle plan against the rig (issue #332, 2026-10-30)
+
+**Label: development check.** Whether the tray positions the production rig stored through the
+potato run (section 16) follow the planned shuffles, tray by tray, so that the time each tray
+spends in each table location (#332) can be built on them. The known answer is a plan and a
+person's record of carrying it out, not an independent measurement of the trays, so this is not a
+reference comparison.
+
+**Question.** For each of the 7 layouts of the run so far (map 0 at the start, then shuffles 1 to
+6) and each of the 12 trays: did the rig read the tray in its planned slot, with cell A1 at its
+planned corner, and in the planned table location? How long after the recorded finish of a
+shuffle did the rig first read each tray in its new place? And did the rig read any change of
+place outside the shuffles?
+
+**Known answer.** The shuffle maps `experiments/round2-run/sessions/shuffle-maps-2026-10-22.json`
+(seed 20261022, committed in `d8c192e` before any tray was moved; section 16.2) and the
+collaborator's own record of each shuffle, `sessions/shuffle-record-2026-10-22.csv`, copied as
+written in chamber time (Europe/Amsterdam; UTC+2 until 25 October, UTC+1 after), with
+`sessions/shuffle-record-README.md`. Shuffle k puts map k on the table.
+
+| Shuffle | Date | Start | Finish (chamber time) | Finish (UTC) |
+|---|---|---|---|---|
+| 0 | Thu 22 Oct | not written | 12:41 | 10:41 |
+| 1 | Fri 23 Oct | not written | 10:56 | 08:56 |
+| 2 | Mon 26 Oct | 11:28 | 11:35 | 10:35 |
+| 3 | Tue 27 Oct | 10:49 | 11:02 | 10:02 |
+| 4 | Wed 28 Oct | 11:10 | 11:23 | 10:23 |
+| 5 | Thu 29 Oct | 09:00 | 09:11 | 08:11 |
+| 6 | Fri 30 Oct | 09:05 | 09:17 | 08:17 |
+
+**Data.** A copy of production's `rig.db` (`ac-testing`, schema version 13) taken on 2026-10-30
+at about 14:28 UTC, opened read-only; nothing was written on the rig. Experiment 18, "Potato Plants
+v001": 11,871 photos from Thu 22 Oct 10:41 to Fri 30 Oct 15:28 chamber time, 8,204 of them read
+with trays (of the rest, 3,665 are lights-off photos with no tags found, 1 failed to read and
+1 was never read). Each tray's slot, A1 corner and
+centre in every photo, as stored by the production rig's code of the run, which places each tray
+from its tag in cell A1 and the slot grid (section 15.5). Calibration `20261022T072523939958` and
+its slot layout throughout.
+
+**Method.** Script `experiments/round2-run/movements.py` (results from commit `710ef87`; a later
+change only leaves out readings with no tag, of which this run has none; how to run it is in its
+docstring):
+
+- **Table locations.** A 3 x 2 grid (Aaron, #332, 2026-10-30): NW, NM, NE over SW, SM, SE. The grid is
+  laid out in the calibration's table frame, a homography from the centres of the four table
+  (corner) tags to a unit square, so its lines are straight lines on the table. North and south
+  are split halfway between the northern and southern rows of table tags; the columns are thirds
+  of the full photo width, measured along that middle line. A tray's centre decides its location; a
+  planned slot's location is that of the slot's centre in the slot layout. Each location holds exactly 2
+  slots: NW North 1 and 2, NM North 3 and 4, NE North 5 and 6, and the same for South.
+- **Planned.** Map k holds from shuffle k's recorded finish until shuffle k+1's finish. **Map 0
+  holds from the experiment's start, 10:41, not from its recorded finish of 12:41**: the trays
+  were laid out and the experiment started at 10:41, map 0 was written from the layout already on
+  the table and its time recorded at 12:41, and no tray moved in between (Aaron, 2026-10-30, and
+  the rig's photos; `shuffle-record-README.md`).
+- **Measured.** Per tray, the photos in which its tag was read, in time order, are cut into runs
+  of one value (a slot and A1 corner, or a table location). A run shorter than 1 hour, first to last photo,
+  lying between two others is ignored (Aaron, #332, 2026-10-30: a tray counts as moved after
+  1 hour elsewhere), so a missed tag or a short stay elsewhere does not end a stay. The first and
+  last runs are always kept. What is left are the tray's stays.
+- **Compared**, per shuffle and tray: the slot stay that overlaps most of the time from that
+  shuffle's finish to the next shuffle's start (or the end of the data), against the map. "Change"
+  is the stay's first photo minus the recorded finish, in minutes.
+- **Outside shuffles.** Every run, of any length, of a new slot, A1 corner or table location that starts
+  outside a shuffle window. A window runs from the recorded start to the finish, widened by
+  15 minutes on each side. **Shuffle 0 has no window**: it moved no tray (map 0 was written from
+  the layout already on the table). **Shuffle 1 has no start written**; its window starts 60
+  minutes before the finish. The 60 and the 15 minutes are choices, not measurements.
+
+**Result.**
+
+| Check, 7 shuffles x 12 trays = 84 | Matched |
+|---|---|
+| Slot | 84 of 84 |
+| A1 corner | 84 of 84 |
+| Table location | 84 of 84 |
+| Photo readings agreeing with the map in force | 95,476 of 95,482 |
+
+- **Timing.** From the recorded finish to the rig's first photo of a tray in its new slot: -5.1
+  to +0.9 minutes over the 72 tray moves of shuffles 1 to 6 (per shuffle: -4.1 to +0.9, -5.1 to
+  -0.1, -4.1 to +0.9, -3.1 to -0.1, -5.1 to +0.9, -3.1 to -0.1). Negative means the tray was in
+  place before the finish was written down; +0.9 minutes is within one photo interval (one photo a
+  minute). So the rig dates each move to within the time it takes the collaborator to finish a
+  shuffle and write it down.
+- **Table locations.** 63 of the 72 moves changed location; the other 9 changed slot within the same location, as
+  the maps planned.
+- **Stays.** Under the 1-hour rule every tray has 7 slot stays, one for each map. No move was
+  found that the plan does not hold. Plan and rig give a different table location for a tray only in the
+  minutes around each shuffle: 5 to 14 minutes per tray over the 8 days (0.08 to 0.23 hours).
+- **Outside shuffles: 2 events, neither a move.** They are the 6 disagreeing photo readings above.
+
+| Tray | Chamber time (UTC) | Photos | What the rig read | What it was |
+|---|---|---|---|---|
+| 1 | Wed 28 Oct 09:47 to 09:50 (08:47:53 to 08:50:01) | 5 | A second tray 1 in South 1, table location SW, beside tray 1 in its own slot South 2 | The printed duplicate of tag 1 laid on tray 10 for the check of section 17.12. Tray 1 itself stayed in South 2 in all 5 photos |
+| 2 | Thu 29 Oct 13:23 (12:23:53) | 1 | A second tag 2 in South 6, over tray 10, marked "two trays in one slot"; tray 2 read in its own slot South 5 in the same photo | Not known: a misread or a loose tag. The photo is marked a visit (17.9) |
+
+The 1-hour rule ignores both, as it should: neither tray left its slot.
+
+![Plan against rig after each shuffle](figures/22/comparison.png)
+
+*Plan against rig, one cell per shuffle and tray: ok or WRONG, the planned slot and A1 corner, and
+the minutes from the recorded finish to the rig's first photo of the tray in its new slot. Made
+by `movements.py` (command in its docstring) from the database copy; copied from
+`~/scratch/332/analysis/comparison.png` on 2026-10-30.*
+
+![The 3 x 2 table locations on the photo](figures/22/areas_on_photo.png)
+
+*The 3 x 2 table locations on the photo, in pixels, drawn from the calibration's table frame, with the four
+table tags and each slot's centre labelled with its location. Same script and run.*
+
+![Table location per tray over time, trays 1 to 6](figures/22/timelines_trays_1-6.png)
+
+![Table location per tray over time, trays 7 to 12](figures/22/timelines_trays_7-12.png)
+
+*Table location per tray over time, chamber time: the plan (the map in force after each
+recorded finish, dotted lines S1 to S6) above what the rig read (stays, 1-hour rule). A black bar
+under a tray marks the minutes where plan and rig disagree, all at the shuffles. Same script and
+run.*
+
+![Changes read outside shuffle windows](figures/22/outside_shuffles.png)
+
+*The two changes the rig read outside the shuffle windows, as the script lists them ("stay" and
+"read as" are slot and A1 corner). Same script and run.*
+
+**What it covers.** Tray identity and position as stored by the production rig over 8 days, 22 to
+30 October 2026, through the chamber's light cycle and 6 shuffles by the collaborator: 12 blue
+4 x 5 trays (7 with potato plants, 5 with black pots) in a 2 x 6 slot layout, 40 mm tags in
+cell A1, trays placed from the tag and the slot grid. On this run, the stored positions are good
+enough to count how long each tray spends in each table location.
+
+**Limits of the evidence.**
+
+- **Map 0 is not independent.** It was written from the layout already on the table, and 16.2
+  checked it against the rig's own readings. Its 12 checks show the rig held the start layout
+  until shuffle 1, not that the start layout was read right. The independent checks are the
+  72 of shuffles 1 to 6.
+- **Plant area is not checked here.** Only identity and position.
+- **One layout.** 12 trays in 2 rows of 6 slots, square to the table. Not covered: other layouts,
+  fewer trays, trays laid anywhere on the table or skewed, other tray types, and the photo-only
+  finder of section 21 (#331), which production did not run.
+- **Table locations from slots.** Every tray stood on a slot centre, well inside its location. A
+  tray lying near a line between two locations, as trays will when slots are dropped, is not tested.
+  The script cuts the columns in thirds along the table's middle line; the app (#332) cuts them
+  along each tray's own row. Both give the same locations for this layout, which lies square to
+  the table, but the app's rule is not what was checked here.
+- **Timing rests on the written finish times** and the one-minute photo interval; no time per
+  tray was recorded (16.2).
+- The window for shuffle 1, the 15-minute widening and the 1-hour rule are choices;
+  the photo width of 9152 px is a constant in the script, not read from the photos.
+- Raw data: the database copy `~/scratch/332/prod/rig.db` and the script's tables in
+  `~/scratch/332/analysis/` (`expected.csv`, `comparison.csv`, `measured_slot_stays.csv`,
+  `measured_area_stays.csv`, `outside_shuffles.csv`), not kept; the script remakes them from a
+  new copy of production's `rig.db`.
+
+## 23. Time per table location in the app, tried on the development rig (issue #332, 2026-11-02)
+
+**Label: development check.** Whether the app's count of time per table location (#332), its
+too-long warning and hiding a tray behave as decided, on a live rig with real photos. The answer
+is what Aaron saw on the pages and the rig's own readings, not an independent measurement, so this
+is not a validation. The method was not written down before the session: Aaron tried each
+feature while the agent guided him, and this entry is written afterwards.
+
+**Setup.** Development rig `npec-rig-01`, branch `332-tray-dwell` (PR #336) from 2026-11-02 08:05
+UTC, rig.db version 15, then 16 from 09:04 UTC. Experiment 2, "development rig", running since
+2026-10-28 13:24 UTC, one photo a minute; its tagged trays 76 to 87 (section 21.2) were first
+read on 2026-10-30 from 08:13 UTC. Table locations as decided on #332: a 3 x 2 grid, NW NM NE over
+SW SM SE, between the table tag rows; a move only when a tray's centre stays over 1 hour in
+another location; absences up to 48 h do not break a stay.
+
+**What was tried, and what was seen.** All times UTC.
+
+| Step | Done by Aaron | Seen |
+|---|---|---|
+| Time per location | Opened the Table locations panel | Each tray's hours per location. The export code, run on the rig at 08:26, gave 72.15 to 72.22 h for each of trays 76 to 87, each in one location: 30 Oct 08:13 to 2 Nov 08:26 is 72.2 h, nights included |
+| Limit | Stepped the limit through 1, 2, 3, 4 and 5 days, saving each | Warnings appeared and disappeared with the limit, in the panel, the Experiments page's Running box and the Gallery banner |
+| Locations in the Gallery | Opened a photo's Info | Each tray named by its location |
+| Hide | Hid trays 12, 13, 26 and 27 (each read in 7 to 12 of about 3,000 photos, likely misread tags) and 82 and 83 (laid on the table for a few minutes in section 21.2), reloaded | Each stayed one line, "hidden"; after the review, Hide first asks for confirmation |
+| Swap | Swapped trays 78 (NE) and 81 (SM) by hand | The rig read each in the other's place from the 08:31:49 photo. From about 09:32, 1 hour later, the panel showed the move on both trays: an arrow on its map and its timeline split in two named pieces (Aaron, 2026-11-02) |
+
+Readings: tray 78 in NE in 2,996 photos from 30 Oct 08:14 to 2 Nov 08:30, then in SM in 127
+photos from 08:31:49 to 10:36; tray 81 the reverse, 2,992 and 127 photos (rig.db read-only,
+2026-11-02 10:36).
+
+**Result.** Every feature behaved as decided. One swap of two trays was counted as a move on
+both, after 1 hour, as the rule says.
+
+**Limits of the evidence.**
+
+- One swap, of two trays, between two locations far from any line. A tray moved near a line
+  between locations, a tray off the table for over 48 hours and a stay over the 4-day default
+  were not tried live; they are covered by unit tests only (`tests/test_dwell.py`).
+- The live trays had stayed in place since 30 Oct, so the warnings were seen only with limits
+  of 1 to 5 days against stays of about 3 days, never at the 4-day default in a real experiment.
+- The pages were looked at, not measured; times on the panel are shown in UTC.
+- Raw data: development's `rig.db`, experiment 2 (kept on the rig); the export output of 08:26 at
+  `~/scratch/sam297/332-live-export/` (not kept).

@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import pytest
+from PIL import Image
 from fastapi.testclient import TestClient
 
 from npec_rig import captures, database, photo_tags, tray_readings, validation_store
@@ -17,7 +18,7 @@ from npec_rig.app import app
 from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
 from npec_rig.tags import TagDetection
-from tests.helpers import one_tray_plant_scene
+from tests.helpers import one_tray_plant_scene, table_calibration, table_photo
 
 pytestmark = pytest.mark.unit
 
@@ -69,7 +70,9 @@ def test_a_photo_is_read_for_its_trays_and_the_reading_is_saved(monkeypatch) -> 
 
     readings = tray_readings.read_photo(path)
     assert readings["status"] == "read"
-    assert {t["tray_id"]: (t["slot"], t["a1_corner"]) for t in readings["trays"]} == LAYOUT_2
+    # A grey photo, no tray found in it (#331): each tray tag is seen where it lies.
+    assert sorted(t["tray_id"] for t in readings["trays"]) == sorted(LAYOUT_2)
+    assert {(t["found"], t["slot"], t["outline_px"], t["area_mm2"]) for t in readings["trays"]} == {("tag only", None, None, None)}
     assert tray_readings.photo_readings(path) == readings
 
 
@@ -81,12 +84,21 @@ def test_a_photo_without_a_calibration_is_read_with_no_trays_and_says_why(monkey
     assert (readings["status"], readings["trays"]) == ("no calibration", [])
 
 
-def test_a_calibration_without_a_slot_layout_says_so(monkeypatch) -> None:
-    _calibrate(with_layout=False)
-    _finds(monkeypatch, "080357_563754")
-    path = _photo()
+def test_a_photo_is_read_with_a_calibration_alone_with_no_slot_layout(monkeypatch) -> None:
+    """Trays can lie anywhere on the table; slots will not always exist (Aaron, #331)."""
+    tag = TagDetection(5, ((2800, 600), (3200, 600), (3200, 1000), (2800, 1000)), (3000, 800))
+    _blue_tray_scene(monkeypatch, [tag])
+    # A newer calibration at the same 10 px/mm, never given a slot layout: the photo's own.
+    save_calibration(
+        CalibrationArtifact(created_at="2026-10-29T10:00:00+00:00", scale_field=scale_field_from_dict(
+            {"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 10.0, "residual_std_pct": 0.0}),
+            frame_stem="20261029T100000000000", lens_position=6.05),
+        stem="20261029T100000000000",
+    )
 
-    assert tray_readings.read_photo(path)["status"] == "no slot layout"
+    readings = tray_readings.read_photo(_photo())
+    assert readings["status"] == "read"
+    assert [(t["tray_id"], t["found"], t["slot"]) for t in readings["trays"]] == [(5, "photo + tag", None)]
 
 
 def test_a_photo_not_yet_read_has_no_readings(monkeypatch) -> None:
@@ -125,11 +137,12 @@ def test_the_background_reader_reads_new_photos_and_the_running_experiments_but_
     assert tray_readings.photo_readings(older) is None
 
 
-def test_a_photo_with_no_tags_at_all_says_so(monkeypatch) -> None:
+def test_a_photo_with_no_tray_and_no_tag_says_so(monkeypatch) -> None:
+    """As with the lights off (metrology log 15.5l, 20.1): not every tray missing (#331)."""
     _calibrate()
     _finds(monkeypatch, None)
 
-    assert tray_readings.read_photo(_photo())["status"] == "no tags found"
+    assert tray_readings.read_photo(_photo())["status"] == "no trays found"
 
 
 def test_each_tray_gets_its_plant_area_in_mm2_and_the_segmenter_that_made_it(monkeypatch) -> None:
@@ -165,7 +178,7 @@ def test_a_tray_more_than_13_mm_past_the_photo_edge_is_marked_partly_outside(
     its south side is 50 px (5 mm) past. Marked only beyond 13 mm, the widest measured outer wall:
     up to there only wall is outside, beyond it plants can be (a decision, Aaron, 2026-10-27)."""
     from npec_rig.camera import CameraManager, SyntheticBackend
-    from tests.helpers import MINT_LEAF_RGB
+    from tests.helpers import MINT_LEAF_RGB, draw_tray
 
     one_tray_plant_scene(monkeypatch)
 
@@ -173,13 +186,15 @@ def test_a_tray_more_than_13_mm_past_the_photo_edge_is_marked_partly_outside(
         def capture_full_res(self):
             frame, metadata = super().capture_full_res()
             frame[:] = 128
+            draw_tray(frame, 115, 554, 3165, 4214)
             frame[2200:2500, 1400:1900] = MINT_LEAF_RGB
             return frame, metadata
 
     CameraManager.set_instance(CameraManager(Scene(width=width, height=height)))
 
     tray = tray_readings.read_photo(_photo())["trays"][0]
-    assert tray["outside_mm"] == pytest.approx(past_mm, abs=0.1)
+    # 0.5 mm: the tray finder works on a quarter-size copy, so its outline sits to about 4 px.
+    assert tray["outside_mm"] == pytest.approx(past_mm, abs=0.5)
     assert tray["partly_outside"] is partly_outside
 
 
@@ -209,7 +224,7 @@ def _two_touching_trays_scene(monkeypatch) -> None:
     (253 x 300 px, 759 mm2) are nearer tray 5, columns 3153 to 3399 (247 x 300 px, 741 mm2) nearer
     tray 7."""
     from npec_rig.camera import CameraManager, SyntheticBackend
-    from tests.helpers import MINT_LEAF_RGB
+    from tests.helpers import MINT_LEAF_RGB, draw_tray
 
     one_tray_plant_scene(monkeypatch)
 
@@ -217,6 +232,7 @@ def _two_touching_trays_scene(monkeypatch) -> None:
         def capture_full_res(self):
             frame, metadata = super().capture_full_res()
             frame[:] = 128
+            draw_tray(frame, 115, 554, 6190, 4214)  # two trays touching: one blue piece
             frame[2200:2500, 2900:3400] = MINT_LEAF_RGB
             return frame, metadata
 
@@ -349,7 +365,7 @@ def _two_trays_with_one_tag_scene(monkeypatch) -> None:
     holds a mint rectangle 300 px tall, clear of the strips the outlines share: 500 px wide in the
     first (1500 mm2), 250 px in the second (750 mm2), 500 px in the third (1500 mm2)."""
     from npec_rig.camera import CameraManager, SyntheticBackend
-    from tests.helpers import MINT_LEAF_RGB
+    from tests.helpers import MINT_LEAF_RGB, draw_tray
 
     one_tray_plant_scene(monkeypatch)
 
@@ -357,6 +373,7 @@ def _two_trays_with_one_tag_scene(monkeypatch) -> None:
         def capture_full_res(self):
             frame, metadata = super().capture_full_res()
             frame[:] = 128
+            draw_tray(frame, 115, 554, 9215, 4214)  # three trays touching: one blue piece
             frame[2200:2500, 1400:1900] = MINT_LEAF_RGB
             frame[2200:2500, 4400:4650] = MINT_LEAF_RGB
             frame[2200:2500, 7450:7950] = MINT_LEAF_RGB
@@ -404,32 +421,233 @@ def test_a_tag_two_trays_carry_is_left_out_of_the_photos_areas_for_chamber_activ
 
 def _two_trays_in_one_slot_scene(monkeypatch) -> None:
     """`_two_trays_with_one_tag_scene` with tags 5 and 13 in place of the two tag 1s, tag 13 lying
-    300 px (30 mm) east of tag 5: a loose tag on tray 5 (metrology log 17.12). Both trays' centres
-    (x 1640 and 1940) are nearest North 1; tray 7 is alone in North 3."""
+    300 px (30 mm) east of tag 5: a loose tag on tray 5 (metrology log 17.12). Both tags lie in the
+    first tray's outline (#331); tray 7 is alone in the third."""
     _two_trays_with_one_tag_scene(monkeypatch)
     tags = [TagDetection(tag_id, ((x - 200, 3600), (x + 200, 3600), (x + 200, 4000), (x - 200, 4000)), (x, 3800))
             for tag_id, x in ((5, 600), (13, 900), (7, 6650))]
     monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: tags)
 
 
-def test_two_trays_in_one_slot_are_both_marked_not_counted_with_the_slot(monkeypatch) -> None:
-    """#315, decided by Aaron 2026-10-28: a second outline over a tray takes part of its plant, so
-    neither tray in the slot counts, in this photo; the other trays count as normal."""
+def test_two_tags_in_one_tray_outline_are_both_marked_not_counted(monkeypatch) -> None:
+    """#315, decided by Aaron 2026-10-28, for trays found in the photo (#331): two tags in one
+    outline give it to two trays, which would count its plant twice, so neither counts, in this
+    photo; the other trays count as normal."""
     _two_trays_in_one_slot_scene(monkeypatch)
 
     trays = {t["tray_id"]: t for t in tray_readings.read_photo(_photo())["trays"]}
-    assert trays[5]["not_counted"] == ["2 trays in North 1"]
-    assert trays[13]["not_counted"] == ["2 trays in North 1"]
+    assert trays[5]["not_counted"] == ["2 tags in one tray outline"]
+    assert trays[13]["not_counted"] == ["2 tags in one tray outline"]
     assert trays[7]["not_counted"] == []
 
 
-def test_a_photo_with_two_trays_in_one_slot_is_left_out_whole_as_chamber_activity(monkeypatch) -> None:
-    """#315, decided by Aaron 2026-10-28: two outlines in one slot mean a tray carried over the
-    table or a loose tag on a tray (metrology log 17.12), too abnormal to measure, so the whole
-    photo is a visit, as for any chamber activity (`_two_trays_in_one_slot_scene`)."""
+def test_a_photo_with_two_tags_in_one_tray_outline_is_left_out_whole_as_chamber_activity(monkeypatch) -> None:
+    """#315, decided by Aaron 2026-10-28: a loose tag on a tray, or a tray carried over the table
+    (metrology log 17.12), is too abnormal to measure, so the whole photo is a visit, as for any
+    chamber activity; with trays found in the photo, two tags in one outline (#331)."""
     _two_trays_in_one_slot_scene(monkeypatch)
     captures.start_experiment(captures.create_experiment()["id"])
     path = _photo()
     tray_readings.read_photo(path)
 
     assert tray_readings.photo_readings(path)["exclusion"] == "visit"
+
+
+# --- Trays found in the photo (#331) -------------------------------------------------------------
+TRAY_BLUE = (40, 90, 200)  # OpenCV hue 110, saturation 204, value 200: the sampled tray plastic
+
+
+def _blue_tray_scene(monkeypatch, tags: list[TagDetection], box=(300, 400, 3350, 4060), size=(4000, 4400)) -> None:
+    """`one_tray_plant_scene` (10 px/mm, North 1) with a blue tray 3050 x 3660 px (305 x 366 mm)
+    drawn at `box`, the mint rectangle inside it (x 1400 to 1900, y 2200 to 2500, 1500 mm2) and
+    the one outside it at x 3400 to 3900 beyond the tray's east side."""
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB, draw_tray
+
+    one_tray_plant_scene(monkeypatch)
+    x0, y0, x1, y1 = box
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[y0:y1, x0:x1] = TRAY_BLUE
+            frame[2200:2500, 1400:1900] = MINT_LEAF_RGB
+            frame[2200:2500, 3400:3900] = MINT_LEAF_RGB
+            return frame, metadata
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: tags)
+    CameraManager.set_instance(CameraManager(Scene(width=size[0], height=size[1])))
+
+
+def _flat(corners) -> list[float]:
+    return [v for corner in sorted(corners) for v in corner]
+
+
+def test_a_tray_found_in_the_photo_is_named_by_its_tag_and_measured_inside_its_outline(monkeypatch) -> None:
+    """Tag 5 lies in the tray's north-east corner, not in cell A1: its placement from the tag
+    would put the tray somewhere else, the photo puts it where it was drawn."""
+    tag = TagDetection(5, ((2800, 600), (3200, 600), (3200, 1000), (2800, 1000)), (3000, 800))
+    _blue_tray_scene(monkeypatch, [tag])
+
+    readings = tray_readings.read_photo(_photo())
+    assert readings["status"] == "read"
+    [tray] = readings["trays"]
+    assert (tray["tray_id"], tray["found"], tray["warnings"], tray["slot"]) == (5, "photo + tag", [], None)
+    assert _flat(tray["outline_px"]) == pytest.approx(_flat([(300, 400), (3350, 400), (3350, 4060), (300, 4060)]), abs=10)
+    assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)  # 1%: JPEG blurs the rectangle's edge
+
+
+def test_a_tray_lying_sideways_past_the_photo_edge_is_measured_past_it_at_the_calibrations_scale(monkeypatch) -> None:
+    """A tray turned 90 degrees, 3660 x 3050 px, from x 500: it would end at x 4160, 160 px
+    (16 mm at 10 px/mm) past the east edge of a 4000 px photo. Its outline is the full tray from
+    its west side, so it reaches 16 mm past."""
+    tag = TagDetection(5, ((800, 800), (1200, 800), (1200, 1200), (800, 1200)), (1000, 1000))
+    _blue_tray_scene(monkeypatch, [tag], box=(500, 600, 4000, 3650))
+
+    [tray] = tray_readings.read_photo(_photo())["trays"]
+    assert tray["outside_mm"] == pytest.approx(16, abs=1)
+    assert tray["partly_outside"] is True
+    assert tray["warnings"] == ["partly outside the photo"]
+
+
+def test_two_trays_with_no_tag_are_each_kept_and_never_said_to_share_a_tag(monkeypatch) -> None:
+    """Two untagged trays side by side, 6100 x 3660 px in a 7000 x 4400 photo."""
+    _blue_tray_scene(monkeypatch, [], box=(300, 400, 6400, 4060), size=(7000, 4400))
+
+    trays = tray_readings.read_photo(_photo())["trays"]
+    assert [(t["tray_id"], t["found"], t["warnings"]) for t in trays] == [(None, "photo, no tag", ["no tag"])] * 2
+    assert [t["not_counted"] for t in trays] == [[], []]
+
+
+def test_reading_again_never_turns_saved_areas_into_none_when_no_tray_is_found_now(monkeypatch) -> None:
+    """Review of #334, the #287 guard: a photo read before #331 by tag placement, with an area,
+    read again now that the finder finds no blue in it (a black tray, sheets, dim light) while its
+    tray tag is still seen. The saved reading is kept."""
+    _calibrate()
+    _finds(monkeypatch, "080357_563754")
+    path = _photo()
+    capture_id = database.captures_by_path([path])[path]["id"]
+    database.record_tray_readings(capture_id, read_at="2026-10-28T10:00:00+00:00", status="read", trays=[{
+        "tray_id": 3, "slot": "North 1", "a1_corner": "SW", "placement": "placed", "centre_px": [1000.0, 1000.0],
+        "tilt_deg": 0.0, "margin_mm": 200.0, "area_mm2": 1500.0, "segmenter": "green threshold, 0.1",
+    }])
+
+    with pytest.raises(tray_readings.ReadingWorse):
+        tray_readings.read_photo(path)
+    assert [(t["tray_id"], t["area_mm2"]) for t in tray_readings.photo_readings(path)["trays"]] == [(3, 1500.0)]
+
+
+def test_a_photo_with_no_tray_and_only_a_corner_tag_says_no_trays_found(monkeypatch) -> None:
+    """Review of #334: in dim light a bright corner tag (ID 452, 450 to 499) can still be read
+    when no tray is found. That says nothing about the trays: the photo is "no trays found", not
+    read with every tray missing."""
+    _calibrate()
+    corner = TagDetection(452, ((100, 100), (500, 100), (500, 500), (100, 500)), (300, 300))
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [corner])
+
+    readings = tray_readings.read_photo(_photo())
+    assert (readings["status"], readings["trays"]) == ("no trays found", [])
+
+
+def test_a_photo_is_read_with_its_calibration_whatever_the_calibrations_name(monkeypatch) -> None:
+    """Review of #334: only the scale field is needed to find trays. A calibration saved under a
+    name a slot layout cannot have (not a timestamp) made the slot layout lookup fail and the
+    photo read as having no calibration."""
+    tag = TagDetection(5, ((2800, 600), (3200, 600), (3200, 1000), (2800, 1000)), (3000, 800))
+    _blue_tray_scene(monkeypatch, [tag])
+    save_calibration(
+        CalibrationArtifact(created_at="2026-10-29T10:00:00+00:00", scale_field=scale_field_from_dict(
+            {"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 10.0, "residual_std_pct": 0.0}),
+            frame_stem="bench-check", lens_position=6.05),
+        stem="bench-check",
+    )
+
+    readings = tray_readings.read_photo(_photo())
+    assert readings["status"] == "read"
+    assert [(t["tray_id"], t["found"]) for t in readings["trays"]] == [(5, "photo + tag")]
+
+
+def test_a_photo_stored_as_png_is_searched_for_trays_as_a_jpeg_is(monkeypatch) -> None:
+    """Review of #334: JPEG draft mode shrinks a photo for the finder; a PNG does not shrink, and
+    the finder ran on the full-size photo with parameters tuned at a quarter. The tray drawn at
+    x 300 to 3350, y 400 to 4060 is found there either way."""
+    from npec_rig.captures import photo_file
+
+    tag = TagDetection(5, ((2800, 600), (3200, 600), (3200, 1000), (2800, 1000)), (3000, 800))
+    _blue_tray_scene(monkeypatch, [tag])
+    path = _photo()
+    file = photo_file(path)
+    with Image.open(file) as image:
+        rgb = image.convert("RGB")
+    rgb.save(file, format="PNG")
+
+    [tray] = tray_readings.read_photo(path)["trays"]
+    assert tray["found"] == "photo + tag"
+    assert _flat(tray["outline_px"]) == pytest.approx(_flat([(300, 400), (3350, 400), (3350, 4060), (300, 4060)]), abs=10)
+
+# --- Table locations, not slots (#332) -----------------------------------------------------------
+
+
+def _table_experiment() -> int:
+    table_calibration()
+    experiment = database.create_experiment(uuid="u-332", created_at="2027-01-01T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2027-01-01T00:00:00+00:00", folder="experiments/x")
+    return experiment["id"]
+
+
+def _at(minute: int):
+    from datetime import UTC, datetime
+
+    return datetime(2027, 1, 1, 7, minute, tzinfo=UTC)
+
+
+def test_a_tray_not_found_names_the_table_location_it_was_last_found_in() -> None:
+    experiment_id = _table_experiment()
+    table_photo(experiment_id, _at(0), {7: "NW", 8: "NW"})
+    table_photo(experiment_id, _at(1), {7: "NW", 8: "SE"})
+    path = table_photo(experiment_id, _at(2), {7: "NW"})
+
+    assert tray_readings.photo_readings(path)["not_found"] == [
+        {"tray_id": 8, "location": "SE", "since": _at(2).isoformat(), "photos": 1, "last_seen": _at(1).isoformat()}
+    ]
+
+
+def test_a_tray_counts_as_moved_when_its_centre_leaves_its_location_not_when_it_is_nudged_or_turned() -> None:
+    """Aaron, 2026-10-30: only a centre leaving its location is a move. Tray 8 nudged 100 px inside NW,
+    and tray 9 turned (its centre stays where it was), have not moved."""
+    experiment_id = _table_experiment()
+    first = table_photo(experiment_id, _at(0), {7: "NW", 8: "NW", 9: "SE"})
+    second = table_photo(experiment_id, _at(1), {7: "SM", 9: "SE"})
+    capture_id = database.captures_by_path([second])[second]["id"]
+    saved = database.tray_readings(capture_id)["trays"]
+    nudged = {**saved[0], "tray_id": 8, "centre_px": [250.0, 250.0]}  # (150, 150) moved 100 px, x and y
+    turned = {**saved[1], "a1_corner": "NE", "tilt_deg": 90.0}
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[saved[0], nudged, turned])
+
+    assert tray_readings.photo_readings(first)["moved"] == []
+    assert tray_readings.photo_readings(second)["moved"] == [{"tray_id": 7, "from": "NW", "to": "SM"}]
+
+
+def test_two_trays_placed_in_one_slot_before_331_are_still_not_counted_without_naming_the_slot() -> None:
+    """Readings saved before #331 can hold two trays placed in one slot (a loose tag, #315); they
+    still do not count, and the reason no longer names a slot (#332)."""
+    experiment_id = _table_experiment()
+    path = table_photo(experiment_id, _at(0), {5: "NW", 13: "NW", 7: "SE"})
+    capture_id = database.captures_by_path([path])[path]["id"]
+    old = [{**t, "slot": "North 1" if t["tray_id"] != 7 else "South 3",
+            "placement": "two trays in one slot" if t["tray_id"] != 7 else "placed"}
+           for t in database.tray_readings(capture_id)["trays"]]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=old)
+
+    assert {t["tray_id"]: t["not_counted"] for t in tray_readings.photo_readings(path)["trays"]} == {
+        5: ["2 trays in one place"], 7: [], 13: ["2 trays in one place"]
+    }
+
+
+def test_each_tray_found_in_a_photo_names_the_table_location_it_lies_in() -> None:
+    """The Gallery names a tray's table location, not a slot (#332)."""
+    experiment_id = _table_experiment()
+    path = table_photo(experiment_id, _at(0), {3: "NE", 7: "SW"})
+
+    assert {t["tray_id"]: t["location"] for t in tray_readings.photo_readings(path)["trays"]} == {3: "NE", 7: "SW"}

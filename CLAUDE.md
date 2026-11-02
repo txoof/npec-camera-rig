@@ -289,7 +289,7 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | segmentation | `segmentation.py` (plant masks: the `Segmenter` interface, the green threshold and the Hailo stub, #74) |
 | database | `database.py` (the experiment's tables in `rig.db` and their migrations) |
 | exports | `exports.py` (an experiment's export zip and its checksum manifest) |
-| trays | `tray_placement.py` (each tray's slot, A1 corner and outline, placed from its cell A1 tag), `tray_readings.py` (each photo read for its trays in the background, #222), `exclusions.py` (why a photo's plant areas are left out, from its exposure and gain, #288), `tests/fixtures/trays/` |
+| trays | `tray_placement.py` (each tray's slot, A1 corner and outline, placed from its cell A1 tag), `tray_readings.py` (each photo read for its trays in the background, #222), `exclusions.py` (why a photo's plant areas are left out, from its exposure and gain, #288), `dwell.py` (each tray's table location, its stays there and the too-long warning, #332), `tests/fixtures/trays/` |
 | docs | `docs/` (except the shared files below), `reference/`, `README.md`, `GLOSSARY.md` |
 | cad | `hardware/` |
 | deploy | `deploy/` |
@@ -469,7 +469,7 @@ limits: where one does not work for a page, choose what does and say why in the 
 | `TODO.md` | Frozen record, 2026-10-08. Done items and the decisions in them. Open work is in GitHub issues (see *Parallel work*). Do not add items |
 | `CONTRIBUTING.md` | Branches, PRs, review and merging |
 | `reference/old-calibration/` | Rescued measured values from the previous rig |
-| `reference/trays.md` | Growth trays: measured size, the 4 x 5, 4 x 4 and 1 x 1 configurations, where the tags sit, the 12-tray layout rules, what is not yet known |
+| `reference/trays.md` | Growth trays: measured size, the 4 x 5, 2 x 2 and 1 x 1 configurations, where the tags sit, the 12-tray layout rules, what is not yet known |
 | `reference/arducam-central-error-2026-10.md` | The central-error investigation: evidence, what was ruled out, how the error is managed |
 | `docs/measurement-trust.md` | Why the rig's area measurements can be trusted, and the steps taken to build that trust. The case, for reports and a possible paper |
 | `docs/metrology-log.md` | Log of every measurement, test method and result, with sources: the evidence behind `measurement-trust.md`. See *Write up every measurement* |
