@@ -37,7 +37,7 @@ from PIL import Image
 
 from npec_rig.captures import photos_root
 from npec_rig.settings import db_path
-from npec_rig.tags import TagDetection, detect_tags
+from npec_rig.tags import TagDetection, detect_tags, grayscale_uint8
 
 # Bump when detect_tags changes what it finds: stored detections from an older detector are then
 # worked out again rather than reused. 2: tray tags read with their own settings (#156).
@@ -204,9 +204,12 @@ def tag_detections(
         if stored is not None:
             return stored
         with _full_decode:
+            # The search sees only the grey copy: the colour frame (about 190 MB) goes first (#348).
             frame = decode_full(image_path)
-            detections = detect(frame)
+            gray = grayscale_uint8(frame)
             del frame
+            detections = detect(gray)
+            del gray
         _store_tags(source, detections)
     with _key_locks_guard:
         _key_locks.pop(f"tags:{source}", None)
