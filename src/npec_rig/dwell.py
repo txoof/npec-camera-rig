@@ -32,7 +32,7 @@ from npec_rig.captures import photo_file
 
 LOCATIONS = ("NW", "NM", "NE", "SW", "SM", "SE")
 
-# A tray counts as moved only after this long found in another location, in a row: shorter stays, such
+# A tray counts as moved only after over this long found in another location, in a row: shorter stays, such
 # as tray 1 beside its slot for 3 minutes on 28 October, are nudges. A decision, not a measurement
 # (Aaron, 2026-10-30).
 MOVE_AFTER = timedelta(hours=1)
@@ -87,7 +87,7 @@ def stays(readings: Iterable[tuple[datetime, str]]) -> list[Stay]:
     the table for up to `database.NOT_SEEN_FOR` do not break a stay; missing longer, it was taken
     away, its stay ended at its last photo and it starts a new one when found again, even in the
     same location (Aaron, 2026-10-30). A tray found in another location starts a new stay only
-    once it has been found there for `MOVE_AFTER`, from the first to the last photo in a row; it is
+    once it has been found there for over `MOVE_AFTER`, from the first to the last photo in a row; it is
     then in the new location from its first photo there. A shorter stay elsewhere is part of the stay
     it left and came back to."""
     out: list[Stay] = []
@@ -105,7 +105,7 @@ def stays(readings: Iterable[tuple[datetime, str]]) -> list[Stay]:
             away = []
         else:
             away = [r for r in away if r[1] == location] + [(taken_at, location)]
-            if taken_at - away[0][0] >= MOVE_AFTER:
+            if taken_at - away[0][0] > MOVE_AFTER:
                 out.append(Stay(location, away[0][0], taken_at))
                 away = []
     return out

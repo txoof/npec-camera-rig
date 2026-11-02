@@ -101,13 +101,14 @@ def test_a_tray_beside_its_location_for_3_minutes_has_not_moved() -> None:
     assert dwell.stays(readings) == [dwell.Stay("NW", _t("01-01T10:00"), _t("01-01T10:04"))]
 
 
-@pytest.mark.parametrize(("last_away", "moved"), [("10:59", False), ("11:00", True)])
-def test_a_tray_counts_as_moved_after_1_hour_found_in_another_location(last_away, moved) -> None:
+@pytest.mark.parametrize(("last_away", "moved"), [("10:59", False), ("11:00", False), ("11:01", True)])
+def test_a_tray_counts_as_moved_after_over_1_hour_found_in_another_location(last_away, moved) -> None:
+    """Over 1 hour (Aaron, 2026-10-30): exactly 1 hour is not a move."""
     readings = [(_t("01-01T09:00"), "SE"), (_t("01-01T10:00"), "SM"), (_t(f"01-01T{last_away}"), "SM"),
                 (_t("01-01T11:30"), "SE")]
 
     expected = (
-        [dwell.Stay("SE", _t("01-01T09:00"), _t("01-01T09:00")), dwell.Stay("SM", _t("01-01T10:00"), _t("01-01T11:00"))]
+        [dwell.Stay("SE", _t("01-01T09:00"), _t("01-01T09:00")), dwell.Stay("SM", _t("01-01T10:00"), _t(f"01-01T{last_away}"))]
         if moved else [dwell.Stay("SE", _t("01-01T09:00"), _t("01-01T11:30"))]
     )
     # Moved: back in SE at 11:30 for one photo only is not yet a move back.
@@ -163,11 +164,11 @@ def test_the_warning_clears_once_the_tray_has_been_in_another_location_for_an_ho
     experiment_id = _experiment()
     for when in ("01-01T00:00", "01-03T00:00", "01-05T00:00", "01-05T10:00"):
         _read(experiment_id, when, {7: "NW"})
-    for when in ("01-05T10:30", "01-05T11:29", "01-05T11:30"):
+    for when in ("01-05T10:30", "01-05T11:30", "01-05T11:31"):
         _read(experiment_id, when, {7: "SM"})
 
-    assert [t["tray_id"] for t in dwell.over_limit(experiment_id, at=_t("01-05T11:29").isoformat())] == [7]
-    assert dwell.over_limit(experiment_id, at=_t("01-05T11:30").isoformat()) == []
+    assert [t["tray_id"] for t in dwell.over_limit(experiment_id, at=_t("01-05T11:30").isoformat())] == [7]
+    assert dwell.over_limit(experiment_id, at=_t("01-05T11:31").isoformat()) == []
 
 
 def test_the_experiments_own_limit_is_used() -> None:
