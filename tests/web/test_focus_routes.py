@@ -331,3 +331,47 @@ def test_capture_sidecar_lens_check_follows_the_lock() -> None:
     assert record["lens_check"]["reported"] == record["lens_check"]["locked"]
     assert "focus not locked" not in record["flags"]
     assert set(record["uptime"]) >= {"boot_id", "pi_up_s", "app_up_s", "app_start", "flagged"}
+
+
+def test_health_says_opening_until_the_app_start_has_opened_the_camera() -> None:
+    """#252: a camera nothing has opened is never reported "ok". Starting the app opens it, in the
+    background, and health then reports it working. Health itself only reads the state."""
+    import time
+
+    from npec_rig import health
+
+    CameraManager.set_instance(None)
+    health._reset_for_tests()
+    try:
+        # No app start (TestClient without `with` runs no lifespan): the camera stays unopened.
+        assert TestClient(app).get("/camera/health").json()["state"] == "opening"
+        assert TestClient(app).get("/camera/health").json()["state"] == "opening"
+        with TestClient(app) as client:
+            deadline = time.monotonic() + 10
+            body = client.get("/camera/health").json()
+            while body["state"] == "opening" and time.monotonic() < deadline:
+                time.sleep(0.05)
+                body = client.get("/camera/health").json()
+            assert body["state"] == "ok"
+    finally:
+        CameraManager.wait_for_open(10)
+        health._reset_for_tests()
+
+
+def test_health_reports_an_attached_camera_that_will_not_open(tmp_path) -> None:
+    """#252: a camera that is attached but will not open stays "failed_to_reopen"."""
+    from npec_rig import health
+    from npec_rig.camera_process import ProcessBackend
+
+    fail = tmp_path / "fail_open"
+    fail.write_text("fail")
+    health._reset_for_tests()
+    backend = ProcessBackend("synthetic", {"fail_open_file": str(fail)}, retry_s=60)
+    try:
+        CameraManager.set_instance(CameraManager(backend))
+        body = TestClient(app).get("/camera/health").json()
+        assert body["state"] == "failed_to_reopen"
+        assert "could not be opened" in body["detail"]
+    finally:
+        backend.close()
+        health._reset_for_tests()

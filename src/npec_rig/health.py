@@ -31,10 +31,15 @@ from npec_rig.settings import db_path
 logger = logging.getLogger(__name__)
 
 # The camera states the fleet endpoint will report (#82).
+CAMERA_OPENING = "opening"  # nothing has opened the camera yet, or it is being opened (#252)
 CAMERA_OK = "ok"
 CAMERA_RESTARTING = "restarting"
-CAMERA_FAILED_TO_REOPEN = "failed_to_reopen"
-CAMERA_STATES = (CAMERA_OK, CAMERA_RESTARTING, CAMERA_FAILED_TO_REOPEN)
+CAMERA_NO_CAMERA = "no_camera"  # the camera software finds no camera attached (#252)
+CAMERA_FAILED_TO_REOPEN = "failed_to_reopen"  # a camera is attached but will not open
+CAMERA_STATES = (
+    CAMERA_OPENING, CAMERA_OK, CAMERA_RESTARTING, CAMERA_NO_CAMERA, CAMERA_FAILED_TO_REOPEN
+)
+OPENING_DETAIL = "Opening the camera."
 
 # Kinds of row in camera_events.
 EVENT_FAULT = "fault"  # a call did not finish in time, or the program ended during one
@@ -85,8 +90,8 @@ _COLUMNS = (
 
 _lock = Lock()
 _camera = {
-    "state": CAMERA_OK,
-    "detail": None,
+    "state": CAMERA_OPENING,
+    "detail": OPENING_DETAIL,
     "since_utc": None,
     "reboot_needed": False,
     "last_good_photo_utc": None,
@@ -324,8 +329,8 @@ def camera_health() -> dict:
 def _reset_for_tests() -> None:
     with _lock:
         _camera.update(
-            state=CAMERA_OK,
-            detail=None,
+            state=CAMERA_OPENING,
+            detail=OPENING_DETAIL,
             since_utc=None,
             reboot_needed=False,
             last_good_photo_utc=None,
