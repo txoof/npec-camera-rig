@@ -277,11 +277,15 @@ def _table_locations(experiment: dict) -> dict:
         return {**setting, "warnings": [], "trays": [], "running": running}
     begin = datetime.fromisoformat(periods[0]["started_at"])
     end = datetime.now(UTC) if running else datetime.fromisoformat(periods[-1]["ended_at"] or _now())
-    warned = {w["tray_id"]: w for w in dwell.over_limit(experiment["id"], at=end.isoformat())} if running else {}
-    hours = dwell.hours_per_location(experiment["id"])
     hidden = database.hidden_trays(experiment["id"])
+    # One snapshot of the stays for the whole panel: the warnings, the hours and the diagrams all
+    # come from it, so a photo read in the meantime cannot give a tray in one and not another.
+    snapshot = dwell.tray_stays(experiment["id"], until=end.isoformat() if running else None)
+    warned = ({w["tray_id"]: w for w in dwell.over_limit_in(snapshot, end, experiment["dwell_limit_h"], hidden)}
+              if running else {})
+    hours = dwell.hours_in(snapshot)
     trays, shown = [], []
-    for tray_id, stays in dwell.tray_stays(experiment["id"]).items():
+    for tray_id, stays in snapshot.items():
         if tray_id in hidden:
             # One line until Show is tapped, such as a misread tag (Aaron, 2026-11-02).
             trays.append({"tray_id": tray_id, "hidden": True, "warning": None})

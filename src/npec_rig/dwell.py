@@ -232,34 +232,45 @@ def _hours(stay: Stay) -> float:
 
 def over_limit(experiment_id: int, at: str) -> list[dict]:
     """The experiment's trays that, at time `at` (UTC), have stayed in one location for its dwell
-    limit (`experiment.dwell_limit_h`) or longer, in tray ID order: tray ID, the location, since when
-    and for how many hours, from the stay's first photo to `at`. A tray missing for up to
-    `database.NOT_SEEN_FOR` still counts in its location; missing longer, it was taken away, and is
-    not warned for until it is found again (Aaron, 2026-10-30, #331's rule). A tray hidden on the
-    experiment's panel, such as a misread tag, is never warned for (Aaron, 2026-11-02)."""
-    limit_h = database.get_experiment(experiment_id)["dwell_limit_h"]
-    hidden = database.hidden_trays(experiment_id)
-    now = datetime.fromisoformat(at)
+    limit (`experiment.dwell_limit_h`) or longer (`over_limit_in`)."""
+    experiment = database.get_experiment(experiment_id)
+    return over_limit_in(tray_stays(experiment_id, until=at), datetime.fromisoformat(at),
+                         experiment["dwell_limit_h"], database.hidden_trays(experiment_id))
+
+
+def over_limit_in(trays: dict[int, list[Stay]], at: datetime, limit_h: float, hidden: Iterable[int] = ()) -> list[dict]:
+    """Of `trays` (`tray_stays` up to `at`), those that at time `at` have stayed in one location
+    for `limit_h` hours or longer, in tray ID order: tray ID, the location, since when and for how
+    many hours, from the stay's first photo to `at`. A tray missing for up to
+    `database.NOT_SEEN_FOR` since its stay's last photo still counts in its location; missing
+    longer, it was taken away, and is not warned for until it is found again (Aaron, 2026-10-30,
+    #331's rule). A tray in `hidden`, hidden on the experiment's panel such as a misread tag, is
+    never warned for (Aaron, 2026-11-02)."""
+    hidden = set(hidden)
     out = []
-    for tray_id, readings in sorted(_experiment_readings(experiment_id, until=at).items()):
-        if tray_id in hidden:
+    for tray_id, tray in sorted(trays.items()):
+        stay = tray[-1]
+        if tray_id in hidden or at - stay.end > database.NOT_SEEN_FOR:
             continue
-        stay = stays(readings)[-1]
-        if now - readings[-1][0] > database.NOT_SEEN_FOR:
-            continue
-        hours = (now - stay.start) / timedelta(hours=1)
+        hours = (at - stay.start) / timedelta(hours=1)
         if hours >= limit_h:
             out.append({"tray_id": tray_id, "location": stay.location, "since": stay.start.isoformat(), "hours": hours})
     return out
 
 
 def hours_per_location(experiment_id: int, until: str | None = None) -> dict[int, dict[str, float]]:
-    """Each tray's hours in each location (`LOCATIONS`, every one, 0 where it never stayed) over the
-    experiment, up to `until` (UTC; all with None), by tray ID: each stay from its first to its
-    last photo. The minutes between a stay's last photo and the next stay's first are in neither,
-    nor are nudges a stay of their own: they count in the stay they interrupted."""
+    """Each tray's hours in each location over the experiment, up to `until` (UTC; all with
+    None), by tray ID (`hours_in`)."""
+    return hours_in(tray_stays(experiment_id, until))
+
+
+def hours_in(trays: dict[int, list[Stay]]) -> dict[int, dict[str, float]]:
+    """Each of `trays`' (`tray_stays`) hours in each location (`LOCATIONS`, every one, 0 where it
+    never stayed), by tray ID: each stay from its first to its last photo. The minutes between a
+    stay's last photo and the next stay's first are in neither, nor are nudges a stay of their
+    own: they count in the stay they interrupted."""
     out = {}
-    for tray_id, tray in tray_stays(experiment_id, until).items():
+    for tray_id, tray in trays.items():
         hours = dict.fromkeys(LOCATIONS, 0.0)
         for stay in tray:
             hours[stay.location] += _hours(stay)
