@@ -67,9 +67,10 @@
       <h3 id="ask-title"></h3>
       <div id="ask-body"></div>
       <div class="experiment-dialog-error" id="ask-error"></div>
-      <div class="experiment-form-buttons">
-        <button type="submit" id="ask-ok"></button>
-        <button type="button" id="ask-cancel" class="secondary">Cancel</button>
+      <!-- Large buttons with a wide gap (CLAUDE.md, Web pages): a missed tap lands on nothing. -->
+      <div class="experiment-form-buttons" style="gap: 24px">
+        <button type="submit" id="ask-ok" style="min-height: 64px; min-width: 120px"></button>
+        <button type="button" id="ask-cancel" class="secondary" style="min-height: 64px; min-width: 120px">Cancel</button>
       </div>
     </form>
   </dialog>
@@ -489,19 +490,33 @@
     document.getElementById("table-locations-close").addEventListener("click", () => { tableLocationsSection.hidden = true; });
 
     // Hide and Show on each tray (#332): kept in rig.db, so every PC shows the same. A hidden
-    // tray gives no warning; the panel is made again with the tray as one line, or in full.
+    // tray gives no warning; the panel is made again with the tray as one line, or in full. Hide
+    // asks first, in the page's dialog, since it hides the warning too (Aaron, 2026-11-02); Show
+    // does not ask. Cancel changes nothing.
+    async function setTrayHidden(tray, hide) {
+      await call("POST", `/api/experiments/${tableLocationsShown}/trays/${tray}/${hide ? "hide" : "show"}`);
+      await refresh();
+      const y = window.scrollY;
+      await showTableLocations(experiments.find((x) => x.id === tableLocationsShown));
+      window.scrollTo(0, y);  // stay at the tray just hidden or shown
+    }
+
     tableLocations.addEventListener("click", async (event) => {
       const button = event.target.closest("button[data-tray-hide], button[data-tray-show]");
       if (!button) return;
-      const hide = button.hasAttribute("data-tray-hide");
-      const tray = hide ? button.dataset.trayHide : button.dataset.trayShow;
+      if (button.hasAttribute("data-tray-hide")) {
+        const tray = button.dataset.trayHide;
+        openAsk({
+          title: `Hide tray ${tray}?`,
+          body: "<p>Its warnings are hidden too, on every screen, until Show is tapped.</p>",
+          ok: "Hide",
+          action: () => setTrayHidden(tray, true),
+        });
+        return;
+      }
       button.disabled = true;
       try {
-        await call("POST", `/api/experiments/${tableLocationsShown}/trays/${tray}/${hide ? "hide" : "show"}`);
-        await refresh();
-        const y = window.scrollY;
-        await showTableLocations(experiments.find((x) => x.id === tableLocationsShown));
-        window.scrollTo(0, y);  // stay at the tray just hidden or shown
+        await setTrayHidden(button.dataset.trayShow, false);
       } catch (err) {
         dwellMessage.textContent = `Not changed: ${err.message}`;
         button.disabled = false;
