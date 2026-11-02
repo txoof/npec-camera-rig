@@ -8,7 +8,7 @@ import pytest
 from npec_rig import database, dwell
 from npec_rig.calibration import build_table_frame
 from npec_rig.tripwire import CornerBaseline
-from tests.helpers import table_calibration, table_photo
+from tests.helpers import TABLE_STEM, table_calibration, table_photo
 
 pytestmark = pytest.mark.unit
 
@@ -252,3 +252,27 @@ def test_a_tray_away_over_48_hours_and_back_in_the_same_location_starts_a_new_st
 
     assert dwell.over_limit(experiment_id, at=_t("01-06T06:00").isoformat()) == []
     assert dwell.hours_per_location(experiment_id)[7]["NW"] == 24.0 + 6.0
+
+
+def test_a_rebuilt_calibration_is_used_at_once_not_after_a_restart() -> None:
+    """Review of #332: a twin rebuilt from TABLE_STEM with its north corner tags at y 400 and its
+    south ones at y 700 puts the rows' meeting line at y 550, so a tray at (450, 450), in SM under
+    TABLE_STEM (line at y 300), is in NM. Nothing is read again in between."""
+    from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
+    from npec_rig.calibration_store import save_calibration
+
+    experiment_id = _experiment()
+    _read(experiment_id, "01-01T00:00", {7: "SM"})
+    assert [s.location for s in dwell.tray_stays(experiment_id)[7]] == ["SM"]
+
+    corners = {450: (100, 400), 451: (800, 400), 452: (800, 700), 453: (100, 700)}
+    save_calibration(
+        CalibrationArtifact(
+            created_at="2027-01-02T00:00:00+00:00", frame_stem="20270102T000000000000", rebuilt_from=TABLE_STEM,
+            scale_field=scale_field_from_dict({"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 1.0, "residual_std_pct": 0.0}),
+            corner_baseline=CornerBaseline(corners_by_id={i: _square(*c, side=10) for i, c in corners.items()}),
+        ),
+        stem="20270102T000000000000",
+    )
+
+    assert [s.location for s in dwell.tray_stays(experiment_id)[7]] == ["NM"]

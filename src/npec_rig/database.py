@@ -688,6 +688,16 @@ def show_tray(experiment_id: int, tray_id: int) -> None:
         conn.execute("DELETE FROM experiment_hidden_tray WHERE experiment_id = ? AND tray_id = ?", (experiment_id, tray_id))
 
 
+def experiment_calibrations(experiment_id: int) -> list[str | None]:
+    """The calibrations the experiment's photos were taken under, each once (None for photos with
+    none), for whether a cached reading of them is still current (#332)."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT calibration FROM capture WHERE experiment_id = ? ORDER BY calibration", (experiment_id,)
+        ).fetchall()
+    return [row[0] for row in rows]
+
+
 def experiment_tray_reads_mark(experiment_id: int) -> tuple:
     """A mark that changes whenever a photo of the experiment is read or read again (#332): the
     database, its photos read and when the newest was, and its tray readings' rows, newest row and

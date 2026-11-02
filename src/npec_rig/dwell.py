@@ -12,6 +12,7 @@ decisions, not measurements (Aaron, 2026-10-30, issue #332).
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -27,6 +28,7 @@ from npec_rig.calibration_store import (
     calibration_frame_path,
     calibration_for_photos,
     load_saved_calibration,
+    saved_calibration_path,
 )
 from npec_rig.captures import photo_file
 
@@ -171,28 +173,48 @@ def _table_frame(calibration: str | None) -> TableFrame | None:
         return None
 
 
-# The last experiment's readings, with the mark of its tray readings they were worked out from: the
-# pages ask again every few seconds, and an experiment of 8 days (about 100 000 readings) takes
-# seconds to work out.
-_last_readings: dict = {}
+# Each experiment's readings, with the key they were worked out for: the pages ask again every few
+# seconds, and an experiment of 8 days (about 100 000 readings) takes seconds to work out. Requests
+# run in threads: the lock lets one rebuild while the others wait for it, not all rebuild at once.
+_readings_cache: dict[int, tuple[tuple, list[tuple[int, str, datetime, str]]]] = {}
+_readings_lock = threading.Lock()
+
+
+def _calibrations_key(experiment_id: int) -> tuple:
+    """Which calibration each of the experiment's calibrations is read with now, and that file's
+    time: a rebuilt twin (`calibration_for_photos`) or a changed file changes it."""
+    key = []
+    for stem in database.experiment_calibrations(experiment_id):
+        if stem is None:
+            key.append((None, None, None))
+            continue
+        used = calibration_for_photos(stem)
+        try:
+            mtime = saved_calibration_path(used).stat().st_mtime_ns
+        except (CalibrationNotFoundError, OSError):
+            mtime = None
+        key.append((stem, used, mtime))
+    return tuple(key)
 
 
 def _experiment_readings(experiment_id: int, until: str | None = None) -> dict[int, list[tuple[datetime, str]]]:
     """Each tray's readings in the experiment's read photos taken up to `until` (all with None):
     (time, location), oldest first. A tray whose location cannot be known in a photo is left out of it.
-    Worked out again whenever a photo of the experiment is read or read again."""
-    mark = (experiment_id, database.experiment_tray_reads_mark(experiment_id))
-    if _last_readings.get("mark") != mark:
-        finder = LocationFinder()
-        everything: list[tuple[int, str, datetime, str]] = []
-        for p in database.experiment_tray_positions(experiment_id):
-            location = finder.location(p["path"], p["calibration"], p["centre_px"])
-            if location is not None:
-                everything.append((p["tray_id"], p["taken_at"], datetime.fromisoformat(p["taken_at"]), location))
-        _last_readings.clear()
-        _last_readings.update(mark=mark, readings=everything)
+    Worked out again whenever a photo of the experiment is read or read again, or a calibration
+    its photos are read with changes."""
+    with _readings_lock:
+        key = (database.experiment_tray_reads_mark(experiment_id), _calibrations_key(experiment_id))
+        cached = _readings_cache.get(experiment_id)
+        if cached is None or cached[0] != key:
+            finder = LocationFinder()
+            everything: list[tuple[int, str, datetime, str]] = []
+            for p in database.experiment_tray_positions(experiment_id):
+                location = finder.location(p["path"], p["calibration"], p["centre_px"])
+                if location is not None:
+                    everything.append((p["tray_id"], p["taken_at"], datetime.fromisoformat(p["taken_at"]), location))
+            cached = _readings_cache[experiment_id] = (key, everything)
     readings: dict[int, list[tuple[datetime, str]]] = {}
-    for tray_id, taken_at, when, location in _last_readings["readings"]:
+    for tray_id, taken_at, when, location in cached[1]:
         if until is None or taken_at <= until:
             readings.setdefault(tray_id, []).append((when, location))
     return readings
