@@ -1,12 +1,14 @@
-"""Trays found in a photo from their blue plastic and named by the tag inside them (#331), or
-placed from the tag in their cell A1 when the photo shows no tray there (#220).
+"""Trays found in a photo from their blue plastic and named by the tag inside them (#331).
 
 Found in the photo (`find_outlines`, metrology log 20 and 20.1): the blue finder of
 `experiments/round3-tray-outlines/methods_blue.py`, photo only, tags never used for where a tray
 is. Named (`name_trays`): a tray tag names the outline its centre lies inside, wherever it lies
-in the tray.
+in the tray. A tray tag inside no outline is only seen: a tray is never placed from its tag for a
+reading, because that assumed the tag lay in cell A1 and put trays about 176 mm off for tags
+lying elsewhere (metrology log 21.1).
 
-Placed from the tag (`place_trays`):
+Placed from the tag (`place_trays`, #220): kept for the certainty map only
+(`certainty_map.py`), which places trays on a calibration's slot layout. Not for tray readings:
 
 The method of metrology log 15.5h to 15.5l, written fresh from `experiments/round1-trays/shuffle.py`
 (`place_any_rotation`): geometry on the tag detections, no image segmentation.

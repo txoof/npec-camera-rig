@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import pytest
+from PIL import Image
 from fastapi.testclient import TestClient
 
 from npec_rig import captures, database, photo_tags, tray_readings, validation_store
@@ -565,3 +566,22 @@ def test_a_photo_is_read_with_its_calibration_whatever_the_calibrations_name(mon
     readings = tray_readings.read_photo(_photo())
     assert readings["status"] == "read"
     assert [(t["tray_id"], t["found"]) for t in readings["trays"]] == [(5, "photo + tag")]
+
+
+def test_a_photo_stored_as_png_is_searched_for_trays_as_a_jpeg_is(monkeypatch) -> None:
+    """Review of #334: JPEG draft mode shrinks a photo for the finder; a PNG does not shrink, and
+    the finder ran on the full-size photo with parameters tuned at a quarter. The tray drawn at
+    x 300 to 3350, y 400 to 4060 is found there either way."""
+    from npec_rig.captures import photo_file
+
+    tag = TagDetection(5, ((2800, 600), (3200, 600), (3200, 1000), (2800, 1000)), (3000, 800))
+    _blue_tray_scene(monkeypatch, [tag])
+    path = _photo()
+    file = photo_file(path)
+    with Image.open(file) as image:
+        rgb = image.convert("RGB")
+    rgb.save(file, format="PNG")
+
+    [tray] = tray_readings.read_photo(path)["trays"]
+    assert tray["found"] == "photo + tag"
+    assert _flat(tray["outline_px"]) == pytest.approx(_flat([(300, 400), (3350, 400), (3350, 4060), (300, 4060)]), abs=10)

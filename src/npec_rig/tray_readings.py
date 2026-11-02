@@ -35,7 +35,6 @@ from npec_rig.tray_placement import (
     TrayPlacement,
     find_outlines,
     name_trays,
-    place_trays,
     tray_outline_at,
 )
 
@@ -89,20 +88,6 @@ def _calibration(path: str) -> tuple[str, object, list[dict] | None]:
     if layout is None:
         return "no slot layout", artifact.scale_field, None
     return "read", artifact.scale_field, layout["slots"]
-
-
-def placements(path: str, tags: list[TagDetection]) -> tuple[str, list[TrayPlacement]]:
-    """Each tray tag of photo `path` placed from the tag with the calibration the photo was taken
-    under, and the status: "read", or why nothing could be placed ("no calibration", "no slot
-    layout", "placement failed"). Reads only: nothing is worked out from the photo or stored."""
-    status, scale_field, slots = _calibration(path)
-    if status != "read":
-        return status, []
-    try:
-        return "read", place_trays(tags, scale_field, slots)
-    except (ValueError, KeyError, TypeError, OSError):
-        logger.exception("Could not place the trays of %s", path)
-        return "placement failed", []
 
 
 def _small_copy(path: str) -> tuple[np.ndarray, float] | None:
