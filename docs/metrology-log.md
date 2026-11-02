@@ -59,7 +59,7 @@ two area errors (for example +1.00% to +1.03%) is given in *points* (+0.03 point
 | Callipers used for every reading in this table | NEIKO callipers; no model or serial number available | Stated by Aaron | 2026-10-08 | Not checked against a reference standard. The only independent check: the steel tape and the callipers agree on the sheets' 180 mm scale bars (section 9.2) |
 | Calliper resolution trusted | 0.1 mm | **Decision** | | Readings are not used beyond 0.1 mm |
 | Sheet-to-sheet difference | up to about 0.7% in area between sheets that both measure 30.0 mm | Fit residuals, 6 pages, 3 sessions | 2026-09-30 to 10-01 | `reference/arducam-central-error-2026-10.md` |
-| Tray heights, table surface to the top edge of the tray | Black tray 40 mm; 4x5 tray 105 mm; 4x4 tray 150 mm; 1x1 tray 175 mm | Tape measure, by Aaron, one reading per tray, given in cm (4, 10.5, 15, 17.5) | 2026-10-09 | One tape reading each, so a few mm either way. For the black, 4x4 and 1x1 trays the top edge is the growing-medium height (Aaron, 2026-10-09). The 4x5 is the exception: see the next row |
+| Tray heights, table surface to the top edge of the tray | Black tray 40 mm; 4x5 tray 105 mm; 4x4 tray 150 mm; 1x1 tray 175 mm | Tape measure, by Aaron, one reading per tray, given in cm (4, 10.5, 15, 17.5) | 2026-10-09 | One tape reading each, so a few mm either way. For the black, 4x4 and 1x1 trays the top edge is the growing-medium height (Aaron, 2026-10-09). The 4x5 is the exception: see the next row. Correction, 2026-11-02 (#327): the "4x4 tray" is a 2 x 2 tray (4 cells, 4 plants), a mislabel (Aaron, 2026-10-29); its height is unchanged |
 | Growing medium height, 4x5 tray | 100 mm above the table surface; the tray lip stands 5 mm above the growing medium | Callipers, the 100 mm "normal tray" value of the height test (section 4); Aaron confirmed on 2026-10-09 that it is the growing-medium height and that the lip stands 5 mm proud of it | 2026-10-01 (callipers), 2026-10-09 (confirmed) | The height used for the 4x5 tray on the experiments page. Only the 4x5 has a lip above the growing medium |
 
 **Where the calliper readings are.** The 2026-09-21 readings were typed by Aaron into a table and
@@ -3826,6 +3826,10 @@ when the trays are pushed together (steps 5 and 6). Counted as it is.
 trays, rotations other than 0 and 180 degrees, fewer than 12 trays, soil and plants, the chamber
 light cycle.
 
+*Correction, 2026-11-02 (#327): the trays called "4x4" here are 2 x 2 trays, 4 cells and 4 plants
+(Aaron, 2026-10-29). The name was a mislabel, not a measurement; the text above is left as it was
+recorded.*
+
 **Session record, 19 October 2026** (written during the session; times UTC, chamber UTC+2).
 
 - *Rig.* Experiment `pots-2026-10-19` (folder `2026-10-19_17cb7bfb`, tray height 100 mm set on
@@ -4916,6 +4920,10 @@ One chamber, one camera, one lens position, one calibration. 12 trays of one kin
 separated from the rig's error in trays 1 to 7. Shuffles only in the middle and end slots the maps
 give, with plant trays always in the middle. Not covered: 4 x 4 and 1 x 1 trays, fewer than 12
 trays, a lens moved, other chambers.
+
+*Correction, 2026-11-02 (#327): the trays called "4x4" here are 2 x 2 trays, 4 cells and 4 plants
+(Aaron, 2026-10-29). The name was a mislabel, not a measurement; the text above is left as it was
+recorded.*
 
 The method was written after the run started (see above), which is against this log's rule that
 a method comes before its test. What that means: no result had been looked at, so the questions,
@@ -6678,12 +6686,13 @@ same half-size copy, pieces of at least 0.5 mm²: joined within 3, 5 and 10 mm, 
 FastSAM. Question: does holding back the red-brown soil keep pale seedlings the green threshold
 misses (tray 4, 13 of 19 in 19.1)?
 
-*Expected count from the tag.* Each tray's tag ID sets its type (PLAN.md, Tag ID allocation): IDs
-1 to 75 are 4 x 5 trays (19 plants, A1 holds the tag), 76 to 150 4 x 4 (16), 151 to 225 1 x 1 (1),
-226 to 250 black trays and 251 to 299 other trays (no fixed number). All 12 trays here are 4 x 5
-(IDs 1 to 12), so each is expected to hold at most 19. A tray read above its expected count is
-certainly wrong; one read below may be wrong or only partly planted (tray 7), which the tag cannot
-tell. `compare.py` lists the trays read above it.
+*Expected count from the tag.* Each tray's tag ID sets its type (PLAN.md, Tag ID allocation): IDs 1
+to 75 are 4 x 5 trays (19 plants, A1 holds the tag), 76 to 150 4 x 4 (16; correction 2026-11-02,
+#327: these are 2 x 2 trays, 4 plants), 151 to 225 1 x 1 (1), 226 to 250 black trays and 251 to 299
+other trays (no fixed number). All 12 trays here are 4 x 5 (IDs 1 to 12), so each is expected to
+hold at most 19. A tray read above its expected count is certainly wrong; one read below may be
+wrong or only partly planted (tray 7), which the tag cannot tell. `compare.py` lists the trays read
+above it.
 
 *Result.* Results `docs/figures/19.2/per_tray.csv` and `summary.json`; the green threshold rows are
 those of 19.1, run again (identical).

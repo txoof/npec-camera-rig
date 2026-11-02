@@ -47,9 +47,10 @@ METHODS = ("exg_join3", "exg_join5", "exg_join10", "fastsam_point", "clip_foliag
            "clip_plants", "sam21", "sam21_green", "exgr_join3", "exgr_join5", "exgr_join10",
            "fastsam_point_exgr")
 # Plants a full tray holds, by the tray type its tag ID sets (PLAN.md, Tag ID allocation,
-# 2026-10-02; reference/trays.md): 4 x 5, 20 cells with the tag in A1; 4 x 4, 16 cells with the tag
-# in the middle of the tray; 1 x 1, one well. Black and other trays have no fixed number (None).
-TRAY_TYPES = ((range(1, 76), "4x5", 19), (range(76, 151), "4x4", 16), (range(151, 226), "1x1", 1),
+# 2026-10-02; reference/trays.md): 4 x 5, 20 cells with the tag in A1; 2 x 2 (called "4 x 4" until
+# #327), 4 cells with the tag in the middle of the tray; 1 x 1, one well. Black and other trays
+# have no fixed number (None).
+TRAY_TYPES = ((range(1, 76), "4x5", 19), (range(76, 151), "2x2", 4), (range(151, 226), "1x1", 1),
               (range(226, 251), "black", None), (range(251, 300), "other", None))
 
 
