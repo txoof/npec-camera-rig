@@ -33,10 +33,10 @@
       ? time(new Date(new Date(h.last_restart.time_utc.replace(/(\.\d{3})\d+/, "$1")).getTime() + h.camera_fault_window_s * 1000).toISOString())
       : null;
     if (h.state === "opening") {
-      show("restarting", "Camera: opening the camera.");
+      show("restarting", "Camera: opening.");
     } else if (h.state === "no_camera") {
-      show("failed", "Camera: " + (h.detail || "no camera attached.") +
-        (h.reboot_needed ? " Restart needed." : ""));
+      // Short: the line sits in the side menu. The full advice is in h.detail.
+      show("failed", "Camera: not attached. Connect it with the Pi off.");
     } else if (h.state === "restarting") {
       show("restarting", "Camera: it stopped responding and is being restarted.");
     } else if (h.state === "failed_to_reopen") {
