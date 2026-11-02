@@ -53,6 +53,11 @@ _Avoid_: green calibration square, green target (for the small squares)
 **Slot**:
 One of the 12 tray positions on the table, North 1 to 6 and South 1 to 6.
 
+**Table location**:
+A zone of the table top, decided by where a tray's centre lies (#332). The 6 table locations are
+NW, NM, NE, SW, SM and SE, a 3 x 2 grid between the table tag rows.
+_Avoid_: area, zone, region
+
 **Scale**:
 Pixels per millimetre at a point on the table.
 
@@ -75,6 +80,9 @@ numbers written into the test.
 _Avoid_: test sheet, test target
 
 ## Plant areas
+
+**Area**:
+Plant surface area, in mm2. Only that; a zone of the table is a table location.
 
 **Exclusion**:
 A stored reason that a photo's plant areas are left out of averages and exports: lights off,

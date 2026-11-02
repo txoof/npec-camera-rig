@@ -442,7 +442,11 @@ metrology log backs it.
   the tag.
 - **Tray tags over time.** No run with trays longer than one hour, so the chamber's light cycle,
   dust and condensation on tags are not covered. 3D-printed tags are not tested (#70). A tag print
-  lying anywhere in view is read as a tray (15.3d, #207).
+  lying anywhere in view is read as a tray (15.3d, #207). *Added 2026-10-30:* on the potato run
+  (12 trays in 2 x 6 slots, 8 days from 22 October through the light cycle), every tray was read
+  in its planned slot, A1 corner and table location after each of 6 shuffles (72 of 72), each
+  move dated from 5 minutes before to 1 minute after the recorded finish, and no move was read
+  outside a shuffle (metrology log 22). Dust and condensation were not checked apart.
 - **Tray identity under plants.** Plants near or over a tag are not tested (the trays had no
   plants).
 
