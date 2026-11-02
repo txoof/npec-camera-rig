@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from npec_rig import captures, database, photo_tags
 from npec_rig.app import app
-from tests.helpers import record_light_photos, square_detection
+from tests.helpers import draw_tray, one_tray_plant_scene, record_light_photos, square_detection
 
 pytestmark = pytest.mark.unit
 
@@ -228,46 +228,36 @@ def test_tags_image_is_drawn_again_when_the_photos_stored_tags_change(monkeypatc
     assert client.get(f"/gallery/image/tags/{path}").content != before
 
 
-def test_photo_tags_place_each_tray_tag_with_the_photos_calibration(monkeypatch, isolated_calibration_dir) -> None:
-    """Layout 2 of 20 October (metrology log 15.5l), the real tags of still 080357_563754 with
-    their calibration's scale and slot layout. The expected slots and corners are the printed
-    shuffle map, as in tests/test_tray_placement.py."""
-    import json
-    from pathlib import Path
-
-    from npec_rig import validation_store
-    from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
-    from npec_rig.calibration_store import save_calibration
-    from npec_rig.tags import TagDetection
-
-    fixture = json.loads((Path(__file__).parent.parent / "fixtures" / "trays" / "shuffles-2026-10-20.json").read_text())
-    stem = fixture["calibration"]
-    save_calibration(
-        CalibrationArtifact(created_at="2026-10-14T11:11:47+00:00", scale_field=scale_field_from_dict(fixture["scale_field"]),
-                            frame_stem=stem, lens_position=6.05),
-        stem=stem,
-    )
-    validation_store.save_slot_layout(stem, fixture["slots"], [])
-    tags = [TagDetection(t["id"], tuple(tuple(c) for c in t["corners"]),
-                         (sum(c[0] for c in t["corners"]) / 4, sum(c[1] for c in t["corners"]) / 4))
-            for t in fixture["stills"]["080357_563754"]]
-    _fake_tag_search(monkeypatch, tags)
+def test_photo_tags_without_a_tray_around_them_are_seen_and_not_placed(monkeypatch, isolated_calibration_dir) -> None:
+    """The real tags of layout 2 of 20 October (still 080357_563754) on the synthetic camera's
+    photo, which has no blue tray: each tray tag is seen, its tray not found, and nothing is
+    placed from the slots any more (#331, Aaron 2026-10-29)."""
+    _layout_2_calibration(monkeypatch)
     client = TestClient(app)
     path = client.post("/capture").json()["path"]
 
     found = {t["id"]: t for t in client.get(f"/api/captures/tags/{path}").json()}
-    placed = {i: (t["placement"]["slot"], t["placement"]["a1_corner"], t["placement"]["status"])
-              for i, t in found.items() if t["role"] == "tray"}
-    assert placed == {
-        3: ("North 1", "SW", "placed"), 10: ("North 2", "SW", "placed"), 6: ("North 3", "SW", "placed"),
-        1: ("North 4", "NE", "placed"), 4: ("North 5", "SW", "placed"), 12: ("North 6", "NE", "placed"),
-        9: ("South 1", "NE", "placed"), 11: ("South 2", "SW", "placed"), 7: ("South 3", "NE", "placed"),
-        8: ("South 4", "SW", "placed"), 5: ("South 5", "SW", "placed"), 2: ("South 6", "SW", "placed"),
-    }
+    seen = {"found": "tag only", "warnings": ["tag seen, tray not found in the photo"]}
+    assert {i: t["placement"] for i, t in found.items() if t["role"] == "tray"} == {i: seen for i in TRAYS_1_TO_12}
     assert "placement" not in found[450]  # a corner tag is not a tray
 
 
-def test_photo_tags_still_list_the_tags_when_the_saved_slot_layout_is_unusable(monkeypatch, isolated_calibration_dir) -> None:
+def test_photo_tags_say_how_each_tray_tag_was_found_in_the_photo(monkeypatch) -> None:
+    """#331: a tray tag names the outline found from the blue plastic around it, wherever it lies
+    in the tray; no slot. `one_tray_plant_scene`: tray 5's tag inside a drawn blue tray."""
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+
+    [tag] = client.get(f"/api/captures/tags/{path}").json()
+    assert tag["placement"] == {"found": "photo + tag", "warnings": []}
+
+
+def test_photo_tags_need_no_slot_layout(monkeypatch, isolated_calibration_dir) -> None:
+    """Trays can lie anywhere on the table (Aaron, 2026-10-29, #331): a calibration whose slot
+    layout is empty still reads the photo, and the tray tag is seen."""
     from npec_rig import validation_store
     from npec_rig.calibration import CalibrationArtifact, ScaleField
     from npec_rig.calibration_store import save_calibration
@@ -282,7 +272,8 @@ def test_photo_tags_still_list_the_tags_when_the_saved_slot_layout_is_unusable(m
 
     response = client.get(f"/api/captures/tags/{path}")
     assert response.status_code == 200
-    assert response.json() == [{"id": 7, "role": "tray", "centre_px": [400, 300], "placement": None}]
+    seen = {"found": "tag only", "warnings": ["tag seen, tray not found in the photo"]}
+    assert response.json() == [{"id": 7, "role": "tray", "centre_px": [400, 300], "placement": seen}]
     assert client.get(f"/gallery/image/tags/{path}").status_code == 200
 
 
@@ -348,7 +339,7 @@ def test_show_tags_also_reads_an_older_photo_for_its_trays(monkeypatch, isolated
 def test_show_tags_again_keeps_a_reading_that_has_areas(monkeypatch, isolated_calibration_dir) -> None:
     """Each Show tags segmented the 64MP photo again, about 2 s and 250 MB (review of #281, #282):
     a photo whose saved reading has plant areas from the same segmenter is not read again."""
-    _layout_2_calibration(monkeypatch)
+    one_tray_plant_scene(monkeypatch)
     client = TestClient(app)
     path = client.post("/capture").json()["path"]
     client.get(f"/api/captures/tags/{path}")
@@ -361,7 +352,7 @@ def test_show_tags_again_keeps_a_reading_that_has_areas(monkeypatch, isolated_ca
 
 def test_show_tags_reads_again_a_photo_whose_areas_were_not_worked_out(monkeypatch, isolated_calibration_dir) -> None:
     """A reading saved with trays placed but no plant areas (segmenting failed) is read again."""
-    _layout_2_calibration(monkeypatch)
+    one_tray_plant_scene(monkeypatch)
     client = TestClient(app)
     path = client.post("/capture").json()["path"]
     capture_id = database.captures_by_path([path])[path]["id"]
@@ -449,17 +440,19 @@ def test_each_photo_in_the_list_carries_its_exclusion_and_each_area_its_floor(mo
     class Dark(SyntheticBackend):
         def capture_full_res(self):
             frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            draw_tray(frame, 115, 554, 3165, 4214)  # one_tray_plant_scene's tray
             return frame, {**metadata, "ExposureTime": 64_022, "AnalogueGain": 4.0}
 
-    _layout_2_calibration(monkeypatch)
-    CameraManager.set_instance(CameraManager(Dark()))
+    one_tray_plant_scene(monkeypatch)
+    CameraManager.set_instance(CameraManager(Dark(width=4000, height=4400)))
     client = TestClient(app)
     path = client.post("/capture").json()["path"]
     tray_readings.read_photo(path)
 
     trays = {i["path"]: i for i in client.get("/api/captures").json()}[path]["trays"]
     assert trays["exclusion"] == "lights off"
-    assert [t["floor_mm2"] for t in trays["trays"]] == [100] * 12
+    assert [t["floor_mm2"] for t in trays["trays"]] == [100]
 
 
 def test_the_light_warning_is_shown_until_dismissed_and_the_dismissal_is_saved() -> None:
@@ -489,3 +482,45 @@ def test_the_light_warning_is_shown_until_dismissed_and_the_dismissal_is_saved()
     [dismissal] = database.light_warning_dismissals(experiment_id)
     assert dismissal["covers_until"] == "2026-10-23T11:30:00+00:00"
     assert before <= datetime.fromisoformat(dismissal["dismissed_at"]) <= datetime.now().astimezone()
+
+
+def test_a_reading_saved_before_trays_were_found_in_the_photo_keeps_its_trays_outline(monkeypatch) -> None:
+    """Review of #334: a photo read before #331 (tray 5 placed from its tag, with an area) has no
+    stored outline. Its tray is shown as the old placement drew it, the tray's outside size
+    305 x 366 mm around the stored centre at the calibration's 10 px/mm: x 115 to 3165, y 554 to
+    4214 (`one_tray_plant_scene`), and its tag is taken as inside it, not as a tray not read."""
+    import json
+    from pathlib import Path
+
+    one_tray_plant_scene(monkeypatch)
+    stem = json.loads((Path(__file__).parent.parent / "fixtures" / "trays" / "shuffles-2026-10-20.json").read_text())["calibration"]
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    capture_id = database.captures_by_path([path])[path]["id"]
+    database.record_tray_readings(capture_id, read_at="2026-10-28T10:00:00+00:00", status="read", trays=[{
+        "tray_id": 5, "slot": "North 1", "a1_corner": "SW", "placement": "placed", "centre_px": [1640.0, 2384.0],
+        "tilt_deg": 0.0, "margin_mm": 200.0, "area_mm2": 1500.0, "segmenter": "green threshold, 0.1", "calibration": stem,
+    }])
+
+    [tag] = client.get(f"/api/captures/tags/{path}").json()
+    assert tag["placement"] is not None
+    [tray] = client.get(f"/api/captures/trays/{path}").json()["trays"]
+    corners = sorted(tray["outline_px"])
+    assert [v for c in corners for v in c] == pytest.approx([115, 554, 115, 4214, 3165, 554, 3165, 4214], abs=1)
+
+
+def test_the_tags_image_never_reads_the_photo_for_trays_and_draws_them_once_read(monkeypatch) -> None:
+    """Review of #334: Tags asks for the tag list and the image at once; both reading the 64MP
+    photo meant two decodes and two segmentations side by side. The tag list reads it; the image
+    draws only a reading already saved, and is drawn again once there is one."""
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+
+    before = client.get(f"/gallery/image/tags/{path}")
+    assert before.status_code == 200
+    assert client.get(f"/api/captures/trays/{path}").json() is None
+
+    client.get(f"/api/captures/tags/{path}")
+    assert client.get(f"/api/captures/trays/{path}").json()["status"] == "read"
+    assert client.get(f"/gallery/image/tags/{path}").content != before.content
