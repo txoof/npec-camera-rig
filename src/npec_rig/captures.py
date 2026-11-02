@@ -437,7 +437,7 @@ def _with_database_rows(entries: list[dict]) -> list[dict]:
 KNOWN_TRAY_HEIGHTS_MM = (
     ("Black tray", 40.0),
     ("4x5 tray", 100.0),
-    ("4x4 tray", 150.0),
+    ("2x2 tray", 150.0),
     ("1x1 tray", 175.0),
 )
 

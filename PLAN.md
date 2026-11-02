@@ -158,7 +158,7 @@ each tray tag (`hardware/tray_tags/apriltag_tray_tag.scad`, `tray_type()`):
 | IDs | Use |
 |---|---|
 | 1-75 | Tray tags, 4x5 trays |
-| 76-150 | Tray tags, 4x4 trays |
+| 76-150 | Tray tags, 2x2 trays (4 cells, 4 plants) |
 | 151-225 | Tray tags, 1x1 trays |
 | 226-250 | Tray tags, black trays (disc tags) |
 | 251-299 | Tray tags, other trays |
