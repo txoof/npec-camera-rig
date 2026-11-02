@@ -29,7 +29,15 @@ from npec_rig.calibration_store import (
     load_saved_calibration,
 )
 from npec_rig.tags import TagDetection
-from npec_rig.tray_placement import TRAY_SIZE_MM, TrayOutline, TrayPlacement, find_outlines, name_trays, place_trays
+from npec_rig.tray_placement import (
+    TRAY_SIZE_MM,
+    TrayOutline,
+    TrayPlacement,
+    find_outlines,
+    name_trays,
+    place_trays,
+    tray_outline_at,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -297,6 +305,7 @@ def capture_readings(capture: dict) -> dict | None:
             saved = {"name": result["exclusions"][0], "norm_e": None}
         readings["exclusion"] = saved["name"]
         readings["norm_pending"] = saved["norm_e"] is None
+        _outline_old_rows(capture, readings["trays"])
         # A tray with no tag (#331) carries no tag another tray could share.
         carried = Counter(tray["tray_id"] for tray in readings["trays"] if tray["tray_id"] is not None)
         # Placed as sharing a slot by tray_placement.place_trays, counted per slot for the reason.
@@ -315,6 +324,24 @@ def capture_readings(capture: dict) -> dict | None:
             tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
             tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM
     return readings
+
+
+def _outline_old_rows(capture: dict, trays: list[dict]) -> None:
+    """Give each tray read before #331 (placed from its tag, no outline stored) the outline its
+    placement had: the tray's outside size around its stored centre, turned by its tilt, at its
+    calibration's scale (review of #334). Left without one when the calibration cannot be read."""
+    scales: dict[str, object] = {}
+    for tray in trays:
+        if tray["outline_px"] is not None or tray["found"] is not None:
+            continue
+        try:
+            stem = tray["calibration"] or calibration_for_photos(capture["calibration"])
+            if stem not in scales:
+                scales[stem] = load_saved_calibration(stem).scale_field
+            ppm = scales[stem].px_per_mm(*tray["centre_px"])
+        except (CalibrationNotFoundError, CalibrationUnreadableError, TypeError, ValueError):
+            continue
+        tray["outline_px"] = [list(c) for c in tray_outline_at(tuple(tray["centre_px"]), tray["tilt_deg"], ppm)]
 
 
 class TrayReader:

@@ -88,7 +88,9 @@ def _tilt_deg(tag: TagDetection) -> float:
     return (heading + 45) % 90 - 45
 
 
-def _outline(centre: tuple[float, float], tilt_deg: float, ppm: float) -> tuple[tuple[float, float], ...]:
+def tray_outline_at(centre: tuple[float, float], tilt_deg: float, ppm: float) -> tuple[tuple[float, float], ...]:
+    """A tray's four outside corners (`TRAY_SIZE_MM`) around `centre`, turned by `tilt_deg`, at
+    `ppm` pixels per mm: how a tray placed from its tag was outlined."""
     t = math.radians(tilt_deg)
     half_w, half_h = TRAY_SIZE_MM[0] / 2 * ppm, TRAY_SIZE_MM[1] / 2 * ppm
     across, down = (math.cos(t), math.sin(t)), (-math.sin(t), math.cos(t))
@@ -125,7 +127,7 @@ def place_trays(detections: list[TagDetection], scale_field: ScaleField, slots: 
         margin = (far - near) / ppm
         out.append(TrayPlacement(
             tray_id=tag.tag_id, centre=centre, slot=slot, a1_corner=corner, tilt_deg=tilt,
-            outline=_outline(centre, tilt, ppm), margin_mm=margin,
+            outline=tray_outline_at(centre, tilt, ppm), margin_mm=margin,
             status="close call" if margin < CLOSE_CALL_MM else "placed",
         ))
     per_slot = Counter(p.slot for p in out)

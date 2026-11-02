@@ -482,3 +482,28 @@ def test_the_light_warning_is_shown_until_dismissed_and_the_dismissal_is_saved()
     [dismissal] = database.light_warning_dismissals(experiment_id)
     assert dismissal["covers_until"] == "2026-10-23T11:30:00+00:00"
     assert before <= datetime.fromisoformat(dismissal["dismissed_at"]) <= datetime.now().astimezone()
+
+
+def test_a_reading_saved_before_trays_were_found_in_the_photo_keeps_its_trays_outline(monkeypatch) -> None:
+    """Review of #334: a photo read before #331 (tray 5 placed from its tag, with an area) has no
+    stored outline. Its tray is shown as the old placement drew it, the tray's outside size
+    305 x 366 mm around the stored centre at the calibration's 10 px/mm: x 115 to 3165, y 554 to
+    4214 (`one_tray_plant_scene`), and its tag is taken as inside it, not as a tray not read."""
+    import json
+    from pathlib import Path
+
+    one_tray_plant_scene(monkeypatch)
+    stem = json.loads((Path(__file__).parent.parent / "fixtures" / "trays" / "shuffles-2026-10-20.json").read_text())["calibration"]
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    capture_id = database.captures_by_path([path])[path]["id"]
+    database.record_tray_readings(capture_id, read_at="2026-10-28T10:00:00+00:00", status="read", trays=[{
+        "tray_id": 5, "slot": "North 1", "a1_corner": "SW", "placement": "placed", "centre_px": [1640.0, 2384.0],
+        "tilt_deg": 0.0, "margin_mm": 200.0, "area_mm2": 1500.0, "segmenter": "green threshold, 0.1", "calibration": stem,
+    }])
+
+    [tag] = client.get(f"/api/captures/tags/{path}").json()
+    assert tag["placement"] is not None
+    [tray] = client.get(f"/api/captures/trays/{path}").json()["trays"]
+    corners = sorted(tray["outline_px"])
+    assert [v for c in corners for v in c] == pytest.approx([115, 554, 115, 4214, 3165, 554, 3165, 4214], abs=1)

@@ -236,10 +236,10 @@ _TRAY_COLOUR = (255, 220, 0)  # yellow, apart from the tags and the blue trays
 _SHORT_WARNINGS = {"partly outside the photo": "PARTLY OUTSIDE", "two tags in one tray outline": "TWO TAGS"}
 
 
-def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list[str]]]:
+def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list[str], bool]]:
     """Each outline once, with its lines of words: two trays may share one (two tags in one tray
     outline), and an old reading has no outline or found. A tag seen with no tray found around it
-    has no outline, only its centre."""
+    has no outline, only its centre, and is marked with a cross (the last item)."""
     groups: dict[tuple, dict] = {}
     for tray in inputs.get("trays", []):
         outline = tray.get("outline")
@@ -252,13 +252,18 @@ def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list
     for group in groups.values():
         ids = ", ".join(map(str, sorted(group["ids"])))
         if group["outline"] is None:
-            lines = [f"Tag {ids},", "no tray found"]  # two short lines: the tags lie close together
-            out.append((None, np.array(group["centre"], float), lines))
+            if group["found"] == "tag only":
+                lines = [f"Tag {ids},", "no tray found"]  # two short lines: the tags lie close together
+                out.append((None, np.array(group["centre"], float), lines, True))
+            else:
+                # Read before #331 with no outline to give it (its calibration is gone): the name
+                # alone at its centre, never a tag seen with no tray found (review of #334).
+                out.append((None, np.array(group["centre"], float), [f"Tray {ids}"], False))
             continue
         name = f"Tray {ids}" if len(group["ids"]) == 1 else f"Trays {ids}" if group["ids"] else "No tag"
         lines = [name] + [_SHORT_WARNINGS.get(w, w.upper()) for w in group["warnings"] if w != "no tag"]
         outline = np.array(group["outline"], float)
-        out.append((outline, outline.mean(axis=0), lines))
+        out.append((outline, outline.mean(axis=0), lines, False))
     return out
 
 
@@ -273,11 +278,14 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
         raise HTTPException(404, f"photo {inputs['photo']} not found")
     image, scale = images.reduced_frame(found, inputs["width"])
     tags = [(tag["id"], np.array(tag["corners"]) * scale) for tag in inputs["tags"]]
-    trays = [(None if outline is None else outline * scale, centre * scale, lines) for outline, centre, lines in _tray_labels(inputs)]
-    for outline, centre, _lines in trays:
+    trays = [
+        (None if outline is None else outline * scale, centre * scale, lines, cross)
+        for outline, centre, lines, cross in _tray_labels(inputs)
+    ]
+    for outline, centre, _lines, cross in trays:
         if outline is not None:
             cv2.polylines(image, [outline.round().astype(np.int32).reshape(-1, 1, 2)], isClosed=True, color=_TRAY_COLOUR, thickness=3)
-        else:
+        elif cross:
             x, y = centre.round().astype(int)
             cv2.drawMarker(image, (int(x), int(y)), _TRAY_COLOUR, markerType=cv2.MARKER_TILTED_CROSS, markerSize=48, thickness=4)
     for tag_id, corners in tags:
@@ -302,10 +310,10 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
                 stroke_width=3,
                 stroke_fill=(0, 0, 0),
             )
-        for outline, (x, y), lines in trays:
+        for outline, (x, y), lines, cross in trays:
             # A cross's words sit below it, clear of the tag's box; a tray's warnings are smaller
             # than its name.
-            y0 = y + (52 if outline is None else 0)
+            y0 = y + (52 if cross else 0)
             for i, line in enumerate(lines):
                 size = 0.8 if i == 0 and outline is not None else 0.6
                 half = text_width(line, size) / 2 + 3  # kept inside the frame, as the tag labels
@@ -316,5 +324,5 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
 # Bump a recipe's version whenever its renderer would draw the same inputs differently.
 images.register(images.Recipe("gallery_thumb", 1, _render_gallery_image))
 images.register(images.Recipe("gallery_screen", 1, _render_gallery_image))
-images.register(images.Recipe("gallery_tags", 4, _render_gallery_tags_image))
+images.register(images.Recipe("gallery_tags", 5, _render_gallery_tags_image))
 images.register(images.Recipe("gallery_green", 1, _render_gallery_green_image))
