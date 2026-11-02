@@ -1,13 +1,9 @@
 # Daylight Growth Chamber Hardware Installation Instructions <!-- omit in toc -->
 
-- [Raspberry Pi 5 Preparation- Raspberry Pi 5 Preparation](#raspberry-pi-5-preparation--raspberry-pi-5-preparation)
 - [Conventions](#conventions)
+- [Raspberry Pi 5 Preparation](#raspberry-pi-5-preparation)
 - [Camera Mount Installation](#camera-mount-installation)
 - [Calibration and Setup](#calibration-and-setup)
-
-## Raspberry Pi 5 Preparation- [Raspberry Pi 5 Preparation](#raspberry-pi-5-preparation)
-
-This section prepares a Raspberry Pi 5 for chamber deployment.
 
 ## Conventions
 
@@ -57,8 +53,108 @@ West │ A ────────equator───+──equator─────
     │                                       │
 ```
 
+## [Raspberry Pi 5 Preparation](#raspberry-pi-5-preparation)
+
+This section prepares a Raspberry Pi 5 for chamber deployment.
+
+### Raspberry Pi OS Setup
+
+**Requirements**
+
+- Linux, MacOS, or Windows Subsystem for Linux
+- [Ansible](https://docs.ansible.com/)
+  - Linux/WSL: `apt install ansible`
+  - MacOS: `brew install ansible`
+- [NPEC Ansible Repository](git@github.com:txoof/ansible-npec.git) Cloned Locally
+- 128 gigabyte high-performance micro SD Card (minimum)
+- Micro SD Card adapter
+- Raspberry Pi 5
+- [Raspberry Pi Imager](https://www.raspberrypi.com/news/raspberry-pi-imager-imaging-utility/)
+- Monitor & Keyboard
+- Camera
+
+#### WiFi Setup
+
+1. Write Raspberry Pi OS Lite Trixie to the SD card
+    - Username: `pi`
+    - Password: the fleet `pi` password, from the team password manager
+2. Connect the camera using the supplied ribbon cable, an extension cable and the AdaFruit DCI/CSI Thingie.
+2. Insert the SD Card into the Pi, connect it to a monitor and boot
+3. Login and run the following command to obtain the MAC address: `cat /sys/class/net/wlan0/address`. Note the MAC address value.
+
+```shell
+14:29:59
+VER: Debian GNU/Linux 13 (trixie) (64 bit)
+pi@testpi-02
+[~]
+$ cat /sys/class/net/wlan0/address
+98:fe:54:50:f0:70
+```
+
+4. Create a login and password on the `iotroam` network for the device. Note the IP Address.
+5. Configure the wifi adapter:
+
+```shell
+# Turn on wifi
+$ sudo rfkill unblock wifi
+$ nmcli radio wifi on
+```
+
+```shell
+# set wifi region
+$ sudo iw reg set NL
+```
+
+```
+# Verify iotroam appears
+$ nmcli device wifi rescan
+$ nmcli device wifi list
+$ nmcli device wifi list
+IN-USE  BSSID              SSID                         
+    08:55:31:C3:24:62  HADES-WIFI-2G                 
+    08:55:31:C3:24:63  HADES-WIFI-5G                  
+    F4:12:FA:E7:6F:09  CameraBack-E76F08             
+    18:FD:74:BA:E6:9F  HELIOS-WIFI-2G                 
+    F4:12:FA:E9:9C:91  CameraFront-E99C90             
+    B0:1F:8C:94:74:22  iotroam                     
+```
+
+```shell
+# Connect to the wifi - you will be prompted to enter the iotroam password
+sudo nmcli --ask device wifi connect "iotroam"
+```
+
+```shell
+# Verify the connetion
+$ nmcli connection show --active
+NAME        UUID                                  TYPE      DEVICE
+iotroam     50186aba-763c-414c-9e3e-bbd70ab663dc  wifi      wlan0
+tailscale0  40263dbd-380b-43ef-a1e8-74d3814cfe44  tun       tailscale0
+lo          d500ade2-dc5a-4ff2-be3a-31ee9caa0e97  loopback  lo
+
+$ ip addr show wlan0
+
+# Note down the assigned IP address
+3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 98:fe:54:50:f0:70 brd ff:ff:ff:ff:ff:ff
+    inet 10.248.49.97/24 brd 10.248.49.255 scope global dynamic noprefixroute wlan0
+       valid_lft 30375sec preferred_lft 30375sec
+    inet6 fe80::61b8:3777:fb32:e2d/64 scope link noprefixroute
+       valid_lft forever preferred_lft forever
+```
+
+#### Software Installation
+
+Ansible will manage the initial onboarding of the Pi and software installation. The following commands should be run from inside the `ansible-npec` directory.
+
+1. 
+
+
 
 ## Camera Mount Installation
+
+![Camera Installation](./images/rig_assembly.png)
+*Camera Rig Assembly*
 
 ### Materials
 
@@ -96,7 +192,6 @@ See the [Bill of Materials](./Bill-of-Materials.md) document for complete parts 
 |        ![](images/arducam64_mount.png)        |             ![](images/l_bracket_4020.png)              |             ![](images/l_bracket_4040.png)             |         ![](images/m5_slide_pocket.png)          |
 | [Camera Mount](./exports/camera_rig/arducam64_mount.stl) | [40x20 90 Degree Bracket](./exports/camera_rig/l_bracket_4020.stl) | [40x40 90 Degree Bracket](./images/l_bracket_4040.png) | [Cold Shoe Holder](./images/m5_slide_pocket.png) |
 
-
 ### Physical Installation Steps
 
 Before starting: Ensure that the North and South TOP support 40x40 Profile rail are installed so the profile is exposed on the TOP of the rail. The default PSI install orients the channel facing down. It is possible to remove the corner braces, and rotate the bars in place without uninstalling them.
@@ -112,8 +207,6 @@ Before starting: Ensure that the North and South TOP support 40x40 Profile rail 
 7. Loosely secure the 90 degree brackets to the north and south top support (see *Illustration 2* below). *Note: The rig will need to be centered. Avoid tightening the brackets until the end.*
 8. Ensure the table is approximately in the center of the growth chamber
 9. Slide the 40x40 rail so it roughly aligns with the seams in the light panels. The goal is to block as little light as possible.
-
-
 
 |                                                                       |                                                         |
 | :-------------------------------------------------------------------: | :-----------------------------------------------------: |
@@ -146,8 +239,8 @@ The 50mm fiducial tags need to be installed on the North and South edges of the 
 
 Measure from the the outside of the table (not the leg) edge to the edge of the black border.
 
-1. The NE and SE tags should be located 200mm from the East edge of the table.
-2. The NW and SW tags should be located 370mm from the West edge of the table.
+1. The NE and SE tags should be located 240mm from the East edge of the table.
+2. The NW and SW tags should be located 425mm from the West edge of the table.
 
 **NOTE:** The tags MUST be parallel along the North/South dimension. The precise location from the table edge are less important than ensuring that the East pair and west pair are at the same location. If they are offset to the east/west, calibration will be more complex and difficult.
 
@@ -155,15 +248,16 @@ Measure from the the outside of the table (not the leg) edge to the edge of the 
 
 The camera needs to be located above the usable geographic center of the table. The drain area cannot be used for growth trays and must be excluded. The drain area is ~170mm wide. This method uses a weighted string to identify the center of the camera mount.
 
-1. Lay a tape measure across the table from the East to the West across the "equator" of the table. Making marks on the East and West edges can help.
-2. Identify the center of the table equator excluding unusable portion of the table around the drain. Making a mark on the tape measure at the center can help. 
-3. Attach the string to the weight.
-4. Attach the weighted string to the hole in the ArduCam mount so the weight is just over the surface of the table, but not touching the table
-5. Orient the camera mount so it is roughly parallel with the surface of the table
-6. Move the mount until the weight aligns with the mark on the tape measure. Make a mark on the table for reference.
-7. Secure all the bolts around the table starting with the brackets and finishing with the camera mount.
-8. Make any fine adjustments so the weight is still aligned with the center of the table
-9. Mark the outline of the brackets on the aluminum rail
+1. Move the North/South support so it rests under one of the seams in the light panels such that it blocks as little light as possible.
+2. Lay a tape measure across the table from the East to the West across the "equator" of the table. Making marks on the East and West edges can help.
+3. Identify the center of the table equator excluding unusable portion of the table around the drain. Making a mark on the tape measure at the center can help. 
+4. Attach the string to the weight.
+5. Attach the weighted string to the hole in the ArduCam mount so the weight is just over the surface of the table, but not touching the table
+6. Orient the camera mount so it is roughly parallel with the surface of the table
+7. Move the mount until the weight aligns with the mark on the tape measure. Make a mark on the table for reference.
+8. Secure all the bolts around the table starting with the brackets and finishing with the camera mount.
+9.  Make any fine adjustments so the weight is still aligned with the center of the table
+10. Mark the outline of the brackets on the aluminum rail
 
 #### Camera and Pi Installation
 
@@ -171,15 +265,15 @@ It is extremely difficult to work over the table. It is significantly easier to 
 
 1. Slide the 20x20 rail off of the mounts.
 2. Attach the Flat CSI/DSI to the ZIF socket on the camera per the supplier instructions. Make sure to orient the conductors appropriately. 
-3. If using the HDMI adapter, attach one to the camera now and the other to the raspberry Pi 5 Camera 0 slot. Secure with double stick tape as necessary.
-4. If not using the HDMI adapter, thread the flat cable through the opening in the mount. If using the AdaFruit CSI/DSI Thingy, attach attach one end of the cable to the Pi5 Camera 0 slot.
-5. Secure the camera using the mounting screws
-6. Mount the camera to the ball-head
-7. Attach the Pi to either the 40x40 bar or to the 20x20 bar using zip ties depending on cable length.
-8. Remount the 20x20 bar using the marks to align the bar. Tighten the bolts.
-9. Plug in the HDMI cable or join the cables at the AdaFruit Thingy.
-10. Plug in the Pi 
-11. Move on to the calibration and setup steps
+3. Thread the flat cable through the opening in the mount. If using the AdaFruit CSI/DSI Thingy, attach attach one end of the cable to the Pi5 Camera 0 slot.
+4. Secure the camera using the mounting screws
+5. Mount the camera to the ball-head
+6. Attach the Pi to either the 40x40 bar or to the 20x20 bar using zip ties depending on cable length.
+7. Remount the 20x20 bar using the marks to align the bar. Tighten the bolts.
+8. Join the cables at the AdaFruit Thingy.
+9. Plug in the Pi
+10. Move on to the [Calibration and Setup section](#calibration-and-setup)
 
 ## Calibration and Setup
 
+The camera should be 
