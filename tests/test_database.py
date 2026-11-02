@@ -206,7 +206,8 @@ def test_a_tray_seen_earlier_in_the_experiment_shows_as_not_found_since_it_went_
     third = _read("2026-10-21T07:02:00+00:00", [1], experiment_id)
 
     assert database.tray_readings(third)["not_found"] == [
-        {"tray_id": 2, "slot": "N1", "since": "2026-10-21T07:01:00+00:00", "photos": 2}
+        {"tray_id": 2, "slot": "N1", "since": "2026-10-21T07:01:00+00:00", "photos": 2,
+         "last_seen": "2026-10-21T07:00:00+00:00"}
     ]
 
 
@@ -220,7 +221,7 @@ def test_a_tray_not_found_names_the_slot_it_was_last_found_in_even_after_moving(
     third = _read("2026-10-21T07:02:00+00:00", [1], experiment_id)
 
     assert database.tray_readings(third)["not_found"] == [
-        {"tray_id": 8, "slot": "North 6", "since": "2026-10-21T07:02:00+00:00", "photos": 1}
+        {"tray_id": 8, "slot": "North 6", "since": "2026-10-21T07:02:00+00:00", "photos": 1, "last_seen": "2026-10-21T07:01:00+00:00"}
     ]
 
 
@@ -242,7 +243,7 @@ def test_a_swapped_tag_shows_the_new_tray_found_and_the_old_one_not_found() -> N
 
     readings = database.tray_readings(swapped)
     assert [t["tray_id"] for t in readings["trays"]] == [13]
-    assert readings["not_found"] == [{"tray_id": 12, "slot": "N1", "since": "2026-10-21T07:01:00+00:00", "photos": 1}]
+    assert readings["not_found"] == [{"tray_id": 12, "slot": "N1", "since": "2026-10-21T07:01:00+00:00", "photos": 1, "last_seen": "2026-10-21T07:00:00+00:00"}]
 
 
 def test_a_tray_moved_or_turned_since_the_previous_photo_is_listed_as_moved() -> None:
@@ -271,7 +272,39 @@ def test_a_photo_with_no_tags_at_all_is_not_counted_as_trays_missing() -> None:
 
     assert database.tray_readings(dark)["not_found"] == []
     assert database.tray_readings(morning)["not_found"] == [
-        {"tray_id": 2, "slot": "N1", "since": "2026-10-21T21:02:00+00:00", "photos": 1}
+        {"tray_id": 2, "slot": "N1", "since": "2026-10-21T21:02:00+00:00", "photos": 1, "last_seen": "2026-10-21T21:00:00+00:00"}
+    ]
+
+
+def test_a_tray_not_seen_for_48_hours_is_no_longer_reported_until_it_returns() -> None:
+    """Aaron, 2026-10-30: a tray taken away is reported as not seen for 48 h after the last read
+    photo that had it, then no longer; when it comes back it is a tray found as any other."""
+    experiment_id = _experiment()
+    _read("2026-10-21T07:00:00+00:00", [1, 2], experiment_id)
+    within = _read("2026-10-23T07:00:00+00:00", [1], experiment_id)  # 48 h 0 min after
+    past = _read("2026-10-23T07:01:00+00:00", [1], experiment_id)  # 48 h 1 min after
+    back = _read("2026-10-24T07:00:00+00:00", [1, 2], experiment_id)
+    gone = _read("2026-10-24T08:00:00+00:00", [1], experiment_id)
+
+    assert [t["tray_id"] for t in database.tray_readings(within)["not_found"]] == [2]
+    assert database.tray_readings(past)["not_found"] == []
+    assert database.tray_readings(back)["not_found"] == []
+    assert [t["tray_id"] for t in database.tray_readings(gone)["not_found"]] == [2]
+
+
+def test_a_photo_with_no_trays_found_is_not_counted_as_trays_missing() -> None:
+    """#331: the finder reads a dark photo as "no trays found"; like a photo with no tags, it says
+    nothing about which trays are there, so it neither reports trays missing nor counts as one."""
+    experiment_id = _experiment()
+    _read("2026-10-29T21:00:00+00:00", [1, 2], experiment_id)
+    dark = _photo("2026-10-29T21:01:00+00:00", experiment_id)
+    database.record_tray_readings(dark, read_at="t", status="no trays found", trays=[])
+    morning = _read("2026-10-29T21:02:00+00:00", [1], experiment_id)
+
+    assert database.tray_readings(dark)["not_found"] == []
+    assert database.tray_readings(morning)["not_found"] == [
+        {"tray_id": 2, "slot": "N1", "since": "2026-10-29T21:02:00+00:00", "photos": 1,
+         "last_seen": "2026-10-29T21:00:00+00:00"}
     ]
 
 
@@ -302,9 +335,10 @@ def test_older_photos_are_left_for_on_demand_unless_their_experiment_is_running(
     ]
 
 
-def test_version_13_keeps_every_saved_tray_reading_value(monkeypatch: pytest.MonkeyPatch) -> None:
-    """#302: version 13 copies tray_reading into a table without its one-row-per-tag rule. A row
-    saved at version 12 comes through with every value in its own column."""
+def test_versions_13_and_14_keep_every_saved_tray_reading_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#302: version 13 copies tray_reading into a table without its one-row-per-tag rule; #331:
+    version 14 into one where a tray found in the photo may have no tag. A row saved at version 12
+    comes through with every value in its own column."""
     with monkeypatch.context() as m:
         m.setattr(database, "MIGRATIONS", database.MIGRATIONS[:12])
         m.setattr(database, "SCHEMA_VERSION", 12)
@@ -321,7 +355,7 @@ def test_version_13_keeps_every_saved_tray_reading_value(monkeypatch: pytest.Mon
             )
             conn.commit()
     with sqlite3.connect(db_path()) as conn:
-        assert database.migrate(conn) == 13
+        assert database.migrate(conn) == 14
         row = conn.execute(
             "SELECT id, capture_id, tray_id, slot, a1_corner, placement, centre_x_px, centre_y_px, tilt_deg,"
             " margin_mm, area_mm2, segmenter, plant_px, plant_centre_x_px, plant_centre_y_px, calibration,"
@@ -329,3 +363,63 @@ def test_version_13_keeps_every_saved_tray_reading_value(monkeypatch: pytest.Mon
         ).fetchall()
     assert row == [(4, 9, 1, "North 4", "NE", "close call", 10.5, 20.5, -1.5, 40.5, 1234.5, "green", 678,
                     11.5, 21.5, "20261026T153214381640", 3.5)]
+
+
+def test_a_tray_found_in_the_photo_keeps_how_it_was_found_its_warnings_and_its_outline() -> None:
+    """#331: an outline with no tag has no tray ID, slot, A1 corner or margin."""
+    capture_id = _photo("2026-10-29T07:00:00+00:00")
+    outline = [[100.0, 200.0], [3150.0, 200.0], [3150.0, 3860.0], [100.0, 3860.0]]
+    untagged = {
+        "tray_id": None, "slot": None, "a1_corner": None, "placement": "placed", "centre_px": [1625.0, 2030.0],
+        "tilt_deg": 0.0, "margin_mm": None, "found": "photo, no tag", "warnings": ["no tag"], "outline_px": outline,
+    }
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[untagged])
+
+    [tray] = database.tray_readings(capture_id)["trays"]
+    assert (tray["tray_id"], tray["slot"], tray["a1_corner"], tray["margin_mm"]) == (None, None, None, None)
+    assert (tray["found"], tray["warnings"], tray["outline_px"]) == ("photo, no tag", ["no tag"], outline)
+
+
+def _untagged(slot: str | None = "N1") -> dict:
+    return {**_tray(0, slot), "tray_id": None, "a1_corner": None, "margin_mm": None, "found": "photo, no tag",
+            "warnings": ["no tag"]}
+
+
+def test_a_tray_with_no_tag_never_hides_a_tray_not_found_and_is_never_one_itself() -> None:
+    experiment_id = _experiment()
+    first = _photo("2026-10-29T07:00:00+00:00", experiment_id)
+    database.record_tray_readings(first, read_at="t", status="read", trays=[_tray(1), _tray(2), _untagged()])
+    second = _photo("2026-10-29T07:01:00+00:00", experiment_id)
+    database.record_tray_readings(second, read_at="t", status="read", trays=[_tray(1), _untagged()])
+    third = _photo("2026-10-29T07:02:00+00:00", experiment_id)
+    database.record_tray_readings(third, read_at="t", status="read", trays=[_tray(1)])
+
+    assert database.tray_readings(second)["not_found"] == [
+        {"tray_id": 2, "slot": "N1", "since": "2026-10-29T07:01:00+00:00", "photos": 1, "last_seen": "2026-10-29T07:00:00+00:00"}
+    ]
+    assert [t["tray_id"] for t in database.tray_readings(third)["not_found"]] == [2]
+
+
+def test_a_tray_with_no_tag_is_never_listed_as_moved() -> None:
+    experiment_id = _experiment()
+    first = _photo("2026-10-29T07:00:00+00:00", experiment_id)
+    database.record_tray_readings(first, read_at="t", status="read", trays=[_tray(1), _untagged("N2")])
+    second = _photo("2026-10-29T07:01:00+00:00", experiment_id)
+    database.record_tray_readings(second, read_at="t", status="read", trays=[_tray(1), _untagged("S3")])
+
+    assert database.tray_readings(second)["moved"] == []
+
+
+def test_a_tray_with_no_slot_is_never_listed_as_moved() -> None:
+    """#331: trays found in the photo have no slot; a tray read before (in North 1) and after is
+    not a tray moved. Moves without slots are left for later."""
+    experiment_id = _experiment()
+    first = _photo("2026-10-29T07:00:00+00:00", experiment_id)
+    database.record_tray_readings(first, read_at="t", status="read", trays=[_tray(1, "North 1")])
+    second = _photo("2026-10-29T07:01:00+00:00", experiment_id)
+    tag_only = {**_tray(1, None), "a1_corner": None, "margin_mm": None, "found": "tag only",
+                "warnings": ["tag seen, tray not found in the photo"], "outline_px": None}
+    database.record_tray_readings(second, read_at="t", status="read", trays=[tag_only])
+
+    assert database.tray_readings(second)["moved"] == []
+    assert database.tray_readings(second)["trays"][0]["outline_px"] is None

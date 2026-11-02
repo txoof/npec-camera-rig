@@ -16,7 +16,6 @@ from npec_rig.routes.shared import derived_response, templates
 from npec_rig.segmentation import EXG_MIN, ExGSegmenter
 from npec_rig.text_render import text_layer, text_width
 from npec_rig.tags import CALIBRATION_ID_RANGE, CORNER_ID_RANGE, TRAY_ID_RANGE, TagDetection
-from npec_rig.tray_placement import TrayPlacement
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -91,45 +90,68 @@ def _tag_role(tag_id: int) -> str:
     return "other"
 
 
-def _tray_placements(path: str, tags: list[TagDetection]) -> dict[int, TrayPlacement]:
-    """Each tray tag in photo `path` placed with its calibration, by the `id()` of its detection,
-    not by tray ID: two trays may carry the same tag (#302). Empty when the photo has no calibration with a usable
-    slot layout. Placement is an extra on the tag list."""
-    _status, placed = tray_readings.placements(path, tags)
-    if not placed:
-        return {}
-    # place_trays places the tray tags in tag ID order, a stable sort: the same order as here.
-    trays = sorted((d for d in tags if d.tag_id in TRAY_ID_RANGE), key=lambda d: d.tag_id)
-    return {id(d): p for d, p in zip(trays, placed, strict=True)}
+def _saved_trays(path: str) -> list[dict]:
+    """Photo `path`'s trays as its saved reading has them (#331): found in the photo and named by
+    the tag inside each, or a tag seen with no tray found around it. The photo is read first when
+    it has not been (Show tags is the ask for older photos, Aaron 2026-10-22); a reading with
+    plant areas is kept as it is. Empty when it cannot be read: the trays are an extra."""
+    try:
+        reading = tray_readings.read_photo(path, unless_measured=True)
+    except LookupError:
+        return []  # no record in rig.db: nothing to read the photo with or save against
+    except Exception:
+        logger.exception("Could not read the trays of %s", path)
+        try:
+            reading = tray_readings.photo_readings(path)
+        except LookupError:
+            return []
+    return reading["trays"] if reading else []
 
 
-def _placement_json(p: TrayPlacement | None) -> dict | None:
-    if p is None:
+def _reading_trays(path: str) -> list[dict]:
+    """Photo `path`'s trays as its saved reading has them, without reading the photo; empty when
+    it has not been read."""
+    try:
+        reading = tray_readings.photo_readings(path)
+    except LookupError:
+        return []
+    return reading["trays"] if reading else []
+
+
+def _tray_of(tag: TagDetection, trays: list[dict]) -> dict | None:
+    """The saved tray tag `tag` names: the outline its centre lies inside, or the tray seen at
+    the tag itself when no outline holds it."""
+    for tray in trays:
+        if tray["tray_id"] != tag.tag_id:
+            continue
+        if tray["outline_px"]:
+            contour = np.array(tray["outline_px"], np.float32).reshape(-1, 1, 2)
+            if cv2.pointPolygonTest(contour, (float(tag.centre[0]), float(tag.centre[1])), False) >= 0:
+                return tray
+        elif np.hypot(tray["centre_px"][0] - tag.centre[0], tray["centre_px"][1] - tag.centre[1]) < 1:
+            return tray
+    return None
+
+
+def _placement_json(tray: dict | None) -> dict | None:
+    if tray is None:
         return None
-    return {"slot": p.slot, "a1_corner": p.a1_corner, "status": p.status, "margin_mm": round(p.margin_mm, 1)}
+    return {"found": tray["found"], "warnings": tray["warnings"]} | ({"slot": tray["slot"]} if tray.get("slot") else {})
 
 
 @router.get("/api/captures/tags/{path:path}")
 def api_photo_tags(path: str) -> list[dict]:
     """The tags in gallery photo `path`: each one's ID, role (tray, calibration, corner or other)
-    and centre in full-size pixels. A tray tag also has its `placement` (slot, A1 corner, status)
-    from the photo's calibration, or None when the photo has none. The photo's tray reading is
-    saved as well (#222): older photos are read on demand."""
+    and centre in full-size pixels. A tray tag also has its `placement`: how its tray was found
+    and its warnings (#331), from the photo's tray reading, which is saved first when the photo
+    has not been read (#222); None when the photo cannot be read for trays."""
     tags = photo_tags.photo_tags_for(path)
-    placements = _tray_placements(path, tags)
-    # Older photos are read for their trays only when asked (Aaron, 2026-10-22): this is the ask.
-    try:
-        tray_readings.read_photo(path, unless_measured=True)
-    except LookupError:
-        pass  # no record in rig.db: nothing to save the reading against
-    except Exception:
-        # Saving the reading is an extra: the tags found are still returned.
-        logger.exception("Could not save the tray reading of %s", path)
+    trays = _saved_trays(path)
     out = []
     for d in tags:
         entry = {"id": d.tag_id, "role": _tag_role(d.tag_id), "centre_px": [round(d.centre[0]), round(d.centre[1])]}
         if entry["role"] == "tray":
-            entry["placement"] = _placement_json(placements.get(id(d)))
+            entry["placement"] = _placement_json(_tray_of(d, trays))
         out.append(entry)
     return out
 
@@ -151,15 +173,19 @@ _GALLERY_WIDTHS = {"thumb": 480, "screen": 1600}
 
 @router.get("/gallery/image/tags/{path:path}")
 def gallery_tags_image(path: str) -> Response:
-    """Photo `path` at the screen copy's size with every tag outlined and labelled with its ID,
-    tray tags as "Tray <id>", and each placed tray's outline, slot and A1 corner. Searches the photo first if it has not been searched yet. The tags
-    are part of the image's inputs, so it is drawn again whenever the stored tags change."""
+    """Photo `path` at the screen copy's size with every tag outlined, each tag but a tray
+    tag labelled with its ID, and each tray of the photo's reading (#331): its outline found in
+    the photo, named by its tag or "No tag", with its warnings, or a cross where a tag was seen
+    with no tray found around it. Searches the photo for tags first if not yet done, but draws
+    only a tray reading already saved: the tag list (`api_photo_tags`) is what reads the photo,
+    so one tap never reads the 64MP photo twice (review of #334). The tags and trays are part of
+    the image's inputs, so it is drawn again whenever either changes."""
     _require_photo(path)  # 404 for a deleted photo, whose tags photo_tags still knows (#287)
     found = photo_tags.photo_tags_for(path)
     tags = [{"id": d.tag_id, "corners": [list(c) for c in d.corners]} for d in found]
     trays = [
-        {"id": p.tray_id, "outline": [list(c) for c in p.outline], "slot": p.slot, "a1_corner": p.a1_corner, "status": p.status}
-        for p in _tray_placements(path, found).values()
+        {"id": t["tray_id"], "outline": t["outline_px"], "centre": t["centre_px"], "found": t["found"], "warnings": t["warnings"]}
+        for t in _reading_trays(path)
     ]
     inputs = {"photo": path, "width": _GALLERY_WIDTHS["screen"], "tags": tags, "trays": trays}
     return derived_response("gallery_tags", path, inputs)
@@ -217,25 +243,73 @@ _TAG_COLOUR = (255, 0, 255)  # magenta, as tags.draw_overlay
 _TRAY_COLOUR = (255, 220, 0)  # yellow, apart from the tags and the blue trays
 
 
+# Each warning in a few words on the image, where the trays sit close together; Info has them in
+# full.
+_SHORT_WARNINGS = {"partly outside the photo": "PARTLY OUTSIDE", "two tags in one tray outline": "TWO TAGS"}
+
+
+def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list[str], bool]]:
+    """Each outline once, with its lines of words: two trays may share one (two tags in one tray
+    outline), and an old reading has no outline or found. A tag seen with no tray found around it
+    has no outline, only its centre, and is marked with a cross (the last item)."""
+    groups: dict[tuple, dict] = {}
+    for tray in inputs.get("trays", []):
+        outline = tray.get("outline")
+        key = tuple(map(tuple, outline)) if outline else ("seen", tray["id"], tuple(tray["centre"]))
+        group = groups.setdefault(key, {"outline": outline, "centre": tray["centre"], "ids": [], "found": tray.get("found"), "warnings": []})
+        if tray["id"] is not None:
+            group["ids"].append(tray["id"])
+        group["warnings"] += [w for w in tray.get("warnings") or [] if w not in group["warnings"]]
+    out = []
+    for group in groups.values():
+        ids = ", ".join(map(str, sorted(group["ids"])))
+        if group["outline"] is None:
+            if group["found"] == "tag only":
+                lines = [f"Tag {ids},", "no tray found"]  # two short lines: the tags lie close together
+                out.append((None, np.array(group["centre"], float), lines, True))
+            else:
+                # Read before #331 with no outline to give it (its calibration is gone): the name
+                # alone at its centre, never a tag seen with no tray found (review of #334).
+                out.append((None, np.array(group["centre"], float), [f"Tray {ids}"], False))
+            continue
+        name = f"Tray {ids}" if len(group["ids"]) == 1 else f"Trays {ids}" if group["ids"] else "No tag"
+        lines = [name] + [_SHORT_WARNINGS.get(w, w.upper()) for w in group["warnings"] if w != "no tag"]
+        outline = np.array(group["outline"], float)
+        out.append((outline, outline.mean(axis=0), lines, False))
+    return out
+
+
 def _render_gallery_tags_image(inputs: dict) -> bytes:
     """Outlines each tag on the reduced copy, a thick line for a tray tag and a thin one for the
-    others, with its label beside it: the words, not the line, say which is a tray tag. Each placed
-    tray gets its outline, and its slot and A1 corner written at its centre, with its status when
-    it is not simply placed. Its tag marks the A1 corner."""
+    others, each other tag with its ID beside it. Each tray found in the photo gets its outline,
+    with "Tray <id>" or "No tag" and its warnings written at its centre; a tag seen with no tray
+    found around it gets a cross and "Tag <id>, no tray found" (#331): a tray's number is written
+    once, never on its tag as well."""
     found = photo_file(inputs["photo"])
     if found is None:
         raise HTTPException(404, f"photo {inputs['photo']} not found")
     image, scale = images.reduced_frame(found, inputs["width"])
     tags = [(tag["id"], np.array(tag["corners"]) * scale) for tag in inputs["tags"]]
-    trays = [(tray, np.array(tray["outline"]) * scale) for tray in inputs.get("trays", [])]
-    for tray, outline in trays:
-        cv2.polylines(image, [outline.round().astype(np.int32).reshape(-1, 1, 2)], isClosed=True, color=_TRAY_COLOUR, thickness=3)
+    trays = [
+        (None if outline is None else outline * scale, centre * scale, lines, cross)
+        for outline, centre, lines, cross in _tray_labels(inputs)
+    ]
+    for outline, centre, _lines, cross in trays:
+        if outline is not None:
+            cv2.polylines(image, [outline.round().astype(np.int32).reshape(-1, 1, 2)], isClosed=True, color=_TRAY_COLOUR, thickness=3)
+        elif cross:
+            x, y = centre.round().astype(int)
+            cv2.drawMarker(image, (int(x), int(y)), _TRAY_COLOUR, markerType=cv2.MARKER_TILTED_CROSS, markerSize=48, thickness=4)
     for tag_id, corners in tags:
         points = corners.round().astype(np.int32).reshape(-1, 1, 2)
         cv2.polylines(image, [points], isClosed=True, color=_TAG_COLOUR, thickness=3 if tag_id in TRAY_ID_RANGE else 1)
     with text_layer(image) as layer:
         for tag_id, corners in tags:
-            label = f"Tray {tag_id}" if tag_id in TRAY_ID_RANGE else str(tag_id)
+            # A tray tag's number is written once, on its tray's outline or by its cross (Aaron,
+            # 2026-10-30): the tag keeps only its box.
+            if tag_id in TRAY_ID_RANGE:
+                continue
+            label = str(tag_id)
             top = corners[:, 1].min()
             half = text_width(label, 0.8) / 2 + 3  # kept inside the frame, a tag at the edge too
             x = min(max(corners[:, 0].mean(), half), image.shape[1] - half)
@@ -248,17 +322,19 @@ def _render_gallery_tags_image(inputs: dict) -> bytes:
                 stroke_width=3,
                 stroke_fill=(0, 0, 0),
             )
-        for tray, outline in trays:
-            x, y = outline.mean(axis=0)
-            lines = [f"{tray['slot']}, A1 {tray['a1_corner']}"] + ([tray["status"].upper()] if tray["status"] != "placed" else [])
+        for outline, (x, y), lines, cross in trays:
+            # A cross's words sit below it, clear of the tag's box; a tray's warnings are smaller
+            # than its name.
+            y0 = y + (52 if cross else 0)
             for i, line in enumerate(lines):
-                half = text_width(line, 0.8) / 2 + 3  # kept inside the frame, as the tag labels
-                layer.text(line, (round(min(max(x, half), image.shape[1] - half)), round(y) + 28 * i), 0.8, _TRAY_COLOUR, anchor="ms", stroke_width=3, stroke_fill=(0, 0, 0))
+                size = 0.8 if i == 0 and outline is not None else 0.6
+                half = text_width(line, size) / 2 + 3  # kept inside the frame, as the tag labels
+                layer.text(line, (round(min(max(x, half), image.shape[1] - half)), round(y0) + 26 * i), size, _TRAY_COLOUR, anchor="ms", stroke_width=3, stroke_fill=(0, 0, 0))
     return array_to_jpeg(image)
 
 
 # Bump a recipe's version whenever its renderer would draw the same inputs differently.
 images.register(images.Recipe("gallery_thumb", 1, _render_gallery_image))
 images.register(images.Recipe("gallery_screen", 1, _render_gallery_image))
-images.register(images.Recipe("gallery_tags", 2, _render_gallery_tags_image))
+images.register(images.Recipe("gallery_tags", 5, _render_gallery_tags_image))
 images.register(images.Recipe("gallery_green", 1, _render_gallery_green_image))
