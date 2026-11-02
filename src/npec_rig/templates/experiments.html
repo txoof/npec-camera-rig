@@ -44,6 +44,22 @@
     <tbody id="experiment-rows"></tbody>
   </table>
 
+  {#- Where each tray has been on the table (#332): opened by a row's Table locations button. -#}
+  <section id="table-locations-section" hidden>
+    <div class="row" style="margin-top: var(--gap)">
+      <h2 id="table-locations-title" style="margin: 0; flex: 1 1 300px"></h2>
+      {{ ui.button("Close", id="table-locations-close") }}
+    </div>
+    {#- The limit, set here beside the warnings it gives (the setup form is already taller than
+        the chamber screen). Whole days, 1 to 30; it can be changed while running. -#}
+    <div class="row" id="dwell-limit-row" style="margin-top: var(--gap)">
+      {{ ui.stepper("dwell-limit", "Too long in one location after", 4, "days", 1, 30, tight=true) }}
+      {{ ui.button("Save", "primary", id="dwell-limit-save") }}
+    </div>
+    <p class="experiment-message" id="dwell-limit-message"></p>
+    <div id="table-locations" style="margin-top: var(--gap)"></div>
+  </section>
+
   <!-- One in-page dialog for every confirmation on this page. Not alert/confirm/prompt: a browser
        can be told to block those, and then the page could not ask or explain anything. -->
   <dialog class="experiment-dialog" id="ask">
@@ -51,9 +67,10 @@
       <h3 id="ask-title"></h3>
       <div id="ask-body"></div>
       <div class="experiment-dialog-error" id="ask-error"></div>
-      <div class="experiment-form-buttons">
-        <button type="submit" id="ask-ok"></button>
-        <button type="button" id="ask-cancel" class="secondary">Cancel</button>
+      <!-- Large buttons with a wide gap (CLAUDE.md, Web pages): a missed tap lands on nothing. -->
+      <div class="experiment-form-buttons" style="gap: 24px">
+        <button type="submit" id="ask-ok" style="min-height: 64px; min-width: 120px"></button>
+        <button type="button" id="ask-cancel" class="secondary" style="min-height: 64px; min-width: 120px">Cancel</button>
       </div>
     </form>
   </dialog>
@@ -119,7 +136,7 @@
         + "to this experiment. Resume continues it in the same folder.";
     }
 
-    // Three lines of buttons: Edit and the state change; Photos; Export and Purge. One line
+    // Lines of buttons: Edit and the state change; Photos; Table locations; Export and Purge. One line
     // ran past the screen's edge once Photos was added.
     function actions(e) {
       const button = (act, label, kind = "secondary", title = "") =>
@@ -140,7 +157,9 @@
       const photos = e.periods.length && e.state !== "purged" ? [button("photos", "Photos")] : [];
       // One Reprocess at a time: the button is hidden on every experiment while one runs.
       if (photos.length && !experiments.some((x) => x.reprocess.running)) photos.push(button("reprocess", "Reprocess areas"));
-      return [first, photos, last].filter((line) => line.length)
+      // Its own line: a fourth button beside Photos ran past the screen's edge.
+      const locations = photos.length ? [button("table-locations", "Table locations")] : [];
+      return [first, photos, locations, last].filter((line) => line.length)
         .map((line) => `<div class="row">${line.join("")}</div>`).join("");
     }
 
@@ -182,6 +201,11 @@
         : `<div class="experiment-export">Areas reprocessed: ${r.done} photos${failed}</div>`;
     }
 
+    function dwellLimitText(e) {
+      const days = e.dwell_limit_h / 24;
+      return `Too long in one location after ${Number.isInteger(days) ? days : days.toFixed(1)} days.`;
+    }
+
     function intervalText(e) {
       if (!e.interval_s) return "No scheduled photos.";
       const minutes = e.interval_s / 60;
@@ -196,6 +220,15 @@
         + `Taken ${schedule.photos_taken}, missed ${schedule.photos_missed}.`;
     }
 
+    // Trays too long in one table location (#332): a word and a shape, never colour alone.
+    function dwellText(e) {
+      if (!e.dwell_warnings || !e.dwell_warnings.length) return "";
+      const lines = e.dwell_warnings.map((w) => ui.chip("warn",
+        `Tray ${w.tray_id}: too long in ${w.location}, ${(w.hours / 24).toFixed(1)} days`));
+      return `<div class="row" style="margin-top: 8px; gap: 8px var(--gap)">${lines.join("")}</div>`
+        + "Move these trays to another location. Table locations shows where each tray has been.";
+    }
+
     function render() {
       const now = experiments.find((e) => e.state === "running");
       running.innerHTML = now
@@ -203,6 +236,7 @@
           + (now.researcher ? ` (${esc(now.researcher)})` : "")
           + `<br>Capture photos are saved to <code>experiments/${esc(now.folder)}</code>.`
           + `<br>${scheduleText(now.schedule)}`
+          + dwellText(now)
         : "No experiment is running. Capture photos are saved as rig photos.";
       running.classList.toggle("is-running", Boolean(now));
       rows.innerHTML = experiments.length
@@ -210,7 +244,7 @@
           <tr>
             <td>${esc(displayName(e))}${e.notes ? `<div class="experiment-notes">${esc(e.notes)}</div>` : ""}</td>
             <td>${esc(e.researcher)}</td>
-            <td>${esc(stateText(e))}${e.state === "purged" ? "" : `<div class="experiment-export">${intervalText(e)}</div>`}${exportText(e)}${reprocessText(e)}</td>
+            <td>${esc(stateText(e))}${e.state === "purged" ? "" : `<div class="experiment-export">${intervalText(e)} ${dwellLimitText(e)}</div>`}${exportText(e)}${reprocessText(e)}</td>
             <td>${e.folder ? `<code>${esc(e.folder)}</code>` : ""}</td>
             <td class="experiment-actions">${actions(e)}</td>
           </tr>`).join("")
@@ -404,6 +438,7 @@
     const whenReady = (fn) => (window.ui ? fn() : document.addEventListener("DOMContentLoaded", fn));
     whenReady(() => {
       ui.bindStepper(document.getElementById("f-interval"));
+      ui.bindStepper(document.getElementById("dwell-limit"));
       textFields.forEach((el) => ui.bindField(el));
       ui.bindField(trayChoice, (value) => { trayOther.hidden = value !== "other"; });
       ui.bindField(fields.tray_height_mm);
@@ -413,6 +448,80 @@
       const minutes = seconds ? Math.round(seconds / 60) : 0;
       whenReady(() => ui.showField(fields.interval, String(minutes)));
     }
+
+    // The table locations panel (#332), made on the rig as HTML; opened under the list.
+    const tableLocationsSection = document.getElementById("table-locations-section");
+    const tableLocations = document.getElementById("table-locations");
+    async function showTableLocations(e) {
+      tableLocationsShown = e.id;
+      document.getElementById("table-locations-title").textContent = `Table locations: ${displayName(e)}`;
+      document.getElementById("dwell-limit-row").hidden = e.state === "purged";
+      ui.showField(document.getElementById("dwell-limit-value"), String(Math.max(1, Math.round(e.dwell_limit_h / 24))));
+      tableLocations.textContent = "Working out where each tray has been...";
+      tableLocationsSection.hidden = false;
+      tableLocationsSection.scrollIntoView({ behavior: "smooth" });
+      try {
+        const r = await fetch(`/experiments/${e.id}/table-locations`);
+        if (!r.ok) throw new Error(r.statusText);
+        tableLocations.innerHTML = await r.text();
+        tableLocationsSection.scrollIntoView({ block: "start" });  // again, now that it has its full height
+      } catch (err) {
+        tableLocations.textContent = "Could not show the table locations. Try again.";
+      }
+    }
+
+    // The panel's limit: how long a tray may stay in one location before the page warns, in whole
+    // days, saved on Save.
+    let tableLocationsShown = null;
+    const dwellMessage = document.getElementById("dwell-limit-message");
+    document.getElementById("dwell-limit-save").addEventListener("click", async () => {
+      const days = Number(document.getElementById("dwell-limit-value").dataset.value);
+      dwellMessage.textContent = "";
+      try {
+        await call("PATCH", `/api/experiments/${tableLocationsShown}`, { dwell_limit_h: days * 24 });
+        await refresh();
+        await showTableLocations(experiments.find((x) => x.id === tableLocationsShown));
+        dwellMessage.textContent = "Saved.";
+      } catch (err) {
+        dwellMessage.textContent = `Not saved: ${err.message}`;
+      }
+    });
+
+    document.getElementById("table-locations-close").addEventListener("click", () => { tableLocationsSection.hidden = true; });
+
+    // Hide and Show on each tray (#332): kept in rig.db, so every PC shows the same. A hidden
+    // tray gives no warning; the panel is made again with the tray as one line, or in full. Hide
+    // asks first, in the page's dialog, since it hides the warning too (Aaron, 2026-11-02); Show
+    // does not ask. Cancel changes nothing.
+    async function setTrayHidden(tray, hide) {
+      await call("POST", `/api/experiments/${tableLocationsShown}/trays/${tray}/${hide ? "hide" : "show"}`);
+      await refresh();
+      const y = window.scrollY;
+      await showTableLocations(experiments.find((x) => x.id === tableLocationsShown));
+      window.scrollTo(0, y);  // stay at the tray just hidden or shown
+    }
+
+    tableLocations.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-tray-hide], button[data-tray-show]");
+      if (!button) return;
+      if (button.hasAttribute("data-tray-hide")) {
+        const tray = button.dataset.trayHide;
+        openAsk({
+          title: `Hide tray ${tray}?`,
+          body: "<p>Its warnings are hidden too, on every screen, until Show is tapped.</p>",
+          ok: "Hide",
+          action: () => setTrayHidden(tray, true),
+        });
+        return;
+      }
+      button.disabled = true;
+      try {
+        await setTrayHidden(button.dataset.trayShow, false);
+      } catch (err) {
+        dwellMessage.textContent = `Not changed: ${err.message}`;
+        button.disabled = false;
+      }
+    });
 
     function purgeAsk(e) {
       const exportLine = e.complete_export
@@ -451,6 +560,9 @@
       listMessage.textContent = "";
       if (act === "edit") {
         edit(e);
+      } else if (act === "table-locations") {
+        dwellMessage.textContent = "";
+        showTableLocations(e);
       } else if (act === "photos") {
         location.href = `/gallery?experiment=${e.id}`;
       } else if (act === "purge") {

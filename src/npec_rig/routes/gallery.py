@@ -136,7 +136,8 @@ def _tray_of(tag: TagDetection, trays: list[dict]) -> dict | None:
 def _placement_json(tray: dict | None) -> dict | None:
     if tray is None:
         return None
-    return {"found": tray["found"], "warnings": tray["warnings"]} | ({"slot": tray["slot"]} if tray.get("slot") else {})
+    # No slot: trays can lie anywhere on the table (#331); Info names each tray's table location (#332).
+    return {"found": tray["found"], "warnings": tray["warnings"]}
 
 
 @router.get("/api/captures/tags/{path:path}")
@@ -175,16 +176,18 @@ _GALLERY_WIDTHS = {"thumb": 480, "screen": 1600}
 def gallery_tags_image(path: str) -> Response:
     """Photo `path` at the screen copy's size with every tag outlined, each tag but a tray
     tag labelled with its ID, and each tray of the photo's reading (#331): its outline found in
-    the photo, named by its tag or "No tag", with its warnings, or a cross where a tag was seen
-    with no tray found around it. Searches the photo for tags first if not yet done, but draws
-    only a tray reading already saved: the tag list (`api_photo_tags`) is what reads the photo,
-    so one tap never reads the 64MP photo twice (review of #334). The tags and trays are part of
-    the image's inputs, so it is drawn again whenever either changes."""
+    the photo, named by its tag or "No tag" and the table location it lies in (#332), with its
+    warnings, or a cross where a tag was seen with no tray found around it. Searches the photo for
+    tags first if not yet done, but draws only a tray reading already saved: the tag list
+    (`api_photo_tags`) is what reads the photo, so one tap never reads the 64MP photo twice
+    (review of #334). The tags and trays are part of the image's inputs, so it is drawn again
+    whenever either changes."""
     _require_photo(path)  # 404 for a deleted photo, whose tags photo_tags still knows (#287)
     found = photo_tags.photo_tags_for(path)
     tags = [{"id": d.tag_id, "corners": [list(c) for c in d.corners]} for d in found]
     trays = [
-        {"id": t["tray_id"], "outline": t["outline_px"], "centre": t["centre_px"], "found": t["found"], "warnings": t["warnings"]}
+        {"id": t["tray_id"], "outline": t["outline_px"], "centre": t["centre_px"], "found": t["found"], "warnings": t["warnings"],
+         "location": t.get("location")}
         for t in _reading_trays(path)
     ]
     inputs = {"photo": path, "width": _GALLERY_WIDTHS["screen"], "tags": tags, "trays": trays}
@@ -256,7 +259,8 @@ def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list
     for tray in inputs.get("trays", []):
         outline = tray.get("outline")
         key = tuple(map(tuple, outline)) if outline else ("seen", tray["id"], tuple(tray["centre"]))
-        group = groups.setdefault(key, {"outline": outline, "centre": tray["centre"], "ids": [], "found": tray.get("found"), "warnings": []})
+        group = groups.setdefault(key, {"outline": outline, "centre": tray["centre"], "ids": [], "found": tray.get("found"), "warnings": [],
+                                        "location": tray.get("location")})
         if tray["id"] is not None:
             group["ids"].append(tray["id"])
         group["warnings"] += [w for w in tray.get("warnings") or [] if w not in group["warnings"]]
@@ -273,6 +277,8 @@ def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list
                 out.append((None, np.array(group["centre"], float), [f"Tray {ids}"], False))
             continue
         name = f"Tray {ids}" if len(group["ids"]) == 1 else f"Trays {ids}" if group["ids"] else "No tag"
+        if group["location"]:
+            name += f", {group['location']}"  # the table location, not a slot (#332)
         lines = [name] + [_SHORT_WARNINGS.get(w, w.upper()) for w in group["warnings"] if w != "no tag"]
         outline = np.array(group["outline"], float)
         out.append((outline, outline.mean(axis=0), lines, False))

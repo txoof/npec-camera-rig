@@ -18,7 +18,7 @@ from npec_rig.app import app
 from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
 from npec_rig.tags import TagDetection
-from tests.helpers import one_tray_plant_scene
+from tests.helpers import one_tray_plant_scene, table_calibration, table_photo
 
 pytestmark = pytest.mark.unit
 
@@ -585,3 +585,69 @@ def test_a_photo_stored_as_png_is_searched_for_trays_as_a_jpeg_is(monkeypatch) -
     [tray] = tray_readings.read_photo(path)["trays"]
     assert tray["found"] == "photo + tag"
     assert _flat(tray["outline_px"]) == pytest.approx(_flat([(300, 400), (3350, 400), (3350, 4060), (300, 4060)]), abs=10)
+
+# --- Table locations, not slots (#332) -----------------------------------------------------------
+
+
+def _table_experiment() -> int:
+    table_calibration()
+    experiment = database.create_experiment(uuid="u-332", created_at="2027-01-01T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2027-01-01T00:00:00+00:00", folder="experiments/x")
+    return experiment["id"]
+
+
+def _at(minute: int):
+    from datetime import UTC, datetime
+
+    return datetime(2027, 1, 1, 7, minute, tzinfo=UTC)
+
+
+def test_a_tray_not_found_names_the_table_location_it_was_last_found_in() -> None:
+    experiment_id = _table_experiment()
+    table_photo(experiment_id, _at(0), {7: "NW", 8: "NW"})
+    table_photo(experiment_id, _at(1), {7: "NW", 8: "SE"})
+    path = table_photo(experiment_id, _at(2), {7: "NW"})
+
+    assert tray_readings.photo_readings(path)["not_found"] == [
+        {"tray_id": 8, "location": "SE", "since": _at(2).isoformat(), "photos": 1, "last_seen": _at(1).isoformat()}
+    ]
+
+
+def test_a_tray_counts_as_moved_when_its_centre_leaves_its_location_not_when_it_is_nudged_or_turned() -> None:
+    """Aaron, 2026-10-30: only a centre leaving its location is a move. Tray 8 nudged 100 px inside NW,
+    and tray 9 turned (its centre stays where it was), have not moved."""
+    experiment_id = _table_experiment()
+    first = table_photo(experiment_id, _at(0), {7: "NW", 8: "NW", 9: "SE"})
+    second = table_photo(experiment_id, _at(1), {7: "SM", 9: "SE"})
+    capture_id = database.captures_by_path([second])[second]["id"]
+    saved = database.tray_readings(capture_id)["trays"]
+    nudged = {**saved[0], "tray_id": 8, "centre_px": [250.0, 250.0]}  # (150, 150) moved 100 px, x and y
+    turned = {**saved[1], "a1_corner": "NE", "tilt_deg": 90.0}
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[saved[0], nudged, turned])
+
+    assert tray_readings.photo_readings(first)["moved"] == []
+    assert tray_readings.photo_readings(second)["moved"] == [{"tray_id": 7, "from": "NW", "to": "SM"}]
+
+
+def test_two_trays_placed_in_one_slot_before_331_are_still_not_counted_without_naming_the_slot() -> None:
+    """Readings saved before #331 can hold two trays placed in one slot (a loose tag, #315); they
+    still do not count, and the reason no longer names a slot (#332)."""
+    experiment_id = _table_experiment()
+    path = table_photo(experiment_id, _at(0), {5: "NW", 13: "NW", 7: "SE"})
+    capture_id = database.captures_by_path([path])[path]["id"]
+    old = [{**t, "slot": "North 1" if t["tray_id"] != 7 else "South 3",
+            "placement": "two trays in one slot" if t["tray_id"] != 7 else "placed"}
+           for t in database.tray_readings(capture_id)["trays"]]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=old)
+
+    assert {t["tray_id"]: t["not_counted"] for t in tray_readings.photo_readings(path)["trays"]} == {
+        5: ["2 trays in one place"], 7: [], 13: ["2 trays in one place"]
+    }
+
+
+def test_each_tray_found_in_a_photo_names_the_table_location_it_lies_in() -> None:
+    """The Gallery names a tray's table location, not a slot (#332)."""
+    experiment_id = _table_experiment()
+    path = table_photo(experiment_id, _at(0), {3: "NE", 7: "SW"})
+
+    assert {t["tray_id"]: t["location"] for t in tray_readings.photo_readings(path)["trays"]} == {3: "NE", 7: "SW"}

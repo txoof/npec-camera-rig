@@ -301,6 +301,30 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "CREATE INDEX tray_reading_capture ON tray_reading (capture_id, tray_id)",
         ),
     ),
+    (
+        15,
+        "experiment: how long a tray may stay in one table location (#332)",
+        (
+            # Hours in a row in one table location before the experiment warns; default 4 days, a decision
+            # (Aaron, 2026-10-30).
+            "ALTER TABLE experiment ADD COLUMN dwell_limit_h REAL NOT NULL DEFAULT 96",
+        ),
+    ),
+    (
+        16,
+        "experiment_hidden_tray: trays hidden on an experiment's table locations panel (#332)",
+        (
+            # A tray hidden gives no warning; its readings stay as they are (Aaron, 2026-11-02).
+            """
+            CREATE TABLE experiment_hidden_tray (
+                experiment_id INTEGER NOT NULL REFERENCES experiment (id),
+                tray_id INTEGER NOT NULL,
+                hidden_at TEXT NOT NULL,         -- UTC, ISO 8601
+                PRIMARY KEY (experiment_id, tray_id)
+            )
+            """,
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -449,9 +473,13 @@ def _json_or_none(value: object) -> str | None:
 def tray_readings(capture_id: int) -> dict | None:
     """Photo `capture_id`'s tray readings: when it was read, its status, the trays found in tray
     ID order, and `not_found`: each tray found in an earlier photo of the same experiment but not
-    in this one, with the slot it was last found in (#318), the time of the first read photo it
-    was missing from and how many read photos it has been missing from, this one included; and
-    `moved`: each tray in another slot or turned since the experiment's previous read photo. None when the photo has not been read.
+    in this one, with where it was last found (`seen_in`: that photo's path and calibration and
+    the tray's centre, for its table location, `tray_readings.capture_readings`, #332), the
+    time of the first read photo it was missing from and how many read photos it has been missing
+    from, this one included; and `in_both`: each tray also found in the experiment's previous read
+    photo, with its centre in this one and where it was in that one (`before`), for whether it
+    left its table location (`moved`, `tray_readings.capture_readings`, #332). None when the photo has not
+    been read.
 
     A removed tray, a swapped tag and a dirty tag all look the same here: the rig cannot tell them
     apart, so each is shown as not found since a time, never guessed at."""
@@ -466,7 +494,7 @@ def tray_readings(capture_id: int) -> dict | None:
         rows = conn.execute(
             "SELECT * FROM tray_reading WHERE capture_id = ? ORDER BY tray_id", (capture_id,)
         ).fetchall()
-        not_found, moved = [], []
+        not_found, in_both = [], []
         if read["experiment_id"] is not None and read["status"] == "read":
             # Photos read with trays placed only: one not read, too dark to find any tag, or with
             # no calibration says nothing about which trays are in it.
@@ -475,10 +503,12 @@ def tray_readings(capture_id: int) -> dict | None:
                 " WHERE tray_read.status = 'read' AND capture.experiment_id = ? AND capture.taken_at <= ?"
             )
             args = (read["experiment_id"], read["taken_at"])
-            # SQLite takes the bare `slot` from the row holding the MAX: the newest slot. A tray
-            # with no tag (#331) cannot be followed from photo to photo: left out on both sides.
+            # SQLite takes the bare columns from the row holding the MAX: where the tray was
+            # last found. A tray with no tag (#331) cannot be followed from photo to photo: left
+            # out on both sides.
             last_seen = conn.execute(
-                "SELECT tray_id, MAX(capture.taken_at), slot FROM tray_reading"
+                "SELECT tray_id, MAX(capture.taken_at), capture.path, capture.calibration, centre_x_px, centre_y_px"
+                " FROM tray_reading"
                 " JOIN capture ON capture.id = tray_reading.capture_id"
                 " WHERE capture.experiment_id = ? AND capture.taken_at <= ? AND tray_id IS NOT NULL"
                 " AND tray_id NOT IN"
@@ -486,16 +516,19 @@ def tray_readings(capture_id: int) -> dict | None:
                 " GROUP BY tray_id ORDER BY tray_id",
                 (*args, capture_id),
             ).fetchall()
-            for tray_id, seen, slot in last_seen:
+            for tray_id, seen, path, calibration, x, y in last_seen:
                 if datetime.fromisoformat(read["taken_at"]) - datetime.fromisoformat(seen) > NOT_SEEN_FOR:
                     continue
                 since, photos = conn.execute(
                     f"SELECT MIN(capture.taken_at), COUNT(*) {in_experiment} AND capture.taken_at > ?",
                     (*args, seen),
                 ).fetchone()
-                not_found.append({"tray_id": tray_id, "slot": slot, "since": since, "photos": photos, "last_seen": seen})
+                not_found.append({
+                    "tray_id": tray_id, "since": since, "photos": photos, "last_seen": seen,
+                    "seen_in": {"path": path, "calibration": calibration, "centre_px": (x, y)},
+                })
             previous = conn.execute(
-                f"SELECT capture_id {in_experiment} AND capture.taken_at < ?"
+                f"SELECT capture_id, capture.path, capture.calibration {in_experiment} AND capture.taken_at < ?"
                 " ORDER BY capture.taken_at DESC LIMIT 1",
                 (*args, read["taken_at"]),
             ).fetchone()
@@ -503,16 +536,14 @@ def tray_readings(capture_id: int) -> dict | None:
                 earlier = conn.execute("SELECT * FROM tray_reading WHERE capture_id = ?", (previous[0],)).fetchall()
                 # A tag two trays carry, in either photo, says nothing about which tray moved (#302).
                 shared = {t for photo in (earlier, rows) for t, n in Counter(r["tray_id"] for r in photo).items() if n > 1}
-                # A tray with no slot (found in the photo, #331) cannot be compared by slot: a move
-                # without slots is not worked out yet.
                 before = {
-                    r["tray_id"]: [r["slot"], r["a1_corner"]]
-                    for r in earlier if r["tray_id"] is not None and r["slot"] is not None and r["tray_id"] not in shared
+                    r["tray_id"]: (r["centre_x_px"], r["centre_y_px"])
+                    for r in earlier if r["tray_id"] is not None and r["tray_id"] not in shared
                 }
-                moved = [
-                    {"tray_id": r["tray_id"], "from": before[r["tray_id"]], "to": [r["slot"], r["a1_corner"]]}
-                    for r in rows
-                    if r["tray_id"] in before and r["slot"] is not None and before[r["tray_id"]] != [r["slot"], r["a1_corner"]]
+                in_both = [
+                    {"tray_id": r["tray_id"], "centre_px": (r["centre_x_px"], r["centre_y_px"]),
+                     "before": {"path": previous[1], "calibration": previous[2], "centre_px": before[r["tray_id"]]}}
+                    for r in rows if r["tray_id"] in before
                 ]
     trays = [
         {
@@ -527,7 +558,7 @@ def tray_readings(capture_id: int) -> dict | None:
         }
         for r in rows
     ]
-    return {"read_at": read["read_at"], "status": read["status"], "trays": trays, "not_found": not_found, "moved": moved}
+    return {"read_at": read["read_at"], "status": read["status"], "trays": trays, "not_found": not_found, "in_both": in_both}
 
 
 
@@ -608,11 +639,88 @@ def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
     return areas
 
 
-def experiment_shared_slot_photos(experiment_id: int) -> set[int]:
-    """Capture ids of the experiment's photos in which two trays were placed in one slot
-    (placement `two trays in one slot`), or two tags lie in one tray outline found in the photo
-    (`two tags in one outline`, #331): a tray carried over the table, or a loose tag on a tray
-    (#315)."""
+def experiment_tray_positions(experiment_id: int) -> list[dict]:
+    """Where each tray was found in each of the experiment's read photos (status `read`), oldest
+    first: tray ID, the photo's time, path and calibration, and the tray's centre in full-size
+    photo pixels. A tray with no tag cannot be followed from photo to photo and is left out; so is
+    a tag two trays carry in one photo, from that photo (#302)."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT tray_reading.tray_id, capture.taken_at, capture.path, capture.calibration,"
+            " tray_reading.centre_x_px, tray_reading.centre_y_px FROM tray_reading"
+            " JOIN tray_read ON tray_read.capture_id = tray_reading.capture_id"
+            " JOIN capture ON capture.id = tray_reading.capture_id"
+            " WHERE capture.experiment_id = ? AND tray_read.status = 'read' AND tray_reading.tray_id IS NOT NULL"
+            " AND (SELECT COUNT(*) FROM tray_reading AS other WHERE other.capture_id = tray_reading.capture_id"
+            " AND other.tray_id = tray_reading.tray_id) = 1"
+            " ORDER BY capture.taken_at, tray_reading.tray_id",
+            (experiment_id,),
+        ).fetchall()
+    return [
+        {"tray_id": r["tray_id"], "taken_at": r["taken_at"], "path": r["path"], "calibration": r["calibration"],
+         "centre_px": (r["centre_x_px"], r["centre_y_px"])}
+        for r in rows
+    ]
+
+
+def hidden_trays(experiment_id: int) -> set[int]:
+    """The tray IDs hidden on the experiment's table locations panel (#332)."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT tray_id FROM experiment_hidden_tray WHERE experiment_id = ?", (experiment_id,))
+        return {r[0] for r in rows.fetchall()}
+
+
+def hide_tray(experiment_id: int, tray_id: int, *, now: str) -> None:
+    """Hide tray `tray_id` on the experiment's panel: it gives no warning until shown again. Its
+    readings are unchanged. Hiding a hidden tray keeps its first time."""
+    with _connect() as conn:
+        _experiment(conn, experiment_id)  # LookupError for no such experiment
+        conn.execute(
+            "INSERT OR IGNORE INTO experiment_hidden_tray (experiment_id, tray_id, hidden_at) VALUES (?, ?, ?)",
+            (experiment_id, tray_id, now),
+        )
+
+
+def show_tray(experiment_id: int, tray_id: int) -> None:
+    """Show a hidden tray again."""
+    with _connect() as conn:
+        _experiment(conn, experiment_id)
+        conn.execute("DELETE FROM experiment_hidden_tray WHERE experiment_id = ? AND tray_id = ?", (experiment_id, tray_id))
+
+
+def experiment_calibrations(experiment_id: int) -> list[str | None]:
+    """The calibrations the experiment's photos were taken under, each once (None for photos with
+    none), for whether a cached reading of them is still current (#332)."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT calibration FROM capture WHERE experiment_id = ? ORDER BY calibration", (experiment_id,)
+        ).fetchall()
+    return [row[0] for row in rows]
+
+
+def experiment_tray_reads_mark(experiment_id: int) -> tuple:
+    """A mark that changes whenever a photo of the experiment is read or read again (#332): the
+    database, its photos read and when the newest was, and its tray readings' rows, newest row and
+    centres."""
+    with _connect() as conn:
+        reads = conn.execute(
+            "SELECT COUNT(*), MAX(tray_read.read_at) FROM tray_read JOIN capture ON capture.id = tray_read.capture_id"
+            " WHERE capture.experiment_id = ?",
+            (experiment_id,),
+        ).fetchone()
+        rows = conn.execute(
+            "SELECT COUNT(*), MAX(tray_reading.id), TOTAL(centre_x_px), TOTAL(centre_y_px), TOTAL(tray_id)"
+            " FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id WHERE capture.experiment_id = ?",
+            (experiment_id,),
+        ).fetchone()
+    return (str(db_path()), *reads, *rows)
+
+
+def experiment_shared_tray_photos(experiment_id: int) -> set[int]:
+    """Capture ids of the experiment's photos in which two tags lie in one tray outline found in
+    the photo (`two tags in one outline`, #331), or, in readings saved before #331, two trays were
+    placed in one slot (`two trays in one slot`): a tray carried over the table, or a loose tag on
+    a tray (#315)."""
     with _connect() as conn:
         rows = conn.execute(
             "SELECT DISTINCT tray_reading.capture_id FROM tray_reading"
@@ -683,13 +791,18 @@ def create_experiment(
     tray_height_mm: float | None = None,
     notes: str | None = None,
     interval_s: float | None = None,
+    dwell_limit_h: float | None = None,
 ) -> dict:
+    """A new experiment, set up. `dwell_limit_h`: hours a tray may stay in one table location
+    before the page warns (#332); None keeps the column's default, 4 days."""
     with _connect() as conn:
         cursor = conn.execute(
             "INSERT INTO experiment (uuid, name, researcher, tray_height_mm, notes, interval_s,"
             " created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (uuid, name, researcher, tray_height_mm, notes, interval_s, created_at),
         )
+        if dwell_limit_h is not None:
+            conn.execute("UPDATE experiment SET dwell_limit_h = ? WHERE id = ?", (dwell_limit_h, cursor.lastrowid))
         return _experiment(conn, cursor.lastrowid)
 
 
@@ -715,12 +828,13 @@ def running_experiment() -> dict | None:
 
 # Name, researcher and notes can be corrected at any time. Tray height can change only before the
 # first start: readings already taken depend on it.
-# The photo interval can change at any time; a change while running counts slots from then.
+# The photo interval can change at any time; a change while running counts slots from then. So can
+# how long a tray may stay in one table location: the warning is worked out from the readings each time.
 _EDITABLE = {
-    "set up": {"name", "researcher", "tray_height_mm", "notes", "interval_s"},
+    "set up": {"name", "researcher", "tray_height_mm", "notes", "interval_s", "dwell_limit_h"},
     "purged": {"notes"},
 }
-_EDITABLE_LATER = {"name", "researcher", "notes", "interval_s"}
+_EDITABLE_LATER = {"name", "researcher", "notes", "interval_s", "dwell_limit_h"}
 
 
 def update_experiment(experiment_id: int, *, now: str | None = None, **fields: object) -> dict:
@@ -748,6 +862,7 @@ def discard_experiment(experiment_id: int) -> None:
     with _connect() as conn:
         if _experiment(conn, experiment_id)["state"] != "set up":
             raise ExperimentError("only an experiment that has never started can be discarded")
+        conn.execute("DELETE FROM experiment_hidden_tray WHERE experiment_id = ?", (experiment_id,))
         conn.execute("DELETE FROM experiment WHERE id = ?", (experiment_id,))
 
 
