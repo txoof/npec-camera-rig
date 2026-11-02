@@ -175,7 +175,8 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
     outlined = [p for p in placed if p.outline is not None]
     calibration, measures = _measures(path, record["calibration"], outlined, reuse) if outlined else (None, [])
     size = _photo_size(path) if outlined else None
-    _refuse_worse(path, saved, status, areas_lost=bool(outlined) and not measures)
+    # No area now, whether or not any tray was outlined (review of #334): a saved area is kept.
+    _refuse_worse(path, saved, status, areas_lost=not measures)
     measured = dict(zip(map(id, outlined), measures, strict=True)) if measures else {}
     trays = []
     for p in placed:

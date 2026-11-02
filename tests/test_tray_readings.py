@@ -517,3 +517,21 @@ def test_two_trays_with_no_tag_are_each_kept_and_never_said_to_share_a_tag(monke
     trays = tray_readings.read_photo(_photo())["trays"]
     assert [(t["tray_id"], t["found"], t["warnings"]) for t in trays] == [(None, "photo, no tag", ["no tag"])] * 2
     assert [t["not_counted"] for t in trays] == [[], []]
+
+
+def test_reading_again_never_turns_saved_areas_into_none_when_no_tray_is_found_now(monkeypatch) -> None:
+    """Review of #334, the #287 guard: a photo read before #331 by tag placement, with an area,
+    read again now that the finder finds no blue in it (a black tray, sheets, dim light) while its
+    tray tag is still seen. The saved reading is kept."""
+    _calibrate()
+    _finds(monkeypatch, "080357_563754")
+    path = _photo()
+    capture_id = database.captures_by_path([path])[path]["id"]
+    database.record_tray_readings(capture_id, read_at="2026-10-28T10:00:00+00:00", status="read", trays=[{
+        "tray_id": 3, "slot": "North 1", "a1_corner": "SW", "placement": "placed", "centre_px": [1000.0, 1000.0],
+        "tilt_deg": 0.0, "margin_mm": 200.0, "area_mm2": 1500.0, "segmenter": "green threshold, 0.1",
+    }])
+
+    with pytest.raises(tray_readings.ReadingWorse):
+        tray_readings.read_photo(path)
+    assert [(t["tray_id"], t["area_mm2"]) for t in tray_readings.photo_readings(path)["trays"]] == [(3, 1500.0)]
