@@ -47,6 +47,7 @@ should be compared as times, not as text.
 | `exclusion` | One row per photo of an experiment: why its plant areas are left out, if they are | `exclusions.py` |
 | `light_warning_dismissal` | One row per dismissal of an experiment's light warning | `exclusions.py` |
 | `app_start` | One row each time the app starts | `scheduler.py` |
+| `capture` | One row per photograph; here only whether its clock was set (#62) | `captures.py` |
 
 ### `camera_events`
 
@@ -218,6 +219,22 @@ Photos missed in the running period:
 
 ```
 SELECT due_at, missed_reason FROM scheduled_photo WHERE capture_id IS NULL ORDER BY due_at
+```
+
+### `capture`: whether the clock was set
+
+From version 18 (#62). The Pis have no RTC battery: after a power cut with no network the clock
+resumes from the shutdown time, so a photo taken before the network time arrives carries a time
+that is too early by about as long as the power was off (11 min 35 s in test C of #62,
+2026-11-02). The Gallery shows "Time may be wrong: clock not set" on such a photo, and the
+column is in the export's `captures.csv`. The photo's JSON record holds the same as `clock`.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `clock_synced` | integer | 1 when the clock had the network time at the photo (`/run/systemd/timesync/synchronized` existed), 0 when it had not, NULL for photos from before version 18 |
+
+```sql
+SELECT taken_at, path FROM capture WHERE clock_synced = 0 ORDER BY taken_at
 ```
 
 ### `app_start`

@@ -524,3 +524,19 @@ def test_the_tags_image_never_reads_the_photo_for_trays_and_draws_them_once_read
     client.get(f"/api/captures/tags/{path}")
     assert client.get(f"/api/captures/trays/{path}").json()["status"] == "read"
     assert client.get(f"/gallery/image/tags/{path}").content != before.content
+
+
+def test_a_photo_taken_before_the_clock_had_the_network_time_is_marked_in_the_list(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setattr(captures, "CLOCK_SYNC_MARKER", tmp_path / "synchronized")  # not there
+    client = TestClient(app)
+    unset = client.post("/capture").json()
+    (tmp_path / "synchronized").touch()
+    synced = client.post("/capture").json()
+
+    items = {item["filename"]: item for item in client.get("/api/captures").json()}
+
+    assert items[unset["filename"]]["clock"] == {
+        "synchronized": False, "reason": "time may be wrong: clock not set"}
+    assert items[synced["filename"]]["clock"]["synchronized"] is True

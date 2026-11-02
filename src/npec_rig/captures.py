@@ -32,6 +32,12 @@ CALIBRATION_LENS_TOLERANCE = 0.005
 # and a tripwire check only finds tags, so none of them is measured against the bands.
 _MEASURED_PURPOSES = ("capture",)
 
+# systemd-timesyncd makes this file when the clock first gets the network time after a boot, and
+# it is gone at the next boot (/run is cleared). With no RTC battery, a Pi that boots with no
+# network resumes its clock from the shutdown time: 11 min 35 s slow in test C of #62
+# (2026-11-02), and the file appeared the second the clock was corrected.
+CLOCK_SYNC_MARKER = Path("/run/systemd/timesync/synchronized")
+
 _app_start: dict | None = None
 
 
@@ -228,6 +234,8 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         **checks,
         # Every reason this photo is not covered by the validation bands, one list for the pages.
         "flags": [check["reason"] for check in checks.values() if check["flagged"]],
+        # Not a flag: the areas are as good as ever, only the photo's time may be wrong.
+        "clock": clock_check(),
         **(extra or {}),
     }
     replayed = sensor_metadata.get("ReplayedFrom")
@@ -256,6 +264,16 @@ def _active_calibration_stem() -> str | None:
     return artifact.frame_stem if artifact is not None else None
 
 
+def clock_check() -> dict:
+    """Whether the clock had the network time when the photo was taken (#62). When it had not,
+    the photo's time may be wrong: by as long as the rig was without power, after a power cut."""
+    synchronized = CLOCK_SYNC_MARKER.exists()
+    return {
+        "synchronized": synchronized,
+        "reason": None if synchronized else "time may be wrong: clock not set",
+    }
+
+
 def _record_in_database(record: dict) -> int | None:
     """Add the photo's `capture` row, return its id. A failure is logged, never raised: the
     photo and its sidecar are already saved, and the sidecar is the full record."""
@@ -273,6 +291,7 @@ def _record_in_database(record: dict) -> int | None:
             exposure_us=sensor.get("ExposureTime"),
             analogue_gain=sensor.get("AnalogueGain"),
             flags=record["flags"],
+            clock_synced=record["clock"]["synchronized"],
         )
     except (sqlite3.Error, RuntimeError):
         logger.exception("Could not add the photo %s to the database", record["filename"])

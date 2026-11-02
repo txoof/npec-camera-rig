@@ -337,6 +337,12 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        18,
+        "capture: whether the clock had the network time when the photo was taken (#62)",
+        # 1 had it, 0 had not (the photo's time may be wrong), NULL taken before this version.
+        ("ALTER TABLE capture ADD COLUMN clock_synced INTEGER",),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -414,13 +420,14 @@ def record_capture(
     exposure_us: int | None,
     analogue_gain: float | None,
     flags: list[str],
+    clock_synced: bool | None = None,
 ) -> int:
     """Add one photo's row, return its id."""
     with _connect() as conn:
         cursor = conn.execute(
             "INSERT INTO capture (taken_at, path, purpose, experiment_id, calibration,"
-            " validation, lens_position, focus_locked_at, exposure_us, analogue_gain, flags)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " validation, lens_position, focus_locked_at, exposure_us, analogue_gain, flags,"
+            " clock_synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 taken_at,
                 path,
@@ -433,6 +440,7 @@ def record_capture(
                 exposure_us,
                 analogue_gain,
                 json.dumps(flags),
+                None if clock_synced is None else int(clock_synced),
             ),
         )
         return cursor.lastrowid
