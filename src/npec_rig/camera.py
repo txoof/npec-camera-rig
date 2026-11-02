@@ -216,6 +216,10 @@ class SyntheticBackend(CameraBackend):
             for name, (_, _, default) in SYNTHETIC_CONTROL_RANGES.items()
             if name != "LensPosition"
         }
+        from npec_rig import health
+
+        # Reports its own state, as the camera program does (#252).
+        health.record_camera_state(health.CAMERA_OK, self.OPENED_DETAIL)
 
     def _maybe_hang(self, name: str) -> None:
         if not self._hang_file:
@@ -811,8 +815,6 @@ class CameraManager:
             # The camera did not open; it is retried, and _recover_after_restart replays these
             # settings once it does.
             logger.warning("Settings not applied at startup: %s", exc)
-        # A backend that reports no state of its own (synthetic, replay) is working once built.
-        health.record_camera_opened(getattr(backend, "OPENED_DETAIL", "The camera is working."))
 
     def _recover_after_restart(self) -> None:
         """After the camera program was restarted (#51): the new camera opens with default
@@ -892,8 +894,9 @@ class CameraManager:
     @classmethod
     def open_in_background(cls) -> bool:
         """Start opening the camera if nothing has opened it yet, without waiting: opening can
-        take up to camera_process.OPEN_TIME_LIMIT_S (the health check, #252). True if it started
-        an open now."""
+        take up to camera_process.OPEN_TIME_LIMIT_S. Called at app start, so health reports the
+        camera's real state without waiting for the first photo (#252). True if it started an
+        open now."""
         with cls._opener_lock:
             if cls._instance is not None or cls._opener is not None:
                 return False
@@ -905,11 +908,28 @@ class CameraManager:
     def _open_once(cls) -> None:
         try:
             cls.instance()
-        except Exception:
+        except Exception as exc:
             logger.exception("The camera could not be opened")
+            from npec_rig import health
+
+            health.record_camera_state(
+                health.CAMERA_FAILED_TO_REOPEN,
+                f"The camera could not be opened ({type(exc).__name__}: {exc}). Restart the app; "
+                "if this stays, the Pi needs a restart.",
+            )
         finally:
             with cls._opener_lock:
                 cls._opener = None
+
+    @classmethod
+    def wait_for_open(cls, timeout_s: float) -> bool:
+        """Wait for an open started by open_in_background. True if none is under way any more."""
+        with cls._opener_lock:
+            opener = cls._opener
+        if opener is None:
+            return True
+        opener.join(timeout_s)
+        return not opener.is_alive()
 
     @classmethod
     def set_instance(cls, manager: CameraManager) -> None:

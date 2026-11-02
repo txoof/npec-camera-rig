@@ -247,15 +247,6 @@ def record_camera_state(state: str, detail: str | None = None, reboot_needed: bo
     log("camera state %s%s", state, f": {detail}" if detail else "")
 
 
-def record_camera_opened(detail: str) -> None:
-    """A camera backend is ready. Sets "ok" only if no backend has said otherwise: the camera
-    program reports its own state, a synthetic or replay camera reports none (#252)."""
-    with _lock:
-        opening = _camera["state"] == CAMERA_OPENING
-    if opening:
-        record_camera_state(CAMERA_OK, detail)
-
-
 def record_good_photo() -> None:
     with _lock:
         _camera["last_good_photo_utc"] = utc_now()

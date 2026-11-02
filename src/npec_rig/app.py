@@ -46,12 +46,18 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Reads each photo for its trays after it is saved (#222).
     tray_reader = TrayReader()
     tray_reader.start()
+    # Opened now, in the background, so health says whether a camera is attached and working
+    # without waiting for the first photo (#252).
+    CameraManager.open_in_background()
     yield
     # A scheduled photo already being taken finishes; the camera close below waits for it.
     photo_scheduler.stop(timeout_s=0)
     # A tag search under way is not waited for: its thread ends with the process.
     tray_reader.stop(timeout_s=0)
     record_app_stop()
+    # An open still under way would start a camera program after the close below (#252).
+    if not await run_in_threadpool(CameraManager.wait_for_open, SHUTDOWN_CAMERA_OPEN_WAIT_S):
+        logger.warning("The camera was still opening at shutdown; it is not closed cleanly")
     # End the camera program cleanly, so the camera is closed rather than killed (#51).
     manager = CameraManager._instance
     close = getattr(manager._backend, "close", None) if manager is not None else None
@@ -64,6 +70,8 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
 # grab would read as a camera fault and restart it (#139), so the close waits for _call_lock. The
 # wait is bounded above the longest camera call limit (camera_process.CALL_TIME_LIMITS_S).
 SHUTDOWN_CAMERA_IDLE_WAIT_S = 120.0
+# Above camera_process.OPEN_TIME_LIMIT_S (30 s) plus the lens replay after an open.
+SHUTDOWN_CAMERA_OPEN_WAIT_S = 45.0
 
 
 def _close_camera_when_idle(manager: CameraManager, close: Callable[[], None]) -> None:

@@ -333,9 +333,9 @@ def test_capture_sidecar_lens_check_follows_the_lock() -> None:
     assert set(record["uptime"]) >= {"boot_id", "pi_up_s", "app_up_s", "app_start", "flagged"}
 
 
-def test_health_opens_a_camera_never_opened_and_says_when_it_is_working() -> None:
-    """#252: on a fresh app nothing has opened the camera yet, so health must not answer "ok".
-    It starts opening the camera and says so, then reports it working."""
+def test_health_says_opening_until_the_app_start_has_opened_the_camera() -> None:
+    """#252: a camera nothing has opened is never reported "ok". Starting the app opens it, in the
+    background, and health then reports it working. Health itself only reads the state."""
     import time
 
     from npec_rig import health
@@ -343,16 +343,18 @@ def test_health_opens_a_camera_never_opened_and_says_when_it_is_working() -> Non
     CameraManager.set_instance(None)
     health._reset_for_tests()
     try:
-        client = TestClient(app)
-        first = client.get("/camera/health").json()
-        assert first["state"] == "opening"
-        deadline = time.monotonic() + 10
-        body = first
-        while body["state"] == "opening" and time.monotonic() < deadline:
-            time.sleep(0.05)
+        # No app start (TestClient without `with` runs no lifespan): the camera stays unopened.
+        assert TestClient(app).get("/camera/health").json()["state"] == "opening"
+        assert TestClient(app).get("/camera/health").json()["state"] == "opening"
+        with TestClient(app) as client:
+            deadline = time.monotonic() + 10
             body = client.get("/camera/health").json()
-        assert body["state"] == "ok"
+            while body["state"] == "opening" and time.monotonic() < deadline:
+                time.sleep(0.05)
+                body = client.get("/camera/health").json()
+            assert body["state"] == "ok"
     finally:
+        CameraManager.wait_for_open(10)
         health._reset_for_tests()
 
 
