@@ -7,6 +7,7 @@ from __future__ import annotations
 import io
 import logging
 import os
+import threading
 import time
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from pathlib import Path
@@ -97,6 +98,14 @@ class CameraUnavailableError(CameraFaultError):
     waiting, so no caller holds the camera lock for a camera that cannot answer."""
 
 
+class NoCameraError(RuntimeError):
+    """The camera software is installed but finds no camera attached (#252). Raised while opening,
+    before the camera is touched; the camera program reports it as its own state."""
+
+
+NO_CAMERA_DETAIL = "No camera attached."
+
+
 # Controls exposed generically (slice 4): ranges are probed from picamera2's own
 # `camera_controls` at runtime, not hardcoded — LensPosition's max has already been observed to
 # change between probes (15.0 during M0, 32.0 later), so a hardcoded range would have been
@@ -170,6 +179,8 @@ class CameraBackend(ABC):
 class SyntheticBackend(CameraBackend):
     """Deterministic test pattern. No hardware required."""
 
+    OPENED_DETAIL = "Synthetic camera: a test pattern, no camera hardware is used."
+
     def __init__(
         self,
         width: int = MAIN_SIZE[0],
@@ -183,13 +194,16 @@ class SyntheticBackend(CameraBackend):
         # throw them while the camera runs in another process. `hang_file`: the next call whose
         # name is in the file (or any call, for "*") hangs, once: the file is removed, so the
         # restarted camera answers. `fail_open_file`: while it exists, opening fails; it hangs
-        # instead if the file holds "hang", and reports the camera software missing for "missing".
+        # instead if the file holds "hang", reports the camera software missing for "missing", and
+        # no camera attached for "no_camera".
         if fail_open_file and Path(fail_open_file).exists():
             switch = Path(fail_open_file).read_text().strip()
             if switch == "hang":
                 time.sleep(3600)
             if switch == "missing":
                 raise ImportError("synthetic camera software missing (test switch)")
+            if switch == "no_camera":
+                raise NoCameraError(NO_CAMERA_DETAIL)
             raise RuntimeError("synthetic camera could not be opened (test switch)")
         self._hang_file = hang_file
         self._width = width
@@ -294,6 +308,8 @@ class ReplayBackend(SyntheticBackend):
     Raises ValueError when `folder` holds no photos. Hidden files are skipped: a copy from a
     Mac leaves a "._" file, not a JPEG, beside each photo."""
 
+    OPENED_DETAIL = "Replay camera: saved photos taken again, no camera hardware is used."
+
     def __init__(self, folder: Path) -> None:
         super().__init__()
         self._photos = sorted(
@@ -349,6 +365,10 @@ class Picamera2Backend(CameraBackend):
     def __init__(self) -> None:
         from picamera2 import Picamera2
 
+        # Lists the cameras without opening or locking one (tests/conftest.py uses it the same
+        # way), so "nothing attached" is told apart from "attached but will not open" (#252).
+        if not Picamera2.global_camera_info():
+            raise NoCameraError(NO_CAMERA_DETAIL)
         self._new_picamera2 = Picamera2
         # The last lens position this app set, applied whenever the camera is opened.
         self._lens_position = DEFAULT_LENS_POSITION
@@ -763,6 +783,8 @@ class CameraManager:
 
     _instance: ClassVar[CameraManager | None] = None
     _instance_lock: ClassVar[Lock] = Lock()
+    _opener: ClassVar[threading.Thread | None] = None
+    _opener_lock: ClassVar[Lock] = Lock()
 
     def __init__(self, backend: CameraBackend) -> None:
         self._backend = backend
@@ -789,6 +811,8 @@ class CameraManager:
             # The camera did not open; it is retried, and _recover_after_restart replays these
             # settings once it does.
             logger.warning("Settings not applied at startup: %s", exc)
+        # A backend that reports no state of its own (synthetic, replay) is working once built.
+        health.record_camera_opened(getattr(backend, "OPENED_DETAIL", "The camera is working."))
 
     def _recover_after_restart(self) -> None:
         """After the camera program was restarted (#51): the new camera opens with default
@@ -864,6 +888,28 @@ class CameraManager:
             if cls._instance is None:
                 cls._instance = cls(_default_backend())
         return cls._instance
+
+    @classmethod
+    def open_in_background(cls) -> bool:
+        """Start opening the camera if nothing has opened it yet, without waiting: opening can
+        take up to camera_process.OPEN_TIME_LIMIT_S (the health check, #252). True if it started
+        an open now."""
+        with cls._opener_lock:
+            if cls._instance is not None or cls._opener is not None:
+                return False
+            cls._opener = threading.Thread(target=cls._open_once, name="camera-open", daemon=True)
+            cls._opener.start()
+            return True
+
+    @classmethod
+    def _open_once(cls) -> None:
+        try:
+            cls.instance()
+        except Exception:
+            logger.exception("The camera could not be opened")
+        finally:
+            with cls._opener_lock:
+                cls._opener = None
 
     @classmethod
     def set_instance(cls, manager: CameraManager) -> None:

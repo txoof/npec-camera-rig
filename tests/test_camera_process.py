@@ -126,6 +126,26 @@ def test_a_camera_that_will_not_open_is_reported_and_retried(switches):
         b.close()
 
 
+def test_no_camera_attached_is_reported_as_no_camera(switches):
+    """#252: no camera attached is its own state, not "ok" and not "will not open"."""
+    with open(switches["fail_open_file"], "w") as f:
+        f.write("no_camera")
+    b = ProcessBackend("synthetic", switches, **FAST)
+    try:
+        state = health.camera_health()
+        assert state["state"] == health.CAMERA_NO_CAMERA
+        assert "No camera attached" in state["detail"]
+        with pytest.raises(CameraUnavailableError, match="No camera attached"):
+            b.get_lens_position()
+    finally:
+        b.close()
+
+
+def test_a_working_camera_is_reported_attached(backend):
+    assert health.camera_health()["state"] == health.CAMERA_OK
+    assert "attached" in health.camera_health()["detail"]
+
+
 def test_missing_camera_software_raises_import_error(switches):
     """Only missing camera software lets camera._default_backend fall back to synthetic."""
     with open(switches["fail_open_file"], "w") as f:

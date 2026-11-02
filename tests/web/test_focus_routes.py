@@ -331,3 +331,45 @@ def test_capture_sidecar_lens_check_follows_the_lock() -> None:
     assert record["lens_check"]["reported"] == record["lens_check"]["locked"]
     assert "focus not locked" not in record["flags"]
     assert set(record["uptime"]) >= {"boot_id", "pi_up_s", "app_up_s", "app_start", "flagged"}
+
+
+def test_health_opens_a_camera_never_opened_and_says_when_it_is_working() -> None:
+    """#252: on a fresh app nothing has opened the camera yet, so health must not answer "ok".
+    It starts opening the camera and says so, then reports it working."""
+    import time
+
+    from npec_rig import health
+
+    CameraManager.set_instance(None)
+    health._reset_for_tests()
+    try:
+        client = TestClient(app)
+        first = client.get("/camera/health").json()
+        assert first["state"] == "opening"
+        deadline = time.monotonic() + 10
+        body = first
+        while body["state"] == "opening" and time.monotonic() < deadline:
+            time.sleep(0.05)
+            body = client.get("/camera/health").json()
+        assert body["state"] == "ok"
+    finally:
+        health._reset_for_tests()
+
+
+def test_health_reports_an_attached_camera_that_will_not_open(tmp_path) -> None:
+    """#252: a camera that is attached but will not open stays "failed_to_reopen"."""
+    from npec_rig import health
+    from npec_rig.camera_process import ProcessBackend
+
+    fail = tmp_path / "fail_open"
+    fail.write_text("fail")
+    health._reset_for_tests()
+    backend = ProcessBackend("synthetic", {"fail_open_file": str(fail)}, retry_s=60)
+    try:
+        CameraManager.set_instance(CameraManager(backend))
+        body = TestClient(app).get("/camera/health").json()
+        assert body["state"] == "failed_to_reopen"
+        assert "could not be opened" in body["detail"]
+    finally:
+        backend.close()
+        health._reset_for_tests()

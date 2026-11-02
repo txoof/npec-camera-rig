@@ -266,8 +266,11 @@ def lock_focus() -> dict:
 @router.get("/camera/health")
 def camera_health() -> dict:
     """The camera's state for the status line on every page (health.py). The fleet endpoint
-    (#82) will report the same."""
-    return health.camera_health()
+    (#82) will report the same. A camera nothing has opened yet is opened now, in the background,
+    so a rig with no camera or a broken one does not read "ok" until the first photo (#252)."""
+    state = health.camera_health()
+    CameraManager.open_in_background()
+    return state
 
 
 @router.post("/camera/reset")

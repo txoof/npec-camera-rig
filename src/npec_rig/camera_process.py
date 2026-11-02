@@ -158,10 +158,15 @@ def _child_main(conn, parent_pid: int, name: str, kwargs: dict, pid_file: str | 
             Path(pid_file).write_text(f"{os.getpid()} {_start_time(os.getpid())}")
         except OSError:
             pass
+    from npec_rig.camera import NoCameraError
+
     try:
         backend = _make_backend(name, kwargs)
     except ImportError as exc:
         conn.send(("missing", str(exc)))
+        return
+    except NoCameraError as exc:
+        conn.send(("no_camera", str(exc)))
         return
     except BaseException as exc:
         conn.send(("open_failed", f"{type(exc).__name__}: {exc}"))
@@ -369,7 +374,9 @@ class ProcessBackend(CameraBackend):
                     recovery_s=round(time.monotonic() - self._down_since, 2),
                 )
                 self._down_since = None
-            health.record_camera_state(health.CAMERA_OK)
+            health.record_camera_state(
+                health.CAMERA_OK, f"Camera attached and working ({self._camera})."
+            )
             logger.info("camera program %d ready", proc.pid)
             if self._constructed and self._restart_listener is not None:
                 threading.Thread(
@@ -387,10 +394,18 @@ class ProcessBackend(CameraBackend):
         self._failed_opens += 1
         if self._down_since is None:
             self._down_since = time.monotonic()
-        self._unavailable = (
-            f"The camera could not be opened ({detail}). The rig tries again every "
-            f"{self._retry_s:.0f} s. If this stays, the Pi needs a restart."
-        )
+        if kind == "no_camera":
+            state = health.CAMERA_NO_CAMERA
+            self._unavailable = (
+                f"{detail} Turn the Pi off, connect the camera, then turn the Pi on. The rig "
+                f"looks again every {self._retry_s:.0f} s."
+            )
+        else:
+            state = health.CAMERA_FAILED_TO_REOPEN
+            self._unavailable = (
+                f"The camera could not be opened ({detail}). The rig tries again every "
+                f"{self._retry_s:.0f} s. If this stays, the Pi needs a restart."
+            )
         reboot_needed = self._failed_opens >= FAILED_OPENS_BEFORE_REBOOT
         health.record_camera_event(
             health.EVENT_OPEN_FAILED,
@@ -399,9 +414,7 @@ class ProcessBackend(CameraBackend):
             program_pid=proc.pid,
             reboot_needed=reboot_needed,
         )
-        health.record_camera_state(
-            health.CAMERA_FAILED_TO_REOPEN, self._unavailable, reboot_needed=reboot_needed
-        )
+        health.record_camera_state(state, self._unavailable, reboot_needed=reboot_needed)
         self._schedule(self._start)
         return "failed"
 

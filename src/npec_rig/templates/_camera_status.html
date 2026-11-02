@@ -32,7 +32,12 @@
     const until = h.last_restart
       ? time(new Date(new Date(h.last_restart.time_utc.replace(/(\.\d{3})\d+/, "$1")).getTime() + h.camera_fault_window_s * 1000).toISOString())
       : null;
-    if (h.state === "restarting") {
+    if (h.state === "opening") {
+      show("restarting", "Camera: opening the camera.");
+    } else if (h.state === "no_camera") {
+      show("failed", "Camera: " + (h.detail || "no camera attached.") +
+        (h.reboot_needed ? " Restart needed." : ""));
+    } else if (h.state === "restarting") {
       show("restarting", "Camera: it stopped responding and is being restarted.");
     } else if (h.state === "failed_to_reopen") {
       show("failed", "Camera: " + (h.detail || "it could not be reopened.") +
