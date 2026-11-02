@@ -151,9 +151,16 @@ def name_trays(outlines: list[TrayOutline], detections: list[TagDetection], scal
     blue, under a sheet), and a tray placed from the tag assumed it lay in cell A1, putting edge
     tags and second tags about 176 mm off (#331). Trays can lie anywhere on the table: no slot."""
     tags = [t for t in detections if t.tag_id in TRAY_ID_RANGE]
+    # Accepted outlines may overlap a little (`MAX_OVERLAP`): a tag in the strip two share names
+    # only the one whose centre is nearer, never both (review of #334).
+    home: dict[int, int] = {}
+    for k, tag in enumerate(tags):
+        holding = [i for i, o in enumerate(outlines) if _inside(tag.centre, o.corners)]
+        if holding:
+            home[k] = min(holding, key=lambda i: math.dist(tag.centre, outlines[i].centre))
     out = []
-    for outline in outlines:
-        named = [t for t in tags if _inside(t.centre, outline.corners)]
+    for i, outline in enumerate(outlines):
+        named = [t for k, t in enumerate(tags) if home.get(k) == i]
         edge = ("partly outside the photo",) if outline.edge else ()
         if not named:
             out.append(TrayPlacement(
@@ -169,8 +176,8 @@ def name_trays(outlines: list[TrayOutline], detections: list[TagDetection], scal
                 outline=outline.corners, margin_mm=None, status="two tags in one outline" if shared else "placed",
                 found="photo + tag", warnings=warnings,
             ))
-    for tag in tags:
-        if not any(_inside(tag.centre, o.corners) for o in outlines):
+    for k, tag in enumerate(tags):
+        if k not in home:
             out.append(TrayPlacement(
                 tray_id=tag.tag_id, centre=tag.centre, slot=None, a1_corner=None, tilt_deg=_tilt_deg(tag),
                 outline=None, margin_mm=None, found="tag only", warnings=("tag seen, tray not found in the photo",),

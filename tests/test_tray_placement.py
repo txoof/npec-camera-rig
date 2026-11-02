@@ -199,6 +199,21 @@ def test_two_tags_in_one_outline_both_get_it_and_both_say_so() -> None:
     assert all(t.outline == outline.corners for t in trays)
 
 
+def test_a_tag_in_the_strip_two_outlines_share_names_only_the_one_whose_centre_is_nearer() -> None:
+    """Review of #334: accepted outlines may overlap by up to a quarter (`MAX_OVERLAP`). Outlines
+    at x 1000 to 4050 and 3550 to 6600 share x 3550 to 4050; tag 4 at x 3700 lies 1175 px from the
+    first's centre (2525) and 1375 px from the second's (5075). It names the first only; the
+    second is a tray with no tag, never a second tray 4."""
+    from npec_rig.tray_placement import name_trays
+
+    first, second = _box_outline(1000, 500), _box_outline(3550, 500)
+    trays = name_trays([first, second], [_tag_at(4, 3700, 2000)], scale_field_from_dict(EVEN_10))
+    assert sorted(((t.tray_id or 0), t.outline == first.corners, t.found) for t in trays) == [
+        (0, False, "photo, no tag"),
+        (4, True, "photo + tag"),
+    ]
+
+
 def test_a_tag_inside_no_outline_is_a_tag_seen_with_no_tray_outline_where_the_tag_lies() -> None:
     """No tray found in the photo around tag 4 (a black tray, one under a sheet, an edge tag on the
     rail): the tag is reported at its own centre, with no outline and no slot. Placing a tray from
