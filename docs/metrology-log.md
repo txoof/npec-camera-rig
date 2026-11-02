@@ -6970,13 +6970,15 @@ written in chamber time (Europe/Amsterdam; UTC+2 until 25 October, UTC+1 after),
 **Data.** A copy of production's `rig.db` (`ac-testing`, schema version 13) taken on 2026-10-30
 at about 14:28 UTC, opened read-only; nothing was written on the rig. Experiment 18, "Potato Plants
 v001": 11,871 photos from Thu 22 Oct 10:41 to Fri 30 Oct 15:28 chamber time, 8,204 of them read
-with trays (the rest are lights-off photos with no tags found). Each tray's slot, A1 corner and
+with trays (of the rest, 3,665 are lights-off photos with no tags found, 1 failed to read and
+1 was never read). Each tray's slot, A1 corner and
 centre in every photo, as stored by the production rig's code of the run, which places each tray
 from its tag in cell A1 and the slot grid (section 15.5). Calibration `20261022T072523939958` and
 its slot layout throughout.
 
-**Method.** Script `experiments/round2-run/movements.py` (commit `710ef87`, how to run it is in
-its docstring):
+**Method.** Script `experiments/round2-run/movements.py` (results from commit `710ef87`; a later
+change only leaves out readings with no tag, of which this run has none; how to run it is in its
+docstring):
 
 - **Table locations.** A 3 x 2 grid (Aaron, #332, 2026-10-30): NW, NM, NE over SW, SM, SE. The grid is
   laid out in the calibration's table frame, a homography from the centres of the four table
@@ -7000,8 +7002,9 @@ its docstring):
   is the stay's first photo minus the recorded finish, in minutes.
 - **Outside shuffles.** Every run, of any length, of a new slot, A1 corner or table location that starts
   outside a shuffle window. A window runs from the recorded start to the finish, widened by
-  15 minutes on each side. **Shuffles 0 and 1 have no start written**; for them the window starts
-  60 minutes before the finish. The 60 and the 15 minutes are choices, not measurements.
+  15 minutes on each side. **Shuffle 0 has no window**: it moved no tray (map 0 was written from
+  the layout already on the table). **Shuffle 1 has no start written**; its window starts 60
+  minutes before the finish. The 60 and the 15 minutes are choices, not measurements.
 
 **Result.**
 
@@ -7076,9 +7079,12 @@ enough to count how long each tray spends in each table location.
   finder of section 21 (#331), which production did not run.
 - **Table locations from slots.** Every tray stood on a slot centre, well inside its location. A
   tray lying near a line between two locations, as trays will when slots are dropped, is not tested.
+  The script cuts the columns in thirds along the table's middle line; the app (#332) cuts them
+  along each tray's own row. Both give the same locations for this layout, which lies square to
+  the table, but the app's rule is not what was checked here.
 - **Timing rests on the written finish times** and the one-minute photo interval; no time per
   tray was recorded (16.2).
-- The windows for shuffles 0 and 1, the 15-minute widening and the 1-hour rule are choices;
+- The window for shuffle 1, the 15-minute widening and the 1-hour rule are choices;
   the photo width of 9152 px is a constant in the script, not read from the photos.
 - Raw data: the database copy `~/scratch/332/prod/rig.db` and the script's tables in
   `~/scratch/332/analysis/` (`expected.csv`, `comparison.csv`, `measured_slot_stays.csv`,
