@@ -462,8 +462,9 @@ metrology log backs it.
   every time because a tag did not lie in cell A1 of a 4x5 tray; a rims method with tags hidden
   was wrong on 8, missing trays under sheets or at the frame edge. On the 44 tuning stills (20)
   the method met its target on every set. This method is what the app uses (21); placing a tray
-  from its cell A1 tag, the round 1 step above, is no longer used. Not shown: an outline against a measured tray edge (outlines were judged by eye on
-  quarter-size pictures); stills picked at random; 1x1 or black trays.
+  from its cell A1 tag, the round 1 step above, is no longer used. Not shown: an outline against
+  a measured tray edge (outlines were judged by eye on quarter-size pictures); stills picked at
+  random; 1x1 or black trays.
 
 ### Flat-target bands (M2, to 2026-10-14)
 
