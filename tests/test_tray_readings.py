@@ -547,3 +547,21 @@ def test_a_photo_with_no_tray_and_only_a_corner_tag_says_no_trays_found(monkeypa
 
     readings = tray_readings.read_photo(_photo())
     assert (readings["status"], readings["trays"]) == ("no trays found", [])
+
+
+def test_a_photo_is_read_with_its_calibration_whatever_the_calibrations_name(monkeypatch) -> None:
+    """Review of #334: only the scale field is needed to find trays. A calibration saved under a
+    name a slot layout cannot have (not a timestamp) made the slot layout lookup fail and the
+    photo read as having no calibration."""
+    tag = TagDetection(5, ((2800, 600), (3200, 600), (3200, 1000), (2800, 1000)), (3000, 800))
+    _blue_tray_scene(monkeypatch, [tag])
+    save_calibration(
+        CalibrationArtifact(created_at="2026-10-29T10:00:00+00:00", scale_field=scale_field_from_dict(
+            {"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 10.0, "residual_std_pct": 0.0}),
+            frame_stem="bench-check", lens_position=6.05),
+        stem="bench-check",
+    )
+
+    readings = tray_readings.read_photo(_photo())
+    assert readings["status"] == "read"
+    assert [(t["tray_id"], t["found"]) for t in readings["trays"]] == [(5, "photo + tag")]

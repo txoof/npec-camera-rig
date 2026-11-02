@@ -78,11 +78,14 @@ def _calibration(path: str) -> tuple[str, object, list[dict] | None]:
     try:
         stem = calibration_for_photos(record["calibration"])
         artifact = load_saved_calibration(stem)
-        # Only a layout already worked out: working it out decodes the 64MP calibration frame.
-        # A twin has its original's slots.
-        layout = validation_store.load_slot_layout(stem) or validation_store.load_slot_layout(record["calibration"])
-    except (CalibrationNotFoundError, CalibrationUnreadableError, validation_store.SessionNotFoundError):
+    except (CalibrationNotFoundError, CalibrationUnreadableError):
         return "no calibration", None, None
+    try:
+        # Only a layout already worked out: working it out decodes the 64MP calibration frame.
+        # A twin has its original's slots. Optional: trays are found without one (review of #334).
+        layout = validation_store.load_slot_layout(stem) or validation_store.load_slot_layout(record["calibration"])
+    except validation_store.SessionNotFoundError:
+        layout = None
     if layout is None:
         return "no slot layout", artifact.scale_field, None
     return "read", artifact.scale_field, layout["slots"]
