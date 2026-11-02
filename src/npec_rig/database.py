@@ -310,6 +310,21 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "ALTER TABLE experiment ADD COLUMN dwell_limit_h REAL NOT NULL DEFAULT 96",
         ),
     ),
+    (
+        16,
+        "experiment_hidden_tray: trays hidden on an experiment's table locations panel (#332)",
+        (
+            # A tray hidden gives no warning; its readings stay as they are (Aaron, 2026-11-02).
+            """
+            CREATE TABLE experiment_hidden_tray (
+                experiment_id INTEGER NOT NULL REFERENCES experiment (id),
+                tray_id INTEGER NOT NULL,
+                hidden_at TEXT NOT NULL,         -- UTC, ISO 8601
+                PRIMARY KEY (experiment_id, tray_id)
+            )
+            """,
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -648,6 +663,31 @@ def experiment_tray_positions(experiment_id: int) -> list[dict]:
     ]
 
 
+def hidden_trays(experiment_id: int) -> set[int]:
+    """The tray IDs hidden on the experiment's table locations panel (#332)."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT tray_id FROM experiment_hidden_tray WHERE experiment_id = ?", (experiment_id,))
+        return {r[0] for r in rows.fetchall()}
+
+
+def hide_tray(experiment_id: int, tray_id: int, *, now: str) -> None:
+    """Hide tray `tray_id` on the experiment's panel: it gives no warning until shown again. Its
+    readings are unchanged. Hiding a hidden tray keeps its first time."""
+    with _connect() as conn:
+        _experiment(conn, experiment_id)  # LookupError for no such experiment
+        conn.execute(
+            "INSERT OR IGNORE INTO experiment_hidden_tray (experiment_id, tray_id, hidden_at) VALUES (?, ?, ?)",
+            (experiment_id, tray_id, now),
+        )
+
+
+def show_tray(experiment_id: int, tray_id: int) -> None:
+    """Show a hidden tray again."""
+    with _connect() as conn:
+        _experiment(conn, experiment_id)
+        conn.execute("DELETE FROM experiment_hidden_tray WHERE experiment_id = ? AND tray_id = ?", (experiment_id, tray_id))
+
+
 def experiment_tray_reads_mark(experiment_id: int) -> tuple:
     """A mark that changes whenever a photo of the experiment is read or read again (#332): the
     database, its photos read and when the newest was, and its tray readings' rows, newest row and
@@ -812,6 +852,7 @@ def discard_experiment(experiment_id: int) -> None:
     with _connect() as conn:
         if _experiment(conn, experiment_id)["state"] != "set up":
             raise ExperimentError("only an experiment that has never started can be discarded")
+        conn.execute("DELETE FROM experiment_hidden_tray WHERE experiment_id = ?", (experiment_id,))
         conn.execute("DELETE FROM experiment WHERE id = ?", (experiment_id,))
 
 

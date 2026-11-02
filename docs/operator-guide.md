@@ -140,6 +140,9 @@ location too long.
 - **Table locations** also shows, per tray, its hours in each location, where it is now, its
   moves as numbered arrows, and a strip across the experiment named by location. The export
   holds the same hours in `time-in-table-location.csv`.
+- **Hide.** A tray that is not a real tray, such as a misread tag, can be hidden with its Hide
+  button. It then shows as one line, "Tray 12, hidden", and gives no warning, on every PC, until
+  Show is tapped. Its hours stay in the export.
 
 ## Why it is done this way
 

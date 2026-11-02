@@ -413,3 +413,19 @@ def test_a_tray_with_no_tag_is_never_followed_from_photo_to_photo() -> None:
     database.record_tray_readings(second, read_at="t", status="read", trays=[_tray(1), _untagged("S3")])
 
     assert [t["tray_id"] for t in database.tray_readings(second)["in_both"]] == [1]
+
+
+def test_version_16_keeps_an_experiment_from_version_15_and_hides_none_of_its_trays(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#332, Aaron 2026-11-02: hidden trays are kept per experiment. An experiment saved at version
+    15 comes through with its dwell limit and no tray hidden."""
+    with monkeypatch.context() as m:
+        m.setattr(database, "MIGRATIONS", database.MIGRATIONS[:15])
+        m.setattr(database, "SCHEMA_VERSION", 15)
+        with sqlite3.connect(db_path()) as conn:
+            database.migrate(conn)
+            conn.execute("INSERT INTO experiment (id, uuid, created_at, dwell_limit_h) VALUES (3, 'u', 't', 48)")
+            conn.commit()
+    with sqlite3.connect(db_path()) as conn:
+        assert database.migrate(conn) == database.SCHEMA_VERSION
+    assert database.get_experiment(3)["dwell_limit_h"] == 48
+    assert database.hidden_trays(3) == set()

@@ -40,6 +40,7 @@ should be compared as times, not as text.
 | `derived_image` | Index of images made from photographs (validation maps, problem frames) | `images.py` |
 | `capture_analysis` | Results worked out once per photograph, for example its detected tags | `images.py` |
 | `experiment` | One row per experiment, kept when it is purged; here only its dwell limit (#332) | `database.py` |
+| `experiment_hidden_tray` | One row per tray hidden on an experiment's table locations panel (#332) | `database.py` |
 | `scheduled_photo` | One row per scheduled photo of an experiment, taken or missed | `scheduler.py` |
 | `tray_read` | One row per photo read for trays, with its status | `tray_readings.py` |
 | `tray_reading` | One row per tray found in a photo: its centre and outline (its slot and A1 corner before version 14) | `tray_readings.py` |
@@ -178,6 +179,21 @@ stay from its first photo to the time it is shown; a tray missing for more than 
 (`NOT_SEEN_FOR`, as for trays not found) was taken away and is not warned for until it is found
 again. Nothing about table locations or
 stays is stored: they are worked out from `tray_reading` each time.
+
+### `experiment_hidden_tray`
+
+Version 16 (#332). A tray hidden on an experiment's table locations panel, such as a misread tag
+(Aaron, 2026-11-02). A hidden tray shows as one line on the panel and gives no warning anywhere;
+its tray readings and the export are unchanged. Show deletes the row.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `experiment_id` | integer | The experiment (`experiment.id`) |
+| `tray_id` | integer | The tray's tag ID |
+| `hidden_at` | text | When it was hidden, UTC. Hiding it again keeps the first time |
+
+One row per experiment and tray (the two together are the key). The rows of a discarded
+experiment are deleted with it; a purge keeps them, with the experiment's record.
 
 ### `scheduled_photo`
 

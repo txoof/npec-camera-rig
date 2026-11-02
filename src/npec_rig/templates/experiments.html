@@ -488,6 +488,26 @@
 
     document.getElementById("table-locations-close").addEventListener("click", () => { tableLocationsSection.hidden = true; });
 
+    // Hide and Show on each tray (#332): kept in rig.db, so every PC shows the same. A hidden
+    // tray gives no warning; the panel is made again with the tray as one line, or in full.
+    tableLocations.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-tray-hide], button[data-tray-show]");
+      if (!button) return;
+      const hide = button.hasAttribute("data-tray-hide");
+      const tray = hide ? button.dataset.trayHide : button.dataset.trayShow;
+      button.disabled = true;
+      try {
+        await call("POST", `/api/experiments/${tableLocationsShown}/trays/${tray}/${hide ? "hide" : "show"}`);
+        await refresh();
+        const y = window.scrollY;
+        await showTableLocations(experiments.find((x) => x.id === tableLocationsShown));
+        window.scrollTo(0, y);  // stay at the tray just hidden or shown
+      } catch (err) {
+        dwellMessage.textContent = `Not changed: ${err.message}`;
+        button.disabled = false;
+      }
+    });
+
     function purgeAsk(e) {
       const exportLine = e.complete_export
         ? `<p>It has a complete export, made ${esc(utc(e.complete_export.finished_at))}.</p>`

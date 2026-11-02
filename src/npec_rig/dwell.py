@@ -193,11 +193,15 @@ def over_limit(experiment_id: int, at: str) -> list[dict]:
     limit (`experiment.dwell_limit_h`) or longer, in tray ID order: tray ID, the location, since when
     and for how many hours, from the stay's first photo to `at`. A tray missing for up to
     `database.NOT_SEEN_FOR` still counts in its location; missing longer, it was taken away, and is
-    not warned for until it is found again (Aaron, 2026-10-30, #331's rule)."""
+    not warned for until it is found again (Aaron, 2026-10-30, #331's rule). A tray hidden on the
+    experiment's panel, such as a misread tag, is never warned for (Aaron, 2026-11-02)."""
     limit_h = database.get_experiment(experiment_id)["dwell_limit_h"]
+    hidden = database.hidden_trays(experiment_id)
     now = datetime.fromisoformat(at)
     out = []
     for tray_id, readings in sorted(_experiment_readings(experiment_id, until=at).items()):
+        if tray_id in hidden:
+            continue
         stay = stays(readings)[-1]
         if now - readings[-1][0] > database.NOT_SEEN_FOR:
             continue

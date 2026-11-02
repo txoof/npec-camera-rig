@@ -265,8 +265,13 @@ def _table_locations(experiment: dict) -> dict:
     end = datetime.now(UTC) if running else datetime.fromisoformat(periods[-1]["ended_at"] or _now())
     warned = {w["tray_id"]: w for w in dwell.over_limit(experiment["id"], at=end.isoformat())} if running else {}
     hours = dwell.hours_per_location(experiment["id"])
+    hidden = database.hidden_trays(experiment["id"])
     trays = []
     for tray_id, stays in dwell.tray_stays(experiment["id"]).items():
+        if tray_id in hidden:
+            # One line until Show is tapped, such as a misread tag (Aaron, 2026-11-02).
+            trays.append({"tray_id": tray_id, "hidden": True, "warning": None})
+            continue
         last = stays[-1]
         # Where the tray is now: its last stay, unless it has not been found for over 48 hours,
         # as for trays not found in the Gallery (database.NOT_SEEN_FOR).
@@ -276,6 +281,7 @@ def _table_locations(experiment: dict) -> dict:
         moves = [(a.location, b.location) for a, b in zip(stays, stays[1:])]
         trays.append({
             "tray_id": tray_id,
+            "hidden": False,
             "warning": None if warning is None else f"Too long in {warning['location']}, {_days(warning['hours'])}",
             "cells": [
                 {"location": location, "x": col * _CELL, "y": row * _CELL, "tint": _LOCATION_TINTS[location],
@@ -303,3 +309,18 @@ def table_locations_panel(request: Request, experiment_id: int) -> Response:
     one table location, and where each tray has been (#332)."""
     experiment = _experiment_action(database.get_experiment, experiment_id)
     return templates.TemplateResponse(request, "_table_locations.html", {"view": _table_locations(experiment)})
+
+
+@router.post("/api/experiments/{experiment_id}/trays/{tray_id}/hide")
+def api_hide_tray(experiment_id: int, tray_id: int) -> dict:
+    """Hide a tray on the experiment's table locations panel, kept in rig.db: it gives no warning
+    until shown again (#332). Its readings and the export are unchanged."""
+    _experiment_action(database.hide_tray, experiment_id, tray_id, now=_now())
+    return {"hidden": sorted(database.hidden_trays(experiment_id))}
+
+
+@router.post("/api/experiments/{experiment_id}/trays/{tray_id}/show")
+def api_show_tray(experiment_id: int, tray_id: int) -> dict:
+    """Show a hidden tray again (#332)."""
+    _experiment_action(database.show_tray, experiment_id, tray_id)
+    return {"hidden": sorted(database.hidden_trays(experiment_id))}

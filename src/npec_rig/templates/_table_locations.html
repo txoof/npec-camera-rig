@@ -18,10 +18,20 @@
 {% endif %}
 <div class="list">
 {% for t in view.trays %}
+  {% if t.hidden %}
+  {#- A hidden tray, such as a misread tag: one line, no warning, until Show is tapped. -#}
+  <div class="card">
+    <div class="card-head">
+      <h3>Tray {{ t.tray_id }}, hidden</h3>
+      {{ ui.button("Show", attrs={"data-tray-show": t.tray_id}) }}
+    </div>
+  </div>
+  {% else %}
   <div class="card">
     <div class="card-head">
       <h3>Tray {{ t.tray_id }}</h3>
       {% if t.warning %}{{ ui.chip("warn", t.warning) }}{% endif %}
+      {{ ui.button("Hide", attrs={"data-tray-hide": t.tray_id}) }}
     </div>
     <div class="row" style="align-items: flex-start">
       {#- The map: hours in each location, the location it is in now outlined, its moves as numbered arrows. -#}
@@ -82,5 +92,6 @@
       </div>
     </div>
   </div>
+  {% endif %}
 {% endfor %}
 </div>
