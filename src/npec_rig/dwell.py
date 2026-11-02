@@ -1,12 +1,12 @@
 """Where on the chamber table each tray spends its time, and a warning when it stays too long in
-one area (#332).
+one location (#332).
 
-Light, temperature and airflow differ across the table, so a tray that stays in one area for a
+Light, temperature and airflow differ across the table, so a tray that stays in one location for a
 long part of an experiment gets different conditions from the others. Researchers move trays to
 even this out; this module tells them when a tray has stayed too long.
 
-The table is divided into 6 areas, 3 columns by 2 rows: NW NM NE in the north row, SW SM SE in the
-south row (north is up the photo, west is left). A tray's centre decides its area. These are
+The table is divided into 6 locations, 3 columns by 2 rows: NW NM NE in the north row, SW SM SE in the
+south row (north is up the photo, west is left). A tray's centre decides its location. These are
 decisions, not measurements (Aaron, 2026-10-30, issue #332).
 """
 
@@ -30,16 +30,16 @@ from npec_rig.calibration_store import (
 )
 from npec_rig.captures import photo_file
 
-AREAS = ("NW", "NM", "NE", "SW", "SM", "SE")
+LOCATIONS = ("NW", "NM", "NE", "SW", "SM", "SE")
 
-# A tray counts as moved only after this long found in another area, in a row: shorter stays, such
+# A tray counts as moved only after this long found in another location, in a row: shorter stays, such
 # as tray 1 beside its slot for 3 minutes on 28 October, are nudges. A decision, not a measurement
 # (Aaron, 2026-10-30).
 MOVE_AFTER = timedelta(hours=1)
 
 
-def area_of(centre_px: tuple[float, float], photo_size: tuple[int, int], frame: TableFrame | None) -> str:
-    """The area of the table a tray centred at `centre_px` (full-size photo pixels) lies in, in a
+def location_of(centre_px: tuple[float, float], photo_size: tuple[int, int], frame: TableFrame | None) -> str:
+    """The table location a tray centred at `centre_px` (full-size photo pixels) lies in, in a
     photo of `photo_size` (width, height).
 
     With the calibration's table frame (the homography of the four corner tags), positions are
@@ -74,38 +74,38 @@ def _edge_u(ends: tuple[tuple[float, float], tuple[float, float]], v: float) -> 
 
 @dataclass(frozen=True)
 class Stay:
-    """One run of a tray in one area: from the first photo it was found there to the last."""
+    """One run of a tray in one location: from the first photo it was found there to the last."""
 
-    area: str
+    location: str
     start: datetime
     end: datetime
 
 
 def stays(readings: Iterable[tuple[datetime, str]]) -> list[Stay]:
-    """One tray's stays, oldest first, from its readings: (time, area) for each read photo the tray
+    """One tray's stays, oldest first, from its readings: (time, location) for each read photo the tray
     was found in. A photo the tray was not found in has no reading: misses and the tray taken off
-    the table for a while do not break a stay. A tray found in another area starts a new stay only
+    the table for a while do not break a stay. A tray found in another location starts a new stay only
     once it has been found there for `MOVE_AFTER`, from the first to the last photo in a row; it is
-    then in the new area from its first photo there. A shorter stay elsewhere is part of the stay
+    then in the new location from its first photo there. A shorter stay elsewhere is part of the stay
     it left and came back to."""
     out: list[Stay] = []
-    away: list[tuple[datetime, str]] = []  # readings elsewhere since the last one in out[-1].area
-    for taken_at, area in sorted(readings):
+    away: list[tuple[datetime, str]] = []  # readings elsewhere since the last one in out[-1].location
+    for taken_at, location in sorted(readings):
         if not out:
-            out.append(Stay(area, taken_at, taken_at))
-        elif area == out[-1].area:
-            out[-1] = Stay(area, out[-1].start, taken_at)
+            out.append(Stay(location, taken_at, taken_at))
+        elif location == out[-1].location:
+            out[-1] = Stay(location, out[-1].start, taken_at)
             away = []
         else:
-            away = [r for r in away if r[1] == area] + [(taken_at, area)]
+            away = [r for r in away if r[1] == location] + [(taken_at, location)]
             if taken_at - away[0][0] >= MOVE_AFTER:
-                out.append(Stay(area, away[0][0], taken_at))
+                out.append(Stay(location, away[0][0], taken_at))
                 away = []
     return out
 
 
-class AreaFinder:
-    """The area of each tray in photos read with their calibration (`area_of`), each calibration's
+class LocationFinder:
+    """The location of each tray in photos read with their calibration (`location_of`), each calibration's
     table frame and photo size looked up once. Photos taken under one calibration are taken in one
     camera mode, so the first photo found gives the size of all; with none on disk, the
     calibration's own photo. Make one per question: a calibration can be rebuilt in the meantime."""
@@ -114,12 +114,12 @@ class AreaFinder:
         self._frames: dict[str | None, TableFrame | None] = {}
         self._sizes: dict[str | None, tuple[int, int]] = {}
 
-    def area(self, path: str, calibration: str | None, centre_px: tuple[float, float]) -> str | None:
-        """The area of a tray centred at `centre_px` in photo `path`, taken under `calibration`;
+    def location(self, path: str, calibration: str | None, centre_px: tuple[float, float]) -> str | None:
+        """The location of a tray centred at `centre_px` in photo `path`, taken under `calibration`;
         None when the photo's size cannot be known (neither it nor its calibration's photo is on
         disk)."""
         size = self._size(path, calibration)
-        return None if size is None else area_of(centre_px, size, self._frame(calibration))
+        return None if size is None else location_of(centre_px, size, self._frame(calibration))
 
     def _frame(self, calibration: str | None) -> TableFrame | None:
         if calibration not in self._frames:
@@ -159,22 +159,22 @@ _last_readings: dict = {}
 
 def _experiment_readings(experiment_id: int, until: str | None = None) -> dict[int, list[tuple[datetime, str]]]:
     """Each tray's readings in the experiment's read photos taken up to `until` (all with None):
-    (time, area), oldest first. A tray whose area cannot be known in a photo is left out of it.
+    (time, location), oldest first. A tray whose location cannot be known in a photo is left out of it.
     Worked out again whenever a photo of the experiment is read or read again."""
     mark = (experiment_id, database.experiment_tray_reads_mark(experiment_id))
     if _last_readings.get("mark") != mark:
-        finder = AreaFinder()
+        finder = LocationFinder()
         everything: list[tuple[int, str, datetime, str]] = []
         for p in database.experiment_tray_positions(experiment_id):
-            area = finder.area(p["path"], p["calibration"], p["centre_px"])
-            if area is not None:
-                everything.append((p["tray_id"], p["taken_at"], datetime.fromisoformat(p["taken_at"]), area))
+            location = finder.location(p["path"], p["calibration"], p["centre_px"])
+            if location is not None:
+                everything.append((p["tray_id"], p["taken_at"], datetime.fromisoformat(p["taken_at"]), location))
         _last_readings.clear()
         _last_readings.update(mark=mark, readings=everything)
     readings: dict[int, list[tuple[datetime, str]]] = {}
-    for tray_id, taken_at, when, area in _last_readings["readings"]:
+    for tray_id, taken_at, when, location in _last_readings["readings"]:
         if until is None or taken_at <= until:
-            readings.setdefault(tray_id, []).append((when, area))
+            readings.setdefault(tray_id, []).append((when, location))
     return readings
 
 
@@ -189,10 +189,10 @@ def _hours(stay: Stay) -> float:
 
 
 def over_limit(experiment_id: int, at: str) -> list[dict]:
-    """The experiment's trays that, at time `at` (UTC), have stayed in one area for its dwell
-    limit (`experiment.dwell_limit_h`) or longer, in tray ID order: tray ID, the area, since when
+    """The experiment's trays that, at time `at` (UTC), have stayed in one location for its dwell
+    limit (`experiment.dwell_limit_h`) or longer, in tray ID order: tray ID, the location, since when
     and for how many hours, from the stay's first photo to `at`. A tray missing for up to
-    `database.NOT_SEEN_FOR` still counts in its area; missing longer, it was taken away, and is
+    `database.NOT_SEEN_FOR` still counts in its location; missing longer, it was taken away, and is
     not warned for until it is found again (Aaron, 2026-10-30, #331's rule)."""
     limit_h = database.get_experiment(experiment_id)["dwell_limit_h"]
     now = datetime.fromisoformat(at)
@@ -203,19 +203,19 @@ def over_limit(experiment_id: int, at: str) -> list[dict]:
             continue
         hours = (now - stay.start) / timedelta(hours=1)
         if hours >= limit_h:
-            out.append({"tray_id": tray_id, "area": stay.area, "since": stay.start.isoformat(), "hours": hours})
+            out.append({"tray_id": tray_id, "location": stay.location, "since": stay.start.isoformat(), "hours": hours})
     return out
 
 
-def hours_per_area(experiment_id: int, until: str | None = None) -> dict[int, dict[str, float]]:
-    """Each tray's hours in each area (`AREAS`, every one, 0 where it never stayed) over the
+def hours_per_location(experiment_id: int, until: str | None = None) -> dict[int, dict[str, float]]:
+    """Each tray's hours in each location (`LOCATIONS`, every one, 0 where it never stayed) over the
     experiment, up to `until` (UTC; all with None), by tray ID: each stay from its first to its
     last photo. The minutes between a stay's last photo and the next stay's first are in neither,
     nor are nudges a stay of their own: they count in the stay they interrupted."""
     out = {}
     for tray_id, tray in tray_stays(experiment_id, until).items():
-        hours = dict.fromkeys(AREAS, 0.0)
+        hours = dict.fromkeys(LOCATIONS, 0.0)
         for stay in tray:
-            hours[stay.area] += _hours(stay)
+            hours[stay.location] += _hours(stay)
         out[tray_id] = hours
     return out

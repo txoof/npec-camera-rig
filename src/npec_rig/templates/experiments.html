@@ -44,20 +44,20 @@
     <tbody id="experiment-rows"></tbody>
   </table>
 
-  {#- Where each tray has been on the table (#332): opened by a row's Tray areas button. -#}
-  <section id="tray-areas-section" hidden>
+  {#- Where each tray has been on the table (#332): opened by a row's Table locations button. -#}
+  <section id="table-locations-section" hidden>
     <div class="row" style="margin-top: var(--gap)">
-      <h2 id="tray-areas-title" style="margin: 0; flex: 1 1 300px"></h2>
-      {{ ui.button("Close", id="tray-areas-close") }}
+      <h2 id="table-locations-title" style="margin: 0; flex: 1 1 300px"></h2>
+      {{ ui.button("Close", id="table-locations-close") }}
     </div>
     {#- The limit, set here beside the warnings it gives (the setup form is already taller than
         the chamber screen). Whole days, 1 to 30; it can be changed while running. -#}
     <div class="row" id="dwell-limit-row" style="margin-top: var(--gap)">
-      {{ ui.stepper("dwell-limit", "Too long in one area after", 4, "days", 1, 30, tight=true) }}
+      {{ ui.stepper("dwell-limit", "Too long in one location after", 4, "days", 1, 30, tight=true) }}
       {{ ui.button("Save", "primary", id="dwell-limit-save") }}
     </div>
     <p class="experiment-message" id="dwell-limit-message"></p>
-    <div id="tray-areas" style="margin-top: var(--gap)"></div>
+    <div id="table-locations" style="margin-top: var(--gap)"></div>
   </section>
 
   <!-- One in-page dialog for every confirmation on this page. Not alert/confirm/prompt: a browser
@@ -135,7 +135,7 @@
         + "to this experiment. Resume continues it in the same folder.";
     }
 
-    // Lines of buttons: Edit and the state change; Photos; Tray areas; Export and Purge. One line
+    // Lines of buttons: Edit and the state change; Photos; Table locations; Export and Purge. One line
     // ran past the screen's edge once Photos was added.
     function actions(e) {
       const button = (act, label, kind = "secondary", title = "") =>
@@ -157,8 +157,8 @@
       // One Reprocess at a time: the button is hidden on every experiment while one runs.
       if (photos.length && !experiments.some((x) => x.reprocess.running)) photos.push(button("reprocess", "Reprocess areas"));
       // Its own line: a fourth button beside Photos ran past the screen's edge.
-      const areas = photos.length ? [button("tray-areas", "Tray areas")] : [];
-      return [first, photos, areas, last].filter((line) => line.length)
+      const locations = photos.length ? [button("table-locations", "Table locations")] : [];
+      return [first, photos, locations, last].filter((line) => line.length)
         .map((line) => `<div class="row">${line.join("")}</div>`).join("");
     }
 
@@ -202,7 +202,7 @@
 
     function dwellLimitText(e) {
       const days = e.dwell_limit_h / 24;
-      return `Too long in one area after ${Number.isInteger(days) ? days : days.toFixed(1)} days.`;
+      return `Too long in one location after ${Number.isInteger(days) ? days : days.toFixed(1)} days.`;
     }
 
     function intervalText(e) {
@@ -219,13 +219,13 @@
         + `Taken ${schedule.photos_taken}, missed ${schedule.photos_missed}.`;
     }
 
-    // Trays too long in one area of the table (#332): a word and a shape, never colour alone.
+    // Trays too long in one table location (#332): a word and a shape, never colour alone.
     function dwellText(e) {
       if (!e.dwell_warnings || !e.dwell_warnings.length) return "";
       const lines = e.dwell_warnings.map((w) => ui.chip("warn",
-        `Tray ${w.tray_id}: too long in ${w.area}, ${(w.hours / 24).toFixed(1)} days`));
+        `Tray ${w.tray_id}: too long in ${w.location}, ${(w.hours / 24).toFixed(1)} days`));
       return `<div class="row" style="margin-top: 8px; gap: 8px var(--gap)">${lines.join("")}</div>`
-        + "Move these trays to another area. Tray areas shows where each tray has been.";
+        + "Move these trays to another location. Table locations shows where each tray has been.";
     }
 
     function render() {
@@ -448,45 +448,45 @@
       whenReady(() => ui.showField(fields.interval, String(minutes)));
     }
 
-    // The tray areas panel (#332), made on the rig as HTML; opened under the list.
-    const trayAreasSection = document.getElementById("tray-areas-section");
-    const trayAreas = document.getElementById("tray-areas");
-    async function showTrayAreas(e) {
-      trayAreasShown = e.id;
-      document.getElementById("tray-areas-title").textContent = `Tray areas: ${displayName(e)}`;
+    // The table locations panel (#332), made on the rig as HTML; opened under the list.
+    const tableLocationsSection = document.getElementById("table-locations-section");
+    const tableLocations = document.getElementById("table-locations");
+    async function showTableLocations(e) {
+      tableLocationsShown = e.id;
+      document.getElementById("table-locations-title").textContent = `Table locations: ${displayName(e)}`;
       document.getElementById("dwell-limit-row").hidden = e.state === "purged";
       ui.showField(document.getElementById("dwell-limit-value"), String(Math.max(1, Math.round(e.dwell_limit_h / 24))));
-      trayAreas.textContent = "Working out where each tray has been...";
-      trayAreasSection.hidden = false;
-      trayAreasSection.scrollIntoView({ behavior: "smooth" });
+      tableLocations.textContent = "Working out where each tray has been...";
+      tableLocationsSection.hidden = false;
+      tableLocationsSection.scrollIntoView({ behavior: "smooth" });
       try {
-        const r = await fetch(`/experiments/${e.id}/tray-areas`);
+        const r = await fetch(`/experiments/${e.id}/table-locations`);
         if (!r.ok) throw new Error(r.statusText);
-        trayAreas.innerHTML = await r.text();
-        trayAreasSection.scrollIntoView({ block: "start" });  // again, now that it has its full height
+        tableLocations.innerHTML = await r.text();
+        tableLocationsSection.scrollIntoView({ block: "start" });  // again, now that it has its full height
       } catch (err) {
-        trayAreas.textContent = "Could not show the tray areas. Try again.";
+        tableLocations.textContent = "Could not show the table locations. Try again.";
       }
     }
 
-    // The panel's limit: how long a tray may stay in one area before the page warns, in whole
+    // The panel's limit: how long a tray may stay in one location before the page warns, in whole
     // days, saved on Save.
-    let trayAreasShown = null;
+    let tableLocationsShown = null;
     const dwellMessage = document.getElementById("dwell-limit-message");
     document.getElementById("dwell-limit-save").addEventListener("click", async () => {
       const days = Number(document.getElementById("dwell-limit-value").dataset.value);
       dwellMessage.textContent = "";
       try {
-        await call("PATCH", `/api/experiments/${trayAreasShown}`, { dwell_limit_h: days * 24 });
+        await call("PATCH", `/api/experiments/${tableLocationsShown}`, { dwell_limit_h: days * 24 });
         await refresh();
-        await showTrayAreas(experiments.find((x) => x.id === trayAreasShown));
+        await showTableLocations(experiments.find((x) => x.id === tableLocationsShown));
         dwellMessage.textContent = "Saved.";
       } catch (err) {
         dwellMessage.textContent = `Not saved: ${err.message}`;
       }
     });
 
-    document.getElementById("tray-areas-close").addEventListener("click", () => { trayAreasSection.hidden = true; });
+    document.getElementById("table-locations-close").addEventListener("click", () => { tableLocationsSection.hidden = true; });
 
     function purgeAsk(e) {
       const exportLine = e.complete_export
@@ -525,9 +525,9 @@
       listMessage.textContent = "";
       if (act === "edit") {
         edit(e);
-      } else if (act === "tray-areas") {
+      } else if (act === "table-locations") {
         dwellMessage.textContent = "";
-        showTrayAreas(e);
+        showTableLocations(e);
       } else if (act === "photos") {
         location.href = `/gallery?experiment=${e.id}`;
       } else if (act === "purge") {

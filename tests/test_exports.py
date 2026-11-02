@@ -190,7 +190,7 @@ def test_an_unnamed_experiment_exports_under_its_folder_name() -> None:
     )
 
 
-def test_the_export_holds_each_trays_hours_in_each_area_of_the_table() -> None:
+def test_the_export_holds_each_trays_hours_in_each_table_location() -> None:
     """#332, hand-worked: tray 7 in NW from 1 October 00:00 to 3 October 00:00 (48 h), then in SE
     from 00:01 to 06:01 (6 h). Tray 8 in SW for the same 48 h; its 3 minutes in NM is a nudge, so
     its SW stay runs to its last photo there, 00:04 (48 h 4 min)."""
@@ -211,11 +211,11 @@ def test_the_export_holds_each_trays_hours_in_each_area_of_the_table() -> None:
 
     with zipfile.ZipFile(exports.zip_path(database.get_export(export["id"]))) as zf:
         top = zf.namelist()[0].split("/")[0]
-        rows = list(csv.reader(io.StringIO(zf.read(f"{top}/tray-areas.csv").decode())))
+        rows = list(csv.reader(io.StringIO(zf.read(f"{top}/time-in-table-location.csv").decode())))
         readme = zf.read(f"{top}/README.txt").decode()
     assert rows == [
         ["tray", "NW_h", "NM_h", "NE_h", "SW_h", "SM_h", "SE_h"],
         ["7", "48.00", "0.00", "0.00", "0.00", "0.00", "6.00"],
         ["8", "0.00", "0.00", "0.00", "48.07", "0.00", "0.00"],
     ]
-    assert "tray-areas.csv" in readme
+    assert "time-in-table-location.csv" in readme

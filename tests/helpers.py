@@ -227,9 +227,9 @@ def record_light_photos(experiment_id: int, start, series, folder: str) -> None:
     exclusions.update(database.captures_for_experiment(experiment_id)[-1])
 
 
-# --- Trays on the table's areas (#332) -----------------------------------------------------------
-# A 900 x 600 photo with its corner tags at x 100 and 800, y 100 and 500: the rows of areas meet at
-# y 300, the columns at x 300 and 600. TABLE_CENTRES: a point well inside each area.
+# --- Trays in the table locations (#332) ----------------------------------------------------------
+# A 900 x 600 photo with its corner tags at x 100 and 800, y 100 and 500: the rows of locations meet at
+# y 300, the columns at x 300 and 600. TABLE_CENTRES: a point well inside each location.
 TABLE_STEM = "20270101T000000000000"
 TABLE_CENTRES = {"NW": (150, 150), "NM": (450, 150), "NE": (750, 150), "SW": (150, 450), "SM": (450, 450),
                  "SE": (750, 450)}
@@ -256,7 +256,7 @@ def table_calibration() -> None:
 
 def table_photo(experiment_id: int | None, taken, trays: dict[int, str]) -> str:
     """A 900 x 600 photo taken at `taken` (a datetime) under TABLE_STEM, read with each tray of
-    `trays` (tray ID: area) found at that area's centre; its path."""
+    `trays` (tray ID: location) found at that location's centre; its path."""
     from PIL import Image
 
     from npec_rig import captures, database
@@ -272,8 +272,8 @@ def table_photo(experiment_id: int | None, taken, trays: dict[int, str]) -> str:
     )
     database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[
         {"tray_id": tray_id, "slot": None, "a1_corner": None, "placement": "placed",
-         "centre_px": list(TABLE_CENTRES[area]), "tilt_deg": 0.0, "margin_mm": None, "found": "photo + tag",
+         "centre_px": list(TABLE_CENTRES[location]), "tilt_deg": 0.0, "margin_mm": None, "found": "photo + tag",
          "warnings": [], "outline_px": None}
-        for tray_id, area in trays.items()
+        for tray_id, location in trays.items()
     ])
     return f"rig/{day}/{stem}"

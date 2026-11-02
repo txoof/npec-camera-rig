@@ -213,7 +213,7 @@ def test_a_tray_seen_earlier_in_the_experiment_shows_as_not_found_since_it_went_
 
 
 def test_a_tray_not_found_says_where_it_was_last_found_even_after_moving() -> None:
-    """#318, #332: the newest place, not the first, for its area of the table."""
+    """#318, #332: the newest place, not the first, for its table location."""
     experiment_id = _experiment()
     first = _photo("2026-10-21T07:00:00+00:00", experiment_id)
     database.record_tray_readings(first, read_at="t", status="read", trays=[_tray(1), _tray(8)])
@@ -250,7 +250,7 @@ def test_a_swapped_tag_shows_the_new_tray_found_and_the_old_one_not_found() -> N
 
 
 def test_each_tray_also_in_the_previous_photo_says_where_it_was_then_for_whether_it_moved() -> None:
-    """#332: whether a tray moved is worked out from its area of the table (tray_readings)."""
+    """#332: whether a tray moved is worked out from its table location (tray_readings)."""
     experiment_id = _experiment()
     first = _photo("2026-10-21T07:00:00+00:00", experiment_id)
     database.record_tray_readings(first, read_at="t", status="read", trays=[_tray(1), _tray(2)])

@@ -324,7 +324,7 @@ def test_reprocess_reads_an_experiment_again_with_the_rebuilt_twin(monkeypatch) 
         assert np.array_equal(segmentation.load_mask(p), masks[p])
 
 
-def test_how_long_a_tray_may_stay_in_one_area_defaults_to_4_days_and_can_be_changed_while_running() -> None:
+def test_how_long_a_tray_may_stay_in_one_location_defaults_to_4_days_and_can_be_changed_while_running() -> None:
     """Aaron, 2026-10-30 (#332): a setting on each experiment, default 4 days, kept in hours."""
     from fastapi.testclient import TestClient
 
@@ -343,7 +343,7 @@ def test_how_long_a_tray_may_stay_in_one_area_defaults_to_4_days_and_can_be_chan
     assert saved == {plain["id"]: 144, two_days["id"]: 48}
 
 
-def test_a_tray_over_its_limit_in_one_area_is_warned_for_on_the_page_in_words() -> None:
+def test_a_tray_over_its_limit_in_one_location_is_warned_for_on_the_page_in_words() -> None:
     """#332, limit 4 days: tray 7 in NW since 5 days ago (photos then and 1 hour ago) is too long
     there; tray 8 in SE since 3 days ago is not."""
     from datetime import UTC, datetime, timedelta
@@ -362,9 +362,9 @@ def test_a_tray_over_its_limit_in_one_area_is_warned_for_on_the_page_in_words() 
     table_photo(experiment["id"], now - timedelta(days=3), {7: "NW", 8: "SE"})
     table_photo(experiment["id"], now - timedelta(hours=1), {7: "NW", 8: "SE"})
 
-    page = client.get(f"/experiments/{experiment['id']}/tray-areas")
+    page = client.get(f"/experiments/{experiment['id']}/table-locations")
     assert page.status_code == 200
     assert "Tray 7: too long in NW, 5.0 days" in page.text
     assert "Tray 8: too long" not in page.text
     listed = {e["id"]: e for e in client.get("/api/experiments").json()}[experiment["id"]]
-    assert [(w["tray_id"], w["area"]) for w in listed["dwell_warnings"]] == [(7, "NW")]
+    assert [(w["tray_id"], w["location"]) for w in listed["dwell_warnings"]] == [(7, "NW")]

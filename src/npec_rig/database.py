@@ -303,9 +303,9 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
     ),
     (
         15,
-        "experiment: how long a tray may stay in one area of the table (#332)",
+        "experiment: how long a tray may stay in one table location (#332)",
         (
-            # Hours in a row in one area before the experiment warns; default 4 days, a decision
+            # Hours in a row in one table location before the experiment warns; default 4 days, a decision
             # (Aaron, 2026-10-30).
             "ALTER TABLE experiment ADD COLUMN dwell_limit_h REAL NOT NULL DEFAULT 96",
         ),
@@ -459,11 +459,11 @@ def tray_readings(capture_id: int) -> dict | None:
     """Photo `capture_id`'s tray readings: when it was read, its status, the trays found in tray
     ID order, and `not_found`: each tray found in an earlier photo of the same experiment but not
     in this one, with where it was last found (`seen_in`: that photo's path and calibration and
-    the tray's centre, for its area of the table, `tray_readings.capture_readings`, #332), the
+    the tray's centre, for its table location, `tray_readings.capture_readings`, #332), the
     time of the first read photo it was missing from and how many read photos it has been missing
     from, this one included; and `in_both`: each tray also found in the experiment's previous read
     photo, with its centre in this one and where it was in that one (`before`), for whether it
-    left its area (`moved`, `tray_readings.capture_readings`, #332). None when the photo has not
+    left its table location (`moved`, `tray_readings.capture_readings`, #332). None when the photo has not
     been read.
 
     A removed tray, a swapped tag and a dirty tag all look the same here: the rig cannot tell them
@@ -743,7 +743,7 @@ def create_experiment(
     interval_s: float | None = None,
     dwell_limit_h: float | None = None,
 ) -> dict:
-    """A new experiment, set up. `dwell_limit_h`: hours a tray may stay in one area of the table
+    """A new experiment, set up. `dwell_limit_h`: hours a tray may stay in one table location
     before the page warns (#332); None keeps the column's default, 4 days."""
     with _connect() as conn:
         cursor = conn.execute(
@@ -779,7 +779,7 @@ def running_experiment() -> dict | None:
 # Name, researcher and notes can be corrected at any time. Tray height can change only before the
 # first start: readings already taken depend on it.
 # The photo interval can change at any time; a change while running counts slots from then. So can
-# how long a tray may stay in one area: the warning is worked out from the readings each time.
+# how long a tray may stay in one table location: the warning is worked out from the readings each time.
 _EDITABLE = {
     "set up": {"name", "researcher", "tray_height_mm", "notes", "interval_s", "dwell_limit_h"},
     "purged": {"notes"},

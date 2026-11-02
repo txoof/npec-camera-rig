@@ -164,19 +164,19 @@ Version 15 (#332) adds one column. Its other columns are described where they ar
 
 | Column | Type | Meaning |
 |---|---|---|
-| `dwell_limit_h` | real | Hours a tray may stay in one area of the table in a row before the experiment warns. Default 96 (4 days), also for experiments made before version 15. A decision, not a measurement (Aaron, 2026-10-30). Can be changed at any time but after a purge: the warning is worked out from the tray readings each time it is shown |
+| `dwell_limit_h` | real | Hours a tray may stay in one table location in a row before the experiment warns. Default 96 (4 days), also for experiments made before version 15. A decision, not a measurement (Aaron, 2026-10-30). Can be changed at any time but after a purge: the warning is worked out from the tray readings each time it is shown |
 
-The table is divided into 6 areas, 3 columns by 2 rows: NW, NM, NE in the north row, SW, SM, SE
+The table is divided into 6 table locations, 3 columns by 2 rows: NW, NM, NE in the north row, SW, SM, SE
 in the south row (`dwell.py`). The rows meet halfway between the northern and the southern row of
 corner tags, through the calibration's table frame (the homography of the four corner tags); the
 columns are thirds of the photo's width along each row of the table. With no table frame (a
 calibration without four corner tags, or a photo with no calibration), the photo itself is halved
-and cut in thirds. A tray's centre decides its area. A tray is in a new area only after it has
+and cut in thirds. A tray's centre decides its location. A tray is in a new location only after it has
 been found there for 1 hour in a row (from its first to its last photo there); shorter stays,
 misses and the tray taken off the table for a while do not break its stay. The warning counts a
 stay from its first photo to the time it is shown; a tray missing for more than 48 hours
 (`NOT_SEEN_FOR`, as for trays not found) was taken away and is not warned for until it is found
-again. Nothing about areas or
+again. Nothing about table locations or
 stays is stored: they are worked out from `tray_reading` each time.
 
 ### `scheduled_photo`
@@ -251,9 +251,9 @@ such a photo was saved as `read failed` with no trays.
 A tray not found is never stored. When a photo's readings are shown, each tray found in an
 earlier photo of the same experiment but not in this one is listed as not found since the first
 photo it was missing from (Aaron, 2026-10-21): a removed tray, a swapped tag and a dirty tag look
-the same to the rig. It is shown with the area of the table it was last found in (#332). A tray
-is listed as moved when its centre is in another area than in the experiment's previous read
-photo; a nudge within its area or a turn is not a move (#332). A tray with no tag is never listed
+the same to the rig. It is shown with the table location it was last found in (#332). A tray
+is listed as moved when its centre is in another table location than in the experiment's previous read
+photo; a nudge within its location or a turn is not a move (#332). A tray with no tag is never listed
 as not found or as moved: it cannot be followed from photo to photo. Only photos with the status `read` count, so a dark photo is not a tray
 missing. A purge deletes both tables' rows with the photos.
 

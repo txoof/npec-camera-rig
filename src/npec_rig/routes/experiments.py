@@ -31,7 +31,7 @@ class ExperimentFields(BaseModel):
     notes: str | None = None
     # Seconds between scheduled photos; empty for none. The page offers 1 to 6 minutes.
     interval_s: float | None = Field(default=None, gt=0)
-    # Hours a tray may stay in one area of the table before the page warns (#332). The page
+    # Hours a tray may stay in one table location before the page warns (#332). The page
     # offers whole days; left out, 4 days.
     dwell_limit_h: float | None = Field(default=None, gt=0)
 
@@ -71,7 +71,7 @@ def api_experiments() -> list[dict]:
         experiment["export"] = newest[0] if newest else None
         experiment["complete_export"] = database.complete_export(experiment["id"])
         experiment["purge_confirmation"] = captures.purge_confirmation(experiment)
-        # Trays too long in one area of the table (#332): only a running experiment's trays can
+        # Trays too long in one table location (#332): only a running experiment's trays can
         # still be moved.
         experiment["dwell_warnings"] = (
             dwell.over_limit(experiment["id"], at=_now()) if experiment["state"] == "running" else []
@@ -168,14 +168,14 @@ def api_download_export(export_id: int) -> Response:
 
 
 # --- Where each tray has been on the table (#332) ---
-# Areas, the 1 hour rule and the limit: dwell.py. The diagrams Aaron chose (2026-10-30): a map per
-# tray with its hours in each area and where it is now, the path of its moves on that map, and a
-# timeline strip split at each move. Every piece carries its area's name, never colour alone.
+# Table locations, the 1 hour rule and the limit: dwell.py. The diagrams Aaron chose (2026-10-30): a map per
+# tray with its hours in each location and where it is now, the path of its moves on that map, and a
+# timeline strip split at each move. Every piece carries its location's name, never colour alone.
 
-# A tray's map: a 3 x 2 grid of square cells, north at the top. Each area keeps one tint.
+# A tray's map: a 3 x 2 grid of square cells, north at the top. Each location keeps one tint.
 _CELL = 110
-_AREA_CELLS = {area: (i % 3, i // 3) for i, area in enumerate(dwell.AREAS)}
-_AREA_TINTS = {"NW": "#2f5f91", "NM": "#2e7556", "NE": "#6e5596", "SW": "#8c5f2b", "SM": "#56742f", "SE": "#8a3c5b"}
+_LOCATION_CELLS = {location: (i % 3, i // 3) for i, location in enumerate(dwell.LOCATIONS)}
+_LOCATION_TINTS = {"NW": "#2f5f91", "NM": "#2e7556", "NE": "#6e5596", "SW": "#8c5f2b", "SM": "#56742f", "SE": "#8a3c5b"}
 _STRIP_W = 600  # the timeline strip's drawing width; it is scaled to the space on the page
 _LABEL_MIN_W = 32  # a piece narrower than this has its name written under the strip
 
@@ -198,15 +198,15 @@ def _limit(hours: float) -> str:
     return f"{days:g} day" if days == 1 else f"{days:g} days"
 
 
-def _cell_point(area: str, down: float) -> tuple[float, float]:
-    col, row = _AREA_CELLS[area]
+def _cell_point(location: str, down: float) -> tuple[float, float]:
+    col, row = _LOCATION_CELLS[location]
     return (col + 0.5) * _CELL, (row + down) * _CELL
 
 
 def _map_arrows(moves: list[tuple[str, str]]) -> list[dict]:
-    """A numbered arrow for each move, from one area to the other through the lower half of the
+    """A numbered arrow for each move, from one location to the other through the lower half of the
     cells, clear of the hours. Each arrow lies on one of 4 lanes beside the line between the two
-    areas' centres, in turn, so moves along one line (there and back, or through a middle area)
+    locations' centres, in turn, so moves along one line (there and back, or through a middle location)
     lie side by side."""
     out = []
     for n, (a, b) in enumerate(moves, start=1):
@@ -236,7 +236,7 @@ def _strip(stays: list[dwell.Stay], begin: datetime, end: datetime) -> dict:
     for stay in stays:
         x1, x2 = x(stay.start), x(stay.end)
         width = max(x2 - x1, 2.0)
-        piece = {"area": stay.area, "x": x1, "w": width, "mid": round(x1 + width / 2, 1), "tint": _AREA_TINTS[stay.area],
+        piece = {"location": stay.location, "x": x1, "w": width, "mid": round(x1 + width / 2, 1), "tint": _LOCATION_TINTS[stay.location],
                  "inside": width >= _LABEL_MIN_W, "row": 0}
         if not piece["inside"]:
             piece["row"] = under % 2  # names under the strip alternate between two rows
@@ -253,9 +253,9 @@ def _strip(stays: list[dwell.Stay], begin: datetime, end: datetime) -> dict:
     return {"pieces": pieces, "ticks": ticks, "w": _STRIP_W, "under": bool(under)}
 
 
-def _tray_areas(experiment: dict) -> dict:
-    """What the tray areas panel shows for `experiment`: its limit, the trays too long in one
-    area now (a running experiment only) and, per tray, its map and strip."""
+def _table_locations(experiment: dict) -> dict:
+    """What the table locations panel shows for `experiment`: its limit, the trays too long in one
+    location now (a running experiment only) and, per tray, its map and strip."""
     running = experiment["state"] == "running"
     periods = experiment["periods"]
     setting = {"limit": _limit(experiment["dwell_limit_h"])}
@@ -264,25 +264,25 @@ def _tray_areas(experiment: dict) -> dict:
     begin = datetime.fromisoformat(periods[0]["started_at"])
     end = datetime.now(UTC) if running else datetime.fromisoformat(periods[-1]["ended_at"] or _now())
     warned = {w["tray_id"]: w for w in dwell.over_limit(experiment["id"], at=end.isoformat())} if running else {}
-    hours = dwell.hours_per_area(experiment["id"])
+    hours = dwell.hours_per_location(experiment["id"])
     trays = []
     for tray_id, stays in dwell.tray_stays(experiment["id"]).items():
         last = stays[-1]
         # Where the tray is now: its last stay, unless it has not been found for over 48 hours,
         # as for trays not found in the Gallery (database.NOT_SEEN_FOR).
-        now_area = last.area if end - last.end <= database.NOT_SEEN_FOR else None
+        now_location = last.location if end - last.end <= database.NOT_SEEN_FOR else None
         warning = warned.get(tray_id)
         here_h = warning["hours"] if warning else (end - last.start) / timedelta(hours=1)
-        moves = [(a.area, b.area) for a, b in zip(stays, stays[1:])]
+        moves = [(a.location, b.location) for a, b in zip(stays, stays[1:])]
         trays.append({
             "tray_id": tray_id,
-            "warning": None if warning is None else f"Too long in {warning['area']}, {_days(warning['hours'])}",
+            "warning": None if warning is None else f"Too long in {warning['location']}, {_days(warning['hours'])}",
             "cells": [
-                {"area": area, "x": col * _CELL, "y": row * _CELL, "tint": _AREA_TINTS[area],
-                 "hours": f"{hours[tray_id][area]:.0f} h", "now": area == now_area}
-                for area, (col, row) in _AREA_CELLS.items()
+                {"location": location, "x": col * _CELL, "y": row * _CELL, "tint": _LOCATION_TINTS[location],
+                 "hours": f"{hours[tray_id][location]:.0f} h", "now": location == now_location}
+                for location, (col, row) in _LOCATION_CELLS.items()
             ],
-            "now": None if now_area is None else f"Now in {now_area}, {_days(here_h)}",
+            "now": None if now_location is None else f"Now in {now_location}, {_days(here_h)}",
             "arrows": _map_arrows(moves),
             "moves": [f"{n}. {a} to {b}, {_when(stay.start)}" for n, ((a, b), stay) in enumerate(zip(moves, stays[1:]), start=1)],
             "strip": _strip(stays, begin, end),
@@ -297,9 +297,9 @@ def _tray_areas(experiment: dict) -> dict:
     }
 
 
-@router.get("/experiments/{experiment_id}/tray-areas")
-def tray_areas_panel(request: Request, experiment_id: int) -> Response:
-    """The Experiments page's tray areas panel for one experiment, as HTML: the trays too long in
-    one area of the table, and where each tray has been (#332)."""
+@router.get("/experiments/{experiment_id}/table-locations")
+def table_locations_panel(request: Request, experiment_id: int) -> Response:
+    """The Experiments page's table locations panel for one experiment, as HTML: the trays too long in
+    one table location, and where each tray has been (#332)."""
     experiment = _experiment_action(database.get_experiment, experiment_id)
-    return templates.TemplateResponse(request, "_tray_areas.html", {"view": _tray_areas(experiment)})
+    return templates.TemplateResponse(request, "_table_locations.html", {"view": _table_locations(experiment)})

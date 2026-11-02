@@ -1,17 +1,18 @@
-{#- The Experiments page's tray areas panel (#332), from routes/experiments.py `_tray_areas`. The
-    table is cut in 6 areas; every piece of a diagram carries its area's name, never colour alone. -#}
+{#- The Experiments page's table locations panel (#332), from routes/experiments.py
+    `_table_locations`. The table is cut in 6 locations; every piece of a diagram carries its
+    location's name, never colour alone. -#}
 {% import "_ui.html" as ui %}
 {% if view.running %}
   {% if view.warnings %}
-    {% call ui.banner("warn", "Too long in one area") %}
-      <p>{% for w in view.warnings %}{{ w }}{% if not loop.last %}<br>{% endif %}{% endfor %}<br>Move these trays to another area.</p>
+    {% call ui.banner("warn", "Too long in one table location") %}
+      <p>{% for w in view.warnings %}{{ w }}{% if not loop.last %}<br>{% endif %}{% endfor %}<br>Move these trays to another location.</p>
     {% endcall %}
   {% else %}
-    <p>{{ ui.chip("ok", "No tray too long in one area") }}</p>
+    <p>{{ ui.chip("ok", "No tray too long in one location") }}</p>
   {% endif %}
 {% endif %}
-<p class="experiment-hint">Limit: {{ view.limit }} in one area. Areas: NW, NM, NE along the top of the photo,
-  SW, SM, SE along the bottom. A tray counts as moved after 1 hour in another area.</p>
+<p class="experiment-hint">Limit: {{ view.limit }} in one location. Locations: NW, NM, NE along the top of the photo,
+  SW, SM, SE along the bottom. A tray counts as moved after 1 hour in another location.</p>
 {% if not view.trays %}
   <p>No trays found in this experiment's photos yet.</p>
 {% endif %}
@@ -23,9 +24,9 @@
       {% if t.warning %}{{ ui.chip("warn", t.warning) }}{% endif %}
     </div>
     <div class="row" style="align-items: flex-start">
-      {#- The map: hours in each area, the area it is in now outlined, its moves as numbered arrows. -#}
+      {#- The map: hours in each location, the location it is in now outlined, its moves as numbered arrows. -#}
       <svg viewBox="-4 -4 338 228" width="338" height="228" role="img"
-        aria-label="Tray {{ t.tray_id }}, hours in each area{% if t.now %}. {{ t.now }}{% endif %}">
+        aria-label="Tray {{ t.tray_id }}, hours in each location{% if t.now %}. {{ t.now }}{% endif %}">
         <defs>
           <marker id="arrow-{{ t.tray_id }}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" style="fill: var(--fg)"></path>
@@ -39,7 +40,7 @@
         {% endfor %}
         {#- The words over the arrows, each with a dark edge, so an arrow never hides them. -#}
         {% for c in t.cells %}
-          <text x="{{ c.x + 8 }}" y="{{ c.y + 20 }}" font-size="15" font-weight="700" style="fill: var(--fg); stroke: var(--surface); stroke-width: 4px; paint-order: stroke">{{ c.area }}</text>
+          <text x="{{ c.x + 8 }}" y="{{ c.y + 20 }}" font-size="15" font-weight="700" style="fill: var(--fg); stroke: var(--surface); stroke-width: 4px; paint-order: stroke">{{ c.location }}</text>
           <text x="{{ c.x + 55 }}" y="{{ c.y + 48 }}" font-size="20" text-anchor="middle" style="fill: var(--fg); stroke: var(--surface); stroke-width: 4px; paint-order: stroke">{{ c.hours }}</text>
         {% endfor %}
         {% for a in t.arrows %}
@@ -55,16 +56,16 @@
         {% if t.now %}<p style="margin: 0 0 8px"><strong>{{ t.now }}</strong></p>{% else %}<p style="margin: 0 0 8px">Not found in the last 48 hours.</p>{% endif %}
         {#- The timeline strip: one piece per stay, from the experiment's start to its end or now. -#}
         <svg viewBox="0 0 {{ t.strip.w }} {{ 104 if t.strip.under else 64 }}" width="100%" role="img"
-          aria-label="Tray {{ t.tray_id }}, areas over time">
+          aria-label="Tray {{ t.tray_id }}, locations over time">
           <rect x="0" y="0" width="{{ t.strip.w }}" height="36" fill="none" style="stroke: var(--line)" stroke-width="1"></rect>
           {% for p in t.strip.pieces %}
             <rect x="{{ p.x }}" y="0" width="{{ p.w }}" height="36" fill="{{ p.tint }}" style="stroke: var(--fg)" stroke-width="1"></rect>
             {% if p.inside %}
-              <text x="{{ p.mid }}" y="24" font-size="17" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.area }}</text>
+              <text x="{{ p.mid }}" y="24" font-size="17" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.location }}</text>
             {% else %}
               {#- Too narrow for its name: written under the dates, on one of two rows. -#}
               <line x1="{{ p.mid }}" y1="36" x2="{{ p.mid }}" y2="{{ 64 + 20 * p.row }}" style="stroke: var(--fg)" stroke-width="1"></line>
-              <text x="{{ p.mid }}" y="{{ 78 + 20 * p.row }}" font-size="15" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.area }}</text>
+              <text x="{{ p.mid }}" y="{{ 78 + 20 * p.row }}" font-size="15" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.location }}</text>
             {% endif %}
           {% endfor %}
           {% for k in t.strip.ticks %}

@@ -119,27 +119,27 @@ Each exported area comes with an uncertainty such as "±2.1% (95%)". Read it thi
   wider range than the rest. This is a measured property of the camera, not a fault in your setup;
   how much wider depends on your focus position, and the validation measures it for you.
 
-## When a tray stays too long in one area
+## When a tray stays too long in one table location
 
 Light, temperature and airflow differ across the table, so trays are moved around during an
-experiment. The rig follows each tray by its tag and warns when one has stayed in one area too
-long.
+experiment. The rig follows each tray by its tag and warns when one has stayed in one table
+location too long.
 
-- **The areas.** The table is cut into 6 areas: NW, NM, NE along the top of the photo, SW, SM, SE
-  along the bottom. A tray's centre decides its area. These are a decision, not a measurement.
-- **What counts as a move.** A tray counts as moved only after 1 hour in another area. A tray
-  nudged aside, or missing from a few photos, stays in its area.
-- **The warning.** While an experiment runs, a tray in one area for longer than the limit is
-  listed with a warning sign and the words "too long in", its area and the days, for example
+- **The table locations.** The table is cut into 6 locations: NW, NM, NE along the top of the
+  photo, SW, SM, SE along the bottom. A tray's centre decides its location. These are a decision, not a measurement.
+- **What counts as a move.** A tray counts as moved only after 1 hour in another location. A
+  tray nudged aside, or missing from a few photos, stays in its location.
+- **The warning.** While an experiment runs, a tray in one location for longer than the limit
+  is listed with a warning sign and the words "too long in", its location and the days, for example
   "Tray 7: too long in NW, 4.2 days". It shows on the Experiments page and in the Gallery. Move
-  the tray to another area; the warning clears 1 hour after the move. A tray not found for 48
+  the tray to another location; the warning clears 1 hour after the move. A tray not found for 48
   hours is taken as removed and is not warned for.
-- **The setting.** On the Experiments page, tap Tray areas on the experiment, set "Too long in
-  one area after" in whole days (default 4) and tap Save. It can be changed while the experiment
+- **The setting.** On the Experiments page, tap Table locations on the experiment, set "Too
+  long in one location after" in whole days (default 4) and tap Save. It can be changed while the experiment
   runs.
-- **Tray areas** also shows, per tray, its hours in each area, where it is now, its moves as
-  numbered arrows, and a strip across the experiment named by area. The export holds the same
-  hours in `tray-areas.csv`.
+- **Table locations** also shows, per tray, its hours in each location, where it is now, its
+  moves as numbered arrows, and a strip across the experiment named by location. The export
+  holds the same hours in `time-in-table-location.csv`.
 
 ## Why it is done this way
 

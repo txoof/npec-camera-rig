@@ -1,4 +1,4 @@
-"""Time each tray spends in each area of the chamber table, and a warning when it stays too long
+"""Time each tray spends in each table location of the chamber, and a warning when it stays too long
 (#332). Decisions: Aaron, 2026-10-30 (issue #332)."""
 
 from datetime import datetime, timedelta
@@ -28,7 +28,7 @@ def _frame(north_y: float, south_y: float, west_x: float = 1000, east_x: float =
 
 
 @pytest.mark.parametrize(
-    ("centre", "area"),
+    ("centre", "location"),
     [
         # North row tags at y 1000, south row at y 5800: the rows meet halfway, at y 3400, not at
         # the photo's own half height (3000). Columns: thirds of the 9000 px photo width, at x
@@ -39,10 +39,10 @@ def _frame(north_y: float, south_y: float, west_x: float = 1000, east_x: float =
         ((8900, 5900), "SE"),
     ],
 )
-def test_a_trays_centre_decides_its_area_on_a_3_by_2_grid_between_the_tag_rows_over_the_photo_width(
-    centre, area
+def test_a_trays_centre_decides_its_location_on_a_3_by_2_grid_between_the_tag_rows_over_the_photo_width(
+    centre, location
 ) -> None:
-    assert dwell.area_of(centre, PHOTO, _frame(north_y=1000, south_y=5800)) == area
+    assert dwell.location_of(centre, PHOTO, _frame(north_y=1000, south_y=5800)) == location
 
 
 def test_rows_follow_the_tag_rows_when_the_table_lies_turned_in_the_photo() -> None:
@@ -51,16 +51,16 @@ def test_rows_follow_the_tag_rows_when_the_table_lies_turned_in_the_photo() -> N
     centres = {450: (1000, 1000), 451: (8000, 1400), 452: (8000, 6200), 453: (1000, 5800)}
     frame = build_table_frame(CornerBaseline(corners_by_id={i: _square(*c) for i, c in centres.items()}))
 
-    assert [dwell.area_of(c, PHOTO, frame) for c in ((4500, 3590), (4500, 3610))] == ["NM", "SM"]
+    assert [dwell.location_of(c, PHOTO, frame) for c in ((4500, 3590), (4500, 3610))] == ["NM", "SM"]
 
 
 @pytest.mark.parametrize(
-    ("centre", "area"),
+    ("centre", "location"),
     [((2990, 2990), "NW"), ((3010, 2990), "NM"), ((6010, 2990), "NE"), ((2990, 3010), "SW"), ((5990, 3010), "SM"),
      ((6010, 3010), "SE")],
 )
-def test_without_a_table_frame_the_photo_itself_is_divided_into_halves_and_thirds(centre, area) -> None:
-    assert dwell.area_of(centre, PHOTO, None) == area
+def test_without_a_table_frame_the_photo_itself_is_divided_into_halves_and_thirds(centre, location) -> None:
+    assert dwell.location_of(centre, PHOTO, None) == location
 
 
 # --- Stays ---------------------------------------------------------------------------------------
@@ -70,7 +70,7 @@ def _t(text: str) -> datetime:
     return datetime.fromisoformat(f"2027-{text}+00:00")
 
 
-def test_a_tray_off_the_table_for_part_of_a_day_and_back_in_its_area_stays_there_4_days() -> None:
+def test_a_tray_off_the_table_for_part_of_a_day_and_back_in_its_location_stays_there_4_days() -> None:
     """Aaron's example: in NW from 1 January, off the table on 2 January, back in NW the same day
     and there until 5 January counts as 4 days. Off the table, the tray is not found: no reading."""
     readings = [(_t("01-01T00:00"), "NW"), (_t("01-02T08:00"), "NW"), (_t("01-02T15:00"), "NW"),
@@ -93,7 +93,7 @@ def test_a_tray_moved_away_for_days_and_back_starts_a_new_stay_when_it_comes_bac
     ]
 
 
-def test_a_tray_beside_its_area_for_3_minutes_has_not_moved() -> None:
+def test_a_tray_beside_its_location_for_3_minutes_has_not_moved() -> None:
     """Tray 1 beside its slot for 3 minutes on 28 October (issue #332): a nudge, not a move."""
     readings = [(_t("01-01T10:00"), "NW"), (_t("01-01T10:01"), "NM"), (_t("01-01T10:02"), "NM"),
                 (_t("01-01T10:03"), "NM"), (_t("01-01T10:04"), "NW")]
@@ -102,7 +102,7 @@ def test_a_tray_beside_its_area_for_3_minutes_has_not_moved() -> None:
 
 
 @pytest.mark.parametrize(("last_away", "moved"), [("10:59", False), ("11:00", True)])
-def test_a_tray_counts_as_moved_after_1_hour_found_in_another_area(last_away, moved) -> None:
+def test_a_tray_counts_as_moved_after_1_hour_found_in_another_location(last_away, moved) -> None:
     readings = [(_t("01-01T09:00"), "SE"), (_t("01-01T10:00"), "SM"), (_t(f"01-01T{last_away}"), "SM"),
                 (_t("01-01T11:30"), "SE")]
 
@@ -114,7 +114,7 @@ def test_a_tray_counts_as_moved_after_1_hour_found_in_another_area(last_away, mo
     assert dwell.stays(readings) == expected
 
 
-def test_an_hour_away_spread_over_two_other_areas_is_not_a_move() -> None:
+def test_an_hour_away_spread_over_two_other_locations_is_not_a_move() -> None:
     """NM from 10:10 to 11:15 is over an hour, but not in a row: NE at 10:30 lies between."""
     readings = [(_t("01-01T10:00"), "NW"), (_t("01-01T10:10"), "NM"), (_t("01-01T10:30"), "NE"),
                 (_t("01-01T11:15"), "NM"), (_t("01-01T11:20"), "NW")]
@@ -144,7 +144,7 @@ def _read(experiment_id: int, when: str, trays: dict[int, str]) -> None:
     table_photo(experiment_id, _t(when), trays)
 
 
-def test_a_tray_4_days_in_a_row_in_one_area_is_over_the_limit_and_one_less_is_not() -> None:
+def test_a_tray_4_days_in_a_row_in_one_location_is_over_the_limit_and_one_less_is_not() -> None:
     """Tray 8, from 1 hour later and missing from the last photo, is 1 hour short."""
     experiment_id = _experiment()
     _read(experiment_id, "01-01T00:00", {7: "NW"})
@@ -153,12 +153,12 @@ def test_a_tray_4_days_in_a_row_in_one_area_is_over_the_limit_and_one_less_is_no
     _read(experiment_id, "01-05T00:00", {7: "NW"})
 
     assert dwell.over_limit(experiment_id, at=_t("01-05T00:00").isoformat()) == [
-        {"tray_id": 7, "area": "NW", "since": _t("01-01T00:00").isoformat(), "hours": 96.0}
+        {"tray_id": 7, "location": "NW", "since": _t("01-01T00:00").isoformat(), "hours": 96.0}
     ]
     assert dwell.over_limit(experiment_id, at=_t("01-04T23:30").isoformat()) == []
 
 
-def test_the_warning_clears_once_the_tray_has_been_in_another_area_for_an_hour() -> None:
+def test_the_warning_clears_once_the_tray_has_been_in_another_location_for_an_hour() -> None:
     experiment_id = _experiment()
     for when in ("01-01T00:00", "01-05T00:00", "01-05T10:00"):
         _read(experiment_id, when, {7: "NW"})
@@ -176,11 +176,11 @@ def test_the_experiments_own_limit_is_used() -> None:
     _read(experiment_id, "01-02T00:00", {7: "NE", 8: "SW"})
 
     assert dwell.over_limit(experiment_id, at=_t("01-02T00:00").isoformat()) == [
-        {"tray_id": 8, "area": "SW", "since": _t("01-01T00:00").isoformat(), "hours": 24.0}
+        {"tray_id": 8, "location": "SW", "since": _t("01-01T00:00").isoformat(), "hours": 24.0}
     ]
 
 
-def test_each_trays_hours_in_each_area_over_the_experiment() -> None:
+def test_each_trays_hours_in_each_location_over_the_experiment() -> None:
     """Tray 7: NW 2 days, then SE 6 hours. Tray 8: 3 minutes in NM is a nudge, counted in SW."""
     experiment_id = _experiment()
     _read(experiment_id, "01-01T00:00", {7: "NW", 8: "SW"})
@@ -190,7 +190,7 @@ def test_each_trays_hours_in_each_area_over_the_experiment() -> None:
     _read(experiment_id, "01-03T06:01", {7: "SE"})
 
     zero = dict.fromkeys(["NW", "NM", "NE", "SW", "SM", "SE"], 0.0)
-    assert dwell.hours_per_area(experiment_id) == {
+    assert dwell.hours_per_location(experiment_id) == {
         7: {**zero, "NW": 48.0, "SE": 6.0},
         8: {**zero, "SW": 48.0 + 4 / 60},
     }
@@ -202,7 +202,7 @@ def test_each_trays_hours_in_each_area_over_the_experiment() -> None:
         # Missing 3 days (over 48 h) at day 6: taken away, its stay ended at day 3, no warning.
         ("01-04T00:00", "01-07T00:00", []),
         # Missing 1 day (under 48 h) at day 4.5: still counted in NW, 4.5 days since day 0.
-        ("01-04T12:00", "01-05T12:00", [{"tray_id": 7, "area": "NW", "since": "2027-01-01T00:00:00+00:00", "hours": 108.0}]),
+        ("01-04T12:00", "01-05T12:00", [{"tray_id": 7, "location": "NW", "since": "2027-01-01T00:00:00+00:00", "hours": 108.0}]),
     ],
 )
 def test_a_tray_missing_over_48_hours_was_taken_away_and_is_not_warned_for(last, at, warned) -> None:
@@ -220,7 +220,7 @@ def test_a_tray_missing_over_48_hours_was_taken_away_and_is_not_warned_for(last,
         # Missing 2.5 days (over 48 h): taken away, though its stay of 5 days was over the limit.
         ("01-08T12:00", []),
         # Missing 1.5 days (under 48 h): still in NW, 6.5 days since day 0.
-        ("01-07T12:00", [{"tray_id": 7, "area": "NW", "since": "2027-01-01T00:00:00+00:00", "hours": 156.0}]),
+        ("01-07T12:00", [{"tray_id": 7, "location": "NW", "since": "2027-01-01T00:00:00+00:00", "hours": 156.0}]),
     ],
 )
 def test_a_tray_over_the_limit_then_missing_over_48_hours_is_no_longer_warned_for(at, warned) -> None:

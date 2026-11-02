@@ -289,16 +289,16 @@ def capture_readings(capture: dict) -> dict | None:
     """`photo_readings` for a photo whose rig.db row `capture` is already at hand."""
     readings = database.tray_readings(capture["id"])
     if readings is not None:
-        areas = dwell.AreaFinder()
+        locations = dwell.LocationFinder()
         for tray in readings["not_found"]:
             seen_in = tray.pop("seen_in")
-            tray["area"] = areas.area(seen_in["path"], seen_in["calibration"], seen_in["centre_px"])
-        # A move is a tray's centre leaving its area of the table; a nudge or a turn is not
+            tray["location"] = locations.location(seen_in["path"], seen_in["calibration"], seen_in["centre_px"])
+        # A move is a tray's centre leaving its table location; a nudge or a turn is not
         # (Aaron, 2026-10-30, #332).
         readings["moved"] = []
         for tray in readings.pop("in_both"):
-            before = areas.area(tray["before"]["path"], tray["before"]["calibration"], tray["before"]["centre_px"])
-            now = areas.area(capture["path"], capture["calibration"], tray["centre_px"])
+            before = locations.location(tray["before"]["path"], tray["before"]["calibration"], tray["before"]["centre_px"])
+            now = locations.location(capture["path"], capture["calibration"], tray["centre_px"])
             if before is not None and now is not None and before != now:
                 readings["moved"].append({"tray_id": tray["tray_id"], "from": before, "to": now})
         saved = database.exclusion(capture["id"])
@@ -311,9 +311,9 @@ def capture_readings(capture: dict) -> dict | None:
         # A tray with no tag (#331) carries no tag another tray could share.
         carried = Counter(tray["tray_id"] for tray in readings["trays"] if tray["tray_id"] is not None)
         for tray in readings["trays"]:
-            # The area of the table the tray lies in, for the Gallery (#332); None when the
+            # The table location the tray lies in, for the Gallery (#332); None when the
             # photo's size cannot be known.
-            tray["area"] = areas.area(capture["path"], capture["calibration"], tray["centre_px"])
+            tray["location"] = locations.location(capture["path"], capture["calibration"], tray["centre_px"])
             # Neither area counts, in this photo only: a misprint can give two trays one tag, and
             # their areas cannot be told apart (Aaron, 2026-10-27, #302); a second outline in a
             # slot, from a loose tag, takes part of the real tray's plant (2026-10-28, #315). Two
