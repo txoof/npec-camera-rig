@@ -74,12 +74,12 @@ and the folder its file goes in. Pick the ID range from the tray type:
 | Tray | IDs | Style | Tag (black square) | Plate | Where the tag goes |
 |---|---|---|---|---|---|
 | 4 x 5 (20 cells) | 1-75 | `lip_round` | 40 mm | 60.5 mm square, rounded corners, lip | cell A1, roughly centred, any rotation; A1 holds no plant |
-| 4 x 4 (16 cells) | 76-150 | `lip` | 42 mm | 61 mm square, lip | in the middle of the tray |
+| 2 x 2 (4 cells) | 76-150 | `lip` | 42 mm | 61 mm square, lip | in the middle of the tray |
 | 1 x 1 (one well) | 151-225 | `lip_bolt` | 42 mm | 61 mm square, lip, M8 bolt tab | bolted to a corner of the tray, so the whole tag lies inside the tray's footprint |
 | Black tray | 226-250 | `disc` | 30 mm | 51 mm disc | in a pot |
 | Any other tray | 251-299 | `tab` | 20 mm | 32 x 26 mm, tab over the tray edge | over the tray edge |
 
-| 4 x 5: `lip_round` | 4 x 4: `lip` | 1 x 1: `lip_bolt` |
+| 4 x 5: `lip_round` | 2 x 2: `lip` | 1 x 1: `lip_bolt` |
 |---|---|---|
 | ![lip_round](images/tray_tags/style_lip_round.png) | ![lip](images/tray_tags/style_lip.png) | ![lip_bolt](images/tray_tags/style_lip_bolt.png) |
 | **Black tray: `disc`** | **Other: `tab`** | **Not a default: `bolt`** |
@@ -165,12 +165,13 @@ file (one build plate each). Use them unless the `.scad` has changed since they 
 | Tray type | Folder | Files | Revision |
 |---|---|---|---|
 | 4 x 5 | `exports/tray_tags/4x5/` | `apriltag_tray_tag_4x5_1-12_lip_round.3mf` to `..._73-75_lip_round.3mf` | RV1.19 |
-| 4 x 4 | `exports/tray_tags/4x4/` | `apriltag_tray_tag_4x4_76-87_lip.3mf` to `..._148-150_lip.3mf` | RV1.18 |
+| 2 x 2 | `exports/tray_tags/2x2/` | `apriltag_tray_tag_2x2_76-87_lip.3mf` to `..._148-150_lip.3mf` | RV1.20 |
 | 1 x 1 | `exports/tray_tags/1x1/` | `apriltag_tray_tag_1x1_151-162_lip_bolt.3mf` to `..._223-225_lip_bolt.3mf` | RV1.18 |
 | Black tray | `exports/tray_tags/black_tray/` | `apriltag_tray_tag_black_tray_226-237_disc.3mf` to `..._250_disc.3mf` | RV1.18 |
 
-The 4 x 4, 1 x 1 and black tray files are RV1.18 because their shapes did not change in RV1.19.
-Rebuilding them gives the same tags stamped RV1.19. There are no ready files for 251-299.
+The 1 x 1 and black tray files are RV1.18 and the 4 x 5 files RV1.19 because their tags did not
+change after that. Rebuilding them gives the same tags stamped RV1.20. RV1.20 renamed the 4 x 4
+type to 2 x 2, which changed the label engraved on IDs 76-150. There are no ready files for 251-299.
 
 To make a file for the IDs you need, give `tray_tags.py` one group per build plate. A group is a
 range (`13-24`) or a single ID (`7`), at most 12 tags, all of one tray type. Each group gets its
@@ -180,7 +181,7 @@ tray type's style from the table above.
 # 4 x 5 tags 13 to 24, one build plate
 uv run tray_tags.py 13-24
 
-# 4 x 5 tags 13 to 24 and 4 x 4 tags 76 to 80: two groups, two files
+# 4 x 5 tags 13 to 24 and 2 x 2 tags 76 to 80: two groups, two files
 uv run tray_tags.py 13-24 76-80
 ```
 
@@ -190,7 +191,7 @@ To rebuild every ready-made file, for example after changing the `.scad`:
 # 4x5, lip_round
 uv run tray_tags.py 1-12 13-24 25-36 37-48 49-60 61-72 73-75
 
-# 4x4, lip
+# 2x2, lip
 uv run tray_tags.py 76-87 88-99 100-111 112-123 124-135 136-147 148-150
 
 # 1x1, lip_bolt

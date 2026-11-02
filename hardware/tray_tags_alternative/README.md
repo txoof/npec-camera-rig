@@ -4,7 +4,7 @@ A second generation of tray tags, developed on 2026-10-08 and parked here. It is
 tag in use. The tray tag in use is `../tray_tags/apriltag_tray_tag.scad`, which `../tray_tags.py`
 exports. Nothing in the repo uses or exports the files in this folder.
 
-All four designs have since been carried into that file as styles, with the same geometry: 4x4
+All four designs have since been carried into that file as styles, with the same geometry: 2x2
 as `lip` and 1x1 as `lip_bolt` (RV1.18), black_tray as `disc` (RV1.16, RV1.18), and 4x5 as
 `lip_round` (RV1.19), now the 4x5 default. Their exports match this file's except for the
 revision engraved on them. This file is kept as the record of how the designs were made.
@@ -13,7 +13,7 @@ revision engraved on them. This file is kept as the record of how the designs we
 
 | File | What |
 |---|---|
-| `apriltag_tray_tag.scad` | The version 2 tray tag, RV2.1. Four designs, chosen from the tag id. Its header holds the full description and change history (REV 1.0 to 2.1) |
+| `apriltag_tray_tag.scad` | The version 2 tray tag, RV2.2. Four designs, chosen from the tag id. Its header holds the full description and change history (REV 1.0 to 2.2) |
 | `tag_outline_61.scad` | 2D outline of the physical 61 mm part the 4x5 design is copied from, with its 48.84 mm reference circle. For a 1:1 paper check |
 | `tag_outline_61.pdf` | That outline exported on A4 with OpenSCAD's mm rulers. Print at 100% |
 
@@ -27,8 +27,8 @@ There is no style setting: one layout can hold several designs.
 | IDs | Tray type | Design | On the bed |
 |---|---|---|---|
 | 1-75 | `4x5` | 60.5 mm square, 9.33 mm corners, 40 mm tag, lip | standing on the lip |
-| 76-150 | `4x4` | 61 mm square, 3 mm corners, 42 mm tag, lip | standing on the lip |
-| 151-225 | `1x1` | the 4x4 plus an M8 bolt tab, flush with the +X edge | standing on the tab's edge |
+| 76-150 | `2x2` | 61 mm square, 3 mm corners, 42 mm tag, lip | standing on the lip |
+| 151-225 | `1x1` | the 2x2 plus an M8 bolt tab, flush with the +X edge | standing on the tab's edge |
 | 226-250 | `black_tray` | 51 mm disc, 30 mm tag, no lip | flat |
 | 251-299 | `OTHER` | no design: the render stops with an assert | |
 
@@ -46,9 +46,9 @@ still have 226-299 as `OTHER`. Adopting this file means adding the range there t
   14.85 mm. Each 0.1 mm in that gap moves r by 0.24 mm. The plate was later made 0.5 mm smaller
   overall (61 to 60.5 mm, REV 2.1). The 40 mm tag's white border has 5.25 mm of plate past it on
   the flat sides and is 2.25 mm clear of the lip.
-- **4x4.** A 61 mm square with 3 mm corners and a 42 mm tag (5.25 mm bits). The lip limits the
+- **2x2.** A 61 mm square with 3 mm corners and a 42 mm tag (5.25 mm bits). The lip limits the
   tag size here: 44 mm at most with a 1-bit white border; 42 mm leaves 1.25 mm clear of the lip.
-- **1x1.** The 4x4 plus the version 1 bolt tab: 25 mm long, 20 mm wide, round end, 8.4 mm M8
+- **1x1.** The 2x2 plus the version 1 bolt tab: 25 mm long, 20 mm wide, round end, 8.4 mm M8
   clearance hole (ISO 273 fine), 3 mm fillet where it meets the plate. It leaves the -Y edge
   (opposite the lip), flush with the +X edge, on the same side as the type label.
 - **black_tray.** A 51 mm disc with a 30 mm tag and no lip. The largest tag with its whole white
@@ -58,7 +58,7 @@ still have 226-299 as `OTHER`. Adopting this file means adding the range there t
 
 ### The lip
 
-The 4x5, 4x4 and 1x1 have a lip along the +Y edge: 5 mm above the top face (`lip_h`), 3 mm thick
+The 4x5, 2x2 and 1x1 have a lip along the +Y edge: 5 mm above the top face (`lip_h`), 3 mm thick
 (`lip_thk`). It is the band of the plate outline within `lip_thk` of the +Y edge, so its ends
 follow the rounded corners. Its outer face is flush with the plate's +Y edge.
 
@@ -66,7 +66,7 @@ follow the rounded corners. Its outer face is flush with the plate's +Y edge.
 
 All engraved, 0.6 mm deep, in the white body, so they print in the body color.
 
-| Label | 4x5, 4x4, 1x1 | black_tray |
+| Label | 4x5, 2x2, 1x1 | black_tray |
 |---|---|---|
 | Tag id | top face, top-left corner | top face, centred above the tag |
 | Tray type | top face, top-right corner | top face, centred below the tag |
@@ -81,7 +81,7 @@ measured value is the one the software should use.
 
 With `on_side = true` (the default):
 
-- 4x5 and 4x4 rotate -90 deg about X and stand on the lip's outer face. The tag faces +Y.
+- 4x5 and 2x2 rotate -90 deg about X and stand on the lip's outer face. The tag faces +Y.
 - 1x1 rotates 90 deg about Y and stands on its +X edge, the edge the bolt tab is flush with, so
   the tab lies along the bed.
 - black_tray always lies flat, whatever `on_side` says.
@@ -104,7 +104,7 @@ colored solid is its own lazy-union object for `scad_to_3mf.py`.
 | Tag | `tag_ids`, `tag_raise_h`, `tag_embed` |
 | Plate | `plate_thk`, all designs |
 | 4x5 Design | `t45_plate_w`, `t45_corner_r`, `t45_tag_size` |
-| 4x4 and 1x1 Design | `t44_plate_w`, `t44_corner_r`, `t44_tag_size` |
+| 2x2 and 1x1 Design | `t22_plate_w`, `t22_corner_r`, `t22_tag_size` |
 | black_tray Design | `tbk_dia`, `tbk_tag_size` |
 | 1x1 Bolt Tab | `bolt_tab_len`, `bolt_tab_w`, `bolt_dia`, `bolt_tab_fillet` |
 | Lip | `lip_h`, `lip_thk` |

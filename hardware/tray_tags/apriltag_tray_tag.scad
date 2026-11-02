@@ -21,7 +21,7 @@
        `on_side` is set, so the tab prints on the bed instead of hanging
        above it. All four plate corners are rounded and the
        tab-to-plate corners are filleted (`bolt_tab_fillet`).
-     - "lip" (4x4) and "lip_bolt" (1x1): version 2's designs from
+     - "lip" (2x2) and "lip_bolt" (1x1): version 2's designs from
        tray_tags_alternative/ (REV 1.18), sized to those trays: a 61 mm
        square plate, 3 mm corners, 42 mm tag, and a lip along the +Y
        edge, `lip_h` above the top face and `lip_thk` thick, its outer
@@ -113,7 +113,7 @@
    the right side border (+X), mirroring the ID label (reading from the
    top down, starting `id_inset` in from the +Y edge) and in the same
    font, size and depth. Id ranges (Aaron, REV 1.13, 1.16):
-   1-75 "4x5", 76-150 "4x4", 151-225 "1x1", 226-250 "black_tray",
+   1-75 "4x5", 76-150 "2x2", 151-225 "1x1", 226-250 "black_tray",
    251-299 "OTHER". Ids above 299
    fail the id assert: 300-449 are the calibration sheets and 450-499 the
    corner tags (PLAN.md's tag ID allocation, src/npec_rig/tags.py).
@@ -122,6 +122,10 @@
    `tag_embed` are starting values, same status as in
    `apriltag_corner_mount.scad`.
 
+   REV 1.20: tray type "4x4" renamed "2x2" (ids 76-150 unchanged): these
+     trays have 2 x 2 cells, 4 plants; "4x4" was a mislabel (Aaron,
+     2026-10-29, #327). The engraved type label changes with it.
+     Geometry unchanged.
    REV 1.19: style "lip_round", version 2's 4x5 design (60.5 mm plate,
      9.33 mm corners, 40 mm tag), now the 4x5 default in place of "tab"
      (Aaron, 2026-10-21). Its exports match version 2's RV2.1 4x5
@@ -225,7 +229,7 @@ use <../libraries/apriltag_36h11.scad>
 
 /* [Style] */
 tag_style = "lip_round"; // ["lip_round", "tab", "bolt", "lip", "lip_bolt", "disc"]
-// lip_round: lip with 9.33 mm corners, 40 mm tag (4x5); tab: 90 deg tab over the tray edge; bolt: in-plane tab with an M8 hole; lip: square plate with a lip (4x4); lip_bolt: lip plus the M8 tab (1x1); disc: round plate, always flat (black_tray)
+// lip_round: lip with 9.33 mm corners, 40 mm tag (4x5); tab: 90 deg tab over the tray edge; bolt: in-plane tab with an M8 hole; lip: square plate with a lip (2x2); lip_bolt: lip plus the M8 tab (1x1); disc: round plate, always flat (black_tray)
 
 /* [Tag] */
 tag_ids       = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // 36h11 ids, one tray tag each, laid out in this order -- tray id allocation not yet confirmed (PLAN.md open questions)
@@ -250,7 +254,7 @@ bolt_tab_fillet = 3;   // fillet in the corners where the tab meets the plate, m
 bolt_tab_flush  = true; // tab flush with the plate's +X edge (the bed face when on_side) instead of centred
 
 /* [Lip] */
-lip_plate_w    = 61;  // plate side, X and Y, lip and lip_bolt styles, mm -- version 2, sized to the 4x4 and 1x1 trays  [40:0.5:100]
+lip_plate_w    = 61;  // plate side, X and Y, lip and lip_bolt styles, mm -- version 2, sized to the 2x2 and 1x1 trays  [40:0.5:100]
 lip_corner_r   = 3;   // rounding on the plate's four vertical corners, mm  [0:0.5:20]
 lip_tag_size   = 42;  // 36h11 tag width, lip and lip_bolt styles, mm -- version 2  [20:0.5:44]
 lip_h          = 5;   // how far the lip stands above the plate's top face, mm  [2:0.5:30]
@@ -274,7 +278,7 @@ id_size   = 2.5;                       // label text cap height, mm  [1.5:0.5:6]
 id_inset  = 2;                         // label's end, distance in from the plate's +Y edge, mm  [0.5:0.25:5]
 id_depth  = 0.6;                       // how far the label is inset into the top face, mm  [0.2:0.1:2]
 id_font   = "Liberation Sans:style=Bold";
-type_label = true;                     // engrave each tag's tray type (4x5, 4x4, 1x1, black_tray, OTHER) in the right side border (lip styles: top-right corner, disc: below the tag), same size and depth as the id
+type_label = true;                     // engrave each tag's tray type (4x5, 2x2, 1x1, black_tray, OTHER) in the right side border (lip styles: top-right corner, disc: below the tag), same size and depth as the id
 size_label = true;                     // lip styles and disc: engrave the tag's size ("42.0 x 42.0 mm") in the quiet zone below the tag
 
 /* [Label] */
@@ -298,7 +302,7 @@ side_plate_gap = 5; // space between the two plates of a nested pair, side layou
 plate_cols = 0;   // tags per row; 0 = auto (block closest to square)  [0:1:20]
 
 /* [Revision] */
-revision  = "RV1.19"; // revision stamp, engraved in the plate underside below the part name ("" = none)
+revision  = "RV1.20"; // revision stamp, engraved in the plate underside below the part name ("" = none)
 rev_size  = 3;       // text cap height, mm  [2:0.5:8]
 rev_depth = 1.0;     // how far the text is inset below the surface, mm  [0.4:0.1:2]
 
@@ -361,7 +365,7 @@ rev_ly  = lbl_cy - lbl_h / 2;                 // revision line bottom, Y
 
 // tray type for a tag id; the id ranges are the allocation (header)
 function tray_type(id) = id <= 75  ? "4x5"
-                       : id <= 150 ? "4x4"
+                       : id <= 150 ? "2x2"
                        : id <= 225 ? "1x1"
                        : id <= 250 ? "black_tray"
                        : "OTHER";
