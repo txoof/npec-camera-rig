@@ -34,6 +34,8 @@
       : null;
     if (h.state === "opening") {
       show("restarting", "Camera: opening.");
+      // Opening takes about a second with no camera, up to 30 s with one: ask again soon.
+      setTimeout(refresh, 1000);
     } else if (h.state === "no_camera") {
       // Short: the line sits in the side menu. The full advice is in h.detail.
       show("failed", "Camera: not attached. Connect it with the Pi off.");
