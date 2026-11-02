@@ -6936,3 +6936,157 @@ it on 2026-11-02, with #332's code (the area names after each tray number, such 
 
 **Limits of the evidence.** One rig, nine 2x2 trays that did not move after the live test; one
 removed tray. A tray that comes back after more than 48 hours was checked by the unit tests only.
+
+## 22. Tray movements on the potato run: the shuffle plan against the rig (issue #332, 2026-10-30)
+
+**Label: development check.** Whether the tray positions the production rig stored through the
+potato run (section 16) follow the planned shuffles, tray by tray, so that the time each tray
+spends in each table location (#332) can be built on them. The known answer is a plan and a
+person's record of carrying it out, not an independent measurement of the trays, so this is not a
+reference comparison.
+
+**Question.** For each of the 7 layouts of the run so far (map 0 at the start, then shuffles 1 to
+6) and each of the 12 trays: did the rig read the tray in its planned slot, with cell A1 at its
+planned corner, and in the planned table location? How long after the recorded finish of a
+shuffle did the rig first read each tray in its new place? And did the rig read any change of
+place outside the shuffles?
+
+**Known answer.** The shuffle maps `experiments/round2-run/sessions/shuffle-maps-2026-10-22.json`
+(seed 20261022, committed in `d8c192e` before any tray was moved; section 16.2) and the
+collaborator's own record of each shuffle, `sessions/shuffle-record-2026-10-22.csv`, copied as
+written in chamber time (Europe/Amsterdam; UTC+2 until 25 October, UTC+1 after), with
+`sessions/shuffle-record-README.md`. Shuffle k puts map k on the table.
+
+| Shuffle | Date | Start | Finish (chamber time) | Finish (UTC) |
+|---|---|---|---|---|
+| 0 | Thu 22 Oct | not written | 12:41 | 10:41 |
+| 1 | Fri 23 Oct | not written | 10:56 | 08:56 |
+| 2 | Mon 26 Oct | 11:28 | 11:35 | 10:35 |
+| 3 | Tue 27 Oct | 10:49 | 11:02 | 10:02 |
+| 4 | Wed 28 Oct | 11:10 | 11:23 | 10:23 |
+| 5 | Thu 29 Oct | 09:00 | 09:11 | 08:11 |
+| 6 | Fri 30 Oct | 09:05 | 09:17 | 08:17 |
+
+**Data.** A copy of production's `rig.db` (`ac-testing`, schema version 13) taken on 2026-10-30
+at about 14:28 UTC, opened read-only; nothing was written on the rig. Experiment 18, "Potato Plants
+v001": 11,871 photos from Thu 22 Oct 10:41 to Fri 30 Oct 15:28 chamber time, 8,204 of them read
+with trays (of the rest, 3,665 are lights-off photos with no tags found, 1 failed to read and
+1 was never read). Each tray's slot, A1 corner and
+centre in every photo, as stored by the production rig's code of the run, which places each tray
+from its tag in cell A1 and the slot grid (section 15.5). Calibration `20261022T072523939958` and
+its slot layout throughout.
+
+**Method.** Script `experiments/round2-run/movements.py` (results from commit `710ef87`; a later
+change only leaves out readings with no tag, of which this run has none; how to run it is in its
+docstring):
+
+- **Table locations.** A 3 x 2 grid (Aaron, #332, 2026-10-30): NW, NM, NE over SW, SM, SE. The grid is
+  laid out in the calibration's table frame, a homography from the centres of the four table
+  (corner) tags to a unit square, so its lines are straight lines on the table. North and south
+  are split halfway between the northern and southern rows of table tags; the columns are thirds
+  of the full photo width, measured along that middle line. A tray's centre decides its location; a
+  planned slot's location is that of the slot's centre in the slot layout. Each location holds exactly 2
+  slots: NW North 1 and 2, NM North 3 and 4, NE North 5 and 6, and the same for South.
+- **Planned.** Map k holds from shuffle k's recorded finish until shuffle k+1's finish. **Map 0
+  holds from the experiment's start, 10:41, not from its recorded finish of 12:41**: the trays
+  were laid out and the experiment started at 10:41, map 0 was written from the layout already on
+  the table and its time recorded at 12:41, and no tray moved in between (Aaron, 2026-10-30, and
+  the rig's photos; `shuffle-record-README.md`).
+- **Measured.** Per tray, the photos in which its tag was read, in time order, are cut into runs
+  of one value (a slot and A1 corner, or a table location). A run shorter than 1 hour, first to last photo,
+  lying between two others is ignored (Aaron, #332, 2026-10-30: a tray counts as moved after
+  1 hour elsewhere), so a missed tag or a short stay elsewhere does not end a stay. The first and
+  last runs are always kept. What is left are the tray's stays.
+- **Compared**, per shuffle and tray: the slot stay that overlaps most of the time from that
+  shuffle's finish to the next shuffle's start (or the end of the data), against the map. "Change"
+  is the stay's first photo minus the recorded finish, in minutes.
+- **Outside shuffles.** Every run, of any length, of a new slot, A1 corner or table location that starts
+  outside a shuffle window. A window runs from the recorded start to the finish, widened by
+  15 minutes on each side. **Shuffle 0 has no window**: it moved no tray (map 0 was written from
+  the layout already on the table). **Shuffle 1 has no start written**; its window starts 60
+  minutes before the finish. The 60 and the 15 minutes are choices, not measurements.
+
+**Result.**
+
+| Check, 7 shuffles x 12 trays = 84 | Matched |
+|---|---|
+| Slot | 84 of 84 |
+| A1 corner | 84 of 84 |
+| Table location | 84 of 84 |
+| Photo readings agreeing with the map in force | 95,476 of 95,482 |
+
+- **Timing.** From the recorded finish to the rig's first photo of a tray in its new slot: -5.1
+  to +0.9 minutes over the 72 tray moves of shuffles 1 to 6 (per shuffle: -4.1 to +0.9, -5.1 to
+  -0.1, -4.1 to +0.9, -3.1 to -0.1, -5.1 to +0.9, -3.1 to -0.1). Negative means the tray was in
+  place before the finish was written down; +0.9 minutes is within one photo interval (one photo a
+  minute). So the rig dates each move to within the time it takes the collaborator to finish a
+  shuffle and write it down.
+- **Table locations.** 63 of the 72 moves changed location; the other 9 changed slot within the same location, as
+  the maps planned.
+- **Stays.** Under the 1-hour rule every tray has 7 slot stays, one for each map. No move was
+  found that the plan does not hold. Plan and rig give a different table location for a tray only in the
+  minutes around each shuffle: 5 to 14 minutes per tray over the 8 days (0.08 to 0.23 hours).
+- **Outside shuffles: 2 events, neither a move.** They are the 6 disagreeing photo readings above.
+
+| Tray | Chamber time (UTC) | Photos | What the rig read | What it was |
+|---|---|---|---|---|
+| 1 | Wed 28 Oct 09:47 to 09:50 (08:47:53 to 08:50:01) | 5 | A second tray 1 in South 1, table location SW, beside tray 1 in its own slot South 2 | The printed duplicate of tag 1 laid on tray 10 for the check of section 17.12. Tray 1 itself stayed in South 2 in all 5 photos |
+| 2 | Thu 29 Oct 13:23 (12:23:53) | 1 | A second tag 2 in South 6, over tray 10, marked "two trays in one slot"; tray 2 read in its own slot South 5 in the same photo | Not known: a misread or a loose tag. The photo is marked a visit (17.9) |
+
+The 1-hour rule ignores both, as it should: neither tray left its slot.
+
+![Plan against rig after each shuffle](figures/22/comparison.png)
+
+*Plan against rig, one cell per shuffle and tray: ok or WRONG, the planned slot and A1 corner, and
+the minutes from the recorded finish to the rig's first photo of the tray in its new slot. Made
+by `movements.py` (command in its docstring) from the database copy; copied from
+`~/scratch/332/analysis/comparison.png` on 2026-10-30.*
+
+![The 3 x 2 table locations on the photo](figures/22/areas_on_photo.png)
+
+*The 3 x 2 table locations on the photo, in pixels, drawn from the calibration's table frame, with the four
+table tags and each slot's centre labelled with its location. Same script and run.*
+
+![Table location per tray over time, trays 1 to 6](figures/22/timelines_trays_1-6.png)
+
+![Table location per tray over time, trays 7 to 12](figures/22/timelines_trays_7-12.png)
+
+*Table location per tray over time, chamber time: the plan (the map in force after each
+recorded finish, dotted lines S1 to S6) above what the rig read (stays, 1-hour rule). A black bar
+under a tray marks the minutes where plan and rig disagree, all at the shuffles. Same script and
+run.*
+
+![Changes read outside shuffle windows](figures/22/outside_shuffles.png)
+
+*The two changes the rig read outside the shuffle windows, as the script lists them ("stay" and
+"read as" are slot and A1 corner). Same script and run.*
+
+**What it covers.** Tray identity and position as stored by the production rig over 8 days, 22 to
+30 October 2026, through the chamber's light cycle and 6 shuffles by the collaborator: 12 blue
+4 x 5 trays (7 with potato plants, 5 with black pots) in a 2 x 6 slot layout, 40 mm tags in
+cell A1, trays placed from the tag and the slot grid. On this run, the stored positions are good
+enough to count how long each tray spends in each table location.
+
+**Limits of the evidence.**
+
+- **Map 0 is not independent.** It was written from the layout already on the table, and 16.2
+  checked it against the rig's own readings. Its 12 checks show the rig held the start layout
+  until shuffle 1, not that the start layout was read right. The independent checks are the
+  72 of shuffles 1 to 6.
+- **Plant area is not checked here.** Only identity and position.
+- **One layout.** 12 trays in 2 rows of 6 slots, square to the table. Not covered: other layouts,
+  fewer trays, trays laid anywhere on the table or skewed, other tray types, and the photo-only
+  finder of section 21 (#331), which production did not run.
+- **Table locations from slots.** Every tray stood on a slot centre, well inside its location. A
+  tray lying near a line between two locations, as trays will when slots are dropped, is not tested.
+  The script cuts the columns in thirds along the table's middle line; the app (#332) cuts them
+  along each tray's own row. Both give the same locations for this layout, which lies square to
+  the table, but the app's rule is not what was checked here.
+- **Timing rests on the written finish times** and the one-minute photo interval; no time per
+  tray was recorded (16.2).
+- The window for shuffle 1, the 15-minute widening and the 1-hour rule are choices;
+  the photo width of 9152 px is a constant in the script, not read from the photos.
+- Raw data: the database copy `~/scratch/332/prod/rig.db` and the script's tables in
+  `~/scratch/332/analysis/` (`expected.csv`, `comparison.csv`, `measured_slot_stays.csv`,
+  `measured_area_stays.csv`, `outside_shuffles.csv`), not kept; the script remakes them from a
+  new copy of production's `rig.db`.
