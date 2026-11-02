@@ -115,12 +115,20 @@ def test_a_tray_counts_as_moved_after_over_1_hour_found_in_another_location(last
     assert dwell.stays(readings) == expected
 
 
-def test_an_hour_away_spread_over_two_other_locations_is_not_a_move() -> None:
-    """NM from 10:10 to 11:15 is over an hour, but not in a row: NE at 10:30 lies between."""
-    readings = [(_t("01-01T10:00"), "NW"), (_t("01-01T10:10"), "NM"), (_t("01-01T10:30"), "NE"),
-                (_t("01-01T11:15"), "NM"), (_t("01-01T11:20"), "NW")]
+def test_a_tray_flipping_between_two_other_locations_moves_to_the_one_it_was_in_most() -> None:
+    """Review of #332: a centre on the line between NM and NE never stays an hour in either, but
+    it has left NW. Away from 10:10 to 11:11 (61 minutes, over 1 hour): until each next photo, NM
+    10 + 20 + 5 = 35 minutes, NE 10 + 10 + 6 = 26 minutes."""
+    readings = [(_t("01-01T10:00"), "NW")] + [
+        (_t(f"01-01T{when}"), location)
+        for when, location in (("10:10", "NM"), ("10:20", "NE"), ("10:30", "NM"), ("10:40", "NM"), ("10:50", "NE"),
+                               ("11:00", "NM"), ("11:05", "NE"), ("11:11", "NM"))
+    ]
 
-    assert dwell.stays(readings) == [dwell.Stay("NW", _t("01-01T10:00"), _t("01-01T11:20"))]
+    assert dwell.stays(readings) == [
+        dwell.Stay("NW", _t("01-01T10:00"), _t("01-01T10:00")),
+        dwell.Stay("NM", _t("01-01T10:10"), _t("01-01T11:11")),
+    ]
 
 
 # --- An experiment's trays -----------------------------------------------------------------------

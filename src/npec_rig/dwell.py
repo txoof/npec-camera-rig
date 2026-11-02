@@ -87,11 +87,13 @@ def stays(readings: Iterable[tuple[datetime, str]]) -> list[Stay]:
     the table for up to `database.NOT_SEEN_FOR` do not break a stay; missing longer, it was taken
     away, its stay ended at its last photo and it starts a new one when found again, even in the
     same location (Aaron, 2026-10-30). A tray found in another location starts a new stay only
-    once it has been found there for over `MOVE_AFTER`, from the first to the last photo in a row; it is
-    then in the new location from its first photo there. A shorter stay elsewhere is part of the stay
-    it left and came back to."""
+    once it has been away from its stay's location for over `MOVE_AFTER`, from its first photo
+    elsewhere to the last, in any other locations together (a centre on the line between two of
+    them flips between both); it is then in the one of them it was in longest (each photo counting
+    until the next), from its first photo away. A shorter time away is part of the stay it left and
+    came back to."""
     out: list[Stay] = []
-    away: list[tuple[datetime, str]] = []  # readings elsewhere since the last one in out[-1].location
+    away: list[tuple[datetime, str]] = []  # readings anywhere else since the last one in out[-1].location
     last: datetime | None = None
     for taken_at, location in sorted(readings):
         # Missing over NOT_SEEN_FOR, it was taken away: its stay ended at its last photo.
@@ -104,11 +106,22 @@ def stays(readings: Iterable[tuple[datetime, str]]) -> list[Stay]:
             out[-1] = Stay(location, out[-1].start, taken_at)
             away = []
         else:
-            away = [r for r in away if r[1] == location] + [(taken_at, location)]
+            away.append((taken_at, location))
             if taken_at - away[0][0] > MOVE_AFTER:
-                out.append(Stay(location, away[0][0], taken_at))
+                out.append(Stay(_most_time(away), away[0][0], taken_at))
                 away = []
     return out
+
+
+def _most_time(readings: list[tuple[datetime, str]]) -> str:
+    """The location of `readings` (oldest first) the tray was in longest, each reading counting
+    until the next; on a tie, the one found last."""
+    time: dict[str, timedelta] = {}
+    for (taken_at, location), (following, _next) in zip(readings, readings[1:]):
+        time[location] = time.get(location, timedelta()) + following - taken_at
+    time.setdefault(readings[-1][1], timedelta())
+    order = {location: i for i, (_t, location) in enumerate(readings)}
+    return max(time, key=lambda location: (time[location], order[location]))
 
 
 class LocationFinder:

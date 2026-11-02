@@ -173,7 +173,8 @@ corner tags, through the calibration's table frame (the homography of the four c
 columns are thirds of the photo's width along each row of the table. With no table frame (a
 calibration without four corner tags, or a photo with no calibration), the photo itself is halved
 and cut in thirds. A tray's centre decides its location. A tray is in a new location only after it has
-been found there for over 1 hour in a row (from its first to its last photo there); shorter stays,
+been away from its location for over 1 hour (from its first to its last photo elsewhere, in any
+other locations together), and then in the one it was in longest in that time; shorter stays,
 misses and the tray taken off the table for up to 48 hours do not break its stay. A tray missing
 for more than 48 hours (`NOT_SEEN_FOR`, as for trays not found) was taken away: its stay ends at
 its last photo, it is not warned for, and when it is found again it starts a new stay, even in the
