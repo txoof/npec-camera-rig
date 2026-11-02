@@ -120,7 +120,7 @@ def load_readings(db, experiment):
     rows = conn.execute(
         """SELECT c.taken_at, r.tray_id, r.slot, r.a1_corner, r.placement, r.centre_x_px, r.centre_y_px
            FROM tray_reading r JOIN capture c ON c.id = r.capture_id
-           WHERE c.experiment_id = ? ORDER BY c.taken_at""", (experiment,)).fetchall()
+           WHERE c.experiment_id = ? AND r.tray_id IS NOT NULL ORDER BY c.taken_at""", (experiment,)).fetchall()
     started = conn.execute("SELECT * FROM experiment WHERE id=?", (experiment,)).fetchone() \
         if conn.execute("SELECT 1 FROM sqlite_master WHERE name='experiment'").fetchone() else None
     conn.close()
