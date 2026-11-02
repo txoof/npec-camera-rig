@@ -6898,3 +6898,41 @@ their content. Aaron looked at the overlays of steps 4, 8b and 8d and found noth
 **Limits of the evidence.** One session of 9 minutes on one rig, nine 2x2 trays; each change made
 once, on one tray; one skewed tray at one angle; the steps matched to photos by their content, as
 no step times were noted. Covered tags only, not dirty or damaged ones.
+
+*Result of the lights-off and 48-hour checks (read 2026-11-02).* A copy of development's
+`rig.db` (online backup, 2026-11-02 08:39 UTC; integrity check ok) was read on the controller
+with #331's own code (`database.tray_readings` at commit `44c5d93`). Development had moved on to
+the #332 branch (`86c9a10`, which includes #331) and schema version 15, which only adds
+`experiment.dwell_limit_h`; the copy was marked version 14 so #331's code would open it.
+Experiment 2 ran throughout: 4215 photos from 2026-10-30 10:28 UTC to 2026-11-02 08:39 UTC, none
+more than 2.5 minutes apart, all but the newest read.
+
+- **48 hours: as expected.** Tray 83 (last seen 2026-10-30 10:21:11 UTC) was reported as not seen
+  on every photo up to 2026-11-01 10:21:05 and on none from 10:22:05. Tray 82 (last seen
+  10:28:05) up to 2026-11-01 10:28:05 and on none from 10:29:05. Trays 12, 13, 26 and 27 (last
+  seen 2026-10-29 12:20 UTC) were still reported on 31 October at 08:01 and no longer on
+  1 November.
+- **Lights off: as expected.** Four nights (about 451 dark photos each, 00:30 to 08:00 UTC): every
+  dark photo read as "no trays found", with no tray reported as not seen. Dark photos did not add
+  to the count of photos a tray was missing from: tray 82's count grew by the lit photos only
+  (843 lit photos by 31 October 08:01, against about 1290 minutes since it was removed). The first
+  lit photo of each morning showed all 9 trays named.
+- **Three days of lit photos, 2860:** 2828 (98.9%) had all 9 trays outlined and named. The other
+  32 each carried a warning:
+  - 31 photos: one tray's tag not read (trays 85, 79, 86 and 77; 23 of them tray 85), so that
+    tray was outlined as "No tag" and reported as not seen in that photo.
+  - At each lights change, one photo (6 in all, 00:29 and 08:01 UTC) where all 9 tags were read
+    but no tray rim was found: all 9 trays reported as "tag seen", with no area.
+  - 1 photo, 2026-10-31 00:28:05 UTC, under the dimming light a minute before lights off: a false,
+    tilted "No tag" outline across the aisle and tray 79's outline shifted off the tray
+    (`docs/figures/21/dimming-false-outline.jpg`; Aaron found nothing else wrong).
+  All the dimming and lights-change photos are already left out of the experiment's numbers
+  (`exclusions.py`: "light changing" or "lights off"), so none of these gave a wrong number
+  without a warning.
+
+*Figure.* `docs/figures/21/dimming-false-outline.jpg`: the overlay as development's Gallery drew
+it on 2026-11-02, with #332's code (the area names after each tray number, such as "NW", are
+#332's), scaled down.
+
+**Limits of the evidence.** One rig, nine 2x2 trays that did not move after the live test; one
+removed tray. A tray that comes back after more than 48 hours was checked by the unit tests only.
