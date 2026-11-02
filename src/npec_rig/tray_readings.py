@@ -149,7 +149,7 @@ def found_trays(path: str, tags: list[TagDetection], saved: dict | None = None) 
             return "photo not found", []
         if not outlines and not tags:
             return "no trays found", []
-        return "read", name_trays(outlines, tags, scale_field)
+        return "read", name_trays(outlines, tags)
     except (ValueError, KeyError, TypeError, OSError):
         logger.exception("Could not find the trays of %s", path)
         return "placement failed", []

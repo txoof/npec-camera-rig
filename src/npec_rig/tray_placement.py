@@ -144,7 +144,7 @@ def _inside(point: tuple[float, float], corners: tuple[tuple[float, float], ...]
     return len(signs) < 2
 
 
-def name_trays(outlines: list[TrayOutline], detections: list[TagDetection], scale_field: ScaleField) -> list[TrayPlacement]:
+def name_trays(outlines: list[TrayOutline], detections: list[TagDetection]) -> list[TrayPlacement]:
     """Each outline found in the photo named by the tray tag whose centre lies inside it, wherever
     the tag lies in the tray (#331): its place in the tray is never used. A tray tag inside no
     outline is reported where it lies, with no outline: the tray was not found in the photo (not
