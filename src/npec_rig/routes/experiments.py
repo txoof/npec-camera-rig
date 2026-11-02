@@ -177,12 +177,15 @@ _CELL = 110
 _LOCATION_CELLS = {location: (i % 3, i // 3) for i, location in enumerate(dwell.LOCATIONS)}
 _LOCATION_TINTS = {"NW": "#2f5f91", "NM": "#2e7556", "NE": "#6e5596", "SW": "#8c5f2b", "SM": "#56742f", "SE": "#8a3c5b"}
 # The all trays timeline (Aaron, 2026-11-02): a row per tray on one time axis, in drawing units,
-# scaled to the space on the page. Names fit inside pieces this wide, smaller down to the second.
+# scaled to the space on the page: about 1 px per unit at 1024 px wide (the page less the rail
+# and the scroll lane), so no text is under 13 units, at least 12 px there. Names fit inside
+# pieces this wide; a narrower piece is named right of the strips (the last stay) or in the list
+# of short stays.
 _TIMELINE_LABEL_W = 80
 _TIMELINE_W = 680
 _TIMELINE_MARGIN = 40  # right of the strips: the name of a short last stay
 _ROW_H, _ROW_GAP = 28, 8
-_NAME_W, _SMALL_NAME_W = 30, 18
+_NAME_W = 30
 
 
 def _now() -> str:
@@ -245,8 +248,7 @@ def _timeline(rows: list[tuple[int, list[dwell.Stay]]], begin: datetime, end: da
         for n, stay in enumerate(stays):
             x1 = x(stay.start)
             width = max(x(stay.end) - x1, 2.0)
-            name = ("inside" if width >= _NAME_W else "small" if width >= _SMALL_NAME_W
-                    else "after" if n == len(stays) - 1 else "listed")
+            name = "inside" if width >= _NAME_W else "after" if n == len(stays) - 1 else "listed"
             if name == "listed":
                 short.append(f"tray {tray_id} {stay.location} {_when(stay.start)}")
             pieces.append({"location": stay.location, "x": x1, "w": width, "mid": round(x1 + width / 2, 1),

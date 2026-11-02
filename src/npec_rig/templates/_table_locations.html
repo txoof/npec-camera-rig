@@ -23,7 +23,7 @@
   <svg viewBox="0 0 {{ tl.w }} {{ tl.height + 30 }}" width="100%" role="img" aria-label="Location over time, all trays">
     {% for k in tl.ticks %}
       <line x1="{{ k.x }}" y1="0" x2="{{ k.x }}" y2="{{ tl.height + 4 }}" style="stroke: var(--line)" stroke-width="1"></line>
-      {% if k.label %}<text x="{{ k.mid }}" y="{{ tl.height + 20 }}" font-size="12" text-anchor="middle" style="fill: var(--fg-2)">{{ k.label }}</text>{% endif %}
+      {% if k.label %}<text x="{{ k.mid }}" y="{{ tl.height + 20 }}" font-size="13" text-anchor="middle" style="fill: var(--fg-2)">{{ k.label }}</text>{% endif %}
     {% endfor %}
     {% for r in tl.rows %}
       <g role="img" aria-label="{{ r.label }}">
@@ -32,10 +32,8 @@
           <rect x="{{ p.x }}" y="{{ r.y }}" width="{{ p.w }}" height="28" fill="{{ p.tint }}" style="stroke: var(--surface)" stroke-width="1"></rect>
           {% if p.name == "inside" %}
             <text x="{{ p.mid }}" y="{{ r.y + 19 }}" font-size="13" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.location }}</text>
-          {% elif p.name == "small" %}
-            <text x="{{ p.mid }}" y="{{ r.y + 18 }}" font-size="9" font-weight="700" text-anchor="middle" style="fill: var(--fg)">{{ p.location }}</text>
           {% elif p.name == "after" %}
-            <text x="{{ p.end }}" y="{{ r.y + 19 }}" font-size="12" font-weight="700" style="fill: var(--fg)">{{ p.location }}</text>
+            <text x="{{ p.end }}" y="{{ r.y + 19 }}" font-size="13" font-weight="700" style="fill: var(--fg)">{{ p.location }}</text>
           {% endif %}
         {% endfor %}
       </g>
