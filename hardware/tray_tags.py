@@ -33,7 +33,7 @@ OUTPUT = scad_to_3mf.EXPORTS / "tray_tags"  # one subfolder per tray type
 # (first id, last id, tray type)
 TRAY_TYPES = [
     (1, 75, "4x5"),
-    (76, 150, "4x4"),
+    (76, 150, "2x2"),
     (151, 225, "1x1"),
     (226, 250, "black_tray"),
     (251, 299, "OTHER"),
@@ -42,7 +42,7 @@ TRAY_TYPES = [
 STYLES = ("lip_round", "tab", "bolt", "lip", "lip_bolt", "disc")  # tag_style values in apriltag_tray_tag.scad
 
 # style used when a group does not name one
-DEFAULT_STYLE = {"4x5": "lip_round", "4x4": "lip", "1x1": "lip_bolt", "black_tray": "disc",
+DEFAULT_STYLE = {"4x5": "lip_round", "2x2": "lip", "1x1": "lip_bolt", "black_tray": "disc",
                  "OTHER": "tab"}
 
 
@@ -146,12 +146,12 @@ examples:
       ids 1 to 12, 4x5, lip_round (the default for 4x5)
       -> exports/tray_tags/4x5/{SCAD.stem}_4x5_1-12_lip_round.3mf
   tray_tags.py 1-12 13-24 101-112
-      three files: 4x5 1-12 lip_round, 4x5 13-24 lip_round, 4x4 101-112 lip
+      three files: 4x5 1-12 lip_round, 4x5 13-24 lip_round, 2x2 101-112 lip
   tray_tags.py 1-12:tab
       ids 1 to 12, 4x5, the 20 mm tab tag instead of the default lip_round
       -> exports/tray_tags/4x5/{SCAD.stem}_4x5_1-12_tab.3mf
   tray_tags.py 1-6 7-12:bolt 101-106:tab 107-112
-      four files, styles mixed: 4x5 lip_round, 4x5 bolt, 4x4 tab, 4x4 lip
+      four files, styles mixed: 4x5 lip_round, 4x5 bolt, 2x2 tab, 2x2 lip
   tray_tags.py 7:bolt
       a single tag, id 7, bolt
   tray_tags.py 226-237
@@ -161,7 +161,7 @@ examples:
       lay the tags flat instead of on their side, write to ~/prints
 
 refused, nothing exported:
-  tray_tags.py 70-80      crosses 4x5 and 4x4; use 70-75 76-80
+  tray_tags.py 70-80      crosses 4x5 and 2x2; use 70-75 76-80
   tray_tags.py 0-10       ids start at 1
   tray_tags.py 295-305    ids end at 299 (300-449 are calibration sheets)
   tray_tags.py 1-12:clip  not a style
