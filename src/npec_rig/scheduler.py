@@ -11,7 +11,7 @@ import math
 import threading
 from datetime import UTC, datetime, timedelta
 
-from npec_rig import captures, database
+from npec_rig import captures, database, images
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +149,7 @@ class Scheduler:
                     return 0.0
                 array, record = captures.take_photo("capture")
                 del array
+                images.release_freed_memory()  # the full-size frame is gone (#348)
                 # Stop pressed while the photo was taken: it was saved as a rig photo.
                 if (record["experiment"] or {}).get("id") == experiment["id"]:
                     slots.append((slot, due_at, record["capture_id"], None))

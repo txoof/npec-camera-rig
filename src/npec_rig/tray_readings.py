@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 import numpy as np
 from PIL import Image
 
-from npec_rig import database, dwell, exclusions, photo_tags, segmentation, validation_store
+from npec_rig import database, dwell, exclusions, images, photo_tags, segmentation, validation_store
 from npec_rig.captures import photo_file
 from npec_rig.calibration_store import (
     CalibrationNotFoundError,
@@ -264,11 +264,11 @@ def outside_mm(p: TrayPlacement, size: tuple[int, int]) -> float:
 
 def _segment(path: str) -> np.ndarray:
     """A new mask of photo `path`, saved for Reprocess."""
-    with Image.open(photo_file(path)) as image:
-        # One copy of the 64MP photo (about 190 MB): convert() would make a second.
-        rgb = np.asarray(image if image.mode == "RGB" else image.convert("RGB"))
-    mask = SEGMENTER.segment(rgb)
-    del rgb
+    # One full-size photo at a time, shared with the tag search (images.py, #348).
+    with images.full_decode_slot():
+        rgb = images.decode_full(photo_file(path))
+        mask = SEGMENTER.segment(rgb)
+        del rgb
     segmentation.save_mask(path, mask)
     return mask
 
@@ -395,6 +395,8 @@ class TrayReader:
             except Exception:
                 logger.exception("Could not record the failed reading of %s", path)
                 self._stop.wait(POLL_S)
+        finally:
+            images.release_freed_memory()  # a full-size photo was decoded (#348)
 
 
 # --- Reprocess (#75) ----------------------------------------------------------------------------

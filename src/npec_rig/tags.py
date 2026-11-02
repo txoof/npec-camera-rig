@@ -119,11 +119,25 @@ def detect_tags(frame: np.ndarray) -> list[TagDetection]:
     Channel order doesn't otherwise matter here -- `to_grayscale` handles it, and the detector
     only ever sees the grayscale result.
     """
-    gray = to_grayscale(frame).astype(np.uint8) if frame.ndim == 3 else frame
+    gray = _grayscale_uint8(frame) if frame.ndim == 3 else frame
     detections = [d for d in _detect(gray, _detector_parameters()) if d.tag_id not in TRAY_ID_RANGE]
     detections += [d for d in _detect(gray, _tray_detector_parameters()) if d.tag_id in TRAY_ID_RANGE]
     detections.sort(key=lambda d: d.tag_id)
     return detections
+
+
+GRAY_STRIP_ROWS = 256
+
+
+def _grayscale_uint8(frame: np.ndarray) -> np.ndarray:
+    """`to_grayscale(frame).astype(np.uint8)`, worked out a strip of rows at a time: the same
+    arithmetic on every pixel, so the same values, but the float64 temporaries are one strip
+    (about 20 MB) instead of the whole 64MP frame (three of about 500 MB each, #348)."""
+    gray = np.empty(frame.shape[:2], dtype=np.uint8)
+    for top in range(0, frame.shape[0], GRAY_STRIP_ROWS):
+        rows = slice(top, top + GRAY_STRIP_ROWS)
+        gray[rows] = to_grayscale(frame[rows]).astype(np.uint8)
+    return gray
 
 
 def _detect(gray: np.ndarray, params: cv2.aruco.DetectorParameters) -> list[TagDetection]:
