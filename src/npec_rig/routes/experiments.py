@@ -293,7 +293,9 @@ def _table_locations(experiment: dict) -> dict:
         now_location = last.location if end - last.end <= database.NOT_SEEN_FOR else None
         warning = warned.get(tray_id)
         here_h = warning["hours"] if warning else (end - last.start) / timedelta(hours=1)
-        moves = [(a.location, b.location) for a, b in zip(stays, stays[1:])]
+        # A new stay in the same location (the tray taken away over 48 hours and back) is no move.
+        pairs = [(a, b) for a, b in zip(stays, stays[1:]) if a.location != b.location]
+        moves = [(a.location, b.location) for a, b in pairs]
         trays.append({
             "tray_id": tray_id,
             "hidden": False,
@@ -305,7 +307,7 @@ def _table_locations(experiment: dict) -> dict:
             ],
             "now": None if now_location is None else f"Now in {now_location}, {_days(here_h)}",
             "arrows": _map_arrows(moves),
-            "moves": [f"{n}. {a} to {b}, {_when(stay.start)}" for n, ((a, b), stay) in enumerate(zip(moves, stays[1:]), start=1)],
+            "moves": [f"{n}. {a.location} to {b.location}, {_when(b.start)}" for n, (a, b) in enumerate(pairs, start=1)],
         })
     return {
         **setting,

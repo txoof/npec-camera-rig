@@ -84,15 +84,22 @@ class Stay:
 def stays(readings: Iterable[tuple[datetime, str]]) -> list[Stay]:
     """One tray's stays, oldest first, from its readings: (time, location) for each read photo the tray
     was found in. A photo the tray was not found in has no reading: misses and the tray taken off
-    the table for a while do not break a stay. A tray found in another location starts a new stay only
+    the table for up to `database.NOT_SEEN_FOR` do not break a stay; missing longer, it was taken
+    away, its stay ended at its last photo and it starts a new one when found again, even in the
+    same location (Aaron, 2026-10-30). A tray found in another location starts a new stay only
     once it has been found there for `MOVE_AFTER`, from the first to the last photo in a row; it is
     then in the new location from its first photo there. A shorter stay elsewhere is part of the stay
     it left and came back to."""
     out: list[Stay] = []
     away: list[tuple[datetime, str]] = []  # readings elsewhere since the last one in out[-1].location
+    last: datetime | None = None
     for taken_at, location in sorted(readings):
-        if not out:
+        # Missing over NOT_SEEN_FOR, it was taken away: its stay ended at its last photo.
+        gone = last is not None and taken_at - last > database.NOT_SEEN_FOR
+        last = taken_at
+        if not out or gone:
             out.append(Stay(location, taken_at, taken_at))
+            away = []
         elif location == out[-1].location:
             out[-1] = Stay(location, out[-1].start, taken_at)
             away = []

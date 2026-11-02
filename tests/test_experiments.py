@@ -358,9 +358,11 @@ def test_a_tray_over_its_limit_in_one_location_is_warned_for_on_the_page_in_word
     experiment = client.post("/api/experiments", json={}).json()
     client.post(f"/api/experiments/{experiment['id']}/start")
     now = datetime.now(UTC)
+    # Never missing over 48 hours (database.NOT_SEEN_FOR): that would end a stay.
     table_photo(experiment["id"], now - timedelta(days=5), {7: "NW"})
-    table_photo(experiment["id"], now - timedelta(days=3), {7: "NW", 8: "SE"})
-    table_photo(experiment["id"], now - timedelta(hours=1), {7: "NW", 8: "SE"})
+    table_photo(experiment["id"], now - timedelta(days=4), {7: "NW"})
+    for ago in (timedelta(days=3), timedelta(days=1.5), timedelta(hours=1)):
+        table_photo(experiment["id"], now - ago, {7: "NW", 8: "SE"})
 
     page = client.get(f"/experiments/{experiment['id']}/table-locations")
     assert page.status_code == 200
@@ -381,7 +383,9 @@ def _two_trays_running(client) -> int:
     experiment = client.post("/api/experiments", json={}).json()
     client.post(f"/api/experiments/{experiment['id']}/start")
     now = datetime.now(UTC)
+    # Never missing over 48 hours (database.NOT_SEEN_FOR): that would end a stay.
     table_photo(experiment["id"], now - timedelta(days=5), {7: "NW"})
+    table_photo(experiment["id"], now - timedelta(days=3), {7: "NW"})
     table_photo(experiment["id"], now - timedelta(days=1), {7: "NW", 12: "SE"})
     table_photo(experiment["id"], now - timedelta(hours=1), {7: "NW", 12: "SE"})
     return experiment["id"]
@@ -474,3 +478,25 @@ def test_the_panel_stacks_every_shown_tray_on_one_timeline_and_leaves_out_hidden
     assert 'aria-label="Tray 7 over time: NW"' in page
     assert "Tray 12 over time" not in page
     assert "Hidden from this timeline: tray 12." in page
+
+
+def test_a_tray_taken_away_and_back_in_the_same_location_is_not_a_move_on_the_panel() -> None:
+    """#332: missing over 48 hours ends a stay; back in NW, the new stay is in NW, not a move."""
+    from datetime import UTC, datetime, timedelta
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    client = TestClient(app)
+    experiment = client.post("/api/experiments", json={}).json()
+    client.post(f"/api/experiments/{experiment['id']}/start")
+    now = datetime.now(UTC)
+    table_photo(experiment["id"], now - timedelta(days=4), {7: "NW"})
+    table_photo(experiment["id"], now - timedelta(hours=1), {7: "NW"})
+
+    page = client.get(f"/experiments/{experiment['id']}/table-locations")
+    assert page.status_code == 200
+    assert "NW to NW" not in page.text

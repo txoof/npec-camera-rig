@@ -145,11 +145,12 @@ def _read(experiment_id: int, when: str, trays: dict[int, str]) -> None:
 
 
 def test_a_tray_4_days_in_a_row_in_one_location_is_over_the_limit_and_one_less_is_not() -> None:
-    """Tray 8, from 1 hour later and missing from the last photo, is 1 hour short."""
+    """Tray 8, from 1 hour later and missing from the last photo, is 1 hour short. A photo a day:
+    never missing over 48 hours."""
     experiment_id = _experiment()
     _read(experiment_id, "01-01T00:00", {7: "NW"})
-    _read(experiment_id, "01-01T01:00", {7: "NW", 8: "SE"})
-    _read(experiment_id, "01-04T23:00", {7: "NW", 8: "SE"})
+    for when in ("01-01T01:00", "01-02T12:00", "01-03T12:00", "01-04T23:00"):
+        _read(experiment_id, when, {7: "NW", 8: "SE"})
     _read(experiment_id, "01-05T00:00", {7: "NW"})
 
     assert dwell.over_limit(experiment_id, at=_t("01-05T00:00").isoformat()) == [
@@ -160,7 +161,7 @@ def test_a_tray_4_days_in_a_row_in_one_location_is_over_the_limit_and_one_less_i
 
 def test_the_warning_clears_once_the_tray_has_been_in_another_location_for_an_hour() -> None:
     experiment_id = _experiment()
-    for when in ("01-01T00:00", "01-05T00:00", "01-05T10:00"):
+    for when in ("01-01T00:00", "01-03T00:00", "01-05T00:00", "01-05T10:00"):
         _read(experiment_id, when, {7: "NW"})
     for when in ("01-05T10:30", "01-05T11:29", "01-05T11:30"):
         _read(experiment_id, when, {7: "SM"})
@@ -208,8 +209,8 @@ def test_each_trays_hours_in_each_location_over_the_experiment() -> None:
 def test_a_tray_missing_over_48_hours_was_taken_away_and_is_not_warned_for(last, at, warned) -> None:
     """Aaron, 2026-10-30: #331's rule, database.NOT_SEEN_FOR. Limit 4 days, in NW from day 0."""
     experiment_id = _experiment()
-    _read(experiment_id, "01-01T00:00", {7: "NW"})
-    _read(experiment_id, last, {7: "NW"})
+    for when in ("01-01T00:00", "01-02T12:00", last):  # never missing over 48 hours before `last`
+        _read(experiment_id, when, {7: "NW"})
 
     assert dwell.over_limit(experiment_id, at=_t(at).isoformat()) == warned
 
@@ -226,7 +227,19 @@ def test_a_tray_missing_over_48_hours_was_taken_away_and_is_not_warned_for(last,
 def test_a_tray_over_the_limit_then_missing_over_48_hours_is_no_longer_warned_for(at, warned) -> None:
     """In NW from day 0 (1 January), photos until day 5, none after. Limit 4 days."""
     experiment_id = _experiment()
-    for when in ("01-01T00:00", "01-03T00:00", "01-06T00:00"):
+    for when in ("01-01T00:00", "01-03T00:00", "01-04T12:00", "01-06T00:00"):
         _read(experiment_id, when, {7: "NW"})
 
     assert dwell.over_limit(experiment_id, at=_t(at).isoformat()) == warned
+
+
+def test_a_tray_away_over_48_hours_and_back_in_the_same_location_starts_a_new_stay() -> None:
+    """Aaron, 2026-10-30: missing over 48 hours (database.NOT_SEEN_FOR) is taken away; it stops
+    counting, and back on the table it counts from a new stay. In NW day 0 to day 1, gone 4 days,
+    back in NW day 5 for 6 hours. Limit 4 days."""
+    experiment_id = _experiment()
+    for when in ("01-01T00:00", "01-02T00:00", "01-06T00:00", "01-06T06:00"):
+        _read(experiment_id, when, {7: "NW"})
+
+    assert dwell.over_limit(experiment_id, at=_t("01-06T06:00").isoformat()) == []
+    assert dwell.hours_per_location(experiment_id)[7]["NW"] == 24.0 + 6.0
