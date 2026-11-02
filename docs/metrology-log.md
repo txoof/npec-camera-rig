@@ -6755,12 +6755,136 @@ labels show the mismatch, not results.
 **Limits of the evidence.** One still; truth by position, not by tag; plant identity across the
 split pieces not checked one by one. Placing trays from the photo rather than from slots is #328.
 
+## 20. Finding trays from the photo (issue #328, method written 2026-10-29, before the results)
+
+**Label: development check.** Several ways of outlining each tray from the photo itself, rather than
+from a slot, compared on stored stills. This is the first round of the "test before use" of #328
+(decision 9): it chooses which methods go on to the full test, and does not itself clear a method
+for use.
+
+*Stills (read only, copied to the controller; nothing written on the rigs' data).*
+
+| Set | Rig, experiment | Stills | Trays | Known answer |
+|---|---|---|---|---|
+| prod | production, `2026-10-22_df206967` (Potato Plants v001), 2026-10-29 08:30 to 14:30 UTC, one per 30 min | 13 | 12 tagged 4x5, touching within two rows of six; sheets, cards and green squares on parts of 5 trays | the rig's tag placement (`tray_placement.place_trays`, good to about 10 mm, 15.5l) |
+| dev | development, `2026-10-28_8cb40de9`, same times | 13 | 9 untagged 2x2, five north and four south; two layouts (trays moved about 12:15 UTC, two north trays then touching) | top-rim corners marked by eye on full-size crops, repeatable to about 5 px (1 mm); North 1 lies partly outside the frame and is not scored |
+| hard | production, `2026-10-19_ad4876e5` ("simple segmentation test"), the 18 shuffle stills of 15.5 | 18 | 12 tagged 4x5 full of pots, with gaps and touching within rows | the tag placement; it matches the shuffle plan in every still. Tags not detected (tag 5 in 3 stills, tag 1 in 1) leave that tray unscored |
+
+FastSAM-s ran on the development rig's Hailo-10H (Hailo Model Zoo v5.1.0 HEF) over every still at
+three tile sizes (the whole still, 4096 px and 2560 px tiles, objects with score 0.05 or more), one
+still per process with memory capped at 1.5 GB (two runs of several stills per process were killed
+after 4 stills each). The finders run on the controller.
+
+*Scoring, set before the results.* A tray is found when an outline's centre lies within 30 mm of the
+known centre (the distance of decision 2) and the two outlines overlap by at least 80% (intersection
+over union, a guard against an outline of two trays or half a tray), and, where both carry a tray
+ID, the IDs agree. Also counted: outlines that match no tray. Good (Aaron, 2026-10-29): 12 of 12 on
+every prod and hard still, at least 7 of the 8 scored trays on every dev still.
+
+*Methods.* A: FastSAM objects on the blue plastic; B: a blue colour threshold; C: the tag placement
+alone (baseline; finds no untagged tray); D: blue regions first, then rims, seams and corner bumps;
+E: tray-sized rectangles fitted to the whole picture at once. With a tag, the tag decides which tray
+it is. Each method may use only the still, its tags, its scale and the known tray size (305 x 366
+mm), never the known answer or the number of trays. Code: `experiments/round3-tray-outlines/`.
+
+**Limits of the evidence (set before the results).** Three experiments on two rigs; 4x5 and 2x2
+trays only (not the 1x1 or black trays); stills within a set are mostly repeats of one or two
+layouts, so they test steadiness more than variety; the prod and hard known answer is the tag
+placement, so a method that agrees with the tag is not shown to beat it. Methods were developed on
+the same stills they are scored on; the full test of decision 9 needs stills not used here.
+
+*Result (2026-10-29; scores copied 2026-11-02 from `~/scratch/sam297/328-99-comparison-1/notes.txt`,
+kept as `experiments/round3-tray-outlines/first-round-scores.txt`).* Each method's best run, made
+by `compare.py`. "Worst / mean" is the trays found on the worst still and on average; "extra" is
+outlines matching no tray, per still; "median mm" is the median distance from the known centre.
+The time leaves out FastSAM's own 15 to 20 s per still on the Hailo.
+
+| Run | prod worst / mean (of 12) | dev worst / mean (of 8) | hard worst / mean (of 11) | Extra per still (prod / dev / hard) | Median mm (prod / dev / hard) | s per still |
+|---|---|---|---|---|---|---|
+| C tag (v2, baseline) | 12 / 12 | 0 / 0 | 11 / 11.78 | 0 / 0 / 0 | 0 / - / 0 | 0 |
+| B blue, with tags (v7) | 12 / 12 | 8 / 8 | 11 / 11.78 | 0 / 0 / 0.22 | 2.5 / 2.1 / 4 | 0.5 |
+| B blue, photo only (v7p) | 12 / 12 | 8 / 8 | 11 / 11.78 | 0 / 0 / 0.22 | 3.3 / 1.8 / 8.3 | 0.3 |
+| D rims, with tags (v3) | 12 / 12 | 8 / 8 | 11 / 11.78 | 0 / 0 / 0.22 | 3.7 / 3.8 / 8.9 | 0.5 |
+| D rims, tags hidden (v3) | 12 / 12 | 8 / 8 | 11 / 11.78 | 0 / 0 / 0.22 | 3.4 / 3.8 / 9.6 | 0.6 |
+| A FastSAM, with tags (v5b) | 12 / 12 | 8 / 8 | 9 / 11.5 | 0 / 0.08 / 4.44 | 3.9 / 2.8 / 5.4 | 1.5 |
+| A FastSAM, photo only (p5b) | 12 / 12 | 8 / 8 | 2 / 6.06 | 0 / 0.08 / 0.22 | 3.9 / 2.8 / 22.9 | 1.5 |
+| E fitting (v4) | 12 / 12 | 8 / 8 | 11 / 11.78 | 0 / 0 / 0.17 | 3.9 / 2.3 / 8.7 | 13.1 |
+
+The hard set's "of 11" counts the trays scored on its worst still (one tag not read); its mean
+is over all scored trays, so it can be above 11. B and D, in both versions, met the target on all
+three sets and went on to the held-out test (20.1). A FastSAM missed trays on the hard set (worst
+still 9 and 2), and with tags added 4.44 outlines per still matching no tray; E fitting met the
+target but took 13 s per still. Both were left out of 20.1. The tag baseline finds no untagged
+2x2 tray.
+
+*Figure.* `docs/figures/20/sheet-hard-121231_081714.jpg`: one hard-set still (12 trays full of
+pots, touching in rows of six) with every run's outlines side by side; made by `compare.py`,
+copied 2026-11-02 from `~/scratch/sam297/328-99-comparison-1/`.
+
+![Hard-set still, every finder's outlines side by side](figures/20/sheet-hard-121231_081714.jpg)
+
+### 20.1 Held-out stills, truth by inspection (method written 2026-10-29, before the truth)
+
+**Label: development check.** The finders frozen at commit `49c868e` (B blue v7 with tags and photo
+only, D rims v3 with tags and with tags hidden; A FastSAM and E fitting left out after the first
+round) on 24 stills used for no tuning: production experiments `631bb6b5`, `44a9e96e`, `17cb7bfb`,
+`57f74959`, `c2c49f62`, `e7a53c3e` and `df206967` (12 to 28 October: pots, empty trays, calibration
+sheets on every tray, edge tags, cards and squares) and development `907f12cd` and `8cb40de9`
+(23 and 28 October, today after 16:00), each with the calibration its photo was taken under. One
+still per rig is in the dark (lights off): no tray should be found. Chosen from 53 stills spread
+evenly over every experiment and day, for variety, by looking at a contact sheet.
+
+*Truth.* Aaron, by inspecting each still's sheet (`~/scratch/sam297/328-held-1/`, outlines
+numbered): the trays really there, and per finder which outlines are wrong and which trays are
+missed. Scored as in section 20: a tray found, missed, an outline wrong, an outline matching no
+tray.
+
+*Result (Aaron's inspection, 2026-10-29; `experiments/round3-tray-outlines/heldout-truth.json`).*
+The sheets were first drawn with the photo-only outlines in light blue, which Aaron could not see
+on the blue trays; they were redrawn in red (`~/scratch/sam297/328-held-2/`, the same outlines)
+and the red outlines rechecked on every still answered before. On still 22 Aaron answered
+"everything right"; the agent then saw that the rims method with tags hidden had 11 outlines and
+missed South 1 under a paper sheet, and it is scored wrong.
+
+| Finder | Stills right, of 22 lit | Wrong on |
+|---|---|---|
+| B blue, photo only | **22** | none |
+| D rims, tags hidden | 14 | 1, 4, 5, 22 (one tray missed, the tray at a frame edge or under a sheet); 14, 15 (south row missed under sheets); 16 (North 6 missed); 7 (a row of 6 extra outlines) |
+| B blue, with tags | 13 | 6, 8, 9, 10, 11, 14, 15, 16, 17 (extra and overlapping outlines) |
+| D rims, with tags | 12 | 1 (South 1 missed); 6, 8, 9, 10, 11, 14, 15, 16, 17 (outlines shifted or extra) |
+
+Both dark stills: no tray found by any finder, as it should be.
+
+- **The photo-only blue finder was right on every still**, both rigs, every kind of scene: trays
+  full of pots, empty trays, calibration sheets on every tray, soil, cards, 2x2 trays.
+- **Every failure of the tag versions comes from tags not placed as the 4x5 cell-A1 tag**: the
+  20 mm edge tags of 15 to 19 October (IDs 13 to 24, and 0 to 17 in pairs) and the tags of the 12
+  to 15 October layout. The tag placement then disagrees with the photo, and the finder returns
+  the tag's tray at the wrong place, or twice (once from the tag, once from the photo). The
+  rims finder with tags shifted outlines with no warning (still 14).
+- The rims finder alone (tags hidden) misses trays whose rims are covered or at the frame edge.
+
+*Figures.* `docs/figures/20.1/held-14-prod_631bb6b5_20261012_133117_986053.jpg`: calibration
+sheets on every tray, 12 October; red (photo only) right, green overlapping, yellow shifted right,
+purple missing the south row. `docs/figures/20.1/held-09-prod_44a9e96e_20261015_120350_220119.jpg`:
+18 tags including edge tags, 15 October; red and purple right, green and yellow with outlines
+everywhere. Both from `heldout.py`, scaled down.
+
+![Held-out still 14, calibration sheets on every tray](figures/20.1/held-14-prod_631bb6b5_20261012_133117_986053.jpg)
+
+![Held-out still 9, edge tags](figures/20.1/held-09-prod_44a9e96e_20261015_120350_220119.jpg)
+
+**Limits of the evidence.** 24 stills, chosen for variety by eye, not at random; truth by one
+person's inspection of quarter-size pictures, so an outline a few mm off its rim is not judged;
+2x2 and 4x5 trays only (no 1x1 or black trays); the finders return which tray from tags only in
+the tag versions, so the photo-only finder's outlines carry no tray ID: joining them to tags is the
+next step, and must not repeat the tag versions' failures.
+
 ## 21. Trays found from the photo in the app, named by the tag inside them (issue #331)
 
-The blue finder of section 20 (photo only; sections 20 and 20.1 are on branch `328-tray-outlines`
-until it is merged), built into the app: `tray_placement.find_outlines` finds each tray's outline
-from its lit blue rim on a quarter-size copy of the photo, at the calibration's scale at each
-tray; `tray_placement.name_trays` names each outline by the tray tag whose centre lies inside it
+The blue finder of section 20 (photo only), built into the app: `tray_placement.find_outlines`
+finds each tray's outline from its lit blue rim on a quarter-size copy of the photo, at the
+calibration's scale at each tray; `tray_placement.name_trays` names each outline by the tray tag whose centre lies inside it
 (Aaron, 2026-10-29, replacing decision 2 of #328). Slots are not used. A tray tag inside no outline
 is reported as seen, with no outline and no area: placing a tray from its tag (section 15.5) is
 dropped, because it assumes the tag lies in cell A1 and put trays about 176 mm off for tags lying

@@ -452,6 +452,20 @@ metrology log backs it.
 - **Tray identity under plants.** Plants near or over a tag are not tested (the trays had no
   plants).
 
+### Trays found from the photo (round 2, 2026-10-29)
+
+- **Tray outlines from the blue plastic.** Outlining each tray from its lit blue rim, using the
+  photo only, was right on 22 of 22 lit held-out stills (metrology log 20.1, judged by Aaron's
+  inspection; 24 stills from 9 experiments on both rigs, 12 to 28 October, with pots, empty
+  trays, calibration sheets on every tray, edge tags, cards, 4x5 and 2x2 trays), and found no
+  tray in the 2 dark stills. The versions that also used tags were wrong on 9 and 10 of the 22,
+  every time because a tag did not lie in cell A1 of a 4x5 tray; a rims method with tags hidden
+  was wrong on 8, missing trays under sheets or at the frame edge. On the 44 tuning stills (20)
+  the method met its target on every set. This method is what the app uses (21); placing a tray
+  from its cell A1 tag, the round 1 step above, is no longer used. Not shown: an outline against
+  a measured tray edge (outlines were judged by eye on quarter-size pictures); stills picked at
+  random; 1x1 or black trays.
+
 ### Flat-target bands (M2, to 2026-10-14)
 
 - **Segmentation.** Telling plant from background was not part of M2. Round 1 measured a green
