@@ -127,6 +127,19 @@ def detect_tags(frame: np.ndarray) -> list[TagDetection]:
 
 
 GRAY_STRIP_ROWS = 256
+# OpenCV's threads for the whole app (#348). The tag search on a 64MP photo builds one thresholded
+# copy per window size per thread: measured 2026-11-02 on npec-rig-01, one photo read peaked at
+# 3.0 to 3.2 GB with OpenCV's default 4 threads, 1.84 GB with 2 and 1.23 GB with 1, with the same
+# tags and masks each time and no clear change in time (about 17 s; 11 to 18 s with 4 threads).
+OPENCV_THREADS = 1
+
+
+def limit_opencv_threads() -> None:
+    """Run OpenCV on `OPENCV_THREADS` threads. Called once at app start. The results do not
+    change: OpenCV puts each window size's tags together in the same order whatever the count."""
+    cv2.setNumThreads(OPENCV_THREADS)
+
+
 
 
 def _grayscale_uint8(frame: np.ndarray) -> np.ndarray:
