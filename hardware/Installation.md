@@ -235,7 +235,7 @@ Do not attach the camera to the camera mount yet. This step establishes the coar
 
 #### Fiducial Tag Installation
 
-The 50mm fiducial tags need to be installed on the North and South edges of the table. They are located at the NW, SW, NE, SE corners. They are NOT located on the East and West edges of the table. Refer to the conventions illustration above. Attach the 50mm April Tags using XXX method The tags should be level with the floor and flush with the top edge of the table. It is not important which of the 50mm tags are used as long as all four are unique within this chamber.
+The 50mm fiducial tags need to be installed on the North and South edges of the table. They are located at the NW, SW, NE, SE corners. They are NOT located on the East and West edges of the table. Refer to the conventions illustration above. Attach the 50mm April Tags using the 20mm compatible t-slot nuts and M5 bolts to the top edge of the table. The tags should be level with the floor and flush with the top edge of the table. It is not important which of the 50mm tags are used as long as all four are unique within this chamber. The tags should face (inside/outside) the table.
 
 Measure from the the outside of the table (not the leg) edge to the edge of the black border.
 
@@ -276,4 +276,114 @@ It is extremely difficult to work over the table. It is significantly easier to 
 
 ## Calibration and Setup
 
-The camera should be 
+Calibration measures how many pixels make a millimetre across the table. Validation checks how far an area can be trusted in each tray slot. Plant data counts only after both are done.
+
+**Requirements**
+
+- The rig installed and running (see [Camera Mount Installation](#camera-mount-installation))
+- The rig's IP address, noted during [WiFi Setup](#wifi-setup)
+- 12 trays at their normal height
+- 12 printed calibration sheets, 30 mm tags, IDs 300 to 449, all from one print run
+  - PDF: [apriltags-36h11-30mm-a4-300-449.pdf](../reference/calibration-sheets/apriltags-36h11-30mm-a4-300-449.pdf)
+- 4 corner tags, 50 mm, fixed to the table edges (see [Fiducial Tag Installation](#fiducial-tag-installation))
+  - PDF: [apriltags-36h11-50mm-a4-450-499.pdf](../reference/calibration-sheets/apriltags-36h11-50mm-a4-450-499.pdf)
+  - How the sheets were made: [reference/calibration-sheets/README.md](../reference/calibration-sheets/README.md)
+- Callipers
+- About 45 minutes. Validation alone takes at least 20 minutes.
+
+#### Before You Start
+
+1. Print the sheets at 100% / actual size. Do not use "fit to page".
+2. Check each print against the ruler on page 1 of its PDF.
+3. Measure one tag on each printed sheet with the callipers. Write down the size in mm. A sheet printed at 96% once got mixed in and read about 8% small in area.
+4. Remove spare and cut-off tag prints from the chamber. The rig reads every tag it can see, even in a waste bin.
+5. Place the 12 trays in two rows of six, long edge north/south.
+6. Open `http://<rig IP>:8000/setup/calibration` in a browser.
+
+#### Step 1: Sheets
+
+1. Lay one calibration sheet on every tray, inside the tray rim, not over it.
+2. Press each sheet down along all four edges.
+3. Check that all four corners touch the tray and nothing is under the sheet.
+4. Leave the corner tags where they are.
+5. Press **Next**.
+
+#### Step 2: Focus
+
+1. Tap the **Live view** on the area you want sharp.
+2. Press **Autofocus**, or set the lens with **Coarse** and **Fine** while watching the **Magnified view**.
+3. Check the image is neither too dark nor washed out. If needed, turn off **Auto exposure**, change **Exposure** first, and **Gain** only if needed.
+4. When the magnified view is as sharp as it gets, press **Lock focus**.
+5. Wait until the status reads "Focus is locked at" a lens position.
+6. Press **Next**.
+
+The focus position is the experimenter's choice. Pick what suits the plants and trays.
+
+#### Step 3: Square
+
+1. Make sure the East side of the table (opposite the drain) is in view.
+2. Drag the magenta handles so each line sits on a table edge. On a keyboard: **1**, **2** or **3** picks a line, **W A S D** or the arrow keys move it.
+3. If the lines do not follow the edges, the camera is rotated or tilted. Adjust the rig and check again.
+4. Turn on **Corner rings**.
+5. Nudge the rig until all four rings are green.
+6. Press **Next**.
+
+If the rig was moved, go back to Step 2 and lock focus again.
+
+#### Step 4: Run
+
+1. Enter the tag size from [Before You Start](#before-you-start) in **Calibration tag size**.
+2. Leave **Make this the current baseline** on.
+3. Check that every line in **Ready to run?** is green.
+4. Press **Run calibration**. Wait for the result.
+5. Press **Next**.
+
+#### Step 5: Report
+
+1. Read each line of the report table.
+2. If coverage is weak somewhere, press **Open diagnostics** to see where.
+3. Add a sheet there and press **Run again**.
+4. Press **Next**.
+
+#### Step 6: Validate
+
+1. Leave the sheets where they are.
+2. Press **Start validation**. The Validation page opens.
+3. Check that the page shows "Focus: locked" at the calibration's lens position.
+4. Press **Start validation**.
+
+#### Validation Rounds
+
+Repeat 3 times:
+
+1. Leave the trays where they are.
+2. Move each sheet to a different tray, 2 to 5 cm from where a sheet lay before. One sheet per tray.
+3. Lay each sheet inside the tray rim and press it down along all four edges.
+4. Check that all four corners touch the tray and nothing is under the sheet.
+5. Step out of view and close the chamber door.
+6. Tick "The sheets are pressed flat and the chamber door is closed".
+7. Press **Capture round**. It takes about 20 seconds.
+8. Wait for the countdown before the next round.
+
+Rounds must be at least 10 minutes apart, and at least 20 minutes from first to last. Readings rise and fall on a cycle of about 19 minutes.
+
+A round taken within 60 minutes of the Pi starting is held back. A cold camera reads low. Wait, or press **Count it anyway**.
+
+#### Validation Result
+
+- **Validated**: done. Each slot shows its uncertainty as a percentage.
+- **Not consistent**: read the red "Problem" note. Fix the sheet, tray or round it names, then run calibration and validation again.
+
+When validation is done, remove all sheets before starting a growth run.
+
+#### When to Repeat
+
+Repeat focus, calibration and validation after any of these:
+
+- Refocusing, even slightly
+- Moving or knocking the camera
+- Changing the table or tray height
+- A new print of calibration sheets
+- A validation that reads "Not consistent"
+
+See [docs/operator-guide.md](../docs/operator-guide.md) for why each step is done this way.
