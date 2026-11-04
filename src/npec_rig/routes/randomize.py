@@ -22,10 +22,14 @@ from npec_rig.camera import CameraBusyError, array_to_jpeg
 from npec_rig.captures import photo_file, take_photo
 from npec_rig.randomization import (
     LayoutUnreadableError,
+    Lying,
     NoLayoutError,
+    Place,
     Position,
+    breaks_rule,
     check_layout,
     exposure,
+    least_breaking_layout,
     photo_layout,
     suggest_layout,
     tray_type,
@@ -50,17 +54,16 @@ def _running() -> dict:
     return experiment
 
 
-def _columns(slots: list[str]) -> int:
-    return max(int(slot.split()[1]) for slot in slots)
+def _edges(tray_id: int, lying: Lying | None) -> list[str] | None:
+    edges = exposure(tray_id, lying)
+    return None if edges is None else sorted(edges)
 
 
-def _where(tray_id: int, position: Position | None, columns: int) -> dict | None:
-    """A position as saved: slot, heading and the rows and columns it puts on an outside edge
-    (None when the heading is not read)."""
-    if position is None or position.slot is None:
-        return None
-    edges = exposure(tray_id, position, columns)
-    return {"slot": position.slot, "heading": position.heading, "edges": None if edges is None else sorted(edges)}
+def _places(details: dict) -> dict[str, Place]:
+    return {
+        p["name"]: Place(p["name"], tuple(p["centre"]), frozenset(p["sides"]), p["px_per_mm"])
+        for p in details["places"]
+    }
 
 
 def _references(experiment_id: int) -> dict[int, float]:
@@ -124,43 +127,56 @@ def _check_out(row: dict | None) -> dict | None:
 
 @router.post("/api/randomize/suggest")
 def suggest() -> dict:
-    """Suggest a random layout of the trays on the table now (read from the newest photo), drawn
-    by restricted randomization against where each tray lies now, and save it with the
-    experiment."""
+    """Suggest a random layout of the trays on the table now, read from the newest photo: the
+    places are where the trays stand in it (Aaron, 2026-11-04), shuffled by restricted
+    randomization against how each tray lies now. Saved with the experiment."""
     experiment = _running()
     photo = _latest_photo(experiment["id"])
     if photo is None:
         raise HTTPException(409, "The experiment has no photo yet: take one, then suggest a layout.")
     references = _references(experiment["id"])
     try:
-        seen, slots = photo_layout(photo["path"], references)
+        seen, scale = photo_layout(photo["path"], references)
     except LayoutUnreadableError as exc:
         raise HTTPException(409, f"Cannot read where the trays are: {exc}.") from exc
-    names = [slot["name"] for slot in slots]
-    columns = _columns(names)
-    last = {t.tray_id: Position(t.slot, t.heading) for t in seen if t.slot is not None}
+    if not seen:
+        raise HTTPException(409, "No tray with a tag was found in the latest photo.")
+    # Each place is named after the tray standing there now.
+    places = {str(t.tray_id): Place(str(t.tray_id), t.centre, t.sides, scale.px_per_mm(*t.centre)) for t in seen}
+    last = {t.tray_id: Lying(t.sides, t.heading) for t in seen}
     # A 2 x 2 tray seen for the first time: this photo's angle is its reference from now on.
     for t in seen:
         if tray_type(t.tray_id).name == "2x2":
             references.setdefault(t.tray_id, round(t.tag_angle, 2))
-    if not last:
-        raise HTTPException(409, "No tray was found in a slot in the latest photo.")
     seed = secrets.randbits(32)
+    rng, sides = random.Random(seed), {n: p.sides for n, p in places.items()}
     try:
-        layout = suggest_layout(sorted(last), last, names, random.Random(seed))
-    except NoLayoutError as exc:
-        raise HTTPException(409, "No layout keeps every edge row off the edge this round.") from exc
+        layout, rule_kept = suggest_layout(sorted(last), last, sides, rng), True
+    except NoLayoutError:
+        # Every layout repeats an edge row somewhere (a tray with both the north and south
+        # borders, say): give the one that repeats fewest, with those trays marked.
+        layout, rule_kept = least_breaking_layout(sorted(last), last, sides, rng), False
     details = {
         "seed": seed,
+        "rule_kept": rule_kept,
         "photo": photo["path"],
         "taken_at": photo["taken_at"],
         "references": {str(k): v for k, v in sorted(references.items())},
+        "places": [
+            {"name": p.name, "centre": [round(v, 1) for v in p.centre], "sides": sorted(p.sides),
+             "px_per_mm": round(p.px_per_mm, 4)}
+            for p in places.values()
+        ],
         "trays": [
             {
                 "tray_id": tray,
                 "tray_type": tray_type(tray).name,
-                **_where(tray, position, columns),
-                "last": _where(tray, last[tray], columns),
+                "place": position.place,
+                "heading": position.heading,
+                "edges": _edges(tray, Lying(places[position.place].sides, position.heading)),
+                "last": {"place": str(tray), "heading": last[tray].heading, "sides": sorted(last[tray].sides),
+                         "edges": _edges(tray, last[tray])},
+                "breaks_rule": breaks_rule(last[tray], Lying(places[position.place].sides, position.heading), tray),
                 # Turn the tray round from how it lies now; None when its heading is not read.
                 "turn": None if position.heading is None or last[tray].heading is None
                 else position.heading != last[tray].heading,
@@ -177,7 +193,7 @@ def suggest() -> dict:
 @router.post("/api/randomize/check")
 def check() -> dict:
     """Take a new photo (a rig photo, not one of the experiment's stills) and compare where each
-    tray lies in it with the latest suggestion; save the result with the experiment."""
+    tray stands in it with the latest suggestion; save the result with the experiment."""
     experiment = _running()
     suggestion = database.latest_tray_layout(experiment["id"], "suggestion")
     if suggestion is None:
@@ -187,35 +203,37 @@ def check() -> dict:
     except CameraBusyError as exc:
         raise HTTPException(409, "The camera is busy taking another photo. Try again in a minute.") from exc
     del _array  # a 64MP frame is about 190 MB
-    references = {int(k): v for k, v in suggestion["details"].get("references", {}).items()}
+    details = suggestion["details"]
+    references = {int(k): v for k, v in details.get("references", {}).items()}
     try:
-        seen, slots = photo_layout(record["path"], references)
+        seen, _scale = photo_layout(record["path"], references)
     except LayoutUnreadableError as exc:
         raise HTTPException(409, f"Cannot read where the trays are: {exc}.") from exc
-    columns = _columns([slot["name"] for slot in slots])
-    trays = suggestion["details"]["trays"]
-    wanted = {t["tray_id"]: Position(t["slot"], t["heading"]) for t in trays}
-    last = {t["tray_id"]: Position(t["last"]["slot"], t["last"]["heading"]) for t in trays if t["last"]}
-    checks = check_layout(wanted, seen, last, columns)
-    details = {
+    places = _places(details)
+    wanted = {t["tray_id"]: Position(t["place"], t["heading"]) for t in details["trays"]}
+    last = {t["tray_id"]: Lying(frozenset(t["last"]["sides"]), t["last"]["heading"]) for t in details["trays"]}
+    checks = check_layout(wanted, seen, last, places)
+    out = {
         "photo": record["path"],
         "taken_at": record["timestamp"],
-        "slots": [{"name": s["name"], "centre": s["centre"], "box": s["box"]} for s in slots],
+        "places": details["places"],
         "trays": [
             {
                 "tray_id": c.tray_id,
-                "status": c.status,
                 "tray_type": tray_type(c.tray_id).name,
-                "wanted": _where(c.tray_id, c.wanted, columns),
-                "found": _where(c.tray_id, c.found, columns),
+                "status": c.status,
+                "wanted": None if c.wanted is None else {"place": c.wanted.place, "heading": c.wanted.heading},
+                "found_at": c.found_at,
+                "heading": c.heading,
                 "centre": None if c.centre is None else [round(v, 1) for v in c.centre],
+                "edges": None if c.sides is None else _edges(c.tray_id, Lying(c.sides, c.heading)),
                 "breaks_rule": c.breaks_rule,
             }
             for c in checks
         ],
     }
     row = database.record_tray_layout(
-        experiment["id"], "check", made_at=_now(), details=details,
+        experiment["id"], "check", made_at=_now(), details=out,
         capture_id=record["capture_id"], suggestion_id=suggestion["id"],
     )
     return _check_out(row)
@@ -223,13 +241,13 @@ def check() -> dict:
 
 @router.get("/api/randomize/checks/{check_id}/overlay")
 def check_overlay(check_id: int) -> Response:
-    """The check's photo at the screen copy's size, with an arrow from each tray in the wrong slot
-    to the slot it goes to, a turning arrow on each tray to turn, and a word on every tray."""
+    """The check's photo at the screen copy's size, with an arrow from each tray in the wrong place
+    to the place it goes to, a turning arrow on each tray to turn, and a word on every tray."""
     row = database.tray_layout(check_id)
     if row is None or row["kind"] != "check":
         raise HTTPException(404, f"no layout check {check_id}")
     details = row["details"]
-    inputs = {"photo": details["photo"], "width": OVERLAY_WIDTH, "slots": details["slots"], "trays": details["trays"]}
+    inputs = {"photo": details["photo"], "width": OVERLAY_WIDTH, "places": details["places"], "trays": details["trays"]}
     return derived_response("randomize_check", details["photo"], inputs)
 
 
@@ -238,22 +256,20 @@ _OK_COLOUR = (40, 220, 90)  # green
 _MOVE_COLOUR = (255, 150, 0)  # orange
 _TURN_COLOUR = (255, 0, 255)  # magenta, apart from the blue trays and green leaves
 _PROBLEM_COLOUR = (255, 60, 60)  # red
-_SLOT_COLOUR = (230, 230, 230)
+_PLACE_COLOUR = (240, 240, 240)  # white rings: where a tray goes
 
 
 def _label(status: str, tray: dict) -> tuple[list[str], tuple[int, int, int]]:
     """The words written on a tray, and their colour: two short lines, so neighbours do not
     run into each other. Whether a tray breaks the edge rule is in the page's table."""
     name = f"Tray {tray['tray_id']}"
-    slot = tray["wanted"] and tray["wanted"]["slot"]
     return {
         "in place": ([f"{name} OK"], _OK_COLOUR),
-        "wrong slot": ([name, f"to {slot}"], _MOVE_COLOUR),
-        "wrong slot, turned": ([name, f"to {slot}, turn"], _MOVE_COLOUR),
+        "wrong place": ([name, "move"], _MOVE_COLOUR),
+        "wrong place, turned": ([name, "move, turn"], _MOVE_COLOUR),
         "turned": ([name, "turn 180"], _TURN_COLOUR),
         "heading not read": ([name, "heading?"], _PROBLEM_COLOUR),
         "not in layout": ([name, "not in layout"], _PROBLEM_COLOUR),
-        "not placed": ([name, "no slot"], _PROBLEM_COLOUR),
         "missing": ([f"{name} missing"], _PROBLEM_COLOUR),
     }[status]
 
@@ -270,19 +286,22 @@ def _turn_arrow(image: np.ndarray, centre: tuple[int, int], radius: int, colour)
 
 
 def _render_check_overlay(inputs: dict) -> bytes:
+    """Each tray in the wrong place gets an arrow to a white ring marked "Tray N goes here" where
+    it goes; each tray to turn a turning arrow; each tray in place a green circle and "OK"."""
     found = photo_file(inputs["photo"])
     if found is None:
         raise HTTPException(404, f"photo {inputs['photo']} not found")
     image, scale = images.reduced_frame(found, inputs["width"])
-    slot_centre = {s["name"]: np.array(s["centre"]) * scale for s in inputs["slots"]}
-    labels = []
+    place_centre = {p["name"]: np.array(p["centre"]) * scale for p in inputs["places"]}
+    labels, rings = [], []
     for tray in inputs["trays"]:
         status = tray["status"]
         lines, colour = _label(status, tray)
+        target = None if tray["wanted"] is None else place_centre[tray["wanted"]["place"]]
         if tray["centre"] is not None:
             centre = np.array(tray["centre"]) * scale
-        elif tray["wanted"] is not None:
-            centre = slot_centre[tray["wanted"]["slot"]]
+        elif target is not None:
+            centre = target
         else:
             continue
         x, y = (round(v) for v in centre)
@@ -290,23 +309,31 @@ def _render_check_overlay(inputs: dict) -> bytes:
             cv2.circle(image, (x, y), 40, colour, 6, cv2.LINE_AA)
         elif status == "missing":
             cv2.drawMarker(image, (x, y), colour, cv2.MARKER_TILTED_CROSS, 80, 6, cv2.LINE_AA)
-        if status.startswith("wrong slot") and tray["wanted"] is not None:
-            tx, ty = (round(v) for v in slot_centre[tray["wanted"]["slot"]])
+            rings.append(((x, y), tray["tray_id"]))
+        if status.startswith("wrong place") and target is not None:
+            tx, ty = (round(v) for v in target)
             cv2.arrowedLine(image, (x, y), (tx, ty), (0, 0, 0), 14, cv2.LINE_AA, tipLength=0.08)
             cv2.arrowedLine(image, (x, y), (tx, ty), colour, 8, cv2.LINE_AA, tipLength=0.08)
-        if status in ("turned", "wrong slot, turned"):
+            rings.append(((tx, ty), tray["tray_id"]))
+        if status in ("turned", "wrong place, turned"):
             _turn_arrow(image, (x, y), 70, _TURN_COLOUR)
         labels.append(((x, y + 100), lines, colour))
+    for (x, y), _tray in rings:
+        cv2.circle(image, (x, y), 26, (0, 0, 0), 10, cv2.LINE_AA)
+        cv2.circle(image, (x, y), 26, _PLACE_COLOUR, 5, cv2.LINE_AA)
     with text_layer(image) as layer:
         for (x, y), lines, colour in labels:
             for i, line in enumerate(lines):
                 half = text_width(line, 0.7) / 2 + 3
                 lx = round(min(max(x, half), image.shape[1] - half))
                 layer.text(line, (lx, y + 25 * i), 0.7, colour, anchor="ms", stroke_width=3, stroke_fill=(0, 0, 0))
-        for name, (sx, sy) in slot_centre.items():
-            layer.text(name, (round(sx), round(sy) - 120), 0.6, _SLOT_COLOUR, anchor="ms", stroke_width=3, stroke_fill=(0, 0, 0))
+        for (x, y), tray_id in rings:
+            line = f"Tray {tray_id} goes here"
+            half = text_width(line, 0.6) / 2 + 3
+            lx = round(min(max(x, half), image.shape[1] - half))
+            layer.text(line, (lx, y - 40), 0.6, _PLACE_COLOUR, anchor="ms", stroke_width=3, stroke_fill=(0, 0, 0))
     return array_to_jpeg(image)
 
 
 # Bump the version whenever the renderer would draw the same inputs differently.
-images.register(images.Recipe("randomize_check", 2, _render_check_overlay))
+images.register(images.Recipe("randomize_check", 3, _render_check_overlay))

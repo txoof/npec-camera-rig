@@ -5,12 +5,16 @@
 
 {% block head_extra %}
 <style>
-  /* The table seen from above, north at the top as in the photos: one cell per slot. Page-only
-     layout; the shared rules in style.css are left to the redesign (#125). */
-  .rz-map { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 0 0 4px; }
-  .rz-row-label { grid-column: 1 / -1; color: var(--fg-2); font-size: 0.85rem; margin-top: 4px; }
-  .rz-cell { position: relative; border: 2px solid var(--line); border-radius: 6px; padding: 2px 6px 22px; min-height: 84px;
-             display: flex; flex-direction: column; align-items: center; }
+  /* The table seen from above, north at the top as in the photos: one box per place, where its
+     tray stood in the photo. Page-only layout; the shared rules in style.css are left to the
+     redesign (#125). */
+  .rz-map { position: relative; width: 100%; margin: 4px 0 8px; }
+  .rz-compass { color: var(--fg-2); font-size: 0.85rem; }
+  .rz-cell { position: absolute; box-sizing: border-box; border: 2px solid var(--line); border-radius: 6px;
+             padding: 2px 4px 22px; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
+  .rz-cell.breaks { border-color: var(--warn); }
+  .rz-edge { color: var(--warn); font-size: 0.8rem; font-weight: 700; text-align: center; }
+  .rz-edge .ui-icon { width: 16px; height: 16px; vertical-align: -3px; margin-right: 2px; }
   .rz-cell .slot { align-self: flex-start; color: var(--fg-2); font-size: 0.8rem; }
   .rz-cell .tray { font-size: 1.2rem; font-weight: 700; }
   /* A1's corner of the tray: a filled triangle with the words "A1 SW" or "A1 NE". */
@@ -47,8 +51,11 @@
   <section id="rz-suggestion" hidden>
     <h2>Suggested layout</h2>
     <p class="card-meta" id="rz-suggestion-meta"></p>
+    <div class="banner warn" role="status" id="rz-rule-warning" hidden>No layout keeps every edge row off the edge this round: the trays marked "Edge row again" repeat one.</div>
+    <p class="rz-compass">North</p>
     <div class="rz-map" id="rz-map" aria-label="Where each tray goes, north at the top"></div>
-    {% call ui.data_table(["Tray", "Goes to", "Way round", "Was in"], id="rz-list") %}{% endcall %}
+    <p class="rz-compass">South</p>
+    {% call ui.data_table(["Tray", "Goes to", "Way round"], id="rz-list") %}{% endcall %}
   </section>
 
 
@@ -64,19 +71,17 @@
   // The buttons are in the action bar, after this block: start once the page is read.
   document.addEventListener("DOMContentLoaded", () => {
     const $ = (id) => document.getElementById(id);
-    const SIDES = ["North", "South"];
     const esc = (text) => String(text).replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
     const chip = (kind, text) =>
       `<span class="chip ${kind}"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#${kind}"></use></svg>${esc(text)}</span>`;
     // Each check status: the chip's kind (its colour and shape) and its words.
     const STATUS = {
       "in place": ["ok", "In place"],
-      "wrong slot": ["fail", "Wrong slot"],
-      "wrong slot, turned": ["fail", "Wrong slot, turned"],
+      "wrong place": ["fail", "Wrong place"],
+      "wrong place, turned": ["fail", "Wrong place, turned"],
       "turned": ["warn", "Turned"],
       "heading not read": ["info", "Heading not read"],
       "missing": ["fail", "Missing"],
-      "not placed": ["warn", "No slot found"],
       "not in layout": ["warn", "Not in layout"],
     };
     // A circular arrow: the shape that goes with the words "Turn round".
@@ -86,19 +91,19 @@
     // for a 2 x 2 tray (its tag is fixed to it), nothing for a tray whose heading is not read.
     const isCorner = (h) => h === "SW" || h === "NE";
     const way = (t) => isCorner(t.heading) ? `A1 ${t.heading}` : t.turn === true ? "Turn round" : t.turn === false ? "Keep as is" : "Any way";
-    const where = (w) => (w ? (isCorner(w.heading) ? `${w.slot}, A1 ${w.heading}` : w.slot) : "");
+    // A place is named after the tray that stood there when the layout was made.
+    const placeName = (name) => `Tray ${name}'s place`;
     const a1 = (w) => (w && isCorner(w.heading) ? `, A1 ${w.heading}` : "");
 
     function todo(t) {
       const w = t.wanted;
       switch (t.status) {
-        case "wrong slot": return `Move to ${w.slot}${a1(w)}`;
-        case "wrong slot, turned": return `Move to ${w.slot} and turn round${a1(w)}`;
+        case "wrong place": return `Move to the ring marked Tray ${t.tray_id}${a1(w)}`;
+        case "wrong place, turned": return `Move to the ring marked Tray ${t.tray_id} and turn round${a1(w)}`;
         case "turned": return `Turn round${a1(w)}`;
-        case "missing": return `Put on the table in ${w.slot}${a1(w)}`;
+        case "missing": return `Put on the table at the ring marked Tray ${t.tray_id}${a1(w)}`;
         case "heading not read": return "Check by eye which way round it lies";
         case "not in layout": return "Not in the suggestion: suggest again";
-        case "not placed": return "Push it into a slot";
         default: return "";
       }
     }
@@ -112,28 +117,36 @@
       $("rz-suggestion").hidden = !s;
       if (!s) return;
       $("rz-suggestion-meta").textContent =
-        `Made ${time(s.made_at)}, from the photo of ${time(s.taken_at)}.`;
-      const bySlot = Object.fromEntries(s.trays.map((t) => [t.slot, t]));
-      const columns = Math.max(...s.trays.map((t) => Number(t.slot.split(" ")[1])), 6);
-      $("rz-map").style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
-      let html = "";
-      for (const side of SIDES) {
-        html += `<div class="rz-row-label">${side} side</div>`;
-        for (let n = 1; n <= columns; n++) {
-          const slot = `${side} ${n}`;
-          const t = bySlot[slot];
-          if (!t) { html += `<div class="rz-cell"><div class="slot">${slot}</div><div>Empty</div></div>`; continue; }
-          let mark = "";
-          if (t.heading === "NE") mark = `<span class="rz-a1 ne">A1 NE<span class="tri"></span></span>`;
-          else if (t.heading === "SW") mark = `<span class="rz-a1 sw"><span class="tri"></span>A1 SW</span>`;
-          else if (t.turn === true) mark = `<span class="rz-turn">${TURN_ICON}Turn round</span>`;
-          else if (t.turn === false) mark = `<span class="rz-turn keep">Keep as is</span>`;
-          html += `<div class="rz-cell"><div class="slot">${slot}</div><div class="tray">Tray ${t.tray_id}</div>${mark}</div>`;
-        }
-      }
-      $("rz-map").innerHTML = html;
+        `Made ${time(s.made_at)}, from the photo of ${time(s.taken_at)}. Each place is named after the tray that stood there.`;
+      $("rz-rule-warning").hidden = s.rule_kept !== false;
+      // Each place as a tray-sized box where it stood, scaled to the map's width.
+      const boxes = s.places.map((p) => {
+        const w = 305 * p.px_per_mm, h = 366 * p.px_per_mm;
+        return {name: p.name, x0: p.centre[0] - w / 2, y0: p.centre[1] - h / 2, w, h};
+      });
+      const minX = Math.min(...boxes.map((b) => b.x0)), minY = Math.min(...boxes.map((b) => b.y0));
+      const spanX = Math.max(...boxes.map((b) => b.x0 + b.w)) - minX;
+      const spanY = Math.max(...boxes.map((b) => b.y0 + b.h)) - minY;
+      $("rz-map").style.aspectRatio = `${spanX} / ${spanY}`;
+      const going = Object.fromEntries(s.trays.map((t) => [t.place, t]));
+      $("rz-map").innerHTML = boxes.map((b) => {
+        const t = going[b.name];
+        const pos = `left:${(100 * (b.x0 - minX)) / spanX}%;top:${(100 * (b.y0 - minY)) / spanY}%;`
+          + `width:${(100 * b.w) / spanX}%;height:${(100 * b.h) / spanY}%`;
+        if (!t) return `<div class="rz-cell" style="${pos}"><div class="slot">${placeName(b.name)}</div><div>Empty</div></div>`;
+        let mark = "";
+        if (t.heading === "NE") mark = `<span class="rz-a1 ne">A1 NE<span class="tri"></span></span>`;
+        else if (t.heading === "SW") mark = `<span class="rz-a1 sw"><span class="tri"></span>A1 SW</span>`;
+        else if (t.turn === true) mark = `<span class="rz-turn">${TURN_ICON}Turn round</span>`;
+        else if (t.turn === false) mark = `<span class="rz-turn keep">Keep as is</span>`;
+        const rule = t.breaks_rule
+          ? `<span class="rz-edge"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#warn"></use></svg>Edge row again</span>`
+          : "";
+        return `<div class="rz-cell${t.breaks_rule ? " breaks" : ""}" style="${pos}"><div class="slot">${placeName(b.name)}</div>`
+          + `<div class="tray">Tray ${t.tray_id}</div>${mark}${rule}</div>`;
+      }).join("");
       $("rz-list").tBodies[0].innerHTML = s.trays.map((t) =>
-        `<tr><td>Tray ${t.tray_id}</td><td>${t.slot}</td><td>${way(t)}</td><td>${t.last ? esc(where(t.last)) : "Not read"}</td></tr>`
+        `<tr><td>Tray ${t.tray_id}</td><td>${t.place === String(t.tray_id) ? "Stays in its place" : placeName(t.place)}</td><td>${way(t)}</td></tr>`
       ).join("");
     }
 
