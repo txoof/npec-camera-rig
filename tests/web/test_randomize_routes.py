@@ -78,10 +78,9 @@ class Table:
 
 
 @pytest.fixture
-def table(monkeypatch: pytest.MonkeyPatch, tmp_path) -> Table:
+def table(monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None) -> Table:
     # Its own calibration folder: a calibration saved in the shared one stays the active one for
     # every later test on this worker.
-    monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
     return Table(monkeypatch)
 
 
