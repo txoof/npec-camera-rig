@@ -21,6 +21,7 @@ the validation page asked for 10 such images after a restart, one after another.
 from __future__ import annotations
 
 import ctypes
+import functools
 import hashlib
 import json
 import os
@@ -63,6 +64,7 @@ ALLOCATOR_MMAP_BYTES = 1024 * 1024
 ALLOCATOR_TRIM_BYTES = 32 * 1024 * 1024
 
 
+@functools.cache
 def _glibc() -> ctypes.CDLL | None:
     try:
         libc = ctypes.CDLL("libc.so.6")
@@ -107,8 +109,10 @@ def decode_full(image_path: Path | str) -> np.ndarray:
 
 
 def full_decode_slot() -> threading.BoundedSemaphore:
-    """The one-at-a-time slot for work on a full-size decoded photo: hold it while the array from
-    `decode_full` is in use, so two such arrays and their working copies are never live at once."""
+    """The one-at-a-time slot for work on a full-size photo decoded from its file (the tag search
+    and segmentation): hold it while the array from `decode_full` is in use, so two of these are
+    never live at once. Taking a photo does not wait for it: a scheduled photo is not held up by a
+    reading, so one capture can overlap one reading (measured peak 1.67 GiB in all, #348)."""
     return _full_decode
 
 
@@ -195,7 +199,9 @@ def tag_detections(
     version and then read from `capture_analysis`. `source` names the original (a capture
     reference such as "2026-10-01/091930_507614"). Raw detections only: anything that depends on
     a calibration is computed from them by the caller. `detect` is the detector to run when they
-    are not stored yet. Two requests for the same photograph search it once."""
+    are not stored yet: it is given the photo's grey copy (2-D uint8, `grayscale_uint8`), not the
+    colour frame, which is released first (#348). Two requests for the same photograph search
+    it once."""
     stored = stored_tag_detections(source)
     if stored is not None:
         return stored

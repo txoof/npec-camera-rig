@@ -31,7 +31,8 @@ STATIC_DIR = Path(__file__).parent / "static"
 # Setup wizard can hand the operator a direct download link at the point they're needed.
 CALIBRATION_SHEETS_DIR = Path(__file__).parent.parent.parent / "reference" / "calibration-sheets"
 
-# Before any thread is started: a memory pool already made is not removed (#348).
+# Before the app starts its own threads (scheduler, tray reader, requests): a memory pool
+# already made is not removed (#348). Threads started by imports keep theirs.
 images.limit_allocator()
 tags.limit_opencv_threads()
 photos_root().mkdir(parents=True, exist_ok=True)

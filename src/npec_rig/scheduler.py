@@ -149,7 +149,6 @@ class Scheduler:
                     return 0.0
                 array, record = captures.take_photo("capture")
                 del array
-                images.release_freed_memory()  # the full-size frame is gone (#348)
                 # Stop pressed while the photo was taken: it was saved as a rig photo.
                 if (record["experiment"] or {}).get("id") == experiment["id"]:
                     slots.append((slot, due_at, record["capture_id"], None))
@@ -159,6 +158,7 @@ class Scheduler:
                 logger.exception("Scheduled photo for slot %d failed", slot)
                 slots.append((slot, due_at, None, str(exc) or "failed"))
             database.record_scheduled_photos(experiment["id"], since, slots)
+            images.release_freed_memory()  # the photo's full-size frame is gone (#348)
             last_slot = slot
         wait_s = (_due_at(sched, last_slot + 1) - datetime.now(UTC)).total_seconds()
         return max(0.0, min(wait_s, CHECK_S))

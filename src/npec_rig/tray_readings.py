@@ -159,6 +159,13 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
     photo: Reprocess, which then needs neither the photo nor the segmenter. With
     `unless_measured`, a saved reading with plant areas from the same segmenter is kept and
     returned as it is: Show tags, which would otherwise segment the photo on every tap (#282)."""
+    try:
+        return _read_photo(path, reuse_mask=reuse_mask, unless_measured=unless_measured)
+    finally:
+        images.release_freed_memory()  # a full-size photo may have been decoded (#348)
+
+
+def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
     record = database.captures_by_path([path]).get(path)
     if record is None:
         raise LookupError(f"photo {path} has no record in rig.db")
@@ -395,8 +402,6 @@ class TrayReader:
             except Exception:
                 logger.exception("Could not record the failed reading of %s", path)
                 self._stop.wait(POLL_S)
-        finally:
-            images.release_freed_memory()  # a full-size photo was decoded (#348)
 
 
 # --- Reprocess (#75) ----------------------------------------------------------------------------
