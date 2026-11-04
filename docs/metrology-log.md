@@ -7266,3 +7266,30 @@ both, after 1 hour, as the rule says.
 - The pages were looked at, not measured; times on the panel are shown in UTC.
 - Raw data: development's `rig.db`, experiment 2 (kept on the rig); the export output of 08:26 at
   `~/scratch/sam297/332-live-export/` (not kept).
+
+## 25. Memory of the Randomize page on the development rig (issue #343, method written 2026-11-04, before the run)
+
+*Development check.* Question: does the Randomize page keep the app within the memory target
+set for #348 (Aaron, 2026-11-02): the app's total memory, the main process plus the camera
+process, at most 2.5 GiB at its peak, with no swap use, so it fits a 4 GB Pi 5? After #348 the
+development rig measured 0.5 GiB between photos and 1.30 to 1.67 GiB at the peak (PR #353).
+
+*What the page does.* Suggest layout reads the newest experiment still: its tags (already found
+by the tray reader, so not searched again) and a quarter-size copy (about 2288 x 1736 px, about
+12 MB) for the blue tray finder. Check layout takes one full-size still (about 190 MB as an
+array, plus the camera process's buffers), then reads it the same way, and draws a 1600 px
+overlay when the page asks for it.
+
+*Method.* Rig npec-rig-01, branch 343-randomize-trays at 659309f, experiment "development 002"
+running, a scheduled photo once a minute, read for trays after it is taken. The #348 logger
+(`experiments/348-app-memory/log.sh`) runs on the rig for at most 30 minutes, writing once a
+second the main process's and the camera process's resident memory (RSS) and peaks (HWM) and the
+system's available memory. During it, through the page's API: 3 Suggests and 3 Checks, spaced
+out, then 1 Suggest and 1 Check started within 5 s after a scheduled photo, while it is being
+read, and each Check's overlay fetched. Swap use is read before and after (`free -m`). Result:
+the highest main plus camera RSS over the run, and when it happened. One run, no repeats: this
+answers whether the page breaks the target, not the spread of the peak.
+
+*Limits.* The rig has 8 GB, not 4 GB, so this measures the app's own use, not how a 4 GB Pi 5
+behaves under it. The tags of the newest still are taken as already found; a still not yet read
+by the tray reader would add a full-size tag search (about 1.1 GiB, #348) to a Suggest.
