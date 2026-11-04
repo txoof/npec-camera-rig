@@ -11,7 +11,7 @@ import math
 import threading
 from datetime import UTC, datetime, timedelta
 
-from npec_rig import captures, database
+from npec_rig import captures, database, images
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +158,7 @@ class Scheduler:
                 logger.exception("Scheduled photo for slot %d failed", slot)
                 slots.append((slot, due_at, None, str(exc) or "failed"))
             database.record_scheduled_photos(experiment["id"], since, slots)
+            images.release_freed_memory()  # the photo's full-size frame is gone (#348)
             last_slot = slot
         wait_s = (_due_at(sched, last_slot + 1) - datetime.now(UTC)).total_seconds()
         return max(0.0, min(wait_s, CHECK_S))

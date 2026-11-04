@@ -18,7 +18,7 @@ from npec_rig.calibration_store import (
 )
 from npec_rig.camera import CameraFaultError, CameraManager
 from npec_rig.captures import experiments_root, photos_root, record_app_start, record_app_stop
-from npec_rig import database
+from npec_rig import database, images, tags
 from npec_rig.photo_tags import CaptureNotFoundError, CaptureRefError, FrameMissingError
 from npec_rig.validation import RoundNotFoundError, ValidationRefusedError
 from npec_rig.scheduler import Scheduler
@@ -31,6 +31,10 @@ STATIC_DIR = Path(__file__).parent / "static"
 # Setup wizard can hand the operator a direct download link at the point they're needed.
 CALIBRATION_SHEETS_DIR = Path(__file__).parent.parent.parent / "reference" / "calibration-sheets"
 
+# Before the app starts its own threads (scheduler, tray reader, requests): a memory pool
+# already made is not removed (#348). Threads started by imports keep theirs.
+images.limit_allocator()
+tags.limit_opencv_threads()
 photos_root().mkdir(parents=True, exist_ok=True)
 experiments_root().mkdir(parents=True, exist_ok=True)
 calibration_root().mkdir(parents=True, exist_ok=True)

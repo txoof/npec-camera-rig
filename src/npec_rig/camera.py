@@ -612,7 +612,10 @@ def array_to_jpeg(frame: np.ndarray, description: str | None = None) -> bytes:
         exif = Image.Exif()
         exif[0x010E] = description
         extra["exif"] = exif
-    Image.fromarray(frame[..., :3]).convert("RGB").save(buffer, format="JPEG", **extra)
+    # fromarray of 3 uint8 channels is already an RGB image; convert("RGB") would copy it again
+    # (about 254 MB for 64MP) only to write the same bytes (#348).
+    image = Image.fromarray(frame[..., :3])
+    (image if image.mode == "RGB" else image.convert("RGB")).save(buffer, format="JPEG", **extra)
     return buffer.getvalue()
 
 
