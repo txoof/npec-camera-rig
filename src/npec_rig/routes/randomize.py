@@ -205,6 +205,7 @@ def check() -> dict:
     except CameraBusyError as exc:
         raise HTTPException(409, "The camera is busy taking another photo. Try again in a minute.") from exc
     del _array  # a 64MP frame is about 190 MB
+    images.release_freed_memory()  # the photo's full-size frame is gone, as after a scheduled photo (#348)
     details = suggestion["details"]
     references = {int(k): v for k, v in details.get("references", {}).items()}
     try:

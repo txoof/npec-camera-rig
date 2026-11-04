@@ -7293,3 +7293,30 @@ answers whether the page breaks the target, not the spread of the peak.
 *Limits.* The rig has 8 GB, not 4 GB, so this measures the app's own use, not how a 4 GB Pi 5
 behaves under it. The tags of the newest still are taken as already found; a still not yet read
 by the tray reader would add a full-size tag search (about 1.1 GiB, #348) to a Suggest.
+
+### 25.1 Result (2026-11-04)
+
+*Development check*, one run, 13:57:46 to 14:03:40 UTC (345 one-second samples). Raw data and
+the actions' times: `experiments/343-randomize/`.
+
+| What | Value |
+|---|---|
+| Highest main plus camera RSS, sampled | 2,084 MiB (2.04 GiB): main 1,989, camera 95, at 14:03:21, the end of the Check started while the 14:02:45 scheduled photo was read |
+| Next highest | 2,066 MiB at 14:01:25 and 2,048 MiB at 14:00:18, each the end of a Check |
+| Median main plus camera RSS over the run | 1,012 MiB |
+| Lowest available memory | 4,828 MiB of 8,062 |
+| Swap used | 3 MiB before and after: none added |
+| Scheduled photos | one each minute, none missed |
+| Time of one Check, press to answer | about 25 to 30 s |
+
+The peaks are each Check's search of its new photo for tags, made once at full size (about
+1.1 GiB, #348): the photo is new, so its tags are not yet known. It runs in the shared full-size
+slot, so the Check started during the scheduled photo's reading waited for it rather than adding to
+it. Suggest, reading tags already found and a quarter-size copy, made no peak of its own.
+
+*What it shows.* The page stays within the 2.5 GiB target with about 0.45 GiB to spare, and uses no
+swap. *What it does not cover.* One run on an 8 GB Pi, so the spread of the peak and the
+behaviour of a 4 GB Pi 5 are not measured. A per-second sample can miss a peak shorter than a
+second: the main process's own peak (VmHWM) rose from 1,478 to 2,048 MiB in the run, 59 MiB above
+its highest sample, so the true peak was at most about 2,143 MiB (2.09 GiB) with the camera's 95,
+still within the target.
