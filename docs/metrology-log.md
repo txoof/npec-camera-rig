@@ -7266,3 +7266,105 @@ both, after 1 hour, as the rule says.
 - The pages were looked at, not measured; times on the panel are shown in UTC.
 - Raw data: development's `rig.db`, experiment 2 (kept on the rig); the export output of 08:26 at
   `~/scratch/sam297/332-live-export/` (not kept).
+
+## 24. Hand outlines of the potato plants, against the green threshold (issue #352, method written 2026-11-04, before pass 2 and before any rule is compared)
+
+**Label: development check.** Which colour rule finds the leaf area that a person outlines on the
+rig's own photo, and how much that person's outlines vary between two passes. The outlines are
+drawn on the rig's pixels and turned into mm² with the rig's scale, so they test the colour rule
+only, not the camera or the scale. That is why this is not a reference comparison.
+
+**Why.** The development check on issue #352 (2026-11-03) found the green threshold in use
+(greenness (2G - R - B) / (R + G + B) > 0.1 and G > R, `segmentation.py`) reads about 0.6 of the
+area found at a cut of 0 on trays 1 to 6 (mean 0.59, sd 0.10, n = 30, 26 October to 3 November),
+and that the soil sits at greenness -0.155 to -0.165 and the leaves at +0.035 to +0.085 on every
+day. Neither cut has been checked against an outline. The supervisor's SAM 2.1 mask of tray 6 is
+not used as the reference: it was made on a photo from a different camera at very close range
+(Aaron, 2026-11-04).
+
+**Order of events.** The rulebook below was written at 2026-11-04 08:12 UTC. Pass 1 was done the
+same morning and saved by 09:38 UTC, before this entry was written. Pass 2 and every comparison
+with a rule come after it. Aaron has not seen any rule's outline on these crops, and will not
+until pass 2 is saved.
+
+**The still.** Production rig `ac-testing`, capture 19380, `2026-11-03_105853_597207` (UTC),
+experiment 18 "Potato Plants v001": exposure 4625 µs, analogue gain 1.0, lens 6.05 (locked), full
+size 9152 x 6944 px, no flags.
+
+**The plants.** 5 plants on each of trays 1, 3 and 6 (as numbered in the still's tray readings;
+tray 6 is the supervisor's tray 1), 15 in all, chosen by `imagej_crops.py` (see Raw data):
+
+- A loose rule finds where plants are, only to choose where to cut: greenness > 0, G > R, not
+  blue (B above both R and G), inside the tray outline, and not within 60 px of white tag paper
+  (all three channels above 140). Pieces up to about 14 px apart are joined (a 15 px maximum
+  filter); pieces under 150 px (about 6 mm²)
+  are dropped.
+- The pieces are ranked by size, and 5 are taken evenly along the ranking, smallest to largest.
+- Each crop is the piece's box plus 40 px on every side, in the still's own pixels, saved as
+  lossless TIFF with nothing drawn on it. `manifest.csv` holds each crop's corner in the full
+  still and the tray's mm² per px (its stored area divided by its stored pixel count,
+  0.0407 to 0.0408 mm² per px, about 0.20 mm per px).
+- Tray 6 plant 1: its first crop (109 x 109 px) cut off part of the plant, because the loose rule
+  found only part of it. It was replaced by a 220 x 220 px crop centred on the plant by eye
+  (`t6_p1b`), and the first outline is not used.
+
+**The outlines.** ImageJ (version not recorded), by Aaron, on a Mac, by these rules
+(`RULES.txt`):
+
+| Rule | What it says |
+|---|---|
+| R1 | No rule's outline is looked at before or during outlining |
+| R2 to R4 | Same screen and room light each pass; no brightness or contrast change; 800% zoom; polygon tool, a point at least every 2 px on curves |
+| R5, R6 | Only the plant nearest the crop centre; everything green or yellow-green attached to it counts: true leaves, cotyledons, stalks |
+| R7, R8 | Overlapping leaves are outlined once, from outside; soil between leaves is left out where the gap is at least 2 px wide |
+| R9, R10 | Dark shadow next to a leaf is soil unless leaf colour or texture shows in it; pale, yellow or brown parts of a leaf count |
+| R11 | The edge is traced through the middle of the blur, halfway between leaf and soil colour |
+| R12 | A doubtful part over about 4 px across goes in if more than half of it looks like leaf, and is noted |
+| R13 to R15 | Two passes: pass 1 in file order, pass 2 on another day in reverse order without opening pass 1; one sitting each; pass 1 is not corrected afterwards |
+
+ImageJ's area for a polygon is the count of pixels whose centres lie inside it (section 5.1).
+Areas are taken in pixels and turned into mm² with the tray's mm² per px.
+
+*Pass 1 as saved.* 16 rows and 16 outlines (`pass_1_2026.11.04_Results.csv`,
+`pass_1_2026.11.04_Results.roi.zip`). `t6_p1b` was measured twice in the sitting (3526 and
+3670 px); the saved outline is the second (same box, 3674 px by the polygon's own area), so 3670
+is used. The old `t6_p1` row is left out: 15 plants.
+
+**The rules compared.** Fixed here, before any comparison:
+
+| Rule | Plant where |
+|---|---|
+| A, in use | greenness > 0.1 and G > R |
+| B | greenness > 0 and G > R (the valley between soil and leaf in the #352 check lay at -0.025 to +0.025) |
+| C | greenness > 0 and not blue, without G > R |
+| D | greenness above halfway between the tray's soil and leaf peaks on this still, and not blue, without G > R (peaks found as in the #352 check, from the tray's greenness histogram in steps of 0.01) |
+
+ExG minus ExR at 0 is not tried again: it took in the soil in section 19.2.
+
+**What is worked out, per plant and per rule, inside its crop.**
+
+- Area ratio: the rule's pixels in the crop divided by the hand outline's pixels.
+- Missed share: hand-outline pixels the rule does not count, divided by the hand area.
+- Extra share: rule pixels outside the hand outline, divided by the hand area.
+- For each rule: mean, sd and range of the ratio over the 15 plants, against each pass.
+- The person's own spread: pass 2 area divided by pass 1 area, per plant; its mean, sd and range.
+  A rule is called closer than another only where the difference between them is larger than this
+  spread.
+
+Which rule the app uses, or whether the page warns instead, is Aaron's decision with these
+results. No pass mark is set in advance.
+
+**Limits of the evidence (as planned).**
+
+- One still, one time of day (10:58 UTC), three trays of six, 15 plants, one person.
+- Plants the loose rule missed entirely could not be chosen, so the sample leans to plants with
+  some clearly green pixels.
+- Crops cover the plant and a 40 px ring of soil. Errors elsewhere on the tray (blue plastic, tag
+  paper, empty cells, soil specks far from a plant) are not measured here; each rule's whole-tray
+  picture is looked at for those separately.
+- The person sees the same blur as the rule; what lies under the blur, and leaves hidden by other
+  leaves, are not known to either.
+- Scale and plant height are not tested (validation, section 18; height adds about 0.145% of area
+  per mm).
+- Raw data: `~/scratch/thr-352/` on the controller (crops, `manifest.csv`, `RULES.txt`, pass files,
+  `code/imagej_crops.py`). Not kept there; to be copied into the repository with the results.
