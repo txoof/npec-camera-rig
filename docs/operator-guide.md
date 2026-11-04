@@ -150,10 +150,15 @@ The Randomize page (left menu) suggests where each tray goes, and which way roun
 table against the suggestion. An experiment must be running.
 
 - **Suggest layout.** The rig reads where each tray lies in the latest photo and draws a random
-  slot and heading for every tray: A1 at the south-west (SW) or north-east (NE) corner. A layout
-  is kept only if no row or column of plants that was on an outside edge of the table is on an
-  outside edge again. The map shows each tray in its slot, with a triangle and "A1 SW" or "A1 NE"
-  at the corner where cell A1 goes; the list below gives the same by tray number.
+  slot for every tray, and which way round it lies. A layout is kept only if no row or column of
+  plants that was on an outside edge of the table is on an outside edge again. The map shows each
+  tray in its slot; the list below gives the same by tray number.
+  - **4 x 5 trays** (tag IDs 1 to 75, tag in cell A1): a triangle and "A1 SW" or "A1 NE" at the
+    corner where cell A1 goes.
+  - **2 x 2 trays** (tag IDs 76 to 150, tag fixed in the middle): "Turn round", with a turning
+    arrow, or "Keep as is". The rig reads which way round the tray lies from the tag's angle, so
+    the tag must stay fixed to its tray.
+  - **Other trays** (1 x 1, black trays): a slot only; they may lie either way round.
 - **Check layout.** After moving the trays, tap Check layout. The rig takes a photo (not one of
   the experiment's photos) and shows it with an orange arrow from each tray in the wrong slot to
   its slot, a pink turning arrow on each tray to turn round, and a green circle with "OK" on each
@@ -162,8 +167,9 @@ table against the suggestion. An experiment must be running.
 - **Reporting.** Each suggestion and check is saved with the experiment, with the random seed.
   In the methods: trays were placed by restricted randomization, rejecting any layout that put a
   row or column of plants on an outside edge of the table two rounds in a row.
-- **Limits.** Which way round a tray lies is read only for 4 x 5 trays, whose tag is in cell A1.
-  The first round is whatever layout the trays were placed in.
+- **Limits.** Which way round a tray lies is read only for 4 x 5 and 2 x 2 trays. The first round
+  is whatever layout the trays were placed in. A tray standing between two slots is counted in the
+  nearer one, so place trays in the slots.
 
 ## Why it is done this way
 

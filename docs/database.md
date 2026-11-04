@@ -267,16 +267,24 @@ plants is on an outside edge of the table two rounds in a row (`randomization.py
 | `details` | text | JSON, below |
 
 A suggestion's `details`: `seed` (the random seed, so the draw can be repeated), `photo` and
-`taken_at` (the photo read), and `trays`, one entry per tray: `tray_id`, `slot`, `a1_corner`
-(`SW` or `NE`), `edges` (the rows and columns of plants the slot and heading put on an outside
-edge, for example `["column A", "row 1"]`), and `last`, where the tray lay in the photo, with its
-`edges` (null when its heading was not read). So every round's edges are kept per tray.
+`taken_at` (the photo read), `references` (each 2 x 2 tray's tag angle in degrees in its first
+photo, carried from one suggestion to the next), and `trays`, one entry per tray: `tray_id`,
+`tray_type` (from its tag ID: `4x5`, `2x2`, `1x1`, `black` or `other`), `slot`, `heading`, `edges`
+(the rows and columns of plants the slot and heading put on an outside edge, for example
+`["column A", "row 1"]`), `last` (where the tray lay in the photo, with its `edges`) and `turn`
+(whether to turn the tray round from how it lies now).
+
+`heading` depends on the tray type: `SW` or `NE` (the corner of cell A1) for a 4 x 5 tray, whose
+tag lies in A1; `as first` or `turned` for a 2 x 2 tray, whose tag is fixed in its middle, read as
+the tag's angle against `references`; null for every other tray, which gets a slot only. `edges`
+is null where the heading is null. For a 2 x 2 tray, row 1 is the end that faced south in its
+first photo and column A the side that faced west.
 
 A check's `details`: `photo` and `taken_at` (the check photo, a rig photo with purpose
 `layout check`, never one of the experiment's stills), `slots` (the calibration's slots, for the
-overlay), and `trays`: `tray_id`, `status` (`in place`, `wrong slot`, `turned`, `wrong slot,
-turned`, `heading not read`, `missing`, `not placed`, `not in layout`), `wanted` and `found`
-(slot, A1 corner, edges), `centre` (full-size photo pixels) and `breaks_rule`.
+overlay), and `trays`: `tray_id`, `tray_type`, `status` (`in place`, `wrong slot`, `turned`,
+`wrong slot, turned`, `heading not read`, `missing`, `not placed`, `not in layout`), `wanted` and
+`found` (slot, heading, edges), `centre` (full-size photo pixels) and `breaks_rule`.
 
 ### `tray_read` and `tray_reading`
 

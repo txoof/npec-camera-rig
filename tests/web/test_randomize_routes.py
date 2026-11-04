@@ -16,6 +16,7 @@ from npec_rig.app import app
 from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
 from npec_rig.tags import TagDetection
+from tests.helpers import rotate_detection, square_detection
 
 pytestmark = pytest.mark.unit
 
@@ -56,11 +57,14 @@ class Table:
             stem=stem,
         )
         validation_store.save_slot_layout(stem, FIXTURE["slots"], [])
-        self.still = None
-        monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: _detections(self.still))
+        self.tags: list[TagDetection] = []
+        monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: list(self.tags))
 
     def show(self, still: str) -> None:
-        self.still = still
+        self.tags = _detections(still)
+
+    def show_tags(self, tags: list[TagDetection]) -> None:
+        self.tags = tags
 
 
 @pytest.fixture
@@ -87,7 +91,7 @@ def test_suggest_reads_the_last_layout_from_the_latest_experiment_photo(table, c
     assert response.status_code == 200, response.text
     trays = {t["tray_id"]: t for t in response.json()["trays"]}
     assert sorted(trays) == sorted(LAYOUT_2)
-    assert {t: (v["last"]["slot"], v["last"]["a1_corner"]) for t, v in trays.items()} == LAYOUT_2
+    assert {t: (v["last"]["slot"], v["last"]["heading"]) for t, v in trays.items()} == LAYOUT_2
     assert sorted(t["slot"] for t in trays.values()) == sorted(s["name"] for s in FIXTURE["slots"])
     assert response.json()["experiment_id"] == experiment["id"]
 
@@ -138,4 +142,62 @@ def test_the_next_suggestion_starts_from_where_the_check_found_the_trays(table, 
         8: ("North 5", "NE"), 12: ("North 6", "NE"), 4: ("South 1", "NE"), 5: ("South 2", "NE"),
         9: ("South 3", "SW"), 3: ("South 4", "NE"), 10: ("South 5", "NE"), 2: ("South 6", "NE"),
     }
-    assert {t["tray_id"]: (t["last"]["slot"], t["last"]["a1_corner"]) for t in trays} == layout_12
+    assert {t["tray_id"]: (t["last"]["slot"], t["last"]["heading"]) for t in trays} == layout_12
+
+
+SLOT_CENTRE = {s["name"]: s["centre"] for s in FIXTURE["slots"]}
+
+
+def _two_by_two(tray_id: int, slot: str, angle: float) -> TagDetection:
+    """A 2 x 2 tray's 40 mm tag (about 195 px), fixed in the middle of the tray, at `angle`."""
+    x, y = SLOT_CENTRE[slot]
+    return rotate_detection(square_detection(tray_id, x, y, 195), (x, y), angle)
+
+
+def test_two_by_two_trays_moved_and_turned_as_suggested_are_all_in_place(table, client) -> None:
+    # Nine 2 x 2 trays (tag IDs 76 to 84), their tags fixed at assorted angles, as on the
+    # development table on 4 November.
+    first = {76: ("North 1", 0), 77: ("North 2", 45), 78: ("North 3", 90), 79: ("North 4", 135),
+             80: ("North 5", 200), 81: ("South 1", 260), 82: ("South 2", 30), 83: ("South 3", 315),
+             84: ("South 4", 170)}
+    _running_experiment()
+    table.show_tags([_two_by_two(t, slot, a) for t, (slot, a) in first.items()])
+    client.post("/capture")
+
+    suggestion = client.post("/api/randomize/suggest").json()
+
+    trays = {t["tray_id"]: t for t in suggestion["trays"]}
+    assert sorted(trays) == sorted(first)
+    assert {t["tray_type"] for t in trays.values()} == {"2x2"}
+    # The researcher does what the page says: each tray to its slot, turned round where told.
+    done = {t: (trays[t]["slot"], a + (180 if trays[t]["turn"] else 0)) for t, (_s, a) in first.items()}
+    table.show_tags([_two_by_two(t, slot, a) for t, (slot, a) in done.items()])
+
+    check = client.post("/api/randomize/check").json()
+    assert {t["tray_id"]: t["status"] for t in check["trays"]} == {t: "in place" for t in first}
+
+    # One tray that had to be turned is put down the same way round as before.
+    forgot = next(t for t in sorted(first) if trays[t]["turn"])
+    slot, angle = done[forgot]
+    table.show_tags([_two_by_two(t, *done[t]) for t in first if t != forgot] + [_two_by_two(forgot, slot, angle - 180)])
+
+    check = client.post("/api/randomize/check").json()
+    assert {t["tray_id"]: t["status"] for t in check["trays"]} == {
+        t: "turned" if t == forgot else "in place" for t in first
+    }
+
+
+def test_a_one_by_one_tray_gets_a_slot_only_and_is_judged_by_its_slot(table, client) -> None:
+    # A 1 x 1 tray (tag ID 160) has one well: no heading is suggested or read.
+    _running_experiment()
+    table.show_tags([_two_by_two(160, "North 2", 30), _two_by_two(76, "South 5", 0)])
+    client.post("/capture")
+    trays = {t["tray_id"]: t for t in client.post("/api/randomize/suggest").json()["trays"]}
+    assert trays[160]["tray_type"] == "1x1"
+    assert trays[160]["heading"] is None and trays[160]["turn"] is None
+
+    # Put in its slot at another angle: in place.
+    table.show_tags([_two_by_two(160, trays[160]["slot"], 250),
+                     _two_by_two(76, trays[76]["slot"], 180 if trays[76]["turn"] else 0)])
+    check = client.post("/api/randomize/check").json()
+    assert {t["tray_id"]: t["status"] for t in check["trays"]} == {160: "in place", 76: "in place"}

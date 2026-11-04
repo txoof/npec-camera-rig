@@ -15,6 +15,7 @@ from npec_rig.calibration import scale_field_from_dict
 from npec_rig.randomization import (
     NoLayoutError,
     Position,
+    TraySeen,
     breaks_rule,
     check_layout,
     edge_exposure,
@@ -55,7 +56,7 @@ def test_suggestion_gives_every_tray_its_own_slot_and_breaks_no_rule(seed: int) 
     layout = suggest_layout(sorted(LAST), LAST, SLOTS, random.Random(seed))
     assert sorted(layout) == sorted(LAST)
     assert sorted(p.slot for p in layout.values()) == sorted(SLOTS)
-    assert {p.a1_corner for p in layout.values()} <= {"SW", "NE"}
+    assert {p.heading for p in layout.values()} <= {"SW", "NE"}
     assert not [tray for tray, p in layout.items() if breaks_rule(LAST[tray], p)]
 
 
@@ -80,7 +81,8 @@ def _placements(still: str):
         corners = tuple(tuple(c) for c in tag["corners"])
         centre = (sum(c[0] for c in corners) / 4, sum(c[1] for c in corners) / 4)
         detections.append(TagDetection(tag_id=tag["id"], corners=corners, centre=centre))
-    return place_trays(detections, scale_field_from_dict(FIXTURE["scale_field"]), FIXTURE["slots"])
+    placements = place_trays(detections, scale_field_from_dict(FIXTURE["scale_field"]), FIXTURE["slots"])
+    return [TraySeen(p.tray_id, p.slot, p.a1_corner, tuple(p.centre), 0.0) for p in placements]
 
 
 def test_check_finds_the_trays_laid_the_wrong_way_round() -> None:
@@ -122,3 +124,12 @@ def test_check_reports_a_missing_tray_and_a_tray_breaking_the_rule() -> None:
     assert checks[12].breaks_rule
     assert not checks[7].breaks_rule  # North 2 NE after South 3 NE: north end row 1, was row 5
     assert checks[7].status == "not in layout"
+
+
+def test_a_2x2_tray_turned_round_from_its_first_photo_has_its_first_south_end_north() -> None:
+    # A 2 x 2 tray has rows 1 and 2 and columns A and B. Its tag is fixed to the tray, so its
+    # heading is read against its first photo: row 1 is the end that faced south then, column A
+    # the side that faced west. Turned round in North 1, row 1 is on the north edge and column B
+    # on the west edge.
+    assert edge_exposure("North 1", "turned", tray_type="2x2") == {"row 1", "column B"}
+    assert edge_exposure("South 3", "as first", tray_type="2x2") == {"row 1"}

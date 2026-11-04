@@ -25,9 +25,10 @@ from npec_rig.randomization import (
     NoLayoutError,
     Position,
     check_layout,
-    edge_exposure,
+    exposure,
     photo_layout,
     suggest_layout,
+    tray_type,
 )
 from npec_rig.routes.shared import derived_response, templates
 from npec_rig.text_render import text_layer, text_width
@@ -53,12 +54,21 @@ def _columns(slots: list[str]) -> int:
     return max(int(slot.split()[1]) for slot in slots)
 
 
-def _where(position: Position | None, columns: int) -> dict | None:
-    """A position as saved: slot, A1 corner and the rows and columns it puts on an outside edge."""
+def _where(tray_id: int, position: Position | None, columns: int) -> dict | None:
+    """A position as saved: slot, heading and the rows and columns it puts on an outside edge
+    (None when the heading is not read)."""
     if position is None or position.slot is None:
         return None
-    edges = None if position.a1_corner is None else sorted(edge_exposure(position.slot, position.a1_corner, columns))
-    return {"slot": position.slot, "a1_corner": position.a1_corner, "edges": edges}
+    edges = exposure(tray_id, position, columns)
+    return {"slot": position.slot, "heading": position.heading, "edges": None if edges is None else sorted(edges)}
+
+
+def _references(experiment_id: int) -> dict[int, float]:
+    """Each 2 x 2 tray's tag angle in its first photo, as the latest suggestion kept them."""
+    latest = database.latest_tray_layout(experiment_id, "suggestion")
+    if latest is None:
+        return {}
+    return {int(k): v for k, v in latest["details"].get("references", {}).items()}
 
 
 def _latest_photo(experiment_id: int) -> dict | None:
@@ -121,13 +131,18 @@ def suggest() -> dict:
     photo = _latest_photo(experiment["id"])
     if photo is None:
         raise HTTPException(409, "The experiment has no photo yet: take one, then suggest a layout.")
+    references = _references(experiment["id"])
     try:
-        placements, slots = photo_layout(photo["path"])
+        seen, slots = photo_layout(photo["path"], references)
     except LayoutUnreadableError as exc:
         raise HTTPException(409, f"Cannot read where the trays are: {exc}.") from exc
     names = [slot["name"] for slot in slots]
     columns = _columns(names)
-    last = {p.tray_id: Position(p.slot, p.a1_corner) for p in placements if p.slot is not None}
+    last = {t.tray_id: Position(t.slot, t.heading) for t in seen if t.slot is not None}
+    # A 2 x 2 tray seen for the first time: this photo's angle is its reference from now on.
+    for t in seen:
+        if tray_type(t.tray_id).name == "2x2":
+            references.setdefault(t.tray_id, round(t.tag_angle, 2))
     if not last:
         raise HTTPException(409, "No tray was found in a slot in the latest photo.")
     seed = secrets.randbits(32)
@@ -139,8 +154,17 @@ def suggest() -> dict:
         "seed": seed,
         "photo": photo["path"],
         "taken_at": photo["taken_at"],
+        "references": {str(k): v for k, v in sorted(references.items())},
         "trays": [
-            {"tray_id": tray, **_where(position, columns), "last": _where(last[tray], columns)}
+            {
+                "tray_id": tray,
+                "tray_type": tray_type(tray).name,
+                **_where(tray, position, columns),
+                "last": _where(tray, last[tray], columns),
+                # Turn the tray round from how it lies now; None when its heading is not read.
+                "turn": None if position.heading is None or last[tray].heading is None
+                else position.heading != last[tray].heading,
+            }
             for tray, position in sorted(layout.items())
         ],
     }
@@ -163,15 +187,16 @@ def check() -> dict:
     except CameraBusyError as exc:
         raise HTTPException(409, "The camera is busy taking another photo. Try again in a minute.") from exc
     del _array  # a 64MP frame is about 190 MB
+    references = {int(k): v for k, v in suggestion["details"].get("references", {}).items()}
     try:
-        placements, slots = photo_layout(record["path"])
+        seen, slots = photo_layout(record["path"], references)
     except LayoutUnreadableError as exc:
         raise HTTPException(409, f"Cannot read where the trays are: {exc}.") from exc
     columns = _columns([slot["name"] for slot in slots])
     trays = suggestion["details"]["trays"]
-    wanted = {t["tray_id"]: Position(t["slot"], t["a1_corner"]) for t in trays}
-    last = {t["tray_id"]: Position(t["last"]["slot"], t["last"]["a1_corner"]) for t in trays if t["last"]}
-    checks = check_layout(wanted, placements, last, columns)
+    wanted = {t["tray_id"]: Position(t["slot"], t["heading"]) for t in trays}
+    last = {t["tray_id"]: Position(t["last"]["slot"], t["last"]["heading"]) for t in trays if t["last"]}
+    checks = check_layout(wanted, seen, last, columns)
     details = {
         "photo": record["path"],
         "taken_at": record["timestamp"],
@@ -180,8 +205,9 @@ def check() -> dict:
             {
                 "tray_id": c.tray_id,
                 "status": c.status,
-                "wanted": _where(c.wanted, columns),
-                "found": _where(c.found, columns),
+                "tray_type": tray_type(c.tray_id).name,
+                "wanted": _where(c.tray_id, c.wanted, columns),
+                "found": _where(c.tray_id, c.found, columns),
                 "centre": None if c.centre is None else [round(v, 1) for v in c.centre],
                 "breaks_rule": c.breaks_rule,
             }
