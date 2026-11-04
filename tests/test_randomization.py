@@ -52,15 +52,15 @@ LAST = {tray: Lying(SLOT_SIDES[slot], heading) for tray, (slot, heading) in MEAS
 def test_issue_example_south_1_with_a1_at_sw_puts_row_1_and_column_a_on_the_edge() -> None:
     # "Tray 2 sits in South 1 with its A1 end along the southern border": South 1 is also at
     # the west border, where column A lies when A1 is at SW.
-    assert edge_exposure({"south", "west"}, "SW") == {"row 1", "column A"}
+    assert edge_exposure({"south", "west"}, "SW", tray_type="4x5") == {"row 1", "column A"}
 
 
 def test_issue_example_north_6_with_the_a1_end_north_again_breaks_the_rule() -> None:
     # Last round South 1, A1 end along the south border. North 6 with the A1 end along the north
     # border puts row 1 on the edge again: rejected. Turned 180 degrees (A1 at SW), it passes.
     last = Lying(frozenset({"south", "west"}), "SW")
-    assert breaks_rule(last, Lying(frozenset({"north", "east"}), "NE"))
-    assert not breaks_rule(last, Lying(frozenset({"north", "east"}), "SW"))
+    assert breaks_rule(last, Lying(frozenset({"north", "east"}), "NE"), 1)
+    assert not breaks_rule(last, Lying(frozenset({"north", "east"}), "SW"), 1)
 
 
 def test_a_2x2_tray_turned_round_from_its_first_photo_has_its_first_south_end_north() -> None:
@@ -109,7 +109,7 @@ def test_suggestion_gives_every_tray_its_own_place_and_breaks_no_rule(seed: int)
     assert sorted(layout) == sorted(LAST)
     assert sorted(p.place for p in layout.values()) == sorted(SLOT_NAMES)
     assert {p.heading for p in layout.values()} <= {"SW", "NE"}
-    assert not [t for t, p in layout.items() if breaks_rule(LAST[t], Lying(SLOT_SIDES[p.place], p.heading))]
+    assert not [t for t, p in layout.items() if breaks_rule(LAST[t], Lying(SLOT_SIDES[p.place], p.heading), t)]
 
 
 def test_a_tray_shut_in_on_every_side_may_lie_either_way() -> None:
@@ -240,3 +240,26 @@ def test_a_full_table_of_five_rows_of_six_always_gets_a_layout_that_keeps_the_ru
     last, places = _full_table(5, 6)
     layout = suggest_layout(sorted(last), last, places, random.Random(seed))
     assert not [t for t, p in layout.items() if breaks_rule(last[t], Lying(places[p.place], p.heading), t)]
+
+
+def test_empty_places_given_keep_their_column_and_its_edge() -> None:
+    # The suggestion before left the whole west column empty. Given as empty places, the column
+    # is kept: its places are on the west edge and the trays one column in are not (review of #343).
+    centres = {1: (2200, 500), 2: (3900, 520), 3: (2210, 2400), 4: (3890, 2380)}
+    places = table_places(centres, px_per_mm=5.0, empty=[(500, 510), (510, 2390)])
+    by_tray = {p.occupant: p for p in places if p.occupant is not None}
+    assert by_tray[1].sides == {"north"} and by_tray[3].sides == {"south"}
+    assert sorted(p.sides for p in places if p.occupant is None) == [{"north", "west"}, {"south", "west"}]
+
+
+def test_a_check_judges_the_edges_of_the_place_a_tray_is_found_in() -> None:
+    # In the check photo the west column is empty, so grouping that photo alone would put tray 7
+    # on the west edge. It stands in the suggestion's place 1-2, which is not on the west edge, so
+    # its column A is not on the edge again.
+    places = {"1-1": Place("1-1", (500, 500), frozenset({"north", "west"}), 5.0),
+              "1-2": Place("1-2", (2200, 500), frozenset({"north"}), 5.0)}
+    seen = [TraySeen(7, (2210, 505), "SW", frozenset({"north", "west"}), 0.0)]
+    last = {7: Lying(frozenset({"west"}), "SW")}
+    [check] = check_layout({7: Position("1-2", "SW")}, seen, last, places)
+    assert check.status == "in place"
+    assert not check.breaks_rule

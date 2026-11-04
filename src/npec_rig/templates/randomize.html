@@ -42,9 +42,10 @@
 {% block content %}
   <p id="rz-experiment">Reading the running experiment&hellip;</p>
   <div class="banner fail" role="alert" id="rz-error" hidden></div>
+  <p id="rz-idle" hidden>The trays stand as they were placed. Tap Randomize for a new layout: the page then shows where each tray goes.</p>
 
   <section id="rz-check" hidden>
-    <h2>Check</h2>
+    <h2 id="rz-check-title">Check</h2>
     <p id="rz-check-summary"></p>
     {{ ui.figure("rz-overlay", "The check photo: arrows from each tray in the wrong slot to its slot, a turning arrow on each tray to turn") }}
     {% call ui.data_table(["Tray", "Found", "What to do"], id="rz-problems") %}{% endcall %}
@@ -64,7 +65,7 @@
 
   {% call ui.help("About randomizing the trays") %}
     <p>The places are where the trays stand in the latest photo, in rows and columns, empty spots
-      too. Suggest layout gives every tray a random place and says which way round it lies: A1 at
+      too. Randomize gives every tray a random place and says which way round it lies: A1 at
       SW or NE for a 4 x 5 tray, turn round or keep as is for a 2 x 2 tray. A row of plants that
       was on the table edge (north, south, west or east) is not put on the edge again.</p>
     <p>Move the trays, then press Check layout. The rig takes a photo and marks each tray that
@@ -175,26 +176,46 @@
       img.src = `${c.overlay}?v=${c.id}`;
     }
 
+    let current = null;  // the last state read, to put the buttons back if a reload fails
+
+    function setButtons(state, busy) {
+      const running = !!(state && state.experiment);
+      const working = !!(state && state.suggestion);
+      // As the trays stand: Randomize. While a suggested layout is worked on: Cancel and Check.
+      $("rz-suggest").hidden = working;
+      $("rz-cancel").hidden = !working;
+      $("rz-check-btn").hidden = !working;
+      for (const id of ["rz-suggest", "rz-cancel", "rz-check-btn"]) $(id).disabled = busy || !running;
+    }
+
     function draw(state) {
+      current = state;
       const e = state.experiment;
       $("rz-experiment").textContent = e
         ? `Experiment: ${e.name || "unnamed"}.`
         : "No experiment is running. Start one on the Experiments page to randomize its trays.";
-      $("rz-suggest").disabled = !e;
-      $("rz-check-btn").disabled = !e || !state.suggestion;
+      $("rz-idle").hidden = !e || !!state.suggestion;
       drawSuggestion(state.suggestion);
-      drawCheck(state.check);
+      drawCheck(state.check || state.finished);
+      $("rz-check-title").textContent = state.finished && !state.check ? "Last round" : "Check";
+      setButtons(state, false);
     }
 
     async function load() {
-      const r = await fetch("/api/randomize");
-      if (r.ok) draw(await r.json());
+      try {
+        const r = await fetch("/api/randomize");
+        if (!r.ok) throw new Error(String(r.status));
+        draw(await r.json());
+      } catch (err) {
+        showError("The rig did not answer. Check the connection and try again.");
+        setButtons(current, false);
+      }
     }
 
     async function act(url, busyText) {
       showError("");
       $("rz-busy").textContent = busyText;
-      $("rz-suggest").disabled = $("rz-check-btn").disabled = true;
+      setButtons(current, true);
       try {
         const r = await fetch(url, {method: "POST"});
         if (!r.ok) showError((await r.json().catch(() => ({}))).detail || `Failed (${r.status})`);
@@ -207,6 +228,7 @@
     }
 
     $("rz-suggest").addEventListener("click", () => act("/api/randomize/suggest", "Reading the latest photo\u2026"));
+    $("rz-cancel").addEventListener("click", () => act("/api/randomize/cancel", "Cancelling\u2026"));
     $("rz-check-btn").addEventListener("click", () => act("/api/randomize/check", "Taking a photo and reading the trays\u2026"));
     load();
   });
@@ -215,7 +237,8 @@
 
 {% block action_bar %}
   <span class="grow" id="rz-busy" role="status"></span>
-  {{ ui.button("Suggest layout", id="rz-suggest") }}
-  {{ ui.button("Check layout", "primary", id="rz-check-btn", disabled=true) }}
+  {{ ui.button("Cancel", id="rz-cancel", attrs={"hidden": true}) }}
+  {{ ui.button("Check layout", "primary", id="rz-check-btn", attrs={"hidden": true}) }}
+  {{ ui.button("Randomize", "primary", id="rz-suggest", disabled=true) }}
 {% endblock %}
 

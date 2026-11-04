@@ -59,6 +59,7 @@ class Table:
             stem=STEM,
         )
         self.trays: dict = {}
+        self.unseen: set = set()  # trays whose blue plastic is not drawn: tag only
         self.searches = 0
 
         def detect(frame):
@@ -72,7 +73,9 @@ class Table:
             def capture_full_res(self):
                 frame, metadata = super().capture_full_res()
                 frame[:] = 128
-                for (x, y), _h in table.trays.values():
+                for tray, ((x, y), _h) in table.trays.items():
+                    if tray in table.unseen:
+                        continue
                     draw_tray(frame, round(x - TRAY_PX[0] / 2), round(y - TRAY_PX[1] / 2),
                               round(x + TRAY_PX[0] / 2), round(y + TRAY_PX[1] / 2))
                 return frame, metadata
@@ -183,7 +186,7 @@ def test_suggest_and_check_are_refused_with_no_experiment_running(table, client)
     table.stand(FOUR_BY_FIVE)
     assert client.post("/api/randomize/suggest").status_code == 409
     assert client.post("/api/randomize/check").status_code == 409
-    assert client.get("/api/randomize").json() == {"experiment": None, "suggestion": None, "check": None}
+    assert client.get("/api/randomize").json() == {"experiment": None, "suggestion": None, "check": None, "finished": None}
 
 
 def test_the_next_suggestion_starts_from_where_the_check_found_the_trays(table, client) -> None:
@@ -213,20 +216,20 @@ def test_two_by_two_trays_moved_and_turned_as_suggested_are_all_in_place(table, 
     suggestion = client.post("/api/randomize/suggest").json()
     assert {t["tray_type"] for t in suggestion["trays"]} == {"2x2"}
     done = _where_told(suggestion, TWO_BY_TWO)
-    table.stand(done)
-
-    check = client.post("/api/randomize/check").json()
-    assert {t["tray_id"]: t["status"] for t in check["trays"]} == {t: "in place" for t in TWO_BY_TWO}
 
     # One tray is put down the other way round from what the page says.
     forgot = sorted(TWO_BY_TWO)[0]
     centre, angle = done[forgot]
     table.stand({**done, forgot: (centre, angle - 180)})
-
     check = client.post("/api/randomize/check").json()
     assert {t["tray_id"]: t["status"] for t in check["trays"]} == {
         t: "turned" if t == forgot else "in place" for t in TWO_BY_TWO
     }
+
+    # Turned round as the page says: every tray in place.
+    table.stand(done)
+    check = client.post("/api/randomize/check").json()
+    assert {t["tray_id"]: t["status"] for t in check["trays"]} == {t: "in place" for t in TWO_BY_TWO}
 
 
 def test_one_by_one_trays_get_a_place_only_and_are_judged_by_their_place(table, client) -> None:
@@ -275,3 +278,54 @@ def test_a_check_searches_its_photo_for_tags_once(table, client) -> None:
     assert client.post("/api/randomize/check").status_code == 200
 
     assert table.searches - before == 1
+
+
+def test_a_four_by_five_tray_whose_outline_is_not_found_is_still_judged_in_its_place(table, client) -> None:
+    # Tray 3's blue plastic is not found (under a sheet, say): only its tag in cell A1 is seen,
+    # about 176 mm from the tray's centre. Stood where the suggestion puts it, it is in its place;
+    # which way round it lies cannot be read (review of #343).
+    _running_experiment()
+    table.stand(FOUR_BY_FIVE)
+    client.post("/capture")
+    suggestion = client.post("/api/randomize/suggest").json()
+    table.stand(_where_told(suggestion, FOUR_BY_FIVE))
+    table.unseen = {3}
+
+    check = client.post("/api/randomize/check").json()
+
+    status = {t["tray_id"]: t["status"] for t in check["trays"]}
+    assert status == {t: "heading not read" if t == 3 else "in place" for t in FOUR_BY_FIVE}
+
+
+def test_the_page_starts_with_no_hints_and_cancel_puts_it_back(table, client) -> None:
+    # Aaron, 2026-11-04: the page starts as the trays stand, Randomize shows the hints, Cancel
+    # puts it back to the trays as they stand.
+    _running_experiment()
+    table.stand(FOUR_BY_FIVE)
+    client.post("/capture")
+    state = client.get("/api/randomize").json()
+    assert state["suggestion"] is None and state["check"] is None
+
+    suggestion = client.post("/api/randomize/suggest").json()
+    assert client.get("/api/randomize").json()["suggestion"]["id"] == suggestion["id"]
+
+    assert client.post("/api/randomize/cancel").status_code == 200
+
+    state = client.get("/api/randomize").json()
+    assert state["suggestion"] is None and state["check"] is None
+    assert client.post("/api/randomize/check").status_code == 409
+    assert client.post("/api/randomize/cancel").status_code == 409
+
+
+def test_a_check_with_every_tray_in_place_ends_the_round(table, client) -> None:
+    _running_experiment()
+    table.stand(FOUR_BY_FIVE)
+    client.post("/capture")
+    suggestion = client.post("/api/randomize/suggest").json()
+    table.stand(_where_told(suggestion, FOUR_BY_FIVE))
+    check = client.post("/api/randomize/check").json()
+
+    state = client.get("/api/randomize").json()
+
+    assert state["suggestion"] is None and state["check"] is None
+    assert state["finished"]["id"] == check["id"]

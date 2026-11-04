@@ -354,7 +354,7 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             CREATE TABLE tray_layout (
                 id INTEGER PRIMARY KEY,
                 experiment_id INTEGER NOT NULL REFERENCES experiment (id),
-                kind TEXT NOT NULL,              -- 'suggestion' or 'check'
+                kind TEXT NOT NULL,              -- 'suggestion', 'check' or 'cancel'
                 made_at TEXT NOT NULL,           -- UTC, ISO 8601
                 capture_id INTEGER,              -- the photo read; no reference: a purge deletes it
                 suggestion_id INTEGER REFERENCES tray_layout (id),  -- a check: what it compared with
@@ -738,8 +738,9 @@ def record_tray_layout(
     capture_id: int | None = None,
     suggestion_id: int | None = None,
 ) -> dict:
-    """Save a suggested tray layout or a check against one (#343); the saved row."""
-    if kind not in ("suggestion", "check"):
+    """Save a suggested tray layout, a check against one, or the cancelling of one (#343); the
+    saved row."""
+    if kind not in ("suggestion", "check", "cancel"):
         raise ValueError(f"unknown tray layout kind {kind!r}")
     with _connect() as conn:
         _experiment(conn, experiment_id)  # LookupError for no such experiment
@@ -765,6 +766,16 @@ def latest_tray_layout(experiment_id: int, kind: str) -> dict | None:
         row = conn.execute(
             "SELECT id FROM tray_layout WHERE experiment_id = ? AND kind = ? ORDER BY id DESC LIMIT 1",
             (experiment_id, kind),
+        ).fetchone()
+    return None if row is None else tray_layout(row[0])
+
+
+def latest_tray_layout_for(suggestion_id: int, kind: str) -> dict | None:
+    """The newest check or cancel of suggestion `suggestion_id`, or None."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM tray_layout WHERE suggestion_id = ? AND kind = ? ORDER BY id DESC LIMIT 1",
+            (suggestion_id, kind),
         ).fetchone()
     return None if row is None else tray_layout(row[0])
 

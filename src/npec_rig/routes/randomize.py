@@ -18,6 +18,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 
 from npec_rig import database, images, photo_tags
+from npec_rig.photo_tags import CaptureNotFoundError, CaptureRefError
 from npec_rig.camera import CameraBusyError, array_to_jpeg
 from npec_rig.captures import photo_file, take_photo
 from npec_rig.randomization import (
@@ -91,21 +92,48 @@ def randomize_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "randomize.html")
 
 
+def _round(experiment_id: int) -> tuple[dict | None, dict | None, dict | None]:
+    """(the suggestion being worked on, its latest check, the check that finished the last round).
+
+    The page starts as the trays stand (Aaron, 2026-11-04): a suggestion is worked on from
+    Randomize until it is cancelled or a check finds every tray in place, which ends the round."""
+    suggestion = database.latest_tray_layout(experiment_id, "suggestion")
+    if suggestion is None or database.latest_tray_layout_for(suggestion["id"], "cancel") is not None:
+        return None, None, None
+    check = database.latest_tray_layout_for(suggestion["id"], "check")
+    if check is not None and all(t["status"] == "in place" for t in check["details"]["trays"]):
+        return None, None, check
+    return suggestion, check, None
+
+
 @router.get("/api/randomize")
 def randomize_state() -> dict:
-    """The running experiment, its latest suggestion and its latest check (None where none)."""
+    """The running experiment, the suggestion being worked on and its latest check (None where
+    none), and the check that ended the last round when every tray was found in place."""
     experiment = database.running_experiment()
     if experiment is None:
-        return {"experiment": None, "suggestion": None, "check": None}
-    suggestion = database.latest_tray_layout(experiment["id"], "suggestion")
-    check = database.latest_tray_layout(experiment["id"], "check")
-    if check is not None and suggestion is not None and check["suggestion_id"] != suggestion["id"]:
-        check = None  # a check of an older suggestion says nothing about this one
+        return {"experiment": None, "suggestion": None, "check": None, "finished": None}
+    suggestion, check, finished = _round(experiment["id"])
     return {
         "experiment": {"id": experiment["id"], "name": experiment["name"]},
         "suggestion": _suggestion_out(suggestion),
         "check": _check_out(check),
+        "finished": _check_out(finished),
     }
+
+
+@router.post("/api/randomize/cancel")
+def cancel() -> dict:
+    """Stop working on the suggestion: the page goes back to the trays as they stand. The
+    suggestion and its checks stay saved, with the cancelling."""
+    experiment = _running()
+    suggestion, _check, _finished = _round(experiment["id"])
+    if suggestion is None:
+        raise HTTPException(409, "There is no suggested layout to cancel.")
+    database.record_tray_layout(
+        experiment["id"], "cancel", made_at=_now(), details={}, suggestion_id=suggestion["id"]
+    )
+    return {"cancelled": suggestion["id"]}
 
 
 def _suggestion_out(row: dict | None) -> dict | None:
@@ -136,9 +164,11 @@ def suggest() -> dict:
     if photo is None:
         raise HTTPException(409, "The experiment has no photo yet: take one, then suggest a layout.")
     references = _references(experiment["id"])
+    previous = database.latest_tray_layout(experiment["id"], "suggestion")
+    known = [tuple(p["centre"]) for p in previous["details"]["places"]] if previous else []
     try:
-        seen, photo_places, _scale = photo_layout(photo["path"], references)
-    except LayoutUnreadableError as exc:
+        seen, photo_places, _scale = photo_layout(photo["path"], references, known)
+    except (LayoutUnreadableError, CaptureNotFoundError, CaptureRefError) as exc:
         raise HTTPException(409, f"Cannot read where the trays are: {exc}.") from exc
     finally:
         # A still not yet read by the tray reader is searched for tags at full size here (#348).
@@ -201,9 +231,9 @@ def check() -> dict:
     """Take a new photo (a rig photo, not one of the experiment's stills) and compare where each
     tray stands in it with the latest suggestion; save the result with the experiment."""
     experiment = _running()
-    suggestion = database.latest_tray_layout(experiment["id"], "suggestion")
+    suggestion, _check, _finished = _round(experiment["id"])
     if suggestion is None:
-        raise HTTPException(409, "There is no suggested layout to check against: press Suggest first.")
+        raise HTTPException(409, "There is no suggested layout to check against: press Randomize first.")
     try:
         frame, record = take_photo("layout check")
     except CameraBusyError as exc:
@@ -223,7 +253,7 @@ def check() -> dict:
         del gray
         images.store_tag_detections(record["path"].removeprefix("rig/"), detections)
         seen, _check_places, _scale = photo_layout(record["path"], references)
-    except LayoutUnreadableError as exc:
+    except (LayoutUnreadableError, CaptureNotFoundError, CaptureRefError) as exc:
         raise HTTPException(409, f"Cannot read where the trays are: {exc}.") from exc
     finally:
         images.release_freed_memory()
@@ -336,7 +366,9 @@ def _render_check_overlay(inputs: dict) -> bytes:
             rings.append(((tx, ty), tray["tray_id"]))
         if status in ("turned", "wrong place, turned"):
             _turn_arrow(image, (x, y), 70, _TURN_COLOUR)
-        labels.append(((x, y + 100), lines, colour))
+        # Below the tray, or above it when that would run off the bottom of the photo.
+        below = y + 100 + 25 * (len(lines) - 1) < image.shape[0] - 6
+        labels.append(((x, y + 100 if below else y - 60 - 25 * (len(lines) - 1)), lines, colour))
     for (x, y), _tray in rings:
         cv2.circle(image, (x, y), 26, (0, 0, 0), 10, cv2.LINE_AA)
         cv2.circle(image, (x, y), 26, _PLACE_COLOUR, 5, cv2.LINE_AA)
@@ -350,9 +382,9 @@ def _render_check_overlay(inputs: dict) -> bytes:
             line = f"Tray {tray_id} goes here"
             half = text_width(line, 0.6) / 2 + 3
             lx = round(min(max(x, half), image.shape[1] - half))
-            layer.text(line, (lx, y - 40), 0.6, _PLACE_COLOUR, anchor="ms", stroke_width=3, stroke_fill=(0, 0, 0))
+            layer.text(line, (lx, max(y - 40, 24)), 0.6, _PLACE_COLOUR, anchor="ms", stroke_width=3, stroke_fill=(0, 0, 0))
     return array_to_jpeg(image)
 
 
 # Bump the version whenever the renderer would draw the same inputs differently.
-images.register(images.Recipe("randomize_check", 3, _render_check_overlay))
+images.register(images.Recipe("randomize_check", 4, _render_check_overlay))
