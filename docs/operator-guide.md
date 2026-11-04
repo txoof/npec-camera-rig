@@ -148,29 +148,30 @@ location too long.
 
 The Randomize page (left menu) suggests where each tray goes, and which way round, then checks the
 table against the suggestion. An experiment must be running. Trays can stand anywhere on the
-table: the rig shuffles them over the places where they stand now.
+table: the rig groups them into rows and columns, and every crossing is a place, empty spots too.
+The trays are shuffled over those places, so the empty spots move as well.
 
 - **Suggest layout.** The rig finds each tray in the latest photo and draws a new place for every
-  tray from those places, and which way round it lies. A side of a tray counts as on the outside
-  edge of the table when no other tray stands between it and the border. A layout is kept only if
-  no row or column of plants that was on an outside edge is on an outside edge again. The map
-  shows the table, north at the top, each place named after the tray that stood there; the list
-  below gives the same by tray number.
+  tray, and which way round it lies. Only the table's own edges count: the north and south rows
+  and the west and east columns. A layout is kept only if no row or column of plants that was on
+  a table edge is on a table edge again. Under "Put the trays like this" the map shows the table,
+  north at the top, each box with the tray that goes there and how it lies; the list below gives,
+  for each tray, where it is now and where it goes ("South row, 2nd from west").
   - **4 x 5 trays** (tag IDs 1 to 75, tag in cell A1): a triangle and "A1 SW" or "A1 NE" at the
     corner where cell A1 goes.
   - **2 x 2 trays** (tag IDs 76 to 150, tag fixed in the middle): "Turn round", with a turning
     arrow, or "Keep as is". The rig reads which way round the tray lies from the tag's angle, so
     the tag must stay fixed to its tray.
   - **Other trays** (1 x 1, black trays): a place only; they may lie either way round.
-  - **When no layout keeps the rule**, for example a tray with nothing north or south of it, the
-    page says so, gives the layout that repeats fewest edge rows and marks those trays "Edge row
-    again".
+  - **When no layout keeps the rule**, for example a single row of trays, whose trays are on both
+    the north and south edges, the page names each tray that has a row on the edge again and
+    marks it "Edge row again" on the map.
 - **Check layout.** After moving the trays, tap Check layout. The rig takes a photo (not one of
   the experiment's photos) and shows it with a white ring marked "Tray N goes here" where each
   tray goes, an orange arrow from each tray in the wrong place to its ring, a pink turning arrow on
   each tray to turn round, and a green circle with "OK" on each tray in place. A tray is in place
   when its centre is within 150 mm of its place. The table under the photo says what to do for
-  each tray.
+  each tray, naming the place.
 - **Reporting.** Each suggestion and check is saved with the experiment, with the random seed.
   In the methods: trays were placed by restricted randomization, rejecting any layout that put a
   row or column of plants on an outside edge of the table two rounds in a row.

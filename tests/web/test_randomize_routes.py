@@ -28,9 +28,9 @@ TAG_PX = 40 * PX_PER_MM
 A1_FROM_CENTRE_MM = (-104.0, 141.6)
 STEM = "20270101T000000000000"
 
-# Where the trays stand, photo pixels: three along the north, two along the south set off from
-# them, not on a grid.
-SPOTS = [(700, 700), (1700, 760), (2750, 690), (1150, 1950), (2500, 2010)]
+# Where the trays stand, photo pixels: three along the north, two along the south with the middle
+# spot empty, not in straight lines.
+SPOTS = [(700, 700), (1700, 760), (2750, 690), (730, 1950), (2720, 2010)]
 
 
 def _tag(tray_id: int, centre: tuple[float, float], heading) -> TagDetection:
@@ -125,13 +125,14 @@ def test_suggest_reads_where_each_tray_stands_and_which_way_round(table, client)
     assert suggestion["experiment_id"] == experiment["id"]
     trays = {t["tray_id"]: t for t in suggestion["trays"]}
     assert {t: v["last"]["heading"] for t, v in trays.items()} == {t: h for t, (_c, h) in FOUR_BY_FIVE.items()}
-    # A place for every tray, where it stands; the north-west tray has the north and west borders.
-    places = {p["name"]: p for p in suggestion["places"]}
+    # A place where each tray stands, and the empty spot in the south row: two rows of three.
+    places = {p["occupant"]: p for p in suggestion["places"]}
     for tray, (centre, _h) in FOUR_BY_FIVE.items():
-        assert abs(places[str(tray)]["centre"][0] - centre[0]) < 20
-        assert abs(places[str(tray)]["centre"][1] - centre[1]) < 20
-    assert set(places["1"]["sides"]) == {"north", "west"}
-    assert sorted(t["place"] for t in trays.values()) == sorted(places)
+        assert abs(places[tray]["centre"][0] - centre[0]) < 20
+        assert abs(places[tray]["centre"][1] - centre[1]) < 20
+    assert set(places[1]["sides"]) == {"north", "west"} and places[1]["label"] == "North row, 1st from west"
+    assert [p["label"] for p in suggestion["places"] if p["occupant"] is None] == ["South row, 2nd from west"]
+    assert len({t["place"] for t in trays.values()}) == len(FOUR_BY_FIVE)
 
 
 def test_trays_moved_and_turned_as_suggested_are_all_in_place(table, client) -> None:
@@ -211,10 +212,8 @@ def test_two_by_two_trays_moved_and_turned_as_suggested_are_all_in_place(table, 
     check = client.post("/api/randomize/check").json()
     assert {t["tray_id"]: t["status"] for t in check["trays"]} == {t: "in place" for t in TWO_BY_TWO}
 
-    # One tray that had to be turned is put down the same way round as before. Every place here
-    # has an outer side, so a tray moved to a place with the other end on the edge must turn:
-    # some tray is always told to.
-    forgot = next(t["tray_id"] for t in suggestion["trays"] if t["turn"])
+    # One tray is put down the other way round from what the page says.
+    forgot = sorted(TWO_BY_TWO)[0]
     centre, angle = done[forgot]
     table.stand({**done, forgot: (centre, angle - 180)})
 

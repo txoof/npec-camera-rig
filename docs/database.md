@@ -253,9 +253,10 @@ deleted by the rig.
 ### `tray_layout`
 
 Version 19 (#343). The Randomize page's suggested layouts and checks, saved with the experiment
-(Aaron, 2026-11-02). Trays stand wherever the researcher puts them (Aaron, 2026-11-04): the places
-of a suggestion are where the trays stood in the photo it was read from, and a side of a place is
-on the outside edge when no other tray stands between it and the border. A suggestion is drawn by
+(Aaron, 2026-11-02). Trays stand wherever the researcher puts them (Aaron, 2026-11-04): the trays
+in the photo a suggestion was read from are grouped into rows and columns, and every crossing is a
+place, empty ones too, so the empty spots move as well. Only the table's own edges are edges: the
+north and south rows, the west and east columns. A suggestion is drawn by
 restricted randomization: no row or column of plants is on an outside edge of the table two
 rounds in a row (`randomization.py`).
 
@@ -272,13 +273,15 @@ rounds in a row (`randomization.py`).
 A suggestion's `details`: `seed` (the random seed), `rule_kept` (false when no layout kept the
 rule and the one breaking it least was given), `photo` and `taken_at` (the photo read),
 `references` (each 2 x 2 tray's tag angle in degrees in its first photo, carried from one
-suggestion to the next), `places` (each place: `name`, the tag ID of the tray that stood there;
-`centre`, full-size photo pixels; `sides`, its outer sides; `px_per_mm`, the calibration's scale
-there), and `trays`, one entry per tray: `tray_id`, `tray_type` (from its tag ID: `4x5`, `2x2`,
-`1x1`, `black` or `other`), `place`, `heading`, `edges` (the rows and columns of plants that place
-and heading put on an outside edge, for example `["column A", "row 1"]`), `last` (its own place,
-heading, sides and edges in the photo, so every round's edges are kept per tray), `breaks_rule`
-and `turn` (whether to turn the tray round from how it lies now).
+suggestion to the next), `places` (each place: `name`, row and column from the north-west, as
+`2-3`; `label`, as people find it, "South row, 3rd from west"; `occupant`, the tray standing there,
+null for an empty place; `centre`, full-size photo pixels; `sides`, the table edges it is on;
+`px_per_mm`, the calibration's scale), and `trays`, one entry per tray: `tray_id`, `tray_type`
+(from its tag ID: `4x5`, `2x2`, `1x1`, `black` or `other`), `place`, `place_label`, `heading`,
+`edges` (the rows and columns of plants that place and heading put on a table edge, for example
+`["column A", "row 1"]`), `last` (the place it stood in, with its heading, sides and edges, so
+every round's edges are kept per tray), `breaks_rule` and `turn` (whether to turn the tray round
+from how it lies now).
 
 `heading` depends on the tray type: `SW` or `NE` (the corner of cell A1) for a 4 x 5 tray, read
 from where its tag lies against the centre of its blue outline; `as first` or `turned` for a 2 x 2
@@ -289,7 +292,7 @@ tray, row 1 is the end that faced south in its first photo and column A the side
 A check's `details`: `photo` and `taken_at` (the check photo, a rig photo with purpose
 `layout check`, never one of the experiment's stills), `places` (the suggestion's), and `trays`:
 `tray_id`, `tray_type`, `status` (`in place`, `wrong place`, `turned`, `wrong place, turned`,
-`heading not read`, `missing`, `not in layout`), `wanted` (place, heading), `found_at` (the place
+`heading not read`, `missing`, `not in layout`), `wanted` (place, label, heading), `found_at` (the place
 whose centre is within 150 mm of the tray's, or null), `heading`, `centre` (full-size photo
 pixels), `edges` and `breaks_rule`.
 

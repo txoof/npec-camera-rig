@@ -4,9 +4,10 @@ The rig suggests where each tray goes and which way round it lies, and checks a 
 suggestion.
 
 Trays stand wherever the researcher puts them (Aaron, 2026-11-04): there are no fixed slots. The
-places are where the trays stand in the latest photo, and a suggestion shuffles the trays over
-those places. A side of a place is on the outside edge of the table when no other tray stands
-between it and the border (`outer_sides`).
+trays in the latest photo are grouped into rows and columns, every crossing is a place, empty
+ones too, and a suggestion shuffles the trays over those places, so the empty spots move too.
+Only the table's own edges are edges: the north and south rows, the west and east columns
+(`table_places`).
 
 The layout is drawn by restricted randomization: random layouts are drawn and any that breaks
 the rule is rejected, so the one kept is drawn at random from those that pass. The rule: no row
@@ -51,11 +52,6 @@ from npec_rig.tray_placement import TRAY_SIZE_MM, find_outlines, name_trays
 # A tray is in its place when its centre is within this of the place's centre: about half a
 # tray's short side (305 mm). A decision, not a measurement (2026-11-04).
 IN_PLACE_MM = 150.0
-
-# Another tray is between a tray and a border only if it overlaps the tray across by more than this
-# share of the tray's width: a tray set off to one side does not shade it. A decision, not a
-# measurement (2026-11-04).
-SHIELD_OVERLAP = 0.25
 
 SIDES = ("north", "south", "west", "east")
 
@@ -106,13 +102,16 @@ class Lying(NamedTuple):
 
 @dataclass(frozen=True)
 class Place:
-    """Where a tray stood in a photo: its name, its centre (full-size photo pixels), its outer
-    sides and the calibration's scale there."""
+    """A place on the table: its name, its centre (full-size photo pixels), the table edges it
+    is on, the calibration's scale there, its label for people ("South row, 2nd from west") and
+    the tray standing there in the photo (None for an empty place)."""
 
     name: str
     centre: tuple[float, float]
     sides: frozenset[str]
     px_per_mm: float
+    label: str = ""
+    occupant: int | None = None
 
 
 @dataclass(frozen=True)
@@ -127,35 +126,65 @@ class TraySeen:
     tag_angle: float
 
 
-def outer_sides(boxes: dict) -> dict:
-    """For each tray's box (x0, y0, x1, y1, photo pixels, north at the top), the sides with no
-    other tray between it and the border of the table: "north", "south", "west", "east".
+def _groups(values: list[tuple[float, int]], gap: float) -> list[list[int]]:
+    """Keys of (value, key) pairs grouped in order of value: a new group starts where a value is
+    more than `gap` past the mean of the group so far."""
+    groups: list[list[tuple[float, int]]] = []
+    for value, key in sorted(values):
+        if groups and value - sum(v for v, _k in groups[-1]) / len(groups[-1]) <= gap:
+            groups[-1].append((value, key))
+        else:
+            groups.append([(value, key)])
+    return [[k for _v, k in g] for g in groups]
 
-    Another tray is beyond a side when its centre lies past that side's edge, and between it and
-    the border when it also overlaps the tray across by more than SHIELD_OVERLAP of its width."""
 
-    def overlap(a0: float, a1: float, b0: float, b1: float) -> float:
-        return max(0.0, min(a1, b1) - max(a0, b0))
+def _ordinal(n: int) -> str:
+    return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
 
-    out = {}
-    for key, (x0, y0, x1, y1) in boxes.items():
-        shut = set()
-        for other, (u0, v0, u1, v1) in boxes.items():
-            if other == key:
-                continue
-            cx, cy = (u0 + u1) / 2, (v0 + v1) / 2
-            across_ns = overlap(x0, x1, u0, u1) > SHIELD_OVERLAP * (x1 - x0)
-            across_we = overlap(y0, y1, v0, v1) > SHIELD_OVERLAP * (y1 - y0)
-            if across_ns and cy < y0:
-                shut.add("north")
-            if across_ns and cy > y1:
-                shut.add("south")
-            if across_we and cx < x0:
-                shut.add("west")
-            if across_we and cx > x1:
-                shut.add("east")
-        out[key] = frozenset(s for s in SIDES if s not in shut)
-    return out
+
+def table_places(centres: dict[int, tuple[float, float]], px_per_mm: float) -> list[Place]:
+    """The places on the table from the trays' centres (photo pixels, north at the top): the trays
+    grouped into rows (north to south) and columns (west to east), every row and column crossing
+    a place, one with no tray an empty place (Aaron, 2026-11-04: the empty spot moves too).
+
+    Only the table's own edges are edges (Aaron, 2026-11-04): the north row is on the north edge,
+    the south row on the south edge, the west column on the west edge, the east column on the east.
+    A tray joins a row within half a tray's length of it, a column within half a tray's width."""
+    rows = _groups([(c[1], t) for t, c in centres.items()], TRAY_SIZE_MM[1] / 2 * px_per_mm)
+    columns = _groups([(c[0], t) for t, c in centres.items()], TRAY_SIZE_MM[0] / 2 * px_per_mm)
+    row_of = {t: r for r, members in enumerate(rows) for t in members}
+    column_of = {t: c for c, members in enumerate(columns) for t in members}
+    row_y = [sum(centres[t][1] for t in m) / len(m) for m in rows]
+    column_x = [sum(centres[t][0] for t in m) / len(m) for m in columns]
+    standing = {(row_of[t], column_of[t]): t for t in centres}
+    places = []
+    for r in range(len(rows)):
+        for c in range(len(columns)):
+            sides = set()
+            if r == 0:
+                sides.add("north")
+            if r == len(rows) - 1:
+                sides.add("south")
+            if c == 0:
+                sides.add("west")
+            if c == len(columns) - 1:
+                sides.add("east")
+            if len(rows) == 2:
+                row_name = "North row" if r == 0 else "South row"
+            elif len(rows) == 1:
+                row_name = "Row"
+            else:
+                row_name = f"Row {r + 1} from north"
+            tray = standing.get((r, c))
+            places.append(Place(
+                name=f"{r + 1}-{c + 1}",
+                centre=centres[tray] if tray is not None else (column_x[c], row_y[r]),
+                sides=frozenset(sides),
+                px_per_mm=px_per_mm,
+                label=f"{row_name}, {_ordinal(c + 1)} from west",
+                occupant=tray,
+            ))
+    return places
 
 
 def edge_exposure(sides, heading: str, tray_type: str = "4x5") -> frozenset[str]:
@@ -343,17 +372,11 @@ class LayoutUnreadableError(RuntimeError):
     """A photo whose trays cannot be read: no calibration, or the photo is gone."""
 
 
-def _box(centre: tuple[float, float], outline, px_per_mm: float) -> tuple[float, float, float, float]:
-    """The tray's box: around its outline, or a portrait tray of TRAY_SIZE_MM around its centre."""
-    if outline is not None:
-        xs, ys = [c[0] for c in outline], [c[1] for c in outline]
-        return min(xs), min(ys), max(xs), max(ys)
-    half_w, half_h = TRAY_SIZE_MM[0] * px_per_mm / 2, TRAY_SIZE_MM[1] * px_per_mm / 2
-    return centre[0] - half_w, centre[1] - half_h, centre[0] + half_w, centre[1] + half_h
-
-
-def photo_layout(path: str, references: dict[int, float] | None = None) -> tuple[list[TraySeen], object]:
-    """The trays of photo `path` (a gallery path) and its calibration's scale field.
+def photo_layout(
+    path: str, references: dict[int, float] | None = None
+) -> tuple[list[TraySeen], list[Place], object]:
+    """The trays of photo `path` (a gallery path), the places on the table they make
+    (`table_places`, empty ones too) and the photo's calibration scale field.
 
     Each tray tag's tray is found from its blue outline (tray_placement.find_outlines and
     name_trays, as the tray readings do), wherever it stands. A 4 x 5 tray's A1 corner is SW when
@@ -381,8 +404,9 @@ def photo_layout(path: str, references: dict[int, float] | None = None) -> tuple
     tags = {d.tag_id: d for d in photo_tags.photo_tags_for(path) if d.tag_id in TRAY_ID_RANGE}
     trays = [t for t in name_trays(find_outlines(small, scale, width / small.shape[1]), list(tags.values()))
              if t.tray_id is not None]
-    boxes = {t.tray_id: _box(t.centre, t.outline, scale.px_per_mm(*t.centre)) for t in trays}
-    sides = outer_sides(boxes)
+    centres = {t.tray_id: tuple(t.centre) for t in trays}
+    places = table_places(centres, float(np.median([scale.px_per_mm(*c) for c in centres.values()]))) if centres else []
+    sides = {p.occupant: p.sides for p in places if p.occupant is not None}
     references = references or {}
     seen = []
     for t in trays:
@@ -396,4 +420,4 @@ def photo_layout(path: str, references: dict[int, float] | None = None) -> tuple
             angle = tag_angle(tag)
             heading = "turned" if turned_from(angle, references.get(t.tray_id, angle)) else "as first"
         seen.append(TraySeen(t.tray_id, tuple(t.centre), heading, sides[t.tray_id], tag_angle(tag)))
-    return sorted(seen, key=lambda s: s.tray_id), scale
+    return sorted(seen, key=lambda s: s.tray_id), places, scale

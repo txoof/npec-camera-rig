@@ -61,7 +61,7 @@ def _edges(tray_id: int, lying: Lying | None) -> list[str] | None:
 
 def _places(details: dict) -> dict[str, Place]:
     return {
-        p["name"]: Place(p["name"], tuple(p["centre"]), frozenset(p["sides"]), p["px_per_mm"])
+        p["name"]: Place(p["name"], tuple(p["centre"]), frozenset(p["sides"]), p["px_per_mm"], p["label"], p["occupant"])
         for p in details["places"]
     }
 
@@ -136,13 +136,14 @@ def suggest() -> dict:
         raise HTTPException(409, "The experiment has no photo yet: take one, then suggest a layout.")
     references = _references(experiment["id"])
     try:
-        seen, scale = photo_layout(photo["path"], references)
+        seen, photo_places, _scale = photo_layout(photo["path"], references)
     except LayoutUnreadableError as exc:
         raise HTTPException(409, f"Cannot read where the trays are: {exc}.") from exc
     if not seen:
         raise HTTPException(409, "No tray with a tag was found in the latest photo.")
-    # Each place is named after the tray standing there now.
-    places = {str(t.tray_id): Place(str(t.tray_id), t.centre, t.sides, scale.px_per_mm(*t.centre)) for t in seen}
+    # The places the trays make, empty ones too: the empty spots move as well (Aaron, 2026-11-04).
+    places = {p.name: p for p in photo_places}
+    standing_in = {p.occupant: p.name for p in photo_places if p.occupant is not None}
     last = {t.tray_id: Lying(t.sides, t.heading) for t in seen}
     # A 2 x 2 tray seen for the first time: this photo's angle is its reference from now on.
     for t in seen:
@@ -163,8 +164,8 @@ def suggest() -> dict:
         "taken_at": photo["taken_at"],
         "references": {str(k): v for k, v in sorted(references.items())},
         "places": [
-            {"name": p.name, "centre": [round(v, 1) for v in p.centre], "sides": sorted(p.sides),
-             "px_per_mm": round(p.px_per_mm, 4)}
+            {"name": p.name, "label": p.label, "occupant": p.occupant, "centre": [round(v, 1) for v in p.centre],
+             "sides": sorted(p.sides), "px_per_mm": round(p.px_per_mm, 4)}
             for p in places.values()
         ],
         "trays": [
@@ -172,10 +173,11 @@ def suggest() -> dict:
                 "tray_id": tray,
                 "tray_type": tray_type(tray).name,
                 "place": position.place,
+                "place_label": places[position.place].label,
                 "heading": position.heading,
                 "edges": _edges(tray, Lying(places[position.place].sides, position.heading)),
-                "last": {"place": str(tray), "heading": last[tray].heading, "sides": sorted(last[tray].sides),
-                         "edges": _edges(tray, last[tray])},
+                "last": {"place": standing_in[tray], "place_label": places[standing_in[tray]].label,
+                         "heading": last[tray].heading, "sides": sorted(last[tray].sides), "edges": _edges(tray, last[tray])},
                 "breaks_rule": breaks_rule(last[tray], Lying(places[position.place].sides, position.heading), tray),
                 # Turn the tray round from how it lies now; None when its heading is not read.
                 "turn": None if position.heading is None or last[tray].heading is None
@@ -206,7 +208,7 @@ def check() -> dict:
     details = suggestion["details"]
     references = {int(k): v for k, v in details.get("references", {}).items()}
     try:
-        seen, _scale = photo_layout(record["path"], references)
+        seen, _check_places, _scale = photo_layout(record["path"], references)
     except LayoutUnreadableError as exc:
         raise HTTPException(409, f"Cannot read where the trays are: {exc}.") from exc
     places = _places(details)
@@ -222,7 +224,8 @@ def check() -> dict:
                 "tray_id": c.tray_id,
                 "tray_type": tray_type(c.tray_id).name,
                 "status": c.status,
-                "wanted": None if c.wanted is None else {"place": c.wanted.place, "heading": c.wanted.heading},
+                "wanted": None if c.wanted is None else {
+                    "place": c.wanted.place, "label": places[c.wanted.place].label, "heading": c.wanted.heading},
                 "found_at": c.found_at,
                 "heading": c.heading,
                 "centre": None if c.centre is None else [round(v, 1) for v in c.centre],

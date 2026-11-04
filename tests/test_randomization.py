@@ -23,7 +23,7 @@ from npec_rig.randomization import (
     check_layout,
     edge_exposure,
     least_breaking_layout,
-    outer_sides,
+    table_places,
     suggest_layout,
 )
 from npec_rig.tags import TagDetection
@@ -73,38 +73,34 @@ def test_a_2x2_tray_turned_round_from_its_first_photo_has_its_first_south_end_no
 
 
 # --- Places: trays stand wherever the researcher puts them (Aaron, 2026-11-04) ---------------
-# Boxes are (x0, y0, x1, y1) in photo pixels, north at the top (small y).
+# Tray centres in photo pixels, north at the top (small y), at 5 px/mm. Only the table's own
+# north, south, west and east edges are edges, and an empty spot is a place too (Aaron).
 
 
-def test_outer_sides_of_two_rows_of_three() -> None:
-    # Two rows of three trays with gaps: every tray has the north or the south border with no
-    # tray between, and the ends of each row the west or east border.
-    boxes = {}
-    for r, y in enumerate((0, 400)):
-        for c, x in enumerate((0, 350, 700)):
-            boxes[(r, c)] = (x, y, x + 300, y + 360)
-    sides = outer_sides(boxes)
-    assert sides[(0, 0)] == {"north", "west"}
-    assert sides[(0, 1)] == {"north"}
-    assert sides[(1, 2)] == {"south", "east"}
+def test_the_development_table_is_two_rows_of_five_with_one_empty_place() -> None:
+    # The development table of 4 November: five trays along the north, four along the south, the
+    # gap under the second north tray. Centres as the photo gave them (not in a straight line).
+    centres = {79: (989, 2273), 85: (2774, 2154), 77: (4523, 2220), 80: (6326, 2292), 78: (8115, 2301),
+               87: (998, 4288), 76: (4332, 4346), 86: (6184, 4436), 81: (8050, 4431)}
+    places = table_places(centres, px_per_mm=5.0)
+    assert len(places) == 10
+    by_tray = {p.occupant: p for p in places}
+    assert by_tray[85].label == "North row, 2nd from west" and by_tray[85].sides == {"north"}
+    assert by_tray[79].sides == {"north", "west"}
+    assert by_tray[81].sides == {"south", "east"}
+    empty = [p for p in places if p.occupant is None]
+    assert [(p.label, p.sides) for p in empty] == [("South row, 2nd from west", {"south"})]
+    # The empty place lies under tray 85, level with the south row.
+    assert abs(empty[0].centre[0] - 2774) < 1 and abs(empty[0].centre[1] - 4375) < 60
 
 
-def test_a_tray_with_trays_all_round_has_no_outer_side_and_a_lone_tray_has_all_four() -> None:
-    # A plus shape: the middle tray is shut in on every side. A tray far off on its own, level
-    # with no other, has all four sides on the outside.
-    boxes = {"mid": (400, 400, 700, 760), "n": (400, 0, 700, 360), "s": (400, 800, 700, 1160),
-             "w": (50, 400, 350, 760), "e": (750, 400, 1050, 760), "lone": (2000, 2000, 2300, 2360)}
-    sides = outer_sides(boxes)
-    assert sides["mid"] == set()
-    assert sides["lone"] == {"north", "south", "west", "east"}
-    assert sides["n"] == {"north", "west", "east"}
-
-
-def test_trays_set_off_by_less_than_a_quarter_of_their_width_do_not_shield_each_other() -> None:
-    # Tray "b" is south of "a" but overlaps it east-west by only 50 of 300 px: it is not between
-    # "a" and the south border.
-    sides = outer_sides({"a": (0, 0, 300, 360), "b": (250, 400, 550, 760)})
-    assert "south" in sides["a"]
+def test_a_middle_row_is_on_no_north_or_south_edge() -> None:
+    # Three rows of two: the middle row touches only the west and east edges.
+    centres = {1: (500, 500), 2: (2200, 520), 3: (510, 2400), 4: (2190, 2380), 5: (500, 4300), 6: (2210, 4290)}
+    places = {p.occupant: p for p in table_places(centres, px_per_mm=5.0)}
+    assert places[3].sides == {"west"} and places[4].sides == {"east"}
+    assert places[3].label == "Row 2 from north, 1st from west"
+    assert places[1].sides == {"north", "west"}
 
 
 @pytest.mark.parametrize("seed", range(10))
