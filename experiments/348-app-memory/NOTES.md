@@ -26,6 +26,12 @@ photo per 60 s. All figures in GiB (1024 MiB). The logger records MiB (kB / 1024
 
 Between photos the main process went from 3.3 to 3.4 GiB to about 0.2 to 0.3 GiB.
 
+Longer runs of fd3852e: 16 h overnight (2 to 3 Nov, 1,006 photos, 1 missed: a frame file in
+/dev/shm was gone before the app read it, cause not found) and 3.5 h on 4 Nov 09:00 to 12:30 CET
+(experiment 3, 211 photos, none missed): main mean 0.51, main peak 1.36, camera peak 1.00, total
+peak 1.67 GiB, above 1.5 GiB for 201 of 12,246 s. The highest each process reached since its
+start on 2 Nov: main 1.63, camera 1.03 GiB. No out-of-memory kill, no restart, no swap use.
+
 One photo read in its own process (peak after the tag search):
 
 | Code | Peak | Tag search |
