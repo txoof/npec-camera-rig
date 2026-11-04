@@ -119,11 +119,40 @@ def detect_tags(frame: np.ndarray) -> list[TagDetection]:
     Channel order doesn't otherwise matter here -- `to_grayscale` handles it, and the detector
     only ever sees the grayscale result.
     """
-    gray = to_grayscale(frame).astype(np.uint8) if frame.ndim == 3 else frame
+    gray = grayscale_uint8(frame) if frame.ndim == 3 else frame
     detections = [d for d in _detect(gray, _detector_parameters()) if d.tag_id not in TRAY_ID_RANGE]
     detections += [d for d in _detect(gray, _tray_detector_parameters()) if d.tag_id in TRAY_ID_RANGE]
     detections.sort(key=lambda d: d.tag_id)
     return detections
+
+
+# OpenCV's threads for the whole app (#348). The tag search on a 64MP photo builds one thresholded
+# copy per window size per thread: measured 2026-11-02 on npec-rig-01, one photo read peaked at
+# 3.0 to 3.2 GB with OpenCV's default 4 threads, 1.84 GB with 2 and 1.23 GB with 1, with the same
+# tags and masks each time and no clear change in time (about 17 s; 11 to 18 s with 4 threads).
+OPENCV_THREADS = 1
+
+
+def limit_opencv_threads() -> None:
+    """Run OpenCV on `OPENCV_THREADS` threads. Called once at app start. The rigs' OpenCV uses TBB,
+    where this applies to every thread of the process (checked with `cv2.getBuildInformation()`
+    on npec-rig-01, 2026-11-04). The results do not change: OpenCV puts each window size's tags
+    together in the same order whatever the count."""
+    cv2.setNumThreads(OPENCV_THREADS)
+
+
+GRAY_STRIP_ROWS = 256
+
+
+def grayscale_uint8(frame: np.ndarray) -> np.ndarray:
+    """`to_grayscale(frame).astype(np.uint8)`, worked out a strip of rows at a time: the same
+    arithmetic on every pixel, so the same values, but the float64 temporaries are one strip
+    (about 20 MB) instead of the whole 64MP frame (three of about 500 MB each, #348)."""
+    gray = np.empty(frame.shape[:2], dtype=np.uint8)
+    for top in range(0, frame.shape[0], GRAY_STRIP_ROWS):
+        rows = slice(top, top + GRAY_STRIP_ROWS)
+        gray[rows] = to_grayscale(frame[rows]).astype(np.uint8)
+    return gray
 
 
 def _detect(gray: np.ndarray, params: cv2.aruco.DetectorParameters) -> list[TagDetection]:

@@ -20,6 +20,8 @@ the validation page asked for 10 such images after a restart, one after another.
 
 from __future__ import annotations
 
+import ctypes
+import functools
 import hashlib
 import json
 import os
@@ -36,7 +38,7 @@ from PIL import Image
 
 from npec_rig.captures import photos_root
 from npec_rig.settings import db_path
-from npec_rig.tags import TagDetection, detect_tags
+from npec_rig.tags import TagDetection, detect_tags, grayscale_uint8
 
 # Bump when detect_tags changes what it finds: stored detections from an older detector are then
 # worked out again rather than reused. 2: tray tags read with their own settings (#156).
@@ -48,6 +50,70 @@ _full_decode = threading.BoundedSemaphore(1)
 _key_locks: dict[str, threading.Lock] = {}
 _key_locks_guard = threading.Lock()
 _recipes: dict[str, "Recipe"] = {}
+
+
+# glibc's malloc settings (#348). By default each thread that allocates gets its own memory pool,
+# up to 8 per core, and freed blocks below a moving size limit (up to 32 MB) stay in the pools:
+# measured 2026-11-02, the app held about 50 pools of 64 MB, 3.0 to 3.5 GB, between photos.
+# 2 pools and a fixed 1 MB limit send every image-sized block straight back when it is freed.
+_M_TRIM_THRESHOLD = -1
+_M_MMAP_THRESHOLD = -3
+_M_ARENA_MAX = -8
+ALLOCATOR_ARENAS = 2
+ALLOCATOR_MMAP_BYTES = 1024 * 1024
+ALLOCATOR_TRIM_BYTES = 32 * 1024 * 1024
+
+
+@functools.cache
+def _glibc() -> ctypes.CDLL | None:
+    try:
+        libc = ctypes.CDLL("libc.so.6")
+    except OSError:
+        return None
+    return libc if hasattr(libc, "mallopt") and hasattr(libc, "malloc_trim") else None
+
+
+def limit_allocator() -> bool:
+    """Set glibc's malloc to keep little freed memory (the settings above). Called once at app
+    start, before any thread is started, since a pool already made is not removed. False, and
+    nothing changed, where the C library is not glibc."""
+    libc = _glibc()
+    if libc is None:
+        return False
+    return all((
+        libc.mallopt(_M_ARENA_MAX, ALLOCATOR_ARENAS),
+        libc.mallopt(_M_MMAP_THRESHOLD, ALLOCATOR_MMAP_BYTES),
+        libc.mallopt(_M_TRIM_THRESHOLD, ALLOCATOR_TRIM_BYTES),
+    ))
+
+
+def release_freed_memory() -> None:
+    """Hand memory freed inside the pools back to the system, after a full-size photo's work is
+    done (a photo taken, a photo read). Does nothing where the C library is not glibc."""
+    libc = _glibc()
+    if libc is not None:
+        libc.malloc_trim(0)
+
+
+def decode_full(image_path: Path | str) -> np.ndarray:
+    """The photo at `image_path` as a full-size RGB array. The decoded Pillow image (about 254 MB
+    for 64MP: Pillow keeps 4 bytes a pixel) is closed before this returns, so only the array
+    (about 190 MB) stays and callers work with one full-size copy, not two (#348). Hold
+    `full_decode_slot()` while the array is in use."""
+    with Image.open(image_path) as image:
+        rgb = image if image.mode == "RGB" else image.convert("RGB")
+        frame = np.asarray(rgb)
+        if rgb is not image:
+            rgb.close()
+    return frame
+
+
+def full_decode_slot() -> threading.BoundedSemaphore:
+    """The one-at-a-time slot for work on a full-size photo decoded from its file (the tag search
+    and segmentation): hold it while the array from `decode_full` is in use, so two of these are
+    never live at once. Taking a photo does not wait for it: a scheduled photo is not held up by a
+    reading, so one capture can overlap one reading (measured peak 1.67 GiB in all, #348)."""
+    return _full_decode
 
 
 def derived_root() -> Path:
@@ -133,7 +199,9 @@ def tag_detections(
     version and then read from `capture_analysis`. `source` names the original (a capture
     reference such as "2026-10-01/091930_507614"). Raw detections only: anything that depends on
     a calibration is computed from them by the caller. `detect` is the detector to run when they
-    are not stored yet. Two requests for the same photograph search it once."""
+    are not stored yet: it is given the photo's grey copy (2-D uint8, `grayscale_uint8`), not the
+    colour frame, which is released first (#348). Two requests for the same photograph search
+    it once."""
     stored = stored_tag_detections(source)
     if stored is not None:
         return stored
@@ -142,12 +210,12 @@ def tag_detections(
         if stored is not None:
             return stored
         with _full_decode:
-            with Image.open(image_path) as image:
-                image.load()
-                # One full-size copy, not three: convert() and np.array() each copy ~190MB.
-                frame = np.asarray(image if image.mode == "RGB" else image.convert("RGB"))
-                detections = detect(frame)
-                del frame
+            # The search sees only the grey copy: the colour frame (about 190 MB) goes first (#348).
+            frame = decode_full(image_path)
+            gray = grayscale_uint8(frame)
+            del frame
+            detections = detect(gray)
+            del gray
         _store_tags(source, detections)
     with _key_locks_guard:
         _key_locks.pop(f"tags:{source}", None)
