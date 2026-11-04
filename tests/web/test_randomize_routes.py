@@ -59,7 +59,13 @@ class Table:
             stem=STEM,
         )
         self.trays: dict = {}
-        monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [_tag(t, c, h) for t, (c, h) in self.trays.items()])
+        self.searches = 0
+
+        def detect(frame):
+            self.searches += 1
+            return [_tag(t, c, h) for t, (c, h) in self.trays.items()]
+
+        monkeypatch.setattr(photo_tags, "detect_tags", detect)
         table = self
 
         class Scene(SyntheticBackend):
@@ -255,3 +261,17 @@ def test_when_no_layout_keeps_the_rule_the_one_breaking_it_least_is_given_and_ma
     assert suggestion["rule_kept"] is False
     assert all(t["breaks_rule"] for t in suggestion["trays"])
 
+
+
+def test_a_check_searches_its_photo_for_tags_once(table, client) -> None:
+    # The tags are searched on the frame just taken and stored for the photo, so reading the
+    # photo's trays finds them stored and does not search the saved JPEG again (metrology log 25.2).
+    _running_experiment()
+    table.stand(FOUR_BY_FIVE)
+    client.post("/capture")
+    client.post("/api/randomize/suggest")
+    before = table.searches
+
+    assert client.post("/api/randomize/check").status_code == 200
+
+    assert table.searches - before == 1

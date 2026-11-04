@@ -156,7 +156,11 @@ def table_places(centres: dict[int, tuple[float, float]], px_per_mm: float) -> l
     column_of = {t: c for c, members in enumerate(columns) for t in members}
     row_y = [sum(centres[t][1] for t in m) / len(m) for m in rows]
     column_x = [sum(centres[t][0] for t in m) / len(m) for m in columns]
-    standing = {(row_of[t], column_of[t]): t for t in centres}
+    # Two trays can fall in one row and one column (two tags read in one outline, a tray pushed
+    # in between): each keeps a place of its own, on the same edges.
+    standing: dict[tuple[int, int], list[int]] = {}
+    for t in sorted(centres):
+        standing.setdefault((row_of[t], column_of[t]), []).append(t)
     places = []
     for r in range(len(rows)):
         for c in range(len(columns)):
@@ -175,15 +179,15 @@ def table_places(centres: dict[int, tuple[float, float]], px_per_mm: float) -> l
                 row_name = "Row"
             else:
                 row_name = f"Row {r + 1} from north"
-            tray = standing.get((r, c))
-            places.append(Place(
-                name=f"{r + 1}-{c + 1}",
-                centre=centres[tray] if tray is not None else (column_x[c], row_y[r]),
-                sides=frozenset(sides),
-                px_per_mm=px_per_mm,
-                label=f"{row_name}, {_ordinal(c + 1)} from west",
-                occupant=tray,
-            ))
+            for k, tray in enumerate(standing.get((r, c)) or [None]):
+                places.append(Place(
+                    name=f"{r + 1}-{c + 1}" + (f"-{k + 1}" if k else ""),
+                    centre=centres[tray] if tray is not None else (column_x[c], row_y[r]),
+                    sides=frozenset(sides),
+                    px_per_mm=px_per_mm,
+                    label=f"{row_name}, {_ordinal(c + 1)} from west",
+                    occupant=tray,
+                ))
     return places
 
 

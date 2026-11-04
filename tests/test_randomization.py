@@ -213,3 +213,30 @@ def test_when_the_rule_cannot_be_kept_the_fewest_trays_break_it() -> None:
         layout = least_breaking_layout(sorted(last), last, places, random.Random(seed))
         breaking = [t for t, p in layout.items() if breaks_rule(last[t], Lying(places[p.place], p.heading), t)]
         assert breaking == [85]
+
+
+def test_two_trays_in_the_same_row_and_column_each_get_a_place() -> None:
+    # Two tags read close together, as when one blue outline holds two trays' tags: both trays
+    # fall in one row and one column. Each still gets a place of its own, on the same edges.
+    centres = {1: (500, 500), 2: (560, 520), 3: (2200, 500)}
+    places = table_places(centres, px_per_mm=5.0)
+    by_tray = {p.occupant: p for p in places if p.occupant is not None}
+    assert sorted(by_tray) == [1, 2, 3]
+    assert len({p.name for p in places}) == len(places)
+    assert by_tray[2].sides == by_tray[1].sides == {"north", "south", "west"}
+
+
+def _full_table(rows: int, columns: int) -> tuple[dict[int, Lying], dict[str, frozenset[str]]]:
+    centres = {r * columns + c + 1: (400 + 1700 * c, 400 + 2000 * r) for r in range(rows) for c in range(columns)}
+    places = table_places(centres, px_per_mm=5.0)
+    last = {p.occupant: Lying(p.sides, "SW") for p in places}
+    return last, {p.name: p.sides for p in places}
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_a_full_table_of_five_rows_of_six_always_gets_a_layout_that_keeps_the_rule(seed: int) -> None:
+    # 30 4 x 5 trays, every place taken: a layout that keeps the rule exists (every tray in the
+    # middle rows may lie either way), and it is found, not given up on.
+    last, places = _full_table(5, 6)
+    layout = suggest_layout(sorted(last), last, places, random.Random(seed))
+    assert not [t for t, p in layout.items() if breaks_rule(last[t], Lying(places[p.place], p.heading), t)]

@@ -17,7 +17,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 
-from npec_rig import database, images
+from npec_rig import database, images, photo_tags
 from npec_rig.camera import CameraBusyError, array_to_jpeg
 from npec_rig.captures import photo_file, take_photo
 from npec_rig.randomization import (
@@ -35,6 +35,7 @@ from npec_rig.randomization import (
     tray_type,
 )
 from npec_rig.routes.shared import derived_response, templates
+from npec_rig.tags import grayscale_uint8
 from npec_rig.text_render import text_layer, text_width
 
 router = APIRouter()
@@ -139,6 +140,9 @@ def suggest() -> dict:
         seen, photo_places, _scale = photo_layout(photo["path"], references)
     except LayoutUnreadableError as exc:
         raise HTTPException(409, f"Cannot read where the trays are: {exc}.") from exc
+    finally:
+        # A still not yet read by the tray reader is searched for tags at full size here (#348).
+        images.release_freed_memory()
     if not seen:
         raise HTTPException(409, "No tray with a tag was found in the latest photo.")
     # The places the trays make, empty ones too: the empty spots move as well (Aaron, 2026-11-04).
@@ -201,17 +205,28 @@ def check() -> dict:
     if suggestion is None:
         raise HTTPException(409, "There is no suggested layout to check against: press Suggest first.")
     try:
-        _array, record = take_photo("layout check")
+        frame, record = take_photo("layout check")
     except CameraBusyError as exc:
         raise HTTPException(409, "The camera is busy taking another photo. Try again in a minute.") from exc
-    del _array  # a 64MP frame is about 190 MB
-    images.release_freed_memory()  # the photo's full-size frame is gone, as after a scheduled photo (#348)
+    # The photo's tags are searched on the frame just taken, not on its saved JPEG decoded again:
+    # that decode is the largest step (about 0.6 GB, metrology log 25.2). As the tag search does
+    # (#348): the grey copy first, the colour frame (about 190 MB) freed before the slot is
+    # waited for, the search in the full-size slot, the tags stored for the photo.
+    gray = grayscale_uint8(frame)
+    del frame
+    images.release_freed_memory()
     details = suggestion["details"]
     references = {int(k): v for k, v in details.get("references", {}).items()}
     try:
+        with images.full_decode_slot():
+            detections = photo_tags.detect_tags(gray)
+        del gray
+        images.store_tag_detections(record["path"].removeprefix("rig/"), detections)
         seen, _check_places, _scale = photo_layout(record["path"], references)
     except LayoutUnreadableError as exc:
         raise HTTPException(409, f"Cannot read where the trays are: {exc}.") from exc
+    finally:
+        images.release_freed_memory()
     places = _places(details)
     wanted = {t["tray_id"]: Position(t["place"], t["heading"]) for t in details["trays"]}
     last = {t["tray_id"]: Lying(frozenset(t["last"]["sides"]), t["last"]["heading"]) for t in details["trays"]}
