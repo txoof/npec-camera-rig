@@ -22,6 +22,7 @@ from npec_rig.randomization import (
     breaks_rule,
     check_layout,
     edge_exposure,
+    least_breaking_layout,
     outer_sides,
     suggest_layout,
 )
@@ -200,3 +201,19 @@ def test_check_reports_a_missing_tray_and_a_tray_breaking_the_rule() -> None:
     assert checks[12].breaks_rule
     assert not checks[7].breaks_rule  # North 2 NE after South 3 NE: north end row 1, was row 5
     assert checks[7].status == "not in layout"
+
+
+def test_when_the_rule_cannot_be_kept_the_fewest_trays_break_it() -> None:
+    # The development table of 4 November: nine 2 x 2 trays; tray 85 has no tray north or south
+    # of it, so it has both borders. Wherever it goes it repeats an end row, and any tray put in
+    # its place does too: the least is one tray, tray 85 staying in its place.
+    F = frozenset
+    sides = {76: F({"south"}), 77: F({"north"}), 78: F({"north", "east"}), 79: F({"north", "west"}),
+             80: F({"north"}), 81: F({"south", "east"}), 85: F({"north", "south"}), 86: F({"south"}),
+             87: F({"south", "west"})}
+    last = {t: Lying(s, "as first") for t, s in sides.items()}
+    places = {str(t): s for t, s in sides.items()}
+    for seed in range(5):
+        layout = least_breaking_layout(sorted(last), last, places, random.Random(seed))
+        breaking = [t for t, p in layout.items() if breaks_rule(last[t], Lying(places[p.place], p.heading), t)]
+        assert breaking == [85]

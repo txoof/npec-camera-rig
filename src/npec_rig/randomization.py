@@ -241,10 +241,13 @@ def least_breaking_layout(
     names = sorted(places)
     best, fewest = None, None
     for _ in range(draws):
-        layout = {
-            tray: Position(name, rng.choice(tray_type(tray).headings or (None,)))
-            for tray, name in zip(trays, rng.sample(names, len(trays)))
-        }
+        layout = {}
+        for tray, name in zip(trays, rng.sample(names, len(trays))):
+            # A heading that keeps the rule where there is one: a random heading would often
+            # break it needlessly, and the least would be missed (development table, 2026-11-04).
+            headings = tray_type(tray).headings or (None,)
+            keeping = [h for h in headings if not breaks_rule(last.get(tray), Lying(places[name], h), tray)]
+            layout[tray] = Position(name, rng.choice(keeping or headings))
         breaks = sum(breaks_rule(last.get(t), Lying(places[p.place], p.heading), t) for t, p in layout.items())
         if fewest is None or breaks < fewest:
             best, fewest = layout, breaks
