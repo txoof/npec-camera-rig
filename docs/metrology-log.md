@@ -7320,3 +7320,49 @@ behaviour of a 4 GB Pi 5 are not measured. A per-second sample can miss a peak s
 second: the main process's own peak (VmHWM) rose from 1,478 to 2,048 MiB in the run, 59 MiB above
 its highest sample, so the true peak was at most about 2,143 MiB (2.09 GiB) with the camera's 95,
 still within the target.
+
+### 25.2 Idle level, cost of each action, and a Check after the memory review (2026-11-04)
+
+*Development check*, npec-rig-01, experiment "development 002" running (a scheduled photo a
+minute, at about second 45, read for trays after it). Same logger as 25.1. Raw data and each
+action's times: `experiments/343-randomize/`. Done in two parts: commit 9d281f4 (the code of
+25.1 plus memory handed back after a Check's camera frame), then commit 4b97d1f, which searches a
+Check's tags on the frame just taken (its grey copy, in the full-size slot, as #348's tag search
+does) instead of decoding its saved JPEG again, and hands memory back after Suggest and Check.
+That change came from a profile on the controller: decoding a 64MP JPEG at full size added about
+607 MB, the largest step of a Check (one run per step, not on a rig).
+
+*Idle level, 9d281f4, 12 minutes, no page use.* Main process between photos 196 to 201 MiB, camera
+process about 91. During each scheduled photo's tray reading, main 1,075 to 1,243 MiB for 18 to 20
+s, a third of every minute, with or without the page. So the median of 1,012 MiB in 25.1, a run
+with page use every 15 to 40 s, is not a raised resting level.
+
+*Each action, main RSS, 9d281f4* (each at second 15, at least 3 minutes apart):
+
+| Action | Rise of main | Main plus camera peak | After it |
+|---|---|---|---|
+| Suggest (3) | +78 to +89 MiB, under 1 s | 372 to 383 | held until the next tray reading |
+| Check (3) | +903 to +908 MiB, 20 s | 1,636 to 1,822 | main held at about 1,020 MiB until the next scheduled photo |
+| Overlay (3) | +79 to +80 MiB | 379 to 381 | held until the next tray reading |
+| Check started 3 s after a scheduled photo | main 1,203 to 1,209 | 1,299 | |
+
+*Check, 4b97d1f* (3 at second 15, one 2 s after a scheduled photo):
+
+| Check | Main peak | Main plus camera peak | After it |
+|---|---|---|---|
+| 15:11:15 | 1,345 MiB | 1,436 | main back to about 200 MiB as it ended |
+| 15:14:15 | 1,352 | 1,443 | the same |
+| 15:17:15 | 1,353 | 1,444 | the same |
+| 15:20:47, during a scheduled photo | 1,495 | 1,586 | back within 1 s |
+
+Swap: 3 MiB used before and after both parts, none added. No scheduled photo missed. A Check takes
+about 22 s (35 s when it waits for a tray reading).
+
+*What it shows.* Against the 2.5 GiB target of #348, a Check now peaks at 1.44 GiB for main plus
+camera (1.59 GiB when it meets a scheduled photo's reading), against 1.64 to 1.82 GiB before, and
+the memory is handed back as soon as it ends instead of about 1 GiB being held until the next
+scheduled photo. *What it does not show.* The main process alone peaks higher than before (1.35
+against 1.11 GiB); the cause is not established (most likely memory freed after the photo is taken
+and not yet handed back when the search starts). Each case was run three times at most, on an 8 GB
+Pi; the spread and a 4 GB Pi 5 are not measured. Savings in the shared photo code (decoding and
+saving with OpenCV, passing the frame by shared memory) are in #355.

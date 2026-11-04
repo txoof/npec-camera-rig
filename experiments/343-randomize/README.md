@@ -7,3 +7,13 @@
   fetched by hand at 14:03:30).
 - `memory-2026-11-04.log`: `experiments/348-app-memory/log.sh` on the rig, one line a second:
   epoch, main PID, main RSS MiB, main HWM MiB, camera RSS MiB, camera HWM MiB, MemAvailable MiB.
+
+## Metrology log 25.2 (2026-11-04, after the memory review)
+
+- `mem343_idle_9d281f4.log`: 9d281f4, 14:21:58 to 14:33:58 UTC, no page use (idle baseline).
+- `mem343_actions_9d281f4.log`, `actions_9d281f4.log`, `drive_9d281f4.sh`: 9d281f4, 14:34 to 15:09,
+  Suggest x3, Check x3 with overlays, one Check overlapping a scheduled photo; each action's start
+  and end epochs.
+- `mem343_after_4b97d1f.log`, `actions_4b97d1f.log`, `drive_4b97d1f.sh`: 4b97d1f (tags searched on the
+  frame just taken, memory handed back), 15:10:43 to 15:22:13, Check x3 at second 15 and one at
+  second 47.
