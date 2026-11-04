@@ -258,16 +258,19 @@ in the photo a suggestion was read from are grouped into rows and columns, and e
 place, empty ones too, so the empty spots move as well. Only the table's own edges are edges: the
 north and south rows, the west and east columns. A suggestion is drawn by
 restricted randomization: no row or column of plants is on an outside edge of the table two
-rounds in a row (`randomization.py`).
+rounds in a row (`randomization.py`). The page works on the newest suggestion until it is
+cancelled or a check finds every tray in place, which ends the round (Aaron, 2026-11-04). The
+places of the newest suggestion that are empty stay places in the next one, so a row or column
+left empty keeps its edge.
 
 | Column | Type | Meaning |
 |---|---|---|
 | `id` | integer | The layout's number |
 | `experiment_id` | integer | The experiment (`experiment.id`) |
-| `kind` | text | `suggestion` or `check` |
+| `kind` | text | `suggestion`, `check` or `cancel` (the page's Cancel: the suggestion is no longer worked on) |
 | `made_at` | text | When it was made, UTC |
 | `capture_id` | integer | A suggestion: the photo the places were read from (the experiment's latest still, or the latest check photo when newer). A check: its own photo. No reference to `capture`: a purge deletes the experiment's photo rows, these rows stay |
-| `suggestion_id` | integer | A check: the suggestion it compared the trays with. NULL for a suggestion |
+| `suggestion_id` | integer | A check or a cancel: its suggestion. NULL for a suggestion |
 | `details` | text | JSON, below |
 
 A suggestion's `details`: `seed` (the random seed), `rule_kept` (false when no layout kept the
@@ -293,8 +296,11 @@ A check's `details`: `photo` and `taken_at` (the check photo, a rig photo with p
 `layout check`, never one of the experiment's stills), `places` (the suggestion's), and `trays`:
 `tray_id`, `tray_type`, `status` (`in place`, `wrong place`, `turned`, `wrong place, turned`,
 `heading not read`, `missing`, `not in layout`), `wanted` (place, label, heading), `found_at` (the place
-whose centre is within 150 mm of the tray's, or null), `heading`, `centre` (full-size photo
-pixels), `edges` and `breaks_rule`.
+whose centre is within 150 mm of the tray's, or null; a 4 x 5 tray whose own outline is not found
+is matched by the nearer of its two possible centres), `heading`, `centre` (full-size photo
+pixels), `edges` (of the place it is found in) and `breaks_rule`.
+
+A cancel's `details` is empty: the row records when the suggestion was cancelled.
 
 ### `tray_read` and `tray_reading`
 

@@ -151,7 +151,8 @@ table against the suggestion. An experiment must be running. Trays can stand any
 table: the rig groups them into rows and columns, and every crossing is a place, empty spots too.
 The trays are shuffled over those places, so the empty spots move as well.
 
-- **Suggest layout.** The rig finds each tray in the latest photo and draws a new place for every
+- **The page starts as the trays stand.** It shows no hints until Randomize is tapped.
+- **Randomize.** The rig finds each tray in the latest photo and draws a new place for every
   tray, and which way round it lies. Only the table's own edges count: the north and south rows
   and the west and east columns. A layout is kept only if no row or column of plants that was on
   a table edge is on a table edge again. Under "Put the trays like this" the map shows the table,
@@ -166,12 +167,16 @@ The trays are shuffled over those places, so the empty spots move as well.
   - **When no layout keeps the rule**, for example a single row of trays, whose trays are on both
     the north and south edges, the page names each tray that has a row on the edge again and
     marks it "Edge row again" on the map.
+- **Cancel** puts the page back to the trays as they stand, with no hints. The layout stays
+  saved, marked cancelled.
 - **Check layout.** After moving the trays, tap Check layout. The rig takes a photo (not one of
   the experiment's photos) and shows it with a white ring marked "Tray N goes here" where each
   tray goes, an orange arrow from each tray in the wrong place to its ring, a pink turning arrow on
   each tray to turn round, and a green circle with "OK" on each tray in place. A tray is in place
   when its centre is within 150 mm of its place. The table under the photo says what to do for
-  each tray, naming the place.
+  each tray, naming the place. Move the trays it marks and check again. When every tray is in
+  place the round is done: the page goes back to the trays as they stand, with the last check
+  shown.
 - **Reporting.** Each suggestion and check is saved with the experiment, with the random seed.
   In the methods: trays were placed by restricted randomization, rejecting any layout that put a
   row or column of plants on an outside edge of the table two rounds in a row.
