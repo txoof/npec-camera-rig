@@ -144,6 +144,27 @@ location too long.
   button. It then shows as one line, "Tray 12, hidden", and gives no warning, on every PC, until
   Show is tapped. Its hours stay in the export.
 
+## Randomizing the trays
+
+The Randomize page (left menu) suggests where each tray goes, and which way round, then checks the
+table against the suggestion. An experiment must be running.
+
+- **Suggest layout.** The rig reads where each tray lies in the latest photo and draws a random
+  slot and heading for every tray: A1 at the south-west (SW) or north-east (NE) corner. A layout
+  is kept only if no row or column of plants that was on an outside edge of the table is on an
+  outside edge again. The map shows each tray in its slot, with a triangle and "A1 SW" or "A1 NE"
+  at the corner where cell A1 goes; the list below gives the same by tray number.
+- **Check layout.** After moving the trays, tap Check layout. The rig takes a photo (not one of
+  the experiment's photos) and shows it with an orange arrow from each tray in the wrong slot to
+  its slot, a pink turning arrow on each tray to turn round, and a green circle with "OK" on each
+  tray in place. The table under it says what to do for each tray, and "Edge row again" for a
+  tray whose edge row or column is on the edge for a second round.
+- **Reporting.** Each suggestion and check is saved with the experiment, with the random seed.
+  In the methods: trays were placed by restricted randomization, rejecting any layout that put a
+  row or column of plants on an outside edge of the table two rounds in a row.
+- **Limits.** Which way round a tray lies is read only for 4 x 5 trays, whose tag is in cell A1.
+  The first round is whatever layout the trays were placed in.
+
 ## Why it is done this way
 
 The project rule is that every certainty is measured, never derived: if a number cannot be shown

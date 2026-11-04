@@ -48,6 +48,7 @@ should be compared as times, not as text.
 | `light_warning_dismissal` | One row per dismissal of an experiment's light warning | `exclusions.py` |
 | `app_start` | One row each time the app starts | `scheduler.py` |
 | `capture` | One row per photograph; here only whether its clock was set (#62) | `captures.py` |
+| `tray_layout` | One row per suggested tray layout of an experiment, and per check of the trays against one (#343) | `routes/randomize.py` |
 
 ### `camera_events`
 
@@ -248,6 +249,34 @@ deleted by the rig.
 |---|---|---|
 | `id` | integer | Row number, increasing |
 | `started_at` | text | When the app started, UTC (`isoformat()`) |
+
+### `tray_layout`
+
+Version 19 (#343). The Randomize page's suggested layouts and checks, saved with the experiment
+(Aaron, 2026-11-02). A suggestion is drawn by restricted randomization: no row or column of
+plants is on an outside edge of the table two rounds in a row (`randomization.py`).
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | integer | The layout's number |
+| `experiment_id` | integer | The experiment (`experiment.id`) |
+| `kind` | text | `suggestion` or `check` |
+| `made_at` | text | When it was made, UTC |
+| `capture_id` | integer | A suggestion: the photo each tray's last position was read from (the experiment's latest still, or the latest check photo when newer). A check: its own photo. No reference to `capture`: a purge deletes the experiment's photo rows, these rows stay |
+| `suggestion_id` | integer | A check: the suggestion it compared the trays with. NULL for a suggestion |
+| `details` | text | JSON, below |
+
+A suggestion's `details`: `seed` (the random seed, so the draw can be repeated), `photo` and
+`taken_at` (the photo read), and `trays`, one entry per tray: `tray_id`, `slot`, `a1_corner`
+(`SW` or `NE`), `edges` (the rows and columns of plants the slot and heading put on an outside
+edge, for example `["column A", "row 1"]`), and `last`, where the tray lay in the photo, with its
+`edges` (null when its heading was not read). So every round's edges are kept per tray.
+
+A check's `details`: `photo` and `taken_at` (the check photo, a rig photo with purpose
+`layout check`, never one of the experiment's stills), `slots` (the calibration's slots, for the
+overlay), and `trays`: `tray_id`, `status` (`in place`, `wrong slot`, `turned`, `wrong slot,
+turned`, `heading not read`, `missing`, `not placed`, `not in layout`), `wanted` and `found`
+(slot, A1 corner, edges), `centre` (full-size photo pixels) and `breaks_rule`.
 
 ### `tray_read` and `tray_reading`
 

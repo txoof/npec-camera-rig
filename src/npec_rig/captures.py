@@ -156,7 +156,9 @@ def uptime_record() -> dict:
 
 
 # Every full-resolution still has one of these purposes, recorded in its sidecar.
-PURPOSES = ("capture", "validation", "calibration", "tripwire")
+# A "layout check" photo is taken to compare the trays with a suggested layout (#343): a rig
+# photo, never one of the experiment's stills.
+PURPOSES = ("capture", "validation", "calibration", "tripwire", "layout check")
 
 
 def photos_root() -> Path:

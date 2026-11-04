@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% set nav_active = "randomize" %}
+{% block title_suffix %} - Randomize{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* The table seen from above, north at the top as in the photos: one cell per slot. Page-only
+     layout; the shared rules in style.css are left to the redesign (#125). */
+  .rz-map { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 0 0 4px; }
+  .rz-row-label { grid-column: 1 / -1; color: var(--fg-2); font-size: 0.85rem; margin-top: 4px; }
+  .rz-cell { position: relative; border: 2px solid var(--line); border-radius: 6px; padding: 4px 6px; min-height: 84px;
+             display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .rz-cell .slot { position: absolute; left: 6px; top: 2px; color: var(--fg-2); font-size: 0.8rem; }
+  .rz-cell .tray { font-size: 1.2rem; font-weight: 700; }
+  /* A1's corner of the tray: a filled triangle with the words "A1 SW" or "A1 NE". */
+  .rz-a1 { position: absolute; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 2px; }
+  .rz-a1.sw { left: 4px; bottom: 2px; }
+  .rz-a1.ne { right: 4px; top: 2px; }
+  .rz-a1 .tri { width: 0; height: 0; border-style: solid; }
+  .rz-a1.sw .tri { border-width: 12px 0 0 12px; border-color: transparent transparent transparent currentColor; }
+  .rz-a1.ne .tri { border-width: 0 12px 12px 0; border-color: transparent currentColor transparent transparent; }
+  #rz-list td, #rz-list th { text-align: left; }
+  #rz-problems td, #rz-problems th { text-align: left; white-space: normal; }
+  #rz-problems td:first-child { white-space: nowrap; }
+  #rz-overlay-figure { margin: 0 0 12px; }
+  /* Full width, uncapped: the overlay's words must be readable without enlarging it. */
+  #rz-overlay-figure img { max-height: none; }
+  .rz-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+  <p id="rz-experiment">Reading the running experiment&hellip;</p>
+  <div class="banner fail" role="alert" id="rz-error" hidden></div>
+
+  <section id="rz-check" hidden>
+    <h2>Check</h2>
+    <p id="rz-check-summary"></p>
+    {{ ui.figure("rz-overlay", "The check photo: arrows from each tray in the wrong slot to its slot, a turning arrow on each tray to turn") }}
+    {% call ui.data_table(["Tray", "Found", "What to do"], id="rz-problems") %}{% endcall %}
+  </section>
+
+  <section id="rz-suggestion" hidden>
+    <h2>Suggested layout</h2>
+    <p class="card-meta" id="rz-suggestion-meta"></p>
+    <div class="rz-map" id="rz-map" aria-label="Where each tray goes, north at the top"></div>
+    {% call ui.data_table(["Tray", "Goes to", "A1 corner", "Was in"], id="rz-list") %}{% endcall %}
+  </section>
+
+
+  {% call ui.help("About randomizing the trays") %}
+    <p>Suggest layout draws a random place and a heading (A1 corner SW or NE) for every tray on
+      the table. A layout is kept only if no row or column of plants that was on an outside edge
+      of the table is on one again.</p>
+    <p>Move the trays, then press Check layout. The rig takes a photo and marks each tray that
+      is not where the layout says, with an arrow to its slot or a turning arrow.</p>
+  {% endcall %}
+  <script>
+  // The buttons are in the action bar, after this block: start once the page is read.
+  document.addEventListener("DOMContentLoaded", () => {
+    const $ = (id) => document.getElementById(id);
+    const SIDES = ["North", "South"];
+    const esc = (text) => String(text).replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+    const chip = (kind, text) =>
+      `<span class="chip ${kind}"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#${kind}"></use></svg>${esc(text)}</span>`;
+    // Each check status: the chip's kind (its colour and shape) and its words.
+    const STATUS = {
+      "in place": ["ok", "In place"],
+      "wrong slot": ["fail", "Wrong slot"],
+      "wrong slot, turned": ["fail", "Wrong slot, turned"],
+      "turned": ["warn", "Turned"],
+      "heading not read": ["info", "Heading not read"],
+      "missing": ["fail", "Missing"],
+      "not placed": ["warn", "No slot found"],
+      "not in layout": ["warn", "Not in layout"],
+    };
+    const time = (iso) => new Date(iso).toLocaleString([], {dateStyle: "medium", timeStyle: "short"});
+    const where = (w) => (w ? `${w.slot}, A1 ${w.a1_corner ?? "not read"}` : "");
+
+    function todo(t) {
+      const w = t.wanted;
+      switch (t.status) {
+        case "wrong slot": return `Move to ${w.slot}, A1 ${w.a1_corner}`;
+        case "wrong slot, turned": return `Move to ${w.slot} and turn 180: A1 ${w.a1_corner}`;
+        case "turned": return `Turn 180: A1 ${w.a1_corner}`;
+        case "missing": return `Put on the table in ${w.slot}, A1 ${w.a1_corner}`;
+        case "heading not read": return "Check by eye which way round it lies";
+        case "not in layout": return "Not in the suggestion: suggest again";
+        case "not placed": return "Push it into a slot";
+        default: return "";
+      }
+    }
+
+    function showError(text) {
+      $("rz-error").textContent = text || "";
+      $("rz-error").hidden = !text;
+    }
+
+    function drawSuggestion(s) {
+      $("rz-suggestion").hidden = !s;
+      if (!s) return;
+      $("rz-suggestion-meta").textContent =
+        `Made ${time(s.made_at)}, from the photo of ${time(s.taken_at)}.`;
+      const bySlot = Object.fromEntries(s.trays.map((t) => [t.slot, t]));
+      const columns = Math.max(...s.trays.map((t) => Number(t.slot.split(" ")[1])), 6);
+      $("rz-map").style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+      let html = "";
+      for (const side of SIDES) {
+        html += `<div class="rz-row-label">${side} side</div>`;
+        for (let n = 1; n <= columns; n++) {
+          const slot = `${side} ${n}`;
+          const t = bySlot[slot];
+          if (!t) { html += `<div class="rz-cell"><div class="slot">${slot}</div><div>Empty</div></div>`; continue; }
+          const a1 = t.a1_corner === "NE"
+            ? `<span class="rz-a1 ne">A1 NE<span class="tri"></span></span>`
+            : `<span class="rz-a1 sw"><span class="tri"></span>A1 SW</span>`;
+          html += `<div class="rz-cell"><div class="slot">${slot}</div><div class="tray">Tray ${t.tray_id}</div>${a1}</div>`;
+        }
+      }
+      $("rz-map").innerHTML = html;
+      $("rz-list").tBodies[0].innerHTML = s.trays.map((t) =>
+        `<tr><td>Tray ${t.tray_id}</td><td>${t.slot}</td><td>${t.a1_corner}</td><td>${t.last ? esc(where(t.last)) : "Not read"}</td></tr>`
+      ).join("");
+    }
+
+    function drawCheck(c) {
+      $("rz-check").hidden = !c;
+      if (!c) return;
+      const wrong = c.trays.filter((t) => t.status !== "in place" || t.breaks_rule);
+      const placed = c.trays.length - wrong.length;
+      $("rz-check-summary").innerHTML = (wrong.length
+        ? chip("warn", `${wrong.length} of ${c.trays.length} trays to fix`)
+        : chip("ok", `All ${c.trays.length} trays in place`)) + ` Photo of ${time(c.taken_at)}.`;
+      $("rz-problems").tBodies[0].innerHTML = wrong.length
+        ? wrong.map((t) => {
+            const [kind, words] = STATUS[t.status];
+            const rule = t.breaks_rule ? chip("warn", "Edge row again") : "";
+            return `<tr><td>Tray ${t.tray_id}</td><td><span class="rz-chips">${chip(kind, words)}${rule}</span></td><td>${esc(todo(t))}</td></tr>`;
+          }).join("")
+        : `<tr><td colspan="3">${chip("ok", "Nothing to fix")}</td></tr>`;
+      const img = $("rz-overlay");
+      img.onload = () => { $("rz-overlay-figure").hidden = false; };
+      img.src = `${c.overlay}?v=${c.id}`;
+    }
+
+    function draw(state) {
+      const e = state.experiment;
+      $("rz-experiment").textContent = e
+        ? `Experiment: ${e.name || "unnamed"}.`
+        : "No experiment is running. Start one on the Experiments page to randomize its trays.";
+      $("rz-suggest").disabled = !e;
+      $("rz-check-btn").disabled = !e || !state.suggestion;
+      drawSuggestion(state.suggestion);
+      drawCheck(state.check);
+    }
+
+    async function load() {
+      const r = await fetch("/api/randomize");
+      if (r.ok) draw(await r.json());
+    }
+
+    async function act(url, busyText) {
+      showError("");
+      $("rz-busy").textContent = busyText;
+      $("rz-suggest").disabled = $("rz-check-btn").disabled = true;
+      try {
+        const r = await fetch(url, {method: "POST"});
+        if (!r.ok) showError((await r.json().catch(() => ({}))).detail || `Failed (${r.status})`);
+      } catch (err) {
+        showError("The rig did not answer. Check the connection and try again.");
+      } finally {
+        $("rz-busy").textContent = "";
+        await load();
+      }
+    }
+
+    $("rz-suggest").addEventListener("click", () => act("/api/randomize/suggest", "Reading the latest photo\u2026"));
+    $("rz-check-btn").addEventListener("click", () => act("/api/randomize/check", "Taking a photo and reading the trays\u2026"));
+    load();
+  });
+  </script>
+{% endblock %}
+
+{% block action_bar %}
+  <span class="grow" id="rz-busy" role="status"></span>
+  {{ ui.button("Suggest layout", id="rz-suggest") }}
+  {{ ui.button("Check layout", "primary", id="rz-check-btn", disabled=true) }}
+{% endblock %}
+
