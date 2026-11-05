@@ -7694,3 +7694,26 @@ and point (cyan), middle SAM 2.1 small, right grow from cores (magenta), white A
 outline; made by `sam_crops.py`, scaled to 1/2 of a 2x sheet, so at the photo's own scale.
 *Raw data.* `docs/figures/24.5/per_plant.csv`; the script `sam_crops.py` and the run log in
 `~/scratch/thr-352/` (not kept); the model files are those of 19.1.
+
+### 24.6 JPEG setting and grow from cores, on the same frames (method written 2026-11-05, before the run)
+
+**Label: development check.** The #355 session saved three uncompressed frames from the
+development rig and the same frames as JPEG at seven settings (metrology log 26 and 26.1, branch
+`355-jpeg-quality`): today's setting (quality 75, colour at half resolution, 4:2:0) read plant area
+1.4% low under the current rule, mostly from the half-resolution colour. Grow from cores works at
+the leaf edge and with a lower cutoff, so the setting could matter more for it.
+
+**Frames.** `npec-rig-01:~/jpegq-355/run-20261105T122904Z/`, read-only copies: `frame0` to `frame2`
+(12:29:06, :10 and :15 UTC on 2026-11-05, auto exposure 3689 to 3793 µs, gain 1.0), each as the
+uncompressed array (`.npy`, R G B) and as JPEG B (75, 4:2:0, today), C (85, 4:2:0), D (95, 4:2:0),
+E (95, 4:4:4), F (75, 4:4:4), G (85, 4:4:4) and H (90, 4:4:4), read with Pillow. The 9 tray
+outlines of `trays.json` (trays 76 to 81, 85 to 87), the same for every frame.
+
+**What is worked out.** Per tray, frame and setting, for the current rule and grow from cores (tag
+area left out as large colourless white pieces, as 24.4): area divided by the area on the
+uncompressed frame, and the IoU of the two masks. Mean and range over the 27 tray-frames per
+setting. The scale cancels in the ratio.
+
+**Limits (as planned).** Nine trays of the development rig, its own soil and plants; three frames
+seconds apart; the uncompressed frame is the reference, so effects that happen before encoding
+(the lens, the sensor's colour pattern) are not seen.
