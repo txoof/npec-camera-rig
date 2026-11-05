@@ -7368,3 +7368,37 @@ results. No pass mark is set in advance.
   per mm).
 - Raw data: `~/scratch/thr-352/` on the controller (crops, `manifest.csv`, `RULES.txt`, pass files,
   `code/imagej_crops.py`). Not kept there; to be copied into the repository with the results.
+
+### 24.1 One fixed cutoff on six days (method written 2026-11-05, before the run)
+
+**Label: development check.** Added after the results of section 24 were seen, so the cutoff below
+is chosen, not blind. Rule D's per-tray cutoff on the 3 November still was -0.02 to -0.06 (trays
+1 to 3, 5 to 7), and on tray 4 no leaf peak was found, so rule D had no cutoff there. The leaf side
+of every tray's histogram is a flat shoulder from 0 to +0.1, not a separate peak, so a cutoff that
+depends on finding that peak is fragile.
+
+**Rule E.** Greenness > -0.045 (the mean of rule D's cutoffs on the 3 November still) and not blue,
+without G > R, with the tag area left out: pixels within 30 px of white paper (all three channels
+above 140). The app would leave out cell A1 from the tray placement instead; the white test stands
+in for it here.
+
+**Stills.** The six copied production stills of the #352 check, 10:58:53 UTC on 23, 26, 29 and 31
+October and 2 and 3 November (captures 3536, 7856, 12180, 15060, 17940, 19380), trays 1 to 7.
+
+**What is worked out.**
+
+1. On the 3 November crops of section 24: rule E against both passes, with the numbers of
+   section 24 (area ratio, missed, extra, IoU). Not held out: the cutoff was chosen on this still.
+2. Per tray and day, whole tray, tag area left out: rule E's area divided by rule C's. In the crops
+   of section 24 rule D gave about 1.19 times rule C. If the leaf edge looks the same every day, the
+   ratio stays about the same; a ratio that grows on one day points to soil being counted.
+3. Per tray and day: the share of rule E's pixels in pieces under 30 px (about 1.2 mm²), counted as
+   specks, and the same for rule C.
+4. Tray 7 (six empty soil cells and a green tile, no plants): rule E's area, which should be near 0
+   apart from the tile.
+5. One picture per day, tray 1 and tray 7, rule E in magenta, for Aaron to inspect for wrong
+   pixels.
+
+**Limits (as planned).** No hand outlines on days other than 3 November, so accuracy is measured
+only there, on the still the cutoff was chosen from. Items 2 to 5 test consistency and soil
+counted as plant, not leaf missed. One still per day, all at 10:58 UTC.
