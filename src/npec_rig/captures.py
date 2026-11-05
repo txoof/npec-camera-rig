@@ -15,7 +15,7 @@ import numpy as np
 
 from npec_rig import database, health, segmentation
 from npec_rig.camera import CameraManager, array_to_jpeg, lens_check
-from npec_rig.settings import load_settings, photo_quality, save_setting
+from npec_rig.settings import load_settings, photo_quality_in_use, save_setting
 
 logger = logging.getLogger(__name__)
 
@@ -238,9 +238,10 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         "flags": [check["reason"] for check in checks.values() if check["flagged"]],
         # Not a flag: the areas are as good as ever, only the photo's time may be wrong.
         "clock": clock_check(),
-        # The JPEG setting the photo is saved at (#359), read once so the file and its records agree.
-        "photo_quality": photo_quality(),
         **(extra or {}),
+        # The JPEG setting the photo is saved at (#359), read once so the file and its records
+        # agree; after `extra`, so no caller can replace it.
+        "photo_quality": photo_quality_in_use(),
     }
     replayed = sensor_metadata.get("ReplayedFrom")
     if replayed:  # a test bench still (#279): say so where people look, not only in the sensor values
@@ -322,7 +323,8 @@ def _save_photo(image: np.ndarray, metadata: dict, experiment: dict | None = Non
     json_tmp = day_dir / f".{stem}.json.tmp"
     replayed = metadata.get("replayed_from")
     description = f"Replayed from {Path(replayed).name} by the test bench, not taken by a camera" if replayed else None
-    jpeg_tmp.write_bytes(array_to_jpeg(image, description, **metadata.get("photo_quality", {})))
+    quality = metadata.get("photo_quality") or photo_quality_in_use()
+    jpeg_tmp.write_bytes(array_to_jpeg(image, description, **quality))
     json_tmp.write_text(json.dumps(record, indent=2, default=str))
     json_tmp.replace(json_path)
     jpeg_tmp.replace(jpeg_path)

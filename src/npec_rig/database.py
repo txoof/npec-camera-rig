@@ -1044,9 +1044,18 @@ def record_scheduled_photos(
         )
 
 
-def record_photo_quality_change(changed_at: str, quality: int, chroma: str) -> None:
-    """Record that the photo quality setting was changed (#359)."""
+def save_photo_quality(changed_at: str, quality: int, chroma: str) -> None:
+    """Save the photo quality setting (`camera_settings`, settings.PHOTO_QUALITY_SETTING) and
+    record the change, in one transaction, so a setting never changes without its row (#359)."""
+    from npec_rig.settings import CAMERA_SETTINGS_DDL, PHOTO_QUALITY_SETTING
+
     with _connect() as conn:
+        conn.execute(CAMERA_SETTINGS_DDL)
+        conn.execute(
+            "INSERT INTO camera_settings (name, value) VALUES (?, ?) "
+            "ON CONFLICT(name) DO UPDATE SET value = excluded.value",
+            (PHOTO_QUALITY_SETTING, json.dumps({"quality": quality, "chroma": chroma})),
+        )
         conn.execute(
             "INSERT INTO photo_quality_change (changed_at, quality, chroma) VALUES (?, ?, ?)",
             (changed_at, quality, chroma),
