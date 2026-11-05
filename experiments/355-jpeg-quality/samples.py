@@ -25,6 +25,30 @@ TILE = 520  # px on screen per crop
 font = ImageFont.load_default(size=22)
 small = ImageFont.load_default(size=18)
 
+
+
+def largest_group(blocks):
+    """Rows and columns of the largest 4-connected group of True blocks."""
+    seen = np.zeros_like(blocks)
+    best = ([], [])
+    for start in zip(*np.nonzero(blocks)):
+        if seen[start]:
+            continue
+        stack, ys, xs = [start], [], []
+        seen[start] = True
+        while stack:
+            y, x = stack.pop()
+            ys.append(y)
+            xs.append(x)
+            for ny, nx in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
+                if 0 <= ny < blocks.shape[0] and 0 <= nx < blocks.shape[1] and blocks[ny, nx] and not seen[ny, nx]:
+                    seen[ny, nx] = True
+                    stack.append((ny, nx))
+        if len(ys) > len(best[0]):
+            best = (ys, xs)
+    return np.array(best[0]), np.array(best[1])
+
+
 trays = {t["tray_id"]: t for t in json.loads((run / "trays.json").read_text())["trays"]}
 raw = np.load(run / "frame0.npy", mmap_mode="r")
 
@@ -35,11 +59,15 @@ for tid in wanted:
     x0, x1 = int(max(min(xs), 0)), int(min(max(xs), raw.shape[1]))
     y0, y1 = int(max(min(ys), 0)), int(min(max(ys), raw.shape[0]))
     m = seg.segment(np.ascontiguousarray(raw[y0:y1, x0:x1, :3]))
-    yy, xx = np.nonzero(m)
-    # The middle 96% of the plant pixels, so a few stray green pixels do not widen the window.
-    (ya, yb), (xa, xb) = np.percentile(yy, [2, 98]), np.percentile(xx, [2, 98])
-    side = int(min(max(yb - ya, xb - xa) * 1.3 + 40, 640))
-    cy, cx = int(np.median(yy)) + y0, int(np.median(xx)) + x0
+    # The solid plant: 16 px blocks at least half plant, so green specks in the soil do not
+    # set the window.
+    b = 16
+    hh, ww = (m.shape[0] // b) * b, (m.shape[1] // b) * b
+    blocks = m[:hh, :ww].reshape(hh // b, b, ww // b, b).mean(axis=(1, 3)) >= 0.5
+    by, bx = largest_group(blocks)
+    ya, yb, xa, xb = by.min() * b, (by.max() + 1) * b, bx.min() * b, (bx.max() + 1) * b
+    side = int(min(max(yb - ya, xb - xa) * 1.3 + 60, 640))
+    cy, cx = (ya + yb) // 2 + y0, (xa + xb) // 2 + x0
     win = (slice(max(cy - side // 2, 0), cy + side // 2), slice(max(cx - side // 2, 0), cx + side // 2))
     windows[tid] = win
 crops = {tid: {} for tid in wanted}
