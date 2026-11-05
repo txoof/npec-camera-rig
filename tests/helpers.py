@@ -254,9 +254,13 @@ def table_calibration() -> None:
     )
 
 
-def table_photo(experiment_id: int | None, taken, trays: dict[int, str]) -> str:
+def table_photo(
+    experiment_id: int | None, taken, trays: dict[int, str], *, validation: str | None = None,
+    centres: dict[int, tuple[float, float]] | None = None,
+) -> str:
     """A 900 x 600 photo taken at `taken` (a datetime) under TABLE_STEM, read with each tray of
-    `trays` (tray ID: location) found at that location's centre; its path."""
+    `trays` (tray ID: location) found at that location's centre, or at `centres[tray ID]` when
+    given; taken under validation session `validation`. Its path."""
     from PIL import Image
 
     from npec_rig import captures, database
@@ -267,13 +271,52 @@ def table_photo(experiment_id: int | None, taken, trays: dict[int, str]) -> str:
     Image.new("RGB", (900, 600)).save(file)
     capture_id = database.record_capture(
         taken_at=taken.isoformat(), path=f"rig/{day}/{stem}", purpose="capture", experiment_id=experiment_id,
-        calibration=TABLE_STEM, validation=None, lens_position=None, focus_locked_at=None, exposure_us=None,
+        calibration=TABLE_STEM, validation=validation, lens_position=None, focus_locked_at=None, exposure_us=None,
         analogue_gain=None, flags=[],
     )
     database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[
         {"tray_id": tray_id, "slot": None, "a1_corner": None, "placement": "placed",
-         "centre_px": list(TABLE_CENTRES[location]), "tilt_deg": 0.0, "margin_mm": None, "found": "photo + tag",
+         "centre_px": list((centres or {}).get(tray_id, TABLE_CENTRES[location])), "tilt_deg": 0.0, "margin_mm": None, "found": "photo + tag",
          "warnings": [], "outline_px": None}
         for tray_id, location in trays.items()
     ])
     return f"rig/{day}/{stem}"
+
+
+def banded_validation(session_id: str, bands: dict[str, tuple[tuple[float, float], float | None]], *,
+                      inconsistent: bool = False) -> dict:
+    """A complete validation of TABLE_STEM, saved, with one slot per entry of `bands` (slot name:
+    its centre in photo pixels, and the band it reads, %). Each of its 3 rounds has 30 tags per
+    slot, half reading `band` % large and half `band` % small, so each slot reads within exactly
+    ±band % and its median is 0. A band of None gives the slot 3 tags a round, 9 in all, too few to be measured.
+    `inconsistent` makes the first slot read 6 points large in the second round."""
+    from datetime import datetime, timedelta, timezone
+
+    from npec_rig import validation_store
+
+    started = datetime.strptime(session_id, "%Y%m%dT%H%M%S%f").replace(tzinfo=timezone.utc)
+    first = next(iter(bands))
+
+    def errors(name: str, band: float | None, i: int) -> list[float]:
+        if band is None:
+            return [0.0] * 3
+        shift = 6.0 if inconsistent and i == 1 and name == first else 0.0
+        return [band + shift] * 15 + [-band + shift] * 15
+
+    session = {
+        "version": validation_store.SESSION_VERSION, "id": session_id, "calibration_stem": TABLE_STEM,
+        "started_at": started.isoformat(), "completed_at": None, "ended_at": None,
+        "slots": [{"name": name, "centre": list(centre), "box": [centre[0] - 50, centre[1] - 50, centre[0] + 50, centre[1] + 50]}
+                  for name, (centre, _band) in bands.items()],
+        "calibration_centres": [],
+        "rounds": [
+            {"capture": f"{started:%Y-%m-%d}/{i:06d}_000000",
+             "captured_at": (started + timedelta(minutes=15 * i)).isoformat(), "counted": True,
+             "slot_errors": {name: errors(name, band, i) for name, (_centre, band) in bands.items()}}
+            for i in range(3)
+        ],
+        "results": [],
+    }
+    validation_store.refresh_results(session)
+    validation_store.save_session(session)
+    return session

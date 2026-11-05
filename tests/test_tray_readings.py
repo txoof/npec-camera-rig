@@ -18,7 +18,7 @@ from npec_rig.app import app
 from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
 from npec_rig.tags import TagDetection
-from tests.helpers import one_tray_plant_scene, table_calibration, table_photo
+from tests.helpers import banded_validation, one_tray_plant_scene, table_calibration, table_photo
 
 pytestmark = pytest.mark.unit
 
@@ -651,3 +651,73 @@ def test_each_tray_found_in_a_photo_names_the_table_location_it_lies_in() -> Non
     path = table_photo(experiment_id, _at(0), {3: "NE", 7: "SW"})
 
     assert {t["tray_id"]: t["location"] for t in tray_readings.photo_readings(path)["trays"]} == {3: "NE", 7: "SW"}
+
+
+# --- Each reading's uncertainty from its slot's validation band (#76) -----------------------------
+# Two slots, North 1 and South 6, reading within ±2.0 % and ±4.5 % (tests/helpers.banded_validation).
+SESSION = "20270101T010000000000"
+TWO_SLOTS = {"North 1": ((150, 150), 2.0), "South 6": ((750, 450), 4.5)}
+
+
+def test_each_tray_takes_the_band_of_the_validation_slot_nearest_its_centre() -> None:
+    """Trays are not tied to slots (#331): the nearest slot centre wins (Aaron, 2026-11-05)."""
+    from datetime import datetime, timezone
+
+    table_calibration()
+    banded_validation(SESSION, TWO_SLOTS)
+    # Tray 3 lies nearer North 1 (150, 150), tray 7 nearer South 6 (750, 450).
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW", 7: "SE"},
+                       validation=SESSION, centres={3: (400, 250), 7: (500, 350)})
+
+    assert {t["tray_id"]: t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]} == {
+        3: {"band_pct": 2.0, "slot": "North 1", "reason": None},
+        7: {"band_pct": 4.5, "slot": "South 6", "reason": None},
+    }
+
+
+def test_a_photo_taken_with_no_validation_gives_each_tray_the_reason_and_no_band() -> None:
+    from datetime import datetime, timezone
+
+    table_calibration()
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW"})
+
+    assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
+        {"band_pct": None, "slot": None, "reason": "not validated"},
+    ]
+
+
+def test_a_photo_taken_under_a_validation_not_consistent_claims_no_band() -> None:
+    """A not-consistent validation is named on the photo but its bands are not claimed (#54)."""
+    from datetime import datetime, timezone
+
+    table_calibration()
+    banded_validation(SESSION, TWO_SLOTS, inconsistent=True)
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW"}, validation=SESSION)
+
+    assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
+        {"band_pct": None, "slot": None, "reason": "validation not consistent"},
+    ]
+
+
+def test_a_tray_nearest_a_slot_with_too_few_tags_says_the_slot_was_not_measured() -> None:
+    from datetime import datetime, timezone
+
+    table_calibration()
+    banded_validation(SESSION, {"North 1": ((150, 150), 2.0), "South 6": ((750, 450), None)})
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {7: "SE"}, validation=SESSION)
+
+    assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
+        {"band_pct": None, "slot": "South 6", "reason": "slot not measured"},
+    ]
+
+
+def test_a_photo_whose_validation_file_is_gone_still_shows_its_trays_and_says_why() -> None:
+    """Deleting a calibration deletes its validations (validation_store)."""
+    from datetime import datetime, timezone
+
+    table_calibration()
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW"}, validation=SESSION)
+
+    assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
+        {"band_pct": None, "slot": None, "reason": "validation not found"},
+    ]

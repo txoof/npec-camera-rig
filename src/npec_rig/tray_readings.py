@@ -317,7 +317,9 @@ def capture_readings(capture: dict) -> dict | None:
         _outline_old_rows(capture, readings["trays"])
         # A tray with no tag (#331) carries no tag another tray could share.
         carried = Counter(tray["tray_id"] for tray in readings["trays"] if tray["tray_id"] is not None)
+        bands = _validation_bands(capture)
         for tray in readings["trays"]:
+            tray["uncertainty"] = bands(tray["centre_px"])
             # The table location the tray lies in, for the Gallery (#332); None when the
             # photo's size cannot be known.
             tray["location"] = locations.location(capture["path"], capture["calibration"], tray["centre_px"])
@@ -336,6 +338,40 @@ def capture_readings(capture: dict) -> dict | None:
             tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
             tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM
     return readings
+
+
+def _validation_bands(capture: dict):
+    """A function giving the uncertainty of a tray centred at a point of photo `capture`: the band
+    of the slot of the photo's validation whose centre is nearest (Aaron, 2026-11-05, #76), "within
+    ±band_pct %" for flat objects at tray-top height, 95 times in 100. No band is claimed, and
+    the reason says why, when the photo has no validation, its validation is gone or not consistent,
+    or the slot had too few tags to be measured."""
+    def none(reason: str):
+        return lambda centre_px: {"band_pct": None, "slot": None, "reason": reason}
+
+    if not capture.get("validation"):
+        return none("not validated")
+    try:
+        session = validation_store.load_session(capture["validation"])
+        state = validation_store.status(session)["state"]
+        slots = [(s["name"], s["centre"]) for s in session["slots"]]
+        bands = {r["name"]: r["p95_abs_pct"] for r in session["results"]}
+    except validation_store.SessionNotFoundError:
+        return none("validation not found")
+    except (KeyError, TypeError, ValueError):
+        # A damaged session file never hides the areas.
+        logger.exception("Could not read validation %s", capture["validation"])
+        return none("validation not found")
+    if state != "validated":
+        return none("validation not consistent" if state == "not_consistent" else "not validated")
+
+    def band(centre_px) -> dict:
+        x, y = centre_px
+        slot = min(slots, key=lambda s: math.hypot(s[1][0] - x, s[1][1] - y))[0]
+        band_pct = bands.get(slot)
+        return {"band_pct": band_pct, "slot": slot, "reason": None if band_pct is not None else "slot not measured"}
+
+    return band
 
 
 def _outline_old_rows(capture: dict, trays: list[dict]) -> None:
