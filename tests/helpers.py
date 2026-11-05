@@ -256,11 +256,12 @@ def table_calibration() -> None:
 
 def table_photo(
     experiment_id: int | None, taken, trays: dict[int, str], *, validation: str | None = None,
-    centres: dict[int, tuple[float, float]] | None = None,
+    centres: dict[int, tuple[float, float]] | None = None, areas: dict[int, float] | None = None,
 ) -> str:
     """A 900 x 600 photo taken at `taken` (a datetime) under TABLE_STEM, read with each tray of
     `trays` (tray ID: location) found at that location's centre, or at `centres[tray ID]` when
-    given; taken under validation session `validation`. Its path."""
+    given, with plant area `areas[tray ID]` mm2 by the green threshold when given; taken under
+    validation session `validation`. Its path."""
     from PIL import Image
 
     from npec_rig import captures, database
@@ -277,7 +278,8 @@ def table_photo(
     database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[
         {"tray_id": tray_id, "slot": None, "a1_corner": None, "placement": "placed",
          "centre_px": list((centres or {}).get(tray_id, TABLE_CENTRES[location])), "tilt_deg": 0.0, "margin_mm": None, "found": "photo + tag",
-         "warnings": [], "outline_px": None}
+         "warnings": [], "outline_px": None,
+         **({"area_mm2": areas[tray_id], "segmenter": "green threshold, 0.1"} if tray_id in (areas or {}) else {})}
         for tray_id, location in trays.items()
     ])
     return f"rig/{day}/{stem}"

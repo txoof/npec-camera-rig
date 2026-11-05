@@ -27,7 +27,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from npec_rig import database, dwell
+from npec_rig import database, dwell, tray_readings
 from npec_rig.calibration_store import calibration_root
 from npec_rig.captures import experiments_root
 from npec_rig.validation_store import validations_root
@@ -111,6 +111,7 @@ def _write_zip(export_id: int, experiment_id: int) -> None:
             photos += 1
         z.add_bytes(f"{name}/captures.csv", _captures_csv(captures, experiment["folder"]))
         z.add_bytes(f"{name}/time-in-table-location.csv", _time_in_table_location_csv(experiment_id, until))
+        z.add_bytes(f"{name}/tray-readings.csv", _tray_readings_csv(captures, experiment["folder"]))
         missing = _add_records(z, name, captures)
         z.add_bytes(f"{name}/README.txt", _readme(experiment, photos, missing, until).encode())
         manifest = "".join(f"{digest}  {path.removeprefix(name + '/')}\n" for digest, path in z.sums)
@@ -162,6 +163,44 @@ def _time_in_table_location_csv(experiment_id: int, until: str) -> bytes:
     return buffer.getvalue().encode()
 
 
+# The columns of tray-readings.csv, one line per tray per photo read (#76).
+TRAY_READING_COLUMNS = [
+    "file", "taken_at", "tray", "location", "plant_area_mm2", "segmenter", "floor_mm2", "not_counted",
+    "photo_excluded", "partly_outside", "scale_error_at_tray_top_pct", "band_slot", "no_band_reason",
+]
+
+
+def _tray_readings_csv(captures: list[dict], folder: str) -> bytes:
+    """One line per tray in each photo read for its trays (`tray_readings.capture_readings`), with
+    its plant area as stored and the band of its validation slot, or the reason it has none (#76).
+    Photos not read for trays have no lines."""
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=TRAY_READING_COLUMNS, lineterminator="\n")
+    writer.writeheader()
+    for row in captures:
+        readings = tray_readings.capture_readings(row)
+        if readings is None:
+            continue
+        for tray in sorted(readings["trays"], key=lambda t: (t["tray_id"] is None, t["tray_id"] or 0)):
+            band = tray["uncertainty"]
+            writer.writerow({
+                "file": f"stills/{_stills_relative(row['path'], folder)}.jpg",
+                "taken_at": row["taken_at"],
+                "tray": "no tag" if tray["tray_id"] is None else tray["tray_id"],
+                "location": tray["location"],
+                "plant_area_mm2": tray["area_mm2"],
+                "segmenter": tray["segmenter"],
+                "floor_mm2": tray["floor_mm2"],
+                "not_counted": "; ".join(tray["not_counted"]),
+                "photo_excluded": readings["exclusion"],
+                "partly_outside": tray["partly_outside"],
+                "scale_error_at_tray_top_pct": band["band_pct"],
+                "band_slot": band["slot"],
+                "no_band_reason": band["reason"],
+            })
+    return buffer.getvalue().encode()
+
+
 def _add_records(z: _Zip, name: str, captures: list[dict]) -> list[str]:
     """Copy every calibration and validation the photos used; return the ones not found."""
     missing = []
@@ -210,6 +249,11 @@ def _readme(experiment: dict, photos: int, missing: list[str], until: str) -> st
         "                       cut in 6 locations, NW NM NE in the north row, SW SM SE in the south",
         "                       row (north is the top of the photo). A tray counts as moved only",
         "                       after 1 hour in another location. Open it in Excel",
+        "  tray-readings.csv    one line per tray in each photo: its plant area in mm2, and the",
+        "                       scale error at tray top, the validation band of the slot nearest",
+        "                       the tray (95 in 100 flat objects read within it), or why there is",
+        "                       none. Plant height adds about 0.15% per mm above the tray top, and",
+        "                       the band does not cover how well the plant is found. Open it in Excel",
         "  experiment.json      the experiment's name, researcher, tray height, notes and periods",
         "  records/             the calibration and validation records the photos were taken under,",
         "                       so every number can be traced",
