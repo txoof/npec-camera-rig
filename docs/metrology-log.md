@@ -7432,3 +7432,56 @@ trays 1 to 7 on the six stills, rule F divided by rule C, and specks), and:
 
 **Limits (as planned).** As 24.1. A plant with no pixel above 0.1 and G > R is lost entirely;
 item 4 and the pictures are the only check for that.
+
+### 24.3 Grow from cores as a time series, and its cost per photo (method written 2026-11-05, before the time series)
+
+**Label: development check.** The goal for plant area is a reliable value over time, measured
+without a break (Aaron, 2026-11-05): a plant missing from one photo in many is noise, and only a
+bias (a plant lost often, area added steadily, a value low by the same amount every day) is a
+failure. A rule is also only useful if it keeps the rig's pace of one photo a minute (Aaron,
+2026-11-05).
+
+**Names.** From here on the rules have names (letters as an index):
+
+| Letter | Name | Plant where |
+|---|---|---|
+| A | Current rule | greenness > 0.1 and G > R |
+| B | Zero cutoff, green over red | greenness > 0 and G > R |
+| C | Zero cutoff, not blue | greenness > 0 and not blue |
+| D | Per-tray halfway | greenness above halfway between the tray's soil and leaf peaks, not blue |
+| E | Fixed low cutoff | greenness > -0.045, not blue, tag area left out |
+| F | Grow from cores | pieces of the fixed low cutoff that hold at least one pixel of the current rule (24.2) |
+
+**Observation behind this test (24.2, 2026-11-05).** On the 31 photos of 2 November 10:43:53 to
+11:13:53 UTC (one a minute, exposure 4365 µs and gain 1.0 in all), tray 3: 18 of its 19 plants
+kept a core in all 31; the smallest, palest plant (row 2, column 2) had no core in 2 photos
+(10:58 and 10:59) and a core of 1 to 121 px in the others. With a core it read 54 to 65 mm²
+under grow from cores; without one, 0.
+
+**Cost per photo (measured before this entry was written).** Controller (Raspberry Pi 5, 4 GB, the
+same processor as both rigs), one full 64 MP photo (2026-11-02 10:58:53), each rule in its own
+process, the median of 3 runs: JPEG decoding 0.6 s; current rule 1.24 s; fixed low cutoff 1.55 s;
+grow from cores 2.08 s (OpenCV's connected pieces, already used by the app). Peak memory: 649 MB
+(current rule, the decoded photo included) and 973 MB (grow from cores) for the whole photo at
+once. Grow from cores adds about 0.8 s and 320 MB per photo: about 3 s in all with decoding,
+against one photo a minute.
+
+**Photos.** Experiment 18, every photo from 12:00 to 13:59 UTC on 26 October, 29 October and
+2 November (120 each, 360 in all; no shuffle was recorded in these hours, and the lights are
+steady), trays 1 to 7, read-only copies. The 4 photos the app marks as a visit are left out. Each
+tray's outline is that stored in rig.db for each photo. Plants are found once per tray and window,
+on the window's first photo, as the zero cutoff, not blue pieces of 150 px or more joined within
+15 px; the tray's shift over the window is reported.
+
+**What is worked out.**
+
+1. Per plant and window: the share of photos in which grow from cores loses it (0 px).
+2. Per tray and window: the photo-to-photo spread (sd as a percentage of the mean) of the current
+   rule and of grow from cores, and the same after a median over 15 photos.
+3. Per tray: the mean of each rule per window, so growth from day to day, and grow from cores
+   divided by the current rule per window (whether the current rule's shortfall changes as the
+   plants grow).
+4. The time taken per photo in this run.
+
+**Limits (as planned).** As 24.1 and 24.2: no hand outlines on these days, so these numbers test
+steadiness and bias between the rules, not accuracy. Three windows, all in the afternoon.
