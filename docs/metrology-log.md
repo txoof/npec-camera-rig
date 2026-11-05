@@ -7648,3 +7648,49 @@ encoder.
 
 **Limits (as planned).** 15 plants on one photo; one prompt design; the crops were cut round
 plants a colour rule had found, so a plant no colour rule sees is not tested.
+
+#### 24.5 results (2026-11-05)
+
+**Run.** As planned, with two practical changes: the crops were enlarged to 1024 x 1024 with
+cubic interpolation (19.1 shrank tiles, with area averaging), and ONNX Runtime's memory pool was
+turned off, after two runs were stopped by the kernel for lack of memory (about 2.5 GB with the
+pool on; about 1 GB peak with it off). One prompt per plant; the box and point came from grow from
+cores and the current rule as planned.
+
+**Against Aaron's outlines** (mean over the plants, range in brackets; IoU over 14 plants, one
+outline per pass saved only as a box):
+
+| | IoU, pass 1 | IoU, pass 2 | Area ratio, pass 1 | Missed | Extra |
+|---|---|---|---|---|---|
+| Ceiling (pass 1 against pass 2) | 0.915 | | 1.02 | | |
+| Grow from cores (same piece as the prompt) | 0.872 (0.791 to 0.908) | 0.878 | 0.963 (0.837 to 1.226) | | |
+| SAM 2.1 small | 0.773 (0.261 to 0.884) | 0.776 | 1.077 (0.837 to 1.995) | 12.1% | 21.6% (0.1 to 137%) |
+
+On 10 of the 15 plants SAM's IoU is 0.85 to 0.88, near grow from cores. On the other five it takes
+in soil next to the plant (a clump, a dark patch or shadow), and on `t6_p1b` reads 1.99 times the
+outline (IoU 0.26). On no plant is it clearly better than grow from cores. Its own predicted IoU
+(0.75 to 0.93) does not pick out the bad masks.
+
+**Time per plant** (controller, 4 threads): vision encoder 9.7 s (9.1 to 10.9, 15 plants); 8-bit
+encoder 6.5 to 7.6 s (5 plants); decoder 0.2 s. With about 130 plants on trays 1 to 7, one photo
+would take 15 to 20 minutes on all four cores.
+
+**Findings.**
+
+1. On the rig's photos, given each plant alone at full detail, SAM 2.1 small is less accurate and
+   far less consistent than grow from cores. Its failures are spills onto soil, which a colour
+   rule does not make.
+2. The supervisor's accurate results come from close-range phone photos (17.14). At about 0.2 mm
+   per pixel, with leaf edges blurred over 3 to 4 px, SAM sees no more than a colour rule does.
+3. At 7 to 10 s a plant it cannot run on every photo; compiling the encoder for the Hailo-8 (not
+   supported as shipped) would cut the time but not the spills.
+
+**Limits of the evidence.** 15 plants on one photo, one prompt design (a box and one point);
+other prompts or SAM's automatic mode were not tried. The crops were chosen round plants a colour
+rule found.
+
+*Figure.* `docs/figures/24.5/sam-vs-grow.jpg`: per plant, left the crop with SAM's box (yellow)
+and point (cyan), middle SAM 2.1 small, right grow from cores (magenta), white Aaron's pass 1
+outline; made by `sam_crops.py`, scaled to 1/2 of a 2x sheet, so at the photo's own scale.
+*Raw data.* `docs/figures/24.5/per_plant.csv`; the script `sam_crops.py` and the run log in
+`~/scratch/thr-352/` (not kept); the model files are those of 19.1.
