@@ -7402,3 +7402,33 @@ October and 2 and 3 November (captures 3536, 7856, 12180, 15060, 17940, 19380), 
 **Limits (as planned).** No hand outlines on days other than 3 November, so accuracy is measured
 only there, on the still the cutoff was chosen from. Items 2 to 5 test consistency and soil
 counted as plant, not leaf missed. One still per day, all at 10:58 UTC.
+
+### 24.2 Leaf edges kept only where they join a leaf core (method written 2026-11-05, before the run)
+
+**Label: development check.** Added after the results of 24.1 were seen. Rule E (greenness >
+-0.045, not blue, tag area left out) also counted a fringe along the soil cells' edges, where a
+pixel mixes brown soil and blue plastic: about 100 to 300 mm² per tray on every day, as large as
+the plants on 23 October. Rule A (greenness > 0.1 and G > R) counted almost nothing outside the hand
+outlines (extra 0% in section 24). Rule F joins the two: rule A finds where leaves are, rule E
+finds how far each leaf reaches.
+
+**Rule F.**
+
+1. Core: rule A's pixels, tag area left out.
+2. Reach: rule E's pixels, cut into pieces that touch side or corner (8-connected).
+3. A piece of rule E is plant when it holds at least one core pixel; every other piece is left
+   out, whatever its size. No size limit, no shape limit.
+
+Nothing in rule F was set from the results: the cutoffs are those of rules A and E, and "at least
+one core pixel" is the simplest choice.
+
+**What is worked out.** As 24.1 items 1 to 3 (the 3 November crops against both passes; whole
+trays 1 to 7 on the six stills, rule F divided by rule C, and specks), and:
+
+4. Pieces left out that are 150 px (about 6 mm²) or larger, per tray and day: these could be
+   plants with no core. Each is looked at in the pictures.
+5. One picture per day for trays 1, 3 and 7: rule F in magenta, the pieces of rule E it leaves out
+   in cyan, for Aaron to inspect.
+
+**Limits (as planned).** As 24.1. A plant with no pixel above 0.1 and G > R is lost entirely;
+item 4 and the pictures are the only check for that.
