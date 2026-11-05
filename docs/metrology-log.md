@@ -7485,3 +7485,37 @@ on the window's first photo, as the zero cutoff, not blue pieces of 150 px or mo
 
 **Limits (as planned).** As 24.1 and 24.2: no hand outlines on these days, so these numbers test
 steadiness and bias between the rules, not accuracy. Three windows, all in the afternoon.
+
+### 24.4 Green squares on blue mats (method written 2026-11-05, before the squares were moved)
+
+**Label: development check.** Grow from cores (24.3) loses plants whose leaves look blue-grey: 24
+plant regions were lost in 20% or more of a window's photos, every one a real plant, most of them
+dull blue-green (`lost_regions.png`, see Raw data). The likely cause is the "not blue" condition,
+added to keep the tray plastic out. Researchers sometimes lay a blue mat on the soil round a plant
+(against algae and to slow drying), which would put blue next to every leaf edge. Before the blue
+condition is narrowed, two things are measured with targets of known area.
+
+**Questions.**
+
+1. Does a blue mat under a green square change the area a rule reads for it?
+2. Do the colours of tray plastic, mat and blue-grey leaf overlap, or can a narrower blue condition
+   keep the first two out and the leaf in?
+
+**Setup, by Aaron in the production chamber, experiment 18.** The green test squares (section
+18.5, sizes from their calliper readings) are moved into tray 7, on soil, then left for 30 minutes
+(one photo a minute, no extra photos). Then a blue mat is slid under each square without moving
+it, and left. One mat lies on its own. Recorded: the time of each step (Aaron), which square lies
+where, and one mat's thickness by callipers (a square on a mat is raised by it, about 0.145% of
+area per mm).
+
+**What is worked out.**
+
+1. Per square, for the current rule and grow from cores: the mean area over the photos before and
+   after the mats, its spread, and the change. The squares are not moved in between, so the change
+   is the mats' (with the height corrected).
+2. Colour of the plastic, the lone mat and the lost blue-grey leaves (24.3): greenness and how far
+   blue exceeds green and red, as histograms on one picture, to see whether a line separates them.
+
+**Limits (as planned).** Flat printed squares, not leaves: their colour is not leaf colour, so
+question 1 tests the mat's effect at an edge, not on leaf colour. One tray, one position per
+square, one session.
