@@ -144,6 +144,46 @@ location too long.
   button. It then shows as one line, "Tray 12, hidden", and gives no warning, on every PC, until
   Show is tapped. Its hours stay in the export.
 
+## Randomizing the trays
+
+The Randomize page (left menu) suggests where each tray goes, and which way round, then checks the
+table against the suggestion. An experiment must be running. Trays can stand anywhere on the
+table: the rig groups them into rows and columns, and every crossing is a place, empty spots too.
+The trays are shuffled over those places, so the empty spots move as well.
+
+- **The page starts as the trays stand.** It shows no hints until Randomize is tapped.
+- **Randomize.** The rig finds each tray in the latest photo and draws a new place for every
+  tray, and which way round it lies. Only the table's own edges count: the north and south rows
+  and the west and east columns. A layout is kept only if no row or column of plants that was on
+  a table edge is on a table edge again. Under "Put the trays like this" the map shows the table,
+  north at the top, each box with the tray that goes there and how it lies; the list below gives,
+  for each tray, where it is now and where it goes ("South row, 2nd from west").
+  - **4 x 5 trays** (tag IDs 1 to 75, tag in cell A1): a triangle and "A1 SW" or "A1 NE" at the
+    corner where cell A1 goes.
+  - **2 x 2 trays** (tag IDs 76 to 150, tag fixed in the middle): "Turn round", with a turning
+    arrow, or "Keep as is". The rig reads which way round the tray lies from the tag's angle, so
+    the tag must stay fixed to its tray.
+  - **Other trays** (1 x 1, black trays): a place only; they may lie either way round.
+  - **When no layout keeps the rule**, for example a single row of trays, whose trays are on both
+    the north and south edges, the page names each tray that has a row on the edge again and
+    marks it "Edge row again" on the map.
+- **Cancel** puts the page back to the trays as they stand, with no hints. The layout stays
+  saved, marked cancelled.
+- **Check layout.** After moving the trays, tap Check layout. The rig takes a photo (not one of
+  the experiment's photos) and shows it with a white ring marked "Tray N goes here" where each
+  tray goes, an orange arrow from each tray in the wrong place to its ring, a pink turning arrow on
+  each tray to turn round, and a green circle with "OK" on each tray in place. A tray is in place
+  when its centre is within 150 mm of its place. The table under the photo says what to do for
+  each tray, naming the place. Move the trays it marks and check again. When every tray is in
+  place the round is done: the page goes back to the trays as they stand, with the last check
+  shown.
+- **Reporting.** Each suggestion and check is saved with the experiment, with the random seed.
+  In the methods: trays were placed by restricted randomization, rejecting any layout that put a
+  row or column of plants on an outside edge of the table two rounds in a row.
+- **Limits.** Which way round a tray lies is read only for 4 x 5 and 2 x 2 trays, and for a 4 x 5
+  tray only when its blue outline is found in the photo. The first round is whatever layout the
+  trays were placed in.
+
 ## Why it is done this way
 
 The project rule is that every certainty is measured, never derived: if a number cannot be shown

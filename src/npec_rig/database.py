@@ -343,6 +343,27 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
         # 1 had it, 0 had not (the photo's time may be wrong), NULL taken before this version.
         ("ALTER TABLE capture ADD COLUMN clock_synced INTEGER",),
     ),
+    (
+        19,
+        "tray_layout: suggested tray layouts and the checks against them, per experiment (#343)",
+        (
+            # Saved with the experiment (Aaron, 2026-11-02). A suggestion keeps, per tray, where it
+            # lay before (read from `capture_id`) and which rows and columns were then on an
+            # outside edge, so every round's edge history is kept. A check keeps its photo.
+            """
+            CREATE TABLE tray_layout (
+                id INTEGER PRIMARY KEY,
+                experiment_id INTEGER NOT NULL REFERENCES experiment (id),
+                kind TEXT NOT NULL,              -- 'suggestion', 'check' or 'cancel'
+                made_at TEXT NOT NULL,           -- UTC, ISO 8601
+                capture_id INTEGER,              -- the photo read; no reference: a purge deletes it
+                suggestion_id INTEGER REFERENCES tray_layout (id),  -- a check: what it compared with
+                details TEXT NOT NULL            -- JSON: the trays, and the seed of a suggestion
+            )
+            """,
+            "CREATE INDEX tray_layout_experiment ON tray_layout (experiment_id, kind, id)",
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -706,6 +727,57 @@ def show_tray(experiment_id: int, tray_id: int) -> None:
     with _connect() as conn:
         _experiment(conn, experiment_id)
         conn.execute("DELETE FROM experiment_hidden_tray WHERE experiment_id = ? AND tray_id = ?", (experiment_id, tray_id))
+
+
+def record_tray_layout(
+    experiment_id: int,
+    kind: str,
+    *,
+    made_at: str,
+    details: dict,
+    capture_id: int | None = None,
+    suggestion_id: int | None = None,
+) -> dict:
+    """Save a suggested tray layout, a check against one, or the cancelling of one (#343); the
+    saved row."""
+    if kind not in ("suggestion", "check", "cancel"):
+        raise ValueError(f"unknown tray layout kind {kind!r}")
+    with _connect() as conn:
+        _experiment(conn, experiment_id)  # LookupError for no such experiment
+        cursor = conn.execute(
+            "INSERT INTO tray_layout (experiment_id, kind, made_at, capture_id, suggestion_id, details)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (experiment_id, kind, made_at, capture_id, suggestion_id, json.dumps(details)),
+        )
+        layout_id = cursor.lastrowid
+    return tray_layout(layout_id)
+
+
+def tray_layout(layout_id: int) -> dict | None:
+    """One saved tray layout, its details decoded; None when there is no such layout."""
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM tray_layout WHERE id = ?", (layout_id,)).fetchone()
+    return None if row is None else {**dict(row), "details": json.loads(row["details"])}
+
+
+def latest_tray_layout(experiment_id: int, kind: str) -> dict | None:
+    """The experiment's newest saved suggestion or check, or None."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM tray_layout WHERE experiment_id = ? AND kind = ? ORDER BY id DESC LIMIT 1",
+            (experiment_id, kind),
+        ).fetchone()
+    return None if row is None else tray_layout(row[0])
+
+
+def latest_tray_layout_for(suggestion_id: int, kind: str) -> dict | None:
+    """The newest check or cancel of suggestion `suggestion_id`, or None."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM tray_layout WHERE suggestion_id = ? AND kind = ? ORDER BY id DESC LIMIT 1",
+            (suggestion_id, kind),
+        ).fetchone()
+    return None if row is None else tray_layout(row[0])
 
 
 def experiment_calibrations(experiment_id: int) -> list[str | None]:
