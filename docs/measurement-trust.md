@@ -132,6 +132,15 @@ reliable guide, because it is judged against the same tags it was fitted to. It 
 dropped from what the operator sees; only the validation band, which is measured directly, is
 reported.
 
+**How a reading gets its band.** Since #76 (2026-11-05) every tray area carries the band of the
+validation slot whose centre is nearest the tray's centre, in the Gallery and in the export's
+`tray-readings.csv`, under the heading "Scale error at tray top". Trays are found anywhere on the
+table (#331), so a tray between two slots takes the nearer one's band: a choice, not a
+measurement (Aaron, 2026-11-05). No band is claimed when the photo has no complete validation,
+when its validation is not consistent or its file is gone, or when the slot had too few tags; the
+reading then says which. The band covers flat objects at tray-top height only: plant height
+(about 0.145% per mm) and how well the mask finds the plant are not in it, and the page says so.
+
 ## Faults are caught, not averaged in
 
 **What could go wrong.** A bad sheet, a tray at the wrong height, or a knocked camera would make
