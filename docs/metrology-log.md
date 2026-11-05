@@ -7366,3 +7366,111 @@ against 1.11 GiB); the cause is not established (most likely memory freed after 
 and not yet handed back when the search starts). Each case was run three times at most, on an 8 GB
 Pi; the spread and a 4 GB Pi 5 are not measured. Savings in the shared photo code (decoding and
 saving with OpenCV, passing the frame by shared memory) are in #355.
+
+## 26. JPEG quality and the measured numbers (issue #355, method written 2026-11-05, before the run)
+
+*Development check.* Question: does the JPEG quality the rig saves its stills at move the numbers
+it reports, the tag corners (from which scale and calibration come) and the plant areas from the
+green threshold, and by how much against the validation bands (±1.2% to ±1.7% at the 95th
+percentile, section 18)? Asked by Aaron, 2026-11-05.
+
+*What the app does now.* `camera.array_to_jpeg` saves every still with Pillow's defaults, because
+no quality is passed: quality 75 with 4:2:0 chroma subsampling (colour stored at half the
+resolution both ways, brightness at full). This is a library default, not a measured choice.
+
+*Method.* Rig npec-rig-01, main at dc57c51, plants on the table under the experiment "development
+002". The app is stopped for a few minutes (Aaron's approval, 2026-11-05), and a script opens the
+camera the way the app does (`CameraManager` with the saved exposure, gain, white balance and
+lens position, lens driven the app's one way) and takes 3 full-size stills in a row, each kept
+as the uncompressed array (`.npy`, about 190 MB). The app is then started again. Each array is
+encoded with Pillow at 5 settings, each with a descriptive name:
+
+| Name | Quality | Colour resolution |
+|---|---|---|
+| A, uncompressed | none | full |
+| B, today (75, half colour) | 75 | 4:2:0 |
+| C, 85 half colour | 85 | 4:2:0 |
+| D, 95 half colour | 95 | 4:2:0 |
+| E, 95 full colour | 95 | 4:4:4 |
+
+B is checked to give the same bytes as `array_to_jpeg`. Each JPEG is written to a file and read
+back with `images.decode_full`, the app's own decoder. For each still and setting: tags with
+`tags.detect_tags`, and plants with the app's segmenter (green threshold 0.1) and
+`segmentation.measure_trays`. The trays are found once, from still 1 at setting B with the app's
+finder (`find_outlines`, `name_trays`), and the same outlines are used for every still and
+setting, so only the pixels change. The calibration is the one the experiment's newest still was
+read with. Results, each against A of the same still: the movement of every tag corner (px), the
+change in each tag's side length (%, which is what scale is built from), and the change in each
+tray's plant area (% and mm²). The file size of each setting. As a yardstick, the same
+differences between the 3 uncompressed stills, which is the camera's own change from one photo
+to the next.
+
+*Limits.* One rig, one camera, one lighting, one table, 3 stills taken within about a minute: it
+measures the effect of the encoding only, not of other light or plant sizes beyond those on the
+table. The green threshold 0.1 is the app's segmenter today and is known to miss leaf area
+(#352); a different colour rule may respond to JPEG colour differently. Plant height and the
+camera's noise between days are not covered.
+
+### 26.1 Result (2026-11-05)
+
+*Run.* The app was stopped at 12:29:04 UTC and running again at 12:29:19 (15 s; no scheduled
+photo of "development 002" fell in it). Three stills, 12:29:06, 12:29:10 and 12:29:15 UTC, lens
+6.15 (focus locked), auto exposure on as saved (3689, 3793 and 3793 µs, gain 1.0). Calibration
+`20261103T115701405213`. The finder outlined 9 trays (tags 76 to 81 and 85 to 87); their plants
+range from 1050 to 29,300 mm². Setting B gave the same bytes as `array_to_jpeg`. After the first
+results three settings were added, all at full colour, to tell quality and colour resolution
+apart (not in the method as written): F 75, G 85 and H 90 full colour.
+
+Summary over the 3 stills, each setting against the uncompressed array of the same still
+(27 tray readings each). Corner figures leave out tag 79, see below.
+
+| Setting | File MB | Tag side, largest change | Tray area, mean change | Tray area, largest change | Small plants (< 3000 mm², 4 trays), mean change |
+|---|---|---|---|---|---|
+| B today (75, half colour) | 5.9 | 0.07% | -1.37% | 4.26% | -2.58% |
+| C 85 half colour | 8.5 | 0.12% | -0.97% | 2.99% | -1.80% |
+| D 95 half colour | 16.8 | 0.03% | -0.72% | 2.30% | -1.38% |
+| F 75 full colour | 7.4 | 0.13% | -0.56% | 2.25% | -0.98% |
+| G 85 full colour | 10.7 | 0.11% | -0.36% | 1.08% | -0.61% |
+| H 90 full colour | 14.0 | 0.12% | -0.37% | 1.07% | -0.63% |
+| E 95 full colour | 21.4 | 0.12% | -0.31% | 0.94% | -0.54% |
+| Yardstick: uncompressed stills 1 and 2 against still 0 | | 0.39% | -1.17% | 3.77% | -2.06% |
+
+*Plant area.* Every JPEG setting reads less plant than the uncompressed still, on almost every
+tray (the one exception, tray 87, changes by under 0.2%). Today's setting reads 1.4% less on
+average and 2.6% less on the small plants, more than the validation bands (±1.2% to ±1.7%). The
+loss comes mostly from the colour resolution, not the quality number: at quality 75, full colour
+halves it (B -1.37% to F -0.56%), while raising the quality to 95 at half colour does less (D
+-0.72%). Above 85 at full colour, little more is gained (G -0.36%, E -0.31%). The figure shows
+why on one small plant: at half colour the soil's colour is spread over the leaf's edge, and the
+green threshold loses a rim 1 to 2 px wide around each leaf; at full colour the losses and gains
+are fewer and nearly balance. A small plant has more edge for its area, so it loses a larger
+share.
+
+![Tray 77, still 0: photo (top) and plant mask (bottom) uncompressed (left), today's setting
+(middle) and 95 full colour (right). Red: plant pixels the JPEG loses, blue: pixels it gains,
+against the uncompressed still.](figures/26/crop-tray77.png)
+
+*The yardstick.* Between two uncompressed stills taken 4 to 9 s apart, the areas change by as
+much as today's JPEG loss (mean -1.17%), but the two differ in kind. The change between stills
+went one way for one pair (still 1, -1.67%) and less for the other (still 2, -0.68%); it is the
+camera's change from one photo to the next (auto exposure was on, section 4), and averages out over
+a series of photos. The JPEG loss has the same sign on every still and every tray: it is a
+bias, and a time series of one plant keeps it (the goal is area over time, #352).
+
+*Tags.* All corner positions moved by 0.2 px at the median. The largest change in a tag's side
+length, which is what scale is made from, is 0.13% (0.26% in area), at every setting: well inside
+the bands, so the quality makes no difference for calibration and scale. Tag 79 moved by up to
+13 px between settings, and by up to 15 px between two uncompressed stills: it lies in the tray
+with the largest plant and is probably partly covered by a leaf, so it is left out of the corner
+figures. Tag 452 (a calibration tag) is found in some versions and not in others, at every
+setting including today's.
+
+*Not covered.* One table, one light, one rig, 3 stills within 9 s, the green threshold 0.1 only.
+How much of the 1.4% shows in the app's numbers also depends on the colour rule chosen in #352.
+The added settings F, G and H were chosen after the first results were seen. Raw data on
+npec-rig-01 in `~/jpegq-355/run-20261105T122904Z/` (3 arrays of 190 MB, the JPEGs); results and
+scripts in `experiments/355-jpeg-quality/`.
+
+*Not decided here.* Changing the quality of the saved photos changes every photo file and its
+size (today's 5.9 MB a still is about 8.5 GB a day at one photo a minute; G 85 full colour would
+be about 15.4 GB a day). It needs Aaron's decision (#355).
