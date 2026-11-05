@@ -428,3 +428,34 @@ def test_a_photo_taken_once_the_clock_has_the_network_time_is_not_marked(
     assert record["clock"]["synchronized"] is True
     assert "time may be wrong: clock not set" not in record["flags"]
     assert database.captures_by_path([record["path"]])[record["path"]]["clock_synced"] == 1
+
+
+def test_take_photo_saves_the_jpeg_at_the_photo_quality_setting() -> None:
+    """Expected values from the JPEG standard, not from the code: the first row of the standard
+    luminance table (ITU T.81 Annex K: 16 11 10 16 24 40 51 61), scaled for quality 85 the IJG
+    way, (x * 30 + 50) // 100; and full colour read from the file's own sampling factors."""
+    from PIL import Image, JpegImagePlugin
+
+    from npec_rig.settings import set_photo_quality
+
+    set_photo_quality(85, "4:4:4")
+    _array, record = take_photo("capture")
+    del _array
+
+    with Image.open(photos_root() / record["date"] / record["filename"]) as image:
+        luminance = list(image.quantization[0])
+        sampling = JpegImagePlugin.get_sampling(image)
+    assert luminance[:8] == [5, 3, 3, 5, 7, 12, 15, 18]
+    assert sampling == 0  # 4:4:4
+
+
+def test_the_photos_database_row_records_the_quality_it_was_saved_at() -> None:
+    from npec_rig import database
+    from npec_rig.settings import set_photo_quality
+
+    set_photo_quality(90, "4:4:4")
+    _array, record = take_photo("capture")
+    del _array
+
+    row = database.captures_by_path([record["path"]])[record["path"]]
+    assert (row["jpeg_quality"], row["jpeg_chroma"]) == (90, "4:4:4")

@@ -160,7 +160,7 @@ def _fake_tag_search(monkeypatch: pytest.MonkeyPatch, detections: list) -> list[
     return searches
 
 
-def test_photo_tags_lists_each_tag_with_its_role_and_is_searched_once(monkeypatch) -> None:
+def test_photo_tags_lists_each_tag_with_its_role_and_is_searched_once(monkeypatch, isolated_calibration_dir) -> None:
     searches = _fake_tag_search(
         monkeypatch,
         [square_detection(7, 400, 300, 40), square_detection(310, 900, 500, 30), square_detection(452, 60, 60, 50)],
@@ -181,7 +181,7 @@ def test_photo_tags_lists_each_tag_with_its_role_and_is_searched_once(monkeypatc
     assert len(searches) == 1
 
 
-def test_photo_tags_reads_an_experiment_still_and_refuses_bad_paths(monkeypatch) -> None:
+def test_photo_tags_reads_an_experiment_still_and_refuses_bad_paths(monkeypatch, isolated_calibration_dir) -> None:
     searches = _fake_tag_search(monkeypatch, [square_detection(12, 500, 500, 40)])
     client = TestClient(app)
     _experiment, [path] = _experiment_with_photos(client, 1)
@@ -242,7 +242,7 @@ def test_photo_tags_without_a_tray_around_them_are_seen_and_not_placed(monkeypat
     assert "placement" not in found[450]  # a corner tag is not a tray
 
 
-def test_photo_tags_say_how_each_tray_tag_was_found_in_the_photo(monkeypatch) -> None:
+def test_photo_tags_say_how_each_tray_tag_was_found_in_the_photo(monkeypatch, isolated_calibration_dir) -> None:
     """#331: a tray tag names the outline found from the blue plastic around it, wherever it lies
     in the tray; no slot. `one_tray_plant_scene`: tray 5's tag inside a drawn blue tray."""
     from tests.helpers import one_tray_plant_scene

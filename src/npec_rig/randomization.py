@@ -1,0 +1,473 @@
+"""Restricted randomization of the tray layout (#343).
+
+The rig suggests where each tray goes and which way round it lies, and checks a photo against the
+suggestion.
+
+Trays stand wherever the researcher puts them (Aaron, 2026-11-04): there are no fixed slots. The
+trays in the latest photo are grouped into rows and columns, every crossing is a place, empty
+ones too, and a suggestion shuffles the trays over those places, so the empty spots move too.
+Only the table's own edges are edges: the north and south rows, the west and east columns
+(`table_places`).
+
+The layout is drawn by restricted randomization: random layouts are drawn and any that breaks
+the rule is rejected, so the one kept is drawn at random from those that pass. The rule: no row
+or column of plants is on an outside edge of the table two rounds in a row.
+
+Trays lie in portrait (reference/trays.md). The tag ID sets the tray type (PLAN.md, Tag ID
+allocation), and the type how its heading is read:
+
+- 4 x 5 (IDs 1 to 75): the tag lies in cell A1, so the heading is A1's corner, "SW" or "NE": SW
+  when the tag lies south of the tray's centre (its blue outline, tray_placement.find_outlines).
+  Columns A to D across the short side, rows 1 to 5 along the long side; with A1 at SW, row 1 is
+  the south end and column A the west side.
+- 2 x 2 (IDs 76 to 150): the tag is fixed in the middle of the tray (Aaron, 2026-11-04), so the
+  heading is the tag's angle against the tray's first photo: "as first" or "turned" (180
+  degrees). Rows 1 and 2, columns A and B: row 1 is the end that faced south in the first photo,
+  column A the side that faced west.
+- Every other tray (1 x 1, black, other): place only. A 1 x 1 tray has one well, and a black
+  tray's disc tag can turn in its pot, so no heading is read and the edge rule is not applied.
+"""
+
+from __future__ import annotations
+
+import math
+import sqlite3
+from dataclasses import dataclass
+from typing import NamedTuple
+
+import numpy as np
+from PIL import Image
+
+from npec_rig import database, photo_tags
+from npec_rig.calibration_store import (
+    CalibrationNotFoundError,
+    CalibrationUnreadableError,
+    calibration_for_photos,
+    load_saved_calibration,
+)
+from npec_rig.captures import photo_file
+from npec_rig.tags import TRAY_ID_RANGE, TagDetection
+from npec_rig.tray_placement import TRAY_SIZE_MM, find_outlines, name_trays
+
+# Where the tag in cell A1 lies from a 4 x 5 tray's centre with A1 at SW, photo axes (east, south),
+# mm: tray_placement.A1_TAG_TO_CENTRE_MM for a tray square to the photo. Turned round, the opposite.
+A1_FROM_CENTRE_MM = (-104.0, 141.6)
+
+# A tray is in its place when its centre is within this of the place's centre: about half a
+# tray's short side (305 mm). A decision, not a measurement (2026-11-04).
+IN_PLACE_MM = 150.0
+
+SIDES = ("north", "south", "west", "east")
+
+# The photo is searched for trays at this fraction of its size, as tray_readings does: the blue
+# finder's parameters were tuned on quarter-size stills (metrology log 20).
+FINDER_FACTOR = 4
+
+
+@dataclass(frozen=True)
+class TrayType:
+    name: str
+    ids: range
+    # The two headings, the first the one whose south end is row 1 and west side column A;
+    # empty for a tray whose heading is not read.
+    headings: tuple[str, ...]
+    rows: int
+    columns: int
+
+
+TRAY_TYPES = (
+    TrayType("4x5", range(1, 76), ("SW", "NE"), 5, 4),
+    TrayType("2x2", range(76, 151), ("as first", "turned"), 2, 2),
+    TrayType("1x1", range(151, 226), (), 1, 1),
+    TrayType("black", range(226, 251), (), 1, 1),
+)
+OTHER = TrayType("other", range(0), (), 1, 1)
+
+
+def tray_type(tray_id: int) -> TrayType:
+    """The tray type its tag ID sets (PLAN.md, Tag ID allocation): "other" for 0 and 251 to 299."""
+    return next((t for t in TRAY_TYPES if tray_id in t.ids), OTHER)
+
+
+class Position(NamedTuple):
+    """Where a tray goes: the name of a place and its heading: "SW" or "NE" (A1's corner,
+    4 x 5), "as first" or "turned" (2 x 2), None when it is not read."""
+
+    place: str
+    heading: str | None
+
+
+class Lying(NamedTuple):
+    """How a tray lies: the outer sides where it stands and its heading (None when not read)."""
+
+    sides: frozenset[str]
+    heading: str | None
+
+
+@dataclass(frozen=True)
+class Place:
+    """A place on the table: its name, its centre (full-size photo pixels), the table edges it
+    is on, the calibration's scale there, its label for people ("South row, 2nd from west") and
+    the tray standing there in the photo (None for an empty place)."""
+
+    name: str
+    centre: tuple[float, float]
+    sides: frozenset[str]
+    px_per_mm: float
+    label: str = ""
+    occupant: int | None = None
+
+
+@dataclass(frozen=True)
+class TraySeen:
+    """A tray found in a photo: its centre (full-size photo pixels), its heading (None when not
+    read), its outer sides there and its tag's angle in degrees."""
+
+    tray_id: int
+    centre: tuple[float, float]
+    heading: str | None
+    sides: frozenset[str]
+    tag_angle: float
+    # Where the centre may be instead, when it is not known from the tray's own outline: a 4 x 5
+    # tray seen only by its tag in cell A1 has two, one for A1 at SW and one for NE.
+    alternatives: tuple[tuple[float, float], ...] = ()
+
+    def distance(self, point: tuple[float, float]) -> float:
+        """How far the tray's centre is from `point`: the nearest of its possible centres."""
+        return min(math.dist(c, point) for c in (self.alternatives or (self.centre,)))
+
+
+def _groups(values: list[tuple[float, int]], gap: float) -> list[list[int]]:
+    """Keys of (value, key) pairs grouped in order of value: a new group starts where a value is
+    more than `gap` past the mean of the group so far."""
+    groups: list[list[tuple[float, int]]] = []
+    for value, key in sorted(values):
+        if groups and value - sum(v for v, _k in groups[-1]) / len(groups[-1]) <= gap:
+            groups[-1].append((value, key))
+        else:
+            groups.append([(value, key)])
+    return [[k for _v, k in g] for g in groups]
+
+
+def _ordinal(n: int) -> str:
+    return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def table_places(
+    centres: dict[int, tuple[float, float]], px_per_mm: float, empty: list[tuple[float, float]] = ()
+) -> list[Place]:
+    """The places on the table from the trays' centres (photo pixels, north at the top): the trays
+    grouped into rows (north to south) and columns (west to east), every row and column crossing
+    a place, one with no tray an empty place (Aaron, 2026-11-04: the empty spot moves too).
+    `empty`: places known to be empty, such as the last suggestion's empty places, grouped with
+    the trays, so a row or column left empty is kept with its edge (review of #343).
+
+    Only the table's own edges are edges (Aaron, 2026-11-04): the north row is on the north edge,
+    the south row on the south edge, the west column on the west edge, the east column on the east.
+    A tray joins a row within half a tray's length of it, a column within half a tray's width."""
+    # Empty points get negative keys: tray IDs are 0 or more.
+    points = {**centres, **{-1 - k: tuple(c) for k, c in enumerate(empty)}}
+    rows = _groups([(c[1], t) for t, c in points.items()], TRAY_SIZE_MM[1] / 2 * px_per_mm)
+    columns = _groups([(c[0], t) for t, c in points.items()], TRAY_SIZE_MM[0] / 2 * px_per_mm)
+    row_of = {t: r for r, members in enumerate(rows) for t in members}
+    column_of = {t: c for c, members in enumerate(columns) for t in members}
+    row_y = [sum(points[t][1] for t in m) / len(m) for m in rows]
+    column_x = [sum(points[t][0] for t in m) / len(m) for m in columns]
+    # Two trays can fall in one row and one column (two tags read in one outline, a tray pushed
+    # in between): each keeps a place of its own, on the same edges.
+    standing: dict[tuple[int, int], list[int]] = {}
+    marked: dict[tuple[int, int], tuple[float, float]] = {}
+    for t in sorted(points):
+        if t >= 0:
+            standing.setdefault((row_of[t], column_of[t]), []).append(t)
+        else:
+            marked.setdefault((row_of[t], column_of[t]), points[t])
+    places = []
+    for r in range(len(rows)):
+        for c in range(len(columns)):
+            sides = set()
+            if r == 0:
+                sides.add("north")
+            if r == len(rows) - 1:
+                sides.add("south")
+            if c == 0:
+                sides.add("west")
+            if c == len(columns) - 1:
+                sides.add("east")
+            if len(rows) == 2:
+                row_name = "North row" if r == 0 else "South row"
+            elif len(rows) == 1:
+                row_name = "Row"
+            else:
+                row_name = f"Row {r + 1} from north"
+            for k, tray in enumerate(standing.get((r, c)) or [None]):
+                places.append(Place(
+                    name=f"{r + 1}-{c + 1}" + (f"-{k + 1}" if k else ""),
+                    centre=centres[tray] if tray is not None else marked.get((r, c), (column_x[c], row_y[r])),
+                    sides=frozenset(sides),
+                    px_per_mm=px_per_mm,
+                    label=f"{row_name}, {_ordinal(c + 1)} from west",
+                    occupant=tray,
+                ))
+    return places
+
+
+def edge_exposure(sides, heading: str, *, tray_type: str) -> frozenset[str]:
+    """The rows and columns of plants on an outside edge of the table for a tray of `tray_type`
+    whose outer sides are `sides`, lying at `heading`."""
+    kind = next(t for t in (*TRAY_TYPES, OTHER) if t.name == tray_type)
+    first_row, last_row = "row 1", f"row {kind.rows}"
+    first_column, last_column = "column A", f"column {chr(ord('A') + kind.columns - 1)}"
+    turned = heading == kind.headings[1]
+    on_side = {
+        "south": last_row if turned else first_row,
+        "north": first_row if turned else last_row,
+        "west": last_column if turned else first_column,
+        "east": first_column if turned else last_column,
+    }
+    return frozenset(on_side[side] for side in sides)
+
+
+def exposure(tray_id: int, lying: Lying | None) -> frozenset[str] | None:
+    """`edge_exposure` for tray `tray_id` lying so; None when its heading is not known."""
+    if lying is None or lying.heading is None:
+        return None
+    return edge_exposure(lying.sides, lying.heading, tray_type=tray_type(tray_id).name)
+
+
+def breaks_rule(last: Lying | None, new: Lying, tray_id: int) -> bool:
+    """Whether `new` puts a row or column of plants on an outside edge that was on one at `last`.
+    A tray with no last position, or whose heading is not known, breaks nothing."""
+    before, now = exposure(tray_id, last), exposure(tray_id, new)
+    return before is not None and now is not None and bool(before & now)
+
+
+# Place draws before giving up. A draw of 12 trays over two rows of six passes about once in 10, so
+# this is far more than any solvable case needs.
+MAX_DRAWS = 10_000
+
+
+class NoLayoutError(RuntimeError):
+    """No layout passing the rule was found in MAX_DRAWS draws."""
+
+
+def _passing_headings(
+    trays: list[int], last: dict[int, Lying], places: dict[str, frozenset[str]]
+) -> dict[tuple[int, str], list[str | None]]:
+    """For each tray and place, the headings that keep the rule there, worked out once: the draws
+    only look them up (review of #343)."""
+    out = {}
+    for tray in trays:
+        headings = tray_type(tray).headings or (None,)
+        for name, sides in places.items():
+            out[tray, name] = [h for h in headings if not breaks_rule(last.get(tray), Lying(sides, h), tray)]
+    return out
+
+
+def suggest_layout(
+    trays: list[int], last: dict[int, Lying], places: dict[str, frozenset[str]], rng
+) -> dict[int, Position]:
+    """A random layout of `trays` over `places` (name: outer sides), every layout that passes the
+    rule against each tray's `last` lie equally likely.
+
+    The same result as drawing place and heading at random and rejecting any layout that breaks
+    the rule, in fewer draws: places are drawn, and the draw is kept with a chance in proportion
+    to how many headings pass for its trays, then each heading is drawn from those that pass. A
+    tray whose heading is not read (tray_type) gets a place only, heading None.
+    """
+    if len(trays) > len(places):
+        raise ValueError(f"{len(trays)} trays do not fit in {len(places)} places")
+    names = sorted(places)
+    allowed = _passing_headings(trays, last, places)
+    # The most headings that can pass for each tray in any place: keeping a draw with chance
+    # (product of its counts) / (product of these) keeps the result exact and the chance high.
+    most = {tray: max(len(allowed[tray, name]) for name in names) or 1 for tray in trays}
+    for _ in range(MAX_DRAWS):
+        drawn = rng.sample(names, len(trays))
+        choices = {tray: allowed[tray, name] for tray, name in zip(trays, drawn)}
+        if any(not c for c in choices.values()):
+            continue
+        keep = math.prod(len(c) / most[tray] for tray, c in choices.items())
+        if keep < 1.0 and rng.random() >= keep:
+            continue
+        return {tray: Position(name, rng.choice(choices[tray])) for tray, name in zip(trays, drawn)}
+    raise NoLayoutError(f"no layout of {len(trays)} trays passes the rule in {MAX_DRAWS} draws")
+
+
+def least_breaking_layout(
+    trays: list[int], last: dict[int, Lying], places: dict[str, frozenset[str]], rng, draws: int = 2000
+) -> dict[int, Position]:
+    """When no layout keeps the rule (`suggest_layout` raises NoLayoutError: a tray with both the
+    north and south borders, say), the layout in `draws` random ones with the fewest trays putting
+    an edge row or column on the edge again. A gate needs a way past (Aaron): the page marks those
+    trays instead of giving no layout."""
+    names = sorted(places)
+    allowed = _passing_headings(trays, last, places)
+    best, fewest = None, None
+    for _ in range(draws):
+        layout, breaks = {}, 0
+        for tray, name in zip(trays, rng.sample(names, len(trays))):
+            # A heading that keeps the rule where there is one: a random heading would often
+            # break it needlessly, and the least would be missed (development table, 2026-11-04).
+            keeping = allowed[tray, name]
+            breaks += not keeping
+            layout[tray] = Position(name, rng.choice(keeping or tray_type(tray).headings or (None,)))
+        if fewest is None or breaks < fewest:
+            best, fewest = layout, breaks
+    return best
+
+
+@dataclass(frozen=True)
+class TrayCheck:
+    """One tray compared with the suggested layout.
+
+    `status` is one of: "in place"; "wrong place"; "turned" (right place, other way round);
+    "wrong place, turned"; "heading not read" (right place, the photo does not show which way
+    round); "missing" (in the layout, not found in the photo); "not in layout" (found, not in the
+    suggestion). A tray suggested with no heading (tray_type) is judged by its place only.
+    `found_at` is the place it stands in (None when it stands in none), `breaks_rule` whether
+    where it stands puts a row or column on an outside edge that was on one at its `last` lie.
+    """
+
+    tray_id: int
+    status: str
+    wanted: Position | None
+    found_at: str | None
+    heading: str | None
+    centre: tuple[float, float] | None
+    sides: frozenset[str] | None
+    breaks_rule: bool
+
+
+def place_at(seen: TraySeen, places: dict[str, Place]) -> str | None:
+    """The place whose centre is within IN_PLACE_MM of the tray's, the nearest if more than one."""
+    near = [p for p in places.values() if seen.distance(p.centre) <= IN_PLACE_MM * p.px_per_mm]
+    return min(near, key=lambda p: seen.distance(p.centre)).name if near else None
+
+
+def _status(wanted: Position | None, seen: TraySeen | None, places: dict[str, Place]) -> str:
+    if seen is None:
+        return "missing"
+    if wanted is None:
+        return "not in layout"
+    target = places[wanted.place]
+    place_ok = seen.distance(target.centre) <= IN_PLACE_MM * target.px_per_mm
+    if wanted.heading is None:
+        return "in place" if place_ok else "wrong place"
+    if seen.heading is None:
+        return "heading not read" if place_ok else "wrong place"
+    turned = seen.heading != wanted.heading
+    if place_ok:
+        return "turned" if turned else "in place"
+    return "wrong place, turned" if turned else "wrong place"
+
+
+def check_layout(
+    suggested: dict[int, Position],
+    seen: list[TraySeen],
+    last: dict[int, Lying],
+    places: dict[str, Place],
+) -> list[TrayCheck]:
+    """Each tray in the suggestion or `seen` in the photo, compared with where the suggestion put
+    it among `places`, ordered by tray ID."""
+    found = {t.tray_id: t for t in seen}
+    checks = []
+    for tray in sorted(set(suggested) | set(found)):
+        tray_seen = found.get(tray)
+        found_at = None if tray_seen is None else place_at(tray_seen, places)
+        # The edges of the place it stands in: grouping the check photo alone would move the edges
+        # when a whole outer row or column is left empty (review of #343).
+        sides = None if tray_seen is None else (places[found_at].sides if found_at else tray_seen.sides)
+        broken = tray_seen is not None and breaks_rule(last.get(tray), Lying(sides, tray_seen.heading), tray)
+        checks.append(
+            TrayCheck(
+                tray_id=tray,
+                status=_status(suggested.get(tray), tray_seen, places),
+                wanted=suggested.get(tray),
+                found_at=found_at,
+                heading=None if tray_seen is None else tray_seen.heading,
+                centre=None if tray_seen is None else tuple(tray_seen.centre),
+                sides=sides,
+                breaks_rule=broken,
+            )
+        )
+    return checks
+
+
+def tag_angle(tag: TagDetection) -> float:
+    """The tag's angle in the photo, degrees: the direction from its first corner to its second.
+    Any fixed edge would do: only the change between photos is used."""
+    (x0, y0), (x1, y1) = tag.corners[0], tag.corners[1]
+    return math.degrees(math.atan2(y1 - y0, x1 - x0))
+
+
+def turned_from(angle: float, reference: float) -> bool:
+    """Whether a tag at `angle` is turned round (more than 90 degrees) from `reference`."""
+    return abs((angle - reference + 180.0) % 360.0 - 180.0) > 90.0
+
+
+class LayoutUnreadableError(RuntimeError):
+    """A photo whose trays cannot be read: no calibration, or the photo is gone."""
+
+
+def photo_layout(
+    path: str, references: dict[int, float] | None = None, known: list[tuple[float, float]] = ()
+) -> tuple[list[TraySeen], list[Place], object]:
+    """The trays of photo `path` (a gallery path), the places on the table they make
+    (`table_places`, empty ones too) and the photo's calibration scale field.
+
+    Each tray tag's tray is found from its blue outline (tray_placement.find_outlines and
+    name_trays, as the tray readings do), wherever it stands. A 4 x 5 tray's A1 corner is SW when
+    its tag lies south of the outline's centre, NE when north; not read when no outline was found.
+    A 2 x 2 tray's heading is its tag's angle against `references`, its tag's angle in its first
+    photo (its own angle when it has none yet). `known`: the last suggestion's place centres, so an
+    emptied row or column is kept (`table_places`)."""
+    try:
+        record = database.captures_by_path([path]).get(path)
+    except (sqlite3.Error, RuntimeError) as exc:
+        raise LayoutUnreadableError(f"could not read the record of photo {path}") from exc
+    if record is None or not record.get("calibration"):
+        raise LayoutUnreadableError("the photo has no calibration: calibrate the rig first")
+    try:
+        artifact = load_saved_calibration(calibration_for_photos(record["calibration"]))
+    except (CalibrationNotFoundError, CalibrationUnreadableError) as exc:
+        raise LayoutUnreadableError("the photo's calibration cannot be read") from exc
+    file = photo_file(path)
+    if file is None:
+        raise LayoutUnreadableError(f"photo {path} is gone")
+    with Image.open(file) as image:
+        width = image.size[0]
+        image.draft("RGB", (image.size[0] // FINDER_FACTOR, image.size[1] // FINDER_FACTOR))
+        small = np.asarray(image.convert("RGB"))
+    scale = artifact.scale_field
+    tags = {d.tag_id: d for d in photo_tags.photo_tags_for(path) if d.tag_id in TRAY_ID_RANGE}
+    trays = [t for t in name_trays(find_outlines(small, scale, width / small.shape[1]), list(tags.values()))
+             if t.tray_id is not None]
+    centres = {t.tray_id: tuple(t.centre) for t in trays}
+    ppm = float(np.median([scale.px_per_mm(*c) for c in centres.values()])) if centres else 1.0
+    # `known`: the centres of the last suggestion's places; one with no tray now is an empty place.
+    empty = [k for k in known if all(math.dist(k, c) > IN_PLACE_MM * ppm for c in centres.values())]
+    places = table_places(centres, ppm, empty) if centres else []
+    sides = {p.occupant: p.sides for p in places if p.occupant is not None}
+    references = references or {}
+    seen = []
+    for t in trays:
+        tag = tags[t.tray_id]
+        kind = tray_type(t.tray_id).name
+        heading, alternatives = None, ()
+        # A 4 x 5 tray's own outline is needed to tell which corner its tag is in. Without one (the
+        # tray not found, or two tags in one outline, review of #343), the tag in A1 leaves two
+        # possible centres, about 176 mm from the tag either way, and the heading unread.
+        own_outline = t.outline is not None and t.status != "two tags in one outline"
+        if kind == "4x5" and own_outline:
+            heading = "SW" if tag.centre[1] > t.centre[1] else "NE"
+        elif kind == "4x5":
+            ppm = scale.px_per_mm(*tag.centre)
+            dx, dy = -A1_FROM_CENTRE_MM[0] * ppm, -A1_FROM_CENTRE_MM[1] * ppm
+            alternatives = ((tag.centre[0] + dx, tag.centre[1] + dy), (tag.centre[0] - dx, tag.centre[1] - dy))
+        elif kind == "2x2":
+            # The tag is fixed in the middle of the tray (Aaron, 2026-11-04).
+            angle = tag_angle(tag)
+            heading = "turned" if turned_from(angle, references.get(t.tray_id, angle)) else "as first"
+        seen.append(TraySeen(t.tray_id, tuple(t.centre), heading, sides[t.tray_id], tag_angle(tag), alternatives))
+    return sorted(seen, key=lambda s: s.tray_id), places, scale

@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 import numpy as np
 from PIL import Image
 
-from npec_rig import database, dwell, exclusions, photo_tags, segmentation, validation_store
+from npec_rig import database, dwell, exclusions, images, photo_tags, segmentation, validation_store
 from npec_rig.captures import photo_file
 from npec_rig.calibration_store import (
     CalibrationNotFoundError,
@@ -159,6 +159,13 @@ def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = F
     photo: Reprocess, which then needs neither the photo nor the segmenter. With
     `unless_measured`, a saved reading with plant areas from the same segmenter is kept and
     returned as it is: Show tags, which would otherwise segment the photo on every tap (#282)."""
+    try:
+        return _read_photo(path, reuse_mask=reuse_mask, unless_measured=unless_measured)
+    finally:
+        images.release_freed_memory()  # a full-size photo may have been decoded (#348)
+
+
+def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
     record = database.captures_by_path([path]).get(path)
     if record is None:
         raise LookupError(f"photo {path} has no record in rig.db")
@@ -264,11 +271,11 @@ def outside_mm(p: TrayPlacement, size: tuple[int, int]) -> float:
 
 def _segment(path: str) -> np.ndarray:
     """A new mask of photo `path`, saved for Reprocess."""
-    with Image.open(photo_file(path)) as image:
-        # One copy of the 64MP photo (about 190 MB): convert() would make a second.
-        rgb = np.asarray(image if image.mode == "RGB" else image.convert("RGB"))
-    mask = SEGMENTER.segment(rgb)
-    del rgb
+    # One full-size photo at a time, shared with the tag search (images.py, #348).
+    with images.full_decode_slot():
+        rgb = images.decode_full(photo_file(path))
+        mask = SEGMENTER.segment(rgb)
+        del rgb
     segmentation.save_mask(path, mask)
     return mask
 

@@ -7777,3 +7777,211 @@ no whole soil cells and no jumps between settings; on the outlines, as grow from
 
 **Limits (as planned).** As 24.7; the 0.07 and the warning level are choices made after seeing
 the data of these same checks.
+
+## 25. Memory of the Randomize page on the development rig (issue #343, method written 2026-11-04, before the run)
+
+*Development check.* Question: does the Randomize page keep the app within the memory target
+set for #348 (Aaron, 2026-11-02): the app's total memory, the main process plus the camera
+process, at most 2.5 GiB at its peak, with no swap use, so it fits a 4 GB Pi 5? After #348 the
+development rig measured 0.5 GiB between photos and 1.30 to 1.67 GiB at the peak (PR #353).
+
+*What the page does.* Suggest layout reads the newest experiment still: its tags (already found
+by the tray reader, so not searched again) and a quarter-size copy (about 2288 x 1736 px, about
+12 MB) for the blue tray finder. Check layout takes one full-size still (about 190 MB as an
+array, plus the camera process's buffers), then reads it the same way, and draws a 1600 px
+overlay when the page asks for it.
+
+*Method.* Rig npec-rig-01, branch 343-randomize-trays at 659309f, experiment "development 002"
+running, a scheduled photo once a minute, read for trays after it is taken. The #348 logger
+(`experiments/348-app-memory/log.sh`) runs on the rig for at most 30 minutes, writing once a
+second the main process's and the camera process's resident memory (RSS) and peaks (HWM) and the
+system's available memory. During it, through the page's API: 3 Suggests and 3 Checks, spaced
+out, then 1 Suggest and 1 Check started within 5 s after a scheduled photo, while it is being
+read, and each Check's overlay fetched. Swap use is read before and after (`free -m`). Result:
+the highest main plus camera RSS over the run, and when it happened. One run, no repeats: this
+answers whether the page breaks the target, not the spread of the peak.
+
+*Limits.* The rig has 8 GB, not 4 GB, so this measures the app's own use, not how a 4 GB Pi 5
+behaves under it. The tags of the newest still are taken as already found; a still not yet read
+by the tray reader would add a full-size tag search (about 1.1 GiB, #348) to a Suggest.
+
+### 25.1 Result (2026-11-04)
+
+*Development check*, one run, 13:57:46 to 14:03:40 UTC (345 one-second samples). Raw data and
+the actions' times: `experiments/343-randomize/`.
+
+| What | Value |
+|---|---|
+| Highest main plus camera RSS, sampled | 2,084 MiB (2.04 GiB): main 1,989, camera 95, at 14:03:21, the end of the Check started while the 14:02:45 scheduled photo was read |
+| Next highest | 2,066 MiB at 14:01:25 and 2,048 MiB at 14:00:18, each the end of a Check |
+| Median main plus camera RSS over the run | 1,012 MiB |
+| Lowest available memory | 4,828 MiB of 8,062 |
+| Swap used | 3 MiB before and after: none added |
+| Scheduled photos | one each minute, none missed |
+| Time of one Check, press to answer | about 25 to 30 s |
+
+The peaks are each Check's search of its new photo for tags, made once at full size (about
+1.1 GiB, #348): the photo is new, so its tags are not yet known. It runs in the shared full-size
+slot, so the Check started during the scheduled photo's reading waited for it rather than adding to
+it. Suggest, reading tags already found and a quarter-size copy, made no peak of its own.
+
+*What it shows.* The page stays within the 2.5 GiB target with about 0.45 GiB to spare, and uses no
+swap. *What it does not cover.* One run on an 8 GB Pi, so the spread of the peak and the
+behaviour of a 4 GB Pi 5 are not measured. A per-second sample can miss a peak shorter than a
+second: the main process's own peak (VmHWM) rose from 1,478 to 2,048 MiB in the run, 59 MiB above
+its highest sample, so the true peak was at most about 2,143 MiB (2.09 GiB) with the camera's 95,
+still within the target.
+
+### 25.2 Idle level, cost of each action, and a Check after the memory review (2026-11-04)
+
+*Development check*, npec-rig-01, experiment "development 002" running (a scheduled photo a
+minute, at about second 45, read for trays after it). Same logger as 25.1. Raw data and each
+action's times: `experiments/343-randomize/`. Done in two parts: commit 9d281f4 (the code of
+25.1 plus memory handed back after a Check's camera frame), then commit 4b97d1f, which searches a
+Check's tags on the frame just taken (its grey copy, in the full-size slot, as #348's tag search
+does) instead of decoding its saved JPEG again, and hands memory back after Suggest and Check.
+That change came from a profile on the controller: decoding a 64MP JPEG at full size added about
+607 MB, the largest step of a Check (one run per step, not on a rig).
+
+*Idle level, 9d281f4, 12 minutes, no page use.* Main process between photos 196 to 201 MiB, camera
+process about 91. During each scheduled photo's tray reading, main 1,075 to 1,243 MiB for 18 to 20
+s, a third of every minute, with or without the page. So the median of 1,012 MiB in 25.1, a run
+with page use every 15 to 40 s, is not a raised resting level.
+
+*Each action, main RSS, 9d281f4* (each at second 15, at least 3 minutes apart):
+
+| Action | Rise of main | Main plus camera peak | After it |
+|---|---|---|---|
+| Suggest (3) | +78 to +89 MiB, under 1 s | 372 to 383 | held until the next tray reading |
+| Check (3) | +903 to +908 MiB, 20 s | 1,636 to 1,822 | main held at about 1,020 MiB until the next scheduled photo |
+| Overlay (3) | +79 to +80 MiB | 379 to 381 | held until the next tray reading |
+| Check started 3 s after a scheduled photo | main 1,203 to 1,209 | 1,299 | |
+
+*Check, 4b97d1f* (3 at second 15, one 2 s after a scheduled photo):
+
+| Check | Main peak | Main plus camera peak | After it |
+|---|---|---|---|
+| 15:11:15 | 1,345 MiB | 1,436 | main back to about 200 MiB as it ended |
+| 15:14:15 | 1,352 | 1,443 | the same |
+| 15:17:15 | 1,353 | 1,444 | the same |
+| 15:20:47, during a scheduled photo | 1,495 | 1,586 | back within 1 s |
+
+Swap: 3 MiB used before and after both parts, none added. No scheduled photo missed. A Check takes
+about 22 s (35 s when it waits for a tray reading).
+
+*What it shows.* Against the 2.5 GiB target of #348, a Check now peaks at 1.44 GiB for main plus
+camera (1.59 GiB when it meets a scheduled photo's reading), against 1.64 to 1.82 GiB before, and
+the memory is handed back as soon as it ends instead of about 1 GiB being held until the next
+scheduled photo. *What it does not show.* The main process alone peaks higher than before (1.35
+against 1.11 GiB); the cause is not established (most likely memory freed after the photo is taken
+and not yet handed back when the search starts). Each case was run three times at most, on an 8 GB
+Pi; the spread and a 4 GB Pi 5 are not measured. Savings in the shared photo code (decoding and
+saving with OpenCV, passing the frame by shared memory) are in #355.
+
+## 26. JPEG quality and the measured numbers (issue #355, method written 2026-11-05, before the run)
+
+*Development check.* Question: does the JPEG quality the rig saves its stills at move the numbers
+it reports, the tag corners (from which scale and calibration come) and the plant areas from the
+green threshold, and by how much against the validation bands (±1.2% to ±1.7% at the 95th
+percentile, section 18)? Asked by Aaron, 2026-11-05.
+
+*What the app does now.* `camera.array_to_jpeg` saves every still with Pillow's defaults, because
+no quality is passed: quality 75 with 4:2:0 chroma subsampling (colour stored at half the
+resolution both ways, brightness at full). This is a library default, not a measured choice.
+
+*Method.* Rig npec-rig-01, main at dc57c51, plants on the table under the experiment "development
+002". The app is stopped for a few minutes (Aaron's approval, 2026-11-05), and a script opens the
+camera the way the app does (`CameraManager` with the saved exposure, gain, white balance and
+lens position, lens driven the app's one way) and takes 3 full-size stills in a row, each kept
+as the uncompressed array (`.npy`, about 190 MB). The app is then started again. Each array is
+encoded with Pillow at 5 settings, each with a descriptive name:
+
+| Name | Quality | Colour resolution |
+|---|---|---|
+| A, uncompressed | none | full |
+| B, today (75, half colour) | 75 | 4:2:0 |
+| C, 85 half colour | 85 | 4:2:0 |
+| D, 95 half colour | 95 | 4:2:0 |
+| E, 95 full colour | 95 | 4:4:4 |
+
+B is checked to give the same bytes as `array_to_jpeg`. Each JPEG is written to a file and read
+back with `images.decode_full`, the app's own decoder. For each still and setting: tags with
+`tags.detect_tags`, and plants with the app's segmenter (green threshold 0.1) and
+`segmentation.measure_trays`. The trays are found once, from still 1 at setting B with the app's
+finder (`find_outlines`, `name_trays`), and the same outlines are used for every still and
+setting, so only the pixels change. The calibration is the one the experiment's newest still was
+read with. Results, each against A of the same still: the movement of every tag corner (px), the
+change in each tag's side length (%, which is what scale is built from), and the change in each
+tray's plant area (% and mm²). The file size of each setting. As a yardstick, the same
+differences between the 3 uncompressed stills, which is the camera's own change from one photo
+to the next.
+
+*Limits.* One rig, one camera, one lighting, one table, 3 stills taken within about a minute: it
+measures the effect of the encoding only, not of other light or plant sizes beyond those on the
+table. The green threshold 0.1 is the app's segmenter today and is known to miss leaf area
+(#352); a different colour rule may respond to JPEG colour differently. Plant height and the
+camera's noise between days are not covered.
+
+### 26.1 Result (2026-11-05)
+
+*Run.* The app was stopped at 12:29:04 UTC and running again at 12:29:19 (15 s; no scheduled
+photo of "development 002" fell in it). Three stills, 12:29:06, 12:29:10 and 12:29:15 UTC, lens
+6.15 (focus locked), auto exposure on as saved (3689, 3793 and 3793 µs, gain 1.0). Calibration
+`20261103T115701405213`. The finder outlined 9 trays (tags 76 to 81 and 85 to 87); their plants
+range from 1050 to 29,300 mm². Setting B gave the same bytes as `array_to_jpeg`. After the first
+results three settings were added, all at full colour, to tell quality and colour resolution
+apart (not in the method as written): F 75, G 85 and H 90 full colour.
+
+Summary over the 3 stills, each setting against the uncompressed array of the same still
+(27 tray readings each). Corner figures leave out tag 79, see below.
+
+| Setting | File MB | Tag side, largest change | Tray area, mean change | Tray area, largest change | Small plants (< 3000 mm², 4 trays), mean change |
+|---|---|---|---|---|---|
+| B today (75, half colour) | 5.9 | 0.07% | -1.37% | 4.26% | -2.58% |
+| C 85 half colour | 8.5 | 0.12% | -0.97% | 2.99% | -1.80% |
+| D 95 half colour | 16.8 | 0.03% | -0.72% | 2.30% | -1.38% |
+| F 75 full colour | 7.4 | 0.13% | -0.56% | 2.25% | -0.98% |
+| G 85 full colour | 10.7 | 0.11% | -0.36% | 1.08% | -0.61% |
+| H 90 full colour | 14.0 | 0.12% | -0.37% | 1.07% | -0.63% |
+| E 95 full colour | 21.4 | 0.12% | -0.31% | 0.94% | -0.54% |
+| Yardstick: uncompressed stills 1 and 2 against still 0 | | 0.39% | -1.17% | 3.77% | -2.06% |
+
+*Plant area.* Every JPEG setting reads less plant than the uncompressed still, on almost every
+tray (the one exception, tray 87, changes by under 0.2%). Today's setting reads 1.4% less on
+average and 2.6% less on the small plants, more than the validation bands (±1.2% to ±1.7%). The
+loss comes mostly from the colour resolution, not the quality number: at quality 75, full colour
+halves it (B -1.37% to F -0.56%), while raising the quality to 95 at half colour does less (D
+-0.72%). Above 85 at full colour, little more is gained (G -0.36%, E -0.31%). The figure shows
+why on one small plant: at half colour the soil's colour is spread over the leaf's edge, and the
+green threshold loses a rim 1 to 2 px wide around each leaf; at full colour the losses and gains
+are fewer and nearly balance. A small plant has more edge for its area, so it loses a larger
+share.
+
+![Tray 77, still 0: photo (top) and plant mask (bottom) uncompressed (left), today's setting
+(middle) and 95 full colour (right). Red: plant pixels the JPEG loses, blue: pixels it gains,
+against the uncompressed still.](figures/26/crop-tray77.png)
+
+*The yardstick.* Between two uncompressed stills taken 4 to 9 s apart, the areas change by as
+much as today's JPEG loss (mean -1.17%), but the two differ in kind. The change between stills
+went one way for one pair (still 1, -1.67%) and less for the other (still 2, -0.68%); it is the
+camera's change from one photo to the next (auto exposure was on, section 4), and averages out over
+a series of photos. The JPEG loss has the same sign on every still and every tray: it is a
+bias, and a time series of one plant keeps it (the goal is area over time, #352).
+
+*Tags.* All corner positions moved by 0.2 px at the median. The largest change in a tag's side
+length, which is what scale is made from, is 0.13% (0.26% in area), at every setting: well inside
+the bands, so the quality makes no difference for calibration and scale. Tag 79 moved by up to
+13 px between settings, and by up to 15 px between two uncompressed stills: it lies in the tray
+with the largest plant and is probably partly covered by a leaf, so it is left out of the corner
+figures. Tag 452 (a calibration tag) is found in some versions and not in others, at every
+setting including today's.
+
+*Not covered.* One table, one light, one rig, 3 stills within 9 s, the green threshold 0.1 only.
+How much of the 1.4% shows in the app's numbers also depends on the colour rule chosen in #352.
+The added settings F, G and H were chosen after the first results were seen. Raw data on
+npec-rig-01 in `~/jpegq-355/run-20261105T122904Z/` (3 arrays of 190 MB, the JPEGs); results and
+scripts in `experiments/355-jpeg-quality/`.
+
+*Not decided here.* Changing the quality of the saved photos changes every photo file and its
+size (today's 5.9 MB a still is about 8.5 GB a day at one photo a minute; G 85 full colour would
+be about 15.4 GB a day). It needs Aaron's decision (#355).

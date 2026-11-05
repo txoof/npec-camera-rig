@@ -47,7 +47,9 @@ should be compared as times, not as text.
 | `exclusion` | One row per photo of an experiment: why its plant areas are left out, if they are | `exclusions.py` |
 | `light_warning_dismissal` | One row per dismissal of an experiment's light warning | `exclusions.py` |
 | `app_start` | One row each time the app starts | `scheduler.py` |
-| `capture` | One row per photograph; here only whether its clock was set (#62) | `captures.py` |
+| `capture` | One row per photograph; here only whether its clock was set (#62) and the JPEG setting it was saved at (#359) | `captures.py` |
+| `photo_quality_change` | One row per change of the JPEG setting photos are saved at (#359) | `settings.py` |
+| `tray_layout` | One row per suggested tray layout of an experiment, and per check of the trays against one (#343) | `routes/randomize.py` |
 
 ### `camera_events`
 
@@ -125,8 +127,10 @@ WHERE kind = 'fault' AND purpose IS NOT NULL GROUP BY purpose;
 | `value` | text | Its value, as JSON |
 
 Holds the last value of each camera control (`ExposureTime`, `AnalogueGain`, `AeEnable`,
-`AwbEnable`, `LensPosition`), the focus lock (`FocusConfirmed`, `FocusConfirmedLensPosition`), and
-`LastTick` (the last time the app was known to be running, for the cold-start check). One row per
+`AwbEnable`, `LensPosition`), the focus lock (`FocusConfirmed`, `FocusConfirmedLensPosition`),
+`LastTick` (the last time the app was known to be running, for the cold-start check), and
+`PhotoQuality` (the JPEG setting full-size photos are saved at, `{"quality": 85, "chroma":
+"4:4:4"}`; absent until first changed, which means the default, 85 with "4:4:4", #359). One row per
 name; a new value replaces the old one, so there is no history here. Times inside values are UTC.
 
 ### `derived_image`
@@ -237,6 +241,35 @@ column is in the export's `captures.csv`. The photo's JSON record holds the same
 SELECT taken_at, path FROM capture WHERE clock_synced = 0 ORDER BY taken_at
 ```
 
+### `capture`: the JPEG setting the photo was saved at
+
+From version 20 (#359). Every full-size photo is saved at the setting read and changed through
+`GET` and `POST /api/photo-quality`; the default is 85 with full colour. Colour at half resolution ("4:2:0") reads plant area about
+1.4% low on average and 2.6% low on small plants; full colour ("4:4:4") at 85 about 0.4% and 0.6%
+(metrology log 26.1). The photo's JSON record holds the same as `photo_quality`.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `jpeg_quality` | integer | JPEG quality, 1 to 95. NULL for photos from before version 20, which were all saved at 75 |
+| `jpeg_chroma` | text | Colour resolution: "4:2:0" (half both ways) or "4:4:4" (full). NULL for photos from before version 20, which were all "4:2:0" |
+
+```sql
+SELECT jpeg_quality, jpeg_chroma, count(*) FROM capture GROUP BY 1, 2
+```
+
+### `photo_quality_change`
+
+One row each time the JPEG setting is changed (#359), through `POST /api/photo-quality`. Changes
+are allowed during an experiment; each photo's row says what it was saved at. Rows are never
+changed or deleted by the rig.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | integer | Row number, increasing |
+| `changed_at` | text | When the setting was changed, UTC (`isoformat()`) |
+| `quality` | integer | The new JPEG quality, 1 to 95 |
+| `chroma` | text | The new colour resolution, "4:2:0" or "4:4:4" |
+
 ### `app_start`
 
 One row each time the app starts (#62), written when its scheduler starts. With the scheduled
@@ -248,6 +281,58 @@ deleted by the rig.
 |---|---|---|
 | `id` | integer | Row number, increasing |
 | `started_at` | text | When the app started, UTC (`isoformat()`) |
+
+### `tray_layout`
+
+Version 19 (#343). The Randomize page's suggested layouts and checks, saved with the experiment
+(Aaron, 2026-11-02). Trays stand wherever the researcher puts them (Aaron, 2026-11-04): the trays
+in the photo a suggestion was read from are grouped into rows and columns, and every crossing is a
+place, empty ones too, so the empty spots move as well. Only the table's own edges are edges: the
+north and south rows, the west and east columns. A suggestion is drawn by
+restricted randomization: no row or column of plants is on an outside edge of the table two
+rounds in a row (`randomization.py`). The page works on the newest suggestion until it is
+cancelled or a check finds every tray in place, which ends the round (Aaron, 2026-11-04). The
+places of the newest suggestion that are empty stay places in the next one, so a row or column
+left empty keeps its edge.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | integer | The layout's number |
+| `experiment_id` | integer | The experiment (`experiment.id`) |
+| `kind` | text | `suggestion`, `check` or `cancel` (the page's Cancel: the suggestion is no longer worked on) |
+| `made_at` | text | When it was made, UTC |
+| `capture_id` | integer | A suggestion: the photo the places were read from (the experiment's latest still, or the latest check photo when newer). A check: its own photo. No reference to `capture`: a purge deletes the experiment's photo rows, these rows stay |
+| `suggestion_id` | integer | A check or a cancel: its suggestion. NULL for a suggestion |
+| `details` | text | JSON, below |
+
+A suggestion's `details`: `seed` (the random seed), `rule_kept` (false when no layout kept the
+rule and the one breaking it least was given), `photo` and `taken_at` (the photo read),
+`references` (each 2 x 2 tray's tag angle in degrees in its first photo, carried from one
+suggestion to the next), `places` (each place: `name`, row and column from the north-west, as
+`2-3`; `label`, as people find it, "South row, 3rd from west"; `occupant`, the tray standing there,
+null for an empty place; `centre`, full-size photo pixels; `sides`, the table edges it is on;
+`px_per_mm`, the calibration's scale), and `trays`, one entry per tray: `tray_id`, `tray_type`
+(from its tag ID: `4x5`, `2x2`, `1x1`, `black` or `other`), `place`, `place_label`, `heading`,
+`edges` (the rows and columns of plants that place and heading put on a table edge, for example
+`["column A", "row 1"]`), `last` (the place it stood in, with its heading, sides and edges, so
+every round's edges are kept per tray), `breaks_rule` and `turn` (whether to turn the tray round
+from how it lies now).
+
+`heading` depends on the tray type: `SW` or `NE` (the corner of cell A1) for a 4 x 5 tray, read
+from where its tag lies against the centre of its blue outline; `as first` or `turned` for a 2 x 2
+tray, whose tag is fixed in its middle, read as the tag's angle against `references`; null for
+every other tray, which gets a place only. `edges` is null where the heading is null. For a 2 x 2
+tray, row 1 is the end that faced south in its first photo and column A the side that faced west.
+
+A check's `details`: `photo` and `taken_at` (the check photo, a rig photo with purpose
+`layout check`, never one of the experiment's stills), `places` (the suggestion's), and `trays`:
+`tray_id`, `tray_type`, `status` (`in place`, `wrong place`, `turned`, `wrong place, turned`,
+`heading not read`, `missing`, `not in layout`), `wanted` (place, label, heading), `found_at` (the place
+whose centre is within 150 mm of the tray's, or null; a 4 x 5 tray whose own outline is not found
+is matched by the nearer of its two possible centres), `heading`, `centre` (full-size photo
+pixels), `edges` (of the place it is found in) and `breaks_rule`.
+
+A cancel's `details` is empty: the row records when the suggestion was cancelled.
 
 ### `tray_read` and `tray_reading`
 
