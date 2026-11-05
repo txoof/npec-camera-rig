@@ -7613,3 +7613,38 @@ the tray outline and scaled to 1/3.
 `mats.py`, `mats_summary.py` and `leaf_colour.py`, copied photos and per-photo readings in
 `~/scratch/thr-352/` on the controller (not kept); the photos stay in experiment 18's folder on
 `ac-testing`.
+
+### 24.5 SAM 2.1 small on the outlined plants (method written 2026-11-05, before the run)
+
+**Label: development check.** The supervisor reports accurate plant areas with SAM 2.1 small on
+photos from a phone at close range (17.14). In 19.1 the rig's photos were given to SAM 2.1 small
+as tiles of about two trays, scaled down about 3 times, before any hand outline existed. Here
+each of the 15 plants of section 24 is given to SAM alone, at the photo's full detail, and its
+mask is compared with Aaron's two passes of outlines: the best case for SAM on these photos.
+
+**Model.** SAM 2.1 small (Hiera small) as ONNX, `onnx-community/sam2.1-hiera-small-ONNX`, the files
+of 19.1 (vision encoder and prompt encoder with mask decoder, full precision; also the 8-bit
+vision encoder, for time only), ONNX Runtime on the controller's processor (Raspberry Pi 5,
+4 threads). Preprocessing as in 19.1 (`experiments/round3-segmentation/sam21_plants.py`): RGB
+resized to 1024 x 1024, ImageNet mean and standard deviation.
+
+**Input and prompts, fixed before the run.**
+
+- Input: each plant's crop of section 24 (the plant's box plus 40 px; `t6_p1b` 220 x 220 px),
+  resized to 1024 x 1024.
+- Box prompt: the box of grow from cores' piece nearest the crop centre, widened by 25% per side
+  (at least 12 px), as 19.1.
+- Point prompt: the current rule's pixel in that piece nearest the box centre; if it has none, the
+  piece's pixel nearest the centre.
+- Of the decoder's three masks, the one with the highest predicted IoU, as 19.1. Its 256 x 256
+  output is enlarged to the crop's size and cut at 0.
+
+Nothing is taken from the hand outlines.
+
+**What is worked out.** Per plant, against each pass: area ratio, missed, extra and IoU, as in
+section 24; the means and spread over the 15 plants, next to grow from cores and the ceiling
+(pass 1 against pass 2, IoU 0.915). Time per plant: encoder and decoder, full precision and 8-bit
+encoder.
+
+**Limits (as planned).** 15 plants on one photo; one prompt design; the crops were cut round
+plants a colour rule had found, so a plant no colour rule sees is not tested.
