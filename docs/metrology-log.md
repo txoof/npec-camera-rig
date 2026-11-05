@@ -7519,3 +7519,97 @@ area per mm).
 **Limits (as planned).** Flat printed squares, not leaves: their colour is not leaf colour, so
 question 1 tests the mat's effect at an edge, not on leaf colour. One tray, one position per
 square, one session.
+
+#### 24.4 results (2026-11-05)
+
+**What was done, and how it differed from the plan.** Aaron moved the twelve green squares into
+tray 7 at 12:00 local time (11:00 UTC) and slid blue mats under them at about 12:45 (11:45 UTC);
+the mats measure about 1.5 mm thick (callipers). The rig marked people at the table at 11:00 to
+11:05 and 11:42 UTC. Differences from the method:
+
+- The squares sat on their grey backing sheets on the pots, not on soil, so "before" is grey
+  backing and "after" is blue mat.
+- To lay the mats, the squares were peeled off the backing (they were held with double-sided 3M
+  tape) and set loose on top of the mats. So each square was moved and turned a little between the
+  two halves (by 6 to 66 px, about 1 to 13 mm; one match at 157 px is between two 10 mm squares),
+  and may not lie quite flat. The scale changes by about 0.5% across a tray, so the move matters
+  far less than the effects below.
+- No mat lay on its own. Mat colour was taken from pixels blue in the 12:00 photo but not blue
+  (widened 7 px) in the 11:30 photo, away from the squares.
+- The mats raise the squares by 1.5 mm minus the backing's thickness (not measured); the "after"
+  areas are divided by 1.0022 for 1.5 mm.
+
+**Photos.** Before: 11:06 to 11:41 UTC, 36 photos. After: 11:47 to 12:17 UTC, 30 photos. Exposure
+4209 to 4469 µs, gain 1.0. Each square was found as a bright green piece of at least 1500 px and
+measured in its box widened by 25 px; areas use tray 7's stored mm² per px. 791 readings of 792.
+
+*An error found and corrected during the analysis.* The tag area was first left out as all pixels
+within 30 px of any bright pixel (all three channels above 140). The squares are bright mint (median
+R G B 171 225 194), so their edges were taken for tag paper and up to half of each small square was
+cut away from the two rules with that step. The tag test was narrowed to large colourless white
+pieces (all channels above 140, channels within 25 of each other, pieces of at least 5000 px). The
+results below use the narrowed test. The plant results of 24.1 to 24.3 are not affected: soil and
+leaves are never that bright.
+
+**Area read divided by calliper area** (the mean over each square's photos; mean and range over the
+squares of each size; four squares of 10 and 20 mm, two of 40 and 55 mm):
+
+| Rule | Size | On grey backing | On blue mat | Change |
+|---|---|---|---|---|
+| Current rule | 10 mm | 0.983 (0.932 to 1.060) | 0.850 (0.803 to 0.949) | -13.5% |
+| | 20 mm | 1.025 (0.981 to 1.069) | 0.989 (0.939 to 1.026) | -3.5% |
+| | 40 mm | 0.986 (0.979 to 0.993) | 0.966 (0.961 to 0.971) | -2.0% |
+| | 55 mm | 1.009 (1.000 to 1.018) | 1.003 (0.997 to 1.009) | -0.6% |
+| Zero cutoff, not blue | 10 mm | 1.201 (1.182 to 1.220) | 0.961 (0.940 to 0.980) | -20.0% |
+| | 20 mm | 1.107 (1.085 to 1.129) | 0.990 (0.961 to 1.019) | -10.6% |
+| | 40 mm | 1.032 (1.028 to 1.036) | 0.974 (0.972 to 0.976) | -5.7% |
+| | 55 mm | 1.038 (1.030 to 1.046) | 1.008 (1.004 to 1.012) | -2.9% |
+| Grow from cores | 10 mm | 1.259 (1.233 to 1.281) | 0.963 (0.944 to 0.981) | -23.5% |
+| | 20 mm | 1.134 (1.111 to 1.156) | 0.990 (0.961 to 1.019) | -12.7% |
+| | 40 mm | 1.047 (1.045 to 1.049) | 0.982 (0.972 to 0.992) | -6.2% |
+| | 55 mm | 1.049 (1.040 to 1.057) | 1.021 (1.004 to 1.038) | -2.7% |
+
+Photo-to-photo spread of a square's area (sd as % of its mean, median over the twelve): current
+rule 0.66% before and 0.63% after; zero cutoff, not blue 0.39% and 0.29%; grow from cores 0.51% and
+0.30%.
+
+**Colour.** (B - G) / (R + G + B), how far blue exceeds green, percentiles 1, 50 and 99:
+
+| Pixels | n | p1 | p50 | p99 |
+|---|---|---|---|---|
+| Tray plastic (11:30) | 15662 | +0.025 | +0.160 | +0.385 |
+| Blue mat (12:00) | 11050 | +0.067 | +0.209 | +0.318 |
+| Green squares | 20071 | -0.067 | -0.052 | -0.038 |
+| Leaves of the plants lost in 24.3 (greenness > 0, G > R) | 3353 | -0.133 | -0.052 | -0.011 |
+| Leaves of all other plants in 24.3 | 193795 | -0.169 | -0.081 | -0.020 |
+
+**Findings.**
+
+1. *The background sets the edge.* On the grey backing, the two low-cutoff rules add a ring round
+   each square: 1.259 - 1 of 98.84 mm² over a 39.7 mm perimeter for grow from cores on 10 mm
+   squares is 0.65 mm, and 0.049 of 3021 mm² over 220 mm on 55 mm squares is 0.67 mm, the same
+   width. On the blue mat the ring is gone, and the low-cutoff rules read within 4% on every size.
+   The current rule reads within 3% on grey and loses about 13% of a 10 mm square on the mat.
+2. *So a mat laid during an experiment puts a step in the area*, of every rule tried, largest on
+   small objects: 13 to 24% on a 10 mm square, 1 to 3% on 55 mm. Researchers lay mats when they need
+   them, as part of their protocols (Aaron, 2026-11-05), so the step cannot be avoided, only kept
+   small and marked.
+3. *Blue never passes for leaf, or leaf for blue.* Plastic and mat always have blue above green;
+   squares and leaves practically never do (0.2% of the lost plants' leaf pixels). A mat can be told
+   from soil and leaf by colour.
+4. *The "not blue" condition is not what loses plants in 24.3* (that was the expectation in the
+   24.4 method). The lost plants have few pixels above greenness 0 with G > R at all (3353 across
+   24 regions, about 140 each), so they lack a core in many photos: they are dull, not blue.
+
+**Limits of the evidence.** Flat printed squares, not leaves, on grey backing, not soil: what a mat
+does at a leaf's edge against soil is not measured here. The squares were moved between the halves.
+One tray, one session of 66 photos.
+
+*Figure.* `docs/figures/24.4/tray7-before-after.jpg`: tray 7 at 10:50 (before the squares), 11:20
+(on the grey backing) and 11:46 UTC (on the mats), picked from the production photos, cropped to
+the tray outline and scaled to 1/3.
+
+*Raw data.* `docs/figures/24.4/summary.txt` (the tables above, from the scripts' output). Scripts
+`mats.py`, `mats_summary.py` and `leaf_colour.py`, copied photos and per-photo readings in
+`~/scratch/thr-352/` on the controller (not kept); the photos stay in experiment 18's folder on
+`ac-testing`.
