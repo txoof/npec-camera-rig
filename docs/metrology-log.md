@@ -7367,7 +7367,58 @@ results. No pass mark is set in advance.
 - Scale and plant height are not tested (validation, section 18; height adds about 0.145% of area
   per mm).
 - Raw data: `~/scratch/thr-352/` on the controller (crops, `manifest.csv`, `RULES.txt`, pass files,
-  `code/imagej_crops.py`). Not kept there; to be copied into the repository with the results.
+  `code/imagej_crops.py`). Copied on 2026-11-05 to `experiments/352-green-threshold/`.
+
+#### 24 results (2026-11-05)
+
+**How it went.** Pass 2 was saved on 2026-11-05 by 08:35 UTC (`pass_2_2026.11.05_Results.csv`,
+`pass_2_2026.11.05_Results.roi.zip`). Its rows are numbered in file order, so it was done in file
+order, not in reverse as R13 asked. One outline in each pass was saved only as its box (ImageJ type
+1, pass 1 `t3_p4`, pass 2 `t6_p5`): their areas count, their overlap measures do not (n = 14).
+Each saved outline turned into pixels (centre inside the polygon) gives ImageJ's own area within
+3 px, so the outlines are read as ImageJ measured them.
+
+**The person's own spread.** Pass 2 area divided by pass 1 area: mean 1.017, sd 0.057, range 0.933 to
+1.132 (15 plants). IoU (pixels in both outlines divided by pixels in either) of pass 1 against pass
+2: mean 0.915, sd 0.030, range 0.839 to 0.945 (13 plants). This IoU is the ceiling a rule can be
+expected to reach against these outlines. The two lowest are the first two plants outlined (`t1_p1`
+0.870 and `t1_p2` 0.839), whose pass 2 areas are also the largest change (+13%).
+
+**The rules against pass 1** (mean over 15 plants, range; IoU, missed and extra over 14). Missed:
+outline pixels the rule does not count, over the outline. Extra: rule pixels outside the outline,
+over the outline.
+
+| Rule | Area ratio | IoU | Missed | Extra |
+|---|---|---|---|---|
+| A, current rule | 0.309 (0.069 to 0.528) | 0.297 | 70.3% | 0.0% |
+| B, zero cutoff, green over red | 0.456 (0.262 to 0.632) | 0.449 | 55.0% | 0.0% |
+| C, zero cutoff, not blue | 0.783 (0.624 to 0.916) | 0.767 | 22.8% | 0.6% |
+| D, per-tray halfway | 0.929 (0.803 to 1.065) | 0.869 | 10.5% | 3.0% |
+
+Against pass 2: area ratios 0.308, 0.450, 0.771 and 0.916; IoU 0.305, 0.446, 0.765 and 0.863.
+
+**Whole trays on the same still (trays 1 to 7).** Rule D also counted the tag's white paper (its
+area 1.85 to 2.38 times rule C's); with pixels within 30 px of white left out, 1.13 to 1.35 times, as
+in the crops (1.19). On tray 4 the peak finder found no leaf peak, so rule D had no cutoff there: on
+every tray the leaf side of the greenness histogram is a flat shoulder from 0 to +0.1, not a
+separate peak (`tray4_vs_tray6_histogram.png`, see Raw data). Tray 6: rule D 2402 mm², the app's
+stored area 575 mm².
+
+**Findings.**
+
+1. The current rule counts about a third of the leaf a person outlines (0.31), and less on small
+   plants (0.07 on the smallest). The shortfall depends on plant size, so no single factor
+   corrects it.
+2. Lower cutoffs count more leaf and little soil near the plants: from rule A to rule D the missed
+   share falls from 70% to 11% while the extra rises from 0% to 3%. Rule D's IoU (0.87) is near the
+   ceiling (0.915).
+3. A cutoff that needs the leaf peak is fragile: the peak is weak on every tray and missing on one.
+
+*Figures.* `docs/figures/24/rules-sheet-1.jpg` and `rules-sheet-2.jpg`: per plant, the crop, then
+rules A to D (magenta) with the pass 1 outline (white), 2x; made by `compare.py`, scaled to 1/2.
+*Raw data.* `experiments/352-green-threshold/`: the crops, both passes and the rulebook in
+`data/imagej/`; per-plant numbers in `data/results/24-per_plant.csv` and `24-iou_per_plant.csv`;
+`code/compare.py`, `code/rois.py`.
 
 ### 24.1 One fixed cutoff on six days (method written 2026-11-05, before the run)
 
@@ -7403,6 +7454,37 @@ October and 2 and 3 November (captures 3536, 7856, 12180, 15060, 17940, 19380), 
 only there, on the still the cutoff was chosen from. Items 2 to 5 test consistency and soil
 counted as plant, not leaf missed. One still per day, all at 10:58 UTC.
 
+#### 24.1 results (2026-11-05)
+
+1. *Crops (3 November).* Rule E against pass 1: area ratio 0.970 (0.837 to 1.375), missed 9.2%,
+   extra 6.1% (one plant 39%), IoU 0.859 (0.707 to 0.902); against pass 2 0.953 and IoU 0.864.
+   Not better than rule D, and its spread over plants is wider.
+2. *Whole trays, six days* (`data/results/24.1-per_tray_day.csv`). Rule E's area over rule C's, and
+   the share of rule E's pixels in pieces under 30 px:
+
+| Day | Rule E / rule C, trays 1 to 7 | Small pieces |
+|---|---|---|
+| 23 Oct | 1.31 to 2.05 | 3 to 24% |
+| 26 Oct | 1.25 to 1.87 | 2 to 14% |
+| 29 Oct | 1.39 to 1.90 | 2 to 13% |
+| 31 Oct | 1.35 to 1.61 | 1 to 10% |
+| 2 Nov | 1.25 to 1.48 | 0.4 to 7% |
+| 3 Nov | 1.18 to 1.38 | 1 to 7% |
+
+3. *What the extra is.* In the pictures the plants are clean, even the seedlings of 23 October. The
+   extra is a fringe along the soil cells' edges, mostly their right sides, where a pixel mixes
+   brown soil and blue plastic, scores near greenness 0 and is not "blue". It is roughly the same
+   size every day, about 100 to 300 mm² per tray, so as the plants grow its share falls: about as
+   large as the plants on 23 October, about a tenth of them on 3 November.
+4. *Tray 7* held plants in its soil cells as well as the green tile, so item 4 (empty cells) could
+   not be done as planned.
+
+**Finding.** A fixed low cutoff gives the wrong numbers exactly when plants are small.
+
+*Figure.* `docs/figures/24.1/fixed-low-cutoff-tray1.jpg`: tray 1 on 3 November 10:58 UTC, rule E in
+magenta: the plants and the fringe along the cell edges; made by `fixed_cut.py`, 1/2 size.
+*Raw data.* `data/results/24.1-per_tray_day.csv`, `code/fixed_cut.py`.
+
 ### 24.2 Leaf edges kept only where they join a leaf core (method written 2026-11-05, before the run)
 
 **Label: development check.** Added after the results of 24.1 were seen. Rule E (greenness >
@@ -7432,6 +7514,33 @@ trays 1 to 7 on the six stills, rule F divided by rule C, and specks), and:
 
 **Limits (as planned).** As 24.1. A plant with no pixel above 0.1 and G > R is lost entirely;
 item 4 and the pictures are the only check for that.
+
+#### 24.2 results (2026-11-05)
+
+1. *Crops.* Grow from cores against pass 1: area ratio 0.956 (0.837 to 1.226), missed 9.3%, extra
+   4.7%, IoU 0.868 (0.791 to 0.908); against pass 2 0.940 and IoU 0.873. As good as rule D, with a
+   narrower spread than rule E.
+2. *Whole trays, six days.* Grow from cores over rule C: 1.17 to 1.34 on most trays and days (0.94 to
+   1.42 over all), close to its 1.24 on plants alone; small pieces almost 0 everywhere. Rule E's
+   fringe is left out.
+3. *Pieces left out of 150 px or more:* on many trays, the largest 1530 px (about 62 mm²). In the
+   picture of 2 November tray 3 they are the fringe (cyan), and one whole plant (row 2, column 2):
+   a plant with no pixel above the cores' cutoff is dropped whole.
+4. *Momentary or lasting?* (Aaron's question.) The 31 photos of 2 November 10:43:53 to 11:13:53 UTC
+   (one a minute, exposure 4365 µs, gain 1.0 in all; tray 3 with the 10:58 outline; plants found on
+   the 10:58 photo as the zero cutoff, not blue pieces of 150 px or more joined within 15 px; 19
+   found): 18 plants have a core in all 31 photos (smallest core 60 px). Plant 3, the lost one, has
+   none at 10:58 and 10:59 only; in the others its core is 1 to 121 px (under 10 px in 6), and its
+   greenest pixel 0.099 to 0.175. With a core it reads 54 to 65 mm², without one 0.
+
+**Findings.** Grow from cores keeps the fringe out and matches the outlines as well as rule D. It
+loses a small pale plant in some photos: noise over time, as long as it is rare (Aaron,
+2026-11-05: one dropped photo in thousands is expected noise; bias is the failure).
+
+*Figures.* `docs/figures/24.2/grow-from-cores-tray3.jpg`: 2 November 10:58 UTC tray 3, magenta kept,
+cyan pieces left out (drawn 2 px wider); `tray3-plants-numbered.jpg`: the 19 plants as numbered in
+item 4. Made by `core_grow.py` and `sequence.py`, 1/2 size.
+*Raw data.* `data/results/24.2-*.csv`; the 31 photos stay in experiment 18's folder on `ac-testing`.
 
 ### 24.3 Grow from cores as a time series, and its cost per photo (method written 2026-11-05, before the time series)
 
@@ -7485,6 +7594,41 @@ on the window's first photo, as the zero cutoff, not blue pieces of 150 px or mo
 
 **Limits (as planned).** As 24.1 and 24.2: no hand outlines on these days, so these numbers test
 steadiness and bias between the rules, not accuracy. Three windows, all in the afternoon.
+
+#### 24.3 results (2026-11-05)
+
+**Run.** 356 photos (4 visits left out), trays 1 to 7 (2491 tray readings), the tray's largest shift
+over a window 17.4 px. Three processes at once ran the controller out of memory (about 835 MB each;
+the kernel stopped one process and two small desktop services); that share was run again alone.
+Alone, a photo of 7 trays took about 1.5 s, decoding included (2.4 s with three sharing the
+processor). The script's own current rule reproduced the app's stored area on every tray.
+
+**Plant regions** found on each window's first photo: 114, 109 and 118 (fewer than the plants:
+neighbours joined, or plants under 150 px missed), so loss rates are per region.
+
+| Window | Never lost | Lost in under 5% | 5 to 50% | 50% or more |
+|---|---|---|---|---|
+| 26 Oct | 80 | 19 | 10 | 5 |
+| 29 Oct | 65 | 17 | 22 | 5 |
+| 2 Nov | 94 | 8 | 13 | 3 |
+
+All 24 regions lost in 20% or more of a window's photos are real plants. Most look dull blue-green,
+and some lose only part of their leaves. The cause first named here (the "not blue" condition) was
+wrong: 24.4 shows these leaves almost never have blue above green; they are dull, with few pixels
+above greenness 0, so they lack a core in many photos.
+
+**Photo-to-photo spread** (sd as % of mean, per tray and window): current rule 1.8 to 37.0%, after a
+median over 15 photos 0.6 to 33.4%; grow from cores 1.5 to 21.6%, after the median 0.9 to 15.7%.
+
+**Growth, and the current rule's shortfall.** Grow from cores over the current rule, per window:
+26 October 4.5 to 11.6 (trays 1 to 6), 29 October 4.7 to 10.7, 2 November 3.0 to 4.8. The current
+rule's shortfall is largest on young plants, so it also understates early growth. Tray 7 (0.34,
+0.95, 1.16) differs: the current rule counts its green tile.
+
+*Figure.* `docs/figures/24.3/lost-regions.jpg`: every region lost in 20% or more, on its window's
+first photo, magenta grow from cores, 2x; made by `ts_lost_sheet.py`, scaled to 1/2.
+*Raw data.* `data/results/24.3-part0.csv` to `part2.csv` (per photo and tray, with per-region pixel
+counts); `code/ts.py`, `ts_summary.py`, `bench.py`.
 
 ### 24.4 Green squares on blue mats (method written 2026-11-05, before the squares were moved)
 
@@ -7610,9 +7754,9 @@ One tray, one session of 66 photos.
 the tray outline and scaled to 1/3.
 
 *Raw data.* `docs/figures/24.4/summary.txt` (the tables above, from the scripts' output). Scripts
-`mats.py`, `mats_summary.py` and `leaf_colour.py`, copied photos and per-photo readings in
-`~/scratch/thr-352/` on the controller (not kept); the photos stay in experiment 18's folder on
-`ac-testing`.
+`mats.py`, `mats_summary.py` and `leaf_colour.py` and the per-photo readings in
+`experiments/352-green-threshold/` (`code/`, `data/results/24.4-per_square_photo.csv`); the photos
+stay in experiment 18's folder on `ac-testing`.
 
 ### 24.5 SAM 2.1 small on the outlined plants (method written 2026-11-05, before the run)
 
@@ -7692,8 +7836,8 @@ rule found.
 *Figure.* `docs/figures/24.5/sam-vs-grow.jpg`: per plant, left the crop with SAM's box (yellow)
 and point (cyan), middle SAM 2.1 small, right grow from cores (magenta), white Aaron's pass 1
 outline; made by `sam_crops.py`, scaled to 1/2 of a 2x sheet, so at the photo's own scale.
-*Raw data.* `docs/figures/24.5/per_plant.csv`; the script `sam_crops.py` and the run log in
-`~/scratch/thr-352/` (not kept); the model files are those of 19.1.
+*Raw data.* `docs/figures/24.5/per_plant.csv`; the script `experiments/352-green-threshold/code/sam_crops.py`;
+the model files are those of 19.1.
 
 ### 24.6 JPEG setting and grow from cores, on the same frames (method written 2026-11-05, before the run)
 
@@ -7717,6 +7861,37 @@ setting. The scale cancels in the ratio.
 **Limits (as planned).** Nine trays of the development rig, its own soil and plants; three frames
 seconds apart; the uncompressed frame is the reference, so effects that happen before encoding
 (the lens, the sensor's colour pattern) are not seen.
+
+#### 24.6 results (2026-11-05)
+
+Each JPEG version's area over the uncompressed frame's, mean (range) over 27 tray-frames:
+
+| Setting | Current rule | IoU | Grow from cores | IoU |
+|---|---|---|---|---|
+| B 75, 4:2:0 (today) | 0.987 (0.957 to 1.000) | 0.944 | 1.001 (0.958 to 1.011) | 0.912 |
+| C 85, 4:2:0 | 0.990 (0.970 to 1.001) | 0.953 | 1.015 (0.968 to 1.121) | 0.916 |
+| D 95, 4:2:0 | 0.993 (0.977 to 1.000) | 0.964 | 1.006 (0.961 to 1.065) | 0.935 |
+| F 75, 4:4:4 | 0.995 (0.977 to 1.002) | 0.958 | 0.994 (0.955 to 1.022) | 0.927 |
+| G 85, 4:4:4 | 0.996 (0.989 to 1.000) | 0.967 | 1.000 (0.964 to 1.056) | 0.940 |
+| H 90, 4:4:4 | 0.996 (0.989 to 0.999) | 0.971 | 1.002 (0.986 to 1.047) | 0.943 |
+| E 95, 4:4:4 | 0.997 (0.991 to 1.004) | 0.975 | 1.004 (0.981 to 1.132) | 0.949 |
+
+**Findings.**
+
+1. The current rule repeats metrology log 26: today's setting reads 1.3% low, and full colour
+   removes most of it (85, 4:4:4: 0.4% low).
+2. Grow from cores shows no bias at any setting, but single trays jump by up to 13%, at settings
+   that should be better. The jumps are trays 87, 77 and 86. On tray 87 a whole cell of pale
+   soil is counted in one version of a frame and not another: the development rig's soil is pale,
+   and parts of it are greening, so its greenness sits at the fixed -0.045 cutoff, and a thin bridge
+   of pixels joins it to a leaf core or not. The fixed cutoff, set on production's dark soil, does
+   not carry over. (24.7 shows that on the greenish trays grow from cores counts whole soil cells
+   in every version, so its ratio near 1 compares a wrong area with itself.)
+
+*Figure.* `docs/figures/24.6/tray87-grow-diff.jpg`: tray 87, frame 0: magenta in both, cyan only at
+95 4:4:4, yellow only uncompressed; 1/2 size, made with `jpegq.py`.
+*Raw data.* `data/results/24.6-grow_vs_uncompressed.csv`, `code/jpegq.py`; the frames stay on
+`npec-rig-01` (`~/jpegq-355/run-20261105T122904Z/`).
 
 ### 24.7 Grow from cores with the low cutoff set from the tray's soil (method written 2026-11-05, before the run)
 
@@ -7756,6 +7931,32 @@ longer be told apart. Aimed at "good enough for today" (Aaron, 2026-11-05), not 
 **Limits (as planned).** Two soils (production's dark soil, development's pale soil); the 0.115
 gap and the warning level are choices; no photos of heavily greened soil with a known answer.
 
+#### 24.7 results (2026-11-05)
+
+1. *Production* (89 photos, 623 tray readings): the tray tag was found in every reading; no
+   warnings. The soil peak moves from day to day on the same tray (tray 4: -0.125 on 26 October,
+   -0.175 on 29 October; likely watering), so rule G's cutoff ranged from -0.07 to +0.01. Where the
+   soil was lighter, rule G read 13 to 26% below grow from cores (trays 2, 3, 4 and 7 on some days,
+   0.74 to 0.87); elsewhere within about 4%.
+2. *Development* (9 trays, 3 frames): soil peaks -0.095 to +0.005. On the five trays with greenish
+   soil (80, 77, 76, 81, 78) grow from cores counted whole soil cells as plant; rule G counted only
+   the seedlings (4 to 23% of grow from cores' area). On the four trays with large potato plants
+   the two agree (0.91 to 0.96). Against the uncompressed frame, rule G stays within 0.986 to 1.007
+   at every setting (IoU 0.96 to 0.98). The warning showed on 7 of 9 trays, including two potato
+   trays whose areas look right (cutoff 0.06).
+3. *Aaron's outlines:* rule G 0.901 (0.657 to 0.989), IoU 0.857 and 0.850; grow from cores 0.963 and
+   0.872. Tray 1's soil was lighter that day (cutoff -0.01), and its plants lost edges.
+
+**Findings.** Moving the cutoff with the soil prevents soil being counted on pale or greening
+soil, but on production it makes plant area follow soil moisture, a wobble of up to about 25% at
+the leaf edges. The 0.115 gap is wider than production needs: there grow from cores never took
+in soil with the soil peak 0.07 below its cutoff.
+
+*Figure.* `docs/figures/24.7/dev-grow-vs-rule-g.jpg`: the 9 development trays, frame 0
+uncompressed, left of each pair grow from cores, right rule G (magenta), with its cutoff.
+*Raw data.* `data/results/24.7-dev.csv`, `24.7-prod.csv`; `code/ruleg.py`, `check_dev.py`,
+`check_prod_crops.py`.
+
 ### 24.8 Grow with soil floor (method written 2026-11-05, before the run)
 
 **Label: development check.** In 24.7, rule G (cutoff = soil peak + 0.115) kept greenish soil out
@@ -7777,6 +7978,32 @@ no whole soil cells and no jumps between settings; on the outlines, as grow from
 
 **Limits (as planned).** As 24.7; the 0.07 and the warning level are choices made after seeing
 the data of these same checks.
+
+#### 24.8 results (2026-11-05)
+
+1. *Production:* on 20 of 21 tray-days the cutoff stayed at -0.045 and rule H equals grow from cores
+   (area ratio 1.000); tray 7 on 29 October (soil peak -0.115 to -0.105) 0.981. No warnings; the tag
+   found in every reading.
+2. *Development:* no whole soil cells counted on the greenish trays (rule H 5 to 25% of grow from
+   cores there), and 1.02 to 1.31 times rule G's area, keeping more of the leaf edges. Against the
+   uncompressed frame rule H is within 1% on every tray but one: tray 80, the greenest soil (peak
+   -0.015, cutoff 0.055), jumps by up to 30% between settings. No warning showed at the level of
+   0.1.
+3. *Aaron's outlines:* rule H 0.963 (0.837 to 1.226), IoU 0.872 and 0.878, the same as grow from
+   cores (the cutoff was -0.045 on all three trays).
+
+**Findings.** Rule H keeps grow from cores' numbers on production's soil and keeps greening soil
+out on the development rig. On the greenest soil (tray 80) its cutoff lies inside the soil's
+spread of colours and soil pixels flicker in and out. The warning level of 0.1 is too high to flag
+that.
+
+**A warning level proposed from these data (a decision, not a measurement):** "soil looks green"
+when the soil peak is -0.04 or higher. That flags the five greenish development trays (-0.035 to
++0.005) and none of production's (-0.185 to -0.105) or the development potato trays (-0.095 to
+-0.045).
+
+*Raw data.* `data/results/24.8-dev.csv`, `24.8-prod.csv`; `code/check_dev_h.py`,
+`check_prod_crops_h.py`.
 
 ## 25. Memory of the Randomize page on the development rig (issue #343, method written 2026-11-04, before the run)
 
