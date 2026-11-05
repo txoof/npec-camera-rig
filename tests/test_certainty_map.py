@@ -241,3 +241,29 @@ def test_a_round_mixing_earlier_positions_has_not_moved() -> None:
     half = len(calibration) // 2
     mixed = calibration[:half] + round_1[half:]
     assert moved_fraction(mixed, [calibration, round_1], FIELD) == 0.0
+
+
+def test_the_map_colours_each_slot_by_its_band_on_a_scale_shown_in_a_legend() -> None:
+    """#76: a smooth scale from the smallest band to the largest (Aaron, 2026-11-05); the slot
+    with too few tags stays grey. Each box keeps its ±X% label, so colour is never alone."""
+    from npec_rig.certainty_map import Slot, SlotResult
+
+    layout = (Slot("North 1", (300, 300), (100, 100, 500, 500)),
+              Slot("North 2", (900, 300), (700, 100, 1100, 500)),
+              Slot("North 3", (1500, 300), (1300, 100, 1700, 500)))
+    results = [SlotResult("North 1", 30, 1.0, 0.0), SlotResult("North 2", 30, 4.0, 0.0),
+               SlotResult("North 3", 5, None, None)]
+    frame = np.zeros((700, MAP_WIDTH_PX, 3), dtype=np.uint8)
+    image = render_certainty_map(frame, layout, results, "caption")
+
+    def lightness(rgb) -> float:
+        return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+
+    # Inside each box, past its outline and clear of its labels.
+    small, large, grey = (image[100, x].astype(int) for x in (100, 700, 1300))
+    assert lightness(small) > lightness(large) + 20
+    assert small[0] != small[2] and large[0] != large[2]  # coloured, not grey
+    assert grey[0] == grey[1] == grey[2]
+    # Under the photo: a legend bar holding the scale's colours.
+    below = image[700:].reshape(-1, 3).astype(int)
+    assert any(abs(int(p[0]) - int(p[2])) > 60 for p in below)
