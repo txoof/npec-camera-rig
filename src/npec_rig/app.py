@@ -24,7 +24,7 @@ from npec_rig.validation import RoundNotFoundError, ValidationRefusedError
 from npec_rig.scheduler import Scheduler
 from npec_rig.tray_readings import TrayReader
 from npec_rig.validation_store import SessionNotFoundError
-from npec_rig.routes import calibration, experiments, focus, gallery, randomize, shell, validation
+from npec_rig.routes import calibration, experiments, focus, gallery, photo_quality, randomize, shell, validation
 
 STATIC_DIR = Path(__file__).parent / "static"
 # The printable sheets themselves (reference/calibration-sheets/), not app code -- served so the
@@ -154,3 +154,4 @@ app.include_router(gallery.router)
 app.include_router(calibration.router)
 app.include_router(validation.router)
 app.include_router(randomize.router)
+app.include_router(photo_quality.router)

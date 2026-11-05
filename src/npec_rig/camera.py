@@ -596,7 +596,16 @@ def lens_check(reported: float | None, locked: float | None) -> dict:
     return {"reported": reported, "locked": locked, "flagged": reason is not None, "reason": reason}
 
 
-def array_to_jpeg(frame: np.ndarray, description: str | None = None) -> bytes:
+# Pillow's subsampling codes for the colour resolutions a photo may be saved at (#359).
+CHROMA_SUBSAMPLING = {"4:4:4": 0, "4:2:0": 2}
+
+
+def array_to_jpeg(
+    frame: np.ndarray,
+    description: str | None = None,
+    quality: int | None = None,
+    chroma: str | None = None,
+) -> bytes:
     """`frame`'s first 3 channels are literally R,G,B, in that order, with an optional 4th
     (unused padding) channel ignored -- verified directly against a known-color real-world
     reference on 2026-09-21, not inferred from picamera2's own format name (which is
@@ -604,7 +613,9 @@ def array_to_jpeg(frame: np.ndarray, description: str | None = None) -> bytes:
     see Picamera2Backend.__init__). `frame[..., :3]` takes the first three channels
     unreordered; do not add a reversal here without re-running that same direct check --
     exactly this reversal was tried and measured wrong once already (TODO.md has the account).
-    `description`, if given, is written as the EXIF ImageDescription.
+    `description`, if given, is written as the EXIF ImageDescription. `quality` and `chroma`
+    ("4:2:0" or "4:4:4") set the JPEG quality and colour resolution; left out, Pillow's own
+    defaults (75, "4:2:0") are used and the bytes are the same as before #359.
     """
     buffer = io.BytesIO()
     extra = {}
@@ -612,6 +623,10 @@ def array_to_jpeg(frame: np.ndarray, description: str | None = None) -> bytes:
         exif = Image.Exif()
         exif[0x010E] = description
         extra["exif"] = exif
+    if quality is not None:
+        extra["quality"] = quality
+    if chroma is not None:
+        extra["subsampling"] = CHROMA_SUBSAMPLING[chroma]
     # fromarray of 3 uint8 channels is already an RGB image; convert("RGB") would copy it again
     # (about 254 MB for 64MP) only to write the same bytes (#348).
     image = Image.fromarray(frame[..., :3])

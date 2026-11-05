@@ -364,6 +364,25 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "CREATE INDEX tray_layout_experiment ON tray_layout (experiment_id, kind, id)",
         ),
     ),
+    (
+        20,
+        "capture: the JPEG quality and colour resolution the photo was saved at; every change of"
+        " the setting (#359)",
+        # NULL for photos taken before this version: they were all saved at 75 with "4:2:0"
+        # (Pillow's defaults, metrology log 26).
+        (
+            "ALTER TABLE capture ADD COLUMN jpeg_quality INTEGER",
+            "ALTER TABLE capture ADD COLUMN jpeg_chroma TEXT",  # "4:2:0" or "4:4:4"
+            """
+            CREATE TABLE photo_quality_change (
+                id INTEGER PRIMARY KEY,
+                changed_at TEXT NOT NULL,        -- UTC, ISO 8601
+                quality INTEGER NOT NULL,        -- JPEG quality, 1 to 95
+                chroma TEXT NOT NULL             -- "4:2:0" or "4:4:4"
+            )
+            """,
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -442,13 +461,15 @@ def record_capture(
     analogue_gain: float | None,
     flags: list[str],
     clock_synced: bool | None = None,
+    jpeg_quality: int | None = None,
+    jpeg_chroma: str | None = None,
 ) -> int:
     """Add one photo's row, return its id."""
     with _connect() as conn:
         cursor = conn.execute(
             "INSERT INTO capture (taken_at, path, purpose, experiment_id, calibration,"
             " validation, lens_position, focus_locked_at, exposure_us, analogue_gain, flags,"
-            " clock_synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " clock_synced, jpeg_quality, jpeg_chroma) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 taken_at,
                 path,
@@ -462,6 +483,8 @@ def record_capture(
                 analogue_gain,
                 json.dumps(flags),
                 None if clock_synced is None else int(clock_synced),
+                jpeg_quality,
+                jpeg_chroma,
             ),
         )
         return cursor.lastrowid
@@ -1019,6 +1042,24 @@ def record_scheduled_photos(
             " capture_id, missed_reason) VALUES (?, ?, ?, ?, ?, ?)",
             [(experiment_id, schedule_since, *slot) for slot in slots],
         )
+
+
+def record_photo_quality_change(changed_at: str, quality: int, chroma: str) -> None:
+    """Record that the photo quality setting was changed (#359)."""
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO photo_quality_change (changed_at, quality, chroma) VALUES (?, ?, ?)",
+            (changed_at, quality, chroma),
+        )
+
+
+def photo_quality_changes() -> list[dict]:
+    """Every change of the photo quality setting, newest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT changed_at, quality, chroma FROM photo_quality_change ORDER BY id DESC"
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def record_app_start(started_at: str) -> None:

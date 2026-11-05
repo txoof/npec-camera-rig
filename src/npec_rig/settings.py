@@ -37,3 +37,28 @@ def load_settings() -> dict:
     with _connect() as conn:
         rows = conn.execute("SELECT name, value FROM camera_settings").fetchall()
     return {name: json.loads(value) for name, value in rows}
+
+
+# The JPEG setting every full-size photo is saved at (#359). Without a saved one: Pillow's own
+# defaults, which every photo was saved at before #359 (metrology log 26).
+DEFAULT_PHOTO_QUALITY = {"quality": 75, "chroma": "4:2:0"}
+
+
+PHOTO_QUALITY_SETTING = "PhotoQuality"  # in camera_settings; not a camera control, so never replayed
+
+
+def photo_quality() -> dict:
+    """The JPEG quality and colour resolution full-size photos are saved at."""
+    return {**DEFAULT_PHOTO_QUALITY, **load_settings().get(PHOTO_QUALITY_SETTING, {})}
+
+
+def set_photo_quality(quality: int, chroma: str) -> dict:
+    """Save the JPEG setting for the photos taken from now on, record the change with its time
+    (UTC) and return the setting."""
+    from datetime import UTC, datetime
+
+    from npec_rig import database  # imported here: database imports this module (db_path)
+
+    save_setting(PHOTO_QUALITY_SETTING, {"quality": quality, "chroma": chroma})
+    database.record_photo_quality_change(datetime.now(UTC).isoformat(), quality, chroma)
+    return photo_quality()
