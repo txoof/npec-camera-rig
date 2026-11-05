@@ -7755,3 +7755,25 @@ longer be told apart. Aimed at "good enough for today" (Aaron, 2026-11-05), not 
 
 **Limits (as planned).** Two soils (production's dark soil, development's pale soil); the 0.115
 gap and the warning level are choices; no photos of heavily greened soil with a known answer.
+
+### 24.8 Grow with soil floor (method written 2026-11-05, before the run)
+
+**Label: development check.** In 24.7, rule G (cutoff = soil peak + 0.115) kept greenish soil out
+on the development rig, but on production its cutoff moved with the soil from day to day (soil
+peak -0.185 to -0.105, likely watering), and where the soil was lighter it read 13 to 26% below
+grow from cores, trimming leaf edges. On production, grow from cores (-0.045) never took in soil
+where the soil peak was as close as 0.07 below that cutoff; on the development rig it did where the
+gap was 0.01 to 0.03. Both numbers were seen before this rule was set, so it is chosen, not blind.
+
+**Rule H, grow with soil floor.** As rule G (tag area by corners and white backup, soil peak,
+cores, growing, 24.7), with the low cutoff = the higher of -0.045 and (soil peak + 0.07). Warning
+"soil looks green" when the cutoff reaches 0.1, the cores' cutoff (changed from 24.7's 0.05,
+which warned on trays whose areas looked right).
+
+**Checks.** The three of 24.7, unchanged: production (24.3 windows, every 4th photo, trays 1 to
+7), the #355 development frames (9 trays, 3 frames, 7 settings), and Aaron's 15 outlines.
+Expected: on production, rule H equal to grow from cores on nearly every tray; on development,
+no whole soil cells and no jumps between settings; on the outlines, as grow from cores.
+
+**Limits (as planned).** As 24.7; the 0.07 and the warning level are choices made after seeing
+the data of these same checks.
