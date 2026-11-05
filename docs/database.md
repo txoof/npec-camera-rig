@@ -130,7 +130,7 @@ Holds the last value of each camera control (`ExposureTime`, `AnalogueGain`, `Ae
 `AwbEnable`, `LensPosition`), the focus lock (`FocusConfirmed`, `FocusConfirmedLensPosition`),
 `LastTick` (the last time the app was known to be running, for the cold-start check), and
 `PhotoQuality` (the JPEG setting full-size photos are saved at, `{"quality": 85, "chroma":
-"4:4:4"}`; absent until first changed, which means 75 with "4:2:0", #359). One row per
+"4:4:4"}`; absent until first changed, which means the default, 85 with "4:4:4", #359). One row per
 name; a new value replaces the old one, so there is no history here. Times inside values are UTC.
 
 ### `derived_image`
@@ -244,7 +244,7 @@ SELECT taken_at, path FROM capture WHERE clock_synced = 0 ORDER BY taken_at
 ### `capture`: the JPEG setting the photo was saved at
 
 From version 20 (#359). Every full-size photo is saved at the setting read and changed through
-`GET` and `POST /api/photo-quality`. Colour at half resolution ("4:2:0") reads plant area about
+`GET` and `POST /api/photo-quality`; the default is 85 with full colour. Colour at half resolution ("4:2:0") reads plant area about
 1.4% low on average and 2.6% low on small plants; full colour ("4:4:4") at 85 about 0.4% and 0.6%
 (metrology log 26.1). The photo's JSON record holds the same as `photo_quality`.
 

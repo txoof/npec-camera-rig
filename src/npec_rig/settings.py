@@ -39,9 +39,10 @@ def load_settings() -> dict:
     return {name: json.loads(value) for name, value in rows}
 
 
-# The JPEG setting every full-size photo is saved at (#359). Without a saved one: Pillow's own
-# defaults, which every photo was saved at before #359 (metrology log 26).
-DEFAULT_PHOTO_QUALITY = {"quality": 75, "chroma": "4:2:0"}
+# The JPEG setting every full-size photo is saved at (#359). Without a saved one: 85 with full
+# colour (Aaron, 2026-11-05), which read plant area 0.4% low against 1.4% at Pillow's own defaults,
+# 75 with half colour, that every photo was saved at before #359 (metrology log 26.1).
+DEFAULT_PHOTO_QUALITY = {"quality": 85, "chroma": "4:4:4"}
 
 
 PHOTO_QUALITY_SETTING = "PhotoQuality"  # in camera_settings; not a camera control, so never replayed

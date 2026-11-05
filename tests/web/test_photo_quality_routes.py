@@ -8,14 +8,14 @@ pytestmark = pytest.mark.unit
 client = TestClient(app)
 
 
-def test_without_a_saved_setting_photos_are_saved_at_pillows_default() -> None:
-    """75 with colour at half resolution: what every photo was saved at before #359 (Pillow's
-    defaults, metrology log 26)."""
+def test_without_a_saved_setting_photos_are_saved_at_85_with_full_colour() -> None:
+    """Aaron, 2026-11-05: the default is 85 with full colour, which read plant area 0.4% low
+    against 1.4% at Pillow's 75 with half colour (metrology log 26.1)."""
     response = client.get("/api/photo-quality")
 
     assert response.status_code == 200
-    assert response.json()["quality"] == 75
-    assert response.json()["chroma"] == "4:2:0"
+    assert response.json()["quality"] == 85
+    assert response.json()["chroma"] == "4:4:4"
 
 
 def test_a_changed_setting_is_kept() -> None:
