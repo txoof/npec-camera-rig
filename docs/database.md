@@ -47,7 +47,8 @@ should be compared as times, not as text.
 | `exclusion` | One row per photo of an experiment: why its plant areas are left out, if they are | `exclusions.py` |
 | `light_warning_dismissal` | One row per dismissal of an experiment's light warning | `exclusions.py` |
 | `app_start` | One row each time the app starts | `scheduler.py` |
-| `capture` | One row per photograph; here only whether its clock was set (#62) | `captures.py` |
+| `capture` | One row per photograph; here only whether its clock was set (#62) and the JPEG setting it was saved at (#359) | `captures.py` |
+| `photo_quality_change` | One row per change of the JPEG setting photos are saved at (#359) | `settings.py` |
 | `tray_layout` | One row per suggested tray layout of an experiment, and per check of the trays against one (#343) | `routes/randomize.py` |
 
 ### `camera_events`
@@ -126,8 +127,10 @@ WHERE kind = 'fault' AND purpose IS NOT NULL GROUP BY purpose;
 | `value` | text | Its value, as JSON |
 
 Holds the last value of each camera control (`ExposureTime`, `AnalogueGain`, `AeEnable`,
-`AwbEnable`, `LensPosition`), the focus lock (`FocusConfirmed`, `FocusConfirmedLensPosition`), and
-`LastTick` (the last time the app was known to be running, for the cold-start check). One row per
+`AwbEnable`, `LensPosition`), the focus lock (`FocusConfirmed`, `FocusConfirmedLensPosition`),
+`LastTick` (the last time the app was known to be running, for the cold-start check), and
+`PhotoQuality` (the JPEG setting full-size photos are saved at, `{"quality": 85, "chroma":
+"4:4:4"}`; absent until first changed, which means the default, 85 with "4:4:4", #359). One row per
 name; a new value replaces the old one, so there is no history here. Times inside values are UTC.
 
 ### `derived_image`
@@ -237,6 +240,35 @@ column is in the export's `captures.csv`. The photo's JSON record holds the same
 ```sql
 SELECT taken_at, path FROM capture WHERE clock_synced = 0 ORDER BY taken_at
 ```
+
+### `capture`: the JPEG setting the photo was saved at
+
+From version 20 (#359). Every full-size photo is saved at the setting read and changed through
+`GET` and `POST /api/photo-quality`; the default is 85 with full colour. Colour at half resolution ("4:2:0") reads plant area about
+1.4% low on average and 2.6% low on small plants; full colour ("4:4:4") at 85 about 0.4% and 0.6%
+(metrology log 26.1). The photo's JSON record holds the same as `photo_quality`.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `jpeg_quality` | integer | JPEG quality, 1 to 95. NULL for photos from before version 20, which were all saved at 75 |
+| `jpeg_chroma` | text | Colour resolution: "4:2:0" (half both ways) or "4:4:4" (full). NULL for photos from before version 20, which were all "4:2:0" |
+
+```sql
+SELECT jpeg_quality, jpeg_chroma, count(*) FROM capture GROUP BY 1, 2
+```
+
+### `photo_quality_change`
+
+One row each time the JPEG setting is changed (#359), through `POST /api/photo-quality`. Changes
+are allowed during an experiment; each photo's row says what it was saved at. Rows are never
+changed or deleted by the rig.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | integer | Row number, increasing |
+| `changed_at` | text | When the setting was changed, UTC (`isoformat()`) |
+| `quality` | integer | The new JPEG quality, 1 to 95 |
+| `chroma` | text | The new colour resolution, "4:2:0" or "4:4:4" |
 
 ### `app_start`
 
