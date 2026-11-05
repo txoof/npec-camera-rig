@@ -7717,3 +7717,41 @@ setting. The scale cancels in the ratio.
 **Limits (as planned).** Nine trays of the development rig, its own soil and plants; three frames
 seconds apart; the uncompressed frame is the reference, so effects that happen before encoding
 (the lens, the sensor's colour pattern) are not seen.
+
+### 24.7 Grow from cores with the low cutoff set from the tray's soil (method written 2026-11-05, before the run)
+
+**Label: development check.** Soil changes colour: algae turns it green over weeks, and pots on
+the development rig already show it (Aaron, 2026-11-05). In 24.6, on the development rig's pale
+soil, grow from cores' fixed low cutoff (-0.045) sat at the soil's own greenness, and whole cells
+of soil joined a plant in some versions of a frame and not others (tray 87, up to +13%). A fixed
+low cutoff fits one soil. Rule G below moves it with the soil and says when soil and leaf can no
+longer be told apart. Aimed at "good enough for today" (Aaron, 2026-11-05), not a final rule.
+
+**Rule G, grow from soil-relative cores.** Per tray and photo:
+
+1. *Tag area out:* the tray's detected AprilTag (the app's tray-tag detector, `tags.py`, run on the
+   tray's box), its corner square enlarged 1.6 times about its centre to take in the white paper;
+   and, as a backup, pieces of colourless white of at least 5000 px widened 30 px (24.4).
+2. *Soil peak:* the greenness histogram of the tray's pixels inside its outline, not blue, tag
+   area out, in steps of 0.01 from -0.5 to 0.5, smoothed (Gaussian, sd 2 steps); the soil peak is
+   its highest bin below +0.05.
+3. *Low cutoff:* soil peak + 0.115 (0.115 is the gap that gives -0.045 on production's soil peak
+   of about -0.16; a choice from one soil, not a measurement across soils).
+4. *Cores and growing:* as grow from cores: pieces of (greenness > low cutoff, not blue) holding
+   at least one pixel of greenness > 0.1 with G > R.
+5. *Warning* "soil looks green" when the low cutoff is above 0.05, so within 0.05 of the cores'
+   cutoff (a choice).
+
+**Checks.**
+
+1. *Production, 24.3 windows* (26 and 29 October, 2 November, 12:00 to 13:59 UTC), every 4th photo
+   (about 90), trays 1 to 7: the soil peak and low cutoff per tray and window, rule G's area
+   against grow from cores, and how often the warning shows. Expected: cutoffs near -0.045 and
+   areas within a few percent of grow from cores.
+2. *Development, the #355 frames* (24.6), 9 trays, 3 frames, all 7 JPEG settings and the
+   uncompressed frame: soil peak and cutoff per tray; rule G's area per setting against the
+   uncompressed frame (the 13% jumps of tray 87 should go), and the warning.
+3. *Aaron's 15 outlines* (section 24): area ratio and IoU, against grow from cores.
+
+**Limits (as planned).** Two soils (production's dark soil, development's pale soil); the 0.115
+gap and the warning level are choices; no photos of heavily greened soil with a known answer.
