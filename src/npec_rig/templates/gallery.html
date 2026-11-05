@@ -207,11 +207,11 @@
       // uncertainty comes with #76; until then the line says it is not measured.
       let table = "";
       if (measured.length) {
-        // Until the green method is settled (#286, #297): on flat green test squares the mask's error
-        // is mostly high but sometimes low (metrology log 18.8, 18.9), and plants are not measured,
-        // so the wording stays general. Wording: Aaron, 2026-10-27.
+        // Until a better rule replaces the green threshold (#363): against hand outlines of the
+        // potato plants it counts 0.31 of the leaf area on average, 0.07 on the smallest plants
+        // (metrology log 24, #352). Wording for #352, replacing Aaron's general one of 2026-10-27.
         lines.push(`<div class="banner" style="margin: 8px 0">${ui.icon("warn")}<p><strong>Warning:</strong> `
-          + "plant area values are uncertain due to ongoing developments in measurement methods.</p></div>");
+          + "plant areas read low. The method counts about a third of each leaf, and less on small plants.</p></div>");
         if (EXCLUDED[trays.exclusion]) lines.push(`${EXCLUDED[trays.exclusion].info}. These plant areas are not counted.`);
         if (shared) lines.push(`${shared} Their plant areas are not counted.`);
         lines.push(`Plant area, ${ui.esc(measured[0].segmenter)}, uncertainty not measured yet:`);
