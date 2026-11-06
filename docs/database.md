@@ -426,6 +426,21 @@ again, later ones are, also in a stretch still going on.
 
 Kept when an experiment is purged, with its `experiment` row.
 
+### `export`: what the user ticked
+
+From version 21 (#65, #368). Export asks what goes in the export: the data (the CSVs,
+`datapackage.json`, the records, `experiment.json`), the photos with their records, or both. Only
+an export with the photos counts as complete for Purge.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `data` | integer | 1 when the data was ticked, 0 when not. 1 for exports from before version 21, which held everything |
+| `photos` | integer | 1 when the photos were ticked, 0 when not. 1 for exports from before version 21 |
+
+```sql
+SELECT id, started_at, data, photos, bytes FROM export ORDER BY id
+```
+
 ## Planned
 
 The database schema for photographs, their provenance, calibration and validation is #54 (M3).
