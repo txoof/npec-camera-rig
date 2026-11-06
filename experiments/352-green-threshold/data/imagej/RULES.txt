@@ -1,0 +1,36 @@
+#352 Rulebook for the ImageJ leaf outlines
+Goal: the same plant outlined twice by these rules gives the same area. One pixel is about
+0.2 mm, so a leaf edge is blurred over 3 to 4 pixels. Most of the decisions below are about that blur.
+
+Before you start
+R1. Do not look at any rig outline (yellow or cyan pictures) before or during the outlining.
+R2. Same screen, same room light, every pass. Do not change brightness or contrast in ImageJ.
+R3. Zoom 800% for every crop (Image > Zoom > Set, 800).
+R4. Polygon tool for every crop, not freehand. Place a point at least every 2 pixels along curves.
+
+What is the plant
+R5. Only the plant whose centre is nearest the crop centre. Leave out neighbours, moss and specks.
+R6. Count everything green or yellow-green that is attached to it: true leaves, cotyledons, stalks.
+R7. Overlapping leaves: outline the outside of the group once. The rig sees from above, so
+    overlap counts once.
+R8. Soil seen between leaves: leave it out (Alt + polygon subtracts a hole) when the gap is at
+    least 2 pixels wide. Narrower gaps are part of the plant.
+R9. Dark shadow next to a leaf is soil, unless you can see leaf colour or texture in it.
+R10. Pale, yellow or brown leaf parts that are still part of a leaf count as plant.
+
+Where the edge is
+R11. Trace through the middle of the blur: the pixels halfway between leaf colour and soil colour.
+     Not the outer edge of the blur, not the inner edge.
+R12. If a part is doubtful (more than about 4 pixels across and you are not sure it is plant),
+     include it if more than half of it looks like leaf, and write the file name and a few words
+     in notes.txt.
+
+Repeat, to measure your own spread
+R13. Do two passes. Pass 1 in file order. Pass 2 on another day, in reverse order, without opening
+     pass 1. Save results_pass1.csv / roi_pass1.zip and results_pass2.csv / roi_pass2.zip.
+R14. Do each pass in one sitting. Write the date, start and end time in notes.txt.
+R15. Do not correct pass 1 after seeing pass 2. A difference between passes is a result.
+
+What this reference does not cover
+- Leaves hidden under other leaves, and leaf height (the rig measures area seen from above).
+- Other people: one person's outlines show one person's judgement.

@@ -429,3 +429,24 @@ def test_version_16_keeps_an_experiment_from_version_15_and_hides_none_of_its_tr
         assert database.migrate(conn) == database.SCHEMA_VERSION
     assert database.get_experiment(3)["dwell_limit_h"] == 48
     assert database.hidden_trays(3) == set()
+
+
+def test_version_20_keeps_a_photo_from_version_19_with_no_quality_recorded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#359: a photo saved before the quality was recorded keeps its row; its quality is empty
+    (it was saved at Pillow's defaults, 75 with "4:2:0", metrology log 26), and no change is listed."""
+    with monkeypatch.context() as m:
+        m.setattr(database, "MIGRATIONS", database.MIGRATIONS[:19])
+        m.setattr(database, "SCHEMA_VERSION", 19)
+        with sqlite3.connect(db_path()) as conn:
+            database.migrate(conn)
+            conn.execute(
+                "INSERT INTO capture (taken_at, path, purpose, flags, exposure_us)"
+                " VALUES ('2026-11-05T12:00:00+00:00', 'rig/2026-11-05/120000_000000', 'capture', '[]', 3700)"
+            )
+            conn.commit()
+    with sqlite3.connect(db_path()) as conn:
+        assert database.migrate(conn) == database.SCHEMA_VERSION
+    row = database.captures_by_path(["rig/2026-11-05/120000_000000"])["rig/2026-11-05/120000_000000"]
+    assert row["exposure_us"] == 3700
+    assert (row["jpeg_quality"], row["jpeg_chroma"]) == (None, None)
+    assert database.photo_quality_changes() == []

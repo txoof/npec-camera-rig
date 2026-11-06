@@ -219,3 +219,29 @@ def test_the_export_holds_each_trays_hours_in_each_table_location() -> None:
         ["8", "0.00", "0.00", "0.00", "48.07", "0.00", "0.00"],
     ]
     assert "time-in-table-location.csv" in readme
+
+
+def test_captures_csv_says_which_photos_were_taken_before_the_clock_had_the_network_time(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setattr(captures, "CLOCK_SYNC_MARKER", tmp_path / "synchronized")  # not there
+    experiment = captures.start_experiment(captures.create_experiment(name="Power cut")["id"])
+    _array, unset = captures.take_photo("capture")
+    (tmp_path / "synchronized").touch()
+    _array, synced = captures.take_photo("capture")
+    del _array
+    captures.stop_experiment(experiment["id"])
+
+    export = exports.start_export(experiment["id"])
+    for _ in range(100):
+        export = database.get_export(export["id"])
+        if export["finished_at"]:
+            break
+        time.sleep(0.05)
+    assert export["error"] is None
+    with zipfile.ZipFile(exports.zip_path(export)) as zf:
+        top = zf.namelist()[0].split("/")[0]
+        rows = {r["path"]: r for r in csv.DictReader(io.StringIO(zf.read(f"{top}/captures.csv").decode()))}
+
+    assert rows[unset["path"]]["clock_synced"] == "0"
+    assert rows[synced["path"]]["clock_synced"] == "1"

@@ -18,19 +18,23 @@ from npec_rig.calibration_store import (
 )
 from npec_rig.camera import CameraFaultError, CameraManager
 from npec_rig.captures import experiments_root, photos_root, record_app_start, record_app_stop
-from npec_rig import database
+from npec_rig import database, images, tags
 from npec_rig.photo_tags import CaptureNotFoundError, CaptureRefError, FrameMissingError
 from npec_rig.validation import RoundNotFoundError, ValidationRefusedError
 from npec_rig.scheduler import Scheduler
 from npec_rig.tray_readings import TrayReader
 from npec_rig.validation_store import SessionNotFoundError
-from npec_rig.routes import calibration, experiments, focus, gallery, shell, validation
+from npec_rig.routes import calibration, experiments, focus, gallery, photo_quality, randomize, shell, validation
 
 STATIC_DIR = Path(__file__).parent / "static"
 # The printable sheets themselves (reference/calibration-sheets/), not app code -- served so the
 # Setup wizard can hand the operator a direct download link at the point they're needed.
 CALIBRATION_SHEETS_DIR = Path(__file__).parent.parent.parent / "reference" / "calibration-sheets"
 
+# Before the app starts its own threads (scheduler, tray reader, requests): a memory pool
+# already made is not removed (#348). Threads started by imports keep theirs.
+images.limit_allocator()
+tags.limit_opencv_threads()
 photos_root().mkdir(parents=True, exist_ok=True)
 experiments_root().mkdir(parents=True, exist_ok=True)
 calibration_root().mkdir(parents=True, exist_ok=True)
@@ -46,12 +50,18 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Reads each photo for its trays after it is saved (#222).
     tray_reader = TrayReader()
     tray_reader.start()
+    # Opened now, in the background, so health says whether a camera is attached and working
+    # without waiting for the first photo (#252).
+    CameraManager.open_in_background()
     yield
     # A scheduled photo already being taken finishes; the camera close below waits for it.
     photo_scheduler.stop(timeout_s=0)
     # A tag search under way is not waited for: its thread ends with the process.
     tray_reader.stop(timeout_s=0)
     record_app_stop()
+    # An open still under way would start a camera program after the close below (#252).
+    if not await run_in_threadpool(CameraManager.wait_for_open, SHUTDOWN_CAMERA_OPEN_WAIT_S):
+        logger.warning("The camera was still opening at shutdown; it is not closed cleanly")
     # End the camera program cleanly, so the camera is closed rather than killed (#51).
     manager = CameraManager._instance
     close = getattr(manager._backend, "close", None) if manager is not None else None
@@ -64,6 +74,8 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
 # grab would read as a camera fault and restart it (#139), so the close waits for _call_lock. The
 # wait is bounded above the longest camera call limit (camera_process.CALL_TIME_LIMITS_S).
 SHUTDOWN_CAMERA_IDLE_WAIT_S = 120.0
+# Above camera_process.OPEN_TIME_LIMIT_S (30 s) plus the lens replay after an open.
+SHUTDOWN_CAMERA_OPEN_WAIT_S = 45.0
 
 
 def _close_camera_when_idle(manager: CameraManager, close: Callable[[], None]) -> None:
@@ -141,3 +153,5 @@ app.include_router(experiments.router)
 app.include_router(gallery.router)
 app.include_router(calibration.router)
 app.include_router(validation.router)
+app.include_router(randomize.router)
+app.include_router(photo_quality.router)

@@ -20,19 +20,32 @@
     box.hidden = false;
   }
 
+  // One timer: every 10 s, every 1 s while the camera is opening (about 1 s with no camera, up
+  // to 30 s with one).
+  async function poll() {
+    const h = await refresh();
+    setTimeout(poll, h && h.state === "opening" ? 1000 : 10000);
+  }
+
   async function refresh() {
     let h;
     try {
       const r = await fetch("/camera/health");
-      if (!r.ok) return;
+      if (!r.ok) return null;
       h = await r.json();
     } catch (e) {
-      return;
+      return null;
     }
     const until = h.last_restart
       ? time(new Date(new Date(h.last_restart.time_utc.replace(/(\.\d{3})\d+/, "$1")).getTime() + h.camera_fault_window_s * 1000).toISOString())
       : null;
-    if (h.state === "restarting") {
+    if (h.state === "opening") {
+      show("restarting", "Camera: opening.");
+    } else if (h.state === "no_camera") {
+      // Short: the line sits in the side menu. The full advice is in h.detail.
+      show("failed", "Camera: not attached. Connect it with the Pi off." +
+        (h.reboot_needed ? " Restart needed." : ""));
+    } else if (h.state === "restarting") {
       show("restarting", "Camera: it stopped responding and is being restarted.");
     } else if (h.state === "failed_to_reopen") {
       show("failed", "Camera: " + (h.detail || "it could not be reopened.") +
@@ -43,9 +56,9 @@
     } else {
       box.hidden = true;
     }
+    return h;
   }
 
-  refresh();
-  setInterval(refresh, 10000);
+  poll();
 })();
 </script>

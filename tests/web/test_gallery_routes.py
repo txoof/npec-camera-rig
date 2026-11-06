@@ -160,7 +160,7 @@ def _fake_tag_search(monkeypatch: pytest.MonkeyPatch, detections: list) -> list[
     return searches
 
 
-def test_photo_tags_lists_each_tag_with_its_role_and_is_searched_once(monkeypatch) -> None:
+def test_photo_tags_lists_each_tag_with_its_role_and_is_searched_once(monkeypatch, isolated_calibration_dir) -> None:
     searches = _fake_tag_search(
         monkeypatch,
         [square_detection(7, 400, 300, 40), square_detection(310, 900, 500, 30), square_detection(452, 60, 60, 50)],
@@ -181,7 +181,7 @@ def test_photo_tags_lists_each_tag_with_its_role_and_is_searched_once(monkeypatc
     assert len(searches) == 1
 
 
-def test_photo_tags_reads_an_experiment_still_and_refuses_bad_paths(monkeypatch) -> None:
+def test_photo_tags_reads_an_experiment_still_and_refuses_bad_paths(monkeypatch, isolated_calibration_dir) -> None:
     searches = _fake_tag_search(monkeypatch, [square_detection(12, 500, 500, 40)])
     client = TestClient(app)
     _experiment, [path] = _experiment_with_photos(client, 1)
@@ -242,7 +242,7 @@ def test_photo_tags_without_a_tray_around_them_are_seen_and_not_placed(monkeypat
     assert "placement" not in found[450]  # a corner tag is not a tray
 
 
-def test_photo_tags_say_how_each_tray_tag_was_found_in_the_photo(monkeypatch) -> None:
+def test_photo_tags_say_how_each_tray_tag_was_found_in_the_photo(monkeypatch, isolated_calibration_dir) -> None:
     """#331: a tray tag names the outline found from the blue plastic around it, wherever it lies
     in the tray; no slot. `one_tray_plant_scene`: tray 5's tag inside a drawn blue tray."""
     from tests.helpers import one_tray_plant_scene
@@ -524,3 +524,19 @@ def test_the_tags_image_never_reads_the_photo_for_trays_and_draws_them_once_read
     client.get(f"/api/captures/tags/{path}")
     assert client.get(f"/api/captures/trays/{path}").json()["status"] == "read"
     assert client.get(f"/gallery/image/tags/{path}").content != before.content
+
+
+def test_a_photo_taken_before_the_clock_had_the_network_time_is_marked_in_the_list(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setattr(captures, "CLOCK_SYNC_MARKER", tmp_path / "synchronized")  # not there
+    client = TestClient(app)
+    unset = client.post("/capture").json()
+    (tmp_path / "synchronized").touch()
+    synced = client.post("/capture").json()
+
+    items = {item["filename"]: item for item in client.get("/api/captures").json()}
+
+    assert items[unset["filename"]]["clock"] == {
+        "synchronized": False, "reason": "time may be wrong: clock not set"}
+    assert items[synced["filename"]]["clock"]["synchronized"] is True

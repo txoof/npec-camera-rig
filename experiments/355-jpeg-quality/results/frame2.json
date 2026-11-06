@@ -1,0 +1,30 @@
+{
+ "taken_at": "2026-11-05T12:29:15.002002+00:00",
+ "shape": [
+  6944,
+  9152,
+  3
+ ],
+ "dtype": "uint8",
+ "sensor_metadata": {
+  "SensorTimestamp": 257890103447000,
+  "ExposureTime": 3793,
+  "AnalogueGain": 1.0,
+  "ColourGains": [
+   1.8047903776168823,
+   1.795149803161621
+  ],
+  "LensPosition": 6.150000095367432
+ },
+ "focus": {
+  "locked": true,
+  "lens_position": 6.15
+ },
+ "controls": {
+  "ExposureTime": 3828,
+  "AnalogueGain": 1.0,
+  "AwbEnable": true,
+  "AeEnable": true,
+  "LensPosition": 6.150000095367432
+ }
+}

@@ -361,6 +361,32 @@ pixel, remove most of the strip on the squares (metrology log 18.9: 10 mm square
 single stills -8.6% to +6.6%). They are not yet tried on plants (#297), and the threshold in use
 stays for now.
 
+**Plant area against a person's outlines (metrology log 24 to 24.8, development checks, 2026-11-04
+and 05).** Aaron outlined 15 potato plants on one production still twice, on two days, in ImageJ by
+a written rulebook. His two passes agree to IoU 0.915 and differ by 6% in area (sd), the ceiling
+any rule can be judged against. Against those outlines the green threshold in use counts 0.31 of
+the leaf area on average and 0.07 on the smallest plant: the areas the rig stores read low by a
+factor that changes with plant size, and the Gallery now says so. A rule that grows each piece of
+leaf found by the threshold outward to a lower cutoff (-0.045) reads 0.96 of the outlines (IoU
+0.87). That cutoff fits production's dark soil only: on the development rig's pale and greening
+soil it counts whole soil cells as plant, so the cutoff has to follow each tray's own soil (24.7,
+24.8), and on the greenest soil no colour rule separates soil from leaf, which the rig must report
+instead of a number. A blue mat laid under green squares changes every rule's area at the edge,
+13 to 24% on a 10 mm square (24.4). SAM 2.1 small, given each plant alone, does worse (IoU 0.77)
+and takes 7 to 10 s a plant (24.5). These are one still and 15 plants of one person: they show
+which rules fail and how, not a band for plant area.
+
+**How photos are saved.** Until #359 every photo was saved as a JPEG at quality 75 with colour at
+half resolution, a library default nobody chose. Against the same stills kept uncompressed
+(metrology log 26.1, a development check: 3 stills, 9 trays of plants, one rig), that setting
+reads plant area 1.4% low on average and 2.6% low on the 4 smallest plants, the same way on every
+still: a bias, not scatter, because the soil's colour is spread over each leaf's edge and the
+green threshold loses a rim 1 to 2 px wide. Full colour removes most of it (85 with full colour:
+0.4% low on average, 0.6% on the small plants), and #359 makes that the setting. Tag corners and
+scale do not change with the setting (tag sides within 0.13%), so the validation bands are not
+affected. Photos saved before #359 keep the bias; its size on other plants and lighting is not
+measured.
+
 **Height above the tray.** About +0.145% of area per mm above the tray top. That figure comes from
 the camera's height (about 1482 mm, a best estimate with a tape measure, not a precise value); one test, a
 tray 75 mm taller in 3 slots on the old camera, read 11.2% to 12.0% large against 11.8% predicted,

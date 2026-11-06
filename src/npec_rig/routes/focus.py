@@ -266,7 +266,7 @@ def lock_focus() -> dict:
 @router.get("/camera/health")
 def camera_health() -> dict:
     """The camera's state for the status line on every page (health.py). The fleet endpoint
-    (#82) will report the same."""
+    (#82) will report the same. Only reads: the app start opens the camera (#252)."""
     return health.camera_health()
 
 

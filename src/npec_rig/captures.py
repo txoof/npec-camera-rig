@@ -15,7 +15,7 @@ import numpy as np
 
 from npec_rig import database, health, segmentation
 from npec_rig.camera import CameraManager, array_to_jpeg, lens_check
-from npec_rig.settings import load_settings, save_setting
+from npec_rig.settings import load_settings, photo_quality_in_use, save_setting
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,12 @@ CALIBRATION_LENS_TOLERANCE = 0.005
 # Purposes judged against a validation's bands. Validation and calibration photos make the bands,
 # and a tripwire check only finds tags, so none of them is measured against the bands.
 _MEASURED_PURPOSES = ("capture",)
+
+# systemd-timesyncd makes this file when the clock first gets the network time after a boot, and
+# it is gone at the next boot (/run is cleared). With no RTC battery, a Pi that boots with no
+# network resumes its clock from the shutdown time: 11 min 35 s slow in test C of #62
+# (2026-11-02), and the file appeared the second the clock was corrected.
+CLOCK_SYNC_MARKER = Path("/run/systemd/timesync/synchronized")
 
 _app_start: dict | None = None
 
@@ -150,7 +156,9 @@ def uptime_record() -> dict:
 
 
 # Every full-resolution still has one of these purposes, recorded in its sidecar.
-PURPOSES = ("capture", "validation", "calibration", "tripwire")
+# A "layout check" photo is taken to compare the trays with a suggested layout (#343): a rig
+# photo, never one of the experiment's stills.
+PURPOSES = ("capture", "validation", "calibration", "tripwire", "layout check")
 
 
 def photos_root() -> Path:
@@ -228,7 +236,12 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         **checks,
         # Every reason this photo is not covered by the validation bands, one list for the pages.
         "flags": [check["reason"] for check in checks.values() if check["flagged"]],
+        # Not a flag: the areas are as good as ever, only the photo's time may be wrong.
+        "clock": clock_check(),
         **(extra or {}),
+        # The JPEG setting the photo is saved at (#359), read once so the file and its records
+        # agree; after `extra`, so no caller can replace it.
+        "photo_quality": photo_quality_in_use(),
     }
     replayed = sensor_metadata.get("ReplayedFrom")
     if replayed:  # a test bench still (#279): say so where people look, not only in the sensor values
@@ -256,6 +269,16 @@ def _active_calibration_stem() -> str | None:
     return artifact.frame_stem if artifact is not None else None
 
 
+def clock_check() -> dict:
+    """Whether the clock had the network time when the photo was taken (#62). When it had not,
+    the photo's time may be wrong: by as long as the rig was without power, after a power cut."""
+    synchronized = CLOCK_SYNC_MARKER.exists()
+    return {
+        "synchronized": synchronized,
+        "reason": None if synchronized else "time may be wrong: clock not set",
+    }
+
+
 def _record_in_database(record: dict) -> int | None:
     """Add the photo's `capture` row, return its id. A failure is logged, never raised: the
     photo and its sidecar are already saved, and the sidecar is the full record."""
@@ -273,6 +296,9 @@ def _record_in_database(record: dict) -> int | None:
             exposure_us=sensor.get("ExposureTime"),
             analogue_gain=sensor.get("AnalogueGain"),
             flags=record["flags"],
+            clock_synced=record["clock"]["synchronized"],
+            jpeg_quality=record["photo_quality"]["quality"],
+            jpeg_chroma=record["photo_quality"]["chroma"],
         )
     except (sqlite3.Error, RuntimeError):
         logger.exception("Could not add the photo %s to the database", record["filename"])
@@ -297,7 +323,8 @@ def _save_photo(image: np.ndarray, metadata: dict, experiment: dict | None = Non
     json_tmp = day_dir / f".{stem}.json.tmp"
     replayed = metadata.get("replayed_from")
     description = f"Replayed from {Path(replayed).name} by the test bench, not taken by a camera" if replayed else None
-    jpeg_tmp.write_bytes(array_to_jpeg(image, description))
+    quality = metadata.get("photo_quality") or photo_quality_in_use()
+    jpeg_tmp.write_bytes(array_to_jpeg(image, description, **quality))
     json_tmp.write_text(json.dumps(record, indent=2, default=str))
     json_tmp.replace(json_path)
     jpeg_tmp.replace(jpeg_path)

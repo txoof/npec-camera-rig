@@ -33,6 +33,14 @@
      x = 0    -> microSD under the PCB, PCIe FPC on top of it
    (The original header puts the PCIe FPC on the y = 56 side; it is at x = 0.)
 
+   REV 16 (RV1.0): first release. Lid screw holes in the tub lugs 3.5 mm deeper (4 ->
+     7.5 mm below the nut pocket, lid_screw_past). Wall post between the
+     Ethernet and USB-A openings removed, so the x = 85 wall has one
+     opening (right_joined). USB-C and both micro-HDMI share one window in
+     the y = 0 wall (front_window): 10 mm tall from the floor's top face,
+     3 mm past the USB-C body on the left and the HDMI 1 body on the right;
+     it replaces their three openings and the recess around them. Labels
+     keep vent_keep from the window.
    REV 15 (RV0.15): part "tub_and_lid": tub and lid on one plate, each in
      its print orientation, plate_gap apart; works with copies.
    REV 14 (RV0.14): [Build Plate] group (copies, plate_gap, plate_cols) for
@@ -96,7 +104,7 @@
 --------------------------------------------------------------------------- */
 
 /* [What to print] */
-part = "lid"; // [tub, lid, tub_and_lid, calibration, port_gauge, preview]
+part = "preview"; // [tub, lid, tub_and_lid, calibration, port_gauge, preview]
 // A = Active Cooler only, B = AI HAT on its spacers (height hat_h)
 variant = "B"; // [A, B]
 
@@ -163,6 +171,7 @@ lid_nut_h    = 2.4;   // ISO 4032 M3 nut, height
 nut_fit      = 0.3;   // added to the nut's flats and height for the pocket
 lid_nut_down = 5.0;   // from the lug top to the top of the nut pocket
 lug_wall     = 1.6;   // plastic around the nut pocket, inside and outside
+lid_screw_past = 7.5; // screw hole below the nut pocket: 4 (REV 4) plus 3.5 (REV 16)
 
 /* [Cutouts] */
 port_gap = 0.5;     // added on every side. A little more generous than in
@@ -172,6 +181,14 @@ port_gap = 0.5;     // added on every side. A little more generous than in
 // FPC slots for camera/display. Closed by default: in variant B the PCIe
 // cable runs inside, and an open slot only lets dust in.
 fpc_slots   = false;
+// One window in the y = 0 wall around USB-C and both micro-HDMI (REV 16),
+// in place of their three openings and the recess around them
+front_window   = true;
+front_win_h    = 10;   // window height, from the floor's top face (flush with it)
+front_win_side = 3;    // clear past the USB-C body (left) and the HDMI 1 body (right)
+// Ethernet and USB-A as one opening in the x = 85 wall: the wall post
+// between them removed (REV 16)
+right_joined   = true;
 sd_slot     = true;   // original card-sized slot; replaced when sd_grip is on
 // microSD finger access (rig change, REV 1)
 sd_grip     = true;
@@ -229,7 +246,7 @@ cam_margin = 1.5;   // added on every side of the connector footprint
 cam_r      = 2.0;   // radius of the two inner corners
 
 /* [Revision] */
-revision  = "RV0.15"; // revision stamp, engraved in the y = 0 (USB-C) wall, under the part name ("" = none)
+revision  = "RV1.0";  // revision stamp, engraved in the y = 0 (USB-C) wall, under the part name ("" = none)
 rev_size  = 5;       // text cap height, mm  [2:0.5:12]
 rev_depth = 0.6;     // how far the text is inset below the surface, mm; the wall is 2.4 mm  [0.4:0.1:1.2]
 
@@ -261,7 +278,8 @@ eps = 0.01;
 
 // x = 85 edge (the 56 mm short side)
 ports_right = [
-    // Both USB stacks as one opening: only 2.8 mm between them.
+    // Both USB stacks as one opening: only 2.8 mm between them. With
+    // right_joined the Ethernet opening joins it too.
     [ 22.30, 54.66, -3.50, 16.78, "4x USB (both stacks)" ],
     [  2.25, 18.15, -2.05, 13.70, "Ethernet RJ45" ]
 ];
@@ -410,6 +428,31 @@ module cut_front(p) {
            port_r(p), wall + 2 * eps);
 }
 
+// Window around the y = 0 ports (front_window). Square bottom corners, flush
+// with the floor's top face; top corners rounded.
+fw_x0 = pcb_x0 + ports_front[0][0] - front_win_side;
+fw_x1 = pcb_x0 + ports_front[len(ports_front) - 1][1] + front_win_side;
+module front_window_cut() {
+    z0 = floor_t;
+    z1 = floor_t + front_win_h;
+    r  = port_corner_r;
+    hull() {
+        translate([fw_x0, -eps, z0]) cube([fw_x1 - fw_x0, wall + 2 * eps, eps]);
+        for (x = [fw_x0 + r, fw_x1 - r])
+            translate([x, -eps, z1 - r]) rotate([-90, 0, 0])
+                cylinder(h = wall + 2 * eps, r = r, $fn = 24);
+    }
+}
+
+// Cut where the wall post between Ethernet and USB-A stood (right_joined):
+// the height both openings share, reaching 2 mm into each so the rounded
+// corners fall inside them
+module right_bridge_cut() {
+    e = ports_right[1];
+    u = ports_right[0];
+    cut_right([e[1] - 2, u[0] + 2, max(e[2], u[2]), min(e[3], u[3])]);
+}
+
 // Shallow recess around the port group
 module port_bezel() {
     if (bezel_depth > 0)
@@ -422,9 +465,13 @@ module port_bezel() {
 }
 
 module all_cutouts() {
-    port_bezel();
     for (p = ports_right) cut_right(p);
-    for (p = ports_front) cut_front(p);
+    if (right_joined) right_bridge_cut();
+    if (front_window) front_window_cut();
+    else {
+        port_bezel();
+        for (p = ports_front) cut_front(p);
+    }
     if (fpc_slots) for (p = ports_fpc) cut_front(p);
     if (sd_slot && !sd_grip) for (p = ports_left) cut_left(p);
     if (sd_grip) sd_grip_cut();
@@ -524,7 +571,7 @@ module lugs(h) {
 // Screw hole down each lug, and a hex pocket with a slot out of the lug's
 // outer side for sliding the nut in. The pocket's flats run along the slot.
 module lug_cuts() {
-    screw_depth = lid_nut_down + lid_nut_h + 4;
+    screw_depth = lid_nut_down + lid_nut_h + lid_screw_past;
     pocket_h    = lid_nut_h + nut_fit;
     for (c = lug_pos) {
         a = atan2(c[3], c[2]);
@@ -598,7 +645,8 @@ module mount_holes() {
 // (the USB-C face), in the plain stretch between the port recess and the
 // lid lug at the x = 85 corner, reading along +x from outside, upright with
 // the tub standing on its floor.
-label_x0 = pcb_x0 + ports_front[len(ports_front) - 1][1] + bezel_margin + vent_keep;
+label_x0 = front_window ? fw_x1 + vent_keep
+         : pcb_x0 + ports_front[len(ports_front) - 1][1] + bezel_margin + vent_keep;
 label_x1 = lug_pos[1][0] - lug_d / 2 - vent_keep;
 label_x  = (label_x0 + label_x1) / 2;
 label_zc = (floor_t + tub_h - rebate_h) / 2;          // middle of the plain wall
@@ -833,7 +881,10 @@ if (post_type == "through") {
              grip, " mm plus the riser's thread depth."));
 }
 echo(str("Lid: M3 screw, at least ", lid_t + lid_nut_down + lid_nut_h,
-         " mm to pass the nut (M3 x ", stock_len(lid_t + lid_nut_down + lid_nut_h), ")"));
+         " mm to pass the nut (M3 x ", stock_len(lid_t + lid_nut_down + lid_nut_h),
+         "), at most ", lid_t + lid_nut_down + lid_nut_h + lid_screw_past, " mm"));
+if (front_window)
+    echo(str("Port window: x ", fw_x0, " to ", fw_x1, ", z ", floor_t, " to ", floor_t + front_win_h));
 if (cam_slot)
     echo(str("Camera opening: x ", pcb_x0 + cam_footprint[0] - cam_margin, " to ",
              pcb_x0 + cam_footprint[1] + cam_margin, ", from the y = 0 edge to y ",

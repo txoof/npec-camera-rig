@@ -325,6 +325,64 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        17,
+        "app starts: when the app came back, to measure downtime (#62)",
+        (
+            """
+            CREATE TABLE app_start (
+                id INTEGER PRIMARY KEY,
+                started_at TEXT NOT NULL         -- UTC, ISO 8601
+            )
+            """,
+        ),
+    ),
+    (
+        18,
+        "capture: whether the clock had the network time when the photo was taken (#62)",
+        # 1 had it, 0 had not (the photo's time may be wrong), NULL taken before this version.
+        ("ALTER TABLE capture ADD COLUMN clock_synced INTEGER",),
+    ),
+    (
+        19,
+        "tray_layout: suggested tray layouts and the checks against them, per experiment (#343)",
+        (
+            # Saved with the experiment (Aaron, 2026-11-02). A suggestion keeps, per tray, where it
+            # lay before (read from `capture_id`) and which rows and columns were then on an
+            # outside edge, so every round's edge history is kept. A check keeps its photo.
+            """
+            CREATE TABLE tray_layout (
+                id INTEGER PRIMARY KEY,
+                experiment_id INTEGER NOT NULL REFERENCES experiment (id),
+                kind TEXT NOT NULL,              -- 'suggestion', 'check' or 'cancel'
+                made_at TEXT NOT NULL,           -- UTC, ISO 8601
+                capture_id INTEGER,              -- the photo read; no reference: a purge deletes it
+                suggestion_id INTEGER REFERENCES tray_layout (id),  -- a check: what it compared with
+                details TEXT NOT NULL            -- JSON: the trays, and the seed of a suggestion
+            )
+            """,
+            "CREATE INDEX tray_layout_experiment ON tray_layout (experiment_id, kind, id)",
+        ),
+    ),
+    (
+        20,
+        "capture: the JPEG quality and colour resolution the photo was saved at; every change of"
+        " the setting (#359)",
+        # NULL for photos taken before this version: they were all saved at 75 with "4:2:0"
+        # (Pillow's defaults, metrology log 26).
+        (
+            "ALTER TABLE capture ADD COLUMN jpeg_quality INTEGER",
+            "ALTER TABLE capture ADD COLUMN jpeg_chroma TEXT",  # "4:2:0" or "4:4:4"
+            """
+            CREATE TABLE photo_quality_change (
+                id INTEGER PRIMARY KEY,
+                changed_at TEXT NOT NULL,        -- UTC, ISO 8601
+                quality INTEGER NOT NULL,        -- JPEG quality, 1 to 95
+                chroma TEXT NOT NULL             -- "4:2:0" or "4:4:4"
+            )
+            """,
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -402,13 +460,16 @@ def record_capture(
     exposure_us: int | None,
     analogue_gain: float | None,
     flags: list[str],
+    clock_synced: bool | None = None,
+    jpeg_quality: int | None = None,
+    jpeg_chroma: str | None = None,
 ) -> int:
     """Add one photo's row, return its id."""
     with _connect() as conn:
         cursor = conn.execute(
             "INSERT INTO capture (taken_at, path, purpose, experiment_id, calibration,"
-            " validation, lens_position, focus_locked_at, exposure_us, analogue_gain, flags)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " validation, lens_position, focus_locked_at, exposure_us, analogue_gain, flags,"
+            " clock_synced, jpeg_quality, jpeg_chroma) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 taken_at,
                 path,
@@ -421,6 +482,9 @@ def record_capture(
                 exposure_us,
                 analogue_gain,
                 json.dumps(flags),
+                None if clock_synced is None else int(clock_synced),
+                jpeg_quality,
+                jpeg_chroma,
             ),
         )
         return cursor.lastrowid
@@ -688,6 +752,57 @@ def show_tray(experiment_id: int, tray_id: int) -> None:
         conn.execute("DELETE FROM experiment_hidden_tray WHERE experiment_id = ? AND tray_id = ?", (experiment_id, tray_id))
 
 
+def record_tray_layout(
+    experiment_id: int,
+    kind: str,
+    *,
+    made_at: str,
+    details: dict,
+    capture_id: int | None = None,
+    suggestion_id: int | None = None,
+) -> dict:
+    """Save a suggested tray layout, a check against one, or the cancelling of one (#343); the
+    saved row."""
+    if kind not in ("suggestion", "check", "cancel"):
+        raise ValueError(f"unknown tray layout kind {kind!r}")
+    with _connect() as conn:
+        _experiment(conn, experiment_id)  # LookupError for no such experiment
+        cursor = conn.execute(
+            "INSERT INTO tray_layout (experiment_id, kind, made_at, capture_id, suggestion_id, details)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (experiment_id, kind, made_at, capture_id, suggestion_id, json.dumps(details)),
+        )
+        layout_id = cursor.lastrowid
+    return tray_layout(layout_id)
+
+
+def tray_layout(layout_id: int) -> dict | None:
+    """One saved tray layout, its details decoded; None when there is no such layout."""
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM tray_layout WHERE id = ?", (layout_id,)).fetchone()
+    return None if row is None else {**dict(row), "details": json.loads(row["details"])}
+
+
+def latest_tray_layout(experiment_id: int, kind: str) -> dict | None:
+    """The experiment's newest saved suggestion or check, or None."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM tray_layout WHERE experiment_id = ? AND kind = ? ORDER BY id DESC LIMIT 1",
+            (experiment_id, kind),
+        ).fetchone()
+    return None if row is None else tray_layout(row[0])
+
+
+def latest_tray_layout_for(suggestion_id: int, kind: str) -> dict | None:
+    """The newest check or cancel of suggestion `suggestion_id`, or None."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM tray_layout WHERE suggestion_id = ? AND kind = ? ORDER BY id DESC LIMIT 1",
+            (suggestion_id, kind),
+        ).fetchone()
+    return None if row is None else tray_layout(row[0])
+
+
 def experiment_calibrations(experiment_id: int) -> list[str | None]:
     """The calibrations the experiment's photos were taken under, each once (None for photos with
     none), for whether a cached reading of them is still current (#332)."""
@@ -929,9 +1044,61 @@ def record_scheduled_photos(
         )
 
 
+def save_photo_quality(changed_at: str, quality: int, chroma: str) -> None:
+    """Save the photo quality setting (`camera_settings`, settings.PHOTO_QUALITY_SETTING) and
+    record the change, in one transaction, so a setting never changes without its row (#359)."""
+    from npec_rig.settings import CAMERA_SETTINGS_DDL, PHOTO_QUALITY_SETTING
+
+    with _connect() as conn:
+        conn.execute(CAMERA_SETTINGS_DDL)
+        conn.execute(
+            "INSERT INTO camera_settings (name, value) VALUES (?, ?) "
+            "ON CONFLICT(name) DO UPDATE SET value = excluded.value",
+            (PHOTO_QUALITY_SETTING, json.dumps({"quality": quality, "chroma": chroma})),
+        )
+        conn.execute(
+            "INSERT INTO photo_quality_change (changed_at, quality, chroma) VALUES (?, ?, ?)",
+            (changed_at, quality, chroma),
+        )
+
+
+def photo_quality_changes() -> list[dict]:
+    """Every change of the photo quality setting, newest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT changed_at, quality, chroma FROM photo_quality_change ORDER BY id DESC"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def record_app_start(started_at: str) -> None:
+    with _connect() as conn:
+        conn.execute("INSERT INTO app_start (started_at) VALUES (?)", (started_at,))
+
+
+def app_starts(after: str) -> list[str]:
+    """When the app started since `after`, oldest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT started_at FROM app_start WHERE started_at > ? ORDER BY started_at", (after,)
+        ).fetchall()
+    return [started_at for (started_at,) in rows]
+
+
+def scheduled_photos_taken(experiment_id: int, schedule_since: str) -> list[dict]:
+    """{"due_at", "taken_at"} of each scheduled photo taken, oldest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT s.due_at, c.taken_at FROM scheduled_photo s JOIN capture c ON c.id = s.capture_id"
+            " WHERE s.experiment_id = ? AND s.schedule_since = ? ORDER BY s.slot",
+            (experiment_id, schedule_since),
+        ).fetchall()
+    return [{"due_at": due_at, "taken_at": taken_at} for due_at, taken_at in rows]
+
+
 def schedule_progress(experiment_id: int, schedule_since: str) -> dict:
-    """The last slot recorded (0 before the first), photos taken and missed, and when the last
-    photo was due."""
+    """The last slot recorded (0 before the first), photos taken and missed, the missed ones
+    counted by reason, and when the last photo was due."""
     with _connect() as conn:
         row = conn.execute(
             "SELECT COALESCE(MAX(slot), 0), COUNT(capture_id), COUNT(missed_reason),"
@@ -939,10 +1106,16 @@ def schedule_progress(experiment_id: int, schedule_since: str) -> dict:
             " FROM scheduled_photo WHERE experiment_id = ? AND schedule_since = ?",
             (experiment_id, schedule_since),
         ).fetchone()
+        reasons = conn.execute(
+            "SELECT missed_reason, COUNT(*) FROM scheduled_photo WHERE experiment_id = ?"
+            " AND schedule_since = ? AND missed_reason IS NOT NULL GROUP BY missed_reason",
+            (experiment_id, schedule_since),
+        ).fetchall()
     return {
         "last_slot": row[0],
         "photos_taken": row[1],
         "photos_missed": row[2],
+        "missed_reasons": dict(reasons),
         "last_photo_due_at": row[3],
     }
 

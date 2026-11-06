@@ -2,7 +2,7 @@
 
 `npec-rig.service` starts the web console at boot and restarts it whenever it exits, so a
 running experiment carries on after a reboot or a crash (#62). The experiment's state is in
-`rig.db`, and the scheduler takes the next photo slot from the experiment's start time.
+`rig.db`, and the scheduler takes the next scheduled photo from the experiment's start time.
 
 After a reboot the camera starts cold, and a cold start is measured to shift readings
 (`docs/metrology-log.md`). Every photo in the first 60 minutes after the Pi starts is flagged as
@@ -23,10 +23,23 @@ Between experiments only, never during one. First check:
 Then:
 
 ```bash
-sudo cp deploy/npec-rig.service /etc/systemd/system/npec-rig.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now npec-rig
+sudo deploy/install.sh
 ```
+
+It installs `npec-rig.service` and `time-wait-limit.conf`, enables them, and starts the service
+if it is not running. Run it again after either file changes. A running service is not
+restarted, so an experiment is not interrupted; the script says when a restart is needed.
+This is the only way the service file is installed: Ansible runs this script too (#62), so
+every rig runs the service file in this repo.
+
+Settings that differ per rig, such as environment variables, go in a drop-in in
+`/etc/systemd/system/npec-rig.service.d/`, which the script never changes.
+
+At boot the app waits for the clock to have the network time, for at most 120 s
+(`time-wait-limit.conf`). After a power cut the Pi's clock can be wrong until then, and the app
+uses it to tell which scheduled photos were missed while it was down. With no network the app
+starts after the 120 s on the clock it has, and `systemctl --failed` lists
+`systemd-time-wait-sync.service`.
 
 ## Check
 

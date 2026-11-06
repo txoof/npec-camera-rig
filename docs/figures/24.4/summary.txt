@@ -1,0 +1,29 @@
+squares 12 12
+rule             size |      before / calliper |       after / calliper | change
+current            10 | 0.983 (0.932 to 1.060) | 0.850 (0.803 to 0.949) | -13.5%
+current            20 | 1.025 (0.981 to 1.069) | 0.989 (0.939 to 1.026) |  -3.5%
+current            40 | 0.986 (0.979 to 0.993) | 0.966 (0.961 to 0.971) |  -2.0%
+current            55 | 1.009 (1.000 to 1.018) | 1.003 (0.997 to 1.009) |  -0.6%
+zero_not_blue      10 | 1.201 (1.182 to 1.220) | 0.961 (0.940 to 0.980) | -20.0%
+zero_not_blue      20 | 1.107 (1.085 to 1.129) | 0.990 (0.961 to 1.019) | -10.6%
+zero_not_blue      40 | 1.032 (1.028 to 1.036) | 0.974 (0.972 to 0.976) |  -5.7%
+zero_not_blue      55 | 1.038 (1.030 to 1.046) | 1.008 (1.004 to 1.012) |  -2.9%
+grow               10 | 1.259 (1.233 to 1.281) | 0.963 (0.944 to 0.981) | -23.5%
+grow               20 | 1.134 (1.111 to 1.156) | 0.990 (0.961 to 1.019) | -12.7%
+grow               40 | 1.047 (1.045 to 1.049) | 0.982 (0.972 to 0.992) |  -6.2%
+grow               55 | 1.049 (1.040 to 1.057) | 1.021 (1.004 to 1.038) |  -2.7%
+
+photo-to-photo sd (% of mean), median and max over the 12 squares
+  current        before 0.66% (max 2.23%)
+  current        after  0.63% (max 2.89%)
+  zero_not_blue  before 0.39% (max 1.03%)
+  zero_not_blue  after  0.29% (max 0.65%)
+  grow           before 0.51% (max 1.56%)
+  grow           after  0.30% (max 0.71%)
+
+colour, (B-G)/(R+G+B) percentiles 1 5 50 95 99
+  plastic  n 15662  +0.025 +0.044 +0.160 +0.317 +0.385
+  mat      n 11050  +0.067 +0.139 +0.209 +0.279 +0.318
+  square   n 20071  -0.067 -0.062 -0.052 -0.042 -0.038
+  lost leaf (24.3 regions lost in 20%+ of photos, greenness > 0 and G > R) n 3353  -0.133 -0.104 -0.052 -0.017 -0.011
+  kept leaf (all other regions)                                          n 193795 -0.169 -0.145 -0.081 -0.035 -0.020

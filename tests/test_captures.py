@@ -396,3 +396,66 @@ def test_a_replayed_still_says_so_in_its_flags_sidecar_and_jpeg(monkeypatch: pyt
     assert record["replayed_from"] == str(folder / "a.jpg")
     with Image.open(photos_root() / record["date"] / record["filename"]) as saved:
         assert saved.getexif()[0x010E].startswith("Replayed from a.jpg")  # EXIF ImageDescription
+
+
+def test_a_photo_taken_before_the_clock_has_the_network_time_says_so(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    # Test C of #62 (2026-11-02): after a power cut with no network the rig booted 11 min 35 s
+    # slow, and its photos carried those times with no mark.
+    from npec_rig import database
+
+    monkeypatch.setattr(captures, "CLOCK_SYNC_MARKER", tmp_path / "synchronized")  # not there
+
+    _array, record = take_photo("capture")
+
+    assert record["clock"]["synchronized"] is False
+    row = database.captures_by_path([record["path"]])[record["path"]]
+    assert row["clock_synced"] == 0
+
+
+def test_a_photo_taken_once_the_clock_has_the_network_time_is_not_marked(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    from npec_rig import database
+
+    marker = tmp_path / "synchronized"
+    marker.touch()
+    monkeypatch.setattr(captures, "CLOCK_SYNC_MARKER", marker)
+
+    _array, record = take_photo("capture")
+
+    assert record["clock"]["synchronized"] is True
+    assert "time may be wrong: clock not set" not in record["flags"]
+    assert database.captures_by_path([record["path"]])[record["path"]]["clock_synced"] == 1
+
+
+def test_take_photo_saves_the_jpeg_at_the_photo_quality_setting() -> None:
+    """Expected values from the JPEG standard, not from the code: the first row of the standard
+    luminance table (ITU T.81 Annex K: 16 11 10 16 24 40 51 61), scaled for quality 85 the IJG
+    way, (x * 30 + 50) // 100; and full colour read from the file's own sampling factors."""
+    from PIL import Image, JpegImagePlugin
+
+    from npec_rig.settings import set_photo_quality
+
+    set_photo_quality(85, "4:4:4")
+    _array, record = take_photo("capture")
+    del _array
+
+    with Image.open(photos_root() / record["date"] / record["filename"]) as image:
+        luminance = list(image.quantization[0])
+        sampling = JpegImagePlugin.get_sampling(image)
+    assert luminance[:8] == [5, 3, 3, 5, 7, 12, 15, 18]
+    assert sampling == 0  # 4:4:4
+
+
+def test_the_photos_database_row_records_the_quality_it_was_saved_at() -> None:
+    from npec_rig import database
+    from npec_rig.settings import set_photo_quality
+
+    set_photo_quality(90, "4:4:4")
+    _array, record = take_photo("capture")
+    del _array
+
+    row = database.captures_by_path([record["path"]])[record["path"]]
+    assert (row["jpeg_quality"], row["jpeg_chroma"]) == (90, "4:4:4")
