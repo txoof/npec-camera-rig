@@ -539,15 +539,22 @@
         sizes = null;
       }
       const fits = (key) => !sizes || sizes[key] <= sizes.usable_bytes;
+      // Rounded, as an estimate should read: "about 25 GB", "about 3.7 GB", "about 850 kB".
+      const about = (bytes) => {
+        const [unit, scale] = bytes >= 1e9 ? ["GB", 1e9] : bytes >= 1e6 ? ["MB", 1e6] : ["kB", 1e3];
+        const n = bytes / scale;
+        return `${n >= 10 ? Math.round(n) : Math.max(0.1, Math.round(n * 10) / 10)} ${unit}`;
+      };
       const tick = (id, label, note, key) => {
         const ok = fits(key);
-        const why = ok ? "" : `<br><strong>Does not fit: needs about ${size(sizes[key])}, `
-          + `${size(Math.max(0, sizes.usable_bytes))} can be used without leaving the rig too full.</strong>`;
+        const why = ok ? "" : `<br><strong>INSUFFICIENT DISK SPACE</strong>: This export requires about `
+          + `${about(sizes[key])}. ${about(Math.max(0, sizes.usable_bytes))} are available. `
+          + "Try purging old experiments first.";
         return `<label for="${id}" style="display: flex; gap: 16px; align-items: center; min-height: 64px; margin-bottom: 24px; cursor: pointer">`
           + `<input type="checkbox" id="${id}" ${ok ? "checked" : "disabled"} style="width: 32px; height: 32px; flex: none">`
           + `<span><strong>${label}</strong><br>${note}${why}</span></label>`;
       };
-      const expected = (key) => (sizes ? ` (download about ${size(sizes[key])})` : "");
+      const expected = (key) => (sizes ? ` (about ${about(sizes[key])})` : "");
       const minutes = e.interval_s ? Math.round(e.interval_s / 60) : 0;
       const taken = (e.state === "running" ? "taken so far" : "taken")
         + (minutes ? ` at ${minutes} minute intervals` : "");
@@ -555,7 +562,7 @@
         title: `Export ${displayName(e)}`,
         body: "<p>What goes in the export?</p>"
           + tick("export-data", "Data", `CSV tables and data description${expected("data_bytes")}`, "data_bytes")
-          + tick("export-photos", "Photos", `Every photo ${taken}${expected("photos_bytes")}`, "photos_bytes")
+          + tick("export-photos", "Photos", `Export every photo ${taken}${expected("photos_bytes")}.`, "photos_bytes")
           + "<p>To delete this experiment from the rig later (Purge), first export it with Photos "
           + "ticked, so a copy of every photo exists.</p>",
         ok: "Export",

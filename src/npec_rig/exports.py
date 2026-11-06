@@ -98,9 +98,9 @@ def start_export(experiment_id: int, *, data: bool = True, photos: bool = True) 
     reserve = _reserve()
     if free - needed < reserve:
         raise database.ExperimentError(
-            f"Not enough free space on the rig. This export needs about {_size(needed)}, {_size(free)}"
-            f" is free, and {_size(reserve)} must stay free for photos still to come. Export Data"
-            " only, or free space first."
+            f"Insufficient disk space: this export requires about {_size(needed)}."
+            f" {_size(max(0, free - reserve))} is available ({_size(free)} free, less {_size(reserve)}"
+            " kept for photos still to come). Try purging old experiments first."
         )
     export = database.create_export(experiment_id, now=_now(), data=data, photos=photos)
     threading.Thread(
