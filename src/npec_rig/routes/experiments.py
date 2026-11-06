@@ -144,11 +144,21 @@ def api_reprocess_progress(experiment_id: int) -> dict:
     return tray_readings.reprocess_progress(experiment_id)
 
 
+class ExportChoice(BaseModel):
+    """What goes in an export, ticked in the page's dialog (#65, #368)."""
+
+    data: bool = True
+    photos: bool = True
+
+
 @router.post("/api/experiments/{experiment_id}/export")
-def api_export_experiment(experiment_id: int) -> dict:
+def api_export_experiment(experiment_id: int, choice: ExportChoice | None = None) -> dict:
     """Start building an export, of photos up to now if the experiment is running; it is
-    prepared in the background."""
-    return _experiment_action(exports.start_export, experiment_id)
+    prepared in the background. With no choice sent, it holds everything."""
+    choice = choice or ExportChoice()
+    if not (choice.data or choice.photos):
+        raise HTTPException(422, "tick the data, the photos or both")
+    return _experiment_action(exports.start_export, experiment_id, data=choice.data, photos=choice.photos)
 
 
 @router.get("/api/exports/{export_id}/download")

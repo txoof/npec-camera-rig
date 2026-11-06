@@ -186,7 +186,8 @@
       if (!x.finished_at) return `<div class="experiment-export">Export: preparing, started ${utc(x.started_at)}</div>`;
       if (x.error) return `<div class="experiment-export">Export failed: ${esc(x.error)}</div>`;
       if (x.removed_at) return "";
-      return `<div class="experiment-export">Export ${utc(x.finished_at)}, ${x.files} files, `
+      const held = x.photos && x.data ? "" : x.photos ? " (photos only)" : " (data only)";
+      return `<div class="experiment-export">Export${held} ${utc(x.finished_at)}, ${x.files} files, `
         + `${size(x.bytes)}: <a href="/api/exports/${x.id}/download">Download</a></div>`
         + completeText(e);
     }
@@ -523,6 +524,30 @@
       }
     });
 
+    // Export asks what goes in it (#65, #368): the data, the photos or both. Large rows, so the
+    // whole row is the tap target (CLAUDE.md, Web pages). Only an export with the photos lets
+    // Purge through.
+    function exportAsk(e) {
+      const tick = (id, label, note) =>
+        `<label for="${id}" style="display: flex; gap: 16px; align-items: center; min-height: 64px; margin-bottom: 24px; cursor: pointer">`
+        + `<input type="checkbox" id="${id}" checked style="width: 32px; height: 32px; flex: none">`
+        + `<span><strong>${label}</strong><br>${note}</span></label>`;
+      const sofar = e.state === "running" ? " taken so far" : "";
+      openAsk({
+        title: `Export ${displayName(e)}`,
+        body: "<p>What goes in the export?</p>"
+          + tick("export-data", "Data", "The CSV tables, what every column means, and the records. Small.")
+          + tick("export-photos", "Photos", `Every photo${sofar}. Large. Needed before Purge.`),
+        ok: "Export",
+        action: () => {
+          const data = ask.body.querySelector("#export-data").checked;
+          const photos = ask.body.querySelector("#export-photos").checked;
+          if (!data && !photos) throw new Error("Tick Data, Photos or both.");
+          return call("POST", `/api/experiments/${e.id}/export`, { data, photos });
+        },
+      });
+    }
+
     function purgeAsk(e) {
       const exportLine = e.complete_export
         ? `<p>It has a complete export, made ${esc(utc(e.complete_export.finished_at))}.</p>`
@@ -597,7 +622,7 @@
           await runAndRefresh(() => call("POST", `/api/experiments/${e.id}/start`));
         }
       } else if (act === "export") {
-        await runAndRefresh(() => call("POST", `/api/experiments/${e.id}/export`));
+        exportAsk(e);
       } else if (act === "reprocess") {
         openAsk({
           title: `Reprocess areas of ${displayName(e)}`,

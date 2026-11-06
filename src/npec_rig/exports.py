@@ -19,13 +19,17 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 import logging
 import re
+import textwrap
 import threading
 import unicodedata
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+
+import yaml
 
 from npec_rig import database, dwell, tray_readings
 from npec_rig.calibration_store import calibration_root
@@ -36,14 +40,30 @@ logger = logging.getLogger(__name__)
 
 _CHUNK = 1 << 20
 
+# What every file and CSV column in an export means. Read at each export, so its wording can
+# change without a restart (#65).
+FIELDS_FILE = Path(__file__).with_name("export_fields.yaml")
+
+
+def _fields() -> dict:
+    return yaml.safe_load(FIELDS_FILE.read_text(encoding="utf-8"))
+
+
+def _data_package(fields: dict, held: set[str]) -> bytes:
+    """datapackage.json: the Frictionless Data Package with the resources of the CSVs held."""
+    package = dict(fields["package"])
+    package["resources"] = [r for r in package["resources"] if r["path"] in held]
+    return json.dumps(package, indent=2, ensure_ascii=False).encode() + b"\n"
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def start_export(experiment_id: int) -> dict:
-    """Record a new export and build it in the background. Returns the export row."""
-    export = database.create_export(experiment_id, now=_now())
+def start_export(experiment_id: int, *, data: bool = True, photos: bool = True) -> dict:
+    """Record a new export of the data, the photos or both, and build it in the background.
+    Returns the export row."""
+    export = database.create_export(experiment_id, now=_now(), data=data, photos=photos)
     threading.Thread(
         target=_build, args=(export["id"], experiment_id), name=f"export-{export['id']}", daemon=True
     ).start()
@@ -88,7 +108,8 @@ def _write_zip(export_id: int, experiment_id: int) -> None:
     experiment = database.get_experiment(experiment_id)
     folder = experiments_root() / experiment["folder"]
     # Photos up to the export's start: a running experiment keeps taking them meanwhile.
-    until = database.get_export(export_id)["started_at"]
+    export = database.get_export(export_id)
+    until = export["started_at"]
     captures = database.captures_for_experiment(experiment_id, until=until)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     slug = slugify(experiment["name"])
@@ -100,20 +121,24 @@ def _write_zip(export_id: int, experiment_id: int) -> None:
 
     with zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zf:
         z = _Zip(zf)
-        z.add_file(f"{name}/experiment.json", folder / "experiment.json")
-        photos = 0
-        for row in captures:
-            rel = _stills_relative(row["path"], experiment["folder"])
-            for suffix in (".jpg", ".json"):
-                source = folder / "stills" / f"{rel}{suffix}"
-                if source.exists():
-                    z.add_file(f"{name}/stills/{rel}{suffix}", source)
-            photos += 1
-        z.add_bytes(f"{name}/captures.csv", _captures_csv(captures, experiment["folder"]))
-        z.add_bytes(f"{name}/time-in-table-location.csv", _time_in_table_location_csv(experiment_id, until))
-        z.add_bytes(f"{name}/tray-readings.csv", _tray_readings_csv(captures, experiment["folder"]))
-        missing = _add_records(z, name, captures)
-        z.add_bytes(f"{name}/README.txt", _readme(experiment, photos, missing, until).encode())
+        missing: list[str] = []
+        if export["photos"]:
+            for row in captures:
+                rel = _stills_relative(row["path"], experiment["folder"])
+                for suffix in (".jpg", ".json"):
+                    source = folder / "stills" / f"{rel}{suffix}"
+                    if source.exists():
+                        z.add_file(f"{name}/stills/{rel}{suffix}", source)
+        if export["data"]:
+            z.add_file(f"{name}/experiment.json", folder / "experiment.json")
+            z.add_bytes(f"{name}/captures.csv", _captures_csv(captures, experiment["folder"]))
+            z.add_bytes(f"{name}/time-in-table-location.csv", _time_in_table_location_csv(experiment_id, until))
+            z.add_bytes(f"{name}/tray-readings.csv", _tray_readings_csv(captures, experiment["folder"]))
+            missing = _add_records(z, name, captures)
+            held = {path.removeprefix(name + "/") for _digest, path in z.sums}
+            z.add_bytes(f"{name}/datapackage.json", _data_package(_fields(), held))
+        held = {path.removeprefix(name + "/") for _digest, path in z.sums}
+        z.add_bytes(f"{name}/README.txt", _readme(experiment, len(captures), missing, until, held).encode())
         manifest = "".join(f"{digest}  {path.removeprefix(name + '/')}\n" for digest, path in z.sums)
         zf.writestr(f"{name}/MANIFEST.sha256", manifest, compress_type=zipfile.ZIP_DEFLATED)
 
@@ -219,7 +244,9 @@ def _add_records(z: _Zip, name: str, captures: list[dict]) -> list[str]:
     return missing
 
 
-def _readme(experiment: dict, photos: int, missing: list[str], until: str) -> str:
+def _readme(experiment: dict, photos: int, missing: list[str], until: str, held: set[str]) -> str:
+    """The README: the experiment, then what each file holds and what each CSV column means, from
+    `export_fields.yaml`, for the files `held` only."""
     title = experiment["name"] or f"Experiment started {experiment['periods'][0]['started_at']}"
     periods = "\n".join(
         f"  {p['started_at']} to {p['ended_at'] or 'still running'}" for p in experiment["periods"]
@@ -238,32 +265,25 @@ def _readme(experiment: dict, photos: int, missing: list[str], until: str) -> st
         "Running periods (UTC):",
         periods,
         "",
-        "All times are UTC. The chamber's local time is UTC+2.",
-        "",
-        "What is in this folder",
-        "  stills/              every photo (.jpg) and its record (.json), by UTC day",
-        "  captures.csv         one line per photo: time, purpose, calibration, validation, lens,",
-        "                       focus lock, exposure, gain, flags. Open it in Excel",
-        "  time-in-table-location.csv",
-        "                       one line per tray: its hours in each table location. The table is",
-        "                       cut in 6 locations, NW NM NE in the north row, SW SM SE in the south",
-        "                       row (north is the top of the photo). A tray counts as moved only",
-        "                       after 1 hour in another location. Open it in Excel",
-        "  tray-readings.csv    one line per tray in each photo: its plant area in mm2, and the",
-        "                       scale error at tray top, the validation band of the slot nearest",
-        "                       the tray (95 in 100 flat objects read within it), or why there is",
-        "                       none. Plant height adds about 0.15% per mm above the tray top, and",
-        "                       the band does not cover how well the plant is found. Open it in Excel",
-        "  experiment.json      the experiment's name, researcher, tray height, notes and periods",
-        "  records/             the calibration and validation records the photos were taken under,",
-        "                       so every number can be traced",
-        "  MANIFEST.sha256      a fingerprint (SHA-256) of every file. To check the copy is",
-        "                       complete and unchanged, run in this folder: sha256sum -c MANIFEST.sha256",
-        "",
-        "A photo with flags in captures.csv is not covered by the validation's uncertainty bands;",
-        "the flag says why.",
     ]
+    fields = _fields()
+    lines += _wrapped(fields["package"]["description"], "")
+    resources = [r for r in fields["package"]["resources"] if r["path"] in held]
+    lines += ["", "What is in this folder", ""]
+    for entry in resources + fields["other_files"]:
+        path = entry["path"]
+        if path in held or any(h.startswith(path) for h in held if path.endswith("/")) or path == "MANIFEST.sha256":
+            lines += [f"  {path}"] + _wrapped(entry["description"], "      ")
+    for resource in resources:
+        lines += ["", f"What each column of {resource['path']} means", ""]
+        for field in resource["schema"]["fields"]:
+            lines += _wrapped(f"{field['name']}: {field['description']}", "  ", "      ")
     if missing:
         lines += ["", "Records that were not found on the rig when exporting:"]
         lines += [f"  {m}" for m in missing]
     return "\n".join(lines) + "\n"
+
+
+def _wrapped(text: str, indent: str, later: str | None = None) -> list[str]:
+    return textwrap.wrap(" ".join(text.split()), width=96, initial_indent=indent,
+                         subsequent_indent=indent if later is None else later)

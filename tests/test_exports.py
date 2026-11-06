@@ -284,3 +284,99 @@ def test_the_export_holds_each_trays_plant_area_with_its_slots_validation_band()
         f"stills/{second.split('/stills/')[-1]}.jpg"]
     assert "tray-readings.csv" in readme
     assert "  tray-readings.csv\n" in manifest
+
+
+def _client():
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    return TestClient(app)
+
+
+def _finished(export_id: int) -> dict:
+    for _ in range(100):
+        export = database.get_export(export_id)
+        if export["finished_at"]:
+            return export
+        time.sleep(0.05)
+    raise AssertionError("the export did not finish")
+
+
+def test_an_export_with_nothing_ticked_is_refused() -> None:
+    """#65, #368 item 2: the user ticks what goes in the export; with no box ticked there is
+    nothing to export, and no export is recorded."""
+    experiment = _stopped_experiment_with_photos(1)
+    refused = _client().post(f"/api/experiments/{experiment['id']}/export", json={"data": False, "photos": False})
+    assert refused.status_code == 422
+    assert database.exports_for(experiment["id"]) == []
+
+
+def _exported_names(experiment_id: int, choice: dict) -> set[str]:
+    """The files in the export made through the page's route, without the top folder."""
+    client = _client()
+    started = client.post(f"/api/experiments/{experiment_id}/export", json=choice)
+    assert started.status_code == 200
+    export = _finished(started.json()["id"])
+    assert export["error"] is None
+    with zipfile.ZipFile(io.BytesIO(client.get(f"/api/exports/{export['id']}/download").content)) as zf:
+        return {n.split("/", 1)[1] for n in zf.namelist()}
+
+
+def test_a_data_only_export_holds_the_data_and_no_photos() -> None:
+    """#368 item 2: the data is experiment.json, the CSVs, the records, README and manifest."""
+    experiment = _stopped_experiment_with_photos(2)
+    names = _exported_names(experiment["id"], {"data": True, "photos": False})
+    assert not [n for n in names if n.startswith("stills/")]
+    assert {"experiment.json", "captures.csv", "time-in-table-location.csv", "tray-readings.csv",
+            "README.txt", "MANIFEST.sha256"} <= names
+
+
+def test_a_photos_only_export_holds_the_photos_and_no_data() -> None:
+    experiment = _stopped_experiment_with_photos(2)
+    names = _exported_names(experiment["id"], {"data": False, "photos": True})
+    assert len([n for n in names if n.startswith("stills/") and n.endswith(".jpg")]) == 2
+    assert not [n for n in names if n.endswith(".csv") or n == "experiment.json"]
+    assert {"README.txt", "MANIFEST.sha256"} <= names
+
+
+def _exported_zip(experiment_id: int, choice: dict) -> dict[str, bytes]:
+    """Every file in the export made through the page's route, by its name without the top folder."""
+    client = _client()
+    started = client.post(f"/api/experiments/{experiment_id}/export", json=choice)
+    export = _finished(started.json()["id"])
+    with zipfile.ZipFile(io.BytesIO(client.get(f"/api/exports/{export['id']}/download").content)) as zf:
+        return {n.split("/", 1)[1]: zf.read(n) for n in zf.namelist()}
+
+
+def test_every_csv_column_is_described_in_the_data_package() -> None:
+    """#65: a Frictionless Data Package (datapackage.json) names each CSV with its columns in
+    order, each with a type and a description, so the data needs no other document."""
+    import json
+
+    experiment = _stopped_experiment_with_photos(1)
+    files = _exported_zip(experiment["id"], {"data": True, "photos": False})
+    package = json.loads(files["datapackage.json"])
+    resources = {r["path"]: r for r in package["resources"]}
+    csvs = sorted(n for n in files if n.endswith(".csv"))
+    assert csvs == ["captures.csv", "time-in-table-location.csv", "tray-readings.csv"]
+    for name in csvs:
+        header = next(csv.reader(io.StringIO(files[name].decode())))
+        fields = resources[name]["schema"]["fields"]
+        assert [f["name"] for f in fields] == header, name
+        assert all(f["type"] and f["description"].strip() for f in fields), name
+        assert resources[name]["description"].strip()
+
+
+def test_the_readme_explains_every_column_from_the_data_package() -> None:
+    """#65: the README alone explains the data. Each CSV, each of its columns and the column's
+    description from datapackage.json are in it (whitespace aside: the README wraps lines)."""
+    import json
+
+    experiment = _stopped_experiment_with_photos(1)
+    files = _exported_zip(experiment["id"], {"data": True, "photos": False})
+    readme = " ".join(files["README.txt"].decode().split())
+    for resource in json.loads(files["datapackage.json"])["resources"]:
+        assert resource["path"] in readme
+        for field in resource["schema"]["fields"]:
+            assert f"{field['name']}: {' '.join(field['description'].split())}" in readme, field["name"]

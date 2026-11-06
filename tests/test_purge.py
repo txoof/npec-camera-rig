@@ -1,3 +1,4 @@
+import time
 import pytest
 
 from npec_rig import captures, database, exclusions, exports
@@ -156,3 +157,22 @@ def test_purge_deletes_the_photos_exclusions() -> None:
 
     assert purged["state"] == "purged"
     assert [database.exclusion(p["id"]) for p in photos] == [None, None]
+
+
+def test_a_data_only_export_is_not_complete() -> None:
+    """#368 item 2: only an export holding every photo lets Purge through, or photos that were
+    never exported could be deleted."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    experiment = _stopped()
+    client = TestClient(app)
+    started = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False})
+    for _ in range(100):
+        if database.get_export(started.json()["id"])["finished_at"]:
+            break
+        time.sleep(0.05)
+    refused = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
+    assert refused.status_code == 409
+    assert "no complete export" in refused.json()["detail"]
