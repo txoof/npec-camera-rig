@@ -721,3 +721,31 @@ def test_a_photo_whose_validation_file_is_gone_still_shows_its_trays_and_says_wh
     assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
         {"band_pct": None, "slot": None, "reason": "validation not found"},
     ]
+
+
+def test_a_photo_flagged_as_not_covered_by_the_bands_claims_no_band_under_a_good_validation() -> None:
+    """A flag is a reason the photo is not covered by the validation bands (captures.take_photo),
+    for example a lens that moved from its lock, while the validation is still named."""
+    from datetime import datetime, timezone
+
+    table_calibration()
+    banded_validation(SESSION, TWO_SLOTS)
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW"}, validation=SESSION,
+                       flags=["lens moved from its lock"])
+
+    assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
+        {"band_pct": None, "slot": None, "reason": "photo not covered"},
+    ]
+
+
+def test_a_damaged_validation_with_no_slots_never_hides_the_areas() -> None:
+    from datetime import datetime, timezone
+
+    table_calibration()
+    session = banded_validation(SESSION, TWO_SLOTS)
+    validation_store.save_session({**session, "slots": []})
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW"}, validation=SESSION)
+
+    assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
+        {"band_pct": None, "slot": None, "reason": "validation not found"},
+    ]

@@ -250,7 +250,7 @@ def test_captures_csv_says_which_photos_were_taken_before_the_clock_had_the_netw
 def test_the_export_holds_each_trays_plant_area_with_its_slots_validation_band() -> None:
     """#76: tray 3 lies in NW, nearest North 1 (±2.0 %); tray 7 in SE, nearest South 6, whose 9
     tags are too few to measure (tests/helpers.banded_validation). The second photo has no
-    validation. Areas as stored."""
+    validation; the third is flagged as not covered by the bands. Areas as stored."""
     from datetime import UTC, datetime
 
     from tests.helpers import banded_validation, table_calibration, table_photo
@@ -261,6 +261,8 @@ def test_the_export_holds_each_trays_plant_area_with_its_slots_validation_band()
     first = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), {3: "NW", 7: "SE"},
                         validation="20261001T000000000000", areas={3: 1234.5, 7: 980.0})
     second = table_photo(experiment["id"], datetime(2026, 10, 2, 0, 1, tzinfo=UTC), {3: "NW"}, areas={3: 1240.0})
+    table_photo(experiment["id"], datetime(2026, 10, 2, 0, 2, tzinfo=UTC), {3: "NW"}, areas={3: 1250.0},
+                validation="20261001T000000000000", flags=["lens moved from its lock"])
     captures.stop_experiment(experiment["id"])
     export = database.create_export(experiment["id"], now=exports._now())
     exports._build(export["id"], experiment["id"])
@@ -276,8 +278,9 @@ def test_the_export_holds_each_trays_plant_area_with_its_slots_validation_band()
         ("2026-10-02T00:00:00+00:00", "3", "NW", "1234.5", "2.0", "North 1", ""),
         ("2026-10-02T00:00:00+00:00", "7", "SE", "980.0", "", "South 6", "slot not measured"),
         ("2026-10-02T00:01:00+00:00", "3", "NW", "1240.0", "", "", "not validated"),
+        ("2026-10-02T00:02:00+00:00", "3", "NW", "1250.0", "", "", "photo not covered"),
     ]
-    assert [r["file"] for r in rows] == [f"stills/{first.split('/stills/')[-1]}.jpg"] * 2 + [
+    assert [r["file"] for r in rows][:3] == [f"stills/{first.split('/stills/')[-1]}.jpg"] * 2 + [
         f"stills/{second.split('/stills/')[-1]}.jpg"]
     assert "tray-readings.csv" in readme
     assert "  tray-readings.csv\n" in manifest

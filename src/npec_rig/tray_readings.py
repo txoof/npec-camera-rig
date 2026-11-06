@@ -10,6 +10,7 @@ local scale (#75). A tray not found is never stored: `database.tray_readings` wo
 the experiment's earlier photos when the readings are shown.
 """
 
+import json
 import logging
 import math
 import sqlite3
@@ -35,6 +36,7 @@ from npec_rig.tray_placement import (
     TrayPlacement,
     find_outlines,
     name_trays,
+    nearest_slot,
     tray_outline_at,
 )
 
@@ -340,34 +342,66 @@ def capture_readings(capture: dict) -> dict | None:
     return readings
 
 
+# Each validation file read once while unchanged, by its id and modification time: the Gallery and
+# an export ask for the same validation for every photo taken under it.
+_validations: dict[tuple[str, int], tuple[str, list[dict], dict] | str] = {}
+_validations_lock = threading.Lock()
+
+
+def _validation(session_id: str) -> tuple[str, list[dict], dict] | str:
+    """Validation `session_id`'s state, its slots and their bands by name, or the reason no band
+    can come from it."""
+    try:
+        mtime = validation_store.validations_root().joinpath(f"{session_id}.json").stat().st_mtime_ns
+    except OSError:
+        mtime = 0
+    with _validations_lock:
+        if (session_id, mtime) in _validations:
+            return _validations[(session_id, mtime)]
+    try:
+        session = validation_store.load_session(session_id)
+        state = validation_store.status(session)["state"]
+        slots = [{"name": s["name"], "centre": s["centre"]} for s in session["slots"]]
+        bands = {r["name"]: r["p95_abs_pct"] for r in session["results"]}
+        result = (state, slots, bands) if slots else "validation not found"
+    except validation_store.SessionNotFoundError:
+        result = "validation not found"
+    except Exception:  # noqa: BLE001 -- a damaged session file never hides the areas
+        logger.exception("Could not read validation %s", session_id)
+        result = "validation not found"
+    with _validations_lock:
+        _validations[(session_id, mtime)] = result
+    return result
+
+
 def _validation_bands(capture: dict):
     """A function giving the uncertainty of a tray centred at a point of photo `capture`: the band
     of the slot of the photo's validation whose centre is nearest (Aaron, 2026-11-05, #76), "within
     ±band_pct %" for flat objects at tray-top height, 95 times in 100. No band is claimed, and
-    the reason says why, when the photo has no validation, its validation is gone or not consistent,
-    or the slot had too few tags to be measured."""
+    the reason says why, when the photo has no validation, its validation is gone, damaged or not
+    consistent, when the photo is flagged as not covered, or when the slot had too few tags."""
     def none(reason: str):
         return lambda centre_px: {"band_pct": None, "slot": None, "reason": reason}
 
     if not capture.get("validation"):
         return none("not validated")
-    try:
-        session = validation_store.load_session(capture["validation"])
-        state = validation_store.status(session)["state"]
-        slots = [(s["name"], s["centre"]) for s in session["slots"]]
-        bands = {r["name"]: r["p95_abs_pct"] for r in session["results"]}
-    except validation_store.SessionNotFoundError:
-        return none("validation not found")
-    except (KeyError, TypeError, ValueError):
-        # A damaged session file never hides the areas.
-        logger.exception("Could not read validation %s", capture["validation"])
-        return none("validation not found")
+    validation = _validation(capture["validation"])
+    if isinstance(validation, str):
+        return none(validation)
+    state, slots, bands = validation
     if state != "validated":
         return none("validation not consistent" if state == "not_consistent" else "not validated")
+    # After the validation's own state, the more exact reason. Each flag is a reason the photo is
+    # not covered by the bands (captures.take_photo), such as a lens moved from its lock; some
+    # callers pass the column as stored, as JSON text.
+    flags = capture.get("flags") or []
+    if isinstance(flags, str):
+        flags = json.loads(flags)
+    if flags:
+        return none("photo not covered")
 
     def band(centre_px) -> dict:
-        x, y = centre_px
-        slot = min(slots, key=lambda s: math.hypot(s[1][0] - x, s[1][1] - y))[0]
+        slot, _distance = nearest_slot(*centre_px, slots)
         band_pct = bands.get(slot)
         return {"band_pct": band_pct, "slot": slot, "reason": None if band_pct is not None else "slot not measured"}
 

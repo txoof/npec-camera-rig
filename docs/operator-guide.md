@@ -110,8 +110,9 @@ under **Scale error at tray top (±%)** and in the export's `tray-readings.csv` 
   slot nearest its centre. The same tray photographed later on South 5 gets South 5's.
 - **Sometimes there is no number.** The cell then says why: **not validated** (no complete
   validation when the photo was taken), **validation not consistent**, **validation not found**
-  (its record was deleted), or **slot not measured** (too few tags on that slot). The area is
-  still shown.
+  (its record was deleted or damaged), **photo not covered** (the photo is flagged, for example
+  because the lens moved from its lock; Info says why), or **slot not measured** (too few tags on
+  that slot). The area is still shown.
 - **It is a 95% range, not a standard deviation.** 95% of the reference targets measured at that
   position read within 2.1% of their true area. If you need a standard deviation, it is roughly
   half the number, if the errors are normally distributed.

@@ -257,11 +257,12 @@ def table_calibration() -> None:
 def table_photo(
     experiment_id: int | None, taken, trays: dict[int, str], *, validation: str | None = None,
     centres: dict[int, tuple[float, float]] | None = None, areas: dict[int, float] | None = None,
+    flags: list[str] | None = None,
 ) -> str:
     """A 900 x 600 photo taken at `taken` (a datetime) under TABLE_STEM, read with each tray of
     `trays` (tray ID: location) found at that location's centre, or at `centres[tray ID]` when
     given, with plant area `areas[tray ID]` mm2 by the green threshold when given; taken under
-    validation session `validation`. Its path."""
+    validation session `validation`, flagged with `flags`. Its path."""
     from PIL import Image
 
     from npec_rig import captures, database
@@ -273,7 +274,7 @@ def table_photo(
     capture_id = database.record_capture(
         taken_at=taken.isoformat(), path=f"rig/{day}/{stem}", purpose="capture", experiment_id=experiment_id,
         calibration=TABLE_STEM, validation=validation, lens_position=None, focus_locked_at=None, exposure_us=None,
-        analogue_gain=None, flags=[],
+        analogue_gain=None, flags=flags or [],
     )
     database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[
         {"tray_id": tray_id, "slot": None, "a1_corner": None, "placement": "placed",
