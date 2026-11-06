@@ -1,4 +1,3 @@
-import time
 import pytest
 
 from npec_rig import captures, database, exclusions, exports
@@ -23,8 +22,15 @@ def _stopped(name: str | None = "Drought", photos: int = 1) -> dict:
 
 
 def _exported(experiment: dict) -> dict:
-    export = database.create_export(experiment["id"], now=exports._now())
-    exports._build(export["id"], experiment["id"])
+    """Exported through the page's route, every part downloaded in full."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    export = client.post(f"/api/experiments/{experiment['id']}/export").json()
+    for part in export["parts"]:
+        assert client.get(f"/api/exports/{export['id']}/parts/{part['n']}").status_code == 200
     return database.get_export(export["id"])
 
 
@@ -122,7 +128,7 @@ def test_purge_through_the_route() -> None:
     assert wrong.status_code == 409
     done = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
     assert done.json()["state"] == "purged"
-    assert client.get(f"/api/exports/{export['id']}/download").status_code == 410
+    assert client.get(f"/api/exports/{export['id']}/parts/1").status_code == 409
 
 
 def test_purge_deletes_the_experiments_plant_masks_and_keeps_rig_photos_masks() -> None:
@@ -162,7 +168,6 @@ def test_purge_deletes_the_photos_exclusions() -> None:
 def test_a_data_only_export_is_not_complete(monkeypatch: pytest.MonkeyPatch) -> None:
     """#368 item 2: only an export holding every photo lets Purge through, or photos that were
     never exported could be deleted."""
-    monkeypatch.setattr(exports, "MIN_FREE_BYTES", 0)  # not the test machine's free space
     from fastapi.testclient import TestClient
 
     from npec_rig.app import app
@@ -170,10 +175,7 @@ def test_a_data_only_export_is_not_complete(monkeypatch: pytest.MonkeyPatch) -> 
     experiment = _stopped()
     client = TestClient(app)
     started = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False})
-    for _ in range(100):
-        if database.get_export(started.json()["id"])["finished_at"]:
-            break
-        time.sleep(0.05)
+    assert client.get(f"/api/exports/{started.json()['id']}/parts/0").status_code == 200
     refused = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
     assert refused.status_code == 409
     assert "no complete export" in refused.json()["detail"]

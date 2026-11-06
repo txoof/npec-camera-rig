@@ -1,17 +1,19 @@
-"""Export an experiment as one zip: its photos and sidecars, experiment.json, a CSV of its photos,
-copies of the calibration and validation records they used, a README and a checksum manifest
-(#119, first version agreed with Aaron 2026-10-09). A running experiment can be exported too: the
-zip holds its photos up to the moment the export started, and the README says it is partial.
+"""Export an experiment in parts: its photos and their records, experiment.json, the CSVs,
+copies of the calibration and validation records the photos used, a README and a checksum list
+per part (#119, #65; parts zipped while they download, #368, Aaron 2026-11-06). A running
+experiment can be exported too: the export holds its photos up to the moment it was made, and the
+README says it is partial.
 
 **Every table with rows for an experiment is added to its export when that table is built**
-(Aaron, 2026-10-09; PLAN.md, *CSV export*): the tray positions (`detection`, M4) and the areas
-(`measurement`, M5) each become a CSV here, next to captures.csv.
+(Aaron, 2026-10-09; PLAN.md, *CSV export*).
 
-The zip is built in a background thread and kept in the experiment's own `exports/` folder, so it
-uses twice the disk space of the photos: fine for short test experiments. Downloads in parts are
-#121. Every file's SHA-256 is computed while it is written into the zip, and the list goes in
-MANIFEST.sha256, which `sha256sum -c MANIFEST.sha256` checks after unzipping. The manifest's own
-checksum is stored in the database, for the purge task to check against.
+Nothing is stored on the rig. Export records what was ticked and the time the photos stop at;
+each part is zipped while it downloads, straight from the photos, so the rig needs no free space
+for it and a half-full card can still be downloaded. Part 0 holds the README and, with Data
+ticked, the data; parts 1 and on hold the photos, at most PART_BYTES each, a photo always with its
+record. Every part unzips into the same folder and holds its own checksum list,
+MANIFEST-partNN.sha256 (`sha256sum -c` in that folder). A part sent in full is recorded, and an
+export with the photos is complete for Purge once every photo part was sent in full.
 """
 
 from __future__ import annotations
@@ -20,13 +22,11 @@ import csv
 import hashlib
 import io
 import json
-import logging
 import re
-import shutil
 import textwrap
-import threading
 import unicodedata
 import zipfile
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -37,9 +37,12 @@ from npec_rig.calibration_store import calibration_root
 from npec_rig.captures import experiments_root
 from npec_rig.validation_store import validations_root
 
-logger = logging.getLogger(__name__)
 
 _CHUNK = 1 << 20
+
+# The most photo bytes in one part (Aaron, 2026-11-06): a decision. A failed download costs at
+# most this much again.
+PART_BYTES = 10**9
 
 # What every file and CSV column in an export means. Read at each export, so its wording can
 # change without a restart (#65).
@@ -61,52 +64,179 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-# Free space an export must leave on the disk (#65, Aaron, 2026-11-06): the running experiment's
-# next COVER_DAYS of photos, at its interval and its photos' average size, and never less than
-# MIN_FREE_BYTES. Both are decisions, not measurements: 2 days covers a weekend morning before
-# someone notices; 10 GB until the disk monitoring of M3 sets one.
-COVER_DAYS = 2
-MIN_FREE_BYTES = 10 * 10**9
-
-
-def _reserve() -> int:
-    """Bytes to keep free for the running experiment's photos."""
-    running = database.running_experiment()
-    if not running or not running.get("interval_s"):
-        return MIN_FREE_BYTES
-    sizes = expected_sizes(running["id"])
-    per_photo = sizes["photos_bytes"] / sizes["photos"] if sizes["photos"] else 0
-    per_day = 86_400 / running["interval_s"] * per_photo
-    return max(MIN_FREE_BYTES, int(COVER_DAYS * per_day))
-
-
-def _size(n: float) -> str:
-    """As the Experiments page shows sizes: kB, MB to 0.1, GB to 0.01."""
-    if n < 1e6:
-        return f"{max(1, round(n / 1e3))} kB"
-    if n < 1e9:
-        return f"{n / 1e6:.1f} MB"
-    return f"{n / 1e9:.2f} GB"
-
-
 def start_export(experiment_id: int, *, data: bool = True, photos: bool = True) -> dict:
-    """Record a new export of the data, the photos or both, and build it in the background.
-    Returns the export row. Refused when it would leave less free space than `_reserve`."""
-    sizes = expected_sizes(experiment_id)
-    needed = (sizes["data_bytes"] if data else 0) + (sizes["photos_bytes"] if photos else 0)
-    free = shutil.disk_usage(experiments_root()).free
-    reserve = _reserve()
-    if free - needed < reserve:
-        raise database.ExperimentError(
-            f"Insufficient disk space: this export requires about {_size(needed)}."
-            f" {_size(max(0, free - reserve))} is available ({_size(free)} free, less {_size(reserve)}"
-            " kept for photos still to come). Try purging old experiments first."
-        )
+    """Record a new export of the data, the photos or both, of the photos taken up to now. Ready
+    at once: its parts are zipped as they download. Returns the export with its parts."""
     export = database.create_export(experiment_id, now=_now(), data=data, photos=photos)
-    threading.Thread(
-        target=_build, args=(export["id"], experiment_id), name=f"export-{export['id']}", daemon=True
-    ).start()
-    return export
+    photo_parts = len(_photo_parts(export)) if photos else 0
+    database.ready_export(export["id"], now=_now(), photo_parts=photo_parts)
+    return export_with_parts(export["id"])
+
+
+def export_with_parts(export_id: int) -> dict:
+    """The export row and its parts: n, photos, and bytes (the exact size of a photo part's zip;
+    for part 0, the expected size of the data), and whether each was sent in full."""
+    export = database.get_export(export_id)
+    sent = database.parts_sent(export_id)
+    parts = [{"n": 0, "photos": 0, "bytes": _expected_data_bytes(export) if export["data"] else 2_000}]
+    if export["photos"]:
+        top = _top(export)
+        for i, files in enumerate(_photo_parts(export), start=1):
+            parts.append({"n": i, "photos": len({name.rsplit(".", 1)[0] for name, _p, _s in files}),
+                          "bytes": _zip_length(top, i, files)})
+    for part in parts:
+        part["sent"] = part["n"] in sent
+    return {**export, "parts": parts}
+
+
+def _top(export: dict) -> str:
+    """The folder every part unzips into: the experiment's name and folder and the export's time."""
+    experiment = database.get_experiment(export["experiment_id"])
+    slug = slugify(experiment["name"])
+    stamp = datetime.fromisoformat(export["started_at"]).strftime("%Y%m%dT%H%M%S")
+    return f"{slug + '_' if slug else ''}{experiment['folder']}_export_{stamp}"
+
+
+def _photo_parts(export: dict) -> list[list[tuple[str, Path, int]]]:
+    """The photos up to the export's time, oldest first, with their records, in parts of at most
+    PART_BYTES (a photo larger than that alone): (name in the zip, file, size)."""
+    experiment = database.get_experiment(export["experiment_id"])
+    folder = experiments_root() / experiment["folder"]
+    parts: list[list] = [[]]
+    size = 0
+    for row in database.captures_for_experiment(experiment["id"], until=export["started_at"]):
+        rel = _stills_relative(row["path"], experiment["folder"])
+        pair = []
+        for suffix in (".jpg", ".json"):
+            source = folder / "stills" / f"{rel}{suffix}"
+            if source.exists():
+                pair.append((f"stills/{rel}{suffix}", source, source.stat().st_size))
+        pair_size = sum(entry[2] for entry in pair)
+        if parts[-1] and size + pair_size > PART_BYTES:
+            parts.append([])
+            size = 0
+        parts[-1].extend(pair)
+        size += pair_size
+    return [part for part in parts if part]
+
+
+class _Pipe:
+    """A write-only stream the zip writes into: the download takes what was written so far. With
+    `keep` False it only counts, for the zip's exact length."""
+
+    def __init__(self, keep: bool = True) -> None:
+        self.chunks: list[bytes] = []
+        self.position = 0
+        self.keep = keep
+
+    def write(self, data: bytes) -> int:
+        if self.keep:
+            self.chunks.append(bytes(data))
+        self.position += len(data)
+        return len(data)
+
+    def tell(self) -> int:
+        return self.position
+
+    def flush(self) -> None:
+        pass
+
+    def take(self) -> bytes:
+        out = b"".join(self.chunks)
+        self.chunks.clear()
+        return out
+
+
+def _photo_zip(top: str, n: int, files: list[tuple[str, Path, int]], pipe: _Pipe | None = None) -> Iterator[bytes]:
+    """A photo part's zip, as it is written: photos stored as they are (already compressed), each
+    file's SHA-256 worked out while it is sent, and the part's checksum list last. With a
+    counting `pipe`, the files are left empty: only the zip's own bytes are counted."""
+    count_only = pipe is not None
+    pipe = pipe or _Pipe()
+    sums = []
+    with zipfile.ZipFile(pipe, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zf:
+        for name, source, size in files:
+            digest = hashlib.sha256()
+            with zf.open(f"{top}/{name}", "w", force_zip64=True) as dst:
+                if not count_only:
+                    with source.open("rb") as src:
+                        while chunk := src.read(_CHUNK):
+                            digest.update(chunk)
+                            dst.write(chunk)
+                            if len(pipe.chunks) > 4:
+                                yield pipe.take()
+            sums.append(f"{digest.hexdigest()}  {name}\n")
+            yield pipe.take()
+        zf.writestr(f"{top}/MANIFEST-part{n:02d}.sha256", "".join(sums))
+    yield pipe.take()
+
+
+def _zip_length(top: str, n: int, files: list[tuple[str, Path, int]]) -> int:
+    """The part's exact length, sent ahead so the browser shows progress: the zip's own bytes,
+    counted with the files left empty, plus the files. The zip's bytes do not depend on the files'
+    sizes while the part stays under 4 GiB (no zip64 sizes or offsets in its directory), which
+    PART_BYTES keeps it well under."""
+    pipe = _Pipe(keep=False)
+    for _ in _photo_zip(top, n, files, pipe):
+        pass
+    return pipe.position + sum(size for _name, _path, size in files)
+
+
+def part_download(export_id: int, n: int) -> tuple[str, int, Iterator[bytes]]:
+    """A part's file name, exact length and contents as they are made. Recorded as sent once its
+    last byte has been handed on."""
+    export = database.get_export(export_id)
+    if database.get_experiment(export["experiment_id"])["state"] == "purged":
+        raise database.ExperimentError("this experiment was purged: its photos are gone")
+    top = _top(export)
+    if n == 0:
+        body = _part_zero(export, top)
+        chunks: Iterator[bytes] = iter([body])
+        length = len(body)
+    else:
+        parts = _photo_parts(export) if export["photos"] else []
+        if not 1 <= n <= len(parts):
+            raise LookupError(f"export {export_id} has no part {n}")
+        files = parts[n - 1]
+        length = _zip_length(top, n, files)
+        chunks = _photo_zip(top, n, files)
+
+    def body_then_record() -> Iterator[bytes]:
+        yield from chunks
+        database.record_part_sent(export_id, n, now=_now())
+
+    return f"{top}_part{n:02d}.zip", length, body_then_record()
+
+
+def _part_zero(export: dict, top: str) -> bytes:
+    """Part 0, made whole before it is sent: the README and, with Data ticked, the data."""
+    experiment = database.get_experiment(export["experiment_id"])
+    folder = experiments_root() / experiment["folder"]
+    until = export["started_at"]
+    captures = database.captures_for_experiment(experiment["id"], until=until)
+    entries: list[tuple[str, bytes]] = []
+    missing: list[str] = []
+    if export["data"]:
+        entries.append(("experiment.json", (folder / "experiment.json").read_bytes()))
+        entries.append(("captures.csv", _captures_csv(captures, experiment["folder"])))
+        entries.append(("time-in-table-location.csv", _time_in_table_location_csv(experiment["id"], until)))
+        # Each photo's readings worked out once, for both files (review of #374).
+        read = [(row, tray_readings.capture_readings(row)) for row in captures]
+        entries.append(("tray-readings.csv", _tray_readings_csv(read, experiment["folder"])))
+        entries.append(("cell-readings.csv", _cell_readings_csv(read, experiment["folder"])))
+        records, missing = _records(captures)
+        entries += records
+        entries.append(("datapackage.json", _data_package(_fields(), {name for name, _ in entries})))
+    held = {name for name, _ in entries} | ({"stills/"} if export["photos"] else set())
+    parts = 1 + (export["photo_parts"] or 0)
+    entries.append(("README.txt", _readme(experiment, len(captures), missing, until, held, parts).encode()))
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for name, data in entries:
+            zf.writestr(f"{top}/{name}", data)
+        sums = "".join(f"{hashlib.sha256(data).hexdigest()}  {name}\n" for name, data in entries)
+        zf.writestr(f"{top}/MANIFEST-part00.sha256", sums)
+    return buffer.getvalue()
 
 
 # Bytes per CSV line in the download (the zip compresses the CSVs), and for the README,
@@ -131,109 +261,28 @@ def expected_sizes(experiment_id: int) -> dict:
             source = folder / "stills" / f"{rel}{suffix}"
             if source.exists():
                 photos_bytes += source.stat().st_size
+    return {"photos": len(captures), "photos_bytes": photos_bytes, "data_bytes": _data_bytes(experiment_id, captures)}
+
+
+def _data_bytes(experiment_id: int, captures: list[dict]) -> int:
     records = [calibration_root() / f"{stem}.json" for stem in {r["calibration"] for r in captures if r["calibration"]}]
     records += [validations_root() / f"{s}.json" for s in {r["validation"] for r in captures if r["validation"]}]
-    data_bytes = (
+    return (
         _BYTES_FIXED
         + (len(captures) + database.tray_reading_count(experiment_id) + database.cell_reading_count(experiment_id))
         * _BYTES_PER_LINE
         + sum(path.stat().st_size for path in records if path.exists())
     )
-    return {"photos": len(captures), "photos_bytes": photos_bytes, "data_bytes": data_bytes}
 
 
-def export_sizes(experiment_id: int) -> dict:
-    """`expected_sizes`, and `usable_bytes`: how much an export may take, the free space less
-    what must stay free (`_reserve`), so the dialog can say beforehand what does not fit."""
-    sizes = expected_sizes(experiment_id)
-    sizes["usable_bytes"] = shutil.disk_usage(experiments_root()).free - _reserve()
-    return sizes
+def _expected_data_bytes(export: dict) -> int:
+    captures = database.captures_for_experiment(export["experiment_id"], until=export["started_at"])
+    return _data_bytes(export["experiment_id"], captures)
 
 
 def zip_path(export: dict) -> Path:
-    """Where a finished export's zip is on disk."""
+    """Where an export stored on the rig before #368 is on disk."""
     return experiments_root() / export["file"].removeprefix("experiments/")
-
-
-def _build(export_id: int, experiment_id: int) -> None:
-    try:
-        _write_zip(export_id, experiment_id)
-    except Exception as exc:  # noqa: BLE001 -- recorded on the export, so the page can say why
-        logger.exception("Export %s failed", export_id)
-        database.fail_export(export_id, now=_now(), error=str(exc) or type(exc).__name__)
-
-
-class _Zip:
-    """A zip being written, keeping each file's SHA-256 for the manifest."""
-
-    def __init__(self, zf: zipfile.ZipFile) -> None:
-        self.zf = zf
-        self.sums: list[tuple[str, str]] = []
-
-    def add_bytes(self, name: str, data: bytes) -> None:
-        self.zf.writestr(name, data, compress_type=zipfile.ZIP_DEFLATED)
-        self.sums.append((hashlib.sha256(data).hexdigest(), name))
-
-    def add_file(self, name: str, path: Path) -> None:
-        # Photos are already compressed: stored as they are, read once.
-        digest = hashlib.sha256()
-        with path.open("rb") as src, self.zf.open(name, "w", force_zip64=True) as dst:
-            while chunk := src.read(_CHUNK):
-                digest.update(chunk)
-                dst.write(chunk)
-        self.sums.append((digest.hexdigest(), name))
-
-
-def _write_zip(export_id: int, experiment_id: int) -> None:
-    experiment = database.get_experiment(experiment_id)
-    folder = experiments_root() / experiment["folder"]
-    # Photos up to the export's start: a running experiment keeps taking them meanwhile.
-    export = database.get_export(export_id)
-    until = export["started_at"]
-    captures = database.captures_for_experiment(experiment_id, until=until)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    slug = slugify(experiment["name"])
-    name = f"{slug + '_' if slug else ''}{experiment['folder']}_export_{stamp}"
-    out_dir = folder / "exports"
-    out_dir.mkdir(exist_ok=True)
-    tmp = out_dir / f".{name}.zip.tmp"
-    final = out_dir / f"{name}.zip"
-
-    with zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zf:
-        z = _Zip(zf)
-        missing: list[str] = []
-        if export["photos"]:
-            for row in captures:
-                rel = _stills_relative(row["path"], experiment["folder"])
-                for suffix in (".jpg", ".json"):
-                    source = folder / "stills" / f"{rel}{suffix}"
-                    if source.exists():
-                        z.add_file(f"{name}/stills/{rel}{suffix}", source)
-        if export["data"]:
-            z.add_file(f"{name}/experiment.json", folder / "experiment.json")
-            z.add_bytes(f"{name}/captures.csv", _captures_csv(captures, experiment["folder"]))
-            z.add_bytes(f"{name}/time-in-table-location.csv", _time_in_table_location_csv(experiment_id, until))
-            # Each photo's readings worked out once, for both files (review of #374).
-            read = [(row, tray_readings.capture_readings(row)) for row in captures]
-            z.add_bytes(f"{name}/tray-readings.csv", _tray_readings_csv(read, experiment["folder"]))
-            z.add_bytes(f"{name}/cell-readings.csv", _cell_readings_csv(read, experiment["folder"]))
-            missing = _add_records(z, name, captures)
-            held = {path.removeprefix(name + "/") for _digest, path in z.sums}
-            z.add_bytes(f"{name}/datapackage.json", _data_package(_fields(), held))
-        held = {path.removeprefix(name + "/") for _digest, path in z.sums}
-        z.add_bytes(f"{name}/README.txt", _readme(experiment, len(captures), missing, until, held).encode())
-        manifest = "".join(f"{digest}  {path.removeprefix(name + '/')}\n" for digest, path in z.sums)
-        zf.writestr(f"{name}/MANIFEST.sha256", manifest, compress_type=zipfile.ZIP_DEFLATED)
-
-    tmp.replace(final)
-    database.finish_export(
-        export_id,
-        now=_now(),
-        file=f"experiments/{experiment['folder']}/exports/{final.name}",
-        bytes=final.stat().st_size,
-        files=len(z.sums),
-        manifest_sha256=hashlib.sha256(manifest.encode()).hexdigest(),
-    )
 
 
 def slugify(text: str | None, limit: int = 40) -> str:
@@ -349,27 +398,28 @@ def _cell_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> byt
     return buffer.getvalue().encode()
 
 
-def _add_records(z: _Zip, name: str, captures: list[dict]) -> list[str]:
-    """Copy every calibration and validation the photos used; return the ones not found."""
-    missing = []
+def _records(captures: list[dict]) -> tuple[list[tuple[str, bytes]], list[str]]:
+    """Every calibration and validation the photos used, as (name, contents); and the ones not
+    found."""
+    entries, missing = [], []
     for stem in sorted({r["calibration"] for r in captures if r["calibration"]}):
         source = calibration_root() / f"{stem}.json"
         if source.exists():
-            z.add_file(f"{name}/records/calibrations/{stem}.json", source)
+            entries.append((f"records/calibrations/{stem}.json", source.read_bytes()))
         else:
             missing.append(f"calibration {stem}")
     for session in sorted({r["validation"] for r in captures if r["validation"]}):
         source = validations_root() / f"{session}.json"
         if source.exists():
-            z.add_file(f"{name}/records/validations/{session}.json", source)
+            entries.append((f"records/validations/{session}.json", source.read_bytes()))
         else:
             missing.append(f"validation {session}")
-    return missing
+    return entries, missing
 
 
-def _readme(experiment: dict, photos: int, missing: list[str], until: str, held: set[str]) -> str:
-    """The README: the experiment, then what each file holds and what each CSV column means, from
-    `export_fields.yaml`, for the files `held` only."""
+def _readme(experiment: dict, photos: int, missing: list[str], until: str, held: set[str], parts: int) -> str:
+    """The README: the experiment, how to put its `parts` together, then what each file holds and
+    what each CSV column means, from `export_fields.yaml`, for the files `held` only."""
     title = experiment["name"] or f"Experiment started {experiment['periods'][0]['started_at']}"
     periods = "\n".join(
         f"  {p['started_at']} to {p['ended_at'] or 'still running'}" for p in experiment["periods"]
@@ -391,11 +441,12 @@ def _readme(experiment: dict, photos: int, missing: list[str], until: str, held:
     ]
     fields = _fields()
     lines += _wrapped(fields["package"]["description"], "")
+    lines += [""] + fields["parts_note"].format(parts=parts, last=f"{parts - 1:02d}").rstrip("\n").split("\n")
     resources = [r for r in fields["package"]["resources"] if r["path"] in held]
     lines += ["", "What is in this folder", ""]
     for entry in resources + fields["other_files"]:
         path = entry["path"]
-        if path in held or any(h.startswith(path) for h in held if path.endswith("/")) or path == "MANIFEST.sha256":
+        if path in held or any(h.startswith(path) for h in held if path.endswith("/")) or path.startswith("MANIFEST"):
             lines += [f"  {path}"] + _wrapped(entry["description"], "      ")
     for resource in resources:
         lines += ["", f"What each column of {resource['path']} means", ""]

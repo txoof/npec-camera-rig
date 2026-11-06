@@ -471,6 +471,21 @@ an export with the photos counts as complete for Purge.
 SELECT id, started_at, data, photos, bytes FROM export ORDER BY id
 ```
 
+### `export` in parts, and `export_part_sent`
+
+From version 23 (#368). An export is no longer stored on the rig. Export records what was ticked
+and the time its photos stop at, and is ready at once. Each part is zipped while it downloads:
+part 0 holds the README and, with Data ticked, the data; parts 1 and on hold the photos, at most
+1 GB each (`exports.PART_BYTES`). An export with the photos is complete for Purge once every photo
+part was sent to its last byte.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `export.photo_parts` | integer | How many photo parts the export has (0 with Photos not ticked). NULL for exports stored on the rig before version 23, which are one zip in `file` |
+| `export_part_sent.export_id` | integer | The export |
+| `export_part_sent.part` | integer | The part, 0 to `photo_parts` |
+| `export_part_sent.sent_at` | text | When its last byte was handed to the network, UTC. A part downloaded twice has two rows; a download broken off has none |
+
 ## Planned
 
 The database schema for photographs, their provenance, calibration and validation is #54 (M3).

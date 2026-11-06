@@ -422,6 +422,23 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "ALTER TABLE export ADD COLUMN photos INTEGER NOT NULL DEFAULT 1",
         ),
     ),
+    (
+        23,
+        "export: in parts zipped while they download, each part sent in full recorded (#368)",
+        # NULL for exports stored on the rig before this version (one zip, `file`).
+        (
+            "ALTER TABLE export ADD COLUMN photo_parts INTEGER",
+            """
+            CREATE TABLE export_part_sent (
+                id INTEGER PRIMARY KEY,
+                export_id INTEGER NOT NULL REFERENCES export (id),
+                part INTEGER NOT NULL,           -- 0: README and data; 1 and on: photos
+                sent_at TEXT NOT NULL            -- UTC: its last byte was handed to the network
+            )
+            """,
+            "CREATE INDEX export_part_sent_export ON export_part_sent (export_id, part)",
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -1252,6 +1269,28 @@ def finish_export(export_id: int, *, now: str, file: str, bytes: int, files: int
         )
 
 
+def ready_export(export_id: int, *, now: str, photo_parts: int) -> None:
+    """An export in parts (#368) is ready at once: its parts are zipped as they download."""
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE export SET finished_at = ?, photo_parts = ? WHERE id = ?", (now, photo_parts, export_id)
+        )
+
+
+def record_part_sent(export_id: int, part: int, *, now: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO export_part_sent (export_id, part, sent_at) VALUES (?, ?, ?)", (export_id, part, now)
+        )
+
+
+def parts_sent(export_id: int) -> set[int]:
+    """The parts of an export sent in full at least once."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT DISTINCT part FROM export_part_sent WHERE export_id = ?", (export_id,))
+        return {row[0] for row in rows}
+
+
 def fail_export(export_id: int, *, now: str, error: str) -> None:
     with _connect() as conn:
         conn.execute(
@@ -1312,8 +1351,9 @@ def cell_reading_count(experiment_id: int) -> int:
 
 def complete_export(experiment_id: int) -> dict | None:
     """The newest export that holds every photo of the experiment: the photos ticked (#368),
-    finished, no error, its zip not removed, and started after the last photo. A partial export
-    taken while running does not count unless no photo came after it."""
+    finished, no error, its zip not removed, and started after the last photo; for an export in
+    parts, every photo part sent in full. A partial export taken while running does not count
+    unless no photo came after it."""
     with _connect() as conn:
         last = conn.execute(
             "SELECT MAX(taken_at) FROM capture WHERE experiment_id = ?", (experiment_id,)
@@ -1321,6 +1361,8 @@ def complete_export(experiment_id: int) -> dict | None:
         row = conn.execute(
             "SELECT * FROM export WHERE experiment_id = ? AND finished_at IS NOT NULL"
             " AND photos = 1 AND error IS NULL AND removed_at IS NULL AND (? IS NULL OR started_at >= ?)"
+            " AND (photo_parts IS NULL OR photo_parts = (SELECT COUNT(DISTINCT part) FROM export_part_sent s"
+            " WHERE s.export_id = export.id AND s.part >= 1))"
             " ORDER BY id DESC LIMIT 1",
             (experiment_id, last, last),
         ).fetchone()
