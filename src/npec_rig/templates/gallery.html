@@ -341,7 +341,7 @@
       const taken = keyDate(item.key);
       const time = taken.toLocaleTimeString(undefined, {
         hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
-      cards.set(item.path, { item, trays: item.trays, tags: null });
+      cards.set(item.path, { item, trays: item.trays, full: false, tags: null });
       // Compact (#245): picture, time, one tray line and a short warning; the rest under Info.
       return `
         <div class="gallery-item">
@@ -368,12 +368,25 @@
       return Boolean(item.clock) && item.clock.synchronized === false;
     }
 
-    // Info: everything known about one photo, in a panel over the page.
-    function showInfo(path) {
-      const { item, trays, tags } = cards.get(path);
+    // Info: everything known about one photo, in a panel over the page. The list carries only the
+    // card's tray line (#377): Info fetches the photo's full reading, cells included, once.
+    async function showInfo(path) {
+      const card = cards.get(path);
+      let trayLines = null;
+      if (card.item.record && card.trays && !card.full) {
+        try {
+          const r = await fetch(`/api/captures/trays/${path}`);
+          if (!r.ok) throw new Error(r.statusText);
+          card.trays = await r.json();
+          card.full = true;
+        } catch (err) {
+          trayLines = "<div>Trays: could not be loaded. Tap Info to try again.</div>";
+        }
+      }
+      const { item, trays, tags } = card;
       const taken = keyDate(item.key);
       const lines = [`<p>${dayLabel(taken)} ${localTime(taken)}</p>`, `<p>${recordText(item.record)}</p>`];
-      if (item.record) lines.push(traysHtml(trays, item.record.purpose));
+      if (item.record) lines.push(trayLines ?? traysHtml(trays, item.record.purpose));
       if (item.uptime) lines.push(`<p>${uptimeText(item.uptime)}</p>`);
       if (item.flags && item.flags.length) {
         lines.push(`<p class="gallery-flag">Not covered by the validation bands: ${ui.esc(item.flags.join("; "))}</p>`);
@@ -451,7 +464,7 @@
         const t = await fetch(`/api/captures/trays/${path}`);
         if (!t.ok) return;
         const trays = await t.json();
-        cards.get(path).trays = trays;
+        Object.assign(cards.get(path), { trays, full: true });
         traysBox.innerHTML = trays
           ? traysLine(trays, "capture")
           : "Trays: the reading could not be saved for this photo.";
@@ -584,18 +597,19 @@
         </button>`).join("")}</div>`;
     }
 
-    // An hour's photos, oldest first: the photos before the next hour, back to this one's start.
+    // An hour's photos, oldest first: the photos before the next hour, back to this one's start
+    // and no further (`after`, #377), in pages of 200.
     async function hourItems(key) {
       const start = keyDate(`${key}0000_000000`).getTime();
+      const after = keyFor(new Date(start));
       const items = [];
       let before = keyFor(new Date(start + HOUR_MS));
       for (;;) {
-        const r = await fetch(`/api/captures?${filtered(new URLSearchParams({ limit: 200, before }))}`);
+        const r = await fetch(`/api/captures?${filtered(new URLSearchParams({ limit: 200, after, before }))}`);
         if (!r.ok) throw new Error(r.statusText);
         const page = await r.json();
-        const inHour = page.filter((item) => keyDate(item.key).getTime() >= start);
-        items.push(...inHour);
-        if (page.length < 200 || inHour.length < page.length) return items.reverse();
+        items.push(...page);
+        if (page.length < 200) return items.reverse();
         before = page[page.length - 1].key;
       }
     }
