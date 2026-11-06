@@ -262,13 +262,27 @@ def _measures(
             mask = _segment(path)
         trays = [(p.outline, p.centre) for p in placed]
         measures = segmentation.measure_trays(mask, trays, scale_field)
-        cells = _cells(placed, tags, scale_field, record or {})
-        flat = [c for tray, _bearing in cells for c in tray]
-        counted = iter(segmentation.measure_cells(mask, flat, scale_field))
-        return stem, measures, [([(c, next(counted)) for c in tray], bearing) for tray, bearing in cells]
     except Exception:
         logger.exception("Could not work out the plant areas of %s", path)
         return None, [], []
+    return stem, measures, _measured_cells(path, mask, placed, tags, scale_field, record or {})
+
+
+def _measured_cells(path, mask, placed, tags, scale_field, record) -> list:
+    """Each placed tray's cells with their plant and its 2 x 2 bearing (`_cells`), measured tray by
+    tray inside the tray's outline (`segmentation.measure_cells`). A tray whose cells cannot be
+    worked out gets none, logged: its tray area and the other trays' cells are kept (review of
+    #374)."""
+    out = []
+    for p in placed:
+        try:
+            [(cells, bearing)] = _cells([p], tags, scale_field, record)
+            counted = segmentation.measure_cells(mask, cells, scale_field, outline_px=p.outline) if cells else []
+            out.append((list(zip(cells, counted, strict=True)), bearing))
+        except Exception:
+            logger.exception("Could not work out the cells of tray %s in %s", p.tray_id, path)
+            out.append(([], None))
+    return out
 
 
 def _cells(

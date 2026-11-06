@@ -149,13 +149,15 @@ class CellMeasure:
     over_other_cells: bool
 
 
-def measure_cells(mask: np.ndarray, cells, scale_field) -> list[CellMeasure]:
+def measure_cells(mask: np.ndarray, cells, scale_field, outline_px=None) -> list[CellMeasure]:
     """The plant of each cell in `cells` (`tray_placement.Cell`, full-size pixels) of full-size
     `mask`, in their order (#364). A piece of plant (pixels joined side or corner) counts wholly
     for the cell holding most of its pixels, so a leaf hanging over a wall or a neighbouring cell
     stays with its own cell; at a tie, for the cell listed first. A piece with no pixel in any cell
     lies on the walls only (the fringe along the cells' edges, metrology log 24.1) and counts for
-    none. Seen from above, a leaf's own pot can be hidden: where a piece counted for one cell covers
+    none. With `outline_px` (the tray's outline, full-size pixels), only plant inside it counts: a
+    neighbouring tray's plant reaching into a cell brings nothing from outside (review of #374), and
+    the pieces are labelled over that one tray only. Seen from above, a leaf's own pot can be hidden: where a piece counted for one cell covers
     another cell's opening (`OVER_OTHER_CELL_MIN`), both cells say `over_other_cells`. Pieces are
     followed as far as half a cell's side beyond the outermost cells: a piece
     reaching farther counts only its part within that."""
@@ -170,9 +172,13 @@ def measure_cells(mask: np.ndarray, cells, scale_field) -> list[CellMeasure]:
     x1, y1 = np.clip(np.ceil(corners.max(axis=0) + reach).astype(int) + 1, 0, [w, h])
     if x1 <= x0 or y1 <= y0:
         return [CellMeasure(0, None, 0.0, False) for _ in cells]
-    n, labels, stats, _ = cv2.connectedComponentsWithStats(
-        np.ascontiguousarray(mask[y0:y1, x0:x1], dtype=np.uint8), connectivity=8
-    )
+    plant = np.ascontiguousarray(mask[y0:y1, x0:x1], dtype=np.uint8)
+    if outline_px is not None:
+        within = np.zeros(plant.shape, dtype=np.uint8)
+        corners = np.asarray(outline_px, dtype=np.float64)
+        cv2.fillPoly(within, [np.round(corners - [x0, y0]).astype(np.int32).reshape(-1, 1, 2)], 1)
+        plant &= within
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(plant, connectivity=8)
     # Each piece's pixels in each cell: rows pieces, columns cells.
     counts = np.zeros((n, len(cells)), dtype=np.int64)
     opening_px = np.zeros(len(cells), dtype=np.int64)

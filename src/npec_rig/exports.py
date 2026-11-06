@@ -111,8 +111,10 @@ def _write_zip(export_id: int, experiment_id: int) -> None:
             photos += 1
         z.add_bytes(f"{name}/captures.csv", _captures_csv(captures, experiment["folder"]))
         z.add_bytes(f"{name}/time-in-table-location.csv", _time_in_table_location_csv(experiment_id, until))
-        z.add_bytes(f"{name}/tray-readings.csv", _tray_readings_csv(captures, experiment["folder"]))
-        z.add_bytes(f"{name}/cell-readings.csv", _cell_readings_csv(captures, experiment["folder"]))
+        # Each photo's readings worked out once, for both files (review of #374).
+        read = [(row, tray_readings.capture_readings(row)) for row in captures]
+        z.add_bytes(f"{name}/tray-readings.csv", _tray_readings_csv(read, experiment["folder"]))
+        z.add_bytes(f"{name}/cell-readings.csv", _cell_readings_csv(read, experiment["folder"]))
         missing = _add_records(z, name, captures)
         z.add_bytes(f"{name}/README.txt", _readme(experiment, photos, missing, until).encode())
         manifest = "".join(f"{digest}  {path.removeprefix(name + '/')}\n" for digest, path in z.sums)
@@ -171,15 +173,15 @@ TRAY_READING_COLUMNS = [
 ]
 
 
-def _tray_readings_csv(captures: list[dict], folder: str) -> bytes:
-    """One line per tray in each photo read for its trays (`tray_readings.capture_readings`), with
+def _tray_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> bytes:
+    """One line per tray in each photo read for its trays (`read`: each photo's rig.db row and its
+    `tray_readings.capture_readings`), with
     its plant area as stored and the band of its validation slot, or the reason it has none (#76).
     Photos not read for trays have no lines."""
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=TRAY_READING_COLUMNS, lineterminator="\n")
     writer.writeheader()
-    for row in captures:
-        readings = tray_readings.capture_readings(row)
+    for row, readings in read:
         if readings is None:
             continue
         for tray in sorted(readings["trays"], key=lambda t: (t["tray_id"] is None, t["tray_id"] or 0)):
@@ -209,7 +211,7 @@ CELL_READING_COLUMNS = [
 ]
 
 
-def _cell_readings_csv(captures: list[dict], folder: str) -> bytes:
+def _cell_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> bytes:
     """One line per cell of each tray in each photo read for its trays
     (`tray_readings.capture_readings`), for the researcher's own map of trays and cells to
     treatments (#364): the cell's status and plant area, no area when it has none, and its tray's
@@ -217,8 +219,7 @@ def _cell_readings_csv(captures: list[dict], folder: str) -> bytes:
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=CELL_READING_COLUMNS, lineterminator="\n")
     writer.writeheader()
-    for row in captures:
-        readings = tray_readings.capture_readings(row)
+    for row, readings in read:
         if readings is None:
             continue
         for tray in sorted(readings["trays"], key=lambda t: (t["tray_id"] is None, t["tray_id"] or 0)):

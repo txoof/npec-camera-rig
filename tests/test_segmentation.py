@@ -174,3 +174,15 @@ def test_pieces_each_within_their_own_cell_mark_no_cell() -> None:
     mask[20:30, 70:80] = True  # inside B1
     a1, b1 = measure_cells(mask, _cells(), _even_scale())
     assert (a1.plant_px, b1.plant_px, a1.over_other_cells, b1.over_other_cells) == (100, 100, False, False)
+
+
+def test_a_piece_reaching_past_its_trays_outline_counts_only_inside_the_outline() -> None:
+    """Review of #374: a neighbouring tray's plant (a 1 x 1 tray has no cells) reaching into A1
+    must not bring its whole area. The tray outline ends at x 55: the piece at x 40 to 99, rows 20
+    to 29, is 600 px, 150 of them (x 40 to 54) inside the outline."""
+    from npec_rig.segmentation import measure_cells
+
+    mask = np.zeros((60, 110), dtype=bool)
+    mask[20:30, 40:100] = True
+    [a1] = measure_cells(mask, _cells()[:1], _even_scale(), outline_px=_box(0, 0, 54.5, 59))
+    assert a1.plant_px == 150
