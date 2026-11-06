@@ -153,13 +153,16 @@
         first.push(button("start", "Resume", ""));
         if (!preparing(e)) last.push(button("export", "Export"), button("purge", "Purge", "stop"));
       }
+      // Its own line: beside Export and Purge it ran into the scroll lane.
+      const x = e.export;
+      const parts = x && x.photo_parts !== null && !x.error && e.state !== "purged" ? [button("parts", "Download parts")] : [];
       // Only a started experiment can have photos; a purged one has none left.
       const photos = e.periods.length && e.state !== "purged" ? [button("photos", "Photos")] : [];
       // One Reprocess at a time: the button is hidden on every experiment while one runs.
       if (photos.length && !experiments.some((x) => x.reprocess.running)) photos.push(button("reprocess", "Reprocess areas"));
       // Its own line: a fourth button beside Photos ran past the screen's edge.
       const locations = photos.length ? [button("table-locations", "Table locations")] : [];
-      return [first, photos, locations, last].filter((line) => line.length)
+      return [first, photos, locations, last, parts].filter((line) => line.length)
         .map((line) => `<div class="row">${line.join("")}</div>`).join("");
     }
 
@@ -187,6 +190,11 @@
       if (x.error) return `<div class="experiment-export">Export failed: ${esc(x.error)}</div>`;
       if (x.removed_at) return "";
       const held = x.photos && x.data ? "" : x.photos ? " (photos only)" : " (data only)";
+      // An export in parts (#368): its parts are listed by Download parts.
+      if (x.photo_parts !== null) {
+        return `<div class="experiment-export">Export${held} ${utc(x.started_at)}: ${1 + x.photo_parts} parts</div>`
+          + completeText(e);
+      }
       return `<div class="experiment-export">Export${held} ${utc(x.finished_at)}, ${x.files} files, `
         + `${size(x.bytes)}: <a href="/api/exports/${x.id}/download">Download</a></div>`
         + completeText(e);
@@ -408,15 +416,21 @@
       cancel: document.getElementById("ask-cancel"),
     };
     let askAction = null;
+    let partsTimer = null;  // the parts list's 2 s refresh (#368)
 
     // Opens the dialog. `action()` runs on OK; if it throws, its message shows
     // inside the dialog, which stays open so the user can correct and try again.
-    function openAsk({ title, body, ok, danger = false, action }) {
+    // `cancel` false: one button only, for a dialog that only shows something. What `action`
+    // returns, if a function, runs after the dialog closed: to open the next dialog.
+    function openAsk({ title, body, ok, danger = false, action, cancel = true }) {
+      clearInterval(partsTimer);  // the parts list's refresh must not draw over another dialog
+      ask.body.onclick = null;
       ask.title.textContent = title;
       ask.body.innerHTML = body;
       ask.ok.textContent = ok;
       ask.ok.className = danger ? "stop" : "";
       ask.error.textContent = "";
+      ask.cancel.hidden = !cancel;
       askAction = action;
       ask.dialog.showModal();
       ask.ok.focus();
@@ -426,9 +440,10 @@
       event.preventDefault();
       ask.ok.disabled = true;
       try {
-        await askAction();
+        const next = await askAction();
         ask.dialog.close();
         await refresh();
+        if (typeof next === "function") await next();
       } catch (err) {
         ask.error.textContent = err.message;
       } finally {
@@ -529,31 +544,24 @@
     // Purge through.
     async function exportAsk(e) {
       // Expected download sizes, an order of magnitude only (Aaron, 2026-11-06): so the user
-      // knows before starting whether the export takes minutes or hours. `usable_bytes`: what an
-      // export may take and still leave the rig enough free space; a choice that does not fit is
-      // unticked and says so here, before the tap (the server refuses it too).
+      // knows before starting whether the download takes minutes or hours. Nothing is stored on
+      // the rig (#368), so there is no free space to check.
       let sizes = null;
       try {
         sizes = await call("GET", `/api/experiments/${e.id}/export-size`);
       } catch (err) {
         sizes = null;
       }
-      const fits = (key) => !sizes || sizes[key] <= sizes.usable_bytes;
       // Rounded, as an estimate should read: "about 25 GB", "about 3.7 GB", "about 850 kB".
       const about = (bytes) => {
         const [unit, scale] = bytes >= 1e9 ? ["GB", 1e9] : bytes >= 1e6 ? ["MB", 1e6] : ["kB", 1e3];
         const n = bytes / scale;
         return `${n >= 10 ? Math.round(n) : Math.max(0.1, Math.round(n * 10) / 10)} ${unit}`;
       };
-      const tick = (id, label, note, key) => {
-        const ok = fits(key);
-        const why = ok ? "" : `<br><strong>INSUFFICIENT DISK SPACE</strong>: This export requires about `
-          + `${about(sizes[key])}. ${about(Math.max(0, sizes.usable_bytes))} are available. `
-          + "Try purging old experiments first.";
-        return `<label for="${id}" style="display: flex; gap: 16px; align-items: center; min-height: 64px; margin-bottom: 24px; cursor: pointer">`
-          + `<input type="checkbox" id="${id}" ${ok ? "checked" : "disabled"} style="width: 32px; height: 32px; flex: none">`
-          + `<span><strong>${label}</strong><br>${note}${why}</span></label>`;
-      };
+      const tick = (id, label, note) =>
+        `<label for="${id}" style="display: flex; gap: 16px; align-items: center; min-height: 64px; margin-bottom: 24px; cursor: pointer">`
+        + `<input type="checkbox" id="${id}" checked style="width: 32px; height: 32px; flex: none">`
+        + `<span><strong>${label}</strong><br>${note}</span></label>`;
       const expected = (key) => (sizes ? ` (about ${about(sizes[key])})` : "");
       const minutes = e.interval_s ? Math.round(e.interval_s / 60) : 0;
       const taken = (e.state === "running" ? "taken so far" : "taken")
@@ -561,8 +569,8 @@
       openAsk({
         title: `Export ${displayName(e)}`,
         body: "<p>What goes in the export?</p>"
-          + tick("export-data", "Data", `CSV tables and data description${expected("data_bytes")}`, "data_bytes")
-          + tick("export-photos", "Photos", `Export every photo ${taken}${expected("photos_bytes")}.`, "photos_bytes")
+          + tick("export-data", "Data", `CSV tables and data description${expected("data_bytes")}`)
+          + tick("export-photos", "Photos", `Export every photo ${taken}${expected("photos_bytes")}.`)
           + "<p>To delete this experiment from the rig later (Purge), first export it with Photos "
           + "ticked, so a copy of every photo exists.</p>",
         ok: "Export",
@@ -570,9 +578,76 @@
           const data = ask.body.querySelector("#export-data").checked;
           const photos = ask.body.querySelector("#export-photos").checked;
           if (!data && !photos) throw new Error("Tick Data, Photos or both.");
-          return call("POST", `/api/experiments/${e.id}/export`, { data, photos });
+          return call("POST", `/api/experiments/${e.id}/export`, { data, photos })
+            .then((made) => () => partsAsk(e, made.id));
         },
       });
+    }
+
+    // The parts of an export (#368): each a large download link, zipped on the rig while it
+    // downloads, its size known so the browser shows progress. A tapped part shows Started at
+    // once; while the dialog is open the list is read again every 2 s, and a part the rig sent to
+    // its end shows Downloaded (Aaron, 2026-11-06: without a mark he downloaded parts twice and
+    // missed one). Each status has a word and a symbol as well as its colour. The list scrolls,
+    // with a lane on its right free of links (CLAUDE.md, Web pages).
+    const partsStarted = {};  // export id -> set of part numbers tapped on this page
+    async function partsAsk(e, exportId) {
+      let x;
+      try {
+        x = await call("GET", `/api/exports/${exportId}`);
+      } catch (err) {
+        listMessage.textContent = `Could not list the parts: ${err.message}`;
+        return;
+      }
+      const started = (partsStarted[exportId] ||= new Set());
+      const status = (p) => (p.sent
+        ? { word: "&#10003; Downloaded", look: "background: #1f3d2b; border: 2px solid #3fb950" }
+        : started.has(p.n)
+          ? { word: "&#8675; Started", look: "background: #3d3416; border: 2px solid #d29922" }
+          : { word: "", look: "background: #333; border: 2px solid #666" });
+      const link = (p) => {
+        const what = p.n === 0 ? (x.data ? "README and data" : "README") : `${p.photos} photos`;
+        const st = status(p);
+        return `<a href="/api/exports/${x.id}/parts/${p.n}" download data-part="${p.n}"`
+          + ` style="display: flex; align-items: center; justify-content: space-between; min-height: 64px; margin-bottom: 24px; padding: 0 16px; text-decoration: none; color: #eee; border-radius: 6px; ${st.look}">`
+          + `<span>Part ${p.n}: ${what}, ${size(p.bytes)}</span><strong style="white-space: nowrap; margin-left: 16px">${st.word}</strong></a>`;
+      };
+      const zero = x.data ? " Part 0 takes about half a minute to start: the data is put together first." : "";
+      const render = () => {
+        const done = x.parts.filter((p) => p.sent).length;
+        return `<p>${x.parts.length} parts, <strong>${done} downloaded</strong>. Download each one and unzip them all `
+          + `into the same folder. A part that fails can be downloaded again on its own.${zero}</p>`
+          + `<div id="parts-list" style="max-height: 300px; overflow-y: auto; padding-right: 64px">${x.parts.map(link).join("")}</div>`;
+      };
+      const redraw = () => {
+        const list = ask.body.querySelector("#parts-list");
+        const scroll = list ? list.scrollTop : 0;
+        ask.body.innerHTML = render();
+        ask.body.querySelector("#parts-list").scrollTop = scroll;
+      };
+      openAsk({
+        title: `Download ${displayName(e)}`,
+        body: render(),
+        ok: "Close",
+        cancel: false,
+        action: () => null,
+      });
+      ask.body.onclick = (event) => {
+        const a = event.target.closest("a[data-part]");
+        if (!a) return;
+        started.add(Number(a.dataset.part));
+        setTimeout(redraw, 0);  // after the browser has taken the link
+      };
+      clearInterval(partsTimer);
+      partsTimer = setInterval(async () => {
+        if (!ask.dialog.open) { clearInterval(partsTimer); ask.body.onclick = null; return; }
+        try {
+          x = await call("GET", `/api/exports/${exportId}`);
+          redraw();
+        } catch (err) {
+          // Keep the list as it is; the next read may work.
+        }
+      }, 2000);
     }
 
     function purgeAsk(e) {
@@ -650,6 +725,8 @@
         }
       } else if (act === "export") {
         exportAsk(e);
+      } else if (act === "parts") {
+        partsAsk(e, e.export.id);
       } else if (act === "reprocess") {
         openAsk({
           title: `Reprocess areas of ${displayName(e)}`,

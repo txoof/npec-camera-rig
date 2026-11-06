@@ -249,6 +249,13 @@ package:
             type: string
             description: Why there is no band, as in tray-readings.csv.
 
+# Printed in the README as written, after the description. {parts}: how many parts; {last}: the
+# last part's number, two digits.
+parts_note: |
+  This export comes in {parts} zip files, part00 to part{last}. Each one opens on its own.
+  Unzip every part into the same folder: together they make this folder. A part that did not
+  download properly can be downloaded again on its own.
+
 # Printed in the README as written, under the column meanings, when the export holds the data.
 table_drawing: |
   The table locations (location columns in the CSVs), as seen in the photos from above:
@@ -280,7 +287,8 @@ other_files:
     description: >-
       What every CSV column means, in the Frictionless Data Package format
       (https://datapackage.org), which data tools can read.
-  - path: MANIFEST.sha256
+  - path: MANIFEST-partNN.sha256
     description: >-
-      A fingerprint (SHA-256) of every file. To check the copy is complete and unchanged, run
-      in this folder: sha256sum -c MANIFEST.sha256
+      One per part: a fingerprint (SHA-256) of every file in that part. To check a part is
+      complete and unchanged, run in this folder: sha256sum -c MANIFEST-part01.sha256 (and so on
+      for each part).

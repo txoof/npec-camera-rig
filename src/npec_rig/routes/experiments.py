@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from npec_rig import captures, database, dwell, exports, scheduler, tray_readings
@@ -164,7 +164,22 @@ def api_export_experiment(experiment_id: int, choice: ExportChoice | None = None
 @router.get("/api/experiments/{experiment_id}/export-size")
 def api_export_size(experiment_id: int) -> dict:
     """The expected size of an export of the data and of the photos, for the Export dialog."""
-    return _experiment_action(exports.export_sizes, experiment_id)
+    return _experiment_action(exports.expected_sizes, experiment_id)
+
+
+@router.get("/api/exports/{export_id}")
+def api_export(export_id: int) -> dict:
+    """An export and its parts, each with its size and whether it was sent in full (#368)."""
+    return _experiment_action(exports.export_with_parts, export_id)
+
+
+@router.get("/api/exports/{export_id}/parts/{n}")
+def api_export_part(export_id: int, n: int) -> Response:
+    """One part of an export, zipped while it downloads, with its exact size so the browser shows
+    progress (#368)."""
+    filename, length, body = _experiment_action(exports.part_download, export_id, n)
+    return StreamingResponse(body, media_type="application/zip", headers={
+        "Content-Disposition": f'attachment; filename="{filename}"', "Content-Length": str(length)})
 
 
 @router.get("/api/exports/{export_id}/download")
