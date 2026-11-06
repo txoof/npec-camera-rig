@@ -442,9 +442,8 @@ def test_a_hidden_tray_gives_no_warning_and_the_export_is_unchanged() -> None:
     experiment_id = _two_trays_running(client)
 
     def export_rows() -> list[list[str]]:
-        export = database.create_export(experiment_id, now=exports._now())
-        exports._build(export["id"], experiment_id)
-        with zipfile.ZipFile(exports.zip_path(database.get_export(export["id"]))) as zf:
+        export = client.post(f"/api/experiments/{experiment_id}/export", json={"data": True, "photos": False}).json()
+        with zipfile.ZipFile(io.BytesIO(client.get(f"/api/exports/{export['id']}/parts/0").content)) as zf:
             name = next(n for n in zf.namelist() if n.endswith("time-in-table-location.csv"))
             return list(csv.reader(io.StringIO(zf.read(name).decode())))
 

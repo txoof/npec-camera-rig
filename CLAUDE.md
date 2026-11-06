@@ -295,7 +295,7 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | segmentation | `segmentation.py` (plant masks: the `Segmenter` interface, the green threshold and the Hailo stub, #74) |
 | randomization | `randomization.py` (restricted randomization of the tray layout and the check against it, #343) |
 | database | `database.py` (the experiment's tables in `rig.db` and their migrations) |
-| exports | `exports.py` (an experiment's export zip and its checksum manifest) |
+| exports | `exports.py` (an experiment's export zip and its checksum manifest), `export_fields.yaml` (what every exported file and CSV column means, read at each export, #65) |
 | trays | `tray_placement.py` (each tray's slot, A1 corner and outline, placed from its cell A1 tag), `tray_readings.py` (each photo read for its trays in the background, #222), `exclusions.py` (why a photo's plant areas are left out, from its exposure and gain, #288), `dwell.py` (each tray's table location, its stays there and the too-long warning, #332), `tests/fixtures/trays/` |
 | docs | `docs/` (except the shared files below), `reference/`, `README.md`, `GLOSSARY.md` |
 | cad | `hardware/` |
