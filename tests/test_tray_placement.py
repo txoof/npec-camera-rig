@@ -487,3 +487,25 @@ def test_a_2x2_trays_a1_is_its_south_west_pot_in_its_first_photo_and_follows_the
     assert turned["A1"] == pytest.approx((3215.0, 1507.5))
     assert turned["B2"] == pytest.approx((1835.0, 3152.5))
     assert turned["B1"] == pytest.approx((1835.0, 1507.5))
+
+
+@pytest.mark.parametrize("tilt_deg", [-0.3, 0.3])
+def test_a_2x2_tray_lying_landscape_in_its_first_photo_has_a1_at_the_south_west_pot(tilt_deg: float) -> None:
+    """Review of #374: with the tray turned 90 degrees, a fraction of a degree of tilt must not
+    decide which pot is A1. Tray 3660 x 3050 px centred at (2830, 2025): its long side runs east,
+    so the pots lie 82.25 mm east and west and 69 mm north and south of the centre; the
+    south-west pot is at (2007.5, 2715)."""
+    import math
+
+    from npec_rig.calibration import scale_field_from_dict
+    from npec_rig.tray_placement import TrayOutline, place_cells
+
+    t = math.radians(tilt_deg)
+    turn = lambda dx, dy: (2830 + dx * math.cos(t) - dy * math.sin(t), 2025 + dx * math.sin(t) + dy * math.cos(t))  # noqa: E731
+    outline = TrayOutline(
+        corners=tuple(turn(a * 1830, b * 1525) for a, b in ((-1, -1), (1, -1), (1, 1), (-1, 1))),
+        centre=(2830.0, 2025.0), tilt_deg=tilt_deg, edge=False,
+    )
+    tag = _tag_turned(80, 2830.0, 2025.0, 30.0)
+    cells = {c.name: c.centre for c in place_cells(_named(outline, tag), tag, scale_field_from_dict(EVEN_10))}
+    assert cells["A1"] == pytest.approx((2007.5, 2715.0), abs=20)

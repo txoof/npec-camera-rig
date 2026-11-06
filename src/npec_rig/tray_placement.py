@@ -83,11 +83,7 @@ def _tilt_deg(tag: TagDetection) -> float:
     """The tray's turn off the image axes, clockwise: the tag's heading off the nearest right
     angle, taking the tag to lie square in its cell. The corners run top-left, top-right,
     bottom-right, bottom-left in the tag's own frame."""
-    c = tag.corners
-    up_x = (c[0][0] + c[1][0] - c[2][0] - c[3][0]) / 2
-    up_y = (c[0][1] + c[1][1] - c[2][1] - c[3][1]) / 2
-    heading = math.degrees(math.atan2(up_x, -up_y))
-    return (heading + 45) % 90 - 45
+    return (_heading_deg(tag) + 45) % 90 - 45
 
 
 def tray_outline_at(centre: tuple[float, float], tilt_deg: float, ppm: float) -> tuple[tuple[float, float], ...]:
@@ -445,10 +441,12 @@ def place_cells(
         across = -across if np.dot(to_a1, across) > 0 else across
         along = -along if np.dot(to_a1, along) > 0 else along
     else:
-        # The tray's first photo: A1 is the cell at the photo's south-west, columns running east
-        # and rows north (y grows southwards on the photo).
-        across = -across if across[0] < 0 else across
-        along = -along if along[1] > 0 else along
+        # The tray's first photo: A1 is the cell nearest the photo's south-west diagonal (y grows
+        # southwards), whichever way the tray lies: a per-axis sign test flips on a fraction of a
+        # degree when the tray lies landscape (review of #374).
+        to_sw = np.array([-1.0, 1.0])
+        across = -across if np.dot(to_sw, across) > 0 else across
+        along = -along if np.dot(to_sw, along) > 0 else along
     ppm = scale_field.px_per_mm(float(centre[0]), float(centre[1]))
     half = grid.opening_mm / 2 * ppm
     out = []

@@ -844,3 +844,27 @@ def test_a_2x2_trays_cells_keep_their_names_when_the_tray_is_turned_round_betwee
     assert second["A1"]["status"] == "plant"
     assert second["A1"]["area_mm2"] == pytest.approx(900, rel=0.01)
     assert second["B2"]["status"] == "missing"
+
+
+def test_a_2x2_trays_cells_have_the_same_names_whatever_order_its_photos_are_read_in(monkeypatch) -> None:
+    """Review of #374: photos are read out of order (older ones on demand, Reprocess). The tag is
+    glued to the tray, so its A1 bearing is the tray's own: once any photo of the experiment has
+    set it, every photo follows it. As the test above: the plant in the south-west pot, then the
+    tray turned round. Read the second photo first."""
+    experiment = database.create_experiment(uuid="u-364b", created_at="2026-11-06T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2026-11-06T00:00:00+00:00", folder="u-364b")
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 45.0)], [(985, 2902, 1285, 3202)])
+    first = _photo()
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 225.0)], [(2365, 1257, 2665, 1557)])
+    second = _photo()
+    # Tags are searched when a photo is read: each photo gets its own tag, told apart by where its
+    # plant lies (the south-west pot in the first).
+    tags = {True: [_turned_tag(80, 1825.0, 2230.0, 45.0)], False: [_turned_tag(80, 1825.0, 2230.0, 225.0)]}
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: tags[bool(frame[3050, 1135] > 150)])  # grey: mint bright, tray blue about 88
+
+    planted = []
+    for path in (second, first):
+        cells = tray_readings.read_photo(path)["trays"][0]["cells"]
+        planted.append([c["cell"] for c in cells if c["status"] == "plant"])
+    assert planted[0] == planted[1]
+    assert len(planted[0]) == 1

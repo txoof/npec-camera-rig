@@ -276,9 +276,10 @@ def _cells(
 ) -> list[tuple[list[Cell], float | None]]:
     """Each placed tray's cells (`tray_placement.place_cells`) and, for a 2 x 2 tray, where its A1
     lies from its tag, in the order of `placed`. No cells for a tray with no tag, or whose tag two
-    trays carry, whose cells could belong to either (#302). A 2 x 2 tray's A1 bearing comes from
-    its first photo in the photo's experiment (`record`, its rig.db row); with none before this
-    photo, this photo is the first (Aaron, 2026-11-06)."""
+    trays carry, whose cells could belong to either (#302). A 2 x 2 tray's A1 bearing is the one
+    stored for it in the photo's experiment (`record`, its rig.db row,
+    `database.first_a1_bearing`); with none yet, this photo sets it: A1 its south-west pot
+    (Aaron, 2026-11-06)."""
     from npec_rig.randomization import tray_type
 
     carried = Counter(t.tag_id for t in tags)
@@ -292,7 +293,7 @@ def _cells(
         if tray_type(p.tray_id).name != "2x2":
             out.append((place_cells(p, tag, scale_field), None))
             continue
-        bearing = database.first_a1_bearing(record.get("experiment_id"), p.tray_id, record.get("taken_at") or "")
+        bearing = database.first_a1_bearing(record.get("experiment_id"), p.tray_id)
         cells = place_cells(p, tag, scale_field, a1_bearing_deg=bearing)
         out.append((cells, bearing if bearing is not None else a1_bearing_deg(p, tag, cells)))
     return out

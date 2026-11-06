@@ -575,18 +575,20 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
         )
 
 
-def first_a1_bearing(experiment_id: int | None, tray_id: int, taken_at: str) -> float | None:
-    """Where a 2 x 2 tray's cell A1 lay from its tag in its first photo of experiment
-    `experiment_id` taken before `taken_at` (tray_reading.a1_bearing_deg, #364); None when there
-    is none, or the photo is in no experiment: then that photo is the tray's first."""
+def first_a1_bearing(experiment_id: int | None, tray_id: int) -> float | None:
+    """Where a 2 x 2 tray's cell A1 lies from its tag (tray_reading.a1_bearing_deg, #364): from
+    the earliest-taken photo of experiment `experiment_id` that has one, whichever photos were read
+    first. The tag is glued to the tray, so the bearing is the tray's own; photos read out of order
+    (on demand, Reprocess) follow it too (review of #374). None when no photo of the experiment
+    has one yet, or the photo is in no experiment: then the photo being read sets it."""
     if experiment_id is None:
         return None
     with _connect() as conn:
         row = conn.execute(
             "SELECT tray_reading.a1_bearing_deg FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id"
             " WHERE capture.experiment_id = ? AND tray_reading.tray_id = ? AND tray_reading.a1_bearing_deg IS NOT NULL"
-            " AND capture.taken_at < ? ORDER BY capture.taken_at LIMIT 1",
-            (experiment_id, tray_id, taken_at),
+            " ORDER BY capture.taken_at LIMIT 1",
+            (experiment_id, tray_id),
         ).fetchone()
     return None if row is None else row[0]
 
