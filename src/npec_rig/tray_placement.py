@@ -349,3 +349,89 @@ def find_outlines(image: np.ndarray, scale_field: ScaleField, factor: float) -> 
             accepted.append(c)
             out.append(_tray_outline(cell, factor, edge))
     return out
+
+
+# --- Cells placed from the tray's outline and tag (#364) ----------------------------------------
+
+
+@dataclass(frozen=True)
+class CellGrid:
+    """Where a tray type's cells lie, mm, the grid centred in the tray. `pitch_mm` is the distance
+    between cell centres (across the short side, along the long side); `opening_mm` the side of
+    the square a cell shows from above."""
+
+    columns: int
+    rows: int
+    pitch_mm: tuple[float, float]
+    opening_mm: float
+    tag_cell: str | None  # the cell the tray tag lies in, which holds no plant
+
+
+CELL_GRIDS = {
+    # reference/trays.md: opening 59.5 mm (callipers), walls 10.1 to 10.3 mm, so centres 69.7 mm
+    # apart (59.5 + 10.2). The tag lies in A1, which holds no plant (Aaron, 2026-10-21).
+    "4x5": CellGrid(columns=4, rows=5, pitch_mm=(69.7, 69.7), opening_mm=59.5, tag_cell="A1"),
+    # Aaron, 2026-11-06: holes 106 mm (tape measure), central divisions 32 mm across the short side
+    # and 58.5 mm along the long side, so centres 138 and 164.5 mm apart, the grid taken to be
+    # centred in the tray (a decision, as on the 4 x 5). From above a cell shows its pot's rim,
+    # 108.93 mm (callipers, mean of 4: 108.83 to 109.18). The tag lies in the middle, on no cell.
+    "2x2": CellGrid(columns=2, rows=2, pitch_mm=(138.0, 164.5), opening_mm=108.93, tag_cell=None),
+}
+
+
+@dataclass(frozen=True)
+class Cell:
+    """One cell of a tray, in full-size photo pixels: its name ("B3"), centre, the four corners of
+    the square it shows from above, and what it holds: "plant", or "tag" for the tag's cell."""
+
+    name: str
+    centre: tuple[float, float]
+    corners: tuple[tuple[float, float], ...]
+    holds: str
+
+
+def place_cells(tray: TrayPlacement, tag: TagDetection, scale_field: ScaleField) -> list[Cell]:
+    """The cells of `tray` (named by `tag`, an outline found in the photo), placed around the
+    outline's centre along its sides, at the scale at that centre (it changes by about 0.5% across
+    a tray). Columns run across the tray's short side, rows along its long side, from cell A1. A
+    4 x 5 tray's A1 is the corner nearest its tag; a 2 x 2 tray's, whose tag lies in the middle,
+    the cell at the photo's south-west (its names follow this photo, not the tray's first). Only the outline's centre and turn are used:
+    its length reads about 2% long north-south (reference/trays.md). Empty for a tray with no
+    outline, or of a type whose cells are not measured (1 x 1, black, other)."""
+    from npec_rig.randomization import tray_type  # randomization imports this module
+
+    grid = CELL_GRIDS.get(tray_type(tray.tray_id).name) if tray.tray_id is not None else None
+    if grid is None or tray.outline is None:
+        return []
+    corners = np.asarray(tray.outline, dtype=np.float64)
+    centre = corners.mean(axis=0)
+    first, second = corners[1] - corners[0], corners[2] - corners[1]
+    across, along = sorted((first, second), key=lambda s: float(np.linalg.norm(s)))
+    across, along = across / np.linalg.norm(across), along / np.linalg.norm(along)
+    if grid.tag_cell == "A1":
+        # From A1 outwards: away from the side the tag lies on.
+        to_tag = np.asarray(tag.centre) - centre
+        across = -across if np.dot(to_tag, across) > 0 else across
+        along = -along if np.dot(to_tag, along) > 0 else along
+    else:
+        # The tag says nothing about which way round the tray lies: A1 is the cell at the photo's
+        # south-west, columns running east and rows north (y grows southwards on the photo).
+        across = -across if across[0] < 0 else across
+        along = -along if along[1] > 0 else along
+    ppm = scale_field.px_per_mm(float(centre[0]), float(centre[1]))
+    half = grid.opening_mm / 2 * ppm
+    out = []
+    for i in range(grid.columns):
+        for j in range(grid.rows):
+            c = (
+                centre
+                + across * (i - (grid.columns - 1) / 2) * grid.pitch_mm[0] * ppm
+                + along * (j - (grid.rows - 1) / 2) * grid.pitch_mm[1] * ppm
+            )
+            square = tuple(
+                (float(x), float(y))
+                for x, y in (c + a * half * across + b * half * along for a, b in ((-1, -1), (1, -1), (1, 1), (-1, 1)))
+            )
+            name = f"{'ABCDEFGH'[i]}{j + 1}"
+            out.append(Cell(name, (float(c[0]), float(c[1])), square, "tag" if name == grid.tag_cell else "plant"))
+    return out

@@ -100,3 +100,58 @@ def test_a_plant_pixel_exactly_midway_between_two_tray_centres_counts_once():
 
     a, b = measure_trays(mask, [(_box(0, 0, 100, 99), (50, 50)), (_box(80, 0, 181, 99), (131, 50))], _even_scale())
     assert a.plant_px + b.plant_px == 100
+
+
+# --- Plant per cell (#364) ------------------------------------------------------------------------
+# Two cells side by side at an even 10 px/mm, each 40 px square, a 10 px wall between them:
+# cell A1 covers x 10 to 50, cell B1 x 60 to 100, both y 10 to 50. One pixel is 0.01 mm2.
+
+
+def _cells():
+    from npec_rig.tray_placement import Cell
+
+    return [
+        Cell("A1", (30.0, 30.0), _box(10, 10, 50, 50), "plant"),
+        Cell("B1", (80.0, 30.0), _box(60, 10, 100, 50), "plant"),
+    ]
+
+
+def test_a_plant_inside_one_cell_counts_for_that_cell_only() -> None:
+    from npec_rig.segmentation import measure_cells
+
+    mask = np.zeros((60, 110), dtype=bool)
+    mask[20:30, 20:30] = True  # 100 px inside A1
+    a1, b1 = measure_cells(mask, _cells(), _even_scale())
+    assert (a1.plant_px, a1.area_mm2) == (100, pytest.approx(1.0))
+    assert (b1.plant_px, b1.area_mm2, b1.centre_px) == (0, 0.0, None)
+
+
+def test_a_leaf_hanging_over_the_wall_counts_wholly_for_the_cell_holding_most_of_it() -> None:
+    from npec_rig.segmentation import measure_cells
+
+    mask = np.zeros((60, 110), dtype=bool)
+    # One piece, rows 20 to 29: x 40 to 50 inside A1 (11 columns), x 51 to 54 over the wall (4
+    # columns): 150 px, all for A1.
+    mask[20:30, 40:55] = True
+    a1, b1 = measure_cells(mask, _cells(), _even_scale())
+    assert (a1.plant_px, a1.area_mm2) == (150, pytest.approx(1.5))
+    assert b1.plant_px == 0
+
+
+def test_a_strip_lying_on_the_wall_only_counts_for_no_cell() -> None:
+    from npec_rig.segmentation import measure_cells
+
+    mask = np.zeros((60, 110), dtype=bool)
+    mask[15:45, 53:57] = True  # x 53 to 56: inside the wall (x 51 to 59), touching neither cell
+    assert [m.plant_px for m in measure_cells(mask, _cells(), _even_scale())] == [0, 0]
+
+
+def test_one_piece_across_two_cells_counts_wholly_for_the_cell_holding_more_of_it() -> None:
+    from npec_rig.segmentation import measure_cells
+
+    mask = np.zeros((60, 110), dtype=bool)
+    # Rows 20 to 29, x 45 to 74: in A1 x 45 to 50 (6 columns), in B1 x 60 to 74 (15 columns),
+    # 300 px in all, all for B1.
+    mask[20:30, 45:75] = True
+    a1, b1 = measure_cells(mask, _cells(), _even_scale())
+    assert (a1.plant_px, b1.plant_px) == (0, 300)

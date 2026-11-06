@@ -6,6 +6,7 @@ that turns masks into areas depends only on that, so a model can replace the gre
 without changes elsewhere.
 """
 
+import math
 import os
 import threading
 from dataclasses import dataclass
@@ -126,6 +127,57 @@ def measure_trays(mask: np.ndarray, trays, scale_field) -> list[PlantMeasure]:
             part = inside[y0 - box[1] : y1 - box[1], x0 - box[0] : x1 - box[0]]
             part &= ~(_inside(shared, other) & lose)
         out.append(_measure(mask, box, inside, scale_field))
+    return out
+
+
+def measure_cells(mask: np.ndarray, cells, scale_field) -> list[PlantMeasure]:
+    """The plant of each cell in `cells` (`tray_placement.Cell`, full-size pixels) of full-size
+    `mask`, in their order (#364). A piece of plant (pixels joined side or corner) counts wholly
+    for the cell holding most of its pixels, so a leaf hanging over a wall or a neighbouring cell
+    stays with its own cell; at a tie, for the cell listed first. A piece with no pixel in any cell
+    lies on the walls only (the fringe along the cells' edges, metrology log 24.1) and counts for
+    none. Pieces are followed as far as half a cell's side beyond the outermost cells: a piece
+    reaching farther counts only its part within that."""
+    import cv2
+
+    empty = PlantMeasure(0, None, 0.0)
+    if not cells:
+        return []
+    h, w = mask.shape
+    corners = np.asarray([c for cell in cells for c in cell.corners], dtype=np.float64)
+    reach = max(math.dist(cell.corners[0], cell.corners[1]) for cell in cells) / 2
+    x0, y0 = np.clip(np.floor(corners.min(axis=0) - reach).astype(int), 0, [w, h])
+    x1, y1 = np.clip(np.ceil(corners.max(axis=0) + reach).astype(int) + 1, 0, [w, h])
+    if x1 <= x0 or y1 <= y0:
+        return [empty for _ in cells]
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(
+        np.ascontiguousarray(mask[y0:y1, x0:x1], dtype=np.uint8), connectivity=8
+    )
+    # Each piece's pixels in each cell: rows pieces, columns cells.
+    counts = np.zeros((n, len(cells)), dtype=np.int64)
+    for k, cell in enumerate(cells):
+        box = _box(mask, cell.corners)
+        if box is None:
+            continue
+        bx0, by0, bx1, by1 = box
+        inside = _inside(box, cell.corners)
+        part = labels[by0 - y0 : by1 - y0, bx0 - x0 : bx1 - x0][inside]
+        counts[:, k] = np.bincount(part, minlength=n)
+    counts[0] = 0  # label 0 is no plant
+    held = counts.sum(axis=1) > 0
+    owner = np.where(held, counts.argmax(axis=1), -1)
+    out = []
+    for k in range(len(cells)):
+        pieces = np.flatnonzero(owner == k)
+        if len(pieces) == 0:
+            out.append(empty)
+            continue
+        px0 = int(stats[pieces, cv2.CC_STAT_LEFT].min())
+        py0 = int(stats[pieces, cv2.CC_STAT_TOP].min())
+        px1 = int((stats[pieces, cv2.CC_STAT_LEFT] + stats[pieces, cv2.CC_STAT_WIDTH]).max())
+        py1 = int((stats[pieces, cv2.CC_STAT_TOP] + stats[pieces, cv2.CC_STAT_HEIGHT]).max())
+        own = np.isin(labels[py0:py1, px0:px1], pieces)
+        out.append(_measure(mask, (x0 + px0, y0 + py0, x0 + px1, y0 + py1), own, scale_field))
     return out
 
 
