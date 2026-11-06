@@ -393,6 +393,8 @@ def _readme(experiment: dict, photos: int, missing: list[str], until: str, held:
         lines += ["", f"What each column of {resource['path']} means", ""]
         for field in resource["schema"]["fields"]:
             lines += _wrapped(f"{field['name']}: {field['description']}", "  ", "      ")
+    if resources and fields.get("table_drawing"):
+        lines += [""] + fields["table_drawing"].rstrip("\n").split("\n")
     if missing:
         lines += ["", "Records that were not found on the rig when exporting:"]
         lines += [f"  {m}" for m in missing]

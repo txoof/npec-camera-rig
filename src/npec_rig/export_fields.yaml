@@ -249,6 +249,26 @@ package:
             type: string
             description: Why there is no band, as in tray-readings.csv.
 
+# Printed in the README as written, under the column meanings, when the export holds the data.
+table_drawing: |
+  The table locations (location columns in the CSVs), as seen in the photos from above:
+
+                       North: top of the photo
+             +-------------+-------------+-------------+
+             |             |             |             |
+             |     NW      |     NM      |     NE      |
+             |             |             |             |
+    West:    +-------------+-------------+-------------+    East:
+    left     |             |             |             |    right
+             |     SW      |     SM      |     SE      |
+             |             |             |             |
+             +-------------+-------------+-------------+
+                      South: bottom of the photo
+
+  The two rows meet halfway between the north and the south row of tags on the table; the
+  three columns are equal thirds of the photo's width. A tray is in the location its centre
+  lies in.
+
 other_files:
   - path: stills/
     description: Every photo (.jpg) and its record (.json), in a folder per UTC day.
