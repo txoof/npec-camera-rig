@@ -112,6 +112,7 @@ def _write_zip(export_id: int, experiment_id: int) -> None:
         z.add_bytes(f"{name}/captures.csv", _captures_csv(captures, experiment["folder"]))
         z.add_bytes(f"{name}/time-in-table-location.csv", _time_in_table_location_csv(experiment_id, until))
         z.add_bytes(f"{name}/tray-readings.csv", _tray_readings_csv(captures, experiment["folder"]))
+        z.add_bytes(f"{name}/cell-readings.csv", _cell_readings_csv(captures, experiment["folder"]))
         missing = _add_records(z, name, captures)
         z.add_bytes(f"{name}/README.txt", _readme(experiment, photos, missing, until).encode())
         manifest = "".join(f"{digest}  {path.removeprefix(name + '/')}\n" for digest, path in z.sums)
@@ -201,6 +202,47 @@ def _tray_readings_csv(captures: list[dict], folder: str) -> bytes:
     return buffer.getvalue().encode()
 
 
+# The columns of cell-readings.csv, one line per cell of each tray per photo read (#364).
+CELL_READING_COLUMNS = [
+    "file", "taken_at", "tray", "location", "cell", "status", "plant_area_mm2", "segmenter", "cell_rule",
+    "tray_not_counted", "photo_excluded", "scale_error_at_tray_top_pct", "band_slot", "no_band_reason",
+]
+
+
+def _cell_readings_csv(captures: list[dict], folder: str) -> bytes:
+    """One line per cell of each tray in each photo read for its trays
+    (`tray_readings.capture_readings`), for the researcher's own map of trays and cells to
+    treatments (#364): the cell's status and plant area, no area when it has none, and its tray's
+    location and validation band."""
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=CELL_READING_COLUMNS, lineterminator="\n")
+    writer.writeheader()
+    for row in captures:
+        readings = tray_readings.capture_readings(row)
+        if readings is None:
+            continue
+        for tray in sorted(readings["trays"], key=lambda t: (t["tray_id"] is None, t["tray_id"] or 0)):
+            band = tray["uncertainty"]
+            for cell in tray["cells"]:
+                writer.writerow({
+                    "file": f"stills/{_stills_relative(row['path'], folder)}.jpg",
+                    "taken_at": row["taken_at"],
+                    "tray": tray["tray_id"],
+                    "location": tray["location"],
+                    "cell": cell["cell"],
+                    "status": cell["status"],
+                    "plant_area_mm2": cell["area_mm2"],
+                    "segmenter": cell["segmenter"],
+                    "cell_rule": cell["cell_rule"],
+                    "tray_not_counted": "; ".join(tray["not_counted"]),
+                    "photo_excluded": readings["exclusion"],
+                    "scale_error_at_tray_top_pct": band["band_pct"],
+                    "band_slot": band["slot"],
+                    "no_band_reason": band["reason"],
+                })
+    return buffer.getvalue().encode()
+
+
 def _add_records(z: _Zip, name: str, captures: list[dict]) -> list[str]:
     """Copy every calibration and validation the photos used; return the ones not found."""
     missing = []
@@ -254,6 +296,13 @@ def _readme(experiment: dict, photos: int, missing: list[str], until: str) -> st
         "                       the tray (95 in 100 flat objects read within it), or why there is",
         "                       none. Plant height adds about 0.15% per mm above the tray top, and",
         "                       the band does not cover how well the plant is found. Open it in Excel",
+        "  cell-readings.csv    one line per cell of each tray in each photo: its status and plant",
+        "                       area in mm2, to join with your own map of trays and cells to",
+        "                       treatments. Status: plant; missing (no plant seen, no area, never 0);",
+        "                       tag (the tray tag's cell); leaves over other cells (leaves reach over",
+        "                       a neighbour's cell, so the area is not one plant's own: use the tray's",
+        "                       area). Cell A1 of a 4 x 5 tray holds its tag; a 2 x 2 tray's A1 is its",
+        "                       south-west pot in its first photo, followed after that. Open it in Excel",
         "  experiment.json      the experiment's name, researcher, tray height, notes and periods",
         "  records/             the calibration and validation records the photos were taken under,",
         "                       so every number can be traced",
