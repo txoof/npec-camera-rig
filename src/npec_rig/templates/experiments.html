@@ -416,12 +416,15 @@
       cancel: document.getElementById("ask-cancel"),
     };
     let askAction = null;
+    let partsTimer = null;  // the parts list's 2 s refresh (#368)
 
     // Opens the dialog. `action()` runs on OK; if it throws, its message shows
     // inside the dialog, which stays open so the user can correct and try again.
     // `cancel` false: one button only, for a dialog that only shows something. What `action`
     // returns, if a function, runs after the dialog closed: to open the next dialog.
     function openAsk({ title, body, ok, danger = false, action, cancel = true }) {
+      clearInterval(partsTimer);  // the parts list's refresh must not draw over another dialog
+      ask.body.onclick = null;
       ask.title.textContent = title;
       ask.body.innerHTML = body;
       ask.ok.textContent = ok;
@@ -582,8 +585,12 @@
     }
 
     // The parts of an export (#368): each a large download link, zipped on the rig while it
-    // downloads, its size known so the browser shows progress. "Downloaded" once the rig sent it
-    // to the end. The list scrolls, with a lane on its right free of links (CLAUDE.md, Web pages).
+    // downloads, its size known so the browser shows progress. A tapped part shows Started at
+    // once; while the dialog is open the list is read again every 2 s, and a part the rig sent to
+    // its end shows Downloaded (Aaron, 2026-11-06: without a mark he downloaded parts twice and
+    // missed one). Each status has a word and a symbol as well as its colour. The list scrolls,
+    // with a lane on its right free of links (CLAUDE.md, Web pages).
+    const partsStarted = {};  // export id -> set of part numbers tapped on this page
     async function partsAsk(e, exportId) {
       let x;
       try {
@@ -592,22 +599,55 @@
         listMessage.textContent = `Could not list the parts: ${err.message}`;
         return;
       }
+      const started = (partsStarted[exportId] ||= new Set());
+      const status = (p) => (p.sent
+        ? { word: "&#10003; Downloaded", look: "background: #1f3d2b; border: 2px solid #3fb950" }
+        : started.has(p.n)
+          ? { word: "&#8675; Started", look: "background: #3d3416; border: 2px solid #d29922" }
+          : { word: "", look: "background: #333; border: 2px solid #666" });
       const link = (p) => {
         const what = p.n === 0 ? (x.data ? "README and data" : "README") : `${p.photos} photos`;
-        const done = p.sent ? "&#10003; Downloaded" : "";
-        return `<a href="/api/exports/${x.id}/parts/${p.n}" download`
-          + ` style="display: flex; align-items: center; justify-content: space-between; min-height: 64px; margin-bottom: 24px; padding: 0 16px; text-decoration: none; background: #333; color: #eee; border: 1px solid #666; border-radius: 6px">`
-          + `<span>Part ${p.n}: ${what}, ${size(p.bytes)}</span><strong style="white-space: nowrap; margin-left: 16px">${done}</strong></a>`;
+        const st = status(p);
+        return `<a href="/api/exports/${x.id}/parts/${p.n}" download data-part="${p.n}"`
+          + ` style="display: flex; align-items: center; justify-content: space-between; min-height: 64px; margin-bottom: 24px; padding: 0 16px; text-decoration: none; color: #eee; border-radius: 6px; ${st.look}">`
+          + `<span>Part ${p.n}: ${what}, ${size(p.bytes)}</span><strong style="white-space: nowrap; margin-left: 16px">${st.word}</strong></a>`;
+      };
+      const zero = x.data ? " Part 0 takes about half a minute to start: the data is put together first." : "";
+      const render = () => {
+        const done = x.parts.filter((p) => p.sent).length;
+        return `<p>${x.parts.length} parts, <strong>${done} downloaded</strong>. Download each one and unzip them all `
+          + `into the same folder. A part that fails can be downloaded again on its own.${zero}</p>`
+          + `<div id="parts-list" style="max-height: 300px; overflow-y: auto; padding-right: 64px">${x.parts.map(link).join("")}</div>`;
+      };
+      const redraw = () => {
+        const list = ask.body.querySelector("#parts-list");
+        const scroll = list ? list.scrollTop : 0;
+        ask.body.innerHTML = render();
+        ask.body.querySelector("#parts-list").scrollTop = scroll;
       };
       openAsk({
         title: `Download ${displayName(e)}`,
-        body: `<p>${x.parts.length} parts. Download each one and unzip them all into the same folder. `
-          + "A part that fails can be downloaded again on its own.</p>"
-          + `<div style="max-height: 300px; overflow-y: auto; padding-right: 64px">${x.parts.map(link).join("")}</div>`,
+        body: render(),
         ok: "Close",
         cancel: false,
         action: () => null,
       });
+      ask.body.onclick = (event) => {
+        const a = event.target.closest("a[data-part]");
+        if (!a) return;
+        started.add(Number(a.dataset.part));
+        setTimeout(redraw, 0);  // after the browser has taken the link
+      };
+      clearInterval(partsTimer);
+      partsTimer = setInterval(async () => {
+        if (!ask.dialog.open) { clearInterval(partsTimer); ask.body.onclick = null; return; }
+        try {
+          x = await call("GET", `/api/exports/${exportId}`);
+          redraw();
+        } catch (err) {
+          // Keep the list as it is; the next read may work.
+        }
+      }, 2000);
     }
 
     function purgeAsk(e) {
