@@ -380,3 +380,15 @@ def test_the_readme_explains_every_column_from_the_data_package() -> None:
         assert resource["path"] in readme
         for field in resource["schema"]["fields"]:
             assert f"{field['name']}: {' '.join(field['description'].split())}" in readme, field["name"]
+
+
+def test_the_expected_sizes_are_the_right_order_of_magnitude() -> None:
+    """#65: before exporting, the dialog shows how large the data and the photos will be, so the
+    user knows whether it takes minutes or hours. An order of magnitude is enough (Aaron,
+    2026-11-06): each estimate within a factor of 3 of the export actually made."""
+    experiment = _stopped_experiment_with_photos(3)
+    client = _client()
+    expected = client.get(f"/api/experiments/{experiment['id']}/export-size").json()
+    for choice, key in (({"data": True, "photos": False}, "data_bytes"), ({"data": False, "photos": True}, "photos_bytes")):
+        made = sum(len(v) for v in _exported_zip(experiment["id"], choice).values())
+        assert made / 3 <= expected[key] <= made * 3, (key, expected[key], made)

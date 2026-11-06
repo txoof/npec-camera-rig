@@ -70,6 +70,38 @@ def start_export(experiment_id: int, *, data: bool = True, photos: bool = True) 
     return export
 
 
+# Rough bytes per CSV line and for the README and datapackage.json, for the expected size of an
+# export's data: an order of magnitude is all it needs (Aaron, 2026-11-06), from the line lengths
+# of a test export, not measured on a real experiment.
+_BYTES_PER_PHOTO_LINE = 300
+_BYTES_PER_TRAY_LINE = 200
+_BYTES_FIXED = 25_000
+
+
+def expected_sizes(experiment_id: int) -> dict:
+    """How large an export of the experiment's data and of its photos would be, without making
+    it, so the user knows whether it takes minutes or hours (#65)."""
+    experiment = database.get_experiment(experiment_id)
+    folder = experiments_root() / experiment["folder"]
+    captures = database.captures_for_experiment(experiment_id)
+    photos_bytes = 0
+    for row in captures:
+        rel = _stills_relative(row["path"], experiment["folder"])
+        for suffix in (".jpg", ".json"):
+            source = folder / "stills" / f"{rel}{suffix}"
+            if source.exists():
+                photos_bytes += source.stat().st_size
+    records = [calibration_root() / f"{stem}.json" for stem in {r["calibration"] for r in captures if r["calibration"]}]
+    records += [validations_root() / f"{s}.json" for s in {r["validation"] for r in captures if r["validation"]}]
+    data_bytes = (
+        _BYTES_FIXED
+        + len(captures) * _BYTES_PER_PHOTO_LINE
+        + database.tray_reading_count(experiment_id) * _BYTES_PER_TRAY_LINE
+        + sum(path.stat().st_size for path in records if path.exists())
+    )
+    return {"photos": len(captures), "photos_bytes": photos_bytes, "data_bytes": data_bytes}
+
+
 def zip_path(export: dict) -> Path:
     """Where a finished export's zip is on disk."""
     return experiments_root() / export["file"].removeprefix("experiments/")

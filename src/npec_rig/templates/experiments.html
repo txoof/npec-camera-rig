@@ -527,17 +527,30 @@
     // Export asks what goes in it (#65, #368): the data, the photos or both. Large rows, so the
     // whole row is the tap target (CLAUDE.md, Web pages). Only an export with the photos lets
     // Purge through.
-    function exportAsk(e) {
+    async function exportAsk(e) {
       const tick = (id, label, note) =>
         `<label for="${id}" style="display: flex; gap: 16px; align-items: center; min-height: 64px; margin-bottom: 24px; cursor: pointer">`
         + `<input type="checkbox" id="${id}" checked style="width: 32px; height: 32px; flex: none">`
         + `<span><strong>${label}</strong><br>${note}</span></label>`;
-      const sofar = e.state === "running" ? " taken so far" : "";
+      // Expected sizes, an order of magnitude only (Aaron, 2026-11-06): so the user knows before
+      // starting whether the export takes minutes or hours.
+      let sizes = null;
+      try {
+        sizes = await call("GET", `/api/experiments/${e.id}/export-size`);
+      } catch (err) {
+        sizes = null;
+      }
+      const expected = (key) => (sizes ? ` (expected size about ${size(sizes[key])})` : "");
+      const minutes = e.interval_s ? Math.round(e.interval_s / 60) : 0;
+      const taken = (e.state === "running" ? "taken so far" : "taken")
+        + (minutes ? ` at ${minutes} minute intervals` : "");
       openAsk({
         title: `Export ${displayName(e)}`,
         body: "<p>What goes in the export?</p>"
-          + tick("export-data", "Data", "The CSV tables, what every column means, and the records. Small.")
-          + tick("export-photos", "Photos", `Every photo${sofar}. Large. Needed before Purge.`),
+          + tick("export-data", "Data", `CSV tables and data description${expected("data_bytes")}`)
+          + tick("export-photos", "Photos", `Every photo ${taken}${expected("photos_bytes")}`)
+          + "<p>To delete this experiment from the rig later (Purge), first export it with Photos "
+          + "ticked, so a copy of every photo exists.</p>",
         ok: "Export",
         action: () => {
           const data = ask.body.querySelector("#export-data").checked;

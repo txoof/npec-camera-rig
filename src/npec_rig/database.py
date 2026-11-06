@@ -1215,6 +1215,16 @@ def exports_for(experiment_id: int) -> list[dict]:
 # PLAN.md, *Purging an experiment*: the one deletion. The experiment's row stays as the record.
 
 
+def tray_reading_count(experiment_id: int) -> int:
+    """How many trays were read in the experiment's photos: the lines of its tray-readings.csv."""
+    with _connect() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM tray_reading r JOIN capture c ON c.id = r.capture_id"
+            " WHERE c.experiment_id = ?",
+            (experiment_id,),
+        ).fetchone()[0]
+
+
 def complete_export(experiment_id: int) -> dict | None:
     """The newest export that holds every photo of the experiment: the photos ticked (#368),
     finished, no error, its zip not removed, and started after the last photo. A partial export

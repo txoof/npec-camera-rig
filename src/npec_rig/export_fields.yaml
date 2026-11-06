@@ -28,7 +28,9 @@ package:
         fields:
           - name: file
             type: string
-            description: The photo in this export, stills/<UTC day>/<time>.jpg. Its record is the .json file of the same name.
+            description: >-
+              Where the photo is in an export with Photos ticked: stills/<UTC day>/<time>.jpg. Its
+              record is the .json file of the same name.
           - name: id
             type: integer
             description: The photo's number in the rig's database.
