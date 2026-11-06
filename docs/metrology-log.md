@@ -8212,3 +8212,60 @@ scripts in `experiments/355-jpeg-quality/`.
 *Not decided here.* Changing the quality of the saved photos changes every photo file and its
 size (today's 5.9 MB a still is about 8.5 GB a day at one photo a minute; G 85 full colour would
 be about 15.4 GB a day). It needs Aaron's decision (#355).
+
+## 27. Cells placed from the tray's outline and tag (issue #364, method written 2026-11-06, before the run)
+
+**Label: development check.** Whether the cells the rig places in each tray (`tray_placement.place_cells`)
+lie where the tray's real cell openings (4 x 5) and pots (2 x 2) are, so that the area per cell
+(`segmentation.measure_cells`) is counted inside the right cell.
+
+### 27.1 The 2 x 2 tray's cells (Aaron, 2026-11-06)
+
+Measured on one 2 x 2 tray by Aaron. The number of readings of the walls and divisions was not
+recorded.
+
+| What | Value | Instrument |
+|---|---|---|
+| Cell hole, both directions | 106 mm (two cells, several readings each; first given as 107 mm, corrected) | tape measure |
+| Outer wall, long edges (east and west, tray in portrait) | 20 mm | tape measure |
+| Outer wall, short edges (north and south) | 40 mm | tape measure |
+| Division between the cells, along the long side | 58.5 mm | tape measure |
+| Division between the cells, across the short side | 32 mm | tape measure |
+| Pot rim, the part seen from above | 108.83, 108.86, 108.85, 109.18 mm (mean 108.93, range 0.35) | callipers |
+| Outside size | the same as the 4 x 5 tray, 305 x 366 mm (statement by Aaron) | |
+
+- Added up, the walls, holes and divisions give 284 mm across and 350.5 mm along, 21 and 15.5 mm
+  short of the outside size: about 10 mm more lip each way than the 4 x 5 tray's (reference/trays.md).
+  Not explained.
+- **A decision, not a measurement:** the grid is taken to be centred in the tray, as on the 4 x 5.
+  Then the cell centres lie 16 + 53 = 69.0 mm east and west and 29.25 + 53 = 82.25 mm north and
+  south of the tray's centre, whatever the lip is.
+- The rig places the pot rim (108.93 mm), not the hole, as the cell: it is what the camera sees.
+- **Naming (Aaron, 2026-11-06):** 2 x 2 tags lie at whatever angle the researcher glued them. A1 is
+  the pot at the photo's south-west in the tray's first photo of the experiment; after that A1
+  keeps its bearing from the tag, so the names follow the tray when it is turned.
+- The 4 x 5 cells are those of reference/trays.md: openings 59.5 mm (callipers), centres 69.7 mm
+  apart (derived), A1 in the corner nearest the tag.
+
+### 27.2 Method (written before the run)
+
+1. *Photos.* Development: the newest still of experiment 3 ("development 002"), nine 2 x 2 trays,
+   read by the app at 201b79c. Production: the newest still of the running experiment, 4 x 5 trays,
+   copied read-only from `ac-testing` with its calibration; its cells placed on the controller with
+   the same code. Nothing is written on either rig.
+2. *Placement error per tray.* The tray's whole cell grid (as placed) is shifted east-west and
+   north-south over -15 to +15 mm in 1 mm steps. At each shift: the fraction of tray-blue pixels
+   (`tray_placement.BLUE_HUE`, `BLUE_SAT_MIN`, `BLUE_VALUE_MIN`) inside the cells' squares, and the
+   fraction on the walls between them (inside the tray outline, outside every square). The score is
+   wall fraction minus cell fraction. The shift with the highest score is the tray's placement
+   error, east and north in mm at the calibration's scale. Plants cover cells and walls alike; they
+   lower the score but are not expected to move its peak much.
+3. *Expected.* Shifts within a few mm. **Pass (a decision, not a measurement):** every tray's shift
+   less than half the space between neighbouring cells, so no cell reaches its neighbour's opening:
+   5 mm for 4 x 5 (walls 10.2 mm), 14 mm east-west and 27 mm north-south for 2 x 2 (gaps between
+   pots 29 and 55.5 mm).
+4. *Figure.* Each tray's placed cells drawn on the photo, with the best shift.
+
+**Limits (as planned).** A turn of the grid is not tested, only a shift. One still per rig, so how
+the error changes from photo to photo is not measured. A pot or opening covered by leaves adds
+nothing to the score. The 2 x 2 walls and divisions were measured on one tray with a tape measure.
