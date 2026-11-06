@@ -21,6 +21,8 @@ def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
     monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
     monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+    # No fixed reserve, so these tests do not depend on the free space of the test machine.
+    monkeypatch.setattr(exports, "MIN_FREE_BYTES", 0)
 
 
 def _calibrated_with_validation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -392,3 +394,32 @@ def test_the_expected_sizes_are_the_right_order_of_magnitude() -> None:
     for choice, key in (({"data": True, "photos": False}, "data_bytes"), ({"data": False, "photos": True}, "photos_bytes")):
         made = sum(len(v) for v in _exported_zip(experiment["id"], choice).values())
         assert made / 3 <= expected[key] <= made * 3, (key, expected[key], made)
+
+
+def test_an_export_that_would_leave_too_little_free_space_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#65 (Aaron, 2026-11-06): a full export on the development rig nearly filled the disk under
+    a running experiment. The fixed reserve is raised past any disk here, so nothing fits."""
+    experiment = _stopped_experiment_with_photos(1)
+    monkeypatch.setattr(exports, "MIN_FREE_BYTES", 10**18)
+    refused = _client().post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": True})
+    assert refused.status_code == 409
+    assert "free" in refused.json()["detail"]
+    assert database.exports_for(experiment["id"]) == []
+
+
+def test_the_running_experiments_next_photos_are_kept_room_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#65: the space kept free covers COVER_DAYS of the running experiment's photos at its
+    interval and its photos' size. With no fixed reserve, only that cover can refuse the export;
+    raised to a span no disk holds, it does, even for the small data."""
+    experiment = captures.create_experiment(name="Drought", interval_s=60)
+    experiment = captures.start_experiment(experiment["id"])
+    _array, _record = captures.take_photo("capture")
+    del _array
+    monkeypatch.setattr(exports, "MIN_FREE_BYTES", 0)
+    client = _client()
+    choice = {"data": True, "photos": False}
+    monkeypatch.setattr(exports, "COVER_DAYS", 10**9)
+    refused = client.post(f"/api/experiments/{experiment['id']}/export", json=choice)
+    assert refused.status_code == 409
+    monkeypatch.setattr(exports, "COVER_DAYS", 0)
+    assert client.post(f"/api/experiments/{experiment['id']}/export", json=choice).status_code == 200

@@ -159,9 +159,10 @@ def test_purge_deletes_the_photos_exclusions() -> None:
     assert [database.exclusion(p["id"]) for p in photos] == [None, None]
 
 
-def test_a_data_only_export_is_not_complete() -> None:
+def test_a_data_only_export_is_not_complete(monkeypatch: pytest.MonkeyPatch) -> None:
     """#368 item 2: only an export holding every photo lets Purge through, or photos that were
     never exported could be deleted."""
+    monkeypatch.setattr(exports, "MIN_FREE_BYTES", 0)  # not the test machine's free space
     from fastapi.testclient import TestClient
 
     from npec_rig.app import app

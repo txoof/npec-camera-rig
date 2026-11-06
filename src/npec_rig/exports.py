@@ -22,6 +22,7 @@ import io
 import json
 import logging
 import re
+import shutil
 import textwrap
 import threading
 import unicodedata
@@ -60,9 +61,42 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# Free space an export must leave on the disk (#65, Aaron, 2026-11-06): the running experiment's
+# next COVER_DAYS of photos, at its interval and its photos' average size, and never less than
+# MIN_FREE_BYTES. Both are decisions, not measurements: 2 days covers a weekend morning before
+# someone notices; 10 GB until the disk monitoring of M3 sets one.
+COVER_DAYS = 2
+MIN_FREE_BYTES = 10 * 10**9
+
+
+def _reserve() -> int:
+    """Bytes to keep free for the running experiment's photos."""
+    running = database.running_experiment()
+    if not running or not running.get("interval_s"):
+        return MIN_FREE_BYTES
+    sizes = expected_sizes(running["id"])
+    per_photo = sizes["photos_bytes"] / sizes["photos"] if sizes["photos"] else 0
+    per_day = 86_400 / running["interval_s"] * per_photo
+    return max(MIN_FREE_BYTES, int(COVER_DAYS * per_day))
+
+
+def _gb(n: float) -> str:
+    return f"{n / 1e9:.1f} GB"
+
+
 def start_export(experiment_id: int, *, data: bool = True, photos: bool = True) -> dict:
     """Record a new export of the data, the photos or both, and build it in the background.
-    Returns the export row."""
+    Returns the export row. Refused when it would leave less free space than `_reserve`."""
+    sizes = expected_sizes(experiment_id)
+    needed = (sizes["data_bytes"] if data else 0) + (sizes["photos_bytes"] if photos else 0)
+    free = shutil.disk_usage(experiments_root()).free
+    reserve = _reserve()
+    if free - needed < reserve:
+        raise database.ExperimentError(
+            f"not enough free space on the rig: this export needs about {_gb(needed)}, {_gb(free)} is"
+            f" free, and {_gb(reserve)} must stay free for photos still to come. Export Data only,"
+            " or free space first"
+        )
     export = database.create_export(experiment_id, now=_now(), data=data, photos=photos)
     threading.Thread(
         target=_build, args=(export["id"], experiment_id), name=f"export-{export['id']}", daemon=True
