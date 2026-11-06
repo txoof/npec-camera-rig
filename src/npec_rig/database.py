@@ -413,6 +413,15 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "CREATE INDEX cell_reading_capture ON cell_reading (capture_id, tray_id)",
         ),
     ),
+    (
+        22,
+        "export: what the user ticked to go in it, the data, the photos or both (#65, #368)",
+        # Exports before this version held both.
+        (
+            "ALTER TABLE export ADD COLUMN data INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE export ADD COLUMN photos INTEGER NOT NULL DEFAULT 1",
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -1209,10 +1218,10 @@ def captures_for_experiment(experiment_id: int, until: str | None = None) -> lis
     return [dict(row) for row in rows]
 
 
-def create_export(experiment_id: int, *, now: str) -> dict:
+def create_export(experiment_id: int, *, now: str, data: bool = True, photos: bool = True) -> dict:
     """A new export, refused for an experiment that has never started, or while an export of it
     is still being prepared. A running experiment can be exported: the export holds its photos
-    up to `now` (Aaron, 2026-10-09)."""
+    up to `now` (Aaron, 2026-10-09). `data` and `photos`: what the user ticked to go in it."""
     with _connect() as conn:
         # Take the write lock before checking, so two clicks cannot both start one.
         conn.execute("BEGIN IMMEDIATE")
@@ -1228,7 +1237,8 @@ def create_export(experiment_id: int, *, now: str) -> dict:
         if busy:
             raise ExperimentError("an export of this experiment is already being prepared")
         cursor = conn.execute(
-            "INSERT INTO export (experiment_id, started_at) VALUES (?, ?)", (experiment_id, now)
+            "INSERT INTO export (experiment_id, started_at, data, photos) VALUES (?, ?, ?, ?)",
+            (experiment_id, now, int(data), int(photos)),
         )
         return dict(conn.execute("SELECT * FROM export WHERE id = ?", (cursor.lastrowid,)).fetchone())
 
@@ -1280,17 +1290,37 @@ def exports_for(experiment_id: int) -> list[dict]:
 # PLAN.md, *Purging an experiment*: the one deletion. The experiment's row stays as the record.
 
 
+def tray_reading_count(experiment_id: int) -> int:
+    """How many trays were read in the experiment's photos: the lines of its tray-readings.csv."""
+    with _connect() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM tray_reading r JOIN capture c ON c.id = r.capture_id"
+            " WHERE c.experiment_id = ?",
+            (experiment_id,),
+        ).fetchone()[0]
+
+
+def cell_reading_count(experiment_id: int) -> int:
+    """How many cells were read in the experiment's photos: the lines of its cell-readings.csv."""
+    with _connect() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM cell_reading r JOIN capture c ON c.id = r.capture_id"
+            " WHERE c.experiment_id = ?",
+            (experiment_id,),
+        ).fetchone()[0]
+
+
 def complete_export(experiment_id: int) -> dict | None:
-    """The newest export that holds every photo of the experiment: finished, no error, its zip
-    not removed, and started after the last photo. A partial export taken while running does not
-    count unless no photo came after it."""
+    """The newest export that holds every photo of the experiment: the photos ticked (#368),
+    finished, no error, its zip not removed, and started after the last photo. A partial export
+    taken while running does not count unless no photo came after it."""
     with _connect() as conn:
         last = conn.execute(
             "SELECT MAX(taken_at) FROM capture WHERE experiment_id = ?", (experiment_id,)
         ).fetchone()[0]
         row = conn.execute(
             "SELECT * FROM export WHERE experiment_id = ? AND finished_at IS NOT NULL"
-            " AND error IS NULL AND removed_at IS NULL AND (? IS NULL OR started_at >= ?)"
+            " AND photos = 1 AND error IS NULL AND removed_at IS NULL AND (? IS NULL OR started_at >= ?)"
             " ORDER BY id DESC LIMIT 1",
             (experiment_id, last, last),
         ).fetchone()

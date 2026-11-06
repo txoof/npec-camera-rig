@@ -19,13 +19,18 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 import logging
 import re
+import shutil
+import textwrap
 import threading
 import unicodedata
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+
+import yaml
 
 from npec_rig import database, dwell, tray_readings
 from npec_rig.calibration_store import calibration_root
@@ -36,18 +41,113 @@ logger = logging.getLogger(__name__)
 
 _CHUNK = 1 << 20
 
+# What every file and CSV column in an export means. Read at each export, so its wording can
+# change without a restart (#65).
+FIELDS_FILE = Path(__file__).with_name("export_fields.yaml")
+
+
+def _fields() -> dict:
+    return yaml.safe_load(FIELDS_FILE.read_text(encoding="utf-8"))
+
+
+def _data_package(fields: dict, held: set[str]) -> bytes:
+    """datapackage.json: the Frictionless Data Package with the resources of the CSVs held."""
+    package = dict(fields["package"])
+    package["resources"] = [r for r in package["resources"] if r["path"] in held]
+    return json.dumps(package, indent=2, ensure_ascii=False).encode() + b"\n"
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def start_export(experiment_id: int) -> dict:
-    """Record a new export and build it in the background. Returns the export row."""
-    export = database.create_export(experiment_id, now=_now())
+# Free space an export must leave on the disk (#65, Aaron, 2026-11-06): the running experiment's
+# next COVER_DAYS of photos, at its interval and its photos' average size, and never less than
+# MIN_FREE_BYTES. Both are decisions, not measurements: 2 days covers a weekend morning before
+# someone notices; 10 GB until the disk monitoring of M3 sets one.
+COVER_DAYS = 2
+MIN_FREE_BYTES = 10 * 10**9
+
+
+def _reserve() -> int:
+    """Bytes to keep free for the running experiment's photos."""
+    running = database.running_experiment()
+    if not running or not running.get("interval_s"):
+        return MIN_FREE_BYTES
+    sizes = expected_sizes(running["id"])
+    per_photo = sizes["photos_bytes"] / sizes["photos"] if sizes["photos"] else 0
+    per_day = 86_400 / running["interval_s"] * per_photo
+    return max(MIN_FREE_BYTES, int(COVER_DAYS * per_day))
+
+
+def _size(n: float) -> str:
+    """As the Experiments page shows sizes: kB, MB to 0.1, GB to 0.01."""
+    if n < 1e6:
+        return f"{max(1, round(n / 1e3))} kB"
+    if n < 1e9:
+        return f"{n / 1e6:.1f} MB"
+    return f"{n / 1e9:.2f} GB"
+
+
+def start_export(experiment_id: int, *, data: bool = True, photos: bool = True) -> dict:
+    """Record a new export of the data, the photos or both, and build it in the background.
+    Returns the export row. Refused when it would leave less free space than `_reserve`."""
+    sizes = expected_sizes(experiment_id)
+    needed = (sizes["data_bytes"] if data else 0) + (sizes["photos_bytes"] if photos else 0)
+    free = shutil.disk_usage(experiments_root()).free
+    reserve = _reserve()
+    if free - needed < reserve:
+        raise database.ExperimentError(
+            f"Insufficient disk space: this export requires about {_size(needed)}."
+            f" {_size(max(0, free - reserve))} is available ({_size(free)} free, less {_size(reserve)}"
+            " kept for photos still to come). Try purging old experiments first."
+        )
+    export = database.create_export(experiment_id, now=_now(), data=data, photos=photos)
     threading.Thread(
         target=_build, args=(export["id"], experiment_id), name=f"export-{export['id']}", daemon=True
     ).start()
     return export
+
+
+# Bytes per CSV line in the download (the zip compresses the CSVs), and for the README,
+# datapackage.json, manifest and experiment.json, for the expected size of an export's data: an
+# order of magnitude is all it needs (Aaron, 2026-11-06). From export 4 on npec-rig-01
+# (2026-11-06, 4303 photos), a development check: captures 19, tray-readings 17, cell-readings 16
+# compressed bytes a line; the other files 7 kB. Records are stored uncompressed.
+_BYTES_PER_LINE = 20
+_BYTES_FIXED = 7_000
+
+
+def expected_sizes(experiment_id: int) -> dict:
+    """How large an export of the experiment's data and of its photos would be, without making
+    it, so the user knows whether it takes minutes or hours (#65)."""
+    experiment = database.get_experiment(experiment_id)
+    folder = experiments_root() / experiment["folder"]
+    captures = database.captures_for_experiment(experiment_id)
+    photos_bytes = 0
+    for row in captures:
+        rel = _stills_relative(row["path"], experiment["folder"])
+        for suffix in (".jpg", ".json"):
+            source = folder / "stills" / f"{rel}{suffix}"
+            if source.exists():
+                photos_bytes += source.stat().st_size
+    records = [calibration_root() / f"{stem}.json" for stem in {r["calibration"] for r in captures if r["calibration"]}]
+    records += [validations_root() / f"{s}.json" for s in {r["validation"] for r in captures if r["validation"]}]
+    data_bytes = (
+        _BYTES_FIXED
+        + (len(captures) + database.tray_reading_count(experiment_id) + database.cell_reading_count(experiment_id))
+        * _BYTES_PER_LINE
+        + sum(path.stat().st_size for path in records if path.exists())
+    )
+    return {"photos": len(captures), "photos_bytes": photos_bytes, "data_bytes": data_bytes}
+
+
+def export_sizes(experiment_id: int) -> dict:
+    """`expected_sizes`, and `usable_bytes`: how much an export may take, the free space less
+    what must stay free (`_reserve`), so the dialog can say beforehand what does not fit."""
+    sizes = expected_sizes(experiment_id)
+    sizes["usable_bytes"] = shutil.disk_usage(experiments_root()).free - _reserve()
+    return sizes
 
 
 def zip_path(export: dict) -> Path:
@@ -88,7 +188,8 @@ def _write_zip(export_id: int, experiment_id: int) -> None:
     experiment = database.get_experiment(experiment_id)
     folder = experiments_root() / experiment["folder"]
     # Photos up to the export's start: a running experiment keeps taking them meanwhile.
-    until = database.get_export(export_id)["started_at"]
+    export = database.get_export(export_id)
+    until = export["started_at"]
     captures = database.captures_for_experiment(experiment_id, until=until)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     slug = slugify(experiment["name"])
@@ -100,23 +201,27 @@ def _write_zip(export_id: int, experiment_id: int) -> None:
 
     with zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zf:
         z = _Zip(zf)
-        z.add_file(f"{name}/experiment.json", folder / "experiment.json")
-        photos = 0
-        for row in captures:
-            rel = _stills_relative(row["path"], experiment["folder"])
-            for suffix in (".jpg", ".json"):
-                source = folder / "stills" / f"{rel}{suffix}"
-                if source.exists():
-                    z.add_file(f"{name}/stills/{rel}{suffix}", source)
-            photos += 1
-        z.add_bytes(f"{name}/captures.csv", _captures_csv(captures, experiment["folder"]))
-        z.add_bytes(f"{name}/time-in-table-location.csv", _time_in_table_location_csv(experiment_id, until))
-        # Each photo's readings worked out once, for both files (review of #374).
-        read = [(row, tray_readings.capture_readings(row)) for row in captures]
-        z.add_bytes(f"{name}/tray-readings.csv", _tray_readings_csv(read, experiment["folder"]))
-        z.add_bytes(f"{name}/cell-readings.csv", _cell_readings_csv(read, experiment["folder"]))
-        missing = _add_records(z, name, captures)
-        z.add_bytes(f"{name}/README.txt", _readme(experiment, photos, missing, until).encode())
+        missing: list[str] = []
+        if export["photos"]:
+            for row in captures:
+                rel = _stills_relative(row["path"], experiment["folder"])
+                for suffix in (".jpg", ".json"):
+                    source = folder / "stills" / f"{rel}{suffix}"
+                    if source.exists():
+                        z.add_file(f"{name}/stills/{rel}{suffix}", source)
+        if export["data"]:
+            z.add_file(f"{name}/experiment.json", folder / "experiment.json")
+            z.add_bytes(f"{name}/captures.csv", _captures_csv(captures, experiment["folder"]))
+            z.add_bytes(f"{name}/time-in-table-location.csv", _time_in_table_location_csv(experiment_id, until))
+            # Each photo's readings worked out once, for both files (review of #374).
+            read = [(row, tray_readings.capture_readings(row)) for row in captures]
+            z.add_bytes(f"{name}/tray-readings.csv", _tray_readings_csv(read, experiment["folder"]))
+            z.add_bytes(f"{name}/cell-readings.csv", _cell_readings_csv(read, experiment["folder"]))
+            missing = _add_records(z, name, captures)
+            held = {path.removeprefix(name + "/") for _digest, path in z.sums}
+            z.add_bytes(f"{name}/datapackage.json", _data_package(_fields(), held))
+        held = {path.removeprefix(name + "/") for _digest, path in z.sums}
+        z.add_bytes(f"{name}/README.txt", _readme(experiment, len(captures), missing, until, held).encode())
         manifest = "".join(f"{digest}  {path.removeprefix(name + '/')}\n" for digest, path in z.sums)
         zf.writestr(f"{name}/MANIFEST.sha256", manifest, compress_type=zipfile.ZIP_DEFLATED)
 
@@ -262,7 +367,9 @@ def _add_records(z: _Zip, name: str, captures: list[dict]) -> list[str]:
     return missing
 
 
-def _readme(experiment: dict, photos: int, missing: list[str], until: str) -> str:
+def _readme(experiment: dict, photos: int, missing: list[str], until: str, held: set[str]) -> str:
+    """The README: the experiment, then what each file holds and what each CSV column means, from
+    `export_fields.yaml`, for the files `held` only."""
     title = experiment["name"] or f"Experiment started {experiment['periods'][0]['started_at']}"
     periods = "\n".join(
         f"  {p['started_at']} to {p['ended_at'] or 'still running'}" for p in experiment["periods"]
@@ -281,39 +388,28 @@ def _readme(experiment: dict, photos: int, missing: list[str], until: str) -> st
         "Running periods (UTC):",
         periods,
         "",
-        "All times are UTC. The chamber's local time is UTC+2.",
-        "",
-        "What is in this folder",
-        "  stills/              every photo (.jpg) and its record (.json), by UTC day",
-        "  captures.csv         one line per photo: time, purpose, calibration, validation, lens,",
-        "                       focus lock, exposure, gain, flags. Open it in Excel",
-        "  time-in-table-location.csv",
-        "                       one line per tray: its hours in each table location. The table is",
-        "                       cut in 6 locations, NW NM NE in the north row, SW SM SE in the south",
-        "                       row (north is the top of the photo). A tray counts as moved only",
-        "                       after 1 hour in another location. Open it in Excel",
-        "  tray-readings.csv    one line per tray in each photo: its plant area in mm2, and the",
-        "                       scale error at tray top, the validation band of the slot nearest",
-        "                       the tray (95 in 100 flat objects read within it), or why there is",
-        "                       none. Plant height adds about 0.15% per mm above the tray top, and",
-        "                       the band does not cover how well the plant is found. Open it in Excel",
-        "  cell-readings.csv    one line per cell of each tray in each photo: its status and plant",
-        "                       area in mm2, to join with your own map of trays and cells to",
-        "                       treatments. Status: plant; missing (no plant seen, no area, never 0);",
-        "                       tag (the tray tag's cell); leaves over other cells (leaves reach over",
-        "                       a neighbour's cell, so the area is not one plant's own: use the tray's",
-        "                       area). Cell A1 of a 4 x 5 tray holds its tag; a 2 x 2 tray's A1 is its",
-        "                       south-west pot in its first photo, followed after that. Open it in Excel",
-        "  experiment.json      the experiment's name, researcher, tray height, notes and periods",
-        "  records/             the calibration and validation records the photos were taken under,",
-        "                       so every number can be traced",
-        "  MANIFEST.sha256      a fingerprint (SHA-256) of every file. To check the copy is",
-        "                       complete and unchanged, run in this folder: sha256sum -c MANIFEST.sha256",
-        "",
-        "A photo with flags in captures.csv is not covered by the validation's uncertainty bands;",
-        "the flag says why.",
     ]
+    fields = _fields()
+    lines += _wrapped(fields["package"]["description"], "")
+    resources = [r for r in fields["package"]["resources"] if r["path"] in held]
+    lines += ["", "What is in this folder", ""]
+    for entry in resources + fields["other_files"]:
+        path = entry["path"]
+        if path in held or any(h.startswith(path) for h in held if path.endswith("/")) or path == "MANIFEST.sha256":
+            lines += [f"  {path}"] + _wrapped(entry["description"], "      ")
+    for resource in resources:
+        lines += ["", f"What each column of {resource['path']} means", ""]
+        for field in resource["schema"]["fields"]:
+            lines += _wrapped(f"{field['name']}: {field['description']}", "  ", "      ")
+    if resources and fields.get("table_drawing"):
+        lines += [""] + fields["table_drawing"].rstrip("\n").split("\n")
     if missing:
         lines += ["", "Records that were not found on the rig when exporting:"]
         lines += [f"  {m}" for m in missing]
     return "\n".join(lines) + "\n"
+
+
+def _wrapped(text: str, indent: str, later: str | None = None) -> list[str]:
+    return textwrap.wrap(" ".join(text.split()), width=96, initial_indent=indent,
+                         subsequent_indent=indent if later is None else later,
+                         break_on_hyphens=False, break_long_words=False)

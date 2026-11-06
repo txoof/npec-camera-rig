@@ -186,7 +186,8 @@
       if (!x.finished_at) return `<div class="experiment-export">Export: preparing, started ${utc(x.started_at)}</div>`;
       if (x.error) return `<div class="experiment-export">Export failed: ${esc(x.error)}</div>`;
       if (x.removed_at) return "";
-      return `<div class="experiment-export">Export ${utc(x.finished_at)}, ${x.files} files, `
+      const held = x.photos && x.data ? "" : x.photos ? " (photos only)" : " (data only)";
+      return `<div class="experiment-export">Export${held} ${utc(x.finished_at)}, ${x.files} files, `
         + `${size(x.bytes)}: <a href="/api/exports/${x.id}/download">Download</a></div>`
         + completeText(e);
     }
@@ -523,6 +524,57 @@
       }
     });
 
+    // Export asks what goes in it (#65, #368): the data, the photos or both. Large rows, so the
+    // whole row is the tap target (CLAUDE.md, Web pages). Only an export with the photos lets
+    // Purge through.
+    async function exportAsk(e) {
+      // Expected download sizes, an order of magnitude only (Aaron, 2026-11-06): so the user
+      // knows before starting whether the export takes minutes or hours. `usable_bytes`: what an
+      // export may take and still leave the rig enough free space; a choice that does not fit is
+      // unticked and says so here, before the tap (the server refuses it too).
+      let sizes = null;
+      try {
+        sizes = await call("GET", `/api/experiments/${e.id}/export-size`);
+      } catch (err) {
+        sizes = null;
+      }
+      const fits = (key) => !sizes || sizes[key] <= sizes.usable_bytes;
+      // Rounded, as an estimate should read: "about 25 GB", "about 3.7 GB", "about 850 kB".
+      const about = (bytes) => {
+        const [unit, scale] = bytes >= 1e9 ? ["GB", 1e9] : bytes >= 1e6 ? ["MB", 1e6] : ["kB", 1e3];
+        const n = bytes / scale;
+        return `${n >= 10 ? Math.round(n) : Math.max(0.1, Math.round(n * 10) / 10)} ${unit}`;
+      };
+      const tick = (id, label, note, key) => {
+        const ok = fits(key);
+        const why = ok ? "" : `<br><strong>INSUFFICIENT DISK SPACE</strong>: This export requires about `
+          + `${about(sizes[key])}. ${about(Math.max(0, sizes.usable_bytes))} are available. `
+          + "Try purging old experiments first.";
+        return `<label for="${id}" style="display: flex; gap: 16px; align-items: center; min-height: 64px; margin-bottom: 24px; cursor: pointer">`
+          + `<input type="checkbox" id="${id}" ${ok ? "checked" : "disabled"} style="width: 32px; height: 32px; flex: none">`
+          + `<span><strong>${label}</strong><br>${note}${why}</span></label>`;
+      };
+      const expected = (key) => (sizes ? ` (about ${about(sizes[key])})` : "");
+      const minutes = e.interval_s ? Math.round(e.interval_s / 60) : 0;
+      const taken = (e.state === "running" ? "taken so far" : "taken")
+        + (minutes ? ` at ${minutes} minute intervals` : "");
+      openAsk({
+        title: `Export ${displayName(e)}`,
+        body: "<p>What goes in the export?</p>"
+          + tick("export-data", "Data", `CSV tables and data description${expected("data_bytes")}`, "data_bytes")
+          + tick("export-photos", "Photos", `Export every photo ${taken}${expected("photos_bytes")}.`, "photos_bytes")
+          + "<p>To delete this experiment from the rig later (Purge), first export it with Photos "
+          + "ticked, so a copy of every photo exists.</p>",
+        ok: "Export",
+        action: () => {
+          const data = ask.body.querySelector("#export-data").checked;
+          const photos = ask.body.querySelector("#export-photos").checked;
+          if (!data && !photos) throw new Error("Tick Data, Photos or both.");
+          return call("POST", `/api/experiments/${e.id}/export`, { data, photos });
+        },
+      });
+    }
+
     function purgeAsk(e) {
       const exportLine = e.complete_export
         ? `<p>It has a complete export, made ${esc(utc(e.complete_export.finished_at))}.</p>`
@@ -597,7 +649,7 @@
           await runAndRefresh(() => call("POST", `/api/experiments/${e.id}/start`));
         }
       } else if (act === "export") {
-        await runAndRefresh(() => call("POST", `/api/experiments/${e.id}/export`));
+        exportAsk(e);
       } else if (act === "reprocess") {
         openAsk({
           title: `Reprocess areas of ${displayName(e)}`,

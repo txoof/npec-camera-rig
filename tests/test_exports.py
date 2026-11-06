@@ -21,6 +21,8 @@ def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
     monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
     monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+    # No fixed reserve, so these tests do not depend on the free space of the test machine.
+    monkeypatch.setattr(exports, "MIN_FREE_BYTES", 0)
 
 
 def _calibrated_with_validation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -286,6 +288,147 @@ def test_the_export_holds_each_trays_plant_area_with_its_slots_validation_band()
     assert "  tray-readings.csv\n" in manifest
 
 
+def _client():
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    return TestClient(app)
+
+
+def _finished(export_id: int) -> dict:
+    for _ in range(100):
+        export = database.get_export(export_id)
+        if export["finished_at"]:
+            return export
+        time.sleep(0.05)
+    raise AssertionError("the export did not finish")
+
+
+def test_an_export_with_nothing_ticked_is_refused() -> None:
+    """#65, #368 item 2: the user ticks what goes in the export; with no box ticked there is
+    nothing to export, and no export is recorded."""
+    experiment = _stopped_experiment_with_photos(1)
+    refused = _client().post(f"/api/experiments/{experiment['id']}/export", json={"data": False, "photos": False})
+    assert refused.status_code == 422
+    assert database.exports_for(experiment["id"]) == []
+
+
+def _exported_names(experiment_id: int, choice: dict) -> set[str]:
+    """The files in the export made through the page's route, without the top folder."""
+    client = _client()
+    started = client.post(f"/api/experiments/{experiment_id}/export", json=choice)
+    assert started.status_code == 200
+    export = _finished(started.json()["id"])
+    assert export["error"] is None
+    with zipfile.ZipFile(io.BytesIO(client.get(f"/api/exports/{export['id']}/download").content)) as zf:
+        return {n.split("/", 1)[1] for n in zf.namelist()}
+
+
+def test_a_data_only_export_holds_the_data_and_no_photos() -> None:
+    """#368 item 2: the data is experiment.json, the CSVs, the records, README and manifest."""
+    experiment = _stopped_experiment_with_photos(2)
+    names = _exported_names(experiment["id"], {"data": True, "photos": False})
+    assert not [n for n in names if n.startswith("stills/")]
+    assert {"experiment.json", "captures.csv", "time-in-table-location.csv", "tray-readings.csv",
+            "README.txt", "MANIFEST.sha256"} <= names
+
+
+def test_a_photos_only_export_holds_the_photos_and_no_data() -> None:
+    experiment = _stopped_experiment_with_photos(2)
+    names = _exported_names(experiment["id"], {"data": False, "photos": True})
+    assert len([n for n in names if n.startswith("stills/") and n.endswith(".jpg")]) == 2
+    assert not [n for n in names if n.endswith(".csv") or n == "experiment.json"]
+    assert {"README.txt", "MANIFEST.sha256"} <= names
+
+
+def _exported_zip(experiment_id: int, choice: dict) -> dict[str, bytes]:
+    """Every file in the export made through the page's route, by its name without the top folder."""
+    client = _client()
+    started = client.post(f"/api/experiments/{experiment_id}/export", json=choice)
+    export = _finished(started.json()["id"])
+    with zipfile.ZipFile(io.BytesIO(client.get(f"/api/exports/{export['id']}/download").content)) as zf:
+        return {n.split("/", 1)[1]: zf.read(n) for n in zf.namelist()}
+
+
+def test_every_csv_column_is_described_in_the_data_package() -> None:
+    """#65: a Frictionless Data Package (datapackage.json) names each CSV with its columns in
+    order, each with a type and a description, so the data needs no other document."""
+    import json
+
+    experiment = _stopped_experiment_with_photos(1)
+    files = _exported_zip(experiment["id"], {"data": True, "photos": False})
+    package = json.loads(files["datapackage.json"])
+    resources = {r["path"]: r for r in package["resources"]}
+    csvs = sorted(n for n in files if n.endswith(".csv"))
+    assert csvs == ["captures.csv", "cell-readings.csv", "time-in-table-location.csv", "tray-readings.csv"]
+    for name in csvs:
+        header = next(csv.reader(io.StringIO(files[name].decode())))
+        fields = resources[name]["schema"]["fields"]
+        assert [f["name"] for f in fields] == header, name
+        assert all(f["type"] and f["description"].strip() for f in fields), name
+        assert resources[name]["description"].strip()
+
+
+def test_the_readme_explains_every_column_from_the_data_package() -> None:
+    """#65: the README alone explains the data. Each CSV, each of its columns and the column's
+    description from datapackage.json are in it (whitespace aside: the README wraps lines)."""
+    import json
+
+    experiment = _stopped_experiment_with_photos(1)
+    files = _exported_zip(experiment["id"], {"data": True, "photos": False})
+    readme = " ".join(files["README.txt"].decode().split())
+    for resource in json.loads(files["datapackage.json"])["resources"]:
+        assert resource["path"] in readme
+        for field in resource["schema"]["fields"]:
+            assert f"{field['name']}: {' '.join(field['description'].split())}" in readme, field["name"]
+
+
+def test_the_expected_sizes_are_the_right_order_of_magnitude() -> None:
+    """#65: before exporting, the dialog shows how large the data and the photos will be, so the
+    user knows whether it takes minutes or hours. An order of magnitude is enough (Aaron,
+    2026-11-06): each estimate within a factor of 3 of the export actually made."""
+    experiment = _stopped_experiment_with_photos(3)
+    client = _client()
+    expected = client.get(f"/api/experiments/{experiment['id']}/export-size").json()
+    for choice, key in (({"data": True, "photos": False}, "data_bytes"), ({"data": False, "photos": True}, "photos_bytes")):
+        # The size of the download, the zip as it comes down: the CSVs in it are compressed
+        # about 8 times (export 4 on npec-rig-01, 2026-11-06: 6.2 MB of files, a 756 kB zip).
+        started = client.post(f"/api/experiments/{experiment['id']}/export", json=choice)
+        export = _finished(started.json()["id"])
+        made = len(client.get(f"/api/exports/{export['id']}/download").content)
+        assert made / 3 <= expected[key] <= made * 3, (key, expected[key], made)
+
+
+def test_an_export_that_would_leave_too_little_free_space_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#65 (Aaron, 2026-11-06): a full export on the development rig nearly filled the disk under
+    a running experiment. The fixed reserve is raised past any disk here, so nothing fits."""
+    experiment = _stopped_experiment_with_photos(1)
+    monkeypatch.setattr(exports, "MIN_FREE_BYTES", 10**18)
+    refused = _client().post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": True})
+    assert refused.status_code == 409
+    assert "disk space" in refused.json()["detail"]
+    assert database.exports_for(experiment["id"]) == []
+
+
+def test_the_running_experiments_next_photos_are_kept_room_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#65: the space kept free covers COVER_DAYS of the running experiment's photos at its
+    interval and its photos' size. With no fixed reserve, only that cover can refuse the export;
+    raised to a span no disk holds, it does, even for the small data."""
+    experiment = captures.create_experiment(name="Drought", interval_s=60)
+    experiment = captures.start_experiment(experiment["id"])
+    _array, _record = captures.take_photo("capture")
+    del _array
+    monkeypatch.setattr(exports, "MIN_FREE_BYTES", 0)
+    client = _client()
+    choice = {"data": True, "photos": False}
+    monkeypatch.setattr(exports, "COVER_DAYS", 10**9)
+    refused = client.post(f"/api/experiments/{experiment['id']}/export", json=choice)
+    assert refused.status_code == 409
+    monkeypatch.setattr(exports, "COVER_DAYS", 0)
+    assert client.post(f"/api/experiments/{experiment['id']}/export", json=choice).status_code == 200
+
+
 def test_the_export_holds_each_cells_plant_area_or_the_word_for_why_it_has_none() -> None:
     """#364: one line per cell of each tray in each photo, for the researcher's own plant map
     (tray and cell to treatment). A missing cell and the tag's cell have no area, never 0."""
@@ -329,3 +472,16 @@ def test_the_export_holds_each_cells_plant_area_or_the_word_for_why_it_has_none(
     assert {r["cell_rule"] for r in rows} == {"rule"}
     assert "cell-readings.csv" in readme
     assert "  cell-readings.csv\n" in manifest
+
+
+def test_the_dialog_is_told_beforehand_how_much_an_export_may_take(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#65 (Aaron, 2026-11-06): only the choice that would leave the disk too full is stopped, and
+    the dialog says so before the tap: export-size gives the space an export may use, the free
+    space less the reserve."""
+    experiment = _stopped_experiment_with_photos(1)
+    monkeypatch.setattr(exports, "MIN_FREE_BYTES", 10**18)
+    sizes = _client().get(f"/api/experiments/{experiment['id']}/export-size").json()
+    assert sizes["usable_bytes"] < sizes["photos_bytes"]
+    monkeypatch.setattr(exports, "MIN_FREE_BYTES", 0)
+    sizes = _client().get(f"/api/experiments/{experiment['id']}/export-size").json()
+    assert sizes["usable_bytes"] > sizes["photos_bytes"] + sizes["data_bytes"]

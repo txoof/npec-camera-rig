@@ -1,0 +1,286 @@
+# What every file and every CSV column in an experiment's export means (#65).
+#
+# Read each time an export is built: a change here needs no app restart. `package` is a
+# Frictionless Data Package (https://datapackage.org), written into the export as
+# datapackage.json with the CSVs the export holds. `other_files` and the package's descriptions
+# also make the README's list of what is in the export.
+#
+# Wording can change freely. A CSV column must be listed here, in the CSV's order, or the unit
+# test tests/test_exports.py fails. Types: string, integer, number, boolean, datetime.
+# All times are UTC, ISO 8601 with the offset written out.
+
+package:
+  name: npec-rig-experiment-export
+  title: Plant growth rig, experiment export
+  description: >-
+    Photos and measurements of one experiment on the plant growth rig: one top-down camera over
+    the growth chamber table, with plant area per tray worked out from each photo. All times are
+    UTC; the chamber's local time is UTC+2 in summer time and UTC+1 in winter time.
+  resources:
+    - name: captures
+      path: captures.csv
+      title: Photos
+      description: >-
+        One line per photo of the experiment: when it was taken, the camera settings, and the
+        calibration and validation it was measured under.
+      schema:
+        missingValues: [""]
+        fields:
+          - name: file
+            type: string
+            description: >-
+              Where the photo is in an export with Photos ticked: stills/<UTC day>/<time>.jpg. Its
+              record is the .json file of the same name.
+          - name: id
+            type: integer
+            description: The photo's number in the rig's database.
+          - name: taken_at
+            type: datetime
+            description: When the photo was taken, UTC.
+          - name: path
+            type: string
+            description: Where the photo is kept on the rig, without the .jpg.
+          - name: purpose
+            type: string
+            description: Why the photo was taken. "capture" for the experiment's own photos.
+          - name: experiment_id
+            type: integer
+            description: The experiment's number in the rig's database.
+          - name: calibration
+            type: string
+            description: >-
+              The calibration in use when the photo was taken: how many pixels make a millimetre
+              at each place on the table. Its record is records/calibrations/<this>.json.
+          - name: validation
+            type: string
+            description: >-
+              The validation in use when the photo was taken: a check of the calibration against
+              printed targets of known size, giving the error band of each part of the table.
+              Its record is records/validations/<this>.json. Empty when there was none.
+          - name: lens_position
+            type: number
+            description: The focus lens position the camera reported.
+          - name: focus_locked_at
+            type: number
+            description: The lens position the focus was locked at. Empty when the focus was not locked.
+          - name: exposure_us
+            type: integer
+            description: Exposure time, microseconds.
+          - name: analogue_gain
+            type: number
+            description: The camera's analogue gain. With the exposure time it shows how bright the chamber was.
+          - name: flags
+            type: string
+            description: >-
+              A list of reasons the photo is not covered by the validation's error bands, for
+              example "lens moved from its lock". [] when there are none.
+          - name: trust_verdict
+            type: string
+            description: Not used yet; always empty.
+          - name: clock_synced
+            type: integer
+            description: >-
+              1 when the rig's clock had the network time at the photo. 0 when it had not, after a
+              power cut with no network, so taken_at may be too early by about as long as the
+              power was off. Empty for photos from before 2 November 2026.
+          - name: jpeg_quality
+            type: integer
+            description: JPEG quality the photo was saved at, 1 to 95. Empty for photos from before 5 November 2026, which were all saved at 75.
+          - name: jpeg_chroma
+            type: string
+            description: >-
+              Colour resolution the photo was saved at: "4:4:4" full, or "4:2:0" half in both
+              directions. Half colour reads plant area about 1.4% low. Empty for photos from
+              before 5 November 2026, which were all "4:2:0".
+
+    - name: time-in-table-location
+      path: time-in-table-location.csv
+      title: Hours of each tray in each table location
+      description: >-
+        One line per tray: its hours in each of the 6 table locations over the photos in this
+        export. The table is cut in 6 locations, NW NM NE in the north row and SW SM SE in the
+        south row; north is the top of the photo. A tray counts as moved only after 1 hour in
+        another location.
+      schema:
+        missingValues: [""]
+        fields:
+          - name: tray
+            type: integer
+            description: The tray's tag number.
+          - name: NW_h
+            type: number
+            description: Hours in the north-west location, to 0.01 h.
+          - name: NM_h
+            type: number
+            description: Hours in the north-middle location, to 0.01 h.
+          - name: NE_h
+            type: number
+            description: Hours in the north-east location, to 0.01 h.
+          - name: SW_h
+            type: number
+            description: Hours in the south-west location, to 0.01 h.
+          - name: SM_h
+            type: number
+            description: Hours in the south-middle location, to 0.01 h.
+          - name: SE_h
+            type: number
+            description: Hours in the south-east location, to 0.01 h.
+
+    - name: tray-readings
+      path: tray-readings.csv
+      title: Plant area per tray per photo
+      description: >-
+        One line per tray found in each photo: its plant area and the error band of the part of
+        the table it lies in. Photos not yet read for trays have no lines.
+      schema:
+        missingValues: [""]
+        fields:
+          - name: file
+            type: string
+            description: The photo, as in captures.csv.
+          - name: taken_at
+            type: datetime
+            description: When the photo was taken, UTC.
+          - name: tray
+            type: string
+            description: The tray's tag number, or "no tag" for a tray found in the photo with no tag inside it.
+          - name: location
+            type: string
+            description: The table location the tray's centre lies in, NW NM NE SW SM or SE. Empty when it cannot be worked out.
+          - name: plant_area_mm2
+            type: number
+            description: >-
+              Plant area seen from above inside the tray's outline, square millimetres, at the
+              height of the tray top. Empty when it was not worked out.
+          - name: segmenter
+            type: string
+            description: The method that picked out the plant pixels, with its setting, for example "green threshold, 0.1".
+          - name: floor_mm2
+            type: number
+            description: >-
+              Below this area nothing was found yet: an empty tray reads up to about 100 mm2 with
+              this method. Reported for comparison, never subtracted from the area.
+          - name: not_counted
+            type: string
+            description: >-
+              Why this area does not count in this photo, for example "2 trays carry tag 3" or
+              "2 tags in one tray outline". Empty when it counts.
+          - name: photo_excluded
+            type: string
+            description: >-
+              Why the whole photo's areas are left out: "lights off", "light changing", "light
+              disturbed", "light off norm" or "visit" (someone working in the chamber). Empty
+              when the photo counts.
+          - name: partly_outside
+            type: boolean
+            description: True when the tray reaches past the edge of the photo, so part of its plant may be missing.
+          - name: scale_error_at_tray_top_pct
+            type: number
+            description: >-
+              The validation band of the slot nearest the tray, percent: 95 in 100 flat objects at
+              tray-top height read within this much of their true area. Plant height adds about
+              0.15% per mm above the tray top, and the band does not cover how well the plant is
+              picked out. Empty when there is no band; no_band_reason says why.
+          - name: band_slot
+            type: string
+            description: The validation slot nearest the tray, whose band is given.
+          - name: no_band_reason
+            type: string
+            description: >-
+              Why there is no band: "not validated" (no validation at the photo), "photo not
+              covered" (see flags in captures.csv) or "slot not measured" (too few targets in
+              that slot).
+
+    - name: cell-readings
+      path: cell-readings.csv
+      title: Plant area per cell per photo
+      description: >-
+        One line per cell of each tray in each photo: its status and plant area, to join with
+        your own map of trays and cells to treatments. Cell A1 of a 4 x 5 tray holds its tag; a
+        2 x 2 tray's A1 is its south-west pot in its first photo, followed after that.
+      schema:
+        missingValues: [""]
+        fields:
+          - name: file
+            type: string
+            description: The photo, as in captures.csv.
+          - name: taken_at
+            type: datetime
+            description: When the photo was taken, UTC.
+          - name: tray
+            type: integer
+            description: The tray's tag number.
+          - name: location
+            type: string
+            description: The table location the tray's centre lies in, NW NM NE SW SM or SE. Empty when it cannot be worked out.
+          - name: cell
+            type: string
+            description: The cell, a letter for the row and a number for the column, for example "B3".
+          - name: status
+            type: string
+            description: >-
+              "plant"; "missing" (no plant seen: no area, never 0); "tag" (the cell that holds the
+              tray tag); "leaves over other cells" (leaves reach over a neighbour's cell, so the
+              area is not one plant's own: use the tray's area in tray-readings.csv).
+          - name: plant_area_mm2
+            type: number
+            description: >-
+              Plant area seen from above inside the cell's opening, square millimetres, at the
+              height of the tray top. Empty for a missing plant and the tag's cell.
+          - name: segmenter
+            type: string
+            description: The method that picked out the plant pixels, as in tray-readings.csv.
+          - name: cell_rule
+            type: string
+            description: How the plant pixels were given to cells.
+          - name: tray_not_counted
+            type: string
+            description: Why the tray's areas do not count in this photo, as not_counted in tray-readings.csv. Empty when they count.
+          - name: photo_excluded
+            type: string
+            description: Why the whole photo's areas are left out, as in tray-readings.csv. Empty when the photo counts.
+          - name: scale_error_at_tray_top_pct
+            type: number
+            description: The validation band of the tray, as in tray-readings.csv.
+          - name: band_slot
+            type: string
+            description: The validation slot nearest the tray, as in tray-readings.csv.
+          - name: no_band_reason
+            type: string
+            description: Why there is no band, as in tray-readings.csv.
+
+# Printed in the README as written, under the column meanings, when the export holds the data.
+table_drawing: |
+  The table locations (location columns in the CSVs), as seen in the photos from above:
+
+                       North: top of the photo
+             +-------------+-------------+-------------+
+             |             |             |             |
+             |     NW      |     NM      |     NE      |
+             |             |             |             |
+    West:    +-------------+-------------+-------------+    East:
+    left     |             |             |             |    right
+             |     SW      |     SM      |     SE      |
+             |             |             |             |
+             +-------------+-------------+-------------+
+                      South: bottom of the photo
+
+  The two rows meet halfway between the north and the south row of tags on the table; the
+  three columns are equal thirds of the photo's width. A tray is in the location its centre
+  lies in.
+
+other_files:
+  - path: stills/
+    description: Every photo (.jpg) and its record (.json), in a folder per UTC day.
+  - path: experiment.json
+    description: The experiment's name, researcher, tray height, notes and running periods.
+  - path: records/
+    description: The calibration and validation records the photos were measured under, so every number can be traced.
+  - path: datapackage.json
+    description: >-
+      What every CSV column means, in the Frictionless Data Package format
+      (https://datapackage.org), which data tools can read.
+  - path: MANIFEST.sha256
+    description: >-
+      A fingerprint (SHA-256) of every file. To check the copy is complete and unchanged, run
+      in this folder: sha256sum -c MANIFEST.sha256
