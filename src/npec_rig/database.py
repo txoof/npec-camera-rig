@@ -383,6 +383,36 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        21,
+        "cell_reading: the plant of each cell of each tray in a photo; tray_reading: where a 2 x 2"
+        " tray's cell A1 lies from its tag (#364)",
+        (
+            # Degrees clockwise from the tag's top to cell A1, from the tray's first photo in the
+            # experiment; NULL for every other tray type (tray_placement.a1_bearing_deg).
+            "ALTER TABLE tray_reading ADD COLUMN a1_bearing_deg REAL",
+            """
+            CREATE TABLE cell_reading (
+                id INTEGER PRIMARY KEY,
+                capture_id INTEGER NOT NULL REFERENCES capture (id),
+                tray_id INTEGER NOT NULL,
+                cell TEXT NOT NULL,              -- "B3"
+                holds TEXT NOT NULL,             -- "plant", or "tag": the tray tag's cell
+                centre_x_px REAL NOT NULL,       -- full-size photo pixels
+                centre_y_px REAL NOT NULL,
+                corners TEXT NOT NULL,           -- JSON, the four corners of the cell's opening
+                plant_px INTEGER,                -- NULL: the photo could not be segmented
+                area_mm2 REAL,
+                plant_centre_x_px REAL,
+                plant_centre_y_px REAL,
+                over_other_cells INTEGER,        -- 1: a piece counted here covers another cell, or the reverse
+                segmenter TEXT,                  -- what made the mask, as tray_reading.segmenter
+                cell_rule TEXT                   -- how plant pieces were given to cells (tray_readings.CELL_RULE)
+            )
+            """,
+            "CREATE INDEX cell_reading_capture ON cell_reading (capture_id, tray_id)",
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -510,6 +540,7 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
     keeps one row per tray."""
     with _connect() as conn:
         conn.execute("DELETE FROM tray_reading WHERE capture_id = ?", (capture_id,))
+        conn.execute("DELETE FROM cell_reading WHERE capture_id = ?", (capture_id,))
         conn.execute(
             "INSERT OR REPLACE INTO tray_read (capture_id, read_at, status) VALUES (?, ?, ?)",
             (capture_id, read_at, status),
@@ -517,17 +548,49 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
         conn.executemany(
             "INSERT INTO tray_reading (capture_id, tray_id, slot, a1_corner, placement,"
             " centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter,"
-            " plant_px, plant_centre_x_px, plant_centre_y_px, calibration, outside_mm, found, warnings, outline)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " plant_px, plant_centre_x_px, plant_centre_y_px, calibration, outside_mm, found, warnings, outline,"
+            " a1_bearing_deg)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (capture_id, t["tray_id"], t["slot"], t["a1_corner"], t["placement"],
                  t["centre_px"][0], t["centre_px"][1], t["tilt_deg"], t["margin_mm"],
                  t.get("area_mm2"), t.get("segmenter"), t.get("plant_px"),
                  *(t.get("plant_centre_px") or (None, None)), t.get("calibration"), t.get("outside_mm"),
-                 t.get("found"), _json_or_none(t.get("warnings")), _json_or_none(t.get("outline_px")))
+                 t.get("found"), _json_or_none(t.get("warnings")), _json_or_none(t.get("outline_px")),
+                 t.get("a1_bearing_deg"))
                 for t in trays
             ],
         )
+        conn.executemany(
+            "INSERT INTO cell_reading (capture_id, tray_id, cell, holds, centre_x_px, centre_y_px, corners,"
+            " plant_px, area_mm2, plant_centre_x_px, plant_centre_y_px, over_other_cells, segmenter, cell_rule)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (capture_id, t["tray_id"], c["cell"], c["holds"], *c["centre_px"], json.dumps(c["corners_px"]),
+                 c.get("plant_px"), c.get("area_mm2"), *(c.get("plant_centre_px") or (None, None)),
+                 None if c.get("over_other_cells") is None else int(c["over_other_cells"]),
+                 c.get("segmenter"), c.get("cell_rule"))
+                for t in trays for c in t.get("cells", [])
+            ],
+        )
+
+
+def first_a1_bearing(experiment_id: int | None, tray_id: int) -> float | None:
+    """Where a 2 x 2 tray's cell A1 lies from its tag (tray_reading.a1_bearing_deg, #364): from
+    the earliest-taken photo of experiment `experiment_id` that has one, whichever photos were read
+    first. The tag is glued to the tray, so the bearing is the tray's own; photos read out of order
+    (on demand, Reprocess) follow it too (review of #374). None when no photo of the experiment
+    has one yet, or the photo is in no experiment: then the photo being read sets it."""
+    if experiment_id is None:
+        return None
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT tray_reading.a1_bearing_deg FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id"
+            " WHERE capture.experiment_id = ? AND tray_reading.tray_id = ? AND tray_reading.a1_bearing_deg IS NOT NULL"
+            " ORDER BY capture.taken_at LIMIT 1",
+            (experiment_id, tray_id),
+        ).fetchone()
+    return None if row is None else row[0]
 
 
 def _json_or_none(value: object) -> str | None:
@@ -558,6 +621,15 @@ def tray_readings(capture_id: int) -> dict | None:
         rows = conn.execute(
             "SELECT * FROM tray_reading WHERE capture_id = ? ORDER BY tray_id", (capture_id,)
         ).fetchall()
+        cells: dict[int, list[dict]] = {}
+        for c in conn.execute("SELECT * FROM cell_reading WHERE capture_id = ? ORDER BY id", (capture_id,)):
+            cells.setdefault(c["tray_id"], []).append({
+                "cell": c["cell"], "holds": c["holds"], "centre_px": [c["centre_x_px"], c["centre_y_px"]],
+                "corners_px": json.loads(c["corners"]), "plant_px": c["plant_px"], "area_mm2": c["area_mm2"],
+                "plant_centre_px": None if c["plant_centre_x_px"] is None else [c["plant_centre_x_px"], c["plant_centre_y_px"]],
+                "over_other_cells": None if c["over_other_cells"] is None else bool(c["over_other_cells"]),
+                "segmenter": c["segmenter"], "cell_rule": c["cell_rule"],
+            })
         not_found, in_both = [], []
         if read["experiment_id"] is not None and read["status"] == "read":
             # Photos read with trays placed only: one not read, too dark to find any tag, or with
@@ -619,6 +691,9 @@ def tray_readings(capture_id: int) -> dict | None:
             "calibration": r["calibration"], "outside_mm": r["outside_mm"], "found": r["found"],
             "warnings": [] if r["warnings"] is None else json.loads(r["warnings"]),
             "outline_px": None if r["outline"] is None else json.loads(r["outline"]),
+            "a1_bearing_deg": r["a1_bearing_deg"],
+            # Cells are saved only for a tray named by one tag (#364).
+            "cells": cells.get(r["tray_id"], []) if r["tray_id"] is not None else [],
         }
         for r in rows
     ]
@@ -1231,6 +1306,7 @@ def purge_experiment(experiment_id: int, *, now: str) -> dict:
             raise ExperimentError("only a stopped experiment can be purged")
         photos = "SELECT id FROM capture WHERE experiment_id = ?"
         conn.execute(f"DELETE FROM tray_reading WHERE capture_id IN ({photos})", (experiment_id,))
+        conn.execute(f"DELETE FROM cell_reading WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute(f"DELETE FROM tray_read WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute(f"DELETE FROM exclusion WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute("DELETE FROM capture WHERE experiment_id = ?", (experiment_id,))

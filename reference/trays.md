@@ -80,7 +80,8 @@ pot (Aaron, 2026-10-21).
 
 ## Not yet known
 
-- Grid spacing of the 2 x 2 and 1 x 1 configurations.
+- Grid spacing of the 1 x 1 configuration. (2 x 2: measured 2026-11-06, metrology log 27.1: holes
+  106 mm, divisions 32 and 58.5 mm, pots 108.93 mm; the grid taken to be centred.)
 - How many trays of each configuration exist, and whether 2 x 2 and 1 x 1 are used in the 12-tray
   layout or with fewer trays.
 - Whether FastSAM finds a 1 x 1 tray (no cell pattern) and trays with pots, soil and plants.

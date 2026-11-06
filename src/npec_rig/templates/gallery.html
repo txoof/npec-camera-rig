@@ -233,7 +233,8 @@
         // Height above the tray top: about 0.145 % per mm (metrology log, CLAUDE.md), rounded.
         table = `<table class="data-table" style="max-width: 760px; margin-top: 8px"><thead><tr><th>Tray</th>`
           + `<th>Plant area (mm²)</th><th>Scale error at tray top (±%)</th></tr></thead><tbody>${rows}</tbody></table>`
-          + "<p>Plant height adds about 0.15% per mm above the tray top.</p>";
+          + "<p>Plant height adds about 0.15% per mm above the tray top.</p>"
+          + measured.filter((t) => t.cells?.length).map(cellsHtml).join("");
       } else if (trays.trays.length && !dark) {
         lines.push("Plant area: not worked out for this photo.");
       }
@@ -254,6 +255,30 @@
     // Trays are found in the photo from their blue plastic and named by the tag inside each
     // (#331). A tag with no tray found around it is seen, not a tray: it has no outline or area.
     const outlined = (trays) => trays.trays.filter((t) => t.found !== "tag only");
+
+    // Plant area per cell (#364): a tray's cells laid out as the tray is named, A1 at the bottom
+    // left, columns A, B, ... to the right, rows 1, 2, ... upwards. Every cell says a word when it
+    // has no area: a missing plant never reads 0, leaves over a neighbour's cell are not one
+    // plant's own (Aaron, 2026-11-06).
+    const CELL_WORDS = { tag: "Tag", missing: "Missing", "leaves over other cells": "Leaves over other cells" };
+    function cellsHtml(t) {
+      const byName = Object.fromEntries(t.cells.map((c) => [c.cell, c]));
+      const cols = [...new Set(t.cells.map((c) => c.cell[0]))].sort();
+      const rows = [...new Set(t.cells.map((c) => Number(c.cell.slice(1))))].sort((a, b) => b - a);
+      const value = (c) => {
+        const area = c.area_mm2 != null ? Math.round(c.area_mm2).toLocaleString("en-US") : "";
+        if (c.status === "plant") return area;
+        const word = CELL_WORDS[c.status] ?? c.status;
+        return c.status === "leaves over other cells" ? `${ui.icon("warn")} ${word}${area ? `<br>${area}` : ""}` : word;
+      };
+      const body = rows.map((r) => `<tr><th>${r}</th>` + cols.map((col) => {
+        const c = byName[`${col}${r}`];
+        return `<td style="white-space: normal">${c ? `<strong>${col}${r}</strong><br>${value(c)}` : ""}</td>`;
+      }).join("") + "</tr>").join("");
+      return `<p style="margin-top: 16px">Tray ${t.tray_id}, plant area per cell (mm²), A1 at the bottom left:</p>`
+        + `<table class="data-table" style="max-width: 760px; width: 100%; table-layout: fixed"><thead><tr><th style="width: 40px"></th>`
+        + cols.map((col) => `<th>${col}</th>`).join("") + `</tr></thead><tbody>${body}</tbody></table>`;
+    }
 
     function trayCountText(trays) {
       // A reading from before #331 placed every tray from its tag and says nothing of the photo.

@@ -8212,3 +8212,108 @@ scripts in `experiments/355-jpeg-quality/`.
 *Not decided here.* Changing the quality of the saved photos changes every photo file and its
 size (today's 5.9 MB a still is about 8.5 GB a day at one photo a minute; G 85 full colour would
 be about 15.4 GB a day). It needs Aaron's decision (#355).
+
+## 27. Cells placed from the tray's outline and tag (issue #364, method written 2026-11-06, before the run)
+
+**Label: development check.** Whether the cells the rig places in each tray (`tray_placement.place_cells`)
+lie where the tray's real cell openings (4 x 5) and pots (2 x 2) are, so that the area per cell
+(`segmentation.measure_cells`) is counted inside the right cell.
+
+### 27.1 The 2 x 2 tray's cells (Aaron, 2026-11-06)
+
+Measured on one 2 x 2 tray by Aaron. The number of readings of the walls and divisions was not
+recorded.
+
+| What | Value | Instrument |
+|---|---|---|
+| Cell hole, both directions | 106 mm (two cells, several readings each; first given as 107 mm, corrected) | tape measure |
+| Outer wall, long edges (east and west, tray in portrait) | 20 mm | tape measure |
+| Outer wall, short edges (north and south) | 40 mm | tape measure |
+| Division between the cells, along the long side | 58.5 mm | tape measure |
+| Division between the cells, across the short side | 32 mm | tape measure |
+| Pot rim, the part seen from above | 108.83, 108.86, 108.85, 109.18 mm (mean 108.93, range 0.35) | callipers |
+| Outside size | the same as the 4 x 5 tray, 305 x 366 mm (statement by Aaron) | |
+
+- Added up, the walls, holes and divisions give 284 mm across and 350.5 mm along, 21 and 15.5 mm
+  short of the outside size: about 10 mm more lip each way than the 4 x 5 tray's (reference/trays.md).
+  Not explained.
+- **A decision, not a measurement:** the grid is taken to be centred in the tray, as on the 4 x 5.
+  Then the cell centres lie 16 + 53 = 69.0 mm east and west and 29.25 + 53 = 82.25 mm north and
+  south of the tray's centre, whatever the lip is.
+- The rig places the pot rim (108.93 mm), not the hole, as the cell: it is what the camera sees.
+- **Naming (Aaron, 2026-11-06):** 2 x 2 tags lie at whatever angle the researcher glued them. A1 is
+  the pot at the photo's south-west in the tray's first photo of the experiment; after that A1
+  keeps its bearing from the tag, so the names follow the tray when it is turned.
+- The 4 x 5 cells are those of reference/trays.md: openings 59.5 mm (callipers), centres 69.7 mm
+  apart (derived), A1 in the corner nearest the tag.
+
+### 27.2 Method (written before the run)
+
+1. *Photos.* Development: the newest still of experiment 3 ("development 002"), nine 2 x 2 trays,
+   read by the app at 201b79c. Production: the newest still of the running experiment, 4 x 5 trays,
+   copied read-only from `ac-testing` with its calibration; its cells placed on the controller with
+   the same code. Nothing is written on either rig.
+2. *Placement error per tray.* The tray's whole cell grid (as placed) is shifted east-west and
+   north-south over -15 to +15 mm in 1 mm steps. At each shift: the fraction of tray-blue pixels
+   (`tray_placement.BLUE_HUE`, `BLUE_SAT_MIN`, `BLUE_VALUE_MIN`) inside the cells' squares, and the
+   fraction on the walls between them (inside the tray outline, outside every square). The score is
+   wall fraction minus cell fraction. The shift with the highest score is the tray's placement
+   error, east and north in mm at the calibration's scale. Plants cover cells and walls alike; they
+   lower the score but are not expected to move its peak much.
+3. *Expected.* Shifts within a few mm. **Pass (a decision, not a measurement):** every tray's shift
+   less than half the space between neighbouring cells, so no cell reaches its neighbour's opening:
+   5 mm for 4 x 5 (walls 10.2 mm), 14 mm east-west and 27 mm north-south for 2 x 2 (gaps between
+   pots 29 and 55.5 mm).
+4. *Figure.* Each tray's placed cells drawn on the photo, with the best shift.
+
+**Limits (as planned).** A turn of the grid is not tested, only a shift. One still per rig, so how
+the error changes from photo to photo is not measured. A pot or opening covered by leaves adds
+nothing to the score. The 2 x 2 walls and divisions were measured on one tray with a tape measure.
+
+### 27.3 Method B, the lit top rim (written 2026-11-06 after the first results of 27.2, before this run)
+
+On production's still the cells hold blue mats (protocol, Aaron 2026-11-05), so the openings are
+as blue as the walls and 27.2's score has nothing to find. Method B is 27.2 with one change: only
+the lit top rim of the plastic counts as tray-blue, by the tray finder's own rule
+(`tray_placement._blue_rim`: blue brighter than 0.65 times the 75th percentile of blue
+brightness, then a 3 x 3 opening). Nothing in it is set from 27.2's results. Run on both stills.
+
+### 27.4 Results (2026-11-06)
+
+Stills: development `experiments/2026-11-03_56cba866/stills/2026-11-06/102745_528547` (10:27:45
+UTC, nine 2 x 2 trays, cells as read by the app at 201b79c); production
+`experiments/2026-10-22_df206967/stills/2026-11-06/102953_636789` (10:29:53 UTC, twelve 4 x 5
+trays, its tags from rig.db read-only, cells placed on the controller with calibration twin
+20261026T153214381640, the one the app reads its areas with).
+
+1. *Inspection (Aaron, 2026-11-06, by eye on the figures below).* On both rigs the placed cells lie
+   well centred on the real pots (2 x 2) and openings (4 x 5), and every cell's name is right: A1
+   on the tag's corner of a 4 x 5 tray, the names running as `reference/trays.md` says. This is
+   the result of 27, a judgement by eye, not a measurement in mm.
+2. *Methods A and B rejected.* Their best shifts were drawn on the first figures as a second set
+   of cells moved by that shift. On the 4 x 5 trays the moved cells were off the openings where
+   the placed cells were on them (Aaron): the shifts are not the placement error. On production
+   they reached the search edge (±15 mm) on 6 of 12 trays with method A and 7 with method B, and
+   their scores were low (0.02 to 0.49) against 0.56 to 0.81 on development: where cells hold
+   blue mats or sheets, the blue walls do not stand out from the cells. On the 2 x 2 trays both
+   methods gave shifts within 6 mm east-west and 4 mm north-south, growing toward the photo's east
+   and west edges; with the method shown wrong on 4 x 5 trays, these numbers are not relied on
+   either. Their CSVs are kept as the record of what was tried.
+3. *Live on the development rig (Aaron, 2026-11-06).* The Gallery shows each tray's area per cell;
+   plants are generally well found.
+
+*Figures.* `docs/figures/27.4/dev-cells-placed.jpg` and `prod-cells-placed.jpg`: each tray's
+cells as placed (magenta) with their names; made by `experiments/364-cells/code/placement_shift.py
+STILL TRAYS OUT rim`, scaled to 1/8 of the photo. The first figures, with the shifted cells drawn
+as well, were replaced before this section was finished (cyan, hard to see on the blue trays).
+*Raw data.* `experiments/364-cells/data/` (27.2-*-blue.csv and 27.3-*-rim.csv: the rejected
+shifts; the cells of both stills as JSON). The stills stay in their experiment folders on the rigs.
+
+**Findings.** Cells placed from the tray outline and tag land on the real pots and openings and are
+named right, on one still of each rig, judged by eye. Neither blue-score method measures the
+placement error in mm.
+
+**Limits of the evidence.** A judgement by eye on two stills at 1/8 scale, not a distance in mm:
+an offset of a few mm cannot be seen at that scale. A turn of the grid and the change from photo
+to photo are not tested. The 2 x 2 walls and divisions were measured on one tray with a tape
+measure. A measured placement error needs a method that finds the walls under mats and sheets.
