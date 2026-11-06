@@ -502,6 +502,18 @@ metrology log backs it.
   a measured tray edge (outlines were judged by eye on quarter-size pictures); stills picked at
   random; 1x1 or black trays.
 
+### Cells placed in each tray (round 3, 2026-11-06)
+
+- **Area per cell.** Each 4x5 and 2x2 tray's cells are placed from its outline and tag, and each
+  piece of plant is counted wholly for the cell holding most of it; a cell with no plant reads
+  "missing", never 0, and cells whose leaves reach over a neighbour's say so (metrology log 27,
+  #364). Measured against the real pots and openings on one still per rig: within 5 mm on nine
+  2x2 trays (development), growing toward the photo's east and west edges; within 4 mm on five
+  4x5 trays whose cells were under paper or card (production), against 5 mm to the next opening.
+  Not shown: placement on trays whose cells hold blue mats, the usual case (7 of 12 trays, not
+  measurable by either method); a turn of the grid; how the error changes between photos. The
+  2x2 cell layout rests on one tray measured with a tape measure and calliper readings of its pots.
+
 ### Flat-target bands (M2, to 2026-10-14)
 
 - **Segmentation.** Telling plant from background was not part of M2. Round 1 measured a green
