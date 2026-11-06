@@ -109,12 +109,13 @@ def start_export(experiment_id: int, *, data: bool = True, photos: bool = True) 
     return export
 
 
-# Rough bytes per CSV line and for the README and datapackage.json, for the expected size of an
-# export's data: an order of magnitude is all it needs (Aaron, 2026-11-06), from the line lengths
-# of a test export, not measured on a real experiment.
-_BYTES_PER_PHOTO_LINE = 300
-_BYTES_PER_TRAY_LINE = 200
-_BYTES_FIXED = 25_000
+# Bytes per CSV line in the download (the zip compresses the CSVs), and for the README,
+# datapackage.json, manifest and experiment.json, for the expected size of an export's data: an
+# order of magnitude is all it needs (Aaron, 2026-11-06). From export 4 on npec-rig-01
+# (2026-11-06, 4303 photos), a development check: captures 19, tray-readings 17, cell-readings 16
+# compressed bytes a line; the other files 7 kB. Records are stored uncompressed.
+_BYTES_PER_LINE = 20
+_BYTES_FIXED = 7_000
 
 
 def expected_sizes(experiment_id: int) -> dict:
@@ -134,12 +135,19 @@ def expected_sizes(experiment_id: int) -> dict:
     records += [validations_root() / f"{s}.json" for s in {r["validation"] for r in captures if r["validation"]}]
     data_bytes = (
         _BYTES_FIXED
-        + len(captures) * _BYTES_PER_PHOTO_LINE
-        + database.tray_reading_count(experiment_id) * _BYTES_PER_TRAY_LINE
-        + database.cell_reading_count(experiment_id) * _BYTES_PER_TRAY_LINE
+        + (len(captures) + database.tray_reading_count(experiment_id) + database.cell_reading_count(experiment_id))
+        * _BYTES_PER_LINE
         + sum(path.stat().st_size for path in records if path.exists())
     )
     return {"photos": len(captures), "photos_bytes": photos_bytes, "data_bytes": data_bytes}
+
+
+def export_sizes(experiment_id: int) -> dict:
+    """`expected_sizes`, and `usable_bytes`: how much an export may take, the free space less
+    what must stay free (`_reserve`), so the dialog can say beforehand what does not fit."""
+    sizes = expected_sizes(experiment_id)
+    sizes["usable_bytes"] = shutil.disk_usage(experiments_root()).free - _reserve()
+    return sizes
 
 
 def zip_path(export: dict) -> Path:

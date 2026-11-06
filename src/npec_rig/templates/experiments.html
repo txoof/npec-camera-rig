@@ -528,27 +528,34 @@
     // whole row is the tap target (CLAUDE.md, Web pages). Only an export with the photos lets
     // Purge through.
     async function exportAsk(e) {
-      const tick = (id, label, note) =>
-        `<label for="${id}" style="display: flex; gap: 16px; align-items: center; min-height: 64px; margin-bottom: 24px; cursor: pointer">`
-        + `<input type="checkbox" id="${id}" checked style="width: 32px; height: 32px; flex: none">`
-        + `<span><strong>${label}</strong><br>${note}</span></label>`;
-      // Expected sizes, an order of magnitude only (Aaron, 2026-11-06): so the user knows before
-      // starting whether the export takes minutes or hours.
+      // Expected download sizes, an order of magnitude only (Aaron, 2026-11-06): so the user
+      // knows before starting whether the export takes minutes or hours. `usable_bytes`: what an
+      // export may take and still leave the rig enough free space; a choice that does not fit is
+      // unticked and says so here, before the tap (the server refuses it too).
       let sizes = null;
       try {
         sizes = await call("GET", `/api/experiments/${e.id}/export-size`);
       } catch (err) {
         sizes = null;
       }
-      const expected = (key) => (sizes ? ` (expected size about ${size(sizes[key])})` : "");
+      const fits = (key) => !sizes || sizes[key] <= sizes.usable_bytes;
+      const tick = (id, label, note, key) => {
+        const ok = fits(key);
+        const why = ok ? "" : `<br><strong>Does not fit: needs about ${size(sizes[key])}, `
+          + `${size(Math.max(0, sizes.usable_bytes))} can be used without leaving the rig too full.</strong>`;
+        return `<label for="${id}" style="display: flex; gap: 16px; align-items: center; min-height: 64px; margin-bottom: 24px; cursor: pointer">`
+          + `<input type="checkbox" id="${id}" ${ok ? "checked" : "disabled"} style="width: 32px; height: 32px; flex: none">`
+          + `<span><strong>${label}</strong><br>${note}${why}</span></label>`;
+      };
+      const expected = (key) => (sizes ? ` (download about ${size(sizes[key])})` : "");
       const minutes = e.interval_s ? Math.round(e.interval_s / 60) : 0;
       const taken = (e.state === "running" ? "taken so far" : "taken")
         + (minutes ? ` at ${minutes} minute intervals` : "");
       openAsk({
         title: `Export ${displayName(e)}`,
         body: "<p>What goes in the export?</p>"
-          + tick("export-data", "Data", `CSV tables and data description${expected("data_bytes")}`)
-          + tick("export-photos", "Photos", `Every photo ${taken}${expected("photos_bytes")}`)
+          + tick("export-data", "Data", `CSV tables and data description${expected("data_bytes")}`, "data_bytes")
+          + tick("export-photos", "Photos", `Every photo ${taken}${expected("photos_bytes")}`, "photos_bytes")
           + "<p>To delete this experiment from the rig later (Purge), first export it with Photos "
           + "ticked, so a copy of every photo exists.</p>",
         ok: "Export",

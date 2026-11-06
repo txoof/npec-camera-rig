@@ -392,7 +392,11 @@ def test_the_expected_sizes_are_the_right_order_of_magnitude() -> None:
     client = _client()
     expected = client.get(f"/api/experiments/{experiment['id']}/export-size").json()
     for choice, key in (({"data": True, "photos": False}, "data_bytes"), ({"data": False, "photos": True}, "photos_bytes")):
-        made = sum(len(v) for v in _exported_zip(experiment["id"], choice).values())
+        # The size of the download, the zip as it comes down: the CSVs in it are compressed
+        # about 8 times (export 4 on npec-rig-01, 2026-11-06: 6.2 MB of files, a 756 kB zip).
+        started = client.post(f"/api/experiments/{experiment['id']}/export", json=choice)
+        export = _finished(started.json()["id"])
+        made = len(client.get(f"/api/exports/{export['id']}/download").content)
         assert made / 3 <= expected[key] <= made * 3, (key, expected[key], made)
 
 
@@ -468,3 +472,16 @@ def test_the_export_holds_each_cells_plant_area_or_the_word_for_why_it_has_none(
     assert {r["cell_rule"] for r in rows} == {"rule"}
     assert "cell-readings.csv" in readme
     assert "  cell-readings.csv\n" in manifest
+
+
+def test_the_dialog_is_told_beforehand_how_much_an_export_may_take(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#65 (Aaron, 2026-11-06): only the choice that would leave the disk too full is stopped, and
+    the dialog says so before the tap: export-size gives the space an export may use, the free
+    space less the reserve."""
+    experiment = _stopped_experiment_with_photos(1)
+    monkeypatch.setattr(exports, "MIN_FREE_BYTES", 10**18)
+    sizes = _client().get(f"/api/experiments/{experiment['id']}/export-size").json()
+    assert sizes["usable_bytes"] < sizes["photos_bytes"]
+    monkeypatch.setattr(exports, "MIN_FREE_BYTES", 0)
+    sizes = _client().get(f"/api/experiments/{experiment['id']}/export-size").json()
+    assert sizes["usable_bytes"] > sizes["photos_bytes"] + sizes["data_bytes"]

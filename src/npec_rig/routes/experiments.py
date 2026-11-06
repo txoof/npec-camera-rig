@@ -164,7 +164,7 @@ def api_export_experiment(experiment_id: int, choice: ExportChoice | None = None
 @router.get("/api/experiments/{experiment_id}/export-size")
 def api_export_size(experiment_id: int) -> dict:
     """The expected size of an export of the data and of the photos, for the Export dialog."""
-    return _experiment_action(exports.expected_sizes, experiment_id)
+    return _experiment_action(exports.export_sizes, experiment_id)
 
 
 @router.get("/api/exports/{export_id}/download")
