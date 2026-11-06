@@ -403,7 +403,7 @@ def test_an_export_that_would_leave_too_little_free_space_is_refused(monkeypatch
     monkeypatch.setattr(exports, "MIN_FREE_BYTES", 10**18)
     refused = _client().post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": True})
     assert refused.status_code == 409
-    assert "free" in refused.json()["detail"]
+    assert "free space" in refused.json()["detail"]
     assert database.exports_for(experiment["id"]) == []
 
 

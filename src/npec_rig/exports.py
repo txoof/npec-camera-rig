@@ -80,8 +80,13 @@ def _reserve() -> int:
     return max(MIN_FREE_BYTES, int(COVER_DAYS * per_day))
 
 
-def _gb(n: float) -> str:
-    return f"{n / 1e9:.1f} GB"
+def _size(n: float) -> str:
+    """As the Experiments page shows sizes: kB, MB to 0.1, GB to 0.01."""
+    if n < 1e6:
+        return f"{max(1, round(n / 1e3))} kB"
+    if n < 1e9:
+        return f"{n / 1e6:.1f} MB"
+    return f"{n / 1e9:.2f} GB"
 
 
 def start_export(experiment_id: int, *, data: bool = True, photos: bool = True) -> dict:
@@ -93,9 +98,9 @@ def start_export(experiment_id: int, *, data: bool = True, photos: bool = True) 
     reserve = _reserve()
     if free - needed < reserve:
         raise database.ExperimentError(
-            f"not enough free space on the rig: this export needs about {_gb(needed)}, {_gb(free)} is"
-            f" free, and {_gb(reserve)} must stay free for photos still to come. Export Data only,"
-            " or free space first"
+            f"Not enough free space on the rig. This export needs about {_size(needed)}, {_size(free)}"
+            f" is free, and {_size(reserve)} must stay free for photos still to come. Export Data"
+            " only, or free space first."
         )
     export = database.create_export(experiment_id, now=_now(), data=data, photos=photos)
     threading.Thread(
