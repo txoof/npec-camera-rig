@@ -191,6 +191,64 @@ package:
               covered" (see flags in captures.csv) or "slot not measured" (too few targets in
               that slot).
 
+    - name: cell-readings
+      path: cell-readings.csv
+      title: Plant area per cell per photo
+      description: >-
+        One line per cell of each tray in each photo: its status and plant area, to join with
+        your own map of trays and cells to treatments. Cell A1 of a 4 x 5 tray holds its tag; a
+        2 x 2 tray's A1 is its south-west pot in its first photo, followed after that.
+      schema:
+        missingValues: [""]
+        fields:
+          - name: file
+            type: string
+            description: The photo, as in captures.csv.
+          - name: taken_at
+            type: datetime
+            description: When the photo was taken, UTC.
+          - name: tray
+            type: integer
+            description: The tray's tag number.
+          - name: location
+            type: string
+            description: The table location the tray's centre lies in, NW NM NE SW SM or SE. Empty when it cannot be worked out.
+          - name: cell
+            type: string
+            description: The cell, a letter for the row and a number for the column, for example "B3".
+          - name: status
+            type: string
+            description: >-
+              "plant"; "missing" (no plant seen: no area, never 0); "tag" (the cell that holds the
+              tray tag); "leaves over other cells" (leaves reach over a neighbour's cell, so the
+              area is not one plant's own: use the tray's area in tray-readings.csv).
+          - name: plant_area_mm2
+            type: number
+            description: >-
+              Plant area seen from above inside the cell's opening, square millimetres, at the
+              height of the tray top. Empty for a missing plant and the tag's cell.
+          - name: segmenter
+            type: string
+            description: The method that picked out the plant pixels, as in tray-readings.csv.
+          - name: cell_rule
+            type: string
+            description: How the plant pixels were given to cells.
+          - name: tray_not_counted
+            type: string
+            description: Why the tray's areas do not count in this photo, as not_counted in tray-readings.csv. Empty when they count.
+          - name: photo_excluded
+            type: string
+            description: Why the whole photo's areas are left out, as in tray-readings.csv. Empty when the photo counts.
+          - name: scale_error_at_tray_top_pct
+            type: number
+            description: The validation band of the tray, as in tray-readings.csv.
+          - name: band_slot
+            type: string
+            description: The validation slot nearest the tray, as in tray-readings.csv.
+          - name: no_band_reason
+            type: string
+            description: Why there is no band, as in tray-readings.csv.
+
 other_files:
   - path: stills/
     description: Every photo (.jpg) and its record (.json), in a folder per UTC day.

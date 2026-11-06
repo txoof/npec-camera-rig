@@ -361,7 +361,7 @@ def test_every_csv_column_is_described_in_the_data_package() -> None:
     package = json.loads(files["datapackage.json"])
     resources = {r["path"]: r for r in package["resources"]}
     csvs = sorted(n for n in files if n.endswith(".csv"))
-    assert csvs == ["captures.csv", "time-in-table-location.csv", "tray-readings.csv"]
+    assert csvs == ["captures.csv", "cell-readings.csv", "time-in-table-location.csv", "tray-readings.csv"]
     for name in csvs:
         header = next(csv.reader(io.StringIO(files[name].decode())))
         fields = resources[name]["schema"]["fields"]
@@ -423,3 +423,48 @@ def test_the_running_experiments_next_photos_are_kept_room_for(monkeypatch: pyte
     assert refused.status_code == 409
     monkeypatch.setattr(exports, "COVER_DAYS", 0)
     assert client.post(f"/api/experiments/{experiment['id']}/export", json=choice).status_code == 200
+
+
+def test_the_export_holds_each_cells_plant_area_or_the_word_for_why_it_has_none() -> None:
+    """#364: one line per cell of each tray in each photo, for the researcher's own plant map
+    (tray and cell to treatment). A missing cell and the tag's cell have no area, never 0."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import banded_validation, table_calibration, table_photo
+
+    table_calibration()
+    banded_validation("20261001T000000000000", {"North 1": ((150, 150), 2.0)})
+    experiment = captures.start_experiment(captures.create_experiment(name="Cells")["id"])
+    path = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), {3: "NW"},
+                       validation="20261001T000000000000", areas={3: 1234.5})
+    capture_id = database.captures_by_path([path])[path]["id"]
+    [tray] = database.tray_readings(capture_id)["trays"]
+
+    def cell(name, holds, px, area, over):
+        return {"cell": name, "holds": holds, "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4, "plant_px": px,
+                "area_mm2": area, "plant_centre_px": None, "over_other_cells": over,
+                "segmenter": "green threshold, 0.1", "cell_rule": "rule"}
+
+    tray["cells"] = [cell("A1", "tag", 0, 0.0, False), cell("B1", "plant", 1205, 120.5, False),
+                     cell("B2", "plant", 0, 0.0, False), cell("C1", "plant", 300, 30.0, True)]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[tray])
+    captures.stop_experiment(experiment["id"])
+    export = database.create_export(experiment["id"], now=exports._now())
+    exports._build(export["id"], experiment["id"])
+
+    with zipfile.ZipFile(exports.zip_path(database.get_export(export["id"]))) as zf:
+        top = zf.namelist()[0].split("/")[0]
+        rows = list(csv.DictReader(io.StringIO(zf.read(f"{top}/cell-readings.csv").decode())))
+        readme = zf.read(f"{top}/README.txt").decode()
+        manifest = zf.read(f"{top}/MANIFEST.sha256").decode()
+    picked = [(r["tray"], r["location"], r["cell"], r["status"], r["plant_area_mm2"], r["band_slot"]) for r in rows]
+    assert picked == [
+        ("3", "NW", "A1", "tag", "", "North 1"),
+        ("3", "NW", "B1", "plant", "120.5", "North 1"),
+        ("3", "NW", "B2", "missing", "", "North 1"),
+        ("3", "NW", "C1", "leaves over other cells", "30.0", "North 1"),
+    ]
+    assert {r["file"] for r in rows} == {f"stills/{path.split('/stills/')[-1]}.jpg"}
+    assert {r["cell_rule"] for r in rows} == {"rule"}
+    assert "cell-readings.csv" in readme
+    assert "  cell-readings.csv\n" in manifest

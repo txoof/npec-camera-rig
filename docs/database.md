@@ -44,6 +44,7 @@ should be compared as times, not as text.
 | `scheduled_photo` | One row per scheduled photo of an experiment, taken or missed | `scheduler.py` |
 | `tray_read` | One row per photo read for trays, with its status | `tray_readings.py` |
 | `tray_reading` | One row per tray found in a photo: its centre and outline (its slot and A1 corner before version 14) | `tray_readings.py` |
+| `cell_reading` | One row per cell of each tray in a photo: its plant area, or why it has none (#364) | `tray_readings.py` |
 | `exclusion` | One row per photo of an experiment: why its plant areas are left out, if they are | `exclusions.py` |
 | `light_warning_dismissal` | One row per dismissal of an experiment's light warning | `exclusions.py` |
 | `app_start` | One row each time the app starts | `scheduler.py` |
@@ -379,6 +380,7 @@ such a photo was saved as `read failed` with no trays.
 | `found` | text | How the tray was found: `photo + tag`, `photo, no tag` or `tag only` (a tag seen, its tray not found in the photo: no outline, no area). NULL for photos read before version 14 |
 | `warnings` | text | JSON list of warnings: `no tag`, `two tags in one tray outline`, `tag seen, tray not found in the photo`, `partly outside the photo`. NULL before version 14 |
 | `outline` | text | JSON list of the outline's four corners, `[x, y]` in full-size photo pixels. NULL for `tag only` and before version 14 |
+| `a1_bearing_deg` | real | A 2 x 2 tray only: degrees clockwise from its tag's top to cell A1, from the tray's first photo in the experiment (version 21, #364). NULL for other trays and before version 21 |
 
 A tray not found is never stored. When a photo's readings are shown, each tray found in an
 earlier photo of the same experiment but not in this one is listed as not found since the first
@@ -388,6 +390,34 @@ is listed as moved when its centre is in another table location than in the expe
 photo; a nudge within its location or a turn is not a move (#332). A tray with no tag is never listed
 as not found or as moved: it cannot be followed from photo to photo. Only photos with the status `read` count, so a dark photo is not a tray
 missing. A purge deletes both tables' rows with the photos.
+
+### `cell_reading`
+
+From version 21 (#364). One row per cell of each tray in a read photo, for a tray named by one
+tag whose cells are measured: 4 x 5 (20 cells, A1 holds the tag) and 2 x 2 (4 pots). Other tray
+types have none. Cells are placed from the tray's outline and tag (`tray_placement.place_cells`);
+a 2 x 2 tray's A1 is its south-west pot in its first photo of the experiment and follows its tag
+after that (Aaron, 2026-11-06). Each piece of plant counts wholly for the cell holding most of it
+(`segmentation.measure_cells`).
+
+| Column | Type | Meaning |
+|---|---|---|
+| `capture_id` | integer | The photo |
+| `tray_id` | integer | The tray's tag ID |
+| `cell` | text | The cell's name, column letter and row number: `A1` to `D5`, or `A1` to `B2` |
+| `holds` | text | `plant`, or `tag` for the tray tag's cell (A1 of a 4 x 5 tray) |
+| `centre_x_px`, `centre_y_px` | real | The cell's centre, full-size photo pixels |
+| `corners` | text | JSON list of the four corners of the cell's opening (4 x 5) or pot rim (2 x 2) |
+| `plant_px` | integer | Plant pixels counted for the cell; 0 when none |
+| `area_mm2` | real | Their area at the calibration's scale; 0 when none (shown as no area, "missing") |
+| `plant_centre_x_px`, `plant_centre_y_px` | real | Their centre; NULL when none |
+| `over_other_cells` | integer | 1 when a piece counted for this cell covers another cell's opening by 1% or more, or a piece counted for another cell covers this one's: the area is not one plant's own ("leaves over other cells") |
+| `segmenter` | text | What made the mask, as in `tray_reading` |
+| `cell_rule` | text | How pieces were given to cells (`tray_readings.CELL_RULE`) |
+
+Shown per cell: `tag`, `leaves over other cells`, `plant`, or `missing` (no plant counted: a
+plant lost in this photo or never there, never an area of 0). A purge deletes the rows with the
+photos.
 
 ### `exclusion`
 
@@ -428,14 +458,14 @@ Kept when an experiment is purged, with its `experiment` row.
 
 ### `export`: what the user ticked
 
-From version 21 (#65, #368). Export asks what goes in the export: the data (the CSVs,
+From version 22 (#65, #368). Export asks what goes in the export: the data (the CSVs,
 `datapackage.json`, the records, `experiment.json`), the photos with their records, or both. Only
 an export with the photos counts as complete for Purge.
 
 | Column | Type | Meaning |
 |---|---|---|
-| `data` | integer | 1 when the data was ticked, 0 when not. 1 for exports from before version 21, which held everything |
-| `photos` | integer | 1 when the photos were ticked, 0 when not. 1 for exports from before version 21 |
+| `data` | integer | 1 when the data was ticked, 0 when not. 1 for exports from before version 22, which held everything |
+| `photos` | integer | 1 when the photos were ticked, 0 when not. 1 for exports from before version 22 |
 
 ```sql
 SELECT id, started_at, data, photos, bytes FROM export ORDER BY id

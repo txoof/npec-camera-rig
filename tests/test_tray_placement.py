@@ -359,3 +359,153 @@ def test_each_tray_tag_in_a_real_still_names_the_tray_it_lies_on(name: str) -> N
     for tray in fixture["trays"]:
         x, y = tray["centre_px"]
         assert math.dist((x, y), named[tray["tray_id"]].centre) / scale.px_per_mm(x, y) <= 30, f"tray {tray['tray_id']}"
+
+
+# --- Cells placed from the tray's outline and tag (#364) ------------------------------------------
+# Worked by hand at an even 10 px/mm, from reference/trays.md. 4 x 5: cell opening 59.5 mm
+# (callipers), centres 69.7 mm apart (59.5 + a 10.2 mm wall), grid centred in the tray.
+# The tray of `_box_outline(1000, 500)` is centred at (2525, 2330) px.
+
+
+def _named(outline, tag):
+    from npec_rig.tray_placement import name_trays
+
+    [tray] = name_trays([outline], [tag])
+    return tray
+
+
+def test_a_4x5_tray_with_its_tag_at_the_south_west_has_a1_there_and_d5_at_the_north_east() -> None:
+    from npec_rig.calibration import scale_field_from_dict
+    from npec_rig.tray_placement import place_cells
+
+    # A1's centre: 1.5 pitches west (1045.5 px) and 2 pitches south (1394 px) of the tray centre.
+    tag = _tag_at(4, 1479.5, 3724.0)
+    cells = {c.name: c for c in place_cells(_named(_box_outline(1000, 500), tag), tag, scale_field_from_dict(EVEN_10))}
+    assert sorted(cells) == sorted(f"{col}{row}" for col in "ABCD" for row in range(1, 6))
+    assert cells["A1"].centre == pytest.approx((1479.5, 3724.0))
+    assert cells["D5"].centre == pytest.approx((3570.5, 936.0))
+    assert cells["B3"].centre == pytest.approx((2176.5, 2330.0))
+    assert cells["D1"].centre == pytest.approx((3570.5, 3724.0))
+    # The opening, 595 px square, around A1's centre.
+    assert sorted(cells["A1"].corners) == pytest.approx(sorted([(1182.0, 3426.5), (1777.0, 3426.5), (1777.0, 4021.5), (1182.0, 4021.5)]))
+    assert cells["A1"].holds == "tag"
+    assert {c.holds for n, c in cells.items() if n != "A1"} == {"plant"}
+
+
+def test_a_4x5_tray_turned_round_has_a1_at_the_north_east_and_d5_at_the_south_west() -> None:
+    from npec_rig.calibration import scale_field_from_dict
+    from npec_rig.tray_placement import place_cells
+
+    tag = _tag_at(4, 3570.5, 936.0)
+    cells = {c.name: c for c in place_cells(_named(_box_outline(1000, 500), tag), tag, scale_field_from_dict(EVEN_10))}
+    assert cells["A1"].centre == pytest.approx((3570.5, 936.0))
+    assert cells["D5"].centre == pytest.approx((1479.5, 3724.0))
+    # Column A runs along the east side when A1 is at the north-east.
+    assert cells["A5"].centre == pytest.approx((3570.5, 3724.0))
+
+
+def test_a_4x5_tray_tilted_10_degrees_has_its_cells_turned_with_it() -> None:
+    import math
+
+    from npec_rig.calibration import scale_field_from_dict
+    from npec_rig.tray_placement import TrayOutline, place_cells
+
+    t = math.radians(10)
+    turn = lambda dx, dy: (2525 + dx * math.cos(t) - dy * math.sin(t), 2330 + dx * math.sin(t) + dy * math.cos(t))  # noqa: E731
+    outline = TrayOutline(
+        corners=tuple(turn(a * 1525, b * 1830) for a, b in ((-1, -1), (1, -1), (1, 1), (-1, 1))),
+        centre=(2525.0, 2330.0), tilt_deg=10.0, edge=False,
+    )
+    # A1's offset (-1045.5, 1394) px turned 10 degrees clockwise on the photo, worked by hand:
+    # x = -1045.5 cos 10 - 1394 sin 10 = -1271.68, y = -1045.5 sin 10 + 1394 cos 10 = 1191.27.
+    tag = _tag_at(4, 1253.32, 3521.27)
+    cells = {c.name: c for c in place_cells(_named(outline, tag), tag, scale_field_from_dict(EVEN_10))}
+    assert cells["A1"].centre == pytest.approx((1253.32, 3521.27), abs=0.01)
+    assert cells["D5"].centre == pytest.approx((3796.68, 1138.73), abs=0.01)
+
+
+def test_a_2x2_tray_has_four_pots_named_from_the_south_west_of_the_photo() -> None:
+    from npec_rig.calibration import scale_field_from_dict
+    from npec_rig.tray_placement import place_cells
+
+    # Aaron, 2026-11-06: holes 106 mm (tape measure), central divisions 32 mm across the short side
+    # and 58.5 mm along the long side, grid centred in the tray; pots 108.93 mm (callipers, mean of
+    # 4). Cell centres 16 + 53 = 69 mm east-west and 29.25 + 53 = 82.25 mm north-south of the
+    # tray centre. The tag lies in the middle (IDs 76 to 150).
+    tag = _tag_at(80, 2525.0, 2330.0)
+    cells = {c.name: c for c in place_cells(_named(_box_outline(1000, 500), tag), tag, scale_field_from_dict(EVEN_10))}
+    assert sorted(cells) == ["A1", "A2", "B1", "B2"]
+    assert cells["A1"].centre == pytest.approx((1835.0, 3152.5))
+    assert cells["B1"].centre == pytest.approx((3215.0, 3152.5))
+    assert cells["A2"].centre == pytest.approx((1835.0, 1507.5))
+    assert cells["B2"].centre == pytest.approx((3215.0, 1507.5))
+    # The pot, 1089.3 px square.
+    xs, ys = zip(*cells["A1"].corners, strict=True)
+    assert (max(xs) - min(xs), max(ys) - min(ys)) == pytest.approx((1089.3, 1089.3))
+    assert {c.holds for c in cells.values()} == {"plant"}
+
+
+def test_a_1x1_tray_has_no_cells_placed() -> None:
+    from npec_rig.calibration import scale_field_from_dict
+    from npec_rig.tray_placement import place_cells
+
+    tag = _tag_at(160, 1300.0, 900.0)
+    assert place_cells(_named(_box_outline(1000, 500), tag), tag, scale_field_from_dict(EVEN_10)) == []
+
+
+def _tag_turned(tag_id: int, x: float, y: float, deg: float) -> TagDetection:
+    """A 400 px tag at (x, y), turned `deg` clockwise on the photo from lying with its top north;
+    corners top-left, top-right, bottom-right, bottom-left in its own frame, as the detector gives."""
+    import math
+
+    t = math.radians(deg)
+    corners = tuple(
+        (x + dx * math.cos(t) - dy * math.sin(t), y + dx * math.sin(t) + dy * math.cos(t))
+        for dx, dy in ((-200, -200), (200, -200), (200, 200), (-200, 200))
+    )
+    return TagDetection(tag_id, corners, (x, y))
+
+
+@pytest.mark.parametrize("glued_deg", [0.0, 45.0, 100.0])
+def test_a_2x2_trays_a1_is_its_south_west_pot_in_its_first_photo_and_follows_the_tray_when_turned(glued_deg: float) -> None:
+    from npec_rig.calibration import scale_field_from_dict
+    from npec_rig.tray_placement import a1_bearing_deg, place_cells
+
+    scale = scale_field_from_dict(EVEN_10)
+    # First photo: the tag glued at any angle; A1 is the pot at the photo's south-west.
+    first_tag = _tag_turned(80, 2525.0, 2330.0, glued_deg)
+    first_tray = _named(_box_outline(1000, 500), first_tag)
+    first = place_cells(first_tray, first_tag, scale)
+    assert {c.name: c.centre for c in first}["A1"] == pytest.approx((1835.0, 3152.5))
+    bearing = a1_bearing_deg(first_tray, first_tag, first)
+    # Later photo, tray not turned: A1 stays.
+    cells = {c.name: c.centre for c in place_cells(first_tray, first_tag, scale, a1_bearing_deg=bearing)}
+    assert cells["A1"] == pytest.approx((1835.0, 3152.5))
+    # Later photo, the tray turned round (its tag with it): A1 is now the north-east pot.
+    turned_tag = _tag_turned(80, 2525.0, 2330.0, glued_deg + 180)
+    turned = {c.name: c.centre for c in place_cells(_named(_box_outline(1000, 500), turned_tag), turned_tag, scale, a1_bearing_deg=bearing)}
+    assert turned["A1"] == pytest.approx((3215.0, 1507.5))
+    assert turned["B2"] == pytest.approx((1835.0, 3152.5))
+    assert turned["B1"] == pytest.approx((1835.0, 1507.5))
+
+
+@pytest.mark.parametrize("tilt_deg", [-0.3, 0.3])
+def test_a_2x2_tray_lying_landscape_in_its_first_photo_has_a1_at_the_south_west_pot(tilt_deg: float) -> None:
+    """Review of #374: with the tray turned 90 degrees, a fraction of a degree of tilt must not
+    decide which pot is A1. Tray 3660 x 3050 px centred at (2830, 2025): its long side runs east,
+    so the pots lie 82.25 mm east and west and 69 mm north and south of the centre; the
+    south-west pot is at (2007.5, 2715)."""
+    import math
+
+    from npec_rig.calibration import scale_field_from_dict
+    from npec_rig.tray_placement import TrayOutline, place_cells
+
+    t = math.radians(tilt_deg)
+    turn = lambda dx, dy: (2830 + dx * math.cos(t) - dy * math.sin(t), 2025 + dx * math.sin(t) + dy * math.cos(t))  # noqa: E731
+    outline = TrayOutline(
+        corners=tuple(turn(a * 1830, b * 1525) for a, b in ((-1, -1), (1, -1), (1, 1), (-1, 1))),
+        centre=(2830.0, 2025.0), tilt_deg=tilt_deg, edge=False,
+    )
+    tag = _tag_turned(80, 2830.0, 2025.0, 30.0)
+    cells = {c.name: c.centre for c in place_cells(_named(outline, tag), tag, scale_field_from_dict(EVEN_10))}
+    assert cells["A1"] == pytest.approx((2007.5, 2715.0), abs=20)

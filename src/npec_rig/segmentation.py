@@ -6,6 +6,7 @@ that turns masks into areas depends only on that, so a model can replace the gre
 without changes elsewhere.
 """
 
+import math
 import os
 import threading
 from dataclasses import dataclass
@@ -126,6 +127,93 @@ def measure_trays(mask: np.ndarray, trays, scale_field) -> list[PlantMeasure]:
             part = inside[y0 - box[1] : y1 - box[1], x0 - box[0] : x1 - box[0]]
             part &= ~(_inside(shared, other) & lose)
         out.append(_measure(mask, box, inside, scale_field))
+    return out
+
+
+# A piece counted for one cell marks it and another cell "leaves over other cells" when it covers at
+# least this fraction of the other cell's opening (#364, Aaron, 2026-11-06: say so, do not hide
+# it). A decision, not a measurement: a leaf edge or a few fringe pixels reaching a neighbour's
+# opening should not mark it. To be checked on real photos.
+OVER_OTHER_CELL_MIN = 0.01
+
+
+@dataclass(frozen=True)
+class CellMeasure:
+    """The plant counted for one cell (`measure_cells`), as `PlantMeasure`, and whether its area
+    is not one plant's own: a piece counted for it covers another cell's opening, or a piece
+    counted for another cell covers its own."""
+
+    plant_px: int
+    centre_px: tuple[float, float] | None
+    area_mm2: float
+    over_other_cells: bool
+
+
+def measure_cells(mask: np.ndarray, cells, scale_field, outline_px=None) -> list[CellMeasure]:
+    """The plant of each cell in `cells` (`tray_placement.Cell`, full-size pixels) of full-size
+    `mask`, in their order (#364). A piece of plant (pixels joined side or corner) counts wholly
+    for the cell holding most of its pixels, so a leaf hanging over a wall or a neighbouring cell
+    stays with its own cell; at a tie, for the cell listed first. A piece with no pixel in any cell
+    lies on the walls only (the fringe along the cells' edges, metrology log 24.1) and counts for
+    none. With `outline_px` (the tray's outline, full-size pixels), only plant inside it counts: a
+    neighbouring tray's plant reaching into a cell brings nothing from outside (review of #374), and
+    the pieces are labelled over that one tray only. Seen from above, a leaf's own pot can be hidden: where a piece counted for one cell covers
+    another cell's opening (`OVER_OTHER_CELL_MIN`), both cells say `over_other_cells`. Pieces are
+    followed as far as half a cell's side beyond the outermost cells: a piece
+    reaching farther counts only its part within that."""
+    import cv2
+
+    if not cells:
+        return []
+    h, w = mask.shape
+    corners = np.asarray([c for cell in cells for c in cell.corners], dtype=np.float64)
+    reach = max(math.dist(cell.corners[0], cell.corners[1]) for cell in cells) / 2
+    x0, y0 = np.clip(np.floor(corners.min(axis=0) - reach).astype(int), 0, [w, h])
+    x1, y1 = np.clip(np.ceil(corners.max(axis=0) + reach).astype(int) + 1, 0, [w, h])
+    if x1 <= x0 or y1 <= y0:
+        return [CellMeasure(0, None, 0.0, False) for _ in cells]
+    plant = np.ascontiguousarray(mask[y0:y1, x0:x1], dtype=np.uint8)
+    if outline_px is not None:
+        within = np.zeros(plant.shape, dtype=np.uint8)
+        corners = np.asarray(outline_px, dtype=np.float64)
+        cv2.fillPoly(within, [np.round(corners - [x0, y0]).astype(np.int32).reshape(-1, 1, 2)], 1)
+        plant &= within
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(plant, connectivity=8)
+    # Each piece's pixels in each cell: rows pieces, columns cells.
+    counts = np.zeros((n, len(cells)), dtype=np.int64)
+    opening_px = np.zeros(len(cells), dtype=np.int64)
+    for k, cell in enumerate(cells):
+        box = _box(mask, cell.corners)
+        if box is None:
+            continue
+        bx0, by0, bx1, by1 = box
+        inside = _inside(box, cell.corners)
+        part = labels[by0 - y0 : by1 - y0, bx0 - x0 : bx1 - x0][inside]
+        counts[:, k] = np.bincount(part, minlength=n)
+        opening_px[k] = int(inside.sum())
+    counts[0] = 0  # label 0 is no plant
+    held = counts.sum(axis=1) > 0
+    owner = np.where(held, counts.argmax(axis=1), -1)
+    over = np.zeros(len(cells), dtype=bool)
+    for piece in np.flatnonzero(held):
+        covered = counts[piece] >= np.maximum(1, OVER_OTHER_CELL_MIN * opening_px)
+        covered[owner[piece]] = False
+        if covered.any():
+            over[covered] = True
+            over[owner[piece]] = True
+    out = []
+    for k in range(len(cells)):
+        pieces = np.flatnonzero(owner == k)
+        if len(pieces) == 0:
+            out.append(CellMeasure(0, None, 0.0, bool(over[k])))
+            continue
+        px0 = int(stats[pieces, cv2.CC_STAT_LEFT].min())
+        py0 = int(stats[pieces, cv2.CC_STAT_TOP].min())
+        px1 = int((stats[pieces, cv2.CC_STAT_LEFT] + stats[pieces, cv2.CC_STAT_WIDTH]).max())
+        py1 = int((stats[pieces, cv2.CC_STAT_TOP] + stats[pieces, cv2.CC_STAT_HEIGHT]).max())
+        own = np.isin(labels[py0:py1, px0:px1], pieces)
+        m = _measure(mask, (x0 + px0, y0 + py0, x0 + px1, y0 + py1), own, scale_field)
+        out.append(CellMeasure(m.plant_px, m.centre_px, m.area_mm2, bool(over[k])))
     return out
 
 

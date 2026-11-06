@@ -749,3 +749,122 @@ def test_a_damaged_validation_with_no_slots_never_hides_the_areas() -> None:
     assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
         {"band_pct": None, "slot": None, "reason": "validation not found"},
     ]
+
+
+# --- Plant per cell (#364) ------------------------------------------------------------------------
+# The blue tray of `_blue_tray_scene` (x 300 to 3350, y 400 to 4060 at 10 px/mm) is centred at
+# (1825, 2230). Its 4 x 5 cells (reference/trays.md: openings 59.5 mm, centres 69.7 mm apart),
+# worked by hand from A1 at the south-west: A1 at (779.5, 3624), B3 at (1476.5, 2230), C4 at
+# (2173.5, 1533), D4 at (2870.5, 1533).
+
+
+def _cells_scene(monkeypatch, tags: list[TagDetection], squares) -> None:
+    """A grey photo with the blue tray of `_blue_tray_scene` and mint squares at `squares`
+    (x0, y0, x1, y1), the calibration at 10 px/mm."""
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB
+
+    one_tray_plant_scene(monkeypatch)
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[400:4060, 300:3350] = TRAY_BLUE
+            for x0, y0, x1, y1 in squares:
+                frame[y0:y1, x0:x1] = MINT_LEAF_RGB
+            return frame, metadata
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: tags)
+    CameraManager.set_instance(CameraManager(Scene(width=4000, height=4400)))
+
+
+def _a1_tag(tag_id: int, x: float, y: float) -> TagDetection:
+    return TagDetection(tag_id, ((x - 200, y - 200), (x + 200, y - 200), (x + 200, y + 200), (x - 200, y + 200)), (x, y))
+
+
+def test_each_cell_of_a_tray_gets_its_plant_area_and_an_empty_cell_reads_missing_not_0(monkeypatch) -> None:
+    # A 300 x 300 px square inside B3's opening (595 px): 90000 px, 900 mm2.
+    _cells_scene(monkeypatch, [_a1_tag(5, 779.5, 3624.0)], [(1327, 2080, 1627, 2380)])
+    path = _photo()
+
+    readings = tray_readings.read_photo(path)
+    [tray] = readings["trays"]
+    cells = {c["cell"]: c for c in tray["cells"]}
+    assert len(cells) == 20
+    assert cells["A1"]["status"] == "tag"
+    assert cells["B3"]["status"] == "plant"
+    assert cells["B3"]["area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the square's edge
+    assert {c["status"] for name, c in cells.items() if name not in ("A1", "B3")} == {"missing"}
+    assert {c["area_mm2"] for name, c in cells.items() if name not in ("A1", "B3")} == {None}
+    assert tray_readings.photo_readings(path) == readings
+
+
+def test_a_leaf_across_two_cells_counts_for_the_one_holding_more_and_marks_both(monkeypatch) -> None:
+    # C4's opening is x 1876 to 2471, D4's x 2573 to 3168, both y 1236 to 1831. A 400 x 200 px leaf
+    # at x 2300 to 2700, y 1400 to 1600: 171 columns over C4, 127 over D4. All 800 mm2 count for C4.
+    _cells_scene(monkeypatch, [_a1_tag(5, 779.5, 3624.0)], [(2300, 1400, 2700, 1600)])
+
+    [tray] = tray_readings.read_photo(_photo())["trays"]
+    cells = {c["cell"]: c for c in tray["cells"]}
+    assert (cells["C4"]["status"], cells["D4"]["status"]) == ("leaves over other cells", "leaves over other cells")
+    assert cells["C4"]["area_mm2"] == pytest.approx(800, rel=0.01)
+    assert cells["D4"]["area_mm2"] is None
+
+
+def _turned_tag(tag_id: int, x: float, y: float, deg: float) -> TagDetection:
+    """A 400 px tag at (x, y) turned `deg` clockwise from lying with its top north."""
+    import math
+
+    t = math.radians(deg)
+    corners = tuple(
+        (x + dx * math.cos(t) - dy * math.sin(t), y + dx * math.sin(t) + dy * math.cos(t))
+        for dx, dy in ((-200, -200), (200, -200), (200, 200), (-200, 200))
+    )
+    return TagDetection(tag_id, corners, (x, y))
+
+
+def test_a_2x2_trays_cells_keep_their_names_when_the_tray_is_turned_round_between_photos(monkeypatch) -> None:
+    """Aaron, 2026-11-06: 2 x 2 tags are glued at any angle; A1 is the south-west pot in the
+    tray's first photo of the experiment. Pots of the tray centred at (1825, 2230): south-west at
+    (1135, 3052.5), north-east at (2515, 1407.5) (69 and 82.25 mm from the centre). A 300 x 300 px
+    plant, 900 mm2, in the south-west pot; then the tray turned round, the plant in the north-east."""
+    experiment = database.create_experiment(uuid="u-364", created_at="2026-11-06T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2026-11-06T00:00:00+00:00", folder="u-364")
+
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 45.0)], [(985, 2902, 1285, 3202)])
+    first = {c["cell"]: c for c in tray_readings.read_photo(_photo())["trays"][0]["cells"]}
+    assert first["A1"]["status"] == "plant"
+    assert first["A1"]["centre_px"] == pytest.approx([1135.0, 3052.5], abs=10)  # the finder works at quarter size
+    assert first["A1"]["area_mm2"] == pytest.approx(900, rel=0.01)
+
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 225.0)], [(2365, 1257, 2665, 1557)])
+    second = {c["cell"]: c for c in tray_readings.read_photo(_photo())["trays"][0]["cells"]}
+    assert second["A1"]["centre_px"] == pytest.approx([2515.0, 1407.5], abs=10)
+    assert second["A1"]["status"] == "plant"
+    assert second["A1"]["area_mm2"] == pytest.approx(900, rel=0.01)
+    assert second["B2"]["status"] == "missing"
+
+
+def test_a_2x2_trays_cells_have_the_same_names_whatever_order_its_photos_are_read_in(monkeypatch) -> None:
+    """Review of #374: photos are read out of order (older ones on demand, Reprocess). The tag is
+    glued to the tray, so its A1 bearing is the tray's own: once any photo of the experiment has
+    set it, every photo follows it. As the test above: the plant in the south-west pot, then the
+    tray turned round. Read the second photo first."""
+    experiment = database.create_experiment(uuid="u-364b", created_at="2026-11-06T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2026-11-06T00:00:00+00:00", folder="u-364b")
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 45.0)], [(985, 2902, 1285, 3202)])
+    first = _photo()
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 225.0)], [(2365, 1257, 2665, 1557)])
+    second = _photo()
+    # Tags are searched when a photo is read: each photo gets its own tag, told apart by where its
+    # plant lies (the south-west pot in the first).
+    tags = {True: [_turned_tag(80, 1825.0, 2230.0, 45.0)], False: [_turned_tag(80, 1825.0, 2230.0, 225.0)]}
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: tags[bool(frame[3050, 1135] > 150)])  # grey: mint bright, tray blue about 88
+
+    planted = []
+    for path in (second, first):
+        cells = tray_readings.read_photo(path)["trays"][0]["cells"]
+        planted.append([c["cell"] for c in cells if c["status"] == "plant"])
+    assert planted[0] == planted[1]
+    assert len(planted[0]) == 1

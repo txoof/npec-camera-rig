@@ -136,6 +136,7 @@ def expected_sizes(experiment_id: int) -> dict:
         _BYTES_FIXED
         + len(captures) * _BYTES_PER_PHOTO_LINE
         + database.tray_reading_count(experiment_id) * _BYTES_PER_TRAY_LINE
+        + database.cell_reading_count(experiment_id) * _BYTES_PER_TRAY_LINE
         + sum(path.stat().st_size for path in records if path.exists())
     )
     return {"photos": len(captures), "photos_bytes": photos_bytes, "data_bytes": data_bytes}
@@ -204,7 +205,10 @@ def _write_zip(export_id: int, experiment_id: int) -> None:
             z.add_file(f"{name}/experiment.json", folder / "experiment.json")
             z.add_bytes(f"{name}/captures.csv", _captures_csv(captures, experiment["folder"]))
             z.add_bytes(f"{name}/time-in-table-location.csv", _time_in_table_location_csv(experiment_id, until))
-            z.add_bytes(f"{name}/tray-readings.csv", _tray_readings_csv(captures, experiment["folder"]))
+            # Each photo's readings worked out once, for both files (review of #374).
+            read = [(row, tray_readings.capture_readings(row)) for row in captures]
+            z.add_bytes(f"{name}/tray-readings.csv", _tray_readings_csv(read, experiment["folder"]))
+            z.add_bytes(f"{name}/cell-readings.csv", _cell_readings_csv(read, experiment["folder"]))
             missing = _add_records(z, name, captures)
             held = {path.removeprefix(name + "/") for _digest, path in z.sums}
             z.add_bytes(f"{name}/datapackage.json", _data_package(_fields(), held))
@@ -266,15 +270,15 @@ TRAY_READING_COLUMNS = [
 ]
 
 
-def _tray_readings_csv(captures: list[dict], folder: str) -> bytes:
-    """One line per tray in each photo read for its trays (`tray_readings.capture_readings`), with
+def _tray_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> bytes:
+    """One line per tray in each photo read for its trays (`read`: each photo's rig.db row and its
+    `tray_readings.capture_readings`), with
     its plant area as stored and the band of its validation slot, or the reason it has none (#76).
     Photos not read for trays have no lines."""
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=TRAY_READING_COLUMNS, lineterminator="\n")
     writer.writeheader()
-    for row in captures:
-        readings = tray_readings.capture_readings(row)
+    for row, readings in read:
         if readings is None:
             continue
         for tray in sorted(readings["trays"], key=lambda t: (t["tray_id"] is None, t["tray_id"] or 0)):
@@ -294,6 +298,46 @@ def _tray_readings_csv(captures: list[dict], folder: str) -> bytes:
                 "band_slot": band["slot"],
                 "no_band_reason": band["reason"],
             })
+    return buffer.getvalue().encode()
+
+
+# The columns of cell-readings.csv, one line per cell of each tray per photo read (#364).
+CELL_READING_COLUMNS = [
+    "file", "taken_at", "tray", "location", "cell", "status", "plant_area_mm2", "segmenter", "cell_rule",
+    "tray_not_counted", "photo_excluded", "scale_error_at_tray_top_pct", "band_slot", "no_band_reason",
+]
+
+
+def _cell_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> bytes:
+    """One line per cell of each tray in each photo read for its trays
+    (`tray_readings.capture_readings`), for the researcher's own map of trays and cells to
+    treatments (#364): the cell's status and plant area, no area when it has none, and its tray's
+    location and validation band."""
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=CELL_READING_COLUMNS, lineterminator="\n")
+    writer.writeheader()
+    for row, readings in read:
+        if readings is None:
+            continue
+        for tray in sorted(readings["trays"], key=lambda t: (t["tray_id"] is None, t["tray_id"] or 0)):
+            band = tray["uncertainty"]
+            for cell in tray["cells"]:
+                writer.writerow({
+                    "file": f"stills/{_stills_relative(row['path'], folder)}.jpg",
+                    "taken_at": row["taken_at"],
+                    "tray": tray["tray_id"],
+                    "location": tray["location"],
+                    "cell": cell["cell"],
+                    "status": cell["status"],
+                    "plant_area_mm2": cell["area_mm2"],
+                    "segmenter": cell["segmenter"],
+                    "cell_rule": cell["cell_rule"],
+                    "tray_not_counted": "; ".join(tray["not_counted"]),
+                    "photo_excluded": readings["exclusion"],
+                    "scale_error_at_tray_top_pct": band["band_pct"],
+                    "band_slot": band["slot"],
+                    "no_band_reason": band["reason"],
+                })
     return buffer.getvalue().encode()
 
 
@@ -357,4 +401,5 @@ def _readme(experiment: dict, photos: int, missing: list[str], until: str, held:
 
 def _wrapped(text: str, indent: str, later: str | None = None) -> list[str]:
     return textwrap.wrap(" ".join(text.split()), width=96, initial_indent=indent,
-                         subsequent_indent=indent if later is None else later)
+                         subsequent_indent=indent if later is None else later,
+                         break_on_hyphens=False, break_long_words=False)
