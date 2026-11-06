@@ -209,5 +209,6 @@ def _render_problem_frame(inputs: dict) -> bytes:
 
 
 # Bump a recipe's version whenever its renderer would draw the same inputs differently.
-images.register(images.Recipe("validation_map", 1, _render_validation_map))
+# Version 3: slots coloured by band, with a legend (#76).
+images.register(images.Recipe("validation_map", 3, _render_validation_map))
 images.register(images.Recipe("problem_frame", 1, _render_problem_frame))

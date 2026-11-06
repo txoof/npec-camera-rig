@@ -540,3 +540,20 @@ def test_a_photo_taken_before_the_clock_had_the_network_time_is_marked_in_the_li
     assert items[unset["filename"]]["clock"] == {
         "synchronized": False, "reason": "time may be wrong: clock not set"}
     assert items[synced["filename"]]["clock"]["synchronized"] is True
+
+
+def test_tray_readings_give_each_trays_uncertainty_from_its_slots_validation_band(
+    monkeypatch, isolated_calibration_dir, tmp_path
+) -> None:
+    """#76: a tray at the centre of North 1, which reads within ±2.0 % (tests/helpers.banded_validation)."""
+    from datetime import datetime, timezone
+
+    from tests.helpers import banded_validation, table_calibration, table_photo
+
+    monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
+    table_calibration()
+    banded_validation("20270101T010000000000", {"North 1": ((150, 150), 2.0)})
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW"}, validation="20270101T010000000000")
+
+    tray = TestClient(app).get(f"/api/captures/trays/{path}").json()["trays"][0]
+    assert tray["uncertainty"] == {"band_pct": 2.0, "slot": "North 1", "reason": None}

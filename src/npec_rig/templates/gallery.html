@@ -203,8 +203,8 @@
       // slot (#315).
       const shared = notCounted(trays);
       if (shared && dark) lines.push(shared);
-      // Plant area per tray (#75): green pixels inside the tray outline at the local scale. Its
-      // uncertainty comes with #76; until then the line says it is not measured.
+      // Plant area per tray (#75): green pixels inside the tray outline at the local scale, with
+      // the band of the validation slot nearest the tray (#76).
       let table = "";
       if (measured.length) {
         // Until a better rule replaces the green threshold (#363): against hand outlines of the
@@ -214,7 +214,7 @@
           + "plant areas read low. The method counts about a third of each leaf, and less on small plants.</p></div>");
         if (EXCLUDED[trays.exclusion]) lines.push(`${EXCLUDED[trays.exclusion].info}. These plant areas are not counted.`);
         if (shared) lines.push(`${shared} Their plant areas are not counted.`);
-        lines.push(`Plant area, ${ui.esc(measured[0].segmenter)}, uncertainty not measured yet:`);
+        lines.push(`Plant area, ${ui.esc(measured[0].segmenter)}:`);
         // The floor (#288): an empty tray reads up to about this much, so the rig cannot tell a
         // smaller plant from an empty tray. The number read stays stored, never subtracted (Aaron).
         const area = (t) => t.floor_mm2 != null && t.area_mm2 < t.floor_mm2
@@ -222,11 +222,18 @@
         // A tray more than its wall past the photo edge (#282): plant past the edge is not counted.
         const edge = (t) => t.partly_outside ? ", partly outside the photo" : "";
         const counted = (t) => t.not_counted?.length ? ", not counted" : "";
+        // The band covers flat objects at tray-top height only, not plant height or the mask
+        // (Aaron, 2026-11-05, #76): the heading says so. No band: the reason, with the warn shape.
+        const band = (t) => !t.uncertainty ? "" : t.uncertainty.band_pct !== null
+          ? `±${t.uncertainty.band_pct.toFixed(1)}, ${ui.esc(t.uncertainty.slot)}`
+          : `${ui.icon("warn")} ${ui.esc(t.uncertainty.reason)}`;
         // The table holds only the trays in this photo (Aaron, 2026-10-30): no slot column.
         const rows = measured.sort((a, b) => (a.tray_id ?? 1e9) - (b.tray_id ?? 1e9)).map((t) =>
-          `<tr><td>${t.tray_id ?? "No tag"}</td><td>${area(t)}${edge(t)}${counted(t)}</td></tr>`).join("");
-        table = `<table class="data-table" style="max-width: 560px; margin-top: 8px"><thead><tr><th>Tray</th>`
-          + `<th>Plant area (mm²)</th></tr></thead><tbody>${rows}</tbody></table>`;
+          `<tr><td>${t.tray_id ?? "No tag"}</td><td>${area(t)}${edge(t)}${counted(t)}</td><td>${band(t)}</td></tr>`).join("");
+        // Height above the tray top: about 0.145 % per mm (metrology log, CLAUDE.md), rounded.
+        table = `<table class="data-table" style="max-width: 760px; margin-top: 8px"><thead><tr><th>Tray</th>`
+          + `<th>Plant area (mm²)</th><th>Scale error at tray top (±%)</th></tr></thead><tbody>${rows}</tbody></table>`
+          + "<p>Plant height adds about 0.15% per mm above the tray top.</p>";
       } else if (trays.trays.length && !dark) {
         lines.push("Plant area: not worked out for this photo.");
       }

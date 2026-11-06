@@ -369,6 +369,61 @@ def _font(size: int) -> ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
+# The band scale of the map (#76): light yellow for the smallest band of the validation, through
+# orange, to dark red for the largest, stretched over that validation's own range (Aaron,
+# 2026-11-05: a smooth scale, no thresholds). Lightness falls steadily along it, so it reads in
+# grey too; every box also keeps its number.
+BAND_SCALE = ((254, 217, 118), (253, 141, 60), (177, 0, 38))
+_BAND_ALPHA = 170
+
+
+def _band_colour(fraction: float) -> tuple[int, int, int]:
+    """The scale's colour `fraction` (0 to 1) of the way from the smallest band to the largest."""
+    f = min(max(fraction, 0.0), 1.0) * (len(BAND_SCALE) - 1)
+    i = min(int(f), len(BAND_SCALE) - 2)
+    a, b = BAND_SCALE[i], BAND_SCALE[i + 1]
+    return tuple(round(a[k] + (b[k] - a[k]) * (f - i)) for k in range(3))
+
+
+# What the legend bar is drawn over, at the boxes' own transparency, so its colours match theirs:
+# about the darkness of the trays and soil under the slots.
+_LEGEND_UNDER = (70, 70, 70)
+
+
+def _legend(width: int, low: float | None, high: float | None, any_unmeasured: bool) -> Image.Image:
+    """The band legend under the map: the scale as a bar from the smallest band to the largest, one
+    swatch when every measured slot has the same band, and the grey key only when a slot is grey."""
+    legend = Image.new("RGB", (width, 110), "white")
+    draw = ImageDraw.Draw(legend)
+    font = _font(24)
+    if low is None:
+        draw.text((20, 55), "No slot measured: no band scale.", font=font, fill="black", anchor="lm")
+        return legend
+    draw.text((20, 22), "Flat objects at tray-top height read within the band, 95 times in 100",
+              font=font, fill="black", anchor="lm")
+    x0, y0, y1 = 160, 50, 90
+    x1 = x0 + (600 if high > low else 60)
+    bar = Image.new("RGB", (x1 - x0, y1 - y0), _LEGEND_UNDER)
+    tint = Image.new("RGBA", bar.size)
+    tint_draw = ImageDraw.Draw(tint)
+    for x in range(bar.width):
+        fraction = x / (bar.width - 1) if high > low else 0.0
+        tint_draw.line((x, 0, x, bar.height), fill=(*_band_colour(fraction), _BAND_ALPHA))
+    legend.paste(Image.alpha_composite(bar.convert("RGBA"), tint).convert("RGB"), (x0, y0))
+    draw.rectangle((x0, y0, x1, y1), outline="black", width=2)
+    draw.text((x0 - 12, 70), f"±{low:.1f}%", font=font, fill="black", anchor="rm")
+    after = x1 + 12
+    if high > low:
+        draw.text((after, 70), f"±{high:.1f}%", font=font, fill="black", anchor="lm")
+        after += 128
+    else:
+        draw.text((after, 70), "every measured slot", font=font, fill="black", anchor="lm")
+        after += 260
+    if any_unmeasured:
+        draw.text((after, 70), "Grey: not measured, too few tags", font=font, fill="black", anchor="lm")
+    return legend
+
+
 def render_certainty_map(
     frame: np.ndarray,
     layout: tuple[Slot, ...],
@@ -376,9 +431,10 @@ def render_certainty_map(
     caption: str,
     frame_scale: float = 1.0,
 ) -> np.ndarray:
-    """The camera frame with each slot boxed and labelled "within +/-Z%" and its tag count, slots
-    below `MIN_TAGS_PER_SLOT` greyed "not measured", and `caption` underneath. No axes or plots:
-    the supervisor asked for one image with a number per zone.
+    """The camera frame with each slot boxed, coloured on `BAND_SCALE` by its band and labelled
+    "within +/-Z%" and its tag count, slots below `MIN_TAGS_PER_SLOT` greyed "not measured", the
+    scale's legend, and `caption` underneath. No axes or plots: the supervisor asked for one image
+    with a number per zone.
 
     `frame` may already be downscaled; `frame_scale` is its size relative to the full-resolution
     pixel coordinates the slots are in. The result is `MAP_WIDTH_PX` wide.
@@ -392,6 +448,8 @@ def render_certainty_map(
     draw = ImageDraw.Draw(overlay)
     big, small = _font(52), _font(26)
     by_name = {r.name: r for r in results}
+    bands = [by_name[slot.name].p95_abs_pct for slot in layout if by_name[slot.name].p95_abs_pct is not None]
+    low, high = (min(bands), max(bands)) if bands else (None, None)
 
     for slot in layout:
         result = by_name[slot.name]
@@ -400,8 +458,10 @@ def render_certainty_map(
         measured = result.p95_abs_pct is not None
         draw.rectangle(
             box,
-            fill=(0, 0, 0, 110) if measured else (128, 128, 128, 170),
-            outline=(255, 255, 0, 255),
+            fill=(*_band_colour((result.p95_abs_pct - low) / (high - low) if high > low else 0.0), _BAND_ALPHA)
+            if measured else (128, 128, 128, 170),
+            # Dark, to stand out against the light end of the band scale as well as the photo.
+            outline=(20, 20, 20, 255),
             width=4,
         )
         cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
@@ -419,9 +479,11 @@ def render_certainty_map(
                 )
 
     image = Image.alpha_composite(image, overlay).convert("RGB")
-    canvas = Image.new("RGB", (image.width, image.height + 90), "white")
+    legend = _legend(image.width, low, high, len(bands) < len(layout))
+    canvas = Image.new("RGB", (image.width, image.height + legend.height + 90), "white")
     canvas.paste(image, (0, 0))
-    ImageDraw.Draw(canvas).text((20, image.height + 45), caption, font=_font(24), fill="black", anchor="lm")
+    canvas.paste(legend, (0, image.height))
+    ImageDraw.Draw(canvas).text((20, image.height + legend.height + 45), caption, font=_font(24), fill="black", anchor="lm")
     return np.asarray(canvas)
 
 

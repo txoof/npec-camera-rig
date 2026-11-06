@@ -102,7 +102,9 @@ def tray_outline_at(centre: tuple[float, float], tilt_deg: float, ppm: float) ->
     )
 
 
-def _nearest_slot(x: float, y: float, slots: list[dict]) -> tuple[str, float]:
+def nearest_slot(x: float, y: float, slots: list[dict]) -> tuple[str, float]:
+    """The name of the slot of `slots` (dicts with "name" and "centre") whose centre is nearest
+    the point (x, y), and the distance to it, in pixels."""
     return min(((s["name"], math.hypot(s["centre"][0] - x, s["centre"][1] - y)) for s in slots), key=lambda s: s[1])
 
 
@@ -123,7 +125,7 @@ def place_trays(detections: list[TagDetection], scale_field: ScaleField, slots: 
         candidates = []
         for corner, sign in (("SW", 1), ("NE", -1)):
             centre = (tag.centre[0] + sign * dx, tag.centre[1] + sign * dy)
-            slot, distance = _nearest_slot(*centre, slots)
+            slot, distance = nearest_slot(*centre, slots)
             candidates.append((distance, corner, centre, slot))
         (near, corner, centre, slot), (far, *_) = sorted(candidates)
         margin = (far - near) / ppm

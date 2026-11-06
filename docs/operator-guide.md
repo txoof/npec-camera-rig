@@ -34,7 +34,9 @@ uncertainty column in the exported data means.
    low for up to about an hour. Wait, or press **Count it anyway** next to the round.
 
 The validation result is a map with one number per tray position (slot), for example "North 2:
-±2.1%". That number is the uncertainty attached to every area measured at that position.
+±2.1%". That number is the uncertainty attached to every area measured at that position. The
+slots are coloured from light yellow (that validation's smallest number) to dark red (its largest),
+with the scale under the photo; grey slots had too few tags to be measured.
 
 Photos are given the newest **complete** validation, the one with 3 counted rounds. Starting a
 new validation does not change that until the new one completes: the status line then reads, for
@@ -100,10 +102,17 @@ anyone using its numbers can see it.
 
 ## What the uncertainty column means
 
-Each exported area comes with an uncertainty such as "±2.1% (95%)". Read it this way:
+Each tray area comes with a scale error, such as "±2.1, North 2", in the Gallery's tray table
+under **Scale error at tray top (±%)** and in the export's `tray-readings.csv` (columns
+`scale_error_at_tray_top_pct` and `band_slot`). Read it this way:
 
-- **It belongs to the tray position, not the tray.** A tray photographed on North 2 gets North 2's
-  number. The same tray photographed later on South 5 gets South 5's.
+- **It belongs to the tray position, not the tray.** A tray takes the number of the validation
+  slot nearest its centre. The same tray photographed later on South 5 gets South 5's.
+- **Sometimes there is no number.** The cell then says why: **not validated** (no complete
+  validation when the photo was taken), **validation not consistent**, **validation not found**
+  (its record was deleted or damaged), **photo not covered** (the photo is flagged, for example
+  because the lens moved from its lock; Info says why), or **slot not measured** (too few tags on
+  that slot). The area is still shown.
 - **It is a 95% range, not a standard deviation.** 95% of the reference targets measured at that
   position read within 2.1% of their true area. If you need a standard deviation, it is roughly
   half the number, if the errors are normally distributed.
