@@ -122,6 +122,10 @@ search output, in context.
 **Check-ins.** Between the ends of rounds, show progress as a picture or table in `~/scratch`
 with 2 or 3 lines on what to look at, then wait for Aaron before going on (PLAN.md, *Rounds*).
 
+**Pictures for Aaron.** Put them on the controller in `~/scratch/<branch>/` and link them as
+`http://testpi-02:8001/<branch>/<file>`. That is the one scratch viewer (`imgview.service`, from
+`~/ansible-npec`, `docs/12-scratch-viewer.md`); never start another one (Aaron, 2026-11-06).
+
 **Reply format.** Five headings, in this order. Skip any that are empty.
 
 ```
