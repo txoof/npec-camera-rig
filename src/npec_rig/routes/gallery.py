@@ -31,28 +31,49 @@ def gallery_page(request: Request) -> Response:
 
 @router.get("/api/captures")
 def api_captures(
-    limit: int = Query(12, ge=1, le=200), before: str | None = None, experiment: int | None = None
+    limit: int = Query(12, ge=1, le=200),
+    before: str | None = None,
+    after: str | None = None,
+    experiment: int | None = None,
 ) -> list[dict]:
     """Most recent captures for the gallery, newest first. `before` (an entry's `key`) gives the
-    next page back in time; `experiment` (an id) only that experiment's photos."""
-    if before is not None and not PHOTO_KEY.match(before):
-        raise HTTPException(422, f"not a photo key: {before!r} (expected YYYY-MM-DDTHHMMSS_ffffff)")
+    next page back in time; `after` (a key, kept) leaves out the photos older than it, so an hour
+    asks for its own photos only (#377); `experiment` (an id) only that experiment's photos."""
+    for name, key in (("before", before), ("after", after)):
+        if key is not None and not PHOTO_KEY.match(key):
+            raise HTTPException(422, f"{name}: not a photo key: {key!r} (expected YYYY-MM-DDTHHMMSS_ffffff)")
     try:
         items = list_recent_captures(limit=limit, before=before, experiment_id=experiment)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
+    if after is not None:
+        items = [item for item in items if item["key"] >= after]
     # Each photo's saved tray readings (#222) with its light mark and floors (#288), None until
     # it has been read. Like the records (captures._with_database_rows), a database that cannot
     # be read leaves the photos listed.
     try:
         for item in items:
             record = item.get("record")
-            item["trays"] = tray_readings.capture_readings(record) if record else None
+            item["trays"] = _card_fields(tray_readings.capture_readings(record)) if record else None
     except (sqlite3.Error, RuntimeError):
         logger.exception("Could not read the tray readings for the gallery")
         for item in items:
             item["trays"] = None
     return items
+
+
+# What a card's one tray line shows (#377); Info fetches the full reading, cells included, from
+# /api/captures/trays/ for its one photo. With the cells the list was 127 KB a photo on production.
+_CARD_READING = ("status", "exclusion", "not_found", "moved")
+_CARD_TRAY = ("tray_id", "found", "not_counted")
+
+
+def _card_fields(reading: dict | None) -> dict | None:
+    if reading is None:
+        return None
+    card = {key: reading[key] for key in _CARD_READING if key in reading}
+    card["trays"] = [{key: tray[key] for key in _CARD_TRAY if key in tray} for tray in reading["trays"]]
+    return card
 
 
 @router.get("/api/captures/hours")

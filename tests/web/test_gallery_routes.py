@@ -430,10 +430,10 @@ def test_tray_readings_give_each_trays_plant_area_and_segmenter(monkeypatch) -> 
     assert tray["segmenter"] == "green threshold, 0.1"
 
 
-def test_each_photo_in_the_list_carries_its_exclusion_and_each_area_its_floor(monkeypatch, isolated_calibration_dir) -> None:
+def test_each_photo_in_the_list_carries_its_exclusion_and_its_info_each_areas_floor(monkeypatch, isolated_calibration_dir) -> None:
     """#288: a photo taken with the lights off (64,022 us at gain 4.0, a real photo of experiment
     18) is excluded as such, and each tray area shows the green threshold's floor, 100 mm2
-    (Aaron, 2026-10-26)."""
+    (Aaron, 2026-10-26). The floor is in Info's reading, not the list (#377)."""
     from npec_rig import tray_readings
     from npec_rig.camera import CameraManager, SyntheticBackend
 
@@ -450,9 +450,10 @@ def test_each_photo_in_the_list_carries_its_exclusion_and_each_area_its_floor(mo
     path = client.post("/capture").json()["path"]
     tray_readings.read_photo(path)
 
-    trays = {i["path"]: i for i in client.get("/api/captures").json()}[path]["trays"]
-    assert trays["exclusion"] == "lights off"
-    assert [t["floor_mm2"] for t in trays["trays"]] == [100]
+    listed = {i["path"]: i for i in client.get("/api/captures").json()}[path]["trays"]
+    assert listed["exclusion"] == "lights off"
+    info = client.get(f"/api/captures/trays/{path}").json()
+    assert [t["floor_mm2"] for t in info["trays"]] == [100]
 
 
 def test_the_light_warning_is_shown_until_dismissed_and_the_dismissal_is_saved() -> None:
@@ -557,3 +558,51 @@ def test_tray_readings_give_each_trays_uncertainty_from_its_slots_validation_ban
 
     tray = TestClient(app).get(f"/api/captures/trays/{path}").json()["trays"][0]
     assert tray["uncertainty"] == {"band_pct": 2.0, "slot": "North 1", "reason": None}
+
+
+def test_the_photo_list_carries_only_what_each_card_shows(monkeypatch) -> None:
+    """#377: a photo's 240 cells made the list 127 KB a photo on production. The card shows one
+    tray line: how each tray was found, which areas do not count, exclusion, trays not seen and
+    moved. Everything else, cells and areas included, is fetched by Info for its one photo."""
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    client.get(f"/api/captures/tags/{path}")  # Show tags reads the photo for its trays
+
+    trays = {i["path"]: i for i in client.get("/api/captures").json()}[path]["trays"]
+    assert set(trays) == {"status", "exclusion", "not_found", "moved", "trays"}
+    assert [set(t) for t in trays["trays"]] == [{"tray_id", "found", "not_counted"}]
+
+
+def test_info_fetches_each_trays_cells_for_its_one_photo(monkeypatch) -> None:
+    """#377: the cells left out of the list come from the photo's own reading. A 4 x 5 tray has
+    20 cells (reference/trays.md)."""
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    client.get(f"/api/captures/tags/{path}")
+
+    tray = client.get(f"/api/captures/trays/{path}").json()["trays"][0]
+    assert len(tray["cells"]) == 20
+
+
+def test_an_hour_asks_only_for_its_own_photos() -> None:
+    """#377: an hour asked for 200 photos before the next hour and kept about 60. `after` (a
+    photo key, the hour's start) leaves out the photos before it; a photo taken at it is in."""
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    day, stem = path.split("/")[-2:]
+    hour_start = datetime.strptime(f"{day}T{stem[:2]}", "%Y-%m-%dT%H")
+    key = lambda t: t.strftime("%Y-%m-%dT%H0000_000000")  # noqa: E731
+    hour = {"after": key(hour_start), "before": key(hour_start + timedelta(hours=1))}
+
+    assert path in [p["path"] for p in client.get("/api/captures", params=hour).json()]
+    assert path in [p["path"] for p in client.get("/api/captures", params={"after": f"{day}T{stem}"}).json()]
+    later = client.get("/api/captures", params={"after": key(hour_start + timedelta(hours=1))})
+    assert later.status_code == 200
+    assert path not in [p["path"] for p in later.json()]
+    assert client.get("/api/captures", params={"after": "yesterday"}).status_code == 422
