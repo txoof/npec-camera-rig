@@ -6,8 +6,9 @@ in full-size photo pixels (the app's tray readings, or cells placed offline).
 
 For each tray the whole cell grid is shifted -15 to +15 mm in 1 mm steps; the score is the fraction
 of tray-blue pixels on the walls (inside the outline, outside every cell) minus the fraction inside
-the cells. The best shift is the placement error. Writes OUT_PREFIX.csv and OUT_PREFIX.jpg (each
-tray's cells as placed, magenta, and at the best shift, cyan). Reads nothing from a rig.
+the cells. Writes OUT_PREFIX.csv (each tray's best shift) and OUT_PREFIX.jpg (each tray's cells as
+placed, magenta, with their names). Reads nothing from a rig. The best shift was meant as the
+placement error; on 4 x 5 trays it disagrees with the photo (metrology log 27.4) and is not one.
 """
 
 import csv
@@ -77,12 +78,10 @@ for tray in trays:
     for c in tray["cells"]:
         pts = np.asarray(c["corners_px"]) / f
         cv2.polylines(picture, [np.round(pts).astype(np.int32)], True, (255, 0, 255), 2)
-        moved = pts + [best[1] * ppm, -best[2] * ppm]
-        cv2.polylines(picture, [np.round(moved).astype(np.int32)], True, (0, 255, 255), 1)
         cx, cy = pts.mean(axis=0)
         cv2.putText(picture, c["cell"], (int(cx) - 12, int(cy) + 6), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255), 2)
     tx, ty = outline.min(axis=0)
-    cv2.putText(picture, f"tray {tray['tray_id']}: {best[1]:+d} E {best[2]:+d} N mm", (int(tx) + 10, int(ty) + 30),
+    cv2.putText(picture, f"tray {tray['tray_id']}", (int(tx) + 10, int(ty) + 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
 with open(out + ".csv", "w", newline="") as fh:
     w = csv.DictWriter(fh, fieldnames=list(rows[0]))
