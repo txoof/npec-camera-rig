@@ -32,11 +32,14 @@ from npec_rig.calibration_store import (
 from npec_rig.tags import TRAY_ID_RANGE, TagDetection
 from npec_rig.tray_placement import (
     TRAY_SIZE_MM,
+    Cell,
     TrayOutline,
     TrayPlacement,
     find_outlines,
     name_trays,
     nearest_slot,
+    a1_bearing_deg,
+    place_cells,
     tray_outline_at,
 )
 
@@ -56,6 +59,10 @@ FLOORS_MM2 = {"green threshold, 0.1": 100}
 # outlines are placed to within about 10 mm (metrology log 15.5l), so the mark is approximate. A
 # decision, not a measurement (Aaron, 2026-10-27).
 PAST_EDGE_MM = 13.0
+
+# How plant pieces are given to cells (segmentation.measure_cells), stored with every cell's area
+# so a change of rule shows in the data (#364).
+CELL_RULE = "piece to the cell holding most of it, over other cells at 1%"
 
 # The photo is searched for trays at this fraction of its size: the blue finder's parameters were
 # tuned on quarter-size stills (metrology log 20).
@@ -180,11 +187,13 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
     reuse = reuse_mask and _saved_by_this_segmenter(saved)
     # A tag seen with no tray found around it has no outline: nothing to measure (#331).
     outlined = [p for p in placed if p.outline is not None]
-    calibration, measures = _measures(path, record["calibration"], outlined, reuse) if outlined else (None, [])
+    calibration, measures, cells = _measures(path, record["calibration"], outlined, reuse, tags, record) if outlined else (None, [], [])
     size = _photo_size(path) if outlined else None
     # No area now, whether or not any tray was outlined (review of #334): a saved area is kept.
     _refuse_worse(path, saved, status, areas_lost=not measures)
     measured = dict(zip(map(id, outlined), measures, strict=True)) if measures else {}
+    celled = dict(zip(map(id, outlined), cells, strict=True)) if measures else {}
+    no_cells: tuple[list, None] = ([], None)
     trays = []
     for p in placed:
         m = measured.get(id(p))
@@ -198,6 +207,16 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "outside_mm": outside_mm(p, size) if size and p.outline is not None else None,
             "found": p.found, "warnings": list(p.warnings),
             "outline_px": None if p.outline is None else [list(c) for c in p.outline],
+            "cells": [
+                {
+                    "cell": c.name, "holds": c.holds, "centre_px": list(c.centre), "corners_px": [list(k) for k in c.corners],
+                    "plant_px": cm.plant_px, "area_mm2": cm.area_mm2,
+                    "plant_centre_px": list(cm.centre_px) if cm.centre_px else None,
+                    "over_other_cells": cm.over_other_cells, "segmenter": SEGMENTER.name, "cell_rule": CELL_RULE,
+                }
+                for c, cm in celled.get(id(p), no_cells)[0]
+            ],
+            "a1_bearing_deg": celled.get(id(p), no_cells)[1],
         })
     database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
     exclusions.update(record)
@@ -226,13 +245,15 @@ def _saved_by_this_segmenter(saved: dict | None) -> bool:
 
 
 def _measures(
-    path: str, photo_calibration: str, placed: list[TrayPlacement], reuse_mask: bool = False
-) -> tuple[str | None, list[segmentation.PlantMeasure]]:
-    """The calibration used and each placed tray's plant measure, in the order of `placed` (two
-    trays may carry the same tag, #302), from the full-size photo's mask: the saved one with
-    `reuse_mask`, else a new one, saved for Reprocess. Empty when
-    the photo cannot be segmented: the trays are still placed. Plant in the strip two touching
-    trays share counts once, for the tray with the nearer centre (`segmentation.measure_trays`)."""
+    path: str, photo_calibration: str, placed: list[TrayPlacement], reuse_mask: bool = False,
+    tags: list[TagDetection] = (), record: dict | None = None,
+) -> tuple[str | None, list[segmentation.PlantMeasure], list[tuple[list[tuple[Cell, segmentation.CellMeasure]], float | None]]]:
+    """The calibration used, each placed tray's plant measure and each one's cells with their
+    plant and each 2 x 2 tray's A1 bearing (`_cells`), in the order of `placed` (two trays may carry the same tag, #302), from the
+    full-size photo's mask: the saved one with `reuse_mask`, else a new one, saved for Reprocess.
+    Empty when the photo cannot be segmented: the trays are still placed. Plant in the strip two
+    touching trays share counts once, for the tray with the nearer centre
+    (`segmentation.measure_trays`)."""
     try:
         stem = calibration_for_photos(photo_calibration)
         scale_field = load_saved_calibration(stem).scale_field
@@ -241,10 +262,40 @@ def _measures(
             mask = _segment(path)
         trays = [(p.outline, p.centre) for p in placed]
         measures = segmentation.measure_trays(mask, trays, scale_field)
-        return stem, measures
+        cells = _cells(placed, tags, scale_field, record or {})
+        flat = [c for tray, _bearing in cells for c in tray]
+        counted = iter(segmentation.measure_cells(mask, flat, scale_field))
+        return stem, measures, [([(c, next(counted)) for c in tray], bearing) for tray, bearing in cells]
     except Exception:
         logger.exception("Could not work out the plant areas of %s", path)
-        return None, []
+        return None, [], []
+
+
+def _cells(
+    placed: list[TrayPlacement], tags: list[TagDetection], scale_field, record: dict
+) -> list[tuple[list[Cell], float | None]]:
+    """Each placed tray's cells (`tray_placement.place_cells`) and, for a 2 x 2 tray, where its A1
+    lies from its tag, in the order of `placed`. No cells for a tray with no tag, or whose tag two
+    trays carry, whose cells could belong to either (#302). A 2 x 2 tray's A1 bearing comes from
+    its first photo in the photo's experiment (`record`, its rig.db row); with none before this
+    photo, this photo is the first (Aaron, 2026-11-06)."""
+    from npec_rig.randomization import tray_type
+
+    carried = Counter(t.tag_id for t in tags)
+    by_id = {t.tag_id: t for t in tags}
+    out = []
+    for p in placed:
+        if p.tray_id is None or carried[p.tray_id] != 1 or p.status != "placed":
+            out.append(([], None))
+            continue
+        tag = by_id[p.tray_id]
+        if tray_type(p.tray_id).name != "2x2":
+            out.append((place_cells(p, tag, scale_field), None))
+            continue
+        bearing = database.first_a1_bearing(record.get("experiment_id"), p.tray_id, record.get("taken_at") or "")
+        cells = place_cells(p, tag, scale_field, a1_bearing_deg=bearing)
+        out.append((cells, bearing if bearing is not None else a1_bearing_deg(p, tag, cells)))
+    return out
 
 
 def _photo_size(path: str) -> tuple[int, int] | None:
@@ -338,6 +389,10 @@ def capture_readings(capture: dict) -> dict | None:
                 *(["2 tags in one tray outline"] if tray["placement"] == "two tags in one outline" else []),
             ]
             tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
+            for cell in tray["cells"]:
+                cell["status"] = _cell_status(cell)
+                if not cell["plant_px"] or cell["status"] == "tag":
+                    cell["area_mm2"] = None
             tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM
     return readings
 
@@ -406,6 +461,19 @@ def _validation_bands(capture: dict):
         return {"band_pct": band_pct, "slot": slot, "reason": None if band_pct is not None else "slot not measured"}
 
     return band
+
+
+def _cell_status(cell: dict) -> str:
+    """What a cell's reading says, in words for the page (#364): "tag" (the tray tag's cell, no
+    plant), "missing" (no plant seen: a plant lost in this photo or never there, never an area of
+    0), "leaves over other cells" (its area is not one plant's own, Aaron, 2026-11-06), or
+    "plant"."""
+    if cell["holds"] == "tag":
+        return "tag"
+    # Before "missing": a neighbour's leaves over a cell may hide its own plant.
+    if cell["over_other_cells"]:
+        return "leaves over other cells"
+    return "plant" if cell["plant_px"] else "missing"
 
 
 def _outline_old_rows(capture: dict, trays: list[dict]) -> None:
