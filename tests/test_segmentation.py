@@ -155,3 +155,22 @@ def test_one_piece_across_two_cells_counts_wholly_for_the_cell_holding_more_of_i
     mask[20:30, 45:75] = True
     a1, b1 = measure_cells(mask, _cells(), _even_scale())
     assert (a1.plant_px, b1.plant_px) == (0, 300)
+
+
+def test_a_piece_covering_a_second_cells_opening_marks_both_cells_leaves_over_other_cells() -> None:
+    from npec_rig.segmentation import measure_cells
+
+    mask = np.zeros((60, 110), dtype=bool)
+    mask[20:30, 45:75] = True  # 60 px in A1, 150 px in B1: B1 holds it, A1's opening is covered
+    a1, b1 = measure_cells(mask, _cells(), _even_scale())
+    assert (a1.over_other_cells, b1.over_other_cells) == (True, True)
+
+
+def test_pieces_each_within_their_own_cell_mark_no_cell() -> None:
+    from npec_rig.segmentation import measure_cells
+
+    mask = np.zeros((60, 110), dtype=bool)
+    mask[20:30, 20:30] = True  # inside A1
+    mask[20:30, 70:80] = True  # inside B1
+    a1, b1 = measure_cells(mask, _cells(), _even_scale())
+    assert (a1.plant_px, b1.plant_px, a1.over_other_cells, b1.over_other_cells) == (100, 100, False, False)

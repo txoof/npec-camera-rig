@@ -451,3 +451,39 @@ def test_a_1x1_tray_has_no_cells_placed() -> None:
 
     tag = _tag_at(160, 1300.0, 900.0)
     assert place_cells(_named(_box_outline(1000, 500), tag), tag, scale_field_from_dict(EVEN_10)) == []
+
+
+def _tag_turned(tag_id: int, x: float, y: float, deg: float) -> TagDetection:
+    """A 400 px tag at (x, y), turned `deg` clockwise on the photo from lying with its top north;
+    corners top-left, top-right, bottom-right, bottom-left in its own frame, as the detector gives."""
+    import math
+
+    t = math.radians(deg)
+    corners = tuple(
+        (x + dx * math.cos(t) - dy * math.sin(t), y + dx * math.sin(t) + dy * math.cos(t))
+        for dx, dy in ((-200, -200), (200, -200), (200, 200), (-200, 200))
+    )
+    return TagDetection(tag_id, corners, (x, y))
+
+
+@pytest.mark.parametrize("glued_deg", [0.0, 45.0, 100.0])
+def test_a_2x2_trays_a1_is_its_south_west_pot_in_its_first_photo_and_follows_the_tray_when_turned(glued_deg: float) -> None:
+    from npec_rig.calibration import scale_field_from_dict
+    from npec_rig.tray_placement import a1_bearing_deg, place_cells
+
+    scale = scale_field_from_dict(EVEN_10)
+    # First photo: the tag glued at any angle; A1 is the pot at the photo's south-west.
+    first_tag = _tag_turned(80, 2525.0, 2330.0, glued_deg)
+    first_tray = _named(_box_outline(1000, 500), first_tag)
+    first = place_cells(first_tray, first_tag, scale)
+    assert {c.name: c.centre for c in first}["A1"] == pytest.approx((1835.0, 3152.5))
+    bearing = a1_bearing_deg(first_tray, first_tag, first)
+    # Later photo, tray not turned: A1 stays.
+    cells = {c.name: c.centre for c in place_cells(first_tray, first_tag, scale, a1_bearing_deg=bearing)}
+    assert cells["A1"] == pytest.approx((1835.0, 3152.5))
+    # Later photo, the tray turned round (its tag with it): A1 is now the north-east pot.
+    turned_tag = _tag_turned(80, 2525.0, 2330.0, glued_deg + 180)
+    turned = {c.name: c.centre for c in place_cells(_named(_box_outline(1000, 500), turned_tag), turned_tag, scale, a1_bearing_deg=bearing)}
+    assert turned["A1"] == pytest.approx((3215.0, 1507.5))
+    assert turned["B2"] == pytest.approx((1835.0, 3152.5))
+    assert turned["B1"] == pytest.approx((1835.0, 1507.5))
