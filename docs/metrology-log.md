@@ -8317,3 +8317,96 @@ placement error in mm.
 an offset of a few mm cannot be seen at that scale. A turn of the grid and the change from photo
 to photo are not tested. The 2 x 2 walls and divisions were measured on one tray with a tape
 measure. A measured placement error needs a method that finds the walls under mats and sheets.
+
+## 28. Wall fringe in the cells: empty cells and plant areas (issue #375, 2026-11-07)
+
+**Label: development check.** Whether the few plant pixels the green threshold finds along a cell's
+walls make an empty cell read "plant", and how much they add to a real plant's area. The method
+below was written after the run, not before it: the work began as an open search for a rule
+(Aaron, 2026-11-07), and the plant area check (28.3) was chosen after the rule results were seen.
+
+### 28.1 Data
+
+Read-only copies from both rigs; nothing was written on either. Production experiment 18 (potato,
+days 0 to 15, 22 October to 6 November, 29 stills, twelve 4 x 5 trays, 228 cells) and development
+experiments 2 and 3 (the same nine 2 x 2 trays, days 0 to 7, 30 October to 6 November, 17 stills,
+36 pots). One still near noon local time each day, two more a day on days 3 to 8, and two late
+stills on 6 November. Cells were placed again on the controller with the app's own code
+(`tray_placement.place_cells`, `segmentation.measure_cells`, green threshold ExG 0.1): on the 528
+cells the rig had stored, the corners matched exactly and the plant pixels in 527 (one differed by
+3 of 63135 px). 7220 cell pictures in all.
+
+Each cell was labelled "plant" or "empty" by eye from the colour pictures, not from any mask or
+rule, with the day its plant was first seen. Production: 120 plant cells (112 of them already
+seen on day 0, the grow had started before the first still), 108 empty. Development: 64 plant
+rows (32 pots, planted as small plants), 8 empty. **No empty cell held soil**: the empty cells are
+bare plastic cells (13), cells with test objects (95: green squares, paper, plastic plants, tag
+sheets) and open tray grid (8).
+
+### 28.2 Empty cells, and five rules tried
+
+Any plant pixel makes a cell read "plant" now. Empty cell pictures that read "plant": 34% of bare
+cells, 29% of test-object cells, 29% of open grid. A fixed minimum of 100 mm2 per cell (the tray
+minimum) brings these to 10%, 13% and 9%, but production seedlings stay under 100 mm2 until about
+day 14, so it also drops 100% of them on days 0 to 13.
+
+**The fringe is the blue tray plastic.** Of the green pieces on empty cells, most have more blue
+than green (median blue / green 1.23); seedling pieces have less (median 0.75), with no seedling
+piece on the tuning trays above 1.0 (`docs/figures/28/pieces-blue-green.png`). Their shapes do not
+differ (median long / short axis 1.5 for both).
+
+Five rules were each tuned on production trays 1 to 6 and scored on production trays 7 to 12 and
+all of development (production trays 1 to 6 held no empty cell, so false "plant" readings could
+not be tuned against). Results on the scoring set, percent of pictures:
+
+| Rule | Bare cells read plant | Open grid read plant | Production seedlings found, days 0 to 2 | Development plants found, days 7 to 13 |
+|---|---|---|---|---|
+| Now, any plant pixel | 34 | 29 | 83 | 98 |
+| 100 mm2 minimum | 10 | 9 | 0 | 97 |
+| Drop pieces with blue at least green | 12 | 19 | 83 | 100 |
+| A solid piece in the middle half of the cell | 10 | 1.5 | 83 (72 plant, 11 possible) | 88 (73 plant) |
+| Blue dropped, then green in the middle is plant, at the wall only "possible" | 12 | 9 | 83 | 100 (86 plant) |
+| The other cells in the same still as reference | 12 | 12 | 94 | 2 |
+| Green that stays and grows over the cell's earlier stills | 17 | 21 | 83, all only "possible" | 100 (88 plant) |
+
+Most "plant" readings left on empty cells under the better rules are real green things (49 of 57
+for the blue rule: green squares, paper, a neighbour's leaves). 17% of production seedlings on
+days 0 to 2 have no pixel in the mask at all, which no rule on the mask can find. The wall fringe
+stays at the same wall from still to still, so persistence does not separate it, and it does not
+repeat in the same pixels of a cell, so a cell's own fringe map does not either.
+`docs/figures/28/empty-cell-fringe.png`: an empty production cell on day 2, the fringe (magenta) on the
+blue plastic at the wall.
+
+### 28.3 What the fringe adds to a real plant's area
+
+For every picture of a plant cell after its plant was first seen (3792), the area of the pieces
+inside the cell opening with blue at least green, against all its green pieces
+(`experiments/375-cell-floor/code/blue_share.py`):
+
+| Rig, days | Pictures | Median plant area (mm2) | Pictures with any blue piece | Blue area, 90th percentile (mm2) |
+|---|---|---|---|---|
+| Production, 0 to 2 | 247 | 2.1 | 0.8% | 0.00 |
+| Production, 3 to 6 | 1368 | 4.9 | 0.8% | 0.00 |
+| Production, 7 to 13 | 1279 | 10.6 | 0.7% | 0.00 |
+| Production, 14 and 15 (blue mats) | 358 | 54.5 | 11% | 0.04 |
+| Development, 0 to 13 | 540 | 302 to 465 | 15 to 19% | 0.08 to 0.11 |
+
+9 pictures have more than 5% of their area blue, all of one production cell (tray 2, B3, days 2
+to 6), whose seedling the mask hardly found (under 1 mm2).
+
+**Findings.** The fringe makes about a third of empty cells read "plant", but adds at most about
+0.1 mm2 (90th percentile) to a cell that holds a plant. Since researchers report plants, not empty
+cells, no rule is added (Aaron, 2026-11-07). If one is needed later, dropping pieces with blue at
+least green is the simplest: one condition, no size, and unchanged by brightness.
+
+**Limits of the evidence.** No cell held soil without a plant, so an empty soil cell is not
+tested. A blue piece joined to a leaf is merged with it and not counted in 28.3. One grow per rig,
+with a drop in exposure on production day 4 (about 5200 to 4400 us) and dimmer stills on
+6 November. The labels are one reading by eye, none marked unclear. The scoring set holds few
+production seedlings (18 pictures on days 0 to 2).
+
+*Raw data.* `experiments/375-cell-floor/` (`code/`: the dataset, rule and scoring scripts;
+`data/`: labels, the picture index and per-piece table compressed, each rule's verdicts, the
+table of 28.3). The 3.2 GB of cell pictures and contact sheets stayed in `~/scratch`, which is not
+kept; `code/process.py` builds them again from the stills, which stay in their experiment folders
+on the rigs.
