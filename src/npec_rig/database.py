@@ -667,16 +667,20 @@ def tray_readings(capture_id: int) -> dict | None:
             args = (read["experiment_id"], read["taken_at"])
             # SQLite takes the bare columns from the row holding the MAX: where the tray was
             # last found. A tray with no tag (#331) cannot be followed from photo to photo: left
-            # out on both sides.
+            # out on both sides. Only the last NOT_SEEN_FOR is searched: a tray last found
+            # earlier is skipped below anyway, and the whole experiment took about 85 ms a photo
+            # on a 2-week experiment (#381). The bound is 1 s early because isoformat() leaves
+            # out microseconds that are 0, so the text of a time on the bound sorts before it.
+            window_start = (datetime.fromisoformat(read["taken_at"]) - NOT_SEEN_FOR - timedelta(seconds=1)).isoformat()
             last_seen = conn.execute(
                 "SELECT tray_id, MAX(capture.taken_at), capture.path, capture.calibration, centre_x_px, centre_y_px"
                 " FROM tray_reading"
                 " JOIN capture ON capture.id = tray_reading.capture_id"
-                " WHERE capture.experiment_id = ? AND capture.taken_at <= ? AND tray_id IS NOT NULL"
-                " AND tray_id NOT IN"
+                " WHERE capture.experiment_id = ? AND capture.taken_at <= ? AND capture.taken_at >= ?"
+                " AND tray_id IS NOT NULL AND tray_id NOT IN"
                 " (SELECT tray_id FROM tray_reading WHERE capture_id = ? AND tray_id IS NOT NULL)"
                 " GROUP BY tray_id ORDER BY tray_id",
-                (*args, capture_id),
+                (*args, window_start, capture_id),
             ).fetchall()
             for tray_id, seen, path, calibration, x, y in last_seen:
                 if datetime.fromisoformat(read["taken_at"]) - datetime.fromisoformat(seen) > NOT_SEEN_FOR:
