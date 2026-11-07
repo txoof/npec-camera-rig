@@ -512,6 +512,11 @@ metrology log backs it.
   the error in mm were rejected, wrong on 4x5 trays. Not shown: a placement error in mm; a turn
   of the grid; the change between photos. The 2x2 cell layout rests on one tray measured with a
   tape measure and calliper readings of its pots.
+- **Wall fringe in the cells (round 3, 2026-11-07).** The green threshold finds a few pixels of
+  the blue tray plastic along cell walls, so about a third of empty cells read "plant". In a cell
+  that holds a plant they add at most about 0.1 mm2 (90th percentile of 3792 pictures, both rigs,
+  metrology log 28), so plant areas are not changed by them and no rule is added. Not shown: an
+  empty cell filled with soil (none existed in the data).
 
 ### Flat-target bands (M2, to 2026-10-14)
 
