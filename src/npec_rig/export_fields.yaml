@@ -92,6 +92,12 @@ package:
               Colour resolution the photo was saved at: "4:4:4" full, or "4:2:0" half in both
               directions. Half colour reads plant area about 1.4% low. Empty for photos from
               before 5 November 2026, which were all "4:2:0".
+          - name: ae_state
+            type: string
+            description: >-
+              Whether the camera's automatic exposure had settled when the photo was taken:
+              "converged" (settled), "searching" (still adjusting) or "idle". Empty for photos
+              from before 7 November 2026.
 
     - name: time-in-table-location
       path: time-in-table-location.csv

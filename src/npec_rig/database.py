@@ -439,6 +439,13 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "CREATE INDEX export_part_sent_export ON export_part_sent (export_id, part)",
         ),
     ),
+    (
+        24,
+        "capture: whether the camera's auto-exposure had settled when the photo was taken (#382)",
+        # "idle", "searching" or "converged" (libcamera's AeState); NULL for photos taken before
+        # this version, or by a camera that does not report it.
+        ("ALTER TABLE capture ADD COLUMN ae_state TEXT",),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -519,13 +526,15 @@ def record_capture(
     clock_synced: bool | None = None,
     jpeg_quality: int | None = None,
     jpeg_chroma: str | None = None,
+    ae_state: str | None = None,
 ) -> int:
     """Add one photo's row, return its id."""
     with _connect() as conn:
         cursor = conn.execute(
             "INSERT INTO capture (taken_at, path, purpose, experiment_id, calibration,"
             " validation, lens_position, focus_locked_at, exposure_us, analogue_gain, flags,"
-            " clock_synced, jpeg_quality, jpeg_chroma) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " clock_synced, jpeg_quality, jpeg_chroma, ae_state)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 taken_at,
                 path,
@@ -541,6 +550,7 @@ def record_capture(
                 None if clock_synced is None else int(clock_synced),
                 jpeg_quality,
                 jpeg_chroma,
+                ae_state,
             ),
         )
         return cursor.lastrowid

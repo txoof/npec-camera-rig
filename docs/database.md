@@ -258,6 +258,22 @@ From version 20 (#359). Every full-size photo is saved at the setting read and c
 SELECT jpeg_quality, jpeg_chroma, count(*) FROM capture GROUP BY 1, 2
 ```
 
+### `capture`: whether the auto-exposure had settled
+
+From version 24 (#382). The camera reports with each frame whether its auto-exposure has settled
+(libcamera's `AeState`). Recorded so the light exclusions can use the camera's own state in place
+of a fixed exposure limit; whether it reads "searching" in the dark and while the light ramps is
+checked on the development rig first (metrology log 29). The photo's JSON record holds the raw value
+in `sensor_metadata`, with the digital gain and the camera's light estimate (`Lux`).
+
+| Column | Type | Meaning |
+|---|---|---|
+| `ae_state` | text | "converged" (settled), "searching" or "idle". NULL for photos from before version 24, or from a camera that does not report it |
+
+```sql
+SELECT ae_state, count(*) FROM capture WHERE experiment_id = ? GROUP BY 1
+```
+
 ### `photo_quality_change`
 
 One row each time the JPEG setting is changed (#359), through `POST /api/photo-quality`. Changes
