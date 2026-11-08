@@ -232,6 +232,36 @@ def test_two_by_two_trays_moved_and_turned_as_suggested_are_all_in_place(table, 
     assert {t["tray_id"]: t["status"] for t in check["trays"]} == {t: "in place" for t in TWO_BY_TWO}
 
 
+def test_a_2x2_tray_turned_round_after_its_first_photo_reads_turned_as_its_cell_names_do(table, client) -> None:
+    """#385: Randomize and the cell names use one rule for which way a 2 x 2 tray faces. The
+    experiment's first photo is read for its cells (A1 the south-west pot); tray 76 is then turned
+    round before the first Randomize. Its cell A1 is now its north-east pot, and Randomize says it
+    is turned; the other trays lie as first."""
+    from npec_rig import tray_readings
+
+    experiment = _running_experiment()
+    table.stand(TWO_BY_TWO)
+    client.post("/capture")
+    tray_readings.read_photo(database.captures_for_experiment(experiment["id"])[-1]["path"])
+
+    now = {**TWO_BY_TWO, 76: (SPOTS[0], 180)}
+    table.stand(now)
+    client.post("/capture")
+    second = database.captures_for_experiment(experiment["id"])[-1]["path"]
+    [tray] = [t for t in tray_readings.read_photo(second)["trays"] if t["tray_id"] == 76]
+    a1 = next(c for c in tray["cells"] if c["cell"] == "A1")
+    assert a1["centre_px"][0] > SPOTS[0][0] and a1["centre_px"][1] < SPOTS[0][1]  # north-east
+
+    suggestion = client.post("/api/randomize/suggest").json()
+    assert {t["tray_id"]: t["last"]["heading"] for t in suggestion["trays"]} == {
+        t: "turned" if t == 76 else "as first" for t in TWO_BY_TWO
+    }
+
+    table.stand(_where_told(suggestion, now))
+    check = client.post("/api/randomize/check").json()
+    assert {t["tray_id"]: t["status"] for t in check["trays"]} == {t: "in place" for t in TWO_BY_TWO}
+
+
 def test_one_by_one_trays_get_a_place_only_and_are_judged_by_their_place(table, client) -> None:
     # 1 x 1 trays (tag IDs 160, 161) have one well: no heading is suggested or read, and the edge
     # rule does not apply.

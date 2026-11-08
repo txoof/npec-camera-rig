@@ -509,3 +509,61 @@ def test_a_2x2_tray_lying_landscape_in_its_first_photo_has_a1_at_the_south_west_
     tag = _tag_turned(80, 2830.0, 2025.0, 30.0)
     cells = {c.name: c.centre for c in place_cells(_named(outline, tag), tag, scale_field_from_dict(EVEN_10))}
     assert cells["A1"] == pytest.approx((2007.5, 2715.0), abs=20)
+
+
+def test_where_a_tag_lies_on_its_tray_reads_the_same_when_the_tray_is_turned_with_it() -> None:
+    """#385: a tag glued to its tray keeps its place on the tray whichever way the tray is turned.
+    Worked example, 10 px per mm: a portrait tray centred at (2525, 2330) with its tag 30 mm east
+    of the centre and its top to the north. The tray's centre is 30 mm to the tag's left, and the
+    tray's long side runs along the tag's top (0 degrees). Turned 90 degrees clockwise together,
+    the tag lies 30 mm south of the centre with its top to the east, on a landscape tray."""
+    from npec_rig.calibration import scale_field_from_dict
+    from npec_rig.tray_placement import TrayOutline, tag_on_tray
+
+    scale = scale_field_from_dict(EVEN_10)
+    tag = _tag_turned(80, 2825.0, 2330.0, 0.0)
+    placed = tag_on_tray(_named(_box_outline(1000, 500), tag), tag, scale)
+    assert placed.centre_mm == pytest.approx((-30.0, 0.0), abs=1e-6)
+    assert placed.long_side_deg == pytest.approx(0.0, abs=1e-6)
+
+    landscape = TrayOutline(
+        corners=((695.0, 805.0), (4355.0, 805.0), (4355.0, 3855.0), (695.0, 3855.0)),
+        centre=(2525.0, 2330.0), tilt_deg=0.0, edge=False,
+    )
+    turned_tag = _tag_turned(80, 2525.0, 2630.0, 90.0)
+    turned = tag_on_tray(_named(landscape, turned_tag), turned_tag, scale)
+    assert turned.centre_mm == pytest.approx((-30.0, 0.0), abs=1e-6)
+    assert turned.long_side_deg % 180 == pytest.approx(0.0, abs=1e-6)
+
+
+def test_a_tag_turned_on_its_tray_reads_differently_on_it() -> None:
+    """#385, tray 81 of development experiment 3: its tag turned about 83 degrees on the tray.
+    Worked example, the tray of the test above standing still, 10 px per mm: the tray's centre lies
+    30 mm from the tag at bearing 270 degrees. With the tag's top turned to 83 degrees, the centre
+    is at 187 degrees from it: 30 sin 187 = -3.656 mm right, 30 cos 187 = -29.776 mm up, and the
+    long side (0 or 180 degrees) at 180 - 83 = 97 degrees from its top. Turned 180 degrees in
+    place, the tag reads the centre 30 mm to its right with the long side unchanged: a tag lying
+    off the tray's centre shows a half turn by where the centre is, not by the long side."""
+    from npec_rig.calibration import scale_field_from_dict
+    from npec_rig.tray_placement import tag_on_tray
+
+    scale = scale_field_from_dict(EVEN_10)
+    tag = _tag_turned(80, 2825.0, 2330.0, 83.0)
+    placed = tag_on_tray(_named(_box_outline(1000, 500), tag), tag, scale)
+    assert placed.centre_mm == pytest.approx((-3.656, -29.776), abs=0.001)
+    assert placed.long_side_deg == pytest.approx(97.0, abs=1e-6)
+
+    half = _tag_turned(80, 2825.0, 2330.0, 180.0)
+    turned = tag_on_tray(_named(_box_outline(1000, 500), half), half, scale)
+    assert turned.centre_mm == pytest.approx((30.0, 0.0), abs=1e-6)
+    assert turned.long_side_deg % 180 == pytest.approx(0.0, abs=1e-6)
+
+
+def test_a_tray_with_no_outline_has_no_tag_place() -> None:
+    from npec_rig.calibration import scale_field_from_dict
+    from npec_rig.tray_placement import name_trays, tag_on_tray
+
+    tag = _tag_turned(80, 2825.0, 2330.0, 0.0)
+    [tray] = name_trays([], [tag])
+    assert tray.outline is None
+    assert tag_on_tray(tray, tag, scale_field_from_dict(EVEN_10)) is None
