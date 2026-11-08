@@ -8510,8 +8510,11 @@ camera to its full-size mode, so the state may describe the frame just after tha
 light.
 
 **Method.** Branch `382-light-norm` on the development rig (`npec-rig-01`) with the hardware label,
-experiment 3 running, one photo a minute, for one night including the 00:00 ramp down, the dark and
-the 08:00 ramp up, and at least 4 hours of daytime either side. Afterwards, read-only from `rig.db`
+experiment 3 running, one photo a minute, from the update on 8 November 11:08 UTC to 9 November
+09:00 UTC: about 13 hours of daytime, the 00:00 ramp down, the dark and the 08:00 to 08:30 ramp up
+(09:00 to 09:30 local time), and 30 minutes after it. (First written as at least 4 hours of
+daytime either side; shortened before the run, since the afternoon of 8 November gives the steady
+daytime photos, Aaron, 2026-11-08.) Afterwards, read-only from `rig.db`
 and the photos' JSON records: per photo E, `ae_state`, digital gain and `Lux`. Each photo is put in
 one group by its E series alone: dark (E at the highest value the night reached, held), ramp (flagged
 by N-pad) or steady daytime (the rest).
