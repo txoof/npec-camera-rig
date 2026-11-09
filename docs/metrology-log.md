@@ -9105,3 +9105,71 @@ The label read "names may be swapped since 2026-11-09 14:54 UTC", the first phot
 the move itself: older photos are checked only when read again (Reprocess). **A move before the
 photo that sets A1 is not caught**: tray 81's tag turned on 4 November, before its A1 was set on
 6 November from the turned tag, and its tag changed by only 4.4 degrees since.
+
+## 33. A trained pixel classifier for plant area, against hand outlines on both rigs (issue #402, method written 2026-11-09, before any mask is drafted or any model trained)
+
+**Label: development check.** Whether a model trained on outlined pixels separates plant from
+soil better and more steadily than the colour rules of section 24, on photos from both rigs.
+The known answer is a person's outline on the rig's own photo, so this is not a reference
+comparison: the person sees the same blur as the rig.
+
+**Why.** Every rule so far (the current rule, rules G and H of 24.7 and 24.8) is one greenness
+number with a cutoff set by hand. Section 24 showed the cutoff that suits one soil trims leaf
+edges or takes in soil on another, and moves with watering and greening. A pixel classifier
+decides each pixel from many measured values at once (colour in several forms, the same values
+averaged over the pixels around it, edge strength, texture) and learns from examples which
+combinations are plant. No cutoff is set by hand (Aaron, 2026-11-09).
+
+**Photos.** One photo per day from each rig, copied read-only: production experiment 18 (Potato
+Plants v001, from 2026-10-22) and development experiment 3 (development 002, from 2026-11-03,
+pale soil, 2 x 2 trays). The development plants are included because they differ (Aaron,
+2026-11-09). Each day's photo is the lit photo nearest 11:00 UTC that is not left out of the
+experiment's numbers. The photo list, its JPEG setting and its trays are in the manifest (see Raw
+data).
+
+**Cells.** About 30 cells per rig, chosen by a script across plant size, soil greenness (the soil
+peak of 24.7), blue mats and a few empty cells, from cells placed by the app
+(`tray_placement.place_cells`, stored from 2026-11-06, placed again by the same function for
+earlier photos). Each crop is the cell's opening or pot rim with a 40 px margin, at native pixels,
+lossless.
+
+**Drafts and corrections.** For each crop a draft mask by rule H (24.8) over every plant pixel in
+the crop, the neighbours' leaves included, since the model learns from pixels. Drafts are made on
+the development rig (CLAUDE.md, #400) and given to Aaron as ImageJ outline files. Aaron first
+marks which drafts are wrong from picture sheets; only those are corrected in ImageJ. The drafts
+and the corrections are kept apart. How much the corrections change the drafts is itself a
+measure of rule H on these cells.
+
+*A known lean.* A corrected draft leans towards rule H: a person may accept an edge that looks
+close enough. The 15 outlines of section 24 were drawn from nothing and are kept as the
+independent check.
+
+**Split, fixed before training.** Per rig, days in date order; every third day (the 3rd, 6th,
+9th, ...) is a test day, the others train the model. Production's 3 November photo is a test day
+in any case (the 15 outlines of section 24 were cut from that day). No test cell is used in
+training, no setting is chosen on test cells, and settings chosen on training days are written
+here before the test is run.
+
+**Model.** A random forest (scikit-learn), trained on pixels sampled evenly from plant and
+not-plant in the training crops. Per pixel: R, G, B, greenness, hue, saturation, lightness and
+the CIE L*a*b* values, each smoothed at a few scales (about 1 to 8 px), with edge strength and
+texture measures at the same scales (the standard set of the ilastik program). A small neural
+network is tried only if the forest falls short on the measures below.
+
+**Measures, each also for rule H and the current rule on the same cells.**
+1. Agreement with the corrected masks on test days, per rig: IoU (pixels in both, divided by
+   pixels in either) and area ratio, per cell, mean and range. The ceiling is the person's own
+   repeat of 24: IoU 0.915.
+2. Agreement with the 15 outlines of section 24.
+3. Trained on one rig, tested on the other.
+4. Cell area from one photo to the next on undisturbed pairs (the method of 16.9), on one day per
+   rig: a steadier rule shows smaller changes.
+5. Pictures of greening soil, blue mats and seedlings.
+6. Time and memory per photo on a Pi 5, against the budget of one photo a minute.
+
+**Raw data.** Photos and drafts on `npec-rig-01` under `~/clf-402/`; the manifest, the draft zip
+and Aaron's corrections under `experiments/round3-classifier/` when the results are written up.
+
+**Limits, known before the run.** One photo per day, about 30 cells per rig, one person's
+outlines. Both rigs use the same camera model and lighting type; the model is not shown to hold
+for another rig or camera.
