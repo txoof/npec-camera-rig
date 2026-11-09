@@ -485,6 +485,12 @@ metrology log backs it.
   the rig read 2 short changes and no move under the 1-hour rule: a duplicate tag laid on another
   tray for 5 photos (17.12) and a second tag 2 read in 1 photo, 6 of 95,482 tray readings
   (metrology log 22). Dust and condensation were not checked apart.
+  *Added 2026-11-09:* over the whole run (18 days, 12 shuffles, 7 trays with growing potato
+  plants) every tray was read in its planned slot after every shuffle (156 of 156; 209,001 of
+  209,012 readings), with no move outside the shuffles, and tags were found in 97.0 to 100% of
+  lit photos per tray per day (91.3% on the day of a 2-hour shuffle). The A1 corner was checked
+  only for the last two maps, 34,101 of 34,101 readings, because it is not stored since #331
+  (metrology log 22.1, #391).
 - **Tray identity under plants.** Plants near or over a tag are not tested (the trays had no
   plants).
 
