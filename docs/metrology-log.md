@@ -9016,3 +9016,92 @@ closest distance that passes, plus one step, becomes the keep-out distance in `r
 and the operator guide. A number, a decision on margin, and labelled as such.
 
 **Result.** Not yet run.
+
+## 32. How much a tag that stayed put reads differently between photos (issue #385, method written 2026-11-09, before the run)
+
+**Label: development check.** Section 30.3: the rig is to mark a 2 x 2 tray's cell names as
+possibly swapped once its tag has moved on the tray. A tag that never moved still reads a little
+differently in each photo, from the corner finding and from the tray outline found in each photo.
+This measures that spread, so that the cut-off for "moved" can be set above it. The cut-off itself
+is not chosen here; the result goes to Aaron first.
+
+### 32.1 Method
+
+- **Data.** The 17 development stills of section 30.1 (experiments 2 and 3, nine 2 x 2 trays), with
+  the rig's own stored readings: each tray's outline (`tray_reading.outline_px`) and each photo's
+  stored tag detections. Read-only copies on the controller; nothing is read from or written to
+  the rig.
+- **Quantity.** For each tray and photo, `tray_placement.tag_on_tray`: where the tray's centre lies
+  from the tag, in mm, along the tag's own right and up (the scale of the photo's calibration at
+  the tag), and the tray's long side, in degrees from the tag's top (0 to 180). These stay the same
+  when the tray is moved or turned with its tag, and change when the tag turns or slides on it.
+- **Reference.** Each tray's first photo in each experiment, as the rig would use it.
+- **Which photos count as "stayed put".** The photos where section 30.2 found that tray's names
+  right and its tag in its first place on the tray. Tray 81 from 4 November 15:00 UTC and tray 79
+  while its tag had slid are counted separately, as real moves.
+- **Result reported.** For each tray: the largest difference from its reference over the photos
+  that stayed put, in angle (degrees) and in position (mm, the distance between the two centre
+  points), and the same over all trays together. Beside them, the same differences for the real
+  moves.
+
+**Limits, known before the run.** 17 stills, between 2 and 6 for each stretch between tray moves.
+The plants on trays 79, 81, 85 and 87 are larger than usual and can hide the tray's edge, which
+moves the outline. The outlines are found at quarter size.
+
+### 32.2 Result (2026-11-09)
+
+152 tray readings over the 17 stills (`~/scratch/385-tag-moved/drift.csv`, script
+`~/scratch/385-tag-moved/code/drift.py`, neither kept). Leaving out each tray's first photo in each
+experiment and tray 81 from 4 November 15:00 UTC, 128 readings are of tags that stayed put. Tray
+79's slide (section 30.2) fell between the two experiments, so neither experiment's comparison
+holds it.
+
+| | Change in the long side's angle | Change in where the centre lies |
+|---|---|---|
+| Tags that stayed put, 128 readings | 0.0 to 2.0 degrees | 0.1 to 22.1 mm |
+| The same, between photos with no tray move | 0.0 to 1.6 degrees | up to about 5 mm |
+| Tray 81, tag moved, 6 readings | 83.2 to 83.5 degrees | 14.6 to 15.3 mm |
+
+**The angle separates a moved tag from one that stayed put; the position does not.** The tray
+outline found in each photo shifts by up to about 5 mm between days with nothing moved (tray 76),
+and by 3 to 22 mm after the trays were moved (tray 78: 22.1 mm; tray 87: 10 mm), more than tray
+81's real slide. So the rig detects a moved tag from the angle only (Aaron, 2026-11-09). The cost:
+a tag turned to within about 2 degrees of exactly 180 degrees on its tray is not detected, whether
+or not it also slid a few millimetres.
+
+**Limits.** 17 stills on one rig, one real move. Larger plants than usual on four of the trays.
+The largest angle change of a tag that stayed put, 2.0 degrees, was seen on trays 78 and 80, both
+after tray moves.
+
+### 32.3 The cut-off, a decision (2026-11-09)
+
+A 2 x 2 tray's tag counts as turned on its tray when the tray's long side, seen from the tag,
+differs by more than **10 degrees** from the photo that set the tray's A1 (`tray_readings.
+TAG_TURNED_DEG`). A decision, not a measurement (Aaron, 2026-11-09): 5 times the largest change of
+a tag that stayed put (2.0 degrees, 32.2) and about 8 times smaller than tray 81's (83 degrees). To
+be checked again as more experiments are read. From the first photo with the tag turned, the
+tray's readings carry "names may be swapped since <time> UTC" for the rest of the experiment, in
+the Gallery and as `names_unsure_since` in the export's cell-readings.csv, whichever order the
+photos were read in. The cell areas themselves are kept and still count.
+
+### 32.4 On development (2026-11-09)
+
+The check ran on development (`385-tag-moved`, 7481d0b) during experiment 3, without Reprocess,
+so only photos read from 14:54 UTC on were checked. Against the photo that set each tray's A1
+(6 November 10:27 UTC for all nine trays: the first photo read after #374 put cells on the rig),
+eight trays' tags changed by 0.2 to 1.5 degrees. **Tray 86's changed by 25.1 degrees, and Aaron
+confirmed the tag had moved**: it read 43.6 to 44.3 degrees from 6 November to 9 November 10:00
+UTC, was not seen from 11:00 to 12:00 UTC while trays were handled for the Randomize trial, and
+read 19 to 20 degrees from 12:11 UTC. The picture shows it moved from the tray's middle to its
+edge.
+
+![Tray 86 before and after its tag moved](figures/32/tray86-before-after.jpg)
+
+*Tray 86 on development, 9 November 2026, 10:00 UTC (left) and 13:00 UTC (right). The tag moved
+from the middle of the tray to its edge and turned; the tray was also turned round (the empty pot
+hole moved from bottom right to top left).*
+
+The label read "names may be swapped since 2026-11-09 14:54 UTC", the first photo checked, not
+the move itself: older photos are checked only when read again (Reprocess). **A move before the
+photo that sets A1 is not caught**: tray 81's tag turned on 4 November, before its A1 was set on
+6 November from the turned tag, and its tag changed by only 4.4 degrees since.

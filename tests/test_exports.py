@@ -478,3 +478,29 @@ def test_purge_needs_every_photo_part_sent_in_full(monkeypatch: pytest.MonkeyPat
     assert [p["sent"] for p in client.get(f"/api/exports/{export['id']}").json()["parts"]] == [False, True, False]
     client.get(f"/api/exports/{export['id']}/parts/2")
     assert database.complete_export(experiment["id"])["id"] == export["id"]
+
+
+def test_the_export_says_from_when_a_trays_cell_names_may_be_swapped() -> None:
+    """#385: a tray whose tag turned on it has its cell names marked as maybe swapped from that
+    photo on; the cell lines carry the time of that photo, empty before it."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Turned")["id"])
+    paths = [table_photo(experiment["id"], datetime(2026, 11, day, tzinfo=UTC), {3: "NW"}, areas={3: 100.0})
+             for day in (3, 4)]
+    for path, turned in zip(paths, (False, True), strict=True):
+        capture_id = database.captures_by_path([path])[path]["id"]
+        [tray] = database.tray_readings(capture_id)["trays"]
+        tray["warnings"] = ["tag turned on tray"] if turned else []
+        tray["cells"] = [{"cell": "A1", "holds": "plant", "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4,
+                          "plant_px": 100, "area_mm2": 10.0, "plant_centre_px": None, "over_other_cells": False,
+                          "segmenter": "green threshold, 0.1", "cell_rule": "rule"}]
+        database.record_tray_readings(capture_id, read_at="t", status="read", trays=[tray])
+    captures.stop_experiment(experiment["id"])
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
+    second = database.captures_by_path([paths[1]])[paths[1]]["taken_at"]
+    assert [(r["taken_at"][:10], r["names_unsure_since"]) for r in rows] == [("2026-11-03", ""), ("2026-11-04", second)]
