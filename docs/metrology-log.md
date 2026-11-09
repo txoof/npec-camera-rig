@@ -8539,7 +8539,7 @@ counting itself settled). If it fails, lights off stays at E of 200,000, labelle
 The state marks the dark and nothing else: every dark photo searching, every steady daytime photo
 converged, so the switch to the full-size mode does not leave it searching. During the ramps the
 auto-exposure keeps up minute to minute and reads converged from the second minute on; only the
-photos next to darkness read searching (00:28 to 00:31, 08:00 and 08:01 UTC). So the state alone
+photos next to darkness read searching (00:28 to 00:30 and 08:01 UTC, E 182,762 to 265,444). So the state alone
 does not find ramps, and N-pad is needed for them, as planned. The rule built from this:
 "lights off" when the state is searching, "light changing" by N-pad, nothing else (#382).
 
