@@ -28,10 +28,10 @@ TAG_DICTIONARY = cv2.aruco.DICT_APRILTAG_36h11
 # chambers may reuse the same tray IDs.
 TRAY_ID_RANGE = range(0, 300)  # experimenters 3D-print their own
 CALIBRATION_ID_RANGE = range(300, 450)
-CORNER_ID_RANGE = range(450, 500)  # 4 tags mounted; exact IDs confirmed by detection, not by
-# reading them off a photo. An earlier note here about one tag being partially obscured was
-# stale -- all 4 are detected in every recent real run (verified against saved calibration
-# artifacts).
+CORNER_ID_RANGE = range(450, 500)  # 4 tags, one near each table corner; exact IDs confirmed by
+# detection, not by reading them off a photo. All 4 were detected in every real run on the old
+# edge mounts. Lying on the table (development since 2026-11-03, #349) a tray or plant can cover
+# one: a calibration run then names it (`calibration_run.missing_corner_tag_warnings`).
 RESERVED_ID_RANGE = range(500, 587)  # buffer for a future fixed rig-level role. 587 IDs total in
 # 36h11 (0-586) -- verified against both cv2's dictionary size and moms_apriltag's TagGenerator2
 # Id 500 was provisionally the auto-focus target; freed 2026-10-22 with the auto-focus bracket
