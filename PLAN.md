@@ -86,7 +86,7 @@ against the one recorded at calibration:
 | A tag missing | Something is very wrong — refuse |
 
 They sit near the table's corners (on its outer edge on production, inside the edge on development
-since 2026-11-03, #349), a different plane from the measurement slab — which doesn't matter,
+since 2026-11-03, #349), a different plane from the measurement slab. That does not matter,
 because they are a **tripwire, not a ruler**. They answer only "did the rig move?"
 
 Output: a plain-language delta *and* a **binary trust verdict stamped on every reading**, so
