@@ -307,7 +307,9 @@ $O --render=cgal --imgsize=1200,900 --projection=perspective --camera=0,0,0,60,0
 
 The corner mounts carry the permanent reference fiducials at the table's outer edge
 (36h11 family, IDs 450-499, see `PLAN.md`). Each mount bolts to the 20x20 T-slot rail and holds
-one 50 mm tag flat and level with the rail's top face.
+one 50 mm tag flat and level with the rail's top face. Production uses them. On the development
+rig the tags lie inside the table edge since 2026-11-03 (#349); that holder is not in this folder
+yet.
 
 ![corner mount](images/apriltag_corner_mount.png)
 

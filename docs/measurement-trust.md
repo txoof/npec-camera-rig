@@ -69,7 +69,8 @@ across the image. Area is then pixels divided by the square of the local scale.
 **Evidence.** The current calibration (replacement camera, 2026-10-08, lens 6.04, 355 tags):
 scale 4.86 px/mm on average (about 0.21 mm per pixel), and the tags sit within 0.50% of the fitted
 field (standard deviation). The old camera's last calibration (lens 6.27) gave 0.52%. Calibration refuses to run without a lock and all 4 corner tags, unless the operator
-overrides it.
+overrides it. If its full-size photo then misses a corner tag, the calibration is saved and names
+the tag and its corner (metrology log section 31.2).
 
 **One calibration covers every tray height.** Calibrations with the sheets on the table surface
 and on the trays (about 100 mm higher) gave the same shape of scale field within 0.16 points, below
@@ -218,6 +219,13 @@ comparisons; the knocks, the two calibrations and the two heights are developmen
 - **Knock**: both knocks were caught and read DRIFT, not FAIL: FAIL needs a 10° roll, an 8% corner
   scale change or a missing corner tag, and neither knock reached one. Covering one corner tag by
   hand gave FAIL, and uncovering it gave OK again. Signed off by Aaron on 2026-10-14.
+
+**Limits of the evidence: corner tags moved (development rig, 2026-11-03, metrology log section
+31).** The evidence above was taken with the corner tags on the table's outer edge, as production
+still has them. On the development rig they now lie inside the edge. Its tripwire baseline is the
+calibration made after the move; the knock, roll and covered-tag checks have not been repeated in
+the new position, and the tags lying closer together make the roll check less sensitive by an
+amount not yet measured.
 
 ## The band stays valid over time and after disturbance
 
