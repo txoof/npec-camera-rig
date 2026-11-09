@@ -7226,6 +7226,119 @@ enough to count how long each tray spends in each table location.
   `measured_area_stays.csv`, `outside_shuffles.csv`), not kept; the script remakes them from a
   new copy of production's `rig.db`.
 
+### 22.1 The whole run: shuffles 0 to 12 (issue #223, 2026-11-09)
+
+**Label: development check.** The comparison of section 22 repeated over the whole potato run,
+22 October to 9 November 2026, after the collaborator's record of shuffles 7 to 12 arrived.
+**The method was written on 2026-11-09, after the data were in**, and only as far as the stored
+data allow (see Method).
+
+**Known answer.** The same shuffle maps, and the shuffle record with shuffles 7 to 12 added
+(`sessions/shuffle-record-2026-10-22.csv`; the collaborator labelled all times CET, and 22 and
+23 October are read as summer time, UTC+2).
+
+| Shuffle | Date | Start | Finish (chamber time) | Start to finish (UTC) |
+|---|---|---|---|---|
+| 7 | Mon 2 Nov | 09:14 | 09:25 | 08:14 to 08:25 |
+| 8 | Tue 3 Nov | 09:08 | 09:20 | 08:08 to 08:20 |
+| 9 | Wed 4 Nov | 11:49 | 12:01 | 10:49 to 11:01 |
+| 10 | Thu 5 Nov | 09:05 | 09:16 | 08:05 to 08:16 |
+| 11 | Fri 6 Nov | 09:05 | 11:22 | 08:05 to 10:22 |
+| 12 | Mon 9 Nov | 09:30 | 09:42 | 08:30 to 08:42 |
+
+**Data.** Two read-only copies of production's `rig.db` (`ac-testing`, schema version 24), taken
+on 2026-11-09 at 09:17 UTC and at 10:41 UTC, the second to include shuffle 12. Nothing was
+written on the rig. Experiment 18: 26,043 photos from 22 Oct 08:41 to 9 Nov 10:40 UTC; 17,868
+read with trays, and 8,175 with no trays found, all taken between 23:00 and 08:00 UTC, when the
+lamps are off. Every photo records calibration `20261022T072523939958`; readings were worked out
+with its twin `20261026T153214381640` (section 18, #294), whose slot layout and table tags are
+the same to 0.0 px. Two GET requests to production at about 09:20 UTC (`/api/experiments` and
+the Table locations page of experiment 18); no other request.
+
+**What changed since section 22.** Production now finds each tray from its blue plastic (#331,
+section 21), and experiment 18 was read again with that code on 2 November. Since then
+`tray_reading.slot` and `a1_corner` are left empty: 260 of 212,198 readings have them. Cell
+readings (#364), which hold the cell of the tray's tag and so its A1 corner, start on
+6 Nov 12:28 UTC.
+
+**Method.** Scripts in `~/scratch/223-shuffle-check/` (copied from section 22's `movements.py`
+through a wrapper that points it at the full record; the repository was not changed):
+
+- **Slot**: the slot of the slot layout nearest each reading's stored tray centre
+  (`tray_placement.nearest_slot`), against the map in force. A map holds from its shuffle's
+  recorded finish to the next shuffle's start (shuffle 1, with no start: 60 minutes before its
+  finish).
+- **A1 corner**: from the cell reading that holds the tag. A1 is SW when that cell lies south of
+  the tray's centre in the photo, else NE. Only from 6 Nov 12:28 UTC, so only for maps 11 and 12.
+- **Timing**: per shuffle, the first photo in which any tray had left its old slot, and the first
+  in which all 12 trays sat in their new slots.
+- **Outside shuffles**: every change of a tray's slot more than 30 minutes from a shuffle
+  window. 30 minutes is a choice.
+- The 28 Oct 08:47:53 to 08:50:01 UTC photos (duplicate tag check, 17.12) are left out of the
+  timing and outside checks, and counted in the slot check.
+
+**Result.**
+
+| Check | Matched |
+|---|---|
+| Slot, 13 maps x 12 trays | 156 of 156 |
+| Slot, photo readings | 209,001 of 209,012 |
+| A1 corner, tag cell readings after shuffles 11 and 12 | 34,101 of 34,101 |
+| A1 corner, maps 0 to 10 | not checked (no data stored) |
+
+- **The 11 readings off the map**: trays 1 and 4 read in North 6 in one photo, 27 Oct 08:37:53 UTC
+  (cause not known); tray 1 in South 1 in 5 photos, 28 Oct 08:47:53 to 08:50:01 (the duplicate
+  tag, 17.12); tray 2 on 5 Nov and tray 11 on 6 Nov in South 3 for South 4, each at 00:28:53 and
+  08:00:53 UTC, the last photo before the lamps go off and the first after they come on, where
+  only the tag was found ("tag only") and the tag's centre stands for the tray's. None is a move.
+  Section 22's second event (tray 2, 29 Oct 12:23:53 UTC) no longer appears after the re-read.
+- **Timing**, shuffles 7 to 12:
+
+  | Shuffle | Recorded (UTC) | First tray out of its old slot | All 12 in their new slots |
+  |---|---|---|---|
+  | 7 | 08:14 to 08:25 | 08:20:53 | 08:24:53 |
+  | 8 | 08:08 to 08:20 | 08:15:53 | 08:20:53 |
+  | 9 | 10:49 to 11:01 | 10:56:53 | 11:00:53 |
+  | 10 | 08:05 to 08:16 | 08:12:53 | 08:16:53 |
+  | 11 | 08:05 to 10:22 | 08:32:53 | 10:20:53 |
+  | 12 | 08:30 to 08:42 | 08:38:53 | 08:42:53 |
+
+  Over shuffles 1 to 12, the last tray reached its new slot from 1.1 minutes before to
+  0.9 minutes after the recorded finish, within one photo interval. The first tray left its slot
+  2 to 10 minutes after the recorded start (28 minutes in shuffle 11).
+- **Shuffle 11** took 2 h 17 min. From 08:14 UTC, 1 to 3 trays were unread per photo; trays moved
+  from 08:32; trays 1 to 8 were off the table from 09:31 to 10:15; the new layout was
+  complete at 10:20:53. Why it took longer was not recorded.
+- **Outside shuffles: no move.** The only changes are the one-photo and lamp-edge readings above.
+- **The app's Table locations page** (09:20 UTC, before shuffle 12) gives every tray its planned
+  location for maps 0 to 11, with 0 mismatches. Every move it shows lies between a shuffle's
+  start and 14 minutes after its finish. It shows no dwell warning (limit 96 hours), and 4 short
+  extra stays from shuffle 11 (trays 2, 5 and 11).
+- **Tags found**, per tray per day, of the photos read with trays: 97.0 to 100%, except 6 Nov,
+  91.3 to 100%. That day, 531 of 1,644 tray readings were missing inside shuffle 11's window and 3
+  outside it.
+- **Photos**: none missed (`photos_missed` 0). 7 gaps of 25 to 36 s in the schedule, none during
+  a shuffle or in the hour after one.
+
+**What it covers.** Tray identity and slot as stored by the production rig over 18 days, through
+the light cycle and 12 shuffles, with 7 trays carrying growing potato plants. The table locations
+the app shows for this run follow the shuffle plan.
+
+**Limits of the evidence.**
+
+- **The A1 corner of maps 0 to 10 is not checked.** The data for it are not stored since #331.
+  The corner of maps 11 and 12 comes from the tag's cell, so it shows the tag lay at the planned
+  end of each tray. It cannot show a tag moved off cell A1, since a 4 x 5 tray's A1 is defined
+  as the corner nearest its tag (#391).
+- **The slot is worked out from the tray's centre**, not read from a stored slot, and the
+  readings come from the re-read of 2 November, not from the photos as they were first read.
+- **The method was written after the data**, unlike section 22.
+- **Tags under leaves are not checked apart**; the per-day share of tags found is the only
+  measure of it.
+- The Table locations page was not checked after shuffle 12.
+- Raw data: the database copies `~/scratch/223-shuffle-check/prod/` and `prod2/`, and the scripts
+  and outputs in `a/`, `b/` and `c/` there, not kept.
+
 ## 23. Time per table location in the app, tried on the development rig (issue #332, 2026-11-02)
 
 **Label: development check.** Whether the app's count of time per table location (#332), its
