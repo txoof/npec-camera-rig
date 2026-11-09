@@ -85,7 +85,8 @@ against the one recorded at calibration:
 | Quadrilateral shape changed | Camera tilted / pitched |
 | A tag missing | Something is very wrong — refuse |
 
-They sit on the table edge, a different plane from the measurement slab — which doesn't matter,
+They sit near the table's corners (on its outer edge on production, inside the edge on development
+since 2026-11-03, #349), a different plane from the measurement slab. That does not matter,
 because they are a **tripwire, not a ruler**. They answer only "did the rig move?"
 
 Output: a plain-language delta *and* a **binary trust verdict stamped on every reading**, so
@@ -163,7 +164,7 @@ each tray tag (`hardware/tray_tags/apriltag_tray_tag.scad`, `tray_type()`):
 | 226-250 | Tray tags, black trays (disc tags) |
 | 251-299 | Tray tags, other trays |
 | 300-449 | Calibration sheets (`reference/calibration-sheets/`), in use, do not change |
-| 450-499 | Corner/reference tags (`hardware/camera_rig/apriltag_corner_mount.scad`) |
+| 450-499 | Corner tags, one near each table corner: on `hardware/camera_rig/apriltag_corner_mount.scad` at production's outer table edge, inside the table edge on development since 2026-11-03 (#349) |
 | 500-586 | Unallocated, kept for a future fixed rig-level role. 500 was provisionally the auto-focus target until 2026-10-22, when the auto-focus bracket was dropped as not needed (Aaron) |
 
 The tray split refines `TODO.md`'s 2026-09-20 allocation (0-299 trays) and matches

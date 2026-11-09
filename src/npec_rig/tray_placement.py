@@ -396,6 +396,38 @@ def _heading_deg(tag: TagDetection) -> float:
     return math.degrees(math.atan2(up_x, -up_y))
 
 
+@dataclass(frozen=True)
+class TagOnTray:
+    """Where a tag lies on its tray, in the tag's own frame, so it reads the same whichever way the
+    tray is turned as long as the tag stays put on it (#385). `centre_mm`: the tray's centre from
+    the tag's centre, mm, (right, up) of the tag. `long_side_deg`: the tray's long side, degrees
+    clockwise from the tag's top, 0 to 180 (a side has no direction)."""
+
+    centre_mm: tuple[float, float]
+    long_side_deg: float
+
+
+def tag_on_tray(tray: TrayPlacement, tag: TagDetection, scale_field: ScaleField) -> TagOnTray | None:
+    """Where `tag` lies on `tray` (an outline found in the photo), at the scale at the tag. None for
+    a tray with no outline. Researchers move, turn and bury tags (Aaron, 2026-11-07): a change in
+    this between photos of one tray says its tag moved on it."""
+    if tray.outline is None:
+        return None
+    corners = np.asarray(tray.outline, dtype=np.float64)
+    first, second = corners[1] - corners[0], corners[2] - corners[1]
+    along = max((first, second), key=lambda s: float(np.linalg.norm(s)))
+    heading = math.radians(_heading_deg(tag))
+    up = np.array([math.sin(heading), -math.cos(heading)])
+    right = np.array([math.cos(heading), math.sin(heading)])
+    ppm = scale_field.px_per_mm(float(tag.centre[0]), float(tag.centre[1]))
+    to_centre = corners.mean(axis=0) - np.asarray(tag.centre, dtype=np.float64)
+    long_side = (math.degrees(math.atan2(along[0], -along[1])) - math.degrees(heading)) % 180
+    return TagOnTray(
+        centre_mm=(float(np.dot(to_centre, right)) / ppm, float(np.dot(to_centre, up)) / ppm),
+        long_side_deg=long_side,
+    )
+
+
 def a1_bearing_deg(tray: TrayPlacement, tag: TagDetection, cells: list[Cell]) -> float:
     """Where cell A1 of `cells` lies from the tray's centre, degrees clockwise from the top of the
     tray's tag. Taken from a 2 x 2 tray's first photo (`place_cells` with no bearing) and given to

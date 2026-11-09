@@ -152,8 +152,11 @@ Since 2026-10-28 (#322), with the controller since 2026-10-29 (#324). The full r
 | **development** | `npec-rig-01` (`10.248.49.102`), red leaf in the tab, Arducam 64MP | The app as the `npec-rig` service on port 8000, managed from `~/ansible-npec` |
 | **production** | `ac-testing`, the chamber Pi | Running experiments: `~/npec_camera_rig` and its port 8000 server |
 
-Reach the rigs from the controller with `ssh pi@npec-rig-01` and `ssh pi@ac-testing`. No agent
-session is started on a rig.
+Reach the rigs from the controller with `ssh pi@npec-rig-01`. Agent
+sessions run on the controller. They may run jobs on the development rig over ssh (scripts, Hailo
+models, offline analysis of copied production photos), only while their task holds the `hardware`
+label, with memory capped (`ulimit -v`). Production is read only, as before (Aaron, 2026-11-09,
+#400).
 
 A new app version runs on development first. It reaches production only after it has passed on
 development (health OK and a live snapshot) **and** Aaron has approved that update.
@@ -466,6 +469,11 @@ limits: where one does not work for a page, choose what does and say why in the 
   (metrology log 15.5h to 15.5k, #220); cell A1 holds no plant. Tray
   tags (IDs 0 to 299) are read with finer bit sampling, calibration and corner tags with the frozen
   settings (`tags._tray_detector_parameters`, metrology log 15.3e, #192).
+- **Corner tags (450 to 499) lie inside the table edge on development since 2026-11-03 09:22 UTC;
+  production keeps them on the outer-edge mounts until Round 2 ends** (#349, metrology log 31).
+  Keep trays clear of them; the distance is not measured yet (31.3). Moving a tag needs a new
+  calibration: the old corner baseline means nothing after it. A calibration whose photo misses
+  one is saved and names it (#397).
 - **Trays touch.** Researchers will not reliably leave gaps, so tray splitting must work with trays
   touching (`reference/trays.md`).
 

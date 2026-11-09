@@ -247,6 +247,13 @@ package:
           - name: photo_excluded
             type: string
             description: Why the whole photo's areas are left out, as in tray-readings.csv. Empty when the photo counts.
+          - name: names_unsure_since
+            type: datetime
+            description: >-
+              UTC time of the first photo in which the tray's tag lay turned on the tray (more than
+              10 degrees from the tray's first photo): from then on, for the rest of the
+              experiment, this tray's cell names may be swapped. Empty while the tag lies as
+              first seen.
           - name: scale_error_at_tray_top_pct
             type: number
             description: The validation band of the tray, as in tray-readings.csv.

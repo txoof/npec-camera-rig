@@ -361,7 +361,8 @@ def _tray_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> byt
 # The columns of cell-readings.csv, one line per cell of each tray per photo read (#364).
 CELL_READING_COLUMNS = [
     "file", "taken_at", "tray", "location", "cell", "status", "plant_area_mm2", "segmenter", "cell_rule",
-    "tray_not_counted", "photo_excluded", "scale_error_at_tray_top_pct", "band_slot", "no_band_reason",
+    "tray_not_counted", "photo_excluded", "names_unsure_since", "scale_error_at_tray_top_pct", "band_slot",
+    "no_band_reason",
 ]
 
 
@@ -391,6 +392,7 @@ def _cell_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> byt
                     "cell_rule": cell["cell_rule"],
                     "tray_not_counted": "; ".join(tray["not_counted"]),
                     "photo_excluded": readings["exclusion"],
+                    "names_unsure_since": tray["names_unsure_since"],
                     "scale_error_at_tray_top_pct": band["band_pct"],
                     "band_slot": band["slot"],
                     "no_band_reason": band["reason"],
