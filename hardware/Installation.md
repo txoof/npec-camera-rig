@@ -142,6 +142,10 @@ Do not attach the camera to the camera mount yet. This step establishes the coar
 
 #### Fiducial Tag Installation
 
+**Development rig (since 2026-11-03, #349):** the corner tags lie inside the table edge, clear of
+the trays. Their offsets and holder are not yet recorded here. The method below is production's,
+with the tags on the outer edge.
+
 The 50mm fiducial tags need to be installed on the North and South edges of the table. They are located at the NW, SW, NE, SE corners. They are NOT located on the East and West edges of the table. Refer to the conventions illustration above. Attach the 50mm April Tags using XXX method The tags should be level with the floor and flush with the top edge of the table. It is not important which of the 50mm tags are used as long as all four are unique within this chamber.
 
 Measure from the the outside of the table (not the leg) edge to the edge of the black border.

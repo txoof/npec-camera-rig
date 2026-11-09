@@ -8945,3 +8945,74 @@ The Randomize page now reads which way a 2 x 2 tray faces from the same cell A1 
 **Limits.** Nine trays over seven days on one rig, with unusually large plants; tag movement on
 trays with smaller plants may be rarer. Experiment 2's photos had no stored A1, so the names the
 rig's rule would have given there are not known.
+
+## 31. Corner tags moved inside the table edge (issue #349, written 2026-11-09)
+
+The corner tags (IDs 450 to 499) hung over the table's outer edge on mounts bolted to the T-slot
+rail, where trays collided with them. On the development rig they now lie inside the edge.
+Production (`ac-testing`) keeps the edge mounts until its Round 2 experiment ends and Aaron
+approves the move. Area numbers do not use the corner tags: scale comes only from the calibration
+sheets (section 3). The corner tags give the table frame (the table locations), the health check
+(tripwire) and the level readout.
+
+### 31.1 The move (record, not a measurement)
+
+- **When and where.** Development rig `npec-rig-01`, 2026-11-03 at about 09:22 UTC (10:22 Dutch
+  time), by Aaron.
+- **Tags.** 451, 452, 455 and 456, the same tags as before. Their centres in the first calibration
+  after the move (`20261103T115701405213`, 11:57 UTC), in full-size photo pixels: 456 at (1092,
+  1091), NW; 451 at (8068, 1120), NE; 452 at (8014, 5559), SE; 455 at (1107, 5554), SW.
+- **Not recorded yet.** The new distances from the table edge, the holder that carries the tags,
+  and whether the tags' height changed. Tag 500 is no longer used (PLAN.md, tag table).
+- **Validation after the move.** Session `20261103T115835297753` on that calibration, 3 rounds
+  counted (11:58 to 12:19 UTC). Per slot, the 95th percentile of the area error is 1.03% to 2.78%,
+  the median -1.75% to +1.03%. The last development validation before the move
+  (`20261023T115610391971`, calibration `20261021T140121832677`) gave 1.76% to 3.78%. The two are
+  not yet compared slot by slot; that comparison is what shows the move did not disturb the camera
+  (test 2 in #349).
+- **Development photos from 09:22 to 11:57 UTC.** Read with the calibration of 2026-10-21, its
+  scale and its corner baseline. A health check against that baseline means nothing after the move,
+  and the table locations in that window come from the old table frame. No health check result is
+  stored per photo, so these photos have none.
+
+### 31.2 A corner tag covered at calibration (development check, 2026-11-09)
+
+**What.** Whether a calibration whose full-size photo misses a corner tag says so. Before #397 it
+was saved with no warning, and the table locations then fell back to photo halves without a word.
+Since #397 (merged 2026-11-09) it is saved and its result names the tag and its corner.
+
+**How.** Development rig on the #397 branch (ec51efd), experiment 3 running. Aaron covered the SE
+corner tag (452), laid two calibration sheets on the bare table between the trays (no sheets were
+on the trays, so experiment 3's areas were not touched), and ran calibration with "Set as current
+baseline" off. One run.
+
+**Result.**
+
+- Without the override, the readiness check stopped the run: 3 of 4 corner tags on the preview,
+  "Run calibration anyway?", as before #397.
+- With the override, calibration `20261109T141142742759` was saved with corner tags 451, 455 and
+  456. The page showed "Corner tag 452 cannot be seen in the SE corner of the table. Check that it
+  is not missing or covered." (Aaron). The tag was named from the previous calibration's tags,
+  since the override takes no preview.
+- The current calibration (`20261103T115701405213`) was not replaced.
+
+**Covers.** The override path on the real rig, with the tags in the new position. **Does not
+cover.** A tag seen on the preview but covered on the full-size photo (unit tests only), and a tag
+covered later, in experiment photos (the health check's job).
+
+### 31.3 How close a tray may come to a corner tag (method written 2026-11-09, before the run, not yet run)
+
+**Why.** On the table surface a tray wall (104.8 mm tall) can hide a corner tag from the camera,
+most on the side of the tray away from the image centre. A hidden tag gives a calibration with
+3 tags (31.2) or a health check FAIL that only a new calibration clears.
+
+**How.** Development rig, with the hardware label. 12 trays with plants or 105 mm stand-ins in
+their slots, pushed toward the corner tags. 3 stills, then the trays nearest the tags moved 1 cm
+closer and 3 stills again, until a tag is lost. Instrument: tape measure, distance from the tray
+wall to the nearest edge of the tag's black border, one reading per step.
+
+**Pass.** 4 of 4 corner tags found in every full-size still and the readiness check passes. The
+closest distance that passes, plus one step, becomes the keep-out distance in `reference/trays.md`
+and the operator guide. A number, a decision on margin, and labelled as such.
+
+**Result.** Not yet run.
