@@ -772,25 +772,6 @@ def experiment_exclusions(experiment_id: int) -> list[dict]:
     return [dict(row) for row in rows]
 
 
-def record_light_warning_dismissal(experiment_id: int, *, dismissed_at: str, covers_until: str) -> None:
-    """Save a dismissal of the experiment's light warning."""
-    with _connect() as conn:
-        conn.execute(
-            "INSERT INTO light_warning_dismissal (experiment_id, dismissed_at, covers_until) VALUES (?, ?, ?)",
-            (experiment_id, dismissed_at, covers_until),
-        )
-
-
-def light_warning_dismissals(experiment_id: int) -> list[dict]:
-    """The experiment's light warning dismissals, oldest first."""
-    with _connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM light_warning_dismissal WHERE experiment_id = ? ORDER BY dismissed_at",
-            (experiment_id,),
-        ).fetchall()
-    return [dict(row) for row in rows]
-
-
 def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
     """The saved plant areas of each of the experiment's photos whose trays were read (status
     `read`): tray ID to mm2, by capture id; empty for a read photo with no area. Photos not read,

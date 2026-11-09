@@ -5443,6 +5443,8 @@ empty trays read 27 to 78 mm² (median per tray and day) and at most 98 mm² out
 
 ### 17.8 Light exclusions: how far the light moves (method written 2026-10-26, before the data was read)
 
+*Replaced by section 29 (#382, 2026-11-09): the first-day norm flagged every lit photo of experiment 18 from 5 November as the scene changed the exposure. The rule now follows the camera: ramps from the exposure moving through each photo, lights off from the camera's auto-exposure state. Kept below as the record of the earlier decision.*
+
 **Label: development check.** #288 part 2 leaves out the plant areas of photos taken while the
 light is changing, briefly disturbed, or steady at a level away from the experiment's norm
 (exclusions, `GLOSSARY.md`). Three values are open: how far from the norm counts as off norm,

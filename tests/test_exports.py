@@ -314,6 +314,18 @@ def test_every_csv_column_is_described_in_the_data_package() -> None:
         assert resources[name]["description"].strip()
 
 
+def test_the_unused_light_norm_columns_are_never_exported() -> None:
+    """#382: the exclusion table's norm_e and limit_fraction belong to the light norm of 17.8,
+    dropped; they stay empty in rig.db until #384 removes them, and no exported file names them."""
+    experiment = _stopped_experiment_with_photos(1)
+    files = _exported_zip(experiment["id"], {"data": True, "photos": False})
+    for name in sorted(n for n in files if n.endswith(".csv")):
+        header = next(csv.reader(io.StringIO(files[name].decode())))
+        assert not {"norm_e", "limit_fraction"} & set(header), name
+    for name in ("datapackage.json", "README.txt"):
+        assert "norm_e" not in files[name].decode() and "limit_fraction" not in files[name].decode(), name
+
+
 def test_the_readme_explains_every_column_from_the_data_package() -> None:
     """#65: the README alone explains the data. Each CSV, each of its columns and the column's
     description from datapackage.json are in it (whitespace aside: the README wraps lines)."""

@@ -46,7 +46,7 @@ should be compared as times, not as text.
 | `tray_reading` | One row per tray found in a photo: its centre and outline (its slot and A1 corner before version 14) | `tray_readings.py` |
 | `cell_reading` | One row per cell of each tray in a photo: its plant area, or why it has none (#364) | `tray_readings.py` |
 | `exclusion` | One row per photo of an experiment: why its plant areas are left out, if they are | `exclusions.py` |
-| `light_warning_dismissal` | One row per dismissal of an experiment's light warning | `exclusions.py` |
+| `light_warning_dismissal` | Unused since #382: one row per dismissal of the light warning, which is gone. Removed in #384 | none |
 | `app_start` | One row each time the app starts | `scheduler.py` |
 | `capture` | One row per photograph; here only whether its clock was set (#62) and the JPEG setting it was saved at (#359) | `captures.py` |
 | `photo_quality_change` | One row per change of the JPEG setting photos are saved at (#359) | `settings.py` |
@@ -439,17 +439,20 @@ photos.
 
 Exclusions (#288, `GLOSSARY.md`): why a photo's plant areas are left out of averages and
 exports. The areas themselves are kept. Each time a photo is read, every photo of its
-experiment is worked out again from its exposure times analogue gain (E) and saved, because a new
-photo can change earlier ones. Only photos taken as captures get a name: validation, calibration
-and tripwire photos get NULL and are left out of the norm. The rules and their values are in
-`exclusions.py` and metrology log 17.8.
+experiment is worked out again and saved, because a new photo can change earlier ones: "light
+changing" when its exposure times analogue gain (E) lies strictly between the photo before and
+after, and those two photos; "lights off" when the camera reported its auto-exposure still
+searching (`capture.ae_state`; for photos before version 24, E of 200,000 or more). Only photos
+taken as captures get a name: validation, calibration and tripwire photos get NULL and are nobody's
+neighbour. The rules are in `exclusions.py` and metrology log 29 (#382), which replaced the light
+norm of 17.8.
 
 | Column | Type | Meaning |
 |---|---|---|
 | `capture_id` | integer | The photo's `capture` row |
-| `name` | text | `lights off`, `light changing`, `light disturbed`, `light off norm` or `visit` (chamber activity, metrology log 17.9); NULL for none |
-| `norm_e` | real | The experiment's norm (E) it was worked out with; NULL until the experiment has a full first day |
-| `limit_fraction` | real | How far from the norm, as a fraction of it, counts as off it, for example 0.21 |
+| `name` | text | `lights off`, `light changing` or `visit` (chamber activity, metrology log 17.9); NULL for none. `light disturbed` and `light off norm` came from the light norm (17.8, before #382) and remain on experiments not worked out again since |
+| `norm_e` | real | Unused since #382, written NULL: the light norm (E) of 17.8. Removed in #384 |
+| `limit_fraction` | real | Unused since #382, written NULL: how far from the norm counted as off it. Removed in #384 |
 | `worked_out_at` | text | When it was worked out, UTC |
 
 A photo read before this table existed has no row until its experiment is read again or
@@ -458,10 +461,10 @@ deletes the rows with the photos.
 
 ### `light_warning_dismissal`
 
-The light warning (#288) is shown in the gallery when an experiment has more than 2 hours of
-`light off norm` within 24 hours. It is worked out when shown, never stored. Dismissing it adds a
-row; hours up to `covers_until`, the end of the warning the researcher saw, are not counted
-again, later ones are, also in a stretch still going on.
+Unused since #382, which removed the Gallery's light warning (#288: more than 2 hours of
+`light off norm` within 24 hours). No rows are added; the table is removed in #384. Its rows
+recorded each dismissal: hours up to `covers_until`, the end of the warning the researcher saw,
+were not counted again.
 
 | Column | Type | Meaning |
 |---|---|---|

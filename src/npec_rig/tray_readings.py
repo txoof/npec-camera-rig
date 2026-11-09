@@ -350,9 +350,9 @@ def _segment(path: str) -> np.ndarray:
 
 def photo_readings(path: str) -> dict | None:
     """Photo `path`'s saved tray readings (`database.tray_readings`), None when not yet read, with
-    its `exclusion` (`exclusions`, `GLOSSARY.md`) or None, `norm_pending` while its experiment has
-    no light norm yet, each tray's `floor_mm2` (`FLOORS_MM2`, None for a segmenter without
-    one) and `not_counted`: the reasons its area is left out, empty when it counts."""
+    its `exclusion` (`exclusions`, `GLOSSARY.md`) or None, each tray's `floor_mm2` (`FLOORS_MM2`,
+    None for a segmenter without one) and `not_counted`: the reasons its area is left out, empty
+    when it counts."""
     record = database.captures_by_path([path]).get(path)
     if record is None:
         raise LookupError(f"photo {path} has no record in rig.db")
@@ -378,10 +378,8 @@ def capture_readings(capture: dict) -> dict | None:
         saved = database.exclusion(capture["id"])
         if saved is None:
             # Read before exclusions were stored: lights off needs only the photo itself.
-            result = exclusions.light_exclusions([capture])
-            saved = {"name": result["exclusions"][0], "norm_e": None}
+            saved = {"name": exclusions.light_exclusions([capture])["exclusions"][0]}
         readings["exclusion"] = saved["name"]
-        readings["norm_pending"] = saved["norm_e"] is None
         _outline_old_rows(capture, readings["trays"])
         # A tray with no tag (#331) carries no tag another tray could share.
         carried = Counter(tray["tray_id"] for tray in readings["trays"] if tray["tray_id"] is not None)

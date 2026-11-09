@@ -174,9 +174,11 @@ package:
           - name: photo_excluded
             type: string
             description: >-
-              Why the whole photo's areas are left out: "lights off", "light changing", "light
-              disturbed", "light off norm" or "visit" (someone working in the chamber). Empty
-              when the photo counts.
+              Why the whole photo's areas are left out: "lights off" (the camera's automatic
+              exposure still searching in the dark), "light changing" (its exposure still moving
+              one way, as while the light ramps) or "visit" (someone working in the chamber).
+              Experiments not worked out again since the November 2026 update may also hold "light
+              disturbed" or "light off norm", from an earlier rule. Empty when the photo counts.
           - name: partly_outside
             type: boolean
             description: True when the tray reaches past the edge of the photo, so part of its plant may be missing.
