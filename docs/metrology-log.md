@@ -5011,6 +5011,72 @@ run: 3 of about 1660 tray-tag reads to 11:00 UTC. Whether a smaller `minMarkerDi
 tray tags changes anything else: not tested on the 15.3e stills or the 20 October photos. No code
 was changed.
 
+### 16.9 The whole run: steadiness with area, and tags found (issue #223, method written 2026-11-09, before the whole-run results)
+
+**Label: development check.** Questions 1 and 2 of section 16 over the whole run, now that
+area exists. Question 3 is answered in 22.1.
+
+**When this was written.** On 2026-11-09, the morning the last shuffle (12) was done, before any
+whole-run table of area changes or tags found was made. Already seen: 17.4's results for
+22 and 23 October; the tag shares per tray per day of 22.1 (97.0 to 100%); and, to see the size of
+the numbers, the mean area of trays 1, 8 and 9 over two single hours: about 51, 4,530 and
+69 mm² on 23 October, and 1,490, 3,030 and 0 mm² on 8 November. The questions below were written
+knowing those figures.
+
+**What changed since 16.3 and 16.4.**
+- Area exists: the green threshold 0.1 (17.1), stored with each tray reading, and with each cell
+  from 6 Nov 12:28 UTC (#364). Every reading of the run comes from the re-read of 2 November.
+- Trays 1 to 7 carry growing potato plants. Trays 9 to 12 hold black pots and read nearly no area.
+  Tray 8 carries the benchmark, the only object of the run that does not grow and has an area.
+- Exclusions are stored per photo (#288, #382): `light changing`, `lights off`, `visit`.
+- The run is not stopped: photos after 9 Nov 10:40 UTC are not used.
+
+**Data.** A read-only copy of production's `rig.db`, taken 2026-11-09 at 10:41 UTC (schema 24).
+Production is not written to. Photos needed for looking by eye are copied from production to the
+controller, read-only, with their saved masks.
+
+**Undisturbed pairs.** Rules 1 to 5 of 16.3, with these added:
+
+6. Neither photo has an exclusion (`light changing`, `lights off`, `visit`), as stored.
+7. Rule 1 uses the full shuffle record (`sessions/shuffle-record-2026-10-22.csv`). A shuffle runs
+   from its start (shuffle 1: 60 minutes before its finish) to its finish, widened by 15 minutes
+   on each side, as in section 22. The 60 and 15 minutes are choices.
+8. Per tray: the tray is read in both photos, with placement `placed`, in the same slot, and with
+   none of the warnings `no tag`, `tag seen, tray not found in the photo` or `two tags in one
+   tray outline`. Pairs with `partly outside the photo` are kept and counted apart.
+9. The photos of 28 Oct 08:47:53 to 08:50:01 UTC (17.12) are left out.
+
+**Question 1: steadiness with area.** For each tray and each undisturbed pair: the change in area,
+later minus earlier, in mm², and as a percentage of the mean of the two.
+- **Tray 8, the still scene.** Per day and per slot: pairs, median, 95th percentile, root mean
+  square and largest of the change in percent, and the mean area with its standard deviation.
+  This is the rig's own error from one photo to the next.
+- **Trays 1 to 7, the plants.** The same, per tray and per day. In one minute a plant grows much
+  less than the rig's change from photo to photo (Aaron, 2026-11-09). This is checked, not
+  assumed: per tray and day, the growth per minute is the change between the median areas of two
+  following days' undisturbed photos, divided by the minutes between them. It is reported beside
+  the change.
+- **Trays 9 to 12.** The change in mm² only, since a percentage of nearly zero means nothing.
+- **Cells**, from 6 Nov 12:28 UTC: the same for each plant cell of trays 1 to 7, with pairs where
+  a cell is marked `over_other_cells` counted apart.
+- Two scripts, written separately from this text, make the tray tables; their pair counts and
+  root mean squares are compared and must agree.
+
+**Question 2: tags found.** As in 16.4, per tray, per chamber day and per movement window, for
+lit photos (no exclusion `lights off`). Photos to the end of 5 November (chamber time) are the
+Round 2 result; 6 to 9 November is reported apart (16.5).
+
+**Looked at by eye.** The 10 largest changes in percent on tray 8, and the 10 largest on trays 1
+to 7, among undisturbed pairs. For each, both photos are cut to the tray, with the mask's edge
+drawn in magenta, side by side, and what changed is described. The 10 is a choice.
+
+No threshold is set for what size of change matters (16.4).
+
+**Limits of the evidence (as planned).** All of 16.6 and 17.3. One segmenter, not tuned. No true
+area is known for any tray. The benchmark is one flat plastic piece on a card. For plants, leaf
+movement counts as the rig's error. Cell areas cover only the last 3 days. The method was written
+after the run (see 16.6).
+
 ### 16.7 results: the check on 20 October (2026-10-23)
 
 `read_photos.py ~/scratch/223-analysis/exp16 --experiment 16` read 1390 photo records (1 was
