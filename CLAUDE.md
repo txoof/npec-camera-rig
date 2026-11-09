@@ -152,8 +152,11 @@ Since 2026-10-28 (#322), with the controller since 2026-10-29 (#324). The full r
 | **development** | `npec-rig-01` (`10.248.49.102`), red leaf in the tab, Arducam 64MP | The app as the `npec-rig` service on port 8000, managed from `~/ansible-npec` |
 | **production** | `ac-testing`, the chamber Pi | Running experiments: `~/npec_camera_rig` and its port 8000 server |
 
-Reach the rigs from the controller with `ssh pi@npec-rig-01` and `ssh pi@ac-testing`. No agent
-session is started on a rig.
+Reach the rigs from the controller with `ssh pi@npec-rig-01` and `ssh pi@ac-testing`. Agent
+sessions run on the controller. They may run jobs on the development rig over ssh (scripts, Hailo
+models, offline analysis of copied production photos), only while their task holds the `hardware`
+label, with memory capped (`ulimit -v`). Production is read only, as before (Aaron, 2026-11-09,
+#400).
 
 A new app version runs on development first. It reaches production only after it has passed on
 development (health OK and a live snapshot) **and** Aaron has approved that update.
