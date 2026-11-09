@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% set nav_active = "about" %}
+{% block title_suffix %} — About{% endblock %}
+{% block breadcrumb %}<h1>About</h1>{% endblock %}
+
+{#- The About page (#390): what the rig runs and the state it is in, read when the page loads.
+    The page only draws `sections` from about.sections(): each has a title, an optional status
+    chip, rows of facts and links. A new section (manuals, documents) is a new entry there, not a
+    change here. -#}
+{% block head_extra %}
+<style>
+  .about { display: grid; gap: var(--gap); max-width: 760px; }
+  .about-facts { display: grid; grid-template-columns: minmax(150px, max-content) minmax(0, 1fr); gap: 8px 24px; margin: 0; }
+  .about-facts dt { color: var(--fg-2); }
+  .about-facts dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; overflow-wrap: anywhere; }
+  .about-facts .num { font-variant-numeric: tabular-nums; }
+  @media (max-width: 700px) { .about-facts { grid-template-columns: minmax(0, 1fr); gap: 2px; } .about-facts dd { margin-bottom: 8px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="about">
+  <p class="lead">Read when this page opened, {{ read_at }}.</p>
+  {%- for section in about_sections %}
+  <section class="card" aria-labelledby="about-{{ loop.index }}">
+    <div class="card-head">
+      <h3 id="about-{{ loop.index }}">{{ section.title }}</h3>
+      {%- if section.status %}{{ ui.chip(section.status[0], section.status[1]) }}{% endif %}
+    </div>
+    {%- if section.rows %}
+    <dl class="about-facts">
+      {%- for row in section.rows %}
+      <dt>{{ row.label }}</dt>
+      <dd><span class="num">{{ row.value }}</span>{% if row.status %}{{ ui.chip(row.status[0], row.status[1]) }}{% endif %}</dd>
+      {%- endfor %}
+    </dl>
+    {%- endif %}
+    {%- if section.links %}
+    <div class="card-actions">
+      {%- for link in section.links %}{{ ui.link_button(link.label, link.href, new_tab=link.new_tab) }}{% endfor %}
+    </div>
+    {%- endif %}
+  </section>
+  {%- endfor %}
+</div>
+{% endblock %}
