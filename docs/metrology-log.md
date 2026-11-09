@@ -8804,3 +8804,25 @@ be checked again as more experiments are read. From the first photo with the tag
 tray's readings carry "names may be swapped since <time> UTC" for the rest of the experiment, in
 the Gallery and as `names_unsure_since` in the export's cell-readings.csv, whichever order the
 photos were read in. The cell areas themselves are kept and still count.
+
+### 31.4 On development (2026-11-09)
+
+The check ran on development (`385-tag-moved`, 7481d0b) during experiment 3, without Reprocess,
+so only photos read from 14:54 UTC on were checked. Against the photo that set each tray's A1
+(6 November 10:27 UTC for all nine trays: the first photo read after #374 put cells on the rig),
+eight trays' tags changed by 0.2 to 1.5 degrees. **Tray 86's changed by 25.1 degrees, and Aaron
+confirmed the tag had moved**: it read 43.6 to 44.3 degrees from 6 November to 9 November 10:00
+UTC, was not seen from 11:00 to 12:00 UTC while trays were handled for the Randomize trial, and
+read 19 to 20 degrees from 12:11 UTC. The picture shows it moved from the tray's middle to its
+edge.
+
+![Tray 86 before and after its tag moved](figures/31/tray86-before-after.jpg)
+
+*Tray 86 on development, 9 November 2026, 10:00 UTC (left) and 13:00 UTC (right). The tag moved
+from the middle of the tray to its edge and turned; the tray was also turned round (the empty pot
+hole moved from bottom right to top left).*
+
+The label read "names may be swapped since 2026-11-09 14:54 UTC", the first photo checked, not
+the move itself: older photos are checked only when read again (Reprocess). **A move before the
+photo that sets A1 is not caught**: tray 81's tag turned on 4 November, before its A1 was set on
+6 November from the turned tag, and its tag changed by only 4.4 degrees since.
