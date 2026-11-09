@@ -86,6 +86,7 @@ Plant surface area, in mm2. Only that; a zone of the table is a table location.
 
 **Exclusion**:
 A stored reason that a photo's plant areas are left out of averages and exports: lights off,
-light changing, light disturbed, light off norm, or a visit (#288). The areas themselves are kept,
+light changing, or a visit (#288, #382; "light disturbed" and "light off norm" came from the light
+norm, dropped in #382, and may remain on older experiments). The areas themselves are kept,
 never deleted, so an exclusion can be shown, reviewed or worked out again.
 _Avoid_: mark, flag (a photo's flags say why the validation bands do not cover it)

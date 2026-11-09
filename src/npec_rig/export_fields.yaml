@@ -92,6 +92,12 @@ package:
               Colour resolution the photo was saved at: "4:4:4" full, or "4:2:0" half in both
               directions. Half colour reads plant area about 1.4% low. Empty for photos from
               before 5 November 2026, which were all "4:2:0".
+          - name: ae_state
+            type: string
+            description: >-
+              Whether the camera's automatic exposure had settled when the photo was taken:
+              "converged" (settled), "searching" (still adjusting) or "idle". Empty for photos
+              from before 7 November 2026.
 
     - name: time-in-table-location
       path: time-in-table-location.csv
@@ -168,9 +174,11 @@ package:
           - name: photo_excluded
             type: string
             description: >-
-              Why the whole photo's areas are left out: "lights off", "light changing", "light
-              disturbed", "light off norm" or "visit" (someone working in the chamber). Empty
-              when the photo counts.
+              Why the whole photo's areas are left out: "lights off" (the camera's automatic
+              exposure still searching in the dark), "light changing" (its exposure still moving
+              one way, as while the light ramps) or "visit" (someone working in the chamber).
+              Experiments not worked out again since the November 2026 update may also hold "light
+              disturbed" or "light off norm", from an earlier rule. Empty when the photo counts.
           - name: partly_outside
             type: boolean
             description: True when the tray reaches past the edge of the photo, so part of its plant may be missing.

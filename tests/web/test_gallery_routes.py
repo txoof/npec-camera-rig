@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from npec_rig import captures, database, photo_tags
 from npec_rig.app import app
-from tests.helpers import draw_tray, one_tray_plant_scene, record_light_photos, square_detection
+from tests.helpers import draw_tray, one_tray_plant_scene, square_detection
 
 pytestmark = pytest.mark.unit
 
@@ -432,8 +432,9 @@ def test_tray_readings_give_each_trays_plant_area_and_segmenter(monkeypatch) -> 
 
 def test_each_photo_in_the_list_carries_its_exclusion_and_its_info_each_areas_floor(monkeypatch, isolated_calibration_dir) -> None:
     """#288: a photo taken with the lights off (64,022 us at gain 4.0, a real photo of experiment
-    18) is excluded as such, and each tray area shows the green threshold's floor, 100 mm2
-    (Aaron, 2026-10-26). The floor is in Info's reading, not the list (#377)."""
+    18, its auto-exposure still searching as dark photos report since #382) is excluded as such,
+    and each tray area shows the green threshold's floor, 100 mm2 (Aaron, 2026-10-26). The floor
+    is in Info's reading, not the list (#377)."""
     from npec_rig import tray_readings
     from npec_rig.camera import CameraManager, SyntheticBackend
 
@@ -442,7 +443,7 @@ def test_each_photo_in_the_list_carries_its_exclusion_and_its_info_each_areas_fl
             frame, metadata = super().capture_full_res()
             frame[:] = 128
             draw_tray(frame, 115, 554, 3165, 4214)  # one_tray_plant_scene's tray
-            return frame, {**metadata, "ExposureTime": 64_022, "AnalogueGain": 4.0}
+            return frame, {**metadata, "ExposureTime": 64_022, "AnalogueGain": 4.0, "AeState": 1}
 
     one_tray_plant_scene(monkeypatch)
     CameraManager.set_instance(CameraManager(Dark(width=4000, height=4400)))
@@ -454,35 +455,6 @@ def test_each_photo_in_the_list_carries_its_exclusion_and_its_info_each_areas_fl
     assert listed["exclusion"] == "lights off"
     info = client.get(f"/api/captures/trays/{path}").json()
     assert [t["floor_mm2"] for t in info["trays"]] == [100]
-
-
-def test_the_light_warning_is_shown_until_dismissed_and_the_dismissal_is_saved() -> None:
-    """A first day steady at 5,000, then 5 photos at 4,000 (-20%) 30 minutes apart from 25 h and
-    one back: 2.5 hours off norm (#288). Dismiss saves when, and the warning is gone."""
-    start = datetime.fromisoformat("2026-10-22T08:00:00+00:00")
-    series = [(timedelta(hours=h), 5000) for h in range(25)]
-    series[5] = (timedelta(hours=5), 5300)
-    series += [(timedelta(hours=25, minutes=30 * i), 4000) for i in range(5)]
-    series += [(timedelta(hours=27, minutes=30), 5000)]
-    experiment_id = captures.create_experiment(name="Light")["id"]
-    record_light_photos(experiment_id, start, series, "light")
-    client = TestClient(app)
-
-    response = client.get("/api/captures/light-warning", params={"experiment": experiment_id})
-    assert response.status_code == 200
-    assert response.json() == {
-        "hours": 2.5, "first": "2026-10-23T09:00:00+00:00", "last": "2026-10-23T11:30:00+00:00",
-    }
-
-    before = datetime.now().astimezone()
-    assert client.post(
-        "/api/captures/light-warning/dismiss",
-        params={"experiment": experiment_id, "until": "2026-10-23T11:30:00+00:00"},
-    ).status_code == 200
-    assert client.get("/api/captures/light-warning", params={"experiment": experiment_id}).json() is None
-    [dismissal] = database.light_warning_dismissals(experiment_id)
-    assert dismissal["covers_until"] == "2026-10-23T11:30:00+00:00"
-    assert before <= datetime.fromisoformat(dismissal["dismissed_at"]) <= datetime.now().astimezone()
 
 
 def test_a_reading_saved_before_trays_were_found_in_the_photo_keeps_its_trays_outline(monkeypatch) -> None:
