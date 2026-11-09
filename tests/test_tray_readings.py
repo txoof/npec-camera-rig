@@ -285,24 +285,27 @@ def test_a_photo_takes_its_area_from_the_rebuilt_twin_of_its_calibration(monkeyp
     assert database.captures_by_path([path])[path]["calibration"] == stem
 
 
-def _camera_reports(monkeypatch, exposure_us: int, gain: float) -> None:
-    """The synthetic camera, reporting the exposure and gain of a real photo."""
+def _camera_reports(monkeypatch, exposure_us: int, gain: float, ae_state: int = 2) -> None:
+    """The synthetic camera, reporting the exposure and gain of a real photo, and its
+    auto-exposure state (libcamera's AeState, 2 converged, 1 searching; #382)."""
     from npec_rig.camera import CameraManager, SyntheticBackend
 
     class Reports(SyntheticBackend):
         def capture_full_res(self):
             frame, metadata = super().capture_full_res()
-            return frame, {**metadata, "ExposureTime": exposure_us, "AnalogueGain": gain}
+            return frame, {**metadata, "ExposureTime": exposure_us, "AnalogueGain": gain, "AeState": ae_state}
 
     CameraManager.set_instance(CameraManager(Reports()))
 
 
 def test_a_photo_taken_with_the_lights_off_is_excluded_from_its_exposure_and_gain(monkeypatch) -> None:
     """Exposure and gain of real photos of experiment 18 (rig.db, 2026-10-26): lights off at
-    23:28:53 UTC on 22 October, 64,022 us at gain 4.0; lit at 08:41:20, 5,404 us at gain 1.0."""
+    23:28:53 UTC on 22 October, 64,022 us at gain 4.0; lit at 08:41:20, 5,404 us at gain 1.0.
+    The dark one as the camera reports it since #382: auto-exposure still searching, as every
+    dark photo on the development rig (metrology log 29.3)."""
     _calibrate()
     _finds(monkeypatch, None)
-    _camera_reports(monkeypatch, 64_022, 4.0)
+    _camera_reports(monkeypatch, 64_022, 4.0, ae_state=1)
     dark = _photo()
     _camera_reports(monkeypatch, 5_404, 1.0)
     lit = _photo()
@@ -325,17 +328,10 @@ def test_each_trays_area_carries_the_floor_below_which_it_means_nothing_detected
 def test_each_photos_exclusion_is_stored_and_earlier_photos_are_checked_again_as_new_ones_come(
     monkeypatch, tmp_path
 ) -> None:
-    """#288: the experiment's first "day" (shortened to 0.3 s, a timing constant) is 5,000 and
-    5,100 us: norm 5,050, largest swing 1%, limit 3%. A photo at 4,000 is off the norm; while it
-    is the newest it is "light off norm", and once the next photo is back at 5,000 it is a short
-    run that returned: "light disturbed"."""
-    from datetime import timedelta
-
-    from npec_rig import exclusions
-
+    """#288, #382: photos read at 5,000, 6,000 and then 7,000 us. While 6,000 is the newest it has
+    no photo after it and no exclusion; once 7,000 is read, 6,000 lies between its neighbours, so
+    the auto-exposure is still moving: "light changing", as the Gallery and export get it."""
     monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
-    monkeypatch.setattr(exclusions, "FIRST_DAY", timedelta(seconds=0.3))
-    monkeypatch.setattr(exclusions, "NEAR_LIGHTS_OFF", timedelta(0))
     _calibrate()
     _finds(monkeypatch, None)
     client = TestClient(app)
@@ -349,13 +345,10 @@ def test_each_photos_exclusion_is_stored_and_earlier_photos_are_checked_again_as
         return path
 
     taken(5_000)
-    taken(5_100)
-    time.sleep(0.35)
-    taken(5_000)
-    dip = taken(4_000)
-    assert tray_readings.photo_readings(dip)["exclusion"] == "light off norm"
-    taken(5_000)
-    assert tray_readings.photo_readings(dip)["exclusion"] == "light disturbed"
+    middle = taken(6_000)
+    assert tray_readings.photo_readings(middle)["exclusion"] is None
+    taken(7_000)
+    assert tray_readings.photo_readings(middle)["exclusion"] == "light changing"
 
 
 def _two_trays_with_one_tag_scene(monkeypatch) -> None:

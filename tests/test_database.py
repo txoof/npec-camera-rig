@@ -450,3 +450,23 @@ def test_version_20_keeps_a_photo_from_version_19_with_no_quality_recorded(monke
     assert row["exposure_us"] == 3700
     assert (row["jpeg_quality"], row["jpeg_chroma"]) == (None, None)
     assert database.photo_quality_changes() == []
+
+
+def test_version_24_keeps_a_photo_from_version_23_with_no_auto_exposure_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#382: a photo saved before the auto-exposure state was recorded keeps its row, exposure
+    and gain; its state is empty, so the light exclusions know it was not recorded."""
+    with monkeypatch.context() as m:
+        m.setattr(database, "MIGRATIONS", database.MIGRATIONS[:23])
+        m.setattr(database, "SCHEMA_VERSION", 23)
+        with sqlite3.connect(db_path()) as conn:
+            database.migrate(conn)
+            conn.execute(
+                "INSERT INTO capture (taken_at, path, purpose, flags, exposure_us, analogue_gain)"
+                " VALUES ('2026-11-06T00:40:00+00:00', 'rig/2026-11-06/004000_000000', 'capture', '[]', 66465, 4.0)"
+            )
+            conn.commit()
+    with sqlite3.connect(db_path()) as conn:
+        assert database.migrate(conn) == database.SCHEMA_VERSION
+    row = database.captures_by_path(["rig/2026-11-06/004000_000000"])["rig/2026-11-06/004000_000000"]
+    assert (row["exposure_us"], row["analogue_gain"]) == (66465, 4.0)
+    assert row["ae_state"] is None

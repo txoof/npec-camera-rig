@@ -439,6 +439,13 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "CREATE INDEX export_part_sent_export ON export_part_sent (export_id, part)",
         ),
     ),
+    (
+        24,
+        "capture: whether the camera's auto-exposure had settled when the photo was taken (#382)",
+        # "idle", "searching" or "converged" (libcamera's AeState); NULL for photos taken before
+        # this version, or by a camera that does not report it.
+        ("ALTER TABLE capture ADD COLUMN ae_state TEXT",),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -519,13 +526,15 @@ def record_capture(
     clock_synced: bool | None = None,
     jpeg_quality: int | None = None,
     jpeg_chroma: str | None = None,
+    ae_state: str | None = None,
 ) -> int:
     """Add one photo's row, return its id."""
     with _connect() as conn:
         cursor = conn.execute(
             "INSERT INTO capture (taken_at, path, purpose, experiment_id, calibration,"
             " validation, lens_position, focus_locked_at, exposure_us, analogue_gain, flags,"
-            " clock_synced, jpeg_quality, jpeg_chroma) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " clock_synced, jpeg_quality, jpeg_chroma, ae_state)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 taken_at,
                 path,
@@ -541,6 +550,7 @@ def record_capture(
                 None if clock_synced is None else int(clock_synced),
                 jpeg_quality,
                 jpeg_chroma,
+                ae_state,
             ),
         )
         return cursor.lastrowid
@@ -757,25 +767,6 @@ def experiment_exclusions(experiment_id: int) -> list[dict]:
             "SELECT capture.taken_at, exclusion.name FROM capture"
             " LEFT JOIN exclusion ON exclusion.capture_id = capture.id"
             " WHERE capture.experiment_id = ? AND capture.purpose = 'capture' ORDER BY capture.taken_at",
-            (experiment_id,),
-        ).fetchall()
-    return [dict(row) for row in rows]
-
-
-def record_light_warning_dismissal(experiment_id: int, *, dismissed_at: str, covers_until: str) -> None:
-    """Save a dismissal of the experiment's light warning."""
-    with _connect() as conn:
-        conn.execute(
-            "INSERT INTO light_warning_dismissal (experiment_id, dismissed_at, covers_until) VALUES (?, ?, ?)",
-            (experiment_id, dismissed_at, covers_until),
-        )
-
-
-def light_warning_dismissals(experiment_id: int) -> list[dict]:
-    """The experiment's light warning dismissals, oldest first."""
-    with _connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM light_warning_dismissal WHERE experiment_id = ? ORDER BY dismissed_at",
             (experiment_id,),
         ).fetchall()
     return [dict(row) for row in rows]

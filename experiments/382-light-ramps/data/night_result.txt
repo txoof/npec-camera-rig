@@ -1,0 +1,10 @@
+experiment 3, photos with a recorded state from 2026-11-08T11:08 to 2026-11-09T09:00: 1312; highest E 265860
+  dark            450  converged 0  searching 450  idle 0
+  ramp (N-pad)     62  converged 58  searching 4  idle 0
+  steady          800  converged 800  searching 0  idle 0
+steady photos not converged: []
+dark photos not searching: []
+per hour (UTC): converged/searching
+11-08T11:52/0 11-08T12:60/0 11-08T13:60/0 11-08T14:60/0 11-08T15:60/0 11-08T16:60/0 11-08T17:60/0 11-08T18:60/0 11-08T19:60/0 11-08T20:60/0 11-08T21:60/0 11-08T22:60/0 11-08T23:60/0 11-09T00:28/32 11-09T01:0/60 11-09T02:0/60 11-09T03:0/60 11-09T04:0/60 11-09T05:0/60 11-09T06:0/60 11-09T07:0/60 11-09T08:58/2
+
+[exited with code 0]

@@ -5443,6 +5443,8 @@ empty trays read 27 to 78 mm² (median per tray and day) and at most 98 mm² out
 
 ### 17.8 Light exclusions: how far the light moves (method written 2026-10-26, before the data was read)
 
+*Replaced by section 29 (#382, 2026-11-09): the first-day norm flagged every lit photo of experiment 18 from 5 November as the scene changed the exposure. The rule now follows the camera: ramps from the exposure moving through each photo, lights off from the camera's auto-exposure state. Kept below as the record of the earlier decision.*
+
 **Label: development check.** #288 part 2 leaves out the plant areas of photos taken while the
 light is changing, briefly disturbed, or steady at a level away from the experiment's norm
 (exclusions, `GLOSSARY.md`). Three values are open: how far from the norm counts as off norm,
@@ -8410,3 +8412,143 @@ production seedlings (18 pictures on days 0 to 2).
 table of 28.3). The 3.2 GB of cell pictures and contact sheets stayed in `~/scratch`, which is not
 kept; `code/process.py` builds them again from the stills, which stay in their experiment folders
 on the rigs.
+
+## 29. Light ramps: which photos to leave out (issue #382, 2026-11-07)
+
+**Label: development check.** Which photos to leave out because of the light, now that the light
+norm of 17.8 has failed on a running experiment. Sections 29.1 and 29.2 were an open comparison of
+rules; their method was written after the run, not before it. Section 29.3 is written before its
+run.
+
+**Principles (Aaron, 2026-11-07).** The rig does not judge lamps or light drift; the chamber has
+its own systems for that. Light matters only where it makes photos unreliable, which is while the
+light ramps up or down and while it is off. No fixed thresholds: a limit comes from the
+experiment's own data or from the camera, since ramps may last from 0 minutes to hours. Leaving out
+a few dozen photos a day costs little; a rule that fails on the next experiment costs more.
+
+### 29.1 Why the norm failed
+
+Production experiment 18 flagged every lit photo as "light off norm" from 5 November 19:29 UTC
+(1,244 daytime photos by 7 November). The lamps did not change. A read-only check of 284 photos
+(issue #382, comment of 2026-11-06) divided the linear green of two surfaces nothing covers, the
+white table strip and the back wall, by the exposure E (exposure_us x analogue_gain). If the light
+is constant this ratio is constant whatever the auto-exposure does. From 22 October to 6 November E
+fell 22% (5248 to 4105) while the ratio stayed within 0.97 to 1.02 on the strip and 1.00 to 1.05 on
+the wall; the evening dimming gave 0.62, so the ratio does see real light changes. The camera meters
+the whole scene: trays moved and white tag sheets added (25 to 26 October, -12.5%), and slower
+changes, shortened the exposure with the lamps unchanged.
+
+### 29.2 Rules compared
+
+**Data.** Production experiment 18, 22 October to 7 November (22,965 photos, one a minute; light
+program: a 30 minute ramp down from 00:00 UTC, dark until 08:00, a 30 minute ramp up; an hour
+earlier before the clock change of 25 October). Development experiment 3, 3 to 7 November (5,459
+photos, the same program). Photos were copied read-only to the controller (production, 4,982
+photos: all within 75 minutes of a dark photo and every 5th otherwise) or read on the development
+rig itself at low priority (all 3,690 lit photos).
+
+**Reference.** A photo is a *ramp photo* when it is lit (E under 200,000), within 40 minutes of a
+dark photo, and its whole-frame light (mean linear green / E) is more than 10% off the median of the
+same ratio over the 12 hours around it. Within 12 hours the scene barely changes, so this follows
+the light. The 40 minutes and 10% are for scoring only and are in no rule. Lit photos more than 40
+minutes from a dark one and more than 10% off are *daytime dips*; the two on development that were
+looked at were a person with a laptop and a phone held in front of the camera.
+
+**Corner tags.** The corner tags' white cells were tried as a light reference (figure 29.2). On
+production they are at the clipping point (green 237 to 248 of 255, 45 to 78% of pixels at 250 or
+more before 26 October), so their ratio followed the scene: white +13%, black cells -11%, while the
+strip stayed within 2.5%. On development they are not clipped and stayed within 1.5%, but its scene
+and exposure did not change. On both rigs the tags fell with the light during the 00:00 ramp,
+exactly as the whole frame did.
+
+![Light readings in daytime photos on both rigs, and the 5 November dimming](figures/29/29.2-corner-tags.png)
+
+*Figure 29.2. Top: production, daytime photos, each reading divided by E and set to 1.00 on
+22 October; the strip and wall stay flat, the tag white and black follow the exposure (black
+line). Middle: development, tag white flat, tag black too dark to read. Bottom: the 5 November
+dimming, tag white and whole frame fall together on both rigs. Made by
+`experiments/382-light-ramps/code/plot.py`, copied 2026-11-07 from
+`~/scratch/382-light-norm/corner_tag_check.png`.*
+
+**Results.** Daytime photos are counted on all lit photos more than 40 minutes from a dark one.
+
+| Rule | How it decides | Production: ramp photos missed (of 783), below light 0.70 | Production: daytime photos flagged | Development: ramp photos missed (of 179) | Development: daytime photos flagged |
+|---|---|---|---|---|---|
+| Current (17.8) | E off a first-day norm | 197, 22 | 1,244 of 14,455 | 7, 0 | 2 of 3,414 |
+| A | tag white / E under 0.85 of day 1 | 127, 0 | 0 | 14, 0 | 0 |
+| B5 | E rising or falling in 5 photos in a row | 18, 6 | 0 | 0 | 0 |
+| C35 | within 35 minutes of a dark photo | 6, 0 | 0 | 0 | 0 |
+| N | E strictly between the photo before and after | 31, 17 | 55 | 0 | 8 |
+| **N-pad** | N, plus one photo either side | **7, 1** | **135 (9 a day median, 25 most)** | **0** | **21 (6 a day, 9 most)** |
+| N-any | E differs from either neighbour | 3, 1 | 465 (25 a day, 91 most) | 0 | 196 |
+
+A, B5 and C35 carry fixed values (0.85, 5 photos, 35 minutes) and were dropped (Aaron,
+2026-11-07). B5 missed the start of the 29 October ramp because the auto-exposure stepped back once
+(19,554 then 21,036 us). N-pad was chosen for ramps. Its one deep miss is 3 November 08:18 (light
+0.62), where the exposure held at 7,015 for three photos mid-ramp; its other six misses are at
+08:30 to 08:41 with normal exposure and look like people at the table.
+
+**Lights off** still needs a rule: N-pad does not flag a flat run of dark photos. The current rule
+uses E of 200,000 or more, a fixed value (17.7). The camera does not report the level its
+auto-exposure stops at: the sensor reports up to 122,582,952 us and gain 64, the tuning file
+(`arducam_64mp.json`, "normal" mode) up to 66,666 us and gain 8, and on both rigs the auto-exposure
+stopped in the dark at 66,465 us and analogue gain 4.0. So a saved maximum would not find the dark
+photos. Instead each photo now records the camera's own auto-exposure state (libcamera `AeState`:
+idle, searching or converged), to be checked in 29.3.
+
+**Limits of the evidence.** One light program, the same on both rigs, with every ramp ending in
+darkness; a dimming that stops at a lower level was not seen. Photos one a minute: a ramp shorter
+than the gap between photos cannot be seen by N-pad. The reference light level is itself a rule
+(12-hour median, 10%), checked by eye only on development's two daytime dips. Production daytime
+photos were measured one in five.
+
+*Raw data.* `experiments/382-light-ramps/` (`code/`, `data/`, `README.md`).
+
+### 29.3 Does the camera's auto-exposure state mark the dark and the ramps? (method written 2026-11-07, before the run)
+
+**Question.** Does `AeState`, saved with each photo, read "searching" for photos taken in the dark
+and during ramps, and "converged" for photos in steady light? A photo is taken by switching the
+camera to its full-size mode, so the state may describe the frame just after that switch, not the
+light.
+
+**Method.** Branch `382-light-norm` on the development rig (`npec-rig-01`) with the hardware label,
+experiment 3 running, one photo a minute, from the update on 8 November 11:08 UTC to 9 November
+09:00 UTC: about 13 hours of daytime, the 00:00 ramp down, the dark and the 08:00 to 08:30 ramp up
+(09:00 to 09:30 local time), and 30 minutes after it. (First written as at least 4 hours of
+daytime either side; shortened before the run, since the afternoon of 8 November gives the steady
+daytime photos, Aaron, 2026-11-08.) Afterwards, read-only from `rig.db`
+and the photos' JSON records: per photo E, `ae_state`, digital gain and `Lux`. Each photo is put in
+one group by its E series alone: dark (E at the highest value the night reached, held), ramp (flagged
+by N-pad) or steady daytime (the rest).
+
+**What would show it works.** Every dark photo "searching"; every ramp photo flagged by N-pad
+"searching" or not, either way N-pad covers it; steady daytime photos "converged", apart from a few
+next to a visit or a single exposure step. **What would show it fails.** Daytime photos
+mostly "searching" (the mode switch), or dark photos "converged" (the auto-exposure at its limit
+counting itself settled). If it fails, lights off stays at E of 200,000, labelled a decision.
+
+**Result (2026-11-09).** 1,312 photos of experiment 3 from 8 November 11:08 to 9 November
+09:00 UTC (`experiments/382-light-ramps/data/night_result.txt`, from `code/night.py`):
+
+| Group (from the E series alone) | Photos | Converged | Searching |
+|---|---|---|---|
+| Dark: E at the night's highest, 265,860, held | 450 | 0 | 450 |
+| Ramp: flagged by N-pad (00:00 down, 08:00 up, and daytime steps) | 62 | 58 | 4 |
+| Steady daytime | 800 | 800 | 0 |
+
+The state marks the dark and nothing else: every dark photo searching, every steady daytime photo
+converged, so the switch to the full-size mode does not leave it searching. During the ramps the
+auto-exposure keeps up minute to minute and reads converged from the second minute on; only the
+photos next to darkness read searching (00:28 to 00:30 and 08:01 UTC, E 182,762 to 265,444). So the state alone
+does not find ramps, and N-pad is needed for them, as planned. The rule built from this:
+"lights off" when the state is searching, "light changing" by N-pad, nothing else (#382).
+
+On the branch's next update the app worked experiment 3's 8,405 photos out again on its first
+photo: 2,713 lights off, 373 light changing, none of the old names; the Gallery shows them
+(`~/development-snapshots/382/`).
+
+**Limits of the evidence.** One night, one light program, one camera (the development rig's
+Arducam 64MP, libcamera 0.7.2); production runs the same libcamera and was not checked. A dimming
+that stops above darkness, or a dark period with some light, was not seen: whether the
+auto-exposure then still reads searching is not known. Photos saved before version 24 have no
+state and are judged by E of 200,000 (17.7).
