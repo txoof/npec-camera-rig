@@ -291,6 +291,7 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | web-validation | `routes/validation.py`, `templates/setup_validation.html` |
 | web-photo-quality | `routes/photo_quality.py` (the JPEG setting of full-size photos through the API, #359), `tests/web/test_photo_quality_routes.py` |
 | web-randomize | `routes/randomize.py`, `templates/randomize.html` (the Randomize page, #343) |
+| web-about | `about.py` (the facts the About page shows, read when asked), `routes/about.py`, `templates/about.html` (the About page from the (i) button at the foot of the rail, later also manuals and links, #390) |
 | images | `images.py`, `text_render.py` |
 | segmentation | `segmentation.py` (plant masks: the `Segmenter` interface, the green threshold and the Hailo stub, #74) |
 | randomization | `randomization.py` (restricted randomization of the tray layout and the check against it, #343) |
