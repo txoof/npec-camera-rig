@@ -40,6 +40,7 @@ from npec_rig.tray_placement import (
     nearest_slot,
     a1_bearing_deg,
     place_cells,
+    tag_on_tray,
     tray_outline_at,
 )
 
@@ -71,6 +72,13 @@ FINDER_FACTOR = 4
 # Seconds between looks for photos not yet read, when there are none. One reading took 9.6 s to
 # 12.5 s (metrology log 15.5m), so a photo a minute leaves the reader idle most of the time.
 POLL_S = 5.0
+
+# A 2 x 2 tray's tag turned on its tray by more than this, from where it lay in the tray's first
+# photo, marks the tray's cell names as maybe swapped from that photo on (#385). Tags that stayed
+# put changed by up to 2.0 degrees, tray 81's moved tag by 83 (metrology log 31.2). A decision
+# (Aaron, 2026-11-09), not a measurement: 5 times the largest change of a tag that stayed put.
+TAG_TURNED_DEG = 10.0
+TAG_TURNED = "tag turned on tray"
 
 
 def _calibration(path: str) -> tuple[str, object, list[dict] | None]:
@@ -193,7 +201,7 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
     _refuse_worse(path, saved, status, areas_lost=not measures)
     measured = dict(zip(map(id, outlined), measures, strict=True)) if measures else {}
     celled = dict(zip(map(id, outlined), cells, strict=True)) if measures else {}
-    no_cells: tuple[list, None] = ([], None)
+    no_cells: tuple[list, None, bool] = ([], None, False)
     trays = []
     for p in placed:
         m = measured.get(id(p))
@@ -205,7 +213,8 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "plant_centre_px": list(m.centre_px) if m and m.centre_px else None,
             "calibration": calibration if m else None,
             "outside_mm": outside_mm(p, size) if size and p.outline is not None else None,
-            "found": p.found, "warnings": list(p.warnings),
+            "found": p.found,
+            "warnings": list(p.warnings) + ([TAG_TURNED] if celled.get(id(p), no_cells)[2] else []),
             "outline_px": None if p.outline is None else [list(c) for c in p.outline],
             "cells": [
                 {
@@ -276,20 +285,21 @@ def _measured_cells(path, mask, placed, tags, scale_field, record) -> list:
     out = []
     for p in placed:
         try:
-            [(cells, bearing)] = _cells([p], tags, scale_field, record)
+            [(cells, bearing, turned)] = _cells([p], tags, scale_field, record)
             counted = segmentation.measure_cells(mask, cells, scale_field, outline_px=p.outline) if cells else []
-            out.append((list(zip(cells, counted, strict=True)), bearing))
+            out.append((list(zip(cells, counted, strict=True)), bearing, turned))
         except Exception:
             logger.exception("Could not work out the cells of tray %s in %s", p.tray_id, path)
-            out.append(([], None))
+            out.append(([], None, False))
     return out
 
 
 def _cells(
     placed: list[TrayPlacement], tags: list[TagDetection], scale_field, record: dict
-) -> list[tuple[list[Cell], float | None]]:
+) -> list[tuple[list[Cell], float | None, bool]]:
     """Each placed tray's cells (`tray_placement.place_cells`) and, for a 2 x 2 tray, where its A1
-    lies from its tag, in the order of `placed`. No cells for a tray with no tag, or whose tag two
+    lies from its tag and whether its tag has turned on the tray (`_tag_turned`), in the order of
+    `placed`. No cells for a tray with no tag, or whose tag two
     trays carry, whose cells could belong to either (#302). A 2 x 2 tray's A1 bearing is the one
     stored for it in the photo's experiment (`record`, its rig.db row,
     `database.first_a1_bearing`); with none yet, this photo sets it: A1 its south-west pot
@@ -301,16 +311,39 @@ def _cells(
     out = []
     for p in placed:
         if p.tray_id is None or carried[p.tray_id] != 1 or p.status != "placed":
-            out.append(([], None))
+            out.append(([], None, False))
             continue
         tag = by_id[p.tray_id]
         if tray_type(p.tray_id).name != "2x2":
-            out.append((place_cells(p, tag, scale_field), None))
+            out.append((place_cells(p, tag, scale_field), None, False))
             continue
         bearing = database.first_a1_bearing(record.get("experiment_id"), p.tray_id)
         cells = place_cells(p, tag, scale_field, a1_bearing_deg=bearing)
-        out.append((cells, bearing if bearing is not None else a1_bearing_deg(p, tag, cells)))
+        turned = bearing is not None and _tag_turned(p, tag, scale_field, record)
+        out.append((cells, bearing if bearing is not None else a1_bearing_deg(p, tag, cells), turned))
     return out
+
+
+def _tag_turned(tray: TrayPlacement, tag: TagDetection, scale_field, record: dict) -> bool:
+    """Whether a 2 x 2 tray's tag lies turned on the tray, by more than TAG_TURNED_DEG, from where
+    it lay in the photo that set the tray's A1 bearing (`database.first_a1_reading`): its cell
+    names may then be swapped (#385). Only the angle: where the tray's centre lies from the tag
+    moves by up to 22 mm with the outline found in each photo (metrology log 31.2). False when that
+    photo's tag or outline cannot be read."""
+    first = database.first_a1_reading(record.get("experiment_id"), tray.tray_id)
+    if first is None or first["path"] == record.get("path"):
+        return False
+    try:
+        then = next((t for t in photo_tags.photo_tags_for(first["path"]) if t.tag_id == tray.tray_id), None)
+    except (photo_tags.CaptureNotFoundError, photo_tags.CaptureRefError):
+        return False
+    if then is None:
+        return False
+    corners = [tuple(c) for c in first["outline_px"]]
+    centre = (sum(x for x, _ in corners) / 4, sum(y for _, y in corners) / 4)
+    [before] = [t for t in name_trays([TrayOutline(tuple(corners), centre, 0.0, False)], [then]) if t.tray_id == tray.tray_id]
+    was, now = tag_on_tray(before, then, scale_field), tag_on_tray(tray, tag, scale_field)
+    return abs((now.long_side_deg - was.long_side_deg + 90) % 180 - 90) > TAG_TURNED_DEG
 
 
 def _photo_size(path: str) -> tuple[int, int] | None:
@@ -401,6 +434,13 @@ def capture_readings(capture: dict) -> dict | None:
                 # The same rule for trays found in the photo (#331): one outline, two trays' tags.
                 *(["2 tags in one tray outline"] if tray["placement"] == "two tags in one outline" else []),
             ]
+            # From the first photo whose tag lay turned on the tray, for the rest of the experiment,
+            # whichever photos were read first (Aaron, 2026-11-07, #385).
+            since = None if tray["tray_id"] is None else database.first_warning_at(
+                capture.get("experiment_id"), tray["tray_id"], TAG_TURNED, capture["taken_at"])
+            tray["names_unsure_since"] = since
+            tray["warnings"] = [w for w in tray["warnings"] if w != TAG_TURNED] + (
+                [f"names may be swapped since {since[:10]} {since[11:16]} UTC"] if since else [])
             tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
             for cell in tray["cells"]:
                 cell["status"] = _cell_status(cell)

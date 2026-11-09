@@ -629,6 +629,38 @@ def first_a1_bearing(experiment_id: int | None, tray_id: int) -> float | None:
     return None if row is None else row[0]
 
 
+def first_a1_reading(experiment_id: int | None, tray_id: int) -> dict | None:
+    """The photo that set a 2 x 2 tray's A1 bearing (`first_a1_bearing`): its `path` and the
+    tray's `outline_px` there, so where the tag lay on the tray then can be worked out again
+    (#385). None as for `first_a1_bearing`."""
+    if experiment_id is None:
+        return None
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT capture.path, tray_reading.outline FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id"
+            " WHERE capture.experiment_id = ? AND tray_reading.tray_id = ? AND tray_reading.a1_bearing_deg IS NOT NULL"
+            " AND tray_reading.outline IS NOT NULL ORDER BY capture.taken_at LIMIT 1",
+            (experiment_id, tray_id),
+        ).fetchone()
+    return None if row is None else {"path": row[0], "outline_px": json.loads(row[1])}
+
+
+def first_warning_at(experiment_id: int | None, tray_id: int, warning: str, until: str) -> str | None:
+    """When tray `tray_id` first carried `warning` in experiment `experiment_id`: the `taken_at`
+    of its earliest photo taken up to `until` whose reading has it, whichever photos were read
+    first. None when none has, or the photo is in no experiment."""
+    if experiment_id is None:
+        return None
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT MIN(capture.taken_at) FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id"
+            " WHERE capture.experiment_id = ? AND tray_reading.tray_id = ? AND capture.taken_at <= ?"
+            " AND EXISTS (SELECT 1 FROM json_each(tray_reading.warnings) WHERE json_each.value = ?)",
+            (experiment_id, tray_id, until, warning),
+        ).fetchone()
+    return row[0]
+
+
 def _json_or_none(value: object) -> str | None:
     return None if value is None else json.dumps(value)
 

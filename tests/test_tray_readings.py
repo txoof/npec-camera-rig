@@ -861,3 +861,52 @@ def test_a_2x2_trays_cells_have_the_same_names_whatever_order_its_photos_are_rea
         planted.append([c["cell"] for c in cells if c["status"] == "plant"])
     assert planted[0] == planted[1]
     assert len(planted[0]) == 1
+
+
+def _readings_of(path: str, tray_id: int) -> dict:
+    return next(t for t in tray_readings.read_photo(path)["trays"] if t["tray_id"] == tray_id)
+
+
+def test_a_2x2_tag_turned_on_its_tray_marks_its_names_as_maybe_swapped_from_that_photo(monkeypatch) -> None:
+    """#385, tray 81 of development experiment 3: its tag turned 83 degrees on the tray, which
+    stayed put. Tags that stayed put changed by 2 degrees at most (metrology log 31.2); the cut-off
+    is 10 degrees (Aaron, 2026-11-09). The first two photos keep the tag as laid; the third has it
+    turned 83 degrees about its centre."""
+    experiment = database.create_experiment(uuid="u-385", created_at="2026-11-09T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2026-11-09T00:00:00+00:00", folder="u-385")
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 45.0)], [])
+    first, second = _photo(), _photo()
+    first_warnings = _readings_of(first, 80)["warnings"]
+    second_warnings = _readings_of(second, 80)["warnings"]
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [_turned_tag(80, 1825.0, 2230.0, 128.0)])
+    third = _photo()
+    taken = database.captures_by_path([third])[third]["taken_at"]
+    third_warnings = _readings_of(third, 80)["warnings"]
+
+    unsure = [w for w in first_warnings + second_warnings if w.startswith("names may be swapped")]
+    assert unsure == []
+    assert f"names may be swapped since {taken[:10]} {taken[11:16]} UTC" in third_warnings
+
+
+def test_a_2x2_trays_names_stay_marked_for_the_rest_of_the_experiment_whatever_order_photos_are_read_in(monkeypatch) -> None:
+    """#385: once a tray's tag has turned on it, its names stay marked as maybe swapped for the
+    rest of the experiment, even when the tag is turned back (Aaron, 2026-11-07). Photos are read
+    out of order (older ones on demand, Reprocess): here the photo with the tag turned is read
+    last. Tags are searched when a photo is read, so each photo gets the tag set at its reading."""
+    experiment = database.create_experiment(uuid="u-385b", created_at="2026-11-09T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2026-11-09T00:00:00+00:00", folder="u-385b")
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 45.0)], [])
+    photos = [_photo() for _ in range(4)]
+    for path in (photos[0], photos[1], photos[3]):
+        tray_readings.read_photo(path)
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [_turned_tag(80, 1825.0, 2230.0, 128.0)])
+    tray_readings.read_photo(photos[2])
+
+    taken = database.captures_by_path([photos[2]])[photos[2]]["taken_at"]
+    label = f"names may be swapped since {taken[:10]} {taken[11:16]} UTC"
+    marked = []
+    for path in photos:
+        tray = next(t for t in tray_readings.photo_readings(path)["trays"] if t["tray_id"] == 80)
+        marked.append(label in tray["warnings"])
+    assert marked == [False, False, True, True]
