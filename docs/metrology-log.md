@@ -8873,3 +8873,75 @@ Arducam 64MP, libcamera 0.7.2); production runs the same libcamera and was not c
 that stops above darkness, or a dark period with some light, was not seen: whether the
 auto-exposure then still reads searching is not known. Photos saved before version 24 have no
 state and are judged by E of 200,000 (17.7).
+
+## 30. Which pot is A1 on a 2 x 2 tray, across days (issue #385, 2026-11-07)
+
+**Label: development check.** Whether a 2 x 2 tray's pots keep the same names in every photo of an
+experiment. Building the data of section 28, the development pot names seemed to swap between some
+days. The check was an open look at existing stills, so its method was written after the run.
+
+### 30.1 Data and method
+
+The 17 development stills of section 28.1 (experiments 2 and 3, nine 2 x 2 trays, tray tags 76 to
+81 and 85 to 87, 30 October to 6 November). The stills are on the development rig; read-only copies
+were checked on the controller (`~/scratch/375-cell-floor/raw/dev/`, not kept). The plants on
+trays 79, 81, 85 and 87 grew much larger than is usual in the chamber (Aaron, 2026-11-07).
+
+Each pot was identified without its name: between tray moves by matching pot pictures from photo
+to photo, and across moves by marks on the tray itself (an empty pot hole on trays 86 and 87, a
+sand spill on tray 81, a notch on tray 79's rim, leaf shapes on tray 80). Every outline lay
+portrait in every photo, so a tray could only have turned by 0 or 180 degrees. For each tray and
+day, the pot carrying each name was compared with the pot carrying it on the first day.
+
+### 30.2 Result
+
+Tag heading on the photo, degrees clockwise from north, at each move of the trays:
+
+| Tray | Experiment 2 | 3 Nov 15:00 UTC | 4 Nov 15:00 UTC | Names |
+|---|---|---|---|---|
+| 76 | 358 | 179 | 181 | right |
+| 77 | 272 | 272 | 270 | right |
+| 78 | 357 | 178 | 174 | right |
+| 79 | 271 | 93 | 272 | right |
+| 80 | 268 | 88 | 270 | right |
+| 81 | 50 | 230 | 327 | **wrong from 4 Nov 15:00** |
+| 85 | 301 | 301 | 300 | right |
+| 86 | 314 | 136 | 319 | right |
+| 87 | 314 | 317 | 317 | right |
+
+**One tray of nine had its names swapped**: tray 81, from 4 November 15:00 UTC to the end of the
+data on 6 November (3 of 7 days). The sand spill shows the tray turned 180 degrees on 3 November,
+its tag with it, and turned back on 4 November. On 4 November the tag turned only 97 degrees and its
+centre moved about 16 mm on the tray: the tag lay loose. From then on each pot carried the name of
+its neighbour in the same row (A1 and A2 swapped, B1 and B2 swapped), in the rig's own stored
+readings as well, with no warning. Tray 79's tag also slid, about 100 mm, and came back turned
+exactly 180 degrees, so its names stayed right by chance. For trays 76, 77, 78 and 85 no mark on
+the tray confirmed the turns; their names rest on the tag heading changing by about 0 or 180
+degrees.
+
+![Tray 81 and tray 86, one still a day, each pot's name in magenta](figures/30/pot-names-trays-81-86.jpg)
+
+*Tray 81 (top) and tray 86 (bottom), 30 October to 6 November, development rig. Magenta: the name
+the rig gives each pot. Below it, white: the same pot as on the first day; red: a different pot.
+Tray 81 is wrong from the eighth still (4 November 15:00 UTC).*
+
+The swap was not caused by rounding near a boundary, by tag detection or by the choice of first
+photo. It was caused by the tag moving on its tray.
+
+### 30.3 What follows
+
+Researchers are told not to move tags and will move, turn and cover them anyway. The rig does not
+try to recover the right names; it marks the tray's cell names as possibly swapped from the photo
+where its tag moved, for the rest of the experiment, and the researcher sorts it out (Aaron,
+2026-11-07). A tag turned exactly 180 degrees in place cannot be seen from the photo; a tag lying
+off the tray's centre still shows it by where the centre lies from the tag
+(`tray_placement.tag_on_tray`). The cut-off for "moved" is to be measured from the tags' spread
+between photos when nothing moved, not chosen.
+
+The Randomize page now reads which way a 2 x 2 tray faces from the same cell A1 as the cell names
+(`randomization.photo_layout`), instead of its own reference angle kept at the first Suggest. Its
+"as first" and "turned" can no longer disagree with the cell names on the same tray.
+
+**Limits.** Nine trays over seven days on one rig, with unusually large plants; tag movement on
+trays with smaller plants may be rarer. Experiment 2's photos had no stored A1, so the names the
+rig's rule would have given there are not known.
