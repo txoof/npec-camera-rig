@@ -457,6 +457,15 @@ metrology log backs it.
   be this small.
 - **Colour drift.** With nothing moved, the camera's white balance gains drifted 0.8% to 0.9% in 30
   minutes (15.3d). What that does to green area is not measured.
+- **One photo against the next, over a long run** (*added 2026-11-09*, metrology log 16.9, a
+  development check, green threshold 0.1 only). On production over 18 days, with nothing moved, the
+  benchmark's area changed by 0.26% (RMS) from one photo to the next on 26 Oct to 5 Nov, 0.58% on
+  6 to 9 Nov and 2.18% on 22 to 25 Oct. A grown plant changed by 26 to 41 mm², a cell by a median
+  of 3 to 4 mm² at every size, 100 to 300 times its growth per minute. The same benchmark read
+  about 3.7% more per 1,000 px from the photo centre, and 17% less in one slot where the mask lost
+  its pale pixels with no leaf over it. The worse periods are described, not explained, and leaf
+  movement is not separated from the rig's error. The new rules of #352 are to be checked the same
+  way (#395).
 
 ### Trays and tags (round 1, 2026-10-19)
 

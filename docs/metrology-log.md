@@ -5077,6 +5077,148 @@ area is known for any tray. The benchmark is one flat plastic piece on a card. F
 movement counts as the rig's error. Cell areas cover only the last 3 days. The method was written
 after the run (see 16.6).
 
+#### 16.9 results (2026-11-09)
+
+**Every area here is from the green threshold 0.1**, the only rule in the app. #352 (log 24) showed
+it misses most leaf area. Other rules are to be compared on the same pairs (#395).
+
+**Data and scripts.** The read-only copy of production's `rig.db` of 2026-11-09 10:41 UTC:
+experiment 18, 26,042 photos from 22 Oct 08:41 to 9 Nov 10:40 UTC. Two scripts, written
+separately: `experiments/round2-run/steadiness/script_a.py` (through `analysis.py`) and
+`script_b.py` (from the method text only, with 7 hand-worked tests). Once the two choices below
+were agreed, both gave the same 193,086 undisturbed tray pairs. No pair was in one list and not
+the other, and the changes agree to 0.00005 percentage points. 37 photo pairs spanning an app
+restart were then left out (`restarts.py`), leaving 192,642 tray pairs. Tray 8 keeps 16,006
+pairs, 6,112 of them partly outside the photo. Raw outputs in `~/scratch/223-area-jumps/`, not kept.
+
+**Pairs, all trays together** (26,041 consecutive photo pairs, first reason only): 16,118
+undisturbed, 8,137 with a photo not read (lights off), 999 with an exclusion (light changing,
+lights off, visit), 774 in a shuffle window, 7 across a recorded app start, 6 across the 28 Oct
+duplicate tag photos. Then 37 more across an app restart found from the sidecars.
+
+**Differences from the method.**
+1. **Trays 9 to 12 did not read near zero**, as the method said. The green test squares and the
+   flat target (17.5, 18.5) lay on them until 5 Nov 11:00 UTC: tray 9 about 5,000 mm², tray 10
+   23,000 to 26,500, trays 11 and 12 about 1,050 and 2,260. From then on they read 0 to 1.5 mm².
+2. **Tray 7 is a plant tray only until 5 Nov 11:00 UTC.** The squares were then moved into it
+   (24.4), so it read about 11,000 mm² more.
+3. **App restarts (rule 5).** `app_start` begins on 2 Nov 16:19 UTC, so for the 10,187 earlier
+   undisturbed pairs a restart was read from the later photo's sidecar (`uptime.app_up_s` no longer
+   than the gap): 37 photo pairs, 22 to 28 Oct. All 16,342 sidecars had an uptime.
+4. **Shuffle 0** was given a window like shuffle 1's (60 minutes before its finish), as in
+   section 22's script.
+5. **Tray 8 before the benchmark.** Pairs before 22 Oct 09:34:53 UTC (16.5) were left out (45).
+6. **Slot** from the tray's stored centre, as in 22.1.
+7. **The by-eye top 10 for tray 8** was chosen without point 5, so 9 of its 10 pairs are from
+   before the benchmark was on.
+
+**Question 1, tray 8 (the benchmark).** Change in percent of the mean of the two photos:
+
+| Period | Pairs | Median | 95th pct | RMS | Largest |
+|---|---|---|---|---|---|
+| Whole run | 16,006 | 0.21 | 2.41 | 1.04 | 19.3 |
+| 22 to 25 Oct | 3,314 | 1.34 | 4.35 | 2.18 | 19.3 |
+| 26 Oct to 5 Nov | 9,874 | 0.14 | 0.46 | 0.26 | 3.1 |
+| 6 to 9 Nov | 2,818 | 0.36 | 1.14 | 0.58 | 2.5 |
+
+- **22 to 25 Oct read high and noisy.** In the same slot and turn (North 6, NE), the benchmark read
+  4,363 mm² on 23 to 25 Oct and 4,010 mm² on 27 Oct, 8.8% apart. Its green pixels' centre was pulled
+  off the benchmark and drifted back day by day as the area fell (offset -75, -47, -31 px). The
+  largest changes of 22 Oct were speckle on the blue tray grid. No camera setting changed between
+  25 and 26 Oct (exposure about 5,000 to 4,400 µs, colour gains automatic). Cause not looked for.
+- **6 to 9 Nov, South 4, read low.** 3,123 mm² against 3,647 to 3,689 in the other middle slots.
+  Photos at 12:00 UTC on 29 Oct, 3 Nov, 7 Nov and 8 Nov show the model unchanged and no leaf over it.
+  In South 4 the image is brighter, the model paler, and the mask ragged, missing pale leaf tips.
+  The mean colour inside the mask went from RGB 163, 210, 168 to 184, 221, 185. The trays around it
+  were mostly blue mats by then. All photos of the run are JPEG 75, 4:2:0.
+- **Position.** From 26 Oct to 5 Nov, area rose about 139 mm² per 1,000 px of the benchmark's
+  distance from the photo centre, +3.7% at 3,734 mm². The slope rests on two groups of slots: about
+  2,650 px (South 2, South 5) and 3,950 to 4,230 px (North 1, North 6, South 1). South 4 in
+  6 to 9 Nov lies 11.9% below that line.
+- **Turn.** The benchmark sits 31 to 150 px off its tray's centre, and that offset flips side with
+  the planned turn in all 13 maps. This confirms the turn of tray 8 in every map, which 22.1 could
+  not. In the same slot, the two turns differed by 0.9 to 4.6%. The SW stay always came later, so
+  turn and time are mixed.
+
+![Tray 8 area against distance from the photo centre](figures/16.9/area_vs_distance.png)
+
+*The benchmark's area in each undisturbed photo against the distance of its green pixels' centre
+from the photo centre, by period (colour and marker) and slot. Same database copy.*
+
+![Where the benchmark sat in the photo](figures/16.9/positions.png)
+
+*The benchmark's green-pixel centre in every photo, on the photo frame, by slot and period.*
+
+![Tray 8 in four slots](figures/16.9/tray8-four-slots.jpg)
+
+*Tray 8 at 12:00 UTC on 29 Oct (South 2), 3 Nov (South 5), 7 and 8 Nov (South 4). Red: tray
+outline. Magenta: the edge of the saved mask. The model is the same; in South 4 the mask misses
+pale tips.*
+
+**Question 1, trays 1 to 7 (the plants).**
+
+| Tray | Pairs | Median % | 95th pct % | RMS % | RMS % 26 Oct to 5 Nov | 6 to 8 Nov: median area mm², RMS %, RMS mm² |
+|---|---|---|---|---|---|---|
+| 1 | 16,077 | 3.46 | 19.4 | 8.65 | 6.93 | 1,529, 2.89, 41 |
+| 2 | 16,069 | 3.61 | 12.7 | 6.24 | 6.19 | 894, 4.48, 38 |
+| 3 | 16,079 | 3.23 | 12.6 | 6.00 | 6.10 | 1,173, 3.48, 41 |
+| 4 | 16,075 | 3.73 | 19.4 | 9.00 | 9.17 | 1,061, 2.56, 26 |
+| 5 | 16,080 | 3.69 | 19.1 | 9.75 | 8.84 | 1,245, 3.09, 37 |
+| 6 | 16,079 | 3.67 | 20.0 | 9.80 | 6.70 | 1,219, 2.92, 33 |
+| 7 (to 5 Nov 11:00) | 12,545 | 1.64 | 16.9 | 7.00 | 2.40 | (squares) |
+
+- **The change is about the same in mm² as the plants grow,** so its percent falls: 26 to 41 mm²
+  (2.6 to 4.5%) on 6 to 8 Nov, against 6 to 10% over the whole run, which the small early sprouts
+  dominate.
+- **Growth per minute** (median of the days, per tray) was 0.010 to 0.031%, 100 to 300 times smaller
+  than the change between photos. The change is the rig's plus leaf movement. Leaves move through
+  the day, with the time of day and with stress such as low water (Aaron, 2026-11-09). This run
+  cannot separate fast leaf movement from the rig, so the plant numbers are an upper bound on the
+  rig's error for plants. The benchmark gives the rig alone.
+- Trays 1, 4, 5 and 6 have a 95th percentile near 19 to 20%, trays 2 and 3 near 12.7%. Not explained.
+
+**Question 1, trays 9 to 12.** In mm², per tray and day: RMS 0.2 to 79, largest 1,659 (tray 9,
+26 Oct, while the squares lay on it).
+
+**Question 1, cells** (6 Nov 12:28 to 9 Nov 10:40 UTC, 19 plant cells on each of trays 1 to 7,
+352,279 pairs; no cell marked `over_other_cells`). Per tray, the median change is 2.7 to 4.2 mm²,
+the 95th percentile 10.5 to 16.8 mm², the RMS 5.1 to 8.0 mm² and the largest 35 to 68 mm². The
+median is about the same at every cell size from 10 mm² up, so in percent: 21% at 10 to 20 mm²,
+5.9% at 50 to 100 mm², 0.18% at 1,000 mm² and up. Tray 7's cells hold the squares.
+
+**Question 2, tags found**, lit photos, per tray and movement window:
+
+| Period | Nothing moved | Trays may move |
+|---|---|---|
+| 22 Oct to 5 Nov (the Round 2 result) | 99.4 to 100% | 99.4 to 100% |
+| 6 to 9 Nov | 99.5 to 100% | 94.5 to 99.7% |
+
+The low end of 6 to 9 Nov is shuffle 11 (2 h 17 min, trays off the table). No tray's share fell as
+the plants grew.
+
+**Looked at by eye** (`~/scratch/223-area-jumps/c/`, not kept). Of the 20 largest changes, none is a
+real change on the table. 10 on tray 8 are speckle on the blue grid (9 before the benchmark was
+on). 10 on trays 4 to 6 are seedlings of 2 to 17 mm², where the mask gains or drops a few tips. The
+largest percent changes all come from the smallest areas.
+
+**What it covers.** With the green threshold 0.1, on production over 18 days:
+- One photo's area of a still object changes by about 0.3 to 0.6% (RMS) from the next. It was 2%
+  in the first 4 days.
+- A grown plant's changes by about 30 to 40 mm², and a cell's by a median of 3 to 4 mm².
+- The same object reads about 3.7% more per 1,000 px further from the photo centre (about 5%
+  between the middle and the end slots), and up to 17% less where the mask loses pale pixels.
+
+**Limits of the evidence.**
+- All of 16.6 and 17.3, and one rule only.
+- The method was written after the run.
+- Slot and time are mixed for the benchmark, and turn and time too: each slot was used on
+  different days.
+- The two periods that read worse are described, not explained.
+- Leaf movement is not separated from the rig's error.
+- Cells cover only the last 3 days.
+- The by-eye check of tray 8 looked at the benchmark only once.
+- **Decision, not a measurement:** whether these numbers are small enough is Aaron's call (16.4).
+
 ### 16.7 results: the check on 20 October (2026-10-23)
 
 `read_photos.py ~/scratch/223-analysis/exp16 --experiment 16` read 1390 photo records (1 was
