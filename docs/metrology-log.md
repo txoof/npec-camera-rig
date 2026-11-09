@@ -9173,3 +9173,17 @@ and Aaron's corrections under `experiments/round3-classifier/` when the results 
 **Limits, known before the run.** One photo per day, about 30 cells per rig, one person's
 outlines. Both rigs use the same camera model and lighting type; the model is not shown to hold
 for another rig or camera.
+
+**Amendment, 2026-11-09, after the first cell selection and before any outline is checked or any
+model trained.** The first selection, run as written above, picked cells that are not plant cells.
+On production, trays 7 to 12 hold no plants on any day (empty trays, black pots, tag sheets, a
+target, green paper squares), so 7 of 30 picks were empty blue trays or paper. From 2026-11-06
+every production plant cell lies on a blue mat, so the bluest cells do not pick out mats, and
+development has no mats. The selection is changed to: cells from plant trays only (production
+trays 1 to 6, development trays with pots); mats from production photos of 2026-11-06 on; no mat
+group on development; empty cells from empty pots in plant trays; one green paper square on
+production kept on purpose as a not-plant example. Everything else above is unchanged. The first
+selection is kept (`~/clf-402/drafts-20261109T153525Z/` on `npec-rig-01`) and not used.
+
+*Calibration.* Cells are placed with the calibration the app used for each photo (production
+`20261026T153214381640`); with it, cells placed again match the stored cells to 0.0 px.
