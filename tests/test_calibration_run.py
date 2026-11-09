@@ -127,3 +127,58 @@ def test_a_rebuild_makes_a_twin_from_tag_spacing_and_leaves_the_original(isolate
     assert twin.rebuilt_from == "20261022T072523939958"
     assert twin.frame_stem == "20261022T072502150851"
     assert original.read_bytes() == before
+
+
+def test_a_corner_tag_covered_on_the_full_photo_is_saved_and_named(isolated_settings_db, monkeypatch, tmp_path):
+    # #349: the preview finds all 4 corner tags, the full-size photo only 3 (tag 455, placed by
+    # hand at the bottom left of the photo, the table's SW corner, is covered). The calibration is
+    # saved and made current, and the result names the tag and its corner.
+    from npec_rig import calibration_run, calibration_store, photo_tags
+    from npec_rig.camera import CameraManager
+
+    from tests.web.tag_scenes import CALIBRATION_TAGS, FOUR_CORNER_TAGS
+
+    monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+    monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
+    three_corner_tags = [d for d in FOUR_CORNER_TAGS if d.tag_id != 455]
+
+    def detect(frame):
+        # The preview is a 4-channel main-stream frame, the full-size photo has 3 channels.
+        corner_tags = FOUR_CORNER_TAGS if frame.shape[2] == 4 else three_corner_tags
+        return CALIBRATION_TAGS + corner_tags
+
+    monkeypatch.setattr(photo_tags, "detect_tags", detect)
+    manager = CameraManager.instance()
+    manager.set_lens_position(6.3)
+    manager.lock_focus()
+
+    result = calibration_run.run()
+
+    assert "error" not in result
+    assert result["warnings"] == [
+        "Corner tag 455 cannot be seen in the SW corner of the table. Check that it is not missing or covered."
+    ]
+    assert calibration_store.load_current_calibration() is not None
+
+
+def test_with_the_override_a_covered_corner_tag_is_named_from_the_previous_calibration(
+    isolated_settings_db, monkeypatch, tmp_path
+):
+    # #349: the override takes no preview, so the tags of the calibration it replaces say where
+    # each corner tag should be. Tag 451, placed by hand at the top right (NE), is covered.
+    from npec_rig import calibration_run, photo_tags
+
+    from tests.web.tag_scenes import CALIBRATION_TAGS, FOUR_CORNER_TAGS
+
+    monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+    monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: CALIBRATION_TAGS + FOUR_CORNER_TAGS)
+    calibration_run.run(override_focus_gate=True)
+
+    three_corner_tags = [d for d in FOUR_CORNER_TAGS if d.tag_id != 451]
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: CALIBRATION_TAGS + three_corner_tags)
+    result = calibration_run.run(override_focus_gate=True)
+
+    assert result["warnings"] == [
+        "Corner tag 451 cannot be seen in the NE corner of the table. Check that it is not missing or covered."
+    ]

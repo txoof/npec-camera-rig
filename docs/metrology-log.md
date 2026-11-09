@@ -5011,6 +5011,214 @@ run: 3 of about 1660 tray-tag reads to 11:00 UTC. Whether a smaller `minMarkerDi
 tray tags changes anything else: not tested on the 15.3e stills or the 20 October photos. No code
 was changed.
 
+### 16.9 The whole run: steadiness with area, and tags found (issue #223, method written 2026-11-09, before the whole-run results)
+
+**Label: development check.** Questions 1 and 2 of section 16 over the whole run, now that
+area exists. Question 3 is answered in 22.1.
+
+**When this was written.** On 2026-11-09, the morning the last shuffle (12) was done, before any
+whole-run table of area changes or tags found was made. Already seen: 17.4's results for
+22 and 23 October; the tag shares per tray per day of 22.1 (97.0 to 100%); and, to see the size of
+the numbers, the mean area of trays 1, 8 and 9 over two single hours: about 51, 4,530 and
+69 mm² on 23 October, and 1,490, 3,030 and 0 mm² on 8 November. The questions below were written
+knowing those figures.
+
+**What changed since 16.3 and 16.4.**
+- Area exists: the green threshold 0.1 (17.1), stored with each tray reading, and with each cell
+  from 6 Nov 12:28 UTC (#364). Every reading of the run comes from the re-read of 2 November.
+- Trays 1 to 7 carry growing potato plants. Trays 9 to 12 hold black pots and read nearly no area.
+  Tray 8 carries the benchmark, the only object of the run that does not grow and has an area.
+- Exclusions are stored per photo (#288, #382): `light changing`, `lights off`, `visit`.
+- The run is not stopped: photos after 9 Nov 10:40 UTC are not used.
+
+**Data.** A read-only copy of production's `rig.db`, taken 2026-11-09 at 10:41 UTC (schema 24).
+Production is not written to. Photos needed for looking by eye are copied from production to the
+controller, read-only, with their saved masks.
+
+**Undisturbed pairs.** Rules 1 to 5 of 16.3, with these added:
+
+6. Neither photo has an exclusion (`light changing`, `lights off`, `visit`), as stored.
+7. Rule 1 uses the full shuffle record (`sessions/shuffle-record-2026-10-22.csv`). A shuffle runs
+   from its start (shuffle 1: 60 minutes before its finish) to its finish, widened by 15 minutes
+   on each side, as in section 22. The 60 and 15 minutes are choices.
+8. Per tray: the tray is read in both photos, with placement `placed`, in the same slot, and with
+   none of the warnings `no tag`, `tag seen, tray not found in the photo` or `two tags in one
+   tray outline`. Pairs with `partly outside the photo` are kept and counted apart.
+9. The photos of 28 Oct 08:47:53 to 08:50:01 UTC (17.12) are left out.
+
+**Question 1: steadiness with area.** For each tray and each undisturbed pair: the change in area,
+later minus earlier, in mm², and as a percentage of the mean of the two.
+- **Tray 8, the still scene.** Per day and per slot: pairs, median, 95th percentile, root mean
+  square and largest of the change in percent, and the mean area with its standard deviation.
+  This is the rig's own error from one photo to the next.
+- **Trays 1 to 7, the plants.** The same, per tray and per day. In one minute a plant grows much
+  less than the rig's change from photo to photo (Aaron, 2026-11-09). This is checked, not
+  assumed: per tray and day, the growth per minute is the change between the median areas of two
+  following days' undisturbed photos, divided by the minutes between them. It is reported beside
+  the change.
+- **Trays 9 to 12.** The change in mm² only, since a percentage of nearly zero means nothing.
+- **Cells**, from 6 Nov 12:28 UTC: the same for each plant cell of trays 1 to 7, with pairs where
+  a cell is marked `over_other_cells` counted apart.
+- Two scripts, written separately from this text, make the tray tables; their pair counts and
+  root mean squares are compared and must agree.
+
+**Question 2: tags found.** As in 16.4, per tray, per chamber day and per movement window, for
+lit photos (no exclusion `lights off`). Photos to the end of 5 November (chamber time) are the
+Round 2 result; 6 to 9 November is reported apart (16.5).
+
+**Looked at by eye.** The 10 largest changes in percent on tray 8, and the 10 largest on trays 1
+to 7, among undisturbed pairs. For each, both photos are cut to the tray, with the mask's edge
+drawn in magenta, side by side, and what changed is described. The 10 is a choice.
+
+No threshold is set for what size of change matters (16.4).
+
+**Limits of the evidence (as planned).** All of 16.6 and 17.3. One segmenter, not tuned. No true
+area is known for any tray. The benchmark is one flat plastic piece on a card. For plants, leaf
+movement counts as the rig's error. Cell areas cover only the last 3 days. The method was written
+after the run (see 16.6).
+
+#### 16.9 results (2026-11-09)
+
+**Every area here is from the green threshold 0.1**, the only rule in the app. #352 (log 24) showed
+it misses most leaf area. Other rules are to be compared on the same pairs (#395).
+
+**Data and scripts.** The read-only copy of production's `rig.db` of 2026-11-09 10:41 UTC:
+experiment 18, 26,042 photos from 22 Oct 08:41 to 9 Nov 10:40 UTC. Two scripts, written
+separately: `experiments/round2-run/steadiness/script_a.py` (through `analysis.py`) and
+`script_b.py` (from the method text only, with 7 hand-worked tests). Once the two choices below
+were agreed, both gave the same 193,086 undisturbed tray pairs. No pair was in one list and not
+the other, and the changes agree to 0.00005 percentage points. 37 photo pairs spanning an app
+restart were then left out (`restarts.py`), leaving 192,642 tray pairs. Tray 8 keeps 16,006
+pairs, 6,112 of them partly outside the photo. Raw outputs in `~/scratch/223-area-jumps/`, not kept.
+
+**Pairs, all trays together** (26,041 consecutive photo pairs, first reason only): 16,118
+undisturbed, 8,137 with a photo not read (lights off), 999 with an exclusion (light changing,
+lights off, visit), 774 in a shuffle window, 7 across a recorded app start, 6 across the 28 Oct
+duplicate tag photos. Then 37 more across an app restart found from the sidecars.
+
+**Differences from the method.**
+1. **Trays 9 to 12 did not read near zero**, as the method said. The green test squares and the
+   flat target (17.5, 18.5) lay on them until 5 Nov 11:00 UTC: tray 9 about 5,000 mm², tray 10
+   23,000 to 26,500, trays 11 and 12 about 1,050 and 2,260. From then on they read 0 to 1.5 mm².
+2. **Tray 7 is a plant tray only until 5 Nov 11:00 UTC.** The squares were then moved into it
+   (24.4), so it read about 11,000 mm² more.
+3. **App restarts (rule 5).** `app_start` begins on 2 Nov 16:19 UTC, so for the 10,187 earlier
+   undisturbed pairs a restart was read from the later photo's sidecar (`uptime.app_up_s` no longer
+   than the gap): 37 photo pairs, 22 to 28 Oct. All 16,342 sidecars had an uptime.
+4. **Shuffle 0** was given a window like shuffle 1's (60 minutes before its finish), as in
+   section 22's script.
+5. **Tray 8 before the benchmark.** Pairs before 22 Oct 09:34:53 UTC (16.5) were left out (45).
+6. **Slot** from the tray's stored centre, as in 22.1.
+7. **The by-eye top 10 for tray 8** was chosen without point 5, so 9 of its 10 pairs are from
+   before the benchmark was on.
+
+**Question 1, tray 8 (the benchmark).** Change in percent of the mean of the two photos:
+
+| Period | Pairs | Median | 95th pct | RMS | Largest |
+|---|---|---|---|---|---|
+| Whole run | 16,006 | 0.21 | 2.41 | 1.04 | 19.3 |
+| 22 to 25 Oct | 3,314 | 1.34 | 4.35 | 2.18 | 19.3 |
+| 26 Oct to 5 Nov | 9,874 | 0.14 | 0.46 | 0.26 | 3.1 |
+| 6 to 9 Nov | 2,818 | 0.36 | 1.14 | 0.58 | 2.5 |
+
+- **22 to 25 Oct read high and noisy.** In the same slot and turn (North 6, NE), the benchmark read
+  4,363 mm² on 23 to 25 Oct and 4,010 mm² on 27 Oct, 8.8% apart. Its green pixels' centre was pulled
+  off the benchmark and drifted back day by day as the area fell (offset -75, -47, -31 px). The
+  largest changes of 22 Oct were speckle on the blue tray grid. No camera setting changed between
+  25 and 26 Oct (exposure about 5,000 to 4,400 µs, colour gains automatic). Cause not looked for.
+- **6 to 9 Nov, South 4, read low.** 3,123 mm² against 3,647 to 3,689 in the other middle slots.
+  Photos at 12:00 UTC on 29 Oct, 3 Nov, 7 Nov and 8 Nov show the model unchanged and no leaf over it.
+  In South 4 the image is brighter, the model paler, and the mask ragged, missing pale leaf tips.
+  The mean colour inside the mask went from RGB 163, 210, 168 to 184, 221, 185. The trays around it
+  were mostly blue mats by then. All photos of the run are JPEG 75, 4:2:0.
+- **Position.** From 26 Oct to 5 Nov, area rose about 139 mm² per 1,000 px of the benchmark's
+  distance from the photo centre, +3.7% at 3,734 mm². The slope rests on two groups of slots: about
+  2,650 px (South 2, South 5) and 3,950 to 4,230 px (North 1, North 6, South 1). South 4 in
+  6 to 9 Nov lies 11.9% below that line.
+- **Turn.** The benchmark sits 31 to 150 px off its tray's centre, and that offset flips side with
+  the planned turn in all 13 maps. This confirms the turn of tray 8 in every map, which 22.1 could
+  not. In the same slot, the two turns differed by 0.9 to 4.6%. The SW stay always came later, so
+  turn and time are mixed.
+
+![Tray 8 area against distance from the photo centre](figures/16.9/area_vs_distance.png)
+
+*The benchmark's area in each undisturbed photo against the distance of its green pixels' centre
+from the photo centre, by period (colour and marker) and slot. Same database copy.*
+
+![Where the benchmark sat in the photo](figures/16.9/positions.png)
+
+*The benchmark's green-pixel centre in every photo, on the photo frame, by slot and period.*
+
+![Tray 8 in four slots](figures/16.9/tray8-four-slots.jpg)
+
+*Tray 8 at 12:00 UTC on 29 Oct (South 2), 3 Nov (South 5), 7 and 8 Nov (South 4). Red: tray
+outline. Magenta: the edge of the saved mask. The model is the same; in South 4 the mask misses
+pale tips.*
+
+**Question 1, trays 1 to 7 (the plants).**
+
+| Tray | Pairs | Median % | 95th pct % | RMS % | RMS % 26 Oct to 5 Nov | 6 to 8 Nov: median area mm², RMS %, RMS mm² |
+|---|---|---|---|---|---|---|
+| 1 | 16,077 | 3.46 | 19.4 | 8.65 | 6.93 | 1,529, 2.89, 41 |
+| 2 | 16,069 | 3.61 | 12.7 | 6.24 | 6.19 | 894, 4.48, 38 |
+| 3 | 16,079 | 3.23 | 12.6 | 6.00 | 6.10 | 1,173, 3.48, 41 |
+| 4 | 16,075 | 3.73 | 19.4 | 9.00 | 9.17 | 1,061, 2.56, 26 |
+| 5 | 16,080 | 3.69 | 19.1 | 9.75 | 8.84 | 1,245, 3.09, 37 |
+| 6 | 16,079 | 3.67 | 20.0 | 9.80 | 6.70 | 1,219, 2.92, 33 |
+| 7 (to 5 Nov 11:00) | 12,545 | 1.64 | 16.9 | 7.00 | 2.40 | (squares) |
+
+- **The change is about the same in mm² as the plants grow,** so its percent falls: 26 to 41 mm²
+  (2.6 to 4.5%) on 6 to 8 Nov, against 6 to 10% over the whole run, which the small early sprouts
+  dominate.
+- **Growth per minute** (median of the days, per tray) was 0.010 to 0.031%, 100 to 300 times smaller
+  than the change between photos. The change is the rig's plus leaf movement. Leaves move through
+  the day, with the time of day and with stress such as low water (Aaron, 2026-11-09). This run
+  cannot separate fast leaf movement from the rig, so the plant numbers are an upper bound on the
+  rig's error for plants. The benchmark gives the rig alone.
+- Trays 1, 4, 5 and 6 have a 95th percentile near 19 to 20%, trays 2 and 3 near 12.7%. Not explained.
+
+**Question 1, trays 9 to 12.** In mm², per tray and day: RMS 0.2 to 79, largest 1,659 (tray 9,
+26 Oct, while the squares lay on it).
+
+**Question 1, cells** (6 Nov 12:28 to 9 Nov 10:40 UTC, 19 plant cells on each of trays 1 to 7,
+352,279 pairs; no cell marked `over_other_cells`). Per tray, the median change is 2.7 to 4.2 mm²,
+the 95th percentile 10.5 to 16.8 mm², the RMS 5.1 to 8.0 mm² and the largest 35 to 68 mm². The
+median is about the same at every cell size from 10 mm² up, so in percent: 21% at 10 to 20 mm²,
+5.9% at 50 to 100 mm², 0.18% at 1,000 mm² and up. Tray 7's cells hold the squares.
+
+**Question 2, tags found**, lit photos, per tray and movement window:
+
+| Period | Nothing moved | Trays may move |
+|---|---|---|
+| 22 Oct to 5 Nov (the Round 2 result) | 99.4 to 100% | 99.4 to 100% |
+| 6 to 9 Nov | 99.5 to 100% | 94.5 to 99.7% |
+
+The low end of 6 to 9 Nov is shuffle 11 (2 h 17 min, trays off the table). No tray's share fell as
+the plants grew.
+
+**Looked at by eye** (`~/scratch/223-area-jumps/c/`, not kept). Of the 20 largest changes, none is a
+real change on the table. 10 on tray 8 are speckle on the blue grid (9 before the benchmark was
+on). 10 on trays 4 to 6 are seedlings of 2 to 17 mm², where the mask gains or drops a few tips. The
+largest percent changes all come from the smallest areas.
+
+**What it covers.** With the green threshold 0.1, on production over 18 days:
+- One photo's area of a still object changes by about 0.3 to 0.6% (RMS) from the next. It was 2%
+  in the first 4 days.
+- A grown plant's changes by about 30 to 40 mm², and a cell's by a median of 3 to 4 mm².
+- The same object reads about 3.7% more per 1,000 px further from the photo centre (about 5%
+  between the middle and the end slots), and up to 17% less where the mask loses pale pixels.
+
+**Limits of the evidence.**
+- All of 16.6 and 17.3, and one rule only.
+- The method was written after the run.
+- Slot and time are mixed for the benchmark, and turn and time too: each slot was used on
+  different days.
+- The two periods that read worse are described, not explained.
+- Leaf movement is not separated from the rig's error.
+- Cells cover only the last 3 days.
+- The by-eye check of tray 8 looked at the benchmark only once.
+- **Decision, not a measurement:** whether these numbers are small enough is Aaron's call (16.4).
+
 ### 16.7 results: the check on 20 October (2026-10-23)
 
 `read_photos.py ~/scratch/223-analysis/exp16 --experiment 16` read 1390 photo records (1 was
@@ -8738,7 +8946,78 @@ The Randomize page now reads which way a 2 x 2 tray faces from the same cell A1 
 trays with smaller plants may be rarer. Experiment 2's photos had no stored A1, so the names the
 rig's rule would have given there are not known.
 
-## 31. How much a tag that stayed put reads differently between photos (issue #385, method written 2026-11-09, before the run)
+## 31. Corner tags moved inside the table edge (issue #349, written 2026-11-09)
+
+The corner tags (IDs 450 to 499) hung over the table's outer edge on mounts bolted to the T-slot
+rail, where trays collided with them. On the development rig they now lie inside the edge.
+Production (`ac-testing`) keeps the edge mounts until its Round 2 experiment ends and Aaron
+approves the move. Area numbers do not use the corner tags: scale comes only from the calibration
+sheets (section 3). The corner tags give the table frame (the table locations), the health check
+(tripwire) and the level readout.
+
+### 31.1 The move (record, not a measurement)
+
+- **When and where.** Development rig `npec-rig-01`, 2026-11-03 at about 09:22 UTC (10:22 Dutch
+  time), by Aaron.
+- **Tags.** 451, 452, 455 and 456, the same tags as before. Their centres in the first calibration
+  after the move (`20261103T115701405213`, 11:57 UTC), in full-size photo pixels: 456 at (1092,
+  1091), NW; 451 at (8068, 1120), NE; 452 at (8014, 5559), SE; 455 at (1107, 5554), SW.
+- **Not recorded yet.** The new distances from the table edge, the holder that carries the tags,
+  and whether the tags' height changed. Tag 500 is no longer used (PLAN.md, tag table).
+- **Validation after the move.** Session `20261103T115835297753` on that calibration, 3 rounds
+  counted (11:58 to 12:19 UTC). Per slot, the 95th percentile of the area error is 1.03% to 2.78%,
+  the median -1.75% to +1.03%. The last development validation before the move
+  (`20261023T115610391971`, calibration `20261021T140121832677`) gave 1.76% to 3.78%. The two are
+  not yet compared slot by slot; that comparison is what shows the move did not disturb the camera
+  (test 2 in #349).
+- **Development photos from 09:22 to 11:57 UTC.** Read with the calibration of 2026-10-21, its
+  scale and its corner baseline. A health check against that baseline means nothing after the move,
+  and the table locations in that window come from the old table frame. No health check result is
+  stored per photo, so these photos have none.
+
+### 31.2 A corner tag covered at calibration (development check, 2026-11-09)
+
+**What.** Whether a calibration whose full-size photo misses a corner tag says so. Before #397 it
+was saved with no warning, and the table locations then fell back to photo halves without a word.
+Since #397 (merged 2026-11-09) it is saved and its result names the tag and its corner.
+
+**How.** Development rig on the #397 branch (ec51efd), experiment 3 running. Aaron covered the SE
+corner tag (452), laid two calibration sheets on the bare table between the trays (no sheets were
+on the trays, so experiment 3's areas were not touched), and ran calibration with "Set as current
+baseline" off. One run.
+
+**Result.**
+
+- Without the override, the readiness check stopped the run: 3 of 4 corner tags on the preview,
+  "Run calibration anyway?", as before #397.
+- With the override, calibration `20261109T141142742759` was saved with corner tags 451, 455 and
+  456. The page showed "Corner tag 452 cannot be seen in the SE corner of the table. Check that it
+  is not missing or covered." (Aaron). The tag was named from the previous calibration's tags,
+  since the override takes no preview.
+- The current calibration (`20261103T115701405213`) was not replaced.
+
+**Covers.** The override path on the real rig, with the tags in the new position. **Does not
+cover.** A tag seen on the preview but covered on the full-size photo (unit tests only), and a tag
+covered later, in experiment photos (the health check's job).
+
+### 31.3 How close a tray may come to a corner tag (method written 2026-11-09, before the run, not yet run)
+
+**Why.** On the table surface a tray wall (104.8 mm tall) can hide a corner tag from the camera,
+most on the side of the tray away from the image centre. A hidden tag gives a calibration with
+3 tags (31.2) or a health check FAIL that only a new calibration clears.
+
+**How.** Development rig, with the hardware label. 12 trays with plants or 105 mm stand-ins in
+their slots, pushed toward the corner tags. 3 stills, then the trays nearest the tags moved 1 cm
+closer and 3 stills again, until a tag is lost. Instrument: tape measure, distance from the tray
+wall to the nearest edge of the tag's black border, one reading per step.
+
+**Pass.** 4 of 4 corner tags found in every full-size still and the readiness check passes. The
+closest distance that passes, plus one step, becomes the keep-out distance in `reference/trays.md`
+and the operator guide. A number, a decision on margin, and labelled as such.
+
+**Result.** Not yet run.
+
+## 32. How much a tag that stayed put reads differently between photos (issue #385, method written 2026-11-09, before the run)
 
 **Label: development check.** Section 30.3: the rig is to mark a 2 x 2 tray's cell names as
 possibly swapped once its tag has moved on the tray. A tag that never moved still reads a little
@@ -8746,7 +9025,7 @@ differently in each photo, from the corner finding and from the tray outline fou
 This measures that spread, so that the cut-off for "moved" can be set above it. The cut-off itself
 is not chosen here; the result goes to Aaron first.
 
-### 31.1 Method
+### 32.1 Method
 
 - **Data.** The 17 development stills of section 30.1 (experiments 2 and 3, nine 2 x 2 trays), with
   the rig's own stored readings: each tray's outline (`tray_reading.outline_px`) and each photo's
@@ -8769,7 +9048,7 @@ is not chosen here; the result goes to Aaron first.
 The plants on trays 79, 81, 85 and 87 are larger than usual and can hide the tray's edge, which
 moves the outline. The outlines are found at quarter size.
 
-### 31.2 Result (2026-11-09)
+### 32.2 Result (2026-11-09)
 
 152 tray readings over the 17 stills (`~/scratch/385-tag-moved/drift.csv`, script
 `~/scratch/385-tag-moved/code/drift.py`, neither kept). Leaving out each tray's first photo in each
@@ -8794,18 +9073,18 @@ or not it also slid a few millimetres.
 The largest angle change of a tag that stayed put, 2.0 degrees, was seen on trays 78 and 80, both
 after tray moves.
 
-### 31.3 The cut-off, a decision (2026-11-09)
+### 32.3 The cut-off, a decision (2026-11-09)
 
 A 2 x 2 tray's tag counts as turned on its tray when the tray's long side, seen from the tag,
 differs by more than **10 degrees** from the photo that set the tray's A1 (`tray_readings.
 TAG_TURNED_DEG`). A decision, not a measurement (Aaron, 2026-11-09): 5 times the largest change of
-a tag that stayed put (2.0 degrees, 31.2) and about 8 times smaller than tray 81's (83 degrees). To
+a tag that stayed put (2.0 degrees, 32.2) and about 8 times smaller than tray 81's (83 degrees). To
 be checked again as more experiments are read. From the first photo with the tag turned, the
 tray's readings carry "names may be swapped since <time> UTC" for the rest of the experiment, in
 the Gallery and as `names_unsure_since` in the export's cell-readings.csv, whichever order the
 photos were read in. The cell areas themselves are kept and still count.
 
-### 31.4 On development (2026-11-09)
+### 32.4 On development (2026-11-09)
 
 The check ran on development (`385-tag-moved`, 7481d0b) during experiment 3, without Reprocess,
 so only photos read from 14:54 UTC on were checked. Against the photo that set each tray's A1
@@ -8816,7 +9095,7 @@ UTC, was not seen from 11:00 to 12:00 UTC while trays were handled for the Rando
 read 19 to 20 degrees from 12:11 UTC. The picture shows it moved from the tray's middle to its
 edge.
 
-![Tray 86 before and after its tag moved](figures/31/tray86-before-after.jpg)
+![Tray 86 before and after its tag moved](figures/32/tray86-before-after.jpg)
 
 *Tray 86 on development, 9 November 2026, 10:00 UTC (left) and 13:00 UTC (right). The tag moved
 from the middle of the tray to its edge and turned; the tray was also turned round (the empty pot

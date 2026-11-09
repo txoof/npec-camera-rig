@@ -869,7 +869,7 @@ def _readings_of(path: str, tray_id: int) -> dict:
 
 def test_a_2x2_tag_turned_on_its_tray_marks_its_names_as_maybe_swapped_from_that_photo(monkeypatch) -> None:
     """#385, tray 81 of development experiment 3: its tag turned 83 degrees on the tray, which
-    stayed put. Tags that stayed put changed by 2 degrees at most (metrology log 31.2); the cut-off
+    stayed put. Tags that stayed put changed by 2 degrees at most (metrology log 32.2); the cut-off
     is 10 degrees (Aaron, 2026-11-09). The first two photos keep the tag as laid; the third has it
     turned 83 degrees about its centre."""
     experiment = database.create_experiment(uuid="u-385", created_at="2026-11-09T00:00:00+00:00")

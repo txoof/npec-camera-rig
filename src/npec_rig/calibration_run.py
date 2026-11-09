@@ -52,10 +52,13 @@ def readiness() -> dict:
     manager = CameraManager.instance()
     focus_locked = manager.focus_status()["locked"]
     frame = manager.capture_array()
-    corner_tags_detected = len([d for d in photo_tags.detect_tags(frame) if d.tag_id in CORNER_ID_RANGE])
+    corner_tags = [d for d in photo_tags.detect_tags(frame) if d.tag_id in CORNER_ID_RANGE]
+    corner_tags_detected = len(corner_tags)
     return {
         "focus_locked": focus_locked,
         "corner_tags_detected": corner_tags_detected,
+        # Where each was seen, so `run` can name a tag the full-size photo then misses (#349).
+        "corner_tag_centres": {d.tag_id: d.centre for d in corner_tags},
         "corner_tags_required": CORNER_TAGS_REQUIRED,
         "ready": focus_locked and corner_tags_detected >= CORNER_TAGS_REQUIRED,
     }
@@ -74,6 +77,23 @@ def gate_refusal(ready: dict) -> dict | None:
             f"A minimum of {required} is required for a successful calibration."
         )
     return {"error": message, "gate_failed": True, **ready}
+
+
+def missing_corner_tag_warnings(expected: dict, found: list) -> list[str]:
+    """One line for each corner tag in `expected` (tag ID to its centre, from another photo of
+    the same table) that is not among `found`, naming the table corner it lies in: north is the
+    top of the photo and west its left, as for the table locations (dwell.py)."""
+    if not expected:
+        return []
+    mean_x = sum(x for x, _ in expected.values()) / len(expected)
+    mean_y = sum(y for _, y in expected.values()) / len(expected)
+    found_ids = {d.tag_id for d in found}
+    return [
+        f"Corner tag {tag_id} cannot be seen in the {'N' if y < mean_y else 'S'}{'W' if x < mean_x else 'E'} "
+        "corner of the table. Check that it is not missing or covered."
+        for tag_id, (x, y) in sorted(expected.items())
+        if tag_id not in found_ids
+    ]
 
 
 def previous_comparison(
@@ -153,10 +173,13 @@ def run(
     """
     # Checked before anything below: a refused run (no capture, gate_failed) must have no
     # lasting side effects.
+    expected_corner_tags: dict = {}
     if not override_focus_gate:
-        refusal = gate_refusal(readiness())
+        ready = readiness()
+        refusal = gate_refusal(ready)
         if refusal is not None:
             return refusal
+        expected_corner_tags = ready.get("corner_tag_centres", {})
 
     tag_size_mm = calibration_tag_size_mm if calibration_tag_size_mm is not None else (
         ASSUMED_CALIBRATION_TAG_SIZE_MM
@@ -167,6 +190,12 @@ def run(
     # Captured before this run's own save/promote below can overwrite current.json -- the
     # "previous" half of the post-run comparison.
     previous_artifact = load_current_calibration()
+    if not expected_corner_tags and previous_artifact and previous_artifact.corner_baseline:
+        # No preview (the override): where the calibration this run replaces saw them.
+        expected_corner_tags = {
+            tag_id: tuple(sum(c) / len(corners) for c in zip(*corners))
+            for tag_id, corners in previous_artifact.corner_baseline.corners_by_id.items()
+        }
 
     array, photo = take_photo("calibration")
     frame_height, frame_width = array.shape[0], array.shape[1]
@@ -186,6 +215,8 @@ def run(
         "frame_path": str(calibration_frame_path(stem)),
         # Recorded, not a gate (Aaron, 2026-10-08): the run is promoted as before.
         "photo_flags": photo["flags"],
+        # Saved all the same: areas do not use the corner tags (Aaron, 2026-11-09, #349).
+        "warnings": missing_corner_tag_warnings(expected_corner_tags, corner_detections),
     }
 
     try:

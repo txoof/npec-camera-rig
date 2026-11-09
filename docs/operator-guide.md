@@ -54,6 +54,8 @@ Repeat all three steps after any of these:
   position (with this camera, about 1.2 percentage points of area per 0.1 of lens position), so a
   new focus needs its own calibration and validation.
 - **Moving or knocking the camera**, or changing the table or tray heights.
+- **Moving a corner tag**, or laying one down again. The rig checks the camera against the corner
+  tags' places at calibration, so a moved tag needs a new calibration.
 - **A validation that reads "Not consistent"** after you have fixed what it named.
 
 While focus is locked the page reads "Focus is locked at" the lens position, and the lens controls
@@ -66,6 +68,15 @@ button next to it. It restarts the camera connection (about 2 seconds) and moves
 where it was; the focus stays locked if the camera confirms the position. The app has already
 tried this once by itself before showing the message. If the reset does not help, the page says so,
 and the app itself has to be restarted.
+
+## Keep the corner tags uncovered
+
+The four corner tags (50 mm) show the rig where the table is and whether the camera has moved.
+Keep trays, sheets, plants and blue mats off them and clear of them. If a calibration reports
+"Corner tag 452 cannot be seen in the SE corner of the table. Check that it is not missing or
+covered.", the calibration is saved and areas are not affected, but the health check and the
+table locations have only 3 tags: uncover the tag and calibrate again. How close a tray may come
+to a tag is not measured yet (metrology log section 31.3).
 
 ## Keep spare tag prints out of view
 

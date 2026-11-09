@@ -75,7 +75,7 @@ POLL_S = 5.0
 
 # A 2 x 2 tray's tag turned on its tray by more than this, from where it lay in the tray's first
 # photo, marks the tray's cell names as maybe swapped from that photo on (#385). Tags that stayed
-# put changed by up to 2.0 degrees, tray 81's moved tag by 83 (metrology log 31.2). A decision
+# put changed by up to 2.0 degrees, tray 81's moved tag by 83 (metrology log 32.2). A decision
 # (Aaron, 2026-11-09), not a measurement: 5 times the largest change of a tag that stayed put.
 TAG_TURNED_DEG = 10.0
 TAG_TURNED = "tag turned on tray"
@@ -328,7 +328,7 @@ def _tag_turned(tray: TrayPlacement, tag: TagDetection, scale_field, record: dic
     """Whether a 2 x 2 tray's tag lies turned on the tray, by more than TAG_TURNED_DEG, from where
     it lay in the photo that set the tray's A1 bearing (`database.first_a1_reading`): its cell
     names may then be swapped (#385). Only the angle: where the tray's centre lies from the tag
-    moves by up to 22 mm with the outline found in each photo (metrology log 31.2). False when that
+    moves by up to 22 mm with the outline found in each photo (metrology log 32.2). False when that
     photo's tag or outline cannot be read."""
     first = database.first_a1_reading(record.get("experiment_id"), tray.tray_id)
     if first is None or first["path"] == record.get("path"):

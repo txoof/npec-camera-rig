@@ -179,7 +179,9 @@ in the south row (`dwell.py`). The rows meet halfway between the northern and th
 corner tags, through the calibration's table frame (the homography of the four corner tags); the
 columns are thirds of the photo's width along each row of the table. With no table frame (a
 calibration without four corner tags, or a photo with no calibration), the photo itself is halved
-and cut in thirds. A tray's centre decides its location. A tray is in a new location only after it has
+and cut in thirds; a calibration without four corner tags names the missing tag when it is made
+(#349). Moving the corner tags moves the line between the rows, so locations compare only within
+one calibration. A tray's centre decides its location. A tray is in a new location only after it has
 been away from its location for over 1 hour (from its first to its last photo elsewhere, in any
 other locations together), and then in the one it was in longest in that time; shorter stays,
 misses and the tray taken off the table for up to 48 hours do not break its stay. A tray missing

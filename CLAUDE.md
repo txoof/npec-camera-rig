@@ -465,6 +465,11 @@ limits: where one does not work for a page, choose what does and say why in the 
   (metrology log 15.5h to 15.5k, #220); cell A1 holds no plant. Tray
   tags (IDs 0 to 299) are read with finer bit sampling, calibration and corner tags with the frozen
   settings (`tags._tray_detector_parameters`, metrology log 15.3e, #192).
+- **Corner tags (450 to 499) lie inside the table edge on development since 2026-11-03 09:22 UTC;
+  production keeps them on the outer-edge mounts until Round 2 ends** (#349, metrology log 31).
+  Keep trays clear of them; the distance is not measured yet (31.3). Moving a tag needs a new
+  calibration: the old corner baseline means nothing after it. A calibration whose photo misses
+  one is saved and names it (#397).
 - **Trays touch.** Researchers will not reliably leave gaps, so tray splitting must work with trays
   touching (`reference/trays.md`).
 
