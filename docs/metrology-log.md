@@ -8527,4 +8527,28 @@ next to a visit or a single exposure step. **What would show it fails.** Daytime
 mostly "searching" (the mode switch), or dark photos "converged" (the auto-exposure at its limit
 counting itself settled). If it fails, lights off stays at E of 200,000, labelled a decision.
 
-**Result.** Not run yet.
+**Result (2026-11-09).** 1,312 photos of experiment 3 from 8 November 11:08 to 9 November
+09:00 UTC (`experiments/382-light-ramps/data/night_result.txt`, from `code/night.py`):
+
+| Group (from the E series alone) | Photos | Converged | Searching |
+|---|---|---|---|
+| Dark: E at the night's highest, 265,860, held | 450 | 0 | 450 |
+| Ramp: flagged by N-pad (00:00 down, 08:00 up, and daytime steps) | 62 | 58 | 4 |
+| Steady daytime | 800 | 800 | 0 |
+
+The state marks the dark and nothing else: every dark photo searching, every steady daytime photo
+converged, so the switch to the full-size mode does not leave it searching. During the ramps the
+auto-exposure keeps up minute to minute and reads converged from the second minute on; only the
+photos next to darkness read searching (00:28 to 00:31, 08:00 and 08:01 UTC). So the state alone
+does not find ramps, and N-pad is needed for them, as planned. The rule built from this:
+"lights off" when the state is searching, "light changing" by N-pad, nothing else (#382).
+
+On the branch's next update the app worked experiment 3's 8,405 photos out again on its first
+photo: 2,713 lights off, 373 light changing, none of the old names; the Gallery shows them
+(`~/development-snapshots/382/`).
+
+**Limits of the evidence.** One night, one light program, one camera (the development rig's
+Arducam 64MP, libcamera 0.7.2); production runs the same libcamera and was not checked. A dimming
+that stops above darkness, or a dark period with some light, was not seen: whether the
+auto-exposure then still reads searching is not known. Photos saved before version 24 have no
+state and are judged by E of 200,000 (17.7).
