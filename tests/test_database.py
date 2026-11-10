@@ -470,3 +470,38 @@ def test_version_24_keeps_a_photo_from_version_23_with_no_auto_exposure_state(mo
     row = database.captures_by_path(["rig/2026-11-06/004000_000000"])["rig/2026-11-06/004000_000000"]
     assert (row["exposure_us"], row["analogue_gain"]) == (66465, 4.0)
     assert row["ae_state"] is None
+
+
+def test_version_25_keeps_tray_and_cell_readings_from_version_24_with_no_grown_areas(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#363: a reading saved before grow from leaf cores was stored keeps its fixed green cutoff
+    area, tray and cell; its grown areas, soil level and cutoff are empty."""
+    with monkeypatch.context() as m:
+        m.setattr(database, "MIGRATIONS", database.MIGRATIONS[:24])
+        m.setattr(database, "SCHEMA_VERSION", 24)
+        with sqlite3.connect(db_path()) as conn:
+            database.migrate(conn)
+            conn.execute("INSERT INTO capture (id, taken_at, path, purpose, flags) VALUES (9, 't', 'p', 'capture', '[]')")
+            conn.execute("INSERT INTO tray_read (capture_id, read_at, status) VALUES (9, 'r', 'read')")
+            conn.execute(
+                "INSERT INTO tray_reading (capture_id, tray_id, placement, centre_x_px, centre_y_px, tilt_deg,"
+                " area_mm2, segmenter, plant_px) VALUES (9, 5, 'placed', 10.5, 20.5, 0.0, 1234.5, 'green threshold, 0.1', 678)"
+            )
+            conn.execute(
+                "INSERT INTO cell_reading (capture_id, tray_id, cell, holds, centre_x_px, centre_y_px, corners,"
+                " plant_px, area_mm2, over_other_cells, segmenter) VALUES (9, 5, 'B3', 'plant', 1.0, 2.0, '[]', 90, 9.5, 0,"
+                " 'green threshold, 0.1')"
+            )
+            conn.commit()
+    with sqlite3.connect(db_path()) as conn:
+        assert database.migrate(conn) == database.SCHEMA_VERSION
+    [tray] = database.tray_readings(9)["trays"]
+    assert (tray["area_mm2"], tray["plant_px"]) == (1234.5, 678)
+    assert {k: tray[k] for k in tray if k.startswith("grown_")} == {
+        "grown_method": None, "grown_area_mm2": None, "grown_plant_px": None, "grown_plant_centre_px": None,
+        "grown_soil_level": None, "grown_lower_cutoff": None,
+    }
+    [cell] = tray["cells"]
+    assert (cell["area_mm2"], cell["plant_px"]) == (9.5, 90)
+    assert {k: cell[k] for k in cell if k.startswith("grown_")} == {
+        "grown_area_mm2": None, "grown_plant_px": None, "grown_plant_centre_px": None, "grown_over_other_cells": None,
+    }
