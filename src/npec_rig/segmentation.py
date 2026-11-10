@@ -107,14 +107,16 @@ def grow_from_cores(rgb: np.ndarray, inside: np.ndarray, tag_corners=(), lower_c
     given."""
     import cv2
 
+    # The working arrays are each the box's size: about 3M pixels for a tray of a 64MP photo.
+    lo = np.minimum(np.minimum(rgb[..., 0], rgb[..., 1]), rgb[..., 2])
+    hi = np.maximum(np.maximum(rgb[..., 0], rgb[..., 1]), rgb[..., 2])
+    white = ((lo > GROWN_WHITE_MIN) & (hi - lo < GROWN_WHITE_SPREAD)).astype(np.uint8)
+    del lo, hi
     r, g, b = (rgb[..., i].astype(np.float32) for i in range(3))
     exg = (2 * g - r - b) / (r + g + b + 1e-6)
     notblue = ~((b > r + GROWN_BLUE_MARGIN) & (b > g + GROWN_BLUE_MARGIN))
     core = (exg > GROWN_CORE_MIN) & (g > r)
-    lo, hi = np.minimum(np.minimum(r, g), b), np.maximum(np.maximum(r, g), b)
     del r, g, b
-    white = ((lo > GROWN_WHITE_MIN) & (hi - lo < GROWN_WHITE_SPREAD)).astype(np.uint8)
-    del lo, hi
     _n, labels, stats, _ = cv2.connectedComponentsWithStats(white, connectivity=8)
     big = np.flatnonzero(stats[:, cv2.CC_STAT_AREA] >= GROWN_WHITE_MIN_PX)
     no_plant = cv2.dilate(np.isin(labels, big[big > 0]).astype(np.uint8), np.ones((GROWN_WHITE_WIDEN_PX,) * 2, np.uint8))
