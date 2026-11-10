@@ -99,44 +99,122 @@ class GrownPlant:
 
 
 def grow_from_cores(rgb: np.ndarray, inside: np.ndarray, tag_corners=(), lower_cutoff: float | None = None) -> GrownPlant:
-    """The plant in one tray box `rgb` (H x W x 3, R G B), counted only where `inside` (H x W, the
-    tray outline) is True and away from the tray tag (`tag_corners`: each detection's four corners,
-    in the box's pixels) and white paper. Pieces of pixels greener than the lower cutoff (joined
-    side or corner, never through blue) count when they hold a leaf core. The lower cutoff is set
-    from the soil level, the commonest greenness inside the tray below GROWN_SOIL_MAX, unless
-    given."""
+    """The plant in one tray box `rgb` (H x W x 3, R G B, 0 to 255), counted only where `inside`
+    (H x W, the tray outline) is True and away from the tray tag (`tag_corners`: each detection's
+    four corners, in the box's pixels) and white paper. Pieces of pixels greener than the lower
+    cutoff (joined side or corner, never through blue) count when they hold a leaf core. The lower
+    cutoff is set from the soil level, the commonest greenness inside the tray below
+    GROWN_SOIL_MAX, unless given."""
     import cv2
 
-    # The working arrays are each the box's size: about 3M pixels for a tray of a 64MP photo.
-    lo = np.minimum(np.minimum(rgb[..., 0], rgb[..., 1]), rgb[..., 2])
-    hi = np.maximum(np.maximum(rgb[..., 0], rgb[..., 1]), rgb[..., 2])
-    white = ((lo > GROWN_WHITE_MIN) & (hi - lo < GROWN_WHITE_SPREAD)).astype(np.uint8)
+    # Whole numbers throughout: a pixel's greenness depends only on its green and on red plus
+    # blue, so it is looked up in `_greenness_table`, worked out once the reference's way, and no
+    # box-sized array of floats is made. The working arrays are each the box's size: about 3M
+    # pixels for a tray of a 64MP photo.
+    r, g, b = cv2.split(np.ascontiguousarray(rgb, dtype=np.uint8))
+    lo, hi = cv2.min(cv2.min(r, g), b), cv2.max(cv2.max(r, g), b)
+    white = cv2.bitwise_and(cv2.compare(lo, GROWN_WHITE_MIN, cv2.CMP_GT),
+                            cv2.compare(cv2.subtract(hi, lo), GROWN_WHITE_SPREAD, cv2.CMP_LT))
     del lo, hi
-    r, g, b = (rgb[..., i].astype(np.float32) for i in range(3))
-    exg = (2 * g - r - b) / (r + g + b + 1e-6)
-    notblue = ~((b > r + GROWN_BLUE_MARGIN) & (b > g + GROWN_BLUE_MARGIN))
-    core = (exg > GROWN_CORE_MIN) & (g > r)
-    del r, g, b
-    _n, labels, stats, _ = cv2.connectedComponentsWithStats(white, connectivity=8)
-    big = np.flatnonzero(stats[:, cv2.CC_STAT_AREA] >= GROWN_WHITE_MIN_PX)
-    no_plant = cv2.dilate(np.isin(labels, big[big > 0]).astype(np.uint8), np.ones((GROWN_WHITE_WIDEN_PX,) * 2, np.uint8))
-    del white, labels
+    # Not blue: blue above red and green by no more than the margin.
+    notblue = cv2.compare(cv2.subtract(b, cv2.max(r, g)), GROWN_BLUE_MARGIN, cv2.CMP_LE)
+    red_blue = cv2.add(r, b, dtype=cv2.CV_16U)
+    core = cv2.bitwise_and(_greener(g, red_blue, GROWN_CORE_MIN), cv2.compare(g, r, cv2.CMP_GT))
+    del r, b
+    no_plant = np.zeros(white.shape, dtype=np.uint8)
+    # Only pieces of at least GROWN_WHITE_MIN_PX pixels are left out: none without that many.
+    if cv2.countNonZero(white) >= GROWN_WHITE_MIN_PX:
+        _n, labels, stats, _ = cv2.connectedComponentsWithStats(white, connectivity=8)
+        big = [k for k in range(1, len(stats)) if stats[k, cv2.CC_STAT_AREA] >= GROWN_WHITE_MIN_PX]
+        if big:
+            no_plant = cv2.dilate(_pieces(labels, stats, big), np.ones((GROWN_WHITE_WIDEN_PX,) * 2, np.uint8))
+        del labels
+    del white
     for corners in tag_corners:
         c = np.asarray(corners, dtype=np.float64)
         centre = c.mean(axis=0)
         cv2.fillPoly(no_plant, [np.round(centre + GROWN_TAG_ENLARGE * (c - centre)).astype(np.int32).reshape(-1, 1, 2)], 1)
-    sel = inside & (no_plant == 0)
+    sel = cv2.bitwise_and(cv2.compare(no_plant, 0, cv2.CMP_EQ), inside.view(np.uint8) * np.uint8(255))
     del no_plant
-    soil_level = _soil_level(exg[sel & notblue])
+    soil_level = _soil_level(_greenness_table(), _counts(g, red_blue, cv2.bitwise_and(sel, notblue)))
     if lower_cutoff is None:
         lower_cutoff = GROWN_FLOOR if soil_level is None else max(GROWN_FLOOR, soil_level + GROWN_GAP)
-    low = ((exg > lower_cutoff) & notblue & sel).astype(np.uint8)
-    del exg, notblue
-    n, labels = cv2.connectedComponents(low, connectivity=8, ltype=cv2.CV_32S)
-    keep = np.zeros(n, dtype=bool)
-    keep[np.unique(labels[core & sel])] = True
-    keep[0] = False
-    return GrownPlant(keep[labels], soil_level, float(lower_cutoff))
+    low = cv2.bitwise_and(cv2.bitwise_and(_greener(g, red_blue, lower_cutoff), notblue), sel)
+    del g, red_blue, notblue
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(low, connectivity=8, ltype=cv2.CV_32S)
+    seeded = np.zeros(n, dtype=bool)
+    seeded[labels[cv2.bitwise_and(core, sel) > 0]] = True
+    seeded[0] = False
+    return GrownPlant(_pieces(labels, stats, np.flatnonzero(seeded)) > 0, soil_level, float(lower_cutoff))
+
+
+def _greener(g: np.ndarray, red_blue: np.ndarray, cutoff: float) -> np.ndarray:
+    """255 where the greenness of green `g` (uint8) and red plus blue `red_blue` (uint16) is above
+    `cutoff`, else 0, as the reference compares its float32 greenness with a Python number. Along
+    each green the greenness falls as red plus blue grows, so the pixels above a cutoff are those
+    whose red plus blue is below a limit for their green; where float rounding breaks that, each
+    pixel is looked up instead."""
+    import cv2
+
+    above = (_greenness_table() > cutoff).reshape(256, 2 * 255 + 1)
+    limit = above.sum(axis=1)
+    if all(above[k, : limit[k]].all() for k in range(256)):
+        return cv2.compare(red_blue, cv2.LUT(g, limit.astype(np.uint16)), cv2.CMP_LT)
+    at = g.astype(np.int32)
+    at *= 2 * 255 + 1
+    at += red_blue
+    return above.ravel()[at].view(np.uint8) * np.uint8(255)
+
+
+def _counts(g: np.ndarray, red_blue: np.ndarray, where: np.ndarray) -> np.ndarray:
+    """How many pixels where `where` is not 0 have each green and red plus blue, in the order of
+    `_greenness_table`."""
+    import cv2
+
+    if g.size < 2**24:  # float32 counts stay exact
+        # In bytes, which calcHist counts fastest: red plus blue as its half and its last bit.
+        half, odd = (red_blue >> 1).astype(np.uint8), (red_blue & 1).astype(np.uint8)
+        hist = cv2.calcHist([g, half, odd], [0, 1, 2], where, [256, 256, 2], [0, 256, 0, 256, 0, 2])
+        return hist.reshape(256, 512)[:, : 2 * 255 + 1].astype(np.int64).ravel()
+    at = g.astype(np.int32) * (2 * 255 + 1) + red_blue
+    return np.bincount(at[where > 0], minlength=256 * (2 * 255 + 1))
+
+
+def _pieces(labels: np.ndarray, stats: np.ndarray, which) -> np.ndarray:
+    """1 on the pieces `which` of a connected-components labelling with `stats`, else 0: piece by
+    piece within its box while that is cheaper than looking up every pixel."""
+    import cv2
+
+    which = np.asarray(which, dtype=np.int64)
+    out = np.zeros(labels.shape, dtype=np.uint8)
+    if len(which) == 0:
+        return out
+    x0, y0, w, h = (stats[which, k] for k in (cv2.CC_STAT_LEFT, cv2.CC_STAT_TOP, cv2.CC_STAT_WIDTH, cv2.CC_STAT_HEIGHT))
+    if int((w * h).sum()) > labels.size or len(which) > 2000:
+        wanted = np.zeros(len(stats), dtype=np.uint8)
+        wanted[which] = 1
+        return wanted[labels]
+    for k, a, c, ww, hh in zip(which, x0, y0, w, h, strict=True):
+        part = out[c : c + hh, a : a + ww]
+        part |= (labels[c : c + hh, a : a + ww] == k).view(np.uint8)
+    return out
+
+
+_GREENNESS: np.ndarray | None = None
+
+
+def _greenness_table() -> np.ndarray:
+    """(2G - R - B) / (R + G + B + 1e-6) in float32, as the reference works it out pixel by pixel,
+    for every green G (rows) and red plus blue R + B (columns), flattened: index G * 511 + R + B.
+    The sums of whole numbers below 2**24 are exact in float32, so each entry is bit for bit the
+    reference's value for any R and B with that sum."""
+    global _GREENNESS
+    if _GREENNESS is None:
+        g = np.arange(256, dtype=np.float32)[:, None]
+        rb = np.arange(2 * 255 + 1, dtype=np.float32)[None, :]
+        zero = np.float32(0)
+        _GREENNESS = ((2 * g - rb - zero) / (rb + g + zero + 1e-6)).ravel()
+    return _GREENNESS
 
 
 def grow_trays(rgb: np.ndarray, trays) -> tuple[np.ndarray, list[tuple[float | None, float | None]]]:
@@ -160,15 +238,16 @@ def grow_trays(rgb: np.ndarray, trays) -> tuple[np.ndarray, list[tuple[float | N
     return mask, levels
 
 
-def _soil_level(exg: np.ndarray) -> float | None:
-    """The centre of the smoothed greenness histogram's highest bin below GROWN_SOIL_MAX."""
-    if exg.size == 0:
+def _soil_level(table: np.ndarray, counts: np.ndarray) -> float | None:
+    """The centre of the smoothed greenness histogram's highest bin below GROWN_SOIL_MAX, from the
+    number of pixels (`counts`) of each entry of the greenness table; None with no pixel."""
+    if not counts.any():
         return None
     edges = np.arange(-0.5, 0.5 + GROWN_SOIL_BIN / 100, GROWN_SOIL_BIN)
-    counts, _ = np.histogram(exg, bins=edges)
+    hist, _ = np.histogram(table, bins=edges, weights=counts)
     half = GROWN_SOIL_SMOOTH_TAPS // 2
     kernel = np.exp(-0.5 * (np.arange(-half, half + 1) / GROWN_SOIL_SMOOTH_SIGMA_BINS) ** 2)
-    smooth = np.convolve(counts.astype(float), kernel / kernel.sum(), mode="same")
+    smooth = np.convolve(hist.astype(float), kernel / kernel.sum(), mode="same")
     centres = (edges[:-1] + edges[1:]) / 2
     below = centres < GROWN_SOIL_MAX
     return float(centres[below][np.argmax(smooth[below])])
