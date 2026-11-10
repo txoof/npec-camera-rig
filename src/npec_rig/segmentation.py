@@ -111,13 +111,17 @@ def grow_from_cores(rgb: np.ndarray, inside: np.ndarray, tag_corners=(), lower_c
     # blue, so it is looked up in `_greenness_table`, worked out once the reference's way, and no
     # box-sized array of floats is made. The working arrays are each the box's size: about 3M
     # pixels for a tray of a 64MP photo.
-    r, g, b = cv2.split(np.ascontiguousarray(rgb, dtype=np.uint8))
-    lo, hi = cv2.min(cv2.min(r, g), b), cv2.max(cv2.max(r, g), b)
+    # A tray box of a photo is a view with the photo's row stride, which OpenCV reads as it is.
+    box = rgb if rgb.dtype == np.uint8 and rgb.strides[1:] == (3, 1) else np.ascontiguousarray(rgb, dtype=np.uint8)
+    r, g, b = cv2.split(box)
+    red_green = cv2.max(r, g)
+    lo, hi = cv2.min(cv2.min(r, g), b), cv2.max(red_green, b)
     white = cv2.bitwise_and(cv2.compare(lo, GROWN_WHITE_MIN, cv2.CMP_GT),
                             cv2.compare(cv2.subtract(hi, lo), GROWN_WHITE_SPREAD, cv2.CMP_LT))
     del lo, hi
     # Not blue: blue above red and green by no more than the margin.
-    notblue = cv2.compare(cv2.subtract(b, cv2.max(r, g)), GROWN_BLUE_MARGIN, cv2.CMP_LE)
+    notblue = cv2.compare(cv2.subtract(b, red_green), GROWN_BLUE_MARGIN, cv2.CMP_LE)
+    del red_green
     red_blue = cv2.add(r, b, dtype=cv2.CV_16U)
     core = cv2.bitwise_and(_greener(g, red_blue, GROWN_CORE_MIN), cv2.compare(g, r, cv2.CMP_GT))
     del r, b
@@ -439,13 +443,15 @@ def _measure(mask: np.ndarray, box, inside: np.ndarray, scale_field) -> PlantMea
     if len(xs) == 0:
         return PlantMeasure(0, None, 0.0)
     area = 0.0
-    for by in range(0, plant.shape[0], _SCALE_BLOCK_PX):
-        for bx in range(0, plant.shape[1], _SCALE_BLOCK_PX):
-            count = int(np.count_nonzero(plant[by : by + _SCALE_BLOCK_PX, bx : bx + _SCALE_BLOCK_PX]))
-            if count:
-                cx = x0 + bx + min(_SCALE_BLOCK_PX, plant.shape[1] - bx) / 2
-                cy = y0 + by + min(_SCALE_BLOCK_PX, plant.shape[0] - by) / 2
-                area += count * scale_field.mm_per_px(cx, cy) ** 2
+    # Plant pixels per block, the blocks with any taken row by row as a loop over every block
+    # would (#363: the loop looked at every empty block of a tray too).
+    across = -(-plant.shape[1] // _SCALE_BLOCK_PX)
+    per_block = np.bincount((ys // _SCALE_BLOCK_PX) * across + xs // _SCALE_BLOCK_PX)
+    for block in np.flatnonzero(per_block):
+        by, bx = int(block // across) * _SCALE_BLOCK_PX, int(block % across) * _SCALE_BLOCK_PX
+        cx = x0 + bx + min(_SCALE_BLOCK_PX, plant.shape[1] - bx) / 2
+        cy = y0 + by + min(_SCALE_BLOCK_PX, plant.shape[0] - by) / 2
+        area += int(per_block[block]) * scale_field.mm_per_px(cx, cy) ** 2
     # Pixel centres: pixel (0, 0) covers 0 to 1, so its centre is 0.5.
     return PlantMeasure(len(xs), (float(xs.mean()) + x0 + 0.5, float(ys.mean()) + y0 + 0.5), area)
 
