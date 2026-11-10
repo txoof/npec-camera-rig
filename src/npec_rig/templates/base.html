@@ -28,6 +28,10 @@
       </a>
       {%- endfor %}
       <div class="rail-spacer"></div>
+      {#- Pages outside the sections, at the foot of the rail. About will also hold manuals and links (#390). -#}
+      <a class="rail-btn hit" href="/about"{% if nav_active == "about" %} aria-current="page"{% endif %}>
+        {{ ui.icon("about") }}About
+      </a>
       {% include "_camera_status.html" %}
     </nav>
     <main class="work">
