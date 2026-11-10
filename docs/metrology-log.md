@@ -9275,3 +9275,9 @@ set of 60 cells is kept for it: `experiments/round3-classifier/data/` (see its R
 
 **Raw data.** Cross-validation folders on `npec-rig-01:~/clf-402/train-20261110T115045Z/` and on the
 laptop in `~/npec-clf-402/work/` (not kept); scripts in `experiments/round3-classifier/code/`.
+
+*Figures (33.1).* Left of each pair the draft by grow from leaf cores (magenta), right the mask after
+Aaron's check (red), on the crop. `docs/figures/33.1/mat-cells-before-after.jpg`: A19, A21, A24 and
+the blue mat cells A25 to A27, where the draft's leaf edges were too tight.
+`docs/figures/33.1/algae-and-soil-before-after.jpg`: B12 to B18, with the algae soil of B15 removed.
+Scaled down from the check sheets.
