@@ -33,7 +33,7 @@
       <dt>{{ row.label }}</dt>
       <dd>
         {%- if row.time %}<time datetime="{{ row.time }}">{{ row.value }}</time><span class="ago"></span>
-        {%- else %}<span>{{ row.value }}</span>{% endif %}
+        {%- elif row.value %}<span>{{ row.value }}</span>{% endif %}
         {%- if row.status %}{{ ui.chip(row.status[0], row.status[1]) }}{% endif -%}
       </dd>
       {%- endfor %}
