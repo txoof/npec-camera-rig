@@ -54,13 +54,17 @@ For each id on your list (the manifest gives its file name):
  4. Fix the outlines:
     - a wrong piece: select it in the list, press Delete;
     - a missed leaf: Wand tool, or the polygon tool, then press Add in the ROI Manager;
-    - to change a piece: select it, then the selection brush (double click the oval tool icon
-      to choose Selection Brush), hold Shift to add, hold Alt to cut;
+    - to change a piece: select it, then the selection brush (right click the oval tool icon
+      and choose Selection Brush Tool; a double click only sets the brush size), hold Shift to add, hold Alt to cut;
     - press Update after each edit of a piece.
     Do not use More > Split. Do not use Fit Spline. Do not use ovals.
  5. Outline EVERY leaf in the crop, also the leaves of neighbouring cells, not only the
     plant of the cell in the middle.
  6. In the ROI Manager: More > Save, as <name>_corrected.roi.zip, next to the draft.
+
+Yellow leaves, and the yellow parts of leaves, are not plant (Aaron, 2026-11-10).
+
+Before More > Save, press Deselect, or only the highlighted entries are saved.
 
 Send back the list of wrong ids and the _corrected.roi.zip files.
 

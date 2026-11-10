@@ -9187,3 +9187,8 @@ selection is kept (`~/clf-402/drafts-20261109T153525Z/` on `npec-rig-01`) and no
 
 *Calibration.* Cells are placed with the calibration the app used for each photo (production
 `20261026T153214381640`); with it, cells placed again match the stored cells to 0.0 px.
+
+*Yellow leaves (Aaron, 2026-11-10, before any correction is outlined).* Yellow leaves, and the
+yellow parts of partly yellow leaves, are outlined as not plant. The question whether they count
+is with the supervisor (#106). If they are to count, the affected cells (B14, B21, B24, B26, B28)
+are outlined again and the model trained again.
