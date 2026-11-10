@@ -284,15 +284,23 @@ def _measures(
         mask = segmentation.load_mask(path) if reuse_mask else None
         grown = segmentation.load_mask(path, segmentation.GROWN_MASK) if reuse_mask else None
         levels = _saved_levels(saved, placed) if grown is not None else None
-        if mask is None or grown is None:
-            mask, grown, levels = _segment(path, placed, tags, mask)
+        if mask is None:
+            mask, grown, levels = _segment(path, placed, tags)
+        elif grown is None:
+            # A photo read before #363 has the fixed cutoff's mask only: its areas are kept when
+            # the photo is gone.
+            try:
+                _mask, grown, levels = _segment(path, placed, tags, mask)
+            except Exception:
+                logger.exception("Could not grow the plant from leaf cores in %s", path)
         trays = [(p.outline, p.centre) for p in placed]
         measures = segmentation.measure_trays(mask, trays, scale_field)
     except Exception:
         logger.exception("Could not work out the plant areas of %s", path)
         return None, [], [], []
     try:
-        grew = [(m, *level) for m, level in zip(segmentation.measure_trays(grown, trays, scale_field), levels, strict=True)] if grown is not None else []
+        by_cores = segmentation.measure_trays(grown, trays, scale_field) if grown is not None else []
+        grew = [(m, *level) for m, level in zip(by_cores, levels, strict=True)]
     except Exception:
         logger.exception("Could not work out the plant areas of %s by grow from leaf cores", path)
         grown, grew = None, []
@@ -319,7 +327,12 @@ def _measured_cells(path, mask, grown, placed, tags, scale_field, record) -> lis
         try:
             [(cells, bearing, turned)] = _cells([p], tags, scale_field, record)
             counted = segmentation.measure_cells(mask, cells, scale_field, outline_px=p.outline) if cells else []
-            by_cores = segmentation.measure_cells(grown, cells, scale_field, outline_px=p.outline) if cells and grown is not None else [None] * len(cells)
+            by_cores = [None] * len(cells)
+            if cells and grown is not None:
+                try:
+                    by_cores = segmentation.measure_cells(grown, cells, scale_field, outline_px=p.outline)
+                except Exception:
+                    logger.exception("Could not work out the cells of tray %s in %s by grow from leaf cores", p.tray_id, path)
             out.append((list(zip(cells, counted, by_cores, strict=True)), bearing, turned))
         except Exception:
             logger.exception("Could not work out the cells of tray %s in %s", p.tray_id, path)

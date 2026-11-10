@@ -988,3 +988,20 @@ def test_reprocess_counts_both_methods_again_from_their_saved_masks_without_the_
     assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(-0.045), pytest.approx(0.025))
     cells = {c["cell"]: c for c in tray["cells"]}
     assert (cells["B3"]["area_mm2"], cells["B3"]["grown_area_mm2"]) == (pytest.approx(864.4, rel=0.01), pytest.approx(1110.2, rel=0.01))
+
+
+def test_reprocess_of_a_photo_read_before_grow_from_leaf_cores_keeps_its_area_with_the_photo_gone(monkeypatch) -> None:
+    """A photo read before #363 has only the fixed cutoff's mask. With the photo gone, Reprocess
+    counts that mask again (900 mm2) and has no area by grow from leaf cores."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+    segmentation.mask_file(path, segmentation.GROWN_MASK).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
+    assert (tray["grown_method"], tray["grown_area_mm2"]) == (None, None)
