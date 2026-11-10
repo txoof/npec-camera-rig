@@ -120,3 +120,34 @@ def test_every_page_rail_links_to_about(path):
     rail = page[page.index('<nav class="rail"'):page.index("</nav>")]
 
     assert 'href="/about"' in rail
+
+
+def test_about_page_names_the_camera_without_its_device_path():
+    from npec_rig.camera import CameraManager, SyntheticBackend
+
+    class Arducam(SyntheticBackend):  # the text npec-rig-01 reported on 2026-11-09
+        OPENED_DETAIL = ("Camera attached and working (arducam_64mp "
+                         "/base/axi/pcie@1000120000/rp1/i2c@88000/arducam_64mp@1a).")
+
+    CameraManager.set_instance(CameraManager(Arducam()))
+    client = TestClient(app)
+
+    page = client.get("/about").text
+
+    assert "Camera attached and working (arducam_64mp)." in page
+    assert "/base/axi" not in page
+    assert "/base/axi" in client.get("/api/about").json()["camera"]["detail"]  # scripts keep all of it
+
+
+def test_about_page_says_validated_once(isolated_calibration_dir):
+    from tests.helpers import TABLE_STEM, stored_validation, table_calibration
+
+    table_calibration()
+    stored_validation("20270101T010000000000", TABLE_STEM)
+    client = TestClient(app)
+    client.post("/controls/lens-position", json={"value": 6.3})
+    client.post("/focus/lock")
+
+    page = client.get("/about").text
+
+    assert page.count("Validated") == 1  # the chip; the date is in "Validation finished"

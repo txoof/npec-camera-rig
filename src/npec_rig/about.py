@@ -4,6 +4,7 @@
 the page as titled cards of rows, so a new card (manuals, documents) is a new entry there."""
 
 import functools
+import re
 from datetime import datetime, timedelta, timezone
 import os
 import shutil
@@ -94,6 +95,21 @@ def _time(label: str, iso: str | None, missing: str = "Not known") -> dict:
     return {"label": label, "value": f"{utc:%d %b %Y %H:%M} UTC", "time": iso}
 
 
+def _without_device_paths(text: str) -> str:
+    """The camera's text without the device paths libcamera adds after the model name
+    ("arducam_64mp /base/axi/...@1a" reads "arducam_64mp")."""
+    return re.sub(r"\s+/\S*[^\s).]", "", text)
+
+
+def _beside_chip(text: str, word: str) -> str:
+    """A status text shown next to its chip, without repeating the chip's word or the date
+    the "Validation finished" row already gives ("Validated 2026-11-03" next to a Validated
+    chip reads ""; "Not consistent: North 1" next to a Not consistent chip reads "North 1")."""
+    rest = text[len(word):] if text.startswith(word) else text
+    rest = re.sub(r"^\s*\d{4}-\d{2}-\d{2}", "", rest).lstrip(":; ").strip()
+    return rest[:1].upper() + rest[1:]
+
+
 _CAMERA_CHIPS = {health.CAMERA_OK: ("ok", "Working"), health.CAMERA_OPENING: ("info", "Opening")}
 
 
@@ -126,7 +142,7 @@ def sections(f: dict) -> list[dict]:
         ]},
         {"title": "Rig", "rows": [
             {"label": "Name", "value": f["rig"]["name"] + (f", {env}" if env else "")},
-            {"label": "Camera", "value": f["camera"]["detail"],
+            {"label": "Camera", "value": _without_device_paths(f["camera"]["detail"]),
              "status": _CAMERA_CHIPS.get(f["camera"]["state"], ("fail", "Fault"))},
             {"label": "AI accelerator", "value": "Found" if f["ai_accelerator"] else "Not found"},
             {"label": "Free disk space",
@@ -145,7 +161,7 @@ def sections(f: dict) -> list[dict]:
         {"title": "Calibration and validation", "rows": [
             _time("Calibration made", f["calibration"]["created_at"] if f["calibration"] else None,
                   "No calibration yet"),
-            {"label": "Validation", "value": val["text"], "status": val_chip},
+            {"label": "Validation", "value": _beside_chip(val["text"], val_chip[1]), "status": val_chip},
             _time("Validation finished", val["completed_at"], "No finished validation"),
         ], "links": [{"label": "Go to Validation", "href": "/setup/validation", "new_tab": False}]},
     ]
