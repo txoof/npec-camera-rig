@@ -223,8 +223,9 @@ comparisons; the knocks, the two calibrations and the two heights are developmen
 **Limits of the evidence: corner tags moved (development rig, 2026-11-03, metrology log section
 31).** The evidence above was taken with the corner tags on the table's outer edge, as production
 still has them. On the development rig they now lie inside the edge. Its tripwire baseline is the
-calibration made after the move; the knock, roll and covered-tag checks have not been repeated in
-the new position, and the tags lying closer together make the roll check less sensitive by an
+calibration made after the move, and a health check on the untouched table read OK against it
+(2026-11-10, section 31.4); the knock, roll and covered-tag checks have not been repeated in the new
+position, and the tags lying closer together make the roll check less sensitive by an
 amount not yet measured.
 
 ## The band stays valid over time and after disturbance

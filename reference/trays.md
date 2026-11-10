@@ -67,9 +67,9 @@ pot (Aaron, 2026-10-21).
 - **12 trays:** always portrait (short edges north and south), two rows, North 1 to 6 and South 1
   to 6, each tray at 0 or 180 degrees in its slot. So A1 is at the south-west or north-east corner.
 - **Fewer trays:** a tray can be at any angle.
-- **Corner tags:** keep every tray clear of the four corner tags (IDs 450 to 499). On the
-  development rig they lie inside the table edge since 2026-11-03, where a tray wall can hide one.
-  The distance needed is not measured yet (metrology log section 31.3, #349).
+- **Corner tags:** keep every tray off the four corner tags (IDs 450 to 499). On the development
+  rig they lie inside the table edge since 2026-11-03, where a tray wall can hide one. No distance
+  is set: a calibration names any hidden tag (metrology log section 31.3, #349).
 - **Gaps cannot be relied on.** Researchers are asked to leave gaps and will not reliably do so;
   even "with gaps" the trays touch in places (15 October photos).
 

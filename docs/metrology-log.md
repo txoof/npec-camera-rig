@@ -8962,14 +8962,18 @@ sheets (section 3). The corner tags give the table frame (the table locations), 
 - **Tags.** 451, 452, 455 and 456, the same tags as before. Their centres in the first calibration
   after the move (`20261103T115701405213`, 11:57 UTC), in full-size photo pixels: 456 at (1092,
   1091), NW; 451 at (8068, 1120), NE; 452 at (8014, 5559), SE; 455 at (1107, 5554), SW.
-- **Not recorded yet.** The new distances from the table edge, the holder that carries the tags,
-  and whether the tags' height changed. Tag 500 is no longer used (PLAN.md, tag table).
+- **Position.** East and west as on production (`hardware/Installation.md`: NE and SE 200 mm from
+  the east edge, NW and SW 370 mm from the west edge); north and south just inside the edge, clear
+  of the trays. Not measured further: the software takes the tags' places from the photo, not from
+  millimetres (Aaron, 2026-11-10). The heights did not change (Aaron). The holders are white
+  (live photo, 2026-11-09), so they can not merge into a blue tray outline or count as plant. Tag
+  500 is no longer used (PLAN.md, tag table).
 - **Validation after the move.** Session `20261103T115835297753` on that calibration, 3 rounds
   counted (11:58 to 12:19 UTC). Per slot, the 95th percentile of the area error is 1.03% to 2.78%,
   the median -1.75% to +1.03%. The last development validation before the move
   (`20261023T115610391971`, calibration `20261021T140121832677`) gave 1.76% to 3.78%. The two are
-  not yet compared slot by slot; that comparison is what shows the move did not disturb the camera
-  (test 2 in #349).
+  not compared slot by slot, and need not be: the post-move validation is consistent by the app's
+  own rule (its rounds agree), and no kept photo was read with the pre-move calibration (31.4).
 - **Development photos from 09:22 to 11:57 UTC.** Read with the calibration of 2026-10-21, its
   scale and its corner baseline. A health check against that baseline means nothing after the move,
   and the table locations in that window come from the old table frame. No health check result is
@@ -9000,22 +9004,39 @@ baseline" off. One run.
 cover.** A tag seen on the preview but covered on the full-size photo (unit tests only), and a tag
 covered later, in experiment photos (the health check's job).
 
-### 31.3 How close a tray may come to a corner tag (method written 2026-11-09, before the run, not yet run)
+### 31.3 How close a tray may come to a corner tag (dropped 2026-11-10, not run)
 
-**Why.** On the table surface a tray wall (104.8 mm tall) can hide a corner tag from the camera,
-most on the side of the tray away from the image centre. A hidden tag gives a calibration with
-3 tags (31.2) or a health check FAIL that only a new calibration clears.
+The method of 2026-11-09 (trays pushed toward the tags 1 cm at a time until a tag is lost) was
+dropped before it was run (Aaron, 2026-11-10). A tray that hides a corner tag can not give a wrong
+number without a warning: at calibration the result names the hidden tag (31.2); during an
+experiment only the health check uses the photo's corner tags, and it reads FAIL naming the tag,
+then OK once it is uncovered (section 14.5). Areas and table locations come from the calibration,
+not from each photo's corner tags. The rule is therefore "keep trays off the corner tags", with no
+distance.
 
-**How.** Development rig, with the hardware label. 12 trays with plants or 105 mm stand-ins in
-their slots, pushed toward the corner tags. 3 stills, then the trays nearest the tags moved 1 cm
-closer and 3 stills again, until a tag is lost. Instrument: tape measure, distance from the tray
-wall to the nearest edge of the tag's black border, one reading per step.
+### 31.4 After the move: health check, and what was not tested (development check, 2026-11-10)
 
-**Pass.** 4 of 4 corner tags found in every full-size still and the readiness check passes. The
-closest distance that passes, plus one step, becomes the keep-out distance in `reference/trays.md`
-and the operator guide. A number, a decision on margin, and labelled as such.
+**Health check.** Development rig, untouched table, all 4 corner tags uncovered, experiment 3
+running. Pressed by Aaron at 13:45:47 UTC (still `2026-11-10/134547_644647`) against calibration
+`20261103T115701405213`: **OK**. One run. The verdict is not stored on the rig; Aaron read it off the
+page.
 
-**Result.** Not yet run.
+**Not tested, and why** (Aaron, 2026-11-10):
+
+- **Level readout with a shim.** The readout code did not change, it uses only the tags' sizes, not
+  their places in the photo, and the tags' heights did not change. Today's OK health check compares
+  the 4 sizes with the calibration's.
+- **The north/south line between table locations.** It moves only if the north and south tags moved
+  inward by different amounts. In the post-move calibration the north tags lie at y = 1091 and 1120
+  px and the south tags at 5554 and 5559 px, so the line lies midway between the two tray rows.
+- **Validation before against after the move.** Experiment 3, the only experiment kept on
+  development, was created at 12:20 UTC on 3 November, after the new calibration (11:57) and its
+  validation (ended 12:19). No experiment photo from 09:22 to 11:57 UTC is kept (experiment 2 was
+  purged on 2026-11-09). So whether the move disturbed the camera affects no kept data.
+- **Tape distances of the tags.** Not needed (31.1).
+
+**Covers.** The development rig with its tags inside the table edge. **Does not cover.** Production,
+whose move is #404, after its potato experiment ends.
 
 ## 32. How much a tag that stayed put reads differently between photos (issue #385, method written 2026-11-09, before the run)
 

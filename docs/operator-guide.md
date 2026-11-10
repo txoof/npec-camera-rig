@@ -75,8 +75,8 @@ The four corner tags (50 mm) show the rig where the table is and whether the cam
 Keep trays, sheets, plants and blue mats off them and clear of them. If a calibration reports
 "Corner tag 452 cannot be seen in the SE corner of the table. Check that it is not missing or
 covered.", the calibration is saved and areas are not affected, but the health check and the
-table locations have only 3 tags: uncover the tag and calibrate again. How close a tray may come
-to a tag is not measured yet (metrology log section 31.3).
+table locations have only 3 tags: uncover the tag and calibrate again. No distance is set: if a
+tray hides a tag, the calibration says which one.
 
 ## Keep spare tag prints out of view
 
