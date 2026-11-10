@@ -960,3 +960,31 @@ def test_each_tray_and_cell_gets_its_area_by_both_methods_each_named(monkeypatch
     assert (cells["A1"]["grown_status"], cells["B3"]["grown_status"]) == ("tag", "plant")
     assert {c["grown_status"] for name, c in cells.items() if name not in ("A1", "B3")} == {"missing"}
     assert tray_readings.photo_readings(path) == readings
+
+
+def test_reprocess_counts_both_methods_again_from_their_saved_masks_without_the_photo(monkeypatch) -> None:
+    """With the photo gone, both areas come from the saved masks under a twin rebuilt at 10.0 x
+    5.00 / 4.90 px/mm (as in tests/test_experiments.py): 900 x (4.90 / 5.00)^2 = 864.4 mm2 by the
+    fixed green cutoff, 1156 x (4.90 / 5.00)^2 = 1110.2 mm2 by grow from leaf cores, whose soil
+    level and cutoff are kept from the first reading."""
+    from npec_rig.calibration import ScaleField
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+    stem = FIXTURE["calibration"]
+    save_calibration(
+        CalibrationArtifact(created_at="2026-10-26T15:00:00+00:00", scale_field=ScaleField((1.0, 0.0, 0.0), 10.0 * 5.00 / 4.90, 0.0),
+                            frame_stem=stem, lens_position=6.05, rebuilt_from=stem),
+        stem="20261026T150000000001", promote=False,
+    )
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(864.4, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_area_mm2"] == pytest.approx(1110.2, rel=0.01)
+    assert tray["grown_method"] == "grow from leaf cores"
+    assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(-0.045), pytest.approx(0.025))
+    cells = {c["cell"]: c for c in tray["cells"]}
+    assert (cells["B3"]["area_mm2"], cells["B3"]["grown_area_mm2"]) == (pytest.approx(864.4, rel=0.01), pytest.approx(1110.2, rel=0.01))
