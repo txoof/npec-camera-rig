@@ -137,6 +137,27 @@ def grow_from_cores(rgb: np.ndarray, inside: np.ndarray, tag_corners=(), lower_c
     return GrownPlant(keep[labels], soil_level, float(lower_cutoff))
 
 
+def grow_trays(rgb: np.ndarray, trays) -> tuple[np.ndarray, list[tuple[float | None, float | None]]]:
+    """`grow_from_cores` for each tray of full-size photo `rgb`, tray box by tray box: `trays` as
+    (outline, tag corners) pairs in full-size pixels, the tag corners a list of each tray tag's
+    four corners. The whole photo's mask, each tray's plant within its outline (touching trays'
+    plant in one mask, counted once by `measure_trays`), and each tray's soil level and lower
+    cutoff, in their order; (None, None) for a tray outside the photo."""
+    mask = np.zeros(rgb.shape[:2], dtype=bool)
+    levels = []
+    for outline, tag_corners in trays:
+        box = _box(mask, outline)
+        if box is None:
+            levels.append((None, None))
+            continue
+        x0, y0, x1, y1 = box
+        own = [np.asarray(c, dtype=np.float64) - [x0, y0] for c in tag_corners]
+        grown = grow_from_cores(rgb[y0:y1, x0:x1], _inside(box, outline), own)
+        mask[y0:y1, x0:x1] |= grown.mask
+        levels.append((grown.soil_level, grown.lower_cutoff))
+    return mask, levels
+
+
 def _soil_level(exg: np.ndarray) -> float | None:
     """The centre of the smoothed greenness histogram's highest bin below GROWN_SOIL_MAX."""
     if exg.size == 0:
@@ -357,14 +378,19 @@ def masks_root() -> Path:
     return Path(os.environ.get("NPEC_RIG_MASKS_DIR", "/var/lib/npec-rig/masks"))
 
 
-def mask_file(photo_path: str) -> Path:
-    """Where the mask of gallery photo `photo_path` (as `rig/2026-10-23/083553_637710`) is kept."""
-    return masks_root() / f"{photo_path}.png"
+# The file name ending of the masks by grow from leaf cores, beside the fixed cutoff's (#363).
+GROWN_MASK = ".grown"
 
 
-def save_mask(photo_path: str, mask: np.ndarray) -> Path:
+def mask_file(photo_path: str, kind: str = "") -> Path:
+    """Where the mask of gallery photo `photo_path` (as `rig/2026-10-23/083553_637710`) is kept:
+    the segmenter's, or with `kind` GROWN_MASK the one by grow from leaf cores."""
+    return masks_root() / f"{photo_path}{kind}.png"
+
+
+def save_mask(photo_path: str, mask: np.ndarray, kind: str = "") -> Path:
     """Save `mask` as a 1-bit PNG beside any earlier one of the photo, replacing it."""
-    target = mask_file(photo_path)
+    target = mask_file(photo_path, kind)
     target.parent.mkdir(parents=True, exist_ok=True)
     # A name of its own per thread: the background reader and Show tags can save one photo's mask
     # at the same time, and a shared name lets one thread's rename take the other's file.
@@ -374,10 +400,10 @@ def save_mask(photo_path: str, mask: np.ndarray) -> Path:
     return target
 
 
-def load_mask(photo_path: str) -> np.ndarray | None:
-    """The saved mask of photo `photo_path`, or None when it has none."""
+def load_mask(photo_path: str, kind: str = "") -> np.ndarray | None:
+    """The saved mask of photo `photo_path` (`mask_file`), or None when it has none."""
     try:
-        with Image.open(mask_file(photo_path)) as image:
+        with Image.open(mask_file(photo_path, kind)) as image:
             return np.asarray(image.convert("1"), dtype=bool)
     except FileNotFoundError:
         return None
