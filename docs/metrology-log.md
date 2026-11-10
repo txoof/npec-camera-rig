@@ -9302,3 +9302,44 @@ Aaron's check (red), on the crop. `docs/figures/33.1/mat-cells-before-after.jpg`
 the blue mat cells A25 to A27, where the draft's leaf edges were too tight.
 `docs/figures/33.1/algae-and-soil-before-after.jpg`: B12 to B18, with the algae soil of B15 removed.
 Scaled down from the check sheets.
+
+## 34. Tuning grow from leaf cores against the reference set (issue #363, method written 2026-11-10, before any setting is tried)
+
+**Label: development check.** Which settings of grow from leaf cores (33.1; rule H of 24.8) bring
+its masks closest to the reference set of section 33, before it goes into the app beside the fixed
+green cutoff. The known answer is Aaron's checked masks, so this is not a reference comparison.
+
+**Reference.** The 60 truth masks of `experiments/round3-classifier/data/truth/` (38 corrected by
+Aaron, 21 accepted drafts, A28 empty) and the train or test split fixed in section 33 (production 17
+train and 13 test, development 24 train and 6 test). The 15 outlines of section 24, drawn from nothing,
+are the independent check. Yellow is not plant.
+
+**Why tuning is needed and where it can mislead.** The method is computed per tray (its soil level
+comes from the whole tray), so it is run on the 26 full photos of the set again (copied read-only)
+and scored on the cells. The 21 accepted drafts were made with the present settings, so the present
+settings score perfectly on them: any setting that differs is penalised there. The scores are
+therefore reported on all training cells and on the corrected training cells alone, and a change is
+taken only if it also does not lower the score on the accepted ones by more than it gains.
+
+**Settings tried** (training cells only; each varied around the present value, alone first, then the
+best few together):
+- core: greenness above 0.06 to 0.14 (now 0.1), with and without G > R;
+- lower cutoff: soil level plus 0.03 to 0.12 (now 0.07), floor -0.08 to 0 (now -0.045);
+- blue: pixels left out when blue exceeds red and green by a margin of 0 to 30 (now 0), to see
+  whether the too-tight edges on blue mats (33.1) come from leaf edge pixels being called blue;
+- edge: the grown mask widened by 0 or 1 px into pixels above the lower cutoff;
+- small holes: holes narrower than 2 px filled or not (the outline rule of 24: soil gaps under 2 px
+  wide are plant);
+- smoothing of the colour before greenness: none, or Gaussian sigma 0.7 px.
+
+**Score.** Per cell: IoU with the truth, and area ratio (method / truth). Reported per rig and per
+group (size, green soil, blue mat, empty). Chosen: the setting with the best mean IoU over the
+training cells of both rigs, unless another is within 0.005 and closer to an area ratio of 1 on the
+mat cells; a decision, not a measured threshold. Time per photo is measured for the chosen setting;
+it must stay within the app's one photo a minute.
+
+**Test, once.** The chosen and the present settings, on the test cells and on the 15 outlines,
+written up with the rest. No setting is changed after the test.
+
+**Raw data.** Photos staged on `npec-rig-01`; scripts and results in
+`experiments/round3-grow-tuning/`.
