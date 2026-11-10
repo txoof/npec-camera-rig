@@ -1,0 +1,61 @@
+id,file,split,stratum,aaron_note
+A01,prod_2026-10-22_4_B4,train,empty,total miss (plant is exceptionally small)
+A02,prod_2026-10-23_5_C2,train,empty,total miss (plant is exceptionally small)
+A03,prod_2026-10-24_3_D3,test,green soil,excellent
+A04,prod_2026-10-24_4_B2,test,size 1 of 5,excellent
+A05,prod_2026-10-25_1_C5,train,size 1 of 5,excellent
+A06,prod_2026-10-25_2_A3,train,size 1 of 5,excellent
+A07,prod_2026-10-26_2_D3,train,green soil,excellent
+A08,prod_2026-10-27_3_C2,test,size 2 of 5,excellent
+A09,prod_2026-10-27_4_B1,test,size 2 of 5,Excellent
+A10,prod_2026-10-27_5_D5,test,size 3 of 5,Excellent
+A11,prod_2026-10-27_6_B4,test,size 2 of 5,excellent
+A12,prod_2026-10-28_4_A3,train,green soil,"soil to north, north east and south are misclassified as green (tens of px)"
+A13,prod_2026-10-29_1_B3,train,size 3 of 5,Excellent
+A14,prod_2026-10-30_2_B2,test,size 2 of 5,"Excellent, very small miss in east leaf"
+A15,prod_2026-10-31_6_C4,train,size 3 of 5,Excellent
+A16,prod_2026-11-01_1_A2,train,green soil,Excellent
+A17,prod_2026-11-01_6_A5,train,empty,Total miss
+A18,prod_2026-11-02_3_C4,test,size 4 of 5,"Excellent, complex border in southeast may not be correct (tens of px)"
+A19,prod_2026-11-02_4_D3,test,size 1 of 5,"Excellent, tiny exclusion in west"
+A20,prod_2026-11-03_3_A2,test,size 5 of 5,Excellent
+A21,prod_2026-11-04_1_D5,train,size 5 of 5,Small miss on north most leaf edge (tens of px)
+A22,prod_2026-11-04_6_B5,train,size 4 of 5,Excellent
+A23,prod_2026-11-05_2_B5,test,size 5 of 5,Excellent
+A24,prod_2026-11-05_6_A2,test,size 4 of 5,"Excellent, one or two px north of edge that appear misclassified"
+A25,prod_2026-11-06_3_C5,train,"blue mat, size 2 of 5","border is too tight, misses leaf edge"
+A26,prod_2026-11-07_3_C3,train,"blue mat, size 4 of 5","border is too tight, misses leaf edge"
+A27,prod_2026-11-07_5_B2,train,"blue mat, size 3 of 5","border is too tight, misses leaf edge"
+A28,prod_2026-11-08_7_D4,test,not plant: green paper,"not a leaf, small target square, border is mostly correct, but misses a small portion in south east and south west corners"
+A29,prod_2026-11-09_2_C3,train,"blue mat, size 5 of 5","border too tight, misses leaf edge"
+A30,prod_2026-11-09_4_C5,train,"blue mat, size 1 of 5","border too tight, misses leaf edge"
+B01,dev_2026-11-03_76_B2,train,size 2 of 5,"Small internal error, green soil captured, acceptable border"
+B02,dev_2026-11-03_77_B2,train,size 1 of 5,Excellent
+B03,dev_2026-11-03_78_B2,train,green soil,Small edge error in north and south east leaf
+B04,dev_2026-11-03_81_A1,train,size 4 of 5,"Soil classified, small border error on north east most leaf"
+B05,dev_2026-11-03_81_A2,train,size 3 of 5,Soil classified
+B06,dev_2026-11-03_81_B1,train,green soil,small internal errors
+B07,dev_2026-11-04_76_B2,train,size 2 of 5,soil classified with leaf border in north east
+B08,dev_2026-11-04_78_B1,train,size 2 of 5,small border error in south east leaf
+B09,dev_2026-11-04_80_B1,train,size 2 of 5,Small internal error
+B10,dev_2026-11-04_80_B2,train,size 3 of 5,tiny error inside northeast leaf
+B11,dev_2026-11-04_81_B2,train,size 4 of 5,Soil included in leaf border; green soil classified
+B12,dev_2026-11-04_85_A2,train,size 5 of 5,large region missed in northeast cluster; soil classified
+B13,dev_2026-11-04_86_A1,train,size 4 of 5,"small internal errors within leaves, small leaves missed along stem"
+B14,dev_2026-11-05_76_A1,test,size 3 of 5,small internal error on yellow leaf
+B15,dev_2026-11-05_80_A1,test,green soil,"poor border, algea captured"
+B16,dev_2026-11-05_86_B2,test,size 4 of 5,small internal error
+B17,dev_2026-11-06_77_B1,train,size 2 of 5,Excellent
+B18,dev_2026-11-06_78_A2,train,size 1 of 5,Small internal error
+B19,dev_2026-11-06_87_A2,train,empty,Small internal error
+B20,dev_2026-11-07_77_A1,train,size 3 of 5,Extremely small internal errors
+B21,dev_2026-11-07_79_A1,train,size 5 of 5,"Small internal errors, large internal error on yellow leaf"
+B22,dev_2026-11-07_80_A2,train,size 3 of 5,"Small internal errors, bad border on north most leaf"
+B23,dev_2026-11-07_87_A1,train,size 5 of 5,Small internal errors
+B24,dev_2026-11-07_87_A2,train,empty,"Yellow leaf missed entirely (may be acceptable), small internal error in east most region"
+B25,dev_2026-11-08_78_A1,test,size 1 of 5,Excellent
+B26,dev_2026-11-08_79_A2,test,size 5 of 5,"Small miss on southern leaf and south east leaf, yellow leaf in south is complex and wrong"
+B27,dev_2026-11-09_76_A2,train,size 1 of 5,"Excellent, small miss on southeast leaf (2-10 px)"
+B28,dev_2026-11-09_76_B1,train,green soil,"Yellow leaves missed entirely, green is good, small error internally (2-10 px)"
+B29,dev_2026-11-09_86_A2,train,empty,"Cell border is mostly empty (labeled correctly), green to south of cell is mostly correct"
+B30,dev_2026-11-09_87_B1,train,size 1 of 5,"Cell is mostly empty, leaves in northeast are correct"

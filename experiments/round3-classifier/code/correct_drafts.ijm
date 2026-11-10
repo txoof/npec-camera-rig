@@ -21,7 +21,7 @@ for (i = 0; i < n; i++) {
   img = getImageID();
   roiManager("reset");
   draft = cells + names[i] + "_draft.roi.zip";
-  if (File.length(draft) > 50) roiManager("Open", draft);
+  if (parseInt(File.length(draft)) > 50) roiManager("Open", draft);
   roiManager("Show All without labels");
   z = floor(100 * minOf((screenWidth - 450) / getWidth(), (screenHeight - 150) / getHeight()));
   if (z > 800) z = 800;
