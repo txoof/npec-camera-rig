@@ -9242,3 +9242,36 @@ figures favour grow from leaf cores (the lean stated in section 33).
 **Limits.** One person's judgement on drafts (not outlines from nothing); 60 cells from one photo a
 day; five mat cells, all production, all from 2026-11-06 to 11-09; the step at the moment a mat is
 laid was not itself measured here.
+
+### 33.2 The random forest stopped: too slow for one photo a minute (2026-11-10)
+
+**Label: development check.** Time only; no forest was scored on any test cell.
+
+**Requirement (Aaron, 2026-11-10).** Researchers look for fast changes of plant area as a proxy for
+leaf position. These are hidden at 15 to 30 minute intervals, so every photo (one a minute) must be
+read. The app reads photos in the background with no queue, so a method must finish a photo within
+the minute on the Pi 5, with room to spare.
+
+**Measured.** Leave-one-day-out cross-validation, model settings of section 33 (140 per-pixel
+features: colour, Gaussian-smoothed at sigma 0.7 to 8 px, edge and texture measures):
+
+| Fold | Machine | Settings | Fit | Predict |
+|---|---|---|---|---|
+| development 2026-11-03, 6 cells | Pi 5 (development rig), 3 cores | 12 | 987 s | 1014 s |
+| development 2026-11-04, 7 cells | Pi 5, 3 cores | 12 | 1127 s | 1172 s |
+| development 2026-11-03, 6 cells | Apple M2 (Aaron's laptop), 6 workers | 24 (class balance added) | 449 s | 311 s |
+| production 2026-11-09, 2 cells | Apple M2, 6 workers | 24 | 468 s | 24 s |
+
+The M2 and the Pi gave the same results to within 0.0011 IoU per setting (float rounding). Prediction
+on the M2 is about 0.5 s per production cell per setting; a production photo holds about 240 cells,
+so about 2 minutes on the M2 and roughly 10 minutes on the Pi for one forest. Most of the time is
+computing the 140 features for every pixel.
+
+**Decided (Aaron, 2026-11-10).** The forest is stopped; the cross-validation was not completed and no
+settings were chosen. Grow from leaf cores (5 to 8 s per photo on the Pi, 33.1) goes into the app
+beside the fixed green cutoff. A small neural network on the Hailo, trained with the help of a large
+model on an x86 machine with an RTX GPU, is the next attempt (its own issue, Round 4). The reference
+set of 60 cells is kept for it: `experiments/round3-classifier/data/` (see its README).
+
+**Raw data.** Cross-validation folders on `npec-rig-01:~/clf-402/train-20261110T115045Z/` and on the
+laptop in `~/npec-clf-402/work/` (not kept); scripts in `experiments/round3-classifier/code/`.
