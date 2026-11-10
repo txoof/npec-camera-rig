@@ -9126,3 +9126,179 @@ The label read "names may be swapped since 2026-11-09 14:54 UTC", the first phot
 the move itself: older photos are checked only when read again (Reprocess). **A move before the
 photo that sets A1 is not caught**: tray 81's tag turned on 4 November, before its A1 was set on
 6 November from the turned tag, and its tag changed by only 4.4 degrees since.
+
+## 33. A trained pixel classifier for plant area, against hand outlines on both rigs (issue #402, method written 2026-11-09, before any mask is drafted or any model trained)
+
+**Label: development check.** Whether a model trained on outlined pixels separates plant from
+soil better and more steadily than the colour rules of section 24, on photos from both rigs.
+The known answer is a person's outline on the rig's own photo, so this is not a reference
+comparison: the person sees the same blur as the rig.
+
+**Why.** Every rule so far (the current rule, rules G and H of 24.7 and 24.8) is one greenness
+number with a cutoff set by hand. Section 24 showed the cutoff that suits one soil trims leaf
+edges or takes in soil on another, and moves with watering and greening. A pixel classifier
+decides each pixel from many measured values at once (colour in several forms, the same values
+averaged over the pixels around it, edge strength, texture) and learns from examples which
+combinations are plant. No cutoff is set by hand (Aaron, 2026-11-09).
+
+**Photos.** One photo per day from each rig, copied read-only: production experiment 18 (Potato
+Plants v001, from 2026-10-22) and development experiment 3 (development 002, from 2026-11-03,
+pale soil, 2 x 2 trays). The development plants are included because they differ (Aaron,
+2026-11-09). Each day's photo is the lit photo nearest 11:00 UTC that is not left out of the
+experiment's numbers. The photo list, its JPEG setting and its trays are in the manifest (see Raw
+data).
+
+**Cells.** About 30 cells per rig, chosen by a script across plant size, soil greenness (the soil
+peak of 24.7), blue mats and a few empty cells, from cells placed by the app
+(`tray_placement.place_cells`, stored from 2026-11-06, placed again by the same function for
+earlier photos). Each crop is the cell's opening or pot rim with a 40 px margin, at native pixels,
+lossless.
+
+**Drafts and corrections.** For each crop a draft mask by rule H (24.8) over every plant pixel in
+the crop, the neighbours' leaves included, since the model learns from pixels. Drafts are made on
+the development rig (CLAUDE.md, #400) and given to Aaron as ImageJ outline files. Aaron first
+marks which drafts are wrong from picture sheets; only those are corrected in ImageJ. The drafts
+and the corrections are kept apart. How much the corrections change the drafts is itself a
+measure of rule H on these cells.
+
+*A known lean.* A corrected draft leans towards rule H: a person may accept an edge that looks
+close enough. The 15 outlines of section 24 were drawn from nothing and are kept as the
+independent check.
+
+**Split, fixed before training.** Per rig, days in date order; every third day (the 3rd, 6th,
+9th, ...) is a test day, the others train the model. Production's 3 November photo is a test day
+in any case (the 15 outlines of section 24 were cut from that day). No test cell is used in
+training, no setting is chosen on test cells, and settings chosen on training days are written
+here before the test is run.
+
+**Model.** A random forest (scikit-learn), trained on pixels sampled evenly from plant and
+not-plant in the training crops. Per pixel: R, G, B, greenness, hue, saturation, lightness and
+the CIE L*a*b* values, each smoothed at a few scales (about 1 to 8 px), with edge strength and
+texture measures at the same scales (the standard set of the ilastik program). A small neural
+network is tried only if the forest falls short on the measures below.
+
+**Measures, each also for rule H and the current rule on the same cells.**
+1. Agreement with the corrected masks on test days, per rig: IoU (pixels in both, divided by
+   pixels in either) and area ratio, per cell, mean and range. The ceiling is the person's own
+   repeat of 24: IoU 0.915.
+2. Agreement with the 15 outlines of section 24.
+3. Trained on one rig, tested on the other.
+4. Cell area from one photo to the next on undisturbed pairs (the method of 16.9), on one day per
+   rig: a steadier rule shows smaller changes.
+5. Pictures of greening soil, blue mats and seedlings.
+6. Time and memory per photo on a Pi 5, against the budget of one photo a minute.
+
+**Raw data.** Photos and drafts on `npec-rig-01` under `~/clf-402/`; the manifest, the draft zip
+and Aaron's corrections under `experiments/round3-classifier/` when the results are written up.
+
+**Limits, known before the run.** One photo per day, about 30 cells per rig, one person's
+outlines. Both rigs use the same camera model and lighting type; the model is not shown to hold
+for another rig or camera.
+
+**Amendment, 2026-11-09, after the first cell selection and before any outline is checked or any
+model trained.** The first selection, run as written above, picked cells that are not plant cells.
+On production, trays 7 to 12 hold no plants on any day (empty trays, black pots, tag sheets, a
+target, green paper squares), so 7 of 30 picks were empty blue trays or paper. From 2026-11-06
+every production plant cell lies on a blue mat, so the bluest cells do not pick out mats, and
+development has no mats. The selection is changed to: cells from plant trays only (production
+trays 1 to 6, development trays with pots); mats from production photos of 2026-11-06 on; no mat
+group on development; empty cells from empty pots in plant trays; one green paper square on
+production kept on purpose as a not-plant example. Everything else above is unchanged. The first
+selection is kept (`~/clf-402/drafts-20261109T153525Z/` on `npec-rig-01`) and not used.
+
+*Calibration.* Cells are placed with the calibration the app used for each photo (production
+`20261026T153214381640`); with it, cells placed again match the stored cells to 0.0 px.
+
+*Yellow leaves (Aaron, 2026-11-10, before any correction is outlined).* Yellow leaves, and the
+yellow parts of partly yellow leaves, are outlined as not plant. The question whether they count
+is with the supervisor (#106). If they are to count, the affected cells (B14, B21, B24, B26, B28)
+are outlined again and the model trained again.
+
+### 33.1 The check of the drafts: how far grow from leaf cores is from a person's judgement (2026-11-10)
+
+**Label: development check.** "Grow from leaf cores" is the method of 24.8 (called rule H there):
+clearly green pixels (greenness above 0.1 and G above R) are the cores; a lower cutoff is set from
+the tray's own soil colour (soil peak + 0.07, never below -0.045); each core grows into touching
+pixels above the lower cutoff; blue pixels and the tray tag are left out. The app's current method
+is called the "fixed green cutoff" (greenness above 0.1 and G above R).
+
+**What was done.** Aaron checked all 60 drafts on picture sheets on 2026-11-10 (notes in
+`experiments/round3-classifier/data/check_2026-11-10_aaron.csv`), corrected 39 in Fiji, accepted 21
+as drawn (B13 among them: accepted as is after its correction was found not saved) and marked A28 as
+no plant. Corrections in `data/corrected-20261110T1109Z/` (first attempts named `*_MISTAKE` are
+superseded and not used). Each correction was read back with the ImageJ fill rule
+(`code/mask_rois.py`) and compared with its draft; before and after pictures were checked by Aaron.
+
+**Result, 56 cells** (A01, A02, A17 and A28 apart, below). Area ratio = corrected area / draft area.
+
+| | Production (26) | Development (30) | All (56) |
+|---|---|---|---|
+| Cells changed | 11 | 24 | 35 |
+| Median area ratio | 1.000 | 1.000 | 1.000 |
+| Mean size of the change, either way | 1.9% | 4.5% | 3.3% |
+| Range of area ratio | 0.81 to 1.12 | 0.41 to 1.16 | 0.41 to 1.16 |
+
+Pooled over the 56 cells the corrected masks hold 3.9% less plant than the drafts (ratio 0.961),
+mostly algae and green soil removed. The largest changes: green soil and algae (B15 0.41, A12 0.81;
+B06 1.16, leaf added beside green soil), every production cell on a blue mat too tight (A25 1.12,
+A30 1.07, A27 1.05, A29 1.03, A26 1.01), and B05 0.85, B27 1.09, B08 0.94. A01, A02 and A17: tiny
+seedlings the draft missed entirely (truth 237, 233 and 1376 px). A28: a green printed target
+square, outlined well by the draft (2416 px) but not a plant.
+
+**Reading.** On clean soil without mats, grow from leaf cores is within a few percent of the
+person's judgement, often exactly. Its errors follow conditions, not chance: green soil and algae,
+blue mats, tiny seedlings, green objects. The 21 accepted cells count as no difference, so these
+figures favour grow from leaf cores (the lean stated in section 33).
+
+**Decided (Aaron, 2026-11-10).**
+- Green objects (printed squares, labels) are left to the researchers: they can subtract a constant
+  for them, which is understandable next to the photos and the data.
+- Algae is a known problem the researchers deal with.
+- Tiny seedlings are missed, but they carry little data.
+- **Known limitation, not solved:** where a blue mat is laid, grow from leaf cores draws leaf edges
+  on the mat tighter than on soil, by 1% to 12% of the cell's area on the five production mat cells
+  checked. A plant's area therefore steps down on the photo where a mat is laid, with no change in
+  the plant. How to deal with it is open (#358).
+
+**Limits.** One person's judgement on drafts (not outlines from nothing); 60 cells from one photo a
+day; five mat cells, all production, all from 2026-11-06 to 11-09; the step at the moment a mat is
+laid was not itself measured here.
+
+### 33.2 The random forest stopped: too slow for one photo a minute (2026-11-10)
+
+**Label: development check.** Time only; no forest was scored on any test cell.
+
+**Requirement (Aaron, 2026-11-10).** Researchers look for fast changes of plant area as a proxy for
+leaf position. These are hidden at 15 to 30 minute intervals, so every photo (one a minute) must be
+read. The app reads photos in the background with no queue, so a method must finish a photo within
+the minute on the Pi 5, with room to spare.
+
+**Measured.** Leave-one-day-out cross-validation, model settings of section 33 (140 per-pixel
+features: colour, Gaussian-smoothed at sigma 0.7 to 8 px, edge and texture measures):
+
+| Fold | Machine | Settings | Fit | Predict |
+|---|---|---|---|---|
+| development 2026-11-03, 6 cells | Pi 5 (development rig), 3 cores | 12 | 987 s | 1014 s |
+| development 2026-11-04, 7 cells | Pi 5, 3 cores | 12 | 1127 s | 1172 s |
+| development 2026-11-03, 6 cells | Apple M2 (Aaron's laptop), 6 workers | 24 (class balance added) | 449 s | 311 s |
+| production 2026-11-09, 2 cells | Apple M2, 6 workers | 24 | 468 s | 24 s |
+
+The M2 and the Pi gave the same results to within 0.0011 IoU per setting (float rounding). Prediction
+on the M2 is about 0.5 s per production cell per setting; a production photo holds about 240 cells,
+so about 2 minutes on the M2 and roughly 10 minutes on the Pi for one forest. Most of the time is
+computing the 140 features for every pixel.
+
+**Decided (Aaron, 2026-11-10).** The forest is stopped; the cross-validation was not completed and no
+settings were chosen. Grow from leaf cores (5 to 8 s per photo on the Pi, 33.1) goes into the app
+beside the fixed green cutoff. A small neural network on the Hailo, trained with the help of a large
+model on an x86 machine with an RTX GPU, is the next attempt (its own issue, Round 4). The reference
+set of 60 cells is kept for it: `experiments/round3-classifier/data/` (see its README).
+
+**Raw data.** Cross-validation folders on `npec-rig-01:~/clf-402/train-20261110T115045Z/` and on the
+laptop in `~/npec-clf-402/work/` (not kept); scripts in `experiments/round3-classifier/code/`.
+
+*Figures (33.1).* Left of each pair the draft by grow from leaf cores (magenta), right the mask after
+Aaron's check (red), on the crop. `docs/figures/33.1/mat-cells-before-after.jpg`: A19, A21, A24 and
+the blue mat cells A25 to A27, where the draft's leaf edges were too tight.
+`docs/figures/33.1/algae-and-soil-before-after.jpg`: B12 to B18, with the algae soil of B15 removed.
+Scaled down from the check sheets.
