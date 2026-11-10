@@ -66,6 +66,91 @@ class HailoSegmenter:
         raise SegmenterUnavailable("no Hailo segmentation model is installed; use the green threshold")
 
 
+# --- Grow from leaf cores (#363) -------------------------------------------------------------------
+# One tray at a time, beside the green threshold: leaf cores grown out into the paler leaf edges, down
+# to a cutoff set above the tray's own soil (metrology log 24.8 and 33.1, reference implementation
+# experiments/round3-classifier/code/ruleg402.py, its "H"). Every setting below was chosen in those
+# investigations, not tuned here; the tuning study of metrology log 34 may change them.
+
+GROWN_METHOD = "grow from leaf cores"
+GROWN_CORE_MIN = 0.1  # greenness above which, with green above red, a pixel is a leaf core
+GROWN_GAP = 0.07  # the lower cutoff lies this far above the tray's soil level
+GROWN_FLOOR = -0.045  # and never below this
+GROWN_SOIL_BIN = 0.01  # the soil level is the peak of the greenness histogram in bins this wide,
+GROWN_SOIL_SMOOTH_TAPS = 13  # smoothed with a Gaussian of this many taps,
+GROWN_SOIL_SMOOTH_SIGMA_BINS = 2.0  # this wide in bins,
+GROWN_SOIL_MAX = 0.05  # taken over bin centres below this
+GROWN_BLUE_MARGIN = 0  # blue plastic: blue above red and green by more than this (0 to 255 values)
+GROWN_TAG_ENLARGE = 1.6  # the tray tag's square, enlarged this many times about its centre, is no plant
+GROWN_WHITE_MIN = 140  # white paper: every channel above this,
+GROWN_WHITE_SPREAD = 25  # channels within this of each other,
+GROWN_WHITE_MIN_PX = 5000  # in pieces of at least this many pixels,
+GROWN_WHITE_WIDEN_PX = 61  # widened by a square this many pixels wide, is no plant
+
+
+@dataclass(frozen=True)
+class GrownPlant:
+    """One tray box's plant by `grow_from_cores`: the mask, the soil level found and the lower
+    cutoff used (soil level None: no soil to find it from, the floor is used)."""
+
+    mask: np.ndarray
+    soil_level: float | None
+    lower_cutoff: float
+
+
+def grow_from_cores(rgb: np.ndarray, inside: np.ndarray, tag_corners=(), lower_cutoff: float | None = None) -> GrownPlant:
+    """The plant in one tray box `rgb` (H x W x 3, R G B), counted only where `inside` (H x W, the
+    tray outline) is True and away from the tray tag (`tag_corners`: each detection's four corners,
+    in the box's pixels) and white paper. Pieces of pixels greener than the lower cutoff (joined
+    side or corner, never through blue) count when they hold a leaf core. The lower cutoff is set
+    from the soil level, the commonest greenness inside the tray below GROWN_SOIL_MAX, unless
+    given."""
+    import cv2
+
+    r, g, b = (rgb[..., i].astype(np.float32) for i in range(3))
+    exg = (2 * g - r - b) / (r + g + b + 1e-6)
+    notblue = ~((b > r + GROWN_BLUE_MARGIN) & (b > g + GROWN_BLUE_MARGIN))
+    core = (exg > GROWN_CORE_MIN) & (g > r)
+    lo, hi = np.minimum(np.minimum(r, g), b), np.maximum(np.maximum(r, g), b)
+    del r, g, b
+    white = ((lo > GROWN_WHITE_MIN) & (hi - lo < GROWN_WHITE_SPREAD)).astype(np.uint8)
+    del lo, hi
+    _n, labels, stats, _ = cv2.connectedComponentsWithStats(white, connectivity=8)
+    big = np.flatnonzero(stats[:, cv2.CC_STAT_AREA] >= GROWN_WHITE_MIN_PX)
+    no_plant = cv2.dilate(np.isin(labels, big[big > 0]).astype(np.uint8), np.ones((GROWN_WHITE_WIDEN_PX,) * 2, np.uint8))
+    del white, labels
+    for corners in tag_corners:
+        c = np.asarray(corners, dtype=np.float64)
+        centre = c.mean(axis=0)
+        cv2.fillPoly(no_plant, [np.round(centre + GROWN_TAG_ENLARGE * (c - centre)).astype(np.int32).reshape(-1, 1, 2)], 1)
+    sel = inside & (no_plant == 0)
+    del no_plant
+    soil_level = _soil_level(exg[sel & notblue])
+    if lower_cutoff is None:
+        lower_cutoff = GROWN_FLOOR if soil_level is None else max(GROWN_FLOOR, soil_level + GROWN_GAP)
+    low = ((exg > lower_cutoff) & notblue & sel).astype(np.uint8)
+    del exg, notblue
+    n, labels = cv2.connectedComponents(low, connectivity=8, ltype=cv2.CV_32S)
+    keep = np.zeros(n, dtype=bool)
+    keep[np.unique(labels[core & sel])] = True
+    keep[0] = False
+    return GrownPlant(keep[labels], soil_level, float(lower_cutoff))
+
+
+def _soil_level(exg: np.ndarray) -> float | None:
+    """The centre of the smoothed greenness histogram's highest bin below GROWN_SOIL_MAX."""
+    if exg.size == 0:
+        return None
+    edges = np.arange(-0.5, 0.5 + GROWN_SOIL_BIN / 100, GROWN_SOIL_BIN)
+    counts, _ = np.histogram(exg, bins=edges)
+    half = GROWN_SOIL_SMOOTH_TAPS // 2
+    kernel = np.exp(-0.5 * (np.arange(-half, half + 1) / GROWN_SOIL_SMOOTH_SIGMA_BINS) ** 2)
+    smooth = np.convolve(counts.astype(float), kernel / kernel.sum(), mode="same")
+    centres = (edges[:-1] + edges[1:]) / 2
+    below = centres < GROWN_SOIL_MAX
+    return float(centres[below][np.argmax(smooth[below])])
+
+
 # --- Plant area from a mask ------------------------------------------------------------------------
 
 # Side of the square blocks the scale is looked up in, in full-size pixels. The scale field is a
