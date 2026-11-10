@@ -532,6 +532,27 @@ def test_tray_readings_give_each_trays_uncertainty_from_its_slots_validation_ban
     assert tray["uncertainty"] == {"band_pct": 2.0, "slot": "North 1", "reason": None}
 
 
+def test_tray_readings_give_each_tray_and_cell_its_area_by_both_methods_named_in_words(monkeypatch) -> None:
+    """#363: `one_tray_plant_scene`'s 1500 mm2 leaf, a plain block of leaf colour, reads the same
+    by the fixed green cutoff and by grow from leaf cores. Each area comes with its method's name."""
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    client.get(f"/api/captures/tags/{path}")  # Show tags reads the photo for its trays
+
+    tray = client.get(f"/api/captures/trays/{path}").json()["trays"][0]
+    assert (tray["method"], tray["area_mm2"]) == ("fixed green cutoff", pytest.approx(1500, rel=0.01))
+    assert (tray["grown_method"], tray["grown_area_mm2"]) == ("grow from leaf cores", pytest.approx(1500, rel=0.02))
+    # The leaf lies across cells: both methods give it to the same one and mark it over others.
+    planted = [c for c in tray["cells"] if c["area_mm2"] is not None]
+    assert planted
+    assert [c["cell"] for c in planted] == [c["cell"] for c in tray["cells"] if c["grown_area_mm2"] is not None]
+    assert [c["grown_area_mm2"] for c in planted] == pytest.approx([c["area_mm2"] for c in planted], rel=0.02)
+    assert [c["grown_status"] for c in planted] == [c["status"] for c in planted]
+
+
 def test_the_photo_list_carries_only_what_each_card_shows(monkeypatch) -> None:
     """#377: a photo's 240 cells made the list 127 KB a photo on production. The card shows one
     tray line: how each tray was found, which areas do not count, exclusion, trays not seen and

@@ -54,6 +54,9 @@ SEGMENTER: segmentation.Segmenter = segmentation.ExGSegmenter()
 # log 17.4). Reported with each area, never subtracted (Aaron). A decision (#288), checked in #293.
 FLOORS_MM2 = {"green threshold, 0.1": 100}
 
+# Each segmenter's method in words, for the page beside grow from leaf cores (#363).
+METHODS = {"green threshold, 0.1": "fixed green cutoff"}
+
 # How far a tray's outline may reach past the photo edge, mm, before its area is marked partly
 # outside the photo: the widest measured outer wall, 11 to 13 mm (review of #281), where no plant
 # grows. Trays 8 and 9 of the potato run reach 8.4 to 11.9 mm past at their farthest corner, and
@@ -485,6 +488,7 @@ def capture_readings(capture: dict) -> dict | None:
             tray["warnings"] = [w for w in tray["warnings"] if w != TAG_TURNED] + (
                 [f"names may be swapped since {since[:10]} {since[11:16]} UTC"] if since else [])
             tray["floor_mm2"] = FLOORS_MM2.get(tray["segmenter"])
+            tray["method"] = METHODS.get(tray["segmenter"], tray["segmenter"])
             for cell in tray["cells"]:
                 cell["status"] = _cell_status(cell)
                 if not cell["plant_px"] or cell["status"] == "tag":
