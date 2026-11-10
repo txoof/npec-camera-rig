@@ -9192,3 +9192,53 @@ selection is kept (`~/clf-402/drafts-20261109T153525Z/` on `npec-rig-01`) and no
 yellow parts of partly yellow leaves, are outlined as not plant. The question whether they count
 is with the supervisor (#106). If they are to count, the affected cells (B14, B21, B24, B26, B28)
 are outlined again and the model trained again.
+
+### 33.1 The check of the drafts: how far grow from leaf cores is from a person's judgement (2026-11-10)
+
+**Label: development check.** "Grow from leaf cores" is the method of 24.8 (called rule H there):
+clearly green pixels (greenness above 0.1 and G above R) are the cores; a lower cutoff is set from
+the tray's own soil colour (soil peak + 0.07, never below -0.045); each core grows into touching
+pixels above the lower cutoff; blue pixels and the tray tag are left out. The app's current method
+is called the "fixed green cutoff" (greenness above 0.1 and G above R).
+
+**What was done.** Aaron checked all 60 drafts on picture sheets on 2026-11-10 (notes in
+`experiments/round3-classifier/data/check_2026-11-10_aaron.csv`), corrected 39 in Fiji, accepted 21
+as drawn (B13 among them: accepted as is after its correction was found not saved) and marked A28 as
+no plant. Corrections in `data/corrected-20261110T1109Z/` (first attempts named `*_MISTAKE` are
+superseded and not used). Each correction was read back with the ImageJ fill rule
+(`code/mask_rois.py`) and compared with its draft; before and after pictures were checked by Aaron.
+
+**Result, 56 cells** (A01, A02, A17 and A28 apart, below). Area ratio = corrected area / draft area.
+
+| | Production (26) | Development (30) | All (56) |
+|---|---|---|---|
+| Cells changed | 11 | 24 | 35 |
+| Median area ratio | 1.000 | 1.000 | 1.000 |
+| Mean size of the change, either way | 1.9% | 4.5% | 3.3% |
+| Range of area ratio | 0.81 to 1.12 | 0.41 to 1.16 | 0.41 to 1.16 |
+
+Pooled over the 56 cells the corrected masks hold 3.9% less plant than the drafts (ratio 0.961),
+mostly algae and green soil removed. The largest changes: green soil and algae (B15 0.41, A12 0.81;
+B06 1.16, leaf added beside green soil), every production cell on a blue mat too tight (A25 1.12,
+A30 1.07, A27 1.05, A29 1.03, A26 1.01), and B05 0.85, B27 1.09, B08 0.94. A01, A02 and A17: tiny
+seedlings the draft missed entirely (truth 237, 233 and 1376 px). A28: a green printed target
+square, outlined well by the draft (2416 px) but not a plant.
+
+**Reading.** On clean soil without mats, grow from leaf cores is within a few percent of the
+person's judgement, often exactly. Its errors follow conditions, not chance: green soil and algae,
+blue mats, tiny seedlings, green objects. The 21 accepted cells count as no difference, so these
+figures favour grow from leaf cores (the lean stated in section 33).
+
+**Decided (Aaron, 2026-11-10).**
+- Green objects (printed squares, labels) are left to the researchers: they can subtract a constant
+  for them, which is understandable next to the photos and the data.
+- Algae is a known problem the researchers deal with.
+- Tiny seedlings are missed, but they carry little data.
+- **Known limitation, not solved:** where a blue mat is laid, grow from leaf cores draws leaf edges
+  on the mat tighter than on soil, by 1% to 12% of the cell's area on the five production mat cells
+  checked. A plant's area therefore steps down on the photo where a mat is laid, with no change in
+  the plant. How to deal with it is open (#358).
+
+**Limits.** One person's judgement on drafts (not outlines from nothing); 60 cells from one photo a
+day; five mat cells, all production, all from 2026-11-06 to 11-09; the step at the moment a mat is
+laid was not itself measured here.
