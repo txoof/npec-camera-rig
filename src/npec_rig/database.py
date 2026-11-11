@@ -633,6 +633,7 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
                 for t in trays for c in t.get("cells", [])
             ],
         )
+    _readings_changed()
 
 
 def first_a1_bearing(experiment_id: int | None, tray_id: int) -> float | None:
@@ -672,17 +673,54 @@ def first_a1_reading(experiment_id: int | None, tray_id: int) -> dict | None:
 def first_warning_at(experiment_id: int | None, tray_id: int, warning: str, until: str) -> str | None:
     """When tray `tray_id` first carried `warning` in experiment `experiment_id`: the `taken_at`
     of its earliest photo taken up to `until` whose reading has it, whichever photos were read
-    first. None when none has, or the photo is in no experiment."""
+    first. None when none has, or the photo is in no experiment. That is the experiment's earliest
+    such photo whenever it was taken on or before `until` (`first_warnings`)."""
     if experiment_id is None:
         return None
+    first = first_warnings(experiment_id, warning).get(tray_id)
+    return first if first is not None and first <= until else None
+
+
+# The answers of `first_warnings`, by database file, experiment and warning, each with the count of
+# saved readings it was found at (`_readings_changed`). The Gallery asks for every tray of every
+# photo of an hour, and one search of a long experiment takes 50 ms or more (#408).
+_first_warnings: dict[tuple[Path, int, str], tuple[int, dict[int, str]]] = {}
+_readings_saved = 0
+_first_warnings_lock = threading.Lock()
+
+
+def _readings_changed() -> None:
+    """Tray readings were saved or deleted: every answer of `first_warnings` is searched again.
+    Called after the change is committed, so a search started before it is not kept."""
+    global _readings_saved
+    with _first_warnings_lock:
+        _readings_saved += 1
+        _first_warnings.clear()
+
+
+def first_warnings(experiment_id: int, warning: str) -> dict[int, str]:
+    """Each tray of experiment `experiment_id` whose reading in some photo has `warning`, with the
+    `taken_at` of the earliest such photo. Searched once, then kept until tray readings are next
+    saved or deleted by this process (the app is the only writer of rig.db)."""
+    key = (db_path(), experiment_id, warning)
+    with _first_warnings_lock:
+        saved, kept = _readings_saved, _first_warnings.get(key)
+    if kept is not None and kept[0] == saved:
+        return kept[1]
     with _connect() as conn:
-        row = conn.execute(
-            "SELECT MIN(capture.taken_at) FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id"
-            " WHERE capture.experiment_id = ? AND tray_reading.tray_id = ? AND capture.taken_at <= ?"
-            " AND EXISTS (SELECT 1 FROM json_each(tray_reading.warnings) WHERE json_each.value = ?)",
-            (experiment_id, tray_id, until, warning),
-        ).fetchone()
-    return row[0]
+        rows = conn.execute(
+            "SELECT tray_reading.tray_id, MIN(capture.taken_at) FROM tray_reading"
+            " JOIN capture ON capture.id = tray_reading.capture_id"
+            " WHERE capture.experiment_id = ? AND tray_reading.tray_id IS NOT NULL"
+            " AND EXISTS (SELECT 1 FROM json_each(tray_reading.warnings) WHERE json_each.value = ?)"
+            " GROUP BY tray_reading.tray_id",
+            (experiment_id, warning),
+        ).fetchall()
+    found = {tray_id: taken_at for tray_id, taken_at in rows}
+    with _first_warnings_lock:
+        if _readings_saved == saved:
+            _first_warnings[key] = (saved, found)
+    return found
 
 
 def _point(row: sqlite3.Row, name: str) -> list[float] | None:
@@ -1449,4 +1487,6 @@ def purge_experiment(experiment_id: int, *, now: str) -> dict:
             (now, experiment_id),
         )
         conn.execute("UPDATE experiment SET purged_at = ? WHERE id = ?", (now, experiment_id))
-        return _experiment(conn, experiment_id)
+        purged = _experiment(conn, experiment_id)
+    _readings_changed()
+    return purged

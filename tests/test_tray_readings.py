@@ -912,6 +912,61 @@ def test_a_2x2_trays_names_stay_marked_for_the_rest_of_the_experiment_whatever_o
     assert marked == [False, False, True, True]
 
 
+def _warning_searches(monkeypatch) -> list[str]:
+    """Every SQL statement run from here on that searches tray readings by their warnings (a
+    `warnings` column after WHERE), from SQLite's own trace of each connection."""
+    import sqlite3
+
+    searches, connect = [], sqlite3.connect
+
+    def traced(*args, **kwargs):
+        conn = connect(*args, **kwargs)
+        conn.set_trace_callback(lambda sql: searches.append(sql) if "warnings" in sql.partition("WHERE")[2] else None)
+        return conn
+
+    monkeypatch.setattr(sqlite3, "connect", traced)
+    return searches
+
+
+def test_an_hour_of_photos_searches_the_experiments_warnings_once_not_once_per_tray_per_photo(monkeypatch) -> None:
+    """#408: the Gallery hour took 13 to 17 s on development experiment 3 because each tray of each
+    photo searched every earlier photo's warnings for a turned tag (531 searches, 22 ms each, and
+    longer every day). Six photos of trays 7, 8 and 9, tray 8's tag turned in the third: tray 8 is
+    marked from that photo on, trays 7 and 9 never, as before, with one search for the hour."""
+    experiment_id = _table_experiment()
+    photos = [table_photo(experiment_id, _at(minute), {7: "NW", 8: "SM", 9: "SE"}) for minute in range(6)]
+    capture_id = database.captures_by_path([photos[2]])[photos[2]]["id"]
+    trays = database.tray_readings(capture_id)["trays"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, "warnings": [tray_readings.TAG_TURNED]} if t["tray_id"] == 8 else t for t in trays])
+
+    searches = _warning_searches(monkeypatch)
+    since = [{t["tray_id"]: t["names_unsure_since"] for t in tray_readings.photo_readings(p)["trays"]} for p in photos]
+
+    turned = _at(2).isoformat()
+    assert since == [{7: None, 8: None, 9: None}] * 2 + [{7: None, 8: turned, 9: None}] * 4
+    assert len(searches) <= 1
+
+
+def test_a_turned_tag_saved_after_the_gallery_was_shown_marks_the_tray_at_the_next_showing() -> None:
+    """#408: the search is kept between Gallery requests. Photos are read out of order (older ones
+    on demand, Reprocess), so a turned tag saved for an earlier photo after a later photo was shown
+    marks that later photo the next time it is shown."""
+    experiment_id = _table_experiment()
+    photos = [table_photo(experiment_id, _at(minute), {7: "NW", 8: "SM"}) for minute in range(4)]
+
+    def since(path: str) -> str | None:
+        return next(t for t in tray_readings.photo_readings(path)["trays"] if t["tray_id"] == 8)["names_unsure_since"]
+
+    assert since(photos[3]) is None
+    capture_id = database.captures_by_path([photos[1]])[photos[1]]["id"]
+    trays = database.tray_readings(capture_id)["trays"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, "warnings": [tray_readings.TAG_TURNED]} if t["tray_id"] == 8 else t for t in trays])
+
+    assert since(photos[3]) == _at(1).isoformat()
+
+
 # Grow from leaf cores beside the fixed green cutoff (#363). The tray of `_cells_scene` filled with
 # soil inside a 100 px blue rim; a mint leaf in B3 with a pale edge the fixed cutoff does not take.
 SOIL_RGB = (115, 100, 100)  # greenness -0.048: soil level -0.045, lower cutoff 0.025
