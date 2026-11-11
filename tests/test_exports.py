@@ -259,6 +259,78 @@ def test_the_export_holds_each_trays_plant_area_with_its_slots_validation_band()
     assert "  tray-readings.csv\n" in manifest
 
 
+def test_the_export_holds_each_trays_area_by_grow_from_leaf_cores_beside_the_fixed_cutoff() -> None:
+    """#363 part 2: tray-readings.csv carries grow from leaf cores as stored (area, method with its
+    core cutoff, the tray's soil level and lower cutoff) beside the fixed green cutoff's area,
+    which is unchanged; a photo read before grow from leaf cores existed has those columns empty."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Cores")["id"])
+    both = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), {3: "NW"}, areas={3: 900.0})
+    table_photo(experiment["id"], datetime(2026, 10, 2, 0, 1, tzinfo=UTC), {3: "NW"}, areas={3: 910.0})
+    capture_id = database.captures_by_path([both])[both]["id"]
+    [tray] = database.tray_readings(capture_id)["trays"]
+    tray.update({"grown_method": "grow from leaf cores, core 0.07", "grown_area_mm2": 1156.0,
+                 "grown_plant_px": 115600, "grown_plant_centre_px": [10.0, 20.0],
+                 "grown_soil_level": -0.035, "grown_lower_cutoff": 0.035})
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[tray])
+    captures.stop_experiment(experiment["id"])
+
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["tray-readings.csv"].decode())))
+    picked = [(r["plant_area_mm2"], r["cores_plant_area_mm2"], r["cores_method"], r["cores_soil_level"],
+               r["cores_lower_cutoff"]) for r in rows]
+    assert picked == [
+        ("900.0", "1156.0", "grow from leaf cores, core 0.07", "-0.035", "0.035"),
+        ("910.0", "", "", "", ""),
+    ]
+
+
+def test_the_export_holds_each_cells_area_and_status_by_grow_from_leaf_cores() -> None:
+    """#363 part 2: cell-readings.csv carries each cell's status and area by grow from leaf cores
+    beside the fixed green cutoff's; no area when it has none, never 0; a photo read before grow
+    from leaf cores existed has those columns empty."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Cores cells")["id"])
+    both = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), {3: "NW"}, areas={3: 900.0})
+    older = table_photo(experiment["id"], datetime(2026, 10, 2, 0, 1, tzinfo=UTC), {3: "NW"}, areas={3: 910.0})
+
+    def cell(name, holds, px, area, grown_px, grown_area, grown_over):
+        return {"cell": name, "holds": holds, "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4, "plant_px": px,
+                "area_mm2": area, "plant_centre_px": None, "over_other_cells": False,
+                "segmenter": "green threshold, 0.1", "cell_rule": "rule", "grown_plant_px": grown_px,
+                "grown_area_mm2": grown_area, "grown_plant_centre_px": None, "grown_over_other_cells": grown_over}
+
+    for path, cells in (
+        (both, [cell("A1", "tag", 0, 0.0, 0, 0.0, False), cell("B1", "plant", 1205, 120.5, 1802, 180.2, False),
+                cell("B2", "plant", 0, 0.0, 0, 0.0, False), cell("C1", "plant", 300, 30.0, 900, 90.0, True)]),
+        (older, [cell("B1", "plant", 1210, 121.0, None, None, None)]),
+    ):
+        capture_id = database.captures_by_path([path])[path]["id"]
+        [tray] = database.tray_readings(capture_id)["trays"]
+        tray["cells"] = cells
+        database.record_tray_readings(capture_id, read_at="t", status="read", trays=[tray])
+    captures.stop_experiment(experiment["id"])
+
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
+    picked = [(r["cell"], r["status"], r["plant_area_mm2"], r["cores_status"], r["cores_plant_area_mm2"]) for r in rows]
+    assert picked == [
+        ("A1", "tag", "", "tag", ""),
+        ("B1", "plant", "120.5", "plant", "180.2"),
+        ("B2", "missing", "", "missing", ""),
+        ("C1", "plant", "30.0", "leaves over other cells", "90.0"),
+        ("B1", "plant", "121.0", "", ""),
+    ]
+
+
 def test_an_export_with_nothing_ticked_is_refused() -> None:
     """#65, #368 item 2: the user ticks what goes in the export; with no box ticked there is
     nothing to export, and no export is recorded."""

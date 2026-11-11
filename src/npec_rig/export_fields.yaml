@@ -198,6 +198,29 @@ package:
               Why there is no band: "not validated" (no validation at the photo), "photo not
               covered" (see flags in captures.csv) or "slot not measured" (too few targets in
               that slot).
+          - name: cores_plant_area_mm2
+            type: number
+            description: >-
+              Plant area by grow from leaf cores, the same way as plant_area_mm2: clearly green
+              pixels start a leaf, which grows into the paler touching pixels above a cutoff set
+              from this tray's own soil. Closer to a person's outline than the fixed green cutoff
+              (metrology log 34). Leaf edges on blue mats read a little small; algae or green soil
+              can count as plant. Empty for a photo read before this method existed.
+          - name: cores_method
+            type: string
+            description: >-
+              The method and its setting, for example "grow from leaf cores, core 0.07" (how green
+              a pixel must be to start a leaf). Empty when cores_plant_area_mm2 is empty.
+          - name: cores_soil_level
+            type: number
+            description: >-
+              The greenness of this tray's soil that grow from leaf cores found (the most common
+              greenness of the tray's soil pixels). Greenness is (2G - R - B) / (R + G + B).
+          - name: cores_lower_cutoff
+            type: number
+            description: >-
+              The greenness a pixel needed to join a leaf in this tray: the soil level plus 0.07,
+              never below -0.045.
 
     - name: cell-readings
       path: cell-readings.csv
@@ -263,6 +286,18 @@ package:
           - name: no_band_reason
             type: string
             description: Why there is no band, as in tray-readings.csv.
+          - name: cores_status
+            type: string
+            description: >-
+              The cell's status by grow from leaf cores, in the same words as status: "plant",
+              "missing", "tag" or "leaves over other cells". Empty for a photo read before this
+              method existed.
+          - name: cores_plant_area_mm2
+            type: number
+            description: >-
+              The cell's plant area by grow from leaf cores, square millimetres at the height of
+              the tray top (see cores_plant_area_mm2 in tray-readings.csv). Empty when the cell has
+              none, never 0.
 
 # Printed in the README as written, after the description. {parts}: how many parts; {last}: the
 # last part's number, two digits.

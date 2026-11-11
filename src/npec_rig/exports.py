@@ -324,6 +324,7 @@ def _time_in_table_location_csv(experiment_id: int, until: str) -> bytes:
 TRAY_READING_COLUMNS = [
     "file", "taken_at", "tray", "location", "plant_area_mm2", "segmenter", "floor_mm2", "not_counted",
     "photo_excluded", "partly_outside", "scale_error_at_tray_top_pct", "band_slot", "no_band_reason",
+    "cores_plant_area_mm2", "cores_method", "cores_soil_level", "cores_lower_cutoff",
 ]
 
 
@@ -354,6 +355,10 @@ def _tray_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> byt
                 "scale_error_at_tray_top_pct": band["band_pct"],
                 "band_slot": band["slot"],
                 "no_band_reason": band["reason"],
+                "cores_plant_area_mm2": tray.get("grown_area_mm2"),
+                "cores_method": tray.get("grown_method"),
+                "cores_soil_level": tray.get("grown_soil_level"),
+                "cores_lower_cutoff": tray.get("grown_lower_cutoff"),
             })
     return buffer.getvalue().encode()
 
@@ -362,7 +367,7 @@ def _tray_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> byt
 CELL_READING_COLUMNS = [
     "file", "taken_at", "tray", "location", "cell", "status", "plant_area_mm2", "segmenter", "cell_rule",
     "tray_not_counted", "photo_excluded", "names_unsure_since", "scale_error_at_tray_top_pct", "band_slot",
-    "no_band_reason",
+    "no_band_reason", "cores_status", "cores_plant_area_mm2",
 ]
 
 
@@ -396,6 +401,8 @@ def _cell_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> byt
                     "scale_error_at_tray_top_pct": band["band_pct"],
                     "band_slot": band["slot"],
                     "no_band_reason": band["reason"],
+                    "cores_status": cell.get("grown_status"),
+                    "cores_plant_area_mm2": cell.get("grown_area_mm2"),
                 })
     return buffer.getvalue().encode()
 
