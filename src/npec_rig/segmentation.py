@@ -66,6 +66,203 @@ class HailoSegmenter:
         raise SegmenterUnavailable("no Hailo segmentation model is installed; use the green threshold")
 
 
+# --- Grow from leaf cores (#363) -------------------------------------------------------------------
+# One tray at a time, beside the green threshold: leaf cores grown out into the paler leaf edges, down
+# to a cutoff set above the tray's own soil (metrology log 24.8 and 33.1, reference implementation
+# experiments/round3-classifier/code/ruleg402.py, its "H"). Every setting below was chosen in those
+# investigations; the core cutoff was lowered from the reference's 0.1 to 0.07 by the tuning of
+# metrology log 34.1 (Aaron, 2026-11-11), the others are unchanged. The fixed green cutoff's 0.1
+# (EXG_MIN) is a separate setting.
+
+GROWN_CORE_MIN = 0.07  # greenness above which, with green above red, a pixel is a leaf core
+GROWN_METHOD = f"grow from leaf cores, core {GROWN_CORE_MIN:g}"  # stored with every area
+GROWN_GAP = 0.07  # the lower cutoff lies this far above the tray's soil level
+GROWN_FLOOR = -0.045  # and never below this
+GROWN_SOIL_BIN = 0.01  # the soil level is the peak of the greenness histogram in bins this wide,
+GROWN_SOIL_SMOOTH_TAPS = 13  # smoothed with a Gaussian of this many taps,
+GROWN_SOIL_SMOOTH_SIGMA_BINS = 2.0  # this wide in bins,
+GROWN_SOIL_MAX = 0.05  # taken over bin centres below this
+GROWN_BLUE_MARGIN = 0  # blue plastic: blue above red and green by more than this (0 to 255 values)
+GROWN_TAG_ENLARGE = 1.6  # the tray tag's square, enlarged this many times about its centre, is no plant
+GROWN_WHITE_MIN = 140  # white paper: every channel above this,
+GROWN_WHITE_SPREAD = 25  # channels within this of each other,
+GROWN_WHITE_MIN_PX = 5000  # in pieces of at least this many pixels,
+GROWN_WHITE_WIDEN_PX = 61  # widened by a square this many pixels wide, is no plant
+
+
+@dataclass(frozen=True)
+class GrownPlant:
+    """One tray box's plant by `grow_from_cores`: the mask, the soil level found and the lower
+    cutoff used (soil level None: no soil to find it from, the floor is used)."""
+
+    mask: np.ndarray
+    soil_level: float | None
+    lower_cutoff: float
+
+
+def grow_from_cores(
+    rgb: np.ndarray, inside: np.ndarray, tag_corners=(), lower_cutoff: float | None = None,
+    core_min: float = GROWN_CORE_MIN,
+) -> GrownPlant:
+    """The plant in one tray box `rgb` (H x W x 3, R G B, 0 to 255), counted only where `inside`
+    (H x W, the tray outline) is True and away from the tray tag (`tag_corners`: each detection's
+    four corners, in the box's pixels) and white paper. Pieces of pixels greener than the lower
+    cutoff (joined side or corner, never through blue) count when they hold a leaf core. The lower
+    cutoff is set from the soil level, the commonest greenness inside the tray below
+    GROWN_SOIL_MAX, unless given. `core_min`: the core cutoff, GROWN_CORE_MIN unless given (the
+    reference drafts of metrology log 33 were drawn at 0.1)."""
+    import cv2
+
+    # Whole numbers throughout: a pixel's greenness depends only on its green and on red plus
+    # blue, so it is looked up in `_greenness_table`, worked out once the reference's way, and no
+    # box-sized array of floats is made. The working arrays are each the box's size: about 3M
+    # pixels for a tray of a 64MP photo.
+    # A tray box of a photo is a view with the photo's row stride, which OpenCV reads as it is.
+    box = rgb if rgb.dtype == np.uint8 and rgb.strides[1:] == (3, 1) else np.ascontiguousarray(rgb, dtype=np.uint8)
+    r, g, b = cv2.split(box)
+    red_green = cv2.max(r, g)
+    lo, hi = cv2.min(cv2.min(r, g), b), cv2.max(red_green, b)
+    white = cv2.bitwise_and(cv2.compare(lo, GROWN_WHITE_MIN, cv2.CMP_GT),
+                            cv2.compare(cv2.subtract(hi, lo), GROWN_WHITE_SPREAD, cv2.CMP_LT))
+    del lo, hi
+    # Not blue: blue above red and green by no more than the margin.
+    notblue = cv2.compare(cv2.subtract(b, red_green), GROWN_BLUE_MARGIN, cv2.CMP_LE)
+    del red_green
+    red_blue = cv2.add(r, b, dtype=cv2.CV_16U)
+    core = cv2.bitwise_and(_greener(g, red_blue, core_min), cv2.compare(g, r, cv2.CMP_GT))
+    del r, b
+    no_plant = np.zeros(white.shape, dtype=np.uint8)
+    # Only pieces of at least GROWN_WHITE_MIN_PX pixels are left out: none without that many.
+    if cv2.countNonZero(white) >= GROWN_WHITE_MIN_PX:
+        _n, labels, stats, _ = cv2.connectedComponentsWithStats(white, connectivity=8)
+        big = [k for k in range(1, len(stats)) if stats[k, cv2.CC_STAT_AREA] >= GROWN_WHITE_MIN_PX]
+        if big:
+            no_plant = cv2.dilate(_pieces(labels, stats, big), np.ones((GROWN_WHITE_WIDEN_PX,) * 2, np.uint8))
+        del labels
+    del white
+    for corners in tag_corners:
+        c = np.asarray(corners, dtype=np.float64)
+        centre = c.mean(axis=0)
+        cv2.fillPoly(no_plant, [np.round(centre + GROWN_TAG_ENLARGE * (c - centre)).astype(np.int32).reshape(-1, 1, 2)], 1)
+    sel = cv2.bitwise_and(cv2.compare(no_plant, 0, cv2.CMP_EQ), inside.view(np.uint8) * np.uint8(255))
+    del no_plant
+    soil_level = _soil_level(_greenness_table(), _counts(g, red_blue, cv2.bitwise_and(sel, notblue)))
+    if lower_cutoff is None:
+        lower_cutoff = GROWN_FLOOR if soil_level is None else max(GROWN_FLOOR, soil_level + GROWN_GAP)
+    low = cv2.bitwise_and(cv2.bitwise_and(_greener(g, red_blue, lower_cutoff), notblue), sel)
+    del g, red_blue, notblue
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(low, connectivity=8, ltype=cv2.CV_32S)
+    seeded = np.zeros(n, dtype=bool)
+    seeded[labels[cv2.bitwise_and(core, sel) > 0]] = True
+    seeded[0] = False
+    return GrownPlant(_pieces(labels, stats, np.flatnonzero(seeded)) > 0, soil_level, float(lower_cutoff))
+
+
+def _greener(g: np.ndarray, red_blue: np.ndarray, cutoff: float) -> np.ndarray:
+    """255 where the greenness of green `g` (uint8) and red plus blue `red_blue` (uint16) is above
+    `cutoff`, else 0, as the reference compares its float32 greenness with a Python number. Along
+    each green the greenness falls as red plus blue grows, so the pixels above a cutoff are those
+    whose red plus blue is below a limit for their green; where float rounding breaks that, each
+    pixel is looked up instead."""
+    import cv2
+
+    above = (_greenness_table() > cutoff).reshape(256, 2 * 255 + 1)
+    limit = above.sum(axis=1)
+    if all(above[k, : limit[k]].all() for k in range(256)):
+        return cv2.compare(red_blue, cv2.LUT(g, limit.astype(np.uint16)), cv2.CMP_LT)
+    at = g.astype(np.int32)
+    at *= 2 * 255 + 1
+    at += red_blue
+    return above.ravel()[at].view(np.uint8) * np.uint8(255)
+
+
+def _counts(g: np.ndarray, red_blue: np.ndarray, where: np.ndarray) -> np.ndarray:
+    """How many pixels where `where` is not 0 have each green and red plus blue, in the order of
+    `_greenness_table`."""
+    import cv2
+
+    if g.size < 2**24:  # float32 counts stay exact
+        # In bytes, which calcHist counts fastest: red plus blue as its half and its last bit.
+        half, odd = (red_blue >> 1).astype(np.uint8), (red_blue & 1).astype(np.uint8)
+        hist = cv2.calcHist([g, half, odd], [0, 1, 2], where, [256, 256, 2], [0, 256, 0, 256, 0, 2])
+        return hist.reshape(256, 512)[:, : 2 * 255 + 1].astype(np.int64).ravel()
+    at = g.astype(np.int32) * (2 * 255 + 1) + red_blue
+    return np.bincount(at[where > 0], minlength=256 * (2 * 255 + 1))
+
+
+def _pieces(labels: np.ndarray, stats: np.ndarray, which) -> np.ndarray:
+    """1 on the pieces `which` of a connected-components labelling with `stats`, else 0: piece by
+    piece within its box while that is cheaper than looking up every pixel."""
+    import cv2
+
+    which = np.asarray(which, dtype=np.int64)
+    out = np.zeros(labels.shape, dtype=np.uint8)
+    if len(which) == 0:
+        return out
+    x0, y0, w, h = (stats[which, k] for k in (cv2.CC_STAT_LEFT, cv2.CC_STAT_TOP, cv2.CC_STAT_WIDTH, cv2.CC_STAT_HEIGHT))
+    if int((w * h).sum()) > labels.size or len(which) > 2000:
+        wanted = np.zeros(len(stats), dtype=np.uint8)
+        wanted[which] = 1
+        return wanted[labels]
+    for k, a, c, ww, hh in zip(which, x0, y0, w, h, strict=True):
+        part = out[c : c + hh, a : a + ww]
+        part |= (labels[c : c + hh, a : a + ww] == k).view(np.uint8)
+    return out
+
+
+_GREENNESS: np.ndarray | None = None
+
+
+def _greenness_table() -> np.ndarray:
+    """(2G - R - B) / (R + G + B + 1e-6) in float32, as the reference works it out pixel by pixel,
+    for every green G (rows) and red plus blue R + B (columns), flattened: index G * 511 + R + B.
+    The sums of whole numbers below 2**24 are exact in float32, so each entry is bit for bit the
+    reference's value for any R and B with that sum."""
+    global _GREENNESS
+    if _GREENNESS is None:
+        g = np.arange(256, dtype=np.float32)[:, None]
+        rb = np.arange(2 * 255 + 1, dtype=np.float32)[None, :]
+        zero = np.float32(0)
+        _GREENNESS = ((2 * g - rb - zero) / (rb + g + zero + 1e-6)).ravel()
+    return _GREENNESS
+
+
+def grow_trays(rgb: np.ndarray, trays) -> tuple[np.ndarray, list[tuple[float | None, float | None]]]:
+    """`grow_from_cores` for each tray of full-size photo `rgb`, tray box by tray box: `trays` as
+    (outline, tag corners) pairs in full-size pixels, the tag corners a list of each tray tag's
+    four corners. The whole photo's mask, each tray's plant within its outline (touching trays'
+    plant in one mask, counted once by `measure_trays`), and each tray's soil level and lower
+    cutoff, in their order; (None, None) for a tray outside the photo."""
+    mask = np.zeros(rgb.shape[:2], dtype=bool)
+    levels = []
+    for outline, tag_corners in trays:
+        box = _box(mask, outline)
+        if box is None:
+            levels.append((None, None))
+            continue
+        x0, y0, x1, y1 = box
+        own = [np.asarray(c, dtype=np.float64) - [x0, y0] for c in tag_corners]
+        grown = grow_from_cores(rgb[y0:y1, x0:x1], _inside(box, outline), own)
+        mask[y0:y1, x0:x1] |= grown.mask
+        levels.append((grown.soil_level, grown.lower_cutoff))
+    return mask, levels
+
+
+def _soil_level(table: np.ndarray, counts: np.ndarray) -> float | None:
+    """The centre of the smoothed greenness histogram's highest bin below GROWN_SOIL_MAX, from the
+    number of pixels (`counts`) of each entry of the greenness table; None with no pixel."""
+    if not counts.any():
+        return None
+    edges = np.arange(-0.5, 0.5 + GROWN_SOIL_BIN / 100, GROWN_SOIL_BIN)
+    hist, _ = np.histogram(table, bins=edges, weights=counts)
+    half = GROWN_SOIL_SMOOTH_TAPS // 2
+    kernel = np.exp(-0.5 * (np.arange(-half, half + 1) / GROWN_SOIL_SMOOTH_SIGMA_BINS) ** 2)
+    smooth = np.convolve(hist.astype(float), kernel / kernel.sum(), mode="same")
+    centres = (edges[:-1] + edges[1:]) / 2
+    below = centres < GROWN_SOIL_MAX
+    return float(centres[below][np.argmax(smooth[below])])
+
+
 # --- Plant area from a mask ------------------------------------------------------------------------
 
 # Side of the square blocks the scale is looked up in, in full-size pixels. The scale field is a
@@ -252,13 +449,15 @@ def _measure(mask: np.ndarray, box, inside: np.ndarray, scale_field) -> PlantMea
     if len(xs) == 0:
         return PlantMeasure(0, None, 0.0)
     area = 0.0
-    for by in range(0, plant.shape[0], _SCALE_BLOCK_PX):
-        for bx in range(0, plant.shape[1], _SCALE_BLOCK_PX):
-            count = int(np.count_nonzero(plant[by : by + _SCALE_BLOCK_PX, bx : bx + _SCALE_BLOCK_PX]))
-            if count:
-                cx = x0 + bx + min(_SCALE_BLOCK_PX, plant.shape[1] - bx) / 2
-                cy = y0 + by + min(_SCALE_BLOCK_PX, plant.shape[0] - by) / 2
-                area += count * scale_field.mm_per_px(cx, cy) ** 2
+    # Plant pixels per block, the blocks with any taken row by row as a loop over every block
+    # would (#363: the loop looked at every empty block of a tray too).
+    across = -(-plant.shape[1] // _SCALE_BLOCK_PX)
+    per_block = np.bincount((ys // _SCALE_BLOCK_PX) * across + xs // _SCALE_BLOCK_PX)
+    for block in np.flatnonzero(per_block):
+        by, bx = int(block // across) * _SCALE_BLOCK_PX, int(block % across) * _SCALE_BLOCK_PX
+        cx = x0 + bx + min(_SCALE_BLOCK_PX, plant.shape[1] - bx) / 2
+        cy = y0 + by + min(_SCALE_BLOCK_PX, plant.shape[0] - by) / 2
+        area += int(per_block[block]) * scale_field.mm_per_px(cx, cy) ** 2
     # Pixel centres: pixel (0, 0) covers 0 to 1, so its centre is 0.5.
     return PlantMeasure(len(xs), (float(xs.mean()) + x0 + 0.5, float(ys.mean()) + y0 + 0.5), area)
 
@@ -272,14 +471,19 @@ def masks_root() -> Path:
     return Path(os.environ.get("NPEC_RIG_MASKS_DIR", "/var/lib/npec-rig/masks"))
 
 
-def mask_file(photo_path: str) -> Path:
-    """Where the mask of gallery photo `photo_path` (as `rig/2026-10-23/083553_637710`) is kept."""
-    return masks_root() / f"{photo_path}.png"
+# The file name ending of the masks by grow from leaf cores, beside the fixed cutoff's (#363).
+GROWN_MASK = ".grown"
 
 
-def save_mask(photo_path: str, mask: np.ndarray) -> Path:
+def mask_file(photo_path: str, kind: str = "") -> Path:
+    """Where the mask of gallery photo `photo_path` (as `rig/2026-10-23/083553_637710`) is kept:
+    the segmenter's, or with `kind` GROWN_MASK the one by grow from leaf cores."""
+    return masks_root() / f"{photo_path}{kind}.png"
+
+
+def save_mask(photo_path: str, mask: np.ndarray, kind: str = "") -> Path:
     """Save `mask` as a 1-bit PNG beside any earlier one of the photo, replacing it."""
-    target = mask_file(photo_path)
+    target = mask_file(photo_path, kind)
     target.parent.mkdir(parents=True, exist_ok=True)
     # A name of its own per thread: the background reader and Show tags can save one photo's mask
     # at the same time, and a shared name lets one thread's rename take the other's file.
@@ -289,10 +493,10 @@ def save_mask(photo_path: str, mask: np.ndarray) -> Path:
     return target
 
 
-def load_mask(photo_path: str) -> np.ndarray | None:
-    """The saved mask of photo `photo_path`, or None when it has none."""
+def load_mask(photo_path: str, kind: str = "") -> np.ndarray | None:
+    """The saved mask of photo `photo_path` (`mask_file`), or None when it has none."""
     try:
-        with Image.open(mask_file(photo_path)) as image:
+        with Image.open(mask_file(photo_path, kind)) as image:
             return np.asarray(image.convert("1"), dtype=bool)
     except FileNotFoundError:
         return None

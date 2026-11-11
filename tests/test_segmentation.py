@@ -186,3 +186,70 @@ def test_a_piece_reaching_past_its_trays_outline_counts_only_inside_the_outline(
     mask[20:30, 40:100] = True
     [a1] = measure_cells(mask, _cells()[:1], _even_scale(), outline_px=_box(0, 0, 54.5, 59))
     assert a1.plant_px == 150
+
+
+# --- Grow from leaf cores (#363, metrology log 24.8 and 33.1) ---------------------------------------
+# A painted tray box, 400 x 400 px. The cutoffs are worked out by hand from the method as written in
+# the metrology log: the soil's greenness (2G - R - B) / (R + G + B) falls in a 0.01 bin, the soil
+# level is that bin's centre, the lower cutoff 0.07 above it and never below -0.045.
+SOIL_LOW = (110, 100, 100)  # greenness -0.032: bin centre -0.035, lower cutoff 0.035
+SOIL_HIGH = (100, 100, 90)  # greenness 0.034: bin centre 0.035, lower cutoff 0.105
+PALE_EDGE = (150, 165, 140)  # greenness 0.088: above 0.035, below 0.105, below the core's 0.1
+GREENISH_SOIL = (120, 123, 105)  # greenness 0.060: above 0.035, below the core cutoff 0.07, never a core
+PALE_SEEDLING = (125, 140, 120)  # greenness 0.091, green above red: above the core cutoff 0.07, below 0.1
+TAG_CORNERS = ((300, 60), (340, 60), (340, 100), (300, 100))  # 40 px square, centre (320, 80)
+
+
+def _painted_tray(soil) -> np.ndarray:
+    box = np.full((400, 400, 3), soil, dtype=np.uint8)
+    box[:30, :] = NOT_PLANT["blue tray"]  # the tray's rim
+    box[92:168, 92:208] = PALE_EDGE  # the leaf's pale edge, 8 px wide
+    box[100:160, 100:200] = PLANT["benchmark mint leaf"]  # the leaf
+    box[168:180, 92:208] = NOT_PLANT["blue tray"]  # blue plastic touching the leaf's edge
+    box[250:300, 250:320] = GREENISH_SOIL  # touching no leaf
+    box[70:90, 310:330] = PLANT["benchmark mint leaf"]  # leaf colour on the tag, inside its square
+    return box
+
+
+@pytest.mark.parametrize(("soil", "soil_level", "cutoff", "edge_in"), [
+    (SOIL_LOW, -0.035, 0.035, True), (SOIL_HIGH, 0.035, 0.105, False)])
+def test_grow_from_leaf_cores_joins_a_pale_edge_to_its_leaf_and_leaves_out_soil_blue_and_the_tag(
+    soil, soil_level, cutoff, edge_in
+) -> None:
+    from npec_rig.segmentation import grow_from_cores
+
+    inside = np.ones((400, 400), dtype=bool)
+    grown = grow_from_cores(_painted_tray(soil), inside, tag_corners=[TAG_CORNERS])
+
+    assert grown.soil_level == pytest.approx(soil_level, abs=1e-9)
+    assert grown.lower_cutoff == pytest.approx(cutoff, abs=1e-9)
+    assert grown.mask[100:160, 100:200].all()  # the leaf
+    assert grown.mask[92:100, 92:208].all() == edge_in  # its pale edge, joined with the low cutoff only
+    assert not grown.mask[168:180].any()  # the blue plastic
+    assert not grown.mask[:30].any()  # the rim
+    assert not grown.mask[250:300, 250:320].any()  # greenish soil touching no leaf
+    assert not grown.mask[48:112, 288:352].any()  # the tag's square enlarged 1.6 times
+    assert grown.mask.sum() == (100 * 60 if not edge_in else 116 * 76)  # the leaf, with its edge or not
+
+
+def test_grow_from_leaf_cores_counts_nothing_outside_the_tray_outline() -> None:
+    from npec_rig.segmentation import grow_from_cores
+
+    inside = np.ones((400, 400), dtype=bool)
+    inside[:, 150:] = False
+    grown = grow_from_cores(_painted_tray(SOIL_LOW), inside)
+    assert not grown.mask[:, 150:].any()
+    assert grown.mask[100:160, 100:150].all()
+
+
+def test_grow_from_leaf_cores_finds_a_pale_seedling_whose_greenest_pixel_is_below_0_1() -> None:
+    """Metrology log 34.1 (Aaron, 2026-11-11): the core cutoff is 0.07. A pale seedling, all of it
+    greenness 0.091, is found whole; the greenish soil patch, 0.060, is still left out."""
+    from npec_rig.segmentation import grow_from_cores
+
+    box = _painted_tray(SOIL_LOW)
+    box[320:340, 60:80] = PALE_SEEDLING
+    grown = grow_from_cores(box, np.ones((400, 400), dtype=bool), tag_corners=[TAG_CORNERS])
+    assert grown.mask[320:340, 60:80].all()
+    assert grown.mask[315:345, 55:85].sum() == 400
+    assert not grown.mask[250:300, 250:320].any()

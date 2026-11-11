@@ -1,0 +1,91 @@
+{
+ "rig": "dev",
+ "capture_id": "8618",
+ "seconds": 8.5,
+ "trays_cached": [
+  76,
+  77,
+  78,
+  81
+ ],
+ "grow_p_equals_ruleg402": [
+  {
+   "tray": 76,
+   "same": true
+  },
+  {
+   "tray": 77,
+   "same": true
+  },
+  {
+   "tray": 78,
+   "same": true
+  },
+  {
+   "tray": 81,
+   "same": true
+  }
+ ],
+ "cells": [
+  {
+   "id": "B01",
+   "name": "dev_2026-11-03_76_B2",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 9852,
+   "trays": [
+    76
+   ]
+  },
+  {
+   "id": "B02",
+   "name": "dev_2026-11-03_77_B2",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 5956,
+   "trays": [
+    77
+   ]
+  },
+  {
+   "id": "B03",
+   "name": "dev_2026-11-03_78_B2",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 13042,
+   "trays": [
+    78
+   ]
+  },
+  {
+   "id": "B04",
+   "name": "dev_2026-11-03_81_A1",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 60421,
+   "trays": [
+    81
+   ]
+  },
+  {
+   "id": "B05",
+   "name": "dev_2026-11-03_81_A2",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 18696,
+   "trays": [
+    81
+   ]
+  },
+  {
+   "id": "B06",
+   "name": "dev_2026-11-03_81_B1",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 28055,
+   "trays": [
+    81
+   ]
+  }
+ ]
+}

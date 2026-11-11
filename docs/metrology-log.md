@@ -9302,3 +9302,150 @@ Aaron's check (red), on the crop. `docs/figures/33.1/mat-cells-before-after.jpg`
 the blue mat cells A25 to A27, where the draft's leaf edges were too tight.
 `docs/figures/33.1/algae-and-soil-before-after.jpg`: B12 to B18, with the algae soil of B15 removed.
 Scaled down from the check sheets.
+
+## 34. Tuning grow from leaf cores against the reference set (issue #363, method written 2026-11-10, before any setting is tried)
+
+**Label: development check.** Which settings of grow from leaf cores (33.1; rule H of 24.8) bring
+its masks closest to the reference set of section 33, before it goes into the app beside the fixed
+green cutoff. The known answer is Aaron's checked masks, so this is not a reference comparison.
+
+**Reference.** The 60 truth masks of `experiments/round3-classifier/data/truth/` (38 corrected by
+Aaron, 21 accepted drafts, A28 empty) and the train or test split fixed in section 33 (production 17
+train and 13 test, development 24 train and 6 test). The 15 outlines of section 24, drawn from nothing,
+are the independent check. Yellow is not plant.
+
+**Why tuning is needed and where it can mislead.** The method is computed per tray (its soil level
+comes from the whole tray), so it is run on the 26 full photos of the set again (copied read-only)
+and scored on the cells. The 21 accepted drafts were made with the present settings, so the present
+settings score perfectly on them: any setting that differs is penalised there. The scores are
+therefore reported on all training cells and on the corrected training cells alone, and a change is
+taken only if it also does not lower the score on the accepted ones by more than it gains.
+
+**Settings tried** (training cells only; each varied around the present value, alone first, then the
+best few together):
+- core: greenness above 0.06 to 0.14 (now 0.1), with and without G > R;
+- lower cutoff: soil level plus 0.03 to 0.12 (now 0.07), floor -0.08 to 0 (now -0.045);
+- blue: pixels left out when blue exceeds red and green by a margin of 0 to 30 (now 0), to see
+  whether the too-tight edges on blue mats (33.1) come from leaf edge pixels being called blue;
+- edge: the grown mask widened by 0 or 1 px into pixels above the lower cutoff;
+- small holes: holes narrower than 2 px filled or not (the outline rule of 24: soil gaps under 2 px
+  wide are plant);
+- smoothing of the colour before greenness: none, or Gaussian sigma 0.7 px.
+
+**Score.** Per cell: IoU with the truth, and area ratio (method / truth). Reported per rig and per
+group (size, green soil, blue mat, empty). Chosen: the setting with the best mean IoU over the
+training cells of both rigs, unless another is within 0.005 and closer to an area ratio of 1 on the
+mat cells; a decision, not a measured threshold. Time per photo is measured for the chosen setting;
+it must stay within the app's one photo a minute.
+
+**Test, once.** The chosen and the present settings, on the test cells and on the 15 outlines,
+written up with the rest. No setting is changed after the test.
+
+**Raw data.** Photos staged on `npec-rig-01`; scripts and results in
+`experiments/round3-grow-tuning/`.
+
+### 34.1 Training results and the chosen setting (2026-11-10 and 11, before the test)
+
+**Harness.** The 26 photos were copied again (production read-only). With the present settings the
+tuning code gives every one of the 42 training cells' drafts pixel for pixel (0 pixels different),
+so the harness reproduces the method behind the reference set.
+
+**One setting at a time** (45 settings, 42 training cells; IoU over the whole crop; present setting:
+mean IoU 0.898 on all training cells, 0.857 on the 28 corrected, 1.000 on the 14 accepted drafts;
+pooled area ratio on the 5 blue mat cells 0.961):
+
+| Change from the present setting | IoU all | IoU corrected | IoU accepted | Mat area ratio |
+|---|---|---|---|---|
+| core 0.07 (0.06 the same) | 0.934 | 0.908 | 1.000 | 0.961 |
+| core 0.08 or 0.09 | 0.916 | 0.882 | 1.000 | 0.961 |
+| core 0.08 without G > R | 0.920 | 0.890 | 0.993 | 0.961 |
+| fill gaps of 1 px | 0.895 | 0.855 | 0.995 | 0.964 |
+| floor -0.05 or -0.04 | 0.894 | 0.857 to 0.859 | 0.983 to 0.988 | 0.961 to 0.962 |
+| blue margin 5 | 0.894 | 0.851 | 0.999 | 1.039 |
+| gap 0.08 | 0.890 | 0.852 | 0.985 | 0.961 |
+| edge widened 1 px | 0.888 | 0.843 | 0.999 | 1.097 |
+| smoothing sigma 0.7 | 0.864 | 0.848 | 0.903 | 0.937 |
+| core 0.11 to 0.14 | 0.85 to 0.87 | about 0.855 | 0.83 to 0.92 | 0.950 |
+| gap 0.03 or 0.12 | 0.799 or 0.827 | 0.735 or 0.792 | 0.958 or 0.913 | 0.961 |
+
+288 combinations of the better values found nothing better than core 0.07 alone.
+
+**What the core cutoff does.** The gain from core 0.07 comes entirely from two tiny seedlings, A02
+(233 px) and A17 (1376 px), which have no pixel above greenness 0.1, so no core and no plant: their
+IoU goes from 0 to 0.76 and 0.77. No other training cell changes by more than 0.005 IoU; green soil
+0.927 present, 0.926 at core 0.07 (no algae taken in as cores); blue mats 0.943 both. Mean IoU
+counts a 233 px seedling the same as a 129,000 px plant, so the mean overstates what this changes in
+area.
+
+**Blue mats.** No setting tried loosens the tight leaf edges on mats usefully (a blue margin
+overshoots them, 1.039). The step where a mat is laid (33.1) stays a known limitation.
+
+**The written rule and the choice.** Applied literally, the choice rule of section 34 picks core
+0.06 with 1 px gaps filled, because its mat area ratio (0.965) is 0.004 closer to 1 than core 0.07
+alone (0.961), on 5 cells. That difference is within chance, and gap filling is slightly worse in
+every other group (about +0.5% area). **Chosen instead (Aaron, 2026-11-11): core 0.07 alone**, every
+other setting as before (G > R for cores, gap 0.07, floor -0.045, blue margin 0, no edge widening,
+no gap filling, no smoothing). This overrides the written rule, for the reason given, and is
+recorded before the test.
+
+**Time.** On the Pi 5 (production photo, 12 trays): decode 0.51 to 0.56 s; trays 2.64 to 2.74 s
+present, 2.86 to 2.91 s at the chosen setting (tuning code, not the app's faster copy).
+
+**Raw data.** `experiments/round3-grow-tuning/` (scripts, per-cell scores, group tables);
+photos and tray cache on `npec-rig-01:~/grow-363/run-20261110T150629Z/`.
+
+### 34.2 The test, run once (2026-11-11)
+
+**Label: development check.** The present setting (core 0.1) and the chosen one (core 0.07, 34.1),
+with the fixed green cutoff beside them, on the test cells of section 33 and on the 15 outlines of
+section 24. Run once; nothing was changed afterwards.
+
+*Correction.* The test split holds 18 cells, not 19: production 13, development 5 (B14, B15, B16,
+B25, B26). Sections 33 and 34 say development 24 train and 6 test; the manifest, which follows the
+split rule, has 25 and 5.
+
+**Harness.** On all 18 test cells the present setting gives the draft pixel for pixel.
+
+**Test cells** (IoU over the whole crop, mean; area ratio method / truth, pooled):
+
+| Cells | n | Present | Chosen (core 0.07) | Fixed green cutoff |
+|---|---|---|---|---|
+| All with plant | 17 | 0.960 / 1.140 | 0.958 / 1.140 | 0.308 / 0.714 |
+| Production | 12 | 0.997 / 1.001 | 0.994 / 1.002 | 0.137 / 0.208 |
+| Development | 5 | 0.872 / 1.149 | 0.872 / 1.149 | 0.718 / 0.746 |
+| Corrected by Aaron | 8 | 0.915 / 1.149 | 0.915 / 1.149 | 0.442 / 0.741 |
+| Accepted drafts | 9 | 1.000 / 1.000 | 0.997 / 1.001 | 0.189 / 0.286 |
+| Green soil | 2 | 0.707 / 2.374 | 0.691 / 2.376 | 0.467 / 0.784 |
+
+A28 (green printed square, no plant): 1.70% of the crop read as plant by both settings, 1.54% by the
+fixed cutoff. The only cell the chosen setting changes is A03 (green soil, 632 to 652 px). B15
+(algae) reads 2.41 times its truth with both settings (IoU 0.413) and drives the development ratio;
+without it the development cells are within about 5%. The fixed green cutoff finds 1% to 38% of the
+plant on production cells (A19: 5 px of 639). No blue mat, seedling or empty cell fell on a test day,
+so the test does not show the seedling gain of 34.1. The corrected rows are the fair comparison;
+present scores 1.000 on the accepted drafts by construction.
+
+**The 15 outlines of section 24** (production still 2026-11-03 10:58:53, capture 19380, copied
+read-only; method per tray on the full photo; outlines filled the ImageJ way; every method pixel in
+the crop counted, as in section 24; these outlines count only the centre plant and count yellow, unlike
+the 60-cell set):
+
+| Against | Grow from leaf cores (present = chosen) | Fixed green cutoff | Section 24.8 |
+|---|---|---|---|
+| Pass 1 | IoU 0.874 (0.791 to 0.908), area 0.963 pooled | 0.309, 0.344 | 0.872, 0.963 |
+| Pass 2 | IoU 0.879 (0.826 to 0.921), area 0.954 | 0.308, 0.341 | 0.878 |
+| The person's own repeat | IoU 0.917 (0.839 to 0.946) | | 0.915 |
+
+Present and chosen give the same mask on all 15. Small differences from 24.8 come from running per
+tray on the full photo with the tray outline and tag (24.8 grew inside the crop).
+
+**Reading.** On cells drawn independently of it, grow from leaf cores reaches IoU 0.87 to 0.88,
+against 0.917 for the person repeating themselves; the fixed green cutoff reaches 0.31. Core 0.07
+costs nothing on the test and finds tiny seedlings the present setting misses (34.1). It goes into
+the app.
+
+**Limits.** 18 test cells, 2 of them green soil, none on a mat; 15 independent outlines from one
+photo; one person.
+
+**Raw data.** `experiments/round3-grow-tuning/data/test/` (per cell and per outline), scripts
+`code/test363.py`, `code/test363_summary.py`.

@@ -200,38 +200,70 @@
       // the band of the validation slot nearest the tray (#76).
       let table = "";
       if (measured.length) {
-        // Until a better rule replaces the green threshold (#363): against hand outlines of the
-        // potato plants it counts 0.31 of the leaf area on average, 0.07 on the smallest plants
-        // (metrology log 24, #352). Wording for #352, replacing Aaron's general one of 2026-10-27.
-        lines.push(`<div class="banner" style="margin: 8px 0">${ui.icon("warn")}<p><strong>Warning:</strong> `
-          + "plant areas read low. The method counts about a third of each leaf, and less on small plants.</p></div>");
         if (EXCLUDED[trays.exclusion]) lines.push(`${EXCLUDED[trays.exclusion].info}. These plant areas are not counted.`);
         if (shared) lines.push(`${shared} Their plant areas are not counted.`);
-        lines.push(`Plant area, ${ui.esc(measured[0].segmenter)}:`);
-        // The floor (#288): an empty tray reads up to about this much, so the rig cannot tell a
-        // smaller plant from an empty tray. The number read stays stored, never subtracted (Aaron).
-        const area = (t) => t.floor_mm2 != null && t.area_mm2 < t.floor_mm2
-          ? `under ${t.floor_mm2}` : Math.round(t.area_mm2).toLocaleString("en-US");
-        // A tray more than its wall past the photo edge (#282): plant past the edge is not counted.
-        const edge = (t) => t.partly_outside ? ", partly outside the photo" : "";
-        const counted = (t) => t.not_counted?.length ? ", not counted" : "";
-        // The band covers flat objects at tray-top height only, not plant height or the mask
-        // (Aaron, 2026-11-05, #76): the heading says so. No band: the reason, with the warn shape.
-        const band = (t) => !t.uncertainty ? "" : t.uncertainty.band_pct !== null
-          ? `±${t.uncertainty.band_pct.toFixed(1)}, ${ui.esc(t.uncertainty.slot)}`
-          : `${ui.icon("warn")} ${ui.esc(t.uncertainty.reason)}`;
-        // The table holds only the trays in this photo (Aaron, 2026-10-30): no slot column.
-        const rows = measured.sort((a, b) => (a.tray_id ?? 1e9) - (b.tray_id ?? 1e9)).map((t) =>
-          `<tr><td>${t.tray_id ?? "No tag"}</td><td>${area(t)}${edge(t)}${counted(t)}</td><td>${band(t)}</td></tr>`).join("");
-        // Height above the tray top: about 0.145 % per mm (metrology log, CLAUDE.md), rounded.
-        table = `<table class="data-table" style="max-width: 760px; margin-top: 8px"><thead><tr><th>Tray</th>`
-          + `<th>Plant area (mm²)</th><th>Scale error at tray top (±%)</th></tr></thead><tbody>${rows}</tbody></table>`
-          + "<p>Plant height adds about 0.15% per mm above the tray top.</p>"
-          + measured.filter((t) => t.cells?.length).map(cellsHtml).join("");
+        // One method at a time, chosen from those in this reading (Aaron, 2026-11-11, #363).
+        const methods = trays.area_methods ?? [];
+        if (methods.length) {
+          const chosen = areaMethod(methods);
+          table = areaChooser(methods, chosen) + methods.map((m) =>
+            `<div data-area-view="${ui.esc(m.key)}"${m.key === chosen ? "" : " hidden"}>${areaView(measured, m)}</div>`).join("");
+        }
       } else if (trays.trays.length && !dark) {
         lines.push("Plant area: not worked out for this photo.");
       }
       return lines.map((line) => `<div>${line}</div>`).join("") + table + notSeenHtml(trays);
+    }
+
+    // The plant area methods come with each reading (`area_methods`, tray_readings.AREA_METHODS,
+    // #363): key, name, warning and where its numbers are. The first listed is the default; the
+    // viewer's choice is remembered by key and used when this photo has it.
+    function areaMethod(methods) {
+      let stored = null;
+      try { stored = localStorage.getItem("gallery-area-method"); } catch (err) { /* not stored */ }
+      return methods.some((m) => m.key === stored) ? stored : methods[0].key;
+    }
+    function areaChooser(methods, chosen) {
+      // A native list, its closed box as tall as a button (Aaron, 2026-11-11).
+      return `<label style="display: flex; align-items: center; gap: 16px; margin: 8px 0 16px"><span>Leaf area method</span>`
+        + `<select data-area-method style="flex: 1 1 auto; min-width: 0; max-width: 420px; min-height: var(--tap); padding: 0 12px;`
+        + ` font: inherit; font-size: 1.15rem; color: var(--fg); background: var(--surface-2); border: 2px solid var(--line); border-radius: var(--radius)">`
+        + methods.map((m) => `<option value="${ui.esc(m.key)}"${m.key === chosen ? " selected" : ""}>${ui.esc(m.name)}</option>`).join("")
+        + "</select></label>";
+    }
+    // Show the method `key` in the Info panel `root` and remember it for this viewer.
+    function chooseAreaMethod(root, key) {
+      try { localStorage.setItem("gallery-area-method", key); } catch (err) { /* not stored */ }
+      root.querySelectorAll("[data-area-view]").forEach((view) => { view.hidden = view.dataset.areaView !== key; });
+    }
+    // The trays' areas by one method: its warning, the tray table and the cell grids.
+    function areaView(measured, m) {
+      // The floor (#288): an empty tray reads up to about this much, so the rig cannot tell a
+      // smaller plant from an empty tray. The number read stays stored, never subtracted (Aaron).
+      // Only a method whose floor was measured has one.
+      const value = (t) => {
+        const area = t[m.area];
+        if (area == null) return "not worked out";
+        const floor = m.floor ? t[m.floor] : null;
+        return floor != null && area < floor ? `under ${floor}` : Math.round(area).toLocaleString("en-US");
+      };
+      // A tray more than its wall past the photo edge (#282): plant past the edge is not counted.
+      const edge = (t) => t.partly_outside ? ", partly outside the photo" : "";
+      const counted = (t) => t.not_counted?.length ? ", not counted" : "";
+      // The band covers flat objects at tray-top height only, not plant height or the mask
+      // (Aaron, 2026-11-05, #76): the heading says so. No band: the reason, with the warn shape.
+      const band = (t) => !t.uncertainty ? "" : t.uncertainty.band_pct !== null
+        ? `±${t.uncertainty.band_pct.toFixed(1)}, ${ui.esc(t.uncertainty.slot)}`
+        : `${ui.icon("warn")} ${ui.esc(t.uncertainty.reason)}`;
+      // The table holds only the trays in this photo (Aaron, 2026-10-30): no slot column.
+      const rows = [...measured].sort((a, b) => (a.tray_id ?? 1e9) - (b.tray_id ?? 1e9)).map((t) =>
+        `<tr><td>${t.tray_id ?? "No tag"}</td><td>${value(t)}${t[m.area] != null ? edge(t) + counted(t) : ""}</td><td>${band(t)}</td></tr>`).join("");
+      // Height above the tray top: about 0.145 % per mm (metrology log, CLAUDE.md), rounded.
+      return `<div class="banner" style="margin: 8px 0">${ui.icon("warn")}<p><strong>Warning:</strong> ${ui.esc(m.warning)}</p></div>`
+        + `<table class="data-table" style="max-width: 760px; margin-top: 8px"><thead><tr><th>Tray</th>`
+        + `<th style="white-space: normal">${ui.esc(m.name)} (mm²)</th><th>Scale error at tray top (±%)</th></tr></thead><tbody>${rows}</tbody></table>`
+        + "<p>Plant height adds about 0.15% per mm above the tray top.</p>"
+        + measured.filter((t) => t.cells?.length).map((t) => cellsHtml(t, m)).join("");
     }
 
     // Trays found in earlier photos of the experiment but not in this one, for 48 h after they
@@ -254,11 +286,18 @@
     // has no area: a missing plant never reads 0, leaves over a neighbour's cell are not one
     // plant's own (Aaron, 2026-11-06).
     const CELL_WORDS = { tag: "Tag", missing: "Missing", "leaves over other cells": "Leaves over other cells" };
-    function cellsHtml(t) {
+    // The grid of one method `m` (`area_methods`, #363).
+    function cellsHtml(t, m) {
+      const method = m.name.toLowerCase();
+      if (!t.cells.some((c) => c[m.cell_status])) {
+        return `<p style="margin-top: 16px">Tray ${t.tray_id}, plant area per cell by ${ui.esc(method)}: not worked out.</p>`;
+      }
+      const pick = (c) => ({ area_mm2: c[m.cell_area], status: c[m.cell_status] });
       const byName = Object.fromEntries(t.cells.map((c) => [c.cell, c]));
       const cols = [...new Set(t.cells.map((c) => c.cell[0]))].sort();
       const rows = [...new Set(t.cells.map((c) => Number(c.cell.slice(1))))].sort((a, b) => b - a);
-      const value = (c) => {
+      const value = (cell) => {
+        const c = pick(cell);
         const area = c.area_mm2 != null ? Math.round(c.area_mm2).toLocaleString("en-US") : "";
         if (c.status === "plant") return area;
         const word = CELL_WORDS[c.status] ?? c.status;
@@ -268,7 +307,7 @@
         const c = byName[`${col}${r}`];
         return `<td style="white-space: normal">${c ? `<strong>${col}${r}</strong><br>${value(c)}` : ""}</td>`;
       }).join("") + "</tr>").join("");
-      return `<p style="margin-top: 16px">Tray ${t.tray_id}, plant area per cell (mm²), A1 at the bottom left:</p>`
+      return `<p style="margin-top: 16px">Tray ${t.tray_id}, plant area per cell (mm²) by ${ui.esc(method)}, A1 at the bottom left:</p>`
         + `<table class="data-table" style="max-width: 760px; width: 100%; table-layout: fixed"><thead><tr><th style="width: 40px"></th>`
         + cols.map((col) => `<th>${col}</th>`).join("") + `</tr></thead><tbody>${body}</tbody></table>`;
     }
@@ -389,7 +428,10 @@
       }
       lines.push(...(tags ? tagDetailLines(tags) : ["Tags: not searched yet. Tap Tags on the photo."])
         .map((line) => `<p>${ui.esc(line)}</p>`));
-      ui.infoPanel({ title: "About this photo", body: lines.join("") });
+      const panel = ui.infoPanel({ title: "About this photo", body: lines.join("") });
+      panel.addEventListener("change", (event) => {
+        if (event.target.matches("[data-area-method]")) chooseAreaMethod(panel, event.target.value);
+      });
     }
 
     // Show tags (#194): the tags found in the full-size photo, listed under it, then the photo

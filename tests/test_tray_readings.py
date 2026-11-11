@@ -910,3 +910,98 @@ def test_a_2x2_trays_names_stay_marked_for_the_rest_of_the_experiment_whatever_o
         tray = next(t for t in tray_readings.photo_readings(path)["trays"] if t["tray_id"] == 80)
         marked.append(label in tray["warnings"])
     assert marked == [False, False, True, True]
+
+
+# Grow from leaf cores beside the fixed green cutoff (#363). The tray of `_cells_scene` filled with
+# soil inside a 100 px blue rim; a mint leaf in B3 with a pale edge the fixed cutoff does not take.
+SOIL_RGB = (115, 100, 100)  # greenness -0.048: soil level -0.045, lower cutoff 0.025
+PALE_EDGE_RGB = (125, 135, 115)  # greenness 0.080: above the lower cutoff, below the fixed cutoff's 0.1
+
+
+def _soil_tray_scene(monkeypatch) -> None:
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB
+
+    one_tray_plant_scene(monkeypatch)
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[400:4060, 300:3350] = TRAY_BLUE
+            frame[500:3960, 400:3250] = SOIL_RGB
+            frame[2060:2400, 1307:1647] = PALE_EDGE_RGB  # 20 px around the leaf
+            frame[2080:2380, 1327:1627] = MINT_LEAF_RGB  # 300 x 300 px inside B3's opening: 900 mm2
+            return frame, metadata
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [_a1_tag(5, 779.5, 3624.0)])
+    CameraManager.set_instance(CameraManager(Scene(width=4000, height=4400)))
+
+
+def test_each_tray_and_cell_gets_its_area_by_both_methods_each_named(monkeypatch) -> None:
+    """The fixed green cutoff takes the leaf, 300 x 300 px = 900 mm2 at 10 px/mm, as before. Grow
+    from leaf cores also takes its pale edge: 340 x 340 px = 115,600 px = 1156 mm2."""
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+
+    readings = tray_readings.read_photo(path)
+    [tray] = readings["trays"]
+    assert (tray["segmenter"], tray["area_mm2"]) == ("green threshold, 0.1", pytest.approx(900, rel=0.01))
+    assert tray["grown_method"] == "grow from leaf cores, core 0.07"
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_plant_px"] == pytest.approx(115_600, rel=0.01)
+    assert tray["grown_plant_centre_px"] == pytest.approx([1477, 2230], abs=2)
+    assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(-0.045), pytest.approx(0.025))
+    cells = {c["cell"]: c for c in tray["cells"]}
+    assert (cells["B3"]["status"], cells["B3"]["area_mm2"]) == ("plant", pytest.approx(900, rel=0.01))
+    assert cells["B3"]["grown_area_mm2"] == pytest.approx(1156, rel=0.01)
+    assert cells["B3"]["grown_over_other_cells"] is False
+    assert {c["grown_area_mm2"] for name, c in cells.items() if name != "B3"} == {None}
+    assert (cells["A1"]["grown_status"], cells["B3"]["grown_status"]) == ("tag", "plant")
+    assert {c["grown_status"] for name, c in cells.items() if name not in ("A1", "B3")} == {"missing"}
+    assert tray_readings.photo_readings(path) == readings
+
+
+def test_reprocess_counts_both_methods_again_from_their_saved_masks_without_the_photo(monkeypatch) -> None:
+    """With the photo gone, both areas come from the saved masks under a twin rebuilt at 10.0 x
+    5.00 / 4.90 px/mm (as in tests/test_experiments.py): 900 x (4.90 / 5.00)^2 = 864.4 mm2 by the
+    fixed green cutoff, 1156 x (4.90 / 5.00)^2 = 1110.2 mm2 by grow from leaf cores, whose soil
+    level and cutoff are kept from the first reading."""
+    from npec_rig.calibration import ScaleField
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+    stem = FIXTURE["calibration"]
+    save_calibration(
+        CalibrationArtifact(created_at="2026-10-26T15:00:00+00:00", scale_field=ScaleField((1.0, 0.0, 0.0), 10.0 * 5.00 / 4.90, 0.0),
+                            frame_stem=stem, lens_position=6.05, rebuilt_from=stem),
+        stem="20261026T150000000001", promote=False,
+    )
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(864.4, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_area_mm2"] == pytest.approx(1110.2, rel=0.01)
+    assert tray["grown_method"] == "grow from leaf cores, core 0.07"
+    assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(-0.045), pytest.approx(0.025))
+    cells = {c["cell"]: c for c in tray["cells"]}
+    assert (cells["B3"]["area_mm2"], cells["B3"]["grown_area_mm2"]) == (pytest.approx(864.4, rel=0.01), pytest.approx(1110.2, rel=0.01))
+
+
+def test_reprocess_of_a_photo_read_before_grow_from_leaf_cores_keeps_its_area_with_the_photo_gone(monkeypatch) -> None:
+    """A photo read before #363 has only the fixed cutoff's mask. With the photo gone, Reprocess
+    counts that mask again (900 mm2) and has no area by grow from leaf cores."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+    segmentation.mask_file(path, segmentation.GROWN_MASK).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
+    assert (tray["grown_method"], tray["grown_area_mm2"]) == (None, None)

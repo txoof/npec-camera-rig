@@ -446,6 +446,25 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
         # this version, or by a camera that does not report it.
         ("ALTER TABLE capture ADD COLUMN ae_state TEXT",),
     ),
+    (
+        25,
+        "tray_reading and cell_reading: the plant by grow from leaf cores beside the fixed green cutoff (#363)",
+        # NULL for readings saved before this version, or when the method could not run.
+        (
+            "ALTER TABLE tray_reading ADD COLUMN grown_method TEXT",  # "grow from leaf cores"
+            "ALTER TABLE tray_reading ADD COLUMN grown_area_mm2 REAL",
+            "ALTER TABLE tray_reading ADD COLUMN grown_plant_px INTEGER",
+            "ALTER TABLE tray_reading ADD COLUMN grown_plant_centre_x_px REAL",
+            "ALTER TABLE tray_reading ADD COLUMN grown_plant_centre_y_px REAL",
+            "ALTER TABLE tray_reading ADD COLUMN grown_soil_level REAL",  # the tray's soil greenness
+            "ALTER TABLE tray_reading ADD COLUMN grown_lower_cutoff REAL",  # the cutoff the plant was grown to
+            "ALTER TABLE cell_reading ADD COLUMN grown_area_mm2 REAL",
+            "ALTER TABLE cell_reading ADD COLUMN grown_plant_px INTEGER",
+            "ALTER TABLE cell_reading ADD COLUMN grown_plant_centre_x_px REAL",
+            "ALTER TABLE cell_reading ADD COLUMN grown_plant_centre_y_px REAL",
+            "ALTER TABLE cell_reading ADD COLUMN grown_over_other_cells INTEGER",
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -585,27 +604,32 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
             "INSERT INTO tray_reading (capture_id, tray_id, slot, a1_corner, placement,"
             " centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter,"
             " plant_px, plant_centre_x_px, plant_centre_y_px, calibration, outside_mm, found, warnings, outline,"
-            " a1_bearing_deg)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " a1_bearing_deg, grown_method, grown_area_mm2, grown_plant_px, grown_plant_centre_x_px,"
+            " grown_plant_centre_y_px, grown_soil_level, grown_lower_cutoff)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (capture_id, t["tray_id"], t["slot"], t["a1_corner"], t["placement"],
                  t["centre_px"][0], t["centre_px"][1], t["tilt_deg"], t["margin_mm"],
                  t.get("area_mm2"), t.get("segmenter"), t.get("plant_px"),
                  *(t.get("plant_centre_px") or (None, None)), t.get("calibration"), t.get("outside_mm"),
                  t.get("found"), _json_or_none(t.get("warnings")), _json_or_none(t.get("outline_px")),
-                 t.get("a1_bearing_deg"))
+                 t.get("a1_bearing_deg"), t.get("grown_method"), t.get("grown_area_mm2"), t.get("grown_plant_px"),
+                 *(t.get("grown_plant_centre_px") or (None, None)), t.get("grown_soil_level"), t.get("grown_lower_cutoff"))
                 for t in trays
             ],
         )
         conn.executemany(
             "INSERT INTO cell_reading (capture_id, tray_id, cell, holds, centre_x_px, centre_y_px, corners,"
-            " plant_px, area_mm2, plant_centre_x_px, plant_centre_y_px, over_other_cells, segmenter, cell_rule)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " plant_px, area_mm2, plant_centre_x_px, plant_centre_y_px, over_other_cells, segmenter, cell_rule,"
+            " grown_area_mm2, grown_plant_px, grown_plant_centre_x_px, grown_plant_centre_y_px, grown_over_other_cells)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (capture_id, t["tray_id"], c["cell"], c["holds"], *c["centre_px"], json.dumps(c["corners_px"]),
                  c.get("plant_px"), c.get("area_mm2"), *(c.get("plant_centre_px") or (None, None)),
                  None if c.get("over_other_cells") is None else int(c["over_other_cells"]),
-                 c.get("segmenter"), c.get("cell_rule"))
+                 c.get("segmenter"), c.get("cell_rule"), c.get("grown_area_mm2"), c.get("grown_plant_px"),
+                 *(c.get("grown_plant_centre_px") or (None, None)),
+                 None if c.get("grown_over_other_cells") is None else int(c["grown_over_other_cells"]))
                 for t in trays for c in t.get("cells", [])
             ],
         )
@@ -661,6 +685,11 @@ def first_warning_at(experiment_id: int | None, tray_id: int, warning: str, unti
     return row[0]
 
 
+def _point(row: sqlite3.Row, name: str) -> list[float] | None:
+    """Columns `<name>_x_px` and `<name>_y_px` of `row` as [x, y], None when not stored."""
+    return None if row[f"{name}_x_px"] is None else [row[f"{name}_x_px"], row[f"{name}_y_px"]]
+
+
 def _json_or_none(value: object) -> str | None:
     return None if value is None else json.dumps(value)
 
@@ -697,6 +726,9 @@ def tray_readings(capture_id: int) -> dict | None:
                 "plant_centre_px": None if c["plant_centre_x_px"] is None else [c["plant_centre_x_px"], c["plant_centre_y_px"]],
                 "over_other_cells": None if c["over_other_cells"] is None else bool(c["over_other_cells"]),
                 "segmenter": c["segmenter"], "cell_rule": c["cell_rule"],
+                "grown_area_mm2": c["grown_area_mm2"], "grown_plant_px": c["grown_plant_px"],
+                "grown_plant_centre_px": _point(c, "grown_plant_centre"),
+                "grown_over_other_cells": None if c["grown_over_other_cells"] is None else bool(c["grown_over_other_cells"]),
             })
         not_found, in_both = [], []
         if read["experiment_id"] is not None and read["status"] == "read":
@@ -764,6 +796,9 @@ def tray_readings(capture_id: int) -> dict | None:
             "warnings": [] if r["warnings"] is None else json.loads(r["warnings"]),
             "outline_px": None if r["outline"] is None else json.loads(r["outline"]),
             "a1_bearing_deg": r["a1_bearing_deg"],
+            "grown_method": r["grown_method"], "grown_area_mm2": r["grown_area_mm2"], "grown_plant_px": r["grown_plant_px"],
+            "grown_plant_centre_px": _point(r, "grown_plant_centre"),
+            "grown_soil_level": r["grown_soil_level"], "grown_lower_cutoff": r["grown_lower_cutoff"],
             # Cells are saved only for a tray named by one tag (#364).
             "cells": cells.get(r["tray_id"], []) if r["tray_id"] is not None else [],
         }
