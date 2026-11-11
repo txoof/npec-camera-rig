@@ -9449,3 +9449,70 @@ photo; one person.
 
 **Raw data.** `experiments/round3-grow-tuning/data/test/` (per cell and per outline), scripts
 `code/test363.py`, `code/test363_summary.py`.
+
+## 35. Plant area against a Helios scan, Potato Plants v001 (issue #411, method written 2026-11-11, before the scan)
+
+**Label: reference comparison.** The plants of "Potato Plants v001" (production experiment 18) that
+are scanned in Helios, each with its Helios area beside the rig's area for its cell. Every check of
+plant area so far compares the rig with a person's outline on the rig's own photo (sections 24, 33,
+34), so it shares the rig's blur and viewpoint. Helios is an instrument independent of the rig, so
+this is the first reference comparison for plant area. No result is expected in advance and no
+pass or fail limit is set: the ratio and its spread are the result.
+
+**What Helios gives, and what is compared.** To be confirmed with the lab before the scan (Aaron):
+which of a projected area seen from above, a leaf area, a plant height, a mesh and images Helios
+exports, in which units, and how it separates plant from pot and soil. Only an area seen from above
+compares like for like with the rig, which sees the plant from 1482 mm above (tape-measured best
+estimate). A 3D leaf area counts leaf surface the rig cannot see (leaves on top of leaves, leaves
+at a slant) and reads larger; if it is the only area, it is reported apart and not called a check
+of the rig's area. If Helios reports how yellow or brown leaves are counted, that is recorded,
+because the rig counts yellow as not plant (#106).
+
+**Which plant is which.** For each scanned plant, recorded at the scan: its tray tag ID and its cell
+name as the rig names it (to be decided with Aaron who records them). The cell names come from the
+tag in cell A1 (section 27, 30); a tray whose names are marked as maybe swapped (#385) before the
+scan is matched by the person's record and by the photo, and flagged.
+
+**Which rig photo.** The time each plant is taken out of the chamber is recorded. The chamber clock
+keeps Dutch local time, UTC+1 at the scan; rig times are UTC, and every time is converted before
+matching. The paired photo is the last photo before that time that is lit and not excluded (lights
+off, light changing, visit; section 17.9, 29). A person reaching in to take plants out makes a
+visit, so the paired photo is the one before the first visit of that day's removal. Per plant, the
+gap from the paired photo to removal and from removal to scan is reported, since leaves move within
+minutes and may droop in transport.
+
+**The rig's own spread.** Beside the paired photo, the rig's areas over the lit, not excluded photos
+of the 30 minutes before it (a decision, not a measurement: long enough for about 30 photos, short
+for plant growth) give how far one photo of that plant varies from the next. A difference from
+Helios smaller than that spread cannot be told from it.
+
+**Which rig areas.** Per cell, from the paired photo, with the app's code at main:
+- grow from leaf cores at core 0.07 (section 34.1), the method chosen for the app;
+- the fixed green cutoff, beside it.
+If production has not yet been reprocessed with grow from leaf cores (#410), these are worked out
+offline from read-only copies of the photos and `rig.db`, on the development rig or the controller;
+nothing is written into production. Each cell's status from the app is carried with it (leaves over
+other cells, missing), and a blue mat or green soil in the cell is noted by eye from the photo, since
+the app does not mark those per cell. Cells with leaves over other cells hold more or less than one plant's
+own area, and are reported apart from the pooled ratio.
+
+**Plant height.** The rig reads an area larger by about 0.145% per mm the plant stands above the
+tray top (Facts in `CLAUDE.md`; measured to 75 mm only, where it was 0.157% per mm on average). A
+potato canopy well above the tray top reads larger by an amount not measured at that height. No
+correction is applied. If Helios gives plant height, the ratio is shown against height, so the
+effect can be seen in the data rather than assumed.
+
+**Result reported.** One table: plant (tray tag, cell), Helios area, rig area by both methods, ratio
+rig / Helios for each, the cell's flags, height if known, the time gaps. Then per method: the
+median ratio and its range, pooled over unflagged cells, and the same with flagged cells. Pictures:
+for a few plants, the rig crop with its mask outline (magenta) beside the Helios top view, in
+`docs/figures/35/`.
+
+**Limits, known before the scan.** Plant height (above); leaves hanging into neighbouring cells;
+leaves hidden under other leaves, which neither a top view sees; yellow leaves (#106); plants
+handled between the paired photo and the scan; one experiment, one rig (production), the number of
+plants scanned. A ratio near 1 shows the two agree on these plants, not that either is right
+elsewhere.
+
+**Raw data.** To come: the Helios export and the scan record, the paired capture IDs, scripts and
+per-plant results in `experiments/round3-helios/`.
