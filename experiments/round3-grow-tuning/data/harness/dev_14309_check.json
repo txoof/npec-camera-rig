@@ -1,0 +1,81 @@
+{
+ "rig": "dev",
+ "capture_id": "14309",
+ "seconds": 10.3,
+ "trays_cached": [
+  77,
+  79,
+  80,
+  87
+ ],
+ "grow_p_equals_ruleg402": [
+  {
+   "tray": 77,
+   "same": true
+  },
+  {
+   "tray": 79,
+   "same": true
+  },
+  {
+   "tray": 80,
+   "same": true
+  },
+  {
+   "tray": 87,
+   "same": true
+  }
+ ],
+ "cells": [
+  {
+   "id": "B20",
+   "name": "dev_2026-11-07_77_A1",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 13281,
+   "trays": [
+    77
+   ]
+  },
+  {
+   "id": "B21",
+   "name": "dev_2026-11-07_79_A1",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 129724,
+   "trays": [
+    79
+   ]
+  },
+  {
+   "id": "B22",
+   "name": "dev_2026-11-07_80_A2",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 15316,
+   "trays": [
+    80
+   ]
+  },
+  {
+   "id": "B23",
+   "name": "dev_2026-11-07_87_A1",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 52789,
+   "trays": [
+    87
+   ]
+  },
+  {
+   "id": "B24",
+   "name": "dev_2026-11-07_87_A2",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 50397,
+   "trays": [
+    87
+   ]
+  }
+ ]
+}

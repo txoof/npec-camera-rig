@@ -9343,3 +9343,53 @@ written up with the rest. No setting is changed after the test.
 
 **Raw data.** Photos staged on `npec-rig-01`; scripts and results in
 `experiments/round3-grow-tuning/`.
+
+### 34.1 Training results and the chosen setting (2026-11-10 and 11, before the test)
+
+**Harness.** The 26 photos were copied again (production read-only). With the present settings the
+tuning code gives every one of the 42 training cells' drafts pixel for pixel (0 pixels different),
+so the harness reproduces the method behind the reference set.
+
+**One setting at a time** (45 settings, 42 training cells; IoU over the whole crop; present setting:
+mean IoU 0.898 on all training cells, 0.857 on the 28 corrected, 1.000 on the 14 accepted drafts;
+pooled area ratio on the 5 blue mat cells 0.961):
+
+| Change from the present setting | IoU all | IoU corrected | IoU accepted | Mat area ratio |
+|---|---|---|---|---|
+| core 0.07 (0.06 the same) | 0.934 | 0.908 | 1.000 | 0.961 |
+| core 0.08 or 0.09 | 0.916 | 0.882 | 1.000 | 0.961 |
+| core 0.08 without G > R | 0.920 | 0.890 | 0.993 | 0.961 |
+| fill gaps of 1 px | 0.895 | 0.855 | 0.995 | 0.964 |
+| floor -0.05 or -0.04 | 0.894 | 0.857 to 0.859 | 0.983 to 0.988 | 0.961 to 0.962 |
+| blue margin 5 | 0.894 | 0.851 | 0.999 | 1.039 |
+| gap 0.08 | 0.890 | 0.852 | 0.985 | 0.961 |
+| edge widened 1 px | 0.888 | 0.843 | 0.999 | 1.097 |
+| smoothing sigma 0.7 | 0.864 | 0.848 | 0.903 | 0.937 |
+| core 0.11 to 0.14 | 0.85 to 0.87 | about 0.855 | 0.83 to 0.92 | 0.950 |
+| gap 0.03 or 0.12 | 0.799 or 0.827 | 0.735 or 0.792 | 0.958 or 0.913 | 0.961 |
+
+288 combinations of the better values found nothing better than core 0.07 alone.
+
+**What the core cutoff does.** The gain from core 0.07 comes entirely from two tiny seedlings, A02
+(233 px) and A17 (1376 px), which have no pixel above greenness 0.1, so no core and no plant: their
+IoU goes from 0 to 0.76 and 0.77. No other training cell changes by more than 0.005 IoU; green soil
+0.927 present, 0.926 at core 0.07 (no algae taken in as cores); blue mats 0.943 both. Mean IoU
+counts a 233 px seedling the same as a 129,000 px plant, so the mean overstates what this changes in
+area.
+
+**Blue mats.** No setting tried loosens the tight leaf edges on mats usefully (a blue margin
+overshoots them, 1.039). The step where a mat is laid (33.1) stays a known limitation.
+
+**The written rule and the choice.** Applied literally, the choice rule of section 34 picks core
+0.06 with 1 px gaps filled, because its mat area ratio (0.965) is 0.004 closer to 1 than core 0.07
+alone (0.961), on 5 cells. That difference is within chance, and gap filling is slightly worse in
+every other group (about +0.5% area). **Chosen instead (Aaron, 2026-11-11): core 0.07 alone**, every
+other setting as before (G > R for cores, gap 0.07, floor -0.045, blue margin 0, no edge widening,
+no gap filling, no smoothing). This overrides the written rule, for the reason given, and is
+recorded before the test.
+
+**Time.** On the Pi 5 (production photo, 12 trays): decode 0.51 to 0.56 s; trays 2.64 to 2.74 s
+present, 2.86 to 2.91 s at the chosen setting (tuning code, not the app's faster copy).
+
+**Raw data.** `experiments/round3-grow-tuning/` (scripts, per-cell scores, group tables);
+photos and tray cache on `npec-rig-01:~/grow-363/run-20261110T150629Z/`.
