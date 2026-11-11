@@ -225,7 +225,7 @@
     }
     function areaChooser(methods, chosen) {
       // A native list, its closed box as tall as a button (Aaron, 2026-11-11).
-      return `<label style="display: flex; align-items: center; gap: 16px; margin: 8px 0 16px"><span>Method</span>`
+      return `<label style="display: flex; align-items: center; gap: 16px; margin: 8px 0 16px"><span>Leaf area method</span>`
         + `<select data-area-method style="flex: 1 1 auto; min-width: 0; max-width: 420px; min-height: var(--tap); padding: 0 12px;`
         + ` font: inherit; font-size: 1.15rem; color: var(--fg); background: var(--surface-2); border: 2px solid var(--line); border-radius: var(--radius)">`
         + methods.map((m) => `<option value="${ui.esc(m.key)}"${m.key === chosen ? " selected" : ""}>${ui.esc(m.name)}</option>`).join("")
