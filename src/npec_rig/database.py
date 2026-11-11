@@ -681,10 +681,10 @@ def first_warning_at(experiment_id: int | None, tray_id: int, warning: str, unti
     return first if first is not None and first <= until else None
 
 
-# The answers of `first_warnings`, by database file, experiment and warning, each with the count of
-# saved readings it was found at (`_readings_changed`). The Gallery asks for every tray of every
-# photo of an hour, and one search of a long experiment takes 50 ms or more (#408).
-_first_warnings: dict[tuple[Path, int, str], tuple[int, dict[int, str]]] = {}
+# The answers of `first_warnings`, by database file, experiment and warning, dropped whenever tray
+# readings are saved (`_readings_changed`). The Gallery asks for every tray of every photo of an
+# hour, and one search of a long experiment takes 50 ms or more (#408).
+_first_warnings: dict[tuple[Path, int, str], dict[int, str]] = {}
 _readings_saved = 0
 _first_warnings_lock = threading.Lock()
 
@@ -701,12 +701,13 @@ def _readings_changed() -> None:
 def first_warnings(experiment_id: int, warning: str) -> dict[int, str]:
     """Each tray of experiment `experiment_id` whose reading in some photo has `warning`, with the
     `taken_at` of the earliest such photo. Searched once, then kept until tray readings are next
-    saved or deleted by this process (the app is the only writer of rig.db)."""
+    saved or deleted by this process. The app is the only writer of rig.db: after a change made
+    to it by hand, restart the app for the "names may be swapped" marks to follow it."""
     key = (db_path(), experiment_id, warning)
     with _first_warnings_lock:
         saved, kept = _readings_saved, _first_warnings.get(key)
-    if kept is not None and kept[0] == saved:
-        return kept[1]
+    if kept is not None:
+        return dict(kept)
     with _connect() as conn:
         rows = conn.execute(
             "SELECT tray_reading.tray_id, MIN(capture.taken_at) FROM tray_reading"
@@ -719,8 +720,8 @@ def first_warnings(experiment_id: int, warning: str) -> dict[int, str]:
     found = {tray_id: taken_at for tray_id, taken_at in rows}
     with _first_warnings_lock:
         if _readings_saved == saved:
-            _first_warnings[key] = (saved, found)
-    return found
+            _first_warnings[key] = found
+    return dict(found)
 
 
 def _point(row: sqlite3.Row, name: str) -> list[float] | None:

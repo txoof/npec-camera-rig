@@ -945,7 +945,7 @@ def test_an_hour_of_photos_searches_the_experiments_warnings_once_not_once_per_t
 
     turned = _at(2).isoformat()
     assert since == [{7: None, 8: None, 9: None}] * 2 + [{7: None, 8: turned, 9: None}] * 4
-    assert len(searches) <= 1
+    assert len(searches) == 1
 
 
 def test_a_turned_tag_saved_after_the_gallery_was_shown_marks_the_tray_at_the_next_showing() -> None:
