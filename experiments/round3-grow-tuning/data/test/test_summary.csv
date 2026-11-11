@@ -1,0 +1,44 @@
+method,subset,n,mean_iou,median_ratio,pooled_ratio,iou_range,ratio_range
+present,all,17,0.9599,1.0,1.14,,
+present,prod,12,0.9966,1.0,1.001,,
+present,dev,5,0.8719,1.001,1.149,,
+present,corrected,8,0.9148,1.001,1.149,,
+present,accepted,9,1.0,1.0,1.0,,
+present,group green soil,2,0.7067,1.706,2.374,,
+present,group size,15,0.9937,1.0,1.034,,
+present,prod corrected,4,0.9896,1.0,1.003,,
+present,prod draft,8,1.0,1.0,1.0,,
+present,dev corrected,4,0.8399,1.025,1.152,,
+present,dev draft,1,1.0,1.0,1.0,,
+present,A28 empty truth: false plant share of crop,1,,,0.017,,
+chosen,all,17,0.9581,1.0,1.14,,
+chosen,prod,12,0.994,1.0,1.002,,
+chosen,dev,5,0.8719,1.001,1.149,,
+chosen,corrected,8,0.9148,1.001,1.149,,
+chosen,accepted,9,0.9966,1.0,1.001,,
+chosen,group green soil,2,0.6913,1.722,2.376,,
+chosen,group size,15,0.9937,1.0,1.034,,
+chosen,prod corrected,4,0.9896,1.0,1.003,,
+chosen,prod draft,8,0.9962,1.0,1.002,,
+chosen,dev corrected,4,0.8399,1.025,1.152,,
+chosen,dev draft,1,1.0,1.0,1.0,,
+chosen,A28 empty truth: false plant share of crop,1,,,0.017,,
+fixed,all,17,0.3081,0.189,0.714,,
+fixed,prod,12,0.1372,0.138,0.208,,
+fixed,dev,5,0.7183,0.785,0.746,,
+fixed,corrected,8,0.4419,0.54,0.741,,
+fixed,accepted,9,0.1892,0.162,0.286,,
+fixed,group green soil,2,0.4667,0.473,0.784,,
+fixed,group size,15,0.287,0.189,0.708,,
+fixed,prod corrected,4,0.0946,0.114,0.19,,
+fixed,prod draft,8,0.1585,0.153,0.217,,
+fixed,dev corrected,4,0.7892,0.793,0.753,,
+fixed,dev draft,1,0.4347,0.435,0.435,,
+fixed,A28 empty truth: false plant share of crop,1,,,0.0154,,
+present,15 outlines vs pass 1,15,0.8737,0.941,0.963,0.791 to 0.908,0.837 to 1.226
+present,15 outlines vs pass 2,15,0.8791,0.94,0.954,0.826 to 0.921,0.834 to 1.084
+chosen,15 outlines vs pass 1,15,0.8737,0.941,0.963,0.791 to 0.908,0.837 to 1.226
+chosen,15 outlines vs pass 2,15,0.8791,0.94,0.954,0.826 to 0.921,0.834 to 1.084
+fixed,15 outlines vs pass 1,15,0.3093,0.315,0.344,0.069 to 0.528,0.069 to 0.528
+fixed,15 outlines vs pass 2,15,0.3076,0.321,0.341,0.069 to 0.507,0.069 to 0.507
+person,pass 2 vs pass 1,15,0.9168,1.018,,0.839 to 0.946,0.933 to 1.132

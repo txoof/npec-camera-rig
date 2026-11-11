@@ -9393,3 +9393,59 @@ present, 2.86 to 2.91 s at the chosen setting (tuning code, not the app's faster
 
 **Raw data.** `experiments/round3-grow-tuning/` (scripts, per-cell scores, group tables);
 photos and tray cache on `npec-rig-01:~/grow-363/run-20261110T150629Z/`.
+
+### 34.2 The test, run once (2026-11-11)
+
+**Label: development check.** The present setting (core 0.1) and the chosen one (core 0.07, 34.1),
+with the fixed green cutoff beside them, on the test cells of section 33 and on the 15 outlines of
+section 24. Run once; nothing was changed afterwards.
+
+*Correction.* The test split holds 18 cells, not 19: production 13, development 5 (B14, B15, B16,
+B25, B26). Sections 33 and 34 say development 24 train and 6 test; the manifest, which follows the
+split rule, has 25 and 5.
+
+**Harness.** On all 18 test cells the present setting gives the draft pixel for pixel.
+
+**Test cells** (IoU over the whole crop, mean; area ratio method / truth, pooled):
+
+| Cells | n | Present | Chosen (core 0.07) | Fixed green cutoff |
+|---|---|---|---|---|
+| All with plant | 17 | 0.960 / 1.140 | 0.958 / 1.140 | 0.308 / 0.714 |
+| Production | 12 | 0.997 / 1.001 | 0.994 / 1.002 | 0.137 / 0.208 |
+| Development | 5 | 0.872 / 1.149 | 0.872 / 1.149 | 0.718 / 0.746 |
+| Corrected by Aaron | 8 | 0.915 / 1.149 | 0.915 / 1.149 | 0.442 / 0.741 |
+| Accepted drafts | 9 | 1.000 / 1.000 | 0.997 / 1.001 | 0.189 / 0.286 |
+| Green soil | 2 | 0.707 / 2.374 | 0.691 / 2.376 | 0.467 / 0.784 |
+
+A28 (green printed square, no plant): 1.70% of the crop read as plant by both settings, 1.54% by the
+fixed cutoff. The only cell the chosen setting changes is A03 (green soil, 632 to 652 px). B15
+(algae) reads 2.41 times its truth with both settings (IoU 0.413) and drives the development ratio;
+without it the development cells are within about 5%. The fixed green cutoff finds 1% to 38% of the
+plant on production cells (A19: 5 px of 639). No blue mat, seedling or empty cell fell on a test day,
+so the test does not show the seedling gain of 34.1. The corrected rows are the fair comparison;
+present scores 1.000 on the accepted drafts by construction.
+
+**The 15 outlines of section 24** (production still 2026-11-03 10:58:53, capture 19380, copied
+read-only; method per tray on the full photo; outlines filled the ImageJ way; every method pixel in
+the crop counted, as in section 24; these outlines count only the centre plant and count yellow, unlike
+the 60-cell set):
+
+| Against | Grow from leaf cores (present = chosen) | Fixed green cutoff | Section 24.8 |
+|---|---|---|---|
+| Pass 1 | IoU 0.874 (0.791 to 0.908), area 0.963 pooled | 0.309, 0.344 | 0.872, 0.963 |
+| Pass 2 | IoU 0.879 (0.826 to 0.921), area 0.954 | 0.308, 0.341 | 0.878 |
+| The person's own repeat | IoU 0.917 (0.839 to 0.946) | | 0.915 |
+
+Present and chosen give the same mask on all 15. Small differences from 24.8 come from running per
+tray on the full photo with the tray outline and tag (24.8 grew inside the crop).
+
+**Reading.** On cells drawn independently of it, grow from leaf cores reaches IoU 0.87 to 0.88,
+against 0.917 for the person repeating themselves; the fixed green cutoff reaches 0.31. Core 0.07
+costs nothing on the test and finds tiny seedlings the present setting misses (34.1). It goes into
+the app.
+
+**Limits.** 18 test cells, 2 of them green soil, none on a mat; 15 independent outlines from one
+photo; one person.
+
+**Raw data.** `experiments/round3-grow-tuning/data/test/` (per cell and per outline), scripts
+`code/test363.py`, `code/test363_summary.py`.

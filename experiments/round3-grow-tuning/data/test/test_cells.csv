@@ -1,0 +1,55 @@
+id,rig,day,tray,cell,stratum,truth_source,trays_used,present_equals_draft,method,inter,union,method_px,truth_px,crop_px,iou,ratio
+B14,dev,2026-11-05,76,A1,size 3 of 5,corrected by Aaron,76,True,present,13445,13536,13484,13497,438244,0.9933,0.999
+B14,dev,2026-11-05,76,A1,size 3 of 5,corrected by Aaron,76,True,chosen,13445,13536,13484,13497,438244,0.9933,0.999
+B14,dev,2026-11-05,76,A1,size 3 of 5,corrected by Aaron,76,True,fixed,10590,13497,10590,13497,438244,0.7846,0.7846
+B15,dev,2026-11-05,80,A1,green soil,corrected by Aaron,80,True,present,23577,57040,56984,23633,413449,0.4133,2.4112
+B15,dev,2026-11-05,80,A1,green soil,corrected by Aaron,80,True,chosen,23577,57047,56991,23633,413449,0.4133,2.4115
+B15,dev,2026-11-05,80,A1,green soil,corrected by Aaron,80,True,fixed,18779,23793,18939,23633,413449,0.7893,0.8014
+B16,dev,2026-11-05,86,B2,size 4 of 5,corrected by Aaron,86,True,present,46658,46688,46688,46658,440232,0.9994,1.0006
+B16,dev,2026-11-05,86,B2,size 4 of 5,corrected by Aaron,86,True,chosen,46658,46688,46688,46658,440232,0.9994,1.0006
+B16,dev,2026-11-05,86,B2,size 4 of 5,corrected by Aaron,86,True,fixed,40297,46658,40297,46658,440232,0.8637,0.8637
+B25,dev,2026-11-08,78,A1,size 1 of 5,draft accepted,78,True,present,5953,5953,5953,5953,416025,1.0,1.0
+B25,dev,2026-11-08,78,A1,size 1 of 5,draft accepted,78,True,chosen,5953,5953,5953,5953,416025,1.0,1.0
+B25,dev,2026-11-08,78,A1,size 1 of 5,draft accepted,78,True,fixed,2588,5953,2588,5953,416025,0.4347,0.4347
+B26,dev,2026-11-08,79,A2,size 5 of 5,corrected by Aaron,79,True,present,199218,208944,208938,199224,417316,0.9535,1.0488
+B26,dev,2026-11-08,79,A2,size 5 of 5,corrected by Aaron,79,True,chosen,199218,208944,208938,199224,417316,0.9535,1.0488
+B26,dev,2026-11-08,79,A2,size 5 of 5,corrected by Aaron,79,True,fixed,143296,199224,143296,199224,417316,0.7193,0.7193
+A14,prod,2026-10-30,2,B2,size 2 of 5,corrected by Aaron,2,True,present,1060,1061,1060,1061,141376,0.9991,0.9991
+A14,prod,2026-10-30,2,B2,size 2 of 5,corrected by Aaron,2,True,chosen,1060,1061,1060,1061,141376,0.9991,0.9991
+A14,prod,2026-10-30,2,B2,size 2 of 5,corrected by Aaron,2,True,fixed,119,1061,119,1061,141376,0.1122,0.1122
+A18,prod,2026-11-02,3,C4,size 4 of 5,corrected by Aaron,3,True,present,2099,2132,2123,2108,144020,0.9845,1.0071
+A18,prod,2026-11-02,3,C4,size 4 of 5,corrected by Aaron,3,True,chosen,2099,2132,2123,2108,144020,0.9845,1.0071
+A18,prod,2026-11-02,3,C4,size 4 of 5,corrected by Aaron,3,True,fixed,358,2511,761,2108,144020,0.1426,0.361
+A19,prod,2026-11-02,4,D3,size 1 of 5,corrected by Aaron,4,True,present,634,643,638,639,142506,0.986,0.9984
+A19,prod,2026-11-02,4,D3,size 1 of 5,corrected by Aaron,4,True,chosen,634,643,638,639,142506,0.986,0.9984
+A19,prod,2026-11-02,4,D3,size 1 of 5,corrected by Aaron,4,True,fixed,5,639,5,639,142506,0.0078,0.0078
+A20,prod,2026-11-03,3,A2,size 5 of 5,draft accepted,3,True,present,2756,2756,2756,2756,141376,1.0,1.0
+A20,prod,2026-11-03,3,A2,size 5 of 5,draft accepted,3,True,chosen,2756,2756,2756,2756,141376,1.0,1.0
+A20,prod,2026-11-03,3,A2,size 5 of 5,draft accepted,3,True,fixed,446,2756,446,2756,141376,0.1618,0.1618
+A23,prod,2026-11-05,2,B5,size 5 of 5,draft accepted,2,True,present,4253,4253,4253,4253,142884,1.0,1.0
+A23,prod,2026-11-05,2,B5,size 5 of 5,draft accepted,2,True,chosen,4253,4253,4253,4253,142884,1.0,1.0
+A23,prod,2026-11-05,2,B5,size 5 of 5,draft accepted,2,True,fixed,1630,4253,1630,4253,142884,0.3833,0.3833
+A24,prod,2026-11-05,6,A2,size 4 of 5,corrected by Aaron,6,True,present,2154,2178,2168,2164,141752,0.989,1.0018
+A24,prod,2026-11-05,6,A2,size 4 of 5,corrected by Aaron,6,True,chosen,2154,2178,2168,2164,141752,0.989,1.0018
+A24,prod,2026-11-05,6,A2,size 4 of 5,corrected by Aaron,6,True,fixed,251,2165,252,2164,141752,0.1159,0.1165
+A28,prod,2026-11-08,7,D4,not plant: green paper,"none (green printed square, Aaron 2026-11-10)",7,True,present,0,2416,2416,0,141752,0.0,
+A28,prod,2026-11-08,7,D4,not plant: green paper,"none (green printed square, Aaron 2026-11-10)",7,True,chosen,0,2416,2416,0,141752,0.0,
+A28,prod,2026-11-08,7,D4,not plant: green paper,"none (green printed square, Aaron 2026-11-10)",7,True,fixed,0,2181,2181,0,141752,0.0,
+A03,prod,2026-10-24,3,D3,green soil,draft accepted,3,True,present,632,632,632,632,142884,1.0,1.0
+A03,prod,2026-10-24,3,D3,green soil,draft accepted,3,True,chosen,632,652,652,632,142884,0.9693,1.0316
+A03,prod,2026-10-24,3,D3,green soil,draft accepted,3,True,fixed,91,632,91,632,142884,0.144,0.144
+A04,prod,2026-10-24,4,B2,size 1 of 5,draft accepted,4,True,present,650,650,650,650,145924,1.0,1.0
+A04,prod,2026-10-24,4,B2,size 1 of 5,draft accepted,4,True,chosen,650,650,650,650,145924,1.0,1.0
+A04,prod,2026-10-24,4,B2,size 1 of 5,draft accepted,4,True,fixed,86,650,86,650,145924,0.1323,0.1323
+A08,prod,2026-10-27,3,C2,size 2 of 5,draft accepted,3,True,present,1150,1150,1150,1150,145161,1.0,1.0
+A08,prod,2026-10-27,3,C2,size 2 of 5,draft accepted,3,True,chosen,1150,1150,1150,1150,145161,1.0,1.0
+A08,prod,2026-10-27,3,C2,size 2 of 5,draft accepted,3,True,fixed,242,1150,242,1150,145161,0.2104,0.2104
+A09,prod,2026-10-27,4,B1,size 2 of 5,draft accepted,4,True,present,1160,1160,1160,1160,141376,1.0,1.0
+A09,prod,2026-10-27,4,B1,size 2 of 5,draft accepted,4,True,chosen,1160,1160,1160,1160,141376,1.0,1.0
+A09,prod,2026-10-27,4,B1,size 2 of 5,draft accepted,4,True,fixed,13,1160,13,1160,141376,0.0112,0.0112
+A10,prod,2026-10-27,5,D5,size 3 of 5,draft accepted,5,True,present,1212,1212,1212,1212,144400,1.0,1.0
+A10,prod,2026-10-27,5,D5,size 3 of 5,draft accepted,5,True,chosen,1212,1212,1212,1212,144400,1.0,1.0
+A10,prod,2026-10-27,5,D5,size 3 of 5,draft accepted,5,True,fixed,81,1212,81,1212,144400,0.0668,0.0668
+A11,prod,2026-10-27,6,B4,size 2 of 5,draft accepted,6,True,present,1015,1015,1015,1015,142884,1.0,1.0
+A11,prod,2026-10-27,6,B4,size 2 of 5,draft accepted,6,True,chosen,1015,1015,1015,1015,142884,1.0,1.0
+A11,prod,2026-10-27,6,B4,size 2 of 5,draft accepted,6,True,fixed,165,1042,192,1015,142884,0.1583,0.1892
