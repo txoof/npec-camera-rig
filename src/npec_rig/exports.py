@@ -320,6 +320,11 @@ def _time_in_table_location_csv(experiment_id: int, until: str) -> bytes:
     return buffer.getvalue().encode()
 
 
+def _rounded(value: float | None, digits: int) -> float | None:
+    """`value` rounded to `digits` decimals; None stays None (an empty CSV cell)."""
+    return None if value is None else round(value, digits)
+
+
 # The columns of tray-readings.csv, one line per tray per photo read (#76).
 TRAY_READING_COLUMNS = [
     "file", "taken_at", "tray", "location", "plant_area_mm2", "segmenter", "floor_mm2", "not_counted",
@@ -357,8 +362,9 @@ def _tray_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> byt
                 "no_band_reason": band["reason"],
                 "cores_plant_area_mm2": tray.get("grown_area_mm2"),
                 "cores_method": tray.get("grown_method"),
-                "cores_soil_level": tray.get("grown_soil_level"),
-                "cores_lower_cutoff": tray.get("grown_lower_cutoff"),
+                # Greenness levels are histogram bin centres, 0.01 apart: 3 decimals hold them exactly.
+                "cores_soil_level": _rounded(tray.get("grown_soil_level"), 3),
+                "cores_lower_cutoff": _rounded(tray.get("grown_lower_cutoff"), 3),
             })
     return buffer.getvalue().encode()
 

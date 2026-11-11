@@ -275,7 +275,7 @@ def test_the_export_holds_each_trays_area_by_grow_from_leaf_cores_beside_the_fix
     [tray] = database.tray_readings(capture_id)["trays"]
     tray.update({"grown_method": "grow from leaf cores, core 0.07", "grown_area_mm2": 1156.0,
                  "grown_plant_px": 115600, "grown_plant_centre_px": [10.0, 20.0],
-                 "grown_soil_level": -0.035, "grown_lower_cutoff": 0.035})
+                 "grown_soil_level": -0.034999999999999578, "grown_lower_cutoff": 0.03500000000000043})
     database.record_tray_readings(capture_id, read_at="t", status="read", trays=[tray])
     captures.stop_experiment(experiment["id"])
 
