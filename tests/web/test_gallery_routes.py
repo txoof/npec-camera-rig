@@ -553,6 +553,29 @@ def test_tray_readings_give_each_tray_and_cell_its_area_by_both_methods_named_in
     assert [c["grown_status"] for c in planted] == [c["status"] for c in planted]
 
 
+def test_tray_readings_list_the_area_methods_the_photo_has_each_named_in_words(monkeypatch) -> None:
+    """#363 (Aaron, 2026-11-11): Info's method choice is built from the methods in the reading.
+    A reading saved before grow from leaf cores existed has the fixed green cutoff only."""
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    client.get(f"/api/captures/tags/{path}")  # Show tags reads the photo for its trays
+
+    methods = client.get(f"/api/captures/trays/{path}").json()["area_methods"]
+    assert [m["name"] for m in methods] == ["Grow from leaf cores", "Fixed green cutoff"]
+    assert all(m["key"] and m["warning"] for m in methods)
+
+    capture_id = database.captures_by_path([path])[path]["id"]
+    saved = database.tray_readings(capture_id)
+    older = [{k: v for k, v in t.items() if not k.startswith("grown_")} | {
+        "cells": [{k: v for k, v in c.items() if not k.startswith("grown_")} for c in t["cells"]]} for t in saved["trays"]]
+    database.record_tray_readings(capture_id, read_at=saved["read_at"], status=saved["status"], trays=older)
+    methods = client.get(f"/api/captures/trays/{path}").json()["area_methods"]
+    assert [m["name"] for m in methods] == ["Fixed green cutoff"]
+
+
 def test_the_photo_list_carries_only_what_each_card_shows(monkeypatch) -> None:
     """#377: a photo's 240 cells made the list 127 KB a photo on production. The card shows one
     tray line: how each tray was found, which areas do not count, exclusion, trays not seen and

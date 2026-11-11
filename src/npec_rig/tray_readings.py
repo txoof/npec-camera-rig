@@ -57,6 +57,21 @@ FLOORS_MM2 = {"green threshold, 0.1": 100}
 # Each segmenter's method in words, for the page beside grow from leaf cores (#363).
 METHODS = {"green threshold, 0.1": "fixed green cutoff"}
 
+# Each plant area method a reading can hold, for the Gallery's choice (#363, Aaron, 2026-11-11),
+# in the order offered, the first the default. `stored`: the tray field set when the method was
+# run; `area`, `cell_area`, `cell_status`: where its numbers are; `floor`: the tray field of its
+# floor (#288), None without one. A new method is one more entry.
+AREA_METHODS = (
+    {"key": "grown", "name": "Grow from leaf cores", "stored": "grown_method", "area": "grown_area_mm2",
+     "cell_area": "grown_area_mm2", "cell_status": "grown_status", "floor": None,
+     "warning": "leaf edges on blue mats read a little small, and algae or green soil can count as plant."},
+    {"key": "fixed", "name": "Fixed green cutoff", "stored": "segmenter", "area": "area_mm2",
+     "cell_area": "area_mm2", "cell_status": "status", "floor": "floor_mm2",
+     # Against hand outlines it counts 0.31 of the leaf area on average, 0.07 on the smallest
+     # plants (metrology log 24, #352).
+     "warning": "the fixed green cutoff reads low. It counts about a third of each leaf, and less on small plants."},
+)
+
 # How far a tray's outline may reach past the photo edge, mm, before its area is marked partly
 # outside the photo: the widest measured outer wall, 11 to 13 mm (review of #281), where no plant
 # grows. Trays 8 and 9 of the potato run reach 8.4 to 11.9 mm past at their farthest corner, and
@@ -512,6 +527,10 @@ def capture_readings(capture: dict) -> dict | None:
                 if not cell["grown_plant_px"] or cell["holds"] == "tag":
                     cell["grown_area_mm2"] = None
             tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM
+        readings["area_methods"] = [
+            {k: v for k, v in m.items() if k != "stored"} for m in AREA_METHODS
+            if any(tray.get(m["stored"]) for tray in readings["trays"])
+        ]
     return readings
 
 
