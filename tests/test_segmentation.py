@@ -195,7 +195,8 @@ def test_a_piece_reaching_past_its_trays_outline_counts_only_inside_the_outline(
 SOIL_LOW = (110, 100, 100)  # greenness -0.032: bin centre -0.035, lower cutoff 0.035
 SOIL_HIGH = (100, 100, 90)  # greenness 0.034: bin centre 0.035, lower cutoff 0.105
 PALE_EDGE = (150, 165, 140)  # greenness 0.088: above 0.035, below 0.105, below the core's 0.1
-GREENISH_SOIL = (120, 125, 105)  # greenness 0.071: above 0.035, never a core
+GREENISH_SOIL = (120, 123, 105)  # greenness 0.060: above 0.035, below the core cutoff 0.07, never a core
+PALE_SEEDLING = (125, 140, 120)  # greenness 0.091, green above red: above the core cutoff 0.07, below 0.1
 TAG_CORNERS = ((300, 60), (340, 60), (340, 100), (300, 100))  # 40 px square, centre (320, 80)
 
 
@@ -239,3 +240,16 @@ def test_grow_from_leaf_cores_counts_nothing_outside_the_tray_outline() -> None:
     grown = grow_from_cores(_painted_tray(SOIL_LOW), inside)
     assert not grown.mask[:, 150:].any()
     assert grown.mask[100:160, 100:150].all()
+
+
+def test_grow_from_leaf_cores_finds_a_pale_seedling_whose_greenest_pixel_is_below_0_1() -> None:
+    """Metrology log 34.1 (Aaron, 2026-11-11): the core cutoff is 0.07. A pale seedling, all of it
+    greenness 0.091, is found whole; the greenish soil patch, 0.060, is still left out."""
+    from npec_rig.segmentation import grow_from_cores
+
+    box = _painted_tray(SOIL_LOW)
+    box[320:340, 60:80] = PALE_SEEDLING
+    grown = grow_from_cores(box, np.ones((400, 400), dtype=bool), tag_corners=[TAG_CORNERS])
+    assert grown.mask[320:340, 60:80].all()
+    assert grown.mask[315:345, 55:85].sum() == 400
+    assert not grown.mask[250:300, 250:320].any()

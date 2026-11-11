@@ -450,7 +450,7 @@ for readings saved before version 25, or when the method could not run.
 
 | Column | Type | Meaning |
 |---|---|---|
-| `tray_reading.grown_method` | text | `grow from leaf cores` |
+| `tray_reading.grown_method` | text | The method and its core cutoff: `grow from leaf cores, core 0.07` (metrology log 34.1). A reading with another core cutoff names it |
 | `tray_reading.grown_area_mm2` | real | Its plant area inside the tray outline, at the calibration's scale |
 | `tray_reading.grown_plant_px` | integer | Its plant pixels inside the outline |
 | `tray_reading.grown_plant_centre_x_px`, `grown_plant_centre_y_px` | real | Their centre, full-size photo pixels; NULL when none |

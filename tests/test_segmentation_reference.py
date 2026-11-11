@@ -2,8 +2,9 @@
 
 The drafts in `experiments/round3-classifier/data/drafts/` were drawn by the reference
 implementation (`experiments/round3-classifier/code/ruleg402.py`) on each whole tray and then cut
-to the cell's crop; `manifest.csv` column `cut_h` is the lower cutoff each tray used. Given that
-cutoff and the crop as its tray box, the app's method must draw the same mask, pixel for pixel.
+to the cell's crop; `manifest.csv` column `cut_h` is the lower cutoff each tray used, and the
+core cutoff was 0.1 (the app uses 0.07 since metrology log 34.1). Given those settings and the crop
+as its tray box, the app's method must draw the same mask, pixel for pixel.
 
 The crops are chosen so that nothing outside them changes the answer: no tray tag and no white
 paper (fewer than 5000 white pixels in the whole crop, so no piece large enough to be left out),
@@ -44,5 +45,6 @@ def test_grow_from_leaf_cores_draws_the_reference_draft_of_each_cell(cell: str) 
     draft = np.asarray(Image.open(DATA / "drafts" / f"{name}_draft.png").convert("L")) > 127
     assert draft.any()
 
-    grown = grow_from_cores(rgb, np.ones(rgb.shape[:2], dtype=bool), lower_cutoff=float(row["cut_h"]))
+    # The drafts' own settings: their cutoff, and the core cutoff 0.1 they were drawn with.
+    grown = grow_from_cores(rgb, np.ones(rgb.shape[:2], dtype=bool), lower_cutoff=float(row["cut_h"]), core_min=0.1)
     assert int((grown.mask != draft).sum()) == 0

@@ -544,7 +544,7 @@ def test_tray_readings_give_each_tray_and_cell_its_area_by_both_methods_named_in
 
     tray = client.get(f"/api/captures/trays/{path}").json()["trays"][0]
     assert (tray["method"], tray["area_mm2"]) == ("fixed green cutoff", pytest.approx(1500, rel=0.01))
-    assert (tray["grown_method"], tray["grown_area_mm2"]) == ("grow from leaf cores", pytest.approx(1500, rel=0.02))
+    assert (tray["grown_method"], tray["grown_area_mm2"]) == ("grow from leaf cores, core 0.07", pytest.approx(1500, rel=0.02))
     # The leaf lies across cells: both methods give it to the same one and mark it over others.
     planted = [c for c in tray["cells"] if c["area_mm2"] is not None]
     assert planted

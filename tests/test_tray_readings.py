@@ -947,7 +947,7 @@ def test_each_tray_and_cell_gets_its_area_by_both_methods_each_named(monkeypatch
     readings = tray_readings.read_photo(path)
     [tray] = readings["trays"]
     assert (tray["segmenter"], tray["area_mm2"]) == ("green threshold, 0.1", pytest.approx(900, rel=0.01))
-    assert tray["grown_method"] == "grow from leaf cores"
+    assert tray["grown_method"] == "grow from leaf cores, core 0.07"
     assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
     assert tray["grown_plant_px"] == pytest.approx(115_600, rel=0.01)
     assert tray["grown_plant_centre_px"] == pytest.approx([1477, 2230], abs=2)
@@ -984,7 +984,7 @@ def test_reprocess_counts_both_methods_again_from_their_saved_masks_without_the_
     [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
     assert tray["area_mm2"] == pytest.approx(864.4, rel=0.01)  # 1%: JPEG blurs the edges
     assert tray["grown_area_mm2"] == pytest.approx(1110.2, rel=0.01)
-    assert tray["grown_method"] == "grow from leaf cores"
+    assert tray["grown_method"] == "grow from leaf cores, core 0.07"
     assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(-0.045), pytest.approx(0.025))
     cells = {c["cell"]: c for c in tray["cells"]}
     assert (cells["B3"]["area_mm2"], cells["B3"]["grown_area_mm2"]) == (pytest.approx(864.4, rel=0.01), pytest.approx(1110.2, rel=0.01))

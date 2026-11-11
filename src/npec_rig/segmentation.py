@@ -70,10 +70,12 @@ class HailoSegmenter:
 # One tray at a time, beside the green threshold: leaf cores grown out into the paler leaf edges, down
 # to a cutoff set above the tray's own soil (metrology log 24.8 and 33.1, reference implementation
 # experiments/round3-classifier/code/ruleg402.py, its "H"). Every setting below was chosen in those
-# investigations, not tuned here; the tuning study of metrology log 34 may change them.
+# investigations; the core cutoff was lowered from the reference's 0.1 to 0.07 by the tuning of
+# metrology log 34.1 (Aaron, 2026-11-11), the others are unchanged. The fixed green cutoff's 0.1
+# (EXG_MIN) is a separate setting.
 
-GROWN_METHOD = "grow from leaf cores"
-GROWN_CORE_MIN = 0.1  # greenness above which, with green above red, a pixel is a leaf core
+GROWN_CORE_MIN = 0.07  # greenness above which, with green above red, a pixel is a leaf core
+GROWN_METHOD = f"grow from leaf cores, core {GROWN_CORE_MIN:g}"  # stored with every area
 GROWN_GAP = 0.07  # the lower cutoff lies this far above the tray's soil level
 GROWN_FLOOR = -0.045  # and never below this
 GROWN_SOIL_BIN = 0.01  # the soil level is the peak of the greenness histogram in bins this wide,
@@ -98,13 +100,17 @@ class GrownPlant:
     lower_cutoff: float
 
 
-def grow_from_cores(rgb: np.ndarray, inside: np.ndarray, tag_corners=(), lower_cutoff: float | None = None) -> GrownPlant:
+def grow_from_cores(
+    rgb: np.ndarray, inside: np.ndarray, tag_corners=(), lower_cutoff: float | None = None,
+    core_min: float = GROWN_CORE_MIN,
+) -> GrownPlant:
     """The plant in one tray box `rgb` (H x W x 3, R G B, 0 to 255), counted only where `inside`
     (H x W, the tray outline) is True and away from the tray tag (`tag_corners`: each detection's
     four corners, in the box's pixels) and white paper. Pieces of pixels greener than the lower
     cutoff (joined side or corner, never through blue) count when they hold a leaf core. The lower
     cutoff is set from the soil level, the commonest greenness inside the tray below
-    GROWN_SOIL_MAX, unless given."""
+    GROWN_SOIL_MAX, unless given. `core_min`: the core cutoff, GROWN_CORE_MIN unless given (the
+    reference drafts of metrology log 33 were drawn at 0.1)."""
     import cv2
 
     # Whole numbers throughout: a pixel's greenness depends only on its green and on red plus
@@ -123,7 +129,7 @@ def grow_from_cores(rgb: np.ndarray, inside: np.ndarray, tag_corners=(), lower_c
     notblue = cv2.compare(cv2.subtract(b, red_green), GROWN_BLUE_MARGIN, cv2.CMP_LE)
     del red_green
     red_blue = cv2.add(r, b, dtype=cv2.CV_16U)
-    core = cv2.bitwise_and(_greener(g, red_blue, GROWN_CORE_MIN), cv2.compare(g, r, cv2.CMP_GT))
+    core = cv2.bitwise_and(_greener(g, red_blue, core_min), cv2.compare(g, r, cv2.CMP_GT))
     del r, b
     no_plant = np.zeros(white.shape, dtype=np.uint8)
     # Only pieces of at least GROWN_WHITE_MIN_PX pixels are left out: none without that many.
