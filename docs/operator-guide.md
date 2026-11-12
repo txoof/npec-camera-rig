@@ -115,7 +115,7 @@ anyone using its numbers can see it.
 
 Each tray area comes with a scale error, such as "±2.1, North 2", in the Gallery's tray table
 under **Scale error at tray top (±%)** and in the export's `tray-readings.csv` (columns
-`scale_error_at_tray_top_pct` and `band_slot`). Read it this way:
+`scale_error_pct` and `validation_slot`). Read it this way:
 
 - **It belongs to the tray position, not the tray.** A tray takes the number of the validation
   slot nearest its centre. The same tray photographed later on South 5 gets South 5's.

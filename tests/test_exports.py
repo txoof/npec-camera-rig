@@ -245,8 +245,8 @@ def test_the_export_holds_each_trays_plant_area_with_its_slots_validation_band()
     rows = list(csv.DictReader(io.StringIO(files["tray-readings.csv"].decode())))
     readme = files["README.txt"].decode()
     manifest = files["MANIFEST-part00.sha256"].decode()
-    picked = [(r["taken_at"], r["tray"], r["location"], r["plant_area_mm2"], r["scale_error_at_tray_top_pct"],
-               r["band_slot"], r["no_band_reason"]) for r in rows]
+    picked = [(r["taken_at"], r["tray"], r["location"], r["plant_area_fixed_green_cutoff_mm2"], r["scale_error_pct"],
+               r["validation_slot"], r["no_scale_error_because"]) for r in rows]
     assert picked == [
         ("2026-10-02T00:00:00+00:00", "3", "NW", "1234.5", "2.0", "North 1", ""),
         ("2026-10-02T00:00:00+00:00", "7", "SE", "980.0", "", "South 6", "slot not measured"),
@@ -273,7 +273,7 @@ def test_the_export_holds_each_trays_area_by_grow_from_leaf_cores_beside_the_fix
     table_photo(experiment["id"], datetime(2026, 10, 2, 0, 1, tzinfo=UTC), {3: "NW"}, areas={3: 910.0})
     capture_id = database.captures_by_path([both])[both]["id"]
     [tray] = database.tray_readings(capture_id)["trays"]
-    tray.update({"grown_method": "grow from leaf cores, core 0.07", "grown_area_mm2": 1156.0,
+    tray.update({"grown_method": "grow from leaf cores, core 0.07", "grown_area_mm2": 1156.04,
                  "grown_plant_px": 115600, "grown_plant_centre_px": [10.0, 20.0],
                  "grown_soil_level": -0.034999999999999578, "grown_lower_cutoff": 0.03500000000000043})
     database.record_tray_readings(capture_id, read_at="t", status="read", trays=[tray])
@@ -281,12 +281,14 @@ def test_the_export_holds_each_trays_area_by_grow_from_leaf_cores_beside_the_fix
 
     _export, files = _unzipped(experiment["id"])
     rows = list(csv.DictReader(io.StringIO(files["tray-readings.csv"].decode())))
-    picked = [(r["plant_area_mm2"], r["cores_plant_area_mm2"], r["cores_method"], r["cores_soil_level"],
-               r["cores_lower_cutoff"]) for r in rows]
-    assert picked == [
-        ("900.0", "1156.0", "grow from leaf cores, core 0.07", "-0.035", "0.035"),
-        ("910.0", "", "", "", ""),
-    ]
+    picked = [(r["plant_area_grow_from_leaf_cores_mm2"], r["plant_area_fixed_green_cutoff_mm2"],
+               r["grow_from_leaf_cores_soil_level"], r["grow_from_leaf_cores_cutoff"]) for r in rows]
+    assert picked == [("1156.0", "900.0", "-0.035", "0.035"), ("", "910.0", "", "")]
+    # Aaron, 2026-11-11 (option 1): the two areas side by side after the location, named as in the
+    # Gallery; no internal method strings.
+    assert list(rows[0])[:6] == ["file", "taken_at", "tray", "location", "plant_area_grow_from_leaf_cores_mm2",
+                                 "plant_area_fixed_green_cutoff_mm2"]
+    assert not {"segmenter", "cores_method"} & set(rows[0])
 
 
 def test_the_export_holds_each_cells_area_and_status_by_grow_from_leaf_cores() -> None:
@@ -321,7 +323,12 @@ def test_the_export_holds_each_cells_area_and_status_by_grow_from_leaf_cores() -
 
     _export, files = _unzipped(experiment["id"])
     rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
-    picked = [(r["cell"], r["status"], r["plant_area_mm2"], r["cores_status"], r["cores_plant_area_mm2"]) for r in rows]
+    picked = [(r["cell"], r["status_fixed_green_cutoff"], r["plant_area_fixed_green_cutoff_mm2"],
+               r["status_grow_from_leaf_cores"], r["plant_area_grow_from_leaf_cores_mm2"]) for r in rows]
+    assert list(rows[0])[:9] == ["file", "taken_at", "tray", "cell", "location", "plant_area_grow_from_leaf_cores_mm2",
+                                 "plant_area_fixed_green_cutoff_mm2", "status_grow_from_leaf_cores",
+                                 "status_fixed_green_cutoff"]
+    assert not {"segmenter", "cell_rule"} & set(rows[0])
     assert picked == [
         ("A1", "tag", "", "tag", ""),
         ("B1", "plant", "120.5", "plant", "180.2"),
@@ -457,7 +464,8 @@ def test_the_export_holds_each_cells_plant_area_or_the_word_for_why_it_has_none(
     rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
     readme = files["README.txt"].decode()
     manifest = files["MANIFEST-part00.sha256"].decode()
-    picked = [(r["tray"], r["location"], r["cell"], r["status"], r["plant_area_mm2"], r["band_slot"]) for r in rows]
+    picked = [(r["tray"], r["location"], r["cell"], r["status_fixed_green_cutoff"], r["plant_area_fixed_green_cutoff_mm2"],
+               r["validation_slot"]) for r in rows]
     assert picked == [
         ("3", "NW", "A1", "tag", "", "North 1"),
         ("3", "NW", "B1", "plant", "120.5", "North 1"),
@@ -465,7 +473,6 @@ def test_the_export_holds_each_cells_plant_area_or_the_word_for_why_it_has_none(
         ("3", "NW", "C1", "leaves over other cells", "30.0", "North 1"),
     ]
     assert {r["file"] for r in rows} == {f"stills/{path.split('/stills/')[-1]}.jpg"}
-    assert {r["cell_rule"] for r in rows} == {"rule"}
     assert "cell-readings.csv" in readme
     assert "  cell-readings.csv\n" in manifest
 
