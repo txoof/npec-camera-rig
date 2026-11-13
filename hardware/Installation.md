@@ -79,8 +79,9 @@ This section prepares a Raspberry Pi 5 for chamber deployment.
     - Username: `pi`
     - Password: the fleet `pi` password, from the team password manager
     - Remote Access: choose **Use password authentication**. Imager may pre-select public-key authentication; then the Pi accepts only that key and onboarding fails.
-    - Hostname: the rig name. Use the name stamped on the outside of the chamber the rig goes in, for example `S8-standard` or `S15-standard`. Check that no other rig already has this name. Write the name on the case. Onboarding reads the name from the Pi.
-    - TODO: `ansible-npec` at `6a93478` accepts only names of the form `npec-rig-NN`. Location names work once that is changed.
+    - Hostname: the rig name. Use the name stamped on the outside of the chamber the rig goes in, in lowercase, for example `s8-standard` or `s15-standard`. Check that no other rig already has this name. Write the name on the case. Onboarding reads the name from the Pi.
+    - Name rule: lowercase letters, digits and hyphens only, 1 to 63 characters, no hyphen at the start or end. Capitals are refused. Imager's default `raspberrypi` is refused.
+    - TODO: location names work once the `ansible-npec` branch `rig-names` (`6b65481`) is merged. Until then `main` accepts only `npec-rig-NN`.
 2. Connect the camera using the supplied ribbon cable, an extension cable and the AdaFruit DCI/CSI Thingie.
 2. Insert the SD Card into the Pi, connect it to a monitor and boot
 3. Login and run the following command to obtain the MAC address: `cat /sys/class/net/wlan0/address`. Note the MAC address value.
@@ -180,14 +181,22 @@ make onboard IP=<IP>
 
 At "Type the rig password (the one set for 'pi' in Imager):" enter the `pi` password. It is asked once.
 
-This reads the rig name from the Pi's hostname, installs this laptop's key on the Pi, turns on passwordless sudo, and adds the rig to `inventory/local.yml`. WiFi settings are not changed.
+This reads the rig name from the Pi's hostname, installs this laptop's key on the Pi, turns on passwordless sudo, adds the rig to `inventory/local.yml`, and leaves a record on the Pi in `/etc/npec-rig/onboarded.yml` (name, serial, who onboarded it and when). WiFi settings are not changed.
 
-**Check:** the last message reads "Next: deploy the app: make deploy HOST=<rig name>". Then:
+**Check:** a green block reads "ONBOARDED: <rig name>". It lists the serial number, both MAC addresses (eth0 and wlan0), the IP address, and ends with "Next: make deploy HOST=<rig name>". Then:
 
 ```shell
 make ping HOST=<rig name>
 # expect: SUCCESS and "ping": "pong"
 ```
+
+**If onboarding stops with "ALREADY ONBOARDED":** the Pi already has the record from an earlier onboarding, from any laptop. Nothing was changed. The red block shows the Pi's history and the way forward:
+
+- The rig moved to another chamber: see [If the Rig Moves to Another Chamber](#if-the-rig-moves-to-another-chamber).
+- The rig is missing from this laptop's list, or its IP address changed: see [If the IP Address Changes](#if-the-ip-address-changes).
+- Start over: re-image the SD card, then onboard. Re-imaging erases the record, so the Pi counts as new.
+
+**If a new Pi replaces a broken one in the same chamber:** onboarding refuses the name because this laptop's list has it for a different Pi. Remove that rig's line from `inventory/local.yml` by hand, then onboard again. TODO: this may change in `ansible-npec`.
 
 ##### Install the Software
 
@@ -227,12 +236,38 @@ This only reads; it changes nothing. It checks the service, finds the camera, an
 
 ##### If the IP Address Changes
 
-DHCP reservations are not in place yet (TODO). If a rig's IP address changes, `make` reports UNREACHABLE, or `make health` shows "FAIL  WRONG PI" (another Pi now has the old address).
+IP addresses come from a DHCP server that serves only registered MAC addresses (see [WiFi Setup](#wifi-setup)). Addresses can be reused when a Pi is moved or repurposed. If a rig's IP address changes, `make` reports UNREACHABLE, or `make health` shows "FAIL  WRONG PI" (another Pi now has the old address).
 
 1. If the new address was used before by a different Pi, run `make forget-host IP=<new IP>` first. Otherwise SSH refuses because the host key changed.
-2. Run `make onboard IP=<new IP>`. It reads the rig name from the Pi, checks the serial number to confirm it is the same Pi, and replaces that rig's line in `inventory/local.yml`. It asks for the password only if this laptop's key is not on the Pi.
+2. Run:
+
+```shell
+make onboard IP=<new IP> UPDATE=yes
+```
+
+This updates the IP address in `inventory/local.yml` and in the record on the Pi. It keeps the name and asks for no password. Without `UPDATE=yes`, onboarding stops with "ALREADY ONBOARDED".
+
+The same command adds an already onboarded rig to the list on another laptop.
 
 TODO: not yet tested on a rig whose address changed. See `docs/09-day-2-operations.md` in `ansible-npec`.
+
+##### If the Rig Moves to Another Chamber
+
+The rig takes the name of its new chamber:
+
+```shell
+make rename HOST=<current name> NAME=<new name>
+```
+
+It checks the new name and that no other rig has it, checks the Pi's serial number, shows the change and asks `y` to go on. It then sets the new hostname, restarts the app (about one minute without photos), updates `inventory/local.yml` and `inventory/host_vars/<name>.yml`, and runs the health check under the new name. Photos already on the rig are kept. No password is asked.
+
+Afterwards:
+
+1. Relabel the case.
+2. Tell IT if needed.
+3. Run `make nfs` again.
+
+TODO: tested for refusals only; a real rename has not been run yet. Needs the `ansible-npec` branch `rig-names` merged.
 
 ##### Not Yet Tested
 
