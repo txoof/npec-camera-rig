@@ -9449,3 +9449,111 @@ photo; one person.
 
 **Raw data.** `experiments/round3-grow-tuning/data/test/` (per cell and per outline), scripts
 `code/test363.py`, `code/test363_summary.py`.
+
+## 35. Plant area against a Helios scan, Potato Plants v001 (issue #411, method written 2026-11-11, revised 2026-11-13, before the scan)
+
+**Label: reference comparison.** The plants of "Potato Plants v001" (production experiment 18) that
+are scanned in Helios, compared with the rig's area for the same plants. Every check of plant area
+so far compares the rig with a person's outline on the rig's own photo (sections 24, 33, 34), so it
+shares the rig's blur and viewpoint. Helios is an instrument independent of the rig: another
+camera, from another viewpoint, with its own segmenter. No result is expected in advance and no pass
+or fail limit is set.
+
+**Helios is not truth (revised 2026-11-13).** Helios cuts out the plant with its own colour
+segmenter, much like the rig's, on a different sensor and in a pipeline of its own. The lab reports
+that this pipeline struggles with some deep greens and may miss a good part of the plant (Aaron,
+2026-11-12, from the lab; not measured here). A Helios area is therefore a second instrument's
+reading, not a known answer, as the photogrammetry mesh was in section 15.5e. A difference between
+Helios and the rig shows that they disagree, not which one is wrong.
+
+**What a Helios export holds.** It depends on the processing pipeline run on the scan, and a fuller
+export is awaited from the lab. The example export (a benchmark plant, Helios tray 2632,
+2026-08-10, in `~/scratch/helios_output/`, not in the repo) holds:
+- a point cloud (`S3D_DotModel.pcd`, 45,985 points, x y z only, no colour), of the whole tray:
+  tray rim, pot, plate and plant; units appear to be mm (tray about 370 x 307, plate about 193
+  square);
+- two top-view photos (`RGB2`, original and fish-eye corrected, 4112 x 3006 px), taken 65 minutes
+  before the point cloud;
+- no area number. The area seen from above of the points above the plate is 4,098 mm2 counted on a
+  1 mm grid and 7,352 mm2 on a 2 mm grid (development check, one file): the point cloud is too
+  sparse for an area without a choice that changes it by almost half.
+
+The lab also holds several GB of images taken parallel to the tray top per scan. Whether a traits
+file with an area exists, and whether those images come with each camera's position, is asked in
+#106 (2026-11-12). The point cloud gives the plant's height directly (the example plant stands
+about 150 to 160 mm above its plate).
+
+**The known answer: hand outlines on both cameras (decided, Aaron, 2026-11-13).** For about 10 scanned plants (a decision, set by the time an outline takes), a person
+outlines each plant in ImageJ, the way of section 24 (yellow counted as not plant, as in 33), on two
+photos:
+- the rig photo paired with it (below);
+- the Helios top photo of the same plant, fish-eye corrected, at a scale taken from a length in the
+  scan whose size is known (to be chosen when the export is in).
+
+Then:
+- outline against segmenter, on the same photo, gives each segmenter's error on its own camera:
+  grow from leaf cores and the fixed green cutoff on the rig photo, Helios's own area (if it gives
+  one) on the Helios photo;
+- outline against outline, across the two cameras, gives the difference due to the camera and
+  viewpoint alone, plant height included, with no segmenter in it.
+
+**Order.** The outlines need nothing at the scan itself; they are drawn on the saved photos:
+1. the scan; the rig records when each tray's tag leaves;
+2. when the export is in, the plants are chosen and two crops made per plant, one from the paired
+   rig photo and one from the Helios top photo;
+3. the person outlines each crop in ImageJ from nothing, not by correcting a drafted mask, before
+   seeing any mask, area or ratio from the rig or Helios, so nothing pulls the outline toward an
+   answer;
+4. the comparison is run only after the outlines are saved.
+
+**Swapping images and pipelines (suggested by the lab, 2026-11-12, optional).** The rig's segmenter
+run on the Helios top photos, and the Helios pipeline run on rig photos, if the lab can. With the
+two cameras and two segmenters this separates camera from segmenter, but against each other only.
+The outlines above give the same split against a known answer, so the swap is done only if the lab
+offers it, and reported apart.
+
+**Which plant is which.** The rig places each tray from its tag and names its cells from the tag in
+cell A1 (sections 27, 30). Helios uses its own tray numbers (as 2632). Recorded at the scan: the
+Helios tray number for each rig tray tag (who records it, asked in #106). A tray whose cell names
+are marked as maybe swapped (#385) before the scan is matched by the photos and flagged.
+
+**Which rig photo.** Helios scans whole trays, so a tray's tag leaves the chamber with its plants;
+the rig records the time the tag stops being seen (Aaron, 2026-11-12). No time is written by hand
+and no clock conversion is needed. The paired photo is the last photo before the tag stops being
+seen that is lit and not excluded (lights off, light changing, visit; sections 17.9, 29): a person
+reaching in makes a visit, so it is the photo before that visit. Per tray, the time from the paired
+photo to the scan is reported, since leaves move within minutes and may droop in transport.
+
+**The rig's own spread.** Beside the paired photo, the rig's areas over the lit, not excluded photos
+of the 30 minutes before it (a decision, not a measurement: about 30 photos, short for plant
+growth) give how far one photo of a plant varies from the next. A difference smaller than that
+spread cannot be told from it.
+
+**Which rig areas.** Per cell, from the paired photo, with the app's code at main: grow from leaf
+cores at core 0.07 (section 34.1), and the fixed green cutoff beside it. If production has not been
+reprocessed with grow from leaf cores (#410), they are worked out offline from read-only copies of
+the photos and `rig.db`; nothing is written into production. Each cell's status from the app is
+carried with it (leaves over other cells, missing), and a blue mat or green soil in the cell is
+noted by eye from the photo, since the app does not mark those per cell. Cells with leaves over
+other cells are reported apart.
+
+**Plant height.** The rig reads an area larger by about 0.145% per mm the plant stands above the
+tray top (Facts in `CLAUDE.md`; measured to 75 mm only, 0.157% per mm on average there). A potato
+canopy well above the tray top reads larger by an amount not measured at that height. No correction
+is applied. The height of each plant above its tray top is read from the point cloud, and the
+outline against outline difference is shown against it, so the effect is seen in the data.
+
+**Result reported.** One table per plant (rig tray tag, cell, Helios tray number): rig outline,
+Helios outline, grow from leaf cores, fixed green cutoff, Helios area if given, each as a ratio to
+the outline on its own photo; the ratio of the two outlines; height; cell flags; time from photo to
+scan. Then the median and range of each ratio. Pictures: for a few plants, both photos with the
+outline and the masks (magenta), in `docs/figures/35/`.
+
+**Limits, known before the scan.** About 10 plants, one experiment, one rig (production), one
+person outlining; leaves hidden under other leaves, which neither top view sees; leaves hanging into
+neighbouring cells; plants handled between the paired photo and the scan; the Helios photo's scale
+rests on one known length. The outlines are a person's judgement on each photo, so they carry that
+photo's blur.
+
+**Raw data.** To come: the Helios export, the tray number record, the paired capture IDs, the
+outlines, scripts and per-plant results in `experiments/round3-helios/`.
