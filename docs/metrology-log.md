@@ -9449,3 +9449,53 @@ photo; one person.
 
 **Raw data.** `experiments/round3-grow-tuning/data/test/` (per cell and per outline), scripts
 `code/test363.py`, `code/test363_summary.py`.
+
+## 35. Production: grow from leaf cores for every photo of experiment 18 (issue #410, method written 2026-11-13, before the run)
+
+**Label: development check.** Production (`ac-testing`) is moved from main d1742e7 to main 75f20e4
+(#409, #414, #415) and its running experiment 18 ("Potato Plants v001", photos from 22 Oct 08:41
+UTC) is reprocessed, so every read photo carries plant area by grow from leaf cores (section 34)
+beside the fixed green cutoff, per tray and per cell. It is an operation, not a measurement of
+plants: what is measured is how long it takes, whether it disturbs the running experiment, and
+whether the numbers that should not change stay the same. The rehearsal on development (#410,
+2026-11-12 to 13: 13,015 photos in 13 h, about 3.6 s per photo, 0 failed, new photos read 30 s after
+being taken) set the plan.
+
+**State before (read-only, 2026-11-13 06:58 UTC).** Production on d1742e7, clean tree, rig.db
+version 25 (75f20e4 is also version 25: no migration, and going back to d1742e7 needs no database
+restore). Experiment 18 running: 31,580 photos, 21,663 read for trays, 9,917 with no trays found
+(the lights-off photos), 1,596 with grow from leaf cores (read since d1742e7), 6,641 with cell
+readings (since 6 Nov). Free: 696 GB disk, 10.5 GB memory.
+
+**When.** At the start of the chamber's lights-off period (00:28 to 08:01 UTC on every recent night),
+on the night of 13 to 14 November, approved by Aaron. Start no earlier than 00:30 UTC, no later than
+02:00 UTC; lights off is confirmed first from the last 2 photos (exclusion "lights off"). Lights-off
+photos are not measured, so the restart costs no measured photo.
+
+**Steps.**
+1. rig.db is copied with sqlite's backup through a read-only connection into
+   `/var/lib/npec-rig/backups/before-promote-75f20e4-<UTC time>/rig.db`, checked with
+   `pragma quick_check`, and copied to the controller (`~/prod-backups/`). This copy is also the
+   "before" for the checks.
+2. `git merge --ff-only 75f20e4`; the server is stopped with SIGTERM about 30 s after a photo
+   (photos at second :53), and relaunched once its process has gone (CLAUDE.md recipe).
+3. Checks: health 200, the About page shows 75f20e4, the next photo is taken on time and read.
+4. Reprocess of experiment 18 through the API, watched about every hour.
+
+**Measured while it runs.** Photos done, total and failed, and photos per minute; after lights on
+(08:01 UTC), the delay from taking each new photo to its tray reading (`tray_read.read_at` minus
+`capture.taken_at`; rehearsal about 30 s; worrying above 5 minutes); the app's memory and free
+memory; free disk; tracebacks in the server log.
+
+**Checks after it finishes** (read-only, against the copy of step 1):
+- photos of experiment 18 read for trays, and how many carry grow from leaf cores (any without are
+  listed with their tray status);
+- the fixed green cutoff's tray areas (`tray_reading.area_mm2`) equal the copy's for every photo and
+  tray that existed before: differences above 0.01 mm2 are counted and examples listed;
+- photos before 6 Nov now have cell readings (count);
+- 3 photos (22 Oct, 1 Nov, 12 Nov) through the Gallery's tray API: both methods present;
+- a readings-only export of experiment 18: its time, and the columns
+  `plant_area_grow_from_leaf_cores_mm2` and `plant_area_fixed_green_cutoff_mm2`.
+
+**What it does not cover.** Whether grow from leaf cores is right on these photos (section 34 and
+33.1); photos not read for trays (lights off) get no area by either method.
