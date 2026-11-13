@@ -9449,3 +9449,56 @@ photo; one person.
 
 **Raw data.** `experiments/round3-grow-tuning/data/test/` (per cell and per outline), scripts
 `code/test363.py`, `code/test363_summary.py`.
+
+## 35. Blue mats laid round real plants: the step in plant area (issue #358, method written 2026-11-13, before the session)
+
+**Label: development check.** Section 24.4 found that a blue mat under a flat green square changes
+every rule's area at the square's edge: 13 to 24% on a 10 mm square, 1 to 3% on a 55 mm one. Those
+squares were mint, not leaf colour, and sat on grey backing, not soil, so the size of the step on a
+real plant is not known. Researchers lay mats when their protocol needs them (Aaron, 2026-11-05), so
+the step cannot be avoided, only kept small and marked. This section measures it on potato plants
+on soil.
+
+**Questions.**
+
+1. When a mat is laid round a plant, how much does that plant's area change, by the fixed green
+   cutoff and by grow from leaf cores (core 0.07, as in the app since #363)?
+2. Does the change depend on the plant's size?
+3. Does a mat change the tray's soil level, from which grow from leaf cores sets its lower cutoff
+   for every plant on the tray, and so the areas of plants without a mat?
+4. Do mat, soil and leaf stay apart by colour on these photos, so the rig could find a mat later?
+
+**Setup, by Aaron in the production chamber, experiment 18 (Potato Plants v001).** No extra photos:
+the rig's own, one a minute, during lights-on hours and at least 30 minutes away from a light ramp
+(section 29).
+
+1. Choose one tray with plants of several sizes, from small to large. Aaron picks at the table.
+2. Lay mats round some of its plants, at least one small, one medium and one large; leave at least
+   two plants of the same tray without a mat, as controls.
+3. Do not move the plants or touch the leaves. The tray may be lifted and put back; the rig places
+   it again from its tag.
+4. Record: the local time the mats went down and the time done, the tray, which cells got a mat,
+   and one mat's thickness by callipers if not the same mats as 24.4 (about 1.5 mm).
+
+**What is worked out, per cell of that tray.**
+
+1. *Photos.* Before: the 30 photos before the first person at the table. After: the 30 photos after
+   the last person left. The rig marks people at the table; Aaron's times are the check.
+2. *Area.* For both rules, read the way the app reads them (`segmentation.py`, per tray on the full
+   photo): mean area before and after, the change in percent, and the photo-to-photo spread (sd as %
+   of the mean) on each side.
+3. *The mat's own step.* Each mat cell's change minus the mean change of the control cells, which
+   carries an hour's growth, leaf movement and the disturbance of a person at the table. A change
+   smaller than twice the cell's photo-to-photo spread is reported as not found, not as zero.
+4. *Height.* The mat lies under the leaves, so it raises no leaf that stands clear of the soil; a
+   leaf resting on the soil is raised by the mat's thickness, about 0.2% of area for 1.5 mm. No
+   correction is made; the amount is stated.
+5. *Soil level.* The tray's soil level (greenness histogram peak, as the app finds it) and the lower
+   cutoff it gives, on every photo either side.
+6. *Colour.* (B - G) / (R + G + B) percentiles 1, 50 and 99 for mat, soil and leaf pixels of the
+   same photos, as in 24.4.
+7. *Pictures.* Each mat cell and one control, before and after, with each rule's outline in magenta.
+
+**Limits (as planned).** One tray, one session, one person laying the mats; plants of the sizes on
+that tray that day. Says nothing about a mat laid later in a plant's growth, a mat that is moved,
+or mats of another colour.
