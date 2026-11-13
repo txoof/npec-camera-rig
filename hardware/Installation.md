@@ -81,7 +81,6 @@ This section prepares a Raspberry Pi 5 for chamber deployment.
     - Remote Access: choose **Use password authentication**. Imager may pre-select public-key authentication; then the Pi accepts only that key and onboarding fails.
     - Hostname: the rig name. Use the name stamped on the outside of the chamber the rig goes in, in lowercase, for example `s8-standard` or `s15-standard`. Check that no other rig already has this name. Write the name on the case. Onboarding reads the name from the Pi.
     - Name rule: lowercase letters, digits and hyphens only, 1 to 63 characters, no hyphen at the start or end. Capitals are refused. Imager's default `raspberrypi` is refused.
-    - TODO: location names work once the `ansible-npec` branch `rig-names` (`6b65481`) is merged. Until then `main` accepts only `npec-rig-NN`.
 2. Connect the camera using the supplied ribbon cable, an extension cable and the AdaFruit DCI/CSI Thingie.
 2. Insert the SD Card into the Pi, connect it to a monitor and boot
 3. Login and run the following command to obtain the MAC address: `cat /sys/class/net/wlan0/address`. Note the MAC address value.
@@ -149,7 +148,7 @@ $ ip addr show wlan0
 
 #### Software Installation
 
-Ansible sets up the Pi and installs the app. This part is done by a developer with GitHub access to the private `ansible-npec` repository, not by the scientists who use the rig. Run every command below on the operator machine (your laptop), from inside the `ansible-npec` directory. More detail is in `docs/` in the `ansible-npec` repository. These steps match `ansible-npec` at commit `6a93478`.
+Ansible sets up the Pi and installs the app. This part is done by a developer with GitHub access to the private `ansible-npec` repository, not by the scientists who use the rig. Run every command below on the operator machine (your laptop), from inside the `ansible-npec` directory. More detail is in `docs/` in the `ansible-npec` repository. These steps match `ansible-npec` at commit `898d3de`.
 
 ##### Operator Machine Setup (once per laptop)
 
@@ -232,7 +231,7 @@ This only reads; it changes nothing. It checks the service, finds the camera, an
 
 3. **Check the app in a browser.** Open `http://<IP>:8000`. It should open the Gallery page. Use the IP address: `<rig name>.local:8000` works on most Macs but often not on WSL.
 
-4. **Deploy again:** `make deploy HOST=<rig name>`. The PLAY RECAP should now show `changed=0`. This shows the rig matches the configuration. On npec-rig-02 (2026-11-13) it read `ok=38 changed=0 unreachable=0 failed=0 skipped=6`.
+4. **Deploy again:** `make deploy HOST=<rig name>`. The PLAY RECAP should now show `changed=0`. This shows the rig matches the configuration. On the testing rig (2026-11-13) it read `ok=38 changed=0 unreachable=0 failed=0 skipped=6`.
 
 ##### If the IP Address Changes
 
@@ -267,7 +266,7 @@ Afterwards:
 2. Tell IT if needed.
 3. Run `make nfs` again.
 
-TODO: tested for refusals only; a real rename has not been run yet. Needs the `ansible-npec` branch `rig-names` merged.
+Tested on the testing rig.
 
 ##### Not Yet Tested
 
@@ -285,34 +284,20 @@ TODO: tested for refusals only; a real rename has not been run yet. Needs the `a
 
 ### Materials
 
-See the [Bill of Materials](./Bill-of-Materials.md) document for complete parts list and UU approved distributors.
+**Parts:** everything in the [Bill of Materials](./Bill-of-Materials.md) for one chamber: Camera Mount Hardware and Raspberry Pi & Camera Hardware. The Bill of Materials is the only parts list; quantities, sizes and suppliers are kept there. Prepare the Raspberry Pi first (see [Raspberry Pi 5 Preparation](#raspberry-pi-5-preparation)).
 
-| Qty | Item                                                                                                                | Notes |
-| --- | ------------------------------------------------------------------------------------------------------------------- | ----- |
-| 1   | 3 Gang Power Strip w 3m cable                                                                                       |       |
-| 1   | 1.3m 40x40 t-chanel profile aluminum rail                                                                           |       |
-| 1   | .4m 20x20 t-chanel profile aluminum rail                                                                            |       |
-| 4   | M5x?? Bolts                                                                                                         |       |
-| 4   | M6x?? Bolts                                                                                                         |       |
-| 4   | M5 t-nut guided I-type slot 6 (20x20 compatible)                                                                    |       |
-| 4   | M6 t-nut guided I-type slot 8 (40x40 compatible)                                                                    |       |
-| 2   | 40x40 compatible 90 degree brackets                                                                                 |       |
-| 2   | 20x20 compatible 90 degree brackets or [3D printed bracket](./exports/camera_rig/l_bracket_4020.stl)                           |       |
-| 1   | [3D printed Cold Shoe Holder](./exports/camera_rig/m5_slide_pocket.stl)                                                        |       |
-| 4   | [50mm Fiducial Tags](../reference/calibration-sheets/apriltags-36h11-50mm-a4-450-499.pdf) mounted on table brackets |       |
-| 1   | Cold Shoe Adapter 3/8" to 1/4"                                                                                      |       |
-| 1   | 1/4" compatible Ball Joint                                                                                          |       |
-| 1   | ArduCam64 and appropriate cables                                                                                    |       |
-| 1   | *Prepared Raspberry Pi 5 & Power Supply                                                                             |       |
-|     | Zip Ties                                                                                                            |       |
-| 1   | 1.5 m string                                                                                                        |       |
-| 1   | Small heavy weight such as a nut                                                                                    |       |
-|     | Scissors                                                                                                            |       |
-|     | Hex Wrenches (5mm, 6mm)                                                                                             |       |
-|     | Permanent marker (optional)                                                                                         |       |
-|     | Double sided tape (optional)                                                                                        |       |
+**Tools and consumables** (not in the Bill of Materials):
 
-* See FIXME instructions for preparing the Raspberry Pi.
+| Qty | Item | Notes |
+| --- | --- | --- |
+| 1 | Metric hex wrench set | |
+| | Zip ties | |
+| 1 | String, 1.5 m | |
+| 1 | Small heavy weight, such as a nut | |
+| | Scissors | |
+| | Tape measure | |
+| | Permanent marker | Optional |
+| | Double sided tape | Optional |
 
 |                                               |                                                         |                                                        |                                                  |
 | :-------------------------------------------: | :-----------------------------------------------------: | :----------------------------------------------------: | :----------------------------------------------: |
@@ -325,11 +310,11 @@ Before starting: Ensure that the North and South TOP support 40x40 Profile rail 
 
 #### 40x40 Rail Installation
 
-1. Loosely install the 90 degree bracket at either end of the 1.3m 40x40 t-chanel using the type 8 t-nuts and M6 bolts. Do not tighten. 
-2. Install one type 8 t-nut on the left and right side of the rail.
+1. Loosely install the 90 degree bracket at either end of the 40x40 t-channel rail using slot 8 M8 t-nuts and M8x16 bolts. Do not tighten. 
+2. Install one slot 8 M8 t-nut on the left and right side of the rail.
 3. Secure one 40x20 90 degree bracket to the left and right sides of the rail (see *Illustration 1* below)
-4. Secure an M5 and type 6 t-nut to each of the 20mm brackets
-5. Near the center of each profile, slot one type 8 t-nut into the top-support north and south 40x40 profile. *Note: this can be done in place; the nuts can be rotated such that they fit in to the chanel.*
+4. Secure an M5 bolt and a slot 5 M5 t-nut to each of the 20mm brackets
+5. Near the center of each profile, slot one slot 8 M8 t-nut into the top-support north and south 40x40 profile. *Note: this can be done in place; the nuts can be rotated such that they fit in to the chanel.*
 6. Lay the 40x40 across the top support spanning the north and south supports
 7. Loosely secure the 90 degree brackets to the north and south top support (see *Illustration 2* below). *Note: The rig will need to be centered. Avoid tightening the brackets until the end.*
 8. Ensure the table is approximately in the center of the growth chamber
@@ -345,8 +330,8 @@ Before starting: Ensure that the North and South TOP support 40x40 Profile rail 
 
 Do not attach the camera to the camera mount yet. This step establishes the coarse installation position.
 
-1. Slot two type 6 t-nuts into the 20x20 profile rail
-2. Loosely fasten the 3d printed cold-shoe holder to the 20x20 profile using 5mm bolts (see *Illustration 3*). *Note: The final position will need to be adjusted. Avoid tightening until the end*
+1. Slot two slot 5 M5 t-nuts into the 20x20 profile rail
+2. Loosely fasten the 3d printed cold-shoe holder to the 20x20 profile using M5 bolts (see *Illustration 3*). *Note: The final position will need to be adjusted. Avoid tightening until the end*
 3. Slot the cold-shoe adapter into the slot. Secure it using the included thumb screws
 4. Install the ball-head on the cold-shoe adapter and firmly tighten the thumb screw against the base
 5. Before attaching the ArduCam to the 3D printed camera mount, secure it to the ball head with the screw holes pointing down (see *Illustration 4*)
