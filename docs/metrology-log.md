@@ -9483,8 +9483,7 @@ file with an area exists, and whether those images come with each camera's posit
 #106 (2026-11-12). The point cloud gives the plant's height directly (the example plant stands
 about 150 to 160 mm above its plate).
 
-**The known answer: hand outlines on both cameras (proposed 2026-11-13, to be confirmed by
-Aaron).** For about 10 scanned plants (a decision, set by the time an outline takes), a person
+**The known answer: hand outlines on both cameras (decided, Aaron, 2026-11-13).** For about 10 scanned plants (a decision, set by the time an outline takes), a person
 outlines each plant in ImageJ, the way of section 24 (yellow counted as not plant, as in 33), on two
 photos:
 - the rig photo paired with it (below);
@@ -9498,7 +9497,14 @@ Then:
 - outline against outline, across the two cameras, gives the difference due to the camera and
   viewpoint alone, plant height included, with no segmenter in it.
 
-The outlines are drawn on the saved photos after the scan, so they need nothing at the scan itself.
+**Order.** The outlines need nothing at the scan itself; they are drawn on the saved photos:
+1. the scan; the rig records when each tray's tag leaves;
+2. when the export is in, the plants are chosen and two crops made per plant, one from the paired
+   rig photo and one from the Helios top photo;
+3. the person outlines each crop in ImageJ from nothing, not by correcting a drafted mask, before
+   seeing any mask, area or ratio from the rig or Helios, so nothing pulls the outline toward an
+   answer;
+4. the comparison is run only after the outlines are saved.
 
 **Swapping images and pipelines (suggested by the lab, 2026-11-12, optional).** The rig's segmenter
 run on the Helios top photos, and the Helios pipeline run on rig photos, if the lab can. With the
