@@ -1,4 +1,4 @@
-"""#358, metrology log 35: when each tray got its blue mats on 2026-11-06, and when a hand was over it.
+"""#358, metrology log 36: when each tray got its blue mats on 2026-11-06, and when a hand was over it.
 
 Per photo (screen copies, 1600 px wide, from production's gallery, read only) and per tray (its
 saved outline, shrunk 8% about its centre to keep the tray wall out): the share of blue pixels
