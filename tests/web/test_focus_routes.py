@@ -375,3 +375,14 @@ def test_health_reports_an_attached_camera_that_will_not_open(tmp_path) -> None:
     finally:
         backend.close()
         health._reset_for_tests()
+
+
+def test_health_reports_disk_headroom_from_the_data_folder(tmp_path) -> None:
+    """#307: the status line's data carries the disk's days left, from files in the data folder
+    (the folder holding rig.db, a temporary folder in tests)."""
+    (tmp_path / "rig").mkdir()
+    (tmp_path / "rig" / "photo.jpg").write_bytes(b"x" * 1000)
+    disk = TestClient(app).get("/camera/health").json()["disk"]
+    assert disk["bytes_per_day"] >= 1000
+    assert disk["days_left"] > 0
+    assert disk["level"] in ("ok", "yellow", "red")
