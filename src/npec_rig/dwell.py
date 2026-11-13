@@ -184,7 +184,7 @@ class _Readings:
     database: str
     calibrations: tuple
     finder: LocationFinder
-    read_at: dict[int, str]  # when each read photo was read, by capture ID
+    read_at: dict[int, str]  # when each photo was last read (the clock at the read, any result), by capture ID
     by_photo: dict[int, list[tuple[int, str, datetime, str]]]  # (tray ID, taken at, as datetime, location)
     everything: list[tuple[int, str, datetime, str]]  # all of by_photo, oldest photo first
     stays: dict[int, list[Stay]] | None = None  # `tray_stays` of everything, worked out when first asked
@@ -230,17 +230,22 @@ def _current_readings(experiment_id: int) -> _Readings:
     gone = cached.read_at.keys() - read_at.keys()
     if not changed and not gone:
         return cached
-    for capture_id in changed | gone:
-        cached.by_photo.pop(capture_id, None)
+    dropped = [cached.by_photo.pop(capture_id, None) for capture_id in changed | gone]
+    dirty = any(dropped)
+    unknown = set()  # photos with a tray whose location cannot be known yet: tried again next time
     positions = database.experiment_tray_positions(experiment_id, None if not cached.read_at else changed)
     for p in positions:
         location = cached.finder.location(p["path"], p["calibration"], p["centre_px"])
-        if location is not None:
-            cached.by_photo.setdefault(p["capture_id"], []).append(
-                (p["tray_id"], p["taken_at"], datetime.fromisoformat(p["taken_at"]), location))
-    cached.read_at = read_at
-    cached.stays = None
-    cached.everything = [r for photo in sorted(cached.by_photo.values(), key=lambda rs: rs[0][1]) for r in photo]
+        if location is None:
+            unknown.add(p["capture_id"])
+            continue
+        cached.by_photo.setdefault(p["capture_id"], []).append(
+            (p["tray_id"], p["taken_at"], datetime.fromisoformat(p["taken_at"]), location))
+        dirty = True
+    cached.read_at = {capture_id: at for capture_id, at in read_at.items() if capture_id not in unknown}
+    if dirty:
+        cached.stays = None
+        cached.everything = [r for photo in sorted(cached.by_photo.values(), key=lambda rs: rs[0][1]) for r in photo]
     _readings_cache[experiment_id] = cached
     return cached
 

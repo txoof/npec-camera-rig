@@ -1026,9 +1026,10 @@ def experiment_calibrations(experiment_id: int) -> list[str | None]:
 
 
 def experiment_tray_reads(experiment_id: int) -> dict[int, str]:
-    """When each of the experiment's read photos was last read, by capture ID, whatever the
-    result: a photo read or read again changes its time, so a cached reading of the experiment
-    knows which photos to look at again (#332, #416)."""
+    """When each of the experiment's photos the tray reader has handled was last read, by capture
+    ID, whatever the result (`read`, `read failed`, no trays found and the rest): a photo read or
+    read again changes its time, so a cached reading of the experiment knows which photos to look
+    at again (#332, #416)."""
     with _connect() as conn:
         rows = conn.execute(
             "SELECT tray_read.capture_id, tray_read.read_at FROM tray_read"

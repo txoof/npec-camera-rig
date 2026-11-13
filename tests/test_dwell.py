@@ -318,3 +318,24 @@ def test_an_old_photo_read_again_with_other_trays_changes_the_stays() -> None:
         7: [dwell.Stay("NW", _t("01-01T00:00"), _t("01-02T00:00"))],
         9: [dwell.Stay("SE", _t("01-03T00:00"), _t("01-03T00:00"))],
     }
+
+
+def test_a_photo_whose_size_could_not_be_known_is_tried_again_next_time() -> None:
+    """#416 review: with neither the photo nor its calibration's photo on disk, tray 7's location in
+    it cannot be known and it is left out; once the photo is there, it counts, without being read
+    again."""
+    from npec_rig.captures import photo_file
+
+    experiment_id = _experiment()
+    file = photo_file(_read_path(experiment_id, "01-01T00:00", {7: "NW"}))
+    aside = file.with_suffix(".aside")
+    file.rename(aside)
+    assert dwell.tray_stays(experiment_id) == {}
+
+    aside.rename(file)
+
+    assert dwell.tray_stays(experiment_id) == {7: [dwell.Stay("NW", _t("01-01T00:00"), _t("01-01T00:00"))]}
+
+
+def _read_path(experiment_id: int, when: str, trays: dict[int, str]) -> str:
+    return table_photo(experiment_id, _t(when), trays)
