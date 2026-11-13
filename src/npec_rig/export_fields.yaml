@@ -136,8 +136,9 @@ package:
       path: tray-readings.csv
       title: Plant area per tray per photo
       description: >-
-        One line per tray found in each photo: its plant area and the error band of the part of
-        the table it lies in. Photos not yet read for trays have no lines.
+        One line per tray found in each photo: its plant area (all its cells together) by both
+        methods, and the error band of the part of the table it lies in. Per plant, use
+        cell-readings.csv. Photos not yet read for trays have no lines.
       schema:
         missingValues: [""]
         fields:
@@ -153,19 +154,21 @@ package:
           - name: location
             type: string
             description: The table location the tray's centre lies in, NW NM NE SW SM or SE. Empty when it cannot be worked out.
-          - name: plant_area_mm2
+          - name: plant_area_grow_from_leaf_cores_mm2
             type: number
             description: >-
-              Plant area seen from above inside the tray's outline, square millimetres, at the
-              height of the tray top. Empty when it was not worked out.
-          - name: segmenter
-            type: string
-            description: The method that picked out the plant pixels, with its setting, for example "green threshold, 0.1".
-          - name: floor_mm2
+              Plant area seen from above inside the tray's outline, square millimetres at the
+              height of the tray top, rounded to 0.1, by grow from leaf cores: clearly green pixels
+              start a leaf, which grows into the paler touching pixels down to a level set from
+              this tray's own soil. Close to a person's outline of the leaves. Leaf edges on blue
+              mats read a little small; algae or green soil can count as plant. Empty for photos
+              read before this method was added (November 2026).
+          - name: plant_area_fixed_green_cutoff_mm2
             type: number
             description: >-
-              Below this area nothing was found yet: an empty tray reads up to about 100 mm2 with
-              this method. Reported for comparison, never subtracted from the area.
+              The same area by the fixed green cutoff: only pixels above one fixed greenness count.
+              Reads low, about a third of each leaf and less on small plants. Empty when it was
+              not worked out.
           - name: not_counted
             type: string
             description: >-
@@ -182,30 +185,46 @@ package:
           - name: partly_outside
             type: boolean
             description: True when the tray reaches past the edge of the photo, so part of its plant may be missing.
-          - name: scale_error_at_tray_top_pct
+          - name: scale_error_pct
             type: number
             description: >-
-              The validation band of the slot nearest the tray, percent: 95 in 100 flat objects at
-              tray-top height read within this much of their true area. Plant height adds about
-              0.15% per mm above the tray top, and the band does not cover how well the plant is
-              picked out. Empty when there is no band; no_band_reason says why.
-          - name: band_slot
+              The validation band of the slot nearest the tray, percent, rounded to 0.1: 95 in 100
+              flat objects at tray-top height read within this much of their true area. Plant
+              height adds about 0.15% per mm above the tray top, and the band does not cover how
+              well the plant is picked out. Empty when there is no band; no_scale_error_because
+              says why.
+          - name: validation_slot
             type: string
             description: The validation slot nearest the tray, whose band is given.
-          - name: no_band_reason
+          - name: no_scale_error_because
             type: string
             description: >-
               Why there is no band: "not validated" (no validation at the photo), "photo not
               covered" (see flags in captures.csv) or "slot not measured" (too few targets in
               that slot).
+          - name: fixed_green_cutoff_floor_mm2
+            type: number
+            description: >-
+              For checking only. Below this area the fixed green cutoff has found nothing yet: an
+              empty tray reads up to about 100 mm2 with it. Never subtracted from the area.
+          - name: grow_from_leaf_cores_soil_level
+            type: number
+            description: >-
+              For checking only. The greenness of this tray's soil that grow from leaf cores found
+              (the most common greenness of its soil pixels). Greenness is (2G - R - B) / (R + G + B).
+          - name: grow_from_leaf_cores_cutoff
+            type: number
+            description: >-
+              For checking only. The greenness a pixel needed to join a leaf in this tray: the soil
+              level plus 0.07, never below -0.045.
 
     - name: cell-readings
       path: cell-readings.csv
       title: Plant area per cell per photo
       description: >-
-        One line per cell of each tray in each photo: its status and plant area, to join with
-        your own map of trays and cells to treatments. Cell A1 of a 4 x 5 tray holds its tag; a
-        2 x 2 tray's A1 is its south-west pot in its first photo, followed after that.
+        One line per cell of each tray in each photo: its plant area and status by both methods,
+        to join with your own map of trays and cells to treatments. Cell A1 of a 4 x 5 tray holds
+        its tag; a 2 x 2 tray's A1 is its south-west pot in its first photo, followed after that.
       schema:
         missingValues: [""]
         fields:
@@ -218,29 +237,31 @@ package:
           - name: tray
             type: integer
             description: The tray's tag number.
-          - name: location
-            type: string
-            description: The table location the tray's centre lies in, NW NM NE SW SM or SE. Empty when it cannot be worked out.
           - name: cell
             type: string
             description: The cell, a letter for the row and a number for the column, for example "B3".
-          - name: status
+          - name: location
             type: string
-            description: >-
-              "plant"; "missing" (no plant seen: no area, never 0); "tag" (the cell that holds the
-              tray tag); "leaves over other cells" (leaves reach over a neighbour's cell, so the
-              area is not one plant's own: use the tray's area in tray-readings.csv).
-          - name: plant_area_mm2
+            description: The table location the tray's centre lies in, NW NM NE SW SM or SE. Empty when it cannot be worked out.
+          - name: plant_area_grow_from_leaf_cores_mm2
             type: number
             description: >-
-              Plant area seen from above inside the cell's opening, square millimetres, at the
-              height of the tray top. Empty for a missing plant and the tag's cell.
-          - name: segmenter
+              Plant area seen from above inside the cell, square millimetres at the height of the
+              tray top, rounded to 0.1, by grow from leaf cores (see tray-readings.csv). Empty for
+              a missing plant, the tag's cell and photos read before this method was added, never 0.
+          - name: plant_area_fixed_green_cutoff_mm2
+            type: number
+            description: The same area by the fixed green cutoff, which reads low (see tray-readings.csv). Empty when it has none, never 0.
+          - name: status_grow_from_leaf_cores
             type: string
-            description: The method that picked out the plant pixels, as in tray-readings.csv.
-          - name: cell_rule
+            description: >-
+              "plant"; "missing" (no plant seen); "tag" (the cell that holds the tray tag); "leaves
+              over other cells" (the plant's leaves also cover a neighbour's cell, so the area is
+              not one plant's own: use the tray's area). By grow from leaf cores; empty for photos
+              read before this method was added.
+          - name: status_fixed_green_cutoff
             type: string
-            description: How the plant pixels were given to cells.
+            description: The same by the fixed green cutoff.
           - name: tray_not_counted
             type: string
             description: Why the tray's areas do not count in this photo, as not_counted in tray-readings.csv. Empty when they count.
@@ -254,13 +275,13 @@ package:
               10 degrees from the tray's first photo): from then on, for the rest of the
               experiment, this tray's cell names may be swapped. Empty while the tag lies as
               first seen.
-          - name: scale_error_at_tray_top_pct
+          - name: scale_error_pct
             type: number
             description: The validation band of the tray, as in tray-readings.csv.
-          - name: band_slot
+          - name: validation_slot
             type: string
             description: The validation slot nearest the tray, as in tray-readings.csv.
-          - name: no_band_reason
+          - name: no_scale_error_because
             type: string
             description: Why there is no band, as in tray-readings.csv.
 

@@ -320,18 +320,32 @@ def _time_in_table_location_csv(experiment_id: int, until: str) -> bytes:
     return buffer.getvalue().encode()
 
 
-# The columns of tray-readings.csv, one line per tray per photo read (#76).
+def _rounded(value: float | None, digits: int) -> float | None:
+    """`value` rounded to `digits` decimals; None stays None (an empty CSV cell)."""
+    return None if value is None else round(value, digits)
+
+
+# The columns of tray-readings.csv, one line per tray per photo read (#76): the plant area by both
+# methods side by side, named as in the Gallery (Aaron, 2026-11-11, #363), how each number was
+# made only at the end.
 TRAY_READING_COLUMNS = [
-    "file", "taken_at", "tray", "location", "plant_area_mm2", "segmenter", "floor_mm2", "not_counted",
-    "photo_excluded", "partly_outside", "scale_error_at_tray_top_pct", "band_slot", "no_band_reason",
+    "file", "taken_at", "tray", "location", "plant_area_grow_from_leaf_cores_mm2",
+    "plant_area_fixed_green_cutoff_mm2", "not_counted", "photo_excluded", "partly_outside", "scale_error_pct",
+    "validation_slot", "no_scale_error_because", "fixed_green_cutoff_floor_mm2", "grow_from_leaf_cores_soil_level",
+    "grow_from_leaf_cores_cutoff",
 ]
+
+
+def _rounded(value: float | None, digits: int) -> float | None:
+    """`value` rounded to `digits` decimals; None stays None (an empty CSV cell)."""
+    return None if value is None else round(value, digits)
 
 
 def _tray_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> bytes:
     """One line per tray in each photo read for its trays (`read`: each photo's rig.db row and its
-    `tray_readings.capture_readings`), with
-    its plant area as stored and the band of its validation slot, or the reason it has none (#76).
-    Photos not read for trays have no lines."""
+    `tray_readings.capture_readings`), with its plant area by both methods as stored, and the band
+    of its validation slot, or the reason it has none (#76). Photos not read for trays have no
+    lines."""
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=TRAY_READING_COLUMNS, lineterminator="\n")
     writer.writeheader()
@@ -345,32 +359,37 @@ def _tray_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> byt
                 "taken_at": row["taken_at"],
                 "tray": "no tag" if tray["tray_id"] is None else tray["tray_id"],
                 "location": tray["location"],
-                "plant_area_mm2": tray["area_mm2"],
-                "segmenter": tray["segmenter"],
-                "floor_mm2": tray["floor_mm2"],
+                "plant_area_grow_from_leaf_cores_mm2": _rounded(tray.get("grown_area_mm2"), 1),
+                "plant_area_fixed_green_cutoff_mm2": _rounded(tray["area_mm2"], 1),
                 "not_counted": "; ".join(tray["not_counted"]),
                 "photo_excluded": readings["exclusion"],
                 "partly_outside": tray["partly_outside"],
-                "scale_error_at_tray_top_pct": band["band_pct"],
-                "band_slot": band["slot"],
-                "no_band_reason": band["reason"],
+                "scale_error_pct": _rounded(band["band_pct"], 1),
+                "validation_slot": band["slot"],
+                "no_scale_error_because": band["reason"],
+                "fixed_green_cutoff_floor_mm2": tray["floor_mm2"],
+                # Greenness levels are histogram bin centres, 0.01 apart: 3 decimals hold them exactly.
+                "grow_from_leaf_cores_soil_level": _rounded(tray.get("grown_soil_level"), 3),
+                "grow_from_leaf_cores_cutoff": _rounded(tray.get("grown_lower_cutoff"), 3),
             })
     return buffer.getvalue().encode()
 
 
-# The columns of cell-readings.csv, one line per cell of each tray per photo read (#364).
+# The columns of cell-readings.csv, one line per cell of each tray per photo read (#364): the plant
+# area and status by both methods side by side (Aaron, 2026-11-11, #363).
 CELL_READING_COLUMNS = [
-    "file", "taken_at", "tray", "location", "cell", "status", "plant_area_mm2", "segmenter", "cell_rule",
-    "tray_not_counted", "photo_excluded", "names_unsure_since", "scale_error_at_tray_top_pct", "band_slot",
-    "no_band_reason",
+    "file", "taken_at", "tray", "cell", "location", "plant_area_grow_from_leaf_cores_mm2",
+    "plant_area_fixed_green_cutoff_mm2", "status_grow_from_leaf_cores", "status_fixed_green_cutoff",
+    "tray_not_counted", "photo_excluded", "names_unsure_since", "scale_error_pct", "validation_slot",
+    "no_scale_error_because",
 ]
 
 
 def _cell_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> bytes:
     """One line per cell of each tray in each photo read for its trays
     (`tray_readings.capture_readings`), for the researcher's own map of trays and cells to
-    treatments (#364): the cell's status and plant area, no area when it has none, and its tray's
-    location and validation band."""
+    treatments (#364): the cell's plant area and status by both methods, no area when it has none,
+    and its tray's location and validation band."""
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=CELL_READING_COLUMNS, lineterminator="\n")
     writer.writeheader()
@@ -384,18 +403,18 @@ def _cell_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> byt
                     "file": f"stills/{_stills_relative(row['path'], folder)}.jpg",
                     "taken_at": row["taken_at"],
                     "tray": tray["tray_id"],
-                    "location": tray["location"],
                     "cell": cell["cell"],
-                    "status": cell["status"],
-                    "plant_area_mm2": cell["area_mm2"],
-                    "segmenter": cell["segmenter"],
-                    "cell_rule": cell["cell_rule"],
+                    "location": tray["location"],
+                    "plant_area_grow_from_leaf_cores_mm2": _rounded(cell.get("grown_area_mm2"), 1),
+                    "plant_area_fixed_green_cutoff_mm2": _rounded(cell["area_mm2"], 1),
+                    "status_grow_from_leaf_cores": cell.get("grown_status"),
+                    "status_fixed_green_cutoff": cell["status"],
                     "tray_not_counted": "; ".join(tray["not_counted"]),
                     "photo_excluded": readings["exclusion"],
                     "names_unsure_since": tray["names_unsure_since"],
-                    "scale_error_at_tray_top_pct": band["band_pct"],
-                    "band_slot": band["slot"],
-                    "no_band_reason": band["reason"],
+                    "scale_error_pct": _rounded(band["band_pct"], 1),
+                    "validation_slot": band["slot"],
+                    "no_scale_error_because": band["reason"],
                 })
     return buffer.getvalue().encode()
 
