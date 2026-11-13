@@ -63,9 +63,9 @@ This section prepares a Raspberry Pi 5 for chamber deployment.
 
 - Linux, MacOS, or Windows Subsystem for Linux
 - [Ansible](https://docs.ansible.com/)
-  - Linux/WSL: `apt install ansible`
-  - MacOS: `brew install ansible`
-- [NPEC Ansible Repository](git@github.com:txoof/ansible-npec.git) Cloned Locally
+  - Linux/WSL/MacOS: `pipx install --include-deps ansible`
+- git and make (see [Operator Machine Setup](#operator-machine-setup-once-per-laptop))
+- [NPEC Ansible Repository](https://github.com/txoof/ansible-npec) cloned locally (private: needs GitHub access)
 - 128 gigabyte high-performance micro SD Card (minimum)
 - Micro SD Card adapter
 - Raspberry Pi 5
@@ -78,6 +78,9 @@ This section prepares a Raspberry Pi 5 for chamber deployment.
 1. Write Raspberry Pi OS Lite Trixie to the SD card
     - Username: `pi`
     - Password: the fleet `pi` password, from the team password manager
+    - Remote Access: choose **Use password authentication**. Imager may pre-select public-key authentication; then the Pi accepts only that key and onboarding fails.
+    - Hostname: the rig name. Use the name stamped on the outside of the chamber the rig goes in, for example `S8-standard` or `S15-standard`. Check that no other rig already has this name. Write the name on the case. Onboarding reads the name from the Pi.
+    - TODO: `ansible-npec` at `6a93478` accepts only names of the form `npec-rig-NN`. Location names work once that is changed.
 2. Connect the camera using the supplied ribbon cable, an extension cable and the AdaFruit DCI/CSI Thingie.
 2. Insert the SD Card into the Pi, connect it to a monitor and boot
 3. Login and run the following command to obtain the MAC address: `cat /sys/class/net/wlan0/address`. Note the MAC address value.
@@ -145,11 +148,100 @@ $ ip addr show wlan0
 
 #### Software Installation
 
-Ansible will manage the initial onboarding of the Pi and software installation. The following commands should be run from inside the `ansible-npec` directory.
+Ansible sets up the Pi and installs the app. This part is done by a developer with GitHub access to the private `ansible-npec` repository, not by the scientists who use the rig. Run every command below on the operator machine (your laptop), from inside the `ansible-npec` directory. More detail is in `docs/` in the `ansible-npec` repository. These steps match `ansible-npec` at commit `6a93478`.
 
-1. 
+##### Operator Machine Setup (once per laptop)
 
+1. Install git and make. On macOS: `xcode-select --install`.
+2. Install Ansible: `pipx install --include-deps ansible`
+3. Clone the repository. It is private, so this needs GitHub access to `txoof/ansible-npec`:
 
+```shell
+git clone git@github.com:txoof/ansible-npec.git
+cd ansible-npec
+```
+
+4. Run `make setup`. It installs the Ansible collections and creates this laptop's own SSH key, `~/.ssh/npec_ed25519`.
+
+Each laptop has its own key. To use a new laptop, or after losing the key, run `make setup` there and then `make add-key IP=<IP>` for each rig. It asks for the rig password once.
+
+The list of rigs is kept on the laptop, in `inventory/local.yml`, and is not in git. Settings for one rig go in `inventory/host_vars/<rig>.yml`, also on the laptop only. Nothing in these steps is committed.
+
+##### Onboard the Pi
+
+Wait 3 to 5 minutes after the Pi first boots before starting.
+
+1. **Re-imaged Pi only.** If this Pi was onboarded before, remove its old SSH host key from the laptop: `make forget-host IP=<IP>` (add `HOST=<name>` if you also used its name). Otherwise onboarding fails with "REMOTE HOST IDENTIFICATION HAS CHANGED".
+2. **Onboard.** Run this in a terminal. It cannot be run from a script or tool that has no terminal, because it asks for a password:
+
+```shell
+make onboard IP=<IP>
+```
+
+At "Type the rig password (the one set for 'pi' in Imager):" enter the `pi` password. It is asked once.
+
+This reads the rig name from the Pi's hostname, installs this laptop's key on the Pi, turns on passwordless sudo, and adds the rig to `inventory/local.yml`. WiFi settings are not changed.
+
+**Check:** the last message reads "Next: deploy the app: make deploy HOST=<rig name>". Then:
+
+```shell
+make ping HOST=<rig name>
+# expect: SUCCESS and "ping": "pong"
+```
+
+##### Install the Software
+
+The Hailo AI board is found by itself: Hailo-8 or Hailo-8L, Hailo-10H, or none. No setting is needed. To turn Hailo off on a rig that has a board, put `npec_hailo_enabled: false` in `inventory/host_vars/<rig name>.yml`.
+
+1. **Deploy:**
+
+```shell
+make deploy HOST=<rig name>
+```
+
+TODO: time this and record the PLAY RECAP on a fresh SD card. The rig reboots once by itself near the end and Ansible waits for it. Do not unplug it.
+
+It installs the system packages, sets the time zone to Europe/Amsterdam, turns on the Arducam 64MP camera and installs Arducam's own libcamera (the standard one cannot open this camera), installs the Hailo software if a board is fitted, clones the app to `/home/pi/npec_camera_rig`, and starts the `npec-rig` service on port 8000. Camera, Hailo and kernel packages are held at tested versions.
+
+The app version is fixed in `ansible-npec`. `make deploy` installs it on a new rig but does not change the app on a rig that already has it. Use `make update-app HOST=<rig name>` for that.
+
+**Check:** the PLAY RECAP line shows `failed=0` and `unreachable=0`.
+
+2. **Health check:**
+
+```shell
+make health HOST=<rig name>
+```
+
+This only reads; it changes nothing. It checks the service, finds the camera, and takes one snapshot through the app.
+
+**Check:** the Fleet summary shows `<rig name>  OK  all checks passed`. Also look for `cameras: arducam_64mp` and `snapshot: ok`.
+
+- **WARN** is acceptable for some causes, for example pending upgrades or a disk filling up. Read the reason on the line.
+- **WARN with no camera found**: the camera is not connected or not seen. Check the cable (see [Camera and Pi Installation](#camera-and-pi-installation)) and run `make health` again. TODO: this case has not yet been tested on a rig without a camera.
+- **FAIL** means stop and find the cause before going on. It fails if a camera is found but no photo comes back, if the app is using a replayed or synthetic camera, or if the camera's tuning file is missing.
+
+3. **Check the app in a browser.** Open `http://<IP>:8000`. It should open the Gallery page. Use the IP address: `<rig name>.local:8000` works on most Macs but often not on WSL.
+
+4. **Deploy again:** `make deploy HOST=<rig name>`. The PLAY RECAP should now show `changed=0`. This shows the rig matches the configuration. On npec-rig-02 (2026-11-13) it read `ok=38 changed=0 unreachable=0 failed=0 skipped=6`.
+
+##### If the IP Address Changes
+
+DHCP reservations are not in place yet (TODO). If a rig's IP address changes, `make` reports UNREACHABLE, or `make health` shows "FAIL  WRONG PI" (another Pi now has the old address).
+
+1. If the new address was used before by a different Pi, run `make forget-host IP=<new IP>` first. Otherwise SSH refuses because the host key changed.
+2. Run `make onboard IP=<new IP>`. It reads the rig name from the Pi, checks the serial number to confirm it is the same Pi, and replaces that rig's line in `inventory/local.yml`. It asks for the password only if this laptop's key is not on the Pi.
+
+TODO: not yet tested on a rig whose address changed. See `docs/09-day-2-operations.md` in `ansible-npec`.
+
+##### Not Yet Tested
+
+- A full run from a fresh SD card (TODO).
+- The Windows/WSL laptop setup since the 2026-11-13 changes (TODO).
+
+##### Do Not
+
+- Run onboard, deploy, update or reboot targets against `ac-testing`. It was set up by hand and is also a control machine. Only `make health` is allowed there.
 
 ## Camera Mount Installation
 
