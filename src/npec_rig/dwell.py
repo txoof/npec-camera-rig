@@ -130,7 +130,8 @@ class LocationFinder:
     """The location of each tray in photos read with their calibration (`location_of`), each calibration's
     table frame and photo size looked up once. Photos taken under one calibration are taken in one
     camera mode, so the first photo found gives the size of all; with none on disk, the
-    calibration's own photo. Make one per question: a calibration can be rebuilt in the meantime."""
+    calibration's own photo. One is kept only while the calibrations it read with stay the same
+    (`_calibrations_key`): a calibration can be rebuilt in the meantime."""
 
     def __init__(self) -> None:
         self._frames: dict[str | None, TableFrame | None] = {}
@@ -173,10 +174,23 @@ def _table_frame(calibration: str | None) -> TableFrame | None:
         return None
 
 
-# Each experiment's readings, with the key they were worked out for: the pages ask again every few
-# seconds, and an experiment of 8 days (about 100 000 readings) takes seconds to work out. Requests
-# run in threads: the lock lets one rebuild while the others wait for it, not all rebuild at once.
-_readings_cache: dict[int, tuple[tuple, list[tuple[int, str, datetime, str]]]] = {}
+# Each experiment's readings, kept between requests: the pages ask again every few seconds, and
+# working out an experiment of 3 weeks (240 000 readings) from scratch takes 5 s or more on the Pi
+# (#416). Only the photos read or read again since are worked out on each request; everything is
+# worked out again when a calibration its photos are read with changes. Requests run in threads:
+# the lock lets one update the readings while the others wait for it.
+@dataclass
+class _Readings:
+    database: str
+    calibrations: tuple
+    finder: LocationFinder
+    read_at: dict[int, str]  # when each read photo was read, by capture ID
+    by_photo: dict[int, list[tuple[int, str, datetime, str]]]  # (tray ID, taken at, as datetime, location)
+    everything: list[tuple[int, str, datetime, str]]  # all of by_photo, oldest photo first
+    stays: dict[int, list[Stay]] | None = None  # `tray_stays` of everything, worked out when first asked
+
+
+_readings_cache: dict[int, _Readings] = {}
 _readings_lock = threading.Lock()
 
 
@@ -197,33 +211,57 @@ def _calibrations_key(experiment_id: int) -> tuple:
     return tuple(key)
 
 
-def _experiment_readings(experiment_id: int, until: str | None = None) -> dict[int, list[tuple[datetime, str]]]:
-    """Each tray's readings in the experiment's read photos taken up to `until` (all with None):
-    (time, location), oldest first. A tray whose location cannot be known in a photo is left out of it.
-    Worked out again whenever a photo of the experiment is read or read again, or a calibration
-    its photos are read with changes."""
-    with _readings_lock:
-        key = (database.experiment_tray_reads_mark(experiment_id), _calibrations_key(experiment_id))
-        cached = _readings_cache.get(experiment_id)
-        if cached is None or cached[0] != key:
-            finder = LocationFinder()
-            everything: list[tuple[int, str, datetime, str]] = []
-            for p in database.experiment_tray_positions(experiment_id):
-                location = finder.location(p["path"], p["calibration"], p["centre_px"])
-                if location is not None:
-                    everything.append((p["tray_id"], p["taken_at"], datetime.fromisoformat(p["taken_at"]), location))
-            cached = _readings_cache[experiment_id] = (key, everything)
+def _by_tray(everything: list[tuple[int, str, datetime, str]], until: str | None) -> dict[int, list[tuple[datetime, str]]]:
     readings: dict[int, list[tuple[datetime, str]]] = {}
-    for tray_id, taken_at, when, location in cached[1]:
+    for tray_id, taken_at, when, location in everything:
         if until is None or taken_at <= until:
             readings.setdefault(tray_id, []).append((when, location))
     return readings
 
 
+def _current_readings(experiment_id: int) -> _Readings:
+    """The experiment's cached readings brought up to date (`_readings_lock` held)."""
+    where, calibrations = str(database.db_path()), _calibrations_key(experiment_id)
+    read_at = database.experiment_tray_reads(experiment_id)
+    cached = _readings_cache.get(experiment_id)
+    if cached is None or cached.database != where or cached.calibrations != calibrations:
+        cached = _Readings(where, calibrations, LocationFinder(), {}, {}, [])
+    changed = {capture_id for capture_id, at in read_at.items() if cached.read_at.get(capture_id) != at}
+    gone = cached.read_at.keys() - read_at.keys()
+    if not changed and not gone:
+        return cached
+    for capture_id in changed | gone:
+        cached.by_photo.pop(capture_id, None)
+    positions = database.experiment_tray_positions(experiment_id, None if not cached.read_at else changed)
+    for p in positions:
+        location = cached.finder.location(p["path"], p["calibration"], p["centre_px"])
+        if location is not None:
+            cached.by_photo.setdefault(p["capture_id"], []).append(
+                (p["tray_id"], p["taken_at"], datetime.fromisoformat(p["taken_at"]), location))
+    cached.read_at = read_at
+    cached.stays = None
+    cached.everything = [r for photo in sorted(cached.by_photo.values(), key=lambda rs: rs[0][1]) for r in photo]
+    _readings_cache[experiment_id] = cached
+    return cached
+
+
 def tray_stays(experiment_id: int, until: str | None = None) -> dict[int, list[Stay]]:
     """Each tray's stays (`stays`) in the experiment's read photos taken up to `until` (UTC; all
     with None), oldest first, by tray ID: for the diagrams on the Experiments page."""
-    return {tray_id: stays(readings) for tray_id, readings in sorted(_experiment_readings(experiment_id, until).items())}
+    with _readings_lock:
+        cached = _current_readings(experiment_id)
+        if until is not None and cached.everything and until < cached.everything[-1][1]:
+            everything = cached.everything
+        else:
+            # Up to now, as the page asks every 15 s: worked out once per photo read (#416).
+            if cached.stays is None:
+                cached.stays = _stays_by_tray(_by_tray(cached.everything, None))
+            return {tray_id: list(tray) for tray_id, tray in cached.stays.items()}
+    return _stays_by_tray(_by_tray(everything, until))
+
+
+def _stays_by_tray(readings: dict[int, list[tuple[datetime, str]]]) -> dict[int, list[Stay]]:
+    return {tray_id: stays(tray) for tray_id, tray in sorted(readings.items())}
 
 
 def _hours(stay: Stay) -> float:

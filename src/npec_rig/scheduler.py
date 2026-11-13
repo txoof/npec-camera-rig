@@ -6,6 +6,7 @@ restart and for any interval (a minute, an hour, a day). Slot n is due n interva
 restart resumes after the last recorded slot and counts the slots that passed while it was down.
 """
 
+import bisect
 import logging
 import math
 import threading
@@ -59,8 +60,8 @@ def _downtime(experiment_id: int, since: str, app_starts: list[str]) -> list[dic
     back (or the schedule's start) until it came back. When it went down is not known."""
     periods = []
     for started_at in app_starts:
-        before = database.captures_for_experiment(experiment_id, until=started_at)
-        after = max([since, *(c["taken_at"] for c in before)])
+        last = database.last_photo_taken_at(experiment_id, started_at)
+        after = since if last is None else max(since, last)
         periods.append({"after": after, "until": started_at})
     return periods
 
@@ -68,8 +69,11 @@ def _downtime(experiment_id: int, since: str, app_starts: list[str]) -> list[dic
 def _late_photos(experiment_id: int, since: str, app_starts: list[str]) -> list[dict]:
     """Photos due while the app was down and taken when it came back, with how late."""
     late = []
+    starts = sorted(app_starts)
     for photo in database.scheduled_photos_taken(experiment_id, since):
-        if any(photo["due_at"] < started_at <= photo["taken_at"] for started_at in app_starts):
+        # The first start after the photo was due: late when the app started before it was taken.
+        first = bisect.bisect_right(starts, photo["due_at"])
+        if first < len(starts) and starts[first] <= photo["taken_at"]:
             late_s = datetime.fromisoformat(photo["taken_at"]) - datetime.fromisoformat(photo["due_at"])
             late.append({"due": photo["due_at"], "taken": photo["taken_at"], "late_s": late_s.total_seconds()})
     return late

@@ -276,3 +276,45 @@ def test_a_rebuilt_calibration_is_used_at_once_not_after_a_restart() -> None:
     )
 
     assert [s.location for s in dwell.tray_stays(experiment_id)[7]] == ["NM"]
+
+
+def _read_again(experiment_id: int, when: str, trays: dict[int, str]) -> None:
+    """Read the photo taken at `when` again, a day later, finding `trays` (tray ID: location) in it,
+    as Reprocess does."""
+    from tests.helpers import TABLE_CENTRES
+
+    (photo,) = [c for c in database.captures_for_experiment(experiment_id) if c["taken_at"] == _t(when).isoformat()]
+    database.record_tray_readings(photo["id"], read_at=(_t(when) + timedelta(days=1)).isoformat(), status="read", trays=[
+        {"tray_id": tray_id, "slot": None, "a1_corner": None, "placement": "placed",
+         "centre_px": list(TABLE_CENTRES[location]), "tilt_deg": 0.0, "margin_mm": None, "found": "photo + tag",
+         "warnings": [], "outline_px": None}
+        for tray_id, location in trays.items()
+    ])
+
+
+def test_a_photo_read_after_the_stays_were_asked_for_is_in_them_next_time() -> None:
+    """#416: the stays are not worked out from scratch on each request, and a new photo still counts."""
+    experiment_id = _experiment()
+    _read(experiment_id, "01-01T00:00", {7: "NW"})
+    _read(experiment_id, "01-02T00:00", {7: "NW"})
+    assert dwell.tray_stays(experiment_id) == {7: [dwell.Stay("NW", _t("01-01T00:00"), _t("01-02T00:00"))]}
+
+    _read(experiment_id, "01-03T00:00", {7: "NW"})
+
+    assert dwell.tray_stays(experiment_id) == {7: [dwell.Stay("NW", _t("01-01T00:00"), _t("01-03T00:00"))]}
+
+
+def test_an_old_photo_read_again_with_other_trays_changes_the_stays() -> None:
+    """#416: Reprocess reads the 3 January photo again and now finds tray 9 in SE there instead of
+    tray 7, so tray 7's stay ends on 2 January and tray 9 has one of its own."""
+    experiment_id = _experiment()
+    for day in ("01", "02", "03"):
+        _read(experiment_id, f"01-{day}T00:00", {7: "NW"})
+    assert dwell.tray_stays(experiment_id)[7][-1].end == _t("01-03T00:00")
+
+    _read_again(experiment_id, "01-03T00:00", {9: "SE"})
+
+    assert dwell.tray_stays(experiment_id) == {
+        7: [dwell.Stay("NW", _t("01-01T00:00"), _t("01-02T00:00"))],
+        9: [dwell.Stay("SE", _t("01-03T00:00"), _t("01-03T00:00"))],
+    }

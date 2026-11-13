@@ -212,3 +212,30 @@ def test_photos_taken_on_time_are_not_listed_as_late() -> None:
         schedule = client.get("/api/experiments").json()[0]["schedule"]
     assert schedule["late_photos"] == []
     assert schedule["downtime"] == []
+
+
+def _photo_at(experiment_id: int, taken_at: str) -> None:
+    database.record_capture(
+        taken_at=taken_at, path=f"experiments/x/{taken_at}", purpose="capture", experiment_id=experiment_id,
+        calibration=None, validation=None, lens_position=None, focus_locked_at=None, exposure_us=None,
+        analogue_gain=None, flags=[],
+    )
+
+
+def test_each_downtime_runs_from_the_last_photo_before_its_restart_or_from_the_schedules_start() -> None:
+    """A schedule from 10:00, a photo a minute. Restarts at 10:00:30 (no photo yet), 10:05:30 (after
+    the 10:03 photo) and 10:05:45 (no photo since the one before). Worked out by hand (#416)."""
+    experiment = database.create_experiment(uuid="u-416", created_at="2027-01-01T09:00:00+00:00", interval_s=60)
+    database.start_experiment(experiment["id"], now="2027-01-01T10:00:00+00:00", folder="experiments/x")
+    for minute in ("01", "02", "03", "06"):
+        _photo_at(experiment["id"], f"2027-01-01T10:{minute}:00+00:00")
+    for started_at in ("10:00:30", "10:05:30", "10:05:45"):
+        database.record_app_start(f"2027-01-01T{started_at}+00:00")
+
+    downtime = scheduler.schedule(database.get_experiment(experiment["id"]))["downtime"]
+
+    assert downtime == [
+        {"after": "2027-01-01T10:00:00+00:00", "until": "2027-01-01T10:00:30+00:00"},
+        {"after": "2027-01-01T10:03:00+00:00", "until": "2027-01-01T10:05:30+00:00"},
+        {"after": "2027-01-01T10:03:00+00:00", "until": "2027-01-01T10:05:45+00:00"},
+    ]
