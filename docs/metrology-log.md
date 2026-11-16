@@ -9637,3 +9637,22 @@ plant's growth, a mat that is moved, or mats of another colour.
 *Figures.* `docs/figures/36/timeline.png`: when each plant tray got its mats, from the blue share per
 photo. `docs/figures/36/tray5-before-after.jpg`: tray 5 at 08:57 and 09:20 UTC, from the gallery's
 screen copies, cropped to the tray's saved outline.
+
+### 36.1 How much leaf the blue rule takes from the edge on a mat (method written 2026-11-16, before the run)
+
+**Label: development check.** On the mat, the pixels just outside the grow from leaf cores outline
+are green enough to count (greenness +0.02 to +0.05 against a cutoff of -0.045) and are left out
+only because blue is a little above green (tray 5, B1 and B5, `code/edge_colour.py`). On soil the
+outline follows the leaf edge (Aaron, 2026-11-16, looking at the close-ups); on the mat it runs
+inside the leaf. This measures how much of the drop those pixels make up.
+
+**Method.** The app's `grow_trays`, unchanged but for the blue margin (a pixel is blue when its
+blue exceeds its red and its green by more than the margin; the app uses 0), on the six copied
+stills of 36 (trays 3, 4, 5, 6; their before still, 09:20 and 10:30 UTC). Variants: blue margin 0
+(the app), 5, 10, 20, and no blue rule. Per tray and variant: plant pixels, and the change from the
+tray's before still (read at margin 0). Pictures of 5.B1 and 5.B5 for each margin, so a person can
+say at which margin the outline follows the leaf on the mat and does not spread onto it.
+
+**Limits (as planned).** One still per window, four trays; the before still is one photo, so a
+change within about 3% (the photo-to-photo spread) is not a difference. Not a choice of a new
+margin: that needs the reference set of section 33 and the tray plastic.
