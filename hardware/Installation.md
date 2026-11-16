@@ -53,7 +53,7 @@ West │ A ────────equator───+──equator─────
     │                                       │
 ```
 
-## [Raspberry Pi 5 Preparation](#raspberry-pi-5-preparation)
+## Raspberry Pi 5 Preparation
 
 This section prepares a Raspberry Pi 5 for chamber deployment.
 
@@ -61,9 +61,9 @@ This section prepares a Raspberry Pi 5 for chamber deployment.
 
 **Requirements**
 
-- Linux, MacOS, or Windows Subsystem for Linux
+- Linux or MacOS
 - [Ansible](https://docs.ansible.com/)
-  - Linux/WSL/MacOS: `pipx install --include-deps ansible`
+  - Linux/MacOS: `pipx install --include-deps ansible`
 - git and make (see [Operator Machine Setup](#operator-machine-setup-once-per-laptop))
 - [NPEC Ansible Repository](https://github.com/txoof/ansible-npec) cloned locally (private: needs GitHub access)
 - 128 gigabyte high-performance micro SD Card (minimum)
@@ -82,8 +82,8 @@ This section prepares a Raspberry Pi 5 for chamber deployment.
     - Hostname: the rig name. Use the name stamped on the outside of the chamber the rig goes in, in lowercase, for example `s8-standard` or `s15-standard`. Check that no other rig already has this name. Write the name on the case. Onboarding reads the name from the Pi.
     - Name rule: lowercase letters, digits and hyphens only, 1 to 63 characters, no hyphen at the start or end. Capitals are refused. Imager's default `raspberrypi` is refused.
 2. Connect the camera using the supplied ribbon cable, an extension cable and the AdaFruit DCI/CSI Thingie.
-2. Insert the SD Card into the Pi, connect it to a monitor and boot
-3. Login and run the following command to obtain the MAC address: `cat /sys/class/net/wlan0/address`. Note the MAC address value.
+3. Insert the SD Card into the Pi, connect it to a monitor and boot
+4. Login and run the following command to obtain the MAC address: `cat /sys/class/net/wlan0/address`. Note the MAC address value.
 
 ```shell
 14:29:59
@@ -94,8 +94,8 @@ $ cat /sys/class/net/wlan0/address
 98:fe:54:50:f0:70
 ```
 
-4. Create a login and password on the `iotroam` network for the device. Note the IP Address.
-5. Configure the wifi adapter:
+5. Create a login and password on the `iotroam` network for the device. Note the IP Address. If this Pi was registered before, skip this step: the MAC address belongs to the board and does not change when the SD card is re-imaged, so it is already on the list.
+6. Configure the wifi adapter:
 
 ```shell
 # Turn on wifi
@@ -229,7 +229,7 @@ This only reads; it changes nothing. It checks the service, finds the camera, an
 - **WARN with no camera found**: the camera is not connected or not seen. Check the cable (see [Camera and Pi Installation](#camera-and-pi-installation)) and run `make health` again. TODO: this case has not yet been tested on a rig without a camera.
 - **FAIL** means stop and find the cause before going on. It fails if a camera is found but no photo comes back, if the app is using a replayed or synthetic camera, or if the camera's tuning file is missing.
 
-3. **Check the app in a browser.** Open `http://<IP>:8000`. It should open the Gallery page. Use the IP address: `<rig name>.local:8000` works on most Macs but often not on WSL.
+3. **Check the app in a browser.** Open `http://<IP>:8000`. It should open the Gallery page. Use the IP address: `<rig name>.local:8000` does not work on every network.
 
 4. **Deploy again:** `make deploy HOST=<rig name>`. The PLAY RECAP should now show `changed=0`. This shows the rig matches the configuration. On the testing rig (2026-11-13) it read `ok=38 changed=0 unreachable=0 failed=0 skipped=6`.
 
@@ -271,7 +271,6 @@ Tested on the testing rig.
 ##### Not Yet Tested
 
 - A full run from a fresh SD card (TODO).
-- The Windows/WSL laptop setup since the 2026-11-13 changes (TODO).
 
 ##### Do Not
 
