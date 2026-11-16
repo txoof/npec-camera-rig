@@ -79,8 +79,9 @@ This section prepares a Raspberry Pi 5 for chamber deployment.
     - Username: `pi`
     - Password: the fleet `pi` password, from the team password manager
     - Remote Access: choose **Use password authentication**. Imager may pre-select public-key authentication; then the Pi accepts only that key and onboarding fails.
-    - Hostname: the rig name. Use the name stamped on the outside of the chamber the rig goes in, in lowercase, for example `s8-standard` or `s15-standard`. Check that no other rig already has this name. Write the name on the case. Onboarding reads the name from the Pi.
-    - Name rule: lowercase letters, digits and hyphens only, 1 to 63 characters, no hyphen at the start or end. Capitals are refused. Imager's default `raspberrypi` is refused.
+    - Hostname: the rig name. Imager fills in the last hostname it used: clear it and type this rig's name. Use the name stamped on the outside of the chamber the rig goes in, in lowercase, for example `s8-standard` or `s15-standard`. Check that no other rig already has this name. Write the name on the case. Onboarding reads the name from the Pi.
+    - Name rule: lowercase letters, digits and hyphens only, 1 to 63 characters, no hyphen at the start or end. Capitals are refused. Imager's default `raspberrypi` is refused. Do not use a generic name such as `pi`: onboarding accepts it, but it says nothing about where the rig is.
+    - Wireless LAN: SSID `iotroam`, country `NL`. Choose a new password for this Pi and note it. The same password is entered in the iotroam registration in step 5.
 2. Connect the camera using the supplied ribbon cable, an extension cable and the AdaFruit DCI/CSI Thingie.
 3. Insert the SD Card into the Pi, connect it to a monitor and boot
 4. Login and run the following command to obtain the MAC address: `cat /sys/class/net/wlan0/address`. Note the MAC address value.
@@ -94,8 +95,8 @@ $ cat /sys/class/net/wlan0/address
 98:fe:54:50:f0:70
 ```
 
-5. Create a login and password on the `iotroam` network for the device. Note the IP Address. If this Pi was registered before, skip this step: the MAC address belongs to the board and does not change when the SD card is re-imaged, so it is already on the list.
-6. Configure the wifi adapter:
+5. Register the MAC address on the `iotroam` network, with the WiFi password set in Imager in step 1. Note the IP Address. If this Pi was registered before, skip this step: the MAC address belongs to the board and does not change when the SD card is re-imaged, so it is already on the list. The password set in Imager must then match the registered one.
+6. If WiFi was set in Imager, the Pi joins `iotroam` by itself once the MAC address is registered. Check with `nmcli connection show --active` (see the last block below). Otherwise, configure the wifi adapter by hand:
 
 ```shell
 # Turn on wifi
@@ -148,7 +149,7 @@ $ ip addr show wlan0
 
 #### Software Installation
 
-Ansible sets up the Pi and installs the app. This part is done by a developer with GitHub access to the private `ansible-npec` repository, not by the scientists who use the rig. Run every command below on the operator machine (your laptop), from inside the `ansible-npec` directory. More detail is in `docs/` in the `ansible-npec` repository. These steps match `ansible-npec` at commit `898d3de`.
+Ansible sets up the Pi and installs the app. This part is done by a developer with GitHub access to the private `ansible-npec` repository, not by the scientists who use the rig. Run every command below on the operator machine (your laptop), from inside the `ansible-npec` directory. More detail is in `docs/` in the `ansible-npec` repository. These steps match `ansible-npec` at commit `2c86a23`.
 
 ##### Operator Machine Setup (once per laptop)
 
@@ -165,24 +166,39 @@ cd ansible-npec
 
 Each laptop has its own key. To use a new laptop, or after losing the key, run `make setup` there and then `make add-key IP=<IP>` for each rig. It asks for the rig password once.
 
+Before each new rig, update the repository to the latest `main`, from inside `ansible-npec`:
+
+```shell
+git switch main
+git pull
+```
+
 The list of rigs is kept on the laptop, in `inventory/local.yml`, and is not in git. Settings for one rig go in `inventory/host_vars/<rig>.yml`, also on the laptop only. Nothing in these steps is committed.
 
 ##### Onboard the Pi
 
-Wait 3 to 5 minutes after the Pi first boots before starting.
+Wait 3 to 5 minutes after the Pi first boots before starting (about 5 minutes on the testing rig).
 
-1. **Re-imaged Pi only.** If this Pi was onboarded before, remove its old SSH host key from the laptop: `make forget-host IP=<IP>` (add `HOST=<name>` if you also used its name). Otherwise onboarding fails with "REMOTE HOST IDENTIFICATION HAS CHANGED".
+1. **Re-imaged Pi only.** To re-image a rig: `make poweroff HOST=<name>`, unplug the power, swap the SD card, plug the power back in. Swapping the card with the power still connected leaves the Pi halted (solid red LED, no green) until it is unplugged or its power button is pressed.
+
+   If this Pi was onboarded before, remove its old SSH host key from the laptop: `make forget-host IP=<IP>` (add `HOST=<name>` if you also used its name). Otherwise onboarding fails with "REMOTE HOST IDENTIFICATION HAS CHANGED". Known issue: ignore the last line `make forget-host` prints ("If the rig is listed by IP ...").
+
+   **Check:** it prints `# Host <IP> found` once for each old key (3 on the testing rig) and `known_hosts updated`.
+
+   If "REMOTE HOST IDENTIFICATION HAS CHANGED" appears and you did not re-image this Pi, do not run `make forget-host`. Stop and find out why: another device may now have this IP address.
 2. **Onboard.** Run this in a terminal. It cannot be run from a script or tool that has no terminal, because it asks for a password:
 
 ```shell
 make onboard IP=<IP>
 ```
 
-At "Type the rig password (the one set for 'pi' in Imager):" enter the `pi` password. It is asked once.
+Use exactly this, without `NAME=`. The name comes from the Pi. A `NAME=` replaces the rig's line in `inventory/local.yml` without asking if the list knew this Pi under another name.
+
+At "Type the rig password (the one set for 'pi' in Imager):" enter the `pi` password. It is asked once. Onboarding takes under a minute.
 
 This reads the rig name from the Pi's hostname, installs this laptop's key on the Pi, turns on passwordless sudo, adds the rig to `inventory/local.yml`, and leaves a record on the Pi in `/etc/npec-rig/onboarded.yml` (name, serial, who onboarded it and when). WiFi settings are not changed.
 
-**Check:** a green block reads "ONBOARDED: <rig name>". It lists the serial number, both MAC addresses (eth0 and wlan0), the IP address, and ends with "Next: make deploy HOST=<rig name>". Then:
+**Check:** a green block reads "ONBOARDED: <rig name>". It lists the serial number, both MAC addresses (eth0 and wlan0), the IP address, and ends with "Next: deploy the app:  make deploy HOST=<rig name>" and "Write <rig name> on the rig's case." For a re-imaged Pi it also says which name the Pi had before and that its line in the list was replaced. Then:
 
 ```shell
 make ping HOST=<rig name>
@@ -195,7 +211,11 @@ make ping HOST=<rig name>
 - The rig is missing from this laptop's list, or its IP address changed: see [If the IP Address Changes](#if-the-ip-address-changes).
 - Start over: re-image the SD card, then onboard. Re-imaging erases the record, so the Pi counts as new.
 
-**If a new Pi replaces a broken one in the same chamber:** onboarding refuses the name because this laptop's list has it for a different Pi. Remove that rig's line from `inventory/local.yml` by hand, then onboard again. TODO: this may change in `ansible-npec`.
+**If a new Pi replaces a broken one in the same chamber:** onboarding refuses the name because this laptop's list has it for a different Pi. Known issue, not fixed. Until then:
+
+1. Open `inventory/local.yml`.
+2. Delete the line that starts with the old rig's name.
+3. Run `make onboard IP=<IP>` again.
 
 ##### Install the Software
 
@@ -207,13 +227,13 @@ The Hailo AI board is found by itself: Hailo-8 or Hailo-8L, Hailo-10H, or none. 
 make deploy HOST=<rig name>
 ```
 
-TODO: time this and record the PLAY RECAP on a fresh SD card. The rig reboots once by itself near the end and Ansible waits for it. Do not unplug it.
+This takes about 5 minutes (4 min 19 s on the testing rig from a fresh SD card, 2026-11-16). The rig reboots once by itself near the end and Ansible waits for it. Do not unplug it.
 
-It installs the system packages, sets the time zone to Europe/Amsterdam, turns on the Arducam 64MP camera and installs Arducam's own libcamera (the standard one cannot open this camera), installs the Hailo software if a board is fitted, clones the app to `/home/pi/npec_camera_rig`, and starts the `npec-rig` service on port 8000. Camera, Hailo and kernel packages are held at tested versions.
+It installs the system packages, sets the time zone to Europe/Amsterdam, turns on the Arducam 64MP camera and installs Arducam's own libcamera (the standard one cannot open this camera), installs the Hailo software if a board is fitted, clones the app to `/home/pi/npec_camera_rig`, and starts the `npec-rig` service on port 8000. Camera, Hailo and kernel packages are held at tested versions. The camera packages are downloaded from Raspberry Pi's archive and their checksums checked. If "Download the camera packages (checksum checked)" or "Install the camera packages" fails, see `docs/10-troubleshooting.md` in `ansible-npec`.
 
-The app version is fixed in `ansible-npec`. `make deploy` installs it on a new rig but does not change the app on a rig that already has it. Use `make update-app HOST=<rig name>` for that.
+`make deploy` installs the newest app release (the highest `vX.Y.Z` tag of `npec-camera-rig`). The deploy log shows "Find the newest app release", then "Get the app code (v0.1.0)" with the release it found. If "Find the newest app release" fails, check the rig's internet connection and run the deploy again. `make deploy` does not change the app on a rig that already has it; see [Update the App to a New Release](#update-the-app-to-a-new-release).
 
-**Check:** the PLAY RECAP line shows `failed=0` and `unreachable=0`.
+**Check:** the PLAY RECAP line shows `failed=0` and `unreachable=0`. On the testing rig: `ok=48 changed=21 unreachable=0 failed=0 skipped=4` (the `changed` count can differ by one or two between runs).
 
 2. **Health check:**
 
@@ -223,15 +243,29 @@ make health HOST=<rig name>
 
 This only reads; it changes nothing. It checks the service, finds the camera, and takes one snapshot through the app.
 
-**Check:** the Fleet summary shows `<rig name>  OK  all checks passed`. Also look for `cameras: arducam_64mp` and `snapshot: ok`.
+**Check:** the Fleet summary shows `<rig name>  OK  all checks passed`. Also look for `cameras: arducam_64mp`, `snapshot: ok` and `app_release: v0.1.0` (or the newest release).
 
 - **WARN** is acceptable for some causes, for example pending upgrades or a disk filling up. Read the reason on the line.
-- **WARN with no camera found**: the camera is not connected or not seen. Check the cable (see [Camera and Pi Installation](#camera-and-pi-installation)) and run `make health` again. TODO: this case has not yet been tested on a rig without a camera.
+- **WARN with no camera found**: the Fleet summary reads `<rig name>  WARN  no camera found (no arducam_64mp sensor): power off, attach the camera, boot, then make health HOST=<rig name>`, with `cameras: none` and `snapshot: skipped (no camera)`. Power off with `make poweroff HOST=<rig name>`, unplug, check the cable (see [Camera and Pi Installation](#camera-and-pi-installation)), plug back in and run `make health` again. Tested on the testing rig with the camera unplugged (2026-11-16).
 - **FAIL** means stop and find the cause before going on. It fails if a camera is found but no photo comes back, if the app is using a replayed or synthetic camera, or if the camera's tuning file is missing.
 
 3. **Check the app in a browser.** Open `http://<IP>:8000`. It should open the Gallery page. Use the IP address: `<rig name>.local:8000` does not work on every network.
 
-4. **Deploy again:** `make deploy HOST=<rig name>`. The PLAY RECAP should now show `changed=0`. This shows the rig matches the configuration. On the testing rig (2026-11-13) it read `ok=38 changed=0 unreachable=0 failed=0 skipped=6`.
+4. **Optional: deploy again.** This checks `ansible-npec`, not the rig, and is not needed to set up a rig. Run `make deploy HOST=<rig name>` once more; the PLAY RECAP should show `changed=0`. On the testing rig (2026-11-16) it took 33 s and read `ok=39 changed=0 failed=0`.
+
+##### Update the App to a New Release
+
+A new release is made each time a version is promoted to production. To move a rig to the newest release:
+
+```shell
+make update-app HOST=<rig name>
+```
+
+It finds the newest release, installs it if the code changed, restarts the app and runs the health check. Leave out `HOST=` to update all rigs, in batches. On the testing rig it took 29 s.
+
+`make health` warns when a rig is behind, for example: `app 4e2f1b7 is not latest (v0.1.0 a6632d6): make update-app`.
+
+The development rig `npec-rig-01` follows `main` instead: `npec_rig_version: main` in `inventory/host_vars/npec-rig-01.yml` on the laptop.
 
 ##### If the IP Address Changes
 
@@ -252,7 +286,7 @@ TODO: not yet tested on a rig whose address changed. See `docs/09-day-2-operatio
 
 ##### If the Rig Moves to Another Chamber
 
-The rig takes the name of its new chamber:
+The rig takes the name of its new chamber. Rename only a rig that has been deployed. Known issue: on a rig that was onboarded but never deployed, rename fails at "Restart the app".
 
 ```shell
 make rename HOST=<current name> NAME=<new name>
@@ -267,10 +301,6 @@ Afterwards:
 3. Run `make nfs` again.
 
 Tested on the testing rig.
-
-##### Not Yet Tested
-
-- A full run from a fresh SD card (TODO).
 
 ##### Do Not
 
