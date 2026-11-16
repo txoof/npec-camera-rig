@@ -3,6 +3,14 @@
 <div id="camera-status" class="camera-status" hidden>
   <span class="camera-status-text"></span>
 </div>
+{#- Disk headroom (#307), from the same reading: shown only at 5 days or fewer (Low) and 3 days
+    or fewer (Very low), at the rate files were written in the last day (health.py). -#}
+{%- import "_ui.html" as ui %}
+<div id="disk-status" class="camera-status" hidden>
+  <span data-disk-level="yellow" data-words="Disk low" hidden>{{ ui.icon("warn") }}</span>
+  <span data-disk-level="red" data-words="Disk very low" hidden>{{ ui.icon("fail") }}</span>
+  <span class="camera-status-text"></span>
+</div>
 <script>
 (function () {
   const box = document.getElementById("camera-status");
@@ -18,6 +26,23 @@
     box.dataset.cameraState = state;
     text.textContent = message;
     box.hidden = false;
+  }
+
+  const disk = document.getElementById("disk-status");
+  function showDisk(d) {
+    const warn = d && (d.level === "yellow" || d.level === "red");
+    disk.hidden = !warn;
+    if (!warn) return;
+    disk.dataset.cameraState = d.level === "red" ? "failed" : "flagged";
+    let words = "";
+    for (const shape of disk.querySelectorAll("[data-disk-level]")) {
+      shape.hidden = shape.dataset.diskLevel !== d.level;
+      if (!shape.hidden) words = shape.dataset.words;
+    }
+    // Days at the rate files were written in the last day (health.py).
+    const days = Math.max(0, Math.round(d.days_left));
+    disk.querySelector(".camera-status-text").textContent =
+      " " + words + ": about " + days + (days === 1 ? " day" : " days") + " left.";
   }
 
   // One timer: every 10 s, every 1 s while the camera is opening (about 1 s with no camera, up
@@ -56,6 +81,7 @@
     } else {
       box.hidden = true;
     }
+    showDisk(h.disk);
     return h;
   }
 
