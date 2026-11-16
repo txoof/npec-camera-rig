@@ -17,7 +17,7 @@ import json
 import sqlite3
 import threading
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import closing, contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -383,6 +383,88 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        21,
+        "cell_reading: the plant of each cell of each tray in a photo; tray_reading: where a 2 x 2"
+        " tray's cell A1 lies from its tag (#364)",
+        (
+            # Degrees clockwise from the tag's top to cell A1, from the tray's first photo in the
+            # experiment; NULL for every other tray type (tray_placement.a1_bearing_deg).
+            "ALTER TABLE tray_reading ADD COLUMN a1_bearing_deg REAL",
+            """
+            CREATE TABLE cell_reading (
+                id INTEGER PRIMARY KEY,
+                capture_id INTEGER NOT NULL REFERENCES capture (id),
+                tray_id INTEGER NOT NULL,
+                cell TEXT NOT NULL,              -- "B3"
+                holds TEXT NOT NULL,             -- "plant", or "tag": the tray tag's cell
+                centre_x_px REAL NOT NULL,       -- full-size photo pixels
+                centre_y_px REAL NOT NULL,
+                corners TEXT NOT NULL,           -- JSON, the four corners of the cell's opening
+                plant_px INTEGER,                -- NULL: the photo could not be segmented
+                area_mm2 REAL,
+                plant_centre_x_px REAL,
+                plant_centre_y_px REAL,
+                over_other_cells INTEGER,        -- 1: a piece counted here covers another cell, or the reverse
+                segmenter TEXT,                  -- what made the mask, as tray_reading.segmenter
+                cell_rule TEXT                   -- how plant pieces were given to cells (tray_readings.CELL_RULE)
+            )
+            """,
+            "CREATE INDEX cell_reading_capture ON cell_reading (capture_id, tray_id)",
+        ),
+    ),
+    (
+        22,
+        "export: what the user ticked to go in it, the data, the photos or both (#65, #368)",
+        # Exports before this version held both.
+        (
+            "ALTER TABLE export ADD COLUMN data INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE export ADD COLUMN photos INTEGER NOT NULL DEFAULT 1",
+        ),
+    ),
+    (
+        23,
+        "export: in parts zipped while they download, each part sent in full recorded (#368)",
+        # NULL for exports stored on the rig before this version (one zip, `file`).
+        (
+            "ALTER TABLE export ADD COLUMN photo_parts INTEGER",
+            """
+            CREATE TABLE export_part_sent (
+                id INTEGER PRIMARY KEY,
+                export_id INTEGER NOT NULL REFERENCES export (id),
+                part INTEGER NOT NULL,           -- 0: README and data; 1 and on: photos
+                sent_at TEXT NOT NULL            -- UTC: its last byte was handed to the network
+            )
+            """,
+            "CREATE INDEX export_part_sent_export ON export_part_sent (export_id, part)",
+        ),
+    ),
+    (
+        24,
+        "capture: whether the camera's auto-exposure had settled when the photo was taken (#382)",
+        # "idle", "searching" or "converged" (libcamera's AeState); NULL for photos taken before
+        # this version, or by a camera that does not report it.
+        ("ALTER TABLE capture ADD COLUMN ae_state TEXT",),
+    ),
+    (
+        25,
+        "tray_reading and cell_reading: the plant by grow from leaf cores beside the fixed green cutoff (#363)",
+        # NULL for readings saved before this version, or when the method could not run.
+        (
+            "ALTER TABLE tray_reading ADD COLUMN grown_method TEXT",  # "grow from leaf cores"
+            "ALTER TABLE tray_reading ADD COLUMN grown_area_mm2 REAL",
+            "ALTER TABLE tray_reading ADD COLUMN grown_plant_px INTEGER",
+            "ALTER TABLE tray_reading ADD COLUMN grown_plant_centre_x_px REAL",
+            "ALTER TABLE tray_reading ADD COLUMN grown_plant_centre_y_px REAL",
+            "ALTER TABLE tray_reading ADD COLUMN grown_soil_level REAL",  # the tray's soil greenness
+            "ALTER TABLE tray_reading ADD COLUMN grown_lower_cutoff REAL",  # the cutoff the plant was grown to
+            "ALTER TABLE cell_reading ADD COLUMN grown_area_mm2 REAL",
+            "ALTER TABLE cell_reading ADD COLUMN grown_plant_px INTEGER",
+            "ALTER TABLE cell_reading ADD COLUMN grown_plant_centre_x_px REAL",
+            "ALTER TABLE cell_reading ADD COLUMN grown_plant_centre_y_px REAL",
+            "ALTER TABLE cell_reading ADD COLUMN grown_over_other_cells INTEGER",
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -463,13 +545,15 @@ def record_capture(
     clock_synced: bool | None = None,
     jpeg_quality: int | None = None,
     jpeg_chroma: str | None = None,
+    ae_state: str | None = None,
 ) -> int:
     """Add one photo's row, return its id."""
     with _connect() as conn:
         cursor = conn.execute(
             "INSERT INTO capture (taken_at, path, purpose, experiment_id, calibration,"
             " validation, lens_position, focus_locked_at, exposure_us, analogue_gain, flags,"
-            " clock_synced, jpeg_quality, jpeg_chroma) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " clock_synced, jpeg_quality, jpeg_chroma, ae_state)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 taken_at,
                 path,
@@ -485,6 +569,7 @@ def record_capture(
                 None if clock_synced is None else int(clock_synced),
                 jpeg_quality,
                 jpeg_chroma,
+                ae_state,
             ),
         )
         return cursor.lastrowid
@@ -510,6 +595,7 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
     keeps one row per tray."""
     with _connect() as conn:
         conn.execute("DELETE FROM tray_reading WHERE capture_id = ?", (capture_id,))
+        conn.execute("DELETE FROM cell_reading WHERE capture_id = ?", (capture_id,))
         conn.execute(
             "INSERT OR REPLACE INTO tray_read (capture_id, read_at, status) VALUES (?, ?, ?)",
             (capture_id, read_at, status),
@@ -517,17 +603,130 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
         conn.executemany(
             "INSERT INTO tray_reading (capture_id, tray_id, slot, a1_corner, placement,"
             " centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter,"
-            " plant_px, plant_centre_x_px, plant_centre_y_px, calibration, outside_mm, found, warnings, outline)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " plant_px, plant_centre_x_px, plant_centre_y_px, calibration, outside_mm, found, warnings, outline,"
+            " a1_bearing_deg, grown_method, grown_area_mm2, grown_plant_px, grown_plant_centre_x_px,"
+            " grown_plant_centre_y_px, grown_soil_level, grown_lower_cutoff)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (capture_id, t["tray_id"], t["slot"], t["a1_corner"], t["placement"],
                  t["centre_px"][0], t["centre_px"][1], t["tilt_deg"], t["margin_mm"],
                  t.get("area_mm2"), t.get("segmenter"), t.get("plant_px"),
                  *(t.get("plant_centre_px") or (None, None)), t.get("calibration"), t.get("outside_mm"),
-                 t.get("found"), _json_or_none(t.get("warnings")), _json_or_none(t.get("outline_px")))
+                 t.get("found"), _json_or_none(t.get("warnings")), _json_or_none(t.get("outline_px")),
+                 t.get("a1_bearing_deg"), t.get("grown_method"), t.get("grown_area_mm2"), t.get("grown_plant_px"),
+                 *(t.get("grown_plant_centre_px") or (None, None)), t.get("grown_soil_level"), t.get("grown_lower_cutoff"))
                 for t in trays
             ],
         )
+        conn.executemany(
+            "INSERT INTO cell_reading (capture_id, tray_id, cell, holds, centre_x_px, centre_y_px, corners,"
+            " plant_px, area_mm2, plant_centre_x_px, plant_centre_y_px, over_other_cells, segmenter, cell_rule,"
+            " grown_area_mm2, grown_plant_px, grown_plant_centre_x_px, grown_plant_centre_y_px, grown_over_other_cells)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (capture_id, t["tray_id"], c["cell"], c["holds"], *c["centre_px"], json.dumps(c["corners_px"]),
+                 c.get("plant_px"), c.get("area_mm2"), *(c.get("plant_centre_px") or (None, None)),
+                 None if c.get("over_other_cells") is None else int(c["over_other_cells"]),
+                 c.get("segmenter"), c.get("cell_rule"), c.get("grown_area_mm2"), c.get("grown_plant_px"),
+                 *(c.get("grown_plant_centre_px") or (None, None)),
+                 None if c.get("grown_over_other_cells") is None else int(c["grown_over_other_cells"]))
+                for t in trays for c in t.get("cells", [])
+            ],
+        )
+    _readings_changed()
+
+
+def first_a1_bearing(experiment_id: int | None, tray_id: int) -> float | None:
+    """Where a 2 x 2 tray's cell A1 lies from its tag (tray_reading.a1_bearing_deg, #364): from
+    the earliest-taken photo of experiment `experiment_id` that has one, whichever photos were read
+    first. The tag is glued to the tray, so the bearing is the tray's own; photos read out of order
+    (on demand, Reprocess) follow it too (review of #374). None when no photo of the experiment
+    has one yet, or the photo is in no experiment: then the photo being read sets it."""
+    if experiment_id is None:
+        return None
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT tray_reading.a1_bearing_deg FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id"
+            " WHERE capture.experiment_id = ? AND tray_reading.tray_id = ? AND tray_reading.a1_bearing_deg IS NOT NULL"
+            " ORDER BY capture.taken_at LIMIT 1",
+            (experiment_id, tray_id),
+        ).fetchone()
+    return None if row is None else row[0]
+
+
+def first_a1_reading(experiment_id: int | None, tray_id: int) -> dict | None:
+    """The photo that set a 2 x 2 tray's A1 bearing (`first_a1_bearing`): its `path` and the
+    tray's `outline_px` there, so where the tag lay on the tray then can be worked out again
+    (#385). None as for `first_a1_bearing`."""
+    if experiment_id is None:
+        return None
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT capture.path, tray_reading.outline FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id"
+            " WHERE capture.experiment_id = ? AND tray_reading.tray_id = ? AND tray_reading.a1_bearing_deg IS NOT NULL"
+            " AND tray_reading.outline IS NOT NULL ORDER BY capture.taken_at LIMIT 1",
+            (experiment_id, tray_id),
+        ).fetchone()
+    return None if row is None else {"path": row[0], "outline_px": json.loads(row[1])}
+
+
+def first_warning_at(experiment_id: int | None, tray_id: int, warning: str, until: str) -> str | None:
+    """When tray `tray_id` first carried `warning` in experiment `experiment_id`: the `taken_at`
+    of its earliest photo taken up to `until` whose reading has it, whichever photos were read
+    first. None when none has, or the photo is in no experiment. That is the experiment's earliest
+    such photo whenever it was taken on or before `until` (`first_warnings`)."""
+    if experiment_id is None:
+        return None
+    first = first_warnings(experiment_id, warning).get(tray_id)
+    return first if first is not None and first <= until else None
+
+
+# The answers of `first_warnings`, by database file, experiment and warning, dropped whenever tray
+# readings are saved (`_readings_changed`). The Gallery asks for every tray of every photo of an
+# hour, and one search of a long experiment takes 50 ms or more (#408).
+_first_warnings: dict[tuple[Path, int, str], dict[int, str]] = {}
+_readings_saved = 0
+_first_warnings_lock = threading.Lock()
+
+
+def _readings_changed() -> None:
+    """Tray readings were saved or deleted: every answer of `first_warnings` is searched again.
+    Called after the change is committed, so a search started before it is not kept."""
+    global _readings_saved
+    with _first_warnings_lock:
+        _readings_saved += 1
+        _first_warnings.clear()
+
+
+def first_warnings(experiment_id: int, warning: str) -> dict[int, str]:
+    """Each tray of experiment `experiment_id` whose reading in some photo has `warning`, with the
+    `taken_at` of the earliest such photo. Searched once, then kept until tray readings are next
+    saved or deleted by this process. The app is the only writer of rig.db: after a change made
+    to it by hand, restart the app for the "names may be swapped" marks to follow it."""
+    key = (db_path(), experiment_id, warning)
+    with _first_warnings_lock:
+        saved, kept = _readings_saved, _first_warnings.get(key)
+    if kept is not None:
+        return dict(kept)
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT tray_reading.tray_id, MIN(capture.taken_at) FROM tray_reading"
+            " JOIN capture ON capture.id = tray_reading.capture_id"
+            " WHERE capture.experiment_id = ? AND tray_reading.tray_id IS NOT NULL"
+            " AND EXISTS (SELECT 1 FROM json_each(tray_reading.warnings) WHERE json_each.value = ?)"
+            " GROUP BY tray_reading.tray_id",
+            (experiment_id, warning),
+        ).fetchall()
+    found = {tray_id: taken_at for tray_id, taken_at in rows}
+    with _first_warnings_lock:
+        if _readings_saved == saved:
+            _first_warnings[key] = found
+    return dict(found)
+
+
+def _point(row: sqlite3.Row, name: str) -> list[float] | None:
+    """Columns `<name>_x_px` and `<name>_y_px` of `row` as [x, y], None when not stored."""
+    return None if row[f"{name}_x_px"] is None else [row[f"{name}_x_px"], row[f"{name}_y_px"]]
 
 
 def _json_or_none(value: object) -> str | None:
@@ -558,6 +757,18 @@ def tray_readings(capture_id: int) -> dict | None:
         rows = conn.execute(
             "SELECT * FROM tray_reading WHERE capture_id = ? ORDER BY tray_id", (capture_id,)
         ).fetchall()
+        cells: dict[int, list[dict]] = {}
+        for c in conn.execute("SELECT * FROM cell_reading WHERE capture_id = ? ORDER BY id", (capture_id,)):
+            cells.setdefault(c["tray_id"], []).append({
+                "cell": c["cell"], "holds": c["holds"], "centre_px": [c["centre_x_px"], c["centre_y_px"]],
+                "corners_px": json.loads(c["corners"]), "plant_px": c["plant_px"], "area_mm2": c["area_mm2"],
+                "plant_centre_px": None if c["plant_centre_x_px"] is None else [c["plant_centre_x_px"], c["plant_centre_y_px"]],
+                "over_other_cells": None if c["over_other_cells"] is None else bool(c["over_other_cells"]),
+                "segmenter": c["segmenter"], "cell_rule": c["cell_rule"],
+                "grown_area_mm2": c["grown_area_mm2"], "grown_plant_px": c["grown_plant_px"],
+                "grown_plant_centre_px": _point(c, "grown_plant_centre"),
+                "grown_over_other_cells": None if c["grown_over_other_cells"] is None else bool(c["grown_over_other_cells"]),
+            })
         not_found, in_both = [], []
         if read["experiment_id"] is not None and read["status"] == "read":
             # Photos read with trays placed only: one not read, too dark to find any tag, or with
@@ -569,16 +780,20 @@ def tray_readings(capture_id: int) -> dict | None:
             args = (read["experiment_id"], read["taken_at"])
             # SQLite takes the bare columns from the row holding the MAX: where the tray was
             # last found. A tray with no tag (#331) cannot be followed from photo to photo: left
-            # out on both sides.
+            # out on both sides. Only the last NOT_SEEN_FOR is searched: a tray last found
+            # earlier is skipped below anyway, and the whole experiment took about 85 ms a photo
+            # on a 2-week experiment (#381). The bound is 1 s early because isoformat() leaves
+            # out microseconds that are 0, so the text of a time on the bound sorts before it.
+            window_start = (datetime.fromisoformat(read["taken_at"]) - NOT_SEEN_FOR - timedelta(seconds=1)).isoformat()
             last_seen = conn.execute(
                 "SELECT tray_id, MAX(capture.taken_at), capture.path, capture.calibration, centre_x_px, centre_y_px"
                 " FROM tray_reading"
                 " JOIN capture ON capture.id = tray_reading.capture_id"
-                " WHERE capture.experiment_id = ? AND capture.taken_at <= ? AND tray_id IS NOT NULL"
-                " AND tray_id NOT IN"
+                " WHERE capture.experiment_id = ? AND capture.taken_at <= ? AND capture.taken_at >= ?"
+                " AND tray_id IS NOT NULL AND tray_id NOT IN"
                 " (SELECT tray_id FROM tray_reading WHERE capture_id = ? AND tray_id IS NOT NULL)"
                 " GROUP BY tray_id ORDER BY tray_id",
-                (*args, capture_id),
+                (*args, window_start, capture_id),
             ).fetchall()
             for tray_id, seen, path, calibration, x, y in last_seen:
                 if datetime.fromisoformat(read["taken_at"]) - datetime.fromisoformat(seen) > NOT_SEEN_FOR:
@@ -619,6 +834,12 @@ def tray_readings(capture_id: int) -> dict | None:
             "calibration": r["calibration"], "outside_mm": r["outside_mm"], "found": r["found"],
             "warnings": [] if r["warnings"] is None else json.loads(r["warnings"]),
             "outline_px": None if r["outline"] is None else json.loads(r["outline"]),
+            "a1_bearing_deg": r["a1_bearing_deg"],
+            "grown_method": r["grown_method"], "grown_area_mm2": r["grown_area_mm2"], "grown_plant_px": r["grown_plant_px"],
+            "grown_plant_centre_px": _point(r, "grown_plant_centre"),
+            "grown_soil_level": r["grown_soil_level"], "grown_lower_cutoff": r["grown_lower_cutoff"],
+            # Cells are saved only for a tray named by one tag (#364).
+            "cells": cells.get(r["tray_id"], []) if r["tray_id"] is not None else [],
         }
         for r in rows
     ]
@@ -657,25 +878,6 @@ def experiment_exclusions(experiment_id: int) -> list[dict]:
     return [dict(row) for row in rows]
 
 
-def record_light_warning_dismissal(experiment_id: int, *, dismissed_at: str, covers_until: str) -> None:
-    """Save a dismissal of the experiment's light warning."""
-    with _connect() as conn:
-        conn.execute(
-            "INSERT INTO light_warning_dismissal (experiment_id, dismissed_at, covers_until) VALUES (?, ?, ?)",
-            (experiment_id, dismissed_at, covers_until),
-        )
-
-
-def light_warning_dismissals(experiment_id: int) -> list[dict]:
-    """The experiment's light warning dismissals, oldest first."""
-    with _connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM light_warning_dismissal WHERE experiment_id = ? ORDER BY dismissed_at",
-            (experiment_id,),
-        ).fetchall()
-    return [dict(row) for row in rows]
-
-
 def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
     """The saved plant areas of each of the experiment's photos whose trays were read (status
     `read`): tray ID to mm2, by capture id; empty for a read photo with no area. Photos not read,
@@ -703,26 +905,36 @@ def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
     return areas
 
 
-def experiment_tray_positions(experiment_id: int) -> list[dict]:
+def experiment_tray_positions(experiment_id: int, capture_ids: Iterable[int] | None = None) -> list[dict]:
     """Where each tray was found in each of the experiment's read photos (status `read`), oldest
-    first: tray ID, the photo's time, path and calibration, and the tray's centre in full-size
-    photo pixels. A tray with no tag cannot be followed from photo to photo and is left out; so is
-    a tag two trays carry in one photo, from that photo (#302)."""
+    first, or in those of `capture_ids` only: capture ID, tray ID, the photo's time, path and
+    calibration, and the tray's centre in full-size photo pixels. A tray with no tag cannot be
+    followed from photo to photo and is left out; so is a tag two trays carry in one photo, from
+    that photo (#302)."""
+    query = (
+        "SELECT tray_reading.capture_id, tray_reading.tray_id, capture.taken_at, capture.path, capture.calibration,"
+        " tray_reading.centre_x_px, tray_reading.centre_y_px FROM tray_reading"
+        " JOIN tray_read ON tray_read.capture_id = tray_reading.capture_id"
+        " JOIN capture ON capture.id = tray_reading.capture_id"
+        " WHERE capture.experiment_id = ? AND tray_read.status = 'read' AND tray_reading.tray_id IS NOT NULL"
+        " AND (SELECT COUNT(*) FROM tray_reading AS other WHERE other.capture_id = tray_reading.capture_id"
+        " AND other.tray_id = tray_reading.tray_id) = 1"
+    )
+    order = " ORDER BY capture.taken_at, tray_reading.tray_id"
     with _connect() as conn:
-        rows = conn.execute(
-            "SELECT tray_reading.tray_id, capture.taken_at, capture.path, capture.calibration,"
-            " tray_reading.centre_x_px, tray_reading.centre_y_px FROM tray_reading"
-            " JOIN tray_read ON tray_read.capture_id = tray_reading.capture_id"
-            " JOIN capture ON capture.id = tray_reading.capture_id"
-            " WHERE capture.experiment_id = ? AND tray_read.status = 'read' AND tray_reading.tray_id IS NOT NULL"
-            " AND (SELECT COUNT(*) FROM tray_reading AS other WHERE other.capture_id = tray_reading.capture_id"
-            " AND other.tray_id = tray_reading.tray_id) = 1"
-            " ORDER BY capture.taken_at, tray_reading.tray_id",
-            (experiment_id,),
-        ).fetchall()
+        if capture_ids is None:
+            rows = conn.execute(query + order, (experiment_id,)).fetchall()
+        else:
+            ids, rows = sorted(capture_ids), []
+            for i in range(0, len(ids), 500):  # under SQLite's limit on bound values
+                chunk = ids[i:i + 500]
+                rows += conn.execute(
+                    query + f" AND capture.id IN ({','.join('?' * len(chunk))})" + order, (experiment_id, *chunk)
+                ).fetchall()
+            rows.sort(key=lambda r: (r["taken_at"], r["tray_id"]))
     return [
-        {"tray_id": r["tray_id"], "taken_at": r["taken_at"], "path": r["path"], "calibration": r["calibration"],
-         "centre_px": (r["centre_x_px"], r["centre_y_px"])}
+        {"capture_id": r["capture_id"], "tray_id": r["tray_id"], "taken_at": r["taken_at"], "path": r["path"],
+         "calibration": r["calibration"], "centre_px": (r["centre_x_px"], r["centre_y_px"])}
         for r in rows
     ]
 
@@ -813,22 +1025,18 @@ def experiment_calibrations(experiment_id: int) -> list[str | None]:
     return [row[0] for row in rows]
 
 
-def experiment_tray_reads_mark(experiment_id: int) -> tuple:
-    """A mark that changes whenever a photo of the experiment is read or read again (#332): the
-    database, its photos read and when the newest was, and its tray readings' rows, newest row and
-    centres."""
+def experiment_tray_reads(experiment_id: int) -> dict[int, str]:
+    """When each of the experiment's photos the tray reader has handled was last read, by capture
+    ID, whatever the result (`read`, `read failed`, no trays found and the rest): a photo read or
+    read again changes its time, so a cached reading of the experiment knows which photos to look
+    at again (#332, #416)."""
     with _connect() as conn:
-        reads = conn.execute(
-            "SELECT COUNT(*), MAX(tray_read.read_at) FROM tray_read JOIN capture ON capture.id = tray_read.capture_id"
-            " WHERE capture.experiment_id = ?",
-            (experiment_id,),
-        ).fetchone()
         rows = conn.execute(
-            "SELECT COUNT(*), MAX(tray_reading.id), TOTAL(centre_x_px), TOTAL(centre_y_px), TOTAL(tray_id)"
-            " FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id WHERE capture.experiment_id = ?",
+            "SELECT tray_read.capture_id, tray_read.read_at FROM tray_read"
+            " JOIN capture ON capture.id = tray_read.capture_id WHERE capture.experiment_id = ?",
             (experiment_id,),
-        ).fetchone()
-    return (str(db_path()), *reads, *rows)
+        ).fetchall()
+    return {capture_id: read_at for capture_id, read_at in rows}
 
 
 def experiment_shared_tray_photos(experiment_id: int) -> set[int]:
@@ -1085,6 +1293,16 @@ def app_starts(after: str) -> list[str]:
     return [started_at for (started_at,) in rows]
 
 
+def last_photo_taken_at(experiment_id: int, until: str) -> str | None:
+    """When the experiment's newest photo taken up to `until` was taken; None before its first.
+    One index lookup, for the schedule's downtime on every page refresh (#416)."""
+    with _connect() as conn:
+        (taken_at,) = conn.execute(
+            "SELECT MAX(taken_at) FROM capture WHERE experiment_id = ? AND taken_at <= ?", (experiment_id, until)
+        ).fetchone()
+    return taken_at
+
+
 def scheduled_photos_taken(experiment_id: int, schedule_since: str) -> list[dict]:
     """{"due_at", "taken_at"} of each scheduled photo taken, oldest first."""
     with _connect() as conn:
@@ -1134,10 +1352,10 @@ def captures_for_experiment(experiment_id: int, until: str | None = None) -> lis
     return [dict(row) for row in rows]
 
 
-def create_export(experiment_id: int, *, now: str) -> dict:
+def create_export(experiment_id: int, *, now: str, data: bool = True, photos: bool = True) -> dict:
     """A new export, refused for an experiment that has never started, or while an export of it
     is still being prepared. A running experiment can be exported: the export holds its photos
-    up to `now` (Aaron, 2026-10-09)."""
+    up to `now` (Aaron, 2026-10-09). `data` and `photos`: what the user ticked to go in it."""
     with _connect() as conn:
         # Take the write lock before checking, so two clicks cannot both start one.
         conn.execute("BEGIN IMMEDIATE")
@@ -1153,7 +1371,8 @@ def create_export(experiment_id: int, *, now: str) -> dict:
         if busy:
             raise ExperimentError("an export of this experiment is already being prepared")
         cursor = conn.execute(
-            "INSERT INTO export (experiment_id, started_at) VALUES (?, ?)", (experiment_id, now)
+            "INSERT INTO export (experiment_id, started_at, data, photos) VALUES (?, ?, ?, ?)",
+            (experiment_id, now, int(data), int(photos)),
         )
         return dict(conn.execute("SELECT * FROM export WHERE id = ?", (cursor.lastrowid,)).fetchone())
 
@@ -1165,6 +1384,28 @@ def finish_export(export_id: int, *, now: str, file: str, bytes: int, files: int
             " WHERE id = ?",
             (now, file, bytes, files, manifest_sha256, export_id),
         )
+
+
+def ready_export(export_id: int, *, now: str, photo_parts: int) -> None:
+    """An export in parts (#368) is ready at once: its parts are zipped as they download."""
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE export SET finished_at = ?, photo_parts = ? WHERE id = ?", (now, photo_parts, export_id)
+        )
+
+
+def record_part_sent(export_id: int, part: int, *, now: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO export_part_sent (export_id, part, sent_at) VALUES (?, ?, ?)", (export_id, part, now)
+        )
+
+
+def parts_sent(export_id: int) -> set[int]:
+    """The parts of an export sent in full at least once."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT DISTINCT part FROM export_part_sent WHERE export_id = ?", (export_id,))
+        return {row[0] for row in rows}
 
 
 def fail_export(export_id: int, *, now: str, error: str) -> None:
@@ -1205,17 +1446,40 @@ def exports_for(experiment_id: int) -> list[dict]:
 # PLAN.md, *Purging an experiment*: the one deletion. The experiment's row stays as the record.
 
 
+def tray_reading_count(experiment_id: int) -> int:
+    """How many trays were read in the experiment's photos: the lines of its tray-readings.csv."""
+    with _connect() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM tray_reading r JOIN capture c ON c.id = r.capture_id"
+            " WHERE c.experiment_id = ?",
+            (experiment_id,),
+        ).fetchone()[0]
+
+
+def cell_reading_count(experiment_id: int) -> int:
+    """How many cells were read in the experiment's photos: the lines of its cell-readings.csv."""
+    with _connect() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM cell_reading r JOIN capture c ON c.id = r.capture_id"
+            " WHERE c.experiment_id = ?",
+            (experiment_id,),
+        ).fetchone()[0]
+
+
 def complete_export(experiment_id: int) -> dict | None:
-    """The newest export that holds every photo of the experiment: finished, no error, its zip
-    not removed, and started after the last photo. A partial export taken while running does not
-    count unless no photo came after it."""
+    """The newest export that holds every photo of the experiment: the photos ticked (#368),
+    finished, no error, its zip not removed, and started after the last photo; for an export in
+    parts, every photo part sent in full. A partial export taken while running does not count
+    unless no photo came after it."""
     with _connect() as conn:
         last = conn.execute(
             "SELECT MAX(taken_at) FROM capture WHERE experiment_id = ?", (experiment_id,)
         ).fetchone()[0]
         row = conn.execute(
             "SELECT * FROM export WHERE experiment_id = ? AND finished_at IS NOT NULL"
-            " AND error IS NULL AND removed_at IS NULL AND (? IS NULL OR started_at >= ?)"
+            " AND photos = 1 AND error IS NULL AND removed_at IS NULL AND (? IS NULL OR started_at >= ?)"
+            " AND (photo_parts IS NULL OR photo_parts = (SELECT COUNT(DISTINCT part) FROM export_part_sent s"
+            " WHERE s.export_id = export.id AND s.part >= 1))"
             " ORDER BY id DESC LIMIT 1",
             (experiment_id, last, last),
         ).fetchone()
@@ -1231,6 +1495,7 @@ def purge_experiment(experiment_id: int, *, now: str) -> dict:
             raise ExperimentError("only a stopped experiment can be purged")
         photos = "SELECT id FROM capture WHERE experiment_id = ?"
         conn.execute(f"DELETE FROM tray_reading WHERE capture_id IN ({photos})", (experiment_id,))
+        conn.execute(f"DELETE FROM cell_reading WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute(f"DELETE FROM tray_read WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute(f"DELETE FROM exclusion WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute("DELETE FROM capture WHERE experiment_id = ?", (experiment_id,))
@@ -1239,4 +1504,6 @@ def purge_experiment(experiment_id: int, *, now: str) -> dict:
             (now, experiment_id),
         )
         conn.execute("UPDATE experiment SET purged_at = ? WHERE id = ?", (now, experiment_id))
-        return _experiment(conn, experiment_id)
+        purged = _experiment(conn, experiment_id)
+    _readings_changed()
+    return purged

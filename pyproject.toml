@@ -9,6 +9,7 @@ dependencies = [
     "numpy",
     "pillow",
     "jinja2",
+    "pyyaml",
 ]
 
 [project.optional-dependencies]

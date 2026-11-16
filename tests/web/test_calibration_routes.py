@@ -203,6 +203,32 @@ def test_run_calibration_refuses_with_too_few_corner_tags_and_can_be_overridden(
     assert "error" not in overridden
 
 
+def test_run_calibration_names_a_corner_tag_the_full_photo_misses(
+    monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None, tmp_path
+) -> None:
+    # #349: all 4 corner tags on the preview (4 channels), tag 452 at the bottom right (SE)
+    # covered on the full-size photo (3 channels). Saved, and the answer names the tag.
+    monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
+    monkeypatch.setattr(calibration_run, "readiness", _REAL_CALIBRATION_READINESS)
+    three_corner_tags = [d for d in FOUR_CORNER_TAGS if d.tag_id != 452]
+    monkeypatch.setattr(
+        photo_tags,
+        "detect_tags",
+        lambda frame: CALIBRATION_TAGS + (FOUR_CORNER_TAGS if frame.shape[2] == 4 else three_corner_tags),
+    )
+
+    client = TestClient(app)
+    client.post("/controls/lens-position", json={"value": 6.3})
+    client.post("/focus/lock")
+    body = client.post("/calibration/run").json()
+
+    assert "error" not in body
+    assert body["warnings"] == [
+        "Corner tag 452 cannot be seen in the SE corner of the table. Check that it is not missing or covered."
+    ]
+    assert client.get("/calibration/current").json()["exists"] is True
+
+
 def test_run_calibration_accepts_a_measured_tag_size_override(
     monkeypatch: pytest.MonkeyPatch, isolated_calibration_dir: None
 ) -> None:

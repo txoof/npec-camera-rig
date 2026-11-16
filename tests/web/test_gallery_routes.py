@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from npec_rig import captures, database, photo_tags
 from npec_rig.app import app
-from tests.helpers import draw_tray, one_tray_plant_scene, record_light_photos, square_detection
+from tests.helpers import draw_tray, one_tray_plant_scene, square_detection
 
 pytestmark = pytest.mark.unit
 
@@ -430,10 +430,11 @@ def test_tray_readings_give_each_trays_plant_area_and_segmenter(monkeypatch) -> 
     assert tray["segmenter"] == "green threshold, 0.1"
 
 
-def test_each_photo_in_the_list_carries_its_exclusion_and_each_area_its_floor(monkeypatch, isolated_calibration_dir) -> None:
+def test_each_photo_in_the_list_carries_its_exclusion_and_its_info_each_areas_floor(monkeypatch, isolated_calibration_dir) -> None:
     """#288: a photo taken with the lights off (64,022 us at gain 4.0, a real photo of experiment
-    18) is excluded as such, and each tray area shows the green threshold's floor, 100 mm2
-    (Aaron, 2026-10-26)."""
+    18, its auto-exposure still searching as dark photos report since #382) is excluded as such,
+    and each tray area shows the green threshold's floor, 100 mm2 (Aaron, 2026-10-26). The floor
+    is in Info's reading, not the list (#377)."""
     from npec_rig import tray_readings
     from npec_rig.camera import CameraManager, SyntheticBackend
 
@@ -442,7 +443,7 @@ def test_each_photo_in_the_list_carries_its_exclusion_and_each_area_its_floor(mo
             frame, metadata = super().capture_full_res()
             frame[:] = 128
             draw_tray(frame, 115, 554, 3165, 4214)  # one_tray_plant_scene's tray
-            return frame, {**metadata, "ExposureTime": 64_022, "AnalogueGain": 4.0}
+            return frame, {**metadata, "ExposureTime": 64_022, "AnalogueGain": 4.0, "AeState": 1}
 
     one_tray_plant_scene(monkeypatch)
     CameraManager.set_instance(CameraManager(Dark(width=4000, height=4400)))
@@ -450,38 +451,10 @@ def test_each_photo_in_the_list_carries_its_exclusion_and_each_area_its_floor(mo
     path = client.post("/capture").json()["path"]
     tray_readings.read_photo(path)
 
-    trays = {i["path"]: i for i in client.get("/api/captures").json()}[path]["trays"]
-    assert trays["exclusion"] == "lights off"
-    assert [t["floor_mm2"] for t in trays["trays"]] == [100]
-
-
-def test_the_light_warning_is_shown_until_dismissed_and_the_dismissal_is_saved() -> None:
-    """A first day steady at 5,000, then 5 photos at 4,000 (-20%) 30 minutes apart from 25 h and
-    one back: 2.5 hours off norm (#288). Dismiss saves when, and the warning is gone."""
-    start = datetime.fromisoformat("2026-10-22T08:00:00+00:00")
-    series = [(timedelta(hours=h), 5000) for h in range(25)]
-    series[5] = (timedelta(hours=5), 5300)
-    series += [(timedelta(hours=25, minutes=30 * i), 4000) for i in range(5)]
-    series += [(timedelta(hours=27, minutes=30), 5000)]
-    experiment_id = captures.create_experiment(name="Light")["id"]
-    record_light_photos(experiment_id, start, series, "light")
-    client = TestClient(app)
-
-    response = client.get("/api/captures/light-warning", params={"experiment": experiment_id})
-    assert response.status_code == 200
-    assert response.json() == {
-        "hours": 2.5, "first": "2026-10-23T09:00:00+00:00", "last": "2026-10-23T11:30:00+00:00",
-    }
-
-    before = datetime.now().astimezone()
-    assert client.post(
-        "/api/captures/light-warning/dismiss",
-        params={"experiment": experiment_id, "until": "2026-10-23T11:30:00+00:00"},
-    ).status_code == 200
-    assert client.get("/api/captures/light-warning", params={"experiment": experiment_id}).json() is None
-    [dismissal] = database.light_warning_dismissals(experiment_id)
-    assert dismissal["covers_until"] == "2026-10-23T11:30:00+00:00"
-    assert before <= datetime.fromisoformat(dismissal["dismissed_at"]) <= datetime.now().astimezone()
+    listed = {i["path"]: i for i in client.get("/api/captures").json()}[path]["trays"]
+    assert listed["exclusion"] == "lights off"
+    info = client.get(f"/api/captures/trays/{path}").json()
+    assert [t["floor_mm2"] for t in info["trays"]] == [100]
 
 
 def test_a_reading_saved_before_trays_were_found_in_the_photo_keeps_its_trays_outline(monkeypatch) -> None:
@@ -540,3 +513,112 @@ def test_a_photo_taken_before_the_clock_had_the_network_time_is_marked_in_the_li
     assert items[unset["filename"]]["clock"] == {
         "synchronized": False, "reason": "time may be wrong: clock not set"}
     assert items[synced["filename"]]["clock"]["synchronized"] is True
+
+
+def test_tray_readings_give_each_trays_uncertainty_from_its_slots_validation_band(
+    monkeypatch, isolated_calibration_dir, tmp_path
+) -> None:
+    """#76: a tray at the centre of North 1, which reads within ±2.0 % (tests/helpers.banded_validation)."""
+    from datetime import datetime, timezone
+
+    from tests.helpers import banded_validation, table_calibration, table_photo
+
+    monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
+    table_calibration()
+    banded_validation("20270101T010000000000", {"North 1": ((150, 150), 2.0)})
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW"}, validation="20270101T010000000000")
+
+    tray = TestClient(app).get(f"/api/captures/trays/{path}").json()["trays"][0]
+    assert tray["uncertainty"] == {"band_pct": 2.0, "slot": "North 1", "reason": None}
+
+
+def test_tray_readings_give_each_tray_and_cell_its_area_by_both_methods_named_in_words(monkeypatch) -> None:
+    """#363: `one_tray_plant_scene`'s 1500 mm2 leaf, a plain block of leaf colour, reads the same
+    by the fixed green cutoff and by grow from leaf cores. Each area comes with its method's name."""
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    client.get(f"/api/captures/tags/{path}")  # Show tags reads the photo for its trays
+
+    tray = client.get(f"/api/captures/trays/{path}").json()["trays"][0]
+    assert (tray["method"], tray["area_mm2"]) == ("fixed green cutoff", pytest.approx(1500, rel=0.01))
+    assert (tray["grown_method"], tray["grown_area_mm2"]) == ("grow from leaf cores, core 0.07", pytest.approx(1500, rel=0.02))
+    # The leaf lies across cells: both methods give it to the same one and mark it over others.
+    planted = [c for c in tray["cells"] if c["area_mm2"] is not None]
+    assert planted
+    assert [c["cell"] for c in planted] == [c["cell"] for c in tray["cells"] if c["grown_area_mm2"] is not None]
+    assert [c["grown_area_mm2"] for c in planted] == pytest.approx([c["area_mm2"] for c in planted], rel=0.02)
+    assert [c["grown_status"] for c in planted] == [c["status"] for c in planted]
+
+
+def test_tray_readings_list_the_area_methods_the_photo_has_each_named_in_words(monkeypatch) -> None:
+    """#363 (Aaron, 2026-11-11): Info's method choice is built from the methods in the reading.
+    A reading saved before grow from leaf cores existed has the fixed green cutoff only."""
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    client.get(f"/api/captures/tags/{path}")  # Show tags reads the photo for its trays
+
+    methods = client.get(f"/api/captures/trays/{path}").json()["area_methods"]
+    assert [m["name"] for m in methods] == ["Grow from leaf cores", "Fixed green cutoff"]
+    assert all(m["key"] and m["warning"] for m in methods)
+
+    capture_id = database.captures_by_path([path])[path]["id"]
+    saved = database.tray_readings(capture_id)
+    older = [{k: v for k, v in t.items() if not k.startswith("grown_")} | {
+        "cells": [{k: v for k, v in c.items() if not k.startswith("grown_")} for c in t["cells"]]} for t in saved["trays"]]
+    database.record_tray_readings(capture_id, read_at=saved["read_at"], status=saved["status"], trays=older)
+    methods = client.get(f"/api/captures/trays/{path}").json()["area_methods"]
+    assert [m["name"] for m in methods] == ["Fixed green cutoff"]
+
+
+def test_the_photo_list_carries_only_what_each_card_shows(monkeypatch) -> None:
+    """#377: a photo's 240 cells made the list 127 KB a photo on production. The card shows one
+    tray line: how each tray was found, which areas do not count, exclusion, trays not seen and
+    moved. Everything else, cells and areas included, is fetched by Info for its one photo."""
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    client.get(f"/api/captures/tags/{path}")  # Show tags reads the photo for its trays
+
+    trays = {i["path"]: i for i in client.get("/api/captures").json()}[path]["trays"]
+    assert set(trays) == {"status", "exclusion", "not_found", "moved", "trays"}
+    assert [set(t) for t in trays["trays"]] == [{"tray_id", "found", "not_counted"}]
+
+
+def test_info_fetches_each_trays_cells_for_its_one_photo(monkeypatch) -> None:
+    """#377: the cells left out of the list come from the photo's own reading. A 4 x 5 tray has
+    20 cells (reference/trays.md)."""
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    client.get(f"/api/captures/tags/{path}")
+
+    tray = client.get(f"/api/captures/trays/{path}").json()["trays"][0]
+    assert len(tray["cells"]) == 20
+
+
+def test_an_hour_asks_only_for_its_own_photos() -> None:
+    """#377: an hour asked for 200 photos before the next hour and kept about 60. `after` (a
+    photo key, the hour's start) leaves out the photos before it; a photo taken at it is in."""
+    client = TestClient(app)
+    path = client.post("/capture").json()["path"]
+    day, stem = path.split("/")[-2:]
+    hour_start = datetime.strptime(f"{day}T{stem[:2]}", "%Y-%m-%dT%H")
+    key = lambda t: t.strftime("%Y-%m-%dT%H0000_000000")  # noqa: E731
+    hour = {"after": key(hour_start), "before": key(hour_start + timedelta(hours=1))}
+
+    assert path in [p["path"] for p in client.get("/api/captures", params=hour).json()]
+    assert path in [p["path"] for p in client.get("/api/captures", params={"after": f"{day}T{stem}"}).json()]
+    later = client.get("/api/captures", params={"after": key(hour_start + timedelta(hours=1))})
+    assert later.status_code == 200
+    assert path not in [p["path"] for p in later.json()]
+    assert client.get("/api/captures", params={"after": "yesterday"}).status_code == 422

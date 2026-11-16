@@ -122,6 +122,10 @@ search output, in context.
 **Check-ins.** Between the ends of rounds, show progress as a picture or table in `~/scratch`
 with 2 or 3 lines on what to look at, then wait for Aaron before going on (PLAN.md, *Rounds*).
 
+**Pictures for Aaron.** Put them on the controller in `~/scratch/<branch>/` and link them as
+`http://testpi-02:8001/<branch>/<file>`. That is the one scratch viewer (`imgview.service`, from
+`~/ansible-npec`, `docs/12-scratch-viewer.md`); never start another one (Aaron, 2026-11-06).
+
 **Reply format.** Five headings, in this order. Skip any that are empty.
 
 ```
@@ -148,8 +152,11 @@ Since 2026-10-28 (#322), with the controller since 2026-10-29 (#324). The full r
 | **development** | `npec-rig-01` (`10.248.49.102`), red leaf in the tab, Arducam 64MP | The app as the `npec-rig` service on port 8000, managed from `~/ansible-npec` |
 | **production** | `ac-testing`, the chamber Pi | Running experiments: `~/npec_camera_rig` and its port 8000 server |
 
-Reach the rigs from the controller with `ssh pi@npec-rig-01` and `ssh pi@ac-testing`. No agent
-session is started on a rig.
+Reach the rigs from the controller with `ssh pi@npec-rig-01`. Agent
+sessions run on the controller. They may run jobs on the development rig over ssh (scripts, Hailo
+models, offline analysis of copied production photos), only while their task holds the `hardware`
+label, with memory capped (`ulimit -v`). Production is read only, as before (Aaron, 2026-11-09,
+#400).
 
 A new app version runs on development first. It reaches production only after it has passed on
 development (health OK and a live snapshot) **and** Aaron has approved that update.
@@ -287,11 +294,12 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | web-validation | `routes/validation.py`, `templates/setup_validation.html` |
 | web-photo-quality | `routes/photo_quality.py` (the JPEG setting of full-size photos through the API, #359), `tests/web/test_photo_quality_routes.py` |
 | web-randomize | `routes/randomize.py`, `templates/randomize.html` (the Randomize page, #343) |
+| web-about | `about.py` (the facts the About page shows, read when asked), `routes/about.py`, `templates/about.html` (the About page from the (i) button at the foot of the rail, later also manuals and links, #390) |
 | images | `images.py`, `text_render.py` |
 | segmentation | `segmentation.py` (plant masks: the `Segmenter` interface, the green threshold and the Hailo stub, #74) |
 | randomization | `randomization.py` (restricted randomization of the tray layout and the check against it, #343) |
 | database | `database.py` (the experiment's tables in `rig.db` and their migrations) |
-| exports | `exports.py` (an experiment's export zip and its checksum manifest) |
+| exports | `exports.py` (an experiment's export zip and its checksum manifest), `export_fields.yaml` (what every exported file and CSV column means, read at each export, #65) |
 | trays | `tray_placement.py` (each tray's slot, A1 corner and outline, placed from its cell A1 tag), `tray_readings.py` (each photo read for its trays in the background, #222), `exclusions.py` (why a photo's plant areas are left out, from its exposure and gain, #288), `dwell.py` (each tray's table location, its stays there and the too-long warning, #332), `tests/fixtures/trays/` |
 | docs | `docs/` (except the shared files below), `reference/`, `README.md`, `GLOSSARY.md` |
 | cad | `hardware/` |
@@ -461,6 +469,11 @@ limits: where one does not work for a page, choose what does and say why in the 
   (metrology log 15.5h to 15.5k, #220); cell A1 holds no plant. Tray
   tags (IDs 0 to 299) are read with finer bit sampling, calibration and corner tags with the frozen
   settings (`tags._tray_detector_parameters`, metrology log 15.3e, #192).
+- **Corner tags (450 to 499) lie inside the table edge on development since 2026-11-03 09:22 UTC;
+  production keeps them on the outer-edge mounts until Round 2 ends** (#349, metrology log 31).
+  Keep trays off them; no distance is set, a calibration names any hidden tag (31.3). Moving a tag needs a new
+  calibration: the old corner baseline means nothing after it. A calibration whose photo misses
+  one is saved and names it (#397).
 - **Trays touch.** Researchers will not reliably leave gaps, so tray splitting must work with trays
   touching (`reference/trays.md`).
 

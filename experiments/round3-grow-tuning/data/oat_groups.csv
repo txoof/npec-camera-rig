@@ -1,0 +1,2476 @@
+setting,rig,group,truth,n,mean_iou,median_ratio,pooled_ratio
+0,prod,blue mat,all,5,0.9433,0.952,0.961
+0,prod,blue mat,corrected,5,0.9433,0.952,0.961
+0,prod,empty,all,3,0.0,0.0,0.0
+0,prod,empty,corrected,3,0.0,0.0,0.0
+0,prod,green soil,all,3,0.9378,1.0,1.087
+0,prod,green soil,corrected,1,0.8134,1.229,1.229
+0,prod,green soil,accepted,2,1.0,1.0,1.0
+0,prod,size 1,all,2,1.0,1.0,1.0
+0,prod,size 1,accepted,2,1.0,1.0,1.0
+0,prod,size 3,all,2,1.0,1.0,1.0
+0,prod,size 3,accepted,2,1.0,1.0,1.0
+0,prod,size 4,all,1,1.0,1.0,1.0
+0,prod,size 4,accepted,1,1.0,1.0,1.0
+0,prod,size 5,all,1,0.9789,1.019,1.019
+0,prod,size 5,corrected,1,0.9789,1.019,1.019
+0,dev,empty,all,3,1.0,1.0,1.0
+0,dev,empty,corrected,2,1.0,1.0,1.0
+0,dev,empty,accepted,1,1.0,1.0,1.0
+0,dev,green soil,all,3,0.9168,0.957,0.91
+0,dev,green soil,corrected,3,0.9168,0.957,0.91
+0,dev,size 1,all,4,0.978,0.999,0.977
+0,dev,size 1,corrected,2,0.956,0.958,0.967
+0,dev,size 1,accepted,2,1.0,1.0,1.0
+0,dev,size 2,all,5,0.9686,1.012,1.025
+0,dev,size 2,corrected,4,0.9608,1.029,1.031
+0,dev,size 2,accepted,1,1.0,1.0,1.0
+0,dev,size 3,all,4,0.9544,1.013,1.051
+0,dev,size 3,corrected,4,0.9544,1.013,1.051
+0,dev,size 4,all,3,0.9643,1.019,1.032
+0,dev,size 4,corrected,2,0.9464,1.043,1.044
+0,dev,size 4,accepted,1,1.0,1.0,1.0
+0,dev,size 5,all,3,0.997,1.003,1.003
+0,dev,size 5,corrected,3,0.997,1.003,1.003
+0,both,blue mat,all,5,0.9433,0.952,0.961
+0,both,blue mat,corrected,5,0.9433,0.952,0.961
+0,both,empty,all,6,0.5,0.5,0.988
+0,both,empty,corrected,5,0.4,0.0,0.987
+0,both,empty,accepted,1,1.0,1.0,1.0
+0,both,green soil,all,6,0.9273,1.0,0.926
+0,both,green soil,corrected,4,0.891,0.992,0.922
+0,both,green soil,accepted,2,1.0,1.0,1.0
+0,both,size 1,all,6,0.9853,1.0,0.978
+0,both,size 1,corrected,2,0.956,0.958,0.967
+0,both,size 1,accepted,4,1.0,1.0,1.0
+0,both,size 2,all,5,0.9686,1.012,1.025
+0,both,size 2,corrected,4,0.9608,1.029,1.031
+0,both,size 2,accepted,1,1.0,1.0,1.0
+0,both,size 3,all,6,0.9696,1.001,1.048
+0,both,size 3,corrected,4,0.9544,1.013,1.051
+0,both,size 3,accepted,2,1.0,1.0,1.0
+0,both,size 4,all,4,0.9732,1.009,1.031
+0,both,size 4,corrected,2,0.9464,1.043,1.044
+0,both,size 4,accepted,2,1.0,1.0,1.0
+0,both,size 5,all,4,0.9925,1.004,1.004
+0,both,size 5,corrected,4,0.9925,1.004,1.004
+1,prod,blue mat,all,5,0.9437,0.953,0.962
+1,prod,blue mat,corrected,5,0.9437,0.953,0.962
+1,prod,empty,all,3,0.5108,0.799,0.751
+1,prod,empty,corrected,3,0.5108,0.799,0.751
+1,prod,green soil,all,3,0.9378,1.0,1.087
+1,prod,green soil,corrected,1,0.8134,1.229,1.229
+1,prod,green soil,accepted,2,1.0,1.0,1.0
+1,prod,size 1,all,2,1.0,1.0,1.0
+1,prod,size 1,accepted,2,1.0,1.0,1.0
+1,prod,size 3,all,2,1.0,1.0,1.0
+1,prod,size 3,accepted,2,1.0,1.0,1.0
+1,prod,size 4,all,1,1.0,1.0,1.0
+1,prod,size 4,accepted,1,1.0,1.0,1.0
+1,prod,size 5,all,1,0.9789,1.019,1.019
+1,prod,size 5,corrected,1,0.9789,1.019,1.019
+1,dev,empty,all,3,1.0,1.0,1.0
+1,dev,empty,corrected,2,1.0,1.0,1.0
+1,dev,empty,accepted,1,1.0,1.0,1.0
+1,dev,green soil,all,3,0.9135,0.957,0.913
+1,dev,green soil,corrected,3,0.9135,0.957,0.913
+1,dev,size 1,all,4,0.9784,0.999,0.978
+1,dev,size 1,corrected,2,0.9567,0.959,0.967
+1,dev,size 1,accepted,2,1.0,1.0,1.0
+1,dev,size 2,all,5,0.9684,1.012,1.025
+1,dev,size 2,corrected,4,0.9605,1.029,1.032
+1,dev,size 2,accepted,1,1.0,1.0,1.0
+1,dev,size 3,all,4,0.9539,1.013,1.051
+1,dev,size 3,corrected,4,0.9539,1.013,1.051
+1,dev,size 4,all,3,0.9641,1.019,1.032
+1,dev,size 4,corrected,2,0.9461,1.043,1.044
+1,dev,size 4,accepted,1,1.0,1.0,1.0
+1,dev,size 5,all,3,0.997,1.003,1.003
+1,dev,size 5,corrected,3,0.997,1.003,1.003
+1,both,blue mat,all,5,0.9437,0.953,0.962
+1,both,blue mat,corrected,5,0.9437,0.953,0.962
+1,both,empty,all,6,0.7554,1.0,0.997
+1,both,empty,corrected,5,0.7065,1.0,0.997
+1,both,empty,accepted,1,1.0,1.0,1.0
+1,both,green soil,all,6,0.9257,1.0,0.929
+1,both,green soil,corrected,4,0.8885,0.997,0.924
+1,both,green soil,accepted,2,1.0,1.0,1.0
+1,both,size 1,all,6,0.9856,1.0,0.979
+1,both,size 1,corrected,2,0.9567,0.959,0.967
+1,both,size 1,accepted,4,1.0,1.0,1.0
+1,both,size 2,all,5,0.9684,1.012,1.025
+1,both,size 2,corrected,4,0.9605,1.029,1.032
+1,both,size 2,accepted,1,1.0,1.0,1.0
+1,both,size 3,all,6,0.9693,1.001,1.049
+1,both,size 3,corrected,4,0.9539,1.013,1.051
+1,both,size 3,accepted,2,1.0,1.0,1.0
+1,both,size 4,all,4,0.9731,1.01,1.031
+1,both,size 4,corrected,2,0.9461,1.043,1.044
+1,both,size 4,accepted,2,1.0,1.0,1.0
+1,both,size 5,all,4,0.9925,1.004,1.004
+1,both,size 5,corrected,4,0.9925,1.004,1.004
+2,prod,blue mat,all,5,0.9433,0.952,0.961
+2,prod,blue mat,corrected,5,0.9433,0.952,0.961
+2,prod,empty,all,3,0.5108,0.799,0.751
+2,prod,empty,corrected,3,0.5108,0.799,0.751
+2,prod,green soil,all,3,0.9378,1.0,1.087
+2,prod,green soil,corrected,1,0.8134,1.229,1.229
+2,prod,green soil,accepted,2,1.0,1.0,1.0
+2,prod,size 1,all,2,1.0,1.0,1.0
+2,prod,size 1,accepted,2,1.0,1.0,1.0
+2,prod,size 3,all,2,1.0,1.0,1.0
+2,prod,size 3,accepted,2,1.0,1.0,1.0
+2,prod,size 4,all,1,1.0,1.0,1.0
+2,prod,size 4,accepted,1,1.0,1.0,1.0
+2,prod,size 5,all,1,0.9789,1.019,1.019
+2,prod,size 5,corrected,1,0.9789,1.019,1.019
+2,dev,empty,all,3,1.0,1.0,1.0
+2,dev,empty,corrected,2,1.0,1.0,1.0
+2,dev,empty,accepted,1,1.0,1.0,1.0
+2,dev,green soil,all,3,0.9149,0.957,0.912
+2,dev,green soil,corrected,3,0.9149,0.957,0.912
+2,dev,size 1,all,4,0.9784,0.999,0.978
+2,dev,size 1,corrected,2,0.9567,0.959,0.967
+2,dev,size 1,accepted,2,1.0,1.0,1.0
+2,dev,size 2,all,5,0.9684,1.012,1.025
+2,dev,size 2,corrected,4,0.9605,1.029,1.032
+2,dev,size 2,accepted,1,1.0,1.0,1.0
+2,dev,size 3,all,4,0.9539,1.013,1.051
+2,dev,size 3,corrected,4,0.9539,1.013,1.051
+2,dev,size 4,all,3,0.9641,1.019,1.032
+2,dev,size 4,corrected,2,0.9461,1.043,1.044
+2,dev,size 4,accepted,1,1.0,1.0,1.0
+2,dev,size 5,all,3,0.997,1.003,1.003
+2,dev,size 5,corrected,3,0.997,1.003,1.003
+2,both,blue mat,all,5,0.9433,0.952,0.961
+2,both,blue mat,corrected,5,0.9433,0.952,0.961
+2,both,empty,all,6,0.7554,1.0,0.997
+2,both,empty,corrected,5,0.7065,1.0,0.997
+2,both,empty,accepted,1,1.0,1.0,1.0
+2,both,green soil,all,6,0.9263,1.0,0.928
+2,both,green soil,corrected,4,0.8895,0.994,0.923
+2,both,green soil,accepted,2,1.0,1.0,1.0
+2,both,size 1,all,6,0.9856,1.0,0.979
+2,both,size 1,corrected,2,0.9567,0.959,0.967
+2,both,size 1,accepted,4,1.0,1.0,1.0
+2,both,size 2,all,5,0.9684,1.012,1.025
+2,both,size 2,corrected,4,0.9605,1.029,1.032
+2,both,size 2,accepted,1,1.0,1.0,1.0
+2,both,size 3,all,6,0.9693,1.001,1.049
+2,both,size 3,corrected,4,0.9539,1.013,1.051
+2,both,size 3,accepted,2,1.0,1.0,1.0
+2,both,size 4,all,4,0.9731,1.01,1.031
+2,both,size 4,corrected,2,0.9461,1.043,1.044
+2,both,size 4,accepted,2,1.0,1.0,1.0
+2,both,size 5,all,4,0.9925,1.004,1.004
+2,both,size 5,corrected,4,0.9925,1.004,1.004
+3,prod,blue mat,all,5,0.9433,0.952,0.961
+3,prod,blue mat,corrected,5,0.9433,0.952,0.961
+3,prod,empty,all,3,0.2542,0.0,0.155
+3,prod,empty,corrected,3,0.2542,0.0,0.155
+3,prod,green soil,all,3,0.9378,1.0,1.087
+3,prod,green soil,corrected,1,0.8134,1.229,1.229
+3,prod,green soil,accepted,2,1.0,1.0,1.0
+3,prod,size 1,all,2,1.0,1.0,1.0
+3,prod,size 1,accepted,2,1.0,1.0,1.0
+3,prod,size 3,all,2,1.0,1.0,1.0
+3,prod,size 3,accepted,2,1.0,1.0,1.0
+3,prod,size 4,all,1,1.0,1.0,1.0
+3,prod,size 4,accepted,1,1.0,1.0,1.0
+3,prod,size 5,all,1,0.9789,1.019,1.019
+3,prod,size 5,corrected,1,0.9789,1.019,1.019
+3,dev,empty,all,3,1.0,1.0,1.0
+3,dev,empty,corrected,2,1.0,1.0,1.0
+3,dev,empty,accepted,1,1.0,1.0,1.0
+3,dev,green soil,all,3,0.9156,0.957,0.911
+3,dev,green soil,corrected,3,0.9156,0.957,0.911
+3,dev,size 1,all,4,0.978,0.999,0.977
+3,dev,size 1,corrected,2,0.956,0.958,0.967
+3,dev,size 1,accepted,2,1.0,1.0,1.0
+3,dev,size 2,all,5,0.9684,1.012,1.025
+3,dev,size 2,corrected,4,0.9605,1.029,1.032
+3,dev,size 2,accepted,1,1.0,1.0,1.0
+3,dev,size 3,all,4,0.9542,1.013,1.051
+3,dev,size 3,corrected,4,0.9542,1.013,1.051
+3,dev,size 4,all,3,0.9641,1.019,1.032
+3,dev,size 4,corrected,2,0.9462,1.043,1.044
+3,dev,size 4,accepted,1,1.0,1.0,1.0
+3,dev,size 5,all,3,0.997,1.003,1.003
+3,dev,size 5,corrected,3,0.997,1.003,1.003
+3,both,blue mat,all,5,0.9433,0.952,0.961
+3,both,blue mat,corrected,5,0.9433,0.952,0.961
+3,both,empty,all,6,0.6271,1.0,0.99
+3,both,empty,corrected,5,0.5525,1.0,0.989
+3,both,empty,accepted,1,1.0,1.0,1.0
+3,both,green soil,all,6,0.9267,1.0,0.927
+3,both,green soil,corrected,4,0.89,0.993,0.923
+3,both,green soil,accepted,2,1.0,1.0,1.0
+3,both,size 1,all,6,0.9853,1.0,0.978
+3,both,size 1,corrected,2,0.956,0.958,0.967
+3,both,size 1,accepted,4,1.0,1.0,1.0
+3,both,size 2,all,5,0.9684,1.012,1.025
+3,both,size 2,corrected,4,0.9605,1.029,1.032
+3,both,size 2,accepted,1,1.0,1.0,1.0
+3,both,size 3,all,6,0.9695,1.001,1.048
+3,both,size 3,corrected,4,0.9542,1.013,1.051
+3,both,size 3,accepted,2,1.0,1.0,1.0
+3,both,size 4,all,4,0.9731,1.01,1.031
+3,both,size 4,corrected,2,0.9462,1.043,1.044
+3,both,size 4,accepted,2,1.0,1.0,1.0
+3,both,size 5,all,4,0.9925,1.004,1.004
+3,both,size 5,corrected,4,0.9925,1.004,1.004
+4,prod,blue mat,all,5,0.9433,0.952,0.961
+4,prod,blue mat,corrected,5,0.9433,0.952,0.961
+4,prod,empty,all,3,0.2542,0.0,0.155
+4,prod,empty,corrected,3,0.2542,0.0,0.155
+4,prod,green soil,all,3,0.9378,1.0,1.087
+4,prod,green soil,corrected,1,0.8134,1.229,1.229
+4,prod,green soil,accepted,2,1.0,1.0,1.0
+4,prod,size 1,all,2,1.0,1.0,1.0
+4,prod,size 1,accepted,2,1.0,1.0,1.0
+4,prod,size 3,all,2,1.0,1.0,1.0
+4,prod,size 3,accepted,2,1.0,1.0,1.0
+4,prod,size 4,all,1,1.0,1.0,1.0
+4,prod,size 4,accepted,1,1.0,1.0,1.0
+4,prod,size 5,all,1,0.9789,1.019,1.019
+4,prod,size 5,corrected,1,0.9789,1.019,1.019
+4,dev,empty,all,3,1.0,1.0,1.0
+4,dev,empty,corrected,2,1.0,1.0,1.0
+4,dev,empty,accepted,1,1.0,1.0,1.0
+4,dev,green soil,all,3,0.9168,0.957,0.91
+4,dev,green soil,corrected,3,0.9168,0.957,0.91
+4,dev,size 1,all,4,0.978,0.999,0.977
+4,dev,size 1,corrected,2,0.956,0.958,0.967
+4,dev,size 1,accepted,2,1.0,1.0,1.0
+4,dev,size 2,all,5,0.9686,1.012,1.025
+4,dev,size 2,corrected,4,0.9608,1.029,1.031
+4,dev,size 2,accepted,1,1.0,1.0,1.0
+4,dev,size 3,all,4,0.9544,1.013,1.051
+4,dev,size 3,corrected,4,0.9544,1.013,1.051
+4,dev,size 4,all,3,0.9641,1.019,1.032
+4,dev,size 4,corrected,2,0.9462,1.043,1.044
+4,dev,size 4,accepted,1,1.0,1.0,1.0
+4,dev,size 5,all,3,0.997,1.003,1.003
+4,dev,size 5,corrected,3,0.997,1.003,1.003
+4,both,blue mat,all,5,0.9433,0.952,0.961
+4,both,blue mat,corrected,5,0.9433,0.952,0.961
+4,both,empty,all,6,0.6271,1.0,0.99
+4,both,empty,corrected,5,0.5525,1.0,0.989
+4,both,empty,accepted,1,1.0,1.0,1.0
+4,both,green soil,all,6,0.9273,1.0,0.926
+4,both,green soil,corrected,4,0.891,0.992,0.922
+4,both,green soil,accepted,2,1.0,1.0,1.0
+4,both,size 1,all,6,0.9853,1.0,0.978
+4,both,size 1,corrected,2,0.956,0.958,0.967
+4,both,size 1,accepted,4,1.0,1.0,1.0
+4,both,size 2,all,5,0.9686,1.012,1.025
+4,both,size 2,corrected,4,0.9608,1.029,1.031
+4,both,size 2,accepted,1,1.0,1.0,1.0
+4,both,size 3,all,6,0.9696,1.001,1.048
+4,both,size 3,corrected,4,0.9544,1.013,1.051
+4,both,size 3,accepted,2,1.0,1.0,1.0
+4,both,size 4,all,4,0.9731,1.01,1.031
+4,both,size 4,corrected,2,0.9462,1.043,1.044
+4,both,size 4,accepted,2,1.0,1.0,1.0
+4,both,size 5,all,4,0.9925,1.004,1.004
+4,both,size 5,corrected,4,0.9925,1.004,1.004
+5,prod,blue mat,all,5,0.9286,0.952,0.95
+5,prod,blue mat,corrected,5,0.9286,0.952,0.95
+5,prod,empty,all,3,0.0,0.0,0.0
+5,prod,empty,corrected,3,0.0,0.0,0.0
+5,prod,green soil,all,3,0.9378,1.0,1.087
+5,prod,green soil,corrected,1,0.8134,1.229,1.229
+5,prod,green soil,accepted,2,1.0,1.0,1.0
+5,prod,size 1,all,2,0.5,0.5,0.51
+5,prod,size 1,accepted,2,0.5,0.5,0.51
+5,prod,size 3,all,2,1.0,1.0,1.0
+5,prod,size 3,accepted,2,1.0,1.0,1.0
+5,prod,size 4,all,1,1.0,1.0,1.0
+5,prod,size 4,accepted,1,1.0,1.0,1.0
+5,prod,size 5,all,1,0.9789,1.019,1.019
+5,prod,size 5,corrected,1,0.9789,1.019,1.019
+5,dev,empty,all,3,1.0,1.0,1.0
+5,dev,empty,corrected,2,1.0,1.0,1.0
+5,dev,empty,accepted,1,1.0,1.0,1.0
+5,dev,green soil,all,3,0.9168,0.957,0.91
+5,dev,green soil,corrected,3,0.9168,0.957,0.91
+5,dev,size 1,all,4,0.978,0.999,0.977
+5,dev,size 1,corrected,2,0.956,0.958,0.967
+5,dev,size 1,accepted,2,1.0,1.0,1.0
+5,dev,size 2,all,5,0.9686,1.012,1.025
+5,dev,size 2,corrected,4,0.9608,1.029,1.031
+5,dev,size 2,accepted,1,1.0,1.0,1.0
+5,dev,size 3,all,4,0.9544,1.013,1.051
+5,dev,size 3,corrected,4,0.9544,1.013,1.051
+5,dev,size 4,all,3,0.9643,1.019,1.032
+5,dev,size 4,corrected,2,0.9464,1.043,1.044
+5,dev,size 4,accepted,1,1.0,1.0,1.0
+5,dev,size 5,all,3,0.997,1.003,1.003
+5,dev,size 5,corrected,3,0.997,1.003,1.003
+5,both,blue mat,all,5,0.9286,0.952,0.95
+5,both,blue mat,corrected,5,0.9286,0.952,0.95
+5,both,empty,all,6,0.5,0.5,0.988
+5,both,empty,corrected,5,0.4,0.0,0.987
+5,both,empty,accepted,1,1.0,1.0,1.0
+5,both,green soil,all,6,0.9273,1.0,0.926
+5,both,green soil,corrected,4,0.891,0.992,0.922
+5,both,green soil,accepted,2,1.0,1.0,1.0
+5,both,size 1,all,6,0.8187,0.999,0.956
+5,both,size 1,corrected,2,0.956,0.958,0.967
+5,both,size 1,accepted,4,0.75,1.0,0.937
+5,both,size 2,all,5,0.9686,1.012,1.025
+5,both,size 2,corrected,4,0.9608,1.029,1.031
+5,both,size 2,accepted,1,1.0,1.0,1.0
+5,both,size 3,all,6,0.9696,1.001,1.048
+5,both,size 3,corrected,4,0.9544,1.013,1.051
+5,both,size 3,accepted,2,1.0,1.0,1.0
+5,both,size 4,all,4,0.9732,1.009,1.031
+5,both,size 4,corrected,2,0.9464,1.043,1.044
+5,both,size 4,accepted,2,1.0,1.0,1.0
+5,both,size 5,all,4,0.9925,1.004,1.004
+5,both,size 5,corrected,4,0.9925,1.004,1.004
+6,prod,blue mat,all,5,0.9286,0.952,0.95
+6,prod,blue mat,corrected,5,0.9286,0.952,0.95
+6,prod,empty,all,3,0.0,0.0,0.0
+6,prod,empty,corrected,3,0.0,0.0,0.0
+6,prod,green soil,all,3,0.9378,1.0,1.087
+6,prod,green soil,corrected,1,0.8134,1.229,1.229
+6,prod,green soil,accepted,2,1.0,1.0,1.0
+6,prod,size 1,all,2,0.5,0.5,0.51
+6,prod,size 1,accepted,2,0.5,0.5,0.51
+6,prod,size 3,all,2,1.0,1.0,1.0
+6,prod,size 3,accepted,2,1.0,1.0,1.0
+6,prod,size 4,all,1,1.0,1.0,1.0
+6,prod,size 4,accepted,1,1.0,1.0,1.0
+6,prod,size 5,all,1,0.9789,1.019,1.019
+6,prod,size 5,corrected,1,0.9789,1.019,1.019
+6,dev,empty,all,3,1.0,1.0,1.0
+6,dev,empty,corrected,2,1.0,1.0,1.0
+6,dev,empty,accepted,1,1.0,1.0,1.0
+6,dev,green soil,all,3,0.917,0.957,0.91
+6,dev,green soil,corrected,3,0.917,0.957,0.91
+6,dev,size 1,all,4,0.978,0.999,0.977
+6,dev,size 1,corrected,2,0.956,0.958,0.967
+6,dev,size 1,accepted,2,1.0,1.0,1.0
+6,dev,size 2,all,5,0.9686,1.012,1.025
+6,dev,size 2,corrected,4,0.9608,1.029,1.031
+6,dev,size 2,accepted,1,1.0,1.0,1.0
+6,dev,size 3,all,4,0.9544,1.013,1.051
+6,dev,size 3,corrected,4,0.9544,1.013,1.051
+6,dev,size 4,all,3,0.9675,1.008,1.028
+6,dev,size 4,corrected,2,0.9512,1.037,1.039
+6,dev,size 4,accepted,1,1.0,1.0,1.0
+6,dev,size 5,all,3,0.997,1.003,1.003
+6,dev,size 5,corrected,3,0.997,1.003,1.003
+6,both,blue mat,all,5,0.9286,0.952,0.95
+6,both,blue mat,corrected,5,0.9286,0.952,0.95
+6,both,empty,all,6,0.5,0.5,0.988
+6,both,empty,corrected,5,0.4,0.0,0.987
+6,both,empty,accepted,1,1.0,1.0,1.0
+6,both,green soil,all,6,0.9274,1.0,0.926
+6,both,green soil,corrected,4,0.8911,0.992,0.921
+6,both,green soil,accepted,2,1.0,1.0,1.0
+6,both,size 1,all,6,0.8187,0.999,0.956
+6,both,size 1,corrected,2,0.956,0.958,0.967
+6,both,size 1,accepted,4,0.75,1.0,0.937
+6,both,size 2,all,5,0.9686,1.012,1.025
+6,both,size 2,corrected,4,0.9608,1.029,1.031
+6,both,size 2,accepted,1,1.0,1.0,1.0
+6,both,size 3,all,6,0.9696,1.001,1.048
+6,both,size 3,corrected,4,0.9544,1.013,1.051
+6,both,size 3,accepted,2,1.0,1.0,1.0
+6,both,size 4,all,4,0.9756,1.004,1.028
+6,both,size 4,corrected,2,0.9512,1.037,1.039
+6,both,size 4,accepted,2,1.0,1.0,1.0
+6,both,size 5,all,4,0.9925,1.004,1.004
+6,both,size 5,corrected,4,0.9925,1.004,1.004
+7,prod,blue mat,all,5,0.9286,0.952,0.95
+7,prod,blue mat,corrected,5,0.9286,0.952,0.95
+7,prod,empty,all,3,0.0,0.0,0.0
+7,prod,empty,corrected,3,0.0,0.0,0.0
+7,prod,green soil,all,3,0.6045,1.0,0.909
+7,prod,green soil,corrected,1,0.8134,1.229,1.229
+7,prod,green soil,accepted,2,0.5,0.5,0.712
+7,prod,size 1,all,2,0.5,0.5,0.51
+7,prod,size 1,accepted,2,0.5,0.5,0.51
+7,prod,size 3,all,2,1.0,1.0,1.0
+7,prod,size 3,accepted,2,1.0,1.0,1.0
+7,prod,size 4,all,1,1.0,1.0,1.0
+7,prod,size 4,accepted,1,1.0,1.0,1.0
+7,prod,size 5,all,1,0.9789,1.019,1.019
+7,prod,size 5,corrected,1,0.9789,1.019,1.019
+7,dev,empty,all,3,1.0,1.0,1.0
+7,dev,empty,corrected,2,1.0,1.0,1.0
+7,dev,empty,accepted,1,1.0,1.0,1.0
+7,dev,green soil,all,3,0.917,0.957,0.91
+7,dev,green soil,corrected,3,0.917,0.957,0.91
+7,dev,size 1,all,4,0.978,0.999,0.977
+7,dev,size 1,corrected,2,0.956,0.958,0.967
+7,dev,size 1,accepted,2,1.0,1.0,1.0
+7,dev,size 2,all,5,0.9686,1.012,1.025
+7,dev,size 2,corrected,4,0.9608,1.029,1.031
+7,dev,size 2,accepted,1,1.0,1.0,1.0
+7,dev,size 3,all,4,0.9544,1.013,1.051
+7,dev,size 3,corrected,4,0.9544,1.013,1.051
+7,dev,size 4,all,3,0.9675,1.008,1.028
+7,dev,size 4,corrected,2,0.9512,1.037,1.039
+7,dev,size 4,accepted,1,1.0,1.0,1.0
+7,dev,size 5,all,3,0.9971,1.003,1.003
+7,dev,size 5,corrected,3,0.9971,1.003,1.003
+7,both,blue mat,all,5,0.9286,0.952,0.95
+7,both,blue mat,corrected,5,0.9286,0.952,0.95
+7,both,empty,all,6,0.5,0.5,0.988
+7,both,empty,corrected,5,0.4,0.0,0.987
+7,both,empty,accepted,1,1.0,1.0,1.0
+7,both,green soil,all,6,0.7607,0.978,0.91
+7,both,green soil,corrected,4,0.8911,0.992,0.921
+7,both,green soil,accepted,2,0.5,0.5,0.712
+7,both,size 1,all,6,0.8187,0.999,0.956
+7,both,size 1,corrected,2,0.956,0.958,0.967
+7,both,size 1,accepted,4,0.75,1.0,0.937
+7,both,size 2,all,5,0.9686,1.012,1.025
+7,both,size 2,corrected,4,0.9608,1.029,1.031
+7,both,size 2,accepted,1,1.0,1.0,1.0
+7,both,size 3,all,6,0.9696,1.001,1.048
+7,both,size 3,corrected,4,0.9544,1.013,1.051
+7,both,size 3,accepted,2,1.0,1.0,1.0
+7,both,size 4,all,4,0.9756,1.004,1.028
+7,both,size 4,corrected,2,0.9512,1.037,1.039
+7,both,size 4,accepted,2,1.0,1.0,1.0
+7,both,size 5,all,4,0.9926,1.004,1.004
+7,both,size 5,corrected,4,0.9926,1.004,1.004
+8,prod,blue mat,all,5,0.9286,0.952,0.95
+8,prod,blue mat,corrected,5,0.9286,0.952,0.95
+8,prod,empty,all,3,0.0,0.0,0.0
+8,prod,empty,corrected,3,0.0,0.0,0.0
+8,prod,green soil,all,3,0.6045,1.0,0.909
+8,prod,green soil,corrected,1,0.8134,1.229,1.229
+8,prod,green soil,accepted,2,0.5,0.5,0.712
+8,prod,size 1,all,2,0.5,0.5,0.51
+8,prod,size 1,accepted,2,0.5,0.5,0.51
+8,prod,size 3,all,2,1.0,1.0,1.0
+8,prod,size 3,accepted,2,1.0,1.0,1.0
+8,prod,size 4,all,1,1.0,1.0,1.0
+8,prod,size 4,accepted,1,1.0,1.0,1.0
+8,prod,size 5,all,1,0.9789,1.019,1.019
+8,prod,size 5,corrected,1,0.9789,1.019,1.019
+8,dev,empty,all,3,1.0,1.0,1.0
+8,dev,empty,corrected,2,1.0,1.0,1.0
+8,dev,empty,accepted,1,1.0,1.0,1.0
+8,dev,green soil,all,3,0.9141,0.957,0.904
+8,dev,green soil,corrected,3,0.9141,0.957,0.904
+8,dev,size 1,all,4,0.978,0.999,0.977
+8,dev,size 1,corrected,2,0.956,0.958,0.967
+8,dev,size 1,accepted,2,1.0,1.0,1.0
+8,dev,size 2,all,5,0.9686,1.012,1.025
+8,dev,size 2,corrected,4,0.9608,1.029,1.031
+8,dev,size 2,accepted,1,1.0,1.0,1.0
+8,dev,size 3,all,4,0.9544,1.013,1.051
+8,dev,size 3,corrected,4,0.9544,1.013,1.051
+8,dev,size 4,all,3,0.9673,1.008,1.028
+8,dev,size 4,corrected,2,0.9509,1.037,1.038
+8,dev,size 4,accepted,1,1.0,1.0,1.0
+8,dev,size 5,all,3,0.9971,1.003,1.003
+8,dev,size 5,corrected,3,0.9971,1.003,1.003
+8,both,blue mat,all,5,0.9286,0.952,0.95
+8,both,blue mat,corrected,5,0.9286,0.952,0.95
+8,both,empty,all,6,0.5,0.5,0.988
+8,both,empty,corrected,5,0.4,0.0,0.987
+8,both,empty,accepted,1,1.0,1.0,1.0
+8,both,green soil,all,6,0.7593,0.978,0.904
+8,both,green soil,corrected,4,0.8889,0.992,0.916
+8,both,green soil,accepted,2,0.5,0.5,0.712
+8,both,size 1,all,6,0.8187,0.999,0.956
+8,both,size 1,corrected,2,0.956,0.958,0.967
+8,both,size 1,accepted,4,0.75,1.0,0.937
+8,both,size 2,all,5,0.9686,1.012,1.025
+8,both,size 2,corrected,4,0.9608,1.029,1.031
+8,both,size 2,accepted,1,1.0,1.0,1.0
+8,both,size 3,all,6,0.9696,1.001,1.048
+8,both,size 3,corrected,4,0.9544,1.013,1.051
+8,both,size 3,accepted,2,1.0,1.0,1.0
+8,both,size 4,all,4,0.9755,1.004,1.027
+8,both,size 4,corrected,2,0.9509,1.037,1.038
+8,both,size 4,accepted,2,1.0,1.0,1.0
+8,both,size 5,all,4,0.9926,1.004,1.004
+8,both,size 5,corrected,4,0.9926,1.004,1.004
+9,prod,blue mat,all,5,0.9433,0.952,0.961
+9,prod,blue mat,corrected,5,0.9433,0.952,0.961
+9,prod,empty,all,3,0.2402,0.0,0.108
+9,prod,empty,corrected,3,0.2402,0.0,0.108
+9,prod,green soil,all,3,0.9378,1.0,1.087
+9,prod,green soil,corrected,1,0.8134,1.229,1.229
+9,prod,green soil,accepted,2,1.0,1.0,1.0
+9,prod,size 1,all,2,1.0,1.0,1.0
+9,prod,size 1,accepted,2,1.0,1.0,1.0
+9,prod,size 3,all,2,1.0,1.0,1.0
+9,prod,size 3,accepted,2,1.0,1.0,1.0
+9,prod,size 4,all,1,1.0,1.0,1.0
+9,prod,size 4,accepted,1,1.0,1.0,1.0
+9,prod,size 5,all,1,0.9789,1.019,1.019
+9,prod,size 5,corrected,1,0.9789,1.019,1.019
+9,dev,empty,all,3,0.938,1.057,1.054
+9,dev,empty,corrected,2,0.9338,1.075,1.054
+9,dev,empty,accepted,1,0.9465,1.057,1.057
+9,dev,green soil,all,3,0.8158,1.027,0.959
+9,dev,green soil,corrected,3,0.8158,1.027,0.959
+9,dev,size 1,all,4,0.978,0.999,0.977
+9,dev,size 1,corrected,2,0.956,0.958,0.967
+9,dev,size 1,accepted,2,1.0,1.0,1.0
+9,dev,size 2,all,5,0.9603,1.012,1.035
+9,dev,size 2,corrected,4,0.9503,1.029,1.044
+9,dev,size 2,accepted,1,1.0,1.0,1.0
+9,dev,size 3,all,4,0.8542,1.015,1.321
+9,dev,size 3,corrected,4,0.8542,1.015,1.321
+9,dev,size 4,all,3,0.9191,1.111,1.087
+9,dev,size 4,corrected,2,0.8844,1.116,1.116
+9,dev,size 4,accepted,1,0.9885,1.012,1.012
+9,dev,size 5,all,3,0.9524,1.003,1.059
+9,dev,size 5,corrected,3,0.9524,1.003,1.059
+9,both,blue mat,all,5,0.9433,0.952,0.961
+9,both,blue mat,corrected,5,0.9433,0.952,0.961
+9,both,empty,all,6,0.5891,0.925,1.043
+9,both,empty,corrected,5,0.5176,0.844,1.042
+9,both,empty,accepted,1,0.9465,1.057,1.057
+9,both,green soil,all,6,0.8768,1.013,0.97
+9,both,green soil,corrected,4,0.8152,1.128,0.968
+9,both,green soil,accepted,2,1.0,1.0,1.0
+9,both,size 1,all,6,0.9853,1.0,0.978
+9,both,size 1,corrected,2,0.956,0.958,0.967
+9,both,size 1,accepted,4,1.0,1.0,1.0
+9,both,size 2,all,5,0.9603,1.012,1.035
+9,both,size 2,corrected,4,0.9503,1.029,1.044
+9,both,size 2,accepted,1,1.0,1.0,1.0
+9,both,size 3,all,6,0.9028,1.003,1.304
+9,both,size 3,corrected,4,0.8542,1.015,1.321
+9,both,size 3,accepted,2,1.0,1.0,1.0
+9,both,size 4,all,4,0.9393,1.062,1.086
+9,both,size 4,corrected,2,0.8844,1.116,1.116
+9,both,size 4,accepted,2,0.9943,1.006,1.011
+9,both,size 5,all,4,0.959,1.011,1.059
+9,both,size 5,corrected,4,0.959,1.011,1.059
+10,prod,blue mat,all,5,0.9433,0.952,0.961
+10,prod,blue mat,corrected,5,0.9433,0.952,0.961
+10,prod,empty,all,3,0.0,0.0,0.0
+10,prod,empty,corrected,3,0.0,0.0,0.0
+10,prod,green soil,all,3,0.9378,1.0,1.087
+10,prod,green soil,corrected,1,0.8134,1.229,1.229
+10,prod,green soil,accepted,2,1.0,1.0,1.0
+10,prod,size 1,all,2,1.0,1.0,1.0
+10,prod,size 1,accepted,2,1.0,1.0,1.0
+10,prod,size 3,all,2,1.0,1.0,1.0
+10,prod,size 3,accepted,2,1.0,1.0,1.0
+10,prod,size 4,all,1,1.0,1.0,1.0
+10,prod,size 4,accepted,1,1.0,1.0,1.0
+10,prod,size 5,all,1,0.9789,1.019,1.019
+10,prod,size 5,corrected,1,0.9789,1.019,1.019
+10,dev,empty,all,3,0.9687,1.02,1.02
+10,dev,empty,corrected,2,0.9819,1.018,1.018
+10,dev,empty,accepted,1,0.9424,1.061,1.061
+10,dev,green soil,all,3,0.758,1.123,1.157
+10,dev,green soil,corrected,3,0.758,1.123,1.157
+10,dev,size 1,all,4,0.8705,1.107,1.108
+10,dev,size 1,corrected,2,0.8925,1.085,1.081
+10,dev,size 1,accepted,2,0.8485,1.183,1.164
+10,dev,size 2,all,5,0.6117,1.431,2.239
+10,dev,size 2,corrected,4,0.5381,1.727,2.538
+10,dev,size 2,accepted,1,0.9061,1.104,1.104
+10,dev,size 3,all,4,0.7417,1.302,1.402
+10,dev,size 3,corrected,4,0.7417,1.302,1.402
+10,dev,size 4,all,3,0.8141,1.242,1.258
+10,dev,size 4,corrected,2,0.7439,1.344,1.34
+10,dev,size 4,accepted,1,0.9544,1.048,1.048
+10,dev,size 5,all,3,0.968,1.031,1.035
+10,dev,size 5,corrected,3,0.968,1.031,1.035
+10,both,blue mat,all,5,0.9433,0.952,0.961
+10,both,blue mat,corrected,5,0.9433,0.952,0.961
+10,both,empty,all,6,0.4843,0.509,1.007
+10,both,empty,corrected,5,0.3927,0.0,1.005
+10,both,empty,accepted,1,0.9424,1.061,1.061
+10,both,green soil,all,6,0.8479,1.073,1.15
+10,both,green soil,corrected,4,0.7719,1.176,1.159
+10,both,green soil,accepted,2,1.0,1.0,1.0
+10,both,size 1,all,6,0.9137,1.085,1.103
+10,both,size 1,corrected,2,0.8925,1.085,1.081
+10,both,size 1,accepted,4,0.9242,1.055,1.143
+10,both,size 2,all,5,0.6117,1.431,2.239
+10,both,size 2,corrected,4,0.5381,1.727,2.538
+10,both,size 2,accepted,1,0.9061,1.104,1.104
+10,both,size 3,all,6,0.8278,1.203,1.382
+10,both,size 3,corrected,4,0.7417,1.302,1.402
+10,both,size 3,accepted,2,1.0,1.0,1.0
+10,both,size 4,all,4,0.8606,1.145,1.255
+10,both,size 4,corrected,2,0.7439,1.344,1.34
+10,both,size 4,accepted,2,0.9772,1.024,1.046
+10,both,size 5,all,4,0.9707,1.03,1.034
+10,both,size 5,corrected,4,0.9707,1.03,1.034
+11,prod,blue mat,all,5,0.9433,0.952,0.961
+11,prod,blue mat,corrected,5,0.9433,0.952,0.961
+11,prod,empty,all,3,0.0,0.0,0.0
+11,prod,empty,corrected,3,0.0,0.0,0.0
+11,prod,green soil,all,3,0.9378,1.0,1.087
+11,prod,green soil,corrected,1,0.8134,1.229,1.229
+11,prod,green soil,accepted,2,1.0,1.0,1.0
+11,prod,size 1,all,2,1.0,1.0,1.0
+11,prod,size 1,accepted,2,1.0,1.0,1.0
+11,prod,size 3,all,2,1.0,1.0,1.0
+11,prod,size 3,accepted,2,1.0,1.0,1.0
+11,prod,size 4,all,1,1.0,1.0,1.0
+11,prod,size 4,accepted,1,1.0,1.0,1.0
+11,prod,size 5,all,1,0.9789,1.019,1.019
+11,prod,size 5,corrected,1,0.9789,1.019,1.019
+11,dev,empty,all,3,0.9762,1.014,1.015
+11,dev,empty,corrected,2,0.9869,1.013,1.013
+11,dev,empty,accepted,1,0.9548,1.047,1.047
+11,dev,green soil,all,3,0.8269,1.08,1.039
+11,dev,green soil,corrected,3,0.8269,1.08,1.039
+11,dev,size 1,all,4,0.9105,1.058,1.061
+11,dev,size 1,corrected,2,0.9206,1.042,1.042
+11,dev,size 1,accepted,2,0.9003,1.112,1.102
+11,dev,size 2,all,5,0.7806,1.17,1.449
+11,dev,size 2,corrected,4,0.7417,1.207,1.55
+11,dev,size 2,accepted,1,0.9362,1.068,1.068
+11,dev,size 3,all,4,0.8057,1.169,1.286
+11,dev,size 3,corrected,4,0.8057,1.169,1.286
+11,dev,size 4,all,3,0.8515,1.192,1.191
+11,dev,size 4,corrected,2,0.7934,1.255,1.252
+11,dev,size 4,accepted,1,0.9677,1.033,1.033
+11,dev,size 5,all,3,0.9703,1.031,1.033
+11,dev,size 5,corrected,3,0.9703,1.031,1.033
+11,both,blue mat,all,5,0.9433,0.952,0.961
+11,both,blue mat,corrected,5,0.9433,0.952,0.961
+11,both,empty,all,6,0.4881,0.506,1.002
+11,both,empty,corrected,5,0.3947,0.0,1.0
+11,both,empty,accepted,1,0.9548,1.047,1.047
+11,both,green soil,all,6,0.8823,1.04,1.044
+11,both,green soil,corrected,4,0.8235,1.155,1.046
+11,both,green soil,accepted,2,1.0,1.0,1.0
+11,both,size 1,all,6,0.9403,1.042,1.058
+11,both,size 1,corrected,2,0.9206,1.042,1.042
+11,both,size 1,accepted,4,0.9502,1.036,1.089
+11,both,size 2,all,5,0.7806,1.17,1.449
+11,both,size 2,corrected,4,0.7417,1.207,1.55
+11,both,size 2,accepted,1,0.9362,1.068,1.068
+11,both,size 3,all,6,0.8705,1.111,1.272
+11,both,size 3,corrected,4,0.8057,1.169,1.286
+11,both,size 3,accepted,2,1.0,1.0,1.0
+11,both,size 4,all,4,0.8886,1.113,1.189
+11,both,size 4,corrected,2,0.7934,1.255,1.252
+11,both,size 4,accepted,2,0.9838,1.017,1.032
+11,both,size 5,all,4,0.9725,1.027,1.033
+11,both,size 5,corrected,4,0.9725,1.027,1.033
+12,prod,blue mat,all,5,0.9433,0.952,0.961
+12,prod,blue mat,corrected,5,0.9433,0.952,0.961
+12,prod,empty,all,3,0.0,0.0,0.0
+12,prod,empty,corrected,3,0.0,0.0,0.0
+12,prod,green soil,all,3,0.9378,1.0,1.087
+12,prod,green soil,corrected,1,0.8134,1.229,1.229
+12,prod,green soil,accepted,2,1.0,1.0,1.0
+12,prod,size 1,all,2,1.0,1.0,1.0
+12,prod,size 1,accepted,2,1.0,1.0,1.0
+12,prod,size 3,all,2,1.0,1.0,1.0
+12,prod,size 3,accepted,2,1.0,1.0,1.0
+12,prod,size 4,all,1,1.0,1.0,1.0
+12,prod,size 4,accepted,1,1.0,1.0,1.0
+12,prod,size 5,all,1,0.9789,1.019,1.019
+12,prod,size 5,corrected,1,0.9789,1.019,1.019
+12,dev,empty,all,3,0.9825,1.009,1.009
+12,dev,empty,corrected,2,0.9918,1.008,1.008
+12,dev,empty,accepted,1,0.9639,1.037,1.037
+12,dev,green soil,all,3,0.8684,1.035,0.982
+12,dev,green soil,corrected,3,0.8684,1.035,0.982
+12,dev,size 1,all,4,0.9373,1.036,1.03
+12,dev,size 1,corrected,2,0.9362,1.012,1.015
+12,dev,size 1,accepted,2,0.9384,1.066,1.061
+12,dev,size 2,all,5,0.8546,1.074,1.222
+12,dev,size 2,corrected,4,0.8288,1.12,1.269
+12,dev,size 2,accepted,1,0.9579,1.044,1.044
+12,dev,size 3,all,4,0.8505,1.109,1.208
+12,dev,size 3,corrected,4,0.8505,1.109,1.208
+12,dev,size 4,all,3,0.8955,1.152,1.122
+12,dev,size 4,corrected,2,0.8532,1.161,1.161
+12,dev,size 4,accepted,1,0.9802,1.02,1.02
+12,dev,size 5,all,3,0.9773,1.023,1.025
+12,dev,size 5,corrected,3,0.9773,1.023,1.025
+12,both,blue mat,all,5,0.9433,0.952,0.961
+12,both,blue mat,corrected,5,0.9433,0.952,0.961
+12,both,empty,all,6,0.4912,0.504,0.997
+12,both,empty,corrected,5,0.3967,0.0,0.995
+12,both,empty,accepted,1,0.9639,1.037,1.037
+12,both,green soil,all,6,0.9031,1.017,0.991
+12,both,green soil,corrected,4,0.8546,1.087,0.991
+12,both,green soil,accepted,2,1.0,1.0,1.0
+12,both,size 1,all,6,0.9582,1.013,1.029
+12,both,size 1,corrected,2,0.9362,1.012,1.015
+12,both,size 1,accepted,4,0.9692,1.023,1.053
+12,both,size 2,all,5,0.8546,1.074,1.222
+12,both,size 2,corrected,4,0.8288,1.12,1.269
+12,both,size 2,accepted,1,0.9579,1.044,1.044
+12,both,size 3,all,6,0.9003,1.072,1.197
+12,both,size 3,corrected,4,0.8505,1.109,1.208
+12,both,size 3,accepted,2,1.0,1.0,1.0
+12,both,size 4,all,4,0.9216,1.086,1.12
+12,both,size 4,corrected,2,0.8532,1.161,1.161
+12,both,size 4,accepted,2,0.9901,1.01,1.019
+12,both,size 5,all,4,0.9777,1.021,1.025
+12,both,size 5,corrected,4,0.9777,1.021,1.025
+13,prod,blue mat,all,5,0.9433,0.952,0.961
+13,prod,blue mat,corrected,5,0.9433,0.952,0.961
+13,prod,empty,all,3,0.0,0.0,0.0
+13,prod,empty,corrected,3,0.0,0.0,0.0
+13,prod,green soil,all,3,0.9378,1.0,1.087
+13,prod,green soil,corrected,1,0.8134,1.229,1.229
+13,prod,green soil,accepted,2,1.0,1.0,1.0
+13,prod,size 1,all,2,1.0,1.0,1.0
+13,prod,size 1,accepted,2,1.0,1.0,1.0
+13,prod,size 3,all,2,1.0,1.0,1.0
+13,prod,size 3,accepted,2,1.0,1.0,1.0
+13,prod,size 4,all,1,1.0,1.0,1.0
+13,prod,size 4,accepted,1,1.0,1.0,1.0
+13,prod,size 5,all,1,0.9789,1.019,1.019
+13,prod,size 5,corrected,1,0.9789,1.019,1.019
+13,dev,empty,all,3,0.9937,1.004,1.004
+13,dev,empty,corrected,2,0.9962,1.004,1.004
+13,dev,empty,accepted,1,0.9888,1.011,1.011
+13,dev,green soil,all,3,0.8939,0.998,0.945
+13,dev,green soil,corrected,3,0.8939,0.998,0.945
+13,dev,size 1,all,4,0.9581,1.017,1.003
+13,dev,size 1,corrected,2,0.9457,0.985,0.991
+13,dev,size 1,accepted,2,0.9705,1.031,1.028
+13,dev,size 2,all,5,0.9431,1.04,1.057
+13,dev,size 2,corrected,4,0.9336,1.062,1.066
+13,dev,size 2,accepted,1,0.9811,1.019,1.019
+13,dev,size 3,all,4,0.8962,1.056,1.135
+13,dev,size 3,corrected,4,0.8962,1.056,1.135
+13,dev,size 4,all,3,0.9391,1.056,1.063
+13,dev,size 4,corrected,2,0.9133,1.083,1.084
+13,dev,size 4,accepted,1,0.9908,1.009,1.009
+13,dev,size 5,all,3,0.9867,1.013,1.014
+13,dev,size 5,corrected,3,0.9867,1.013,1.014
+13,both,blue mat,all,5,0.9433,0.952,0.961
+13,both,blue mat,corrected,5,0.9433,0.952,0.961
+13,both,empty,all,6,0.4969,0.502,0.992
+13,both,empty,corrected,5,0.3985,0.0,0.991
+13,both,empty,accepted,1,0.9888,1.011,1.011
+13,both,green soil,all,6,0.9158,1.0,0.958
+13,both,green soil,corrected,4,0.8738,1.038,0.955
+13,both,green soil,accepted,2,1.0,1.0,1.0
+13,both,size 1,all,6,0.972,1.007,1.003
+13,both,size 1,corrected,2,0.9457,0.985,0.991
+13,both,size 1,accepted,4,0.9852,1.011,1.024
+13,both,size 2,all,5,0.9431,1.04,1.057
+13,both,size 2,corrected,4,0.9336,1.062,1.066
+13,both,size 2,accepted,1,0.9811,1.019,1.019
+13,both,size 3,all,6,0.9308,1.038,1.128
+13,both,size 3,corrected,4,0.8962,1.056,1.135
+13,both,size 3,accepted,2,1.0,1.0,1.0
+13,both,size 4,all,4,0.9543,1.032,1.063
+13,both,size 4,corrected,2,0.9133,1.083,1.084
+13,both,size 4,accepted,2,0.9954,1.005,1.009
+13,both,size 5,all,4,0.9847,1.015,1.014
+13,both,size 5,corrected,4,0.9847,1.015,1.014
+14,prod,blue mat,all,5,0.9433,0.952,0.961
+14,prod,blue mat,corrected,5,0.9433,0.952,0.961
+14,prod,empty,all,3,0.0,0.0,0.0
+14,prod,empty,corrected,3,0.0,0.0,0.0
+14,prod,green soil,all,3,0.9331,1.0,0.983
+14,prod,green soil,corrected,1,0.8804,1.049,1.049
+14,prod,green soil,accepted,2,0.9594,0.959,0.942
+14,prod,size 1,all,2,1.0,1.0,1.0
+14,prod,size 1,accepted,2,1.0,1.0,1.0
+14,prod,size 3,all,2,1.0,1.0,1.0
+14,prod,size 3,accepted,2,1.0,1.0,1.0
+14,prod,size 4,all,1,1.0,1.0,1.0
+14,prod,size 4,accepted,1,1.0,1.0,1.0
+14,prod,size 5,all,1,0.9789,1.019,1.019
+14,prod,size 5,corrected,1,0.9789,1.019,1.019
+14,dev,empty,all,3,0.9934,0.996,0.996
+14,dev,empty,corrected,2,0.9962,0.996,0.996
+14,dev,empty,accepted,1,0.9876,0.988,0.988
+14,dev,green soil,all,3,0.8943,0.904,0.88
+14,dev,green soil,corrected,3,0.8943,0.904,0.88
+14,dev,size 1,all,4,0.9502,0.969,0.951
+14,dev,size 1,corrected,2,0.9314,0.931,0.942
+14,dev,size 1,accepted,2,0.9691,0.969,0.972
+14,dev,size 2,all,5,0.9577,0.983,0.995
+14,dev,size 2,corrected,4,0.9525,0.997,0.999
+14,dev,size 2,accepted,1,0.9785,0.978,0.978
+14,dev,size 3,all,4,0.9417,0.984,1.01
+14,dev,size 3,corrected,4,0.9417,0.984,1.01
+14,dev,size 4,all,3,0.9654,0.99,1.004
+14,dev,size 4,corrected,2,0.9529,1.008,1.009
+14,dev,size 4,accepted,1,0.9903,0.99,0.99
+14,dev,size 5,all,3,0.9896,0.994,0.994
+14,dev,size 5,corrected,3,0.9896,0.994,0.994
+14,both,blue mat,all,5,0.9433,0.952,0.961
+14,both,blue mat,corrected,5,0.9433,0.952,0.961
+14,both,empty,all,6,0.4967,0.494,0.984
+14,both,empty,corrected,5,0.3985,0.0,0.984
+14,both,empty,accepted,1,0.9876,0.988,0.988
+14,both,green soil,all,6,0.9137,0.956,0.889
+14,both,green soil,corrected,4,0.8908,0.949,0.886
+14,both,green soil,accepted,2,0.9594,0.959,0.942
+14,both,size 1,all,6,0.9668,0.979,0.954
+14,both,size 1,corrected,2,0.9314,0.931,0.942
+14,both,size 1,accepted,4,0.9846,0.99,0.975
+14,both,size 2,all,5,0.9577,0.983,0.995
+14,both,size 2,corrected,4,0.9525,0.997,0.999
+14,both,size 2,accepted,1,0.9785,0.978,0.978
+14,both,size 3,all,6,0.9611,0.996,1.01
+14,both,size 3,corrected,4,0.9417,0.984,1.01
+14,both,size 3,accepted,2,1.0,1.0,1.0
+14,both,size 4,all,4,0.974,0.995,1.004
+14,both,size 4,corrected,2,0.9529,1.008,1.009
+14,both,size 4,accepted,2,0.9952,0.995,0.991
+14,both,size 5,all,4,0.987,0.995,0.995
+14,both,size 5,corrected,4,0.987,0.995,0.995
+15,prod,blue mat,all,5,0.9433,0.952,0.961
+15,prod,blue mat,corrected,5,0.9433,0.952,0.961
+15,prod,empty,all,3,0.0,0.0,0.0
+15,prod,empty,corrected,3,0.0,0.0,0.0
+15,prod,green soil,all,3,0.9046,0.968,0.918
+15,prod,green soil,corrected,1,0.8715,0.968,0.968
+15,prod,green soil,accepted,2,0.9212,0.921,0.888
+15,prod,size 1,all,2,1.0,1.0,1.0
+15,prod,size 1,accepted,2,1.0,1.0,1.0
+15,prod,size 3,all,2,1.0,1.0,1.0
+15,prod,size 3,accepted,2,1.0,1.0,1.0
+15,prod,size 4,all,1,1.0,1.0,1.0
+15,prod,size 4,accepted,1,1.0,1.0,1.0
+15,prod,size 5,all,1,0.9789,1.019,1.019
+15,prod,size 5,corrected,1,0.9789,1.019,1.019
+15,dev,empty,all,3,0.9882,0.992,0.992
+15,dev,empty,corrected,2,0.9925,0.992,0.993
+15,dev,empty,accepted,1,0.9796,0.98,0.98
+15,dev,green soil,all,3,0.8699,0.858,0.852
+15,dev,green soil,corrected,3,0.8699,0.858,0.852
+15,dev,size 1,all,4,0.9246,0.945,0.926
+15,dev,size 1,corrected,2,0.9028,0.903,0.915
+15,dev,size 1,accepted,2,0.9464,0.946,0.95
+15,dev,size 2,all,5,0.9427,0.966,0.967
+15,dev,size 2,corrected,4,0.9383,0.972,0.969
+15,dev,size 2,accepted,1,0.96,0.96,0.96
+15,dev,size 3,all,4,0.9247,0.953,0.969
+15,dev,size 3,corrected,4,0.9247,0.953,0.969
+15,dev,size 4,all,3,0.9592,0.981,0.985
+15,dev,size 4,corrected,2,0.9481,0.986,0.987
+15,dev,size 4,accepted,1,0.9815,0.981,0.981
+15,dev,size 5,all,3,0.9828,0.986,0.985
+15,dev,size 5,corrected,3,0.9828,0.986,0.985
+15,both,blue mat,all,5,0.9433,0.952,0.961
+15,both,blue mat,corrected,5,0.9433,0.952,0.961
+15,both,empty,all,6,0.4941,0.49,0.98
+15,both,empty,corrected,5,0.397,0.0,0.98
+15,both,empty,accepted,1,0.9796,0.98,0.98
+15,both,green soil,all,6,0.8872,0.912,0.858
+15,both,green soil,corrected,4,0.8703,0.912,0.856
+15,both,green soil,accepted,2,0.9212,0.921,0.888
+15,both,size 1,all,6,0.9497,0.96,0.93
+15,both,size 1,corrected,2,0.9028,0.903,0.915
+15,both,size 1,accepted,4,0.9732,0.98,0.957
+15,both,size 2,all,5,0.9427,0.966,0.967
+15,both,size 2,corrected,4,0.9383,0.972,0.969
+15,both,size 2,accepted,1,0.96,0.96,0.96
+15,both,size 3,all,6,0.9498,0.977,0.971
+15,both,size 3,corrected,4,0.9247,0.953,0.969
+15,both,size 3,accepted,2,1.0,1.0,1.0
+15,both,size 4,all,4,0.9694,0.991,0.986
+15,both,size 4,corrected,2,0.9481,0.986,0.987
+15,both,size 4,accepted,2,0.9907,0.991,0.982
+15,both,size 5,all,4,0.9818,0.986,0.985
+15,both,size 5,corrected,4,0.9818,0.986,0.985
+16,prod,blue mat,all,5,0.9434,0.952,0.961
+16,prod,blue mat,corrected,5,0.9434,0.952,0.961
+16,prod,empty,all,3,0.0,0.0,0.0
+16,prod,empty,corrected,3,0.0,0.0,0.0
+16,prod,green soil,all,3,0.86,0.912,0.862
+16,prod,green soil,corrected,1,0.843,0.912,0.912
+16,prod,green soil,accepted,2,0.8686,0.869,0.831
+16,prod,size 1,all,2,1.0,1.0,1.0
+16,prod,size 1,accepted,2,1.0,1.0,1.0
+16,prod,size 3,all,2,1.0,1.0,1.0
+16,prod,size 3,accepted,2,1.0,1.0,1.0
+16,prod,size 4,all,1,1.0,1.0,1.0
+16,prod,size 4,accepted,1,1.0,1.0,1.0
+16,prod,size 5,all,1,0.9789,1.019,1.019
+16,prod,size 5,corrected,1,0.9789,1.019,1.019
+16,dev,empty,all,3,0.9819,0.988,0.988
+16,dev,empty,corrected,2,0.9889,0.989,0.989
+16,dev,empty,accepted,1,0.9678,0.968,0.968
+16,dev,green soil,all,3,0.8403,0.813,0.823
+16,dev,green soil,corrected,3,0.8403,0.813,0.823
+16,dev,size 1,all,4,0.8923,0.917,0.896
+16,dev,size 1,corrected,2,0.8678,0.868,0.884
+16,dev,size 1,accepted,2,0.9169,0.917,0.921
+16,dev,size 2,all,5,0.9208,0.947,0.939
+16,dev,size 2,corrected,4,0.9169,0.951,0.94
+16,dev,size 2,accepted,1,0.9364,0.936,0.936
+16,dev,size 3,all,4,0.9,0.92,0.927
+16,dev,size 3,corrected,4,0.9,0.92,0.927
+16,dev,size 4,all,3,0.9534,0.972,0.967
+16,dev,size 4,corrected,2,0.9441,0.965,0.965
+16,dev,size 4,accepted,1,0.9721,0.972,0.972
+16,dev,size 5,all,3,0.9747,0.979,0.976
+16,dev,size 5,corrected,3,0.9747,0.979,0.976
+16,both,blue mat,all,5,0.9434,0.952,0.961
+16,both,blue mat,corrected,5,0.9434,0.952,0.961
+16,both,empty,all,6,0.4909,0.484,0.976
+16,both,empty,corrected,5,0.3956,0.0,0.977
+16,both,empty,accepted,1,0.9678,0.968,0.968
+16,both,green soil,all,6,0.8502,0.863,0.826
+16,both,green soil,corrected,4,0.841,0.863,0.826
+16,both,green soil,accepted,2,0.8686,0.869,0.831
+16,both,size 1,all,6,0.9282,0.939,0.901
+16,both,size 1,corrected,2,0.8678,0.868,0.884
+16,both,size 1,accepted,4,0.9584,0.967,0.932
+16,both,size 2,all,5,0.9208,0.947,0.939
+16,both,size 2,corrected,4,0.9169,0.951,0.94
+16,both,size 2,accepted,1,0.9364,0.936,0.936
+16,both,size 3,all,6,0.9334,0.961,0.931
+16,both,size 3,corrected,4,0.9,0.92,0.927
+16,both,size 3,accepted,2,1.0,1.0,1.0
+16,both,size 4,all,4,0.9651,0.977,0.968
+16,both,size 4,corrected,2,0.9441,0.965,0.965
+16,both,size 4,accepted,2,0.9861,0.986,0.973
+16,both,size 5,all,4,0.9758,0.979,0.977
+16,both,size 5,corrected,4,0.9758,0.979,0.977
+17,prod,blue mat,all,5,0.9434,0.951,0.961
+17,prod,blue mat,corrected,5,0.9434,0.951,0.961
+17,prod,empty,all,3,0.0,0.0,0.0
+17,prod,empty,corrected,3,0.0,0.0,0.0
+17,prod,green soil,all,3,0.8269,0.844,0.811
+17,prod,green soil,corrected,1,0.8184,0.844,0.844
+17,prod,green soil,accepted,2,0.8312,0.831,0.791
+17,prod,size 1,all,2,1.0,1.0,1.0
+17,prod,size 1,accepted,2,1.0,1.0,1.0
+17,prod,size 3,all,2,1.0,1.0,1.0
+17,prod,size 3,accepted,2,1.0,1.0,1.0
+17,prod,size 4,all,1,1.0,1.0,1.0
+17,prod,size 4,accepted,1,1.0,1.0,1.0
+17,prod,size 5,all,1,0.9789,1.019,1.019
+17,prod,size 5,corrected,1,0.9789,1.019,1.019
+17,dev,empty,all,3,0.9761,0.984,0.984
+17,dev,empty,corrected,2,0.9852,0.985,0.986
+17,dev,empty,accepted,1,0.958,0.958,0.958
+17,dev,green soil,all,3,0.8104,0.763,0.799
+17,dev,green soil,corrected,3,0.8104,0.763,0.799
+17,dev,size 1,all,4,0.8568,0.882,0.863
+17,dev,size 1,corrected,2,0.8319,0.832,0.852
+17,dev,size 1,accepted,2,0.8817,0.882,0.887
+17,dev,size 2,all,5,0.897,0.929,0.912
+17,dev,size 2,corrected,4,0.8923,0.933,0.911
+17,dev,size 2,accepted,1,0.9157,0.916,0.916
+17,dev,size 3,all,4,0.8672,0.882,0.885
+17,dev,size 3,corrected,4,0.8672,0.882,0.885
+17,dev,size 4,all,3,0.9428,0.963,0.952
+17,dev,size 4,corrected,2,0.9321,0.947,0.948
+17,dev,size 4,accepted,1,0.9643,0.964,0.964
+17,dev,size 5,all,3,0.9659,0.971,0.967
+17,dev,size 5,corrected,3,0.9659,0.971,0.967
+17,both,blue mat,all,5,0.9434,0.951,0.961
+17,both,blue mat,corrected,5,0.9434,0.951,0.961
+17,both,empty,all,6,0.4881,0.479,0.972
+17,both,empty,corrected,5,0.3941,0.0,0.973
+17,both,empty,accepted,1,0.958,0.958,0.958
+17,both,green soil,all,6,0.8187,0.804,0.8
+17,both,green soil,corrected,4,0.8124,0.804,0.801
+17,both,green soil,accepted,2,0.8312,0.831,0.791
+17,both,size 1,all,6,0.9045,0.913,0.869
+17,both,size 1,corrected,2,0.8319,0.832,0.852
+17,both,size 1,accepted,4,0.9408,0.951,0.901
+17,both,size 2,all,5,0.897,0.929,0.912
+17,both,size 2,corrected,4,0.8923,0.933,0.911
+17,both,size 2,accepted,1,0.9157,0.916,0.916
+17,both,size 3,all,6,0.9115,0.94,0.891
+17,both,size 3,corrected,4,0.8672,0.882,0.885
+17,both,size 3,accepted,2,1.0,1.0,1.0
+17,both,size 4,all,4,0.9571,0.964,0.953
+17,both,size 4,corrected,2,0.9321,0.947,0.948
+17,both,size 4,accepted,2,0.9822,0.982,0.966
+17,both,size 5,all,4,0.9691,0.971,0.968
+17,both,size 5,corrected,4,0.9691,0.971,0.968
+18,prod,blue mat,all,5,0.943,0.95,0.96
+18,prod,blue mat,corrected,5,0.943,0.95,0.96
+18,prod,empty,all,3,0.0,0.0,0.0
+18,prod,empty,corrected,3,0.0,0.0,0.0
+18,prod,green soil,all,3,0.7661,0.779,0.742
+18,prod,green soil,corrected,1,0.7764,0.779,0.779
+18,prod,green soil,accepted,2,0.761,0.761,0.719
+18,prod,size 1,all,2,1.0,1.0,1.0
+18,prod,size 1,accepted,2,1.0,1.0,1.0
+18,prod,size 3,all,2,0.9793,0.979,0.98
+18,prod,size 3,accepted,2,0.9793,0.979,0.98
+18,prod,size 4,all,1,1.0,1.0,1.0
+18,prod,size 4,accepted,1,1.0,1.0,1.0
+18,prod,size 5,all,1,0.9789,1.019,1.019
+18,prod,size 5,corrected,1,0.9789,1.019,1.019
+18,dev,empty,all,3,0.969,0.979,0.98
+18,dev,empty,corrected,2,0.9807,0.981,0.981
+18,dev,empty,accepted,1,0.9454,0.945,0.945
+18,dev,green soil,all,3,0.775,0.735,0.773
+18,dev,green soil,corrected,3,0.775,0.735,0.773
+18,dev,size 1,all,4,0.8161,0.841,0.824
+18,dev,size 1,corrected,2,0.7911,0.791,0.813
+18,dev,size 1,accepted,2,0.8411,0.841,0.846
+18,dev,size 2,all,5,0.8736,0.912,0.886
+18,dev,size 2,corrected,4,0.8687,0.913,0.884
+18,dev,size 2,accepted,1,0.8932,0.893,0.893
+18,dev,size 3,all,4,0.8292,0.836,0.843
+18,dev,size 3,corrected,4,0.8292,0.836,0.843
+18,dev,size 4,all,3,0.9295,0.941,0.935
+18,dev,size 4,corrected,2,0.9164,0.926,0.927
+18,dev,size 4,accepted,1,0.9558,0.956,0.956
+18,dev,size 5,all,3,0.9316,0.962,0.931
+18,dev,size 5,corrected,3,0.9316,0.962,0.931
+18,both,blue mat,all,5,0.943,0.95,0.96
+18,both,blue mat,corrected,5,0.943,0.95,0.96
+18,both,empty,all,6,0.4845,0.473,0.968
+18,both,empty,corrected,5,0.3923,0.0,0.969
+18,both,empty,accepted,1,0.9454,0.945,0.945
+18,both,green soil,all,6,0.7705,0.757,0.77
+18,both,green soil,corrected,4,0.7753,0.757,0.773
+18,both,green soil,accepted,2,0.761,0.761,0.719
+18,both,size 1,all,6,0.8774,0.876,0.832
+18,both,size 1,corrected,2,0.7911,0.791,0.813
+18,both,size 1,accepted,4,0.9205,0.93,0.866
+18,both,size 2,all,5,0.8736,0.912,0.886
+18,both,size 2,corrected,4,0.8687,0.913,0.884
+18,both,size 2,accepted,1,0.8932,0.893,0.893
+18,both,size 3,all,6,0.8793,0.903,0.85
+18,both,size 3,corrected,4,0.8292,0.836,0.843
+18,both,size 3,accepted,2,0.9793,0.979,0.98
+18,both,size 4,all,4,0.9472,0.948,0.936
+18,both,size 4,corrected,2,0.9164,0.926,0.927
+18,both,size 4,accepted,2,0.9779,0.978,0.958
+18,both,size 5,all,4,0.9434,0.963,0.932
+18,both,size 5,corrected,4,0.9434,0.963,0.932
+19,prod,blue mat,all,5,0.9408,0.954,0.965
+19,prod,blue mat,corrected,5,0.9408,0.954,0.965
+19,prod,empty,all,3,0.0,0.0,0.0
+19,prod,empty,corrected,3,0.0,0.0,0.0
+19,prod,green soil,all,3,0.9,1.128,1.11
+19,prod,green soil,corrected,1,0.8134,1.229,1.229
+19,prod,green soil,accepted,2,0.9433,1.064,1.037
+19,prod,size 1,all,2,0.8339,1.199,1.199
+19,prod,size 1,accepted,2,0.8339,1.199,1.199
+19,prod,size 3,all,2,0.8396,1.192,1.194
+19,prod,size 3,accepted,2,0.8396,1.192,1.194
+19,prod,size 4,all,1,0.8755,1.142,1.142
+19,prod,size 4,accepted,1,0.8755,1.142,1.142
+19,prod,size 5,all,1,0.8833,1.131,1.131
+19,prod,size 5,corrected,1,0.8833,1.131,1.131
+19,dev,empty,all,3,1.0,1.0,1.0
+19,dev,empty,corrected,2,1.0,1.0,1.0
+19,dev,empty,accepted,1,1.0,1.0,1.0
+19,dev,green soil,all,3,0.9168,0.957,0.91
+19,dev,green soil,corrected,3,0.9168,0.957,0.91
+19,dev,size 1,all,4,0.978,0.999,0.977
+19,dev,size 1,corrected,2,0.956,0.958,0.967
+19,dev,size 1,accepted,2,1.0,1.0,1.0
+19,dev,size 2,all,5,0.9686,1.012,1.025
+19,dev,size 2,corrected,4,0.9608,1.029,1.031
+19,dev,size 2,accepted,1,1.0,1.0,1.0
+19,dev,size 3,all,4,0.9544,1.013,1.051
+19,dev,size 3,corrected,4,0.9544,1.013,1.051
+19,dev,size 4,all,3,0.9643,1.019,1.032
+19,dev,size 4,corrected,2,0.9464,1.043,1.044
+19,dev,size 4,accepted,1,1.0,1.0,1.0
+19,dev,size 5,all,3,0.997,1.003,1.003
+19,dev,size 5,corrected,3,0.997,1.003,1.003
+19,both,blue mat,all,5,0.9408,0.954,0.965
+19,both,blue mat,corrected,5,0.9408,0.954,0.965
+19,both,empty,all,6,0.5,0.5,0.988
+19,both,empty,corrected,5,0.4,0.0,0.987
+19,both,empty,accepted,1,1.0,1.0,1.0
+19,both,green soil,all,6,0.9084,1.013,0.928
+19,both,green soil,corrected,4,0.891,0.992,0.922
+19,both,green soil,accepted,2,0.9433,1.064,1.037
+19,both,size 1,all,6,0.93,1.0,0.987
+19,both,size 1,corrected,2,0.956,0.958,0.967
+19,both,size 1,accepted,4,0.9169,1.098,1.025
+19,both,size 2,all,5,0.9686,1.012,1.025
+19,both,size 2,corrected,4,0.9608,1.029,1.031
+19,both,size 2,accepted,1,1.0,1.0,1.0
+19,both,size 3,all,6,0.9162,1.089,1.058
+19,both,size 3,corrected,4,0.9544,1.013,1.051
+19,both,size 3,accepted,2,0.8396,1.192,1.194
+19,both,size 4,all,4,0.9421,1.043,1.033
+19,both,size 4,corrected,2,0.9464,1.043,1.044
+19,both,size 4,accepted,2,0.9378,1.071,1.006
+19,both,size 5,all,4,0.9686,1.004,1.005
+19,both,size 5,corrected,4,0.9686,1.004,1.005
+20,prod,blue mat,all,5,0.9419,0.954,0.963
+20,prod,blue mat,corrected,5,0.9419,0.954,0.963
+20,prod,empty,all,3,0.0,0.0,0.0
+20,prod,empty,corrected,3,0.0,0.0,0.0
+20,prod,green soil,all,3,0.9,1.128,1.11
+20,prod,green soil,corrected,1,0.8134,1.229,1.229
+20,prod,green soil,accepted,2,0.9433,1.064,1.037
+20,prod,size 1,all,2,0.8807,1.135,1.135
+20,prod,size 1,accepted,2,0.8807,1.135,1.135
+20,prod,size 3,all,2,0.8865,1.128,1.129
+20,prod,size 3,accepted,2,0.8865,1.128,1.129
+20,prod,size 4,all,1,0.9046,1.105,1.105
+20,prod,size 4,accepted,1,0.9046,1.105,1.105
+20,prod,size 5,all,1,0.9071,1.1,1.1
+20,prod,size 5,corrected,1,0.9071,1.1,1.1
+20,dev,empty,all,3,1.0,1.0,1.0
+20,dev,empty,corrected,2,1.0,1.0,1.0
+20,dev,empty,accepted,1,1.0,1.0,1.0
+20,dev,green soil,all,3,0.9168,0.957,0.91
+20,dev,green soil,corrected,3,0.9168,0.957,0.91
+20,dev,size 1,all,4,0.978,0.999,0.977
+20,dev,size 1,corrected,2,0.956,0.958,0.967
+20,dev,size 1,accepted,2,1.0,1.0,1.0
+20,dev,size 2,all,5,0.9686,1.012,1.025
+20,dev,size 2,corrected,4,0.9608,1.029,1.031
+20,dev,size 2,accepted,1,1.0,1.0,1.0
+20,dev,size 3,all,4,0.9544,1.013,1.051
+20,dev,size 3,corrected,4,0.9544,1.013,1.051
+20,dev,size 4,all,3,0.9643,1.019,1.032
+20,dev,size 4,corrected,2,0.9464,1.043,1.044
+20,dev,size 4,accepted,1,1.0,1.0,1.0
+20,dev,size 5,all,3,0.997,1.003,1.003
+20,dev,size 5,corrected,3,0.997,1.003,1.003
+20,both,blue mat,all,5,0.9419,0.954,0.963
+20,both,blue mat,corrected,5,0.9419,0.954,0.963
+20,both,empty,all,6,0.5,0.5,0.988
+20,both,empty,corrected,5,0.4,0.0,0.987
+20,both,empty,accepted,1,1.0,1.0,1.0
+20,both,green soil,all,6,0.9084,1.013,0.928
+20,both,green soil,corrected,4,0.891,0.992,0.922
+20,both,green soil,accepted,2,0.9433,1.064,1.037
+20,both,size 1,all,6,0.9456,1.0,0.985
+20,both,size 1,corrected,2,0.956,0.958,0.967
+20,both,size 1,accepted,4,0.9403,1.066,1.017
+20,both,size 2,all,5,0.9686,1.012,1.025
+20,both,size 2,corrected,4,0.9608,1.029,1.031
+20,both,size 2,accepted,1,1.0,1.0,1.0
+20,both,size 3,all,6,0.9318,1.066,1.055
+20,both,size 3,corrected,4,0.9544,1.013,1.051
+20,both,size 3,accepted,2,0.8865,1.128,1.129
+20,both,size 4,all,4,0.9494,1.043,1.032
+20,both,size 4,corrected,2,0.9464,1.043,1.044
+20,both,size 4,accepted,2,0.9523,1.053,1.004
+20,both,size 5,all,4,0.9745,1.004,1.005
+20,both,size 5,corrected,4,0.9745,1.004,1.005
+21,prod,blue mat,all,5,0.9425,0.954,0.962
+21,prod,blue mat,corrected,5,0.9425,0.954,0.962
+21,prod,empty,all,3,0.0,0.0,0.0
+21,prod,empty,corrected,3,0.0,0.0,0.0
+21,prod,green soil,all,3,0.9085,1.097,1.104
+21,prod,green soil,corrected,1,0.8134,1.229,1.229
+21,prod,green soil,accepted,2,0.956,1.048,1.028
+21,prod,size 1,all,2,0.9201,1.087,1.087
+21,prod,size 1,accepted,2,0.9201,1.087,1.087
+21,prod,size 3,all,2,0.9321,1.073,1.073
+21,prod,size 3,accepted,2,0.9321,1.073,1.073
+21,prod,size 4,all,1,0.9491,1.054,1.054
+21,prod,size 4,accepted,1,0.9491,1.054,1.054
+21,prod,size 5,all,1,0.9314,1.071,1.071
+21,prod,size 5,corrected,1,0.9314,1.071,1.071
+21,dev,empty,all,3,1.0,1.0,1.0
+21,dev,empty,corrected,2,1.0,1.0,1.0
+21,dev,empty,accepted,1,1.0,1.0,1.0
+21,dev,green soil,all,3,0.9168,0.957,0.91
+21,dev,green soil,corrected,3,0.9168,0.957,0.91
+21,dev,size 1,all,4,0.978,0.999,0.977
+21,dev,size 1,corrected,2,0.956,0.958,0.967
+21,dev,size 1,accepted,2,1.0,1.0,1.0
+21,dev,size 2,all,5,0.9686,1.012,1.025
+21,dev,size 2,corrected,4,0.9608,1.029,1.031
+21,dev,size 2,accepted,1,1.0,1.0,1.0
+21,dev,size 3,all,4,0.9544,1.013,1.051
+21,dev,size 3,corrected,4,0.9544,1.013,1.051
+21,dev,size 4,all,3,0.9643,1.019,1.032
+21,dev,size 4,corrected,2,0.9464,1.043,1.044
+21,dev,size 4,accepted,1,1.0,1.0,1.0
+21,dev,size 5,all,3,0.997,1.003,1.003
+21,dev,size 5,corrected,3,0.997,1.003,1.003
+21,both,blue mat,all,5,0.9425,0.954,0.962
+21,both,blue mat,corrected,5,0.9425,0.954,0.962
+21,both,empty,all,6,0.5,0.5,0.988
+21,both,empty,corrected,5,0.4,0.0,0.987
+21,both,empty,accepted,1,1.0,1.0,1.0
+21,both,green soil,all,6,0.9126,1.013,0.927
+21,both,green soil,corrected,4,0.891,0.992,0.922
+21,both,green soil,accepted,2,0.956,1.048,1.028
+21,both,size 1,all,6,0.9587,1.0,0.982
+21,both,size 1,corrected,2,0.956,0.958,0.967
+21,both,size 1,accepted,4,0.9601,1.041,1.011
+21,both,size 2,all,5,0.9686,1.012,1.025
+21,both,size 2,corrected,4,0.9608,1.029,1.031
+21,both,size 2,accepted,1,1.0,1.0,1.0
+21,both,size 3,all,6,0.947,1.042,1.052
+21,both,size 3,corrected,4,0.9544,1.013,1.051
+21,both,size 3,accepted,2,0.9321,1.073,1.073
+21,both,size 4,all,4,0.9605,1.036,1.032
+21,both,size 4,corrected,2,0.9464,1.043,1.044
+21,both,size 4,accepted,2,0.9745,1.027,1.002
+21,both,size 5,all,4,0.9806,1.004,1.004
+21,both,size 5,corrected,4,0.9806,1.004,1.004
+22,prod,blue mat,all,5,0.9431,0.953,0.962
+22,prod,blue mat,corrected,5,0.9431,0.953,0.962
+22,prod,empty,all,3,0.0,0.0,0.0
+22,prod,empty,corrected,3,0.0,0.0,0.0
+22,prod,green soil,all,3,0.9295,1.026,1.092
+22,prod,green soil,corrected,1,0.8134,1.229,1.229
+22,prod,green soil,accepted,2,0.9875,1.013,1.007
+22,prod,size 1,all,2,0.9665,1.035,1.035
+22,prod,size 1,accepted,2,0.9665,1.035,1.035
+22,prod,size 3,all,2,0.9797,1.021,1.021
+22,prod,size 3,accepted,2,0.9797,1.021,1.021
+22,prod,size 4,all,1,0.982,1.018,1.018
+22,prod,size 4,accepted,1,0.982,1.018,1.018
+22,prod,size 5,all,1,0.965,1.034,1.034
+22,prod,size 5,corrected,1,0.965,1.034,1.034
+22,dev,empty,all,3,1.0,1.0,1.0
+22,dev,empty,corrected,2,1.0,1.0,1.0
+22,dev,empty,accepted,1,1.0,1.0,1.0
+22,dev,green soil,all,3,0.9168,0.957,0.91
+22,dev,green soil,corrected,3,0.9168,0.957,0.91
+22,dev,size 1,all,4,0.978,0.999,0.977
+22,dev,size 1,corrected,2,0.956,0.958,0.967
+22,dev,size 1,accepted,2,1.0,1.0,1.0
+22,dev,size 2,all,5,0.9686,1.012,1.025
+22,dev,size 2,corrected,4,0.9608,1.029,1.031
+22,dev,size 2,accepted,1,1.0,1.0,1.0
+22,dev,size 3,all,4,0.9544,1.013,1.051
+22,dev,size 3,corrected,4,0.9544,1.013,1.051
+22,dev,size 4,all,3,0.9643,1.019,1.032
+22,dev,size 4,corrected,2,0.9464,1.043,1.044
+22,dev,size 4,accepted,1,1.0,1.0,1.0
+22,dev,size 5,all,3,0.997,1.003,1.003
+22,dev,size 5,corrected,3,0.997,1.003,1.003
+22,both,blue mat,all,5,0.9431,0.953,0.962
+22,both,blue mat,corrected,5,0.9431,0.953,0.962
+22,both,empty,all,6,0.5,0.5,0.988
+22,both,empty,corrected,5,0.4,0.0,0.987
+22,both,empty,accepted,1,1.0,1.0,1.0
+22,both,green soil,all,6,0.9231,1.013,0.926
+22,both,green soil,corrected,4,0.891,0.992,0.922
+22,both,green soil,accepted,2,0.9875,1.013,1.007
+22,both,size 1,all,6,0.9742,1.0,0.98
+22,both,size 1,corrected,2,0.956,0.958,0.967
+22,both,size 1,accepted,4,0.9833,1.015,1.004
+22,both,size 2,all,5,0.9686,1.012,1.025
+22,both,size 2,corrected,4,0.9608,1.029,1.031
+22,both,size 2,accepted,1,1.0,1.0,1.0
+22,both,size 3,all,6,0.9629,1.021,1.049
+22,both,size 3,corrected,4,0.9544,1.013,1.051
+22,both,size 3,accepted,2,0.9797,1.021,1.021
+22,both,size 4,all,4,0.9687,1.019,1.031
+22,both,size 4,corrected,2,0.9464,1.043,1.044
+22,both,size 4,accepted,2,0.991,1.009,1.001
+22,both,size 5,all,4,0.989,1.004,1.004
+22,both,size 5,corrected,4,0.989,1.004,1.004
+23,prod,blue mat,all,5,0.943,0.952,0.961
+23,prod,blue mat,corrected,5,0.943,0.952,0.961
+23,prod,empty,all,3,0.0,0.0,0.0
+23,prod,empty,corrected,3,0.0,0.0,0.0
+23,prod,green soil,all,3,0.9337,0.971,1.017
+23,prod,green soil,corrected,1,0.8711,1.105,1.105
+23,prod,green soil,accepted,2,0.9651,0.965,0.963
+23,prod,size 1,all,2,0.9697,0.97,0.97
+23,prod,size 1,accepted,2,0.9697,0.97,0.97
+23,prod,size 3,all,2,0.9719,0.972,0.972
+23,prod,size 3,accepted,2,0.9719,0.972,0.972
+23,prod,size 4,all,1,0.9792,0.979,0.979
+23,prod,size 4,accepted,1,0.9792,0.979,0.979
+23,prod,size 5,all,1,0.9673,1.004,1.004
+23,prod,size 5,corrected,1,0.9673,1.004,1.004
+23,dev,empty,all,3,1.0,1.0,1.0
+23,dev,empty,corrected,2,1.0,1.0,1.0
+23,dev,empty,accepted,1,1.0,1.0,1.0
+23,dev,green soil,all,3,0.9168,0.957,0.91
+23,dev,green soil,corrected,3,0.9168,0.957,0.91
+23,dev,size 1,all,4,0.978,0.999,0.977
+23,dev,size 1,corrected,2,0.956,0.958,0.967
+23,dev,size 1,accepted,2,1.0,1.0,1.0
+23,dev,size 2,all,5,0.9686,1.012,1.025
+23,dev,size 2,corrected,4,0.9608,1.029,1.031
+23,dev,size 2,accepted,1,1.0,1.0,1.0
+23,dev,size 3,all,4,0.9544,1.013,1.051
+23,dev,size 3,corrected,4,0.9544,1.013,1.051
+23,dev,size 4,all,3,0.9643,1.019,1.032
+23,dev,size 4,corrected,2,0.9464,1.043,1.044
+23,dev,size 4,accepted,1,1.0,1.0,1.0
+23,dev,size 5,all,3,0.997,1.003,1.003
+23,dev,size 5,corrected,3,0.997,1.003,1.003
+23,both,blue mat,all,5,0.943,0.952,0.961
+23,both,blue mat,corrected,5,0.943,0.952,0.961
+23,both,empty,all,6,0.5,0.5,0.988
+23,both,empty,corrected,5,0.4,0.0,0.987
+23,both,empty,accepted,1,1.0,1.0,1.0
+23,both,green soil,all,6,0.9253,0.965,0.92
+23,both,green soil,corrected,4,0.9054,0.992,0.917
+23,both,green soil,accepted,2,0.9651,0.965,0.963
+23,both,size 1,all,6,0.9752,0.985,0.977
+23,both,size 1,corrected,2,0.956,0.958,0.967
+23,both,size 1,accepted,4,0.9848,0.987,0.996
+23,both,size 2,all,5,0.9686,1.012,1.025
+23,both,size 2,corrected,4,0.9608,1.029,1.031
+23,both,size 2,accepted,1,1.0,1.0,1.0
+23,both,size 3,all,6,0.9602,1.001,1.046
+23,both,size 3,corrected,4,0.9544,1.013,1.051
+23,both,size 3,accepted,2,0.9719,0.972,0.972
+23,both,size 4,all,4,0.968,1.009,1.031
+23,both,size 4,corrected,2,0.9464,1.043,1.044
+23,both,size 4,accepted,2,0.9896,0.99,0.999
+23,both,size 5,all,4,0.9896,1.004,1.003
+23,both,size 5,corrected,4,0.9896,1.004,1.003
+24,prod,blue mat,all,5,0.9427,0.952,0.96
+24,prod,blue mat,corrected,5,0.9427,0.952,0.96
+24,prod,empty,all,3,0.0,0.0,0.0
+24,prod,empty,corrected,3,0.0,0.0,0.0
+24,prod,green soil,all,3,0.8966,0.94,0.936
+24,prod,green soil,corrected,1,0.8808,1.012,1.012
+24,prod,green soil,accepted,2,0.9045,0.905,0.89
+24,prod,size 1,all,2,0.924,0.924,0.924
+24,prod,size 1,accepted,2,0.924,0.924,0.924
+24,prod,size 3,all,2,0.924,0.924,0.923
+24,prod,size 3,accepted,2,0.924,0.924,0.923
+24,prod,size 4,all,1,0.9333,0.933,0.933
+24,prod,size 4,accepted,1,0.9333,0.933,0.933
+24,prod,size 5,all,1,0.9497,0.976,0.976
+24,prod,size 5,corrected,1,0.9497,0.976,0.976
+24,dev,empty,all,3,1.0,1.0,1.0
+24,dev,empty,corrected,2,1.0,1.0,1.0
+24,dev,empty,accepted,1,1.0,1.0,1.0
+24,dev,green soil,all,3,0.9168,0.957,0.91
+24,dev,green soil,corrected,3,0.9168,0.957,0.91
+24,dev,size 1,all,4,0.978,0.999,0.977
+24,dev,size 1,corrected,2,0.956,0.958,0.967
+24,dev,size 1,accepted,2,1.0,1.0,1.0
+24,dev,size 2,all,5,0.9686,1.012,1.025
+24,dev,size 2,corrected,4,0.9608,1.029,1.031
+24,dev,size 2,accepted,1,1.0,1.0,1.0
+24,dev,size 3,all,4,0.9544,1.013,1.051
+24,dev,size 3,corrected,4,0.9544,1.013,1.051
+24,dev,size 4,all,3,0.9643,1.019,1.032
+24,dev,size 4,corrected,2,0.9464,1.043,1.044
+24,dev,size 4,accepted,1,1.0,1.0,1.0
+24,dev,size 5,all,3,0.997,1.003,1.003
+24,dev,size 5,corrected,3,0.997,1.003,1.003
+24,both,blue mat,all,5,0.9427,0.952,0.96
+24,both,blue mat,corrected,5,0.9427,0.952,0.96
+24,both,empty,all,6,0.5,0.5,0.988
+24,both,empty,corrected,5,0.4,0.0,0.987
+24,both,empty,accepted,1,1.0,1.0,1.0
+24,both,green soil,all,6,0.9067,0.948,0.912
+24,both,green soil,corrected,4,0.9078,0.984,0.914
+24,both,green soil,accepted,2,0.9045,0.905,0.89
+24,both,size 1,all,6,0.96,0.961,0.975
+24,both,size 1,corrected,2,0.956,0.958,0.967
+24,both,size 1,accepted,4,0.962,0.962,0.99
+24,both,size 2,all,5,0.9686,1.012,1.025
+24,both,size 2,corrected,4,0.9608,1.029,1.031
+24,both,size 2,accepted,1,1.0,1.0,1.0
+24,both,size 3,all,6,0.9443,1.001,1.044
+24,both,size 3,corrected,4,0.9544,1.013,1.051
+24,both,size 3,accepted,2,0.924,0.924,0.923
+24,both,size 4,all,4,0.9565,1.009,1.03
+24,both,size 4,corrected,2,0.9464,1.043,1.044
+24,both,size 4,accepted,2,0.9666,0.967,0.997
+24,both,size 5,all,4,0.9852,1.002,1.003
+24,both,size 5,corrected,4,0.9852,1.002,1.003
+25,prod,blue mat,all,5,0.9416,0.951,0.959
+25,prod,blue mat,corrected,5,0.9416,0.951,0.959
+25,prod,empty,all,3,0.0,0.0,0.0
+25,prod,empty,corrected,3,0.0,0.0,0.0
+25,prod,green soil,all,3,0.854,0.885,0.878
+25,prod,green soil,corrected,1,0.8587,0.943,0.943
+25,prod,green soil,accepted,2,0.8516,0.852,0.838
+25,prod,size 1,all,2,0.8666,0.867,0.867
+25,prod,size 1,accepted,2,0.8666,0.867,0.867
+25,prod,size 3,all,2,0.873,0.873,0.872
+25,prod,size 3,accepted,2,0.873,0.873,0.872
+25,prod,size 4,all,1,0.8907,0.891,0.891
+25,prod,size 4,accepted,1,0.8907,0.891,0.891
+25,prod,size 5,all,1,0.9214,0.941,0.941
+25,prod,size 5,corrected,1,0.9214,0.941,0.941
+25,dev,empty,all,3,1.0,1.0,1.0
+25,dev,empty,corrected,2,1.0,1.0,1.0
+25,dev,empty,accepted,1,1.0,1.0,1.0
+25,dev,green soil,all,3,0.9168,0.957,0.91
+25,dev,green soil,corrected,3,0.9168,0.957,0.91
+25,dev,size 1,all,4,0.978,0.999,0.977
+25,dev,size 1,corrected,2,0.956,0.958,0.967
+25,dev,size 1,accepted,2,1.0,1.0,1.0
+25,dev,size 2,all,5,0.9686,1.012,1.025
+25,dev,size 2,corrected,4,0.9608,1.029,1.031
+25,dev,size 2,accepted,1,1.0,1.0,1.0
+25,dev,size 3,all,4,0.9544,1.013,1.051
+25,dev,size 3,corrected,4,0.9544,1.013,1.051
+25,dev,size 4,all,3,0.9643,1.019,1.032
+25,dev,size 4,corrected,2,0.9464,1.043,1.044
+25,dev,size 4,accepted,1,1.0,1.0,1.0
+25,dev,size 5,all,3,0.9956,1.0,1.001
+25,dev,size 5,corrected,3,0.9956,1.0,1.001
+25,both,blue mat,all,5,0.9416,0.951,0.959
+25,both,blue mat,corrected,5,0.9416,0.951,0.959
+25,both,empty,all,6,0.5,0.5,0.988
+25,both,empty,corrected,5,0.4,0.0,0.987
+25,both,empty,accepted,1,1.0,1.0,1.0
+25,both,green soil,all,6,0.8854,0.914,0.907
+25,both,green soil,corrected,4,0.9023,0.95,0.911
+25,both,green soil,accepted,2,0.8516,0.852,0.838
+25,both,size 1,all,6,0.9409,0.958,0.972
+25,both,size 1,corrected,2,0.956,0.958,0.967
+25,both,size 1,accepted,4,0.9333,0.937,0.983
+25,both,size 2,all,5,0.9686,1.012,1.025
+25,both,size 2,corrected,4,0.9608,1.029,1.031
+25,both,size 2,accepted,1,1.0,1.0,1.0
+25,both,size 3,all,6,0.9273,1.001,1.041
+25,both,size 3,corrected,4,0.9544,1.013,1.051
+25,both,size 3,accepted,2,0.873,0.873,0.872
+25,both,size 4,all,4,0.9459,1.009,1.03
+25,both,size 4,corrected,2,0.9464,1.043,1.044
+25,both,size 4,accepted,2,0.9454,0.945,0.995
+25,both,size 5,all,4,0.9771,1.0,1.001
+25,both,size 5,corrected,4,0.9771,1.0,1.001
+26,prod,blue mat,all,5,0.9393,0.95,0.956
+26,prod,blue mat,corrected,5,0.9393,0.95,0.956
+26,prod,empty,all,3,0.0,0.0,0.0
+26,prod,empty,corrected,3,0.0,0.0,0.0
+26,prod,green soil,all,3,0.811,0.835,0.814
+26,prod,green soil,corrected,1,0.8477,0.878,0.878
+26,prod,green soil,accepted,2,0.7926,0.793,0.775
+26,prod,size 1,all,2,0.5956,0.596,0.6
+26,prod,size 1,accepted,2,0.5956,0.596,0.6
+26,prod,size 3,all,2,0.8161,0.816,0.814
+26,prod,size 3,accepted,2,0.8161,0.816,0.814
+26,prod,size 4,all,1,0.8496,0.85,0.85
+26,prod,size 4,accepted,1,0.8496,0.85,0.85
+26,prod,size 5,all,1,0.8984,0.916,0.916
+26,prod,size 5,corrected,1,0.8984,0.916,0.916
+26,dev,empty,all,3,1.0,1.0,1.0
+26,dev,empty,corrected,2,1.0,1.0,1.0
+26,dev,empty,accepted,1,1.0,1.0,1.0
+26,dev,green soil,all,3,0.9168,0.957,0.91
+26,dev,green soil,corrected,3,0.9168,0.957,0.91
+26,dev,size 1,all,4,0.978,0.999,0.977
+26,dev,size 1,corrected,2,0.956,0.958,0.967
+26,dev,size 1,accepted,2,1.0,1.0,1.0
+26,dev,size 2,all,5,0.9686,1.012,1.025
+26,dev,size 2,corrected,4,0.9608,1.029,1.031
+26,dev,size 2,accepted,1,1.0,1.0,1.0
+26,dev,size 3,all,4,0.9544,1.013,1.051
+26,dev,size 3,corrected,4,0.9544,1.013,1.051
+26,dev,size 4,all,3,0.9643,1.019,1.032
+26,dev,size 4,corrected,2,0.9464,1.043,1.044
+26,dev,size 4,accepted,1,1.0,1.0,1.0
+26,dev,size 5,all,3,0.9928,1.0,0.995
+26,dev,size 5,corrected,3,0.9928,1.0,0.995
+26,both,blue mat,all,5,0.9393,0.95,0.956
+26,both,blue mat,corrected,5,0.9393,0.95,0.956
+26,both,empty,all,6,0.5,0.5,0.988
+26,both,empty,corrected,5,0.4,0.0,0.987
+26,both,empty,accepted,1,1.0,1.0,1.0
+26,both,green soil,all,6,0.8639,0.869,0.901
+26,both,green soil,corrected,4,0.8995,0.917,0.909
+26,both,green soil,accepted,2,0.7926,0.793,0.775
+26,both,size 1,all,6,0.8505,0.958,0.96
+26,both,size 1,corrected,2,0.956,0.958,0.967
+26,both,size 1,accepted,4,0.7978,0.9,0.949
+26,both,size 2,all,5,0.9686,1.012,1.025
+26,both,size 2,corrected,4,0.9608,1.029,1.031
+26,both,size 2,accepted,1,1.0,1.0,1.0
+26,both,size 3,all,6,0.9083,1.001,1.038
+26,both,size 3,corrected,4,0.9544,1.013,1.051
+26,both,size 3,accepted,2,0.8161,0.816,0.814
+26,both,size 4,all,4,0.9356,1.009,1.029
+26,both,size 4,corrected,2,0.9464,1.043,1.044
+26,both,size 4,accepted,2,0.9248,0.925,0.994
+26,both,size 5,all,4,0.9692,0.993,0.994
+26,both,size 5,corrected,4,0.9692,0.993,0.994
+27,prod,blue mat,all,5,0.9363,0.947,0.951
+27,prod,blue mat,corrected,5,0.9363,0.947,0.951
+27,prod,empty,all,3,0.0,0.0,0.0
+27,prod,empty,corrected,3,0.0,0.0,0.0
+27,prod,green soil,all,3,0.7405,0.769,0.732
+27,prod,green soil,corrected,1,0.7791,0.782,0.782
+27,prod,green soil,accepted,2,0.7212,0.721,0.701
+27,prod,size 1,all,2,0.5213,0.521,0.525
+27,prod,size 1,accepted,2,0.5213,0.521,0.525
+27,prod,size 3,all,2,0.7515,0.752,0.749
+27,prod,size 3,accepted,2,0.7515,0.752,0.749
+27,prod,size 4,all,1,0.7742,0.774,0.774
+27,prod,size 4,accepted,1,0.7742,0.774,0.774
+27,prod,size 5,all,1,0.8434,0.852,0.852
+27,prod,size 5,corrected,1,0.8434,0.852,0.852
+27,dev,empty,all,3,1.0,1.0,1.0
+27,dev,empty,corrected,2,1.0,1.0,1.0
+27,dev,empty,accepted,1,1.0,1.0,1.0
+27,dev,green soil,all,3,0.9168,0.957,0.91
+27,dev,green soil,corrected,3,0.9168,0.957,0.91
+27,dev,size 1,all,4,0.978,0.999,0.977
+27,dev,size 1,corrected,2,0.956,0.958,0.967
+27,dev,size 1,accepted,2,1.0,1.0,1.0
+27,dev,size 2,all,5,0.9686,1.012,1.025
+27,dev,size 2,corrected,4,0.9608,1.029,1.031
+27,dev,size 2,accepted,1,1.0,1.0,1.0
+27,dev,size 3,all,4,0.9544,1.013,1.051
+27,dev,size 3,corrected,4,0.9544,1.013,1.051
+27,dev,size 4,all,3,0.9619,1.019,1.03
+27,dev,size 4,corrected,2,0.9464,1.043,1.044
+27,dev,size 4,accepted,1,0.9928,0.993,0.993
+27,dev,size 5,all,3,0.9854,0.988,0.985
+27,dev,size 5,corrected,3,0.9854,0.988,0.985
+27,both,blue mat,all,5,0.9363,0.947,0.951
+27,both,blue mat,corrected,5,0.9363,0.947,0.951
+27,both,empty,all,6,0.5,0.5,0.988
+27,both,empty,corrected,5,0.4,0.0,0.987
+27,both,empty,accepted,1,1.0,1.0,1.0
+27,both,green soil,all,6,0.8287,0.821,0.894
+27,both,green soil,corrected,4,0.8824,0.908,0.905
+27,both,green soil,accepted,2,0.7212,0.721,0.701
+27,both,size 1,all,6,0.8258,0.958,0.957
+27,both,size 1,corrected,2,0.956,0.958,0.967
+27,both,size 1,accepted,4,0.7607,0.854,0.939
+27,both,size 2,all,5,0.9686,1.012,1.025
+27,both,size 2,corrected,4,0.9608,1.029,1.031
+27,both,size 2,accepted,1,1.0,1.0,1.0
+27,both,size 3,all,6,0.8868,1.001,1.035
+27,both,size 3,corrected,4,0.9544,1.013,1.051
+27,both,size 3,accepted,2,0.7515,0.752,0.749
+27,both,size 4,all,4,0.9149,1.006,1.027
+27,both,size 4,corrected,2,0.9464,1.043,1.044
+27,both,size 4,accepted,2,0.8835,0.883,0.984
+27,both,size 5,all,4,0.9499,0.981,0.983
+27,both,size 5,corrected,4,0.9499,0.981,0.983
+28,prod,blue mat,all,5,0.9095,1.04,1.039
+28,prod,blue mat,corrected,5,0.9095,1.04,1.039
+28,prod,empty,all,3,0.0,0.0,0.0
+28,prod,empty,corrected,3,0.0,0.0,0.0
+28,prod,green soil,all,3,0.9378,1.0,1.087
+28,prod,green soil,corrected,1,0.8134,1.229,1.229
+28,prod,green soil,accepted,2,1.0,1.0,1.0
+28,prod,size 1,all,2,1.0,1.0,1.0
+28,prod,size 1,accepted,2,1.0,1.0,1.0
+28,prod,size 3,all,2,1.0,1.0,1.0
+28,prod,size 3,accepted,2,1.0,1.0,1.0
+28,prod,size 4,all,1,1.0,1.0,1.0
+28,prod,size 4,accepted,1,1.0,1.0,1.0
+28,prod,size 5,all,1,0.9789,1.019,1.019
+28,prod,size 5,corrected,1,0.9789,1.019,1.019
+28,dev,empty,all,3,0.9988,1.0,1.0
+28,dev,empty,corrected,2,0.9996,1.0,1.0
+28,dev,empty,accepted,1,0.997,1.003,1.003
+28,dev,green soil,all,3,0.9167,0.957,0.91
+28,dev,green soil,corrected,3,0.9167,0.957,0.91
+28,dev,size 1,all,4,0.9771,0.999,0.978
+28,dev,size 1,corrected,2,0.9558,0.958,0.967
+28,dev,size 1,accepted,2,0.9984,1.002,1.001
+28,dev,size 2,all,5,0.9686,1.012,1.025
+28,dev,size 2,corrected,4,0.9608,1.029,1.031
+28,dev,size 2,accepted,1,1.0,1.0,1.0
+28,dev,size 3,all,4,0.9536,1.013,1.052
+28,dev,size 3,corrected,4,0.9536,1.013,1.052
+28,dev,size 4,all,3,0.9629,1.019,1.033
+28,dev,size 4,corrected,2,0.9453,1.044,1.045
+28,dev,size 4,accepted,1,0.9982,1.002,1.002
+28,dev,size 5,all,3,0.9961,1.004,1.004
+28,dev,size 5,corrected,3,0.9961,1.004,1.004
+28,both,blue mat,all,5,0.9095,1.04,1.039
+28,both,blue mat,corrected,5,0.9095,1.04,1.039
+28,both,empty,all,6,0.4994,0.5,0.988
+28,both,empty,corrected,5,0.3999,0.0,0.988
+28,both,empty,accepted,1,0.997,1.003,1.003
+28,both,green soil,all,6,0.9272,1.0,0.926
+28,both,green soil,corrected,4,0.8909,0.992,0.922
+28,both,green soil,accepted,2,1.0,1.0,1.0
+28,both,size 1,all,6,0.9847,1.0,0.979
+28,both,size 1,corrected,2,0.9558,0.958,0.967
+28,both,size 1,accepted,4,0.9992,1.0,1.001
+28,both,size 2,all,5,0.9686,1.012,1.025
+28,both,size 2,corrected,4,0.9608,1.029,1.031
+28,both,size 2,accepted,1,1.0,1.0,1.0
+28,both,size 3,all,6,0.9691,1.001,1.049
+28,both,size 3,corrected,4,0.9536,1.013,1.052
+28,both,size 3,accepted,2,1.0,1.0,1.0
+28,both,size 4,all,4,0.9722,1.011,1.033
+28,both,size 4,corrected,2,0.9453,1.044,1.045
+28,both,size 4,accepted,2,0.9991,1.001,1.002
+28,both,size 5,all,4,0.9918,1.005,1.004
+28,both,size 5,corrected,4,0.9918,1.005,1.004
+29,prod,blue mat,all,5,0.8669,1.114,1.114
+29,prod,blue mat,corrected,5,0.8669,1.114,1.114
+29,prod,empty,all,3,0.0,0.0,0.0
+29,prod,empty,corrected,3,0.0,0.0,0.0
+29,prod,green soil,all,3,0.9376,1.0,1.087
+29,prod,green soil,corrected,1,0.8134,1.229,1.229
+29,prod,green soil,accepted,2,0.9998,1.0,1.0
+29,prod,size 1,all,2,1.0,1.0,1.0
+29,prod,size 1,accepted,2,1.0,1.0,1.0
+29,prod,size 3,all,2,1.0,1.0,1.0
+29,prod,size 3,accepted,2,1.0,1.0,1.0
+29,prod,size 4,all,1,1.0,1.0,1.0
+29,prod,size 4,accepted,1,1.0,1.0,1.0
+29,prod,size 5,all,1,0.9789,1.019,1.019
+29,prod,size 5,corrected,1,0.9789,1.019,1.019
+29,dev,empty,all,3,0.9979,1.001,1.001
+29,dev,empty,corrected,2,0.9994,1.001,1.001
+29,dev,empty,accepted,1,0.9949,1.005,1.005
+29,dev,green soil,all,3,0.9166,0.957,0.91
+29,dev,green soil,corrected,3,0.9166,0.957,0.91
+29,dev,size 1,all,4,0.9671,0.999,0.983
+29,dev,size 1,corrected,2,0.9557,0.958,0.967
+29,dev,size 1,accepted,2,0.9784,1.023,1.017
+29,dev,size 2,all,5,0.9686,1.012,1.025
+29,dev,size 2,corrected,4,0.9608,1.029,1.031
+29,dev,size 2,accepted,1,1.0,1.0,1.0
+29,dev,size 3,all,4,0.9413,1.039,1.066
+29,dev,size 3,corrected,4,0.9413,1.039,1.066
+29,dev,size 4,all,3,0.962,1.02,1.034
+29,dev,size 4,corrected,2,0.9448,1.045,1.046
+29,dev,size 4,accepted,1,0.9964,1.004,1.004
+29,dev,size 5,all,3,0.9953,1.005,1.005
+29,dev,size 5,corrected,3,0.9953,1.005,1.005
+29,both,blue mat,all,5,0.8669,1.114,1.114
+29,both,blue mat,corrected,5,0.8669,1.114,1.114
+29,both,empty,all,6,0.499,0.5,0.989
+29,both,empty,corrected,5,0.3998,0.0,0.988
+29,both,empty,accepted,1,0.9949,1.005,1.005
+29,both,green soil,all,6,0.9271,1.0,0.926
+29,both,green soil,corrected,4,0.8908,0.992,0.922
+29,both,green soil,accepted,2,0.9998,1.0,1.0
+29,both,size 1,all,6,0.9781,1.0,0.984
+29,both,size 1,corrected,2,0.9557,0.958,0.967
+29,both,size 1,accepted,4,0.9892,1.0,1.015
+29,both,size 2,all,5,0.9686,1.012,1.025
+29,both,size 2,corrected,4,0.9608,1.029,1.031
+29,both,size 2,accepted,1,1.0,1.0,1.0
+29,both,size 3,all,6,0.9609,1.012,1.063
+29,both,size 3,corrected,4,0.9413,1.039,1.066
+29,both,size 3,accepted,2,1.0,1.0,1.0
+29,both,size 4,all,4,0.9715,1.012,1.034
+29,both,size 4,corrected,2,0.9448,1.045,1.046
+29,both,size 4,accepted,2,0.9982,1.002,1.003
+29,both,size 5,all,4,0.9912,1.006,1.005
+29,both,size 5,corrected,4,0.9912,1.006,1.005
+30,prod,blue mat,all,5,0.8292,1.161,1.171
+30,prod,blue mat,corrected,5,0.8292,1.161,1.171
+30,prod,empty,all,3,0.0,0.0,0.0
+30,prod,empty,corrected,3,0.0,0.0,0.0
+30,prod,green soil,all,3,0.9358,1.006,1.09
+30,prod,green soil,corrected,1,0.8134,1.229,1.229
+30,prod,green soil,accepted,2,0.997,1.003,1.004
+30,prod,size 1,all,2,1.0,1.0,1.0
+30,prod,size 1,accepted,2,1.0,1.0,1.0
+30,prod,size 3,all,2,1.0,1.0,1.0
+30,prod,size 3,accepted,2,1.0,1.0,1.0
+30,prod,size 4,all,1,1.0,1.0,1.0
+30,prod,size 4,accepted,1,1.0,1.0,1.0
+30,prod,size 5,all,1,0.9789,1.019,1.019
+30,prod,size 5,corrected,1,0.9789,1.019,1.019
+30,dev,empty,all,3,0.9927,1.001,1.001
+30,dev,empty,corrected,2,0.9993,1.001,1.001
+30,dev,empty,accepted,1,0.9795,1.021,1.021
+30,dev,green soil,all,3,0.9113,0.957,0.929
+30,dev,green soil,corrected,3,0.9113,0.957,0.929
+30,dev,size 1,all,4,0.967,0.999,0.983
+30,dev,size 1,corrected,2,0.9557,0.958,0.967
+30,dev,size 1,accepted,2,0.9783,1.023,1.017
+30,dev,size 2,all,5,0.9686,1.012,1.025
+30,dev,size 2,corrected,4,0.9608,1.029,1.031
+30,dev,size 2,accepted,1,1.0,1.0,1.0
+30,dev,size 3,all,4,0.9071,1.04,1.126
+30,dev,size 3,corrected,4,0.9071,1.04,1.126
+30,dev,size 4,all,3,0.9514,1.057,1.047
+30,dev,size 4,corrected,2,0.9293,1.063,1.063
+30,dev,size 4,accepted,1,0.9956,1.004,1.004
+30,dev,size 5,all,3,0.9949,1.005,1.006
+30,dev,size 5,corrected,3,0.9949,1.005,1.006
+30,both,blue mat,all,5,0.8292,1.161,1.171
+30,both,blue mat,corrected,5,0.8292,1.161,1.171
+30,both,empty,all,6,0.4963,0.5,0.989
+30,both,empty,corrected,5,0.3997,0.0,0.988
+30,both,empty,accepted,1,0.9795,1.021,1.021
+30,both,green soil,all,6,0.9235,1.003,0.944
+30,both,green soil,corrected,4,0.8868,0.992,0.94
+30,both,green soil,accepted,2,0.997,1.003,1.004
+30,both,size 1,all,6,0.978,1.0,0.984
+30,both,size 1,corrected,2,0.9557,0.958,0.967
+30,both,size 1,accepted,4,0.9892,1.0,1.015
+30,both,size 2,all,5,0.9686,1.012,1.025
+30,both,size 2,corrected,4,0.9608,1.029,1.031
+30,both,size 2,accepted,1,1.0,1.0,1.0
+30,both,size 3,all,6,0.9381,1.012,1.119
+30,both,size 3,corrected,4,0.9071,1.04,1.126
+30,both,size 3,accepted,2,1.0,1.0,1.0
+30,both,size 4,all,4,0.9636,1.03,1.046
+30,both,size 4,corrected,2,0.9293,1.063,1.063
+30,both,size 4,accepted,2,0.9978,1.002,1.004
+30,both,size 5,all,4,0.9909,1.006,1.006
+30,both,size 5,corrected,4,0.9909,1.006,1.006
+31,prod,blue mat,all,5,0.7948,1.22,1.223
+31,prod,blue mat,corrected,5,0.7948,1.22,1.223
+31,prod,empty,all,3,0.0,0.0,0.0
+31,prod,empty,corrected,3,0.0,0.0,0.0
+31,prod,green soil,all,3,0.9344,1.01,1.092
+31,prod,green soil,corrected,1,0.8134,1.229,1.229
+31,prod,green soil,accepted,2,0.9949,1.005,1.007
+31,prod,size 1,all,2,1.0,1.0,1.0
+31,prod,size 1,accepted,2,1.0,1.0,1.0
+31,prod,size 3,all,2,0.9991,1.001,1.001
+31,prod,size 3,accepted,2,0.9991,1.001,1.001
+31,prod,size 4,all,1,1.0,1.0,1.0
+31,prod,size 4,accepted,1,1.0,1.0,1.0
+31,prod,size 5,all,1,0.9789,1.019,1.019
+31,prod,size 5,corrected,1,0.9789,1.019,1.019
+31,dev,empty,all,3,0.9925,1.001,1.002
+31,dev,empty,corrected,2,0.9992,1.001,1.001
+31,dev,empty,accepted,1,0.979,1.021,1.021
+31,dev,green soil,all,3,0.9112,0.957,0.929
+31,dev,green soil,corrected,3,0.9112,0.957,0.929
+31,dev,size 1,all,4,0.967,0.999,0.983
+31,dev,size 1,corrected,2,0.9557,0.958,0.967
+31,dev,size 1,accepted,2,0.9783,1.023,1.017
+31,dev,size 2,all,5,0.9686,1.012,1.025
+31,dev,size 2,corrected,4,0.9608,1.029,1.031
+31,dev,size 2,accepted,1,1.0,1.0,1.0
+31,dev,size 3,all,4,0.9068,1.04,1.126
+31,dev,size 3,corrected,4,0.9068,1.04,1.126
+31,dev,size 4,all,3,0.9512,1.057,1.047
+31,dev,size 4,corrected,2,0.9293,1.063,1.063
+31,dev,size 4,accepted,1,0.9951,1.005,1.005
+31,dev,size 5,all,3,0.9946,1.006,1.006
+31,dev,size 5,corrected,3,0.9946,1.006,1.006
+31,both,blue mat,all,5,0.7948,1.22,1.223
+31,both,blue mat,corrected,5,0.7948,1.22,1.223
+31,both,empty,all,6,0.4962,0.5,0.989
+31,both,empty,corrected,5,0.3997,0.0,0.988
+31,both,empty,accepted,1,0.979,1.021,1.021
+31,both,green soil,all,6,0.9228,1.005,0.944
+31,both,green soil,corrected,4,0.8867,0.992,0.94
+31,both,green soil,accepted,2,0.9949,1.005,1.007
+31,both,size 1,all,6,0.978,1.0,0.984
+31,both,size 1,corrected,2,0.9557,0.958,0.967
+31,both,size 1,accepted,4,0.9892,1.0,1.015
+31,both,size 2,all,5,0.9686,1.012,1.025
+31,both,size 2,corrected,4,0.9608,1.029,1.031
+31,both,size 2,accepted,1,1.0,1.0,1.0
+31,both,size 3,all,6,0.9376,1.013,1.12
+31,both,size 3,corrected,4,0.9068,1.04,1.126
+31,both,size 3,accepted,2,0.9991,1.001,1.001
+31,both,size 4,all,4,0.9634,1.031,1.047
+31,both,size 4,corrected,2,0.9293,1.063,1.063
+31,both,size 4,accepted,2,0.9976,1.002,1.005
+31,both,size 5,all,4,0.9907,1.007,1.006
+31,both,size 5,corrected,4,0.9907,1.007,1.006
+32,prod,blue mat,all,5,0.7642,1.276,1.269
+32,prod,blue mat,corrected,5,0.7642,1.276,1.269
+32,prod,empty,all,3,0.0,0.0,0.0
+32,prod,empty,corrected,3,0.0,0.0,0.0
+32,prod,green soil,all,3,0.927,1.033,1.102
+32,prod,green soil,corrected,1,0.8134,1.229,1.229
+32,prod,green soil,accepted,2,0.9839,1.017,1.024
+32,prod,size 1,all,2,1.0,1.0,1.0
+32,prod,size 1,accepted,2,1.0,1.0,1.0
+32,prod,size 3,all,2,0.9953,1.005,1.005
+32,prod,size 3,accepted,2,0.9953,1.005,1.005
+32,prod,size 4,all,1,1.0,1.0,1.0
+32,prod,size 4,accepted,1,1.0,1.0,1.0
+32,prod,size 5,all,1,0.9789,1.019,1.019
+32,prod,size 5,corrected,1,0.9789,1.019,1.019
+32,dev,empty,all,3,0.9923,1.001,1.002
+32,dev,empty,corrected,2,0.9992,1.001,1.001
+32,dev,empty,accepted,1,0.9787,1.022,1.022
+32,dev,green soil,all,3,0.9112,0.957,0.929
+32,dev,green soil,corrected,3,0.9112,0.957,0.929
+32,dev,size 1,all,4,0.967,0.999,0.983
+32,dev,size 1,corrected,2,0.9557,0.958,0.967
+32,dev,size 1,accepted,2,0.9783,1.023,1.017
+32,dev,size 2,all,5,0.9686,1.012,1.025
+32,dev,size 2,corrected,4,0.9608,1.029,1.031
+32,dev,size 2,accepted,1,1.0,1.0,1.0
+32,dev,size 3,all,4,0.9065,1.04,1.127
+32,dev,size 3,corrected,4,0.9065,1.04,1.127
+32,dev,size 4,all,3,0.9512,1.057,1.047
+32,dev,size 4,corrected,2,0.9293,1.063,1.063
+32,dev,size 4,accepted,1,0.9949,1.005,1.005
+32,dev,size 5,all,3,0.9944,1.006,1.006
+32,dev,size 5,corrected,3,0.9944,1.006,1.006
+32,both,blue mat,all,5,0.7642,1.276,1.269
+32,both,blue mat,corrected,5,0.7642,1.276,1.269
+32,both,empty,all,6,0.4962,0.5,0.989
+32,both,empty,corrected,5,0.3997,0.0,0.988
+32,both,empty,accepted,1,0.9787,1.022,1.022
+32,both,green soil,all,6,0.9191,1.014,0.945
+32,both,green soil,corrected,4,0.8867,0.992,0.94
+32,both,green soil,accepted,2,0.9839,1.017,1.024
+32,both,size 1,all,6,0.978,1.0,0.984
+32,both,size 1,corrected,2,0.9557,0.958,0.967
+32,both,size 1,accepted,4,0.9892,1.0,1.015
+32,both,size 2,all,5,0.9686,1.012,1.025
+32,both,size 2,corrected,4,0.9608,1.029,1.031
+32,both,size 2,accepted,1,1.0,1.0,1.0
+32,both,size 3,all,6,0.9361,1.017,1.12
+32,both,size 3,corrected,4,0.9065,1.04,1.127
+32,both,size 3,accepted,2,0.9953,1.005,1.005
+32,both,size 4,all,4,0.9634,1.031,1.047
+32,both,size 4,corrected,2,0.9293,1.063,1.063
+32,both,size 4,accepted,2,0.9974,1.003,1.005
+32,both,size 5,all,4,0.9905,1.007,1.006
+32,both,size 5,corrected,4,0.9905,1.007,1.006
+33,prod,blue mat,all,5,0.7336,1.318,1.311
+33,prod,blue mat,corrected,5,0.7336,1.318,1.311
+33,prod,empty,all,3,0.0,0.0,0.0
+33,prod,empty,corrected,3,0.0,0.0,0.0
+33,prod,green soil,all,3,0.9247,1.041,1.105
+33,prod,green soil,corrected,1,0.8134,1.229,1.229
+33,prod,green soil,accepted,2,0.9804,1.02,1.029
+33,prod,size 1,all,2,1.0,1.0,1.0
+33,prod,size 1,accepted,2,1.0,1.0,1.0
+33,prod,size 3,all,2,0.9813,1.019,1.019
+33,prod,size 3,accepted,2,0.9813,1.019,1.019
+33,prod,size 4,all,1,1.0,1.0,1.0
+33,prod,size 4,accepted,1,1.0,1.0,1.0
+33,prod,size 5,all,1,0.9789,1.019,1.019
+33,prod,size 5,corrected,1,0.9789,1.019,1.019
+33,dev,empty,all,3,0.9923,1.001,1.002
+33,dev,empty,corrected,2,0.9992,1.001,1.001
+33,dev,empty,accepted,1,0.9787,1.022,1.022
+33,dev,green soil,all,3,0.9112,0.957,0.929
+33,dev,green soil,corrected,3,0.9112,0.957,0.929
+33,dev,size 1,all,4,0.967,0.999,0.983
+33,dev,size 1,corrected,2,0.9557,0.958,0.967
+33,dev,size 1,accepted,2,0.9783,1.023,1.017
+33,dev,size 2,all,5,0.9686,1.012,1.025
+33,dev,size 2,corrected,4,0.9608,1.029,1.031
+33,dev,size 2,accepted,1,1.0,1.0,1.0
+33,dev,size 3,all,4,0.9064,1.041,1.127
+33,dev,size 3,corrected,4,0.9064,1.041,1.127
+33,dev,size 4,all,3,0.9511,1.057,1.047
+33,dev,size 4,corrected,2,0.9293,1.063,1.063
+33,dev,size 4,accepted,1,0.9948,1.005,1.005
+33,dev,size 5,all,3,0.9911,1.008,1.011
+33,dev,size 5,corrected,3,0.9911,1.008,1.011
+33,both,blue mat,all,5,0.7336,1.318,1.311
+33,both,blue mat,corrected,5,0.7336,1.318,1.311
+33,both,empty,all,6,0.4962,0.5,0.989
+33,both,empty,corrected,5,0.3997,0.0,0.988
+33,both,empty,accepted,1,0.9787,1.022,1.022
+33,both,green soil,all,6,0.918,1.014,0.945
+33,both,green soil,corrected,4,0.8867,0.992,0.94
+33,both,green soil,accepted,2,0.9804,1.02,1.029
+33,both,size 1,all,6,0.978,1.0,0.984
+33,both,size 1,corrected,2,0.9557,0.958,0.967
+33,both,size 1,accepted,4,0.9892,1.0,1.015
+33,both,size 2,all,5,0.9686,1.012,1.025
+33,both,size 2,corrected,4,0.9608,1.029,1.031
+33,both,size 2,accepted,1,1.0,1.0,1.0
+33,both,size 3,all,6,0.9314,1.032,1.121
+33,both,size 3,corrected,4,0.9064,1.041,1.127
+33,both,size 3,accepted,2,0.9813,1.019,1.019
+33,both,size 4,all,4,0.9634,1.031,1.047
+33,both,size 4,corrected,2,0.9293,1.063,1.063
+33,both,size 4,accepted,2,0.9974,1.003,1.005
+33,both,size 5,all,4,0.9881,1.012,1.011
+33,both,size 5,corrected,4,0.9881,1.012,1.011
+34,prod,blue mat,all,5,0.8629,1.095,1.097
+34,prod,blue mat,corrected,5,0.8629,1.095,1.097
+34,prod,empty,all,3,0.0,0.0,0.0
+34,prod,empty,corrected,3,0.0,0.0,0.0
+34,prod,green soil,all,3,0.9378,1.0,1.087
+34,prod,green soil,corrected,1,0.8134,1.229,1.229
+34,prod,green soil,accepted,2,1.0,1.0,1.0
+34,prod,size 1,all,2,1.0,1.0,1.0
+34,prod,size 1,accepted,2,1.0,1.0,1.0
+34,prod,size 3,all,2,1.0,1.0,1.0
+34,prod,size 3,accepted,2,1.0,1.0,1.0
+34,prod,size 4,all,1,1.0,1.0,1.0
+34,prod,size 4,accepted,1,1.0,1.0,1.0
+34,prod,size 5,all,1,0.9789,1.019,1.019
+34,prod,size 5,corrected,1,0.9789,1.019,1.019
+34,dev,empty,all,3,0.9973,1.001,1.001
+34,dev,empty,corrected,2,0.9992,1.001,1.001
+34,dev,empty,accepted,1,0.9934,1.007,1.007
+34,dev,green soil,all,3,0.9166,0.957,0.911
+34,dev,green soil,corrected,3,0.9166,0.957,0.911
+34,dev,size 1,all,4,0.9768,0.999,0.978
+34,dev,size 1,corrected,2,0.9557,0.958,0.967
+34,dev,size 1,accepted,2,0.9979,1.002,1.002
+34,dev,size 2,all,5,0.9686,1.012,1.025
+34,dev,size 2,corrected,4,0.9608,1.029,1.031
+34,dev,size 2,accepted,1,1.0,1.0,1.0
+34,dev,size 3,all,4,0.9529,1.013,1.053
+34,dev,size 3,corrected,4,0.9529,1.013,1.053
+34,dev,size 4,all,3,0.9621,1.02,1.034
+34,dev,size 4,corrected,2,0.9447,1.045,1.046
+34,dev,size 4,accepted,1,0.9969,1.003,1.003
+34,dev,size 5,all,3,0.9949,1.005,1.006
+34,dev,size 5,corrected,3,0.9949,1.005,1.006
+34,both,blue mat,all,5,0.8629,1.095,1.097
+34,both,blue mat,corrected,5,0.8629,1.095,1.097
+34,both,empty,all,6,0.4986,0.5,0.989
+34,both,empty,corrected,5,0.3997,0.0,0.988
+34,both,empty,accepted,1,0.9934,1.007,1.007
+34,both,green soil,all,6,0.9272,1.0,0.926
+34,both,green soil,corrected,4,0.8908,0.992,0.922
+34,both,green soil,accepted,2,1.0,1.0,1.0
+34,both,size 1,all,6,0.9845,1.0,0.979
+34,both,size 1,corrected,2,0.9557,0.958,0.967
+34,both,size 1,accepted,4,0.9989,1.0,1.001
+34,both,size 2,all,5,0.9686,1.012,1.025
+34,both,size 2,corrected,4,0.9608,1.029,1.031
+34,both,size 2,accepted,1,1.0,1.0,1.0
+34,both,size 3,all,6,0.9686,1.001,1.05
+34,both,size 3,corrected,4,0.9529,1.013,1.053
+34,both,size 3,accepted,2,1.0,1.0,1.0
+34,both,size 4,all,4,0.9716,1.011,1.033
+34,both,size 4,corrected,2,0.9447,1.045,1.046
+34,both,size 4,accepted,2,0.9984,1.002,1.003
+34,both,size 5,all,4,0.9909,1.006,1.006
+34,both,size 5,corrected,4,0.9909,1.006,1.006
+35,prod,blue mat,all,5,0.9443,0.954,0.964
+35,prod,blue mat,corrected,5,0.9443,0.954,0.964
+35,prod,empty,all,3,0.0,0.0,0.0
+35,prod,empty,corrected,3,0.0,0.0,0.0
+35,prod,green soil,all,3,0.928,1.01,1.102
+35,prod,green soil,corrected,1,0.7978,1.253,1.253
+35,prod,green soil,accepted,2,0.9932,1.007,1.008
+35,prod,size 1,all,2,0.9964,1.004,1.004
+35,prod,size 1,accepted,2,0.9964,1.004,1.004
+35,prod,size 3,all,2,0.9943,1.006,1.006
+35,prod,size 3,accepted,2,0.9943,1.006,1.006
+35,prod,size 4,all,1,0.9928,1.007,1.007
+35,prod,size 4,accepted,1,0.9928,1.007,1.007
+35,prod,size 5,all,1,0.9729,1.025,1.025
+35,prod,size 5,corrected,1,0.9729,1.025,1.025
+35,dev,empty,all,3,0.9984,1.001,1.001
+35,dev,empty,corrected,2,0.9992,1.001,1.001
+35,dev,empty,accepted,1,0.9969,1.003,1.003
+35,dev,green soil,all,3,0.9161,0.97,0.915
+35,dev,green soil,corrected,3,0.9161,0.97,0.915
+35,dev,size 1,all,4,0.9748,1.001,0.982
+35,dev,size 1,corrected,2,0.9552,0.964,0.972
+35,dev,size 1,accepted,2,0.9944,1.006,1.004
+35,dev,size 2,all,5,0.9661,1.015,1.028
+35,dev,size 2,corrected,4,0.9586,1.031,1.035
+35,dev,size 2,accepted,1,0.9961,1.004,1.004
+35,dev,size 3,all,4,0.9486,1.022,1.058
+35,dev,size 3,corrected,4,0.9486,1.022,1.058
+35,dev,size 4,all,3,0.9615,1.023,1.035
+35,dev,size 4,corrected,2,0.9429,1.047,1.048
+35,dev,size 4,accepted,1,0.9986,1.001,1.001
+35,dev,size 5,all,3,0.9951,1.005,1.005
+35,dev,size 5,corrected,3,0.9951,1.005,1.005
+35,both,blue mat,all,5,0.9443,0.954,0.964
+35,both,blue mat,corrected,5,0.9443,0.954,0.964
+35,both,empty,all,6,0.4992,0.5,0.989
+35,both,empty,corrected,5,0.3997,0.0,0.988
+35,both,empty,accepted,1,0.9969,1.003,1.003
+35,both,green soil,all,6,0.9221,1.007,0.931
+35,both,green soil,corrected,4,0.8866,1.0,0.927
+35,both,green soil,accepted,2,0.9932,1.007,1.008
+35,both,size 1,all,6,0.982,1.002,0.983
+35,both,size 1,corrected,2,0.9552,0.964,0.972
+35,both,size 1,accepted,4,0.9954,1.004,1.004
+35,both,size 2,all,5,0.9661,1.015,1.028
+35,both,size 2,corrected,4,0.9586,1.031,1.035
+35,both,size 2,accepted,1,0.9961,1.004,1.004
+35,both,size 3,all,6,0.9638,1.009,1.056
+35,both,size 3,corrected,4,0.9486,1.022,1.058
+35,both,size 3,accepted,2,0.9943,1.006,1.006
+35,both,size 4,all,4,0.9693,1.015,1.035
+35,both,size 4,corrected,2,0.9429,1.047,1.048
+35,both,size 4,accepted,2,0.9957,1.004,1.002
+35,both,size 5,all,4,0.9895,1.006,1.006
+35,both,size 5,corrected,4,0.9895,1.006,1.006
+36,prod,blue mat,all,5,0.9122,0.945,0.937
+36,prod,blue mat,corrected,5,0.9122,0.945,0.937
+36,prod,empty,all,3,0.0,0.0,0.0
+36,prod,empty,corrected,3,0.0,0.0,0.0
+36,prod,green soil,all,3,0.9208,1.016,1.086
+36,prod,green soil,corrected,1,0.81,1.222,1.222
+36,prod,green soil,accepted,2,0.9761,1.007,1.003
+36,prod,size 1,all,2,0.4902,0.5,0.51
+36,prod,size 1,accepted,2,0.4902,0.5,0.51
+36,prod,size 3,all,2,0.9832,0.999,0.999
+36,prod,size 3,accepted,2,0.9832,0.999,0.999
+36,prod,size 4,all,1,0.9837,1.005,1.005
+36,prod,size 4,accepted,1,0.9837,1.005,1.005
+36,prod,size 5,all,1,0.9657,1.025,1.025
+36,prod,size 5,corrected,1,0.9657,1.025,1.025
+36,dev,empty,all,3,0.996,1.0,1.0
+36,dev,empty,corrected,2,0.9981,1.0,1.0
+36,dev,empty,accepted,1,0.9919,0.999,0.999
+36,dev,green soil,all,3,0.912,0.953,0.901
+36,dev,green soil,corrected,3,0.912,0.953,0.901
+36,dev,size 1,all,4,0.9676,0.996,0.978
+36,dev,size 1,corrected,2,0.9496,0.959,0.967
+36,dev,size 1,accepted,2,0.9857,0.998,0.999
+36,dev,size 2,all,5,0.9648,1.007,1.025
+36,dev,size 2,corrected,4,0.9584,1.027,1.031
+36,dev,size 2,accepted,1,0.9906,1.0,1.0
+36,dev,size 3,all,4,0.9378,1.041,1.064
+36,dev,size 3,corrected,4,0.9378,1.041,1.064
+36,dev,size 4,all,3,0.967,1.0,1.024
+36,dev,size 4,corrected,2,0.9523,1.032,1.033
+36,dev,size 4,accepted,1,0.9964,1.0,1.0
+36,dev,size 5,all,3,0.9935,1.004,1.004
+36,dev,size 5,corrected,3,0.9935,1.004,1.004
+36,both,blue mat,all,5,0.9122,0.945,0.937
+36,both,blue mat,corrected,5,0.9122,0.945,0.937
+36,both,empty,all,6,0.498,0.499,0.988
+36,both,empty,corrected,5,0.3992,0.0,0.988
+36,both,empty,accepted,1,0.9919,0.999,0.999
+36,both,green soil,all,6,0.9164,0.996,0.917
+36,both,green soil,corrected,4,0.8865,0.974,0.912
+36,both,green soil,accepted,2,0.9761,1.007,1.003
+36,both,size 1,all,6,0.8085,0.996,0.956
+36,both,size 1,corrected,2,0.9496,0.959,0.967
+36,both,size 1,accepted,4,0.7379,0.997,0.936
+36,both,size 2,all,5,0.9648,1.007,1.025
+36,both,size 2,corrected,4,0.9584,1.027,1.031
+36,both,size 2,accepted,1,0.9906,1.0,1.0
+36,both,size 3,all,6,0.953,1.013,1.06
+36,both,size 3,corrected,4,0.9378,1.041,1.064
+36,both,size 3,accepted,2,0.9832,0.999,0.999
+36,both,size 4,all,4,0.9712,1.003,1.024
+36,both,size 4,corrected,2,0.9523,1.032,1.033
+36,both,size 4,accepted,2,0.99,1.003,1.001
+36,both,size 5,all,4,0.9866,1.005,1.004
+36,both,size 5,corrected,4,0.9866,1.005,1.004
+37,prod,blue mat,all,5,0.9437,0.953,0.962
+37,prod,blue mat,corrected,5,0.9437,0.953,0.962
+37,prod,empty,all,3,0.751,0.844,0.86
+37,prod,empty,corrected,3,0.751,0.844,0.86
+37,prod,green soil,all,3,0.9378,1.0,1.087
+37,prod,green soil,corrected,1,0.8134,1.229,1.229
+37,prod,green soil,accepted,2,1.0,1.0,1.0
+37,prod,size 1,all,2,1.0,1.0,1.0
+37,prod,size 1,accepted,2,1.0,1.0,1.0
+37,prod,size 3,all,2,1.0,1.0,1.0
+37,prod,size 3,accepted,2,1.0,1.0,1.0
+37,prod,size 4,all,1,1.0,1.0,1.0
+37,prod,size 4,accepted,1,1.0,1.0,1.0
+37,prod,size 5,all,1,0.9789,1.019,1.019
+37,prod,size 5,corrected,1,0.9789,1.019,1.019
+37,dev,empty,all,3,0.9327,1.069,1.057
+37,dev,empty,corrected,2,0.9312,1.079,1.057
+37,dev,empty,accepted,1,0.9355,1.069,1.069
+37,dev,green soil,all,3,0.8003,1.059,0.976
+37,dev,green soil,corrected,3,0.8003,1.059,0.976
+37,dev,size 1,all,4,0.9717,0.999,0.982
+37,dev,size 1,corrected,2,0.9566,0.96,0.968
+37,dev,size 1,accepted,2,0.9867,1.014,1.01
+37,dev,size 2,all,5,0.9294,1.012,1.078
+37,dev,size 2,corrected,4,0.9117,1.071,1.098
+37,dev,size 2,accepted,1,1.0,1.0,1.0
+37,dev,size 3,all,4,0.8383,1.034,1.367
+37,dev,size 3,corrected,4,0.8383,1.034,1.367
+37,dev,size 4,all,3,0.9092,1.125,1.099
+37,dev,size 4,corrected,2,0.8736,1.13,1.13
+37,dev,size 4,accepted,1,0.9804,1.02,1.02
+37,dev,size 5,all,3,0.9497,1.008,1.061
+37,dev,size 5,corrected,3,0.9497,1.008,1.061
+37,both,blue mat,all,5,0.9437,0.953,0.962
+37,both,blue mat,corrected,5,0.9437,0.953,0.962
+37,both,empty,all,6,0.8418,1.037,1.055
+37,both,empty,corrected,5,0.8231,1.006,1.054
+37,both,empty,accepted,1,0.9355,1.069,1.069
+37,both,green soil,all,6,0.869,1.029,0.986
+37,both,green soil,corrected,4,0.8036,1.144,0.986
+37,both,green soil,accepted,2,1.0,1.0,1.0
+37,both,size 1,all,6,0.9811,1.0,0.983
+37,both,size 1,corrected,2,0.9566,0.96,0.968
+37,both,size 1,accepted,4,0.9934,1.0,1.009
+37,both,size 2,all,5,0.9294,1.012,1.078
+37,both,size 2,corrected,4,0.9117,1.071,1.098
+37,both,size 2,accepted,1,1.0,1.0,1.0
+37,both,size 3,all,6,0.8922,1.014,1.348
+37,both,size 3,corrected,4,0.8383,1.034,1.367
+37,both,size 3,accepted,2,1.0,1.0,1.0
+37,both,size 4,all,4,0.9319,1.073,1.098
+37,both,size 4,corrected,2,0.8736,1.13,1.13
+37,both,size 4,accepted,2,0.9902,1.01,1.019
+37,both,size 5,all,4,0.957,1.014,1.061
+37,both,size 5,corrected,4,0.957,1.014,1.061
+38,prod,blue mat,all,5,0.9433,0.952,0.961
+38,prod,blue mat,corrected,5,0.9433,0.952,0.961
+38,prod,empty,all,3,0.751,0.844,0.86
+38,prod,empty,corrected,3,0.751,0.844,0.86
+38,prod,green soil,all,3,0.9378,1.0,1.087
+38,prod,green soil,corrected,1,0.8134,1.229,1.229
+38,prod,green soil,accepted,2,1.0,1.0,1.0
+38,prod,size 1,all,2,1.0,1.0,1.0
+38,prod,size 1,accepted,2,1.0,1.0,1.0
+38,prod,size 3,all,2,1.0,1.0,1.0
+38,prod,size 3,accepted,2,1.0,1.0,1.0
+38,prod,size 4,all,1,1.0,1.0,1.0
+38,prod,size 4,accepted,1,1.0,1.0,1.0
+38,prod,size 5,all,1,0.9789,1.019,1.019
+38,prod,size 5,corrected,1,0.9789,1.019,1.019
+38,dev,empty,all,3,0.9363,1.057,1.057
+38,dev,empty,corrected,2,0.9312,1.079,1.057
+38,dev,empty,accepted,1,0.9465,1.057,1.057
+38,dev,green soil,all,3,0.8042,1.047,0.973
+38,dev,green soil,corrected,3,0.8042,1.047,0.973
+38,dev,size 1,all,4,0.9722,0.999,0.981
+38,dev,size 1,corrected,2,0.9563,0.96,0.968
+38,dev,size 1,accepted,2,0.9881,1.012,1.009
+38,dev,size 2,all,5,0.9448,1.012,1.054
+38,dev,size 2,corrected,4,0.931,1.063,1.068
+38,dev,size 2,accepted,1,1.0,1.0,1.0
+38,dev,size 3,all,4,0.8424,1.025,1.363
+38,dev,size 3,corrected,4,0.8424,1.025,1.363
+38,dev,size 4,all,3,0.9094,1.125,1.099
+38,dev,size 4,corrected,2,0.8736,1.13,1.13
+38,dev,size 4,accepted,1,0.9812,1.019,1.019
+38,dev,size 5,all,3,0.9513,1.004,1.06
+38,dev,size 5,corrected,3,0.9513,1.004,1.06
+38,both,blue mat,all,5,0.9433,0.952,0.961
+38,both,blue mat,corrected,5,0.9433,0.952,0.961
+38,both,empty,all,6,0.8437,1.031,1.054
+38,both,empty,corrected,5,0.8231,1.006,1.054
+38,both,empty,accepted,1,0.9465,1.057,1.057
+38,both,green soil,all,6,0.871,1.024,0.983
+38,both,green soil,corrected,4,0.8065,1.138,0.982
+38,both,green soil,accepted,2,1.0,1.0,1.0
+38,both,size 1,all,6,0.9814,1.0,0.982
+38,both,size 1,corrected,2,0.9563,0.96,0.968
+38,both,size 1,accepted,4,0.994,1.0,1.008
+38,both,size 2,all,5,0.9448,1.012,1.054
+38,both,size 2,corrected,4,0.931,1.063,1.068
+38,both,size 2,accepted,1,1.0,1.0,1.0
+38,both,size 3,all,6,0.8949,1.012,1.344
+38,both,size 3,corrected,4,0.8424,1.025,1.363
+38,both,size 3,accepted,2,1.0,1.0,1.0
+38,both,size 4,all,4,0.9321,1.072,1.098
+38,both,size 4,corrected,2,0.8736,1.13,1.13
+38,both,size 4,accepted,2,0.9906,1.01,1.018
+38,both,size 5,all,4,0.9582,1.012,1.06
+38,both,size 5,corrected,4,0.9582,1.012,1.06
+39,prod,blue mat,all,5,0.9433,0.952,0.961
+39,prod,blue mat,corrected,5,0.9433,0.952,0.961
+39,prod,empty,all,3,0.751,0.844,0.86
+39,prod,empty,corrected,3,0.751,0.844,0.86
+39,prod,green soil,all,3,0.9378,1.0,1.087
+39,prod,green soil,corrected,1,0.8134,1.229,1.229
+39,prod,green soil,accepted,2,1.0,1.0,1.0
+39,prod,size 1,all,2,1.0,1.0,1.0
+39,prod,size 1,accepted,2,1.0,1.0,1.0
+39,prod,size 3,all,2,1.0,1.0,1.0
+39,prod,size 3,accepted,2,1.0,1.0,1.0
+39,prod,size 4,all,1,1.0,1.0,1.0
+39,prod,size 4,accepted,1,1.0,1.0,1.0
+39,prod,size 5,all,1,0.9789,1.019,1.019
+39,prod,size 5,corrected,1,0.9789,1.019,1.019
+39,dev,empty,all,3,0.9363,1.057,1.057
+39,dev,empty,corrected,2,0.9312,1.079,1.057
+39,dev,empty,accepted,1,0.9465,1.057,1.057
+39,dev,green soil,all,3,0.8076,1.038,0.969
+39,dev,green soil,corrected,3,0.8076,1.038,0.969
+39,dev,size 1,all,4,0.9721,0.999,0.98
+39,dev,size 1,corrected,2,0.956,0.958,0.967
+39,dev,size 1,accepted,2,0.9881,1.012,1.009
+39,dev,size 2,all,5,0.9517,1.012,1.046
+39,dev,size 2,corrected,4,0.9396,1.053,1.058
+39,dev,size 2,accepted,1,1.0,1.0,1.0
+39,dev,size 3,all,4,0.8472,1.017,1.353
+39,dev,size 3,corrected,4,0.8472,1.017,1.353
+39,dev,size 4,all,3,0.9127,1.123,1.096
+39,dev,size 4,corrected,2,0.8749,1.128,1.128
+39,dev,size 4,accepted,1,0.9885,1.012,1.012
+39,dev,size 5,all,3,0.9521,1.004,1.06
+39,dev,size 5,corrected,3,0.9521,1.004,1.06
+39,both,blue mat,all,5,0.9433,0.952,0.961
+39,both,blue mat,corrected,5,0.9433,0.952,0.961
+39,both,empty,all,6,0.8437,1.031,1.054
+39,both,empty,corrected,5,0.8231,1.006,1.054
+39,both,empty,accepted,1,0.9465,1.057,1.057
+39,both,green soil,all,6,0.8727,1.019,0.98
+39,both,green soil,corrected,4,0.8091,1.134,0.979
+39,both,green soil,accepted,2,1.0,1.0,1.0
+39,both,size 1,all,6,0.9814,1.0,0.981
+39,both,size 1,corrected,2,0.956,0.958,0.967
+39,both,size 1,accepted,4,0.994,1.0,1.008
+39,both,size 2,all,5,0.9517,1.012,1.046
+39,both,size 2,corrected,4,0.9396,1.053,1.058
+39,both,size 2,accepted,1,1.0,1.0,1.0
+39,both,size 3,all,6,0.8981,1.005,1.335
+39,both,size 3,corrected,4,0.8472,1.017,1.353
+39,both,size 3,accepted,2,1.0,1.0,1.0
+39,both,size 4,all,4,0.9346,1.068,1.095
+39,both,size 4,corrected,2,0.8749,1.128,1.128
+39,both,size 4,accepted,2,0.9943,1.006,1.011
+39,both,size 5,all,4,0.9588,1.012,1.059
+39,both,size 5,corrected,4,0.9588,1.012,1.059
+40,prod,blue mat,all,5,0.9433,0.952,0.961
+40,prod,blue mat,corrected,5,0.9433,0.952,0.961
+40,prod,empty,all,3,0.4944,0.844,0.264
+40,prod,empty,corrected,3,0.4944,0.844,0.264
+40,prod,green soil,all,3,0.9378,1.0,1.087
+40,prod,green soil,corrected,1,0.8134,1.229,1.229
+40,prod,green soil,accepted,2,1.0,1.0,1.0
+40,prod,size 1,all,2,1.0,1.0,1.0
+40,prod,size 1,accepted,2,1.0,1.0,1.0
+40,prod,size 3,all,2,1.0,1.0,1.0
+40,prod,size 3,accepted,2,1.0,1.0,1.0
+40,prod,size 4,all,1,1.0,1.0,1.0
+40,prod,size 4,accepted,1,1.0,1.0,1.0
+40,prod,size 5,all,1,0.9789,1.019,1.019
+40,prod,size 5,corrected,1,0.9789,1.019,1.019
+40,dev,empty,all,3,0.938,1.057,1.054
+40,dev,empty,corrected,2,0.9338,1.075,1.054
+40,dev,empty,accepted,1,0.9465,1.057,1.057
+40,dev,green soil,all,3,0.8116,1.031,0.964
+40,dev,green soil,corrected,3,0.8116,1.031,0.964
+40,dev,size 1,all,4,0.9721,0.999,0.98
+40,dev,size 1,corrected,2,0.956,0.958,0.967
+40,dev,size 1,accepted,2,0.9881,1.012,1.009
+40,dev,size 2,all,5,0.9603,1.012,1.035
+40,dev,size 2,corrected,4,0.9503,1.029,1.044
+40,dev,size 2,accepted,1,1.0,1.0,1.0
+40,dev,size 3,all,4,0.8506,1.015,1.339
+40,dev,size 3,corrected,4,0.8506,1.015,1.339
+40,dev,size 4,all,3,0.915,1.119,1.093
+40,dev,size 4,corrected,2,0.8783,1.124,1.124
+40,dev,size 4,accepted,1,0.9885,1.012,1.012
+40,dev,size 5,all,3,0.9521,1.004,1.06
+40,dev,size 5,corrected,3,0.9521,1.004,1.06
+40,both,blue mat,all,5,0.9433,0.952,0.961
+40,both,blue mat,corrected,5,0.9433,0.952,0.961
+40,both,empty,all,6,0.7162,1.031,1.045
+40,both,empty,corrected,5,0.6702,1.006,1.044
+40,both,empty,accepted,1,0.9465,1.057,1.057
+40,both,green soil,all,6,0.8747,1.016,0.975
+40,both,green soil,corrected,4,0.812,1.13,0.974
+40,both,green soil,accepted,2,1.0,1.0,1.0
+40,both,size 1,all,6,0.9814,1.0,0.981
+40,both,size 1,corrected,2,0.956,0.958,0.967
+40,both,size 1,accepted,4,0.994,1.0,1.008
+40,both,size 2,all,5,0.9603,1.012,1.035
+40,both,size 2,corrected,4,0.9503,1.029,1.044
+40,both,size 2,accepted,1,1.0,1.0,1.0
+40,both,size 3,all,6,0.9004,1.003,1.322
+40,both,size 3,corrected,4,0.8506,1.015,1.339
+40,both,size 3,accepted,2,1.0,1.0,1.0
+40,both,size 4,all,4,0.9363,1.065,1.092
+40,both,size 4,corrected,2,0.8783,1.124,1.124
+40,both,size 4,accepted,2,0.9943,1.006,1.011
+40,both,size 5,all,4,0.9588,1.012,1.059
+40,both,size 5,corrected,4,0.9588,1.012,1.059
+41,prod,blue mat,all,5,0.9286,0.952,0.95
+41,prod,blue mat,corrected,5,0.9286,0.952,0.95
+41,prod,empty,all,3,0.2402,0.0,0.108
+41,prod,empty,corrected,3,0.2402,0.0,0.108
+41,prod,green soil,all,3,0.9378,1.0,1.087
+41,prod,green soil,corrected,1,0.8134,1.229,1.229
+41,prod,green soil,accepted,2,1.0,1.0,1.0
+41,prod,size 1,all,2,0.5,0.5,0.51
+41,prod,size 1,accepted,2,0.5,0.5,0.51
+41,prod,size 3,all,2,1.0,1.0,1.0
+41,prod,size 3,accepted,2,1.0,1.0,1.0
+41,prod,size 4,all,1,1.0,1.0,1.0
+41,prod,size 4,accepted,1,1.0,1.0,1.0
+41,prod,size 5,all,1,0.9789,1.019,1.019
+41,prod,size 5,corrected,1,0.9789,1.019,1.019
+41,dev,empty,all,3,0.9559,1.006,1.052
+41,dev,empty,corrected,2,0.9338,1.075,1.054
+41,dev,empty,accepted,1,1.0,1.0,1.0
+41,dev,green soil,all,3,0.818,1.027,0.955
+41,dev,green soil,corrected,3,0.818,1.027,0.955
+41,dev,size 1,all,4,0.978,0.999,0.977
+41,dev,size 1,corrected,2,0.956,0.958,0.967
+41,dev,size 1,accepted,2,1.0,1.0,1.0
+41,dev,size 2,all,5,0.9603,1.012,1.035
+41,dev,size 2,corrected,4,0.9503,1.029,1.044
+41,dev,size 2,accepted,1,1.0,1.0,1.0
+41,dev,size 3,all,4,0.8633,1.015,1.277
+41,dev,size 3,corrected,4,0.8633,1.015,1.277
+41,dev,size 4,all,3,0.924,1.1,1.08
+41,dev,size 4,corrected,2,0.8918,1.107,1.107
+41,dev,size 4,accepted,1,0.9885,1.012,1.012
+41,dev,size 5,all,3,0.9534,1.003,1.059
+41,dev,size 5,corrected,3,0.9534,1.003,1.059
+41,both,blue mat,all,5,0.9286,0.952,0.95
+41,both,blue mat,corrected,5,0.9286,0.952,0.95
+41,both,empty,all,6,0.598,0.922,1.041
+41,both,empty,corrected,5,0.5176,0.844,1.042
+41,both,empty,accepted,1,1.0,1.0,1.0
+41,both,green soil,all,6,0.8779,1.013,0.967
+41,both,green soil,corrected,4,0.8168,1.128,0.965
+41,both,green soil,accepted,2,1.0,1.0,1.0
+41,both,size 1,all,6,0.8187,0.999,0.956
+41,both,size 1,corrected,2,0.956,0.958,0.967
+41,both,size 1,accepted,4,0.75,1.0,0.937
+41,both,size 2,all,5,0.9603,1.012,1.035
+41,both,size 2,corrected,4,0.9503,1.029,1.044
+41,both,size 2,accepted,1,1.0,1.0,1.0
+41,both,size 3,all,6,0.9089,1.003,1.263
+41,both,size 3,corrected,4,0.8633,1.015,1.277
+41,both,size 3,accepted,2,1.0,1.0,1.0
+41,both,size 4,all,4,0.943,1.056,1.079
+41,both,size 4,corrected,2,0.8918,1.107,1.107
+41,both,size 4,accepted,2,0.9943,1.006,1.011
+41,both,size 5,all,4,0.9598,1.011,1.058
+41,both,size 5,corrected,4,0.9598,1.011,1.058
+42,prod,blue mat,all,5,0.9286,0.952,0.95
+42,prod,blue mat,corrected,5,0.9286,0.952,0.95
+42,prod,empty,all,3,0.2402,0.0,0.108
+42,prod,empty,corrected,3,0.2402,0.0,0.108
+42,prod,green soil,all,3,0.9378,1.0,1.087
+42,prod,green soil,corrected,1,0.8134,1.229,1.229
+42,prod,green soil,accepted,2,1.0,1.0,1.0
+42,prod,size 1,all,2,0.5,0.5,0.51
+42,prod,size 1,accepted,2,0.5,0.5,0.51
+42,prod,size 3,all,2,1.0,1.0,1.0
+42,prod,size 3,accepted,2,1.0,1.0,1.0
+42,prod,size 4,all,1,1.0,1.0,1.0
+42,prod,size 4,accepted,1,1.0,1.0,1.0
+42,prod,size 5,all,1,0.9789,1.019,1.019
+42,prod,size 5,corrected,1,0.9789,1.019,1.019
+42,dev,empty,all,3,0.9577,1.0,1.049
+42,dev,empty,corrected,2,0.9366,1.073,1.051
+42,dev,empty,accepted,1,1.0,1.0,1.0
+42,dev,green soil,all,3,0.8194,1.027,0.952
+42,dev,green soil,corrected,3,0.8194,1.027,0.952
+42,dev,size 1,all,4,0.978,0.999,0.977
+42,dev,size 1,corrected,2,0.956,0.958,0.967
+42,dev,size 1,accepted,2,1.0,1.0,1.0
+42,dev,size 2,all,5,0.9603,1.012,1.035
+42,dev,size 2,corrected,4,0.9503,1.029,1.044
+42,dev,size 2,accepted,1,1.0,1.0,1.0
+42,dev,size 3,all,4,0.8715,1.013,1.246
+42,dev,size 3,corrected,4,0.8715,1.013,1.246
+42,dev,size 4,all,3,0.9297,1.089,1.073
+42,dev,size 4,corrected,2,0.9002,1.096,1.096
+42,dev,size 4,accepted,1,0.9885,1.012,1.012
+42,dev,size 5,all,3,0.9534,1.003,1.059
+42,dev,size 5,corrected,3,0.9534,1.003,1.059
+42,both,blue mat,all,5,0.9286,0.952,0.95
+42,both,blue mat,corrected,5,0.9286,0.952,0.95
+42,both,empty,all,6,0.5989,0.922,1.037
+42,both,empty,corrected,5,0.5187,0.844,1.039
+42,both,empty,accepted,1,1.0,1.0,1.0
+42,both,green soil,all,6,0.8786,1.013,0.964
+42,both,green soil,corrected,4,0.8179,1.128,0.962
+42,both,green soil,accepted,2,1.0,1.0,1.0
+42,both,size 1,all,6,0.8187,0.999,0.956
+42,both,size 1,corrected,2,0.956,0.958,0.967
+42,both,size 1,accepted,4,0.75,1.0,0.937
+42,both,size 2,all,5,0.9603,1.012,1.035
+42,both,size 2,corrected,4,0.9503,1.029,1.044
+42,both,size 2,accepted,1,1.0,1.0,1.0
+42,both,size 3,all,6,0.9144,1.001,1.234
+42,both,size 3,corrected,4,0.8715,1.013,1.246
+42,both,size 3,accepted,2,1.0,1.0,1.0
+42,both,size 4,all,4,0.9472,1.05,1.072
+42,both,size 4,corrected,2,0.9002,1.096,1.096
+42,both,size 4,accepted,2,0.9943,1.006,1.011
+42,both,size 5,all,4,0.9598,1.011,1.058
+42,both,size 5,corrected,4,0.9598,1.011,1.058
+43,prod,blue mat,all,5,0.9286,0.952,0.95
+43,prod,blue mat,corrected,5,0.9286,0.952,0.95
+43,prod,empty,all,3,0.0,0.0,0.0
+43,prod,empty,corrected,3,0.0,0.0,0.0
+43,prod,green soil,all,3,0.9378,1.0,1.087
+43,prod,green soil,corrected,1,0.8134,1.229,1.229
+43,prod,green soil,accepted,2,1.0,1.0,1.0
+43,prod,size 1,all,2,0.5,0.5,0.51
+43,prod,size 1,accepted,2,0.5,0.5,0.51
+43,prod,size 3,all,2,1.0,1.0,1.0
+43,prod,size 3,accepted,2,1.0,1.0,1.0
+43,prod,size 4,all,1,1.0,1.0,1.0
+43,prod,size 4,accepted,1,1.0,1.0,1.0
+43,prod,size 5,all,1,0.9789,1.019,1.019
+43,prod,size 5,corrected,1,0.9789,1.019,1.019
+43,dev,empty,all,3,0.9577,1.0,1.049
+43,dev,empty,corrected,2,0.9366,1.073,1.051
+43,dev,empty,accepted,1,1.0,1.0,1.0
+43,dev,green soil,all,3,0.822,1.027,0.945
+43,dev,green soil,corrected,3,0.822,1.027,0.945
+43,dev,size 1,all,4,0.978,0.999,0.977
+43,dev,size 1,corrected,2,0.956,0.958,0.967
+43,dev,size 1,accepted,2,1.0,1.0,1.0
+43,dev,size 2,all,5,0.9605,1.012,1.035
+43,dev,size 2,corrected,4,0.9507,1.029,1.044
+43,dev,size 2,accepted,1,1.0,1.0,1.0
+43,dev,size 3,all,4,0.8767,1.013,1.227
+43,dev,size 3,corrected,4,0.8767,1.013,1.227
+43,dev,size 4,all,3,0.9334,1.081,1.068
+43,dev,size 4,corrected,2,0.9058,1.089,1.09
+43,dev,size 4,accepted,1,0.9885,1.012,1.012
+43,dev,size 5,all,3,0.9537,1.003,1.058
+43,dev,size 5,corrected,3,0.9537,1.003,1.058
+43,both,blue mat,all,5,0.9286,0.952,0.95
+43,both,blue mat,corrected,5,0.9286,0.952,0.95
+43,both,empty,all,6,0.4789,0.5,1.036
+43,both,empty,corrected,5,0.3746,0.0,1.038
+43,both,empty,accepted,1,1.0,1.0,1.0
+43,both,green soil,all,6,0.8799,1.013,0.958
+43,both,green soil,corrected,4,0.8199,1.128,0.955
+43,both,green soil,accepted,2,1.0,1.0,1.0
+43,both,size 1,all,6,0.8187,0.999,0.956
+43,both,size 1,corrected,2,0.956,0.958,0.967
+43,both,size 1,accepted,4,0.75,1.0,0.937
+43,both,size 2,all,5,0.9605,1.012,1.035
+43,both,size 2,corrected,4,0.9507,1.029,1.044
+43,both,size 2,accepted,1,1.0,1.0,1.0
+43,both,size 3,all,6,0.9178,1.001,1.215
+43,both,size 3,corrected,4,0.8767,1.013,1.227
+43,both,size 3,accepted,2,1.0,1.0,1.0
+43,both,size 4,all,4,0.95,1.046,1.067
+43,both,size 4,corrected,2,0.9058,1.089,1.09
+43,both,size 4,accepted,2,0.9943,1.006,1.011
+43,both,size 5,all,4,0.96,1.011,1.058
+43,both,size 5,corrected,4,0.96,1.011,1.058
+44,prod,blue mat,all,5,0.9286,0.952,0.95
+44,prod,blue mat,corrected,5,0.9286,0.952,0.95
+44,prod,empty,all,3,0.0,0.0,0.0
+44,prod,empty,corrected,3,0.0,0.0,0.0
+44,prod,green soil,all,3,0.6045,1.0,0.909
+44,prod,green soil,corrected,1,0.8134,1.229,1.229
+44,prod,green soil,accepted,2,0.5,0.5,0.712
+44,prod,size 1,all,2,0.5,0.5,0.51
+44,prod,size 1,accepted,2,0.5,0.5,0.51
+44,prod,size 3,all,2,1.0,1.0,1.0
+44,prod,size 3,accepted,2,1.0,1.0,1.0
+44,prod,size 4,all,1,1.0,1.0,1.0
+44,prod,size 4,accepted,1,1.0,1.0,1.0
+44,prod,size 5,all,1,0.9789,1.019,1.019
+44,prod,size 5,corrected,1,0.9789,1.019,1.019
+44,dev,empty,all,3,1.0,1.0,1.0
+44,dev,empty,corrected,2,1.0,1.0,1.0
+44,dev,empty,accepted,1,1.0,1.0,1.0
+44,dev,green soil,all,3,0.822,1.027,0.945
+44,dev,green soil,corrected,3,0.822,1.027,0.945
+44,dev,size 1,all,4,0.978,0.999,0.977
+44,dev,size 1,corrected,2,0.956,0.958,0.967
+44,dev,size 1,accepted,2,1.0,1.0,1.0
+44,dev,size 2,all,5,0.9605,1.012,1.035
+44,dev,size 2,corrected,4,0.9507,1.029,1.044
+44,dev,size 2,accepted,1,1.0,1.0,1.0
+44,dev,size 3,all,4,0.885,1.013,1.199
+44,dev,size 3,corrected,4,0.885,1.013,1.199
+44,dev,size 4,all,3,0.9364,1.069,1.064
+44,dev,size 4,corrected,2,0.9103,1.083,1.084
+44,dev,size 4,accepted,1,0.9885,1.012,1.012
+44,dev,size 5,all,3,0.9537,1.003,1.058
+44,dev,size 5,corrected,3,0.9537,1.003,1.058
+44,both,blue mat,all,5,0.9286,0.952,0.95
+44,both,blue mat,corrected,5,0.9286,0.952,0.95
+44,both,empty,all,6,0.5,0.5,0.988
+44,both,empty,corrected,5,0.4,0.0,0.987
+44,both,empty,accepted,1,1.0,1.0,1.0
+44,both,green soil,all,6,0.7132,1.013,0.942
+44,both,green soil,corrected,4,0.8199,1.128,0.955
+44,both,green soil,accepted,2,0.5,0.5,0.712
+44,both,size 1,all,6,0.8187,0.999,0.956
+44,both,size 1,corrected,2,0.956,0.958,0.967
+44,both,size 1,accepted,4,0.75,1.0,0.937
+44,both,size 2,all,5,0.9605,1.012,1.035
+44,both,size 2,corrected,4,0.9507,1.029,1.044
+44,both,size 2,accepted,1,1.0,1.0,1.0
+44,both,size 3,all,6,0.9233,1.001,1.189
+44,both,size 3,corrected,4,0.885,1.013,1.199
+44,both,size 3,accepted,2,1.0,1.0,1.0
+44,both,size 4,all,4,0.9523,1.041,1.063
+44,both,size 4,corrected,2,0.9103,1.083,1.084
+44,both,size 4,accepted,2,0.9943,1.006,1.011
+44,both,size 5,all,4,0.96,1.011,1.058
+44,both,size 5,corrected,4,0.96,1.011,1.058

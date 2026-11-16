@@ -8,6 +8,7 @@ Its own page for now; later part of a Status page with the running experiment (A
 
 from __future__ import annotations
 
+import logging
 import random
 import secrets
 from datetime import UTC, datetime
@@ -17,7 +18,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 
-from npec_rig import database, images, photo_tags
+from npec_rig import database, images, photo_tags, tray_readings
 from npec_rig.photo_tags import CaptureNotFoundError, CaptureRefError
 from npec_rig.camera import CameraBusyError, array_to_jpeg
 from npec_rig.captures import photo_file, take_photo
@@ -38,6 +39,8 @@ from npec_rig.randomization import (
 from npec_rig.routes.shared import derived_response, templates
 from npec_rig.tags import grayscale_uint8
 from npec_rig.text_render import text_layer, text_width
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -66,14 +69,6 @@ def _places(details: dict) -> dict[str, Place]:
         p["name"]: Place(p["name"], tuple(p["centre"]), frozenset(p["sides"]), p["px_per_mm"], p["label"], p["occupant"])
         for p in details["places"]
     }
-
-
-def _references(experiment_id: int) -> dict[int, float]:
-    """Each 2 x 2 tray's tag angle in its first photo, as the latest suggestion kept them."""
-    latest = database.latest_tray_layout(experiment_id, "suggestion")
-    if latest is None:
-        return {}
-    return {int(k): v for k, v in latest["details"].get("references", {}).items()}
 
 
 def _latest_photo(experiment_id: int) -> dict | None:
@@ -163,11 +158,17 @@ def suggest() -> dict:
     photo = _latest_photo(experiment["id"])
     if photo is None:
         raise HTTPException(409, "The experiment has no photo yet: take one, then suggest a layout.")
-    references = _references(experiment["id"])
     previous = database.latest_tray_layout(experiment["id"], "suggestion")
     known = [tuple(p["centre"]) for p in previous["details"]["places"]] if previous else []
     try:
-        seen, photo_places, _scale = photo_layout(photo["path"], references, known)
+        # A 2 x 2 tray's cell A1 is set by the first of its photos read for cells (#364). This one
+        # is read now if the tray reader has not yet, so the page and the cell names follow the
+        # same photo (#385); a photo already read is kept as it is.
+        tray_readings.read_photo(photo["path"], unless_measured=True)
+    except Exception:
+        logger.exception("Could not read the trays of %s before suggesting a layout", photo["path"])
+    try:
+        seen, photo_places, _scale = photo_layout(photo["path"], experiment["id"], known)
     except (LayoutUnreadableError, CaptureNotFoundError, CaptureRefError) as exc:
         raise HTTPException(409, f"Cannot read where the trays are: {exc}.") from exc
     finally:
@@ -179,10 +180,6 @@ def suggest() -> dict:
     places = {p.name: p for p in photo_places}
     standing_in = {p.occupant: p.name for p in photo_places if p.occupant is not None}
     last = {t.tray_id: Lying(t.sides, t.heading) for t in seen}
-    # A 2 x 2 tray seen for the first time: this photo's angle is its reference from now on.
-    for t in seen:
-        if tray_type(t.tray_id).name == "2x2":
-            references.setdefault(t.tray_id, round(t.tag_angle, 2))
     seed = secrets.randbits(32)
     rng, sides = random.Random(seed), {n: p.sides for n, p in places.items()}
     try:
@@ -196,7 +193,6 @@ def suggest() -> dict:
         "rule_kept": rule_kept,
         "photo": photo["path"],
         "taken_at": photo["taken_at"],
-        "references": {str(k): v for k, v in sorted(references.items())},
         "places": [
             {"name": p.name, "label": p.label, "occupant": p.occupant, "centre": [round(v, 1) for v in p.centre],
              "sides": sorted(p.sides), "px_per_mm": round(p.px_per_mm, 4)}
@@ -246,13 +242,12 @@ def check() -> dict:
     del frame
     images.release_freed_memory()
     details = suggestion["details"]
-    references = {int(k): v for k, v in details.get("references", {}).items()}
     try:
         with images.full_decode_slot():
             detections = photo_tags.detect_tags(gray)
         del gray
         images.store_tag_detections(record["path"].removeprefix("rig/"), detections)
-        seen, _check_places, _scale = photo_layout(record["path"], references)
+        seen, _check_places, _scale = photo_layout(record["path"], experiment["id"])
     except (LayoutUnreadableError, CaptureNotFoundError, CaptureRefError) as exc:
         raise HTTPException(409, f"Cannot read where the trays are: {exc}.") from exc
     finally:

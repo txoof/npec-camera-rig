@@ -1,0 +1,56 @@
+{
+ "rig": "dev",
+ "capture_id": "12869",
+ "seconds": 9.8,
+ "trays_cached": [
+  77,
+  78,
+  87
+ ],
+ "grow_p_equals_ruleg402": [
+  {
+   "tray": 77,
+   "same": true
+  },
+  {
+   "tray": 78,
+   "same": true
+  },
+  {
+   "tray": 87,
+   "same": true
+  }
+ ],
+ "cells": [
+  {
+   "id": "B17",
+   "name": "dev_2026-11-06_77_B1",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 10360,
+   "trays": [
+    77
+   ]
+  },
+  {
+   "id": "B18",
+   "name": "dev_2026-11-06_78_A2",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 12042,
+   "trays": [
+    78
+   ]
+  },
+  {
+   "id": "B19",
+   "name": "dev_2026-11-06_87_A2",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 93684,
+   "trays": [
+    87
+   ]
+  }
+ ]
+}

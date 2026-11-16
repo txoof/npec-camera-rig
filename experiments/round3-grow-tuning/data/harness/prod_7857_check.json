@@ -1,0 +1,26 @@
+{
+ "rig": "prod",
+ "capture_id": "7857",
+ "seconds": 7.4,
+ "trays_cached": [
+  2
+ ],
+ "grow_p_equals_ruleg402": [
+  {
+   "tray": 2,
+   "same": true
+  }
+ ],
+ "cells": [
+  {
+   "id": "A07",
+   "name": "prod_2026-10-26_2_D3",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 860,
+   "trays": [
+    2
+   ]
+  }
+ ]
+}

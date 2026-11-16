@@ -1,0 +1,41 @@
+{
+ "rig": "prod",
+ "capture_id": "20821",
+ "seconds": 9.2,
+ "trays_cached": [
+  1,
+  6
+ ],
+ "grow_p_equals_ruleg402": [
+  {
+   "tray": 1,
+   "same": true
+  },
+  {
+   "tray": 6,
+   "same": true
+  }
+ ],
+ "cells": [
+  {
+   "id": "A21",
+   "name": "prod_2026-11-04_1_D5",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 4500,
+   "trays": [
+    1
+   ]
+  },
+  {
+   "id": "A22",
+   "name": "prod_2026-11-04_6_B5",
+   "same": true,
+   "diff_px": 0,
+   "draft_px": 2068,
+   "trays": [
+    6
+   ]
+  }
+ ]
+}

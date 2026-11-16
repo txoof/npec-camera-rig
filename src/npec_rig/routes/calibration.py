@@ -111,8 +111,11 @@ def setup_health_check_page(request: Request) -> Response:
 
 @router.get("/calibration/readiness")
 def calibration_readiness() -> dict:
-    """The readiness gate on its own, for the wizard to poll live on Step 5."""
-    return calibration_run.readiness()
+    """The readiness gate on its own, for the wizard to poll live on Step 5. Without where each
+    corner tag was seen: that is for `calibration_run.run` (#349)."""
+    ready = calibration_run.readiness()
+    ready.pop("corner_tag_centres", None)
+    return ready
 
 
 @router.post("/calibration/run")

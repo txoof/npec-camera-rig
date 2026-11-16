@@ -1,0 +1,9 @@
+Issue 402 correction session, 2026-11-10
+Start: about 10:07 local (09:07 UTC). Notes written 11:07 CET (10:07 UTC).
+A28 prod_2026-11-08_7_D4: none (green paper target), file written by agent.
+A01, A02: first saves were wrong; renamed to *_MISTAKE (kept), redone.
+A25, A26, A27: saved as 1 piece (drafts had 3, 2, 2). Aaron says he probably needs to redo them. Not yet renamed.
+A29: draft (2 pieces) did not show in ImageJ during the run; macro changed to retry the load and show the loaded count.
+Check after 12 cells: all saved zips valid, entries all .roi, 1 piece each.
+11:09 CET (10:09 UTC): A25, A26, A27 renamed to *_MISTAKE (kept) at Aaron's request, to be redone. GUI load test: A25=3, A26=2, A29=2, A30=2 draft pieces load correctly.
+End: 12:09 CET (11:09 UTC). Macro bug found: File.length compared as text, so drafts of 1000+ bytes never loaded (A25, A27, A29). Fixed with parseInt; those three redone after the fix. A01 to A24 drafts are all under 1000 bytes, so unaffected. Final check: 39 of 39 saved, all zips valid, A28 none. *_MISTAKE files are superseded first attempts, kept for the record.

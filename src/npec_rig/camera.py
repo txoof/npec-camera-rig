@@ -125,7 +125,12 @@ SYNTHETIC_CONTROL_RANGES = {
 
 # capture_full_res's metadata shape, shared so the synthetic backend can't drift from what real
 # hardware reports — code written against one backend must behave the same on the other.
-SENSOR_METADATA_FIELDS = ("SensorTimestamp", "ExposureTime", "AnalogueGain", "ColourGains", "LensPosition")
+# AeState (whether the auto-exposure has settled), DigitalGain and Lux since #382: the light
+# exclusions use AeState; the other two are kept in the sidecar to read the camera's behaviour.
+SENSOR_METADATA_FIELDS = (
+    "SensorTimestamp", "ExposureTime", "AnalogueGain", "ColourGains", "LensPosition",
+    "AeState", "DigitalGain", "Lux",
+)
 
 
 class CameraBackend(ABC):
@@ -254,6 +259,9 @@ class SyntheticBackend(CameraBackend):
             "AnalogueGain": self._controls["AnalogueGain"],
             "ColourGains": (1.0, 1.0),
             "LensPosition": self._lens_position,
+            "AeState": 2,  # converged: a test pattern needs no exposure search
+            "DigitalGain": 1.0,
+            "Lux": None,
         }
 
     def set_lens_position(self, value: float) -> None:

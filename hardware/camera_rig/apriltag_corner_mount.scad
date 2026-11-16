@@ -3,7 +3,8 @@
    T-slot rail at the table's outer edge (PLAN.md's four permanent corner
    fiducials, IDs 450-499; see
    reference/calibration-sheets/apriltags-36h11-50mm-a4-450-499.pdf for the
-   confirmed tag size and family).
+   confirmed tag size and family). Production's mount; on the development
+   rig the tags lie inside the table edge since 2026-11-03 (#349).
 
    One continuous multi-material print, two colors, no assembly step:
      - `tag_mount_body()` -- the structural bracket: rail foot, keying ridge,

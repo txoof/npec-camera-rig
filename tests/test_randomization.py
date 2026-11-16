@@ -153,7 +153,7 @@ def _seen(still: str) -> list[TraySeen]:
         centre = (sum(c[0] for c in corners) / 4, sum(c[1] for c in corners) / 4)
         detections.append(TagDetection(tag_id=tag["id"], corners=corners, centre=centre))
     return [
-        TraySeen(p.tray_id, tuple(p.centre), p.a1_corner, SLOT_SIDES[p.slot], 0.0)
+        TraySeen(p.tray_id, tuple(p.centre), p.a1_corner, SLOT_SIDES[p.slot])
         for p in place_trays(detections, SCALE, FIXTURE["slots"])
     ]
 
@@ -258,7 +258,7 @@ def test_a_check_judges_the_edges_of_the_place_a_tray_is_found_in() -> None:
     # its column A is not on the edge again.
     places = {"1-1": Place("1-1", (500, 500), frozenset({"north", "west"}), 5.0),
               "1-2": Place("1-2", (2200, 500), frozenset({"north"}), 5.0)}
-    seen = [TraySeen(7, (2210, 505), "SW", frozenset({"north", "west"}), 0.0)]
+    seen = [TraySeen(7, (2210, 505), "SW", frozenset({"north", "west"}))]
     last = {7: Lying(frozenset({"west"}), "SW")}
     [check] = check_layout({7: Position("1-2", "SW")}, seen, last, places)
     assert check.status == "in place"

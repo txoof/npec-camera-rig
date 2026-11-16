@@ -18,7 +18,7 @@ from npec_rig.app import app
 from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
 from npec_rig.tags import TagDetection
-from tests.helpers import one_tray_plant_scene, table_calibration, table_photo
+from tests.helpers import banded_validation, one_tray_plant_scene, table_calibration, table_photo
 
 pytestmark = pytest.mark.unit
 
@@ -285,24 +285,27 @@ def test_a_photo_takes_its_area_from_the_rebuilt_twin_of_its_calibration(monkeyp
     assert database.captures_by_path([path])[path]["calibration"] == stem
 
 
-def _camera_reports(monkeypatch, exposure_us: int, gain: float) -> None:
-    """The synthetic camera, reporting the exposure and gain of a real photo."""
+def _camera_reports(monkeypatch, exposure_us: int, gain: float, ae_state: int = 2) -> None:
+    """The synthetic camera, reporting the exposure and gain of a real photo, and its
+    auto-exposure state (libcamera's AeState, 2 converged, 1 searching; #382)."""
     from npec_rig.camera import CameraManager, SyntheticBackend
 
     class Reports(SyntheticBackend):
         def capture_full_res(self):
             frame, metadata = super().capture_full_res()
-            return frame, {**metadata, "ExposureTime": exposure_us, "AnalogueGain": gain}
+            return frame, {**metadata, "ExposureTime": exposure_us, "AnalogueGain": gain, "AeState": ae_state}
 
     CameraManager.set_instance(CameraManager(Reports()))
 
 
 def test_a_photo_taken_with_the_lights_off_is_excluded_from_its_exposure_and_gain(monkeypatch) -> None:
     """Exposure and gain of real photos of experiment 18 (rig.db, 2026-10-26): lights off at
-    23:28:53 UTC on 22 October, 64,022 us at gain 4.0; lit at 08:41:20, 5,404 us at gain 1.0."""
+    23:28:53 UTC on 22 October, 64,022 us at gain 4.0; lit at 08:41:20, 5,404 us at gain 1.0.
+    The dark one as the camera reports it since #382: auto-exposure still searching, as every
+    dark photo on the development rig (metrology log 29.3)."""
     _calibrate()
     _finds(monkeypatch, None)
-    _camera_reports(monkeypatch, 64_022, 4.0)
+    _camera_reports(monkeypatch, 64_022, 4.0, ae_state=1)
     dark = _photo()
     _camera_reports(monkeypatch, 5_404, 1.0)
     lit = _photo()
@@ -325,17 +328,10 @@ def test_each_trays_area_carries_the_floor_below_which_it_means_nothing_detected
 def test_each_photos_exclusion_is_stored_and_earlier_photos_are_checked_again_as_new_ones_come(
     monkeypatch, tmp_path
 ) -> None:
-    """#288: the experiment's first "day" (shortened to 0.3 s, a timing constant) is 5,000 and
-    5,100 us: norm 5,050, largest swing 1%, limit 3%. A photo at 4,000 is off the norm; while it
-    is the newest it is "light off norm", and once the next photo is back at 5,000 it is a short
-    run that returned: "light disturbed"."""
-    from datetime import timedelta
-
-    from npec_rig import exclusions
-
+    """#288, #382: photos read at 5,000, 6,000 and then 7,000 us. While 6,000 is the newest it has
+    no photo after it and no exclusion; once 7,000 is read, 6,000 lies between its neighbours, so
+    the auto-exposure is still moving: "light changing", as the Gallery and export get it."""
     monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
-    monkeypatch.setattr(exclusions, "FIRST_DAY", timedelta(seconds=0.3))
-    monkeypatch.setattr(exclusions, "NEAR_LIGHTS_OFF", timedelta(0))
     _calibrate()
     _finds(monkeypatch, None)
     client = TestClient(app)
@@ -349,13 +345,10 @@ def test_each_photos_exclusion_is_stored_and_earlier_photos_are_checked_again_as
         return path
 
     taken(5_000)
-    taken(5_100)
-    time.sleep(0.35)
-    taken(5_000)
-    dip = taken(4_000)
-    assert tray_readings.photo_readings(dip)["exclusion"] == "light off norm"
-    taken(5_000)
-    assert tray_readings.photo_readings(dip)["exclusion"] == "light disturbed"
+    middle = taken(6_000)
+    assert tray_readings.photo_readings(middle)["exclusion"] is None
+    taken(7_000)
+    assert tray_readings.photo_readings(middle)["exclusion"] == "light changing"
 
 
 def _two_trays_with_one_tag_scene(monkeypatch) -> None:
@@ -651,3 +644,419 @@ def test_each_tray_found_in_a_photo_names_the_table_location_it_lies_in() -> Non
     path = table_photo(experiment_id, _at(0), {3: "NE", 7: "SW"})
 
     assert {t["tray_id"]: t["location"] for t in tray_readings.photo_readings(path)["trays"]} == {3: "NE", 7: "SW"}
+
+
+# --- Each reading's uncertainty from its slot's validation band (#76) -----------------------------
+# Two slots, North 1 and South 6, reading within ±2.0 % and ±4.5 % (tests/helpers.banded_validation).
+SESSION = "20270101T010000000000"
+TWO_SLOTS = {"North 1": ((150, 150), 2.0), "South 6": ((750, 450), 4.5)}
+
+
+def test_each_tray_takes_the_band_of_the_validation_slot_nearest_its_centre() -> None:
+    """Trays are not tied to slots (#331): the nearest slot centre wins (Aaron, 2026-11-05)."""
+    from datetime import datetime, timezone
+
+    table_calibration()
+    banded_validation(SESSION, TWO_SLOTS)
+    # Tray 3 lies nearer North 1 (150, 150), tray 7 nearer South 6 (750, 450).
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW", 7: "SE"},
+                       validation=SESSION, centres={3: (400, 250), 7: (500, 350)})
+
+    assert {t["tray_id"]: t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]} == {
+        3: {"band_pct": 2.0, "slot": "North 1", "reason": None},
+        7: {"band_pct": 4.5, "slot": "South 6", "reason": None},
+    }
+
+
+def test_a_photo_taken_with_no_validation_gives_each_tray_the_reason_and_no_band() -> None:
+    from datetime import datetime, timezone
+
+    table_calibration()
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW"})
+
+    assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
+        {"band_pct": None, "slot": None, "reason": "not validated"},
+    ]
+
+
+def test_a_photo_taken_under_a_validation_not_consistent_claims_no_band() -> None:
+    """A not-consistent validation is named on the photo but its bands are not claimed (#54)."""
+    from datetime import datetime, timezone
+
+    table_calibration()
+    banded_validation(SESSION, TWO_SLOTS, inconsistent=True)
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW"}, validation=SESSION)
+
+    assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
+        {"band_pct": None, "slot": None, "reason": "validation not consistent"},
+    ]
+
+
+def test_a_tray_nearest_a_slot_with_too_few_tags_says_the_slot_was_not_measured() -> None:
+    from datetime import datetime, timezone
+
+    table_calibration()
+    banded_validation(SESSION, {"North 1": ((150, 150), 2.0), "South 6": ((750, 450), None)})
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {7: "SE"}, validation=SESSION)
+
+    assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
+        {"band_pct": None, "slot": "South 6", "reason": "slot not measured"},
+    ]
+
+
+def test_a_photo_whose_validation_file_is_gone_still_shows_its_trays_and_says_why() -> None:
+    """Deleting a calibration deletes its validations (validation_store)."""
+    from datetime import datetime, timezone
+
+    table_calibration()
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW"}, validation=SESSION)
+
+    assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
+        {"band_pct": None, "slot": None, "reason": "validation not found"},
+    ]
+
+
+def test_a_photo_flagged_as_not_covered_by_the_bands_claims_no_band_under_a_good_validation() -> None:
+    """A flag is a reason the photo is not covered by the validation bands (captures.take_photo),
+    for example a lens that moved from its lock, while the validation is still named."""
+    from datetime import datetime, timezone
+
+    table_calibration()
+    banded_validation(SESSION, TWO_SLOTS)
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW"}, validation=SESSION,
+                       flags=["lens moved from its lock"])
+
+    assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
+        {"band_pct": None, "slot": None, "reason": "photo not covered"},
+    ]
+
+
+def test_a_damaged_validation_with_no_slots_never_hides_the_areas() -> None:
+    from datetime import datetime, timezone
+
+    table_calibration()
+    session = banded_validation(SESSION, TWO_SLOTS)
+    validation_store.save_session({**session, "slots": []})
+    path = table_photo(None, datetime(2027, 1, 2, tzinfo=timezone.utc), {3: "NW"}, validation=SESSION)
+
+    assert [t["uncertainty"] for t in tray_readings.photo_readings(path)["trays"]] == [
+        {"band_pct": None, "slot": None, "reason": "validation not found"},
+    ]
+
+
+# --- Plant per cell (#364) ------------------------------------------------------------------------
+# The blue tray of `_blue_tray_scene` (x 300 to 3350, y 400 to 4060 at 10 px/mm) is centred at
+# (1825, 2230). Its 4 x 5 cells (reference/trays.md: openings 59.5 mm, centres 69.7 mm apart),
+# worked by hand from A1 at the south-west: A1 at (779.5, 3624), B3 at (1476.5, 2230), C4 at
+# (2173.5, 1533), D4 at (2870.5, 1533).
+
+
+def _cells_scene(monkeypatch, tags: list[TagDetection], squares) -> None:
+    """A grey photo with the blue tray of `_blue_tray_scene` and mint squares at `squares`
+    (x0, y0, x1, y1), the calibration at 10 px/mm."""
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB
+
+    one_tray_plant_scene(monkeypatch)
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[400:4060, 300:3350] = TRAY_BLUE
+            for x0, y0, x1, y1 in squares:
+                frame[y0:y1, x0:x1] = MINT_LEAF_RGB
+            return frame, metadata
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: tags)
+    CameraManager.set_instance(CameraManager(Scene(width=4000, height=4400)))
+
+
+def _a1_tag(tag_id: int, x: float, y: float) -> TagDetection:
+    return TagDetection(tag_id, ((x - 200, y - 200), (x + 200, y - 200), (x + 200, y + 200), (x - 200, y + 200)), (x, y))
+
+
+def test_each_cell_of_a_tray_gets_its_plant_area_and_an_empty_cell_reads_missing_not_0(monkeypatch) -> None:
+    # A 300 x 300 px square inside B3's opening (595 px): 90000 px, 900 mm2.
+    _cells_scene(monkeypatch, [_a1_tag(5, 779.5, 3624.0)], [(1327, 2080, 1627, 2380)])
+    path = _photo()
+
+    readings = tray_readings.read_photo(path)
+    [tray] = readings["trays"]
+    cells = {c["cell"]: c for c in tray["cells"]}
+    assert len(cells) == 20
+    assert cells["A1"]["status"] == "tag"
+    assert cells["B3"]["status"] == "plant"
+    assert cells["B3"]["area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the square's edge
+    assert {c["status"] for name, c in cells.items() if name not in ("A1", "B3")} == {"missing"}
+    assert {c["area_mm2"] for name, c in cells.items() if name not in ("A1", "B3")} == {None}
+    assert tray_readings.photo_readings(path) == readings
+
+
+def test_a_leaf_across_two_cells_counts_for_the_one_holding_more_and_marks_both(monkeypatch) -> None:
+    # C4's opening is x 1876 to 2471, D4's x 2573 to 3168, both y 1236 to 1831. A 400 x 200 px leaf
+    # at x 2300 to 2700, y 1400 to 1600: 171 columns over C4, 127 over D4. All 800 mm2 count for C4.
+    _cells_scene(monkeypatch, [_a1_tag(5, 779.5, 3624.0)], [(2300, 1400, 2700, 1600)])
+
+    [tray] = tray_readings.read_photo(_photo())["trays"]
+    cells = {c["cell"]: c for c in tray["cells"]}
+    assert (cells["C4"]["status"], cells["D4"]["status"]) == ("leaves over other cells", "leaves over other cells")
+    assert cells["C4"]["area_mm2"] == pytest.approx(800, rel=0.01)
+    assert cells["D4"]["area_mm2"] is None
+
+
+def _turned_tag(tag_id: int, x: float, y: float, deg: float) -> TagDetection:
+    """A 400 px tag at (x, y) turned `deg` clockwise from lying with its top north."""
+    import math
+
+    t = math.radians(deg)
+    corners = tuple(
+        (x + dx * math.cos(t) - dy * math.sin(t), y + dx * math.sin(t) + dy * math.cos(t))
+        for dx, dy in ((-200, -200), (200, -200), (200, 200), (-200, 200))
+    )
+    return TagDetection(tag_id, corners, (x, y))
+
+
+def test_a_2x2_trays_cells_keep_their_names_when_the_tray_is_turned_round_between_photos(monkeypatch) -> None:
+    """Aaron, 2026-11-06: 2 x 2 tags are glued at any angle; A1 is the south-west pot in the
+    tray's first photo of the experiment. Pots of the tray centred at (1825, 2230): south-west at
+    (1135, 3052.5), north-east at (2515, 1407.5) (69 and 82.25 mm from the centre). A 300 x 300 px
+    plant, 900 mm2, in the south-west pot; then the tray turned round, the plant in the north-east."""
+    experiment = database.create_experiment(uuid="u-364", created_at="2026-11-06T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2026-11-06T00:00:00+00:00", folder="u-364")
+
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 45.0)], [(985, 2902, 1285, 3202)])
+    first = {c["cell"]: c for c in tray_readings.read_photo(_photo())["trays"][0]["cells"]}
+    assert first["A1"]["status"] == "plant"
+    assert first["A1"]["centre_px"] == pytest.approx([1135.0, 3052.5], abs=10)  # the finder works at quarter size
+    assert first["A1"]["area_mm2"] == pytest.approx(900, rel=0.01)
+
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 225.0)], [(2365, 1257, 2665, 1557)])
+    second = {c["cell"]: c for c in tray_readings.read_photo(_photo())["trays"][0]["cells"]}
+    assert second["A1"]["centre_px"] == pytest.approx([2515.0, 1407.5], abs=10)
+    assert second["A1"]["status"] == "plant"
+    assert second["A1"]["area_mm2"] == pytest.approx(900, rel=0.01)
+    assert second["B2"]["status"] == "missing"
+
+
+def test_a_2x2_trays_cells_have_the_same_names_whatever_order_its_photos_are_read_in(monkeypatch) -> None:
+    """Review of #374: photos are read out of order (older ones on demand, Reprocess). The tag is
+    glued to the tray, so its A1 bearing is the tray's own: once any photo of the experiment has
+    set it, every photo follows it. As the test above: the plant in the south-west pot, then the
+    tray turned round. Read the second photo first."""
+    experiment = database.create_experiment(uuid="u-364b", created_at="2026-11-06T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2026-11-06T00:00:00+00:00", folder="u-364b")
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 45.0)], [(985, 2902, 1285, 3202)])
+    first = _photo()
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 225.0)], [(2365, 1257, 2665, 1557)])
+    second = _photo()
+    # Tags are searched when a photo is read: each photo gets its own tag, told apart by where its
+    # plant lies (the south-west pot in the first).
+    tags = {True: [_turned_tag(80, 1825.0, 2230.0, 45.0)], False: [_turned_tag(80, 1825.0, 2230.0, 225.0)]}
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: tags[bool(frame[3050, 1135] > 150)])  # grey: mint bright, tray blue about 88
+
+    planted = []
+    for path in (second, first):
+        cells = tray_readings.read_photo(path)["trays"][0]["cells"]
+        planted.append([c["cell"] for c in cells if c["status"] == "plant"])
+    assert planted[0] == planted[1]
+    assert len(planted[0]) == 1
+
+
+def _readings_of(path: str, tray_id: int) -> dict:
+    return next(t for t in tray_readings.read_photo(path)["trays"] if t["tray_id"] == tray_id)
+
+
+def test_a_2x2_tag_turned_on_its_tray_marks_its_names_as_maybe_swapped_from_that_photo(monkeypatch) -> None:
+    """#385, tray 81 of development experiment 3: its tag turned 83 degrees on the tray, which
+    stayed put. Tags that stayed put changed by 2 degrees at most (metrology log 32.2); the cut-off
+    is 10 degrees (Aaron, 2026-11-09). The first two photos keep the tag as laid; the third has it
+    turned 83 degrees about its centre."""
+    experiment = database.create_experiment(uuid="u-385", created_at="2026-11-09T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2026-11-09T00:00:00+00:00", folder="u-385")
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 45.0)], [])
+    first, second = _photo(), _photo()
+    first_warnings = _readings_of(first, 80)["warnings"]
+    second_warnings = _readings_of(second, 80)["warnings"]
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [_turned_tag(80, 1825.0, 2230.0, 128.0)])
+    third = _photo()
+    taken = database.captures_by_path([third])[third]["taken_at"]
+    third_warnings = _readings_of(third, 80)["warnings"]
+
+    unsure = [w for w in first_warnings + second_warnings if w.startswith("names may be swapped")]
+    assert unsure == []
+    assert f"names may be swapped since {taken[:10]} {taken[11:16]} UTC" in third_warnings
+
+
+def test_a_2x2_trays_names_stay_marked_for_the_rest_of_the_experiment_whatever_order_photos_are_read_in(monkeypatch) -> None:
+    """#385: once a tray's tag has turned on it, its names stay marked as maybe swapped for the
+    rest of the experiment, even when the tag is turned back (Aaron, 2026-11-07). Photos are read
+    out of order (older ones on demand, Reprocess): here the photo with the tag turned is read
+    last. Tags are searched when a photo is read, so each photo gets the tag set at its reading."""
+    experiment = database.create_experiment(uuid="u-385b", created_at="2026-11-09T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2026-11-09T00:00:00+00:00", folder="u-385b")
+    _cells_scene(monkeypatch, [_turned_tag(80, 1825.0, 2230.0, 45.0)], [])
+    photos = [_photo() for _ in range(4)]
+    for path in (photos[0], photos[1], photos[3]):
+        tray_readings.read_photo(path)
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [_turned_tag(80, 1825.0, 2230.0, 128.0)])
+    tray_readings.read_photo(photos[2])
+
+    taken = database.captures_by_path([photos[2]])[photos[2]]["taken_at"]
+    label = f"names may be swapped since {taken[:10]} {taken[11:16]} UTC"
+    marked = []
+    for path in photos:
+        tray = next(t for t in tray_readings.photo_readings(path)["trays"] if t["tray_id"] == 80)
+        marked.append(label in tray["warnings"])
+    assert marked == [False, False, True, True]
+
+
+def _warning_searches(monkeypatch) -> list[str]:
+    """Every SQL statement run from here on that searches tray readings by their warnings (a
+    `warnings` column after WHERE), from SQLite's own trace of each connection."""
+    import sqlite3
+
+    searches, connect = [], sqlite3.connect
+
+    def traced(*args, **kwargs):
+        conn = connect(*args, **kwargs)
+        conn.set_trace_callback(lambda sql: searches.append(sql) if "warnings" in sql.partition("WHERE")[2] else None)
+        return conn
+
+    monkeypatch.setattr(sqlite3, "connect", traced)
+    return searches
+
+
+def test_an_hour_of_photos_searches_the_experiments_warnings_once_not_once_per_tray_per_photo(monkeypatch) -> None:
+    """#408: the Gallery hour took 13 to 17 s on development experiment 3 because each tray of each
+    photo searched every earlier photo's warnings for a turned tag (531 searches, 22 ms each, and
+    longer every day). Six photos of trays 7, 8 and 9, tray 8's tag turned in the third: tray 8 is
+    marked from that photo on, trays 7 and 9 never, as before, with one search for the hour."""
+    experiment_id = _table_experiment()
+    photos = [table_photo(experiment_id, _at(minute), {7: "NW", 8: "SM", 9: "SE"}) for minute in range(6)]
+    capture_id = database.captures_by_path([photos[2]])[photos[2]]["id"]
+    trays = database.tray_readings(capture_id)["trays"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, "warnings": [tray_readings.TAG_TURNED]} if t["tray_id"] == 8 else t for t in trays])
+
+    searches = _warning_searches(monkeypatch)
+    since = [{t["tray_id"]: t["names_unsure_since"] for t in tray_readings.photo_readings(p)["trays"]} for p in photos]
+
+    turned = _at(2).isoformat()
+    assert since == [{7: None, 8: None, 9: None}] * 2 + [{7: None, 8: turned, 9: None}] * 4
+    assert len(searches) == 1
+
+
+def test_a_turned_tag_saved_after_the_gallery_was_shown_marks_the_tray_at_the_next_showing() -> None:
+    """#408: the search is kept between Gallery requests. Photos are read out of order (older ones
+    on demand, Reprocess), so a turned tag saved for an earlier photo after a later photo was shown
+    marks that later photo the next time it is shown."""
+    experiment_id = _table_experiment()
+    photos = [table_photo(experiment_id, _at(minute), {7: "NW", 8: "SM"}) for minute in range(4)]
+
+    def since(path: str) -> str | None:
+        return next(t for t in tray_readings.photo_readings(path)["trays"] if t["tray_id"] == 8)["names_unsure_since"]
+
+    assert since(photos[3]) is None
+    capture_id = database.captures_by_path([photos[1]])[photos[1]]["id"]
+    trays = database.tray_readings(capture_id)["trays"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, "warnings": [tray_readings.TAG_TURNED]} if t["tray_id"] == 8 else t for t in trays])
+
+    assert since(photos[3]) == _at(1).isoformat()
+
+
+# Grow from leaf cores beside the fixed green cutoff (#363). The tray of `_cells_scene` filled with
+# soil inside a 100 px blue rim; a mint leaf in B3 with a pale edge the fixed cutoff does not take.
+SOIL_RGB = (115, 100, 100)  # greenness -0.048: soil level -0.045, lower cutoff 0.025
+PALE_EDGE_RGB = (125, 135, 115)  # greenness 0.080: above the lower cutoff, below the fixed cutoff's 0.1
+
+
+def _soil_tray_scene(monkeypatch) -> None:
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB
+
+    one_tray_plant_scene(monkeypatch)
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[400:4060, 300:3350] = TRAY_BLUE
+            frame[500:3960, 400:3250] = SOIL_RGB
+            frame[2060:2400, 1307:1647] = PALE_EDGE_RGB  # 20 px around the leaf
+            frame[2080:2380, 1327:1627] = MINT_LEAF_RGB  # 300 x 300 px inside B3's opening: 900 mm2
+            return frame, metadata
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [_a1_tag(5, 779.5, 3624.0)])
+    CameraManager.set_instance(CameraManager(Scene(width=4000, height=4400)))
+
+
+def test_each_tray_and_cell_gets_its_area_by_both_methods_each_named(monkeypatch) -> None:
+    """The fixed green cutoff takes the leaf, 300 x 300 px = 900 mm2 at 10 px/mm, as before. Grow
+    from leaf cores also takes its pale edge: 340 x 340 px = 115,600 px = 1156 mm2."""
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+
+    readings = tray_readings.read_photo(path)
+    [tray] = readings["trays"]
+    assert (tray["segmenter"], tray["area_mm2"]) == ("green threshold, 0.1", pytest.approx(900, rel=0.01))
+    assert tray["grown_method"] == "grow from leaf cores, core 0.07"
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_plant_px"] == pytest.approx(115_600, rel=0.01)
+    assert tray["grown_plant_centre_px"] == pytest.approx([1477, 2230], abs=2)
+    assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(-0.045), pytest.approx(0.025))
+    cells = {c["cell"]: c for c in tray["cells"]}
+    assert (cells["B3"]["status"], cells["B3"]["area_mm2"]) == ("plant", pytest.approx(900, rel=0.01))
+    assert cells["B3"]["grown_area_mm2"] == pytest.approx(1156, rel=0.01)
+    assert cells["B3"]["grown_over_other_cells"] is False
+    assert {c["grown_area_mm2"] for name, c in cells.items() if name != "B3"} == {None}
+    assert (cells["A1"]["grown_status"], cells["B3"]["grown_status"]) == ("tag", "plant")
+    assert {c["grown_status"] for name, c in cells.items() if name not in ("A1", "B3")} == {"missing"}
+    assert tray_readings.photo_readings(path) == readings
+
+
+def test_reprocess_counts_both_methods_again_from_their_saved_masks_without_the_photo(monkeypatch) -> None:
+    """With the photo gone, both areas come from the saved masks under a twin rebuilt at 10.0 x
+    5.00 / 4.90 px/mm (as in tests/test_experiments.py): 900 x (4.90 / 5.00)^2 = 864.4 mm2 by the
+    fixed green cutoff, 1156 x (4.90 / 5.00)^2 = 1110.2 mm2 by grow from leaf cores, whose soil
+    level and cutoff are kept from the first reading."""
+    from npec_rig.calibration import ScaleField
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+    stem = FIXTURE["calibration"]
+    save_calibration(
+        CalibrationArtifact(created_at="2026-10-26T15:00:00+00:00", scale_field=ScaleField((1.0, 0.0, 0.0), 10.0 * 5.00 / 4.90, 0.0),
+                            frame_stem=stem, lens_position=6.05, rebuilt_from=stem),
+        stem="20261026T150000000001", promote=False,
+    )
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(864.4, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_area_mm2"] == pytest.approx(1110.2, rel=0.01)
+    assert tray["grown_method"] == "grow from leaf cores, core 0.07"
+    assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(-0.045), pytest.approx(0.025))
+    cells = {c["cell"]: c for c in tray["cells"]}
+    assert (cells["B3"]["area_mm2"], cells["B3"]["grown_area_mm2"]) == (pytest.approx(864.4, rel=0.01), pytest.approx(1110.2, rel=0.01))
+
+
+def test_reprocess_of_a_photo_read_before_grow_from_leaf_cores_keeps_its_area_with_the_photo_gone(monkeypatch) -> None:
+    """A photo read before #363 has only the fixed cutoff's mask. With the photo gone, Reprocess
+    counts that mask again (900 mm2) and has no area by grow from leaf cores."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+    segmentation.mask_file(path, segmentation.GROWN_MASK).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
+    assert (tray["grown_method"], tray["grown_area_mm2"]) == (None, None)

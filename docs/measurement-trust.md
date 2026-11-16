@@ -69,7 +69,8 @@ across the image. Area is then pixels divided by the square of the local scale.
 **Evidence.** The current calibration (replacement camera, 2026-10-08, lens 6.04, 355 tags):
 scale 4.86 px/mm on average (about 0.21 mm per pixel), and the tags sit within 0.50% of the fitted
 field (standard deviation). The old camera's last calibration (lens 6.27) gave 0.52%. Calibration refuses to run without a lock and all 4 corner tags, unless the operator
-overrides it.
+overrides it. If its full-size photo then misses a corner tag, the calibration is saved and names
+the tag and its corner (metrology log section 31.2).
 
 **One calibration covers every tray height.** Calibrations with the sheets on the table surface
 and on the trays (about 100 mm higher) gave the same shape of scale field within 0.16 points, below
@@ -131,6 +132,16 @@ measured, in length, and at worst 0.32% against 0.61% (North 6). On a 36 mm leaf
 reliable guide, because it is judged against the same tags it was fitted to. It has been
 dropped from what the operator sees; only the validation band, which is measured directly, is
 reported.
+
+**How a reading gets its band.** Since #76 (2026-11-05) every tray area carries the band of the
+validation slot whose centre is nearest the tray's centre, in the Gallery and in the export's
+`tray-readings.csv`, under the heading "Scale error at tray top". Trays are found anywhere on the
+table (#331), so a tray between two slots takes the nearer one's band: a choice, not a
+measurement (Aaron, 2026-11-05). No band is claimed when the photo has no complete validation,
+when its validation is not consistent or its file is gone, when the photo is flagged as not
+covered (a lens moved from its lock, for example), or when the slot had too few tags; the reading
+then says which. The band covers flat objects at tray-top height only: plant height
+(about 0.145% per mm) and how well the mask finds the plant are not in it, and the page says so.
 
 ## Faults are caught, not averaged in
 
@@ -208,6 +219,14 @@ comparisons; the knocks, the two calibrations and the two heights are developmen
 - **Knock**: both knocks were caught and read DRIFT, not FAIL: FAIL needs a 10° roll, an 8% corner
   scale change or a missing corner tag, and neither knock reached one. Covering one corner tag by
   hand gave FAIL, and uncovering it gave OK again. Signed off by Aaron on 2026-10-14.
+
+**Limits of the evidence: corner tags moved (development rig, 2026-11-03, metrology log section
+31).** The evidence above was taken with the corner tags on the table's outer edge, as production
+still has them. On the development rig they now lie inside the edge. Its tripwire baseline is the
+calibration made after the move, and a health check on the untouched table read OK against it
+(2026-11-10, section 31.4); the knock, roll and covered-tag checks have not been repeated in the new
+position, and the tags lying closer together make the roll check less sensitive by an
+amount not yet measured.
 
 ## The band stays valid over time and after disturbance
 
@@ -372,7 +391,7 @@ leaf found by the threshold outward to a lower cutoff (-0.045) reads 0.96 of the
 soil it counts whole soil cells as plant, so the cutoff has to follow each tray's own soil (24.7,
 24.8), and on the greenest soil no colour rule separates soil from leaf, which the rig must report
 instead of a number. A blue mat laid under green squares changes every rule's area at the edge,
-13 to 24% on a 10 mm square (24.4). SAM 2.1 small, given each plant alone, does worse (IoU 0.77)
+13 to 24% on a 10 mm square (24.4). On real potato plants, mats laid by researchers in experiment 18 lowered grow from leaf cores by about a fifth (21% to 24% on two trays) with nothing changed in the plants: on a mat the leaf's edge pixels turn slightly blue and are left out (36.2). SAM 2.1 small, given each plant alone, does worse (IoU 0.77)
 and takes 7 to 10 s a plant (24.5). These are one still and 15 plants of one person: they show
 which rules fail and how, not a band for plant area.
 
@@ -447,6 +466,20 @@ metrology log backs it.
   be this small.
 - **Colour drift.** With nothing moved, the camera's white balance gains drifted 0.8% to 0.9% in 30
   minutes (15.3d). What that does to green area is not measured.
+- **One photo against the next, over a long run** (*added 2026-11-09*, metrology log 16.9, a
+  development check, green threshold 0.1 only). On production over 18 days, with nothing moved, the
+  benchmark's area changed by 0.26% (RMS) from one photo to the next on 26 Oct to 5 Nov, 0.58% on
+  6 to 9 Nov and 2.18% on 22 to 25 Oct. A grown plant changed by 26 to 41 mm², a cell by a median
+  of 3 to 4 mm² at every size, 100 to 300 times its growth per minute. The same benchmark read
+  about 3.7% more per 1,000 px from the photo centre, and 17% less in one slot where the mask lost
+  its pale pixels with no leaf over it. The worse periods are described, not explained, and leaf
+  movement is not separated from the rig's error. The new rules of #352 are to be checked the same
+  way (#395).
+- **Blue mats** (*added 2026-11-16*, metrology log 36.2, a development check). Laying mats round
+  the plants puts a step of about -20% into their area by grow from leaf cores, and moves the leaves
+  (up to 47% less leaf showing in single cells). The step is not marked on the page yet (#424). A
+  comparison of treatments on one day holds while all trays carry mats; a comparison of a plant
+  before and after its mat does not. Measured on one morning, plants of one size.
 
 ### Trays and tags (round 1, 2026-10-19)
 
@@ -475,6 +508,12 @@ metrology log backs it.
   the rig read 2 short changes and no move under the 1-hour rule: a duplicate tag laid on another
   tray for 5 photos (17.12) and a second tag 2 read in 1 photo, 6 of 95,482 tray readings
   (metrology log 22). Dust and condensation were not checked apart.
+  *Added 2026-11-09:* over the whole run (18 days, 12 shuffles, 7 trays with growing potato
+  plants) every tray was read in its planned slot after every shuffle (156 of 156; 209,001 of
+  209,012 readings), with no move outside the shuffles, and tags were found in 97.0 to 100% of
+  lit photos per tray per day (91.3% on the day of a 2-hour shuffle). The A1 corner was checked
+  only for the last two maps, 34,101 of 34,101 readings, because it is not stored since #331
+  (metrology log 22.1, #391).
 - **Tray identity under plants.** Plants near or over a tag are not tested (the trays had no
   plants).
 
@@ -491,6 +530,22 @@ metrology log backs it.
   from its cell A1 tag, the round 1 step above, is no longer used. Not shown: an outline against
   a measured tray edge (outlines were judged by eye on quarter-size pictures); stills picked at
   random; 1x1 or black trays.
+
+### Cells placed in each tray (round 3, 2026-11-06)
+
+- **Area per cell.** Each 4x5 and 2x2 tray's cells are placed from its outline and tag, and each
+  piece of plant is counted wholly for the cell holding most of it; a cell with no plant reads
+  "missing", never 0, and cells whose leaves reach over a neighbour's say so (metrology log 27,
+  #364). On one still of each rig the placed cells lie well centred on the real pots (2x2) and
+  openings (4x5) and are named right, judged by eye by Aaron (27.4); two blue-score methods for
+  the error in mm were rejected, wrong on 4x5 trays. Not shown: a placement error in mm; a turn
+  of the grid; the change between photos. The 2x2 cell layout rests on one tray measured with a
+  tape measure and calliper readings of its pots.
+- **Wall fringe in the cells (round 3, 2026-11-07).** The green threshold finds a few pixels of
+  the blue tray plastic along cell walls, so about a third of empty cells read "plant". In a cell
+  that holds a plant they add at most about 0.1 mm2 (90th percentile of 3792 pictures, both rigs,
+  metrology log 28), so plant areas are not changed by them and no rule is added. Not shown: an
+  empty cell filled with soil (none existed in the data).
 
 ### Flat-target bands (M2, to 2026-10-14)
 

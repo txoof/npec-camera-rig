@@ -1,0 +1,43 @@
+id,file,rig,day,split,stratum,truth_source,truth_px,mm2_per_px
+A01,prod_2026-10-22_4_B4,prod,2026-10-22,train,empty,corrected by Aaron,237,0.040554
+A02,prod_2026-10-23_5_C2,prod,2026-10-23,train,empty,corrected by Aaron,233,0.040782
+A05,prod_2026-10-25_1_C5,prod,2026-10-25,train,size 1 of 5,draft accepted,704,0.040701
+A06,prod_2026-10-25_2_A3,prod,2026-10-25,train,size 1 of 5,draft accepted,677,0.040581
+A07,prod_2026-10-26_2_D3,prod,2026-10-26,train,green soil,draft accepted,860,0.040380
+A12,prod_2026-10-28_4_A3,prod,2026-10-28,train,green soil,corrected by Aaron,1835,0.040648
+A13,prod_2026-10-29_1_B3,prod,2026-10-29,train,size 3 of 5,draft accepted,1597,0.040981
+A15,prod_2026-10-31_6_C4,prod,2026-10-31,train,size 3 of 5,draft accepted,1723,0.040606
+A16,prod_2026-11-01_1_A2,prod,2026-11-01,train,green soil,draft accepted,2131,0.040695
+A17,prod_2026-11-01_6_A5,prod,2026-11-01,train,empty,corrected by Aaron,1376,0.040490
+A21,prod_2026-11-04_1_D5,prod,2026-11-04,train,size 5 of 5,corrected by Aaron,4417,0.040830
+A22,prod_2026-11-04_6_B5,prod,2026-11-04,train,size 4 of 5,draft accepted,2068,0.040524
+A25,prod_2026-11-06_3_C5,prod,2026-11-06,train,"blue mat, size 2 of 5",corrected by Aaron,2509,0.040705
+A26,prod_2026-11-07_3_C3,prod,2026-11-07,train,"blue mat, size 4 of 5",corrected by Aaron,4400,0.040799
+A27,prod_2026-11-07_5_B2,prod,2026-11-07,train,"blue mat, size 3 of 5",corrected by Aaron,3703,0.040302
+A29,prod_2026-11-09_2_C3,prod,2026-11-09,train,"blue mat, size 5 of 5",corrected by Aaron,6941,0.040617
+A30,prod_2026-11-09_4_C5,prod,2026-11-09,train,"blue mat, size 1 of 5",corrected by Aaron,1124,0.040770
+B01,dev_2026-11-03_76_B2,dev,2026-11-03,train,size 2 of 5,corrected by Aaron,9734,0.038767
+B02,dev_2026-11-03_77_B2,dev,2026-11-03,train,size 1 of 5,draft accepted,5956,0.038004
+B03,dev_2026-11-03_78_B2,dev,2026-11-03,train,green soil,corrected by Aaron,12704,0.038379
+B04,dev_2026-11-03_81_A1,dev,2026-11-03,train,size 4 of 5,corrected by Aaron,59298,0.039458
+B05,dev_2026-11-03_81_A2,dev,2026-11-03,train,size 3 of 5,corrected by Aaron,15947,0.039152
+B06,dev_2026-11-03_81_B1,dev,2026-11-03,train,green soil,corrected by Aaron,32644,0.039385
+B07,dev_2026-11-04_76_B2,dev,2026-11-04,train,size 2 of 5,corrected by Aaron,11343,0.038768
+B08,dev_2026-11-04_78_B1,dev,2026-11-04,train,size 2 of 5,corrected by Aaron,9850,0.038684
+B09,dev_2026-11-04_80_B1,dev,2026-11-04,train,size 2 of 5,corrected by Aaron,8472,0.038136
+B10,dev_2026-11-04_80_B2,dev,2026-11-04,train,size 3 of 5,corrected by Aaron,16889,0.038443
+B11,dev_2026-11-04_81_B2,dev,2026-11-04,train,size 4 of 5,corrected by Aaron,64979,0.039082
+B12,dev_2026-11-04_85_A2,dev,2026-11-04,train,size 5 of 5,corrected by Aaron,174094,0.037752
+B13,dev_2026-11-04_86_A1,dev,2026-11-04,train,size 4 of 5,draft accepted,47927,0.038976
+B17,dev_2026-11-06_77_B1,dev,2026-11-06,train,size 2 of 5,draft accepted,10360,0.038823
+B18,dev_2026-11-06_78_A2,dev,2026-11-06,train,size 1 of 5,corrected by Aaron,12076,0.038901
+B19,dev_2026-11-06_87_A2,dev,2026-11-06,train,empty,corrected by Aaron,93681,0.038102
+B20,dev_2026-11-07_77_A1,dev,2026-11-07,train,size 3 of 5,corrected by Aaron,12966,0.038764
+B21,dev_2026-11-07_79_A1,dev,2026-11-07,train,size 5 of 5,corrected by Aaron,129099,0.038042
+B22,dev_2026-11-07_80_A2,dev,2026-11-07,train,size 3 of 5,corrected by Aaron,15276,0.037584
+B23,dev_2026-11-07_87_A1,dev,2026-11-07,train,size 5 of 5,corrected by Aaron,52782,0.038408
+B24,dev_2026-11-07_87_A2,dev,2026-11-07,train,empty,corrected by Aaron,50398,0.038102
+B27,dev_2026-11-09_76_A2,dev,2026-11-09,train,size 1 of 5,corrected by Aaron,7737,0.039062
+B28,dev_2026-11-09_76_B1,dev,2026-11-09,train,green soil,corrected by Aaron,3704,0.039438
+B29,dev_2026-11-09_86_A2,dev,2026-11-09,train,empty,draft accepted,6065,0.038756
+B30,dev_2026-11-09_87_B1,dev,2026-11-09,train,size 1 of 5,draft accepted,3483,0.038288

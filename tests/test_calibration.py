@@ -795,6 +795,31 @@ def test_build_table_frame_pins_corners_regardless_of_tag_id_order() -> None:
     assert frame.to_fraction(0.0, 800.0) == pytest.approx((0.0, 1.0), abs=1e-6)
 
 
+def test_build_table_frame_from_corner_tags_inside_the_table_edge() -> None:
+    # #349: the corner tags lie on the table, about 900 px in from the sides of a 9152 x 6944
+    # photo. Each tag centre is a corner of the frame, and the middle of the rectangle is (0.5, 0.5).
+    baseline = _corner_baseline({450: (900, 700), 451: (8250, 700), 452: (8250, 6250), 455: (900, 6250)})
+    frame = build_table_frame(baseline)
+    assert frame.to_fraction(900.0, 700.0) == pytest.approx((0.0, 0.0), abs=1e-6)
+    assert frame.to_fraction(8250.0, 700.0) == pytest.approx((1.0, 0.0), abs=1e-6)
+    assert frame.to_fraction(8250.0, 6250.0) == pytest.approx((1.0, 1.0), abs=1e-6)
+    assert frame.to_fraction(900.0, 6250.0) == pytest.approx((0.0, 1.0), abs=1e-6)
+    assert frame.to_fraction(4575.0, 3475.0) == pytest.approx((0.5, 0.5), abs=1e-6)
+
+
+def test_build_table_frame_from_corner_tags_laid_as_a_trapezoid() -> None:
+    # #349: the north tags 600 px further in than the south ones. Worked by hand: the diagonals
+    # (1500, 700)-(8250, 6250) and (7650, 700)-(900, 6250) cross at t = 6150 / 13500 along both,
+    # at (4575, 3228.33), and a homography sends the crossing of the diagonals to (0.5, 0.5).
+    baseline = _corner_baseline({450: (1500, 700), 451: (7650, 700), 452: (8250, 6250), 455: (900, 6250)})
+    frame = build_table_frame(baseline)
+    assert frame.to_fraction(1500.0, 700.0) == pytest.approx((0.0, 0.0), abs=1e-6)
+    assert frame.to_fraction(7650.0, 700.0) == pytest.approx((1.0, 0.0), abs=1e-6)
+    assert frame.to_fraction(8250.0, 6250.0) == pytest.approx((1.0, 1.0), abs=1e-6)
+    assert frame.to_fraction(900.0, 6250.0) == pytest.approx((0.0, 1.0), abs=1e-6)
+    assert frame.to_fraction(4575.0, 700 + 5550 * 6150 / 13500) == pytest.approx((0.5, 0.5), abs=1e-6)
+
+
 def test_build_table_frame_raises_with_wrong_corner_count() -> None:
     baseline = _corner_baseline({450: (0, 0), 451: (1000, 0), 452: (1000, 800)})
     with pytest.raises(ValueError, match="exactly 4"):

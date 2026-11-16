@@ -459,3 +459,23 @@ def test_the_photos_database_row_records_the_quality_it_was_saved_at() -> None:
 
     row = database.captures_by_path([record["path"]])[record["path"]]
     assert (row["jpeg_quality"], row["jpeg_chroma"]) == (90, "4:4:4")
+
+
+def test_the_photos_database_row_records_whether_the_auto_exposure_had_settled() -> None:
+    """#382: the camera reports its auto-exposure state with each frame, libcamera's AeState:
+    0 idle, 1 searching, 2 converged (read from libcamera 0.7.2 on npec-rig-01, 2026-11-07). A
+    camera still searching, as in the dark or while the light ramps, is saved as "searching"."""
+    from npec_rig import database
+    from npec_rig.camera import CameraManager, SyntheticBackend
+
+    class Searching(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            return frame, {**metadata, "AeState": 1}
+
+    CameraManager.set_instance(CameraManager(Searching(width=64, height=48)))
+    _array, record = take_photo("capture")
+    del _array
+
+    row = database.captures_by_path([record["path"]])[record["path"]]
+    assert row["ae_state"] == "searching"

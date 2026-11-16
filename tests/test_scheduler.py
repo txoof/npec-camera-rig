@@ -212,3 +212,51 @@ def test_photos_taken_on_time_are_not_listed_as_late() -> None:
         schedule = client.get("/api/experiments").json()[0]["schedule"]
     assert schedule["late_photos"] == []
     assert schedule["downtime"] == []
+
+
+def _photo_at(experiment_id: int, taken_at: str) -> int:
+    return database.record_capture(
+        taken_at=taken_at, path=f"experiments/x/{taken_at}", purpose="capture", experiment_id=experiment_id,
+        calibration=None, validation=None, lens_position=None, focus_locked_at=None, exposure_us=None,
+        analogue_gain=None, flags=[],
+    )
+
+
+def test_each_downtime_runs_from_the_last_photo_before_its_restart_or_from_the_schedules_start() -> None:
+    """A schedule from 10:00, a photo a minute. Restarts at 10:00:30 (no photo yet), 10:05:30 (after
+    the 10:03 photo) and 10:05:45 (no photo since the one before). Worked out by hand (#416)."""
+    experiment = database.create_experiment(uuid="u-416", created_at="2027-01-01T09:00:00+00:00", interval_s=60)
+    database.start_experiment(experiment["id"], now="2027-01-01T10:00:00+00:00", folder="experiments/x")
+    for minute in ("01", "02", "03", "06"):
+        _photo_at(experiment["id"], f"2027-01-01T10:{minute}:00+00:00")
+    for started_at in ("10:00:30", "10:05:30", "10:05:45"):
+        database.record_app_start(f"2027-01-01T{started_at}+00:00")
+
+    downtime = scheduler.schedule(database.get_experiment(experiment["id"]))["downtime"]
+
+    assert downtime == [
+        {"after": "2027-01-01T10:00:00+00:00", "until": "2027-01-01T10:00:30+00:00"},
+        {"after": "2027-01-01T10:03:00+00:00", "until": "2027-01-01T10:05:30+00:00"},
+        {"after": "2027-01-01T10:03:00+00:00", "until": "2027-01-01T10:05:45+00:00"},
+    ]
+
+
+def test_a_photo_is_late_when_the_app_came_back_after_it_was_due_and_by_the_time_it_was_taken() -> None:
+    """#416 review, worked out by hand. A schedule from 10:00, a photo a minute. The 10:01 photo,
+    taken at 10:01:00 by an app started at exactly 10:01:00, was not due while the app was down. The
+    10:03 photo, taken at 10:04:30 by the app started at that moment, is 90 s late. The 10:05 photo,
+    taken 2 s after it was due with no start in between, is on time."""
+    experiment = database.create_experiment(uuid="u-416b", created_at="2027-01-01T09:00:00+00:00", interval_s=60)
+    since = "2027-01-01T10:00:00+00:00"
+    database.start_experiment(experiment["id"], now=since, folder="experiments/x")
+    taken = {1: "10:01:00", 3: "10:04:30", 5: "10:05:02"}
+    database.record_scheduled_photos(experiment["id"], since, [
+        (slot, f"2027-01-01T10:0{slot}:00+00:00", _photo_at(experiment["id"], f"2027-01-01T{at}+00:00"), None)
+        for slot, at in taken.items()
+    ])
+    for started_at in ("10:01:00", "10:04:30"):
+        database.record_app_start(f"2027-01-01T{started_at}+00:00")
+
+    late = scheduler.schedule(database.get_experiment(experiment["id"]))["late_photos"]
+
+    assert late == [{"due": "2027-01-01T10:03:00+00:00", "taken": "2027-01-01T10:04:30+00:00", "late_s": 90.0}]

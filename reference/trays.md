@@ -67,6 +67,9 @@ pot (Aaron, 2026-10-21).
 - **12 trays:** always portrait (short edges north and south), two rows, North 1 to 6 and South 1
   to 6, each tray at 0 or 180 degrees in its slot. So A1 is at the south-west or north-east corner.
 - **Fewer trays:** a tray can be at any angle.
+- **Corner tags:** keep every tray off the four corner tags (IDs 450 to 499). On the development
+  rig they lie inside the table edge since 2026-11-03, where a tray wall can hide one. No distance
+  is set: a calibration names any hidden tag (metrology log section 31.3, #349).
 - **Gaps cannot be relied on.** Researchers are asked to leave gaps and will not reliably do so;
   even "with gaps" the trays touch in places (15 October photos).
 
@@ -80,7 +83,8 @@ pot (Aaron, 2026-10-21).
 
 ## Not yet known
 
-- Grid spacing of the 2 x 2 and 1 x 1 configurations.
+- Grid spacing of the 1 x 1 configuration. (2 x 2: measured 2026-11-06, metrology log 27.1: holes
+  106 mm, divisions 32 and 58.5 mm, pots 108.93 mm; the grid taken to be centred.)
 - How many trays of each configuration exist, and whether 2 x 2 and 1 x 1 are used in the 12-tray
   layout or with fewer trays.
 - Whether FastSAM finds a 1 x 1 tray (no cell pattern) and trays with pots, soil and plants.

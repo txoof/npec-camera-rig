@@ -199,15 +199,15 @@ def build_table_frame(baseline: CornerBaseline) -> TableFrame:
     Takes **only `CornerBaseline`** -- no `ScaleField` parameter exists, by construction, so mm
     can't leak into this transform even by accident. Position (this) and scale/area (`ScaleField`,
     fit from the measurement-plane calibration tags) are two coordinate systems that must never
-    mix: the corner tags sit on a different physical plane (the table edge) than the measurement
-    slab (tray height) `ScaleField` is fit to, and using a cross-plane figure to correct anything
+    mix: the corner tags sit on a different physical plane (the table, near its corners; inside
+    its edge since #349) than the measurement slab (tray height) `ScaleField` is fit to, and using a cross-plane figure to correct anything
     here would be exactly the invented parallax correction CLAUDE.md's evidence gate blocks.
 
     Raises ValueError if `len(baseline.corners_by_id) != 4` -- a homography needs exactly 4
     non-degenerate correspondences, and a reduced-DOF fallback (e.g. an affine fit from 3 points)
-    would be exactly the derived-not-measured shortcut this project exists to avoid. Not currently
-    a practical limitation: all 4 corner tags are detected in every recent real run (verified
-    directly against saved calibration artifacts) -- unlike `CornerBaseline`/`check_tripwire`
+    would be exactly the derived-not-measured shortcut this project exists to avoid. With the tags
+    on the table a tray or plant can cover one: a calibration run whose photo misses one is saved
+    with a warning naming it (`calibration_run.missing_corner_tag_warnings`, #349) -- unlike `CornerBaseline`/`check_tripwire`
     elsewhere in this codebase, which deliberately tolerate fewer than 4 for the tripwire's own,
     looser purpose (comparing whichever tags are present against themselves later); a homography
     has no equivalent looser mode, so this is strict where those are lenient.

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% set nav_active = "about" %}
+{% block title_suffix %} — About{% endblock %}
+{% block breadcrumb %}<h1>About</h1>{% endblock %}
+
+{#- The About page (#390): what the rig runs and the state it is in, read when the page opens.
+    The page only draws `about_sections` from about.sections() (base.html already uses `sections`
+    for the rail): each card has a title, an optional status chip, rows of facts and links. A new
+    card (manuals, documents) is a new entry there, not a change here. -#}
+{% block head_extra %}
+<style>
+  .about { display: grid; gap: var(--gap); max-width: 760px; }
+  .about-facts { display: grid; grid-template-columns: minmax(170px, max-content) minmax(0, 1fr); gap: 8px 24px; margin: 0; }
+  .about-facts dt { color: var(--fg-2); }
+  .about-facts dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; overflow-wrap: anywhere; }
+  .about-facts .ago { color: var(--fg-2); }
+  @media (max-width: 700px) { .about-facts { grid-template-columns: minmax(0, 1fr); gap: 2px; } .about-facts dd { margin-bottom: 8px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="about">
+  <p class="lead" id="about-note">Times shown in UTC.</p>
+  {%- for section in about_sections %}
+  <section class="card" aria-labelledby="about-{{ loop.index }}">
+    <div class="card-head">
+      <h3 id="about-{{ loop.index }}">{{ section.title }}</h3>
+      {%- if section.status %}{{ ui.chip(section.status[0], section.status[1]) }}{% endif %}
+    </div>
+    {%- if section.rows %}
+    <dl class="about-facts">
+      {%- for row in section.rows %}
+      <dt>{{ row.label }}</dt>
+      <dd>
+        {%- if row.time %}<time datetime="{{ row.time }}">{{ row.value }}</time><span class="ago"></span>
+        {%- elif row.value %}<span>{{ row.value }}</span>{% endif %}
+        {%- if row.status %}{{ ui.chip(row.status[0], row.status[1]) }}{% endif -%}
+      </dd>
+      {%- endfor %}
+    </dl>
+    {%- endif %}
+    {%- if section.links %}
+    <div class="card-actions">
+      {%- for link in section.links %}{{ ui.link_button(link.label, link.href, new_tab=link.new_tab) }}{% endfor %}
+    </div>
+    {%- endif %}
+  </section>
+  {%- endfor %}
+</div>
+<script>
+  (() => {
+    // Times in the browser's own time zone, like the Gallery; without JavaScript they stay UTC.
+    let zone;
+    try {
+      zone = new Intl.DateTimeFormat(undefined, { timeZoneName: "longGeneric" }).formatToParts(new Date())
+        .find((part) => part.type === "timeZoneName").value;
+    } catch (err) {
+      zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    }
+    const now = new Date();
+    const when = (d) => d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    document.getElementById("about-note").textContent = `Read when this page opened, ${when(now)}. Times shown in ${zone}.`;
+    const ago = (ms) => {
+      const min = Math.floor(ms / 60000), h = Math.floor(min / 60), d = Math.floor(h / 24);
+      if (d >= 1) return `${d} d ${h % 24} h ago`;
+      if (h >= 1) return `${h} h ${min % 60} min ago`;
+      return `${min} min ago`;
+    };
+    for (const el of document.querySelectorAll(".about-facts time[datetime]")) {
+      const t = new Date(el.getAttribute("datetime"));
+      if (Number.isNaN(t.getTime())) continue;
+      el.textContent = when(t);
+      if (t <= now) el.nextElementSibling.textContent = ago(now - t);
+    }
+  })();
+</script>
+{% endblock %}

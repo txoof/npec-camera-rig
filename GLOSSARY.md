@@ -39,8 +39,10 @@ calibration and validation.
 _Avoid_: calibration sheet (on its own), printed scale
 
 **Corner tag**:
-A 3D-printed tag at a corner of the table. Marks the table's corners and is used to check and
-adjust how level the table is against the camera during setup.
+A 50 mm tag (IDs 450 to 499) near a corner of the table: on a mount at the outer edge on
+production, inside the edge on development since 2026-11-03 (#349). Marks the table's corners and
+is used to check and adjust how level the table is against the camera during setup. Moving one
+needs a new calibration.
 
 **Tray tag**:
 The tag of about 40 mm in cell A1 of a tray, which says which tray it is and where it lies.
@@ -86,6 +88,7 @@ Plant surface area, in mm2. Only that; a zone of the table is a table location.
 
 **Exclusion**:
 A stored reason that a photo's plant areas are left out of averages and exports: lights off,
-light changing, light disturbed, light off norm, or a visit (#288). The areas themselves are kept,
+light changing, or a visit (#288, #382; "light disturbed" and "light off norm" came from the light
+norm, dropped in #382, and may remain on older experiments). The areas themselves are kept,
 never deleted, so an exclusion can be shown, reviewed or worked out again.
 _Avoid_: mark, flag (a photo's flags say why the validation bands do not cover it)

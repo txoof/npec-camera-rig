@@ -1,0 +1,24 @@
+fixed: drift, bare cells in before windows (>= 5 photos): median -0.581 %/min, n 57
+fixed: drift, matted cells near to later: median +0.064 %/min, n 76
+fixed tray 3: cells 19, change near median +20.4% (range -28.3 to +83.2), pooled +22.8%; later median +24.4%; photo sd median before 15.68% after 4.74%; minutes between windows 50; photos before 3, near 14, later 30
+fixed tray 6: cells 19, change near median +9.4% (range -33.7 to +66.1), pooled +6.1%; later median +0.6%; photo sd median before 9.44% after 5.20%; minutes between windows 45; photos before 12, near 14, later 30
+fixed tray 4: cells 19, change near median +33.2% (range -14.9 to +507.9), pooled +24.7%; later median +55.6%; photo sd median before 12.03% after 8.36%; minutes between windows 43; photos before 16, near 14, later 30
+fixed tray 5: cells 19, change near median +38.8% (range -13.8 to +260.6), pooled +32.1%; later median +34.1%; photo sd median before 13.99% after 7.55%; minutes between windows 37; photos before 26, near 14, later 30
+grown: drift, bare cells in before windows (>= 5 photos): median +0.068 %/min, n 57
+grown: drift, matted cells near to later: median +0.095 %/min, n 76
+grown tray 3: cells 19, change near median -13.4% (range -46.3 to +2.7), pooled -14.6%; later median -8.4%; photo sd median before 3.63% after 2.40%; minutes between windows 50; photos before 3, near 14, later 30
+grown tray 6: cells 19, change near median -32.9% (range -74.4 to -16.9), pooled -32.1%; later median -21.9%; photo sd median before 4.60% after 1.99%; minutes between windows 45; photos before 12, near 14, later 30
+grown tray 4: cells 19, change near median -24.4% (range -43.6 to -8.3), pooled -22.8%; later median -17.0%; photo sd median before 2.19% after 3.28%; minutes between windows 43; photos before 16, near 14, later 30
+grown tray 5: cells 19, change near median -20.7% (range -46.1 to +3.4), pooled -22.3%; later median -17.4%; photo sd median before 3.17% after 2.07%; minutes between windows 37; photos before 26, near 14, later 30
+soil tray 3 before: level median -0.165, lower cutoff median -0.045, photos 3
+soil tray 3 later: level median -0.145, lower cutoff median -0.045, photos 30
+soil tray 3 near: level median -0.155, lower cutoff median -0.045, photos 14
+soil tray 4 before: level median -0.160, lower cutoff median -0.045, photos 16
+soil tray 4 later: level median -0.145, lower cutoff median -0.045, photos 30
+soil tray 4 near: level median -0.145, lower cutoff median -0.045, photos 14
+soil tray 5 before: level median -0.155, lower cutoff median -0.045, photos 26
+soil tray 5 later: level median -0.135, lower cutoff median -0.045, photos 30
+soil tray 5 near: level median -0.135, lower cutoff median -0.045, photos 14
+soil tray 6 before: level median -0.125, lower cutoff median -0.045, photos 12
+soil tray 6 later: level median -0.155, lower cutoff median -0.045, photos 30
+soil tray 6 near: level median -0.145, lower cutoff median -0.045, photos 14

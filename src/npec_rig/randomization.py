@@ -46,8 +46,8 @@ from npec_rig.calibration_store import (
     load_saved_calibration,
 )
 from npec_rig.captures import photo_file
-from npec_rig.tags import TRAY_ID_RANGE, TagDetection
-from npec_rig.tray_placement import TRAY_SIZE_MM, find_outlines, name_trays
+from npec_rig.tags import TRAY_ID_RANGE
+from npec_rig.tray_placement import TRAY_SIZE_MM, find_outlines, name_trays, place_cells
 
 # Where the tag in cell A1 lies from a 4 x 5 tray's centre with A1 at SW, photo axes (east, south),
 # mm: tray_placement.A1_TAG_TO_CENTRE_MM for a tray square to the photo. Turned round, the opposite.
@@ -121,13 +121,12 @@ class Place:
 @dataclass(frozen=True)
 class TraySeen:
     """A tray found in a photo: its centre (full-size photo pixels), its heading (None when not
-    read), its outer sides there and its tag's angle in degrees."""
+    read) and its outer sides there."""
 
     tray_id: int
     centre: tuple[float, float]
     heading: str | None
     sides: frozenset[str]
-    tag_angle: float
     # Where the centre may be instead, when it is not known from the tray's own outline: a 4 x 5
     # tray seen only by its tag in cell A1 has two, one for A1 at SW and one for NE.
     alternatives: tuple[tuple[float, float], ...] = ()
@@ -394,24 +393,12 @@ def check_layout(
     return checks
 
 
-def tag_angle(tag: TagDetection) -> float:
-    """The tag's angle in the photo, degrees: the direction from its first corner to its second.
-    Any fixed edge would do: only the change between photos is used."""
-    (x0, y0), (x1, y1) = tag.corners[0], tag.corners[1]
-    return math.degrees(math.atan2(y1 - y0, x1 - x0))
-
-
-def turned_from(angle: float, reference: float) -> bool:
-    """Whether a tag at `angle` is turned round (more than 90 degrees) from `reference`."""
-    return abs((angle - reference + 180.0) % 360.0 - 180.0) > 90.0
-
-
 class LayoutUnreadableError(RuntimeError):
     """A photo whose trays cannot be read: no calibration, or the photo is gone."""
 
 
 def photo_layout(
-    path: str, references: dict[int, float] | None = None, known: list[tuple[float, float]] = ()
+    path: str, experiment_id: int | None, known: list[tuple[float, float]] = ()
 ) -> tuple[list[TraySeen], list[Place], object]:
     """The trays of photo `path` (a gallery path), the places on the table they make
     (`table_places`, empty ones too) and the photo's calibration scale field.
@@ -419,9 +406,13 @@ def photo_layout(
     Each tray tag's tray is found from its blue outline (tray_placement.find_outlines and
     name_trays, as the tray readings do), wherever it stands. A 4 x 5 tray's A1 corner is SW when
     its tag lies south of the outline's centre, NE when north; not read when no outline was found.
-    A 2 x 2 tray's heading is its tag's angle against `references`, its tag's angle in its first
-    photo (its own angle when it has none yet). `known`: the last suggestion's place centres, so an
-    emptied row or column is kept (`table_places`)."""
+    A 2 x 2 tray's heading is read from its cell A1, placed as the tray readings place it
+    (`tray_placement.place_cells` with the A1 bearing of experiment `experiment_id`'s first photo of
+    the tray, `database.first_a1_bearing`): "as first" when A1 lies towards the photo's south-west
+    of the tray's centre, as in that first photo, "turned" when towards the north-east. One rule
+    for the cell names and this page (#385). Not read with no outline. `experiment_id` is given,
+    not read from the photo: a check photo belongs to no experiment. `known`: the last
+    suggestion's place centres, so an emptied row or column is kept (`table_places`)."""
     try:
         record = database.captures_by_path([path]).get(path)
     except (sqlite3.Error, RuntimeError) as exc:
@@ -449,7 +440,6 @@ def photo_layout(
     empty = [k for k in known if all(math.dist(k, c) > IN_PLACE_MM * ppm for c in centres.values())]
     places = table_places(centres, ppm, empty) if centres else []
     sides = {p.occupant: p.sides for p in places if p.occupant is not None}
-    references = references or {}
     seen = []
     for t in trays:
         tag = tags[t.tray_id]
@@ -465,9 +455,10 @@ def photo_layout(
             ppm = scale.px_per_mm(*tag.centre)
             dx, dy = -A1_FROM_CENTRE_MM[0] * ppm, -A1_FROM_CENTRE_MM[1] * ppm
             alternatives = ((tag.centre[0] + dx, tag.centre[1] + dy), (tag.centre[0] - dx, tag.centre[1] - dy))
-        elif kind == "2x2":
-            # The tag is fixed in the middle of the tray (Aaron, 2026-11-04).
-            angle = tag_angle(tag)
-            heading = "turned" if turned_from(angle, references.get(t.tray_id, angle)) else "as first"
-        seen.append(TraySeen(t.tray_id, tuple(t.centre), heading, sides[t.tray_id], tag_angle(tag), alternatives))
+        elif kind == "2x2" and own_outline:
+            bearing = database.first_a1_bearing(experiment_id, t.tray_id)
+            a1 = next(c for c in place_cells(t, tag, scale, bearing) if c.name == "A1")
+            to_a1 = np.asarray(a1.centre) - np.asarray(t.outline, dtype=np.float64).mean(axis=0)
+            heading = "as first" if np.dot(to_a1, (-1.0, 1.0)) > 0 else "turned"
+        seen.append(TraySeen(t.tray_id, tuple(t.centre), heading, sides[t.tray_id], alternatives))
     return sorted(seen, key=lambda s: s.tray_id), places, scale

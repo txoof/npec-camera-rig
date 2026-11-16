@@ -40,29 +40,57 @@ def test_a_photo_at_the_cameras_ceiling_is_lights_off() -> None:
     assert exclusions.light_exclusions(photos)["exclusions"] == ["lights off", None]
 
 
-FIRST_DAY = [5000] * 24
-FIRST_DAY[5] = 5300  # +6%: the first day's largest steady swing
-FIRST_DAY[7] = 4850  # -3%
+MINUTE = timedelta(minutes=1)
 
 
-def test_the_norm_and_limit_come_from_the_first_full_day_and_wait_for_it() -> None:
-    """Hourly photos, no lights off: the norm is the median, 5,000; the largest swing is 5,300,
-    +6%, so the limit is 3 x 6% = 18% (Aaron, 2026-10-26). Before a photo 24 hours after the
-    first, there is no norm yet."""
-    pending = exclusions.light_exclusions(_photos(*FIRST_DAY))
-    assert (pending["norm"], pending["limit"]) == (None, None)
+def test_a_ramp_of_any_length_is_light_changing_with_one_photo_either_side() -> None:
+    """N-pad (#382, metrology log 29.2): a photo whose E lies strictly between the photo before
+    and the photo after is in a ramp, and so are those two. Short ramp, photos a minute apart:
+    5,000 5,000 6,000 7,000 7,000; only 6,000 is between its neighbours, so it and the two around
+    it. Long ramp: 3 photos at 5,000, then 40 photos each 100 higher (5,100 to 9,000), then 2 more
+    at 9,000. The first 39 rising photos lie between their neighbours; the 40th, 9,000, has 8,900
+    before and 9,000 after, so it is not, but it is next to 8,900; the last 5,000 is next to the
+    first rise. 41 photos in all."""
+    short = exclusions.light_exclusions(_photos(5000, 5000, 6000, 7000, 7000, every=MINUTE))
+    assert short["exclusions"] == [None, "light changing", "light changing", "light changing", None]
 
-    ready = exclusions.light_exclusions(_photos(*FIRST_DAY, 5000))
-    assert ready["norm"] == 5000
-    assert ready["limit"] == pytest.approx(0.18)
+    rising = [5000 + 100 * i for i in range(1, 41)]
+    long = exclusions.light_exclusions(_photos(5000, 5000, 5000, *rising, 9000, 9000, every=MINUTE))
+    assert long["exclusions"] == [None, None] + ["light changing"] * 41 + [None, None]
 
 
-def test_a_short_dip_that_returns_to_the_norm_is_light_disturbed_and_one_within_the_limit_is_kept() -> None:
-    """After the first day (norm 5,000, limit 18%): two photos at 4,000 (-20%), then back to
-    5,000, are 3 photos or fewer that return, so "light disturbed" (Aaron, 2026-10-26); 4,500
-    (-10%) is within the limit and kept."""
-    result = exclusions.light_exclusions(_photos(*FIRST_DAY, 5000, 4000, 4000, 5000, 4500))
-    assert result["exclusions"][24:] == [None, "light disturbed", "light disturbed", None, None]
+def test_a_scene_step_or_a_daytime_wobble_is_not_light_changing_and_two_steps_are() -> None:
+    """A scene change moves E once and it stays: 5,000 5,000 4,800 4,800 4,800, no photo strictly
+    between its neighbours, nothing flagged. A wobble, 5,000 4,900 5,000, is not between either.
+    Two steps in a row, 5,000 4,900 4,800 4,800: 4,900 is between, so it and its two neighbours
+    (a few such photos a day are left out, Aaron, 2026-11-07)."""
+    step = exclusions.light_exclusions(_photos(5000, 5000, 4800, 4800, 4800, every=MINUTE))
+    assert step["exclusions"] == [None] * 5
+    wobble = exclusions.light_exclusions(_photos(5000, 5000, 4900, 5000, 5000, every=MINUTE))
+    assert wobble["exclusions"] == [None] * 5
+    two = exclusions.light_exclusions(_photos(5000, 5000, 4900, 4800, 4800, every=MINUTE))
+    assert two["exclusions"] == [None, "light changing", "light changing", "light changing", None]
+
+
+def test_lights_off_is_the_cameras_own_searching_state_and_e_of_200000_only_when_none_was_saved() -> None:
+    """Development experiment 3, 9 November 07:59 to 08:05 UTC, the start of the ramp up (metrology
+    log 29.3): E 265,860 searching at 07:59 and 08:00, 182,763 searching at 08:01, then 66,620,
+    41,994, 30,618 and 19,945 converged. The searching photos are lights off; the converged ones
+    after them fall every minute, so light changing. A photo the camera reports settled is not
+    lights off whatever its E; one saved before the state was recorded (#382) falls back to E of
+    200,000 or more (17.7)."""
+    def photo(minute: int, e: float, state: str | None) -> dict:
+        return {"taken_at": (START + minute * MINUTE).isoformat(), "exposure_us": e, "analogue_gain": 1.0, "ae_state": state}
+
+    ramp_up = [photo(0, 265_860, "searching"), photo(1, 265_860, "searching"), photo(2, 182_763, "searching"),
+               photo(3, 66_620, "converged"), photo(4, 41_994, "converged"), photo(5, 30_618, "converged"),
+               photo(6, 19_945, "converged")]
+    assert exclusions.light_exclusions(ramp_up)["exclusions"] == ["lights off"] * 3 + ["light changing"] * 4
+
+    settled = [photo(0, 250_000, "converged"), photo(1, 250_000, "converged"), photo(2, 250_000, "converged")]
+    assert exclusions.light_exclusions(settled)["exclusions"] == [None] * 3
+    old = [photo(0, 250_000, None), photo(1, 250_000, None), photo(2, 199_999, None), photo(3, 199_999, None)]
+    assert exclusions.light_exclusions(old)["exclusions"] == ["lights off", "lights off", None, None]
 
 
 def _experiment_18() -> dict[str, str | None]:
@@ -75,179 +103,33 @@ def _experiment_18() -> dict[str, str | None]:
     return {p["taken_at"][:19]: name for p, name in zip(photos, result["exclusions"])}
 
 
-def test_a_fade_into_lights_off_is_light_changing() -> None:
-    """The fade of 22 October in experiment 18 (17.8): at 23:27:53 E is 101,750, 19 times the
-    norm, one photo before lights off, so "light changing", not off norm. At 23:03:53 E is 5,716,
-    9% over the norm and inside its limit of about 21%, so kept; 22:30:53 is steady."""
+def test_the_fade_into_lights_off_of_experiment_18_is_light_changing_from_its_first_photo() -> None:
+    """The fade of 22 October (`light-e18.csv`): E is 5,248 up to 23:00:53, then rises every
+    minute, 5,404 at 23:01:53 to 101,750 at 23:27:53, and is 256,088 (lights off) at 23:28:53.
+    So 23:00:53, the photo before the first rise, to 23:27:53 are light changing: 28 photos."""
     photo = _experiment_18()
-    assert photo["2026-10-22T23:27:53"] == "light changing"
-    assert photo["2026-10-22T23:03:53"] is None
-    assert photo["2026-10-22T22:30:53"] is None
-
-
-def test_a_long_steady_stretch_away_from_the_norm_is_light_off_norm() -> None:
-    """Five hours at 4,000 (-20%, limit 18%), steady, then back: more than 3 photos, so "light off
-    norm", which counts toward the warning (#288 part 2)."""
-    result = exclusions.light_exclusions(_photos(*FIRST_DAY, 5000, 4000, 4000, 4000, 4000, 4000, 5000))
-    assert result["exclusions"][25:31] == ["light off norm"] * 5 + [None]
-
-
-def test_a_ramp_away_from_lights_off_is_light_changing() -> None:
-    """A ramp down and up again: 4,000, 3,500, 3,000, 3,500, 4,000. Each step is 12% to 17%,
-    more than the first day's largest step (5,000 to 5,300, 6%), so the light keeps moving:
-    "light changing", no warning (Aaron, 2026-10-26: a normal ramp sets off no alarm)."""
-    result = exclusions.light_exclusions(_photos(*FIRST_DAY, 5000, 4000, 3500, 3000, 3500, 4000, 5000))
-    assert result["exclusions"][25:31] == ["light changing"] * 5 + [None]
-
-
-def test_people_at_the_table_do_not_move_the_light_past_the_limit() -> None:
-    """Shuffle 1, 23 October 08:43 to 08:56 UTC (17.8): E 8% to 11% low, inside the limit of
-    about 21%. No light exclusion: visits are left to the visits rule (#288 part 3)."""
-    photo = _experiment_18()
-    shuffle = [name for t, name in photo.items() if "2026-10-23T08:43" <= t <= "2026-10-23T08:56"]
-    assert len(shuffle) == 13
-    assert shuffle == [None] * 13
+    fade = [name for t, name in photo.items() if "2026-10-22T23:00:53" <= t <= "2026-10-22T23:27:53"]
+    assert fade == ["light changing"] * 28
+    assert photo["2026-10-22T22:59:53"] is None
+    assert photo["2026-10-22T23:28:53"] == "lights off"
 
 
 def test_photos_taken_for_calibration_or_validation_are_left_out() -> None:
-    """Review of #299: a validation photo at 9,000 (+80%, sheets on the table) in the first day
-    leaves the norm at 5,000 and the limit at 18%, as without it, and gets no exclusion: only
-    the experiment's own photos count, as in Reprocess and metrology log 17.8."""
-    photos = _photos(*FIRST_DAY, 5000)
-    validation = {"taken_at": (START + timedelta(hours=3, minutes=30)).isoformat(),
+    """Review of #299: a validation photo at 9,000 (sheets on the table) between two steady photos
+    gets no exclusion and is not a neighbour: only the experiment's own photos count, as in
+    Reprocess and metrology log 17.8."""
+    photos = _photos(5000, 5000, 5000, every=MINUTE)
+    validation = {"taken_at": (START + timedelta(seconds=90)).isoformat(),
                   "exposure_us": 9000, "analogue_gain": 1.0, "purpose": "validation"}
-    photos.insert(4, validation)
-    result = exclusions.light_exclusions(photos)
-    assert result["norm"] == 5000
-    assert result["limit"] == pytest.approx(0.18)
-    assert result["exclusions"][4] is None
+    photos.insert(2, validation)
+    assert exclusions.light_exclusions(photos)["exclusions"] == [None] * 4
 
 
 def test_a_photo_with_no_exposure_is_left_out_and_the_others_are_still_labelled() -> None:
-    """Review of #299: exposure 0 (a camera fault, or the synthetic camera) once stopped the
-    whole experiment's exclusions. With one in the first day and one after it, the norm stays
-    5,000 and the limit 18%, and a later dip of two photos at 4,000 is still light disturbed."""
-    day = list(FIRST_DAY)
-    day[10] = 0
-    result = exclusions.light_exclusions(_photos(*day, 5000, 0, 4000, 4000, 5000))
-    assert result["norm"] == 5000
-    assert result["limit"] == pytest.approx(0.18)
-    assert result["exclusions"][24:] == [None, None, "light disturbed", "light disturbed", None]
-
-
-# --- The light warning (#288 part 2 PR 2) ----------------------------------------------------------
-# More than 2 hours of "light off norm" within 24 hours raises it; the time of a stretch runs from
-# its first photo to the photo after it (Aaron, 2026-10-27).
-
-
-def _experiment(*series: tuple[timedelta, float]) -> int:
-    """An experiment with photos at START plus each offset (`record_light_photos`); its id."""
-    experiment_id = captures.create_experiment(name="Light")["id"]
-    record_light_photos(experiment_id, START, series, f"light-{experiment_id}")
-    return experiment_id
-
-
-def _first_day() -> list[tuple[timedelta, float]]:
-    """FIRST_DAY hourly, then one photo on the norm at 24 h: norm 5,000, limit 18%."""
-    return [(timedelta(hours=h), e) for h, e in enumerate([*FIRST_DAY, 5000])]
-
-
-def _off(start_h: float, photos: int, every_min: int) -> list[tuple[timedelta, float]]:
-    """`photos` at 4,000 (-20%, off norm) `every_min` apart from `start_h`, then one back at
-    5,000."""
-    times = [timedelta(hours=start_h) + timedelta(minutes=every_min * i) for i in range(photos + 1)]
-    return [(t, 4000) for t in times[:-1]] + [(times[-1], 5000)]
-
-
-def test_more_than_2_hours_off_norm_raises_the_warning_and_2_hours_does_not() -> None:
-    """4 photos at 4,000, 30 minutes apart, from 25 h: 25:00 to the photo back at 27:00 is 2.0
-    hours, no warning. 5 photos: 25:00 to 27:30, 2.5 hours, a warning."""
-    assert exclusions.light_warning(_experiment(*_first_day(), *_off(25, 4, 30))) is None
-
-    warning = exclusions.light_warning(_experiment(*_first_day(), *_off(25, 5, 30)))
-    assert warning == {
-        "hours": 2.5,
-        "first": (START + timedelta(hours=25)).isoformat(),
-        "last": (START + timedelta(hours=27, minutes=30)).isoformat(),
-    }
-
-
-def test_two_short_stretches_count_together_only_within_24_hours() -> None:
-    """Two stretches of 1.5 hours (6 photos 15 minutes apart, then back): from 25 h and 30 h they
-    add to 3.0 hours within 24 hours, a warning from 25:00 to 31:30; from 25 h and 50 h they are
-    25 hours apart, no warning."""
-    near = _experiment(*_first_day(), *_off(25, 6, 15), *_off(30, 6, 15))
-    assert exclusions.light_warning(near) == {
-        "hours": 3.0,
-        "first": (START + timedelta(hours=25)).isoformat(),
-        "last": (START + timedelta(hours=31, minutes=30)).isoformat(),
-    }
-    assert exclusions.light_warning(_experiment(*_first_day(), *_off(25, 6, 15), *_off(50, 6, 15))) is None
-
-
-def test_dismissing_hides_the_warning_until_a_new_stretch_raises_it() -> None:
-    """2.5 hours from 25 h raise the warning; dismissed, it is gone. A new 2.5 hours from 40 h,
-    photos taken after the dismissal, raise it again for those hours only."""
-    series = [*_first_day(), *_off(25, 5, 30)]
-    experiment_id = _experiment(*series)
-    exclusions.dismiss_light_warning(
-        experiment_id, now="2026-10-23T12:00:00+00:00", until=exclusions.light_warning(experiment_id)["last"]
-    )
-    assert exclusions.light_warning(experiment_id) is None
-
-    record_light_photos(experiment_id, START, _off(40, 5, 30), f"later-{experiment_id}")
-    assert exclusions.light_warning(experiment_id) == {
-        "hours": 2.5,
-        "first": (START + timedelta(hours=40)).isoformat(),
-        "last": (START + timedelta(hours=42, minutes=30)).isoformat(),
-    }
-
-
-def test_dismissing_covers_only_the_warning_the_researcher_saw() -> None:
-    """Review of #300: the warning shown ends at 27:30; a new 2.5 hours from 40 h arrive before
-    Dismiss is tapped. Dismissing what was seen leaves the new stretch raising the warning."""
-    experiment_id = _experiment(*_first_day(), *_off(25, 5, 30))
-    seen = exclusions.light_warning(experiment_id)
-    record_light_photos(experiment_id, START, _off(40, 5, 30), f"later-{experiment_id}")
-
-    exclusions.dismiss_light_warning(experiment_id, now="2026-10-24T12:00:00+00:00", until=seen["last"])
-
-    assert exclusions.light_warning(experiment_id) == {
-        "hours": 2.5,
-        "first": (START + timedelta(hours=40)).isoformat(),
-        "last": (START + timedelta(hours=42, minutes=30)).isoformat(),
-    }
-
-
-def test_hours_after_a_dismissal_count_again_while_the_stretch_goes_on() -> None:
-    """Review of #300: 6 photos at 4,000, 30 minutes apart from 25 h, the light not back yet:
-    2.5 hours to the newest photo at 27:30, a warning. Dismissed, then the stretch goes on with
-    5 more photos to 30:00: 27:30 to 30:00, 2.5 hours, raise it again."""
-    off = [(timedelta(hours=25, minutes=30 * i), 4000) for i in range(6)]
-    experiment_id = _experiment(*_first_day(), *off)
-    seen = exclusions.light_warning(experiment_id)
-    assert seen["last"] == (START + timedelta(hours=27, minutes=30)).isoformat()
-    exclusions.dismiss_light_warning(experiment_id, now="2026-10-23T12:00:00+00:00", until=seen["last"])
-
-    more = [(timedelta(hours=28, minutes=30 * i), 4000) for i in range(5)]
-    record_light_photos(experiment_id, START, more, f"later-{experiment_id}")
-    assert exclusions.light_warning(experiment_id) == {
-        "hours": 2.5,
-        "first": (START + timedelta(hours=27, minutes=30)).isoformat(),
-        "last": (START + timedelta(hours=30)).isoformat(),
-    }
-
-
-def test_a_pause_after_photos_off_norm_counts_one_usual_gap_not_the_pause() -> None:
-    """Review of #300: 4 photos at 4,000, 10 minutes apart from 25 h, then a pause to 40 h. The
-    usual gap is 1 hour (the first day), so the last photo counts 1 hour, not 14.5: 10 + 10 + 10
-    + 60 minutes, 1.5 hours, no warning. Before, 25:00 to 40:00 read as 15 hours."""
-    off = [(timedelta(hours=25, minutes=10 * i), 4000) for i in range(4)]
-    experiment_id = _experiment(*_first_day(), *off, (timedelta(hours=40), 5000))
-    assert exclusions.light_warning(experiment_id) is None
-
-
-# --- Visits (#288 part 2 PR 3, metrology log 17.9) -------------------------------------------------
+    """Review of #299: exposure 0 (a camera fault, or the synthetic camera) gets no exclusion and
+    is not judged as a neighbour; a ramp after it is still found."""
+    result = exclusions.light_exclusions(_photos(5000, 0, 5000, 5000, 6000, 7000, 7000, every=MINUTE))
+    assert result["exclusions"] == [None, None, None, "light changing", "light changing", "light changing", None]
 
 
 def _areas(*rows: dict[int, float]) -> list[dict]:
@@ -275,6 +157,28 @@ def test_photos_between_two_visits_at_most_4_photos_apart_are_visits_too() -> No
     spike, back = {1: 400}, {1: 100}
     result = exclusions.visits(_areas(*steady, spike, back, back, back, spike, back, back, back, back, spike))
     assert result == [False] * 10 + [True] * 5 + [False] * 4 + [True]
+
+
+def test_each_new_photo_works_out_the_whole_experiment_again_and_saves_no_norm() -> None:
+    """Photos a minute apart at 5,000, 5,000, 6,000: the last has no photo after it yet, so
+    nothing is in a ramp. When 7,000 comes, 6,000 lies between its neighbours, so it and the
+    photos either side change to light changing in rig.db. The norm columns of 17.8 stay empty
+    (#382; removed in #384)."""
+    experiment_id = captures.create_experiment(name="Ramp")["id"]
+    record_light_photos(experiment_id, START, [(i * MINUTE, e) for i, e in enumerate([5000, 5000, 6000])], f"ramp-{experiment_id}")
+    assert [r["name"] for r in database.experiment_exclusions(experiment_id)] == [None, None, None]
+
+    database.record_capture(
+        taken_at=(START + 3 * MINUTE).isoformat(), path=f"ramp-{experiment_id}/3.jpg", purpose="capture",
+        experiment_id=experiment_id, calibration=None, validation=None, lens_position=None,
+        focus_locked_at=None, exposure_us=7000, analogue_gain=1.0, flags=[],
+    )
+    photos = database.captures_for_experiment(experiment_id)
+    exclusions.update(photos[-1])
+
+    assert [r["name"] for r in database.experiment_exclusions(experiment_id)] == [None, "light changing", "light changing", "light changing"]
+    saved = [database.exclusion(p["id"]) for p in photos]
+    assert [(r["norm_e"], r["limit_fraction"]) for r in saved] == [(None, None)] * 4
 
 
 def test_a_visit_is_stored_and_a_light_exclusion_wins() -> None:

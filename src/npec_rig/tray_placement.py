@@ -83,11 +83,7 @@ def _tilt_deg(tag: TagDetection) -> float:
     """The tray's turn off the image axes, clockwise: the tag's heading off the nearest right
     angle, taking the tag to lie square in its cell. The corners run top-left, top-right,
     bottom-right, bottom-left in the tag's own frame."""
-    c = tag.corners
-    up_x = (c[0][0] + c[1][0] - c[2][0] - c[3][0]) / 2
-    up_y = (c[0][1] + c[1][1] - c[2][1] - c[3][1]) / 2
-    heading = math.degrees(math.atan2(up_x, -up_y))
-    return (heading + 45) % 90 - 45
+    return (_heading_deg(tag) + 45) % 90 - 45
 
 
 def tray_outline_at(centre: tuple[float, float], tilt_deg: float, ppm: float) -> tuple[tuple[float, float], ...]:
@@ -102,7 +98,9 @@ def tray_outline_at(centre: tuple[float, float], tilt_deg: float, ppm: float) ->
     )
 
 
-def _nearest_slot(x: float, y: float, slots: list[dict]) -> tuple[str, float]:
+def nearest_slot(x: float, y: float, slots: list[dict]) -> tuple[str, float]:
+    """The name of the slot of `slots` (dicts with "name" and "centre") whose centre is nearest
+    the point (x, y), and the distance to it, in pixels."""
     return min(((s["name"], math.hypot(s["centre"][0] - x, s["centre"][1] - y)) for s in slots), key=lambda s: s[1])
 
 
@@ -123,7 +121,7 @@ def place_trays(detections: list[TagDetection], scale_field: ScaleField, slots: 
         candidates = []
         for corner, sign in (("SW", 1), ("NE", -1)):
             centre = (tag.centre[0] + sign * dx, tag.centre[1] + sign * dy)
-            slot, distance = _nearest_slot(*centre, slots)
+            slot, distance = nearest_slot(*centre, slots)
             candidates.append((distance, corner, centre, slot))
         (near, corner, centre, slot), (far, *_) = sorted(candidates)
         margin = (far - near) / ppm
@@ -346,4 +344,155 @@ def find_outlines(image: np.ndarray, scale_field: ScaleField, factor: float) -> 
                 continue
             accepted.append(c)
             out.append(_tray_outline(cell, factor, edge))
+    return out
+
+
+# --- Cells placed from the tray's outline and tag (#364) ----------------------------------------
+
+
+@dataclass(frozen=True)
+class CellGrid:
+    """Where a tray type's cells lie, mm, the grid centred in the tray. `pitch_mm` is the distance
+    between cell centres (across the short side, along the long side); `opening_mm` the side of
+    the square a cell shows from above."""
+
+    columns: int
+    rows: int
+    pitch_mm: tuple[float, float]
+    opening_mm: float
+    tag_cell: str | None  # the cell the tray tag lies in, which holds no plant
+
+
+CELL_GRIDS = {
+    # reference/trays.md: opening 59.5 mm (callipers), walls 10.1 to 10.3 mm, so centres 69.7 mm
+    # apart (59.5 + 10.2). The tag lies in A1, which holds no plant (Aaron, 2026-10-21).
+    "4x5": CellGrid(columns=4, rows=5, pitch_mm=(69.7, 69.7), opening_mm=59.5, tag_cell="A1"),
+    # Aaron, 2026-11-06: holes 106 mm (tape measure), central divisions 32 mm across the short side
+    # and 58.5 mm along the long side, so centres 138 and 164.5 mm apart, the grid taken to be
+    # centred in the tray (a decision, as on the 4 x 5). From above a cell shows its pot's rim,
+    # 108.93 mm (callipers, mean of 4: 108.83 to 109.18). The tag lies in the middle, on no cell.
+    "2x2": CellGrid(columns=2, rows=2, pitch_mm=(138.0, 164.5), opening_mm=108.93, tag_cell=None),
+}
+
+
+@dataclass(frozen=True)
+class Cell:
+    """One cell of a tray, in full-size photo pixels: its name ("B3"), centre, the four corners of
+    the square it shows from above, and what it holds: "plant", or "tag" for the tag's cell."""
+
+    name: str
+    centre: tuple[float, float]
+    corners: tuple[tuple[float, float], ...]
+    holds: str
+
+
+def _heading_deg(tag: TagDetection) -> float:
+    """Which way the tag's top faces on the photo, degrees clockwise from north (up). The corners
+    run top-left, top-right, bottom-right, bottom-left in the tag's own frame (OpenCV's ArUco
+    order; on a printed tag the ID is engraved at its top corners)."""
+    c = tag.corners
+    up_x = (c[0][0] + c[1][0] - c[2][0] - c[3][0]) / 2
+    up_y = (c[0][1] + c[1][1] - c[2][1] - c[3][1]) / 2
+    return math.degrees(math.atan2(up_x, -up_y))
+
+
+@dataclass(frozen=True)
+class TagOnTray:
+    """Where a tag lies on its tray, in the tag's own frame, so it reads the same whichever way the
+    tray is turned as long as the tag stays put on it (#385). `centre_mm`: the tray's centre from
+    the tag's centre, mm, (right, up) of the tag. `long_side_deg`: the tray's long side, degrees
+    clockwise from the tag's top, 0 to 180 (a side has no direction)."""
+
+    centre_mm: tuple[float, float]
+    long_side_deg: float
+
+
+def tag_on_tray(tray: TrayPlacement, tag: TagDetection, scale_field: ScaleField) -> TagOnTray | None:
+    """Where `tag` lies on `tray` (an outline found in the photo), at the scale at the tag. None for
+    a tray with no outline. Researchers move, turn and bury tags (Aaron, 2026-11-07): a change in
+    this between photos of one tray says its tag moved on it."""
+    if tray.outline is None:
+        return None
+    corners = np.asarray(tray.outline, dtype=np.float64)
+    first, second = corners[1] - corners[0], corners[2] - corners[1]
+    along = max((first, second), key=lambda s: float(np.linalg.norm(s)))
+    heading = math.radians(_heading_deg(tag))
+    up = np.array([math.sin(heading), -math.cos(heading)])
+    right = np.array([math.cos(heading), math.sin(heading)])
+    ppm = scale_field.px_per_mm(float(tag.centre[0]), float(tag.centre[1]))
+    to_centre = corners.mean(axis=0) - np.asarray(tag.centre, dtype=np.float64)
+    long_side = (math.degrees(math.atan2(along[0], -along[1])) - math.degrees(heading)) % 180
+    return TagOnTray(
+        centre_mm=(float(np.dot(to_centre, right)) / ppm, float(np.dot(to_centre, up)) / ppm),
+        long_side_deg=long_side,
+    )
+
+
+def a1_bearing_deg(tray: TrayPlacement, tag: TagDetection, cells: list[Cell]) -> float:
+    """Where cell A1 of `cells` lies from the tray's centre, degrees clockwise from the top of the
+    tray's tag. Taken from a 2 x 2 tray's first photo (`place_cells` with no bearing) and given to
+    `place_cells` for every later photo: the tag is glued at whatever angle the researcher left it
+    (Aaron, 2026-11-06) but turns with the tray, so A1 keeps its bearing from it."""
+    a1 = next(c for c in cells if c.name == "A1")
+    centre = np.asarray(tray.outline, dtype=np.float64).mean(axis=0)
+    dx, dy = a1.centre[0] - centre[0], a1.centre[1] - centre[1]
+    return (math.degrees(math.atan2(dx, -dy)) - _heading_deg(tag)) % 360
+
+
+def place_cells(
+    tray: TrayPlacement, tag: TagDetection, scale_field: ScaleField, a1_bearing_deg: float | None = None
+) -> list[Cell]:
+    """The cells of `tray` (named by `tag`, an outline found in the photo), placed around the
+    outline's centre along its sides, at the scale at that centre (it changes by about 0.5% across
+    a tray). Columns run across the tray's short side, rows along its long side, from cell A1. A
+    4 x 5 tray's A1 is the corner nearest its tag. A 2 x 2 tray's tag lies in the middle at any
+    angle: in the tray's first photo A1 is the pot at the photo's south-west, and in every later
+    photo the pot at `a1_bearing_deg` from the tag (`a1_bearing_deg()` of the first photo), so the
+    names follow the tray when it is turned (Aaron, 2026-11-06). Only the outline's centre and turn are used:
+    its length reads about 2% long north-south (reference/trays.md). Empty for a tray with no
+    outline, or of a type whose cells are not measured (1 x 1, black, other)."""
+    from npec_rig.randomization import tray_type  # randomization imports this module
+
+    grid = CELL_GRIDS.get(tray_type(tray.tray_id).name) if tray.tray_id is not None else None
+    if grid is None or tray.outline is None:
+        return []
+    corners = np.asarray(tray.outline, dtype=np.float64)
+    centre = corners.mean(axis=0)
+    first, second = corners[1] - corners[0], corners[2] - corners[1]
+    across, along = sorted((first, second), key=lambda s: float(np.linalg.norm(s)))
+    across, along = across / np.linalg.norm(across), along / np.linalg.norm(along)
+    if grid.tag_cell == "A1":
+        # From A1 outwards: away from the side the tag lies on.
+        to_tag = np.asarray(tag.centre) - centre
+        across = -across if np.dot(to_tag, across) > 0 else across
+        along = -along if np.dot(to_tag, along) > 0 else along
+    elif a1_bearing_deg is not None:
+        # A1 on the side the bearing from the tag's top points to.
+        t = math.radians(_heading_deg(tag) + a1_bearing_deg)
+        to_a1 = np.array([math.sin(t), -math.cos(t)])
+        across = -across if np.dot(to_a1, across) > 0 else across
+        along = -along if np.dot(to_a1, along) > 0 else along
+    else:
+        # The tray's first photo: A1 is the cell nearest the photo's south-west diagonal (y grows
+        # southwards), whichever way the tray lies: a per-axis sign test flips on a fraction of a
+        # degree when the tray lies landscape (review of #374).
+        to_sw = np.array([-1.0, 1.0])
+        across = -across if np.dot(to_sw, across) > 0 else across
+        along = -along if np.dot(to_sw, along) > 0 else along
+    ppm = scale_field.px_per_mm(float(centre[0]), float(centre[1]))
+    half = grid.opening_mm / 2 * ppm
+    out = []
+    for i in range(grid.columns):
+        for j in range(grid.rows):
+            c = (
+                centre
+                + across * (i - (grid.columns - 1) / 2) * grid.pitch_mm[0] * ppm
+                + along * (j - (grid.rows - 1) / 2) * grid.pitch_mm[1] * ppm
+            )
+            square = tuple(
+                (float(x), float(y))
+                for x, y in (c + a * half * across + b * half * along for a, b in ((-1, -1), (1, -1), (1, 1), (-1, 1)))
+            )
+            name = f"{'ABCDEFGH'[i]}{j + 1}"
+            out.append(Cell(name, (float(c[0]), float(c[1])), square, "tag" if name == grid.tag_cell else "plant"))
     return out

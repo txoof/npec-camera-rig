@@ -279,6 +279,11 @@ def clock_check() -> dict:
     }
 
 
+# libcamera's AeState, reported with each frame: whether the auto-exposure has settled (#382).
+# Values read from libcamera 0.7.2 on npec-rig-01, 2026-11-07.
+AE_STATES = {0: "idle", 1: "searching", 2: "converged"}
+
+
 def _record_in_database(record: dict) -> int | None:
     """Add the photo's `capture` row, return its id. A failure is logged, never raised: the
     photo and its sidecar are already saved, and the sidecar is the full record."""
@@ -299,6 +304,7 @@ def _record_in_database(record: dict) -> int | None:
             clock_synced=record["clock"]["synchronized"],
             jpeg_quality=record["photo_quality"]["quality"],
             jpeg_chroma=record["photo_quality"]["chroma"],
+            ae_state=AE_STATES.get(sensor.get("AeState")),
         )
     except (sqlite3.Error, RuntimeError):
         logger.exception("Could not add the photo %s to the database", record["filename"])

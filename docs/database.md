@@ -44,8 +44,9 @@ should be compared as times, not as text.
 | `scheduled_photo` | One row per scheduled photo of an experiment, taken or missed | `scheduler.py` |
 | `tray_read` | One row per photo read for trays, with its status | `tray_readings.py` |
 | `tray_reading` | One row per tray found in a photo: its centre and outline (its slot and A1 corner before version 14) | `tray_readings.py` |
+| `cell_reading` | One row per cell of each tray in a photo: its plant area, or why it has none (#364) | `tray_readings.py` |
 | `exclusion` | One row per photo of an experiment: why its plant areas are left out, if they are | `exclusions.py` |
-| `light_warning_dismissal` | One row per dismissal of an experiment's light warning | `exclusions.py` |
+| `light_warning_dismissal` | Unused since #382: one row per dismissal of the light warning, which is gone. Removed in #384 | none |
 | `app_start` | One row each time the app starts | `scheduler.py` |
 | `capture` | One row per photograph; here only whether its clock was set (#62) and the JPEG setting it was saved at (#359) | `captures.py` |
 | `photo_quality_change` | One row per change of the JPEG setting photos are saved at (#359) | `settings.py` |
@@ -178,7 +179,9 @@ in the south row (`dwell.py`). The rows meet halfway between the northern and th
 corner tags, through the calibration's table frame (the homography of the four corner tags); the
 columns are thirds of the photo's width along each row of the table. With no table frame (a
 calibration without four corner tags, or a photo with no calibration), the photo itself is halved
-and cut in thirds. A tray's centre decides its location. A tray is in a new location only after it has
+and cut in thirds; a calibration without four corner tags names the missing tag when it is made
+(#349). Moving the corner tags moves the line between the rows, so locations compare only within
+one calibration. A tray's centre decides its location. A tray is in a new location only after it has
 been away from its location for over 1 hour (from its first to its last photo elsewhere, in any
 other locations together), and then in the one it was in longest in that time; shorter stays,
 misses and the tray taken off the table for up to 48 hours do not break its stay. A tray missing
@@ -255,6 +258,22 @@ From version 20 (#359). Every full-size photo is saved at the setting read and c
 
 ```sql
 SELECT jpeg_quality, jpeg_chroma, count(*) FROM capture GROUP BY 1, 2
+```
+
+### `capture`: whether the auto-exposure had settled
+
+From version 24 (#382). The camera reports with each frame whether its auto-exposure has settled
+(libcamera's `AeState`). Recorded so the light exclusions can use the camera's own state in place
+of a fixed exposure limit; whether it reads "searching" in the dark and while the light ramps is
+checked on the development rig first (metrology log 29). The photo's JSON record holds the raw value
+in `sensor_metadata`, with the digital gain and the camera's light estimate (`Lux`).
+
+| Column | Type | Meaning |
+|---|---|---|
+| `ae_state` | text | "converged" (settled), "searching" or "idle". NULL for photos from before version 24, or from a camera that does not report it |
+
+```sql
+SELECT ae_state, count(*) FROM capture WHERE experiment_id = ? GROUP BY 1
 ```
 
 ### `photo_quality_change`
@@ -379,6 +398,7 @@ such a photo was saved as `read failed` with no trays.
 | `found` | text | How the tray was found: `photo + tag`, `photo, no tag` or `tag only` (a tag seen, its tray not found in the photo: no outline, no area). NULL for photos read before version 14 |
 | `warnings` | text | JSON list of warnings: `no tag`, `two tags in one tray outline`, `tag seen, tray not found in the photo`, `partly outside the photo`. NULL before version 14 |
 | `outline` | text | JSON list of the outline's four corners, `[x, y]` in full-size photo pixels. NULL for `tag only` and before version 14 |
+| `a1_bearing_deg` | real | A 2 x 2 tray only: degrees clockwise from its tag's top to cell A1, from the tray's first photo in the experiment (version 21, #364). NULL for other trays and before version 21 |
 
 A tray not found is never stored. When a photo's readings are shown, each tray found in an
 earlier photo of the same experiment but not in this one is listed as not found since the first
@@ -389,21 +409,74 @@ photo; a nudge within its location or a turn is not a move (#332). A tray with n
 as not found or as moved: it cannot be followed from photo to photo. Only photos with the status `read` count, so a dark photo is not a tray
 missing. A purge deletes both tables' rows with the photos.
 
+### `cell_reading`
+
+From version 21 (#364). One row per cell of each tray in a read photo, for a tray named by one
+tag whose cells are measured: 4 x 5 (20 cells, A1 holds the tag) and 2 x 2 (4 pots). Other tray
+types have none. Cells are placed from the tray's outline and tag (`tray_placement.place_cells`);
+a 2 x 2 tray's A1 is its south-west pot in its first photo of the experiment and follows its tag
+after that (Aaron, 2026-11-06). Each piece of plant counts wholly for the cell holding most of it
+(`segmentation.measure_cells`).
+
+| Column | Type | Meaning |
+|---|---|---|
+| `capture_id` | integer | The photo |
+| `tray_id` | integer | The tray's tag ID |
+| `cell` | text | The cell's name, column letter and row number: `A1` to `D5`, or `A1` to `B2` |
+| `holds` | text | `plant`, or `tag` for the tray tag's cell (A1 of a 4 x 5 tray) |
+| `centre_x_px`, `centre_y_px` | real | The cell's centre, full-size photo pixels |
+| `corners` | text | JSON list of the four corners of the cell's opening (4 x 5) or pot rim (2 x 2) |
+| `plant_px` | integer | Plant pixels counted for the cell; 0 when none |
+| `area_mm2` | real | Their area at the calibration's scale; 0 when none (shown as no area, "missing") |
+| `plant_centre_x_px`, `plant_centre_y_px` | real | Their centre; NULL when none |
+| `over_other_cells` | integer | 1 when a piece counted for this cell covers another cell's opening by 1% or more, or a piece counted for another cell covers this one's: the area is not one plant's own ("leaves over other cells") |
+| `segmenter` | text | What made the mask, as in `tray_reading` |
+| `cell_rule` | text | How pieces were given to cells (`tray_readings.CELL_RULE`) |
+
+Shown per cell: `tag`, `leaves over other cells`, `plant`, or `missing` (no plant counted: a
+plant lost in this photo or never there, never an area of 0). A purge deletes the rows with the
+photos.
+
+### `tray_reading` and `cell_reading`: grow from leaf cores
+
+From version 25 (#363). Each tray and cell is measured by two methods: the fixed green cutoff
+(`area_mm2`, `segmenter` "green threshold, 0.1", unchanged) and grow from leaf cores (`grown_*`),
+which starts from leaf cores and grows them into the paler leaf edges, down to a cutoff set above
+the tray's own soil (`segmentation.grow_from_cores`, metrology log 24.8 and 33.1). Its whole-photo
+mask is saved beside the fixed cutoff's, as `<photo>.grown.png` in the masks folder, so Reprocess
+counts both again without the photo; a purge deletes both. The fixed cutoff's floor of 100 mm2
+was measured for that method only and does not apply to this one. All `grown_*` columns are NULL
+for readings saved before version 25, or when the method could not run.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `tray_reading.grown_method` | text | The method and its core cutoff: `grow from leaf cores, core 0.07` (metrology log 34.1). A reading with another core cutoff names it |
+| `tray_reading.grown_area_mm2` | real | Its plant area inside the tray outline, at the calibration's scale |
+| `tray_reading.grown_plant_px` | integer | Its plant pixels inside the outline |
+| `tray_reading.grown_plant_centre_x_px`, `grown_plant_centre_y_px` | real | Their centre, full-size photo pixels; NULL when none |
+| `tray_reading.grown_soil_level` | real | The tray's soil greenness, (2G - R - B) / (R + G + B), the cutoff was set from. NULL when the tray showed no soil, or on Reprocess when the saved reading had none for the tray |
+| `tray_reading.grown_lower_cutoff` | real | The greenness the leaf cores were grown down to; NULL as for the soil level on Reprocess |
+| `cell_reading.grown_area_mm2`, `grown_plant_px`, `grown_plant_centre_x_px`, `grown_plant_centre_y_px` | real, integer | As `area_mm2`, `plant_px` and their centre, by grow from leaf cores |
+| `cell_reading.grown_over_other_cells` | integer | As `over_other_cells`, by grow from leaf cores |
+
 ### `exclusion`
 
 Exclusions (#288, `GLOSSARY.md`): why a photo's plant areas are left out of averages and
 exports. The areas themselves are kept. Each time a photo is read, every photo of its
-experiment is worked out again from its exposure times analogue gain (E) and saved, because a new
-photo can change earlier ones. Only photos taken as captures get a name: validation, calibration
-and tripwire photos get NULL and are left out of the norm. The rules and their values are in
-`exclusions.py` and metrology log 17.8.
+experiment is worked out again and saved, because a new photo can change earlier ones: "light
+changing" when its exposure times analogue gain (E) lies strictly between the photo before and
+after, and those two photos; "lights off" when the camera reported its auto-exposure still
+searching (`capture.ae_state`; for photos before version 24, E of 200,000 or more). Only photos
+taken as captures get a name: validation, calibration and tripwire photos get NULL and are nobody's
+neighbour. The rules are in `exclusions.py` and metrology log 29 (#382), which replaced the light
+norm of 17.8.
 
 | Column | Type | Meaning |
 |---|---|---|
 | `capture_id` | integer | The photo's `capture` row |
-| `name` | text | `lights off`, `light changing`, `light disturbed`, `light off norm` or `visit` (chamber activity, metrology log 17.9); NULL for none |
-| `norm_e` | real | The experiment's norm (E) it was worked out with; NULL until the experiment has a full first day |
-| `limit_fraction` | real | How far from the norm, as a fraction of it, counts as off it, for example 0.21 |
+| `name` | text | `lights off`, `light changing` or `visit` (chamber activity, metrology log 17.9); NULL for none. `light disturbed` and `light off norm` came from the light norm (17.8, before #382) and remain on experiments not worked out again since |
+| `norm_e` | real | Unused since #382, written NULL: the light norm (E) of 17.8. Removed in #384 |
+| `limit_fraction` | real | Unused since #382, written NULL: how far from the norm counted as off it. Removed in #384 |
 | `worked_out_at` | text | When it was worked out, UTC |
 
 A photo read before this table existed has no row until its experiment is read again or
@@ -412,10 +485,10 @@ deletes the rows with the photos.
 
 ### `light_warning_dismissal`
 
-The light warning (#288) is shown in the gallery when an experiment has more than 2 hours of
-`light off norm` within 24 hours. It is worked out when shown, never stored. Dismissing it adds a
-row; hours up to `covers_until`, the end of the warning the researcher saw, are not counted
-again, later ones are, also in a stretch still going on.
+Unused since #382, which removed the Gallery's light warning (#288: more than 2 hours of
+`light off norm` within 24 hours). No rows are added; the table is removed in #384. Its rows
+recorded each dismissal: hours up to `covers_until`, the end of the warning the researcher saw,
+were not counted again.
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -425,6 +498,36 @@ again, later ones are, also in a stretch still going on.
 | `covers_until` | text | The end of the warning as shown when it was dismissed, UTC |
 
 Kept when an experiment is purged, with its `experiment` row.
+
+### `export`: what the user ticked
+
+From version 22 (#65, #368). Export asks what goes in the export: the data (the CSVs,
+`datapackage.json`, the records, `experiment.json`), the photos with their records, or both. Only
+an export with the photos counts as complete for Purge.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `data` | integer | 1 when the data was ticked, 0 when not. 1 for exports from before version 22, which held everything |
+| `photos` | integer | 1 when the photos were ticked, 0 when not. 1 for exports from before version 22 |
+
+```sql
+SELECT id, started_at, data, photos, bytes FROM export ORDER BY id
+```
+
+### `export` in parts, and `export_part_sent`
+
+From version 23 (#368). An export is no longer stored on the rig. Export records what was ticked
+and the time its photos stop at, and is ready at once. Each part is zipped while it downloads:
+part 0 holds the README and, with Data ticked, the data; parts 1 and on hold the photos, at most
+1 GB each (`exports.PART_BYTES`). An export with the photos is complete for Purge once every photo
+part was sent to its last byte.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `export.photo_parts` | integer | How many photo parts the export has (0 with Photos not ticked). NULL for exports stored on the rig before version 23, which are one zip in `file` |
+| `export_part_sent.export_id` | integer | The export |
+| `export_part_sent.part` | integer | The part, 0 to `photo_parts` |
+| `export_part_sent.sent_at` | text | When its last byte was handed to the network, UTC. A part downloaded twice has two rows; a download broken off has none |
 
 ## Planned
 
