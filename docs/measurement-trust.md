@@ -391,7 +391,7 @@ leaf found by the threshold outward to a lower cutoff (-0.045) reads 0.96 of the
 soil it counts whole soil cells as plant, so the cutoff has to follow each tray's own soil (24.7,
 24.8), and on the greenest soil no colour rule separates soil from leaf, which the rig must report
 instead of a number. A blue mat laid under green squares changes every rule's area at the edge,
-13 to 24% on a 10 mm square (24.4). SAM 2.1 small, given each plant alone, does worse (IoU 0.77)
+13 to 24% on a 10 mm square (24.4). On real potato plants, mats laid by researchers in experiment 18 lowered grow from leaf cores by about a fifth (21% to 24% on two trays) with nothing changed in the plants: on a mat the leaf's edge pixels turn slightly blue and are left out (36.2). SAM 2.1 small, given each plant alone, does worse (IoU 0.77)
 and takes 7 to 10 s a plant (24.5). These are one still and 15 plants of one person: they show
 which rules fail and how, not a band for plant area.
 
@@ -475,6 +475,11 @@ metrology log backs it.
   its pale pixels with no leaf over it. The worse periods are described, not explained, and leaf
   movement is not separated from the rig's error. The new rules of #352 are to be checked the same
   way (#395).
+- **Blue mats** (*added 2026-11-16*, metrology log 36.2, a development check). Laying mats round
+  the plants puts a step of about -20% into their area by grow from leaf cores, and moves the leaves
+  (up to 47% less leaf showing in single cells). The step is not marked on the page yet (#424). A
+  comparison of treatments on one day holds while all trays carry mats; a comparison of a plant
+  before and after its mat does not. Measured on one morning, plants of one size.
 
 ### Trays and tags (round 1, 2026-10-19)
 

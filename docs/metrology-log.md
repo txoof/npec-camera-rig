@@ -9656,3 +9656,119 @@ say at which margin the outline follows the leaf on the mat and does not spread 
 **Limits (as planned).** One still per window, four trays; the before still is one photo, so a
 change within about 3% (the photo-to-photo spread) is not a difference. Not a choice of a new
 margin: that needs the reference set of section 33 and the tray plastic.
+
+### 36.2 Results of 36 and 36.1 (2026-11-16)
+
+**Label: development check.** Areas are production's own cell readings after the Reprocess of
+experiment 18 (#410), which reached these photos on 2026-11-16; read only through the API. The
+masks drawn for the pictures and for 36.1 were made again on the controller from six copied stills
+with the app's `grow_trays`; on all 12 tray photos they match production's saved pixel counts
+exactly (the fixed cutoff within 3 px on one).
+
+**How it differed from the method.**
+
+- *Controls.* No tray stays bare from another tray's before window to 09:14 UTC, when every tray
+  is matted, so bare trays cannot serve as same-minutes controls. Instead the drift of a cell where
+  nothing was done was measured: bare cells within their before windows, matted cells from the near
+  to the later after window.
+- *Before windows per cell.* The mats went down cell by cell. Judged per cell (blue share of each
+  cell, `code/cell_timeline.py`), two cells of tray 3 (C1, D1) were matted at 08:32, one of tray 6
+  (D5) at 08:37 and one of tray 5 (A5) at 08:58, inside their tray's before window. The table below
+  uses each cell's own window: from 08:30 to 2 minutes before its own mat, leaving out photos with a
+  glove in the cell.
+- Trays 1 and 2 are not used: they were matted while the lights came on.
+
+**Change in each cell's area, 09:14 to 09:27 UTC against its own before window** (median over the
+19 plant cells of each tray; pooled is the tray's summed area):
+
+| Tray | Before photos per cell | Grow from leaf cores | Pooled | Photo spread before | Fixed green cutoff | Its photo spread before |
+|---|---|---|---|---|---|---|
+| 3 | 1 to 5 | -15.4% (-46.7 to +2.7) | -14.8% | 3.6% | +27.4% | 15.7% |
+| 6 | 6 to 13 | -34.1% (-74.1 to -16.8) | -32.8% | 4.6% | +9.4% | 9.4% |
+| 4 | 14 to 19 | -24.0% (-43.6 to -7.8) | -22.7% | 2.2% | +31.8% | 12.0% |
+| 5 | 24 to 27 | -20.7% (-45.9 to +3.5) | -22.3% | 3.2% | +39.7% | 14.0% |
+
+Photo spread is the median over a tray's cells of the sd of a cell's area across its before photos,
+as % of its mean (from the tray-wide windows of `code/steps.py`). The plants were 97 to 154 mm²
+(median per tray, grow from leaf cores, on soil).
+
+- *Grow from leaf cores* falls by 15% to 34%, five to ten times its photo spread. In the later
+  window (10:21 to 10:50 UTC, after the trays were moved) the fall is 8% to 22%. Matted cells
+  gained 0.095% a minute between the two windows, bare cells 0.068% a minute before the mats;
+  whether that is growth or leaves settling after the handling is not separated.
+- *The fixed green cutoff* rises by 9% to 40%. Its photo spread on soil is 9% to 16%, and its bare
+  cells drifted -0.58% a minute after the lights came on, so it cannot measure a step of this size
+  here. On the mat its outline covers more of each leaf (`zoom-tray5.jpg`).
+- *Soil level.* The tray's soil level was -0.125 to -0.165 before and -0.135 to -0.155 after; the
+  lower cutoff it gives stayed at its floor, -0.045, on every photo. The mat does not move the cutoff,
+  so it cannot change the areas of plants without a mat on the same tray (question 3).
+
+**Why the edge is lost** (`edge-tray5.jpg`, 5.B1 and 5.B5). Aaron, looking at the close-ups
+(2026-11-16): on soil the magenta outline traces the leaf edge very well; on the mat it runs inside
+the leaf and misses a significant part of it at the edge. The pixels just outside the outline:
+
+| Background | Distance outside | Median R G B | Greenness | Left out as |
+|---|---|---|---|---|
+| Soil, 08:57 | 1 px | 95 69 57 | -0.059 | not green enough (100%) |
+| Mat, 09:20 | 1 px | 58 71 75 | +0.046 | blue (98%) |
+| Mat, 09:20 | 2 px | 57 72 80 | +0.019 | blue (99%) |
+
+(5.B1; 5.B5 is the same.) On the mat these pixels are green enough to count (cutoff -0.045); their
+blue is a little above their green, and the "not blue" condition alone leaves them out. They are
+leaf edge with mat colour mixed in, by the pixel straddling the edge and the lens's blur. On soil
+the mix is never blue.
+
+**36.1, blue margin.** Plant pixels per tray, change from the tray's before still at margin 0:
+
+| Tray | On soil, margin 20 | Mat 09:20, margin 0 (the app) | Margin 5 | Margin 10 | Margin 20 | No blue rule |
+|---|---|---|---|---|---|---|
+| 5 | +0.3% | -23.1% | -15.7% | -8.7% | +1.9% | +8.0% |
+| 4 | +2.3% | -23.6% | -16.5% | -10.2% | -0.4% | +6.0% |
+| 6 | +0.8% | -35.2% | -28.4% | -22.2% | -12.3% | -8.2% |
+| 3 | +20.4% | -9.7% | -1.5% | +6.1% | +16.7% | +17.7% |
+
+Aaron, looking at 5.B1 and 5.B5 for each margin (`margin-tray5-B1.jpg`): on the mat, margins 10 and
+20 follow the leaf edge best; no blue rule is very bad (it spreads onto the mat).
+
+- *Trays 4 and 5:* the lost edge is the whole fall: at margin 20 the area on the mat is within 2%
+  of the area on soil.
+- *Tray 6:* cells A2 to A5 still read 21% to 47% low at margin 20, while most of its other cells
+  come back within about 10% (`cells-tray6-m0-m20.jpg`). Less leaf shows after the mat. Aaron: the
+  leaves were definitely disturbed by the installation of the mats.
+- *Tray 3:* on soil, margin 20 adds area only in C1 and D1, which were already matted at 08:32
+  (`cells-tray3-m0-m20.jpg`). Without them, its 17 other cells read a median of 11% more on the mat
+  than on soil at margin 20. Why is not known: its only before photos are 08:30 to 08:33, the first
+  minutes after the lights came fully on; margin 20 may count some mat; or the handling may have
+  spread its leaves.
+
+**Colour** (question 4; (B - G) / (R + G + B), percentiles 1, 50, 99; every plant cell of the four
+trays on the six stills, `code/masks.py`): leaf (grow from leaf cores mask) -0.177, -0.079, 0.000;
+mat +0.012, +0.235, +0.346; soil -0.061, -0.027, +0.268 (its upper tail is tray 3's C1 and D1,
+matted at 08:32, taken as soil). Mat and leaf do not overlap, so the rig can find a mat by colour.
+
+**Findings.**
+
+1. Laying blue mats lowered plant area by grow from leaf cores by about a fifth (21% to 24% on the
+   two trays with clean evidence), with no change in the plants. Nothing on the page says why: harm
+   1 of CLAUDE.md.
+2. The cause is the "not blue" condition, which cuts the leaf's edge pixels on a mat. A margin of
+   10 to 20 keeps them (Aaron's judgement on the pictures). Not yet a choice of margin: that needs
+   the reference set and the tray plastic (#424).
+3. The handling of the plants when the mats go down changes what the camera sees, by up to 47% in
+   single cells of one tray. That part is real for the camera and no rule removes it.
+4. Mat and leaf separate by colour, so the event can be found and marked (#424).
+
+**Limits of the evidence.** One morning; four trays with a clean before, one with only 1 to 5
+before photos; plants of one size (97 to 154 mm²), so question 2 stays open; the margins were tried
+on one still per window; tray 3 unexplained. The mats were laid as researchers lay them, so the
+step holds the handling as well as the colour.
+
+*Figures* (`docs/figures/36/`): `zoom-tray5.jpg`, tray 5 B1 and B5 on soil (08:57) and on the mat
+(09:20), grow from leaf cores in magenta, fixed cutoff in red, 3 times enlarged; `edge-tray5.jpg`,
+the same with the 6 px band outside the outline marked by why it is left out (red blue, white not
+green enough); `margin-tray5-B1.jpg`, B1 at each blue margin; `cells-tray6-m0-m20.jpg` and
+`cells-tray3-m0-m20.jpg`, the cells that change most, margin 0 magenta, margin 20 red.
+
+*Raw data.* `experiments/358-blue-mats/data/` (`per_cell_own_window.csv`, `per_cell.csv`,
+`per_cell_photo.csv`, `soil.csv`, `cell_timeline.csv`, `timeline.csv`, the summaries); scripts in
+`experiments/358-blue-mats/code/`. The photos stay in experiment 18's folder on `ac-testing`.
