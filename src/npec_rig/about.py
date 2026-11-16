@@ -23,9 +23,9 @@ _CHECKOUT = Path(__file__).parent
 
 @functools.cache
 def version() -> dict:
-    """The code this app runs: its commit, the commit's date, and the branches that point at it
-    (a rig is a git checkout, often detached at a branch, #390). Read once: new code needs a
-    restart anyway. None for each part git cannot give."""
+    """The code this app runs: its commit, its release version (#427), the commit's date, and the
+    branches that point at it (a rig is a git checkout, often detached at a branch, #390). Read
+    once: new code needs a restart anyway. None for each part git cannot give."""
 
     def git(*args: str) -> str | None:
         try:
@@ -42,6 +42,9 @@ def version() -> dict:
     return {
         "commit": commit,
         "committed_at": git("log", "-1", "--format=%cI") if commit else None,
+        # The version number from the release tags (#427): "v0.1.0" on a release, "v0.1.0-5-g1a2b3c4"
+        # five commits after it, the bare commit where there is no release before it.
+        "release": git("describe", "--tags", "--always", "--match", "v*") if commit else None,
         "branches": names,
     }
 
@@ -135,7 +138,10 @@ def sections(f: dict) -> list[dict]:
     to documents (#390) are added here as further cards."""
     v = f["version"]
     branch = ", ".join(v["branches"]) or "no branch"
-    version = f"{v['commit']}, {branch}" if v["commit"] else "Not known (not a git checkout)"
+    release = v["release"] or v["commit"] or ""
+    # A release names its commit; between releases git's name already holds it (v0.1.0-5-g1a2b3c4).
+    shown = f"{release} ({v['commit']})" if release.startswith("v") and "-g" not in release else release
+    version = f"{shown}, {branch}" if v["commit"] else "Not known (not a git checkout)"
     env = f["rig"]["environment"]
     pi_started = (
         (datetime.now(timezone.utc) - timedelta(seconds=f["pi_up_s"])).isoformat()
