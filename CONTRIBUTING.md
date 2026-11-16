@@ -30,6 +30,28 @@
 the PR title becomes the commit on `main` and the PR description becomes its message: write it as
 a summary of what shipped, what was verified and what is deferred, not a log of commits.
 
+## Releases
+
+Each promotion to production is a release (Aaron, 2026-11-16, #427). A release is a tag
+`v0.MINOR.PATCH` on the `main` commit production is moved to, with a GitHub release. MINOR goes
+up when the promotion adds features, PATCH when it holds only fixes. The rigs' Ansible setting
+`npec_rig_version: latest` installs the newest release (txoof/ansible-npec#9), and the About page
+shows the version and the commit together: `v0.1.0 (a6632d6)` on a release, `v0.1.0-5-g1a2b3c4`
+for a commit 5 after it.
+
+Made after Aaron has approved the promotion and production runs the commit (CLAUDE.md, *Restarting
+the production server*). From the controller:
+
+```bash
+sha=$(ssh pi@ac-testing 'git -C ~/npec_camera_rig rev-parse HEAD')
+gh release list --limit 1                      # the last version
+gh release create v0.2.0 --target "$sha" --generate-notes
+```
+
+`--generate-notes` lists the PRs merged since the last release. `pyproject.toml`'s `version` is not
+used and is not bumped. A release tag is never moved or deleted: a mistake is fixed with the next
+version.
+
 ## Everything else
 
 Test discipline, the governing anti-metrology principle and day-to-day working rules are in
