@@ -1,0 +1,15 @@
+tray 3 0832: grown px here 58705, saved 58705; fixed px here 24535, saved 24535
+tray 6 0840: grown px here 76051, saved 76051; fixed px here 33897, saved 33897
+tray 4 0846: grown px here 50147, saved 50147; fixed px here 18630, saved 18627
+tray 5 0857: grown px here 72203, saved 72203; fixed px here 23605, saved 23605
+tray 3 0920: grown px here 53028, saved 53028; fixed px here 32838, saved 32838
+tray 4 0920: grown px here 38333, saved 38333; fixed px here 24670, saved 24670
+tray 5 0920: grown px here 55512, saved 55512; fixed px here 33084, saved 33084
+tray 6 0920: grown px here 49311, saved 49311; fixed px here 33226, saved 33226
+tray 3 1030: grown px here 56991, saved 56991; fixed px here 31183, saved 31183
+tray 4 1030: grown px here 42495, saved 42495; fixed px here 26202, saved 26202
+tray 5 1030: grown px here 56029, saved 56029; fixed px here 30249, saved 30249
+tray 6 1030: grown px here 54485, saved 54485; fixed px here 29553, saved 29553
+mat: n 249080, (B-G)/(R+G+B) p1 +0.012 p50 +0.235 p99 +0.346
+soil: n 123507, (B-G)/(R+G+B) p1 -0.061 p50 -0.027 p99 +0.268
+leaf: n 94809, (B-G)/(R+G+B) p1 -0.177 p50 -0.079 p99 +0.000
