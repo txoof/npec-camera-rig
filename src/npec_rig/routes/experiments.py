@@ -176,10 +176,12 @@ def api_export(export_id: int) -> dict:
 @router.get("/api/exports/{export_id}/parts/{n}")
 def api_export_part(export_id: int, n: int) -> Response:
     """One part of an export, zipped while it downloads, with its exact size so the browser shows
-    progress (#368)."""
+    progress (#368); part 0 without one, as its size is known only once it is made (#430)."""
     filename, length, body = _experiment_action(exports.part_download, export_id, n)
-    return StreamingResponse(body, media_type="application/zip", headers={
-        "Content-Disposition": f'attachment; filename="{filename}"', "Content-Length": str(length)})
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    if length is not None:
+        headers["Content-Length"] = str(length)
+    return StreamingResponse(body, media_type="application/zip", headers=headers)
 
 
 @router.get("/api/exports/{export_id}/download")
