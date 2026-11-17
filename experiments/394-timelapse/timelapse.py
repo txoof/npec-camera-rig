@@ -2,9 +2,15 @@
 
 Runs on production (ac-testing), so only the finished videos are copied off it:
 
-    ssh pi@ac-testing 'ulimit -v 3000000; nice -n 15 /home/pi/npec_camera_rig/.venv/bin/python3 - OUT_DIR [N]' < timelapse.py
+    ssh pi@ac-testing 'ulimit -v 3000000; nice -n 15 /home/pi/npec_camera_rig/.venv/bin/python3 - OUT_DIR [N] [OPTIONS]' < timelapse.py
 
-N: stop after N frames (a trial run).
+N: stop after N frames (a trial run; 0 for no limit). OPTIONS: JSON, any of
+  "from", "to": UTC times (ISO), the photos used;
+  "every": "hour" (the first usable photo per UTC hour, the default) or "photo" (every usable photo);
+  "cells": cell names (default C3, B5); "clips": which of "tray", "photo", "fixed green cutoff",
+  "grow from leaf cores" (default all); "fps": frames per second of the video (default 12).
+For example, leaf movement in one cell over two chamber days:
+  0 '{"from": "2026-11-06T23:00", "to": "2026-11-08T23:00", "every": "photo", "cells": ["C3"], "clips": ["photo"], "fps": 24}'
 
 Reads only: rig.db opened read-only (`mode=ro`), the photos and the saved masks (`<photo>.png`, fixed
 green cutoff; `<photo>.grown.png`, grow from leaf cores, saved since the #410 Reprocess). Writes only
@@ -39,6 +45,7 @@ TRAY_PX_PER_MM = 2.0              # whole-tray frames: 610 x 732 px
 CELL_PX, CELL_MARGIN = 300, 150   # cell clips: the opening 300 px across, 150 px around it
 MAGENTA = np.array([255, 0, 255], dtype=np.float32)
 FPS = 12
+OPTIONS = {}
 CHAMBER = ZoneInfo("Europe/Amsterdam")
 BAND = 44                         # text band under each frame, px
 
@@ -54,7 +61,9 @@ def frames(db):
            order by c.taken_at""", (TRAY, EXPERIMENT)).fetchall()
     seen = set()
     for cid, path, taken, outline, warnings, placement in rows:
-        hour = taken[:13]
+        if OPTIONS.get("from") and taken < OPTIONS["from"] or OPTIONS.get("to") and taken >= OPTIONS["to"]:
+            continue
+        hour = taken[:13] if OPTIONS.get("every", "hour") == "hour" else taken
         if hour in seen or placement != "placed" or not outline:
             continue
         if set(json.loads(warnings or "[]")) & BAD_WARN:
@@ -67,6 +76,8 @@ def frames(db):
         photo = ROOT / f"{path}.jpg"
         masks = {"fixed green cutoff": ROOT / "masks" / f"{path}.png",
                  "grow from leaf cores": ROOT / "masks" / f"{path}.grown.png"}
+        wanted = [r for r in masks if r in OPTIONS.get("clips", masks)]
+        masks = {r: m for r, m in masks.items() if r in wanted}
         if not photo.exists() or not all(m.exists() for m in masks.values()):
             continue
         seen.add(hour)
@@ -136,13 +147,15 @@ def main(out, limit=None):
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
     except OSError:
         font = ImageFont.load_default(size=16)
-    clips = ["tray"] + [f"{c} {kind}" for c in CELLS for kind in ("photo", "fixed green cutoff", "grow from leaf cores")]
+    kinds = OPTIONS.get("clips", ["tray", "photo", "fixed green cutoff", "grow from leaf cores"])
+    clips = (["tray"] if "tray" in kinds else []) + [
+        f"{c} {kind}" for c in CELLS for kind in ("photo", "fixed green cutoff", "grow from leaf cores") if kind in kinds]
     dirs = {name: out / "frames" / name.replace(" ", "_") for name in clips}
     for d in dirs.values():
         d.mkdir(parents=True)
     log = open(out / "frames.csv", "w")
-    log.write("frame,capture_id,path,taken_at_utc,C3 fixed green cutoff mm2,C3 grow from leaf cores mm2,"
-              "B5 fixed green cutoff mm2,B5 grow from leaf cores mm2\n")
+    log.write("frame,capture_id,path,taken_at_utc," + ",".join(
+        f"{c} {r} mm2" for c in CELLS for r in ("fixed green cutoff", "grow from leaf cores")) + "\n")
     n = 0
     for f in frames(db):
         homs = tray_homography(f)
@@ -153,13 +166,16 @@ def main(out, limit=None):
         with Image.open(f["photo"]) as image:
             rgb = np.asarray(image.convert("RGB"))
         tray = cv2.warpPerspective(rgb, tray_h, tray_size, flags=cv2.INTER_AREA)
-        labelled(tray, f"Tray {TRAY}, experiment 18, A1 bottom left\n{when}", font).save(
-            dirs["tray"] / f"{n:05d}.jpg", quality=90)
+        if "tray" in dirs:
+            labelled(tray, f"Tray {TRAY}, experiment 18, A1 bottom left\n{when}", font).save(
+                dirs["tray"] / f"{n:05d}.jpg", quality=90)
         cell_hs = {c: cell_homography(f, c, tray_h) for c in CELLS}
         crops = {c: cv2.warpPerspective(rgb, h, s, flags=cv2.INTER_AREA) for c, (h, s) in cell_hs.items()}
         del rgb
         areas = {}
         for c in CELLS:
+            if f"{c} photo" not in dirs:
+                continue
             labelled(crops[c], f"Tray {TRAY} cell {c}, photo\n{when}", font).save(
                 dirs[f"{c} photo"] / f"{n:05d}.jpg", quality=90)
         for rule, path in f["masks"].items():
@@ -174,7 +190,7 @@ def main(out, limit=None):
                     dirs[f"{c} {rule}"] / f"{n:05d}.jpg", quality=90)
             del mask
         log.write(",".join(str(x) for x in (n, f["id"], f["path"], f["taken"].isoformat(),
-                                             *(areas[(c, r)] for c in CELLS for r in f["masks"])) ) + "\n")
+                                             *(f["cells"][c][3 + i] for c in CELLS for i in (0, 1)))) + "\n")
         log.flush()
         n += 1
         if limit and n >= limit:
@@ -184,11 +200,14 @@ def main(out, limit=None):
     print("frames", n, flush=True)
     for name, d in dirs.items():
         video = out / f"tray{TRAY}_{name.replace(' ', '_')}.mp4"
-        subprocess.run(["ffmpeg", "-loglevel", "error", "-framerate", str(FPS), "-i", str(d / "%05d.jpg"),
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-framerate", str(OPTIONS.get("fps", FPS)), "-i", str(d / "%05d.jpg"),
                         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20",
                         "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", str(video)], check=True)
         print("video", video.name, video.stat().st_size, flush=True)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else None)
+    if len(sys.argv) > 3:
+        OPTIONS.update(json.loads(sys.argv[3]))
+        CELLS = tuple(OPTIONS.get("cells", CELLS))
+    main(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 and int(sys.argv[2]) else None)
