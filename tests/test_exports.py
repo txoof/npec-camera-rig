@@ -509,15 +509,21 @@ def test_an_export_lists_its_parts_each_under_the_part_size(monkeypatch: pytest.
 
 def test_each_part_announces_its_exact_size(monkeypatch: pytest.MonkeyPatch) -> None:
     """B2: the browser shows progress from Content-Length (Aaron tried Chrome and Firefox,
-    2026-11-06), so it must equal what is sent, and the parts list gives the same size."""
+    2026-11-06), so a photo part's must equal what is sent, and the parts list gives the same
+    size. Part 0 is made while it is sent (#430), so its size is not known ahead: it is sent
+    without one and still arrives whole."""
     experiment = _stopped_experiment_with_photos(3)
     monkeypatch.setattr(exports, "PART_BYTES", max(_photo_bytes(experiment)))
     client = _client()
     export = client.post(f"/api/experiments/{experiment['id']}/export").json()
     for part in export["parts"]:
         got = client.get(f"/api/exports/{export['id']}/parts/{part['n']}")
-        assert int(got.headers["content-length"]) == len(got.content), part["n"]
-        if part["n"] >= 1:
+        assert got.status_code == 200, part["n"]
+        if part["n"] == 0:
+            assert "content-length" not in got.headers
+            assert zipfile.ZipFile(io.BytesIO(got.content)).testzip() is None
+        else:
+            assert int(got.headers["content-length"]) == len(got.content), part["n"]
             assert part["bytes"] == len(got.content)
 
 
@@ -583,3 +589,56 @@ def test_the_export_says_from_when_a_trays_cell_names_may_be_swapped() -> None:
     rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
     second = database.captures_by_path([paths[1]])[paths[1]]["taken_at"]
     assert [(r["taken_at"][:10], r["names_unsure_since"]) for r in rows] == [("2026-11-03", ""), ("2026-11-04", second)]
+
+
+def _experiment_with_cells(photos: int) -> dict:
+    """A stopped experiment of `photos` photos, each read with 12 trays of 20 cells (production's
+    experiment 18 has about 210 cells a photo)."""
+    from datetime import UTC, datetime, timedelta
+
+    from tests.helpers import TABLE_CENTRES, table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Many cells")["id"])
+    locations = list(TABLE_CENTRES)
+    trays = {tray_id: locations[tray_id % len(locations)] for tray_id in range(12)}
+    cells = [{"cell": f"{column}{row}", "holds": "plant", "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4,
+              "plant_px": 1205, "area_mm2": 120.5, "plant_centre_px": None, "over_other_cells": False,
+              "segmenter": "green threshold, 0.1", "cell_rule": "rule", "grown_plant_px": 1802,
+              "grown_area_mm2": 180.2, "grown_plant_centre_px": None, "grown_over_other_cells": False}
+             for column in "ABCD" for row in range(1, 6)]
+    start = datetime(2026, 10, 2, tzinfo=UTC) - timedelta(days=photos)  # one day per experiment, unique paths, before the export
+    for k in range(photos):
+        path = table_photo(experiment["id"], start + timedelta(minutes=k), trays, areas=dict.fromkeys(trays, 900.0))
+        capture_id = database.captures_by_path([path])[path]["id"]
+        read = database.tray_readings(capture_id)["trays"]
+        for tray in read:
+            tray["cells"] = cells
+        database.record_tray_readings(capture_id, read_at="t", status="read", trays=read)
+    return captures.stop_experiment(experiment["id"])
+
+
+def _data_part_peak_bytes(photos: int) -> int:
+    import tracemalloc
+
+    experiment = _experiment_with_cells(photos)
+    export = exports.start_export(experiment["id"], data=True, photos=False)
+    tracemalloc.start()
+    try:
+        _name, _length, chunks = exports.part_download(export["id"], 0)
+        for _chunk in chunks:
+            pass
+        return tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+
+
+def test_the_data_parts_memory_does_not_grow_with_the_number_of_photos() -> None:
+    """#430: part 0 of experiment 18 (25,600 read photos) was made whole in memory, reached 13 GB
+    and the app was killed with the camera. Made while it is sent, its peak memory stays about the
+    same however many photos the experiment has (before the fix: 4 times the photos, 4 times the
+    memory, measured in ~/scratch/430-export-memory/before.md)."""
+    # The larger first: memory used once (imports, caches) then counts against it, not for it.
+    many = _data_part_peak_bytes(100)
+    few = _data_part_peak_bytes(25)
+    assert many < 2 * few, (few, many)

@@ -23,6 +23,7 @@ import hashlib
 import io
 import json
 import re
+import tempfile
 import textwrap
 import unicodedata
 import zipfile
@@ -182,17 +183,18 @@ def _zip_length(top: str, n: int, files: list[tuple[str, Path, int]]) -> int:
     return pipe.position + sum(size for _name, _path, size in files)
 
 
-def part_download(export_id: int, n: int) -> tuple[str, int, Iterator[bytes]]:
-    """A part's file name, exact length and contents as they are made. Recorded as sent once its
-    last byte has been handed on."""
+def part_download(export_id: int, n: int) -> tuple[str, int | None, Iterator[bytes]]:
+    """A part's file name, exact length (None for part 0, made as it is sent) and contents as they
+    are made. Recorded as sent once its last byte has been handed on."""
     export = database.get_export(export_id)
     if database.get_experiment(export["experiment_id"])["state"] == "purged":
         raise database.ExperimentError("this experiment was purged: its photos are gone")
     top = _top(export)
+    length: int | None
     if n == 0:
-        body = _part_zero(export, top)
-        chunks: Iterator[bytes] = iter([body])
-        length = len(body)
+        # Its length is known only once it is made (#430).
+        chunks: Iterator[bytes] = _part_zero(export, top)
+        length = None
     else:
         parts = _photo_parts(export) if export["photos"] else []
         if not 1 <= n <= len(parts):
@@ -208,35 +210,92 @@ def part_download(export_id: int, n: int) -> tuple[str, int, Iterator[bytes]]:
     return f"{top}_part{n:02d}.zip", length, body_then_record()
 
 
-def _part_zero(export: dict, top: str) -> bytes:
-    """Part 0, made whole before it is sent: the README and, with Data ticked, the data."""
+class _Hashed:
+    """A file being written into the zip that also works out its SHA-256 for the manifest."""
+
+    def __init__(self, raw) -> None:
+        self.raw = raw
+        self.digest = hashlib.sha256()
+
+    def write(self, data: bytes) -> int:
+        self.digest.update(data)
+        return self.raw.write(data)
+
+
+class _Lines:
+    """CSV lines written as UTF-8 into a `_Hashed` file (csv writes text, the zip takes bytes)."""
+
+    def __init__(self, out: _Hashed) -> None:
+        self.out = out
+
+    def write(self, text: str) -> int:
+        return self.out.write(text.encode())
+
+
+def _part_zero(export: dict, top: str) -> Iterator[bytes]:
+    """Part 0, made while it is sent: the README and, with Data ticked, the data. Each photo's
+    readings are worked out once, written and let go, so its memory does not grow with the
+    experiment (production's experiment 18 reached 13 GB made whole, #430). The cell lines wait in
+    a temporary file on the card until the tray lines are in: a zip takes one file at a time. Not
+    /tmp, which is held in memory on the rigs."""
     experiment = database.get_experiment(export["experiment_id"])
     folder = experiments_root() / experiment["folder"]
     until = export["started_at"]
     captures = database.captures_for_experiment(experiment["id"], until=until)
-    entries: list[tuple[str, bytes]] = []
+    pipe = _Pipe()
+    sums: list[str] = []
+    names: set[str] = set()
     missing: list[str] = []
-    if export["data"]:
-        entries.append(("experiment.json", (folder / "experiment.json").read_bytes()))
-        entries.append(("captures.csv", _captures_csv(captures, experiment["folder"])))
-        entries.append(("time-in-table-location.csv", _time_in_table_location_csv(experiment["id"], until)))
-        # Each photo's readings worked out once, for both files (review of #374).
-        read = [(row, tray_readings.capture_readings(row)) for row in captures]
-        entries.append(("tray-readings.csv", _tray_readings_csv(read, experiment["folder"])))
-        entries.append(("cell-readings.csv", _cell_readings_csv(read, experiment["folder"])))
-        records, missing = _records(captures)
-        entries += records
-        entries.append(("datapackage.json", _data_package(_fields(), {name for name, _ in entries})))
-    held = {name for name, _ in entries} | ({"stills/"} if export["photos"] else set())
-    parts = 1 + (export["photo_parts"] or 0)
-    entries.append(("README.txt", _readme(experiment, len(captures), missing, until, held, parts).encode()))
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for name, data in entries:
+    with zipfile.ZipFile(pipe, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
+
+        def whole(name: str, data: bytes) -> None:
             zf.writestr(f"{top}/{name}", data)
-        sums = "".join(f"{hashlib.sha256(data).hexdigest()}  {name}\n" for name, data in entries)
-        zf.writestr(f"{top}/MANIFEST-part00.sha256", sums)
-    return buffer.getvalue()
+            sums.append(f"{hashlib.sha256(data).hexdigest()}  {name}\n")
+            names.add(name)
+
+        if export["data"]:
+            whole("experiment.json", (folder / "experiment.json").read_bytes())
+            whole("captures.csv", _captures_csv(captures, experiment["folder"]))
+            whole("time-in-table-location.csv", _time_in_table_location_csv(experiment["id"], until))
+            yield pipe.take()
+            experiments_root().mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryFile(dir=experiments_root()) as waiting:
+                cells = _Hashed(waiting)
+                cell_writer = csv.DictWriter(_Lines(cells), fieldnames=CELL_READING_COLUMNS, lineterminator="\n")
+                cell_writer.writeheader()
+                with zf.open(f"{top}/tray-readings.csv", "w", force_zip64=True) as raw:
+                    trays = _Hashed(raw)
+                    tray_writer = csv.DictWriter(_Lines(trays), fieldnames=TRAY_READING_COLUMNS, lineterminator="\n")
+                    tray_writer.writeheader()
+                    # Each photo's readings worked out once, for both files (review of #374).
+                    for row in captures:
+                        readings = tray_readings.capture_readings(row)
+                        if readings is None:
+                            continue
+                        tray_writer.writerows(_tray_rows(row, readings, experiment["folder"]))
+                        cell_writer.writerows(_cell_rows(row, readings, experiment["folder"]))
+                        if len(pipe.chunks) > 4:
+                            yield pipe.take()
+                sums.append(f"{trays.digest.hexdigest()}  tray-readings.csv\n")
+                names.add("tray-readings.csv")
+                yield pipe.take()
+                waiting.seek(0)
+                with zf.open(f"{top}/cell-readings.csv", "w", force_zip64=True) as dst:
+                    while chunk := waiting.read(_CHUNK):
+                        dst.write(chunk)
+                        if len(pipe.chunks) > 4:
+                            yield pipe.take()
+                sums.append(f"{cells.digest.hexdigest()}  cell-readings.csv\n")
+                names.add("cell-readings.csv")
+            records, missing = _records(captures)
+            for name, data in records:
+                whole(name, data)
+            whole("datapackage.json", _data_package(_fields(), names))
+        held = names | ({"stills/"} if export["photos"] else set())
+        parts = 1 + (export["photo_parts"] or 0)
+        whole("README.txt", _readme(experiment, len(captures), missing, until, held, parts).encode())
+        zf.writestr(f"{top}/MANIFEST-part00.sha256", "".join(sums))
+    yield pipe.take()
 
 
 # Bytes per CSV line in the download (the zip compresses the CSVs), and for the README,
@@ -341,38 +400,31 @@ def _rounded(value: float | None, digits: int) -> float | None:
     return None if value is None else round(value, digits)
 
 
-def _tray_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> bytes:
-    """One line per tray in each photo read for its trays (`read`: each photo's rig.db row and its
-    `tray_readings.capture_readings`), with its plant area by both methods as stored, and the band
-    of its validation slot, or the reason it has none (#76). Photos not read for trays have no
-    lines."""
-    buffer = io.StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=TRAY_READING_COLUMNS, lineterminator="\n")
-    writer.writeheader()
-    for row, readings in read:
-        if readings is None:
-            continue
-        for tray in sorted(readings["trays"], key=lambda t: (t["tray_id"] is None, t["tray_id"] or 0)):
-            band = tray["uncertainty"]
-            writer.writerow({
-                "file": f"stills/{_stills_relative(row['path'], folder)}.jpg",
-                "taken_at": row["taken_at"],
-                "tray": "no tag" if tray["tray_id"] is None else tray["tray_id"],
-                "location": tray["location"],
-                "plant_area_grow_from_leaf_cores_mm2": _rounded(tray.get("grown_area_mm2"), 1),
-                "plant_area_fixed_green_cutoff_mm2": _rounded(tray["area_mm2"], 1),
-                "not_counted": "; ".join(tray["not_counted"]),
-                "photo_excluded": readings["exclusion"],
-                "partly_outside": tray["partly_outside"],
-                "scale_error_pct": _rounded(band["band_pct"], 1),
-                "validation_slot": band["slot"],
-                "no_scale_error_because": band["reason"],
-                "fixed_green_cutoff_floor_mm2": tray["floor_mm2"],
-                # Greenness levels are histogram bin centres, 0.01 apart: 3 decimals hold them exactly.
-                "grow_from_leaf_cores_soil_level": _rounded(tray.get("grown_soil_level"), 3),
-                "grow_from_leaf_cores_cutoff": _rounded(tray.get("grown_lower_cutoff"), 3),
-            })
-    return buffer.getvalue().encode()
+def _tray_rows(row: dict, readings: dict, folder: str) -> Iterator[dict]:
+    """tray-readings.csv's lines for one photo read for its trays (`row`: its rig.db row,
+    `readings`: its `tray_readings.capture_readings`): one per tray, with its plant area by both
+    methods as stored, and the band of its validation slot, or the reason it has none (#76).
+    Photos not read for trays have no lines."""
+    for tray in sorted(readings["trays"], key=lambda t: (t["tray_id"] is None, t["tray_id"] or 0)):
+        band = tray["uncertainty"]
+        yield {
+            "file": f"stills/{_stills_relative(row['path'], folder)}.jpg",
+            "taken_at": row["taken_at"],
+            "tray": "no tag" if tray["tray_id"] is None else tray["tray_id"],
+            "location": tray["location"],
+            "plant_area_grow_from_leaf_cores_mm2": _rounded(tray.get("grown_area_mm2"), 1),
+            "plant_area_fixed_green_cutoff_mm2": _rounded(tray["area_mm2"], 1),
+            "not_counted": "; ".join(tray["not_counted"]),
+            "photo_excluded": readings["exclusion"],
+            "partly_outside": tray["partly_outside"],
+            "scale_error_pct": _rounded(band["band_pct"], 1),
+            "validation_slot": band["slot"],
+            "no_scale_error_because": band["reason"],
+            "fixed_green_cutoff_floor_mm2": tray["floor_mm2"],
+            # Greenness levels are histogram bin centres, 0.01 apart: 3 decimals hold them exactly.
+            "grow_from_leaf_cores_soil_level": _rounded(tray.get("grown_soil_level"), 3),
+            "grow_from_leaf_cores_cutoff": _rounded(tray.get("grown_lower_cutoff"), 3),
+        }
 
 
 # The columns of cell-readings.csv, one line per cell of each tray per photo read (#364): the plant
@@ -385,38 +437,31 @@ CELL_READING_COLUMNS = [
 ]
 
 
-def _cell_readings_csv(read: list[tuple[dict, dict | None]], folder: str) -> bytes:
-    """One line per cell of each tray in each photo read for its trays
-    (`tray_readings.capture_readings`), for the researcher's own map of trays and cells to
-    treatments (#364): the cell's plant area and status by both methods, no area when it has none,
-    and its tray's location and validation band."""
-    buffer = io.StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=CELL_READING_COLUMNS, lineterminator="\n")
-    writer.writeheader()
-    for row, readings in read:
-        if readings is None:
-            continue
-        for tray in sorted(readings["trays"], key=lambda t: (t["tray_id"] is None, t["tray_id"] or 0)):
-            band = tray["uncertainty"]
-            for cell in tray["cells"]:
-                writer.writerow({
-                    "file": f"stills/{_stills_relative(row['path'], folder)}.jpg",
-                    "taken_at": row["taken_at"],
-                    "tray": tray["tray_id"],
-                    "cell": cell["cell"],
-                    "location": tray["location"],
-                    "plant_area_grow_from_leaf_cores_mm2": _rounded(cell.get("grown_area_mm2"), 1),
-                    "plant_area_fixed_green_cutoff_mm2": _rounded(cell["area_mm2"], 1),
-                    "status_grow_from_leaf_cores": cell.get("grown_status"),
-                    "status_fixed_green_cutoff": cell["status"],
-                    "tray_not_counted": "; ".join(tray["not_counted"]),
-                    "photo_excluded": readings["exclusion"],
-                    "names_unsure_since": tray["names_unsure_since"],
-                    "scale_error_pct": _rounded(band["band_pct"], 1),
-                    "validation_slot": band["slot"],
-                    "no_scale_error_because": band["reason"],
-                })
-    return buffer.getvalue().encode()
+def _cell_rows(row: dict, readings: dict, folder: str) -> Iterator[dict]:
+    """cell-readings.csv's lines for one photo read for its trays (as `_tray_rows`): one per cell
+    of each tray, for the researcher's own map of trays and cells to treatments (#364): the cell's
+    plant area and status by both methods, no area when it has none, and its tray's location and
+    validation band."""
+    for tray in sorted(readings["trays"], key=lambda t: (t["tray_id"] is None, t["tray_id"] or 0)):
+        band = tray["uncertainty"]
+        for cell in tray["cells"]:
+            yield {
+                "file": f"stills/{_stills_relative(row['path'], folder)}.jpg",
+                "taken_at": row["taken_at"],
+                "tray": tray["tray_id"],
+                "cell": cell["cell"],
+                "location": tray["location"],
+                "plant_area_grow_from_leaf_cores_mm2": _rounded(cell.get("grown_area_mm2"), 1),
+                "plant_area_fixed_green_cutoff_mm2": _rounded(cell["area_mm2"], 1),
+                "status_grow_from_leaf_cores": cell.get("grown_status"),
+                "status_fixed_green_cutoff": cell["status"],
+                "tray_not_counted": "; ".join(tray["not_counted"]),
+                "photo_excluded": readings["exclusion"],
+                "names_unsure_since": tray["names_unsure_since"],
+                "scale_error_pct": _rounded(band["band_pct"], 1),
+                "validation_slot": band["slot"],
+                "no_scale_error_because": band["reason"],
+            }
 
 
 def _records(captures: list[dict]) -> tuple[list[tuple[str, bytes]], list[str]]:
