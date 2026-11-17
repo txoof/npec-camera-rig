@@ -7,6 +7,7 @@ Runs on production (ac-testing), so only the finished videos are copied off it:
 N: stop after N frames (a trial run; 0 for no limit). OPTIONS: JSON, any of
   "from", "to": UTC times (ISO), the photos used;
   "every": "hour" (the first usable photo per UTC hour, the default) or "photo" (every usable photo);
+  "experiment": experiment id (default 18); "tray": tray tag id (default 4);
   "cells": cell names (default C3, B5); "clips": which of "tray", "photo", "fixed green cutoff",
   "grow from leaf cores" (default all); "fps": frames per second of the video (default 12).
 For example, leaf movement in one cell over two chamber days:
@@ -167,7 +168,7 @@ def main(out, limit=None):
             rgb = np.asarray(image.convert("RGB"))
         tray = cv2.warpPerspective(rgb, tray_h, tray_size, flags=cv2.INTER_AREA)
         if "tray" in dirs:
-            labelled(tray, f"Tray {TRAY}, experiment 18, A1 bottom left\n{when}", font).save(
+            labelled(tray, f"Tray {TRAY}, experiment {EXPERIMENT}, A1 bottom left\n{when}", font).save(
                 dirs["tray"] / f"{n:05d}.jpg", quality=90)
         cell_hs = {c: cell_homography(f, c, tray_h) for c in CELLS}
         crops = {c: cv2.warpPerspective(rgb, h, s, flags=cv2.INTER_AREA) for c, (h, s) in cell_hs.items()}
@@ -210,4 +211,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 3:
         OPTIONS.update(json.loads(sys.argv[3]))
         CELLS = tuple(OPTIONS.get("cells", CELLS))
+        EXPERIMENT = int(OPTIONS.get("experiment", EXPERIMENT))
+        TRAY = int(OPTIONS.get("tray", TRAY))
     main(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 and int(sys.argv[2]) else None)
