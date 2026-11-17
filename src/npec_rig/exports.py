@@ -25,6 +25,8 @@ import json
 import re
 import tempfile
 import textwrap
+import threading
+import time
 import unicodedata
 import zipfile
 from collections.abc import Iterator
@@ -87,7 +89,27 @@ def export_with_parts(export_id: int) -> dict:
                           "bytes": _zip_length(top, i, files)})
     for part in parts:
         part["sent"] = part["n"] in sent
+    parts[0]["making"] = _making(export_id)
     return {**export, "parts": parts}
+
+
+# Part 0 of each export being sent: its photos read so far, all its photos, and when it started
+# (time.monotonic), so the page can say how far it is (#430). Held only while it is sent.
+_progress: dict[int, tuple[int, int, float]] = {}
+_progress_lock = threading.Lock()
+
+
+def _making(export_id: int) -> dict | None:
+    """How far part 0 of the export is, while it is sent: photos done, all photos, and the seconds
+    left at the rate so far (None until a photo is done). None when it is not being sent."""
+    with _progress_lock:
+        progress = _progress.get(export_id)
+    if progress is None:
+        return None
+    done, total, started = progress
+    elapsed = time.monotonic() - started
+    left = round(elapsed / done * (total - done)) if done else None
+    return {"photos_done": done, "photos": total, "seconds_left": left}
 
 
 def _top(export: dict) -> str:
@@ -235,9 +257,10 @@ class _Lines:
 def _part_zero(export: dict, top: str) -> Iterator[bytes]:
     """Part 0, made while it is sent: the README and, with Data ticked, the data. Each photo's
     readings are worked out once, written and let go, so its memory does not grow with the
-    experiment (production's experiment 18 reached 13 GB made whole, #430). The cell lines wait in
-    a temporary file on the card until the tray lines are in: a zip takes one file at a time. Not
-    /tmp, which is held in memory on the rigs."""
+    experiment (production's experiment 18 reached 13 GB made whole, #430). The cell lines, most of
+    the part, are sent as they are made, so the download grows from the start; the tray lines wait
+    in a temporary file on the card until they are in: a zip takes one file at a time. Not /tmp,
+    which is held in memory on the rigs. While it is made, `export_with_parts` says how far it is."""
     experiment = database.get_experiment(export["experiment_id"])
     folder = experiments_root() / experiment["folder"]
     until = export["started_at"]
@@ -260,33 +283,40 @@ def _part_zero(export: dict, top: str) -> Iterator[bytes]:
             yield pipe.take()
             experiments_root().mkdir(parents=True, exist_ok=True)
             with tempfile.TemporaryFile(dir=experiments_root()) as waiting:
-                cells = _Hashed(waiting)
-                cell_writer = csv.DictWriter(_Lines(cells), fieldnames=CELL_READING_COLUMNS, lineterminator="\n")
-                cell_writer.writeheader()
-                with zf.open(f"{top}/tray-readings.csv", "w", force_zip64=True) as raw:
-                    trays = _Hashed(raw)
-                    tray_writer = csv.DictWriter(_Lines(trays), fieldnames=TRAY_READING_COLUMNS, lineterminator="\n")
-                    tray_writer.writeheader()
+                trays = _Hashed(waiting)
+                tray_writer = csv.DictWriter(_Lines(trays), fieldnames=TRAY_READING_COLUMNS, lineterminator="\n")
+                tray_writer.writeheader()
+                with zf.open(f"{top}/cell-readings.csv", "w", force_zip64=True) as raw:
+                    cells = _Hashed(raw)
+                    cell_writer = csv.DictWriter(_Lines(cells), fieldnames=CELL_READING_COLUMNS, lineterminator="\n")
+                    cell_writer.writeheader()
                     # Each photo's readings worked out once, for both files (review of #374).
-                    for row in captures:
-                        readings = tray_readings.capture_readings(row)
-                        if readings is None:
-                            continue
-                        tray_writer.writerows(_tray_rows(row, readings, experiment["folder"]))
-                        cell_writer.writerows(_cell_rows(row, readings, experiment["folder"]))
-                        if len(pipe.chunks) > 4:
-                            yield pipe.take()
-                sums.append(f"{trays.digest.hexdigest()}  tray-readings.csv\n")
-                names.add("tray-readings.csv")
+                    started = time.monotonic()
+                    try:
+                        for done, row in enumerate(captures):
+                            with _progress_lock:
+                                _progress[export["id"]] = (done, len(captures), started)
+                            readings = tray_readings.capture_readings(row)
+                            if readings is None:
+                                continue
+                            tray_writer.writerows(_tray_rows(row, readings, experiment["folder"]))
+                            cell_writer.writerows(_cell_rows(row, readings, experiment["folder"]))
+                            if pipe.chunks:
+                                yield pipe.take()
+                    finally:
+                        with _progress_lock:
+                            _progress.pop(export["id"], None)
+                sums.append(f"{cells.digest.hexdigest()}  cell-readings.csv\n")
+                names.add("cell-readings.csv")
                 yield pipe.take()
                 waiting.seek(0)
-                with zf.open(f"{top}/cell-readings.csv", "w", force_zip64=True) as dst:
+                with zf.open(f"{top}/tray-readings.csv", "w", force_zip64=True) as dst:
                     while chunk := waiting.read(_CHUNK):
                         dst.write(chunk)
                         if len(pipe.chunks) > 4:
                             yield pipe.take()
-                sums.append(f"{cells.digest.hexdigest()}  cell-readings.csv\n")
-                names.add("cell-readings.csv")
+                sums.append(f"{trays.digest.hexdigest()}  tray-readings.csv\n")
+                names.add("tray-readings.csv")
             records, missing = _records(captures)
             for name, data in records:
                 whole(name, data)
