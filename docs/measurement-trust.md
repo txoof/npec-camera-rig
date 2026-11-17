@@ -480,6 +480,14 @@ metrology log backs it.
   (up to 47% less leaf showing in single cells). The step is not marked on the page yet (#424). A
   comparison of treatments on one day holds while all trays carry mats; a comparison of a plant
   before and after its mat does not. Measured on one morning, plants of one size.
+- **Each plant's growth over a run** (*added 2026-11-17*, metrology log 38.1, a development check,
+  both rules). On production's Round 2 run, 114 potato plants, 22 Oct to 17 Nov: before the mats,
+  every plant's growth showed over a week by grow from leaf cores (114 of 114 cells grew from 23 to
+  30 Oct), and from one day to the next a day's growth was about once to twice the change from one
+  hour to the next. Above about 100 mm² an hour's change is 1.7 to 2.4 times a minute's (leaf
+  movement and a daily cycle), so whole days or the same time of day should be compared. The mats
+  of 6 Nov lowered every plant's area by grow from leaf cores, by a median of 30%, so areas before
+  and after a mat cannot be compared. Moves and harvests after 9 Nov are not recorded.
 - **Soil hidden under mats** (*added 2026-11-17*, metrology log 39, a development check). With mats
   over nearly all the soil, the tray's soil level can land on the leaves' edge pixels instead, and
   grow from leaf cores then left out most of each leaf: tray 1 of experiment 18 read about a tenth of

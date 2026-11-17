@@ -9773,6 +9773,340 @@ green enough); `margin-tray5-B1.jpg`, B1 at each blue margin; `cells-tray6-m0-m2
 `per_cell_photo.csv`, `soil.csv`, `cell_timeline.csv`, `timeline.csv`, the summaries); scripts in
 `experiments/358-blue-mats/code/`. The photos stay in experiment 18's folder on `ac-testing`.
 
+## 37. Production: grow from leaf cores for every photo of experiment 18 (issue #410, method written 2026-11-13, before the run)
+
+**Label: development check.** Production (`ac-testing`) is moved from main d1742e7 to main 75f20e4
+(#409, #414, #415) and its running experiment 18 ("Potato Plants v001", photos from 22 Oct 08:41
+UTC) is reprocessed, so every read photo carries plant area by grow from leaf cores (section 34)
+beside the fixed green cutoff, per tray and per cell. It is an operation, not a measurement of
+plants: what is measured is how long it takes, whether it disturbs the running experiment, and
+whether the numbers that should not change stay the same. The rehearsal on development (#410,
+2026-11-12 to 13: 13,015 photos in 13 h, about 3.6 s per photo, 0 failed, new photos read 30 s after
+being taken) set the plan.
+
+**State before (read-only, 2026-11-13 06:58 UTC).** Production on d1742e7, clean tree, rig.db
+version 25 (75f20e4 is also version 25: no migration, and going back to d1742e7 needs no database
+restore). Experiment 18 running: 31,580 photos, 21,663 read for trays, 9,917 with no trays found
+(the lights-off photos), 1,596 with grow from leaf cores (read since d1742e7), 6,641 with cell
+readings (since 6 Nov). Free: 696 GB disk, 10.5 GB memory.
+
+**When.** At the start of the chamber's lights-off period (00:28 to 08:01 UTC on every recent night),
+on the night of 13 to 14 November, approved by Aaron. Start no earlier than 00:30 UTC, no later than
+02:00 UTC; lights off is confirmed first from the last 2 photos (exclusion "lights off"). Lights-off
+photos are not measured, so the restart costs no measured photo.
+
+**Steps.**
+1. rig.db is copied with sqlite's backup through a read-only connection into
+   `/var/lib/npec-rig/backups/before-promote-75f20e4-<UTC time>/rig.db`, checked with
+   `pragma quick_check`, and copied to the controller (`~/prod-backups/`). This copy is also the
+   "before" for the checks.
+2. `git merge --ff-only 75f20e4`; the server is stopped with SIGTERM about 30 s after a photo
+   (photos at second :53), and relaunched once its process has gone (CLAUDE.md recipe).
+3. Checks: health 200, the About page shows 75f20e4, the next photo is taken on time and read.
+4. Reprocess of experiment 18 through the API, watched about every hour.
+
+**Measured while it runs.** Photos done, total and failed, and photos per minute; after lights on
+(08:01 UTC), the delay from taking each new photo to its tray reading (`tray_read.read_at` minus
+`capture.taken_at`; rehearsal about 30 s; worrying above 5 minutes); the app's memory and free
+memory; free disk; tracebacks in the server log.
+
+**Checks after it finishes** (read-only, against the copy of step 1):
+- photos of experiment 18 read for trays, and how many carry grow from leaf cores (any without are
+  listed with their tray status);
+- the fixed green cutoff's tray areas (`tray_reading.area_mm2`) equal the copy's for every photo and
+  tray that existed before: differences above 0.01 mm2 are counted and examples listed;
+- photos before 6 Nov now have cell readings (count);
+- 3 photos (22 Oct, 1 Nov, 12 Nov) through the Gallery's tray API: both methods present;
+- a readings-only export of experiment 18: its time, and the columns
+  `plant_area_grow_from_leaf_cores_mm2` and `plant_area_fixed_green_cutoff_mm2`.
+
+**What it does not cover.** Whether grow from leaf cores is right on these photos (section 34 and
+33.1); photos not read for trays (lights off) get no area by either method.
+
+### 37.1 What was done, and how it differed from the method (2026-11-14 to 17)
+
+All times UTC; Dutch time is one hour later.
+
+- **No promotion and no restart.** At 00:31 on 14 Nov production was not on d1742e7 as planned: it had been
+  promoted to main a6632d6 on 13 Nov at 10:00 (#416, approved by Aaron). a6632d6 holds 75f20e4 plus
+  the Experiments page speed fix (#420: dwell and scheduler code only, no migration, Reprocess code
+  unchanged). So steps 2 and 3 were not needed; the session stopped and asked. Aaron approved starting
+  Reprocess on a6632d6 as it ran, with no restart (server PID 2834027, up since 13 Nov 09:59).
+- **Lights off confirmed** at 00:31 (photos at 00:29:53 and 00:30:53 carry "lights off").
+- **Backup** at 00:31:44: `/var/lib/npec-rig/backups/before-reprocess-410-a6632d6-20261114T003144Z/rig.db`
+  (1.26 GB, sqlite backup through a read-only connection in 37.5 s, `quick_check` ok, version 25), copied
+  to the controller at `~/prod-backups/before-reprocess-410-a6632d6-20261114T003144Z/rig.db`.
+- **Reprocess started at 06:38:55 on 14 Nov**, not at about 00:35: the approval came then. So only its
+  first 1 h 22 min ran in the dark of the first night.
+
+### 37.2 Results (development check)
+
+**Time.** 33,001 photos (every photo of experiment 18 up to the start) from 06:38:55 on 14 Nov to
+06:41:30 on 17 Nov: **72 h 3 min, 7.9 s per photo on average**. The rate depended on the photo and the
+hour (10-minute samples): photos with trays 4.5 to 6 a minute with the lights on and 7.5 to 10 a minute
+in the dark; lights-off photos (no trays) about 13 to 15 a minute. Photos from early November were the
+slowest (they gain cells and the plants are larger). The rehearsal on development (3.6 s per photo,
+13,015 photos with fewer cells) was half as long per photo; the 31-hour estimate of #410 was therefore
+too short.
+
+**New photos while it ran.** 4,322 photos were taken, no interval over 70 s, none missed. Read for trays:
+2,969 photos with the lights on, delay from taking to reading median 28.4 s, 95th percentile 32.0 s,
+largest 48.5 s; 1,352 lights-off photos, median 10.4 s, largest 17.1 s. None over 5 minutes (the limit
+set before the run). One photo was not read (below).
+
+**Memory and disk** (10-minute samples, `data/progress.tsv`). App 0.42 to 1.58 GB; at least 10.0 GB of
+16 GB available throughout. Free disk went from 687 to 665 GB, which includes 3 days of new photos; the
+mask folder is 3.2 GB in all.
+
+**Failures: 26 photos**, from the server log (`data/reprocess_failures.txt`):
+- 24 photos taken while the lights went off or came on (00:28 or 08:00 after the 25 Oct clock change,
+  23:28 or 07:00 before it, and 3 more on 26 and 27 Oct during longer changes). Plant areas could not be
+  worked out again, so Reprocess kept the saved ones (`ReadingWorse`, the safeguard of #409). Their fixed
+  green cutoff areas are unchanged; they have no grow from leaf cores area.
+- 2 photos where Reprocess gave up waiting 10 s for the database ("database is locked") while it saved:
+  photo 28262 (9 Nov 14:59) had already saved its trays and cells with both methods and is complete;
+  photo 30763 (11 Nov 08:39) kept its earlier reading (fixed green cutoff areas and cells, no grow from
+  leaf cores).
+
+**Database locks.** Reprocess's writes also held up the app's other writes: the scheduler's "last tick"
+could not be saved 4 times (no effect), and one new photo, 37400 (15 Nov 23:16:54, lights on), has the
+status "read failed" and no tray areas. The photo itself is kept and can be read again (#431).
+
+**Checks against the backup** (`code/final_checks.py`, output `data/final_checks_2026-11-17.txt`):
+- **Fixed green cutoff unchanged:** for all 22,652 photos read before the backup, every photo's tray
+  areas (264,131 with an area) equal the backup's; largest difference 0.0 mm2, no photo with a different
+  number of trays. (The check compares each photo's sorted list of tray areas; it was first run with the
+  backup against itself and gave no difference.)
+- **Grow from leaf cores:** 25,528 of the 25,621 read photos carry it on every tray. Of the other 93:
+  37 lack it on one tray only, and each such tray is "tag only" (a tag seen with no tray), which has no
+  fixed green cutoff area either; 54 are lights-off photos with no grow from leaf cores at all (the 24
+  failures above and 30 more that Reprocess passed without an error; why these 30 have no grow from
+  leaf cores area was not looked into); 1 is photo 30763 above; 1 is photo 30983 (11 Nov 12:19,
+  exposure 36,532 us at gain 2.0, a dark photo) with no area by either method, before and after.
+- **Cells:** read photos before 6 Nov with cell readings went from 0 to 14,681 of 14,711; the 30 without
+  are lights-off photos. Of the experiment's 5,409,338 plant cells, 5,409,110 have a grow from leaf
+  cores area.
+- **Gallery** (`GET /api/captures/trays/<path>`), photos of 22 Oct, 1 Nov and 12 Nov at 12:00: each lists
+  `area_methods` "Grow from leaf cores" and "Fixed green cutoff", and its trays and cells carry both.
+- **Export: failed, and stopped the app.** The readings-only export of experiment 18 (export 12, part 0
+  estimated 120 MB) was started at 06:50:20 on 17 Nov. Part 0 is built whole in memory before any byte
+  is sent; after 983 s with nothing received, the kernel's out-of-memory killer stopped the app at
+  13.0 GB (`dmesg`). The camera stopped with it: the last photo was 07:05:58. Aaron approved a relaunch
+  on a6632d6 (07:08:29, PID 3272801); the next photo was taken at 07:08:40 and read 8 s later. Two
+  photos were missed, both in the dark. The export columns were therefore not checked. #430 holds the
+  cause and fixes; until then experiment 18's data is not exported on production.
+
+**What it shows.** Grow from leaf cores now stands beside the fixed green cutoff on every read photo of
+experiment 18 that can be measured, from 22 Oct on, and the fixed green cutoff's numbers did not change.
+Reprocess on production can run for days beside a running experiment without missing or delaying a
+photo beyond 49 s, but its database writes can block other writes for more than 10 s.
+
+**Limits of the evidence.** One run on one rig. Times depend on what else the Pi did (the Experiments
+page, other sessions' reads). The areas themselves are not checked here: their accuracy is sections 33
+and 34. The export of the data could not be checked (#430).
+
+**Raw data.** `experiments/410-production-reprocess/` (`code/`: the status, progress logger and check
+scripts; `data/`: `progress.tsv`, `final_checks_2026-11-17.txt`, `reprocess_failures.txt`). Server logs on
+`ac-testing`: `/tmp/npec-rig-server-20261113T095920Z.log` (to the crash) and
+`/tmp/npec-rig-server-20261117T070829Z.log` (after the relaunch).
+
+## 38. Plant area per cell over the whole Round 2 run, against the photo-to-photo change (issue #394, method written 2026-11-17, before any cell curve was looked at)
+
+**Label: development check.** Section 16.9 measured how much a cell's area changes from one photo
+to the next (a median of 3 to 4 mm², 6 to 9 Nov, fixed green cutoff only) but had cells for the
+last 3 days only. Growth shows over hours and days. This section asks, for each potato plant
+(cell) on its own: does its growth show above the change from photo to photo, over the whole run?
+It is the question behind every plant-area test (a treatment effect has to be found in this
+noise).
+
+**When this was written.** On 2026-11-17, after the Reprocess of experiment 18 (#410, log 37) gave
+every read photo of the run its cells by both rules. Already seen before writing: the counts of
+photos with cells (25,566, 22 Oct 08:41 to 17 Nov 00:28 UTC) and the cell table's columns. No cell
+area of the run before 6 Nov had been looked at.
+
+**Change from the issue's plan.** The issue planned to work the cells out again on the controller
+from one photo per lit hour, because production had no cells before 6 Nov. Since #410 it has them
+for every photo, so production's stored cells are used, all of them (Aaron, 2026-11-17). The
+check that the controller's numbers match production's is then not needed and is dropped.
+
+**Data.** A slim read-only copy of production's `rig.db`: experiment 18's photos, reads,
+exclusions, app starts and camera events, its tray readings, and the cells of trays 1 to 7
+(`experiments/round2-cells/extract.py`). It is read in its own process on production, not through
+the app (so the export memory problem of #430 does not apply), and nothing is written there. The
+copy's time is given with the results. Photo 37400, which #431 left unread, is simply not in it.
+
+**Both rules.** Each cell's area by the fixed green cutoff (`area_mm2`) and by grow from leaf cores
+(`grown_area_mm2`), reported side by side under those names.
+
+**Usable photo for a cell.** Rules 1 to 9 of 16.9 for each photo (read, no exclusion `lights off`,
+`light changing` or `visit`, outside the shuffle windows, not the 17.12 duplicates); the tray
+`placed`, with none of the warnings `no tag`, `tag seen, tray not found in the photo` or `two tags
+in one tray outline`; the cell holds a plant. A cell's area of 0 is the app's "missing" (no plant
+counted) and is kept as 0 in the medians, so an hour whose median is 0 is shown as missing. Photos
+with `over_other_cells` for that rule are kept and marked. Trays 1 to 6 over the whole run; tray 7
+until 5 Nov 11:00 UTC, when the green squares were laid on it (24.4).
+
+**What is worked out.**
+
+1. *Photo-to-photo change*, per rule: 16.9's undisturbed cell pairs, now over the whole run, by
+   cell size, with the same size bands as 16.9 (median, 95th percentile, root mean square of the
+   change in mm²). Pairs across an app restart before 2 Nov 16:19 UTC are left out from the 16.9
+   sidecar list; from then on from `app_start`.
+2. *Hourly median*, per cell and rule: for each UTC hour, the median of the usable photos, with
+   their count and their spread (median absolute deviation, mm²).
+3. *Hour to hour*: the change between a cell's hourly medians of two following hours with no
+   shuffle between them, in the same slot, by size as in 1. Set beside 1, it answers the issue's
+   open point: whether one photo per hour would do, or the median of each hour is needed.
+4. *Day to day growth*, per cell and rule: for each chamber day (Dutch local time), the median of
+   its hourly medians; growth is the change from the previous day. Set beside the hour-to-hour
+   change at that size (3), as a ratio, per cell and day. No ratio is set as the line between
+   "shows" and "does not show"; the table gives the spread of the ratios by day and by size.
+5. *Pictures.* Per tray, one small chart per cell: every usable photo (faint dots), the hourly
+   medians (line), both rules, against time. Marked on every chart: the shuffles (shuffle record),
+   the mats laid on 6 Nov 08:10 to 09:19 UTC (36), and any change of photo quality read from the
+   photos' own records.
+6. *Cell names* (#391). A tag moved across the middle of its tray swaps the cell names with no
+   warning. The charts are looked at by eye for its sign: at one shuffle, two or more cells of a
+   tray stepping to each other's areas. Reported, not tested.
+
+**Limits (as planned).** One run, potato only, one segmenter per rule and neither tuned for
+sprouts. No true area is known for any plant. Leaf movement counts as noise and leaves covering a
+neighbour's cell are only marked. The mat step of 6 Nov (36) lies inside the run for every plant.
+The early sprouts read near the empty-tray floor of about 1 to 4 mm² (17.4). The cell names rest
+on the tags staying in cell A1, which is not checked (#391).
+
+### 38.1 Results (2026-11-17)
+
+**Data and scripts.** The slim read-only copy of production's `rig.db`, made 2026-11-17 from 07:57:27
+to 07:58:57 UTC: experiment 18, 37,398 photos from 22 Oct 08:41 UTC on. The run goes on after it:
+the researcher is still harvesting and data is still being gathered (Aaron, 2026-11-17), so these
+are results to that time. Scripts in `experiments/round2-cells/` (`extract.py`, `cells.py`,
+`charts.py`); the tables in `experiments/round2-cells/data/`. The copy and the hourly table stay in
+`~/scratch/394-round2-cells/`, not kept; both are made again by the scripts.
+
+**Check against 16.9.** In 16.9's window (6 Nov 12:28 to 9 Nov 10:40 UTC), with the fixed green
+cutoff, the new script finds 301,948 undisturbed cell pairs on trays 1 to 6, median change 3.63
+mm². 16.9 found 352,279 on trays 1 to 7, a median of 2.7 to 4.2 mm² per tray; six sevenths of its
+count is 301,953.
+
+**Differences from the method.**
+1. `tray_reading.slot` is empty since the re-read of 2 November, so the slot is the nearest slot of
+   the calibration's layout to the tray's stored centre, as in 16.9 (`cells.nearest_slot`, the same
+   rule as `tray_placement.nearest_slot`).
+2. **No record of moves after 9 Nov.** The shuffle record ends with shuffle 12 (9 Nov). From then
+   on the researcher harvests and moves plants as needed, with no record (Aaron, 2026-11-17). The
+   rig's `visit` exclusion still applies, but a pair or an hour after 9 Nov 10:41 UTC may hold a
+   move or a harvest. The charts shade this time.
+3. **Photo quality** did not change: every photo of the run is JPEG 75, 4:2:0 (the older photos'
+   empty columns mean the same). Nothing to mark.
+4. 133 cells: 19 on each of trays 1 to 7. On 16 Nov 95 of the 114 cells of trays 1 to 6 still
+   read; trays 2 and 3 read nearly nothing in every cell from 16 Nov (harvest, assumed, not checked).
+
+**1 and 3. How much a cell's area changes** (root mean square of the change in mm²; undisturbed
+pairs for one minute, following hours in the same slot for the hour columns; whole run, trays 1 to
+6, tray 7 to 5 Nov 11:00 UTC; `data/photo_to_photo.csv`, `data/hour_to_hour.csv`):
+
+| Cell area, mm² | Fixed green cutoff: 1 minute | One photo per hour | Hourly median | Grow from leaf cores: 1 minute | One photo per hour | Hourly median |
+|---|---|---|---|---|---|---|
+| 1 to 5 | 1.7 | 1.9 | 0.6 | 5.5 | 5.6 | 3.5 |
+| 10 to 20 | 3.9 | 4.6 | 2.1 | 10.0 | 10.0 | 4.2 |
+| 50 to 100 | 8.5 | 12.6 | 7.9 | 5.6 | 9.8 | 7.8 |
+| 200 to 500 | 13.2 | 29.3 | 21.9 | 12.0 | 28.4 | 25.6 |
+| 500 to 1000 | 18.1 | 42.4 | 32.8 | 20.1 | 44.5 | 41.2 |
+
+- **Small plants (below about 20 mm²):** the hourly median changes a third to two thirds as much
+  as one photo. The change there is from photo to photo, and the median removes most of it.
+- **Larger plants (above about 100 mm²):** an hour's change is larger than a minute's, by 1.7 to
+  2.4 times, and the median removes little of it. Something changes over the hour (leaves moving and the daily cycle
+  seen in the charts, a rise through the day and a fall overnight in every grown cell). So one
+  photo per hour does not do for large plants either; comparing the same time of day, or whole
+  days, does.
+- **Grow from leaf cores** changes less than the fixed cutoff from minute to minute at 20 to 500
+  mm² (median 1.2 to 2.5 mm² against 3.3 to 6.5), with rare large jumps that lift the root mean
+  square. At 5 to 10 mm² its change (median 13 mm²) is larger than the cells: it jumps between
+  nothing and about 13 mm². It reads 10 to 40 mm² on sprouts where the fixed cutoff reads 1 to 5.
+
+![How much a cell's area changes, by cell size](figures/38/noise.png)
+
+*Root mean square change in a cell's area against the cell's size band, for one minute (circles),
+one photo per hour (squares) and hourly medians (triangles), by rule. `charts.py`, from
+`data/photo_to_photo.csv` and `data/hour_to_hour.csv`.*
+
+**4. Does each plant's growth show?** Per cell, the median of each day's hourly medians, trays 1
+to 6, 114 cells (`data/daily_growth.csv`):
+
+| From, to (midday hours) | Grow from leaf cores: median area, mm² | Cells that grew | Fixed green cutoff: median area, mm² | Cells that grew |
+|---|---|---|---|---|
+| 23 to 30 Oct | 20 to 69 | 114 of 114 | 2 to 7 | 80% |
+| 30 Oct to 5 Nov | 69 to 159 | 99% | 7 to 50 | 93% |
+| 5 to 9 Nov (mats on 6 Nov) | 159 to 130 | 29% | 50 to 54 | 56% |
+| 9 to 16 Nov (harvest time) | 143 to 241 | 67% (95 cells) | 55 to 146 | 72% (95 cells) |
+
+- **Over a week, every plant's growth shows** by grow from leaf cores before the mats: 114 of 114
+  cells grew from 23 to 30 Oct, 113 of 114 from 30 Oct to 5 Nov.
+- **From one day to the next** (23 Oct to 5 Nov), a day's growth was a median 0.9 to 2.0 times the
+  hour-to-hour change at that size by grow from leaf cores, and 76% to 98% of cells grew each day.
+  By the fixed cutoff, whose sprouts read near the floor of 1 to 4 mm² (17.4), it was -0.5 to 3.2
+  times, and 36% to 90% of cells grew.
+- **13 to 15 Nov** both rules show strong growth: 92% to 100% of cells grew each day, 2.5 to 5.8
+  times the hour-to-hour change. 16 and 17 Nov fall by both rules, in the harvest time.
+- No threshold is set for when growth "shows" (16.4); the ratios are in `data/daily_growth.csv`.
+
+**The blue mats (6 Nov) are inside every plant's curve.** Per cell, the median of 14:00 to 17:00 UTC
+on 5 Nov against 10:00 to 13:00 UTC on 6 Nov (after the mats, the trays moved at 10:16 to 10:20),
+with the same hours a day earlier (4 to 5 Nov) as the change with no mats:
+
+| Rule | Change across the mats, median (10th to 90th percentile of cells) | Cells that fell | The day before |
+|---|---|---|---|
+| Grow from leaf cores | -29.7% (-45.3 to -17.6) | 114 of 114 | +14.7%, 20% fell |
+| Fixed green cutoff | +33.6% (-16.9 to +96.2) | 23% | +42.7%, 11% fell |
+
+- By grow from leaf cores, every plant's area fell when its mat was laid, by about a third, while
+  the plants were growing about 15% a day. This is 36.2's step, now on all six trays: on a mat the
+  rule loses the leaf's edge. **No area by grow from leaf cores after 6 Nov 08:10 UTC can be
+  compared with one before it.** The fall from 5 to 9 Nov in the table above is the mats, not the
+  plants. Growth within each side of the mats can be compared.
+- By the fixed cutoff the step does not show against its own day-to-day change (as in 36.2, where
+  it rose 9% to 40%). After the mats the two rules read nearly the same on most cells (charts).
+- Researchers lay mats when their protocol needs them (36), so any experiment can hold such a
+  step. The page does not mark it yet (#424).
+
+**5. Pictures.** One chart per tray, one small chart per cell, both rules. Two are kept here; all
+six and tray 7 are in `~/scratch/394-round2-cells/out/`, made again by `charts.py`.
+
+![Tray 4, plant area per cell over the run](figures/38/tray4.png)
+
+*Tray 4, one chart per cell laid out as the tray (A1 holds the tag). Faint dots: every usable
+photo, fixed green cutoff. Lines: hourly medians, fixed green cutoff (blue) and grow from leaf
+cores (orange). Grey: shuffle windows. Green line: mats laid. Yellow: harvest and moves, not
+recorded. Log area axis, times UTC. `charts.py`.*
+
+![Tray 1, plant area per cell over the run](figures/38/tray1.png)
+
+*Tray 1, as tray 4. From 10 Nov its cells swing much more than tray 4's, in the harvest time.*
+
+**6. Cell names** (#391). On all six trays, looked at by eye: at no shuffle do two cells step to
+each other's areas; every cell's curve carries on across each shuffle. So no tag was seen to leave
+cell A1 at a shuffle. This rests on the eye, and a swap of two cells of similar size would not
+show.
+
+**What it covers.** Experiment 18 on production, 22 Oct to 17 Nov 07:57 UTC, both rules as stored.
+- Over a week, every plant's growth shows above the change from photo to photo and from hour to
+  hour, by grow from leaf cores. Day by day it shows for most plants, about once to twice the
+  hour-to-hour change.
+- For plants above about 100 mm² the change within an hour is larger than within a minute; days or
+  the same time of day should be compared, not single hours.
+- The mats put a step of about -30% into every plant's area by grow from leaf cores.
+
+**Limits of the evidence.**
+- All the limits of 38 and of 16.9.
+- After 9 Nov, moves and harvests are not recorded; changes then are not only growth.
+- Leaf movement and the daily cycle count as change, not separated from the rig's own.
+- The mat step is measured across one night (5 to 6 Nov), with growth taken from the day before.
+- The run continues; these are results to 17 Nov 07:57 UTC.
+- **Decision, not a measurement:** whether a day's growth of once to twice the hour-to-hour change
+  is enough to find a treatment effect is Aaron's call.
+
 ## 39. Soil-green warning level on Potato Plants v001 (issue #373, method written 2026-11-17, before any soil level was read)
 
 **Label: development check.** Grow from leaf cores sets each tray's lower cutoff from its soil level
