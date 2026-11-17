@@ -9772,3 +9772,68 @@ green enough); `margin-tray5-B1.jpg`, B1 at each blue margin; `cells-tray6-m0-m2
 *Raw data.* `experiments/358-blue-mats/data/` (`per_cell_own_window.csv`, `per_cell.csv`,
 `per_cell_photo.csv`, `soil.csv`, `cell_timeline.csv`, `timeline.csv`, the summaries); scripts in
 `experiments/358-blue-mats/code/`. The photos stay in experiment 18's folder on `ac-testing`.
+
+## 38. Plant area per cell over the whole Round 2 run, against the photo-to-photo change (issue #394, method written 2026-11-17, before any cell curve was looked at)
+
+**Label: development check.** Section 16.9 measured how much a cell's area changes from one photo
+to the next (a median of 3 to 4 mm², 6 to 9 Nov, fixed green cutoff only) but had cells for the
+last 3 days only. Growth shows over hours and days. This section asks, for each potato plant
+(cell) on its own: does its growth show above the change from photo to photo, over the whole run?
+It is the question behind every plant-area test (a treatment effect has to be found in this
+noise).
+
+**When this was written.** On 2026-11-17, after the Reprocess of experiment 18 (#410, log 37) gave
+every read photo of the run its cells by both rules. Already seen before writing: the counts of
+photos with cells (25,566, 22 Oct 08:41 to 17 Nov 00:28 UTC) and the cell table's columns. No cell
+area of the run before 6 Nov had been looked at.
+
+**Change from the issue's plan.** The issue planned to work the cells out again on the controller
+from one photo per lit hour, because production had no cells before 6 Nov. Since #410 it has them
+for every photo, so production's stored cells are used, all of them (Aaron, 2026-11-17). The
+check that the controller's numbers match production's is then not needed and is dropped.
+
+**Data.** A slim read-only copy of production's `rig.db`: experiment 18's photos, reads,
+exclusions, app starts and camera events, its tray readings, and the cells of trays 1 to 7
+(`experiments/round2-cells/extract.py`). It is read in its own process on production, not through
+the app (so the export memory problem of #430 does not apply), and nothing is written there. The
+copy's time is given with the results. Photo 37400, which #431 left unread, is simply not in it.
+
+**Both rules.** Each cell's area by the fixed green cutoff (`area_mm2`) and by grow from leaf cores
+(`grown_area_mm2`), reported side by side under those names.
+
+**Usable photo for a cell.** Rules 1 to 9 of 16.9 for each photo (read, no exclusion `lights off`,
+`light changing` or `visit`, outside the shuffle windows, not the 17.12 duplicates); the tray
+`placed`, with none of the warnings `no tag`, `tag seen, tray not found in the photo` or `two tags
+in one tray outline`; the cell holds a plant. A cell's area of 0 is the app's "missing" (no plant
+counted) and is kept as 0 in the medians, so an hour whose median is 0 is shown as missing. Photos
+with `over_other_cells` for that rule are kept and marked. Trays 1 to 6 over the whole run; tray 7
+until 5 Nov 11:00 UTC, when the green squares were laid on it (24.4).
+
+**What is worked out.**
+
+1. *Photo-to-photo change*, per rule: 16.9's undisturbed cell pairs, now over the whole run, by
+   cell size, with the same size bands as 16.9 (median, 95th percentile, root mean square of the
+   change in mm²). Pairs across an app restart before 2 Nov 16:19 UTC are left out from the 16.9
+   sidecar list; from then on from `app_start`.
+2. *Hourly median*, per cell and rule: for each UTC hour, the median of the usable photos, with
+   their count and their spread (median absolute deviation, mm²).
+3. *Hour to hour*: the change between a cell's hourly medians of two following hours with no
+   shuffle between them, in the same slot, by size as in 1. Set beside 1, it answers the issue's
+   open point: whether one photo per hour would do, or the median of each hour is needed.
+4. *Day to day growth*, per cell and rule: for each chamber day (Dutch local time), the median of
+   its hourly medians; growth is the change from the previous day. Set beside the hour-to-hour
+   change at that size (3), as a ratio, per cell and day. No ratio is set as the line between
+   "shows" and "does not show"; the table gives the spread of the ratios by day and by size.
+5. *Pictures.* Per tray, one small chart per cell: every usable photo (faint dots), the hourly
+   medians (line), both rules, against time. Marked on every chart: the shuffles (shuffle record),
+   the mats laid on 6 Nov 08:10 to 09:19 UTC (36), and any change of photo quality read from the
+   photos' own records.
+6. *Cell names* (#391). A tag moved across the middle of its tray swaps the cell names with no
+   warning. The charts are looked at by eye for its sign: at one shuffle, two or more cells of a
+   tray stepping to each other's areas. Reported, not tested.
+
+**Limits (as planned).** One run, potato only, one segmenter per rule and neither tuned for
+sprouts. No true area is known for any plant. Leaf movement counts as noise and leaves covering a
+neighbour's cell are only marked. The mat step of 6 Nov (36) lies inside the run for every plant.
+The early sprouts read near the empty-tray floor of about 1 to 4 mm² (17.4). The cell names rest
+on the tags staying in cell A1, which is not checked (#391).
