@@ -26,7 +26,7 @@ TABLES = {
                   " join capture c on c.id = e.capture_id where c.experiment_id = ?"),
     "app_start": "select started_at from app_start where ? is not null",
     "camera_events": "select time_utc, detail from camera_events where ? is not null",
-    "tray_reading": ("select t.capture_id, t.tray_id, t.slot, t.a1_corner, t.placement, t.warnings,"
+    "tray_reading": ("select t.capture_id, t.tray_id, t.slot, t.centre_x_px, t.centre_y_px, t.a1_corner, t.placement, t.warnings,"
                      " t.area_mm2, t.grown_area_mm2, t.grown_method from tray_reading t"
                      " join capture c on c.id = t.capture_id where c.experiment_id = ?"
                      " and t.tray_id is not null"),
