@@ -1,4 +1,4 @@
-"""Metrology log 38: tray 1 at 2026-11-12 11:30, plant by grow from leaf cores in magenta, as saved
+"""Metrology log 39: tray 1 at 2026-11-12 11:30, plant by grow from leaf cores in magenta, as saved
 (cutoff from the top bin, +0.115) and at this branch (the floor), side by side, labels below."""
 import json, sys
 from pathlib import Path

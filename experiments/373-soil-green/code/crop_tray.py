@@ -1,4 +1,4 @@
-"""Metrology log 38: crop a tray from a photo by its saved outline, outline drawn in magenta, a
+"""Metrology log 39: crop a tray from a photo by its saved outline, outline drawn in magenta, a
 label below the photo. python3 -I crop_tray.py LIST PHOTO_DIR OUT_DIR, LIST lines
 id|taken_at|path|outline json|soil level|grown area|fixed area (from rig.db, read-only)."""
 import json

@@ -1062,7 +1062,7 @@ def test_reprocess_of_a_photo_read_before_grow_from_leaf_cores_keeps_its_area_wi
     assert (tray["grown_method"], tray["grown_area_mm2"]) == (None, None)
 
 
-# Blue mats over the soil (#373, metrology log 38): the pixels left beside the mats outnumber the
+# Blue mats over the soil (#373, metrology log 39): the pixels left beside the mats outnumber the
 # soil, so the soil level found lies in the histogram's top bin and is no soil level.
 MAT_EDGE_RGB = (100, 105, 96)  # greenness (210 - 196) / 301 = 0.0465: the top bin, centre 0.045, after JPEG too
 

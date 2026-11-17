@@ -302,7 +302,7 @@ def _measures(
         grown = segmentation.load_mask(path, segmentation.GROWN_MASK) if reuse_mask else None
         levels = _saved_levels(saved, placed) if grown is not None else None
         if levels and any(_grown_into_leaves(*level) for level in levels) and (photo_file(path) or Path()).is_file():
-            # Read before #373 with the cutoff in the leaves (metrology log 38): grown again.
+            # Read before #373 with the cutoff in the leaves (metrology log 39): grown again.
             grown, levels = None, None
         if mask is None:
             mask, grown, levels = _segment(path, placed, tags)

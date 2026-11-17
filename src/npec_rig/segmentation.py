@@ -84,7 +84,7 @@ GROWN_SOIL_SMOOTH_SIGMA_BINS = 2.0  # this wide in bins,
 GROWN_SOIL_MAX = 0.05  # taken over bin centres below this
 # A soil level in the histogram's top bin is no soil level: blue mats hide the soil and the pixels
 # left beside the leaves outnumber it, so the lower cutoff would rise into the leaves (tray 1 of
-# Potato Plants v001 read 326 mm2 for about 3,500, metrology log 38). The floor is used, and the
+# Potato Plants v001 read 326 mm2 for about 3,500, metrology log 39). The floor is used, and the
 # tray marked SOIL_HIDDEN (Aaron, 2026-11-17).
 GROWN_SOIL_HIDDEN = GROWN_SOIL_MAX - GROWN_SOIL_BIN
 SOIL_HIDDEN = "soil hidden: usual leaf cutoff used"

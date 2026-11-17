@@ -1,4 +1,4 @@
-"""Metrology log 38, analysis 1 and 2: soil level per tray and day, and warning counts.
+"""Metrology log 39, analysis 1 and 2: soil level per tray and day, and warning counts.
 python3 -I code/analyse.py (numpy only)."""
 import csv
 import gzip

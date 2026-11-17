@@ -9773,7 +9773,7 @@ green enough); `margin-tray5-B1.jpg`, B1 at each blue margin; `cells-tray6-m0-m2
 `per_cell_photo.csv`, `soil.csv`, `cell_timeline.csv`, `timeline.csv`, the summaries); scripts in
 `experiments/358-blue-mats/code/`. The photos stay in experiment 18's folder on `ac-testing`.
 
-## 38. Soil-green warning level on Potato Plants v001 (issue #373, method written 2026-11-17, before any soil level was read)
+## 39. Soil-green warning level on Potato Plants v001 (issue #373, method written 2026-11-17, before any soil level was read)
 
 **Label: development check.** Grow from leaf cores sets each tray's lower cutoff from its soil level
 (the peak of the tray's greenness histogram, blue and tag left out; sections 24.8 and 34). Soil that
@@ -9823,7 +9823,7 @@ is there to find that. The eye judgement is one person's.
 
 *Raw data.* `experiments/373-soil-green/data/`, scripts in `experiments/373-soil-green/code/`.
 
-### 38.1 Results (2026-11-17)
+### 39.1 Results (2026-11-17)
 
 *Data.* 265,522 counted tray readings of experiment 18 (22 October 08:41 to 17 November 07:03 UTC),
 read from production through a read-only connection after the Reprocess of #410; 484 readings of a
@@ -9839,7 +9839,7 @@ tray found without its tag are left out (no tray to name).
    The lower cutoff left its floor on exactly these photos and on tray 7 (1,770 photos, levels up to
    -0.095, cutoff up to -0.025).
 3. *By eye.* Aaron, 2026-11-17, from the chamber: there is no algae on production. Tray 1 at 09:30
-   and 11:30 UTC on 12 November (`docs/figures/38/tray1-2026-11-12T0930.jpg`,
+   and 11:30 UTC on 12 November (`docs/figures/39/tray1-2026-11-12T0930.jpg`,
    `tray1-2026-11-12T1130.jpg`) shows the same plants and mats; the tray had been moved to another
    table location between them.
 
@@ -9856,9 +9856,9 @@ green cutoff drops too, 1,202 to 548 mm2, in the new table location; not looked 
 floor, the 11:30 photo gives 83,003 plant px against 86,133 at 09:30; with the app's cutoff it gave
 8,005 (`data/fixed_check.txt`). Nothing on the page said so: harm 1.
 
-![Tray 1 at 11:30 UTC on 12 November, plant by grow from leaf cores in magenta](figures/38/tray1-1130-before-after.jpg)
+![Tray 1 at 11:30 UTC on 12 November, plant by grow from leaf cores in magenta](figures/39/tray1-1130-before-after.jpg)
 
-*Figure 38a. Tray 1 in photo 32374 (2026-11-12 11:30:53 UTC). Left, the cutoff set from the top bin
+*Figure 39a. Tray 1 in photo 32374 (2026-11-12 11:30:53 UTC). Left, the cutoff set from the top bin
 (+0.115): 8,005 px. Right, the floor (-0.045), as since #373: 83,003 px.*
 
 **Decided (Aaron, 2026-11-17).** A soil level in the top bin is no soil level: grow from leaf cores

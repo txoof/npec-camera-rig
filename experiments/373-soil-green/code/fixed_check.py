@@ -1,4 +1,4 @@
-"""Metrology log 38: tray 1's photos through grow_from_cores at this branch (the floor when the soil
+"""Metrology log 39: tray 1's photos through grow_from_cores at this branch (the floor when the soil
 level lies in the top bin), against the app's saved reading. Tag corners not passed."""
 import json, sys
 from pathlib import Path

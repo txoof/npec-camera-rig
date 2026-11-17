@@ -1,4 +1,4 @@
-"""Metrology log 38: inside tray 1's outline, the share of not-blue pixels (the app's rule, blue
+"""Metrology log 39: inside tray 1's outline, the share of not-blue pixels (the app's rule, blue
 above max(red, green) by no more than 0) and their greenness percentiles, tag not removed."""
 import json, sys
 from pathlib import Path

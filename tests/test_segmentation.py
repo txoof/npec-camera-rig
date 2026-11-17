@@ -255,7 +255,7 @@ def test_grow_from_leaf_cores_finds_a_pale_seedling_whose_greenest_pixel_is_belo
     assert not grown.mask[250:300, 250:320].any()
 
 
-# Metrology log 38 (#373): blue mats hide most of the soil, and the pixels left between mats and
+# Metrology log 39 (#373): blue mats hide most of the soil, and the pixels left between mats and
 # leaves outnumber the soil, so the histogram's peak lands in its top bin. That is no soil level.
 MAT_EDGE = (100, 104, 95)  # greenness (208 - 195) / 299 = 0.0435: the top bin, centre 0.045
 

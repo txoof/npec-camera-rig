@@ -1,5 +1,5 @@
 """Run on production over ssh (python3 - < extract.py): experiment 18's soil level per tray per
-counted photo, read through a read-only connection, written to stdout as CSV. Metrology log 38."""
+counted photo, read through a read-only connection, written to stdout as CSV. Metrology log 39."""
 import csv
 import sqlite3
 import sys

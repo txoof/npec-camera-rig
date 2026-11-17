@@ -1,4 +1,4 @@
-"""Metrology log 38: tray 1's plant pixels by grow from leaf cores as the app sets the cutoff, and
+"""Metrology log 39: tray 1's plant pixels by grow from leaf cores as the app sets the cutoff, and
 with the cutoff held at its floor (GROWN_FLOOR). Tag corners not passed (the white-paper rule
 still takes the tag sheet out), so pixel counts differ slightly from the app's."""
 import json, sys
