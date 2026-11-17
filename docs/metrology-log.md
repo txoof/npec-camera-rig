@@ -9772,3 +9772,140 @@ green enough); `margin-tray5-B1.jpg`, B1 at each blue margin; `cells-tray6-m0-m2
 *Raw data.* `experiments/358-blue-mats/data/` (`per_cell_own_window.csv`, `per_cell.csv`,
 `per_cell_photo.csv`, `soil.csv`, `cell_timeline.csv`, `timeline.csv`, the summaries); scripts in
 `experiments/358-blue-mats/code/`. The photos stay in experiment 18's folder on `ac-testing`.
+
+## 37. Production: grow from leaf cores for every photo of experiment 18 (issue #410, method written 2026-11-13, before the run)
+
+**Label: development check.** Production (`ac-testing`) is moved from main d1742e7 to main 75f20e4
+(#409, #414, #415) and its running experiment 18 ("Potato Plants v001", photos from 22 Oct 08:41
+UTC) is reprocessed, so every read photo carries plant area by grow from leaf cores (section 34)
+beside the fixed green cutoff, per tray and per cell. It is an operation, not a measurement of
+plants: what is measured is how long it takes, whether it disturbs the running experiment, and
+whether the numbers that should not change stay the same. The rehearsal on development (#410,
+2026-11-12 to 13: 13,015 photos in 13 h, about 3.6 s per photo, 0 failed, new photos read 30 s after
+being taken) set the plan.
+
+**State before (read-only, 2026-11-13 06:58 UTC).** Production on d1742e7, clean tree, rig.db
+version 25 (75f20e4 is also version 25: no migration, and going back to d1742e7 needs no database
+restore). Experiment 18 running: 31,580 photos, 21,663 read for trays, 9,917 with no trays found
+(the lights-off photos), 1,596 with grow from leaf cores (read since d1742e7), 6,641 with cell
+readings (since 6 Nov). Free: 696 GB disk, 10.5 GB memory.
+
+**When.** At the start of the chamber's lights-off period (00:28 to 08:01 UTC on every recent night),
+on the night of 13 to 14 November, approved by Aaron. Start no earlier than 00:30 UTC, no later than
+02:00 UTC; lights off is confirmed first from the last 2 photos (exclusion "lights off"). Lights-off
+photos are not measured, so the restart costs no measured photo.
+
+**Steps.**
+1. rig.db is copied with sqlite's backup through a read-only connection into
+   `/var/lib/npec-rig/backups/before-promote-75f20e4-<UTC time>/rig.db`, checked with
+   `pragma quick_check`, and copied to the controller (`~/prod-backups/`). This copy is also the
+   "before" for the checks.
+2. `git merge --ff-only 75f20e4`; the server is stopped with SIGTERM about 30 s after a photo
+   (photos at second :53), and relaunched once its process has gone (CLAUDE.md recipe).
+3. Checks: health 200, the About page shows 75f20e4, the next photo is taken on time and read.
+4. Reprocess of experiment 18 through the API, watched about every hour.
+
+**Measured while it runs.** Photos done, total and failed, and photos per minute; after lights on
+(08:01 UTC), the delay from taking each new photo to its tray reading (`tray_read.read_at` minus
+`capture.taken_at`; rehearsal about 30 s; worrying above 5 minutes); the app's memory and free
+memory; free disk; tracebacks in the server log.
+
+**Checks after it finishes** (read-only, against the copy of step 1):
+- photos of experiment 18 read for trays, and how many carry grow from leaf cores (any without are
+  listed with their tray status);
+- the fixed green cutoff's tray areas (`tray_reading.area_mm2`) equal the copy's for every photo and
+  tray that existed before: differences above 0.01 mm2 are counted and examples listed;
+- photos before 6 Nov now have cell readings (count);
+- 3 photos (22 Oct, 1 Nov, 12 Nov) through the Gallery's tray API: both methods present;
+- a readings-only export of experiment 18: its time, and the columns
+  `plant_area_grow_from_leaf_cores_mm2` and `plant_area_fixed_green_cutoff_mm2`.
+
+**What it does not cover.** Whether grow from leaf cores is right on these photos (section 34 and
+33.1); photos not read for trays (lights off) get no area by either method.
+
+### 37.1 What was done, and how it differed from the method (2026-11-14 to 17)
+
+All times UTC; Dutch time is one hour later.
+
+- **No promotion and no restart.** At 00:31 on 14 Nov production was not on d1742e7 as planned: it had been
+  promoted to main a6632d6 on 13 Nov at 10:00 (#416, approved by Aaron). a6632d6 holds 75f20e4 plus
+  the Experiments page speed fix (#420: dwell and scheduler code only, no migration, Reprocess code
+  unchanged). So steps 2 and 3 were not needed; the session stopped and asked. Aaron approved starting
+  Reprocess on a6632d6 as it ran, with no restart (server PID 2834027, up since 13 Nov 09:59).
+- **Lights off confirmed** at 00:31 (photos at 00:29:53 and 00:30:53 carry "lights off").
+- **Backup** at 00:31:44: `/var/lib/npec-rig/backups/before-reprocess-410-a6632d6-20261114T003144Z/rig.db`
+  (1.26 GB, sqlite backup through a read-only connection in 37.5 s, `quick_check` ok, version 25), copied
+  to the controller at `~/prod-backups/before-reprocess-410-a6632d6-20261114T003144Z/rig.db`.
+- **Reprocess started at 06:38:55 on 14 Nov**, not at about 00:35: the approval came then. So only its
+  first 1 h 22 min ran in the dark of the first night.
+
+### 37.2 Results (development check)
+
+**Time.** 33,001 photos (every photo of experiment 18 up to the start) from 06:38:55 on 14 Nov to
+06:41:30 on 17 Nov: **72 h 3 min, 7.9 s per photo on average**. The rate depended on the photo and the
+hour (10-minute samples): photos with trays 4.5 to 6 a minute with the lights on and 7.5 to 10 a minute
+in the dark; lights-off photos (no trays) about 13 to 15 a minute. Photos from early November were the
+slowest (they gain cells and the plants are larger). The rehearsal on development (3.6 s per photo,
+13,015 photos with fewer cells) was half as long per photo; the 31-hour estimate of #410 was therefore
+too short.
+
+**New photos while it ran.** 4,322 photos were taken, no interval over 70 s, none missed. Read for trays:
+2,969 photos with the lights on, delay from taking to reading median 28.4 s, 95th percentile 32.0 s,
+largest 48.5 s; 1,352 lights-off photos, median 10.4 s, largest 17.1 s. None over 5 minutes (the limit
+set before the run). One photo was not read (below).
+
+**Memory and disk** (10-minute samples, `data/progress.tsv`). App 0.42 to 1.58 GB; at least 10.0 GB of
+16 GB available throughout. Free disk went from 687 to 665 GB, which includes 3 days of new photos; the
+mask folder is 3.2 GB in all.
+
+**Failures: 26 photos**, from the server log (`data/reprocess_failures.txt`):
+- 24 photos taken while the lights went off or came on (00:28 or 08:00 after the 25 Oct clock change,
+  23:28 or 07:00 before it, and 3 more on 26 and 27 Oct during longer changes). Plant areas could not be
+  worked out again, so Reprocess kept the saved ones (`ReadingWorse`, the safeguard of #409). Their fixed
+  green cutoff areas are unchanged; they have no grow from leaf cores area.
+- 2 photos where Reprocess gave up waiting 10 s for the database ("database is locked") while it saved:
+  photo 28262 (9 Nov 14:59) had already saved its trays and cells with both methods and is complete;
+  photo 30763 (11 Nov 08:39) kept its earlier reading (fixed green cutoff areas and cells, no grow from
+  leaf cores).
+
+**Database locks.** Reprocess's writes also held up the app's other writes: the scheduler's "last tick"
+could not be saved 4 times (no effect), and one new photo, 37400 (15 Nov 23:16:54, lights on), has the
+status "read failed" and no tray areas. The photo itself is kept and can be read again (#431).
+
+**Checks against the backup** (`code/final_checks.py`, output `data/final_checks_2026-11-17.txt`):
+- **Fixed green cutoff unchanged:** for all 22,652 photos read before the backup, every photo's tray
+  areas (264,131 with an area) equal the backup's; largest difference 0.0 mm2, no photo with a different
+  number of trays. (The check compares each photo's sorted list of tray areas; it was first run with the
+  backup against itself and gave no difference.)
+- **Grow from leaf cores:** 25,528 of the 25,621 read photos carry it on every tray. Of the other 93:
+  37 lack it on one tray only, and each such tray is "tag only" (a tag seen with no tray), which has no
+  fixed green cutoff area either; 54 are lights-off photos with no grow from leaf cores at all (the 24
+  failures above and 30 more that Reprocess passed without an error; why these 30 have no grow from
+  leaf cores area was not looked into); 1 is photo 30763 above; 1 is photo 30983 (11 Nov 12:19,
+  exposure 36,532 us at gain 2.0, a dark photo) with no area by either method, before and after.
+- **Cells:** read photos before 6 Nov with cell readings went from 0 to 14,681 of 14,711; the 30 without
+  are lights-off photos. Of the experiment's 5,409,338 plant cells, 5,409,110 have a grow from leaf
+  cores area.
+- **Gallery** (`GET /api/captures/trays/<path>`), photos of 22 Oct, 1 Nov and 12 Nov at 12:00: each lists
+  `area_methods` "Grow from leaf cores" and "Fixed green cutoff", and its trays and cells carry both.
+- **Export: failed, and stopped the app.** The readings-only export of experiment 18 (export 12, part 0
+  estimated 120 MB) was started at 06:50:20 on 17 Nov. Part 0 is built whole in memory before any byte
+  is sent; after 983 s with nothing received, the kernel's out-of-memory killer stopped the app at
+  13.0 GB (`dmesg`). The camera stopped with it: the last photo was 07:05:58. Aaron approved a relaunch
+  on a6632d6 (07:08:29, PID 3272801); the next photo was taken at 07:08:40 and read 8 s later. Two
+  photos were missed, both in the dark. The export columns were therefore not checked. #430 holds the
+  cause and fixes; until then experiment 18's data is not exported on production.
+
+**What it shows.** Grow from leaf cores now stands beside the fixed green cutoff on every read photo of
+experiment 18 that can be measured, from 22 Oct on, and the fixed green cutoff's numbers did not change.
+Reprocess on production can run for days beside a running experiment without missing or delaying a
+photo beyond 49 s, but its database writes can block other writes for more than 10 s.
+
+**Limits of the evidence.** One run on one rig. Times depend on what else the Pi did (the Experiments
+page, other sessions' reads). The areas themselves are not checked here: their accuracy is sections 33
+and 34. The export of the data could not be checked (#430).
+
+**Raw data.** `experiments/410-production-reprocess/` (`code/`: the status, progress logger and check
+scripts; `data/`: `progress.tsv`, `final_checks_2026-11-17.txt`, `reprocess_failures.txt`). Server logs on
+`ac-testing`: `/tmp/npec-rig-server-20261113T095920Z.log` (to the crash) and
+`/tmp/npec-rig-server-20261117T070829Z.log` (after the relaunch).
