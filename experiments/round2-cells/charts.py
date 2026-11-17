@@ -4,7 +4,7 @@
 
 Per tray (`tray_<n>.png`): one small chart per cell, laid out as the tray (columns A to D, rows 1
 to 5; A1 holds the tag). Faint dots: every usable photo, fixed green cutoff. Lines: hourly
-medians, both rules. Grey bands: shuffle windows. Green band: mats laid (6 Nov). Log area axis.
+medians, both rules. Grey bands: shuffle windows. Green line: mats laid (6 Nov). Yellow: harvest and moves from 9 Nov, not recorded. Log area axis.
 Summary (`noise.png`): the photo-to-photo and hour-to-hour change against cell size.
 """
 import collections
@@ -24,6 +24,16 @@ import cells as C  # noqa: E402
 
 BLUE, ORANGE = "#2a78d6", "#eb6834"   # categorical slots 1 and 2 (fixed green cutoff, grow from leaf cores)
 INK, MUTED = "#222222", "#6b6b6b"
+MAT, HARVEST = "#1b7a1b", "#fff1c2"
+# From the last recorded shuffle (12, 9 Nov) the researcher harvests and moves plants with no record (Aaron, 2026-11-17).
+HARVEST_FROM = datetime(2026, 11, 9, 10, 41, tzinfo=C.UTC)
+
+
+def small(fig, path):
+    """A copy for docs/figures: lower resolution, 64-colour palette (under about 200 KB)."""
+    from PIL import Image
+    fig.savefig(path, dpi=60)
+    Image.open(path).convert("RGB").quantize(64).save(path, optimize=True)
 
 
 def read_csv(path):
@@ -65,7 +75,8 @@ def tray_charts(db, restart_json, out):
                 ax.set_title(cell, loc="left", fontsize=10, color=INK)
                 for s, e in breaks:
                     ax.axvspan(s, e, color="#d9d9d9", lw=0)
-                ax.axvspan(*C.MATS, color="#9fd39f", lw=0)
+                ax.axvspan(HARVEST_FROM, t1, color=HARVEST, lw=0)
+                ax.axvline(C.MATS[0], color=MAT, lw=1.6)
                 if cell == "A1":
                     ax.text(0.5, 0.5, "tag", transform=ax.transAxes, ha="center", color=MUTED)
                     continue
@@ -89,14 +100,16 @@ def tray_charts(db, restart_json, out):
         for ax in axes[:, 0]:
             ax.set_ylabel("area, mm² (log)", fontsize=9, color=MUTED)
         handles, labels = axes[0][1].get_legend_handles_labels()
-        handles += [plt.Rectangle((0, 0), 1, 1, color="#d9d9d9"), plt.Rectangle((0, 0), 1, 1, color="#9fd39f")]
-        labels += ["shuffle window", "blue mats laid, 6 Nov"]
-        fig.legend(handles, labels, loc="upper right", ncol=4, frameon=False, fontsize=10)
+        handles += [plt.Rectangle((0, 0), 1, 1, color="#d9d9d9"), plt.Line2D([], [], color=MAT, lw=1.6),
+                    plt.Rectangle((0, 0), 1, 1, color=HARVEST)]
+        labels += ["shuffle window", "blue mats laid, 6 Nov 08:10 UTC", "harvest and moves, not recorded"]
+        fig.legend(handles, labels, loc="upper right", ncol=5, frameon=False, fontsize=10)
         until = " (to 5 Nov 11:00 UTC)" if tray == 7 else ""
         fig.suptitle(f"Tray {tray}{until}: plant area per cell, experiment 18 (production). "
                      "Dots: every usable photo, fixed green cutoff. Times UTC.", x=0.01, ha="left", fontsize=12)
         fig.tight_layout(rect=(0, 0, 1, 0.97))
         fig.savefig(out / f"tray_{tray}.png", dpi=90)
+        small(fig, out / f"tray_{tray}_small.png")
         plt.close(fig)
         print("tray", tray)
 
@@ -126,6 +139,7 @@ def noise_chart(out):
                  x=0.01, ha="left")
     fig.tight_layout()
     fig.savefig(out / "noise.png", dpi=90)
+    small(fig, out / "noise_small.png")
 
 
 if __name__ == "__main__":

@@ -9837,3 +9837,135 @@ sprouts. No true area is known for any plant. Leaf movement counts as noise and 
 neighbour's cell are only marked. The mat step of 6 Nov (36) lies inside the run for every plant.
 The early sprouts read near the empty-tray floor of about 1 to 4 mm² (17.4). The cell names rest
 on the tags staying in cell A1, which is not checked (#391).
+
+### 38.1 Results (2026-11-17)
+
+**Data and scripts.** The slim read-only copy of production's `rig.db`, made 2026-11-17 from 07:57:27
+to 07:58:57 UTC: experiment 18, 37,398 photos from 22 Oct 08:41 UTC on. The run goes on after it:
+the researcher is still harvesting and data is still being gathered (Aaron, 2026-11-17), so these
+are results to that time. Scripts in `experiments/round2-cells/` (`extract.py`, `cells.py`,
+`charts.py`); the tables in `experiments/round2-cells/data/`. The copy and the hourly table stay in
+`~/scratch/394-round2-cells/`, not kept; both are made again by the scripts.
+
+**Check against 16.9.** In 16.9's window (6 Nov 12:28 to 9 Nov 10:40 UTC), with the fixed green
+cutoff, the new script finds 301,948 undisturbed cell pairs on trays 1 to 6, median change 3.63
+mm². 16.9 found 352,279 on trays 1 to 7, a median of 2.7 to 4.2 mm² per tray; six sevenths of its
+count is 301,953.
+
+**Differences from the method.**
+1. `tray_reading.slot` is empty since the re-read of 2 November, so the slot is the nearest slot of
+   the calibration's layout to the tray's stored centre, as in 16.9 (`cells.nearest_slot`, the same
+   rule as `tray_placement.nearest_slot`).
+2. **No record of moves after 9 Nov.** The shuffle record ends with shuffle 12 (9 Nov). From then
+   on the researcher harvests and moves plants as needed, with no record (Aaron, 2026-11-17). The
+   rig's `visit` exclusion still applies, but a pair or an hour after 9 Nov 10:41 UTC may hold a
+   move or a harvest. The charts shade this time.
+3. **Photo quality** did not change: every photo of the run is JPEG 75, 4:2:0 (the older photos'
+   empty columns mean the same). Nothing to mark.
+4. 133 cells: 19 on each of trays 1 to 7. On 16 Nov 95 of the 114 cells of trays 1 to 6 still
+   read; trays 2 and 3 read nearly nothing in every cell from 16 Nov (harvest, assumed, not checked).
+
+**1 and 3. How much a cell's area changes** (root mean square of the change in mm²; undisturbed
+pairs for one minute, following hours in the same slot for the hour columns; whole run, trays 1 to
+6, tray 7 to 5 Nov 11:00 UTC; `data/photo_to_photo.csv`, `data/hour_to_hour.csv`):
+
+| Cell area, mm² | Fixed green cutoff: 1 minute | One photo per hour | Hourly median | Grow from leaf cores: 1 minute | One photo per hour | Hourly median |
+|---|---|---|---|---|---|---|
+| 1 to 5 | 1.7 | 1.9 | 0.6 | 5.5 | 5.6 | 3.5 |
+| 10 to 20 | 3.9 | 4.6 | 2.1 | 10.0 | 10.0 | 4.2 |
+| 50 to 100 | 8.5 | 12.6 | 7.9 | 5.6 | 9.8 | 7.8 |
+| 200 to 500 | 13.2 | 29.3 | 21.9 | 12.0 | 28.4 | 25.6 |
+| 500 to 1000 | 18.1 | 42.4 | 32.8 | 20.1 | 44.5 | 41.2 |
+
+- **Small plants (below about 20 mm²):** the hourly median changes a third to two thirds as much
+  as one photo. The change there is from photo to photo, and the median removes most of it.
+- **Larger plants (above about 100 mm²):** an hour's change is larger than a minute's, by 1.7 to
+  2.4 times, and the median removes little of it. Something changes over the hour (leaves moving and the daily cycle
+  seen in the charts, a rise through the day and a fall overnight in every grown cell). So one
+  photo per hour does not do for large plants either; comparing the same time of day, or whole
+  days, does.
+- **Grow from leaf cores** changes less than the fixed cutoff from minute to minute at 20 to 500
+  mm² (median 1.2 to 2.5 mm² against 3.3 to 6.5), with rare large jumps that lift the root mean
+  square. At 5 to 10 mm² its change (median 13 mm²) is larger than the cells: it jumps between
+  nothing and about 13 mm². It reads 10 to 40 mm² on sprouts where the fixed cutoff reads 1 to 5.
+
+![How much a cell's area changes, by cell size](figures/38/noise.png)
+
+*Root mean square change in a cell's area against the cell's size band, for one minute (circles),
+one photo per hour (squares) and hourly medians (triangles), by rule. `charts.py`, from
+`data/photo_to_photo.csv` and `data/hour_to_hour.csv`.*
+
+**4. Does each plant's growth show?** Per cell, the median of each day's hourly medians, trays 1
+to 6, 114 cells (`data/daily_growth.csv`):
+
+| From, to (midday hours) | Grow from leaf cores: median area, mm² | Cells that grew | Fixed green cutoff: median area, mm² | Cells that grew |
+|---|---|---|---|---|
+| 23 to 30 Oct | 20 to 69 | 114 of 114 | 2 to 7 | 80% |
+| 30 Oct to 5 Nov | 69 to 159 | 99% | 7 to 50 | 93% |
+| 5 to 9 Nov (mats on 6 Nov) | 159 to 130 | 29% | 50 to 54 | 56% |
+| 9 to 16 Nov (harvest time) | 143 to 241 | 67% (95 cells) | 55 to 146 | 72% (95 cells) |
+
+- **Over a week, every plant's growth shows** by grow from leaf cores before the mats: 114 of 114
+  cells grew from 23 to 30 Oct, 113 of 114 from 30 Oct to 5 Nov.
+- **From one day to the next** (23 Oct to 5 Nov), a day's growth was a median 0.9 to 2.0 times the
+  hour-to-hour change at that size by grow from leaf cores, and 76% to 98% of cells grew each day.
+  By the fixed cutoff, whose sprouts read near the floor of 1 to 4 mm² (17.4), it was -0.5 to 3.2
+  times, and 36% to 90% of cells grew.
+- **13 to 15 Nov** both rules show strong growth: 92% to 100% of cells grew each day, 2.5 to 5.8
+  times the hour-to-hour change. 16 and 17 Nov fall by both rules, in the harvest time.
+- No threshold is set for when growth "shows" (16.4); the ratios are in `data/daily_growth.csv`.
+
+**The blue mats (6 Nov) are inside every plant's curve.** Per cell, the median of 14:00 to 17:00 UTC
+on 5 Nov against 10:00 to 13:00 UTC on 6 Nov (after the mats, the trays moved at 10:16 to 10:20),
+with the same hours a day earlier (4 to 5 Nov) as the change with no mats:
+
+| Rule | Change across the mats, median (10th to 90th percentile of cells) | Cells that fell | The day before |
+|---|---|---|---|
+| Grow from leaf cores | -29.7% (-45.3 to -17.6) | 114 of 114 | +14.7%, 20% fell |
+| Fixed green cutoff | +33.6% (-16.9 to +96.2) | 23% | +42.7%, 11% fell |
+
+- By grow from leaf cores, every plant's area fell when its mat was laid, by about a third, while
+  the plants were growing about 15% a day. This is 36.2's step, now on all six trays: on a mat the
+  rule loses the leaf's edge. **No area by grow from leaf cores after 6 Nov 08:10 UTC can be
+  compared with one before it.** The fall from 5 to 9 Nov in the table above is the mats, not the
+  plants. Growth within each side of the mats can be compared.
+- By the fixed cutoff the step does not show against its own day-to-day change (as in 36.2, where
+  it rose 9% to 40%). After the mats the two rules read nearly the same on most cells (charts).
+- Researchers lay mats when their protocol needs them (36), so any experiment can hold such a
+  step. The page does not mark it yet (#424).
+
+**5. Pictures.** One chart per tray, one small chart per cell, both rules. Two are kept here; all
+six and tray 7 are in `~/scratch/394-round2-cells/out/`, made again by `charts.py`.
+
+![Tray 4, plant area per cell over the run](figures/38/tray4.png)
+
+*Tray 4, one chart per cell laid out as the tray (A1 holds the tag). Faint dots: every usable
+photo, fixed green cutoff. Lines: hourly medians, fixed green cutoff (blue) and grow from leaf
+cores (orange). Grey: shuffle windows. Green line: mats laid. Yellow: harvest and moves, not
+recorded. Log area axis, times UTC. `charts.py`.*
+
+![Tray 1, plant area per cell over the run](figures/38/tray1.png)
+
+*Tray 1, as tray 4. From 10 Nov its cells swing much more than tray 4's, in the harvest time.*
+
+**6. Cell names** (#391). On all six trays, looked at by eye: at no shuffle do two cells step to
+each other's areas; every cell's curve carries on across each shuffle. So no tag was seen to leave
+cell A1 at a shuffle. This rests on the eye, and a swap of two cells of similar size would not
+show.
+
+**What it covers.** Experiment 18 on production, 22 Oct to 17 Nov 07:57 UTC, both rules as stored.
+- Over a week, every plant's growth shows above the change from photo to photo and from hour to
+  hour, by grow from leaf cores. Day by day it shows for most plants, about once to twice the
+  hour-to-hour change.
+- For plants above about 100 mm² the change within an hour is larger than within a minute; days or
+  the same time of day should be compared, not single hours.
+- The mats put a step of about -30% into every plant's area by grow from leaf cores.
+
+**Limits of the evidence.**
+- All the limits of 38 and of 16.9.
+- After 9 Nov, moves and harvests are not recorded; changes then are not only growth.
+- Leaf movement and the daily cycle count as change, not separated from the rig's own.
+- The mat step is measured across one night (5 to 6 Nov), with growth taken from the day before.
+- The run continues; these are results to 17 Nov 07:57 UTC.
+- **Decision, not a measurement:** whether a day's growth of once to twice the hour-to-hour change
+  is enough to find a treatment effect is Aaron's call.
