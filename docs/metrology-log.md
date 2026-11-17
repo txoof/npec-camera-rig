@@ -9772,3 +9772,53 @@ green enough); `margin-tray5-B1.jpg`, B1 at each blue margin; `cells-tray6-m0-m2
 *Raw data.* `experiments/358-blue-mats/data/` (`per_cell_own_window.csv`, `per_cell.csv`,
 `per_cell_photo.csv`, `soil.csv`, `cell_timeline.csv`, `timeline.csv`, the summaries); scripts in
 `experiments/358-blue-mats/code/`. The photos stay in experiment 18's folder on `ac-testing`.
+
+## 37. Soil-green warning level on Potato Plants v001 (issue #373, method written 2026-11-17, before any soil level was read)
+
+**Label: development check.** Grow from leaf cores sets each tray's lower cutoff from its soil level
+(the peak of the tray's greenness histogram, blue and tag left out; sections 24.8 and 34). Soil that
+turns green, from algae or a paler soil, brings the soil level up towards the leaves, and soil can
+then count as plant with nothing on the page saying so (harm 1). Section 24.8 proposed a warning
+"soil looks green" when the soil level is -0.04 or higher. That level is a decision from two soils
+seen once (five greenish development trays at -0.035 to +0.005, production at -0.185 to -0.105),
+not a measurement. This section checks it on one experiment over its whole length.
+
+**Development photos are not available.** "development 002" (3 to 12 November) was purged on
+npec-rig-01; its only copy, on npec-rig-02 (#418), no longer exists (Aaron, 2026-11-17). "development
+rig" (28 October to 3 November) was purged without a copy (#389). The greenish development trays of
+24.8 therefore cannot be looked at again, and this check covers production only.
+
+**Questions.**
+
+1. How does each tray's soil level move over experiment 18, from its first photo to now? Does it
+   rise as the weeks pass?
+2. On how many counted tray photos would the proposed level of -0.04 warn? On how many does the
+   lower cutoff leave its floor of -0.045 (soil level above -0.115)?
+3. Does the soil level agree with the eye: on which trays does the soil look green or show algae?
+
+**Data.** Production's `rig.db`, read through a read-only connection (`mode=ro`) over ssh; nothing is
+written on production. Experiment 18, every `tray_reading` with a soil level (`grown_soil_level`,
+filled for every photo by the Reprocess of #410), on photos the app counts: an `exclusion` row with
+no name, so not lights off, not light changing, not a visit. Days are UTC dates.
+
+**Analysis.**
+
+1. Per tray and day: the number of counted photos, the median soil level, its 5th and 95th
+   percentiles. Per tray: the median of its first and last full day and the change between them.
+2. Counts of counted tray photos with soil level at or above -0.04, and above -0.115, per tray.
+3. *Pictures.* Every tray cropped from the counted photo nearest 11:00 UTC on three days: the first
+   day with readings, 5 November (the day before the mats, section 36) and the last full day. The
+   day and the soil level are written below each crop, outside the photo. Aaron says which crops
+   show soil that looks green or algae (he is asked for the exceptions only). A tray named by eye
+   that the soil level does not flag, or the reverse, is reported tray by tray.
+
+**Decided after the results, with Aaron.** The warning level, and whether a warned tray's plant area
+is hidden or only marked.
+
+**Limits (as planned).** One rig, one soil, one experiment. Since 6 November blue mats cover most of
+each plant tray's soil, so the soil level is read from the soil left between mats and leaves (section
+36 found it unchanged by the mats on the morning they were laid). No development soil. Algae in
+patches may leave the histogram's peak where it is while the patches still count as plant: question 3
+is there to find that. The eye judgement is one person's.
+
+*Raw data.* `experiments/373-soil-green/data/`, scripts in `experiments/373-soil-green/code/`.
