@@ -1,0 +1,3 @@
+2026-11-12T09:30 saved: soil -0.145, 3518 mm2 | branch: soil -0.145, cutoff -0.045, hidden False, plant px 86133
+2026-11-12T11:30 saved: soil +0.045, 326 mm2 | branch: soil +0.045, cutoff -0.045, hidden True, plant px 83003
+2026-11-15T11:00 saved: soil -0.145, 7225 mm2 | branch: soil -0.145, cutoff -0.045, hidden False, plant px 177167

@@ -82,6 +82,12 @@ GROWN_SOIL_BIN = 0.01  # the soil level is the peak of the greenness histogram i
 GROWN_SOIL_SMOOTH_TAPS = 13  # smoothed with a Gaussian of this many taps,
 GROWN_SOIL_SMOOTH_SIGMA_BINS = 2.0  # this wide in bins,
 GROWN_SOIL_MAX = 0.05  # taken over bin centres below this
+# A soil level in the histogram's top bin is no soil level: blue mats hide the soil and the pixels
+# left beside the leaves outnumber it, so the lower cutoff would rise into the leaves (tray 1 of
+# Potato Plants v001 read 326 mm2 for about 3,500, metrology log 38). The floor is used, and the
+# tray marked SOIL_HIDDEN (Aaron, 2026-11-17).
+GROWN_SOIL_HIDDEN = GROWN_SOIL_MAX - GROWN_SOIL_BIN
+SOIL_HIDDEN = "soil hidden: usual leaf cutoff used"
 GROWN_BLUE_MARGIN = 0  # blue plastic: blue above red and green by more than this (0 to 255 values)
 GROWN_TAG_ENLARGE = 1.6  # the tray tag's square, enlarged this many times about its centre, is no plant
 GROWN_WHITE_MIN = 140  # white paper: every channel above this,
@@ -93,11 +99,13 @@ GROWN_WHITE_WIDEN_PX = 61  # widened by a square this many pixels wide, is no pl
 @dataclass(frozen=True)
 class GrownPlant:
     """One tray box's plant by `grow_from_cores`: the mask, the soil level found and the lower
-    cutoff used (soil level None: no soil to find it from, the floor is used)."""
+    cutoff used (soil level None: no soil to find it from, the floor is used). `soil_hidden`: the
+    soil level found lies in the histogram's top bin, so the floor was used instead."""
 
     mask: np.ndarray
     soil_level: float | None
     lower_cutoff: float
+    soil_hidden: bool = False
 
 
 def grow_from_cores(
@@ -147,15 +155,16 @@ def grow_from_cores(
     sel = cv2.bitwise_and(cv2.compare(no_plant, 0, cv2.CMP_EQ), inside.view(np.uint8) * np.uint8(255))
     del no_plant
     soil_level = _soil_level(_greenness_table(), _counts(g, red_blue, cv2.bitwise_and(sel, notblue)))
+    hidden = soil_hidden(soil_level)
     if lower_cutoff is None:
-        lower_cutoff = GROWN_FLOOR if soil_level is None else max(GROWN_FLOOR, soil_level + GROWN_GAP)
+        lower_cutoff = GROWN_FLOOR if soil_level is None or hidden else max(GROWN_FLOOR, soil_level + GROWN_GAP)
     low = cv2.bitwise_and(cv2.bitwise_and(_greener(g, red_blue, lower_cutoff), notblue), sel)
     del g, red_blue, notblue
     n, labels, stats, _ = cv2.connectedComponentsWithStats(low, connectivity=8, ltype=cv2.CV_32S)
     seeded = np.zeros(n, dtype=bool)
     seeded[labels[cv2.bitwise_and(core, sel) > 0]] = True
     seeded[0] = False
-    return GrownPlant(_pieces(labels, stats, np.flatnonzero(seeded)) > 0, soil_level, float(lower_cutoff))
+    return GrownPlant(_pieces(labels, stats, np.flatnonzero(seeded)) > 0, soil_level, float(lower_cutoff), hidden)
 
 
 def _greener(g: np.ndarray, red_blue: np.ndarray, cutoff: float) -> np.ndarray:
@@ -246,6 +255,12 @@ def grow_trays(rgb: np.ndarray, trays) -> tuple[np.ndarray, list[tuple[float | N
         mask[y0:y1, x0:x1] |= grown.mask
         levels.append((grown.soil_level, grown.lower_cutoff))
     return mask, levels
+
+
+def soil_hidden(soil_level: float | None) -> bool:
+    """Whether a tray's soil level found lies in the histogram's top bin, so it is no soil level
+    and the floor is used (GROWN_SOIL_HIDDEN)."""
+    return soil_level is not None and soil_level >= GROWN_SOIL_HIDDEN - 1e-9
 
 
 def _soil_level(table: np.ndarray, counts: np.ndarray) -> float | None:

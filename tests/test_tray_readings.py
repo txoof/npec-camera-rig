@@ -18,7 +18,7 @@ from npec_rig.app import app
 from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
 from npec_rig.tags import TagDetection
-from tests.helpers import banded_validation, one_tray_plant_scene, table_calibration, table_photo
+from tests.helpers import DARK_SOIL_RGB, banded_validation, one_tray_plant_scene, table_calibration, table_photo
 
 pytestmark = pytest.mark.unit
 
@@ -1060,3 +1060,69 @@ def test_reprocess_of_a_photo_read_before_grow_from_leaf_cores_keeps_its_area_wi
     [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
     assert tray["area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
     assert (tray["grown_method"], tray["grown_area_mm2"]) == (None, None)
+
+
+# Blue mats over the soil (#373, metrology log 38): the pixels left beside the mats outnumber the
+# soil, so the soil level found lies in the histogram's top bin and is no soil level.
+MAT_EDGE_RGB = (100, 105, 96)  # greenness (210 - 196) / 301 = 0.0465: the top bin, centre 0.045, after JPEG too
+
+
+def _matted_tray_scene(monkeypatch) -> None:
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB
+
+    one_tray_plant_scene(monkeypatch)
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = (110, 90, 90)  # the table, greenness (180 - 200) / 290 = -0.069: below the floor, as the
+            # outline takes in a pixel or two of it
+            frame[400:4060, 300:3350] = TRAY_BLUE  # tray and mats
+            frame[3000:3300, 2600:3100] = DARK_SOIL_RGB  # 150,000 px of soil left between the mats
+            frame[600:1200, 2000:3100] = MAT_EDGE_RGB  # 660,000 px, touching no leaf
+            frame[2060:2400, 1307:1647] = PALE_EDGE_RGB  # 20 px around the leaf
+            frame[2080:2380, 1327:1627] = MINT_LEAF_RGB  # 300 x 300 px inside B3's opening: 900 mm2
+            return frame, metadata
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [_a1_tag(5, 779.5, 3624.0)])
+    CameraManager.set_instance(CameraManager(Scene(width=4000, height=4400)))
+
+
+def test_a_tray_whose_soil_is_hidden_under_mats_is_grown_from_the_floor_and_marked(monkeypatch) -> None:
+    """The leaf with its pale edge, 340 x 340 px = 1156 mm2 at 10 px/mm, as on bare soil. A cutoff
+    0.07 above the top bin (0.115) would leave the edge out: 900 mm2."""
+    from npec_rig.segmentation import SOIL_HIDDEN
+
+    _matted_tray_scene(monkeypatch)
+
+    [tray] = tray_readings.read_photo(_photo())["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+    assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(0.045), pytest.approx(-0.045))
+    assert SOIL_HIDDEN in tray["warnings"]
+    assert SOIL_HIDDEN == "soil hidden: usual leaf cutoff used"
+
+
+def test_reprocess_segments_again_a_photo_read_with_its_cutoff_in_the_leaves(monkeypatch) -> None:
+    """A reading saved before #373 on a matted tray: soil level 0.045, lower cutoff 0.115 and a
+    mask of the leaf without its pale edge (300 x 300 px, 900 mm2). Reprocess does not count that
+    mask again: it grows the photo from the floor, 1156 mm2, and marks the tray."""
+    import numpy as np
+
+    from npec_rig import segmentation
+
+    _matted_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    capture_id = database.captures_by_path([path])[path]["id"]
+    old = np.zeros((4400, 4000), dtype=bool)
+    old[2080:2380, 1327:1627] = True
+    segmentation.save_mask(path, old, segmentation.GROWN_MASK)
+    trays = database.tray_readings(capture_id)["trays"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, "grown_lower_cutoff": 0.115, "warnings": []} for t in trays])
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_lower_cutoff"] == pytest.approx(-0.045)
+    assert segmentation.SOIL_HIDDEN in tray["warnings"]

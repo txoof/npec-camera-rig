@@ -480,6 +480,13 @@ metrology log backs it.
   (up to 47% less leaf showing in single cells). The step is not marked on the page yet (#424). A
   comparison of treatments on one day holds while all trays carry mats; a comparison of a plant
   before and after its mat does not. Measured on one morning, plants of one size.
+- **Soil hidden under mats** (*added 2026-11-17*, metrology log 38, a development check). With mats
+  over nearly all the soil, the tray's soil level can land on the leaves' edge pixels instead, and
+  grow from leaf cores then left out most of each leaf: tray 1 of experiment 18 read about a tenth of
+  its area on 3,438 photos, with nothing on the page. Since #373 the rig uses its usual cutoff there
+  and marks the tray "soil hidden: usual leaf cutoff used"; Reprocess grows those photos again. Soil
+  that turns green, the case the soil level was built for, has not been seen on production, so the
+  level at which the rig should warn of it is still a decision, not a measurement.
 
 ### Trays and tags (round 1, 2026-10-19)
 
