@@ -253,3 +253,25 @@ def test_grow_from_leaf_cores_finds_a_pale_seedling_whose_greenest_pixel_is_belo
     assert grown.mask[320:340, 60:80].all()
     assert grown.mask[315:345, 55:85].sum() == 400
     assert not grown.mask[250:300, 250:320].any()
+
+
+# Metrology log 39 (#373): blue mats hide most of the soil, and the pixels left between mats and
+# leaves outnumber the soil, so the histogram's peak lands in its top bin. That is no soil level.
+MAT_EDGE = (100, 104, 95)  # greenness (208 - 195) / 299 = 0.0435: the top bin, centre 0.045
+
+
+def test_grow_from_leaf_cores_uses_the_floor_when_the_soil_is_hidden_under_mats() -> None:
+    from npec_rig.segmentation import grow_from_cores
+
+    box = np.full((400, 400, 3), NOT_PLANT["blue tray"], dtype=np.uint8)  # mats over the soil
+    box[320:360, 20:70] = SOIL_LOW  # 2,000 px of soil left between the mats
+    box[200:280, 250:350] = MAT_EDGE  # 8,000 px, touching no leaf
+    box[92:168, 92:208] = PALE_EDGE  # the leaf's pale edge, 8 px wide
+    box[100:160, 100:200] = PLANT["benchmark mint leaf"]  # the leaf
+    grown = grow_from_cores(box, np.ones((400, 400), dtype=bool))
+
+    assert grown.soil_level == pytest.approx(0.045, abs=1e-9)  # the level found is kept
+    assert grown.soil_hidden
+    assert grown.lower_cutoff == pytest.approx(-0.045, abs=1e-9)  # the floor
+    assert grown.mask.sum() == 116 * 76  # the leaf with its pale edge
+    assert not grown.mask[200:280, 250:350].any()

@@ -161,6 +161,11 @@ def stored_validation(
 # The benchmark plant's mint leaf colour, measured in the potato run still of 23 October 2026
 # 08:35:53 UTC (tests/test_segmentation.py).
 MINT_LEAF_RGB = (156, 228, 188)
+# The table round the tray, below grow from leaf cores' lower cutoff: the tray finder's outline takes
+# in a pixel of it, and JPEG ringing at the drawn tray's sharp corners leaves leaf-core pixels there
+# (121, 145, 109) that would grow along a table of greenness 0 (#373).
+TABLE_RGB = (110, 90, 90)  # greenness (180 - 200) / 290 = -0.069
+DARK_SOIL_RGB = (100, 70, 65)  # greenness (140 - 165) / 235 = -0.106: well below the floor, as production's soil (#373)
 # Tray plastic as the blue finder sees it (#331): OpenCV hue 110, saturation 204, value 200, inside
 # the sampled tray plastic (metrology log 20).
 TRAY_BLUE_RGB = (40, 90, 200)
@@ -176,9 +181,10 @@ def one_tray_plant_scene(monkeypatch) -> None:
 
     Tray 5's 40 mm tag (400 px) lies in cell A1 at the south-west of a blue tray drawn at x 115 to
     3165, y 554 to 4214 (305 x 366 mm) in a 4000 x 4400 photo, so the tray finder's outline is the
-    drawn tray (#331). The photo is grey with two 500 x 300 px rectangles
+    drawn tray (#331). The photo is the table colour (TABLE_RGB) with two 500 x 300 px rectangles
     of mint leaf colour, 50 x 30 mm = 1500 mm2 each: one inside the tray (x 1400 to 1900, y 2200 to
-    2500), one outside it (x 3400 to 3900). Saves the calibration as the fixture's, so photos taken
+    2500), one outside it (x 3400 to 3900); a patch of soil (x 1800 to 2800, y 3000 to 3600,
+greenness -0.106), so grow from leaf cores finds a soil level, as on a real tray. Saves the calibration as the fixture's, so photos taken
     after this are read with it.
     """
     import json
@@ -192,8 +198,9 @@ def one_tray_plant_scene(monkeypatch) -> None:
     class Scene(SyntheticBackend):
         def capture_full_res(self):
             frame, metadata = super().capture_full_res()
-            frame[:] = 128
+            frame[:] = TABLE_RGB
             draw_tray(frame, 115, 554, 3165, 4214)
+            frame[3000:3600, 1800:2800] = DARK_SOIL_RGB  # soil showing in the tray (#373)
             frame[2200:2500, 1400:1900] = MINT_LEAF_RGB
             frame[2200:2500, 3400:3900] = MINT_LEAF_RGB
             return frame, metadata

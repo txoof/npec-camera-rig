@@ -488,6 +488,13 @@ metrology log backs it.
   movement and a daily cycle), so whole days or the same time of day should be compared. The mats
   of 6 Nov lowered every plant's area by grow from leaf cores, by a median of 30%, so areas before
   and after a mat cannot be compared. Moves and harvests after 9 Nov are not recorded.
+- **Soil hidden under mats** (*added 2026-11-17*, metrology log 39, a development check). With mats
+  over nearly all the soil, the tray's soil level can land on the leaves' edge pixels instead, and
+  grow from leaf cores then left out most of each leaf: tray 1 of experiment 18 read about a tenth of
+  its area on 3,438 photos, with nothing on the page. Since #373 the rig uses its usual cutoff there
+  and marks the tray "soil hidden: usual leaf cutoff used"; Reprocess grows those photos again. Soil
+  that turns green, the case the soil level was built for, has not been seen on production, so the
+  level at which the rig should warn of it is still a decision, not a measurement.
 
 ### Trays and tags (round 1, 2026-10-19)
 

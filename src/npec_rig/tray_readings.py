@@ -17,6 +17,7 @@ import sqlite3
 import threading
 from collections import Counter
 from datetime import UTC, datetime
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
@@ -235,7 +236,8 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "calibration": calibration if m else None,
             "outside_mm": outside_mm(p, size) if size and p.outline is not None else None,
             "found": p.found,
-            "warnings": list(p.warnings) + ([TAG_TURNED] if celled.get(id(p), no_cells)[2] else []),
+            "warnings": list(p.warnings) + ([TAG_TURNED] if celled.get(id(p), no_cells)[2] else [])
+            + ([segmentation.SOIL_HIDDEN] if g and segmentation.soil_hidden(soil_level) else []),
             "outline_px": None if p.outline is None else [list(c) for c in p.outline],
             "cells": [
                 {
@@ -299,6 +301,9 @@ def _measures(
         mask = segmentation.load_mask(path) if reuse_mask else None
         grown = segmentation.load_mask(path, segmentation.GROWN_MASK) if reuse_mask else None
         levels = _saved_levels(saved, placed) if grown is not None else None
+        if levels and any(_grown_into_leaves(*level) for level in levels) and (photo_file(path) or Path()).is_file():
+            # Read before #373 with the cutoff in the leaves (metrology log 39): grown again.
+            grown, levels = None, None
         if mask is None:
             mask, grown, levels = _segment(path, placed, tags)
         elif grown is None:
@@ -320,6 +325,12 @@ def _measures(
         logger.exception("Could not work out the plant areas of %s by grow from leaf cores", path)
         grown, grew = None, []
     return stem, measures, _measured_cells(path, mask, grown, placed, tags, scale_field, record or {}), grew
+
+
+def _grown_into_leaves(soil_level: float | None, lower_cutoff: float | None) -> bool:
+    """Whether a saved reading's soil level lies in the top bin while its lower cutoff was set
+    above the floor from it: a reading made before #373, its leaves cut short."""
+    return segmentation.soil_hidden(soil_level) and lower_cutoff is not None and lower_cutoff > segmentation.GROWN_FLOOR + 1e-9
 
 
 def _saved_levels(saved: dict | None, placed: list[TrayPlacement]) -> list[tuple[float | None, float | None]]:
