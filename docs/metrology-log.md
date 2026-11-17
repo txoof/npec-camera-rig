@@ -9450,7 +9450,330 @@ photo; one person.
 **Raw data.** `experiments/round3-grow-tuning/data/test/` (per cell and per outline), scripts
 `code/test363.py`, `code/test363_summary.py`.
 
-## 35. Production: grow from leaf cores for every photo of experiment 18 (issue #410, method written 2026-11-13, before the run)
+## 35. Plant area against a Helios scan, Potato Plants v001 (issue #411, method written 2026-11-11, revised 2026-11-13, before the scan)
+
+**Label: reference comparison.** The plants of "Potato Plants v001" (production experiment 18) that
+are scanned in Helios, compared with the rig's area for the same plants. Every check of plant area
+so far compares the rig with a person's outline on the rig's own photo (sections 24, 33, 34), so it
+shares the rig's blur and viewpoint. Helios is an instrument independent of the rig: another
+camera, from another viewpoint, with its own segmenter. No result is expected in advance and no pass
+or fail limit is set.
+
+**Helios is not truth (revised 2026-11-13).** Helios cuts out the plant with its own colour
+segmenter, much like the rig's, on a different sensor and in a pipeline of its own. The lab reports
+that this pipeline struggles with some deep greens and may miss a good part of the plant (Aaron,
+2026-11-12, from the lab; not measured here). A Helios area is therefore a second instrument's
+reading, not a known answer, as the photogrammetry mesh was in section 15.5e. A difference between
+Helios and the rig shows that they disagree, not which one is wrong.
+
+**What a Helios export holds.** It depends on the processing pipeline run on the scan, and a fuller
+export is awaited from the lab. The example export (a benchmark plant, Helios tray 2632,
+2026-08-10, in `~/scratch/helios_output/`, not in the repo) holds:
+- a point cloud (`S3D_DotModel.pcd`, 45,985 points, x y z only, no colour), of the whole tray:
+  tray rim, pot, plate and plant; units appear to be mm (tray about 370 x 307, plate about 193
+  square);
+- two top-view photos (`RGB2`, original and fish-eye corrected, 4112 x 3006 px), taken 65 minutes
+  before the point cloud;
+- no area number. The area seen from above of the points above the plate is 4,098 mm2 counted on a
+  1 mm grid and 7,352 mm2 on a 2 mm grid (development check, one file): the point cloud is too
+  sparse for an area without a choice that changes it by almost half.
+
+The lab also holds several GB of images taken parallel to the tray top per scan. Whether a traits
+file with an area exists, and whether those images come with each camera's position, is asked in
+#106 (2026-11-12). The point cloud gives the plant's height directly (the example plant stands
+about 150 to 160 mm above its plate).
+
+**The known answer: hand outlines on both cameras (decided, Aaron, 2026-11-13).** For about 10 scanned plants (a decision, set by the time an outline takes), a person
+outlines each plant in ImageJ, the way of section 24 (yellow counted as not plant, as in 33), on two
+photos:
+- the rig photo paired with it (below);
+- the Helios top photo of the same plant, fish-eye corrected, at a scale taken from a length in the
+  scan whose size is known (to be chosen when the export is in).
+
+Then:
+- outline against segmenter, on the same photo, gives each segmenter's error on its own camera:
+  grow from leaf cores and the fixed green cutoff on the rig photo, Helios's own area (if it gives
+  one) on the Helios photo;
+- outline against outline, across the two cameras, gives the difference due to the camera and
+  viewpoint alone, plant height included, with no segmenter in it.
+
+**Order.** The outlines need nothing at the scan itself; they are drawn on the saved photos:
+1. the scan; the rig records when each tray's tag leaves;
+2. when the export is in, the plants are chosen and two crops made per plant, one from the paired
+   rig photo and one from the Helios top photo;
+3. the person outlines each crop in ImageJ from nothing, not by correcting a drafted mask, before
+   seeing any mask, area or ratio from the rig or Helios, so nothing pulls the outline toward an
+   answer;
+4. the comparison is run only after the outlines are saved.
+
+**Swapping images and pipelines (suggested by the lab, 2026-11-12, optional).** The rig's segmenter
+run on the Helios top photos, and the Helios pipeline run on rig photos, if the lab can. With the
+two cameras and two segmenters this separates camera from segmenter, but against each other only.
+The outlines above give the same split against a known answer, so the swap is done only if the lab
+offers it, and reported apart.
+
+**Which plant is which.** The rig places each tray from its tag and names its cells from the tag in
+cell A1 (sections 27, 30). Helios uses its own tray numbers (as 2632). Recorded at the scan: the
+Helios tray number for each rig tray tag (who records it, asked in #106). A tray whose cell names
+are marked as maybe swapped (#385) before the scan is matched by the photos and flagged.
+
+**Which rig photo.** Helios scans whole trays, so a tray's tag leaves the chamber with its plants;
+the rig records the time the tag stops being seen (Aaron, 2026-11-12). No time is written by hand
+and no clock conversion is needed. The paired photo is the last photo before the tag stops being
+seen that is lit and not excluded (lights off, light changing, visit; sections 17.9, 29): a person
+reaching in makes a visit, so it is the photo before that visit. Per tray, the time from the paired
+photo to the scan is reported, since leaves move within minutes and may droop in transport.
+
+**The rig's own spread.** Beside the paired photo, the rig's areas over the lit, not excluded photos
+of the 30 minutes before it (a decision, not a measurement: about 30 photos, short for plant
+growth) give how far one photo of a plant varies from the next. A difference smaller than that
+spread cannot be told from it.
+
+**Which rig areas.** Per cell, from the paired photo, with the app's code at main: grow from leaf
+cores at core 0.07 (section 34.1), and the fixed green cutoff beside it. If production has not been
+reprocessed with grow from leaf cores (#410), they are worked out offline from read-only copies of
+the photos and `rig.db`; nothing is written into production. Each cell's status from the app is
+carried with it (leaves over other cells, missing), and a blue mat or green soil in the cell is
+noted by eye from the photo, since the app does not mark those per cell. Cells with leaves over
+other cells are reported apart.
+
+**Plant height.** The rig reads an area larger by about 0.145% per mm the plant stands above the
+tray top (Facts in `CLAUDE.md`; measured to 75 mm only, 0.157% per mm on average there). A potato
+canopy well above the tray top reads larger by an amount not measured at that height. No correction
+is applied. The height of each plant above its tray top is read from the point cloud, and the
+outline against outline difference is shown against it, so the effect is seen in the data.
+
+**Result reported.** One table per plant (rig tray tag, cell, Helios tray number): rig outline,
+Helios outline, grow from leaf cores, fixed green cutoff, Helios area if given, each as a ratio to
+the outline on its own photo; the ratio of the two outlines; height; cell flags; time from photo to
+scan. Then the median and range of each ratio. Pictures: for a few plants, both photos with the
+outline and the masks (magenta), in `docs/figures/35/`.
+
+**Limits, known before the scan.** About 10 plants, one experiment, one rig (production), one
+person outlining; leaves hidden under other leaves, which neither top view sees; leaves hanging into
+neighbouring cells; plants handled between the paired photo and the scan; the Helios photo's scale
+rests on one known length. The outlines are a person's judgement on each photo, so they carry that
+photo's blur.
+
+**Raw data.** To come: the Helios export, the tray number record, the paired capture IDs, the
+outlines, scripts and per-plant results in `experiments/round3-helios/`.
+
+## 36. Blue mats laid round real plants: the step in plant area (issue #358, method written 2026-11-13, before any area was read)
+
+**Label: development check.** Section 24.4 found that a blue mat under a flat green square changes
+every rule's area at the square's edge: 13 to 24% on a 10 mm square, 1 to 3% on a 55 mm one. Those
+squares were mint, not leaf colour, and sat on grey backing, not soil, so the size of the step on a
+real plant is not known. Researchers lay mats when their protocol needs them (Aaron, 2026-11-05), so
+the step cannot be avoided, only kept small and marked. This section measures it on potato plants
+on soil.
+
+**Questions.**
+
+1. When a mat is laid round a plant, how much does that plant's area change, by the fixed green
+   cutoff and by grow from leaf cores (core 0.07, as in the app since #363)?
+2. Does the change depend on the plant's size? (Left open, see below.)
+3. Does a mat change the tray's soil level, from which grow from leaf cores sets its lower cutoff
+   for every plant on the tray, and so the areas of plants without a mat?
+4. Do mat, soil and leaf stay apart by colour on these photos, so the rig could find a mat later?
+
+**The event, already in the photos.** Researchers laid mats on every plant tray of production
+experiment 18 (Potato Plants v001) on 2026-11-06: the first mat at 09:10 local, the last by 10:19
+local (Aaron, 2026-11-13), that is 08:10 to 09:19 UTC. No session is needed: the rig's own photos,
+one a minute, hold the step. All plants were of similar size that day (Aaron), so question 2 cannot
+be answered from this event and is left open. The mats were laid by pulling each plant through a
+slit and pinning the mat, so the leaves were handled: this is the protocol event as researchers do
+it, not a mat slid under a plant that was not touched.
+
+*When each tray got its mats* (development check, 2026-11-13, before any area was read). Per photo
+and tray, the share of blue pixels inside the tray's saved outline (bare soil about 0.1 to 0.2, a
+matted tray about 0.9) and of glove green, on the gallery's screen copies
+(`experiments/358-blue-mats/code/timeline.py`, figure `docs/figures/36/timeline.png`):
+
+| Tray | Mats laid (UTC) | Bare with lights fully on (UTC) |
+|---|---|---|
+| 2 | 08:11 to 08:19 | none: lights off until 08:02, coming on until 08:30 |
+| 1 | 08:28 to 08:32 | none |
+| 3 | 08:34 to 08:40 | 08:30 to 08:33 |
+| 6 | 08:42 to 08:47 | 08:30 to 08:41 |
+| 4 | 08:48 to 08:54 | 08:30 to 08:47 |
+| 5 | 08:59 to 09:02 | 08:30 to 08:58 |
+
+The rig marked a person at the table from 08:33 to 09:14 UTC. From 09:30 to 10:16 UTC the plant
+trays' tags were not read (exposure 3118 and then 2390 µs, against 4105 to 4365 µs before and
+after), and at 10:16 to 10:20 UTC the trays were moved to new table locations.
+
+**Photos used.**
+
+- *Before:* each tray's bare photos from 08:30 UTC to its first mat, leaving out photos with a
+  glove over the tray. Trays 1 and 2 have none and are reported only after.
+- *After, near:* 09:14 to 09:28 UTC (about 15 photos), all trays matted, nobody at the table.
+- *After, later:* 10:21 to 10:50 UTC (30 photos), after the trays were moved, as a check that the
+  near window is not a passing state.
+- *Controls:* while one tray is matted, the trays still bare are its controls; their change over
+  the same minutes carries growth, leaf movement and the person at the table.
+
+**What is worked out, per cell of trays 3, 4, 5 and 6.**
+
+1. *Area.* By the fixed green cutoff and by grow from leaf cores, read the way the app reads them:
+   production's own cell readings once the Reprocess of experiment 18 (#410) has given every photo
+   of that day its cells, or the app's code run on copied stills if it has not. Mean area before and
+   after, the change in percent, and the photo-to-photo spread (sd as % of the mean) on each side.
+2. *The mat's own step.* Each cell's change minus the mean change of the still-bare trays' cells
+   over the same minutes, where such trays exist (trays 3, 6 and 4; tray 5 was the last). A change
+   smaller than twice the cell's photo-to-photo spread is reported as not found, not as zero.
+3. *Height.* The mat lies under the leaves; a leaf resting on it is raised by its thickness, about
+   0.2% of area for 1.5 mm. No correction is made; the amount is stated.
+4. *Soil level.* The tray's soil level (greenness histogram peak, as the app finds it) and the lower
+   cutoff it gives, before and after.
+5. *Colour.* (B - G) / (R + G + B) percentiles 1, 50 and 99 for mat, soil and leaf pixels of the
+   same photos, as in 24.4.
+6. *Pictures.* Each tray before and after, with each rule's outline in magenta.
+
+**Limits (as planned).** One morning, four trays with a clean before, plants of one size; the
+before windows are short for tray 3 (about 4 photos). The plants were handled while the mats went
+down, so the step holds the handling as well as the mat. Says nothing about a mat laid later in a
+plant's growth, a mat that is moved, or mats of another colour.
+
+*Figures.* `docs/figures/36/timeline.png`: when each plant tray got its mats, from the blue share per
+photo. `docs/figures/36/tray5-before-after.jpg`: tray 5 at 08:57 and 09:20 UTC, from the gallery's
+screen copies, cropped to the tray's saved outline.
+
+### 36.1 How much leaf the blue rule takes from the edge on a mat (method written 2026-11-16, before the run)
+
+**Label: development check.** On the mat, the pixels just outside the grow from leaf cores outline
+are green enough to count (greenness +0.02 to +0.05 against a cutoff of -0.045) and are left out
+only because blue is a little above green (tray 5, B1 and B5, `code/edge_colour.py`). On soil the
+outline follows the leaf edge (Aaron, 2026-11-16, looking at the close-ups); on the mat it runs
+inside the leaf. This measures how much of the drop those pixels make up.
+
+**Method.** The app's `grow_trays`, unchanged but for the blue margin (a pixel is blue when its
+blue exceeds its red and its green by more than the margin; the app uses 0), on the six copied
+stills of 36 (trays 3, 4, 5, 6; their before still, 09:20 and 10:30 UTC). Variants: blue margin 0
+(the app), 5, 10, 20, and no blue rule. Per tray and variant: plant pixels, and the change from the
+tray's before still (read at margin 0). Pictures of 5.B1 and 5.B5 for each margin, so a person can
+say at which margin the outline follows the leaf on the mat and does not spread onto it.
+
+**Limits (as planned).** One still per window, four trays; the before still is one photo, so a
+change within about 3% (the photo-to-photo spread) is not a difference. Not a choice of a new
+margin: that needs the reference set of section 33 and the tray plastic.
+
+### 36.2 Results of 36 and 36.1 (2026-11-16)
+
+**Label: development check.** Areas are production's own cell readings after the Reprocess of
+experiment 18 (#410), which reached these photos on 2026-11-16; read only through the API. The
+masks drawn for the pictures and for 36.1 were made again on the controller from six copied stills
+with the app's `grow_trays`; on all 12 tray photos they match production's saved pixel counts
+exactly (the fixed cutoff within 3 px on one).
+
+**How it differed from the method.**
+
+- *Controls.* No tray stays bare from another tray's before window to 09:14 UTC, when every tray
+  is matted, so bare trays cannot serve as same-minutes controls. Instead the drift of a cell where
+  nothing was done was measured: bare cells within their before windows, matted cells from the near
+  to the later after window.
+- *Before windows per cell.* The mats went down cell by cell. Judged per cell (blue share of each
+  cell, `code/cell_timeline.py`), two cells of tray 3 (C1, D1) were matted at 08:32, one of tray 6
+  (D5) at 08:37 and one of tray 5 (A5) at 08:58, inside their tray's before window. The table below
+  uses each cell's own window: from 08:30 to 2 minutes before its own mat, leaving out photos with a
+  glove in the cell.
+- Trays 1 and 2 are not used: they were matted while the lights came on.
+
+**Change in each cell's area, 09:14 to 09:27 UTC against its own before window** (median over the
+19 plant cells of each tray; pooled is the tray's summed area):
+
+| Tray | Before photos per cell | Grow from leaf cores | Pooled | Photo spread before | Fixed green cutoff | Its photo spread before |
+|---|---|---|---|---|---|---|
+| 3 | 1 to 5 | -15.4% (-46.7 to +2.7) | -14.8% | 3.6% | +27.4% | 15.7% |
+| 6 | 6 to 13 | -34.1% (-74.1 to -16.8) | -32.8% | 4.6% | +9.4% | 9.4% |
+| 4 | 14 to 19 | -24.0% (-43.6 to -7.8) | -22.7% | 2.2% | +31.8% | 12.0% |
+| 5 | 24 to 27 | -20.7% (-45.9 to +3.5) | -22.3% | 3.2% | +39.7% | 14.0% |
+
+Photo spread is the median over a tray's cells of the sd of a cell's area across its before photos,
+as % of its mean (from the tray-wide windows of `code/steps.py`). The plants were 97 to 154 mm²
+(median per tray, grow from leaf cores, on soil).
+
+- *Grow from leaf cores* falls by 15% to 34%, five to ten times its photo spread. In the later
+  window (10:21 to 10:50 UTC, after the trays were moved) the fall is 8% to 22%. Matted cells
+  gained 0.095% a minute between the two windows, bare cells 0.068% a minute before the mats;
+  whether that is growth or leaves settling after the handling is not separated.
+- *The fixed green cutoff* rises by 9% to 40%. Its photo spread on soil is 9% to 16%, and its bare
+  cells drifted -0.58% a minute after the lights came on, so it cannot measure a step of this size
+  here. On the mat its outline covers more of each leaf (`zoom-tray5.jpg`).
+- *Soil level.* The tray's soil level was -0.125 to -0.165 before and -0.135 to -0.155 after; the
+  lower cutoff it gives stayed at its floor, -0.045, on every photo. The mat does not move the cutoff,
+  so it cannot change the areas of plants without a mat on the same tray (question 3).
+
+**Why the edge is lost** (`edge-tray5.jpg`, 5.B1 and 5.B5). Aaron, looking at the close-ups
+(2026-11-16): on soil the magenta outline traces the leaf edge very well; on the mat it runs inside
+the leaf and misses a significant part of it at the edge. The pixels just outside the outline:
+
+| Background | Distance outside | Median R G B | Greenness | Left out as |
+|---|---|---|---|---|
+| Soil, 08:57 | 1 px | 95 69 57 | -0.059 | not green enough (100%) |
+| Mat, 09:20 | 1 px | 58 71 75 | +0.046 | blue (98%) |
+| Mat, 09:20 | 2 px | 57 72 80 | +0.019 | blue (99%) |
+
+(5.B1; 5.B5 is the same.) On the mat these pixels are green enough to count (cutoff -0.045); their
+blue is a little above their green, and the "not blue" condition alone leaves them out. They are
+leaf edge with mat colour mixed in, by the pixel straddling the edge and the lens's blur. On soil
+the mix is never blue.
+
+**36.1, blue margin.** Plant pixels per tray, change from the tray's before still at margin 0:
+
+| Tray | On soil, margin 20 | Mat 09:20, margin 0 (the app) | Margin 5 | Margin 10 | Margin 20 | No blue rule |
+|---|---|---|---|---|---|---|
+| 5 | +0.3% | -23.1% | -15.7% | -8.7% | +1.9% | +8.0% |
+| 4 | +2.3% | -23.6% | -16.5% | -10.2% | -0.4% | +6.0% |
+| 6 | +0.8% | -35.2% | -28.4% | -22.2% | -12.3% | -8.2% |
+| 3 | +20.4% | -9.7% | -1.5% | +6.1% | +16.7% | +17.7% |
+
+Aaron, looking at 5.B1 and 5.B5 for each margin (`margin-tray5-B1.jpg`): on the mat, margins 10 and
+20 follow the leaf edge best; no blue rule is very bad (it spreads onto the mat).
+
+- *Trays 4 and 5:* the lost edge is the whole fall: at margin 20 the area on the mat is within 2%
+  of the area on soil.
+- *Tray 6:* cells A2 to A5 still read 21% to 47% low at margin 20, while most of its other cells
+  come back within about 10% (`cells-tray6-m0-m20.jpg`). Less leaf shows after the mat. Aaron: the
+  leaves were definitely disturbed by the installation of the mats.
+- *Tray 3:* on soil, margin 20 adds area only in C1 and D1, which were already matted at 08:32
+  (`cells-tray3-m0-m20.jpg`). Without them, its 17 other cells read a median of 11% more on the mat
+  than on soil at margin 20. Why is not known: its only before photos are 08:30 to 08:33, the first
+  minutes after the lights came fully on; margin 20 may count some mat; or the handling may have
+  spread its leaves.
+
+**Colour** (question 4; (B - G) / (R + G + B), percentiles 1, 50, 99; every plant cell of the four
+trays on the six stills, `code/masks.py`): leaf (grow from leaf cores mask) -0.177, -0.079, 0.000;
+mat +0.012, +0.235, +0.346; soil -0.061, -0.027, +0.268 (its upper tail is tray 3's C1 and D1,
+matted at 08:32, taken as soil). Mat and leaf do not overlap, so the rig can find a mat by colour.
+
+**Findings.**
+
+1. Laying blue mats lowered plant area by grow from leaf cores by about a fifth (21% to 24% on the
+   two trays with clean evidence), with no change in the plants. Nothing on the page says why: harm
+   1 of CLAUDE.md.
+2. The cause is the "not blue" condition, which cuts the leaf's edge pixels on a mat. A margin of
+   10 to 20 keeps them (Aaron's judgement on the pictures). Not yet a choice of margin: that needs
+   the reference set and the tray plastic (#424).
+3. The handling of the plants when the mats go down changes what the camera sees, by up to 47% in
+   single cells of one tray. That part is real for the camera and no rule removes it.
+4. Mat and leaf separate by colour, so the event can be found and marked (#424).
+
+**Limits of the evidence.** One morning; four trays with a clean before, one with only 1 to 5
+before photos; plants of one size (97 to 154 mm²), so question 2 stays open; the margins were tried
+on one still per window; tray 3 unexplained. The mats were laid as researchers lay them, so the
+step holds the handling as well as the colour.
+
+*Figures* (`docs/figures/36/`): `zoom-tray5.jpg`, tray 5 B1 and B5 on soil (08:57) and on the mat
+(09:20), grow from leaf cores in magenta, fixed cutoff in red, 3 times enlarged; `edge-tray5.jpg`,
+the same with the 6 px band outside the outline marked by why it is left out (red blue, white not
+green enough); `margin-tray5-B1.jpg`, B1 at each blue margin; `cells-tray6-m0-m20.jpg` and
+`cells-tray3-m0-m20.jpg`, the cells that change most, margin 0 magenta, margin 20 red.
+
+*Raw data.* `experiments/358-blue-mats/data/` (`per_cell_own_window.csv`, `per_cell.csv`,
+`per_cell_photo.csv`, `soil.csv`, `cell_timeline.csv`, `timeline.csv`, the summaries); scripts in
+`experiments/358-blue-mats/code/`. The photos stay in experiment 18's folder on `ac-testing`.
+
+## 37. Production: grow from leaf cores for every photo of experiment 18 (issue #410, method written 2026-11-13, before the run)
 
 **Label: development check.** Production (`ac-testing`) is moved from main d1742e7 to main 75f20e4
 (#409, #414, #415) and its running experiment 18 ("Potato Plants v001", photos from 22 Oct 08:41
@@ -9499,3 +9822,90 @@ memory; free disk; tracebacks in the server log.
 
 **What it does not cover.** Whether grow from leaf cores is right on these photos (section 34 and
 33.1); photos not read for trays (lights off) get no area by either method.
+
+### 37.1 What was done, and how it differed from the method (2026-11-14 to 17)
+
+All times UTC; Dutch time is one hour later.
+
+- **No promotion and no restart.** At 00:31 on 14 Nov production was not on d1742e7 as planned: it had been
+  promoted to main a6632d6 on 13 Nov at 10:00 (#416, approved by Aaron). a6632d6 holds 75f20e4 plus
+  the Experiments page speed fix (#420: dwell and scheduler code only, no migration, Reprocess code
+  unchanged). So steps 2 and 3 were not needed; the session stopped and asked. Aaron approved starting
+  Reprocess on a6632d6 as it ran, with no restart (server PID 2834027, up since 13 Nov 09:59).
+- **Lights off confirmed** at 00:31 (photos at 00:29:53 and 00:30:53 carry "lights off").
+- **Backup** at 00:31:44: `/var/lib/npec-rig/backups/before-reprocess-410-a6632d6-20261114T003144Z/rig.db`
+  (1.26 GB, sqlite backup through a read-only connection in 37.5 s, `quick_check` ok, version 25), copied
+  to the controller at `~/prod-backups/before-reprocess-410-a6632d6-20261114T003144Z/rig.db`.
+- **Reprocess started at 06:38:55 on 14 Nov**, not at about 00:35: the approval came then. So only its
+  first 1 h 22 min ran in the dark of the first night.
+
+### 37.2 Results (development check)
+
+**Time.** 33,001 photos (every photo of experiment 18 up to the start) from 06:38:55 on 14 Nov to
+06:41:30 on 17 Nov: **72 h 3 min, 7.9 s per photo on average**. The rate depended on the photo and the
+hour (10-minute samples): photos with trays 4.5 to 6 a minute with the lights on and 7.5 to 10 a minute
+in the dark; lights-off photos (no trays) about 13 to 15 a minute. Photos from early November were the
+slowest (they gain cells and the plants are larger). The rehearsal on development (3.6 s per photo,
+13,015 photos with fewer cells) was half as long per photo; the 31-hour estimate of #410 was therefore
+too short.
+
+**New photos while it ran.** 4,322 photos were taken, no interval over 70 s, none missed. Read for trays:
+2,969 photos with the lights on, delay from taking to reading median 28.4 s, 95th percentile 32.0 s,
+largest 48.5 s; 1,352 lights-off photos, median 10.4 s, largest 17.1 s. None over 5 minutes (the limit
+set before the run). One photo was not read (below).
+
+**Memory and disk** (10-minute samples, `data/progress.tsv`). App 0.42 to 1.58 GB; at least 10.0 GB of
+16 GB available throughout. Free disk went from 687 to 665 GB, which includes 3 days of new photos; the
+mask folder is 3.2 GB in all.
+
+**Failures: 26 photos**, from the server log (`data/reprocess_failures.txt`):
+- 24 photos taken while the lights went off or came on (00:28 or 08:00 after the 25 Oct clock change,
+  23:28 or 07:00 before it, and 3 more on 26 and 27 Oct during longer changes). Plant areas could not be
+  worked out again, so Reprocess kept the saved ones (`ReadingWorse`, the safeguard of #409). Their fixed
+  green cutoff areas are unchanged; they have no grow from leaf cores area.
+- 2 photos where Reprocess gave up waiting 10 s for the database ("database is locked") while it saved:
+  photo 28262 (9 Nov 14:59) had already saved its trays and cells with both methods and is complete;
+  photo 30763 (11 Nov 08:39) kept its earlier reading (fixed green cutoff areas and cells, no grow from
+  leaf cores).
+
+**Database locks.** Reprocess's writes also held up the app's other writes: the scheduler's "last tick"
+could not be saved 4 times (no effect), and one new photo, 37400 (15 Nov 23:16:54, lights on), has the
+status "read failed" and no tray areas. The photo itself is kept and can be read again (#431).
+
+**Checks against the backup** (`code/final_checks.py`, output `data/final_checks_2026-11-17.txt`):
+- **Fixed green cutoff unchanged:** for all 22,652 photos read before the backup, every photo's tray
+  areas (264,131 with an area) equal the backup's; largest difference 0.0 mm2, no photo with a different
+  number of trays. (The check compares each photo's sorted list of tray areas; it was first run with the
+  backup against itself and gave no difference.)
+- **Grow from leaf cores:** 25,528 of the 25,621 read photos carry it on every tray. Of the other 93:
+  37 lack it on one tray only, and each such tray is "tag only" (a tag seen with no tray), which has no
+  fixed green cutoff area either; 54 are lights-off photos with no grow from leaf cores at all (the 24
+  failures above and 30 more that Reprocess passed without an error; why these 30 have no grow from
+  leaf cores area was not looked into); 1 is photo 30763 above; 1 is photo 30983 (11 Nov 12:19,
+  exposure 36,532 us at gain 2.0, a dark photo) with no area by either method, before and after.
+- **Cells:** read photos before 6 Nov with cell readings went from 0 to 14,681 of 14,711; the 30 without
+  are lights-off photos. Of the experiment's 5,409,338 plant cells, 5,409,110 have a grow from leaf
+  cores area.
+- **Gallery** (`GET /api/captures/trays/<path>`), photos of 22 Oct, 1 Nov and 12 Nov at 12:00: each lists
+  `area_methods` "Grow from leaf cores" and "Fixed green cutoff", and its trays and cells carry both.
+- **Export: failed, and stopped the app.** The readings-only export of experiment 18 (export 12, part 0
+  estimated 120 MB) was started at 06:50:20 on 17 Nov. Part 0 is built whole in memory before any byte
+  is sent; after 983 s with nothing received, the kernel's out-of-memory killer stopped the app at
+  13.0 GB (`dmesg`). The camera stopped with it: the last photo was 07:05:58. Aaron approved a relaunch
+  on a6632d6 (07:08:29, PID 3272801); the next photo was taken at 07:08:40 and read 8 s later. Two
+  photos were missed, both in the dark. The export columns were therefore not checked. #430 holds the
+  cause and fixes; until then experiment 18's data is not exported on production.
+
+**What it shows.** Grow from leaf cores now stands beside the fixed green cutoff on every read photo of
+experiment 18 that can be measured, from 22 Oct on, and the fixed green cutoff's numbers did not change.
+Reprocess on production can run for days beside a running experiment without missing or delaying a
+photo beyond 49 s, but its database writes can block other writes for more than 10 s.
+
+**Limits of the evidence.** One run on one rig. Times depend on what else the Pi did (the Experiments
+page, other sessions' reads). The areas themselves are not checked here: their accuracy is sections 33
+and 34. The export of the data could not be checked (#430).
+
+**Raw data.** `experiments/410-production-reprocess/` (`code/`: the status, progress logger and check
+scripts; `data/`: `progress.tsv`, `final_checks_2026-11-17.txt`, `reprocess_failures.txt`). Server logs on
+`ac-testing`: `/tmp/npec-rig-server-20261113T095920Z.log` (to the crash) and
+`/tmp/npec-rig-server-20261117T070829Z.log` (after the relaunch).

@@ -1,0 +1,8 @@
+fixed tray 3: cells 19, change median +27.4% (range -34.3 to +83.1), pooled +23.5%, before photos per cell 1 to 5; no before: []
+grown tray 3: cells 19, change median -15.4% (range -46.7 to +2.7), pooled -14.8%, before photos per cell 1 to 5; no before: []
+fixed tray 6: cells 19, change median +9.4% (range -32.6 to +64.7), pooled +6.4%, before photos per cell 6 to 13; no before: []
+grown tray 6: cells 19, change median -34.1% (range -74.1 to -16.8), pooled -32.8%, before photos per cell 6 to 13; no before: []
+fixed tray 4: cells 19, change median +31.8% (range -14.9 to +508.3), pooled +25.0%, before photos per cell 14 to 19; no before: []
+grown tray 4: cells 19, change median -24.0% (range -43.6 to -7.8), pooled -22.7%, before photos per cell 15 to 19; no before: []
+fixed tray 5: cells 19, change median +39.7% (range -13.2 to +260.6), pooled +33.0%, before photos per cell 24 to 27; no before: []
+grown tray 5: cells 19, change median -20.7% (range -45.9 to +3.5), pooled -22.3%, before photos per cell 24 to 27; no before: []

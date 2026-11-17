@@ -17,7 +17,7 @@ import json
 import sqlite3
 import threading
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import closing, contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -905,26 +905,36 @@ def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
     return areas
 
 
-def experiment_tray_positions(experiment_id: int) -> list[dict]:
+def experiment_tray_positions(experiment_id: int, capture_ids: Iterable[int] | None = None) -> list[dict]:
     """Where each tray was found in each of the experiment's read photos (status `read`), oldest
-    first: tray ID, the photo's time, path and calibration, and the tray's centre in full-size
-    photo pixels. A tray with no tag cannot be followed from photo to photo and is left out; so is
-    a tag two trays carry in one photo, from that photo (#302)."""
+    first, or in those of `capture_ids` only: capture ID, tray ID, the photo's time, path and
+    calibration, and the tray's centre in full-size photo pixels. A tray with no tag cannot be
+    followed from photo to photo and is left out; so is a tag two trays carry in one photo, from
+    that photo (#302)."""
+    query = (
+        "SELECT tray_reading.capture_id, tray_reading.tray_id, capture.taken_at, capture.path, capture.calibration,"
+        " tray_reading.centre_x_px, tray_reading.centre_y_px FROM tray_reading"
+        " JOIN tray_read ON tray_read.capture_id = tray_reading.capture_id"
+        " JOIN capture ON capture.id = tray_reading.capture_id"
+        " WHERE capture.experiment_id = ? AND tray_read.status = 'read' AND tray_reading.tray_id IS NOT NULL"
+        " AND (SELECT COUNT(*) FROM tray_reading AS other WHERE other.capture_id = tray_reading.capture_id"
+        " AND other.tray_id = tray_reading.tray_id) = 1"
+    )
+    order = " ORDER BY capture.taken_at, tray_reading.tray_id"
     with _connect() as conn:
-        rows = conn.execute(
-            "SELECT tray_reading.tray_id, capture.taken_at, capture.path, capture.calibration,"
-            " tray_reading.centre_x_px, tray_reading.centre_y_px FROM tray_reading"
-            " JOIN tray_read ON tray_read.capture_id = tray_reading.capture_id"
-            " JOIN capture ON capture.id = tray_reading.capture_id"
-            " WHERE capture.experiment_id = ? AND tray_read.status = 'read' AND tray_reading.tray_id IS NOT NULL"
-            " AND (SELECT COUNT(*) FROM tray_reading AS other WHERE other.capture_id = tray_reading.capture_id"
-            " AND other.tray_id = tray_reading.tray_id) = 1"
-            " ORDER BY capture.taken_at, tray_reading.tray_id",
-            (experiment_id,),
-        ).fetchall()
+        if capture_ids is None:
+            rows = conn.execute(query + order, (experiment_id,)).fetchall()
+        else:
+            ids, rows = sorted(capture_ids), []
+            for i in range(0, len(ids), 500):  # under SQLite's limit on bound values
+                chunk = ids[i:i + 500]
+                rows += conn.execute(
+                    query + f" AND capture.id IN ({','.join('?' * len(chunk))})" + order, (experiment_id, *chunk)
+                ).fetchall()
+            rows.sort(key=lambda r: (r["taken_at"], r["tray_id"]))
     return [
-        {"tray_id": r["tray_id"], "taken_at": r["taken_at"], "path": r["path"], "calibration": r["calibration"],
-         "centre_px": (r["centre_x_px"], r["centre_y_px"])}
+        {"capture_id": r["capture_id"], "tray_id": r["tray_id"], "taken_at": r["taken_at"], "path": r["path"],
+         "calibration": r["calibration"], "centre_px": (r["centre_x_px"], r["centre_y_px"])}
         for r in rows
     ]
 
@@ -1015,22 +1025,18 @@ def experiment_calibrations(experiment_id: int) -> list[str | None]:
     return [row[0] for row in rows]
 
 
-def experiment_tray_reads_mark(experiment_id: int) -> tuple:
-    """A mark that changes whenever a photo of the experiment is read or read again (#332): the
-    database, its photos read and when the newest was, and its tray readings' rows, newest row and
-    centres."""
+def experiment_tray_reads(experiment_id: int) -> dict[int, str]:
+    """When each of the experiment's photos the tray reader has handled was last read, by capture
+    ID, whatever the result (`read`, `read failed`, no trays found and the rest): a photo read or
+    read again changes its time, so a cached reading of the experiment knows which photos to look
+    at again (#332, #416)."""
     with _connect() as conn:
-        reads = conn.execute(
-            "SELECT COUNT(*), MAX(tray_read.read_at) FROM tray_read JOIN capture ON capture.id = tray_read.capture_id"
-            " WHERE capture.experiment_id = ?",
-            (experiment_id,),
-        ).fetchone()
         rows = conn.execute(
-            "SELECT COUNT(*), MAX(tray_reading.id), TOTAL(centre_x_px), TOTAL(centre_y_px), TOTAL(tray_id)"
-            " FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id WHERE capture.experiment_id = ?",
+            "SELECT tray_read.capture_id, tray_read.read_at FROM tray_read"
+            " JOIN capture ON capture.id = tray_read.capture_id WHERE capture.experiment_id = ?",
             (experiment_id,),
-        ).fetchone()
-    return (str(db_path()), *reads, *rows)
+        ).fetchall()
+    return {capture_id: read_at for capture_id, read_at in rows}
 
 
 def experiment_shared_tray_photos(experiment_id: int) -> set[int]:
@@ -1285,6 +1291,16 @@ def app_starts(after: str) -> list[str]:
             "SELECT started_at FROM app_start WHERE started_at > ? ORDER BY started_at", (after,)
         ).fetchall()
     return [started_at for (started_at,) in rows]
+
+
+def last_photo_taken_at(experiment_id: int, until: str) -> str | None:
+    """When the experiment's newest photo taken up to `until` was taken; None before its first.
+    One index lookup, for the schedule's downtime on every page refresh (#416)."""
+    with _connect() as conn:
+        (taken_at,) = conn.execute(
+            "SELECT MAX(taken_at) FROM capture WHERE experiment_id = ? AND taken_at <= ?", (experiment_id, until)
+        ).fetchone()
+    return taken_at
 
 
 def scheduled_photos_taken(experiment_id: int, schedule_since: str) -> list[dict]:

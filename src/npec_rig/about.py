@@ -23,9 +23,9 @@ _CHECKOUT = Path(__file__).parent
 
 @functools.cache
 def version() -> dict:
-    """The code this app runs: its commit, the commit's date, and the branches that point at it
-    (a rig is a git checkout, often detached at a branch, #390). Read once: new code needs a
-    restart anyway. None for each part git cannot give."""
+    """The code this app runs: its commit, its release version (#427), the commit's date, and the
+    branches that point at it (a rig is a git checkout, often detached at a branch, #390). Read
+    once: new code needs a restart anyway. None for each part git cannot give."""
 
     def git(*args: str) -> str | None:
         try:
@@ -42,6 +42,9 @@ def version() -> dict:
     return {
         "commit": commit,
         "committed_at": git("log", "-1", "--format=%cI") if commit else None,
+        # The version number from the release tags (#427): "v0.1.0" on a release, "v0.1.0-5-g1a2b3c4"
+        # five commits after it, the bare commit where there is no release before it.
+        "release": git("describe", "--tags", "--always", "--match", "v*") if commit else None,
         "branches": names,
     }
 
@@ -55,6 +58,7 @@ def facts() -> dict:
     starts = database.app_starts("")
     running = database.running_experiment()
     disk = shutil.disk_usage(db_path().parent)
+    headroom = health.disk_status()
     camera = health.camera_health()
     return {
         "version": version(),
@@ -62,7 +66,10 @@ def facts() -> dict:
         "rig": {"name": socket.gethostname(), "environment": os.environ.get("NPEC_RIG_ENVIRONMENT")},
         "camera": {"state": camera["state"], "detail": camera["detail"]},
         "ai_accelerator": any(Path("/dev").glob("hailo*")),
-        "disk": {"free_bytes": disk.free, "total_bytes": disk.total},
+        "disk": {
+            "free_bytes": disk.free, "total_bytes": disk.total,
+            **{k: headroom[k] for k in ("bytes_per_day", "days_left", "level")},
+        },
         "pi_up_s": read_uptime_s(),
         "app_started_at": starts[-1] if starts else None,
         "experiment": (
@@ -84,6 +91,17 @@ def facts() -> dict:
 
 def _gb(n: int) -> str:
     return f"{n / 1e9:.0f} GB"
+
+
+_DISK_CHIPS = {"ok": ("ok", "Enough"), "yellow": ("warn", "Low"), "red": ("fail", "Very low")}
+
+
+def _disk_left(disk: dict) -> dict:
+    """Days of space left at the rate files were written in the last day (health.disk_status)."""
+    days = disk["days_left"]
+    value = (f"About {days:,.0f} days at the last day's rate" if days is not None
+             else "No files written in the last day")
+    return {"label": "Disk space left", "value": value, "status": _DISK_CHIPS[disk["level"]]}
 
 
 def _time(label: str, iso: str | None, missing: str = "Not known") -> dict:
@@ -120,7 +138,10 @@ def sections(f: dict) -> list[dict]:
     to documents (#390) are added here as further cards."""
     v = f["version"]
     branch = ", ".join(v["branches"]) or "no branch"
-    version = f"{v['commit']}, {branch}" if v["commit"] else "Not known (not a git checkout)"
+    release = v["release"] or v["commit"] or ""
+    # A release names its commit; between releases git's name already holds it (v0.1.0-5-g1a2b3c4).
+    shown = f"{release} ({v['commit']})" if release.startswith("v") and "-g" not in release else release
+    version = f"{shown}, {branch}" if v["commit"] else "Not known (not a git checkout)"
     env = f["rig"]["environment"]
     pi_started = (
         (datetime.now(timezone.utc) - timedelta(seconds=f["pi_up_s"])).isoformat()
@@ -147,6 +168,7 @@ def sections(f: dict) -> list[dict]:
             {"label": "AI accelerator", "value": "Found" if f["ai_accelerator"] else "Not found"},
             {"label": "Free disk space",
              "value": f"{_gb(f['disk']['free_bytes'])} of {_gb(f['disk']['total_bytes'])}"},
+            _disk_left(f["disk"]),
         ]},
         {"title": "Running", "rows": [
             _time("App started", f["app_started_at"]),

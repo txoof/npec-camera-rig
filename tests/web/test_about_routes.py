@@ -85,6 +85,23 @@ def test_api_about_reports_the_software_and_the_rig(monkeypatch):
     assert isinstance(body["ai_accelerator"], bool)
 
 
+def test_api_about_reports_the_release_version():
+    """Version number and commit together (#427): git's own name for this commit from the release
+    tags, "v0.1.0" on a release, "v0.1.0-5-g1a2b3c4" five commits after it."""
+    import subprocess
+    from pathlib import Path
+
+    import npec_rig
+
+    release = subprocess.run(["git", "-C", str(Path(npec_rig.__file__).parent), "describe", "--tags",
+                              "--always", "--match", "v*"], capture_output=True, text=True,
+                             check=True).stdout.strip()
+
+    body = TestClient(app).get("/api/about").json()
+
+    assert body["version"]["release"] == release
+
+
 def test_about_page_shows_each_section_and_its_values(isolated_calibration_dir):
     import subprocess
     from pathlib import Path
@@ -108,6 +125,7 @@ def test_about_page_shows_each_section_and_its_values(isolated_calibration_dir):
     for title in ("Software", "Rig", "Running", "Focus", "Calibration and validation"):
         assert f">{title}</h3>" in page.text
     assert commit in page.text
+    assert client.get("/api/about").json()["version"]["release"] in page.text
     assert "Locked" in page.text and "6.30" in page.text
     assert 'datetime="2027-01-01T00:00:00+00:00"' in page.text  # calibration made
     assert 'datetime="2027-01-01T02:00:00+00:00"' in page.text  # validation completed
@@ -151,3 +169,22 @@ def test_about_page_says_validated_once(isolated_calibration_dir):
     page = client.get("/about").text
 
     assert page.count("Validated") == 1  # the chip; the date is in "Validation finished"
+
+
+def test_api_about_reports_days_of_disk_space_left(tmp_path):
+    """#307: days left at the rate files were written in the data folder (a temporary folder in
+    tests, where rig.db is)."""
+    (tmp_path / "rig").mkdir()
+    (tmp_path / "rig" / "photo.jpg").write_bytes(b"x" * 1000)
+    disk = TestClient(app).get("/api/about").json()["disk"]
+    assert disk["days_left"] > 0
+    assert disk["level"] in ("ok", "yellow", "red")
+
+
+def test_about_page_shows_days_of_disk_space_left(tmp_path):
+    (tmp_path / "rig").mkdir()
+    (tmp_path / "rig" / "photo.jpg").write_bytes(b"x" * 1000)
+    page = TestClient(app).get("/about").text
+    row = page[page.index("Disk space left"):][:600]
+    assert "days at the last day" in row
+    assert "Enough" in row
