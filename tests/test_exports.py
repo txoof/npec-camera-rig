@@ -602,18 +602,24 @@ def _experiment_with_cells(photos: int) -> dict:
     experiment = captures.start_experiment(captures.create_experiment(name="Many cells")["id"])
     locations = list(TABLE_CENTRES)
     trays = {tray_id: locations[tray_id % len(locations)] for tray_id in range(12)}
-    cells = [{"cell": f"{column}{row}", "holds": "plant", "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4,
-              "plant_px": 1205, "area_mm2": 120.5, "plant_centre_px": None, "over_other_cells": False,
-              "segmenter": "green threshold, 0.1", "cell_rule": "rule", "grown_plant_px": 1802,
-              "grown_area_mm2": 180.2, "grown_plant_centre_px": None, "grown_over_other_cells": False}
-             for column in "ABCD" for row in range(1, 6)]
+    def cells(k: int, tray_id: int) -> list[dict]:
+        # Areas that differ from cell to cell and photo to photo, as plants' do: lines that repeat
+        # exactly would zip to almost nothing.
+        return [{"cell": f"{column}{row}", "holds": "plant", "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4,
+                 "plant_px": 1205, "area_mm2": round(100 + (k * 7919 + tray_id * 104729 + i * 1299709) % 9973 / 10, 1),
+                 "plant_centre_px": None, "over_other_cells": False, "segmenter": "green threshold, 0.1",
+                 "cell_rule": "rule", "grown_plant_px": 1802,
+                 "grown_area_mm2": round(150 + (k * 6113 + tray_id * 7727 + i * 15485863) % 9967 / 10, 1),
+                 "grown_plant_centre_px": None, "grown_over_other_cells": False}
+                for i, (column, row) in enumerate((c, r) for c in "ABCD" for r in range(1, 6))]
+
     start = datetime(2026, 10, 2, tzinfo=UTC) - timedelta(days=photos)  # one day per experiment, unique paths, before the export
     for k in range(photos):
         path = table_photo(experiment["id"], start + timedelta(minutes=k), trays, areas=dict.fromkeys(trays, 900.0))
         capture_id = database.captures_by_path([path])[path]["id"]
         read = database.tray_readings(capture_id)["trays"]
         for tray in read:
-            tray["cells"] = cells
+            tray["cells"] = cells(k, tray["tray_id"])
         database.record_tray_readings(capture_id, read_at="t", status="read", trays=read)
     return captures.stop_experiment(experiment["id"])
 
@@ -642,3 +648,40 @@ def test_the_data_parts_memory_does_not_grow_with_the_number_of_photos() -> None
     many = _data_part_peak_bytes(100)
     few = _data_part_peak_bytes(25)
     assert many < 2 * few, (few, many)
+
+
+def test_while_the_data_part_downloads_its_status_says_how_many_photos_are_done() -> None:
+    """#430: experiment 18's data part took 11 minutes with no sign of life on the page. While it
+    is made, the export's status gives the photos done out of all of them, for the page to show;
+    before and after, none."""
+    experiment = _experiment_with_cells(40)
+    client = _client()
+    export = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False}).json()
+    assert client.get(f"/api/exports/{export['id']}").json()["parts"][0]["making"] is None
+    seen = []
+    # The download through exports.part_download: the test client would only return it whole.
+    _name, _length, chunks = exports.part_download(export["id"], 0)
+    for _chunk in chunks:
+        seen.append(client.get(f"/api/exports/{export['id']}").json()["parts"][0]["making"])
+    during = [s for s in seen if s is not None]
+    assert {s["photos"] for s in during} == {40}
+    assert any(0 < s["photos_done"] < 40 for s in during)
+    assert client.get(f"/api/exports/{export['id']}").json()["parts"][0]["making"] is None
+
+
+def test_the_data_part_is_sent_while_it_is_made_not_at_the_end() -> None:
+    """#430: on production the download sat at 721 kB for minutes, then took the cell lines all at
+    once at the end. They are sent as they are made: by the time half the photos are done, at
+    least a third of the part has been sent."""
+    experiment = _experiment_with_cells(100)
+    client = _client()
+    export = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False}).json()
+    _name, _length, chunks = exports.part_download(export["id"], 0)
+    sent, at_half = 0, None
+    for chunk in chunks:
+        sent += len(chunk)
+        making = client.get(f"/api/exports/{export['id']}").json()["parts"][0]["making"]
+        if at_half is None and making is not None and making["photos_done"] >= 50:
+            at_half = sent
+    assert at_half is not None
+    assert at_half >= sent / 3, (at_half, sent)

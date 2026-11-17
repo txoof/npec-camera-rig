@@ -600,8 +600,13 @@
         return;
       }
       const started = (partsStarted[exportId] ||= new Set());
+      // Part 0 is made while it downloads (#430): while it is, the rig says how many photos are
+      // done, so the page shows it moving; the browser can not, as its size is not known ahead.
+      const preparing = (p) => (p.making ? `${Math.floor(100 * p.making.photos_done / Math.max(1, p.making.photos))}%` : null);
       const status = (p) => (p.sent
         ? { word: "&#10003; Downloaded", look: "background: #1f3d2b; border: 2px solid #3fb950" }
+        : preparing(p)
+          ? { word: `&#8987; Preparing ${preparing(p)}`, look: "background: #3d3416; border: 2px solid #d29922" }
         : started.has(p.n)
           ? { word: "&#8675; Started", look: "background: #3d3416; border: 2px solid #d29922" }
           : { word: "", look: "background: #333; border: 2px solid #666" });
@@ -610,9 +615,15 @@
         const st = status(p);
         return `<a href="/api/exports/${x.id}/parts/${p.n}" download data-part="${p.n}"`
           + ` style="display: flex; align-items: center; justify-content: space-between; min-height: 64px; margin-bottom: 24px; padding: 0 16px; text-decoration: none; color: #eee; border-radius: 6px; ${st.look}">`
-          + `<span>Part ${p.n}: ${what}, ${size(p.bytes)}</span><strong style="white-space: nowrap; margin-left: 16px">${st.word}</strong></a>`;
+          + `<span>Part ${p.n}: ${what}, ${size(p.bytes)}</span><strong style="white-space: nowrap; margin-left: 16px">${st.word}</strong></a>`
+          + (p.making ? `<p style="margin: -12px 0 24px">${makingText(p.making)}</p>` : "");
       };
-      const zero = x.data ? " Part 0 takes about half a minute to start: the data is put together first." : "";
+      const makingText = (m) => {
+        const left = m.seconds_left === null ? ""
+          : m.seconds_left < 60 ? ", less than a minute left" : `, about ${Math.round(m.seconds_left / 60)} minutes left`;
+        return `Preparing data: ${m.photos_done.toLocaleString("en-US")} of ${m.photos.toLocaleString("en-US")} photos${left}.`;
+      };
+      const zero = x.data ? " Part 0 is put together while it downloads: this window shows how far it is." : "";
       const render = () => {
         const done = x.parts.filter((p) => p.sent).length;
         return `<p>${x.parts.length} parts, <strong>${done} downloaded</strong>. Download each one and unzip them all `
