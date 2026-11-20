@@ -43,12 +43,15 @@ def test_gallery_thumb_and_screen_are_reduced_copies_made_once() -> None:
     import io
 
     client = TestClient(app)
-    path = client.post("/capture").json()["path"]
+    record = client.post("/capture").json()
+    path = record["path"]
     thumb = client.get(f"/gallery/image/thumb/{path}")
     screen = client.get(f"/gallery/image/screen/{path}")
     assert thumb.status_code == screen.status_code == 200
     assert thumb.headers["content-type"] == "image/jpeg"
-    original = client.get(client.get("/api/captures", params={"limit": 1}).json()[0]["url"]).content
+    # This photo's own original, not the newest in the gallery: the photo folder is shared by
+    # every test in the worker process, so an earlier test may have left a later-dated photo.
+    original = client.get(record["url"]).content
     full_width = Image.open(io.BytesIO(original)).width
     assert Image.open(io.BytesIO(thumb.content)).width == min(480, full_width)
     assert Image.open(io.BytesIO(screen.content)).width == min(1600, full_width)

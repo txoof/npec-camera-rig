@@ -387,7 +387,7 @@ def test_a_4x5_tray_with_its_tag_at_the_south_west_has_a1_there_and_d5_at_the_no
     assert cells["B3"].centre == pytest.approx((2176.5, 2330.0))
     assert cells["D1"].centre == pytest.approx((3570.5, 3724.0))
     # The opening, 595 px square, around A1's centre.
-    assert sorted(cells["A1"].corners) == pytest.approx(sorted([(1182.0, 3426.5), (1777.0, 3426.5), (1777.0, 4021.5), (1182.0, 4021.5)]))
+    assert _flat(cells["A1"].corners) == pytest.approx(_flat([(1182.0, 3426.5), (1777.0, 3426.5), (1777.0, 4021.5), (1182.0, 4021.5)]))
     assert cells["A1"].holds == "tag"
     assert {c.holds for n, c in cells.items() if n != "A1"} == {"plant"}
 
