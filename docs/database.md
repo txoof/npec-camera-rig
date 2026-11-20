@@ -525,6 +525,9 @@ part was sent to its last byte.
 | Column | Type | Meaning |
 |---|---|---|
 | `export.photo_parts` | integer | How many photo parts the export has (0 with Photos not ticked). NULL for exports stored on the rig before version 23, which are one zip in `file` |
+| `export.finished_at` | text | NULL while part 0 is made, UTC once it is ready (#437). At most one export on the rig has NULL |
+| `export.file`, `export.bytes` | text, integer | Since #437: part 0, built in the background when the export is made, at `experiments/<folder>/exports/<name>_part00.zip`, and its size. Deleted when a newer export of the experiment is ready, then a download of it asks for a new export |
+| `export.error` | text | Why it did not finish: `it was stopped` (Stop tapped), or the app restarted while it was made |
 | `export_part_sent.export_id` | integer | The export |
 | `export_part_sent.part` | integer | The part, 0 to `photo_parts` |
 | `export_part_sent.sent_at` | text | When its last byte was handed to the network, UTC. A part downloaded twice has two rows; a download broken off has none |

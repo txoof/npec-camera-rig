@@ -1,7 +1,6 @@
 import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -18,7 +17,7 @@ from npec_rig.calibration_store import (
 )
 from npec_rig.camera import CameraFaultError, CameraManager
 from npec_rig.captures import experiments_root, photos_root, record_app_start, record_app_stop
-from npec_rig import database, images, tags
+from npec_rig import exports, images, tags
 from npec_rig.photo_tags import CaptureNotFoundError, CaptureRefError, FrameMissingError
 from npec_rig.validation import RoundNotFoundError, ValidationRefusedError
 from npec_rig.scheduler import Scheduler
@@ -44,7 +43,7 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # The gap since the last tick is measured at start, before any photo (captures.py).
     record_app_start()
     # An export cut off by the previous stop can never finish (exports.py).
-    database.fail_unfinished_exports(now=datetime.now(timezone.utc).isoformat())
+    exports.fail_unfinished_exports()
     photo_scheduler = Scheduler()
     photo_scheduler.start()
     # Reads each photo for its trays after it is saved (#222).

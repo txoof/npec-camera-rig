@@ -477,11 +477,14 @@ def photo_readings(path: str) -> dict | None:
     return capture_readings(record)
 
 
-def capture_readings(capture: dict) -> dict | None:
-    """`photo_readings` for a photo whose rig.db row `capture` is already at hand."""
-    readings = database.tray_readings(capture["id"])
+def capture_readings(capture: dict, *, history: bool = True, locations: dwell.LocationFinder | None = None) -> dict | None:
+    """`photo_readings` for a photo whose rig.db row `capture` is already at hand. `history` False
+    leaves out the trays not found and moved since earlier photos (`database.tray_readings`), and
+    `locations` is one finder kept for many photos: an export of every photo needs neither the
+    history nor a new finder per photo (#437)."""
+    readings = database.tray_readings(capture["id"], history=history)
     if readings is not None:
-        locations = dwell.LocationFinder()
+        locations = locations or dwell.LocationFinder()
         for tray in readings["not_found"]:
             seen_in = tray.pop("seen_in")
             tray["location"] = locations.location(seen_in["path"], seen_in["calibration"], seen_in["centre_px"])

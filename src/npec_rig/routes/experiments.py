@@ -173,14 +173,19 @@ def api_export(export_id: int) -> dict:
     return _experiment_action(exports.export_with_parts, export_id)
 
 
+@router.post("/api/exports/{export_id}/stop")
+def api_stop_export(export_id: int) -> dict:
+    """Stop building an export's data file (#437): it ends within one photo, marked stopped, and
+    no part-built file is left."""
+    return _experiment_action(exports.stop_export, export_id)
+
+
 @router.get("/api/exports/{export_id}/parts/{n}")
 def api_export_part(export_id: int, n: int) -> Response:
-    """One part of an export, zipped while it downloads, with its exact size so the browser shows
-    progress (#368); part 0 without one, as its size is known only once it is made (#430)."""
+    """One part of an export with its exact size, so the browser shows progress (#368): part 0
+    from the file built when the export was made (#437), a photo part zipped while it downloads."""
     filename, length, body = _experiment_action(exports.part_download, export_id, n)
-    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
-    if length is not None:
-        headers["Content-Length"] = str(length)
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"', "Content-Length": str(length)}
     return StreamingResponse(body, media_type="application/zip", headers=headers)
 
 

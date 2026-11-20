@@ -330,3 +330,20 @@ def banded_validation(session_id: str, bands: dict[str, tuple[tuple[float, float
     validation_store.refresh_results(session)
     validation_store.save_session(session)
     return session
+
+
+def export_built(client, experiment_id: int, choice: dict | None = None, timeout_s: float = 60) -> dict:
+    """Export through the page's route and wait, as the page does, until its data file is built
+    in the background (#437): the export with its parts."""
+    import time
+
+    started = client.post(f"/api/experiments/{experiment_id}/export", json=choice)
+    assert started.status_code == 200, started.text
+    export_id = started.json()["id"]
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        export = client.get(f"/api/exports/{export_id}").json()
+        if export["finished_at"]:
+            return export
+        time.sleep(0.02)
+    raise AssertionError(f"export {export_id} not built in {timeout_s} s")

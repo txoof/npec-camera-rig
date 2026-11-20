@@ -2,15 +2,21 @@ import pytest
 
 from npec_rig import captures, database, exclusions, exports
 from npec_rig.database import ExperimentError
+from tests.helpers import export_built
 
 pytestmark = pytest.mark.unit
 
 
 @pytest.fixture(autouse=True)
-def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path):
     monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
     monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
     monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+    yield
+    # No export build outlives its test (#437): it would write into the next test's folders.
+    from npec_rig import exports
+
+    exports.fail_unfinished_exports()
 
 
 def _stopped(name: str | None = "Drought", photos: int = 1) -> dict:
@@ -28,7 +34,7 @@ def _exported(experiment: dict) -> dict:
     from npec_rig.app import app
 
     client = TestClient(app)
-    export = client.post(f"/api/experiments/{experiment['id']}/export").json()
+    export = export_built(client, experiment['id'])
     for part in export["parts"]:
         assert client.get(f"/api/exports/{export['id']}/parts/{part['n']}").status_code == 200
     return database.get_export(export["id"])
@@ -174,8 +180,8 @@ def test_a_data_only_export_is_not_complete(monkeypatch: pytest.MonkeyPatch) -> 
 
     experiment = _stopped()
     client = TestClient(app)
-    started = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False})
-    assert client.get(f"/api/exports/{started.json()['id']}/parts/0").status_code == 200
+    started = export_built(client, experiment["id"], {"data": True, "photos": False})
+    assert client.get(f"/api/exports/{started['id']}/parts/0").status_code == 200
     refused = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
     assert refused.status_code == 409
     assert "no complete export" in refused.json()["detail"]

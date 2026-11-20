@@ -8,7 +8,7 @@ import pytest
 
 from npec_rig import captures, database, exports
 from npec_rig.database import ExperimentError
-from tests.helpers import stored_validation
+from tests.helpers import export_built, stored_validation
 
 pytestmark = pytest.mark.unit
 
@@ -17,10 +17,15 @@ _SESSION = "20261009T100000000000"
 
 
 @pytest.fixture(autouse=True)
-def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path):
     monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
     monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
     monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+    yield
+    # No export build outlives its test (#437): it would write into the next test's folders.
+    from npec_rig import exports
+
+    exports.fail_unfinished_exports()
 
 
 def _calibrated_with_validation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -56,9 +61,7 @@ def _unzipped(experiment_id: int, choice: dict | None = None) -> tuple[dict, dic
     """Export through the page's route, download every part and unzip them into one folder, as
     the README says: the export with its parts, and every file by its name in that folder."""
     client = _client()
-    started = client.post(f"/api/experiments/{experiment_id}/export", json=choice)
-    assert started.status_code == 200, started.text
-    export = started.json()
+    export = export_built(client, experiment_id, choice)
     files: dict[str, bytes] = {}
     for part in export["parts"]:
         with zipfile.ZipFile(io.BytesIO(client.get(f"/api/exports/{export['id']}/parts/{part['n']}").content)) as zf:
@@ -142,9 +145,7 @@ def test_an_export_cut_off_by_a_restart_is_marked_failed() -> None:
 def test_export_and_download_through_the_page_routes() -> None:
     experiment = _stopped_experiment_with_photos(1)
     client = _client()
-    started = client.post(f"/api/experiments/{experiment['id']}/export")
-    assert started.status_code == 200
-    export = started.json()
+    export = export_built(client, experiment["id"])
     assert export["finished_at"] is not None and export["error"] is None
     listed = {e["id"]: e for e in client.get("/api/experiments").json()}
     assert listed[experiment["id"]]["export"]["id"] == export["id"]
@@ -165,7 +166,7 @@ def test_the_export_name_starts_with_the_experiment_name() -> None:
     assert exports.slugify("x" * 60) == "x" * 40
 
     experiment = _stopped_experiment_with_photos(0)
-    export = _client().post(f"/api/experiments/{experiment['id']}/export").json()
+    export = export_built(_client(), experiment['id'])
     part = _client().get(f"/api/exports/{export['id']}/parts/0")
     assert f'filename="drought_{experiment["folder"]}_export_' in part.headers["content-disposition"]
     assert part.headers["content-disposition"].endswith('_part00.zip"')
@@ -174,7 +175,7 @@ def test_the_export_name_starts_with_the_experiment_name() -> None:
 def test_an_unnamed_experiment_exports_under_its_folder_name() -> None:
     experiment = captures.start_experiment(captures.create_experiment()["id"])
     experiment = captures.stop_experiment(experiment["id"])
-    export = _client().post(f"/api/experiments/{experiment['id']}/export").json()
+    export = export_built(_client(), experiment['id'])
     part = _client().get(f"/api/exports/{export['id']}/parts/0")
     assert f'filename="{experiment["folder"]}_export_' in part.headers["content-disposition"]
 
@@ -430,7 +431,7 @@ def test_the_expected_sizes_are_the_right_order_of_magnitude() -> None:
                                ({"data": False, "photos": True}, "photos_bytes", None)):
         # The size of the download, the zips as they come down: the CSVs in part 0 are compressed
         # about 8 times (export 4 on npec-rig-01, 2026-11-06: 6.2 MB of files, a 756 kB zip).
-        export = client.post(f"/api/experiments/{experiment['id']}/export", json=choice).json()
+        export = export_built(client, experiment['id'], choice)
         numbers = parts if parts is not None else [p["n"] for p in export["parts"] if p["n"] >= 1]
         made = sum(len(client.get(f"/api/exports/{export['id']}/parts/{n}").content) for n in numbers)
         assert made / 3 <= expected[key] <= made * 3, (key, expected[key], made)
@@ -497,7 +498,7 @@ def test_an_export_lists_its_parts_each_under_the_part_size(monkeypatch: pytest.
     experiment = _stopped_experiment_with_photos(5)
     sizes = _photo_bytes(experiment)
     monkeypatch.setattr(exports, "PART_BYTES", 2 * max(sizes))
-    export = _client().post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": True}).json()
+    export = export_built(_client(), experiment['id'], {"data": True, "photos": True})
     parts = export["parts"]
     assert [p["n"] for p in parts] == list(range(len(parts)))
     assert parts[0]["photos"] == 0
@@ -509,22 +510,17 @@ def test_an_export_lists_its_parts_each_under_the_part_size(monkeypatch: pytest.
 
 def test_each_part_announces_its_exact_size(monkeypatch: pytest.MonkeyPatch) -> None:
     """B2: the browser shows progress from Content-Length (Aaron tried Chrome and Firefox,
-    2026-11-06), so a photo part's must equal what is sent, and the parts list gives the same
-    size. Part 0 is made while it is sent (#430), so its size is not known ahead: it is sent
-    without one and still arrives whole."""
+    2026-11-06), so a part's must equal what is sent, and the parts list gives the same size.
+    Part 0 is built before it is downloaded (#437), so it has one too."""
     experiment = _stopped_experiment_with_photos(3)
     monkeypatch.setattr(exports, "PART_BYTES", max(_photo_bytes(experiment)))
     client = _client()
-    export = client.post(f"/api/experiments/{experiment['id']}/export").json()
+    export = export_built(client, experiment['id'])
     for part in export["parts"]:
         got = client.get(f"/api/exports/{export['id']}/parts/{part['n']}")
         assert got.status_code == 200, part["n"]
-        if part["n"] == 0:
-            assert "content-length" not in got.headers
-            assert zipfile.ZipFile(io.BytesIO(got.content)).testzip() is None
-        else:
-            assert int(got.headers["content-length"]) == len(got.content), part["n"]
-            assert part["bytes"] == len(got.content)
+        assert int(got.headers["content-length"]) == len(got.content), part["n"]
+        assert part["bytes"] == len(got.content)
 
 
 def test_a_running_experiments_parts_stay_the_same_as_photos_come(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -535,7 +531,7 @@ def test_a_running_experiments_parts_stay_the_same_as_photos_come(monkeypatch: p
         _array, _record = captures.take_photo("capture")
     monkeypatch.setattr(exports, "PART_BYTES", max(_photo_bytes(experiment)))
     client = _client()
-    export = client.post(f"/api/experiments/{experiment['id']}/export").json()
+    export = export_built(client, experiment['id'])
     first = client.get(f"/api/exports/{export['id']}/parts/2").content
     for _ in range(3):
         _array, _record = captures.take_photo("capture")
@@ -553,7 +549,7 @@ def test_purge_needs_every_photo_part_sent_in_full(monkeypatch: pytest.MonkeyPat
     experiment = _stopped_experiment_with_photos(2)
     monkeypatch.setattr(exports, "PART_BYTES", max(_photo_bytes(experiment)))
     client = _client()
-    export = client.post(f"/api/experiments/{experiment['id']}/export").json()
+    export = export_built(client, experiment['id'])
     assert [p["n"] for p in export["parts"]] == [0, 1, 2]
     client.get(f"/api/exports/{export['id']}/parts/1")
     _name, _length, body = exports.part_download(export["id"], 2)
@@ -628,12 +624,9 @@ def _data_part_peak_bytes(photos: int) -> int:
     import tracemalloc
 
     experiment = _experiment_with_cells(photos)
-    export = exports.start_export(experiment["id"], data=True, photos=False)
     tracemalloc.start()
     try:
-        _name, _length, chunks = exports.part_download(export["id"], 0)
-        for _chunk in chunks:
-            pass
+        export_built(_client(), experiment["id"], {"data": True, "photos": False})
         return tracemalloc.get_traced_memory()[1]
     finally:
         tracemalloc.stop()
@@ -650,38 +643,83 @@ def test_the_data_parts_memory_does_not_grow_with_the_number_of_photos() -> None
     assert many < 2 * few, (few, many)
 
 
-def test_while_the_data_part_downloads_its_status_says_how_many_photos_are_done() -> None:
-    """#430: experiment 18's data part took 11 minutes with no sign of life on the page. While it
-    is made, the export's status gives the photos done out of all of them, for the page to show;
-    before and after, none."""
+def test_export_answers_at_once_and_builds_the_data_file_in_the_background() -> None:
+    """#437: on production the data part was built only while the page downloaded it, 38 minutes
+    with the tab open. Export answers at once with the export being built and how far it is; the
+    page may be closed; the file is there to download when it is done."""
     experiment = _experiment_with_cells(40)
     client = _client()
     export = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False}).json()
-    assert client.get(f"/api/exports/{export['id']}").json()["parts"][0]["making"] is None
+    assert export["finished_at"] is None
     seen = []
-    # The download through exports.part_download: the test client would only return it whole.
-    _name, _length, chunks = exports.part_download(export["id"], 0)
-    for _chunk in chunks:
-        seen.append(client.get(f"/api/exports/{export['id']}").json()["parts"][0]["making"])
+    while not (status := client.get(f"/api/exports/{export['id']}").json())["finished_at"]:
+        seen.append(status["parts"][0]["making"])
+        time.sleep(0.01)
     during = [s for s in seen if s is not None]
     assert {s["photos"] for s in during} == {40}
     assert any(0 < s["photos_done"] < 40 for s in during)
-    assert client.get(f"/api/exports/{export['id']}").json()["parts"][0]["making"] is None
+    assert status["error"] is None
+    assert status["parts"][0]["making"] is None
+    part = client.get(f"/api/exports/{export['id']}/parts/0")
+    assert part.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(part.content)) as zf:
+        rows = zf.read(next(n for n in zf.namelist() if n.endswith("cell-readings.csv"))).decode().splitlines()
+    assert len(rows) == 1 + 40 * 12 * 20
 
 
-def test_the_data_part_is_sent_while_it_is_made_not_at_the_end() -> None:
-    """#430: on production the download sat at 721 kB for minutes, then took the cell lines all at
-    once at the end. They are sent as they are made: by the time half the photos are done, at
-    least a third of the part has been sent."""
+def test_export_again_while_the_data_file_is_built_returns_that_build() -> None:
+    """#437: on production a second tap of Export started a second build beside the first, and
+    both went at half speed. While one is built, Export again returns that one; another
+    experiment's export waits for it to finish; until it is done, part 0 is not ready."""
+    experiment = _experiment_with_cells(60)
+    other = _stopped_experiment_with_photos(1)
+    client = _client()
+    first = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False}).json()
+    again = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False})
+    elsewhere = client.post(f"/api/experiments/{other['id']}/export", json={"data": True, "photos": False})
+    early = client.get(f"/api/exports/{first['id']}/parts/0")
+    assert again.status_code == 200
+    assert again.json()["id"] == first["id"]
+    assert elsewhere.status_code == 409
+    assert "being prepared" in elsewhere.json()["detail"]
+    assert early.status_code == 409
+    assert "being prepared" in early.json()["detail"]
+    assert [e["id"] for e in database.exports_for(experiment["id"])] == [first["id"]]
+
+
+def _experiment_files(experiment: dict) -> set[str]:
+    folder = captures.experiments_root() / experiment["folder"]
+    return {str(p.relative_to(folder)) for p in folder.rglob("*") if p.is_file() and "/stills/" not in f"/{p.relative_to(folder)}"}
+
+
+def test_stop_ends_the_build_and_leaves_no_file() -> None:
+    """#437: Cancel in the browser left production building for half an hour, and only a
+    restart ended it. Stop ends the build, the export says it was stopped, and no part-built file
+    is left on the card."""
     experiment = _experiment_with_cells(100)
+    before = _experiment_files(experiment)
     client = _client()
     export = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False}).json()
-    _name, _length, chunks = exports.part_download(export["id"], 0)
-    sent, at_half = 0, None
-    for chunk in chunks:
-        sent += len(chunk)
-        making = client.get(f"/api/exports/{export['id']}").json()["parts"][0]["making"]
-        if at_half is None and making is not None and making["photos_done"] >= 50:
-            at_half = sent
-    assert at_half is not None
-    assert at_half >= sent / 3, (at_half, sent)
+    stopped = client.post(f"/api/exports/{export['id']}/stop")
+    assert stopped.status_code == 200
+    status = client.get(f"/api/exports/{export['id']}").json()
+    assert status["finished_at"] is not None
+    assert status["error"] == "it was stopped"
+    assert _experiment_files(experiment) == before
+    assert client.get(f"/api/exports/{export['id']}/parts/0").status_code == 409
+    # The rig is free for the next export.
+    assert export_built(client, experiment["id"], {"data": True, "photos": False})["error"] is None
+
+
+def test_a_build_cut_off_by_a_restart_shows_as_failed_and_leaves_no_file() -> None:
+    """#437: a restart while the data file is built ends the build. At the next start the export
+    is marked failed, never left as being made, and no part-built file is left."""
+    experiment = _experiment_with_cells(100)
+    before = _experiment_files(experiment)
+    client = _client()
+    export = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False}).json()
+    assert exports.fail_unfinished_exports() == 1
+    status = client.get(f"/api/exports/{export['id']}").json()
+    assert status["finished_at"] is not None
+    assert status["error"].startswith("the app restarted")
+    assert _experiment_files(experiment) == before
