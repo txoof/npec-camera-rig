@@ -506,3 +506,18 @@ def test_a_tray_taken_away_and_back_in_the_same_location_is_not_a_move_on_the_pa
     page = client.get(f"/experiments/{experiment['id']}/table-locations")
     assert page.status_code == 200
     assert "NW to NW" not in page.text
+
+
+def test_the_experiments_page_has_one_data_button_per_experiment_in_place_of_the_export_buttons() -> None:
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    page = TestClient(app).get("/experiments").text
+
+    # The rows are drawn by the page's script: its buttons are named in it (#454).
+    assert 'button("data", "Data")' in page
+    assert 'button("export"' not in page
+    assert 'button("parts"' not in page
+    assert "Data export" not in page
+    assert "/api/exports/${x.id}/download" not in page
