@@ -122,6 +122,17 @@ search output, in context.
 **Check-ins.** Between the ends of rounds, show progress as a picture or table in `~/scratch`
 with 2 or 3 lines on what to look at, then wait for Aaron before going on (PLAN.md, *Rounds*).
 
+**Leave each check-in resumable from GitHub.** The controller has gone down several times, and a
+session cannot be resumed on another box. So at each check-in, before waiting for Aaron:
+
+1. Push the task's branch, work-in-progress commits allowed. A push with no PR open sends no
+   email.
+2. Edit a short *State* section at the end of the issue body: what is done, what is next, and
+   the decisions Aaron made in the session. Edit the body, do not comment: edits send no email.
+
+A new session anywhere then resumes from "resume #N": read the issue, check out the branch. A
+task finished in one sitting needs neither (Aaron, 2026-11-20, #455).
+
 **Pictures for Aaron.** Put them on the controller in `~/scratch/<branch>/` and link them as
 `http://testpi-02:8001/<branch>/<file>`. That is the one scratch viewer (`imgview.service`, from
 `~/ansible-npec`, `docs/12-scratch-viewer.md`); never start another one (Aaron, 2026-11-06).
