@@ -1,4 +1,4 @@
-"""Dark limit against the camera's auto-exposure state (#293, metrology log 42). Read only.
+"""Dark limit against the camera's auto-exposure state (#293, metrology log 43). Read only.
 
 Photos without a state (the fallback's photos), and on photos with one: state against E = exposure x
 gain at the 200,000 limit, and the E bands of photos not searching.

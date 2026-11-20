@@ -1,5 +1,5 @@
 """Each photo the camera called searching with E under 200,000, with the photos within N minutes
-of it: [state E exclusion A=summed grow-from-leaf-cores area], * marks the photo (#293, log 42).
+of it: [state E exclusion A=summed grow-from-leaf-cores area], * marks the photo (#293, log 43).
 Read only.
 
     python3 dark_neighbours.py RIG_DB MINUTES

@@ -17,7 +17,7 @@ from npec_rig import database
 # auto-exposure ceiling (64 ms at gain 4.0, about 256,000), against under 10,000 lit (experiments
 # 16 and 18, metrology log 17.7). A decision (#288); on 18,067 photos with a state it marked the
 # same photos dark as the camera, and the 27 it would call lit are left out as light changing
-# (metrology log 42, #293). Newer photos use the camera's own state.
+# (metrology log 43, #293). Newer photos use the camera's own state.
 LIGHTS_OFF_E = 200_000
 
 # Visits: someone at the table, a whole photo left out (metrology log 17.9). Also every photo with

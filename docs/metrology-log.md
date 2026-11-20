@@ -5649,9 +5649,9 @@ is shown as "under 100" in the gallery. Reported with each area, never subtracte
 empty trays read 27 to 78 mm² (median per tray and day) and at most 98 mm² outside shuffle 1.
 *Limits:* one run, trays 9 to 12; one value for every tray and slot.
 
-*Dark limit checked in section 42 (#293, 2026-11-20): kept as the fallback for photos without the camera's auto-exposure state; it agrees with that state.*
+*Dark limit checked in section 43 (#293, 2026-11-20): kept as the fallback for photos without the camera's auto-exposure state; it agrees with that state.*
 
-*Floor checked in section 41 (#293, 2026-11-20): grow from leaf cores, the default method since #373, needs no floor (soil-only trays read at most 64 mm² in any photo, two soils). The 100 mm² stays for the fixed green cutoff, on production's soil only.*
+*Floor checked in section 42 (#293, 2026-11-20): grow from leaf cores, the default method since #373, needs no floor (soil-only trays read at most 64 mm² in any photo, two soils). The 100 mm² stays for the fixed green cutoff, on production's soil only.*
 
 ### 17.8 Light exclusions: how far the light moves (method written 2026-10-26, before the data was read)
 
@@ -10214,6 +10214,87 @@ proposed level would have flagged only the jumps of point 2. Green soil and alga
 scripts in `experiments/373-soil-green/code/`. The photos stay in experiment 18's folder on
 `ac-testing`.
 
+### 39.2 The floor cutoff on the other flagged plant trays, checked by eye (2026-11-20)
+
+**Label: development check**, by eye, one observer (Aaron). **The method was agreed in conversation
+on the day and written here after the check**, not before it, a departure from this log's rule.
+
+**Question.** Before a Reprocess of experiment 18 on production (#444): on the plant trays other
+than tray 1, does the floor cutoff that #373 uses when the soil is hidden mark the plants, and only
+the plants?
+
+**Selection.** The readings a Reprocess would grow again from the photo (soil level in the top bin,
+cutoff above the floor), counted on production's `rig.db` through a read-only connection on
+2026-11-20, version 6fa155a:
+
+| Tray | Readings | First to last (UTC) | What the tray holds |
+|---|---|---|---|
+| 1 | 3,586 | 9 to 16 Nov | plants under mats, 39.1 |
+| 3, 4, 5, 6 | 7, 2, 5, 1 | 15 to 17 Nov | plants under mats, **checked here** |
+| 7, 8, 10 | 4, 7,284, 12 | 22 Oct to 17 Nov | benchmark objects and empty trays, no soil (section 19); not checked |
+| no tag | 64 | 22 Oct to 16 Nov | not checked |
+
+Of the 15 checked readings, 3 are counted in the plant areas (tray 5, 16 November 16:01, 17:21 and
+18:03 UTC). The other 12 are left out for light ("lights off" or "light changing", the exclusion
+table, #382).
+
+**Method.** Each photo was copied from production and its tray cut out by the saved outline. Grow
+from leaf cores was run on it at this version with the floor (-0.045) as the lower cutoff, and the
+plant drawn in magenta beside the photo (`draw_check.py`). The 15 pictures were put on one page, one
+numbered section each. For each section Aaron answered one question in the chat, the same words as on
+the page: "Is the magenta on the plants only, and on the whole of each plant?", choosing "Yes",
+"Misses part of plants" or "Colours things that are not plants", and naming cells where he wished.
+No reference outline was drawn; how much leaf is missed was not measured.
+
+**Results.**
+
+- **Plants only: 14 of 15.** In section 11 (tray 3, 16 November 06:53 UTC, lights off, a very dark
+  photo) green test targets inside the tray outline were marked as well, and the plants barely.
+  No soil, mat, tray wall, tag or pin was marked in any section.
+- **Whole plants: 0 of 15.** Every section misses parts of leaves. Section 1 (tray 5, 16:01,
+  counted) "matches fairly well", with leaf borders missed in 3 cells. The other 14 miss more: where
+  cells were named, parts of 4 to 9 plants, and in tray 4 a whole plant (A5, in both of its photos);
+  sections 8, 9, 10 and 12 were answered "Misses part of plants" with no cells named. Aaron's words per section are in
+  `check_answers.csv`.
+- **Counts, the 3 counted readings.** Saved 100,715 to 105,872 plant px; with the floor 208,542 to
+  213,536 px, 2.0 to 2.1 times as many. Tray 5's photo one hour earlier (16 November 15:01 UTC,
+  photo 38345), whose soil was seen (-0.135) and whose cutoff was at the floor already, has 216,488
+  px; the three are 1.4% to 3.7% below it.
+- **Counts, the 12 readings left out for light.** With the floor 1.4 to 8.1 times the saved count.
+  The saved counts drawn again from the photo match the stored ones in 14 of 15; section 11 stores
+  42,389 px against 58,605 drawn again (not looked into).
+
+![Tray 5 at 16:01 UTC on 16 November: photo and the floor cutoff in magenta](figures/39/check-tray5-2026-11-16T1601.jpg)
+
+*Figure 39b. Section 1: tray 5, photo 38405 (2026-11-16 16:01 UTC, counted). Left, the photo;
+right, grow from leaf cores with the floor cutoff, plant in magenta, 213,536 px (saved: 100,715 px).
+Tray outline in red.*
+
+![Tray 3 at 06:53 UTC on 16 November, lights off](figures/39/check-tray3-2026-11-16T0653.jpg)
+
+*Figure 39c. Section 11: tray 3, photo 37857 (2026-11-16 06:53 UTC, lights off, left out for
+light). The plants are barely marked; green test targets in the outline are.*
+
+![Tray 4 at 08:01 UTC on 15 November, lights off](figures/39/check-tray4-2026-11-15T0801.jpg)
+
+*Figure 39d. Section 13: tray 4, photo 36485 (2026-11-15 08:01 UTC, lights off, left out for
+light). The plant in A5 is not marked at all; the others in part.*
+
+**What it shows.** On these photos the floor cutoff marks no soil, mat or tray, and on the 3
+counted tray 5 readings it brings the area to within 4% of the same tray an hour before, where the
+saved readings hold about half. It still misses parts of leaves on every photo, most in the dark ones
+left out for light, so it is better than the saved cutoff and not complete. A Reprocess as it is now
+would also grow trays 7, 8 and 10 again and move their benchmark numbers; a Reprocess limited to
+plant trays since the mats is issue #444.
+
+**Limits.** One observer, by eye, with no reference outline and no measure of how much is missed. 15
+photos of 4 trays over 3 days, 3 of them counted; one experiment on one rig. The question joins
+two (plants only, whole plants) and was answered as two.
+
+*Raw data.* `experiments/373-soil-green/data/` (`flagged_per_tray.txt`,
+`flagged_plant_readings.txt`, `check_answers.csv`); scripts `flagged_query.py` and `draw_check.py`
+in `experiments/373-soil-green/code/`. The photos stay in experiment 18's folder on `ac-testing`.
+
 ## 40. Soak: both rigs over the weekend of 14 and 15 November (issue #80, rule set 2026-11-20, before any count was read)
 
 **Label: development check.** Whether the app runs unattended for days: every scheduled photo taken
@@ -10303,7 +10384,7 @@ for a, b in [('2026-11-12T23:00', '2026-11-13T23:00'), ('2026-11-13T23:00', '202
 PY
 ```
 
-## 41. Soil-only trays by grow from leaf cores: is a floor needed? (issue #293, method written 2026-11-20, after the stored readings were first looked at)
+## 42. Soil-only trays by grow from leaf cores: is a floor needed? (issue #293, method written 2026-11-20, after the stored readings were first looked at)
 
 **Label: development check.** Section 17.7 set a floor of 100 mm² per tray for the fixed green
 cutoff: below it the Gallery shows "under 100", because an empty tray of experiment 18 read up to
@@ -10378,15 +10459,15 @@ stray readings may add to the plant's area instead of standing alone.
 
 *Figures.*
 
-- [`41/overview-dev-2026-11-19.jpg`](figures/41/overview-dev-2026-11-19.jpg): development at
+- [`42/overview-dev-2026-11-19.jpg`](figures/42/overview-dev-2026-11-19.jpg): development at
   18:55 UTC on 19 November, every tray outline the app stored, red for the two untagged soil
   trays (NW top left, SW bottom left), magenta for tagged trays. Made from capture 23505 scaled to
   0.12.
-- [`41/sw-tray-174mm2.jpg`](figures/41/sw-tray-174mm2.jpg): the SW tray in the same photo, which
+- [`42/sw-tray-174mm2.jpg`](figures/42/sw-tray-174mm2.jpg): the SW tray in the same photo, which
   read 174 mm²: the stored grow-from-leaf-cores mask in magenta, the stored outline in red.
   `code/overlay.py`, half size.
-- [`41/sw-holes-174mm2.jpg`](figures/41/sw-holes-174mm2.jpg) and
-  [`41/sw-holes-0mm2.jpg`](figures/41/sw-holes-0mm2.jpg): the two masked holes at full resolution,
+- [`42/sw-holes-174mm2.jpg`](figures/42/sw-holes-174mm2.jpg) and
+  [`42/sw-holes-0mm2.jpg`](figures/42/sw-holes-0mm2.jpg): the two masked holes at full resolution,
   without and with the mask, in the 174 mm² photo and the next one, 5 minutes later, which read 0
   mm². Crops 240 px wide picked by hand around the masked patches.
 
@@ -10394,7 +10475,7 @@ stray readings may add to the plant's area instead of standing alone.
 `production_exp18_trays9-12_per_day.csv` (from `code/soil_days.py`). Development's photos stay in
 experiment 4's folder on `npec-rig-01`, production's in experiment 18's on `ac-testing`.
 
-## 42. The dark limit against the camera's own auto-exposure state (issue #293, method written 2026-11-20, after the counts were first read)
+## 43. The dark limit against the camera's own auto-exposure state (issue #293, method written 2026-11-20, after the counts were first read)
 
 **Label: development check.** Section 17.7 set a dark limit: a photo whose exposure (µs) times
 analogue gain (E) is at least 200,000 is "lights off", a decision, not a measurement. Since #382
@@ -10405,7 +10486,7 @@ limit, and whether the limit agrees with the camera's state on the photos that h
 method was written after the counts had been read once on 2026-11-20.
 
 **Data.** Every `capture` taken as a capture on both rigs: production's `rig.db` through read-only
-queries over ssh (2026-11-20 about 13:30 UTC), development's from the read-only copy of section 41.
+queries over ssh (2026-11-20 about 13:30 UTC), development's from the read-only copy of section 42.
 `experiments/293-soil-floor/code/dark_limit.py`; each disagreeing photo with the photos either side
 of it from `code/dark_neighbours.py`.
 

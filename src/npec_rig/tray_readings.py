@@ -54,7 +54,7 @@ SEGMENTER: segmentation.Segmenter = segmentation.ExGSegmenter()
 # trays read up to 98 mm2 with the green threshold, mostly one light-blue mark per tray (metrology
 # log 17.4). Reported with each area, never subtracted (Aaron). A decision (#288) on production's
 # soil only. Grow from leaf cores has none: soil-only trays read at most 64 mm2 with it, on two
-# soils (metrology log 41, #293).
+# soils (metrology log 42, #293).
 FLOORS_MM2 = {"green threshold, 0.1": 100}
 
 # Each segmenter's method in words, for the page beside grow from leaf cores (#363).

@@ -1,0 +1,16 @@
+section,tray,taken_utc,photo_id,light,plant_px_saved,plant_px_floor,answer_aaron_2026_11_20
+1,5,2026-11-16 16:01,38405,counted,100715,213536,"Matches fairly well, there are some borders that are missed (B3, D3, D4,)"
+2,5,2026-11-16 17:21,38485,counted,105872,208542,"Misses some plant parts: D4, D5, A2, A3, A4, A5"
+3,5,2026-11-16 18:03,38527,counted,105241,208989,"Only leaves are colored, but some missed: B1, C1, D1, C3, A4"
+4,5,2026-11-17 00:26,38910,light changing,42591,164703,"Only on plants misses parts of C1, D1, D4, D5, A4, B3"
+5,5,2026-11-17 00:27,38911,light changing,33731,162296,"Only on plants, misses some leave parts: B1, C1, D1, A2, C3, C4, D4, D5, A5"
+6,3,2026-11-16 00:23,37467,light changing,47855,147734,"Only on plants, misses parts of B2, A3, D5, D4, D3, D2, D1"
+7,3,2026-11-16 00:24,37468,light changing,42597,147672,"only on plants, misses leaf parts: D1, C1, B2, A4, A5, D5"
+8,3,2026-11-16 00:25,37469,light changing,46667,147182,Misses part of plants
+9,3,2026-11-16 00:26,37470,light changing,41187,143535,Misses part of plants
+10,3,2026-11-16 00:27,37471,lights off,31387,139814,Misses part of plants
+11,3,2026-11-16 06:53,37857,lights off,42389,58716,Only green things are shaded magenta. This is a very dark photo. There are some green test targets in the view. Plants are barely shaded magenta. Targets are well shaded.
+12,3,2026-11-16 08:03,37927,light changing,28226,129265,Misses part of plants
+13,4,2026-11-15 08:01,36485,lights off,13038,75580,"Only on plants. Misses A5 entirely (corrected by Aaron: A1 is an AprilTag), the rest are only partially colored magenta"
+14,4,2026-11-16 08:01,37925,lights off,10655,86250,Only plants are magenta. Misses A5 entirely; the rest are only partially colored magenta.
+15,6,2026-11-17 00:28,38912,lights off,21338,154950,"Only plants are shaded magenta; misses significant portions of D1, D2, D4, D5 among others"
