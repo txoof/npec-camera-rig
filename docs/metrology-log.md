@@ -5649,7 +5649,9 @@ is shown as "under 100" in the gallery. Reported with each area, never subtracte
 empty trays read 27 to 78 mm² (median per tray and day) and at most 98 mm² outside shuffle 1.
 *Limits:* one run, trays 9 to 12; one value for every tray and slot.
 
-*Checked in section 41 (#293, 2026-11-20): grow from leaf cores, the default method since #373, needs no floor (soil-only trays read at most 64 mm² in any photo, two soils). The 100 mm² stays for the fixed green cutoff, on production's soil only.*
+*Dark limit checked in section 42 (#293, 2026-11-20): kept as the fallback for photos without the camera's auto-exposure state; it agrees with that state.*
+
+*Floor checked in section 41 (#293, 2026-11-20): grow from leaf cores, the default method since #373, needs no floor (soil-only trays read at most 64 mm² in any photo, two soils). The 100 mm² stays for the fixed green cutoff, on production's soil only.*
 
 ### 17.8 Light exclusions: how far the light moves (method written 2026-10-26, before the data was read)
 
@@ -10391,3 +10393,61 @@ stray readings may add to the plant's area instead of standing alone.
 *Raw data.* `experiments/293-soil-floor/data/development_nw_sw_per_day.csv` and
 `production_exp18_trays9-12_per_day.csv` (from `code/soil_days.py`). Development's photos stay in
 experiment 4's folder on `npec-rig-01`, production's in experiment 18's on `ac-testing`.
+
+## 42. The dark limit against the camera's own auto-exposure state (issue #293, method written 2026-11-20, after the counts were first read)
+
+**Label: development check.** Section 17.7 set a dark limit: a photo whose exposure (µs) times
+analogue gain (E) is at least 200,000 is "lights off", a decision, not a measurement. Since #382
+(section 29) the rig decides lights off from the camera's own auto-exposure state instead
+(`capture.ae_state`, "searching"), and the 200,000 is used only for photos saved before that state
+was recorded (`exclusions.LIGHTS_OFF_E`). This section asks how many photos still rest on the
+limit, and whether the limit agrees with the camera's state on the photos that have both. The
+method was written after the counts had been read once on 2026-11-20.
+
+**Data.** Every `capture` taken as a capture on both rigs: production's `rig.db` through read-only
+queries over ssh (2026-11-20 about 13:30 UTC), development's from the read-only copy of section 41.
+`experiments/293-soil-floor/code/dark_limit.py`; each disagreeing photo with the photos either side
+of it from `code/dark_neighbours.py`.
+
+**Results.**
+
+1. **Photos that rest on the limit.** On production, every photo before 09:21:53 UTC on 9 November:
+   27,872 photos, among them experiment 18 to that time (25,963) and experiment 16 (1,393). On
+   development, one photo (28 October). Every later photo uses the camera's state.
+2. **Agreement, on 18,067 photos with a state** (production 16,027, development 2,040):
+
+   | | E 200,000 or more | E under 200,000 |
+   |---|---|---|
+   | Camera searching (lights off) | 5,623 | 27 |
+   | Camera converged (steady) | 0 | 12,417 |
+
+   No steady photo came near the limit: the largest E of a steady photo was 73,064 on production
+   and 21,347 on development, against about 256,000 to 266,000 for the camera at its ceiling in the
+   dark.
+3. **The 27 photos the limit would have called lit.** 25 are the first photo of the nightly fade
+   (about 00:27 UTC on production, 00:25 on development) or the last of the morning one (about 08:02
+   on production), with E 76,806 to 199,377, between a lit neighbour (E 9,561 to 62,774) and a dark
+   one (E 231,729 to 265,860).
+   The other 2 (production, 10:18 UTC on 12 November and 10:15 on 20 November) lie in steady
+   bright light, E 3,221 and 1,974, between neighbours of slightly higher and lower E. In all 27 the
+   photo's E lies strictly between the E of the photos before and after it, so the light-changing
+   rule (section 29.2), which runs on old photos as well, marks them "light changing" when the limit
+   is used. Under either rule all 27 are left out.
+4. **Photos marked dark that hold an area.** Photos at E 230,000 to 258,000 in the morning fade
+   still find trays and read part of their area (for example 25,835 mm² against about 49,000 mm² a
+   few minutes later, 13 November). They are taken while the light rises and are left out by both
+   rules; no steady lit photo was marked dark.
+
+**Verdict.** The 200,000 limit is kept as the fallback for photos without a state. On the photos that
+have both, it marks the same photos dark as the camera, and where the two differ the light-changing
+rule leaves the photo out anyway, so photos taken before 9 November are counted the same way as
+later ones. Nothing changes in the code.
+
+**What it does and does not cover.** Two rigs, each with one light program (fades at night). Not
+covered: a light program with a dim steady level, where E could lie between the lit and the dark
+level for hours; with auto-exposure off the ceiling is never reached and the state is not
+"searching", so neither rule marks a dark photo. Researchers are not expected to turn auto-exposure
+off (Aaron, 2026-11-20); it stays a stated limit.
+
+*Raw data.* `experiments/293-soil-floor/data/dark_limit_production.txt`,
+`dark_limit_development.txt`, `dark_neighbours_production.txt`, `dark_neighbours_development.txt`.
