@@ -10586,3 +10586,139 @@ off (Aaron, 2026-11-20); it stays a stated limit.
 
 *Raw data.* `experiments/293-soil-floor/data/dark_limit_production.txt`,
 `dark_limit_development.txt`, `dark_neighbours_production.txt`, `dark_neighbours_development.txt`.
+
+## 44. A small neural network for plant pixels on the Hailo, against the reference set (issue #406, method written 2026-11-20, before any label is made or any network trained)
+
+**Label: development check.** Whether a small segmentation network, run on the Hailo of each rig,
+finds plant pixels as well as grow from leaf cores (33.1, 34) and more steadily, fast enough for
+every photo. The known answer is Aaron's checked masks on the rig's own photos, so this is not a
+reference comparison.
+
+**Why.** Grow from leaf cores and the fixed green cutoff both rest on greenness cutoffs set by hand.
+They fail on green soil and algae, trim leaves on blue mats (36), and move with watering (24, 33.1).
+Aaron wants a method that is not mainly rules (2026-11-10). Every photo must be read: researchers
+look for fast changes in area, which are hidden at 15 to 30 minute intervals. Only potato plants are
+available, so the network starts from one trained on many general images and is trained with
+brightness and colour varied on purpose, to cope with greens and light it has not seen.
+
+**Reference, unchanged from 33 and 34.** The 60 truth masks of
+`experiments/round3-classifier/data/truth/` (38 corrected by Aaron, 21 accepted drafts, A28 empty)
+and the split fixed in 33: production 17 train and 13 test, development 24 train and 6 test. The 15
+outlines of section 24, drawn from nothing, are the independent check. Yellow is not plant (#106).
+Every leaf in a crop counts, the neighbours' leaves too. *A known lean:* 21 truths are accepted
+drafts of grow from leaf cores, so the set favours that method; the 15 outlines do not.
+
+**Photos for training labels** (copied read-only on 2026-11-20 to the work machine, list with
+checksums in the raw data):
+- production experiment 18: one photo every 2 hours (350, of which 203 lit), the 19 source photos
+  of A01 to A30, and the steadiness run of 3 November, captures 19379 to 19439 (61 photos);
+- development experiment 4: one photo every 2 hours (86, of which 50 lit). The full photos of
+  development experiment 3 (B01 to B30) were purged on the rig on 13 November; only their crops in
+  the reference set remain, so development cells are used as crops.
+- production experiments 9 to 16: 19 photos without plants (tag sheets, empty trays, the printed
+  target), as not-plant examples.
+
+**Labels.** Three sources are scored first on the training cells only, with IoU and area ratio as
+below: grow from leaf cores, SAM 2.1 and SAM 3 (a large model on the work machine's GPU, prompted
+by text or by points from grow from leaf cores). The best of them labels the copied photos. Aaron's
+training cells are given more weight in training than the machine labels. If the labels come from
+grow from leaf cores, the network learns its errors too; the 15 outlines show whether it did.
+
+**Public data.** Public top-down plant sets downloaded on 2026-11-20 (list, licences and checksums
+in the raw data). Used only for pre-training. Whether they help is decided on the training cells. A
+set that labels yellow leaves as plant (ARADEEPOPSIS) is relabelled or left out.
+
+*Licences (Aaron, 2026-11-20; a decision, not legal advice).* Only sets whose licence allows any
+use with credit are used: VegAnn (CC BY 4.0), ARADEEPOPSIS (CC BY 4.0), ALED (CC BY 4.0), Potato
+Leaf data set (Zenodo, CC BY), Potato Canopy Cover Ground Truth Mask Samples (Mendeley, CC BY 4.0),
+WE3DS (CC BY 4.0) and Sugar Beets 2016 (CC BY-SA 4.0). Left out, though downloaded: CropAndWeed
+(non-commercial, no redistribution), PhenoBench (CC BY-NC-SA 4.0 in its archive), CWFID
+(non-commercial research only) and KOMATSUNA (no licence stated). Why: NPEC is a research
+organisation, but it bills university researchers for its services. Whether that billing counts as
+commercial use under a non-commercial licence, and whether a network trained on a set counts as
+use of the set, are not settled. A network that may go into the rig's app is therefore trained only
+on sets where neither question arises. Each set used is cited where the results are written up.
+
+**Network.** A segmentation network from Hailo's model zoo that the Hailo compiler supports,
+retrained for two classes, plant and not plant, starting from weights trained on general images.
+First candidate `unet_mobilenet_v2`; others from the zoo's list if it falls short. Settings
+(network, input scale, training length, public data or not) are chosen by cross-validation over the
+training days, grouped by day. No test cell is used for training or for choosing anything.
+
+**Input.** The whole photo, not cropped, cut into overlapping tiles at one fixed scale for the
+whole photo. Full or half resolution is chosen on the training cells. The cell outputs are cut from
+the tile output at each reference cell's crop position (`manifest.csv`). A crop to the corner tags
+was considered to save time and dropped (Aaron, 2026-11-20): trays and plants were found past the
+tags (44.1). It comes back only if the time of measure 6 is too close to 60 s, and is then set from
+44.1.
+
+**Compiling for each chip.** Models are chip-specific. Hailo-8 (production, HailoRT 4.23.0):
+Dataflow Compiler 3.33.1. Hailo-10H (development, HailoRT 5.1.1): Dataflow Compiler 5.1.0. Never a
+newer compiler than the rig's HailoRT. The compiled model reads 8-bit numbers; the loss from that
+is measured by scoring the full-precision network and the compiled one (on the Hailo-10H, and in
+Hailo's emulator for the Hailo-8) on the same training cells.
+
+**Measures, each also for grow from leaf cores and the fixed green cutoff on the same cells.**
+1. Agreement with the truth masks on test cells, per rig: IoU and area ratio per cell, mean and
+   range. Ceiling: Aaron's own repeat in 24, IoU 0.915.
+2. Agreement with the 15 outlines of section 24.
+3. Trained on one rig, tested on the other.
+4. Photo-to-photo steadiness (method of 16.9) on the production run of 3 November, 61 photos one
+   minute apart. Development: its one-minute run of 8 November was purged with experiment 3.
+   Experiment 4 takes a photo every 5 minutes, so its run of 61 photos 5 minutes apart (19
+   November, 18:50 to 23:50 UTC) is used, reported as a 5-minute run and not compared directly with
+   the 1-minute run (Aaron, 2026-11-20). Experiment 4 holds only tiny plants with very little green
+   (Aaron, 2026-11-20), so this run says little about steadiness on larger plants.
+5. Pictures of algae, blue mats, green soil and seedlings.
+6. Time and memory per full photo on the development Pi 5 with the Hailo-10H, from the JPEG on disk
+   to cell areas, under the `hardware` label. The Hailo-8 is not timed now: production is read only.
+   It is timed when a model goes into the app (its own issue), through development first.
+
+**Passes when all three hold** (Aaron, 2026-11-20; decisions, not measured thresholds):
+- on the test cells of both rigs, mean IoU and mean area error at least as good as grow from leaf
+  cores, and better on the 15 outlines;
+- photo-to-photo change no larger than grow from leaf cores on the steadiness runs;
+- a full photo in under 60 s on the development Pi, together with the app's other work.
+
+**Test, once per set of test cells.** Improving the network happens before the test, as often as
+needed: every change of network, labels or settings is tried and scored by cross-validation on the
+training cells only. When the settings are fixed, the chosen network, compiled for each chip, is
+scored once on the test cells and the 15 outlines, and the result is written up whatever it is. The
+test answers one question: how well the network does on photos it has never seen, which is the
+case for every future photo. Changing the network after looking at the test score and scoring it
+again would fit it to those few cells, so the score would rise without showing how it does on new
+photos. A network improved after the test is therefore scored on newly outlined cells from photos
+it has not seen (for example from a later experiment), again once.
+
+**Raw data.** Scripts, label lists and results in `experiments/round4-segmentation-nn/`. The copied
+photos, labels, public data and models are on the work machine (`media-server`,
+`~/temp.nobackup/npec-406-nn/`), too large for the repository; their lists and checksums are in the
+experiment folder.
+
+**Limits, known before the run.** One person's outlines, potato plants only, two rigs of the same
+camera and lighting type. A network that passes is not shown to hold for other species, lights or
+cameras; the varied brightness and colour in training only make that more likely.
+
+### 44.1 How far plants reach past the corner tags (2026-11-20)
+
+**Label: development check.** Whether a crop to the corner tags (450 to 499) would cut off plants.
+Method (written in the analysis folder before the run): for each lit photo copied for 44, the
+corner-tag quadrilateral from the calibration in effect, then the farthest plant pixel past each
+side of it, found with the fixed green cutoff, in mm at the table plane. Small clumps are ignored
+and the farthest clumps are checked by eye, so tag ink, labels, green paper squares and targets are
+not counted. The fixed green cutoff finds about a third of a leaf (24), so this understates how far
+leaves reach.
+
+**Result.**
+- Production, experiment 18, 222 lit photos: no plant pixel past the quadrilateral. The outer east
+  and west trays reach past it (stored outlines up to 240 mm east and 223 mm west), but held tag
+  sheets and targets, not plants.
+- Development, experiment 4, 50 lit photos: none; the seedlings are small and every tray is inside.
+- Development, experiment 3, 795 lit thumbnails (480 x 364, about 2.9 mm per pixel; the full photos
+  were purged): plant at least 224 mm past the east side and 216 mm past the west side, reaching the
+  photo edge, so these are lower limits. Most of it is trays standing partly past the tags; leaning
+  alone reached 59 mm north and 13 mm south. 11 photos with people or a phone in view were left out.
+
+**What follows.** A crop to the tags would cut off plants on some days, so it is not used (44,
+Input). *Raw data:* `analysis/margin/` on the work machine (`RESULTS.md`, `METHOD.md`, picture sheet
+`figures/top12_sheet.png`), copied into `experiments/round4-segmentation-nn/` with the results.
