@@ -10209,3 +10209,92 @@ proposed level would have flagged only the jumps of point 2. Green soil and alga
 `per_tray_day.csv`, `plant_trays_warned_per_day.txt`, `tray1_photos.txt`, `fixed_check.txt`);
 scripts in `experiments/373-soil-green/code/`. The photos stay in experiment 18's folder on
 `ac-testing`.
+
+## 40. Soak: both rigs over the weekend of 14 and 15 November (issue #80, rule set 2026-11-20, before any count was read)
+
+**Label: development check.** Whether the app runs unattended for days: every scheduled photo taken
+and nothing going wrong that a researcher would need to know about. Not a measurement of area.
+
+**Rule (decision, Aaron, 2026-11-20).** A day passes with **no more than 1 missed photo** and **no
+critical error**. Critical means an error that stops photos or the camera, loses data, or leaves an
+area wrong with no warning on the page. The rule was set after the weekend but before any count or
+log line was read. Days are Dutch local days (UTC+1): Saturday 14 November is 2026-11-13T23:00Z to
+2026-11-14T23:00Z. Friday 13 and Monday 16 are given as well, for context.
+
+**Data.** Read only, over ssh, on 2026-11-20: each rig's `rig.db` through a read-only connection
+(`mode=ro`), the app's log and the kernel log. Nothing was written or restarted on either rig.
+
+- *Production* (`ac-testing`, experiment 18, one photo every 60 s). App version a6632d6 from
+  2026-11-13 09:59Z to 2026-11-17 (git reflog). Server log
+  `/tmp/npec-rig-server-20261113T095920Z.log`, unbroken from 13 Nov 09:59Z to 17 Nov 07:08Z, and
+  the one before it up to 13 Nov 09:59Z. Its lines carry no clock time and were dated from the
+  kernel's time since boot, to about 2 s.
+- *Development* (`npec-rig-01`, experiment 4, one photo every 300 s, schedule from 2026-11-13
+  09:55Z). App version a6632d6 (main) from 2026-11-13 09:56Z to 2026-11-17 (git reflog). The
+  `npec-rig` service journal is unbroken over the four days (one boot since 2026-11-03).
+
+**Method.** Photos: `capture` rows of the experiment per local day, against the number expected
+from the interval and the time the schedule ran, and `scheduled_photo` rows with no capture. A gap
+between photos longer than 1.5 times the interval counts round(gap / interval) - 1 missed photos.
+Restarts: `app_start` rows and the service journal. Errors: every traceback, ERROR or CRITICAL line
+in the app log, `camera_events` rows, and out-of-memory kills in the kernel log. On production the
+photo files in each UTC date folder were also counted.
+
+**Results.**
+
+| Local day | Production: taken / expected | Longest gap | Development: taken / expected | Verdict |
+|---|---|---|---|---|
+| Fri 13 | 1440 / 1440 | 64.4 s | 156 / 156 (schedule from 10:00Z) | Pass, both |
+| **Sat 14** | **1440 / 1440** | 64.4 s | **288 / 288** | **Pass, both** |
+| **Sun 15** | **1440 / 1440** | 65.6 s | **288 / 288** | **Pass, both** |
+| Mon 16 | 1440 / 1440 | 65.3 s | 288 / 288 | Pass, both |
+
+No photo was missed on either rig: 0 of 5760 scheduled slots on production, 0 of 1020 on
+development. No gap was over 90 s on production or over 450 s on development. No `camera_events`
+row and no out-of-memory kill on either rig.
+
+*Restarts.* Production: one, 13 Nov 09:59:22Z (the update to a6632d6), between the photos of
+09:58:53 and 09:59:53, so no photo was lost. Development: four on 13 Nov (06:41, 07:11, 08:31,
+09:56Z), clean stops and starts from redeploys, all before experiment 4's schedule began.
+
+*Errors, none critical.*
+
+1. **`sqlite3.OperationalError: database is locked`.** Production: 7, 14 Nov 23:16Z to 16 Nov
+   23:17Z. 4 were the scheduler failing to store the time of its last tick, 2 were Reprocess reads,
+   and 1 was the tray reading of the photo of 15 Nov 23:16:54Z. That photo is saved, and its
+   reading is marked `read failed`, so the photo has no plant areas but they are not shown wrong.
+   Development: 3, at 13 Nov 06:35Z, when experiment 3 was purged and experiment 4 created, before
+   any photo was scheduled. Follow-up: #439.
+2. **Reprocess could not read a photo and kept the saved areas** (production, 26 times, 14 Nov
+   08:41Z to 15 Nov 17:08Z). From the Reprocess of experiment 18 started 14 Nov 06:39Z (section
+   37), on October and early November photos. The saved areas stayed in place.
+3. **"Failed to start rpi-connect-wayvnc"** (production system log, 26,390 lines). The remote
+   desktop service, not the app.
+
+**Verdict.** Both rigs pass the rule on Saturday 14 and Sunday 15 November, and on Friday 13 and
+Monday 16 as well.
+
+**What it does and does not cover.** Four days on one app version (a6632d6), on two rigs. The
+1-minute load was carried by production only; development took a photo every 5 minutes. It shows
+the scheduler, camera and tray readings kept running over four days without a restart. It does not
+cover a cold start, a camera fault (none happened), a full disk, or later app versions. Production
+was also running the Reprocess of section 37 on 14 and 15 November, so it ran under more load than
+usual for those two days.
+
+*Raw data.* None kept: the counts can be read again from each rig's `rig.db`, which keeps these
+rows. Re-run, on either rig:
+
+```
+python3 - <<'PY'
+import sqlite3
+c = sqlite3.connect('file:/var/lib/npec-rig/rig.db?mode=ro', uri=True)
+EXP = 18  # 4 on npec-rig-01
+for a, b in [('2026-11-12T23:00', '2026-11-13T23:00'), ('2026-11-13T23:00', '2026-11-14T23:00'),
+             ('2026-11-14T23:00', '2026-11-15T23:00'), ('2026-11-15T23:00', '2026-11-16T23:00')]:
+    taken = c.execute("select count(*) from capture where experiment_id=? and purpose='capture'"
+                      " and taken_at>=? and taken_at<?", (EXP, a, b)).fetchone()[0]
+    slots = c.execute("select count(*), sum(capture_id is null) from scheduled_photo"
+                      " where experiment_id=? and due_at>=? and due_at<?", (EXP, a, b)).fetchone()
+    print(a, 'taken', taken, 'slots', slots[0], 'unfilled', slots[1])
+PY
+```
