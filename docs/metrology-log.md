@@ -5649,6 +5649,8 @@ is shown as "under 100" in the gallery. Reported with each area, never subtracte
 empty trays read 27 to 78 mm² (median per tray and day) and at most 98 mm² outside shuffle 1.
 *Limits:* one run, trays 9 to 12; one value for every tray and slot.
 
+*Checked in section 41 (#293, 2026-11-20): grow from leaf cores, the default method since #373, needs no floor (soil-only trays read at most 64 mm² in any photo, two soils). The 100 mm² stays for the fixed green cutoff, on production's soil only.*
+
 ### 17.8 Light exclusions: how far the light moves (method written 2026-10-26, before the data was read)
 
 *Replaced by section 29 (#382, 2026-11-09): the first-day norm flagged every lit photo of experiment 18 from 5 November as the scene changed the exposure. The rule now follows the camera: ramps from the exposure moving through each photo, lights off from the camera's auto-exposure state. Kept below as the record of the earlier decision.*
@@ -10298,3 +10300,94 @@ for a, b in [('2026-11-12T23:00', '2026-11-13T23:00'), ('2026-11-13T23:00', '202
     print(a, 'taken', taken, 'slots', slots[0], 'unfilled', slots[1])
 PY
 ```
+
+## 41. Soil-only trays by grow from leaf cores: is a floor needed? (issue #293, method written 2026-11-20, after the stored readings were first looked at)
+
+**Label: development check.** Section 17.7 set a floor of 100 mm² per tray for the fixed green
+cutoff: below it the Gallery shows "under 100", because an empty tray of experiment 18 read up to
+98 mm². That value rests on one soil, one light and one rig. Soils differ, some light and some dark
+(Aaron, 2026-11-20), so one value cannot hold for every experiment. Grow from leaf cores, the
+default method since #373, has no floor: it sets each tray's cutoff from that tray's own soil in
+each photo (sections 24.8, 34, 39). This section checks whether it needs one, by reading trays
+that held soil and no plants. The method was written after the stored readings had been looked at
+once on 2026-11-20, so it is not a check fixed before the data.
+
+**Data.** Areas already stored by the app (`tray_reading.grown_area_mm2`, method "grow from leaf
+cores, core 0.07"); no photo was segmented again. Counted photos only: an `exclusion` row with no
+name (not lights off, not light changing, not a visit). Days are UTC dates.
+
+1. *Development (npec-rig-01), experiment 4 "Dario 13 Emergence", 13 to 20 November.* Two untagged
+   trays on the west side of the table (Aaron, 2026-11-20): NW full of soil, SW with its south row of
+   cells holding soil and the rest of its cells empty. Neither holds a plant. The app finds them by
+   their blue rim and stores them as "photo, no tag"; they are picked out as the untagged trays
+   whose centre lies left of x = 2200 px, above y = 3500 px for NW. The NW tray was moved a little
+   at 10:20 UTC on 16 November (its centre by about 500 px). Read from a copy of development's
+   `rig.db` made with SQLite's backup from a read-only connection (2026-11-20 12:36 UTC). 1,288
+   counted photos.
+2. *Production (ac-testing), experiment 18, trays 9 to 12.* No plants at any time: calibration tags
+   and green samples in pots (Aaron, 2026-11-20). The samples show as a step in area: on 23 October
+   (tray 10) and 26 October (trays 9, 11, 12), gone on 5 November (trays 9, 11, 12). The soil-only
+   stretch is 22 to 25 October for trays 9, 11 and 12 (22 October for tray 10). What lay in trays 9,
+   11 and 12 from 6 November until they were removed on 12 November is not recorded; both methods
+   read close to 0 there, as they would with the soil under blue mats (mats were laid on 6 November,
+   section 36), so those days are shown but not counted as soil. Read with read-only queries over ssh;
+   nothing copied or written on production.
+
+**Analysis.** Per tray and day: the 5th percentile, median, 95th percentile and largest area by grow
+from leaf cores, and the median by the fixed green cutoff for comparison.
+`experiments/293-soil-floor/code/soil_days.py`. The largest single readings were looked at on the
+photo, with the stored mask drawn over it (`code/overlay.py`).
+
+**Results.**
+
+| Soil-only tray | Counted photos | Daily median | Daily 95th percentile | Largest single photo | Fixed green cutoff, daily median |
+|---|---|---|---|---|---|
+| Development NW, full of soil, 13 to 20 Nov | 1,288 | 1.1 to 4.7 mm² | 5 to 15 mm² | 25 mm² | 10 to 30 mm² |
+| Development SW, soil and empty cells, 13 to 15 Nov | 533 | 0 mm² | 0.7 to 1.4 mm² | 6 mm² | 0 mm² |
+| Development SW, 16 to 20 Nov | 755 | 0 to 0.4 mm² | 22 to 72 mm² | 174 mm² | 0.1 to 0.7 mm² |
+| Production trays 9, 11, 12, 22 to 25 Oct | 10,826 | 1.3 to 16.6 mm² | 3.7 to 36.8 mm² | 64 mm² | 29 to 76 mm² |
+| Production tray 10, 22 Oct | 850 | 7 mm² | 13 mm² | 25 mm² | 59 mm² |
+| Production trays 9, 11, 12, 6 to 12 Nov (contents not recorded) | 17,277 | 0 to 1.2 mm² | 0 to 3.4 mm² | 8 mm² (one photo 204 mm², not looked at) | 0 to 0.7 mm² |
+
+1. **Soil reads close to 0.** On two soils (development's and production's) and two rigs, a tray of
+   soil reads a daily median of at most 17 mm² by grow from leaf cores, and at most 64 mm² in any
+   single photo. The fixed green cutoff reads the same trays 2 to 30 times higher (production, 22 to
+   25 October). A whole tray is 305 x 366 mm (111,630 mm²), so 64 mm² is under 0.1% of it.
+2. **The table seen through empty cells.** From 16 November single photos of the SW tray read up to
+   174 mm², while its median stayed at 0 to 0.4 mm²; from one photo to the next the reading jumps
+   between 0 and tens of mm² (19 November 18:05 to 19:20 UTC, every 5 minutes: 0, 4, 0, 0, 42, 3, 0, 1, 0, 1, 174, 0,
+   58, 0, 2, 98 mm²). The stored mask shows where: two pale patches inside the drainage holes of empty
+   cells, where the camera sees the grey table under the tray (figures below). The soil row reads
+   nothing. Why it starts on 16 November is not known. A cell with its hole showing has no pot and no
+   soil, so it holds no plant, and researchers do not read growth from it (Aaron, 2026-11-20). Only a
+   "time at first green" worked out automatically per cell could be set early by it; the rig's pages
+   work out no such time.
+
+**Verdict.** Grow from leaf cores needs no floor for bare soil: on both soils seen, a soil-only tray
+reads under 0.1% of a tray in any single photo. It is given none, and the soil-only level above is
+its stated limit. The fixed green cutoff keeps its 100 mm² (17.7), which rests on production's soil
+only. A new method or a new soil is checked the same way, from stored photos of a soil-only tray
+(Aaron, 2026-11-20); no new photos are needed for a new method.
+
+**What it does and does not cover.** Two soils, on two rigs, under each rig's one light program;
+tray totals, not cells. Not covered: soil that turns green or holds algae (section 39), a soil
+lighter or darker than these two, soil under blue mats, and a tray with a plant in it, where the
+stray readings may add to the plant's area instead of standing alone.
+
+*Figures.*
+
+- [`41/overview-dev-2026-11-19.jpg`](figures/41/overview-dev-2026-11-19.jpg): development at
+  18:55 UTC on 19 November, every tray outline the app stored, red for the two untagged soil
+  trays (NW top left, SW bottom left), magenta for tagged trays. Made from capture 23505 scaled to
+  0.12.
+- [`41/sw-tray-174mm2.jpg`](figures/41/sw-tray-174mm2.jpg): the SW tray in the same photo, which
+  read 174 mm²: the stored grow-from-leaf-cores mask in magenta, the stored outline in red.
+  `code/overlay.py`, half size.
+- [`41/sw-holes-174mm2.jpg`](figures/41/sw-holes-174mm2.jpg) and
+  [`41/sw-holes-0mm2.jpg`](figures/41/sw-holes-0mm2.jpg): the two masked holes at full resolution,
+  without and with the mask, in the 174 mm² photo and the next one, 5 minutes later, which read 0
+  mm². Crops 240 px wide picked by hand around the masked patches.
+
+*Raw data.* `experiments/293-soil-floor/data/development_nw_sw_per_day.csv` and
+`production_exp18_trays9-12_per_day.csv` (from `code/soil_days.py`). Development's photos stay in
+experiment 4's folder on `npec-rig-01`, production's in experiment 18's on `ac-testing`.
