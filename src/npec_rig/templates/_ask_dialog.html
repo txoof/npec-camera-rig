@@ -1,0 +1,16 @@
+{#- One in-page dialog for confirmations, shared by the Experiments and Data pages (#454). Not
+    alert/confirm/prompt: a browser can be told to block those, and then the page could not ask
+    or explain anything. Driven by static/ask-dialog.js (window.askDialog). -#}
+<dialog class="experiment-dialog" id="ask">
+  <form method="dialog" id="ask-form">
+    <h3 id="ask-title"></h3>
+    <div id="ask-body"></div>
+    <div class="experiment-dialog-error" id="ask-error"></div>
+    <!-- Large buttons with a wide gap (CLAUDE.md, Web pages): a missed tap lands on nothing. -->
+    <div class="experiment-form-buttons" style="gap: 24px">
+      <button type="submit" id="ask-ok" style="min-height: 64px; min-width: 120px"></button>
+      <button type="button" id="ask-cancel" class="secondary" style="min-height: 64px; min-width: 120px">Cancel</button>
+    </div>
+  </form>
+</dialog>
+<script src="/static/ask-dialog.js"></script>

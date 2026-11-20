@@ -25,13 +25,15 @@ class VideoRequest(BaseModel):
 
 
 @router.get("/data", response_class=HTMLResponse)
-def data_page(request: Request, experiment: int | None = None) -> HTMLResponse:
+def data_page(request: Request, experiment: int | None = None, tab: str = "timelapse") -> HTMLResponse:
     """The Data page: a time lapse video of one of an experiment's trays. The experiment named in
     the address, else the running one, else the latest started (the list is newest first)."""
     started = [e for e in database.list_experiments() if e["periods"] and e["state"] != "purged"]
     chosen = next((e for e in started if e["id"] == experiment), None) or next(
         (e for e in started if e["state"] == "running"), None) or (started[0] if started else None)
-    context = {"nav_active": "data", "experiments": started, "experiment": chosen, "trays": [],
+    # The tab to open, from the address, so a link can land on Export (#454).
+    tab = tab if tab in ("timelapse", "export") else "timelapse"
+    context = {"nav_active": "data", "tab": tab, "experiments": started, "experiment": chosen, "trays": [],
                # As ui.choices options: value, text, detail.
                "methods": [(m["key"], m["name"], "") for m in tray_readings.AREA_METHODS],
                "per_hour": [(str(n), f"{n} per hour", "") for n in timelapse.PER_HOUR],
