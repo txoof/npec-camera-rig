@@ -21,20 +21,26 @@ def _cell(name: str, holds: str, x: float, y: float, area: float | None) -> dict
 
 def _photo(experiment_id: int, taken: datetime, *, exclusion: str | None = None, tray_id: int = 4,
            warnings: list[str] | None = None, placement: str = "placed", area: float = 1000.0,
-           grown_area: float | None = None, validation: str | None = None) -> int:
+           grown_area: float | None = None, validation: str | None = None, calibration: str | None = None,
+           centre: tuple[float, float] = (250, 280)) -> int:
     """A photo of the experiment at `taken` with tray `tray_id` read in it, and its saved exclusion."""
     capture_id = database.record_capture(
         taken_at=taken.isoformat(), path=f"rig/{taken:%Y-%m-%d}/{taken:%H%M%S}_{taken:%f}", purpose="capture",
-        experiment_id=experiment_id, calibration=None, validation=validation, lens_position=None,
+        experiment_id=experiment_id, calibration=calibration, validation=validation, lens_position=None,
         focus_locked_at=None, exposure_us=None, analogue_gain=None, flags=[],
     )
+    # The outline and cells lie around `centre`: shifted from the tray at (250, 280).
+    dx, dy = centre[0] - 250, centre[1] - 280
+    shift = lambda points: [[x + dx, y + dy] for x, y in points]
+    cells = [{**c, "centre_px": shift([c["centre_px"]])[0], "corners_px": shift(c["corners_px"])} for c in [
+        _cell("A1", "tag", 130, 430, None), _cell("B1", "plant", 370, 430, 250.0),
+        _cell("A2", "plant", 130, 130, 250.0), _cell("B2", "plant", 370, 130, 250.0)]]
     database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[{
-        "tray_id": tray_id, "slot": None, "a1_corner": "SW", "placement": placement, "centre_px": [250, 280],
+        "tray_id": tray_id, "slot": None, "a1_corner": "SW", "placement": placement, "centre_px": list(centre),
         "tilt_deg": 0.0, "margin_mm": None, "found": "photo + tag", "warnings": warnings or [],
-        "outline_px": OUTLINE, "area_mm2": area, "segmenter": "green threshold, 0.1",
+        "outline_px": shift(OUTLINE), "area_mm2": area, "segmenter": "green threshold, 0.1",
         **({} if grown_area is None else {"grown_method": "grow from leaf cores", "grown_area_mm2": grown_area}),
-        "cells": [_cell("A1", "tag", 130, 430, None), _cell("B1", "plant", 370, 430, 250.0),
-                  _cell("A2", "plant", 130, 130, 250.0), _cell("B2", "plant", 370, 130, 250.0)],
+        "cells": cells,
     }])
     database.record_exclusions([{"capture_id": capture_id, "name": exclusion, "norm_e": None, "limit_fraction": None}],
                                worked_out_at=taken.isoformat())
@@ -223,3 +229,116 @@ def test_a_video_that_would_leave_five_days_of_disk_or_fewer_is_refused_with_the
 
     assert refused is not None and "4 days" in refused
     assert allowed is None
+
+
+
+def _two_slot_table() -> None:
+    """Calibration TABLE_STEM with two slots: South 2 centred at (150, 450), North 4 at (750, 150)."""
+    from npec_rig import validation_store
+    from tests.helpers import TABLE_STEM, table_calibration
+
+    table_calibration()
+    validation_store.save_slot_layout(TABLE_STEM, [
+        {"name": "South 2", "centre": [150, 450], "box": [50, 350, 250, 550]},
+        {"name": "North 4", "centre": [750, 150], "box": [650, 50, 850, 250]},
+    ], [])
+
+
+def test_a_frame_names_its_slot_and_the_last_different_slot_from_the_whole_experiment(experiment):
+    from tests.helpers import TABLE_STEM
+
+    _two_slot_table()
+    h = timedelta(hours=1)
+    _photo(experiment, START, calibration=TABLE_STEM, centre=(160, 440))  # South 2
+    _photo(experiment, START + h, calibration=TABLE_STEM, centre=(740, 160))  # North 4
+    _photo(experiment, START + 2 * h, calibration=TABLE_STEM, centre=(745, 155))  # North 4 still
+    experiment_row = database.get_experiment(experiment)
+
+    # The video starts after the move: the earlier slot still comes from the whole experiment.
+    frames = timelapse.choose_frames(experiment, tray_id=4, start=START + h, end=START + 3 * h, per_hour=1)["frames"]
+    first_of_all = timelapse.choose_frames(experiment, tray_id=4, start=START, end=START + h, per_hour=1)["frames"][0]
+
+    assert [timelapse.frame_values(experiment_row, f, method="fixed")["slot"] for f in frames] == [
+        "North 4 (was South 2)", "North 4 (was South 2)"]
+    assert timelapse.frame_values(experiment_row, first_of_all, method="fixed")["slot"] == "South 2"
+
+
+
+def test_a_frame_gives_its_warnings_in_words_and_soil_hidden_only_for_grow_from_leaf_cores(experiment):
+    from npec_rig import segmentation, tray_readings
+
+    # The tag lay turned on the tray in this photo, and grow from leaf cores found the soil hidden.
+    _photo(experiment, START, warnings=[tray_readings.TAG_TURNED, segmentation.SOIL_HIDDEN], grown_area=900.0)
+    frame = _only_frame(experiment)
+    experiment_row = database.get_experiment(experiment)
+
+    fixed = timelapse.frame_values(experiment_row, frame, method="fixed")["warnings"]
+    grown = timelapse.frame_values(experiment_row, frame, method="grown")["warnings"]
+
+    assert fixed == ["names may be swapped since 2027-03-01 10:00 UTC"]
+    assert grown == ["names may be swapped since 2027-03-01 10:00 UTC", "soil hidden: usual leaf cutoff used"]
+
+
+
+def test_a_frame_after_photos_that_could_not_be_used_says_how_long_the_lit_gap_was(experiment):
+    h, m = timedelta(hours=1), timedelta(minutes=1)
+    bad = ["tag seen, tray not found in the photo"]
+    _photo(experiment, START)
+    _photo(experiment, START + h, warnings=bad)
+    _photo(experiment, START + 2 * h, exclusion="lights off")  # night: not a gap
+    _photo(experiment, START + 3 * h, warnings=bad)
+    _photo(experiment, START + 4 * h)
+    _photo(experiment, START + 4 * h + 12 * m, warnings=bad)
+    _photo(experiment, START + 4 * h + 24 * m)
+    experiment_row = database.get_experiment(experiment)
+
+    hourly = timelapse.choose_frames(experiment, tray_id=4, start=START, end=START + 5 * h, per_hour=1)["frames"]
+    fifths = timelapse.choose_frames(experiment, tray_id=4, start=START + 4 * h, end=START + 5 * h, per_hour=5)["frames"]
+    words = lambda f: timelapse.frame_values(experiment_row, f, method="fixed")["warnings"]
+
+    assert [f["gap_minutes"] for f in hourly] == [0, 120]
+    assert words(hourly[0]) == []
+    assert words(hourly[1]) == ["gap: 2 h without a usable photo"]
+    assert words(fifths[1]) == ["gap: 12 min without a usable photo"]
+
+
+
+def test_the_table_map_shows_empty_slots_grey_the_tray_bright_blue_its_last_slot_pale_blue_and_its_tag(experiment):
+    from npec_rig import validation_store
+    from tests.helpers import TABLE_STEM, table_calibration
+
+    table_calibration()
+    slots = [
+        {"name": "South 2", "centre": [150, 450], "box": [50, 350, 250, 550]},
+        {"name": "North 4", "centre": [750, 150], "box": [650, 50, 850, 250]},
+        {"name": "South 4", "centre": [750, 450], "box": [650, 350, 850, 550]},
+    ]
+    validation_store.save_slot_layout(TABLE_STEM, slots, [])
+    _photo(experiment, START, calibration=TABLE_STEM, centre=(150, 450))  # South 2
+    _photo(experiment, START + timedelta(hours=1), calibration=TABLE_STEM, centre=(750, 150))  # North 4 now
+    frame = timelapse.choose_frames(experiment, tray_id=4, start=START + timedelta(hours=1),
+                                    end=START + timedelta(hours=2), per_hour=1)["frames"][0]
+
+    image = timelapse.draw_map(frame, slots)
+
+    w, h = image.size
+    at = lambda fx, fy: image.getpixel((int(fx * w), int(fy * h)))
+    r, g, b = at(0.85, 0.15)  # North 4, the tray now: bright blue
+    assert b > 200 and r < 90
+    r, g, b = at(0.15, 0.85)  # South 2, where it was: pale, desaturated blue
+    assert b > r + 15 and r > 110
+    r, g, b = at(0.85, 0.85)  # South 4, empty: light grey
+    assert abs(r - g) < 12 and abs(g - b) < 12 and r > 170
+    # The tag's cell A1 lies 120 px left of and 150 px below the tray centre: black on the map.
+    tag = image.getpixel((int((750 - 120 - 50) / 800 * w), int((150 + 150 - 50) / 500 * h)))
+    assert max(tag) < 90
+
+
+def test_the_size_estimate_of_all_trays_covers_every_tray_in_the_zip(experiment):
+    _photo(experiment, START, tray_id=4)
+    _photo(experiment, START + timedelta(minutes=1), tray_id=7)
+    request = {"experiment_id": experiment, "tray_id": "all", "start": START.isoformat(),
+               "end": (START + timedelta(hours=3)).isoformat(), "per_hour": 1, "method": "fixed"}
+
+    # 2 trays, 3 frames each, at the trial's 42,984 bytes a frame.
+    assert timelapse.estimate_bytes(request) == 2 * 3 * 42_984
