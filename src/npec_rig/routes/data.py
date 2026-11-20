@@ -19,6 +19,9 @@ class VideoRequest(BaseModel):
     end: str
     per_hour: int
     method: str
+    cell: str | None = None
+    # True: show the leaf area method's own mask over each frame.
+    mask: bool = False
 
 
 @router.get("/data", response_class=HTMLResponse)
