@@ -10816,4 +10816,4 @@ The app also showed 12.1 GB written per day and 56.6 days left.
 **What this does and does not cover.** One rig and one experiment at a 60 s interval. The count
 shows the scheduler takes every photo while the app is up; it does not show that every photo
 reaches the database while another job writes to it (17 November, #439). The reboot test is on
-development, not on production. Excel was tried on one Windows PC, version not recorded.
+development, not on production. Excel was tried once, on one computer; its version was not recorded.
