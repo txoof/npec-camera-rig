@@ -242,11 +242,11 @@ def start(request: dict) -> dict:
     with _lock:
         if _being_made() is not None:
             raise VideoBusy("A video is being made. Try again when it is done.")
-        clear()
+        clear(finished=True)
         video_id = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S}-{secrets.token_hex(3)}"
         folder = videos_root() / video_id
         folder.mkdir(parents=True)
-        _write_progress(folder, {"state": "choosing"})
+        _write_progress(folder, {"state": "choosing", "request": request})
         # Spawned, never forked: the server runs threads (camera_process.py).
         process = multiprocessing.get_context("spawn").Process(
             target=_make, args=(request, str(folder)), name=f"timelapse-{video_id}", daemon=True)
@@ -276,21 +276,28 @@ def video_file(video_id: str) -> Path | None:
     return file if progress(video_id)["state"] == "ready" and file.exists() else None
 
 
-def remove(video_id: str) -> None:
-    """Remove video `video_id`: it has been downloaded in full."""
-    shutil.rmtree(_folder(video_id), ignore_errors=True)
+def latest() -> dict | None:
+    """The rig's latest video, as `progress` gives it with its `id`, or None: a page opened again
+    shows it, so leaving the page loses nothing (Aaron, 2026-11-20)."""
+    root = videos_root()
+    ids = sorted(f.name for f in root.iterdir() if f.is_dir() and _ID.match(f.name)) if root.exists() else []
+    return {"id": ids[-1], **progress(ids[-1])} if ids else None
 
 
-def clear() -> None:
-    """Remove every video and every unfinished one (at app start, and before a new one): the rig
-    keeps as few as possible (Aaron, 2026-11-20). One still being made is left alone."""
+def clear(*, finished: bool = False) -> None:
+    """Remove every video that can never finish, cut off by a stop (at app start). With `finished`,
+    the finished one too (when a new one is started). A video is kept until the next one is
+    started, through its downloads and restarts (Aaron, 2026-11-20). One being made stays."""
     root = videos_root()
     if not root.exists():
         return
     making = _being_made()
     for folder in root.iterdir():
-        if folder.name != making:
-            shutil.rmtree(folder, ignore_errors=True) if folder.is_dir() else folder.unlink(missing_ok=True)
+        if folder.name == making:
+            continue
+        if folder.is_dir() and not finished and progress(folder.name)["state"] == "ready":
+            continue
+        shutil.rmtree(folder, ignore_errors=True) if folder.is_dir() else folder.unlink(missing_ok=True)
 
 
 def _being_made() -> str | None:
@@ -331,7 +338,7 @@ def _make(request: dict, folder: str) -> None:
             request["experiment_id"], tray_id=request["tray_id"], start=datetime.fromisoformat(request["start"]),
             end=datetime.fromisoformat(request["end"]), per_hour=request["per_hour"])
         frames = chosen["frames"]
-        state = {"state": "drawing", "frames": len(frames), "done": 0, "skipped": chosen["skipped"],
+        state = {"state": "drawing", "request": request, "frames": len(frames), "done": 0, "skipped": chosen["skipped"],
                  "estimated_bytes": len(frames) * TRIAL_BYTES_PER_FRAME}
         _write_progress(out, state)
         if not frames:
@@ -358,6 +365,6 @@ def _make(request: dict, folder: str) -> None:
     except Exception as exc:  # noqa: BLE001 -- every failure is shown on the page, in words
         logger.exception("Time lapse %s failed", out.name)
         try:
-            _write_progress(out, {"state": "failed", "error": str(exc) or type(exc).__name__})
+            _write_progress(out, {"state": "failed", "request": request, "error": str(exc) or type(exc).__name__})
         except OSError:
             pass
