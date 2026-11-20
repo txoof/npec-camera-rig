@@ -10384,6 +10384,60 @@ for a, b in [('2026-11-12T23:00', '2026-11-13T23:00'), ('2026-11-13T23:00', '202
 PY
 ```
 
+## 41. Full Reprocess of Potato Plants v001 on production with the current code (issue #444, method written 2026-11-20, before the run)
+
+**Label: development check.** Since production moved to v0.2.0 (2026-11-20), every new photo is read
+with #373's soil-hidden rule (39.1). Readings saved before then hold the old rule, so experiment 18
+holds two methods. Aaron decided (2026-11-20) not to reprocess by tray or by date, which would leave
+more than one method inside one photo, but to reprocess the whole experiment once with the current
+code. This section checks that the Reprocess changes the readings it should and no others.
+
+**Prediction, from the code.** Reprocess reads every capture photo of the experiment again, oldest
+first. A saved reading whose soil level is in the top bin (+0.045) and whose cutoff is above the
+floor (-0.045) is grown again from its photo ("flagged"), and with it every other tray of that photo
+("same photo"). Every other reading is counted again from its saved mask and keeps its areas. Before the run (2026-11-20, read only, 302,205 tray readings):
+
+| Tray | Flagged readings | What the tray holds | Expected after |
+|---|---|---|---|
+| 1 | 3,586 | plants under mats | grown area up, about 2.7 to 10 times (39.1); marked "soil hidden" |
+| 3, 4, 5, 6 | 15 | plants under mats | up about 1.4 to 8 times (39.2); marked |
+| 7, 8, 10 | 7,300 | benchmark objects, empty trays, no soil | changed, to what the current code gives new photos; marked |
+| no tag | 64 | trays without a tag | changed; marked |
+| all trays | 107,555 in the same photos | | grown again from the photo by the same rule they were read with: expected unchanged, not guaranteed |
+| all trays | 183,683, the rest | | unchanged |
+
+**Pass rule (decision, not a measurement).** Every "other" reading keeps its rig area and grown
+area within 0.01 mm² (the code counts the same mask again, so equal is expected); "same photo"
+readings that change are counted and listed per tray, as a finding, not a failure; every flagged
+reading carries the "soil hidden" mark afterwards; Reprocess reports 0 failed photos. Any reading
+outside this is listed and looked at, not explained away.
+
+**Steps.**
+
+1. Just before the start: production's version (`git log -1`), no data export building (no
+   `export` row without a finish time and an error), no Reprocess running, free memory (`free -m`).
+2. Before snapshot, read only: `snapshot.py tray` and `snapshot.py cell` on ac-testing.
+3. Start: `POST /api/experiments/18/reprocess` on ac-testing, once, at the time Aaron approves.
+4. During the run, about hourly: progress (`GET /api/experiments/18/reprocess`), free memory, and
+   whether scheduled photos are still taken (`scheduled_photo` slots without a capture, the rule of
+   section 40). Reprocess has no stop control; if photos stop being taken, Aaron is told and decides.
+5. After it reports done: after snapshot, `compare.py` per tray, and the cell readings compared
+   the same way by hand. Aaron then makes a new data export (export 16 holds the old values).
+
+**Expected run time.** 10,929 of the 28,847 photos with tray readings are grown again; the rest are
+counted from their masks. About 18 to 30 hours, from #410's 72 h when every photo was grown again
+(section 37); not measured. Photos taken during the run are read by the current code as they arrive
+and are not part of the comparison.
+
+**Limits (as planned).** The comparison checks that the Reprocess did what the code says; whether the
+new areas are right was checked by eye on 15 photos (39.2) and on tray 1 (39.1), not measured
+against a reference. One experiment, one rig.
+
+*Raw data.* Scripts in `experiments/444-full-reprocess/code/` (`snapshot.py`, `compare.py`); the per
+tray comparison will be in `experiments/444-full-reprocess/data/`. The snapshots (about 8 MB for the
+trays, more for the 6 million cell readings) stay on the controller, outside the repository, with
+their checksums given in the results.
+
 ## 42. Soil-only trays by grow from leaf cores: is a floor needed? (issue #293, method written 2026-11-20, after the stored readings were first looked at)
 
 **Label: development check.** Section 17.7 set a floor of 100 mm² per tray for the fixed green
