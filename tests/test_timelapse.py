@@ -9,7 +9,7 @@ from tests.helpers import banded_validation
 pytestmark = pytest.mark.unit
 
 START = datetime(2027, 3, 1, 10, 0, tzinfo=timezone.utc)
-# A tray outline and two cells in full-size photo pixels: enough for a frame to be drawn.
+# A tray outline and its 2 x 2 cells in full-size photo pixels, A1 at the bottom left: enough for a frame to be drawn.
 OUTLINE = [[100, 100], [400, 100], [400, 460], [100, 460]]
 
 
@@ -33,7 +33,8 @@ def _photo(experiment_id: int, taken: datetime, *, exclusion: str | None = None,
         "tilt_deg": 0.0, "margin_mm": None, "found": "photo + tag", "warnings": warnings or [],
         "outline_px": OUTLINE, "area_mm2": area, "segmenter": "green threshold, 0.1",
         **({} if grown_area is None else {"grown_method": "grow from leaf cores", "grown_area_mm2": grown_area}),
-        "cells": [_cell("A1", "tag", 130, 430, None), _cell("B1", "plant", 190, 430, 250.0)],
+        "cells": [_cell("A1", "tag", 130, 430, None), _cell("B1", "plant", 370, 430, 250.0),
+                  _cell("A2", "plant", 130, 130, 250.0), _cell("B2", "plant", 370, 130, 250.0)],
     }])
     database.record_exclusions([{"capture_id": capture_id, "name": exclusion, "norm_e": None, "limit_fraction": None}],
                                worked_out_at=taken.isoformat())
@@ -113,3 +114,55 @@ def test_a_frame_with_no_band_or_no_area_says_why_in_words(experiment):
     assert fixed["area"] == "under 100 mm²"  # the fixed cutoff's floor (#288)
     assert fixed["band"] == "not validated"
     assert grown["area"] == "not worked out"
+
+
+def _turned_tray_photo(experiment_id: int, taken: datetime) -> None:
+    """A 1000 x 1000 photo of tray 4 lying turned 180 degrees, at 2 px/mm: its 610 x 732 px outline
+    at x 100 to 710, y 100 to 832, its 4 x 5 cells read, a red patch on cell A1, a blue one on D5."""
+    from PIL import Image
+
+    from npec_rig import captures
+
+    def in_photo(ux: float, uy: float) -> tuple[float, float]:  # upright frame pixels to the photo
+        return 710 - ux, 832 - uy
+
+    cells = []
+    for i, col in enumerate("ABCD"):
+        for j in range(5):
+            x, y = in_photo((i + 0.5) * 152.5, 732 - (j + 0.5) * 146.4)
+            cells.append(_cell(f"{col}{j + 1}", "tag" if (col, j) == ("A", 0) else "plant", x, y, 100.0))
+    image = Image.new("RGB", (1000, 1000), (128, 128, 128))
+    a1, d5 = in_photo(76.25, 658.8), in_photo(533.75, 73.2)
+    image.paste((255, 0, 0), (int(a1[0]) - 20, int(a1[1]) - 20, int(a1[0]) + 20, int(a1[1]) + 20))
+    image.paste((0, 0, 255), (int(d5[0]) - 20, int(d5[1]) - 20, int(d5[0]) + 20, int(d5[1]) + 20))
+    day, stem = f"{taken:%Y-%m-%d}", f"{taken:%H%M%S}_{taken:%f}"
+    (captures.photos_root() / day).mkdir(parents=True, exist_ok=True)
+    image.save(captures.photos_root() / day / f"{stem}.jpg", quality=95)
+    capture_id = database.record_capture(
+        taken_at=taken.isoformat(), path=f"rig/{day}/{stem}", purpose="capture", experiment_id=experiment_id,
+        calibration=None, validation=None, lens_position=None, focus_locked_at=None, exposure_us=None,
+        analogue_gain=None, flags=[],
+    )
+    database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[{
+        "tray_id": 4, "slot": None, "a1_corner": "NE", "placement": "placed", "centre_px": [405, 466],
+        "tilt_deg": 180.0, "margin_mm": None, "found": "photo + tag", "warnings": [],
+        "outline_px": [[100, 100], [710, 100], [710, 832], [100, 832]], "area_mm2": 1000.0,
+        "segmenter": "green threshold, 0.1", "cells": cells,
+    }])
+    database.record_exclusions([{"capture_id": capture_id, "name": None, "norm_e": None, "limit_fraction": None}],
+                               worked_out_at=taken.isoformat())
+
+
+def test_a_drawn_frame_shows_the_tray_upright_with_cell_a1_at_the_bottom_left(experiment):
+    _turned_tray_photo(experiment, START)
+    frame = _only_frame(experiment)
+    values = timelapse.frame_values(database.get_experiment(experiment), frame, method="fixed")
+
+    image = timelapse.draw_frame(frame, values)
+
+    # The tray at 2 px/mm (610 x 732 px), the label under it.
+    assert image.width == 610 and image.height > 732
+    r, g, b = image.getpixel((76, 659))  # the centre of cell A1, bottom left
+    assert r > 200 and g < 60 and b < 60
+    r, g, b = image.getpixel((534, 73))  # the centre of cell D5, top right
+    assert b > 200 and r < 60 and g < 60

@@ -9,7 +9,13 @@ from __future__ import annotations
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from npec_rig import database, dwell, tray_readings
+import cv2
+import numpy as np
+from PIL import Image
+
+from npec_rig import captures, database, dwell, tray_readings
+from npec_rig.text_render import text_layer
+from npec_rig.tray_placement import TRAY_SIZE_MM
 
 # Rig times are UTC; the chamber keeps Dutch local time (CLAUDE.md).
 CHAMBER_TIME = ZoneInfo("Europe/Amsterdam")
@@ -18,6 +24,11 @@ PER_HOUR = (1, 2, 5)
 # A tray with one of these is not where its reading says, or is not one tray (the trial of
 # 2026-11-17, #64).
 _NOT_USABLE = {"no tag", "tag seen, tray not found in the photo", "two tags in one tray outline"}
+# Whole-tray frames: 2 px/mm, enough to see each plant (the trial: 610 x 732 px).
+TRAY_PX_PER_MM = 2.0
+# The label under each frame: its lines, their height.
+LABEL_LINES, LINE_PX = 4, 26
+LABEL_SCALE = 0.55  # text_render's size: about 19 px
 
 
 def _step(taken_at: str, per_hour: int) -> tuple:
@@ -37,9 +48,35 @@ def usable_tray(readings: dict | None, tray_id: int) -> dict | None:
         return None
     tray = trays[0]
     if (tray["placement"] != "placed" or not tray["outline_px"] or not tray["cells"] or tray["not_counted"]
-            or _NOT_USABLE & set(tray["warnings"])):
+            or _NOT_USABLE & set(tray["warnings"]) or upright(tray) is None):
         return None
     return tray
+
+
+def upright(tray: dict) -> tuple[np.ndarray, tuple[int, int]] | None:
+    """The homography from full-size photo pixels to tray `tray` upright, cell A1 at the bottom
+    left, at TRAY_PX_PER_MM, and the frame's size; None when it cannot be worked out. The corners
+    of the tray's outline are matched one to one with its corner cells (A1, D1, D5 and A5 on a
+    4 x 5 tray), so a turn in a shuffle does not turn the picture. A tray of one column or one row
+    has no corner cells to turn it by, and a match that would mirror the picture is refused."""
+    cells = {c["cell"]: c["centre_px"] for c in tray["cells"]}
+    cols = sorted({name[0] for name in cells})
+    rows = sorted({int(name[1:]) for name in cells})
+    corner_names = [f"{cols[0]}{rows[0]}", f"{cols[-1]}{rows[0]}", f"{cols[-1]}{rows[-1]}", f"{cols[0]}{rows[-1]}"]
+    if len(cols) < 2 or len(rows) < 2 or not set(corner_names) <= cells.keys():
+        return None
+    outline = np.asarray(tray["outline_px"], dtype=np.float64)
+    order = [int(np.argmin(np.hypot(*(outline - cells[name]).T))) for name in corner_names]
+    if len(set(order)) != 4:
+        return None
+    # In photo pixels (y down), A1 to D1 then A1 to A5 must turn the way right then up do.
+    a1, d1, _, a5 = (np.asarray(cells[name], dtype=np.float64) for name in corner_names)
+    u, v = d1 - a1, a5 - a1
+    if u[0] * v[1] - u[1] * v[0] >= 0:
+        return None
+    w, h = TRAY_SIZE_MM[0] * TRAY_PX_PER_MM, TRAY_SIZE_MM[1] * TRAY_PX_PER_MM
+    target = np.float32([[0, h], [w, h], [w, 0], [0, 0]])
+    return cv2.getPerspectiveTransform(np.float32(outline[order]), target), (round(w), round(h))
 
 
 def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: datetime, per_hour: int) -> dict:
@@ -92,6 +129,8 @@ def frame_values(experiment: dict, frame: dict, *, method: str) -> dict:
     band = tray["uncertainty"]
     band_text = f"±{band['band_pct']:.1f}%, {band['slot']}" if band["band_pct"] is not None else band["reason"]
     return {
+        # An experiment with no name is named by its start, as researchers need not type one.
+        "experiment": experiment.get("name") or f"Experiment of {started:%Y-%m-%d %H:%M} UTC",
         "utc": f"{taken:%Y-%m-%d %H:%M} UTC",
         "chamber": f"{taken.astimezone(CHAMBER_TIME):%H:%M} chamber time",
         "day": (taken - started).days + 1,
@@ -100,3 +139,29 @@ def frame_values(experiment: dict, frame: dict, *, method: str) -> dict:
         "area": area_text,
         "band": band_text,
     }
+
+
+def draw_frame(frame: dict, values: dict) -> Image.Image:
+    """Frame `frame` (from `choose_frames`) as a picture: its tray upright (`upright`) and, under
+    it, the label of `values` (`frame_values`). The photo is decoded at half size, enough for
+    2 px/mm and a quarter of the memory of a full-size decode."""
+    homography, (w, h) = upright(frame["tray"])
+    with Image.open(captures.photo_file(frame["capture"]["path"])) as photo:
+        full_w, _ = photo.size
+        photo.draft("RGB", (photo.width // 2, photo.height // 2))
+        rgb = np.asarray(photo.convert("RGB"))
+    scale = rgb.shape[1] / full_w
+    homography = homography @ np.diag([1 / scale, 1 / scale, 1.0])
+    tray = cv2.warpPerspective(rgb, homography, (w, h), flags=cv2.INTER_AREA)
+    canvas = np.full((h + LABEL_LINES * LINE_PX + 8, w, 3), 255, dtype=np.uint8)
+    canvas[:h] = tray
+    lines = [
+        f"{values['experiment']}   Tray {values['tray_id']}   Day {values['day']}",
+        f"{values['utc']}   {values['chamber']}",
+        f"{values['method']}: {values['area']}",
+        f"Scale error at tray top: {values['band']}",
+    ]
+    with text_layer(canvas) as text:
+        for i, line in enumerate(lines):
+            text.text(line, (8, h + (i + 1) * LINE_PX), LABEL_SCALE, (20, 20, 20))
+    return Image.fromarray(canvas)
