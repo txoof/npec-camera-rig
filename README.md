@@ -22,6 +22,9 @@ Python interpreter, not one `uv` downloads itself — `picamera2` is a system pa
 `--system-site-packages` only works if the venv's Python version matches the one it was installed
 against.
 
+System packages from apt: `python3-opencv` and `python3-picamera2`, and `ffmpeg` for the
+time lapse videos (#64). On the rigs, `~/ansible-npec` installs all three.
+
 ```bash
 uv venv --system-site-packages --python /usr/bin/python3 .venv
 uv pip install -e ".[dev]"
