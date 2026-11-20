@@ -494,7 +494,11 @@ metrology log backs it.
   its area on 3,438 photos, with nothing on the page. Since #373 the rig uses its usual cutoff there
   and marks the tray "soil hidden: usual leaf cutoff used"; Reprocess grows those photos again. Soil
   that turns green, the case the soil level was built for, has not been seen on production, so the
-  level at which the rig should warn of it is still a decision, not a measurement.
+  level at which the rig should warn of it is still a decision, not a measurement. Checked by eye
+  on 15 more flagged plant-tray photos (*2026-11-20*, metrology log 39.2): the usual cutoff marked no
+  soil, mat or tray, and still missed parts of leaves on every photo; on tray 5's 3 counted photos it
+  came within 4% of the same tray an hour before, against about half as saved. Reprocess as it is
+  also grows benchmark trays again, so the saved readings wait for a limited Reprocess (#444).
 
 ### Trays and tags (round 1, 2026-10-19)
 
