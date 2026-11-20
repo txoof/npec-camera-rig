@@ -499,6 +499,13 @@ metrology log backs it.
   soil, mat or tray, and still missed parts of leaves on every photo; on tray 5's 3 counted photos it
   came within 4% of the same tray an hour before, against about half as saved. Reprocess as it is
   also grows benchmark trays again, so the saved readings wait for a limited Reprocess (#444).
+- **Soil-only trays** (*added 2026-11-20*, metrology log 42, a development check). Grow from leaf
+  cores reads a tray of bare soil close to 0: a daily median of at most 17 mm² and at most 64 mm² in
+  any single photo (under 0.1% of a tray), on two soils and two rigs, where the fixed green cutoff
+  read the same trays 2 to 30 times higher. It therefore has no floor. The fixed green cutoff's
+  floor of 100 mm² rests on production's soil only. Empty cells whose drainage hole shows the table
+  read up to 174 mm² in single photos; they hold no plant. Not shown: soil lighter or darker than
+  these two, green soil, soil under mats.
 
 ### Trays and tags (round 1, 2026-10-19)
 

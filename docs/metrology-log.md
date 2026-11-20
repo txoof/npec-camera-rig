@@ -5649,6 +5649,10 @@ is shown as "under 100" in the gallery. Reported with each area, never subtracte
 empty trays read 27 to 78 mm² (median per tray and day) and at most 98 mm² outside shuffle 1.
 *Limits:* one run, trays 9 to 12; one value for every tray and slot.
 
+*Dark limit checked in section 43 (#293, 2026-11-20): kept as the fallback for photos without the camera's auto-exposure state; it agrees with that state.*
+
+*Floor checked in section 42 (#293, 2026-11-20): grow from leaf cores, the default method since #373, needs no floor (soil-only trays read at most 64 mm² in any photo, two soils). The 100 mm² stays for the fixed green cutoff, on production's soil only.*
+
 ### 17.8 Light exclusions: how far the light moves (method written 2026-10-26, before the data was read)
 
 *Replaced by section 29 (#382, 2026-11-09): the first-day norm flagged every lit photo of experiment 18 from 5 November as the scene changed the exposure. The rule now follows the camera: ramps from the exposure moving through each photo, lights off from the camera's auto-exposure state. Kept below as the record of the earlier decision.*
@@ -10433,3 +10437,152 @@ against a reference. One experiment, one rig.
 tray comparison will be in `experiments/444-full-reprocess/data/`. The snapshots (about 8 MB for the
 trays, more for the 6 million cell readings) stay on the controller, outside the repository, with
 their checksums given in the results.
+
+## 42. Soil-only trays by grow from leaf cores: is a floor needed? (issue #293, method written 2026-11-20, after the stored readings were first looked at)
+
+**Label: development check.** Section 17.7 set a floor of 100 mm² per tray for the fixed green
+cutoff: below it the Gallery shows "under 100", because an empty tray of experiment 18 read up to
+98 mm². That value rests on one soil, one light and one rig. Soils differ, some light and some dark
+(Aaron, 2026-11-20), so one value cannot hold for every experiment. Grow from leaf cores, the
+default method since #373, has no floor: it sets each tray's cutoff from that tray's own soil in
+each photo (sections 24.8, 34, 39). This section checks whether it needs one, by reading trays
+that held soil and no plants. The method was written after the stored readings had been looked at
+once on 2026-11-20, so it is not a check fixed before the data.
+
+**Data.** Areas already stored by the app (`tray_reading.grown_area_mm2`, method "grow from leaf
+cores, core 0.07"); no photo was segmented again. Counted photos only: an `exclusion` row with no
+name (not lights off, not light changing, not a visit). Days are UTC dates.
+
+1. *Development (npec-rig-01), experiment 4 "Dario 13 Emergence", 13 to 20 November.* Two untagged
+   trays on the west side of the table (Aaron, 2026-11-20): NW full of soil, SW with its south row of
+   cells holding soil and the rest of its cells empty. Neither holds a plant. The app finds them by
+   their blue rim and stores them as "photo, no tag"; they are picked out as the untagged trays
+   whose centre lies left of x = 2200 px, above y = 3500 px for NW. The NW tray was moved a little
+   at 10:20 UTC on 16 November (its centre by about 500 px). Read from a copy of development's
+   `rig.db` made with SQLite's backup from a read-only connection (2026-11-20 12:36 UTC). 1,288
+   counted photos.
+2. *Production (ac-testing), experiment 18, trays 9 to 12.* No plants at any time: calibration tags
+   and green samples in pots (Aaron, 2026-11-20). The samples show as a step in area: on 23 October
+   (tray 10) and 26 October (trays 9, 11, 12), gone on 5 November (trays 9, 11, 12). The soil-only
+   stretch is 22 to 25 October for trays 9, 11 and 12 (22 October for tray 10). What lay in trays 9,
+   11 and 12 from 6 November until they were removed on 12 November is not recorded; both methods
+   read close to 0 there, as they would with the soil under blue mats (mats were laid on 6 November,
+   section 36), so those days are shown but not counted as soil. Read with read-only queries over ssh;
+   nothing copied or written on production.
+
+**Analysis.** Per tray and day: the 5th percentile, median, 95th percentile and largest area by grow
+from leaf cores, and the median by the fixed green cutoff for comparison.
+`experiments/293-soil-floor/code/soil_days.py`. The largest single readings were looked at on the
+photo, with the stored mask drawn over it (`code/overlay.py`).
+
+**Results.**
+
+| Soil-only tray | Counted photos | Daily median | Daily 95th percentile | Largest single photo | Fixed green cutoff, daily median |
+|---|---|---|---|---|---|
+| Development NW, full of soil, 13 to 20 Nov | 1,288 | 1.1 to 4.7 mm² | 5 to 15 mm² | 25 mm² | 10 to 30 mm² |
+| Development SW, soil and empty cells, 13 to 15 Nov | 533 | 0 mm² | 0.7 to 1.4 mm² | 6 mm² | 0 mm² |
+| Development SW, 16 to 20 Nov | 755 | 0 to 0.4 mm² | 22 to 72 mm² | 174 mm² | 0.1 to 0.7 mm² |
+| Production trays 9, 11, 12, 22 to 25 Oct | 10,826 | 1.3 to 16.6 mm² | 3.7 to 36.8 mm² | 64 mm² | 29 to 76 mm² |
+| Production tray 10, 22 Oct | 850 | 7 mm² | 13 mm² | 25 mm² | 59 mm² |
+| Production trays 9, 11, 12, 6 to 12 Nov (contents not recorded) | 17,277 | 0 to 1.2 mm² | 0 to 3.4 mm² | 8 mm² (one photo 204 mm², not looked at) | 0 to 0.7 mm² |
+
+1. **Soil reads close to 0.** On two soils (development's and production's) and two rigs, a tray of
+   soil reads a daily median of at most 17 mm² by grow from leaf cores, and at most 64 mm² in any
+   single photo. The fixed green cutoff reads the same trays 2 to 30 times higher (production, 22 to
+   25 October). A whole tray is 305 x 366 mm (111,630 mm²), so 64 mm² is under 0.1% of it.
+2. **The table seen through empty cells.** From 16 November single photos of the SW tray read up to
+   174 mm², while its median stayed at 0 to 0.4 mm²; from one photo to the next the reading jumps
+   between 0 and tens of mm² (19 November 18:05 to 19:20 UTC, every 5 minutes: 0, 4, 0, 0, 42, 3, 0, 1, 0, 1, 174, 0,
+   58, 0, 2, 98 mm²). The stored mask shows where: two pale patches inside the drainage holes of empty
+   cells, where the camera sees the grey table under the tray (figures below). The soil row reads
+   nothing. Why it starts on 16 November is not known. A cell with its hole showing has no pot and no
+   soil, so it holds no plant, and researchers do not read growth from it (Aaron, 2026-11-20). Only a
+   "time at first green" worked out automatically per cell could be set early by it; the rig's pages
+   work out no such time.
+
+**Verdict.** Grow from leaf cores needs no floor for bare soil: on both soils seen, a soil-only tray
+reads under 0.1% of a tray in any single photo. It is given none, and the soil-only level above is
+its stated limit. The fixed green cutoff keeps its 100 mm² (17.7), which rests on production's soil
+only. A new method or a new soil is checked the same way, from stored photos of a soil-only tray
+(Aaron, 2026-11-20); no new photos are needed for a new method.
+
+**What it does and does not cover.** Two soils, on two rigs, under each rig's one light program;
+tray totals, not cells. Not covered: soil that turns green or holds algae (section 39), a soil
+lighter or darker than these two, soil under blue mats, and a tray with a plant in it, where the
+stray readings may add to the plant's area instead of standing alone.
+
+*Figures.*
+
+- [`42/overview-dev-2026-11-19.jpg`](figures/42/overview-dev-2026-11-19.jpg): development at
+  18:55 UTC on 19 November, every tray outline the app stored, red for the two untagged soil
+  trays (NW top left, SW bottom left), magenta for tagged trays. Made from capture 23505 scaled to
+  0.12.
+- [`42/sw-tray-174mm2.jpg`](figures/42/sw-tray-174mm2.jpg): the SW tray in the same photo, which
+  read 174 mm²: the stored grow-from-leaf-cores mask in magenta, the stored outline in red.
+  `code/overlay.py`, half size.
+- [`42/sw-holes-174mm2.jpg`](figures/42/sw-holes-174mm2.jpg) and
+  [`42/sw-holes-0mm2.jpg`](figures/42/sw-holes-0mm2.jpg): the two masked holes at full resolution,
+  without and with the mask, in the 174 mm² photo and the next one, 5 minutes later, which read 0
+  mm². Crops 240 px wide picked by hand around the masked patches.
+
+*Raw data.* `experiments/293-soil-floor/data/development_nw_sw_per_day.csv` and
+`production_exp18_trays9-12_per_day.csv` (from `code/soil_days.py`). Development's photos stay in
+experiment 4's folder on `npec-rig-01`, production's in experiment 18's on `ac-testing`.
+
+## 43. The dark limit against the camera's own auto-exposure state (issue #293, method written 2026-11-20, after the counts were first read)
+
+**Label: development check.** Section 17.7 set a dark limit: a photo whose exposure (µs) times
+analogue gain (E) is at least 200,000 is "lights off", a decision, not a measurement. Since #382
+(section 29) the rig decides lights off from the camera's own auto-exposure state instead
+(`capture.ae_state`, "searching"), and the 200,000 is used only for photos saved before that state
+was recorded (`exclusions.LIGHTS_OFF_E`). This section asks how many photos still rest on the
+limit, and whether the limit agrees with the camera's state on the photos that have both. The
+method was written after the counts had been read once on 2026-11-20.
+
+**Data.** Every `capture` taken as a capture on both rigs: production's `rig.db` through read-only
+queries over ssh (2026-11-20 about 13:30 UTC), development's from the read-only copy of section 42.
+`experiments/293-soil-floor/code/dark_limit.py`; each disagreeing photo with the photos either side
+of it from `code/dark_neighbours.py`.
+
+**Results.**
+
+1. **Photos that rest on the limit.** On production, every photo before 09:21:53 UTC on 9 November:
+   27,872 photos, among them experiment 18 to that time (25,963) and experiment 16 (1,393). On
+   development, one photo (28 October). Every later photo uses the camera's state.
+2. **Agreement, on 18,067 photos with a state** (production 16,027, development 2,040):
+
+   | | E 200,000 or more | E under 200,000 |
+   |---|---|---|
+   | Camera searching (lights off) | 5,623 | 27 |
+   | Camera converged (steady) | 0 | 12,417 |
+
+   No steady photo came near the limit: the largest E of a steady photo was 73,064 on production
+   and 21,347 on development, against about 256,000 to 266,000 for the camera at its ceiling in the
+   dark.
+3. **The 27 photos the limit would have called lit.** 25 are the first photo of the nightly fade
+   (about 00:27 UTC on production, 00:25 on development) or the last of the morning one (about 08:02
+   on production), with E 76,806 to 199,377, between a lit neighbour (E 9,561 to 62,774) and a dark
+   one (E 231,729 to 265,860).
+   The other 2 (production, 10:18 UTC on 12 November and 10:15 on 20 November) lie in steady
+   bright light, E 3,221 and 1,974, between neighbours of slightly higher and lower E. In all 27 the
+   photo's E lies strictly between the E of the photos before and after it, so the light-changing
+   rule (section 29.2), which runs on old photos as well, marks them "light changing" when the limit
+   is used. Under either rule all 27 are left out.
+4. **Photos marked dark that hold an area.** Photos at E 230,000 to 258,000 in the morning fade
+   still find trays and read part of their area (for example 25,835 mm² against about 49,000 mm² a
+   few minutes later, 13 November). They are taken while the light rises and are left out by both
+   rules; no steady lit photo was marked dark.
+
+**Verdict.** The 200,000 limit is kept as the fallback for photos without a state. On the photos that
+have both, it marks the same photos dark as the camera, and where the two differ the light-changing
+rule leaves the photo out anyway, so photos taken before 9 November are counted the same way as
+later ones. Nothing changes in the code.
+
+**What it does and does not cover.** Two rigs, each with one light program (fades at night). Not
+covered: a light program with a dim steady level, where E could lie between the lit and the dark
+level for hours; with auto-exposure off the ceiling is never reached and the state is not
+"searching", so neither rule marks a dark photo. Researchers are not expected to turn auto-exposure
+off (Aaron, 2026-11-20); it stays a stated limit.
+
+*Raw data.* `experiments/293-soil-floor/data/dark_limit_production.txt`,
+`dark_limit_development.txt`, `dark_neighbours_production.txt`, `dark_neighbours_development.txt`.

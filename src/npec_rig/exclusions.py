@@ -15,8 +15,9 @@ from npec_rig import database
 # Only for photos saved before the camera's auto-exposure state was recorded (#382, `capture`
 # version 24): one whose E is at least this was taken with the lights off, the camera at its
 # auto-exposure ceiling (64 ms at gain 4.0, about 256,000), against under 10,000 lit (experiments
-# 16 and 18, metrology log 17.7). A decision, not a measurement (#288), checked in #293. Newer
-# photos use the camera's own state.
+# 16 and 18, metrology log 17.7). A decision (#288); on 18,067 photos with a state it marked the
+# same photos dark as the camera, and the 27 it would call lit are left out as light changing
+# (metrology log 43, #293). Newer photos use the camera's own state.
 LIGHTS_OFF_E = 200_000
 
 # Visits: someone at the table, a whole photo left out (metrology log 17.9). Also every photo with
