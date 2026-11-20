@@ -17,13 +17,13 @@ from npec_rig.calibration_store import (
 )
 from npec_rig.camera import CameraFaultError, CameraManager
 from npec_rig.captures import experiments_root, photos_root, record_app_start, record_app_stop
-from npec_rig import exports, images, tags
+from npec_rig import exports, images, tags, timelapse
 from npec_rig.photo_tags import CaptureNotFoundError, CaptureRefError, FrameMissingError
 from npec_rig.validation import RoundNotFoundError, ValidationRefusedError
 from npec_rig.scheduler import Scheduler
 from npec_rig.tray_readings import TrayReader
 from npec_rig.validation_store import SessionNotFoundError
-from npec_rig.routes import about, calibration, experiments, focus, gallery, photo_quality, randomize, shell, validation
+from npec_rig.routes import about, calibration, data, experiments, focus, gallery, photo_quality, randomize, shell, validation
 
 STATIC_DIR = Path(__file__).parent / "static"
 # The printable sheets themselves (reference/calibration-sheets/), not app code -- served so the
@@ -44,6 +44,8 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     record_app_start()
     # An export cut off by the previous stop can never finish (exports.py).
     exports.fail_unfinished_exports()
+    # Videos are kept only until downloaded; one cut off by the stop can never finish (#64).
+    timelapse.clear()
     photo_scheduler = Scheduler()
     photo_scheduler.start()
     # Reads each photo for its trays after it is saved (#222).
@@ -155,3 +157,4 @@ app.include_router(validation.router)
 app.include_router(randomize.router)
 app.include_router(photo_quality.router)
 app.include_router(about.router)
+app.include_router(data.router)

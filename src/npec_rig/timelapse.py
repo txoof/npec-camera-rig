@@ -6,16 +6,29 @@ photo and what its reading stored (outline, cells, areas, masks), and its number
 """
 from __future__ import annotations
 
-from datetime import datetime
+import json
+import logging
+import multiprocessing
+import os
+import re
+import resource
+import secrets
+import shutil
+import subprocess
+import threading
+from datetime import datetime, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import cv2
 import numpy as np
 from PIL import Image
 
-from npec_rig import captures, database, dwell, tray_readings
+from npec_rig import captures, database, dwell, images, tray_readings
 from npec_rig.text_render import text_layer
 from npec_rig.tray_placement import TRAY_SIZE_MM
+
+logger = logging.getLogger(__name__)
 
 # Rig times are UTC; the chamber keeps Dutch local time (CLAUDE.md).
 CHAMBER_TIME = ZoneInfo("Europe/Amsterdam")
@@ -165,3 +178,186 @@ def draw_frame(frame: dict, values: dict) -> Image.Image:
         for i, line in enumerate(lines):
             text.text(line, (8, h + (i + 1) * LINE_PX), LABEL_SCALE, (20, 20, 20))
     return Image.fromarray(canvas)
+
+
+# The trays offered for a video: those found in the experiment's latest photos. A full scan of a
+# long experiment's readings would make the page slow to open.
+RECENT_PHOTOS = 200
+
+
+def experiment_trays(experiment_id: int) -> list[int]:
+    """The tray IDs found in the experiment's latest RECENT_PHOTOS photos, lowest first."""
+    ids = [c["id"] for c in database.captures_for_experiment(experiment_id)[-RECENT_PHOTOS:]]
+    return sorted({p["tray_id"] for p in database.experiment_tray_positions(experiment_id, ids)})
+
+
+# --- The video job ---------------------------------------------------------------------------------
+# Frames per second of every video, as the trial's (#64): 417 hourly frames play in about 35 s.
+FPS = 12
+# The trial's whole-tray video: 17,924,271 bytes for 417 frames (#64, 2026-11-17). An estimate
+# from that one video, not a measurement of this one.
+TRIAL_BYTES_PER_FRAME = 42_984
+# The child making a video may reserve at most this much memory, so a large request fails alone
+# and never stops the camera (#430). A starting value, to be measured on development (#64).
+MEMORY_LIMIT_BYTES = 2 * 1024**3
+_ID = re.compile(r"^\d{8}T\d{6}-[0-9a-f]{6}$")
+
+
+class VideoBusy(RuntimeError):
+    """A video is being made: one at a time, so another person's is never cancelled."""
+
+
+class VideoUnavailable(RuntimeError):
+    """Videos cannot be made on this rig: the reason, in words."""
+
+
+def videos_root() -> Path:
+    """Where videos are made and kept until downloaded: beside the derived images, not in their
+    store, whose start-up sweep removes every file its index does not know (images.py)."""
+    return images.derived_root().parent / "timelapse"
+
+
+def unavailable() -> str | None:
+    """Why no video can be made on this rig, or None when one can."""
+    return None if shutil.which("ffmpeg") else "ffmpeg is not installed on this rig, so videos cannot be made."
+
+
+_lock = threading.Lock()
+_running: dict = {}
+
+
+def start(request: dict) -> dict:
+    """Start making the video of `request` (experiment_id, tray_id, start, end, per_hour,
+    method) in a child process: its id. The finished video of an earlier request is removed
+    first, so the rig holds one at a time. Raises VideoUnavailable, VideoBusy, or ValueError for a
+    request that cannot be made."""
+    if request["per_hour"] not in PER_HOUR:
+        raise ValueError(f"per_hour must be one of {PER_HOUR}")
+    if not any(m["key"] == request["method"] for m in tray_readings.AREA_METHODS):
+        raise ValueError(f"unknown area method {request['method']!r}")
+    database.get_experiment(request["experiment_id"])  # LookupError when there is none
+    reason = unavailable()
+    if reason:
+        raise VideoUnavailable(reason)
+    with _lock:
+        if _being_made() is not None:
+            raise VideoBusy("A video is being made. Try again when it is done.")
+        clear()
+        video_id = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S}-{secrets.token_hex(3)}"
+        folder = videos_root() / video_id
+        folder.mkdir(parents=True)
+        _write_progress(folder, {"state": "choosing"})
+        # Spawned, never forked: the server runs threads (camera_process.py).
+        process = multiprocessing.get_context("spawn").Process(
+            target=_make, args=(request, str(folder)), name=f"timelapse-{video_id}", daemon=True)
+        process.start()
+        _running.update(id=video_id, process=process)
+    return {"id": video_id}
+
+
+def progress(video_id: str) -> dict:
+    """Where video `video_id` is: `state` choosing, drawing, ready, failed, or gone (removed, or
+    replaced by a newer video), with the frames chosen, done and skipped, and the estimated size."""
+    folder = _folder(video_id)
+    try:
+        state = json.loads((folder / "progress.json").read_text())
+    except (OSError, ValueError):
+        return {"state": "gone"}
+    if state["state"] in ("choosing", "drawing"):
+        process = _running.get("process") if _running.get("id") == video_id else None
+        if process is None or not process.is_alive():
+            state = {**state, "state": "failed", "error": "The video was stopped before it was finished."}
+    return state
+
+
+def video_file(video_id: str) -> Path | None:
+    """The finished video `video_id`, or None."""
+    file = _folder(video_id) / "video.mp4"
+    return file if progress(video_id)["state"] == "ready" and file.exists() else None
+
+
+def remove(video_id: str) -> None:
+    """Remove video `video_id`: it has been downloaded in full."""
+    shutil.rmtree(_folder(video_id), ignore_errors=True)
+
+
+def clear() -> None:
+    """Remove every video and every unfinished one (at app start, and before a new one): the rig
+    keeps as few as possible (Aaron, 2026-11-20). One still being made is left alone."""
+    root = videos_root()
+    if not root.exists():
+        return
+    making = _being_made()
+    for folder in root.iterdir():
+        if folder.name != making:
+            shutil.rmtree(folder, ignore_errors=True) if folder.is_dir() else folder.unlink(missing_ok=True)
+
+
+def _being_made() -> str | None:
+    """The id of the video being made, or None. Its process may outlive its last frame by a moment:
+    a video is being made while its progress says so and its process is alive."""
+    process, video_id = _running.get("process"), _running.get("id")
+    if process is None or not process.is_alive():
+        return None
+    try:
+        state = json.loads((_folder(video_id) / "progress.json").read_text())["state"]
+    except (OSError, ValueError, KeyError):
+        return None
+    return video_id if state in ("choosing", "drawing") else None
+
+
+def _folder(video_id: str) -> Path:
+    if not _ID.match(video_id):
+        return videos_root() / "not-a-video"
+    return videos_root() / video_id
+
+
+def _write_progress(folder: Path, state: dict) -> None:
+    tmp = folder / "progress.json.tmp"
+    tmp.write_text(json.dumps(state))
+    os.replace(tmp, folder / "progress.json")
+
+
+def _make(request: dict, folder: str) -> None:
+    """In the child process: choose the frames, draw each one and pipe it to ffmpeg, then rename
+    the finished file. Frames never touch the disk."""
+    out = Path(folder)
+    resource.setrlimit(resource.RLIMIT_AS, (MEMORY_LIMIT_BYTES, MEMORY_LIMIT_BYTES))
+    os.nice(10)
+    cv2.setNumThreads(1)
+    try:
+        experiment = database.get_experiment(request["experiment_id"])
+        chosen = choose_frames(
+            request["experiment_id"], tray_id=request["tray_id"], start=datetime.fromisoformat(request["start"]),
+            end=datetime.fromisoformat(request["end"]), per_hour=request["per_hour"])
+        frames = chosen["frames"]
+        state = {"state": "drawing", "frames": len(frames), "done": 0, "skipped": chosen["skipped"],
+                 "estimated_bytes": len(frames) * TRIAL_BYTES_PER_FRAME}
+        _write_progress(out, state)
+        if not frames:
+            _write_progress(out, {**state, "state": "failed", "error": "No usable photo of this tray in this time."})
+            return
+        encoder = None
+        for i, frame in enumerate(frames):
+            image = draw_frame(frame, frame_values(experiment, frame, method=request["method"]))
+            if encoder is None:
+                encoder = subprocess.Popen(
+                    ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
+                     "-s", f"{image.width}x{image.height}", "-r", str(FPS), "-i", "-", "-threads", "2",
+                     "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                     "-f", "mp4", str(out / "video.part")],
+                    stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+            encoder.stdin.write(image.tobytes())
+            _write_progress(out, {**state, "done": i + 1})
+        _, err = encoder.communicate()
+        if encoder.returncode != 0:
+            raise RuntimeError(f"ffmpeg failed: {err.decode(errors='replace')[-300:]}")
+        os.replace(out / "video.part", out / "video.mp4")
+        _write_progress(out, {**state, "done": len(frames), "state": "ready",
+                              "bytes": (out / "video.mp4").stat().st_size})
+    except Exception as exc:  # noqa: BLE001 -- every failure is shown on the page, in words
+        logger.exception("Time lapse %s failed", out.name)
+        try:
+            _write_progress(out, {"state": "failed", "error": str(exc) or type(exc).__name__})
+        except OSError:
+            pass

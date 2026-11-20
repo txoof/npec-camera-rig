@@ -347,3 +347,47 @@ def export_built(client, experiment_id: int, choice: dict | None = None, timeout
             return export
         time.sleep(0.02)
     raise AssertionError(f"export {export_id} not built in {timeout_s} s")
+
+
+# --- Time lapse frames (#64) -----------------------------------------------------------------
+def turned_tray_photo(experiment_id: int, taken) -> None:
+    """A 1000 x 1000 photo of tray 4 lying turned 180 degrees, at 2 px/mm: its 610 x 732 px outline
+    at x 100 to 710, y 100 to 832, its 4 x 5 cells read, a red patch on cell A1, a blue one on D5
+    (time lapse frames, #64). `taken` is a datetime."""
+    from PIL import Image
+
+    from npec_rig import captures, database
+
+    def cell(name: str, holds: str, x: float, y: float) -> dict:
+        return {"cell": name, "holds": holds, "centre_px": [x, y],
+                "corners_px": [[x - 60, y - 60], [x + 60, y - 60], [x + 60, y + 60], [x - 60, y + 60]],
+                "plant_px": 100, "area_mm2": 100.0, "over_other_cells": False}
+
+    def in_photo(ux: float, uy: float) -> tuple[float, float]:  # upright frame pixels to the photo
+        return 710 - ux, 832 - uy
+
+    cells = []
+    for i, col in enumerate("ABCD"):
+        for j in range(5):
+            x, y = in_photo((i + 0.5) * 152.5, 732 - (j + 0.5) * 146.4)
+            cells.append(cell(f"{col}{j + 1}", "tag" if (col, j) == ("A", 0) else "plant", x, y))
+    image = Image.new("RGB", (1000, 1000), (128, 128, 128))
+    a1, d5 = in_photo(76.25, 658.8), in_photo(533.75, 73.2)
+    image.paste((255, 0, 0), (int(a1[0]) - 20, int(a1[1]) - 20, int(a1[0]) + 20, int(a1[1]) + 20))
+    image.paste((0, 0, 255), (int(d5[0]) - 20, int(d5[1]) - 20, int(d5[0]) + 20, int(d5[1]) + 20))
+    day, stem = f"{taken:%Y-%m-%d}", f"{taken:%H%M%S}_{taken:%f}"
+    (captures.photos_root() / day).mkdir(parents=True, exist_ok=True)
+    image.save(captures.photos_root() / day / f"{stem}.jpg", quality=95)
+    capture_id = database.record_capture(
+        taken_at=taken.isoformat(), path=f"rig/{day}/{stem}", purpose="capture", experiment_id=experiment_id,
+        calibration=None, validation=None, lens_position=None, focus_locked_at=None, exposure_us=None,
+        analogue_gain=None, flags=[],
+    )
+    database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[{
+        "tray_id": 4, "slot": None, "a1_corner": "NE", "placement": "placed", "centre_px": [405, 466],
+        "tilt_deg": 180.0, "margin_mm": None, "found": "photo + tag", "warnings": [],
+        "outline_px": [[100, 100], [710, 100], [710, 832], [100, 832]], "area_mm2": 1000.0,
+        "segmenter": "green threshold, 0.1", "cells": cells,
+    }])
+    database.record_exclusions([{"capture_id": capture_id, "name": None, "norm_e": None, "limit_fraction": None}],
+                               worked_out_at=taken.isoformat())
