@@ -10790,11 +10790,20 @@ only) was copied to the controller and every CSV read in full with Python's `csv
 | `cell-readings.csv` | 5,998,520 | 15 | yes |
 | `time-in-table-location.csv` | 12 | 7 | yes |
 
-Not done: opening the files in Excel. `captures.csv` and `tray-readings.csv` are within Excel's
-limit of 1,048,576 rows. `cell-readings.csv` is not: Excel opens about the first 17% of it, with a
-warning that the file was not loaded completely.
+Opened in Excel by Aaron, 2026-11-20, the same export:
 
-**Result: pass for reading the files.** Opening in Excel is Aaron's step.
+| File | In Excel |
+|---|---|
+| `captures.csv` | Opens, after a data conversion prompt |
+| `time-in-table-location.csv` | Opens, no prompt |
+| `tray-readings.csv` | Opens, no prompt |
+| `cell-readings.csv` (700 MB) | Does not open. It is also over Excel's limit of 1,048,576 rows |
+
+Which columns of `captures.csv` the conversion prompt is about was not recorded.
+
+**Result: pass for `captures.csv`, the file PLAN.md names, and for the tray and location files.
+Fail in Excel for `cell-readings.csv`**, the per-cell areas researchers need most; it reads in
+full with Python's `csv` reader.
 
 ### 45.4 Disk headroom against `df`
 
@@ -10807,5 +10816,4 @@ The app also showed 12.1 GB written per day and 56.6 days left.
 **What this does and does not cover.** One rig and one experiment at a 60 s interval. The count
 shows the scheduler takes every photo while the app is up; it does not show that every photo
 reaches the database while another job writes to it (17 November, #439). The reboot test is on
-development, not on production. The CSV check is that the files are complete and well formed, not
-that a spreadsheet opens every one.
+development, not on production. Excel was tried on one Windows PC, version not recorded.
