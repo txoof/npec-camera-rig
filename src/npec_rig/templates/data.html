@@ -5,6 +5,8 @@
 {% block breadcrumb %}<h1>Data</h1>
   {%- if experiment %}
   {{ ui.button(experiment.name or ("Experiment of " ~ experiment.periods[0].started_at[:16].replace("T", " ") ~ " UTC"), id="tl-experiment", icon_after="chev", attrs={"aria-label": "Experiment, choose another"}) }}
+  {#- The tabs sit in the head too: under it they would push Make video off a 1024 x 600 screen. -#}
+  <div class="data-tabs">{{ ui.choices("data-tabs", "Data views", [("timelapse", "Time lapse", ""), ("export", "Export", "")], tab) }}</div>
   {%- endif %}
 {% endblock %}
 
@@ -26,11 +28,19 @@
   #tl-mask { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #tl-example { width: 64px; height: 64px; border-radius: var(--radius); }
   .tl-days { display: grid; gap: 24px; max-width: 520px; }
+  .data-tabs { margin-left: auto; }
+  .data-tabs .choice { min-width: 140px; min-height: 56px; }
+  #tl-bar { display: contents; }
+  #tl-bar[hidden] { display: none; }
+  .ex { display: grid; gap: 24px; max-width: 820px; }
+  .ex-actions { display: flex; flex-wrap: wrap; gap: 24px; }
+  .ex-actions .btn { min-width: 200px; }
   @media (max-width: 700px) { .tl-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
 </style>
 {% endblock %}
 
 {% block content %}
+<div data-tab-panel="timelapse"{% if tab != "timelapse" %} hidden{% endif %}>
 <div class="tl">
   {%- if unavailable %}
   {% call ui.banner("fail", "Not available") %}<p>{{ unavailable }}</p>{% endcall %}
@@ -72,7 +82,28 @@
   </div>
   {%- endif %}
 </div>
+</div>
+{#- The experiment's export, moved here from the Experiments page as it worked there (#454). -#}
+<div data-tab-panel="export"{% if tab != "export" %} hidden{% endif %}>
+<div class="ex" id="ex">
+  {%- if not experiment %}
+  <p class="lead">No experiment has been started yet, so there is nothing to export.</p>
+  {%- else %}
+  <div id="ex-status" role="status"></div>
+  <div class="ex-actions">
+    {{ ui.button("Export", "primary", id="ex-export") }}
+    {{ ui.button("Download parts", id="ex-parts", attrs={"hidden": true}) }}
+  </div>
+  <p id="ex-message" role="status"></p>
+  <p>An export holds the experiment's data, its photos or both. Large exports download in parts,
+    prepared on the rig while they download. To delete the experiment from the rig later (Purge,
+    on the Experiments page), first export it with its photos.</p>
+  {%- endif %}
+</div>
+</div>
 {%- if experiment %}
+{% include "_ask_dialog.html" %}
+<script src="/static/data-export.js"></script>
 <script>
   // ui.js is deferred: it runs once the page is parsed, as this does.
   document.addEventListener("DOMContentLoaded", () => {
@@ -81,6 +112,16 @@
     const starts = {{ experiments | map(attribute="periods") | map("first") | map(attribute="started_at") | list | tojson }};
     const first = new Date({{ first | tojson }}), last = new Date({{ last | tojson }});
     const pressed = (id) => document.querySelector(`#${id} [aria-pressed="true"]`)?.dataset.value;
+    // Tabs: the Time lapse buttons under the page show on its tab only; the address keeps the tab,
+    // so a reload or a shared link lands on it (#454).
+    const tlBar = document.getElementById("tl-bar");
+    ui.bindTabs(document.getElementById("data-tabs"), (tab) => {
+      tlBar.hidden = tab !== "timelapse";
+      const url = new URL(location.href);
+      url.searchParams.set("tab", tab);
+      history.replaceState(null, "", url);
+    });
+    window.dataExport.mount(document.getElementById("ex"), {{ experiment.id }});
     const value = (id) => document.getElementById(id)?.dataset.value;
     ["tl-tray", "tl-cell"].forEach((id) => { const el = document.getElementById(id); if (el) ui.bindField(el); });
     ["tl-step"].forEach((id) => ui.bindChoices(document.getElementById(id)));
@@ -226,6 +267,7 @@
 {% endblock %}
 
 {% block action_bar %}
+  <div id="tl-bar"{% if tab != "timelapse" %} hidden{% endif %}>
   <span class="grow" id="tl-status" role="status"></span>
   {#- A finished video is offered as soon as the page opens, before the script runs. -#}
   {%- if latest and latest.state == "ready" %}
@@ -234,4 +276,5 @@
   <a class="btn primary hit" id="tl-download" download hidden>Download</a>
   {%- endif %}
   {{ ui.button("Make video", "primary", id="tl-make", disabled=(unavailable or not experiment or not trays)) }}
+  </div>
 {% endblock %}

@@ -143,3 +143,18 @@ def test_a_request_with_its_start_after_its_end_or_an_unknown_cell_is_refused(ex
 
     assert client.post("/api/data/timelapse", json=backwards).status_code == 422
     assert client.post("/api/data/timelapse", json=no_such_cell).status_code == 422
+
+
+def test_the_data_page_opens_on_the_export_tab_when_the_address_asks_for_it(experiment):
+    page = TestClient(app).get(f"/data?experiment={experiment}&tab=export").text
+
+    assert '<div data-tab-panel="export">' in page
+    assert '<div data-tab-panel="timelapse" hidden>' in page
+    assert 'id="ex-export"' in page  # the experiment's Export button, moved from the Experiments page (#454)
+
+
+def test_the_data_page_opens_on_the_time_lapse_tab_by_default(experiment):
+    page = TestClient(app).get(f"/data?experiment={experiment}").text
+
+    assert '<div data-tab-panel="timelapse">' in page
+    assert '<div data-tab-panel="export" hidden>' in page
