@@ -10722,3 +10722,90 @@ leaves reach.
 **What follows.** A crop to the tags would cut off plants on some days, so it is not used (44,
 Input). *Raw data:* `analysis/margin/` on the work machine (`RESULTS.md`, `METHOD.md`, picture sheet
 `figures/top12_sheet.png`), copied into `experiments/round4-segmentation-nn/` with the results.
+
+## 45. M3 acceptance tests: 24 hour photo count, reboot, CSV, disk headroom (issue #67, written 2026-11-20, after the records were read)
+
+**Label: development check.** PLAN.md's M3 test list: unattended 24 h at exactly the expected
+photo count; reboot mid-run, it resumes; download `captures.csv` and open it in Excel; the disk
+headroom readout matches `df`. The timelapse scrub on the same list is not part of this test: the
+timelapse (#64) is not built and may be cut. Aaron decided on 2026-10-27 that the count is read from
+the records of the running potato experiment, with no new run. This section was written after
+those records were read, so it is not a check fixed before the data.
+
+**Data.** Production (ac-testing), experiment 18 "Potato Plants v001", one photo every 60 s since
+2026-10-22 08:40:51 UTC, app version a6632d6 on 13 to 17 November (section 37) and main 6fa155a on 2026-11-20. Read
+on 2026-11-20 with read-only SQLite connections over ssh, the server logs in `/tmp` and `df`;
+nothing written on production. Days are UTC dates.
+
+### 45.1 Photo count per day
+
+The scheduler writes one `scheduled_photo` row for every due photo, taken or missed (#62). Count of
+rows and of rows with no photo, per day:
+
+| Days | Due per day | Taken | Not taken |
+|---|---|---|---|
+| 23 Oct to 16 Nov (25 days) | 1440 | 1440 each day | 0 |
+| 17 Nov | 1440 | 1429 | 11 |
+| 18 and 19 Nov | 1440 | 1440 each day | 0 |
+
+22 October (from 08:41) and 20 November (to 15:00) are partial days with 0 not taken. As an
+independent count, the `capture` table holds 1440 photos of experiment 18 on each of 24 October,
+1 November, 18 November and 19 November, the days sampled. App restarts on 10, 11, 13 and 20
+November (two on 20 November) lost no photo.
+
+**17 November.** One photo was due while the app was stopped (07:06 UTC) and carries that reason.
+The other 10 slots have no photo and no reason. The server logs show why: while the production
+Reprocess of section 37 ran, the database was locked (17 and 39 `database is locked` errors in the
+logs of 07:08 and 12:31 UTC). **11 photos were taken and saved to disk with their JSON** (12:29 and
+14:07 to 14:43 UTC) but their database row was not written ("Could not add the photo ... to the
+database"). None of the 11 has a `capture` row, so the Gallery, the readings and the export leave
+them out, and nothing on a page says so. This was reported on #439 (moved to Round 4, High). No
+such failure appears in the production logs since 17 November 14:49 UTC.
+
+**Result: pass on 27 of 28 full days**, each unattended. 17 November was not unattended (Reprocess
+and restarts) and fails by 11 photos, from the database lock, not from the scheduler.
+
+### 45.2 Reboot mid-run, it resumes
+
+Not run on production: production has not been rebooted since 2026-10-21 14:57 UTC, and the app
+there is started by hand, not by the `npec-rig` service (`systemctl` reports it not found), so
+after a reboot it would not start again by itself. Aaron accepted the development tests of #62
+instead (2026-11-20): on npec-rig-01 with a test experiment taking a photo every minute,
+`sudo systemctl reboot` on 2026-10-23 (service up 10 s after boot, every slot taken, 6 photos, 0
+missed; PR #285), and on 2026-11-02 a reboot and a boot without network time, both pass (PR #344,
+#62's comments).
+
+**Result: pass on development.** Production resumes after a reboot only once it runs the
+`npec-rig` service.
+
+### 45.3 CSV download
+
+The data export of experiment 18 made on production at 09:47 UTC on 2026-11-20 (48.9 MB zip, data
+only) was copied to the controller and every CSV read in full with Python's `csv` reader:
+
+| File | Rows | Columns | Every row the same width |
+|---|---|---|---|
+| `captures.csv` | 41,820 | 18 | yes |
+| `tray-readings.csv` | 301,335 | 15 | yes |
+| `cell-readings.csv` | 5,998,520 | 15 | yes |
+| `time-in-table-location.csv` | 12 | 7 | yes |
+
+Not done: opening the files in Excel. `captures.csv` and `tray-readings.csv` are within Excel's
+limit of 1,048,576 rows. `cell-readings.csv` is not: Excel opens about the first 17% of it, with a
+warning that the file was not loaded completely.
+
+**Result: pass for reading the files.** Opening in Excel is Aaron's step.
+
+### 45.4 Disk headroom against `df`
+
+On production at about 15:00 UTC on 2026-11-20, `/api/about` reported 683,642,777,600 bytes free
+and `df -B1` on `/var/lib/npec-rig` reported 683,642,777,600 bytes available: the same number.
+The app also showed 12.1 GB written per day and 56.6 days left.
+
+**Result: pass.**
+
+**What this does and does not cover.** One rig and one experiment at a 60 s interval. The count
+shows the scheduler takes every photo while the app is up; it does not show that every photo
+reaches the database while another job writes to it (17 November, #439). The reboot test is on
+development, not on production. The CSV check is that the files are complete and well formed, not
+that a spreadsheet opens every one.
