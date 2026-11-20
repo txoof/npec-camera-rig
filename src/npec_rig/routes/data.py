@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
@@ -32,7 +32,7 @@ def data_page(request: Request, experiment: int | None = None) -> HTMLResponse:
                # As ui.choices options: value, text, detail.
                "methods": [(m["key"], m["name"], "") for m in tray_readings.AREA_METHODS],
                "per_hour": [(str(n), f"{n} per hour", "") for n in timelapse.PER_HOUR],
-               "unavailable": timelapse.unavailable()}
+               "unavailable": timelapse.unavailable(), "latest": timelapse.latest()}
     if chosen is not None:
         context["trays"] = timelapse.experiment_trays(chosen["id"])
         context["first"] = chosen["periods"][0]["started_at"]
@@ -60,10 +60,9 @@ def video_progress(video_id: str) -> dict:
 
 
 @router.get("/api/data/timelapse/{video_id}/download")
-def download_video(video_id: str, background: BackgroundTasks) -> FileResponse:
-    """The finished video. It is removed once it has been sent in full (Aaron, 2026-11-20)."""
+def download_video(video_id: str) -> FileResponse:
+    """The finished video. It stays on the rig until the next one is started (Aaron, 2026-11-20)."""
     file = timelapse.video_file(video_id)
     if file is None:
-        raise HTTPException(404, "This video is gone: it was downloaded or replaced by a newer one. Make it again.")
-    background.add_task(timelapse.remove, video_id)
+        raise HTTPException(404, "This video is gone: a newer one was started. Make it again.")
     return FileResponse(file, media_type="video/mp4", filename=f"timelapse-{video_id}.mp4")

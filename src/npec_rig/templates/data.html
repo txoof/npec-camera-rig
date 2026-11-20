@@ -89,6 +89,10 @@
       const start = days === "all" ? first : new Date(Math.max(first, last - Number(days) * 86400000));
       return { start: start.toISOString(), end: new Date(last.getTime() + 1000).toISOString() };
     }
+    // What a video shows, from its request: so a page opened again can say which video it holds.
+    const methodNames = Object.fromEntries({{ methods | map("list") | list | tojson }}.map((m) => [m[0], m[1]]));
+    const day = (iso) => iso.slice(0, 10);
+    const about = (q) => q ? `Tray ${q.tray_id}, ${day(q.start)} to ${day(q.end)}, ${q.per_hour} per hour, ${methodNames[q.method] || q.method}: ` : "";
     async function watch(id) {
       for (;;) {
         const p = await (await fetch(`/api/data/timelapse/${id}`)).json();
@@ -96,7 +100,7 @@
         if (p.state === "drawing") status.textContent = `Drawing frame ${p.done} of ${p.frames}, about ${mb(p.estimated_bytes)}`
           + (p.skipped ? `. ${p.skipped} steps had no usable photo.` : ".");
         if (p.state === "ready") {
-          status.innerHTML = `${ui.chip("ok", "Ready")} ${p.frames} frames, ${mb(p.bytes)}` + (p.skipped ? `. ${p.skipped} steps had no usable photo.` : ".");
+          status.innerHTML = `${ui.chip("ok", "Ready")} ${ui.esc(about(p.request))}${p.frames} frames, ${mb(p.bytes)}` + (p.skipped ? `. ${p.skipped} steps had no usable photo.` : ".");
           download.href = `/api/data/timelapse/${id}/download`;
           download.hidden = false;
           make.disabled = false;
@@ -129,13 +133,18 @@
       }
       watch(body.id);
     });
-    // The rig removes the video once it is sent in full: the button goes, and says so.
+    // The rig keeps the video until the next one is started: it can be downloaded again.
     download.addEventListener("click", () => {
       setTimeout(() => {
-        download.hidden = true;
-        status.textContent = "Downloaded. The rig keeps no copy: make it again if you need it.";
+        status.textContent = "Downloaded. The rig keeps this video until the next one is started.";
       }, 1500);
     });
+    // The rig's latest video, being made or ready, when the page is opened again (Aaron, 2026-11-20).
+    const latest = {{ latest | tojson }};
+    if (latest && latest.state !== "gone") {
+      if (["choosing", "drawing"].includes(latest.state)) make.disabled = true;
+      watch(latest.id);
+    }
   });
 </script>
 {%- endif %}
@@ -143,6 +152,11 @@
 
 {% block action_bar %}
   <span class="grow" id="tl-status" role="status"></span>
+  {#- A finished video is offered as soon as the page opens, before the script runs. -#}
+  {%- if latest and latest.state == "ready" %}
+  <a class="btn primary hit" id="tl-download" download href="/api/data/timelapse/{{ latest.id }}/download">Download</a>
+  {%- else %}
   <a class="btn primary hit" id="tl-download" download hidden>Download</a>
+  {%- endif %}
   {{ ui.button("Make video", "primary", id="tl-make", disabled=(unavailable or not experiment or not trays)) }}
 {% endblock %}

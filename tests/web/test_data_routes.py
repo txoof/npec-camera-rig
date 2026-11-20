@@ -68,7 +68,7 @@ def test_a_tray_video_is_made_in_the_background_and_downloads_as_an_mp4_of_its_f
 
 
 @needs_ffmpeg
-def test_a_video_is_gone_once_downloaded_in_full_and_none_is_kept_after_an_app_start(experiment):
+def test_a_video_is_kept_after_its_download_and_a_restart_until_the_next_one_is_started(experiment):
     from npec_rig import timelapse
 
     turned_tray_photo(experiment, START)
@@ -77,14 +77,26 @@ def test_a_video_is_gone_once_downloaded_in_full_and_none_is_kept_after_an_app_s
     assert _made(client, first)["state"] == "ready"
 
     assert client.get(f"/api/data/timelapse/{first}/download").status_code == 200
-    assert client.get(f"/api/data/timelapse/{first}").json()["state"] == "gone"
-    assert client.get(f"/api/data/timelapse/{first}/download").status_code == 404
+    timelapse.clear()  # as the app does when it starts
+    assert client.get(f"/api/data/timelapse/{first}").json()["state"] == "ready"
+    assert client.get(f"/api/data/timelapse/{first}/download").status_code == 200
 
     second = client.post("/api/data/timelapse", json=_request(experiment)).json()["id"]
+    assert client.get(f"/api/data/timelapse/{first}").json()["state"] == "gone"
     assert _made(client, second)["state"] == "ready"
-    timelapse.clear()  # as the app does when it starts
-    assert client.get(f"/api/data/timelapse/{second}").json()["state"] == "gone"
-    assert list(timelapse.videos_root().iterdir()) == []
+    assert [f.name for f in timelapse.videos_root().iterdir()] == [second]
+
+
+@needs_ffmpeg
+def test_the_data_page_opened_again_offers_the_latest_video(experiment):
+    turned_tray_photo(experiment, START)
+    client = TestClient(app)
+    video = client.post("/api/data/timelapse", json=_request(experiment)).json()["id"]
+    assert _made(client, video)["state"] == "ready"
+
+    page = client.get(f"/data?experiment={experiment}")
+
+    assert f'href="/api/data/timelapse/{video}/download"' in page.text
 
 
 def test_with_no_ffmpeg_a_video_is_refused_with_the_reason(experiment, monkeypatch, tmp_path):
