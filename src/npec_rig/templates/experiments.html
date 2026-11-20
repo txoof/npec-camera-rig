@@ -155,7 +155,8 @@
       }
       // Its own line: beside Export and Purge it ran into the scroll lane.
       const x = e.export;
-      const parts = x && x.photo_parts !== null && !x.error && e.state !== "purged" ? [button("parts", "Download parts")] : [];
+      // While the data file is made (#437), Download parts shows how far it is and can stop it.
+      const parts = x && (preparing(e) || x.photo_parts !== null) && !x.error && e.state !== "purged" ? [button("parts", "Download parts")] : [];
       // Only a started experiment can have photos; a purged one has none left.
       const photos = e.periods.length && e.state !== "purged" ? [button("photos", "Photos")] : [];
       // One Reprocess at a time: the button is hidden on every experiment while one runs.
@@ -186,7 +187,7 @@
     function exportText(e) {
       const x = e.export;
       if (!x) return completeText(e);
-      if (!x.finished_at) return `<div class="experiment-export">Export: preparing, started ${utc(x.started_at)}</div>`;
+      if (!x.finished_at) return `<div class="experiment-export">Export: preparing data file, started ${utc(x.started_at)}</div>`;
       if (x.error) return `<div class="experiment-export">Export failed: ${esc(x.error)}</div>`;
       if (x.removed_at) return "";
       const held = x.photos && x.data ? "" : x.photos ? " (photos only)" : " (data only)";
@@ -600,13 +601,8 @@
         return;
       }
       const started = (partsStarted[exportId] ||= new Set());
-      // Part 0 is made while it downloads (#430): while it is, the rig says how many photos are
-      // done, so the page shows it moving; the browser can not, as its size is not known ahead.
-      const preparing = (p) => (p.making ? `${Math.floor(100 * p.making.photos_done / Math.max(1, p.making.photos))}%` : null);
       const status = (p) => (p.sent
         ? { word: "&#10003; Downloaded", look: "background: #1f3d2b; border: 2px solid #3fb950" }
-        : preparing(p)
-          ? { word: `&#8987; Preparing ${preparing(p)}`, look: "background: #3d3416; border: 2px solid #d29922" }
         : started.has(p.n)
           ? { word: "&#8675; Started", look: "background: #3d3416; border: 2px solid #d29922" }
           : { word: "", look: "background: #333; border: 2px solid #666" });
@@ -615,26 +611,44 @@
         const st = status(p);
         return `<a href="/api/exports/${x.id}/parts/${p.n}" download data-part="${p.n}"`
           + ` style="display: flex; align-items: center; justify-content: space-between; min-height: 64px; margin-bottom: 24px; padding: 0 16px; text-decoration: none; color: #eee; border-radius: 6px; ${st.look}">`
-          + `<span>Part ${p.n}: ${what}, ${size(p.bytes)}</span><strong style="white-space: nowrap; margin-left: 16px">${st.word}</strong></a>`
-          + (p.making ? `<p style="margin: -12px 0 24px">${makingText(p.making)}</p>` : "");
+          + `<span>Part ${p.n}: ${what}, ${size(p.bytes)}</span><strong style="white-space: nowrap; margin-left: 16px">${st.word}</strong></a>`;
       };
+      // The data file is made on the rig before anything downloads (#437): the measurements of
+      // every photo are read into the CSV tables. The count is of photos read, not photos sent.
       const makingText = (m) => {
+        if (!m) return "Preparing data file.";
         const left = m.seconds_left === null ? ""
-          : m.seconds_left < 60 ? ", less than a minute left" : `, about ${Math.round(m.seconds_left / 60)} minutes left`;
-        return `Preparing data: ${m.photos_done.toLocaleString("en-US")} of ${m.photos.toLocaleString("en-US")} photos${left}.`;
+          : m.seconds_left < 60 ? " Less than a minute left." : ` ${Math.round(m.seconds_left / 60)} minutes left.`;
+        return `Preparing data file: reading measurement ${m.photos_done.toLocaleString("en-US")} of `
+          + `${m.photos.toLocaleString("en-US")}.${left}`;
       };
-      const zero = x.data ? " Part 0 is put together while it downloads: this window shows how far it is." : "";
       const render = () => {
+        if (x.error) {
+          return `<p><strong>&#10007; This export did not finish:</strong> ${esc(x.error)}.</p>`
+            + "<p>Close this window and tap Export to make a new one.</p>";
+        }
+        if (!x.finished_at) {
+          const m = x.parts[0].making;
+          const pct = m ? ` ${Math.floor(100 * m.photos_done / Math.max(1, m.photos))}%` : "";
+          return `<p style="min-height: 64px; display: flex; align-items: center; padding: 0 16px; border-radius: 6px; background: #3d3416; border: 2px solid #d29922">`
+            + `<strong>&#8987; Preparing data file${pct}</strong></p>`
+            + `<p>${makingText(m)}</p>`
+            + "<p>You can safely close this window or page while the export is prepared. "
+            + "Click Download parts to find and download the export."
+            + (x.photos ? " The photo parts are listed then too." : "") + "</p>"
+            + `<button type="button" class="stop" id="export-stop" style="min-height: 64px; margin-top: 24px">Stop preparation</button>`;
+        }
         const done = x.parts.filter((p) => p.sent).length;
-        return `<p>${x.parts.length} parts, <strong>${done} downloaded</strong>. Download each one and unzip them all `
-          + `into the same folder. A part that fails can be downloaded again on its own.${zero}</p>`
+        return `<p>${x.parts.length} ${x.parts.length === 1 ? "part" : "parts"}, <strong>${done} downloaded</strong>. Download each one and unzip them all `
+          + `into the same folder. A part that fails can be downloaded again on its own.</p>`
           + `<div id="parts-list" style="max-height: 300px; overflow-y: auto; padding-right: 64px">${x.parts.map(link).join("")}</div>`;
       };
       const redraw = () => {
         const list = ask.body.querySelector("#parts-list");
         const scroll = list ? list.scrollTop : 0;
         ask.body.innerHTML = render();
-        ask.body.querySelector("#parts-list").scrollTop = scroll;
+        const after = ask.body.querySelector("#parts-list");
+        if (after) after.scrollTop = scroll;
       };
       openAsk({
         title: `Download ${displayName(e)}`,
@@ -643,7 +657,21 @@
         cancel: false,
         action: () => null,
       });
-      ask.body.onclick = (event) => {
+      ask.body.onclick = async (event) => {
+        const stop = event.target.closest("#export-stop");
+        if (stop) {
+          stop.disabled = true;
+          stop.textContent = "Stopping...";
+          try {
+            x = await call("POST", `/api/exports/${exportId}/stop`);
+          } catch (err) {
+            stop.textContent = `Could not stop it: ${err.message}`;
+            return;
+          }
+          redraw();
+          refresh();
+          return;
+        }
         const a = event.target.closest("a[data-part]");
         if (!a) return;
         started.add(Number(a.dataset.part));
@@ -653,8 +681,10 @@
       partsTimer = setInterval(async () => {
         if (!ask.dialog.open) { clearInterval(partsTimer); ask.body.onclick = null; return; }
         try {
+          const was = x.finished_at;
           x = await call("GET", `/api/exports/${exportId}`);
           redraw();
+          if (!was && x.finished_at) refresh();
         } catch (err) {
           // Keep the list as it is; the next read may work.
         }

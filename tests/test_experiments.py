@@ -11,10 +11,15 @@ pytestmark = pytest.mark.unit
 
 
 @pytest.fixture(autouse=True)
-def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path):
     monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
     monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
     monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+    yield
+    # No export build outlives its test (#437): it would write into the next test's folders.
+    from npec_rig import exports
+
+    exports.fail_unfinished_exports()
 
 
 def test_version_1_photos_become_rig_photos() -> None:
@@ -442,7 +447,9 @@ def test_a_hidden_tray_gives_no_warning_and_the_export_is_unchanged() -> None:
     experiment_id = _two_trays_running(client)
 
     def export_rows() -> list[list[str]]:
-        export = client.post(f"/api/experiments/{experiment_id}/export", json={"data": True, "photos": False}).json()
+        from tests.helpers import export_built
+
+        export = export_built(client, experiment_id, {"data": True, "photos": False})
         with zipfile.ZipFile(io.BytesIO(client.get(f"/api/exports/{export['id']}/parts/0").content)) as zf:
             name = next(n for n in zf.namelist() if n.endswith("time-in-table-location.csv"))
             return list(csv.reader(io.StringIO(zf.read(name).decode())))

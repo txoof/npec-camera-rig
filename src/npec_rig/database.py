@@ -733,7 +733,7 @@ def _json_or_none(value: object) -> str | None:
     return None if value is None else json.dumps(value)
 
 
-def tray_readings(capture_id: int) -> dict | None:
+def tray_readings(capture_id: int, *, history: bool = True) -> dict | None:
     """Photo `capture_id`'s tray readings: when it was read, its status, the trays found in tray
     ID order, and `not_found`: each tray found in an earlier photo of the same experiment but not
     in this one, with where it was last found (`seen_in`: that photo's path and calibration and
@@ -745,7 +745,10 @@ def tray_readings(capture_id: int) -> dict | None:
     been read.
 
     A removed tray, a swapped tag and a dirty tag all look the same here: the rig cannot tell them
-    apart, so each is shown as not found since a time, never guessed at."""
+    apart, so each is shown as not found since a time, never guessed at.
+
+    `history` False leaves `not_found` and `in_both` empty: the export uses neither, and their
+    search of the photos before took 38% of the time of its data file (#437)."""
     with _connect() as conn:
         read = conn.execute(
             "SELECT tray_read.*, capture.taken_at, capture.experiment_id FROM tray_read"
@@ -770,7 +773,7 @@ def tray_readings(capture_id: int) -> dict | None:
                 "grown_over_other_cells": None if c["grown_over_other_cells"] is None else bool(c["grown_over_other_cells"]),
             })
         not_found, in_both = [], []
-        if read["experiment_id"] is not None and read["status"] == "read":
+        if history and read["experiment_id"] is not None and read["status"] == "read":
             # Photos read with trays placed only: one not read, too dark to find any tag, or with
             # no calibration says nothing about which trays are in it.
             in_experiment = (
@@ -1353,8 +1356,8 @@ def captures_for_experiment(experiment_id: int, until: str | None = None) -> lis
 
 
 def create_export(experiment_id: int, *, now: str, data: bool = True, photos: bool = True) -> dict:
-    """A new export, refused for an experiment that has never started, or while an export of it
-    is still being prepared. A running experiment can be exported: the export holds its photos
+    """A new export, refused for an experiment that has never started, or while an export, of it
+    or of another experiment, is still being prepared. A running experiment can be exported: the export holds its photos
     up to `now` (Aaron, 2026-10-09). `data` and `photos`: what the user ticked to go in it."""
     with _connect() as conn:
         # Take the write lock before checking, so two clicks cannot both start one.
@@ -1364,12 +1367,12 @@ def create_export(experiment_id: int, *, now: str, data: bool = True, photos: bo
             raise ExperimentError("an experiment that has not started has nothing to export")
         if state == "purged":
             raise ExperimentError("this experiment was purged: there is nothing left to export")
-        busy = conn.execute(
-            "SELECT 1 FROM export WHERE experiment_id = ? AND finished_at IS NULL",
-            (experiment_id,),
-        ).fetchone()
-        if busy:
+        # One data file built at a time on the rig (#437): two at once doubled the time of each.
+        busy = conn.execute("SELECT experiment_id FROM export WHERE finished_at IS NULL").fetchone()
+        if busy and busy[0] == experiment_id:
             raise ExperimentError("an export of this experiment is already being prepared")
+        if busy:
+            raise ExperimentError("an export of another experiment is being prepared: export again when it is done")
         cursor = conn.execute(
             "INSERT INTO export (experiment_id, started_at, data, photos) VALUES (?, ?, ?, ?)",
             (experiment_id, now, int(data), int(photos)),
@@ -1386,12 +1389,23 @@ def finish_export(export_id: int, *, now: str, file: str, bytes: int, files: int
         )
 
 
-def ready_export(export_id: int, *, now: str, photo_parts: int) -> None:
-    """An export in parts (#368) is ready at once: its parts are zipped as they download."""
+def ready_export(export_id: int, *, now: str, photo_parts: int, file: str, bytes: int) -> bool:
+    """An export in parts (#368) is ready once its data file, part 0, is built (#437): `file`, its
+    path from the rig's data folder, and its size. False, and nothing changed, when the export was
+    already ended (stopped, or failed by a restart) while it was built."""
     with _connect() as conn:
-        conn.execute(
-            "UPDATE export SET finished_at = ?, photo_parts = ? WHERE id = ?", (now, photo_parts, export_id)
-        )
+        return conn.execute(
+            "UPDATE export SET finished_at = ?, photo_parts = ?, file = ?, bytes = ?"
+            " WHERE id = ? AND finished_at IS NULL",
+            (now, photo_parts, file, bytes, export_id),
+        ).rowcount == 1
+
+
+def unfinished_export() -> dict | None:
+    """The export being prepared on the rig, if any: at most one at a time (#437)."""
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM export WHERE finished_at IS NULL ORDER BY id LIMIT 1").fetchone()
+    return dict(row) if row else None
 
 
 def record_part_sent(export_id: int, part: int, *, now: str) -> None:
@@ -1411,7 +1425,7 @@ def parts_sent(export_id: int) -> set[int]:
 def fail_export(export_id: int, *, now: str, error: str) -> None:
     with _connect() as conn:
         conn.execute(
-            "UPDATE export SET finished_at = ?, error = ? WHERE id = ?", (now, error, export_id)
+            "UPDATE export SET finished_at = ?, error = ? WHERE id = ? AND finished_at IS NULL", (now, error, export_id)
         )
 
 
