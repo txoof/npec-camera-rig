@@ -162,7 +162,8 @@
       // One Reprocess at a time: the button is hidden on every experiment while one runs.
       if (photos.length && !experiments.some((x) => x.reprocess.running)) photos.push(button("reprocess", "Reprocess areas"));
       // Its own line: a fourth button beside Photos ran past the screen's edge.
-      const locations = photos.length ? [button("table-locations", "Table locations")] : [];
+      // Data export opens the Data page for this experiment: time lapse videos (#64), later exports.
+      const locations = photos.length ? [button("table-locations", "Table locations"), button("data", "Data export")] : [];
       return [first, photos, locations, last, parts].filter((line) => line.length)
         .map((line) => `<div class="row">${line.join("")}</div>`).join("");
     }
@@ -728,6 +729,8 @@
       listMessage.textContent = "";
       if (act === "edit") {
         edit(e);
+      } else if (act === "data") {
+        location.href = `/data?experiment=${e.id}`;
       } else if (act === "table-locations") {
         dwellMessage.textContent = "";
         showTableLocations(e);

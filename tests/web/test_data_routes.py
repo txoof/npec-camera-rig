@@ -82,7 +82,7 @@ def test_a_video_is_kept_after_its_download_and_a_restart_until_the_next_one_is_
     assert client.get(f"/api/data/timelapse/{first}/download").status_code == 200
 
     second = client.post("/api/data/timelapse", json=_request(experiment)).json()["id"]
-    assert client.get(f"/api/data/timelapse/{first}").json()["state"] == "gone"
+    assert client.get(f"/api/data/timelapse/{first}").json()["state"] == "replaced"
     assert _made(client, second)["state"] == "ready"
     assert [f.name for f in timelapse.videos_root().iterdir()] == [second]
 
@@ -119,3 +119,27 @@ def test_the_data_page_opens_from_the_rail_and_offers_the_experiments_trays(expe
     assert '<a class="rail-btn hit" href="/data" aria-current="page">' in page.text
     assert "Potato light" in page.text
     assert 'data-value="4"' in page.text  # tray 4, the tray in its photos
+
+
+@needs_ffmpeg
+def test_a_video_replaced_by_a_newer_one_says_so_and_names_the_newer_one(experiment):
+    turned_tray_photo(experiment, START)
+    client = TestClient(app)
+    first = client.post("/api/data/timelapse", json=_request(experiment)).json()["id"]
+    assert _made(client, first)["state"] == "ready"
+    second = client.post("/api/data/timelapse", json=_request(experiment)).json()["id"]
+
+    replaced = client.get(f"/api/data/timelapse/{first}").json()
+
+    assert replaced["state"] == "replaced"
+    assert replaced["newer"] == second
+    _made(client, second)
+
+
+def test_a_request_with_its_start_after_its_end_or_an_unknown_cell_is_refused(experiment):
+    client = TestClient(app)
+    backwards = {**_request(experiment), "start": (START + timedelta(hours=3)).isoformat(), "end": START.isoformat()}
+    no_such_cell = {**_request(experiment), "cell": "Z9"}
+
+    assert client.post("/api/data/timelapse", json=backwards).status_code == 422
+    assert client.post("/api/data/timelapse", json=no_such_cell).status_code == 422

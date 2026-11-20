@@ -129,3 +129,97 @@ def test_a_drawn_frame_shows_the_tray_upright_with_cell_a1_at_the_bottom_left(ex
     assert r > 200 and g < 60 and b < 60
     r, g, b = image.getpixel((534, 73))  # the centre of cell D5, top right
     assert b > 200 and r < 60 and g < 60
+
+
+def test_with_a_mask_overlay_a_photo_without_that_mask_is_skipped_and_counted(experiment):
+    import numpy as np
+
+    from npec_rig import segmentation
+
+    h = timedelta(hours=1)
+    with_mask = _photo(experiment, START)
+    _photo(experiment, START + h)  # no mask saved for this one
+    mask = np.zeros((500, 500), dtype=bool)
+    path = database.captures_for_experiment(experiment)[0]["path"]
+    segmentation.save_mask(path, mask, segmentation.GROWN_MASK)
+
+    grown = timelapse.choose_frames(experiment, tray_id=4, start=START, end=START + 2 * h, per_hour=1, mask="grown")
+    fixed = timelapse.choose_frames(experiment, tray_id=4, start=START, end=START + 2 * h, per_hour=1, mask="fixed")
+
+    assert [f["capture"]["id"] for f in grown["frames"]] == [with_mask]
+    assert grown["skipped"] == 1
+    assert fixed["frames"] == [] and fixed["skipped"] == 2  # no fixed cutoff mask on either photo
+
+
+def test_a_frame_with_a_mask_shows_its_edge_in_magenta_and_tints_only_inside_it(experiment):
+    import numpy as np
+
+    from npec_rig import segmentation
+
+    turned_tray_photo(experiment, START)
+    path = database.captures_for_experiment(experiment)[0]["path"]
+    mask = np.zeros((1000, 1000), dtype=bool)
+    mask[300:500, 300:500] = True  # photo pixels; the tray lies turned, so upright x 210 to 410, y 332 to 532
+    segmentation.save_mask(path, mask)
+    frame = timelapse.choose_frames(experiment, tray_id=4, start=START, end=START + timedelta(hours=1),
+                                    per_hour=1, mask="fixed")["frames"][0]
+    values = timelapse.frame_values(database.get_experiment(experiment), frame, method="fixed")
+
+    image = timelapse.draw_frame(frame, values, mask="fixed")
+
+    edge = [image.getpixel((x, 432)) for x in range(206, 215)]
+    assert any(r > 220 and g < 40 and b > 220 for r, g, b in edge)  # magenta edge
+    r, g, b = image.getpixel((310, 432))  # inside: grey 128 tinted toward magenta
+    assert r > 140 and b > 140 and g < 115
+    r, g, b = image.getpixel((150, 200))  # outside the mask: the grey photo
+    assert abs(r - 128) < 12 and abs(g - 128) < 12 and abs(b - 128) < 12
+
+
+def test_a_cell_frame_gives_its_area_or_its_status_word_and_the_slot_band(experiment):
+    banded_validation("20270301T000000000000", {"North 1": ((250, 280), 2.0)})
+    _photo(experiment, START, validation="20270301T000000000000")
+    frame = _only_frame(experiment)
+    experiment_row = database.get_experiment(experiment)
+
+    plant = timelapse.frame_values(experiment_row, frame, method="fixed", cell="B1")
+    tag = timelapse.frame_values(experiment_row, frame, method="fixed", cell="A1")
+    grown = timelapse.frame_values(experiment_row, frame, method="grown", cell="B1")
+
+    assert plant["cell"] == "B1"
+    assert plant["area"] == "250 mm²"
+    assert plant["band"] == "±2.0%, North 1"
+    assert plant["band_label"] == "Slot band, flat objects at tray-top height"
+    assert tag["area"] == "Tag"
+    assert grown["area"] == "not worked out"  # grow from leaf cores was not run on this photo
+
+
+def test_a_cell_frame_shows_that_cell_upright_in_the_middle_with_half_a_cell_around_it(experiment):
+    turned_tray_photo(experiment, START)
+    frame = _only_frame(experiment)
+    experiment_row = database.get_experiment(experiment)
+
+    a1 = timelapse.draw_frame(frame, timelapse.frame_values(experiment_row, frame, method="fixed", cell="A1"), cell="A1")
+    d5 = timelapse.draw_frame(frame, timelapse.frame_values(experiment_row, frame, method="fixed", cell="D5"), cell="D5")
+
+    # The cell's opening 300 px across, 150 px around it: 600 px wide, the cell's centre at 300, 300.
+    assert a1.width == 600 and a1.height > 600
+    r, g, b = a1.getpixel((300, 300))
+    assert r > 200 and g < 60 and b < 60  # A1's red patch
+    r, g, b = d5.getpixel((300, 300))
+    assert b > 200 and r < 60 and g < 60  # D5's blue patch
+
+
+def test_a_video_that_would_leave_five_days_of_disk_or_fewer_is_refused_with_the_days_left(tmp_path):
+    import time
+
+    from npec_rig import health
+
+    # 10 MB written in the data folder in the last day: about 10 MB a day.
+    (health.db_path().parent / "photos-today.bin").write_bytes(b"\0" * 10_000_000)
+    mb = 1_000_000
+
+    refused = timelapse.disk_refusal(60 * mb, 100 * mb, time.time())  # leaves 40 MB, about 4 days
+    allowed = timelapse.disk_refusal(10 * mb, 100 * mb, time.time())  # leaves 90 MB, about 9 days
+
+    assert refused is not None and "4 days" in refused
+    assert allowed is None

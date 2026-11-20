@@ -16,6 +16,7 @@ import secrets
 import shutil
 import subprocess
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -24,7 +25,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from npec_rig import captures, database, dwell, images, tray_readings
+from npec_rig import captures, database, dwell, health, images, segmentation, tray_readings
 from npec_rig.text_render import text_layer
 from npec_rig.tray_placement import TRAY_SIZE_MM
 
@@ -37,8 +38,15 @@ PER_HOUR = (1, 2, 5)
 # A tray with one of these is not where its reading says, or is not one tray (the trial of
 # 2026-11-17, #64).
 _NOT_USABLE = {"no tag", "tag seen, tray not found in the photo", "two tags in one tray outline"}
+# The mask files of each overlay a video may show, by area method key (segmentation.mask_file).
+MASK_KINDS = {"fixed": "", "grown": segmentation.GROWN_MASK}
+# The cells a video may show: trays are 4 x 5, 2 x 2 or 1 x 1 (reference/trays.md).
+_CELL = re.compile(r"^[A-D][1-5]$")
 # Whole-tray frames: 2 px/mm, enough to see each plant (the trial: 610 x 732 px).
 TRAY_PX_PER_MM = 2.0
+# Cell frames: the cell's opening 300 px across, with half a cell around it, since potato leaves
+# spread over the neighbours (the trial, #64).
+CELL_PX, CELL_MARGIN = 300, 150
 # The label under each frame: its lines, their height.
 LABEL_LINES, LINE_PX = 4, 26
 LABEL_SCALE = 0.55  # text_render's size: about 19 px
@@ -92,9 +100,12 @@ def upright(tray: dict) -> tuple[np.ndarray, tuple[int, int]] | None:
     return cv2.getPerspectiveTransform(np.float32(outline[order]), target), (round(w), round(h))
 
 
-def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: datetime, per_hour: int) -> dict:
+def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: datetime, per_hour: int,
+                  mask: str | None = None, cell: str | None = None) -> dict:
     """The photos of tray `tray_id` that become frames, from `start` up to `end`: in each step of
-    the clock (`per_hour` steps an hour), the first photo with a usable tray (`usable_tray`).
+    the clock (`per_hour` steps an hour), the first photo with a usable tray (`usable_tray`) and,
+    with `mask` (a key of MASK_KINDS), that mask saved: a photo read before grow from leaf cores
+    was run has none (#64); with `cell`, a tray that has that cell.
     `frames`: one dict per frame, oldest first, with the photo's `capture` row, its `readings` and
     the `tray`. `skipped`: the steps that had photos but none usable, not counting steps with the
     lights off in every photo."""
@@ -113,6 +124,10 @@ def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: dat
         for capture in by_step[step]:
             readings = tray_readings.capture_readings(capture, history=False, locations=locations)
             tray = usable_tray(readings, tray_id)
+            if tray is not None and mask is not None and not segmentation.mask_file(capture["path"], MASK_KINDS[mask]).exists():
+                tray = None
+            if tray is not None and cell is not None and not any(c["cell"] == cell for c in tray["cells"]):
+                tray = None
             if tray is not None:
                 frames.append({"capture": capture, "readings": readings, "tray": tray})
                 break
@@ -122,11 +137,28 @@ def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: dat
     return {"frames": frames, "skipped": skipped}
 
 
-def frame_values(experiment: dict, frame: dict, *, method: str) -> dict:
+# A cell's status in the Gallery's words (#364).
+CELL_WORDS = {"tag": "Tag", "missing": "Missing", "leaves over other cells": "Leaves over other cells"}
+
+
+def _cell_area(cell: dict, m: dict) -> str:
+    """A cell's area by method `m` as the Gallery words it: the area of a plant, else its status."""
+    status, area = cell.get(m["cell_status"]), cell.get(m["cell_area"])
+    if status is None:
+        return "not worked out"
+    if status == "plant":
+        return f"{round(area):,} mm²"
+    word = CELL_WORDS.get(status, status)
+    return f"{word}, {round(area):,} mm²" if status == "leaves over other cells" and area is not None else word
+
+
+def frame_values(experiment: dict, frame: dict, *, method: str, cell: str | None = None) -> dict:
     """What frame `frame` (from `choose_frames`) of `experiment` says, in the Gallery's words: the
     time in UTC and in chamber time, the day of the experiment (day 1 is its first 24 h), the area
     method's name, the tray's plant area by it, and the band of the tray's slot or the reason there
-    is none. `method` is the key of one of `tray_readings.AREA_METHODS`."""
+    is none. `method` is the key of one of `tray_readings.AREA_METHODS`. With `cell`, the area or
+    status of that cell, and the tray's slot band labelled as the slot's: validation measures
+    slots, not cells (Aaron, 2026-11-20)."""
     m = next(m for m in tray_readings.AREA_METHODS if m["key"] == method)
     taken = datetime.fromisoformat(frame["capture"]["taken_at"])
     started = datetime.fromisoformat(experiment["periods"][0]["started_at"])
@@ -139,6 +171,8 @@ def frame_values(experiment: dict, frame: dict, *, method: str) -> dict:
         area_text = f"under {floor} mm²"
     else:
         area_text = f"{round(area):,} mm²"
+    if cell is not None:
+        area_text = _cell_area(next(c for c in tray["cells"] if c["cell"] == cell), m)
     band = tray["uncertainty"]
     band_text = f"±{band['band_pct']:.1f}%, {band['slot']}" if band["band_pct"] is not None else band["reason"]
     return {
@@ -148,31 +182,73 @@ def frame_values(experiment: dict, frame: dict, *, method: str) -> dict:
         "chamber": f"{taken.astimezone(CHAMBER_TIME):%H:%M} chamber time",
         "day": (taken - started).days + 1,
         "tray_id": tray["tray_id"],
+        "cell": cell,
         "method": m["name"],
         "area": area_text,
         "band": band_text,
+        "band_label": "Slot band, flat objects at tray-top height" if cell else "Scale error at tray top",
     }
 
 
-def draw_frame(frame: dict, values: dict) -> Image.Image:
-    """Frame `frame` (from `choose_frames`) as a picture: its tray upright (`upright`) and, under
-    it, the label of `values` (`frame_values`). The photo is decoded at half size, enough for
-    2 px/mm and a quarter of the memory of a full-size decode."""
-    homography, (w, h) = upright(frame["tray"])
-    with Image.open(captures.photo_file(frame["capture"]["path"])) as photo:
+# Marks on rig photos are magenta, never cyan, which blends with the blue trays (Aaron, 2026-11-06).
+MAGENTA = np.array([255, 0, 255], dtype=np.float32)
+
+
+def _overlay(rgb: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """The mask's edge in magenta and a light magenta fill inside it, as in the trial (#64)."""
+    out = rgb.astype(np.float32)
+    out[mask] = 0.75 * out[mask] + 0.25 * MAGENTA
+    m8 = mask.view(np.uint8)
+    edge = cv2.dilate(m8 - cv2.erode(m8, np.ones((3, 3), np.uint8)), np.ones((2, 2), np.uint8)) > 0
+    out[edge] = MAGENTA
+    return out.astype(np.uint8)
+
+
+def cell_upright(tray: dict, cell: str) -> tuple[np.ndarray, tuple[int, int]]:
+    """The homography from full-size photo pixels to cell `cell` of tray `tray` upright, its
+    opening CELL_PX across and CELL_MARGIN around it, and the frame's size. The cell's corners are
+    ordered through the tray's own turn (`upright`), so the cell is never turned or mirrored."""
+    tray_h, _ = upright(tray)
+    corners = np.asarray(next(c for c in tray["cells"] if c["cell"] == cell)["corners_px"], dtype=np.float32)
+    up = cv2.perspectiveTransform(corners.reshape(-1, 1, 2), tray_h).reshape(-1, 2)
+    # Upright (y down): top left has the smallest x + y, bottom right the largest; top right the
+    # largest x - y, bottom left the smallest.
+    total, diff = up.sum(axis=1), up[:, 0] - up[:, 1]
+    order = [np.argmin(total), np.argmax(diff), np.argmax(total), np.argmin(diff)]
+    m, n = CELL_MARGIN, CELL_MARGIN + CELL_PX
+    target = np.float32([[m, m], [n, m], [n, n], [m, n]])
+    size = CELL_PX + 2 * CELL_MARGIN
+    return cv2.getPerspectiveTransform(corners[order], target), (size, size)
+
+
+def draw_frame(frame: dict, values: dict, *, mask: str | None = None, cell: str | None = None) -> Image.Image:
+    """Frame `frame` (from `choose_frames`) as a picture: its tray upright (`upright`) with, when
+    `mask` is a key of MASK_KINDS, that mask over it, and under it the label of `values`
+    (`frame_values`). With `cell`, that cell alone (`cell_upright`). The photo is decoded at half size, enough for 2 px/mm and a quarter of the
+    memory of a full-size decode."""
+    homography, (w, h) = upright(frame["tray"]) if cell is None else cell_upright(frame["tray"], cell)
+    path = frame["capture"]["path"]
+    with Image.open(captures.photo_file(path)) as photo:
         full_w, _ = photo.size
         photo.draft("RGB", (photo.width // 2, photo.height // 2))
         rgb = np.asarray(photo.convert("RGB"))
     scale = rgb.shape[1] / full_w
-    homography = homography @ np.diag([1 / scale, 1 / scale, 1.0])
-    tray = cv2.warpPerspective(rgb, homography, (w, h), flags=cv2.INTER_AREA)
+    tray = cv2.warpPerspective(rgb, homography @ np.diag([1 / scale, 1 / scale, 1.0]), (w, h), flags=cv2.INTER_AREA)
+    if mask is not None:
+        saved = segmentation.load_mask(path, MASK_KINDS[mask])
+        if saved is not None:
+            m_scale = saved.shape[1] / full_w
+            m = cv2.warpPerspective(saved.view(np.uint8), homography @ np.diag([1 / m_scale, 1 / m_scale, 1.0]),
+                                    (w, h), flags=cv2.INTER_NEAREST) > 0
+            tray = _overlay(tray, m)
     canvas = np.full((h + LABEL_LINES * LINE_PX + 8, w, 3), 255, dtype=np.uint8)
     canvas[:h] = tray
     lines = [
-        f"{values['experiment']}   Tray {values['tray_id']}   Day {values['day']}",
+        f"{values['experiment']}   Tray {values['tray_id']}" + (f"   Cell {values['cell']}" if values.get("cell") else "")
+        + f"   Day {values['day']}",
         f"{values['utc']}   {values['chamber']}",
         f"{values['method']}: {values['area']}",
-        f"Scale error at tray top: {values['band']}",
+        f"{values['band_label']}: {values['band']}",
     ]
     with text_layer(canvas) as text:
         for i, line in enumerate(lines):
@@ -200,7 +276,9 @@ TRIAL_BYTES_PER_FRAME = 42_984
 # The child making a video may reserve at most this much memory, so a large request fails alone
 # and never stops the camera (#430). A starting value, to be measured on development (#64).
 MEMORY_LIMIT_BYTES = 2 * 1024**3
-_ID = re.compile(r"^\d{8}T\d{6}-[0-9a-f]{6}$")
+# An id is the time a video was started, to the microsecond so ids sort by it (to the second
+# before 2026-11-20 evening, still read), and a random part.
+_ID = re.compile(r"^\d{8}T\d{6}(\d{6})?-[0-9a-f]{6}$")
 
 
 class VideoBusy(RuntimeError):
@@ -217,6 +295,24 @@ def videos_root() -> Path:
     return images.derived_root().parent / "timelapse"
 
 
+def disk_refusal(estimate_bytes: int, free_bytes: int, now: float) -> str | None:
+    """Why a video of about `estimate_bytes` is refused, or None: it would leave the data folder
+    the yellow disk warning's days or fewer at the rate photos are written (#307, Aaron, 2026-11-20)."""
+    after = health.disk_headroom(health.db_path().parent, free_bytes - estimate_bytes, now)
+    if after["level"] == "ok":
+        return None
+    days = max(after["days_left"], 0.0)
+    return (f"This video would leave about {days:.0f} days of disk space, and the rig warns at "
+            f"{health.DISK_YELLOW_DAYS:.0f}. Choose fewer frames or a shorter time.")
+
+
+def estimate_bytes(request: dict) -> int:
+    """An upper estimate of a video's size before its frames are chosen: one frame per step of
+    the time asked for, at the trial's size per frame (TRIAL_BYTES_PER_FRAME)."""
+    hours = (datetime.fromisoformat(request["end"]) - datetime.fromisoformat(request["start"])).total_seconds() / 3600
+    return int(max(hours, 0) * request["per_hour"]) * TRIAL_BYTES_PER_FRAME
+
+
 def unavailable() -> str | None:
     """Why no video can be made on this rig, or None when one can."""
     return None if shutil.which("ffmpeg") else "ffmpeg is not installed on this rig, so videos cannot be made."
@@ -228,22 +324,27 @@ _running: dict = {}
 
 def start(request: dict) -> dict:
     """Start making the video of `request` (experiment_id, tray_id, start, end, per_hour,
-    method) in a child process: its id. The finished video of an earlier request is removed
+    method, and optionally cell and mask, true to show the method's mask) in a child process: its id. The finished video of an earlier request is removed
     first, so the rig holds one at a time. Raises VideoUnavailable, VideoBusy, or ValueError for a
     request that cannot be made."""
     if request["per_hour"] not in PER_HOUR:
         raise ValueError(f"per_hour must be one of {PER_HOUR}")
     if not any(m["key"] == request["method"] for m in tray_readings.AREA_METHODS):
         raise ValueError(f"unknown area method {request['method']!r}")
+    if datetime.fromisoformat(request["start"]) >= datetime.fromisoformat(request["end"]):
+        raise ValueError("The time asked for ends before it starts.")
+    if request.get("cell") is not None and not _CELL.match(request["cell"]):
+        raise ValueError(f"No tray has a cell {request['cell']!r}.")
     database.get_experiment(request["experiment_id"])  # LookupError when there is none
-    reason = unavailable()
+    reason = unavailable() or disk_refusal(
+        estimate_bytes(request), shutil.disk_usage(health.db_path().parent).free, time.time())
     if reason:
         raise VideoUnavailable(reason)
     with _lock:
         if _being_made() is not None:
             raise VideoBusy("A video is being made. Try again when it is done.")
         clear(finished=True)
-        video_id = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S}-{secrets.token_hex(3)}"
+        video_id = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S%f}-{secrets.token_hex(3)}"
         folder = videos_root() / video_id
         folder.mkdir(parents=True)
         _write_progress(folder, {"state": "choosing", "request": request})
@@ -256,12 +357,17 @@ def start(request: dict) -> dict:
 
 
 def progress(video_id: str) -> dict:
-    """Where video `video_id` is: `state` choosing, drawing, ready, failed, or gone (removed, or
-    replaced by a newer video), with the frames chosen, done and skipped, and the estimated size."""
+    """Where video `video_id` is: `state` choosing, drawing, ready, failed, replaced (a newer
+    video was started: `newer` is its id), or gone, with the frames chosen, done and skipped,
+    and the estimated size."""
     folder = _folder(video_id)
     try:
         state = json.loads((folder / "progress.json").read_text())
     except (OSError, ValueError):
+        newest = _newest()
+        # Ids sort by the time they were started: a newer one replaced this one.
+        if _ID.match(video_id) and newest is not None and newest > video_id:
+            return {"state": "replaced", "newer": newest}
         return {"state": "gone"}
     if state["state"] in ("choosing", "drawing"):
         process = _running.get("process") if _running.get("id") == video_id else None
@@ -279,9 +385,14 @@ def video_file(video_id: str) -> Path | None:
 def latest() -> dict | None:
     """The rig's latest video, as `progress` gives it with its `id`, or None: a page opened again
     shows it, so leaving the page loses nothing (Aaron, 2026-11-20)."""
+    newest = _newest()
+    return {"id": newest, **progress(newest)} if newest else None
+
+
+def _newest() -> str | None:
     root = videos_root()
     ids = sorted(f.name for f in root.iterdir() if f.is_dir() and _ID.match(f.name)) if root.exists() else []
-    return {"id": ids[-1], **progress(ids[-1])} if ids else None
+    return ids[-1] if ids else None
 
 
 def clear(*, finished: bool = False) -> None:
@@ -334,9 +445,11 @@ def _make(request: dict, folder: str) -> None:
     cv2.setNumThreads(1)
     try:
         experiment = database.get_experiment(request["experiment_id"])
+        mask = request["method"] if request.get("mask") else None
         chosen = choose_frames(
             request["experiment_id"], tray_id=request["tray_id"], start=datetime.fromisoformat(request["start"]),
-            end=datetime.fromisoformat(request["end"]), per_hour=request["per_hour"])
+            end=datetime.fromisoformat(request["end"]), per_hour=request["per_hour"],
+            mask=mask, cell=request.get("cell"))
         frames = chosen["frames"]
         state = {"state": "drawing", "request": request, "frames": len(frames), "done": 0, "skipped": chosen["skipped"],
                  "estimated_bytes": len(frames) * TRIAL_BYTES_PER_FRAME}
@@ -346,7 +459,8 @@ def _make(request: dict, folder: str) -> None:
             return
         encoder = None
         for i, frame in enumerate(frames):
-            image = draw_frame(frame, frame_values(experiment, frame, method=request["method"]))
+            values = frame_values(experiment, frame, method=request["method"], cell=request.get("cell"))
+            image = draw_frame(frame, values, mask=mask, cell=request.get("cell"))
             if encoder is None:
                 encoder = subprocess.Popen(
                     ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
