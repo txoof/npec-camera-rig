@@ -295,7 +295,9 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | web-photo-quality | `routes/photo_quality.py` (the JPEG setting of full-size photos through the API, #359), `tests/web/test_photo_quality_routes.py` |
 | web-randomize | `routes/randomize.py`, `templates/randomize.html` (the Randomize page, #343) |
 | web-about | `about.py` (the facts the About page shows, read when asked), `routes/about.py`, `templates/about.html` (the About page from the (i) button at the foot of the rail, later also manuals and links, #390) |
+| web-data | `routes/data.py`, `templates/data.html`, `tests/web/test_data_routes.py` (the Data page from the Data tab on the rail: time lapse videos, later exports, #64) |
 | images | `images.py`, `text_render.py` |
+| timelapse | `timelapse.py` (time lapse videos: which photos become frames, each frame drawn upright with its label, the video made in a child process and kept until downloaded, #64) |
 | segmentation | `segmentation.py` (plant masks: the `Segmenter` interface, the green threshold and the Hailo stub, #74) |
 | randomization | `randomization.py` (restricted randomization of the tray layout and the check against it, #343) |
 | database | `database.py` (the experiment's tables in `rig.db` and their migrations) |

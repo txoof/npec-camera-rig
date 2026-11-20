@@ -17,6 +17,12 @@ fi
 
 here="$(cd "$(dirname "$0")" && pwd)"
 
+# Time lapse videos need ffmpeg (#64). Not installed here: packages come from ~/ansible-npec.
+if ! command -v ffmpeg >/dev/null; then
+    echo "Warning: ffmpeg is not installed, so time lapse videos cannot be made." >&2
+    echo "  Install it with make deploy from ~/ansible-npec, or: sudo apt install ffmpeg" >&2
+fi
+
 install -m 0644 "$here/npec-rig.service" /etc/systemd/system/npec-rig.service
 install -d /etc/systemd/system/systemd-time-wait-sync.service.d
 install -m 0644 "$here/time-wait-limit.conf" \

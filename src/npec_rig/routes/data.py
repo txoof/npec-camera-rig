@@ -1,0 +1,69 @@
+"""The Data page (#64): time lapse videos of an experiment's trays. Exports move here later."""
+
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse
+from pydantic import BaseModel
+
+from npec_rig import database, timelapse, tray_readings
+from npec_rig.routes.shared import templates
+
+router = APIRouter()
+
+
+class VideoRequest(BaseModel):
+    experiment_id: int
+    tray_id: int
+    start: str
+    end: str
+    per_hour: int
+    method: str
+
+
+@router.get("/data", response_class=HTMLResponse)
+def data_page(request: Request, experiment: int | None = None) -> HTMLResponse:
+    """The Data page: a time lapse video of one of an experiment's trays. The experiment named in
+    the address, else the running one, else the latest started (the list is newest first)."""
+    started = [e for e in database.list_experiments() if e["periods"] and e["state"] != "purged"]
+    chosen = next((e for e in started if e["id"] == experiment), None) or next(
+        (e for e in started if e["state"] == "running"), None) or (started[0] if started else None)
+    context = {"nav_active": "data", "experiments": started, "experiment": chosen, "trays": [],
+               # As ui.choices options: value, text, detail.
+               "methods": [(m["key"], m["name"], "") for m in tray_readings.AREA_METHODS],
+               "per_hour": [(str(n), f"{n} per hour", "") for n in timelapse.PER_HOUR],
+               "unavailable": timelapse.unavailable()}
+    if chosen is not None:
+        context["trays"] = timelapse.experiment_trays(chosen["id"])
+        context["first"] = chosen["periods"][0]["started_at"]
+        context["last"] = chosen["periods"][-1]["ended_at"] or datetime.now(timezone.utc).isoformat()
+    return templates.TemplateResponse(request, "data.html", context)
+
+
+@router.post("/api/data/timelapse")
+def start_video(request: VideoRequest) -> dict:
+    """Start making a video in the background: its id. 409 with the reason when none can be made
+    now (a video is being made, or ffmpeg is missing)."""
+    try:
+        return timelapse.start(request.model_dump())
+    except (timelapse.VideoBusy, timelapse.VideoUnavailable) as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@router.get("/api/data/timelapse/{video_id}")
+def video_progress(video_id: str) -> dict:
+    return timelapse.progress(video_id)
+
+
+@router.get("/api/data/timelapse/{video_id}/download")
+def download_video(video_id: str, background: BackgroundTasks) -> FileResponse:
+    """The finished video. It is removed once it has been sent in full (Aaron, 2026-11-20)."""
+    file = timelapse.video_file(video_id)
+    if file is None:
+        raise HTTPException(404, "This video is gone: it was downloaded or replaced by a newer one. Make it again.")
+    background.add_task(timelapse.remove, video_id)
+    return FileResponse(file, media_type="video/mp4", filename=f"timelapse-{video_id}.mp4")

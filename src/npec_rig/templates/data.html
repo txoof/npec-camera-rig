@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% set nav_active = "data" %}
+{% block title_suffix %} — Data{% endblock %}
+{#- The experiment chooser sits in the head, so every choice and Make video fit 1024 x 600. -#}
+{% block breadcrumb %}<h1>Data</h1>
+  {%- if experiment %}
+  {{ ui.button(experiment.name or ("Experiment of " ~ experiment.periods[0].started_at[:16].replace("T", " ") ~ " UTC"), id="tl-experiment", icon_after="chev", attrs={"aria-label": "Experiment, choose another"}) }}
+  {%- endif %}
+{% endblock %}
+
+{#- The Data page (#64): a time lapse video of one tray, made on the rig in the background and
+    removed once downloaded. All trays, cells, mask overlays and the table map follow; exports
+    move here later. -#}
+{% block head_extra %}
+<style>
+  .tl { display: grid; gap: 16px; max-width: 820px; }
+  .tl-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: 16px; }
+  .tl-row > h3 { margin: 0; font-size: 1rem; }
+  #tl-experiment { min-width: 0; max-width: 60%; }
+  /* Twelve trays in one or two rows: each a 72 px button at least. */
+  #tl-tray { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
+  /* Each label on one line, so every row is one button tall and the page fits 1024 x 600. */
+  #tl-when, #tl-step { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  #tl-method { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  @media (max-width: 700px) { .tl-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tl">
+  {%- if unavailable %}
+  {% call ui.banner("fail", "Not available") %}<p>{{ unavailable }}</p>{% endcall %}
+  {%- endif %}
+  {%- if not experiment %}
+  <p class="lead">No experiment has been started yet, so there is nothing to make a video of.</p>
+  {%- else %}
+  <div class="tl-row">
+    <h3>Tray</h3>
+    {%- if trays %}
+    <div class="choices" id="tl-tray" role="group" aria-label="Tray">
+      {%- for t in trays %}
+      <button type="button" class="choice hit" data-value="{{ t }}" aria-pressed="{{ 'true' if loop.first else 'false' }}"><strong>{{ t }}</strong></button>
+      {%- endfor %}
+    </div>
+    {%- else %}
+    <p>No tray has been found in this experiment's latest photos.</p>
+    {%- endif %}
+  </div>
+  <div class="tl-row">
+    <h3>Time</h3>
+    {{ ui.choices("tl-when", "Time", [("all", "Whole experiment", ""), ("7", "Last 7 days", ""), ("1", "Last day", "")], "all") }}
+  </div>
+  <div class="tl-row">
+    <h3>Frames</h3>
+    {{ ui.choices("tl-step", "Frames", per_hour, "1") }}
+  </div>
+  <div class="tl-row">
+    <h3>Leaf area</h3>
+    {{ ui.choices("tl-method", "Leaf area method", methods, methods[0][0]) }}
+  </div>
+  {%- endif %}
+</div>
+{%- if experiment %}
+<script>
+  // ui.js is deferred: it runs once the page is parsed, as this does.
+  document.addEventListener("DOMContentLoaded", () => {
+    const experiments = {{ experiments | map(attribute="id") | list | tojson }};
+    const names = {{ experiments | map(attribute="name") | list | tojson }};
+    const starts = {{ experiments | map(attribute="periods") | map("first") | map(attribute="started_at") | list | tojson }};
+    const first = new Date({{ first | tojson }}), last = new Date({{ last | tojson }});
+    const pressed = (id) => document.querySelector(`#${id} [aria-pressed="true"]`)?.dataset.value;
+    ["tl-tray", "tl-when", "tl-step", "tl-method"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) ui.bindChoices(el);
+    });
+    document.getElementById("tl-experiment").addEventListener("click", () => ui.openChoice({
+      label: "Experiment",
+      options: experiments.map((id, i) => ({ value: String(id), label: names[i] || `Experiment of ${starts[i].slice(0, 16).replace("T", " ")} UTC` })),
+      value: "{{ experiment.id }}",
+      onSet: (id) => { location.search = `?experiment=${id}`; },
+    }));
+
+    const status = document.getElementById("tl-status");
+    const make = document.getElementById("tl-make");
+    const download = document.getElementById("tl-download");
+    const mb = (bytes) => bytes < 1e5 ? `${Math.ceil(bytes / 1e3)} kB` : `${(bytes / 1e6).toFixed(1)} MB`;
+    function range() {
+      const days = pressed("tl-when");
+      const start = days === "all" ? first : new Date(Math.max(first, last - Number(days) * 86400000));
+      return { start: start.toISOString(), end: new Date(last.getTime() + 1000).toISOString() };
+    }
+    async function watch(id) {
+      for (;;) {
+        const p = await (await fetch(`/api/data/timelapse/${id}`)).json();
+        if (p.state === "choosing") status.textContent = "Choosing the photos…";
+        if (p.state === "drawing") status.textContent = `Drawing frame ${p.done} of ${p.frames}, about ${mb(p.estimated_bytes)}`
+          + (p.skipped ? `. ${p.skipped} steps had no usable photo.` : ".");
+        if (p.state === "ready") {
+          status.innerHTML = `${ui.chip("ok", "Ready")} ${p.frames} frames, ${mb(p.bytes)}` + (p.skipped ? `. ${p.skipped} steps had no usable photo.` : ".");
+          download.href = `/api/data/timelapse/${id}/download`;
+          download.hidden = false;
+          make.disabled = false;
+          return;
+        }
+        if (p.state === "failed" || p.state === "gone") {
+          status.innerHTML = `${ui.chip("fail", "Not made")} ${ui.esc(p.error || "This video is gone. Make it again.")}`;
+          make.disabled = false;
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+    make.addEventListener("click", async () => {
+      const tray = pressed("tl-tray");
+      if (!tray) return;
+      make.disabled = true;
+      download.hidden = true;
+      status.textContent = "Starting…";
+      const r = await fetch("/api/data/timelapse", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ experiment_id: {{ experiment.id }}, tray_id: Number(tray), ...range(),
+                               per_hour: Number(pressed("tl-step")), method: pressed("tl-method") }),
+      });
+      const body = await r.json();
+      if (!r.ok) {
+        status.innerHTML = `${ui.chip("fail", "Not made")} ${ui.esc(body.detail)}`;
+        make.disabled = false;
+        return;
+      }
+      watch(body.id);
+    });
+    // The rig removes the video once it is sent in full: the button goes, and says so.
+    download.addEventListener("click", () => {
+      setTimeout(() => {
+        download.hidden = true;
+        status.textContent = "Downloaded. The rig keeps no copy: make it again if you need it.";
+      }, 1500);
+    });
+  });
+</script>
+{%- endif %}
+{% endblock %}
+
+{% block action_bar %}
+  <span class="grow" id="tl-status" role="status"></span>
+  <a class="btn primary hit" id="tl-download" download hidden>Download</a>
+  {{ ui.button("Make video", "primary", id="tl-make", disabled=(unavailable or not experiment or not trays)) }}
+{% endblock %}
