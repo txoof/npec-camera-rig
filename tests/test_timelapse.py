@@ -23,7 +23,7 @@ def _photo(experiment_id: int, taken: datetime, *, exclusion: str | None = None,
            warnings: list[str] | None = None, placement: str = "placed", area: float = 1000.0,
            grown_area: float | None = None, validation: str | None = None, calibration: str | None = None,
            centre: tuple[float, float] = (250, 280), slot: str | None = None,
-           others: tuple[tuple[int, tuple[float, float], str | None], ...] = ()) -> int:
+           others: tuple[tuple[int, tuple[float, float], str | None], ...] = (), tilt_deg: float = 0.0) -> int:
     """A photo of the experiment at `taken` with tray `tray_id` read in it, in stored slot `slot`,
     with `others` (tray ID, centre, slot) beside it, and the photo's saved exclusion."""
     capture_id = database.record_capture(
@@ -40,7 +40,7 @@ def _photo(experiment_id: int, taken: datetime, *, exclusion: str | None = None,
             _cell("A2", "plant", 130, 130, 250.0), _cell("B2", "plant", 370, 130, 250.0)]]
         return {
             "tray_id": tid, "slot": in_slot, "a1_corner": "SW", "placement": placement if main else "placed",
-            "centre_px": list(at), "tilt_deg": 0.0, "margin_mm": None, "found": "photo + tag",
+            "centre_px": list(at), "tilt_deg": tilt_deg if main else 0.0, "margin_mm": None, "found": "photo + tag",
             "warnings": (warnings or []) if main else [], "outline_px": shift(OUTLINE), "area_mm2": area,
             "segmenter": "green threshold, 0.1",
             **({} if grown_area is None or not main else {"grown_method": "grow from leaf cores", "grown_area_mm2": grown_area}),
@@ -377,3 +377,39 @@ def test_the_size_estimate_of_all_trays_covers_every_tray_in_the_zip(experiment)
 
     # 2 trays, 3 frames each, at the trial's 42,984 bytes a frame.
     assert timelapse.estimate_bytes(request) == 2 * 3 * 42_984
+
+
+
+def test_the_map_draws_trays_square_to_the_table_with_the_tag_at_the_nearest_corner(experiment):
+    from tests.helpers import TABLE_STEM, table_calibration
+
+    table_calibration(px_per_mm=0.4)
+    # Stored 30 degrees turned: drawn square to the table, 122 x 146 px about (500, 300).
+    _photo(experiment, START, calibration=TABLE_STEM, centre=(500, 300), slot="North 1", tilt_deg=30.0)
+    frame = timelapse.choose_frames(experiment, tray_id=4, start=START, end=START + timedelta(hours=1), per_hour=1)["frames"][0]
+
+    image = timelapse.draw_map(frame)
+
+    # Both upper corners of the square rectangle are filled; a 30 degree turn would leave one empty.
+    assert BLUE(_map_at(image, 439 + 4, 227 + 4)) and BLUE(_map_at(image, 561 - 4, 227 + 4))
+    assert EMPTY(_map_at(image, 439 - 6, 300))  # nothing past its left side
+    # The tag cell lies to the lower left: the square snaps to the lower left corner.
+    assert max(_map_at(image, 439 + 8, 373 - 8)) < 90
+
+
+def test_the_old_slot_fades_over_24_frames_after_a_move_and_is_then_not_drawn(experiment):
+    from tests.helpers import TABLE_STEM, table_calibration
+
+    table_calibration(px_per_mm=0.4)
+    step = timedelta(minutes=12)  # 5 frames an hour
+    for i in range(2):
+        _photo(experiment, START + i * step, calibration=TABLE_STEM, centre=(250, 250), slot="North 1")
+    for i in range(2, 2 + 25):
+        _photo(experiment, START + i * step, calibration=TABLE_STEM, centre=(560, 250), slot="North 2")
+    frames = timelapse.choose_frames(experiment, tray_id=4, start=START, end=START + 27 * step, per_hour=5)["frames"]
+    old = lambda n: _map_at(timelapse.draw_map(frames[2 + n]), 250, 250)  # n frames after the move
+
+    # Pale blue (150, 175, 215) fading into the table (245, 245, 245): full, halfway, gone.
+    assert all(abs(a - b) <= 2 for a, b in zip(old(0), (150, 175, 215)))
+    assert all(abs(a - b) <= 2 for a, b in zip(old(12), (197.5, 210, 230)))
+    assert old(24) == (245, 245, 245)

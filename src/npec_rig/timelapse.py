@@ -30,7 +30,7 @@ from PIL import Image, ImageDraw
 from npec_rig import captures, database, dwell, health, images, segmentation, tray_readings, validation_store
 from npec_rig.calibration import build_table_frame
 from npec_rig.calibration_store import calibration_for_photos, load_saved_calibration
-from npec_rig.tray_placement import nearest_slot, tray_outline_at
+from npec_rig.tray_placement import nearest_slot
 from npec_rig.text_render import text_layer
 from npec_rig.tray_placement import TRAY_SIZE_MM
 
@@ -183,8 +183,11 @@ def _smooth(frames: list[dict], tray_id: int) -> None:
                     "tray_id": tid, "centre": centre, "tilt_deg": t["tilt_deg"] or 0.0, "video": tid == tray_id,
                     # Where the tag lies from the tray's own centre in this photo: its corner on the map.
                     "tag_offset": None if tag is None else (tag[0] - t["centre_px"][0], tag[1] - t["centre_px"][1])})
-                if tid == tray_id and k > 0:
-                    frames[i]["previous_centre"] = _median([x["centre_px"] for _, x in runs[k - 1]])
+                if tid == tray_id:
+                    # Frames since the move, for the fade; a move before the video started is
+                    # not counted in frames, so its earlier position is not drawn.
+                    frames[i]["previous_centre"] = _median([x["centre_px"] for _, x in runs[k - 1]]) if k else None
+                    frames[i]["since_move"] = [j for j, _ in run].index(i) if k else None
 
 
 def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: datetime, per_hour: int,
@@ -348,15 +351,19 @@ MAP_NOW, MAP_BEFORE = (30, 110, 255), (150, 175, 215)
 
 
 MAP_TABLE, MAP_TABLE_EDGE, MAP_OTHER = (245, 245, 245), (120, 120, 120), (170, 170, 170)
+# After a move, the tray's earlier position fades out over this many frames (2 s of playback at
+# FPS 12), then is not drawn until the next move. A choice about the look of the video (Aaron,
+# 2026-11-21), not a measurement limit.
+OLD_SLOT_FADE_FRAMES = 24
 
 
 def draw_map(frame: dict) -> Image.Image | None:
     """A small map of the table for frame `frame` (from `choose_frames`), from the corner tags'
     table frame (as dwell.py's table locations): every tray seen in the frame's photo as a
-    rectangle of one size (TRAY_SIZE_MM at the calibration's scale), turned to its heading, at its
+    rectangle of one size (TRAY_SIZE_MM at the calibration's scale), square to the table, at its
     smoothed centre (`_smooth`), with a small black and white square at its tag's corner. The
-    video's tray bright blue, the others light grey, and the video's tray's last different slot a
-    pale blue rectangle at its earlier position. None without a table frame."""
+    video's tray bright blue, the others light grey, and after a move the video's tray's earlier
+    position in pale blue, fading out over OLD_SLOT_FADE_FRAMES. None without a table frame."""
     if not frame.get("table"):
         return None
     table, scale = frame["table"]
@@ -371,26 +378,36 @@ def draw_map(frame: dict) -> Image.Image | None:
     draw.rectangle([0, 0, size[0] - 1, size[1] - 1], outline=MAP_TABLE_EDGE)
 
     def tray(centre, tilt_deg, fill, tag_offset=None):
-        corners = tray_outline_at(tuple(centre), tilt_deg, scale.px_per_mm(*centre))
-        draw.polygon([to_map(*c) for c in corners], fill=fill)
+        # Square to the table (Aaron, 2026-11-21): the stored heading snapped to a quarter turn,
+        # so a tray turned about 90 degrees lies with its long side across.
+        ppm = scale.px_per_mm(*centre)
+        w_mm, h_mm = TRAY_SIZE_MM if round(tilt_deg / 90) % 2 == 0 else TRAY_SIZE_MM[::-1]
+        cx, cy, hw, hh = centre[0], centre[1], w_mm / 2 * ppm, h_mm / 2 * ppm
+        points = [to_map(x, y) for x, y in ((cx - hw, cy - hh), (cx + hw, cy - hh), (cx + hw, cy + hh), (cx - hw, cy + hh))]
+        x0, x1 = min(p[0] for p in points), max(p[0] for p in points)
+        y0, y1 = min(p[1] for p in points), max(p[1] for p in points)
+        draw.rectangle([x0, y0, x1, y1], fill=fill)
         if tag_offset is None:
             return
-        tag = np.asarray(centre) + np.asarray(tag_offset)
-        c = np.asarray(corners)
-        i = int(np.argmin(np.hypot(*(c - tag).T)))
-        at, a, b = c[i], c[(i + 1) % 4] - c[i], c[(i - 1) % 4] - c[i]
-        square = lambda f0, f1: [to_map(*(at + f0 * a + f0 * b)), to_map(*(at + f1 * a + f0 * b)),
-                                 to_map(*(at + f1 * a + f1 * b)), to_map(*(at + f0 * a + f1 * b))]
-        draw.polygon(square(0.0, 0.25), fill=(255, 255, 255))
-        draw.polygon(square(0.04, 0.21), fill=(0, 0, 0))
+        # The tag's corner: the one on the side of the cell holding the tag, snapped to the nearest.
+        side = 0.25 * min(x1 - x0, y1 - y0)
+        tx = x0 if tag_offset[0] < 0 else x1 - side
+        ty = y0 if tag_offset[1] < 0 else y1 - side
+        draw.rectangle([tx, ty, tx + side, ty + side], fill=(255, 255, 255))
+        inset = 0.16 * side
+        draw.rectangle([tx + inset, ty + inset, tx + side - inset, ty + side - inset], fill=(0, 0, 0))
 
     trays = frame.get("map_trays", [])
     for t in trays:
         if not t["video"]:
             tray(t["centre"], t["tilt_deg"], MAP_OTHER, t["tag_offset"])
     video = next((t for t in trays if t["video"]), None)
-    if frame.get("previous_centre") and video:
-        tray(frame["previous_centre"], video["tilt_deg"], MAP_BEFORE)
+    fade = frame.get("since_move")
+    if frame.get("previous_centre") and video and fade is not None and fade < OLD_SLOT_FADE_FRAMES:
+        # From full pale blue at the move to the table's colour, linearly.
+        t = fade / OLD_SLOT_FADE_FRAMES
+        colour = tuple(round(b * (1 - t) + c * t) for b, c in zip(MAP_BEFORE, MAP_TABLE))
+        tray(frame["previous_centre"], video["tilt_deg"], colour)
     if video:
         tray(video["centre"], video["tilt_deg"], MAP_NOW, video["tag_offset"])
     return image
