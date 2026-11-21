@@ -683,7 +683,13 @@ class TrayReader:
     def _read(self, path: str) -> None:
         try:
             read_photo(path)
-        except Exception:
+        except Exception as exc:
+            if _rig_db_locked(exc):
+                # Another writer held rig.db (#439): nothing is saved, so the photo stays unread
+                # and is read again once the lock is gone, instead of "read failed" for good.
+                logger.warning("rig.db was locked while the trays of %s were read; reading it again", path)
+                self._stop.wait(POLL_S)
+                return
             logger.exception("Could not read the trays of %s", path)
             try:
                 # Saved as failed, so one bad photo is not tried again forever.
@@ -693,6 +699,15 @@ class TrayReader:
             except Exception:
                 logger.exception("Could not record the failed reading of %s", path)
                 self._stop.wait(POLL_S)
+
+
+def _rig_db_locked(exc: BaseException | None) -> bool:
+    """Whether `exc`, or an error it was raised from, is SQLite's "database is locked"."""
+    while exc is not None:
+        if isinstance(exc, sqlite3.OperationalError) and "locked" in str(exc):
+            return True
+        exc = exc.__cause__ or exc.__context__
+    return False
 
 
 # --- Reprocess (#75) ----------------------------------------------------------------------------

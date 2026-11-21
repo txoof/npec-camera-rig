@@ -14,15 +14,21 @@ here.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
+import sys
 import threading
+import time
 from collections import Counter
 from collections.abc import Iterable, Iterator
 from contextlib import closing, contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from npec_rig import settings
 from npec_rig.settings import db_path
+
+_log = logging.getLogger(__name__)
 
 # (number, what it does, statements). Append only.
 MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
@@ -515,18 +521,28 @@ def _connect() -> Iterator[sqlite3.Connection]:
     with _migrate_guard:
         if path not in _migrated:
             path.parent.mkdir(parents=True, exist_ok=True)
-            with closing(sqlite3.connect(path, timeout=10)) as conn:
+            with closing(sqlite3.connect(path, timeout=settings.LOCK_WAIT_S)) as conn:
                 migrate(conn)
             _migrated.add(path)
-    conn = sqlite3.connect(path, timeout=10)
+    conn = sqlite3.connect(path, timeout=settings.LOCK_WAIT_S)
     conn.row_factory = sqlite3.Row
     # Off by default in SQLite, per connection, and only outside a transaction.
     conn.execute("PRAGMA foreign_keys = ON")
+    caller = sys._getframe(2).f_code.co_name  # past contextlib's __enter__
+    started = time.monotonic()
     try:
         yield conn
         conn.commit()
+    except sqlite3.OperationalError as exc:
+        if "locked" in str(exc):
+            _log.warning("%s: rig.db was locked, gave up after %.1f s", caller, time.monotonic() - started)
+        raise
     finally:
         conn.close()
+        # A long hold makes every other writer wait (#439): name it, so the holder can be found.
+        held = time.monotonic() - started
+        if held > settings.LOCK_WAIT_S / 2:
+            _log.warning("%s kept a rig.db connection open for %.1f s", caller, held)
 
 
 def record_capture(
@@ -1253,6 +1269,64 @@ def record_scheduled_photos(
             " capture_id, missed_reason) VALUES (?, ?, ?, ?, ?, ?)",
             [(experiment_id, schedule_since, *slot) for slot in slots],
         )
+
+
+def unlinked_slots(experiment_id: int) -> list[dict]:
+    """Slots recorded as neither taken nor missed: their photo was saved to disk while rig.db
+    could not be written, so it has no row yet (#439). Oldest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT id, due_at FROM scheduled_photo WHERE experiment_id = ?"
+            " AND capture_id IS NULL AND missed_reason IS NULL ORDER BY due_at",
+            (experiment_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def link_unlinked_slots(experiment_id: int, interval_s: float, *, not_found: str) -> None:
+    """Link each of `unlinked_slots` to the experiment's photo taken within its interval and held
+    by no other slot; a slot with no such photo is missed with the reason `not_found` (#439)."""
+    with _connect() as conn:
+        for slot in conn.execute(
+            "SELECT id, due_at FROM scheduled_photo WHERE experiment_id = ?"
+            " AND capture_id IS NULL AND missed_reason IS NULL ORDER BY due_at",
+            (experiment_id,),
+        ).fetchall():
+            photo = conn.execute(
+                "SELECT id FROM capture WHERE experiment_id = ? AND purpose = 'capture'"
+                " AND julianday(taken_at) >= julianday(?)"
+                " AND julianday(taken_at) < julianday(?) + ? / 86400.0"
+                " AND id NOT IN (SELECT capture_id FROM scheduled_photo"
+                "  WHERE experiment_id = ? AND capture_id IS NOT NULL)"
+                " ORDER BY taken_at LIMIT 1",
+                (experiment_id, slot["due_at"], slot["due_at"], interval_s, experiment_id),
+            ).fetchone()
+            if photo is None:
+                conn.execute("UPDATE scheduled_photo SET missed_reason = ? WHERE id = ?", (not_found, slot["id"]))
+            else:
+                conn.execute("UPDATE scheduled_photo SET capture_id = ? WHERE id = ?", (photo["id"], slot["id"]))
+
+
+def calibration_around(experiment_id: int, taken_at: str) -> str | None:
+    """The calibration of a photo added after it was taken (#439), which is not known for
+    certain: the one the experiment's photos just before and just after it were measured with,
+    when both agree, or the one before when there is none after; otherwise None."""
+    with _connect() as conn:
+        before = conn.execute(
+            "SELECT calibration FROM capture WHERE experiment_id = ? AND julianday(taken_at) < julianday(?)"
+            " ORDER BY taken_at DESC LIMIT 1",
+            (experiment_id, taken_at),
+        ).fetchone()
+        after = conn.execute(
+            "SELECT calibration FROM capture WHERE experiment_id = ? AND julianday(taken_at) > julianday(?)"
+            " ORDER BY taken_at LIMIT 1",
+            (experiment_id, taken_at),
+        ).fetchone()
+    if before is None:
+        return None
+    if after is None or after[0] == before[0]:
+        return before[0]
+    return None
 
 
 def save_photo_quality(changed_at: str, quality: int, chroma: str) -> None:

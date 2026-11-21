@@ -24,6 +24,9 @@ MIN_INTERVAL_S = 10.0
 # is noticed within this time whatever the interval.
 CHECK_S = 1.0
 MISSED_APP_DOWN = "the app was not running"
+# A slot whose photo was saved while rig.db could not be written, and then not found on disk to be
+# added (#439): moved or deleted by hand.
+MISSED_NOT_FOUND = "the photo was saved but could not be found to add to the database"
 MISSED_PHOTO_SLOW = "the previous photo took longer than the interval"
 
 
@@ -107,6 +110,9 @@ class Scheduler:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._started_at = datetime.now(UTC)
+        # Slots taken but not yet written to rig.db, which was locked: written before the next
+        # photo, so a retried tick does not take the slot's photo again (#439).
+        self._unwritten: tuple[int, str, list] | None = None
 
     def start(self) -> None:
         self._stop.clear()
@@ -136,6 +142,10 @@ class Scheduler:
         if sched is None:
             return CHECK_S
         since = sched["since"]
+        if self._unwritten is not None:
+            database.record_scheduled_photos(*self._unwritten)
+            self._unwritten = None
+        self._settle_unlinked(experiment)
         last_slot = database.schedule_progress(experiment["id"], since)["last_slot"]
         slot = _current_slot(sched, datetime.now(UTC))
         if slot > last_slot:
@@ -161,8 +171,25 @@ class Scheduler:
             except Exception as exc:
                 logger.exception("Scheduled photo for slot %d failed", slot)
                 slots.append((slot, due_at, None, str(exc) or "failed"))
-            database.record_scheduled_photos(experiment["id"], since, slots)
+            self._unwritten = (experiment["id"], since, slots)
+            database.record_scheduled_photos(*self._unwritten)
+            self._unwritten = None
             images.release_freed_memory()  # the photo's full-size frame is gone (#348)
             last_slot = slot
         wait_s = (_due_at(sched, last_slot + 1) - datetime.now(UTC)).total_seconds()
         return max(0.0, min(wait_s, CHECK_S))
+
+    @staticmethod
+    def _settle_unlinked(experiment: dict) -> None:
+        """Slots whose photo was saved while rig.db was locked (#439): add the photos to rig.db
+        and link them. Raises, to be tried on the next tick, while rig.db is still locked."""
+        unlinked = database.unlinked_slots(experiment["id"])
+        if not unlinked:
+            return
+        interval = timedelta(seconds=experiment["interval_s"])
+        days = set()
+        for slot in unlinked:
+            due = datetime.fromisoformat(slot["due_at"])
+            days |= {due.strftime("%Y-%m-%d"), (due + interval).strftime("%Y-%m-%d")}
+        captures.adopt_unrecorded_photos(experiment, days)
+        database.link_unlinked_slots(experiment["id"], experiment["interval_s"], not_found=MISSED_NOT_FOUND)

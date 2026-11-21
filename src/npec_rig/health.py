@@ -28,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Lock
 
+from npec_rig import settings
 from npec_rig.settings import db_path
 
 logger = logging.getLogger(__name__)
@@ -166,7 +167,7 @@ def _connect() -> sqlite3.Connection:
     """A connection to rig.db; the table is created on the first connection to each database."""
     path = db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, timeout=10)
+    conn = sqlite3.connect(path, timeout=settings.LOCK_WAIT_S)
     if path not in _prepared:
         conn.executescript(_SCHEMA)
         _prepared.add(path)
