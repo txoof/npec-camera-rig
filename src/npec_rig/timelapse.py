@@ -15,7 +15,9 @@ import resource
 import secrets
 import shutil
 import subprocess
+import statistics
 import threading
+import zipfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,9 +25,12 @@ from zoneinfo import ZoneInfo
 
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
-from npec_rig import captures, database, dwell, health, images, segmentation, tray_readings
+from npec_rig import captures, database, dwell, health, images, segmentation, tray_readings, validation_store
+from npec_rig.calibration import build_table_frame
+from npec_rig.calibration_store import calibration_for_photos, load_saved_calibration
+from npec_rig.tray_placement import nearest_slot
 from npec_rig.text_render import text_layer
 from npec_rig.tray_placement import TRAY_SIZE_MM
 
@@ -40,6 +45,8 @@ PER_HOUR = (1, 2, 5)
 _NOT_USABLE = {"no tag", "tag seen, tray not found in the photo", "two tags in one tray outline"}
 # The mask files of each overlay a video may show, by area method key (segmentation.mask_file).
 MASK_KINDS = {"fixed": "", "grown": segmentation.GROWN_MASK}
+# A request's tray_id for one video per tray, in one zip (Aaron, 2026-11-20).
+ALL_TRAYS = "all"
 # The cells a video may show: trays are 4 x 5, 2 x 2 or 1 x 1 (reference/trays.md).
 _CELL = re.compile(r"^[A-D][1-5]$")
 # Whole-tray frames: 2 px/mm, enough to see each plant (the trial: 610 x 732 px).
@@ -100,6 +107,89 @@ def upright(tray: dict) -> tuple[np.ndarray, tuple[int, int]] | None:
     return cv2.getPerspectiveTransform(np.float32(outline[order]), target), (round(w), round(h))
 
 
+def slot_layout(calibration: str | None) -> list[dict] | None:
+    """The slots of the layout photos taken under `calibration` are read with: its newest twin's,
+    else its own (as `tray_readings` reads them); None without one."""
+    if not calibration:
+        return None
+    try:
+        stem = calibration_for_photos(calibration)
+        layout = validation_store.load_slot_layout(stem) or validation_store.load_slot_layout(calibration)
+    except Exception:  # noqa: BLE001 -- no layout only leaves the map and the slot name out
+        return None
+    return layout["slots"] if layout else None
+
+
+def _slots_over_time(positions: list[dict]) -> dict[int, tuple[str | None, str | None]]:
+    """For each photo of one tray (`experiment_tray_positions`, oldest first), its slot (the
+    nearest slot centre of its calibration's layout) and the last different slot it was in before,
+    from the whole experiment (Aaron, 2026-11-20)."""
+    layouts: dict[str | None, list[dict] | None] = {}
+    out, now, before = {}, None, None
+    stay, before_centre = [], None  # this stay's centres; the median centre of the stay before
+    for p in positions:
+        if p["calibration"] not in layouts:
+            layouts[p["calibration"]] = slot_layout(p["calibration"])
+        slots = layouts[p["calibration"]]
+        slot = nearest_slot(*p["centre_px"], slots)[0] if slots else None
+        if slot is not None and now is not None and slot != now:
+            before, before_centre, stay = now, _median(stay), []
+        now = slot if slot is not None else now
+        stay.append(p["centre_px"])
+        keep = slot is not None and before != slot
+        out[p["capture_id"]] = (slot, before if keep else None, before_centre if keep else None)
+    return out
+
+
+def _median(centres: list) -> tuple[float, float] | None:
+    return (statistics.median(c[0] for c in centres), statistics.median(c[1] for c in centres)) if centres else None
+
+
+def _table(calibration: str | None):
+    """The table frame (from the four corner tags, as dwell.py's table locations) and the scale
+    field of the calibration photos taken under `calibration` are read with; None without them."""
+    try:
+        artifact = load_saved_calibration(calibration_for_photos(calibration))
+        if artifact.corner_baseline is None:
+            return None
+        return build_table_frame(artifact.corner_baseline), artifact.scale_field
+    except Exception:  # noqa: BLE001 -- no table only leaves the map out
+        return None
+
+
+def _smooth(frames: list[dict], tray_id: int) -> None:
+    """Give each frame `map_trays`: every tray seen in its photo, at the median of its centres over
+    its stay, the run of the chosen frames since its stored slot last changed. A tray jumps only at
+    the frame its slot changes, with no distance or time threshold (Aaron, 2026-11-21). The video's
+    tray also gets the median of its stay before (`previous_centre`), when that stay was in the video."""
+    stays: dict[int, list[list]] = {}  # tray ID: its stays, each a list of (frame index, tray)
+    last: dict[int, str | None] = {}
+    for i, frame in enumerate(frames):
+        for t in frame["readings"]["trays"]:
+            tid = t["tray_id"]
+            if tid is None or t["placement"] != "placed":
+                continue
+            if tid not in stays or t["slot"] != last[tid]:
+                stays.setdefault(tid, []).append([])
+            stays[tid][-1].append((i, t))
+            last[tid] = t["slot"]
+        frame["map_trays"] = []
+    for tid, runs in stays.items():
+        for k, run in enumerate(runs):
+            centre = _median([t["centre_px"] for _, t in run])
+            for i, t in run:
+                tag = next((c["centre_px"] for c in t["cells"] if c["holds"] == "tag"), None)
+                frames[i]["map_trays"].append({
+                    "tray_id": tid, "centre": centre, "tilt_deg": t["tilt_deg"] or 0.0, "video": tid == tray_id,
+                    # Where the tag lies from the tray's own centre in this photo: its corner on the map.
+                    "tag_offset": None if tag is None else (tag[0] - t["centre_px"][0], tag[1] - t["centre_px"][1])})
+                if tid == tray_id:
+                    # Frames since the move, for the fade; a move before the video started is
+                    # not counted in frames, so its earlier position is not drawn.
+                    frames[i]["previous_centre"] = _median([x["centre_px"] for _, x in runs[k - 1]]) if k else None
+                    frames[i]["since_move"] = [j for j, _ in run].index(i) if k else None
+
+
 def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: datetime, per_hour: int,
                   mask: str | None = None, cell: str | None = None) -> dict:
     """The photos of tray `tray_id` that become frames, from `start` up to `end`: in each step of
@@ -107,18 +197,23 @@ def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: dat
     with `mask` (a key of MASK_KINDS), that mask saved: a photo read before grow from leaf cores
     was run has none (#64); with `cell`, a tray that has that cell.
     `frames`: one dict per frame, oldest first, with the photo's `capture` row, its `readings` and
-    the `tray`. `skipped`: the steps that had photos but none usable, not counting steps with the
+    the `tray`, its calibration's `slots`, the tray's `slot` and `previous_slot` (`_slots_over_time`)
+    and `gap_minutes`, the lit time skipped just before it. `skipped`: the steps that had photos but none usable, not counting steps with the
     lights off in every photo."""
     if per_hour not in PER_HOUR:
         raise ValueError(f"per_hour must be one of {PER_HOUR}")
     captures = {c["id"]: c for c in database.captures_for_experiment(experiment_id)}
     first, last = start.isoformat(), end.isoformat()
     by_step: dict[tuple, list[dict]] = {}
-    for p in database.experiment_tray_positions(experiment_id):
-        if p["tray_id"] == tray_id and first <= p["taken_at"] < last:
+    positions = [p for p in database.experiment_tray_positions(experiment_id) if p["tray_id"] == tray_id]
+    slots = _slots_over_time(positions)
+    for p in positions:
+        if first <= p["taken_at"] < last:
             by_step.setdefault(_step(p["taken_at"], per_hour), []).append(captures[p["capture_id"]])
     locations = dwell.LocationFinder()
-    frames, skipped = [], 0
+    layouts: dict[str | None, list[dict] | None] = {}
+    tables: dict[str | None, object] = {}
+    frames, skipped, gap = [], 0, 0  # gap: lit steps skipped since the last frame
     for step in sorted(by_step):
         dark = True
         for capture in by_step[step]:
@@ -129,11 +224,21 @@ def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: dat
             if tray is not None and cell is not None and not any(c["cell"] == cell for c in tray["cells"]):
                 tray = None
             if tray is not None:
-                frames.append({"capture": capture, "readings": readings, "tray": tray})
+                slot, previous, previous_centre = slots.get(capture["id"], (None, None, None))
+                if capture["calibration"] not in tables:
+                    tables[capture["calibration"]] = _table(capture["calibration"])
+                if capture["calibration"] not in layouts:
+                    layouts[capture["calibration"]] = slot_layout(capture["calibration"])
+                frames.append({"capture": capture, "readings": readings, "tray": tray, "slots": layouts[capture["calibration"]],
+                               "slot": slot, "previous_slot": previous, "gap_minutes": gap * 60 // per_hour,
+                               "table": tables[capture["calibration"]], "previous_centre": previous_centre})
+                gap = 0
                 break
             dark = dark and readings is not None and readings["exclusion"] == "lights off"
         else:
             skipped += 0 if dark else 1
+            gap += 0 if dark else 1
+    _smooth(frames, tray_id)
     return {"frames": frames, "skipped": skipped}
 
 
@@ -150,6 +255,12 @@ def _cell_area(cell: dict, m: dict) -> str:
         return f"{round(area):,} mm²"
     word = CELL_WORDS.get(status, status)
     return f"{word}, {round(area):,} mm²" if status == "leaves over other cells" and area is not None else word
+
+
+def _duration(minutes: int) -> str:
+    """Minutes in hours and minutes: "2 h", "1 h 12 min", "12 min"."""
+    hours, rest = divmod(minutes, 60)
+    return " ".join([*([f"{hours} h"] if hours else []), *([f"{rest} min"] if rest else [])])
 
 
 def frame_values(experiment: dict, frame: dict, *, method: str, cell: str | None = None) -> dict:
@@ -187,6 +298,15 @@ def frame_values(experiment: dict, frame: dict, *, method: str, cell: str | None
         "area": area_text,
         "band": band_text,
         "band_label": "Slot band, flat objects at tray-top height" if cell else "Scale error at tray top",
+        # The tray's warnings a researcher acts on, in the Gallery's words: names that may be
+        # swapped (#385), and, by grow from leaf cores only, soil hidden under mats (#373).
+        # Names first: they bear on every number of the video.
+        "warnings": [w for w in tray["warnings"] if w.startswith("names may be swapped since")]
+        + [w for w in tray["warnings"] if w == segmentation.SOIL_HIDDEN and method == "grown"]
+        + ([f"gap: {_duration(frame['gap_minutes'])} without a usable photo"] if frame.get("gap_minutes") else []),
+        # In words as well as on the map: never colour alone.
+        "slot": (None if not frame.get("slot") else frame["slot"] if not frame.get("previous_slot")
+                 else f"{frame['slot']} (was {frame['previous_slot']})"),
     }
 
 
@@ -221,6 +341,78 @@ def cell_upright(tray: dict, cell: str) -> tuple[np.ndarray, tuple[int, int]]:
     return cv2.getPerspectiveTransform(corners[order], target), (size, size)
 
 
+# The table map under each frame's label (Aaron, 2026-11-20): about 200 px across. Colours with
+# words beside them in the label (the slot names), never colour alone.
+MAP_WIDTH_PX, MAP_HEIGHT_PX = 200, 120
+# The strip under the label that holds the map, the slot and the warnings: the same height on every
+# frame, as a video's frames must all be one size.
+STRIP_PX, STRIP_SCALE, STRIP_LINE_PX = MAP_HEIGHT_PX + 12, 0.42, 24
+MAP_NOW, MAP_BEFORE = (30, 110, 255), (150, 175, 215)
+
+
+MAP_TABLE, MAP_TABLE_EDGE, MAP_OTHER = (245, 245, 245), (120, 120, 120), (170, 170, 170)
+# After a move, the tray's earlier position fades out over this many frames (2 s of playback at
+# FPS 12), then is not drawn until the next move. A choice about the look of the video (Aaron,
+# 2026-11-21), not a measurement limit.
+OLD_SLOT_FADE_FRAMES = 24
+
+
+def draw_map(frame: dict) -> Image.Image | None:
+    """A small map of the table for frame `frame` (from `choose_frames`), from the corner tags'
+    table frame (as dwell.py's table locations): every tray seen in the frame's photo as a
+    rectangle of one size (TRAY_SIZE_MM at the calibration's scale), square to the table, at its
+    smoothed centre (`_smooth`), with a small black and white square at its tag's corner. The
+    video's tray bright blue, the others light grey, and after a move the video's tray's earlier
+    position in pale blue, fading out over OLD_SLOT_FADE_FRAMES. None without a table frame."""
+    if not frame.get("table"):
+        return None
+    table, scale = frame["table"]
+    tl, tr, br, bl = (np.asarray(c, dtype=float) for c in table.corners_px)
+    width = (np.linalg.norm(tr - tl) + np.linalg.norm(br - bl)) / 2
+    height = (np.linalg.norm(bl - tl) + np.linalg.norm(br - tr)) / 2
+    k = min(MAP_WIDTH_PX / width, MAP_HEIGHT_PX / height)
+    size = (max(1, round(width * k)), max(1, round(height * k)))
+    to_map = lambda x, y: tuple(f * n for f, n in zip(table.to_fraction(x, y), size))
+    image = Image.new("RGB", size, MAP_TABLE)
+    draw = ImageDraw.Draw(image)
+    draw.rectangle([0, 0, size[0] - 1, size[1] - 1], outline=MAP_TABLE_EDGE)
+
+    def tray(centre, tilt_deg, fill, tag_offset=None):
+        # Square to the table (Aaron, 2026-11-21): the stored heading snapped to a quarter turn,
+        # so a tray turned about 90 degrees lies with its long side across.
+        ppm = scale.px_per_mm(*centre)
+        w_mm, h_mm = TRAY_SIZE_MM if round(tilt_deg / 90) % 2 == 0 else TRAY_SIZE_MM[::-1]
+        cx, cy, hw, hh = centre[0], centre[1], w_mm / 2 * ppm, h_mm / 2 * ppm
+        points = [to_map(x, y) for x, y in ((cx - hw, cy - hh), (cx + hw, cy - hh), (cx + hw, cy + hh), (cx - hw, cy + hh))]
+        x0, x1 = min(p[0] for p in points), max(p[0] for p in points)
+        y0, y1 = min(p[1] for p in points), max(p[1] for p in points)
+        draw.rectangle([x0, y0, x1, y1], fill=fill)
+        if tag_offset is None:
+            return
+        # The tag's corner: the one on the side of the cell holding the tag, snapped to the nearest.
+        side = 0.25 * min(x1 - x0, y1 - y0)
+        tx = x0 if tag_offset[0] < 0 else x1 - side
+        ty = y0 if tag_offset[1] < 0 else y1 - side
+        draw.rectangle([tx, ty, tx + side, ty + side], fill=(255, 255, 255))
+        inset = 0.16 * side
+        draw.rectangle([tx + inset, ty + inset, tx + side - inset, ty + side - inset], fill=(0, 0, 0))
+
+    trays = frame.get("map_trays", [])
+    for t in trays:
+        if not t["video"]:
+            tray(t["centre"], t["tilt_deg"], MAP_OTHER, t["tag_offset"])
+    video = next((t for t in trays if t["video"]), None)
+    fade = frame.get("since_move")
+    if frame.get("previous_centre") and video and fade is not None and fade < OLD_SLOT_FADE_FRAMES:
+        # From full pale blue at the move to the table's colour, linearly.
+        t = fade / OLD_SLOT_FADE_FRAMES
+        colour = tuple(round(b * (1 - t) + c * t) for b, c in zip(MAP_BEFORE, MAP_TABLE))
+        tray(frame["previous_centre"], video["tilt_deg"], colour)
+    if video:
+        tray(video["centre"], video["tilt_deg"], MAP_NOW, video["tag_offset"])
+    return image
+
+
 def draw_frame(frame: dict, values: dict, *, mask: str | None = None, cell: str | None = None) -> Image.Image:
     """Frame `frame` (from `choose_frames`) as a picture: its tray upright (`upright`) with, when
     `mask` is a key of MASK_KINDS, that mask over it, and under it the label of `values`
@@ -241,7 +433,8 @@ def draw_frame(frame: dict, values: dict, *, mask: str | None = None, cell: str 
             m = cv2.warpPerspective(saved.view(np.uint8), homography @ np.diag([1 / m_scale, 1 / m_scale, 1.0]),
                                     (w, h), flags=cv2.INTER_NEAREST) > 0
             tray = _overlay(tray, m)
-    canvas = np.full((h + LABEL_LINES * LINE_PX + 8, w, 3), 255, dtype=np.uint8)
+    label_h = LABEL_LINES * LINE_PX + 8
+    canvas = np.full((h + label_h + STRIP_PX, w, 3), 255, dtype=np.uint8)
     canvas[:h] = tray
     lines = [
         f"{values['experiment']}   Tray {values['tray_id']}" + (f"   Cell {values['cell']}" if values.get("cell") else "")
@@ -250,9 +443,19 @@ def draw_frame(frame: dict, values: dict, *, mask: str | None = None, cell: str 
         f"{values['method']}: {values['area']}",
         f"{values['band_label']}: {values['band']}",
     ]
+    # The strip: the table map on the left, the slot and the warnings in words beside it.
+    top, left = h + label_h, 8
+    drawn = draw_map(frame)
+    if drawn is not None:
+        table = np.asarray(drawn)
+        canvas[top:top + table.shape[0], 8:8 + table.shape[1]] = table
+        left = 8 + table.shape[1] + 12
+    side = [f"Slot: {values['slot'] or 'not known'}", *values.get("warnings", [])]
     with text_layer(canvas) as text:
         for i, line in enumerate(lines):
             text.text(line, (8, h + (i + 1) * LINE_PX), LABEL_SCALE, (20, 20, 20))
+        for i, line in enumerate(side[:STRIP_PX // STRIP_LINE_PX]):
+            text.text(line, (left, top + (i + 1) * STRIP_LINE_PX - 6), STRIP_SCALE, (150, 0, 0) if i else (20, 20, 20))
     return Image.fromarray(canvas)
 
 
@@ -310,7 +513,8 @@ def estimate_bytes(request: dict) -> int:
     """An upper estimate of a video's size before its frames are chosen: one frame per step of
     the time asked for, at the trial's size per frame (TRIAL_BYTES_PER_FRAME)."""
     hours = (datetime.fromisoformat(request["end"]) - datetime.fromisoformat(request["start"])).total_seconds() / 3600
-    return int(max(hours, 0) * request["per_hour"]) * TRIAL_BYTES_PER_FRAME
+    trays = len(experiment_trays(request["experiment_id"])) if request["tray_id"] == ALL_TRAYS else 1
+    return int(max(hours, 0) * request["per_hour"]) * TRIAL_BYTES_PER_FRAME * trays
 
 
 def unavailable() -> str | None:
@@ -333,6 +537,8 @@ def start(request: dict) -> dict:
         raise ValueError(f"unknown area method {request['method']!r}")
     if datetime.fromisoformat(request["start"]) >= datetime.fromisoformat(request["end"]):
         raise ValueError("The time asked for ends before it starts.")
+    if request["tray_id"] == ALL_TRAYS and request.get("cell") is not None:
+        raise ValueError("A cell video is of one tray: choose a tray, not All trays.")
     if request.get("cell") is not None and not _CELL.match(request["cell"]):
         raise ValueError(f"No tray has a cell {request['cell']!r}.")
     database.get_experiment(request["experiment_id"])  # LookupError when there is none
@@ -377,9 +583,10 @@ def progress(video_id: str) -> dict:
 
 
 def video_file(video_id: str) -> Path | None:
-    """The finished video `video_id`, or None."""
-    file = _folder(video_id) / "video.mp4"
-    return file if progress(video_id)["state"] == "ready" and file.exists() else None
+    """The finished video `video_id` (an mp4, or a zip of one mp4 per tray), or None."""
+    if progress(video_id)["state"] != "ready":
+        return None
+    return next((f for f in (_folder(video_id) / "video.mp4", _folder(video_id) / "video.zip") if f.exists()), None)
 
 
 def latest() -> dict | None:
@@ -436,9 +643,31 @@ def _write_progress(folder: Path, state: dict) -> None:
     os.replace(tmp, folder / "progress.json")
 
 
+def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | None, target: Path, done) -> None:
+    """Draw each of `frames` and pipe it to ffmpeg, writing the video `target`. `done(i)` is called
+    after each frame. Frames never touch the disk."""
+    encoder = None
+    for i, frame in enumerate(frames):
+        values = frame_values(experiment, frame, method=request["method"], cell=request.get("cell"))
+        image = draw_frame(frame, values, mask=mask, cell=request.get("cell"))
+        if encoder is None:
+            encoder = subprocess.Popen(
+                ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
+                 "-s", f"{image.width}x{image.height}", "-r", str(FPS), "-i", "-", "-threads", "2",
+                 "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                 "-f", "mp4", str(target)],
+                stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        encoder.stdin.write(image.tobytes())
+        done(i + 1)
+    _, err = encoder.communicate()
+    if encoder.returncode != 0:
+        raise RuntimeError(f"ffmpeg failed: {err.decode(errors='replace')[-300:]}")
+
+
 def _make(request: dict, folder: str) -> None:
-    """In the child process: choose the frames, draw each one and pipe it to ffmpeg, then rename
-    the finished file. Frames never touch the disk."""
+    """In the child process: for each tray asked for (one, or every tray of the experiment, one
+    after the other), choose its frames and make its video; all trays are packed into one zip.
+    The finished file is renamed into place, so a half-made one is never offered."""
     out = Path(folder)
     resource.setrlimit(resource.RLIMIT_AS, (MEMORY_LIMIT_BYTES, MEMORY_LIMIT_BYTES))
     os.nice(10)
@@ -446,36 +675,42 @@ def _make(request: dict, folder: str) -> None:
     try:
         experiment = database.get_experiment(request["experiment_id"])
         mask = request["method"] if request.get("mask") else None
-        chosen = choose_frames(
-            request["experiment_id"], tray_id=request["tray_id"], start=datetime.fromisoformat(request["start"]),
-            end=datetime.fromisoformat(request["end"]), per_hour=request["per_hour"],
-            mask=mask, cell=request.get("cell"))
-        frames = chosen["frames"]
-        state = {"state": "drawing", "request": request, "frames": len(frames), "done": 0, "skipped": chosen["skipped"],
-                 "estimated_bytes": len(frames) * TRIAL_BYTES_PER_FRAME}
-        _write_progress(out, state)
-        if not frames:
-            _write_progress(out, {**state, "state": "failed", "error": "No usable photo of this tray in this time."})
+        every = request["tray_id"] == ALL_TRAYS
+        trays = experiment_trays(request["experiment_id"]) if every else [request["tray_id"]]
+        made, skipped = [], 0
+        for n, tray_id in enumerate(trays, start=1):
+            state = {"state": "choosing", "request": request, "tray": n, "trays": len(trays), "skipped": skipped}
+            _write_progress(out, state)
+            chosen = choose_frames(
+                request["experiment_id"], tray_id=tray_id, start=datetime.fromisoformat(request["start"]),
+                end=datetime.fromisoformat(request["end"]), per_hour=request["per_hour"],
+                mask=mask, cell=request.get("cell"))
+            frames, skipped = chosen["frames"], skipped + chosen["skipped"]
+            if not frames:
+                continue
+            state = {**state, "state": "drawing", "tray_id": tray_id, "frames": len(frames), "done": 0, "skipped": skipped,
+                     "estimated_bytes": estimate_bytes(request)}
+            target = out / f"tray-{tray_id}.part"
+            _encode(experiment, frames, request, mask, target, lambda i: _write_progress(out, {**state, "done": i}))
+            made.append((tray_id, target, len(frames)))
+        if not made:
+            _write_progress(out, {"state": "failed", "request": request,
+                                  "error": f"No usable photo of {'any tray' if every else 'this tray'} in this time."})
             return
-        encoder = None
-        for i, frame in enumerate(frames):
-            values = frame_values(experiment, frame, method=request["method"], cell=request.get("cell"))
-            image = draw_frame(frame, values, mask=mask, cell=request.get("cell"))
-            if encoder is None:
-                encoder = subprocess.Popen(
-                    ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
-                     "-s", f"{image.width}x{image.height}", "-r", str(FPS), "-i", "-", "-threads", "2",
-                     "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-                     "-f", "mp4", str(out / "video.part")],
-                    stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-            encoder.stdin.write(image.tobytes())
-            _write_progress(out, {**state, "done": i + 1})
-        _, err = encoder.communicate()
-        if encoder.returncode != 0:
-            raise RuntimeError(f"ffmpeg failed: {err.decode(errors='replace')[-300:]}")
-        os.replace(out / "video.part", out / "video.mp4")
-        _write_progress(out, {**state, "done": len(frames), "state": "ready",
-                              "bytes": (out / "video.mp4").stat().st_size})
+        frames_made = sum(n for _, _, n in made)
+        if every:
+            # mp4 is compressed already: stored, not compressed again.
+            with zipfile.ZipFile(out / "video.zip.part", "w", zipfile.ZIP_STORED) as z:
+                for tray_id, part, _ in made:
+                    z.write(part, f"tray-{tray_id}.mp4")
+                    part.unlink()
+            os.replace(out / "video.zip.part", out / "video.zip")
+            final = out / "video.zip"
+        else:
+            os.replace(made[0][1], out / "video.mp4")
+            final = out / "video.mp4"
+        _write_progress(out, {"state": "ready", "request": request, "frames": frames_made, "done": frames_made,
+                              "skipped": skipped, "trays": len(made), "bytes": final.stat().st_size})
     except Exception as exc:  # noqa: BLE001 -- every failure is shown on the page, in words
         logger.exception("Time lapse %s failed", out.name)
         try:

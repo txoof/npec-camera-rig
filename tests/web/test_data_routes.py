@@ -158,3 +158,40 @@ def test_the_data_page_opens_on_the_time_lapse_tab_by_default(experiment):
 
     assert '<div data-tab-panel="timelapse">' in page
     assert '<div data-tab-panel="export" hidden>' in page
+
+
+
+@needs_ffmpeg
+def test_all_trays_gives_one_zip_holding_a_playable_video_of_each_tray(experiment, tmp_path):
+    import io
+    import zipfile
+
+    turned_tray_photo(experiment, START, tray_id=4)
+    turned_tray_photo(experiment, START + timedelta(minutes=1), tray_id=7)
+    client = TestClient(app)
+
+    started = client.post("/api/data/timelapse", json={**_request(experiment), "tray_id": "all"})
+    assert started.status_code == 200, started.text
+    assert _made(client, started.json()["id"])["state"] == "ready"
+    download = client.get(f"/api/data/timelapse/{started.json()['id']}/download")
+
+    assert download.headers["content-type"] == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(download.content)) as z:
+        assert sorted(z.namelist()) == ["tray-4.mp4", "tray-7.mp4"]
+        for name in z.namelist():
+            (tmp_path / name).write_bytes(z.read(name))
+            probe = json.loads(subprocess.run(
+                ["ffprobe", "-v", "error", "-count_frames", "-select_streams", "v:0", "-show_entries",
+                 "stream=nb_read_frames,codec_name", "-of", "json", str(tmp_path / name)],
+                capture_output=True, text=True, check=True).stdout)["streams"][0]
+            assert probe["codec_name"] == "h264" and int(probe["nb_read_frames"]) == 1
+
+
+def test_the_data_page_offers_all_trays_in_the_tray_list(experiment):
+    turned_tray_photo(experiment, START, tray_id=4)
+    turned_tray_photo(experiment, START + timedelta(minutes=1), tray_id=7)
+
+    page = TestClient(app).get(f"/data?experiment={experiment}").text
+
+    # In the Tray list's options (ui.field_button data-options), after the trays themselves.
+    assert '["7", "Tray 7", ""], ["all", "All trays", "one video per tray, in one zip"]]' in page

@@ -1,6 +1,7 @@
 """The Data page (#64): time lapse videos of an experiment's trays. Exports move here later."""
 
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
@@ -14,7 +15,8 @@ router = APIRouter()
 
 class VideoRequest(BaseModel):
     experiment_id: int
-    tray_id: int
+    # A tray ID, or "all": one video per tray in one zip (#64).
+    tray_id: int | Literal["all"]
     start: str
     end: str
     per_hour: int
@@ -43,7 +45,8 @@ def data_page(request: Request, experiment: int | None = None, tab: str = "timel
         (f"{col}{row}", f"Cell {col}{row}", "") for col in "ABCD" for row in range(1, 6)]
     if chosen is not None:
         context["trays"] = timelapse.experiment_trays(chosen["id"])
-        context["tray_options"] = [(str(t), f"Tray {t}", "") for t in context["trays"]]
+        context["tray_options"] = [(str(t), f"Tray {t}", "") for t in context["trays"]] + (
+            [(timelapse.ALL_TRAYS, "All trays", "one video per tray, in one zip")] if len(context["trays"]) > 1 else [])
         context["first"] = chosen["periods"][0]["started_at"]
         context["last"] = chosen["periods"][-1]["ended_at"] or datetime.now(timezone.utc).isoformat()
     return templates.TemplateResponse(request, "data.html", context)
@@ -74,4 +77,6 @@ def download_video(video_id: str) -> FileResponse:
     file = timelapse.video_file(video_id)
     if file is None:
         raise HTTPException(404, "This video is gone: a newer one was started. Make it again.")
+    if file.suffix == ".zip":
+        return FileResponse(file, media_type="application/zip", filename=f"timelapse-all-trays-{video_id}.zip")
     return FileResponse(file, media_type="video/mp4", filename=f"timelapse-{video_id}.mp4")
