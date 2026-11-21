@@ -10723,6 +10723,309 @@ leaves reach.
 Input). *Raw data:* `analysis/margin/` on the work machine (`RESULTS.md`, `METHOD.md`, picture sheet
 `figures/top12_sheet.png`), copied into `experiments/round4-segmentation-nn/` with the results.
 
+### 44.2 Training and cross-validation on the training cells, stages A to F (2026-11-20 and 21)
+
+**Label: development check.** Training cells only (42: production 17, development 25; log 34.2
+corrects the development count from 24). No test cell was opened, and the 15 outlines of section 24
+were not used: both are kept for the single test (44, *Test*).
+
+**What was built, where it departs from the method.**
+- *Labels.* Grow from leaf cores at the setting of log 34.1 (core 0.07), with the soil-level rule of
+  log 39, on 293 copied photos (production 184 over 33 UTC days, 18 of them plant-free negatives;
+  development 109 over 8 days). The photos of production test days were left out. Chosen over SAM 3 and
+  SAM 2.1 on the 30 corrected training cells (mean IoU 0.908, 0.793 and 0.687). Two rules were added
+  after Aaron checked a sheet of 12 labelled photos. Plant pieces brighter than 160 (glare on seed
+  domes and water) became not plant: 12,401 px of 84 million. Pieces of at most 600 px were also seeded
+  from olive pixels (G - R above -10), which added 154,195 px of smallest seedlings. Outside every
+  tray is ignore. Aaron approved the labels on 2026-11-20 ("not perfect, but good enough to move on").
+  Tray 8 (a synthetic plant) is ignore. Trays 9 to 12 (paper, targets, empty pots) are not plant.
+- *Network.* A U-Net with a MobileNetV2 encoder (the shape of the model zoo's `unet_mobilenet_v2`),
+  built with `segmentation_models_pytorch` 0.6.0, with the encoder starting from ImageNet weights.
+  Two classes, plant and not plant.
+- *Training.* 256 px tiles at half resolution, cut from 320 px patches shifted up to 32 px. Brightness
+  and colour were varied. Loss: binary cross-entropy plus Dice. AdamW, learning rate 5e-4 with 150
+  warm-up steps, then cosine to zero. Batch 24. One patch in eight came from Aaron's 42 training cells.
+  Last weights kept, no early stopping. Work machine: one RTX 2060 SUPER, 8 GB.
+- *Reading a photo.* 256 px tiles every 192 px. Next to each tile edge, the outputs are blended over
+  32 px, so the middle of each tile is kept. Production cells are read from the whole photo.
+  Development cells are read from the crop alone, because the full photos of development experiment 3
+  were purged (44).
+- *Scoring.* Cross-validation by UTC day in 5 folds (`results/train_cv_folds.csv`). Each cell is
+  scored once, by the fold model that never saw its day. IoU and area ratio (network px / truth px)
+  per cell; area error is mean |area ratio - 1|.
+- *Keep test, per change* (Aaron, 2026-11-20; a decision, not a measured threshold). A change is kept
+  only if it beats the current best on both rigs, in mean IoU and in mean area error, each by more
+  than the standard deviation over folds of the paired per-fold difference.
+
+**Results.** Mean IoU and mean area error, 42 training cells. Production has 17 cells, development 25.
+
+| Stage | What changed against the current best | Production IoU | Production area error | Development IoU | Development area error | Kept |
+|---|---|---|---|---|---|---|
+| grow from leaf cores | (not a network; the label source) | 0.885 | 11.4% | 0.968 | 2.9% | |
+| A | network at half resolution, 15 epochs | 0.847 | 12.5% | 0.936 | 3.6% | first best |
+| A, full resolution | full instead of half resolution | 0.873 | 11.0% | 0.930 | 3.9% | no |
+| B | tiles read at half-tile stride (128 px), outputs averaged | 0.848 | 12.5% | 0.936 | 3.7% | no |
+| C | training patches shifted up to 128 px instead of 32 | 0.864 | 11.2% | 0.942 | 3.1% | no |
+| D1 | first trained on 6 public sets (below), then ours | 0.872 | 10.3% | 0.937 | 3.8% | no |
+| D2 | first trained on all 7 public sets, then ours | 0.871 | 10.8% | 0.939 | 3.6% | no |
+| E | 40 epochs instead of 15 | 0.878 | 9.4% | 0.940 | 3.3% | no, missed by 0.0013 |
+
+- *No change passed the keep test.* C, D1, D2 and E each lifted stage A's weakest fold, from mean IoU
+  0.779 to about 0.86. That fold is production 24 to 27 October, which holds seedling A01. Each change
+  moved the other folds by 0.02 or less. E was better than A in 5 of 5 folds, D1 and D2 in 4, C in 3.
+- *Full resolution* was better on production (0.873 against 0.847) and worse on development, so half
+  resolution stayed. This followed the rule Aaron set before any score was seen (README, step 3).
+- *On the 30 truths Aaron corrected* (the other 12 are accepted grow drafts, where grow scores 1.000
+  by construction):
+  - production: E 0.860 IoU and 10.6% area error, grow from leaf cores 0.804 and 19.3%;
+  - development: E 0.939 and 3.2%, grow 0.960 and 3.6%.
+- *Seedling A01* (237 px): grow from leaf cores finds nothing (IoU 0). Stage E reaches 0.689.
+- *Final settings, stage E* (Aaron, 2026-11-21): stage A's settings trained for 40 epochs. E was
+  chosen because it beat A in every fold and uses no outside data.
+
+**Purple leaf tissue** (Aaron, 2026-11-21). Purple (anthocyanin-rich) living tissue is plant. Stressed
+potato plants turn purple, though no whole purple leaf is in our photos yet.
+- Cell B21: a reddish-purple stalk (896 px) became plant.
+- Cells B12, B13 and B19: four reddish spots became plant (+1,278, +586 and +807 px at full
+  resolution). They came from a check of the 15 largest of 31 reddish spots that the truths marked not
+  plant. The other 11 stayed not plant, and the 16 smallest were not checked.
+- Originals and a log of each edit: `analysis/labels/truth_edits/` on the work machine.
+- Every stage was re-scored on the edited truths from its saved predictions, and no decision changed.
+  The table above is before the B12, B13 and B19 edits. After them, development moves by 0.001 at most:
+  grow from leaf cores 0.967 and 3.0%, E 0.939 and 3.3%.
+
+**Plants never seen in training** (information, not a decision). ARADEEPOPSIS Arabidopsis rosettes on
+blue mesh: 1,899 photos, labels from the authors' classes (healthy and anthocyanin-rich are plant,
+senescent is not). Neither network had seen them. Pooled IoU:
+
+| Method | Pooled IoU, all photos | Pooled area ratio, 444 purple-rich photos |
+|---|---|---|
+| grow from leaf cores | 0.40 | 0.68 |
+| network, stage A | 0.59 | 0.47 |
+| network, D1 | 0.61 | 0.50 |
+
+On purple-rich rosettes every method finds half to two thirds of the plant. D2 had seen these photos in
+pre-training and still finds only 0.53.
+
+**Final network (stage F).** Stage E's settings, trained on every training day: 232 photos (the
+flagged steadiness photos left out) and all 42 truth cells, in 25.9 min. On one whole production photo
+(capture 28022), its mask and the held-out fold model's mask agree to IoU 0.970. Its scores on the
+training cells (production 0.894, development 0.965) are not a result, because it saw those cells.
+
+**Public sets** (D1 and D2 only; the final network uses none). D1 used:
+- VegAnn: Madec et al. 2023, *Sci. Data* 10:302, doi:10.1038/s41597-023-02098-y, CC BY 4.0;
+- ALED: Bell & Dee 2016, doi:10.5281/zenodo.168158, CC BY 4.0;
+- Potato Leaf: Williams, MacFarlane & Britten 2023, doi:10.5281/zenodo.7938231, CC BY;
+- Potato Canopy Cover: Maurya 2026, doi:10.17632/wg3rv2rddd.1, CC BY 4.0;
+- WE3DS: Kitzler et al. 2023, *Sensors* 23:2713, doi:10.3390/s23052713, CC BY 4.0;
+- Sugar Beets 2016: Chebrolu et al. 2017, *IJRR* 36:1045, doi:10.1177/0278364917720510, CC BY-SA 4.0.
+
+D2 also used ARADEEPOPSIS: Schandry et al. 2020, doi:10.5281/zenodo.3946393, and Hüther et al. 2020,
+*Plant Cell* 32:3674, doi:10.1105/tpc.20.00318, CC BY 4.0.
+
+![Stage E against grow from leaf cores on 8 training cells](figures/44.2/stage-E-eight-cells.jpg)
+*The same 8 training cells as in every stage. Columns: colour crop, Aaron's truth, grow from leaf
+cores, stage A network, stage E network. Solid magenta is plant on a grey copy of the crop. IoU and
+area ratio are above each panel. Each network panel is the fold model that never saw that day. Made
+by `train_cv.py compare --stage E` on 2026-11-21; scaled-down copy of `scratch/406-train/stage-E.png`.*
+
+![Training loss of the 5 stage E folds](figures/44.2/stage-E-loss.png)
+*Training loss per epoch, 5 folds, 40 epochs. Copied from `scratch/406-train/stage-E-loss.png` on
+2026-11-21.*
+
+### 44.3 Compiled for both Hailo chips, and the loss from 8-bit numbers (2026-11-21)
+
+**Label: development check, in Hailo's emulator.** No compiled model has run on a chip, and no rig
+was touched.
+
+**Method.**
+- *Compiling.* ONNX opset 13, with the input scaling inside the compiled model, so it takes 8-bit RGB
+  tiles of 256 x 256. Optimisation level 1, run on the CPU.
+- *Calibration.* 1,024 tiles from training photos only, half with plant. Each fold model was calibrated
+  only on its own training days.
+- *Compilers.* Hailo-8 with Dataflow Compiler 3.33.1, Hailo-10H with 5.1.0, each matching its rig's
+  HailoRT (44).
+- *Scoring the 8-bit loss.* The 5 stage E fold models were quantised and run in the emulator. They were
+  read and scored like the full-precision models (44.2). As a check, the full-precision tiles stitched
+  by the same code gave stage E's saved masks with 0 pixels differing over all 42 cells.
+
+**Compiled final network.**
+
+| | Hailo-8 (production) | Hailo-10H (development) |
+|---|---|---|
+| Result | compiled, no unsupported layers | compiled, no unsupported layers |
+| Optimise and compile time, work machine CPU | 25.8 + 1.8 min | 46.8 + 17.0 min |
+| Contexts | 1 | 3 |
+| Compiler's speed estimate | 147 tiles/s; about 2.9 s for one photo's tiles | none given for 3 contexts |
+| File size | 6.2 MB | 6.1 MB |
+
+**8-bit loss, cross-validated on the training cells.**
+
+| Rig | Network | Mean IoU | Mean area error | Pooled area ratio |
+|---|---|---|---|---|
+| production | full precision | 0.878 | 9.4% | 0.967 |
+| production | Hailo-8, 8-bit | 0.879 | 8.8% | 0.983 |
+| development | full precision | 0.939 | 3.3% | 1.027 |
+| development | Hailo-8, 8-bit | 0.936 | 4.1% | 1.032 |
+
+- *Change from full precision to 8-bit,* with the standard deviation over folds:
+  - production: IoU +0.001 (SD 0.005), area error -0.6 points (SD 2.3);
+  - development: IoU -0.004 (SD 0.008), area error +0.8 points (SD 1.4).
+  - Both are within fold-to-fold variation.
+- *Hailo-10H* gives the same scores as Hailo-8 to the third decimal.
+- *Seedlings* (10 cells): IoU 0.862 at full precision, 0.860 at 8-bit.
+- *8-bit marks slightly more plant* on both rigs (pooled area ratio above).
+- *Most of the development loss is one fold model* on the 9 November cells, which gain 4 to 6% in area.
+- The final network's own 8-bit loss cannot be scored on truth, because it saw every cell. On 200
+  check tiles, its 8-bit and full-precision masks agree to IoU 0.986.
+
+**Speed.** The Hailo-10H was timed on the development Pi afterwards (44.6). The Hailo-8 is not timed:
+it is on production, which is read only.
+
+![8-bit against full precision on 8 training cells](figures/44.3/stage-G-8bit-eight-cells.jpg)
+*The same 8 cells. Columns: colour crop, Aaron's truth, full-precision fold model, Hailo-8 8-bit,
+Hailo-10H 8-bit, all in Hailo's emulator. Solid magenta is plant. Made by `final_fg.py stage_g` on
+2026-11-21; scaled-down copy of `scratch/406-train/stage-G.png`.*
+
+### 44.4 Against 8 cells outlined from nothing (added 2026-11-21, after the results of 44.2 were seen)
+
+**Label: development check.** Not in the method of 44. It was added because every truth of 44.2
+began as a grow-from-leaf-cores draft (44, *A known lean*). The 15 outlines of section 24 are kept for
+the test.
+
+**Cells.**
+- 8 pots, 5 production and 3 development. They were drawn by fixed random seed from groups set before
+  any cell was looked at: production seedling, blue mat, small plant, larger plant and reddish stalk;
+  development small, large and pale seedling.
+- No cell with yellow leaves was found: production has none (Aaron).
+- No real reddish stalk was found either. The colour rule picked reddish soil, so H08 is a two-leaf
+  seedling.
+- Every cell is from a training day, so each can be scored by the fold model that never saw its day.
+  A first draw from production test days was replaced (Aaron, 2026-11-21).
+- Crop: the cell's stored corners plus 40 px on every side, native pixels.
+- Code: `code/handlabel_select.py`. List: `results/handlabel/manifest.csv`.
+
+**Outlines.**
+- Aaron outlined the plant in Fiji on 2026-11-21, once, from the colour crop alone. No machine
+  output was shown.
+- Tools: the Wand and Polygon tools, by the written rules of the package README: living green and
+  purple tissue is plant; yellow or dead leaves, soil, mat and pot are not; every leaf in the crop
+  counts; soil gaps between leaves stay open.
+- Masks: `results/handlabel/*_hand_mask.png`, 255 = plant.
+
+**Scoring.** `code/score_handlabel.py`, over the whole crop:
+- grow from leaf cores: the photo's training label (44.2);
+- network: the stage E fold model that never saw the cell's day, at full precision.
+
+| Cell | Rig | Plant | Outlined px | Grow IoU | Grow area ratio | Network IoU | Network area ratio |
+|---|---|---|---|---|---|---|---|
+| H01 | production | seedling | 261 | 0.709 | 1.38 | 0.723 | 1.36 |
+| H03 | production | seedling | 541 | 0.580 | 1.72 | 0.668 | 1.50 |
+| H08 | production | seedling | 513 | 0.619 | 1.61 | 0.611 | 1.63 |
+| H05 | development | seedling | 295 | 0.554 | 1.80 | 0.643 | 1.56 |
+| H07 | development | pale seedling | 1,382 | 0.705 | 1.39 | 0.666 | 1.50 |
+| H04 | production | larger plant, blue mat | 14,467 | 0.802 | 0.82 | 0.820 | 0.83 |
+| H02 | production | larger plant, blue mat | 30,090 | 0.919 | 0.94 | 0.916 | 0.92 |
+| H06 | development | large plant | 22,286 | 0.925 | 1.01 | 0.923 | 1.07 |
+| **Mean of 8** | | | | **0.727** | area error **40%** | **0.746** | area error **36%** |
+| Mean, 5 seedlings | | | | 0.633 | | 0.662 | |
+| Mean, 3 larger plants | | | | 0.882 | | 0.886 | |
+
+**What it shows.**
+- *Both methods make the same errors.* On seedlings they mark 1.4 to 1.8 times the outlined area,
+  mostly as a ring around the leaves. On the two plants on blue mat they mark 0.82 to 0.94 times. This
+  matches the blue-mat edge loss of 36.2.
+- *The draft-based truths flatter both methods.* Grow from leaf cores scores mean IoU 0.885 on the
+  production truths of 44.2, and 0.727 here.
+- *The network is better on 4 of the 8 cells,* by up to 0.09 IoU (H03, H05), and worse on 4, by up to
+  0.04. Eight cells cannot rank the two methods.
+- *The network learned from grow from leaf cores' labels.* So it copies grow's edge, including the
+  ring around seedlings.
+- *On a seedling, the edge decides the area.* A ring 1 px wide around a 300 px seedling is about 20%
+  of its area.
+
+**Limits.** One pass by one person, so the outline's own edge uncertainty is not measured here. Aaron's
+two passes on 15 larger plants in section 24 agreed to IoU 0.915 and 6% in area. Seedlings may vary
+more. 8 cells, potato only.
+
+![Hand outlines against grow from leaf cores and the network](figures/44.4/hand-outlines-against-methods.jpg)
+*The 8 cells. Columns: colour crop, Aaron's outline drawn from nothing, grow from leaf cores, stage E
+network (the fold model that never saw that day). Solid magenta is plant on a grey copy of the crop.
+Made by `code/score_handlabel.py` on 2026-11-21; scaled-down copy of
+`scratch/406-train/handlabel_scores.png`.*
+
+### 44.5 What was not done, and the decision (2026-11-21)
+
+**Not done.** Measures 1 to 4 of the method: the test cells, the 15 outlines of section 24,
+trained on one rig and tested on the other, and the steadiness runs. So the pass test of 44 was not
+applied. Measure 6, time on the development Pi, was done afterwards (44.6). The test cells and the 15 outlines stay
+unopened, so they can still serve as a fair test later.
+
+**What the work cost.**
+- Training: up to 26 min per network (40 epochs) on the work machine's GPU. Stages A to F trained over 30
+  networks.
+- Compiling: about 28 min for Hailo-8 and 64 min for Hailo-10H, on its CPU.
+- Aaron's time: checking the labels, the purple spots and the 8 outlines, on 20 and 21 November.
+- In use, the network needs the Hailo on each rig: 2.3 s per photo on the Hailo-10H (44.6). Grow from
+  leaf cores runs on the Pi's CPU, in about 2.9 s per photo (34.1).
+
+**Assessment (Aaron, 2026-11-21).** The network costs time, needs extra hardware, and is similar in
+quality to grow from leaf cores. It is worth using only if it does better across different crops.
+
+**Decision.** Grow from leaf cores stays the plant-area method. The network does not go into the app
+now. The development rig grows four or five different crops. When it holds more data, the network
+and grow from leaf cores are compared again on those crops. That comparison needs:
+- outlines drawn from nothing for each crop;
+- the same timing as 44.6, repeated for any new network.
+
+**Raw data.**
+- In the repository, `experiments/round4-segmentation-nn/`:
+  - `README.md`, step by step;
+  - `code/`;
+  - `results/`: per-cell scores; `stages/`, the page of each stage and the Hailo notes; `handlabel/`,
+    the 8 outlines and their scores.
+- On the work machine (`media-server`, `~/temp.nobackup/npec-406-nn/`):
+  - labels: `analysis/labels-grow/`;
+  - models: `analysis/train/runs/`, final network `s2_final_e40`;
+  - compiled models: `hailo/final/`;
+  - public data: `data/public/`, with checksums.
+
+### 44.6 Time and memory for one photo on the development Pi with the Hailo-10H (2026-11-21)
+
+**Label: development check.** Measure 6 of the method. Run on `npec-rig-01` between about 12:30 and 12:45
+UTC, on Aaron's go-ahead. Issue #439 still held the `hardware` label. The app kept running experiment 4,
+a photo every 5 minutes, and was not touched. The compiled model and the script were copied to `/tmp` on
+the rig and removed afterwards. Memory was capped (`ulimit -v`, 4 GB), and the script ran at a lower
+priority (`nice 10`).
+
+**Chip alone.** `hailortcli benchmark`, 15 s per mode, random input: 282 tiles/s at batch 1 and at batch
+8, with the chip at 45 to 51 °C. The compiler gave no estimate for this 3-context model (44.3).
+
+**One full photo.** Script `code/pi_time_photo.py`, with the app's own Python and its decoder
+(`npec_rig.images.decode_full`). It times every step from the JPEG on disk to a full-size plant mask.
+Counting the mask per cell was not timed, as it is small next to these steps. Photo: development capture
+23494 (19 November, 18:00 UTC, 9152 x 6944), read at half resolution as 432 tiles, batch 8, 3 repeats.
+
+| Step | Time per photo, 3 repeats |
+|---|---|
+| Decode the JPEG | 0.61 to 0.62 s |
+| Scale to half resolution | 0.04 s |
+| Run 432 tiles on the Hailo-10H | 1.34 to 1.35 s |
+| Blend the tile outputs | 0.15 to 0.16 s |
+| Threshold and scale the mask back to full size | 0.14 to 0.15 s |
+| **Total** | **2.28 to 2.33 s** |
+
+- Peak memory of the process: 1.0 GB, of the Pi's 8 GB.
+- *The chip's mask against the full-precision network*, same photo, half resolution: IoU 0.987, area
+  ratio 0.996.
+- *Against the pass test of 44* (under 60 s, together with the app's other work): it passes, at about
+  4% of the limit. For comparison, grow from leaf cores takes about 2.9 s per photo on the Pi's CPU
+  (34.1). Speed therefore gives neither method an advantage.
+- *Limits:* one photo, one rig, 3 repeats. The app was idle between its photos, so this does not show the
+  time with a Reprocess or an export running alongside.
+- *Raw data:* `results/pi_timing_hailo10h.md`; the chip's output for the photo is on the work machine,
+  `hailo/final/pi_timing/`.
+
 ## 45. M3 acceptance tests: 24 hour photo count, reboot, CSV, disk headroom (issue #67, written 2026-11-20, after the records were read)
 
 **Label: development check.** PLAN.md's M3 test list: unattended 24 h at exactly the expected

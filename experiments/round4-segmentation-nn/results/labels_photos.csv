@@ -1,0 +1,595 @@
+rig,capture_id,utc_time,day_utc,experiment_id,sets,exclusion,label_kind,labelled,why_not,steadiness_flag,jpg
+development,21670,2026-11-13T10:00:20.889722+00:00,2026-11-13,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-13/100020_889722.jpg
+development,21694,2026-11-13T12:00:20.888580+00:00,2026-11-13,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-13/120020_888580.jpg
+development,21718,2026-11-13T14:00:20.888944+00:00,2026-11-13,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-13/140020_888944.jpg
+development,21742,2026-11-13T16:00:20.950755+00:00,2026-11-13,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-13/160020_950755.jpg
+development,21766,2026-11-13T18:00:20.885975+00:00,2026-11-13,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-13/180020_885975.jpg
+development,21790,2026-11-13T20:00:20.886464+00:00,2026-11-13,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-13/200020_886464.jpg
+development,21814,2026-11-13T22:00:20.892428+00:00,2026-11-13,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-13/220020_892428.jpg
+development,21838,2026-11-14T00:00:20.886032+00:00,2026-11-14,4,spread,light changing,grow,no,light changing,,development/experiments/2026-11-13_f991a199/stills/2026-11-14/000020_886032.jpg
+development,21862,2026-11-14T02:00:20.982000+00:00,2026-11-14,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-14/020020_982000.jpg
+development,21886,2026-11-14T04:00:20.986288+00:00,2026-11-14,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-14/040020_986288.jpg
+development,21910,2026-11-14T06:00:20.983554+00:00,2026-11-14,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-14/060020_983554.jpg
+development,21934,2026-11-14T08:00:20.979202+00:00,2026-11-14,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-14/080020_979202.jpg
+development,21958,2026-11-14T10:00:20.888662+00:00,2026-11-14,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-14/100020_888662.jpg
+development,21982,2026-11-14T12:00:20.903689+00:00,2026-11-14,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-14/120020_903689.jpg
+development,22006,2026-11-14T14:00:20.891517+00:00,2026-11-14,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-14/140020_891517.jpg
+development,22030,2026-11-14T16:00:20.881048+00:00,2026-11-14,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-14/160020_881048.jpg
+development,22054,2026-11-14T18:00:20.881880+00:00,2026-11-14,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-14/180020_881880.jpg
+development,22078,2026-11-14T20:00:20.879209+00:00,2026-11-14,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-14/200020_879209.jpg
+development,22102,2026-11-14T22:00:20.885562+00:00,2026-11-14,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-14/220020_885562.jpg
+development,22126,2026-11-15T00:00:20.885452+00:00,2026-11-15,4,spread,light changing,grow,no,light changing,,development/experiments/2026-11-13_f991a199/stills/2026-11-15/000020_885452.jpg
+development,22150,2026-11-15T02:00:20.987380+00:00,2026-11-15,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-15/020020_987380.jpg
+development,22174,2026-11-15T04:00:20.979770+00:00,2026-11-15,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-15/040020_979770.jpg
+development,22198,2026-11-15T06:00:20.977585+00:00,2026-11-15,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-15/060020_977585.jpg
+development,22222,2026-11-15T08:00:20.991296+00:00,2026-11-15,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-15/080020_991296.jpg
+development,22246,2026-11-15T10:00:20.900749+00:00,2026-11-15,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-15/100020_900749.jpg
+development,22270,2026-11-15T12:00:20.894908+00:00,2026-11-15,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-15/120020_894908.jpg
+development,22294,2026-11-15T14:00:20.893522+00:00,2026-11-15,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-15/140020_893522.jpg
+development,22318,2026-11-15T16:00:20.897717+00:00,2026-11-15,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-15/160020_897717.jpg
+development,22342,2026-11-15T18:00:20.905253+00:00,2026-11-15,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-15/180020_905253.jpg
+development,22366,2026-11-15T20:00:20.905487+00:00,2026-11-15,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-15/200020_905487.jpg
+development,22390,2026-11-15T22:00:20.905249+00:00,2026-11-15,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-15/220020_905249.jpg
+development,22414,2026-11-16T00:00:20.900959+00:00,2026-11-16,4,spread,light changing,grow,no,light changing,,development/experiments/2026-11-13_f991a199/stills/2026-11-16/000020_900959.jpg
+development,22438,2026-11-16T02:00:21.000249+00:00,2026-11-16,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-16/020021_000249.jpg
+development,22462,2026-11-16T04:00:20.999102+00:00,2026-11-16,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-16/040020_999102.jpg
+development,22486,2026-11-16T06:00:20.998244+00:00,2026-11-16,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-16/060020_998244.jpg
+development,22510,2026-11-16T08:00:21.004083+00:00,2026-11-16,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-16/080021_004083.jpg
+development,22534,2026-11-16T10:00:20.908683+00:00,2026-11-16,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-16/100020_908683.jpg
+development,22558,2026-11-16T12:00:20.915011+00:00,2026-11-16,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-16/120020_915011.jpg
+development,22582,2026-11-16T14:00:20.909131+00:00,2026-11-16,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-16/140020_909131.jpg
+development,22606,2026-11-16T16:00:20.901568+00:00,2026-11-16,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-16/160020_901568.jpg
+development,22630,2026-11-16T18:00:20.907839+00:00,2026-11-16,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-16/180020_907839.jpg
+development,22654,2026-11-16T20:00:20.892314+00:00,2026-11-16,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-16/200020_892314.jpg
+development,22678,2026-11-16T22:00:20.900847+00:00,2026-11-16,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-16/220020_900847.jpg
+development,22702,2026-11-17T00:00:20.901123+00:00,2026-11-17,4,spread,light changing,grow,no,light changing,,development/experiments/2026-11-13_f991a199/stills/2026-11-17/000020_901123.jpg
+development,22726,2026-11-17T02:00:20.989080+00:00,2026-11-17,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-17/020020_989080.jpg
+development,22750,2026-11-17T04:00:20.985299+00:00,2026-11-17,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-17/040020_985299.jpg
+development,22774,2026-11-17T06:00:20.987461+00:00,2026-11-17,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-17/060020_987461.jpg
+development,22798,2026-11-17T08:00:20.984385+00:00,2026-11-17,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-17/080020_984385.jpg
+development,22822,2026-11-17T10:00:20.893885+00:00,2026-11-17,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-17/100020_893885.jpg
+development,22846,2026-11-17T12:00:20.889229+00:00,2026-11-17,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-17/120020_889229.jpg
+development,22870,2026-11-17T14:00:20.892622+00:00,2026-11-17,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-17/140020_892622.jpg
+development,22894,2026-11-17T16:00:20.893928+00:00,2026-11-17,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-17/160020_893928.jpg
+development,22918,2026-11-17T18:00:20.903740+00:00,2026-11-17,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-17/180020_903740.jpg
+development,22942,2026-11-17T20:00:20.892960+00:00,2026-11-17,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-17/200020_892960.jpg
+development,22966,2026-11-17T22:00:20.899892+00:00,2026-11-17,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-17/220020_899892.jpg
+development,22990,2026-11-18T00:00:20.910526+00:00,2026-11-18,4,spread,light changing,grow,no,light changing,,development/experiments/2026-11-13_f991a199/stills/2026-11-18/000020_910526.jpg
+development,23014,2026-11-18T02:00:20.990430+00:00,2026-11-18,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-18/020020_990430.jpg
+development,23038,2026-11-18T04:00:21.009913+00:00,2026-11-18,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-18/040021_009913.jpg
+development,23062,2026-11-18T06:00:20.991543+00:00,2026-11-18,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-18/060020_991543.jpg
+development,23086,2026-11-18T08:00:20.987670+00:00,2026-11-18,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-18/080020_987670.jpg
+development,23110,2026-11-18T10:00:20.896135+00:00,2026-11-18,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-18/100020_896135.jpg
+development,23134,2026-11-18T12:00:20.898136+00:00,2026-11-18,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-18/120020_898136.jpg
+development,23158,2026-11-18T14:00:20.901372+00:00,2026-11-18,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-18/140020_901372.jpg
+development,23182,2026-11-18T16:00:20.911149+00:00,2026-11-18,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-18/160020_911149.jpg
+development,23206,2026-11-18T18:00:20.905438+00:00,2026-11-18,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-18/180020_905438.jpg
+development,23230,2026-11-18T20:00:20.920331+00:00,2026-11-18,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-18/200020_920331.jpg
+development,23254,2026-11-18T22:00:20.905174+00:00,2026-11-18,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-18/220020_905174.jpg
+development,23278,2026-11-19T00:00:20.898971+00:00,2026-11-19,4,spread,light changing,grow,no,light changing,,development/experiments/2026-11-13_f991a199/stills/2026-11-19/000020_898971.jpg
+development,23302,2026-11-19T02:00:20.966352+00:00,2026-11-19,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-19/020020_966352.jpg
+development,23326,2026-11-19T04:00:20.997368+00:00,2026-11-19,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-19/040020_997368.jpg
+development,23350,2026-11-19T06:00:21.000122+00:00,2026-11-19,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-19/060021_000122.jpg
+development,23374,2026-11-19T08:00:20.982907+00:00,2026-11-19,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-19/080020_982907.jpg
+development,23398,2026-11-19T10:00:20.894930+00:00,2026-11-19,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-19/100020_894930.jpg
+development,23422,2026-11-19T12:00:20.892626+00:00,2026-11-19,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-19/120020_892626.jpg
+development,23446,2026-11-19T14:00:20.896102+00:00,2026-11-19,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-19/140020_896102.jpg
+development,23470,2026-11-19T16:00:20.901014+00:00,2026-11-19,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-19/160020_901014.jpg
+development,23494,2026-11-19T18:00:20.905546+00:00,2026-11-19,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-19/180020_905546.jpg
+development,23504,2026-11-19T18:50:20.904688+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/185020_904688.jpg
+development,23505,2026-11-19T18:55:20.900894+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/185520_900894.jpg
+development,23506,2026-11-19T19:00:20.901957+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/190020_901957.jpg
+development,23507,2026-11-19T19:05:20.904299+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/190520_904299.jpg
+development,23508,2026-11-19T19:10:20.897474+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/191020_897474.jpg
+development,23509,2026-11-19T19:15:20.898638+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/191520_898638.jpg
+development,23510,2026-11-19T19:20:20.912780+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/192020_912780.jpg
+development,23511,2026-11-19T19:25:20.905378+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/192520_905378.jpg
+development,23512,2026-11-19T19:30:20.903252+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/193020_903252.jpg
+development,23513,2026-11-19T19:35:20.897127+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/193520_897127.jpg
+development,23514,2026-11-19T19:40:20.900533+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/194020_900533.jpg
+development,23515,2026-11-19T19:45:20.901040+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/194520_901040.jpg
+development,23516,2026-11-19T19:50:20.895758+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/195020_895758.jpg
+development,23517,2026-11-19T19:55:20.909933+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/195520_909933.jpg
+development,23518,2026-11-19T20:00:20.901652+00:00,2026-11-19,4,spread+steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/200020_901652.jpg
+development,23519,2026-11-19T20:05:20.902135+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/200520_902135.jpg
+development,23520,2026-11-19T20:10:20.907551+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/201020_907551.jpg
+development,23521,2026-11-19T20:15:20.913233+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/201520_913233.jpg
+development,23522,2026-11-19T20:20:20.865171+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/202020_865171.jpg
+development,23523,2026-11-19T20:25:20.909335+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/202520_909335.jpg
+development,23524,2026-11-19T20:30:20.881275+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/203020_881275.jpg
+development,23525,2026-11-19T20:35:20.907682+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/203520_907682.jpg
+development,23526,2026-11-19T20:40:20.903965+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/204020_903965.jpg
+development,23527,2026-11-19T20:45:20.908803+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/204520_908803.jpg
+development,23528,2026-11-19T20:50:20.907538+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/205020_907538.jpg
+development,23529,2026-11-19T20:55:20.921147+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/205520_921147.jpg
+development,23530,2026-11-19T21:00:20.911583+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/210020_911583.jpg
+development,23531,2026-11-19T21:05:20.908412+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/210520_908412.jpg
+development,23532,2026-11-19T21:10:20.904867+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/211020_904867.jpg
+development,23533,2026-11-19T21:15:20.904988+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/211520_904988.jpg
+development,23534,2026-11-19T21:20:20.901461+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/212020_901461.jpg
+development,23535,2026-11-19T21:25:20.900897+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/212520_900897.jpg
+development,23536,2026-11-19T21:30:20.906542+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/213020_906542.jpg
+development,23537,2026-11-19T21:35:20.893543+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/213520_893543.jpg
+development,23538,2026-11-19T21:40:20.949266+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/214020_949266.jpg
+development,23539,2026-11-19T21:45:20.904173+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/214520_904173.jpg
+development,23540,2026-11-19T21:50:20.903457+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/215020_903457.jpg
+development,23541,2026-11-19T21:55:20.906658+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/215520_906658.jpg
+development,23542,2026-11-19T22:00:20.901512+00:00,2026-11-19,4,spread+steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/220020_901512.jpg
+development,23543,2026-11-19T22:05:20.907978+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/220520_907978.jpg
+development,23544,2026-11-19T22:10:20.929680+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/221020_929680.jpg
+development,23545,2026-11-19T22:15:20.908817+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/221520_908817.jpg
+development,23546,2026-11-19T22:20:20.902701+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/222020_902701.jpg
+development,23547,2026-11-19T22:25:20.905129+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/222520_905129.jpg
+development,23548,2026-11-19T22:30:20.904227+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/223020_904227.jpg
+development,23549,2026-11-19T22:35:20.921527+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/223520_921527.jpg
+development,23550,2026-11-19T22:40:20.914471+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/224020_914471.jpg
+development,23551,2026-11-19T22:45:20.901184+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/224520_901184.jpg
+development,23552,2026-11-19T22:50:20.908843+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/225020_908843.jpg
+development,23553,2026-11-19T22:55:20.969293+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/225520_969293.jpg
+development,23554,2026-11-19T23:00:20.900416+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/230020_900416.jpg
+development,23555,2026-11-19T23:05:20.901213+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/230520_901213.jpg
+development,23556,2026-11-19T23:10:20.913625+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/231020_913625.jpg
+development,23557,2026-11-19T23:15:20.929341+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/231520_929341.jpg
+development,23558,2026-11-19T23:20:20.903944+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/232020_903944.jpg
+development,23559,2026-11-19T23:25:20.896979+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/232520_896979.jpg
+development,23560,2026-11-19T23:30:20.906203+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/233020_906203.jpg
+development,23561,2026-11-19T23:35:20.909512+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/233520_909512.jpg
+development,23562,2026-11-19T23:40:20.901306+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/234020_901306.jpg
+development,23563,2026-11-19T23:45:20.909230+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/234520_909230.jpg
+development,23564,2026-11-19T23:50:20.902343+00:00,2026-11-19,4,steadiness,,grow,yes,,yes,development/experiments/2026-11-13_f991a199/stills/2026-11-19/235020_902343.jpg
+development,23566,2026-11-20T00:00:20.908208+00:00,2026-11-20,4,spread,light changing,grow,no,light changing,,development/experiments/2026-11-13_f991a199/stills/2026-11-20/000020_908208.jpg
+development,23590,2026-11-20T02:00:20.993084+00:00,2026-11-20,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-20/020020_993084.jpg
+development,23614,2026-11-20T04:00:20.996358+00:00,2026-11-20,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-20/040020_996358.jpg
+development,23638,2026-11-20T06:00:20.998235+00:00,2026-11-20,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-20/060020_998235.jpg
+development,23662,2026-11-20T08:00:20.994948+00:00,2026-11-20,4,spread,lights off,grow,no,lights off,,development/experiments/2026-11-13_f991a199/stills/2026-11-20/080020_994948.jpg
+development,23686,2026-11-20T10:00:20.893798+00:00,2026-11-20,4,spread,,grow,yes,,,development/experiments/2026-11-13_f991a199/stills/2026-11-20/100020_893798.jpg
+development,23710,2026-11-20T12:00:20.895229+00:00,2026-11-20,4,spread,light changing,grow,no,light changing,,development/experiments/2026-11-13_f991a199/stills/2026-11-20/120020_895229.jpg
+production,7,2026-10-12T13:31:17.986053+00:00,2026-10-12,9,variety,,negative,yes,,,production/experiments/2026-10-12_631bb6b5/stills/2026-10-12/133117_986053.jpg
+production,9,2026-10-12T19:35:29.996762+00:00,2026-10-12,9,variety,,negative,yes,,,production/experiments/2026-10-12_631bb6b5/stills/2026-10-12/193529_996762.jpg
+production,17,2026-10-14T07:11:36.876799+00:00,2026-10-14,9,variety,,negative,yes,,,production/experiments/2026-10-12_631bb6b5/stills/2026-10-14/071136_876799.jpg
+production,21,2026-10-14T07:39:09.652339+00:00,2026-10-14,9,variety,,negative,yes,,,production/experiments/2026-10-12_631bb6b5/stills/2026-10-14/073909_652339.jpg
+production,40,2026-10-14T19:17:12.932232+00:00,2026-10-14,9,variety,,negative,yes,,,production/experiments/2026-10-12_631bb6b5/stills/2026-10-14/191712_932232.jpg
+production,41,2026-10-15T06:51:38.715761+00:00,2026-10-15,9,variety,,negative,yes,,,production/experiments/2026-10-12_631bb6b5/stills/2026-10-15/065138_715761.jpg
+production,53,2026-10-15T06:54:07.243036+00:00,2026-10-15,10,variety,,negative,yes,,,production/experiments/2026-10-15_83acd97d/stills/2026-10-15/065407_243036.jpg
+production,80,2026-10-15T07:57:56.789328+00:00,2026-10-15,11,variety,,negative,yes,,,production/experiments/2026-10-15_44a9e96e/stills/2026-10-15/075756_789328.jpg
+production,290,2026-10-16T14:08:43.899636+00:00,2026-10-16,11,variety,,negative,yes,,,production/experiments/2026-10-15_44a9e96e/stills/2026-10-16/140843_899636.jpg
+production,291,2026-10-18T10:37:36.958739+00:00,2026-10-18,11,variety,,negative,yes,,,production/experiments/2026-10-15_44a9e96e/stills/2026-10-18/103736_958739.jpg
+production,292,2026-10-19T08:03:28.217729+00:00,2026-10-19,11,variety,,negative,yes,,,production/experiments/2026-10-15_44a9e96e/stills/2026-10-19/080328_217729.jpg
+production,293,2026-10-19T08:07:12.753898+00:00,2026-10-19,12,variety,,negative,yes,,,production/experiments/2026-10-19_17cb7bfb/stills/2026-10-19/080712_753898.jpg
+production,468,2026-10-19T12:05:56.862149+00:00,2026-10-19,13,variety,,negative,yes,,,production/experiments/2026-10-19_ad4876e5/stills/2026-10-19/120556_862149.jpg
+production,510,2026-10-19T13:50:41.697173+00:00,2026-10-19,14,variety,,negative,yes,,,production/experiments/2026-10-19_c2c49f62/stills/2026-10-19/135041_697173.jpg
+production,537,2026-10-20T07:37:23.385005+00:00,2026-10-20,15,variety,,negative,yes,,,production/experiments/2026-10-20_e7a53c3e/stills/2026-10-20/073723_385005.jpg
+production,540,2026-10-20T07:53:07.250557+00:00,2026-10-20,16,variety,,negative,yes,,,production/experiments/2026-10-20_57f74959/stills/2026-10-20/075307_250557.jpg
+production,899,2026-10-20T13:53:58.425169+00:00,2026-10-20,16,variety,,negative,yes,,,production/experiments/2026-10-20_57f74959/stills/2026-10-20/135358_425169.jpg
+production,1260,2026-10-20T19:53:57.559948+00:00,2026-10-20,16,variety,,negative,yes,,,production/experiments/2026-10-20_57f74959/stills/2026-10-20/195357_559948.jpg
+production,1620,2026-10-21T01:53:57.666431+00:00,2026-10-21,16,variety,,negative,no,dark (copy notes),,production/experiments/2026-10-20_57f74959/stills/2026-10-21/015357_666431.jpg
+production,2037,2026-10-22T10:00:53.588440+00:00,2026-10-22,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-22/100053_588440.jpg
+production,2096,2026-10-22T10:59:54.749991+00:00,2026-10-22,18,reference,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-22/105954_749991.jpg
+production,2157,2026-10-22T12:00:54.944538+00:00,2026-10-22,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-22/120054_944538.jpg
+production,2277,2026-10-22T14:00:56.128934+00:00,2026-10-22,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-22/140056_128934.jpg
+production,2397,2026-10-22T16:00:53.599313+00:00,2026-10-22,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-22/160053_599313.jpg
+production,2517,2026-10-22T18:00:53.601953+00:00,2026-10-22,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-22/180053_601953.jpg
+production,2637,2026-10-22T20:00:53.596520+00:00,2026-10-22,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-22/200053_596520.jpg
+production,2757,2026-10-22T22:00:53.605508+00:00,2026-10-22,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-22/220053_605508.jpg
+production,2877,2026-10-23T00:00:53.695927+00:00,2026-10-23,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-23/000053_695927.jpg
+production,2997,2026-10-23T02:00:53.694450+00:00,2026-10-23,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-23/020053_694450.jpg
+production,3117,2026-10-23T04:00:53.699497+00:00,2026-10-23,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-23/040053_699497.jpg
+production,3237,2026-10-23T06:00:53.683990+00:00,2026-10-23,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-23/060053_683990.jpg
+production,3357,2026-10-23T08:00:53.601723+00:00,2026-10-23,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-23/080053_601723.jpg
+production,3478,2026-10-23T10:00:53.605338+00:00,2026-10-23,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-23/100053_605338.jpg
+production,3537,2026-10-23T10:59:53.599287+00:00,2026-10-23,18,reference,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-23/105953_599287.jpg
+production,3598,2026-10-23T12:00:53.610720+00:00,2026-10-23,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-10-23/120053_610720.jpg
+production,3718,2026-10-23T14:00:53.608905+00:00,2026-10-23,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-23/140053_608905.jpg
+production,3838,2026-10-23T16:00:53.602806+00:00,2026-10-23,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-23/160053_602806.jpg
+production,3958,2026-10-23T18:00:53.633395+00:00,2026-10-23,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-23/180053_633395.jpg
+production,4078,2026-10-23T20:00:53.610292+00:00,2026-10-23,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-23/200053_610292.jpg
+production,4198,2026-10-23T22:00:53.610016+00:00,2026-10-23,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-23/220053_610016.jpg
+production,4318,2026-10-24T00:00:53.695615+00:00,2026-10-24,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-24/000053_695615.jpg
+production,4438,2026-10-24T02:00:53.716973+00:00,2026-10-24,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-24/020053_716973.jpg
+production,4558,2026-10-24T04:00:53.695814+00:00,2026-10-24,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-24/040053_695814.jpg
+production,4678,2026-10-24T06:00:53.656450+00:00,2026-10-24,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-24/060053_656450.jpg
+production,4798,2026-10-24T08:00:53.604727+00:00,2026-10-24,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-24/080053_604727.jpg
+production,4918,2026-10-24T10:00:53.603130+00:00,2026-10-24,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-24/100053_603130.jpg
+production,4977,2026-10-24T10:59:53.608806+00:00,2026-10-24,18,reference,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-24/105953_608806.jpg
+production,5038,2026-10-24T12:00:53.608338+00:00,2026-10-24,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-24/120053_608338.jpg
+production,5158,2026-10-24T14:00:53.608638+00:00,2026-10-24,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-24/140053_608638.jpg
+production,5278,2026-10-24T16:00:53.608067+00:00,2026-10-24,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-24/160053_608067.jpg
+production,5398,2026-10-24T18:00:53.607007+00:00,2026-10-24,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-24/180053_607007.jpg
+production,5518,2026-10-24T20:00:53.606421+00:00,2026-10-24,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-24/200053_606421.jpg
+production,5638,2026-10-24T22:00:53.609359+00:00,2026-10-24,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-24/220053_609359.jpg
+production,5758,2026-10-25T00:00:53.770271+00:00,2026-10-25,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-25/000053_770271.jpg
+production,5878,2026-10-25T02:00:53.678605+00:00,2026-10-25,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-25/020053_678605.jpg
+production,5998,2026-10-25T04:00:53.701625+00:00,2026-10-25,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-25/040053_701625.jpg
+production,6118,2026-10-25T06:00:53.685096+00:00,2026-10-25,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-25/060053_685096.jpg
+production,6238,2026-10-25T08:00:53.690650+00:00,2026-10-25,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-25/080053_690650.jpg
+production,6358,2026-10-25T10:00:53.607376+00:00,2026-10-25,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-25/100053_607376.jpg
+production,6417,2026-10-25T10:59:53.617716+00:00,2026-10-25,18,reference,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-25/105953_617716.jpg
+production,6478,2026-10-25T12:00:53.611730+00:00,2026-10-25,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-25/120053_611730.jpg
+production,6598,2026-10-25T14:00:53.611312+00:00,2026-10-25,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-25/140053_611312.jpg
+production,6718,2026-10-25T16:00:53.618146+00:00,2026-10-25,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-25/160053_618146.jpg
+production,6838,2026-10-25T18:00:53.614182+00:00,2026-10-25,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-25/180053_614182.jpg
+production,6958,2026-10-25T20:00:53.630376+00:00,2026-10-25,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-25/200053_630376.jpg
+production,7078,2026-10-25T22:00:53.602369+00:00,2026-10-25,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-25/220053_602369.jpg
+production,7198,2026-10-26T00:00:53.600327+00:00,2026-10-26,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-10-26/000053_600327.jpg
+production,7318,2026-10-26T02:00:53.811874+00:00,2026-10-26,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-26/020053_811874.jpg
+production,7438,2026-10-26T04:00:53.696667+00:00,2026-10-26,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-26/040053_696667.jpg
+production,7558,2026-10-26T06:00:53.698300+00:00,2026-10-26,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-26/060053_698300.jpg
+production,7678,2026-10-26T08:00:53.713390+00:00,2026-10-26,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-26/080053_713390.jpg
+production,7798,2026-10-26T10:00:53.606676+00:00,2026-10-26,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-26/100053_606676.jpg
+production,7857,2026-10-26T10:59:53.777395+00:00,2026-10-26,18,reference,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-26/105953_777395.jpg
+production,7918,2026-10-26T12:00:53.612887+00:00,2026-10-26,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-26/120053_612887.jpg
+production,8038,2026-10-26T14:00:53.607641+00:00,2026-10-26,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-26/140053_607641.jpg
+production,8158,2026-10-26T16:00:53.794072+00:00,2026-10-26,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-26/160053_794072.jpg
+production,8278,2026-10-26T18:00:53.614547+00:00,2026-10-26,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-26/180053_614547.jpg
+production,8398,2026-10-26T20:00:53.624875+00:00,2026-10-26,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-26/200053_624875.jpg
+production,8518,2026-10-26T22:00:53.602336+00:00,2026-10-26,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-26/220053_602336.jpg
+production,8638,2026-10-27T00:00:53.593655+00:00,2026-10-27,18,spread,light changing,grow,no,test day; light changing,,production/experiments/2026-10-22_df206967/stills/2026-10-27/000053_593655.jpg
+production,8758,2026-10-27T02:00:53.691530+00:00,2026-10-27,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-27/020053_691530.jpg
+production,8878,2026-10-27T04:00:53.710571+00:00,2026-10-27,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-27/040053_710571.jpg
+production,8998,2026-10-27T06:00:53.693791+00:00,2026-10-27,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-27/060053_693791.jpg
+production,9118,2026-10-27T08:00:53.700752+00:00,2026-10-27,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-27/080053_700752.jpg
+production,9238,2026-10-27T10:00:53.606248+00:00,2026-10-27,18,spread,light changing,grow,no,test day; light changing,,production/experiments/2026-10-22_df206967/stills/2026-10-27/100053_606248.jpg
+production,9297,2026-10-27T10:59:53.614235+00:00,2026-10-27,18,reference,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-27/105953_614235.jpg
+production,9358,2026-10-27T12:00:53.617636+00:00,2026-10-27,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-27/120053_617636.jpg
+production,9478,2026-10-27T14:00:53.602032+00:00,2026-10-27,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-27/140053_602032.jpg
+production,9600,2026-10-27T16:00:53.618166+00:00,2026-10-27,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-27/160053_618166.jpg
+production,9720,2026-10-27T18:00:53.613959+00:00,2026-10-27,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-27/180053_613959.jpg
+production,9840,2026-10-27T20:00:53.609678+00:00,2026-10-27,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-27/200053_609678.jpg
+production,9960,2026-10-27T22:00:53.611884+00:00,2026-10-27,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-27/220053_611884.jpg
+production,10080,2026-10-28T00:00:53.637942+00:00,2026-10-28,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-10-28/000053_637942.jpg
+production,10200,2026-10-28T02:00:53.703612+00:00,2026-10-28,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-28/020053_703612.jpg
+production,10320,2026-10-28T04:00:53.695401+00:00,2026-10-28,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-28/040053_695401.jpg
+production,10440,2026-10-28T06:00:53.703765+00:00,2026-10-28,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-28/060053_703765.jpg
+production,10560,2026-10-28T08:00:53.695357+00:00,2026-10-28,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-28/080053_695357.jpg
+production,10682,2026-10-28T10:00:53.610614+00:00,2026-10-28,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-28/100053_610614.jpg
+production,10741,2026-10-28T10:59:53.609376+00:00,2026-10-28,18,reference,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-28/105953_609376.jpg
+production,10802,2026-10-28T12:00:53.603336+00:00,2026-10-28,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-28/120053_603336.jpg
+production,10922,2026-10-28T14:00:53.587584+00:00,2026-10-28,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-28/140053_587584.jpg
+production,11042,2026-10-28T16:00:53.607466+00:00,2026-10-28,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-28/160053_607466.jpg
+production,11162,2026-10-28T18:00:53.601930+00:00,2026-10-28,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-28/180053_601930.jpg
+production,11282,2026-10-28T20:00:53.612578+00:00,2026-10-28,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-28/200053_612578.jpg
+production,11402,2026-10-28T22:00:53.565215+00:00,2026-10-28,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-28/220053_565215.jpg
+production,11522,2026-10-29T00:00:53.584831+00:00,2026-10-29,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-10-29/000053_584831.jpg
+production,11642,2026-10-29T02:00:53.710202+00:00,2026-10-29,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-29/020053_710202.jpg
+production,11762,2026-10-29T04:00:53.698732+00:00,2026-10-29,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-29/040053_698732.jpg
+production,11882,2026-10-29T06:00:53.689944+00:00,2026-10-29,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-29/060053_689944.jpg
+production,12002,2026-10-29T08:00:53.697783+00:00,2026-10-29,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-29/080053_697783.jpg
+production,12122,2026-10-29T10:00:53.612063+00:00,2026-10-29,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-29/100053_612063.jpg
+production,12181,2026-10-29T10:59:53.610296+00:00,2026-10-29,18,reference,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-29/105953_610296.jpg
+production,12242,2026-10-29T12:00:53.610077+00:00,2026-10-29,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-29/120053_610077.jpg
+production,12362,2026-10-29T14:00:53.611510+00:00,2026-10-29,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-29/140053_611510.jpg
+production,12482,2026-10-29T16:00:53.602807+00:00,2026-10-29,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-29/160053_602807.jpg
+production,12602,2026-10-29T18:00:53.614101+00:00,2026-10-29,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-29/180053_614101.jpg
+production,12722,2026-10-29T20:00:53.606135+00:00,2026-10-29,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-29/200053_606135.jpg
+production,12842,2026-10-29T22:00:53.612393+00:00,2026-10-29,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-29/220053_612393.jpg
+production,12962,2026-10-30T00:00:53.612219+00:00,2026-10-30,18,spread,light changing,grow,no,test day; light changing,,production/experiments/2026-10-22_df206967/stills/2026-10-30/000053_612219.jpg
+production,13082,2026-10-30T02:00:53.700847+00:00,2026-10-30,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-30/020053_700847.jpg
+production,13202,2026-10-30T04:00:53.707218+00:00,2026-10-30,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-30/040053_707218.jpg
+production,13322,2026-10-30T06:00:53.697734+00:00,2026-10-30,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-30/060053_697734.jpg
+production,13442,2026-10-30T08:00:53.705019+00:00,2026-10-30,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-30/080053_705019.jpg
+production,13562,2026-10-30T10:00:53.600560+00:00,2026-10-30,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-30/100053_600560.jpg
+production,13621,2026-10-30T10:59:53.614029+00:00,2026-10-30,18,reference,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-30/105953_614029.jpg
+production,13682,2026-10-30T12:00:53.615964+00:00,2026-10-30,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-30/120053_615964.jpg
+production,13802,2026-10-30T14:00:53.607344+00:00,2026-10-30,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-30/140053_607344.jpg
+production,13922,2026-10-30T16:00:53.614835+00:00,2026-10-30,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-30/160053_614835.jpg
+production,14042,2026-10-30T18:00:53.613244+00:00,2026-10-30,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-30/180053_613244.jpg
+production,14162,2026-10-30T20:00:53.614743+00:00,2026-10-30,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-30/200053_614743.jpg
+production,14282,2026-10-30T22:00:53.629760+00:00,2026-10-30,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-10-30/220053_629760.jpg
+production,14402,2026-10-31T00:00:53.613210+00:00,2026-10-31,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-10-31/000053_613210.jpg
+production,14522,2026-10-31T02:00:53.710580+00:00,2026-10-31,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-31/020053_710580.jpg
+production,14642,2026-10-31T04:00:53.700332+00:00,2026-10-31,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-31/040053_700332.jpg
+production,14762,2026-10-31T06:00:53.715019+00:00,2026-10-31,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-31/060053_715019.jpg
+production,14882,2026-10-31T08:00:53.710954+00:00,2026-10-31,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-10-31/080053_710954.jpg
+production,15002,2026-10-31T10:00:53.611108+00:00,2026-10-31,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-31/100053_611108.jpg
+production,15061,2026-10-31T10:59:53.620829+00:00,2026-10-31,18,reference,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-31/105953_620829.jpg
+production,15122,2026-10-31T12:00:53.617591+00:00,2026-10-31,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-31/120053_617591.jpg
+production,15242,2026-10-31T14:00:53.608654+00:00,2026-10-31,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-31/140053_608654.jpg
+production,15362,2026-10-31T16:00:53.615211+00:00,2026-10-31,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-31/160053_615211.jpg
+production,15482,2026-10-31T18:00:53.614134+00:00,2026-10-31,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-31/180053_614134.jpg
+production,15602,2026-10-31T20:00:53.622790+00:00,2026-10-31,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-31/200053_622790.jpg
+production,15722,2026-10-31T22:00:53.622244+00:00,2026-10-31,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-10-31/220053_622244.jpg
+production,15842,2026-11-01T00:00:53.610424+00:00,2026-11-01,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-01/000053_610424.jpg
+production,15962,2026-11-01T02:00:53.699314+00:00,2026-11-01,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-01/020053_699314.jpg
+production,16082,2026-11-01T04:00:53.706727+00:00,2026-11-01,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-01/040053_706727.jpg
+production,16202,2026-11-01T06:00:53.710040+00:00,2026-11-01,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-01/060053_710040.jpg
+production,16322,2026-11-01T08:00:53.671487+00:00,2026-11-01,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-01/080053_671487.jpg
+production,16442,2026-11-01T10:00:53.612504+00:00,2026-11-01,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-01/100053_612504.jpg
+production,16501,2026-11-01T10:59:53.610075+00:00,2026-11-01,18,reference,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-01/105953_610075.jpg
+production,16562,2026-11-01T12:00:53.605346+00:00,2026-11-01,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-01/120053_605346.jpg
+production,16682,2026-11-01T14:00:53.617328+00:00,2026-11-01,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-01/140053_617328.jpg
+production,16802,2026-11-01T16:00:53.585254+00:00,2026-11-01,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-01/160053_585254.jpg
+production,16922,2026-11-01T18:00:53.612678+00:00,2026-11-01,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-01/180053_612678.jpg
+production,17042,2026-11-01T20:00:53.612392+00:00,2026-11-01,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-01/200053_612392.jpg
+production,17162,2026-11-01T22:00:53.613843+00:00,2026-11-01,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-01/220053_613843.jpg
+production,17282,2026-11-02T00:00:53.607120+00:00,2026-11-02,18,spread,light changing,grow,no,test day; light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-02/000053_607120.jpg
+production,17402,2026-11-02T02:00:53.700506+00:00,2026-11-02,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-02/020053_700506.jpg
+production,17522,2026-11-02T04:00:53.702672+00:00,2026-11-02,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-02/040053_702672.jpg
+production,17642,2026-11-02T06:00:53.711372+00:00,2026-11-02,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-02/060053_711372.jpg
+production,17762,2026-11-02T08:00:53.711109+00:00,2026-11-02,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-02/080053_711109.jpg
+production,17882,2026-11-02T10:00:53.605752+00:00,2026-11-02,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-02/100053_605752.jpg
+production,17941,2026-11-02T10:59:53.618990+00:00,2026-11-02,18,reference,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-02/105953_618990.jpg
+production,18002,2026-11-02T12:00:53.626879+00:00,2026-11-02,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-02/120053_626879.jpg
+production,18122,2026-11-02T14:00:53.615861+00:00,2026-11-02,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-02/140053_615861.jpg
+production,18242,2026-11-02T16:00:53.605312+00:00,2026-11-02,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-02/160053_605312.jpg
+production,18362,2026-11-02T18:00:53.790892+00:00,2026-11-02,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-02/180053_790892.jpg
+production,18482,2026-11-02T20:00:53.793722+00:00,2026-11-02,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-02/200053_793722.jpg
+production,18602,2026-11-02T22:00:53.687482+00:00,2026-11-02,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-02/220053_687482.jpg
+production,18722,2026-11-03T00:00:53.782013+00:00,2026-11-03,18,spread,light changing,grow,no,test day; light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-03/000053_782013.jpg
+production,18842,2026-11-03T02:00:53.810343+00:00,2026-11-03,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-03/020053_810343.jpg
+production,18962,2026-11-03T04:00:53.717115+00:00,2026-11-03,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-03/040053_717115.jpg
+production,19082,2026-11-03T06:00:53.714564+00:00,2026-11-03,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-03/060053_714564.jpg
+production,19202,2026-11-03T08:00:53.715291+00:00,2026-11-03,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-03/080053_715291.jpg
+production,19322,2026-11-03T10:00:53.623870+00:00,2026-11-03,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-03/100053_623870.jpg
+production,19379,2026-11-03T10:57:53.620113+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/105753_620113.jpg
+production,19380,2026-11-03T10:58:53.597207+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/105853_597207.jpg
+production,19381,2026-11-03T10:59:53.634642+00:00,2026-11-03,18,reference+steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/105953_634642.jpg
+production,19382,2026-11-03T11:00:53.618670+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/110053_618670.jpg
+production,19383,2026-11-03T11:01:53.614726+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/110153_614726.jpg
+production,19384,2026-11-03T11:02:53.645971+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/110253_645971.jpg
+production,19385,2026-11-03T11:03:53.630425+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/110353_630425.jpg
+production,19386,2026-11-03T11:04:53.619090+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/110453_619090.jpg
+production,19387,2026-11-03T11:05:53.623749+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/110553_623749.jpg
+production,19388,2026-11-03T11:06:53.642340+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/110653_642340.jpg
+production,19389,2026-11-03T11:07:53.626996+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/110753_626996.jpg
+production,19390,2026-11-03T11:08:53.639290+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/110853_639290.jpg
+production,19391,2026-11-03T11:09:53.595164+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/110953_595164.jpg
+production,19392,2026-11-03T11:10:53.624462+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/111053_624462.jpg
+production,19393,2026-11-03T11:11:53.632971+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/111153_632971.jpg
+production,19394,2026-11-03T11:12:53.639112+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/111253_639112.jpg
+production,19395,2026-11-03T11:13:53.621555+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/111353_621555.jpg
+production,19396,2026-11-03T11:14:53.626795+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/111453_626795.jpg
+production,19397,2026-11-03T11:15:53.689449+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/111553_689449.jpg
+production,19398,2026-11-03T11:16:53.680480+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/111653_680480.jpg
+production,19399,2026-11-03T11:17:53.676090+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/111753_676090.jpg
+production,19400,2026-11-03T11:18:53.685317+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/111853_685317.jpg
+production,19401,2026-11-03T11:19:53.675897+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/111953_675897.jpg
+production,19402,2026-11-03T11:20:53.677096+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/112053_677096.jpg
+production,19403,2026-11-03T11:21:53.663959+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/112153_663959.jpg
+production,19404,2026-11-03T11:22:53.672584+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/112253_672584.jpg
+production,19405,2026-11-03T11:23:53.659428+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/112353_659428.jpg
+production,19406,2026-11-03T11:24:53.678339+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/112453_678339.jpg
+production,19407,2026-11-03T11:25:53.703353+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/112553_703353.jpg
+production,19408,2026-11-03T11:26:53.676482+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/112653_676482.jpg
+production,19409,2026-11-03T11:27:53.680570+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/112753_680570.jpg
+production,19410,2026-11-03T11:28:53.661202+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/112853_661202.jpg
+production,19411,2026-11-03T11:29:53.634867+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/112953_634867.jpg
+production,19412,2026-11-03T11:30:53.669255+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/113053_669255.jpg
+production,19413,2026-11-03T11:31:53.648567+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/113153_648567.jpg
+production,19414,2026-11-03T11:32:53.674825+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/113253_674825.jpg
+production,19415,2026-11-03T11:33:53.656558+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/113353_656558.jpg
+production,19416,2026-11-03T11:34:53.678098+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/113453_678098.jpg
+production,19417,2026-11-03T11:35:53.674053+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/113553_674053.jpg
+production,19418,2026-11-03T11:36:53.675702+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/113653_675702.jpg
+production,19419,2026-11-03T11:37:53.697785+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/113753_697785.jpg
+production,19420,2026-11-03T11:38:53.633538+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/113853_633538.jpg
+production,19421,2026-11-03T11:39:53.622029+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/113953_622029.jpg
+production,19422,2026-11-03T11:40:53.619550+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/114053_619550.jpg
+production,19423,2026-11-03T11:41:53.629507+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/114153_629507.jpg
+production,19424,2026-11-03T11:42:53.621461+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/114253_621461.jpg
+production,19425,2026-11-03T11:43:53.626680+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/114353_626680.jpg
+production,19426,2026-11-03T11:44:53.616394+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/114453_616394.jpg
+production,19427,2026-11-03T11:45:53.617181+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/114553_617181.jpg
+production,19428,2026-11-03T11:46:53.626191+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/114653_626191.jpg
+production,19429,2026-11-03T11:47:53.625565+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/114753_625565.jpg
+production,19430,2026-11-03T11:48:53.622535+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/114853_622535.jpg
+production,19431,2026-11-03T11:49:53.613984+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/114953_613984.jpg
+production,19432,2026-11-03T11:50:53.616828+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/115053_616828.jpg
+production,19433,2026-11-03T11:51:53.629479+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/115153_629479.jpg
+production,19434,2026-11-03T11:52:53.619602+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/115253_619602.jpg
+production,19435,2026-11-03T11:53:53.618848+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/115353_618848.jpg
+production,19436,2026-11-03T11:54:53.625893+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/115453_625893.jpg
+production,19437,2026-11-03T11:55:53.635391+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/115553_635391.jpg
+production,19438,2026-11-03T11:56:53.622585+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/115653_622585.jpg
+production,19439,2026-11-03T11:57:53.617219+00:00,2026-11-03,18,steadiness,,grow,no,test day,yes,production/experiments/2026-10-22_df206967/stills/2026-11-03/115753_617219.jpg
+production,19440,2026-11-03T11:58:53.623782+00:00,2026-11-03,18,spread_extra,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-03/115853_623782.jpg
+production,19442,2026-11-03T12:00:53.620478+00:00,2026-11-03,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-03/120053_620478.jpg
+production,19562,2026-11-03T14:00:53.617967+00:00,2026-11-03,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-03/140053_617967.jpg
+production,19682,2026-11-03T16:00:53.623346+00:00,2026-11-03,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-03/160053_623346.jpg
+production,19802,2026-11-03T18:00:53.615933+00:00,2026-11-03,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-03/180053_615933.jpg
+production,19922,2026-11-03T20:00:53.630366+00:00,2026-11-03,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-03/200053_630366.jpg
+production,20042,2026-11-03T22:00:53.625683+00:00,2026-11-03,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-03/220053_625683.jpg
+production,20162,2026-11-04T00:00:53.628640+00:00,2026-11-04,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-04/000053_628640.jpg
+production,20282,2026-11-04T02:00:53.722323+00:00,2026-11-04,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-04/020053_722323.jpg
+production,20402,2026-11-04T04:00:53.718275+00:00,2026-11-04,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-04/040053_718275.jpg
+production,20522,2026-11-04T06:00:53.710328+00:00,2026-11-04,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-04/060053_710328.jpg
+production,20642,2026-11-04T08:00:53.722192+00:00,2026-11-04,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-04/080053_722192.jpg
+production,20762,2026-11-04T10:00:53.722696+00:00,2026-11-04,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-04/100053_722696.jpg
+production,20821,2026-11-04T10:59:53.623254+00:00,2026-11-04,18,reference,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-04/105953_623254.jpg
+production,20882,2026-11-04T12:00:53.624884+00:00,2026-11-04,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-04/120053_624884.jpg
+production,21002,2026-11-04T14:00:53.620105+00:00,2026-11-04,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-04/140053_620105.jpg
+production,21122,2026-11-04T16:00:53.631328+00:00,2026-11-04,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-04/160053_631328.jpg
+production,21242,2026-11-04T18:00:53.628239+00:00,2026-11-04,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-04/180053_628239.jpg
+production,21362,2026-11-04T20:00:53.620271+00:00,2026-11-04,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-04/200053_620271.jpg
+production,21482,2026-11-04T22:00:53.620187+00:00,2026-11-04,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-04/220053_620187.jpg
+production,21602,2026-11-05T00:00:53.615825+00:00,2026-11-05,18,spread,light changing,grow,no,test day; light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-05/000053_615825.jpg
+production,21722,2026-11-05T02:00:53.716737+00:00,2026-11-05,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-05/020053_716737.jpg
+production,21842,2026-11-05T04:00:53.715225+00:00,2026-11-05,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-05/040053_715225.jpg
+production,21962,2026-11-05T06:00:53.710326+00:00,2026-11-05,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-05/060053_710326.jpg
+production,22082,2026-11-05T08:00:53.723160+00:00,2026-11-05,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-05/080053_723160.jpg
+production,22202,2026-11-05T10:00:53.629249+00:00,2026-11-05,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-05/100053_629249.jpg
+production,22262,2026-11-05T10:59:53.632605+00:00,2026-11-05,18,reference,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-05/105953_632605.jpg
+production,22323,2026-11-05T12:00:53.631280+00:00,2026-11-05,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-05/120053_631280.jpg
+production,22443,2026-11-05T14:00:53.634083+00:00,2026-11-05,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-05/140053_634083.jpg
+production,22563,2026-11-05T16:00:53.636337+00:00,2026-11-05,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-05/160053_636337.jpg
+production,22683,2026-11-05T18:00:53.627912+00:00,2026-11-05,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-05/180053_627912.jpg
+production,22803,2026-11-05T20:00:53.632278+00:00,2026-11-05,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-05/200053_632278.jpg
+production,22923,2026-11-05T22:00:53.645693+00:00,2026-11-05,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-05/220053_645693.jpg
+production,23043,2026-11-06T00:00:53.628133+00:00,2026-11-06,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-06/000053_628133.jpg
+production,23163,2026-11-06T02:00:53.720431+00:00,2026-11-06,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-06/020053_720431.jpg
+production,23283,2026-11-06T04:00:53.717026+00:00,2026-11-06,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-06/040053_717026.jpg
+production,23403,2026-11-06T06:00:53.722649+00:00,2026-11-06,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-06/060053_722649.jpg
+production,23523,2026-11-06T08:00:53.728967+00:00,2026-11-06,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-06/080053_728967.jpg
+production,23643,2026-11-06T10:00:53.624527+00:00,2026-11-06,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-06/100053_624527.jpg
+production,23702,2026-11-06T10:59:53.632375+00:00,2026-11-06,18,reference,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-06/105953_632375.jpg
+production,23763,2026-11-06T12:00:53.588322+00:00,2026-11-06,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-06/120053_588322.jpg
+production,23883,2026-11-06T14:00:53.617944+00:00,2026-11-06,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-06/140053_617944.jpg
+production,24003,2026-11-06T16:00:53.625356+00:00,2026-11-06,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-06/160053_625356.jpg
+production,24123,2026-11-06T18:00:53.619722+00:00,2026-11-06,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-06/180053_619722.jpg
+production,24243,2026-11-06T20:00:53.622328+00:00,2026-11-06,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-06/200053_622328.jpg
+production,24363,2026-11-06T22:00:53.613593+00:00,2026-11-06,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-06/220053_613593.jpg
+production,24483,2026-11-07T00:00:53.614408+00:00,2026-11-07,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-07/000053_614408.jpg
+production,24603,2026-11-07T02:00:53.697327+00:00,2026-11-07,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-07/020053_697327.jpg
+production,24723,2026-11-07T04:00:53.706358+00:00,2026-11-07,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-07/040053_706358.jpg
+production,24843,2026-11-07T06:00:53.714030+00:00,2026-11-07,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-07/060053_714030.jpg
+production,24963,2026-11-07T08:00:53.728398+00:00,2026-11-07,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-07/080053_728398.jpg
+production,25083,2026-11-07T10:00:53.643622+00:00,2026-11-07,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-07/100053_643622.jpg
+production,25142,2026-11-07T10:59:53.632421+00:00,2026-11-07,18,reference,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-07/105953_632421.jpg
+production,25203,2026-11-07T12:00:53.620969+00:00,2026-11-07,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-07/120053_620969.jpg
+production,25323,2026-11-07T14:00:53.628167+00:00,2026-11-07,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-07/140053_628167.jpg
+production,25443,2026-11-07T16:00:53.616000+00:00,2026-11-07,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-07/160053_616000.jpg
+production,25563,2026-11-07T18:00:53.619392+00:00,2026-11-07,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-07/180053_619392.jpg
+production,25683,2026-11-07T20:00:53.624314+00:00,2026-11-07,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-07/200053_624314.jpg
+production,25803,2026-11-07T22:00:53.634324+00:00,2026-11-07,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-07/220053_634324.jpg
+production,25923,2026-11-08T00:00:53.609885+00:00,2026-11-08,18,spread,light changing,grow,no,test day; light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-08/000053_609885.jpg
+production,26043,2026-11-08T02:00:53.706549+00:00,2026-11-08,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-08/020053_706549.jpg
+production,26163,2026-11-08T04:00:53.706561+00:00,2026-11-08,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-08/040053_706561.jpg
+production,26283,2026-11-08T06:00:53.708825+00:00,2026-11-08,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-08/060053_708825.jpg
+production,26403,2026-11-08T08:00:53.710603+00:00,2026-11-08,18,spread,lights off,grow,no,test day; lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-08/080053_710603.jpg
+production,26523,2026-11-08T10:00:53.611364+00:00,2026-11-08,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-08/100053_611364.jpg
+production,26582,2026-11-08T10:59:53.618449+00:00,2026-11-08,18,reference,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-08/105953_618449.jpg
+production,26643,2026-11-08T12:00:53.622305+00:00,2026-11-08,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-08/120053_622305.jpg
+production,26763,2026-11-08T14:00:53.634095+00:00,2026-11-08,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-08/140053_634095.jpg
+production,26883,2026-11-08T16:00:53.637569+00:00,2026-11-08,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-08/160053_637569.jpg
+production,27003,2026-11-08T18:00:53.622156+00:00,2026-11-08,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-08/180053_622156.jpg
+production,27123,2026-11-08T20:00:53.630760+00:00,2026-11-08,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-08/200053_630760.jpg
+production,27243,2026-11-08T22:00:53.616763+00:00,2026-11-08,18,spread,,grow,no,test day,,production/experiments/2026-10-22_df206967/stills/2026-11-08/220053_616763.jpg
+production,27363,2026-11-09T00:00:53.589390+00:00,2026-11-09,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-09/000053_589390.jpg
+production,27483,2026-11-09T02:00:53.709247+00:00,2026-11-09,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-09/020053_709247.jpg
+production,27603,2026-11-09T04:00:53.707583+00:00,2026-11-09,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-09/040053_707583.jpg
+production,27723,2026-11-09T06:00:53.709482+00:00,2026-11-09,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-09/060053_709482.jpg
+production,27843,2026-11-09T08:00:53.706455+00:00,2026-11-09,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-09/080053_706455.jpg
+production,27963,2026-11-09T10:00:53.617186+00:00,2026-11-09,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-09/100053_617186.jpg
+production,28022,2026-11-09T10:59:53.617301+00:00,2026-11-09,18,reference,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-09/105953_617301.jpg
+production,28083,2026-11-09T12:00:53.616639+00:00,2026-11-09,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-09/120053_616639.jpg
+production,28203,2026-11-09T14:00:53.613211+00:00,2026-11-09,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-09/140053_613211.jpg
+production,28323,2026-11-09T16:00:53.635137+00:00,2026-11-09,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-09/160053_635137.jpg
+production,28443,2026-11-09T18:00:53.622279+00:00,2026-11-09,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-09/180053_622279.jpg
+production,28563,2026-11-09T20:00:53.621250+00:00,2026-11-09,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-09/200053_621250.jpg
+production,28683,2026-11-09T22:00:53.629908+00:00,2026-11-09,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-09/220053_629908.jpg
+production,28803,2026-11-10T00:00:53.629785+00:00,2026-11-10,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-10/000053_629785.jpg
+production,28923,2026-11-10T02:00:53.714973+00:00,2026-11-10,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-10/020053_714973.jpg
+production,29043,2026-11-10T04:00:53.713506+00:00,2026-11-10,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-10/040053_713506.jpg
+production,29163,2026-11-10T06:00:53.718511+00:00,2026-11-10,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-10/060053_718511.jpg
+production,29283,2026-11-10T08:00:53.709423+00:00,2026-11-10,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-10/080053_709423.jpg
+production,29403,2026-11-10T10:00:53.630007+00:00,2026-11-10,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-10/100053_630007.jpg
+production,29523,2026-11-10T12:00:53.613791+00:00,2026-11-10,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-10/120053_613791.jpg
+production,29644,2026-11-10T14:00:53.623725+00:00,2026-11-10,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-10/140053_623725.jpg
+production,29764,2026-11-10T16:00:53.635893+00:00,2026-11-10,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-10/160053_635893.jpg
+production,29884,2026-11-10T18:00:53.630014+00:00,2026-11-10,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-10/180053_630014.jpg
+production,30004,2026-11-10T20:00:53.628291+00:00,2026-11-10,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-10/200053_628291.jpg
+production,30124,2026-11-10T22:00:53.618320+00:00,2026-11-10,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-10/220053_618320.jpg
+production,30244,2026-11-11T00:00:53.630587+00:00,2026-11-11,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-11/000053_630587.jpg
+production,30364,2026-11-11T02:00:53.784367+00:00,2026-11-11,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-11/020053_784367.jpg
+production,30484,2026-11-11T04:00:53.707701+00:00,2026-11-11,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-11/040053_707701.jpg
+production,30604,2026-11-11T06:00:53.726521+00:00,2026-11-11,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-11/060053_726521.jpg
+production,30724,2026-11-11T08:00:53.734451+00:00,2026-11-11,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-11/080053_734451.jpg
+production,30844,2026-11-11T10:00:53.623563+00:00,2026-11-11,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-11/100053_623563.jpg
+production,30964,2026-11-11T12:00:53.631517+00:00,2026-11-11,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-11/120053_631517.jpg
+production,31084,2026-11-11T14:00:53.632789+00:00,2026-11-11,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-11/140053_632789.jpg
+production,31204,2026-11-11T16:00:53.650229+00:00,2026-11-11,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-11/160053_650229.jpg
+production,31324,2026-11-11T18:00:53.618435+00:00,2026-11-11,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-11/180053_618435.jpg
+production,31444,2026-11-11T20:00:53.612843+00:00,2026-11-11,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-11/200053_612843.jpg
+production,31564,2026-11-11T22:00:53.617039+00:00,2026-11-11,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-11/220053_617039.jpg
+production,31684,2026-11-12T00:00:53.631952+00:00,2026-11-12,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-12/000053_631952.jpg
+production,31804,2026-11-12T02:00:53.712949+00:00,2026-11-12,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-12/020053_712949.jpg
+production,31924,2026-11-12T04:00:53.706954+00:00,2026-11-12,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-12/040053_706954.jpg
+production,32044,2026-11-12T06:00:53.714153+00:00,2026-11-12,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-12/060053_714153.jpg
+production,32164,2026-11-12T08:00:53.719159+00:00,2026-11-12,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-12/080053_719159.jpg
+production,32284,2026-11-12T10:00:53.618087+00:00,2026-11-12,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-12/100053_618087.jpg
+production,32404,2026-11-12T12:00:53.629220+00:00,2026-11-12,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-12/120053_629220.jpg
+production,32524,2026-11-12T14:00:53.633262+00:00,2026-11-12,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-12/140053_633262.jpg
+production,32644,2026-11-12T16:00:53.642251+00:00,2026-11-12,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-12/160053_642251.jpg
+production,32764,2026-11-12T18:00:53.630176+00:00,2026-11-12,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-12/180053_630176.jpg
+production,32884,2026-11-12T20:00:53.625315+00:00,2026-11-12,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-12/200053_625315.jpg
+production,33004,2026-11-12T22:00:53.643666+00:00,2026-11-12,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-12/220053_643666.jpg
+production,33124,2026-11-13T00:00:53.650529+00:00,2026-11-13,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-13/000053_650529.jpg
+production,33244,2026-11-13T02:00:53.715133+00:00,2026-11-13,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-13/020053_715133.jpg
+production,33364,2026-11-13T04:00:53.716992+00:00,2026-11-13,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-13/040053_716992.jpg
+production,33484,2026-11-13T06:00:53.719159+00:00,2026-11-13,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-13/060053_719159.jpg
+production,33604,2026-11-13T08:00:53.707945+00:00,2026-11-13,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-13/080053_707945.jpg
+production,33724,2026-11-13T10:00:53.615531+00:00,2026-11-13,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-13/100053_615531.jpg
+production,33844,2026-11-13T12:00:53.725163+00:00,2026-11-13,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-13/120053_725163.jpg
+production,33964,2026-11-13T14:00:53.655580+00:00,2026-11-13,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-13/140053_655580.jpg
+production,34084,2026-11-13T16:00:53.624621+00:00,2026-11-13,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-13/160053_624621.jpg
+production,34204,2026-11-13T18:00:53.626922+00:00,2026-11-13,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-13/180053_626922.jpg
+production,34324,2026-11-13T20:00:53.633122+00:00,2026-11-13,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-13/200053_633122.jpg
+production,34444,2026-11-13T22:00:53.599064+00:00,2026-11-13,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-13/220053_599064.jpg
+production,34564,2026-11-14T00:00:53.625655+00:00,2026-11-14,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-14/000053_625655.jpg
+production,34684,2026-11-14T02:00:53.713690+00:00,2026-11-14,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-14/020053_713690.jpg
+production,34804,2026-11-14T04:00:53.713106+00:00,2026-11-14,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-14/040053_713106.jpg
+production,34924,2026-11-14T06:00:53.758768+00:00,2026-11-14,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-14/060053_758768.jpg
+production,35044,2026-11-14T08:00:53.856597+00:00,2026-11-14,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-14/080053_856597.jpg
+production,35164,2026-11-14T10:00:53.837664+00:00,2026-11-14,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-14/100053_837664.jpg
+production,35284,2026-11-14T12:00:54.210349+00:00,2026-11-14,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-14/120054_210349.jpg
+production,35404,2026-11-14T14:00:54.232764+00:00,2026-11-14,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-14/140054_232764.jpg
+production,35524,2026-11-14T16:00:53.783105+00:00,2026-11-14,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-14/160053_783105.jpg
+production,35644,2026-11-14T18:00:53.936471+00:00,2026-11-14,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-14/180053_936471.jpg
+production,35764,2026-11-14T20:00:53.808211+00:00,2026-11-14,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-14/200053_808211.jpg
+production,35884,2026-11-14T22:00:55.957718+00:00,2026-11-14,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-14/220055_957718.jpg
+production,36004,2026-11-15T00:00:53.744286+00:00,2026-11-15,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-15/000053_744286.jpg
+production,36124,2026-11-15T02:00:54.008281+00:00,2026-11-15,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-15/020054_008281.jpg
+production,36244,2026-11-15T04:00:53.954289+00:00,2026-11-15,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-15/040053_954289.jpg
+production,36364,2026-11-15T06:00:54.041138+00:00,2026-11-15,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-15/060054_041138.jpg
+production,36484,2026-11-15T08:00:54.632611+00:00,2026-11-15,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-15/080054_632611.jpg
+production,36604,2026-11-15T10:00:53.649568+00:00,2026-11-15,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-15/100053_649568.jpg
+production,36724,2026-11-15T12:00:53.948062+00:00,2026-11-15,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-15/120053_948062.jpg
+production,36844,2026-11-15T14:00:53.754642+00:00,2026-11-15,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-15/140053_754642.jpg
+production,36964,2026-11-15T16:00:53.850941+00:00,2026-11-15,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-15/160053_850941.jpg
+production,37084,2026-11-15T18:00:53.944674+00:00,2026-11-15,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-15/180053_944674.jpg
+production,37204,2026-11-15T20:00:54.522265+00:00,2026-11-15,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-15/200054_522265.jpg
+production,37324,2026-11-15T22:00:54.116399+00:00,2026-11-15,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-15/220054_116399.jpg
+production,37444,2026-11-16T00:00:54.338059+00:00,2026-11-16,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-16/000054_338059.jpg
+production,37564,2026-11-16T02:00:53.840770+00:00,2026-11-16,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-16/020053_840770.jpg
+production,37684,2026-11-16T04:00:54.035181+00:00,2026-11-16,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-16/040054_035181.jpg
+production,37804,2026-11-16T06:00:54.079870+00:00,2026-11-16,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-16/060054_079870.jpg
+production,37924,2026-11-16T08:00:53.831787+00:00,2026-11-16,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-16/080053_831787.jpg
+production,38044,2026-11-16T10:00:53.824468+00:00,2026-11-16,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-16/100053_824468.jpg
+production,38164,2026-11-16T12:00:55.778136+00:00,2026-11-16,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-16/120055_778136.jpg
+production,38284,2026-11-16T14:00:54.461654+00:00,2026-11-16,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-16/140054_461654.jpg
+production,38404,2026-11-16T16:00:53.834608+00:00,2026-11-16,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-16/160053_834608.jpg
+production,38524,2026-11-16T18:00:53.810161+00:00,2026-11-16,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-16/180053_810161.jpg
+production,38644,2026-11-16T20:00:54.123732+00:00,2026-11-16,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-16/200054_123732.jpg
+production,38764,2026-11-16T22:00:53.912448+00:00,2026-11-16,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-16/220053_912448.jpg
+production,38884,2026-11-17T00:00:54.088553+00:00,2026-11-17,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-17/000054_088553.jpg
+production,39004,2026-11-17T02:00:54.042001+00:00,2026-11-17,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-17/020054_042001.jpg
+production,39124,2026-11-17T04:00:58.031796+00:00,2026-11-17,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-17/040058_031796.jpg
+production,39244,2026-11-17T06:00:54.050664+00:00,2026-11-17,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-17/060054_050664.jpg
+production,39363,2026-11-17T08:00:53.723299+00:00,2026-11-17,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-17/080053_723299.jpg
+production,39483,2026-11-17T10:00:53.649476+00:00,2026-11-17,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-17/100053_649476.jpg
+production,39603,2026-11-17T12:00:53.671927+00:00,2026-11-17,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-17/120053_671927.jpg
+production,39722,2026-11-17T14:00:53.872346+00:00,2026-11-17,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-17/140053_872346.jpg
+production,39835,2026-11-17T16:00:53.647015+00:00,2026-11-17,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-17/160053_647015.jpg
+production,39955,2026-11-17T18:00:53.683640+00:00,2026-11-17,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-17/180053_683640.jpg
+production,40075,2026-11-17T20:00:53.633462+00:00,2026-11-17,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-17/200053_633462.jpg
+production,40195,2026-11-17T22:00:53.644482+00:00,2026-11-17,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-17/220053_644482.jpg
+production,40315,2026-11-18T00:00:53.651638+00:00,2026-11-18,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-18/000053_651638.jpg
+production,40435,2026-11-18T02:00:53.727119+00:00,2026-11-18,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-18/020053_727119.jpg
+production,40555,2026-11-18T04:00:53.721955+00:00,2026-11-18,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-18/040053_721955.jpg
+production,40675,2026-11-18T06:00:53.751972+00:00,2026-11-18,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-18/060053_751972.jpg
+production,40795,2026-11-18T08:00:53.735260+00:00,2026-11-18,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-18/080053_735260.jpg
+production,40915,2026-11-18T10:00:53.639992+00:00,2026-11-18,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-18/100053_639992.jpg
+production,41035,2026-11-18T12:00:53.674080+00:00,2026-11-18,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-18/120053_674080.jpg
+production,41155,2026-11-18T14:00:53.632854+00:00,2026-11-18,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-18/140053_632854.jpg
+production,41275,2026-11-18T16:00:53.660884+00:00,2026-11-18,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-18/160053_660884.jpg
+production,41395,2026-11-18T18:00:53.721864+00:00,2026-11-18,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-18/180053_721864.jpg
+production,41515,2026-11-18T20:00:53.627214+00:00,2026-11-18,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-18/200053_627214.jpg
+production,41635,2026-11-18T22:00:53.618384+00:00,2026-11-18,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-18/220053_618384.jpg
+production,41755,2026-11-19T00:00:53.860791+00:00,2026-11-19,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-19/000053_860791.jpg
+production,41875,2026-11-19T02:00:53.716697+00:00,2026-11-19,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-19/020053_716697.jpg
+production,41995,2026-11-19T04:00:53.723647+00:00,2026-11-19,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-19/040053_723647.jpg
+production,42115,2026-11-19T06:00:53.844667+00:00,2026-11-19,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-19/060053_844667.jpg
+production,42235,2026-11-19T08:00:53.705235+00:00,2026-11-19,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-19/080053_705235.jpg
+production,42355,2026-11-19T10:00:53.603154+00:00,2026-11-19,18,spread,light changing,grow,no,light changing,,production/experiments/2026-10-22_df206967/stills/2026-11-19/100053_603154.jpg
+production,42475,2026-11-19T12:00:53.687543+00:00,2026-11-19,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-19/120053_687543.jpg
+production,42595,2026-11-19T14:00:53.645006+00:00,2026-11-19,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-19/140053_645006.jpg
+production,42715,2026-11-19T16:00:53.626432+00:00,2026-11-19,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-19/160053_626432.jpg
+production,42835,2026-11-19T18:00:53.651729+00:00,2026-11-19,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-19/180053_651729.jpg
+production,42955,2026-11-19T20:00:53.647406+00:00,2026-11-19,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-19/200053_647406.jpg
+production,43075,2026-11-19T22:00:53.660245+00:00,2026-11-19,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-19/220053_660245.jpg
+production,43195,2026-11-20T00:00:53.715919+00:00,2026-11-20,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-20/000053_715919.jpg
+production,43315,2026-11-20T02:00:53.717153+00:00,2026-11-20,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-20/020053_717153.jpg
+production,43435,2026-11-20T04:00:53.742226+00:00,2026-11-20,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-20/040053_742226.jpg
+production,43555,2026-11-20T06:00:53.778611+00:00,2026-11-20,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-20/060053_778611.jpg
+production,43675,2026-11-20T08:00:53.714636+00:00,2026-11-20,18,spread,lights off,grow,no,lights off,,production/experiments/2026-10-22_df206967/stills/2026-11-20/080053_714636.jpg
+production,43795,2026-11-20T10:00:53.653915+00:00,2026-11-20,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-20/100053_653915.jpg
+production,43915,2026-11-20T12:00:53.642767+00:00,2026-11-20,18,spread,,grow,yes,,,production/experiments/2026-10-22_df206967/stills/2026-11-20/120053_642767.jpg

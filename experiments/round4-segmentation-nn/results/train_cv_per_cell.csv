@@ -1,0 +1,161 @@
+method,scale,fold,mode,id,rig,day,inter,union,method_px,truth_px,truth_source,iou,area_ratio
+grow core 0.07,,,,A01,prod,2026-10-22,0,237,0,237,corrected by Aaron,0.0,0.0
+grow core 0.07,,,,A02,prod,2026-10-23,225,295,287,233,corrected by Aaron,0.7627,1.2318
+grow core 0.07,,,,A05,prod,2026-10-25,704,704,704,704,draft accepted,1.0,1.0
+grow core 0.07,,,,A06,prod,2026-10-25,677,677,677,677,draft accepted,1.0,1.0
+grow core 0.07,,,,A07,prod,2026-10-26,860,860,860,860,draft accepted,1.0,1.0
+grow core 0.07,,,,A12,prod,2026-10-28,1835,2256,2256,1835,corrected by Aaron,0.8134,1.2294
+grow core 0.07,,,,A13,prod,2026-10-29,1597,1597,1597,1597,draft accepted,1.0,1.0
+grow core 0.07,,,,A15,prod,2026-10-31,1723,1723,1723,1723,draft accepted,1.0,1.0
+grow core 0.07,,,,A16,prod,2026-11-01,2131,2131,2131,2131,draft accepted,1.0,1.0
+grow core 0.07,,,,A17,prod,2026-11-01,1077,1399,1100,1376,corrected by Aaron,0.7698,0.7994
+grow core 0.07,,,,A21,prod,2026-11-04,4411,4506,4500,4417,corrected by Aaron,0.9789,1.0188
+grow core 0.07,,,,A22,prod,2026-11-04,2068,2068,2068,2068,draft accepted,1.0,1.0
+grow core 0.07,,,,A25,prod,2026-11-06,2234,2522,2247,2509,corrected by Aaron,0.8858,0.8956
+grow core 0.07,,,,A26,prod,2026-11-07,4378,4400,4378,4400,corrected by Aaron,0.995,0.995
+grow core 0.07,,,,A27,prod,2026-11-07,3509,3721,3527,3703,corrected by Aaron,0.943,0.9525
+grow core 0.07,,,,A29,prod,2026-11-09,6696,6998,6753,6941,corrected by Aaron,0.9568,0.9729
+grow core 0.07,,,,A30,prod,2026-11-09,1052,1124,1052,1124,corrected by Aaron,0.9359,0.9359
+grow core 0.07,,,,B01,dev,2026-11-03,9728,9858,9852,9734,corrected by Aaron,0.9868,1.0121
+grow core 0.07,,,,B02,dev,2026-11-03,5956,5956,5956,5956,draft accepted,1.0,1.0
+grow core 0.07,,,,B03,dev,2026-11-03,12703,13109,13108,12704,corrected by Aaron,0.969,1.0318
+grow core 0.07,,,,B04,dev,2026-11-03,58633,61114,60449,59298,corrected by Aaron,0.9594,1.0194
+grow core 0.07,,,,B05,dev,2026-11-03,15926,18762,18741,15947,corrected by Aaron,0.8488,1.1752
+grow core 0.07,,,,B06,dev,2026-11-03,27680,33044,28080,32644,corrected by Aaron,0.8377,0.8602
+grow core 0.07,,,,B07,dev,2026-11-04,11329,11868,11854,11343,corrected by Aaron,0.9546,1.045
+grow core 0.07,,,,B08,dev,2026-11-04,9767,10614,10531,9850,corrected by Aaron,0.9202,1.0691
+grow core 0.07,,,,B09,dev,2026-11-04,8358,8525,8411,8472,corrected by Aaron,0.9804,0.9928
+grow core 0.07,,,,B10,dev,2026-11-04,16871,16889,16871,16889,corrected by Aaron,0.9989,0.9989
+grow core 0.07,,,,B11,dev,2026-11-04,64806,69469,69296,64979,corrected by Aaron,0.9329,1.0664
+grow core 0.07,,,,B12,dev,2026-11-04,174051,176015,174694,175372,corrected by Aaron,0.9888,0.9961
+grow core 0.07,,,,B13,dev,2026-11-04,47927,48513,47927,48513,draft accepted,0.9879,0.9879
+grow core 0.07,,,,B17,dev,2026-11-06,10360,10360,10360,10360,draft accepted,1.0,1.0
+grow core 0.07,,,,B18,dev,2026-11-06,12026,12092,12042,12076,corrected by Aaron,0.9945,0.9972
+grow core 0.07,,,,B19,dev,2026-11-06,93684,94488,93684,94488,corrected by Aaron,0.9915,0.9915
+grow core 0.07,,,,B20,dev,2026-11-07,12957,13290,13281,12966,corrected by Aaron,0.9749,1.0243
+grow core 0.07,,,,B21,dev,2026-11-07,129099,130620,129724,129995,corrected by Aaron,0.9884,0.9979
+grow core 0.07,,,,B22,dev,2026-11-07,15242,15350,15316,15276,corrected by Aaron,0.993,1.0026
+grow core 0.07,,,,B23,dev,2026-11-07,52778,52793,52789,52782,corrected by Aaron,0.9997,1.0001
+grow core 0.07,,,,B24,dev,2026-11-07,50397,50398,50397,50398,corrected by Aaron,1.0,1.0
+grow core 0.07,,,,B27,dev,2026-11-09,7117,7745,7125,7737,corrected by Aaron,0.9189,0.9209
+grow core 0.07,,,,B28,dev,2026-11-09,3508,3740,3544,3704,corrected by Aaron,0.938,0.9568
+grow core 0.07,,,,B29,dev,2026-11-09,6065,6065,6065,6065,draft accepted,1.0,1.0
+grow core 0.07,,,,B30,dev,2026-11-09,3483,3483,3483,3483,draft accepted,1.0,1.0
+net s1,1,0,photo,A12,prod,2026-10-28,1487,1849,1501,1835,corrected by Aaron,0.8042,0.818
+net s1,1,0,crop,A12,prod,2026-10-28,1501,1852,1518,1835,corrected by Aaron,0.8105,0.8272
+net s1,1,0,photo,A21,prod,2026-11-04,4371,4655,4609,4417,corrected by Aaron,0.939,1.0435
+net s1,1,0,crop,A21,prod,2026-11-04,4341,4617,4541,4417,corrected by Aaron,0.9402,1.0281
+net s1,1,0,photo,A22,prod,2026-11-04,1917,2080,1929,2068,draft accepted,0.9216,0.9328
+net s1,1,0,crop,A22,prod,2026-11-04,1943,2091,1966,2068,draft accepted,0.9292,0.9507
+net s1,1,0,crop,B07,dev,2026-11-04,10714,11377,10748,11343,corrected by Aaron,0.9417,0.9475
+net s1,1,0,crop,B08,dev,2026-11-04,9351,10094,9595,9850,corrected by Aaron,0.9264,0.9741
+net s1,1,0,crop,B09,dev,2026-11-04,8291,8626,8445,8472,corrected by Aaron,0.9612,0.9968
+net s1,1,0,crop,B10,dev,2026-11-04,16477,17039,16627,16889,corrected by Aaron,0.967,0.9845
+net s1,1,0,crop,B11,dev,2026-11-04,64411,67642,67074,64979,corrected by Aaron,0.9522,1.0322
+net s1,1,0,crop,B12,dev,2026-11-04,171744,176954,173326,175372,corrected by Aaron,0.9706,0.9883
+net s1,1,0,crop,B13,dev,2026-11-04,46404,49252,47143,48513,draft accepted,0.9422,0.9718
+net s1,1,1,photo,A05,prod,2026-10-25,703,813,812,704,draft accepted,0.8647,1.1534
+net s1,1,1,crop,A05,prod,2026-10-25,702,824,822,704,draft accepted,0.8519,1.1676
+net s1,1,1,photo,A06,prod,2026-10-25,674,740,737,677,draft accepted,0.9108,1.0886
+net s1,1,1,crop,A06,prod,2026-10-25,674,737,734,677,draft accepted,0.9145,1.0842
+net s1,1,1,photo,A07,prod,2026-10-26,850,909,899,860,draft accepted,0.9351,1.0453
+net s1,1,1,crop,A07,prod,2026-10-26,849,903,892,860,draft accepted,0.9402,1.0372
+net s1,1,1,crop,B01,dev,2026-11-03,9388,9764,9418,9734,corrected by Aaron,0.9615,0.9675
+net s1,1,1,crop,B02,dev,2026-11-03,5883,6092,6019,5956,draft accepted,0.9657,1.0106
+net s1,1,1,crop,B03,dev,2026-11-03,11896,12784,11976,12704,corrected by Aaron,0.9305,0.9427
+net s1,1,1,crop,B04,dev,2026-11-03,58031,60768,59501,59298,corrected by Aaron,0.955,1.0034
+net s1,1,1,crop,B05,dev,2026-11-03,14424,16005,14482,15947,corrected by Aaron,0.9012,0.9081
+net s1,1,1,crop,B06,dev,2026-11-03,31442,34397,33195,32644,corrected by Aaron,0.9141,1.0169
+net s1,1,2,photo,A02,prod,2026-10-23,228,294,289,233,corrected by Aaron,0.7755,1.2403
+net s1,1,2,crop,A02,prod,2026-10-23,228,301,296,233,corrected by Aaron,0.7575,1.2704
+net s1,1,2,photo,A26,prod,2026-11-07,4241,4405,4246,4400,corrected by Aaron,0.9628,0.965
+net s1,1,2,crop,A26,prod,2026-11-07,4208,4406,4214,4400,corrected by Aaron,0.9551,0.9577
+net s1,1,2,photo,A27,prod,2026-11-07,3330,3719,3346,3703,corrected by Aaron,0.8954,0.9036
+net s1,1,2,crop,A27,prod,2026-11-07,3298,3714,3309,3703,corrected by Aaron,0.888,0.8936
+net s1,1,2,crop,B20,dev,2026-11-07,12589,13377,13000,12966,corrected by Aaron,0.9411,1.0026
+net s1,1,2,crop,B21,dev,2026-11-07,122404,152312,144721,129995,corrected by Aaron,0.8036,1.1133
+net s1,1,2,crop,B22,dev,2026-11-07,14071,15647,14442,15276,corrected by Aaron,0.8993,0.9454
+net s1,1,2,crop,B23,dev,2026-11-07,51305,52928,51451,52782,corrected by Aaron,0.9693,0.9748
+net s1,1,2,crop,B24,dev,2026-11-07,49988,58290,57880,50398,corrected by Aaron,0.8576,1.1485
+net s1,1,3,photo,A01,prod,2026-10-22,143,245,151,237,corrected by Aaron,0.5837,0.6371
+net s1,1,3,crop,A01,prod,2026-10-22,116,240,119,237,corrected by Aaron,0.4833,0.5021
+net s1,1,3,photo,A15,prod,2026-10-31,1685,1777,1739,1723,draft accepted,0.9482,1.0093
+net s1,1,3,crop,A15,prod,2026-10-31,1682,1787,1746,1723,draft accepted,0.9412,1.0133
+net s1,1,3,photo,A29,prod,2026-11-09,6746,7255,7060,6941,corrected by Aaron,0.9298,1.0171
+net s1,1,3,crop,A29,prod,2026-11-09,6732,7210,7001,6941,corrected by Aaron,0.9337,1.0086
+net s1,1,3,photo,A30,prod,2026-11-09,1044,1147,1067,1124,corrected by Aaron,0.9102,0.9493
+net s1,1,3,crop,A30,prod,2026-11-09,1048,1155,1079,1124,corrected by Aaron,0.9074,0.96
+net s1,1,3,crop,B27,dev,2026-11-09,7403,8048,7714,7737,corrected by Aaron,0.9199,0.997
+net s1,1,3,crop,B28,dev,2026-11-09,3603,3825,3724,3704,corrected by Aaron,0.942,1.0054
+net s1,1,3,crop,B29,dev,2026-11-09,5846,6174,5955,6065,draft accepted,0.9469,0.9819
+net s1,1,3,crop,B30,dev,2026-11-09,3343,3600,3460,3483,draft accepted,0.9286,0.9934
+net s1,1,4,photo,A13,prod,2026-10-29,1505,1602,1510,1597,draft accepted,0.9395,0.9455
+net s1,1,4,crop,A13,prod,2026-10-29,1528,1607,1538,1597,draft accepted,0.9508,0.9631
+net s1,1,4,photo,A16,prod,2026-11-01,1813,2132,1814,2131,draft accepted,0.8504,0.8512
+net s1,1,4,crop,A16,prod,2026-11-01,1816,2132,1817,2131,draft accepted,0.8518,0.8527
+net s1,1,4,photo,A17,prod,2026-11-01,1106,1394,1124,1376,corrected by Aaron,0.7934,0.8169
+net s1,1,4,crop,A17,prod,2026-11-01,1107,1401,1132,1376,corrected by Aaron,0.7901,0.8227
+net s1,1,4,photo,A25,prod,2026-11-06,2234,2542,2267,2509,corrected by Aaron,0.8788,0.9035
+net s1,1,4,crop,A25,prod,2026-11-06,2221,2543,2255,2509,corrected by Aaron,0.8734,0.8988
+net s1,1,4,crop,B17,dev,2026-11-06,10354,10999,10993,10360,draft accepted,0.9414,1.0611
+net s1,1,4,crop,B18,dev,2026-11-06,11069,12351,11344,12076,corrected by Aaron,0.8962,0.9394
+net s1,1,4,crop,B19,dev,2026-11-06,83717,94616,83845,94488,corrected by Aaron,0.8848,0.8874
+net s2,2,0,photo,A12,prod,2026-10-28,1475,1862,1502,1835,corrected by Aaron,0.7922,0.8185
+net s2,2,0,crop,A12,prod,2026-10-28,1526,1860,1551,1835,corrected by Aaron,0.8204,0.8452
+net s2,2,0,photo,A21,prod,2026-11-04,4369,4730,4682,4417,corrected by Aaron,0.9237,1.06
+net s2,2,0,crop,A21,prod,2026-11-04,4392,4791,4766,4417,corrected by Aaron,0.9167,1.079
+net s2,2,0,photo,A22,prod,2026-11-04,1928,2098,1958,2068,draft accepted,0.919,0.9468
+net s2,2,0,crop,A22,prod,2026-11-04,1982,2122,2036,2068,draft accepted,0.934,0.9845
+net s2,2,0,crop,B07,dev,2026-11-04,10905,11431,10993,11343,corrected by Aaron,0.954,0.9691
+net s2,2,0,crop,B08,dev,2026-11-04,9577,10625,10352,9850,corrected by Aaron,0.9014,1.051
+net s2,2,0,crop,B09,dev,2026-11-04,8335,8722,8585,8472,corrected by Aaron,0.9556,1.0133
+net s2,2,0,crop,B10,dev,2026-11-04,16738,17214,17063,16889,corrected by Aaron,0.9723,1.0103
+net s2,2,0,crop,B11,dev,2026-11-04,64366,67475,66862,64979,corrected by Aaron,0.9539,1.029
+net s2,2,0,crop,B12,dev,2026-11-04,173369,177978,175975,175372,corrected by Aaron,0.9741,1.0034
+net s2,2,0,crop,B13,dev,2026-11-04,46954,49332,47773,48513,draft accepted,0.9518,0.9847
+net s2,2,1,photo,A05,prod,2026-10-25,699,818,813,704,draft accepted,0.8545,1.1548
+net s2,2,1,crop,A05,prod,2026-10-25,701,823,820,704,draft accepted,0.8518,1.1648
+net s2,2,1,photo,A06,prod,2026-10-25,666,722,711,677,draft accepted,0.9224,1.0502
+net s2,2,1,crop,A06,prod,2026-10-25,669,750,742,677,draft accepted,0.892,1.096
+net s2,2,1,photo,A07,prod,2026-10-26,828,914,882,860,draft accepted,0.9059,1.0256
+net s2,2,1,crop,A07,prod,2026-10-26,841,922,903,860,draft accepted,0.9121,1.05
+net s2,2,1,crop,B01,dev,2026-11-03,9402,9757,9425,9734,corrected by Aaron,0.9636,0.9683
+net s2,2,1,crop,B02,dev,2026-11-03,5890,6066,6000,5956,draft accepted,0.971,1.0074
+net s2,2,1,crop,B03,dev,2026-11-03,11952,12836,12084,12704,corrected by Aaron,0.9311,0.9512
+net s2,2,1,crop,B04,dev,2026-11-03,58130,60574,59406,59298,corrected by Aaron,0.9597,1.0018
+net s2,2,1,crop,B05,dev,2026-11-03,15372,15980,15405,15947,corrected by Aaron,0.962,0.966
+net s2,2,1,crop,B06,dev,2026-11-03,31769,34175,33300,32644,corrected by Aaron,0.9296,1.0201
+net s2,2,2,photo,A02,prod,2026-10-23,220,288,275,233,corrected by Aaron,0.7639,1.1803
+net s2,2,2,crop,A02,prod,2026-10-23,229,306,302,233,corrected by Aaron,0.7484,1.2961
+net s2,2,2,photo,A26,prod,2026-11-07,4339,4492,4431,4400,corrected by Aaron,0.9659,1.007
+net s2,2,2,crop,A26,prod,2026-11-07,4292,4436,4328,4400,corrected by Aaron,0.9675,0.9836
+net s2,2,2,photo,A27,prod,2026-11-07,3457,3767,3521,3703,corrected by Aaron,0.9177,0.9509
+net s2,2,2,crop,A27,prod,2026-11-07,3446,3774,3517,3703,corrected by Aaron,0.9131,0.9498
+net s2,2,2,crop,B20,dev,2026-11-07,12829,13619,13482,12966,corrected by Aaron,0.942,1.0398
+net s2,2,2,crop,B21,dev,2026-11-07,125082,155082,150169,129995,corrected by Aaron,0.8066,1.1552
+net s2,2,2,crop,B22,dev,2026-11-07,14590,15827,15141,15276,corrected by Aaron,0.9218,0.9912
+net s2,2,2,crop,B23,dev,2026-11-07,52472,53460,53150,52782,corrected by Aaron,0.9815,1.007
+net s2,2,2,crop,B24,dev,2026-11-07,50216,60386,60204,50398,corrected by Aaron,0.8316,1.1946
+net s2,2,3,photo,A01,prod,2026-10-22,92,237,92,237,corrected by Aaron,0.3882,0.3882
+net s2,2,3,crop,A01,prod,2026-10-22,139,238,140,237,corrected by Aaron,0.584,0.5907
+net s2,2,3,photo,A15,prod,2026-10-31,1602,1756,1635,1723,draft accepted,0.9123,0.9489
+net s2,2,3,crop,A15,prod,2026-10-31,1663,1809,1749,1723,draft accepted,0.9193,1.0151
+net s2,2,3,photo,A29,prod,2026-11-09,6637,7174,6870,6941,corrected by Aaron,0.9251,0.9898
+net s2,2,3,crop,A29,prod,2026-11-09,6614,7190,6863,6941,corrected by Aaron,0.9199,0.9888
+net s2,2,3,photo,A30,prod,2026-11-09,1027,1155,1058,1124,corrected by Aaron,0.8892,0.9413
+net s2,2,3,crop,A30,prod,2026-11-09,992,1141,1009,1124,corrected by Aaron,0.8694,0.8977
+net s2,2,3,crop,B27,dev,2026-11-09,7405,8095,7763,7737,corrected by Aaron,0.9148,1.0034
+net s2,2,3,crop,B28,dev,2026-11-09,3593,3805,3694,3704,corrected by Aaron,0.9443,0.9973
+net s2,2,3,crop,B29,dev,2026-11-09,5948,6256,6139,6065,draft accepted,0.9508,1.0122
+net s2,2,3,crop,B30,dev,2026-11-09,3404,3870,3791,3483,draft accepted,0.8796,1.0884
+net s2,2,4,photo,A13,prod,2026-10-29,1456,1602,1461,1597,draft accepted,0.9089,0.9148
+net s2,2,4,crop,A13,prod,2026-10-29,1446,1602,1451,1597,draft accepted,0.9026,0.9086
+net s2,2,4,photo,A16,prod,2026-11-01,1754,2138,1761,2131,draft accepted,0.8204,0.8264
+net s2,2,4,crop,A16,prod,2026-11-01,1777,2137,1783,2131,draft accepted,0.8315,0.8367
+net s2,2,4,photo,A17,prod,2026-11-01,1094,1395,1113,1376,corrected by Aaron,0.7842,0.8089
+net s2,2,4,crop,A17,prod,2026-11-01,1133,1407,1164,1376,corrected by Aaron,0.8053,0.8459
+net s2,2,4,photo,A25,prod,2026-11-06,2046,2520,2057,2509,corrected by Aaron,0.8119,0.8198
+net s2,2,4,crop,A25,prod,2026-11-06,2046,2524,2061,2509,corrected by Aaron,0.8106,0.8214
+net s2,2,4,crop,B17,dev,2026-11-06,10332,10894,10866,10360,draft accepted,0.9484,1.0488
+net s2,2,4,crop,B18,dev,2026-11-06,11151,12363,11438,12076,corrected by Aaron,0.902,0.9472
+net s2,2,4,crop,B19,dev,2026-11-06,92805,94787,93104,94488,corrected by Aaron,0.9791,0.9854
