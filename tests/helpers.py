@@ -242,8 +242,8 @@ TABLE_CENTRES = {"NW": (150, 150), "NM": (450, 150), "NE": (750, 150), "SW": (15
                  "SE": (750, 450)}
 
 
-def table_calibration() -> None:
-    """Save calibration TABLE_STEM: 1 px/mm, its four corner tags at the corners above."""
+def table_calibration(px_per_mm: float = 1.0) -> None:
+    """Save calibration TABLE_STEM: `px_per_mm` (1 by default), its four corner tags at the corners above."""
     from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
     from npec_rig.calibration_store import save_calibration
     from npec_rig.tripwire import CornerBaseline
@@ -252,7 +252,7 @@ def table_calibration() -> None:
     save_calibration(
         CalibrationArtifact(
             created_at="2027-01-01T00:00:00+00:00", frame_stem=TABLE_STEM,
-            scale_field=scale_field_from_dict({"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 1.0, "residual_std_pct": 0.0}),
+            scale_field=scale_field_from_dict({"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": px_per_mm, "residual_std_pct": 0.0}),
             corner_baseline=CornerBaseline(corners_by_id={
                 i: ((x - 5, y - 5), (x + 5, y - 5), (x + 5, y + 5), (x - 5, y + 5)) for i, (x, y) in corners.items()
             }),

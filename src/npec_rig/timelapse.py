@@ -15,6 +15,7 @@ import resource
 import secrets
 import shutil
 import subprocess
+import statistics
 import threading
 import zipfile
 import time
@@ -27,8 +28,9 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from npec_rig import captures, database, dwell, health, images, segmentation, tray_readings, validation_store
-from npec_rig.calibration_store import calibration_for_photos
-from npec_rig.tray_placement import nearest_slot
+from npec_rig.calibration import build_table_frame
+from npec_rig.calibration_store import calibration_for_photos, load_saved_calibration
+from npec_rig.tray_placement import nearest_slot, tray_outline_at
 from npec_rig.text_render import text_layer
 from npec_rig.tray_placement import TRAY_SIZE_MM
 
@@ -124,16 +126,65 @@ def _slots_over_time(positions: list[dict]) -> dict[int, tuple[str | None, str |
     from the whole experiment (Aaron, 2026-11-20)."""
     layouts: dict[str | None, list[dict] | None] = {}
     out, now, before = {}, None, None
+    stay, before_centre = [], None  # this stay's centres; the median centre of the stay before
     for p in positions:
         if p["calibration"] not in layouts:
             layouts[p["calibration"]] = slot_layout(p["calibration"])
         slots = layouts[p["calibration"]]
         slot = nearest_slot(*p["centre_px"], slots)[0] if slots else None
         if slot is not None and now is not None and slot != now:
-            before = now
+            before, before_centre, stay = now, _median(stay), []
         now = slot if slot is not None else now
-        out[p["capture_id"]] = (slot, before if slot is not None and before != slot else None)
+        stay.append(p["centre_px"])
+        keep = slot is not None and before != slot
+        out[p["capture_id"]] = (slot, before if keep else None, before_centre if keep else None)
     return out
+
+
+def _median(centres: list) -> tuple[float, float] | None:
+    return (statistics.median(c[0] for c in centres), statistics.median(c[1] for c in centres)) if centres else None
+
+
+def _table(calibration: str | None):
+    """The table frame (from the four corner tags, as dwell.py's table locations) and the scale
+    field of the calibration photos taken under `calibration` are read with; None without them."""
+    try:
+        artifact = load_saved_calibration(calibration_for_photos(calibration))
+        if artifact.corner_baseline is None:
+            return None
+        return build_table_frame(artifact.corner_baseline), artifact.scale_field
+    except Exception:  # noqa: BLE001 -- no table only leaves the map out
+        return None
+
+
+def _smooth(frames: list[dict], tray_id: int) -> None:
+    """Give each frame `map_trays`: every tray seen in its photo, at the median of its centres over
+    its stay, the run of the chosen frames since its stored slot last changed. A tray jumps only at
+    the frame its slot changes, with no distance or time threshold (Aaron, 2026-11-21). The video's
+    tray also gets the median of its stay before (`previous_centre`), when that stay was in the video."""
+    stays: dict[int, list[list]] = {}  # tray ID: its stays, each a list of (frame index, tray)
+    last: dict[int, str | None] = {}
+    for i, frame in enumerate(frames):
+        for t in frame["readings"]["trays"]:
+            tid = t["tray_id"]
+            if tid is None or t["placement"] != "placed":
+                continue
+            if tid not in stays or t["slot"] != last[tid]:
+                stays.setdefault(tid, []).append([])
+            stays[tid][-1].append((i, t))
+            last[tid] = t["slot"]
+        frame["map_trays"] = []
+    for tid, runs in stays.items():
+        for k, run in enumerate(runs):
+            centre = _median([t["centre_px"] for _, t in run])
+            for i, t in run:
+                tag = next((c["centre_px"] for c in t["cells"] if c["holds"] == "tag"), None)
+                frames[i]["map_trays"].append({
+                    "tray_id": tid, "centre": centre, "tilt_deg": t["tilt_deg"] or 0.0, "video": tid == tray_id,
+                    # Where the tag lies from the tray's own centre in this photo: its corner on the map.
+                    "tag_offset": None if tag is None else (tag[0] - t["centre_px"][0], tag[1] - t["centre_px"][1])})
+                if tid == tray_id and k > 0:
+                    frames[i]["previous_centre"] = _median([x["centre_px"] for _, x in runs[k - 1]])
 
 
 def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: datetime, per_hour: int,
@@ -158,6 +209,7 @@ def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: dat
             by_step.setdefault(_step(p["taken_at"], per_hour), []).append(captures[p["capture_id"]])
     locations = dwell.LocationFinder()
     layouts: dict[str | None, list[dict] | None] = {}
+    tables: dict[str | None, object] = {}
     frames, skipped, gap = [], 0, 0  # gap: lit steps skipped since the last frame
     for step in sorted(by_step):
         dark = True
@@ -169,17 +221,21 @@ def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: dat
             if tray is not None and cell is not None and not any(c["cell"] == cell for c in tray["cells"]):
                 tray = None
             if tray is not None:
-                slot, previous = slots.get(capture["id"], (None, None))
+                slot, previous, previous_centre = slots.get(capture["id"], (None, None, None))
+                if capture["calibration"] not in tables:
+                    tables[capture["calibration"]] = _table(capture["calibration"])
                 if capture["calibration"] not in layouts:
                     layouts[capture["calibration"]] = slot_layout(capture["calibration"])
                 frames.append({"capture": capture, "readings": readings, "tray": tray, "slots": layouts[capture["calibration"]],
-                               "slot": slot, "previous_slot": previous, "gap_minutes": gap * 60 // per_hour})
+                               "slot": slot, "previous_slot": previous, "gap_minutes": gap * 60 // per_hour,
+                               "table": tables[capture["calibration"]], "previous_centre": previous_centre})
                 gap = 0
                 break
             dark = dark and readings is not None and readings["exclusion"] == "lights off"
         else:
             skipped += 0 if dark else 1
             gap += 0 if dark else 1
+    _smooth(frames, tray_id)
     return {"frames": frames, "skipped": skipped}
 
 
@@ -288,36 +344,55 @@ MAP_WIDTH_PX, MAP_HEIGHT_PX = 200, 120
 # The strip under the label that holds the map, the slot and the warnings: the same height on every
 # frame, as a video's frames must all be one size.
 STRIP_PX, STRIP_SCALE, STRIP_LINE_PX = MAP_HEIGHT_PX + 12, 0.42, 24
-MAP_SLOT, MAP_SLOT_EDGE = (210, 210, 210), (150, 150, 150)
 MAP_NOW, MAP_BEFORE = (30, 110, 255), (150, 175, 215)
 
 
-def draw_map(frame: dict, slots: list[dict]) -> Image.Image:
-    """A small map of the table for frame `frame` (from `choose_frames`): every slot of `slots`
-    (the layout's, boxes in photo pixels) a light grey rectangle, the tray's last different slot
-    a desaturated blue one, the tray itself in bright blue from its outline, and the cell holding
-    its tag as a small black and white square, which shows which way the tray faced."""
-    boxes = [s["box"] for s in slots]
-    x0, y0 = min(b[0] for b in boxes), min(b[1] for b in boxes)
-    x1, y1 = max(b[2] for b in boxes), max(b[3] for b in boxes)
-    scale = min(MAP_WIDTH_PX / (x1 - x0), MAP_HEIGHT_PX / (y1 - y0))
-    size = (max(1, round((x1 - x0) * scale)), max(1, round((y1 - y0) * scale)))
-    at = lambda pts: [((x - x0) * scale, (y - y0) * scale) for x, y in pts]
-    image = Image.new("RGB", size, (255, 255, 255))
+MAP_TABLE, MAP_TABLE_EDGE, MAP_OTHER = (245, 245, 245), (120, 120, 120), (170, 170, 170)
+
+
+def draw_map(frame: dict) -> Image.Image | None:
+    """A small map of the table for frame `frame` (from `choose_frames`), from the corner tags'
+    table frame (as dwell.py's table locations): every tray seen in the frame's photo as a
+    rectangle of one size (TRAY_SIZE_MM at the calibration's scale), turned to its heading, at its
+    smoothed centre (`_smooth`), with a small black and white square at its tag's corner. The
+    video's tray bright blue, the others light grey, and the video's tray's last different slot a
+    pale blue rectangle at its earlier position. None without a table frame."""
+    if not frame.get("table"):
+        return None
+    table, scale = frame["table"]
+    tl, tr, br, bl = (np.asarray(c, dtype=float) for c in table.corners_px)
+    width = (np.linalg.norm(tr - tl) + np.linalg.norm(br - bl)) / 2
+    height = (np.linalg.norm(bl - tl) + np.linalg.norm(br - tr)) / 2
+    k = min(MAP_WIDTH_PX / width, MAP_HEIGHT_PX / height)
+    size = (max(1, round(width * k)), max(1, round(height * k)))
+    to_map = lambda x, y: tuple(f * n for f, n in zip(table.to_fraction(x, y), size))
+    image = Image.new("RGB", size, MAP_TABLE)
     draw = ImageDraw.Draw(image)
-    for s in slots:
-        before = s["name"] == frame.get("previous_slot")
-        bx0, by0, bx1, by1 = s["box"]
-        draw.rectangle(at([(bx0, by0), (bx1, by1)]), fill=MAP_BEFORE if before else MAP_SLOT, outline=MAP_SLOT_EDGE)
-    tray = frame["tray"]
-    if tray["outline_px"]:
-        draw.polygon(at(tray["outline_px"]), fill=MAP_NOW)
-    tag = next((c for c in tray["cells"] if c["holds"] == "tag"), None)
-    if tag is not None:
-        corners = np.asarray(tag["corners_px"], dtype=float)
-        middle = corners.mean(axis=0)
-        draw.polygon(at(corners.tolist()), fill=(255, 255, 255))
-        draw.polygon(at((middle + 0.55 * (corners - middle)).tolist()), fill=(0, 0, 0))
+    draw.rectangle([0, 0, size[0] - 1, size[1] - 1], outline=MAP_TABLE_EDGE)
+
+    def tray(centre, tilt_deg, fill, tag_offset=None):
+        corners = tray_outline_at(tuple(centre), tilt_deg, scale.px_per_mm(*centre))
+        draw.polygon([to_map(*c) for c in corners], fill=fill)
+        if tag_offset is None:
+            return
+        tag = np.asarray(centre) + np.asarray(tag_offset)
+        c = np.asarray(corners)
+        i = int(np.argmin(np.hypot(*(c - tag).T)))
+        at, a, b = c[i], c[(i + 1) % 4] - c[i], c[(i - 1) % 4] - c[i]
+        square = lambda f0, f1: [to_map(*(at + f0 * a + f0 * b)), to_map(*(at + f1 * a + f0 * b)),
+                                 to_map(*(at + f1 * a + f1 * b)), to_map(*(at + f0 * a + f1 * b))]
+        draw.polygon(square(0.0, 0.25), fill=(255, 255, 255))
+        draw.polygon(square(0.04, 0.21), fill=(0, 0, 0))
+
+    trays = frame.get("map_trays", [])
+    for t in trays:
+        if not t["video"]:
+            tray(t["centre"], t["tilt_deg"], MAP_OTHER, t["tag_offset"])
+    video = next((t for t in trays if t["video"]), None)
+    if frame.get("previous_centre") and video:
+        tray(frame["previous_centre"], video["tilt_deg"], MAP_BEFORE)
+    if video:
+        tray(video["centre"], video["tilt_deg"], MAP_NOW, video["tag_offset"])
     return image
 
 
@@ -353,8 +428,9 @@ def draw_frame(frame: dict, values: dict, *, mask: str | None = None, cell: str 
     ]
     # The strip: the table map on the left, the slot and the warnings in words beside it.
     top, left = h + label_h, 8
-    if frame.get("slots"):
-        table = np.asarray(draw_map(frame, frame["slots"]))
+    drawn = draw_map(frame)
+    if drawn is not None:
+        table = np.asarray(drawn)
         canvas[top:top + table.shape[0], 8:8 + table.shape[1]] = table
         left = 8 + table.shape[1] + 12
     side = [f"Slot: {values['slot'] or 'not known'}", *values.get("warnings", [])]
