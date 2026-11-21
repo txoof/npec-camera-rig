@@ -242,8 +242,8 @@ TABLE_CENTRES = {"NW": (150, 150), "NM": (450, 150), "NE": (750, 150), "SW": (15
                  "SE": (750, 450)}
 
 
-def table_calibration() -> None:
-    """Save calibration TABLE_STEM: 1 px/mm, its four corner tags at the corners above."""
+def table_calibration(px_per_mm: float = 1.0) -> None:
+    """Save calibration TABLE_STEM: `px_per_mm` (1 by default), its four corner tags at the corners above."""
     from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
     from npec_rig.calibration_store import save_calibration
     from npec_rig.tripwire import CornerBaseline
@@ -252,7 +252,7 @@ def table_calibration() -> None:
     save_calibration(
         CalibrationArtifact(
             created_at="2027-01-01T00:00:00+00:00", frame_stem=TABLE_STEM,
-            scale_field=scale_field_from_dict({"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 1.0, "residual_std_pct": 0.0}),
+            scale_field=scale_field_from_dict({"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": px_per_mm, "residual_std_pct": 0.0}),
             corner_baseline=CornerBaseline(corners_by_id={
                 i: ((x - 5, y - 5), (x + 5, y - 5), (x + 5, y + 5), (x - 5, y + 5)) for i, (x, y) in corners.items()
             }),
@@ -350,7 +350,7 @@ def export_built(client, experiment_id: int, choice: dict | None = None, timeout
 
 
 # --- Time lapse frames (#64) -----------------------------------------------------------------
-def turned_tray_photo(experiment_id: int, taken) -> None:
+def turned_tray_photo(experiment_id: int, taken, tray_id: int = 4, calibration: str | None = None) -> None:
     """A 1000 x 1000 photo of tray 4 lying turned 180 degrees, at 2 px/mm: its 610 x 732 px outline
     at x 100 to 710, y 100 to 832, its 4 x 5 cells read, a red patch on cell A1, a blue one on D5
     (time lapse frames, #64). `taken` is a datetime."""
@@ -380,11 +380,11 @@ def turned_tray_photo(experiment_id: int, taken) -> None:
     image.save(captures.photos_root() / day / f"{stem}.jpg", quality=95)
     capture_id = database.record_capture(
         taken_at=taken.isoformat(), path=f"rig/{day}/{stem}", purpose="capture", experiment_id=experiment_id,
-        calibration=None, validation=None, lens_position=None, focus_locked_at=None, exposure_us=None,
+        calibration=calibration, validation=None, lens_position=None, focus_locked_at=None, exposure_us=None,
         analogue_gain=None, flags=[],
     )
     database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[{
-        "tray_id": 4, "slot": None, "a1_corner": "NE", "placement": "placed", "centre_px": [405, 466],
+        "tray_id": tray_id, "slot": None, "a1_corner": "NE", "placement": "placed", "centre_px": [405, 466],
         "tilt_deg": 180.0, "margin_mm": None, "found": "photo + tag", "warnings": [],
         "outline_px": [[100, 100], [710, 100], [710, 832], [100, 832]], "area_mm2": 1000.0,
         "segmenter": "green threshold, 0.1", "cells": cells,
