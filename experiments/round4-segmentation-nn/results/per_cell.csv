@@ -1,0 +1,547 @@
+setting,source,id,rig,group,src,inter,union,method_px,truth_px,yellow_extra_px,truth_yellow_px
+grow core 0.07,grow,A01,prod,empty,corrected,0,237,0,237,0,27
+sam3 plant 0.3,sam3,A01,prod,empty,corrected,213,245,221,237,4,27
+sam3 plant 0.4,sam3,A01,prod,empty,corrected,0,237,0,237,0,27
+sam3 plant 0.5,sam3,A01,prod,empty,corrected,0,237,0,237,0,27
+sam3 leaf 0.3,sam3,A01,prod,empty,corrected,0,237,0,237,0,27
+sam3 leaf 0.4,sam3,A01,prod,empty,corrected,0,237,0,237,0,27
+sam3 leaf 0.5,sam3,A01,prod,empty,corrected,0,237,0,237,0,27
+sam3 potato_plant 0.3,sam3,A01,prod,empty,corrected,0,237,0,237,0,27
+sam3 potato_plant 0.4,sam3,A01,prod,empty,corrected,0,237,0,237,0,27
+sam3 potato_plant 0.5,sam3,A01,prod,empty,corrected,0,237,0,237,0,27
+sam2 p1m,sam2,A01,prod,empty,corrected,0,237,0,237,0,27
+sam2 p1s,sam2,A01,prod,empty,corrected,0,237,0,237,0,27
+sam2 p5s,sam2,A01,prod,empty,corrected,0,237,0,237,0,27
+grow core 0.07,grow,A02,prod,empty,corrected,225,295,287,233,4,0
+sam3 plant 0.3,sam3,A02,prod,empty,corrected,0,233,0,233,0,0
+sam3 plant 0.4,sam3,A02,prod,empty,corrected,0,233,0,233,0,0
+sam3 plant 0.5,sam3,A02,prod,empty,corrected,0,233,0,233,0,0
+sam3 leaf 0.3,sam3,A02,prod,empty,corrected,222,260,249,233,2,0
+sam3 leaf 0.4,sam3,A02,prod,empty,corrected,222,260,249,233,2,0
+sam3 leaf 0.5,sam3,A02,prod,empty,corrected,0,233,0,233,0,0
+sam3 potato_plant 0.3,sam3,A02,prod,empty,corrected,0,233,0,233,0,0
+sam3 potato_plant 0.4,sam3,A02,prod,empty,corrected,0,233,0,233,0,0
+sam3 potato_plant 0.5,sam3,A02,prod,empty,corrected,0,233,0,233,0,0
+sam2 p1m,sam2,A02,prod,empty,corrected,221,258,246,233,1,0
+sam2 p1s,sam2,A02,prod,empty,corrected,226,262,255,233,1,0
+sam2 p5s,sam2,A02,prod,empty,corrected,214,250,231,233,0,0
+grow core 0.07,grow,A05,prod,size 1,accepted,704,704,704,704,0,17
+sam3 plant 0.3,sam3,A05,prod,size 1,accepted,690,781,767,704,1,17
+sam3 plant 0.4,sam3,A05,prod,size 1,accepted,690,781,767,704,1,17
+sam3 plant 0.5,sam3,A05,prod,size 1,accepted,690,781,767,704,1,17
+sam3 leaf 0.3,sam3,A05,prod,size 1,accepted,691,791,778,704,1,17
+sam3 leaf 0.4,sam3,A05,prod,size 1,accepted,657,771,724,704,0,17
+sam3 leaf 0.5,sam3,A05,prod,size 1,accepted,657,771,724,704,0,17
+sam3 potato_plant 0.3,sam3,A05,prod,size 1,accepted,0,704,0,704,0,17
+sam3 potato_plant 0.4,sam3,A05,prod,size 1,accepted,0,704,0,704,0,17
+sam3 potato_plant 0.5,sam3,A05,prod,size 1,accepted,0,704,0,704,0,17
+sam2 p1m,sam2,A05,prod,size 1,accepted,696,813,805,704,1,17
+sam2 p1s,sam2,A05,prod,size 1,accepted,693,787,776,704,0,17
+sam2 p5s,sam2,A05,prod,size 1,accepted,687,776,759,704,0,17
+grow core 0.07,grow,A06,prod,size 1,accepted,677,677,677,677,0,2
+sam3 plant 0.3,sam3,A06,prod,size 1,accepted,657,742,722,677,1,2
+sam3 plant 0.4,sam3,A06,prod,size 1,accepted,0,677,0,677,0,2
+sam3 plant 0.5,sam3,A06,prod,size 1,accepted,0,677,0,677,0,2
+sam3 leaf 0.3,sam3,A06,prod,size 1,accepted,636,737,696,677,2,2
+sam3 leaf 0.4,sam3,A06,prod,size 1,accepted,546,706,575,677,0,2
+sam3 leaf 0.5,sam3,A06,prod,size 1,accepted,546,706,575,677,0,2
+sam3 potato_plant 0.3,sam3,A06,prod,size 1,accepted,0,677,0,677,0,2
+sam3 potato_plant 0.4,sam3,A06,prod,size 1,accepted,0,677,0,677,0,2
+sam3 potato_plant 0.5,sam3,A06,prod,size 1,accepted,0,677,0,677,0,2
+sam2 p1m,sam2,A06,prod,size 1,accepted,549,713,585,677,0,2
+sam2 p1s,sam2,A06,prod,size 1,accepted,621,723,667,677,0,2
+sam2 p5s,sam2,A06,prod,size 1,accepted,617,721,661,677,0,2
+grow core 0.07,grow,A07,prod,green soil,accepted,860,860,860,860,0,18
+sam3 plant 0.3,sam3,A07,prod,green soil,accepted,766,872,778,860,0,18
+sam3 plant 0.4,sam3,A07,prod,green soil,accepted,766,872,778,860,0,18
+sam3 plant 0.5,sam3,A07,prod,green soil,accepted,766,872,778,860,0,18
+sam3 leaf 0.3,sam3,A07,prod,green soil,accepted,0,860,0,860,0,18
+sam3 leaf 0.4,sam3,A07,prod,green soil,accepted,0,860,0,860,0,18
+sam3 leaf 0.5,sam3,A07,prod,green soil,accepted,0,860,0,860,0,18
+sam3 potato_plant 0.3,sam3,A07,prod,green soil,accepted,0,860,0,860,0,18
+sam3 potato_plant 0.4,sam3,A07,prod,green soil,accepted,0,860,0,860,0,18
+sam3 potato_plant 0.5,sam3,A07,prod,green soil,accepted,0,860,0,860,0,18
+sam2 p1m,sam2,A07,prod,green soil,accepted,499,871,510,860,0,18
+sam2 p1s,sam2,A07,prod,green soil,accepted,526,870,536,860,0,18
+sam2 p5s,sam2,A07,prod,green soil,accepted,467,865,472,860,0,18
+grow core 0.07,grow,A12,prod,green soil,corrected,1835,2256,2256,1835,0,0
+sam3 plant 0.3,sam3,A12,prod,green soil,corrected,1389,1835,1389,1835,0,0
+sam3 plant 0.4,sam3,A12,prod,green soil,corrected,1389,1835,1389,1835,0,0
+sam3 plant 0.5,sam3,A12,prod,green soil,corrected,1389,1835,1389,1835,0,0
+sam3 leaf 0.3,sam3,A12,prod,green soil,corrected,1208,1835,1208,1835,0,0
+sam3 leaf 0.4,sam3,A12,prod,green soil,corrected,1020,1835,1020,1835,0,0
+sam3 leaf 0.5,sam3,A12,prod,green soil,corrected,1020,1835,1020,1835,0,0
+sam3 potato_plant 0.3,sam3,A12,prod,green soil,corrected,0,1835,0,1835,0,0
+sam3 potato_plant 0.4,sam3,A12,prod,green soil,corrected,0,1835,0,1835,0,0
+sam3 potato_plant 0.5,sam3,A12,prod,green soil,corrected,0,1835,0,1835,0,0
+sam2 p1m,sam2,A12,prod,green soil,corrected,1423,1839,1427,1835,0,0
+sam2 p1s,sam2,A12,prod,green soil,corrected,1415,1837,1417,1835,0,0
+sam2 p5s,sam2,A12,prod,green soil,corrected,1386,1837,1388,1835,0,0
+grow core 0.07,grow,A13,prod,size 3,accepted,1597,1597,1597,1597,0,60
+sam3 plant 0.3,sam3,A13,prod,size 3,accepted,1437,1609,1449,1597,3,60
+sam3 plant 0.4,sam3,A13,prod,size 3,accepted,1437,1609,1449,1597,3,60
+sam3 plant 0.5,sam3,A13,prod,size 3,accepted,1437,1609,1449,1597,3,60
+sam3 leaf 0.3,sam3,A13,prod,size 3,accepted,1132,1602,1137,1597,0,60
+sam3 leaf 0.4,sam3,A13,prod,size 3,accepted,1132,1602,1137,1597,0,60
+sam3 leaf 0.5,sam3,A13,prod,size 3,accepted,1132,1602,1137,1597,0,60
+sam3 potato_plant 0.3,sam3,A13,prod,size 3,accepted,0,1597,0,1597,0,60
+sam3 potato_plant 0.4,sam3,A13,prod,size 3,accepted,0,1597,0,1597,0,60
+sam3 potato_plant 0.5,sam3,A13,prod,size 3,accepted,0,1597,0,1597,0,60
+sam2 p1m,sam2,A13,prod,size 3,accepted,1451,1622,1476,1597,4,60
+sam2 p1s,sam2,A13,prod,size 3,accepted,1451,1621,1475,1597,4,60
+sam2 p5s,sam2,A13,prod,size 3,accepted,1110,1601,1114,1597,0,60
+grow core 0.07,grow,A15,prod,size 3,accepted,1723,1723,1723,1723,0,37
+sam3 plant 0.3,sam3,A15,prod,size 3,accepted,1651,1838,1766,1723,5,37
+sam3 plant 0.4,sam3,A15,prod,size 3,accepted,1651,1838,1766,1723,5,37
+sam3 plant 0.5,sam3,A15,prod,size 3,accepted,1651,1838,1766,1723,5,37
+sam3 leaf 0.3,sam3,A15,prod,size 3,accepted,1213,1781,1271,1723,0,37
+sam3 leaf 0.4,sam3,A15,prod,size 3,accepted,1213,1781,1271,1723,0,37
+sam3 leaf 0.5,sam3,A15,prod,size 3,accepted,1213,1781,1271,1723,0,37
+sam3 potato_plant 0.3,sam3,A15,prod,size 3,accepted,0,1723,0,1723,0,37
+sam3 potato_plant 0.4,sam3,A15,prod,size 3,accepted,0,1723,0,1723,0,37
+sam3 potato_plant 0.5,sam3,A15,prod,size 3,accepted,0,1723,0,1723,0,37
+sam2 p1m,sam2,A15,prod,size 3,accepted,886,1769,932,1723,0,37
+sam2 p1s,sam2,A15,prod,size 3,accepted,918,1770,965,1723,0,37
+sam2 p5s,sam2,A15,prod,size 3,accepted,841,1766,884,1723,0,37
+grow core 0.07,grow,A16,prod,green soil,accepted,2131,2131,2131,2131,0,0
+sam3 plant 0.3,sam3,A16,prod,green soil,accepted,1705,2162,1736,2131,0,0
+sam3 plant 0.4,sam3,A16,prod,green soil,accepted,1705,2162,1736,2131,0,0
+sam3 plant 0.5,sam3,A16,prod,green soil,accepted,1705,2162,1736,2131,0,0
+sam3 leaf 0.3,sam3,A16,prod,green soil,accepted,1516,2148,1533,2131,0,0
+sam3 leaf 0.4,sam3,A16,prod,green soil,accepted,1516,2148,1533,2131,0,0
+sam3 leaf 0.5,sam3,A16,prod,green soil,accepted,1175,2148,1192,2131,0,0
+sam3 potato_plant 0.3,sam3,A16,prod,green soil,accepted,0,2131,0,2131,0,0
+sam3 potato_plant 0.4,sam3,A16,prod,green soil,accepted,0,2131,0,2131,0,0
+sam3 potato_plant 0.5,sam3,A16,prod,green soil,accepted,0,2131,0,2131,0,0
+sam2 p1m,sam2,A16,prod,green soil,accepted,1698,2177,1744,2131,0,0
+sam2 p1s,sam2,A16,prod,green soil,accepted,1691,2175,1735,2131,0,0
+sam2 p5s,sam2,A16,prod,green soil,accepted,1687,2175,1731,2131,0,0
+grow core 0.07,grow,A17,prod,empty,corrected,1077,1399,1100,1376,0,1
+sam3 plant 0.3,sam3,A17,prod,empty,corrected,1238,1438,1300,1376,1,1
+sam3 plant 0.4,sam3,A17,prod,empty,corrected,1238,1438,1300,1376,1,1
+sam3 plant 0.5,sam3,A17,prod,empty,corrected,1238,1438,1300,1376,1,1
+sam3 leaf 0.3,sam3,A17,prod,empty,corrected,1244,1432,1300,1376,1,1
+sam3 leaf 0.4,sam3,A17,prod,empty,corrected,995,1404,1023,1376,0,1
+sam3 leaf 0.5,sam3,A17,prod,empty,corrected,995,1404,1023,1376,0,1
+sam3 potato_plant 0.3,sam3,A17,prod,empty,corrected,0,1376,0,1376,0,1
+sam3 potato_plant 0.4,sam3,A17,prod,empty,corrected,0,1376,0,1376,0,1
+sam3 potato_plant 0.5,sam3,A17,prod,empty,corrected,0,1376,0,1376,0,1
+sam2 p1m,sam2,A17,prod,empty,corrected,577,1384,585,1376,0,1
+sam2 p1s,sam2,A17,prod,empty,corrected,588,1385,597,1376,0,1
+sam2 p5s,sam2,A17,prod,empty,corrected,588,1385,597,1376,0,1
+grow core 0.07,grow,A21,prod,size 5,corrected,4411,4506,4500,4417,1,26
+sam3 plant 0.3,sam3,A21,prod,size 5,corrected,4071,4455,4109,4417,1,26
+sam3 plant 0.4,sam3,A21,prod,size 5,corrected,4071,4455,4109,4417,1,26
+sam3 plant 0.5,sam3,A21,prod,size 5,corrected,4071,4455,4109,4417,1,26
+sam3 leaf 0.3,sam3,A21,prod,size 5,corrected,3638,4451,3672,4417,0,26
+sam3 leaf 0.4,sam3,A21,prod,size 5,corrected,3635,4451,3669,4417,0,26
+sam3 leaf 0.5,sam3,A21,prod,size 5,corrected,3629,4451,3663,4417,0,26
+sam3 potato_plant 0.3,sam3,A21,prod,size 5,corrected,0,4417,0,4417,0,26
+sam3 potato_plant 0.4,sam3,A21,prod,size 5,corrected,0,4417,0,4417,0,26
+sam3 potato_plant 0.5,sam3,A21,prod,size 5,corrected,0,4417,0,4417,0,26
+sam2 p1m,sam2,A21,prod,size 5,corrected,3504,4481,3568,4417,0,26
+sam2 p1s,sam2,A21,prod,size 5,corrected,3685,4488,3756,4417,0,26
+sam2 p5s,sam2,A21,prod,size 5,corrected,3604,4463,3650,4417,0,26
+grow core 0.07,grow,A22,prod,size 4,accepted,2068,2068,2068,2068,0,2
+sam3 plant 0.3,sam3,A22,prod,size 4,accepted,1785,2100,1817,2068,0,2
+sam3 plant 0.4,sam3,A22,prod,size 4,accepted,1785,2100,1817,2068,0,2
+sam3 plant 0.5,sam3,A22,prod,size 4,accepted,1785,2100,1817,2068,0,2
+sam3 leaf 0.3,sam3,A22,prod,size 4,accepted,1662,2100,1694,2068,0,2
+sam3 leaf 0.4,sam3,A22,prod,size 4,accepted,1662,2100,1694,2068,0,2
+sam3 leaf 0.5,sam3,A22,prod,size 4,accepted,1654,2100,1686,2068,0,2
+sam3 potato_plant 0.3,sam3,A22,prod,size 4,accepted,0,2068,0,2068,0,2
+sam3 potato_plant 0.4,sam3,A22,prod,size 4,accepted,0,2068,0,2068,0,2
+sam3 potato_plant 0.5,sam3,A22,prod,size 4,accepted,0,2068,0,2068,0,2
+sam2 p1m,sam2,A22,prod,size 4,accepted,1355,2106,1393,2068,0,2
+sam2 p1s,sam2,A22,prod,size 4,accepted,1357,2106,1395,2068,0,2
+sam2 p5s,sam2,A22,prod,size 4,accepted,1320,2095,1347,2068,0,2
+grow core 0.07,grow,A25,prod,blue mat,corrected,2234,2522,2247,2509,0,0
+sam3 plant 0.3,sam3,A25,prod,blue mat,corrected,2509,3600,3600,2509,0,0
+sam3 plant 0.4,sam3,A25,prod,blue mat,corrected,2509,3600,3600,2509,0,0
+sam3 plant 0.5,sam3,A25,prod,blue mat,corrected,2509,3600,3600,2509,0,0
+sam3 leaf 0.3,sam3,A25,prod,blue mat,corrected,2381,3339,3211,2509,0,0
+sam3 leaf 0.4,sam3,A25,prod,blue mat,corrected,2381,3339,3211,2509,0,0
+sam3 leaf 0.5,sam3,A25,prod,blue mat,corrected,2381,3339,3211,2509,0,0
+sam3 potato_plant 0.3,sam3,A25,prod,blue mat,corrected,0,2509,0,2509,0,0
+sam3 potato_plant 0.4,sam3,A25,prod,blue mat,corrected,0,2509,0,2509,0,0
+sam3 potato_plant 0.5,sam3,A25,prod,blue mat,corrected,0,2509,0,2509,0,0
+sam2 p1m,sam2,A25,prod,blue mat,corrected,2509,3598,3598,2509,0,0
+sam2 p1s,sam2,A25,prod,blue mat,corrected,2509,3597,3597,2509,0,0
+sam2 p5s,sam2,A25,prod,blue mat,corrected,2508,3562,3561,2509,0,0
+grow core 0.07,grow,A26,prod,blue mat,corrected,4378,4400,4378,4400,0,0
+sam3 plant 0.3,sam3,A26,prod,blue mat,corrected,4390,5115,5105,4400,0,0
+sam3 plant 0.4,sam3,A26,prod,blue mat,corrected,4390,5115,5105,4400,0,0
+sam3 plant 0.5,sam3,A26,prod,blue mat,corrected,4390,5115,5105,4400,0,0
+sam3 leaf 0.3,sam3,A26,prod,blue mat,corrected,4175,4962,4737,4400,0,0
+sam3 leaf 0.4,sam3,A26,prod,blue mat,corrected,4175,4962,4737,4400,0,0
+sam3 leaf 0.5,sam3,A26,prod,blue mat,corrected,4175,4962,4737,4400,0,0
+sam3 potato_plant 0.3,sam3,A26,prod,blue mat,corrected,0,4400,0,4400,0,0
+sam3 potato_plant 0.4,sam3,A26,prod,blue mat,corrected,0,4400,0,4400,0,0
+sam3 potato_plant 0.5,sam3,A26,prod,blue mat,corrected,0,4400,0,4400,0,0
+sam2 p1m,sam2,A26,prod,blue mat,corrected,2823,4908,3331,4400,0,0
+sam2 p1s,sam2,A26,prod,blue mat,corrected,2823,4908,3331,4400,0,0
+sam2 p5s,sam2,A26,prod,blue mat,corrected,4400,5548,5548,4400,0,0
+grow core 0.07,grow,A27,prod,blue mat,corrected,3509,3721,3527,3703,0,0
+sam3 plant 0.3,sam3,A27,prod,blue mat,corrected,3694,4587,4578,3703,0,0
+sam3 plant 0.4,sam3,A27,prod,blue mat,corrected,3694,4587,4578,3703,0,0
+sam3 plant 0.5,sam3,A27,prod,blue mat,corrected,3694,4587,4578,3703,0,0
+sam3 leaf 0.3,sam3,A27,prod,blue mat,corrected,3552,4452,4301,3703,0,0
+sam3 leaf 0.4,sam3,A27,prod,blue mat,corrected,3552,4452,4301,3703,0,0
+sam3 leaf 0.5,sam3,A27,prod,blue mat,corrected,3552,4452,4301,3703,0,0
+sam3 potato_plant 0.3,sam3,A27,prod,blue mat,corrected,0,3703,0,3703,0,0
+sam3 potato_plant 0.4,sam3,A27,prod,blue mat,corrected,0,3703,0,3703,0,0
+sam3 potato_plant 0.5,sam3,A27,prod,blue mat,corrected,0,3703,0,3703,0,0
+sam2 p1m,sam2,A27,prod,blue mat,corrected,3701,4727,4725,3703,0,0
+sam2 p1s,sam2,A27,prod,blue mat,corrected,3700,4660,4657,3703,0,0
+sam2 p5s,sam2,A27,prod,blue mat,corrected,3700,4716,4713,3703,0,0
+grow core 0.07,grow,A29,prod,blue mat,corrected,6696,6998,6753,6941,0,0
+sam3 plant 0.3,sam3,A29,prod,blue mat,corrected,6931,8477,8467,6941,0,0
+sam3 plant 0.4,sam3,A29,prod,blue mat,corrected,6931,8477,8467,6941,0,0
+sam3 plant 0.5,sam3,A29,prod,blue mat,corrected,6931,8477,8467,6941,0,0
+sam3 leaf 0.3,sam3,A29,prod,blue mat,corrected,6678,8195,7932,6941,0,0
+sam3 leaf 0.4,sam3,A29,prod,blue mat,corrected,6678,8195,7932,6941,0,0
+sam3 leaf 0.5,sam3,A29,prod,blue mat,corrected,6678,8195,7932,6941,0,0
+sam3 potato_plant 0.3,sam3,A29,prod,blue mat,corrected,0,6941,0,6941,0,0
+sam3 potato_plant 0.4,sam3,A29,prod,blue mat,corrected,0,6941,0,6941,0,0
+sam3 potato_plant 0.5,sam3,A29,prod,blue mat,corrected,0,6941,0,6941,0,0
+sam2 p1m,sam2,A29,prod,blue mat,corrected,6941,9019,9019,6941,0,0
+sam2 p1s,sam2,A29,prod,blue mat,corrected,6939,9003,9001,6941,0,0
+sam2 p5s,sam2,A29,prod,blue mat,corrected,6618,8308,7985,6941,0,0
+grow core 0.07,grow,A30,prod,blue mat,corrected,1052,1124,1052,1124,0,0
+sam3 plant 0.3,sam3,A30,prod,blue mat,corrected,1124,1755,1755,1124,0,0
+sam3 plant 0.4,sam3,A30,prod,blue mat,corrected,1124,1755,1755,1124,0,0
+sam3 plant 0.5,sam3,A30,prod,blue mat,corrected,1124,1755,1755,1124,0,0
+sam3 leaf 0.3,sam3,A30,prod,blue mat,corrected,1124,1987,1987,1124,0,0
+sam3 leaf 0.4,sam3,A30,prod,blue mat,corrected,1055,1706,1637,1124,0,0
+sam3 leaf 0.5,sam3,A30,prod,blue mat,corrected,1051,1638,1565,1124,0,0
+sam3 potato_plant 0.3,sam3,A30,prod,blue mat,corrected,0,1124,0,1124,0,0
+sam3 potato_plant 0.4,sam3,A30,prod,blue mat,corrected,0,1124,0,1124,0,0
+sam3 potato_plant 0.5,sam3,A30,prod,blue mat,corrected,0,1124,0,1124,0,0
+sam2 p1m,sam2,A30,prod,blue mat,corrected,1123,1911,1910,1124,0,0
+sam2 p1s,sam2,A30,prod,blue mat,corrected,1124,1905,1905,1124,0,0
+sam2 p5s,sam2,A30,prod,blue mat,corrected,1124,1894,1894,1124,0,0
+grow core 0.07,grow,B01,dev,size 2,corrected,9728,9858,9852,9734,15,170
+sam3 plant 0.3,sam3,B01,dev,size 2,corrected,9148,9775,9189,9734,12,170
+sam3 plant 0.4,sam3,B01,dev,size 2,corrected,9148,9775,9189,9734,12,170
+sam3 plant 0.5,sam3,B01,dev,size 2,corrected,9148,9775,9189,9734,12,170
+sam3 leaf 0.3,sam3,B01,dev,size 2,corrected,8838,9755,8859,9734,5,170
+sam3 leaf 0.4,sam3,B01,dev,size 2,corrected,8838,9755,8859,9734,5,170
+sam3 leaf 0.5,sam3,B01,dev,size 2,corrected,8838,9755,8859,9734,5,170
+sam3 potato_plant 0.3,sam3,B01,dev,size 2,corrected,0,9734,0,9734,0,170
+sam3 potato_plant 0.4,sam3,B01,dev,size 2,corrected,0,9734,0,9734,0,170
+sam3 potato_plant 0.5,sam3,B01,dev,size 2,corrected,0,9734,0,9734,0,170
+sam2 p1m,sam2,B01,dev,size 2,corrected,2989,9778,3033,9734,0,170
+sam2 p1s,sam2,B01,dev,size 2,corrected,2989,9778,3033,9734,0,170
+sam2 p5s,sam2,B01,dev,size 2,corrected,9444,9903,9613,9734,27,170
+grow core 0.07,grow,B02,dev,size 1,accepted,5956,5956,5956,5956,0,166
+sam3 plant 0.3,sam3,B02,dev,size 1,accepted,5776,6092,5912,5956,28,166
+sam3 plant 0.4,sam3,B02,dev,size 1,accepted,5776,6092,5912,5956,28,166
+sam3 plant 0.5,sam3,B02,dev,size 1,accepted,5776,6092,5912,5956,28,166
+sam3 leaf 0.3,sam3,B02,dev,size 1,accepted,5556,6062,5662,5956,7,166
+sam3 leaf 0.4,sam3,B02,dev,size 1,accepted,5556,6062,5662,5956,7,166
+sam3 leaf 0.5,sam3,B02,dev,size 1,accepted,5556,6062,5662,5956,7,166
+sam3 potato_plant 0.3,sam3,B02,dev,size 1,accepted,0,5956,0,5956,0,166
+sam3 potato_plant 0.4,sam3,B02,dev,size 1,accepted,0,5956,0,5956,0,166
+sam3 potato_plant 0.5,sam3,B02,dev,size 1,accepted,0,5956,0,5956,0,166
+sam2 p1m,sam2,B02,dev,size 1,accepted,3588,6247,3879,5956,60,166
+sam2 p1s,sam2,B02,dev,size 1,accepted,3630,6251,3925,5956,62,166
+sam2 p5s,sam2,B02,dev,size 1,accepted,5456,6255,5755,5956,94,166
+grow core 0.07,grow,B03,dev,green soil,corrected,12703,13109,13108,12704,42,54
+sam3 plant 0.3,sam3,B03,dev,green soil,corrected,11615,12783,11694,12704,30,54
+sam3 plant 0.4,sam3,B03,dev,green soil,corrected,11615,12783,11694,12704,30,54
+sam3 plant 0.5,sam3,B03,dev,green soil,corrected,11615,12783,11694,12704,30,54
+sam3 leaf 0.3,sam3,B03,dev,green soil,corrected,11099,12769,11164,12704,15,54
+sam3 leaf 0.4,sam3,B03,dev,green soil,corrected,11099,12769,11164,12704,15,54
+sam3 leaf 0.5,sam3,B03,dev,green soil,corrected,11072,12769,11137,12704,15,54
+sam3 potato_plant 0.3,sam3,B03,dev,green soil,corrected,0,12704,0,12704,0,54
+sam3 potato_plant 0.4,sam3,B03,dev,green soil,corrected,0,12704,0,12704,0,54
+sam3 potato_plant 0.5,sam3,B03,dev,green soil,corrected,0,12704,0,12704,0,54
+sam2 p1m,sam2,B03,dev,green soil,corrected,3339,16890,7525,12704,0,54
+sam2 p1s,sam2,B03,dev,green soil,corrected,3339,16543,7178,12704,0,54
+sam2 p5s,sam2,B03,dev,green soil,corrected,11961,16689,15946,12704,28,54
+grow core 0.07,grow,B04,dev,size 4,corrected,58633,61114,60449,59298,12,54
+sam3 plant 0.3,sam3,B04,dev,size 4,corrected,58036,64763,63501,59298,1620,54
+sam3 plant 0.4,sam3,B04,dev,size 4,corrected,58036,64763,63501,59298,1620,54
+sam3 plant 0.5,sam3,B04,dev,size 4,corrected,58036,64763,63501,59298,1620,54
+sam3 leaf 0.3,sam3,B04,dev,size 4,corrected,55659,61723,58084,59298,1103,54
+sam3 leaf 0.4,sam3,B04,dev,size 4,corrected,55018,60234,55954,59298,75,54
+sam3 leaf 0.5,sam3,B04,dev,size 4,corrected,55018,60234,55954,59298,75,54
+sam3 potato_plant 0.3,sam3,B04,dev,size 4,corrected,0,59298,0,59298,0,54
+sam3 potato_plant 0.4,sam3,B04,dev,size 4,corrected,0,59298,0,59298,0,54
+sam3 potato_plant 0.5,sam3,B04,dev,size 4,corrected,0,59298,0,59298,0,54
+sam2 p1m,sam2,B04,dev,size 4,corrected,36239,302966,279907,59298,20122,54
+sam2 p1s,sam2,B04,dev,size 4,corrected,36243,302963,279908,59298,20122,54
+sam2 p5s,sam2,B04,dev,size 4,corrected,27869,301956,270527,59298,20321,54
+grow core 0.07,grow,B05,dev,size 3,corrected,15926,18762,18741,15947,5,0
+sam3 plant 0.3,sam3,B05,dev,size 3,corrected,15033,19841,18927,15947,950,0
+sam3 plant 0.4,sam3,B05,dev,size 3,corrected,15024,19678,18755,15947,937,0
+sam3 plant 0.5,sam3,B05,dev,size 3,corrected,15024,19678,18755,15947,937,0
+sam3 leaf 0.3,sam3,B05,dev,size 3,corrected,15198,17137,16388,15947,596,0
+sam3 leaf 0.4,sam3,B05,dev,size 3,corrected,15198,17137,16388,15947,596,0
+sam3 leaf 0.5,sam3,B05,dev,size 3,corrected,15198,16157,15408,15947,0,0
+sam3 potato_plant 0.3,sam3,B05,dev,size 3,corrected,0,15947,0,15947,0,0
+sam3 potato_plant 0.4,sam3,B05,dev,size 3,corrected,0,15947,0,15947,0,0
+sam3 potato_plant 0.5,sam3,B05,dev,size 3,corrected,0,15947,0,15947,0,0
+sam2 p1m,sam2,B05,dev,size 3,corrected,15563,333164,332780,15947,24862,0
+sam2 p1s,sam2,B05,dev,size 3,corrected,15517,332947,332517,15947,24822,0
+sam2 p5s,sam2,B05,dev,size 3,corrected,15344,55198,54595,15947,1394,0
+grow core 0.07,grow,B06,dev,green soil,corrected,27680,33044,28080,32644,0,41
+sam3 plant 0.3,sam3,B06,dev,green soil,corrected,31938,38166,37460,32644,1351,41
+sam3 plant 0.4,sam3,B06,dev,green soil,corrected,31938,38166,37460,32644,1351,41
+sam3 plant 0.5,sam3,B06,dev,green soil,corrected,31938,38166,37460,32644,1351,41
+sam3 leaf 0.3,sam3,B06,dev,green soil,corrected,30441,34845,32642,32644,138,41
+sam3 leaf 0.4,sam3,B06,dev,green soil,corrected,30437,34588,32381,32644,138,41
+sam3 leaf 0.5,sam3,B06,dev,green soil,corrected,30437,34588,32381,32644,138,41
+sam3 potato_plant 0.3,sam3,B06,dev,green soil,corrected,0,32644,0,32644,0,41
+sam3 potato_plant 0.4,sam3,B06,dev,green soil,corrected,0,32644,0,32644,0,41
+sam3 potato_plant 0.5,sam3,B06,dev,green soil,corrected,0,32644,0,32644,0,41
+sam2 p1m,sam2,B06,dev,green soil,corrected,32270,39107,38733,32644,1293,41
+sam2 p1s,sam2,B06,dev,green soil,corrected,32251,39110,38717,32644,1289,41
+sam2 p5s,sam2,B06,dev,green soil,corrected,32174,38887,38417,32644,1222,41
+grow core 0.07,grow,B07,dev,size 2,corrected,11329,11868,11854,11343,109,249
+sam3 plant 0.3,sam3,B07,dev,size 2,corrected,10655,11398,10710,11343,21,249
+sam3 plant 0.4,sam3,B07,dev,size 2,corrected,10655,11398,10710,11343,21,249
+sam3 plant 0.5,sam3,B07,dev,size 2,corrected,10655,11398,10710,11343,21,249
+sam3 leaf 0.3,sam3,B07,dev,size 2,corrected,10591,11396,10644,11343,19,249
+sam3 leaf 0.4,sam3,B07,dev,size 2,corrected,10126,11380,10163,11343,18,249
+sam3 leaf 0.5,sam3,B07,dev,size 2,corrected,10126,11380,10163,11343,18,249
+sam3 potato_plant 0.3,sam3,B07,dev,size 2,corrected,0,11343,0,11343,0,249
+sam3 potato_plant 0.4,sam3,B07,dev,size 2,corrected,0,11343,0,11343,0,249
+sam3 potato_plant 0.5,sam3,B07,dev,size 2,corrected,0,11343,0,11343,0,249
+sam2 p1m,sam2,B07,dev,size 2,corrected,3000,11362,3019,11343,10,249
+sam2 p1s,sam2,B07,dev,size 2,corrected,3000,11362,3019,11343,10,249
+sam2 p5s,sam2,B07,dev,size 2,corrected,10885,11502,11044,11343,55,249
+grow core 0.07,grow,B08,dev,size 2,corrected,9767,10614,10531,9850,108,55
+sam3 plant 0.3,sam3,B08,dev,size 2,corrected,9520,11197,10867,9850,193,55
+sam3 plant 0.4,sam3,B08,dev,size 2,corrected,9520,11183,10853,9850,187,55
+sam3 plant 0.5,sam3,B08,dev,size 2,corrected,9419,10294,9863,9850,17,55
+sam3 leaf 0.3,sam3,B08,dev,size 2,corrected,8955,10945,10050,9850,207,55
+sam3 leaf 0.4,sam3,B08,dev,size 2,corrected,8898,10343,9391,9850,42,55
+sam3 leaf 0.5,sam3,B08,dev,size 2,corrected,8898,10343,9391,9850,42,55
+sam3 potato_plant 0.3,sam3,B08,dev,size 2,corrected,0,9850,0,9850,0,55
+sam3 potato_plant 0.4,sam3,B08,dev,size 2,corrected,0,9850,0,9850,0,55
+sam3 potato_plant 0.5,sam3,B08,dev,size 2,corrected,0,9850,0,9850,0,55
+sam2 p1m,sam2,B08,dev,size 2,corrected,6587,51198,47935,9850,188,55
+sam2 p1s,sam2,B08,dev,size 2,corrected,6843,51008,48001,9850,188,55
+sam2 p5s,sam2,B08,dev,size 2,corrected,9581,51049,50780,9850,305,55
+grow core 0.07,grow,B09,dev,size 2,corrected,8358,8525,8411,8472,29,188
+sam3 plant 0.3,sam3,B09,dev,size 2,corrected,8340,8895,8763,8472,176,188
+sam3 plant 0.4,sam3,B09,dev,size 2,corrected,8319,8894,8741,8472,176,188
+sam3 plant 0.5,sam3,B09,dev,size 2,corrected,8319,8894,8741,8472,176,188
+sam3 leaf 0.3,sam3,B09,dev,size 2,corrected,7949,8707,8184,8472,20,188
+sam3 leaf 0.4,sam3,B09,dev,size 2,corrected,7852,8704,8084,8472,17,188
+sam3 leaf 0.5,sam3,B09,dev,size 2,corrected,7852,8704,8084,8472,17,188
+sam3 potato_plant 0.3,sam3,B09,dev,size 2,corrected,0,8472,0,8472,0,188
+sam3 potato_plant 0.4,sam3,B09,dev,size 2,corrected,0,8472,0,8472,0,188
+sam3 potato_plant 0.5,sam3,B09,dev,size 2,corrected,0,8472,0,8472,0,188
+sam2 p1m,sam2,B09,dev,size 2,corrected,8450,9707,9685,8472,487,188
+sam2 p1s,sam2,B09,dev,size 2,corrected,8449,9707,9684,8472,487,188
+sam2 p5s,sam2,B09,dev,size 2,corrected,8446,9649,9623,8472,476,188
+grow core 0.07,grow,B10,dev,size 3,corrected,16871,16889,16871,16889,0,778
+sam3 plant 0.3,sam3,B10,dev,size 3,corrected,16230,17145,16486,16889,126,778
+sam3 plant 0.4,sam3,B10,dev,size 3,corrected,16230,17145,16486,16889,126,778
+sam3 plant 0.5,sam3,B10,dev,size 3,corrected,16230,17145,16486,16889,126,778
+sam3 leaf 0.3,sam3,B10,dev,size 3,corrected,15640,17015,15766,16889,21,778
+sam3 leaf 0.4,sam3,B10,dev,size 3,corrected,15640,17015,15766,16889,21,778
+sam3 leaf 0.5,sam3,B10,dev,size 3,corrected,15640,17015,15766,16889,21,778
+sam3 potato_plant 0.3,sam3,B10,dev,size 3,corrected,0,16889,0,16889,0,778
+sam3 potato_plant 0.4,sam3,B10,dev,size 3,corrected,0,16889,0,16889,0,778
+sam3 potato_plant 0.5,sam3,B10,dev,size 3,corrected,0,16889,0,16889,0,778
+sam2 p1m,sam2,B10,dev,size 3,corrected,13453,17196,13760,16889,25,778
+sam2 p1s,sam2,B10,dev,size 3,corrected,13567,17202,13880,16889,21,778
+sam2 p5s,sam2,B10,dev,size 3,corrected,16401,17386,16898,16889,175,778
+grow core 0.07,grow,B11,dev,size 4,corrected,64806,69469,69296,64979,13,0
+sam3 plant 0.3,sam3,B11,dev,size 4,corrected,63483,73044,71548,64979,1141,0
+sam3 plant 0.4,sam3,B11,dev,size 4,corrected,63483,73044,71548,64979,1141,0
+sam3 plant 0.5,sam3,B11,dev,size 4,corrected,63483,73044,71548,64979,1141,0
+sam3 leaf 0.3,sam3,B11,dev,size 4,corrected,60491,66986,62498,64979,1372,0
+sam3 leaf 0.4,sam3,B11,dev,size 4,corrected,60446,66331,61798,64979,892,0
+sam3 leaf 0.5,sam3,B11,dev,size 4,corrected,60276,65220,60517,64979,7,0
+sam3 potato_plant 0.3,sam3,B11,dev,size 4,corrected,0,64979,0,64979,0,0
+sam3 potato_plant 0.4,sam3,B11,dev,size 4,corrected,0,64979,0,64979,0,0
+sam3 potato_plant 0.5,sam3,B11,dev,size 4,corrected,0,64979,0,64979,0,0
+sam2 p1m,sam2,B11,dev,size 4,corrected,52443,73137,60601,64979,1114,0
+sam2 p1s,sam2,B11,dev,size 4,corrected,52913,73399,61333,64979,1114,0
+sam2 p5s,sam2,B11,dev,size 4,corrected,58118,72613,65752,64979,969,0
+grow core 0.07,grow,B12,dev,size 5,corrected,174051,174737,174694,174094,4,2527
+sam3 plant 0.3,sam3,B12,dev,size 5,corrected,167073,190083,183062,174094,2331,2527
+sam3 plant 0.4,sam3,B12,dev,size 5,corrected,167073,190083,183062,174094,2331,2527
+sam3 plant 0.5,sam3,B12,dev,size 5,corrected,167073,190083,183062,174094,2331,2527
+sam3 leaf 0.3,sam3,B12,dev,size 5,corrected,157365,182379,165650,174094,1992,2527
+sam3 leaf 0.4,sam3,B12,dev,size 5,corrected,155558,180832,162296,174094,1211,2527
+sam3 leaf 0.5,sam3,B12,dev,size 5,corrected,154052,179264,159222,174094,198,2527
+sam3 potato_plant 0.3,sam3,B12,dev,size 5,corrected,0,174094,0,174094,0,2527
+sam3 potato_plant 0.4,sam3,B12,dev,size 5,corrected,0,174094,0,174094,0,2527
+sam3 potato_plant 0.5,sam3,B12,dev,size 5,corrected,0,174094,0,174094,0,2527
+sam2 p1m,sam2,B12,dev,size 5,corrected,51243,175158,52307,174094,27,2527
+sam2 p1s,sam2,B12,dev,size 5,corrected,51178,174936,52020,174094,13,2527
+sam2 p5s,sam2,B12,dev,size 5,corrected,165837,177859,169602,174094,217,2527
+grow core 0.07,grow,B13,dev,size 4,accepted,47927,47927,47927,47927,0,590
+sam3 plant 0.3,sam3,B13,dev,size 4,accepted,46389,64364,62826,47927,4197,590
+sam3 plant 0.4,sam3,B13,dev,size 4,accepted,46373,63519,61965,47927,3938,590
+sam3 plant 0.5,sam3,B13,dev,size 4,accepted,46373,63519,61965,47927,3938,590
+sam3 leaf 0.3,sam3,B13,dev,size 4,accepted,43400,60547,56020,47927,2604,590
+sam3 leaf 0.4,sam3,B13,dev,size 4,accepted,43086,58838,53997,47927,2549,590
+sam3 leaf 0.5,sam3,B13,dev,size 4,accepted,42434,55259,49766,47927,862,590
+sam3 potato_plant 0.3,sam3,B13,dev,size 4,accepted,0,47927,0,47927,0,590
+sam3 potato_plant 0.4,sam3,B13,dev,size 4,accepted,0,47927,0,47927,0,590
+sam3 potato_plant 0.5,sam3,B13,dev,size 4,accepted,0,47927,0,47927,0,590
+sam2 p1m,sam2,B13,dev,size 4,accepted,13107,50097,15277,47927,127,590
+sam2 p1s,sam2,B13,dev,size 4,accepted,13404,49580,15057,47927,114,590
+sam2 p5s,sam2,B13,dev,size 4,accepted,30549,49110,31732,47927,82,590
+grow core 0.07,grow,B17,dev,size 2,accepted,10360,10360,10360,10360,0,70
+sam3 plant 0.3,sam3,B17,dev,size 2,accepted,9907,10519,10066,10360,10,70
+sam3 plant 0.4,sam3,B17,dev,size 2,accepted,9907,10519,10066,10360,10,70
+sam3 plant 0.5,sam3,B17,dev,size 2,accepted,9907,10519,10066,10360,10,70
+sam3 leaf 0.3,sam3,B17,dev,size 2,accepted,9542,10500,9682,10360,10,70
+sam3 leaf 0.4,sam3,B17,dev,size 2,accepted,9527,10495,9662,10360,10,70
+sam3 leaf 0.5,sam3,B17,dev,size 2,accepted,9527,10495,9662,10360,10,70
+sam3 potato_plant 0.3,sam3,B17,dev,size 2,accepted,0,10360,0,10360,0,70
+sam3 potato_plant 0.4,sam3,B17,dev,size 2,accepted,0,10360,0,10360,0,70
+sam3 potato_plant 0.5,sam3,B17,dev,size 2,accepted,0,10360,0,10360,0,70
+sam2 p1m,sam2,B17,dev,size 2,accepted,6769,10668,7077,10360,28,70
+sam2 p1s,sam2,B17,dev,size 2,accepted,6834,10673,7147,10360,28,70
+sam2 p5s,sam2,B17,dev,size 2,accepted,10083,10803,10526,10360,47,70
+grow core 0.07,grow,B18,dev,size 1,corrected,12026,12092,12042,12076,16,180
+sam3 plant 0.3,sam3,B18,dev,size 1,corrected,11988,12830,12742,12076,191,180
+sam3 plant 0.4,sam3,B18,dev,size 1,corrected,11988,12813,12725,12076,191,180
+sam3 plant 0.5,sam3,B18,dev,size 1,corrected,11988,12813,12725,12076,191,180
+sam3 leaf 0.3,sam3,B18,dev,size 1,corrected,11954,13096,12974,12076,478,180
+sam3 leaf 0.4,sam3,B18,dev,size 1,corrected,11844,12723,12491,12076,137,180
+sam3 leaf 0.5,sam3,B18,dev,size 1,corrected,11440,12706,12070,12076,135,180
+sam3 potato_plant 0.3,sam3,B18,dev,size 1,corrected,0,12076,0,12076,0,180
+sam3 potato_plant 0.4,sam3,B18,dev,size 1,corrected,0,12076,0,12076,0,180
+sam3 potato_plant 0.5,sam3,B18,dev,size 1,corrected,0,12076,0,12076,0,180
+sam2 p1m,sam2,B18,dev,size 1,corrected,11274,13017,12215,12076,197,180
+sam2 p1s,sam2,B18,dev,size 1,corrected,11277,13031,12232,12076,198,180
+sam2 p5s,sam2,B18,dev,size 1,corrected,11302,12934,12160,12076,157,180
+grow core 0.07,grow,B19,dev,empty,corrected,93680,93685,93684,93681,0,1409
+sam3 plant 0.3,sam3,B19,dev,empty,corrected,91543,94532,92394,93681,27,1409
+sam3 plant 0.4,sam3,B19,dev,empty,corrected,91543,94532,92394,93681,27,1409
+sam3 plant 0.5,sam3,B19,dev,empty,corrected,91543,94532,92394,93681,27,1409
+sam3 leaf 0.3,sam3,B19,dev,empty,corrected,89924,94838,91081,93681,551,1409
+sam3 leaf 0.4,sam3,B19,dev,empty,corrected,89848,94838,91005,93681,551,1409
+sam3 leaf 0.5,sam3,B19,dev,empty,corrected,89848,93794,89961,93681,73,1409
+sam3 potato_plant 0.3,sam3,B19,dev,empty,corrected,0,93681,0,93681,0,1409
+sam3 potato_plant 0.4,sam3,B19,dev,empty,corrected,0,93681,0,93681,0,1409
+sam3 potato_plant 0.5,sam3,B19,dev,empty,corrected,0,93681,0,93681,0,1409
+sam2 p1m,sam2,B19,dev,empty,corrected,93012,94974,94305,93681,351,1409
+sam2 p1s,sam2,B19,dev,empty,corrected,93012,94974,94305,93681,351,1409
+sam2 p5s,sam2,B19,dev,empty,corrected,92888,95004,94211,93681,394,1409
+grow core 0.07,grow,B20,dev,size 3,corrected,12957,13290,13281,12966,33,202
+sam3 plant 0.3,sam3,B20,dev,size 3,corrected,12254,13420,12708,12966,85,202
+sam3 plant 0.4,sam3,B20,dev,size 3,corrected,12248,13420,12702,12966,85,202
+sam3 plant 0.5,sam3,B20,dev,size 3,corrected,12229,13414,12677,12966,80,202
+sam3 leaf 0.3,sam3,B20,dev,size 3,corrected,11832,13209,12075,12966,56,202
+sam3 leaf 0.4,sam3,B20,dev,size 3,corrected,11784,13209,12027,12966,56,202
+sam3 leaf 0.5,sam3,B20,dev,size 3,corrected,11784,13209,12027,12966,56,202
+sam3 potato_plant 0.3,sam3,B20,dev,size 3,corrected,0,12966,0,12966,0,202
+sam3 potato_plant 0.4,sam3,B20,dev,size 3,corrected,0,12966,0,12966,0,202
+sam3 potato_plant 0.5,sam3,B20,dev,size 3,corrected,0,12966,0,12966,0,202
+sam2 p1m,sam2,B20,dev,size 3,corrected,7379,13318,7731,12966,99,202
+sam2 p1s,sam2,B20,dev,size 3,corrected,7448,13305,7787,12966,85,202
+sam2 p5s,sam2,B20,dev,size 3,corrected,12363,13618,13015,12966,120,202
+grow core 0.07,grow,B21,dev,size 5,corrected,129099,129724,129724,129099,521,17811
+sam3 plant 0.3,sam3,B21,dev,size 5,corrected,125995,165470,162366,129099,25965,17811
+sam3 plant 0.4,sam3,B21,dev,size 5,corrected,125995,165470,162366,129099,25965,17811
+sam3 plant 0.5,sam3,B21,dev,size 5,corrected,125995,165470,162366,129099,25965,17811
+sam3 leaf 0.3,sam3,B21,dev,size 5,corrected,120365,158141,149407,129099,24553,17811
+sam3 leaf 0.4,sam3,B21,dev,size 5,corrected,119979,157950,148830,129099,24453,17811
+sam3 leaf 0.5,sam3,B21,dev,size 5,corrected,118289,156530,145720,129099,23989,17811
+sam3 potato_plant 0.3,sam3,B21,dev,size 5,corrected,0,129099,0,129099,0,17811
+sam3 potato_plant 0.4,sam3,B21,dev,size 5,corrected,0,129099,0,129099,0,17811
+sam3 potato_plant 0.5,sam3,B21,dev,size 5,corrected,0,129099,0,129099,0,17811
+sam2 p1m,sam2,B21,dev,size 5,corrected,127328,163733,161962,129099,25271,17811
+sam2 p1s,sam2,B21,dev,size 5,corrected,127328,163712,161941,129099,25267,17811
+sam2 p5s,sam2,B21,dev,size 5,corrected,127395,163667,161963,129099,25274,17811
+grow core 0.07,grow,B22,dev,size 3,corrected,15242,15350,15316,15276,0,102
+sam3 plant 0.3,sam3,B22,dev,size 3,corrected,14025,15732,14481,15276,28,102
+sam3 plant 0.4,sam3,B22,dev,size 3,corrected,14021,15722,14467,15276,28,102
+sam3 plant 0.5,sam3,B22,dev,size 3,corrected,14021,15722,14467,15276,28,102
+sam3 leaf 0.3,sam3,B22,dev,size 3,corrected,13664,20281,18669,15276,232,102
+sam3 leaf 0.4,sam3,B22,dev,size 3,corrected,13635,17304,15663,15276,62,102
+sam3 leaf 0.5,sam3,B22,dev,size 3,corrected,13608,15704,14036,15276,15,102
+sam3 potato_plant 0.3,sam3,B22,dev,size 3,corrected,0,15276,0,15276,0,102
+sam3 potato_plant 0.4,sam3,B22,dev,size 3,corrected,0,15276,0,15276,0,102
+sam3 potato_plant 0.5,sam3,B22,dev,size 3,corrected,0,15276,0,15276,0,102
+sam2 p1m,sam2,B22,dev,size 3,corrected,14530,16095,15349,15276,70,102
+sam2 p1s,sam2,B22,dev,size 3,corrected,14529,16109,15362,15276,70,102
+sam2 p5s,sam2,B22,dev,size 3,corrected,14281,15920,14925,15276,39,102
+grow core 0.07,grow,B23,dev,size 5,corrected,52778,52793,52789,52782,11,720
+sam3 plant 0.3,sam3,B23,dev,size 5,corrected,51211,70308,68737,52782,3635,720
+sam3 plant 0.4,sam3,B23,dev,size 5,corrected,51211,70308,68737,52782,3635,720
+sam3 plant 0.5,sam3,B23,dev,size 5,corrected,51211,70308,68737,52782,3635,720
+sam3 leaf 0.3,sam3,B23,dev,size 5,corrected,49524,58493,55235,52782,260,720
+sam3 leaf 0.4,sam3,B23,dev,size 5,corrected,49194,56061,52473,52782,59,720
+sam3 leaf 0.5,sam3,B23,dev,size 5,corrected,49194,56061,52473,52782,59,720
+sam3 potato_plant 0.3,sam3,B23,dev,size 5,corrected,0,52782,0,52782,0,720
+sam3 potato_plant 0.4,sam3,B23,dev,size 5,corrected,0,52782,0,52782,0,720
+sam3 potato_plant 0.5,sam3,B23,dev,size 5,corrected,0,52782,0,52782,0,720
+sam2 p1m,sam2,B23,dev,size 5,corrected,52457,58961,58636,52782,1243,720
+sam2 p1s,sam2,B23,dev,size 5,corrected,52452,58923,58593,52782,1239,720
+sam2 p5s,sam2,B23,dev,size 5,corrected,52328,54886,54432,52782,205,720
+grow core 0.07,grow,B24,dev,empty,corrected,50397,50398,50397,50398,0,604
+sam3 plant 0.3,sam3,B24,dev,empty,corrected,49458,67571,66631,50398,14117,604
+sam3 plant 0.4,sam3,B24,dev,empty,corrected,49458,67571,66631,50398,14117,604
+sam3 plant 0.5,sam3,B24,dev,empty,corrected,49058,64395,63055,50398,12801,604
+sam3 leaf 0.3,sam3,B24,dev,empty,corrected,48196,68872,66670,50398,13772,604
+sam3 leaf 0.4,sam3,B24,dev,empty,corrected,48196,68872,66670,50398,13772,604
+sam3 leaf 0.5,sam3,B24,dev,empty,corrected,48196,68872,66670,50398,13772,604
+sam3 potato_plant 0.3,sam3,B24,dev,empty,corrected,0,50398,0,50398,0,604
+sam3 potato_plant 0.4,sam3,B24,dev,empty,corrected,0,50398,0,50398,0,604
+sam3 potato_plant 0.5,sam3,B24,dev,empty,corrected,0,50398,0,50398,0,604
+sam2 p1m,sam2,B24,dev,empty,corrected,40213,50454,40269,50398,2,604
+sam2 p1s,sam2,B24,dev,empty,corrected,40213,50454,40269,50398,2,604
+sam2 p5s,sam2,B24,dev,empty,corrected,41464,50454,41520,50398,2,604
+grow core 0.07,grow,B27,dev,size 1,corrected,7117,7745,7125,7737,0,60
+sam3 plant 0.3,sam3,B27,dev,size 1,corrected,7611,8436,8310,7737,53,60
+sam3 plant 0.4,sam3,B27,dev,size 1,corrected,7611,8436,8310,7737,53,60
+sam3 plant 0.5,sam3,B27,dev,size 1,corrected,7611,8436,8310,7737,53,60
+sam3 leaf 0.3,sam3,B27,dev,size 1,corrected,7641,8578,8482,7737,225,60
+sam3 leaf 0.4,sam3,B27,dev,size 1,corrected,7533,8243,8039,7737,47,60
+sam3 leaf 0.5,sam3,B27,dev,size 1,corrected,7528,8239,8030,7737,47,60
+sam3 potato_plant 0.3,sam3,B27,dev,size 1,corrected,0,7737,0,7737,0,60
+sam3 potato_plant 0.4,sam3,B27,dev,size 1,corrected,0,7737,0,7737,0,60
+sam3 potato_plant 0.5,sam3,B27,dev,size 1,corrected,0,7737,0,7737,0,60
+sam2 p1m,sam2,B27,dev,size 1,corrected,7669,38197,38129,7737,187,60
+sam2 p1s,sam2,B27,dev,size 1,corrected,7661,38175,38099,7737,174,60
+sam2 p5s,sam2,B27,dev,size 1,corrected,7666,38219,38148,7737,209,60
+grow core 0.07,grow,B28,dev,green soil,corrected,3508,3740,3544,3704,0,3
+sam3 plant 0.3,sam3,B28,dev,green soil,corrected,0,3704,0,3704,0,3
+sam3 plant 0.4,sam3,B28,dev,green soil,corrected,0,3704,0,3704,0,3
+sam3 plant 0.5,sam3,B28,dev,green soil,corrected,0,3704,0,3704,0,3
+sam3 leaf 0.3,sam3,B28,dev,green soil,corrected,3666,9179,9141,3704,4004,3
+sam3 leaf 0.4,sam3,B28,dev,green soil,corrected,3666,9179,9141,3704,4004,3
+sam3 leaf 0.5,sam3,B28,dev,green soil,corrected,3663,8832,8791,3704,3693,3
+sam3 potato_plant 0.3,sam3,B28,dev,green soil,corrected,0,3704,0,3704,0,3
+sam3 potato_plant 0.4,sam3,B28,dev,green soil,corrected,0,3704,0,3704,0,3
+sam3 potato_plant 0.5,sam3,B28,dev,green soil,corrected,0,3704,0,3704,0,3
+sam2 p1m,sam2,B28,dev,green soil,corrected,3693,29008,28997,3704,158,3
+sam2 p1s,sam2,B28,dev,green soil,corrected,3692,29001,28989,3704,153,3
+sam2 p5s,sam2,B28,dev,green soil,corrected,3687,28903,28886,3704,102,3
+grow core 0.07,grow,B29,dev,empty,accepted,6065,6065,6065,6065,0,22
+sam3 plant 0.3,sam3,B29,dev,empty,accepted,5870,27898,27703,6065,2374,22
+sam3 plant 0.4,sam3,B29,dev,empty,accepted,0,6065,0,6065,0,22
+sam3 plant 0.5,sam3,B29,dev,empty,accepted,0,6065,0,6065,0,22
+sam3 leaf 0.3,sam3,B29,dev,empty,accepted,5919,10775,10629,6065,490,22
+sam3 leaf 0.4,sam3,B29,dev,empty,accepted,5919,6981,6835,6065,153,22
+sam3 leaf 0.5,sam3,B29,dev,empty,accepted,5919,6186,6040,6065,1,22
+sam3 potato_plant 0.3,sam3,B29,dev,empty,accepted,0,6065,0,6065,0,22
+sam3 potato_plant 0.4,sam3,B29,dev,empty,accepted,0,6065,0,6065,0,22
+sam3 potato_plant 0.5,sam3,B29,dev,empty,accepted,0,6065,0,6065,0,22
+sam2 p1m,sam2,B29,dev,empty,accepted,6027,6382,6344,6065,10,22
+sam2 p1s,sam2,B29,dev,empty,accepted,6034,6392,6361,6065,20,22
+sam2 p5s,sam2,B29,dev,empty,accepted,6030,6372,6337,6065,10,22
+grow core 0.07,grow,B30,dev,size 1,accepted,3483,3483,3483,3483,0,96
+sam3 plant 0.3,sam3,B30,dev,size 1,accepted,3328,18374,18219,3483,4968,96
+sam3 plant 0.4,sam3,B30,dev,size 1,accepted,3328,18374,18219,3483,4968,96
+sam3 plant 0.5,sam3,B30,dev,size 1,accepted,3328,18374,18219,3483,4968,96
+sam3 leaf 0.3,sam3,B30,dev,size 1,accepted,3287,15143,14947,3483,3243,96
+sam3 leaf 0.4,sam3,B30,dev,size 1,accepted,3266,15025,14808,3483,3212,96
+sam3 leaf 0.5,sam3,B30,dev,size 1,accepted,3266,8672,8455,3483,1219,96
+sam3 potato_plant 0.3,sam3,B30,dev,size 1,accepted,0,3483,0,3483,0,96
+sam3 potato_plant 0.4,sam3,B30,dev,size 1,accepted,0,3483,0,3483,0,96
+sam3 potato_plant 0.5,sam3,B30,dev,size 1,accepted,0,3483,0,3483,0,96
+sam2 p1m,sam2,B30,dev,size 1,accepted,3417,5740,5674,3483,482,96
+sam2 p1s,sam2,B30,dev,size 1,accepted,3405,5587,5509,3483,437,96
+sam2 p5s,sam2,B30,dev,size 1,accepted,3407,5738,5662,3483,415,96

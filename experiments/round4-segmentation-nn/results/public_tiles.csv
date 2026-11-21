@@ -1,0 +1,8 @@
+set,name,scale,images_total,images_with_patches,patches,in_d1_pretraining,sample_probability_d1
+vegann,VegAnn,0.4,2364,2364,2364,True,0.1667
+aradeepopsis,ARADEEPOPSIS,0.45,1899,1899,1899,False,0
+aled,ALED,0.45,56,56,1120,True,0.1667
+potato_leaf,Potato Leaf,0.2,127,127,1524,True,0.1667
+potato_canopy,Potato Canopy,0.4,25,25,345,True,0.1667
+we3ds,WE3DS,0.55,2568,2568,9887,True,0.1667
+sugarbeets,Sugar Beets 2016,1.0,12330,3247,12000,True,0.1667

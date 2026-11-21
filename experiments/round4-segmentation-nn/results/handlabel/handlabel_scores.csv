@@ -1,0 +1,9 @@
+id,rig,day,tray,cell,group,fold_run,hand_px,grow_px,grow_iou,grow_ratio,net_px,net_iou,net_ratio
+H01,production,2026-10-22,4,D3,production tiny seedling,s2_f3_e40,261,361,0.7088,1.3831,354,0.7227,1.3563
+H02,production,2026-11-18,6,B3,production blue mat,s2_f0_e40,30090,28278,0.9191,0.9398,27632,0.9161,0.9183
+H03,production,2026-10-25,3,C4,production normal small plant,s2_f1_e40,541,933,0.5798,1.7246,810,0.6679,1.4972
+H04,production,2026-11-17,5,D1,production larger plant,s2_f4_e40,14467,11816,0.8023,0.8168,11975,0.8198,0.8277
+H05,development,2026-11-16,12,D4,development small plant,s2_f3_e40,295,532,0.5545,1.8034,459,0.6427,1.5559
+H06,development,2026-11-19,11,A3,development large plant,s2_f1_e40,22286,22502,0.9255,1.0097,23759,0.923,1.0661
+H07,development,2026-11-17,12,A5,development pale seedling,s2_f4_e40,1382,1925,0.7046,1.3929,2070,0.666,1.4978
+H08,production,2026-10-25,6,D5,production reddish-purple stalk,s2_f1_e40,513,824,0.6186,1.6062,834,0.6112,1.6257

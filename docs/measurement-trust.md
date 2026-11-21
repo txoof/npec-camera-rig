@@ -393,7 +393,12 @@ soil it counts whole soil cells as plant, so the cutoff has to follow each tray'
 instead of a number. A blue mat laid under green squares changes every rule's area at the edge,
 13 to 24% on a 10 mm square (24.4). On real potato plants, mats laid by researchers in experiment 18 lowered grow from leaf cores by about a fifth (21% to 24% on two trays) with nothing changed in the plants: on a mat the leaf's edge pixels turn slightly blue and are left out (36.2). SAM 2.1 small, given each plant alone, does worse (IoU 0.77)
 and takes 7 to 10 s a plant (24.5). These are one still and 15 plants of one person: they show
-which rules fail and how, not a band for plant area.
+which rules fail and how, not a band for plant area. A small neural network trained on grow from leaf
+cores' own labels and compiled for both Hailo chips scored about the same as grow from leaf cores
+(metrology log 44.2 to 44.5, development checks, 2026-11-21). On 8 cells outlined from nothing, mean IoU
+was 0.75 for the network and 0.73 for grow from leaf cores. Both mark seedlings 1.4 to 1.8 times the
+outlined area, and plants on blue mats 0.82 to 0.94 times. Grow from leaf cores stays, and the network
+is compared again when the development rig holds other crops.
 
 **How photos are saved.** Until #359 every photo was saved as a JPEG at quality 75 with colour at
 half resolution, a library default nobody chose. Against the same stills kept uncompressed
@@ -463,7 +468,10 @@ metrology log backs it.
   No correction is made; it needs a measured depth source (CLAUDE.md, *Evidence gates*).
 - **Very small plants.** Flat red shapes of 50 to 80 mm² read 16% to 21% small on average, likely
   because most of their pixels are blurred edge pixels (not measured, 15.5). Young seedlings may
-  be this small.
+  be this small. *Added 2026-11-21* (metrology log 44.4, a development check): on 5 real seedlings of
+  261 to 1,382 px, outlined once by Aaron from nothing, grow from leaf cores read 1.38 to 1.80 times
+  the outlined area. That is large, and in the other direction from the flat shapes. How much the
+  outline itself varies at a seedling's edge is not measured.
 - **Colour drift.** With nothing moved, the camera's white balance gains drifted 0.8% to 0.9% in 30
   minutes (15.3d). What that does to green area is not measured.
 - **One photo against the next, over a long run** (*added 2026-11-09*, metrology log 16.9, a
