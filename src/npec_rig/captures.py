@@ -286,29 +286,57 @@ AE_STATES = {0: "idle", 1: "searching", 2: "converged"}
 
 def _record_in_database(record: dict) -> int | None:
     """Add the photo's `capture` row, return its id. A failure is logged, never raised: the
-    photo and its sidecar are already saved, and the sidecar is the full record."""
-    sensor = record["sensor_metadata"]
+    photo and its sidecar are already saved, and the sidecar is the full record, from which
+    `adopt_unrecorded_photos` adds the row later (#439)."""
     try:
-        return database.record_capture(
-            taken_at=record["timestamp"],
-            path=record["path"],
-            purpose=record["purpose"],
-            experiment_id=(record["experiment"] or {}).get("id"),
-            calibration=_active_calibration_stem(),
-            validation=record.get("validation", {}).get("session"),
-            lens_position=sensor.get("LensPosition"),
-            focus_locked_at=record["focus"]["lens_position"],
-            exposure_us=sensor.get("ExposureTime"),
-            analogue_gain=sensor.get("AnalogueGain"),
-            flags=record["flags"],
-            clock_synced=record["clock"]["synchronized"],
-            jpeg_quality=record["photo_quality"]["quality"],
-            jpeg_chroma=record["photo_quality"]["chroma"],
-            ae_state=AE_STATES.get(sensor.get("AeState")),
-        )
+        return _record_capture(record, record["path"], calibration=_active_calibration_stem())
     except (sqlite3.Error, RuntimeError):
         logger.exception("Could not add the photo %s to the database", record["filename"])
         return None
+
+
+def adopt_unrecorded_photos(experiment: dict, days: set[str]) -> int:
+    """Add a `capture` row for each of `experiment`'s photos saved in the `days` folders
+    (YYYY-MM-DD) without one: saved while rig.db could not be written (#439). Each gets the
+    calibration of the photos around it (`database.calibration_around`). Returns how many."""
+    found = []
+    for day in sorted(days):
+        prefix = f"experiments/{experiment['folder']}/stills/{day}"
+        for sidecar in sorted((experiments_root() / experiment["folder"] / "stills" / day).glob("*.json")):
+            if sidecar.with_suffix(".jpg").exists():
+                found.append((f"{prefix}/{sidecar.stem}", sidecar))
+    known = database.captures_by_path([path for path, _ in found])
+    added = 0
+    for path, sidecar in found:
+        if path in known:
+            continue
+        record = json.loads(sidecar.read_text())
+        calibration = database.calibration_around(experiment["id"], record["timestamp"])
+        _record_capture(record, path, calibration=calibration)
+        logger.warning("Added the photo %s to the database after it was taken", path)
+        added += 1
+    return added
+
+
+def _record_capture(record: dict, path: str, *, calibration: str | None) -> int:
+    sensor = record["sensor_metadata"]
+    return database.record_capture(
+        taken_at=record["timestamp"],
+        path=path,
+        purpose=record["purpose"],
+        experiment_id=(record["experiment"] or {}).get("id"),
+        calibration=calibration,
+        validation=record.get("validation", {}).get("session"),
+        lens_position=sensor.get("LensPosition"),
+        focus_locked_at=record["focus"]["lens_position"],
+        exposure_us=sensor.get("ExposureTime"),
+        analogue_gain=sensor.get("AnalogueGain"),
+        flags=record["flags"],
+        clock_synced=record["clock"]["synchronized"],
+        jpeg_quality=record["photo_quality"]["quality"],
+        jpeg_chroma=record["photo_quality"]["chroma"],
+        ae_state=AE_STATES.get(sensor.get("AeState")),
+    )
 
 
 def _save_photo(image: np.ndarray, metadata: dict, experiment: dict | None = None) -> dict:

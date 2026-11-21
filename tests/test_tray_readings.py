@@ -6,6 +6,8 @@ the printed shuffle map, as in tests/test_tray_placement.py.
 """
 
 import json
+import logging
+import threading
 import time
 from pathlib import Path
 
@@ -13,12 +15,12 @@ import pytest
 from PIL import Image
 from fastapi.testclient import TestClient
 
-from npec_rig import captures, database, photo_tags, tray_readings, validation_store
+from npec_rig import captures, database, photo_tags, settings, tray_readings, validation_store
 from npec_rig.app import app
 from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
 from npec_rig.tags import TagDetection
-from tests.helpers import DARK_SOIL_RGB, banded_validation, one_tray_plant_scene, table_calibration, table_photo
+from tests.helpers import DARK_SOIL_RGB, banded_validation, one_tray_plant_scene, table_calibration, table_photo, lock_held
 
 pytestmark = pytest.mark.unit
 
@@ -1126,3 +1128,37 @@ def test_reprocess_segments_again_a_photo_read_with_its_cutoff_in_the_leaves(mon
     assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
     assert tray["grown_lower_cutoff"] == pytest.approx(-0.045)
     assert segmentation.SOIL_HIDDEN in tray["warnings"]
+
+
+def test_a_photo_whose_reading_met_a_locked_rig_db_is_read_again(monkeypatch, tmp_path) -> None:
+    """#439: on production a photo's reading could not be saved while another writer held rig.db,
+    the lock was gone a moment later, and the photo was saved as "read failed" for good."""
+    monkeypatch.setattr(tray_readings, "POLL_S", 0.05)
+    monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
+    _calibrate()
+    _finds(monkeypatch, "080357_563754")
+    client = TestClient(app)  # not started as a context: no reader or scheduler of its own
+    experiment = client.post("/api/experiments", json={}).json()
+    client.post(f"/api/experiments/{experiment['id']}/start")
+    path = _photo()
+    photo_tags.photo_tags_for(path)  # its tags found and kept before the lock (images.py waits 10 s)
+
+    gave_up = threading.Event()
+
+    class FirstLockFailure(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            if "was locked" in record.getMessage():
+                gave_up.set()
+
+    handler = FirstLockFailure()
+    logging.getLogger("npec_rig.database").addHandler(handler)
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+    reader = tray_readings.TrayReader()
+    try:
+        with lock_held(until=gave_up):  # the lock ends just after the reading fails to be saved
+            reader.start()
+        _wait_for(lambda: (tray_readings.photo_readings(path) or {}).get("status") == "read", timeout_s=5)
+    finally:
+        reader.stop(timeout_s=5)
+        logging.getLogger("npec_rig.database").removeHandler(handler)
+    assert len(tray_readings.photo_readings(path)["trays"]) == 12

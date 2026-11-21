@@ -220,7 +220,13 @@ experiment is purged, as the record of the schedule.
 | `slot` | integer | 1 for the first photo after the start |
 | `due_at` | text | When the photo was due, UTC (`isoformat()`) |
 | `capture_id` | integer | The photo's `capture` row; NULL when missed |
-| `missed_reason` | text | Why it was not taken; NULL when taken. `the app was not running` when it was due before the app last started, `the previous photo took longer than the interval` when due since, otherwise the camera's error |
+| `missed_reason` | text | Why it was not taken; NULL when taken. `the app was not running` when it was due before the app last started, `the previous photo took longer than the interval` when due since, `the photo was saved but could not be found to add to the database` (#439), otherwise the camera's error |
+
+A slot with both `capture_id` and `missed_reason` NULL is one whose photo was saved to disk while
+rig.db could not be written (another writer held it longer than `settings.LOCK_WAIT_S`, #439).
+Before #439 such slots stayed that way; since then the scheduler adds the photo's `capture` row
+from its JSON record within one tick, with the calibration of the photos either side of it
+(`database.calibration_around`), and links the slot.
 
 Photos missed in the running period:
 
