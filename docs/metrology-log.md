@@ -10879,8 +10879,8 @@ was touched.
 - The final network's own 8-bit loss cannot be scored on truth, because it saw every cell. On 200
   check tiles, its 8-bit and full-precision masks agree to IoU 0.986.
 
-**Not measured.** Speed on either chip. The Hailo-10H needs the `hardware` label (measure 6). The
-Hailo-8 is on production, which is read only.
+**Speed.** The Hailo-10H was timed on the development Pi afterwards (44.6). The Hailo-8 is not timed:
+it is on production, which is read only.
 
 ![8-bit against full precision on 8 training cells](figures/44.3/stage-G-8bit-eight-cells.jpg)
 *The same 8 cells. Columns: colour crop, Aaron's truth, full-precision fold model, Hailo-8 8-bit,
@@ -10956,9 +10956,9 @@ Made by `code/score_handlabel.py` on 2026-11-21; scaled-down copy of
 
 ### 44.5 What was not done, and the decision (2026-11-21)
 
-**Not done.** Measures 1 to 4 and 6 of the method: the test cells, the 15 outlines of section 24,
-trained on one rig and tested on the other, the steadiness runs, and time and memory on the
-development Pi. So the pass test of 44 was not applied. The test cells and the 15 outlines stay
+**Not done.** Measures 1 to 4 of the method: the test cells, the 15 outlines of section 24,
+trained on one rig and tested on the other, and the steadiness runs. So the pass test of 44 was not
+applied. Measure 6, time on the development Pi, was done afterwards (44.6). The test cells and the 15 outlines stay
 unopened, so they can still serve as a fair test later.
 
 **What the work cost.**
@@ -10966,8 +10966,8 @@ unopened, so they can still serve as a fair test later.
   networks.
 - Compiling: about 28 min for Hailo-8 and 64 min for Hailo-10H, on its CPU.
 - Aaron's time: checking the labels, the purple spots and the 8 outlines, on 20 and 21 November.
-- In use, the network needs the Hailo on each rig. Grow from leaf cores runs on the Pi's CPU, in
-  about 2.9 s per photo (34.1).
+- In use, the network needs the Hailo on each rig: 2.3 s per photo on the Hailo-10H (44.6). Grow from
+  leaf cores runs on the Pi's CPU, in about 2.9 s per photo (34.1).
 
 **Assessment (Aaron, 2026-11-21).** The network costs time, needs extra hardware, and is similar in
 quality to grow from leaf cores. It is worth using only if it does better across different crops.
@@ -10976,7 +10976,7 @@ quality to grow from leaf cores. It is worth using only if it does better across
 now. The development rig grows four or five different crops. When it holds more data, the network
 and grow from leaf cores are compared again on those crops. That comparison needs:
 - outlines drawn from nothing for each crop;
-- the Hailo-10H timing (measure 6), when Aaron gives the `hardware` label.
+- the same timing as 44.6, repeated for any new network.
 
 **Raw data.**
 - In the repository, `experiments/round4-segmentation-nn/`:
@@ -10989,6 +10989,42 @@ and grow from leaf cores are compared again on those crops. That comparison need
   - models: `analysis/train/runs/`, final network `s2_final_e40`;
   - compiled models: `hailo/final/`;
   - public data: `data/public/`, with checksums.
+
+### 44.6 Time and memory for one photo on the development Pi with the Hailo-10H (2026-11-21)
+
+**Label: development check.** Measure 6 of the method. Run on `npec-rig-01` between about 12:30 and 12:45
+UTC, on Aaron's go-ahead. Issue #439 still held the `hardware` label. The app kept running experiment 4,
+a photo every 5 minutes, and was not touched. The compiled model and the script were copied to `/tmp` on
+the rig and removed afterwards. Memory was capped (`ulimit -v`, 4 GB), and the script ran at a lower
+priority (`nice 10`).
+
+**Chip alone.** `hailortcli benchmark`, 15 s per mode, random input: 282 tiles/s at batch 1 and at batch
+8, with the chip at 45 to 51 °C. The compiler gave no estimate for this 3-context model (44.3).
+
+**One full photo.** Script `code/pi_time_photo.py`, with the app's own Python and its decoder
+(`npec_rig.images.decode_full`). It times every step from the JPEG on disk to a full-size plant mask.
+Counting the mask per cell was not timed, as it is small next to these steps. Photo: development capture
+23494 (19 November, 18:00 UTC, 9152 x 6944), read at half resolution as 432 tiles, batch 8, 3 repeats.
+
+| Step | Time per photo, 3 repeats |
+|---|---|
+| Decode the JPEG | 0.61 to 0.62 s |
+| Scale to half resolution | 0.04 s |
+| Run 432 tiles on the Hailo-10H | 1.34 to 1.35 s |
+| Blend the tile outputs | 0.15 to 0.16 s |
+| Threshold and scale the mask back to full size | 0.14 to 0.15 s |
+| **Total** | **2.28 to 2.33 s** |
+
+- Peak memory of the process: 1.0 GB, of the Pi's 8 GB.
+- *The chip's mask against the full-precision network*, same photo, half resolution: IoU 0.987, area
+  ratio 0.996.
+- *Against the pass test of 44* (under 60 s, together with the app's other work): it passes, at about
+  4% of the limit. For comparison, grow from leaf cores takes about 2.9 s per photo on the Pi's CPU
+  (34.1). Speed therefore gives neither method an advantage.
+- *Limits:* one photo, one rig, 3 repeats. The app was idle between its photos, so this does not show the
+  time with a Reprocess or an export running alongside.
+- *Raw data:* `results/pi_timing_hailo10h.md`; the chip's output for the photo is on the work machine,
+  `hailo/final/pi_timing/`.
 
 ## 45. M3 acceptance tests: 24 hour photo count, reboot, CSV, disk headroom (issue #67, written 2026-11-20, after the records were read)
 
