@@ -1,6 +1,7 @@
 <!-- MOCKUP for #473 (replaces #360): the Setup page with two tabs, Setup steps and Rig settings.
      Rendered from the real templates and style.css of main 6ca1d87 with fixed values; nothing calls the API.
-     Open in a browser. Views: #steps, #settings, #settings-changes, #settings-changed (experiment running), #confirm. -->
+     Open in a browser and tap the tabs, the stepper, the colour choices and Save. The corner button pretends an
+     experiment is running, so Save asks first. Views by address: #steps, #settings, #settings-changes, #confirm. -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -1803,26 +1804,58 @@ function initSquareness({ isActive }) {
     <div class="card-actions"><a class="btn  hit" href="#">Change on Focus &amp; Square</a></div>
   </section>
 </div>
-<span class="mock-note">MOCKUP</span>
+<button type="button" class="mock-note" id="mock-running">Mockup: pretend experiment running OFF</button>
 <script>
 window.addEventListener("load", () => {
+  const $ = (id) => document.getElementById(id);
+  const saved = { q: 85, c: "4:4:4" };
+  const now = { q: 85, c: "4:4:4" };
+  let running = false;
+  const colour = (c) => c === "4:4:4" ? "Full" : "Half";
+  const showTab = (tab) => {
+    for (const el of document.querySelectorAll("[data-tab-panel]")) el.hidden = el.dataset.tabPanel !== tab;
+    for (const b of document.querySelectorAll("#setup-tabs .choice")) b.setAttribute("aria-pressed", String(b.dataset.value === tab));
+    $("save-bar").hidden = tab !== "settings";
+    const bar = document.querySelector(".action-bar"); if (bar) bar.hidden = tab !== "settings";
+  };
+  const refresh = () => {
+    const changed = now.q !== saved.q || now.c !== saved.c;
+    $("pq-save").disabled = !changed;
+    $("pq-save").textContent = changed
+      ? `Save photo quality: ${saved.q} ${colour(saved.c).toLowerCase()} to ${now.q} ${colour(now.c).toLowerCase()}`
+      : "Save photo quality";
+    $("running-banner").hidden = !running;
+    $("mock-running").textContent = `Mockup: pretend experiment running ${running ? "ON" : "OFF"}`;
+  };
+  const save = () => {
+    saved.q = now.q; saved.c = now.c;
+    const row = document.createElement("tr");
+    const t = new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    row.innerHTML = `<td>${t}</td><td>${now.q}</td><td>${colour(now.c)} (${now.c})</td>`;
+    document.querySelector(".data-table tbody").prepend(row);
+    document.querySelector("#pq-title + .chip").lastChild.textContent = `Quality ${now.q}, ${colour(now.c).toLowerCase()} colour`;
+    document.querySelector("details.help").open = true;
+    refresh();
+  };
+  ui.bindTabs($("setup-tabs"), (v) => { showTab(v); history.replaceState(null, "", "#" + v); });
+  ui.bindStepper($("pq-quality-step"), (v) => { now.q = Number(v); refresh(); });
+  ui.bindChoices($("pq-chroma-choice"), (v) => { now.c = v; refresh(); });
+  ui.bindSwitch($("awb"));
+  $("mock-running").addEventListener("click", () => { running = !running; refresh(); });
+  $("pq-save").addEventListener("click", () => {
+    if (!running) return save();
+    ui.confirmPanel({
+      title: "Change photo quality during the experiment?",
+      body: `<p>Experiment <strong>Round 3 potatoes</strong> is running. Photos from now on are saved at quality ${now.q}, ${colour(now.c).toLowerCase()} colour. Its plant areas shift by about 1% from this photo on (metrology log 26.1). The change is listed with its time.</p>`,
+      ok: `Save, quality ${now.q}`, onOk: save });
+  });
+  // Views for pictures: #steps, #settings, #settings-changes, #settings-changed, #confirm.
   const h = location.hash.slice(1) || "steps";
-  const tab = h.startsWith("settings") || h === "confirm" ? "settings" : "steps";
-  for (const el of document.querySelectorAll("[data-tab-panel]")) el.hidden = el.dataset.tabPanel !== tab;
-  for (const b of document.querySelectorAll("#setup-tabs .choice")) b.setAttribute("aria-pressed", b.dataset.value === tab);
-  document.getElementById("save-bar").hidden = tab !== "settings";
-  const bar = document.querySelector(".action-bar"); if (bar) bar.hidden = tab !== "settings";
-  if (h === "settings-changed" || h === "confirm") {
-    document.getElementById("running-banner").hidden = false;
-    document.querySelector("#pq-quality-step .value").textContent = "90";
-    document.getElementById("pq-save").disabled = false;
-    document.getElementById("pq-save").textContent = "Save photo quality: 85 to 90";
-  }
+  showTab(h.startsWith("settings") || h === "confirm" ? "settings" : "steps");
+  if (h === "settings-changed" || h === "confirm") { running = true; now.q = 90; document.querySelector("#pq-quality-step .value").textContent = "90"; }
   if (h === "settings-changes") document.querySelector("details.help").open = true;
-  if (h === "confirm") ui.confirmPanel({
-    title: "Change photo quality during the experiment?",
-    body: "<p>Experiment <strong>Round 3 potatoes</strong> is running. Photos from now on are saved at quality 90 instead of 85. Its plant areas shift by about 1% at this photo (metrology log 26.1). The change is listed with its time.</p>",
-    ok: "Save, quality 90", onOk: () => {} });
+  refresh();
+  if (h === "confirm") $("pq-save").click();
 });
 </script>
 
