@@ -1,13 +1,15 @@
 import threading
 import time
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from npec_rig import captures, database, scheduler
+from npec_rig import captures, database, scheduler, settings
 from npec_rig.app import app
 from npec_rig.camera import CameraManager, SyntheticBackend
+from tests.helpers import lock_held
 
 pytestmark = pytest.mark.unit
 
@@ -260,3 +262,27 @@ def test_a_photo_is_late_when_the_app_came_back_after_it_was_due_and_by_the_time
     late = scheduler.schedule(database.get_experiment(experiment["id"]))["late_photos"]
 
     assert late == [{"due": "2027-01-01T10:03:00+00:00", "taken": "2027-01-01T10:04:30+00:00", "late_s": 90.0}]
+
+
+def test_a_photo_saved_while_rig_db_was_locked_gets_its_row_and_its_slot(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#439: on production 11 photos were saved to disk while another writer held rig.db longer
+    than a connection waits, and never got a row; their slots said neither taken nor missed."""
+    with TestClient(app) as client:
+        experiment, started = _start(client, 0.3)
+        _wait_for(lambda: len(database.captures_for_experiment(experiment["id"])) >= 1)
+        monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+        with lock_held(1.0):  # three or four slots come due while nothing can be written
+            pass
+        monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+        since = started["periods"][-1]["started_at"]
+        folder = captures.experiments_root() / started["folder"]
+
+        def settled() -> bool:
+            on_disk = {p.stem for p in folder.rglob("*.jpg")}
+            recorded = {Path(c["path"]).name for c in database.captures_for_experiment(experiment["id"])}
+            progress = database.schedule_progress(experiment["id"], since)
+            return on_disk <= recorded and progress["last_slot"] == progress["photos_taken"] + progress["photos_missed"]
+
+        time.sleep(0.5)
+        _wait_for(settled)
+        client.post(f"/api/experiments/{experiment['id']}/stop")

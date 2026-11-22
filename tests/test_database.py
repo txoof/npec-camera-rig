@@ -1,10 +1,15 @@
+import contextlib
 import sqlite3
+import time
 
 import pytest
+from fastapi.testclient import TestClient
 
-from npec_rig import captures, database
+from npec_rig import captures, database, health, settings
+from npec_rig.app import app
+from npec_rig.camera import CameraManager
 from npec_rig.settings import db_path, save_setting
-from tests.helpers import stored_validation
+from tests.helpers import lock_held, stored_validation
 
 pytestmark = pytest.mark.unit
 
@@ -505,3 +510,82 @@ def test_version_25_keeps_tray_and_cell_readings_from_version_24_with_no_grown_a
     assert {k: cell[k] for k in cell if k.startswith("grown_")} == {
         "grown_area_mm2": None, "grown_plant_px": None, "grown_plant_centre_px": None, "grown_over_other_cells": None,
     }
+
+
+# --- Waiting for another writer (#439) ---
+
+
+def _capture_row() -> None:
+    database.record_capture(
+        taken_at="2026-11-17T14:07:59+00:00", path="rig/2026-11-17/140759_023117", purpose="capture",
+        calibration=None, validation=None, lens_position=None, focus_locked_at=None, exposure_us=None,
+        analogue_gain=None, flags=[],
+    )
+
+
+WRITERS = {
+    "photo": _capture_row,
+    "setting": lambda: save_setting("LastTick", {"wall": "2026-11-17T14:07:59+00:00"}),
+    "camera event": lambda: health.record_camera_event(health.EVENT_FAULT, detail="test"),
+}
+
+
+@pytest.mark.parametrize("write", WRITERS.values(), ids=WRITERS.keys())
+def test_every_writer_waits_the_one_named_wait_for_a_lock(monkeypatch: pytest.MonkeyPatch, write) -> None:
+    """Every connection to rig.db waits settings.LOCK_WAIT_S for another writer, no more: here it
+    is made short and the lock held longer, so each write gives up after about that long."""
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.2)
+    with lock_held(1.0):
+        started = time.monotonic()
+        with contextlib.suppress(sqlite3.OperationalError):
+            write()
+        waited = time.monotonic() - started
+    assert waited < 0.6
+
+
+def _row(taken_at: str, path: str, experiment_id: int, calibration: str) -> None:
+    database.record_capture(
+        taken_at=taken_at, path=path, purpose="capture", experiment_id=experiment_id,
+        calibration=calibration, validation=None, lens_position=None, focus_locked_at=None,
+        exposure_us=None, analogue_gain=None, flags=[],
+    )
+
+
+def _photo_saved_while_locked(monkeypatch: pytest.MonkeyPatch, after: str) -> tuple[dict, dict]:
+    """A running experiment's photo saved to disk while rig.db stayed locked, between a photo
+    measured with calibration "cal-a" and one measured with `after`."""
+    monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(db_path().parent / "experiments"))
+    client = TestClient(app)  # no lifespan: no scheduler takes photos of its own
+    experiment = client.post("/api/experiments", json={"interval_s": 60}).json()
+    experiment = client.post(f"/api/experiments/{experiment['id']}/start").json()
+    _row("2026-11-17T14:06:59+00:00", "experiments/x/stills/2026-11-17/140659_000000", experiment["id"], "cal-a")
+    _row("2099-01-01T00:00:00+00:00", "experiments/x/stills/2099-01-01/000000_000000", experiment["id"], after)
+    # Done once on a new rig.db, before the lock: the camera's settings table, the JPEG setting.
+    CameraManager.instance()
+    settings.photo_quality_in_use()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+    with lock_held(1.0):
+        _array, record = captures.take_photo("capture")
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    assert record["capture_id"] is None  # the photo is on disk, its row is not
+    return experiment, record
+
+
+def test_a_photo_saved_while_rig_db_was_locked_is_added_with_the_calibration_around_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    experiment, record = _photo_saved_while_locked(monkeypatch, after="cal-a")
+
+    assert captures.adopt_unrecorded_photos(experiment, {record["date"]}) == 1
+    row = database.captures_by_path([record["path"]])[record["path"]]
+    assert row["taken_at"] == record["timestamp"]
+    assert row["experiment_id"] == experiment["id"]
+    assert row["calibration"] == "cal-a"
+    assert captures.adopt_unrecorded_photos(experiment, {record["date"]}) == 0
+
+
+def test_a_photo_added_between_two_calibrations_has_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    experiment, record = _photo_saved_while_locked(monkeypatch, after="cal-b")
+
+    captures.adopt_unrecorded_photos(experiment, {record["date"]})
+    assert database.captures_by_path([record["path"]])[record["path"]]["calibration"] is None

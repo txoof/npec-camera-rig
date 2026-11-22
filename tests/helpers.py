@@ -5,6 +5,11 @@ same convention as test_tags.py/test_calibration.py.
 from __future__ import annotations
 
 import json
+import sqlite3
+import threading
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
@@ -391,3 +396,34 @@ def turned_tray_photo(experiment_id: int, taken, tray_id: int = 4, calibration: 
     }])
     database.record_exclusions([{"capture_id": capture_id, "name": None, "norm_e": None, "limit_fraction": None}],
                                worked_out_at=taken.isoformat())
+
+
+@contextmanager
+def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None) -> Iterator[None]:
+    """Another connection holds rig.db's write lock for `seconds`, or until `until` is set, as
+    Reprocess or a purge does (#439)."""
+    from npec_rig import database
+    from npec_rig.settings import db_path
+
+    database.list_experiments()  # the file exists and is migrated before the lock is taken
+    taken = threading.Event()
+
+    def hold() -> None:
+        conn = sqlite3.connect(db_path(), isolation_level=None)
+        conn.execute("BEGIN IMMEDIATE")
+        taken.set()
+        if until is None:
+            time.sleep(seconds)
+        else:
+            until.wait(seconds)
+        conn.execute("COMMIT")
+        conn.close()
+
+    thread = threading.Thread(target=hold)
+    thread.start()
+    taken.wait(5)
+    try:
+        yield
+    finally:
+        if until is None:
+            thread.join()
