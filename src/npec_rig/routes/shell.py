@@ -71,14 +71,15 @@ def _steps(focus: dict, local_times: dict) -> list[dict]:
 
 def _newest_photo_pixels() -> tuple[int, int] | None:
     """Width and height of the newest photo the rig has saved, from its JPEG header only."""
-    for entry in captures.list_recent_captures(limit=1):
+    # The newest may still be being written: try a few, newest first (review of PR #475).
+    for entry in captures.list_recent_captures(limit=3):
         path = captures.photo_file(entry["path"])
         if path is not None:
             try:
                 with Image.open(path) as image:
                     return image.size
             except OSError:
-                log.exception("Setup page: the newest photo could not be read: %s", path)
+                log.exception("Setup page: a photo could not be read: %s", path)
     return None
 
 
@@ -99,6 +100,28 @@ def _photos_per_day(running: dict | None) -> tuple[float, str]:
 def setup_page(request: Request) -> Response:
     """The Setup page (#473): the setup pages on one tab, the rig settings (photo quality, white
     balance) on the other, with each photo quality's estimate for the page to look up."""
+    try:
+        context = _page_context()
+    except Exception:
+        # rig.db locked or unreadable, or the camera not answering: the page still links to the
+        # pages that repair the rig (review of PR #475).
+        log.exception("Setup page: the rig's state could not be read")
+        context = {"failed": True, "local_times": {},
+                   "steps": [{"title": title, "href": href, "status": None, "meta": []} for title, href in STEP_PAGES]}
+    return templates.TemplateResponse(request, "setup_index.html", context)
+
+
+# Every page the Setup steps tab links to, in order.
+STEP_PAGES = [
+    ("Focus & Square", "/setup/focus"),
+    ("Calibration", "/setup/calibration"),
+    ("Validation", "/setup/validation"),
+    ("Calibration history", "/setup/calibration-history"),
+    ("Health check", "/setup/health-check"),
+]
+
+
+def _page_context() -> dict:
     focus = CameraManager.instance().focus_status()
     local_times: dict = {}
     steps = _steps(focus, local_times)
@@ -111,7 +134,8 @@ def setup_page(request: Request) -> Response:
         for chroma in settings.PHOTO_CHROMAS
     }
     lens = focus["lens_position"]
-    return templates.TemplateResponse(request, "setup_index.html", {
+    return {
+        "failed": False,
         "steps": steps,
         "local_times": local_times,
         "saved": settings.photo_quality(),
@@ -123,10 +147,11 @@ def setup_page(request: Request) -> Response:
         "estimates": estimates,
         "per_day_text": per_day_text,
         "free_bytes": health.disk_status()["free_bytes"],
-        "experiment": running["name"] if running else None,
+        # The warnings follow a running experiment; its name is optional.
+        "running": running is not None,
         # focus_status gives the lens position only while it is locked.
         "lens": f"{lens:.2f}, locked" if lens is not None else "Not locked, see Focus & Square",
-    })
+    }
 
 
 @router.get("/ui")

@@ -54,4 +54,27 @@ def test_setup_page_opens_when_the_newest_photo_cannot_be_read(monkeypatch, tmp_
     response = TestClient(app).get("/setup")
 
     assert response.status_code == 200
-    assert "Photo size is known after the first photo" in response.text
+    assert "Photo size is not known yet" in response.text
+
+
+def test_setup_page_warns_while_an_unnamed_experiment_runs():
+    # Names are optional (review of PR #475): the warnings follow a running experiment, not its name.
+    client = TestClient(app)
+    experiment = client.post("/api/experiments", json={}).json()
+    client.post(f"/api/experiments/{experiment['id']}/start")
+
+    page = client.get("/setup").text
+
+    assert page.count("Experiment running") == 2
+
+
+def test_setup_page_opens_and_links_the_setup_pages_when_the_database_cannot_be_read(monkeypatch, tmp_path):
+    # rig.db locked or unreadable (review of PR #475): the page still links to the pages that
+    # repair the rig.
+    monkeypatch.setenv("NPEC_RIG_DB_PATH", str(tmp_path))  # a folder, not a database
+
+    response = TestClient(app).get("/setup")
+
+    assert response.status_code == 200
+    for href in ("/setup/focus", "/setup/calibration", "/setup/validation", "/setup/health-check"):
+        assert f'href="{href}"' in response.text

@@ -330,7 +330,7 @@ The web areas (#181):
   exception: their tests are in `tests/test_experiments.py`, `test_exports.py` and
   `test_purge.py`, so web-experiments also overlaps database and exports.
 - web holds what more than one page uses. `base.html` loads `squareness-guides.js` on every
-  page, and `validation-status.js` is used by three pages, so both are in web.
+  page, and `validation-status.js` is used by two pages (Focus and Calibration), so both are in web.
 - The Calibration page includes the focus and squareness panels: changing a panel is
   web-focus work even in a calibration task.
 - An issue whose Area says only `web`, written before the split, overlaps every web area until
