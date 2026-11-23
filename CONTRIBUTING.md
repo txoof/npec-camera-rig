@@ -17,11 +17,14 @@
   `git merge origin/main` to bring a branch up to date, not a rebase.
 - Never push to `main`. Branch protection requires one approval from Aaron (`CODEOWNERS`).
 
-## Review before merging
+## Review before opening the PR
 
-1. Run the `code-review` skill (`/code-review`) on the PR's diff.
+Every PR that changes code is reviewed before it is opened. Docs-only PRs may skip it.
+
+1. Run the `code-review` skill (`/code-review`) on the branch's diff against `main`.
 2. Deal with every finding: fix it, or record it in an issue with the reason it is deferred. Post
-   what was done as one combined PR comment. Do not let a finding disappear silently.
+   what was done as one combined PR comment, right after opening the PR. Do not let a finding
+   disappear silently.
 3. Run `pytest` (unit tier) again after any fixes.
 
 ## Merging
