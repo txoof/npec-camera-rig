@@ -5,6 +5,9 @@
 {#- The Setup page (#473): the setup pages on one tab, the rig settings on the other. The server
     gives every estimate (photo_size.estimate) in `estimates`; the script only looks them up. -#}
 
+{#- A card that is a link keeps the card's text colour. -#}
+{% block head_extra %}<style>a.step-link { color: inherit; text-decoration: none; }</style>{% endblock %}
+
 {% block subhead %}
 {{ ui.tabs("setup-tabs", "Setup views", [("steps", "Setup steps", ""), ("settings", "Rig settings", "")], "steps") }}
 {% endblock %}
@@ -19,10 +22,15 @@
 {%- endfor %}
 {%- set _ = options.append(("override", "Override", "Choose any")) %}
 <div class="stack" data-tab-panel="steps">
+  {#- Each card is the link: on a wide screen a button at its far end was hard to find (Aaron,
+      2026-11-23). The same markup as ui.card, as an <a>. -#}
   {%- for step in steps %}
-  {% call ui.card(step.title, step.status, step.meta, condensed=true) %}
-    {{ ui.link_button("Open", step.href) }}
-  {% endcall %}
+  <a class="card condensed hit step-link" href="{{ step.href }}">
+    <div class="card-info">
+      <div class="card-head"><h3>{{ step.title }} {{ ui.icon("next") }}</h3>{% if step.status %}{{ ui.chip(step.status[0], step.status[1]) }}{% endif %}</div>
+      <p class="card-meta">{% for item in step.meta %}<span>{{ item }}</span>{% endfor %}</p>
+    </div>
+  </a>
   {%- endfor %}
 </div>
 
