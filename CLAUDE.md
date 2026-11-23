@@ -72,6 +72,7 @@ pytest -m slow         # soak
 | Logic across modules | `pytest` |
 | Camera code | `pytest`, then one manual check on real hardware |
 | Before a commit | `pytest` |
+| Before opening a PR that changes code | `/code-review` on the branch's diff, then `pytest` after any fixes. Post the findings and what was done with each as one PR comment (CONTRIBUTING.md). No findings comment means no review: not ready for Aaron |
 | Milestone sign-off | Full suite plus the physical acceptance tests |
 
 No pre-commit hook that runs tests. Formatting and linting hooks are fine.
