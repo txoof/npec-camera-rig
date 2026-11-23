@@ -1,13 +1,12 @@
 {# Shared by setup_focus.html and the calibration wizard's Step 2: one copy of the live and
-   magnified views, the focus and exposure controls, the Camera settings panel, the About page and
-   their JS. Laid out as mockup 7 (#136): everything fits 1024x600 without scrolling.
+   magnified views, the focus and exposure controls, the About page and their
+   JS. Laid out as mockup 7 (#136): everything fits 1024x600 without scrolling.
 
    Context variables, set only by the Focus and Square page, which adds its Square mode around
    this partial: about_title (default "Step 2: Lock focus"), about_more_todo, about_more_controls,
    about_end_with_next (default true: the last step is "Press Next").
 
-   The page places the About button for "about-focus" in its head and binds it (ui.bindAbout),
-   and places the Camera settings button (id camera-settings-btn), which initFocusControls binds. #}
+   The page places the About button for "about-focus" in its head and binds it (ui.bindAbout). #}
 {% import "_ui.html" as ui %}
 <div class="focus-cols" id="focus-cols">
   <div class="focus-col">
@@ -71,7 +70,7 @@
   ("Exposure", "How long the sensor collects light for one photo. Each press is one third of a camera stop, about 1.26 times the light, shown as a shutter speed such as 1/125 s. Tap the value to type any time in milliseconds: 1 ms is 1/1000 s, so 4 ms is 1/250 s."),
   ("Gain", "Brightens the image in the sensor, like a camera's ISO. 1 is the sensor's own sensitivity and 2 is twice as bright. More gain means more noise, so prefer a longer exposure. Each press is one third of a stop (1, 1.25, 1.6, 2 and so on); tap the value to type any multiplier."),
   ("Auto exposure", "Lets the camera choose exposure and gain. While it is on, the Exposure and Gain controls are hidden and the values the camera is using are shown beside the button, read every 2 seconds. Turn it off to keep those values and set them yourself."),
-  ("Camera settings", "Opens the settings changed less often: Auto white balance, which lets the camera correct the color of the light."),
+  ("White balance", "Auto white balance is on the Setup page, under Rig settings."),
 ] %}
 {#- The Focus and Square page adds its Square mode's steps and controls (about_more_todo,
     about_more_controls) and sets about_end_with_next to false; the wizard ends with Next. -#}
@@ -326,40 +325,8 @@
       }
     }
 
-    // --- Camera settings panel: every on/off setting /controls reports that is not on the page ---
-    const CONTROL_LABELS = { AwbEnable: "Auto white balance" };
-    const CONTROL_HELP = { AwbEnable: "Lets the camera correct the color of the light." };
-    const ON_PAGE = ["LensPosition", "ExposureTime", "AnalogueGain", "AeEnable"];
-    let lastControls = { available: {}, values: {} };
-
-    function openCameraSettings() {
-      const names = Object.keys(lastControls.available).filter((name) =>
-        !ON_PAGE.includes(name) && typeof lastControls.available[name][0] === "boolean");
-      const p = ui.infoPanel({
-        title: "Camera settings",
-        sub: "Settings changed less often. Exposure, Gain and Auto exposure are under the live view.",
-        body: `<div class="stack" style="max-width: 560px;">${names.map((name) => {
-          const on = Boolean(lastControls.values[name]);
-          return `<button type="button" class="switch hit" role="switch" data-control="${ui.esc(name)}" aria-checked="${on}">
-            <span class="track"></span><span class="txt"><strong>${ui.esc(CONTROL_LABELS[name] || name)} <span class="state">${on ? "On" : "Off"}</span></strong>
-            ${CONTROL_HELP[name] ? `<span>${ui.esc(CONTROL_HELP[name])}</span>` : ""}</span></button>`;
-        }).join("") || '<p class="lead">This camera reports no other settings.</p>'}</div>`,
-      });
-      p.querySelectorAll("[data-control]").forEach((sw) => ui.bindSwitch(sw, async (on) => {
-        const name = sw.dataset.control;
-        const r = await postControl(name, on).catch(() => null);
-        if (r && r.ok) {
-          lastControls.values = await r.json();
-        } else {
-          ui.toast(`${CONTROL_LABELS[name] || name} could not be changed`);
-          ui.setSwitch(sw, !on);
-        }
-      }));
-    }
-
     async function loadControls() {
       const data = await (await fetch("/controls")).json();
-      lastControls = data;
       const { available, values } = data;
       if (available.LensPosition) {
         [LENS_MIN, LENS_MAX] = available.LensPosition;
@@ -666,10 +633,6 @@
         refreshFocusStatus();
       });
       refreshFocusStatus();
-
-      // --- Camera settings, opened from the page head. The page binds its own About button. ---
-      const settingsBtn = $("camera-settings-btn");
-      if (settingsBtn) settingsBtn.addEventListener("click", openCameraSettings);
     });
 
     return { updateLiveResources, refreshFocusStatus };

@@ -1,0 +1,2007 @@
+<!-- MOCKUP for #473 (replaces #360): the Setup page with two tabs, Setup steps and Rig settings.
+     Rendered from the real templates and style.css of main 6ca1d87 with fixed values; nothing calls the API.
+     Open in a browser and tap. The purple buttons (top right) pretend an experiment is running and switch the
+     camera between 64 MP and 12 MP for the estimate. Views by address: #steps, #settings, #settings-override,
+     #settings-running, #settings-12mp, #settings-75, #settings-95, #confirm. File sizes from metrology log 26.1. -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NPEC Camera Rig - Setup</title>
+  
+  <style>
+* { box-sizing: border-box; }
+/* The hidden attribute always wins: components set display, and must still hide with hidden. */
+[hidden] { display: none !important; }
+/* Design tokens, from the approved mockup (reference/ui-mockup/rig-ui-mockup.html, #128). The
+   older rules below keep their literal colors until their pages move onto these. */
+:root {
+  color-scheme: dark;
+  --bg: #121519;
+  --surface: #1a1e24;
+  --surface-2: #232931;
+  --line: #3b434e;
+  --fg: #f1f3f6;
+  --fg-2: #b9c1cc;
+  --accent: #6cb4ff;
+  --accent-ink: #06121f;
+  --ok: #4fd18b;
+  --warn: #f4bf4f;
+  --fail: #ff7a7a;
+  --guide: #ff4fff;
+  --focus: #ffe066;
+  --lane: #171b20;
+
+  /* System fonts only: the chamber PCs may have no internet. */
+  --font-ui: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-num: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+
+  --tap: 64px;          /* minimum height of anything tapped */
+  --slop: 10px;         /* extra hit area on every side: touch error differs between the 15 screens */
+  --gap: 24px;          /* gap between tappable controls, always more than 2 x --slop */
+  --gutter: 64px;       /* right-hand lane with no controls: scroll there without pressing anything */
+  --radius: 10px;
+
+  /* 48px clears every touch-target guideline checked against this app (WCAG 2.5.5 AAA,
+     Apple HIG, Material Design) -- the WCAG 2.5.8 AA floor is 24px, but that's a legal
+     minimum, not a usable one on this rig's touchscreen. */
+  --touch-target-min: 48px;
+  /* The one width rule for every wide element on these pages (live views, diagnostic images,
+     the focus control panel). The work area beside the rail is the frame now, so this is all of
+     it: the old 80vw measured the window and overflowed the work area. */
+  --wide-content-width: 100%;
+}
+/* Every font-size on these pages is in rem, so bumping the root scales all of them together --
+   raised from the 16px browser default because the small (0.75-0.85rem) copy read too small on
+   the target display. */
+html { font-size: 18px; }
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  line-height: 1.4;
+  background: var(--bg);
+  color: #eee;
+}
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+h2 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
+
+/* ---------- App shell (base.html) ----------
+   A section rail on the left, one work area: its head, one scrolling area, and an optional
+   action bar fixed at the bottom, so the controls that finish a task never scroll away. Only
+   .scroll scrolls; the page itself never does. */
+.app {
+  height: 100vh; height: 100dvh;
+  display: grid; grid-template-columns: 104px minmax(0, 1fr);
+  background: var(--bg);
+}
+.rail {
+  display: flex; flex-direction: column; gap: 20px; padding: 10px 4px; min-height: 0;
+  overflow-y: auto;
+  background: var(--surface); border-right: 1px solid var(--line);
+}
+.rail-btn {
+  min-height: 72px; border-radius: var(--radius); background: transparent;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 0.75rem; color: var(--fg-2); text-decoration: none; text-align: center;
+}
+.rail-btn svg { width: 26px; height: 26px; }
+.rail-btn[aria-current=page] {
+  background: var(--surface-2); color: var(--fg); font-weight: 700;
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+.rail-spacer { flex: 1; }
+/* The camera status (_camera_status.html) sits at the bottom of the rail, shown only on a fault. */
+.rail .camera-status {
+  margin: 0; padding: 6px; border-radius: var(--radius); background: var(--surface-2);
+  font-size: 0.8rem; overflow-wrap: anywhere;
+}
+
+.work { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; min-width: 0; }
+.work-head {
+  display: flex; align-items: center; gap: 16px; padding: 10px 20px;
+  border-bottom: 1px solid var(--line); min-height: 76px; color: var(--fg);
+}
+.work-head h1 { font-size: 1.35rem; margin: 0; text-wrap: balance; }
+.work-head .sub { color: var(--fg-2); font-size: 0.9rem; margin: 2px 0 0; }
+.work-head .breadcrumb { margin: 0; font-size: 1.1rem; }
+/* The scrolling area keeps a control-free lane on the right, shaded so people learn where it is
+   safe to put the stylus or a thumb to scroll. */
+.scroll {
+  --scroll-gap: 20px;   /* space between the content and the lane */
+  overflow-y: auto; min-height: 0; position: relative;
+  padding: 20px calc(var(--gutter) + var(--scroll-gap)) 20px 20px;
+  background: linear-gradient(var(--lane), var(--lane)) right / var(--gutter) 100% no-repeat;
+}
+.action-bar {
+  display: flex; align-items: center; gap: var(--gap); padding: 10px 20px;
+  border-top: 1px solid var(--line); background: var(--surface); color: var(--fg);
+}
+.action-bar .grow { flex: 1; text-align: center; color: var(--fg-2); font-size: 0.95rem; }
+
+/* ---------- Tap area ----------
+   Every tapped control reaches --slop past each edge, the same on every side: no screen's touch
+   error is designed around. Gaps are wider than twice the slop, so a missed tap lands on nothing. */
+.hit { position: relative; }
+.hit::after { content: ""; position: absolute; inset: calc(-1 * var(--slop)); border-radius: var(--radius); }
+.show-hit .hit::after { outline: 2px dashed var(--warn); background: rgba(244,191,79,0.08); }
+
+/* ---------- Components (templates/_ui.html, static/ui.js; tried on /ui) ---------- */
+.ui-icon { width: 24px; height: 24px; flex: none; }
+.btn {
+  min-height: var(--tap); min-width: 120px; padding: 0 22px; border-radius: var(--radius);
+  border: 2px solid var(--line); background: var(--surface-2); color: var(--fg);
+  font: inherit; font-size: 1.05rem; font-weight: 600; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.danger { background: var(--surface-2); border-color: var(--fail); color: var(--fail); }
+.btn:disabled, .field-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-back { min-width: 0; padding: 0 16px; }
+
+.row { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: center; }
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
+.lead { color: var(--fg-2); margin: 0; max-width: 65ch; }
+
+/* Field button: looks like an input, is a button, and opens the on-page keypad, keyboard or
+   list. Not a real text input, so the Windows on-screen keyboard has nothing to attach to. */
+.field { display: grid; gap: 6px; color: var(--fg); }
+.field-label { font-weight: 600; }
+.field-help { color: var(--fg-2); font-size: 0.9rem; }
+.field-btn {
+  min-height: var(--tap); min-width: 220px; padding: 0 16px; border-radius: var(--radius);
+  border: 2px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; white-space: normal;
+  font-family: var(--font-num); font-size: 1.2rem; font-variant-numeric: tabular-nums; text-align: left;
+}
+.field-btn .unit { font-family: var(--font-ui); color: var(--fg-2); font-size: 0.95rem; }
+.field-btn .empty { font-family: var(--font-ui); color: var(--fg-2); font-size: 0.95rem; }
+.field-btn .ui-icon { width: 22px; height: 22px; color: var(--fg-2); }
+.field-btn.text { font-family: var(--font-ui); font-size: 1.05rem; }
+.field-btn.text.match { border-color: var(--ok); }
+
+/* Stepper: replaces sliders and drags. Whole buttons, no precision needed. */
+.stepper { display: flex; align-items: stretch; gap: var(--gap); }
+.stepper .btn { min-width: var(--tap); padding: 0 12px; }
+.stepper .field-btn { min-width: 150px; justify-content: center; }
+
+/* Switch row: the whole row is the target, not a 16px checkbox. */
+.switch {
+  width: 100%; min-height: var(--tap); padding: 12px 16px; border-radius: var(--radius);
+  border: 2px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer;
+  text-align: left; white-space: normal; font: inherit;
+  display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center;
+}
+.switch .track { width: 64px; height: 36px; border-radius: 18px; background: var(--line); position: relative; }
+.switch .track::before {
+  content: ""; position: absolute; top: 4px; left: 4px; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--fg); transition: left .15s;
+}
+.switch[aria-checked=true] .track { background: var(--accent); }
+.switch[aria-checked=true] .track::before { left: 32px; background: var(--accent-ink); }
+.switch .txt strong { display: block; }
+.switch .txt span { color: var(--fg-2); font-size: 0.9rem; }
+.switch .state { font-weight: 700; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.switch.compact { width: auto; min-height: 52px; padding: 6px 14px; gap: 10px; grid-template-columns: auto auto; }
+.switch.compact .track { width: 52px; height: 30px; }
+.switch.compact .track::before { width: 22px; height: 22px; }
+.switch.compact[aria-checked=true] .track::before { left: 26px; }
+
+/* Status: color, shape and words together. Never color alone. */
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px;
+  border-radius: 999px; border: 2px solid currentColor; font-weight: 700; font-size: 0.9rem;
+  white-space: nowrap;
+}
+.chip .ui-icon { width: 20px; height: 20px; }
+.chip.ok { color: var(--ok); }
+.chip.warn { color: var(--warn); }
+.chip.fail { color: var(--fail); }
+.chip.info { color: var(--fg-2); }
+
+.banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px var(--gap); padding: 12px 16px;
+  border-radius: var(--radius); border: 2px solid var(--warn); background: rgba(244,191,79,0.08); color: var(--fg);
+}
+.banner.fail { border-color: var(--fail); background: rgba(255,122,122,0.08); }
+.banner.info { border-color: var(--line); background: var(--surface); }
+.banner p { margin: 0; flex: 1; min-width: 220px; }
+
+/* Alert card: one problem that needs a person, with what to do about it. */
+.alert-card {
+  border: 2px solid var(--fail); border-radius: var(--radius); padding: 12px 14px; color: var(--fg);
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px;
+}
+.alert-card.warn { border-color: var(--warn); }
+.alert-card p { margin: 0; }
+
+/* Help: one "About this step" pattern, with a large summary. */
+details.help { border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg); }
+details.help summary {
+  min-height: 56px; padding: 0 16px; display: flex; align-items: center; gap: 12px;
+  cursor: pointer; font-weight: 600; list-style: none;
+}
+details.help summary.hit::after { inset: -4px; }
+details.help summary::-webkit-details-marker { display: none; }
+details.help summary .ui-icon { color: var(--accent); }
+details.help summary .title { flex: 1; }
+details.help[open] summary .chev { transform: rotate(180deg); }
+details.help .help-body { padding: 0 16px 16px; color: var(--fg-2); max-width: 65ch; }
+details.help .help-body p { margin: 0 0 10px; }
+
+/* Tight stepper: smaller buttons with the label beside them, for rows of controls under an image
+   (the Focus step). 52px targets, as in mockup 7, so two images and their controls fit 1024x600. */
+.stepper.tight { gap: 10px; align-items: center; }
+.stepper.tight .stepper-label { font-weight: 600; color: var(--fg-2); min-width: 4.6em; }
+.stepper.tight .btn { min-width: 52px; min-height: 52px; padding: 0 6px; }
+.stepper.tight .field-btn {
+  min-width: 96px; min-height: 52px; padding: 0 8px; font-size: 1.05rem; justify-content: center;
+}
+.stepper.tight .field-btn .ui-icon { display: none; }
+/* A toggle button: pressed shows a ring and a tick as well as its color. */
+.btn[aria-pressed] .ui-icon { display: none; }
+.btn[aria-pressed=true] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.btn[aria-pressed=true] .ui-icon { display: block; color: var(--accent); }
+
+/* About pages (ui.about_page), opened from an About button in the page head. */
+.work-head .help-btn { margin-left: auto; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; flex: none; }
+.work-head .head-actions .btn { flex: none; min-height: 52px; min-width: 0; padding: 0 14px; font-size: 0.95rem; }
+.help-btn .ui-icon { color: var(--accent); }
+.help-page { max-width: 70ch; display: grid; gap: 12px; color: var(--fg); }
+.help-page h2 { font-size: 1.1rem; margin: 8px 0 0; }
+.help-page ol { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
+.help-page dl { margin: 0; display: grid; grid-template-columns: minmax(8em, max-content) 1fr; gap: 10px 20px; }
+.help-page dt { font-weight: 700; }
+/* A control named in help text (ui.ui_names): boxed like a key, so it reads as something on the page. */
+.ui-name {
+  display: inline-block; padding: 0 6px; border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 6px; background: var(--surface-2); color: var(--fg); font-weight: 600; white-space: nowrap;
+}
+/* The head's buttons on the right: About is always last, so it stays in one place. */
+.head-actions { margin-left: auto; display: flex; gap: 16px; flex: none; }
+.head-actions .help-btn { margin-left: 0; }
+.help-page dd { margin: 0; color: var(--fg-2); }
+.help-page p { margin: 0; color: var(--fg-2); }
+
+.card {
+  border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg);
+  padding: 14px 16px; display: grid; gap: 12px;
+}
+.card.current { border-color: var(--accent); }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.card-head h3 { font-size: 1.1rem; margin: 0; flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.card-meta { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--fg-2); font-size: 0.9rem; margin: 0; }
+.card-actions { display: flex; flex-wrap: wrap; gap: var(--gap); }
+.card-actions .btn { min-width: 132px; }
+/* Condensed card: details on the left, actions on the right, for long lists. */
+.card.condensed { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 10px 14px; gap: 8px 16px; }
+.card.condensed .card-head h3 { flex: 0 1 auto; }
+.card.condensed .card-meta { gap: 2px 16px; font-size: 0.85rem; }
+.card.condensed .card-info { display: grid; gap: 4px; min-width: 0; }
+.card.condensed .card-actions { gap: var(--gap); flex-wrap: nowrap; }
+.card.condensed .card-actions .btn { min-width: 0; min-height: 52px; padding: 0 16px; font-size: 1rem; }
+.list { display: grid; gap: var(--gap); }
+
+/* Data table. The header row sticks to the top of .scroll; the negative top cancels the scroll
+   area's top padding, or rows show through the padding above the header. */
+.data-table { border-collapse: collapse; width: 100%; font-size: 0.9rem; color: var(--fg); }
+.data-table th, .data-table td { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.data-table th { color: var(--fg-2); font-weight: 600; }
+.data-table th:first-child, .data-table td:first-child { text-align: left; }
+.data-table td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.data-table thead th { position: sticky; top: -20px; background: var(--bg); z-index: 1; box-shadow: 0 1px 0 var(--line); }
+
+/* Choice buttons: replace <select> and radio buttons. */
+.choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--gap); }
+.choice {
+  min-height: var(--tap); border-radius: var(--radius); border: 2px solid var(--line); background: var(--surface-2);
+  color: var(--fg); padding: 8px 14px; text-align: left; cursor: pointer; display: grid; gap: 2px;
+  white-space: normal; font: inherit;
+}
+.choice strong { font-size: 1rem; }
+.choice span { color: var(--fg-2); font-size: 0.85rem; font-family: var(--font-num); }
+.choice[aria-pressed=true] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* ---------- Layers: keypad, keyboard, dropdown list ----------
+   Each covers the screen and holds everything the entry needs: the field's label, its value,
+   the allowed range and the buttons that finish it, so nothing needed is underneath. */
+.keypad-layer, .kb-layer {
+  position: fixed; inset: 0; z-index: 50; color: var(--fg);
+}
+.keypad-layer {
+  background: rgba(5,7,9,0.94);
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; padding: 16px 20px;
+}
+.kp-info { display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 12px; min-height: 0; }
+.kp-label { font-size: 1.2rem; font-weight: 700; margin: 0; }
+.kp-help { color: var(--fg-2); margin: 0; font-size: 0.95rem; }
+.kp-value {
+  min-height: 84px; border: 3px solid var(--accent); border-radius: var(--radius); background: var(--bg);
+  display: flex; align-items: center; justify-content: space-between; padding: 0 18px;
+  font-family: var(--font-num); font-size: 2rem; font-variant-numeric: tabular-nums;
+}
+.kp-value .unit { font-family: var(--font-ui); font-size: 1rem; color: var(--fg-2); }
+.cursor { display: inline-block; width: 3px; height: 1.1em; background: var(--accent); vertical-align: middle; margin-left: 2px; }
+.kp-error { color: var(--fail); font-weight: 600; margin: 0; min-height: 1.4em; display: flex; gap: 8px; align-items: center; }
+.kp-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--gap); }
+.kp-actions .btn { min-height: 76px; }
+.kp-keys { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 14px; min-height: 0; padding-bottom: 6px; }
+.key {
+  min-height: var(--tap); border-radius: var(--radius); border: 2px solid var(--line); background: var(--surface-2);
+  color: var(--fg); padding: 0; font-family: var(--font-num); font-size: 1.8rem; font-weight: 600; cursor: pointer;
+  display: grid; place-items: center;
+}
+.key .ui-icon { width: 34px; height: 34px; }
+.key.fn { font-family: var(--font-ui); font-size: 1.1rem; background: var(--surface); }
+.key.wide { grid-column: span 3; min-height: 56px; }
+.key:active { background: var(--accent); color: var(--accent-ink); }
+/* Keypad keys sit closer together, so their extension is limited to half the gap. */
+.kp-keys .hit::after { inset: -7px; }
+
+.kb-layer {
+  background: rgba(5,7,9,0.96);
+  display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; padding: 12px 16px;
+}
+.kb-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px var(--gap); align-items: end; }
+.kb-top .kp-label { grid-column: 1 / -1; font-size: 1.05rem; }
+.kb-value {
+  min-height: 64px; border: 3px solid var(--accent); border-radius: var(--radius); background: var(--bg);
+  display: flex; align-items: center; padding: 0 14px; font-size: 1.3rem; overflow: hidden; white-space: nowrap;
+}
+.kb-value .count { margin-left: auto; padding-left: 12px; color: var(--fg-2); font-size: 0.8rem; font-family: var(--font-num); }
+.kb-top .btn { min-height: 64px; }
+.kb-keys { display: grid; grid-template-rows: repeat(5, 1fr); gap: 10px; min-height: 0; }
+.kb-row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; }
+.kb-row .key { min-height: 0; font-family: var(--font-ui); font-size: 1.35rem; }
+.kb-row .key.fn { font-size: 1rem; }
+.kb-row .key.space { grid-column: 2 / span 8; }
+.kb-row .key[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.kb-keys .hit::after { inset: -5px; }
+.kb-native { display: none; }
+.kb-native input { width: 100%; }
+
+.choice-layer .kb-top { grid-template-columns: minmax(0, 1fr) auto; }
+.choice-layer .kb-top .kp-label { grid-column: auto; align-self: center; margin: 0; }
+/* The list scrolls, so it keeps the same control-free lane on the right as .scroll. */
+.choice-list {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-content: start; overflow-y: auto;
+  padding: 10px calc(var(--gutter) + 10px) 10px 10px;
+  background: linear-gradient(var(--lane), var(--lane)) right / var(--gutter) 100% no-repeat;
+}
+.choice-list .choice { min-height: 68px; }
+
+/* ---------- Panels: a form or a confirmation over the work area ----------
+   The same head, scroll and action bar as a page, so the buttons that finish it stay on screen. */
+.panel-layer {
+  position: absolute; inset: 0; z-index: 40; background: var(--bg); color: var(--fg);
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.panel-layer .work-head h1 { font-size: 1.25rem; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 60;
+  background: var(--fg); color: var(--bg); padding: 12px 18px; border-radius: var(--radius); font-weight: 600;
+}
+.countdown { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* ---------- Narrow screens (phones) ----------
+   Under 700px wide the rail becomes a bottom bar and the full keyboard gives way to the
+   device's own. Width is how a page tells a phone from a chamber screen (#128). */
+@media (max-width: 700px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; --gutter: 48px; }
+  .rail {
+    order: 2; flex-direction: row; flex-wrap: wrap; border-right: 0; border-top: 1px solid var(--line);
+    padding: 6px; gap: 20px; overflow: visible;
+  }
+  .rail-spacer { display: none; }
+  .rail-btn { flex: 1; min-height: 64px; font-size: 0.8rem; gap: 2px; min-width: 0; }
+  .rail-btn[aria-current=page] { box-shadow: inset 0 4px 0 var(--accent); }
+  .rail .camera-status { flex: 1 1 100%; order: -1; }
+  .work-head { padding: 8px 14px; min-height: 64px; }
+  .work-head h1 { font-size: 1.15rem; }
+  .scroll { --scroll-gap: 12px; padding: 16px calc(var(--gutter) + var(--scroll-gap)) 16px 14px; }
+  .data-table thead th { top: -16px; }
+  .action-bar { padding: 8px 14px; }
+  .action-bar .grow { display: none; }
+  .action-bar .btn { flex: 1; min-width: 0; }
+  .row > .btn { flex: 1 1 140px; }
+  .stepper .field-btn { min-width: 0; flex: 1; }
+  .field-btn { min-width: 0; width: 100%; }
+  .stepper.tight .field-btn { width: auto; }
+  .work-head .help-btn .lbl { display: none; }
+  .help-page dl { grid-template-columns: minmax(0, 1fr); }
+  .card.condensed { grid-template-columns: minmax(0, 1fr); }
+  .card.condensed .card-actions { flex-wrap: wrap; }
+  .card.condensed .card-actions .btn { flex: 1 1 100px; }
+  .card-actions .btn { flex: 1 1 130px; min-width: 0; }
+  .choice-list { grid-template-columns: minmax(0, 1fr); }
+  .keypad-layer { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); padding: 12px 14px; gap: 12px; }
+  .kp-info { grid-template-rows: auto auto auto; }
+  .kp-info .kp-help, .kp-info .spacer { display: none; }
+  .kp-value { min-height: 68px; font-size: 1.6rem; }
+  .kp-actions { order: 9; }
+  .kb-keys { display: none; }
+  .kb-native { display: grid; }
+  .kb-top { grid-template-columns: 1fr 1fr; }
+  .kb-value { grid-column: 1 / -1; }
+}
+
+.roi-box {
+  position: absolute;
+  border: 2px solid #f55;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Focus controls (_focus_controls.html): the live view with the lock and exposure controls under
+   it on the left, the magnified view with the lens controls under it on the right. Everything
+   fits 1024x600 without scrolling (mockup 7). */
+/* The views grow with the window: as tall as the height left over the controls (470px: the page
+   head, padding and, with Auto exposure off, the left column's controls), never
+   under 300px, and never wider than their column. Columns 4:3, as the live view is 4:3 and the
+   magnified view square, so both are the same height. */
+.focus-cols {
+  display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 3fr); gap: 16px; align-items: start;
+  --view-h: max(300px, calc(100vh - 470px));
+  --view-h: max(300px, calc(100dvh - 470px));
+}
+.focus-col { display: grid; gap: 10px; justify-items: start; min-width: 0; container-type: inline-size; }
+.focus-row { display: flex; align-items: center; gap: 10px 8px; flex-wrap: wrap; }
+.focus-row .btn, .focus-row .switch.compact { min-height: 52px; }
+.focus-row .btn { min-width: 0; padding: 0 16px; }
+.live-view {
+  position: relative; width: fit-content; max-width: 100%; background: #000;
+  border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden;
+}
+.live-view img {
+  display: block; height: auto; aspect-ratio: 4 / 3;
+  width: min(calc(100cqw - 4px), calc(var(--view-h) * 4 / 3));
+}
+.live-view #preview { cursor: crosshair; }
+.live-view #roi-crop { image-rendering: pixelated; aspect-ratio: 1; width: min(calc(100cqw - 4px), var(--view-h)); }
+.live-view .tag {
+  position: absolute; right: 8px; bottom: 8px; max-width: calc(100% - 16px);
+  padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.75); color: var(--fg-2); font-size: 0.85rem;
+}
+/* The lock status uses the same box as the sharpness: the chip keeps its icon, word and color. */
+.live-view .tag .chip { white-space: normal; padding: 0; border: 0; border-radius: 0; font-size: inherit; gap: 6px; }
+.live-view .tag .chip .ui-icon { width: 18px; height: 18px; }
+.live-view .tag strong { color: var(--fg); font-family: var(--font-num); }
+.lens-fault { flex-wrap: wrap; }
+.auto-values { color: var(--fg-2); font-family: var(--font-num); }
+.lens-total { margin: 0; color: var(--fg-2); }
+.lens-total strong { color: var(--fg); font-family: var(--font-num); }
+.view-stack { display: grid; gap: 6px; width: fit-content; max-width: 100%; }
+.score-trace {
+  position: relative; background: #000; border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden;
+}
+.score-trace canvas { display: block; width: 100%; min-width: 0; height: 52px; }
+.score-trace .tag {
+  position: absolute; left: 6px; top: 4px; padding: 0 6px; border-radius: 6px;
+  background: rgba(0, 0, 0, 0.75); color: var(--fg-2); font-size: 0.8rem;
+}
+.lens-fault .lens-error { color: var(--fail); font-weight: 700; }
+/* On a phone: one column, the live view and its controls first, then the magnified view, each
+   view the full width. After the rules above, so these win. */
+@media (max-width: 700px) {
+  .focus-cols { grid-template-columns: minmax(0, 1fr); }
+  .view-stack, .live-view { width: 100%; }
+  .live-view img, .live-view #roi-crop { width: calc(100cqw - 4px); }
+}
+.capture-section {
+  max-width: 480px;
+  margin-top: 0.75rem;
+}
+label { display: block; margin-bottom: 0.25rem; }
+input[type="range"] {
+  width: 100%;
+  height: 2rem;
+}
+input[type="number"] {
+  width: 100%;
+  height: 2.25rem;
+  font-size: 1.1rem;
+  padding: 0.25rem 0.5rem;
+  background: #222;
+  border: 1px solid #444;
+  color: #eee;
+  border-radius: 4px;
+}
+.lock-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+button {
+  padding: 0.6rem 1rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 4px;
+  background: #369;
+  color: #fff;
+  min-height: var(--touch-target-min);
+  white-space: nowrap;
+}
+button:disabled { opacity: 0.5; }
+input[type="range"]:disabled { opacity: 0.5; }
+/* Gallery (gallery.html): one section per local day, each a wrapping grid of thumbnails. The
+   gap is --gap, so a missed tap lands between photos, not on the next one. */
+.gallery-head { margin-top: var(--gap); }
+.gallery-head h2 { margin: 0; }
+.gallery-day h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
+.gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+}
+.gallery-item { width: 200px; }
+.gallery-item .figure img { aspect-ratio: 4 / 3; object-fit: contain; }
+.gallery-item div {
+  font-size: 0.75rem;
+  color: #aaa;
+  word-break: break-all;
+}
+.gallery-item .gallery-time { font-size: 1rem; color: var(--fg); margin-top: 4px; }
+.gallery-item .gallery-flag { color: #e3b341; word-break: normal; }
+/* Week, day and hour views (#245). A week is a row per day, the whole row one target; its strip
+   of first-of-hour pictures is too small to tap one by one. A day is a tile per hour. */
+/* The navigation stays at the top of the scrolling page, so Previous and Next are in reach at
+   any depth; the photos scroll under it. */
+.gallery-nav {
+  position: sticky; top: -20px; z-index: 2; margin: 0 0 16px; padding: 20px 0 8px;  /* -20px: the .scroll top padding */
+  background: var(--bg);
+}
+.gallery-nav h3 { margin: 0 0 8px; font-size: 1.05rem; }
+.gallery-week-day, .gallery-hour {
+  display: grid; gap: 6px; padding: 8px; text-align: left; font: inherit; color: var(--fg);
+  background: var(--surface-2); border: 2px solid var(--line); border-radius: var(--radius); cursor: pointer;
+}
+.gallery-week-day { width: 100%; margin-bottom: var(--gap); }
+.gallery-strip { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 2px; }
+.gallery-strip img, .gallery-hour img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #000; }
+/* Taller than 4:3 in the week strip, so each picture is big enough to tell apart; the sides are cropped. */
+.gallery-strip img { aspect-ratio: auto; height: 48px; }
+.gallery-hour { width: 200px; overflow: hidden; white-space: normal; }
+a { color: #6cf; }
+.wizard-step { display: none; }
+.wizard-step.active { display: block; }
+
+/* ---------- Calibration wizard (setup_calibration.html, mockup 7) ----------
+   The steps bar sits under the page head and stays put while the step scrolls. */
+.work-head .btn-back { min-height: 52px; flex: none; }
+.steps {
+  display: flex; align-items: center; gap: 12px; padding: 6px 20px;
+  border-bottom: 1px solid var(--line); background: var(--surface);
+}
+.step-list { flex: 1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; min-width: 0; }
+.step-nav { min-width: 0; min-height: 52px; padding: 0 14px; }
+.step-btn {
+  min-height: 52px; min-width: 0; padding: 0 6px; border-radius: var(--radius); border: 2px solid var(--line);
+  background: var(--surface); color: var(--fg-2); font: inherit; font-size: 0.95rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.step-btn .n {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  border: 2px solid currentColor; font-weight: 700; font-size: 0.9rem;
+}
+.step-btn[aria-current=step] { border-color: var(--accent); color: var(--fg); background: var(--surface-2); font-weight: 700; }
+.step-btn[aria-current=step] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+/* Done: a filled green circle with a tick in place of the number, not color alone. */
+.step-btn.done .n { background: var(--ok); border-color: var(--ok); color: #052; font-size: 0; }
+.step-btn.done .n::after { content: "\2713"; font-size: 1rem; }
+.split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.table-diagram { width: 100%; max-width: 440px; }
+/* ---------- Squareness panel (_squareness.html, squareness-guides.js; mockup 7) ----------
+   The image as large as fits, 4:3, with room just outside it for the handles (42px left and
+   right, 46px below), the instructions to its right and one line of controls under it.
+   --sq-reserve is the height around the image: the page head, padding, handles and controls; the
+   wizard adds its steps bar. */
+.sq-panel {
+  container-type: inline-size; display: grid; grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px 8px; align-items: start; --sq-reserve: 236px;
+}
+.wizard-step .sq-panel { --sq-reserve: 312px; }
+.sq-frame { position: relative; margin: 0 42px 46px; width: fit-content; }
+.sq-help { margin: 0; color: var(--fg-2); width: 120px; font-size: 0.95rem; }
+.sq-controls { grid-column: 1 / -1; }
+.sq-view { position: relative; background: #000; border: 2px solid var(--line); border-radius: var(--radius); }
+.sq-view img {
+  display: block; height: auto; aspect-ratio: 4 / 3;
+  /* 216px across: the handles' room (84), the instructions (120), the gap (8) and borders. */
+  width: min(calc(100cqw - 216px), calc((100vh - var(--sq-reserve)) * 4 / 3));
+  width: min(calc(100cqw - 216px), calc((100dvh - var(--sq-reserve)) * 4 / 3));
+  min-width: 280px;
+}
+.guide { position: absolute; background: var(--guide); pointer-events: none; }
+.guide.h { left: 0; right: 0; height: 3px; margin-top: -1px; }
+.guide.v { top: 0; bottom: 0; width: 3px; margin-left: -1px; }
+.guide.sel { box-shadow: 0 0 0 3px rgba(255, 79, 255, 0.35); }
+/* Handles: magenta bars numbered as the keyboard picks the lines; the picked one has a white
+   ring. 36 x 56 px, not 64 x 64: Aaron chose image size over handle size (2026-10-13), and wider
+   ones would cover more of the image's edge, which is what is being lined up. touch-action: none so a drag is never taken for a page scroll. */
+.handle {
+  position: absolute; border: 0; padding: 0; border-radius: 8px; background: var(--guide); cursor: grab;
+  touch-action: none; box-shadow: 0 0 0 2px #000;
+  color: #000; font: inherit; font-size: 1.3rem; font-weight: 800; display: grid; place-items: center;
+}
+.handle.hh { left: -40px; width: 36px; height: 56px; transform: translateY(-50%); }
+.handle.hh.r { left: auto; right: -40px; }
+.handle.hv { top: calc(100% + 4px); width: 56px; height: 36px; transform: translateX(-50%); }
+.handle.sel { box-shadow: 0 0 0 3px var(--fg); }
+.handle:active { cursor: grabbing; }
+.sq-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px var(--gap); }
+/* The ring legend on one line, three chips of one width. */
+.legend { display: grid; grid-template-columns: repeat(3, 8.5em); gap: 10px; }
+.legend .chip { justify-content: center; }
+kbd {
+  font-family: var(--font-num); font-size: 0.85rem; border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 4px; padding: 0 5px; color: var(--fg); background: var(--surface-2);
+}
+/* The Focus and Square page's mode switch, in the page head. */
+.work-head .choices { grid-template-columns: repeat(2, auto); gap: var(--gap); }
+.work-head .choice { min-height: 52px; padding: 0 18px; align-content: center; }
+@media (max-width: 700px) {
+  .sq-panel { grid-template-columns: minmax(0, 1fr); }
+  .sq-help { width: auto; }
+  .sq-view img { width: calc(100cqw - 88px); min-width: 0; }
+  .legend { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.sheet-links { display: grid; gap: var(--gap); }
+.sheet-links .btn { justify-content: flex-start; }
+.checklist { display: grid; gap: var(--gap); margin: 0; padding: 0; list-style: none; }
+.checklist li { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.checklist .chip { white-space: normal; }
+.run-btn { min-height: 76px; }
+.table-scroll { overflow-x: auto; }
+.result-table { width: 100%; border-collapse: collapse; }
+.result-table th, .result-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.result-table th { color: var(--fg-2); font-weight: 600; font-size: 0.9rem; }
+.result-table td.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.report-lines { margin: 0; padding-left: 1.2em; color: var(--fg-2); display: grid; gap: 4px; }
+@media (max-width: 700px) {
+  .step-list { display: none; }
+  .steps { padding: 6px 14px; }
+  .step-nav { flex: 1; }
+  .work-head .btn-back .lbl { display: none; }
+  .split { grid-template-columns: minmax(0, 1fr); }
+}
+.calibration-history-list {
+  display: flex;
+  flex-direction: column;
+}
+.calibration-history-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-bottom: 1px solid #333;
+  padding: 0.35rem 0;
+}
+.calibration-history-card.is-current { background: rgba(102, 204, 153, 0.08); }
+.calibration-history-card img,
+.calibration-history-card .no-snapshot {
+  width: 20%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #000;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+.calibration-history-card .no-snapshot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-size: 0.6rem;
+  text-align: center;
+  line-height: 1.1;
+}
+.calibration-history-card-body {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.75rem;
+  row-gap: 0.15rem;
+  font-size: 0.8rem;
+  min-width: 0;
+}
+.calibration-history-card-date { white-space: nowrap; }
+.calibration-history-card-stats { color: #aaa; }
+.calibration-history-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  background: #363;
+  color: #cfc;
+}
+.calibration-history-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.calibration-history-actions button {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+.calibration-history-actions button.danger { background: #833; }
+.calibration-history-load-more { margin-top: 0.5rem; }
+.calibration-history-disclaimer {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.6rem;
+  border-left: 3px solid #888;
+  background: #2a2a2a;
+  font-size: 0.8rem;
+  color: #ccc;
+}
+.help-icon {
+  display: inline-block;
+  width: 1.3rem;
+  height: 1.3rem;
+  line-height: 1.3rem;
+  padding: 0;
+  margin-left: 0.4rem;
+  font-size: 0.8rem;
+  border-radius: 50%;
+  background: #444;
+  vertical-align: middle;
+}
+.help-popover {
+  margin: 0.4rem 0 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-left: 3px solid #6cf;
+  background: #2a2a2a;
+  font-size: 0.8rem;
+  color: #ccc;
+}
+.diagnostic-image {
+  display: none;
+  max-width: var(--wide-content-width);
+  margin-top: 0.5rem;
+  border: 1px solid #444;
+  cursor: zoom-in;
+}
+/* [data-no-lightbox]: this image's click does something other than open the lightbox (e.g. the
+   honesty-plot frame, which picks a pixel position instead) -- see lightbox.js's guard. Still
+   .diagnostic-image for the shared sizing/border, just a different cursor to signal that. */
+.diagnostic-image[data-no-lightbox] {
+  cursor: crosshair;
+}
+/* Tabs (ui.tabs): a bar of choice buttons under the page head, like the wizard's steps. */
+.tab-bar { padding: 6px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.tab-bar .choices { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); max-width: 640px; }
+.tab-bar .choice { min-height: 64px; }
+/* A plot that opens full screen when tapped (ui.figure, lightbox.js). Its height is capped so
+   the plot and the numbers beside it fit the 1024x600 chamber screen without scrolling. */
+.figure {
+  position: relative; display: block; width: 100%; padding: 0; border: 2px solid var(--line);
+  border-radius: var(--radius); background: #000; overflow: hidden; cursor: zoom-in;
+}
+.figure img {
+  display: block; width: 100%; height: auto; max-height: max(240px, calc(100vh - 300px)); object-fit: contain;
+}
+.figure .tag {
+  position: absolute; right: 8px; bottom: 8px; padding: 2px 8px; border-radius: 6px;
+  background: rgba(0, 0, 0, 0.8); color: var(--fg); font-size: 0.85rem;
+}
+/* Numbers beside a plot (ui.readout). */
+.readout { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: baseline; margin: 0; }
+.readout dt { color: var(--fg-2); }
+.readout dd { margin: 0; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+/* A plot with its numbers beside it; one column on a phone. */
+.plot-split { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 700px) {
+  .plot-split { grid-template-columns: minmax(0, 1fr); }
+}
+.lightbox-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-overlay.open { display: flex; }
+.lightbox-overlay .lightbox-image {
+  max-width: 95vw;
+  max-height: 95vh;
+  object-fit: contain;
+}
+.lightbox-close {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  font-size: 1.5rem;
+  line-height: 1;
+  background: #833;
+}
+.help-popover p:first-child { margin-top: 0; }
+.help-popover p:last-child { margin-bottom: 0; }
+
+/* Validation status line (validation-status.js), on the Setup and Calibration pages. */
+.validation-status { margin: 0 0 0.75rem; padding: 0.35rem 0.6rem; border-left: 4px solid #888;
+  font-size: 0.9rem; }
+.validation-status .validation-status-text { font-weight: bold; }
+.validation-status[data-validation-state="validated"] { border-left-color: #3fb950; }
+.validation-status[data-validation-state="validated"] .validation-status-text { color: #3fb950; }
+.validation-status[data-validation-state="not_consistent"],
+.validation-status[data-validation-state="focus_mismatch"],
+.validation-status[data-validation-state="error"] { border-left-color: #ff6b6b; }
+.validation-status[data-validation-state="not_consistent"] .validation-status-text,
+.validation-status[data-validation-state="focus_mismatch"] .validation-status-text,
+.validation-status[data-validation-state="error"] .validation-status-text { color: #ff6b6b; }
+.validation-status[data-validation-state="not_validated"] { border-left-color: #e3b341; }
+.validation-status[data-validation-state="not_validated"] .validation-status-text { color: #e3b341; }
+
+/* Camera status line (_camera_status.html), at the bottom of the rail on every page. */
+.camera-status { margin: 0 0 0.75rem; padding: 0.35rem 0.6rem; border-left: 4px solid #e3b341;
+  font-size: 0.9rem; }
+.camera-status .camera-status-text { font-weight: bold; color: #e3b341; }
+.camera-status[data-camera-state="failed"] { border-left-color: #ff6b6b; }
+.camera-status[data-camera-state="failed"] .camera-status-text { color: #ff6b6b; }
+
+/* --- Experiments page --- */
+.experiment-running {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #1a1a1a;
+}
+.experiment-running.is-running { border-color: #3a7d44; background: #142818; }
+.experiment-form { max-width: 480px; }
+.experiment-form label { margin-top: 0.4rem; }
+.experiment-form input[type="text"], .experiment-form textarea {
+  display: block;
+  width: 100%;
+  min-height: 2.25rem;
+  font: inherit;
+  padding: 0.25rem 0.5rem;
+  background: #222;
+  border: 1px solid #444;
+  color: #eee;
+  border-radius: 4px;
+}
+.experiment-form input:disabled { opacity: 0.5; }
+.experiment-hint, .experiment-notes { font-size: 0.85rem; color: #aaa; margin: 0.25rem 0; }
+.experiment-form-buttons { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+.experiment-message { min-height: 1.2rem; margin-top: 0.4rem; color: #e3b341; }
+.experiment-list { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.experiment-list th, .experiment-list td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.4rem;
+  border-bottom: 1px solid #333;
+}
+.experiment-actions { white-space: nowrap; }
+.experiment-actions .row { flex-wrap: nowrap; }
+.experiment-actions .row + .row { margin-top: var(--gap); }
+button.secondary { background: #444; }
+button.stop { background: #8a3b2f; }
+.experiment-form select {
+  display: block;
+  width: 100%;
+  min-height: 2.25rem;
+  font: inherit;
+  background: #222;
+  border: 1px solid #444;
+  color: #eee;
+  border-radius: 4px;
+}
+.experiment-tray-row { display: flex; gap: 0.5rem; align-items: center; }
+.experiment-tray-row select { flex: 1; }
+.experiment-tray-other { display: flex; gap: 0.3rem; align-items: center; }
+.experiment-tray-other[hidden] { display: none; }
+.experiment-tray-other input { width: 6rem; }
+.experiment-export { margin-top: 0.3rem; color: #ccc; }
+.experiment-export a { color: #7cb7ff; }
+.experiment-dialog {
+  max-width: 480px;
+  background: #1a1a1a;
+  color: #eee;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 1rem;
+}
+.experiment-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.experiment-dialog h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+.experiment-dialog p { margin: 0.4rem 0; font-size: 0.9rem; }
+.experiment-dialog input[type="text"] {
+  display: block;
+  width: 100%;
+  min-height: 2.25rem;
+  font: inherit;
+  margin-top: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: #222;
+  border: 1px solid #444;
+  color: #eee;
+  border-radius: 4px;
+}
+.experiment-dialog-check { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.6rem; }
+.experiment-dialog-check input { width: 1.2rem; height: 1.2rem; }
+.experiment-dialog-error { min-height: 1.2rem; margin-top: 0.5rem; color: #e3b341; }
+/* The shared `label { display: block }` rule overrides the hidden attribute; on this page hidden
+   always means hidden. */
+.experiment-form [hidden], .experiment-dialog [hidden] { display: none; }
+.confirm-text {
+  font-family: ui-monospace, "DejaVu Sans Mono", monospace;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 0.05rem 0.35rem;
+  white-space: pre;
+}
+/* Typed in the same fixed-width font as the text to copy, so 0 and O, 1 and l look alike in both. */
+.experiment-dialog input#ask-input { font-family: ui-monospace, "DejaVu Sans Mono", monospace; }
+
+</style>
+  <script>
+// The squareness panel (templates/_squareness.html), shared by the calibration wizard's Step 3
+// and Square mode on the Focus and Square page: three magenta guide lines over the live image,
+// moved by large handles just outside it or by the keyboard, and the corner rings switch.
+// A straightening aid: the lines are client-side only, never saved.
+//
+// Loaded from <head> without defer, since the pages call initSquareness() from their own inline
+// scripts; everything that uses the shared components (ui.js, deferred) waits for the document.
+function initSquareness({ isActive }) {
+  const $ = (id) => document.getElementById(id);
+  const image = $("sq-image");
+  const ringsSwitch = $("corner-rings");
+  const lines = { h: $("sq-line-h"), v1: $("sq-line-v1"), v2: $("sq-line-v2") };
+  const axis = { h: "y", v1: "x", v2: "x" };
+  const pos = { h: 50, v1: 18, v2: 82 };
+  const handles = document.querySelectorAll(".sq-frame .handle");
+  let selected = "h";
+  let upright = "v1"; // the upright line left and right move: the last one picked
+
+  const clamp = (pct) => Math.min(100, Math.max(0, pct));
+
+  function place(name) {
+    const edge = axis[name] === "y" ? "top" : "left";
+    lines[name].style[edge] = pos[name] + "%";
+    handles.forEach((h) => { if (h.dataset.line === name) h.style[edge] = pos[name] + "%"; });
+  }
+
+  function select(name) {
+    selected = name;
+    if (name !== "h") upright = name;
+    handles.forEach((h) => h.classList.toggle("sel", h.dataset.line === name));
+    Object.entries(lines).forEach(([n, line]) => line.classList.toggle("sel", n === name));
+  }
+
+  // Pointer capture keeps move events coming to the handle when the pointer leaves it mid-drag.
+  handles.forEach((handle) => {
+    const name = handle.dataset.line;
+    handle.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      handle.setPointerCapture(e.pointerId);
+      select(name);
+    });
+    handle.addEventListener("pointermove", (e) => {
+      if (!handle.hasPointerCapture(e.pointerId)) return;
+      const r = image.getBoundingClientRect();
+      pos[name] = clamp(axis[name] === "y"
+        ? ((e.clientY - r.top) / r.height) * 100
+        : ((e.clientX - r.left) / r.width) * 100);
+      place(name);
+    });
+    handle.addEventListener("click", () => select(name));
+  });
+
+  // Keyboard: 1, 2, 3 pick the across, left and right line; up and down (W, S) move the across
+  // line, left and right (A, D) the picked upright line, 0.5% of the image a press. Only while the
+  // panel is showing and no keypad, keyboard or panel is open over it.
+  const KEYS = { w: -1, arrowup: -1, s: 1, arrowdown: 1, a: -1, arrowleft: -1, d: 1, arrowright: 1 };
+  const VERTICAL = ["w", "s", "arrowup", "arrowdown"];
+  document.addEventListener("keydown", (e) => {
+    if (!isActive() || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest && e.target.closest("input, textarea, select, [contenteditable]")) return;
+    if (document.querySelector(".keypad-layer, .kb-layer, .panel-layer")) return;
+    const key = e.key.toLowerCase();
+    if (key === "1" || key === "2" || key === "3") {
+      select(["h", "v1", "v2"][Number(key) - 1]);
+      e.preventDefault();
+      return;
+    }
+    if (!(key in KEYS)) return;
+    const name = VERTICAL.includes(key) ? "h" : upright;
+    select(name);
+    pos[name] = clamp(pos[name] + KEYS[key] * 0.5);
+    place(name);
+    e.preventDefault();
+  });
+
+  // --- The image: the corner rings overlay, or the plain live view ---
+  // The rings come from /calibration/orientation/level.jpg, which finds the corner tags in a
+  // fresh frame: real CPU on the Pi, so it is polled every 1.5 s (Aaron, 2026-09-28) and off by
+  // default, which keeps the live view smooth while the lines are moved. Each frame loads into an
+  // off-screen probe and is shown only once complete, and only if the rings are still wanted.
+  const LEVEL_OVERLAY_POLL_MS = 1500;
+  let showing = null; // "rings" | "preview" | null
+  let inFlight = false;
+
+  function refreshRings() {
+    if (inFlight) return;
+    inFlight = true;
+    const probe = new Image();
+    probe.onload = () => {
+      inFlight = false;
+      if (showing === "rings") image.src = probe.src;
+    };
+    probe.onerror = () => { inFlight = false; };
+    probe.src = `/calibration/orientation/level.jpg?t=${Date.now()}`;
+  }
+
+  const ringsOn = () => ringsSwitch.getAttribute("aria-checked") === "true";
+
+  // Call when the panel is shown or hidden (a wizard step, a mode change).
+  function update() {
+    if (!isActive()) {
+      if (showing !== null) image.removeAttribute("src");
+      showing = null;
+      return;
+    }
+    if (ringsOn()) {
+      if (showing !== "rings") { showing = "rings"; refreshRings(); }
+    } else if (showing !== "preview") {
+      showing = "preview";
+      image.src = "/preview.mjpg";
+    }
+  }
+
+  // A server restart ends the live view without an error event on the image (#139). A small
+  // request beside the poll notices the server going and coming back, and asks for it again.
+  let serverLost = false;
+  async function checkServer() {
+    try {
+      await fetch("/static/icons.svg", { method: "HEAD", cache: "no-store" });
+      if (serverLost && showing === "preview") image.src = `/preview.mjpg?restart=${Date.now()}`;
+      serverLost = false;
+    } catch (e) {
+      serverLost = true;
+    }
+  }
+
+  (function poll() {
+    if (isActive() && ringsOn() && !document.hidden) refreshRings();
+    if (showing === "preview" && !document.hidden) checkServer();
+    setTimeout(poll, LEVEL_OVERLAY_POLL_MS);
+  })();
+
+  Object.keys(lines).forEach(place);
+  select("h");
+  const bind = () => ui.bindSwitch(ringsSwitch, update);
+  if (window.ui) bind(); else document.addEventListener("DOMContentLoaded", bind);
+  update();
+  return { update };
+}
+
+</script>
+  <script>window.addEventListener('DOMContentLoaded',()=>{
+// Shared interface behavior (#128), drawn from reference/ui-mockup/rig-ui-mockup.html. Markup
+// is in templates/_ui.html, styles in style.css, and every function is shown on /ui.
+//
+// Loaded on every page, so it attaches nothing at load: a page calls these functions for the
+// components it uses. A layer listens for keys only while it is open. Only a clock redraws on a
+// timer, and only its own text: a button under the stylus is never replaced.
+(function () {
+  "use strict";
+
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const icon = (name) =>
+    `<svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#${name}"></use></svg>`;
+  const chip = (kind, text) => `<span class="chip ${kind}">${icon(kind)}${esc(text)}</span>`;
+  // Under 700px wide is a phone, which keeps its own keyboard (#128).
+  const isPhone = () => window.matchMedia("(max-width: 700px)").matches;
+
+  // A layer covers the screen, is a dialog, and gives focus back to what opened it on close.
+  function openLayer(className, label, html, onKey) {
+    const opener = document.activeElement;
+    const el = document.createElement("div");
+    el.className = className;
+    el.setAttribute("role", "dialog");
+    el.setAttribute("aria-modal", "true");
+    el.setAttribute("aria-label", label);
+    el.innerHTML = html;
+    document.body.appendChild(el);
+    const keys = (e) => {
+      // Enter on a focused finishing button (Set, Done, Cancel) presses that button, so Enter on
+      // Cancel cancels. On a key that was just tapped, Enter still finishes the entry.
+      const b = document.activeElement;
+      if (e.key === "Enter" && b && b.dataset && b.dataset.act && el.contains(b)) return;
+      if (onKey(e) !== false) { e.preventDefault(); e.stopPropagation(); }
+    };
+    document.addEventListener("keydown", keys, true);
+    el.close = () => {
+      document.removeEventListener("keydown", keys, true);
+      el.remove();
+      if (opener && opener.isConnected && opener.focus) opener.focus();
+    };
+    return el;
+  }
+
+  /* ---------- Toast: a short result, gone after 1.8 s ---------- */
+  function toast(message) {
+    const t = document.createElement("div");
+    t.className = "toast";
+    t.setAttribute("role", "status");
+    t.textContent = message;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 1800);
+  }
+
+  /* ---------- Numeric keypad ----------
+     options: label, help, value (string), unit, min, max, decimals, onSet(value string). */
+  function openKeypad({ label, help = "", value = "", unit = "", min = null, max = null, decimals = 0, onSet }) {
+    let val = String(value ?? "");
+    const u = unit ? " " + unit : "";
+    const allowed = min != null && max != null ? `${min} to ${max}${u}`
+      : min != null ? `${min}${u} or more` : max != null ? `${max}${u} or less` : "";
+    const range = allowed ? ` Allowed: ${allowed}.` : "";
+    const el = openLayer("keypad-layer", label, `
+      <div class="kp-info">
+        <p class="kp-label">${esc(label)}</p>
+        <p class="kp-help">${esc(help + range)}</p>
+        <div class="kp-value" aria-live="polite"><span><span class="kp-v"></span><span class="cursor"></span></span><span class="unit">${esc(unit)}</span></div>
+        <p class="kp-error"></p>
+        <div class="spacer"></div>
+        <div class="kp-actions">
+          <button type="button" class="btn hit" data-act="cancel">Cancel</button>
+          <button type="button" class="btn primary hit" data-act="set">Set</button>
+        </div>
+      </div>
+      <div class="kp-keys">
+        ${["7", "8", "9", "4", "5", "6", "1", "2", "3"].map((k) => `<button type="button" class="key hit" data-k="${k}">${k}</button>`).join("")}
+        <button type="button" class="key hit" data-k="." ${decimals ? "" : "disabled"} aria-label="Decimal point">.</button>
+        <button type="button" class="key hit" data-k="0">0</button>
+        <button type="button" class="key fn hit" data-k="del" aria-label="Delete last digit">${icon("del")}</button>
+        <button type="button" class="key fn wide hit" data-k="clear">Clear</button>
+      </div>`, (e) => {
+      if ((e.key >= "0" && e.key <= "9") || e.key === "." || e.key === ",") press(e.key === "," ? "." : e.key);
+      else if (e.key === "Backspace") press("del");
+      else if (e.key === "Enter") setNow();
+      else if (e.key === "Escape") el.close();
+      else return false;
+    });
+    const vEl = el.querySelector(".kp-v");
+    const err = el.querySelector(".kp-error");
+    const fail = (text) => { err.innerHTML = icon("fail") + esc(text); };
+    const paint = () => { vEl.textContent = val; err.textContent = ""; };
+    function press(k) {
+      if (k === "." && !decimals) return;
+      if (k === "del") val = val.slice(0, -1);
+      else if (k === "clear") val = "";
+      else if (k === ".") { if (!val.includes(".")) val = (val || "0") + "."; }
+      else {
+        const dec = val.split(".")[1];
+        if (dec !== undefined && dec.length >= decimals) { fail(`At most ${decimals} decimal places.`); return; }
+        val = (val === "0" ? "" : val) + k;
+      }
+      paint();
+    }
+    function setNow() {
+      if (val !== "") {
+        const n = Number(val);
+        if (Number.isNaN(n) || (min != null && n < min) || (max != null && n > max)) {
+          fail(Number.isNaN(n) ? `${val} is not a number.` : `${val} is outside the allowed range: ${allowed}.`);
+          return;
+        }
+        val = String(n);
+      }
+      el.close();
+      onSet(val);
+    }
+    el.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b || b.disabled) return;
+      if (b.dataset.act === "cancel") el.close();
+      else if (b.dataset.act === "set") setNow();
+      else if (b.dataset.k) press(b.dataset.k);
+    });
+    paint();
+    el.querySelector('[data-act="set"]').focus();
+    return el;
+  }
+
+  /* ---------- Full keyboard ----------
+     For names, labels and notes. On a phone the device's own keyboard is used instead: it is
+     good there, and 10 keys across would be too small. options: label, value, max, onSet. */
+  // shift: whether Shift starts on; by default only for an empty value (a capital first letter).
+  // target: text to copy, shown after the label so it stays in view while typing.
+  function openKeyboard({ label, value = "", max = 200, shift: shiftOn = null, target = null, onSet }) {
+    let val = String(value ?? "");
+    let shift = shiftOn ?? val === "";
+    const rows = [
+      "1234567890".split(""),
+      "qwertyuiop".split(""),
+      "asdfghjkl-".split(""),
+      ["shift", ..."zxcvbnm".split(""), ".", "del"],
+      // "_" so a folder name (2026-10-22_df206967) can be typed, for an unnamed experiment's Purge.
+      ["_", "space"],
+    ];
+    const keyHtml = (k) => {
+      if (k === "shift") return `<button type="button" class="key fn hit" data-k="shift" aria-pressed="${shift}">Shift</button>`;
+      if (k === "del") return `<button type="button" class="key fn hit" data-k="del" aria-label="Delete last character">${icon("del")}</button>`;
+      if (k === "space") return `<button type="button" class="key fn space hit" data-k=" ">Space</button>`;
+      return `<button type="button" class="key hit" data-k="${k}">${shift && /[a-z]/.test(k) ? k.toUpperCase() : k}</button>`;
+    };
+    const el = openLayer("kb-layer", label, `
+      <div class="kb-top">
+        <p class="kp-label">${esc(label)}${target === null ? "" : ` <code class="confirm-text">${esc(target)}</code>`}</p>
+        <div class="kb-value" aria-live="polite"><span class="kb-v"></span><span class="cursor"></span><span class="count"></span></div>
+        <button type="button" class="btn hit" data-act="cancel">Cancel</button>
+        <button type="button" class="btn primary hit" data-act="set">Done</button>
+      </div>
+      <div class="kb-keys"></div>
+      <div class="kb-native field"><span class="field-help">On a phone, the phone's own keyboard is used.</span>
+        <input type="text" class="field-btn text" maxlength="${max}" autocomplete="off" aria-label="${esc(label)}"></div>`, (e) => {
+      if (e.target === native) {
+        if (e.key === "Enter") done();
+        else if (e.key === "Escape") el.close();
+        else return false;
+        return;
+      }
+      if (e.key === "Enter") done();
+      else if (e.key === "Escape") el.close();
+      else if (e.key === "Backspace") val = val.slice(0, -1);
+      else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (val.length < max) val += e.key;
+        // A plugged-in keyboard does its own capitals, so the on-screen Shift lets go.
+        if (shift) { shift = false; paintKeys(); }
+      }
+      else return false;
+      native.value = val;
+      paint();
+    });
+    const native = el.querySelector(".kb-native input");
+    const paintKeys = () => {
+      el.querySelector(".kb-keys").innerHTML = rows.map((r) => `<div class="kb-row">${r.map(keyHtml).join("")}</div>`).join("");
+    };
+    const paint = () => {
+      el.querySelector(".kb-v").textContent = val;
+      el.querySelector(".count").textContent = `${val.length} / ${max}`;
+    };
+    function done() { el.close(); onSet(val); }
+    native.value = val;
+    native.addEventListener("input", () => { val = native.value; paint(); });
+    el.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      if (b.dataset.act === "cancel") { el.close(); return; }
+      if (b.dataset.act === "set") { done(); return; }
+      const k = b.dataset.k;
+      if (k === undefined) return;
+      if (k === "shift") { shift = !shift; paintKeys(); return; }
+      if (k === "del") val = val.slice(0, -1);
+      else if (val.length < max) {
+        val += shift && /[a-z]/.test(k) ? k.toUpperCase() : k;
+        if (shift) { shift = false; paintKeys(); }
+      }
+      native.value = val;
+      paint();
+    });
+    paintKeys();
+    paint();
+    (isPhone() ? native : el.querySelector('[data-act="set"]')).focus();
+    return el;
+  }
+
+  /* ---------- Dropdown list ----------
+     Looks like one field, opens a list of large rows. A plain <select> opens the browser's own
+     list, whose rows are too small on these screens. options: [{value, label, detail}]. */
+  function openChoice({ label, options, value, onSet }) {
+    const el = openLayer("kb-layer choice-layer", label, `
+      <div class="kb-top"><p class="kp-label">${esc(label)}</p>
+        <button type="button" class="btn hit" data-act="cancel">Cancel</button></div>
+      <div class="choice-list" role="listbox" aria-label="${esc(label)}">${options.map((o) =>
+        `<button type="button" class="choice hit" role="option" data-value="${esc(o.value)}" aria-selected="${String(o.value) === String(value)}" aria-pressed="${String(o.value) === String(value)}"><strong>${esc(o.label)}</strong>${o.detail ? `<span>${esc(o.detail)}</span>` : ""}</button>`).join("")}</div>`,
+    (e) => {
+      if (e.key === "Escape") el.close();
+      else return false;
+    });
+    el.addEventListener("click", (e) => {
+      if (e.target.closest('[data-act="cancel"]')) { el.close(); return; }
+      const b = e.target.closest("[data-value]");
+      if (b) { el.close(); onSet(b.dataset.value); }
+    });
+    (el.querySelector('[aria-pressed="true"]') || el.querySelector('[data-act="cancel"]')).focus();
+    return el;
+  }
+
+  /* ---------- Panels ----------
+     A panel covers the work area (not the rail), with the same head, scroll and action bar as a
+     page, so the buttons that finish it are always on screen. body and actions are HTML the
+     page writes; anything a person typed goes in through ui.esc. Returns the panel; call
+     panel.close() to remove it. */
+  // onEscape: what Escape does while the panel is open (none if not given). While the keypad or
+  // keyboard is open over the panel, Escape is theirs.
+  function openPanel({ title, sub = "", body, actions, onEscape = null }) {
+    const opener = document.activeElement;
+    const p = document.createElement("div");
+    p.className = "panel-layer";
+    p.setAttribute("role", "dialog");
+    p.setAttribute("aria-modal", "true");
+    p.setAttribute("aria-label", title);
+    p.innerHTML = `<header class="work-head"><div style="min-width:0"><h1>${esc(title)}</h1>${sub ? `<p class="sub">${esc(sub)}</p>` : ""}</div></header>
+      <div class="scroll"><div class="panel-body"></div></div>
+      <div class="action-bar"></div>`;
+    p.querySelector(".panel-body").innerHTML = body;
+    p.querySelector(".action-bar").innerHTML = actions;
+    (document.querySelector(".work") || document.body).appendChild(p);
+    const keys = (e) => {
+      if (e.key !== "Escape" || document.querySelector(".kb-layer, .keypad-layer")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onEscape();
+    };
+    if (onEscape) document.addEventListener("keydown", keys, true);
+    p.close = () => {
+      document.removeEventListener("keydown", keys, true);
+      p.remove();
+      if (opener && opener.isConnected && opener.focus) opener.focus();
+    };
+    return p;
+  }
+
+  /* In-page confirmation, in place of confirm() and alert(), which a touch screen user can miss
+     and which the page cannot style. The safe choice is on the left, the action on the right.
+     typed: text the person must type to go ahead. check: a switch they must turn on. */
+  function confirmPanel({ title, body, ok, danger = false, typed = null, typedLabel = "To confirm, type exactly:", check = null, onOk }) {
+    const st = { typed: "", checked: false };
+    const p = openPanel({
+      onEscape: () => p.close(),
+      title,
+      body: `<div class="stack" style="max-width:680px">
+        <div class="lead" style="color:var(--fg)">${body}</div>
+        ${typed ? `<div class="field"><span class="field-label">To confirm, type exactly: <code class="confirm-text">${esc(typed)}</code></span>
+          <button type="button" class="field-btn text hit" data-act="typed"><span class="empty">Tap to type</span>${icon("edit")}</button></div>` : ""}
+        ${check ? `<button type="button" class="switch hit" role="switch" data-act="check" aria-checked="false"><span class="track"></span>
+          <span class="txt"><strong>${esc(check)} <span class="state">Off</span></strong><span>Required to go ahead.</span></span></button>` : ""}
+      </div>`,
+      actions: `<button type="button" class="btn hit" data-act="cancel">Cancel</button><span class="grow"></span>
+        <button type="button" class="btn ${danger ? "danger" : "primary"} hit" data-act="ok">${esc(ok)}</button>`,
+    });
+    const okBtn = p.querySelector('[data-act="ok"]');
+    const ready = () => (!typed || st.typed.trim() === typed) && (!check || st.checked);
+    const paint = () => { okBtn.disabled = !ready(); };
+    const close = () => p.close();
+    p.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-act]");
+      if (!b) return;
+      const act = b.dataset.act;
+      if (act === "cancel") close();
+      else if (act === "typed") {
+        openKeyboard({
+          // Shift on only if the text starts with a capital, so "interval test" types as shown.
+          label: typedLabel, target: typed, value: st.typed, max: 200, shift: !st.typed && /^[A-Z]/.test(typed),
+          onSet: (v) => {
+            st.typed = v;
+            const match = v.trim() === typed;
+            b.classList.toggle("match", match);
+            b.innerHTML = (v ? `<span>${esc(v)}</span>` : '<span class="empty">Tap to type</span>') + (match ? chip("ok", "Matches") : icon("edit"));
+            paint();
+          },
+        });
+      } else if (act === "check") {
+        st.checked = b.getAttribute("aria-checked") !== "true";
+        setSwitch(b, st.checked);
+        paint();
+      } else if (act === "ok" && ready()) {
+        close();
+        onOk();
+      }
+    });
+    paint();
+    p.querySelector('[data-act="cancel"]').focus();
+    return p;
+  }
+
+  /* ---------- Bindings for the macros in _ui.html ---------- */
+  function setSwitch(el, on) {
+    el.setAttribute("aria-checked", String(on));
+    const state = el.querySelector(".state");
+    if (state) state.textContent = on ? "On" : "Off";
+  }
+  function bindSwitch(el, onChange) {
+    el.addEventListener("click", () => {
+      const on = el.getAttribute("aria-checked") !== "true";
+      setSwitch(el, on);
+      if (onChange) onChange(on);
+    });
+  }
+
+  function bindChoices(el, onChange) {
+    el.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-value]");
+      if (!b) return;
+      el.querySelectorAll("[data-value]").forEach((c) => c.setAttribute("aria-pressed", String(c === b)));
+      if (onChange) onChange(b.dataset.value);
+    });
+  }
+
+  // Tabs (ui.tabs): the pressed choice's [data-tab-panel] shows, every other one hides.
+  function bindTabs(el, onChange) {
+    const show = (value) => document.querySelectorAll("[data-tab-panel]").forEach((p) => {
+      p.hidden = p.dataset.tabPanel !== value;
+    });
+    bindChoices(el, (value) => { show(value); if (onChange) onChange(value); });
+  }
+
+  // Shows a value on a field button, or the empty prompt. unit "" leaves the unit off, for a
+  // shown text that carries its own (1/125 s for a value kept in ms).
+  function showField(el, value, shown = value, unit = el.dataset.unit) {
+    el.dataset.value = value;
+    const tail = el.querySelector(".ui-icon").outerHTML;
+    el.innerHTML = (value === ""
+      ? '<span class="empty">Not set, tap to enter</span>'
+      : `<span><span class="value">${esc(shown)}</span>${unit ? ` <span class="unit">${esc(unit)}</span>` : ""}</span>`) + tail;
+  }
+  function bindField(el, onSet) {
+    const num = (name) => (el.dataset[name] === undefined ? null : Number(el.dataset[name]));
+    el.addEventListener("click", () => {
+      const d = el.dataset;
+      const label = d.label;
+      const set = (v, shown) => { showField(el, v, shown); if (onSet) onSet(v); };
+      if (d.kind === "text") {
+        openKeyboard({ label, value: d.value, max: num("maxLength") || 200, onSet: (v) => set(v) });
+      } else if (d.kind === "choice") {
+        const options = JSON.parse(d.options || "[]").map(([value, text, detail]) => ({ value: String(value), label: text, detail }));
+        openChoice({
+          label, options, value: d.value,
+          onSet: (v) => set(v, (options.find((o) => o.value === v) || { label: v }).label),
+        });
+      } else {
+        openKeypad({
+          label, help: d.help, value: d.value, unit: d.unit, min: num("min"), max: num("max"),
+          decimals: num("decimals") || 0, onSet: (v) => set(v),
+        });
+      }
+    });
+  }
+
+  // options.stops: an ascending list of values, such as camera stops. Minus and plus then move to
+  // the next stop down or up from the nearest one, on a ratio scale; a typed value is kept as it is.
+  function bindStepper(el, onChange, { stops = null } = {}) {
+    const field = el.querySelector(".field-btn");
+    const step = Number(el.dataset.step) || 1;
+    const stepDecimals = (String(step).split(".")[1] || "").length;
+    const decimals = Math.max(Number(field.dataset.decimals) || 0, stepDecimals);
+    const clamp = (n) => {
+      if (field.dataset.min !== undefined) n = Math.max(Number(field.dataset.min), n);
+      if (field.dataset.max !== undefined) n = Math.min(Number(field.dataset.max), n);
+      return n;
+    };
+    el.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-step-by]");
+      if (!b) return;
+      const cur = Number(field.dataset.value) || 0;
+      const n = clamp(stops ? nextStop(stops, cur, Number(b.dataset.stepBy)) : cur + step * Number(b.dataset.stepBy));
+      const v = String(Number(n.toFixed(decimals)));
+      showField(field, v);
+      if (onChange) onChange(v);
+    });
+    bindField(field, onChange);
+  }
+
+  // The next stop above (by 1) or below (by -1) the value. A value within 2% of a stop counts
+  // as on it: a camera reports the nearest value its sensor makes (7998 us for 8000). Past the
+  // last stop, or with no stops, the value stays.
+  const STOP_TOLERANCE = 1.02;
+  function nextStop(stops, value, by) {
+    if (by > 0) return stops.find((stop) => stop > value * STOP_TOLERANCE) ?? value;
+    return [...stops].reverse().find((stop) => stop < value / STOP_TOLERANCE) ?? value;
+  }
+
+  // Greys out a control and every button in it, such as a stepper while focus is locked.
+  function setDisabled(el, disabled) {
+    [el, ...el.querySelectorAll("button")].forEach((b) => { if (b.tagName === "BUTTON") b.disabled = disabled; });
+  }
+
+  /* ---------- Info panel ----------
+     A panel with one Close button that Escape also closes: the About pages and settings panels.
+     body is HTML the page writes. Returns the panel. */
+  function infoPanel({ title, sub = "", body }) {
+    const p = openPanel({
+      title, sub, body, onEscape: () => p.close(),
+      actions: '<span class="grow"></span><button type="button" class="btn primary hit" data-act="close">Close</button>',
+    });
+    p.querySelector('[data-act="close"]').addEventListener("click", () => p.close());
+    p.querySelector('[data-act="close"]').focus();
+    return p;
+  }
+
+  // An About button (macro ui.about_button) opens the About page (macro ui.about_page) it names.
+  function bindAbout(button) {
+    button.addEventListener("click", () => {
+      const page = document.getElementById(button.dataset.about);
+      infoPanel({ title: page.dataset.title, body: page.innerHTML });
+    });
+  }
+
+  /* ---------- Clock ----------
+     The one thing that redraws on a timer, and only its own text. render(msLeft) returns the
+     text; at zero, done is shown. Returns a function that stops it. */
+  function countdown(el, untilMs, { render, done = "Ready" }) {
+    const tick = () => {
+      const left = Math.max(0, untilMs - Date.now());
+      el.textContent = left ? render(left) : done;
+      if (!left) clearInterval(timer);
+    };
+    const timer = setInterval(tick, 1000);
+    tick();
+    return () => clearInterval(timer);
+  }
+  const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
+
+  window.ui = {
+    esc, icon, chip, isPhone, toast,
+    openKeypad, openKeyboard, openChoice, openPanel, confirmPanel,
+    infoPanel, bindAbout, setDisabled,
+    setSwitch, bindSwitch, bindChoices, bindTabs, showField, bindField, bindStepper,
+    countdown, mmss,
+  };
+})();
+
+});</script>
+  
+<style>
+  .setup { display: grid; gap: var(--gap); max-width: 760px; }
+  .facts { display: grid; grid-template-columns: minmax(150px, max-content) minmax(0, 1fr); gap: 8px 24px; margin: 0; }
+  .facts dt { color: var(--fg-2); }
+  .facts dd { margin: 0; }
+  .mock-tools { position: fixed; right: 8px; top: 8px; display: flex; gap: 6px; z-index: 999; }
+  .mock-note { min-height: 0; padding: 6px 10px !important; font-size: 13px !important; background: #5a1a5a; color: #fff; padding: 4px 10px; font-size: 14px; border-radius: 6px; z-index: 999; }
+  @media (max-width: 700px) { .facts { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+</style>
+
+</head>
+<body><svg style="display:none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <!-- One copy of every interface icon (#128). Used as <svg><use href="/#name"/></svg>
+       by the icon macro in templates/_ui.html and by static/ui.js. Drawn in currentColor. -->
+  <symbol id="setup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+  <symbol id="capture" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="experiments" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></symbol>
+  <symbol id="shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></symbol>
+  <symbol id="ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></symbol>
+  <symbol id="warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5" stroke-linecap="round"/></symbol>
+  <symbol id="fail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"><path d="M8 2h8l6 6v8l-6 6H8l-6-6V8z"/><path d="M9 9l6 6M15 9l-6 6" stroke-linecap="round"/></symbol>
+  <symbol id="info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="8"/></symbol>
+  <symbol id="about" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.2v.3"/></symbol>
+  <symbol id="help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6M12 17.2v.3"/></symbol>
+  <symbol id="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></symbol>
+  <symbol id="minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"/></symbol>
+  <symbol id="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="del" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5h11v14H9l-6-7z"/><path d="M12 9l5 6M17 9l-5 6"/></symbol>
+  <symbol id="back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="next" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></symbol>
+</svg>
+
+  <div class="app">
+    <nav class="rail" aria-label="Sections">
+      <a class="rail-btn hit" href="/setup" aria-current="page">
+        <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#setup"></use></svg>Setup
+      </a>
+      <a class="rail-btn hit" href="/gallery">
+        <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#capture"></use></svg>Capture
+      </a>
+      <a class="rail-btn hit" href="/experiments">
+        <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#experiments"></use></svg>Experiments
+      </a>
+      <a class="rail-btn hit" href="/randomize">
+        <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#shuffle"></use></svg>Randomize
+      </a>
+      <div class="rail-spacer"></div><a class="rail-btn hit" href="/about">
+        <svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#about"></use></svg>About
+      </a>
+      
+<div id="camera-status" class="camera-status" hidden>
+  <span class="camera-status-text"></span>
+</div>
+<div id="disk-status" class="camera-status" hidden>
+  <span data-disk-level="yellow" data-words="Disk low" hidden><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#warn"></use></svg></span>
+  <span data-disk-level="red" data-words="Disk very low" hidden><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#fail"></use></svg></span>
+  <span class="camera-status-text"></span>
+</div>
+<script>
+(function () {
+  const box = document.getElementById("camera-status");
+  const text = box.querySelector(".camera-status-text");
+  // Each time in the browser's own zone, with the zone named (the rig stores UTC, health.py).
+  const time = (iso) => {
+    // Microseconds trimmed to milliseconds: not every browser parses more than 3 digits.
+    const d = new Date(iso.replace(/(\.\d{3})\d+/, "$1"));
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
+  };
+
+  function show(state, message) {
+    box.dataset.cameraState = state;
+    text.textContent = message;
+    box.hidden = false;
+  }
+
+  const disk = document.getElementById("disk-status");
+  function showDisk(d) {
+    const warn = d && (d.level === "yellow" || d.level === "red");
+    disk.hidden = !warn;
+    if (!warn) return;
+    disk.dataset.cameraState = d.level === "red" ? "failed" : "flagged";
+    let words = "";
+    for (const shape of disk.querySelectorAll("[data-disk-level]")) {
+      shape.hidden = shape.dataset.diskLevel !== d.level;
+      if (!shape.hidden) words = shape.dataset.words;
+    }
+    // Days at the rate files were written in the last day (health.py).
+    const days = Math.max(0, Math.round(d.days_left));
+    disk.querySelector(".camera-status-text").textContent =
+      " " + words + ": about " + days + (days === 1 ? " day" : " days") + " left.";
+  }
+
+  // One timer: every 10 s, every 1 s while the camera is opening (about 1 s with no camera, up
+  // to 30 s with one).
+  async function poll() {
+    const h = await refresh();
+    setTimeout(poll, h && h.state === "opening" ? 1000 : 10000);
+  }
+
+  async function refresh() {
+    let h;
+    try {
+      const r = await fetch("/camera/health");
+      if (!r.ok) return null;
+      h = await r.json();
+    } catch (e) {
+      return null;
+    }
+    const until = h.last_restart
+      ? time(new Date(new Date(h.last_restart.time_utc.replace(/(\.\d{3})\d+/, "$1")).getTime() + h.camera_fault_window_s * 1000).toISOString())
+      : null;
+    if (h.state === "opening") {
+      show("restarting", "Camera: opening.");
+    } else if (h.state === "no_camera") {
+      // Short: the line sits in the side menu. The full advice is in h.detail.
+      show("failed", "Camera: not attached. Connect it with the Pi off." +
+        (h.reboot_needed ? " Restart needed." : ""));
+    } else if (h.state === "restarting") {
+      show("restarting", "Camera: it stopped responding and is being restarted.");
+    } else if (h.state === "failed_to_reopen") {
+      show("failed", "Camera: " + (h.detail || "it could not be reopened.") +
+        (h.reboot_needed ? " Restart needed." : ""));
+    } else if (h.photos_flagged) {
+      show("flagged", "Camera: restarted after a fault at " + time(h.last_restart.time_utc) +
+        ". Photos until " + until + " are flagged as not covered by the bands.");
+    } else {
+      box.hidden = true;
+    }
+    showDisk(h.disk);
+    return h;
+  }
+
+  poll();
+})();
+</script>
+    </nav>
+    <main class="work">
+      <div class="head-block">
+        <header class="work-head"><h1>Setup</h1>
+        </header>
+<nav class="tab-bar" aria-label="Setup views"><div class="choices" id="setup-tabs" role="group" aria-label="Setup views">
+  <button type="button" class="choice hit" data-value="steps" aria-pressed="true"><strong>Setup steps</strong></button>
+  <button type="button" class="choice hit" data-value="settings" aria-pressed="false"><strong>Rig settings</strong></button>
+</div></nav>
+
+      </div>
+      <div class="scroll">
+        
+<div class="setup" data-tab-panel="steps">
+  <div class="card condensed">
+  <div class="card-info">
+    <div class="card-head"><h3>Focus &amp; Square</h3><span class="chip ok"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#ok"></use></svg>Locked</span></div><p class="card-meta"><span>Lens 7.85, locked 18 Nov 10:12</span></p>
+  </div>
+  <div class="card-actions">
+    <a class="btn  hit" href="#">Open</a>
+  </div>
+</div>
+  <div class="card condensed">
+  <div class="card-info">
+    <div class="card-head"><h3>Calibration</h3><span class="chip ok"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#ok"></use></svg>Active</span></div><p class="card-meta"><span>Saved 18 Nov 10:40, 4 corner tags</span></p>
+  </div>
+  <div class="card-actions">
+    <a class="btn  hit" href="#">Open</a>
+  </div>
+</div>
+  <div class="card condensed">
+  <div class="card-info">
+    <div class="card-head"><h3>Validation</h3><span class="chip warn"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#warn"></use></svg>Not run since calibration</span></div><p class="card-meta"><span>Last complete 12 Nov</span></p>
+  </div>
+  <div class="card-actions">
+    <a class="btn  hit" href="#">Open</a>
+  </div>
+</div>
+  <div class="card condensed">
+  <div class="card-info">
+    <div class="card-head"><h3>Calibration history</h3></div><p class="card-meta"><span>12 saved</span></p>
+  </div>
+  <div class="card-actions">
+    <a class="btn  hit" href="#">Open</a>
+  </div>
+</div>
+  <div class="card condensed">
+  <div class="card-info">
+    <div class="card-head"><h3>Health check</h3></div><p class="card-meta"><span>Tripwire check, on demand</span></p>
+  </div>
+  <div class="card-actions">
+    <a class="btn  hit" href="#">Open</a>
+  </div>
+</div>
+</div>
+
+<div class="setup" data-tab-panel="settings" hidden>
+  <section class="card" aria-labelledby="pq-title">
+    <div class="card-head"><h3 id="pq-title">Photo quality</h3><span id="pq-now-ok"><span class="chip ok"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#ok"></use></svg>Recommended in use</span></span><span id="pq-now-other" hidden><span class="chip warn"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#warn"></use></svg>Override in use</span></span></div>
+    <div class="pq-running" hidden>
+    <div class="banner warn" role="status"><span class="chip warn"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#warn"></use></svg>Experiment running</span>
+  
+      <span>A change now shifts the recorded area values and is not recommended for consistency.</span>
+    
+</div>
+    </div>
+    <div class="choices" id="pq-preset" role="group" aria-label="Photo quality">
+  <button type="button" class="choice hit" data-value="85|4:4:4" aria-pressed="true"><strong>Recommended</strong><span>85, full colour</span></button>
+  <button type="button" class="choice hit" data-value="75|4:4:4" aria-pressed="false"><strong>Smaller files</strong><span>75, full colour</span></button>
+  <button type="button" class="choice hit" data-value="95|4:4:4" aria-pressed="false"><strong>Most detail</strong><span>95, full colour</span></button>
+  <button type="button" class="choice hit" data-value="override" aria-pressed="false"><strong>Override</strong><span>Choose any</span></button>
+</div>
+    <div id="pq-warn-75" hidden>
+    <div class="banner warn" role="status"><span class="chip warn"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#warn"></use></svg>Loss of quality</span>
+  
+      <span>Plant areas read about 0.6% low, against 0.4% at Recommended.</span>
+    
+</div>
+    </div>
+    <div id="pq-warn-95" hidden>
+    <div class="banner warn" role="status"><span class="chip warn"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#warn"></use></svg>Increased storage</span>
+  
+      <span>Each photo takes about twice the disk space of Recommended, for almost no gain in plant area.</span>
+    
+</div>
+    </div>
+    <div id="pq-override" class="stack" hidden>
+      <div class="banner warn" role="status"><span class="chip warn"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#warn"></use></svg>Not recommended</span>
+  
+        <span>Half colour, the old default (75, half), reads plant areas about 1.4% low.</span>
+      
+</div>
+      <div class="field">
+  <span class="field-label" id="pq-quality-label">JPEG quality</span><span class="field-help">1 to 95</span>
+  
+        <div class="stepper" id="pq-quality-step" data-step="5">
+  <button type="button" class="btn hit" data-step-by="-1" aria-label="JPEG quality, down 5"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#minus"></use></svg></button>
+  <button type="button" class="field-btn hit" id="pq-quality-step-value"
+  data-kind="number" data-label="JPEG quality" data-value="85" data-unit="" data-min="1" data-max="95"
+  data-decimals="0" data-help="" data-max-length="200"><span><span class="value">85</span></span><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#edit"></use></svg>
+</button>
+  <button type="button" class="btn hit" data-step-by="1" aria-label="JPEG quality, up 5"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#plus"></use></svg></button>
+</div>
+      
+</div>
+      <div class="field">
+  <span class="field-label" id="pq-chroma-label">Colour resolution</span>
+  
+        <div class="choices" id="pq-chroma-choice" role="group" aria-label="Colour resolution">
+  <button type="button" class="choice hit" data-value="4:4:4" aria-pressed="true"><strong>Full</strong><span>4:4:4</span></button>
+  <button type="button" class="choice hit" data-value="4:2:0" aria-pressed="false"><strong>Half</strong><span>4:2:0</span></button>
+</div>
+      
+</div>
+    </div>
+    <dl class="facts" id="pq-estimate">
+      <dt>Plant areas</dt><dd id="est-area"></dd>
+      <dt>Each photo</dt><dd id="est-photo"></dd>
+      <dt>Each day</dt><dd id="est-day"></dd>
+      <dt>Disk</dt><dd id="est-disk"></dd>
+    </dl>
+    <p class="field-help" id="est-basis"></p>
+    <details class="help">
+  <summary class="hit"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#help"></use></svg><span class="title">Changes</span><svg class="ui-icon chev" aria-hidden="true" focusable="false"><use href="#chev"></use></svg></summary>
+  <div class="help-body">
+      <table class="data-table">
+  <thead><tr><th scope="col">Changed</th><th scope="col">Quality</th><th scope="col">Colour</th></tr></thead>
+  <tbody>
+        <tr><td>5 Nov 2026 14:02</td><td>85</td><td>Full (4:4:4)</td></tr>
+        <tr><td>Before 5 Nov</td><td>75</td><td>Half (4:2:0)</td></tr>
+      </tbody>
+</table>
+    </div>
+</details>
+  </section>
+
+  <section class="card" aria-labelledby="cam-title">
+    <div class="card-head"><h3 id="cam-title">Camera</h3></div>
+    <div class="pq-running" hidden>
+    <div class="banner warn" role="status"><span class="chip warn"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#warn"></use></svg>Experiment running</span>
+  
+      <span>Changing white balance now changes the colours recorded. This may impact recorded area values and is not recommended for consistency.</span>
+    
+</div>
+    </div>
+    <button type="button" class="switch hit" role="switch" id="awb" aria-checked="false">
+  <span class="track"></span>
+  <span class="txt"><strong>Auto white balance <span class="state">Off</span></strong><span>Changes the colours recorded, and may change area values. Not recommended.</span></span>
+</button>
+    <dl class="facts">
+      <dt>Exposure</dt><dd>Auto</dd>
+      <dt>Gain</dt><dd>1.0</dd>
+      <dt>Lens</dt><dd>7.85, locked</dd>
+    </dl>
+    <div class="card-actions"><a class="btn  hit" href="#">Change on Focus &amp; Square</a></div>
+  </section>
+</div>
+<div class="mock-tools">
+  <button type="button" class="mock-note" id="mock-running">Mockup: experiment running OFF</button>
+  <button type="button" class="mock-note" id="mock-camera">Mockup: camera 64 MP</button>
+</div>
+<script>
+window.addEventListener("load", () => {
+  const $ = (id) => document.getElementById(id);
+  // MB per photo measured on the 64 MP camera, 9152 x 6944 px (metrology log 26.1), and the mean
+  // change in plant area against the uncompressed photo.
+  const MEASURED_MP = 63.55;
+  const MEASURED = {
+    "4:2:0": [[75, 5.9, -1.37], [85, 8.5, -0.97], [95, 16.8, -0.72]],
+    "4:4:4": [[75, 7.4, -0.56], [85, 10.7, -0.36], [90, 14.0, -0.37], [95, 21.4, -0.31]],
+  };
+  const CAMERAS = [["64 MP", 9152, 6944], ["12 MP", 4056, 3040]];
+  let cam = 0;
+  const FREE_GB = 621, PHOTOS_PER_DAY = 1440;
+  const lookup = (q, c) => {
+    const pts = MEASURED[c];
+    if (q <= pts[0][0]) return { mb: pts[0][1] * q / pts[0][0], area: q === pts[0][0] ? pts[0][2] : null, outside: q < pts[0][0] };
+    for (let i = 1; i < pts.length; i++) if (q <= pts[i][0]) {
+      const [q0, m0, a0] = pts[i - 1], [q1, m1, a1] = pts[i], t = (q - q0) / (q1 - q0);
+      return { mb: m0 + t * (m1 - m0), area: q === q1 ? a1 : (q === q0 ? a0 : null), outside: false };
+    }
+  };
+  const saved = { q: 85, c: "4:4:4" }, now = { q: 85, c: "4:4:4" };
+  let running = false;
+  const colour = (c) => c === "4:4:4" ? "full" : "half";
+  const presetOf = (q, c) => ["85|4:4:4", "75|4:4:4", "95|4:4:4"].includes(`${q}|${c}`) ? `${q}|${c}` : "override";
+  const NAMES = { "85|4:4:4": "Recommended", "75|4:4:4": "Smaller files", "95|4:4:4": "Most detail", override: "Override" };
+  const showTab = (tab) => {
+    for (const el of document.querySelectorAll("[data-tab-panel]")) el.hidden = el.dataset.tabPanel !== tab;
+    for (const b of document.querySelectorAll("#setup-tabs .choice")) b.setAttribute("aria-pressed", String(b.dataset.value === tab));
+    $("save-bar").hidden = tab !== "settings";
+    const bar = document.querySelector(".action-bar"); if (bar) bar.hidden = tab !== "settings";
+  };
+  const refresh = () => {
+    const [name, w, h] = CAMERAS[cam], mp = w * h / 1e6;
+    const e = lookup(now.q, now.c), mb = e.mb * mp / MEASURED_MP, gb = mb * PHOTOS_PER_DAY / 1000;
+    $("est-area").textContent = e.area === null ? "Not measured at this setting" : `About ${Math.abs(e.area).toFixed(1)}% low`;
+    $("est-photo").textContent = `About ${mb.toFixed(1)} MB (estimate)`;
+    $("est-day").textContent = `About ${gb.toFixed(1)} GB at 1 photo a minute`;
+    $("est-disk").textContent = `${FREE_GB} GB free: about ${Math.floor(FREE_GB / gb)} days`;
+    $("est-basis").textContent = `Camera ${w} x ${h} px (${mp.toFixed(1)} MP). Sizes measured on the 64 MP camera and scaled to its pixels; daytime photos, night photos are smaller.`
+      + (cam ? " Not yet measured on this camera." : "") + (e.outside ? " Below quality 75 the size is a guess." : "");
+    const changed = now.q !== saved.q || now.c !== saved.c;
+    $("pq-save").disabled = !changed;
+    $("pq-save").textContent = changed ? `Save: ${NAMES[presetOf(now.q, now.c)]}, ${now.q} ${colour(now.c)}` : "Save photo quality";
+    const rec = saved.q === 85 && saved.c === "4:4:4";
+    $("pq-now-ok").hidden = !rec; $("pq-now-other").hidden = rec;
+    $("pq-now-other").querySelector(".chip").lastChild.textContent = `${NAMES[presetOf(saved.q, saved.c)]} in use, ${saved.q} ${colour(saved.c)}`;
+    for (const el of document.querySelectorAll(".pq-running")) el.hidden = !running;
+    $("pq-warn-75").hidden = !(now.q === 75 && now.c === "4:4:4");
+    $("pq-warn-95").hidden = !(now.q === 95 && now.c === "4:4:4");
+    $("mock-running").textContent = `Mockup: experiment running ${running ? "ON" : "OFF"}`;
+    $("mock-camera").textContent = `Mockup: camera ${name}`;
+  };
+  const setOverride = (on) => { $("pq-override").hidden = !on; };
+  const syncOverride = () => {
+    document.querySelector("#pq-quality-step .value").textContent = now.q;
+    $("pq-chroma-choice").querySelectorAll("[data-value]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === now.c)));
+  };
+  const save = () => {
+    saved.q = now.q; saved.c = now.c;
+    const row = document.createElement("tr");
+    const t = new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    row.innerHTML = `<td>${t}</td><td>${now.q}</td><td>${colour(now.c)[0].toUpperCase() + colour(now.c).slice(1)} (${now.c})</td>`;
+    document.querySelector(".data-table tbody").prepend(row);
+    refresh();
+  };
+  ui.bindTabs($("setup-tabs"), (v) => { showTab(v); history.replaceState(null, "", "#" + v); });
+  ui.bindChoices($("pq-preset"), (v) => {
+    if (v === "override") { setOverride(true); }
+    else { setOverride(false); const [q, c] = v.split("|"); now.q = Number(q); now.c = c; syncOverride(); }
+    refresh();
+  });
+  ui.bindStepper($("pq-quality-step"), (v) => { now.q = Number(v); refresh(); });
+  ui.bindChoices($("pq-chroma-choice"), (v) => { now.c = v; refresh(); });
+  const awb = $("awb");
+  awb.addEventListener("click", (ev) => {
+    if (!running) return;
+    ev.stopImmediatePropagation();
+    const on = awb.getAttribute("aria-checked") !== "true";
+    ui.confirmPanel({
+      title: `Turn auto white balance ${on ? "on" : "off"} during the experiment?`,
+      body: "<p>The colours of this experiment's photos change from the next photo on, and with them its plant areas. The size of the effect is not measured.</p>",
+      ok: `Turn ${on ? "on" : "off"}`, onOk: () => { awb.setAttribute("aria-checked", String(on)); awb.querySelector(".state").textContent = on ? "On" : "Off"; } });
+  }, true);
+  ui.bindSwitch(awb);
+  $("mock-running").addEventListener("click", () => { running = !running; refresh(); });
+  $("mock-camera").addEventListener("click", () => { cam = 1 - cam; refresh(); });
+  $("pq-save").addEventListener("click", () => {
+    if (!running) return save();
+    ui.confirmPanel({
+      title: "Change photo quality during the experiment?",
+      body: `<p>Experiment <strong>Round 3 potatoes</strong> is running. Photos from the next one on are saved at ${now.q}, ${colour(now.c)} colour, and its plant areas shift (about 1% between the old default and the recommended setting, metrology log 26.1). The change is listed with its time.</p>`,
+      ok: "Save", onOk: save });
+  });
+  // Views for pictures: #settings-75, #settings-95, #steps, #settings, #settings-override, #settings-running, #confirm, #settings-12mp.
+  const h = location.hash.slice(1) || "steps";
+  showTab(h === "steps" ? "steps" : "settings");
+  if (h === "settings-override") { $("pq-preset").querySelector('[data-value="override"]').click(); $("pq-chroma-choice").querySelector('[data-value="4:2:0"]').click(); }
+  if (h === "settings-running" || h === "confirm") { running = true; $("pq-preset").querySelector('[data-value="95|4:4:4"]').click(); }
+  if (h === "settings-12mp") cam = 1;
+  if (h === "settings-75" || h === "settings-95") $("pq-preset").querySelector(`[data-value="${h.slice(-2)}|4:4:4"]`).click();
+  refresh();
+  if (h === "confirm") $("pq-save").click();
+});
+</script>
+
+      </div>
+      <div class="action-bar">
+<span id="save-bar" hidden><button type="button" class="btn primary hit" id="pq-save" disabled>Save photo quality</button></span>
+</div>
+    </main>
+  </div>
+  <script>window.addEventListener('DOMContentLoaded',()=>{
+// Click-to-enlarge for any .diagnostic-image or ui.figure, shared across every page via base.html --
+// event-delegated so it works on images added to the DOM after this script runs.
+(() => {
+  const overlay = document.createElement("div");
+  overlay.className = "lightbox-overlay";
+  overlay.innerHTML =
+    '<button type="button" class="lightbox-close" aria-label="Close">✕</button>' +
+    '<img class="lightbox-image" alt="">';
+  document.body.appendChild(overlay);
+
+  const overlayImage = overlay.querySelector(".lightbox-image");
+  const closeBtn = overlay.querySelector(".lightbox-close");
+
+  function closeLightbox() {
+    overlay.classList.remove("open");
+    overlayImage.src = "";
+  }
+
+  document.addEventListener("click", (event) => {
+    // A ui.figure is a button around its image, so a tap or Enter on it opens the image too.
+    const figure = event.target.closest(".figure");
+    const image = figure ? figure.querySelector("img") : event.target.closest(".diagnostic-image:not([data-no-lightbox])");
+    if (image && image.hasAttribute("src")) {
+      // data-large: a bigger copy to open than the one shown (a gallery thumbnail's screen copy).
+      overlayImage.src = image.dataset.large || image.src;
+      overlayImage.alt = image.alt;
+      overlay.classList.add("open");
+      return;
+    }
+    if (event.target === overlay || event.target === closeBtn) {
+      closeLightbox();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeLightbox();
+  });
+})();
+
+});</script>
+</body>
+</html>

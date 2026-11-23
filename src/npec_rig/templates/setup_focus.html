@@ -10,7 +10,6 @@
   {#- Focus mode shows only the focus controls, Square mode only the squareness panel (#89). -#}
   {{ ui.choices("focus-mode", "Mode", [("focus", "Focus", ""), ("square", "Square", "")], "focus") }}
   <div class="head-actions">
-    {{ ui.button("Camera settings", id="camera-settings-btn") }}
     {{ ui.about_button("about-focus", "About") }}
   </div>
 {% endblock %}
@@ -38,7 +37,6 @@
         mode = value;
         document.getElementById("focus-mode-panel").hidden = mode !== "focus";
         document.getElementById("square-mode-panel").hidden = mode !== "square";
-        document.getElementById("camera-settings-btn").hidden = mode !== "focus";
         focusControls.updateLiveResources();
         squareness.update();
       });

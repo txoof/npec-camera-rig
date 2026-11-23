@@ -812,7 +812,7 @@ kbd {
 .help-popover p:first-child { margin-top: 0; }
 .help-popover p:last-child { margin-bottom: 0; }
 
-/* Validation status line (validation-status.js), on the Setup and Calibration pages. */
+/* Validation status line (validation-status.js), on the Focus and Calibration pages. */
 .validation-status { margin: 0 0 0.75rem; padding: 0.35rem 0.6rem; border-left: 4px solid #888;
   font-size: 0.9rem; }
 .validation-status .validation-status-text { font-weight: bold; }
