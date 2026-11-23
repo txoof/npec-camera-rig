@@ -2,7 +2,7 @@
      Rendered from the real templates and style.css of main 6ca1d87 with fixed values; nothing calls the API.
      Open in a browser and tap. The purple buttons (top right) pretend an experiment is running and switch the
      camera between 64 MP and 12 MP for the estimate. Views by address: #steps, #settings, #settings-override,
-     #settings-running, #settings-12mp, #confirm. File sizes from metrology log 26.1. -->
+     #settings-running, #settings-12mp, #settings-75, #settings-95, #confirm. File sizes from metrology log 26.1. -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -1761,6 +1761,20 @@ function initSquareness({ isActive }) {
   <button type="button" class="choice hit" data-value="95|4:4:4" aria-pressed="false"><strong>Most detail</strong><span>95, full colour</span></button>
   <button type="button" class="choice hit" data-value="override" aria-pressed="false"><strong>Override</strong><span>Choose any</span></button>
 </div>
+    <div id="pq-warn-75" hidden>
+    <div class="banner warn" role="status"><span class="chip warn"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#warn"></use></svg>Loss of quality</span>
+  
+      <span>Plant areas read about 0.6% low, against 0.4% at Recommended.</span>
+    
+</div>
+    </div>
+    <div id="pq-warn-95" hidden>
+    <div class="banner warn" role="status"><span class="chip warn"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#warn"></use></svg>Increased storage</span>
+  
+      <span>Each photo takes about twice the disk space of Recommended, for almost no gain in plant area.</span>
+    
+</div>
+    </div>
     <div id="pq-override" class="stack" hidden>
       <div class="banner warn" role="status"><span class="chip warn"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#warn"></use></svg>Not recommended</span>
   
@@ -1851,7 +1865,7 @@ window.addEventListener("load", () => {
   const FREE_GB = 621, PHOTOS_PER_DAY = 1440;
   const lookup = (q, c) => {
     const pts = MEASURED[c];
-    if (q <= pts[0][0]) return { mb: pts[0][1] * q / pts[0][0], area: null, outside: q < pts[0][0] };
+    if (q <= pts[0][0]) return { mb: pts[0][1] * q / pts[0][0], area: q === pts[0][0] ? pts[0][2] : null, outside: q < pts[0][0] };
     for (let i = 1; i < pts.length; i++) if (q <= pts[i][0]) {
       const [q0, m0, a0] = pts[i - 1], [q1, m1, a1] = pts[i], t = (q - q0) / (q1 - q0);
       return { mb: m0 + t * (m1 - m0), area: q === q1 ? a1 : (q === q0 ? a0 : null), outside: false };
@@ -1884,6 +1898,8 @@ window.addEventListener("load", () => {
     $("pq-now-ok").hidden = !rec; $("pq-now-other").hidden = rec;
     $("pq-now-other").querySelector(".chip").lastChild.textContent = `${NAMES[presetOf(saved.q, saved.c)]} in use, ${saved.q} ${colour(saved.c)}`;
     for (const el of document.querySelectorAll(".pq-running")) el.hidden = !running;
+    $("pq-warn-75").hidden = !(now.q === 75 && now.c === "4:4:4");
+    $("pq-warn-95").hidden = !(now.q === 95 && now.c === "4:4:4");
     $("mock-running").textContent = `Mockup: experiment running ${running ? "ON" : "OFF"}`;
     $("mock-camera").textContent = `Mockup: camera ${name}`;
   };
@@ -1928,12 +1944,13 @@ window.addEventListener("load", () => {
       body: `<p>Experiment <strong>Round 3 potatoes</strong> is running. Photos from the next one on are saved at ${now.q}, ${colour(now.c)} colour, and its plant areas shift (about 1% between the old default and the recommended setting, metrology log 26.1). The change is listed with its time.</p>`,
       ok: "Save", onOk: save });
   });
-  // Views for pictures: #steps, #settings, #settings-override, #settings-running, #confirm, #settings-12mp.
+  // Views for pictures: #settings-75, #settings-95, #steps, #settings, #settings-override, #settings-running, #confirm, #settings-12mp.
   const h = location.hash.slice(1) || "steps";
   showTab(h === "steps" ? "steps" : "settings");
   if (h === "settings-override") { $("pq-preset").querySelector('[data-value="override"]').click(); $("pq-chroma-choice").querySelector('[data-value="4:2:0"]').click(); }
   if (h === "settings-running" || h === "confirm") { running = true; $("pq-preset").querySelector('[data-value="95|4:4:4"]').click(); }
   if (h === "settings-12mp") cam = 1;
+  if (h === "settings-75" || h === "settings-95") $("pq-preset").querySelector(`[data-value="${h.slice(-2)}|4:4:4"]`).click();
   refresh();
   if (h === "confirm") $("pq-save").click();
 });
