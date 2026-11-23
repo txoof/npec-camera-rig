@@ -40,3 +40,18 @@ def test_setup_page_shows_the_size_of_the_newest_photo(monkeypatch, tmp_path):
     page = TestClient(app).get("/setup").text
 
     assert "Photos are 64 x 48 px" in page
+
+
+def test_setup_page_opens_when_the_newest_photo_cannot_be_read(monkeypatch, tmp_path):
+    # A photo still being written, or cut short: the page must still open, since it links to the
+    # pages that fix the rig (review of PR #475).
+    monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
+    monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
+    day = tmp_path / "rig" / "2027-01-01"
+    day.mkdir(parents=True)
+    (day / "090000_000000.jpg").write_bytes(b"\xff\xd8\xff\xe0 not a whole photo")
+
+    response = TestClient(app).get("/setup")
+
+    assert response.status_code == 200
+    assert "Photo size is known after the first photo" in response.text

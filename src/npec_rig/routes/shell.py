@@ -1,6 +1,7 @@
 """Routes for the menu pages that belong to no one feature: the landing redirect, the Setup menu
 and the /ui component reference."""
 
+import logging
 from dataclasses import asdict
 from datetime import UTC, datetime
 
@@ -14,6 +15,7 @@ from npec_rig.camera import CameraManager
 from npec_rig.routes.shared import templates
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 # With no experiment running, the estimate assumes one photo a minute.
 DEFAULT_PHOTOS_PER_DAY = 1440
@@ -31,20 +33,33 @@ def _steps(focus: dict, local_times: dict) -> list[dict]:
     reports one (focus lock, active calibration, validation). A UTC time in a card's details is
     added to `local_times` (text: (words before it, ISO time)), for the page to show locally."""
     lens = focus["lens_position"]
-    calibration = load_current_calibration()
-    checked = validation.status(focus)
+    # The page links to the pages that repair the rig, so a status that cannot be read is shown
+    # as not known instead of failing the page (review of PR #475).
+    try:
+        calibration = load_current_calibration()
+    except Exception:
+        log.exception("Setup page: the active calibration could not be read")
+        calibration = False
+    try:
+        checked = validation.status(focus)
+    except Exception:
+        log.exception("Setup page: the validation status could not be read")
+        checked = {"state": "unknown", "text": "Status not known"}
     saved = "No calibration yet"
     if calibration:
         saved = f"Saved {datetime.fromisoformat(calibration.created_at).astimezone(UTC):%d %b %Y %H:%M} UTC"
         local_times[saved] = ("Saved", calibration.created_at)
+    elif calibration is False:
+        saved = "Status not known"
     return [
         {"title": "Focus & Square", "href": "/setup/focus",
          "status": ("ok", "Locked") if focus["locked"] else ("warn", "Not locked"),
-         "meta": [f"Lens {lens:.2f}" if lens is not None else "Lens not set"]},
+         "meta": [f"Lens {lens:.2f}" if lens is not None else "Lens not locked"]},
         {"title": "Calibration", "href": "/setup/calibration",
-         "status": ("ok", "Active") if calibration else ("warn", "None"), "meta": [saved]},
+         "status": ("ok", "Active") if calibration else (None if calibration is False else ("warn", "None")),
+         "meta": [saved]},
         {"title": "Validation", "href": "/setup/validation",
-         "status": {"validated": ("ok", "Validated"), "not_consistent": ("fail", "Not consistent")}.get(
+         "status": {"validated": ("ok", "Validated"), "not_consistent": ("fail", "Not consistent"), "unknown": None}.get(
              checked["state"], ("warn", "Not validated")),
          "meta": [checked["text"]]},
         {"title": "Calibration history", "href": "/setup/calibration-history", "status": None,
@@ -59,8 +74,11 @@ def _newest_photo_pixels() -> tuple[int, int] | None:
     for entry in captures.list_recent_captures(limit=1):
         path = captures.photo_file(entry["path"])
         if path is not None:
-            with Image.open(path) as image:
-                return image.size
+            try:
+                with Image.open(path) as image:
+                    return image.size
+            except OSError:
+                log.exception("Setup page: the newest photo could not be read: %s", path)
     return None
 
 
@@ -69,6 +87,8 @@ def _photos_per_day(running: dict | None) -> tuple[float, str]:
     the page names that rate."""
     interval_s = running and running["interval_s"]
     if not interval_s:
+        if running:
+            return DEFAULT_PHOTOS_PER_DAY, "1 photo a minute, the experiment interval is not known"
         return DEFAULT_PHOTOS_PER_DAY, "1 photo a minute, no experiment running"
     every = ("a minute" if interval_s == 60 else f"every {interval_s / 60:g} minutes"
              if interval_s % 60 == 0 else f"every {interval_s:g} seconds")
@@ -104,7 +124,8 @@ def setup_page(request: Request) -> Response:
         "per_day_text": per_day_text,
         "free_bytes": health.disk_status()["free_bytes"],
         "experiment": running["name"] if running else None,
-        "lens": (f"{lens:.2f}, {'locked' if focus['locked'] else 'not locked'}" if lens is not None else "Not set"),
+        # focus_status gives the lens position only while it is locked.
+        "lens": f"{lens:.2f}, locked" if lens is not None else "Not locked, see Focus & Square",
     })
 
 
