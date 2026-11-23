@@ -627,3 +627,39 @@ def test_an_hour_asks_only_for_its_own_photos() -> None:
     assert later.status_code == 200
     assert path not in [p["path"] for p in later.json()]
     assert client.get("/api/captures", params={"after": "yesterday"}).status_code == 422
+
+
+def _photos_with_marks(experiment_id: int, start: datetime, marks: list[str | None]) -> None:
+    """One photo a minute from `start`, each with its light mark saved (#419)."""
+    rows = []
+    for i, mark in enumerate(marks):
+        taken = start + timedelta(minutes=i)
+        capture_id = database.record_capture(
+            taken_at=taken.isoformat(), path=f"experiments/e/{taken:%Y-%m-%d}/{taken:%H%M%S}_000000",
+            purpose="capture", experiment_id=experiment_id, calibration=None, validation=None,
+            lens_position=None, focus_locked_at=None, exposure_us=None, analogue_gain=None, flags=[],
+        )
+        rows.append({"capture_id": capture_id, "name": mark, "norm_e": None, "limit_fraction": None})
+    database.record_exclusions(rows, worked_out_at=start.isoformat())
+
+
+def test_nights_lists_each_night_of_the_experiment() -> None:
+    """20 lights-off photos 01:00 to 01:19, then a lit one: one night of 20 photos."""
+    client = TestClient(app)
+    experiment = database.create_experiment(uuid="nights", created_at="2026-11-16T00:00:00+00:00", interval_s=60)
+    _photos_with_marks(experiment["id"], datetime.fromisoformat("2026-11-16T01:00:00+00:00"), ["lights off"] * 20 + [None])
+    response = client.get("/api/captures/nights", params={"experiment": experiment["id"]})
+    assert response.status_code == 200
+    assert response.json() == [
+        {"start": "2026-11-16T01:00:00+00:00", "end": "2026-11-16T01:19:00+00:00", "photos": 20, "still_dark": False}
+    ]
+
+
+def test_nights_of_an_unknown_experiment_is_404() -> None:
+    assert TestClient(app).get("/api/captures/nights", params={"experiment": 999}).status_code == 404
+
+
+def test_nights_of_an_experiment_with_no_light_marks_is_empty() -> None:
+    client = TestClient(app)
+    experiment = database.create_experiment(uuid="no-marks", created_at="2026-11-16T00:00:00+00:00", interval_s=60)
+    assert client.get("/api/captures/nights", params={"experiment": experiment["id"]}).json() == []

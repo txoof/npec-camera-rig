@@ -8,7 +8,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from npec_rig import images, photo_tags, tray_readings
+from npec_rig import dark_runs, images, photo_tags, tray_readings
 from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import PHOTO_KEY, capture_hours, list_recent_captures, photo_file
 from npec_rig.routes.shared import derived_response, templates
@@ -81,6 +81,16 @@ def api_capture_hours(experiment: int | None = None) -> list[dict]:
     `experiment` (an id) counts only that experiment's photos."""
     try:
         return capture_hours(experiment_id=experiment)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/api/captures/nights")
+def api_capture_nights(experiment: int) -> list[dict]:
+    """The experiment's nights, oldest first (#419): each run of lights-off photos the gallery
+    shows as one line, as `{"start", "end", "photos", "still_dark"}` (dark_runs.night_runs)."""
+    try:
+        return dark_runs.night_runs(experiment)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
 
