@@ -303,7 +303,7 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | web-experiments | `routes/experiments.py`, `templates/experiments.html` |
 | web-calibration | `routes/calibration.py`, `templates/setup_calibration*.html`, `templates/setup_health_check.html` |
 | web-validation | `routes/validation.py`, `templates/setup_validation.html` |
-| web-photo-quality | `routes/photo_quality.py` (the JPEG setting of full-size photos through the API, #359), `tests/web/test_photo_quality_routes.py` |
+| web-photo-quality | `routes/photo_quality.py` (the JPEG setting of full-size photos through the API, #359), `photo_size.py` (the photo quality presets and the estimate of photo size and disk use per setting, from metrology log 26.1, #473), `tests/web/test_photo_quality_routes.py`, `tests/test_photo_size.py` |
 | web-randomize | `routes/randomize.py`, `templates/randomize.html` (the Randomize page, #343) |
 | web-about | `about.py` (the facts the About page shows, read when asked), `routes/about.py`, `templates/about.html` (the About page from the (i) button at the foot of the rail, later also manuals and links, #390) |
 | web-data | `routes/data.py`, `templates/data.html`, `tests/web/test_data_routes.py` (the Data page from the Data tab on the rail: time lapse videos, later exports, #64) |

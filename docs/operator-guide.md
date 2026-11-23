@@ -204,6 +204,21 @@ The trays are shuffled over those places, so the empty spots move as well.
   tray only when its blue outline is found in the photo. The first round is whatever layout the
   trays were placed in.
 
+## Photo quality and white balance
+
+Both are on *Setup / Rig settings*. Set them before an experiment starts and leave them for its
+whole run: a change shifts the recorded plant areas from the next photo on, so the page warns and
+asks for confirmation while an experiment is running.
+
+- **Photo quality.** Use *Recommended* (JPEG quality 85, full colour). *Smaller files* (75, full
+  colour) reads plant areas about 0.6% low instead of 0.4%; *Most detail* (95, full colour) takes
+  about twice the disk space for almost no gain. *Override* allows any setting; half colour, the old
+  default, reads plant areas about 1.4% low (metrology log 26.1). The page estimates the size of
+  each photo, the disk used per day and the days of free disk left, from sizes measured on the
+  64 MP camera scaled to the pixels of the photos this camera takes.
+- **Auto white balance.** It changes the colours recorded, and may change area values. Leave it as
+  it is unless there is a reason to change it.
+
 ## Why it is done this way
 
 The project rule is that every certainty is measured, never derived: if a number cannot be shown

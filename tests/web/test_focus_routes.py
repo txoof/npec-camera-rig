@@ -386,3 +386,13 @@ def test_health_reports_disk_headroom_from_the_data_folder(tmp_path) -> None:
     assert disk["bytes_per_day"] >= 1000
     assert disk["days_left"] > 0
     assert disk["level"] in ("ok", "yellow", "red")
+
+
+@pytest.mark.parametrize("page", ["/setup/focus", "/setup/calibration"])
+def test_focus_controls_have_no_camera_settings_window(page: str) -> None:
+    # Auto white balance moved to the Setup page's Rig settings tab (#473): the Focus page and
+    # calibration Step 2 no longer open a Camera settings window.
+    response = TestClient(app).get(page)
+    assert response.status_code == 200
+    assert "camera-settings-btn" not in response.text
+    assert "Camera settings" not in response.text
