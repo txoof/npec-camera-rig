@@ -663,3 +663,13 @@ def test_nights_of_an_experiment_with_no_light_marks_is_empty() -> None:
     client = TestClient(app)
     experiment = database.create_experiment(uuid="no-marks", created_at="2026-11-16T00:00:00+00:00", interval_s=60)
     assert client.get("/api/captures/nights", params={"experiment": experiment["id"]}).json() == []
+
+
+def test_nights_with_no_experiment_chosen_are_every_experiments() -> None:
+    """The gallery with every photo shown: the nights of both experiments, oldest first."""
+    client = TestClient(app)
+    for uuid, day in (("later", "2026-11-17"), ("earlier", "2026-11-16")):
+        experiment = database.create_experiment(uuid=uuid, created_at=f"{day}T00:00:00+00:00", interval_s=60)
+        _photos_with_marks(experiment["id"], datetime.fromisoformat(f"{day}T01:00:00+00:00"), ["lights off"] * 20 + [None])
+    nights = client.get("/api/captures/nights").json()
+    assert [night["start"] for night in nights] == ["2026-11-16T01:00:00+00:00", "2026-11-17T01:00:00+00:00"]

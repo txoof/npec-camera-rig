@@ -8,7 +8,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from npec_rig import dark_runs, images, photo_tags, tray_readings
+from npec_rig import dark_runs, database, images, photo_tags, tray_readings
 from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import PHOTO_KEY, capture_hours, list_recent_captures, photo_file
 from npec_rig.routes.shared import derived_response, templates
@@ -86,13 +86,17 @@ def api_capture_hours(experiment: int | None = None) -> list[dict]:
 
 
 @router.get("/api/captures/nights")
-def api_capture_nights(experiment: int) -> list[dict]:
+def api_capture_nights(experiment: int | None = None) -> list[dict]:
     """The experiment's nights, oldest first (#419): each run of lights-off photos the gallery
-    shows as one line, as `{"start", "end", "photos", "still_dark"}` (dark_runs.night_runs)."""
-    try:
-        return dark_runs.night_runs(experiment)
-    except LookupError as exc:
-        raise HTTPException(404, str(exc)) from exc
+    shows as one line, as `{"start", "end", "photos", "still_dark"}` (dark_runs.night_runs).
+    With no `experiment`, the nights of every experiment whose photos are kept."""
+    if experiment is not None:
+        try:
+            return dark_runs.night_runs(experiment)
+        except LookupError as exc:
+            raise HTTPException(404, str(exc)) from exc
+    nights = [night for e in database.list_experiments() if e["state"] != "purged" for night in dark_runs.night_runs(e["id"])]
+    return sorted(nights, key=lambda night: night["start"])
 
 
 def _tag_role(tag_id: int) -> str:
