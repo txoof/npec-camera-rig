@@ -16,14 +16,19 @@ pytestmark = pytest.mark.unit
 
 DAY = datetime.fromisoformat("2026-11-16T00:00:00+00:00")
 MINUTE = timedelta(minutes=1)
+# A photo the background reading has not reached yet: no light mark saved.
+UNREAD = "unread"
 
 
 def _experiment(interval_s: float = 60) -> int:
-    return database.create_experiment(uuid=f"e-{interval_s}", created_at=DAY.isoformat(), interval_s=interval_s)["id"]
+    """A running experiment."""
+    experiment = database.create_experiment(uuid=f"e-{interval_s}", created_at=DAY.isoformat(), interval_s=interval_s)
+    database.start_experiment(experiment["id"], now=DAY.isoformat(), folder=f"2026-11-16_e{int(interval_s)}")
+    return experiment["id"]
 
 
 def _photos(experiment_id: int, marks: list[str | None], *, start: datetime = DAY, every: timedelta = MINUTE) -> None:
-    """One photo per mark, `every` apart from `start`, with that light mark saved."""
+    """One photo per mark, `every` apart from `start`, with that light mark saved (none for UNREAD)."""
     rows = []
     for i, mark in enumerate(marks):
         taken = start + i * every
@@ -32,7 +37,8 @@ def _photos(experiment_id: int, marks: list[str | None], *, start: datetime = DA
             purpose="capture", experiment_id=experiment_id, calibration=None, validation=None,
             lens_position=None, focus_locked_at=None, exposure_us=None, analogue_gain=None, flags=[],
         )
-        rows.append({"capture_id": capture_id, "name": mark, "norm_e": None, "limit_fraction": None})
+        if mark != UNREAD:
+            rows.append({"capture_id": capture_id, "name": mark, "norm_e": None, "limit_fraction": None})
     database.record_exclusions(rows, worked_out_at=DAY.isoformat())
 
 
@@ -42,11 +48,12 @@ def _day(dark_from: int, dark_to: int) -> list[str | None]:
 
 
 def test_one_night_is_one_run() -> None:
-    """Lights off 00:28 to 08:02 UTC, as in experiment 18: 454 photos, the last at 08:01."""
+    """Lights off 00:28 to 08:02 UTC, as in experiment 18: 454 photos, the last at 08:01, lit at 08:02."""
     experiment = _experiment()
     _photos(experiment, _day(28, 28 + 454))
     assert dark_runs.night_runs(experiment) == [
-        {"start": "2026-11-16T00:28:00+00:00", "end": "2026-11-16T08:01:00+00:00", "photos": 454, "still_dark": False}
+        {"start": "2026-11-16T00:28:00+00:00", "end": "2026-11-16T08:01:00+00:00", "photos": 454, "still_dark": False,
+         "lights_on": "2026-11-16T08:02:00+00:00"}
     ]
 
 
@@ -73,7 +80,8 @@ def test_a_night_still_going_is_marked_still_dark() -> None:
     experiment = _experiment()
     _photos(experiment, _day(28, 482) + [None] * 28 + ["lights off"] * 30)
     assert dark_runs.night_runs(experiment)[-1] == {
-        "start": "2026-11-17T00:28:00+00:00", "end": "2026-11-17T00:57:00+00:00", "photos": 30, "still_dark": True
+        "start": "2026-11-17T00:28:00+00:00", "end": "2026-11-17T00:57:00+00:00", "photos": 30, "still_dark": True,
+        "lights_on": None,
     }
 
 
@@ -109,3 +117,23 @@ def test_an_experiment_with_no_lights_off_photos_has_no_nights() -> None:
     experiment = _experiment()
     _photos(experiment, [None] * 30)
     assert dark_runs.night_runs(experiment) == []
+
+
+def test_photos_not_yet_read_neither_end_nor_split_a_night() -> None:
+    """Tonight from 00:28: 31 dark photos, one at 00:40 whose reading failed, and the newest 2
+    not read yet. Still one night, still dark, its newest read photo at 00:59."""
+    experiment = _experiment()
+    tonight = ["lights off"] * 12 + [UNREAD] + ["lights off"] * 19 + [UNREAD] * 2
+    _photos(experiment, _day(28, 482) + [None] * 28 + tonight)
+    assert dark_runs.night_runs(experiment)[-1] == {
+        "start": "2026-11-17T00:28:00+00:00", "end": "2026-11-17T00:59:00+00:00", "photos": 31, "still_dark": True,
+        "lights_on": None,
+    }
+
+
+def test_an_experiment_stopped_in_the_dark_has_no_night_still_going() -> None:
+    """Stopped at 01:00 with the lights off since 00:28: that night ended with its last photo."""
+    experiment = _experiment()
+    _photos(experiment, [None] * 28 + ["lights off"] * 32)
+    database.stop_experiment(experiment, now="2026-11-16T01:00:00+00:00")
+    assert dark_runs.night_runs(experiment)[-1]["still_dark"] is False

@@ -6,14 +6,17 @@
 {% block head_extra %}
 <style>
   /* Nights (#419): the lights-off hours and photos the gallery leaves out, each shown as one
-     striped box with a moon and a word, so it never reads as a photo or by colour alone. */
+     striped box with a moon and a word, so it never reads as a photo or by colour alone. New
+     classes because no existing one marks hidden content; colours are the site's tokens, and
+     the black sample is the black of a dark picture in the strips. */
   .night-key { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; margin: 0 0 16px;
     padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg-2); }
   .night-key span { display: flex; gap: 10px; align-items: center; }
   .night-key .gallery-snip { width: 48px; flex: none; }
   .night-key .night-black { width: 40px; height: 30px; flex: none; background: #000; }
   .gallery-snip, .gallery-night, .gallery-night-line {
-    background: repeating-linear-gradient(135deg, #2a2f38 0 8px, #232931 8px 16px); border: 2px dashed #6b7686; color: var(--fg); }
+    background: repeating-linear-gradient(135deg, var(--surface-2) 0 8px, var(--surface) 8px 16px);
+    border: 2px dashed var(--fg-2); color: var(--fg); }
   .gallery-snip { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 48px;
     font-size: 0.8rem; line-height: 1.1; overflow: hidden; }
   .night-moon { width: 18px; height: 18px; flex: none; }
@@ -23,6 +26,9 @@
   .gallery-night-line { width: 100%; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between;
     padding: 12px 16px; border-radius: var(--radius); }
   .gallery-night-line > span { display: flex; gap: 12px; align-items: center; }
+  /* A night's hours or photos, in the gallery's own grid, until hidden. */
+  .night-photos { display: contents; }
+  .night-photos[hidden] { display: none; }
 </style>
 {% endblock %}
 
@@ -108,8 +114,6 @@
     // is shown, { level: "week" | "day" | "hour", key }. generation: bumped on each new view, so
     // photos that arrive for an older one are dropped.
     let hours = [], view = null, generation = 0;
-    // The photos of the hour shown, so a night line opens without fetching them again.
-    let hourPhotos = [];
 
     const pad = (n) => String(n).padStart(2, "0");
 
@@ -593,10 +597,15 @@
       const night = event.target.closest("[data-night-toggle]");
       if (night) {
         const from = night.dataset.nightToggle;
-        if (!openNights.delete(from)) openNights.add(from);
-        const top = scroller.scrollTop;
-        gallery.innerHTML = view.level === "day" ? dayHtml(view.key) : hourHtml(hourPhotos);
-        scroller.scrollTop = top;
+        const open = !openNights.delete(from);
+        if (open) openNights.add(from);
+        for (const box of gallery.querySelectorAll(`[data-night-photos="${from}"]`)) box.hidden = !open;
+        for (const btn of gallery.querySelectorAll(`[data-night-toggle="${from}"]`)) {
+          btn.setAttribute("aria-expanded", open);
+          const verb = btn.querySelector("[data-night-verb]");
+          if (verb) verb.textContent = open ? "Hide" : "Show";
+          else btn.textContent = open ? "Hide photos" : "Show photos";
+        }
       }
     });
 
@@ -641,16 +650,20 @@
     // as one line. Each opens in place. Without the list the gallery is as before.
     let nights = [];
     const openNights = new Set();
+    // Times to the millisecond: the API's have microseconds, which not every browser parses.
+    const isoMs = (iso) => Date.parse(iso.replace(/(\.\d{3})\d*/, "$1"));
     async function loadNights() {
       try {
         const r = await fetch(`/api/captures/nights?${filtered(new URLSearchParams())}`);
         if (!r.ok) throw new Error(r.statusText);
         nights = (await r.json()).map((n) => {
-          const start = Date.parse(n.start), end = Date.parse(n.end);
-          // The photo interval, so an hour ending between the last dark photo and the next lit one is all dark.
-          const gap = n.photos > 1 ? (end - start) / (n.photos - 1) : 0;
-          return { ...n, from: keyFor(new Date(start)), to: keyFor(new Date(end + 1000)), through: end + gap };
-        });
+          const start = isoMs(n.start), end = isoMs(n.end);
+          const lightsOn = n.lights_on ? isoMs(n.lights_on) : null;
+          // No lit photo after it (the experiment stopped in the dark): one photo interval on.
+          const through = lightsOn ?? end + (n.photos > 1 ? (end - start) / (n.photos - 1) : 0);
+          return { ...n, startMs: start, endMs: end, lightsOn, through,
+            from: keyFor(new Date(start)), to: keyFor(new Date(end + 1000)) };
+        }).filter((n) => !Number.isNaN(n.startMs) && !Number.isNaN(n.endMs));
       } catch (err) {
         nights = [];
       }
@@ -665,16 +678,18 @@
     const MOON = `<svg class="night-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M15.5 2.5a9.5 9.5 0 1 0 6 16.9A8 8 0 0 1 15.5 2.5z"/></svg>`;
     const clock = (ms) => new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
     function nightText(n) {
-      const start = Date.parse(n.start), end = Date.parse(n.end);
-      const from = localDay(new Date(start)) === localDay(new Date(end)) ? clock(start) : `${shortDay(new Date(start))} ${clock(start)}`;
-      return n.still_dark ? `Lights off since ${from}, ${count(n.photos)} so far` : `Lights off ${from} to ${clock(end)}, ${count(n.photos)}`;
+      const to = n.lightsOn ?? n.endMs;
+      const sameDay = localDay(new Date(n.startMs)) === localDay(new Date(to));
+      const at = (ms) => (sameDay ? clock(ms) : `${shortDay(new Date(ms))} ${clock(ms)}`);
+      return n.still_dark ? `Lights off since ${at(n.startMs)}, ${count(n.photos)} so far`
+        : `Lights off ${at(n.startMs)} to ${at(to)}, ${count(n.photos)}`;
     }
     const nightKey = document.getElementById("night-key");
     const KEY_TEXT = {
       week: `<span><span class="gallery-snip">${MOON}</span>Lights off: the hours hidden, with how many. Tap the day to see them.</span>
         <span><span class="night-black"></span>Black picture: dark on some days only.</span>`,
       day: `<span><span class="gallery-snip">${MOON}</span>Lights off. Tap to show or hide those hours.</span>`,
-      hour: `<span><span class="gallery-snip">${MOON}</span>Lights off for 15 minutes or more: one line. Tap Show photos to see them.</span>`,
+      hour: `<span><span class="gallery-snip">${MOON}</span>Lights off: one line. Tap Show photos to see them.</span>`,
     };
     // The key above a view, shown only when the view hides something.
     function showKey(level) {
@@ -753,28 +768,27 @@
         const span = `${g.hours[0][1]} to ${clock(g.hours[g.hours.length - 1][0].ms + HOUR_MS)}`;
         return `<button type="button" class="gallery-night hit" data-night-toggle="${g.night.from}" aria-expanded="${open}">
             ${MOON}<b>${nightText(g.night)}</b>
-            <span>${open ? "Hide" : "Show"} ${g.hours.length} hour${g.hours.length === 1 ? "" : "s"} (${span})</span>
-          </button>${open ? ordered(g.hours).map(([h, label]) => tile(h, label)).join("") : ""}`;
+            <span><span data-night-verb>${open ? "Hide" : "Show"}</span> ${g.hours.length} hour${g.hours.length === 1 ? "" : "s"} (${span})</span>
+          </button><div class="night-photos" data-night-photos="${g.night.from}"${open ? "" : " hidden"}>${ordered(g.hours).map(([h, label]) => tile(h, label)).join("")}</div>`;
       }).join("")}</div>`;
     }
 
-    // An hour's photos: each run inside one night is one line, opened in place.
+    // An hour's photos: each run inside one night is one line, opened in place. Only photos read
+    // as lights off (or not read yet) go in it, so a lit photo taken in the night stays a card.
     function hourHtml(items) {
       const groups = [];
       for (const item of items) {
-        const n = nightOf(item.key), last = groups[groups.length - 1];
+        const dark = !item.trays || item.trays.exclusion === "lights off";
+        const n = dark ? nightOf(item.key) : undefined, last = groups[groups.length - 1];
         if (n && last && last.night === n) last.items.push(item);
         else groups.push({ night: n, items: [item] });
       }
       return `<div class="gallery">${ordered(groups).map((g) => {
         if (!g.night) return g.items.map(itemHtml).join("");
-        if (openNights.has(g.night.from)) {
-          return `<div class="gallery-night-line"><span>${MOON}<b>${nightText(g.night)}</b></span>
-            <button type="button" class="btn hit" data-night-toggle="${g.night.from}" aria-expanded="true">Hide photos</button></div>
-            ${ordered(g.items).map(itemHtml).join("")}`;
-        }
+        const open = openNights.has(g.night.from);
         return `<div class="gallery-night-line"><span>${MOON}<b>${nightText(g.night)}</b>, ${count(g.items.length)} in this hour</span>
-          <button type="button" class="btn hit" data-night-toggle="${g.night.from}" aria-expanded="false">Show photos</button></div>`;
+            <button type="button" class="btn hit" data-night-toggle="${g.night.from}" aria-expanded="${open}">${open ? "Hide photos" : "Show photos"}</button></div>
+          <div class="night-photos" data-night-photos="${g.night.from}"${open ? "" : " hidden"}>${ordered(g.items).map(itemHtml).join("")}</div>`;
       }).join("")}</div>`;
     }
 
@@ -889,7 +903,6 @@
           return;
         }
         if (gen !== generation) return;
-        hourPhotos = items;
         gallery.innerHTML = hourHtml(items);
         showKey(level);
         statusText.textContent = `${count(items.length)} this hour.`;

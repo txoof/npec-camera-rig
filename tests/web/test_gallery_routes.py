@@ -651,7 +651,8 @@ def test_nights_lists_each_night_of_the_experiment() -> None:
     response = client.get("/api/captures/nights", params={"experiment": experiment["id"]})
     assert response.status_code == 200
     assert response.json() == [
-        {"start": "2026-11-16T01:00:00+00:00", "end": "2026-11-16T01:19:00+00:00", "photos": 20, "still_dark": False}
+        {"start": "2026-11-16T01:00:00+00:00", "end": "2026-11-16T01:19:00+00:00", "photos": 20, "still_dark": False,
+         "lights_on": "2026-11-16T01:20:00+00:00"}
     ]
 
 
