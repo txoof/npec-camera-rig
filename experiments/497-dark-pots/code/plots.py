@@ -39,7 +39,7 @@ ax.set_yscale("log"); ax.set_ylabel("Emptied tray, largest reading, mm²"); ax.s
 ax = axs[0, 1]
 for m, c in (("c", BLUE), ("b", ORANGE)): ax.plot(L, col(m, "ref_iou"), "o-", color=c, ms=4)
 ax.axhline(0.9263, color=GREY, ls="--"); ax.text(6.2, 0.935, "same cells, no rule 0.926", color=GREY, fontsize=8)
-ax.axhline(0.869, color=GREY, ls=":"); ax.text(6.2, 0.875, "0.869 (0.874 - 0.005)", color=GREY, fontsize=8)
+ax.axhline(0.9213, color=GREY, ls=":"); ax.text(6.2, 0.895, "limit: loss 0.005 (0.921)", color=GREY, fontsize=8)
 ax.set_ylabel("Reference cells, mean IoU"); ax.set_xlabel("N or k"); ax.set_ylim(0, 1)
 ax = axs[1, 0]
 for m, c in (("c", BLUE), ("b", ORANGE)): ax.plot(L, col(m, "canopy_removed_mean"), "o-", color=c, ms=4); ax.plot(L, col(m, "canopy_removed_max"), "s--", color=c, ms=4, alpha=0.6)

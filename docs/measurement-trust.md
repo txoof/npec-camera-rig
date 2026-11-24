@@ -518,15 +518,17 @@ metrology log backs it.
 - **Dark empty pots** (*added 2026-11-24*, metrology log 46, a development check). After the harvest of
   23 November, grow from leaf cores read the empty dark pots of production tray 4 as plant, 4,856 to
   11,789 mm² against 19 to 54 mm² by the fixed cutoff, with nothing on the page (near-black pixels have a
-  greenness set by a few levels of JPEG noise). A fixed brightness limit was rejected, since the light
-  differs between experiments and chambers. A floor on how far a pixel's greenness clears its cutoff, in
-  code levels, was tried: 3 levels leave 0.73% of the false plant (45 mm² at most) and cost 0.038 of
-  IoU on the 60 reference cells (0.066 on production's 30) and 11% to 47% of one dark-leaved plant. A floor
-  that scales with the noise measured in each photo does not work: that estimate is 3.4 times higher
-  over canopy than over pots at the same gain. No rule passed every number fixed in advance, and none is in
-  the app yet (#484). Tested at gain 1.0 on counted production photos only. Until a rule is chosen,
-  a tray with dark empty pots can read as plant under grow from leaf cores; on ordinary readings the
-  grown area is 0.98 to 1.65 times the fixed area (548 readings); the warning factor is Aaron's decision.
+  greenness set by a few levels of JPEG noise). Log 42's "no floor needed" is withdrawn for dark pots.
+  No pixel rule is to be coded: a fixed brightness limit depends on the light, a floor on how far a
+  pixel's greenness clears its cutoff (3 levels) took 99.3% of the false plant but cost 0.038 of IoU on the
+  60 reference cells against 0.005 allowed (0.066 on production's 30) and 11% to 47% of one dark-leaved
+  plant, and a floor scaled by the photo's own noise fails because that estimate is 3.4 times higher over
+  canopy than over pots at the same gain. Dark pots are handled by flagging, not correcting (Aaron,
+  2026-11-24): a cell whose grown area is much larger than its fixed-cutoff area is marked as probably
+  empty, and the tray keeps its total and adds the flagged cells and their area (#484). On ordinary
+  readings the grown area is 0.98 to 1.65 times the fixed area for a tray (548 readings) and 0.94 to 1.9
+  (5th to 95th percentile) for a plant cell; the factor is Aaron's decision. Tested at gain 1.0 on counted
+  production photos only.
 
 ### Trays and tags (round 1, 2026-10-19)
 
