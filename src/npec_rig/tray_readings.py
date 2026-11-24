@@ -221,7 +221,7 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
     outlined = [p for p in placed if p.outline is not None]
     recount = False
     if reuse_mask and outlined:
-        blocker = _recount_blocker(path, record, saved, outlined)
+        blocker = _recount_blocker(path, saved, outlined)
         recount = blocker is None
         if blocker is not None and not (photo_file(path) or Path()).is_file():
             raise NotReprocessed(f"{path}: the photo is gone and its saved masks cannot be counted again: {blocker}")
@@ -348,14 +348,15 @@ def _measures(
     return stem, measures, _measured_cells(path, mask, grown, placed, tags, scale_field, record or {}, strict), grew
 
 
-def _recount_blocker(path: str, record: dict, saved: dict | None, outlined: list[TrayPlacement]) -> str | None:
+def _recount_blocker(path: str, saved: dict | None, outlined: list[TrayPlacement]) -> str | None:
     """Why the photo cannot be counted again from its saved masks, None when it can. All of these
     hold, else its whole reading is made again (#483): the saved reading is of a read photo from
     this segmenter; every outlined tray is one saved tray (same tag, same outline,
-    `_saved_match`) and every saved tray with areas is one of them; every saved tray with areas was
-    worked out with the calibration now in use, has its grown area and levels, is not a reading
-    made before #373 with the cutoff in the leaves and is not marked "grown area not worked out";
-    both saved masks are on disk."""
+    `_saved_match`) and every saved tray with areas is one of them; every saved tray with areas has
+    its grown area and levels, is not a reading made before #373 with the cutoff in the leaves and
+    is not marked "grown area not worked out"; both saved masks are on disk. The calibration is
+    not asked: the masks do not depend on it and the outline match guards the geometry, so a
+    changed calibration is counted again from the masks under the new one (Aaron, 2026-11-24)."""
     if not saved or saved["status"] != "read" or not _saved_by_this_segmenter(saved):
         return "no saved reading from this segmenter"
     matches = _saved_match(saved, outlined)
@@ -364,15 +365,7 @@ def _recount_blocker(path: str, record: dict, saved: dict | None, outlined: list
     measured = [t for t in saved["trays"] if t["area_mm2"] is not None]
     if any(not any(t is m for m in matches) for t in measured):
         return "a saved tray is not found now"
-    try:
-        stem = calibration_for_photos(record["calibration"])
-    except Exception as exc:  # no calibration to count under
-        if _rig_db_locked(exc):
-            raise
-        return f"calibration not found: {exc!r}"
     for t in measured:
-        if t.get("calibration") != stem:
-            return "worked out with another calibration"
         if t.get("grown_area_mm2") is None or t.get("grown_lower_cutoff") is None:
             return "no grown area or levels saved"
         if _grown_into_leaves(t.get("grown_soil_level"), t.get("grown_lower_cutoff")):

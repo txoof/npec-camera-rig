@@ -1055,10 +1055,10 @@ def test_reprocess_counts_both_methods_again_from_their_saved_masks_without_the_
     assert (cells["B3"]["area_mm2"], cells["B3"]["grown_area_mm2"]) == (pytest.approx(900, rel=0.01), pytest.approx(1156, rel=0.01))
 
 
-def test_reprocess_grows_the_whole_photo_again_under_a_rebuilt_twin_when_the_photo_is_there(monkeypatch) -> None:
+def test_reprocess_gives_the_same_areas_under_a_rebuilt_twin_when_the_photo_is_there(monkeypatch) -> None:
     """The twin rebuilt at 10.0 x 5.00 / 4.90 px/mm: 900 x (4.90 / 5.00)^2 = 864.4 mm2 by the fixed
-    green cutoff, 1156 x (4.90 / 5.00)^2 = 1110.2 mm2 by grow from leaf cores, cells too (#483:
-    another calibration is not counted again from saved values, the photo is grown again)."""
+    green cutoff, 1156 x (4.90 / 5.00)^2 = 1110.2 mm2 by grow from leaf cores, cells too, whether
+    the saved masks are counted again or the photo is grown again (#483)."""
     _soil_tray_scene(monkeypatch)
     path = _photo()
     tray_readings.read_photo(path)
@@ -1072,21 +1072,24 @@ def test_reprocess_grows_the_whole_photo_again_under_a_rebuilt_twin_when_the_pho
     assert (cells["B3"]["area_mm2"], cells["B3"]["grown_area_mm2"]) == (pytest.approx(864.4, rel=0.01), pytest.approx(1110.2, rel=0.01))
 
 
-def test_reprocess_saves_nothing_under_a_rebuilt_twin_when_the_photo_is_gone(monkeypatch) -> None:
-    """The saved values were worked out under another calibration and the photo cannot be grown
-    again: the reading stays exactly as it was and the photo is reported not reprocessed (#483)."""
+def test_reprocess_counts_the_saved_masks_again_under_a_rebuilt_twin_when_the_photo_is_gone(monkeypatch) -> None:
+    """The masks do not depend on the calibration and the outlines are the saved ones, so with the
+    twin rebuilt at 10.0 x 5.00 / 4.90 px/mm and the photo gone the photo is counted again from its
+    masks under it: 900 x (4.90 / 5.00)^2 = 864.4 mm2 by the fixed green cutoff, 1156 x (4.90 / 5.00)^2
+    = 1110.2 mm2 by grow from leaf cores, cells too (#483, Aaron 2026-11-24)."""
     from npec_rig.captures import photo_file
 
     _soil_tray_scene(monkeypatch)
     path = _photo()
     tray_readings.read_photo(path)
     photo_file(path).unlink()
-    before = _saved(path)
     _rebuilt_twin()
 
-    with pytest.raises(tray_readings.NotReprocessed, match="another calibration"):
-        tray_readings.read_photo(path, reuse_mask=True)
-    assert _saved(path) == before
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(864.4, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_area_mm2"] == pytest.approx(1110.2, rel=0.01)
+    cells = {c["cell"]: c for c in tray["cells"]}
+    assert (cells["B3"]["area_mm2"], cells["B3"]["grown_area_mm2"]) == (pytest.approx(864.4, rel=0.01), pytest.approx(1110.2, rel=0.01))
 
 
 def test_reprocess_of_a_photo_read_before_grow_from_leaf_cores_leaves_its_reading_as_it_was_with_the_photo_gone(monkeypatch) -> None:

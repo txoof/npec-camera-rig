@@ -455,9 +455,9 @@ the tray's own soil (`segmentation.grow_from_cores`, metrology log 24.8 and 33.1
 mask is saved beside the fixed cutoff's, as `<photo>.grown.png` in the masks folder; a purge
 deletes both. Reprocess (#483) does a whole photo or nothing, never a mix of old and new values:
 it counts both masks again, without the photo, only when every tray is the same saved tray (tag and
-outline), was worked out with the calibration now in use and has its grown values, and no saved tray
-is marked "grown area not worked out" or was saved with the cutoff in the leaves (before #373);
-otherwise it grows the whole photo again from the photo; and when neither can be done completely
+outline) and has its grown values, and no saved tray
+is marked "grown area not worked out" or was saved with the cutoff in the leaves (before #373).
+The calibration is not asked, since the masks do not depend on it: a changed calibration is counted again under the new one. Otherwise it grows the whole photo again from the photo; and when neither can be done completely
 the saved reading is not changed and the photo is reported as not reprocessed. The fixed cutoff's floor of 100 mm2
 was measured for that method only and does not apply to this one. All `grown_*` columns are NULL
 for readings saved before version 25, or when the method could not run.
