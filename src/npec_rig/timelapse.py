@@ -126,18 +126,16 @@ def _slots_over_time(positions: list[dict]) -> dict[int, tuple[str | None, str |
     from the whole experiment (Aaron, 2026-11-20)."""
     layouts: dict[str | None, list[dict] | None] = {}
     out, now, before = {}, None, None
-    stay, before_centre = [], None  # this stay's centres; the median centre of the stay before
     for p in positions:
         if p["calibration"] not in layouts:
             layouts[p["calibration"]] = slot_layout(p["calibration"])
         slots = layouts[p["calibration"]]
         slot = nearest_slot(*p["centre_px"], slots)[0] if slots else None
         if slot is not None and now is not None and slot != now:
-            before, before_centre, stay = now, _median(stay), []
+            before = now
         now = slot if slot is not None else now
-        stay.append(p["centre_px"])
         keep = slot is not None and before != slot
-        out[p["capture_id"]] = (slot, before if keep else None, before_centre if keep else None)
+        out[p["capture_id"]] = (slot, before if keep else None)
     return out
 
 
@@ -224,14 +222,14 @@ def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: dat
             if tray is not None and cell is not None and not any(c["cell"] == cell for c in tray["cells"]):
                 tray = None
             if tray is not None:
-                slot, previous, previous_centre = slots.get(capture["id"], (None, None, None))
+                slot, previous = slots.get(capture["id"], (None, None))
                 if capture["calibration"] not in tables:
                     tables[capture["calibration"]] = _table(capture["calibration"])
                 if capture["calibration"] not in layouts:
                     layouts[capture["calibration"]] = slot_layout(capture["calibration"])
                 frames.append({"capture": capture, "readings": readings, "tray": tray, "slots": layouts[capture["calibration"]],
                                "slot": slot, "previous_slot": previous, "gap_minutes": gap * 60 // per_hour,
-                               "table": tables[capture["calibration"]], "previous_centre": previous_centre})
+                               "table": tables[capture["calibration"]]})
                 gap = 0
                 break
             dark = dark and readings is not None and readings["exclusion"] == "lights off"
