@@ -423,3 +423,16 @@ def test_a_tray_cut_off_by_the_photo_edge_keeps_its_frame_and_says_partly_outsid
     words = timelapse.frame_values(database.get_experiment(experiment), frame, method="fixed")["warnings"]
 
     assert words == ["partly outside the photo"]
+
+
+def test_a_frame_says_grown_area_not_worked_out_for_grow_from_leaf_cores_only(experiment):
+    # Photos read before grow from leaf cores was run carry this word (#483).
+    _photo(experiment, START, warnings=["grown area not worked out"])
+    frame = _only_frame(experiment)
+    experiment_row = database.get_experiment(experiment)
+
+    fixed = timelapse.frame_values(experiment_row, frame, method="fixed")["warnings"]
+    grown = timelapse.frame_values(experiment_row, frame, method="grown")["warnings"]
+
+    assert fixed == []
+    assert grown == ["grown area not worked out"]

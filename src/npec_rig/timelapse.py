@@ -302,7 +302,7 @@ def frame_values(experiment: dict, frame: dict, *, method: str, cell: str | None
         # swapped (#385), and, by grow from leaf cores only, soil hidden under mats (#373).
         # Names first: they bear on every number of the video.
         "warnings": [w for w in tray["warnings"] if w.startswith("names may be swapped since")]
-        + [w for w in tray["warnings"] if w == segmentation.SOIL_HIDDEN and method == "grown"]
+        + [w for w in tray["warnings"] if w in (segmentation.SOIL_HIDDEN, tray_readings.GROWN_NOT_WORKED_OUT) and method == "grown"]
         + ([f"gap: {_duration(frame['gap_minutes'])} without a usable photo"] if frame.get("gap_minutes") else [])
         # The Gallery's image label (PARTLY OUTSIDE) comes from this same warning (tray_placement.py).
         + [w for w in tray["warnings"] if w == "partly outside the photo"],
