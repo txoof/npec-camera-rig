@@ -1368,6 +1368,52 @@ def test_reprocess_counts_a_reading_with_its_cutoff_at_the_floor_again_and_marks
     assert tray["warnings"].count(segmentation.SOIL_HIDDEN) == 1
 
 
+def test_reprocess_that_grows_again_and_then_meets_a_locked_rig_db_leaves_both_masks_as_they_were(monkeypatch) -> None:
+    """Fourth review of #483: the reading and the masks must stay a pair. The reading saved before
+    #373 is grown again from the photo (new grown mask, 1156 mm2 where the saved one holds 900), and
+    the new reading cannot be saved because rig.db is locked for writing: the saved reading stays,
+    and so do both mask files, byte for byte."""
+    import sqlite3
+
+    from npec_rig import segmentation
+
+    path = _cut_short_reading(monkeypatch, change=lambda t: t)
+    files = [segmentation.mask_file(path), segmentation.mask_file(path, segmentation.GROWN_MASK)]
+    before_masks = [f.read_bytes() for f in files]
+    before = _saved(path)
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.3)
+
+    with lock_held(), pytest.raises(sqlite3.OperationalError, match="locked"):
+        tray_readings.read_photo(path, reuse_mask=True)
+    assert [f.read_bytes() for f in files] == before_masks
+    assert _saved(path) == before
+    assert not list(files[0].parent.glob("*.staged"))  # nothing left behind
+
+
+def test_reprocess_does_not_count_a_matched_saved_tray_that_has_no_levels(monkeypatch) -> None:
+    """Fourth review of #483: tray 7 was saved with no areas and no levels (a reading made when its
+    outline could not be measured), tray 5 is complete. With the photo gone the masks are not
+    counted again for tray 7: its grown area would be saved with no cutoff. Nothing is saved."""
+    from npec_rig.captures import photo_file
+
+    _two_touching_trays_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    capture_id = database.captures_by_path([path])[path]["id"]
+    saved = database.tray_readings(capture_id)["trays"]
+    empty = {"area_mm2": None, "plant_px": None, "plant_centre_px": None, "segmenter": None, "calibration": None,
+             "grown_method": None, "grown_area_mm2": None, "grown_plant_px": None, "grown_plant_centre_px": None,
+             "grown_soil_level": None, "grown_lower_cutoff": None}
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, **empty, "cells": []} if t["tray_id"] == 7 else t for t in saved])
+    photo_file(path).unlink()
+    before = _saved(path)
+
+    with pytest.raises(tray_readings.NotReprocessed, match="levels"):
+        tray_readings.read_photo(path, reuse_mask=True)
+    assert _saved(path) == before
+
+
 def test_a_locked_rig_db_in_a_2x2_trays_cells_fails_the_reading_instead_of_saving_none(monkeypatch) -> None:
     """#483, finding 6: the lock is met when the tray's A1 bearing is looked up for its cells, then
     ends. The reading must fail with the lock error, so the caller retries (#464); it must not be
