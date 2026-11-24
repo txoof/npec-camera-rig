@@ -263,6 +263,17 @@ def _duration(minutes: int) -> str:
     return " ".join([*([f"{hours} h"] if hours else []), *([f"{rest} min"] if rest else [])])
 
 
+def _slot_words(frame: dict, band_slot: str | None) -> str | None:
+    """The one slot a frame names. The band's slot (the validation's) when the frame has a band,
+    so "Slot:" and the band agree (#502); else the calibration layout's. "was X" comes from the
+    calibration layout, so it is kept only when that layout names the same current slot."""
+    layout_slot, previous = frame.get("slot"), frame.get("previous_slot")
+    slot = band_slot or layout_slot
+    if not slot:
+        return None
+    return f"{slot} (was {previous})" if previous and slot == layout_slot else slot
+
+
 def frame_values(experiment: dict, frame: dict, *, method: str, cell: str | None = None) -> dict:
     """What frame `frame` (from `choose_frames`) of `experiment` says, in the Gallery's words: the
     time in UTC and in chamber time, the day of the experiment (day 1 is its first 24 h), the area
@@ -307,8 +318,7 @@ def frame_values(experiment: dict, frame: dict, *, method: str, cell: str | None
         # The Gallery's image label (PARTLY OUTSIDE) comes from this same warning (tray_placement.py).
         + [w for w in tray["warnings"] if w == "partly outside the photo"],
         # In words as well as on the map: never colour alone.
-        "slot": (None if not frame.get("slot") else frame["slot"] if not frame.get("previous_slot")
-                 else f"{frame['slot']} (was {frame['previous_slot']})"),
+        "slot": _slot_words(frame, band["slot"]),
     }
 
 

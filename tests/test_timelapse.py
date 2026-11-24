@@ -436,3 +436,17 @@ def test_a_frame_says_grown_area_not_worked_out_for_grow_from_leaf_cores_only(ex
 
     assert fixed == []
     assert grown == ["grown area not worked out"]
+
+
+def test_a_frame_names_the_validation_slot_that_sets_its_band_not_another_slot(experiment):
+    from tests.helpers import TABLE_STEM
+
+    _two_slot_table()  # the calibration's layout: this tray at (160, 440) is nearest South 2
+    # The validation's own slots, centred by hand: here the nearest to the tray is "North 1".
+    banded_validation("20270301T000000000000", {"North 1": ((170, 430), 2.0), "North 2": ((700, 100), 3.0)})
+    _photo(experiment, START, calibration=TABLE_STEM, validation="20270301T000000000000", centre=(160, 440))
+
+    values = timelapse.frame_values(database.get_experiment(experiment), _only_frame(experiment), method="fixed")
+
+    assert values["band"] == "±2.0%, North 1"
+    assert values["slot"] == "North 1"
