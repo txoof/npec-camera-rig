@@ -1274,6 +1274,97 @@ def test_reprocess_keeps_the_reading_of_a_tray_it_cannot_match_when_the_photo_is
     assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
 
 
+def test_reprocess_does_not_keep_a_saved_grown_area_worked_out_with_another_calibration(monkeypatch) -> None:
+    """#483, review finding 1: the saved grown area of 1156 mm2 was worked out at 10.0 px/mm. With
+    the photo and the grown mask gone and the twin rebuilt at 10.0 x 5.00 / 4.90 px/mm (as in
+    test_reprocess_counts_both_methods_again_from_their_saved_masks_without_the_photo), it is not
+    the area now: the fixed area is counted again, 900 x (4.90 / 5.00)^2 = 864.4 mm2, the grown
+    area is left empty and the tray says so."""
+    from npec_rig import segmentation
+    from npec_rig.calibration import ScaleField
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+    segmentation.mask_file(path, segmentation.GROWN_MASK).unlink()
+    stem = FIXTURE["calibration"]
+    save_calibration(
+        CalibrationArtifact(created_at="2026-10-26T15:00:00+00:00", scale_field=ScaleField((1.0, 0.0, 0.0), 10.0 * 5.00 / 4.90, 0.0),
+                            frame_stem=stem, lens_position=6.05, rebuilt_from=stem),
+        stem="20261026T150000000001", promote=False,
+    )
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(864.4, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_area_mm2"] is None
+    assert "grown area not worked out" in tray["warnings"]
+
+
+def test_reprocess_does_not_count_the_old_grown_mask_inside_a_tray_it_cannot_match_with_the_photo_gone(monkeypatch) -> None:
+    """#483, review finding 3: the saved tray carries tag 99, the stored tags put tag 5 in its
+    outline now. With the photo gone, the old grown mask is not counted inside that outline and
+    its levels are not saved as none: the grown area is left empty and the tray says so."""
+    from npec_rig.captures import photo_file
+
+    path = _cut_short_reading(
+        monkeypatch, change=lambda t: {**t, "tray_id": 99, "grown_soil_level": -0.045, "grown_lower_cutoff": 0.025})
+    photo_file(path).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_area_mm2"] is None
+    assert "grown area not worked out" in tray["warnings"]
+
+
+def test_a_kept_pre_373_reading_is_not_marked_as_grown_from_the_usual_cutoff(monkeypatch) -> None:
+    """#483, review finding 5: a reading saved before #373 carries the mark "soil hidden: usual
+    leaf cutoff used" though its cutoff was 0.115, not the floor. With the grown mask and the
+    photo gone its values are kept, and the mark is not put back."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    path = _cut_short_reading(
+        monkeypatch, change=lambda t: {**t, "warnings": [segmentation.SOIL_HIDDEN]})
+    photo_file(path).unlink()
+    segmentation.mask_file(path, segmentation.GROWN_MASK).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_lower_cutoff"] == pytest.approx(0.115)
+    assert tray["grown_area_mm2"] is not None
+    assert segmentation.SOIL_HIDDEN not in tray["warnings"]
+
+
+def test_a_kept_reading_with_its_cutoff_at_the_floor_is_marked_once(monkeypatch) -> None:
+    """The matted tray read with the cutoff at the floor, then its grown mask and photo gone: the
+    saved values are kept and the mark "usual leaf cutoff used" is there once."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    _matted_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+    segmentation.mask_file(path, segmentation.GROWN_MASK).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["warnings"].count(segmentation.SOIL_HIDDEN) == 1
+
+
+def test_reprocess_matches_a_reading_saved_before_331_by_tag_and_centre(monkeypatch) -> None:
+    """#483, review finding 4: a reading saved before #331 has no outline. Its trays are matched by
+    tag and centre, as they were: the mask (900 mm2, the leaf without its pale edge, levels fine)
+    is counted again; a regrown mask would read 1156 mm2."""
+    path = _cut_short_reading(
+        monkeypatch, change=lambda t: {**t, "outline_px": None, "grown_soil_level": -0.045, "grown_lower_cutoff": 0.025})
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
+    assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(-0.045), pytest.approx(0.025))
+
+
 def test_a_locked_rig_db_in_a_2x2_trays_cells_fails_the_reading_instead_of_saving_none(monkeypatch) -> None:
     """#483, finding 6: the lock is met when the tray's A1 bearing is looked up for its cells, then
     ends. The reading must fail with the lock error, so the caller retries (#464); it must not be

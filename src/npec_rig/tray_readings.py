@@ -217,8 +217,8 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
     reuse = reuse_mask and _saved_by_this_segmenter(saved)
     # A tag seen with no tray found around it has no outline: nothing to measure (#331).
     outlined = [p for p in placed if p.outline is not None]
-    calibration, measures, cells, grown, grown_failed = (
-        _measures(path, record["calibration"], outlined, reuse, tags, record, saved) if outlined else (None, [], [], [], False))
+    calibration, measures, cells, grown = (
+        _measures(path, record["calibration"], outlined, reuse, tags, record, saved) if outlined else (None, [], [], []))
     size = _photo_size(path) if outlined else None
     # No area now, whether or not any tray was outlined (review of #334): a saved area is kept.
     _refuse_worse(path, saved, status, areas_lost=not measures)
@@ -227,10 +227,9 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
     grew = dict(zip(map(id, outlined), grown, strict=True)) if grown else {}
     no_cells: tuple[list, None, bool] = ([], None, False)
     trays = []
-    kept = _saved_grown(saved)
     for p in placed:
         m = measured.get(id(p))
-        g, soil_level, lower_cutoff = grew.get(id(p), (None, None, None))
+        g, soil_level, lower_cutoff = grew.get(id(p)) or (None, None, None)
         trays.append({
             "tray_id": p.tray_id, "slot": p.slot, "a1_corner": p.a1_corner, "placement": p.status,
             "centre_px": list(p.centre), "tilt_deg": p.tilt_deg, "margin_mm": p.margin_mm,
@@ -242,7 +241,7 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "found": p.found,
             "warnings": list(p.warnings) + ([TAG_TURNED] if celled.get(id(p), no_cells)[2] else [])
             + ([segmentation.SOIL_HIDDEN] if g and _at_the_floor(soil_level, lower_cutoff) else [])
-            + ([GROWN_NOT_WORKED_OUT] if grown_failed and m and not g else []),
+            ,
             "outline_px": None if p.outline is None else [list(c) for c in p.outline],
             "cells": [
                 {
@@ -262,9 +261,15 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "grown_plant_centre_px": list(g.centre_px) if g and g.centre_px else None,
             "grown_soil_level": soil_level, "grown_lower_cutoff": lower_cutoff,
         })
-    for tray in trays:
-        if tray["grown_area_mm2"] is None and tray["tray_id"] in kept:
-            _keep_grown(tray, kept[tray["tray_id"]])
+    for tray, old in zip(trays, _saved_match(saved, placed), strict=True):
+        if tray["area_mm2"] is None or tray["grown_area_mm2"] is not None:
+            continue
+        # Grown area not worked out now: the saved one stays only for the same tray in the same
+        # outline, worked out with the same calibration (#483). Otherwise it is left empty, and says so.
+        if old and old["grown_area_mm2"] is not None and old.get("calibration") in (None, tray["calibration"]):
+            _keep_grown(tray, old)
+        else:
+            tray["warnings"].append(GROWN_NOT_WORKED_OUT)
     database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
     exclusions.update(record)
     return capture_readings(record)
@@ -276,24 +281,14 @@ GROWN_TRAY_FIELDS = (
 GROWN_CELL_FIELDS = ("grown_area_mm2", "grown_plant_px", "grown_plant_centre_px", "grown_over_other_cells")
 
 
-def _saved_grown(saved: dict | None) -> dict[int, dict]:
-    """The saved reading's trays that have a grown area, by tray ID (a tag two trays carry is left
-    out: which tray is which cannot be told). Reprocess keeps these when it cannot work the grown
-    area out again (#483, finding 4)."""
-    trays = [t for t in (saved or {}).get("trays", []) if t["tray_id"] is not None]
-    carried = Counter(t["tray_id"] for t in trays)
-    return {t["tray_id"]: t for t in trays if carried[t["tray_id"]] == 1 and t["grown_area_mm2"] is not None}
-
-
 def _keep_grown(tray: dict, old: dict) -> None:
     """Put the saved tray `old`'s grown values, and those of its cells by name, on the new `tray`."""
     tray.update({f: old.get(f) for f in GROWN_TRAY_FIELDS})
-    tray["warnings"] = [w for w in tray["warnings"] if w != GROWN_NOT_WORKED_OUT]
     by_name = {c["cell"]: c for c in old.get("cells", [])}
     for cell in tray["cells"]:
         if cell["cell"] in by_name:
             cell.update({f: by_name[cell["cell"]].get(f) for f in GROWN_CELL_FIELDS})
-    if segmentation.SOIL_HIDDEN in old.get("warnings", []):
+    if _at_the_floor(old.get("grown_soil_level"), old.get("grown_lower_cutoff")) and segmentation.SOIL_HIDDEN not in tray["warnings"]:
         tray["warnings"] = [*tray["warnings"], segmentation.SOIL_HIDDEN]
 
 
@@ -321,7 +316,7 @@ def _saved_by_this_segmenter(saved: dict | None) -> bool:
 def _measures(
     path: str, photo_calibration: str, placed: list[TrayPlacement], reuse_mask: bool = False,
     tags: list[TagDetection] = (), record: dict | None = None, saved: dict | None = None,
-) -> tuple[str | None, list[segmentation.PlantMeasure], list, list, bool]:
+) -> tuple[str | None, list[segmentation.PlantMeasure], list, list]:
     """The calibration used, each placed tray's plant measure, each one's cells with their plant
     by both methods and each 2 x 2 tray's A1 bearing (`_measured_cells`), and each tray's plant by
     grow from leaf cores with its soil level and lower cutoff, in the order of `placed` (two trays
@@ -329,22 +324,23 @@ def _measures(
     `reuse_mask`, else new ones, saved for Reprocess. Empty when the photo cannot be segmented: the
     trays are still placed. No grown plant (an empty last list) when grow from leaf cores cannot
     run: the fixed green cutoff's areas are kept. Plant in the strip two touching trays share
-    counts once, for the tray with the nearer centre (`segmentation.measure_trays`). The last item:
-    whether grow from leaf cores failed with an error other than a locked rig.db, so that no tray
-    has a grown area and the reading says so (#483)."""
-    grown_failed = False
+    counts once, for the tray with the nearer centre (`segmentation.measure_trays`). A tray whose
+    saved levels are not found (not in the saved reading, or in another outline) has no grown
+    plant from a saved mask: that mask was made without it (#483)."""
     try:
         stem = calibration_for_photos(photo_calibration)
         scale_field = load_saved_calibration(stem).scale_field
         mask = segmentation.load_mask(path) if reuse_mask else None
         grown = segmentation.load_mask(path, segmentation.GROWN_MASK) if reuse_mask else None
         levels = _saved_levels(saved, placed) if grown is not None else None
+        matched = [True] * len(placed)
         if levels and (photo_file(path) or Path()).is_file() and any(
                 level is None or _grown_into_leaves(*level) for level in levels):
             # Read before #373 with the cutoff in the leaves (metrology log 39), or a tray whose
             # outline is not the one the mask was made inside (#483, findings 5 and 7): grown again.
             grown, levels = None, None
         elif levels:
+            matched = [level is not None for level in levels]
             levels = [level or (None, None) for level in levels]
         if mask is None:
             mask, grown, levels = _segment(path, placed, tags)
@@ -357,21 +353,20 @@ def _measures(
                 if _rig_db_locked(exc):
                     raise
                 logger.exception("Could not grow the plant from leaf cores in %s", path)
-                grown_failed = True
         trays = [(p.outline, p.centre) for p in placed]
         measures = segmentation.measure_trays(mask, trays, scale_field)
     except Exception as exc:
         if _rig_db_locked(exc):
             raise  # the caller retries (#464); a locked rig.db is not "no areas" (#483)
         logger.exception("Could not work out the plant areas of %s", path)
-        return None, [], [], [], False
+        return None, [], [], []
     try:
         by_cores = segmentation.measure_trays(grown, trays, scale_field) if grown is not None else []
-        grew = [(m, *level) for m, level in zip(by_cores, levels, strict=True)]
+        grew = [(m, *level) if ok else None for m, level, ok in zip(by_cores, levels, matched, strict=True)]
     except Exception:
         logger.exception("Could not work out the plant areas of %s by grow from leaf cores", path)
-        grown, grew, grown_failed = None, [], True
-    return stem, measures, _measured_cells(path, mask, grown, placed, tags, scale_field, record or {}), grew, grown_failed
+        grown, grew, matched = None, [], [True] * len(placed)
+    return stem, measures, _measured_cells(path, mask, grown, placed, tags, scale_field, record or {}, matched), grew
 
 
 def _at_the_floor(soil_level: float | None, lower_cutoff: float | None) -> bool:
@@ -400,32 +395,48 @@ def _same_outline(a, b) -> bool:
         min(math.dist(p, q) for q in a) <= OUTLINE_SAME_PX for p in b)
 
 
-def _saved_levels(saved: dict | None, placed: list[TrayPlacement]) -> list[tuple[float | None, float | None] | None]:
-    """Each placed tray's soil level and lower cutoff from the saved reading `saved`: of the saved
-    tray with the same tag whose outline is the same one (`OUTLINE_SAME_PX`); a tray with no tag is
-    matched by its outline alone. None for a tray with no such saved tray: its saved mask was made
-    without it, or inside another outline (#483). Not matched by the centre to the pixel."""
-    old = [t for t in (saved or {}).get("trays", []) if t.get("outline_px")]
-    out = []
+def _saved_match(saved: dict | None, placed: list[TrayPlacement]) -> list[dict | None]:
+    """Each placed tray's tray in the saved reading `saved`: the one with the same tag in the same
+    outline (`OUTLINE_SAME_PX`); a saved tray with no outline (read before #331) by the same tag at
+    the same centre to the pixel, as before. None for a tray with no such saved tray: it was not
+    there, or lay in another outline, and what was saved for it was worked out for something
+    else (#483)."""
+    old = (saved or {}).get("trays", [])
+    out: list[dict | None] = []
     for p in placed:
-        match = next(
-            (t for t in old if t["tray_id"] == p.tray_id and p.outline is not None and _same_outline(t["outline_px"], p.outline)), None)
-        out.append(None if match is None else (match.get("grown_soil_level"), match.get("grown_lower_cutoff")))
+        found = None
+        for t in old if p.outline is not None else []:
+            if t["tray_id"] != p.tray_id:
+                continue
+            if t.get("outline_px"):
+                same = _same_outline(t["outline_px"], p.outline)
+            else:
+                same = tuple(round(v) for v in t["centre_px"]) == tuple(round(v) for v in p.centre)
+            if same:
+                found = t
+                break
+        out.append(found)
     return out
 
 
-def _measured_cells(path, mask, grown, placed, tags, scale_field, record) -> list:
+def _saved_levels(saved: dict | None, placed: list[TrayPlacement]) -> list[tuple[float | None, float | None] | None]:
+    """Each placed tray's soil level and lower cutoff from the saved reading `saved` (`_saved_match`);
+    None for a tray with no saved match."""
+    return [None if t is None else (t.get("grown_soil_level"), t.get("grown_lower_cutoff")) for t in _saved_match(saved, placed)]
+
+
+def _measured_cells(path, mask, grown, placed, tags, scale_field, record, grown_for=None) -> list:
     """Each placed tray's cells with their plant by the fixed green cutoff (`mask`) and by grow from
     leaf cores (`grown`, None for none), and its 2 x 2 bearing (`_cells`), measured tray by tray
     inside the tray's outline (`segmentation.measure_cells`). A tray whose cells cannot be worked
     out gets none, logged: its tray area and the other trays' cells are kept (review of #374)."""
     out = []
-    for p in placed:
+    for p, with_grown in zip(placed, grown_for or [True] * len(placed), strict=True):
         try:
             [(cells, bearing, turned)] = _cells([p], tags, scale_field, record)
             counted = segmentation.measure_cells(mask, cells, scale_field, outline_px=p.outline) if cells else []
             by_cores = [None] * len(cells)
-            if cells and grown is not None:
+            if cells and grown is not None and with_grown:
                 try:
                     by_cores = segmentation.measure_cells(grown, cells, scale_field, outline_px=p.outline)
                 except Exception as exc:

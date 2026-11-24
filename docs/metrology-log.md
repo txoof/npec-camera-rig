@@ -11164,8 +11164,11 @@ dev-2x2-untagged 9, edge-tags 12, pots-touching 12, sheets-every-tray 12; dark h
 | sheets-every-tray | 1 / 2 / 5 | 0.1 / 0.1 / 0.2 | 0.7 / 1.1 / 1.9 | 0.92 / 1.15 / 2.77 |
 
 **What this shows.** Two runs on one photo give identical outlines, so a tolerance of 0.01 px never
-reports a change for an unchanged photo. A shift of 1 px moves a tray's area by up to 35 mm2 (0.23%) where
-the tray holds plant (development stills) and by under 1 mm2 where it holds little. It grows about in step with the shift (165 mm2 at 5 px).
+reports a change for an unchanged photo. At 1 px the largest change in a tray's area is 35.3 mm2 (development stills, 0.23%, the largest in mm2) and
+1.45% of the tray's area (a1-tags-sheet-on-tray, where that is 0.2 mm2 of a very small plant area; the
+largest percentage at 1 px, followed by 0.92% on sheets-every-tray, 0.7 mm2). On the development stills the change
+grows with the shift (165 mm2 and 1.09% at 5 px); the largest percentage at 5 px is 2.77%
+(sheets-every-tray, 1.9 mm2).
 
 **What it does not cover.** The stills are quarter-size copies of photos taken for the tray finder
 (little plant at the tray edge, pale sheets and cards on some trays), so the percentages are for the

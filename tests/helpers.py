@@ -407,26 +407,44 @@ def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, rea
 
     database.list_experiments()  # the file exists and is migrated before the lock is taken
     taken = threading.Event()
+    failed: list[BaseException] = []
 
     def hold() -> None:
         conn = sqlite3.connect(db_path(), isolation_level=None)
-        if readers_too:
-            # rig.db is in WAL mode (images.py), where nothing blocks a reader: the rollback journal does.
-            conn.execute("PRAGMA journal_mode=DELETE")
-        conn.execute("BEGIN EXCLUSIVE" if readers_too else "BEGIN IMMEDIATE")
-        taken.set()
-        if until is None:
-            time.sleep(seconds)
-        else:
-            until.wait(seconds)
-        conn.execute("COMMIT")
-        if readers_too:
-            conn.execute("PRAGMA journal_mode=WAL")
-        conn.close()
+        held = False
+        try:
+            if readers_too:
+                # rig.db is in WAL mode (images.py), where nothing blocks a reader: the rollback
+                # journal does. The switch fails (the mode stays "wal") while another connection is open.
+                mode = conn.execute("PRAGMA journal_mode=DELETE").fetchone()[0]
+                if mode != "delete":
+                    raise RuntimeError(f"rig.db stayed in journal mode {mode!r}: another connection is open")
+            conn.execute("BEGIN EXCLUSIVE" if readers_too else "BEGIN IMMEDIATE")
+            held = True
+            taken.set()
+            if until is None:
+                time.sleep(seconds)
+            else:
+                until.wait(seconds)
+        except BaseException as exc:
+            failed.append(exc)
+            taken.set()
+        finally:
+            try:
+                if held:
+                    conn.execute("COMMIT")
+            finally:
+                if readers_too:
+                    conn.execute("PRAGMA journal_mode=WAL")  # always back, whatever happened
+                conn.close()
 
     thread = threading.Thread(target=hold)
     thread.start()
-    taken.wait(5)
+    if not taken.wait(5):
+        raise RuntimeError("the rig.db lock was not taken within 5 s")
+    if failed:
+        thread.join()
+        raise failed[0]
     try:
         yield
     finally:
