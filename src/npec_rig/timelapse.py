@@ -559,6 +559,20 @@ def unavailable() -> str | None:
 
 _lock = threading.Lock()
 _running: dict = {}
+# For tests only (#503): with this set to a file path, the video's child process waits, its
+# progress still "choosing" so being_made() names it, until that file exists or TEST_HOLD_LIMIT_S
+# has passed, before it chooses or draws any frame. Unset, as on every rig, it does nothing.
+TEST_HOLD_ENV = "NPEC_RIG_TEST_TIMELAPSE_HOLD"
+TEST_HOLD_LIMIT_S = 60.0
+
+
+def _test_hold() -> None:
+    release = os.environ.get(TEST_HOLD_ENV)
+    if not release:
+        return
+    deadline = time.monotonic() + TEST_HOLD_LIMIT_S
+    while not Path(release).exists() and time.monotonic() < deadline:
+        time.sleep(0.02)
 
 
 def start(request: dict) -> dict:
@@ -739,6 +753,7 @@ def _make(request: dict, folder: str) -> None:
     os.nice(10)
     cv2.setNumThreads(1)
     try:
+        _test_hold()
         experiment = database.get_experiment(request["experiment_id"])
         mask = request["method"] if request.get("mask") else None
         every = request["tray_id"] == ALL_TRAYS
