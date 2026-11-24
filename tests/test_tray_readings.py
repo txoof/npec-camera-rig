@@ -1151,6 +1151,33 @@ def test_reprocess_segments_again_a_photo_read_with_its_cutoff_in_the_leaves(mon
     assert segmentation.SOIL_HIDDEN in tray["warnings"]
 
 
+def test_a_cut_short_reading_whose_photo_is_gone_is_not_marked_as_grown_from_the_usual_cutoff(monkeypatch) -> None:
+    """A reading saved before #373 (cutoff 0.115, the leaf without its pale edge: 900 mm2), photo
+    then gone. Reprocess can only count the cut-short mask again, so its area is 900 mm2 from the
+    cutoff 0.115; the mark "usual leaf cutoff used" would say otherwise (#483, finding 8)."""
+    import numpy as np
+
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    _matted_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    capture_id = database.captures_by_path([path])[path]["id"]
+    old = np.zeros((4400, 4000), dtype=bool)
+    old[2080:2380, 1327:1627] = True
+    segmentation.save_mask(path, old, segmentation.GROWN_MASK)
+    trays = database.tray_readings(capture_id)["trays"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, "grown_lower_cutoff": 0.115, "warnings": []} for t in trays])
+    photo_file(path).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_lower_cutoff"] == pytest.approx(0.115)
+    assert segmentation.SOIL_HIDDEN not in tray["warnings"]
+
+
 def test_a_photo_whose_reading_met_a_locked_rig_db_is_read_again(monkeypatch, tmp_path) -> None:
     """#439: on production a photo's reading could not be saved while another writer held rig.db,
     the lock was gone a moment later, and the photo was saved as "read failed" for good."""

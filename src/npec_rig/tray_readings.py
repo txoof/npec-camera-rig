@@ -240,7 +240,7 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "outside_mm": outside_mm(p, size) if size and p.outline is not None else None,
             "found": p.found,
             "warnings": list(p.warnings) + ([TAG_TURNED] if celled.get(id(p), no_cells)[2] else [])
-            + ([segmentation.SOIL_HIDDEN] if g and segmentation.soil_hidden(soil_level) else []),
+            + ([segmentation.SOIL_HIDDEN] if g and _at_the_floor(soil_level, lower_cutoff) else []),
             "outline_px": None if p.outline is None else [list(c) for c in p.outline],
             "cells": [
                 {
@@ -357,6 +357,13 @@ def _measures(
         logger.exception("Could not work out the plant areas of %s by grow from leaf cores", path)
         grown, grew = None, []
     return stem, measures, _measured_cells(path, mask, grown, placed, tags, scale_field, record or {}), grew
+
+
+def _at_the_floor(soil_level: float | None, lower_cutoff: float | None) -> bool:
+    """Whether a reading's leaf cutoff was set to the floor because the soil was hidden: the mark
+    "usual leaf cutoff used" is true of it. Not of a mask grown before #373 with the cutoff in the
+    leaves, kept with the photo gone (#483, finding 8)."""
+    return segmentation.soil_hidden(soil_level) and lower_cutoff is not None and lower_cutoff <= segmentation.GROWN_FLOOR + 1e-9
 
 
 def _grown_into_leaves(soil_level: float | None, lower_cutoff: float | None) -> bool:
