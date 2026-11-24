@@ -141,8 +141,6 @@
       }
       // Only a started experiment can have photos; a purged one has none left.
       const photos = e.periods.length && e.state !== "purged" ? [button("photos", "Photos")] : [];
-      // One Reprocess at a time: the button is hidden on every experiment while one runs.
-      if (photos.length && !experiments.some((x) => x.reprocess.running)) photos.push(button("reprocess", "Reprocess areas"));
       // Its own line: a fourth button beside Photos ran past the screen's edge.
       // One Data button opens the Data page for this experiment: its export and time lapse videos
       // (Aaron, 2026-11-20, #454: the four export and download buttons cluttered this page).
@@ -185,14 +183,16 @@
         + completeText(e);
     }
 
-    // Reprocess (#75): the plant area of every photo worked out again, in the background.
+    // Reprocess (#75) is started through the API only (#483); this shows how it is going, or how
+    // it ended, for one started by a developer or a script.
     function reprocessText(e) {
       const r = e.reprocess;
-      if (!r.total && !r.running) return "";
+      if (r.state === "none") return "";
       const failed = r.failed ? `, ${r.failed} could not be read` : "";
-      return r.running
-        ? `<div class="experiment-export">Reprocessing areas: ${r.done} of ${r.total} photos${failed}</div>`
-        : `<div class="experiment-export">Areas reprocessed: ${r.done} photos${failed}</div>`;
+      const line = r.running ? `Reprocessing areas: ${r.done} of ${r.total} photos`
+        : r.message ? `Reprocessing areas ${r.message} photos`
+        : `Areas reprocessed: ${r.done} photos`;
+      return `<div class="experiment-export">${line}${failed}</div>`;
     }
 
     function dwellLimitText(e) {
@@ -557,15 +557,6 @@
         } else {
           await runAndRefresh(() => call("POST", `/api/experiments/${e.id}/start`));
         }
-      } else if (act === "reprocess") {
-        openAsk({
-          title: `Reprocess areas of ${displayName(e)}`,
-          body: "<p>Works out the plant area of every photo of this experiment again, about 2 seconds "
-            + "a photo, in the background. Photos that already have a saved mask are counted from it. "
-            + "New photos keep being taken and read meanwhile.</p>",
-          ok: "Reprocess areas",
-          action: () => call("POST", `/api/experiments/${e.id}/reprocess`),
-        });
       }
     });
 

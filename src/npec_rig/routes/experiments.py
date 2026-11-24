@@ -66,7 +66,8 @@ def api_experiments() -> list[dict]:
     """Every experiment, newest first, with its state, periods, newest export and Reprocess progress."""
     experiments = database.list_experiments()
     for experiment in experiments:
-        experiment["reprocess"] = tray_readings.reprocess_progress(experiment["id"])
+        # Without the failed photos, which can be many: GET .../reprocess has them.
+        experiment["reprocess"] = {k: v for k, v in tray_readings.reprocess_progress(experiment["id"]).items() if k != "failures"}
         newest = database.exports_for(experiment["id"])[:1]
         experiment["export"] = newest[0] if newest else None
         experiment["complete_export"] = database.complete_export(experiment["id"])
@@ -128,14 +129,47 @@ def api_purge_experiment(experiment_id: int, request: PurgeRequest) -> dict:
     )
 
 
+class ReprocessRequest(BaseModel):
+    """`confirm`: the experiment's ID again, required to start; `dry_run`: only count (also `?dry_run=true`)."""
+
+    confirm: int | None = None
+    dry_run: bool = False
+
+
 @router.post("/api/experiments/{experiment_id}/reprocess")
-def api_reprocess_experiment(experiment_id: int) -> dict:
+def api_reprocess_experiment(experiment_id: int, request: ReprocessRequest | None = None, dry_run: bool = False) -> dict:
     """Read every photo of the experiment again in the background and work out its plant areas
-    afresh (#75). 409 while a Reprocess is running."""
+    afresh (#75), each photo whole or not at all (#483). For developers and scripts: the
+    Experiments page has no button for it.
+
+    TAKE A COPY OF rig.db FIRST (`cp /var/lib/npec-rig/rig.db <somewhere>`, or an export): Reprocess
+    replaces the saved readings of every photo it can redo and keeps no copy of the old ones.
+
+    `{"dry_run": true}` (or `?dry_run=true`) only returns the photo count and an estimated time and
+    changes nothing. A real start needs the body `{"confirm": <the experiment's ID>}`: without it
+    nothing starts (400). 409 while a Reprocess is running. Progress and failed photos: GET, which
+    reads rig.db and so survives a restart; `.../reprocess/stop` ends it after the photo it is on."""
+    request = request or ReprocessRequest()
     _experiment_action(database.get_experiment, experiment_id)  # 404 for no such experiment
+    if request.dry_run or dry_run:
+        return tray_readings.reprocess_plan(experiment_id)
+    if request.confirm != experiment_id:
+        raise HTTPException(400, f'nothing started: send {{"confirm": {experiment_id}}} to Reprocess experiment {experiment_id}, '
+                                 "after a copy of rig.db (or send dry_run to count the photos only)")
     try:
         return tray_readings.start_reprocess(experiment_id)
     except tray_readings.ReprocessRunning as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post("/api/experiments/{experiment_id}/reprocess/stop")
+def api_reprocess_stop(experiment_id: int) -> dict:
+    """End the running Reprocess of the experiment after the photo it is reading; the photos done
+    keep their new readings, the others are not read. 409 when none is running."""
+    _experiment_action(database.get_experiment, experiment_id)
+    try:
+        return tray_readings.stop_reprocess(experiment_id)
+    except tray_readings.NoReprocessRunning as exc:
         raise HTTPException(409, str(exc)) from exc
 
 

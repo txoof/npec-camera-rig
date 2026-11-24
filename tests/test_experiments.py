@@ -194,7 +194,7 @@ def _reprocessed(client, experiment_id: int) -> dict:
     """Start Reprocess and wait for it to finish; its last progress."""
     import time
 
-    assert client.post(f"/api/experiments/{experiment_id}/reprocess").status_code == 200
+    assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id}).status_code == 200
     deadline = time.monotonic() + 30
     while True:
         progress = client.get(f"/api/experiments/{experiment_id}/reprocess").json()
@@ -521,3 +521,244 @@ def test_the_experiments_page_has_one_data_button_per_experiment_in_place_of_the
     assert 'button("parts"' not in page
     assert "Data export" not in page
     assert "/api/exports/${x.id}/download" not in page
+
+
+# --- The Reprocess API (#483, PR B): dry run, confirmation, Stop, saved progress ---------------------
+
+
+def _experiment_with_photos(monkeypatch, count: int) -> tuple[int, list[str]]:
+    """An experiment stopped after `count` photos of `one_tray_plant_scene` taken as captures."""
+    from tests.helpers import one_tray_plant_scene
+
+    one_tray_plant_scene(monkeypatch)
+    experiment = captures.start_experiment(captures.create_experiment()["id"])
+    paths = []
+    for _ in range(count):
+        _array, record = captures.take_photo("capture")
+        del _array
+        paths.append(record["path"])
+    captures.stop_experiment(experiment["id"])
+    return experiment["id"], paths
+
+
+def test_a_reprocess_dry_run_counts_the_photos_and_changes_nothing(monkeypatch) -> None:
+    from fastapi.testclient import TestClient
+
+    from npec_rig import tray_readings
+    from npec_rig.app import app
+
+    experiment_id, paths = _experiment_with_photos(monkeypatch, 2)
+    client = TestClient(app)
+
+    response = client.post(f"/api/experiments/{experiment_id}/reprocess", json={"dry_run": True})
+
+    assert response.status_code == 200
+    assert response.json()["photos"] == 2
+    assert response.json()["estimated_seconds"] is None  # no earlier Reprocess to take a time from
+    assert client.get(f"/api/experiments/{experiment_id}/reprocess").json()["state"] == "none"
+    assert [tray_readings.photo_readings(p) for p in paths] == [None, None]
+
+
+def test_a_reprocess_without_the_experiment_id_confirmed_starts_nothing(monkeypatch) -> None:
+    from fastapi.testclient import TestClient
+
+    from npec_rig import tray_readings
+    from npec_rig.app import app
+
+    experiment_id, paths = _experiment_with_photos(monkeypatch, 1)
+    client = TestClient(app)
+
+    for body in ({}, {"confirm": experiment_id + 1}):
+        response = client.post(f"/api/experiments/{experiment_id}/reprocess", json=body)
+        assert response.status_code == 400
+        assert f"confirm" in response.json()["detail"]
+    assert client.get(f"/api/experiments/{experiment_id}/reprocess").json()["state"] == "none"
+    assert tray_readings.photo_readings(paths[0]) is None
+
+
+def test_reprocess_stops_after_the_photo_it_is_reading(monkeypatch) -> None:
+    """Three photos; Stop is asked while the second is being read (its tags are searched then). The
+    second finishes, the third is not read: 2 of 3 done, the run says it was stopped."""
+    import time
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig import photo_tags, tray_readings
+    from npec_rig.app import app
+
+    experiment_id, paths = _experiment_with_photos(monkeypatch, 3)
+    client = TestClient(app)
+    tags = photo_tags.detect_tags  # the scene's own, as `one_tray_plant_scene` set it
+    calls = []
+
+    def detect_and_stop(frame):
+        calls.append(1)
+        if len(calls) == 2:
+            assert client.post(f"/api/experiments/{experiment_id}/reprocess/stop").status_code == 200
+        return tags(frame)
+
+    monkeypatch.setattr(photo_tags, "detect_tags", detect_and_stop)
+    assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id}).status_code == 200
+    deadline = time.monotonic() + 30
+    while client.get(f"/api/experiments/{experiment_id}/reprocess").json()["running"]:
+        assert time.monotonic() < deadline
+        time.sleep(0.05)
+
+    progress = client.get(f"/api/experiments/{experiment_id}/reprocess").json()
+    assert (progress["state"], progress["done"], progress["total"]) == ("stopped", 2, 3)
+    assert progress["message"] == "stopped at 2 of 3"
+    assert [tray_readings.photo_readings(p) is not None for p in paths] == [True, True, False]
+
+
+def test_a_failed_photo_is_listed_with_its_reason_and_kept_in_rig_db(monkeypatch) -> None:
+    """The photo and its masks are gone, so it cannot be redone: its saved reading stays, and the
+    run keeps its path and why, in rig.db, for the next time the page or a script asks."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig import segmentation, tray_readings
+    from npec_rig.app import app
+    from npec_rig.captures import photo_file
+
+    experiment_id, [path] = _experiment_with_photos(monkeypatch, 1)
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+    segmentation.mask_file(path).unlink()
+
+    progress = _reprocessed(TestClient(app), experiment_id)
+
+    assert (progress["state"], progress["done"], progress["failed"]) == ("finished", 1, 1)
+    [failure] = progress["failures"]
+    assert failure["path"] == path
+    assert "saved mask" in failure["reason"]
+    saved = database.latest_reprocess_run(experiment_id)  # what a restarted app reads
+    assert (saved["state"], saved["failures"]) == ("finished", progress["failures"])
+
+
+def test_a_reprocess_left_running_when_the_app_stopped_is_marked_interrupted_and_not_resumed(monkeypatch) -> None:
+    from fastapi.testclient import TestClient
+
+    from npec_rig import tray_readings
+    from npec_rig.app import app
+
+    experiment_id, paths = _experiment_with_photos(monkeypatch, 1)
+    run = database.create_reprocess_run(experiment_id, total=10, started_at="2026-11-24T10:00:00+00:00")
+    database.update_reprocess_run(run, done=3, failed=1)
+    client = TestClient(app)
+
+    tray_readings.mark_interrupted_reprocesses()  # the app's start-up
+
+    progress = client.get(f"/api/experiments/{experiment_id}/reprocess").json()
+    assert (progress["state"], progress["running"], progress["done"], progress["total"]) == ("interrupted", False, 3, 10)
+    assert progress["message"] == "interrupted at 3 of 10"
+    assert tray_readings.photo_readings(paths[0]) is None  # nothing was resumed
+    assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id}).status_code == 200
+
+
+def _lock_once_tags_are_stored(path: str, *, until=None, seconds: float = 5.0):
+    """A thread that takes rig.db's write lock the moment the photo's tags are stored (images.py), so
+    that saving the reading is the first write to meet it; started by the caller, joined at the end."""
+    import threading
+    import time
+
+    from npec_rig import images
+    from tests.helpers import lock_held
+
+    def run() -> None:
+        while images.stored_tag_detections(path) is None:
+            time.sleep(0.001)
+        with lock_held(seconds, until=until):
+            if until is not None:
+                until.wait(seconds)
+
+    return threading.Thread(target=run)
+
+
+def _wait_until_finished(client, experiment_id: int, timeout_s: float = 30) -> dict:
+    import time
+
+    deadline = time.monotonic() + timeout_s
+    while True:
+        progress = client.get(f"/api/experiments/{experiment_id}/reprocess").json()
+        if not progress["running"]:
+            return progress
+        assert time.monotonic() < deadline, "Reprocess did not finish"
+        time.sleep(0.05)
+
+
+def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch) -> None:
+    """The lock is taken as the photo's reading is about to be saved and let go when the first
+    failure to save is logged: the photo is read on the next try and the run reports no failure."""
+    import logging
+    import threading
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig import settings, tray_readings
+    from npec_rig.app import app
+
+    experiment_id, [path] = _experiment_with_photos(monkeypatch, 1)
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+    monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_WAIT_S", 0.05)
+    gave_up = threading.Event()
+
+    class FirstLockFailure(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            if "was locked" in record.getMessage():
+                gave_up.set()
+
+    handler = FirstLockFailure()
+    logging.getLogger("npec_rig.database").addHandler(handler)
+    locker = _lock_once_tags_are_stored(path, until=gave_up)
+    client = TestClient(app)
+    try:
+        locker.start()
+        assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id}).status_code == 200
+        progress = _wait_until_finished(client, experiment_id)
+    finally:
+        gave_up.set()
+        locker.join(15)
+        logging.getLogger("npec_rig.database").removeHandler(handler)
+
+    assert (progress["state"], progress["done"], progress["failed"]) == ("finished", 1, 0)
+    assert tray_readings.photo_readings(path)["status"] == "read"
+
+
+def test_a_photo_that_stays_locked_is_given_up_after_the_cap_and_listed(monkeypatch) -> None:
+    """The lock is held through the 3 tries of the cap and let go when the run logs that it gave
+    the photo up, so the failure itself can be saved: the photo is listed as failed with the reason."""
+    import logging
+    import threading
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig import settings, tray_readings
+    from npec_rig.app import app
+
+    experiment_id, [path] = _experiment_with_photos(monkeypatch, 1)
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.05)
+    monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_WAIT_S", 0.01)
+    monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_TRIES", 3)
+    gave_the_photo_up = threading.Event()
+
+    class GaveUp(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            if record.getMessage().startswith("Reprocess could not read"):
+                gave_the_photo_up.set()
+
+    handler = GaveUp()
+    logging.getLogger("npec_rig.tray_readings").addHandler(handler)
+    locker = _lock_once_tags_are_stored(path, until=gave_the_photo_up, seconds=20)
+    client = TestClient(app)
+    try:
+        locker.start()
+        assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id}).status_code == 200
+        progress = _wait_until_finished(client, experiment_id)
+    finally:
+        gave_the_photo_up.set()
+        locker.join(25)
+        logging.getLogger("npec_rig.tray_readings").removeHandler(handler)
+
+    assert (progress["done"], progress["failed"]) == (1, 1)
+    [failure] = progress["failures"]
+    assert failure["path"] == path
+    assert "locked" in failure["reason"] and "3 tries" in failure["reason"]

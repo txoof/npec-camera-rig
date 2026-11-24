@@ -21,6 +21,7 @@ from npec_rig import exports, images, tags, timelapse
 from npec_rig.photo_tags import CaptureNotFoundError, CaptureRefError, FrameMissingError
 from npec_rig.validation import RoundNotFoundError, ValidationRefusedError
 from npec_rig.scheduler import Scheduler
+from npec_rig import tray_readings
 from npec_rig.tray_readings import TrayReader
 from npec_rig.validation_store import SessionNotFoundError
 from npec_rig.routes import about, calibration, data, experiments, focus, gallery, photo_quality, randomize, shell, validation
@@ -44,6 +45,8 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     record_app_start()
     # An export cut off by the previous stop can never finish (exports.py).
     exports.fail_unfinished_exports()
+    # A Reprocess cut off by the previous stop is marked interrupted, never resumed (#483).
+    tray_readings.mark_interrupted_reprocesses()
     # Videos are kept only until downloaded; one cut off by the stop can never finish (#64).
     timelapse.clear()
     photo_scheduler = Scheduler()

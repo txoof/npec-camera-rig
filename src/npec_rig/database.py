@@ -471,6 +471,35 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "ALTER TABLE cell_reading ADD COLUMN grown_over_other_cells INTEGER",
         ),
     ),
+    (
+        26,
+        "reprocess_run and reprocess_failure: each Reprocess of an experiment, its progress and the photos it could not redo (#483)",
+        (
+            """
+            CREATE TABLE reprocess_run (
+                id INTEGER PRIMARY KEY,
+                experiment_id INTEGER NOT NULL REFERENCES experiment (id),
+                started_at TEXT NOT NULL,        -- UTC
+                finished_at TEXT,                -- UTC; NULL while running
+                state TEXT NOT NULL,             -- running, finished, stopped (by a Stop), interrupted (the app stopped under it)
+                total INTEGER NOT NULL,          -- photos to read
+                done INTEGER NOT NULL,           -- photos read so far, failed ones included
+                failed INTEGER NOT NULL          -- photos left as they were
+            )
+            """,
+            "CREATE INDEX reprocess_run_experiment ON reprocess_run (experiment_id, id)",
+            """
+            CREATE TABLE reprocess_failure (
+                id INTEGER PRIMARY KEY,
+                run_id INTEGER NOT NULL REFERENCES reprocess_run (id),
+                path TEXT NOT NULL,              -- the gallery path of the photo
+                reason TEXT NOT NULL,            -- why it was left as it was
+                failed_at TEXT NOT NULL          -- UTC
+            )
+            """,
+            "CREATE INDEX reprocess_failure_run ON reprocess_failure (run_id)",
+        ),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -1604,3 +1633,81 @@ def purge_experiment(experiment_id: int, *, now: str) -> dict:
         purged = _experiment(conn, experiment_id)
     _readings_changed()
     return purged
+
+
+# --- Reprocess runs (#483) ------------------------------------------------------------------------
+
+
+def create_reprocess_run(experiment_id: int, *, total: int, started_at: str) -> int:
+    """Record a Reprocess of `experiment_id` that has started, over `total` photos; its id."""
+    with _connect() as conn:
+        return conn.execute(
+            "INSERT INTO reprocess_run (experiment_id, started_at, state, total, done, failed)"
+            " VALUES (?, ?, 'running', ?, 0, 0)",
+            (experiment_id, started_at, total),
+        ).lastrowid
+
+
+def update_reprocess_run(run_id: int, *, done: int, failed: int, state: str | None = None, finished_at: str | None = None) -> None:
+    """Save how far run `run_id` has got; with `state` and `finished_at`, how it ended."""
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE reprocess_run SET done = ?, failed = ?, state = COALESCE(?, state),"
+            " finished_at = COALESCE(?, finished_at) WHERE id = ?",
+            (done, failed, state, finished_at, run_id),
+        )
+
+
+def add_reprocess_failure(run_id: int, *, path: str, reason: str, failed_at: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO reprocess_failure (run_id, path, reason, failed_at) VALUES (?, ?, ?, ?)",
+            (run_id, path, reason, failed_at),
+        )
+
+
+def _reprocess_run(conn: sqlite3.Connection, row: sqlite3.Row | None) -> dict | None:
+    if row is None:
+        return None
+    run = dict(row)
+    run["failures"] = [
+        {"path": f["path"], "reason": f["reason"]}
+        for f in conn.execute("SELECT path, reason FROM reprocess_failure WHERE run_id = ? ORDER BY id", (run["id"],))
+    ]
+    return run
+
+
+def latest_reprocess_run(experiment_id: int) -> dict | None:
+    """The newest Reprocess of the experiment with its failed photos (`failures`: path and reason),
+    None when it has had none."""
+    with _connect() as conn:
+        return _reprocess_run(conn, conn.execute(
+            "SELECT * FROM reprocess_run WHERE experiment_id = ? ORDER BY id DESC LIMIT 1", (experiment_id,)).fetchone())
+
+
+def running_reprocess_run() -> dict | None:
+    """The Reprocess that is running, whichever experiment: only one runs at a time."""
+    with _connect() as conn:
+        return _reprocess_run(conn, conn.execute(
+            "SELECT * FROM reprocess_run WHERE state = 'running' ORDER BY id DESC LIMIT 1").fetchone())
+
+
+def last_finished_reprocess_rate() -> dict | None:
+    """The newest finished Reprocess that read photos: its id, photos and seconds, for an estimate
+    of how long the next one takes. None when there is none."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT id, done, started_at, finished_at FROM reprocess_run"
+            " WHERE state = 'finished' AND done > 0 AND finished_at IS NOT NULL ORDER BY id DESC LIMIT 1").fetchone()
+    if row is None:
+        return None
+    seconds = (datetime.fromisoformat(row["finished_at"]) - datetime.fromisoformat(row["started_at"])).total_seconds()
+    return {"run": row["id"], "photos": row["done"], "seconds": seconds}
+
+
+def interrupt_running_reprocesses(*, finished_at: str) -> int:
+    """Mark every Reprocess still 'running' as 'interrupted': at start-up, none is running in this
+    process, so one left running was cut off when the app stopped. Returns how many."""
+    with _connect() as conn:
+        return conn.execute(
+            "UPDATE reprocess_run SET state = 'interrupted', finished_at = ? WHERE state = 'running'", (finished_at,)).rowcount

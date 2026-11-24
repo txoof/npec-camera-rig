@@ -915,53 +915,148 @@ def _rig_db_locked(exc: BaseException | None) -> bool:
     return False
 
 
-# --- Reprocess (#75) ----------------------------------------------------------------------------
+# --- Reprocess (#75, #483) ----------------------------------------------------------------------
 # One experiment at a time, in a thread of its own beside the background reader: every photo of
 # the experiment read again, its areas worked out afresh, whole photo or nothing (`read_photo`,
-# #483). A photo that cannot be redone completely is counted as failed and left as it was.
+# #483). A photo that cannot be redone completely is counted as failed and left as it was, with
+# why. Progress and the failed photos are kept in rig.db (`reprocess_run`, `reprocess_failure`), so
+# they are there after a restart; a run the app's stop cut off is marked "interrupted" at the next
+# start and never resumed. A Stop ends the run after the photo being read.
+#
+# A COPY OF rig.db IS TAKEN FIRST: Reprocess replaces the saved readings of every photo it can
+# redo, and keeps no copy of the old ones (docs/operator-guide.md, *Reprocess*).
+
+# A photo that meets a locked rig.db is read again after a wait, this many tries in all. The
+# numbers are decisions: the longest a write waits on its own is settings.LOCK_WAIT_S (10 s), so
+# five tries with a 5 s pause give a lock that long to end, many times over, without a photo ever
+# holding the run up for ever.
+REPROCESS_LOCK_TRIES = 5
+REPROCESS_LOCK_WAIT_S = 5.0
 
 _reprocess_lock = threading.Lock()
-_reprocess: dict = {"experiment_id": None, "running": False, "done": 0, "total": 0, "failed": 0}
+_reprocess_stop = threading.Event()
 
 
 class ReprocessRunning(RuntimeError):
     """Another Reprocess is still running."""
 
 
+class NoReprocessRunning(RuntimeError):
+    """There is no Reprocess of the experiment to stop."""
+
+
+def _progress(run: dict | None, experiment_id: int) -> dict:
+    if run is None:
+        return {"experiment_id": experiment_id, "run_id": None, "state": "none", "running": False, "done": 0, "total": 0,
+                "failed": 0, "failures": [], "started_at": None, "finished_at": None, "message": None}
+    message = {"stopped": "stopped at", "interrupted": "interrupted at"}.get(run["state"])
+    return {
+        "experiment_id": experiment_id, "run_id": run["id"], "state": run["state"], "running": run["state"] == "running",
+        "done": run["done"], "total": run["total"], "failed": run["failed"], "failures": run["failures"],
+        "started_at": run["started_at"], "finished_at": run["finished_at"],
+        "message": None if message is None else f"{message} {run['done']} of {run['total']}",
+    }
+
+
 def reprocess_progress(experiment_id: int) -> dict:
-    """How far Reprocess of `experiment_id` has got: running, done, total, failed. All zero when
-    it has not been reprocessed since the app started."""
-    with _reprocess_lock:
-        if _reprocess["experiment_id"] != experiment_id:
-            return {"experiment_id": experiment_id, "running": False, "done": 0, "total": 0, "failed": 0}
-        return dict(_reprocess)
+    """How far the newest Reprocess of `experiment_id` has got, from rig.db: its state (`none`,
+    `running`, `finished`, `stopped`, `interrupted`), done, total, failed, the failed photos with
+    their reasons, and a message for a stopped or interrupted run ("interrupted at 3 of 10")."""
+    return _progress(database.latest_reprocess_run(experiment_id), experiment_id)
+
+
+def _reprocess_paths(experiment_id: int) -> list[str]:
+    return [c["path"] for c in database.captures_for_experiment(experiment_id) if c["purpose"] == "capture"]
+
+
+def reprocess_plan(experiment_id: int) -> dict:
+    """What a Reprocess of `experiment_id` would do, changing nothing: the photos it would read and
+    an estimate of the time, from the newest finished Reprocess on this rig (its seconds per photo,
+    named in `estimate_from`); None, with the reason, when there is none: no time is guessed."""
+    photos = len(_reprocess_paths(experiment_id))
+    rate = database.last_finished_reprocess_rate()
+    if rate is None:
+        return {"experiment_id": experiment_id, "photos": photos, "estimated_seconds": None,
+                "estimate_from": "no earlier Reprocess has finished on this rig"}
+    return {
+        "experiment_id": experiment_id, "photos": photos, "estimated_seconds": round(rate["seconds"] / rate["photos"] * photos),
+        "estimate_from": f"Reprocess {rate['run']}: {rate['photos']} photos in {round(rate['seconds'])} s",
+    }
 
 
 def start_reprocess(experiment_id: int) -> dict:
     """Start Reprocess of the experiment's photos taken as captures, oldest first, and return its
-    progress. Raises ReprocessRunning while one is running."""
-    paths = [c["path"] for c in database.captures_for_experiment(experiment_id) if c["purpose"] == "capture"]
+    progress. Raises ReprocessRunning while one is running. The caller has made the copy of rig.db
+    and has the experiment's ID confirmed (`routes/experiments.py`)."""
+    paths = _reprocess_paths(experiment_id)
     _sweep_staged_masks()
     with _reprocess_lock:
-        if _reprocess["running"]:
-            raise ReprocessRunning(f"Reprocess of experiment {_reprocess['experiment_id']} is still running")
-        _reprocess.update(experiment_id=experiment_id, running=True, done=0, total=len(paths), failed=0)
-        progress = dict(_reprocess)
-    threading.Thread(target=_run_reprocess, args=(paths,), name="reprocess", daemon=True).start()
-    return progress
+        if database.running_reprocess_run() is not None:
+            raise ReprocessRunning("a Reprocess is still running")
+        run_id = database.create_reprocess_run(experiment_id, total=len(paths), started_at=datetime.now(UTC).isoformat())
+        _reprocess_stop.clear()
+    threading.Thread(target=_run_reprocess, args=(run_id, paths), name="reprocess", daemon=True).start()
+    return reprocess_progress(experiment_id)
 
 
-def _run_reprocess(paths: list[str]) -> None:
+def stop_reprocess(experiment_id: int) -> dict:
+    """Ask the running Reprocess of `experiment_id` to end after the photo it is reading, and
+    return its progress. Raises NoReprocessRunning when there is none."""
+    run = database.running_reprocess_run()
+    if run is None or run["experiment_id"] != experiment_id:
+        raise NoReprocessRunning(f"no Reprocess of experiment {experiment_id} is running")
+    _reprocess_stop.set()
+    return reprocess_progress(experiment_id)
+
+
+def mark_interrupted_reprocesses() -> int:
+    """At the app's start: a Reprocess still `running` in rig.db was cut off when the app stopped
+    under it, no thread of this process runs it. It is marked `interrupted` and never resumed (the
+    researcher decides, from its progress). Returns how many."""
+    return database.interrupt_running_reprocesses(finished_at=datetime.now(UTC).isoformat())
+
+
+def _locked_retry(action, what: str):
+    """`action()`, again after REPROCESS_LOCK_WAIT_S while rig.db is locked, REPROCESS_LOCK_TRIES in
+    all; the last lock error is raised. Any other error is raised at once."""
+    for attempt in range(1, REPROCESS_LOCK_TRIES + 1):
+        try:
+            return action()
+        except Exception as exc:
+            if not _rig_db_locked(exc) or attempt == REPROCESS_LOCK_TRIES:
+                raise
+            logger.warning("%s met a locked rig.db (try %d of %d)", what, attempt, REPROCESS_LOCK_TRIES)
+            time.sleep(REPROCESS_LOCK_WAIT_S)
+
+
+def _run_reprocess(run_id: int, paths: list[str]) -> None:
+    done = failed = 0
+    state = "finished"
     try:
         for path in paths:
+            if _reprocess_stop.is_set():
+                state = "stopped"
+                break
             try:
-                read_photo(path, reuse_mask=True)
-            except Exception:
+                _locked_retry(lambda: read_photo(path, reuse_mask=True), f"Reprocess of {path}")
+            except Exception as exc:
                 logger.exception("Reprocess could not read %s", path)
-                with _reprocess_lock:
-                    _reprocess["failed"] += 1
-            with _reprocess_lock:
-                _reprocess["done"] += 1
+                failed += 1
+                reason = str(exc) if isinstance(exc, NotReprocessed) else (
+                    f"rig.db stayed locked after {REPROCESS_LOCK_TRIES} tries" if _rig_db_locked(exc) else f"{type(exc).__name__}: {exc}")
+                try:
+                    _locked_retry(lambda: database.add_reprocess_failure(
+                        run_id, path=path, reason=reason, failed_at=datetime.now(UTC).isoformat()), "Saving a failed photo")
+                except Exception:
+                    logger.exception("Could not save why %s failed", path)
+            done += 1
+            try:
+                _locked_retry(lambda: database.update_reprocess_run(run_id, done=done, failed=failed), "Saving Reprocess progress")
+            except Exception:
+                logger.exception("Could not save the progress of Reprocess %s", run_id)
     finally:
-        with _reprocess_lock:
-            _reprocess["running"] = False
+        try:
+            _locked_retry(lambda: database.update_reprocess_run(
+                run_id, done=done, failed=failed, state=state, finished_at=datetime.now(UTC).isoformat()), "Ending Reprocess")
+        except Exception:
+            logger.exception("Could not save the end of Reprocess %s: it stays 'running' until the app starts again", run_id)

@@ -219,6 +219,28 @@ asks for confirmation while an experiment is running.
 - **Auto white balance.** It changes the colours recorded, and may change area values. Leave it as
   it is unless there is a reason to change it.
 
+## Reprocessing areas (developers and scripts)
+
+Reprocess works out the plant areas of every photo of an experiment again, for example after a
+calibration changed or after a fix to the area code. It is not on the Experiments page: it is
+started through the API by a developer or a script, because it replaces the saved readings and
+keeps no copy of the old ones.
+
+1. **Copy `rig.db` first.** For example `cp /var/lib/npec-rig/rig.db <somewhere safe>/rig-before-reprocess.db`,
+   or make an export of the experiment. This step is required: a Reprocess cannot be undone without it.
+2. **Count first.** `POST /api/experiments/<id>/reprocess` with `{"dry_run": true}` returns the number
+   of photos and, when an earlier Reprocess has finished on this rig, an estimated time. It changes nothing.
+3. **Start.** The same call with `{"confirm": <id>}`, the experiment's ID again. Without it nothing starts.
+4. **Watch.** `GET /api/experiments/<id>/reprocess` gives the state, photos done of total, and the
+   photos left as they were with the reason for each. It reads `rig.db`, so it is the same after a restart.
+5. **Stop.** `POST /api/experiments/<id>/reprocess/stop` ends it after the photo it is on. The photos
+   done keep their new readings.
+
+Each photo is redone whole or not at all. A photo that cannot be redone completely (its file and
+masks are gone, a saved reading was made another way) keeps its saved reading and is listed with
+the reason. If the app stops under a Reprocess, the run is marked "interrupted at N of M" when the
+app starts again; it is not resumed, and a new one can be started.
+
 ## Why it is done this way
 
 The project rule is that every certainty is measured, never derived: if a number cannot be shown
