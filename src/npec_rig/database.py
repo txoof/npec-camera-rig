@@ -1698,12 +1698,15 @@ def running_reprocess_run() -> dict | None:
 
 def last_finished_reprocess_rate() -> dict | None:
     """The newest finished Reprocess that redid photos: its id, the photos it redid (done less the
-    ones it failed at, which take no time to give up) and its seconds, for an estimate of how long
-    the next one takes. None when there is none."""
+    ones it failed at) and its seconds, for an estimate of how long the next one takes. A run that
+    gave a photo up for a lock is left out: that costs the tries' waits and says nothing of the time
+    a photo takes. None when there is none."""
     with _connect() as conn:
         row = conn.execute(
             "SELECT id, done - failed AS redone, started_at, finished_at FROM reprocess_run"
-            " WHERE state = 'finished' AND done - failed > 0 AND finished_at IS NOT NULL ORDER BY id DESC LIMIT 1").fetchone()
+            " WHERE state = 'finished' AND done - failed > 0 AND finished_at IS NOT NULL"
+            " AND NOT EXISTS (SELECT 1 FROM reprocess_failure WHERE run_id = reprocess_run.id AND reason LIKE '%rig.db stayed locked%')"
+            " ORDER BY id DESC LIMIT 1").fetchone()
     if row is None:
         return None
     seconds = (datetime.fromisoformat(row["finished_at"]) - datetime.fromisoformat(row["started_at"])).total_seconds()

@@ -842,24 +842,82 @@ def test_a_confirm_that_is_not_the_experiment_id_as_a_number_starts_nothing(monk
     assert client.get(f"/api/experiments/{experiment_id}/reprocess").json()["state"] == "none"
 
 
-def test_the_estimate_counts_the_photos_a_run_redid_not_the_ones_it_failed_at() -> None:
-    """A finished run of 4 photos, 2 of them failed at once, took 100 s: the 2 it redid took 50 s each,
-    so 2 photos are estimated at 100 s. A run that redid none gives no estimate."""
+def _finished_run(experiment_id: int, done: int, failed: int, seconds: int, *, lock_failures: int = 0) -> None:
+    run = database.create_reprocess_run(experiment_id, total=done, started_at="2026-11-24T10:00:00+00:00")
+    for i in range(lock_failures):
+        database.add_reprocess_failure(run, path=f"p{i}", reason="rig.db stayed locked after 5 tries", failed_at="2026-11-24T10:00:01+00:00")
+    database.update_reprocess_run(run, done=done, failed=failed, state="finished",
+                                  finished_at=f"2026-11-24T10:{seconds // 60:02d}:{seconds % 60:02d}+00:00")
+
+
+def test_the_estimate_counts_the_photos_a_run_redid_not_the_ones_it_failed_at(monkeypatch) -> None:
+    """A finished run of 4 photos, 2 of them failed, took 100 s: the 2 it redid took 50 s each, so
+    the 2 photos of this experiment are estimated at 100 s. A run that redid none gives no estimate."""
+    from npec_rig import tray_readings
+
+    experiment_id, _paths = _experiment_with_photos(monkeypatch, 2)
+
+    _finished_run(experiment_id, 2, 2, 5)  # redid none: no rate
+    assert tray_readings.reprocess_plan(experiment_id)["estimated_seconds"] is None
+    _finished_run(experiment_id, 4, 2, 100)
+    assert tray_readings.reprocess_plan(experiment_id)["estimated_seconds"] == 100
+
+
+def test_the_estimate_leaves_out_a_run_that_gave_a_photo_up_for_a_lock(monkeypatch) -> None:
+    """Giving a photo up for a lock takes the tries' waits, so such a run says nothing of the time a
+    photo takes: the estimate is from the run before it, 100 s for 2 photos, 50 s each."""
+    from npec_rig import tray_readings
+
+    experiment_id, _paths = _experiment_with_photos(monkeypatch, 2)
+    _finished_run(experiment_id, 2, 0, 100)
+    _finished_run(experiment_id, 3, 1, 10, lock_failures=1)
+
+    assert tray_readings.reprocess_plan(experiment_id)["estimated_seconds"] == 100
+
+
+def test_progress_is_still_given_while_rig_db_is_locked_for_a_run_with_no_thread(monkeypatch) -> None:
+    """Second review of #501: a run left `running` (its last save met a lock) is shown as interrupted
+    even while the lock lasts, the write that marks it waits for the lock to end: no 500."""
     from fastapi.testclient import TestClient
 
-    from npec_rig import tray_readings
+    from npec_rig import settings
     from npec_rig.app import app
+    from tests.helpers import lock_held
 
     experiment_id = captures.start_experiment(captures.create_experiment()["id"])["id"]
+    database.create_reprocess_run(experiment_id, total=10, started_at="2026-11-24T10:00:00+00:00")
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.05)
     client = TestClient(app)
 
-    def finished(done: int, failed: int, seconds: int) -> None:
-        run = database.create_reprocess_run(experiment_id, total=done, started_at="2026-11-24T10:00:00+00:00")
-        database.update_reprocess_run(run, done=done, failed=failed, state="finished",
-                                      finished_at=f"2026-11-24T10:{seconds // 60:02d}:{seconds % 60:02d}+00:00")
+    with lock_held(2):
+        one = client.get(f"/api/experiments/{experiment_id}/reprocess")
+        listed = client.get("/api/experiments")
+    assert (one.status_code, one.json()["state"], one.json()["running"]) == (200, "interrupted", False)
+    assert listed.status_code == 200
+    assert [e["reprocess"]["state"] for e in listed.json() if e["id"] == experiment_id] == ["interrupted"]
+    assert client.get(f"/api/experiments/{experiment_id}/reprocess").json()["state"] == "interrupted"  # and now marked
 
-    finished(2, 2, 5)  # redid none: no rate
-    assert tray_readings.reprocess_plan(experiment_id)["estimated_seconds"] is None
-    finished(4, 2, 100)  # the newest with a rate
-    assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"dry_run": True}).json()["photos"] == 0
-    assert database.last_finished_reprocess_rate()["seconds"] / database.last_finished_reprocess_rate()["photos"] == 50
+
+def test_reprocess_of_a_purged_experiment_is_refused(monkeypatch) -> None:
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    experiment_id, _paths = _experiment_with_photos(monkeypatch, 1)
+    database.purge_experiment(experiment_id, now="2026-11-24T10:00:00+00:00")
+    client = TestClient(app)
+
+    for body in ({"dry_run": True}, {"confirm": experiment_id}):
+        response = client.post(f"/api/experiments/{experiment_id}/reprocess", json=body)
+        assert 400 <= response.status_code < 500
+        assert "photos were deleted" in response.json()["detail"]
+
+
+def test_progress_without_failures_never_has_the_failures_key(monkeypatch) -> None:
+    from npec_rig import tray_readings
+
+    experiment_id = captures.start_experiment(captures.create_experiment()["id"])["id"]
+    assert "failures" not in tray_readings.reprocess_progress(experiment_id, failures=False)
+    _finished_run(experiment_id, 1, 0, 5)
+    assert "failures" not in tray_readings.reprocess_progress(experiment_id, failures=False)
+    assert tray_readings.reprocess_progress(experiment_id)["failures"] == []

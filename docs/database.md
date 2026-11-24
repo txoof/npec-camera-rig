@@ -557,7 +557,9 @@ part was sent to its last byte.
 From version 26 (#483). Each Reprocess of an experiment (`POST /api/experiments/{id}/reprocess`) is
 a row in `reprocess_run`, updated after every photo; each photo it left as it was is a row in
 `reprocess_failure` with the reason, so both are still there after a restart. A run still `running`
-when the app starts was cut off: it is marked `interrupted` and never resumed.
+when the app starts was cut off: it is marked `interrupted` and never resumed. A run whose thread has
+ended without saving its end (its last write met a lock) is marked `interrupted` the same way at the next
+progress read, start or Stop, not only at start-up; until the mark is saved it is shown as interrupted.
 
 | Column | Type | Meaning |
 |---|---|---|

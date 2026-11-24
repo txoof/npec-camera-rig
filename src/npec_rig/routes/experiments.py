@@ -153,6 +153,8 @@ def api_reprocess_experiment(experiment_id: int, request: ReprocessRequest | Non
     experiment = _experiment_action(database.get_experiment, experiment_id)  # 404 for no such experiment
     if experiment["state"] == "set up":
         raise HTTPException(409, "this experiment has never started: it has no photos to Reprocess")
+    if experiment["state"] == "purged":
+        raise HTTPException(409, "this experiment was purged: its photos were deleted")
     if request.dry_run or dry_run:
         return tray_readings.reprocess_plan(experiment_id)
     if request.confirm != experiment_id:

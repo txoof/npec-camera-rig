@@ -949,10 +949,11 @@ class NoReprocessRunning(RuntimeError):
     """There is no Reprocess of the experiment to stop."""
 
 
-def _progress(run: dict | None, experiment_id: int) -> dict:
+def _progress(run: dict | None, experiment_id: int, *, failures: bool = True) -> dict:
     if run is None:
-        return {"experiment_id": experiment_id, "run_id": None, "state": "none", "running": False, "done": 0, "total": 0,
-                "failed": 0, "failures": [], "started_at": None, "finished_at": None, "message": None}
+        none = {"experiment_id": experiment_id, "run_id": None, "state": "none", "running": False, "done": 0, "total": 0,
+                "failed": 0, "started_at": None, "finished_at": None, "message": None}
+        return {**none, "failures": []} if failures else none
     message = {"stopped": "stopped at", "interrupted": "interrupted at"}.get(run["state"])
     progress = {
         "experiment_id": experiment_id, "run_id": run["id"], "state": run["state"], "running": run["state"] == "running",
@@ -972,7 +973,12 @@ def _live_run() -> dict | None:
     if _live is not None and not _live["thread"].is_alive():
         _live = None
     if _live is None and database.running_reprocess_run() is not None:
-        mark_interrupted_reprocesses()
+        try:
+            mark_interrupted_reprocesses()
+        except Exception as exc:  # the orphan exists because rig.db was locked: the mark may meet the lock too
+            if not _rig_db_locked(exc):
+                raise
+            logger.warning("Could not mark an orphaned Reprocess interrupted: rig.db is locked; a later call will")
     return _live
 
 
@@ -981,8 +987,11 @@ def reprocess_progress(experiment_id: int, *, failures: bool = True) -> dict:
     `running`, `finished`, `stopped`, `interrupted`), done, total, failed, the failed photos with
     their reasons, and a message for a stopped or interrupted run ("interrupted at 3 of 10")."""
     with _reprocess_lock:
-        _live_run()
-    return _progress(database.latest_reprocess_run(experiment_id, failures=failures), experiment_id)
+        live = _live_run()
+    run = database.latest_reprocess_run(experiment_id, failures=failures)
+    if run is not None and run["state"] == "running" and (live is None or live["run_id"] != run["id"]):
+        run = {**run, "state": "interrupted"}  # no thread runs it; the mark is saved by a later call
+    return _progress(run, experiment_id, failures=failures)
 
 
 def _reprocess_paths(experiment_id: int) -> list[str]:
@@ -1014,6 +1023,8 @@ def start_reprocess(experiment_id: int) -> dict:
     with _reprocess_lock:
         if _live_run() is not None:
             raise ReprocessRunning("a Reprocess is still running")
+        if database.running_reprocess_run() is not None:  # an orphan that could not be marked ended
+            raise ReprocessRunning("an earlier Reprocess could not be marked ended while rig.db was locked: try again")
         run_id = database.create_reprocess_run(experiment_id, total=len(paths), started_at=datetime.now(UTC).isoformat())
         stop = threading.Event()
         thread = threading.Thread(target=_run_reprocess, args=(run_id, paths, stop), name="reprocess", daemon=True)

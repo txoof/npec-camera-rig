@@ -239,7 +239,8 @@ keeps no copy of the old ones.
 Each photo is redone whole or not at all. A photo that cannot be redone completely (its file and
 masks are gone, a saved reading was made another way) keeps its saved reading and is listed with
 the reason. If the app stops under a Reprocess, the run is marked "interrupted at N of M" when the
-app starts again; it is not resumed, and a new one can be started.
+app starts again; it is not resumed, and a new one can be started. A run whose last save failed (rig.db was locked) is
+marked interrupted the same way at the next progress read, start or Stop, not only when the app starts.
 
 ## Why it is done this way
 
