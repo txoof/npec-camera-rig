@@ -11445,8 +11445,7 @@ whether to ask for a minimum area, are Aaron's decisions; none is proposed here.
   is much larger than its fixed-cutoff area ("grown area includes background, cell probably empty"), and a
   tray keeps its total and adds "N cells flagged, together X mm²". The flag uses only the two areas
   already stored per cell, so a change of light moves both together. #484 is changed to that flag.
-  Section 46.8 gives the cell-level ratios that the flag's factor can be chosen from; the factor is
-  Aaron's decision.
+  Section 46.8 gives the cell-level ratios and records the factor Aaron chose (R = 5, A = 100 mm²).
 - **Not covered:** gain other than 1.0 on counted photos (stated limit; development's gain 1.5 photo shows the
   same noise as gain 1.0, nothing beyond); another pot or tray plastic, another light program or camera; a
   development rig measured with tray outlines; the bound on shaded leaf is not a measurement of shaded leaf,
@@ -11534,8 +11533,15 @@ Two false-plant cells (23 and 24 mm²) are as small as a production seedling.
   for every R from 2 to 5; the two missed hold 23 and 24 mm².
 - **Not covered:** one harvest on one rig (trays 4 to 6, 23 November); dark pots of another colour or a dark
   soil; development's seedlings only as crops with neighbours' leaves; production's plants after 23 November
-  and any plant with leaves the fixed cutoff reads well from the start. R and A are Aaron's decisions; none is
-  chosen here.
+  and any plant with leaves the fixed cutoff reads well from the start.
+
+**Decision (Aaron, 2026-11-24): R = 5 and A = 100 mm².** A cell is flagged when its grown area is more than 5
+times its fixed-cutoff area *and* the grown area exceeds the fixed area by at least 100 mm². This is a decision
+made on the numbers above, not a measurement. On the data it flags 30 of the 33 false-plant cells (98% of the
+emptied trays' false grown area), 15 of the 7,989 plant-cell readings (0.2%), 0 of the 26 young production
+reference plants, 0 of the 27 development seedlings and 0 of experiment 20's 40 empty-cell readings. It rests on
+one harvest on one rig (production's trays 4 to 6, 23 November) and on the reference crops for young plants and
+seedlings; it is not shown for other pots, soils, plant types or rigs.
 
 *Figures.*
 

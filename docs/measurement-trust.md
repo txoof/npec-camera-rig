@@ -527,7 +527,7 @@ metrology log backs it.
   2026-11-24): a cell whose grown area is much larger than its fixed-cutoff area is marked as probably
   empty, and the tray keeps its total and adds the flagged cells and their area (#484). On ordinary
   readings the grown area is 0.98 to 1.65 times the fixed area for a tray (548 readings) and 0.94 to 1.9
-  (5th to 95th percentile) for a plant cell; the factor is Aaron's decision. Tested at gain 1.0 on counted
+  (5th to 95th percentile) for a plant cell. The flag is a cell whose grown area is more than 5 times its fixed area and at least 100 mm² larger (Aaron's decision, 2026-11-24): on the data 30 of 33 false-plant cells and 15 of 7,989 plant-cell readings, from one harvest on one rig. Tested at gain 1.0 on counted
   production photos only.
 
 ### Trays and tags (round 1, 2026-10-19)
