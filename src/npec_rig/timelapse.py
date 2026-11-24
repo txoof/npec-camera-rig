@@ -690,29 +690,41 @@ def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | Non
     called after each frame. The frames drawn, and the photos left out: path and reason. Frames
     never touch the disk."""
     encoder, drawn, unreadable = None, 0, []
-    for i, frame in enumerate(frames):
-        try:
-            values = frame_values(experiment, frame, method=request["method"], cell=request.get("cell"))
-            image = draw_frame(frame, values, mask=mask, cell=request.get("cell"))
-        except MemoryError:
-            raise  # the memory limit: the next frame would fail the same way
-        except Exception as exc:  # noqa: BLE001 -- one bad photo leaves its frame out, in words
-            unreadable.append(_left_out(frame["capture"], exc))
+    try:
+        for i, frame in enumerate(frames):
+            try:
+                values = frame_values(experiment, frame, method=request["method"], cell=request.get("cell"))
+                image = draw_frame(frame, values, mask=mask, cell=request.get("cell"))
+            except MemoryError:
+                raise  # the memory limit: the next frame would fail the same way
+            except Exception as exc:  # noqa: BLE001 -- one bad photo leaves its frame out, in words
+                unreadable.append(_left_out(frame["capture"], exc))
+                done(i + 1, unreadable)
+                continue
+            if encoder is None:
+                # Started at the first frame that draws: its size is the video's.
+                encoder = subprocess.Popen(
+                    ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
+                     "-s", f"{image.width}x{image.height}", "-r", str(FPS), "-i", "-", "-threads", "2",
+                     "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                     "-f", "mp4", str(target)],
+                    stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+            encoder.stdin.write(image.tobytes())
+            drawn += 1
             done(i + 1, unreadable)
-            continue
         if encoder is None:
-            encoder = subprocess.Popen(
-                ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
-                 "-s", f"{image.width}x{image.height}", "-r", str(FPS), "-i", "-", "-threads", "2",
-                 "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-                 "-f", "mp4", str(target)],
-                stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-        encoder.stdin.write(image.tobytes())
-        drawn += 1
-        done(i + 1, unreadable)
-    if encoder is None:
-        return 0, unreadable  # no frame drew: no video, and no file written
-    _, err = encoder.communicate()
+            return 0, unreadable  # no frame drew: no video, and no file written
+        _, err = encoder.communicate()
+    except BaseException as exc:
+        if encoder is None or encoder.returncode is not None:
+            raise
+        # ffmpeg stopped taking frames (it exited, or closed its input), or this side failed: it is
+        # stopped and waited for before the failure is reported, never left running (#503).
+        encoder.kill()
+        _, err = encoder.communicate()
+        if not isinstance(exc, OSError):
+            raise
+        raise RuntimeError(f"ffmpeg stopped taking frames: {err.decode(errors='replace')[-300:]}") from exc
     if encoder.returncode != 0:
         raise RuntimeError(f"ffmpeg failed: {err.decode(errors='replace')[-300:]}")
     return drawn, unreadable
@@ -778,6 +790,9 @@ def _make(request: dict, folder: str) -> None:
     except Exception as exc:  # noqa: BLE001 -- every failure is shown on the page, in words
         logger.exception("Time lapse %s failed", out.name)
         try:
+            # A half-made video is never left behind (#503); ffmpeg has stopped by now (_encode).
+            for part in out.glob("*.part"):
+                part.unlink(missing_ok=True)
             _write_progress(out, {"state": "failed", "request": request, "error": str(exc) or type(exc).__name__})
         except OSError:
             pass

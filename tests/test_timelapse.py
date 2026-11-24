@@ -625,3 +625,38 @@ def test_all_trays_leaves_out_a_tray_whose_every_photo_is_unreadable(experiment)
         assert z.namelist() == ["tray-7.mp4"]
     assert progress["unreadable"] == 2
     assert list((timelapse.videos_root() / video_id).glob("*.part")) == []
+
+
+# A stand-in ffmpeg (agreed for this test only, #503): it writes its PID, creates the output file
+# it was given (its last argument), then breaks the way `how` says. `exec` keeps the shell's PID
+# for the sleep, so the PID written is the process that must be stopped.
+FAKE_FFMPEG = {
+    "exits 1": 'echo "fake ffmpeg: encoder broke" >&2\nexit 1\n',
+    "closes its input and hangs": "exec 0<&-\nexec sleep 300\n",
+}
+
+
+@needs_ffmpeg
+@pytest.mark.parametrize("how", FAKE_FFMPEG)
+def test_ffmpeg_failing_after_a_frame_is_stopped_and_its_part_file_removed(experiment, monkeypatch, tmp_path, how):
+    import os
+
+    from tests.helpers import turned_tray_photo
+
+    turned_tray_photo(experiment, START)
+    pid_file = tmp_path / "ffmpeg.pid"
+    fake = tmp_path / "bin" / "ffmpeg"
+    fake.parent.mkdir()
+    fake.write_text(f'#!/bin/sh\necho $$ > "{pid_file}"\nfor last; do :; done\n: > "$last"\n{FAKE_FFMPEG[how]}')
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{fake.parent}{os.pathsep}{os.environ['PATH']}")
+
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "failed"
+    assert "ffmpeg" in progress["error"]
+    assert list((timelapse.videos_root() / video_id).glob("*.part")) == []
+    # Stopped and waited for by the time the failure is reported: not running, not a zombie.
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pid_file.read_text()), 0)
