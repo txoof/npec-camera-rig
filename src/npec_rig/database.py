@@ -885,16 +885,17 @@ def exclusion(capture_id: int) -> dict | None:
 
 
 def experiment_exclusions(experiment_id: int) -> list[dict]:
-    """The experiment's photos taken as captures, oldest first: `taken_at` and the saved
-    exclusion `name` (None for none, or when none has been worked out)."""
+    """The experiment's photos taken as captures, oldest first: `taken_at`, the saved
+    exclusion `name` (None for none, or when none has been worked out) and `worked_out` (False
+    while the photo has not been read for its light)."""
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT capture.taken_at, exclusion.name FROM capture"
+            "SELECT capture.taken_at, exclusion.name, exclusion.capture_id IS NOT NULL AS worked_out FROM capture"
             " LEFT JOIN exclusion ON exclusion.capture_id = capture.id"
             " WHERE capture.experiment_id = ? AND capture.purpose = 'capture' ORDER BY capture.taken_at",
             (experiment_id,),
         ).fetchall()
-    return [dict(row) for row in rows]
+    return [{**dict(row), "worked_out": bool(row["worked_out"])} for row in rows]
 
 
 def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:

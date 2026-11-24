@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gallery nights mockup (#419)</title>
+<link rel="stylesheet" href="../../src/npec_rig/static/style.css">
+<style>
+  /* Mockup only. Placeholder photos: a blue tray with green plants, dimmed while the light
+     changes, black while the lights are off. */
+  .ph { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 3px;
+    background: radial-gradient(circle at 28% 38%, #6aa842 0 11%, transparent 12%),
+                radial-gradient(circle at 68% 30%, #6aa842 0 9%, transparent 10%),
+                radial-gradient(circle at 52% 70%, #6aa842 0 13%, transparent 14%), #2b4f7e; }
+  .ph.change { filter: brightness(0.45); }
+  .ph.dark { background: #000; }
+  .gallery-strip .ph { aspect-ratio: auto; height: 48px; border-radius: 0; }
+  .gallery-strip { gap: 2px; }
+
+  /* The snip: lights off, hours hidden. A shape and a word as well as a colour. */
+  .snip { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 48px;
+    background: repeating-linear-gradient(135deg, #2a2f38 0 6px, #232931 6px 12px);
+    border: 2px dashed #6b7686; color: var(--fg); font-size: 0.8rem; line-height: 1.1; text-align: center; }
+  .snip svg, .moon { width: 18px; height: 18px; flex: none; }
+  .snip.lit { border: 2px solid var(--warn); }
+  .lamp { color: var(--warn); font-weight: 700; }
+  .night-key { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; margin: 0 0 16px;
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg-2); }
+  .night-key .snip { width: 56px; flex: none; }
+  .night-key { font-size: 1rem; font-family: var(--font-ui); }
+  .key-item { display: flex; gap: 10px; align-items: center; }
+  .key-ph { width: 40px; flex: none; }
+
+  /* The collapsed night in the Day view (a tile) and in photo lists (a whole-row line). */
+  .night-tile, .night-line { display: flex; gap: 12px; align-items: center; text-align: left; font: inherit; color: var(--fg);
+    background: repeating-linear-gradient(135deg, #2a2f38 0 10px, #232931 10px 20px);
+    border: 2px dashed #6b7686; border-radius: var(--radius); cursor: pointer; padding: 12px 16px; min-height: 64px; white-space: normal; }
+  .night-tile { width: 200px; flex-direction: column; align-items: flex-start; justify-content: center; }
+  .night-line { width: 100%; justify-content: space-between; }
+  .night-tile .moon, .night-line .moon { width: 28px; height: 28px; }
+  .night-line .what { display: flex; gap: 12px; align-items: center; }
+  .night-line .open { padding: 10px 16px; border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface-2); white-space: nowrap; }
+  .night-open { width: 100%; border: 2px dashed #6b7686; border-radius: var(--radius); padding: 12px; }
+  .night-open > .row { margin-bottom: 12px; }
+
+  .mock-bar { display: grid; gap: 10px; margin: 0 0 16px; padding: 12px; border: 2px solid var(--accent); border-radius: var(--radius); }
+  .mock-bar b { color: var(--accent); }
+  .day-head { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
+  .gallery-item .gallery-flag { color: #e3b341; }
+  .work-head h1 { margin: 0; }
+  .work-head { padding: 12px 20px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail" aria-label="Sections">
+    <a class="rail-btn hit" href="#">Setup</a>
+    <a class="rail-btn hit" href="#" aria-current="page">Capture</a>
+    <a class="rail-btn hit" href="#">Experiments</a>
+    <a class="rail-btn hit" href="#">Randomize</a>
+  </nav>
+  <main class="work">
+    <div class="head-block"><header class="work-head"><h1>Capture</h1></header></div>
+    <div class="scroll" id="scroll">
+      <div class="row" id="show-note-row" hidden><button type="button" class="btn hit" id="show-note">Show mockup note</button></div>
+      <div class="mock-bar" id="mock-bar">
+        <div><b>Mockup for #419.</b> The photos are drawn stand-ins and the data is made up to look like
+          experiment 18: one photo a minute, lights off 01:28 to 09:02 every night. Times are local.
+          Wed 18 Nov has the lamps on for 2 minutes at 04:00. Thu 12 Nov 11:18 and Fri 20 Nov 11:15 have one dark photo each. All photos starts at Sun 22 Nov 09:20 so a night is close.</div>
+        <div class="row">
+          <span>Week strip rule:</span>
+          <button type="button" class="btn hit" id="rule-a" aria-pressed="true">A: hide hours dark every day</button>
+          <button type="button" class="btn hit" id="rule-b" aria-pressed="false">B: hide usual dark hours, mark light</button>
+          <button type="button" class="btn hit" id="hide-note">Hide this note</button>
+        </div>
+      </div>
+
+      <div class="gallery-nav" id="gallery-nav">
+        <h3 id="view-title"></h3>
+        <div class="row">
+          <button type="button" class="btn hit" id="back-btn" hidden>Back</button>
+          <button type="button" class="btn hit" id="prev-btn">Earlier</button>
+          <button type="button" class="btn hit" id="next-btn">Later</button>
+          <button type="button" class="btn hit" id="all-btn">All photos</button>
+        </div>
+      </div>
+      <div id="key"></div>
+      <div id="gallery"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const MOON = `<svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M15.5 2.5a9.5 9.5 0 1 0 6 16.9A8 8 0 0 1 15.5 2.5z"/></svg>`;
+const NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAYS = Array.from({ length: 14 }, (_, i) => ({ i, label: `${NAMES[i % 7]} ${9 + i} Nov` }));
+const OFF = 1 * 60 + 28, ON = 9 * 60 + 2;          // lights off 01:28, on 09:02 (local)
+const pad = (n) => String(n).padStart(2, "0");
+const hm = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+const n = (x) => x.toLocaleString("en-GB");
+
+// The light mark of the photo taken at minute m of day d: lit, change (light changing) or dark.
+function mark(d, m) {
+  if (d === 9 && (m === 240 || m === 241)) return "lit";       // Wed 18 Nov, lamps on 04:00 to 04:02
+  if (d === 9 && m === 242) return "change";
+  if ((d === 3 && m === 11 * 60 + 18) || (d === 11 && m === 11 * 60 + 15)) return "dark";  // daytime blips
+  if (m >= OFF && m < ON) return "dark";
+  if ((m >= OFF - 8 && m < OFF) || (m >= ON && m < ON + 14)) return "change";
+  return "lit";
+}
+// Each day's photos and its collapsed runs: dark for 15 minutes or more (photos x 1-minute
+// interval) and overlapping the usual dark hours.
+for (const day of DAYS) {
+  day.marks = Array.from({ length: 1440 }, (_, m) => mark(day.i, m));
+  day.runs = []; day.inRun = new Array(1440).fill(null);
+  for (let m = 0; m < 1440; m++) {
+    if (day.marks[m] !== "dark" || (m > 0 && day.marks[m - 1] === "dark")) continue;
+    let e = m; while (e < 1440 && day.marks[e] === "dark") e++;
+    if (e - m >= 15 && m < ON && e > OFF) {
+      const run = { day, start: m, end: e };
+      day.runs.push(run);
+      for (let k = m; k < e; k++) day.inRun[k] = run;
+    }
+  }
+}
+const hourHidden = (day, h) => { for (let m = h * 60; m < h * 60 + 60; m++) if (!day.inRun[m]) return false; return true; };
+const hourHasLight = (day, h) => { for (let m = h * 60; m < h * 60 + 60; m++) if (day.marks[m] !== "dark") return true; return false; };
+// An hour's picture: its first photo not inside a collapsed night.
+const hourPicture = (day, h) => { for (let m = h * 60; m < h * 60 + 60; m++) if (!day.inRun[m]) return day.marks[m]; return "dark"; };
+const ph = (k) => `<span class="ph ${k}"></span>`;
+const runText = (r) => `Lights off ${hm(r.start)} to ${hm(r.end)}, ${n(r.end - r.start)} photos`;
+
+let rule = "A";
+let view = { level: "week", week: 1 };
+const stack = [];
+
+// ---------- Week ----------
+function weekHidden(days) {
+  return Array.from({ length: 24 }, (_, h) => rule === "A"
+    ? days.every((d) => hourHidden(d, h))
+    : days.filter((d) => hourHidden(d, h)).length * 2 > days.length);
+}
+function weekHtml(w) {
+  const days = DAYS.slice(w * 7, w * 7 + 7);
+  const hidden = weekHidden(days);
+  const cols = []; // each: { hours: [h...], snip: bool }
+  for (let h = 0; h < 24; h++) {
+    if (hidden[h] && cols.length && cols[cols.length - 1].snip) cols[cols.length - 1].hours.push(h);
+    else cols.push({ hours: [h], snip: hidden[h] });
+  }
+  const template = cols.map((c) => (c.snip ? "64px" : "minmax(0, 1fr)")).join(" ");
+  return [...days].reverse().map((day) => {
+    const cells = cols.map((c) => {
+      if (!c.snip) return ph(hourPicture(day, c.hours[0]));
+      const lit = c.hours.some((h) => hourHasLight(day, h));
+      return `<span class="snip${lit ? " lit" : ""}">${MOON}${c.hours.length} h${lit ? `<span class="lamp">&#9670; light</span>` : ""}</span>`;
+    }).join("");
+    return `<button type="button" class="gallery-week-day hit" data-day="${day.i}">
+      <span class="gallery-time">${day.label}, ${n(1440)} photos</span>
+      <span class="gallery-strip" style="grid-template-columns:${template}">${cells}</span>
+    </button>`;
+  }).join("");
+}
+const weekKey = () => `<div class="night-key">
+  <span class="key-item"><span class="snip">${MOON}7 h</span>Lights off, 7 hours hidden. Tap the day to see them.</span>
+  ${rule === "B" ? `<span class="key-item"><span class="snip lit">${MOON}7 h<span class="lamp">&#9670; light</span></span>The lamps came on during the hidden hours.</span>` : ""}
+  <span class="key-item"><span class="key-ph">${ph("dark")}</span>Black picture: a dark hour that is not hidden.</span>
+</div>`;
+
+// ---------- Day ----------
+function dayHtml(d) {
+  const day = DAYS[d];
+  const out = [];
+  for (let h = 0; h < 24; h++) {
+    if (hourHidden(day, h)) {
+      const run = day.inRun[h * 60];
+      const hours = []; while (h < 24 && hourHidden(day, h) && day.inRun[h * 60] === run) hours.push(h++);
+      h--;
+      const open = view.openRun === `${run.start}`;
+      out.push(`<button type="button" class="night-tile hit" data-toggle-run="${run.start}">
+        ${MOON}<span><b>${runText(run)}</b></span>
+        <span>${open ? "Hide" : "Show"} ${hours.length} hours (${hm(hours[0] * 60)} to ${hm((hours[hours.length - 1] + 1) * 60)})</span></button>`);
+      if (open) for (const hh of hours) out.push(hourTile(day, hh));
+    } else out.push(hourTile(day, h));
+  }
+  return `<div class="gallery">${out.join("")}</div>`;
+}
+const hourTile = (day, h) => `<button type="button" class="gallery-hour hit" data-hour="${h}">
+  ${ph(hourPicture(day, h))}<span class="gallery-time">${hm(h * 60)}, 60 photos</span></button>`;
+const dayKey = () => `<div class="night-key"><span class="key-item"><span class="snip">${MOON}</span>Lights off. Tap to show or hide those hours.</span></div>`;
+
+// ---------- Photo cards and night lines (Hour view and All photos) ----------
+const flag = { dark: "Lights off", change: "Light changing", lit: "" };
+const card = (day, m) => `<button type="button" class="gallery-item hit" style="background:none;border:0;padding:0;text-align:left;color:inherit;font:inherit">
+  ${ph(day.marks[m])}<div class="gallery-time">${day.label} ${hm(m)}</div>
+  <div class="gallery-flag">${flag[day.marks[m]]}</div></button>`;
+const nightLine = (run, extra = "") => `<button type="button" class="night-line hit" data-night="${run.day.i}:${run.start}">
+  <span class="what">${MOON}<span><b>${run.day.label}: ${runText(run)}</b>${extra}</span></span>
+  <span class="open">Show photos</span></button>`;
+
+// Items newest first from (day, minute) back: a card per photo, one line per collapsed run.
+function itemsBefore(d, m, count, stopAt) {
+  const items = [];
+  while (items.length < count && d >= 0) {
+    m--;
+    if (m < 0) { d--; m = 1440; continue; }
+    if (stopAt && (d < stopAt.d || (d === stopAt.d && m < stopAt.m))) break;
+    const day = DAYS[d], run = day.inRun[m];
+    if (run) { items.push({ run }); m = run.start; }
+    else items.push({ day, m });
+  }
+  return { items, d, m };
+}
+function listHtml(items) {
+  let html = "", lastDay = null, open = false;
+  for (const it of items) {
+    const day = it.run ? it.run.day : it.day;
+    if (day !== lastDay) { if (open) html += "</div>"; html += `<h3 class="day-head">${day.label}</h3><div class="gallery">`; open = true; lastDay = day; }
+    html += it.run ? nightLine(it.run) : card(it.day, it.m);
+  }
+  return html + (open ? "</div>" : "");
+}
+
+// ---------- Hour, All photos, one night ----------
+function hourHtml(d, h) {
+  const day = DAYS[d];
+  const { items } = itemsBefore(d, (h + 1) * 60, 999, { d, m: h * 60 });
+  return listHtml(items.map((it) => it.run ? it : it));
+}
+function allHtml() {
+  const { items } = itemsBefore(13, 9 * 60 + 20, view.shown);
+  return listHtml(items) + `<div class="row" style="margin-top:24px"><button type="button" class="btn hit" id="more-btn">Show 12 more</button></div>`;
+}
+function nightHtml() {
+  const run = view.run;
+  const ms = []; for (let m = run.end - 1; m >= run.start && ms.length < view.shown; m--) ms.push(m);
+  return `<div class="night-open"><div class="row">${MOON}<b>${run.day.label}: ${runText(run)}</b></div>
+    <div class="gallery">${ms.map((m) => card(run.day, m)).join("")}</div>
+    ${ms.length < run.end - run.start ? `<div class="row" style="margin-top:24px"><button type="button" class="btn hit" id="more-btn">Show 12 more (${n(run.end - run.start - ms.length)} left)</button></div>` : ""}</div>`;
+}
+const allKey = () => `<div class="night-key"><span class="key-item"><span class="snip">${MOON}</span>Lights off for 15 minutes or more during the night: one line. Tap it to see the photos.</span>
+  <span class="key-item"><span class="key-ph">${ph("dark")}</span>A short dark spell, or one in the day, stays a photo.</span></div>`;
+
+// ---------- Rendering and navigation ----------
+const $ = (id) => document.getElementById(id);
+function render() {
+  const v = view;
+  const titles = {
+    week: () => `Week of ${DAYS[v.week * 7].label}`,
+    day: () => DAYS[v.day].label,
+    hour: () => `${DAYS[v.day].label}, ${hm(v.hour * 60)}`,
+    all: () => "All photos, newest first",
+    night: () => `${v.run.day.label}, lights off`,
+  };
+  $("view-title").textContent = titles[v.level]();
+  $("back-btn").hidden = stack.length === 0;
+  const stepping = ["week", "day", "hour"].includes(v.level);
+  $("prev-btn").hidden = $("next-btn").hidden = !stepping;
+  $("all-btn").hidden = v.level === "all" || v.level === "night";
+  if (v.level === "week") { $("prev-btn").disabled = v.week === 0; $("next-btn").disabled = v.week === 1; }
+  if (v.level === "day") { $("prev-btn").disabled = v.day === 0; $("next-btn").disabled = v.day === 13; }
+  if (v.level === "hour") { $("prev-btn").disabled = v.day === 0 && v.hour === 0; $("next-btn").disabled = v.day === 13 && v.hour === 23; }
+  $("key").innerHTML = { week: weekKey, day: dayKey, hour: allKey, all: allKey, night: () => "" }[v.level]();
+  $("gallery").innerHTML = { week: () => weekHtml(v.week), day: () => dayHtml(v.day), hour: () => hourHtml(v.day, v.hour), all: allHtml, night: nightHtml }[v.level]();
+  $("rule-a").setAttribute("aria-pressed", rule === "A"); $("rule-b").setAttribute("aria-pressed", rule === "B");
+}
+function go(next) { stack.push({ view, scroll: $("scroll").scrollTop }); view = next; render(); $("scroll").scrollTop = 0; }
+$("back-btn").onclick = () => { const s = stack.pop(); view = s.view; render(); $("scroll").scrollTop = s.scroll; };
+$("all-btn").onclick = () => go({ level: "all", shown: 12 });
+$("rule-a").onclick = () => { rule = "A"; render(); };
+$("rule-b").onclick = () => { rule = "B"; render(); };
+function step(dir) {
+  if (view.level === "week") view = { ...view, week: view.week + dir };
+  else if (view.level === "day") view = { ...view, day: view.day + dir, openRun: null };
+  else {
+    // Hours step past hidden night hours, the same as the Day view shows them.
+    let { day: d, hour: h } = view;
+    do { h += dir; if (h > 23) { h = 0; d++; } if (h < 0) { h = 23; d--; } } while (d >= 0 && d <= 13 && hourHidden(DAYS[d], h));
+    if (d < 0 || d > 13) return;
+    view = { ...view, day: d, hour: h };
+  }
+  render();
+}
+$("prev-btn").onclick = () => step(-1);
+$("next-btn").onclick = () => step(1);
+$("gallery").onclick = (e) => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.day) go({ level: "day", day: +t.dataset.day });
+  else if (t.dataset.toggleRun) { view = { ...view, openRun: view.openRun === t.dataset.toggleRun ? null : t.dataset.toggleRun }; render(); }
+  else if (t.dataset.hour) go({ level: "hour", day: view.day, hour: +t.dataset.hour });
+  else if (t.dataset.night) { const [d, s] = t.dataset.night.split(":").map(Number); go({ level: "night", run: DAYS[d].runs.find((r) => r.start === s), shown: 12 }); }
+  else if (t.id === "more-btn") { view = { ...view, shown: view.shown + 12 }; const s = $("scroll").scrollTop; render(); $("scroll").scrollTop = s; }
+};
+$("hide-note").onclick = () => { $("mock-bar").hidden = true; $("show-note-row").hidden = false; };
+$("show-note").onclick = () => { $("mock-bar").hidden = false; $("show-note-row").hidden = true; };
+render();
+</script>
+</body>
+</html>
