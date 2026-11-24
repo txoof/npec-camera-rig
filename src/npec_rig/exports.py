@@ -38,7 +38,7 @@ from pathlib import Path
 
 import yaml
 
-from npec_rig import database, dwell, tray_readings
+from npec_rig import database, dwell, timelapse, tray_readings
 from npec_rig.calibration_store import calibration_root
 from npec_rig.captures import experiments_root
 from npec_rig.validation_store import validations_root
@@ -74,7 +74,10 @@ def start_export(experiment_id: int, *, data: bool = True, photos: bool = True) 
     """Record a new export of the data, the photos or both, of the photos taken up to now, and
     build its data file, part 0, in the background (#437): the page may be closed meanwhile. One
     export is built at a time on the rig: Export again while this experiment's is built returns
-    that one. Returns the export with its parts."""
+    that one. Refused, raising ExperimentError, while a time lapse video is being made: one job
+    that reads every photo at a time (#503). Returns the export with its parts."""
+    if timelapse.being_made() is not None:
+        raise database.ExperimentError("A time lapse video is being made. Export when it is done.")
     try:
         export = database.create_export(experiment_id, now=_now(), data=data, photos=photos)
     except database.ExperimentError:

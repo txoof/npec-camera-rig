@@ -1,8 +1,10 @@
 import csv
 import hashlib
 import io
+import shutil
 import time
 import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -781,3 +783,54 @@ def test_a_tray_without_cells_flagged_as_a_whole_counts_as_one_flagged_cell() ->
     _export, files = _unzipped(experiment["id"])
     [row] = csv.DictReader(io.StringIO(files["tray-readings.csv"].decode()))
     assert (row["cells_flagged"], row["cells_flagged_grown_area_mm2"]) == ("1", "700.0")
+
+
+# --- One job that reads every photo at a time: an export waits for a time lapse video (#503) ----
+
+needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is not installed")
+
+
+def _video_held(experiment_id: int, monkeypatch: pytest.MonkeyPatch, tmp_path) -> tuple[str, Path]:
+    """Start a real time lapse video of the experiment, its child held before its first frame
+    until the file returned is created (timelapse.TEST_HOLD_ENV): its id and that file."""
+    from datetime import datetime, timedelta, timezone
+
+    from npec_rig import timelapse
+
+    release = tmp_path / "release-video"
+    monkeypatch.setenv(timelapse.TEST_HOLD_ENV, str(release))
+    now = datetime.now(timezone.utc)
+    video = timelapse.start({"experiment_id": experiment_id, "tray_id": 4, "start": (now - timedelta(hours=1)).isoformat(),
+                             "end": now.isoformat(), "per_hour": 1, "method": "fixed"})
+    return video["id"], release
+
+
+def _video_done(timeout_s: float = 60) -> None:
+    from npec_rig import timelapse
+
+    deadline = time.monotonic() + timeout_s
+    while timelapse.being_made() is not None:
+        assert time.monotonic() < deadline, "the video was not done in time"
+        time.sleep(0.05)
+
+
+@needs_ffmpeg
+def test_an_export_is_refused_while_a_video_is_being_made_and_starts_once_it_is_done(monkeypatch, tmp_path) -> None:
+    from npec_rig import timelapse
+
+    experiment = _stopped_experiment_with_photos(1)
+    client = _client()
+    video_id, release = _video_held(experiment["id"], monkeypatch, tmp_path)
+    try:
+        assert timelapse.being_made() == video_id
+        refused = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False})
+        assert refused.status_code == 409
+        assert "A time lapse video is being made" in refused.json()["detail"]
+        assert database.exports_for(experiment["id"]) == []  # nothing was started
+    finally:
+        release.touch()
+    _video_done()
+
+    started = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False})
+    assert started.status_code == 200
+    assert [e["id"] for e in database.exports_for(experiment["id"])] == [started.json()["id"]]
