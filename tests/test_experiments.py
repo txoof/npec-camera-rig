@@ -1,5 +1,7 @@
 import json
+import shutil
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -921,3 +923,59 @@ def test_progress_without_failures_never_has_the_failures_key(monkeypatch) -> No
     _finished_run(experiment_id, 1, 0, 5)
     assert "failures" not in tray_readings.reprocess_progress(experiment_id, failures=False)
     assert tray_readings.reprocess_progress(experiment_id)["failures"] == []
+
+
+# --- One job that reads every photo at a time: a Reprocess waits for a time lapse video (#503) --
+
+needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is not installed")
+
+
+def _video_held(experiment_id: int, monkeypatch, tmp_path) -> tuple[str, Path]:
+    """Start a real time lapse video of the experiment, its child held before its first frame
+    until the file returned is created (timelapse.TEST_HOLD_ENV): its id and that file."""
+    from datetime import UTC, datetime, timedelta
+
+    from npec_rig import timelapse
+
+    release = tmp_path / "release-video"
+    monkeypatch.setenv(timelapse.TEST_HOLD_ENV, str(release))
+    now = datetime.now(UTC)
+    video = timelapse.start({"experiment_id": experiment_id, "tray_id": 4, "start": (now - timedelta(hours=1)).isoformat(),
+                             "end": now.isoformat(), "per_hour": 1, "method": "fixed"})
+    return video["id"], release
+
+
+def _video_done(timeout_s: float = 60) -> None:
+    import time
+
+    from npec_rig import timelapse
+
+    deadline = time.monotonic() + timeout_s
+    while timelapse.being_made() is not None:
+        assert time.monotonic() < deadline, "the video was not done in time"
+        time.sleep(0.05)
+
+
+@needs_ffmpeg
+def test_a_reprocess_is_refused_while_a_video_is_being_made_and_starts_once_it_is_done(monkeypatch, tmp_path) -> None:
+    from fastapi.testclient import TestClient
+
+    from npec_rig import timelapse
+    from npec_rig.app import app
+
+    experiment_id, _paths = _experiment_with_photos(monkeypatch, 1)
+    client = TestClient(app)
+    video_id, release = _video_held(experiment_id, monkeypatch, tmp_path)
+    try:
+        assert timelapse.being_made() == video_id
+        refused = client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id})
+        assert refused.status_code == 409
+        assert "A time lapse video is being made" in refused.json()["detail"]
+        assert client.get(f"/api/experiments/{experiment_id}/reprocess").json()["state"] == "none"
+    finally:
+        release.touch()
+    _video_done()
+
+    started = client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id})
+    assert started.status_code == 200
+    assert _wait_until_finished(client, experiment_id)["state"] == "finished"

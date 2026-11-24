@@ -971,7 +971,8 @@ _live: dict | None = None  # {"run_id", "experiment_id", "thread", "stop": Event
 
 
 class ReprocessRunning(RuntimeError):
-    """Another Reprocess is still running."""
+    """Another Reprocess is still running, or a time lapse video is being made: one job that reads
+    every photo at a time (#503). The reason, in words."""
 
 
 class NoReprocessRunning(RuntimeError):
@@ -1044,8 +1045,12 @@ def reprocess_plan(experiment_id: int) -> dict:
 
 def start_reprocess(experiment_id: int) -> dict:
     """Start Reprocess of the experiment's photos taken as captures, oldest first, and return its
-    progress. Raises ReprocessRunning while one is running. The caller has made the copy of rig.db
-    and has the experiment's ID confirmed (`routes/experiments.py`)."""
+    progress. Raises ReprocessRunning while one is running or a time lapse video is being made. The
+    caller has made the copy of rig.db and has the experiment's ID confirmed (`routes/experiments.py`)."""
+    from npec_rig import timelapse  # here, not at the top: timelapse imports this module
+
+    if timelapse.being_made() is not None:
+        raise ReprocessRunning("A time lapse video is being made. Reprocess when it is done.")
     paths = _reprocess_paths(experiment_id)
     _sweep_staged_masks()
     global _live
