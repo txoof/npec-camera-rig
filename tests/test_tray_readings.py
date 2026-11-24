@@ -1368,26 +1368,106 @@ def test_reprocess_counts_a_reading_with_its_cutoff_at_the_floor_again_and_marks
     assert tray["warnings"].count(segmentation.SOIL_HIDDEN) == 1
 
 
-def test_reprocess_that_grows_again_and_then_meets_a_locked_rig_db_leaves_both_masks_as_they_were(monkeypatch) -> None:
-    """Fourth review of #483: the reading and the masks must stay a pair. The reading saved before
-    #373 is grown again from the photo (new grown mask, 1156 mm2 where the saved one holds 900), and
-    the new reading cannot be saved because rig.db is locked for writing: the saved reading stays,
-    and so do both mask files, byte for byte."""
+def test_reprocess_that_grows_again_and_then_meets_a_locked_rig_db_leaves_the_reading_and_no_half_pair_of_masks(monkeypatch) -> None:
+    """Fifth review of #483: the reading and its masks must never be a mixed pair. The reading saved
+    before #373 is grown again from the photo and the new reading cannot be saved because rig.db is
+    locked for writing. The saved reading stays. Both old masks are deleted before the save, so
+    neither is left to be counted against it: a Reprocess with the photo gone says "a saved mask is
+    missing" and changes nothing, and no temporary file is left."""
     import sqlite3
 
     from npec_rig import segmentation
+    from npec_rig.captures import photo_file
 
     path = _cut_short_reading(monkeypatch, change=lambda t: t)
     files = [segmentation.mask_file(path), segmentation.mask_file(path, segmentation.GROWN_MASK)]
-    before_masks = [f.read_bytes() for f in files]
     before = _saved(path)
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.3)
 
     with lock_held(), pytest.raises(sqlite3.OperationalError, match="locked"):
         tray_readings.read_photo(path, reuse_mask=True)
-    assert [f.read_bytes() for f in files] == before_masks
     assert _saved(path) == before
-    assert not list(files[0].parent.glob("*.staged"))  # nothing left behind
+    assert [f.exists() for f in files] == [False, False]
+    assert not list(files[0].parent.glob("*.staged"))
+    photo_file(path).unlink()
+    with pytest.raises(tray_readings.NotReprocessed, match="saved mask"):
+        tray_readings.read_photo(path, reuse_mask=True)
+    assert _saved(path) == before
+
+
+def test_a_recount_with_the_photo_gone_leaves_both_saved_masks_in_place_byte_for_byte(monkeypatch) -> None:
+    """With the photo gone the saved masks are all that is left of it: counting them again saves the
+    reading and never deletes, rewrites or renames a mask (#483)."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+    files = [segmentation.mask_file(path), segmentation.mask_file(path, segmentation.GROWN_MASK)]
+    stamps = [(f.read_bytes(), f.stat().st_mtime_ns, f.stat().st_ino) for f in files]
+
+    tray_readings.read_photo(path, reuse_mask=True)
+    assert [(f.read_bytes(), f.stat().st_mtime_ns, f.stat().st_ino) for f in files] == stamps
+    assert not list(files[0].parent.glob("*.staged"))
+
+
+def test_reprocess_grows_the_photo_again_when_a_saved_mask_cannot_be_read(monkeypatch) -> None:
+    """A saved mask truncated or corrupt: with the photo there, it is grown again, 1156 mm2 (the
+    matted tray's leaf and its pale edge, 340 x 340 px at 10 px/mm), as a new read (#483)."""
+    from npec_rig import segmentation
+
+    _matted_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    segmentation.mask_file(path).write_bytes(b"not a png")
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["area_mm2"] is not None
+
+
+def test_reprocess_does_not_count_a_reading_saved_with_its_cells_not_worked_out(monkeypatch) -> None:
+    """A tray saved with "cells not worked out" has no cells to count again: with the photo gone
+    nothing is saved (#483, fifth review)."""
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    capture_id = database.captures_by_path([path])[path]["id"]
+    saved = database.tray_readings(capture_id)["trays"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, "warnings": ["cells not worked out"]} for t in saved])
+    photo_file(path).unlink()
+    before = _saved(path)
+
+    with pytest.raises(tray_readings.NotReprocessed, match="not worked out"):
+        tray_readings.read_photo(path, reuse_mask=True)
+    assert _saved(path) == before
+
+
+def test_starting_reprocess_removes_temporary_mask_files_left_by_an_earlier_run_of_the_app(monkeypatch) -> None:
+    """A kill between writing a new mask and renaming it leaves `*.staged` beside the masks. One
+    from another process is removed when Reprocess starts; one of this process (a reading in
+    progress) is not."""
+    import os
+
+    from npec_rig import segmentation
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    folder = segmentation.mask_file(path).parent
+    folder.mkdir(parents=True, exist_ok=True)
+    old = folder / f"{Path(path).name}.png.{os.getpid() + 1}.1.staged"
+    mine = folder / f"{Path(path).name}.png.{os.getpid()}.1.staged"
+    old.write_bytes(b"x")
+    mine.write_bytes(b"x")
+    experiment = database.create_experiment(uuid="u-483s", created_at="2026-11-06T00:00:00+00:00")
+
+    tray_readings.start_reprocess(experiment["id"])
+    assert (old.exists(), mine.exists()) == (False, True)
 
 
 def test_reprocess_does_not_count_a_matched_saved_tray_that_has_no_levels(monkeypatch) -> None:

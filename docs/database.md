@@ -458,7 +458,13 @@ it counts both masks again, without the photo, only when every tray is the same 
 outline) and has its grown values, and no saved tray
 is marked "grown area not worked out" or was saved with the cutoff in the leaves (before #373).
 The calibration is not asked, since the masks do not depend on it: a changed calibration is counted again under the new one. Otherwise it grows the whole photo again from the photo; and when neither can be done completely
-the saved reading is not changed and the photo is reported as not reprocessed. The fixed cutoff's floor of 100 mm2
+the saved reading is not changed and the photo is reported as not reprocessed. A photo's new
+masks and its reading are saved together, under one lock, in this order: the new masks are written
+to `*.staged` files, both old masks are deleted, the reading is saved, the staged files are renamed.
+A failure after the delete leaves a mask missing, so the next Reprocess grows the photo again (or,
+with the photo gone, changes nothing); `*.staged` files left by a kill are removed when the app's
+tray reader or a Reprocess starts. A tray whose cells could not be worked out on a new read says
+"cells not worked out", as one whose grown area could not says "grown area not worked out". The fixed cutoff's floor of 100 mm2
 was measured for that method only and does not apply to this one. All `grown_*` columns are NULL
 for readings saved before version 25, or when the method could not run.
 

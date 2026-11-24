@@ -102,6 +102,7 @@ POLL_S = 5.0
 TAG_TURNED_DEG = 10.0
 TAG_TURNED = "tag turned on tray"
 GROWN_NOT_WORKED_OUT = "grown area not worked out"
+CELLS_NOT_WORKED_OUT = "cells not worked out"
 
 
 def _calibration(path: str) -> tuple[str, object, list[dict] | None]:
@@ -251,7 +252,8 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "found": p.found,
             "warnings": list(p.warnings) + ([TAG_TURNED] if celled.get(id(p), no_cells)[2] else [])
             + ([segmentation.SOIL_HIDDEN] if g and _at_the_floor(soil_level, lower_cutoff) else [])
-            + ([GROWN_NOT_WORKED_OUT] if m and (not g or celled.get(id(p), no_cells)[3]) else []),
+            + ([GROWN_NOT_WORKED_OUT] if m and not g else [])
+            + ([CELLS_NOT_WORKED_OUT] if m and celled.get(id(p), no_cells)[3] else []),
             "outline_px": None if p.outline is None else [list(c) for c in p.outline],
             "cells": [
                 {
@@ -271,19 +273,54 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "grown_plant_centre_px": list(g.centre_px) if g and g.centre_px else None,
             "grown_soil_level": soil_level, "grown_lower_cutoff": lower_cutoff,
         })
-    # The new masks are written under temporary names first and renamed only after the reading is
-    # saved, so the reading and its masks stay a pair whatever fails before (#483).
-    staged = _stage_masks(path, new_masks)
-    try:
-        database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
-    except BaseException:
-        for partial, _target in staged:
-            partial.unlink(missing_ok=True)
-        raise
-    for partial, target in staged:
-        partial.replace(target)
-    exclusions.update(record)
+    _commit(path, record, capture_id, status, trays, new_masks)
     return capture_readings(record)
+
+
+# One commit at a time: the background reader, Reprocess and Show tags may read one photo together.
+_commit_lock = threading.Lock()
+
+
+def _commit(path: str, record: dict, capture_id: int, status: str, trays: list[dict], new_masks) -> None:
+    """Save a reading and, for a photo grown from the photo, its new masks, so that a failure or a
+    kill at any point never leaves masks that belong to another reading (#483). In this order:
+    (1) the new masks are written to `.staged` files; (2) both old masks are deleted; (3) the
+    reading is saved; (4) the staged files are renamed to their places. A failure after (2) leaves
+    "a saved mask is missing", which blocks a recount (`_recount_blocker`): the next Reprocess
+    grows the photo again, or, with the photo gone, changes nothing. A failure at (3) is raised
+    (a locked rig.db is retried by the caller); one at (4) is logged only: the reading is saved and
+    masks that are missing force a regrow. A recount (no new masks) leaves the masks as they are."""
+    with _commit_lock:
+        staged = _stage_masks(path, new_masks)
+        if new_masks is not None:
+            for kind in ("", segmentation.GROWN_MASK):
+                segmentation.mask_file(path, kind).unlink(missing_ok=True)
+        try:
+            database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
+        except BaseException:
+            for partial, _target in staged:
+                partial.unlink(missing_ok=True)
+            raise
+        try:
+            for partial, target in staged:
+                partial.replace(target)
+        except OSError:
+            logger.exception("Could not put the new masks of %s in place; they are left out", path)
+            for partial, target in staged:
+                partial.unlink(missing_ok=True)
+                target.unlink(missing_ok=True)
+    exclusions.update(record)
+
+
+def _sweep_staged_masks() -> None:
+    """Remove the `.staged` mask files an earlier run of the app left (a kill between writing a
+    new mask and renaming it, `_commit`). Those of this process are readings in progress and stay."""
+    try:
+        for f in segmentation.masks_root().rglob("*.staged"):
+            if f.name.split(".")[-3] != str(os.getpid()):
+                f.unlink(missing_ok=True)
+    except OSError:
+        logger.exception("Could not remove leftover temporary mask files")
 
 
 def _stage_masks(path: str, masks: tuple[np.ndarray, np.ndarray | None] | None) -> list[tuple[Path, Path]]:
@@ -354,8 +391,15 @@ def _measures(
         stem = calibration_for_photos(photo_calibration)
         scale_field = load_saved_calibration(stem).scale_field
         if recount:
-            mask = segmentation.load_mask(path)
-            grown = segmentation.load_mask(path, segmentation.GROWN_MASK)
+            try:
+                mask = segmentation.load_mask(path)
+                grown = segmentation.load_mask(path, segmentation.GROWN_MASK)
+            except Exception as exc:  # a truncated or corrupt mask file
+                if _rig_db_locked(exc) or not (photo_file(path) or Path()).is_file():
+                    raise
+                logger.exception("A saved mask of %s cannot be read: growing the photo again", path)
+                recount = False
+        if recount:
             levels = _saved_levels(saved, placed)
             if mask is None or grown is None or any(level is None or level[1] is None for level in levels):
                 raise NotReprocessed(f"{path}: a saved mask or the saved levels are missing")
@@ -395,7 +439,8 @@ def _recount_blocker(path: str, saved: dict | None, outlined: list[TrayPlacement
     this segmenter; every outlined tray is one saved tray (same tag, same outline,
     `_saved_match`) and every saved tray with areas is one of them; every saved tray with areas has
     its grown area and levels, is not a reading made before #373 with the cutoff in the leaves and
-    is not marked "grown area not worked out"; both saved masks are on disk. The calibration is
+    is not marked "grown area not worked out" or "cells not worked out"; both saved masks are on
+    disk. The calibration is
     not asked: the masks do not depend on it and the outline match guards the geometry, so a
     changed calibration is counted again from the masks under the new one (Aaron, 2026-11-24)."""
     if not saved or saved["status"] != "read" or not _saved_by_this_segmenter(saved):
@@ -413,8 +458,8 @@ def _recount_blocker(path: str, saved: dict | None, outlined: list[TrayPlacement
             return "no grown area or levels saved"
         if _grown_into_leaves(t.get("grown_soil_level"), t.get("grown_lower_cutoff")):
             return "saved with the cutoff in the leaves (before #373)"
-        if GROWN_NOT_WORKED_OUT in t["warnings"]:
-            return "its grown area was not worked out"
+        if GROWN_NOT_WORKED_OUT in t["warnings"] or CELLS_NOT_WORKED_OUT in t["warnings"]:
+            return "its grown area or its cells were not worked out"
     if not (segmentation.mask_file(path).is_file() and segmentation.mask_file(path, segmentation.GROWN_MASK).is_file()):
         return "a saved mask is missing"
     return None
@@ -805,6 +850,7 @@ class TrayReader:
         self._since = ""
 
     def start(self) -> None:
+        _sweep_staged_masks()
         self._stop.clear()
         self._since = datetime.now(UTC).isoformat()
         self._thread = threading.Thread(target=self._run, name="tray-reader", daemon=True)
@@ -885,6 +931,7 @@ def start_reprocess(experiment_id: int) -> dict:
     """Start Reprocess of the experiment's photos taken as captures, oldest first, and return its
     progress. Raises ReprocessRunning while one is running."""
     paths = [c["path"] for c in database.captures_for_experiment(experiment_id) if c["purpose"] == "capture"]
+    _sweep_staged_masks()
     with _reprocess_lock:
         if _reprocess["running"]:
             raise ReprocessRunning(f"Reprocess of experiment {_reprocess['experiment_id']} is still running")
