@@ -11206,7 +11206,7 @@ unchanged); the pixel statistics, the cell list and the scripts under `experimen
 **Limits, known before the run.** One experiment, one rig, one pot and tray plastic, one lighting
 program and the camera's auto-exposure at its steady level, a few days of photos. A different pot
 colour or a darker exposure moves the pot values and needs the same check. Leaves are the ones the 60
-reference cells hold (22 October to mid November, mostly young plants): the shade inside the late,
+reference cells hold (production 22 October to 9 November, development 3 to 9 November, mostly young plants): the shade inside the late,
 dense canopies of mid to late November is not in the outlines, and is only looked at on pictures in part
 2(b). The brightness is of JPEG pixels (quality 75 at most of these photos), whose noise is the very
 thing that makes dark pot pixels "green"; a limit is not shown to hold for another JPEG setting.
