@@ -578,8 +578,8 @@ def _test_hold() -> None:
 def start(request: dict) -> dict:
     """Start making the video of `request` (experiment_id, tray_id, start, end, per_hour,
     method, and optionally cell and mask, true to show the method's mask) in a child process: its id. The finished video of an earlier request is removed
-    first, so the rig holds one at a time. Raises VideoUnavailable, VideoBusy, or ValueError for a
-    request that cannot be made."""
+    first, so the rig holds one at a time. Raises VideoRefused while an export or a Reprocess runs,
+    VideoUnavailable, VideoBusy, or ValueError for a request that cannot be made."""
     if request["per_hour"] not in PER_HOUR:
         raise ValueError(f"per_hour must be one of {PER_HOUR}")
     if not any(m["key"] == request["method"] for m in tray_readings.AREA_METHODS):
@@ -619,7 +619,8 @@ def start(request: dict) -> dict:
 def progress(video_id: str) -> dict:
     """Where video `video_id` is: `state` choosing, drawing, ready, failed, replaced (a newer
     video was started: `newer` is its id), or gone, with the frames chosen, done and skipped,
-    and the estimated size."""
+    the photos that could not be read (`unreadable`, and `unreadable_photos`: path, taken_at,
+    reason), and the estimated size."""
     folder = _folder(video_id)
     try:
         state = json.loads((folder / "progress.json").read_text())
@@ -738,7 +739,8 @@ def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | Non
         _, err = encoder.communicate()
         if not isinstance(exc, OSError):
             raise
-        raise RuntimeError(f"ffmpeg stopped taking frames: {err.decode(errors='replace')[-300:]}") from exc
+        said = err.decode(errors="replace").strip()[-300:]
+        raise RuntimeError(f"ffmpeg stopped taking frames{': ' + said if said else ', and was stopped.'}") from exc
     if encoder.returncode != 0:
         raise RuntimeError(f"ffmpeg failed: {err.decode(errors='replace')[-300:]}")
     return drawn, unreadable
@@ -782,7 +784,8 @@ def _make(request: dict, folder: str) -> None:
                 made.append((tray_id, target, drawn))
         if not made:
             which = "any tray" if every else "this tray"
-            error = (f"No frame could be made: {len(unreadable)} photos of {which} in this time could not be read."
+            n = len(unreadable)
+            error = (f"No frame could be made: {n} {'photo' if n == 1 else 'photos'} of {which} in this time could not be read."
                      if unreadable else f"No usable photo of {which} in this time.")
             _write_progress(out, {"state": "failed", "request": request, "error": error,
                                   "unreadable": len(unreadable), "unreadable_photos": unreadable})
