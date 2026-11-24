@@ -5,6 +5,7 @@ same convention as test_tags.py/test_calibration.py.
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 import threading
 import time
@@ -13,6 +14,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from npec_rig.tags import TagDetection
 
@@ -461,3 +463,33 @@ def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, rea
         thread.join()  # the holder ends when `until` is set or after `seconds`, so this always returns
         if failed:
             raise failed[0]
+
+
+# --- Time lapse videos as other jobs see them (#503) ----------------------------------------------
+# Every real video needs ffmpeg on PATH; without it the test is skipped, not failed.
+needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is not installed")
+
+
+def video_held(experiment_id: int, monkeypatch: pytest.MonkeyPatch, tmp_path) -> tuple[str, Path]:
+    """Start a real time lapse video of the experiment, its child held before its first frame
+    until the file returned is created (timelapse.TEST_HOLD_ENV): its id and that file."""
+    from datetime import datetime, timedelta, timezone
+
+    from npec_rig import timelapse
+
+    release = tmp_path / "release-video"
+    monkeypatch.setenv(timelapse.TEST_HOLD_ENV, str(release))
+    now = datetime.now(timezone.utc)
+    video = timelapse.start({"experiment_id": experiment_id, "tray_id": 4, "start": (now - timedelta(hours=1)).isoformat(),
+                             "end": now.isoformat(), "per_hour": 1, "method": "fixed"})
+    return video["id"], release
+
+
+def video_done(timeout_s: float = 60) -> None:
+    """Wait until no time lapse video is being made (timelapse.being_made)."""
+    from npec_rig import timelapse
+
+    deadline = time.monotonic() + timeout_s
+    while timelapse.being_made() is not None:
+        assert time.monotonic() < deadline, "the video was not done in time"
+        time.sleep(0.05)

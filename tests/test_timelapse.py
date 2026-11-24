@@ -1,6 +1,5 @@
 """Time lapse videos (#64): which photos become frames, what each frame says, the video job."""
 import json
-import shutil
 import subprocess
 import time
 from datetime import datetime, timedelta, timezone
@@ -8,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from npec_rig import database, timelapse
-from tests.helpers import banded_validation, turned_tray_photo
+from tests.helpers import banded_validation, needs_ffmpeg, turned_tray_photo
 
 pytestmark = pytest.mark.unit
 
@@ -505,9 +504,6 @@ def test_a_video_is_refused_while_a_reprocess_is_running(experiment):
         timelapse.start(_video_request(experiment))
 
     assert timelapse.latest() is None
-
-
-needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is not installed")
 
 
 def _finished(video_id: str, timeout_s: float = 60) -> dict:

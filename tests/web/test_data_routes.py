@@ -1,6 +1,5 @@
 """The Data page and its time lapse videos (#64)."""
 import json
-import shutil
 import subprocess
 import time
 from datetime import datetime, timedelta, timezone
@@ -10,12 +9,11 @@ from fastapi.testclient import TestClient
 
 from npec_rig import database
 from npec_rig.app import app
-from tests.helpers import turned_tray_photo
+from tests.helpers import needs_ffmpeg, turned_tray_photo
 
 pytestmark = pytest.mark.unit
 
 START = datetime(2027, 3, 1, 10, 0, tzinfo=timezone.utc)
-needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is not installed")
 
 
 @pytest.fixture
