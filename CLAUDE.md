@@ -120,6 +120,14 @@ stop, not one branch of a parallel batch.
 Explore agent or a fork, not inline in the main conversation. Keep only the findings, not the raw
 search output, in context.
 
+**Model choice.** Start each session on Sonnet 5.5. Switch with `/model`.
+
+- Sonnet 5.5: normal coding, one module, test-first loops, page work.
+- Opus 5.5: planning a milestone, `/code-review`, bugs across modules, error bands and validation design.
+- Haiku 5.5: docs, copy, CSS, board chores, and Explore subagents.
+
+Run `/clear` between tasks. Agents with a set model are in `.claude/agents/`.
+
 **Check-ins.** Between the ends of rounds, show progress as a picture or table in `~/scratch`
 with 2 or 3 lines on what to look at, then wait for Aaron before going on (PLAN.md, *Rounds*).
 
@@ -318,6 +326,7 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | docs | `docs/` (except the shared files below), `reference/`, `README.md`, `GLOSSARY.md` |
 | cad | `hardware/` |
 | deploy | `deploy/` |
+| agents | `.claude/agents/` (agent files that set the model for search, docs and review helpers, #492) |
 | experiments | `experiments/<folder>/`, each folder its own area: research scripts for one investigation. They may import `src/npec_rig/`, never the reverse (`tests/test_experiments_boundary.py`), and are not deployed (`.gitattributes` leaves them out of release archives) |
 | ci | `.github/`, `.gitattributes`, `pyproject.toml`, `uv.lock` |
 
