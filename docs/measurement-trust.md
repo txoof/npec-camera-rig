@@ -515,7 +515,7 @@ metrology log backs it.
   green cutoff's floor of 100 mm² rests on production's soil only. Empty cells whose drainage hole shows the table
   read up to 174 mm² in single photos; they hold no plant. Not shown: soil lighter or darker than
   these two, green soil, soil under mats.
-- **Dark empty pots** (*added 2026-11-24*, metrology log 46, a development check). After the harvest of
+- **Dark empty pots** (*added 2026-11-24*, metrology log 46 and 48, a development check). After the harvest of
   23 November, grow from leaf cores read the empty dark pots of production tray 4 as plant, 4,856 to
   11,789 mm² against 19 to 54 mm² by the fixed cutoff, with nothing on the page (near-black pixels have a
   greenness set by a few levels of JPEG noise). Log 42's "no floor needed" is withdrawn for dark pots.
@@ -528,7 +528,9 @@ metrology log backs it.
   empty, and the tray keeps its total and adds the flagged cells and their area (#484). On ordinary
   readings the grown area is 0.98 to 1.65 times the fixed area for a tray (548 readings) and 0.94 to 1.9
   (5th to 95th percentile) for a plant cell. The flag is a cell whose grown area is more than 5 times its fixed area and at least 100 mm² larger (Aaron's decision, 2026-11-24): on the data 30 of 33 false-plant cells and 15 of 7,989 plant-cell readings, from one harvest on one rig. Tested at gain 1.0 on counted
-  production photos only.
+  production photos only. The flag is now coded (#484), worked out from the two areas already stored
+  per cell reading, so no past reading needs Reprocess; metrology log 48 confirms the same counts
+  against the rule as coded.
 
 ### Trays and tags (round 1, 2026-10-19)
 
