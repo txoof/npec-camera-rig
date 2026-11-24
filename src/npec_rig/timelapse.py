@@ -882,10 +882,14 @@ def _make(request: dict, folder: str) -> None:
                               "trays": len(made), "bytes": final.stat().st_size})
     except Exception as exc:  # noqa: BLE001 -- every failure is shown on the page, in words
         logger.exception("Time lapse %s failed", out.name)
-        try:
-            # A half-made video is never left behind (#503); ffmpeg has stopped by now (_encode).
-            for part in out.glob("*.part"):
+        # A half-made video is never left behind (#503); ffmpeg has stopped by now (_encode). Each
+        # removal on its own: one that fails neither keeps the others nor hides why the video failed.
+        for part in out.glob("*.part"):
+            try:
                 part.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Time lapse part file %s not removed", part, exc_info=True)
+        try:
             _write_progress(out, {"state": "failed", "request": request, "error": _failure(exc)})
         except OSError:
             pass

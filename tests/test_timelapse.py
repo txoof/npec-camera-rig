@@ -660,6 +660,22 @@ def test_a_frame_failing_for_a_reason_other_than_its_photo_fails_the_video_and_n
 
 
 @needs_ffmpeg
+def test_a_part_file_that_cannot_be_removed_does_not_hide_why_the_video_failed(experiment, monkeypatch, tmp_path):
+    _photo(experiment, START, area="not a number")  # fails the video, as above
+    release = tmp_path / "release-video"
+    monkeypatch.setenv(timelapse.TEST_HOLD_ENV, str(release))
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    # A directory by a part file's name: removing it as a file raises IsADirectoryError.
+    (timelapse.videos_root() / video_id / "stray.part").mkdir()
+    release.touch()
+
+    progress = _finished(video_id)
+
+    assert progress["state"] == "failed"
+    assert progress["error"].startswith("TypeError: "), progress["error"]
+
+
+@needs_ffmpeg
 @pytest.mark.parametrize("spoil", ["junk", "half written"])
 def test_all_trays_counts_a_bad_photo_of_many_trays_once(experiment, spoil):
     import zipfile
