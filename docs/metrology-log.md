@@ -11120,3 +11120,55 @@ The app also showed 12.1 GB written per day and 56.6 days left.
 shows the scheduler takes every photo while the app is up; it does not show that every photo
 reaches the database while another job writes to it (17 November, #439). The reboot test is on
 development, not on production. Excel was tried once, on one computer; its version was not recorded.
+
+
+## 47. How far apart are two outlines of one tray, and what does a shift of the outline cost? (issue #483, method written 2026-11-24, before the script was run)
+
+**Label: development check.** Reprocess reads a photo's trays again. A saved grown mask holds plant
+only inside the outlines found when it was made (section 41, finding 7 of the #480 review), so
+Reprocess must grow the photo again when a tray's outline now differs from the saved one, and may
+reuse the mask when it does not. The program decides this with one number, `OUTLINE_SAME_PX` in
+`src/npec_rig/tray_readings.py`: two outlines are the same when no corner of one lies farther than
+that from a corner of the other. The number is a **decision, not a measurement**; this section
+records the numbers behind it.
+
+**Decision (Aaron, 2026-11-24).** A false "changed" costs only a regrow (time). A missed change gives
+a wrong number with no warning. So the tolerance is as small as the storage allows. The outlines
+are saved in rig.db as JSON of floats (`tray_reading.outline`, `docs/database.md`), which Python
+reads back exactly, so an unchanged outline comes back identical and float noise is below 1e-9 px.
+`OUTLINE_SAME_PX` is 0.01 px: far above float noise, far below a shift that matters.
+
+**Method.** Script `experiments/483-outline-tolerance/run.py`, run with `PYTHONPATH=src` on the six
+quarter-size stills of `tests/fixtures/trays/blue-finder/` (production and development photos of
+October 2026; `README.md` there). No rig was contacted.
+- (a) `find_outlines` is run twice on each still. The largest distance from a corner of one run to
+  the nearest corner of the other is reported. Expected: 0 px.
+- (b) Each outline of each still is moved by 1, 2 and 5 px (full-size photo pixels), once in x and
+  once in y. The tray's plant area by the fixed green cutoff (`ExGSegmenter`, enlarged 4 times to
+  full size, `measure_trays`) is worked out for the moved outline and compared with the unmoved
+  one, in mm2 and in per cent of the unmoved area.
+
+**Result (a), run 2026-11-24.** Largest corner gap between two runs: 0 px on every still (a1-tags-sheet-on-tray 12 trays,
+dev-2x2-untagged 9, edge-tags 12, pots-touching 12, sheets-every-tray 12; dark has no tray).
+
+**Result (b), run 2026-11-24.**
+
+| still | shift (px) | mean change (mm2) | largest change (mm2) | largest change (% of unshifted area) |
+|---|---|---|---|---|
+| a1-tags-sheet-on-tray | 1 / 2 / 5 | 0.0 / 0.0 / 0.0 | 0.2 / 0.2 / 0.2 | 1.45 / 1.45 / 1.45 |
+| dev-2x2-untagged | 1 | 3.9 | 35.3 | 0.23 |
+| dev-2x2-untagged | 2 | 7.6 | 68.9 | 0.46 |
+| dev-2x2-untagged | 5 | 18.5 | 165.0 | 1.09 |
+| edge-tags | 1 / 2 / 5 | 0.0 / 0.0 / 0.0 | 0.0 / 0.0 / 0.5 | 0.00 / 0.00 / 2.15 |
+| pots-touching | 1 / 2 / 5 | 0.0 / 0.0 / 0.1 | 0.3 / 0.5 / 1.0 | 0.07 / 0.11 / 0.22 |
+| sheets-every-tray | 1 / 2 / 5 | 0.1 / 0.1 / 0.2 | 0.7 / 1.1 / 1.9 | 0.92 / 1.15 / 2.77 |
+
+**What this shows.** Two runs on one photo give identical outlines, so a tolerance of 0.01 px never
+reports a change for an unchanged photo. A shift of 1 px moves a tray's area by up to 35 mm2 (0.23%) where
+the tray holds plant (development stills) and by under 1 mm2 where it holds little. It grows about in step with the shift (165 mm2 at 5 px).
+
+**What it does not cover.** The stills are quarter-size copies of photos taken for the tray finder
+(little plant at the tray edge, pale sheets and cards on some trays), so the percentages are for the
+fixed cutoff on those pictures only, not for grown plants at the rim of a full tray. It says nothing about outlines found by a changed
+`find_outlines` on a different photo; that is the case the tolerance is there to catch. The
+tolerance of 0.01 px is chosen from the storage format, not from the area changes.

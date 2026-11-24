@@ -1203,6 +1203,77 @@ def test_a_cut_short_reading_whose_photo_is_gone_is_not_marked_as_grown_from_the
     assert segmentation.SOIL_HIDDEN not in tray["warnings"]
 
 
+def _cut_short_reading(monkeypatch, *, change) -> str:
+    """The matted tray read, then its reading saved as it was before #373: soil level 0.045, lower
+    cutoff 0.115 and a grown mask of the leaf without its pale edge (300 x 300 px, 900 mm2).
+    `change` edits each saved tray (a shifted centre, a shifted outline, another ID)."""
+    import numpy as np
+
+    from npec_rig import segmentation
+
+    _matted_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    capture_id = database.captures_by_path([path])[path]["id"]
+    old = np.zeros((4400, 4000), dtype=bool)
+    old[2080:2380, 1327:1627] = True
+    segmentation.save_mask(path, old, segmentation.GROWN_MASK)
+    trays = database.tray_readings(capture_id)["trays"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        change({**t, "grown_lower_cutoff": 0.115, "warnings": []}) for t in trays])
+    return path
+
+
+def test_reprocess_grows_again_a_cut_short_reading_whose_saved_centre_is_1_px_away(monkeypatch) -> None:
+    """The reading saved before #373 above, saved with the tray's centre 1 px from where the photo
+    puts it now (#483, finding 5). Its levels are matched by tray, not by the centre to the pixel:
+    grown again from the floor, 1156 mm2, and marked."""
+    from npec_rig import segmentation
+
+    path = _cut_short_reading(monkeypatch, change=lambda t: {**t, "centre_px": [t["centre_px"][0] + 1.0, t["centre_px"][1]]})
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(0.045), pytest.approx(-0.045))
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+    assert segmentation.SOIL_HIDDEN in tray["warnings"]
+
+
+def test_reprocess_grows_again_a_tray_whose_saved_outline_is_not_where_the_photo_puts_it_now(monkeypatch) -> None:
+    """A grown mask holds plant only inside the outlines found when it was made (#483, finding 7).
+    The saved outline here lies 5 px from the one found now, and the saved mask is the leaf cut
+    short (900 mm2) though its levels are fine: the photo is grown again, 1156 mm2."""
+    def shifted(t: dict) -> dict:
+        return {**t, "grown_soil_level": -0.045, "grown_lower_cutoff": 0.025,
+                "outline_px": [[x + 5.0, y] for x, y in t["outline_px"]]}
+
+    path = _cut_short_reading(monkeypatch, change=shifted)
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+
+
+def test_reprocess_grows_again_a_tray_the_saved_reading_does_not_have(monkeypatch) -> None:
+    """A tray outlined only now has no saved levels and its saved mask was made without it: the
+    photo is grown again, 1156 mm2, not counted inside the old mask (900 mm2)."""
+    path = _cut_short_reading(
+        monkeypatch, change=lambda t: {**t, "tray_id": 99, "grown_soil_level": -0.045, "grown_lower_cutoff": 0.025})
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+
+
+def test_reprocess_keeps_the_reading_of_a_tray_it_cannot_match_when_the_photo_is_gone(monkeypatch) -> None:
+    """With the photo gone, a saved tray is all there is: its saved grown values stay (#483)."""
+    from npec_rig.captures import photo_file
+
+    path = _cut_short_reading(
+        monkeypatch, change=lambda t: {**t, "grown_soil_level": -0.045, "grown_lower_cutoff": 0.025})
+    photo_file(path).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
+
+
 def test_a_locked_rig_db_in_a_2x2_trays_cells_fails_the_reading_instead_of_saving_none(monkeypatch) -> None:
     """#483, finding 6: the lock is met when the tray's A1 bearing is looked up for its cells, then
     ends. The reading must fail with the lock error, so the caller retries (#464); it must not be

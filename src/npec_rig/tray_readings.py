@@ -339,9 +339,13 @@ def _measures(
         mask = segmentation.load_mask(path) if reuse_mask else None
         grown = segmentation.load_mask(path, segmentation.GROWN_MASK) if reuse_mask else None
         levels = _saved_levels(saved, placed) if grown is not None else None
-        if levels and any(_grown_into_leaves(*level) for level in levels) and (photo_file(path) or Path()).is_file():
-            # Read before #373 with the cutoff in the leaves (metrology log 39): grown again.
+        if levels and (photo_file(path) or Path()).is_file() and any(
+                level is None or _grown_into_leaves(*level) for level in levels):
+            # Read before #373 with the cutoff in the leaves (metrology log 39), or a tray whose
+            # outline is not the one the mask was made inside (#483, findings 5 and 7): grown again.
             grown, levels = None, None
+        elif levels:
+            levels = [level or (None, None) for level in levels]
         if mask is None:
             mask, grown, levels = _segment(path, placed, tags)
         elif grown is None:
@@ -383,14 +387,31 @@ def _grown_into_leaves(soil_level: float | None, lower_cutoff: float | None) -> 
     return segmentation.soil_hidden(soil_level) and lower_cutoff is not None and lower_cutoff > segmentation.GROWN_FLOOR + 1e-9
 
 
-def _saved_levels(saved: dict | None, placed: list[TrayPlacement]) -> list[tuple[float | None, float | None]]:
-    """Each placed tray's soil level and lower cutoff from the saved reading `saved`, for a tray
-    there by the same tag at the same centre (to the pixel); (None, None) for one not there."""
-    by_tray = {
-        (t["tray_id"], tuple(round(v) for v in t["centre_px"])): (t.get("grown_soil_level"), t.get("grown_lower_cutoff"))
-        for t in (saved or {}).get("trays", [])
-    }
-    return [by_tray.get((p.tray_id, tuple(round(v) for v in p.centre)), (None, None)) for p in placed]
+# Two outlines of one tray are the same when no corner of one lies more than this from a corner of
+# the other. Reprocess finds the outlines of the same photo again, so with the same code, tags and
+# calibration they are identical to the float: JSON keeps a float exactly. A decision, not a
+# measurement, backed by metrology log 47: 0.01 px is far above float noise (below 1e-9 px) and
+# far below a shift that changes the tray's area (1 px, log 47).
+OUTLINE_SAME_PX = 0.01
+
+
+def _same_outline(a, b) -> bool:
+    return all(min(math.dist(p, q) for q in b) <= OUTLINE_SAME_PX for p in a) and all(
+        min(math.dist(p, q) for q in a) <= OUTLINE_SAME_PX for p in b)
+
+
+def _saved_levels(saved: dict | None, placed: list[TrayPlacement]) -> list[tuple[float | None, float | None] | None]:
+    """Each placed tray's soil level and lower cutoff from the saved reading `saved`: of the saved
+    tray with the same tag whose outline is the same one (`OUTLINE_SAME_PX`); a tray with no tag is
+    matched by its outline alone. None for a tray with no such saved tray: its saved mask was made
+    without it, or inside another outline (#483). Not matched by the centre to the pixel."""
+    old = [t for t in (saved or {}).get("trays", []) if t.get("outline_px")]
+    out = []
+    for p in placed:
+        match = next(
+            (t for t in old if t["tray_id"] == p.tray_id and p.outline is not None and _same_outline(t["outline_px"], p.outline)), None)
+        out.append(None if match is None else (match.get("grown_soil_level"), match.get("grown_lower_cutoff")))
+    return out
 
 
 def _measured_cells(path, mask, grown, placed, tags, scale_field, record) -> list:
