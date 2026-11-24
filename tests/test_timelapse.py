@@ -413,3 +413,13 @@ def test_the_old_slot_fades_over_24_frames_after_a_move_and_is_then_not_drawn(ex
     assert all(abs(a - b) <= 2 for a, b in zip(old(0), (150, 175, 215)))
     assert all(abs(a - b) <= 2 for a, b in zip(old(12), (197.5, 210, 230)))
     assert old(24) == (245, 245, 245)
+
+
+def test_a_tray_cut_off_by_the_photo_edge_keeps_its_frame_and_says_partly_outside_the_photo(experiment):
+    # The Gallery's words for a tray whose outline reaches the photo edge (its PARTLY OUTSIDE label).
+    _photo(experiment, START, warnings=["partly outside the photo"])
+
+    frame = _only_frame(experiment)  # a frame was made: the tray is not skipped
+    words = timelapse.frame_values(database.get_experiment(experiment), frame, method="fixed")["warnings"]
+
+    assert words == ["partly outside the photo"]

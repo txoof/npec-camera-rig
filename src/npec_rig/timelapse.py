@@ -303,7 +303,9 @@ def frame_values(experiment: dict, frame: dict, *, method: str, cell: str | None
         # Names first: they bear on every number of the video.
         "warnings": [w for w in tray["warnings"] if w.startswith("names may be swapped since")]
         + [w for w in tray["warnings"] if w == segmentation.SOIL_HIDDEN and method == "grown"]
-        + ([f"gap: {_duration(frame['gap_minutes'])} without a usable photo"] if frame.get("gap_minutes") else []),
+        + ([f"gap: {_duration(frame['gap_minutes'])} without a usable photo"] if frame.get("gap_minutes") else [])
+        # The Gallery's image label (PARTLY OUTSIDE) comes from this same warning (tray_placement.py).
+        + [w for w in tray["warnings"] if w == "partly outside the photo"],
         # In words as well as on the map: never colour alone.
         "slot": (None if not frame.get("slot") else frame["slot"] if not frame.get("previous_slot")
                  else f"{frame['slot']} (was {frame['previous_slot']})"),
