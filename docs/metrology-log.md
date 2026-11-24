@@ -11624,3 +11624,67 @@ grows with the shift (165 mm2 and 1.09% at 5 px); the largest percentage at 5 px
 fixed cutoff on those pictures only, not for grown plants at the rim of a full tray. It says nothing about outlines found by a changed
 `find_outlines` on a different photo; that is the case the tolerance is there to catch. The
 tolerance of 0.01 px is chosen from the storage format, not from the area changes.
+
+## 48. The grown/fixed flag in the app, and its effect on the data already measured (issue #484, written 2026-11-24, after the flag was coded)
+
+**Label: development check.** #497 (metrology log 46) found that no pixel rule removes the false
+plant grow from leaf cores reads into empty dark pots without also shrinking real dark-leaved
+plants and seedlings (46.7). Aaron's decision was to flag the disagreement instead of correcting
+it (46.8). #484 adds that flag. It uses only the two areas every cell reading already stores, worked
+out when a reading is read back (`tray_readings.capture_readings`), so no past reading needs
+Reprocess and no new pixel is touched.
+
+### 48.1 The rule, and whose decision sets it
+
+A cell is flagged "grown and fixed areas disagree, check the cell" when
+
+```
+grown_area_mm2 > 5 x area_mm2   and   grown_area_mm2 - area_mm2 >= 100 mm2
+```
+
+(`grown_area_mm2` from grow from leaf cores, `area_mm2` from the fixed green cutoff;
+`_grown_far_above_fixed` in `src/npec_rig/tray_readings.py`). Written as "grown more than 5 times
+fixed", a fixed area of 0 still flags. **The factor 5 and the margin 100 mm² are Aaron's decision
+(2026-11-24), not a measurement.** They are informed by, not computed from, the cell-level ratios
+metrology log 46.8 measured, and 46.8's own final paragraph already records the counts this entry
+confirms below. A tray with no cells (a 1 x 1 tray) is tested the same way on its one, whole-tray
+area.
+
+### 48.2 The effect on the data metrology log 46.8 measured
+
+Applying the rule to the cell readings 46.8 used, from production (`ac-testing`): the plant-cell
+readings are its hourly readings of 16 to 23 November 2026, and the false-plant readings are from
+the one harvest on 23 November 2026 (trays 4 to 6):
+
+- Of the 7,989 ordinary plant-cell readings (cells of trays carrying plants, fixed area at least
+  20 mm²), 15 are flagged (0.2%), mostly one dark-leaved plant, tray 7 cell C1.
+- Of the 26 cells of young production reference plants (section 33) and the 27 cells of
+  development's reference seedlings, none is flagged.
+- Of the 33 cells known to hold false plant (the emptied trays of the 23 November harvest), 30 are
+  flagged: 98% of the false grown area in that set. The two misses hold 23 and 24 mm² of false
+  plant, under the 100 mm² margin.
+
+These are the same counts 46.8 reports for R = 5, A = 100 mm²; nothing here is a new measurement.
+It restates them against the rule as coded, run over the stored values, in place of a candidate read
+off a table. `tests/test_tray_readings.py` and `tests/test_exports.py` check the same arithmetic
+against made-up readings, not against production data.
+
+### 48.3 What this does not cover
+
+One harvest (23 November 2026) on one rig, production (`ac-testing`): that chamber's dark pots and
+soil only. Not shown: another pot colour, tray plastic or soil; another crop; another lighting
+program; whether the two areas' ratio drifts over a longer run; cells near the 5x/100 mm² boundary
+outside this sample. Development enters only through the 27 reference crops of section 33 (section
+46.8, "Data used"), not through its own stored hourly readings.
+
+### Wording and where the flag appears
+
+The tray warning line Aaron approved: "N cells where grown and fixed areas disagree (X mm² in
+total). Usually an empty pot. Check the cells." (singular wording, no "in total", for one cell).
+Nothing is removed or corrected; the stored areas are unchanged, and a tray keeps its total area
+with the flagged cells and their summed grown area shown alongside it.
+
+**Source.** Issue #484; the data and its method are metrology log 46 and 46.8 (issue #497, PR
+#500); the flag's code and tests are `src/npec_rig/tray_readings.py`, `src/npec_rig/exports.py`,
+`src/npec_rig/export_fields.yaml`, `tests/test_tray_readings.py`, `tests/test_exports.py`,
+`tests/web/test_gallery_routes.py`, on branch `484-flag-cells`.

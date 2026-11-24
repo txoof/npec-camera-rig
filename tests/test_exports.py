@@ -723,3 +723,61 @@ def test_a_build_cut_off_by_a_restart_shows_as_failed_and_leaves_no_file() -> No
     assert status["finished_at"] is not None
     assert status["error"].startswith("the app restarted")
     assert _experiment_files(experiment) == before
+
+
+def _flag_experiment(trays_cells: dict[int, list[tuple]], *, tray_areas: dict[int, tuple] | None = None) -> dict:
+    """An experiment with one photo whose trays hold cells given as (name, fixed mm2, grown mm2);
+    `tray_areas` gives a tray's own (fixed, grown) area, for a tray with no cells."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Flags")["id"])
+    ids = {i: "NW" for i in trays_cells}
+    path = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), ids, areas={i: 900.0 for i in ids})
+    capture_id = database.captures_by_path([path])[path]["id"]
+    stored = database.tray_readings(capture_id)["trays"]
+    for tray in stored:
+        tray["cells"] = [
+            {"cell": name, "holds": "plant", "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4,
+             "plant_px": 1, "area_mm2": fixed, "plant_centre_px": None, "over_other_cells": False,
+             "segmenter": "green threshold, 0.1", "cell_rule": "rule", "grown_plant_px": None if grown is None else 1,
+             "grown_area_mm2": grown, "grown_plant_centre_px": None, "grown_over_other_cells": False}
+            for name, fixed, grown in trays_cells[tray["tray_id"]]]
+        if tray_areas and tray["tray_id"] in tray_areas:
+            tray["area_mm2"], tray["grown_area_mm2"] = tray_areas[tray["tray_id"]]
+            tray["grown_plant_px"] = 1
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=stored)
+    captures.stop_experiment(experiment["id"])
+    return experiment
+
+
+def test_the_export_marks_a_cell_where_grown_and_fixed_areas_disagree() -> None:
+    """#484: cell-readings.csv names the flag in words for a flagged cell and leaves it empty for
+    an ordinary cell and for a cell with no grown area."""
+    experiment = _flag_experiment({3: [("B1", 54.0, 600.0), ("B2", 120.0, 180.0), ("B3", 0.0, None)]})
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
+    assert [(r["cell"], r["grown_fixed_disagree"]) for r in rows] == [
+        ("B1", "grown and fixed areas disagree, check the cell"), ("B2", ""), ("B3", "")]
+
+
+def test_the_export_counts_flagged_cells_per_tray() -> None:
+    """#484: tray-readings.csv gives each tray's count of flagged cells and their grown area."""
+    experiment = _flag_experiment({
+        3: [("B1", 54.0, 600.0), ("B2", 120.0, 180.0), ("B3", 10.0, 300.0)],
+        4: [("B1", 120.0, 180.0)],
+    })
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["tray-readings.csv"].decode())))
+    assert {r["tray"]: (r["cells_flagged"], r["cells_flagged_grown_area_mm2"]) for r in rows} == {
+        "3": ("2", "900.0"), "4": ("0", "0.0")}
+
+
+def test_a_tray_without_cells_flagged_as_a_whole_counts_as_one_flagged_cell() -> None:
+    """#484: a 1 x 1 tray flagged on its whole area has count 1 and its grown area as the sum."""
+    experiment = _flag_experiment({3: []}, tray_areas={3: (40.0, 700.0)})
+    _export, files = _unzipped(experiment["id"])
+    [row] = csv.DictReader(io.StringIO(files["tray-readings.csv"].decode()))
+    assert (row["cells_flagged"], row["cells_flagged_grown_area_mm2"]) == ("1", "700.0")
