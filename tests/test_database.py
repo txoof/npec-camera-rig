@@ -576,12 +576,12 @@ def test_a_photo_saved_while_rig_db_was_locked_is_added_with_the_calibration_aro
 ) -> None:
     experiment, record = _photo_saved_while_locked(monkeypatch, after="cal-a")
 
-    assert captures.adopt_unrecorded_photos(experiment, {record["date"]}) == 1
+    assert captures.adopt_unrecorded_photos(experiment, {record["date"]}).added == 1
     row = database.captures_by_path([record["path"]])[record["path"]]
     assert row["taken_at"] == record["timestamp"]
     assert row["experiment_id"] == experiment["id"]
     assert row["calibration"] == "cal-a"
-    assert captures.adopt_unrecorded_photos(experiment, {record["date"]}) == 0
+    assert captures.adopt_unrecorded_photos(experiment, {record["date"]}).added == 0
 
 
 def test_a_photo_added_between_two_calibrations_has_none(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -589,3 +589,19 @@ def test_a_photo_added_between_two_calibrations_has_none(monkeypatch: pytest.Mon
 
     captures.adopt_unrecorded_photos(experiment, {record["date"]})
     assert database.captures_by_path([record["path"]])[record["path"]]["calibration"] is None
+
+
+def test_a_damaged_info_file_with_an_unusual_name_does_not_stop_the_others_being_added(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#481 review: a damaged info file whose name is not the rig's HHMMSS_ffffff (a file copied
+    in by hand) is skipped like any damaged one; the photo beside it still gets its row."""
+    experiment, record = _photo_saved_while_locked(monkeypatch, after="cal-a")
+    day = captures.experiments_root() / experiment["folder"] / "stills" / record["date"]
+    (day / "copy.jpg").write_bytes((day / record["filename"]).read_bytes())
+    (day / "copy.json").write_text("")
+
+    adopted = captures.adopt_unrecorded_photos(experiment, {record["date"]})
+
+    assert adopted.added == 1
+    assert record["path"] in database.captures_by_path([record["path"]])

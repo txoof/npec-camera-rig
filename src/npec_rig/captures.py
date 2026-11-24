@@ -10,6 +10,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 
@@ -217,9 +218,14 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
     with health.photo_purpose(purpose):
         array, sensor_metadata = manager._capture_full_res()
     health.record_good_photo()
+    # The uptime record also writes the last tick to rig.db, which waits for a lock as the row
+    # does: both count as the photo's database time (#481).
+    started = time.monotonic()
+    uptime = uptime_record()
+    database_s = time.monotonic() - started
     checks = {
         "lens_check": lens_check(sensor_metadata.get("LensPosition"), focus["lens_position"]),
-        "uptime": uptime_record(),
+        "uptime": uptime,
         "camera_fault": health.camera_fault_check(),
     }
     if purpose in _MEASURED_PURPOSES:
@@ -253,7 +259,12 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         None if owner is None else {k: owner[k] for k in ("id", "uuid", "name", "folder")}
     )
     record = _save_photo(array, sidecar, owner)
+    started = time.monotonic()
     record["capture_id"] = _record_in_database(record)
+    # How long the photo's rig.db writes took after the camera's work, waits for a lock
+    # included: the scheduler tells slots lost to the database from slots lost to a slow camera
+    # by it (#481).
+    record["database_s"] = database_s + time.monotonic() - started
     return array, record
 
 
@@ -295,10 +306,22 @@ def _record_in_database(record: dict) -> int | None:
         return None
 
 
-def adopt_unrecorded_photos(experiment: dict, days: set[str]) -> int:
+class Adopted(NamedTuple):
+    """What `adopt_unrecorded_photos` did: how many rows it added, and when each photo it could
+    not add was taken (UTC, ISO 8601), read from its file name since its info file could not be."""
+
+    added: int
+    unreadable: list[str]
+
+
+def adopt_unrecorded_photos(experiment: dict, days: set[str]) -> Adopted:
     """Add a `capture` row for each of `experiment`'s photos saved in the `days` folders
     (YYYY-MM-DD) without one: saved while rig.db could not be written (#439). Each gets the
-    calibration of the photos around it (`database.calibration_around`). Returns how many."""
+    calibration of the photos around it (`database.calibration_around`).
+
+    A photo whose info file cannot be read (empty or damaged, as after a power cut) is left
+    without a row and logged; the others are still added (#481). A rig.db error is raised, to be
+    tried again later."""
     found = []
     for day in sorted(days):
         prefix = f"experiments/{experiment['folder']}/stills/{day}"
@@ -307,15 +330,36 @@ def adopt_unrecorded_photos(experiment: dict, days: set[str]) -> int:
                 found.append((f"{prefix}/{sidecar.stem}", sidecar))
     known = database.captures_by_path([path for path, _ in found])
     added = 0
+    unreadable = []
     for path, sidecar in found:
         if path in known:
             continue
-        record = json.loads(sidecar.read_text())
-        calibration = database.calibration_around(experiment["id"], record["timestamp"])
-        _record_capture(record, path, calibration=calibration)
+        try:
+            record = json.loads(sidecar.read_text())
+            calibration = database.calibration_around(experiment["id"], record["timestamp"])
+            _record_capture(record, path, calibration=calibration)
+        # Only the file's contents: empty or damaged (ValueError covers JSON and text decoding),
+        # or missing what a row needs. A database error, a refusal from `database._connect`
+        # (RuntimeError) or a failed read (OSError) is raised, to be tried again later.
+        except (ValueError, KeyError, TypeError, AttributeError):
+            logger.exception("Could not add the photo %s to the database: its info file cannot be read", path)
+            taken_at = _taken_at_from_name(sidecar)
+            if taken_at is not None:
+                unreadable.append(taken_at)
+            continue
         logger.warning("Added the photo %s to the database after it was taken", path)
         added += 1
-    return added
+    return Adopted(added, unreadable)
+
+
+def _taken_at_from_name(sidecar: Path) -> str | None:
+    """When a photo was taken, from its day folder and file name (`_save_photo`), in UTC; None
+    for a name the rig did not give it, such as a file copied in by hand."""
+    try:
+        taken = datetime.strptime(f"{sidecar.parent.name} {sidecar.stem}", "%Y-%m-%d %H%M%S_%f")
+    except ValueError:
+        return None
+    return taken.replace(tzinfo=timezone.utc).isoformat()
 
 
 def _record_capture(record: dict, path: str, *, calibration: str | None) -> int:
@@ -332,9 +376,11 @@ def _record_capture(record: dict, path: str, *, calibration: str | None) -> int:
         exposure_us=sensor.get("ExposureTime"),
         analogue_gain=sensor.get("AnalogueGain"),
         flags=record["flags"],
-        clock_synced=record["clock"]["synchronized"],
-        jpeg_quality=record["photo_quality"]["quality"],
-        jpeg_chroma=record["photo_quality"]["chroma"],
+        # Info files from before #344 (2 Nov) have no "clock", from before #359 (5 Nov) no
+        # "photo_quality": a photo added from one later gets None for them (#481).
+        clock_synced=(record.get("clock") or {}).get("synchronized"),
+        jpeg_quality=(record.get("photo_quality") or {}).get("quality"),
+        jpeg_chroma=(record.get("photo_quality") or {}).get("chroma"),
         ae_state=AE_STATES.get(sensor.get("AeState")),
     )
 
