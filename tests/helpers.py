@@ -399,31 +399,63 @@ def turned_tray_photo(experiment_id: int, taken, tray_id: int = 4, calibration: 
 
 
 @contextmanager
-def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None) -> Iterator[None]:
+def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, readers_too: bool = False) -> Iterator[None]:
     """Another connection holds rig.db's write lock for `seconds`, or until `until` is set, as
-    Reprocess or a purge does (#439)."""
+    Reprocess or a purge does (#439). With `readers_too`, reads wait as well (the lock at a commit)."""
     from npec_rig import database
     from npec_rig.settings import db_path
 
     database.list_experiments()  # the file exists and is migrated before the lock is taken
     taken = threading.Event()
+    failed: list[BaseException] = []
 
     def hold() -> None:
         conn = sqlite3.connect(db_path(), isolation_level=None)
-        conn.execute("BEGIN IMMEDIATE")
-        taken.set()
-        if until is None:
-            time.sleep(seconds)
-        else:
-            until.wait(seconds)
-        conn.execute("COMMIT")
-        conn.close()
+        held = False
+        try:
+            if readers_too:
+                # rig.db is in WAL mode (images.py), where nothing blocks a reader: the rollback
+                # journal does. The switch fails (the mode stays "wal") while another connection is open.
+                mode = conn.execute("PRAGMA journal_mode=DELETE").fetchone()[0]
+                if mode != "delete":
+                    raise RuntimeError(f"rig.db stayed in journal mode {mode!r}: another connection is open")
+            conn.execute("BEGIN EXCLUSIVE" if readers_too else "BEGIN IMMEDIATE")
+            held = True
+            taken.set()
+            if until is None:
+                time.sleep(seconds)
+            else:
+                until.wait(seconds)
+        except BaseException as exc:
+            failed.append(exc)
+            taken.set()
+        finally:
+            try:
+                if held:
+                    conn.execute("COMMIT")
+            finally:
+                try:
+                    if readers_too:
+                        for _ in range(50):  # another connection may still be closing
+                            back = conn.execute("PRAGMA journal_mode=WAL").fetchone()[0]  # always back, whatever happened
+                            if back == "wal":
+                                break
+                            time.sleep(0.1)
+                        if back != "wal":
+                            failed.append(RuntimeError(f"rig.db stayed in journal mode {back!r} after the lock"))
+                finally:
+                    conn.close()
 
     thread = threading.Thread(target=hold)
     thread.start()
-    taken.wait(5)
+    if not taken.wait(5):
+        raise RuntimeError("the rig.db lock was not taken within 5 s")
+    if failed:
+        thread.join()
+        raise failed[0]
     try:
         yield
     finally:
-        if until is None:
-            thread.join()
+        thread.join()  # the holder ends when `until` is set or after `seconds`, so this always returns
+        if failed:
+            raise failed[0]

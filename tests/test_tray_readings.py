@@ -1019,18 +1019,10 @@ def test_each_tray_and_cell_gets_its_area_by_both_methods_each_named(monkeypatch
     assert tray_readings.photo_readings(path) == readings
 
 
-def test_reprocess_counts_both_methods_again_from_their_saved_masks_without_the_photo(monkeypatch) -> None:
-    """With the photo gone, both areas come from the saved masks under a twin rebuilt at 10.0 x
-    5.00 / 4.90 px/mm (as in tests/test_experiments.py): 900 x (4.90 / 5.00)^2 = 864.4 mm2 by the
-    fixed green cutoff, 1156 x (4.90 / 5.00)^2 = 1110.2 mm2 by grow from leaf cores, whose soil
-    level and cutoff are kept from the first reading."""
+def _rebuilt_twin() -> None:
+    """The calibration's twin rebuilt at 10.0 x 5.00 / 4.90 px/mm, as in tests/test_experiments.py."""
     from npec_rig.calibration import ScaleField
-    from npec_rig.captures import photo_file
 
-    _soil_tray_scene(monkeypatch)
-    path = _photo()
-    tray_readings.read_photo(path)
-    photo_file(path).unlink()
     stem = FIXTURE["calibration"]
     save_calibration(
         CalibrationArtifact(created_at="2026-10-26T15:00:00+00:00", scale_field=ScaleField((1.0, 0.0, 0.0), 10.0 * 5.00 / 4.90, 0.0),
@@ -1038,18 +1030,72 @@ def test_reprocess_counts_both_methods_again_from_their_saved_masks_without_the_
         stem="20261026T150000000001", promote=False,
     )
 
+
+def _saved(path: str) -> dict:
+    return database.tray_readings(database.captures_by_path([path])[path]["id"])
+
+
+def test_reprocess_counts_both_methods_again_from_their_saved_masks_without_the_photo(monkeypatch) -> None:
+    """With the photo gone and nothing else changed, both areas come from the saved masks: 900 mm2
+    by the fixed green cutoff, 1156 mm2 by grow from leaf cores (340 x 340 px at 10 px/mm), whose
+    soil level and cutoff are kept from the first reading (#483: the fast path)."""
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)
+    assert tray["grown_method"] == "grow from leaf cores, core 0.07"
+    assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(-0.045), pytest.approx(0.025))
+    cells = {c["cell"]: c for c in tray["cells"]}
+    assert (cells["B3"]["area_mm2"], cells["B3"]["grown_area_mm2"]) == (pytest.approx(900, rel=0.01), pytest.approx(1156, rel=0.01))
+
+
+def test_reprocess_gives_the_same_areas_under_a_rebuilt_twin_when_the_photo_is_there(monkeypatch) -> None:
+    """The twin rebuilt at 10.0 x 5.00 / 4.90 px/mm: 900 x (4.90 / 5.00)^2 = 864.4 mm2 by the fixed
+    green cutoff, 1156 x (4.90 / 5.00)^2 = 1110.2 mm2 by grow from leaf cores, cells too, whether
+    the saved masks are counted again or the photo is grown again (#483)."""
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    _rebuilt_twin()
+
     [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
     assert tray["area_mm2"] == pytest.approx(864.4, rel=0.01)  # 1%: JPEG blurs the edges
     assert tray["grown_area_mm2"] == pytest.approx(1110.2, rel=0.01)
-    assert tray["grown_method"] == "grow from leaf cores, core 0.07"
     assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(-0.045), pytest.approx(0.025))
     cells = {c["cell"]: c for c in tray["cells"]}
     assert (cells["B3"]["area_mm2"], cells["B3"]["grown_area_mm2"]) == (pytest.approx(864.4, rel=0.01), pytest.approx(1110.2, rel=0.01))
 
 
-def test_reprocess_of_a_photo_read_before_grow_from_leaf_cores_keeps_its_area_with_the_photo_gone(monkeypatch) -> None:
-    """A photo read before #363 has only the fixed cutoff's mask. With the photo gone, Reprocess
-    counts that mask again (900 mm2) and has no area by grow from leaf cores."""
+def test_reprocess_counts_the_saved_masks_again_under_a_rebuilt_twin_when_the_photo_is_gone(monkeypatch) -> None:
+    """The masks do not depend on the calibration and the outlines are the saved ones, so with the
+    twin rebuilt at 10.0 x 5.00 / 4.90 px/mm and the photo gone the photo is counted again from its
+    masks under it: 900 x (4.90 / 5.00)^2 = 864.4 mm2 by the fixed green cutoff, 1156 x (4.90 / 5.00)^2
+    = 1110.2 mm2 by grow from leaf cores, cells too (#483, Aaron 2026-11-24)."""
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+    _rebuilt_twin()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(864.4, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_area_mm2"] == pytest.approx(1110.2, rel=0.01)
+    cells = {c["cell"]: c for c in tray["cells"]}
+    assert (cells["B3"]["area_mm2"], cells["B3"]["grown_area_mm2"]) == (pytest.approx(864.4, rel=0.01), pytest.approx(1110.2, rel=0.01))
+
+
+def test_reprocess_of_a_photo_read_before_grow_from_leaf_cores_leaves_its_reading_as_it_was_with_the_photo_gone(monkeypatch) -> None:
+    """Saved with the fixed cutoff's mask only and no grown mask, as before #363 (here made by
+    deleting the grown mask), the photo gone: nothing can be redone completely. The reading stays as
+    it was, with its saved areas, and Reprocess says why (#483)."""
     from npec_rig import segmentation
     from npec_rig.captures import photo_file
 
@@ -1058,10 +1104,12 @@ def test_reprocess_of_a_photo_read_before_grow_from_leaf_cores_keeps_its_area_wi
     tray_readings.read_photo(path)
     photo_file(path).unlink()
     segmentation.mask_file(path, segmentation.GROWN_MASK).unlink()
+    before = _saved(path)
 
-    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
-    assert tray["area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
-    assert (tray["grown_method"], tray["grown_area_mm2"]) == (None, None)
+    with pytest.raises(tray_readings.NotReprocessed, match="saved mask"):
+        tray_readings.read_photo(path, reuse_mask=True)
+    assert _saved(path) == before
+    assert before["trays"][0]["area_mm2"] == pytest.approx(900, rel=0.01)  # the saved values are still there
 
 
 # Blue mats over the soil (#373, metrology log 39): the pixels left beside the mats outnumber the
@@ -1128,6 +1176,394 @@ def test_reprocess_segments_again_a_photo_read_with_its_cutoff_in_the_leaves(mon
     assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
     assert tray["grown_lower_cutoff"] == pytest.approx(-0.045)
     assert segmentation.SOIL_HIDDEN in tray["warnings"]
+
+
+def _cut_short_reading(monkeypatch, *, change) -> str:
+    """The matted tray read, then its reading saved as it was before #373: soil level 0.045, lower
+    cutoff 0.115 and a grown mask of the leaf without its pale edge (300 x 300 px, 900 mm2).
+    `change` edits each saved tray (a shifted centre, a shifted outline, another ID)."""
+    import numpy as np
+
+    from npec_rig import segmentation
+
+    _matted_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    capture_id = database.captures_by_path([path])[path]["id"]
+    old = np.zeros((4400, 4000), dtype=bool)
+    old[2080:2380, 1327:1627] = True
+    segmentation.save_mask(path, old, segmentation.GROWN_MASK)
+    trays = database.tray_readings(capture_id)["trays"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        change({**t, "grown_lower_cutoff": 0.115, "warnings": []}) for t in trays])
+    return path
+
+
+def test_reprocess_grows_again_a_cut_short_reading_whose_saved_centre_is_1_px_away(monkeypatch) -> None:
+    """The reading saved before #373 above, saved with the tray's centre 1 px from where the photo
+    puts it now (#483, finding 5). Its levels are matched by tray, not by the centre to the pixel:
+    grown again from the floor, 1156 mm2, and marked."""
+    from npec_rig import segmentation
+
+    path = _cut_short_reading(monkeypatch, change=lambda t: {**t, "centre_px": [t["centre_px"][0] + 1.0, t["centre_px"][1]]})
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(0.045), pytest.approx(-0.045))
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+    assert segmentation.SOIL_HIDDEN in tray["warnings"]
+
+
+def test_reprocess_grows_again_a_tray_whose_saved_outline_is_not_where_the_photo_puts_it_now(monkeypatch) -> None:
+    """A grown mask holds plant only inside the outlines found when it was made (#483, finding 7).
+    The saved outline here lies 5 px from the one found now, and the saved mask is the leaf cut
+    short (900 mm2) though its levels are fine: the photo is grown again, 1156 mm2."""
+    def shifted(t: dict) -> dict:
+        return {**t, "grown_soil_level": -0.045, "grown_lower_cutoff": 0.025,
+                "outline_px": [[x + 5.0, y] for x, y in t["outline_px"]]}
+
+    path = _cut_short_reading(monkeypatch, change=shifted)
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+
+
+def test_reprocess_grows_again_a_tray_the_saved_reading_does_not_have(monkeypatch) -> None:
+    """A tray outlined only now has no saved levels and its saved mask was made without it: the
+    photo is grown again, 1156 mm2, not counted inside the old mask (900 mm2)."""
+    path = _cut_short_reading(
+        monkeypatch, change=lambda t: {**t, "tray_id": 99, "grown_soil_level": -0.045, "grown_lower_cutoff": 0.025})
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+
+
+def test_reprocess_counts_the_saved_mask_again_for_a_matched_tray_when_the_photo_is_gone(monkeypatch) -> None:
+    """With the photo gone, a tray that is matched to its saved tray (same tag, same outline) has
+    its saved grown mask counted again: 900 mm2, the leaf without its pale edge (#483)."""
+    from npec_rig.captures import photo_file
+
+    path = _cut_short_reading(
+        monkeypatch, change=lambda t: {**t, "grown_soil_level": -0.045, "grown_lower_cutoff": 0.025})
+    photo_file(path).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
+
+
+def test_reprocess_leaves_the_reading_as_it_was_when_a_tray_cannot_be_matched_with_the_photo_gone(monkeypatch) -> None:
+    """The saved tray carries tag 99, the stored tags put tag 5 in its outline now, and the photo
+    is gone: the old grown mask is not counted inside that outline and nothing is saved (#483)."""
+    from npec_rig.captures import photo_file
+
+    path = _cut_short_reading(
+        monkeypatch, change=lambda t: {**t, "tray_id": 99, "grown_soil_level": -0.045, "grown_lower_cutoff": 0.025})
+    photo_file(path).unlink()
+    before = _saved(path)
+
+    with pytest.raises(tray_readings.NotReprocessed, match="same outline"):
+        tray_readings.read_photo(path, reuse_mask=True)
+    assert _saved(path) == before
+
+
+def test_a_reading_saved_before_373_keeps_its_mark_and_values_when_reprocess_cannot_grow_it_again(monkeypatch) -> None:
+    """Saved before #373 (soil 0.045, cutoff 0.115, the leaf without its pale edge, 900 mm2) with
+    the mark "soil hidden: usual leaf cutoff used" it carried, the photo gone: it cannot be counted
+    again from its mask (the cutoff is in the leaves) and cannot be grown again. Nothing changes:
+    values and mark stay (#483, third review finding 2)."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    path = _cut_short_reading(monkeypatch, change=lambda t: {**t, "warnings": [segmentation.SOIL_HIDDEN]})
+    photo_file(path).unlink()
+    before = _saved(path)
+
+    with pytest.raises(tray_readings.NotReprocessed, match="before #373"):
+        tray_readings.read_photo(path, reuse_mask=True)
+    assert _saved(path) == before
+    assert before["trays"][0]["warnings"] == [segmentation.SOIL_HIDDEN]
+
+
+def test_reprocess_matches_a_reading_saved_before_331_by_tag_and_centre(monkeypatch) -> None:
+    """#483, review finding 4: a reading saved before #331 has no outline. Its trays are matched by
+    tag and centre, as they were: the mask (900 mm2, the leaf without its pale edge, levels fine)
+    is counted again; a regrown mask would read 1156 mm2."""
+    path = _cut_short_reading(
+        monkeypatch, change=lambda t: {**t, "outline_px": None, "grown_soil_level": -0.045, "grown_lower_cutoff": 0.025})
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
+    assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(-0.045), pytest.approx(0.025))
+
+
+def test_reprocess_recounts_no_tray_while_a_touching_neighbour_is_not_matched(monkeypatch) -> None:
+    """Plant in the strip two touching trays share counts for the tray with the nearer centre, so a
+    tray is recounted only with every tray matched. Tray 7's saved reading carries tag 8, so it is
+    not matched; with the photo gone nothing is saved for either tray (#483, `_two_touching_trays_scene`)."""
+    from npec_rig.captures import photo_file
+
+    _two_touching_trays_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    capture_id = database.captures_by_path([path])[path]["id"]
+    saved = database.tray_readings(capture_id)["trays"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, "tray_id": 8} if t["tray_id"] == 7 else t for t in saved])
+    photo_file(path).unlink()
+    before = _saved(path)
+
+    with pytest.raises(tray_readings.NotReprocessed, match="same outline"):
+        tray_readings.read_photo(path, reuse_mask=True)
+    assert _saved(path) == before
+
+
+def test_reprocess_recounts_touching_trays_from_their_masks_when_every_tray_is_matched(monkeypatch) -> None:
+    """The same photo with its trays unchanged, the photo gone: both trays are recounted, and the
+    plant in the strip they share is counted once, 1500 mm2 in all, 759 and 741 mm2 (the numbers of
+    `test_plant_in_the_strip_touching_trays_share_is_counted_once_for_the_nearer_tray`)."""
+    from npec_rig.captures import photo_file
+
+    _two_touching_trays_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+
+    trays = {t["tray_id"]: t for t in tray_readings.read_photo(path, reuse_mask=True)["trays"]}
+    assert trays[5]["area_mm2"] == pytest.approx(759, rel=0.01)  # 1%: JPEG blur
+    assert trays[7]["area_mm2"] == pytest.approx(741, rel=0.01)
+    assert trays[5]["grown_area_mm2"] + trays[7]["grown_area_mm2"] == pytest.approx(1500, rel=0.02)
+
+
+def test_reprocess_grows_a_photo_again_whose_saved_tray_says_its_grown_area_was_not_worked_out(monkeypatch) -> None:
+    """A reading saved with "grown area not worked out" and no grown values is not recounted from
+    its masks, so a second Reprocess does not repeat the first one's gap: with the photo there it
+    is grown again, 1156 mm2, and the mark is gone (#483, third review finding 1)."""
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    capture_id = database.captures_by_path([path])[path]["id"]
+    trays = database.tray_readings(capture_id)["trays"]
+    unset = {"grown_method": None, "grown_area_mm2": None, "grown_plant_px": None, "grown_plant_centre_px": None,
+             "grown_soil_level": None, "grown_lower_cutoff": None}
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, **unset, "warnings": ["grown area not worked out"]} for t in trays])
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+    assert "grown area not worked out" not in tray["warnings"]
+
+
+def test_reprocess_counts_a_reading_with_its_cutoff_at_the_floor_again_and_marks_it_once(monkeypatch) -> None:
+    """The matted tray read with the cutoff at the floor, the photo gone: counted again from its
+    masks, 1156 mm2, with the mark "usual leaf cutoff used" once."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    _matted_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["warnings"].count(segmentation.SOIL_HIDDEN) == 1
+
+
+def test_reprocess_that_grows_again_and_then_meets_a_locked_rig_db_leaves_the_reading_and_no_half_pair_of_masks(monkeypatch) -> None:
+    """Fifth review of #483: the reading and its masks must never be a mixed pair. The reading saved
+    before #373 is grown again from the photo and the new reading cannot be saved because rig.db is
+    locked for writing. The saved reading stays. Both old masks are deleted before the save, so
+    neither is left to be counted against it: a Reprocess with the photo gone says "a saved mask is
+    missing" and changes nothing, and no temporary file is left."""
+    import sqlite3
+
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    path = _cut_short_reading(monkeypatch, change=lambda t: t)
+    files = [segmentation.mask_file(path), segmentation.mask_file(path, segmentation.GROWN_MASK)]
+    before = _saved(path)
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.3)
+
+    with lock_held(), pytest.raises(sqlite3.OperationalError, match="locked"):
+        tray_readings.read_photo(path, reuse_mask=True)
+    assert _saved(path) == before
+    assert [f.exists() for f in files] == [False, False]
+    assert not list(files[0].parent.glob("*.staged"))
+    photo_file(path).unlink()
+    with pytest.raises(tray_readings.NotReprocessed, match="saved mask"):
+        tray_readings.read_photo(path, reuse_mask=True)
+    assert _saved(path) == before
+
+
+def test_a_read_that_cannot_delete_an_old_mask_leaves_no_temporary_files(monkeypatch) -> None:
+    """Sixth review of #483: if an old mask cannot be deleted (here its place holds a folder), the
+    error is raised and the new masks written to temporary files before it are removed."""
+    from npec_rig import segmentation
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    blocked = segmentation.mask_file(path)
+    (blocked).mkdir(parents=True)
+    (blocked / "in-the-way").write_bytes(b"x")
+
+    with pytest.raises(OSError):
+        tray_readings.read_photo(path)
+    assert not list(blocked.parent.glob("*.staged"))
+
+
+def test_a_recount_with_the_photo_gone_leaves_both_saved_masks_in_place_byte_for_byte(monkeypatch) -> None:
+    """With the photo gone the saved masks are all that is left of it: counting them again saves the
+    reading and never deletes, rewrites or renames a mask (#483)."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+    files = [segmentation.mask_file(path), segmentation.mask_file(path, segmentation.GROWN_MASK)]
+    stamps = [(f.read_bytes(), f.stat().st_mtime_ns, f.stat().st_ino) for f in files]
+
+    tray_readings.read_photo(path, reuse_mask=True)
+    assert [(f.read_bytes(), f.stat().st_mtime_ns, f.stat().st_ino) for f in files] == stamps
+    assert not list(files[0].parent.glob("*.staged"))
+
+
+def test_reprocess_grows_the_photo_again_when_a_saved_mask_cannot_be_read(monkeypatch) -> None:
+    """A saved mask truncated or corrupt: with the photo there, it is grown again, 1156 mm2 (the
+    matted tray's leaf and its pale edge, 340 x 340 px at 10 px/mm), as a new read (#483)."""
+    from npec_rig import segmentation
+
+    _matted_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    segmentation.mask_file(path).write_bytes(b"not a png")
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["area_mm2"] is not None
+
+
+def test_reprocess_does_not_count_a_reading_saved_with_its_cells_not_worked_out(monkeypatch) -> None:
+    """A tray saved with "cells not worked out" has no cells to count again: with the photo gone
+    nothing is saved (#483, fifth review)."""
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    capture_id = database.captures_by_path([path])[path]["id"]
+    saved = database.tray_readings(capture_id)["trays"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, "warnings": ["cells not worked out"]} for t in saved])
+    photo_file(path).unlink()
+    before = _saved(path)
+
+    with pytest.raises(tray_readings.NotReprocessed, match="not worked out"):
+        tray_readings.read_photo(path, reuse_mask=True)
+    assert _saved(path) == before
+
+
+def test_starting_reprocess_removes_only_old_temporary_mask_files(monkeypatch) -> None:
+    """A kill between writing a new mask and renaming it leaves `*.staged` beside the masks. When
+    Reprocess starts one older than an hour (STAGED_MAX_AGE_S: no commit takes more than seconds) is
+    removed, whatever process left it; a fresh one, which may be a reading in progress in another
+    process, stays; a file named in no usual way neither crashes the sweep nor is removed if fresh."""
+    import os
+    import time
+
+    from npec_rig import segmentation
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    folder = segmentation.mask_file(path).parent
+    folder.mkdir(parents=True, exist_ok=True)
+    old = folder / f"{Path(path).name}.png.4242.1.staged"
+    fresh = folder / f"{Path(path).name}.png.4243.1.staged"
+    odd = folder / "x.staged"
+    for f in (old, fresh, odd):
+        f.write_bytes(b"x")
+    two_hours_ago = time.time() - 2 * 3600
+    os.utime(old, (two_hours_ago, two_hours_ago))
+    experiment = database.create_experiment(uuid="u-483s", created_at="2026-11-06T00:00:00+00:00")
+
+    tray_readings.start_reprocess(experiment["id"])
+    assert (old.exists(), fresh.exists(), odd.exists()) == (False, True, True)
+
+
+def test_reprocess_does_not_count_a_matched_saved_tray_that_has_no_levels(monkeypatch) -> None:
+    """Fourth review of #483: tray 7 was saved with no areas and no levels (a reading made when its
+    outline could not be measured), tray 5 is complete. With the photo gone the masks are not
+    counted again for tray 7: its grown area would be saved with no cutoff. Nothing is saved."""
+    from npec_rig.captures import photo_file
+
+    _two_touching_trays_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    capture_id = database.captures_by_path([path])[path]["id"]
+    saved = database.tray_readings(capture_id)["trays"]
+    empty = {"area_mm2": None, "plant_px": None, "plant_centre_px": None, "segmenter": None, "calibration": None,
+             "grown_method": None, "grown_area_mm2": None, "grown_plant_px": None, "grown_plant_centre_px": None,
+             "grown_soil_level": None, "grown_lower_cutoff": None}
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, **empty, "cells": []} if t["tray_id"] == 7 else t for t in saved])
+    photo_file(path).unlink()
+    before = _saved(path)
+
+    with pytest.raises(tray_readings.NotReprocessed, match="levels"):
+        tray_readings.read_photo(path, reuse_mask=True)
+    assert _saved(path) == before
+
+
+def test_a_locked_rig_db_in_a_2x2_trays_cells_fails_the_reading_instead_of_saving_none(monkeypatch) -> None:
+    """#483, finding 6: the lock is met when the tray's A1 bearing is looked up for its cells, then
+    ends. The reading must fail with the lock error, so the caller retries (#464); it must not be
+    saved with no cells and no mark. The tags are searched first and stored (images.py); the lock
+    is taken the moment they are stored, so the bearing is the first thing to read rig.db. The
+    lock stops reads too, as the rollback journal's does."""
+    import sqlite3
+    import time
+
+    from npec_rig import images
+
+    experiment = database.create_experiment(uuid="u-483", created_at="2026-11-06T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2026-11-06T00:00:00+00:00", folder="u-483")
+    tag = _turned_tag(80, 1825.0, 2230.0, 45.0)
+    _cells_scene(monkeypatch, [tag], [(985, 2902, 1285, 3202)])
+    path = _photo()
+
+    gave_up = threading.Event()
+
+    class FirstLockFailure(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            if "was locked" in record.getMessage():
+                gave_up.set()
+
+    def lock_once_stored() -> None:
+        while images.stored_tag_detections(path.removeprefix("rig/")) is None:
+            time.sleep(0.001)
+        with lock_held(until=gave_up, readers_too=True):
+            gave_up.wait(10)
+
+    locker = threading.Thread(target=lock_once_stored)
+
+    def detect_then_lock(frame):
+        if not locker.is_alive() and locker.ident is None:  # once: the tags are searched once per photo
+            locker.start()
+        return [tag]
+
+    handler = FirstLockFailure()
+    logging.getLogger("npec_rig.database").addHandler(handler)
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.3)
+    monkeypatch.setattr(photo_tags, "detect_tags", detect_then_lock)
+    try:
+        with pytest.raises(sqlite3.OperationalError, match="locked"):
+            tray_readings.read_photo(path)
+    finally:
+        gave_up.set()
+        locker.join(timeout=15)
+        logging.getLogger("npec_rig.database").removeHandler(handler)
+    assert tray_readings.photo_readings(path) is None
 
 
 def test_a_photo_whose_reading_met_a_locked_rig_db_is_read_again(monkeypatch, tmp_path) -> None:
