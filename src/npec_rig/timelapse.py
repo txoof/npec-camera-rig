@@ -444,7 +444,10 @@ def draw_frame(frame: dict, values: dict, *, mask: str | None = None, cell: str 
     memory of a full-size decode."""
     homography, (w, h) = upright(frame["tray"]) if cell is None else cell_upright(frame["tray"], cell)
     path = frame["capture"]["path"]
-    with Image.open(captures.photo_file(path)) as photo:
+    file = captures.photo_file(path)
+    if file is None:
+        raise FileNotFoundError(f"the photo {path} is not on disk")
+    with Image.open(file) as photo:
         full_w, _ = photo.size
         photo.draft("RGB", (photo.width // 2, photo.height // 2))
         rgb = np.asarray(photo.convert("RGB"))
@@ -736,9 +739,10 @@ def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | Non
             try:
                 values = frame_values(experiment, frame, method=request["method"], cell=request.get("cell"))
                 image = draw_frame(frame, values, mask=mask, cell=request.get("cell"))
-            except MemoryError:
-                raise  # the memory limit: the next frame would fail the same way
-            except Exception as exc:  # noqa: BLE001 -- one bad photo leaves its frame out, in words
+            except OSError as exc:
+                # The photo is not on disk, or cannot be decoded: PIL raises OSError for a file it
+                # cannot identify or one cut short. Any other error (the memory limit, rig.db, the
+                # code) is not the photo's and fails the video, in its own words (_failure).
                 unreadable.append(_left_out(frame["capture"], exc))
                 done(i + 1, unreadable)
                 continue
@@ -848,6 +852,16 @@ def _make(request: dict, folder: str) -> None:
             # A half-made video is never left behind (#503); ffmpeg has stopped by now (_encode).
             for part in out.glob("*.part"):
                 part.unlink(missing_ok=True)
-            _write_progress(out, {"state": "failed", "request": request, "error": str(exc) or type(exc).__name__})
+            _write_progress(out, {"state": "failed", "request": request, "error": _failure(exc)})
         except OSError:
             pass
+
+
+def _failure(exc: BaseException) -> str:
+    """Why a video failed, in words: ours as they are, the memory limit as such (a bare MemoryError
+    has no words of its own; OpenCV's is a cv2.error), anything else by its kind and message."""
+    if isinstance(exc, MemoryError) or (isinstance(exc, cv2.error) and exc.code == cv2.Error.StsNoMem):
+        return f"The video ran out of memory: it may use at most {MEMORY_LIMIT_BYTES / 1024**3:.0f} GB."
+    if type(exc) is RuntimeError:
+        return str(exc)
+    return f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__

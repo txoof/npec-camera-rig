@@ -628,6 +628,38 @@ def test_all_trays_leaves_out_a_tray_whose_every_photo_is_unreadable(experiment)
 
 
 @needs_ffmpeg
+def test_a_photo_missing_from_disk_is_left_out_and_its_reason_says_so(experiment):
+    from npec_rig import captures
+    from tests.helpers import turned_tray_photo
+
+    for i in range(2):
+        turned_tray_photo(experiment, START + i * timedelta(hours=1))
+    gone = database.captures_for_experiment(experiment)[0]["path"]
+    captures.photo_file(gone).unlink()
+
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "ready", progress
+    assert [p["path"] for p in progress["unreadable_photos"]] == [gone]
+    assert "not on disk" in progress["unreadable_photos"][0]["reason"]
+
+
+@needs_ffmpeg
+def test_a_frame_failing_for_a_reason_other_than_its_photo_fails_the_video_and_names_it(experiment):
+    # A reading whose stored area is not a number: its label's words fail before its photo is
+    # opened, a fault of the data or the code, not of the photo.
+    _photo(experiment, START, area="not a number")
+
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "failed"
+    assert progress["error"].startswith("TypeError: ")
+    assert "could not be read" not in progress["error"]
+
+
+@needs_ffmpeg
 @pytest.mark.parametrize("spoil", ["junk", "half written"])
 def test_all_trays_counts_a_bad_photo_of_many_trays_once(experiment, spoil):
     import zipfile
