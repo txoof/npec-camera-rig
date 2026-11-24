@@ -671,13 +671,24 @@ def _write_progress(folder: Path, state: dict) -> None:
     os.replace(tmp, folder / "progress.json")
 
 
-def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | None, target: Path, done) -> None:
-    """Draw each of `frames` and pipe it to ffmpeg, writing the video `target`. `done(i)` is called
-    after each frame. Frames never touch the disk."""
-    encoder = None
+def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | None, target: Path, done) -> tuple[int, list[dict]]:
+    """Draw each of `frames` and pipe it to ffmpeg, writing the video `target`. A photo that cannot
+    be read or drawn is left out and the video goes on (Aaron, #503). `done(i, unreadable)` is
+    called after each frame. The frames drawn, and the photos left out: path and reason. Frames
+    never touch the disk."""
+    encoder, drawn, unreadable = None, 0, []
     for i, frame in enumerate(frames):
-        values = frame_values(experiment, frame, method=request["method"], cell=request.get("cell"))
-        image = draw_frame(frame, values, mask=mask, cell=request.get("cell"))
+        try:
+            values = frame_values(experiment, frame, method=request["method"], cell=request.get("cell"))
+            image = draw_frame(frame, values, mask=mask, cell=request.get("cell"))
+        except MemoryError:
+            raise  # the memory limit: the next frame would fail the same way
+        except Exception as exc:  # noqa: BLE001 -- one bad photo leaves its frame out, in words
+            logger.warning("Time lapse frame of %s left out: %s", frame["capture"]["path"], exc)
+            unreadable.append({"path": frame["capture"]["path"], "taken_at": frame["capture"]["taken_at"],
+                               "reason": str(exc) or type(exc).__name__})
+            done(i + 1, unreadable)
+            continue
         if encoder is None:
             encoder = subprocess.Popen(
                 ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
@@ -686,10 +697,12 @@ def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | Non
                  "-f", "mp4", str(target)],
                 stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         encoder.stdin.write(image.tobytes())
-        done(i + 1)
+        drawn += 1
+        done(i + 1, unreadable)
     _, err = encoder.communicate()
     if encoder.returncode != 0:
         raise RuntimeError(f"ffmpeg failed: {err.decode(errors='replace')[-300:]}")
+    return drawn, unreadable
 
 
 def _make(request: dict, folder: str) -> None:
@@ -706,9 +719,10 @@ def _make(request: dict, folder: str) -> None:
         every = request["tray_id"] == ALL_TRAYS
         trays = (experiment_trays(request["experiment_id"], start=datetime.fromisoformat(request["start"]),
                                   end=datetime.fromisoformat(request["end"])) if every else [request["tray_id"]])
-        made, skipped = [], 0
+        made, skipped, unreadable = [], 0, []
         for n, tray_id in enumerate(trays, start=1):
-            state = {"state": "choosing", "request": request, "tray": n, "trays": len(trays), "skipped": skipped}
+            state = {"state": "choosing", "request": request, "tray": n, "trays": len(trays), "skipped": skipped,
+                     "unreadable": len(unreadable), "unreadable_photos": unreadable}
             _write_progress(out, state)
             chosen = choose_frames(
                 request["experiment_id"], tray_id=tray_id, start=datetime.fromisoformat(request["start"]),
@@ -720,8 +734,11 @@ def _make(request: dict, folder: str) -> None:
             state = {**state, "state": "drawing", "tray_id": tray_id, "frames": len(frames), "done": 0, "skipped": skipped,
                      "estimated_bytes": estimate_bytes(request)}
             target = out / f"tray-{tray_id}.part"
-            _encode(experiment, frames, request, mask, target, lambda i: _write_progress(out, {**state, "done": i}))
-            made.append((tray_id, target, len(frames)))
+            before = list(unreadable)
+            drawn, left_out = _encode(experiment, frames, request, mask, target, lambda i, bad: _write_progress(
+                out, {**state, "done": i, "unreadable": len(before) + len(bad), "unreadable_photos": before + bad}))
+            unreadable = before + left_out
+            made.append((tray_id, target, drawn))
         if not made:
             _write_progress(out, {"state": "failed", "request": request,
                                   "error": f"No usable photo of {'any tray' if every else 'this tray'} in this time."})
@@ -739,7 +756,8 @@ def _make(request: dict, folder: str) -> None:
             os.replace(made[0][1], out / "video.mp4")
             final = out / "video.mp4"
         _write_progress(out, {"state": "ready", "request": request, "frames": frames_made, "done": frames_made,
-                              "skipped": skipped, "trays": len(made), "bytes": final.stat().st_size})
+                              "skipped": skipped, "unreadable": len(unreadable), "unreadable_photos": unreadable,
+                              "trays": len(made), "bytes": final.stat().st_size})
     except Exception as exc:  # noqa: BLE001 -- every failure is shown on the page, in words
         logger.exception("Time lapse %s failed", out.name)
         try:

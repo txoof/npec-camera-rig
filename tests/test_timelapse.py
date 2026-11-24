@@ -1,4 +1,8 @@
 """Time lapse videos (#64): which photos become frames, what each frame says, the video job."""
+import json
+import shutil
+import subprocess
+import time
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -501,3 +505,54 @@ def test_a_video_is_refused_while_a_reprocess_is_running(experiment):
         timelapse.start(_video_request(experiment))
 
     assert timelapse.latest() is None
+
+
+needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is not installed")
+
+
+def _finished(video_id: str, timeout_s: float = 60) -> dict:
+    """Poll the video's progress, as the page does, until it is ready or failed."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        progress = timelapse.progress(video_id)
+        if progress["state"] in ("ready", "failed"):
+            return progress
+        time.sleep(0.05)
+    raise AssertionError(f"video {video_id} not finished in {timeout_s} s")
+
+
+def _probe(file) -> dict:
+    """The video's frame count and size, read by ffprobe."""
+    stream = json.loads(subprocess.run(
+        ["ffprobe", "-v", "error", "-count_frames", "-select_streams", "v:0", "-show_entries",
+         "stream=nb_read_frames,width,height", "-of", "json", str(file)],
+        capture_output=True, text=True, check=True).stdout)["streams"][0]
+    return {"frames": int(stream["nb_read_frames"]), "width": stream["width"], "height": stream["height"]}
+
+
+def _break_photo(experiment_id: int, index: int) -> str:
+    """Overwrite the JPEG of the experiment's photo `index` (oldest first) with junk: its path."""
+    from npec_rig import captures
+
+    path = database.captures_for_experiment(experiment_id)[index]["path"]
+    captures.photo_file(path).write_bytes(b"this is not a JPEG")
+    return path
+
+
+@needs_ffmpeg
+def test_an_unreadable_photo_is_left_out_of_the_video_counted_and_named(experiment):
+    from tests.helpers import turned_tray_photo
+
+    for i in range(3):
+        turned_tray_photo(experiment, START + i * timedelta(hours=1))
+    broken = _break_photo(experiment, 1)
+
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "ready", progress
+    # 3 photos, 1 unreadable: 2 frames.
+    assert _probe(timelapse.video_file(video_id))["frames"] == 2
+    assert progress["unreadable"] == 1
+    assert [p["path"] for p in progress["unreadable_photos"]] == [broken]
+    assert list((timelapse.videos_root() / video_id).glob("tray-*.part")) == []
