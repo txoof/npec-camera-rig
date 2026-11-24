@@ -508,6 +508,11 @@ class VideoUnavailable(RuntimeError):
     """Videos cannot be made on this rig: the reason, in words."""
 
 
+class VideoRefused(RuntimeError):
+    """Another job that reads every photo is running: an export or a Reprocess (#503). The reason,
+    in words."""
+
+
 def videos_root() -> Path:
     """Where videos are made and kept until downloaded: beside the derived images, not in their
     store, whose start-up sweep removes every file its index does not know (images.py)."""
@@ -559,12 +564,17 @@ def start(request: dict) -> dict:
     if request.get("cell") is not None and not _CELL.match(request["cell"]):
         raise ValueError(f"No tray has a cell {request['cell']!r}.")
     database.get_experiment(request["experiment_id"])  # LookupError when there is none
+    # Before the ffmpeg and disk checks: one job that reads every photo at a time (#503).
+    if database.unfinished_export() is not None:
+        raise VideoRefused("An export is being prepared. Make the video when it is done.")
+    if database.running_reprocess_run() is not None:
+        raise VideoRefused("A Reprocess is running. Make the video when it is done.")
     reason = unavailable() or disk_refusal(
         estimate_bytes(request), shutil.disk_usage(health.db_path().parent).free, time.time())
     if reason:
         raise VideoUnavailable(reason)
     with _lock:
-        if _being_made() is not None:
+        if being_made() is not None:
             raise VideoBusy("A video is being made. Try again when it is done.")
         clear(finished=True)
         video_id = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S%f}-{secrets.token_hex(3)}"
@@ -626,7 +636,7 @@ def clear(*, finished: bool = False) -> None:
     root = videos_root()
     if not root.exists():
         return
-    making = _being_made()
+    making = being_made()
     for folder in root.iterdir():
         if folder.name == making:
             continue
@@ -635,9 +645,10 @@ def clear(*, finished: bool = False) -> None:
         shutil.rmtree(folder, ignore_errors=True) if folder.is_dir() else folder.unlink(missing_ok=True)
 
 
-def _being_made() -> str | None:
+def being_made() -> str | None:
     """The id of the video being made, or None. Its process may outlive its last frame by a moment:
-    a video is being made while its progress says so and its process is alive."""
+    a video is being made while its progress says so and its process is alive. Exports and
+    Reprocess runs ask this before they start: one job that reads every photo at a time (#503)."""
     process, video_id = _running.get("process"), _running.get("id")
     if process is None or not process.is_alive():
         return None

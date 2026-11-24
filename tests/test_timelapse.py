@@ -477,3 +477,27 @@ def test_a_strip_with_a_slot_and_four_warnings_draws_all_five_lines(experiment):
         rows = range(strip_top + line * 24, strip_top + (line + 1) * 24)
         inked = any(sum(image.getpixel((x, y))) < 450 for y in rows for x in range(0, 600))
         assert inked, f"line {line + 1} of the strip is empty"
+
+
+def _video_request(experiment_id: int) -> dict:
+    return {"experiment_id": experiment_id, "tray_id": 4, "start": START.isoformat(),
+            "end": (START + timedelta(hours=3)).isoformat(), "per_hour": 1, "method": "fixed"}
+
+
+def test_a_video_is_refused_while_an_export_is_being_prepared(experiment):
+    # A video and an export each read every photo: one at a time (#503).
+    database.create_export(experiment, now=START.isoformat())
+
+    with pytest.raises(timelapse.VideoRefused, match="An export is being prepared"):
+        timelapse.start(_video_request(experiment))
+
+    assert timelapse.latest() is None  # nothing was started
+
+
+def test_a_video_is_refused_while_a_reprocess_is_running(experiment):
+    database.create_reprocess_run(experiment, total=10, started_at=START.isoformat())
+
+    with pytest.raises(timelapse.VideoRefused, match="A Reprocess is running"):
+        timelapse.start(_video_request(experiment))
+
+    assert timelapse.latest() is None

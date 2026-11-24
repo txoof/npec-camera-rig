@@ -55,10 +55,10 @@ def data_page(request: Request, experiment: int | None = None, tab: str = "timel
 @router.post("/api/data/timelapse")
 def start_video(request: VideoRequest) -> dict:
     """Start making a video in the background: its id. 409 with the reason when none can be made
-    now (a video is being made, or ffmpeg is missing)."""
+    now (a video is being made, an export or a Reprocess is running, or ffmpeg is missing)."""
     try:
         return timelapse.start(request.model_dump())
-    except (timelapse.VideoBusy, timelapse.VideoUnavailable) as exc:
+    except (timelapse.VideoBusy, timelapse.VideoRefused, timelapse.VideoUnavailable) as exc:
         raise HTTPException(409, str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
