@@ -688,6 +688,10 @@ def test_all_trays_counts_a_bad_photo_of_many_trays_once(experiment, spoil):
 FAKE_FFMPEG = {
     "exits 1": 'echo "fake ffmpeg: encoder broke" >&2\nexit 1\n',
     "closes its input and hangs": "exec 0<&-\nexec sleep 300\n",
+    # Keeps its input open and never reads it: a frame (1.8 MB) never fits in the pipe.
+    "takes no frame and hangs": "exec sleep 300\n",
+    # Reads every frame to the end, then never exits, its error output still open.
+    "takes every frame and never finishes": "cat > /dev/null\nexec sleep 300\n",
 }
 
 
@@ -705,9 +709,10 @@ def test_ffmpeg_failing_after_a_frame_is_stopped_and_its_part_file_removed(exper
     fake.write_text(f'#!/bin/sh\necho $$ > "{pid_file}"\nfor last; do :; done\n: > "$last"\n{FAKE_FFMPEG[how]}')
     fake.chmod(0o755)
     monkeypatch.setenv("PATH", f"{fake.parent}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv(timelapse.TEST_STALL_ENV, "1")  # a timing constant: 1 s, not FFMPEG_STALL_S
 
     video_id = timelapse.start(_video_request(experiment))["id"]
-    progress = _finished(video_id)
+    progress = _finished(video_id, timeout_s=20)
 
     assert progress["state"] == "failed"
     assert "ffmpeg" in progress["error"]

@@ -568,6 +568,12 @@ _running: dict = {}
 # has passed, before it chooses or draws any frame. Unset, as on every rig, it does nothing.
 TEST_HOLD_ENV = "NPEC_RIG_TEST_TIMELAPSE_HOLD"
 TEST_HOLD_LIMIT_S = 60.0
+# ffmpeg is stopped when it takes no frame for this long, or does not finish this long after the
+# last one, so a stuck ffmpeg never holds exports and Reprocess back (#503). A choice with room to
+# spare, not a measurement: a frame is encoded in well under a second. For tests only, the child
+# reads a shorter one from TEST_STALL_ENV, as a spawned child sees no monkeypatch.
+FFMPEG_STALL_S = 30.0
+TEST_STALL_ENV = "NPEC_RIG_TEST_FFMPEG_STALL_S"
 
 
 def _test_hold() -> None:
@@ -728,6 +734,22 @@ def _write_progress(folder: Path, state: dict) -> None:
     os.replace(tmp, folder / "progress.json")
 
 
+def _stall_s() -> float:
+    return float(os.environ.get(TEST_STALL_ENV) or FFMPEG_STALL_S)
+
+
+def _feed(encoder: subprocess.Popen, data: bytes) -> None:
+    """Write one frame to ffmpeg. A write blocks while ffmpeg takes nothing (a frame is far larger
+    than the pipe), so if it has not ended in _stall_s() ffmpeg is killed, which ends it with
+    BrokenPipeError: no write waits for ever."""
+    watchdog = threading.Timer(_stall_s(), encoder.kill)
+    watchdog.start()
+    try:
+        encoder.stdin.write(data)
+    finally:
+        watchdog.cancel()
+
+
 def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | None, target: Path, done) -> tuple[int, list[dict]]:
     """Draw each of `frames` and pipe it to ffmpeg, writing the video `target`. A photo that cannot
     be read or drawn is left out and the video goes on (Aaron, #503). `done(i, unreadable)` is
@@ -754,20 +776,21 @@ def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | Non
                      "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
                      "-f", "mp4", str(target)],
                     stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-            encoder.stdin.write(image.tobytes())
+            _feed(encoder, image.tobytes())
             drawn += 1
             done(i + 1, unreadable)
         if encoder is None:
             return 0, unreadable  # no frame drew: no video, and no file written
-        _, err = encoder.communicate()
+        _, err = encoder.communicate(timeout=_stall_s())
     except BaseException as exc:
         if encoder is None or encoder.returncode is not None:
             raise
-        # ffmpeg stopped taking frames (it exited, or closed its input), or this side failed: it is
-        # stopped and waited for before the failure is reported, never left running (#503).
+        # ffmpeg stopped taking frames (it exited, closed its input, or took none or did not finish
+        # for _stall_s()), or this side failed: it is stopped and waited for before the failure is
+        # reported, never left running (#503).
         encoder.kill()
         _, err = encoder.communicate()
-        if not isinstance(exc, OSError):
+        if not isinstance(exc, (OSError, subprocess.TimeoutExpired)):
             raise
         said = err.decode(errors="replace").strip()[-300:]
         raise RuntimeError(f"ffmpeg stopped taking frames{': ' + said if said else ', and was stopped.'}") from exc
