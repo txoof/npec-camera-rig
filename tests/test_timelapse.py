@@ -556,3 +556,72 @@ def test_an_unreadable_photo_is_left_out_of_the_video_counted_and_named(experime
     assert progress["unreadable"] == 1
     assert [p["path"] for p in progress["unreadable_photos"]] == [broken]
     assert list((timelapse.videos_root() / video_id).glob("tray-*.part")) == []
+
+
+@needs_ffmpeg
+def test_with_the_first_photo_unreadable_the_video_starts_at_the_next_one_at_full_size(experiment):
+    from tests.helpers import turned_tray_photo
+
+    for i in range(3):
+        turned_tray_photo(experiment, START + i * timedelta(hours=1))
+    broken = _break_photo(experiment, 0)
+
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "ready", progress
+    video = _probe(timelapse.video_file(video_id))
+    # 3 photos, the first unreadable: 2 frames, the tray at 2 px/mm, 610 px across, label under it.
+    assert video["frames"] == 2
+    assert video["width"] == 610 and video["height"] > 732
+    assert [p["path"] for p in progress["unreadable_photos"]] == [broken]
+
+
+def _truncate_photo(experiment_id: int, index: int) -> str:
+    """Cut the JPEG of the experiment's photo `index` (oldest first) to half, as a photo half
+    written: its header, and so its size, still reads; its pixels do not. Its path."""
+    from npec_rig import captures
+
+    path = database.captures_for_experiment(experiment_id)[index]["path"]
+    file = captures.photo_file(path)
+    file.write_bytes(file.read_bytes()[: file.stat().st_size // 2])
+    return path
+
+
+@needs_ffmpeg
+def test_a_tray_with_every_photo_unreadable_fails_in_words_and_leaves_no_part_file(experiment):
+    from tests.helpers import turned_tray_photo
+
+    for i in range(2):
+        turned_tray_photo(experiment, START + i * timedelta(hours=1))
+        _truncate_photo(experiment, i)
+
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "failed"
+    assert "could not be read" in progress["error"]
+    assert progress["unreadable"] == 2
+    assert list((timelapse.videos_root() / video_id).glob("*.part")) == []
+
+
+@needs_ffmpeg
+def test_all_trays_leaves_out_a_tray_whose_every_photo_is_unreadable(experiment):
+    import zipfile
+
+    from tests.helpers import turned_tray_photo
+
+    turned_tray_photo(experiment, START, tray_id=4)
+    turned_tray_photo(experiment, START + timedelta(minutes=1), tray_id=7)
+    turned_tray_photo(experiment, START + timedelta(hours=1), tray_id=4)
+    for i in (0, 2):
+        _truncate_photo(experiment, i)  # both photos of tray 4, one in each hour
+
+    video_id = timelapse.start({**_video_request(experiment), "tray_id": "all"})["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "ready", progress
+    with zipfile.ZipFile(timelapse.video_file(video_id)) as z:
+        assert z.namelist() == ["tray-7.mp4"]
+    assert progress["unreadable"] == 2
+    assert list((timelapse.videos_root() / video_id).glob("*.part")) == []

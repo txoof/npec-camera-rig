@@ -212,10 +212,17 @@ def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: dat
     layouts: dict[str | None, list[dict] | None] = {}
     tables: dict[str | None, object] = {}
     frames, skipped, gap = [], 0, 0  # gap: lit steps skipped since the last frame
+    unreadable = []
     for step in sorted(by_step):
         dark = True
         for capture in by_step[step]:
-            readings = tray_readings.capture_readings(capture, history=False, locations=locations)
+            try:
+                readings = tray_readings.capture_readings(capture, history=False, locations=locations)
+            except OSError as exc:
+                # The photo's file cannot be read (its size is read for the table location): left
+                # out and named, never failing the video (#503).
+                unreadable.append(_left_out(capture, exc))
+                continue
             tray = usable_tray(readings, tray_id)
             if tray is not None and mask is not None and not segmentation.mask_file(capture["path"], MASK_KINDS[mask]).exists():
                 tray = None
@@ -237,7 +244,13 @@ def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: dat
             skipped += 0 if dark else 1
             gap += 0 if dark else 1
     _smooth(frames, tray_id)
-    return {"frames": frames, "skipped": skipped}
+    return {"frames": frames, "skipped": skipped, "unreadable": unreadable}
+
+
+def _left_out(capture: dict, exc: Exception) -> dict:
+    """A photo left out of a video because it could not be read: its path, its time and why."""
+    logger.warning("Time lapse frame of %s left out: %s", capture["path"], exc)
+    return {"path": capture["path"], "taken_at": capture["taken_at"], "reason": str(exc) or type(exc).__name__}
 
 
 # A cell's status in the Gallery's words (#364).
@@ -684,9 +697,7 @@ def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | Non
         except MemoryError:
             raise  # the memory limit: the next frame would fail the same way
         except Exception as exc:  # noqa: BLE001 -- one bad photo leaves its frame out, in words
-            logger.warning("Time lapse frame of %s left out: %s", frame["capture"]["path"], exc)
-            unreadable.append({"path": frame["capture"]["path"], "taken_at": frame["capture"]["taken_at"],
-                               "reason": str(exc) or type(exc).__name__})
+            unreadable.append(_left_out(frame["capture"], exc))
             done(i + 1, unreadable)
             continue
         if encoder is None:
@@ -699,6 +710,8 @@ def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | Non
         encoder.stdin.write(image.tobytes())
         drawn += 1
         done(i + 1, unreadable)
+    if encoder is None:
+        return 0, unreadable  # no frame drew: no video, and no file written
     _, err = encoder.communicate()
     if encoder.returncode != 0:
         raise RuntimeError(f"ffmpeg failed: {err.decode(errors='replace')[-300:]}")
@@ -729,19 +742,23 @@ def _make(request: dict, folder: str) -> None:
                 end=datetime.fromisoformat(request["end"]), per_hour=request["per_hour"],
                 mask=mask, cell=request.get("cell"))
             frames, skipped = chosen["frames"], skipped + chosen["skipped"]
+            unreadable = unreadable + chosen["unreadable"]
             if not frames:
                 continue
             state = {**state, "state": "drawing", "tray_id": tray_id, "frames": len(frames), "done": 0, "skipped": skipped,
                      "estimated_bytes": estimate_bytes(request)}
             target = out / f"tray-{tray_id}.part"
-            before = list(unreadable)
             drawn, left_out = _encode(experiment, frames, request, mask, target, lambda i, bad: _write_progress(
-                out, {**state, "done": i, "unreadable": len(before) + len(bad), "unreadable_photos": before + bad}))
-            unreadable = before + left_out
-            made.append((tray_id, target, drawn))
+                out, {**state, "done": i, "unreadable": len(unreadable) + len(bad), "unreadable_photos": unreadable + bad}))
+            unreadable = unreadable + left_out
+            if drawn:  # a tray none of whose photos could be read is left out
+                made.append((tray_id, target, drawn))
         if not made:
-            _write_progress(out, {"state": "failed", "request": request,
-                                  "error": f"No usable photo of {'any tray' if every else 'this tray'} in this time."})
+            which = "any tray" if every else "this tray"
+            error = (f"No frame could be made: {len(unreadable)} photos of {which} in this time could not be read."
+                     if unreadable else f"No usable photo of {which} in this time.")
+            _write_progress(out, {"state": "failed", "request": request, "error": error,
+                                  "unreadable": len(unreadable), "unreadable_photos": unreadable})
             return
         frames_made = sum(n for _, _, n in made)
         if every:
