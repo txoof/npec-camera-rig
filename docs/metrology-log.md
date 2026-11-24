@@ -11120,3 +11120,93 @@ The app also showed 12.1 GB written per day and 56.6 days left.
 shows the scheduler takes every photo while the app is up; it does not show that every photo
 reaches the database while another job writes to it (17 November, #439). The reboot test is on
 development, not on production. Excel was tried once, on one computer; its version was not recorded.
+
+## 46. Dark pots against dark leaves: a measured brightness limit for grow from leaf cores (issue #497, part 1 of #484, method written 2026-11-24, before any pixel was measured)
+
+**Label: development check.** Grow from leaf cores, the Gallery's default method, reads empty dark pots
+as plant. On production, tray 4 after the harvest of 23 November read 4,856 to 11,789 mm² grown against
+19 to 54 mm² by the fixed green cutoff (#480 finding 1, #484). Near-black pot pixels (about RGB 7,7,7)
+have a greenness of 0, above the floor of -0.045, and are joined to near-black pixels that JPEG noise
+turns "green" (about RGB 9,12,10, greenness about 0.12). Section 42's verdict "grow from leaf cores
+needs no floor" covered soil, not dark pots, and is reopened (Aaron, 2026-11-23). Aaron decided on a
+**dark limit measured from stored photos**: pixels darker than it are left out of cores and growth.
+This section measures what that limit can be. It does not change the app (that is #484).
+
+**Question.** Is there a brightness below which a pixel is an empty dark pot and never a leaf? What
+value, how wide is the gap on each side, and what does it cost the leaves?
+
+**Brightness measure (a choice, stated here).** `S = R + G + B` of the decoded 8-bit photo, a whole
+number from 0 to 765. It is the quantity already in the denominator of the app's greenness,
+`(2G - R - B) / (R + G + B + 1e-6)` (`segmentation._greenness_table`), which is why a near-black pixel
+can have any greenness: a change of 1 in one channel moves it by about 0.1. It is worked out from the
+same array the app segments (the photo as `tray_readings` loads it, RGB), so the limit is in the app's
+own units and #484 can use it as `S < limit` unchanged. No new colour model. The largest single channel,
+`max(R, G, B)`, is measured alongside as a check that the choice does not hide a better separation; `S`
+is kept unless `max(R, G, B)` separates clearly better.
+
+**Photos (production, experiment 18, "Potato Plants v001", read-only; nothing run or written there).**
+
+1. *Empty dark pots.* Trays 4 to 6 after the harvest of 23 November and trays 1 to 3 after they left on
+   16 November. Only photos the app counts (an exclusion row with no name: lit and steady, section 43).
+   One photo a day nearest 11:00 UTC for each day from the first emptied day, plus three more photos
+   spread across the lit day (about 07:00, 15:00 and 20:00 UTC), to see whether exposure moves the
+   pots' brightness. The day each tray was emptied is read from its stored readings (grown and fixed
+   area fall to a few mm²) and checked on the photo. At most 12 photos are copied.
+2. *Leaves.* (a) The 60-cell reference set of section 33 (`experiments/round3-classifier/data/`): a
+   leaf pixel is a white pixel of the cell's truth mask (Aaron's correction or accepted draft, shaded
+   leaves inside canopies included), read from the lossless crop that is identical to the photo's
+   pixels. (b) The same trays 4 to 6 and 1 to 3 as in 1, on one photo a week before the harvest, to look
+   at their darkest leaf pixels in place (pictures, not a mask: there is no outline of those photos).
+
+**Which pixels are "empty dark pot", which "leaf", and how they are chosen.**
+
+- *Pot pixels.* In an emptied tray's photo, the cells the app places (`tray_placement.place_cells`),
+  every pixel inside the cell's opening that is not blue plastic and not white paper (the app's own
+  `GROWN_BLUE_MARGIN` and white rules) and not the tag's enlarged square. Which cells are empty pots
+  (no soil, no plant, no hand or debris) is decided by looking at the crops, and the list of cells is
+  kept with the data. Cells with soil, a plant or the drainage hole showing the table (section 42.2)
+  are not used. Chosen by picture because no automatic rule exists for "empty pot"; the pot-pixel
+  distribution is therefore as good as that eye.
+- *Pixels the app counts as plant in an empty tray* are also taken: `grow_from_cores` is run on the
+  emptied tray with the app's function, and the pixels of its mask are the false plant, the ones the
+  limit has to remove. Their `S` is the part of the pot distribution that decides the limit's lower side.
+- *Leaf pixels.* Truth-mask pixels as above. Truth masks are Aaron's judgement on photos at the rig's
+  own blur, with the lean stated in section 33 (21 of 39 truth masks are accepted drafts, which lean
+  toward the app's rules; dark leaf edges are the pixels most affected).
+
+**What is reported.**
+
+1. The distribution of `S` (and `max(R,G,B)`) for pot pixels, for the false-plant pixels, and for leaf
+   pixels (all, and the darkest 1% of each reference cell): percentiles 0.1, 1, 50, 99, 99.9 and the
+   minimum or maximum, with counts, per photo and pooled.
+2. The overlap: the fraction of leaf pixels at or below each `S`, and the fraction of false-plant
+   pixels above it, as a table over `S` and as a chart.
+3. **The limit and its margins.** If the false-plant pixels' largest `S` (99.9th percentile over all
+   emptied photos) lies below the leaf pixels' smallest (0.1th percentile over the reference cells),
+   the limit is set in the gap and both margins are reported in `S` and as the fraction of pixels on
+   each side. The 99.9th and 0.1th percentiles, and the 0.1% of leaf pixels the limit may cost, are
+   **decisions made here to put a number on "never"**, not measurements; the full table lets anyone
+   choose another. If the two distributions overlap, the result is "no single limit separates them"
+   with the trade-off table, and #484 gets that as the finding.
+4. **End-to-end effect, with the app's own function.** `grow_from_cores` run again with pixels below
+   the limit left out (an experiment-side copy of the photo with those pixels made black and counted as
+   outside the tray, so no app code changes), on: (a) the emptied trays, which should read close to the
+   fixed cutoff's 19 to 54 mm²; (b) the 60 reference cells, IoU against the truth masks and area ratio,
+   compared with the same numbers without the limit (the baseline is section 34's: IoU 0.874 to 0.879);
+   a limit that costs more than 0.005 IoU (**placeholder, not a measurement**) is reported as costing.
+5. **Grown over fixed area on ordinary readings.** From the 183 hourly tray readings of 16 to 23
+   November already copied (`~/temp.nobackup/rig-copies/ac-testing/review-434/readings/`; trays with
+   plants, before and after the harvest): the ratio `grown_area_mm2 / fixed area` per tray reading,
+   its percentiles and the largest, and the same for tray 4's false readings. This is for Aaron's
+   decision on #484's "many times the fixed area" warning factor. No factor is chosen here.
+
+**Raw data.** Photos stay in `~/temp.nobackup/rig-copies/ac-testing/497-dark-pots/` (production's copy is
+unchanged); the pixel statistics, the cell list and the scripts under `experiments/497-dark-pots/`.
+
+**Limits, known before the run.** One experiment, one rig, one pot and tray plastic, one lighting
+program and the camera's auto-exposure at its steady level, a few days of photos. A different pot
+colour or a darker exposure moves the pot values and needs the same check. Leaves are the ones the 60
+reference cells hold (22 October to mid November, mostly young plants): the shade inside the late,
+dense canopies of mid to late November is not in the outlines, and is only looked at on pictures in part
+2(b). The brightness is of JPEG pixels (quality 75 at most of these photos), whose noise is the very
+thing that makes dark pot pixels "green"; a limit is not shown to hold for another JPEG setting.
