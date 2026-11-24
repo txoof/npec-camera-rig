@@ -750,6 +750,15 @@ def _feed(encoder: subprocess.Popen, data: bytes) -> None:
         watchdog.cancel()
 
 
+def _stopped(encoder: subprocess.Popen) -> RuntimeError:
+    """ffmpeg stopped taking frames: it exited, closed its input, or took none or did not finish
+    for _stall_s(). It is killed and waited for; the failure, in words, with what ffmpeg said."""
+    encoder.kill()
+    _, err = encoder.communicate()
+    said = err.decode(errors="replace").strip()[-300:]
+    return RuntimeError(f"ffmpeg stopped taking frames{': ' + said if said else ', and was stopped.'}")
+
+
 def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | None, target: Path, done) -> tuple[int, list[dict]]:
     """Draw each of `frames` and pipe it to ffmpeg, writing the video `target`. A photo that cannot
     be read or drawn is left out and the video goes on (Aaron, #503). `done(i, unreadable)` is
@@ -776,24 +785,26 @@ def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | Non
                      "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
                      "-f", "mp4", str(target)],
                     stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-            _feed(encoder, image.tobytes())
+            try:
+                _feed(encoder, image.tobytes())
+            except OSError as exc:
+                raise _stopped(encoder) from exc
             drawn += 1
             done(i + 1, unreadable)
         if encoder is None:
             return 0, unreadable  # no frame drew: no video, and no file written
-        _, err = encoder.communicate(timeout=_stall_s())
-    except BaseException as exc:
-        if encoder is None or encoder.returncode is not None:
-            raise
-        # ffmpeg stopped taking frames (it exited, closed its input, or took none or did not finish
-        # for _stall_s()), or this side failed: it is stopped and waited for before the failure is
-        # reported, never left running (#503).
-        encoder.kill()
-        _, err = encoder.communicate()
-        if not isinstance(exc, (OSError, subprocess.TimeoutExpired)):
-            raise
-        said = err.decode(errors="replace").strip()[-300:]
-        raise RuntimeError(f"ffmpeg stopped taking frames{': ' + said if said else ', and was stopped.'}") from exc
+        try:
+            _, err = encoder.communicate(timeout=_stall_s())
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise _stopped(encoder) from exc
+    except BaseException:
+        # This side failed (a frame, its progress, the memory limit): ffmpeg is stopped and waited
+        # for before the failure is reported, never left running (#503), and the failure is this
+        # side's, never blamed on ffmpeg.
+        if encoder is not None and encoder.returncode is None:
+            encoder.kill()
+            encoder.communicate()
+        raise
     if encoder.returncode != 0:
         raise RuntimeError(f"ffmpeg failed: {err.decode(errors='replace')[-300:]}")
     return drawn, unreadable
