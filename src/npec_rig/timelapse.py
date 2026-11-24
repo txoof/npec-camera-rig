@@ -476,8 +476,14 @@ def draw_frame(frame: dict, values: dict, *, mask: str | None = None, cell: str 
 RECENT_PHOTOS = 200
 
 
-def experiment_trays(experiment_id: int) -> list[int]:
-    """The tray IDs found in the experiment's latest RECENT_PHOTOS photos, lowest first."""
+def experiment_trays(experiment_id: int, *, start: datetime | None = None, end: datetime | None = None) -> list[int]:
+    """The tray IDs for the page's list: those found in the experiment's latest RECENT_PHOTOS
+    photos, lowest first. With `start` and `end`, every tray found in any photo taken from `start`
+    up to `end`, which is what the all-trays zip holds (#502)."""
+    if start is not None and end is not None:
+        first, last = start.isoformat(), end.isoformat()
+        return sorted({p["tray_id"] for p in database.experiment_tray_positions(experiment_id)
+                       if first <= p["taken_at"] < last})
     ids = [c["id"] for c in database.captures_for_experiment(experiment_id)[-RECENT_PHOTOS:]]
     return sorted({p["tray_id"] for p in database.experiment_tray_positions(experiment_id, ids)})
 
@@ -525,7 +531,8 @@ def estimate_bytes(request: dict) -> int:
     """An upper estimate of a video's size before its frames are chosen: one frame per step of
     the time asked for, at the trial's size per frame (TRIAL_BYTES_PER_FRAME)."""
     hours = (datetime.fromisoformat(request["end"]) - datetime.fromisoformat(request["start"])).total_seconds() / 3600
-    trays = len(experiment_trays(request["experiment_id"])) if request["tray_id"] == ALL_TRAYS else 1
+    trays = len(experiment_trays(request["experiment_id"], start=datetime.fromisoformat(request["start"]),
+                                 end=datetime.fromisoformat(request["end"]))) if request["tray_id"] == ALL_TRAYS else 1
     return int(max(hours, 0) * request["per_hour"]) * TRIAL_BYTES_PER_FRAME * trays
 
 
@@ -688,7 +695,8 @@ def _make(request: dict, folder: str) -> None:
         experiment = database.get_experiment(request["experiment_id"])
         mask = request["method"] if request.get("mask") else None
         every = request["tray_id"] == ALL_TRAYS
-        trays = experiment_trays(request["experiment_id"]) if every else [request["tray_id"]]
+        trays = (experiment_trays(request["experiment_id"], start=datetime.fromisoformat(request["start"]),
+                                  end=datetime.fromisoformat(request["end"])) if every else [request["tray_id"]])
         made, skipped = [], 0
         for n, tray_id in enumerate(trays, start=1):
             state = {"state": "choosing", "request": request, "tray": n, "trays": len(trays), "skipped": skipped}

@@ -450,3 +450,13 @@ def test_a_frame_names_the_validation_slot_that_sets_its_band_not_another_slot(e
 
     assert values["band"] == "±2.0%, North 1"
     assert values["slot"] == "North 1"
+
+
+def test_all_trays_of_a_time_include_a_tray_seen_only_in_its_first_of_250_photos(experiment):
+    _photo(experiment, START, tray_id=7)
+    for i in range(1, 250):
+        _photo(experiment, START + timedelta(minutes=i), tray_id=4)
+
+    in_time = timelapse.experiment_trays(experiment, start=START, end=START + timedelta(days=1))
+
+    assert in_time == [4, 7]
