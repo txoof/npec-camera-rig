@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictInt
 
 from npec_rig import captures, database, dwell, exports, scheduler, tray_readings
 from npec_rig.routes.shared import templates
@@ -67,7 +67,7 @@ def api_experiments() -> list[dict]:
     experiments = database.list_experiments()
     for experiment in experiments:
         # Without the failed photos, which can be many: GET .../reprocess has them.
-        experiment["reprocess"] = {k: v for k, v in tray_readings.reprocess_progress(experiment["id"]).items() if k != "failures"}
+        experiment["reprocess"] = tray_readings.reprocess_progress(experiment["id"], failures=False)
         newest = database.exports_for(experiment["id"])[:1]
         experiment["export"] = newest[0] if newest else None
         experiment["complete_export"] = database.complete_export(experiment["id"])
@@ -132,7 +132,7 @@ def api_purge_experiment(experiment_id: int, request: PurgeRequest) -> dict:
 class ReprocessRequest(BaseModel):
     """`confirm`: the experiment's ID again, required to start; `dry_run`: only count (also `?dry_run=true`)."""
 
-    confirm: int | None = None
+    confirm: StrictInt | None = None  # the number, not `true`
     dry_run: bool = False
 
 
@@ -150,7 +150,9 @@ def api_reprocess_experiment(experiment_id: int, request: ReprocessRequest | Non
     nothing starts (400). 409 while a Reprocess is running. Progress and failed photos: GET, which
     reads rig.db and so survives a restart; `.../reprocess/stop` ends it after the photo it is on."""
     request = request or ReprocessRequest()
-    _experiment_action(database.get_experiment, experiment_id)  # 404 for no such experiment
+    experiment = _experiment_action(database.get_experiment, experiment_id)  # 404 for no such experiment
+    if experiment["state"] == "set up":
+        raise HTTPException(409, "this experiment has never started: it has no photos to Reprocess")
     if request.dry_run or dry_run:
         return tray_readings.reprocess_plan(experiment_id)
     if request.confirm != experiment_id:

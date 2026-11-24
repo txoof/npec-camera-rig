@@ -1234,6 +1234,8 @@ def discard_experiment(experiment_id: int) -> None:
         if _experiment(conn, experiment_id)["state"] != "set up":
             raise ExperimentError("only an experiment that has never started can be discarded")
         conn.execute("DELETE FROM experiment_hidden_tray WHERE experiment_id = ?", (experiment_id,))
+        conn.execute("DELETE FROM reprocess_failure WHERE run_id IN (SELECT id FROM reprocess_run WHERE experiment_id = ?)", (experiment_id,))
+        conn.execute("DELETE FROM reprocess_run WHERE experiment_id = ?", (experiment_id,))
         conn.execute("DELETE FROM experiment WHERE id = ?", (experiment_id,))
 
 
@@ -1666,43 +1668,46 @@ def add_reprocess_failure(run_id: int, *, path: str, reason: str, failed_at: str
         )
 
 
-def _reprocess_run(conn: sqlite3.Connection, row: sqlite3.Row | None) -> dict | None:
+def _reprocess_run(conn: sqlite3.Connection, row: sqlite3.Row | None, *, failures: bool = True) -> dict | None:
     if row is None:
         return None
     run = dict(row)
-    run["failures"] = [
-        {"path": f["path"], "reason": f["reason"]}
-        for f in conn.execute("SELECT path, reason FROM reprocess_failure WHERE run_id = ? ORDER BY id", (run["id"],))
-    ]
+    if failures:
+        run["failures"] = [
+            {"path": f["path"], "reason": f["reason"]}
+            for f in conn.execute("SELECT path, reason FROM reprocess_failure WHERE run_id = ? ORDER BY id", (run["id"],))
+        ]
     return run
 
 
-def latest_reprocess_run(experiment_id: int) -> dict | None:
-    """The newest Reprocess of the experiment with its failed photos (`failures`: path and reason),
-    None when it has had none."""
+def latest_reprocess_run(experiment_id: int, *, failures: bool = True) -> dict | None:
+    """The newest Reprocess of the experiment with its failed photos (`failures`: path and reason;
+    left out, and not read, with `failures` False), None when it has had none."""
     with _connect() as conn:
         return _reprocess_run(conn, conn.execute(
-            "SELECT * FROM reprocess_run WHERE experiment_id = ? ORDER BY id DESC LIMIT 1", (experiment_id,)).fetchone())
+            "SELECT * FROM reprocess_run WHERE experiment_id = ? ORDER BY id DESC LIMIT 1", (experiment_id,)).fetchone(),
+            failures=failures)
 
 
 def running_reprocess_run() -> dict | None:
-    """The Reprocess that is running, whichever experiment: only one runs at a time."""
+    """The Reprocess marked running, whichever experiment, without its failed photos."""
     with _connect() as conn:
         return _reprocess_run(conn, conn.execute(
-            "SELECT * FROM reprocess_run WHERE state = 'running' ORDER BY id DESC LIMIT 1").fetchone())
+            "SELECT * FROM reprocess_run WHERE state = 'running' ORDER BY id DESC LIMIT 1").fetchone(), failures=False)
 
 
 def last_finished_reprocess_rate() -> dict | None:
-    """The newest finished Reprocess that read photos: its id, photos and seconds, for an estimate
-    of how long the next one takes. None when there is none."""
+    """The newest finished Reprocess that redid photos: its id, the photos it redid (done less the
+    ones it failed at, which take no time to give up) and its seconds, for an estimate of how long
+    the next one takes. None when there is none."""
     with _connect() as conn:
         row = conn.execute(
-            "SELECT id, done, started_at, finished_at FROM reprocess_run"
-            " WHERE state = 'finished' AND done > 0 AND finished_at IS NOT NULL ORDER BY id DESC LIMIT 1").fetchone()
+            "SELECT id, done - failed AS redone, started_at, finished_at FROM reprocess_run"
+            " WHERE state = 'finished' AND done - failed > 0 AND finished_at IS NOT NULL ORDER BY id DESC LIMIT 1").fetchone()
     if row is None:
         return None
     seconds = (datetime.fromisoformat(row["finished_at"]) - datetime.fromisoformat(row["started_at"])).total_seconds()
-    return {"run": row["id"], "photos": row["done"], "seconds": seconds}
+    return {"run": row["id"], "photos": row["redone"], "seconds": seconds}
 
 
 def interrupt_running_reprocesses(*, finished_at: str) -> int:

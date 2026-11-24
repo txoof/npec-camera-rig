@@ -652,6 +652,7 @@ def test_a_reprocess_left_running_when_the_app_stopped_is_marked_interrupted_and
     assert progress["message"] == "interrupted at 3 of 10"
     assert tray_readings.photo_readings(paths[0]) is None  # nothing was resumed
     assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id}).status_code == 200
+    _wait_until_finished(client, experiment_id)  # its thread ends before the next test starts
 
 
 def _lock_once_tags_are_stored(path: str, *, until=None, seconds: float = 5.0):
@@ -762,3 +763,103 @@ def test_a_photo_that_stays_locked_is_given_up_after_the_cap_and_listed(monkeypa
     [failure] = progress["failures"]
     assert failure["path"] == path
     assert "locked" in failure["reason"] and "3 tries" in failure["reason"]
+
+
+def test_a_reprocess_that_could_not_save_its_end_does_not_block_the_next_one(monkeypatch) -> None:
+    """Second review of #483: rig.db stays locked for every try of the run's last write, so its row
+    stays `running` though its thread has ended. No thread runs it, so it reads as interrupted and a
+    new Reprocess starts (not 409 until a restart)."""
+    import threading
+    import time
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig import photo_tags, settings, tray_readings
+    from npec_rig.app import app
+    from tests.helpers import lock_held
+
+    experiment_id, [path] = _experiment_with_photos(monkeypatch, 1)
+    photo_tags.photo_tags_for(path)  # its tags are stored before the lock, so only writes meet it
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.05)
+    monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_WAIT_S", 0.01)
+    monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_TRIES", 2)
+    client = TestClient(app)
+
+    assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id}).status_code == 200
+    with lock_held(20, until=(release := threading.Event())):  # taken while the first photo is still being read
+        deadline = time.monotonic() + 15
+        while any(t.name == "reprocess" for t in threading.enumerate()):
+            assert time.monotonic() < deadline, "the run's thread did not end"
+            time.sleep(0.05)
+        release.set()
+
+    progress = client.get(f"/api/experiments/{experiment_id}/reprocess").json()
+    assert (progress["state"], progress["running"]) == ("interrupted", False)
+    assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id}).status_code == 200
+    _wait_until_finished(client, experiment_id)
+
+
+def test_reprocess_of_an_experiment_that_never_started_is_refused_and_it_can_still_be_discarded() -> None:
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    experiment_id = captures.create_experiment()["id"]
+    client = TestClient(app)
+
+    for body in ({"dry_run": True}, {"confirm": experiment_id}):
+        response = client.post(f"/api/experiments/{experiment_id}/reprocess", json=body)
+        assert 400 <= response.status_code < 500
+        assert "never started" in response.json()["detail"]
+    database.discard_experiment(experiment_id)  # no run row stands in the way
+
+
+def test_discarding_an_experiment_removes_the_reprocess_rows_it_has() -> None:
+    experiment_id = captures.create_experiment()["id"]
+    run = database.create_reprocess_run(experiment_id, total=1, started_at="2026-11-24T10:00:00+00:00")
+    database.add_reprocess_failure(run, path="p", reason="r", failed_at="2026-11-24T10:00:01+00:00")
+
+    database.discard_experiment(experiment_id)
+
+    with sqlite3.connect(db_path()) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM reprocess_run").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM reprocess_failure").fetchone()[0] == 0
+
+
+def test_a_confirm_that_is_not_the_experiment_id_as_a_number_starts_nothing(monkeypatch) -> None:
+    """`true` is not 1: the experiment's ID must be sent as the number."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    experiment_id, _paths = _experiment_with_photos(monkeypatch, 1)
+    assert experiment_id == 1
+    client = TestClient(app)
+
+    response = client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": True})
+
+    assert 400 <= response.status_code < 500
+    assert client.get(f"/api/experiments/{experiment_id}/reprocess").json()["state"] == "none"
+
+
+def test_the_estimate_counts_the_photos_a_run_redid_not_the_ones_it_failed_at() -> None:
+    """A finished run of 4 photos, 2 of them failed at once, took 100 s: the 2 it redid took 50 s each,
+    so 2 photos are estimated at 100 s. A run that redid none gives no estimate."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig import tray_readings
+    from npec_rig.app import app
+
+    experiment_id = captures.start_experiment(captures.create_experiment()["id"])["id"]
+    client = TestClient(app)
+
+    def finished(done: int, failed: int, seconds: int) -> None:
+        run = database.create_reprocess_run(experiment_id, total=done, started_at="2026-11-24T10:00:00+00:00")
+        database.update_reprocess_run(run, done=done, failed=failed, state="finished",
+                                      finished_at=f"2026-11-24T10:{seconds // 60:02d}:{seconds % 60:02d}+00:00")
+
+    finished(2, 2, 5)  # redid none: no rate
+    assert tray_readings.reprocess_plan(experiment_id)["estimated_seconds"] is None
+    finished(4, 2, 100)  # the newest with a rate
+    assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"dry_run": True}).json()["photos"] == 0
+    assert database.last_finished_reprocess_rate()["seconds"] / database.last_finished_reprocess_rate()["photos"] == 50

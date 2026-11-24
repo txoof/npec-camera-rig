@@ -570,6 +570,9 @@ when the app starts was cut off: it is marked `interrupted` and never resumed.
 | `reprocess_failure.reason` | text | Why its saved reading was kept, for example "the photo is gone and its saved masks cannot be counted again: a saved mask is missing" |
 | `reprocess_failure.failed_at` | text | UTC |
 
+**Upgrading.** This version migrates `rig.db` to version 26. An older version of the app refuses to
+start on it. Copy `rig.db` before deploying, and restore that copy to roll back.
+
 A photo that meets a locked rig.db is tried again, `REPROCESS_LOCK_TRIES` (5) times with a pause of
 `REPROCESS_LOCK_WAIT_S` (5 s), numbers chosen and not measured; after the last try it is listed as
 failed ("rig.db stayed locked after 5 tries"). Reprocess replaces the saved readings of every photo

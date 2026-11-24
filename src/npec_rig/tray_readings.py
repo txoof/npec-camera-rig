@@ -923,8 +923,9 @@ def _rig_db_locked(exc: BaseException | None) -> bool:
 # they are there after a restart; a run the app's stop cut off is marked "interrupted" at the next
 # start and never resumed. A Stop ends the run after the photo being read.
 #
-# A COPY OF rig.db IS TAKEN FIRST: Reprocess replaces the saved readings of every photo it can
-# redo, and keeps no copy of the old ones (docs/operator-guide.md, *Reprocess*).
+# Take a copy of rig.db first; the app does not. Reprocess replaces the saved readings of every
+# photo it can redo and keeps no copy of the old ones (docs/operator-guide.md, *Reprocessing areas
+# (developers and scripts)*).
 
 # A photo that meets a locked rig.db is read again after a wait, this many tries in all. The
 # numbers are decisions: the longest a write waits on its own is settings.LOCK_WAIT_S (10 s), so
@@ -933,8 +934,11 @@ def _rig_db_locked(exc: BaseException | None) -> bool:
 REPROCESS_LOCK_TRIES = 5
 REPROCESS_LOCK_WAIT_S = 5.0
 
+# The run this process is running, if any: guarded by `_reprocess_lock`. A `running` row in rig.db
+# with no live thread here (its last write failed, or the app was killed) is an orphan: it is
+# marked interrupted, so it can neither block a new run nor answer a Stop (#483).
 _reprocess_lock = threading.Lock()
-_reprocess_stop = threading.Event()
+_live: dict | None = None  # {"run_id", "experiment_id", "thread", "stop": Event of this run alone}
 
 
 class ReprocessRunning(RuntimeError):
@@ -950,19 +954,35 @@ def _progress(run: dict | None, experiment_id: int) -> dict:
         return {"experiment_id": experiment_id, "run_id": None, "state": "none", "running": False, "done": 0, "total": 0,
                 "failed": 0, "failures": [], "started_at": None, "finished_at": None, "message": None}
     message = {"stopped": "stopped at", "interrupted": "interrupted at"}.get(run["state"])
-    return {
+    progress = {
         "experiment_id": experiment_id, "run_id": run["id"], "state": run["state"], "running": run["state"] == "running",
-        "done": run["done"], "total": run["total"], "failed": run["failed"], "failures": run["failures"],
+        "done": run["done"], "total": run["total"], "failed": run["failed"],
         "started_at": run["started_at"], "finished_at": run["finished_at"],
         "message": None if message is None else f"{message} {run['done']} of {run['total']}",
     }
+    if "failures" in run:
+        progress["failures"] = run["failures"]
+    return progress
 
 
-def reprocess_progress(experiment_id: int) -> dict:
+def _live_run() -> dict | None:
+    """The run whose thread is alive, with `_reprocess_lock` held by the caller; any `running` row
+    without one is marked interrupted first."""
+    global _live
+    if _live is not None and not _live["thread"].is_alive():
+        _live = None
+    if _live is None and database.running_reprocess_run() is not None:
+        mark_interrupted_reprocesses()
+    return _live
+
+
+def reprocess_progress(experiment_id: int, *, failures: bool = True) -> dict:
     """How far the newest Reprocess of `experiment_id` has got, from rig.db: its state (`none`,
     `running`, `finished`, `stopped`, `interrupted`), done, total, failed, the failed photos with
     their reasons, and a message for a stopped or interrupted run ("interrupted at 3 of 10")."""
-    return _progress(database.latest_reprocess_run(experiment_id), experiment_id)
+    with _reprocess_lock:
+        _live_run()
+    return _progress(database.latest_reprocess_run(experiment_id, failures=failures), experiment_id)
 
 
 def _reprocess_paths(experiment_id: int) -> list[str]:
@@ -990,22 +1010,26 @@ def start_reprocess(experiment_id: int) -> dict:
     and has the experiment's ID confirmed (`routes/experiments.py`)."""
     paths = _reprocess_paths(experiment_id)
     _sweep_staged_masks()
+    global _live
     with _reprocess_lock:
-        if database.running_reprocess_run() is not None:
+        if _live_run() is not None:
             raise ReprocessRunning("a Reprocess is still running")
         run_id = database.create_reprocess_run(experiment_id, total=len(paths), started_at=datetime.now(UTC).isoformat())
-        _reprocess_stop.clear()
-    threading.Thread(target=_run_reprocess, args=(run_id, paths), name="reprocess", daemon=True).start()
+        stop = threading.Event()
+        thread = threading.Thread(target=_run_reprocess, args=(run_id, paths, stop), name="reprocess", daemon=True)
+        _live = {"run_id": run_id, "experiment_id": experiment_id, "thread": thread, "stop": stop}
+        thread.start()
     return reprocess_progress(experiment_id)
 
 
 def stop_reprocess(experiment_id: int) -> dict:
     """Ask the running Reprocess of `experiment_id` to end after the photo it is reading, and
     return its progress. Raises NoReprocessRunning when there is none."""
-    run = database.running_reprocess_run()
-    if run is None or run["experiment_id"] != experiment_id:
-        raise NoReprocessRunning(f"no Reprocess of experiment {experiment_id} is running")
-    _reprocess_stop.set()
+    with _reprocess_lock:
+        live = _live_run()
+        if live is None or live["experiment_id"] != experiment_id:
+            raise NoReprocessRunning(f"no Reprocess of experiment {experiment_id} is running")
+        live["stop"].set()  # this run's own: a later run is not touched
     return reprocess_progress(experiment_id)
 
 
@@ -1023,18 +1047,19 @@ def _locked_retry(action, what: str):
         try:
             return action()
         except Exception as exc:
-            if not _rig_db_locked(exc) or attempt == REPROCESS_LOCK_TRIES:
+            # A NotReprocessed is a real answer, even if a lock error lies behind it in the chain.
+            if isinstance(exc, NotReprocessed) or not _rig_db_locked(exc) or attempt == REPROCESS_LOCK_TRIES:
                 raise
             logger.warning("%s met a locked rig.db (try %d of %d)", what, attempt, REPROCESS_LOCK_TRIES)
             time.sleep(REPROCESS_LOCK_WAIT_S)
 
 
-def _run_reprocess(run_id: int, paths: list[str]) -> None:
+def _run_reprocess(run_id: int, paths: list[str], stop: threading.Event) -> None:
     done = failed = 0
     state = "finished"
     try:
         for path in paths:
-            if _reprocess_stop.is_set():
+            if stop.is_set():
                 state = "stopped"
                 break
             try:
