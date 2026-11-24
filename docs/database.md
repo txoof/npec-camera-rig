@@ -462,7 +462,7 @@ the saved reading is not changed and the photo is reported as not reprocessed. A
 masks and its reading are saved together, under one lock, in this order: the new masks are written
 to `*.staged` files, both old masks are deleted, the reading is saved, the staged files are renamed.
 A failure after the delete leaves a mask missing, so the next Reprocess grows the photo again (or,
-with the photo gone, changes nothing); `*.staged` files left by a kill are removed when the app's
+with the photo gone, changes nothing); `*.staged` files older than an hour (`STAGED_MAX_AGE_S`, a decision) left by a kill are removed when the app's
 tray reader or a Reprocess starts. A tray whose cells could not be worked out on a new read says
 "cells not worked out", as one whose grown area could not says "grown area not worked out". The fixed cutoff's floor of 100 mm2
 was measured for that method only and does not apply to this one. All `grown_*` columns are NULL

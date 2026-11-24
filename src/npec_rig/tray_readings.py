@@ -16,6 +16,7 @@ import math
 import os
 import sqlite3
 import threading
+import time
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
@@ -292,10 +293,10 @@ def _commit(path: str, record: dict, capture_id: int, status: str, trays: list[d
     masks that are missing force a regrow. A recount (no new masks) leaves the masks as they are."""
     with _commit_lock:
         staged = _stage_masks(path, new_masks)
-        if new_masks is not None:
-            for kind in ("", segmentation.GROWN_MASK):
-                segmentation.mask_file(path, kind).unlink(missing_ok=True)
         try:
+            if new_masks is not None:
+                for kind in ("", segmentation.GROWN_MASK):
+                    segmentation.mask_file(path, kind).unlink(missing_ok=True)
             database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
         except BaseException:
             for partial, _target in staged:
@@ -312,15 +313,24 @@ def _commit(path: str, record: dict, capture_id: int, status: str, trays: list[d
     exclusions.update(record)
 
 
+# A `.staged` file older than this is left by a kill and is removed. A decision, not a measurement:
+# a commit takes seconds (rig.db waits at most settings.LOCK_WAIT_S), so no reading in progress,
+# in this process or another, has one this old.
+STAGED_MAX_AGE_S = 3600.0
+
+
 def _sweep_staged_masks() -> None:
-    """Remove the `.staged` mask files an earlier run of the app left (a kill between writing a
-    new mask and renaming it, `_commit`). Those of this process are readings in progress and stay."""
+    """Remove the `.staged` mask files (`_commit`) older than STAGED_MAX_AGE_S that a kill left."""
     try:
+        old = time.time() - STAGED_MAX_AGE_S
         for f in segmentation.masks_root().rglob("*.staged"):
-            if f.name.split(".")[-3] != str(os.getpid()):
-                f.unlink(missing_ok=True)
+            try:
+                if f.stat().st_mtime < old:
+                    f.unlink(missing_ok=True)
+            except OSError:
+                logger.exception("Could not remove the leftover temporary mask file %s", f)
     except OSError:
-        logger.exception("Could not remove leftover temporary mask files")
+        logger.exception("Could not look for leftover temporary mask files")
 
 
 def _stage_masks(path: str, masks: tuple[np.ndarray, np.ndarray | None] | None) -> list[tuple[Path, Path]]:
@@ -527,7 +537,7 @@ def _measured_cells(path, mask, grown, placed, tags, scale_field, record, strict
     inside the tray's outline (`segmentation.measure_cells`). A tray whose cells cannot be worked
     out gets none, logged: its tray area and the other trays' cells are kept (review of #374). The
     fourth item of each is whether its cells, or their grown values, could not be worked out
-    (the tray then says "grown area not worked out"); `with_grown` False for a tray whose grown
+    (the tray then says CELLS_NOT_WORKED_OUT); `with_grown` False for a tray whose grown
     values are left out. With
     `strict` (Reprocess) such a tray raises `NotReprocessed` instead (#483)."""
     out = []

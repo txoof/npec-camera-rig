@@ -1395,6 +1395,22 @@ def test_reprocess_that_grows_again_and_then_meets_a_locked_rig_db_leaves_the_re
     assert _saved(path) == before
 
 
+def test_a_read_that_cannot_delete_an_old_mask_leaves_no_temporary_files(monkeypatch) -> None:
+    """Sixth review of #483: if an old mask cannot be deleted (here its place holds a folder), the
+    error is raised and the new masks written to temporary files before it are removed."""
+    from npec_rig import segmentation
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    blocked = segmentation.mask_file(path)
+    (blocked).mkdir(parents=True)
+    (blocked / "in-the-way").write_bytes(b"x")
+
+    with pytest.raises(OSError):
+        tray_readings.read_photo(path)
+    assert not list(blocked.parent.glob("*.staged"))
+
+
 def test_a_recount_with_the_photo_gone_leaves_both_saved_masks_in_place_byte_for_byte(monkeypatch) -> None:
     """With the photo gone the saved masks are all that is left of it: counting them again saves the
     reading and never deletes, rewrites or renames a mask (#483)."""
@@ -1448,11 +1464,13 @@ def test_reprocess_does_not_count_a_reading_saved_with_its_cells_not_worked_out(
     assert _saved(path) == before
 
 
-def test_starting_reprocess_removes_temporary_mask_files_left_by_an_earlier_run_of_the_app(monkeypatch) -> None:
-    """A kill between writing a new mask and renaming it leaves `*.staged` beside the masks. One
-    from another process is removed when Reprocess starts; one of this process (a reading in
-    progress) is not."""
+def test_starting_reprocess_removes_only_old_temporary_mask_files(monkeypatch) -> None:
+    """A kill between writing a new mask and renaming it leaves `*.staged` beside the masks. When
+    Reprocess starts one older than an hour (STAGED_MAX_AGE_S: no commit takes more than seconds) is
+    removed, whatever process left it; a fresh one, which may be a reading in progress in another
+    process, stays; a file named in no usual way neither crashes the sweep nor is removed if fresh."""
     import os
+    import time
 
     from npec_rig import segmentation
 
@@ -1460,14 +1478,17 @@ def test_starting_reprocess_removes_temporary_mask_files_left_by_an_earlier_run_
     path = _photo()
     folder = segmentation.mask_file(path).parent
     folder.mkdir(parents=True, exist_ok=True)
-    old = folder / f"{Path(path).name}.png.{os.getpid() + 1}.1.staged"
-    mine = folder / f"{Path(path).name}.png.{os.getpid()}.1.staged"
-    old.write_bytes(b"x")
-    mine.write_bytes(b"x")
+    old = folder / f"{Path(path).name}.png.4242.1.staged"
+    fresh = folder / f"{Path(path).name}.png.4243.1.staged"
+    odd = folder / "x.staged"
+    for f in (old, fresh, odd):
+        f.write_bytes(b"x")
+    two_hours_ago = time.time() - 2 * 3600
+    os.utime(old, (two_hours_ago, two_hours_ago))
     experiment = database.create_experiment(uuid="u-483s", created_at="2026-11-06T00:00:00+00:00")
 
     tray_readings.start_reprocess(experiment["id"])
-    assert (old.exists(), mine.exists()) == (False, True)
+    assert (old.exists(), fresh.exists(), odd.exists()) == (False, True, True)
 
 
 def test_reprocess_does_not_count_a_matched_saved_tray_that_has_no_levels(monkeypatch) -> None:
