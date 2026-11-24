@@ -226,6 +226,7 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
     grew = dict(zip(map(id, outlined), grown, strict=True)) if grown else {}
     no_cells: tuple[list, None, bool] = ([], None, False)
     trays = []
+    kept = _saved_grown(saved)
     for p in placed:
         m = measured.get(id(p))
         g, soil_level, lower_cutoff = grew.get(id(p), (None, None, None))
@@ -259,9 +260,38 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "grown_plant_centre_px": list(g.centre_px) if g and g.centre_px else None,
             "grown_soil_level": soil_level, "grown_lower_cutoff": lower_cutoff,
         })
+    for tray in trays:
+        if tray["grown_area_mm2"] is None and tray["tray_id"] in kept:
+            _keep_grown(tray, kept[tray["tray_id"]])
     database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
     exclusions.update(record)
     return capture_readings(record)
+
+
+GROWN_TRAY_FIELDS = (
+    "grown_method", "grown_area_mm2", "grown_plant_px", "grown_plant_centre_px", "grown_soil_level", "grown_lower_cutoff",
+)
+GROWN_CELL_FIELDS = ("grown_area_mm2", "grown_plant_px", "grown_plant_centre_px", "grown_over_other_cells")
+
+
+def _saved_grown(saved: dict | None) -> dict[int, dict]:
+    """The saved reading's trays that have a grown area, by tray ID (a tag two trays carry is left
+    out: which tray is which cannot be told). Reprocess keeps these when it cannot work the grown
+    area out again (#483, finding 4)."""
+    trays = [t for t in (saved or {}).get("trays", []) if t["tray_id"] is not None]
+    carried = Counter(t["tray_id"] for t in trays)
+    return {t["tray_id"]: t for t in trays if carried[t["tray_id"]] == 1 and t["grown_area_mm2"] is not None}
+
+
+def _keep_grown(tray: dict, old: dict) -> None:
+    """Put the saved tray `old`'s grown values, and those of its cells by name, on the new `tray`."""
+    tray.update({f: old.get(f) for f in GROWN_TRAY_FIELDS})
+    by_name = {c["cell"]: c for c in old.get("cells", [])}
+    for cell in tray["cells"]:
+        if cell["cell"] in by_name:
+            cell.update({f: by_name[cell["cell"]].get(f) for f in GROWN_CELL_FIELDS})
+    if segmentation.SOIL_HIDDEN in old.get("warnings", []):
+        tray["warnings"] = [*tray["warnings"], segmentation.SOIL_HIDDEN]
 
 
 class ReadingWorse(RuntimeError):

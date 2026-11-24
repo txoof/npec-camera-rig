@@ -1049,7 +1049,8 @@ def test_reprocess_counts_both_methods_again_from_their_saved_masks_without_the_
 
 def test_reprocess_of_a_photo_read_before_grow_from_leaf_cores_keeps_its_area_with_the_photo_gone(monkeypatch) -> None:
     """A photo read before #363 has only the fixed cutoff's mask. With the photo gone, Reprocess
-    counts that mask again (900 mm2) and has no area by grow from leaf cores."""
+    counts that mask again (900 mm2) and keeps the saved area by grow from leaf cores (1156 mm2,
+    340 x 340 px at 10 px/mm) instead of replacing it with none (#483)."""
     from npec_rig import segmentation
     from npec_rig.captures import photo_file
 
@@ -1061,7 +1062,27 @@ def test_reprocess_of_a_photo_read_before_grow_from_leaf_cores_keeps_its_area_wi
 
     [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
     assert tray["area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
-    assert (tray["grown_method"], tray["grown_area_mm2"]) == (None, None)
+    assert tray["grown_method"] == "grow from leaf cores, core 0.07"
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)
+
+
+def test_reprocess_keeps_the_saved_grown_area_when_the_photo_and_the_grown_mask_are_gone(monkeypatch) -> None:
+    """A reading with both areas (fixed 900 mm2, grown 1156 mm2). The fixed area is counted again
+    from its mask; the saved grown area is kept, as a fixed area it cannot work out is (#483)."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    [before] = tray_readings.read_photo(path)["trays"]
+    assert before["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
+    photo_file(path).unlink()
+    segmentation.mask_file(path, segmentation.GROWN_MASK).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(900, rel=0.01)
+    assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)
+    assert {c["cell"]: c["grown_area_mm2"] for c in tray["cells"]}["B3"] == pytest.approx(1156, rel=0.01)
 
 
 # Blue mats over the soil (#373, metrology log 39): the pixels left beside the mats outnumber the
