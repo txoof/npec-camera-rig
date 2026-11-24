@@ -11120,3 +11120,453 @@ The app also showed 12.1 GB written per day and 56.6 days left.
 shows the scheduler takes every photo while the app is up; it does not show that every photo
 reaches the database while another job writes to it (17 November, #439). The reboot test is on
 development, not on production. Excel was tried once, on one computer; its version was not recorded.
+
+## 46. Dark pots: a noise-aware rule that adapts to each photo (issue #497, part 1 of #484, method written 2026-11-24, revised the same day after Aaron's review, before any pixel was measured)
+
+**Label: development check.** Grow from leaf cores, the Gallery's default method, reads empty dark pots
+as plant. On production, tray 4 after the harvest of 23 November read 4,856 to 11,789 mm² grown against
+19 to 54 mm² by the fixed green cutoff (#480 finding 1, #484). Section 42's verdict "grow from leaf
+cores needs no floor" covered soil, not dark pots, and is reopened (Aaron, 2026-11-23).
+
+**Cause.** Greenness is a ratio, `(2G - R - B) / (R + G + B)`. Near black the denominator is small, so
+a few levels of JPEG noise decide the ratio: a pixel of RGB about 9,12,10 has greenness about 0.12 and
+passes as a leaf core, while the pots around it (about 7,7,7) have greenness 0 and pass the lower
+cutoff, and grow joins them. The error is in code levels, not in brightness as such.
+
+**What was rejected (Aaron, 2026-11-24), and why it is not tested.** Lighting differs between
+experiments and chambers and cannot be controlled, so:
+
+1. *A fixed brightness limit* (`R+G+B` or the largest channel below a number): a number measured on
+   November photos may not hold under other light.
+2. *A limit relative to the AprilTags in the same photo*: tags are not always black and white, and are
+   not as deep black as the pots.
+3. *A limit relative to the tray's own soil brightness*: it fails under blue mats and on emptied
+   trays, which are the cases this fixes.
+
+**The rule under test (noise-aware).** A pixel may be a leaf core, and may be grown into, only if its
+green exceeds red by more than noise can produce, in actual code levels:
+`G - R > k * sigma`, with `sigma` the noise (standard deviation, in code levels) of a pixel of that
+photo, and `k` a single dimensionless factor. `G > R` is already required of a core
+(`segmentation.grow_from_cores`); this makes the margin a measured quantity instead of 1 level.
+Whether the rule also needs the blue channel (`G - B`) is looked at in the data, not assumed. The
+noise should depend on the camera's analogue gain (recorded in every capture's sidecar as
+`sensor_metadata.AnalogueGain`, with `ExposureTime` and `DigitalGain`) and on the JPEG quality
+(`photo_quality`, #359), not on how bright the room is. That is a hypothesis, tested below.
+
+**Question.** Does one `k` work in every condition below: it removes the pots' false plant without
+removing leaves?
+
+**Conditions and data (production only, read-only; nothing run or written on the rig).**
+
+| Condition | What | Available |
+|---|---|---|
+| Before and after the harvest | Experiment 18, trays 4 to 6 (after 23 November), trays 1 to 3 (after 16 November), the same trays with plants before | Yes |
+| Another layout | Experiment 20, a dummy run, not a real experiment (Aaron, 2026-11-24): a blue 4 x 5 tray with the green target and a paper tag sheet, the other cells empty with no pots (from 24 November 07:33 UTC, 300 s interval; folder `2026-11-24_d0fc0d74`) | Yes, 6 photos copied (09:00 to 10:00 UTC, two of them while the light was still changing), nothing run on the rig |
+| Time of day | Morning, midday, evening, lit and counted (section 43) | Yes |
+| Different gains | See the limit below | **Not on lit photos** |
+| Both JPEG settings | `photo_quality` of each photo | To be read from the sidecars; only the settings really used are tested |
+| Development rig | Experiment 4 "Dario 13 Emergence", `2026-11-13_f991a199` | Yes since Aaron's answer of 2026-11-24: 5 photos copied read-only with `rsync` (JPEG 85, 4:4:4, lit at gain 1.0 and 1.5, lights off at gain 4.0). No tray outlines (the rig's API was not asked), so only fixed rectangles |
+
+*What the sidecars show.* On a sample of 12 lit photos of experiment 18 (20 to 23 November at 07:00,
+13:00, 20:00 UTC) and the first lit photo of experiment 20, every one has analogue gain 1.0 and
+exposure about 1.7 ms (auto exposure converged); the photos at gain 4.0 are the lights-off ones (02:00
+to 06:00 UTC, exposure tens of ms), which the app leaves out. So lit production photos carry **one**
+gain, and the gain dependence of the noise cannot be tested on counted production photos. It can be
+looked at on the lights-off photos of the same pots (gain 4, no plant seen), which are not counted
+photos, as a check on whether the noise rises with gain; it is not a test of the rule on leaves.
+
+**Pixels.**
+
+1. *Empty-pot pixels.* Emptied trays of experiment 18 and any empty pots in experiment 20: the cells
+   the app places (`tray_placement.place_cells`), every pixel inside the opening that is not blue or
+   white or in the tag's enlarged square (the app's own rules), in cells judged empty by looking at the
+   crop. The list of cells is kept. This is chosen by eye because no rule for "empty pot" exists.
+2. *The 60-cell reference set (section 33)*: the lossless crops and Aaron's truth masks.
+3. *Dense late-November canopy, an upper bound.* Photos of experiment 18 trays with full canopy,
+   16 to 22 November, run through `grow_from_cores` as the app does. The pixels of the app's own grown
+   mask that the rule would remove, as a share of the mask, are an **upper bound** on the shaded leaf
+   the rule could cost: some of them are false plant, and there is no hand outline of them. No new
+   outlines are drawn (Aaron, 2026-11-24).
+
+**How `sigma` can be found (the options reported to Aaron; the choice is his, see below).** The test
+runs the chosen option; the options are compared on the same photos if time allows.
+
+- *(a) A table, gain to noise,* measured once from stored photos of a still, dark pot, applied by the
+  photo's recorded gain and JPEG quality. Cheap, no circularity in use. Needs photos at each gain and
+  quality: lit production has only gain 1.0.
+- *(b) Measured in each photo from the image,* from the noise of pixels known not to be plant: for
+  example the difference between each pixel and the median of its neighbours, taken in dark flat
+  areas of the tray (pot, plastic, tag), as a robust spread (median absolute deviation). It adapts to
+  gain, JPEG quality and sensor, and to a photo whose settings are not recorded. The risk is
+  circularity: if a tray is all pot, the pots are the sample, and the spread of a dark area of noise
+  is the very thing being thresholded. It is avoided by taking the noise from pixels of a
+  different kind, or by checking that the estimate does not move when the pots are removed.
+- *(c) A fixed floor in code levels* (`G - R` at least a few levels), with its gain dependence
+  checked. Simplest, and needs the least code. It holds only as far as the noise does not move with
+  gain and JPEG quality; the data here show one gain, so that check is not complete.
+- *Ordinary exposure state instead of gain:* use `ExposureTime` times gain (the E of section 43) as
+  the predictor. Not tested separately; E is already about 1.7 ms times 1.0 on every lit photo.
+
+**What is reported.**
+
+1. The noise in code levels, in each photo, for pot pixels: standard deviation and median absolute
+   deviation of `G - R`, and of each channel, per photo, with its gain, exposure and JPEG quality; by
+   time of day.
+2. The false-plant pixels (what `grow_from_cores` marks in an emptied tray): their `G - R` (code
+   levels) and their `R+G+B`, percentiles 1, 50, 99, 99.9 and the maximum.
+3. For each `k` in 0 to 12 in steps of 1: (a) the emptied trays' grown area, (b) the 60 reference
+   cells' IoU and area ratio against truth, (c) the canopy upper bound, all by the app's
+   `grow_from_cores` with the rule applied in an experiment-side copy (a pixel failing the rule is not
+   a core and is not grown into), so no app code changes.
+4. Whether one `k` serves all conditions, or whether the best `k` of each condition differs.
+5. **Grown over fixed area on ordinary readings:** from the 183 hourly tray readings of 16 to 23
+   November (`~/temp.nobackup/rig-copies/ac-testing/review-434/readings/`), the ratio
+   `grown_area_mm2 / fixed area` per tray reading, percentiles and largest, and for tray 4's false
+   readings. This is for Aaron's decision on #484's "many times the fixed area" warning factor. No
+   factor is chosen here.
+
+**Pass and fail, decided before any pixel is measured.** A single `k` **passes** if at that `k`, in
+every condition that has data:
+
+1. the false-plant pot pixels fall to under 1% of their number without the rule (**placeholder**),
+   and emptied trays read about the fixed cutoff's 19 to 54 mm² (I take 60 mm², a **placeholder**, as
+   the most that counts);
+2. on the 60 reference cells the mean IoU loses at most 0.005 (**placeholder**) and the area ratio
+   stays within 0.02 of the figure without the rule (**placeholder**). *Corrected 2026-11-24 on Aaron's
+   instruction: this was first written as "not below section 34's 0.874 by more than 0.005", a
+   comparison with whole-photo runs that these crops do not reproduce (they score 0.926 without the
+   rule, 46.4). The loss is judged on the same cells, without the rule.*
+3. the canopy upper bound is at most 1% of the grown mask on every photo (**placeholder**).
+
+The placeholders put a number on "about" and "small"; they are decisions made here, not measurements,
+and the full table over `k` is published so anyone can use others. If no `k` passes in every
+condition, the result is **"no single `k` works"** and this section says so, with what fails, before
+anything is coded in #484.
+
+### 46.0 Amendments before measuring (Aaron, 2026-11-24) and what was added after
+
+Written before any area was measured, from Aaron's answers:
+
+1. **The noise estimate.** Methods (b) (noise measured in each photo, above) and (c) (a fixed floor in
+   code levels) are run side by side on the same photos and both are reported. Method (a) (a table of
+   noise against gain) is used only as a side check, on the lights-off photos at gain 4.0.
+2. **Gain.** Counted production photos all have analogue gain 1.0, so what is tested is stated as
+   "counted production photos at gain 1.0 only" (46.7). Development's photos are also read, to look
+   for lit photos at another gain.
+3. **Pass numbers as written above** (all placeholders): emptied trays at most 60 mm², the 60 cells'
+   mean IoU loses at most 0.005 against the same cells without the rule, area ratio within 0.02 of the ratio
+   without the rule, canopy upper bound at most 1% of the grown mask on every photo, false-plant pot
+   pixels under 1% of their number without the rule.
+4. **Experiment 20's blue tray** is a test condition: (a) its green target (a known object: the flat
+   target of section 17.5, 149.9 x 149.8 mm by callipers, 22,455 mm² nominal) must keep its grown area;
+   (b) its empty cells, which hold no pots, must read about 0 mm². The app reads the target at 23,600
+   to 24,600 mm² with the rule off (5 to 10% above the nominal area; the target lies on the tray top at
+   100 mm, and this section does not look into why), so the rule-off reading is the reference. No
+   number for "keep" was set before measuring; the change is reported.
+
+**Added after rule A had been measured.** Rule A (`G - R > thr`, as written) was run first and removed
+about half of every reference cell (46.2). A second form, **rule B**, was then tried: the greenness
+test keeps its cutoff and its numerator must clear the cutoff by more than `thr` code levels,
+`(2G - R - B) - cutoff x (R + G + B) > thr`, with the core cutoff on cores and the lower cutoff on
+growth. In `thr = 0` it is the app's own test. Rule B was chosen because rule A had failed, so it
+is not a test fixed before the data; the same pass numbers are used on it. In method (b) the noise for
+rule B is measured on `2G - R - B` (the residual about its 15 x 15 neighbourhood mean) and for rule A on
+`G - R` (about the neighbourhood median), in the darkest tenth of the pixels inside the trays' outlines
+(by rank in each photo, no fixed value), as a root mean square. The robust spread first tried
+(median absolute deviation) is 0: most dark pixels have a residual of exactly 0.
+
+*What the code does.* `experiments/497-dark-pots/code/rule.py` is a copy of `grow_from_cores` with the
+rule added; with the rule off it gives the app's mask pixel for pixel (checked on a crop with
+`code/check_copy.py`: 0 pixels different), and its pixel count on every full photo equals the count the app
+stored (for example 286,088 px for tray 4 on 23 November 13:00). Tray outlines and tags are the ones
+the app stored, read from the rig's API (`GET /api/captures/trays/...`) and kept in `data/api/`;
+the tag square is taken from cell A1's corners shrunk from the cell (about 59 mm) to the tag (40 mm).
+
+### 46.1 Data used
+
+| Condition | Photos | What was read |
+|---|---|---|
+| Experiment 18, emptied trays | 23 Nov 11:00, 12:00, 13:00, 14:00 UTC (4 photos; tray 4 emptied about 11:00, tray 5 about 13:00, tray 6 about 14:00) | trays 4 to 6 once empty (the app's fixed cutoff reads 6 to 54 mm²) |
+| Experiment 18, canopy | 18 Nov 13:00; 20 Nov 13:00, 20:00; 22 Nov 09:00, 13:00, 20:00; 23 Nov 09:00 (7 photos) | trays 4 to 7 with plants (fixed cutoff 7,100 to 14,200 mm²) |
+| Experiment 18, green target | the same 11 photos | tray 10 |
+| Experiment 20 | 24 Nov 08:09, 08:34 (light still changing, so not counted by the app), 09:04, 09:29, 09:44, 09:59; the sweeps use all 6, the cell readings of 46.8 only the 4 counted | tray 10: green target, tag sheet, empty cells |
+| 60 reference cells (section 33) | the lossless crops with Aaron's truth masks | 30 production, 30 development; the lower cutoff given as the draft's (the whole tray's, from the manifest) |
+| Development, experiment 4 | 23 Nov 12:00 and 20:00, 24 Nov 08:05 (gain 1.5), 10:00; lights off 24 Nov 05:00 (gain 4.0) | two fixed rectangles over two trays of seedlings on soil plugs |
+| Lights-off, experiment 18 | 24 Nov 03:00 and 07:00 | the outlines of trays 4 to 6 as at 23 Nov 14:00 |
+
+Photos are at `~/temp.nobackup/rig-copies/ac-testing/497-dark-pots/` and `.../npec-rig-01/497-dark-pots/`
+(not in git); experiment 18's JPEG setting is 75, 4:2:0 and development's is 85, 4:4:4. Trays 1 to 3 of
+experiment 18 left the table on 16 November and have no pots left to read.
+
+### 46.2 Rule A, `G - R > thr`: fails on the reference cells at every value
+
+On the 60 reference cells the mean IoU is 0.926 with no rule, **0.551 at `thr = 0`**, 0.505 at 2, 0.449 at
+4, and 0.214 at 12 (method (c)); method (b) is lower still. Rule A leaves out every pixel the lower
+cutoff admits with green not above red (leaf edges, grey pixels joined to a leaf, shaded leaf) and the
+reference masks contain many of them. It does cut the emptied trays to 9 mm² at 2 levels. It loses
+0.375 of IoU on the same cells (0.926 to 0.551) against the 0.005 allowed, and is not considered further; the numbers are in
+`data/summary_levels.csv` (form A).
+
+### 46.3 Rule B: emptied trays, empty cells, the target
+
+Method (c), floor of N levels (largest of the 4 emptied photos' readings of trays 4 to 6; share of the
+false-plant pixels left; the app's mask has 286,088 px, 11,789 mm², on tray 4 at 13:00):
+
+| N | Emptied trays, largest mm² | False-plant pixels left | Experiment 20 and tray 10, other than the target, largest mm² | Target, change in grown area (17 photos) |
+|---|---|---|---|---|
+| 0 (no rule) | 11,789 | 100% | 413 | 0 |
+| 1 | 357 | 4.1% | 600 | -0.30 to -0.10% |
+| 2 | 96 | 1.4% | 577 | -0.61 to -0.31% |
+| **3** | **45** | **0.73%** | **34** | **-0.72 to -0.43%** |
+| 4 | 16 | 0.28% | 23 | -0.77 to -0.51% |
+| 5 | 9 | 0.14% | 16 | -0.87 to -0.59% |
+| 8 | 2.8 | 0.02% | 6.8 | -1.19 to -0.78% |
+
+(The tray 10 column covers both experiments' photos: patches in the dark cells that hold no pot or that sit
+beside the target. The target's change is measured on the target alone: what survives an opening of 201 px
+of the app's mask, widened by 15 px, so the patches in the dark cells that touch it are not counted;
+`code/target_zone.py`. With the rule off the target's zone holds 565,000 to 573,000 px.) Method (b), k
+times the photo's own noise: **k = 3 gives 58.8 mm² and 0.91% left** (just inside 60 mm² and 1%); k = 2
+gives 136 mm² and 1.7%, k = 1 gives 1,135 mm² and 10.5%.
+
+*The false plant at a floor of 3.* What it removes is picture 46a, picture 46b and the table above: in
+the emptied tray 4 at 13:00 the app counted 286,088 px and the floor of 3 leaves 1,026 px (42 mm²;
+`figures/46/tray4-emptied-2026-11-23T1300.jpg`). The pixels it counts as plant have a margin of
+under 1 level in 83.8% of the cases, under 4 levels in 98.7% and under 9 in 99.9% (margins are floored to
+whole levels before they are counted; `figures/46/margin-cdf.png`).
+
+### 46.4 Rule B: the leaves
+
+*The 60 reference cells* (mean IoU against Aaron's masks; area ratio, mask over truth, pooled):
+
+| | No rule | N = 1 | N = 2 | N = 3 | N = 4 | N = 5 | k = 1 | k = 2 | k = 3 |
+|---|---|---|---|---|---|---|---|---|---|
+| All 60 | 0.926 / 1.046 | 0.905 / 1.034 | 0.897 / 1.024 | 0.888 / 1.015 | 0.878 / 1.006 | 0.869 / 0.998 | 0.867 / 0.992 | 0.785 / 0.946 | 0.663 / 0.886 |
+| 38 corrected by Aaron | 0.911 / 1.050 | 0.888 / 1.038 | 0.883 / 1.028 | 0.879 / 1.018 | 0.874 / 1.010 | 0.867 / 1.002 | 0.864 / 0.996 | 0.796 / 0.951 | 0.675 / 0.894 |
+| 30 production | 0.899 / 0.988 | 0.860 / 0.950 | 0.847 / 0.936 | 0.833 / 0.922 | 0.818 / 0.907 | 0.804 / 0.895 | 0.812 / 0.902 | 0.707 / 0.823 | 0.555 / 0.702 |
+| 30 development | 0.954 / 1.048 | 0.951 / 1.038 | 0.947 / 1.029 | 0.943 / 1.019 | 0.939 / 1.011 | 0.934 / 1.003 | 0.923 / 0.997 | 0.863 / 0.952 | 0.771 / 0.895 |
+
+(The rows by group come from `code/analyze.py`, written to `data/ref_iou_by_group.csv`.) The mean IoU of 0.926 with no rule is above section 34's 0.874 to 0.879, because these crops are scored with
+the draft's own lower cutoff and 21 of the 60 truth masks are accepted drafts (section 33); the loss is
+therefore taken against the same cells without the rule. **Method (c) loses 0.021 at N = 1 and 0.038 at N = 3
+(0.066 on production's 30 cells), against the 0.005 allowed: it fails at every N from 1.** (Held to an
+absolute 0.869, the 60-cell mean would pass to N = 5; that is not the number fixed, and it is not used.) Method (b) measures the noise of each crop at 3.1 to 7.7 (production, median 4.8)
+and 4.7 to 9.3 (development, median 6.5), so k = 1 is a floor of 3 to 9 levels and loses 0.03 to 0.09 at k = 1.
+
+*Dense canopy, an upper bound on the leaf a rule could take.* Share of the app's mask the floor removes, per
+tray and photo, at N = 3 (trays 4 to 6: 0.07% to 0.50%; tray 7, 8 photos: 0.18%, 1.15%, 1.36%, 6.63%, 1.48%,
+0.91%, 2.22%, 2.58%). Tray 7 is above 1% on 6 of 8 photos, so the pass number (1% on every photo) is not met.
+The removal is not spread over leaves (`data/tray7_cells.csv`): on 22 November 09:00 it is 97% in cell D5,
+a black pot where the app counted 23,835 px (6.6% of the tray) on that photo and 213 px on 18 November
+(`figures/46/tray7-canopy-2026-11-22T0900.jpg`), and in the other photos about a third of it is in cell C1,
+a plant with dark leaves, of which the floor of 3 removes 11% to 47% of the pixels the app counts (1,116 to
+2,536 of 4,961 to 10,562 px). So the upper bound mixes false plant, correctly removed, with a real cost on dark leaves that
+no hand outline measures. On development's seedlings (JPEG 85; `data/dev_rect.csv`) a floor of 3 removes 6.5%
+to 8.3% of the app's mask of one tray (left, 9,200 to 14,800 px) and 1.6% to 2.6% of another (top right,
+99,000 to 112,000 px), 6.5% and 1.6% on the one photo at gain 1.5 against 7.8% to 8.3% and 2.1% to 2.6% on the two at gain 1.0 (the three photos differ in more than gain, so one photo at 1.5 shows nothing about gain).
+
+### 46.5 Noise: how it moves with the photo, the gain and the settings
+
+Method (b) reads the noise from the image. In the darkest tenth of the tray pixels it gives, in code levels
+of `2G - R - B` (`figures/46/noise-estimate-by-condition.png`):
+
+| Photos | Noise by method (b) |
+|---|---|
+| Experiment 18, 4 emptied-tray photos | 0.82 to 0.95 |
+| Experiment 20, 6 photos | 1.04 to 1.13 |
+| Experiment 18, 7 canopy photos | 2.75 to 3.96 |
+| Reference crops, production, 30 | 3.1 to 7.7 |
+| Reference crops, development, 30 | 4.7 to 9.3 |
+
+The estimate follows what is in the trays, not the camera: the same camera at the same gain 1.0 and the same
+JPEG setting gives 0.9 over empty pots and 3.1 over canopy, a factor of 3.4 (about 2.9 to 4.8 from the ranges above, 0.82 to 0.95 against 2.75 to 3.96). That is the circularity: the darkest
+tenth of an emptied tray is the pots themselves, whose noise is not the noise of a leaf's shade. With
+k = 3 the emptied trays are just inside the pass number (a floor of about 2.7 levels) while on canopy photos
+the same k is a floor of 8 to 12 levels.
+
+*Side check, method (a), gain.* The noise of the same pixels, root mean square of the residual of `2G - R - B`
+(all pixels of the region, then the darkest tenth; `data/noise_vs_gain.csv`):
+
+| Photo | Gain, exposure | JPEG | Mean R+G+B | All | Darkest tenth |
+|---|---|---|---|---|---|
+| Production, trays 4 to 6, 23 Nov 14:00 | 1.0, 1.8 ms | 75 4:2:0 | 120 | 2.85 | 0.87 |
+| Production, 23 Nov 13:00 | 1.0, 1.7 ms | 75 4:2:0 | 213 | 2.62 | 0.77 |
+| Production, lights off, 24 Nov 03:00 and 07:00 | 4.0, 66.5 ms | 75 4:2:0 | 1.5 | 0.53 | 0.54 and 0.56 |
+| Development, left tray, 23 Nov 12:00, 20:00, 24 Nov 10:00 | 1.0, 3.5 ms | 85 4:4:4 | 194 to 200 | 4.29 to 4.35 | 2.35 to 2.39 |
+| Development, 24 Nov 08:05 (lit, converged) | 1.5, 16 ms | 85 4:4:4 | 197 | 4.34 | 2.32 |
+| Development, lights off, 24 Nov 05:00 | 4.0, 66.5 ms | 85 4:4:4 | 4.1 | 1.10 | 0.86 |
+
+On development, a lit photo at gain 1.5 has the same noise as the three at gain 1.0 (4.34 against 4.29 to
+4.35). The lights-off photos at gain 4.0 are almost black (mean R+G+B 1.5 and 4.1), the sensor is clipped at
+0, and their noise is lower, not higher. So **how the noise grows with gain is not shown**: no counted
+production photo has a gain other than 1.0, the only lit photos at another gain are development's 11
+converged photos at 1.5 at about 08:05 UTC, and the lights-off photos carry no information on it. Development's
+JPEG (85, 4:4:4) reads about 1.6 times the production noise on pixels that differ in content (soil plugs
+against canopy), which is not a comparison of the settings alone.
+
+### 46.6 Grown area over fixed area on ordinary readings (for the warning factor)
+
+From the 183 hourly readings of production (16 to 23 November, `review-434/readings/`), counted readings
+of trays with a fixed area of 100 mm² or more: **548 tray readings in 111 photos**. The ratio of the
+grown to the fixed area is 0.98 to 1.65 (median 1.10; 5th percentile 0.99; 95th 1.34; 99th 1.54). By tray:
+tray 4, 1.06 to 1.63; tray 5, 1.08 to 1.65; tray 6, 1.06 to 1.31; tray 7 (green squares and leaves), 0.99 to 1.11;
+tray 10 (green target), 0.98 to 1.00. The 14 counted readings of trays with a fixed area under 100 mm²
+are all above 2.5: trays leaving on 16 November at 11 to 32 mm² fixed read 2.6 to 6.4 times
+(33 to 186 mm² grown), and the dark pots of tray 4 read 133 to 272 times (4,856 to 11,789 mm² grown, fixed 19
+to 54 mm²), trays 5 and 6 read 10 to 15 times (69 to 161 mm²). Among ordinary readings the ratio never
+reaches 2; among small readings a ratio is large for areas that are themselves tiny. The factor, and
+whether to ask for a minimum area, are Aaron's decisions; none is proposed here.
+
+### 46.7 Verdict, what it covers and does not
+
+**No single pixel rule passes every number fixed before the measurement. Nothing is coded.**
+
+| | Rule A (`G - R`) | Rule B, (c) floor of N | Rule B, (b) k times noise |
+|---|---|---|---|
+| False plant removed, emptied trays at most 60 mm², under 1% left | Yes from N = 2 | Yes from N = 3 (45 mm², 0.73%) | Yes only at k = 3 or more (58.8 mm², 0.91%) |
+| Experiment 20's empty cells about 0 | Yes from N = 2 | Yes from N = 3 (at most 34 mm²) | Yes from k = 3 |
+| Green target keeps its area | No (-0.6 to -0.3% at N = 2) | -0.7 to -0.4% at N = 3; no number was set | -1.2 to -0.4% at k = 3 |
+| 60 reference cells, IoU loss at most 0.005 (from 0.926) | **No: loses 0.375 at the smallest value** | **No: loses 0.021 at N = 1, 0.038 at N = 3** (0.066 on production's 30) | **No: loses 0.26 at k = 3** |
+| Canopy upper bound at most 1% on every photo | No | **No: tray 7 loses 0.18% to 6.63% (the 6.63% is 97% a black pot in cell D5; without that photo, 0.18% to 2.6%, mostly cell C1's dark leaves)** | **No** |
+| One factor across all conditions | No | No | **No: the noise estimate itself moves by 3.4 (2.9 to 4.8)** |
+
+- **Method (b) fails the question asked.** Its noise estimate is 3.4 times higher (2.9 to 4.8) on canopy photos than
+  on emptied-tray photos at the same gain, so k = 3 is a floor of 2.7 levels in one and 8 to 12 in the
+  other; at k = 3 the reference cells' IoU is 0.66.
+- **Method (c), a floor of 3 or 4 code levels on the greenness margin, removes the false plant but at a
+  cost on real leaves.** It removes 99.3% to 99.7% of the false-plant pixels and takes the empty cells and the
+  dark pots to 45 mm² or less. The cost is on dark leaves and seedlings: 0.038 of IoU on the 60 cells (0.066
+  on production's 30), 11% to 47% of one dark-leaved plant, 0.18% to 6.63% of tray 7's mask (0.07% to 0.5% for trays 4 to 6; the 6.63% is a black pot, and without that photo 0.18% to 2.6%), 6.5% to 8.3% of a
+  tray of small seedlings, and 0.4% to 0.7% of the green target's area.
+- **Recommendation and decision (Aaron, 2026-11-24): no pixel rule.** Empty pots and empty cells are of no
+  interest to researchers, who follow plants by tray and cell, and a floor would shrink real dark-leaved
+  plants and seedlings with nothing on the page saying so. Instead a **cell is flagged** when its grown area
+  is much larger than its fixed-cutoff area ("grown area includes background, cell probably empty"), and a
+  tray keeps its total and adds "N cells flagged, together X mm²". The flag uses only the two areas
+  already stored per cell, so a change of light moves both together. #484 is changed to that flag.
+  Section 46.8 gives the cell-level ratios and records the factor Aaron chose (R = 5, A = 100 mm²).
+- **Not covered:** gain other than 1.0 on counted photos (stated limit; development's gain 1.5 photo shows the
+  same noise as gain 1.0, nothing beyond); another pot or tray plastic, another light program or camera; a
+  development rig measured with tray outlines; the bound on shaded leaf is not a measurement of shaded leaf,
+  because no outline of late canopy exists; JPEG settings are two (75 4:2:0 and 85 4:4:4), on different
+  scenes. The reference cells are young plants (production 22 October to 9 November, development 3 to 9 November).
+
+### 46.8 The cell-level grown over fixed area, for the flag's factor (a development check, written after 46.7)
+
+**What is read.** The two areas the app already stores for each cell: the fixed green cutoff's `area_mm2`
+and grow from leaf cores' `grown_area_mm2` (a missing area counts as 0). Production's 183 hourly readings of
+16 to 23 November, counted photos only (`~/temp.nobackup/rig-copies/ac-testing/review-434/readings/`), and the
+4 counted photos of experiment 20 (`data/api/`; its 08:09 and 08:34 photos are marked "light changing" and are not counted, so the 40 readings are 4 photos of 10 cells); tag cells and cells whose status is "leaves over other cells" (the
+green target's cells) are left out. Development has no stored cell readings in what was copied, so
+development's seedlings are read from the 60 reference crops (section 33), whose two areas were recomputed
+with the app's green threshold and grow from leaf cores (the draft's lower cutoff); a crop holds the cell with a 40
+px margin, so a neighbour's leaf can count. `code/cell_ratio.py`, `code/cell_ratio_tables.py`,
+`data/cell_ratio.csv`, `data/cell_ratio_ref.csv`.
+
+**Groups, and how a cell is put in one.**
+
+- *(a1) Plant cells:* cells of trays with plants (production, 16 to 23 November) whose fixed area is at
+  least 20 mm². This is a size rule chosen here, not a look at each cell; it leaves out cells whose plant the
+  fixed cutoff barely sees. 7,989 cell readings. Cells with 1 to 20 mm² (489) and under 1 mm² (973) are
+  listed apart.
+- *(a2) Production plants in the reference set:* the 26 cells with plants (sizes 1 to 5 of 5, blue mats, green soil;
+  22 October to 9 November, young plants).
+- *(c) Seedlings:* development's 27 reference cells with plants (sizes 1 to 5 of 5, green soil), JPEG 85, the smallest
+  at 71 to 332 mm² fixed. Production's smallest plants are in (a2).
+- *(b) Empty cells:* the 133 cell readings of production's trays 4 to 6 once emptied on 23 November (the harvest
+  was recorded: tray 4 at 11:00 UTC, tray 5 at 13:00, tray 6 at 14:00), 33 of which hold false plant (grown 20
+  mm² or more; 23 to 1,661 mm², median 836 mm²). Also experiment 20's cells without the target (40 cell readings,
+  no pots) and the 6 empty reference cells.
+
+**Ratio of grown to fixed area, per group** (percentiles of the cell readings):
+
+| Group | Cells | Fixed area (mm², median) | Grown over fixed |
+|---|---|---|---|
+| (a1) plant cells, fixed at least 20 mm² | 7,989 | 426 | 1st 0.50, 5th 0.94, median 1.11, 95th 1.9, 99th 2.9, 99.9th 6.3, largest 17.1 |
+| Plant-tray cells, fixed 1 to 20 mm² | 489 | 2.9 | median 0.27, 95th 5.0, 99th 26, largest 117 |
+| Plant-tray cells, fixed under 1 mm² | 973 | 0.12 | grown above 0 in 285; ratio 22 at the 95th, 156 largest |
+| (a2) production reference plants | 26 | 18 | smallest 1.3, median 5.7, 90th 74, largest 677 (fixed 0 to 171 mm², grown 26 to 274 mm²) |
+| (c) development reference seedlings | 27 | 360 | smallest 1.11, median 1.42, 90th 2.0, largest 3.0 |
+| (b) emptied-tray cells holding false plant | 33 | 2.6 (largest 16) | smallest 9.2, then 29, 43, 54; the rest higher |
+| (b) experiment 20 cells without the target | 40 | 1.2 | 23 with grown above 0, grown largest 8.0 mm²; ratio 95th 2.9, largest 12.5 |
+
+**Does one ratio separate the plants from the empty cells?** Not by itself. (a1) and (c) mostly sit below 2
+(95th percentile 1.9 and 2.0), and (b)'s false-plant cells sit above 9. But production's young plants (a2) have
+ratios of 1.3 to 677, because the fixed cutoff reads a young dark leaf as 0 to 30 mm² while grow from leaf
+cores reads 26 to 274: a cell of a few mm² fixed and 26 to 50 mm² grown is a seedling there, and looks like an
+empty cell with a little false plant. The groups differ more in the size of the excess: the false-plant cells
+have an excess of 22 to 1,660 mm² (median 831; 28 of 33 above 200), while production's young plants (a2) have 26 to
+274 mm² grown and development's seedlings (c) 133 to 460 mm² grown for sizes 1 and 2 with a ratio of at most 2.3.
+Two false-plant cells (23 and 24 mm²) are as small as a production seedling.
+
+**Cells flagged by a candidate** (grown above R times fixed *and* grown minus fixed at least A mm²; with fixed
+0 any grown area above 0 is above R times it; counts of cell readings):
+
+| A (mm²) | R | (a1) plant, of 7,989 | (a2) production reference plants, of 26 | (c) development seedlings, of 27 | (b) emptied-tray cells flagged, of 33 holding false plant | Share of the emptied trays' false grown area (27,190 mm²) flagged | Experiment 20 empty cells flagged, of 40 |
+|---|---|---|---|---|---|---|---|
+| 0 | 2 | 341 | 22 | 3 | 33 | 100% | 4 |
+| 0 | 3 | 74 | 19 | 1 | 33 | 100% | 2 |
+| 0 | 5 | 15 | 14 | 0 | 33 | 100% | 1 |
+| 20 | 2 | 341 | 22 | 3 | 33 | 98% | 0 |
+| 20 | 3 | 74 | 19 | 1 | 33 | 98% | 0 |
+| 50 | 2 | 339 | 9 | 3 | 31 | 98% | 0 |
+| 50 | 2.5 | 146 | 9 | 1 | 31 | 98% | 0 |
+| 50 | 3 | 74 | 7 | 1 | 31 | 98% | 0 |
+| 50 | 5 | 15 | 4 | 0 | 31 | 98% | 0 |
+| 100 | 3 | 61 | 1 | 1 | 30 | 98% | 0 |
+| 100 | 5 | 15 | 0 | 0 | 30 | 98% | 0 |
+
+(All candidates of R = 2, 2.5, 3, 5 and A = 0, 20, 50, 100, for every group including experiment 20, are in `code/cell_ratio_tables.py`'s output.)
+
+- **A minimum on the fixed area would exclude the cells to flag:** the false-plant cells' fixed area is
+  at most 16 mm² (median 2.6; 7 of 33 have 5 mm² or more, 2 have 10 mm² or more), so a minimum of 5 mm² would
+  drop 26 of the 33 and a division by a fixed area of 0 is avoided by writing the test as grown above R times
+  fixed. A minimum on the *excess* (grown minus fixed) is what keeps small seedlings and noise out: without it (A = 0) 19 to 22 of the 26
+  production reference plants and 3 of 27 seedlings are flagged at R = 2 to 3; with A = 50 mm², 7 and 1 at R = 3, and with
+  A = 100 mm², 1 and 1.
+- **Plant cells flagged are few cells read many times:** at R = 3 and A = 50 mm², 74 of 7,989 readings (0.9%), in
+  20 cells, 18 of them in tray 7 cell C1 (a dark-leaved plant, fixed 30 to 93 mm² against 208 to 354 mm² grown)
+  and 9 in tray 6 cell D2; they are real plants whose leaves the fixed cutoff mostly misses. The flag marks
+  them although they are not empty.
+- **Cells flagged correctly:** at A = 50 mm² 31 of the 33 false-plant cells and 98% of the false grown area,
+  for every R from 2 to 5; the two missed hold 23 and 24 mm².
+- **Not covered:** one harvest on one rig (trays 4 to 6, 23 November); dark pots of another colour or a dark
+  soil; development's seedlings only as crops with neighbours' leaves; production's plants after 23 November
+  and any plant with leaves the fixed cutoff reads well from the start.
+
+**Decision (Aaron, 2026-11-24): R = 5 and A = 100 mm².** A cell is flagged when its grown area is more than 5
+times its fixed-cutoff area *and* the grown area exceeds the fixed area by at least 100 mm². This is a decision
+made on the numbers above, not a measurement. On the data it flags 30 of the 33 false-plant cells (98% of the
+emptied trays' false grown area), 15 of the 7,989 plant-cell readings (0.2%), 0 of the 26 young production
+reference plants, 0 of the 27 development seedlings and 0 of experiment 20's 40 empty-cell readings (4 counted photos). Among the plant-tray cells with a fixed area under 20 mm² (1,462 readings, not in the 7,989) it flags 5, all with a fixed area of 1 to 20 mm²; they were not looked at one by one (a black pot such as tray 7 cell D5 is one possible kind). It rests on
+one harvest on one rig (production's trays 4 to 6, 23 November) and on the reference crops for young plants and
+seedlings; it is not shown for other pots, soils, plant types or rigs.
+
+*Figures.*
+
+- [`46/margin-cdf.png`](figures/46/margin-cdf.png): share of pixels with a margin at or below N levels, for the
+  false plant of the emptied trays, the reference leaf pixels and the app's mask in canopy trays 4 to 7.
+  `code/margins_and_pictures.py`, `data/margin_hist.csv`.
+- [`46/sweep-rule-b.png`](figures/46/sweep-rule-b.png): the sweep of N and k against the four measures.
+  `code/plots.py` from `data/summary_levels.csv` and `data/target_zone_B.csv`.
+- [`46/noise-estimate-by-condition.png`](figures/46/noise-estimate-by-condition.png): method (b)'s noise by
+  condition. `code/plots.py`.
+- [`46/tray4-emptied-2026-11-23T1300.jpg`](figures/46/tray4-emptied-2026-11-23T1300.jpg),
+  [`46/tray7-canopy-2026-11-22T0900.jpg`](figures/46/tray7-canopy-2026-11-22T0900.jpg),
+  [`46/tray10-target-2026-11-22T2000.jpg`](figures/46/tray10-target-2026-11-22T2000.jpg): each tray as the
+  photo, the app's mask (green), and after a floor of 3 (green kept, red removed), at a quarter of the
+  size. `code/margins_and_pictures.py`.
+
+*Raw data and code.* `experiments/497-dark-pots/data/` (sweeps `sweep_e18_{A,B}.csv`, `sweep_e20_{A,B}.csv`,
+`sweep_ref_{A,B}.csv`, the API readings in `api/`, `target_zone_*.csv`, `tray7_cells.csv`, `dev_rect.csv`,
+`noise_vs_gain.csv`, `margin_hist.csv`, `summary_levels.csv`), run by `code/run_all.sh A|B`, `code/ref_cells.py`,
+`code/analyze.py`, `data/cell_ratio*.csv`.
+
+**Raw data.** Photos stay in `~/temp.nobackup/rig-copies/ac-testing/497-dark-pots/` (production's copy is
+unchanged); the statistics, the cell list and the scripts go under `experiments/497-dark-pots/`.
+
+**Limits, known before the run.** One rig, one pot and tray plastic, one lighting program, one gain on
+every counted photo, one camera. Two experiments, a few days. A noise-aware rule is not shown to hold
+at a gain other than 1.0 on counted photos, for another JPEG setting not in the data, or on the
+development rig. The 60 reference cells hold young plants (production 22 October to 9 November,
+development 3 to 9 November); late canopy shade is bounded, not outlined.
