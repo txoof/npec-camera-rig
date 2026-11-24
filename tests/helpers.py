@@ -355,10 +355,12 @@ def export_built(client, experiment_id: int, choice: dict | None = None, timeout
 
 
 # --- Time lapse frames (#64) -----------------------------------------------------------------
-def turned_tray_photo(experiment_id: int, taken, tray_id: int = 4, calibration: str | None = None) -> None:
+def turned_tray_photo(experiment_id: int, taken, tray_id: int = 4, calibration: str | None = None,
+                      others: tuple[int, ...] = ()) -> None:
     """A 1000 x 1000 photo of tray 4 lying turned 180 degrees, at 2 px/mm: its 610 x 732 px outline
     at x 100 to 710, y 100 to 832, its 4 x 5 cells read, a red patch on cell A1, a blue one on D5
-    (time lapse frames, #64). `taken` is a datetime."""
+    (time lapse frames, #64). `taken` is a datetime. `others`: more tray IDs read in the same photo,
+    each with the same outline and cells, as one photo holds many trays (#503)."""
     from PIL import Image
 
     from npec_rig import captures, database
@@ -389,11 +391,11 @@ def turned_tray_photo(experiment_id: int, taken, tray_id: int = 4, calibration: 
         analogue_gain=None, flags=[],
     )
     database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[{
-        "tray_id": tray_id, "slot": None, "a1_corner": "NE", "placement": "placed", "centre_px": [405, 466],
+        "tray_id": tid, "slot": None, "a1_corner": "NE", "placement": "placed", "centre_px": [405, 466],
         "tilt_deg": 180.0, "margin_mm": None, "found": "photo + tag", "warnings": [],
         "outline_px": [[100, 100], [710, 100], [710, 832], [100, 832]], "area_mm2": 1000.0,
         "segmenter": "green threshold, 0.1", "cells": cells,
-    }])
+    } for tid in (tray_id, *others)])
     database.record_exclusions([{"capture_id": capture_id, "name": None, "norm_e": None, "limit_fraction": None}],
                                worked_out_at=taken.isoformat())
 

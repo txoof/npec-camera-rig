@@ -627,6 +627,29 @@ def test_all_trays_leaves_out_a_tray_whose_every_photo_is_unreadable(experiment)
     assert list((timelapse.videos_root() / video_id).glob("*.part")) == []
 
 
+@needs_ffmpeg
+@pytest.mark.parametrize("spoil", ["junk", "half written"])
+def test_all_trays_counts_a_bad_photo_of_many_trays_once(experiment, spoil):
+    import zipfile
+
+    from tests.helpers import turned_tray_photo
+
+    # Two photos, each of trays 4, 7 and 9; the first one spoilt.
+    for i in range(2):
+        turned_tray_photo(experiment, START + i * timedelta(hours=1), tray_id=4, others=(7, 9))
+    broken = (_break_photo if spoil == "junk" else _truncate_photo)(experiment, 0)
+
+    video_id = timelapse.start({**_video_request(experiment), "tray_id": "all"})["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "ready", progress
+    with zipfile.ZipFile(timelapse.video_file(video_id)) as z:
+        assert z.namelist() == ["tray-4.mp4", "tray-7.mp4", "tray-9.mp4"]
+    # One photo could not be read: counted and named once, not once per tray in it.
+    assert progress["unreadable"] == 1
+    assert [p["path"] for p in progress["unreadable_photos"]] == [broken]
+
+
 # A stand-in ffmpeg (agreed for this test only, #503): it writes its PID, creates the output file
 # it was given (its last argument), then breaks the way `how` says. `exec` keeps the shell's PID
 # for the sleep, so the PID written is the process that must be stopped.

@@ -772,6 +772,17 @@ def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | Non
     return drawn, unreadable
 
 
+def _once(left_out: list[dict], more: list[dict]) -> list[dict]:
+    """`left_out` and the photos of `more` not in it yet: one photo holds many trays, and with
+    All trays each is chosen from it in turn, so a bad photo is counted once, not once per tray."""
+    out, seen = list(left_out), {p["path"] for p in left_out}
+    for p in more:
+        if p["path"] not in seen:
+            out.append(p)
+            seen.add(p["path"])
+    return out
+
+
 def _make(request: dict, folder: str) -> None:
     """In the child process: for each tray asked for (one, or every tray of the experiment, one
     after the other), choose its frames and make its video; all trays are packed into one zip.
@@ -797,15 +808,15 @@ def _make(request: dict, folder: str) -> None:
                 end=datetime.fromisoformat(request["end"]), per_hour=request["per_hour"],
                 mask=mask, cell=request.get("cell"))
             frames, skipped = chosen["frames"], skipped + chosen["skipped"]
-            unreadable = unreadable + chosen["unreadable"]
+            unreadable = _once(unreadable, chosen["unreadable"])
             if not frames:
                 continue
             state = {**state, "state": "drawing", "tray_id": tray_id, "frames": len(frames), "done": 0, "skipped": skipped,
                      "estimated_bytes": estimate_bytes(request)}
             target = out / f"tray-{tray_id}.part"
             drawn, left_out = _encode(experiment, frames, request, mask, target, lambda i, bad: _write_progress(
-                out, {**state, "done": i, "unreadable": len(unreadable) + len(bad), "unreadable_photos": unreadable + bad}))
-            unreadable = unreadable + left_out
+                out, {**state, "done": i, "unreadable": len(_once(unreadable, bad)), "unreadable_photos": _once(unreadable, bad)}))
+            unreadable = _once(unreadable, left_out)
             if drawn:  # a tray none of whose photos could be read is left out
                 made.append((tray_id, target, drawn))
         if not made:
