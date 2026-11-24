@@ -19,6 +19,7 @@ import statistics
 import threading
 import zipfile
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -575,6 +576,30 @@ def _test_hold() -> None:
         time.sleep(0.02)
 
 
+# Set in the video child's environment only (#503). numpy and OpenCV each bundle an OpenBLAS that,
+# as it loads, starts a thread per core and reserves memory for each: on a 16-core machine, 31
+# threads and 3.1 GB of address space after importing this module, past MEMORY_LIMIT_BYTES before
+# a frame is drawn. With this: 1 thread, 0.4 GB. Both read OPENBLAS_NUM_THREADS (VmSize and
+# Threads in /proc/self/status, 2026-11-24, a development check on the controller).
+CHILD_ENV = {"OPENBLAS_NUM_THREADS": "1"}
+
+
+@contextmanager
+def _child_environment():
+    """CHILD_ENV in this process's environment while a child is spawned, which copies it; the
+    server's own environment as it was afterwards."""
+    before = {name: os.environ.get(name) for name in CHILD_ENV}
+    os.environ.update(CHILD_ENV)
+    try:
+        yield
+    finally:
+        for name, value in before.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+
 def start(request: dict) -> dict:
     """Start making the video of `request` (experiment_id, tray_id, start, end, per_hour,
     method, and optionally cell and mask, true to show the method's mask) in a child process: its id. The finished video of an earlier request is removed
@@ -611,7 +636,8 @@ def start(request: dict) -> dict:
         # Spawned, never forked: the server runs threads (camera_process.py).
         process = multiprocessing.get_context("spawn").Process(
             target=_make, args=(request, str(folder)), name=f"timelapse-{video_id}", daemon=True)
-        process.start()
+        with _child_environment():
+            process.start()
         _running.update(id=video_id, process=process)
     return {"id": video_id}
 
