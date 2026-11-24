@@ -510,10 +510,23 @@ metrology log backs it.
 - **Soil-only trays** (*added 2026-11-20*, metrology log 42, a development check). Grow from leaf
   cores reads a tray of bare soil close to 0: a daily median of at most 17 mm² and at most 64 mm² in
   any single photo (under 0.1% of a tray), on two soils and two rigs, where the fixed green cutoff
-  read the same trays 2 to 30 times higher. It therefore has no floor. The fixed green cutoff's
-  floor of 100 mm² rests on production's soil only. Empty cells whose drainage hole shows the table
+  read the same trays 2 to 30 times higher. It therefore had no floor *for soil*; **this does not
+  cover dark empty pots, and "no floor needed" is withdrawn for them** (the next entry). The fixed
+  green cutoff's floor of 100 mm² rests on production's soil only. Empty cells whose drainage hole shows the table
   read up to 174 mm² in single photos; they hold no plant. Not shown: soil lighter or darker than
   these two, green soil, soil under mats.
+- **Dark empty pots** (*added 2026-11-24*, metrology log 46, a development check). After the harvest of
+  23 November, grow from leaf cores read the empty dark pots of production tray 4 as plant, 4,856 to
+  11,789 mm² against 19 to 54 mm² by the fixed cutoff, with nothing on the page (near-black pixels have a
+  greenness set by a few levels of JPEG noise). A fixed brightness limit was rejected, since the light
+  differs between experiments and chambers. A floor on how far a pixel's greenness clears its cutoff, in
+  code levels, was tried: 3 levels leave 0.73% of the false plant (45 mm² at most) and cost 0.038 of
+  IoU on the 60 reference cells (0.066 on production's 30) and 11% to 47% of one dark-leaved plant. A floor
+  that scales with the noise measured in each photo does not work: that estimate is 3.4 times higher
+  over canopy than over pots at the same gain. No rule passed every number fixed in advance, and none is in
+  the app yet (#484). Tested at gain 1.0 on counted production photos only. Until a rule is chosen,
+  a tray with dark empty pots can read as plant under grow from leaf cores; on ordinary readings the
+  grown area is 0.98 to 1.65 times the fixed area (548 readings); the warning factor is Aaron's decision.
 
 ### Trays and tags (round 1, 2026-10-19)
 
