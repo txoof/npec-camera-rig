@@ -413,3 +413,67 @@ def test_the_old_slot_fades_over_24_frames_after_a_move_and_is_then_not_drawn(ex
     assert all(abs(a - b) <= 2 for a, b in zip(old(0), (150, 175, 215)))
     assert all(abs(a - b) <= 2 for a, b in zip(old(12), (197.5, 210, 230)))
     assert old(24) == (245, 245, 245)
+
+
+def test_a_tray_cut_off_by_the_photo_edge_keeps_its_frame_and_says_partly_outside_the_photo(experiment):
+    # The Gallery's words for a tray whose outline reaches the photo edge (its PARTLY OUTSIDE label).
+    _photo(experiment, START, warnings=["partly outside the photo"])
+
+    frame = _only_frame(experiment)  # a frame was made: the tray is not skipped
+    words = timelapse.frame_values(database.get_experiment(experiment), frame, method="fixed")["warnings"]
+
+    assert words == ["partly outside the photo"]
+
+
+def test_a_frame_says_grown_area_not_worked_out_for_grow_from_leaf_cores_only(experiment):
+    # Photos read before grow from leaf cores was run carry this word (#483).
+    _photo(experiment, START, warnings=["grown area not worked out"])
+    frame = _only_frame(experiment)
+    experiment_row = database.get_experiment(experiment)
+
+    fixed = timelapse.frame_values(experiment_row, frame, method="fixed")["warnings"]
+    grown = timelapse.frame_values(experiment_row, frame, method="grown")["warnings"]
+
+    assert fixed == []
+    assert grown == ["grown area not worked out"]
+
+
+def test_a_frame_names_the_validation_slot_that_sets_its_band_not_another_slot(experiment):
+    from tests.helpers import TABLE_STEM
+
+    _two_slot_table()  # the calibration's layout: this tray at (160, 440) is nearest South 2
+    # The validation's own slots, centred by hand: here the nearest to the tray is "North 1".
+    banded_validation("20270301T000000000000", {"North 1": ((170, 430), 2.0), "North 2": ((700, 100), 3.0)})
+    _photo(experiment, START, calibration=TABLE_STEM, validation="20270301T000000000000", centre=(160, 440))
+
+    values = timelapse.frame_values(database.get_experiment(experiment), _only_frame(experiment), method="fixed")
+
+    assert values["band"] == "±2.0%, North 1"
+    assert values["slot"] == "North 1"
+
+
+def test_all_trays_of_a_time_include_a_tray_seen_only_in_its_first_of_250_photos(experiment):
+    _photo(experiment, START, tray_id=7)
+    for i in range(1, 250):
+        _photo(experiment, START + timedelta(minutes=i), tray_id=4)
+
+    in_time = timelapse.experiment_trays(experiment, start=START, end=START + timedelta(days=1))
+
+    assert in_time == [4, 7]
+
+
+def test_a_strip_with_a_slot_and_four_warnings_draws_all_five_lines(experiment):
+    turned_tray_photo(experiment, START)
+    frame = _only_frame(experiment)
+    values = timelapse.frame_values(database.get_experiment(experiment), frame, method="fixed")
+    values["warnings"] = ["names may be swapped since 2027-03-01 10:00 UTC", "soil hidden: usual leaf cutoff used",
+                          "gap: 2 h without a usable photo", "partly outside the photo"]
+
+    image = timelapse.draw_frame(frame, values)
+
+    # The strip is the bottom 132 px (the map's height and 12); each of its 5 lines is 24 px tall.
+    strip_top = image.height - 132
+    for line in range(5):
+        rows = range(strip_top + line * 24, strip_top + (line + 1) * 24)
+        inked = any(sum(image.getpixel((x, y))) < 450 for y in rows for x in range(0, 600))
+        assert inked, f"line {line + 1} of the strip is empty"

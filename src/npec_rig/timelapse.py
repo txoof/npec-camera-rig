@@ -126,18 +126,16 @@ def _slots_over_time(positions: list[dict]) -> dict[int, tuple[str | None, str |
     from the whole experiment (Aaron, 2026-11-20)."""
     layouts: dict[str | None, list[dict] | None] = {}
     out, now, before = {}, None, None
-    stay, before_centre = [], None  # this stay's centres; the median centre of the stay before
     for p in positions:
         if p["calibration"] not in layouts:
             layouts[p["calibration"]] = slot_layout(p["calibration"])
         slots = layouts[p["calibration"]]
         slot = nearest_slot(*p["centre_px"], slots)[0] if slots else None
         if slot is not None and now is not None and slot != now:
-            before, before_centre, stay = now, _median(stay), []
+            before = now
         now = slot if slot is not None else now
-        stay.append(p["centre_px"])
         keep = slot is not None and before != slot
-        out[p["capture_id"]] = (slot, before if keep else None, before_centre if keep else None)
+        out[p["capture_id"]] = (slot, before if keep else None)
     return out
 
 
@@ -224,14 +222,14 @@ def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: dat
             if tray is not None and cell is not None and not any(c["cell"] == cell for c in tray["cells"]):
                 tray = None
             if tray is not None:
-                slot, previous, previous_centre = slots.get(capture["id"], (None, None, None))
+                slot, previous = slots.get(capture["id"], (None, None))
                 if capture["calibration"] not in tables:
                     tables[capture["calibration"]] = _table(capture["calibration"])
                 if capture["calibration"] not in layouts:
                     layouts[capture["calibration"]] = slot_layout(capture["calibration"])
                 frames.append({"capture": capture, "readings": readings, "tray": tray, "slots": layouts[capture["calibration"]],
                                "slot": slot, "previous_slot": previous, "gap_minutes": gap * 60 // per_hour,
-                               "table": tables[capture["calibration"]], "previous_centre": previous_centre})
+                               "table": tables[capture["calibration"]]})
                 gap = 0
                 break
             dark = dark and readings is not None and readings["exclusion"] == "lights off"
@@ -261,6 +259,17 @@ def _duration(minutes: int) -> str:
     """Minutes in hours and minutes: "2 h", "1 h 12 min", "12 min"."""
     hours, rest = divmod(minutes, 60)
     return " ".join([*([f"{hours} h"] if hours else []), *([f"{rest} min"] if rest else [])])
+
+
+def _slot_words(frame: dict, band_slot: str | None) -> str | None:
+    """The one slot a frame names. The band's slot (the validation's) when the frame has a band,
+    so "Slot:" and the band agree (#502); else the calibration layout's. "was X" comes from the
+    calibration layout, so it is kept only when that layout names the same current slot."""
+    layout_slot, previous = frame.get("slot"), frame.get("previous_slot")
+    slot = band_slot or layout_slot
+    if not slot:
+        return None
+    return f"{slot} (was {previous})" if previous and slot == layout_slot else slot
 
 
 def frame_values(experiment: dict, frame: dict, *, method: str, cell: str | None = None) -> dict:
@@ -302,11 +311,12 @@ def frame_values(experiment: dict, frame: dict, *, method: str, cell: str | None
         # swapped (#385), and, by grow from leaf cores only, soil hidden under mats (#373).
         # Names first: they bear on every number of the video.
         "warnings": [w for w in tray["warnings"] if w.startswith("names may be swapped since")]
-        + [w for w in tray["warnings"] if w == segmentation.SOIL_HIDDEN and method == "grown"]
-        + ([f"gap: {_duration(frame['gap_minutes'])} without a usable photo"] if frame.get("gap_minutes") else []),
+        + [w for w in tray["warnings"] if w in (segmentation.SOIL_HIDDEN, tray_readings.GROWN_NOT_WORKED_OUT) and method == "grown"]
+        + ([f"gap: {_duration(frame['gap_minutes'])} without a usable photo"] if frame.get("gap_minutes") else [])
+        # The Gallery's image label (PARTLY OUTSIDE) comes from this same warning (tray_placement.py).
+        + [w for w in tray["warnings"] if w == "partly outside the photo"],
         # In words as well as on the map: never colour alone.
-        "slot": (None if not frame.get("slot") else frame["slot"] if not frame.get("previous_slot")
-                 else f"{frame['slot']} (was {frame['previous_slot']})"),
+        "slot": _slot_words(frame, band["slot"]),
     }
 
 
@@ -464,8 +474,14 @@ def draw_frame(frame: dict, values: dict, *, mask: str | None = None, cell: str 
 RECENT_PHOTOS = 200
 
 
-def experiment_trays(experiment_id: int) -> list[int]:
-    """The tray IDs found in the experiment's latest RECENT_PHOTOS photos, lowest first."""
+def experiment_trays(experiment_id: int, *, start: datetime | None = None, end: datetime | None = None) -> list[int]:
+    """The tray IDs for the page's list: those found in the experiment's latest RECENT_PHOTOS
+    photos, lowest first. With `start` and `end`, every tray found in any photo taken from `start`
+    up to `end`, which is what the all-trays zip holds (#502)."""
+    if start is not None and end is not None:
+        first, last = start.isoformat(), end.isoformat()
+        return sorted({p["tray_id"] for p in database.experiment_tray_positions(experiment_id)
+                       if first <= p["taken_at"] < last})
     ids = [c["id"] for c in database.captures_for_experiment(experiment_id)[-RECENT_PHOTOS:]]
     return sorted({p["tray_id"] for p in database.experiment_tray_positions(experiment_id, ids)})
 
@@ -513,7 +529,8 @@ def estimate_bytes(request: dict) -> int:
     """An upper estimate of a video's size before its frames are chosen: one frame per step of
     the time asked for, at the trial's size per frame (TRIAL_BYTES_PER_FRAME)."""
     hours = (datetime.fromisoformat(request["end"]) - datetime.fromisoformat(request["start"])).total_seconds() / 3600
-    trays = len(experiment_trays(request["experiment_id"])) if request["tray_id"] == ALL_TRAYS else 1
+    trays = len(experiment_trays(request["experiment_id"], start=datetime.fromisoformat(request["start"]),
+                                 end=datetime.fromisoformat(request["end"]))) if request["tray_id"] == ALL_TRAYS else 1
     return int(max(hours, 0) * request["per_hour"]) * TRIAL_BYTES_PER_FRAME * trays
 
 
@@ -676,7 +693,8 @@ def _make(request: dict, folder: str) -> None:
         experiment = database.get_experiment(request["experiment_id"])
         mask = request["method"] if request.get("mask") else None
         every = request["tray_id"] == ALL_TRAYS
-        trays = experiment_trays(request["experiment_id"]) if every else [request["tray_id"]]
+        trays = (experiment_trays(request["experiment_id"], start=datetime.fromisoformat(request["start"]),
+                                  end=datetime.fromisoformat(request["end"])) if every else [request["tray_id"]])
         made, skipped = [], 0
         for n, tray_id in enumerate(trays, start=1):
             state = {"state": "choosing", "request": request, "tray": n, "trays": len(trays), "skipped": skipped}
