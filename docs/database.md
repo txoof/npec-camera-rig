@@ -552,6 +552,35 @@ part was sent to its last byte.
 | `export_part_sent.part` | integer | The part, 0 to `photo_parts` |
 | `export_part_sent.sent_at` | text | When its last byte was handed to the network, UTC. A part downloaded twice has two rows; a download broken off has none |
 
+### `reprocess_run` and `reprocess_failure`: Reprocess progress and failed photos
+
+From version 26 (#483). Each Reprocess of an experiment (`POST /api/experiments/{id}/reprocess`) is
+a row in `reprocess_run`, updated after every photo; each photo it left as it was is a row in
+`reprocess_failure` with the reason, so both are still there after a restart. A run still `running`
+when the app starts was cut off: it is marked `interrupted` and never resumed. A run whose thread has
+ended without saving its end (its last write met a lock) is marked `interrupted` the same way at the next
+progress read, start or Stop, not only at start-up; until the mark is saved it is shown as interrupted.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `reprocess_run.experiment_id` | integer | The experiment (`experiment.id`) |
+| `reprocess_run.started_at`, `finished_at` | text | UTC; `finished_at` is NULL while running |
+| `reprocess_run.state` | text | `running`, `finished`, `stopped` (a Stop ended it after a photo) or `interrupted` |
+| `reprocess_run.total`, `done`, `failed` | integer | Photos to read, photos read so far (failed ones included), photos left as they were |
+| `reprocess_failure.run_id` | integer | The run |
+| `reprocess_failure.path` | text | The gallery path of the photo |
+| `reprocess_failure.reason` | text | Why its saved reading was kept, for example "the photo is gone and its saved masks cannot be counted again: a saved mask is missing" |
+| `reprocess_failure.failed_at` | text | UTC |
+
+**Upgrading.** This version migrates `rig.db` to version 26. An older version of the app refuses to
+start on it. Copy `rig.db` before deploying, and restore that copy to roll back.
+
+A photo that meets a locked rig.db is tried again, `REPROCESS_LOCK_TRIES` (5) times with a pause of
+`REPROCESS_LOCK_WAIT_S` (5 s), numbers chosen and not measured; after the last try it is listed as
+failed ("rig.db stayed locked after 5 tries"). Reprocess replaces the saved readings of every photo
+it can redo and keeps no copy of the old ones: take a copy of `rig.db` first
+(`docs/operator-guide.md`, *Reprocessing areas*).
+
 ## Planned
 
 The database schema for photographs, their provenance, calibration and validation is #54 (M3).
