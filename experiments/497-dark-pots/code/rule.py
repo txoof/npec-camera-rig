@@ -1,7 +1,9 @@
 """Noise-aware rule for grow from leaf cores (metrology log 46, issue #497).
 
 An experiment-side copy of `segmentation.grow_from_cores` with one change: a pixel is a core, and
-is grown into, only if its green exceeds its red by more than `thr` code levels. The soil level and
+is grown into, only if it clears a margin of `thr` code levels. Form "A": its green exceeds its red by
+more than `thr` (`G - R > thr`). Form "B": its greenness numerator clears the cutoff by more than `thr`
+(`(2G - R - B) - cutoff * (R + G + B) > thr`, the core cutoff on cores, the lower cutoff on growth). The soil level and
 lower cutoff are worked out exactly as the app does (the rule does not touch them). With
 `thr=None` the copy gives the app's own mask; `check_copy` shows that on a box.
 Imports the app, never the reverse.

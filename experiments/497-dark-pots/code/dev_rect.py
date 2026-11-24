@@ -1,7 +1,7 @@
 """The rule on development photos (JPEG 85, 4:4:4; young seedlings on soil plugs), no tray outlines
 (npec-rig-01 was not asked for any): two fixed rectangles over two trays, whole rectangle as the tray,
 no tag cut-out. Share of the app's mask the rule removes (form B, floor of N levels, and k x sigma_b),
-and the number of mask pixels (log 46.6). Writes data/dev_rect.csv."""
+and the number of mask pixels (log 46.4). Writes data/dev_rect.csv."""
 import csv, sys
 import numpy as np
 sys.path.insert(0, __file__.rsplit("/", 1)[0])

@@ -55,7 +55,26 @@ def table(form):
                             ref_iou=iou, ref_ratio=pool, sigma_ref_median=st.median(float(x["sigma_b"]) for x in rr)))
     return out
 
+def ref_groups():
+    """Mean IoU and pooled area ratio of the reference cells by group (all 60, the 38 corrected by Aaron, 30
+    production, 30 development), with no rule, floor N = 1 to 5 and k = 1 to 3, rule B. Writes data/ref_iou_by_group.csv."""
+    ti = {r["id"]: r for r in csv.DictReader(open(TRUTH))}
+    ref = list(csv.DictReader(open(D + "/sweep_ref_B.csv")))
+    groups = {"all 60": lambda x: True, "38 corrected by Aaron": lambda x: ti[x["id"]]["truth_source"].startswith("corrected"),
+              "30 production": lambda x: x["rig"] == "prod", "30 development": lambda x: x["rig"] == "dev"}
+    out = []
+    for g, f in groups.items():
+        for m, lev in [("app", "-")] + [("c", str(i)) for i in range(1, 6)] + [("b", str(i)) for i in range(1, 4)]:
+            rr = [x for x in ref if x["method"] == m and x["level"] == lev and f(x)]
+            nz = [x for x in rr if int(x["truth_px"])]
+            out.append(dict(group=g, method=m, level=lev, cells=len(rr), mean_iou=round(st.mean(float(x["iou"]) for x in rr), 4),
+                            area_ratio=round(sum(int(x["px"]) for x in nz) / sum(int(x["truth_px"]) for x in nz), 3)))
+    with open(D + "/ref_iou_by_group.csv", "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(out[0])); w.writeheader(); w.writerows(out)
+
+
 if __name__ == "__main__":
+    ref_groups()
     allrows = []
     for form in "AB":
         t = table(form); allrows += t

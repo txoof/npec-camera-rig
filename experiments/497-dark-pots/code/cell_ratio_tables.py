@@ -15,7 +15,7 @@ for k, v in groups.items():
     print(k, len(v), "cells; with grown>0:", sum(1 for x in v if x["grown"] > 0), "| ratio", pct(r) if r else "-", "| fixed", pct([x["fixed"] for x in v]), "| grown", pct([x["grown"] for x in v]))
 print()
 print("flagged = grown > R x fixed AND grown - fixed >= A mm2")
-for A in (0, 20, 50):
+for A in (0, 20, 50, 100):
     for R in (2, 2.5, 3, 5):
         out = []
         for k, v in groups.items():

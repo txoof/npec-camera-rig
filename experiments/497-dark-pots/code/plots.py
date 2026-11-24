@@ -20,8 +20,8 @@ for g, (lab, col, ls) in names.items():
     tot = sum(h[g].values()); y = [100 * sum(v for k, v in h[g].items() if k <= x) / tot for x in xs]
     ax.plot(xs, y, color=col, ls=ls, lw=2, label=lab)
 ax.axvline(3, color=GREY, lw=1, ls=":"); ax.text(3.3, 50, "floor of 3 levels", color=GREY, fontsize=9)
-ax.set_xlabel("Margin of the pixel over the greenness cutoff, in code levels   (2G - R - B) - cutoff x (R + G + B)")
-ax.set_ylabel("Pixels with margin at or below, %"); ax.set_ylim(0, 101); ax.set_xlim(0, 30)
+ax.set_xlabel("Margin over the greenness cutoff, whole code levels (0 = under 1 level)   (2G - R - B) - cutoff x (R + G + B)", fontsize=9)
+ax.set_ylabel("Pixels with margin below N + 1 levels, %"); ax.set_ylim(0, 101); ax.set_xlim(0, 30)
 ax.legend(frameon=False, loc="center right", fontsize=9)
 ax.set_title("What a floor on the margin removes: false plant against leaf", loc="left", fontsize=11)
 fig.tight_layout(); fig.savefig(f"{OUT}/margin-cdf.png", dpi=130); plt.close(fig)

@@ -1,7 +1,7 @@
 """The green target on tray 10, measured alone (log 46). In the app's mask of each photo, the target is
 what survives an opening with a 201 px square (so the patches of false plant in the dark cells beside
 it, which touch it, are not part of it); the zone is that, widened by 15 px. For each level, the mask
-pixels inside the zone, against the app's. Writes data/target_zone.csv."""
+pixels inside the zone, against the app's. Writes data/target_zone_{FORM}.csv."""
 import csv, glob, json, os, sys
 import cv2
 import numpy as np

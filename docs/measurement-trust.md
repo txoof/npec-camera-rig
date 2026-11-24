@@ -522,7 +522,7 @@ metrology log backs it.
   No pixel rule is to be coded: a fixed brightness limit depends on the light, a floor on how far a
   pixel's greenness clears its cutoff (3 levels) took 99.3% of the false plant but cost 0.038 of IoU on the
   60 reference cells against 0.005 allowed (0.066 on production's 30) and 11% to 47% of one dark-leaved
-  plant, and a floor scaled by the photo's own noise fails because that estimate is 3.4 times higher over
+  plant, and a floor scaled by the photo's own noise fails because that estimate is 3.4 times higher (2.9 to 4.8) over
   canopy than over pots at the same gain. Dark pots are handled by flagging, not correcting (Aaron,
   2026-11-24): a cell whose grown area is much larger than its fixed-cutoff area is marked as probably
   empty, and the tray keeps its total and adds the flagged cells and their area (#484). On ordinary
