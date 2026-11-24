@@ -1649,16 +1649,18 @@ def test_a_cell_with_no_grown_area_is_not_flagged() -> None:
 
 def test_the_tray_says_how_many_cells_are_flagged_and_their_grown_area_together() -> None:
     tray = _cells_read((54.0, 600.0), (120.0, 180.0), (10.0, 1500.0), (0.0, 2100.0))
-    assert "3 cells flagged, together 4,200 mm²" in tray["warnings"]
+    assert ("3 cells where grown and fixed areas disagree (4,200 mm² in total). "
+            "Usually an empty pot. Check the cells.") in tray["warnings"]
     assert tray["area_mm2"] == 500.0
 
 
 def test_the_tray_line_for_one_flagged_cell_is_singular() -> None:
-    assert "1 cell flagged, together 600 mm²" in _cells_read((54.0, 600.0), (120.0, 180.0))["warnings"]
+    assert ("1 cell where grown and fixed areas disagree (600 mm²). "
+            "Usually an empty pot. Check the cell.") in _cells_read((54.0, 600.0), (120.0, 180.0))["warnings"]
 
 
 def test_a_tray_with_no_flagged_cell_has_no_flag_line() -> None:
-    assert not [w for w in _cells_read((120.0, 180.0))["warnings"] if "flagged" in w]
+    assert not [w for w in _cells_read((120.0, 180.0))["warnings"] if "disagree" in w]
 
 
 def test_a_tray_with_no_cells_is_flagged_by_the_same_rule_on_its_whole_area() -> None:
@@ -1669,4 +1671,5 @@ def test_a_tray_with_no_cells_is_flagged_by_the_same_rule_on_its_whole_area() ->
     tray.update(cells=[], area_mm2=500.0, grown_area_mm2=2700.0)
     database.record_tray_readings(capture["id"], read_at="t", status="read", trays=[tray])
     [out] = tray_readings.capture_readings(capture)["trays"]
-    assert "1 cell flagged, together 2,700 mm²" in out["warnings"]
+    assert ("1 cell where grown and fixed areas disagree (2,700 mm²). "
+            "Usually an empty pot. Check the cell.") in out["warnings"]

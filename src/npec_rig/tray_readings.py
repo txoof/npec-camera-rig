@@ -766,8 +766,13 @@ def capture_readings(capture: dict, *, history: bool = True, locations: dwell.Lo
                 [tray.get("grown_area_mm2")] if _grown_far_above_fixed(tray.get("grown_area_mm2"), tray.get("area_mm2")) else [])
             tray["cells_flagged"], tray["cells_flagged_grown_area_mm2"] = len(flagged), sum(flagged)
             if flagged:
-                tray["warnings"].append(f"{len(flagged)} cell{'s' if len(flagged) > 1 else ''} flagged, "
-                                        f"together {sum(flagged):,.0f} mm²")
+                n, total = len(flagged), sum(flagged)
+                tray["warnings"].append(
+                    (f"{n} cells where grown and fixed areas disagree ({total:,.0f} mm² in total). "
+                     "Usually an empty pot. Check the cells.")
+                    if n > 1 else
+                    (f"1 cell where grown and fixed areas disagree ({total:,.0f} mm²). "
+                     "Usually an empty pot. Check the cell."))
             tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM
         readings["area_methods"] = [
             {k: v for k, v in m.items() if k != "stored"} for m in AREA_METHODS

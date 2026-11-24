@@ -583,7 +583,8 @@ def test_tray_readings_flag_a_cell_where_grown_and_fixed_areas_disagree_and_warn
 
     [tray] = TestClient(app).get(f"/api/captures/trays/{path}").json()["trays"]
     assert [(c["cell"], c["flagged"]) for c in tray["cells"]] == [("B1", True), ("B2", False)]
-    assert "1 cell flagged, together 600 mm²" in tray["warnings"]
+    assert ("1 cell where grown and fixed areas disagree (600 mm²). "
+            "Usually an empty pot. Check the cell.") in tray["warnings"]
 
 
 def test_tray_readings_list_the_area_methods_the_photo_has_each_named_in_words(monkeypatch) -> None:
