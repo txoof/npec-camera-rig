@@ -460,3 +460,20 @@ def test_all_trays_of_a_time_include_a_tray_seen_only_in_its_first_of_250_photos
     in_time = timelapse.experiment_trays(experiment, start=START, end=START + timedelta(days=1))
 
     assert in_time == [4, 7]
+
+
+def test_a_strip_with_a_slot_and_four_warnings_draws_all_five_lines(experiment):
+    turned_tray_photo(experiment, START)
+    frame = _only_frame(experiment)
+    values = timelapse.frame_values(database.get_experiment(experiment), frame, method="fixed")
+    values["warnings"] = ["names may be swapped since 2027-03-01 10:00 UTC", "soil hidden: usual leaf cutoff used",
+                          "gap: 2 h without a usable photo", "partly outside the photo"]
+
+    image = timelapse.draw_frame(frame, values)
+
+    # The strip is the bottom 132 px (the map's height and 12); each of its 5 lines is 24 px tall.
+    strip_top = image.height - 132
+    for line in range(5):
+        rows = range(strip_top + line * 24, strip_top + (line + 1) * 24)
+        inked = any(sum(image.getpixel((x, y))) < 450 for y in rows for x in range(0, 600))
+        assert inked, f"line {line + 1} of the strip is empty"
