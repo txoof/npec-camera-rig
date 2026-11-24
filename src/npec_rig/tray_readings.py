@@ -343,11 +343,15 @@ def _measures(
             # the photo is gone.
             try:
                 _mask, grown, levels = _segment(path, placed, tags, mask)
-            except Exception:
+            except Exception as exc:
+                if _rig_db_locked(exc):
+                    raise
                 logger.exception("Could not grow the plant from leaf cores in %s", path)
         trays = [(p.outline, p.centre) for p in placed]
         measures = segmentation.measure_trays(mask, trays, scale_field)
-    except Exception:
+    except Exception as exc:
+        if _rig_db_locked(exc):
+            raise  # the caller retries (#464); a locked rig.db is not "no areas" (#483)
         logger.exception("Could not work out the plant areas of %s", path)
         return None, [], [], []
     try:
@@ -396,10 +400,14 @@ def _measured_cells(path, mask, grown, placed, tags, scale_field, record) -> lis
             if cells and grown is not None:
                 try:
                     by_cores = segmentation.measure_cells(grown, cells, scale_field, outline_px=p.outline)
-                except Exception:
+                except Exception as exc:
+                    if _rig_db_locked(exc):
+                        raise
                     logger.exception("Could not work out the cells of tray %s in %s by grow from leaf cores", p.tray_id, path)
             out.append((list(zip(cells, counted, by_cores, strict=True)), bearing, turned))
-        except Exception:
+        except Exception as exc:
+            if _rig_db_locked(exc):
+                raise
             logger.exception("Could not work out the cells of tray %s in %s", p.tray_id, path)
             out.append(([], None, False))
     return out

@@ -399,9 +399,9 @@ def turned_tray_photo(experiment_id: int, taken, tray_id: int = 4, calibration: 
 
 
 @contextmanager
-def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None) -> Iterator[None]:
+def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, readers_too: bool = False) -> Iterator[None]:
     """Another connection holds rig.db's write lock for `seconds`, or until `until` is set, as
-    Reprocess or a purge does (#439)."""
+    Reprocess or a purge does (#439). With `readers_too`, reads wait as well (the lock at a commit)."""
     from npec_rig import database
     from npec_rig.settings import db_path
 
@@ -410,13 +410,18 @@ def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None) -> 
 
     def hold() -> None:
         conn = sqlite3.connect(db_path(), isolation_level=None)
-        conn.execute("BEGIN IMMEDIATE")
+        if readers_too:
+            # rig.db is in WAL mode (images.py), where nothing blocks a reader: the rollback journal does.
+            conn.execute("PRAGMA journal_mode=DELETE")
+        conn.execute("BEGIN EXCLUSIVE" if readers_too else "BEGIN IMMEDIATE")
         taken.set()
         if until is None:
             time.sleep(seconds)
         else:
             until.wait(seconds)
         conn.execute("COMMIT")
+        if readers_too:
+            conn.execute("PRAGMA journal_mode=WAL")
         conn.close()
 
     thread = threading.Thread(target=hold)

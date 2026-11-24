@@ -1178,6 +1178,56 @@ def test_a_cut_short_reading_whose_photo_is_gone_is_not_marked_as_grown_from_the
     assert segmentation.SOIL_HIDDEN not in tray["warnings"]
 
 
+def test_a_locked_rig_db_in_a_2x2_trays_cells_fails_the_reading_instead_of_saving_none(monkeypatch) -> None:
+    """#483, finding 6: the lock is met when the tray's A1 bearing is looked up for its cells, then
+    ends. The reading must fail with the lock error, so the caller retries (#464); it must not be
+    saved with no cells and no mark. The tags are searched first and stored (images.py); the lock
+    is taken the moment they are stored, so the bearing is the first thing to read rig.db. The
+    lock stops reads too, as the rollback journal's does."""
+    import sqlite3
+    import time
+
+    from npec_rig import images
+
+    experiment = database.create_experiment(uuid="u-483", created_at="2026-11-06T00:00:00+00:00")
+    database.start_experiment(experiment["id"], now="2026-11-06T00:00:00+00:00", folder="u-483")
+    tag = _turned_tag(80, 1825.0, 2230.0, 45.0)
+    _cells_scene(monkeypatch, [tag], [(985, 2902, 1285, 3202)])
+    path = _photo()
+
+    gave_up = threading.Event()
+
+    class FirstLockFailure(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            if "was locked" in record.getMessage():
+                gave_up.set()
+
+    def lock_once_stored() -> None:
+        while images.stored_tag_detections(path.removeprefix("rig/")) is None:
+            time.sleep(0.001)
+        with lock_held(until=gave_up, readers_too=True):
+            gave_up.wait(10)
+
+    locker = threading.Thread(target=lock_once_stored)
+
+    def detect_then_lock(frame):
+        locker.start()
+        return [tag]
+
+    handler = FirstLockFailure()
+    logging.getLogger("npec_rig.database").addHandler(handler)
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.3)
+    monkeypatch.setattr(photo_tags, "detect_tags", detect_then_lock)
+    try:
+        with pytest.raises(sqlite3.OperationalError, match="locked"):
+            tray_readings.read_photo(path)
+    finally:
+        gave_up.set()
+        locker.join(timeout=15)
+        logging.getLogger("npec_rig.database").removeHandler(handler)
+    assert tray_readings.photo_readings(path) is None
+
+
 def test_a_photo_whose_reading_met_a_locked_rig_db_is_read_again(monkeypatch, tmp_path) -> None:
     """#439: on production a photo's reading could not be saved while another writer held rig.db,
     the lock was gone a moment later, and the photo was saved as "read failed" for good."""
