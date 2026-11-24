@@ -539,7 +539,7 @@ TRAY_READING_COLUMNS = [
     "file", "taken_at", "tray", "location", "plant_area_grow_from_leaf_cores_mm2",
     "plant_area_fixed_green_cutoff_mm2", "not_counted", "photo_excluded", "partly_outside", "scale_error_pct",
     "validation_slot", "no_scale_error_because", "fixed_green_cutoff_floor_mm2", "grow_from_leaf_cores_soil_level",
-    "grow_from_leaf_cores_cutoff",
+    "grow_from_leaf_cores_cutoff", "cells_flagged", "cells_flagged_grown_area_mm2",
 ]
 
 
@@ -572,8 +572,13 @@ def _tray_rows(row: dict, readings: dict, folder: str) -> Iterator[dict]:
             # Greenness levels are histogram bin centres, 0.01 apart: 3 decimals hold them exactly.
             "grow_from_leaf_cores_soil_level": _rounded(tray.get("grown_soil_level"), 3),
             "grow_from_leaf_cores_cutoff": _rounded(tray.get("grown_lower_cutoff"), 3),
+            "cells_flagged": tray.get("cells_flagged", 0),
+            "cells_flagged_grown_area_mm2": round(float(tray.get("cells_flagged_grown_area_mm2", 0.0)), 1),
         }
 
+
+# What cell-readings.csv says of a flagged cell (#484): only what was measured, no cause.
+GROWN_FIXED_DISAGREE = "grown and fixed areas disagree, check the cell"
 
 # The columns of cell-readings.csv, one line per cell of each tray per photo read (#364): the plant
 # area and status by both methods side by side (Aaron, 2026-11-11, #363).
@@ -581,7 +586,7 @@ CELL_READING_COLUMNS = [
     "file", "taken_at", "tray", "cell", "location", "plant_area_grow_from_leaf_cores_mm2",
     "plant_area_fixed_green_cutoff_mm2", "status_grow_from_leaf_cores", "status_fixed_green_cutoff",
     "tray_not_counted", "photo_excluded", "names_unsure_since", "scale_error_pct", "validation_slot",
-    "no_scale_error_because",
+    "no_scale_error_because", "grown_fixed_disagree",
 ]
 
 
@@ -606,6 +611,7 @@ def _cell_rows(row: dict, readings: dict, folder: str) -> Iterator[dict]:
                 "tray_not_counted": "; ".join(tray["not_counted"]),
                 "photo_excluded": readings["exclusion"],
                 "names_unsure_since": tray["names_unsure_since"],
+                "grown_fixed_disagree": GROWN_FIXED_DISAGREE if cell.get("flagged") else "",
                 "scale_error_pct": _rounded(band["band_pct"], 1),
                 "validation_slot": band["slot"],
                 "no_scale_error_because": band["reason"],

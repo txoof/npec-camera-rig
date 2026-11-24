@@ -217,6 +217,19 @@ package:
             description: >-
               For checking only. The greenness a pixel needed to join a leaf in this tray: the soil
               level plus 0.07, never below -0.045.
+          - name: cells_flagged
+            type: integer
+            description: >-
+              How many cells of the tray are flagged in cell-readings.csv (grown_fixed_disagree).
+              A tray with no cells, such as a 1 x 1 tray, counts as one cell, flagged by the same
+              rule on its whole area. 0 when none.
+          - name: cells_flagged_grown_area_mm2
+            type: number
+            description: >-
+              The plant area by grow from leaf cores of the flagged cells together, square
+              millimetres, rounded to 0.1. 0 when none are flagged. Check those cells in the
+              photo: a flagged cell is usually an empty dark pot, sometimes a plant with dark
+              leaves that the fixed cutoff mostly misses.
 
     - name: cell-readings
       path: cell-readings.csv
@@ -284,6 +297,14 @@ package:
           - name: no_scale_error_because
             type: string
             description: Why there is no band, as in tray-readings.csv.
+          - name: grown_fixed_disagree
+            type: string
+            description: >-
+              "grown and fixed areas disagree, check the cell" when the area by grow from leaf
+              cores is more than 5 times the area by the fixed green cutoff and at least 100 mm2
+              above it. Check the cell in the photo: it is usually an empty dark pot, sometimes a
+              plant with dark leaves that the fixed cutoff mostly misses. Empty otherwise, and
+              empty when there is no grown area. The area columns are not changed by the flag.
 
 # Printed in the README as written, after the description. {parts}: how many parts; {last}: the
 # last part's number, two digits.

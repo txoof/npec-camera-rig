@@ -1598,3 +1598,75 @@ def test_a_photo_whose_reading_met_a_locked_rig_db_is_read_again(monkeypatch, tm
         reader.stop(timeout_s=5)
         logging.getLogger("npec_rig.database").removeHandler(handler)
     assert len(tray_readings.photo_readings(path)["trays"]) == 12
+
+
+# --- A cell where grow from leaf cores reads far above the fixed cutoff is flagged (#484) ---------
+def _cells_read(*pairs) -> dict:
+    """A tray 7 whose cells hold plant (fixed area, grown area) mm2 for each pair, read back by
+    `capture_readings`. A fixed area of 0 is a cell with no plant by the fixed cutoff."""
+    experiment_id = _table_experiment()
+    path = table_photo(experiment_id, _at(0), {7: "NW"})
+    capture = database.captures_by_path([path])[path]
+    [tray] = database.tray_readings(capture["id"])["trays"]
+    tray["cells"] = [
+        {"cell": f"B{i}", "holds": "plant", "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4,
+         "plant_px": int(fixed * 10), "area_mm2": fixed, "plant_centre_px": None, "over_other_cells": False,
+         "segmenter": "green threshold, 0.1", "cell_rule": "rule",
+         "grown_plant_px": None if grown is None else int(grown * 10), "grown_area_mm2": grown,
+         "grown_plant_centre_px": None, "grown_over_other_cells": None if grown is None else False}
+        for i, (fixed, grown) in enumerate(pairs, 1)
+    ]
+    tray["area_mm2"], tray["grown_area_mm2"] = 500.0, 900.0
+    database.record_tray_readings(capture["id"], read_at="t", status="read", trays=[tray])
+    [out] = tray_readings.capture_readings(capture)["trays"]
+    return out
+
+
+def test_a_cell_grown_over_5_times_and_100_mm2_above_the_fixed_cutoff_is_flagged() -> None:
+    assert [c["flagged"] for c in _cells_read((54.0, 600.0))["cells"]] == [True]
+
+
+def test_a_cell_exactly_5_times_the_fixed_cutoff_is_not_flagged() -> None:
+    assert [c["flagged"] for c in _cells_read((200.0, 1000.0))["cells"]] == [False]
+
+
+def test_a_cell_is_flagged_from_a_difference_of_100_mm2_not_99() -> None:
+    # 10 -> 109 is x10.9 but only +99; 20 -> 120 is x6 and +100.
+    assert [c["flagged"] for c in _cells_read((10.0, 109.0), (20.0, 120.0))["cells"]] == [False, True]
+
+
+def test_a_cell_with_no_plant_by_the_fixed_cutoff_is_flagged_from_100_mm2_grown() -> None:
+    assert [c["flagged"] for c in _cells_read((0.0, 100.0), (0.0, 99.0))["cells"]] == [True, False]
+
+
+def test_an_ordinary_cell_is_not_flagged() -> None:
+    assert [c["flagged"] for c in _cells_read((120.0, 180.0))["cells"]] == [False]
+
+
+def test_a_cell_with_no_grown_area_is_not_flagged() -> None:
+    assert [c["flagged"] for c in _cells_read((120.0, None))["cells"]] == [False]
+
+
+def test_the_tray_says_how_many_cells_are_flagged_and_their_grown_area_together() -> None:
+    tray = _cells_read((54.0, 600.0), (120.0, 180.0), (10.0, 1500.0), (0.0, 2100.0))
+    assert "3 cells flagged, together 4,200 mm²" in tray["warnings"]
+    assert tray["area_mm2"] == 500.0
+
+
+def test_the_tray_line_for_one_flagged_cell_is_singular() -> None:
+    assert "1 cell flagged, together 600 mm²" in _cells_read((54.0, 600.0), (120.0, 180.0))["warnings"]
+
+
+def test_a_tray_with_no_flagged_cell_has_no_flag_line() -> None:
+    assert not [w for w in _cells_read((120.0, 180.0))["warnings"] if "flagged" in w]
+
+
+def test_a_tray_with_no_cells_is_flagged_by_the_same_rule_on_its_whole_area() -> None:
+    experiment_id = _table_experiment()
+    path = table_photo(experiment_id, _at(0), {7: "NW"})
+    capture = database.captures_by_path([path])[path]
+    [tray] = database.tray_readings(capture["id"])["trays"]
+    tray.update(cells=[], area_mm2=500.0, grown_area_mm2=2700.0)
+    database.record_tray_readings(capture["id"], read_at="t", status="read", trays=[tray])
+    [out] = tray_readings.capture_readings(capture)["trays"]
+    assert "1 cell flagged, together 2,700 mm²" in out["warnings"]

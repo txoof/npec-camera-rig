@@ -558,6 +558,34 @@ def test_tray_readings_give_each_tray_and_cell_its_area_by_both_methods_named_in
     assert [c["grown_status"] for c in planted] == [c["status"] for c in planted]
 
 
+def test_tray_readings_flag_a_cell_where_grown_and_fixed_areas_disagree_and_warn_on_the_tray(monkeypatch) -> None:
+    """#484: a cell with grown 600 and fixed 54 mm2 is flagged, one with grown 180 and fixed 120 is
+    not; the tray's warnings carry one line with the count and the flagged grown area."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Flags")["id"])
+    path = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), {3: "NW"}, areas={3: 900.0})
+    capture_id = database.captures_by_path([path])[path]["id"]
+    saved = database.tray_readings(capture_id)
+
+    def cell(name, fixed, grown):
+        return {"cell": name, "holds": "plant", "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4, "plant_px": 1,
+                "area_mm2": fixed, "plant_centre_px": None, "over_other_cells": False, "segmenter": "green threshold, 0.1",
+                "cell_rule": "rule", "grown_plant_px": 1, "grown_area_mm2": grown, "grown_plant_centre_px": None,
+                "grown_over_other_cells": False}
+
+    [tray] = saved["trays"]
+    tray["cells"] = [cell("B1", 54.0, 600.0), cell("B2", 120.0, 180.0)]
+    database.record_tray_readings(capture_id, read_at=saved["read_at"], status="read", trays=[tray])
+
+    [tray] = TestClient(app).get(f"/api/captures/trays/{path}").json()["trays"]
+    assert [(c["cell"], c["flagged"]) for c in tray["cells"]] == [("B1", True), ("B2", False)]
+    assert "1 cell flagged, together 600 mm²" in tray["warnings"]
+
+
 def test_tray_readings_list_the_area_methods_the_photo_has_each_named_in_words(monkeypatch) -> None:
     """#363 (Aaron, 2026-11-11): Info's method choice is built from the methods in the reading.
     A reading saved before grow from leaf cores existed has the fixed green cutoff only."""

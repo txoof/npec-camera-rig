@@ -681,6 +681,22 @@ def photo_readings(path: str) -> dict | None:
     return capture_readings(record)
 
 
+# A cell is flagged when grow from leaf cores reads more than this many times the fixed green
+# cutoff's area and more than this far above it (a dark empty pot read as plant, #484). Decisions
+# of Aaron's, not measurements.
+FLAG_TIMES = 5
+FLAG_MIN_DIFFERENCE_MM2 = 100.0
+
+
+def _grown_far_above_fixed(grown: float | None, fixed: float | None) -> bool:
+    """Whether a cell's grown area is flagged against its fixed-cutoff area (None is no plant: 0).
+    `grown > 5 * fixed`, so a fixed area of 0 works. Never flagged with no grown area."""
+    if grown is None:
+        return False
+    fixed = fixed or 0.0
+    return grown > FLAG_TIMES * fixed and grown - fixed >= FLAG_MIN_DIFFERENCE_MM2
+
+
 def capture_readings(capture: dict, *, history: bool = True, locations: dwell.LocationFinder | None = None) -> dict | None:
     """`photo_readings` for a photo whose rig.db row `capture` is already at hand. `history` False
     leaves out the trays not found and moved since earlier photos (`database.tray_readings`), and
@@ -744,6 +760,14 @@ def capture_readings(capture: dict, *, history: bool = True, locations: dwell.Lo
                     "holds": cell["holds"], "over_other_cells": cell["grown_over_other_cells"], "plant_px": cell["grown_plant_px"]})
                 if not cell["grown_plant_px"] or cell["holds"] == "tag":
                     cell["grown_area_mm2"] = None
+                cell["flagged"] = _grown_far_above_fixed(cell["grown_area_mm2"], cell["area_mm2"])
+            # A tray with no cells (1 x 1) is one cell: the same rule on its whole area (#484).
+            flagged = [c["grown_area_mm2"] for c in tray["cells"] if c["flagged"]] if tray["cells"] else (
+                [tray.get("grown_area_mm2")] if _grown_far_above_fixed(tray.get("grown_area_mm2"), tray.get("area_mm2")) else [])
+            tray["cells_flagged"], tray["cells_flagged_grown_area_mm2"] = len(flagged), sum(flagged)
+            if flagged:
+                tray["warnings"].append(f"{len(flagged)} cell{'s' if len(flagged) > 1 else ''} flagged, "
+                                        f"together {sum(flagged):,.0f} mm²")
             tray["partly_outside"] = None if tray["outside_mm"] is None else tray["outside_mm"] > PAST_EDGE_MM
         readings["area_methods"] = [
             {k: v for k, v in m.items() if k != "stored"} for m in AREA_METHODS
