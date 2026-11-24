@@ -1085,6 +1085,31 @@ def test_reprocess_keeps_the_saved_grown_area_when_the_photo_and_the_grown_mask_
     assert {c["cell"]: c["grown_area_mm2"] for c in tray["cells"]}["B3"] == pytest.approx(1156, rel=0.01)
 
 
+def test_a_reading_whose_grown_area_cannot_be_worked_out_says_so_and_keeps_the_fixed_area(monkeypatch) -> None:
+    """A photo read before #363 (no grown values saved), then its photo and its fixed cutoff's mask
+    are all that is left, and no grown mask: the grown area cannot be worked out. Not an empty
+    value with no word: the reading says "grown area not worked out" (#483). The fixed area is
+    still counted again, 900 mm2."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    _soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    capture_id = database.captures_by_path([path])[path]["id"]
+    trays = database.tray_readings(capture_id)["trays"]
+    unset = {f: None for f in tray_readings.GROWN_TRAY_FIELDS}
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, **unset, "cells": [{**c, "grown_area_mm2": None} for c in t["cells"]]} for t in trays])
+    photo_file(path).unlink()
+    segmentation.mask_file(path, segmentation.GROWN_MASK).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
+    assert tray["grown_area_mm2"] is None
+    assert "grown area not worked out" in tray["warnings"]
+
+
 # Blue mats over the soil (#373, metrology log 39): the pixels left beside the mats outnumber the
 # soil, so the soil level found lies in the histogram's top bin and is no soil level.
 MAT_EDGE_RGB = (100, 105, 96)  # greenness (210 - 196) / 301 = 0.0465: the top bin, centre 0.045, after JPEG too

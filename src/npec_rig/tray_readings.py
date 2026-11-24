@@ -100,6 +100,7 @@ POLL_S = 5.0
 # (Aaron, 2026-11-09), not a measurement: 5 times the largest change of a tag that stayed put.
 TAG_TURNED_DEG = 10.0
 TAG_TURNED = "tag turned on tray"
+GROWN_NOT_WORKED_OUT = "grown area not worked out"
 
 
 def _calibration(path: str) -> tuple[str, object, list[dict] | None]:
@@ -216,8 +217,8 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
     reuse = reuse_mask and _saved_by_this_segmenter(saved)
     # A tag seen with no tray found around it has no outline: nothing to measure (#331).
     outlined = [p for p in placed if p.outline is not None]
-    calibration, measures, cells, grown = (
-        _measures(path, record["calibration"], outlined, reuse, tags, record, saved) if outlined else (None, [], [], []))
+    calibration, measures, cells, grown, grown_failed = (
+        _measures(path, record["calibration"], outlined, reuse, tags, record, saved) if outlined else (None, [], [], [], False))
     size = _photo_size(path) if outlined else None
     # No area now, whether or not any tray was outlined (review of #334): a saved area is kept.
     _refuse_worse(path, saved, status, areas_lost=not measures)
@@ -240,7 +241,8 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "outside_mm": outside_mm(p, size) if size and p.outline is not None else None,
             "found": p.found,
             "warnings": list(p.warnings) + ([TAG_TURNED] if celled.get(id(p), no_cells)[2] else [])
-            + ([segmentation.SOIL_HIDDEN] if g and _at_the_floor(soil_level, lower_cutoff) else []),
+            + ([segmentation.SOIL_HIDDEN] if g and _at_the_floor(soil_level, lower_cutoff) else [])
+            + ([GROWN_NOT_WORKED_OUT] if grown_failed and m and not g else []),
             "outline_px": None if p.outline is None else [list(c) for c in p.outline],
             "cells": [
                 {
@@ -286,6 +288,7 @@ def _saved_grown(saved: dict | None) -> dict[int, dict]:
 def _keep_grown(tray: dict, old: dict) -> None:
     """Put the saved tray `old`'s grown values, and those of its cells by name, on the new `tray`."""
     tray.update({f: old.get(f) for f in GROWN_TRAY_FIELDS})
+    tray["warnings"] = [w for w in tray["warnings"] if w != GROWN_NOT_WORKED_OUT]
     by_name = {c["cell"]: c for c in old.get("cells", [])}
     for cell in tray["cells"]:
         if cell["cell"] in by_name:
@@ -318,7 +321,7 @@ def _saved_by_this_segmenter(saved: dict | None) -> bool:
 def _measures(
     path: str, photo_calibration: str, placed: list[TrayPlacement], reuse_mask: bool = False,
     tags: list[TagDetection] = (), record: dict | None = None, saved: dict | None = None,
-) -> tuple[str | None, list[segmentation.PlantMeasure], list, list]:
+) -> tuple[str | None, list[segmentation.PlantMeasure], list, list, bool]:
     """The calibration used, each placed tray's plant measure, each one's cells with their plant
     by both methods and each 2 x 2 tray's A1 bearing (`_measured_cells`), and each tray's plant by
     grow from leaf cores with its soil level and lower cutoff, in the order of `placed` (two trays
@@ -326,7 +329,10 @@ def _measures(
     `reuse_mask`, else new ones, saved for Reprocess. Empty when the photo cannot be segmented: the
     trays are still placed. No grown plant (an empty last list) when grow from leaf cores cannot
     run: the fixed green cutoff's areas are kept. Plant in the strip two touching trays share
-    counts once, for the tray with the nearer centre (`segmentation.measure_trays`)."""
+    counts once, for the tray with the nearer centre (`segmentation.measure_trays`). The last item:
+    whether grow from leaf cores failed with an error other than a locked rig.db, so that no tray
+    has a grown area and the reading says so (#483)."""
+    grown_failed = False
     try:
         stem = calibration_for_photos(photo_calibration)
         scale_field = load_saved_calibration(stem).scale_field
@@ -347,20 +353,21 @@ def _measures(
                 if _rig_db_locked(exc):
                     raise
                 logger.exception("Could not grow the plant from leaf cores in %s", path)
+                grown_failed = True
         trays = [(p.outline, p.centre) for p in placed]
         measures = segmentation.measure_trays(mask, trays, scale_field)
     except Exception as exc:
         if _rig_db_locked(exc):
             raise  # the caller retries (#464); a locked rig.db is not "no areas" (#483)
         logger.exception("Could not work out the plant areas of %s", path)
-        return None, [], [], []
+        return None, [], [], [], False
     try:
         by_cores = segmentation.measure_trays(grown, trays, scale_field) if grown is not None else []
         grew = [(m, *level) for m, level in zip(by_cores, levels, strict=True)]
     except Exception:
         logger.exception("Could not work out the plant areas of %s by grow from leaf cores", path)
-        grown, grew = None, []
-    return stem, measures, _measured_cells(path, mask, grown, placed, tags, scale_field, record or {}), grew
+        grown, grew, grown_failed = None, [], True
+    return stem, measures, _measured_cells(path, mask, grown, placed, tags, scale_field, record or {}), grew, grown_failed
 
 
 def _at_the_floor(soil_level: float | None, lower_cutoff: float | None) -> bool:
