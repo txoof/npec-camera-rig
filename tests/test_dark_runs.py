@@ -1,7 +1,7 @@
 """Nights in the Gallery (#419): which runs of lights-off photos collapse into one line.
 
-A run collapses when it lasts 15 minutes or more (each photo counts until the next one is taken)
-and falls in the experiment's usual dark hours (Aaron, 2026-11-23). The photo sequences are built
+A run collapses when it lasts 15 minutes or more (from its first photo to the next lit one),
+wherever it falls in the day (Aaron, 2026-11-23 and 2026-11-24). The photo sequences are built
 by hand, one minute apart unless a test says otherwise, so every answer can be counted off the
 sequence without the code.
 """
@@ -57,14 +57,14 @@ def test_a_dark_spell_under_15_minutes_stays_photos() -> None:
     assert [run["start"] for run in dark_runs.night_runs(experiment)] == ["2026-11-16T00:28:00+00:00"]
 
 
-def test_a_dark_spell_in_the_day_stays_photos() -> None:
+def test_a_dark_spell_in_the_day_collapses_too() -> None:
     """Two days with the night 00:28 to 08:02; on day 2 also lights off 14:00 to 14:20 (20 photos,
-    20 minutes), an hour that is lit on every other day."""
+    20 minutes). Any dark run of 15 minutes or more collapses, wherever it falls (Aaron, 2026-11-24)."""
     experiment = _experiment()
     day_2 = [("lights off" if 14 * 60 <= m < 14 * 60 + 20 else mark) for m, mark in enumerate(_day(28, 482))]
     _photos(experiment, _day(28, 482) + day_2)
-    assert [run["start"] for run in dark_runs.night_runs(experiment)] == [
-        "2026-11-16T00:28:00+00:00", "2026-11-17T00:28:00+00:00"
+    assert [(run["start"], run["photos"]) for run in dark_runs.night_runs(experiment)] == [
+        ("2026-11-16T00:28:00+00:00", 454), ("2026-11-17T00:28:00+00:00", 454), ("2026-11-17T14:00:00+00:00", 20)
     ]
 
 

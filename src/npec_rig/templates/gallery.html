@@ -632,8 +632,8 @@
       hours = (await r.json()).map((h) => ({ ...h, ms: keyDate(`${h.hour}0000_000000`).getTime() })).reverse();
     }
 
-    // Nights (#419): runs of lights-off photos of 15 minutes or more in the experiment's usual
-    // dark hours (dark_runs.py), oldest first. `from` and `to` bound their photo keys: a key in
+    // Nights (#419): runs of lights-off photos of 15 minutes or more, at any time of day
+    // (dark_runs.py), oldest first. `from` and `to` bound their photo keys: a key in
     // the night is >= from and < to. An hour whose photos all lie in one night is hidden. The
     // week strips hide an hour only where it is hidden on every day of the week, so an
     // unexpected night (the lamps on at 03:00) shows as its own black pictures (Aaron,
