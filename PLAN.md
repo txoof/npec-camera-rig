@@ -23,7 +23,7 @@ repeatable by someone who didn't build it.
    moment it's needed rather than rely on someone remembering a procedure.
 
 Three previous attempts collapsed into camera metrology and never produced a working application.
-This plan is built to prevent that. Wrap-up: **the week of 14 December 2026**, write-up submitted mid-January 2027 (see *Rounds*).
+This plan is built to prevent that. Wrap-up: **Round 5, 4 to 24 December 2026**, write-up submitted mid-January 2027 (see *Rounds*).
 
 ---
 
@@ -393,7 +393,7 @@ band, and exports say so (*Per-slot area uncertainty*).
 | 2 | 23 Oct to 5 Nov | Draft, decided at the round 1 review: a page in the app showing trays, tags and green area on the latest still, plus scheduled capture (M3 scheduler, experiment records, disk headroom); a run of several days, the potato experiment from 22 October: plant trays, and pot trays as the still scene (method in `docs/metrology-log.md` section 16), measuring area jumps between consecutive photos of a tray and tag detection over time. Failure cases noted if seen, not expected (Aaron): moss or algae, shadows, leaves over tray edges |
 | 3 | 6 to 19 Nov | Draft: per-slot bands on plant area, the M5 printed-target test |
 | 4 | 20 Nov to 3 Dec | Draft: a trained plant segmentation model only if round 3 shows green thresholding is the largest error, and adopted only if it beats green thresholding on the round 3 test by a margin Aaron sets before the comparison is run; otherwise M6 alerts |
-| Wrap-up | 4 Dec to the week of 14 Dec | Hardening, runbook, write-up, the baseline (below) |
+| 5 (wrap-up) | 4 to 24 Dec | The milestone acceptance gates come first (M4 #72, M5 #78, M6 alerts #79), then hardening, runbook, write-up, the baseline (below). Decided 2026-11-23 |
 
 Submission of the write-up: mid-January 2027.
 
