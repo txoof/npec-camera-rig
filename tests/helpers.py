@@ -434,9 +434,17 @@ def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, rea
                 if held:
                     conn.execute("COMMIT")
             finally:
-                if readers_too:
-                    conn.execute("PRAGMA journal_mode=WAL")  # always back, whatever happened
-                conn.close()
+                try:
+                    if readers_too:
+                        for _ in range(50):  # another connection may still be closing
+                            back = conn.execute("PRAGMA journal_mode=WAL").fetchone()[0]  # always back, whatever happened
+                            if back == "wal":
+                                break
+                            time.sleep(0.1)
+                        if back != "wal":
+                            failed.append(RuntimeError(f"rig.db stayed in journal mode {back!r} after the lock"))
+                finally:
+                    conn.close()
 
     thread = threading.Thread(target=hold)
     thread.start()
@@ -450,3 +458,7 @@ def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, rea
     finally:
         if until is None:
             thread.join()
+        elif until.is_set():
+            thread.join(10)  # the lock ends when `until` is set
+        if not thread.is_alive() and failed:
+            raise failed[0]

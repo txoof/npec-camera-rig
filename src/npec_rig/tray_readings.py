@@ -261,12 +261,20 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "grown_plant_centre_px": list(g.centre_px) if g and g.centre_px else None,
             "grown_soil_level": soil_level, "grown_lower_cutoff": lower_cutoff,
         })
-    for tray, old in zip(trays, _saved_match(saved, placed), strict=True):
+    matches = _saved_match(saved, placed)
+    # A saved grown area stays only when it cannot be worked out again: the photo is gone. With the
+    # photo there, a regrow that failed is not made up for by an old value. Plant in the strip two
+    # touching trays share counts for the nearer centre, so a saved area holds the neighbours'
+    # outlines of that time: it stays only when every outlined tray is matched (#483).
+    can_keep = not (photo_file(path) or Path()).is_file() and all(
+        m is not None for m, p in zip(matches, placed, strict=True) if p.outline is not None)
+    for tray, old in zip(trays, matches, strict=True):
         if tray["area_mm2"] is None or tray["grown_area_mm2"] is not None:
             continue
-        # Grown area not worked out now: the saved one stays only for the same tray in the same
-        # outline, worked out with the same calibration (#483). Otherwise it is left empty, and says so.
-        if old and old["grown_area_mm2"] is not None and old.get("calibration") in (None, tray["calibration"]):
+        # Otherwise left empty, and says so. The saved area is also left when it was worked out
+        # with another calibration. Every saved tray with a grown area has its calibration
+        # recorded: it is written in the same call as the area (`calibration if m`).
+        if can_keep and old and old["grown_area_mm2"] is not None and old.get("calibration") == tray["calibration"]:
             _keep_grown(tray, old)
         else:
             tray["warnings"].append(GROWN_NOT_WORKED_OUT)
@@ -362,7 +370,7 @@ def _measures(
         return None, [], [], []
     try:
         by_cores = segmentation.measure_trays(grown, trays, scale_field) if grown is not None else []
-        grew = [(m, *level) if ok else None for m, level, ok in zip(by_cores, levels, matched, strict=True)]
+        grew = [(m, *level) if ok else None for m, level, ok in zip(by_cores, levels or [], matched, strict=True)] if by_cores else []
     except Exception:
         logger.exception("Could not work out the plant areas of %s by grow from leaf cores", path)
         grown, grew, matched = None, [], [True] * len(placed)

@@ -1262,8 +1262,9 @@ def test_reprocess_grows_again_a_tray_the_saved_reading_does_not_have(monkeypatc
     assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
 
 
-def test_reprocess_keeps_the_reading_of_a_tray_it_cannot_match_when_the_photo_is_gone(monkeypatch) -> None:
-    """With the photo gone, a saved tray is all there is: its saved grown values stay (#483)."""
+def test_reprocess_counts_the_saved_mask_again_for_a_matched_tray_when_the_photo_is_gone(monkeypatch) -> None:
+    """With the photo gone, a tray that is matched to its saved tray (same tag, same outline) has
+    its saved grown mask counted again: 900 mm2, the leaf without its pale edge (#483)."""
     from npec_rig.captures import photo_file
 
     path = _cut_short_reading(
@@ -1363,6 +1364,32 @@ def test_reprocess_matches_a_reading_saved_before_331_by_tag_and_centre(monkeypa
     [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
     assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
     assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(-0.045), pytest.approx(0.025))
+
+
+def test_reprocess_keeps_no_saved_grown_area_while_a_touching_neighbour_is_not_matched(monkeypatch) -> None:
+    """Second review of #483, finding 2: plant in the strip two touching trays share counts for the
+    tray with the nearer centre, so a tray's saved grown area holds its neighbour's outline at that
+    time. Tray 7's saved reading carries tag 8, so it is not matched; with the photo and the
+    grown mask gone, tray 5's saved grown area is not kept either: both are left empty and say so
+    (`_two_touching_trays_scene`)."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    _two_touching_trays_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    capture_id = database.captures_by_path([path])[path]["id"]
+    saved = database.tray_readings(capture_id)["trays"]
+    assert all(t["grown_area_mm2"] is not None for t in saved)
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
+        {**t, "tray_id": 8} if t["tray_id"] == 7 else t for t in saved])
+    photo_file(path).unlink()
+    segmentation.mask_file(path, segmentation.GROWN_MASK).unlink()
+
+    trays = {t["tray_id"]: t for t in tray_readings.read_photo(path, reuse_mask=True)["trays"]}
+    assert [trays[i]["area_mm2"] is not None for i in (5, 7)] == [True, True]
+    assert [trays[i]["grown_area_mm2"] for i in (5, 7)] == [None, None]
+    assert all("grown area not worked out" in trays[i]["warnings"] for i in (5, 7))
 
 
 def test_a_locked_rig_db_in_a_2x2_trays_cells_fails_the_reading_instead_of_saving_none(monkeypatch) -> None:
