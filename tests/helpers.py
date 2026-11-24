@@ -456,9 +456,6 @@ def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, rea
     try:
         yield
     finally:
-        if until is None:
-            thread.join()
-        elif until.is_set():
-            thread.join(10)  # the lock ends when `until` is set
-        if not thread.is_alive() and failed:
+        thread.join()  # the holder ends when `until` is set or after `seconds`, so this always returns
+        if failed:
             raise failed[0]

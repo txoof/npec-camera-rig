@@ -452,8 +452,13 @@ From version 25 (#363). Each tray and cell is measured by two methods: the fixed
 (`area_mm2`, `segmenter` "green threshold, 0.1", unchanged) and grow from leaf cores (`grown_*`),
 which starts from leaf cores and grows them into the paler leaf edges, down to a cutoff set above
 the tray's own soil (`segmentation.grow_from_cores`, metrology log 24.8 and 33.1). Its whole-photo
-mask is saved beside the fixed cutoff's, as `<photo>.grown.png` in the masks folder, so Reprocess
-counts both again without the photo; a purge deletes both. The fixed cutoff's floor of 100 mm2
+mask is saved beside the fixed cutoff's, as `<photo>.grown.png` in the masks folder; a purge
+deletes both. Reprocess (#483) does a whole photo or nothing, never a mix of old and new values:
+it counts both masks again, without the photo, only when every tray is the same saved tray (tag and
+outline), was worked out with the calibration now in use and has its grown values, and no saved tray
+is marked "grown area not worked out" or was saved with the cutoff in the leaves (before #373);
+otherwise it grows the whole photo again from the photo; and when neither can be done completely
+the saved reading is not changed and the photo is reported as not reprocessed. The fixed cutoff's floor of 100 mm2
 was measured for that method only and does not apply to this one. All `grown_*` columns are NULL
 for readings saved before version 25, or when the method could not run.
 
@@ -463,8 +468,8 @@ for readings saved before version 25, or when the method could not run.
 | `tray_reading.grown_area_mm2` | real | Its plant area inside the tray outline, at the calibration's scale |
 | `tray_reading.grown_plant_px` | integer | Its plant pixels inside the outline |
 | `tray_reading.grown_plant_centre_x_px`, `grown_plant_centre_y_px` | real | Their centre, full-size photo pixels; NULL when none |
-| `tray_reading.grown_soil_level` | real | The tray's soil greenness, (2G - R - B) / (R + G + B), the cutoff was set from. NULL when the tray showed no soil, or on Reprocess when the saved reading had none for the tray |
-| `tray_reading.grown_lower_cutoff` | real | The greenness the leaf cores were grown down to; NULL as for the soil level on Reprocess |
+| `tray_reading.grown_soil_level` | real | The tray's soil greenness, (2G - R - B) / (R + G + B), the cutoff was set from. NULL when the tray showed no soil |
+| `tray_reading.grown_lower_cutoff` | real | The greenness the leaf cores were grown down to; Never NULL when `grown_area_mm2` is set |
 | `cell_reading.grown_area_mm2`, `grown_plant_px`, `grown_plant_centre_x_px`, `grown_plant_centre_y_px` | real, integer | As `area_mm2`, `plant_px` and their centre, by grow from leaf cores |
 | `cell_reading.grown_over_other_cells` | integer | As `over_other_cells`, by grow from leaf cores |
 

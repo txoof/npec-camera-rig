@@ -194,8 +194,11 @@ def _capture_id(path: str) -> int:
 def read_photo(path: str, *, reuse_mask: bool = False, unless_measured: bool = False) -> dict:
     """Read gallery photo `path` for its trays, save the reading (replacing any earlier one) and
     return it as `photo_readings` would. The tags are searched once per photo (photo_tags). With
-    `reuse_mask`, a mask saved by the same segmenter is counted again instead of segmenting the
-    photo: Reprocess, which then needs neither the photo nor the segmenter. With
+    `reuse_mask`, Reprocess: the whole photo is done in one of two ways, never a mix of old and new
+    values. Counted again from its saved masks (no photo and no segmenter needed) when
+    `_recount_blocker` finds nothing against it; otherwise grown again from the photo as a new
+    read; and when neither can be done completely (the photo is gone, anything fails) nothing is
+    saved: the saved reading stays as it was and `NotReprocessed` is raised (#483). With
     `unless_measured`, a saved reading with plant areas from the same segmenter is kept and
     returned as it is: Show tags, which would otherwise segment the photo on every tap (#282)."""
     try:
@@ -214,11 +217,17 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
         return capture_readings(record)
     tags = photo_tags.photo_tags_for(path)
     status, placed = found_trays(path, tags, saved)
-    reuse = reuse_mask and _saved_by_this_segmenter(saved)
     # A tag seen with no tray found around it has no outline: nothing to measure (#331).
     outlined = [p for p in placed if p.outline is not None]
+    recount = False
+    if reuse_mask and outlined:
+        blocker = _recount_blocker(path, record, saved, outlined)
+        recount = blocker is None
+        if blocker is not None and not (photo_file(path) or Path()).is_file():
+            raise NotReprocessed(f"{path}: the photo is gone and its saved masks cannot be counted again: {blocker}")
     calibration, measures, cells, grown = (
-        _measures(path, record["calibration"], outlined, reuse, tags, record, saved) if outlined else (None, [], [], []))
+        _measures(path, record["calibration"], outlined, recount, tags, record, saved, strict=reuse_mask)
+        if outlined else (None, [], [], []))
     size = _photo_size(path) if outlined else None
     # No area now, whether or not any tray was outlined (review of #334): a saved area is kept.
     _refuse_worse(path, saved, status, areas_lost=not measures)
@@ -241,7 +250,7 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "found": p.found,
             "warnings": list(p.warnings) + ([TAG_TURNED] if celled.get(id(p), no_cells)[2] else [])
             + ([segmentation.SOIL_HIDDEN] if g and _at_the_floor(soil_level, lower_cutoff) else [])
-            ,
+            + ([GROWN_NOT_WORKED_OUT] if m and not g else []),
             "outline_px": None if p.outline is None else [list(c) for c in p.outline],
             "cells": [
                 {
@@ -261,46 +270,17 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "grown_plant_centre_px": list(g.centre_px) if g and g.centre_px else None,
             "grown_soil_level": soil_level, "grown_lower_cutoff": lower_cutoff,
         })
-    matches = _saved_match(saved, placed)
-    # A saved grown area stays only when it cannot be worked out again: the photo is gone. With the
-    # photo there, a regrow that failed is not made up for by an old value. Plant in the strip two
-    # touching trays share counts for the nearer centre, so a saved area holds the neighbours'
-    # outlines of that time: it stays only when every outlined tray is matched (#483).
-    can_keep = not (photo_file(path) or Path()).is_file() and all(
-        m is not None for m, p in zip(matches, placed, strict=True) if p.outline is not None)
-    for tray, old in zip(trays, matches, strict=True):
-        if tray["area_mm2"] is None or tray["grown_area_mm2"] is not None:
-            continue
-        # Otherwise left empty, and says so. The saved area is also left when it was worked out
-        # with another calibration. Every saved tray with a grown area has its calibration
-        # recorded: it is written in the same call as the area (`calibration if m`).
-        if can_keep and old and old["grown_area_mm2"] is not None and old.get("calibration") == tray["calibration"]:
-            _keep_grown(tray, old)
-        else:
-            tray["warnings"].append(GROWN_NOT_WORKED_OUT)
     database.record_tray_readings(capture_id, read_at=datetime.now(UTC).isoformat(), status=status, trays=trays)
     exclusions.update(record)
     return capture_readings(record)
 
 
-GROWN_TRAY_FIELDS = (
-    "grown_method", "grown_area_mm2", "grown_plant_px", "grown_plant_centre_px", "grown_soil_level", "grown_lower_cutoff",
-)
-GROWN_CELL_FIELDS = ("grown_area_mm2", "grown_plant_px", "grown_plant_centre_px", "grown_over_other_cells")
+class NotReprocessed(RuntimeError):
+    """Reprocess could not redo the photo completely: nothing is saved, the saved reading stays as
+    it was. The message says why."""
 
 
-def _keep_grown(tray: dict, old: dict) -> None:
-    """Put the saved tray `old`'s grown values, and those of its cells by name, on the new `tray`."""
-    tray.update({f: old.get(f) for f in GROWN_TRAY_FIELDS})
-    by_name = {c["cell"]: c for c in old.get("cells", [])}
-    for cell in tray["cells"]:
-        if cell["cell"] in by_name:
-            cell.update({f: by_name[cell["cell"]].get(f) for f in GROWN_CELL_FIELDS})
-    if _at_the_floor(old.get("grown_soil_level"), old.get("grown_lower_cutoff")) and segmentation.SOIL_HIDDEN not in tray["warnings"]:
-        tray["warnings"] = [*tray["warnings"], segmentation.SOIL_HIDDEN]
-
-
-class ReadingWorse(RuntimeError):
+class ReadingWorse(NotReprocessed):
     """Reading the photo again would replace a saved reading with less: nothing is saved."""
 
 
@@ -322,59 +302,86 @@ def _saved_by_this_segmenter(saved: dict | None) -> bool:
 
 
 def _measures(
-    path: str, photo_calibration: str, placed: list[TrayPlacement], reuse_mask: bool = False,
-    tags: list[TagDetection] = (), record: dict | None = None, saved: dict | None = None,
+    path: str, photo_calibration: str, placed: list[TrayPlacement], recount: bool = False,
+    tags: list[TagDetection] = (), record: dict | None = None, saved: dict | None = None, strict: bool = False,
 ) -> tuple[str | None, list[segmentation.PlantMeasure], list, list]:
     """The calibration used, each placed tray's plant measure, each one's cells with their plant
     by both methods and each 2 x 2 tray's A1 bearing (`_measured_cells`), and each tray's plant by
     grow from leaf cores with its soil level and lower cutoff, in the order of `placed` (two trays
     may carry the same tag, #302), from the full-size photo's masks: the saved ones with
-    `reuse_mask`, else new ones, saved for Reprocess. Empty when the photo cannot be segmented: the
-    trays are still placed. No grown plant (an empty last list) when grow from leaf cores cannot
-    run: the fixed green cutoff's areas are kept. Plant in the strip two touching trays share
-    counts once, for the tray with the nearer centre (`segmentation.measure_trays`). A tray whose
-    saved levels are not found (not in the saved reading, or in another outline) has no grown
-    plant from a saved mask: that mask was made without it (#483)."""
+    `recount` (their saved levels from `saved`), else new ones from the photo, saved for Reprocess.
+    Plant in the strip two touching trays share counts once, for the tray with the nearer centre
+    (`segmentation.measure_trays`).
+
+    Not strict (a new read): empty when the photo cannot be segmented, the trays are still placed;
+    no grown plant (an empty last list) when grow from leaf cores fails, the fixed green cutoff's
+    areas are kept and the tray says so. Strict (Reprocess): anything that fails but a locked rig.db
+    raises `NotReprocessed`, never a part of a reading (#483)."""
     try:
         stem = calibration_for_photos(photo_calibration)
         scale_field = load_saved_calibration(stem).scale_field
-        mask = segmentation.load_mask(path) if reuse_mask else None
-        grown = segmentation.load_mask(path, segmentation.GROWN_MASK) if reuse_mask else None
-        levels = _saved_levels(saved, placed) if grown is not None else None
-        matched = [True] * len(placed)
-        if levels and (photo_file(path) or Path()).is_file() and any(
-                level is None or _grown_into_leaves(*level) for level in levels):
-            # Read before #373 with the cutoff in the leaves (metrology log 39), or a tray whose
-            # outline is not the one the mask was made inside (#483, findings 5 and 7): grown again.
-            grown, levels = None, None
-        elif levels:
-            matched = [level is not None for level in levels]
-            levels = [level or (None, None) for level in levels]
-        if mask is None:
-            mask, grown, levels = _segment(path, placed, tags)
-        elif grown is None:
-            # A photo read before #363 has the fixed cutoff's mask only: its areas are kept when
-            # the photo is gone.
-            try:
-                _mask, grown, levels = _segment(path, placed, tags, mask)
-            except Exception as exc:
-                if _rig_db_locked(exc):
-                    raise
-                logger.exception("Could not grow the plant from leaf cores in %s", path)
+        if recount:
+            mask = segmentation.load_mask(path)
+            grown = segmentation.load_mask(path, segmentation.GROWN_MASK)
+            levels = _saved_levels(saved, placed)
+            if mask is None or grown is None or None in levels:
+                raise NotReprocessed(f"{path}: a saved mask or the saved levels are missing")
+        else:
+            mask, grown, levels = _segment(path, placed, tags, strict=strict)
         trays = [(p.outline, p.centre) for p in placed]
         measures = segmentation.measure_trays(mask, trays, scale_field)
     except Exception as exc:
         if _rig_db_locked(exc):
             raise  # the caller retries (#464); a locked rig.db is not "no areas" (#483)
+        if strict:
+            raise exc if isinstance(exc, NotReprocessed) else NotReprocessed(f"{path}: plant areas not worked out: {exc!r}") from exc
         logger.exception("Could not work out the plant areas of %s", path)
         return None, [], [], []
     try:
         by_cores = segmentation.measure_trays(grown, trays, scale_field) if grown is not None else []
-        grew = [(m, *level) if ok else None for m, level, ok in zip(by_cores, levels or [], matched, strict=True)] if by_cores else []
-    except Exception:
+        grew = [(m, *level) for m, level in zip(by_cores, levels, strict=True)] if by_cores else []
+    except Exception as exc:
+        if strict:
+            raise NotReprocessed(f"{path}: plant areas by grow from leaf cores not worked out: {exc!r}") from exc
         logger.exception("Could not work out the plant areas of %s by grow from leaf cores", path)
-        grown, grew, matched = None, [], [True] * len(placed)
-    return stem, measures, _measured_cells(path, mask, grown, placed, tags, scale_field, record or {}, matched), grew
+        grown, grew = None, []
+    return stem, measures, _measured_cells(path, mask, grown, placed, tags, scale_field, record or {}, strict), grew
+
+
+def _recount_blocker(path: str, record: dict, saved: dict | None, outlined: list[TrayPlacement]) -> str | None:
+    """Why the photo cannot be counted again from its saved masks, None when it can. All of these
+    hold, else its whole reading is made again (#483): the saved reading is of a read photo from
+    this segmenter; every outlined tray is one saved tray (same tag, same outline,
+    `_saved_match`) and every saved tray with areas is one of them; every saved tray with areas was
+    worked out with the calibration now in use, has its grown area and levels, is not a reading
+    made before #373 with the cutoff in the leaves and is not marked "grown area not worked out";
+    both saved masks are on disk."""
+    if not saved or saved["status"] != "read" or not _saved_by_this_segmenter(saved):
+        return "no saved reading from this segmenter"
+    matches = _saved_match(saved, outlined)
+    if any(m is None for m in matches):
+        return "a tray is not in the saved reading in the same outline"
+    measured = [t for t in saved["trays"] if t["area_mm2"] is not None]
+    if any(not any(t is m for m in matches) for t in measured):
+        return "a saved tray is not found now"
+    try:
+        stem = calibration_for_photos(record["calibration"])
+    except Exception as exc:  # no calibration to count under
+        if _rig_db_locked(exc):
+            raise
+        return f"calibration not found: {exc!r}"
+    for t in measured:
+        if t.get("calibration") != stem:
+            return "worked out with another calibration"
+        if t.get("grown_area_mm2") is None or t.get("grown_lower_cutoff") is None:
+            return "no grown area or levels saved"
+        if _grown_into_leaves(t.get("grown_soil_level"), t.get("grown_lower_cutoff")):
+            return "saved with the cutoff in the leaves (before #373)"
+        if GROWN_NOT_WORKED_OUT in t["warnings"]:
+            return "its grown area was not worked out"
+    if not (segmentation.mask_file(path).is_file() and segmentation.mask_file(path, segmentation.GROWN_MASK).is_file()):
+        return "a saved mask is missing"
+    return None
 
 
 def _at_the_floor(soil_level: float | None, lower_cutoff: float | None) -> bool:
@@ -433,28 +440,32 @@ def _saved_levels(saved: dict | None, placed: list[TrayPlacement]) -> list[tuple
     return [None if t is None else (t.get("grown_soil_level"), t.get("grown_lower_cutoff")) for t in _saved_match(saved, placed)]
 
 
-def _measured_cells(path, mask, grown, placed, tags, scale_field, record, grown_for=None) -> list:
+def _measured_cells(path, mask, grown, placed, tags, scale_field, record, strict=False) -> list:
     """Each placed tray's cells with their plant by the fixed green cutoff (`mask`) and by grow from
     leaf cores (`grown`, None for none), and its 2 x 2 bearing (`_cells`), measured tray by tray
     inside the tray's outline (`segmentation.measure_cells`). A tray whose cells cannot be worked
-    out gets none, logged: its tray area and the other trays' cells are kept (review of #374)."""
+    out gets none, logged: its tray area and the other trays' cells are kept (review of #374). With
+    `strict` (Reprocess) such a tray raises `NotReprocessed` instead (#483)."""
     out = []
-    for p, with_grown in zip(placed, grown_for or [True] * len(placed), strict=True):
+    for p in placed:
         try:
             [(cells, bearing, turned)] = _cells([p], tags, scale_field, record)
             counted = segmentation.measure_cells(mask, cells, scale_field, outline_px=p.outline) if cells else []
             by_cores = [None] * len(cells)
-            if cells and grown is not None and with_grown:
+            if cells and grown is not None:
                 try:
                     by_cores = segmentation.measure_cells(grown, cells, scale_field, outline_px=p.outline)
                 except Exception as exc:
-                    if _rig_db_locked(exc):
+                    if _rig_db_locked(exc) or strict:
                         raise
                     logger.exception("Could not work out the cells of tray %s in %s by grow from leaf cores", p.tray_id, path)
             out.append((list(zip(cells, counted, by_cores, strict=True)), bearing, turned))
         except Exception as exc:
             if _rig_db_locked(exc):
                 raise
+            if strict:  # Reprocess: nothing of a reading is saved without its cells (#483)
+                raise exc if isinstance(exc, NotReprocessed) else NotReprocessed(
+                    f"{path}: the cells of tray {p.tray_id} not worked out: {exc!r}") from exc
             logger.exception("Could not work out the cells of tray %s in %s", p.tray_id, path)
             out.append(([], None, False))
     return out
@@ -537,24 +548,29 @@ def outside_mm(p: TrayPlacement, size: tuple[int, int]) -> float:
 
 
 def _segment(
-    path: str, placed: list[TrayPlacement], tags: list[TagDetection], mask: np.ndarray | None = None,
+    path: str, placed: list[TrayPlacement], tags: list[TagDetection], strict: bool = False,
 ) -> tuple[np.ndarray, np.ndarray | None, list[tuple[float | None, float | None]] | None]:
-    """New masks of photo `path`, saved for Reprocess: the segmenter's (unless `mask` is given) and
-    the one by grow from leaf cores of the trays `placed`, each tray's tags from `tags`, with each
-    tray's soil level and lower cutoff. No grown mask (None) when grow from leaf cores fails."""
+    """New masks of photo `path`, saved for Reprocess: the segmenter's and the one by grow from
+    leaf cores of the trays `placed`, each tray's tags from `tags`, with each tray's soil level and
+    lower cutoff. No grown mask (None) when grow from leaf cores fails; with `strict` (Reprocess)
+    that raises `NotReprocessed` and no mask is saved, the saved ones stay (#483)."""
+    file = photo_file(path)
+    if file is None:
+        raise NotReprocessed(f"{path}: the photo is gone")
     # One full-size photo at a time, shared with the tag search (images.py, #348).
     with images.full_decode_slot():
-        rgb = images.decode_full(photo_file(path))
-        if mask is None:
-            mask = SEGMENTER.segment(rgb)
-            segmentation.save_mask(path, mask)
+        rgb = images.decode_full(file)
+        mask = SEGMENTER.segment(rgb)
         try:
             corners = [[t.corners for t in tags if p.tray_id is not None and t.tag_id == p.tray_id] for p in placed]
             grown, levels = segmentation.grow_trays(rgb, [(p.outline, c) for p, c in zip(placed, corners, strict=True)])
-        except Exception:
+        except Exception as exc:
+            if strict:
+                raise NotReprocessed(f"{path}: could not grow the plant from leaf cores: {exc!r}") from exc
             logger.exception("Could not grow the plant from leaf cores in %s", path)
             grown, levels = None, None
         del rgb
+    segmentation.save_mask(path, mask)
     if grown is not None:
         segmentation.save_mask(path, grown, segmentation.GROWN_MASK)
     return mask, grown, levels
@@ -804,8 +820,8 @@ def _rig_db_locked(exc: BaseException | None) -> bool:
 
 # --- Reprocess (#75) ----------------------------------------------------------------------------
 # One experiment at a time, in a thread of its own beside the background reader: every photo of
-# the experiment read again, its areas worked out afresh. A photo that fails is counted and left
-# as it was.
+# the experiment read again, its areas worked out afresh, whole photo or nothing (`read_photo`,
+# #483). A photo that cannot be redone completely is counted as failed and left as it was.
 
 _reprocess_lock = threading.Lock()
 _reprocess: dict = {"experiment_id": None, "running": False, "done": 0, "total": 0, "failed": 0}
