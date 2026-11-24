@@ -12,7 +12,7 @@ import math
 import threading
 from datetime import UTC, datetime, timedelta
 
-from npec_rig import captures, database, images
+from npec_rig import captures, database, images, settings
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,12 @@ MISSED_APP_DOWN = "the app was not running"
 # added (#439): moved or deleted by hand.
 MISSED_NOT_FOUND = "the photo was saved but could not be found to add to the database"
 MISSED_PHOTO_SLOW = "the previous photo took longer than the interval"
+# A slot that passed while rig.db could not be written: the previous photo waited for the lock
+# (#481, Aaron 2026-11-23).
+MISSED_DB_LOCKED = "rig.db could not be written"
+# A slot whose photo is on disk but whose info file could not be read (empty or damaged, as after a
+# power cut), so the photo could not be added to the database (#481, Aaron 2026-11-23).
+MISSED_RECORD_UNREADABLE = "the photo was saved but its record could not be read"
 
 
 def _running_schedule(experiment: dict | None) -> dict | None:
@@ -47,14 +53,16 @@ def _current_slot(sched: dict, now: datetime) -> int:
 
 
 def _missed_by_reason(reasons: dict[str, int]) -> dict[str, int]:
-    """Missed photos counted as app down, photo slow, or photo failed (any other reason: the
-    error the camera gave)."""
+    """Missed photos counted as app down, photo slow, rig.db locked, or photo failed (any other
+    reason: the error the camera gave)."""
     app_down = reasons.get(MISSED_APP_DOWN, 0)
     photo_slow = reasons.get(MISSED_PHOTO_SLOW, 0)
+    db_locked = reasons.get(MISSED_DB_LOCKED, 0)
     return {
         "app_down": app_down,
         "photo_slow": photo_slow,
-        "photo_failed": sum(reasons.values()) - app_down - photo_slow,
+        "db_locked": db_locked,
+        "photo_failed": sum(reasons.values()) - app_down - photo_slow - db_locked,
     }
 
 
@@ -110,9 +118,16 @@ class Scheduler:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._started_at = datetime.now(UTC)
-        # Slots taken but not yet written to rig.db, which was locked: written before the next
-        # photo, so a retried tick does not take the slot's photo again (#439).
-        self._unwritten: tuple[int, str, list] | None = None
+        # Slots not yet written to rig.db, which was locked, oldest first: (experiment id,
+        # schedule since, slots). Written after a later photo, and counted as recorded meanwhile,
+        # so no slot's photo is taken twice (#439, #481).
+        self._unwritten: list[tuple[int, str, list]] = []
+        # When the last photo's database work began, after its camera work: slots due from then
+        # until the next photo were lost to rig.db, not to a slow camera (#481).
+        self._database_since: datetime | None = None
+        # Photos saved while rig.db was locked may still need their rows; also true at start, for
+        # slots left so by an earlier run (#439).
+        self._settle_due = True
 
     def start(self) -> None:
         self._stop.clear()
@@ -134,50 +149,101 @@ class Scheduler:
             except Exception:
                 logger.exception("Scheduled capture failed; trying again")
                 wait_s = CHECK_S
+        # Stopping (the app shuts down): one last try to write the slots not yet written (#481).
+        if self._unwritten:
+            self._catch_up(None)
 
     def _tick(self) -> float:
-        """Take the current slot's photo if it is not yet recorded. Returns seconds to wait."""
+        """Take the current slot's photo if it is not yet recorded, then do the database work.
+        Returns seconds to wait.
+
+        The photo comes first: nothing the database does stops it (#481, Aaron 2026-11-23). While
+        rig.db is locked, each photo is still taken and saved with its info file; its row and
+        slot are added after the lock ends."""
         experiment = database.running_experiment()
         sched = _running_schedule(experiment)
         if sched is None:
+            # Stopped with slots not yet written: write them now, no photo is waiting (#481).
+            if self._unwritten:
+                self._catch_up(None)
             return CHECK_S
         since = sched["since"]
-        if self._unwritten is not None:
-            database.record_scheduled_photos(*self._unwritten)
-            self._unwritten = None
-        self._settle_unlinked(experiment)
-        last_slot = database.schedule_progress(experiment["id"], since)["last_slot"]
+        last_slot = max(
+            database.schedule_progress(experiment["id"], since)["last_slot"],
+            self._last_unwritten_slot(experiment["id"], since),
+        )
         slot = _current_slot(sched, datetime.now(UTC))
         if slot > last_slot:
             # Slots that passed without a photo: due before this scheduler started, the app was
-            # down; due since, the previous photo was still being taken (#62).
+            # down; due since, the previous photo was still being taken (#62), or, once its camera
+            # work was done, its database work was waiting for rig.db (#481).
             slots = []
             for missed in range(last_slot + 1, slot):
                 due = _due_at(sched, missed)
-                reason = MISSED_APP_DOWN if due < self._started_at else MISSED_PHOTO_SLOW
+                if due < self._started_at:
+                    reason = MISSED_APP_DOWN
+                elif self._database_since is not None and due >= self._database_since:
+                    reason = MISSED_DB_LOCKED
+                else:
+                    reason = MISSED_PHOTO_SLOW
                 slots.append((missed, due.isoformat(), None, reason))
             due_at = _due_at(sched, slot).isoformat()
+            row_failed = False
             try:
                 # The app is shutting down: the camera may already be closing.
                 if self._stop.is_set():
                     return 0.0
                 array, record = captures.take_photo("capture")
                 del array
+                self._database_since = datetime.now(UTC) - timedelta(seconds=record.get("database_s", 0.0))
                 # Stop pressed while the photo was taken: it was saved as a rig photo.
                 if (record["experiment"] or {}).get("id") == experiment["id"]:
                     slots.append((slot, due_at, record["capture_id"], None))
+                    row_failed = record["capture_id"] is None
                 else:
                     slots.append((slot, due_at, None, "experiment stopped during the photo"))
             except Exception as exc:
+                self._database_since = datetime.now(UTC)
                 logger.exception("Scheduled photo for slot %d failed", slot)
                 slots.append((slot, due_at, None, str(exc) or "failed"))
-            self._unwritten = (experiment["id"], since, slots)
-            database.record_scheduled_photos(*self._unwritten)
-            self._unwritten = None
+            self._unwritten.append((experiment["id"], since, slots))
             images.release_freed_memory()  # the photo's full-size frame is gone (#348)
             last_slot = slot
+            # The photo's own row just failed (rig.db locked): every write would wait as long
+            # again, so the rest is tried later.
+            if row_failed:
+                self._settle_due = True
+            else:
+                self._catch_up(experiment)
         wait_s = (_due_at(sched, last_slot + 1) - datetime.now(UTC)).total_seconds()
+        # Between photos, the database work still to do is tried when a full wait for a lock
+        # fits before the next photo, so it can never delay it (#481).
+        if (self._unwritten or self._settle_due) and wait_s > settings.LOCK_WAIT_S + CHECK_S:
+            self._database_since = datetime.now(UTC)
+            self._catch_up(experiment)
+            wait_s = (_due_at(sched, last_slot + 1) - datetime.now(UTC)).total_seconds()
         return max(0.0, min(wait_s, CHECK_S))
+
+    def _last_unwritten_slot(self, experiment_id: int, since: str) -> int:
+        return max(
+            (s[0] for eid, s_since, slots in self._unwritten if (eid, s_since) == (experiment_id, since) for s in slots),
+            default=0,
+        )
+
+    def _catch_up(self, experiment: dict | None) -> None:
+        """The database work after a photo: write the slots not yet written, oldest first, then,
+        for a running `experiment`, add and link the photos saved while rig.db was locked. A
+        failure is logged and tried again later; it never stops a photo (#481)."""
+        try:
+            while self._unwritten:
+                database.record_scheduled_photos(*self._unwritten[0])
+                self._unwritten.pop(0)
+            if experiment is not None:
+                self._settle_unlinked(experiment)
+                self._settle_due = False
+        except Exception:
+            self._settle_due = True
+            logger.exception("Could not write to rig.db after the photo; trying again later")
 
     @staticmethod
     def _settle_unlinked(experiment: dict) -> None:
@@ -191,5 +257,8 @@ class Scheduler:
         for slot in unlinked:
             due = datetime.fromisoformat(slot["due_at"])
             days |= {due.strftime("%Y-%m-%d"), (due + interval).strftime("%Y-%m-%d")}
-        captures.adopt_unrecorded_photos(experiment, days)
-        database.link_unlinked_slots(experiment["id"], experiment["interval_s"], not_found=MISSED_NOT_FOUND)
+        adopted = captures.adopt_unrecorded_photos(experiment, days)
+        database.link_unlinked_slots(
+            experiment["id"], experiment["interval_s"], not_found=MISSED_NOT_FOUND,
+            unreadable=adopted.unreadable, unreadable_reason=MISSED_RECORD_UNREADABLE,
+        )

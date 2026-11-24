@@ -20,7 +20,7 @@ import sys
 import threading
 import time
 from collections import Counter
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from contextlib import closing, contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -1283,9 +1283,15 @@ def unlinked_slots(experiment_id: int) -> list[dict]:
     return [dict(row) for row in rows]
 
 
-def link_unlinked_slots(experiment_id: int, interval_s: float, *, not_found: str) -> None:
+def link_unlinked_slots(
+    experiment_id: int, interval_s: float, *, not_found: str,
+    unreadable: Sequence[str] = (), unreadable_reason: str | None = None,
+) -> None:
     """Link each of `unlinked_slots` to the experiment's photo taken within its interval and held
-    by no other slot; a slot with no such photo is missed with the reason `not_found` (#439)."""
+    by no other slot (#439). A slot with no such photo is missed with the reason
+    `unreadable_reason` when a photo whose info file could not be read was taken within its
+    interval (`unreadable`, UTC times, #481), otherwise with the reason `not_found`."""
+    unreadable_at = [datetime.fromisoformat(t) for t in unreadable]
     with _connect() as conn:
         for slot in conn.execute(
             "SELECT id, due_at FROM scheduled_photo WHERE experiment_id = ?"
@@ -1301,10 +1307,13 @@ def link_unlinked_slots(experiment_id: int, interval_s: float, *, not_found: str
                 " ORDER BY taken_at LIMIT 1",
                 (experiment_id, slot["due_at"], slot["due_at"], interval_s, experiment_id),
             ).fetchone()
-            if photo is None:
-                conn.execute("UPDATE scheduled_photo SET missed_reason = ? WHERE id = ?", (not_found, slot["id"]))
-            else:
+            if photo is not None:
                 conn.execute("UPDATE scheduled_photo SET capture_id = ? WHERE id = ?", (photo["id"], slot["id"]))
+                continue
+            due = datetime.fromisoformat(slot["due_at"])
+            in_slot = any(due <= t < due + timedelta(seconds=interval_s) for t in unreadable_at)
+            reason = unreadable_reason if in_slot and unreadable_reason else not_found
+            conn.execute("UPDATE scheduled_photo SET missed_reason = ? WHERE id = ?", (reason, slot["id"]))
 
 
 def calibration_around(experiment_id: int, taken_at: str) -> str | None:

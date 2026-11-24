@@ -1,3 +1,5 @@
+import json
+import shutil
 import threading
 import time
 from datetime import UTC, datetime, timedelta
@@ -286,3 +288,136 @@ def test_a_photo_saved_while_rig_db_was_locked_gets_its_row_and_its_slot(monkeyp
         time.sleep(0.5)
         _wait_for(settled)
         client.post(f"/api/experiments/{experiment['id']}/stop")
+
+
+def _photos(experiment_id: int) -> int:
+    return len(database.captures_for_experiment(experiment_id))
+
+
+def _old_photo_without_a_row(started: dict, experiment_id: int, sidecar_text) -> str:
+    """A photo saved on 25 October whose row could not be written, as the scheduler before #464
+    left it: its slot neither taken nor missed (#481). Its info file is `sidecar_text(record)`.
+    Returns its path as rig.db stores it."""
+    stills = captures.experiments_root() / started["folder"] / "stills"
+    first = next(stills.rglob("*.jpg"))
+    day = stills / "2026-10-25"
+    day.mkdir()
+    shutil.copy(first, day / "120000_100000.jpg")
+    record = json.loads(first.with_suffix(".json").read_text())
+    record["timestamp"] = "2026-10-25T12:00:00.100000+00:00"
+    (day / "120000_100000.json").write_text(sidecar_text(record))
+    database.record_scheduled_photos(
+        experiment_id, "2026-10-25T00:00:00+00:00", [(720, "2026-10-25T12:00:00+00:00", None, None)]
+    )
+    return f"experiments/{started['folder']}/stills/2026-10-25/120000_100000"
+
+
+def _before_clock_and_photo_quality(record: dict) -> str:
+    """An info file as photos had it before 2 November (#344, "clock") and 5 November (#359,
+    "photo_quality")."""
+    del record["clock"], record["photo_quality"]
+    return json.dumps(record)
+
+
+def test_an_old_photo_without_a_row_gets_its_row_and_the_scheduled_photos_go_on() -> None:
+    """#481: on main after #464, adding this photo's row raised KeyError on every tick, before the
+    tick's photo, so no scheduled photo was ever taken again."""
+    with TestClient(app) as client:
+        experiment, started = _start(client, 0.3)
+        _wait_for(lambda: _photos(experiment["id"]) >= 1)
+        path = _old_photo_without_a_row(started, experiment["id"], _before_clock_and_photo_quality)
+        before = _photos(experiment["id"])
+        _wait_for(lambda: _photos(experiment["id"]) >= before + 3, timeout_s=5)
+        _wait_for(lambda: not database.unlinked_slots(experiment["id"]), timeout_s=5)
+        client.post(f"/api/experiments/{experiment['id']}/stop")
+    assert path in database.captures_by_path([path])
+
+
+def test_a_damaged_info_file_leaves_its_photo_without_a_row_and_says_so_and_the_photos_go_on() -> None:
+    """#481, decision 3 (Aaron, 2026-11-23): an info file that cannot be read, as after a power
+    cut (zero length), leaves the photo on disk without a row, and its slot missed with its own
+    reason. On main after #464 it raised on every tick and stopped the scheduled photos."""
+    with TestClient(app) as client:
+        experiment, started = _start(client, 0.3)
+        _wait_for(lambda: _photos(experiment["id"]) >= 1)
+        path = _old_photo_without_a_row(started, experiment["id"], lambda record: "")
+        before = _photos(experiment["id"])
+        _wait_for(lambda: _photos(experiment["id"]) >= before + 3, timeout_s=5)
+        _wait_for(lambda: not database.unlinked_slots(experiment["id"]), timeout_s=5)
+        client.post(f"/api/experiments/{experiment['id']}/stop")
+    assert path not in database.captures_by_path([path])
+    reasons = database.schedule_progress(experiment["id"], "2026-10-25T00:00:00+00:00")["missed_reasons"]
+    assert reasons == {"the photo was saved but its record could not be read": 1}
+
+
+def test_photos_are_still_taken_while_rig_db_stays_locked(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#481, decision 1 (Aaron, 2026-11-23): the photo is taken first, the database work after it.
+    On main after #464 no photo was taken from the first locked write until the lock ended. A 3 s
+    lock at 0.3 s intervals spans about 10 slots; each photo's row waits 0.1 s and fails."""
+    with TestClient(app) as client:
+        experiment, started = _start(client, 0.3)
+        _wait_for(lambda: _photos(experiment["id"]) >= 1)
+        folder = captures.experiments_root() / started["folder"]
+        monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+        before = len(list(folder.rglob("*.jpg")))
+        with lock_held(3.0):
+            pass
+        during = len(list(folder.rglob("*.jpg"))) - before
+        monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+        client.post(f"/api/experiments/{experiment['id']}/stop")
+    assert during >= 7
+
+
+def test_slots_lost_while_rig_db_is_locked_are_counted_as_rig_db_could_not_be_written(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#481, decision 4 (Aaron, 2026-11-23): a slot lost because rig.db could not be written has
+    its own reason, not "the previous photo took longer than the interval". Each photo's row
+    waits 0.5 s for the lock, longer than the 0.3 s interval, so the lock costs slots."""
+    with TestClient(app) as client:
+        experiment, _started = _start(client, 0.3)
+        _wait_for(lambda: _photos(experiment["id"]) >= 1)
+        monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.5)
+        with lock_held(3.0):
+            pass
+        monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+        _wait_for(lambda: not database.unlinked_slots(experiment["id"]) and _photos(experiment["id"]) >= 4)
+        schedule = client.get("/api/experiments").json()[0]["schedule"]
+        client.post(f"/api/experiments/{experiment['id']}/stop")
+    assert schedule["missed_by_reason"]["db_locked"] >= 2
+
+
+def test_slots_lost_to_a_lock_shorter_than_the_wait_are_counted_as_rig_db_could_not_be_written() -> None:
+    """#481 review: the usual lock is shorter than the 10 s wait, so the photo's row waits and
+    is then written. The slots that pass while it waits were lost to the database, not to a slow
+    photo. A 1.5 s lock at 0.3 s intervals holds the row of the photo taken during it."""
+    with TestClient(app) as client:
+        experiment, _started = _start(client, 0.3)
+        _wait_for(lambda: _photos(experiment["id"]) >= 1)
+        with lock_held(1.5):
+            pass
+        count = _photos(experiment["id"])
+        _wait_for(lambda: _photos(experiment["id"]) >= count + 2)
+        schedule = client.get("/api/experiments").json()[0]["schedule"]
+        client.post(f"/api/experiments/{experiment['id']}/stop")
+    assert schedule["missed_by_reason"]["db_locked"] >= 2
+
+
+def test_a_photo_taken_during_a_lock_gets_its_row_before_the_next_photo(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#481 review: the database work waits for a later photo only when there is no time before
+    it. With 2 s between photos, the first photo's row fails while rig.db is locked; once the
+    lock ends, its row and slot are written well before the second photo is due."""
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+    with TestClient(app) as client:
+        experiment, started = _start(client, 2.0)
+        folder = captures.experiments_root() / started["folder"]
+        # Done once on a new rig.db, before the lock: the camera's settings table, the JPEG setting.
+        CameraManager.instance()
+        settings.photo_quality_in_use()
+        with lock_held(2.4):  # the first photo, due 2 s after the start, is taken under it
+            pass
+        assert len(list(folder.rglob("*.jpg"))) == 1
+        _wait_for(lambda: _photos(experiment["id"]) == 1 and not database.unlinked_slots(experiment["id"]), timeout_s=1.2)
+        on_disk = len(list(folder.rglob("*.jpg")))
+        client.post(f"/api/experiments/{experiment['id']}/stop")
+    assert on_disk == 1
