@@ -618,7 +618,10 @@ def purge_confirmation(experiment: dict) -> str:
 def purge_experiment(experiment_id: int, *, confirm: str, override_no_export: bool = False) -> dict:
     """Purge a stopped experiment (PLAN.md, *Purging an experiment*): delete its folder (photos
     and export zips) and its photo rows; its row stays as the record. Refused unless `confirm`
-    matches, and, without `override_no_export`, unless a complete export exists."""
+    matches, and, without `override_no_export`, unless `database.complete_export` finds a complete
+    export (#482: a simple, conservative yes/no gate for a direct or scripted caller). The Purge
+    route always passes `override_no_export=True`, having already made its own, richer check
+    (`exports.purge_status`, with a specific reason); that route is the only caller in the app."""
     experiment = database.get_experiment(experiment_id)
     if experiment["state"] != "stopped":
         raise database.ExperimentError("only a stopped experiment can be purged")

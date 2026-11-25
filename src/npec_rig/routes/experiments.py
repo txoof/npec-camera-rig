@@ -70,7 +70,10 @@ def api_experiments() -> list[dict]:
         experiment["reprocess"] = tray_readings.reprocess_progress(experiment["id"], failures=False)
         newest = database.exports_for(experiment["id"])[:1]
         experiment["export"] = newest[0] if newest else None
-        experiment["complete_export"] = database.complete_export(experiment["id"])
+        # The same check Purge itself makes (exports.purge_status, #482): this never says
+        # "complete" when Purge would in fact refuse it, or the reverse.
+        status = exports.purge_status(experiment["id"])
+        experiment["complete_export"] = status["export"] if status["blocked"] is None else None
         experiment["purge_confirmation"] = captures.purge_confirmation(experiment)
         # Trays too long in one table location (#332): only a running experiment's trays can
         # still be moved.
@@ -120,12 +123,19 @@ class PurgeRequest(BaseModel):
 
 @router.post("/api/experiments/{experiment_id}/purge")
 def api_purge_experiment(experiment_id: int, request: PurgeRequest) -> dict:
-    """Delete a stopped experiment's photos, rows and export zips; its record stays."""
+    """Delete a stopped experiment's photos, rows and export zips; its record stays. Unless
+    `override_no_export`, refused with 409 and a reason (#482): `part0_unsent`, `photos_added`
+    (with a `count`) or `reprocessed`, each with a plain `message`, from `exports.purge_status`,
+    the same check the Experiments and Data pages' "can Purge happen" reading uses."""
+    if not request.override_no_export:
+        status = _experiment_action(exports.purge_status, experiment_id)
+        if status["blocked"] is not None:
+            raise HTTPException(409, status["blocked"])
     return _experiment_action(
         captures.purge_experiment,
         experiment_id,
         confirm=request.confirm,
-        override_no_export=request.override_no_export,
+        override_no_export=True,
     )
 
 

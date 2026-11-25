@@ -14,9 +14,19 @@ stopped, and the page may be closed meanwhile; the experiment's older data files
 a new one is done. Parts 1 and on hold the photos, at most PART_BYTES each, a photo always with
 its record, each zipped while it downloads, straight from the photos, so the rig needs no free
 space for them and a half-full card can still be downloaded. Every part unzips into the same
-folder and holds its own checksum list, MANIFEST-partNN.sha256 (`sha256sum -c` in that folder). A
-part sent in full is recorded, and an export with the photos is complete for Purge once every
-photo part was sent in full.
+folder and holds its own checksum list, MANIFEST-partNN.sha256 (`sha256sum -c` in that folder).
+
+The experiment's photo rows are read exactly once, at the start of the build, and that one list is
+used for captures.csv, the readings and the photo parts (#482): a photo whose row appears only
+later (adopted, #439, or saved while the build was already running) never joins a part already
+fixed. The list each part actually holds, with every file's size and capture id, is written to
+`export_part_file` then, so a download reads the stored list rather than recomputing it from disk;
+it refuses with 409, recording nothing sent, when a stored file has gone missing or changed size
+since. A part is recorded sent once the bytes actually handed to the download equal its exact
+length, not merely once the last chunk was yielded. Purge (`purge_status` below) checks every
+current capture row against this stored list of one export whose part 0 was also sent from a Data
+export, and refuses, with a short reason, when a photo is not covered or a Reprocess has run
+since.
 """
 
 from __future__ import annotations
@@ -106,18 +116,34 @@ _BUILDING = ".building"
 def _build(export_id: int, stop: threading.Event) -> None:
     """Build the export's part 0 into the experiment's exports folder, under a name ending
     .building until it is whole, then mark the export ready and delete the experiment's older data
-    files: one a experiment is kept (#437). Stopped or failed, no part-built file is left."""
+    files: one a experiment is kept (#437). Stopped or failed, no part-built file is left.
+
+    The experiment's photo rows are read once, here, at the start (#482): the same list is used
+    for captures.csv, the readings and the photo parts, so a photo whose row appears only later
+    (adopted, #439, or saved while this was already building) never retroactively joins what was
+    already fixed."""
     export = database.get_export(export_id)
-    folder = experiments_root() / database.get_experiment(export["experiment_id"])["folder"] / "exports"
+    experiment = database.get_experiment(export["experiment_id"])
+    folder = experiments_root() / experiment["folder"] / "exports"
     top = _top(export)
     final = folder / f"{top}_part00.zip"
     building = final.with_name(final.name + _BUILDING)
     try:
+        captures = database.captures_for_experiment(experiment["id"], until=export["started_at"])
+        # Worked out before the README is written (#482), so a photo file missing on the rig can
+        # be named in it: the same list is only saved to export_part_file once the zip is whole.
+        # Inside the try (#482 review): an error here must still fail the export, not leave it
+        # stuck "being prepared" forever and blocking every later export of the experiment.
+        photo_parts_list = _build_parts(captures, experiment["folder"]) if export["photos"] else []
         folder.mkdir(parents=True, exist_ok=True)
         with building.open("wb") as out:
-            for chunk in _part_zero(export, top, stop):
+            for chunk in _part_zero(export, top, stop, captures, photo_parts_list):
                 out.write(chunk)
-        photo_parts = len(_photo_parts(export)) if export["photos"] else 0
+        if export["photos"]:
+            database.save_export_part_files(export_id, photo_parts_list)
+            photo_parts = len(photo_parts_list)
+        else:
+            photo_parts = 0
         building.replace(final)
         file = f"experiments/{final.relative_to(experiments_root())}"
         if database.ready_export(export_id, now=_now(), photo_parts=photo_parts, file=file, bytes=final.stat().st_size):
@@ -175,13 +201,15 @@ def export_with_parts(export_id: int) -> dict:
     else:
         made = _expected_data_bytes(export) if export["data"] else 2_000
     parts = [{"n": 0, "photos": 0, "bytes": made}]
-    # The photo parts are listed once the data file is built: listing them reads every photo
-    # file's size, too slow to repeat each time the page asks how far the build is (#437).
+    # The photo parts are listed once the data file is built, from the stored list (#482): reading
+    # it is a plain query, not every photo file's size read again each time the page asks (#437).
     if export["photos"] and export["finished_at"]:
         top = _top(export)
-        for i, files in enumerate(_photo_parts(export), start=1):
-            parts.append({"n": i, "photos": len({name.rsplit(".", 1)[0] for name, _p, _s in files}),
-                          "bytes": _zip_length(top, i, files)})
+        for i in range(1, (export["photo_parts"] or 0) + 1):
+            rows = _part_files(export, i)
+            present = [(row["name"], row["path"], row["bytes"]) for row in rows if row["bytes"] is not None]
+            parts.append({"n": i, "photos": len({row["capture_id"] for row in rows}),
+                          "bytes": _zip_length(top, i, present)})
     for part in parts:
         part["sent"] = part["n"] in sent
     parts[0]["making"] = _making(export_id)
@@ -215,27 +243,45 @@ def _top(export: dict) -> str:
     return f"{slug + '_' if slug else ''}{experiment['folder']}_export_{stamp}"
 
 
-def _photo_parts(export: dict) -> list[list[tuple[str, Path, int]]]:
-    """The photos up to the export's time, oldest first, with their records, in parts of at most
-    PART_BYTES (a photo larger than that alone): (name in the zip, file, size)."""
-    experiment = database.get_experiment(export["experiment_id"])
-    folder = experiments_root() / experiment["folder"]
-    parts: list[list] = [[]]
+def _build_parts(captures: list[dict], experiment_folder: str) -> list[list[tuple[int, str, int | None]]]:
+    """The export's fixed list of captures, oldest first, packed into parts of at most PART_BYTES
+    of existing photo bytes each (a photo larger than that alone): for every file of every
+    capture, (its capture id, its name in the zip, its size, or None when it is missing on the
+    rig). Written once, at build (#482): a file missing then and a part's size are never read
+    again to answer what is in a part."""
+    folder = experiments_root() / experiment_folder
+    parts: list[list[tuple[int, str, int | None]]] = [[]]
     size = 0
-    for row in database.captures_for_experiment(experiment["id"], until=export["started_at"]):
-        rel = _stills_relative(row["path"], experiment["folder"])
+    for row in captures:
+        rel = _stills_relative(row["path"], experiment_folder)
         pair = []
+        pair_size = 0
         for suffix in (".jpg", ".json"):
-            source = folder / "stills" / f"{rel}{suffix}"
+            name = f"stills/{rel}{suffix}"
+            source = folder / name
             if source.exists():
-                pair.append((f"stills/{rel}{suffix}", source, source.stat().st_size))
-        pair_size = sum(entry[2] for entry in pair)
+                file_size = source.stat().st_size
+                pair.append((row["id"], name, file_size))
+                pair_size += file_size
+            else:
+                pair.append((row["id"], name, None))
         if parts[-1] and size + pair_size > PART_BYTES:
             parts.append([])
             size = 0
         parts[-1].extend(pair)
         size += pair_size
     return [part for part in parts if part]
+
+
+def _part_files(export: dict, n: int) -> list[dict]:
+    """The photo part's stored files (#482): each one's capture id, name, its path on the rig and
+    the size recorded when the export was built (None: missing then)."""
+    experiment = database.get_experiment(export["experiment_id"])
+    folder = experiments_root() / experiment["folder"]
+    rows = database.export_part_files(export["id"], n)
+    for row in rows:
+        row["path"] = folder / row["name"]
+    return rows
 
 
 class _Pipe:
@@ -308,8 +354,11 @@ def _file_chunks(path: Path) -> Iterator[bytes]:
 
 def part_download(export_id: int, n: int) -> tuple[str, int, Iterator[bytes]]:
     """A part's file name, exact length and contents: part 0 from its file, built when the export
-    was made (#437), the photo parts zipped as they are sent. Recorded as sent once its last byte
-    has been handed on."""
+    was made (#437), the photo parts zipped from the stored list fixed then (#482). Streams only
+    files whose current size on the rig still matches what was stored; refused with 409 (not
+    `LookupError`, a no-such-part 404) when one is missing or has changed size, and nothing is
+    recorded as sent. Recorded as sent once as many bytes as the part's exact length have actually
+    been handed on, not merely once the last chunk was."""
     export = database.get_export(export_id)
     if database.get_experiment(export["experiment_id"])["state"] == "purged":
         raise database.ExperimentError("this experiment was purged: its photos are gone")
@@ -322,21 +371,85 @@ def part_download(export_id: int, n: int) -> tuple[str, int, Iterator[bytes]]:
         path = zip_path(export) if export["file"] else None
         if path is None or not path.exists():
             raise LookupError("this data file is no longer on the rig: export again")
-        length = path.stat().st_size
+        if path.stat().st_size != export["bytes"]:
+            raise database.ExperimentError(
+                "this export's data file has changed on the rig since it was built: export again"
+            )
+        length = export["bytes"]
         chunks: Iterator[bytes] = _file_chunks(path)
     else:
-        parts = _photo_parts(export) if export["photos"] else []
-        if not 1 <= n <= len(parts):
+        if not 1 <= n <= (export["photo_parts"] or 0):
             raise LookupError(f"export {export_id} has no part {n}")
-        files = parts[n - 1]
+        rows = _part_files(export, n)
+        files = []
+        for row in rows:
+            if row["bytes"] is None:
+                continue  # missing on the rig when the export was built: left out then too
+            if not row["path"].exists() or row["path"].stat().st_size != row["bytes"]:
+                raise database.ExperimentError(
+                    "this part's photos have changed on the rig since the export was built: export again"
+                )
+            files.append((row["name"], row["path"], row["bytes"]))
         length = _zip_length(top, n, files)
         chunks = _photo_zip(top, n, files)
 
     def body_then_record() -> Iterator[bytes]:
-        yield from chunks
-        database.record_part_sent(export_id, n, now=_now())
+        sent = 0
+        for chunk in chunks:
+            sent += len(chunk)
+            yield chunk
+        if sent == length:
+            database.record_part_sent(export_id, n, now=_now())
 
     return f"{top}_part{n:02d}.zip", length, body_then_record()
+
+
+# --- Purge (#482) ---
+# database.complete_export is the simple yes/no gate `captures.purge_experiment` checks on its
+# own; this is the richer one behind the Purge route and the Experiments/Data pages' reading of
+# "can Purge happen", with a reason the two can never disagree about (one candidate export, the
+# newest that finished without error and was not removed, checked the same way both times).
+
+PART0_UNSENT = "part0_unsent"
+PHOTOS_ADDED = "photos_added"
+REPROCESSED = "reprocessed"
+
+
+def purge_status(experiment_id: int) -> dict:
+    """Whether the experiment's captures are all covered by parts verifiably sent from one export,
+    so Purge can go ahead (#482): `export`, the export this was checked against (None: none
+    exists), and `blocked`, None when Purge can go ahead, else a dict with a short `reason`
+    (`part0_unsent`, `photos_added`, `reprocessed`), a `count` where one applies (else None), and
+    a plain `message`."""
+    database.get_experiment(experiment_id)  # LookupError (404) for no such experiment
+    export = database.newest_export_for_purge(experiment_id)
+    if export is None or export["data"] != 1 or 0 not in database.parts_sent(export["id"]):
+        return {"export": export, "blocked": {
+            "reason": PART0_UNSENT, "count": None,
+            "message": "part 0 has not been sent in full, from an export with Data ticked",
+        }}
+    if database.reprocessed_since(experiment_id, export["finished_at"]):
+        return {"export": export, "blocked": {
+            "reason": REPROCESSED, "count": None,
+            "message": "a Reprocess finished after this export was built: export again",
+        }}
+    all_ids = {row["id"] for row in database.captures_for_experiment(experiment_id)}
+    coverage = database.export_sent_coverage(export["id"])
+    covered = set(coverage["sent_capture_ids"])
+    experiment = database.get_experiment(experiment_id)
+    folder = experiments_root() / experiment["folder"]
+    for missing in coverage["missing_at_build"]:
+        if not (folder / missing["name"]).exists():
+            # Still missing: there is nothing on the rig this export failed to cover.
+            covered.add(missing["capture_id"])
+    uncovered = all_ids - covered
+    if uncovered:
+        count = len(uncovered)
+        return {"export": export, "blocked": {
+            "reason": PHOTOS_ADDED, "count": count,
+            "message": f"{count} photos were added after this export: export again",
+        }}
+    return {"export": export, "blocked": None}
 
 
 class _Hashed:
@@ -361,9 +474,15 @@ class _Lines:
         return self.out.write(text.encode())
 
 
-def _part_zero(export: dict, top: str, stop: threading.Event) -> Iterator[bytes]:
-    """Part 0, made while it is sent: the README and, with Data ticked, the data. Each photo's
-    readings are worked out once, written and let go, so its memory does not grow with the
+def _part_zero(
+    export: dict, top: str, stop: threading.Event, captures: list[dict],
+    photo_parts: list[list[tuple[int, str, int | None]]],
+) -> Iterator[bytes]:
+    """Part 0, made while it is sent: the README and, with Data ticked, the data, for the export's
+    fixed list of `captures` (#482: the same list the photo parts are packed from). `photo_parts`
+    is that packing (`_build_parts`), read here only for which files it found missing, so the
+    README can name them; it is saved to `export_part_file` only once this zip is whole. Each
+    photo's readings are worked out once, written and let go, so its memory does not grow with the
     experiment (production's experiment 18 reached 13 GB made whole, #430). The cell lines, most of
     the part, are sent as they are made, so the download grows from the start; the tray lines wait
     in a temporary file on the card until they are in: a zip takes one file at a time. Not /tmp,
@@ -371,11 +490,11 @@ def _part_zero(export: dict, top: str, stop: threading.Event) -> Iterator[bytes]
     experiment = database.get_experiment(export["experiment_id"])
     folder = experiments_root() / experiment["folder"]
     until = export["started_at"]
-    captures = database.captures_for_experiment(experiment["id"], until=until)
     pipe = _Pipe()
     sums: list[str] = []
     names: set[str] = set()
-    missing: list[str] = []
+    missing: list[str] = [f"photo {name}" for part in photo_parts for _id, name, size in part if size is None]
+    not_read: int | None = None
     with zipfile.ZipFile(pipe, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
 
         def whole(name: str, data: bytes) -> None:
@@ -400,6 +519,7 @@ def _part_zero(export: dict, top: str, stop: threading.Event) -> Iterator[bytes]
                     # Each photo's readings worked out once, for both files (review of #374).
                     started = time.monotonic()
                     locations = dwell.LocationFinder()
+                    not_read = 0
                     try:
                         for done, row in enumerate(captures):
                             if stop.is_set():
@@ -408,6 +528,7 @@ def _part_zero(export: dict, top: str, stop: threading.Event) -> Iterator[bytes]
                                 _progress[export["id"]] = (done, len(captures), started)
                             readings = tray_readings.capture_readings(row, history=False, locations=locations)
                             if readings is None:
+                                not_read += 1
                                 continue
                             tray_writer.writerows(_tray_rows(row, readings, experiment["folder"]))
                             cell_writer.writerows(_cell_rows(row, readings, experiment["folder"]))
@@ -427,13 +548,14 @@ def _part_zero(export: dict, top: str, stop: threading.Event) -> Iterator[bytes]
                             yield pipe.take()
                 sums.append(f"{trays.digest.hexdigest()}  tray-readings.csv\n")
                 names.add("tray-readings.csv")
-            records, missing = _records(captures)
+            records, record_missing = _records(captures)
+            missing += record_missing
             for name, data in records:
                 whole(name, data)
             whole("datapackage.json", _data_package(_fields(), names))
         held = names | ({"stills/"} if export["photos"] else set())
-        parts = 1 + (export["photo_parts"] or 0)
-        whole("README.txt", _readme(experiment, len(captures), missing, until, held, parts).encode())
+        parts = 1 + len(photo_parts)
+        whole("README.txt", _readme(experiment, len(captures), missing, until, held, parts, not_read).encode())
         zf.writestr(f"{top}/MANIFEST-part00.sha256", "".join(sums))
     yield pipe.take()
 
@@ -640,9 +762,15 @@ def _records(captures: list[dict]) -> tuple[list[tuple[str, bytes]], list[str]]:
     return entries, missing
 
 
-def _readme(experiment: dict, photos: int, missing: list[str], until: str, held: set[str], parts: int) -> str:
+def _readme(
+    experiment: dict, photos: int, missing: list[str], until: str, held: set[str], parts: int,
+    not_read: int | None = None,
+) -> str:
     """The README: the experiment, how to put its `parts` together, then what each file holds and
-    what each CSV column means, from `export_fields.yaml`, for the files `held` only."""
+    what each CSV column means, from `export_fields.yaml`, for the files `held` only. `not_read`
+    is how many of the photos had no tray reading yet when the export was built (#482, decided
+    2026-11-23): informational, since a later Reprocess can still read them; None, and left out,
+    when the export holds no data to have counted it from."""
     title = experiment["name"] or f"Experiment started {experiment['periods'][0]['started_at']}"
     periods = "\n".join(
         f"  {p['started_at']} to {p['ended_at'] or 'still running'}" for p in experiment["periods"]
@@ -658,6 +786,7 @@ def _readme(experiment: dict, photos: int, missing: list[str], until: str, held:
         f"Experiment ID: {experiment['uuid']}",
         f"Exported: {_now()}",
         f"Photos: {photos}",
+        *([f"Photos not yet read: {not_read}"] if not_read is not None else []),
         "Running periods (UTC):",
         periods,
         "",

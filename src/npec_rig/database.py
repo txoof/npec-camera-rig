@@ -502,6 +502,25 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
     ),
     (
         27,
+        "export_part_file: each photo part's files, fixed with their sizes and capture ids when"
+        " the export is built, so a download or Purge reads the stored list, never recomputes it (#482)",
+        (
+            """
+            CREATE TABLE export_part_file (
+                id INTEGER PRIMARY KEY,
+                export_id INTEGER NOT NULL REFERENCES export (id),
+                part INTEGER NOT NULL,           -- 1 and up: a photo part (part 0 is one file, export.file)
+                capture_id INTEGER NOT NULL REFERENCES capture (id),
+                name TEXT NOT NULL,               -- its name in the zip, under the export's top folder
+                bytes INTEGER                     -- its size when the export was built; NULL: missing then
+            )
+            """,
+            "CREATE INDEX export_part_file_export ON export_part_file (export_id, part)",
+            "CREATE INDEX export_part_file_capture ON export_part_file (export_id, capture_id)",
+        ),
+    ),
+    (
+        28,
         "tray_reading: how much of the tray grow from leaf cores found blue, leaf left out (#486)",
         # NULL for readings saved before this version: "hidden" cannot be re-read from them, only
         # from their saved grown_soil_level and grown_lower_cutoff (the pre-#486 way).
@@ -1605,24 +1624,115 @@ def cell_reading_count(experiment_id: int) -> int:
         ).fetchone()[0]
 
 
-def complete_export(experiment_id: int) -> dict | None:
-    """The newest export that holds every photo of the experiment: the photos ticked (#368),
-    finished, no error, its zip not removed, and started after the last photo; for an export in
-    parts, every photo part sent in full. A partial export taken while running does not count
-    unless no photo came after it."""
+def save_export_part_files(export_id: int, parts: list[list[tuple[int, str, int | None]]]) -> None:
+    """Record every photo part's files once, when the export's data file is built (#482): `parts`
+    holds part 1 first, then part 2, and so on; each file is (the capture's id, its name in the
+    zip, its size, or None when it was missing on the rig at that moment). A download or Purge
+    reads this stored list from then on, never recomputing it from what is on disk now."""
+    rows = [
+        (export_id, part, capture_id, name, size)
+        for part, files in enumerate(parts, start=1)
+        for capture_id, name, size in files
+    ]
+    if not rows:
+        return
     with _connect() as conn:
-        last = conn.execute(
-            "SELECT MAX(taken_at) FROM capture WHERE experiment_id = ?", (experiment_id,)
-        ).fetchone()[0]
+        conn.executemany(
+            "INSERT INTO export_part_file (export_id, part, capture_id, name, bytes) VALUES (?, ?, ?, ?, ?)",
+            rows,
+        )
+
+
+def export_part_files(export_id: int, part: int) -> list[dict]:
+    """The stored files of one photo part (1 and up) of the export, oldest capture first: each
+    file's capture id, its name in the zip and the size recorded when the export was built (None:
+    missing on the rig then)."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT capture_id, name, bytes FROM export_part_file WHERE export_id = ? AND part = ? ORDER BY id",
+            (export_id, part),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def export_sent_coverage(export_id: int) -> dict:
+    """Of the export's stored photo-part files: the capture ids verifiably sent (every one of
+    their files' sizes was recorded at build time, in a part sent in full — a capture is two
+    files, .jpg and .json, and one being sent does not cover the other, #482 review), and the
+    (capture id, name) of files recorded missing on the rig when the export was built, from a
+    part that was sent. Whether a missing file has since appeared is for the caller, which can
+    read the rig's disk; this module only reads rig.db."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT f.capture_id, f.name, f.bytes FROM export_part_file f"
+            " JOIN export_part_sent s ON s.export_id = f.export_id AND s.part = f.part"
+            " WHERE f.export_id = ?",
+            (export_id,),
+        ).fetchall()
+    by_capture: dict[int, list[sqlite3.Row]] = {}
+    for row in rows:
+        by_capture.setdefault(row["capture_id"], []).append(row)
+    return {
+        "sent_capture_ids": {
+            capture_id for capture_id, files in by_capture.items()
+            if all(f["bytes"] is not None for f in files)
+        },
+        "missing_at_build": [
+            {"capture_id": row["capture_id"], "name": row["name"]} for row in rows if row["bytes"] is None
+        ],
+    }
+
+
+def reprocessed_since(experiment_id: int, after: str) -> bool:
+    """Whether a Reprocess of the experiment finished, whole or stopped partway through, after
+    `after` (an export's build time, #482): a Reprocess changes readings already inside a
+    downloaded zip, which Purge must not then rely on."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM reprocess_run WHERE experiment_id = ? AND finished_at IS NOT NULL"
+            " AND finished_at > ? LIMIT 1",
+            (experiment_id, after),
+        ).fetchone()
+    return row is not None
+
+
+def newest_export_for_purge(experiment_id: int) -> dict | None:
+    """The experiment's newest export that finished without error and was not removed, whatever
+    it was ticked to hold: the one candidate Purge checks part 0 and photo coverage against
+    (#482), so the two are never a mix of two different exports."""
+    with _connect() as conn:
         row = conn.execute(
             "SELECT * FROM export WHERE experiment_id = ? AND finished_at IS NOT NULL"
-            " AND photos = 1 AND error IS NULL AND removed_at IS NULL AND (? IS NULL OR started_at >= ?)"
-            " AND (photo_parts IS NULL OR photo_parts = (SELECT COUNT(DISTINCT part) FROM export_part_sent s"
-            " WHERE s.export_id = export.id AND s.part >= 1))"
-            " ORDER BY id DESC LIMIT 1",
-            (experiment_id, last, last),
+            " AND error IS NULL AND removed_at IS NULL ORDER BY id DESC LIMIT 1",
+            (experiment_id,),
         ).fetchone()
     return dict(row) if row else None
+
+
+def complete_export(experiment_id: int) -> dict | None:
+    """The newest export that holds every current photo of the experiment, verifiably: the photos
+    and data ticked (#368), finished, no error, its zip not removed, part 0 sent in full, no
+    Reprocess finished since, and every capture row covered by a photo part sent in full (#482). A
+    photo added, or reappeared, after the export's list was fixed is not covered, however recent
+    the export."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM export WHERE experiment_id = ? AND finished_at IS NOT NULL"
+            " AND data = 1 AND photos = 1 AND error IS NULL AND removed_at IS NULL"
+            " ORDER BY id DESC LIMIT 1",
+            (experiment_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    export = dict(row)
+    if 0 not in parts_sent(export["id"]):
+        return None
+    if reprocessed_since(experiment_id, export["finished_at"]):
+        return None
+    all_ids = {c["id"] for c in captures_for_experiment(experiment_id)}
+    if all_ids - export_sent_coverage(export["id"])["sent_capture_ids"]:
+        return None
+    return export
 
 
 def purge_experiment(experiment_id: int, *, now: str) -> dict:
@@ -1637,6 +1747,7 @@ def purge_experiment(experiment_id: int, *, now: str) -> dict:
         conn.execute(f"DELETE FROM cell_reading WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute(f"DELETE FROM tray_read WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute(f"DELETE FROM exclusion WHERE capture_id IN ({photos})", (experiment_id,))
+        conn.execute(f"DELETE FROM export_part_file WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute("DELETE FROM capture WHERE experiment_id = ?", (experiment_id,))
         conn.execute(
             "UPDATE export SET removed_at = ? WHERE experiment_id = ? AND removed_at IS NULL",

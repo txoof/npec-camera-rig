@@ -44,6 +44,17 @@ def test_migrating_twice_changes_nothing() -> None:
         assert conn.execute("SELECT COUNT(*) FROM capture").fetchone()[0] == 1
 
 
+def test_export_part_file_table_migrates_cleanly_and_twice_is_a_no_op() -> None:
+    """#482: the stored list of each photo part's files, frozen when an export is built, migrates
+    in with the rest and a second migration leaves it as it was."""
+    with sqlite3.connect(db_path()) as conn:
+        assert database.migrate(conn) == database.SCHEMA_VERSION
+        columns = [row[1] for row in conn.execute("PRAGMA table_info(export_part_file)")]
+        assert columns == ["id", "export_id", "part", "capture_id", "name", "bytes"]
+        assert database.migrate(conn) == database.SCHEMA_VERSION
+        assert conn.execute("SELECT COUNT(*) FROM export_part_file").fetchone()[0] == 0
+
+
 def test_the_rigs_own_tables_are_left_alone() -> None:
     # rig.db today: version 0 with the housekeeping tables already in it.
     save_setting("ExposureTime", 20000)
