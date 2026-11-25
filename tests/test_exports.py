@@ -135,6 +135,34 @@ def test_the_parts_hold_everything_and_each_manifest_checks(monkeypatch: pytest.
     assert rows[0]["validation"] == _SESSION
 
 
+def test_a_missing_photo_file_is_named_in_the_readme() -> None:
+    """#482 change 3: a photo's .jpg gone from the rig since it was taken is left out of its photo
+    part (captures.csv still names it), and the README says, by name, that it was not found."""
+    from npec_rig.captures import experiments_root
+
+    experiment = _stopped_experiment_with_photos(2)
+    gone = database.captures_for_experiment(experiment["id"])[-1]
+    stem = experiments_root() / gone["path"].removeprefix("experiments/")
+    stem.with_suffix(".jpg").unlink()
+    export, files = _unzipped(experiment["id"])
+    readme = files["README.txt"].decode()
+    rows = list(csv.DictReader(io.StringIO(files["captures.csv"].decode())))
+    assert f"{stem.name}.jpg" not in " ".join(files)  # left out of the parts
+    assert f"{stem.name}.jpg" in " ".join(r["file"] for r in rows)  # but captures.csv still names it
+    assert stem.name in readme, "README does not say the photo is missing"
+    assert len(export["parts"]) >= 1
+
+
+def test_the_readme_counts_the_photos_not_yet_read() -> None:
+    """#482, decided (Aaron, 2026-11-23): the README states how many photos had no tray reading
+    yet when the export was built. Informational only -- it is not read in this test, so both
+    count; it must not block the export or change what is in the parts."""
+    experiment = _stopped_experiment_with_photos(2)
+    _export, files = _unzipped(experiment["id"])
+    readme = files["README.txt"].decode()
+    assert "Photos not yet read: 2" in readme
+
+
 def test_an_export_cut_off_by_a_restart_is_marked_failed() -> None:
     experiment = _stopped_experiment_with_photos(0)
     export = database.create_export(experiment["id"], now="t")

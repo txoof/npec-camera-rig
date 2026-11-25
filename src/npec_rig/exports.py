@@ -129,15 +129,17 @@ def _build(export_id: int, stop: threading.Event) -> None:
     final = folder / f"{top}_part00.zip"
     building = final.with_name(final.name + _BUILDING)
     captures = database.captures_for_experiment(experiment["id"], until=export["started_at"])
+    # Worked out before the README is written (#482), so a photo file missing on the rig can be
+    # named in it: the same list is only saved to export_part_file once the zip is whole.
+    photo_parts_list = _build_parts(captures, experiment["folder"]) if export["photos"] else []
     try:
         folder.mkdir(parents=True, exist_ok=True)
         with building.open("wb") as out:
-            for chunk in _part_zero(export, top, stop, captures):
+            for chunk in _part_zero(export, top, stop, captures, photo_parts_list):
                 out.write(chunk)
         if export["photos"]:
-            parts = _build_parts(captures, experiment["folder"])
-            database.save_export_part_files(export_id, parts)
-            photo_parts = len(parts)
+            database.save_export_part_files(export_id, photo_parts_list)
+            photo_parts = len(photo_parts_list)
         else:
             photo_parts = 0
         building.replace(final)
@@ -470,10 +472,15 @@ class _Lines:
         return self.out.write(text.encode())
 
 
-def _part_zero(export: dict, top: str, stop: threading.Event, captures: list[dict]) -> Iterator[bytes]:
+def _part_zero(
+    export: dict, top: str, stop: threading.Event, captures: list[dict],
+    photo_parts: list[list[tuple[int, str, int | None]]],
+) -> Iterator[bytes]:
     """Part 0, made while it is sent: the README and, with Data ticked, the data, for the export's
-    fixed list of `captures` (#482: the same list the photo parts are packed from). Each photo's
-    readings are worked out once, written and let go, so its memory does not grow with the
+    fixed list of `captures` (#482: the same list the photo parts are packed from). `photo_parts`
+    is that packing (`_build_parts`), read here only for which files it found missing, so the
+    README can name them; it is saved to `export_part_file` only once this zip is whole. Each
+    photo's readings are worked out once, written and let go, so its memory does not grow with the
     experiment (production's experiment 18 reached 13 GB made whole, #430). The cell lines, most of
     the part, are sent as they are made, so the download grows from the start; the tray lines wait
     in a temporary file on the card until they are in: a zip takes one file at a time. Not /tmp,
@@ -484,7 +491,8 @@ def _part_zero(export: dict, top: str, stop: threading.Event, captures: list[dic
     pipe = _Pipe()
     sums: list[str] = []
     names: set[str] = set()
-    missing: list[str] = []
+    missing: list[str] = [f"photo {name}" for part in photo_parts for _id, name, size in part if size is None]
+    not_read: int | None = None
     with zipfile.ZipFile(pipe, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
 
         def whole(name: str, data: bytes) -> None:
@@ -509,6 +517,7 @@ def _part_zero(export: dict, top: str, stop: threading.Event, captures: list[dic
                     # Each photo's readings worked out once, for both files (review of #374).
                     started = time.monotonic()
                     locations = dwell.LocationFinder()
+                    not_read = 0
                     try:
                         for done, row in enumerate(captures):
                             if stop.is_set():
@@ -517,6 +526,7 @@ def _part_zero(export: dict, top: str, stop: threading.Event, captures: list[dic
                                 _progress[export["id"]] = (done, len(captures), started)
                             readings = tray_readings.capture_readings(row, history=False, locations=locations)
                             if readings is None:
+                                not_read += 1
                                 continue
                             tray_writer.writerows(_tray_rows(row, readings, experiment["folder"]))
                             cell_writer.writerows(_cell_rows(row, readings, experiment["folder"]))
@@ -536,13 +546,14 @@ def _part_zero(export: dict, top: str, stop: threading.Event, captures: list[dic
                             yield pipe.take()
                 sums.append(f"{trays.digest.hexdigest()}  tray-readings.csv\n")
                 names.add("tray-readings.csv")
-            records, missing = _records(captures)
+            records, record_missing = _records(captures)
+            missing += record_missing
             for name, data in records:
                 whole(name, data)
             whole("datapackage.json", _data_package(_fields(), names))
         held = names | ({"stills/"} if export["photos"] else set())
         parts = 1 + (export["photo_parts"] or 0)
-        whole("README.txt", _readme(experiment, len(captures), missing, until, held, parts).encode())
+        whole("README.txt", _readme(experiment, len(captures), missing, until, held, parts, not_read).encode())
         zf.writestr(f"{top}/MANIFEST-part00.sha256", "".join(sums))
     yield pipe.take()
 
@@ -749,9 +760,15 @@ def _records(captures: list[dict]) -> tuple[list[tuple[str, bytes]], list[str]]:
     return entries, missing
 
 
-def _readme(experiment: dict, photos: int, missing: list[str], until: str, held: set[str], parts: int) -> str:
+def _readme(
+    experiment: dict, photos: int, missing: list[str], until: str, held: set[str], parts: int,
+    not_read: int | None = None,
+) -> str:
     """The README: the experiment, how to put its `parts` together, then what each file holds and
-    what each CSV column means, from `export_fields.yaml`, for the files `held` only."""
+    what each CSV column means, from `export_fields.yaml`, for the files `held` only. `not_read`
+    is how many of the photos had no tray reading yet when the export was built (#482, decided
+    2026-11-23): informational, since a later Reprocess can still read them; None, and left out,
+    when the export holds no data to have counted it from."""
     title = experiment["name"] or f"Experiment started {experiment['periods'][0]['started_at']}"
     periods = "\n".join(
         f"  {p['started_at']} to {p['ended_at'] or 'still running'}" for p in experiment["periods"]
@@ -767,6 +784,7 @@ def _readme(experiment: dict, photos: int, missing: list[str], until: str, held:
         f"Experiment ID: {experiment['uuid']}",
         f"Exported: {_now()}",
         f"Photos: {photos}",
+        *([f"Photos not yet read: {not_read}"] if not_read is not None else []),
         "Running periods (UTC):",
         periods,
         "",
