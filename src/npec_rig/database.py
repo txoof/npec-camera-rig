@@ -1645,27 +1645,30 @@ def export_part_files(export_id: int, part: int) -> list[dict]:
 
 
 def export_sent_coverage(export_id: int) -> dict:
-    """Of the export's stored photo-part files: the capture ids verifiably sent (their file's size
-    was recorded at build time and the part holding it was sent in full), and the (capture id,
-    name) of files recorded missing on the rig when the export was built, from a part that was
-    sent (#482). Whether a missing file has since appeared is for the caller, which can read the
-    rig's disk; this module only reads rig.db."""
+    """Of the export's stored photo-part files: the capture ids verifiably sent (every one of
+    their files' sizes was recorded at build time, in a part sent in full — a capture is two
+    files, .jpg and .json, and one being sent does not cover the other, #482 review), and the
+    (capture id, name) of files recorded missing on the rig when the export was built, from a
+    part that was sent. Whether a missing file has since appeared is for the caller, which can
+    read the rig's disk; this module only reads rig.db."""
     with _connect() as conn:
-        sent_rows = conn.execute(
-            "SELECT DISTINCT f.capture_id FROM export_part_file f"
+        rows = conn.execute(
+            "SELECT f.capture_id, f.name, f.bytes FROM export_part_file f"
             " JOIN export_part_sent s ON s.export_id = f.export_id AND s.part = f.part"
-            " WHERE f.export_id = ? AND f.bytes IS NOT NULL",
+            " WHERE f.export_id = ?",
             (export_id,),
         ).fetchall()
-        missing_rows = conn.execute(
-            "SELECT DISTINCT f.capture_id, f.name FROM export_part_file f"
-            " JOIN export_part_sent s ON s.export_id = f.export_id AND s.part = f.part"
-            " WHERE f.export_id = ? AND f.bytes IS NULL",
-            (export_id,),
-        ).fetchall()
+    by_capture: dict[int, list[sqlite3.Row]] = {}
+    for row in rows:
+        by_capture.setdefault(row["capture_id"], []).append(row)
     return {
-        "sent_capture_ids": {row[0] for row in sent_rows},
-        "missing_at_build": [{"capture_id": row[0], "name": row[1]} for row in missing_rows],
+        "sent_capture_ids": {
+            capture_id for capture_id, files in by_capture.items()
+            if all(f["bytes"] is not None for f in files)
+        },
+        "missing_at_build": [
+            {"capture_id": row["capture_id"], "name": row["name"]} for row in rows if row["bytes"] is None
+        ],
     }
 
 

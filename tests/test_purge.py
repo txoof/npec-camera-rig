@@ -272,6 +272,35 @@ def test_purge_blocks_when_a_photo_missing_at_build_has_since_appeared() -> None
     assert export["id"]  # the export itself is otherwise unaffected
 
 
+def test_a_photo_missing_only_its_jpg_is_not_covered_by_its_json_having_sent() -> None:
+    """A capture's .jpg and .json are two separate stored files (#482 review): if only the .jpg
+    was missing when the export was built, its .json being sent must not count as the capture
+    being covered. Forgiven while the .jpg stays missing (nothing to lose), but if it reappears
+    before Purge, Purge must refuse, exactly as for a photo missing entirely."""
+    experiment = _stopped(photos=2)
+    photos = database.captures_for_experiment(experiment["id"])
+    stem = captures.experiments_root() / photos[0]["path"].removeprefix("experiments/")
+    saved_jpg = stem.with_suffix(".jpg").read_bytes()
+    stem.with_suffix(".jpg").unlink()  # only the .jpg is missing; its .json stays and is sent
+
+    _exported(experiment)
+    assert exports.purge_status(experiment["id"])["blocked"] is None  # forgiven: still missing
+
+    stem.with_suffix(".jpg").write_bytes(saved_jpg)  # it reappears before Purge
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    refused = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
+
+    assert refused.status_code == 409
+    detail = refused.json()["detail"]
+    assert detail["reason"] == "photos_added"
+    assert detail["count"] == 1
+
+
 def test_purge_blocks_after_a_reprocess_finished_since_the_export_even_if_stopped() -> None:
     """A Reprocess changes readings already inside a downloaded zip (#483); Purge refuses once one
     has finished since, whole or stopped partway through."""
