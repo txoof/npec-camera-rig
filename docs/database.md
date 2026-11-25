@@ -581,41 +581,53 @@ it can redo and keeps no copy of the old ones: take a copy of `rig.db` first
 ## Upgrading and going back
 
 The app migrates `rig.db` the first time it touches the file: every migration in `database.py`
-above the file's own `PRAGMA user_version`, each in one transaction with its new number
-(`database.migrate`). This version migrates `rig.db` to version 26.
+above the file's own `PRAGMA user_version`, all the missing ones in one transaction, each setting
+its own number, so the file is never left half changed (`database.migrate`). This version migrates
+`rig.db` to version 27. The current number is `database.SCHEMA_VERSION` in
+`src/npec_rig/database.py`; read it there, it moves with every migration.
 
 **There is no migration downwards.** An older app meeting a file a newer app has migrated refuses
 to start, on purpose: it would otherwise write to tables it has an older idea of. It raises
 
 ```
-RuntimeError: rig.db is at schema version 27, this app knows up to 26
+RuntimeError: rig.db is at schema version N, this app knows up to N-1
 ```
 
-while starting, so the server exits. Under systemd (`deploy/npec-rig.service`, `Restart=always`,
-`RestartSec=5`) it starts again five seconds later and fails the same way, so the rig serves no
-pages and takes no scheduled photos until it is put right. Checking out the earlier commit does not
-help on its own, because the database is already migrated.
+with the two real numbers in place of N, while starting, so the server exits. Under systemd
+(`deploy/npec-rig.service`: `Restart=always`, `RestartSec=5`, `StartLimitIntervalSec=0`, "never
+give up restarting") it starts again 5 s later and fails the same way, with no cut-off, so the rig
+serves no pages and takes no scheduled photos until it is put right. Checking out the earlier
+commit does not help on its own, because the database is already migrated.
 
-Going back means restoring the database and the code together:
+**A rig already in that loop.** `journalctl -u npec-rig -n 20` shows the error. The quickest way
+out is to put the newer code back and restart it: the migrated file is the one that code expects.
+Restoring a copy is needed only when the older code has to run.
 
-1. Take a copy of the database **before** the upgrade. `VACUUM INTO` copies it while the app runs:
+Going back to the older code means restoring the database and the code together:
+
+1. Take a copy of the database **before** the upgrade. `VACUUM INTO` copies it while the app runs,
+   where `cp` of a live database can copy a torn file. The output file must not exist yet, so put
+   the date in its name:
 
    ```bash
    python3 - <<'PY'
    import sqlite3
-   sqlite3.connect("/var/lib/npec-rig/rig.db").execute(
-       "VACUUM INTO '/var/lib/npec-rig/rig-before-v0.3.0.db'")
+   sqlite3.connect("/var/lib/npec-rig/rig.db", timeout=30).execute(
+       "VACUUM INTO '/var/lib/npec-rig/rig-before-2026-11-25.db'")
    PY
    ```
+
+   The copy keeps the schema version, so reading `PRAGMA user_version` from it is the check that it
+   worked: it prints the version the rig is on.
 
 2. Stop the app with SIGTERM (CLAUDE.md, *Restarting the production server*).
 3. Put the copy back as `/var/lib/npec-rig/rig.db`.
 4. Deploy the older version and start it.
 
-Rows the newer app wrote after the copy are gone. The photographs themselves stay on disk under
-`/var/lib/npec-rig/rig/`, but their readings, exclusions and scheduled-photo rows come back only by
-reprocessing. Who may roll a rig back, and what has to be said before a branch carrying a migration
-is deployed at all, is in `CLAUDE.md`, *A migration goes one way*.
+Rows the newer app wrote after the copy are gone. The photographs stay on disk under
+`/var/lib/npec-rig/rig/`, and so do their masks, but their readings, exclusions and scheduled-photo
+rows come back only by reprocessing. Who may roll a rig back at all, and what has to be said before
+a branch carrying a migration is deployed, is in `CLAUDE.md`, *A migration goes one way*.
 
 ## Planned
 
