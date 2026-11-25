@@ -196,6 +196,35 @@ development (health OK and a live snapshot) **and** Aaron has approved that upda
   If `curl -s 10.248.49.102:8000/api/experiments` shows an experiment `"state": "running"`, ask
   Aaron first.
 
+**A migration goes one way.** The app brings `rig.db` up to the schema version its own code knows
+(`database.SCHEMA_VERSION`, 26 on 2026-11-25) the first time it starts, and nothing migrates
+downwards. An older app meeting the migrated file refuses to start:
+`RuntimeError: rig.db is at schema version 27, this app knows up to 26`. That happens during
+startup, so the server exits; systemd starts it again 5 s later (`deploy/npec-rig.service`,
+`Restart=always`), it fails the same way, and the rig serves no pages and takes no scheduled photos
+until it is put right. Checking out the earlier commit does not undo it: the database is already
+migrated. So, before a branch goes on development or production:
+
+1. **Check for a new migration.** `git diff <the commit the rig runs>..<branch> --
+   src/npec_rig/database.py`: an entry appended to `MIGRATIONS` is one.
+2. **Say so upfront** when there is one, in the reply that asks Aaron to try the branch, in the PR
+   body and in the `hardware` claim comment: "this branch migrates `rig.db` to version N; the rig
+   cannot go back to <commit> without a copy of the database restored with it".
+3. **Copy the database before the restart.** `VACUUM INTO` copies it while the app runs:
+
+   ```bash
+   ssh pi@npec-rig-01 python3 - <<'PY'
+   import sqlite3
+   sqlite3.connect("/var/lib/npec-rig/rig.db").execute(
+       "VACUUM INTO '/var/lib/npec-rig/rig-before-<branch>.db'")
+   PY
+   ```
+
+4. **Going back needs both.** Stop the app, put the copy back as `/var/lib/npec-rig/rig.db`, then
+   deploy the older version. Everything the newer app wrote after the copy is lost: photos stay on
+   disk, their rows do not. On production that is Aaron's decision, never an agent's.
+   `docs/database.md`, *Upgrading and going back*, has the full recipe.
+
 ## Parallel work
 
 Several agent sessions may work at once, each on its own task. The PR workflow is in
@@ -289,7 +318,9 @@ use the development camera, put its branch on development, or ask Aaron to try i
 Take it only when `gh issue list --label hardware` is empty. In the claim comment, write the app
 version development was running
 (`ssh pi@npec-rig-01 'git -C ~/npec_camera_rig log --oneline -1'`). When Aaron has tried the
-work, put development back on that version and remove the label. Everyone else writes code and
+work, put development back on that version and remove the label; when the branch migrated
+`rig.db`, that needs the copy taken before the deploy restored at the same time, and with no copy
+development stays on the branch and the reply says so. Everyone else writes code and
 runs unit tests with the synthetic camera on the controller, then waits for the label. No task
 uses the production camera or server.
 

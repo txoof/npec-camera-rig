@@ -572,14 +572,50 @@ progress read, start or Stop, not only at start-up; until the mark is saved it i
 | `reprocess_failure.reason` | text | Why its saved reading was kept, for example "the photo is gone and its saved masks cannot be counted again: a saved mask is missing" |
 | `reprocess_failure.failed_at` | text | UTC |
 
-**Upgrading.** This version migrates `rig.db` to version 26. An older version of the app refuses to
-start on it. Copy `rig.db` before deploying, and restore that copy to roll back.
-
 A photo that meets a locked rig.db is tried again, `REPROCESS_LOCK_TRIES` (5) times with a pause of
 `REPROCESS_LOCK_WAIT_S` (5 s), numbers chosen and not measured; after the last try it is listed as
 failed ("rig.db stayed locked after 5 tries"). Reprocess replaces the saved readings of every photo
 it can redo and keeps no copy of the old ones: take a copy of `rig.db` first
 (`docs/operator-guide.md`, *Reprocessing areas*).
+
+## Upgrading and going back
+
+The app migrates `rig.db` the first time it touches the file: every migration in `database.py`
+above the file's own `PRAGMA user_version`, each in one transaction with its new number
+(`database.migrate`). This version migrates `rig.db` to version 26.
+
+**There is no migration downwards.** An older app meeting a file a newer app has migrated refuses
+to start, on purpose: it would otherwise write to tables it has an older idea of. It raises
+
+```
+RuntimeError: rig.db is at schema version 27, this app knows up to 26
+```
+
+while starting, so the server exits. Under systemd (`deploy/npec-rig.service`, `Restart=always`,
+`RestartSec=5`) it starts again five seconds later and fails the same way, so the rig serves no
+pages and takes no scheduled photos until it is put right. Checking out the earlier commit does not
+help on its own, because the database is already migrated.
+
+Going back means restoring the database and the code together:
+
+1. Take a copy of the database **before** the upgrade. `VACUUM INTO` copies it while the app runs:
+
+   ```bash
+   python3 - <<'PY'
+   import sqlite3
+   sqlite3.connect("/var/lib/npec-rig/rig.db").execute(
+       "VACUUM INTO '/var/lib/npec-rig/rig-before-v0.3.0.db'")
+   PY
+   ```
+
+2. Stop the app with SIGTERM (CLAUDE.md, *Restarting the production server*).
+3. Put the copy back as `/var/lib/npec-rig/rig.db`.
+4. Deploy the older version and start it.
+
+Rows the newer app wrote after the copy are gone. The photographs themselves stay on disk under
+`/var/lib/npec-rig/rig/`, but their readings, exclusions and scheduled-photo rows come back only by
+reprocessing. Who may roll a rig back, and what has to be said before a branch carrying a migration
+is deployed at all, is in `CLAUDE.md`, *A migration goes one way*.
 
 ## Planned
 
