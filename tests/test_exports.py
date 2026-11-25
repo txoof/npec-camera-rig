@@ -170,6 +170,28 @@ def test_an_export_cut_off_by_a_restart_is_marked_failed() -> None:
     assert database.get_export(export["id"])["error"].startswith("the app restarted")
 
 
+def test_an_error_reading_the_fixed_photo_list_still_marks_the_export_failed() -> None:
+    """#482 review: the fixed photo list and the photo-part packing are read before the try block
+    that marks a failed build. An error there must still fail the export, not leave it stuck
+    "being prepared" forever and blocking every later export of the experiment."""
+    experiment = _stopped_experiment_with_photos(1)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("disk read failed")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(exports, "_build_parts", boom)
+        export = exports.start_export(experiment["id"])
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and database.get_export(export["id"])["finished_at"] is None:
+            time.sleep(0.02)
+    failed = database.get_export(export["id"])
+    assert failed["finished_at"] is not None, 'the export was left stuck "being prepared"'
+    assert "disk read failed" in failed["error"]
+    again = exports.start_export(experiment["id"])  # not blocked by the failed one
+    assert again["id"] != export["id"]
+
+
 def test_export_and_download_through_the_page_routes() -> None:
     experiment = _stopped_experiment_with_photos(1)
     client = _client()

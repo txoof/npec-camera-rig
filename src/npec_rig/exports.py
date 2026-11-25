@@ -128,11 +128,13 @@ def _build(export_id: int, stop: threading.Event) -> None:
     top = _top(export)
     final = folder / f"{top}_part00.zip"
     building = final.with_name(final.name + _BUILDING)
-    captures = database.captures_for_experiment(experiment["id"], until=export["started_at"])
-    # Worked out before the README is written (#482), so a photo file missing on the rig can be
-    # named in it: the same list is only saved to export_part_file once the zip is whole.
-    photo_parts_list = _build_parts(captures, experiment["folder"]) if export["photos"] else []
     try:
+        captures = database.captures_for_experiment(experiment["id"], until=export["started_at"])
+        # Worked out before the README is written (#482), so a photo file missing on the rig can
+        # be named in it: the same list is only saved to export_part_file once the zip is whole.
+        # Inside the try (#482 review): an error here must still fail the export, not leave it
+        # stuck "being prepared" forever and blocking every later export of the experiment.
+        photo_parts_list = _build_parts(captures, experiment["folder"]) if export["photos"] else []
         folder.mkdir(parents=True, exist_ok=True)
         with building.open("wb") as out:
             for chunk in _part_zero(export, top, stop, captures, photo_parts_list):
