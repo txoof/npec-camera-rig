@@ -4,7 +4,8 @@
   <span class="camera-status-text"></span>
 </div>
 {#- Disk headroom (#307), from the same reading: shown only at 5 days or fewer (Low) and 3 days
-    or fewer (Very low), at the rate files were written in the last day (health.py). -#}
+    or fewer (Very low), at the rate files were written in the last day, or at 5 GB and 3 GB free
+    or less (#506, health.py). -#}
 {%- import "_ui.html" as ui %}
 <div id="disk-status" class="camera-status" hidden>
   <span data-disk-level="yellow" data-words="Disk low" hidden>{{ ui.icon("warn") }}</span>
@@ -39,10 +40,16 @@
       shape.hidden = shape.dataset.diskLevel !== d.level;
       if (!shape.hidden) words = shape.dataset.words;
     }
-    // Days at the rate files were written in the last day (health.py).
-    const days = Math.max(0, Math.round(d.days_left));
-    disk.querySelector(".camera-status-text").textContent =
-      " " + words + ": about " + days + (days === 1 ? " day" : " days") + " left.";
+    // Free space when that is what warns (#506), else days at the rate files were written in the
+    // last day (health.py).
+    let left;
+    if (d.level_reason === "bytes") {
+      left = (Math.max(0, d.free_bytes) / 1e9).toFixed(1) + " GB free.";
+    } else {
+      const days = Math.max(0, Math.round(d.days_left));
+      left = days + (days === 1 ? " day" : " days") + " left.";
+    }
+    disk.querySelector(".camera-status-text").textContent = " " + words + ": about " + left;
   }
 
   // One timer: every 10 s, every 1 s while the camera is opening (about 1 s with no camera, up

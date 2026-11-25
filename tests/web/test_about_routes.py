@@ -188,3 +188,29 @@ def test_about_page_shows_days_of_disk_space_left(tmp_path):
     row = page[page.index("Disk space left"):][:600]
     assert "days at the last day" in row
     assert "Enough" in row
+
+
+def _disk_left_row(disk: dict) -> dict:
+    """The "Disk space left" row about.sections() lays out for this disk reading, every other
+    fact as the rig reads it. The route cannot be given a nearly full disk, so the reading is
+    built by hand."""
+    from npec_rig import about
+
+    f = {**about.facts(), "disk": {"total_bytes": 100_000_000_000, **disk}}
+    rows = [row for card in about.sections(f) for row in card["rows"]]
+    return next(row for row in rows if row["label"] == "Disk space left")
+
+
+def test_about_shows_gb_free_when_free_space_sets_the_warning():
+    # #506: nothing written in the last day, 1.2 GB free.
+    row = _disk_left_row({"free_bytes": 1_200_000_000, "bytes_per_day": 0.0, "days_left": None,
+                          "level": "red", "level_reason": "bytes"})
+    assert row["value"] == "About 1.2 GB free"
+    assert row["status"] == ("fail", "Very low")
+
+
+def test_about_still_says_no_files_written_when_nothing_was_written_and_space_is_plenty():
+    row = _disk_left_row({"free_bytes": 50_000_000_000, "bytes_per_day": 0.0, "days_left": None,
+                          "level": "ok", "level_reason": "bytes"})
+    assert row["value"] == "No files written in the last day"
+    assert row["status"] == ("ok", "Enough")
