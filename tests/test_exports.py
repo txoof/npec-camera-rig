@@ -545,18 +545,20 @@ def test_a_running_experiments_parts_stay_the_same_as_photos_come(monkeypatch: p
 
 def test_purge_needs_every_photo_part_sent_in_full(monkeypatch: pytest.MonkeyPatch) -> None:
     """B4: an export in parts is complete only when every photo part was sent to its last byte; a
-    download broken off part way does not count."""
+    download broken off part way does not count. Part 0 is also needed (#482): downloaded first,
+    so this test is about the photo parts alone."""
     experiment = _stopped_experiment_with_photos(2)
     monkeypatch.setattr(exports, "PART_BYTES", max(_photo_bytes(experiment)))
     client = _client()
     export = export_built(client, experiment['id'])
     assert [p["n"] for p in export["parts"]] == [0, 1, 2]
+    client.get(f"/api/exports/{export['id']}/parts/0")
     client.get(f"/api/exports/{export['id']}/parts/1")
     _name, _length, body = exports.part_download(export["id"], 2)
     next(body)
     body.close()  # broken off after the first piece
     assert database.complete_export(experiment["id"]) is None
-    assert [p["sent"] for p in client.get(f"/api/exports/{export['id']}").json()["parts"]] == [False, True, False]
+    assert [p["sent"] for p in client.get(f"/api/exports/{export['id']}").json()["parts"]] == [True, True, False]
     client.get(f"/api/exports/{export['id']}/parts/2")
     assert database.complete_export(experiment["id"])["id"] == export["id"]
 
