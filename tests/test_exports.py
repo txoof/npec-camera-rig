@@ -563,6 +563,99 @@ def test_purge_needs_every_photo_part_sent_in_full(monkeypatch: pytest.MonkeyPat
     assert database.complete_export(experiment["id"])["id"] == export["id"]
 
 
+def test_a_late_adopted_photos_row_does_not_join_the_frozen_parts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#482 (review of #378, finding 1): a photo saved to disk while rig.db stayed locked (#439),
+    whose row is only added afterwards by `adopt_unrecorded_photos`, must not retroactively join
+    an export's parts even though its taken_at is early enough: the list is fixed once, at build."""
+    from npec_rig import settings
+    from npec_rig.camera import CameraManager
+    from tests.helpers import lock_held
+
+    experiment = captures.start_experiment(captures.create_experiment(name="Drought")["id"])
+    _array, _record = captures.take_photo("capture")
+    del _array
+    CameraManager.instance()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+    with lock_held(1.0):
+        _array, record = captures.take_photo("capture")
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    assert record["capture_id"] is None  # the photo is on disk, its row is not yet
+
+    export = export_built(_client(), experiment["id"])
+    assert len(export["parts"]) == 2  # part 0 + one photo part: only the first photo had a row
+
+    assert captures.adopt_unrecorded_photos(experiment, {record["date"]}).added == 1
+    assert database.captures_by_path([record["path"]])  # the row now exists, with an early taken_at
+
+    again = exports.export_with_parts(export["id"])
+    assert again["parts"] == export["parts"]
+    _name, _length, body = exports.part_download(export["id"], 1)
+    names = {n.split("/", 1)[1] for n in zipfile.ZipFile(io.BytesIO(b"".join(body))).namelist()}
+    first_photo = database.captures_for_experiment(experiment["id"])[0]["path"].split("/stills/", 1)[-1]
+    assert names == {f"stills/{first_photo}.jpg", f"stills/{first_photo}.json", "MANIFEST-part01.sha256"}
+
+
+def test_a_photo_parts_files_agree_with_captures_csv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#482: the same fixed list is used for captures.csv and the photo parts, so the two never
+    disagree on which photos the export holds."""
+    experiment = _stopped_experiment_with_photos(3)
+    monkeypatch.setattr(exports, "PART_BYTES", max(_photo_bytes(experiment)))
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["captures.csv"].decode())))
+    assert {r["file"] for r in rows} == {name for name in files if name.startswith("stills/") and name.endswith(".jpg")}
+
+
+def test_a_part_download_409s_when_its_photo_is_deleted_after_build(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#482 (review of #378, finding 1): a part's files are the stored list, not recomputed; one
+    missing since the export was built is refused rather than silently sent as a different zip."""
+    experiment = _stopped_experiment_with_photos(1)
+    export = export_built(_client(), experiment["id"])
+    row = database.export_part_files(export["id"], 1)[0]
+    (captures.experiments_root() / database.get_experiment(experiment["id"])["folder"] / row["name"]).unlink()
+
+    with pytest.raises(ExperimentError, match="changed on the rig"):
+        exports.part_download(export["id"], 1)
+
+    assert database.parts_sent(export["id"]) == set()
+
+
+def test_a_part_download_409s_when_its_photo_shrinks_after_build() -> None:
+    """As above, a file still present but a different size than when the export was built."""
+    experiment = _stopped_experiment_with_photos(1)
+    export = export_built(_client(), experiment["id"])
+    row = database.export_part_files(export["id"], 1)[0]
+    path = captures.experiments_root() / database.get_experiment(experiment["id"])["folder"] / row["name"]
+    path.write_bytes(path.read_bytes()[:-1])
+
+    with pytest.raises(ExperimentError, match="changed on the rig"):
+        exports.part_download(export["id"], 1)
+
+    assert database.parts_sent(export["id"]) == set()
+
+
+def test_part_download_records_sent_only_once_the_full_length_was_actually_read() -> None:
+    """#482 (review of #378, finding 6): "sent" is recorded by the bytes actually handed on, not
+    merely once the last chunk was yielded; a file that shrinks while the body is being read gives
+    fewer bytes than the announced length, and must not count as sent."""
+    experiment = _stopped_experiment_with_photos(1)
+    export = export_built(_client(), experiment["id"])
+    _name, length, body = exports.part_download(export["id"], 0)
+    path = exports.zip_path(database.get_export(export["id"]))
+    original = path.read_bytes()
+    path.write_bytes(original[: length // 2])  # shrinks the file the body is mid-read of
+
+    read = b"".join(body)
+
+    assert len(read) < length
+    assert database.parts_sent(export["id"]) == set()
+
+    path.write_bytes(original)
+    _name, length, body = exports.part_download(export["id"], 0)
+    read = b"".join(body)
+    assert len(read) == length
+    assert database.parts_sent(export["id"]) == {0}
+
+
 def test_the_export_says_from_when_a_trays_cell_names_may_be_swapped() -> None:
     """#385: a tray whose tag turned on it has its cell names marked as maybe swapped from that
     photo on; the cell lines carry the time of that photo, empty before it."""
