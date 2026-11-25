@@ -11688,3 +11688,70 @@ with the flagged cells and their summed grown area shown alongside it.
 #500); the flag's code and tests are `src/npec_rig/tray_readings.py`, `src/npec_rig/exports.py`,
 `src/npec_rig/export_fields.yaml`, `tests/test_tray_readings.py`, `tests/test_exports.py`,
 `tests/web/test_gallery_routes.py`, on branch `484-flag-cells`.
+
+## 49. The production device is replaced: `d6-daylight` for `ac-testing` (issue #513, written 2026-11-25, after the device was read)
+
+**Label: development check.** This records a change of hardware. It is not a measurement of area, and
+no area was measured on the new device. It is here so that a reader of sections 1 to 48 knows which
+device "production" and `ac-testing` mean, and what the new one lacks.
+
+### 49.1 What changed
+
+On 2026-11-25 Aaron told the session that the old production Pi, `ac-testing`, had issues and was
+taken out of service, and that `d6-daylight` replaces it. It is a different Pi, not a rename and not a
+reimage. The camera is the same Arducam 64MP; everything else is new; it has no Hailo and less
+memory (Aaron). Every section above that says production or `ac-testing` is about the old device,
+and stays worded that way on purpose: it is the device the measurement was taken on. Section 33's
+production reference plants, experiment 18, the production calibration and validation, and the
+Hailo-8 build in section 44 all belong to it.
+
+### 49.2 How it was read, and what it showed
+
+**Method.** From the controller (`testpi-02`), on 2026-11-25 between about 11:15 and 12:00 UTC
+(12:15 to 13:00 Dutch time): `ssh pi@d6-daylight` and `ssh pi@10.248.49.137` (read only: `uname`,
+`/etc/os-release`, `free -m`, `df`, `lspci`, `lsmod`, `ls /dev/hailo*`, `rpicam-hello
+--list-cameras`, `ps`, `git describe`); the port 8000 API (`/api/about`, `/camera/health`,
+`/api/experiments`, `/focus/status`, `/snapshot.jpg`). One read of each, no repeats. Nothing on the
+device was changed. Its SSH host key (ed25519, `SHA256:4vCV5x+S2heIIrrzTs4OFquLeS9+OiG9i4LlBwOaZ/s`) was the
+same by name and by address, so both reach one device; the controller's stale `known_hosts` line for
+that address (left from an earlier device) was replaced with Aaron's approval.
+
+| | `ac-testing` (retired) | `d6-daylight` (production from 2026-11-25) |
+|---|---|---|
+| Address | LAN `10.248.49.131`, Tailscale `100.99.221.85` | LAN `10.248.49.137`, Tailscale `100.87.234.36` |
+| Board | Raspberry Pi 5 | Raspberry Pi 5 Model B Rev 1.1, 4 cores |
+| Memory | not recorded here; more than the new one (Aaron) | 4049 MB total (3104 MB free at the read); development `npec-rig-01` has 8062 MB |
+| AI accelerator | Hailo-8, HailoRT 4.23.0 (section 44) | none: no `/dev/hailo*`, nothing in `lspci` or `lsmod`, `/api/about` `ai_accelerator: false` |
+| System | not recorded in this log | Debian 13 (trixie), kernel 6.18.50+rpt-rpi-2712, Python 3.13.5, Europe/Amsterdam |
+| Disk | not recorded here | 235 GB SD card, 6.3 GB used (`/api/about`: 234.4 GB free of 251.4 GB) |
+| App | main, last recorded a6632d6 (2026-11-17) | release v0.5.0, commit `9498c0f` (2026-11-24T14:08:45+01:00), schema version 26, plain uvicorn on port 8000 |
+| Camera | Arducam 64MP | Arducam 64MP, `arducam_64mp` on `rp1/i2c@88000`, 9248x6944 10-bit RGGB, state ok; serial not read |
+| Data | experiment 18 and the calibration of sections 15 to 48 | none: `/api/experiments` is `[]`, calibration null, validation "No calibration yet", focus locked at lens position 6.0 |
+
+The app started at 09:48:26 UTC on 2026-11-25. One camera fault is logged at 09:48:05 UTC ("the
+camera program ended during capture_array", 1228 s after boot, so the Pi booted about 09:27 UTC); the
+camera program restarted and `/camera/health` reports ok, `restarts_24h: 1`. `/snapshot.jpg` returned a
+valid JPEG of the table with the four corner tags visible (HTTP 200, 173 KB).
+
+### 49.3 What this does and does not cover
+
+It covers the state of one device at one time, read once. It does not show:
+
+- that the table, tags, camera mounting or lens position match the old setup. The calibration and
+  validation of sections 15 to 48 were made on `ac-testing` and do not carry over; no area from
+  `d6-daylight` has a band until it is calibrated and validated there;
+- that the camera is the same physical unit (Aaron says it is; the serial was not read);
+- the old Pi's memory, disk and system, which this log never recorded;
+- how the app behaves on 4 GB. Section 25 measured the app's memory on the 8 GB
+  development Pi, and said that this does not show a 4 GB Pi 5. `d6-daylight` is the first rig that can
+  show it; nothing has been run on it yet.
+
+**What it changes in earlier results.** Section 44 compiled the plant network for the Hailo-8 and the
+Hailo-10H and timed the Hailo-10H on the development Pi (the Hailo-8 was not timed, because production
+was read only). Production now has no accelerator, so the Hailo-8 build has nowhere to run there. The
+fixed green cutoff and grow from leaf cores (`segmentation.py`) are the only readings that can run on
+production unless Aaron decides otherwise (issue #513 lists this as a decision, not a change made).
+
+**Source.** Issue #513; Aaron's messages of 2026-11-25; the reads above, run from the controller on
+the same day. Project text that names the device was changed in the same change: `CLAUDE.md`,
+`CONTRIBUTING.md`, `hardware/Installation.md`.

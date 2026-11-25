@@ -46,7 +46,7 @@ Made after Aaron has approved the promotion and production runs the commit (CLAU
 the production server*). From the controller:
 
 ```bash
-sha=$(ssh pi@ac-testing 'git -C ~/npec_camera_rig rev-parse HEAD')
+sha=$(ssh pi@d6-daylight 'git -C ~/npec_camera_rig rev-parse HEAD')
 gh release list --limit 1                      # the last version
 gh release create v0.2.0 --target "$sha" --generate-notes
 ```

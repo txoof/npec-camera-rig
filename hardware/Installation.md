@@ -304,7 +304,7 @@ Tested on the testing rig.
 
 ##### Do Not
 
-- Run onboard, deploy, update or reboot targets against `ac-testing`. It was set up by hand and is also a control machine. Only `make health` is allowed there.
+- Run onboard, deploy, update or reboot targets against `d6-daylight` (production; replaced `ac-testing`, retired 2026-11-25). It was set up by hand and is also a control machine. Only `make health` is allowed there.
 
 ## Camera Mount Installation
 

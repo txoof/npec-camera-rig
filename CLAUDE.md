@@ -170,9 +170,15 @@ Since 2026-10-28 (#322), with the controller since 2026-10-29 (#324). The full r
 |---|---|---|
 | **controller** | `testpi-02`, where agent sessions run | Agent sessions, worktrees, unit tests, `~/ansible-npec` |
 | **development** | `npec-rig-01` (`10.248.49.102`), red leaf in the tab, Arducam 64MP | The app as the `npec-rig` service on port 8000, managed from `~/ansible-npec` |
-| **production** | `ac-testing`, the chamber Pi | Running experiments: `~/npec_camera_rig` and its port 8000 server |
+| **production** | `d6-daylight` (`10.248.49.137`), the chamber Pi | Running experiments: `~/npec_camera_rig` and its port 8000 server |
 
-Reach the rigs from the controller with `ssh pi@npec-rig-01`. Agent
+Production is a replacement Pi since 2026-11-25: the old production `ac-testing` had issues and is
+out of service. The camera is the same Arducam 64MP; the Pi is new, with no Hailo and 4 GB of
+memory (Pi 5). Older records (`docs/metrology-log.md`, `experiments/`, issues, PRs) say
+`ac-testing` for the production role; the log keeps that name because it is the device the
+measurement was taken on.
+
+Reach the rigs from the controller with `ssh pi@npec-rig-01` and `ssh pi@d6-daylight`. Agent
 sessions run on the controller. They may run jobs on the development rig over ssh (scripts, Hailo
 models, offline analysis of copied production photos), only while their task holds the `hardware`
 label, with memory capped (`ulimit -v`). Production is read only, as before (Aaron, 2026-11-09,
@@ -181,7 +187,7 @@ label, with memory capped (`ulimit -v`). Production is read only, as before (Aar
 A new app version runs on development first. It reaches production only after it has passed on
 development (health OK and a live snapshot) **and** Aaron has approved that update.
 
-- **Updating production** means changing the code in `~/npec_camera_rig` on `ac-testing` (pull,
+- **Updating production** means changing the code in `~/npec_camera_rig` on `d6-daylight` (pull,
   checkout, merge) or restarting its port 8000 server. After a PR is merged, leave production as
   it is and say in the reply that it can be promoted. Reading production (its API, logs, photos,
   a read-only look at `rig.db`) is fine; nothing else is done there without Aaron's approval.
@@ -287,7 +293,7 @@ work, put development back on that version and remove the label. Everyone else w
 runs unit tests with the synthetic camera on the controller, then waits for the label. No task
 uses the production camera or server.
 
-**Restarting the production server.** Only on a promotion Aaron approved, on `ac-testing`, over
+**Restarting the production server.** Only on a promotion Aaron approved, on `d6-daylight`, over
 ssh. Stop it with SIGTERM, never SIGINT or Ctrl+C (a second
 SIGINT makes uvicorn skip the app's shutdown, and the camera is not closed), and wait until the
 old PID is gone before relaunching. Launch it with `--timeout-graceful-shutdown 5`, so open
