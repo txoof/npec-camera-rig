@@ -552,7 +552,7 @@ def _part_zero(
                 whole(name, data)
             whole("datapackage.json", _data_package(_fields(), names))
         held = names | ({"stills/"} if export["photos"] else set())
-        parts = 1 + (export["photo_parts"] or 0)
+        parts = 1 + len(photo_parts)
         whole("README.txt", _readme(experiment, len(captures), missing, until, held, parts, not_read).encode())
         zf.writestr(f"{top}/MANIFEST-part00.sha256", "".join(sums))
     yield pipe.take()

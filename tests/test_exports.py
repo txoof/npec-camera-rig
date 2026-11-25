@@ -536,6 +536,19 @@ def test_an_export_lists_its_parts_each_under_the_part_size(monkeypatch: pytest.
     assert all(p["bytes"] <= 2 * max(sizes) * 1.01 + 10_000 for p in photo_parts)
 
 
+def test_the_readme_names_every_part(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#482 finding 4: the README named a fixed "1 zip files, part00 to part00" for every export
+    with photos (#437/#442's bug). With several parts, it must say how many there really are."""
+    experiment = _stopped_experiment_with_photos(5)
+    sizes = _photo_bytes(experiment)
+    monkeypatch.setattr(exports, "PART_BYTES", 2 * max(sizes))
+    export, files = _unzipped(experiment["id"])
+    assert len(export["parts"]) == 4  # part 0 + 3 photo parts, from the same split as above
+    readme = files["README.txt"].decode()
+    assert "This export comes in 4 zip files, part00 to part03." in readme
+    assert "1 zip files, part00 to part00" not in readme
+
+
 def test_each_part_announces_its_exact_size(monkeypatch: pytest.MonkeyPatch) -> None:
     """B2: the browser shows progress from Content-Length (Aaron tried Chrome and Firefox,
     2026-11-06), so a part's must equal what is sent, and the parts list gives the same size.
