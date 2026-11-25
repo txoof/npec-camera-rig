@@ -407,6 +407,7 @@ def purge_status(experiment_id: int) -> dict:
     exists), and `blocked`, None when Purge can go ahead, else a dict with a short `reason`
     (`part0_unsent`, `photos_added`, `reprocessed`), a `count` where one applies (else None), and
     a plain `message`."""
+    database.get_experiment(experiment_id)  # LookupError (404) for no such experiment
     export = database.newest_export_for_purge(experiment_id)
     if export is None or export["data"] != 1 or 0 not in database.parts_sent(export["id"]):
         return {"export": export, "blocked": {
