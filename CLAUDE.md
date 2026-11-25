@@ -172,9 +172,11 @@ Since 2026-10-28 (#322), with the controller since 2026-10-29 (#324). The full r
 | **development** | `npec-rig-01` (`10.248.49.102`), red leaf in the tab, Arducam 64MP | The app as the `npec-rig` service on port 8000, managed from `~/ansible-npec` |
 | **production** | `d6-daylight` (`10.248.49.137`), the chamber Pi | Running experiments: `~/npec_camera_rig` and its port 8000 server |
 
-Production was called `ac-testing` until 2026-11-25. Older records (`docs/metrology-log.md`,
-`experiments/`, issues, PRs) use that name for the same role; the log keeps it because it is the
-name the device had when the measurement was taken.
+Production is a replacement Pi since 2026-11-25: the old production `ac-testing` had issues and is
+out of service. The camera is the same Arducam 64MP; the Pi is new, with no Hailo and 4 GB of
+memory (Pi 5). Older records (`docs/metrology-log.md`, `experiments/`, issues, PRs) say
+`ac-testing` for the production role; the log keeps that name because it is the device the
+measurement was taken on.
 
 Reach the rigs from the controller with `ssh pi@npec-rig-01` and `ssh pi@d6-daylight`. Agent
 sessions run on the controller. They may run jobs on the development rig over ssh (scripts, Hailo
