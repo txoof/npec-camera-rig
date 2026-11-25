@@ -6,6 +6,7 @@ import pytest
 from npec_rig import captures, database
 from npec_rig.database import ExperimentError
 from npec_rig.settings import db_path
+from tests.helpers import needs_ffmpeg, video_done, video_held
 
 pytestmark = pytest.mark.unit
 
@@ -921,3 +922,30 @@ def test_progress_without_failures_never_has_the_failures_key(monkeypatch) -> No
     _finished_run(experiment_id, 1, 0, 5)
     assert "failures" not in tray_readings.reprocess_progress(experiment_id, failures=False)
     assert tray_readings.reprocess_progress(experiment_id)["failures"] == []
+
+
+# --- One job that reads every photo at a time: a Reprocess waits for a time lapse video (#503) --
+
+@needs_ffmpeg
+def test_a_reprocess_is_refused_while_a_video_is_being_made_and_starts_once_it_is_done(monkeypatch, tmp_path) -> None:
+    from fastapi.testclient import TestClient
+
+    from npec_rig import timelapse
+    from npec_rig.app import app
+
+    experiment_id, _paths = _experiment_with_photos(monkeypatch, 1)
+    client = TestClient(app)
+    video_id, release = video_held(experiment_id, monkeypatch, tmp_path)
+    try:
+        assert timelapse.being_made() == video_id
+        refused = client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id})
+        assert refused.status_code == 409
+        assert "A time lapse video is being made" in refused.json()["detail"]
+        assert client.get(f"/api/experiments/{experiment_id}/reprocess").json()["state"] == "none"
+    finally:
+        release.touch()
+    video_done()
+
+    started = client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id})
+    assert started.status_code == 200
+    assert _wait_until_finished(client, experiment_id)["state"] == "finished"

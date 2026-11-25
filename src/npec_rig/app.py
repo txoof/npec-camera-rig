@@ -47,8 +47,12 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     exports.fail_unfinished_exports()
     # A Reprocess cut off by the previous stop is marked interrupted, never resumed (#483).
     tray_readings.mark_interrupted_reprocesses()
-    # Videos are kept only until downloaded; one cut off by the stop can never finish (#64).
-    timelapse.clear()
+    # Videos are kept only until downloaded; one cut off by the stop can never finish (#64). A
+    # failure here costs only disk space, never the app's start (#503).
+    try:
+        timelapse.clear()
+    except Exception:  # noqa: BLE001 -- logged; the camera and the photos come first
+        logger.exception("Time lapse videos cut off by the last stop could not be removed")
     photo_scheduler = Scheduler()
     photo_scheduler.start()
     # Reads each photo for its trays after it is saved (#222).

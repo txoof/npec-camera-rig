@@ -207,15 +207,25 @@
     const short = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
     const about = (q) => q ? `${q.tray_id === "all" ? "All trays" : `Tray ${q.tray_id}`}${q.cell ? `, cell ${q.cell}` : ""}, ${short(q.start)} to ${short(q.end)}, `
       + `${q.per_hour} per hour${q.mask ? ", mask shown" : ""}: ` : "";
+    // Photos that were there but could not be read: left out, in a sentence of their own, apart
+    // from the steps that had no usable photo at all (#503). The first three by their time.
+    const unread = (p) => {
+      if (!p.unreadable) return "";
+      const one = p.unreadable === 1;
+      const when = (p.unreadable_photos || []).slice(0, 3).map((u) => `${u.taken_at.slice(0, 16).replace("T", " ")} UTC`);
+      return ` ${p.unreadable} ${one ? "photo" : "photos"} could not be read and ${one ? "was" : "were"} left out: `
+        + `${when.join(", ")}${p.unreadable > when.length ? ", and more" : ""}.`;
+    };
     async function watch(id) {
       for (;;) {
         const p = await (await fetch(`/api/data/timelapse/${id}`)).json();
         const which = p.trays > 1 ? `Tray ${p.tray} of ${p.trays}: ` : "";
         if (p.state === "choosing") status.textContent = `${which}choosing the photos…`;
         if (p.state === "drawing") status.textContent = `${which}drawing frame ${p.done} of ${p.frames}, about ${mb(p.estimated_bytes)}`
-          + (p.skipped ? `. ${p.skipped} steps had no usable photo.` : ".");
+          + (p.skipped ? `. ${p.skipped} steps had no usable photo.` : ".") + unread(p);
         if (p.state === "ready") {
-          status.innerHTML = `${ui.chip("ok", "Ready")} ${ui.esc(about(p.request))}${p.frames} frames, ${mb(p.bytes)}` + (p.skipped ? `. ${p.skipped} steps had no usable photo.` : ".");
+          status.innerHTML = `${ui.chip("ok", "Ready")} ${ui.esc(about(p.request))}${p.frames} frames, ${mb(p.bytes)}` + (p.skipped ? `. ${p.skipped} steps had no usable photo.` : ".")
+            + ui.esc(unread(p));
           download.href = `/api/data/timelapse/${id}/download`;
           download.hidden = false;
           make.disabled = false;

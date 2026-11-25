@@ -19,6 +19,7 @@ import statistics
 import threading
 import zipfile
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -212,10 +213,17 @@ def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: dat
     layouts: dict[str | None, list[dict] | None] = {}
     tables: dict[str | None, object] = {}
     frames, skipped, gap = [], 0, 0  # gap: lit steps skipped since the last frame
+    unreadable = []
     for step in sorted(by_step):
         dark = True
         for capture in by_step[step]:
-            readings = tray_readings.capture_readings(capture, history=False, locations=locations)
+            try:
+                readings = tray_readings.capture_readings(capture, history=False, locations=locations)
+            except OSError as exc:
+                # The photo's file cannot be read (its size is read for the table location): left
+                # out and named, never failing the video (#503).
+                unreadable.append(_left_out(capture, exc))
+                continue
             tray = usable_tray(readings, tray_id)
             if tray is not None and mask is not None and not segmentation.mask_file(capture["path"], MASK_KINDS[mask]).exists():
                 tray = None
@@ -237,7 +245,13 @@ def choose_frames(experiment_id: int, *, tray_id: int, start: datetime, end: dat
             skipped += 0 if dark else 1
             gap += 0 if dark else 1
     _smooth(frames, tray_id)
-    return {"frames": frames, "skipped": skipped}
+    return {"frames": frames, "skipped": skipped, "unreadable": unreadable}
+
+
+def _left_out(capture: dict, exc: Exception) -> dict:
+    """A photo left out of a video because it could not be read: its path, its time and why."""
+    logger.warning("Time lapse frame of %s left out: %s", capture["path"], exc)
+    return {"path": capture["path"], "taken_at": capture["taken_at"], "reason": str(exc) or type(exc).__name__}
 
 
 # A cell's status in the Gallery's words (#364).
@@ -430,7 +444,10 @@ def draw_frame(frame: dict, values: dict, *, mask: str | None = None, cell: str 
     memory of a full-size decode."""
     homography, (w, h) = upright(frame["tray"]) if cell is None else cell_upright(frame["tray"], cell)
     path = frame["capture"]["path"]
-    with Image.open(captures.photo_file(path)) as photo:
+    file = captures.photo_file(path)
+    if file is None:
+        raise FileNotFoundError(f"the photo {path} is not on disk")
+    with Image.open(file) as photo:
         full_w, _ = photo.size
         photo.draft("RGB", (photo.width // 2, photo.height // 2))
         rgb = np.asarray(photo.convert("RGB"))
@@ -508,6 +525,11 @@ class VideoUnavailable(RuntimeError):
     """Videos cannot be made on this rig: the reason, in words."""
 
 
+class VideoRefused(RuntimeError):
+    """Another job that reads every photo is running: an export or a Reprocess (#503). The reason,
+    in words."""
+
+
 def videos_root() -> Path:
     """Where videos are made and kept until downloaded: beside the derived images, not in their
     store, whose start-up sweep removes every file its index does not know (images.py)."""
@@ -541,13 +563,57 @@ def unavailable() -> str | None:
 
 _lock = threading.Lock()
 _running: dict = {}
+# For tests only (#503): with this set to a file path, the video's child process waits, its
+# progress still "choosing" so being_made() names it, until that file exists or TEST_HOLD_LIMIT_S
+# has passed, before it chooses or draws any frame. Unset, as on every rig, it does nothing.
+TEST_HOLD_ENV = "NPEC_RIG_TEST_TIMELAPSE_HOLD"
+TEST_HOLD_LIMIT_S = 60.0
+# ffmpeg is stopped when it takes no frame for this long, or does not finish this long after the
+# last one, so a stuck ffmpeg never holds exports and Reprocess back (#503). A choice with room to
+# spare, not a measurement: a frame is encoded in well under a second. For tests only, the child
+# reads a shorter one from TEST_STALL_ENV, as a spawned child sees no monkeypatch.
+FFMPEG_STALL_S = 30.0
+TEST_STALL_ENV = "NPEC_RIG_TEST_FFMPEG_STALL_S"
+
+
+def _test_hold() -> None:
+    release = os.environ.get(TEST_HOLD_ENV)
+    if not release:
+        return
+    deadline = time.monotonic() + TEST_HOLD_LIMIT_S
+    while not Path(release).exists() and time.monotonic() < deadline:
+        time.sleep(0.02)
+
+
+# Set in the video child's environment only (#503). numpy and OpenCV each bundle an OpenBLAS that,
+# as it loads, starts a thread per core and reserves memory for each: on a 16-core machine, 31
+# threads and 3.1 GB of address space after importing this module, past MEMORY_LIMIT_BYTES before
+# a frame is drawn. With this: 1 thread, 0.4 GB. Both read OPENBLAS_NUM_THREADS (VmSize and
+# Threads in /proc/self/status, 2026-11-24, a development check on the controller).
+CHILD_ENV = {"OPENBLAS_NUM_THREADS": "1"}
+
+
+@contextmanager
+def _child_environment():
+    """CHILD_ENV in this process's environment while a child is spawned, which copies it; the
+    server's own environment as it was afterwards."""
+    before = {name: os.environ.get(name) for name in CHILD_ENV}
+    os.environ.update(CHILD_ENV)
+    try:
+        yield
+    finally:
+        for name, value in before.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
 
 def start(request: dict) -> dict:
     """Start making the video of `request` (experiment_id, tray_id, start, end, per_hour,
     method, and optionally cell and mask, true to show the method's mask) in a child process: its id. The finished video of an earlier request is removed
-    first, so the rig holds one at a time. Raises VideoUnavailable, VideoBusy, or ValueError for a
-    request that cannot be made."""
+    first, so the rig holds one at a time. Raises VideoRefused while an export or a Reprocess runs,
+    VideoUnavailable, VideoBusy, or ValueError for a request that cannot be made."""
     if request["per_hour"] not in PER_HOUR:
         raise ValueError(f"per_hour must be one of {PER_HOUR}")
     if not any(m["key"] == request["method"] for m in tray_readings.AREA_METHODS):
@@ -559,12 +625,17 @@ def start(request: dict) -> dict:
     if request.get("cell") is not None and not _CELL.match(request["cell"]):
         raise ValueError(f"No tray has a cell {request['cell']!r}.")
     database.get_experiment(request["experiment_id"])  # LookupError when there is none
+    # Before the ffmpeg and disk checks: one job that reads every photo at a time (#503).
+    if database.unfinished_export() is not None:
+        raise VideoRefused("An export is being prepared. Make the video when it is done.")
+    if database.running_reprocess_run() is not None:
+        raise VideoRefused("A Reprocess is running. Make the video when it is done.")
     reason = unavailable() or disk_refusal(
         estimate_bytes(request), shutil.disk_usage(health.db_path().parent).free, time.time())
     if reason:
         raise VideoUnavailable(reason)
     with _lock:
-        if _being_made() is not None:
+        if being_made() is not None:
             raise VideoBusy("A video is being made. Try again when it is done.")
         clear(finished=True)
         video_id = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S%f}-{secrets.token_hex(3)}"
@@ -574,7 +645,8 @@ def start(request: dict) -> dict:
         # Spawned, never forked: the server runs threads (camera_process.py).
         process = multiprocessing.get_context("spawn").Process(
             target=_make, args=(request, str(folder)), name=f"timelapse-{video_id}", daemon=True)
-        process.start()
+        with _child_environment():
+            process.start()
         _running.update(id=video_id, process=process)
     return {"id": video_id}
 
@@ -582,7 +654,8 @@ def start(request: dict) -> dict:
 def progress(video_id: str) -> dict:
     """Where video `video_id` is: `state` choosing, drawing, ready, failed, replaced (a newer
     video was started: `newer` is its id), or gone, with the frames chosen, done and skipped,
-    and the estimated size."""
+    the photos that could not be read (`unreadable`, and `unreadable_photos`: path, taken_at,
+    reason), and the estimated size."""
     folder = _folder(video_id)
     try:
         state = json.loads((folder / "progress.json").read_text())
@@ -626,7 +699,7 @@ def clear(*, finished: bool = False) -> None:
     root = videos_root()
     if not root.exists():
         return
-    making = _being_made()
+    making = being_made()
     for folder in root.iterdir():
         if folder.name == making:
             continue
@@ -635,9 +708,10 @@ def clear(*, finished: bool = False) -> None:
         shutil.rmtree(folder, ignore_errors=True) if folder.is_dir() else folder.unlink(missing_ok=True)
 
 
-def _being_made() -> str | None:
+def being_made() -> str | None:
     """The id of the video being made, or None. Its process may outlive its last frame by a moment:
-    a video is being made while its progress says so and its process is alive."""
+    a video is being made while its progress says so and its process is alive. Exports and
+    Reprocess runs ask this before they start: one job that reads every photo at a time (#503)."""
     process, video_id = _running.get("process"), _running.get("id")
     if process is None or not process.is_alive():
         return None
@@ -660,25 +734,91 @@ def _write_progress(folder: Path, state: dict) -> None:
     os.replace(tmp, folder / "progress.json")
 
 
-def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | None, target: Path, done) -> None:
-    """Draw each of `frames` and pipe it to ffmpeg, writing the video `target`. `done(i)` is called
-    after each frame. Frames never touch the disk."""
-    encoder = None
-    for i, frame in enumerate(frames):
-        values = frame_values(experiment, frame, method=request["method"], cell=request.get("cell"))
-        image = draw_frame(frame, values, mask=mask, cell=request.get("cell"))
-        if encoder is None:
-            encoder = subprocess.Popen(
-                ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
-                 "-s", f"{image.width}x{image.height}", "-r", str(FPS), "-i", "-", "-threads", "2",
-                 "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-                 "-f", "mp4", str(target)],
-                stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-        encoder.stdin.write(image.tobytes())
-        done(i + 1)
+def _stall_s() -> float:
+    return float(os.environ.get(TEST_STALL_ENV) or FFMPEG_STALL_S)
+
+
+def _feed(encoder: subprocess.Popen, data: bytes) -> None:
+    """Write one frame to ffmpeg. A write blocks while ffmpeg takes nothing (a frame is far larger
+    than the pipe), so if it has not ended in _stall_s() ffmpeg is killed, which ends it with
+    BrokenPipeError: no write waits for ever."""
+    watchdog = threading.Timer(_stall_s(), encoder.kill)
+    watchdog.start()
+    try:
+        encoder.stdin.write(data)
+    finally:
+        watchdog.cancel()
+
+
+def _stopped(encoder: subprocess.Popen) -> RuntimeError:
+    """ffmpeg stopped taking frames: it exited, closed its input, or took none or did not finish
+    for _stall_s(). It is killed and waited for; the failure, in words, with what ffmpeg said."""
+    encoder.kill()
     _, err = encoder.communicate()
+    said = err.decode(errors="replace").strip()[-300:]
+    return RuntimeError(f"ffmpeg stopped taking frames{': ' + said if said else ', and was stopped.'}")
+
+
+def _encode(experiment: dict, frames: list[dict], request: dict, mask: str | None, target: Path, done) -> tuple[int, list[dict]]:
+    """Draw each of `frames` and pipe it to ffmpeg, writing the video `target`. A photo that cannot
+    be read or drawn is left out and the video goes on (Aaron, #503). `done(i, unreadable)` is
+    called after each frame. The frames drawn, and the photos left out: path and reason. Frames
+    never touch the disk."""
+    encoder, drawn, unreadable = None, 0, []
+    try:
+        for i, frame in enumerate(frames):
+            try:
+                values = frame_values(experiment, frame, method=request["method"], cell=request.get("cell"))
+                image = draw_frame(frame, values, mask=mask, cell=request.get("cell"))
+            except OSError as exc:
+                # The photo is not on disk, or cannot be decoded: PIL raises OSError for a file it
+                # cannot identify or one cut short. Any other error (the memory limit, rig.db, the
+                # code) is not the photo's and fails the video, in its own words (_failure).
+                unreadable.append(_left_out(frame["capture"], exc))
+                done(i + 1, unreadable)
+                continue
+            if encoder is None:
+                # Started at the first frame that draws: its size is the video's.
+                encoder = subprocess.Popen(
+                    ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
+                     "-s", f"{image.width}x{image.height}", "-r", str(FPS), "-i", "-", "-threads", "2",
+                     "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                     "-f", "mp4", str(target)],
+                    stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+            try:
+                _feed(encoder, image.tobytes())
+            except OSError as exc:
+                raise _stopped(encoder) from exc
+            drawn += 1
+            done(i + 1, unreadable)
+        if encoder is None:
+            return 0, unreadable  # no frame drew: no video, and no file written
+        try:
+            _, err = encoder.communicate(timeout=_stall_s())
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise _stopped(encoder) from exc
+    except BaseException:
+        # This side failed (a frame, its progress, the memory limit): ffmpeg is stopped and waited
+        # for before the failure is reported, never left running (#503), and the failure is this
+        # side's, never blamed on ffmpeg.
+        if encoder is not None and encoder.returncode is None:
+            encoder.kill()
+            encoder.communicate()
+        raise
     if encoder.returncode != 0:
         raise RuntimeError(f"ffmpeg failed: {err.decode(errors='replace')[-300:]}")
+    return drawn, unreadable
+
+
+def _once(left_out: list[dict], more: list[dict]) -> list[dict]:
+    """`left_out` and the photos of `more` not in it yet: one photo holds many trays, and with
+    All trays each is chosen from it in turn, so a bad photo is counted once, not once per tray."""
+    out, seen = list(left_out), {p["path"] for p in left_out}
+    for p in more:
+        if p["path"] not in seen:
+            out.append(p)
+            seen.add(p["path"])
+    return out
 
 
 def _make(request: dict, folder: str) -> None:
@@ -690,30 +830,40 @@ def _make(request: dict, folder: str) -> None:
     os.nice(10)
     cv2.setNumThreads(1)
     try:
+        _test_hold()
         experiment = database.get_experiment(request["experiment_id"])
         mask = request["method"] if request.get("mask") else None
         every = request["tray_id"] == ALL_TRAYS
         trays = (experiment_trays(request["experiment_id"], start=datetime.fromisoformat(request["start"]),
                                   end=datetime.fromisoformat(request["end"])) if every else [request["tray_id"]])
-        made, skipped = [], 0
+        made, skipped, unreadable = [], 0, []
         for n, tray_id in enumerate(trays, start=1):
-            state = {"state": "choosing", "request": request, "tray": n, "trays": len(trays), "skipped": skipped}
+            state = {"state": "choosing", "request": request, "tray": n, "trays": len(trays), "skipped": skipped,
+                     "unreadable": len(unreadable), "unreadable_photos": unreadable}
             _write_progress(out, state)
             chosen = choose_frames(
                 request["experiment_id"], tray_id=tray_id, start=datetime.fromisoformat(request["start"]),
                 end=datetime.fromisoformat(request["end"]), per_hour=request["per_hour"],
                 mask=mask, cell=request.get("cell"))
             frames, skipped = chosen["frames"], skipped + chosen["skipped"]
+            unreadable = _once(unreadable, chosen["unreadable"])
             if not frames:
                 continue
             state = {**state, "state": "drawing", "tray_id": tray_id, "frames": len(frames), "done": 0, "skipped": skipped,
                      "estimated_bytes": estimate_bytes(request)}
             target = out / f"tray-{tray_id}.part"
-            _encode(experiment, frames, request, mask, target, lambda i: _write_progress(out, {**state, "done": i}))
-            made.append((tray_id, target, len(frames)))
+            drawn, left_out = _encode(experiment, frames, request, mask, target, lambda i, bad: _write_progress(
+                out, {**state, "done": i, "unreadable": len(_once(unreadable, bad)), "unreadable_photos": _once(unreadable, bad)}))
+            unreadable = _once(unreadable, left_out)
+            if drawn:  # a tray none of whose photos could be read is left out
+                made.append((tray_id, target, drawn))
         if not made:
-            _write_progress(out, {"state": "failed", "request": request,
-                                  "error": f"No usable photo of {'any tray' if every else 'this tray'} in this time."})
+            which = "any tray" if every else "this tray"
+            n = len(unreadable)
+            error = (f"No frame could be made: {n} {'photo' if n == 1 else 'photos'} of {which} in this time could not be read."
+                     if unreadable else f"No usable photo of {which} in this time.")
+            _write_progress(out, {"state": "failed", "request": request, "error": error,
+                                  "unreadable": len(unreadable), "unreadable_photos": unreadable})
             return
         frames_made = sum(n for _, _, n in made)
         if every:
@@ -728,10 +878,28 @@ def _make(request: dict, folder: str) -> None:
             os.replace(made[0][1], out / "video.mp4")
             final = out / "video.mp4"
         _write_progress(out, {"state": "ready", "request": request, "frames": frames_made, "done": frames_made,
-                              "skipped": skipped, "trays": len(made), "bytes": final.stat().st_size})
+                              "skipped": skipped, "unreadable": len(unreadable), "unreadable_photos": unreadable,
+                              "trays": len(made), "bytes": final.stat().st_size})
     except Exception as exc:  # noqa: BLE001 -- every failure is shown on the page, in words
         logger.exception("Time lapse %s failed", out.name)
+        # A half-made video is never left behind (#503); ffmpeg has stopped by now (_encode). Each
+        # removal on its own: one that fails neither keeps the others nor hides why the video failed.
+        for part in out.glob("*.part"):
+            try:
+                part.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Time lapse part file %s not removed", part, exc_info=True)
         try:
-            _write_progress(out, {"state": "failed", "request": request, "error": str(exc) or type(exc).__name__})
+            _write_progress(out, {"state": "failed", "request": request, "error": _failure(exc)})
         except OSError:
             pass
+
+
+def _failure(exc: BaseException) -> str:
+    """Why a video failed, in words: ours as they are, the memory limit as such (a bare MemoryError
+    has no words of its own; OpenCV's is a cv2.error), anything else by its kind and message."""
+    if isinstance(exc, MemoryError) or (isinstance(exc, cv2.error) and exc.code == cv2.Error.StsNoMem):
+        return f"The video ran out of memory: it may use at most {MEMORY_LIMIT_BYTES / 1024**3:.0f} GB."
+    if type(exc) is RuntimeError:
+        return str(exc)
+    return f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__

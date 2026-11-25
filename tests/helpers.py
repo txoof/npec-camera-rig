@@ -5,6 +5,7 @@ same convention as test_tags.py/test_calibration.py.
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 import threading
 import time
@@ -13,6 +14,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from npec_rig.tags import TagDetection
 
@@ -355,10 +357,12 @@ def export_built(client, experiment_id: int, choice: dict | None = None, timeout
 
 
 # --- Time lapse frames (#64) -----------------------------------------------------------------
-def turned_tray_photo(experiment_id: int, taken, tray_id: int = 4, calibration: str | None = None) -> None:
+def turned_tray_photo(experiment_id: int, taken, tray_id: int = 4, calibration: str | None = None,
+                      others: tuple[int, ...] = ()) -> None:
     """A 1000 x 1000 photo of tray 4 lying turned 180 degrees, at 2 px/mm: its 610 x 732 px outline
     at x 100 to 710, y 100 to 832, its 4 x 5 cells read, a red patch on cell A1, a blue one on D5
-    (time lapse frames, #64). `taken` is a datetime."""
+    (time lapse frames, #64). `taken` is a datetime. `others`: more tray IDs read in the same photo,
+    each with the same outline and cells, as one photo holds many trays (#503)."""
     from PIL import Image
 
     from npec_rig import captures, database
@@ -389,11 +393,11 @@ def turned_tray_photo(experiment_id: int, taken, tray_id: int = 4, calibration: 
         analogue_gain=None, flags=[],
     )
     database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[{
-        "tray_id": tray_id, "slot": None, "a1_corner": "NE", "placement": "placed", "centre_px": [405, 466],
+        "tray_id": tid, "slot": None, "a1_corner": "NE", "placement": "placed", "centre_px": [405, 466],
         "tilt_deg": 180.0, "margin_mm": None, "found": "photo + tag", "warnings": [],
         "outline_px": [[100, 100], [710, 100], [710, 832], [100, 832]], "area_mm2": 1000.0,
         "segmenter": "green threshold, 0.1", "cells": cells,
-    }])
+    } for tid in (tray_id, *others)])
     database.record_exclusions([{"capture_id": capture_id, "name": None, "norm_e": None, "limit_fraction": None}],
                                worked_out_at=taken.isoformat())
 
@@ -459,3 +463,33 @@ def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, rea
         thread.join()  # the holder ends when `until` is set or after `seconds`, so this always returns
         if failed:
             raise failed[0]
+
+
+# --- Time lapse videos as other jobs see them (#503) ----------------------------------------------
+# Every real video needs ffmpeg on PATH; without it the test is skipped, not failed.
+needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is not installed")
+
+
+def video_held(experiment_id: int, monkeypatch: pytest.MonkeyPatch, tmp_path) -> tuple[str, Path]:
+    """Start a real time lapse video of the experiment, its child held before its first frame
+    until the file returned is created (timelapse.TEST_HOLD_ENV): its id and that file."""
+    from datetime import datetime, timedelta, timezone
+
+    from npec_rig import timelapse
+
+    release = tmp_path / "release-video"
+    monkeypatch.setenv(timelapse.TEST_HOLD_ENV, str(release))
+    now = datetime.now(timezone.utc)
+    video = timelapse.start({"experiment_id": experiment_id, "tray_id": 4, "start": (now - timedelta(hours=1)).isoformat(),
+                             "end": now.isoformat(), "per_hour": 1, "method": "fixed"})
+    return video["id"], release
+
+
+def video_done(timeout_s: float = 60) -> None:
+    """Wait until no time lapse video is being made (timelapse.being_made)."""
+    from npec_rig import timelapse
+
+    deadline = time.monotonic() + timeout_s
+    while timelapse.being_made() is not None:
+        assert time.monotonic() < deadline, "the video was not done in time"
+        time.sleep(0.05)

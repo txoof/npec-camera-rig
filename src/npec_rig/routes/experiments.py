@@ -147,8 +147,9 @@ def api_reprocess_experiment(experiment_id: int, request: ReprocessRequest | Non
 
     `{"dry_run": true}` (or `?dry_run=true`) only returns the photo count and an estimated time and
     changes nothing. A real start needs the body `{"confirm": <the experiment's ID>}`: without it
-    nothing starts (400). 409 while a Reprocess is running. Progress and failed photos: GET, which
-    reads rig.db and so survives a restart; `.../reprocess/stop` ends it after the photo it is on."""
+    nothing starts (400). 409 while a Reprocess is running or a time lapse video is being made.
+    Progress and failed photos: GET, which reads rig.db and so survives a restart;
+    `.../reprocess/stop` ends it after the photo it is on."""
     request = request or ReprocessRequest()
     experiment = _experiment_action(database.get_experiment, experiment_id)  # 404 for no such experiment
     if experiment["state"] == "set up":
@@ -192,7 +193,8 @@ class ExportChoice(BaseModel):
 @router.post("/api/experiments/{experiment_id}/export")
 def api_export_experiment(experiment_id: int, choice: ExportChoice | None = None) -> dict:
     """Start building an export, of photos up to now if the experiment is running; it is
-    prepared in the background. With no choice sent, it holds everything."""
+    prepared in the background. With no choice sent, it holds everything. 409 while a time lapse
+    video is being made."""
     choice = choice or ExportChoice()
     if not (choice.data or choice.photos):
         raise HTTPException(422, "tick the data, the photos or both")

@@ -8,7 +8,7 @@ import pytest
 
 from npec_rig import captures, database, exports
 from npec_rig.database import ExperimentError
-from tests.helpers import export_built, stored_validation
+from tests.helpers import export_built, needs_ffmpeg, stored_validation, video_done, video_held
 
 pytestmark = pytest.mark.unit
 
@@ -781,3 +781,27 @@ def test_a_tray_without_cells_flagged_as_a_whole_counts_as_one_flagged_cell() ->
     _export, files = _unzipped(experiment["id"])
     [row] = csv.DictReader(io.StringIO(files["tray-readings.csv"].decode()))
     assert (row["cells_flagged"], row["cells_flagged_grown_area_mm2"]) == ("1", "700.0")
+
+
+# --- One job that reads every photo at a time: an export waits for a time lapse video (#503) ----
+
+@needs_ffmpeg
+def test_an_export_is_refused_while_a_video_is_being_made_and_starts_once_it_is_done(monkeypatch, tmp_path) -> None:
+    from npec_rig import timelapse
+
+    experiment = _stopped_experiment_with_photos(1)
+    client = _client()
+    video_id, release = video_held(experiment["id"], monkeypatch, tmp_path)
+    try:
+        assert timelapse.being_made() == video_id
+        refused = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False})
+        assert refused.status_code == 409
+        assert "A time lapse video is being made" in refused.json()["detail"]
+        assert database.exports_for(experiment["id"]) == []  # nothing was started
+    finally:
+        release.touch()
+    video_done()
+
+    started = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False})
+    assert started.status_code == 200
+    assert [e["id"] for e in database.exports_for(experiment["id"])] == [started.json()["id"]]

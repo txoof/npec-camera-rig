@@ -1,10 +1,13 @@
 """Time lapse videos (#64): which photos become frames, what each frame says, the video job."""
+import json
+import subprocess
+import time
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from npec_rig import database, timelapse
-from tests.helpers import banded_validation, turned_tray_photo
+from tests.helpers import banded_validation, needs_ffmpeg, turned_tray_photo
 
 pytestmark = pytest.mark.unit
 
@@ -477,3 +480,255 @@ def test_a_strip_with_a_slot_and_four_warnings_draws_all_five_lines(experiment):
         rows = range(strip_top + line * 24, strip_top + (line + 1) * 24)
         inked = any(sum(image.getpixel((x, y))) < 450 for y in rows for x in range(0, 600))
         assert inked, f"line {line + 1} of the strip is empty"
+
+
+def _video_request(experiment_id: int) -> dict:
+    return {"experiment_id": experiment_id, "tray_id": 4, "start": START.isoformat(),
+            "end": (START + timedelta(hours=3)).isoformat(), "per_hour": 1, "method": "fixed"}
+
+
+def test_a_video_is_refused_while_an_export_is_being_prepared(experiment):
+    # A video and an export each read every photo: one at a time (#503).
+    database.create_export(experiment, now=START.isoformat())
+
+    with pytest.raises(timelapse.VideoRefused, match="An export is being prepared"):
+        timelapse.start(_video_request(experiment))
+
+    assert timelapse.latest() is None  # nothing was started
+
+
+def test_a_video_is_refused_while_a_reprocess_is_running(experiment):
+    database.create_reprocess_run(experiment, total=10, started_at=START.isoformat())
+
+    with pytest.raises(timelapse.VideoRefused, match="A Reprocess is running"):
+        timelapse.start(_video_request(experiment))
+
+    assert timelapse.latest() is None
+
+
+def _finished(video_id: str, timeout_s: float = 60) -> dict:
+    """Poll the video's progress, as the page does, until it is ready or failed."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        progress = timelapse.progress(video_id)
+        if progress["state"] in ("ready", "failed"):
+            return progress
+        time.sleep(0.05)
+    raise AssertionError(f"video {video_id} not finished in {timeout_s} s")
+
+
+def _probe(file) -> dict:
+    """The video's frame count and size, read by ffprobe."""
+    stream = json.loads(subprocess.run(
+        ["ffprobe", "-v", "error", "-count_frames", "-select_streams", "v:0", "-show_entries",
+         "stream=nb_read_frames,width,height", "-of", "json", str(file)],
+        capture_output=True, text=True, check=True).stdout)["streams"][0]
+    return {"frames": int(stream["nb_read_frames"]), "width": stream["width"], "height": stream["height"]}
+
+
+def _break_photo(experiment_id: int, index: int) -> str:
+    """Overwrite the JPEG of the experiment's photo `index` (oldest first) with junk: its path."""
+    from npec_rig import captures
+
+    path = database.captures_for_experiment(experiment_id)[index]["path"]
+    captures.photo_file(path).write_bytes(b"this is not a JPEG")
+    return path
+
+
+@needs_ffmpeg
+def test_an_unreadable_photo_is_left_out_of_the_video_counted_and_named(experiment):
+    from tests.helpers import turned_tray_photo
+
+    for i in range(3):
+        turned_tray_photo(experiment, START + i * timedelta(hours=1))
+    broken = _break_photo(experiment, 1)
+
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "ready", progress
+    # 3 photos, 1 unreadable: 2 frames.
+    assert _probe(timelapse.video_file(video_id))["frames"] == 2
+    assert progress["unreadable"] == 1
+    assert [p["path"] for p in progress["unreadable_photos"]] == [broken]
+    assert list((timelapse.videos_root() / video_id).glob("tray-*.part")) == []
+
+
+@needs_ffmpeg
+def test_with_the_first_photo_unreadable_the_video_starts_at_the_next_one_at_full_size(experiment):
+    from tests.helpers import turned_tray_photo
+
+    for i in range(3):
+        turned_tray_photo(experiment, START + i * timedelta(hours=1))
+    broken = _break_photo(experiment, 0)
+
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "ready", progress
+    video = _probe(timelapse.video_file(video_id))
+    # 3 photos, the first unreadable: 2 frames, the tray at 2 px/mm, 610 px across, label under it.
+    assert video["frames"] == 2
+    assert video["width"] == 610 and video["height"] > 732
+    assert [p["path"] for p in progress["unreadable_photos"]] == [broken]
+
+
+def _truncate_photo(experiment_id: int, index: int) -> str:
+    """Cut the JPEG of the experiment's photo `index` (oldest first) to half, as a photo half
+    written: its header, and so its size, still reads; its pixels do not. Its path."""
+    from npec_rig import captures
+
+    path = database.captures_for_experiment(experiment_id)[index]["path"]
+    file = captures.photo_file(path)
+    file.write_bytes(file.read_bytes()[: file.stat().st_size // 2])
+    return path
+
+
+@needs_ffmpeg
+def test_a_tray_with_every_photo_unreadable_fails_in_words_and_leaves_no_part_file(experiment):
+    from tests.helpers import turned_tray_photo
+
+    for i in range(2):
+        turned_tray_photo(experiment, START + i * timedelta(hours=1))
+        _truncate_photo(experiment, i)
+
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "failed"
+    assert "could not be read" in progress["error"]
+    assert progress["unreadable"] == 2
+    assert list((timelapse.videos_root() / video_id).glob("*.part")) == []
+
+
+@needs_ffmpeg
+def test_all_trays_leaves_out_a_tray_whose_every_photo_is_unreadable(experiment):
+    import zipfile
+
+    from tests.helpers import turned_tray_photo
+
+    turned_tray_photo(experiment, START, tray_id=4)
+    turned_tray_photo(experiment, START + timedelta(minutes=1), tray_id=7)
+    turned_tray_photo(experiment, START + timedelta(hours=1), tray_id=4)
+    for i in (0, 2):
+        _truncate_photo(experiment, i)  # both photos of tray 4, one in each hour
+
+    video_id = timelapse.start({**_video_request(experiment), "tray_id": "all"})["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "ready", progress
+    with zipfile.ZipFile(timelapse.video_file(video_id)) as z:
+        assert z.namelist() == ["tray-7.mp4"]
+    assert progress["unreadable"] == 2
+    assert list((timelapse.videos_root() / video_id).glob("*.part")) == []
+
+
+@needs_ffmpeg
+def test_a_photo_missing_from_disk_is_left_out_and_its_reason_says_so(experiment):
+    from npec_rig import captures
+    from tests.helpers import turned_tray_photo
+
+    for i in range(2):
+        turned_tray_photo(experiment, START + i * timedelta(hours=1))
+    gone = database.captures_for_experiment(experiment)[0]["path"]
+    captures.photo_file(gone).unlink()
+
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "ready", progress
+    assert [p["path"] for p in progress["unreadable_photos"]] == [gone]
+    assert "not on disk" in progress["unreadable_photos"][0]["reason"]
+
+
+@needs_ffmpeg
+def test_a_frame_failing_for_a_reason_other_than_its_photo_fails_the_video_and_names_it(experiment):
+    # A reading whose stored area is not a number: its label's words fail before its photo is
+    # opened, a fault of the data or the code, not of the photo.
+    _photo(experiment, START, area="not a number")
+
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "failed"
+    assert progress["error"].startswith("TypeError: ")
+    assert "could not be read" not in progress["error"]
+
+
+@needs_ffmpeg
+def test_a_part_file_that_cannot_be_removed_does_not_hide_why_the_video_failed(experiment, monkeypatch, tmp_path):
+    _photo(experiment, START, area="not a number")  # fails the video, as above
+    release = tmp_path / "release-video"
+    monkeypatch.setenv(timelapse.TEST_HOLD_ENV, str(release))
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    # A directory by a part file's name: removing it as a file raises IsADirectoryError.
+    (timelapse.videos_root() / video_id / "stray.part").mkdir()
+    release.touch()
+
+    progress = _finished(video_id)
+
+    assert progress["state"] == "failed"
+    assert progress["error"].startswith("TypeError: "), progress["error"]
+
+
+@needs_ffmpeg
+@pytest.mark.parametrize("spoil", ["junk", "half written"])
+def test_all_trays_counts_a_bad_photo_of_many_trays_once(experiment, spoil):
+    import zipfile
+
+    from tests.helpers import turned_tray_photo
+
+    # Two photos, each of trays 4, 7 and 9; the first one spoilt.
+    for i in range(2):
+        turned_tray_photo(experiment, START + i * timedelta(hours=1), tray_id=4, others=(7, 9))
+    broken = (_break_photo if spoil == "junk" else _truncate_photo)(experiment, 0)
+
+    video_id = timelapse.start({**_video_request(experiment), "tray_id": "all"})["id"]
+    progress = _finished(video_id)
+
+    assert progress["state"] == "ready", progress
+    with zipfile.ZipFile(timelapse.video_file(video_id)) as z:
+        assert z.namelist() == ["tray-4.mp4", "tray-7.mp4", "tray-9.mp4"]
+    # One photo could not be read: counted and named once, not once per tray in it.
+    assert progress["unreadable"] == 1
+    assert [p["path"] for p in progress["unreadable_photos"]] == [broken]
+
+
+# A stand-in ffmpeg (agreed for this test only, #503): it writes its PID, creates the output file
+# it was given (its last argument), then breaks the way `how` says. `exec` keeps the shell's PID
+# for the sleep, so the PID written is the process that must be stopped.
+FAKE_FFMPEG = {
+    "exits 1": 'echo "fake ffmpeg: encoder broke" >&2\nexit 1\n',
+    "closes its input and hangs": "exec 0<&-\nexec sleep 300\n",
+    # Keeps its input open and never reads it: a frame (1.8 MB) never fits in the pipe.
+    "takes no frame and hangs": "exec sleep 300\n",
+    # Reads every frame to the end, then never exits, its error output still open.
+    "takes every frame and never finishes": "cat > /dev/null\nexec sleep 300\n",
+}
+
+
+@needs_ffmpeg
+@pytest.mark.parametrize("how", FAKE_FFMPEG)
+def test_ffmpeg_failing_after_a_frame_is_stopped_and_its_part_file_removed(experiment, monkeypatch, tmp_path, how):
+    import os
+
+    from tests.helpers import turned_tray_photo
+
+    turned_tray_photo(experiment, START)
+    pid_file = tmp_path / "ffmpeg.pid"
+    fake = tmp_path / "bin" / "ffmpeg"
+    fake.parent.mkdir()
+    fake.write_text(f'#!/bin/sh\necho $$ > "{pid_file}"\nfor last; do :; done\n: > "$last"\n{FAKE_FFMPEG[how]}')
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{fake.parent}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv(timelapse.TEST_STALL_ENV, "1")  # a timing constant: 1 s, not FFMPEG_STALL_S
+
+    video_id = timelapse.start(_video_request(experiment))["id"]
+    progress = _finished(video_id, timeout_s=20)
+
+    assert progress["state"] == "failed"
+    assert "ffmpeg" in progress["error"]
+    assert list((timelapse.videos_root() / video_id).glob("*.part")) == []
+    # Stopped and waited for by the time the failure is reported: not running, not a zombie.
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pid_file.read_text()), 0)

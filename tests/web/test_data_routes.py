@@ -1,6 +1,5 @@
 """The Data page and its time lapse videos (#64)."""
 import json
-import shutil
 import subprocess
 import time
 from datetime import datetime, timedelta, timezone
@@ -10,12 +9,11 @@ from fastapi.testclient import TestClient
 
 from npec_rig import database
 from npec_rig.app import app
-from tests.helpers import turned_tray_photo
+from tests.helpers import needs_ffmpeg, turned_tray_photo
 
 pytestmark = pytest.mark.unit
 
 START = datetime(2027, 3, 1, 10, 0, tzinfo=timezone.utc)
-needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is not installed")
 
 
 @pytest.fixture
@@ -195,3 +193,16 @@ def test_the_data_page_offers_all_trays_in_the_tray_list(experiment):
 
     # In the Tray list's options (ui.field_button data-options), after the trays themselves.
     assert '["7", "Tray 7", ""], ["all", "All trays", "one video per tray, in one zip"]]' in page
+
+
+@pytest.mark.parametrize("other_job, words", [
+    (lambda e: database.create_export(e, now=START.isoformat()), "An export is being prepared"),
+    (lambda e: database.create_reprocess_run(e, total=10, started_at=START.isoformat()), "A Reprocess is running"),
+])
+def test_a_video_asked_for_during_an_export_or_a_reprocess_is_refused_with_the_reason(experiment, other_job, words):
+    other_job(experiment)
+
+    refused = TestClient(app).post("/api/data/timelapse", json=_request(experiment))
+
+    assert refused.status_code == 409
+    assert words in refused.json()["detail"]
