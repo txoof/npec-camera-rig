@@ -538,13 +538,18 @@ def videos_root() -> Path:
 
 def disk_refusal(estimate_bytes: int, free_bytes: int, now: float) -> str | None:
     """Why a video of about `estimate_bytes` is refused, or None: it would leave the data folder
-    the yellow disk warning's days or fewer at the rate photos are written (#307, Aaron, 2026-11-20)."""
+    the yellow disk warning's days or fewer at the rate photos are written (#307, Aaron, 2026-11-20),
+    or the yellow warning's free space or less (#506). The reason names whichever warns."""
     after = health.disk_headroom(health.db_path().parent, free_bytes - estimate_bytes, now)
     if after["level"] == "ok":
         return None
-    days = max(after["days_left"], 0.0)
-    return (f"This video would leave about {days:.0f} days of disk space, and the rig warns at "
-            f"{health.DISK_YELLOW_DAYS:.0f}. Choose fewer frames or a shorter time.")
+    if after["level_reason"] == "days" and after["days_left"] is not None:
+        days = max(after["days_left"], 0.0)
+        return (f"This video would leave about {days:.0f} days of disk space, and the rig warns at "
+                f"{health.DISK_YELLOW_DAYS:.0f}. Choose fewer frames or a shorter time.")
+    gb = max(after["free_bytes"], 0) / 1e9
+    return (f"This video would leave about {gb:.1f} GB of disk space, and the rig warns under "
+            f"{health.DISK_YELLOW_BYTES / 1e9:.0f} GB. Choose fewer frames or a shorter time.")
 
 
 def estimate_bytes(request: dict) -> int:

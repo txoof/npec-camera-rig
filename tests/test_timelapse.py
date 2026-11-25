@@ -11,6 +11,7 @@ from tests.helpers import banded_validation, needs_ffmpeg, turned_tray_photo
 
 pytestmark = pytest.mark.unit
 
+GB = 1_000_000_000
 START = datetime(2027, 3, 1, 10, 0, tzinfo=timezone.utc)
 # A tray outline and its 2 x 2 cells in full-size photo pixels, A1 at the bottom left: enough for a frame to be drawn.
 OUTLINE = [[100, 100], [400, 100], [400, 460], [100, 460]]
@@ -230,15 +231,47 @@ def test_a_video_that_would_leave_five_days_of_disk_or_fewer_is_refused_with_the
 
     from npec_rig import health
 
-    # 10 MB written in the data folder in the last day: about 10 MB a day.
-    (health.db_path().parent / "photos-today.bin").write_bytes(b"\0" * 10_000_000)
-    mb = 1_000_000
+    # 10 GB written in the data folder in the last day: about 10 GB a day. GB, as on a rig, so the
+    # free space floor (#506) does not decide; the file is sparse, so it takes almost no disk.
+    with open(health.db_path().parent / "photos-today.bin", "wb") as f:
+        f.truncate(10 * GB)
 
-    refused = timelapse.disk_refusal(60 * mb, 100 * mb, time.time())  # leaves 40 MB, about 4 days
-    allowed = timelapse.disk_refusal(10 * mb, 100 * mb, time.time())  # leaves 90 MB, about 9 days
+    refused = timelapse.disk_refusal(60 * GB, 100 * GB, time.time())  # leaves 40 GB, about 4 days
+    allowed = timelapse.disk_refusal(10 * GB, 100 * GB, time.time())  # leaves 90 GB, about 9 days
 
     assert refused is not None and "4 days" in refused
     assert allowed is None
+
+
+def test_a_video_that_would_leave_under_5_gb_is_refused_in_gb_with_nothing_written_today():
+    import time
+
+    # #506: nothing written in the last day, so no days figure; 6 GB free, the video 2 GB.
+    refused = timelapse.disk_refusal(2 * GB, 6 * GB, time.time())
+
+    assert refused is not None and "4.0 GB" in refused
+
+
+def test_a_video_that_would_leave_under_5_gb_is_refused_in_gb_even_with_many_days_left():
+    import time
+
+    from npec_rig import health
+
+    # 10 MB written in the last day: 4 GB left is about 400 days, but under the 5 GB floor.
+    with open(health.db_path().parent / "photos-today.bin", "wb") as f:
+        f.truncate(10_000_000)
+
+    refused = timelapse.disk_refusal(2 * GB, 6 * GB, time.time())
+
+    assert refused is not None and "4.0 GB" in refused and "days" not in refused
+
+
+def test_a_video_bigger_than_the_free_space_is_refused_without_a_negative_figure():
+    import time
+
+    refused = timelapse.disk_refusal(8 * GB, 6 * GB, time.time())  # 2 GB more than is free
+
+    assert refused is not None and "about 0.0 GB" in refused and "-" not in refused
 
 
 

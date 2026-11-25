@@ -68,7 +68,7 @@ def facts() -> dict:
         "ai_accelerator": any(Path("/dev").glob("hailo*")),
         "disk": {
             "free_bytes": disk.free, "total_bytes": disk.total,
-            **{k: headroom[k] for k in ("bytes_per_day", "days_left", "level")},
+            **{k: headroom[k] for k in ("bytes_per_day", "days_left", "level", "level_reason")},
         },
         "pi_up_s": read_uptime_s(),
         "app_started_at": starts[-1] if starts else None,
@@ -97,9 +97,12 @@ _DISK_CHIPS = {"ok": ("ok", "Enough"), "yellow": ("warn", "Low"), "red": ("fail"
 
 
 def _disk_left(disk: dict) -> dict:
-    """Days of space left at the rate files were written in the last day (health.disk_status)."""
+    """Days of space left at the rate files were written in the last day (health.disk_status), or
+    the free space itself when that is what the warning is about (#506)."""
     days = disk["days_left"]
-    value = (f"About {days:,.0f} days at the last day's rate" if days is not None
+    value = (f"About {disk['free_bytes'] / 1e9:.1f} GB free"
+             if disk["level"] != "ok" and disk["level_reason"] == "bytes"
+             else f"About {days:,.0f} days at the last day's rate" if days is not None
              else "No files written in the last day")
     return {"label": "Disk space left", "value": value, "status": _DISK_CHIPS[disk["level"]]}
 

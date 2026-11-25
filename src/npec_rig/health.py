@@ -336,9 +336,18 @@ def camera_health() -> dict:
 DISK_YELLOW_DAYS = 5.0
 DISK_RED_DAYS = 3.0
 DISK_RATE_WINDOW_S = 24 * 3600.0
+# A floor on free space itself (#506): with nothing written in the last day there is no rate and
+# no days figure, yet a nearly full disk must still warn, and a video must not fill it. Aaron's
+# decision (2026-11-25), not a measurement. Decimal GB, as the About page shows them.
+DISK_RED_BYTES = 3_000_000_000
+DISK_YELLOW_BYTES = 5_000_000_000
+_LEVELS = ("ok", "yellow", "red")
 
 
-def _bytes_written_since(root: Path, since: float) -> int:
+def _bytes_written_since(root: Path, since: float, skip: set[Path]) -> int:
+    """Bytes in files under `root` changed since `since`, leaving out the files in `skip`
+    (resolved paths; only a file with one of their names is resolved, so the scan stays fast)."""
+    names = {p.name for p in skip}
     total = 0
     stack = [root]
     while stack:
@@ -348,6 +357,8 @@ def _bytes_written_since(root: Path, since: float) -> int:
                     if e.is_dir(follow_symlinks=False):
                         stack.append(Path(e.path))
                     elif e.is_file(follow_symlinks=False):
+                        if e.name in names and Path(e.path).resolve() in skip:
+                            continue
                         st = e.stat(follow_symlinks=False)
                         if st.st_mtime >= since:
                             total += st.st_size
@@ -357,16 +368,32 @@ def _bytes_written_since(root: Path, since: float) -> int:
 
 
 def disk_headroom(root: Path, free_bytes: int, now: float) -> dict:
-    """Days of free space left at the rate files were written under `root` in the last day."""
-    per_day = _bytes_written_since(root, now - DISK_RATE_WINDOW_S) * 86400.0 / DISK_RATE_WINDOW_S
+    """Days of free space left at the rate files were written under `root` in the last day, and
+    the warning level: the worse of the days level and the free space level (#506).
+    `level_reason` says which one set it, "days" or "bytes"."""
+    # rig.db and its journals are rewritten all day, not added to: their whole size is not a rate.
+    db = db_path()
+    skip = {p.resolve() for p in (db, db.with_name(db.name + "-wal"), db.with_name(db.name + "-shm"))}
+    per_day = _bytes_written_since(root, now - DISK_RATE_WINDOW_S, skip) * 86400.0 / DISK_RATE_WINDOW_S
     days = free_bytes / per_day if per_day else None
-    level = (
+    days_level = (
         "ok" if days is None
         else "red" if days <= DISK_RED_DAYS
         else "yellow" if days <= DISK_YELLOW_DAYS
         else "ok"
     )
-    return {"free_bytes": free_bytes, "bytes_per_day": per_day, "days_left": days, "level": level}
+    bytes_level = (
+        "red" if free_bytes <= DISK_RED_BYTES
+        else "yellow" if free_bytes <= DISK_YELLOW_BYTES
+        else "ok"
+    )
+    # The worse of the two; on a tie, free space is the reason given.
+    if _LEVELS.index(days_level) > _LEVELS.index(bytes_level):
+        level, reason = days_level, "days"
+    else:
+        level, reason = bytes_level, "bytes"
+    return {"free_bytes": free_bytes, "bytes_per_day": per_day, "days_left": days, "level": level,
+            "level_reason": reason}
 
 
 # The status line asks every 10 s; the folder holds about 100 000 files on production (0.2 s to
