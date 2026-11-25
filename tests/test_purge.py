@@ -173,7 +173,8 @@ def test_purge_deletes_the_photos_exclusions() -> None:
 
 def test_a_data_only_export_is_not_complete(monkeypatch: pytest.MonkeyPatch) -> None:
     """#368 item 2: only an export holding every photo lets Purge through, or photos that were
-    never exported could be deleted."""
+    never exported could be deleted. Nothing covers the one photo at all (#482): `photos_added`,
+    the reason that also covers a plain late photo."""
     from fastapi.testclient import TestClient
 
     from npec_rig.app import app
@@ -184,4 +185,149 @@ def test_a_data_only_export_is_not_complete(monkeypatch: pytest.MonkeyPatch) -> 
     assert client.get(f"/api/exports/{started['id']}/parts/0").status_code == 200
     refused = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
     assert refused.status_code == 409
-    assert "no complete export" in refused.json()["detail"]
+    detail = refused.json()["detail"]
+    assert detail["reason"] == "photos_added"
+    assert detail["count"] == 1
+    assert "export again" in detail["message"]
+
+
+# --- The reason-coded Purge check (#482) -----------------------------------------------------
+
+
+def test_purge_needs_part_0_even_when_every_photo_part_was_sent() -> None:
+    """Every photo part sent is not enough (review of #378, finding 3): part 0 itself, from a Data
+    export, is required too."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    experiment = _stopped()
+    client = TestClient(app)
+    export = export_built(client, experiment["id"])
+    for part in export["parts"]:
+        if part["n"] != 0:
+            assert client.get(f"/api/exports/{export['id']}/parts/{part['n']}").status_code == 200
+
+    refused = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
+
+    assert refused.status_code == 409
+    assert refused.json()["detail"]["reason"] == "part0_unsent"
+    assert client.get("/api/experiments").json()[0]["complete_export"] is None
+
+
+def test_purge_blocks_on_a_photo_captured_after_the_export() -> None:
+    """A photo captured after the export's list was fixed is not covered by it, however recently
+    the export itself was made (#482)."""
+    experiment = _stopped()
+    _exported(experiment)
+    captures.start_experiment(experiment["id"])
+    _array, _record = captures.take_photo("capture")
+    del _array
+    captures.stop_experiment(experiment["id"])
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    refused = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
+
+    assert refused.status_code == 409
+    detail = refused.json()["detail"]
+    assert detail["reason"] == "photos_added"
+    assert detail["count"] == 1
+
+
+def test_purge_blocks_when_a_photo_missing_at_build_has_since_appeared() -> None:
+    """A photo whose file could not be found when the export was built is not covered, even once
+    the file is there again: there is no record it was ever verifiably sent (#482)."""
+    experiment = _stopped(photos=2)
+    photos = database.captures_for_experiment(experiment["id"])
+    stem = captures.experiments_root() / photos[0]["path"].removeprefix("experiments/")
+    saved_jpg, saved_json = stem.with_suffix(".jpg").read_bytes(), stem.with_suffix(".json").read_bytes()
+    stem.with_suffix(".jpg").unlink()
+    stem.with_suffix(".json").unlink()
+
+    export = _exported(experiment)
+    # Still missing: nothing on the rig this export failed to cover, so Purge is not blocked by it
+    # (database.complete_export, the simpler check captures.purge_experiment makes on its own, is
+    # more conservative and always wants every file recorded sent; exports.purge_status, behind
+    # the route below, is the one this test is about).
+    assert exports.purge_status(experiment["id"])["blocked"] is None
+
+    stem.with_suffix(".jpg").write_bytes(saved_jpg)
+    stem.with_suffix(".json").write_bytes(saved_json)
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    refused = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
+
+    assert refused.status_code == 409
+    detail = refused.json()["detail"]
+    assert detail["reason"] == "photos_added"
+    assert detail["count"] == 1
+    assert export["id"]  # the export itself is otherwise unaffected
+
+
+def test_a_photo_missing_only_its_jpg_is_not_covered_by_its_json_having_sent() -> None:
+    """A capture's .jpg and .json are two separate stored files (#482 review): if only the .jpg
+    was missing when the export was built, its .json being sent must not count as the capture
+    being covered. Forgiven while the .jpg stays missing (nothing to lose), but if it reappears
+    before Purge, Purge must refuse, exactly as for a photo missing entirely."""
+    experiment = _stopped(photos=2)
+    photos = database.captures_for_experiment(experiment["id"])
+    stem = captures.experiments_root() / photos[0]["path"].removeprefix("experiments/")
+    saved_jpg = stem.with_suffix(".jpg").read_bytes()
+    stem.with_suffix(".jpg").unlink()  # only the .jpg is missing; its .json stays and is sent
+
+    _exported(experiment)
+    assert exports.purge_status(experiment["id"])["blocked"] is None  # forgiven: still missing
+
+    stem.with_suffix(".jpg").write_bytes(saved_jpg)  # it reappears before Purge
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    refused = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
+
+    assert refused.status_code == 409
+    detail = refused.json()["detail"]
+    assert detail["reason"] == "photos_added"
+    assert detail["count"] == 1
+
+
+def test_purge_blocks_after_a_reprocess_finished_since_the_export_even_if_stopped() -> None:
+    """A Reprocess changes readings already inside a downloaded zip (#483); Purge refuses once one
+    has finished since, whole or stopped partway through."""
+    experiment = _stopped()
+    export = _exported(experiment)
+    run_id = database.create_reprocess_run(experiment["id"], total=1, started_at="2026-11-25T00:00:00+00:00")
+    database.update_reprocess_run(run_id, done=1, failed=0, state="stopped", finished_at="2099-01-01T00:00:00+00:00")
+
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    client = TestClient(app)
+    refused = client.post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
+
+    assert refused.status_code == 409
+    assert refused.json()["detail"]["reason"] == "reprocessed"
+    assert export["id"]
+
+
+def test_purge_succeeds_with_a_photo_never_read_for_trays() -> None:
+    """A photo the scheduler has not read for trays yet (no calibration set up, ordinary for a
+    running experiment) does not block Purge: only verifiably sent data does (#482)."""
+    experiment = _stopped()
+    assert database.tray_reading_count(experiment["id"]) == 0  # nothing has read this photo yet
+    _exported(experiment)
+
+    purged = captures.purge_experiment(experiment["id"], confirm="Drought")
+
+    assert purged["state"] == "purged"

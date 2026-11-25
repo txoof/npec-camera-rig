@@ -55,7 +55,8 @@ window.dataExport = (() => {
     if (ex.removed_at) return "<p>No export on the rig.</p>" + completeText(x);
     const held = ex.photos && ex.data ? "" : ex.photos ? " (photos only)" : " (data only)";
     if (ex.photo_parts !== null) {
-      return `<p>Export${held} ${utc(ex.started_at)}: ${1 + ex.photo_parts} parts.</p>` + completeText(x);
+      const total = 1 + ex.photo_parts;
+      return `<p>Export${held} ${utc(ex.started_at)}: ${total} ${total === 1 ? "part" : "parts"}.</p>` + completeText(x);
     }
     return `<p>Export${held} ${utc(ex.finished_at)}, ${ex.files} files, ${size(ex.bytes)}: `
       + `<a href="/api/exports/${ex.id}/download">Download</a></p>` + completeText(x);
@@ -91,8 +92,9 @@ window.dataExport = (() => {
   // Purge through.
   async function exportAsk(e) {
     // Expected download sizes, an order of magnitude only (Aaron, 2026-11-06): so the user
-    // knows before starting whether the download takes minutes or hours. Nothing is stored on
-    // the rig (#368), so there is no free space to check.
+    // knows before starting whether the download takes minutes or hours. No copy of the photo
+    // bytes is made ahead of a download (#368): the export's own tables (#482) record only each
+    // file's name and size, so there is no on-rig copy of the photos to check free space against.
     let sizes = null;
     try {
       sizes = await call("GET", `/api/experiments/${e.id}/export-size`);
@@ -224,8 +226,11 @@ window.dataExport = (() => {
       setTimeout(redraw, 0);  // after the browser has taken the link
     };
     clearInterval(ask.timer);
+    let busy = false;  // skip a tick already in flight, so polls never overlap
     ask.timer = setInterval(async () => {
       if (!ask.dialog.open) { clearInterval(ask.timer); ask.body.onclick = null; return; }
+      if (busy) return;
+      busy = true;
       try {
         const was = x.finished_at;
         x = await call("GET", `/api/exports/${exportId}`);
@@ -233,6 +238,8 @@ window.dataExport = (() => {
         if (!was && x.finished_at) refresh();
       } catch (err) {
         // Keep the list as it is; the next read may work.
+      } finally {
+        busy = false;
       }
     }, 2000);
   }

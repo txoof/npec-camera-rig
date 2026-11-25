@@ -135,11 +135,61 @@ def test_the_parts_hold_everything_and_each_manifest_checks(monkeypatch: pytest.
     assert rows[0]["validation"] == _SESSION
 
 
+def test_a_missing_photo_file_is_named_in_the_readme() -> None:
+    """#482 change 3: a photo's .jpg gone from the rig since it was taken is left out of its photo
+    part (captures.csv still names it), and the README says, by name, that it was not found."""
+    from npec_rig.captures import experiments_root
+
+    experiment = _stopped_experiment_with_photos(2)
+    gone = database.captures_for_experiment(experiment["id"])[-1]
+    stem = experiments_root() / gone["path"].removeprefix("experiments/")
+    stem.with_suffix(".jpg").unlink()
+    export, files = _unzipped(experiment["id"])
+    readme = files["README.txt"].decode()
+    rows = list(csv.DictReader(io.StringIO(files["captures.csv"].decode())))
+    assert f"{stem.name}.jpg" not in " ".join(files)  # left out of the parts
+    assert f"{stem.name}.jpg" in " ".join(r["file"] for r in rows)  # but captures.csv still names it
+    assert stem.name in readme, "README does not say the photo is missing"
+    assert len(export["parts"]) >= 1
+
+
+def test_the_readme_counts_the_photos_not_yet_read() -> None:
+    """#482, decided (Aaron, 2026-11-23): the README states how many photos had no tray reading
+    yet when the export was built. Informational only -- it is not read in this test, so both
+    count; it must not block the export or change what is in the parts."""
+    experiment = _stopped_experiment_with_photos(2)
+    _export, files = _unzipped(experiment["id"])
+    readme = files["README.txt"].decode()
+    assert "Photos not yet read: 2" in readme
+
+
 def test_an_export_cut_off_by_a_restart_is_marked_failed() -> None:
     experiment = _stopped_experiment_with_photos(0)
     export = database.create_export(experiment["id"], now="t")
     assert database.fail_unfinished_exports(now="t2") == 1
     assert database.get_export(export["id"])["error"].startswith("the app restarted")
+
+
+def test_an_error_reading_the_fixed_photo_list_still_marks_the_export_failed() -> None:
+    """#482 review: the fixed photo list and the photo-part packing are read before the try block
+    that marks a failed build. An error there must still fail the export, not leave it stuck
+    "being prepared" forever and blocking every later export of the experiment."""
+    experiment = _stopped_experiment_with_photos(1)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("disk read failed")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(exports, "_build_parts", boom)
+        export = exports.start_export(experiment["id"])
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and database.get_export(export["id"])["finished_at"] is None:
+            time.sleep(0.02)
+    failed = database.get_export(export["id"])
+    assert failed["finished_at"] is not None, 'the export was left stuck "being prepared"'
+    assert "disk read failed" in failed["error"]
+    again = exports.start_export(experiment["id"])  # not blocked by the failed one
+    assert again["id"] != export["id"]
 
 
 def test_export_and_download_through_the_page_routes() -> None:
@@ -508,6 +558,19 @@ def test_an_export_lists_its_parts_each_under_the_part_size(monkeypatch: pytest.
     assert all(p["bytes"] <= 2 * max(sizes) * 1.01 + 10_000 for p in photo_parts)
 
 
+def test_the_readme_names_every_part(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#482 finding 4: the README named a fixed "1 zip files, part00 to part00" for every export
+    with photos (#437/#442's bug). With several parts, it must say how many there really are."""
+    experiment = _stopped_experiment_with_photos(5)
+    sizes = _photo_bytes(experiment)
+    monkeypatch.setattr(exports, "PART_BYTES", 2 * max(sizes))
+    export, files = _unzipped(experiment["id"])
+    assert len(export["parts"]) == 4  # part 0 + 3 photo parts, from the same split as above
+    readme = files["README.txt"].decode()
+    assert "This export comes in 4 zip files, part00 to part03." in readme
+    assert "1 zip files, part00 to part00" not in readme
+
+
 def test_each_part_announces_its_exact_size(monkeypatch: pytest.MonkeyPatch) -> None:
     """B2: the browser shows progress from Content-Length (Aaron tried Chrome and Firefox,
     2026-11-06), so a part's must equal what is sent, and the parts list gives the same size.
@@ -545,20 +608,115 @@ def test_a_running_experiments_parts_stay_the_same_as_photos_come(monkeypatch: p
 
 def test_purge_needs_every_photo_part_sent_in_full(monkeypatch: pytest.MonkeyPatch) -> None:
     """B4: an export in parts is complete only when every photo part was sent to its last byte; a
-    download broken off part way does not count."""
+    download broken off part way does not count. Part 0 is also needed (#482): downloaded first,
+    so this test is about the photo parts alone."""
     experiment = _stopped_experiment_with_photos(2)
     monkeypatch.setattr(exports, "PART_BYTES", max(_photo_bytes(experiment)))
     client = _client()
     export = export_built(client, experiment['id'])
     assert [p["n"] for p in export["parts"]] == [0, 1, 2]
+    client.get(f"/api/exports/{export['id']}/parts/0")
     client.get(f"/api/exports/{export['id']}/parts/1")
     _name, _length, body = exports.part_download(export["id"], 2)
     next(body)
     body.close()  # broken off after the first piece
     assert database.complete_export(experiment["id"]) is None
-    assert [p["sent"] for p in client.get(f"/api/exports/{export['id']}").json()["parts"]] == [False, True, False]
+    assert [p["sent"] for p in client.get(f"/api/exports/{export['id']}").json()["parts"]] == [True, True, False]
     client.get(f"/api/exports/{export['id']}/parts/2")
     assert database.complete_export(experiment["id"])["id"] == export["id"]
+
+
+def test_a_late_adopted_photos_row_does_not_join_the_frozen_parts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#482 (review of #378, finding 1): a photo saved to disk while rig.db stayed locked (#439),
+    whose row is only added afterwards by `adopt_unrecorded_photos`, must not retroactively join
+    an export's parts even though its taken_at is early enough: the list is fixed once, at build."""
+    from npec_rig import settings
+    from npec_rig.camera import CameraManager
+    from tests.helpers import lock_held
+
+    experiment = captures.start_experiment(captures.create_experiment(name="Drought")["id"])
+    _array, _record = captures.take_photo("capture")
+    del _array
+    CameraManager.instance()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+    with lock_held(1.0):
+        _array, record = captures.take_photo("capture")
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    assert record["capture_id"] is None  # the photo is on disk, its row is not yet
+
+    export = export_built(_client(), experiment["id"])
+    assert len(export["parts"]) == 2  # part 0 + one photo part: only the first photo had a row
+
+    assert captures.adopt_unrecorded_photos(experiment, {record["date"]}).added == 1
+    assert database.captures_by_path([record["path"]])  # the row now exists, with an early taken_at
+
+    again = exports.export_with_parts(export["id"])
+    assert again["parts"] == export["parts"]
+    _name, _length, body = exports.part_download(export["id"], 1)
+    names = {n.split("/", 1)[1] for n in zipfile.ZipFile(io.BytesIO(b"".join(body))).namelist()}
+    first_photo = database.captures_for_experiment(experiment["id"])[0]["path"].split("/stills/", 1)[-1]
+    assert names == {f"stills/{first_photo}.jpg", f"stills/{first_photo}.json", "MANIFEST-part01.sha256"}
+
+
+def test_a_photo_parts_files_agree_with_captures_csv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#482: the same fixed list is used for captures.csv and the photo parts, so the two never
+    disagree on which photos the export holds."""
+    experiment = _stopped_experiment_with_photos(3)
+    monkeypatch.setattr(exports, "PART_BYTES", max(_photo_bytes(experiment)))
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["captures.csv"].decode())))
+    assert {r["file"] for r in rows} == {name for name in files if name.startswith("stills/") and name.endswith(".jpg")}
+
+
+def test_a_part_download_409s_when_its_photo_is_deleted_after_build(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#482 (review of #378, finding 1): a part's files are the stored list, not recomputed; one
+    missing since the export was built is refused rather than silently sent as a different zip."""
+    experiment = _stopped_experiment_with_photos(1)
+    export = export_built(_client(), experiment["id"])
+    row = database.export_part_files(export["id"], 1)[0]
+    (captures.experiments_root() / database.get_experiment(experiment["id"])["folder"] / row["name"]).unlink()
+
+    with pytest.raises(ExperimentError, match="changed on the rig"):
+        exports.part_download(export["id"], 1)
+
+    assert database.parts_sent(export["id"]) == set()
+
+
+def test_a_part_download_409s_when_its_photo_shrinks_after_build() -> None:
+    """As above, a file still present but a different size than when the export was built."""
+    experiment = _stopped_experiment_with_photos(1)
+    export = export_built(_client(), experiment["id"])
+    row = database.export_part_files(export["id"], 1)[0]
+    path = captures.experiments_root() / database.get_experiment(experiment["id"])["folder"] / row["name"]
+    path.write_bytes(path.read_bytes()[:-1])
+
+    with pytest.raises(ExperimentError, match="changed on the rig"):
+        exports.part_download(export["id"], 1)
+
+    assert database.parts_sent(export["id"]) == set()
+
+
+def test_part_download_records_sent_only_once_the_full_length_was_actually_read() -> None:
+    """#482 (review of #378, finding 6): "sent" is recorded by the bytes actually handed on, not
+    merely once the last chunk was yielded; a file that shrinks while the body is being read gives
+    fewer bytes than the announced length, and must not count as sent."""
+    experiment = _stopped_experiment_with_photos(1)
+    export = export_built(_client(), experiment["id"])
+    _name, length, body = exports.part_download(export["id"], 0)
+    path = exports.zip_path(database.get_export(export["id"]))
+    original = path.read_bytes()
+    path.write_bytes(original[: length // 2])  # shrinks the file the body is mid-read of
+
+    read = b"".join(body)
+
+    assert len(read) < length
+    assert database.parts_sent(export["id"]) == set()
+
+    path.write_bytes(original)
+    _name, length, body = exports.part_download(export["id"], 0)
+    read = b"".join(body)
+    assert len(read) == length
+    assert database.parts_sent(export["id"]) == {0}
 
 
 def test_the_export_says_from_when_a_trays_cell_names_may_be_swapped() -> None:
