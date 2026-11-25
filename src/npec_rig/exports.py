@@ -14,9 +14,19 @@ stopped, and the page may be closed meanwhile; the experiment's older data files
 a new one is done. Parts 1 and on hold the photos, at most PART_BYTES each, a photo always with
 its record, each zipped while it downloads, straight from the photos, so the rig needs no free
 space for them and a half-full card can still be downloaded. Every part unzips into the same
-folder and holds its own checksum list, MANIFEST-partNN.sha256 (`sha256sum -c` in that folder). A
-part sent in full is recorded, and an export with the photos is complete for Purge once every
-photo part was sent in full.
+folder and holds its own checksum list, MANIFEST-partNN.sha256 (`sha256sum -c` in that folder).
+
+The experiment's photo rows are read exactly once, at the start of the build, and that one list is
+used for captures.csv, the readings and the photo parts (#482): a photo whose row appears only
+later (adopted, #439, or saved while the build was already running) never joins a part already
+fixed. The list each part actually holds, with every file's size and capture id, is written to
+`export_part_file` then, so a download reads the stored list rather than recomputing it from disk;
+it refuses with 409, recording nothing sent, when a stored file has gone missing or changed size
+since. A part is recorded sent once the bytes actually handed to the download equal its exact
+length, not merely once the last chunk was yielded. Purge (`purge_status` below) checks every
+current capture row against this stored list of one export whose part 0 was also sent from a Data
+export, and refuses, with a short reason, when a photo is not covered or a Reprocess has run
+since.
 """
 
 from __future__ import annotations
