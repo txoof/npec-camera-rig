@@ -499,14 +499,25 @@ metrology log backs it.
 - **Soil hidden under mats** (*added 2026-11-17*, metrology log 39, a development check). With mats
   over nearly all the soil, the tray's soil level can land on the leaves' edge pixels instead, and
   grow from leaf cores then left out most of each leaf: tray 1 of experiment 18 read about a tenth of
-  its area on 3,438 photos, with nothing on the page. Since #373 the rig uses its usual cutoff there
-  and marks the tray "soil hidden: usual leaf cutoff used"; Reprocess grows those photos again. Soil
-  that turns green, the case the soil level was built for, has not been seen on production, so the
-  level at which the rig should warn of it is still a decision, not a measurement. Checked by eye
+  its area on 3,438 photos, with nothing on the page. Since #373 the rig used its usual cutoff there
+  and marked the tray "soil hidden"; Reprocess grows those photos again. Checked by eye
   on 15 more flagged plant-tray photos (*2026-11-20*, metrology log 39.2): the usual cutoff marked no
   soil, mat or tray, and still missed parts of leaves on every photo; on tray 5's 3 counted photos it
   came within 4% of the same tray an hour before, against about half as saved. Reprocess as it is
   also grows benchmark trays again, so the saved readings wait for a limited Reprocess (#444).
+- **Soil turning green, not under mats** (*added 2026-11-25*, metrology log 50, a decision plus a
+  placeholder, not a measurement). The case the previous entry called "not seen on production" was
+  seen: plant-tray soil rose from -0.155 to -0.085 between 16 and 23 Nov, about 0.04 a week, heading
+  toward the top-bin threshold the mats case above also lands in. Until #486, the two cases were not
+  told apart: any tray landing in the top bin, mat-covered or merely green, got the mats-covered
+  treatment (the usual cutoff, marked "soil hidden"), which can read a green soil's whole surface as
+  plant. #486 tells them apart by how much of the tray is blue, not by the soil colour alone: a tray
+  counts as hidden only when blue covers most of it (`GROWN_BLUE_COVERAGE_MIN`); otherwise the
+  soil-based cutoff is kept and the tray is marked "soil looks unusually green" instead, with its
+  area unaffected. **The 50% threshold is a placeholder, not yet measured**, chosen to make the fix
+  testable; "most of the tray" still needs setting from stored photos with and without mats (logs 39
+  and 42), per metrology log 50. A tray whose true blue coverage sits near 50% is not yet covered by
+  a measurement either way.
 - **Soil-only trays** (*added 2026-11-20*, metrology log 42, a development check). Grow from leaf
   cores reads a tray of bare soil close to 0: a daily median of at most 17 mm² and at most 64 mm² in
   any single photo (under 0.1% of a tray), on two soils and two rigs, where the fixed green cutoff

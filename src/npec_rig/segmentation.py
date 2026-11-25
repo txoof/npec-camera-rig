@@ -82,12 +82,19 @@ GROWN_SOIL_BIN = 0.01  # the soil level is the peak of the greenness histogram i
 GROWN_SOIL_SMOOTH_TAPS = 13  # smoothed with a Gaussian of this many taps,
 GROWN_SOIL_SMOOTH_SIGMA_BINS = 2.0  # this wide in bins,
 GROWN_SOIL_MAX = 0.05  # taken over bin centres below this
-# A soil level in the histogram's top bin is no soil level: blue mats hide the soil and the pixels
-# left beside the leaves outnumber it, so the lower cutoff would rise into the leaves (tray 1 of
-# Potato Plants v001 read 326 mm2 for about 3,500, metrology log 39). The floor is used, and the
-# tray marked SOIL_HIDDEN (Aaron, 2026-11-17).
+# A soil level in the histogram's top bin used to always mean "no soil level": blue mats hide the
+# soil and the pixels left beside the leaves outnumber it, so the lower cutoff would rise into the
+# leaves (tray 1 of Potato Plants v001 read 326 mm2 for about 3,500, metrology log 39). But soil
+# merely a little greener than usual lands in the same top bin with no mats anywhere, and wrongly
+# got the same treatment, reading the whole soil surface as plant (issue #486). Soil now counts as
+# hidden only when blue covers most of the tray (GROWN_BLUE_COVERAGE_MIN); a top-bin level found
+# without that keeps the soil-based cutoff and is marked SOIL_GREEN instead (Aaron, 2026-11-25).
 GROWN_SOIL_HIDDEN = GROWN_SOIL_MAX - GROWN_SOIL_BIN
-SOIL_HIDDEN = "soil hidden: usual leaf cutoff used"
+# "Most of the tray": a placeholder decision, not yet a measurement. Aaron, 2026-11-25: to be set
+# from stored photos with and without mats (metrology logs 39 and 42), method written up first.
+GROWN_BLUE_COVERAGE_MIN = 0.5
+SOIL_HIDDEN = "mats covering soil; area measured with a less precise fallback"
+SOIL_GREEN = "soil looks unusually green; plant area unaffected"
 GROWN_BLUE_MARGIN = 0  # blue plastic: blue above red and green by more than this (0 to 255 values)
 GROWN_TAG_ENLARGE = 1.6  # the tray tag's square, enlarged this many times about its centre, is no plant
 GROWN_WHITE_MIN = 140  # white paper: every channel above this,
@@ -99,13 +106,18 @@ GROWN_WHITE_WIDEN_PX = 61  # widened by a square this many pixels wide, is no pl
 @dataclass(frozen=True)
 class GrownPlant:
     """One tray box's plant by `grow_from_cores`: the mask, the soil level found and the lower
-    cutoff used (soil level None: no soil to find it from, the floor is used). `soil_hidden`: the
-    soil level found lies in the histogram's top bin, so the floor was used instead."""
+    cutoff used (soil level None: no soil to find it from, the floor is used). `blue_coverage`:
+    the fraction of the tray's countable area, leaf left out, that is blue. `soil_hidden`: blue
+    covers most of the tray, so the floor was used instead of the soil level found. `soil_green`:
+    the soil level found lies in the histogram's top bin, but blue does not cover most of the
+    tray, so the soil-based cutoff was kept anyway."""
 
     mask: np.ndarray
     soil_level: float | None
     lower_cutoff: float
     soil_hidden: bool = False
+    blue_coverage: float = 0.0
+    soil_green: bool = False
 
 
 def grow_from_cores(
@@ -154,8 +166,17 @@ def grow_from_cores(
         cv2.fillPoly(no_plant, [np.round(centre + GROWN_TAG_ENLARGE * (c - centre)).astype(np.int32).reshape(-1, 1, 2)], 1)
     sel = cv2.bitwise_and(cv2.compare(no_plant, 0, cv2.CMP_EQ), inside.view(np.uint8) * np.uint8(255))
     del no_plant
+    # How much of the tray is blue mat, a growing leaf left out so its own growth never changes the
+    # reading (#486): the fraction of the countable area (inside the tray, not tag or paper, not a
+    # leaf core) that is not notblue.
+    countable = cv2.bitwise_and(sel, cv2.bitwise_not(core))
+    countable_n = cv2.countNonZero(countable)
+    blue_coverage = 0.0 if countable_n == 0 else (
+        cv2.countNonZero(cv2.bitwise_and(countable, cv2.bitwise_not(notblue))) / countable_n)
+    del countable
     soil_level = _soil_level(_greenness_table(), _counts(g, red_blue, cv2.bitwise_and(sel, notblue)))
-    hidden = soil_hidden(soil_level)
+    hidden = soil_hidden(soil_level, blue_coverage)
+    green = soil_green(soil_level, blue_coverage)
     if lower_cutoff is None:
         lower_cutoff = GROWN_FLOOR if soil_level is None or hidden else max(GROWN_FLOOR, soil_level + GROWN_GAP)
     low = cv2.bitwise_and(cv2.bitwise_and(_greener(g, red_blue, lower_cutoff), notblue), sel)
@@ -164,7 +185,9 @@ def grow_from_cores(
     seeded = np.zeros(n, dtype=bool)
     seeded[labels[cv2.bitwise_and(core, sel) > 0]] = True
     seeded[0] = False
-    return GrownPlant(_pieces(labels, stats, np.flatnonzero(seeded)) > 0, soil_level, float(lower_cutoff), hidden)
+    return GrownPlant(
+        _pieces(labels, stats, np.flatnonzero(seeded)) > 0, soil_level, float(lower_cutoff),
+        hidden, blue_coverage, green)
 
 
 def _greener(g: np.ndarray, red_blue: np.ndarray, cutoff: float) -> np.ndarray:
@@ -236,31 +259,58 @@ def _greenness_table() -> np.ndarray:
     return _GREENNESS
 
 
-def grow_trays(rgb: np.ndarray, trays) -> tuple[np.ndarray, list[tuple[float | None, float | None]]]:
+def grow_trays(rgb: np.ndarray, trays) -> tuple[np.ndarray, list[tuple[float | None, float | None, float | None]]]:
     """`grow_from_cores` for each tray of full-size photo `rgb`, tray box by tray box: `trays` as
     (outline, tag corners) pairs in full-size pixels, the tag corners a list of each tray tag's
     four corners. The whole photo's mask, each tray's plant within its outline (touching trays'
-    plant in one mask, counted once by `measure_trays`), and each tray's soil level and lower
-    cutoff, in their order; (None, None) for a tray outside the photo."""
+    plant in one mask, counted once by `measure_trays`), and each tray's soil level, lower cutoff
+    and blue coverage, in their order; (None, None, None) for a tray outside the photo."""
     mask = np.zeros(rgb.shape[:2], dtype=bool)
     levels = []
     for outline, tag_corners in trays:
         box = _box(mask, outline)
         if box is None:
-            levels.append((None, None))
+            levels.append((None, None, None))
             continue
         x0, y0, x1, y1 = box
         own = [np.asarray(c, dtype=np.float64) - [x0, y0] for c in tag_corners]
         grown = grow_from_cores(rgb[y0:y1, x0:x1], _inside(box, outline), own)
         mask[y0:y1, x0:x1] |= grown.mask
-        levels.append((grown.soil_level, grown.lower_cutoff))
+        levels.append((grown.soil_level, grown.lower_cutoff, grown.blue_coverage))
     return mask, levels
 
 
-def soil_hidden(soil_level: float | None) -> bool:
-    """Whether a tray's soil level found lies in the histogram's top bin, so it is no soil level
-    and the floor is used (GROWN_SOIL_HIDDEN)."""
+def soil_reads_high(soil_level: float | None) -> bool:
+    """Whether a tray's soil level found lies in the histogram's top bin (GROWN_SOIL_HIDDEN): on
+    its own, no longer enough to call the soil hidden (#486) — only a reason to look at
+    `blue_coverage` too (`soil_hidden`), or, once a tray's cutoff is in hand, at whether it was
+    actually set to the floor (`tray_readings._at_the_floor`)."""
     return soil_level is not None and soil_level >= GROWN_SOIL_HIDDEN - 1e-9
+
+
+def soil_hidden(soil_level: float | None, blue_coverage: float | None) -> bool:
+    """Whether the soil counts as hidden: a soil level in the histogram's top bin
+    (`soil_reads_high`, never true with nothing to measure, such as a tray with no soil sampled
+    at all) and, when it was measured, blue covering most of the tray (GROWN_BLUE_COVERAGE_MIN).
+    `blue_coverage` is None only for a reading saved before #486 and recounted from its saved mask,
+    never for a freshly grown one: for those, the old rule alone stands in its place — so an old
+    reading is never reclassified as SOIL_GREEN without a fresh measurement to justify it
+    (`soil_green`). Used to decide the lower cutoff as a tray is grown; once it is grown, a saved
+    reading's actual cutoff is the more reliable record of what was decided
+    (`tray_readings._at_the_floor`), immune to `GROWN_BLUE_COVERAGE_MIN` being retuned later."""
+    if not soil_reads_high(soil_level):
+        return False
+    if blue_coverage is None:
+        return True
+    return blue_coverage >= GROWN_BLUE_COVERAGE_MIN
+
+
+def soil_green(soil_level: float | None, blue_coverage: float | None) -> bool:
+    """Whether a tray's soil level found lies in the histogram's top bin while it does not count
+    as hidden (`soil_hidden`): never true together with it. Always False when `blue_coverage` is
+    None (a reading saved before #486, recounted, not regrown): `soil_hidden` alone already
+    accounts for every such reading via the old rule."""
+    return soil_reads_high(soil_level) and not soil_hidden(soil_level, blue_coverage)
 
 
 def _soil_level(table: np.ndarray, counts: np.ndarray) -> float | None:

@@ -56,7 +56,7 @@ def _grow(box, inside, tag_corners, loose_gr, loose_max_px):
         cv2.fillPoly(no_plant, [np.round(centre + S.GROWN_TAG_ENLARGE * (c - centre)).astype(np.int32).reshape(-1, 1, 2)], 1)
     sel = cv2.bitwise_and(cv2.compare(no_plant, 0, cv2.CMP_EQ), inside.view(np.uint8) * np.uint8(255))
     soil_level = S._soil_level(S._greenness_table(), S._counts(g, red_blue, cv2.bitwise_and(sel, notblue)))
-    hidden = S.soil_hidden(soil_level)
+    hidden = S.soil_hidden(soil_level, None)  # this script does not measure blue coverage (#486)
     lower_cutoff = S.GROWN_FLOOR if soil_level is None or hidden else max(S.GROWN_FLOOR, soil_level + S.GROWN_GAP)
     low = cv2.bitwise_and(cv2.bitwise_and(S._greener(g, red_blue, lower_cutoff), notblue), sel)
     n, labels, stats, _ = cv2.connectedComponentsWithStats(low, connectivity=8, ltype=cv2.CV_32S)
