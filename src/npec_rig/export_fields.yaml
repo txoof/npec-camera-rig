@@ -179,12 +179,15 @@ package:
             description: >-
               What to check about this tray in this photo, as the Gallery shows it. Several are
               separated by " | ". Examples: "mats covering soil; area measured with a less precise
-              fallback" (blue mats cover the soil, so the plant area is measured with a less precise
-              fallback), "soil looks unusually green; plant area unaffected", and "names may be
-              swapped since 2026-11-03 10:15 UTC" (the tray's tag lay turned on the tray in that
-              photo or an earlier one, so its cell names may be swapped from then on; see
-              names_unsure_since in cell-readings.csv). A warning does not remove the tray's areas:
-              they still count unless not_counted says otherwise. Empty when there is none.
+              fallback" (blue mats cover the soil, so grow from leaf cores uses the lowest cutoff,
+              -0.045, and its area is less precise; the fixed green cutoff area is unaffected),
+              "soil looks unusually green; plant area unaffected", and "names may be swapped since
+              2026-11-03 10:15 UTC" (the tray's tag first lay turned on the tray in the photo taken
+              at that time, so its cell names may be swapped from then on; the same time as
+              names_unsure_since in cell-readings.csv). Some warnings repeat partly_outside,
+              not_counted or cells_flagged in words. A warning does not remove the tray's areas:
+              they count unless not_counted says otherwise or the area is empty. Empty when there
+              is none.
           - name: photo_excluded
             type: string
             description: >-
@@ -227,7 +230,7 @@ package:
             type: number
             description: >-
               For checking only. The greenness a pixel needed to join a leaf in this tray: the soil
-              level plus 0.07, never below -0.045. It is -0.045 when the soil was covered by blue
+              level plus 0.07, never below -0.045. It is also -0.045 when the soil was covered by blue
               mats (warnings then holds the mats text) or when no soil level was found
               (grow_from_leaf_cores_soil_level is empty).
           - name: cells_flagged

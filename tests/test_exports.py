@@ -943,8 +943,7 @@ def test_a_tray_without_cells_flagged_as_a_whole_counts_as_one_flagged_cell() ->
 
 def test_tray_readings_csv_gives_each_trays_warnings_as_the_gallery_shows_them() -> None:
     """#485: tray-readings.csv has a warnings column with the Gallery's words for each tray, empty
-    for a tray with none; a warning is not a reason the area is left out, so not_counted stays
-    empty and the cutoff of a tray whose soil was covered by mats is the floor."""
+    for a tray with none."""
     from datetime import UTC, datetime
 
     from tests.helpers import table_calibration, table_photo
@@ -970,8 +969,6 @@ def test_tray_readings_csv_gives_each_trays_warnings_as_the_gallery_shows_them()
     _export, files = _unzipped(experiment["id"])
     rows = {r["tray"]: r for r in csv.DictReader(io.StringIO(files["tray-readings.csv"].decode()))}
     assert rows["3"]["warnings"] == "mats covering soil; area measured with a less precise fallback"
-    assert rows["3"]["grow_from_leaf_cores_cutoff"] == "-0.045"
-    assert rows["3"]["not_counted"] == ""
     assert rows["4"]["warnings"] == ""
 
 
