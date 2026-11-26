@@ -941,6 +941,64 @@ def test_a_tray_without_cells_flagged_as_a_whole_counts_as_one_flagged_cell() ->
     assert (row["cells_flagged"], row["cells_flagged_grown_area_mm2"]) == ("1", "700.0")
 
 
+def test_tray_readings_csv_gives_each_trays_warnings_as_the_gallery_shows_them() -> None:
+    """#485: tray-readings.csv has a warnings column with the Gallery's words for each tray, empty
+    for a tray with none."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Warned")["id"])
+    path = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), {3: "NW", 4: "NE"},
+                       areas={3: 900.0, 4: 900.0})
+    capture_id = database.captures_by_path([path])[path]["id"]
+    stored = database.tray_readings(capture_id)["trays"]
+    for tray in stored:
+        tray.update({"grown_method": "grow from leaf cores, core 0.07", "grown_area_mm2": 1000.0,
+                     "grown_plant_px": 100000, "grown_plant_centre_px": [10.0, 20.0],
+                     "grown_blue_coverage": 0.8 if tray["tray_id"] == 3 else 0.0,
+                     "grown_soil_level": 0.045 if tray["tray_id"] == 3 else -0.03,
+                     "grown_lower_cutoff": -0.045 if tray["tray_id"] == 3 else 0.04})
+        # The reading saved the warning when the photo was read; loading keeps what was saved.
+        if tray["tray_id"] == 3:
+            tray["warnings"] = ["mats covering soil; area measured with a less precise fallback"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=stored)
+    captures.stop_experiment(experiment["id"])
+
+    _export, files = _unzipped(experiment["id"])
+    rows = {r["tray"]: r for r in csv.DictReader(io.StringIO(files["tray-readings.csv"].decode()))}
+    assert rows["3"]["warnings"] == "mats covering soil; area measured with a less precise fallback"
+    assert rows["4"]["warnings"] == ""
+
+
+def test_tray_readings_csv_replaces_the_turned_tag_warning_by_the_time_names_may_be_swapped() -> None:
+    """#485: a tray whose tag turned in an earlier photo shows, in each photo from then on, the
+    Gallery's "names may be swapped since" words in place of "tag turned on tray", joined to its
+    other warnings by " | "."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Swapped")["id"])
+    paths = [table_photo(experiment["id"], datetime(2026, 11, day, tzinfo=UTC), {3: "NW"}, areas={3: 100.0})
+             for day in (3, 4)]
+    saved = (["tag turned on tray"], ["tag turned on tray", "soil looks unusually green; plant area unaffected"])
+    for path, warnings in zip(paths, saved, strict=True):
+        capture_id = database.captures_by_path([path])[path]["id"]
+        [tray] = database.tray_readings(capture_id)["trays"]
+        tray["warnings"] = warnings
+        database.record_tray_readings(capture_id, read_at="t", status="read", trays=[tray])
+    captures.stop_experiment(experiment["id"])
+
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["tray-readings.csv"].decode())))
+    assert [r["warnings"] for r in rows] == [
+        "names may be swapped since 2026-11-03 00:00 UTC",
+        "soil looks unusually green; plant area unaffected | names may be swapped since 2026-11-03 00:00 UTC"]
+
+
 # --- One job that reads every photo at a time: an export waits for a time lapse video (#503) ----
 
 @needs_ffmpeg
