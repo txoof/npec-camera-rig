@@ -12,7 +12,6 @@ Usage: compare_runs.py <reference rig.db> <candidate rig.db> <paths file> [toler
 
 import sqlite3
 import sys
-from collections import Counter
 
 DEFAULT_TOLERANCE = 0.01  # mm², the pass rule in log 41
 
@@ -34,10 +33,13 @@ def load(db_path: str, paths: list[str]) -> tuple[dict, dict]:
         ):
             trays[(path, r["tray_id"], r["slot"])] = (r["area_mm2"], r["grown_area_mm2"])
         for r in conn.execute(
-            "SELECT tray_id, cell, area_mm2, grown_area_mm2 FROM cell_reading WHERE capture_id = ?",
+            "SELECT tray_id, cell, centre_x_px, area_mm2, grown_area_mm2 FROM cell_reading"
+            " WHERE capture_id = ?",
             (capture_id,),
         ):
-            cells[(path, r["tray_id"], r["cell"])] = (r["area_mm2"], r["grown_area_mm2"])
+            # centre_x_px disambiguates two trays carrying one tag in the same photo, the way
+            # `slot` does for tray readings: without it the second tray overwrites the first.
+            cells[(path, r["tray_id"], r["cell"], r["centre_x_px"])] = (r["area_mm2"], r["grown_area_mm2"])
     conn.close()
     return trays, cells
 
@@ -96,10 +98,14 @@ def main() -> int:
     n_t, out_t, worst_t = compare("tray readings", ref_trays, cand_trays, tolerance)
     n_c, out_c, worst_c = compare("cell readings", ref_cells, cand_cells, tolerance)
 
-    passed = not out_t and not out_c
+    # A reading present on one side only is a failure too: a worker that died before writing a
+    # photo leaves the candidate short, and counting only differing values would pass it.
+    missing = len(set(ref_trays) ^ set(cand_trays)) + len(set(ref_cells) ^ set(cand_cells))
+    passed = not out_t and not out_c and missing == 0
     print("\n" + "=" * 60)
     print(f"tray readings compared: {n_t}, outside: {len(out_t)}, worst {worst_t:.6f} mm²")
     print(f"cell readings compared: {n_c}, outside: {len(out_c)}, worst {worst_c:.6f} mm²")
+    print(f"readings on one side only: {missing}")
     print("RESULT:", "PASS — every reading within tolerance" if passed else "FAIL — readings outside tolerance listed above")
     return 0 if passed else 1
 

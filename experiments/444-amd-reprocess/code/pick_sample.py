@@ -66,10 +66,22 @@ def main() -> int:
 
     # 3. The trays that matter: 1 (plants under mats), 7/8/10 (benchmark objects).
     for tray_id in WANT_TRAYS:
-        for row in conn.execute(
-            "SELECT DISTINCT capture_id FROM tray_reading WHERE tray_id = ? LIMIT 40", (tray_id,)
-        ):
+        # Scoped to this experiment's finished photos, and limited AFTER that filter: tray_reading
+        # has no experiment column, so an unscoped LIMIT takes rows from whatever the scan reaches
+        # first and can return nothing for the trays the sample is meant to cover.
+        wanted = conn.execute(
+            "SELECT DISTINCT tr.capture_id FROM tray_reading tr JOIN capture ca ON ca.id = tr.capture_id"
+            " WHERE tr.tray_id = ? AND ca.experiment_id = ? AND ca.purpose = 'capture'"
+            " ORDER BY ca.taken_at", (tray_id, experiment_id),
+        )
+        taken = 0
+        for row in wanted:
+            if row["capture_id"] not in done_ids:
+                continue
             take(row["capture_id"], f"tray-{tray_id}")
+            taken += 1
+            if taken >= 40:
+                break
 
     # 4. Lit and dark photos, by the exposure the camera used.
     lit_dark = sorted(pi_done, key=lambda c: (c["exposure_us"] or 0))

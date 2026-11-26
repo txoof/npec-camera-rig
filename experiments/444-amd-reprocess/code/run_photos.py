@@ -2,7 +2,8 @@
 
 Calls `tray_readings.read_photo(path, reuse_mask=True)` -- the exact call `_run_reprocess` makes
 for every photo -- so the method is the app's, unchanged. Used for Part 3's sample and, with
-`--slice i/n`, for Part 4's parallel workers (each worker takes every n-th photo).
+`--slice i/n`, for Part 4's parallel workers (each worker takes contiguous block i of n -- NOT
+every n-th photo: see the comment in main()).
 
 Progress is appended to the log as JSON lines so it can be read while the run is going.
 

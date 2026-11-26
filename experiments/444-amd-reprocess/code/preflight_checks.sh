@@ -11,11 +11,6 @@ PORT="${PORT:-8000}"
 BASE="http://127.0.0.1:${PORT}"
 FAIL=0
 
-check() { # name, command producing 0 on pass
-  local name="$1"; shift
-  if "$@"; then echo "PASS  $name"; else echo "FAIL  $name"; FAIL=1; fi
-}
-
 echo "== pytest (unit tier) =="
 (cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT/src" "$REPO_ROOT/.venv/bin/python" -m pytest -q)
 [ $? -eq 0 ] && echo "PASS  pytest" || { echo "FAIL  pytest"; FAIL=1; }

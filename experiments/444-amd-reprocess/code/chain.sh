@@ -7,7 +7,9 @@ B=/home/txoof/temp.nobackup/444-amd-reprocess/ac-testing
 D=$B/var/lib/npec-rig
 PY=$REPO/.venv/bin/python
 WORKERS=6
-MEM_KB=6000000          # 6 GB per worker ceiling; 6 x 6 = 36 GB cap, actual peak is far lower
+# No `ulimit -v`: it caps virtual address space, and OpenCV's thread pools reserve large virtual
+# arenas. A 6 GB cap aborted a worker at ~600 MB resident (metrology log 41.1). Size the run by
+# the worker count instead, against the free memory `status.sh` reports.
 LOG=$B/chain.log
 
 say() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" >> "$LOG"; }
@@ -33,7 +35,7 @@ export NPEC_RIG_MASKS_DIR="$S/masks"
 export NPEC_RIG_DERIVED_DIR="$S/derived"
 
 for i in $(seq 0 $((WORKERS - 1))); do
-  ( ulimit -v $MEM_KB; "$PY" experiments/444-amd-reprocess/code/run_photos.py \
+  ( "$PY" experiments/444-amd-reprocess/code/run_photos.py \
       "$B/part3/sample-paths.txt" "$B/part3/parallel.jsonl" --slice "$i/$WORKERS" \
       >> "$B/part3/parallel.stdout" 2>&1 ) &
 done
@@ -54,7 +56,8 @@ import sqlite3, sys
 def rows(db):
     c = sqlite3.connect(db)
     try:
-        return sorted(c.execute("SELECT capture_id, tray_id, reason FROM exclusion").fetchall())
+        return sorted(c.execute(
+            "SELECT capture_id, name, norm_e, limit_fraction FROM exclusion").fetchall())
     except sqlite3.OperationalError as e:
         return f"no exclusion table: {e}"
 a, b = rows(sys.argv[1]), rows(sys.argv[2])
@@ -91,7 +94,7 @@ export NPEC_RIG_DERIVED_DIR="$D/derived"
 mkdir -p "$D/derived"
 
 for i in $(seq 0 $((WORKERS - 1))); do
-  ( ulimit -v $MEM_KB; "$PY" experiments/444-amd-reprocess/code/run_photos.py \
+  ( "$PY" experiments/444-amd-reprocess/code/run_photos.py \
       "$B/all-paths.txt" "$B/full-run.jsonl" --slice "$i/$WORKERS" \
       >> "$B/full-run.stdout" 2>&1 ) &
 done

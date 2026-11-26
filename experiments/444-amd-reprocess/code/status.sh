@@ -18,12 +18,17 @@ prog = [r for r in rows if r.get("event") == "progress"]
 fails = [r for r in rows if r.get("event") == "failed"]
 ends = [r for r in rows if r.get("event") == "end"]
 total = sum(r["photos"] for r in starts)
-# Each progress record means that worker has completed another 10 photos.
-done = 10 * len(prog)
+# A progress record is written every 10 photos AND once more at the end of each slice, so the
+# count is per-slice rather than 10 x records: take each finished slice's own total, and 10 x the
+# records of the slices still going.
+done = sum(e["done"] for e in ends)
+running_records = len(prog) - sum(1 for e in ends)   # the final record of each finished slice
+done += 10 * max(0, running_records - sum(e["done"] // 10 for e in ends))
+done = min(done, total) if total else done
 rates = [r["s_per_photo"] for r in prog[-6:]]
 avg = sum(rates) / len(rates) if rates else 0
 workers = len(starts) - len(ends)
-left = total - done
+left = max(0, total - done)
 eta_s = (left * avg / workers) if workers and avg else 0
 eta = datetime.fromtimestamp(time.time() + eta_s, UTC).strftime("%H:%M UTC") if eta_s else "?"
 pct = 100 * done / total if total else 0
