@@ -11774,19 +11774,36 @@ experiment never changes the reading, that is blue. "Hidden" (`segmentation.soil
 both a soil level in the top bin and `blue_coverage >= GROWN_BLUE_COVERAGE_MIN`; a top-bin level
 found without that keeps the soil-based cutoff and is marked `SOIL_GREEN` instead
 (`segmentation.soil_green`). Every tray's `blue_coverage` is saved with its reading (`rig.db`
-`tray_reading.grown_blue_coverage`, migration 27) so a reading made under the old, soil-level-only
-rule is never silently reclassified: `blue_coverage` is `NULL` for every reading saved before this
-change, and only such a reading falls back to the old rule.
+`tray_reading.grown_blue_coverage`, migration 28 — renumbered from 27 after #518 merged its own
+migration 27 first) so a reading made under the old, soil-level-only rule is never silently
+reclassified: `blue_coverage` is `NULL` for every reading saved before this change, and only such a
+reading falls back to the old rule.
+
+**Amendment (code review of #486, 2026-11-26): an empty cell, or the tray itself, is not a mat.**
+Checked against real photos (a development 2 x 2 tray, no mats anywhere): blue coverage over the
+whole tray read 0.52 to 0.56, above the threshold, purely from the tray's own blue plastic — a 2 x 2
+tray's walls and rim are about 57% of it, a 4 x 5's about 37%, and an empty cell (no pot placed)
+shows its own blue bottom the same way a mat would. Neither can be told apart from a mat by colour
+alone (open since #424). Since a cell with no leaf core cannot grow any plant mask regardless of the
+cutoff chosen, excluding it from the measurement costs no plant-area accuracy: `blue_coverage` is
+now counted only inside cells that hold a core (`tray_placement.place_cells`'s geometry, the tag's
+own cell left out), falling back to the whole tray when none does (a tray whose cells are not known,
+or none of them seeded yet). Known, accepted gaps, not fixed here: a neighbouring leaf overhanging
+into an empty cell still marks it as cored; a round pot's corners inside a square cell can still
+show the tray's blue even when planted.
 
 **What is still open.** `GROWN_BLUE_COVERAGE_MIN = 0.5` ("most of the tray") is a placeholder,
 chosen to make the fix testable, not measured. "Most of the tray" is to be set from stored photos
 with mats (logs 39 and 42) and without them; the method for that measurement is written up in this
-log, as its own numbered entry, before any photo is measured, per the usual rule. Until then, 0.5
-is a guess, not a result, and should not be cited as one.
+log, as its own numbered entry, before any photo is measured, per the usual rule. The cell-only
+restriction above changes what fraction 0.5 is measured against (walls and rim no longer count), so
+that measurement must use the same restriction, not the whole-tray fraction logs 39 and 42
+describe. Until then, 0.5 is a guess, not a result, and should not be cited as one.
 
-**Source.** Issue #486; the decision is Aaron, 2026-11-23 (issue #486, decision 3) and 2026-11-25
-(session following #480's review); the code is `src/npec_rig/segmentation.py`,
-`src/npec_rig/tray_readings.py`, `src/npec_rig/database.py`, tested in
-`tests/test_segmentation.py`, `tests/test_tray_readings.py`, `tests/test_database.py`,
+**Source.** Issue #486; the decision is Aaron, 2026-11-23 (issue #486, decision 3), 2026-11-25
+(session following #480's review) and 2026-11-26 (the cell amendment, found checking real
+development photos and reviewed by an Opus agent before and after coding); the code is
+`src/npec_rig/segmentation.py`, `src/npec_rig/tray_readings.py`, `src/npec_rig/database.py`, tested
+in `tests/test_segmentation.py`, `tests/test_tray_readings.py`, `tests/test_database.py`,
 `tests/test_timelapse.py` (confirming `SOIL_GREEN` stays off video frames, no source change
 needed), on branch `486-soil-looks-green`.

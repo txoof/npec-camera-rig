@@ -318,3 +318,41 @@ def test_grow_from_leaf_cores_keeps_the_soil_cutoff_when_green_soil_has_no_mats(
     assert grown.soil_level == pytest.approx(0.045, abs=1e-9)  # the top bin found is kept, not thrown away
     assert grown.lower_cutoff == pytest.approx(0.115, abs=1e-9)  # soil level (0.045) + the usual gap (0.07)
     assert grown.mask.sum() == 6000  # the leaf only: the soil stays out
+
+
+# #486 review: an empty cell's bottom is the tray's own blue plastic, showing straight through with
+# nothing covering it. A cell with no leaf core cannot grow a plant mask either way (nothing seeds
+# it), so blue coverage is now counted only inside cells that do hold a core, leaving an empty
+# cell's blue (or the walls and rim, outside every cell) out of it.
+CELL_A = ((0, 0), (200, 0), (200, 400), (0, 400))  # the west half of the box: planted, soil, a leaf
+CELL_B = ((200, 0), (400, 0), (400, 400), (200, 400))  # the east half: an empty cell, all blue
+
+
+def test_grow_from_leaf_cores_counts_blue_only_inside_cells_that_hold_a_core() -> None:
+    from npec_rig.segmentation import grow_from_cores
+
+    box = np.full((400, 400, 3), SOIL_LOW, dtype=np.uint8)  # west: soil
+    box[:, 200:400] = NOT_PLANT["blue tray"]  # east: an empty cell's blue bottom, no mats anywhere
+    box[100:200, 50:150] = PLANT["benchmark mint leaf"]  # the leaf, 10,000 px, inside the west cell
+
+    grown = grow_from_cores(box, np.ones((400, 400), dtype=bool), cells=[CELL_A, CELL_B])
+
+    # Without cells, this same box reads 80,000 blue px of 150,000 countable (160,000 - the 10,000 px
+    # leaf): 0.533. With cells, only the west cell counts (it holds the core): no blue there at all.
+    assert grown.blue_coverage == 0.0
+
+
+def test_grow_from_leaf_cores_still_counts_the_whole_tray_blue_when_no_cell_holds_a_core() -> None:
+    """Metrology log 39's tray is read before any cell grid is known for it (a 1 x 1 tray, or one
+    whose cells could not be placed): `cells` given but none of them holding a core must not read as
+    0 (nothing to compare against) — it falls back to today's whole-tray measurement."""
+    from npec_rig.segmentation import grow_from_cores
+
+    box = np.full((400, 400, 3), SOIL_LOW, dtype=np.uint8)  # west: soil, no leaf anywhere
+    box[:, 200:400] = NOT_PLANT["blue tray"]  # east: blue, no leaf either
+
+    without_cells = grow_from_cores(box, np.ones((400, 400), dtype=bool))
+    with_cells = grow_from_cores(box, np.ones((400, 400), dtype=bool), cells=[CELL_A, CELL_B])
+
+    assert without_cells.blue_coverage == pytest.approx(0.5, abs=1e-9)  # 80,000 of 160,000, no core anywhere
+    assert with_cells.blue_coverage == pytest.approx(0.5, abs=1e-9)  # the same: no cored cell to restrict to

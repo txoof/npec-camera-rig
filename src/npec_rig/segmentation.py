@@ -107,10 +107,12 @@ GROWN_WHITE_WIDEN_PX = 61  # widened by a square this many pixels wide, is no pl
 class GrownPlant:
     """One tray box's plant by `grow_from_cores`: the mask, the soil level found and the lower
     cutoff used (soil level None: no soil to find it from, the floor is used). `blue_coverage`:
-    the fraction of the tray's countable area, leaf left out, that is blue. `soil_hidden`: blue
-    covers most of the tray, so the floor was used instead of the soil level found. `soil_green`:
-    the soil level found lies in the histogram's top bin, but blue does not cover most of the
-    tray, so the soil-based cutoff was kept anyway."""
+    the fraction of the tray's countable area that is blue, a leaf core's own cell left out, and
+    any other cell holding one, so an empty cell's own blue bottom, and the tray's walls and rim,
+    are never read as a mat (#486); with no cell holding a core, or no cells known, the whole tray.
+    `soil_hidden`: blue covers most of the tray, so the floor was used instead of the soil level
+    found. `soil_green`: the soil level found lies in the histogram's top bin, but blue does not
+    cover most of the tray, so the soil-based cutoff was kept anyway."""
 
     mask: np.ndarray
     soil_level: float | None
@@ -122,7 +124,7 @@ class GrownPlant:
 
 def grow_from_cores(
     rgb: np.ndarray, inside: np.ndarray, tag_corners=(), lower_cutoff: float | None = None,
-    core_min: float = GROWN_CORE_MIN,
+    core_min: float = GROWN_CORE_MIN, cells=(),
 ) -> GrownPlant:
     """The plant in one tray box `rgb` (H x W x 3, R G B, 0 to 255), counted only where `inside`
     (H x W, the tray outline) is True and away from the tray tag (`tag_corners`: each detection's
@@ -130,7 +132,12 @@ def grow_from_cores(
     cutoff (joined side or corner, never through blue) count when they hold a leaf core. The lower
     cutoff is set from the soil level, the commonest greenness inside the tray below
     GROWN_SOIL_MAX, unless given. `core_min`: the core cutoff, GROWN_CORE_MIN unless given (the
-    reference drafts of metrology log 33 were drawn at 0.1)."""
+    reference drafts of metrology log 33 were drawn at 0.1). `cells`: each cell's four corners, in
+    the box's pixels (`tray_placement.place_cells`, the tag's own cell left out), when known: blue
+    coverage (#486) is then counted only inside cells holding a core, so an empty cell's own blue
+    bottom, or the tray's walls and rim (outside every cell), are never read as a mat; with no cell
+    holding a core (a tray whose cells are not known, or none of them seeded yet), counted over the
+    whole tray as when no cells are given."""
     import cv2
 
     # Whole numbers throughout: a pixel's greenness depends only on its green and on red plus
@@ -170,6 +177,20 @@ def grow_from_cores(
     # reading (#486): the fraction of the countable area (inside the tray, not tag or paper, not a
     # leaf core) that is not notblue.
     countable = cv2.bitwise_and(sel, cv2.bitwise_not(core))
+    if cells:
+        # Restricted further to cells that hold a core (#486 review): an empty cell's own blue
+        # bottom, and the tray's walls and rim (outside every cell), are not a mat and must not
+        # read as one. A tray with no cored cell (none placed, or none seeded yet) falls back to
+        # the whole tray below, the same as `cells` empty: nothing to restrict to.
+        cell_labels = np.zeros(countable.shape, dtype=np.int32)
+        for k, corners in enumerate(cells, start=1):
+            c = np.asarray(corners, dtype=np.float64)
+            cv2.fillPoly(cell_labels, [np.round(c).astype(np.int32).reshape(-1, 1, 2)], k)
+        cored = np.unique(cell_labels[cv2.bitwise_and(core, sel) > 0])
+        cored = cored[cored != 0]
+        if cored.size:
+            countable = cv2.bitwise_and(countable, np.isin(cell_labels, cored).view(np.uint8) * np.uint8(255))
+        del cell_labels
     countable_n = cv2.countNonZero(countable)
     blue_coverage = 0.0 if countable_n == 0 else (
         cv2.countNonZero(cv2.bitwise_and(countable, cv2.bitwise_not(notblue))) / countable_n)
@@ -259,22 +280,28 @@ def _greenness_table() -> np.ndarray:
     return _GREENNESS
 
 
-def grow_trays(rgb: np.ndarray, trays) -> tuple[np.ndarray, list[tuple[float | None, float | None, float | None]]]:
+def grow_trays(
+    rgb: np.ndarray, trays, cells=None,
+) -> tuple[np.ndarray, list[tuple[float | None, float | None, float | None]]]:
     """`grow_from_cores` for each tray of full-size photo `rgb`, tray box by tray box: `trays` as
     (outline, tag corners) pairs in full-size pixels, the tag corners a list of each tray tag's
-    four corners. The whole photo's mask, each tray's plant within its outline (touching trays'
-    plant in one mask, counted once by `measure_trays`), and each tray's soil level, lower cutoff
-    and blue coverage, in their order; (None, None, None) for a tray outside the photo."""
+    four corners. `cells`: each tray's cells' four corners in full-size pixels (the tag's own cell
+    left out), in the order of `trays`, when known (`tray_readings._segment`); None, or a tray with
+    none, for the whole tray as before (#486). The whole photo's mask, each tray's plant within its
+    outline (touching trays' plant in one mask, counted once by `measure_trays`), and each tray's
+    soil level, lower cutoff and blue coverage, in their order; (None, None, None) for a tray
+    outside the photo."""
     mask = np.zeros(rgb.shape[:2], dtype=bool)
     levels = []
-    for outline, tag_corners in trays:
+    for i, (outline, tag_corners) in enumerate(trays):
         box = _box(mask, outline)
         if box is None:
             levels.append((None, None, None))
             continue
         x0, y0, x1, y1 = box
         own = [np.asarray(c, dtype=np.float64) - [x0, y0] for c in tag_corners]
-        grown = grow_from_cores(rgb[y0:y1, x0:x1], _inside(box, outline), own)
+        own_cells = [np.asarray(c, dtype=np.float64) - [x0, y0] for c in (cells[i] if cells else ())]
+        grown = grow_from_cores(rgb[y0:y1, x0:x1], _inside(box, outline), own, cells=own_cells)
         mask[y0:y1, x0:x1] |= grown.mask
         levels.append((grown.soil_level, grown.lower_cutoff, grown.blue_coverage))
     return mask, levels

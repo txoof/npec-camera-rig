@@ -416,7 +416,7 @@ def _measures(
             if mask is None or grown is None or any(level is None or level[1] is None for level in levels):
                 raise NotReprocessed(f"{path}: a saved mask or the saved levels are missing")
         else:
-            mask, grown, levels = _segment(path, placed, tags, strict=strict)
+            mask, grown, levels = _segment(path, placed, tags, scale_field, strict=strict)
         # A tray with no cutoff (its box lay outside the photo) has no grown area (#483).
         if grown is not None and any(level[1] is None for level in levels):
             if strict:
@@ -667,13 +667,34 @@ def outside_mm(p: TrayPlacement, size: tuple[int, int]) -> float:
     return max(max(-x, x - w, -y, y - h, 0.0) for x, y in p.outline) / px_per_mm
 
 
+def _blue_coverage_cells(p: TrayPlacement, tags: list[TagDetection], scale_field) -> list:
+    """Each of `p`'s cells to count blue coverage over, the tag's own left out (#486, review of
+    #486): its own, lighter geometry, not `_cells`'s — no A1 bearing, no rig.db lookup, no
+    cross-photo tag check, only which squares exist and whether each holds a plant or the tag
+    (`tray_placement.place_cells` with no bearing gives the same squares as with one, differently
+    named only). Kept separate from `_measured_cells` so a failure placing them here, or in one
+    tray, costs only that tray's blue coverage (the whole tray as before, #486), never the fixed
+    cutoff's area this same photo still has to produce. Empty for a tray with no tag, one two trays
+    carry (#302), or whose cells cannot be placed."""
+    if p.tray_id is None or Counter(t.tag_id for t in tags)[p.tray_id] != 1:
+        return []
+    tag = next(t for t in tags if t.tag_id == p.tray_id)
+    try:
+        cells = place_cells(p, tag, scale_field)
+    except Exception:
+        logger.exception("Could not place tray %s's cells for blue coverage", p.tray_id)
+        return []
+    return [c.corners for c in cells if c.holds != "tag"]
+
+
 def _segment(
-    path: str, placed: list[TrayPlacement], tags: list[TagDetection], strict: bool = False,
-) -> tuple[np.ndarray, np.ndarray | None, list[tuple[float | None, float | None]] | None]:
+    path: str, placed: list[TrayPlacement], tags: list[TagDetection], scale_field, strict: bool = False,
+) -> tuple[np.ndarray, np.ndarray | None, list[tuple[float | None, float | None, float | None]] | None]:
     """New masks of photo `path`: the segmenter's and the one by grow from leaf cores of the trays
-    `placed`, each tray's tags from `tags`, with each tray's soil level and lower cutoff. Not
-    saved here: the caller saves both with the reading (`_stage_masks`, #483). No grown mask (None)
-    when grow from leaf cores fails; with `strict` (Reprocess) that raises `NotReprocessed`."""
+    `placed`, each tray's tags from `tags`, with each tray's soil level, lower cutoff and blue
+    coverage. Not saved here: the caller saves both with the reading (`_stage_masks`, #483). No
+    grown mask (None) when grow from leaf cores fails; with `strict` (Reprocess) that raises
+    `NotReprocessed`."""
     file = photo_file(path)
     if file is None:
         raise NotReprocessed(f"{path}: the photo is gone")
@@ -683,7 +704,9 @@ def _segment(
         mask = SEGMENTER.segment(rgb)
         try:
             corners = [[t.corners for t in tags if p.tray_id is not None and t.tag_id == p.tray_id] for p in placed]
-            grown, levels = segmentation.grow_trays(rgb, [(p.outline, c) for p, c in zip(placed, corners, strict=True)])
+            cells = [_blue_coverage_cells(p, tags, scale_field) for p in placed]
+            grown, levels = segmentation.grow_trays(
+                rgb, [(p.outline, c) for p, c in zip(placed, corners, strict=True)], cells=cells)
         except Exception as exc:
             if strict:
                 raise NotReprocessed(f"{path}: could not grow the plant from leaf cores: {exc!r}") from exc

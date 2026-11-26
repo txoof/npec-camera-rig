@@ -1193,6 +1193,52 @@ def test_reprocess_keeps_counting_a_soil_looks_green_reading_without_the_photo(m
     assert segmentation.SOIL_GREEN in tray["warnings"]
 
 
+# #486 review (2026-11-26): an empty cell's bottom is the tray's own blue plastic, and so are the
+# walls between cells — neither is a mat. A 2 x 2 tray (tag 80, type "2x2"), green soil (no mats)
+# in three of its four cells, the fourth (B1) genuinely empty (no pot, the bare blue tray bottom).
+# Cell corners here are `tray_placement.place_cells`'s own answer for this exact outline and tag,
+# worked out once by hand and fixed in the comments below, not recomputed by the test.
+# A1 x 405 to 1495, y 2662 to 3751 (planted, a leaf). A2 x 405 to 1495, y 1017 to 2106 (soil only).
+# B1 x 1785 to 2875, y 2662 to 3751 (empty: left blue). B2 x 1785 to 2875, y 1017 to 2106 (soil only).
+def _tray_with_an_empty_cell_scene(monkeypatch) -> None:
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB
+
+    one_tray_plant_scene(monkeypatch)
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[554:4214, 115:3165] = TRAY_BLUE  # the whole tray: walls, rim, and B1, stay blue
+            frame[2682:3731, 425:1475] = MAT_EDGE_RGB  # A1: soil, a little green, inset 20 px
+            frame[1037:2086, 425:1475] = MAT_EDGE_RGB  # A2: soil, no leaf
+            frame[2682:3731, 1805:2855] = MAT_EDGE_RGB  # B2: soil, no leaf
+            frame[2900:3200, 800:1100] = MINT_LEAF_RGB  # A1's leaf, 300 x 300 px inside it
+            return frame, metadata
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [_a1_tag(80, 1640.0, 2384.0)])
+    CameraManager.set_instance(CameraManager(Scene(width=4000, height=4400)))
+
+
+def test_a_2x2_trays_empty_cell_does_not_read_as_a_mat(monkeypatch) -> None:
+    """Without the cell fix, B1's blue bottom and the walls push blue coverage above the threshold
+    and the tray is wrongly marked soil hidden; the leaf's area then comes from the wrong (floor)
+    cutoff. With it, only A1 (the cell holding the leaf's core) counts towards blue coverage, which
+    has no blue in it at all: the tray is correctly marked soil looks green, its cutoff kept."""
+    from npec_rig import segmentation
+
+    _tray_with_an_empty_cell_scene(monkeypatch)
+    [tray] = tray_readings.read_photo(_photo())["trays"]
+
+    assert tray["grown_blue_coverage"] < segmentation.GROWN_BLUE_COVERAGE_MIN
+    assert segmentation.SOIL_GREEN in tray["warnings"]
+    assert segmentation.SOIL_HIDDEN not in tray["warnings"]
+    # The leaf alone, 300 x 300 px = 900 mm2: no pale edge drawn around it here, so JPEG ringing at
+    # its sharp border adds more than the usual 1% (other tests draw a pale edge to absorb this).
+    assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.08)
+
+
 def test_a_tray_whose_soil_is_hidden_under_mats_is_grown_from_the_floor_and_marked(monkeypatch) -> None:
     """The leaf with its pale edge, 340 x 340 px = 1156 mm2 at 10 px/mm, as on bare soil. A cutoff
     0.07 above the top bin (0.115) would leave the edge out: 900 mm2."""

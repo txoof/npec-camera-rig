@@ -514,10 +514,14 @@ metrology log backs it.
   plant. #486 tells them apart by how much of the tray is blue, not by the soil colour alone: a tray
   counts as hidden only when blue covers most of it (`GROWN_BLUE_COVERAGE_MIN`); otherwise the
   soil-based cutoff is kept and the tray is marked "soil looks unusually green" instead, with its
-  area unaffected. **The 50% threshold is a placeholder, not yet measured**, chosen to make the fix
-  testable; "most of the tray" still needs setting from stored photos with and without mats (logs 39
-  and 42), per metrology log 50. A tray whose true blue coverage sits near 50% is not yet covered by
-  a measurement either way.
+  area unaffected. Checked against real photos of a mat-free tray, the tray's own blue plastic (an
+  empty cell's bare bottom, the walls and rim — about 57% of a 2 x 2 tray, 37% of a 4 x 5) read the
+  same as a mat would, so blue coverage is counted only inside cells holding a leaf core, which
+  cannot cost plant-area accuracy (a coreless cell grows no mask regardless of the cutoff chosen).
+  **The 50% threshold is a placeholder, not yet measured**, chosen to make the fix testable; "most
+  of the tray" still needs setting from stored photos with and without mats (logs 39 and 42), now
+  against this same cell-only measure, per metrology log 50. A tray whose true blue coverage sits
+  near 50% is not yet covered by a measurement either way.
 - **Soil-only trays** (*added 2026-11-20*, metrology log 42, a development check). Grow from leaf
   cores reads a tray of bare soil close to 0: a daily median of at most 17 mm² and at most 64 mm² in
   any single photo (under 0.1% of a tray), on two soils and two rigs, where the fixed green cutoff
