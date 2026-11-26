@@ -11755,3 +11755,58 @@ production unless Aaron decides otherwise (issue #513 lists this as a decision, 
 **Source.** Issue #513; Aaron's messages of 2026-11-25; the reads above, run from the controller on
 the same day. Project text that names the device was changed in the same change: `CLAUDE.md`,
 `CONTRIBUTING.md`, `hardware/Installation.md`.
+
+## 50. M5 acceptance: green squares of known area in all 12 slots (issue #78, method written 2026-11-26, before the photos)
+
+**Label: validation.** Purpose: the M5 acceptance test of `PLAN.md`. A flat object of known area
+lies in each of the 12 slots, and for each one we check whether the area the rig reads, with the
+band the rig gives beside it, contains the calliper area. Run on the production rig `d6-daylight`
+(section 49), with the app at 3136f5e, the calibration of 2026-11-25 13:29 UTC (lens position 6.0)
+and the validation of 2026-11-25. The plant pixels come from the current green threshold, as
+decided on 2026-10-27: the result is recorded as measured, and a fail is the evidence for choosing
+an edge method (section 18.9 read 55 mm squares about +6.5% and 10 mm squares about +28%).
+
+**Objects.** The twelve green test squares A to L of section 18.5, with their calliper areas
+there (98.60 to 3,023.17 mm²). They are not measured again.
+
+**Placement.** Twelve tagged trays, portrait, in slots North 1 to 6 and South 1 to 6, off the
+corner tags. One square per tray, flat on the pot top of cell C3, taped underneath only:
+
+| Slot | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| North | I (55 mm) | A (10 mm) | E (20 mm) | K (40 mm) | B (10 mm) | F (20 mm) |
+| South | G (20 mm) | L (40 mm) | C (10 mm) | H (20 mm) | J (55 mm) | D (10 mm) |
+
+Each size is in both rows; the centre slots 3 and 4 (the central low reading,
+`reference/arducam-central-error-2026-10.md`) hold three sizes. Aaron records each tray's tag ID,
+and any cell other than C3 used where a square does not fit. Cell C3 holds nothing else green: any
+plant or green soil in it would be added to the square.
+
+**Runs.** A test experiment on the Experiments page, stills taken by Aaron, at least 5 per run,
+under the steady chamber lights, no camera setting changed. Aaron notes the start and end of each
+run (Dutch local time, UTC+1; converted to UTC here).
+
+1. Run 1: edges parallel to the tray edges.
+2. Run 2: each square lifted and taped back on the same pot top, turned about 45 degrees.
+3. Run 3, if time allows: lifted and taped back, edges parallel again.
+
+Lifting the squares makes the runs differ: without it, runs 2 and 3 would repeat run 1's scene and
+show only the photo-to-photo change. Section 18.5 found the background under a square changes its
+reading; the 45 degree turn changes how the edges meet the pixel grid, as leaves lie at any angle.
+
+**Analysis** (read-only, on copies of the photos and of `rig.db`):
+
+1. For each still, the area the rig reads for the cell holding each square, and the band shown
+   beside it.
+2. Per square and run: the median area over the run's stills; error = median / calliper area - 1;
+   inside = the calliper area lies within the band around the median.
+3. Pass rule (issue #78, 2026-10-09): at least 11 of 12 inside in every run, and no slot outside
+   in 2 runs.
+
+**What it covers and does not.** Flat green squares at pot-top height, with the current green
+threshold, on one rig, one calibration and one lens position. Not plant height, soil, blue mats or
+leaf shapes. The second acceptance step of `PLAN.md` (change the calibration, Reprocess, the areas
+update) is not part of this session: Reprocess is now a development-only tool (Aaron,
+2026-11-26), and whether that step stays in the acceptance test is an open decision.
+
+**Results.** Not yet taken.
