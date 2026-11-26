@@ -65,8 +65,9 @@ pytest -m slow         # soak
 ```
 
 Measured on 2026-11-26, after #547: **47 s in parallel, 151 s serially**, 1067 tests, on an
-8-core/16-thread AMD Ryzen 7 5700X. Before #547 the same suite was 83 s and 254 s. The Pi
-controller has not been re-measured since; it was over 300 s before. `tests/conftest.py` carries
+8-core/16-thread AMD Ryzen 7 5700X. Before #547 the same suite was 83 s and 254 s. On the
+Arm64 CI runner (#546) it is 50 s. The Pi controller has not been re-measured since; it was over
+300 s before. `tests/conftest.py` carries
 the same figures, and they are updated together.
 
 The `budget <15s` that stood here came from #169, when `tests/` was 5,565 lines, a third of its
