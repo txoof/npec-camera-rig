@@ -512,8 +512,8 @@ TRIAL_BYTES_PER_FRAME = 42_984
 # The child making a video may reserve at most this much memory, so a large request fails alone
 # and never stops the camera (#430). 1.5 GiB: the largest video child VmPeak measured on
 # development was 1.15 GiB (whole tray, 5 photos an hour, with the mask), plus 25 %, rounded up
-# to 256 MiB; ffmpeg's own cap peaked at 0.74 GiB. Metrology log 52, issue #503. The 25 % is a
-# decision, not a measurement.
+# to a multiple of 256 MiB; ffmpeg's own VmPeak was 0.74 GiB. Metrology log 52, issue #503. The
+# 25 % is a decision, not a measurement.
 MEMORY_LIMIT_BYTES = 1536 * 1024**2
 # An id is the time a video was started, to the microsecond so ids sort by it (to the second
 # before 2026-11-20 evening, still read), and a random part.

@@ -164,7 +164,13 @@ def abort_reason(args):
     return None
 
 
-def terminate(pid):
+def terminate(pid, parent=None):
+    """SIGTERM to pid, but only while its parent is still `parent` (when given), so a reused pid
+    or a restarted camera process is never signalled by mistake."""
+    if parent is not None:
+        st = read_stat(pid)
+        if st is None or st[1] != parent:
+            return
     try:
         os.kill(pid, signal.SIGTERM)
     except OSError:
@@ -213,9 +219,9 @@ def run(args):
 
             reason = abort_reason(args)
             if reason:
-                for pid in (ffm.pid, child.pid):
+                for pid, parent in ((ffm.pid, child.pid), (child.pid, args.app_pid)):
                     if pid is not None and is_alive(pid):
-                        terminate(pid)
+                        terminate(pid, parent)
                 print("ABORT: " + reason, file=sys.stderr)
                 emit("ABORT " + reason)
                 status = 3

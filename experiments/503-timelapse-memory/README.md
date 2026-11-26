@@ -8,7 +8,9 @@ Run it on the rig before the job starts (app PID from `systemctl show -p MainPID
     python3 sample.py --app-pid N --out run.csv [--abort-used-gib 3.0] [--abort-avail-gib 1.0]
 
 It notes the app's children at start (the camera process is among them), then
-follows the first new `spawn_main` child (the video child) and its `ffmpeg`.
+follows the first new `spawn_main` child (the video child) and its `ffmpeg`. A camera
+process that restarts after the start would look like a video child: do not use the
+sampler across a camera restart. It signals a pid only while its parent is the expected one.
 Check it on the controller with `python3 sample.py --selftest`.
 
 Columns, one row per second (polled every 0.25 s, highest peak kept between rows):
