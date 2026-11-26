@@ -10471,6 +10471,19 @@ floor (-0.045) is grown again from its photo ("flagged"), and with it every othe
 | all trays | 107,555 in the same photos | | grown again from the photo by the same rule they were read with: expected unchanged, not guaranteed |
 | all trays | 183,683, the rest | | unchanged |
 
+**Correction to the table above, what the trays hold (Aaron, 2026-11-26).** The row for trays 7, 8
+and 10 calls all three "benchmark objects, empty trays, no soil". That is wrong about tray 7.
+**Trays 1 to 7 hold legitimate plants**; trays 8 to 12 are a mix of benchmark objects and synthetic
+targets. Tray 7 has some synthetic targets mixed in among its plants, and its values are not relied
+on. The prediction is left as written on 2026-11-20, because it is the record of what was expected
+before the run: only the description of the trays was wrong, not the counts, which came out exactly
+as predicted (41.1).
+
+This matters for reading 41.1's comparison of the rig against the x86_64 box, which reports zero
+differences across trays 1 to 7, the plants, with the only six differing cell readings on trays 8
+and 10. Taking tray 7 for a benchmark tray would put it in the wrong group and misstate which
+readings that comparison covers.
+
 **Pass rule (decision, not a measurement).** Every "other" reading keeps its rig area and grown
 area within 0.01 mm² (the code counts the same mask again, so equal is expected); "same photo"
 readings that change are counted and listed per tray, as a finding, not a failure; every flagged
