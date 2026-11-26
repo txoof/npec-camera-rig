@@ -12,7 +12,7 @@ import pytest
 # failed there although / had 41 GB free (#543). When the system temp folder has less than this
 # free, temporary files go to a folder under the home directory instead. 10 GB is twice the
 # 5 GB floor, a test setup choice with room for a video, not a measurement. This must run before
-# anything calls tempfile (the mkdtemp calls below) and before pytest makes its base folder.
+# anything calls tempfile (the mkdtemp call below) and before pytest makes its base folder.
 _MIN_TEMP_FREE_BYTES = 10_000_000_000
 if shutil.disk_usage(tempfile.gettempdir()).free < _MIN_TEMP_FREE_BYTES:
     _roomier_temp_dir = os.path.join(os.path.expanduser("~"), ".cache", "npec-rig-tests-tmp")
@@ -147,6 +147,8 @@ def _remove_folders_of_dead_runs(root: str) -> None:
             shutil.rmtree(os.path.join(root, name), ignore_errors=True)
         except PermissionError:
             pass  # a process of another user: it is still running
+        except OverflowError:
+            pass  # a name that is not one of ours: a number too large for a process ID
 
 
 _remove_folders_of_dead_runs(tempfile.gettempdir())
