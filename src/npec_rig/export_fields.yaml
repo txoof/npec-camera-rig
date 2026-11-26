@@ -294,6 +294,11 @@ package:
           - name: tray_not_counted
             type: string
             description: Why the tray's areas do not count in this photo, as not_counted in tray-readings.csv. Empty when they count.
+          - name: tray_warnings
+            type: string
+            description: >-
+              What to check about the tray in this photo, as warnings in tray-readings.csv, for example mats
+              covering the soil. Several are separated by " | ". Empty when there is none.
           - name: photo_excluded
             type: string
             description: Why the whole photo's areas are left out, as in tray-readings.csv. Empty when the photo counts.

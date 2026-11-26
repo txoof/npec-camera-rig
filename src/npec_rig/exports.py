@@ -714,8 +714,8 @@ GROWN_FIXED_DISAGREE = "grown and fixed areas disagree, check the cell"
 CELL_READING_COLUMNS = [
     "file", "taken_at", "tray", "cell", "location", "plant_area_grow_from_leaf_cores_mm2",
     "plant_area_fixed_green_cutoff_mm2", "status_grow_from_leaf_cores", "status_fixed_green_cutoff",
-    "tray_not_counted", "photo_excluded", "names_unsure_since", "scale_error_pct", "validation_slot",
-    "no_scale_error_because", "grown_fixed_disagree",
+    "tray_not_counted", "tray_warnings", "photo_excluded", "names_unsure_since", "scale_error_pct",
+    "validation_slot", "no_scale_error_because", "grown_fixed_disagree",
 ]
 
 
@@ -738,6 +738,7 @@ def _cell_rows(row: dict, readings: dict, folder: str) -> Iterator[dict]:
                 "status_grow_from_leaf_cores": cell.get("grown_status"),
                 "status_fixed_green_cutoff": cell["status"],
                 "tray_not_counted": "; ".join(tray["not_counted"]),
+                "tray_warnings": WARNINGS_SEP.join(tray["warnings"]),
                 "photo_excluded": readings["exclusion"],
                 "names_unsure_since": tray["names_unsure_since"],
                 "grown_fixed_disagree": GROWN_FIXED_DISAGREE if cell.get("flagged") else "",
