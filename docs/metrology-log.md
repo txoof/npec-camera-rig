@@ -12360,3 +12360,107 @@ planned. What researchers see in the meantime is issue #536.
 **Where the rest is.** Results, data and the jump table: section 51 above and
 `experiments/78-acceptance/`. The claim's scope: `docs/measurement-trust.md`, *The claim* and
 *Limits of the evidence*.
+
+## 52. Time-lapse video memory: the peak while the rig keeps working (issue #503, method written 2026-11-26, before the run)
+
+**Label: development check.** Purpose: find how much memory a time-lapse video needs at its peak
+while the rig keeps taking its scheduled photos and reading its trays, so that the memory limit of
+the video job (`MEMORY_LIMIT_BYTES` in `src/npec_rig/timelapse.py`) rests on a measurement. This
+section is written before the run. The limit is a decision at the end (52.6), not a result.
+
+### 52.1 Why this is measured
+
+A video is made in a child process, and ffmpeg runs inside that child. The child sets a cap with
+`RLIMIT_AS` to `MEMORY_LIMIT_BYTES`, now 2 GiB. That number is a placeholder, never measured
+(`timelapse.py`, comment above the constant). Making a video while the rig keeps taking photos is
+normal use, and a process killed for lack of memory could disturb a running experiment (#430, #503).
+
+Three memory figures are read from `/proc`, and they mean different things:
+
+- **VmPeak**: the highest virtual size of a process (address space reserved, not all in use).
+  `RLIMIT_AS` caps this figure, so the limit is set from VmPeak.
+- **VmHWM**: the highest resident size (memory actually held in RAM). The Linux out-of-memory
+  killer acts on resident memory, so VmHWM is what threatens other processes.
+- **MemAvailable**: what the whole Pi can still give out. Pi-wide used memory is MemTotal minus
+  MemAvailable.
+
+ffmpeg inherits its own separate 2 GiB cap, so the child and ffmpeg together can reach about twice
+the limit. `choose_frames` holds database rows, not pixels, so the frame count does not by itself
+raise memory; each frame is decoded one at a time in `_encode`.
+
+### 52.2 Rig and data
+
+Development `npec-rig-01` (Pi 5, **8 GB**, 2 GiB swap). This is not the 4 GB production Pi, so
+absolute per-process peaks and Pi-wide used memory are reported, from which a 4 GB budget is worked
+out in 52.6. App version d6feef7 (branch 531-auto-exposure-rig-settings), checked identical to main
+e312cff in `timelapse.py`, `routes/data.py`, `tray_readings.py` and `camera_process.py`. No deploy
+and no restart.
+
+Data: experiment 4 "Dario 13 Emergence", running, one photo every 300 s, about 3,800 photos since
+2026-11-13 (about 13 days), 6 trays. The issue's longest case (about 1,000 frames per tray, 3 weeks
+at 2 an hour) is out of reach. **5 photos an hour on one tray (about 1,560 frames) is a stand-in
+for it**, not the case itself.
+
+### 52.3 Cases
+
+Start is at or before the experiment's start and end is the time of the run's start. Smallest first.
+Every case runs while the app keeps its normal live capture and tray reading.
+
+| Case | Trays | Photos an hour | Mask | Frames (about) |
+|---|---|---|---|---|
+| A | one | 1 | no | 313 |
+| B | one | 2 | yes | 626 |
+| C | all 6 | 1 | no | 1,900 |
+| D (stand-in) | one | 5 | no | 1,560 |
+| E | the case with the highest child VmPeak, repeated once | | | |
+
+Each job is started about 20 s before the next scheduled photo is due, so the tray reading of that
+photo overlaps the video. No export and no Reprocess run (the app refuses the combination).
+**No "alone" case is run.** An "alone" run for all trays would pause the experiment. So the share
+of memory due to the video alone, against the rig's own use, is not separated from it; the figures
+are the peak of both together.
+
+### 52.4 Method
+
+1. The sampler `experiments/503-timelapse-memory/sample.py` (standard library only) reads `/proc`
+   every 0.25 s and keeps the highest VmPeak and VmHWM of each process: the app, the video child and
+   ffmpeg (the camera child is not sampled by itself; its memory is part of Pi-wide used memory). It
+   writes one CSV row per second:
+   VmPeak, VmHWM and VmRSS of each, MemTotal, MemAvailable and used memory.
+2. Jobs are started by `POST /api/data/timelapse` on the development server.
+3. **Safety.** Smallest case first. `free -m` before each run; start only with about 5 GiB
+   available. The sampler aborts the video job (ffmpeg first, then the video child; never the app or
+   the camera child) if used memory passes 3.0 GiB or MemAvailable falls below 1.0 GiB. After each
+   case: `NRestarts` of `npec-rig`, the kernel log for out-of-memory kills, and whether experiment
+   4's photos stayed on time.
+4. A case that fails with "ran out of memory" has reached the 2 GiB cap. That is itself a result.
+   Measuring beyond it needs a build with a higher cap and Aaron's approval.
+
+### 52.5 What the results will give
+
+Per case: frames, highest VmPeak and VmHWM of each process, lowest MemAvailable, highest used
+memory, whether photos stayed on time, and the CSV paths (`experiments/503-timelapse-memory/data/`,
+or the path set at the run).
+
+### 52.6 Decision rule, written before the run (a decision, not a measurement)
+
+`MEMORY_LIMIT_BYTES` = the largest measured child VmPeak plus a margin, **only if** the summed
+resident peaks (app, camera child, video child and ffmpeg) fit a 4 GB Pi with 0.5 GiB to spare.
+Otherwise the limit is set lower, so large requests fail with the existing message instead of
+pushing the Pi towards an out-of-memory kill.
+
+**Open question for Aaron (decision): the margin.** Recommendation: 25%, rounded up to 256 MiB.
+
+### 52.7 Limits of the evidence
+
+- One rig, with 8 GB, not the 4 GB production Pi; the 4 GB fit is worked out from absolute figures,
+  not observed.
+- One experiment's photo sizes, as stored (the photo quality setting of that time).
+- 13 days of data, not 3 weeks; case D is a stand-in.
+- No "alone" case (52.3).
+- If ffmpeg reaches its own cap, the message shown does not mention memory.
+- The cap message says "GB" for a value in GiB (`_failure`); a code fix goes with the constant.
+
+### 52.8 Results
+
+Not yet measured. To be filled in after the run.
