@@ -1,0 +1,30 @@
+# The unit tier on every PR and every push to main (#546). The same as a bare `pytest` on the
+# controller: no camera, no Hailo, the synthetic camera. It does not replace running pytest on
+# the controller; the runner is Arm64 like the Pi, but Ubuntu with a large /tmp and more memory,
+# so it sees none of the Pi's disk or memory limits.
+name: unit
+
+on:
+  pull_request:
+  push:
+    branches: [main, 546-ci-unit-workflow] # TRIAL: the branch entry is removed before the PR
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      # Dependencies as locked in uv.lock. OpenCV is imported by tags.py, timelapse.py and others
+      # but is not declared in pyproject.toml (the Pis carry it themselves), so it is added here,
+      # at the version the controller runs.
+      - run: uv sync --frozen --extra dev
+      - run: uv pip install opencv-python-headless==5.1.0.95
+
+      # pyproject.toml's addopts selects the unit tier and 4 workers, as on the Pi.
+      - run: uv run --no-sync pytest -q -p no:cacheprovider
