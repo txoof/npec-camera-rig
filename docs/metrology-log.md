@@ -10542,10 +10542,48 @@ In total **10,965** readings were grown again, matching 39.2. Every flagged read
 "soil hidden" mark. The "same photo" readings came out **unchanged on every tray**: the plan expected
 this and did not guarantee it, and it held.
 
-*Not predicted, open.* (1) **787 readings still have an empty `grown_area_mm2`** after a complete
-Reprocess (799 before; one photo, capture 30763, accounts for the 12 that were filled). Why these 787
-have no grown area is not established. (2) **"Soil hidden" marks appeared on readings that were not
-flagged:** 4 on tray 4, 10 on tray 5, 10 on tray 6 and 6 on tray 7. Not yet looked at.
+*Not predicted.* (1) **667 readings of experiment 18 still have an empty `grown_area_mm2`** after a
+complete Reprocess, spread over 103 photos (the 787 and 799 counted across every experiment in the
+database; one photo, capture 30763, accounts for 12 that were filled). **These are the chamber's
+light changes, not a fault in the Reprocess.** They are of two kinds, and both are a photo arriving
+while the light is wrong rather than anything about a tray:
+
+- **407 readings, "tag seen, tray not found"** (`found` = `tag only`): the picture is dark, the
+  high-contrast markers are still readable but the tray edges are not, so no tray outline is found
+  and there is nothing to measure.
+- **260 readings, no plant found**: the picture is dark enough that the segmenter returns nothing,
+  and the tray reads zero plant area.
+
+By hour of day the losses fall almost entirely at the two light changes: 199 and 96 at 08:00, 152
+and 84 at 00:00, against near zero through the rest of the day. On 2026-11-11 the photo at 08:00:53
+lost all 12 trays at exposure 66,465 µs and gain 4.0; the photo one minute later, at 08:01:53, read
+all 12 normally at 64,438 µs and the same gain. The exposure barely moved, so it is the chamber's
+light that changed, not the camera's response to it; the camera has caught up by 08:05 (15,330 µs,
+gain 1.5). The rig photographs on a fixed schedule, so about one photo per transition falls in the
+gap.
+
+![One minute apart at the 08:00 light change](figures/41/light-change-one-minute-apart.jpg)
+
+*Two photographs of experiment 18 one minute apart, 2026-11-11, picked from the copied capture
+folder by the exposure and the empty readings recorded against them. Left, 08:00:53: lights still
+off, exposure 66,465 µs at gain 4.0, and all 12 trays recorded "tag seen, tray not found". Right,
+08:01:53: lights on, 64,438 µs at the same gain, all 12 trays read normally. Raw photos in the
+experiment folder, `stills/2026-11-11/080053_*` and `080153_*`.*
+
+![Lights off against lights on](figures/41/lights-off-vs-lights-on.jpg)
+
+*The other kind of loss. Left, 2026-10-22 23:28:53, lights off, exposure 64,022 µs at gain 4.0: too
+dark for the segmenter, and all 12 trays recorded zero plant area. Right, 2026-10-23 12:00:53, a
+normal photo at 5,404 µs and gain 1.0, the same table. Picked the same way.*
+
+![Lost readings by hour of day](figures/41/losses-by-hour.png)
+
+*Every reading of experiment 18 with no grown area, counted by the hour its photo was taken (UTC),
+split by kind. Both kinds fall at the two light changes and almost nowhere else. Counted from the
+reprocessed `rig.db` by `found` and `grown_area_mm2`; checksum of that database above.*
+
+*Open.* **"Soil hidden" marks appeared on readings that were not flagged:** 4 on tray 4, 10 on tray
+5, 10 on tray 6 and 6 on tray 7. Not predicted and not yet looked at.
 
 **Result 5: the photos not reprocessed.** All 24 failed with the same reason, "plant areas could not be
 worked out now, kept the saved ones"; nothing was overwritten. **13 lie inside the Pi's finished range
@@ -11893,3 +11931,55 @@ production unless Aaron decides otherwise (issue #513 lists this as a decision, 
 **Source.** Issue #513; Aaron's messages of 2026-11-25; the reads above, run from the controller on
 the same day. Project text that names the device was changed in the same change: `CLAUDE.md`,
 `CONTRIBUTING.md`, `hardware/Installation.md`.
+
+## 50. Soil counts as hidden only when blue covers most of the tray: a placeholder threshold, not yet measured (issue #486, written 2026-11-25, before any photo is measured)
+
+**Not yet a result: the threshold below is a decision, not a measurement.** #434 (metrology log 39)
+made a tray's soil level fall back to a fixed floor cutoff whenever it landed in the greenness
+histogram's top bin, on the assumption that only blue mats covering most of the soil could put it
+there. #480's review (finding 3) showed ordinary soil a little greener than usual lands in the same
+bin, with no mats anywhere, and was wrongly given the same fallback: a 200 x 200 px tray box with a
+1,600 px leaf read as 40,000 px of plant once its soil greenness crossed 0.0435 (issue #486).
+
+**Decided (Aaron, 2026-11-23, decision 3).** Soil counts as hidden only when blue covers most of
+the tray. Otherwise the soil-based cutoff is kept and a "soil looks green" warning is added instead.
+
+**The fix (#486).** `grow_from_cores` (`src/npec_rig/segmentation.py`) now measures `blue_coverage`:
+the fraction of the tray's countable area, a leaf core left out so its own growth over an
+experiment never changes the reading, that is blue. "Hidden" (`segmentation.soil_hidden`) requires
+both a soil level in the top bin and `blue_coverage >= GROWN_BLUE_COVERAGE_MIN`; a top-bin level
+found without that keeps the soil-based cutoff and is marked `SOIL_GREEN` instead
+(`segmentation.soil_green`). Every tray's `blue_coverage` is saved with its reading (`rig.db`
+`tray_reading.grown_blue_coverage`, migration 28 — renumbered from 27 after #518 merged its own
+migration 27 first) so a reading made under the old, soil-level-only rule is never silently
+reclassified: `blue_coverage` is `NULL` for every reading saved before this change, and only such a
+reading falls back to the old rule.
+
+**Amendment (code review of #486, 2026-11-26): an empty cell, or the tray itself, is not a mat.**
+Checked against real photos (a development 2 x 2 tray, no mats anywhere): blue coverage over the
+whole tray read 0.52 to 0.56, above the threshold, purely from the tray's own blue plastic — a 2 x 2
+tray's walls and rim are about 57% of it, a 4 x 5's about 37%, and an empty cell (no pot placed)
+shows its own blue bottom the same way a mat would. Neither can be told apart from a mat by colour
+alone (open since #424). Since a cell with no leaf core cannot grow any plant mask regardless of the
+cutoff chosen, excluding it from the measurement costs no plant-area accuracy: `blue_coverage` is
+now counted only inside cells that hold a core (`tray_placement.place_cells`'s geometry, the tag's
+own cell left out), falling back to the whole tray when none does (a tray whose cells are not known,
+or none of them seeded yet). Known, accepted gaps, not fixed here: a neighbouring leaf overhanging
+into an empty cell still marks it as cored; a round pot's corners inside a square cell can still
+show the tray's blue even when planted.
+
+**What is still open.** `GROWN_BLUE_COVERAGE_MIN = 0.5` ("most of the tray") is a placeholder,
+chosen to make the fix testable, not measured. "Most of the tray" is to be set from stored photos
+with mats (logs 39 and 42) and without them; the method for that measurement is written up in this
+log, as its own numbered entry, before any photo is measured, per the usual rule. The cell-only
+restriction above changes what fraction 0.5 is measured against (walls and rim no longer count), so
+that measurement must use the same restriction, not the whole-tray fraction logs 39 and 42
+describe. Until then, 0.5 is a guess, not a result, and should not be cited as one.
+
+**Source.** Issue #486; the decision is Aaron, 2026-11-23 (issue #486, decision 3), 2026-11-25
+(session following #480's review) and 2026-11-26 (the cell amendment, found checking real
+development photos and reviewed by an Opus agent before and after coding); the code is
+`src/npec_rig/segmentation.py`, `src/npec_rig/tray_readings.py`, `src/npec_rig/database.py`, tested
+in `tests/test_segmentation.py`, `tests/test_tray_readings.py`, `tests/test_database.py`,
+`tests/test_timelapse.py` (confirming `SOIL_GREEN` stays off video frames, no source change
+needed), on branch `486-soil-looks-green`.

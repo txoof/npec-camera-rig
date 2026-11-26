@@ -47,7 +47,7 @@ def grow_sweep(rgb, inside, thrs, tag_corners=(), lower_cutoff=None, core_min=sg
         cv2.fillPoly(no_plant, [np.round(centre + sg.GROWN_TAG_ENLARGE * (c - centre)).astype(np.int32).reshape(-1, 1, 2)], 1)
     sel = cv2.bitwise_and(cv2.compare(no_plant, 0, cv2.CMP_EQ), inside.view(np.uint8) * np.uint8(255))
     soil_level = sg._soil_level(sg._greenness_table(), sg._counts(g, red_blue, cv2.bitwise_and(sel, notblue)))
-    hidden = sg.soil_hidden(soil_level)
+    hidden = sg.soil_hidden(soil_level, None)  # this script does not measure blue coverage (#486)
     lc = lower_cutoff
     if lc is None:
         lc = sg.GROWN_FLOOR if soil_level is None or hidden else max(sg.GROWN_FLOOR, soil_level + sg.GROWN_GAP)

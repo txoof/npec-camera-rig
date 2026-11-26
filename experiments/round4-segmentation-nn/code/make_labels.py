@@ -224,7 +224,7 @@ def grow_photo(p, data, dbdir):
                                  ', 0 outside cells ' + ' '.join(sorted(CELLS_KEPT[(p['rig'], p['experiment_id'], nm)]))
                                  + ' (Aaron 2026-11-20)' if (p['rig'], p['experiment_id'], nm) in CELLS_KEPT else '')), final_plant_px=f.plant_px, found=found,
                              own_tags=len(corners), soil_level=soil, lower_cutoff=cut,
-                             soil_hidden=segmentation.soil_hidden(soil), plant_px=m.plant_px,
+                             soil_hidden=segmentation.soil_hidden(soil, None), plant_px=m.plant_px,  # no blue coverage here (#486)
                              stored_grown_px=s_px, stored_soil_level=s_soil, stored_lower_cutoff=s_cut,
                              same_as_rig=(s_px == m.plant_px), outline=_o))
     for t in per_tray:

@@ -203,6 +203,22 @@ def test_a_photos_tray_readings_are_saved_and_read_back() -> None:
     assert readings["trays"][0]["area_mm2"] is None
 
 
+def test_a_trays_blue_coverage_is_saved_and_read_back() -> None:
+    capture_id = _photo("2026-11-25T07:00:00+00:00")
+    database.record_tray_readings(
+        capture_id, read_at="t", status="read", trays=[{**_tray(1), "grown_blue_coverage": 0.934}]
+    )
+    [tray] = database.tray_readings(capture_id)["trays"]
+    assert tray["grown_blue_coverage"] == pytest.approx(0.934)
+
+
+def test_a_trays_blue_coverage_is_none_when_not_given() -> None:
+    capture_id = _photo("2026-11-25T07:00:10+00:00")
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[_tray(1)])
+    [tray] = database.tray_readings(capture_id)["trays"]
+    assert tray["grown_blue_coverage"] is None
+
+
 def _experiment() -> int:
     experiment = database.create_experiment(uuid="u-222", created_at="2026-10-21T06:00:00+00:00")
     database.start_experiment(experiment["id"], now="2026-10-21T06:00:00+00:00", folder="experiments/x")
@@ -514,7 +530,7 @@ def test_version_25_keeps_tray_and_cell_readings_from_version_24_with_no_grown_a
     assert (tray["area_mm2"], tray["plant_px"]) == (1234.5, 678)
     assert {k: tray[k] for k in tray if k.startswith("grown_")} == {
         "grown_method": None, "grown_area_mm2": None, "grown_plant_px": None, "grown_plant_centre_px": None,
-        "grown_soil_level": None, "grown_lower_cutoff": None,
+        "grown_soil_level": None, "grown_lower_cutoff": None, "grown_blue_coverage": None,
     }
     [cell] = tray["cells"]
     assert (cell["area_mm2"], cell["plant_px"]) == (9.5, 90)
