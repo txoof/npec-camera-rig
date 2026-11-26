@@ -11806,7 +11806,7 @@ reading; the 45 degree turn changes how the edges meet the pixel grid, as leaves
 **What it covers and does not.** Flat green squares at pot-top height, with the current green
 threshold, on one rig, one calibration and one lens position. Not plant height, soil, blue mats or
 leaf shapes. The second acceptance step of `PLAN.md` (change the calibration, Reprocess, the areas
-update) is not part of this session: Reprocess is now a development-only tool (Aaron,
-2026-11-26), and whether that step stays in the acceptance test is an open decision.
+update) was dropped from the acceptance test: Reprocess is a development-only tool for testing
+new area methods, not part of the system researchers use (Aaron, 2026-11-26).
 
 **Results.** Not yet taken.

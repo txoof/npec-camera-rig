@@ -201,8 +201,8 @@ can never drift out of sync with the readings it summarises.
    deletion is a purge of a whole experiment (*Purging an experiment*, below).
 3. **Store the segmentation masks** (PNG alongside each capture — they compress to almost nothing).
    Area is a function of mask × scale field, so if a calibration later turns out to be wrong, every
-   historical area can be **recomputed without re-running inference**. There's a **Reprocess**
-   action in the UI for exactly this. This is the difference between a bad calibration costing an
+   historical area can be **recomputed without re-running inference**. Reprocess does this, as a
+   development-only API, not a researcher action (Aaron, 2026-11-26). This is the difference between a bad calibration costing an
    afternoon and costing the experiment.
 4. **Append-only readings**, so a crash mid-write can't corrupt history. A purge removes an
    experiment's readings all at once, never one by one.
@@ -694,8 +694,9 @@ dwell table reflects the move · smear a tag with soil → degrades gracefully, 
 through the canopy-area pipeline, run 2 or 3 times → report each error *and* whether the slot's
 validation band contains the truth. A run passes if at least 11 of 12 readings fall inside their
 band, and no slot falls outside in 2 runs (Aaron, 2026-10-09) · when the real model lands, run the identical suite
-against the ExG baseline · download `measurements.csv` and plot a growth curve in Excel · change
-the calibration, hit **Reprocess**, confirm historical areas update without re-inference.
+against the ExG baseline · download `measurements.csv` and plot a growth curve in Excel. The
+Reprocess step was dropped from this test: Reprocess is a development-only tool for testing new
+area methods, not part of the system researchers use (Aaron, 2026-11-26, #78).
 
 ---
 
