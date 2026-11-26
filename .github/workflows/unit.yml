@@ -1,0 +1,89 @@
+# The unit tier on every PR and every push to main (#546). The same as a bare `pytest` on the
+# controller: no camera, no Hailo, the synthetic camera. It does not replace running pytest on
+# the controller; the runner is Arm64 like the Pi, but Ubuntu with a large /tmp and more memory,
+# so it sees none of the Pi's disk or memory limits.
+#
+# A PR that changes only documentation skips the expensive steps (#554). The job still starts and
+# reports, because `unit` is a required check: a workflow that does not start would leave the
+# check pending forever.
+name: unit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# The tests need no write access and no secrets.
+permissions:
+  contents: read
+
+# A new push to a PR stops the run for the older commit. A run on main is never stopped.
+concurrency:
+  group: unit-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # Documentation is a Markdown file in the repo root, docs/ or reference/, and nothing else.
+      # Other files in those folders are read by the app or the tests: the sheet layouts in
+      # reference/calibration-sheets/ (calibration.py) and docs/figures/17.8/light-e18.csv
+      # (tests/test_exclusions.py). deploy/README.md, test fixtures and .claude/ count as code
+      # too. Only a pull request can skip: a push to main always runs everything. Any doubt runs
+      # everything: no changed files listed, or the comparison with the base fails. Renames list
+      # both names, so moving a code file into docs/ does not hide it.
+      - name: Is the change documentation only?
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          run_tests=true
+          files=""
+          if [ "$EVENT" = "pull_request" ]; then
+            if files=$(git diff --name-only --no-renames "$BASE"...HEAD) && [ -n "$files" ]; then
+              # Lines that are not documentation; `|| true` because grep exits 1 for none and
+              # the step runs under `bash -e`.
+              non_docs=$(printf '%s\n' "$files" | grep -vE '^([^/]+|(docs|reference)/.+)\.md$' || true)
+              if [ -z "$non_docs" ]; then
+                run_tests=false
+              fi
+            fi
+          fi
+          echo "run_tests=$run_tests" >> "$GITHUB_OUTPUT"
+          if [ "$run_tests" = "false" ]; then
+            {
+              echo "### Only documentation changed: the tests were skipped"
+              printf '%s\n' "$files" | sed 's/^/- /'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - if: steps.scope.outputs.run_tests != 'false'
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      # ffmpeg makes the time lapse videos; without it the tests marked needs_ffmpeg skip, so a
+      # break in the video code would pass. The runner image does not carry it.
+      - if: steps.scope.outputs.run_tests != 'false'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      # Dependencies as locked in uv.lock. OpenCV is imported by tags.py, timelapse.py and others
+      # but is not declared in pyproject.toml (the Pis carry it themselves), so it is added here,
+      # at the version the controller runs. The lock does not cover it.
+      - if: steps.scope.outputs.run_tests != 'false'
+        run: uv sync --frozen --extra dev
+      - if: steps.scope.outputs.run_tests != 'false'
+        run: uv pip install opencv-python-headless==5.1.0.95
+
+      # A bare `pytest` runs 4 workers: tests/conftest.py (pytest_cmdline_main) sets them, and
+      # pyproject.toml's addopts selects the unit tier. The extra flags keep that.
+      - if: steps.scope.outputs.run_tests != 'false'
+        run: uv run --no-sync pytest -q -rs -p no:cacheprovider
