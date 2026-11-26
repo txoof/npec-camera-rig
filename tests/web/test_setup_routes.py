@@ -78,3 +78,15 @@ def test_setup_page_opens_and_links_the_setup_pages_when_the_database_cannot_be_
     assert response.status_code == 200
     for href in ("/setup/focus", "/setup/calibration", "/setup/validation", "/setup/health-check"):
         assert f'href="{href}"' in response.text
+
+
+def test_setup_page_has_auto_exposure_with_its_warning_and_steppers():
+    # Seam (Aaron, 2026-11-26, #531): Auto exposure, Exposure and Gain are set on Rig settings.
+    # Misses the layout and the JavaScript.
+    page = TestClient(app).get("/setup").text
+
+    assert 'id="auto-exposure"' in page
+    assert 'id="exposure-row"' in page
+    assert 'id="gain-row"' in page
+    assert "the rig cannot tell photos taken with the lights off. Keep it on during an experiment." in page
+    assert "About Auto exposure" in page
