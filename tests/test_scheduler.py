@@ -21,14 +21,42 @@ pytestmark = pytest.mark.unit
 # 200 times faster. A synthetic photo takes about 10 ms on the controller (measured 2026-11-26:
 # six photos through captures.take_photo took 80, 18, 8, 9, 10 and 10 ms), so a slot here is
 # about five photo-times wide where the rig's 10 s slot, with its 3 s photo, is about three:
-# the clock is faster but no tighter than the rig's own. Every wait below is written as a number
-# of slots rather than in seconds, so the margins hold if this number changes.
+# the clock is faster but no tighter than the rig's own.
+#
+# What scales with this number: how often a photo is due, how many slots a sleep or a lock
+# spans, and any wait written as `_slots(n)`.
+#
+# What does not: the work that happens inside a slot. Starting the app, opening rig.db, encoding
+# a JPEG, writing a file and one scheduler poll cost the same whatever this number says, and
+# several times more on a Pi 5 and on the Arm64 CI runner than on the x86 box the figures below
+# were measured on. A budget that has to cover that work is written against PHOTO_WORK_S or in
+# whole seconds, never as a fraction of a slot: lowering INTERVAL_S shortens the slots, it does
+# not speed the machine up (#547 review).
 INTERVAL_S = 0.05
+
+# One scheduled photo's fixed cost on the controller: the synthetic still, its info file, the
+# tick's own database work. Measured 2026-11-26, see the figures above. It does not scale with
+# INTERVAL_S, so the tests that have to fit a known number of photos into a known time are
+# written against it.
+PHOTO_WORK_S = 0.025
+
+# How long a photo's row waits for rig.db in the tests that lock it. It stands for the rig's
+# 10 s wait being far shorter than the lock, and nothing else, so it is absolute: a photo pays
+# it twice (captures.take_photo, once before the file is saved and once after) and the scheduler
+# pays it again on each catch-up attempt, out of a budget that does not shrink with INTERVAL_S.
+SHORT_DB_WAIT_S = 0.005
 
 
 def _slots(n: float) -> float:
     """`n` photo intervals, in seconds."""
     return n * INTERVAL_S
+
+
+def _locked_photos_s(n: float) -> float:
+    """How long `n` scheduled photos take while rig.db is locked. A photo cannot come faster
+    than its slot, and it cannot come faster than its own work plus the lock waits it pays, so
+    the slower of the two sets the pace."""
+    return n * max(INTERVAL_S, PHOTO_WORK_S + 2 * SHORT_DB_WAIT_S)
 
 
 @pytest.fixture(autouse=True)
@@ -85,6 +113,47 @@ def _wait_for(condition, timeout_s: float = 10.0, poll_s: float = 0.02) -> None:
     while not condition():
         assert time.monotonic() < deadline, "timed out"
         time.sleep(poll_s)
+
+
+def _wait_for_the_short_db_wait_to_take(experiment_id: int) -> None:
+    """Wait for one more photo, after settings.LOCK_WAIT_S has been shortened and before rig.db
+    is locked.
+
+    sqlite3 fixes a connection's busy timeout when the connection is opened, and database._connect
+    reads settings.LOCK_WAIT_S at that moment. A connection the scheduler opened just before the
+    test shortened it still waits the full 10 s, so a lock taken between that connection being
+    opened and its insert leaves the scheduler inside one tick for the whole lock: no photo is
+    taken, nothing is logged, and the test reads zero. Seen pinned to one core against one busy
+    competitor, about 6 failures in 45 runs, and never on an idle machine; the shorter the wait,
+    the more catch-up attempts the scheduler makes per slot and the wider the window (#547
+    review).
+
+    One photo taken after the change means the scheduler has finished that tick, so every
+    connection it has open when the lock arrives was opened with the short wait."""
+    taken = _photos(experiment_id)
+    _wait_for(lambda: _photos(experiment_id) > taken)
+
+
+def _wait_for_a_missed_slot(since: str, interval_s: float) -> None:
+    """Block until one photo slot has come due with nobody to take it, and the next slot is
+    between a fifth and a third of the way through.
+
+    A restart has to land at a known place inside a slot. scheduler._tick takes the photo of
+    whichever slot is current when it runs, so a restart that straddles a slot boundary gets the
+    photo of the slot after the one the test measured itself against: that photo was due after
+    the restart, not before it, and it is not listed as late at all. On the Arm64 CI runner that
+    is what happened, at the old 0.3 s interval, the due time 0.2 s after the restart (#559).
+
+    Polled rather than slept. A sleep of so many intervals assumes the work before it took no
+    time, and a sleep on a loaded machine overshoots; either leaves the restart anywhere in the
+    slot, including past its end. This returns at a phase the caller can rely on, however long
+    anything before it took."""
+    start = datetime.fromisoformat(since)
+    while True:
+        elapsed = (datetime.now(UTC) - start).total_seconds()
+        if elapsed >= interval_s and interval_s / 5 <= elapsed % interval_s < interval_s / 3:
+            return
+        time.sleep(0.001)
 
 
 def test_a_running_schedule_takes_photos_into_the_experiment() -> None:
@@ -219,9 +288,16 @@ def test_downtime_runs_from_the_last_photo_before_it_to_the_restart() -> None:
 
 
 def test_the_photo_taken_on_return_is_listed_as_late() -> None:
+    # Six times the usual slot, and the restart placed a fifth to a third of the way into one
+    # (_wait_for_a_missed_slot). What has to fit in the rest of that slot -- TestClient's
+    # lifespan, the scheduler thread starting, one CHECK_S poll -- is fixed work that does not
+    # shrink with INTERVAL_S, so the slot is made long enough to hold it many times over: at
+    # least 200 ms of slot left, against 25 to 34 ms measured from the restart to the photo,
+    # pinned to one core with two busy competitors (#547 review, #559).
+    interval_s = _slots(6)
     client = TestClient(app)  # no lifespan: no scheduler runs, as while the app is down
-    _experiment, started = _start(client, INTERVAL_S)
-    time.sleep(_slots(3.4))
+    _experiment, started = _start(client, interval_s)
+    _wait_for_a_missed_slot(started["schedule"]["since"], interval_s)
 
     restarted_at = datetime.now(UTC)
     with TestClient(app) as client:
@@ -298,12 +374,17 @@ def test_a_photo_saved_while_rig_db_was_locked_gets_its_row_and_its_slot(monkeyp
     with TestClient(app) as client:
         experiment, started = _start(client, INTERVAL_S)
         _wait_for(lambda: len(database.captures_for_experiment(experiment["id"])) >= 1)
-        monkeypatch.setattr(settings, "LOCK_WAIT_S", _slots(1 / 3))
+        monkeypatch.setattr(settings, "LOCK_WAIT_S", SHORT_DB_WAIT_S)
+        _wait_for_the_short_db_wait_to_take(experiment["id"])
+        folder = captures.experiments_root() / started["folder"]
+        before = len(list(folder.rglob("*.jpg")))
         with lock_held(_slots(3.4)):  # three or four slots come due while nothing can be written
             pass
+        # The test is about a photo saved under the lock, so there has to be one. Without this
+        # the wait below could pass on its first poll having tested nothing (#547 review).
+        assert len(list(folder.rglob("*.jpg"))) > before
         monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
         since = started["periods"][-1]["started_at"]
-        folder = captures.experiments_root() / started["folder"]
 
         def settled() -> bool:
             on_disk = {p.stem for p in folder.rglob("*.jpg")}
@@ -324,8 +405,10 @@ def _photos(experiment_id: int) -> int:
 # How long after its slot was due the photo below was taken. It has to land inside the slot:
 # database.link_unlinked_slots matches a photo to a slot only within one interval of it, and
 # captures.adopt_unrecorded_photos reads the time back out of the file name, so this is written
-# into the name as whole microseconds and must stay under one slot.
-_LATE_BY_US = int(_slots(1 / 3) * 1_000_000)
+# into the name as whole microseconds and must stay under one slot. It is also written with
+# `%06d` and read back as the fractional part of a timestamp, so it has to stay under a whole
+# second however long a slot is: a third of a slot, capped (#547 review).
+_LATE_BY_US = min(int(_slots(1 / 3) * 1_000_000), 999_999)
 
 
 def _old_photo_without_a_row(started: dict, experiment_id: int, sidecar_text) -> str:
@@ -385,23 +468,34 @@ def test_a_damaged_info_file_leaves_its_photo_without_a_row_and_says_so_and_the_
     assert reasons == {"the photo was saved but its record could not be read": 1}
 
 
+# The photos the lock in the next test has to hold, and how much longer than their measured cost
+# it is held. The 7 is the behaviour under test: on main after #464 it was 0. The margin is over
+# measured work that does not shrink with INTERVAL_S, so the lock is a multiple of
+# `_locked_photos_s`, not of the slot (#547 review).
+_PHOTOS_UNDER_THE_LOCK = 7
+_LOCK_MARGIN = 4
+
+
 def test_photos_are_still_taken_while_rig_db_stays_locked(monkeypatch: pytest.MonkeyPatch) -> None:
     """#481, decision 1 (Aaron, 2026-11-23): the photo is taken first, the database work after it.
-    On main after #464 no photo was taken from the first locked write until the lock ended. The
-    lock spans about 10 slots; each photo's row waits a third of a slot and fails, so a photo and
-    its failed row still fit inside one slot."""
+    On main after #464 no photo was taken from the first locked write until the lock ended. Each
+    photo's row waits SHORT_DB_WAIT_S for rig.db and fails, so a photo and its failed row fit
+    inside one slot, and the photos come one a slot. The lock gives each of the 7 photos four
+    slots, 200 ms, where one measures 50 ms pinned to a single core with busy competitors: a
+    machine four times slower still takes them."""
     with TestClient(app) as client:
         experiment, started = _start(client, INTERVAL_S)
         _wait_for(lambda: _photos(experiment["id"]) >= 1)
         folder = captures.experiments_root() / started["folder"]
-        monkeypatch.setattr(settings, "LOCK_WAIT_S", _slots(1 / 3))
+        monkeypatch.setattr(settings, "LOCK_WAIT_S", SHORT_DB_WAIT_S)
+        _wait_for_the_short_db_wait_to_take(experiment["id"])
         before = len(list(folder.rglob("*.jpg")))
-        with lock_held(_slots(10)):
+        with lock_held(_LOCK_MARGIN * _locked_photos_s(_PHOTOS_UNDER_THE_LOCK)):
             pass
         during = len(list(folder.rglob("*.jpg"))) - before
         monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
         client.post(f"/api/experiments/{experiment['id']}/stop")
-    assert during >= 7
+    assert during >= _PHOTOS_UNDER_THE_LOCK
 
 
 def test_slots_lost_while_rig_db_is_locked_are_counted_as_rig_db_could_not_be_written(
@@ -414,6 +508,7 @@ def test_slots_lost_while_rig_db_is_locked_are_counted_as_rig_db_could_not_be_wr
         experiment, _started = _start(client, INTERVAL_S)
         _wait_for(lambda: _photos(experiment["id"]) >= 1)
         monkeypatch.setattr(settings, "LOCK_WAIT_S", _slots(5 / 3))
+        _wait_for_the_short_db_wait_to_take(experiment["id"])
         with lock_held(_slots(10)):
             pass
         monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
@@ -448,9 +543,9 @@ def test_a_photo_taken_during_a_lock_gets_its_row_before_the_next_photo(monkeypa
     and the second, so the first photo is taken and its row refused under the lock, and the lock
     is over half an interval before the second photo is due. A photo does some of its database
     work before the file is saved (captures.take_photo), so each of those waits has to fit in
-    that half interval too: the wait for the lock is a third of one of the usual slots."""
+    that half interval too: the wait for the lock is SHORT_DB_WAIT_S."""
     interval_s = _slots(8)
-    monkeypatch.setattr(settings, "LOCK_WAIT_S", _slots(1 / 3))
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", SHORT_DB_WAIT_S)
     with TestClient(app) as client:
         experiment, started = _start(client, interval_s)
         folder = captures.experiments_root() / started["folder"]
@@ -460,10 +555,11 @@ def test_a_photo_taken_during_a_lock_gets_its_row_before_the_next_photo(monkeypa
         with lock_held(1.5 * interval_s):  # the first photo, due one interval in, is taken under it
             pass
         assert len(list(folder.rglob("*.jpg"))) == 1
-        _wait_for(
-            lambda: _photos(experiment["id"]) == 1 and not database.unlinked_slots(experiment["id"]),
-            timeout_s=0.4 * interval_s,  # inside the time left before the second photo is due
-        )
+        # The timeout stays generous, as _wait_for's does: "before the second photo is due" is
+        # checked by the counts read straight after it, not by racing a deadline against work
+        # that does not shrink with INTERVAL_S (#547 review).
+        _wait_for(lambda: _photos(experiment["id"]) >= 1 and not database.unlinked_slots(experiment["id"]))
         on_disk = len(list(folder.rglob("*.jpg")))
+        recorded = _photos(experiment["id"])
         client.post(f"/api/experiments/{experiment['id']}/stop")
-    assert on_disk == 1
+    assert (on_disk, recorded) == (1, 1)
