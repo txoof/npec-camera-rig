@@ -226,8 +226,10 @@ calibration changed or after a fix to the area code. It is not on the Experiment
 started through the API by a developer or a script, because it replaces the saved readings and
 keeps no copy of the old ones.
 
-1. **Copy `rig.db` first.** For example `cp /var/lib/npec-rig/rig.db <somewhere safe>/rig-before-reprocess.db`,
-   or make an export of the experiment. This step is required: a Reprocess cannot be undone without it.
+1. **Export the experiment first.** A Reprocess cannot be undone: it replaces the saved readings
+   and keeps no copy. An export holds the readings as they are now, so take one whenever the old
+   numbers might be wanted again. Copying the database by hand is not a step here; it is emergency
+   recovery (`docs/database.md`, *Emergency recovery*).
 2. **Count first.** `POST /api/experiments/<id>/reprocess` with `{"dry_run": true}` returns the number
    of photos and, when an earlier Reprocess has finished on this rig, an estimated time. It changes nothing.
 3. **Start.** The same call with `{"confirm": <id>}`, the experiment's ID again. Without it nothing starts.

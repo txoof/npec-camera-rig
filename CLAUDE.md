@@ -196,8 +196,8 @@ development (health OK and a live snapshot) **and** Aaron has approved that upda
   If `curl -s 10.248.49.102:8000/api/experiments` shows an experiment `"state": "running"`, ask
   Aaron first.
 
-**A migration goes one way (#521).** The app brings `rig.db` up to the schema version its own
-code knows the first time it starts, and nothing migrates downwards. An older app meeting the
+**A migration goes one way (#521, #524).** The app brings `rig.db` up to the schema version its
+own code knows the first time it starts, and nothing migrates downwards. An older app meeting the
 migrated file refuses to start (`RuntimeError: rig.db is at schema version N, this app knows up to
 N-1`), systemd starts it again 5 s later, and the rig sits in that loop: no pages, no scheduled
 photos. Checking out the earlier commit does not undo it; the database is already migrated. So,
@@ -210,19 +210,19 @@ before a branch goes on development or production:
    carry no version and this check does not cover them.
 2. **Say so upfront** when there is one, in the reply that asks Aaron to try the branch, in the PR
    body and in the `hardware` claim comment: "this branch migrates `rig.db` to version N; the rig
-   cannot go back to `<commit>` without a copy of the database restored with it".
-3. **Copy the database before the deploy restarts the app**, on development as on production: on
-   development that restart is `make update-app`, which migrates the file as the app starts. Use
-   `VACUUM INTO`, not `cp`: the app is running, and `cp` of a live database can copy a torn file.
-   The command is in `docs/database.md`, *Upgrading and going back*.
-4. **Going back needs the copy and the older code together**, with the app stopped, on either rig.
-   Everything the newer app wrote after the copy is lost: the focus lock and the camera settings,
-   experiment records, scheduled photos, tray and cell readings, exclusions and tray layouts. Say
-   what is being lost before doing it. On production, only with Aaron's approval.
-5. **Never delete, move or empty `rig.db` to make an older app start.** It is the one move that
-   always works and it throws the rig's whole record away. Development's record is not scratch:
-   its experiments and readings are what the work is tried against. With no copy, the rig stays on
-   the newer code and the reply says so.
+   cannot go back to `<commit>` once it has run".
+3. **The way out is forward.** A rig in the restart loop is put right by putting the newer code
+   back on it: the migrated file is the one that code expects. Do not hunt for a way to run the
+   older code.
+4. **Never delete, move or empty `rig.db` to make an older app start.** It is the one move that
+   always works and it throws the rig's whole record away: the focus lock and the camera settings,
+   experiment records, scheduled photos, tray and cell readings, exclusions and tray layouts.
+   Development's record is not scratch; it is what the work is tried against.
+
+Running older code again on a rig that has already migrated is emergency recovery, not a step in
+normal work. It needs a copy of the database from before the migration, which is not routinely
+taken, and it loses everything written since. The method is in `docs/database.md`,
+*Emergency recovery*. On production it is Aaron's decision (Aaron, 2026-11-26).
 
 ## Parallel work
 
@@ -318,23 +318,26 @@ Take it only when `gh issue list --label hardware` is empty. In the claim commen
 version development was running
 (`ssh pi@npec-rig-01 'git -C ~/npec_camera_rig log --oneline -1'`). When Aaron has tried the
 work, put development back on that version and remove the label. If the branch migrated
-`rig.db`, restore the copy taken before the deploy at the same time. With no copy, leave
-development on the branch and say so in the reply. Everyone else writes code and
+`rig.db`, development cannot go back: leave it on the branch, remove the label anyway, and say so
+in the reply (*A migration goes one way*). Everyone else writes code and
 runs unit tests with the synthetic camera on the controller, then waits for the label. No task
 uses the production camera or server.
 
 **Restarting the production server.** Only on a promotion Aaron approved, on `d6-daylight`, over
-ssh. Stop it with SIGTERM, never SIGINT or Ctrl+C (a second
-SIGINT makes uvicorn skip the app's shutdown, and the camera is not closed), and wait until the
-old PID is gone before relaunching. Launch it with `--timeout-graceful-shutdown 5`, so open
-browser tabs with a live view hold a restart for 5 s at most instead of until they are closed
-(#139):
+ssh. Production runs the app as the `npec-rig` service since #513, so it is restarted through
+systemd, not by hand:
 
 ```bash
-/home/pi/npec_camera_rig/.venv/bin/python3 /home/pi/npec_camera_rig/.venv/bin/uvicorn \
-  npec_rig.app:app --app-dir /home/pi/npec_camera_rig/src --host 0.0.0.0 --port 8000 \
-  --timeout-graceful-shutdown 5
+sudo systemctl restart npec-rig
 ```
+
+The unit stops it with SIGTERM and launches uvicorn with `--timeout-graceful-shutdown 5`, so the
+camera is closed cleanly and open browser tabs with a live view hold the restart for 5 s at most
+instead of until they are closed (#139). Never stop the app by its PID: the service starts the
+main checkout again 5 s later, and the two fight over port 8000 and the camera
+(`deploy/README.md`). A server run by hand, which happens on development and never on production,
+is stopped with SIGTERM too, never SIGINT or Ctrl+C: a second SIGINT makes uvicorn skip the app's
+shutdown and the camera is not closed.
 
 **Area map.** Which files a task may change. A test file goes with its module.
 
