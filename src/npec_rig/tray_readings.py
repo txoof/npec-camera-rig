@@ -241,7 +241,7 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
     trays = []
     for p in placed:
         m = measured.get(id(p))
-        g, soil_level, lower_cutoff = grew.get(id(p)) or (None, None, None)
+        g, soil_level, lower_cutoff, blue_coverage = grew.get(id(p)) or (None, None, None, None)
         trays.append({
             "tray_id": p.tray_id, "slot": p.slot, "a1_corner": p.a1_corner, "placement": p.status,
             "centre_px": list(p.centre), "tilt_deg": p.tilt_deg, "margin_mm": p.margin_mm,
@@ -253,6 +253,7 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "found": p.found,
             "warnings": list(p.warnings) + ([TAG_TURNED] if celled.get(id(p), no_cells)[2] else [])
             + ([segmentation.SOIL_HIDDEN] if g and _at_the_floor(soil_level, lower_cutoff) else [])
+            + ([segmentation.SOIL_GREEN] if g and _soil_reads_green(soil_level, lower_cutoff) else [])
             + ([GROWN_NOT_WORKED_OUT] if m and not g else [])
             + ([CELLS_NOT_WORKED_OUT] if m and celled.get(id(p), no_cells)[3] else []),
             "outline_px": None if p.outline is None else [list(c) for c in p.outline],
@@ -273,6 +274,7 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "grown_area_mm2": g.area_mm2 if g else None, "grown_plant_px": g.plant_px if g else None,
             "grown_plant_centre_px": list(g.centre_px) if g and g.centre_px else None,
             "grown_soil_level": soil_level, "grown_lower_cutoff": lower_cutoff,
+            "grown_blue_coverage": blue_coverage,
         })
     _commit(path, record, capture_id, status, trays, new_masks)
     return capture_readings(record)
@@ -414,7 +416,7 @@ def _measures(
             if mask is None or grown is None or any(level is None or level[1] is None for level in levels):
                 raise NotReprocessed(f"{path}: a saved mask or the saved levels are missing")
         else:
-            mask, grown, levels = _segment(path, placed, tags, strict=strict)
+            mask, grown, levels = _segment(path, placed, tags, scale_field, strict=strict)
         # A tray with no cutoff (its box lay outside the photo) has no grown area (#483).
         if grown is not None and any(level[1] is None for level in levels):
             if strict:
@@ -466,7 +468,7 @@ def _recount_blocker(path: str, saved: dict | None, outlined: list[TrayPlacement
     for t in measured:
         if t.get("grown_area_mm2") is None or t.get("grown_lower_cutoff") is None:
             return "no grown area or levels saved"
-        if _grown_into_leaves(t.get("grown_soil_level"), t.get("grown_lower_cutoff")):
+        if _grown_into_leaves(t.get("grown_soil_level"), t.get("grown_lower_cutoff"), t.get("grown_blue_coverage")):
             return "saved with the cutoff in the leaves (before #373)"
         if GROWN_NOT_WORKED_OUT in t["warnings"] or CELLS_NOT_WORKED_OUT in t["warnings"]:
             return "its grown area or its cells were not worked out"
@@ -476,16 +478,33 @@ def _recount_blocker(path: str, saved: dict | None, outlined: list[TrayPlacement
 
 
 def _at_the_floor(soil_level: float | None, lower_cutoff: float | None) -> bool:
-    """Whether a reading's leaf cutoff was set to the floor because the soil was hidden: the mark
-    "usual leaf cutoff used" is true of it. Not of a mask grown before #373 with the cutoff in the
-    leaves, kept with the photo gone (#483, finding 8)."""
-    return segmentation.soil_hidden(soil_level) and lower_cutoff is not None and lower_cutoff <= segmentation.GROWN_FLOOR + 1e-9
+    """Whether a reading's leaf cutoff was set to the floor because the soil counted as hidden:
+    the mark SOIL_HIDDEN is true of it. Works from the cutoff a tray's mask was actually grown
+    with, not from `blue_coverage` and today's GROWN_BLUE_COVERAGE_MIN, so retuning that threshold
+    later never disagrees with a mask already grown (#486, review of #486). Not true of a mask
+    grown before #373 with the cutoff in the leaves, kept with the photo gone (#483, finding 8)."""
+    return (
+        segmentation.soil_reads_high(soil_level) and lower_cutoff is not None
+        and lower_cutoff <= segmentation.GROWN_FLOOR + 1e-9
+    )
 
 
-def _grown_into_leaves(soil_level: float | None, lower_cutoff: float | None) -> bool:
+def _soil_reads_green(soil_level: float | None, lower_cutoff: float | None) -> bool:
+    """Whether a reading's soil level lies in the top bin while its cutoff was kept above the
+    floor: soil that only looked like it might be hidden, marked SOIL_GREEN instead (#486). Never
+    true together with `_at_the_floor`: one requires the cutoff at the floor, the other above it."""
+    return (
+        segmentation.soil_reads_high(soil_level) and lower_cutoff is not None
+        and lower_cutoff > segmentation.GROWN_FLOOR + 1e-9
+    )
+
+
+def _grown_into_leaves(soil_level: float | None, lower_cutoff: float | None, blue_coverage: float | None) -> bool:
     """Whether a saved reading's soil level lies in the top bin while its lower cutoff was set
-    above the floor from it: a reading made before #373, its leaves cut short."""
-    return segmentation.soil_hidden(soil_level) and lower_cutoff is not None and lower_cutoff > segmentation.GROWN_FLOOR + 1e-9
+    above the floor from it, with no blue coverage saved for it: a reading made before #373, its
+    leaves cut short — not a #486 "soil looks green" reading, which always has a blue coverage
+    saved alongside its soil level (#486)."""
+    return blue_coverage is None and _soil_reads_green(soil_level, lower_cutoff)
 
 
 # Two outlines of one tray are the same when no corner of one lies more than this from a corner of
@@ -525,10 +544,14 @@ def _saved_match(saved: dict | None, placed: list[TrayPlacement]) -> list[dict |
     return out
 
 
-def _saved_levels(saved: dict | None, placed: list[TrayPlacement]) -> list[tuple[float | None, float | None] | None]:
-    """Each placed tray's soil level and lower cutoff from the saved reading `saved` (`_saved_match`);
-    None for a tray with no saved match."""
-    return [None if t is None else (t.get("grown_soil_level"), t.get("grown_lower_cutoff")) for t in _saved_match(saved, placed)]
+def _saved_levels(saved: dict | None, placed: list[TrayPlacement]) -> list[tuple[float | None, float | None, float | None] | None]:
+    """Each placed tray's soil level, lower cutoff and blue coverage from the saved reading
+    `saved` (`_saved_match`); None for a tray with no saved match. Blue coverage is None for a
+    tray saved before #486."""
+    return [
+        None if t is None else (t.get("grown_soil_level"), t.get("grown_lower_cutoff"), t.get("grown_blue_coverage"))
+        for t in _saved_match(saved, placed)
+    ]
 
 
 def _measured_cells(path, mask, grown, placed, tags, scale_field, record, strict=False, with_grown=None) -> list:
@@ -644,13 +667,34 @@ def outside_mm(p: TrayPlacement, size: tuple[int, int]) -> float:
     return max(max(-x, x - w, -y, y - h, 0.0) for x, y in p.outline) / px_per_mm
 
 
+def _blue_coverage_cells(p: TrayPlacement, tags: list[TagDetection], scale_field) -> list:
+    """Each of `p`'s cells to count blue coverage over, the tag's own left out (#486, review of
+    #486): its own, lighter geometry, not `_cells`'s — no A1 bearing, no rig.db lookup, no
+    cross-photo tag check, only which squares exist and whether each holds a plant or the tag
+    (`tray_placement.place_cells` with no bearing gives the same squares as with one, differently
+    named only). Kept separate from `_measured_cells` so a failure placing them here, or in one
+    tray, costs only that tray's blue coverage (the whole tray as before, #486), never the fixed
+    cutoff's area this same photo still has to produce. Empty for a tray with no tag, one two trays
+    carry (#302), or whose cells cannot be placed."""
+    if p.tray_id is None or Counter(t.tag_id for t in tags)[p.tray_id] != 1:
+        return []
+    tag = next(t for t in tags if t.tag_id == p.tray_id)
+    try:
+        cells = place_cells(p, tag, scale_field)
+    except Exception:
+        logger.exception("Could not place tray %s's cells for blue coverage", p.tray_id)
+        return []
+    return [c.corners for c in cells if c.holds != "tag"]
+
+
 def _segment(
-    path: str, placed: list[TrayPlacement], tags: list[TagDetection], strict: bool = False,
-) -> tuple[np.ndarray, np.ndarray | None, list[tuple[float | None, float | None]] | None]:
+    path: str, placed: list[TrayPlacement], tags: list[TagDetection], scale_field, strict: bool = False,
+) -> tuple[np.ndarray, np.ndarray | None, list[tuple[float | None, float | None, float | None]] | None]:
     """New masks of photo `path`: the segmenter's and the one by grow from leaf cores of the trays
-    `placed`, each tray's tags from `tags`, with each tray's soil level and lower cutoff. Not
-    saved here: the caller saves both with the reading (`_stage_masks`, #483). No grown mask (None)
-    when grow from leaf cores fails; with `strict` (Reprocess) that raises `NotReprocessed`."""
+    `placed`, each tray's tags from `tags`, with each tray's soil level, lower cutoff and blue
+    coverage. Not saved here: the caller saves both with the reading (`_stage_masks`, #483). No
+    grown mask (None) when grow from leaf cores fails; with `strict` (Reprocess) that raises
+    `NotReprocessed`."""
     file = photo_file(path)
     if file is None:
         raise NotReprocessed(f"{path}: the photo is gone")
@@ -660,7 +704,9 @@ def _segment(
         mask = SEGMENTER.segment(rgb)
         try:
             corners = [[t.corners for t in tags if p.tray_id is not None and t.tag_id == p.tray_id] for p in placed]
-            grown, levels = segmentation.grow_trays(rgb, [(p.outline, c) for p, c in zip(placed, corners, strict=True)])
+            cells = [_blue_coverage_cells(p, tags, scale_field) for p in placed]
+            grown, levels = segmentation.grow_trays(
+                rgb, [(p.outline, c) for p, c in zip(placed, corners, strict=True)], cells=cells)
         except Exception as exc:
             if strict:
                 raise NotReprocessed(f"{path}: could not grow the plant from leaf cores: {exc!r}") from exc

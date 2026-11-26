@@ -319,7 +319,21 @@ def test_a_frame_gives_its_warnings_in_words_and_soil_hidden_only_for_grow_from_
     grown = timelapse.frame_values(experiment_row, frame, method="grown")["warnings"]
 
     assert fixed == ["names may be swapped since 2027-03-01 10:00 UTC"]
-    assert grown == ["names may be swapped since 2027-03-01 10:00 UTC", "soil hidden: usual leaf cutoff used"]
+    assert grown == ["names may be swapped since 2027-03-01 10:00 UTC", segmentation.SOIL_HIDDEN]
+
+
+def test_a_frame_never_shows_soil_looks_green_even_for_grow_from_leaf_cores(experiment):
+    """#486, Aaron 2026-11-25: soil looks green does not change the area, so it does not clutter
+    the video frames the way soil hidden (a less precise fallback) does."""
+    from npec_rig import segmentation
+
+    _photo(experiment, START, warnings=[segmentation.SOIL_GREEN], grown_area=900.0)
+    frame = _only_frame(experiment)
+    experiment_row = database.get_experiment(experiment)
+
+    grown = timelapse.frame_values(experiment_row, frame, method="grown")["warnings"]
+
+    assert segmentation.SOIL_GREEN not in grown
 
 
 
@@ -502,7 +516,9 @@ def test_a_strip_with_a_slot_and_four_warnings_draws_all_five_lines(experiment):
     turned_tray_photo(experiment, START)
     frame = _only_frame(experiment)
     values = timelapse.frame_values(database.get_experiment(experiment), frame, method="fixed")
-    values["warnings"] = ["names may be swapped since 2027-03-01 10:00 UTC", "soil hidden: usual leaf cutoff used",
+    from npec_rig import segmentation
+
+    values["warnings"] = ["names may be swapped since 2027-03-01 10:00 UTC", segmentation.SOIL_HIDDEN,
                           "gap: 2 h without a usable photo", "partly outside the photo"]
 
     image = timelapse.draw_frame(frame, values)

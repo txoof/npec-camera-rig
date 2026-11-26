@@ -476,6 +476,7 @@ for readings saved before version 25, or when the method could not run.
 | `tray_reading.grown_plant_centre_x_px`, `grown_plant_centre_y_px` | real | Their centre, full-size photo pixels; NULL when none |
 | `tray_reading.grown_soil_level` | real | The tray's soil greenness, (2G - R - B) / (R + G + B), the cutoff was set from. NULL when the tray showed no soil |
 | `tray_reading.grown_lower_cutoff` | real | The greenness the leaf cores were grown down to; Never NULL when `grown_area_mm2` is set |
+| `tray_reading.grown_blue_coverage` | real | How much of the tray's countable area (a leaf core's own cell, and any cell holding one, left out; otherwise the whole tray) was blue (#486). NULL for a reading saved before #486, which the soil level's bin alone then decides as hidden or not (`segmentation.soil_hidden`) |
 | `cell_reading.grown_area_mm2`, `grown_plant_px`, `grown_plant_centre_x_px`, `grown_plant_centre_y_px` | real, integer | As `area_mm2`, `plant_px` and their centre, by grow from leaf cores |
 | `cell_reading.grown_over_other_cells` | integer | As `over_other_cells`, by grow from leaf cores |
 
