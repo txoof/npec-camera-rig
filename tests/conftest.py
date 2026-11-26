@@ -5,6 +5,23 @@ import tempfile
 
 import pytest
 
+# Tests read the real free space of the disk their temporary files are on: the time lapse video
+# check and the About page refuse below health.DISK_YELLOW_BYTES (5 GB, #512). pytest puts
+# tmp_path under the system temp folder, and on the controller that is a 2 GB tmpfs, so 21 tests
+# failed there although / had 41 GB free (#543). When the system temp folder has less than this
+# free, temporary files go to a folder under the home directory instead. 10 GB is twice the
+# 5 GB floor, a test setup choice with room for a video, not a measurement. This must run before
+# anything calls tempfile (the mkdtemp calls below) and before pytest makes its base folder.
+_MIN_TEMP_FREE_BYTES = 10_000_000_000
+if shutil.disk_usage(tempfile.gettempdir()).free < _MIN_TEMP_FREE_BYTES:
+    _roomier_temp_dir = os.path.join(os.path.expanduser("~"), ".cache", "npec-rig-tests-tmp")
+    try:
+        os.makedirs(_roomier_temp_dir, exist_ok=True)
+    except OSError:
+        pass  # No such folder: keep the system one and let the disk tests say why they fail.
+    else:
+        tempfile.tempdir = _roomier_temp_dir
+
 
 def _camera_hardware_present() -> bool:
     """True if picamera2 can see a real camera, without opening/locking the device."""
