@@ -12454,7 +12454,7 @@ resident peaks (app, camera child, video child and ffmpeg) fit a 4 GB Pi with 0.
 Otherwise the limit is set lower, so large requests fail with the existing message instead of
 pushing the Pi towards an out-of-memory kill.
 
-**Open question for Aaron (decision): the margin.** Recommendation: 25%, rounded up to 256 MiB.
+**The margin (decision, Aaron, 2026-11-26): 25%, rounded up to a multiple of 256 MiB.** It was proposed before the run and confirmed after the results.
 
 ### 52.7 Limits of the evidence
 
@@ -12515,6 +12515,6 @@ What the figures show:
 
 **Decision (not a measurement): `MEMORY_LIMIT_BYTES` = 1.5 GiB (1536 MiB).** It is the highest child
 VmPeak, 1.15 GiB, plus 25%, rounded up to 256 MiB, which is the rule of 52.6, and the 4 GB fit above
-holds. It replaces the 2 GiB placeholder. The 25% margin is Aaron's to confirm or change
-(*Open question* in 52.6). The failure message now gives the limit in decimal GB with one decimal
+holds. It replaces the 2 GiB placeholder. The 25% margin was confirmed by Aaron on
+2026-11-26 (52.6). The failure message now gives the limit in decimal GB with one decimal
 (1.5 GiB shows as "1.6 GB"); before it printed GiB as "GB" rounded to a whole number.
