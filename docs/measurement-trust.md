@@ -503,8 +503,11 @@ metrology log backs it.
   and marked the tray "soil hidden"; Reprocess grows those photos again. Checked by eye
   on 15 more flagged plant-tray photos (*2026-11-20*, metrology log 39.2): the usual cutoff marked no
   soil, mat or tray, and still missed parts of leaves on every photo; on tray 5's 3 counted photos it
-  came within 4% of the same tray an hour before, against about half as saved. Reprocess as it is
-  also grows benchmark trays again, so the saved readings wait for a limited Reprocess (#444).
+  came within 4% of the same tray an hour before, against about half as saved. The full Reprocess of
+  experiment 18 (#444, metrology log 41.1, a development check, finished on an x86_64 box, not the
+  rig) grew again exactly the predicted readings (10,965) and marked them; 24 photos could not be
+  read again, 11 of them still hold pre-444 values, and 667 readings have no grown area at all
+  (the chamber's light changes, log 41.1), so the experiment is not yet one method throughout.
 - **Soil turning green, not under mats** (*added 2026-11-25*, metrology log 50, a decision plus a
   placeholder, not a measurement). The case the previous entry called "not seen on production" was
   seen: plant-tray soil rose from -0.155 to -0.085 between 16 and 23 Nov, about 0.04 a week, heading
