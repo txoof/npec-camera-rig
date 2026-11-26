@@ -93,3 +93,5 @@ pytest -m slow         # soak
 
 **Do not run tests for documentation changes.** The previous attempt spent 223 seconds of every
 303-second run decoding 64MP frames. See the test-tier table in PLAN.md for what to run when.
+
+Test line for the docs-only CI check (#554). Not merged.
