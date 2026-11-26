@@ -174,6 +174,17 @@ package:
             description: >-
               Why this area does not count in this photo, for example "2 trays carry tag 3" or
               "2 tags in one tray outline". Empty when it counts.
+          - name: warnings
+            type: string
+            description: >-
+              What to check about this tray in this photo, as the Gallery shows it. Several are
+              separated by " | ". Examples: "mats covering soil; area measured with a less precise
+              fallback" (blue mats cover the soil, so the plant area is measured with a less precise
+              fallback), "soil looks unusually green; plant area unaffected", and "names may be
+              swapped since 2026-11-03 10:15 UTC" (the tray's tag lay turned on the tray in that
+              photo or an earlier one, so its cell names may be swapped from then on; see
+              names_unsure_since in cell-readings.csv). A warning does not remove the tray's areas:
+              they still count unless not_counted says otherwise. Empty when there is none.
           - name: photo_excluded
             type: string
             description: >-
@@ -216,7 +227,9 @@ package:
             type: number
             description: >-
               For checking only. The greenness a pixel needed to join a leaf in this tray: the soil
-              level plus 0.07, never below -0.045.
+              level plus 0.07, never below -0.045. It is -0.045 when the soil was covered by blue
+              mats (warnings then holds the mats text) or when no soil level was found
+              (grow_from_leaf_cores_soil_level is empty).
           - name: cells_flagged
             type: integer
             description: >-
