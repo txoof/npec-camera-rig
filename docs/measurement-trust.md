@@ -630,7 +630,7 @@ metrology log backs it.
 
 - **The acceptance test fails with both methods.** Twelve flat green squares of known area, one in
   each slot on blue mats, were read in 3 runs (26 stills, production, `docs/metrology-log.md`,
-  section 51). The rule was at least 11 of 12 squares inside the slot's band in every run. With the
+  section 51). The conclusions are in section 51.1. The rule was at least 11 of 12 squares inside the slot's band in every run. With the
   green threshold 0 of 12 were, in every run. With Grow from leaf cores 3, 4 and 3 of 12 were.
 - **The bands do not cover segmentation, and here that error is larger than the band.** The bands
   are 1.2% to 3.1%. With Grow from leaf cores the squares read -0.7% to +10.5%, mostly large, up to
