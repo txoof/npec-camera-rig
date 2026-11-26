@@ -510,8 +510,11 @@ FPS = 12
 # from that one video, not a measurement of this one.
 TRIAL_BYTES_PER_FRAME = 42_984
 # The child making a video may reserve at most this much memory, so a large request fails alone
-# and never stops the camera (#430). A starting value, to be measured on development (#64).
-MEMORY_LIMIT_BYTES = 2 * 1024**3
+# and never stops the camera (#430). 1.5 GiB: the largest video child VmPeak measured on
+# development was 1.15 GiB (whole tray, 5 photos an hour, with the mask), plus 25 %, rounded up
+# to a multiple of 256 MiB; ffmpeg's own VmPeak was 0.74 GiB. Metrology log 52, issue #503. The
+# 25 % is a decision, not a measurement.
+MEMORY_LIMIT_BYTES = 1536 * 1024**2
 # An id is the time a video was started, to the microsecond so ids sort by it (to the second
 # before 2026-11-20 evening, still read), and a random part.
 _ID = re.compile(r"^\d{8}T\d{6}(\d{6})?-[0-9a-f]{6}$")
@@ -904,7 +907,7 @@ def _failure(exc: BaseException) -> str:
     """Why a video failed, in words: ours as they are, the memory limit as such (a bare MemoryError
     has no words of its own; OpenCV's is a cv2.error), anything else by its kind and message."""
     if isinstance(exc, MemoryError) or (isinstance(exc, cv2.error) and exc.code == cv2.Error.StsNoMem):
-        return f"The video ran out of memory: it may use at most {MEMORY_LIMIT_BYTES / 1024**3:.0f} GB."
+        return f"The video ran out of memory: it may use at most {MEMORY_LIMIT_BYTES / 1e9:.1f} GB."
     if type(exc) is RuntimeError:
         return str(exc)
     return f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
