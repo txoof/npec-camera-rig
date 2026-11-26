@@ -31,7 +31,9 @@ pytestmark = pytest.mark.unit
 # quarter of the pixels and the segmentation these tests drive 77 times does a quarter of the
 # work (#547). Each scene saves its own calibration at SCENE_PX_PER_MM, so every **millimetre**
 # value in this file is the same as it was at 10 px/mm; a **pixel** coordinate is half of what it
-# was and a **pixel count** a quarter.
+# was and a **pixel count** a quarter. The one exception is `_matted_tray_scene`, whose soil and
+# mat blocks were moved onto the JPEG 8 x 8 grid and so are not exactly a quarter: see the comment
+# there and metrology log 53.
 #
 # The sizes were checked against the fixed pixel thresholds the code has: GROWN_WHITE_MIN_PX and
 # GROWN_WHITE_WIDEN_PX (no scene here holds white), the 3 x 3 opening of the tray finder's rim
@@ -282,21 +284,39 @@ def test_a_tray_read_before_the_photo_edge_was_checked_is_not_marked_either_way(
 
 
 def _two_touching_trays_scene(monkeypatch) -> None:
-    """`_plant_scene` with a second tray touching it on the east, in a 3200 x 2200 photo.
+    """Two trays touching, in a 3200 x 2200 photo, with plant on the strip their outlines share.
 
-    Tray 5's outline is x 57 to 1582 (as in `_plant_scene`), centre x 820. Tray 7's tag lies
-    1512.5 px east of tray 5's, so its outline is x 1570 to 3095, centre x 2332.5: the outlines
-    share x 1570 to 1582, and the point midway between the centres is x 1576.25. A 250 x 150 px
-    mint rectangle at x 1450 to 1700, y 1100 to 1250 (1500 mm2) crosses the strip: 759 mm2 of it
-    (126.5 of its 250 columns) is nearer tray 5 and 741 mm2 nearer tray 7.
+    The blue tops are drawn as two blocks, x 272 to 1372 and x 1472 to 2572, both y 276 to 2108,
+    with 100 px (20 mm) of table colour between them: the two trays' rims, as a photo of touching
+    trays shows them. Every edge is a multiple of 4, the tray finder's
+    `tray_readings.FINDER_FACTOR`, so the quarter-size copy the finder works on holds whole blue
+    columns and no part-blue column, and each block's centre lands with nothing rounded away:
+    (272 + 1372 - 4) / 2 = x 820.0 and (1472 + 2572 - 4) / 2 = x 2020.0, both at
+    (276 + 2108 - 4) / 2 = y 1190.0.
 
-    Each share is asserted to 3%, not the 1% of the areas elsewhere, because it is the only number
-    in this file set by *where* the finder puts a tray edge rather than by how many pixels are
-    green. The finder works on a quarter-size copy, so it places an edge to about 4 photo pixels,
-    which is 0.8 mm here: over a rectangle 30 mm tall that is 24 mm2, 3.2% of a 750 mm2 share. The
-    same 4 pixels were 0.4 mm before #547, hence the 1% that stood then. What the test is for --
-    that the shared strip is counted once, not twice -- is carried by the sum, still asserted to
-    1%."""
+    Placement gives every tray the measured outside size, 305 x 366 mm (`TRAY_SIZE_MM`), which at
+    this file's 5 px/mm is 1525 x 1830 px, around the centre found for it. The blue tops are
+    narrower than that -- 1100 px of blue and 100 px of rim is a pitch of 1200 px where 1525 px is
+    the tray's outside width -- so the two outlines overlap: tray 5's is x 57.5 to 1582.5 and
+    tray 7's x 1257.5 to 2782.5, sharing the strip x 1257.5 to 1582.5 (325 px, 65 mm). This is
+    what `segmentation.measure_trays` is written for: a pixel in the strip lies inside both
+    outlines, and must be counted once.
+
+    A 250 x 150 px mint rectangle at x 1270 to 1520, y 1100 to 1250 (50 x 30 mm, 1500 mm2) lies
+    wholly inside that strip, so every one of its pixels is disputed. The rule is that a pixel
+    goes to the tray whose centre is nearer its middle, x + 0.5; the point midway between the
+    centres is (820 + 2020) / 2 = x 1420.0, so
+
+        tray 5: columns 1270 to 1419, 150 x 150 px = 22,500 px / 25 px2 per mm2 = 900 mm2
+        tray 7: columns 1420 to 1519, 100 x 150 px = 15,000 px / 25 px2 per mm2 = 600 mm2
+
+    (column 1419's middle, 1419.5, is west of 1420). The 60/40 split is deliberate: a rule that
+    gave each tray the far half of the strip instead would return 600/900, which neither 1% band
+    admits and the ordering assertion rejects. With the plant inside the strip the whole 1500 mm2
+    is decided by the rule, not by where the outlines end (#547 review).
+
+    Tag 5 lies at x 300 and tag 7 at x 2545, each inside its own tray's outline and outside the
+    other's, so the two trays are named apart and neither is read as carrying both tags."""
     from npec_rig.camera import CameraManager, SyntheticBackend
 
     _plant_scene(monkeypatch)
@@ -305,19 +325,20 @@ def _two_touching_trays_scene(monkeypatch) -> None:
         def capture_full_res(self):
             frame, metadata = super().capture_full_res()
             frame[:] = 128
-            draw_tray(frame, 57, 277, 3095, 2107)  # two trays touching: one blue piece
-            frame[1100:1250, 1450:1700] = MINT_LEAF_RGB
+            draw_tray(frame, 272, 276, 1372, 2108)  # tray 5's blue top
+            draw_tray(frame, 1472, 276, 2572, 2108)  # tray 7's, 100 px of rim away
+            frame[1100:1250, 1270:1520] = MINT_LEAF_RGB  # wholly inside the strip the outlines share
             return frame, metadata
 
     stem = FIXTURE["calibration"]
     validation_store.save_slot_layout(
         stem,
-        [{"name": "North 1", "centre": [820, 1192], "box": [50, 250, 1600, 2150]},
-         {"name": "North 2", "centre": [2332.5, 1192], "box": [1562.5, 250, 3112.5, 2150]}],
+        [{"name": "North 1", "centre": [820, 1190], "box": [50, 270, 1590, 2110]},
+         {"name": "North 2", "centre": [2020, 1190], "box": [1250, 270, 2790, 2110]}],
         [],
     )
     tags = [TagDetection(5, ((200, 1800), (400, 1800), (400, 2000), (200, 2000)), (300, 1900)),
-            TagDetection(7, ((1712.5, 1800), (1912.5, 1800), (1912.5, 2000), (1712.5, 2000)), (1812.5, 1900))]
+            TagDetection(7, ((2445, 1800), (2645, 1800), (2645, 2000), (2445, 2000)), (2545, 1900))]
     monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: tags)
     CameraManager.set_instance(CameraManager(Scene(width=3200, height=2200)))
 
@@ -329,8 +350,10 @@ def test_plant_in_the_strip_touching_trays_share_is_counted_once_for_the_nearer_
 
     trays = {t["tray_id"]: t for t in tray_readings.read_photo(_photo())["trays"]}
     assert trays[5]["area_mm2"] + trays[7]["area_mm2"] == pytest.approx(1500, rel=0.01)  # 1%: JPEG blur
-    assert trays[5]["area_mm2"] == pytest.approx(759, rel=0.03)  # 3%: see `_two_touching_trays_scene`
-    assert trays[7]["area_mm2"] == pytest.approx(741, rel=0.03)
+    assert trays[5]["area_mm2"] == pytest.approx(900, rel=0.01)  # see `_two_touching_trays_scene`
+    assert trays[7]["area_mm2"] == pytest.approx(600, rel=0.01)
+    # The nearer tray gets the larger share: this is the half of the test its name is for.
+    assert trays[5]["area_mm2"] > trays[7]["area_mm2"]
 
 
 def test_a_photo_takes_its_area_from_the_rebuilt_twin_of_its_calibration(monkeypatch) -> None:
@@ -447,7 +470,7 @@ def test_each_photos_exclusion_is_stored_and_earlier_photos_are_checked_again_as
 def _two_trays_with_one_tag_scene(monkeypatch) -> None:
     """`_plant_scene` with three trays side by side in a 4800 x 2200 photo, at 5 px/mm: two carry
     tag 1, the third tag 7. Tag centres x 300, 1812.5 and 3325, so the outlines are x 57 to 1582,
-    1570 to 3095 and 3082.5 to 4607.5 (1512.5 px apart, as in `_two_touching_trays_scene`). Each
+    1570 to 3095 and 3082.5 to 4607.5, 1512.5 px apart. Each
     holds a mint rectangle 150 px tall, clear of the strips the outlines share: 250 px wide in the
     first (1500 mm2), 125 px in the second (750 mm2), 250 px in the third (1500 mm2)."""
     from npec_rig.camera import CameraManager, SyntheticBackend
@@ -1223,10 +1246,14 @@ def _matted_tray_scene(monkeypatch) -> None:
             frame[:] = (110, 90, 90)  # the table, greenness (180 - 200) / 290 = -0.069: below the floor, as the
             # outline takes in a pixel or two of it
             frame[200:2030, 150:1675] = TRAY_BLUE  # tray and mats
-            # Both blocks lie on the JPEG's 8 x 8 grid: an edge inside a block rings, and here the
-            # ringing reached greenness 0.23, over the 0.07 leaf-core cutoff, so the mats seeded
-            # themselves and counted as plant (measured while halving the scene, #547). On the
-            # grid the highest greenness inside the mats is 0.054.
+            # Both blocks lie on the JPEG's 8 x 8 grid. Halved exactly they do not, and an edge
+            # inside a block rings: the ringing reached greenness 0.226 there, over the 0.07
+            # leaf-core cutoff (GROWN_CORE_MIN), so the mats seeded themselves and counted as
+            # plant. On the grid the highest greenness inside the mats is 0.054 and no pixel is a
+            # core. At 10 px/mm, off the grid, it was 0.061: under the cutoff by 0.009, which is
+            # why halving the scene was enough to cross it. Measured 2026-11-26, metrology log 53.
+            # Moving them onto the grid also changed their size, so these two blocks alone are not
+            # a quarter of the 10 px/mm scene's 150,000 and 660,000 px.
             frame[1504:1648, 1304:1552] = DARK_SOIL_RGB  # 35,712 px of soil left between the mats
             frame[304:600, 1000:1552] = MAT_EDGE_RGB  # 163,392 px, touching no leaf
             frame[1030:1200, 653:823] = PALE_EDGE_RGB  # 10 px around the leaf
@@ -1333,10 +1360,12 @@ def test_a_2x2_trays_empty_cell_does_not_read_as_a_mat(monkeypatch) -> None:
     assert segmentation.SOIL_HIDDEN not in tray["warnings"]
     # The leaf alone, 150 x 150 px = 900 mm2: no pale edge drawn around it here, so JPEG ringing
     # at its sharp border adds more than the usual 1% (other tests draw a pale edge to absorb
-    # this). The ringing is a fixed width in pixels, so halving the scene (#547) doubled its share
-    # of the area: 8% before, measured 8.4% now, so 16% here. What the assertion is for is
-    # untouched -- without the cell fix the whole tray's soil counts, tens of thousands of mm2.
-    assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.16)
+    # this). The ringing is a fixed width in pixels, so halving the scene (#547) grew its share of
+    # the area: measured 962.59 mm2 (+6.95%) at 10 px/mm and 975.48 mm2 (+8.39%) at 5 px/mm, a
+    # factor of 1.21, not the 2 a fixed pixel width would suggest. 11% is that 8.39% with room to
+    # spare: 999 mm2 is the band's top, 23.5 mm2 above what is measured. What the assertion is for
+    # is untouched -- without the cell fix the whole tray's soil counts, tens of thousands of mm2.
+    assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.11)
 
 
 def test_a_tray_whose_soil_is_hidden_under_mats_is_grown_from_the_floor_and_marked(monkeypatch) -> None:
@@ -1518,7 +1547,7 @@ def test_reprocess_recounts_no_tray_while_a_touching_neighbour_is_not_matched(mo
 
 def test_reprocess_recounts_touching_trays_from_their_masks_when_every_tray_is_matched(monkeypatch) -> None:
     """The same photo with its trays unchanged, the photo gone: both trays are recounted, and the
-    plant in the strip they share is counted once, 1500 mm2 in all, 759 and 741 mm2 (the numbers of
+    plant in the strip they share is counted once, 1500 mm2 in all, 900 and 600 mm2 (the numbers of
     `test_plant_in_the_strip_touching_trays_share_is_counted_once_for_the_nearer_tray`)."""
     from npec_rig.captures import photo_file
 
@@ -1528,8 +1557,9 @@ def test_reprocess_recounts_touching_trays_from_their_masks_when_every_tray_is_m
     photo_file(path).unlink()
 
     trays = {t["tray_id"]: t for t in tray_readings.read_photo(path, reuse_mask=True)["trays"]}
-    assert trays[5]["area_mm2"] == pytest.approx(759, rel=0.03)  # 3%: see `_two_touching_trays_scene`
-    assert trays[7]["area_mm2"] == pytest.approx(741, rel=0.03)
+    assert trays[5]["area_mm2"] == pytest.approx(900, rel=0.01)  # see `_two_touching_trays_scene`
+    assert trays[7]["area_mm2"] == pytest.approx(600, rel=0.01)
+    assert trays[5]["area_mm2"] > trays[7]["area_mm2"]  # the nearer tray keeps the larger share
     assert trays[5]["grown_area_mm2"] + trays[7]["grown_area_mm2"] == pytest.approx(1500, rel=0.02)
 
 
