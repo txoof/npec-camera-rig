@@ -10438,6 +10438,138 @@ tray comparison will be in `experiments/444-full-reprocess/data/`. The snapshots
 trays, more for the 6 million cell readings) stay on the controller, outside the repository, with
 their checksums given in the results.
 
+
+### 41.1 Results (written 2026-11-26)
+
+**Label: development check.** The Reprocess was not finished on the rig. On production (`ac-testing`,
+a Raspberry Pi 5) it started 2026-11-24 14:15:55 UTC and the Pi went offline about 04:30 UTC on
+2026-11-25, interrupted at **8,215 of 47,457 photos, 13 failed**. Issue #511 finished it from a copy of
+the Pi's SD card **on an x86_64 Linux box (AMD Ryzen 7 5700X, 8 cores, 16 threads, 30 GiB RAM), not on
+the rig.** The method above was not changed. The photo count (47,457) is larger than the 28,847 photos
+with tray readings counted in the plan, because the run covered every capture of the experiment; the
+photo counts of the plan and of this run are not the same quantity and were not reconciled here.
+
+**The copy and its checks.** The card was imaged with GNU ddrescue on a Mac (100% rescued, 0 read
+errors). On the box the image was checked against the exact size (1,023,326,289,920 bytes) and against
+the superblock read from the card, its ext4 journal was replayed with an undo file, `e2fsck -fn` found
+only two stale free-space summary counters and no structural error, and the image was mounted read
+only and the data copied to local ext4. All four `rsync -n --itemize-changes` re-checks listed
+nothing. `rig.db` reports `integrity_check ok` and `user_version 26`, with **47,457 capture rows and
+0 missing photo files**. When `ac-testing` came back on the network its own API reported
+`interrupted`, `done 8215`, `failed 13`, matching the copied database exactly. The "before" snapshots
+made on the box hold **317,784** tray rows and **6,327,101** cell rows, the counts recorded on the
+controller for the same snapshots.
+
+**Software against the rig.** App v0.5.0, commit `9498c0f`, schema 26: the commit `ac-testing` ran.
+Python 3.13.5, numpy 2.5.3 and Pillow 12.3.0 match the rig. **OpenCV differs and could not be made to
+match:** the rig uses `python3-opencv` 4.10.0+dfsg-5, a Debian system package reached through
+`include-system-site-packages = true`; the box used the PyPI wheel `opencv-python-headless==4.10.0.84`,
+the same upstream release (4.10.0) built differently. libjpeg is `libjpeg62-turbo` 1:2.1.5-4 on the
+rig and `libjpeg-turbo8` 2.1.5-4ubuntu4 on the box: the same upstream version under another package
+name. Workers: 6 for the main run, 4 for the redo below.
+
+**Result 1: does the box reproduce the Pi's numbers?** First 300 photos (all 13 of the Pi's
+failures, and 30 each from trays 1, 7, 8, 10, 25 lit, 25 dark, 207 spread over 2026-10-22 to 10-28), then
+all **8,215** photos the Pi had finished:
+
+| Readings compared | Count | Outside 0.01 mm² | Largest difference |
+|---|---|---|---|
+| Tray | 69,978 | 0 | 0.000441 mm² |
+| Cell | 1,395,260 | **6** | see below |
+
+By the literal pass rule (any reading outside 0.01 mm²) the cell comparison **fails**, and the
+comparison script reports it as a fail. The 6 are not differences in measured area. They are two
+objects, each filed under a neighbouring cell on one machine and the other, with the area identical to
+every digit:
+
+- tray 10, photo `2026-10-24/151153_610446`: 23071.94473636432 mm² in cell B3 on the Pi and B4 on the
+  box; the grown value 22604.34994772799 likewise.
+- tray 8, photo `2026-10-26/233453_618248`: grown area 35152.65015284417 mm², C3 on the Pi and B3 on
+  the box.
+
+*Cause.* The two machines estimate the tray's tilt very slightly differently (-0.35368° on the Pi,
+-0.36034° on the box, 0.0067° apart). This moves every computed cell centre by a fraction of a pixel,
+and where an object straddles a cell wall the whole object is given to the other cell. The tray totals
+of those photos are bit-identical. This cause was identified from the readings; the OpenCV build is
+the likely source of the tilt difference but this was not tested.
+
+*Where it can matter.* Both trays (8 and 10) hold benchmark objects and synthetic targets, not plants.
+**Across trays 1 to 7, which hold the real plants, there were 0 differences in any of the 1,395,260
+cell readings** (the count is over all trays; the 6 are all on trays 8 and 10). Plant mass on trays 1
+to 7 lies a median 15.6 to 33.6 px from its cell centre against a half-cell of 171.5 px, far from any
+wall; trays 8 and 10 lie at medians of 115.3 and 199.0 px. An object near a wall on another rig
+could be reassigned the same way.
+
+**Result 2: do parallel workers change the answer?** The same 300 photos, once serially and once on 6
+workers, both from the same pre-444 baseline: tray readings 2,562 and cell readings 48,420 compared,
+**0 outside tolerance, largest difference 0.000000 mm²**. The order-dependent `exclusion` table holds
+**47,526 rows on both sides, identical.** *Caveat:* the first exclusion check was defective. It queried
+a column the table does not have, the error was compared against itself, and it reported agreement
+without testing anything. It was re-run against the real schema (`capture_id, name, norm_e,
+limit_fraction`) and the 47,526 figure is from that corrected run.
+
+**Result 3: the run.** Started 2026-11-25 19:47:09 UTC, finished 2026-11-26 05:19:29 UTC, about 9.5
+hours. Of **47,457 photos, 47,433 were reprocessed, 24 were left as they were with a recorded reason,
+and 0 are unexplained.** Measured rate: **2.84 s per photo on one core**, against 7.0 to 10.3 s on the
+Pi, so the box is 2.5 to 3.7 times faster per core (the plan's "about 18 to 30 hours" rested on an
+assumed 2 to 3 times; it is now measured on this box). On 6 workers, 3.9 s per photo per worker, about
+4.3 times faster than one core rather than 6.
+
+*One worker of six aborted* with `cannot allocate memory for thread-local data` after 6,026 of its
+7,910 photos. It was capped with `ulimit -v 6000000`, a limit on virtual address space, and OpenCV's
+thread pools reserve large virtual arenas; its resident memory never exceeded about 600 MB against 23
+GB free, and the kernel did not run out of memory. Progress is written per photo, so nothing was lost:
+the 1,884 photos not reached were found by querying what had been read since the run began and redone
+on 4 workers with no such cap (471 each, 0 failures). The lesson is about the cap, not the machine.
+
+**Result 4: what the Reprocess changed.** `compare.py` on before and after snapshots. Every flagged
+count of the prediction table came out as predicted:
+
+| Group | Predicted flagged | Measured | Median grown-area ratio (after / before) |
+|---|---|---|---|
+| Tray 1 (plants under mats) | 3,586 | 3,586 | 3.26 (predicted 2.7 to 10) |
+| Trays 3, 4, 5, 6 | 15 | 15 (7 + 2 + 5 + 1) | 2.12 to 7.26 (predicted 1.4 to 8) |
+| Trays 7, 8, 10 | 7,300 | 7,300 (4 + 7,284 + 12) | 1.01 to 89 |
+| No tag | 64 | 64 | 1.09 |
+
+In total **10,965** readings were grown again, matching 39.2. Every flagged reading carries the
+"soil hidden" mark. The "same photo" readings came out **unchanged on every tray**: the plan expected
+this and did not guarantee it, and it held.
+
+*Not predicted, open.* (1) **787 readings still have an empty `grown_area_mm2`** after a complete
+Reprocess (799 before; one photo, capture 30763, accounts for the 12 that were filled). Why these 787
+have no grown area is not established. (2) **"Soil hidden" marks appeared on readings that were not
+flagged:** 4 on tray 4, 10 on tray 5, 10 on tray 6 and 6 on tray 7. Not yet looked at.
+
+**Result 5: the photos not reprocessed.** All 24 failed with the same reason, "plant areas could not be
+worked out now, kept the saved ones"; nothing was overwritten. **13 lie inside the Pi's finished range
+and so hold current-method values; 11 lie beyond it and still hold pre-444 (old method) values.** Those
+11 remain inconsistent with the rest of the experiment. They cluster at light-transition times (00:28,
+07:00, 07:44, 08:00, 23:28), consistent with the light-ramp exclusions of section 29 (issue #382).
+
+**Pass rule, as set above.** "Other" readings unchanged: not tested separately here, see the limits.
+Flagged readings marked: met. "Same photo" readings unchanged: met. 0 failed photos: **not met**, 24
+failed (13 + 11 as above). Comparison with the Pi: tray readings met, cell readings 6 outside, with the
+cause given above.
+
+**Bookkeeping.** The runner calls `read_photo(path, reuse_mask=True)` directly to get parallelism,
+which bypasses the `reprocess_run` and `reprocess_failure` upkeep of `start_reprocess`, so those rows
+were written afterwards: run 1 (the Pi's, `interrupted` at 8,215) kept as history, run 2 added as
+`finished`, total 47,457, done 47,457, failed 24. Aaron then makes a new data export (step 5).
+
+**Limits.** One experiment, one run, on different hardware from the rig. The comparison with the Pi
+covers the 8,215 photos it finished, not all 47,457. Whether the new areas are correct against a
+physical reference is not tested here; 39.1 and 39.2 checked that by eye.
+
+*Raw data.* Scripts in `experiments/444-amd-reprocess/` (committed on branch `511-amd-reprocess`).
+Snapshots, comparison outputs, the failure list and both databases are on the media-server scratch
+viewer, `http://media-server:8001/511-amd-reprocess/`, outside the repository.
+
+- `rig.db` sha256 `f0cfc6982bb1764d83fc32231c73bb2a4a069ee06785e96b8e1514ffc1e5add4`
+- masks folder sha256 `026a9cdc1f79e58885025d148947c847ef57b9ed53dcd50bb3f0eda0a3eaf699`, of the
+  sorted per-file manifest: 64,997 files, 14 more than the pre-444 snapshot's 64,983 (the Reprocess
+  wrote new masks).
+
 ## 42. Soil-only trays by grow from leaf cores: is a floor needed? (issue #293, method written 2026-11-20, after the stored readings were first looked at)
 
 **Label: development check.** Section 17.7 set a floor of 100 mm² per tray for the fixed green

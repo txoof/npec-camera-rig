@@ -505,8 +505,11 @@ metrology log backs it.
   level at which the rig should warn of it is still a decision, not a measurement. Checked by eye
   on 15 more flagged plant-tray photos (*2026-11-20*, metrology log 39.2): the usual cutoff marked no
   soil, mat or tray, and still missed parts of leaves on every photo; on tray 5's 3 counted photos it
-  came within 4% of the same tray an hour before, against about half as saved. Reprocess as it is
-  also grows benchmark trays again, so the saved readings wait for a limited Reprocess (#444).
+  came within 4% of the same tray an hour before, against about half as saved. The full Reprocess of
+  experiment 18 (#444, metrology log 41.1, a development check, finished on an x86_64 box, not the
+  rig) grew again exactly the predicted readings (10,965) and marked them; 24 photos could not be
+  read again, 11 of them still hold pre-444 values, and 787 readings have no grown area, so the
+  experiment is not yet one method throughout.
 - **Soil-only trays** (*added 2026-11-20*, metrology log 42, a development check). Grow from leaf
   cores reads a tray of bare soil close to 0: a daily median of at most 17 mm² and at most 64 mm² in
   any single photo (under 0.1% of a tray), on two soils and two rigs, where the fixed green cutoff
