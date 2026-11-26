@@ -1033,9 +1033,11 @@ def test_cell_readings_csv_gives_the_same_warnings_as_tray_readings_csv_for_each
 
     _export, files = _unzipped(experiment["id"])
     rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
-    assert [r["tray_warnings"] for r in rows] == [
-        "names may be swapped since 2026-11-03 00:00 UTC",
-        "soil looks unusually green; plant area unaffected | names may be swapped since 2026-11-03 00:00 UTC"]
+    tray_rows = list(csv.DictReader(io.StringIO(files["tray-readings.csv"].decode())))
+    expected = ["names may be swapped since 2026-11-03 00:00 UTC",
+                "soil looks unusually green; plant area unaffected | names may be swapped since 2026-11-03 00:00 UTC"]
+    assert [r["tray_warnings"] for r in rows] == expected
+    assert [r["warnings"] for r in tray_rows] == expected
 
 
 def test_tray_readings_csv_replaces_the_turned_tag_warning_by_the_time_names_may_be_swapped() -> None:

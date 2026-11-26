@@ -298,7 +298,7 @@ package:
             type: string
             description: >-
               What to check about the tray in this photo, as warnings in tray-readings.csv, for example mats
-              covering the soil. Several are separated by " | ". Empty when there is none.
+              covering the soil. Several are separated by " | ". Empty when there are none.
           - name: photo_excluded
             type: string
             description: Why the whole photo's areas are left out, as in tray-readings.csv. Empty when the photo counts.
