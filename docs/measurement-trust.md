@@ -1,5 +1,8 @@
 # Why the rig's area measurements can be trusted
 
+**Update 2026-11-26:** the M5 acceptance test was not met (see the last paragraph of *The claim*
+and *Limits of the evidence*).
+
 **Status:** 2026-10-14. The camera was replaced on 2026-10-07 (old SN000, new SN001); the current
 calibration and bands are SN001's, made 2026-10-14 at lens 6.05. The M2 physical acceptance tests
 were run on SN000 on 2026-10-05 and repeated on SN001 from 2026-10-12 to 10-14
@@ -21,6 +24,13 @@ The band has a precise meaning. **For flat objects at tray-top height, at the ri
 current setup (replacement camera, 2026-10-08, lens position 6.04) the bands run from ±1.3%
 (South 5) to ±2.7% (South 4). The camera used before it (2026-10-05, lens 6.27) gave ±1.58% to
 ±2.93%, and an earlier setup that day (lens 6.15) ±1.43% to ±3.36%.
+
+**What the claim does not cover (2026-11-26).** It is a claim for flat objects. For a plant, the area
+is an estimate: segmentation adds an error that the band does not include. In the M5 acceptance
+test (`docs/metrology-log.md`, section 51) twelve flat green squares on blue mats read -0.7% to
++10.5% of their true area with Grow from leaf cores, and -93% to +18% with the green threshold,
+against bands of 1.2% to 3.1%. The test was not met with either method, and the rig does not
+give a definite plant area. No measured error range exists yet for living plants.
 
 This document explains why that claim holds, and the steps taken to make it hold. Each step says
 what could go wrong, what the rig does about it, and the evidence.

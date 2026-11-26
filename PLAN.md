@@ -671,6 +671,18 @@ dwell table reflects the move · smear a tag with soil → degrades gracefully, 
 
 ### M5 — Canopy area (~2 weeks)
 
+**Status, 2026-11-26: not met.** The acceptance test below was run on production on 2026-11-26
+(`docs/metrology-log.md`, section 51). With the green threshold 0 of 12 squares were inside their
+band in every run, with Grow from leaf cores 3, 4 and 3 of 12; the rule needs 11 of 12 in every
+run. The rule is unchanged. The bands cover flat targets at tray-top height and leave out
+segmentation error, which was +2% to +11% on flat squares with Grow from leaf cores. Aaron's
+assessment (2026-11-26): the equipment and methods do not support definite readings, and the fixes
+tried for the over-read work only for the setup they were tuned on. The rig therefore reports an
+area as an estimate, with the measured error of flat squares, and not as a definite reading for
+plants. Not shown: living plants, plant height, soil, other backgrounds. The test is rerun only
+when it can be done in different slots from these runs (the chamber was in use at the time of
+writing). M5 and issue #78 stay open.
+
 - **`Segmenter` interface defined first**, two implementations behind it:
   1. **`ExGSegmenter`** — classical excess-green threshold. No ML, runs anywhere, ships now,
      testable today, and becomes the permanent baseline the real model must beat.
